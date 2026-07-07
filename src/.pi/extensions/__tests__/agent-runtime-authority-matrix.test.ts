@@ -36,7 +36,7 @@ const REGISTERED_POC_TOOLS = [
   'present_review_set',
   'request_response',
   'subagent',
-  'orchestrator_stub',
+  'execute_status',
 ] as const;
 
 function piWithRegisteredTools(toolNames: readonly string[]): ExtensionAPI {
@@ -47,7 +47,7 @@ function piWithRegisteredTools(toolNames: readonly string[]): ExtensionAPI {
 
 function runtimeStateEntry(state: {
   readonly schemaVersion: 1;
-  readonly operationalMode: 'elicit' | 'execute';
+  readonly operationalMode: 'specify' | 'execute';
 }) {
   return {
     type: 'custom',
@@ -102,10 +102,10 @@ describe('minimal authority matrix', () => {
     ]);
   });
 
-  it('derives elicit tool authority from the shared runtime policy and blocks side-effecting POC tools', () => {
+  it('derives Specify tool authority from the shared runtime policy and blocks side-effecting POC tools', () => {
     const state = projectBrunchAgentState([runtimeStateEntry(DEFAULT_BRUNCH_AGENT_STATE)]);
 
-    expect(state).toMatchObject({ operationalMode: 'elicit', agentRole: 'elicitor' });
+    expect(state).toMatchObject({ operationalMode: 'specify', agentRole: 'elicitor' });
 
     expect(activeToolNamesForBrunchAgentState(piWithRegisteredTools(REGISTERED_POC_TOOLS), state)).toEqual([
       'read',
@@ -141,8 +141,8 @@ describe('minimal authority matrix', () => {
     for (const toolName of elicitorSet) {
       expect(executorSet.has(toolName), `executor should include elicitor tool ${toolName}`).toBe(true);
     }
-    expect(executorSet.has('orchestrator_stub')).toBe(true);
-    expect(elicitorSet.has('orchestrator_stub')).toBe(false);
+    expect(executorSet.has('execute_status')).toBe(true);
+    expect(elicitorSet.has('execute_status')).toBe(false);
   });
 
   it('derives execute tool authority as the elicitor superset plus executor-only orchestration', () => {
@@ -172,7 +172,7 @@ describe('minimal authority matrix', () => {
       'present_review_set',
       'request_response',
       'subagent',
-      'orchestrator_stub',
+      'execute_status',
     ]);
     expect(
       activeToolNamesForBrunchAgentState(piWithRegisteredTools(REGISTERED_POC_TOOLS), state),
@@ -182,7 +182,7 @@ describe('minimal authority matrix', () => {
   it('keeps the executor live skill manifest concentric with the elicitor manifest', () => {
     const elicitorPrompt = composeLiveElicitorPrompt({
       agentBody: '# Elicitor',
-      sessionState: { operationalMode: 'elicit', agentRole: 'elicitor' },
+      sessionState: { operationalMode: 'specify', agentRole: 'elicitor' },
       spec: { id: 1, name: 'Spec' },
       workspace: { cwd: '/tmp/brunch' },
     }).prompt;

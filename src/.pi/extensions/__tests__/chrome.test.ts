@@ -64,7 +64,7 @@ describe('Brunch chrome projection', () => {
       phase: 'elicitation' as const,
       chatMode: 'responding-to-elicitation' as const,
       runtime: {
-        mode: 'elicit' as const,
+        mode: 'specify' as const,
         role: 'elicitor',
       },
     };
@@ -72,7 +72,7 @@ describe('Brunch chrome projection', () => {
     const footerLine = projectBrunchChromeFooterLines(state, {
       agentState: {
         schemaVersion: 1,
-        operationalMode: 'elicit',
+        operationalMode: 'specify',
         agentRole: 'elicitor',
       },
     })[1];

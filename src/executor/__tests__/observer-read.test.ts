@@ -4,8 +4,10 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { agentStreamPath } from '../agent-result.js';
 import { listRuns, readRunDetail } from '../observer-read.js';
 import { runDirPath, runMetadataPath, type RunMetadata } from '../run.js';
+import { verifyStreamPath } from '../test-result.js';
 
 async function fixtureCwd(prefix: string): Promise<string> {
   return mkdtemp(join(tmpdir(), prefix));
@@ -164,6 +166,104 @@ describe('readRunDetail', () => {
     expect(detail && 'reportsTail' in detail ? detail.reportsTail.map((e) => e.event) : []).toEqual([
       'e3',
       'e4',
+    ]);
+  });
+
+  it('builds requirement statuses from the populated plan snapshot when available', async () => {
+    const cwd = await fixtureCwd('brunch-observer-populated-plan-');
+    const runDir = await writeRun(cwd, 'run-populated', {
+      status: 'slice_completed',
+      completedSliceIds: ['task-1'],
+    });
+    const stalePlanPath = join(runDir, 'stale-plan.json');
+    const populatedPlanPath = join(runDir, 'worktree', '.brunch', 'cook', 'plan.yaml');
+    await mkdir(join(runDir, 'worktree', '.brunch', 'cook'), { recursive: true });
+    await writeFile(
+      stalePlanPath,
+      JSON.stringify({
+        spec: { requirements: [{ item_id: 'REQ_STALE', content: 'Stale requirement' }] },
+        slices: [{ id: 'stale-task', derived_from: ['REQ_STALE'] }],
+      }),
+      'utf8',
+    );
+    await writeFile(
+      populatedPlanPath,
+      JSON.stringify({
+        spec: {
+          requirements: [{ item_id: 'REQ1', content: 'Populated requirement' }],
+          criteria: [{ item_id: 'AC1', verifies: ['REQ1'] }],
+        },
+        slices: [{ id: 'task-1', derived_from: ['REQ1'] }],
+      }),
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'reports.jsonl'),
+      '{"event":"slice_test_result","sliceId":"task-1","status":"passed"}\n',
+      'utf8',
+    );
+    await writeFile(
+      runMetadataPath(cwd, 'run-populated'),
+      `${JSON.stringify({
+        runId: 'run-populated',
+        specId: '42',
+        planPath: stalePlanPath,
+        populatedPlanPath,
+        status: 'slice_completed',
+        completedSliceIds: ['task-1'],
+      })}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-populated');
+
+    expect(detail && 'requirements' in detail ? detail.requirements : []).toEqual([
+      {
+        requirementId: 'REQ1',
+        content: 'Populated requirement',
+        status: 'passed',
+        sliceIds: ['task-1'],
+        completedSliceIds: ['task-1'],
+        failedSliceIds: [],
+        missingVerificationSliceIds: [],
+        criterionIds: ['AC1'],
+      },
+    ]);
+  });
+
+  it('keeps active-slice stream tails visible while skipping corrupt stream lines', async () => {
+    const cwd = await fixtureCwd('brunch-observer-stream-tail-');
+    await writeRun(cwd, 'run-stream', {
+      status: 'agent_result_ingested',
+      activeSliceId: 'task-1',
+    });
+    await mkdir(join(runDirPath(cwd, 'run-stream'), 'streams', 'task-1'), { recursive: true });
+    await writeFile(
+      agentStreamPath(cwd, 'run-stream', 'task-1'),
+      [
+        JSON.stringify({ event: 'agent_stream', stream: 'stdout', text: 'first' }),
+        '{bad json',
+        JSON.stringify({ event: 'agent_stream', stream: 'stderr', text: 'second' }),
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+    await writeFile(
+      verifyStreamPath(cwd, 'run-stream', 'task-1'),
+      [JSON.stringify({ event: 'verify_stream', stream: 'stdout', text: 'verify' }), '{bad json', ''].join(
+        '\n',
+      ),
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-stream');
+
+    expect(detail && 'agentStreamTail' in detail ? detail.agentStreamTail : []).toEqual([
+      { event: 'agent_stream', stream: 'stdout', text: 'first' },
+      { event: 'agent_stream', stream: 'stderr', text: 'second' },
+    ]);
+    expect(detail && 'verifyStreamTail' in detail ? detail.verifyStreamTail : []).toEqual([
+      { event: 'verify_stream', stream: 'stdout', text: 'verify' },
     ]);
   });
 });

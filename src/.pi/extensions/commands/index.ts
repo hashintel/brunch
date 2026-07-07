@@ -121,7 +121,7 @@ type ModeSwitchOptions = Pick<
 >;
 
 const MODE_SWITCH_ORIENTATION_MENUS = {
-  elicit: SESSION_ORIENTATION_MENU,
+  specify: SESSION_ORIENTATION_MENU,
   execute: CODE_SESSION_ORIENTATION_MENU,
 } as const satisfies Record<OperationalModeId, SessionOrientationMenuDescriptor>;
 

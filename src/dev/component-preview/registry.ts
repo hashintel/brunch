@@ -102,7 +102,7 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
     presentedLike: 'inline swap — src/.pi/extensions/commands/index.ts (openModePicker)',
     open: (tui, theme, keybindings) =>
       showComponentPreview(tui, theme, keybindings, (_tui, previewTheme, _kb, done) =>
-        createRuntimeModePickerComponent({ current: 'elicit', theme: previewTheme, onDone: done }),
+        createRuntimeModePickerComponent({ current: 'specify', theme: previewTheme, onDone: done }),
       ),
   },
   {

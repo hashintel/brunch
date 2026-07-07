@@ -67,7 +67,7 @@ const approvedOverview: GraphSlice = {
 };
 
 const runtimeState = {
-  operationalMode: 'elicit',
+  operationalMode: 'specify',
 } as const;
 
 function toolResultEntry(toolName: string, details: unknown): string {

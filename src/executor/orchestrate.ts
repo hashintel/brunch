@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 
 import { ingestAgentResult } from './agent-result.js';
+import type { AgentStreamEvent } from './agent-result.js';
 import type { AgentRunnerRuntime, ExecutionPorts } from './execution-ports.js';
 import { exportPetri } from './petri.js';
 import { populatedPlanPath, populateWorktree } from './populate.js';
@@ -14,6 +15,7 @@ import { startSlice } from './slice-start.js';
 import { copyHostSource } from './source-copy.js';
 import { selectSourcePolicy, type SourcePolicyKind } from './source-policy.js';
 import { ingestTestResult } from './test-result.js';
+import type { VerifyStreamEvent } from './test-result.js';
 import { createWorktree } from './worktree.js';
 
 // The driver composes the existing `execute_*` lifecycle steps into a single
@@ -37,7 +39,14 @@ export type ReadyStep =
 
 /** The minimal plan projection the scheduler needs to resolve the slice frontier. */
 export interface SchedulerPlan {
+  readonly mode?: 'greenfield' | 'brownfield';
   readonly slices?: readonly { readonly id: string }[];
+}
+
+export type SchedulerPlanMode = NonNullable<SchedulerPlan['mode']>;
+
+export function normalizeSchedulerPlanMode(plan: SchedulerPlan | undefined): SchedulerPlanMode {
+  return plan?.mode ?? 'greenfield';
 }
 
 export interface RunScheduler {
@@ -94,8 +103,32 @@ export interface DriveContext {
   readonly sourcePolicy?: SourcePolicyKind;
   readonly runtime?: AgentRunnerRuntime;
   readonly signal?: AbortSignal;
+  /** Fired before each ready step starts (observer hook; errors are swallowed). */
+  readonly onStepStart?: (
+    step: ReadyStep['kind'],
+    runStatus: RunMetadata['status'],
+    progress: DriveStepProgress,
+  ) => void;
   /** Fired after each step that advanced run.json (observer hook; errors are swallowed). */
-  readonly onStepComplete?: (step: ReadyStep['kind'], runStatus: RunMetadata['status']) => void;
+  readonly onStepComplete?: (
+    step: ReadyStep['kind'],
+    runStatus: RunMetadata['status'],
+    progress: DriveStepProgress,
+  ) => void;
+  /** Fired when the sealed worker emits normalized stream events during agent_result. */
+  readonly onAgentUpdate?: (event: AgentStreamEvent) => void;
+  /** Fired when the verify runner emits normalized stream events during test_result. */
+  readonly onVerifyUpdate?: (event: VerifyStreamEvent) => void;
+}
+
+export interface DriveStepProgress {
+  readonly phase: 'started' | 'completed';
+  readonly step: ReadyStep;
+  readonly fromStatus: RunMetadata['status'];
+  readonly runStatus: RunMetadata['status'];
+  readonly activeEpicId?: string;
+  readonly activeSliceId?: string;
+  readonly completedSliceIds: readonly string[];
 }
 
 export type DriveOutcome =
@@ -134,18 +167,45 @@ export async function drive(
     const [next] = scheduler.ready(state, plan);
     if (!next) return { status: 'completed', runStatus: state.status };
 
+    try {
+      ctx.onStepStart?.(next.kind, state.status, progressForStep('started', next, state, state.status));
+    } catch {
+      // Observer failures never affect the drive.
+    }
+
     const result = await runStep(next, ctx);
     if (result.runStatus === state.status) {
       return { status: 'halted', step: next.kind, runStatus: state.status, reason: result.status };
     }
     if (result.runStatus !== 'not_started') {
       try {
-        ctx.onStepComplete?.(next.kind, result.runStatus);
+        ctx.onStepComplete?.(
+          next.kind,
+          result.runStatus,
+          progressForStep('completed', next, state, result.runStatus),
+        );
       } catch {
         // Observer failures never affect the drive.
       }
     }
   }
+}
+
+function progressForStep(
+  phase: DriveStepProgress['phase'],
+  step: ReadyStep,
+  state: RunMetadata,
+  runStatus: RunMetadata['status'],
+): DriveStepProgress {
+  return {
+    phase,
+    step,
+    fromStatus: state.status,
+    runStatus,
+    ...(state.activeEpicId ? { activeEpicId: state.activeEpicId } : {}),
+    ...(state.activeSliceId ? { activeSliceId: state.activeSliceId } : {}),
+    completedSliceIds: state.completedSliceIds ?? [],
+  };
 }
 
 async function planForScheduler(cwd: string, state: RunMetadata): Promise<SchedulerPlan | undefined> {
@@ -167,7 +227,11 @@ async function runStep(step: ReadyStep, ctx: DriveContext): Promise<StepResult> 
     case 'populate':
       return populateWorktree({ cwd, runId });
     case 'source_policy':
-      return selectSourcePolicy({ cwd, runId, policy: ctx.sourcePolicy ?? 'host_source_deferred' });
+      return selectSourcePolicy({
+        cwd,
+        runId,
+        policy: await sourcePolicyForRun(ctx),
+      });
     case 'source_copy':
       return copyHostSource({ cwd, runId });
     case 'report_init':
@@ -182,6 +246,7 @@ async function runStep(step: ReadyStep, ctx: DriveContext): Promise<StepResult> 
         runId,
         agentRunner: ports.agentRunner,
         ...(ctx.runtime ? { runtime: ctx.runtime } : {}),
+        ...(ctx.onAgentUpdate ? { onAgentUpdate: ctx.onAgentUpdate } : {}),
       });
     case 'test_result':
       return ingestTestResult({
@@ -189,6 +254,7 @@ async function runStep(step: ReadyStep, ctx: DriveContext): Promise<StepResult> 
         runId,
         testRunner: ports.testRunner,
         ...(ctx.signal ? { signal: ctx.signal } : {}),
+        ...(ctx.onVerifyUpdate ? { onVerifyUpdate: ctx.onVerifyUpdate } : {}),
       });
     case 'slice_complete':
       return completeSlice({ cwd, runId });
@@ -199,4 +265,13 @@ async function runStep(step: ReadyStep, ctx: DriveContext): Promise<StepResult> 
     case 'promotion':
       return preparePromotion({ cwd, runId, gitLand: ports.gitLand });
   }
+}
+
+async function sourcePolicyForRun(ctx: DriveContext): Promise<SourcePolicyKind> {
+  if (ctx.sourcePolicy) return ctx.sourcePolicy;
+
+  const metadata = await readRunMetadata(runMetadataPath(ctx.cwd, ctx.runId));
+  const path = metadata?.populatedPlanPath ?? populatedPlanPath(ctx.cwd, ctx.runId);
+  const plan = JSON.parse(await readFile(path, 'utf8')) as SchedulerPlan;
+  return normalizeSchedulerPlanMode(plan) === 'brownfield' ? 'host_source_deferred' : 'plan_only';
 }

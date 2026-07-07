@@ -129,10 +129,99 @@ function RunDetailPage() {
             <PresenceFlags presence={run.presence} />
           </DetailRow>
         </dl>
+        <RequirementsPanel run={run} />
+        <StreamPanel
+          label="Worker stream"
+          emptyText="No worker stream yet."
+          events={run.agentStreamTail}
+          total={run.agentStreamTotal}
+        />
+        <StreamPanel
+          label="Verify stream"
+          emptyText="No verify stream yet."
+          events={run.verifyStreamTail}
+          total={run.verifyStreamTotal}
+        />
         <ReportsTimeline run={run} />
         {run.petriNet === undefined ? null : <PetriRawBlock net={run.petriNet} />}
       </div>
     </PageColumn>
+  );
+}
+
+function RequirementsPanel({ run }: { run: RunDetail }) {
+  return (
+    <section aria-label="Requirement status" className="flex flex-col gap-2">
+      <p className="text-hint text-xxs font-mono">Requirements</p>
+      {run.requirements.length === 0 ? (
+        <p className="border-rule bg-tint text-sub rounded-xl border p-4 text-sm">
+          No requirements projected.
+        </p>
+      ) : (
+        <ol className="border-rule flex flex-col gap-2 rounded-xl border bg-white p-4 shadow-[var(--shadow-card)]">
+          {run.requirements.map((requirement) => (
+            <li key={requirement.requirementId} className="flex flex-col gap-1">
+              <div className="flex flex-wrap items-baseline gap-3">
+                <span className="text-ink font-mono text-xs">{requirement.requirementId}</span>
+                <span className="text-sub font-mono text-xs">{requirement.status}</span>
+                {requirement.sliceIds.length === 0 ? null : (
+                  <span className="text-hint text-xs">{requirement.sliceIds.join(', ')}</span>
+                )}
+              </div>
+              <p className="text-sub text-sm">{requirement.content}</p>
+              {requirement.criterionIds.length === 0 ? (
+                <p className="text-hint text-xs">no criterion witness</p>
+              ) : (
+                <p className="text-hint text-xs">criteria: {requirement.criterionIds.join(', ')}</p>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+}
+
+interface StreamEventView {
+  readonly sliceId: string;
+  readonly sequence: number;
+  readonly kind: string;
+  readonly message: string;
+}
+
+function StreamPanel({
+  label,
+  emptyText,
+  events,
+  total,
+}: {
+  label: string;
+  emptyText: string;
+  events: readonly StreamEventView[];
+  total: number;
+}) {
+  return (
+    <section aria-label={label} className="flex flex-col gap-2">
+      <p className="text-hint text-xxs font-mono">
+        {`${label} — showing ${events.length} of ${total} events`}
+      </p>
+      {events.length === 0 ? (
+        <p className="border-rule bg-tint text-sub rounded-xl border p-4 text-sm">{emptyText}</p>
+      ) : (
+        <ol className="border-rule flex flex-col gap-2 rounded-xl border bg-white p-4 shadow-[var(--shadow-card)]">
+          {events.map((event) => (
+            <li key={`${event.sliceId}-${event.sequence}`} className="flex flex-col gap-1">
+              <div className="flex flex-wrap items-baseline gap-3">
+                <span className="text-ink font-mono text-xs">{event.kind}</span>
+                <span className="text-sub text-xs">{event.sliceId}</span>
+                <span className="text-hint font-mono text-xs">#{event.sequence}</span>
+              </div>
+              <p className="text-sub text-sm whitespace-pre-wrap">{event.message}</p>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
   );
 }
 

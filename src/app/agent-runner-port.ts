@@ -5,8 +5,9 @@ import {
   runSubagent as defaultRunSubagent,
   type BrunchSubagentsDeps,
   type SubagentRunContext,
+  type SubagentStreamUpdate,
 } from '../.pi/extensions/subagents/index.js';
-import type { AgentRunnerPort } from '../executor/execution-ports.js';
+import type { AgentRunnerPort, AgentRunUpdate } from '../executor/execution-ports.js';
 
 export interface AgentRunnerPortOptions {
   readonly subagents?: BrunchSubagentsDeps;
@@ -42,6 +43,12 @@ export function createAgentRunnerPort(options: AgentRunnerPortOptions = {}): Age
         };
       }
       const runSubagent = subagents.runSubagent ?? defaultRunSubagent;
+      const pendingUpdates: Promise<void>[] = [];
+      const emitUpdate = (update: AgentRunUpdate): void => {
+        const result = args.onUpdate?.(update);
+        if (result) pendingUpdates.push(Promise.resolve(result));
+      };
+      await args.onUpdate?.({ kind: 'status', message: `worker ${worker.name} starting` });
       const result = await runSubagent({
         definition: worker,
         task: renderWorkerTask(args, request),
@@ -52,9 +59,14 @@ export function createAgentRunnerPort(options: AgentRunnerPortOptions = {}): Age
           signal: args.runtime.signal,
         } as SubagentRunContext,
         deps: subagents,
+        onUpdate: (update) => {
+          emitUpdate(agentRunUpdateFromSubagent(update));
+        },
       });
+      await Promise.all(pendingUpdates);
 
       if (result.status === 'error') {
+        await args.onUpdate?.({ kind: 'status', message: `worker ${worker.name} failed` });
         return { status: 'failed', message: result.text };
       }
       await mkdir(dirname(args.resultPath), { recursive: true });
@@ -63,12 +75,24 @@ export function createAgentRunnerPort(options: AgentRunnerPortOptions = {}): Age
         `${JSON.stringify({ status: 'completed', summary: result.text })}\n`,
         'utf8',
       );
+      await args.onUpdate?.({ kind: 'status', message: `worker ${worker.name} completed` });
       return {
         status: 'completed',
         summary: result.text,
       };
     },
   };
+}
+
+function agentRunUpdateFromSubagent(update: SubagentStreamUpdate): AgentRunUpdate {
+  switch (update.kind) {
+    case 'tool':
+      return { kind: 'tool', message: update.message };
+    case 'message':
+      return { kind: 'message', message: update.message };
+    case 'status':
+      return { kind: 'status', message: update.message };
+  }
 }
 
 async function readExecutionRequest(requestPath: string): Promise<string | undefined> {

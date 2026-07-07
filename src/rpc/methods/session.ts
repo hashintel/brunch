@@ -88,7 +88,7 @@ const RuntimeStateResultSchema = Type.Object(
     sessionId: NonBlankStringSchema,
     agent: Type.Object(
       {
-        operationalMode: Type.Literal('elicit'),
+        operationalMode: Type.Literal('specify'),
         role: Type.Literal('elicitor'),
       },
       { additionalProperties: false },

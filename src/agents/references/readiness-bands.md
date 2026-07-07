@@ -112,7 +112,7 @@ Band-less kinds are not unimportant. They are capturable wherever they surface:
 
 ## Agent Use
 
-Both foreground roles use the same readiness model. The elicitor applies it while capturing, generating, projecting, and reviewing spec graph material; the executor applies it when entering CODE mode or deciding whether the requested implementation/planning move can proceed honestly. Bands guide conduct and wording; they do not gate graph truth, tool authority, or whether work may begin.
+Both foreground roles use the same readiness model. The elicitor applies it while capturing, generating, projecting, and reviewing spec graph material; the executor applies it when entering Execute mode or deciding whether the requested implementation/planning move can proceed honestly. Bands guide conduct and wording; they do not gate graph truth, tool authority, or whether work may begin.
 
 Use bands to decide what absence means:
 
@@ -125,5 +125,5 @@ Use capability-readiness to modulate the move:
 
 - **Proceed** when inner concerns are settled enough.
 - **Proceed-advisory** when useful source-derived or early outer-band material exists but has not yet been harmonized.
-- **Negotiate** when one or two missing answers would materially improve the result; in CODE mode, accept the requested move and backfill those answers in place.
-- **Ask** when the requested capability would be mostly fiction without more inner-band truth; in CODE mode, gather the needed grounding or scratchpad-obligation answers in place.
+- **Negotiate** when one or two missing answers would materially improve the result; in Execute mode, accept the requested move and backfill those answers in place.
+- **Ask** when the requested capability would be mostly fiction without more inner-band truth; in Execute mode, gather the needed grounding or scratchpad-obligation answers in place.

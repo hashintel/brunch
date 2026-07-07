@@ -1,7 +1,10 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { projectExecuteGraph } from '../../../../executor/execute-projection.js';
+import {
+  assertExecuteProjectionPlanReady,
+  projectExecuteGraph,
+} from '../../../../executor/execute-projection.js';
 import type { PlanPreview } from '../../../../executor/plan-preview.js';
 import { BRUNCH_EXECUTE_PLAN_PREVIEW_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
@@ -48,6 +51,7 @@ export function createExecutePlanPreviewTool(
         nodes: graph.nodes,
         edges: graph.edges,
       });
+      assertExecuteProjectionPlanReady(projection);
       const preview = projection.planPreview;
       return {
         content: [

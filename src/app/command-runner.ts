@@ -17,6 +17,7 @@ export interface CommandRunnerOptions {
   readonly timeoutMs?: number | undefined;
   readonly maxOutputBytes?: number | undefined;
   readonly stdin?: string | undefined;
+  readonly onOutput?: (chunk: { readonly stream: 'stdout' | 'stderr'; readonly text: string }) => void;
 }
 
 export type CommandRunner = (
@@ -91,7 +92,7 @@ export async function runCommand(
 
     options.signal?.addEventListener('abort', abort, { once: true });
 
-    const appendOutput = (current: string, chunk: Buffer): string => {
+    const appendOutput = (current: string, chunk: Buffer, stream: 'stdout' | 'stderr'): string => {
       const maxOutputBytes = options.maxOutputBytes;
       if (maxOutputBytes !== undefined && capturedBytes >= maxOutputBytes) {
         outputTruncated = true;
@@ -100,6 +101,7 @@ export async function runCommand(
 
       const text = chunk.toString('utf8');
       if (maxOutputBytes === undefined) {
+        options.onOutput?.({ stream, text });
         return current + text;
       }
 
@@ -107,20 +109,22 @@ export async function runCommand(
       const chunkBytes = Buffer.byteLength(text, 'utf8');
       if (chunkBytes <= remainingBytes) {
         capturedBytes += chunkBytes;
+        options.onOutput?.({ stream, text });
         return current + text;
       }
 
       outputTruncated = true;
       const clipped = Buffer.from(text, 'utf8').subarray(0, remainingBytes).toString('utf8');
       capturedBytes = maxOutputBytes;
+      if (clipped.length > 0) options.onOutput?.({ stream, text: clipped });
       return current + clipped;
     };
 
     child.stdout?.on('data', (chunk: Buffer) => {
-      stdout = appendOutput(stdout, chunk);
+      stdout = appendOutput(stdout, chunk, 'stdout');
     });
     child.stderr?.on('data', (chunk: Buffer) => {
-      stderr = appendOutput(stderr, chunk);
+      stderr = appendOutput(stderr, chunk, 'stderr');
     });
     child.on('error', (error) => {
       finish({ exitCode: 1, stdout, stderr, spawnError: error.message });

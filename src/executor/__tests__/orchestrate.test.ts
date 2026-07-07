@@ -45,9 +45,9 @@ function fakePorts(overrides: Partial<ExecutionPorts> = {}): ExecutionPorts {
   };
 }
 
-function planJson(sliceIds: readonly string[]): string {
+function planJson(sliceIds: readonly string[], options: { readonly includeMode?: boolean } = {}): string {
   return JSON.stringify({
-    mode: 'greenfield',
+    ...(options.includeMode === false ? {} : { mode: 'greenfield' }),
     epics: [{ id: 'frontier-1', summary: 'Build feature', depends_on: [], verification: [] }],
     slices: sliceIds.map((id) => ({
       id,
@@ -117,6 +117,50 @@ describe('drive', () => {
     expect(meta?.promotionCommitSha).toBe('abc123');
   });
 
+  it('defaults greenfield runs to plan-only source policy without copying host source', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-greenfield-plan-only-'));
+    await createRunAtCreated(cwd, ['task-1']);
+
+    await drive({ cwd, runId: 'run-1', ports: fakePorts() });
+
+    const meta = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+    expect(meta).toMatchObject({ sourcePolicy: 'plan_only', sourceCopied: false, copiedEntries: [] });
+    expect(await readFile(join(cwd, 'src', 'app.ts'), 'utf8')).toBe('export const app = true;\n');
+    await expect(readFile(join(meta!.worktreeDir!, 'src', 'app.ts'), 'utf8')).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+  });
+
+  it('treats omitted plan mode as greenfield when selecting source policy', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-omitted-mode-plan-only-'));
+    await mkdir(join(cwd, 'src'), { recursive: true });
+    await writeFile(join(cwd, 'src', 'app.ts'), 'export const app = true;\n', 'utf8');
+    await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
+    await writeFile(planFilePath(cwd, '42'), planJson(['task-1'], { includeMode: false }), 'utf8');
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
+
+    await drive({ cwd, runId: 'run-1', ports: fakePorts() });
+
+    const meta = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+    expect(meta).toMatchObject({ sourcePolicy: 'plan_only', sourceCopied: false, copiedEntries: [] });
+    await expect(readFile(join(meta!.worktreeDir!, 'src', 'app.ts'), 'utf8')).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+  });
+
+  it('still copies host source for an explicit host-source policy', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-explicit-host-source-'));
+    await createRunAtCreated(cwd, ['task-1']);
+
+    await drive({ cwd, runId: 'run-1', ports: fakePorts(), sourcePolicy: 'host_source_deferred' });
+
+    const meta = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+    expect(meta).toMatchObject({ sourcePolicy: 'host_source_deferred', sourceCopied: true });
+    await expect(readFile(join(meta!.worktreeDir!, 'src', 'app.ts'), 'utf8')).resolves.toBe(
+      'export const app = true;\n',
+    );
+  });
+
   it('produces the same reports and terminal metadata as hand-cranking the steps', async () => {
     const driven = await mkdtemp(join(tmpdir(), 'brunch-drive-parity-driven-'));
     await createRunAtCreated(driven, ['task-1', 'task-2']);
@@ -157,7 +201,7 @@ describe('drive', () => {
     expect(meta?.status).toBe('agent_result_ingested');
   });
 
-  it('reports each advanced step through onStepComplete and skips the halted step', async () => {
+  it('reports started and completed steps, and skips completion for the halted step', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-step-hook-'));
     await createRunAtCreated(cwd, ['task-1']);
     const seen: string[] = [];
@@ -168,25 +212,37 @@ describe('drive', () => {
       ports: fakePorts({
         testRunner: createFakeTestRunnerPort({ status: 'failed', message: 'runner exploded' }),
       }),
+      onStepStart: (step, runStatus) => {
+        seen.push(`start:${step}:${runStatus}`);
+      },
       onStepComplete: (step, runStatus) => {
-        seen.push(`${step}:${runStatus}`);
+        seen.push(`complete:${step}:${runStatus}`);
       },
     });
 
     expect(outcome.status).toBe('halted');
     expect(seen).toEqual([
-      'worktree_create:worktree_created',
-      'populate:worktree_populated',
-      'source_policy:source_policy_selected',
-      'source_copy:source_copied',
-      'report_init:reports_initialized',
-      'slice_start:slice_started',
-      'slice_execute:slice_execution_requested',
-      'agent_result:agent_result_ingested',
+      'start:worktree_create:created',
+      'complete:worktree_create:worktree_created',
+      'start:populate:worktree_created',
+      'complete:populate:worktree_populated',
+      'start:source_policy:worktree_populated',
+      'complete:source_policy:source_policy_selected',
+      'start:source_copy:source_policy_selected',
+      'complete:source_copy:source_copied',
+      'start:report_init:source_copied',
+      'complete:report_init:reports_initialized',
+      'start:slice_start:reports_initialized',
+      'complete:slice_start:slice_started',
+      'start:slice_execute:slice_started',
+      'complete:slice_execute:slice_execution_requested',
+      'start:agent_result:slice_execution_requested',
+      'complete:agent_result:agent_result_ingested',
+      'start:test_result:agent_result_ingested',
     ]);
   });
 
-  it('a throwing onStepComplete never halts the drive', async () => {
+  it('throwing step observers never halt the drive', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-step-hook-throw-'));
     await createRunAtCreated(cwd, ['task-1']);
 
@@ -194,12 +250,45 @@ describe('drive', () => {
       cwd,
       runId: 'run-1',
       ports: fakePorts(),
+      onStepStart: () => {
+        throw new Error('observer bug');
+      },
       onStepComplete: () => {
         throw new Error('observer bug');
       },
     });
 
     expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+  });
+
+  it('halts before Petri export when slice verification fails', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-verification-failed-'));
+    await createRunAtCreated(cwd, ['task-1']);
+
+    const outcome = await drive({
+      cwd,
+      runId: 'run-1',
+      ports: fakePorts({
+        testRunner: createFakeTestRunnerPort({
+          status: 'completed',
+          verdict: 'failed',
+          exitCode: 1,
+          target: 'npm run verify',
+        }),
+      }),
+    });
+
+    expect(outcome).toEqual({
+      status: 'halted',
+      step: 'run_complete',
+      runStatus: 'slice_completed',
+      reason: 'verification_failed',
+    });
+    const meta = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+    expect(meta?.status).toBe('slice_completed');
+    expect((await readReportEvents(cwd)).map((event) => (event as { event?: string }).event)).not.toContain(
+      'run_completed',
+    );
   });
 
   it('invokes the agent and test runner exactly once per slice', async () => {

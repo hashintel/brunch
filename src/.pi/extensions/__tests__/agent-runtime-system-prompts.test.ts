@@ -331,7 +331,7 @@ describe('Brunch prompt-pack topology', () => {
           events[event] = handler;
         },
         getAllTools: () =>
-          ['read', 'grep', 'find', 'ls', 'bash', 'write', 'orchestrator_stub'].map((name) => ({ name })),
+          ['read', 'grep', 'find', 'ls', 'bash', 'write', 'execute_status'].map((name) => ({ name })),
         setActiveTools() {},
       } as never,
       promptContext,
@@ -498,7 +498,7 @@ describe('Brunch prompt-pack topology', () => {
 
     expect(manager.entries[0]?.customType).toBe(BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE);
     // D86-L: graph-write tools (present_review_set / request_response / mutate_graph) are
-    // floor in elicit mode, so every entry carries them regardless of gap coverage.
+    // floor in Specify mode, so every entry carries them regardless of gap coverage.
     const elicitFloorTools = [
       'read',
       'grep',

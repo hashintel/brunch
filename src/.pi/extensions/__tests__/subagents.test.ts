@@ -572,7 +572,7 @@ describe('registerBrunchSubagents', () => {
     );
   });
 
-  it('refuses the write-capable worker when it is loaded but not delegated by elicit', async () => {
+  it('refuses the write-capable worker when it is loaded but not delegated by Specify mode', async () => {
     const writeCapable = parseSubagentMarkdown(WORKER_MD);
     const registered: ToolDefinition[] = [];
     const pi = { registerTool: (tool: ToolDefinition) => registered.push(tool) } as unknown as ExtensionAPI;

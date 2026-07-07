@@ -8,7 +8,7 @@
  *
  * Registration is separate from advertisement (D40-L): the tool is registered
  * here, but only becomes an active/advertised tool when the operational-mode
- * policy opt-in includes it. It is never part of the base `elicit` allowlist.
+ * policy opt-in includes it. It is never part of the base Specify allowlist.
  */
 
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
@@ -43,6 +43,7 @@ export {
   type SubagentResult,
   type SubagentRunContext,
   type SubagentSealedDeps,
+  type SubagentStreamUpdate,
 } from './session.js';
 
 export const BRUNCH_SUBAGENT_TOOL = 'subagent';

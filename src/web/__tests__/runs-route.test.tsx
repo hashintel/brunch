@@ -45,6 +45,11 @@ const runDetail: RunDetail = {
     { event: 'slice_execution_requested', sliceId: 's1' },
   ],
   reportsTotal: 3,
+  agentStreamTail: [],
+  agentStreamTotal: 0,
+  verifyStreamTail: [],
+  verifyStreamTotal: 0,
+  requirements: [],
 };
 
 function rpcClient(options?: {
@@ -136,6 +141,9 @@ describe('run detail route', () => {
     expect(screen.getByText('run_ready')).toBeTruthy();
     expect(screen.getByText('slice_started')).toBeTruthy();
     expect(screen.getByText(/3 of 3 events/u)).toBeTruthy();
+    expect(screen.getByText('No requirements projected.')).toBeTruthy();
+    expect(screen.getByText('No worker stream yet.')).toBeTruthy();
+    expect(screen.getByText('No verify stream yet.')).toBeTruthy();
     expect(screen.getByText('worktree')).toBeTruthy();
     expect(screen.getByText('petri')).toBeTruthy();
     expect(calls).toContainEqual({ method: 'execute.run', params: { runId: 'run-1' } });
@@ -157,6 +165,120 @@ describe('run detail route', () => {
 
     expect(await screen.findByText('Petri net (raw)')).toBeTruthy();
     expect(screen.getByText(/petri-place-1/u)).toBeTruthy();
+  });
+
+  it('renders normalized worker stream events when present', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        run: {
+          ...runDetail,
+          agentStreamTail: [
+            {
+              event: 'agent_stream',
+              runId: 'run-1',
+              epicId: 'frontier-1',
+              sliceId: 's1',
+              sequence: 0,
+              kind: 'status',
+              message: 'worker worker starting',
+            },
+            {
+              event: 'agent_stream',
+              runId: 'run-1',
+              epicId: 'frontier-1',
+              sliceId: 's1',
+              sequence: 1,
+              kind: 'message',
+              message: 'Created src/types.ts',
+            },
+          ],
+          agentStreamTotal: 2,
+        },
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText(/Worker stream — showing 2 of 2 events/u)).toBeTruthy();
+    expect(screen.getByText('Created src/types.ts')).toBeTruthy();
+  });
+
+  it('renders projected requirement statuses when present', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        run: {
+          ...runDetail,
+          requirements: [
+            {
+              requirementId: 'REQ1',
+              content: 'Build the type root.',
+              status: 'passed',
+              sliceIds: ['task-1'],
+              completedSliceIds: ['task-1'],
+              failedSliceIds: [],
+              missingVerificationSliceIds: [],
+              criterionIds: ['AC1'],
+            },
+            {
+              requirementId: 'REQ2',
+              content: 'Build the command surface.',
+              status: 'unverified',
+              sliceIds: ['task-2'],
+              completedSliceIds: ['task-2'],
+              failedSliceIds: [],
+              missingVerificationSliceIds: [],
+              criterionIds: [],
+            },
+          ],
+        },
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('REQ1')).toBeTruthy();
+    expect(screen.getByText('passed')).toBeTruthy();
+    expect(screen.getByText('unverified')).toBeTruthy();
+    expect(screen.getByText('no criterion witness')).toBeTruthy();
+  });
+
+  it('renders normalized verify stream events when present', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        run: {
+          ...runDetail,
+          verifyStreamTail: [
+            {
+              event: 'verify_stream',
+              runId: 'run-1',
+              epicId: 'frontier-1',
+              sliceId: 's1',
+              sequence: 0,
+              kind: 'status',
+              message: 'npm run verify started',
+            },
+            {
+              event: 'verify_stream',
+              runId: 'run-1',
+              epicId: 'frontier-1',
+              sliceId: 's1',
+              sequence: 1,
+              kind: 'stdout',
+              message: 'tests passed',
+            },
+          ],
+          verifyStreamTotal: 2,
+        },
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText(/Verify stream — showing 2 of 2 events/u)).toBeTruthy();
+    expect(screen.getByText('tests passed')).toBeTruthy();
   });
 
   it('omits the petri block when the payload is absent', async () => {

@@ -2,7 +2,10 @@ import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-age
 import { Type, type Static } from 'typebox';
 
 import type { ExecutablePlanDraft } from '../../../../executor/executable-plan-draft.js';
-import { projectExecuteGraph } from '../../../../executor/execute-projection.js';
+import {
+  assertExecuteProjectionPlanReady,
+  projectExecuteGraph,
+} from '../../../../executor/execute-projection.js';
 import { BRUNCH_EXECUTE_PLAN_DRAFT_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
 
@@ -51,6 +54,7 @@ export function createExecutePlanDraftTool(
         nodes: graph.nodes,
         edges: graph.edges,
       });
+      assertExecuteProjectionPlanReady(projection);
       const draft = projection.draft;
       return {
         content: [

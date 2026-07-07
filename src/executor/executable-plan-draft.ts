@@ -39,21 +39,24 @@ export function draftExecutablePlan(outline: ExecutionPlanOutline): ExecutablePl
     sliceIds: frontier.tasks.map((task) => task.id),
     dependsOn: [],
   }));
-  const slices = outline.frontiers.flatMap((frontier) =>
-    frontier.tasks.map((task) => ({
+  const slices = outline.frontiers.flatMap((frontier) => {
+    const taskIdByRequirement = new Map(
+      frontier.tasks.map((frontierTask) => [frontierTask.requirementId, frontierTask.id]),
+    );
+    return frontier.tasks.map((task) => ({
       id: task.id,
       epicId: frontier.id,
       title: task.title,
       definition: task.summary,
       requirementId: task.requirementId,
-      dependsOn: [],
+      dependsOn: task.dependsOn.flatMap((requirementId) => taskIdByRequirement.get(requirementId) ?? []),
       verification: task.acceptanceCriteria.map((criterion) => ({
         kind: 'criterion' as const,
         criterionId: criterion.criterionId,
         target: criterion.content,
       })),
-    })),
-  );
+    }));
+  });
 
   return {
     schemaVersion: 1,
