@@ -93,7 +93,6 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ### Parallel / Low-Conflict
 
 - **In-flight `ln/*` wave (open PRs, definitions ride their branches; fold in on merge):** FE-1124 walkthrough batch 2 (#288) · FE-1134 session orientation dialog (#289) · FE-1135 exchange-outcome capture contract sweep (#291) · FE-1136 present-digest exchange (#292) · FE-1137 executor entry readiness / concentric authority (#290) · FE-1152 post-gate chrome refinements (#294).
-- `orchestrator-stub-retirement` — retired by `orchestrator-tool-port` reconciliation on 2026-07-07; no live policy/test/prompt references remain.
 - `component-dx` (FE-1115) — **paused.** Preview harness plus shared presentation primitives shipped; open for further dev-tooling refinement if a concrete need surfaces, but nothing is actively scoped. Production-wiring follow-on split to `exchange-answering-chrome` (né `bordered-chrome-production`) and `main-editor-chrome`.
 - **Standing obligations:** `probes-and-transcripts-evolution` and `topology-readmes-and-boundaries` ride the frontier that triggers them; they are not standalone cleanup buckets.
 
@@ -222,12 +221,12 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 - **Name:** Port cook orchestration into Execute/executor tools
 - **Linear:** [FE-1107](https://linear.app/hash/issue/FE-1107/port-cook-orchestration-into-codeexecutor-tools)
-- **Branch:** tbd
+- **Branch:** `ka/fe-1107-executor-surface-reconciliation` ([draft PR #298](https://github.com/hashintel/brunch/pull/298), stacked on FE-1154)
 - **Kind:** structural / execute-mode tool boundary
-- **Status (reconciled 2026-07-07):** substantially delivered externally — the KA executor lane (FE-1089–FE-1125, merged to `next`) built the tool seam this frontier was scoped to open: `src/executor/` pure core over injected `ExecutionPorts`, thin `.pi/extensions/executor/` adapters, `execute_plan_check`, the run driver, run-local promotion, and explicit-acceptance host promotion (D111-L, D112-L, I58-L). The former scope card was consumed by that lane's sync. Remaining residue is KA card confirmation only.
+- **Status (drafted 2026-07-07):** substantially delivered externally — the KA executor lane (FE-1089–FE-1125, merged to `next`) built the tool seam this frontier was scoped to open: `src/executor/` pure core over injected `ExecutionPorts`, thin `.pi/extensions/executor/` adapters, `execute_plan_check`, the run driver, run-local promotion, and explicit-acceptance host promotion (D111-L, D112-L, I58-L). PR #298 reconciles Specify/Execute vocabulary, executor adapter topology, prompt conduct, and observer contracts. Remaining residue before closing is KA card confirmation only.
 - **Certainty:** earned for the delivered mechanism; the residue below is bounded.
 - **Remaining residue (confirm with KA before closing FE-1107):**
-  - Confirm with KA whether the six remaining `memory/cards/executor-*` cards are truly open vs exhausted; do not delete them without that confirmation.
+  - Confirm with KA whether remaining `memory/cards/executor-*` files are truly open vs exhausted; do not delete them without that confirmation.
   - Decide whether FE-1107 closes as absorbed or narrows to any genuinely-unported `../brunch` cook CLI behavior.
 - **Traceability:** D39-L, D40-L, D90-L, D91-L, D92-L, D93-L, D98-L / I49-L, D111-L, D112-L, I58-L; `src/executor/TOPOLOGY.md`, `src/.pi/extensions/TOPOLOGY.md`.
 

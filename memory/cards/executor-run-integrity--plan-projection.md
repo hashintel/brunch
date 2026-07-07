@@ -1,7 +1,7 @@
 # Executor Plan Projection Integrity
 
 Frontier: executor-run-integrity
-Status:   active
+Status:   retained-unconfirmed
 Mode:     single
 Created:  2026-07-06
 
@@ -11,6 +11,7 @@ Created:  2026-07-06
 - Frontier: `executor-run-integrity` (FE-1154), reopened as a focused follow-up because the transcript evidence shows the run lifecycle hardening landed but plan projection can still erase the graph's dependency shape.
 - Posture: proving (inherited from `executor-run-integrity`).
 - Main risk: the current snapshot may not carry enough non-requirement dependency evidence, so the slice must first expose that with a regression test and then pass only the minimum graph signal needed downstream.
+- Retention note: acceptance boxes are checked and the FE-1154 branch has since passed verification, but this file is retained until KA confirms executor-card cleanup.
 
 ## Target Behavior
 
@@ -66,7 +67,7 @@ src/executor/
 └── __tests__/
     ├── execution-spec-snapshot.test.ts ?
     └── execute-plan-check.test.ts      ~
-src/.pi/extensions/agent-runtime/
+src/.pi/extensions/executor/
 ├── execute-plan-draft/index.ts          ~
 ├── execute-plan-draft-artifact/index.ts ~
 ├── execute-plan-file/index.ts           ~
@@ -78,4 +79,4 @@ memory/cards/
 
 ## Build Note
 
-Targeted projection tests pass. Full `npm run fix` / gate is blocked in this isolated worktree by missing installed dependencies (`typebox`, `@earendil-works/pi-ai`, `@earendil-works/pi-tui`, etc.), so the card remains active rather than consumed/deleted.
+Targeted projection tests passed in the original isolated worktree. The FE-1154 branch later passed `npm run verify`; this derivative card remains in-tree only because executor-card cleanup is awaiting KA confirmation.
