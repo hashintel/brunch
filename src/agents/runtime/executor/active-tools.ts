@@ -23,6 +23,7 @@ export const EXECUTOR_ALLOWED_TOOL_NAMES = [
   'execute_replan_recommendation',
   'execute_replan_start_new_run',
   'execute_replan_retry_current_step',
+  'execute_replan_regenerate_plan',
   'execute_worktree_create',
   'execute_populate',
   'execute_source_policy',
