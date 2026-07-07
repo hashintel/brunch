@@ -484,6 +484,51 @@ describe('seedFixture', () => {
     ]);
   });
 
+  it('passes per-node and per-edge settlement through while omitted rows default to settled', () => {
+    const db: BrunchDb = createDb(':memory:');
+    const executor = new CommandExecutor(db);
+    const fixture: SeedFixture = {
+      spec: { slug: 'settlement-fixture', name: 'Settlement Fixture' },
+      nodes: [
+        {
+          local_id: 1,
+          plane: 'intent',
+          kind: 'goal',
+          title: 'Advisory source-derived goal',
+          basis: 'explicit',
+          settlement: 'advisory',
+        },
+        {
+          local_id: 2,
+          plane: 'intent',
+          kind: 'requirement',
+          title: 'Settled requirement by default',
+          basis: 'explicit',
+        },
+      ],
+      edges: [
+        {
+          category: 'rationale',
+          source_local_id: 1,
+          target_local_id: 2,
+          stance: 'for',
+          basis: 'explicit',
+          settlement: 'advisory',
+        },
+      ],
+    };
+
+    const result = seedFixture(executor, fixture);
+
+    const nodeRows = db.select().from(nodes).where(eq(nodes.spec_id, result.specId)).all();
+    const edgeRows = db.select().from(edges).where(eq(edges.spec_id, result.specId)).all();
+    expect(nodeRows.map((row) => [row.title, row.settlement])).toEqual([
+      ['Advisory source-derived goal', 'advisory'],
+      ['Settled requirement by default', 'settled'],
+    ]);
+    expect(edgeRows.map((row) => row.settlement)).toEqual(['advisory']);
+  });
+
   it('rejects fixtures carrying a non-explicit basis', () => {
     const db: BrunchDb = createDb(':memory:');
     const executor = new CommandExecutor(db);

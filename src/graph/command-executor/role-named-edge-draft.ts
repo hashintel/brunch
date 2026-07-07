@@ -1,5 +1,6 @@
 import { EDGE_CATEGORY_METADATA } from '../policy/category-policy.js';
 import type { EdgeCategory, EdgeStance } from '../schema/edges.js';
+import type { NodeSettlement } from '../schema/nodes.js';
 import type { CreateGraphEdgeInput, GraphMutationNodeRef } from './graph-mutation-types.js';
 
 type RoleNamedEdgeDraftByCategory<Ref> = {
@@ -61,7 +62,9 @@ type RoleNamedEdgeDraftByCategory<Ref> = {
   };
 };
 
-export type RoleNamedEdgeDraftOf<Ref> = RoleNamedEdgeDraftByCategory<Ref>[EdgeCategory];
+export type RoleNamedEdgeDraftOf<Ref> = RoleNamedEdgeDraftByCategory<Ref>[EdgeCategory] & {
+  readonly settlement?: NodeSettlement | undefined;
+};
 export type RoleNamedEdgeDraft = RoleNamedEdgeDraftOf<GraphMutationNodeRef>;
 
 type NonCrossReferenceRoleNamedEdgeDraft = Exclude<
@@ -108,6 +111,7 @@ function normalizeNonCrossReferenceEdgeDraft(
       ? { stance: draft.stance }
       : {}),
     ...(draft.rationale === undefined ? {} : { rationale: draft.rationale }),
+    ...(draft.settlement === undefined ? {} : { settlement: draft.settlement }),
   };
 }
 
@@ -120,6 +124,7 @@ export function normalizeRoleNamedEdgeDraft(draft: RoleNamedEdgeDraft): CreateGr
       source: draft.a,
       target: draft.b,
       ...(draft.rationale === undefined ? {} : { rationale: draft.rationale }),
+      ...(draft.settlement === undefined ? {} : { settlement: draft.settlement }),
     };
   }
 
@@ -146,6 +151,7 @@ export function roleNamedEdgeDraftFromCreateEdgeInput(input: CreateGraphEdgeInpu
     [targetField]: input.target,
     ...(input.rationale === undefined ? {} : { rationale: input.rationale }),
     ...(input.stance === undefined ? {} : { stance: input.stance }),
+    ...(input.settlement === undefined ? {} : { settlement: input.settlement }),
   };
 
   return draft as RoleNamedEdgeDraft;

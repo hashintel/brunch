@@ -61,7 +61,13 @@ export async function collectChoiceFromUi(params: CollectChoiceParams) {
       status,
       message,
     });
-    return { content: [{ type: 'text' as const, text: formatRequestChoice(details) }], details };
+    return {
+      content: [{ type: 'text' as const, text: formatRequestChoice(details) }],
+      details,
+      // A user cancel means "leave me inert": end the turn on this tool
+      // result. Unavailable stays reactive so the model can reroute.
+      ...(status === 'cancelled' ? { terminate: true } : {}),
+    };
   };
 
   if (!params.ctx.hasUI || typeof params.ctx.ui?.select !== 'function') {

@@ -4,17 +4,16 @@ SPEC decisions: D40-L, D52-L, D58-L, D85-L, D90-L, D93-L, D98-L
 
 ## Owns
 
-Runtime prompt/tool policy that is Pi-independent: exhaustive foreground runtime dispatch, live elicitor prompt/context assembly, executor prompt/control assembly, foreground active-tool policy, shared blocked-tool contract, and agent body location lookup. Strategy/lens/method control policy is suspended: the only live runtime switch is operational mode.
+Runtime prompt/tool policy that is Pi-independent: exhaustive foreground runtime dispatch, live elicitor prompt/context assembly, executor prompt/control assembly, concentric foreground active-tool policy, shared blocked-tool contract, and agent body location lookup. Strategy/lens/method control policy is suspended: the only live runtime switch is operational mode.
 
 ```text
 runtime/
 ├── TOPOLOGY.md
 ├── foreground-policy.ts central exhaustive foreground prompt/tool facade
 ├── elicitor/         live Specify-mode elicitor prompt/context/tool source of truth
-├── executor/         narrow Execute-mode executor prompt/control/tool source of truth
-├── shared/           pure helpers and shared runtime policy contracts
-├── __tests__/          prompt/runtime policy tests
-└── __snapshots__/      Vitest file snapshots for full composed prompts
+├── executor/         Execute-mode executor prompt/control/tool source of truth
+│   └── __tests__/    executor prompt conduct tests
+└── shared/           pure helpers and shared runtime policy contracts
 ```
 
 ## Boundary rules
@@ -36,4 +35,4 @@ Pi extensions remain the runtime adapter: they gather the current Pi session sta
 
 This directory was moved from `.pi/extensions/agent-runtime/{runtime,system-prompts}` during the LLM-context ingress refactor. The remaining `.pi/extensions/agent-runtime/` files should stay thin: hook registration, Pi API calls, and adapter-specific tool activation only.
 
-The live elicitor path is centralized under `elicitor/`; the narrow Execute-mode executor path is centralized under `executor/`. Runtime prompt injection reads only the code-owned first-level skill manifest plus operational mode and does not negotiate legacy prompt axes.
+The live elicitor path is centralized under `elicitor/`; the Execute-mode executor path is centralized under `executor/` as the concentric superset of live elicitor authority plus executor-only orchestration. Runtime prompt injection reads only the code-owned first-level skill manifest plus operational mode and does not negotiate legacy prompt axes.

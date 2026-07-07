@@ -83,7 +83,11 @@ describe('runDevCli', () => {
     expect(code).toBe(0);
     expect(chooseWorkbench).toHaveBeenCalled();
     expect(chooseSeed).toHaveBeenCalledWith(
-      ['workspace-alpha-grounding/base'],
+      [
+        'workspace-alpha-grounding/base',
+        'workspace-alpha-grounding/intent-settled',
+        'workspace-alpha-grounding/requirements-accepted',
+      ],
       '.fixtures/workbenches/workspace-alpha-grounding',
     );
     expect(confirmSeedReset).not.toHaveBeenCalled();

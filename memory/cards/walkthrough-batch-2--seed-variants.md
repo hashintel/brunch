@@ -17,7 +17,7 @@ Mechanics established at scope time (2026-07-02): mutation ops already carry opt
 
 ---
 
-## Card 1 — Settlement round-trips through the seed-fixture contract · `next`
+## Card 1 — Settlement round-trips through the seed-fixture contract · `done`
 
 ### Objective
 
@@ -69,7 +69,7 @@ src/graph/
 
 ---
 
-## Card 2 — Settlement-independent variants: `intent-settled` + `requirements-accepted` · `next` (independent of Card 1)
+## Card 2 — Settlement-independent variants: `intent-settled` + `requirements-accepted` · `done` (independent of Card 1)
 
 ### Objective
 
@@ -121,7 +121,7 @@ TESTING_PLAN.md                  ~  (matrix fit-today cells)
 
 ---
 
-## Card 3 — Settlement-bearing variants: `advisory-pending` + `contradictory` · `next` (after Card 1)
+## Card 3 — Settlement-bearing variants: `advisory-pending` + `contradictory` · `next`
 
 ### Objective
 

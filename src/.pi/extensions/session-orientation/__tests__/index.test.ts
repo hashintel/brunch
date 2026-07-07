@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { latestSessionOrientation } from '../../../../session/session-orientation.js';
 import {
+  CODE_SESSION_ORIENTATION_MENU,
   runAndRecordSessionOrientation,
   runSessionOrientationDialog,
   SESSION_ORIENTATION_MENU,
@@ -27,19 +28,38 @@ class FakeSessionManager {
 }
 
 describe('runSessionOrientationDialog', () => {
-  it('presents every §Choice schema label and resolves the matching id', async () => {
-    const ui = fakeUi(SESSION_ORIENTATION_MENU.find((item) => item.id === 'ingest')!.label);
+  it('presents every §Choice schema label under the menu-owned title and resolves the matching id', async () => {
+    const ui = fakeUi(SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'ingest')!.label);
 
     const choice = await runSessionOrientationDialog(ui);
 
-    expect(ui.calls[0]?.options).toEqual(SESSION_ORIENTATION_MENU.map((item) => item.label));
+    expect(ui.calls[0]).toEqual({
+      title: SESSION_ORIENTATION_MENU.title,
+      options: SESSION_ORIENTATION_MENU.items.map((item) => item.label),
+    });
     expect(choice).toBe('ingest');
   });
 
-  it('maps escape/timeout (undefined) to continue', async () => {
+  it('maps escape/timeout (undefined) to the inert dismissed on every menu', async () => {
+    const specUi = fakeUi(undefined);
+    const codeUi = fakeUi(undefined);
+
+    await expect(runSessionOrientationDialog(specUi)).resolves.toBe('dismissed');
+    await expect(runSessionOrientationDialog(codeUi, { menu: CODE_SESSION_ORIENTATION_MENU })).resolves.toBe(
+      'dismissed',
+    );
+  });
+
+  it('keeps SPEC and CODE menu labels disjoint and gives CODE an execute-specific title', async () => {
+    const specLabels = new Set<string>(SESSION_ORIENTATION_MENU.items.map((item) => item.label));
+    const codeLabels = CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.label);
     const ui = fakeUi(undefined);
 
-    await expect(runSessionOrientationDialog(ui)).resolves.toBe('continue');
+    await runSessionOrientationDialog(ui, { menu: CODE_SESSION_ORIENTATION_MENU });
+
+    expect(codeLabels.filter((label) => specLabels.has(label))).toEqual([]);
+    expect(ui.calls[0]?.title).toContain('Execute');
+    expect(ui.calls[0]?.title).not.toBe(SESSION_ORIENTATION_MENU.title);
   });
 });
 
@@ -60,7 +80,7 @@ describe('runAndRecordSessionOrientation', () => {
     expect(manager.entries).toEqual([]);
   });
 
-  it('writes an entry on every resolution, including escape (entry rule)', async () => {
+  it('writes an entry on every resolution, including an escape dismissal (entry rule)', async () => {
     const ui = fakeUi(undefined);
     const manager = new FakeSessionManager();
 
@@ -71,16 +91,16 @@ describe('runAndRecordSessionOrientation', () => {
       manager,
     });
 
-    expect(choice).toBe('continue');
+    expect(choice).toBe('dismissed');
     expect(latestSessionOrientation(manager.entries)?.data).toEqual({
       schemaVersion: 1,
-      choice: 'continue',
+      choice: 'dismissed',
       trigger: 'entry',
     });
   });
 
   it('reports a failed append without throwing and still returns the resolved choice', async () => {
-    const ui = fakeUi(SESSION_ORIENTATION_MENU.find((item) => item.id === 'ingest')!.label);
+    const ui = fakeUi(SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'ingest')!.label);
     const manager: { appendCustomEntry: () => void } = {
       appendCustomEntry: () => {
         throw new Error('ledger write failed');

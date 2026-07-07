@@ -1,13 +1,20 @@
 import { describe, expect, it } from 'vitest';
 
 import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
+import { BRUNCH_KICK_CUSTOM_TYPE } from '../../../session/originate-assistant-turn.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
   type BrunchAgentStateEntryData,
 } from '../../../session/runtime-state.js';
+import { BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE } from '../../../session/session-orientation.js';
 import { createTestLabTheme } from '../../__tests__/support/tui-theme.js';
 import { BRUNCH_MODE_COMMAND, registerBrunchCommands } from '../commands/index.js';
+import { CODE_SESSION_ORIENTATION_MENU } from '../session-orientation/index.js';
+import {
+  orientationJunctureGate,
+  type BrunchSessionOrientationDeps,
+} from '../session-orientation/registrar.js';
 
 interface RegisteredCommand {
   description?: string;
@@ -17,7 +24,12 @@ interface RegisteredCommand {
 interface RuntimeEntry {
   type: 'custom';
   customType: string;
-  data: BrunchAgentStateEntryData;
+  data: unknown;
+}
+
+interface SentMessage {
+  message: unknown;
+  options?: unknown;
 }
 
 interface FakeCommandContext {
@@ -28,37 +40,52 @@ interface FakeCommandContext {
   };
   sessionManager: {
     getEntries(): readonly RuntimeEntry[];
+    appendCustomEntry(customType: string, data: unknown): void;
   };
   mode: 'tui';
   hasUI: true;
   modelRegistry: { getAvailable(): readonly unknown[] };
+  isIdle?: () => boolean;
+  abort?: () => void;
+  waitForIdle?: () => Promise<void>;
 }
 
 function commandHarness(
   options: {
     customResult?: unknown;
     customAvailable?: boolean;
+    orientation?: boolean;
+    selectResult?: string | undefined;
+    modelAvailable?: boolean;
   } = {},
 ) {
   const entries: RuntimeEntry[] = [];
+  const sent: SentMessage[] = [];
   const notifications: Array<{ message: string; level?: 'info' | 'warning' | 'error' }> = [];
   const commands = new Map<string, RegisteredCommand>();
   const activeToolNames: string[][] = [];
   const customCalls: Array<{ factory: (...args: unknown[]) => unknown; options: unknown }> = [];
+  const selectCalls: Array<{ title: string; options: string[] }> = [];
   const chromeRefreshes: number[] = [];
   const ctx: FakeCommandContext = {
     ui: {
       notify(message, level) {
         notifications.push({ message, level });
       },
-      select: async (_title, choices) => choices[0],
+      select: async (title, choices) => {
+        selectCalls.push({ title, options: choices });
+        return options.selectResult ?? choices[0];
+      },
     },
     sessionManager: {
       getEntries: () => entries,
+      appendCustomEntry(customType, data) {
+        entries.push({ type: 'custom', customType, data });
+      },
     },
     mode: 'tui',
     hasUI: true,
-    modelRegistry: { getAvailable: () => [] },
+    modelRegistry: { getAvailable: () => (options.modelAvailable === false ? [] : [{}]) },
   };
   if (options.customAvailable !== false) {
     ctx.ui.custom = async <T>(factory: (...args: unknown[]) => unknown, customOptions: unknown) => {
@@ -66,6 +93,17 @@ function commandHarness(
       return options.customResult as T | undefined;
     };
   }
+
+  const orientationDeps: BrunchSessionOrientationDeps | undefined = options.orientation
+    ? {
+        resolveKickContext: () => ({
+          specId: 7,
+          reads: { queryGraph: () => ({ nodes: [], edges: [], lsn: 1 }) as never },
+          workspaceContext: '',
+          sendCustomMessage: async () => undefined,
+        }),
+      }
+    : undefined;
 
   registerBrunchCommands(
     {
@@ -92,16 +130,31 @@ function commandHarness(
       setActiveTools(names: string[]) {
         activeToolNames.push(names);
       },
+      sendMessage(message: unknown, sendOptions?: unknown) {
+        sent.push({ message, options: sendOptions });
+      },
     } as never,
     {
       coordinator: {} as never,
       requestChromeRefresh: () => {
         chromeRefreshes.push(chromeRefreshes.length + 1);
       },
+      ...(orientationDeps ? { sessionOrientation: orientationDeps } : {}),
     },
   );
 
-  return { commands, ctx, entries, notifications, activeToolNames, customCalls, chromeRefreshes };
+  return {
+    commands,
+    ctx,
+    entries,
+    notifications,
+    activeToolNames,
+    customCalls,
+    selectCalls,
+    chromeRefreshes,
+    sent,
+    orientationDeps,
+  };
 }
 
 describe('Brunch runtime switch commands', () => {
@@ -199,8 +252,89 @@ describe('Brunch runtime switch commands', () => {
 
     await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
 
-    expect(harness.activeToolNames.at(-1)).toEqual(expect.arrayContaining(['orchestrator_stub']));
-    expect(harness.activeToolNames.at(-1)).not.toEqual(expect.arrayContaining(['mutate_graph']));
+    expect(harness.activeToolNames.at(-1)).toEqual(
+      expect.arrayContaining(['present_question', 'request_response', 'mutate_graph', 'orchestrator_stub']),
+    );
+  });
+
+  it('aborts an in-flight turn (claiming the J4 gate) before showing the mode-switch menu', async () => {
+    const harness = commandHarness({
+      orientation: true,
+      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'proceed')!.label,
+    });
+    const events: string[] = [];
+    let idle = false;
+    harness.ctx.isIdle = () => idle;
+    harness.ctx.abort = () => {
+      events.push('abort');
+      // The J4 claim must already be set when the abort lands, so the
+      // registrar's agent_end handler sees it before running its dialog.
+      expect(orientationJunctureGate(harness.orientationDeps!).suppressNextAbortJuncture).toBe(true);
+    };
+    harness.ctx.waitForIdle = async () => {
+      events.push('waitForIdle');
+      idle = true;
+    };
+    const baseSelect = harness.ctx.ui.select.bind(harness.ctx.ui);
+    harness.ctx.ui.select = async (title, choices) => {
+      events.push('select');
+      return baseSelect(title, choices);
+    };
+
+    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
+
+    expect(events).toEqual(['abort', 'waitForIdle', 'select']);
+    expect(orientationJunctureGate(harness.orientationDeps!).suppressNextAbortJuncture).toBe(false);
+    expect(harness.entries).toContainEqual(
+      expect.objectContaining({
+        customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
+        data: { schemaVersion: 1, choice: 'proceed', trigger: 'mode-switch' },
+      }),
+    );
+  });
+
+  it('leaves an idle agent alone on mode switch (no abort, no gate claim)', async () => {
+    const harness = commandHarness({
+      orientation: true,
+      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'proceed')!.label,
+    });
+    const aborts: number[] = [];
+    harness.ctx.isIdle = () => true;
+    harness.ctx.abort = () => {
+      aborts.push(1);
+    };
+
+    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
+
+    expect(aborts).toEqual([]);
+    expect(orientationJunctureGate(harness.orientationDeps!).suppressNextAbortJuncture).toBe(false);
+  });
+
+  it('runs the CODE-side orientation menu and kicks on the selected choice after switching to Execute', async () => {
+    const harness = commandHarness({
+      orientation: true,
+      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'design_first')!.label,
+    });
+
+    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
+
+    expect(harness.selectCalls[0]?.title).toBe(CODE_SESSION_ORIENTATION_MENU.title);
+    expect(harness.entries).toContainEqual(
+      expect.objectContaining({
+        type: 'custom',
+        customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
+        data: { schemaVersion: 1, choice: 'design_first', trigger: 'mode-switch' },
+      }),
+    );
+    expect(harness.sent).toHaveLength(2);
+    expect(harness.sent[0]?.message).toMatchObject({
+      customType: 'brunch.context_seed',
+      content: expect.stringContaining('chosen: design_first'),
+    });
+    expect(harness.sent[1]).toEqual({
+      message: expect.objectContaining({ customType: BRUNCH_KICK_CUSTOM_TYPE }),
+      options: { triggerTurn: true },
+    });
   });
 
   it('requests a chrome refresh after a successful runtime switch and not on rejection or cancel', async () => {

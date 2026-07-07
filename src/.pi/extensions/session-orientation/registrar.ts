@@ -62,14 +62,39 @@ export interface BrunchSessionOrientationDeps {
 // juncture-specific debounce policies.
 const JUNCTURE_DEBOUNCE_MS = 750;
 
-interface DebounceState {
+/**
+ * Mutable coordination state shared between the registrar junctures and the
+ * mode-switch command path (J5). Keyed off the deps object identity via
+ * `orientationJunctureGate` so both registration sites — which receive the
+ * same `BrunchSessionOrientationDeps` from the composition root — coordinate
+ * without new wiring.
+ */
+export interface OrientationJunctureGate {
   lastResolvedAt: number;
+  /**
+   * One-shot flag set by a flow that programmatically aborts an in-flight
+   * assistant turn (J5 mode switch): the resulting `agent_end` with
+   * stopReason `aborted` must not open the J4 esc-abort dialog on top of the
+   * flow's own menu. Consumed (cleared) by the J4 handler.
+   */
+  suppressNextAbortJuncture: boolean;
+}
+
+const gates = new WeakMap<BrunchSessionOrientationDeps, OrientationJunctureGate>();
+
+export function orientationJunctureGate(deps: BrunchSessionOrientationDeps): OrientationJunctureGate {
+  let gate = gates.get(deps);
+  if (!gate) {
+    gate = { lastResolvedAt: 0, suppressNextAbortJuncture: false };
+    gates.set(deps, gate);
+  }
+  return gate;
 }
 
 export const BRUNCH_CONSULT_COMMAND = 'brunch:consult';
 
 export function registerBrunchSessionOrientation(pi: ExtensionAPI, deps: BrunchSessionOrientationDeps): void {
-  const debounce: DebounceState = { lastResolvedAt: 0 };
+  const debounce = orientationJunctureGate(deps);
 
   pi.on('session_start', async (event: SessionStartEvent, ctx: ExtensionContext) => {
     if (event.reason === 'startup') {
@@ -98,6 +123,12 @@ export function registerBrunchSessionOrientation(pi: ExtensionAPI, deps: BrunchS
 
   pi.on('agent_end', async (event: AgentEndEvent, ctx: ExtensionContext) => {
     if (!isEscAbortedAgentEnd(event)) return;
+    if (debounce.suppressNextAbortJuncture) {
+      // A product flow (J5 mode switch) aborted this turn itself and owns the
+      // next dialog; consuming the flag keeps J4 out of its way.
+      debounce.suppressNextAbortJuncture = false;
+      return;
+    }
     await runJuncture(ctx, deps, debounce, {
       trigger: 'abort',
       mode: 'follow-choice',
@@ -123,7 +154,7 @@ interface JunctureInvocation {
 async function runJuncture(
   ctx: ExtensionContext,
   deps: BrunchSessionOrientationDeps,
-  debounce: DebounceState,
+  debounce: OrientationJunctureGate,
   invocation: JunctureInvocation,
 ): Promise<void> {
   const now = Date.now();

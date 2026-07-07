@@ -99,12 +99,13 @@ export function planGraphMutation(options: {
     specId: input.specId,
     basis: input.createBasis,
     settlement: input.createSettlement,
-    nodes: createNodes.map(({ ref, plane, kind, title, body, source, detail }) => ({
+    nodes: createNodes.map(({ ref, plane, kind, title, body, settlement, source, detail }) => ({
       ref,
       plane,
       kind,
       title,
       body,
+      settlement,
       source,
       detail,
     })),

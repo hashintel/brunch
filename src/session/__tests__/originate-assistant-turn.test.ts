@@ -148,6 +148,28 @@ describe('originateAssistantTurn', () => {
     expect(String(seed?.content)).toContain('chosen: ingest');
   });
 
+  it('renders no orientation section for a fresh dismissed choice (inert dismissal)', () => {
+    const manager = fakeManager();
+    const entries = [
+      {
+        type: 'custom',
+        customType: 'brunch.session_orientation',
+        data: { schemaVersion: 1, choice: 'dismissed', trigger: 'entry' },
+      },
+    ];
+    originateAssistantTurn({
+      specId,
+      reads: reads(2),
+      entries,
+      resumeOrigin: 'resume_debt',
+      workspaceContext: '',
+      manager,
+    });
+
+    const seed = manager.appended.find((entry) => entry.customType === 'brunch.context_seed');
+    expect(String(seed?.content)).not.toContain('SESSION ORIENTATION');
+  });
+
   it('never re-routes a kick with an orientation choice recorded before the last kick', () => {
     const manager = fakeManager();
     const entries = [

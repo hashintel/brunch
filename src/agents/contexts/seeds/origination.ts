@@ -19,7 +19,7 @@
 import { formatGraphOverview } from '../../../agents/contexts/data-model/graph/graph-slice.js';
 import type { GraphSlice } from '../../../graph/index.js';
 import type { ElicitationScratchpadItem } from '../../../session/elicitation-scratchpad.js';
-import type { SessionOrientationChoice } from '../../../session/session-orientation.js';
+import type { SessionOrientationDirectiveChoice } from '../../../session/session-orientation.js';
 import { formatElicitationScratchpad } from '../data-model/elicitation-scratchpad.js';
 import { formatSessionOrientationSeed } from '../data-model/session-orientation.js';
 import { deriveGraphFactSeed, renderGraphFactSeed } from './graph-fact-seed.js';
@@ -37,11 +37,11 @@ export interface ComposeContextSeedInput {
   readonly workspaceContext: string;
   /**
    * Fresh session-orientation choice (`freshSessionOrientationChoice` output)
-   * routing the opening turn. Omitted entirely when no fresh choice exists —
-   * never rendered as a blank/default section (decision-flow chart §Choice
-   * schema).
+   * routing the opening turn. Omitted entirely when no fresh choice exists or
+   * the fresh choice is an inert `dismissed` — never rendered as a
+   * blank/default section (decision-flow chart §Choice schema).
    */
-  readonly orientation?: SessionOrientationChoice;
+  readonly orientation?: SessionOrientationDirectiveChoice;
 }
 
 export function composeContextSeedContent(input: ComposeContextSeedInput): string {

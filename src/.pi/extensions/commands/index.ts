@@ -41,8 +41,16 @@ import {
   activeToolNamesForBrunchAgentState,
   projectBrunchAgentState,
 } from '../agent-runtime/runtime/index.js';
+import {
+  CODE_SESSION_ORIENTATION_MENU,
+  SESSION_ORIENTATION_MENU,
+  type SessionOrientationMenuDescriptor,
+} from '../session-orientation/index.js';
 import { runJunctureForContext, sendCustomMessageViaExtensionApi } from '../session-orientation/juncture.js';
-import type { BrunchSessionOrientationDeps } from '../session-orientation/registrar.js';
+import {
+  orientationJunctureGate,
+  type BrunchSessionOrientationDeps,
+} from '../session-orientation/registrar.js';
 import {
   runBrunchWorkspaceAction,
   type BrunchSpecSessionPickerOptions,
@@ -69,11 +77,13 @@ export type BrunchCommandsOptions = BrunchSpecSessionPickerOptions & {
    */
   readonly getCommandContext?: () => ExtensionCommandContext | undefined;
   /**
-   * J5 (SPEC-side mode-switch orientation) dep. When present, a mode switch
-   * INTO Specify (`elicit`) fires the orientation dialog with
-   * `trigger: 'mode-switch'` and — on a non-`continue` choice — kicks the
-   * new SPEC opening turn via the shared live-kick helper. CODE-side mode
-   * switches are owned by `execute-entry-readiness` and stay silent here.
+   * J5 mode-switch orientation dep. When present, a mode switch first settles
+   * any in-flight assistant turn (abort + wait for idle, with the J4
+   * esc-abort juncture suppressed via the shared gate), then fires the target
+   * mode's menu. The menu owns which selected choice suppresses a kick
+   * (Specify uses `continue`; Execute has none); escape/timeout always
+   * resolves to the inert `dismissed` and never kicks. Degraded no-UI
+   * switches stay silent.
    */
   readonly sessionOrientation?: BrunchSessionOrientationDeps;
 };
@@ -84,6 +94,15 @@ interface RuntimeSwitchContext {
   readonly mode: ExtensionCommandContext['mode'];
   readonly hasUI: ExtensionCommandContext['hasUI'];
   readonly modelRegistry: ExtensionCommandContext['modelRegistry'];
+  /**
+   * Turn-control surface for settling an in-flight assistant turn before the
+   * mode-switch orientation menu shows. Optional because the alt+m shortcut
+   * context lacks `waitForIdle`; the shortcut path borrows a full command
+   * context from the composition root when one is available.
+   */
+  readonly isIdle?: ExtensionCommandContext['isIdle'];
+  readonly abort?: ExtensionCommandContext['abort'];
+  readonly waitForIdle?: ExtensionCommandContext['waitForIdle'];
 }
 
 function normalizeAxisArg(args: string): string {
@@ -94,7 +113,15 @@ function formatOperationalModeChoices(): string {
   return OPERATIONAL_MODE_IDS.map((mode) => `${mode} (${operationalModeLabel(mode)})`).join(', ');
 }
 
-type ModeSwitchOptions = Pick<BrunchCommandsOptions, 'requestChromeRefresh' | 'sessionOrientation'>;
+type ModeSwitchOptions = Pick<
+  BrunchCommandsOptions,
+  'requestChromeRefresh' | 'sessionOrientation' | 'getCommandContext'
+>;
+
+const MODE_SWITCH_ORIENTATION_MENUS = {
+  elicit: SESSION_ORIENTATION_MENU,
+  execute: CODE_SESSION_ORIENTATION_MENU,
+} as const satisfies Record<OperationalModeId, SessionOrientationMenuDescriptor>;
 
 async function openModePicker(
   pi: ExtensionAPI,
@@ -127,23 +154,46 @@ async function applyModeSwitchAndOrient(
   nextMode: OperationalModeId,
   options: ModeSwitchOptions,
 ): Promise<void> {
-  applyModeSwitch(pi, ctx, nextMode, options);
-  if (nextMode === 'elicit' && options.sessionOrientation) {
-    await runSpecModeSwitchOrientation(pi, ctx, options.sessionOrientation);
+  if (options.sessionOrientation) {
+    // A turn composed under the old mode's prompt is conceptually stale the
+    // moment the user switches, and its streaming/exchange UI would displace
+    // the orientation menu (J5 race). Abort it and wait for idle before
+    // touching runtime state or showing the menu.
+    await settleInFlightTurn(ctx, options.sessionOrientation);
   }
+  applyModeSwitch(pi, ctx, nextMode, options);
+  if (!options.sessionOrientation) return;
+  await runModeSwitchOrientation(
+    pi,
+    ctx,
+    options.sessionOrientation,
+    MODE_SWITCH_ORIENTATION_MENUS[nextMode],
+  );
 }
 
-/**
- * J5 SPEC-side orientation: fires the dialog with `trigger: 'mode-switch'`
- * after a mode switch INTO Specify. On a non-`continue` choice, the shared
- * live-kick helper originates + kicks a fresh SPEC opening turn shaped by
- * that choice; on `continue` (or escape/timeout), the user retains the
- * floor and no kick fires — the entry rule still writes the resolution.
- */
-async function runSpecModeSwitchOrientation(
+async function settleInFlightTurn(
+  ctx: RuntimeSwitchContext,
+  orientationDeps: BrunchSessionOrientationDeps,
+): Promise<void> {
+  if (typeof ctx.isIdle !== 'function' || typeof ctx.abort !== 'function') return;
+  if (ctx.isIdle()) return;
+  const gate = orientationJunctureGate(orientationDeps);
+  // The abort below lands as an agent_end with stopReason 'aborted'; without
+  // this claim the J4 esc-abort dialog would fire on top of the J5 menu.
+  gate.suppressNextAbortJuncture = true;
+  ctx.abort();
+  await ctx.waitForIdle?.();
+  // agent_end has been dispatched by the time the agent is idle again; clear
+  // the claim defensively so a non-consuming edge case cannot swallow a later
+  // real esc-abort juncture.
+  gate.suppressNextAbortJuncture = false;
+}
+
+async function runModeSwitchOrientation(
   pi: ExtensionAPI,
   ctx: RuntimeSwitchContext,
   deps: BrunchSessionOrientationDeps,
+  menu: SessionOrientationMenuDescriptor,
 ): Promise<void> {
   const kickContext = await deps.resolveKickContext();
   await runJunctureForContext({
@@ -156,6 +206,7 @@ async function runSpecModeSwitchOrientation(
     },
     trigger: 'mode-switch',
     mode: 'follow-choice',
+    menu,
     kick: kickContext
       ? { ...kickContext, sendCustomMessage: sendCustomMessageViaExtensionApi(pi) }
       : undefined,
@@ -231,7 +282,9 @@ function registerRuntimeSwitchCommands(pi: ExtensionAPI, options: ModeSwitchOpti
   pi.registerShortcut?.(BRUNCH_MODE_SHORTCUT, {
     description: 'Change the Brunch mode',
     handler: async (ctx) => {
-      await openModePicker(pi, ctx, options);
+      // Shortcut contexts lack waitForIdle; borrow a full command context so
+      // the in-flight-turn settle before the orientation menu can await idle.
+      await openModePicker(pi, options.getCommandContext?.() ?? ctx, options);
     },
   });
 }

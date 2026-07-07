@@ -54,7 +54,13 @@ export interface RequestChoicesEditorFlowParams {
 
 function terminalResult(exchangeId: string, status: 'cancelled' | 'unavailable', message?: string) {
   const details = projectRequestChoices({ exchangeId, status, message });
-  return { content: [{ type: 'text' as const, text: formatRequestChoices(details) }], details };
+  return {
+    content: [{ type: 'text' as const, text: formatRequestChoices(details) }],
+    details,
+    // A user cancel means "leave me inert": end the turn on this tool result.
+    // Unavailable stays reactive so the model can reroute.
+    ...(status === 'cancelled' ? { terminate: true } : {}),
+  };
 }
 
 function choicesWithSpecialOptions(params: RequestChoicesEditorFlowParams): StructuredExchangeChoice[] {

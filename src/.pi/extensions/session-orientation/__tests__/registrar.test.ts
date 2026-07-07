@@ -11,7 +11,11 @@ import { BRUNCH_KICK_CUSTOM_TYPE } from '../../../../session/originate-assistant
 import { BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE } from '../../../../session/session-orientation.js';
 import { SESSION_ORIENTATION_MENU } from '../index.js';
 import type { JunctureContextKick } from '../juncture.js';
-import { BRUNCH_CONSULT_COMMAND, registerBrunchSessionOrientation } from '../registrar.js';
+import {
+  BRUNCH_CONSULT_COMMAND,
+  orientationJunctureGate,
+  registerBrunchSessionOrientation,
+} from '../registrar.js';
 
 interface CapturedEntry {
   readonly type: 'custom' | 'custom_message';
@@ -21,7 +25,7 @@ interface CapturedEntry {
 }
 
 function labelFor(id: string): string {
-  return SESSION_ORIENTATION_MENU.find((item) => item.id === id)!.label;
+  return SESSION_ORIENTATION_MENU.items.find((item) => item.id === id)!.label;
 }
 
 interface Handlers {
@@ -222,6 +226,40 @@ describe('registerBrunchSessionOrientation', () => {
       type: 'custom',
       customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
       data: { schemaVersion: 1, choice: 'propose_oracle', trigger: 'consult' },
+    });
+  });
+
+  it('skips J4 exactly once when a product flow claimed the abort via the shared gate', async () => {
+    const { pi, handlers } = collectPi();
+    const deps = { resolveKickContext: () => undefined };
+    registerBrunchSessionOrientation(pi, deps);
+    orientationJunctureGate(deps).suppressNextAbortJuncture = true;
+
+    const abortedEvent = {
+      type: 'agent_end' as const,
+      messages: [
+        {
+          role: 'assistant',
+          content: [],
+          stopReason: 'aborted',
+          usage: { input: 0, output: 0 },
+          timestamp: 0,
+        } as never,
+      ],
+    };
+
+    const { ctx: suppressedCtx, entries: suppressed } = buildCtx(labelFor('ingest'));
+    await handlers.agent_end!(abortedEvent, suppressedCtx);
+    expect(suppressed).toEqual([]);
+    expect(orientationJunctureGate(deps).suppressNextAbortJuncture).toBe(false);
+
+    // The claim is one-shot: a later real esc-abort runs the dialog again.
+    const { ctx: laterCtx, entries: later } = buildCtx(labelFor('ingest'));
+    await handlers.agent_end!(abortedEvent, laterCtx);
+    expect(later.at(-1)).toEqual({
+      type: 'custom',
+      customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
+      data: { schemaVersion: 1, choice: 'ingest', trigger: 'abort' },
     });
   });
 

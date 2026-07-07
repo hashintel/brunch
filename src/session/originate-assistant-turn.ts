@@ -182,7 +182,9 @@ function kickTurnContent(origin: 'new_session' | 'resume_debt' | 'manual_trigger
 
 export function originateAssistantTurn(input: OriginateAssistantTurnInput): OriginateAssistantTurnResult {
   const slice = input.reads.queryGraph();
-  const orientation = freshSessionOrientationChoice(input.entries, BRUNCH_KICK_CUSTOM_TYPE);
+  const freshChoice = freshSessionOrientationChoice(input.entries, BRUNCH_KICK_CUSTOM_TYPE);
+  // A dismissed menu is inert: it never routes an opening turn.
+  const orientation = freshChoice === 'dismissed' ? undefined : freshChoice;
   // Origin is derived from projected transcript state, not counts or flags
   // (I46/I47): a transcript with no conversational message entries is a new
   // session; anything else takes the caller-named resume decision, which

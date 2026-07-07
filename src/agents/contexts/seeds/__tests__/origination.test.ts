@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ElicitationScratchpadItem } from '../../../../session/elicitation-scratchpad.js';
-import { SESSION_ORIENTATION_CHOICES } from '../../../../session/session-orientation.js';
+import {
+  SESSION_ORIENTATION_CHOICES,
+  type SessionOrientationDirectiveChoice,
+} from '../../../../session/session-orientation.js';
 import { composeContextSeedContent } from '../origination.js';
+
+// The inert `dismissed` never renders a directive section; only directive
+// choices participate in seed composition.
+const DIRECTIVE_CHOICES = SESSION_ORIENTATION_CHOICES.filter(
+  (choice): choice is SessionOrientationDirectiveChoice => choice !== 'dismissed',
+);
 
 const specId = 7;
 
@@ -96,7 +105,7 @@ describe('composeContextSeedContent', () => {
     expect(content).not.toContain('SESSION ORIENTATION');
   });
 
-  it.each(SESSION_ORIENTATION_CHOICES)('emits a distinct orientation section for choice %s', (choice) => {
+  it.each(DIRECTIVE_CHOICES)('emits a distinct orientation section for choice %s', (choice) => {
     const content = composeContextSeedContent({
       specId,
       slice: { nodes: [], edges: [], lsn: 1 },

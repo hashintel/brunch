@@ -48,6 +48,7 @@ export function exportSeedFixture(db: BrunchDb, input: ExportSeedFixtureInput): 
     title: node.title,
     body: node.body ?? null,
     basis: node.basis,
+    settlement: node.settlement,
     source: node.source ?? null,
     detail: node.detail ?? null,
   }));
@@ -68,6 +69,7 @@ export function exportSeedFixture(db: BrunchDb, input: ExportSeedFixtureInput): 
         target_local_id: targetLocalId,
         stance: edge.stance ?? null,
         basis: edge.basis,
+        settlement: edge.settlement,
         rationale: edge.rationale ?? null,
       };
     });
