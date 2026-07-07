@@ -43,6 +43,7 @@ import { registerBrunchExecuteReportInit } from '../.pi/extensions/executor/inde
 import { registerBrunchExecuteRunComplete } from '../.pi/extensions/executor/index.js';
 import { registerBrunchExecuteRunCreate } from '../.pi/extensions/executor/index.js';
 import { registerBrunchExecuteReplanRecommendation } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecuteReplanRetryCurrentStep } from '../.pi/extensions/executor/index.js';
 import { registerBrunchExecuteReplanStartNewRun } from '../.pi/extensions/executor/index.js';
 import { registerBrunchExecuteRunUpdates } from '../.pi/extensions/executor/index.js';
 import { registerBrunchExecuteSourceCopy } from '../.pi/extensions/executor/index.js';
@@ -367,6 +368,9 @@ export function createBrunchPiExtensions(
       registerBrunchExecuteRunComplete,
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteRunCreate(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteReplanRecommendation(api, graph)] : []),
+      ...(graph
+        ? [(api: ExtensionAPI) => registerBrunchExecuteReplanRetryCurrentStep(api, executionPorts, graph)]
+        : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteReplanStartNewRun(api, graph)] : []),
       registerBrunchExecuteSourcePolicy,
       registerBrunchExecuteSourceCopy,

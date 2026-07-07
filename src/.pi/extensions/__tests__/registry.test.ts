@@ -56,6 +56,7 @@ import { BRUNCH_EXECUTE_PLAN_PREVIEW_TOOL } from '../executor/execute-plan-previ
 import { BRUNCH_EXECUTE_POPULATE_TOOL } from '../executor/execute-populate/index.js';
 import { BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL } from '../executor/execute-promotion-prepare/index.js';
 import { BRUNCH_EXECUTE_REPLAN_RECOMMENDATION_TOOL } from '../executor/execute-replan-recommendation/index.js';
+import { BRUNCH_EXECUTE_REPLAN_RETRY_CURRENT_STEP_TOOL } from '../executor/execute-replan-retry-current-step/index.js';
 import { BRUNCH_EXECUTE_REPLAN_START_NEW_RUN_TOOL } from '../executor/execute-replan-start-new-run/index.js';
 import { BRUNCH_EXECUTE_REPORT_INIT_TOOL } from '../executor/execute-report-init/index.js';
 import { BRUNCH_EXECUTE_RUN_COMPLETE_TOOL } from '../executor/execute-run-complete/index.js';
@@ -999,6 +1000,134 @@ describe('Brunch explicit Pi extension registry', () => {
     });
     await expect(readFile(oldMetadataPath, 'utf8')).resolves.not.toContain('supersedesRunId');
     await expect(readFile(newMetadataPath, 'utf8')).resolves.toContain('"supersedesRunId": "run-old"');
+  });
+
+  it('registers execute_replan_retry_current_step as guarded one-step retry', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-retry-current-step-'));
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
+    const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
+    const metadataPath = join(runDir, 'run.json');
+    await mkdir(dirname(planPath), { recursive: true });
+    await mkdir(runDir, { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(
+      provenancePath,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        specId: '42',
+        mode: 'greenfield',
+        source: { graphLsn: 23, visibility: 'active' },
+      })}\n`,
+      'utf8',
+    );
+    await writeFile(
+      metadataPath,
+      JSON.stringify({ runId: 'run-1', specId: '42', planPath, status: 'created' }),
+      'utf8',
+    );
+    const registeredTools = await collectProductTools({
+      graph: {
+        specId: 42,
+        lsn: 23,
+        nodes: [
+          {
+            id: 1,
+            specId: 42,
+            plane: 'intent',
+            kind: 'requirement',
+            kindOrdinal: 1,
+            title: 'Run the cooked feature',
+            body: 'Feature runs through the alpha executor.',
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+          {
+            id: 2,
+            specId: 42,
+            plane: 'intent',
+            kind: 'criterion',
+            kindOrdinal: 1,
+            title: 'Feature visible',
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+        ],
+        edges: [
+          {
+            id: 1,
+            specId: 42,
+            category: 'witness',
+            stance: 'for',
+            sourceId: 2,
+            targetId: 1,
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+        ],
+      },
+      gitWorktree: createFakeGitWorktreePort(),
+    });
+
+    const retry = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_REPLAN_RETRY_CURRENT_STEP_TOOL);
+    expect(retry).toBeDefined();
+    const result = await retry!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
+
+    expect(result.content[0]?.text).toContain('execute_replan_retry_current_step: retried_current_step');
+    expect(result.content[0]?.text).toContain('outcome run status: worktree_created');
+    expect(result.details).toMatchObject({
+      result: {
+        status: 'retried_current_step',
+        eligibility: { status: 'retry_current_run' },
+        outcome: { status: 'completed', runStatus: 'worktree_created' },
+        sideEffects: [],
+      },
+      sideEffects: [],
+    });
+    await expect(readFile(metadataPath, 'utf8')).resolves.toContain('"status": "worktree_created"');
+  });
+
+  it('registers execute_replan_retry_current_step as stale-run refusal', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-retry-current-step-stale-'));
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
+    const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
+    const metadataPath = join(runDir, 'run.json');
+    await mkdir(dirname(planPath), { recursive: true });
+    await mkdir(runDir, { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(
+      provenancePath,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        specId: '42',
+        mode: 'greenfield',
+        source: { graphLsn: 22, visibility: 'active' },
+      })}\n`,
+      'utf8',
+    );
+    await writeFile(
+      metadataPath,
+      JSON.stringify({ runId: 'run-1', specId: '42', planPath, status: 'created' }),
+      'utf8',
+    );
+    const registeredTools = await collectProductTools({
+      graph: { specId: 42, lsn: 23, nodes: [], edges: [] },
+      gitWorktree: createFakeGitWorktreePort(),
+    });
+
+    const retry = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_REPLAN_RETRY_CURRENT_STEP_TOOL);
+    const result = await retry!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
+
+    expect(result.content[0]?.text).toContain('execute_replan_retry_current_step: retry_not_allowed');
+    expect(result.details).toMatchObject({
+      result: { status: 'retry_not_allowed', eligibility: { status: 'replan_before_retry' } },
+      sideEffects: [],
+    });
+    await expect(readFile(metadataPath, 'utf8')).resolves.toContain('"status":"created"');
   });
 
   it('registers execute_worktree_create as empty worktree materialization only', async () => {
@@ -2087,7 +2216,7 @@ describe('Brunch explicit Pi extension registry', () => {
     // EXECUTOR_ALLOWED_TOOL_NAMES; the registered-but-unadmitted plan artifact
     // tools are intentionally excluded, and text and details must agree.
     expect(result.content[0]?.text).toContain(
-      'ported tools: execute_status, execute_orchestrate, execute_snapshot, execute_plan_check, execute_plan_outline, execute_plan_draft, execute_plan_preview, execute_plan_file, execute_launch, execute_run_create, execute_replan_recommendation, execute_replan_start_new_run, execute_worktree_create, execute_populate, execute_source_policy, execute_source_copy, execute_report_init, execute_slice_start, execute_slice_execute, execute_agent_result, execute_test_result, execute_slice_complete, execute_run_complete, execute_petri_export, execute_promotion_prepare, execute_host_promotion_preflight, execute_host_promotion_apply',
+      'ported tools: execute_status, execute_orchestrate, execute_snapshot, execute_plan_check, execute_plan_outline, execute_plan_draft, execute_plan_preview, execute_plan_file, execute_launch, execute_run_create, execute_replan_recommendation, execute_replan_start_new_run, execute_replan_retry_current_step, execute_worktree_create, execute_populate, execute_source_policy, execute_source_copy, execute_report_init, execute_slice_start, execute_slice_execute, execute_agent_result, execute_test_result, execute_slice_complete, execute_run_complete, execute_petri_export, execute_promotion_prepare, execute_host_promotion_preflight, execute_host_promotion_apply',
     );
     expect(result.content[0]?.text).toContain('pending tools: none');
     expect(result.content[0]?.text).toContain(
@@ -2109,6 +2238,7 @@ describe('Brunch explicit Pi extension registry', () => {
         'execute_run_create',
         'execute_replan_recommendation',
         'execute_replan_start_new_run',
+        'execute_replan_retry_current_step',
         'execute_worktree_create',
         'execute_populate',
         'execute_source_policy',
