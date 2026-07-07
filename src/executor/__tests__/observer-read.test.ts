@@ -166,4 +166,66 @@ describe('readRunDetail', () => {
       'e4',
     ]);
   });
+
+  it('builds requirement statuses from the populated plan snapshot when available', async () => {
+    const cwd = await fixtureCwd('brunch-observer-populated-plan-');
+    const runDir = await writeRun(cwd, 'run-populated', {
+      status: 'slice_completed',
+      completedSliceIds: ['task-1'],
+    });
+    const stalePlanPath = join(runDir, 'stale-plan.json');
+    const populatedPlanPath = join(runDir, 'worktree', '.brunch', 'cook', 'plan.yaml');
+    await mkdir(join(runDir, 'worktree', '.brunch', 'cook'), { recursive: true });
+    await writeFile(
+      stalePlanPath,
+      JSON.stringify({
+        spec: { requirements: [{ item_id: 'REQ_STALE', content: 'Stale requirement' }] },
+        slices: [{ id: 'stale-task', derived_from: ['REQ_STALE'] }],
+      }),
+      'utf8',
+    );
+    await writeFile(
+      populatedPlanPath,
+      JSON.stringify({
+        spec: {
+          requirements: [{ item_id: 'REQ1', content: 'Populated requirement' }],
+          criteria: [{ item_id: 'AC1', verifies: ['REQ1'] }],
+        },
+        slices: [{ id: 'task-1', derived_from: ['REQ1'] }],
+      }),
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'reports.jsonl'),
+      '{"event":"slice_test_result","sliceId":"task-1","status":"passed"}\n',
+      'utf8',
+    );
+    await writeFile(
+      runMetadataPath(cwd, 'run-populated'),
+      `${JSON.stringify({
+        runId: 'run-populated',
+        specId: '42',
+        planPath: stalePlanPath,
+        populatedPlanPath,
+        status: 'slice_completed',
+        completedSliceIds: ['task-1'],
+      })}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-populated');
+
+    expect(detail && 'requirements' in detail ? detail.requirements : []).toEqual([
+      {
+        requirementId: 'REQ1',
+        content: 'Populated requirement',
+        status: 'passed',
+        sliceIds: ['task-1'],
+        completedSliceIds: ['task-1'],
+        failedSliceIds: [],
+        missingVerificationSliceIds: [],
+        criterionIds: ['AC1'],
+      },
+    ]);
+  });
 });

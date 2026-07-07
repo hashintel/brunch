@@ -2,7 +2,10 @@ import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-age
 import { Type, type Static } from 'typebox';
 
 import type { ExecutionPlanOutline } from '../../../../executor/execute-plan-outline.js';
-import { projectExecuteGraph } from '../../../../executor/execute-projection.js';
+import {
+  assertExecuteProjectionPlanReady,
+  projectExecuteGraph,
+} from '../../../../executor/execute-projection.js';
 import { writePlanOutlineArtifact } from '../../../../executor/plan-outline-artifact.js';
 import { BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
@@ -60,6 +63,7 @@ export function createExecutePlanOutlineArtifactTool(
         nodes: graph.nodes,
         edges: graph.edges,
       });
+      assertExecuteProjectionPlanReady(projection);
       const outline = projection.outline;
       const artifact = await writePlanOutlineArtifact({ cwd, outline });
       return {

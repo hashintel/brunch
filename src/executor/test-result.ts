@@ -3,7 +3,14 @@ import { dirname, join } from 'node:path';
 
 import type { TestRunnerPort, TestRunUpdate } from './execution-ports.js';
 import { reportsPath } from './report.js';
-import { assertSafeSliceId, runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
+import {
+  assertSafeSliceId,
+  runDirPath,
+  runMetadataPath,
+  persistRunMetadata,
+  readRunMetadata,
+  type RunMetadata,
+} from './run.js';
 import { worktreeDirPath } from './worktree.js';
 
 export type TestResultIngestResult =

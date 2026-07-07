@@ -137,7 +137,11 @@ export async function readRunDetail(
     agentStreamTotal: agentStream.total,
     verifyStreamTail: verifyStream.tail,
     verifyStreamTotal: verifyStream.total,
-    requirements: await readRequirementStatuses(metadata.planPath, metadata, reports.events),
+    requirements: await readRequirementStatuses(
+      metadata.populatedPlanPath ?? metadata.planPath,
+      metadata,
+      reports.events,
+    ),
     ...(petriNet === undefined ? {} : { petriNet }),
   };
 }
@@ -148,7 +152,13 @@ async function readVerifyStreamTail(
   metadata: RunMetadata,
   limit: number,
 ): Promise<{ tail: readonly VerifyStreamEvent[]; total: number }> {
-  const events = await readStreamEvents<VerifyStreamEvent>(cwd, runId, metadata, 'verify_stream', verifyStreamPath);
+  const events = await readStreamEvents<VerifyStreamEvent>(
+    cwd,
+    runId,
+    metadata,
+    'verify_stream',
+    verifyStreamPath,
+  );
   return { tail: events.slice(-limit), total: events.length };
 }
 
@@ -334,7 +344,13 @@ async function readAgentStreamTail(
   if (!metadata.activeSliceId && (!metadata.completedSliceIds || metadata.completedSliceIds.length === 0)) {
     return { tail: [], total: 0 };
   }
-  const events = await readStreamEvents<AgentStreamEvent>(cwd, runId, metadata, 'agent_stream', agentStreamPath);
+  const events = await readStreamEvents<AgentStreamEvent>(
+    cwd,
+    runId,
+    metadata,
+    'agent_stream',
+    agentStreamPath,
+  );
   return { tail: events.slice(-limit), total: events.length };
 }
 

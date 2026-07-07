@@ -98,9 +98,17 @@ export interface DriveContext {
   readonly runtime?: AgentRunnerRuntime;
   readonly signal?: AbortSignal;
   /** Fired before each ready step starts (observer hook; errors are swallowed). */
-  readonly onStepStart?: (step: ReadyStep['kind'], runStatus: RunMetadata['status'], progress: DriveStepProgress) => void;
+  readonly onStepStart?: (
+    step: ReadyStep['kind'],
+    runStatus: RunMetadata['status'],
+    progress: DriveStepProgress,
+  ) => void;
   /** Fired after each step that advanced run.json (observer hook; errors are swallowed). */
-  readonly onStepComplete?: (step: ReadyStep['kind'], runStatus: RunMetadata['status'], progress: DriveStepProgress) => void;
+  readonly onStepComplete?: (
+    step: ReadyStep['kind'],
+    runStatus: RunMetadata['status'],
+    progress: DriveStepProgress,
+  ) => void;
   /** Fired when the sealed worker emits normalized stream events during agent_result. */
   readonly onAgentUpdate?: (event: AgentStreamEvent) => void;
   /** Fired when the verify runner emits normalized stream events during test_result. */
@@ -165,7 +173,11 @@ export async function drive(
     }
     if (result.runStatus !== 'not_started') {
       try {
-        ctx.onStepComplete?.(next.kind, result.runStatus, progressForStep('completed', next, state, result.runStatus));
+        ctx.onStepComplete?.(
+          next.kind,
+          result.runStatus,
+          progressForStep('completed', next, state, result.runStatus),
+        );
       } catch {
         // Observer failures never affect the drive.
       }

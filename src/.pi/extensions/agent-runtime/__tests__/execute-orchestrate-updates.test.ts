@@ -10,7 +10,11 @@ import {
   createFakeGitWorktreePort,
   createFakeTestRunnerPort,
 } from '../../../../executor/__tests__/fake-ports.js';
-import type { AgentRunnerPort, ExecutionPorts, TestRunnerPort } from '../../../../executor/execution-ports.js';
+import type {
+  AgentRunnerPort,
+  ExecutionPorts,
+  TestRunnerPort,
+} from '../../../../executor/execution-ports.js';
 import { planFilePath } from '../../../../executor/plan-file.js';
 import { createRun } from '../../../../executor/run.js';
 import { createProductUpdatePublisher, type ProductUpdate } from '../../../../rpc/product-updates.js';
@@ -38,7 +42,9 @@ const streamingTestRunner: TestRunnerPort = {
   },
 };
 
-function fakePorts(options: { readonly agentRunner?: AgentRunnerPort; readonly testRunner?: TestRunnerPort } = {}): ExecutionPorts {
+function fakePorts(
+  options: { readonly agentRunner?: AgentRunnerPort; readonly testRunner?: TestRunnerPort } = {},
+): ExecutionPorts {
   return {
     gitWorktree: createFakeGitWorktreePort(),
     agentRunner: options.agentRunner ?? completedAgentRunner,
@@ -81,7 +87,7 @@ describe('execute_orchestrate intra-drive updates', () => {
       { cwd } as never,
     );
 
-    expect(result.details?.outcome.status).toBe('completed');
+    expect(result.details?.outcome?.status).toBe('completed');
     // One publish per advanced step: created -> ... -> promotion_prepared for one slice = 13 steps.
     expect(published).toHaveLength(13);
     for (const updates of published) {
@@ -125,7 +131,7 @@ describe('execute_orchestrate intra-drive updates', () => {
       { cwd } as never,
     );
 
-    expect(result.details?.outcome.status).toBe('completed');
+    expect(result.details?.outcome?.status).toBe('completed');
     expect(updates.map((update) => update.split('\n')[0])).toEqual([
       'execute_orchestrate: worktree_create started from created',
       'execute_orchestrate: worktree_create -> worktree_created',
@@ -154,9 +160,9 @@ describe('execute_orchestrate intra-drive updates', () => {
       'execute_orchestrate: promotion started from petri_exported',
       'execute_orchestrate: promotion -> promotion_prepared',
     ]);
-    expect(updates.find((update) => update.startsWith('execute_orchestrate: agent_result started'))).toContain(
-      'slice: t1',
-    );
+    expect(
+      updates.find((update) => update.startsWith('execute_orchestrate: agent_result started')),
+    ).toContain('slice: t1');
   });
 
   it('emits worker stream updates between agent_result start and completion', async () => {
@@ -176,7 +182,7 @@ describe('execute_orchestrate intra-drive updates', () => {
       { cwd } as never,
     );
 
-    expect(result.details?.outcome.status).toBe('completed');
+    expect(result.details?.outcome?.status).toBe('completed');
     const agentStart = updates.findIndex((update) =>
       update.startsWith('execute_orchestrate: agent_result started'),
     );
@@ -206,7 +212,7 @@ describe('execute_orchestrate intra-drive updates', () => {
       { cwd } as never,
     );
 
-    expect(result.details?.outcome.status).toBe('completed');
+    expect(result.details?.outcome?.status).toBe('completed');
     const testStart = updates.findIndex((update) =>
       update.startsWith('execute_orchestrate: test_result started'),
     );

@@ -240,4 +240,37 @@ describe('completeRun', () => {
       status: 'slice_completed',
     });
   });
+
+  it('treats corrupt report lines as missing verification instead of crashing', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-complete-corrupt-report-'));
+    await createSliceCompletedRun(cwd, ['task-1', 'task-2'], [{ sliceId: 'task-1', status: 'passed' }]);
+    await writeFile(
+      reportsPath(cwd, 'run-1'),
+      [
+        JSON.stringify({ event: 'run_ready' }),
+        JSON.stringify({
+          event: 'slice_test_result',
+          runId: 'run-1',
+          epicId: 'frontier-1',
+          sliceId: 'task-1',
+          status: 'passed',
+          exitCode: 0,
+        }),
+        '{"event":"slice_test_result","sliceId":"task-2",',
+      ].join('\n') + '\n',
+      'utf8',
+    );
+
+    const result = await completeRun({ cwd, runId: 'run-1' });
+
+    expect(result).toEqual({
+      status: 'verification_missing',
+      runStatus: 'slice_completed',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      reportsPath: reportsPath(cwd, 'run-1'),
+      missingSliceIds: ['task-2'],
+      sideEffects: [],
+    });
+  });
 });

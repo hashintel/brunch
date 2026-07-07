@@ -139,4 +139,49 @@ describe('createTestRunnerPort', () => {
       { kind: 'status', message: 'npm run verify exited 0' },
     ]);
   });
+
+  it('waits for async subprocess output updates before reporting final status', async () => {
+    let releaseStdout!: () => void;
+    const stdoutPersisted = new Promise<void>((resolve) => {
+      releaseStdout = resolve;
+    });
+    const updates: unknown[] = [];
+    const port = createTestRunnerPort({
+      run: async (_command, _args, options) => {
+        options.onOutput?.({ stream: 'stdout', text: 'chunk' });
+        return { exitCode: 0, stdout: 'chunk', stderr: '' };
+      },
+    });
+
+    let resolved = false;
+    const run = port
+      .run({
+        worktreeDir: '/repo/wt',
+        onUpdate: async (update) => {
+          updates.push(update);
+          if (update.kind === 'stdout') await stdoutPersisted;
+        },
+      })
+      .then((result) => {
+        resolved = true;
+        return result;
+      });
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 0);
+    });
+
+    expect(resolved).toBe(false);
+    expect(updates).toEqual([
+      { kind: 'status', message: 'npm run verify started' },
+      { kind: 'stdout', message: 'chunk' },
+    ]);
+
+    releaseStdout();
+    await expect(run).resolves.toMatchObject({ status: 'completed', verdict: 'passed' });
+    expect(updates).toEqual([
+      { kind: 'status', message: 'npm run verify started' },
+      { kind: 'stdout', message: 'chunk' },
+      { kind: 'status', message: 'npm run verify exited 0' },
+    ]);
+  });
 });

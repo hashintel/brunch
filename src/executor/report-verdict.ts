@@ -5,6 +5,12 @@ export type SliceVerificationVerdict =
   | { readonly status: 'failed'; readonly failedSliceIds: readonly string[] }
   | { readonly status: 'missing'; readonly missingSliceIds: readonly string[] };
 
+interface ReportEventCandidate {
+  readonly event?: unknown;
+  readonly sliceId?: unknown;
+  readonly status?: unknown;
+}
+
 export async function readSliceVerificationVerdict(args: {
   readonly reportsPath: string;
   readonly expectedSliceIds: readonly string[];
@@ -27,11 +33,12 @@ export async function readSliceVerificationVerdict(args: {
   for (const rawLine of content.split('\n')) {
     const line = rawLine.trim();
     if (!line) continue;
-    const event = JSON.parse(line) as {
-      readonly event?: unknown;
-      readonly sliceId?: unknown;
-      readonly status?: unknown;
-    };
+    let event: ReportEventCandidate;
+    try {
+      event = JSON.parse(line) as ReportEventCandidate;
+    } catch {
+      continue;
+    }
     if (event.event !== 'slice_test_result') continue;
     if (typeof event.sliceId !== 'string' || !expected.has(event.sliceId)) continue;
     if (event.status !== 'passed' && event.status !== 'failed') continue;

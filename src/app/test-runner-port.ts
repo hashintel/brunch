@@ -18,15 +18,20 @@ export function createTestRunnerPort(
   return {
     async run({ worktreeDir, signal, onUpdate }) {
       await onUpdate?.({ kind: 'status', message: `${target} started` });
+      let outputUpdateChain: Promise<void> = Promise.resolve();
+      const queueOutputUpdate = (chunk: { readonly stream: 'stdout' | 'stderr'; readonly text: string }) => {
+        outputUpdateChain = outputUpdateChain.then(async () => {
+          await onUpdate?.({ kind: chunk.stream, message: chunk.text });
+        });
+      };
       const result = await run(command, args, {
         cwd: worktreeDir,
         signal,
         timeoutMs: TEST_RUNNER_TIMEOUT_MS,
         maxOutputBytes: TEST_RUNNER_MAX_OUTPUT_BYTES,
-        onOutput: (chunk) => {
-          void onUpdate?.({ kind: chunk.stream, message: chunk.text });
-        },
+        onOutput: queueOutputUpdate,
       });
+      await outputUpdateChain;
       if (result.aborted) {
         await onUpdate?.({ kind: 'status', message: `${target} aborted` });
         return { status: 'failed', message: `${target} aborted` };

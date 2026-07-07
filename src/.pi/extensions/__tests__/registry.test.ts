@@ -1600,6 +1600,126 @@ describe('Brunch explicit Pi extension registry', () => {
     ).resolves.toContain('Run the cooked feature');
   });
 
+  it('blocks execute_plan_outline_artifact before writing when projection has unprojected dependencies', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-plan-outline-blocked-'));
+    const artifactPath = join(cwd, '.brunch', 'execution-reports', '42', 'plan-outline.json');
+    const registeredTools: Array<{
+      name: string;
+      execute: (
+        toolCallId: string,
+        params: unknown,
+        signal?: AbortSignal,
+        onUpdate?: unknown,
+        ctx?: { cwd: string },
+      ) => Promise<{
+        content: readonly { text: string }[];
+        details: Record<string, unknown>;
+      }>;
+    }> = [];
+
+    await createBrunchPiExtensions(brunchChromeFixture, undefined, {
+      coordinator: {} as never,
+      graphMentionSource: { listMentionCandidates: () => [] },
+      graph: {
+        specId: 42,
+        commandExecutor: {} as never,
+        reads: {
+          queryGraph: () =>
+            ({
+              lsn: 15,
+              nodes: [
+                {
+                  id: 1,
+                  specId: 42,
+                  plane: 'intent',
+                  kind: 'requirement',
+                  kindOrdinal: 1,
+                  title: 'Run the cooked feature',
+                  body: 'Feature runs through the alpha executor.',
+                  basis: 'explicit',
+                  settlement: 'settled',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+                {
+                  id: 2,
+                  specId: 42,
+                  plane: 'intent',
+                  kind: 'criterion',
+                  kindOrdinal: 1,
+                  title: 'Feature is verified',
+                  body: 'Feature has a passing verification signal.',
+                  basis: 'explicit',
+                  settlement: 'settled',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+                {
+                  id: 3,
+                  specId: 42,
+                  plane: 'intent',
+                  kind: 'constraint',
+                  kindOrdinal: 1,
+                  title: 'Respect deployment boundary',
+                  body: 'Execution must not cross the deployment boundary.',
+                  basis: 'explicit',
+                  settlement: 'settled',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+              ],
+              edges: [
+                {
+                  id: 1,
+                  specId: 42,
+                  category: 'witness',
+                  sourceId: 2,
+                  targetId: 1,
+                  stance: 'for',
+                  basis: 'explicit',
+                  settlement: 'settled',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+                {
+                  id: 2,
+                  specId: 42,
+                  category: 'dependency',
+                  sourceId: 3,
+                  targetId: 1,
+                  basis: 'explicit',
+                  settlement: 'settled',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+              ],
+            }) as never,
+          getNodes: () => [],
+          resolveNodeCode: () => undefined,
+          getOpenReconciliationNeeds: () => [],
+          latestLsn: () => 15,
+        },
+      },
+    })({
+      on() {},
+      registerTool(tool: (typeof registeredTools)[number]) {
+        registeredTools.push(tool);
+      },
+      registerCommand() {},
+      registerShortcut() {},
+      registerMessageRenderer() {},
+      sendMessage() {},
+      getAllTools: () => [],
+      setActiveTools() {},
+    } as never);
+
+    const artifact = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL);
+    await expect(artifact!.execute('call-1', {}, undefined, undefined, { cwd })).rejects.toThrow(
+      'Execution plan projection is blocked',
+    );
+    await expect(access(artifactPath)).rejects.toThrow();
+  });
+
   it('registers execute_snapshot only with selected graph deps and returns a side-effect-free projection', async () => {
     const registeredTools: Array<{
       name: string;

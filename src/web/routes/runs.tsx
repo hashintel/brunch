@@ -154,7 +154,9 @@ function RequirementsPanel({ run }: { run: RunDetail }) {
     <section aria-label="Requirement status" className="flex flex-col gap-2">
       <p className="text-hint text-xxs font-mono">Requirements</p>
       {run.requirements.length === 0 ? (
-        <p className="border-rule bg-tint text-sub rounded-xl border p-4 text-sm">No requirements projected.</p>
+        <p className="border-rule bg-tint text-sub rounded-xl border p-4 text-sm">
+          No requirements projected.
+        </p>
       ) : (
         <ol className="border-rule flex flex-col gap-2 rounded-xl border bg-white p-4 shadow-[var(--shadow-card)]">
           {run.requirements.map((requirement) => (
@@ -214,7 +216,7 @@ function StreamPanel({
                 <span className="text-sub text-xs">{event.sliceId}</span>
                 <span className="text-hint font-mono text-xs">#{event.sequence}</span>
               </div>
-              <p className="text-sub whitespace-pre-wrap text-sm">{event.message}</p>
+              <p className="text-sub text-sm whitespace-pre-wrap">{event.message}</p>
             </li>
           ))}
         </ol>

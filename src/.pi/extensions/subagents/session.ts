@@ -360,7 +360,9 @@ function subscribeToSessionStream(
   });
 }
 
-function hasSubscribe(value: unknown): value is { subscribe: (listener: (event: unknown) => void) => () => void } {
+function hasSubscribe(
+  value: unknown,
+): value is { subscribe: (listener: (event: unknown) => void) => () => void } {
   return (
     typeof value === 'object' &&
     value !== null &&

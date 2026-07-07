@@ -1,9 +1,9 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
+import type { AgentStreamEvent } from '../../../../executor/agent-result.js';
 import type { ExecutionPorts } from '../../../../executor/execution-ports.js';
 import { drive, type DriveOutcome, type DriveStepProgress } from '../../../../executor/orchestrate.js';
-import type { AgentStreamEvent } from '../../../../executor/agent-result.js';
 import type { VerifyStreamEvent } from '../../../../executor/test-result.js';
 import { executeRunProductUpdates, type ProductUpdatePublisher } from '../../../../rpc/product-updates.js';
 import { BRUNCH_EXECUTE_ORCHESTRATE_TOOL } from '../../../../session/schema/tool-names.js';
@@ -54,7 +54,10 @@ export function createExecuteOrchestrateTool(
       const publisher = deps?.productUpdates;
       const emitProgress = (progress: DriveStepProgress): void => {
         const sliceLine = progress.activeSliceId
-          ? [`slice: ${progress.activeSliceId}`, ...(progress.activeEpicId ? [`epic: ${progress.activeEpicId}`] : [])]
+          ? [
+              `slice: ${progress.activeSliceId}`,
+              ...(progress.activeEpicId ? [`epic: ${progress.activeEpicId}`] : []),
+            ]
           : [];
         const stepLine =
           progress.phase === 'started'

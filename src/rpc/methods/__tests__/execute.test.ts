@@ -30,7 +30,11 @@ function request(name: string, params?: unknown): JsonRpcRequest {
   } as JsonRpcRequest;
 }
 
-async function writeRun(cwd: string, runId: string, options: { readonly planPath?: string } = {}): Promise<void> {
+async function writeRun(
+  cwd: string,
+  runId: string,
+  options: { readonly planPath?: string } = {},
+): Promise<void> {
   await mkdir(runDirPath(cwd, runId), { recursive: true });
   await writeFile(
     runMetadataPath(cwd, runId),
