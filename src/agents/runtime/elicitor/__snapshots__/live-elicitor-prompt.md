@@ -7,7 +7,7 @@ Fixed body.
 - operational mode id: specify (Specify)
 - foreground role: elicitor
 - active tools: read, grep, present_question
-- prompt resources: code-owned live skill list only; no runtime axis negotiation
+- prompt resources: code-owned live skill and shared reference lists only; no runtime axis negotiation
 
 [Brunch live skills]
 - Each `<location>` below is an absolute path to that skill's SKILL.md; these are the only live Brunch prompt resources.
@@ -56,6 +56,34 @@ Fixed body.
     <location><PKG>/src/agents/skills/tutorial/SKILL.md</location>
   </skill>
 </brunch-skills>
+
+[Brunch shared references]
+- These static references are shared by all foreground Brunch agents.
+- Use the read tool to load a listed reference at its given location when product, graph, ontology, or readiness context matters.
+- This manifest is discoverability only; reference bodies are loaded on demand, not inlined into every prompt.
+
+<brunch-references>
+  <reference>
+    <name>data-model</name>
+    <description>Graph vocabulary, planes, node kinds, edge categories, and model-facing data concepts.</description>
+    <location><PKG>/src/agents/references/data-model.md</location>
+  </reference>
+  <reference>
+    <name>node-neighbourhoods</name>
+    <description>How to read graph neighborhoods, anchor-relative labels, and edge direction.</description>
+    <location><PKG>/src/agents/references/node-neighbourhoods.md</location>
+  </reference>
+  <reference>
+    <name>product-concept</name>
+    <description>Short Brunch product concept, mode roles, and graph-native specification model.</description>
+    <location><PKG>/src/agents/references/product-concept.md</location>
+  </reference>
+  <reference>
+    <name>readiness-bands</name>
+    <description>Canonical readiness, settlement, and capability-readiness band terminology.</description>
+    <location><PKG>/src/agents/references/readiness-bands.md</location>
+  </reference>
+</brunch-references>
 
 [Brunch live elicitor context]
 - selected spec: Live Assembly Spec (#42)
