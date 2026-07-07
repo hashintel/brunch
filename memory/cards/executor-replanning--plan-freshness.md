@@ -54,7 +54,7 @@ This is a proving tracer. It stabilizes the replanning invariant: a saved plan i
 
 - Inner: focused Vitest around `plan-file.ts` / `launch.ts` for provenance write/read and stale detection.
 - Adapter: registry execute-launch test proving tool details expose stale vs ready honestly.
-- Regression: construct an old ready plan, mutate the graph to add an unprojected dependency, and assert launch is blocked/stale rather than ready.
+- Regression: construct an old ready plan, mutate the graph so the current executable projection changes or becomes blocked by true plan-input errors, and assert launch is stale/blocked rather than ready.
 - Gate: `npm run verify`.
 
 ## Cross-cutting Obligations

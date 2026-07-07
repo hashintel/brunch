@@ -55,19 +55,4 @@ describe('checkExecutionSpecForPlan', () => {
       },
     ]);
   });
-
-  it('blocks dependency edges that cannot be lowered into slice dependencies', () => {
-    const result = checkExecutionSpecForPlan({
-      ...baseSnapshot,
-      unprojectedDependencies: [{ dependencyId: 'D1', dependentId: 'REQ2' }],
-    });
-
-    expect(result.status).toBe('blocked');
-    expect(result.findings).toContainEqual({
-      code: 'unprojected_dependency',
-      severity: 'error',
-      itemId: 'REQ2',
-      message: 'Dependency D1 -> REQ2 cannot be represented in the executable plan as a slice dependency.',
-    });
-  });
 });

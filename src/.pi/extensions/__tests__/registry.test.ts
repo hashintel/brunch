@@ -1668,8 +1668,8 @@ describe('Brunch explicit Pi extension registry', () => {
     ).resolves.toContain('Run the cooked feature');
   });
 
-  it('blocks execute_plan_outline_artifact before writing when projection has unprojected dependencies', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-plan-outline-blocked-'));
+  it('writes execute_plan_outline_artifact when non-requirement dependency edges are only graph context', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-plan-outline-context-deps-'));
     const artifactPath = join(cwd, '.brunch', 'execution-reports', '42', 'plan-outline.json');
     const registeredTools: Array<{
       name: string;
@@ -1782,10 +1782,10 @@ describe('Brunch explicit Pi extension registry', () => {
     } as never);
 
     const artifact = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL);
-    await expect(artifact!.execute('call-1', {}, undefined, undefined, { cwd })).rejects.toThrow(
-      'Execution plan projection is blocked',
-    );
-    await expect(access(artifactPath)).rejects.toThrow();
+    const result = await artifact!.execute('call-1', {}, undefined, undefined, { cwd });
+
+    expect(result.content[0]?.text).toContain('execute_plan_outline_artifact:');
+    await expect(access(artifactPath)).resolves.toBeUndefined();
   });
 
   it('registers execute_snapshot only with selected graph deps and returns a side-effect-free projection', async () => {

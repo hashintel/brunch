@@ -165,7 +165,7 @@ describe('projectExecutionSpecSnapshot', () => {
     expect(snapshot.context.oracle.map((item) => item.itemId)).toEqual(['CH1']);
   });
 
-  it('records projected dependency edges that are not executable requirement dependencies', () => {
+  it('ignores dependency edges that are not executable requirement dependencies', () => {
     const requirement = node({
       id: 10,
       plane: 'intent',
@@ -189,6 +189,6 @@ describe('projectExecutionSpecSnapshot', () => {
     });
 
     expect(snapshot.requirements[0]?.dependsOn).toEqual([]);
-    expect(snapshot.unprojectedDependencies).toEqual([{ dependencyId: 'D1', dependentId: 'REQ1' }]);
+    expect(snapshot).not.toHaveProperty('unprojectedDependencies');
   });
 });
