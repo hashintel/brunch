@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, watch } from 'node:fs';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
@@ -102,8 +102,8 @@ export function createComponentPreviewTheme(variant?: ComponentPreviewThemeVaria
  * so they follow the toggle without their own overrides.
  */
 export class SwitchableComponentPreviewTheme extends Theme {
-  readonly #variants: Record<ComponentPreviewThemeVariant, Theme>;
-  readonly #pageBgs: Record<ComponentPreviewThemeVariant, string | undefined>;
+  #variants: Record<ComponentPreviewThemeVariant, Theme>;
+  #pageBgs: Record<ComponentPreviewThemeVariant, string | undefined>;
   #active: ComponentPreviewThemeVariant;
 
   constructor(initial: ComponentPreviewThemeVariant = resolveInitialComponentPreviewThemeVariant()) {
@@ -133,6 +133,25 @@ export class SwitchableComponentPreviewTheme extends Theme {
   toggle(): ComponentPreviewThemeVariant {
     this.#active = this.#active === 'dark' ? 'light' : 'dark';
     return this.#active;
+  }
+
+  /**
+   * Re-read both theme JSONs from disk and rebuild the variant Themes.
+   * Because all color reads delegate per call, live components pick up the
+   * new values on their next render — same choreography as `toggle()`.
+   * Throws on unreadable/invalid JSON; callers decide whether a bad
+   * mid-edit save is fatal (the watcher below just keeps the last good set).
+   */
+  reload(): void {
+    const darkPalette = loadBrunchThemePalette('dark');
+    const lightPalette = loadBrunchThemePalette('light');
+    this.#variants = {
+      dark: new Theme(darkPalette.fgColors, darkPalette.bgColors, 'truecolor', { name: darkPalette.name }),
+      light: new Theme(lightPalette.fgColors, lightPalette.bgColors, 'truecolor', {
+        name: lightPalette.name,
+      }),
+    };
+    this.#pageBgs = { dark: darkPalette.pageBg, light: lightPalette.pageBg };
   }
 
   override fg(color: ThemeColor, text: string): string {
@@ -200,6 +219,37 @@ export function registerComponentPreviewThemeToggle(
   return () => {
     removeListener();
     tui.terminal.write('\x1b]111\x07');
+  };
+}
+
+/**
+ * Hot-reload the theme JSONs while the harness runs: watch
+ * `src/.pi/themes/`, and on any change to `brunch-*.json` rebuild the
+ * variant Themes and repaint — edit a value in your editor, save, and the
+ * running preview reskins on the next render pass. A mid-edit save with
+ * invalid JSON keeps the last good palette (reload throws, we swallow and
+ * wait for the next write). Debounced because editors typically fire
+ * multiple fs events per save.
+ */
+export function watchComponentPreviewTheme(tui: TUI, theme: SwitchableComponentPreviewTheme): () => void {
+  let timer: NodeJS.Timeout | undefined;
+  const watcher = watch(fileURLToPath(THEME_DIR), (_event, filename) => {
+    if (filename !== null && !/^brunch-.*\.json$/.test(filename)) return;
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      try {
+        theme.reload();
+      } catch {
+        return; // mid-edit invalid JSON: keep the last good palette
+      }
+      if (theme.pageBg !== undefined) tui.terminal.write(`\x1b]11;${theme.pageBg}\x07`);
+      tui.invalidate();
+      tui.requestRender();
+    }, 50);
+  });
+  return () => {
+    clearTimeout(timer);
+    watcher.close();
   };
 }
 

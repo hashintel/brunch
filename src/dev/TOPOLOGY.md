@@ -58,7 +58,13 @@ components are render-only with injectable `theme`/props.
   `tui.invalidate()`; every color read delegates to the active variant, so no component needs a
   retheme contract. The terminal page background follows the toggle too (OSC 11 set to the theme
   JSON's `export.pageBg`, OSC 111 reset on exit) since theme colors only style glyphs.
-  `BRUNCH_PREVIEW_THEME=light` selects the initial variant.
+  `BRUNCH_PREVIEW_THEME=light` selects the initial variant. The theme JSONs also **hot-reload**:
+  `watchComponentPreviewTheme` watches `src/.pi/themes/` and rebuilds the variant palettes on save
+  (last-good palette kept across mid-edit invalid JSON), so theme-value work iterates against the
+  live harness. The `theme-testbed` entry (`theme-testbed.ts`) is the companion surface: the same
+  markdown fixture through pi's assistant markdown theme (real highlight.js `syntax*` token colors,
+  via pi's registered global theme symbol + a bound facade) and brunch's exchange markdown theme,
+  plus a fg/bg contrast strip.
 - `keybindings` is a real `pi-tui` `KeybindingsManager` (`createComponentPreviewKeybindings()`), not a
   stub — `BrunchEditorComponent`'s inherited `CustomEditor.handleInput` calls `.matches(...)` for
   app-level actions (escape-to-cancel, ctrl+d-to-exit), which a stub can't satisfy. Built from

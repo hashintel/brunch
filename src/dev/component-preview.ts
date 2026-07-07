@@ -12,6 +12,7 @@ import { COMPONENT_PREVIEW_REGISTRY } from './component-preview/registry.js';
 import {
   registerComponentPreviewThemeToggle,
   SwitchableComponentPreviewTheme,
+  watchComponentPreviewTheme,
 } from './component-preview/theme.js';
 
 export interface ComponentPreviewGalleryOptions {
@@ -62,9 +63,11 @@ export async function runComponentPreviewGallery(
     }
     tui.start();
     const disposeThemeToggle = registerComponentPreviewThemeToggle(tui, theme);
+    const disposeThemeWatch = watchComponentPreviewTheme(tui, theme);
     try {
       await entry.open(tui, theme, keybindings);
     } finally {
+      disposeThemeWatch();
       disposeThemeToggle();
       tui.stop();
     }
@@ -73,7 +76,9 @@ export async function runComponentPreviewGallery(
 
   await new Promise<void>((resolveQuit) => {
     let disposeThemeToggle: (() => void) | undefined;
+    let disposeThemeWatch: (() => void) | undefined;
     const gallery = new ComponentGalleryComponent(COMPONENT_PREVIEW_REGISTRY, theme, keybindings, tui, () => {
+      disposeThemeWatch?.();
       disposeThemeToggle?.();
       tui.stop();
       resolveQuit();
@@ -82,5 +87,6 @@ export async function runComponentPreviewGallery(
     tui.setFocus(gallery);
     tui.start();
     disposeThemeToggle = registerComponentPreviewThemeToggle(tui, theme);
+    disposeThemeWatch = watchComponentPreviewTheme(tui, theme);
   });
 }

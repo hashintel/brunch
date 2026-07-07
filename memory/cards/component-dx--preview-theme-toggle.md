@@ -63,6 +63,59 @@ src/.pi/components/
 ✓ Key-matching convention recorded in src/.pi/components/TOPOLOGY.md §Build/test convention
 ```
 
+## Card 3 — theme-value feedback loop: hot reload + markdown/syntax testbed [done 2026-07-07]
+
+Light scope card, opened for the palette-rework request (fuchsia primary /
+orange secondary / added vibrants; dark-mode gray contrast). This card builds
+the loop; the value rework itself iterates through it.
+
+### Objective
+
+`npm run dev:components` gives a live feedback loop for pinning theme values:
+edits to `src/.pi/themes/brunch-*.json` hot-reload into the running harness,
+and a `theme-testbed` entry renders markdown, real syntax highlighting, and a
+fg/bg contrast strip through both live markdown surfaces.
+
+### What landed
+
+- `SwitchableComponentPreviewTheme.reload()` + `watchComponentPreviewTheme`
+  (fs.watch on the themes dir, debounced, last-good palette on invalid JSON),
+  wired in both gallery and deep-link modes with OSC 11 repaint.
+- `theme-testbed` registry entry (`theme-testbed.ts`): scrollable fixture
+  through (a) pi's assistant markdown surface — public `getMarkdownTheme()` /
+  `highlightCode` made usable by installing a bound facade of the preview
+  theme at pi's registered global symbol
+  (`Symbol.for('@earendil-works/pi-coding-agent:theme')` — the documented
+  cross-module-instance sharing seam; facade because pi reads through a Proxy
+  that breaks private-field `this`) — and (b) brunch's exchange markdown
+  surface (`createStructuredExchangeMarkdownTheme`, flat code blocks by
+  design), plus a contrast strip of text/gray fg tokens and message bg tokens.
+
+### Acceptance Criteria
+
+```
+✓ Testbed renders both surfaces: syntaxKeyword ANSI present (assistant surface),
+  mdHeading ANSI present, contrast strip fg + bg tokens present
+✓ Toggle flows through without reconstruction (delegated reads test)
+✓ reload() rebuilds from disk without breaking reads
+✓ Full verify gate green
+```
+
+## Card 4 — theme value rework [next]
+
+Design-iteration card, works *through* Card 3's loop; no fixed acceptance
+tests — pinning is by eye in the testbed, both variants, plus the existing
+component entries.
+
+Direction (user, 2026-07-07):
+- fuchsia/pink becomes the key accent; orange (apricot) demoted to secondary
+- add vibrant cyan / green / blue to the vars vocabulary (syntax + md tokens
+  are the natural consumers)
+- fix dark-mode gray ramp: `text` contrast on `pageBg` currently too low;
+  re-tune text/gray/dimGray/darkGray steps against #201b17
+- both `brunch-dark.json` and `brunch-light.json` stay a matched pair
+```
+
 Light scope card.
 
 Posture: earned (inherited from component-dx — the preview harness is a settled dev-tooling seam; both theme JSONs and the variant-aware `createComponentPreviewTheme(variant)` already exist).
