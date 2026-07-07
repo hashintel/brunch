@@ -25,9 +25,13 @@ type ExecutePlanFileParams = Static<typeof ExecutePlanFileParams>;
 
 interface ExecutePlanFileDetails {
   readonly preview: PlanPreview;
-  readonly artifact: { readonly path: string; readonly writeMode: 'overwrite' };
+  readonly artifact: {
+    readonly path: string;
+    readonly provenancePath: string;
+    readonly writeMode: 'overwrite';
+  };
   readonly source: { readonly graphLsn: number; readonly visibility: 'active' };
-  readonly sideEffects: readonly [{ readonly kind: 'write_file'; readonly path: string }];
+  readonly sideEffects: readonly { readonly kind: 'write_file'; readonly path: string }[];
 }
 
 export interface ExecutePlanFileDeps {
@@ -59,7 +63,7 @@ export function createExecutePlanFileTool(
       });
       assertExecuteProjectionPlanReady(projection);
       const preview = projection.planPreview;
-      const artifact = await writePlanFile({ cwd, preview });
+      const artifact = await writePlanFile({ cwd, preview, source: projection.source });
       return {
         content: [
           {
@@ -75,7 +79,11 @@ export function createExecutePlanFileTool(
         ],
         details: {
           preview,
-          artifact: { path: artifact.path, writeMode: artifact.writeMode },
+          artifact: {
+            path: artifact.path,
+            provenancePath: artifact.provenancePath,
+            writeMode: artifact.writeMode,
+          },
           source: projection.source,
           sideEffects: artifact.sideEffects,
         },

@@ -11,8 +11,8 @@ executor/
 ├── TOPOLOGY.md
 ├── agent-result.ts       AgentRunnerPort -> slice result report + normalized worker stream artifact
 ├── orchestrate.ts        run facts + RunScheduler -> drive() over the lifecycle steps
-├── plan-file.ts          old cook-compatible DTO preview -> spec-scoped plan.yaml
-├── launch.ts             spec-scoped plan.yaml -> non-running launch readiness
+├── plan-file.ts          old cook-compatible DTO preview -> spec-scoped plan.yaml + provenance
+├── launch.ts             spec-scoped plan.yaml provenance -> non-running launch readiness
 ├── plan-preview.ts       executable-plan draft -> old cook-compatible DTO preview
 ├── petri.ts              completed run -> minimal Petrinaut net.json
 ├── promotion.ts          petri-exported run -> run-local promotion (GitLandPort) + report
@@ -65,9 +65,9 @@ rules:
 | `epics[].probe`, `epics[].reachability` | deferred/absent | Alpha has no truthful boot/probe or host-blind reachability source yet. |
 | `slices[].writes` | deferred/absent | Alpha has no file-layout authoring source yet; do not invent ownership. |
 
-`plan-file.ts` is the first executable-plan-file boundary: it strips preview-only fields (`schemaVersion`, `sideEffects`) and writes old-cook `Plan` payload data to `.brunch/cook/specs/<specId>/plan.yaml` as a single explicit `write_file` side effect. It still does not create cook runs, worktrees, Petri artifacts, graph mutations, or promotion refs.
+`plan-file.ts` is the first executable-plan-file boundary: it strips preview-only fields (`schemaVersion`, `sideEffects`) and writes old-cook `Plan` payload data to `.brunch/cook/specs/<specId>/plan.yaml`, plus a sibling `plan.provenance.json` recording the graph LSN / visibility / mode used to produce that payload. It still does not create cook runs, worktrees, Petri artifacts, graph mutations, or promotion refs.
 
-`launch.ts` is the first runner-facing boundary, but it is intentionally non-running: it validates whether the selected spec's bounded `plan.yaml` is missing or ready and returns `runStatus: not_started` with no side effects. Actual run creation, worktrees, Petri artifacts, reports, promotion refs, and land branches remain out of scope until a later runner slice accepts those side effects explicitly.
+`launch.ts` is the first runner-facing boundary, but it is intentionally non-running: it validates whether the selected spec's bounded `plan.yaml` is missing, lacks provenance, is stale against the current graph projection, is blocked by current projection findings, or is ready, and returns `runStatus: not_started` with no side effects. Actual run creation, worktrees, Petri artifacts, reports, promotion refs, and land branches remain out of scope until a later runner slice accepts those side effects explicitly.
 
 `run.ts` creates only metadata for a ready plan: `.brunch/cook/runs/<runId>/run.json` with the selected spec id, plan path, and `status:"created"`. It accepts the first run-resource side effect but still does not create a worktree, Petri artifact, report log, promotion ref, or land branch.
 

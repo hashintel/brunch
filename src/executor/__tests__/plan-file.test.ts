@@ -4,7 +4,13 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { planFilePayload, planFilePath, writePlanFile } from '../plan-file.js';
+import {
+  planFilePayload,
+  planFilePath,
+  planProvenancePath,
+  readPlanFileProvenance,
+  writePlanFile,
+} from '../plan-file.js';
 import type { PlanPreview } from '../plan-preview.js';
 
 const preview: PlanPreview = {
@@ -45,15 +51,26 @@ describe('cook plan file writer', () => {
     expect(payload).not.toHaveProperty('sideEffects');
   });
 
-  it('writes one bounded spec-scoped plan.yaml with explicit overwrite semantics', async () => {
+  it('writes one bounded spec-scoped plan.yaml plus provenance with explicit overwrite semantics', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-plan-file-'));
-    const result = await writePlanFile({ cwd, preview });
+    const source = { graphLsn: 18, visibility: 'active' as const };
+    const result = await writePlanFile({ cwd, preview, source });
 
     expect(result).toEqual({
       path: planFilePath(cwd, '42'),
+      provenancePath: planProvenancePath(cwd, '42'),
       writeMode: 'overwrite',
-      sideEffects: [{ kind: 'write_file', path: planFilePath(cwd, '42'), ifExists: 'overwrite' }],
+      sideEffects: [
+        { kind: 'write_file', path: planFilePath(cwd, '42'), ifExists: 'overwrite' },
+        { kind: 'write_file', path: planProvenancePath(cwd, '42'), ifExists: 'overwrite' },
+      ],
     });
     expect(JSON.parse(await readFile(planFilePath(cwd, '42'), 'utf8'))).toEqual(planFilePayload(preview));
+    await expect(readPlanFileProvenance({ cwd, specId: '42' })).resolves.toEqual({
+      schemaVersion: 1,
+      specId: '42',
+      mode: 'brownfield',
+      source,
+    });
   });
 });

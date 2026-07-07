@@ -599,16 +599,27 @@ describe('Brunch explicit Pi extension registry', () => {
     const result = await planFile!.execute('call-1', { mode: 'brownfield' }, undefined, undefined, { cwd });
 
     const path = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
     expect(result.content[0]?.text).toContain('execute_plan_file:');
     expect(result.details).toMatchObject({
-      artifact: { path, writeMode: 'overwrite' },
+      artifact: { path, provenancePath, writeMode: 'overwrite' },
       source: { graphLsn: 18, visibility: 'active' },
-      sideEffects: [{ kind: 'write_file', path, ifExists: 'overwrite' }],
+      sideEffects: [
+        { kind: 'write_file', path, ifExists: 'overwrite' },
+        { kind: 'write_file', path: provenancePath, ifExists: 'overwrite' },
+      ],
     });
     const payload = JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>;
     expect(payload).toMatchObject({ mode: 'brownfield', spec: { spec_id: '42' } });
     expect(payload).not.toHaveProperty('schemaVersion');
     expect(payload).not.toHaveProperty('sideEffects');
+    const provenance = JSON.parse(await readFile(provenancePath, 'utf8')) as Record<string, unknown>;
+    expect(provenance).toMatchObject({
+      schemaVersion: 1,
+      specId: '42',
+      mode: 'brownfield',
+      source: { graphLsn: 18, visibility: 'active' },
+    });
   });
 
   it('registers execute_launch as a selected-spec non-running readiness boundary', async () => {
@@ -634,7 +645,48 @@ describe('Brunch explicit Pi extension registry', () => {
         specId: 42,
         commandExecutor: {} as never,
         reads: {
-          queryGraph: () => ({ lsn: 19, nodes: [], edges: [] }) as never,
+          queryGraph: () =>
+            ({
+              lsn: 19,
+              nodes: [
+                {
+                  id: 1,
+                  specId: 42,
+                  plane: 'intent',
+                  kind: 'requirement',
+                  kindOrdinal: 1,
+                  title: 'Run the cooked feature',
+                  body: 'Feature runs through the alpha executor.',
+                  basis: 'explicit',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+                {
+                  id: 2,
+                  specId: 42,
+                  plane: 'intent',
+                  kind: 'criterion',
+                  kindOrdinal: 1,
+                  title: 'Feature visible',
+                  basis: 'explicit',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+              ],
+              edges: [
+                {
+                  id: 1,
+                  specId: 42,
+                  category: 'witness',
+                  stance: 'for',
+                  sourceId: 2,
+                  targetId: 1,
+                  basis: 'explicit',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+              ],
+            }) as never,
           getNodes: () => [],
           resolveNodeCode: () => undefined,
           getOpenReconciliationNeeds: () => [],
@@ -667,6 +719,16 @@ describe('Brunch explicit Pi extension registry', () => {
 
     await mkdir(dirname(planPath), { recursive: true });
     await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(
+      join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json'),
+      `${JSON.stringify({
+        schemaVersion: 1,
+        specId: '42',
+        mode: 'greenfield',
+        source: { graphLsn: 19, visibility: 'active' },
+      })}\n`,
+      'utf8',
+    );
     const ready = await launch!.execute('call-2', {}, undefined, undefined, { cwd });
 
     expect(ready.content[0]?.text).toContain('execute_launch: ready');
@@ -1254,7 +1316,11 @@ describe('Brunch explicit Pi extension registry', () => {
       }),
       'utf8',
     );
-    await writeFile(reportPath, '{"event":"run_ready"}\n', 'utf8');
+    await writeFile(
+      reportPath,
+      '{"event":"run_ready"}\n{"event":"slice_test_result","sliceId":"task-1","status":"passed"}\n',
+      'utf8',
+    );
     const registeredTools = await collectProductTools({
       graph: { specId: 42, lsn: 30, nodes: [], edges: [] },
     });
