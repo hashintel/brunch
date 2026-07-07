@@ -56,7 +56,9 @@ components are render-only with injectable `theme`/props.
   does not expose pi's shipped theme-loading internals outside a running session. **ctrl+t** toggles
   dark/light live — including while an entry is open — via a consuming TUI input listener plus
   `tui.invalidate()`; every color read delegates to the active variant, so no component needs a
-  retheme contract. `BRUNCH_PREVIEW_THEME=light` selects the initial variant.
+  retheme contract. The terminal page background follows the toggle too (OSC 11 set to the theme
+  JSON's `export.pageBg`, OSC 111 reset on exit) since theme colors only style glyphs.
+  `BRUNCH_PREVIEW_THEME=light` selects the initial variant.
 - `keybindings` is a real `pi-tui` `KeybindingsManager` (`createComponentPreviewKeybindings()`), not a
   stub — `BrunchEditorComponent`'s inherited `CustomEditor.handleInput` calls `.matches(...)` for
   app-level actions (escape-to-cancel, ctrl+d-to-exit), which a stub can't satisfy. Built from

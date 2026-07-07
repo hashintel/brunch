@@ -40,6 +40,7 @@ interface BrunchThemeJson {
   name: string;
   vars?: Record<string, string>;
   colors: Record<string, string>;
+  export?: { pageBg?: string };
 }
 
 export type ComponentPreviewThemeVariant = 'dark' | 'light';
@@ -52,6 +53,8 @@ interface BrunchThemePalette {
   readonly name: string;
   readonly fgColors: Record<ThemeColor, string>;
   readonly bgColors: Record<ThemeBgToken, string>;
+  /** Whole-page background from the theme's `export` block (used for OSC 11). */
+  readonly pageBg: string | undefined;
 }
 
 function loadBrunchThemePalette(variant: ComponentPreviewThemeVariant): BrunchThemePalette {
@@ -74,6 +77,7 @@ function loadBrunchThemePalette(variant: ComponentPreviewThemeVariant): BrunchTh
     name: parsed.name,
     fgColors: fgColors as Record<ThemeColor, string>,
     bgColors: bgColors as Record<ThemeBgToken, string>,
+    pageBg: parsed.export?.pageBg !== undefined ? resolve(parsed.export.pageBg) : undefined,
   };
 }
 
@@ -99,20 +103,31 @@ export function createComponentPreviewTheme(variant?: ComponentPreviewThemeVaria
  */
 export class SwitchableComponentPreviewTheme extends Theme {
   readonly #variants: Record<ComponentPreviewThemeVariant, Theme>;
+  readonly #pageBgs: Record<ComponentPreviewThemeVariant, string | undefined>;
   #active: ComponentPreviewThemeVariant;
 
   constructor(initial: ComponentPreviewThemeVariant = resolveInitialComponentPreviewThemeVariant()) {
-    const palette = loadBrunchThemePalette(initial);
-    super(palette.fgColors, palette.bgColors, 'truecolor', { name: palette.name });
+    const darkPalette = loadBrunchThemePalette('dark');
+    const lightPalette = loadBrunchThemePalette('light');
+    const initialPalette = initial === 'dark' ? darkPalette : lightPalette;
+    super(initialPalette.fgColors, initialPalette.bgColors, 'truecolor', { name: initialPalette.name });
     this.#variants = {
-      dark: createComponentPreviewTheme('dark'),
-      light: createComponentPreviewTheme('light'),
+      dark: new Theme(darkPalette.fgColors, darkPalette.bgColors, 'truecolor', { name: darkPalette.name }),
+      light: new Theme(lightPalette.fgColors, lightPalette.bgColors, 'truecolor', {
+        name: lightPalette.name,
+      }),
     };
+    this.#pageBgs = { dark: darkPalette.pageBg, light: lightPalette.pageBg };
     this.#active = initial;
   }
 
   get variant(): ComponentPreviewThemeVariant {
     return this.#active;
+  }
+
+  /** Active variant's whole-page background hex (theme JSON `export.pageBg`), if declared. */
+  get pageBg(): string | undefined {
+    return this.#pageBgs[this.#active];
   }
 
   toggle(): ComponentPreviewThemeVariant {
@@ -151,18 +166,35 @@ const CTRL_T = '\x14';
  * own theme-change choreography (`Component.invalidate()` is documented as
  * "called when theme changes" and `TUI.invalidate()` propagates to children
  * and overlays).
+ *
+ * Theme colors only style glyphs; the screen behind them is the terminal
+ * emulator's own background, so without repainting it a light toggle reads as
+ * light text on a dark page. Each switch (and registration) therefore also
+ * sets the terminal background via OSC 11 to the variant's `export.pageBg`
+ * from the theme JSON; the returned dispose restores the terminal default via
+ * OSC 111. Same session-scoped ownership discipline as the harness's SGR
+ * mouse opt-in in `custom-ui.ts`.
  */
 export function registerComponentPreviewThemeToggle(
   tui: TUI,
   theme: SwitchableComponentPreviewTheme,
 ): () => void {
-  return tui.addInputListener((data) => {
+  const paintPageBackground = (): void => {
+    if (theme.pageBg !== undefined) tui.terminal.write(`\x1b]11;${theme.pageBg}\x07`);
+  };
+  paintPageBackground();
+  const removeListener = tui.addInputListener((data) => {
     if (data !== CTRL_T) return undefined;
     theme.toggle();
+    paintPageBackground();
     tui.invalidate();
     tui.requestRender();
     return { consume: true };
   });
+  return () => {
+    removeListener();
+    tui.terminal.write('\x1b]111\x07');
+  };
 }
 
 /**

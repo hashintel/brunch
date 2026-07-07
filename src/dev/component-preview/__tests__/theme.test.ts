@@ -112,7 +112,7 @@ describe('registerComponentPreviewThemeToggle', () => {
     };
     tui.addChild(component);
     tui.setFocus(component);
-    registerComponentPreviewThemeToggle(tui, theme);
+    const dispose = registerComponentPreviewThemeToggle(tui, theme);
     tui.start();
 
     try {
@@ -121,6 +121,10 @@ describe('registerComponentPreviewThemeToggle', () => {
       const lightAccent = createComponentPreviewTheme('light').getFgAnsi('accent');
       expect(terminal.writes.join('')).toContain(darkAccent);
       expect(terminal.writes.join('')).not.toContain(lightAccent);
+      // Registration paints the initial variant's page background (OSC 11).
+      const darkPageBg = theme.pageBg;
+      expect(darkPageBg).toBeDefined();
+      expect(terminal.writes.join('')).toContain(`\x1b]11;${darkPageBg}\x07`);
 
       terminal.sendInput('\x14');
       await terminal.waitForRender();
@@ -128,6 +132,15 @@ describe('registerComponentPreviewThemeToggle', () => {
       expect(theme.variant).toBe('light');
       expect(terminal.writes.join('')).toContain(lightAccent);
       expect(received).not.toContain('\x14');
+
+      // The terminal background follows the toggle.
+      const lightPageBg = theme.pageBg;
+      expect(lightPageBg).not.toBe(darkPageBg);
+      expect(terminal.writes.join('')).toContain(`\x1b]11;${lightPageBg}\x07`);
+
+      // Dispose restores the terminal's default background (OSC 111).
+      dispose();
+      expect(terminal.writes.join('')).toContain('\x1b]111\x07');
     } finally {
       terminal.stop();
       tui.stop();

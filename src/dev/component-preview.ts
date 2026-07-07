@@ -53,7 +53,6 @@ export async function runComponentPreviewGallery(
   const tui = new TUI(terminal);
   const theme = new SwitchableComponentPreviewTheme();
   const keybindings = createComponentPreviewKeybindings();
-  registerComponentPreviewThemeToggle(tui, theme);
 
   if (options.entryId) {
     const entry = COMPONENT_PREVIEW_REGISTRY.find((candidate) => candidate.id === options.entryId);
@@ -62,21 +61,26 @@ export async function runComponentPreviewGallery(
       throw new Error(`Unknown component preview id "${options.entryId}". Known ids: ${known}`);
     }
     tui.start();
+    const disposeThemeToggle = registerComponentPreviewThemeToggle(tui, theme);
     try {
       await entry.open(tui, theme, keybindings);
     } finally {
+      disposeThemeToggle();
       tui.stop();
     }
     return;
   }
 
   await new Promise<void>((resolveQuit) => {
+    let disposeThemeToggle: (() => void) | undefined;
     const gallery = new ComponentGalleryComponent(COMPONENT_PREVIEW_REGISTRY, theme, keybindings, tui, () => {
+      disposeThemeToggle?.();
       tui.stop();
       resolveQuit();
     });
     tui.addChild(gallery);
     tui.setFocus(gallery);
     tui.start();
+    disposeThemeToggle = registerComponentPreviewThemeToggle(tui, theme);
   });
 }
