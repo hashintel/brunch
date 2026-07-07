@@ -1,12 +1,15 @@
 import { spawn } from 'node:child_process';
+import { join } from 'node:path';
 import process from 'node:process';
 
 import {
   createAgentSessionFromServices,
   createAgentSessionRuntime,
+  AuthStorage,
   createAgentSessionServices,
   getAgentDir,
   InteractiveMode,
+  ModelRegistry,
   type CreateAgentSessionFromServicesOptions,
   type CreateAgentSessionRuntimeFactory,
   type CreateAgentSessionServicesOptions,
@@ -45,6 +48,11 @@ import {
   type SpecSessionActivationCoordinator,
   type SpecSessionActivationDecision,
 } from '../session/workspace-session-coordinator.js';
+import {
+  createBrunchModelRegistry,
+  getBrunchScopedModels,
+  resolveBrunchModelPolicy,
+} from './model-policy.js';
 import {
   chromeStateForWorkspace,
   createBrunchPiExtensions,
@@ -613,21 +621,28 @@ export function createBrunchAgentSessionRuntimeFactory(
       ],
     });
 
+    const authStorage =
+      context.agentServices?.authStorage ?? AuthStorage.create(join(runtimeAgentDir, 'auth.json'));
+    const modelRegistry =
+      context.agentServices?.modelRegistry ?? createBrunchModelRegistry(ModelRegistry.inMemory(authStorage));
+    const modelPolicy = context.agentServices?.model ? undefined : resolveBrunchModelPolicy(modelRegistry);
+    const model = modelPolicy?.status === 'resolved' ? modelPolicy.model : context.agentServices?.model;
     const services = await createAgentSessionServices({
       cwd,
       agentDir: runtimeAgentDir,
       settingsManager: profile.settingsManager,
       resourceLoaderOptions: profile.resourceLoaderOptions,
-      ...(context.agentServices?.authStorage ? { authStorage: context.agentServices.authStorage } : {}),
-      ...(context.agentServices?.modelRegistry ? { modelRegistry: context.agentServices.modelRegistry } : {}),
+      authStorage,
+      modelRegistry,
     });
     const created = await createAgentSessionFromServices({
       services,
       sessionManager,
       ...projectBrunchPiSessionOptions({
         ...(sessionStartEvent ? { sessionStartEvent } : {}),
-        thinkingLevel: 'medium',
-        ...(context.agentServices?.model ? { model: context.agentServices.model } : {}),
+        thinkingLevel: modelPolicy?.status === 'resolved' ? modelPolicy.thinkingLevel : 'medium',
+        ...(model ? { model } : {}),
+        ...(context.agentServices?.model ? {} : { scopedModels: getBrunchScopedModels(modelRegistry) }),
       }),
     });
     liveAgentSession.current = created.session;

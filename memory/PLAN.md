@@ -21,6 +21,8 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 **Parallel executor lane (landed on `next`, 2026-07-06).** A sibling lane (KA) landed the execute-mode run machinery before the current stack rebased onto it: FE-1089 (orchestrator cutover), FE-1109 (sandbox worktrees + test-runner ports), FE-1111 (sealed-worker agent runner), FE-1112 (run-local promotion), FE-1118 (host-promotion preflight/apply), FE-1125 (run driver). `src/executor/` is now a pure run-lifecycle core over injected `ExecutionPorts` (D111-L, D112-L, I58-L), exposed as executor-only `execute_*` tools. This substantially delivers what `orchestrator-tool-port` (FE-1107) was scoped to open — see its re-baselined entry below. The new `executor-run-observer` frontier builds the first web-facing read surface over that substrate.
 
+**Alpha release lane (opened 2026-07-07).** Brunch ships as `@hashintel/brunch@1.0.0-alpha.x` from the `next` trunk. A same-day spike → grill → spec pass admitted `alpha-release-readiness` (FE-1159): two release-blocking packaging defects, a pinned model-allowlist policy (D113-L), Pi-auth-riding onboarding with `brunch login` (D114-L), and a no-auth upstream gate (D115-L). The KA-dependent plan decisions from the 2026-07-06 handoff (FE-1107 close-or-narrow, executor-card GC, walkthrough-evidence branch sequencing) remain deferred until the KA conversation happens.
+
 **Topology and evidence discipline.** Directory `TOPOLOGY.md` files under `src/**` own current topology state. `memory/SPEC.md` owns the thin product contract and live decision/invariant index; long-form SPEC history is archived in `docs/archive/SPEC_HISTORY.md`. `memory/PLAN.md` owns only rolling frontier state. Scratch probe artifacts under `.fixtures/scratch/` are not durable evidence until reviewed and promoted to `.fixtures/runs/`.
 
 ## Initiatives
@@ -67,6 +69,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Active
 
+- `alpha-release-readiness` (FE-1159) — get the `1.0.0-alpha` line publishable and onboardable (packaging fixes, pinned model allowlist, Pi-auth ride + `brunch login`, no-auth gate). Admitted 2026-07-07 from spike + grill + spec (D113-L/D114-L/D115-L, req 29, A38-L, I59-L). Branch `ln/fe-1159-alpha-release` (renamed from `ln/fe-xxx-executor-wiring`). Definition below.
 - `walkthrough-batch-2` (FE-1124) — continued doctor-pass scenarios (those not blocked on exchange-rendering) + fixture/seed preparation and generative-scenario variation sets (seed-variation worklist: TESTING_PLAN.md scenario 2). Branch `ln/fe-1124-walkthrough-batch-2` is the planning/seed base for the sibling ship-gate lanes. Findings ledger: `TESTING_FINDINGS.md`. Beat-5 findings F16/F17 spawned `session-entry-orientation`; its generative-option verification now has the propose/project variants and still needs live walkthrough evidence. Current execution pointer: `memory/cards/walkthrough-batch-2--seed-variants.md` (Card 3 remains: review variants).
 - `walkthrough-fixes` (FE-1122) — **built 2026-07-02** (all cards incl. F10 addendum; commits `e0701b4`…`486824b` on `ln/fe-1122-walkthrough-fixes`); pending PR tie-off. Walkthrough continues on a stacked follow-on branch.
 - `executor-run-observer` (FE-1141) — **tracer built 2026-07-06** (atomic run.json writer → `execute.runs`/`execute.run` projections → `/runs` + `/runs/$runId` routes → run-scoped `brunch.updated` topics; commits `2b3507c5`…`95e4cd2f` on `ka/fe-1141-executor-run-observer`). Remaining before tie-off: Petri raw `net.json` view (small slice) and the live-browser outer walkthrough.
@@ -98,7 +101,6 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Horizon
 
-- `alpha-release-readiness` — **candidate frontier (2026-07-07 spike, not yet admitted via ln-plan/ln-grill):** get the `1.0.0-alpha` line publishable and onboardable. Spike evidence (packed tarball installed in an isolated prefix, run from a foreign cwd): (1) **release-blocking build defect** — `build:pi-assets` `rm -rf`s `dist/agents/prompts|subagents|references` after tsc and copies only `.md` files back, deleting the compiled `dist/agents/prompts/registry.js`; installed CLI crashes at boot, and tsc incremental build info prevents re-emission on rebuild; (2) **release-blocking dependency defect** — `drizzle-orm`/`drizzle-typebox` are runtime imports of `dist/db/**` but sit in `devDependencies`; fresh installs crash with `ERR_MODULE_NOT_FOUND`; (3) with both patched, `brunch --mode print` works from a foreign cwd — `import.meta.url`-relative asset resolution inside `dist/` is sound and the tarball carries all live SKILL.md/reference/prompt/theme assets. Auth facts for the design grill: Brunch seals settings in-memory but rides Pi's default `~/.pi/agent/auth.json` (`FileAuthStorageBackend`, relocatable via `PI_CODING_AGENT_DIR`; env var → API key → OAuth per provider); the TUI is Pi's `InteractiveMode`, so Pi's `/login` already works inside `brunch`; no model is pinned anywhere (`BRUNCH_SETTINGS_POLICY` sets none; all subagent manifests say `model: default`); no-auth boot is silent (`no_model_available` skips origination with no user-facing warning). Open design questions (grill before scoping): standard provider (e.g. OpenRouter) + pinned model ids vs user choice; Pi-shared vs Brunch-owned XDG auth/config home; `brunch login` command (thin wrapper over public `AuthStorage.login()`); no-auth warning + onboarding copy.
 - `planning-process-model` — **demoted from Next #1 on 2026-07-03 (grill):** exploratory D103-L bet-proving, not ship-blocking. Behind the gate. Guard: the orientation menus' "project a plan" option routes to the existing `project`/`map-plans` seam at frontier-level depth (D103-L boundary) and must **not** pull this frontier forward. Groundwork stays parked on `ln/fe-xxx-plan-plane-redesign`; full definition below.
 - `main-editor-chrome` — wire `BrunchEditorComponent` as the persistent input editor via `ctx.ui.setEditorComponent` (D22-L/D35-L chrome territory). Split out of the former `bordered-chrome-production` on 2026-07-02 because it is not exchange work; carries the unverified render-height assumption its first tracer must resolve. De-risked by FE-1138: `ExchangeAnswerEditorComponent` proved `Editor`-inside-Brunch-chrome on the one-shot seam, and the rule-strip helpers are shared in `.pi/components/editor-lines.ts`.
 - `review-commentary-widening` — GitHub-style per-item review commentary: widen the review answered payload (`comments: [{on: draft|edge|set, body}]`, a SPEC decision) plus the collection UI. Deferred post-gate at FE-1138 scope (2026-07-03): the payload ripples into the review schema that capture-contract rows and the digest terminal consume. Sketch: `src/agents/contexts/exchanges/design-permutations.md` §Review-set evaluation.
@@ -158,6 +160,29 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
      + 2026-07-06 live walkthrough beat), retired DIGEST_CUSTOM_TYPES, topology homes named in D110-L.
      Consumed scope card memory/cards/present-digest--exchange-kind.md deleted. -->
 
+
+### alpha-release-readiness
+
+- **Name:** Alpha release readiness — packaging, model allowlist, auth onboarding
+- **Linear:** [FE-1159](https://linear.app/hash/issue/FE-1159/alpha-release-readiness-packaging-model-allowlist-auth-onboarding)
+- **Branch:** `ln/fe-1159-alpha-release`
+- **Kind:** structural — distribution/packaging seam + a new auth/model-policy seam + first-run onboarding behavior.
+- **Status:** active. Admitted 2026-07-07 (spike → grill → spec, same day); the model-allowlist tracer is built, while packaging fixes, no-auth gate, `brunch login`, and release verification remain open.
+- **Certainty:** mixed — packaging fixes are `earned` (spike-witnessed defects, closure-shaped); allowlist/no-auth-gate/login are `proving` (first tracer through a new seam).
+- **Why now / unlocks:** the ship gate's audience is colleagues/collaborators including non-Pi users; the published package currently crashes at boot for any fresh install, and a no-auth user gets a silent dead TUI. Nothing else on the plan makes Brunch installable.
+- **Objective (five threads, from spike evidence + settled design):**
+  1. **Packaging fixes (earned):** `build:pi-assets` must stop clobbering compiled output (`rm -rf dist/agents/{prompts,subagents,references}` deletes `dist/agents/prompts/registry.js`; tsc incremental prevents re-emission); move `drizzle-orm`/`drizzle-typebox` to `dependencies`.
+  2. **Model allowlist (proving, built 2026-07-07):** code-owned ordered fall-through list of `provider/model/thinking` entries (`anthropic/claude-sonnet-4-6` then `openrouter/anthropic/claude-sonnet-4.6`, both `thinking: low`); first entry with resolvable auth wins; enforced by a Brunch-owned `ModelRegistry` through the existing `agentServices.modelRegistry` seam (D113-L), with scoped `/model` cycling limited to the allowlist.
+  3. **No-auth gate (proving):** workspace-dialog warning banner (non-blocking); orientation junctures + kick do not fire when no allowlisted model resolves (D115-L, I59-L); `no_model_available` origination skip stays as backstop.
+  4. **`brunch login` (proving):** standalone CLI subcommand over Pi's public `AuthStorage` (OAuth callbacks + API-key set), writing to `~/.pi/agent/auth.json` (D114-L). No `pi login` CLI exists to delegate to.
+  5. **Release verification loop:** pack → isolated-prefix install → foreign-cwd smoke (`brunch --mode print`, boot into TUI machinery) as a repeatable check so the clobber class of defect cannot silently return.
+- **Retires:** the "does the built package work elsewhere?" uncertainty (spike answered: yes, once the two defects are fixed); the implicit "first Pi-available model" default; the silent no-auth boot.
+- **Lights up:** installability for non-Pi colleagues; the first onboarding surface (`brunch login` + warning copy); a release check that can join `npm run verify` or CI.
+- **Depends on:** D39-L (sealed profile), D34-L (built-in command containment — registry-layer enforcement, not chrome suppression), D109-L (juncture semantics the no-auth gate sits upstream of), D113-L/D114-L/D115-L, A38-L, I59-L, req 1/29.
+- **Blocked by:** nothing hard. Sequencing note: the release cut itself presumably wants the open `ln/*`/`ka/*` stack merged to `next` first, but every thread here is buildable now on `ln/fe-1159-alpha-release`.
+- **Verification:** the release-verification loop (thread 5) is the frontier's own oracle family; I59-L juncture-gate test over a no-auth `ModelRegistry`; workspace-dialog banner assertion; `brunch login` exercised against a scratch `PI_CODING_AGENT_DIR`. A38-L conduct reproducibility validates via alpha-user walkthroughs, outside this frontier's inner loop.
+- **Current execution pointer:** `memory/cards/alpha-release-readiness--packaging-fixes.md` (3 earned slices). No-auth gate (D115-L/I59-L) and `brunch login` (D114-L) are scoped after the allowlist tracer — both consume `src/app/model-policy.ts` as their single allowlist source.
+- **Traceability:** req 1, req 29; D113-L, D114-L, D115-L; A38-L; I59-L; SPEC §Future Direction (Brunch-owned config home, role-tiered model picks — both deferred).
 
 ### session-entry-orientation
 
@@ -331,6 +356,12 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ```text
 frontiers:
   Active:
+    alpha-release-readiness (FE-1159)
+      status: active; model allowlist tracer built 2026-07-07; packaging/no-auth/login/release-check remain
+      branch: ln/fe-1159-alpha-release
+      depends_on: D39-L, D34-L, D109-L, D113-L, D114-L, D115-L
+      threads: packaging fixes -[earned]->; allowlist built; no-auth-gate/login -[proving]->
+      note: release cut wants the open ln/*+ka/* stack merged first; remaining threads buildable now
     walkthrough-batch-2 (FE-1124)
       status: active planning/seed base for sibling ship-gate lanes
       feeds: -[verification seeds]-> session-entry-orientation, execute-entry-readiness (generative options)

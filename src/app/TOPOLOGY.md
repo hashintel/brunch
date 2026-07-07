@@ -1,6 +1,6 @@
 # app/
 
-SPEC decisions: D52-L
+SPEC decisions: D52-L, D113-L
 
 ## Owns
 
@@ -22,9 +22,13 @@ Current entrypoints:
 
 Current runtime support modules:
 
+- `model-policy.ts` — D113-L model-policy boundary: the code-owned ordered
+  allowlist, Brunch-contained `ModelRegistry`, first-auth fall-through resolver,
+  and scoped `/model` cycle list. Ambient/custom Pi `models.json` entries are not
+  a Brunch product surface for the alpha.
 - `pi-session-options.ts` — internal Brunch-to-Pi session option projection for
-  lifecycle forwarding, tool hardening, thinking preset, and optional concrete
-  model override.
+  lifecycle forwarding, tool hardening, pinned thinking/scoped model policy, and
+  optional concrete model override.
 - `git-worktree-port.ts`, `agent-runner-port.ts`, `test-runner-port.ts`,
   `git-land-port.ts`, `git-host-promotion-port.ts` —
   app-layer execution-port implementations injected into executor Pi tools;
