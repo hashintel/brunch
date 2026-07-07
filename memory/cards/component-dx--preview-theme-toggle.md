@@ -101,11 +101,31 @@ fg/bg contrast strip through both live markdown surfaces.
 ✓ Full verify gate green
 ```
 
-## Card 4 — theme value rework [next]
+## Card 4 — theme value rework [in progress]
 
 Design-iteration card, works *through* Card 3's loop; no fixed acceptance
 tests — pinning is by eye in the testbed, both variants, plus the existing
 component entries.
+
+Progress (2026-07-07, JSONs deliberately uncommitted while the user iterates):
+
+- Accent swap landed in both variants (fuchsia accent/borderAccent; apricot/
+  burntOrange secondary); cyan + blue vars added; syntax tokens redrawn from
+  the brunch vocabulary (de-VSCode'd); dark gray ramp raised for contrast.
+- `text` token set to `""` in both variants — pi's canonical "terminal
+  default" value (docs §Color Tokens; `fgAnsi("") → \x1b[39m`), resolving the
+  wrapped-vs-unwrapped inconsistency. Concrete ink moved to the renamed `ink`
+  var, feeding only themed-surface slots: `userMessageText`,
+  `customMessageText`, `toolTitle`.
+- Neutral reference environment assumed and recorded as data:
+  `export.pageBg` #0b0b0b / #f9f9f9 and the Brunch-only `export.pageFg`
+  extension (#e0e0e0 / #1f1f1f); the harness simulates it (OSC 10/11 + SGR
+  fallback), live sessions inherit the user's terminal (decision above).
+- User has been live-editing `brunch-light.json` (fuchsia #B41A69,
+  burntOrange #A7491E, ink #3B3734, gray tweaks). Open items when resuming:
+  light `mediumGray` #8B857E (3.5:1) and `syntaxComment` #8CAF59 (2.4:1) sit
+  below the 4.5:1 floor against #f9f9f9; commit the JSON pair when the user
+  declares the values settled.
 
 Direction (user, 2026-07-07):
 - fuchsia/pink becomes the key accent; orange (apricot) demoted to secondary
