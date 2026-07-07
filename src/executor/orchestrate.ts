@@ -91,6 +91,7 @@ export const linearScheduler: RunScheduler = {
       case 'petri_exported':
         return [{ kind: 'promotion' }];
       case 'promotion_prepared':
+      case 'abandoned':
         return [];
     }
   },

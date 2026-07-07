@@ -11,6 +11,7 @@ executor/
 ├── TOPOLOGY.md
 ├── agent-result.ts       AgentRunnerPort -> slice result report + normalized worker stream artifact
 ├── orchestrate.ts        run facts + RunScheduler -> drive() over the lifecycle steps
+├── run-abandon.ts        active run -> abandoned run metadata, preserving artifacts
 ├── plan-file.ts          old cook-compatible DTO preview -> spec-scoped plan.yaml + provenance
 ├── launch.ts             spec-scoped plan.yaml provenance -> non-running launch readiness
 ├── plan-preview.ts       executable-plan draft -> old cook-compatible DTO preview
@@ -54,6 +55,8 @@ rules:
 ```
 
 `ExecutionSpecSnapshot` is the durable projection seam between the spec/graph product and the native execute-mode orchestrator. Both `main`-derived imports and `next` graph reads can target this shape while their internal models continue to evolve. Requirement-to-requirement dependency edges are the only graph dependencies lowered into executable slice `depends_on`; dependency edges with non-requirement endpoints remain graph context/hygiene concerns and do not block executable plan production merely because the cook scheduler cannot represent them. Every helper advances run metadata with at most one explicit, declared side effect (I58-L): plan/outline artifact writers touch only `.brunch/execution-reports`; cook helpers write only the declared files under `.brunch/cook` or the run worktree described per module below; agent/test/promotion effects are delegated to injected ports; port failure leaves run metadata unadvanced. No helper mutates the graph, and host mutation is limited to the accepted-SHA file apply in `host-promotion.ts`.
+
+`run-abandon.ts` is a bounded HITL replanning mutation: it marks an active run `abandoned` while preserving existing evidence paths and files. It refuses missing and already-terminal completed/promoted runs, and it never deletes worktrees, reports, Petri artifacts, promotion artifacts, or graph state.
 
 ## Cook plan preview compatibility
 

@@ -49,6 +49,7 @@ const TERMINAL_STATUSES: ReadonlySet<RunMetadata['status']> = new Set([
   'run_completed',
   'petri_exported',
   'promotion_prepared',
+  'abandoned',
 ]);
 
 export async function assessRunRetryEligibility(args: {

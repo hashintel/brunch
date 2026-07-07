@@ -43,6 +43,7 @@ import { registerBrunchExecuteReportInit } from '../.pi/extensions/executor/inde
 import { registerBrunchExecuteRunComplete } from '../.pi/extensions/executor/index.js';
 import { registerBrunchExecuteRunCreate } from '../.pi/extensions/executor/index.js';
 import { registerBrunchExecuteReplanRecommendation } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecuteReplanAbandonRun } from '../.pi/extensions/executor/index.js';
 import { registerBrunchExecuteReplanRegeneratePlan } from '../.pi/extensions/executor/index.js';
 import { registerBrunchExecuteReplanRetryCurrentStep } from '../.pi/extensions/executor/index.js';
 import { registerBrunchExecuteReplanStartNewRun } from '../.pi/extensions/executor/index.js';
@@ -176,6 +177,9 @@ export {
   BRUNCH_EXECUTE_RUN_CREATE_TOOL,
   createExecuteRunCreateTool,
   registerBrunchExecuteRunCreate,
+  BRUNCH_EXECUTE_REPLAN_ABANDON_RUN_TOOL,
+  createExecuteReplanAbandonRunTool,
+  registerBrunchExecuteReplanAbandonRun,
   BRUNCH_EXECUTE_SOURCE_COPY_TOOL,
   createExecuteSourceCopyTool,
   registerBrunchExecuteSourceCopy,
@@ -368,6 +372,7 @@ export function createBrunchPiExtensions(
       registerBrunchExecuteReportInit,
       registerBrunchExecuteRunComplete,
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteRunCreate(api, graph)] : []),
+      registerBrunchExecuteReplanAbandonRun,
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteReplanRecommendation(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteReplanRegeneratePlan(api, graph)] : []),
       ...(graph

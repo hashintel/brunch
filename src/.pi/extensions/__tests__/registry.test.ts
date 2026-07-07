@@ -55,6 +55,7 @@ import { BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL } from '../executor/execute-plan-outli
 import { BRUNCH_EXECUTE_PLAN_PREVIEW_TOOL } from '../executor/execute-plan-preview/index.js';
 import { BRUNCH_EXECUTE_POPULATE_TOOL } from '../executor/execute-populate/index.js';
 import { BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL } from '../executor/execute-promotion-prepare/index.js';
+import { BRUNCH_EXECUTE_REPLAN_ABANDON_RUN_TOOL } from '../executor/execute-replan-abandon-run/index.js';
 import { BRUNCH_EXECUTE_REPLAN_RECOMMENDATION_TOOL } from '../executor/execute-replan-recommendation/index.js';
 import { BRUNCH_EXECUTE_REPLAN_REGENERATE_PLAN_TOOL } from '../executor/execute-replan-regenerate-plan/index.js';
 import { BRUNCH_EXECUTE_REPLAN_RETRY_CURRENT_STEP_TOOL } from '../executor/execute-replan-retry-current-step/index.js';
@@ -182,6 +183,7 @@ describe('Brunch explicit Pi extension registry', () => {
       BRUNCH_EXECUTE_POPULATE_TOOL,
       BRUNCH_EXECUTE_REPORT_INIT_TOOL,
       BRUNCH_EXECUTE_RUN_COMPLETE_TOOL,
+      BRUNCH_EXECUTE_REPLAN_ABANDON_RUN_TOOL,
       BRUNCH_EXECUTE_SOURCE_POLICY_TOOL,
       BRUNCH_EXECUTE_SOURCE_COPY_TOOL,
       BRUNCH_EXECUTE_SLICE_COMPLETE_TOOL,
@@ -1294,6 +1296,51 @@ describe('Brunch explicit Pi extension registry', () => {
     });
   });
 
+  it('registers execute_replan_abandon_run as evidence-preserving abandonment', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-abandon-run-'));
+    const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
+    const metadataPath = join(runDir, 'run.json');
+    await mkdir(runDir, { recursive: true });
+    await writeFile(
+      metadataPath,
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath: '/plan.yaml',
+        status: 'agent_result_ingested',
+        worktreeDir: '/worktree',
+      }),
+      'utf8',
+    );
+    const registeredTools = await collectProductTools();
+
+    const abandon = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_REPLAN_ABANDON_RUN_TOOL);
+    expect(abandon).toBeDefined();
+    const result = await abandon!.execute(
+      'call-1',
+      { runId: 'run-1', reason: 'User chose a new plan' },
+      undefined,
+      undefined,
+      { cwd },
+    );
+
+    expect(result.content[0]?.text).toContain('execute_replan_abandon_run: abandoned');
+    expect(result.details).toMatchObject({
+      result: {
+        status: 'abandoned',
+        runStatus: 'abandoned',
+        runId: 'run-1',
+        metadataPath,
+      },
+      sideEffects: [{ kind: 'write_file', path: metadataPath, ifExists: 'overwrite' }],
+    });
+    await expect(readFile(metadataPath, 'utf8')).resolves.toContain('"status": "abandoned"');
+    await expect(readFile(metadataPath, 'utf8')).resolves.toContain('"worktreeDir": "/worktree"');
+    await expect(readFile(metadataPath, 'utf8')).resolves.toContain(
+      '"abandonReason": "User chose a new plan"',
+    );
+  });
+
   it('registers execute_worktree_create as empty worktree materialization only', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-worktree-create-'));
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
@@ -2380,7 +2427,7 @@ describe('Brunch explicit Pi extension registry', () => {
     // EXECUTOR_ALLOWED_TOOL_NAMES; the registered-but-unadmitted plan artifact
     // tools are intentionally excluded, and text and details must agree.
     expect(result.content[0]?.text).toContain(
-      'ported tools: execute_status, execute_orchestrate, execute_snapshot, execute_plan_check, execute_plan_outline, execute_plan_draft, execute_plan_preview, execute_plan_file, execute_launch, execute_run_create, execute_replan_recommendation, execute_replan_start_new_run, execute_replan_retry_current_step, execute_replan_regenerate_plan, execute_worktree_create, execute_populate, execute_source_policy, execute_source_copy, execute_report_init, execute_slice_start, execute_slice_execute, execute_agent_result, execute_test_result, execute_slice_complete, execute_run_complete, execute_petri_export, execute_promotion_prepare, execute_host_promotion_preflight, execute_host_promotion_apply',
+      'ported tools: execute_status, execute_orchestrate, execute_snapshot, execute_plan_check, execute_plan_outline, execute_plan_draft, execute_plan_preview, execute_plan_file, execute_launch, execute_run_create, execute_replan_recommendation, execute_replan_start_new_run, execute_replan_retry_current_step, execute_replan_regenerate_plan, execute_replan_abandon_run, execute_worktree_create, execute_populate, execute_source_policy, execute_source_copy, execute_report_init, execute_slice_start, execute_slice_execute, execute_agent_result, execute_test_result, execute_slice_complete, execute_run_complete, execute_petri_export, execute_promotion_prepare, execute_host_promotion_preflight, execute_host_promotion_apply',
     );
     expect(result.content[0]?.text).toContain('pending tools: none');
     expect(result.content[0]?.text).toContain(
@@ -2404,6 +2451,7 @@ describe('Brunch explicit Pi extension registry', () => {
         'execute_replan_start_new_run',
         'execute_replan_retry_current_step',
         'execute_replan_regenerate_plan',
+        'execute_replan_abandon_run',
         'execute_worktree_create',
         'execute_populate',
         'execute_source_policy',

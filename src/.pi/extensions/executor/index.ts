@@ -14,6 +14,7 @@ export * from './execute-replan-recommendation/index.js';
 export * from './execute-replan-start-new-run/index.js';
 export * from './execute-replan-retry-current-step/index.js';
 export * from './execute-replan-regenerate-plan/index.js';
+export * from './execute-replan-abandon-run/index.js';
 export * from './execute-run-updates/index.js';
 export * from './execute-source-copy/index.js';
 export * from './execute-source-policy/index.js';

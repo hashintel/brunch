@@ -22,7 +22,8 @@ export interface RunMetadata {
     | 'slice_completed'
     | 'run_completed'
     | 'petri_exported'
-    | 'promotion_prepared';
+    | 'promotion_prepared'
+    | 'abandoned';
   readonly worktreeDir?: string;
   readonly populatedPlanPath?: string;
   readonly sourcePolicy?: string;
@@ -40,6 +41,8 @@ export interface RunMetadata {
   readonly promotionBaseSha?: string;
   readonly promotionCommitSha?: string;
   readonly supersedesRunId?: string;
+  readonly abandonedAt?: string;
+  readonly abandonReason?: string;
 }
 
 export type RunCreateResult =

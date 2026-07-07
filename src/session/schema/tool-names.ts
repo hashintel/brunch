@@ -15,6 +15,7 @@ export const BRUNCH_EXECUTE_REPLAN_RECOMMENDATION_TOOL = 'execute_replan_recomme
 export const BRUNCH_EXECUTE_REPLAN_START_NEW_RUN_TOOL = 'execute_replan_start_new_run';
 export const BRUNCH_EXECUTE_REPLAN_RETRY_CURRENT_STEP_TOOL = 'execute_replan_retry_current_step';
 export const BRUNCH_EXECUTE_REPLAN_REGENERATE_PLAN_TOOL = 'execute_replan_regenerate_plan';
+export const BRUNCH_EXECUTE_REPLAN_ABANDON_RUN_TOOL = 'execute_replan_abandon_run';
 export const BRUNCH_EXECUTE_SOURCE_COPY_TOOL = 'execute_source_copy';
 export const BRUNCH_EXECUTE_SOURCE_POLICY_TOOL = 'execute_source_policy';
 export const BRUNCH_EXECUTE_SLICE_COMPLETE_TOOL = 'execute_slice_complete';
