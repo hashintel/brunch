@@ -8,9 +8,11 @@ Product host entrypoints and wiring for Brunch runtime modes.
 
 Current entrypoints:
 
-- `brunch.ts` — CLI mode dispatch for TUI, RPC, and print. `--mode web` is
-  reserved but deferred: the browser client is served only as the TUI sidecar
-  (a standalone headless web host is a future feature).
+- `brunch.ts` — CLI dispatch. With no positional subcommand it launches the
+  TUI, RPC, or print mode. The `login` positional routes to the standalone
+  auth flow before workspace/session boot. `--mode web` is reserved but
+  deferred: the browser client is served only as the TUI sidecar (a standalone
+  headless web host is a future feature).
 - `print-workspace-state.ts` — terse human/product print-mode rendering for
   `brunch --mode print`.
 - `brunch-tui.ts` — TUI launch path, embedded Pi session runtime wiring, and the
@@ -26,6 +28,10 @@ Current runtime support modules:
   allowlist, Brunch-contained `ModelRegistry`, first-auth fall-through resolver,
   and scoped `/model` cycle list. Ambient/custom Pi `models.json` entries are not
   a Brunch product surface for the alpha.
+- `brunch-login.ts` — D114-L standalone auth-onboarding flow. It reads provider
+  order from `model-policy.ts`, writes only Pi's global `AuthStorage` file
+  (`auth.json`, relocatable via `PI_CODING_AGENT_DIR`), and does not boot a
+  Brunch workspace or Pi session.
 - `pi-session-options.ts` — internal Brunch-to-Pi session option projection for
   lifecycle forwarding, tool hardening, pinned thinking/scoped model policy, and
   optional concrete model override.

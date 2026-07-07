@@ -11,6 +11,7 @@ import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionCoordinator,
 } from '../session/workspace-session-coordinator.js';
+import { formatBrunchLoginUsage, runBrunchLogin } from './brunch-login.js';
 import { runBrunchTui } from './brunch-tui.js';
 import { renderWorkspaceState } from './print-workspace-state.js';
 
@@ -20,6 +21,7 @@ export interface BrunchCliOptions {
   coordinator?: WorkspaceSessionCoordinator;
   stdin?: Readable;
   stdout?: Writable | ((chunk: string) => void);
+  stderr?: Writable | ((chunk: string) => void);
   developerTools?: boolean;
   debugMirror?: boolean;
   launchTui?: typeof runBrunchTui;
@@ -27,7 +29,24 @@ export interface BrunchCliOptions {
 
 export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<number> {
   const argv = options.argv ?? process.argv.slice(2);
-  const { cwd: cwdFlag, mode, openWeb, developerTools: developerToolsFlag } = parseCliArgs(argv);
+  const {
+    command,
+    help,
+    cwd: cwdFlag,
+    mode,
+    openWeb,
+    developerTools: developerToolsFlag,
+  } = parseCliArgs(argv);
+
+  if (command === 'login') {
+    if (help) {
+      writeStdout(options.stdout, formatBrunchLoginUsage());
+      return 0;
+    }
+    return runBrunchLogin({ stdin: options.stdin, stdout: options.stdout, stderr: options.stderr });
+  }
+  if (command) throw new Error(`Unknown Brunch command: ${command}`);
+
   const cwd = cwdFlag ?? options.cwd ?? process.cwd();
   const developerTools = developerToolsFlag ?? options.developerTools ?? false;
   const coordinator = options.coordinator ?? createWorkspaceSessionCoordinator({ cwd });
@@ -103,6 +122,8 @@ function stdoutStream(stdout: Writable | ((chunk: string) => void) | undefined):
 }
 
 function parseCliArgs(argv: string[]): {
+  command: string | undefined;
+  help: boolean;
   cwd: string | undefined;
   mode: string;
   openWeb: boolean;
@@ -112,16 +133,20 @@ function parseCliArgs(argv: string[]): {
   // fails loud on unknown or malformed flags. --open-web is a plain boolean whose
   // default is false, so there is no `=false` form to model: omit it to opt out.
   // --dev-tools is optional so programmatic callers can supply the fallback.
-  const { values } = parseArgs({
+  const { values, positionals } = parseArgs({
     args: argv,
+    allowPositionals: true,
     options: {
       cwd: { type: 'string' },
       mode: { type: 'string', default: 'tui' },
       'open-web': { type: 'boolean', default: false },
       'dev-tools': { type: 'boolean' },
+      help: { type: 'boolean', short: 'h', default: false },
     },
   });
   return {
+    command: positionals[0],
+    help: values.help,
     cwd: resolveCwdFlag(values.cwd),
     mode: values.mode,
     openWeb: values['open-web'],
