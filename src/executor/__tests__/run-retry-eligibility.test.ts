@@ -84,18 +84,33 @@ describe('assessRunRetryEligibility', () => {
     });
   });
 
-  it('allows in-place replanning before retry for stale early runs', async () => {
+  it('allows in-place replanning before retry for stale runs before plan population', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-retry-early-stale-'));
+    await writePlan(cwd, 10);
+    await writeRun(cwd, 'worktree_created');
+
+    const result = await assessRunRetryEligibility({ cwd, runId: 'run-1', current });
+
+    expect(result).toMatchObject({
+      status: 'replan_before_retry',
+      runStatus: 'worktree_created',
+      freshness: { status: 'run_plan_stale' },
+      allowedActions: ['regenerate_plan', 'start_new_run', 'abandon_run'],
+    });
+  });
+
+  it('requires a new run when stale after the run-local plan was populated', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-retry-populated-stale-'));
     await writePlan(cwd, 10);
     await writeRun(cwd, 'worktree_populated');
 
     const result = await assessRunRetryEligibility({ cwd, runId: 'run-1', current });
 
     expect(result).toMatchObject({
-      status: 'replan_before_retry',
+      status: 'start_new_run_required',
       runStatus: 'worktree_populated',
       freshness: { status: 'run_plan_stale' },
-      allowedActions: ['regenerate_plan', 'start_new_run', 'abandon_run'],
+      allowedActions: ['start_new_run', 'inspect_run', 'abandon_run'],
     });
   });
 
@@ -111,6 +126,25 @@ describe('assessRunRetryEligibility', () => {
       runStatus: 'slice_execution_requested',
       freshness: { status: 'run_plan_stale' },
       allowedActions: ['start_new_run', 'inspect_run', 'abandon_run'],
+    });
+  });
+
+  it('does not classify a blocked current projection as stale replanning', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-retry-blocked-'));
+    await writePlan(cwd);
+    await writeRun(cwd, 'created');
+
+    const result = await assessRunRetryEligibility({
+      cwd,
+      runId: 'run-1',
+      current: { ...current, checkStatus: 'blocked' },
+    });
+
+    expect(result).toMatchObject({
+      status: 'projection_blocked',
+      runStatus: 'created',
+      freshness: { status: 'run_projection_blocked' },
+      allowedActions: ['inspect_run', 'abandon_run'],
     });
   });
 

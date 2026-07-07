@@ -4,7 +4,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { planFilePath } from '../plan-file.js';
+import type { LaunchCurrentProjection } from '../launch.js';
+import { planFilePath, planProvenancePath } from '../plan-file.js';
 import {
   assertSafeRunId,
   createRun,
@@ -23,10 +24,34 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
+const current: LaunchCurrentProjection = {
+  specId: '42',
+  mode: 'greenfield',
+  source: { graphLsn: 11, visibility: 'active' },
+  checkStatus: 'ok',
+};
+
+async function writeReadyPlan(cwd: string, graphLsn = current.source.graphLsn): Promise<string> {
+  const planPath = planFilePath(cwd, '42');
+  await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
+  await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+  await writeFile(
+    planProvenancePath(cwd, '42'),
+    `${JSON.stringify({
+      schemaVersion: 1,
+      specId: '42',
+      mode: 'greenfield',
+      source: { graphLsn, visibility: 'active' },
+    })}\n`,
+    'utf8',
+  );
+  return planPath;
+}
+
 describe('createRun', () => {
   it('does not create a run when the selected spec plan is missing', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-run-missing-'));
-    const result = await createRun({ cwd, specId: '42', runId: 'run-1' });
+    const result = await createRun({ cwd, specId: '42', runId: 'run-1', current });
 
     expect(result).toEqual({
       status: 'missing_plan',
@@ -39,11 +64,9 @@ describe('createRun', () => {
 
   it('creates only run metadata for a ready plan', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-run-ready-'));
-    const planPath = planFilePath(cwd, '42');
-    await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
-    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    const planPath = await writeReadyPlan(cwd);
 
-    const result = await createRun({ cwd, specId: '42', runId: 'run-1' });
+    const result = await createRun({ cwd, specId: '42', runId: 'run-1', current });
 
     expect(result).toEqual({
       status: 'created',
@@ -67,6 +90,45 @@ describe('createRun', () => {
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'petrinaut'))).toBe(false);
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'reports.jsonl'))).toBe(false);
     expect(await pathExists(join(cwd, '.brunch', 'cook', 'land'))).toBe(false);
+  });
+
+  it('does not create a run when the plan provenance is stale', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-run-stale-'));
+    const planPath = await writeReadyPlan(cwd, 10);
+
+    const result = await createRun({ cwd, specId: '42', runId: 'run-1', current });
+
+    expect(result).toMatchObject({
+      status: 'launch_not_ready',
+      runStatus: 'not_started',
+      planPath,
+      launch: { status: 'stale_plan' },
+      sideEffects: [],
+    });
+    expect(await pathExists(runDirPath(cwd, 'run-1'))).toBe(false);
+  });
+
+  it('refuses to overwrite an existing target run id', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-run-existing-'));
+    await writeReadyPlan(cwd);
+    await mkdir(runDirPath(cwd, 'run-1'), { recursive: true });
+    await writeFile(
+      runMetadataPath(cwd, 'run-1'),
+      `${JSON.stringify({ runId: 'run-1', specId: '42', planPath: '/old-plan.yaml', status: 'abandoned' })}\n`,
+      'utf8',
+    );
+
+    const result = await createRun({ cwd, specId: '42', runId: 'run-1', current });
+
+    expect(result).toEqual({
+      status: 'target_run_exists',
+      runStatus: 'not_started',
+      runId: 'run-1',
+      runDir: runDirPath(cwd, 'run-1'),
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      sideEffects: [],
+    });
+    await expect(readFile(runMetadataPath(cwd, 'run-1'), 'utf8')).resolves.toContain('abandoned');
   });
 });
 

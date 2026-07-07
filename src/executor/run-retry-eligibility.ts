@@ -11,6 +11,7 @@ export type RunRetryAction =
 
 export type RunRetryEligibilityStatus =
   | 'missing_run'
+  | 'projection_blocked'
   | 'retry_current_run'
   | 'replan_before_retry'
   | 'start_new_run_required'
@@ -39,10 +40,6 @@ export type RunRetryEligibilityResult =
 const EARLY_REPLANABLE_STATUSES: ReadonlySet<RunMetadata['status']> = new Set([
   'created',
   'worktree_created',
-  'worktree_populated',
-  'source_policy_selected',
-  'source_copied',
-  'reports_initialized',
 ]);
 
 const TERMINAL_STATUSES: ReadonlySet<RunMetadata['status']> = new Set([
@@ -98,6 +95,18 @@ export async function assessRunRetryEligibility(args: {
       metadataPath,
       freshness,
       allowedActions: ['inspect_run'],
+      sideEffects: [],
+    };
+  }
+
+  if (freshness.status === 'run_projection_blocked') {
+    return {
+      status: 'projection_blocked',
+      runStatus: metadata.status,
+      runId: args.runId,
+      metadataPath,
+      freshness,
+      allowedActions: ['inspect_run', 'abandon_run'],
       sideEffects: [],
     };
   }

@@ -748,8 +748,19 @@ describe('Brunch explicit Pi extension registry', () => {
   it('registers execute_run_create as metadata-only run creation', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-create-'));
     const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
     await mkdir(dirname(planPath), { recursive: true });
     await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(
+      provenancePath,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        specId: '42',
+        mode: 'greenfield',
+        source: { graphLsn: 20, visibility: 'active' },
+      })}\n`,
+      'utf8',
+    );
     const registeredTools: Array<{
       name: string;
       execute: (
@@ -771,7 +782,48 @@ describe('Brunch explicit Pi extension registry', () => {
         specId: 42,
         commandExecutor: {} as never,
         reads: {
-          queryGraph: () => ({ lsn: 20, nodes: [], edges: [] }) as never,
+          queryGraph: () =>
+            ({
+              lsn: 20,
+              nodes: [
+                {
+                  id: 1,
+                  specId: 42,
+                  plane: 'intent',
+                  kind: 'requirement',
+                  kindOrdinal: 1,
+                  title: 'Run the cooked feature',
+                  body: 'Feature runs through the alpha executor.',
+                  basis: 'explicit',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+                {
+                  id: 2,
+                  specId: 42,
+                  plane: 'intent',
+                  kind: 'criterion',
+                  kindOrdinal: 1,
+                  title: 'Feature visible',
+                  basis: 'explicit',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+              ],
+              edges: [
+                {
+                  id: 1,
+                  specId: 42,
+                  category: 'witness',
+                  stance: 'for',
+                  sourceId: 2,
+                  targetId: 1,
+                  basis: 'explicit',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+              ],
+            }) as never,
           getNodes: () => [],
           resolveNodeCode: () => undefined,
           getOpenReconciliationNeeds: () => [],
@@ -1118,7 +1170,48 @@ describe('Brunch explicit Pi extension registry', () => {
       'utf8',
     );
     const registeredTools = await collectProductTools({
-      graph: { specId: 42, lsn: 23, nodes: [], edges: [] },
+      graph: {
+        specId: 42,
+        lsn: 23,
+        nodes: [
+          {
+            id: 1,
+            specId: 42,
+            plane: 'intent',
+            kind: 'requirement',
+            kindOrdinal: 1,
+            title: 'Run the cooked feature',
+            body: 'Feature runs through the alpha executor.',
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+          {
+            id: 2,
+            specId: 42,
+            plane: 'intent',
+            kind: 'criterion',
+            kindOrdinal: 1,
+            title: 'Feature visible',
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+        ],
+        edges: [
+          {
+            id: 1,
+            specId: 42,
+            category: 'witness',
+            stance: 'for',
+            sourceId: 2,
+            targetId: 1,
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+        ],
+      },
       gitWorktree: createFakeGitWorktreePort(),
     });
 

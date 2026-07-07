@@ -40,6 +40,8 @@ function recommendedActionForEligibility(eligibility: RunRetryEligibilityResult)
   switch (eligibility.status) {
     case 'missing_run':
       return 'start_new_run';
+    case 'projection_blocked':
+      return 'inspect_run';
     case 'retry_current_run':
       return 'retry_current_step';
     case 'replan_before_retry':
@@ -55,6 +57,8 @@ function diagnosisForEligibility(eligibility: RunRetryEligibilityResult): string
   switch (eligibility.status) {
     case 'missing_run':
       return `Run ${eligibility.runId} does not exist. Start a new run from a fresh plan.`;
+    case 'projection_blocked':
+      return `Run ${eligibility.runId} cannot be retried because the current graph projection is blocked. Inspect the projection findings before replanning.`;
     case 'retry_current_run':
       return `Run ${eligibility.runId} is fresh at ${eligibility.runStatus}. Retry the current step.`;
     case 'replan_before_retry':

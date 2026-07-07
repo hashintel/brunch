@@ -79,7 +79,7 @@ describe('recommendRunReplan', () => {
   it('recommends regenerating the plan for stale early runs', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-recommend-replan-'));
     await writePlan(cwd, 10);
-    await writeRun(cwd, 'source_copied');
+    await writeRun(cwd, 'worktree_created');
 
     const recommendation = await recommendRunReplan({ cwd, runId: 'run-1', current });
 
