@@ -56,6 +56,9 @@ describe('parseElicitationScratchpadItem', () => {
     { id: 1, obligation: 'x', disposition: 'open' },
     { id: 'a', obligation: '', disposition: 'open' },
     { id: 'a', obligation: 'x', disposition: 'closed' },
+    // CC-03 guard: exchange cancellation demotes by adding an `open`
+    // obligation; it never extends the disposition enum.
+    { id: 'a', obligation: 'x', disposition: 'cancelled' },
     { id: 'a', obligation: 'x', disposition: 'open', rationale: 5 },
     { id: 'a', obligation: 'x', disposition: 'open', meta: 'not-a-record' },
     { id: 'a', obligation: 'x', disposition: 'open', meta: ['not-a-record'] },

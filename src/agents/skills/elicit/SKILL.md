@@ -24,6 +24,8 @@ Use readiness bands as signal for the next question. They do not make earlier ca
 
 Use a typed structured exchange when the response shape matters — single-choice, multi-choice, freeform-plus-choice, or review outcome. Keep the prompt compact, request exactly one response union outcome, and let ingest/map handle persistence after the response.
 
+Exchange outcome invariants for follow-up: Cancel demotes to scratchpad when unresolved intent still matters; Reject kills the offer; Accepted terminal only means proposal chains consume the accepted terminal payload and leave priors as history; answer spans are offer-scoped, so direct user free text is separate material; capture runs as per-turn/watermark-shaped ingest conduct, not a submit-path extraction pass.
+
 For branching elicitation, ask one structured question at a time. Choose the highest-value missing item, present one `present_question`, collect one `request_response`, then choose the next branch from what that answer made true or still unclear. Do not batch a questionnaire, and do not treat the exchange shape itself as graph authority.
 
 For ambiguity, prefer contrastive examples over abstract definition requests. Name the ambiguity, offer two or three concrete interpretations that differ on one graph-relevant axis, and ask which is closer or what distinction is missing. A chosen contrast becomes explicit graph truth only when the user states or approves the exact claim; otherwise it just refines the next question.

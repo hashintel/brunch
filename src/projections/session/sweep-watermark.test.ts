@@ -52,6 +52,21 @@ describe('capture sweep watermark projection', () => {
     ]);
   });
 
+  it('excludes structured offers and reserved capture tool results from the sweep tail', () => {
+    const entries = [
+      marker(),
+      toolResult('present_question'),
+      toolResult('present_candidates'),
+      toolResult('present_review_set'),
+      toolResult('capture_answer'),
+      toolResult('capture_review'),
+      toolResult('request_answer'),
+      toolResult('request_choice'),
+    ];
+
+    expect(projectCaptureSweepWindow(entries).conversationalTail).toEqual([entries[6], entries[7]]);
+  });
+
   it('advances with a sweep marker so the conversational tail is empty while background may remain behind it', () => {
     const beforeAdvance = [
       marker(),

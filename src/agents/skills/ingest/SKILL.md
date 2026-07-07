@@ -52,6 +52,17 @@ chain ingest-sweep:
     -> compose next question over the updated graph + scratchpad
 ```
 
+Structured exchange outcome rules:
+
+- Answered free-text requests route only `answered.text` as direct user material. The surrounding prompt or offer text is render context, not capture payload; capture it only if the user restates or approves the claim.
+- Answered choice requests route only selected `choice`/`choices` and required `comment` text as response material. Non-selected `answered.options` entries are option echo for rendering; do not treat them as accepted facts or graph payload.
+- Cancelled ordinary requests carry no answer, choice, option, or offer payload. If the unanswered prompt still matters, record an `open` scratchpad obligation to re-ask or verify it; do not extend the scratchpad disposition vocabulary.
+- Unavailable ordinary requests carry no response payload. Do not read unavailability as user refusal or accepted content; re-ask or add an `open` scratchpad obligation only when the missing response still matters.
+- Review `request_changes` captures the comment as direct user material and treats the next generated review set as the next offer. Do not capture the prior proposal payload or write graph truth from it.
+- Review `reject` kills the offer. Do not demote the rejected proposal into a scratchpad obligation or preserve it as live graph material.
+- Cancelled proposal-chain reviews carry no offer payload. Only unresolved intent may become an `open` scratchpad obligation; never keep the cancelled proposal nodes, edges, or candidates as capture material.
+- Superseded prior proposal entries stay transcript history only. For a proposal chain, capture/projection consumes only the accepted terminal payload; do not read earlier offers as active graph material.
+
 ## Method
 
 Walk readiness bands as concern envelopes, not as workflow stages. Ingest whatever the source actually supports, then assign the right route: scratchpad obligation, reconciliation need, advisory graph item, or settled graph item.
