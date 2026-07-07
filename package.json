@@ -59,6 +59,7 @@
     "check:skills": "node scripts/check-ln-skills.mjs",
     "check:markdown-links": "remark AGENTS.md src --quiet --frail",
     "check:promoted-run-paths": "node scripts/check-promoted-run-paths.mjs",
+    "check:release-pack": "node scripts/check-release-pack.mjs",
     "release": "release-it",
     "verify": "npm run fix && npm run test && npm run build"
   },
