@@ -147,6 +147,30 @@ describe('registerComponentPreviewThemeToggle', () => {
     }
   });
 
+  it('recognizes the kitty-protocol ctrl+t press and ignores its release', async () => {
+    const terminal = new VirtualTerminal(80, 24);
+    const tui = new TUI(terminal);
+    const theme = new SwitchableComponentPreviewTheme('dark');
+
+    tui.addChild({ render: () => ['plain'], invalidate: () => {} });
+    registerComponentPreviewThemeToggle(tui, theme);
+    tui.start();
+
+    try {
+      await terminal.waitForRender();
+      // Kitty CSI-u encoding for ctrl+t press (codepoint 116, ctrl modifier).
+      terminal.sendInput('\x1b[116;5u');
+      expect(theme.variant).toBe('light');
+
+      // The release event (event type :3) must not toggle back.
+      terminal.sendInput('\x1b[116;5:3u');
+      expect(theme.variant).toBe('light');
+    } finally {
+      terminal.stop();
+      tui.stop();
+    }
+  });
+
   it('leaves other input untouched', async () => {
     const terminal = new VirtualTerminal(80, 24);
     const tui = new TUI(terminal);

@@ -1,5 +1,5 @@
 import type { KeybindingsManager, Theme } from '@earendil-works/pi-coding-agent';
-import { type Component, truncateToWidth, type TUI } from '@earendil-works/pi-tui';
+import { type Component, Key, matchesKey, truncateToWidth, type TUI } from '@earendil-works/pi-tui';
 
 import type { ComponentPreviewEntry } from './registry.js';
 import { SwitchableComponentPreviewTheme } from './theme.js';
@@ -50,23 +50,26 @@ export class ComponentGalleryComponent implements Component {
     return index === this.#activeIndex ? this.theme.fg('success', text) : this.theme.fg('text', text);
   }
 
+  // matchesKey, not raw-byte comparison: ProcessTerminal negotiates the kitty
+  // keyboard protocol where supported (Ghostty, kitty, ...), and keys then
+  // arrive as CSI-u sequences that legacy byte equality misses.
   handleInput(data: string): void {
     if (this.#busy) return;
-    if (data === 'q' || data === '\x1b') {
+    if (matchesKey(data, 'q') || matchesKey(data, Key.escape)) {
       this.onQuit();
       return;
     }
-    if (data === '\x1b[B' || data === 'j') {
+    if (matchesKey(data, Key.down) || matchesKey(data, 'j')) {
       this.#activeIndex = (this.#activeIndex + 1) % this.entries.length;
       this.tui.requestRender();
       return;
     }
-    if (data === '\x1b[A' || data === 'k') {
+    if (matchesKey(data, Key.up) || matchesKey(data, 'k')) {
       this.#activeIndex = (this.#activeIndex - 1 + this.entries.length) % this.entries.length;
       this.tui.requestRender();
       return;
     }
-    if (data === '\r') {
+    if (matchesKey(data, Key.enter)) {
       this.#openActiveEntry();
     }
   }

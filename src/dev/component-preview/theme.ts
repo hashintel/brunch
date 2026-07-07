@@ -3,7 +3,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { getSelectListTheme, Theme, type ThemeColor } from '@earendil-works/pi-coding-agent';
-import type { EditorTheme, TUI } from '@earendil-works/pi-tui';
+import { type EditorTheme, isKeyRelease, Key, matchesKey, type TUI } from '@earendil-works/pi-tui';
 
 /**
  * Real truecolor palette for the standalone component preview harness
@@ -156,8 +156,6 @@ export class SwitchableComponentPreviewTheme extends Theme {
   }
 }
 
-const CTRL_T = '\x14';
-
 /**
  * Global ctrl+t theme toggle for the preview harness. Registered as a TUI
  * input listener, which pi-tui runs *before* focused-component dispatch —
@@ -179,12 +177,20 @@ export function registerComponentPreviewThemeToggle(
   tui: TUI,
   theme: SwitchableComponentPreviewTheme,
 ): () => void {
+  // ceiling: OSC 11 support varies by emulator (Ghostty/kitty/iTerm2/WezTerm
+  // honor it; Zed's built-in terminal ignores it silently, leaving its own
+  // background). There is no reliable capability query worth the complexity
+  // for a dev harness; revisit only if a painted background becomes required
+  // in an unsupporting terminal we care about.
   const paintPageBackground = (): void => {
     if (theme.pageBg !== undefined) tui.terminal.write(`\x1b]11;${theme.pageBg}\x07`);
   };
   paintPageBackground();
   const removeListener = tui.addInputListener((data) => {
-    if (data !== CTRL_T) return undefined;
+    // Input listeners run before the TUI's key-release filter, so guard
+    // releases explicitly: under the kitty protocol ctrl+t arrives as a CSI-u
+    // press *and* a CSI-u release, and matchesKey alone accepts both.
+    if (isKeyRelease(data) || !matchesKey(data, Key.ctrl('t'))) return undefined;
     theme.toggle();
     paintPageBackground();
     tui.invalidate();
