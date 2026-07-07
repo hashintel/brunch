@@ -11,7 +11,7 @@ prompts/
 ├── TOPOLOGY.md
 ├── registry.ts       path registry for foreground body files
 ├── __tests__/        foreground body registry tests
-├── elicitor.md       elicit runtime / Specify foreground body
+├── elicitor.md       specify runtime / Specify foreground body
 └── executor.md       execute runtime / Execute foreground body
 ```
 
@@ -21,7 +21,7 @@ This directory carries foreground body markdown and the small body-location regi
 
 - **Flat foreground files are canonical:** foreground agent bodies live at `src/agents/prompts/{elicitor,executor}.md`.
 - **Background bodies are subagent resources, not foreground prompts:** `explorer`, `researcher`, `projector`, and `reviewer` live under `src/agents/subagents/` and load only through the explicit `BACKGROUND_SUBAGENT_IDS` registry.
-- **Runtime/product vocabulary stays honest:** current runtime ids are `elicit` and `execute`; product labels are `Specify` and `Execute`. `elicitor` is the elicit/Specify foreground agent and `executor` is the execute/Execute foreground agent; retired orchestrator / pi-coder body aliases are not preserved.
+- **Runtime/product vocabulary stays honest:** current runtime ids are `specify` and `execute`; product labels are `Specify` and `Execute`. `elicitor` is the specify/Specify foreground agent and `executor` is the execute/Execute foreground agent; retired orchestrator / pi-coder body aliases are not preserved.
 
 ## Does NOT own
 

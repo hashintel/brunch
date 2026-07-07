@@ -26,7 +26,7 @@ Two arcs closed with this stack: **capture-ingest-throughline** (FE-1135 + FE-11
 Sixteen files overlap; three are load-bearing:
 
 1. **`src/agents/runtime/executor/active-tools.ts`** — your `execute_*` grants now live inside the FE-1137 concentric contract: the allowlist is composed from the live elicitor allowlist plus executor-only grants, enforced by `agent-runtime-authority-matrix.test.ts`. Rule going forward: *executor ⊇ elicitor; write-execution tooling stays executor-only.*
-2. **`src/agents/prompts/executor.md` / `compose-prompt.ts`** — every CODE session now enters through the J5 orientation menu and opens with a readiness posture (Proceed / Negotiate / Ask) before reaching your run tooling. Known drift, assigned to re-baselined FE-1107: the prompt still teaches "`orchestrator_stub` is the honest execution boundary" although your `execute_*` chain is live.
+2. **`src/agents/prompts/executor.md` / `compose-prompt.ts`** — every Execute session now enters through the J5 orientation menu and opens with a readiness posture (Proceed / Negotiate / Ask) before reaching the live `execute_*` tooling and explicit-acceptance host-apply boundary.
 3. **`src/app/pi-extensions.ts`** — your port composition (`GitHostPromotionPort` et al.) and the stack's `sessionOrientation` wiring meet in the same factory.
 
 Doc reconciliation already done (2026-07-06 ln-sync on this stack): your lane is registered in SPEC as **D111-L** (executor core over injected ports), **D112-L** (run driver), **I58-L** (bounded side effects) — the D101-L/D102-L/I56-L IDs your code cited were already taken by elicitation-scratchpad decisions; references repaired, no content change.
@@ -43,5 +43,5 @@ Doc reconciliation already done (2026-07-06 ln-sync on this stack): your lane is
 
 - The six `memory/cards/executor-*` cards: all acceptance boxes are checked and the code exists — confirm they are exhausted so we can garbage-collect them, or name what is genuinely still open.
 - FE-1107 (`orchestrator-tool-port`): close as absorbed by your lane, or narrow to any unported `../brunch` cook CLI behavior?
-- `executor.md` stub-boundary conduct realignment: who takes it, and does `orchestrator_stub` retire?
+- KA-card confirmation: which remaining `memory/cards/executor-*` files are open vs exhausted?
 - Seam ownership going forward for `active-tools.ts` / `executor.md` / `pi-extensions.ts` (both lanes edit all three).

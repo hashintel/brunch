@@ -206,7 +206,7 @@ describe('Brunch runtime switch commands', () => {
   });
 
   it('reports a no-op when the picker selects the current mode', async () => {
-    const harness = commandHarness({ customResult: 'elicit' });
+    const harness = commandHarness({ customResult: 'specify' });
 
     await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('', harness.ctx);
 
@@ -391,7 +391,7 @@ describe('Brunch runtime switch commands', () => {
   it('reports explicit mode args without inventing extra runtime state', async () => {
     const harness = commandHarness();
 
-    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('elicit', harness.ctx);
+    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('specify', harness.ctx);
     await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
 
     expect(harness.entries).toHaveLength(1);

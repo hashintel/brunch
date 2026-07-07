@@ -1351,7 +1351,7 @@ describe('Brunch TUI boot', () => {
     });
   });
 
-  it('loads the elicit operational-mode tool policy from product code', async () => {
+  it('loads the Specify operational-mode tool policy from product code', async () => {
     const events: Record<string, (event: never) => unknown> = {};
     const activeTools: string[][] = [];
     const registeredTools: string[] = [];
@@ -1382,7 +1382,7 @@ describe('Brunch TUI boot', () => {
     expect(events.user_bash?.({ command: 'rm -rf .' } as never)).toMatchObject({
       result: {
         exitCode: 1,
-        output: 'Brunch tool policy blocks shell commands in elicit mode (bash, edit, write): rm -rf .',
+        output: 'Brunch tool policy blocks shell commands in specify mode (bash, edit, write): rm -rf .',
       },
     });
   });

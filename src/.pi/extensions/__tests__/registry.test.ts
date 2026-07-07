@@ -21,35 +21,6 @@ import type {
   TestRunnerPort,
 } from '../../../executor/execution-ports.js';
 import { registerBrunchAlternatives as alternatives } from '../../components/alternatives.js';
-import { BRUNCH_EXECUTE_AGENT_RESULT_TOOL } from '../agent-runtime/execute-agent-result/index.js';
-import {
-  BRUNCH_EXECUTE_HOST_PROMOTION_APPLY_TOOL,
-  BRUNCH_EXECUTE_HOST_PROMOTION_PREFLIGHT_TOOL,
-} from '../agent-runtime/execute-host-promotion/index.js';
-import { BRUNCH_EXECUTE_LAUNCH_TOOL } from '../agent-runtime/execute-launch/index.js';
-import { BRUNCH_EXECUTE_ORCHESTRATE_TOOL } from '../agent-runtime/execute-orchestrate/index.js';
-import { BRUNCH_EXECUTE_PETRI_EXPORT_TOOL } from '../agent-runtime/execute-petri-export/index.js';
-import { BRUNCH_EXECUTE_PLAN_CHECK_TOOL } from '../agent-runtime/execute-plan-check/index.js';
-import { BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL } from '../agent-runtime/execute-plan-draft-artifact/index.js';
-import { BRUNCH_EXECUTE_PLAN_DRAFT_TOOL } from '../agent-runtime/execute-plan-draft/index.js';
-import { BRUNCH_EXECUTE_PLAN_FILE_TOOL } from '../agent-runtime/execute-plan-file/index.js';
-import { BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL } from '../agent-runtime/execute-plan-outline-artifact/index.js';
-import { BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL } from '../agent-runtime/execute-plan-outline/index.js';
-import { BRUNCH_EXECUTE_PLAN_PREVIEW_TOOL } from '../agent-runtime/execute-plan-preview/index.js';
-import { BRUNCH_EXECUTE_POPULATE_TOOL } from '../agent-runtime/execute-populate/index.js';
-import { BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL } from '../agent-runtime/execute-promotion-prepare/index.js';
-import { BRUNCH_EXECUTE_REPORT_INIT_TOOL } from '../agent-runtime/execute-report-init/index.js';
-import { BRUNCH_EXECUTE_RUN_COMPLETE_TOOL } from '../agent-runtime/execute-run-complete/index.js';
-import { BRUNCH_EXECUTE_RUN_CREATE_TOOL } from '../agent-runtime/execute-run-create/index.js';
-import { BRUNCH_EXECUTE_SLICE_COMPLETE_TOOL } from '../agent-runtime/execute-slice-complete/index.js';
-import { BRUNCH_EXECUTE_SLICE_EXECUTE_TOOL } from '../agent-runtime/execute-slice-execute/index.js';
-import { BRUNCH_EXECUTE_SLICE_START_TOOL } from '../agent-runtime/execute-slice-start/index.js';
-import { BRUNCH_EXECUTE_SNAPSHOT_TOOL } from '../agent-runtime/execute-snapshot/index.js';
-import { BRUNCH_EXECUTE_SOURCE_COPY_TOOL } from '../agent-runtime/execute-source-copy/index.js';
-import { BRUNCH_EXECUTE_SOURCE_POLICY_TOOL } from '../agent-runtime/execute-source-policy/index.js';
-import { BRUNCH_EXECUTE_STATUS_TOOL } from '../agent-runtime/execute-status/index.js';
-import { BRUNCH_EXECUTE_TEST_RESULT_TOOL } from '../agent-runtime/execute-test-result/index.js';
-import { BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL } from '../agent-runtime/execute-worktree-create/index.js';
 import { registerBrunchOperationalModePolicy as operationalMode } from '../agent-runtime/runtime/index.js';
 import { registerBrunchPrompting as prompting } from '../agent-runtime/system-prompts/index.js';
 import { registerBrunchContext as context } from '../brunch-data/context/index.js';
@@ -67,6 +38,35 @@ import {
   REQUEST_RESPONSE_TOOL,
   registerStructuredExchange as structuredExchange,
 } from '../exchanges/index.js';
+import { BRUNCH_EXECUTE_AGENT_RESULT_TOOL } from '../executor/execute-agent-result/index.js';
+import {
+  BRUNCH_EXECUTE_HOST_PROMOTION_APPLY_TOOL,
+  BRUNCH_EXECUTE_HOST_PROMOTION_PREFLIGHT_TOOL,
+} from '../executor/execute-host-promotion/index.js';
+import { BRUNCH_EXECUTE_LAUNCH_TOOL } from '../executor/execute-launch/index.js';
+import { BRUNCH_EXECUTE_ORCHESTRATE_TOOL } from '../executor/execute-orchestrate/index.js';
+import { BRUNCH_EXECUTE_PETRI_EXPORT_TOOL } from '../executor/execute-petri-export/index.js';
+import { BRUNCH_EXECUTE_PLAN_CHECK_TOOL } from '../executor/execute-plan-check/index.js';
+import { BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL } from '../executor/execute-plan-draft-artifact/index.js';
+import { BRUNCH_EXECUTE_PLAN_DRAFT_TOOL } from '../executor/execute-plan-draft/index.js';
+import { BRUNCH_EXECUTE_PLAN_FILE_TOOL } from '../executor/execute-plan-file/index.js';
+import { BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL } from '../executor/execute-plan-outline-artifact/index.js';
+import { BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL } from '../executor/execute-plan-outline/index.js';
+import { BRUNCH_EXECUTE_PLAN_PREVIEW_TOOL } from '../executor/execute-plan-preview/index.js';
+import { BRUNCH_EXECUTE_POPULATE_TOOL } from '../executor/execute-populate/index.js';
+import { BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL } from '../executor/execute-promotion-prepare/index.js';
+import { BRUNCH_EXECUTE_REPORT_INIT_TOOL } from '../executor/execute-report-init/index.js';
+import { BRUNCH_EXECUTE_RUN_COMPLETE_TOOL } from '../executor/execute-run-complete/index.js';
+import { BRUNCH_EXECUTE_RUN_CREATE_TOOL } from '../executor/execute-run-create/index.js';
+import { BRUNCH_EXECUTE_SLICE_COMPLETE_TOOL } from '../executor/execute-slice-complete/index.js';
+import { BRUNCH_EXECUTE_SLICE_EXECUTE_TOOL } from '../executor/execute-slice-execute/index.js';
+import { BRUNCH_EXECUTE_SLICE_START_TOOL } from '../executor/execute-slice-start/index.js';
+import { BRUNCH_EXECUTE_SNAPSHOT_TOOL } from '../executor/execute-snapshot/index.js';
+import { BRUNCH_EXECUTE_SOURCE_COPY_TOOL } from '../executor/execute-source-copy/index.js';
+import { BRUNCH_EXECUTE_SOURCE_POLICY_TOOL } from '../executor/execute-source-policy/index.js';
+import { BRUNCH_EXECUTE_STATUS_TOOL } from '../executor/execute-status/index.js';
+import { BRUNCH_EXECUTE_TEST_RESULT_TOOL } from '../executor/execute-test-result/index.js';
+import { BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL } from '../executor/execute-worktree-create/index.js';
 import { registerBrunchMentionAutocomplete as mentionAutocomplete } from '../mentions/index.js';
 import { registerBrunchSessionBoundary as sessionLifecycle } from '../session-hooks/session/lifecycle.js';
 import { parseSubagentMarkdown, type BrunchSubagentsDeps, type SubagentResult } from '../subagents/index.js';
@@ -101,13 +101,14 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(settings.extensions).toEqual(
       expect.arrayContaining([
         '-extensions/agent-runtime/index.ts',
-        '-extensions/agent-runtime/execute-plan-preview/index.ts',
-        '-extensions/agent-runtime/execute-plan-check/index.ts',
-        '-extensions/agent-runtime/execute-plan-draft-artifact/index.ts',
-        '-extensions/agent-runtime/execute-plan-draft/index.ts',
-        '-extensions/agent-runtime/execute-plan-outline/index.ts',
-        '-extensions/agent-runtime/execute-snapshot/index.ts',
-        '-extensions/agent-runtime/execute-status/index.ts',
+        '-extensions/executor/index.ts',
+        '-extensions/executor/execute-plan-preview/index.ts',
+        '-extensions/executor/execute-plan-check/index.ts',
+        '-extensions/executor/execute-plan-draft-artifact/index.ts',
+        '-extensions/executor/execute-plan-draft/index.ts',
+        '-extensions/executor/execute-plan-outline/index.ts',
+        '-extensions/executor/execute-snapshot/index.ts',
+        '-extensions/executor/execute-status/index.ts',
         '-extensions/agent-runtime/runtime/index.ts',
         '-extensions/agent-runtime/system-prompts/index.ts',
         '-extensions/brunch-data/context/index.ts',
@@ -1118,6 +1119,7 @@ describe('Brunch explicit Pi extension registry', () => {
         epicId: 'frontier-1',
         sliceId: 'task-1',
         runtime: { modelRegistry, model },
+        onUpdate: expect.any(Function),
       },
     ]);
     expect(result.details).toMatchObject({

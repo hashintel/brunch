@@ -248,7 +248,7 @@ Evidence to inspect:
 
 ### 7. Mode switch, FTR events, and session reboot
 
-Known state going in: `applyModeSwitch` (`src/.pi/extensions/commands/index.ts`) swaps the system prompt + active tools and appends a `brunch.agent_runtime_state` custom entry (`reason: 'switch'`), but does **not** trigger a kick — kick today is origination-only (D78-L, `src/session/originate-assistant-turn.ts`). **Resolution decided (2026-07-03 grill):** the seam is the deterministic orientation dialog on juncture events — `session-entry-orientation` owns the dialog + juncture set, `execute-entry-readiness` owns the CODE-mode entry assessment — not a unified "kick on every FTR event" mechanism. This scenario's probes remain useful as before/after evidence for those frontiers.
+Known state going in: `applyModeSwitch` (`src/.pi/extensions/commands/index.ts`) swaps the system prompt + active tools and appends a `brunch.agent_runtime_state` custom entry (`reason: 'switch'`), but does **not** trigger a kick — kick today is origination-only (D78-L, `src/session/originate-assistant-turn.ts`). **Resolution decided (2026-07-03 grill):** the seam is the deterministic orientation dialog on juncture events — `session-entry-orientation` owns the dialog + juncture set, `execute-entry-readiness` owns the Execute-mode entry assessment — not a unified "kick on every FTR event" mechanism. This scenario's probes remain useful as before/after evidence for those frontiers.
 
 Expected behavior (current contract):
 
@@ -256,7 +256,7 @@ Expected behavior (current contract):
 - Runtime-switch entry appears in session state with `previous` + `source`.
 - A status-change notification is visible in the transcript/TUI.
 - The next provider request uses the new role's system prompt (`elicitor.md` vs `executor.md`) and the new active-tool set.
-- Executor mode blocks shell/edit/write and exposes `orchestrator_stub` only.
+- Executor mode blocks shell/edit/write and exposes executor-only `execute_*` tools.
 
 Dramaturgical probes (observe, classify, don't fix in-line unless trivial):
 
