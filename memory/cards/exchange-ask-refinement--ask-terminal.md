@@ -5,7 +5,7 @@ Status:   active
 Mode:     slices
 Created:  2026-07-07
 
-> Branch: `ln/fe-1115-tui-refinements-1` (branch-per-category posture, user decision 2026-07-07).
+> Branch: `ln/fe-1164-ask-terminal`, stacked on the tied-off `ln/fe-1115-tui-refinements-1` (PR #301).
 > Design authority: SPEC D116-L. Posture: proving (inherited from exchange-ask-refinement).
 > Sequence discipline: cards are sequential; none depends on implementation *findings* of an
 > earlier card — the design is settled by D116-L. If card 2 surfaces a schema/conduct surprise
