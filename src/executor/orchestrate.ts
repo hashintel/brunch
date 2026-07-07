@@ -267,5 +267,5 @@ async function sourcePolicyForRun(ctx: DriveContext): Promise<SourcePolicyKind> 
   const metadata = await readRunMetadata(runMetadataPath(ctx.cwd, ctx.runId));
   const path = metadata?.populatedPlanPath ?? populatedPlanPath(ctx.cwd, ctx.runId);
   const plan = JSON.parse(await readFile(path, 'utf8')) as SchedulerPlan;
-  return plan.mode === 'greenfield' ? 'plan_only' : 'host_source_deferred';
+  return plan.mode === 'brownfield' ? 'host_source_deferred' : 'plan_only';
 }

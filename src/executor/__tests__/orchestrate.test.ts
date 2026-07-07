@@ -45,9 +45,9 @@ function fakePorts(overrides: Partial<ExecutionPorts> = {}): ExecutionPorts {
   };
 }
 
-function planJson(sliceIds: readonly string[]): string {
+function planJson(sliceIds: readonly string[], options: { readonly includeMode?: boolean } = {}): string {
   return JSON.stringify({
-    mode: 'greenfield',
+    ...(options.includeMode === false ? {} : { mode: 'greenfield' }),
     epics: [{ id: 'frontier-1', summary: 'Build feature', depends_on: [], verification: [] }],
     slices: sliceIds.map((id) => ({
       id,
@@ -126,6 +126,23 @@ describe('drive', () => {
     const meta = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
     expect(meta).toMatchObject({ sourcePolicy: 'plan_only', sourceCopied: false, copiedEntries: [] });
     expect(await readFile(join(cwd, 'src', 'app.ts'), 'utf8')).toBe('export const app = true;\n');
+    await expect(readFile(join(meta!.worktreeDir!, 'src', 'app.ts'), 'utf8')).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+  });
+
+  it('treats omitted plan mode as greenfield when selecting source policy', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-omitted-mode-plan-only-'));
+    await mkdir(join(cwd, 'src'), { recursive: true });
+    await writeFile(join(cwd, 'src', 'app.ts'), 'export const app = true;\n', 'utf8');
+    await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
+    await writeFile(planFilePath(cwd, '42'), planJson(['task-1'], { includeMode: false }), 'utf8');
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
+
+    await drive({ cwd, runId: 'run-1', ports: fakePorts() });
+
+    const meta = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+    expect(meta).toMatchObject({ sourcePolicy: 'plan_only', sourceCopied: false, copiedEntries: [] });
     await expect(readFile(join(meta!.worktreeDir!, 'src', 'app.ts'), 'utf8')).rejects.toMatchObject({
       code: 'ENOENT',
     });
