@@ -65,12 +65,6 @@ describe('formatPresentReviewSet', () => {
     expect(
       missingRenderedDetailsLeaves(projection.details, rendered, {
         elisions: PRESENT_REVIEW_SET_CONTENT_ELISIONS,
-        representations: {
-          'review_set.nodes.2.body': [
-            'The invariant walks the structured details payload.',
-            'It fails when a formatter silently drops a meaningful leaf.',
-          ],
-        },
       }),
     ).toEqual([]);
   });

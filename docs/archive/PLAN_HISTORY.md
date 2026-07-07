@@ -3,6 +3,16 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-07-03 Recently Completed trim (`ln-plan`)
+
+Archived from `memory/PLAN.md`'s `Recently Completed` list during the 2026-07-03 ship-gate re-collation
+pass. Kept live: `exchange-rendering` (FE-1123, closed same day) and `elicitation-gap-guidance`
+(FE-1116, still directly load-bearing for the new `exchange-capture-contract` and
+`execute-entry-readiness` frontiers).
+
+- 2026-07-01 `component-dx--rounded-box-primitive` (FE-1115) — `.pi/components/rounded-box.ts` now owns the shared rounded-border projection for bordered Pi TUI presentation components. `brunch-editor.ts`, `workspace-dialog/component.ts`, and `cards.ts` delegate their box drawing to `projectRoundedBox`; direct-render tests cover right/left labels, thumb rows, blank padding, pre-rendered content width, and card title placement. This closed `component-dx`'s active scope; production-wiring work moved to `exchange-answering-chrome` (né `bordered-chrome-production`).
+- 2026-07-01 `component-dx--wheel-scroll-passthrough` (FE-1115) — `workspace-dialog-scroll` now opts into preview-harness SGR wheel handling: `showComponentPreview` owns mouse enable/disable plus wheel-to-arrow translation, `.pi/components/mouse-wheel.ts` owns the raw SGR parser, and harness tests prove the long-list preview reaches the same visible state as equivalent ArrowDown input. Residual, carried forward on `exchange-answering-chrome`: a manual physical-terminal smoke test (iTerm2/Kitty/Ghostty) to confirm native wheel emission matches the injected SGR shape has not been run.
+
 ## 2026-07-01 Recently Completed trim (`ln-plan`)
 
 Archived from `memory/PLAN.md`'s `Recently Completed` list during the `ln-plan` pass that split
