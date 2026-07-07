@@ -11,6 +11,7 @@ export const BRUNCH_EXECUTE_POPULATE_TOOL = 'execute_populate';
 export const BRUNCH_EXECUTE_REPORT_INIT_TOOL = 'execute_report_init';
 export const BRUNCH_EXECUTE_RUN_COMPLETE_TOOL = 'execute_run_complete';
 export const BRUNCH_EXECUTE_RUN_CREATE_TOOL = 'execute_run_create';
+export const BRUNCH_EXECUTE_REPLAN_RECOMMENDATION_TOOL = 'execute_replan_recommendation';
 export const BRUNCH_EXECUTE_SOURCE_COPY_TOOL = 'execute_source_copy';
 export const BRUNCH_EXECUTE_SOURCE_POLICY_TOOL = 'execute_source_policy';
 export const BRUNCH_EXECUTE_SLICE_COMPLETE_TOOL = 'execute_slice_complete';

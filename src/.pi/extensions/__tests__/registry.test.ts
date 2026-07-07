@@ -55,6 +55,7 @@ import { BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL } from '../executor/execute-plan-outli
 import { BRUNCH_EXECUTE_PLAN_PREVIEW_TOOL } from '../executor/execute-plan-preview/index.js';
 import { BRUNCH_EXECUTE_POPULATE_TOOL } from '../executor/execute-populate/index.js';
 import { BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL } from '../executor/execute-promotion-prepare/index.js';
+import { BRUNCH_EXECUTE_REPLAN_RECOMMENDATION_TOOL } from '../executor/execute-replan-recommendation/index.js';
 import { BRUNCH_EXECUTE_REPORT_INIT_TOOL } from '../executor/execute-report-init/index.js';
 import { BRUNCH_EXECUTE_RUN_COMPLETE_TOOL } from '../executor/execute-run-complete/index.js';
 import { BRUNCH_EXECUTE_RUN_CREATE_TOOL } from '../executor/execute-run-create/index.js';
@@ -809,6 +810,93 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(readFile(metadataPath, 'utf8')).resolves.toContain('"status": "created"');
     await expect(access(join(runDir, 'worktree'))).rejects.toThrow();
     await expect(access(join(runDir, 'reports.jsonl'))).rejects.toThrow();
+  });
+
+  it('registers execute_replan_recommendation as read-only HITL diagnosis', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-recommendation-'));
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
+    const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
+    const metadataPath = join(runDir, 'run.json');
+    await mkdir(dirname(planPath), { recursive: true });
+    await mkdir(runDir, { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(
+      provenancePath,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        specId: '42',
+        mode: 'greenfield',
+        source: { graphLsn: 21, visibility: 'active' },
+      })}\n`,
+      'utf8',
+    );
+    await writeFile(
+      metadataPath,
+      JSON.stringify({ runId: 'run-1', specId: '42', planPath, status: 'agent_result_ingested' }),
+      'utf8',
+    );
+    const registeredTools = await collectProductTools({
+      graph: {
+        specId: 42,
+        lsn: 21,
+        nodes: [
+          {
+            id: 1,
+            specId: 42,
+            plane: 'intent',
+            kind: 'requirement',
+            kindOrdinal: 1,
+            title: 'Run the cooked feature',
+            body: 'Feature runs through the alpha executor.',
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+          {
+            id: 2,
+            specId: 42,
+            plane: 'intent',
+            kind: 'criterion',
+            kindOrdinal: 1,
+            title: 'Feature visible',
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+        ],
+        edges: [
+          {
+            id: 1,
+            specId: 42,
+            category: 'witness',
+            stance: 'for',
+            sourceId: 2,
+            targetId: 1,
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+        ],
+      },
+    });
+
+    const recommend = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_REPLAN_RECOMMENDATION_TOOL);
+    expect(recommend).toBeDefined();
+    const result = await recommend!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
+
+    expect(result.content[0]?.text).toContain('execute_replan_recommendation: retry_current_run');
+    expect(result.content[0]?.text).toContain('recommended action: retry_current_step');
+    expect(result.details).toMatchObject({
+      recommendation: {
+        status: 'retry_current_run',
+        recommendedAction: 'retry_current_step',
+        allowedActions: ['retry_current_step', 'inspect_run', 'abandon_run'],
+        sideEffects: [],
+      },
+      sideEffects: [],
+    });
+    await expect(access(join(runDir, 'worktree'))).rejects.toThrow();
   });
 
   it('registers execute_worktree_create as empty worktree materialization only', async () => {
@@ -1897,7 +1985,7 @@ describe('Brunch explicit Pi extension registry', () => {
     // EXECUTOR_ALLOWED_TOOL_NAMES; the registered-but-unadmitted plan artifact
     // tools are intentionally excluded, and text and details must agree.
     expect(result.content[0]?.text).toContain(
-      'ported tools: execute_status, execute_orchestrate, execute_snapshot, execute_plan_check, execute_plan_outline, execute_plan_draft, execute_plan_preview, execute_plan_file, execute_launch, execute_run_create, execute_worktree_create, execute_populate, execute_source_policy, execute_source_copy, execute_report_init, execute_slice_start, execute_slice_execute, execute_agent_result, execute_test_result, execute_slice_complete, execute_run_complete, execute_petri_export, execute_promotion_prepare, execute_host_promotion_preflight, execute_host_promotion_apply',
+      'ported tools: execute_status, execute_orchestrate, execute_snapshot, execute_plan_check, execute_plan_outline, execute_plan_draft, execute_plan_preview, execute_plan_file, execute_launch, execute_run_create, execute_replan_recommendation, execute_worktree_create, execute_populate, execute_source_policy, execute_source_copy, execute_report_init, execute_slice_start, execute_slice_execute, execute_agent_result, execute_test_result, execute_slice_complete, execute_run_complete, execute_petri_export, execute_promotion_prepare, execute_host_promotion_preflight, execute_host_promotion_apply',
     );
     expect(result.content[0]?.text).toContain('pending tools: none');
     expect(result.content[0]?.text).toContain(
@@ -1917,6 +2005,7 @@ describe('Brunch explicit Pi extension registry', () => {
         'execute_plan_file',
         'execute_launch',
         'execute_run_create',
+        'execute_replan_recommendation',
         'execute_worktree_create',
         'execute_populate',
         'execute_source_policy',
