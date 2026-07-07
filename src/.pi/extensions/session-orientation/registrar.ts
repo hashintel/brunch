@@ -55,6 +55,7 @@ export interface BrunchSessionOrientationDeps {
     | Promise<JunctureContextKick | undefined>
     | JunctureContextKick
     | undefined;
+  readonly noAuthNotice?: string;
 }
 
 // ceiling: one shared 750ms wall-clock resolution window plus one in-flight
@@ -179,6 +180,13 @@ async function runJuncture(
   debounce: OrientationJunctureGate,
   invocation: JunctureInvocation,
 ): Promise<void> {
+  if (ctx.hasUI && ctx.modelRegistry.getAvailable().length === 0) {
+    if (invocation.trigger === 'entry' && deps.noAuthNotice) {
+      ctx.ui.notify(deps.noAuthNotice, 'warning');
+    }
+    return;
+  }
+
   const now = Date.now();
   if (debounce.activeClaim !== undefined || now - debounce.lastResolvedAt < JUNCTURE_DEBOUNCE_MS) return;
   const claim = claimOrientationJuncture(debounce);

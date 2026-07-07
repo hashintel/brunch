@@ -352,6 +352,41 @@ describe('runOrientationJuncture', () => {
       expect(sent).toEqual([]);
     });
 
+    it('suppresses the dialog and kick when no allowlisted model is currently available', async () => {
+      const manager = fakeSessionManager();
+      const { deps, sent } = fakeKickDeps();
+      let selected = false;
+
+      const result = await runJunctureForContext({
+        ctx: {
+          mode: 'tui',
+          hasUI: true,
+          ui: {
+            select: async () => {
+              selected = true;
+              return labelFor('ingest');
+            },
+          },
+          modelRegistry: { getAvailable: () => [] },
+          sessionManager: manager,
+        },
+        trigger: 'mode-switch',
+        mode: 'follow-choice',
+        kick: {
+          specId: deps.specId,
+          reads: deps.reads,
+          workspaceContext: deps.workspaceContext,
+          sendCustomMessage: deps.sendCustomMessage,
+        },
+        onAppendError: () => {},
+      });
+
+      expect(result).toEqual({ ran: false, kickFired: false });
+      expect(selected).toBe(false);
+      expect(manager.entries).toEqual([]);
+      expect(sent).toEqual([]);
+    });
+
     it('delegates to runOrientationJuncture with the timeout-adapted RPC UI (J5 mode-switch path)', async () => {
       const manager = fakeSessionManager();
       const { deps, sent } = fakeKickDeps();

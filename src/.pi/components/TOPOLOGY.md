@@ -1,6 +1,6 @@
 # `.pi/components` — Reusable Pi TUI components
 
-SPEC decision: D52-L (sealed Pi-harness runtime surface).
+SPEC decisions: D52-L (sealed Pi-harness runtime surface), D115-L (no-auth workspace-dialog warning).
 
 This directory owns reusable components rendered inside the embedded Pi coding-agent harness: TUI overlays, chrome regions, message helpers, and the shared visual primitives (theme/badge/segment-track) they build on. These are **Pi-native presentation pieces**, not generic React components and not product wiring.
 
@@ -60,7 +60,7 @@ components/
     └── preflight.ts
 ```
 
-`workspace-dialog/` is the cleanest example: `workspace-dialog.ts` at the root is the stable public entry; the folder holds private implementation. `runtime-posture/` and `tui-lab/` follow the same private-folder spirit today; consumers import from the folder's public file (`runtime-posture/axis-picker.js`, `tui-lab/index.js`).
+`workspace-dialog/` is the cleanest example: `workspace-dialog.ts` at the root is the stable public entry; the folder holds private implementation. Its no-auth banner is render-only: app wiring passes the model-availability flag and copy; the component does not resolve auth or import product host policy. `runtime-posture/` and `tui-lab/` follow the same private-folder spirit today; consumers import from the folder's public file (`runtime-posture/axis-picker.js`, `tui-lab/index.js`).
 
 ## Dependency rules
 

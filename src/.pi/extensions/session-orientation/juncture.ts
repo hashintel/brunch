@@ -176,6 +176,8 @@ export async function runJunctureForContext(
   input: RunJunctureForContextInput,
 ): Promise<RunOrientationJunctureResult> {
   const { ctx } = input;
+  if (ctx.hasUI && !hasAvailableModel(ctx)) return { ran: false, kickFired: false };
+
   const sessionManager = ctx.sessionManager;
   if (!sessionManagerCanAppend(sessionManager)) {
     input.onAppendError(
@@ -223,6 +225,10 @@ export function sendCustomMessageViaExtensionApi(pi: ExtensionAPI): LiveKickDeps
     pi.sendMessage(message, options);
     return Promise.resolve();
   };
+}
+
+function hasAvailableModel(ctx: Pick<OrientationContextLike, 'modelRegistry'>): boolean {
+  return ctx.modelRegistry.getAvailable().length > 0;
 }
 
 function sessionManagerCanAppend(sessionManager: unknown): sessionManager is JunctureSessionManager {

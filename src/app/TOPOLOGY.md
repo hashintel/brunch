@@ -1,6 +1,6 @@
 # app/
 
-SPEC decisions: D52-L, D113-L
+SPEC decisions: D52-L, D113-L, D114-L, D115-L
 
 ## Owns
 
@@ -16,18 +16,21 @@ Current entrypoints:
 - `print-workspace-state.ts` — terse human/product print-mode rendering for
   `brunch --mode print`.
 - `brunch-tui.ts` — TUI launch path, embedded Pi session runtime wiring, and the
-  web sidecar (`startWebHost`; browser launch is opt-in via `--open-web`). Its
-  boot-kick live `sendCustomMessage` adapter resolves at scheduling time so
+  web sidecar (`startWebHost`; browser launch is opt-in via `--open-web`). It
+  resolves boot-time allowlisted-model availability for the workspace-dialog
+  warning, and passes the same no-auth notice into session-orientation wiring.
+  Its boot-kick live `sendCustomMessage` adapter resolves at scheduling time so
   `session_start` cannot park the TUI before subscription, but queues all sends
   in one per-kick serial chain after the defer window so seed custom messages
   settle before the triggering kick send begins.
 
 Current runtime support modules:
 
-- `model-policy.ts` — D113-L model-policy boundary: the code-owned ordered
-  allowlist, Brunch-contained `ModelRegistry`, first-auth fall-through resolver,
-  and scoped `/model` cycle list. Ambient/custom Pi `models.json` entries are not
-  a Brunch product surface for the alpha.
+- `model-policy.ts` — D113-L/D115-L model-policy boundary: the code-owned
+  ordered allowlist, Brunch-contained `ModelRegistry`, first-auth fall-through
+  resolver, scoped `/model` cycle list, and single-source no-auth guidance copy.
+  Ambient/custom Pi `models.json` entries are not a Brunch product surface for
+  the alpha.
 - `brunch-login.ts` — D114-L standalone auth-onboarding flow. It reads provider
   order from `model-policy.ts`, writes only Pi's global `AuthStorage` file
   (`auth.json`, relocatable via `PI_CODING_AGENT_DIR`), and does not boot a

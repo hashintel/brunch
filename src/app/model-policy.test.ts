@@ -15,6 +15,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   BRUNCH_MODEL_ALLOWLIST,
   createBrunchModelRegistry,
+  getBrunchNoAuthGuidanceCopy,
   getBrunchScopedModels,
   resolveBrunchModelPolicy,
 } from './model-policy.js';
@@ -98,6 +99,17 @@ describe('Brunch model policy', () => {
       status: 'resolved',
       model: { provider: 'anthropic', id: 'claude-sonnet-4-6' },
     });
+  });
+
+  it('formats no-auth guidance from the allowlist for every entry surface', () => {
+    const copy = getBrunchNoAuthGuidanceCopy();
+
+    expect(copy.title).toContain('No Brunch model auth');
+    expect(copy.body).toContain('brunch login');
+    expect(copy.body).toContain('/login');
+    for (const entry of BRUNCH_MODEL_ALLOWLIST) {
+      expect(copy.body).toContain(entry.displayName);
+    }
   });
 
   it('boots a Pi session on the resolved allowlisted model and scoped cycle list', async () => {

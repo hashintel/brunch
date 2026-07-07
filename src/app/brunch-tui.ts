@@ -15,7 +15,10 @@ import {
   type CreateAgentSessionServicesOptions,
 } from '@earendil-works/pi-coding-agent';
 
-import { runWorkspaceDialogPreflight } from '../.pi/components/workspace-dialog.js';
+import {
+  runWorkspaceDialogPreflight,
+  type WorkspaceDialogPreflightOptions,
+} from '../.pi/components/workspace-dialog.js';
 import type { GraphReaders } from '../.pi/extensions/brunch-data/index.js';
 import {
   appendEntryContentToDebugCache,
@@ -50,6 +53,8 @@ import {
 } from '../session/workspace-session-coordinator.js';
 import {
   createBrunchModelRegistry,
+  formatBrunchNoAuthGuidanceNotice,
+  getBrunchNoAuthGuidanceCopy,
   getBrunchScopedModels,
   resolveBrunchModelPolicy,
 } from './model-policy.js';
@@ -140,6 +145,7 @@ export interface BrunchTuiOptions {
   selectSpecTitle?: () => Promise<string | undefined>;
   runWorkspaceDialogPreflight?: (
     inventory: WorkspaceLaunchInventory,
+    options: Pick<WorkspaceDialogPreflightOptions, 'modelAvailable' | 'noAuthGuidance'>,
   ) => Promise<SpecSessionActivationDecision>;
   launchInteractive?: (context: BrunchTuiLaunchContext) => Promise<void>;
   webSidecarRunner?: (options: BrunchWebSidecarRunnerOptions) => Promise<BrunchWebSidecar | null>;
@@ -256,14 +262,24 @@ async function chooseSpecSessionActivationDecision(
   inventory: WorkspaceLaunchInventory,
   options: BrunchTuiOptions,
 ): Promise<SpecSessionActivationDecision> {
+  const preflightOptions = {
+    modelAvailable: resolveBootModelAvailable(),
+    noAuthGuidance: getBrunchNoAuthGuidanceCopy(),
+  };
   if (options.runWorkspaceDialogPreflight) {
-    return options.runWorkspaceDialogPreflight(inventory);
+    return options.runWorkspaceDialogPreflight(inventory, preflightOptions);
   }
   if (options.selectSpecTitle && inventory.needsNewSpec) {
     const title = await options.selectSpecTitle();
     return title ? { action: 'newSpec', title } : { action: 'cancel' };
   }
-  return runWorkspaceDialogPreflight(inventory);
+  return runWorkspaceDialogPreflight(inventory, preflightOptions);
+}
+
+function resolveBootModelAvailable(): boolean {
+  const authStorage = AuthStorage.create(join(getAgentDir(), 'auth.json'));
+  const modelRegistry = createBrunchModelRegistry(ModelRegistry.inMemory(authStorage));
+  return resolveBrunchModelPolicy(modelRegistry).status === 'resolved';
 }
 
 type EdgeCompatibleNodeKinds = readonly NodeKind[];
@@ -559,6 +575,7 @@ export function createBrunchAgentSessionRuntimeFactory(
               };
             },
             sessionOrientation: {
+              noAuthNotice: formatBrunchNoAuthGuidanceNotice(),
               // Option-2 J1: origination + kick now run inside the
               // `session_start` (reason `startup`) handler in the
               // session-orientation extension registrar, which fires from

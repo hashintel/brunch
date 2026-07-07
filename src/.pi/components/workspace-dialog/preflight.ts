@@ -8,12 +8,15 @@ import type {
 import {
   WORKSPACE_DIALOG_WIDTH,
   createWorkspaceDialogComponent,
+  type WorkspaceDialogNoAuthGuidance,
   type WorkspaceDialogTheme,
 } from './component.js';
 
-interface WorkspaceDialogPreflightOptions {
+export interface WorkspaceDialogPreflightOptions {
   terminal?: Terminal;
   theme?: WorkspaceDialogTheme;
+  modelAvailable?: boolean;
+  noAuthGuidance?: WorkspaceDialogNoAuthGuidance;
 }
 
 export async function runWorkspaceDialogPreflight(
@@ -35,6 +38,8 @@ export async function runWorkspaceDialogPreflight(
       inventory,
       theme: dialogTheme,
       onDecision: finish,
+      ...(options.modelAvailable !== undefined ? { modelAvailable: options.modelAvailable } : {}),
+      ...(options.noAuthGuidance ? { noAuthGuidance: options.noAuthGuidance } : {}),
     });
     const overlay = tui.showOverlay(component, {
       anchor: 'center',

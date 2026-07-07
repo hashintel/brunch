@@ -11,6 +11,12 @@ export interface BrunchModelAllowlistEntry {
   readonly thinkingLevel: BrunchThinkingLevel;
 }
 
+export interface BrunchNoAuthGuidanceCopy {
+  readonly title: string;
+  readonly lines: readonly string[];
+  readonly body: string;
+}
+
 export const BRUNCH_MODEL_ALLOWLIST = [
   {
     provider: 'anthropic',
@@ -63,6 +69,8 @@ function allowlistedModelsFrom(registry: ModelRegistry): BrunchModel[] {
 export function createBrunchModelRegistry(registry: ModelRegistry): ModelRegistry {
   const brunchRegistry = Object.create(registry) as ModelRegistry;
 
+  // ceiling: explicit wrapper forwarding can lag behind Pi's registry API; forward any new
+  // mutating registry method here so upgrades cannot shadow-write onto the wrapper object.
   brunchRegistry.refresh = () => registry.refresh();
   brunchRegistry.getError = () => registry.getError();
   brunchRegistry.getAll = () => allowlistedModelsFrom(registry);
@@ -81,6 +89,25 @@ export function createBrunchModelRegistry(registry: ModelRegistry): ModelRegistr
   brunchRegistry.unregisterProvider = (providerName) => registry.unregisterProvider(providerName);
 
   return brunchRegistry;
+}
+
+export function getBrunchNoAuthGuidanceCopy(): BrunchNoAuthGuidanceCopy {
+  const lines = [
+    'Provider turns are disabled until auth is configured.',
+    'Run brunch login, or use /login in this session.',
+    'Brunch allowlist:',
+    ...BRUNCH_MODEL_ALLOWLIST.map((entry) => `- ${entry.displayName}`),
+  ];
+  return {
+    title: 'No Brunch model auth',
+    lines,
+    body: lines.join(' '),
+  };
+}
+
+export function formatBrunchNoAuthGuidanceNotice(): string {
+  const copy = getBrunchNoAuthGuidanceCopy();
+  return `${copy.title}: ${copy.body}`;
 }
 
 export function getBrunchScopedModels(registry: ModelRegistry): BrunchScopedModel[] {
