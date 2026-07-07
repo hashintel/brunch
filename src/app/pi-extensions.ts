@@ -351,7 +351,12 @@ export function createBrunchPiExtensions(
               registerBrunchExecuteRunUpdates(api, { productUpdates: options.productUpdates! }),
           ]
         : []),
-      (api) => registerBrunchExecuteOrchestrate(api, executionPorts),
+      (api) =>
+        registerBrunchExecuteOrchestrate(
+          api,
+          executionPorts,
+          options.productUpdates ? { productUpdates: options.productUpdates } : undefined,
+        ),
       (api) => registerBrunchExecuteAgentResult(api, executionPorts.agentRunner),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteLaunch(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanFile(api, graph)] : []),

@@ -94,6 +94,8 @@ export interface DriveContext {
   readonly sourcePolicy?: SourcePolicyKind;
   readonly runtime?: AgentRunnerRuntime;
   readonly signal?: AbortSignal;
+  /** Fired after each step that advanced run.json (observer hook; errors are swallowed). */
+  readonly onStepComplete?: (step: ReadyStep['kind'], runStatus: RunMetadata['status']) => void;
 }
 
 export type DriveOutcome =
@@ -135,6 +137,13 @@ export async function drive(
     const result = await runStep(next, ctx);
     if (result.runStatus === state.status) {
       return { status: 'halted', step: next.kind, runStatus: state.status, reason: result.status };
+    }
+    if (result.runStatus !== 'not_started') {
+      try {
+        ctx.onStepComplete?.(next.kind, result.runStatus);
+      } catch {
+        // Observer failures never affect the drive.
+      }
     }
   }
 }
