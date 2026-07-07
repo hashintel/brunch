@@ -27,7 +27,8 @@ This directory is Brunch's sealed Pi-harness surface. It contains product extens
 ├── brunch-pi-settings.ts        sealed Pi settings/resource-loader policy
 ├── brunch-pi-extensions.ts      explicit Brunch extension factory; no ambient discovery
 ├── components/                    reusable Pi TUI/message components
-└── extensions/                    Pi registrars and runtime adapters
+├── extensions/                    Pi registrars and runtime adapters
+└── themes/                        Brunch theme pair (brunch-light / brunch-dark)
 ```
 
 ## Boundary rules
@@ -40,6 +41,8 @@ rules:
 ```
 
 Production Brunch does not rely on ambient discovery from the repository root. The product shell imports extension factories explicitly; tests for extensions/components live in `.pi/__tests__/`.
+
+`themes/` holds the Brunch theme pair. The sealed loader keeps `noThemes: true` and admits these files only through `additionalThemePaths`; the settings policy pins `theme: 'brunch-light/brunch-dark'`, which Pi resolves against the detected terminal background and re-resolves live on terminal color-scheme changes (native dark/light auto-sync). `build:pi-assets` mirrors the JSONs into `dist/.pi/themes/`.
 
 `settings.json` is only for direct `pi` launches from `src/`: it disables product-composition registrars that need explicit shell-provided Brunch deps, plus the Brunch web tools because their `web_fetch` / `web_search` names commonly conflict with global Pi web extensions. Other standalone/default-factory extensions remain available for ambient Pi discovery and `/reload` iteration; disabled entries can still be tested explicitly with `pi -ne -e <path>`.
 

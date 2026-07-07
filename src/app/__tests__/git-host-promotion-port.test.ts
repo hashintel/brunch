@@ -124,7 +124,7 @@ describe('createGitHostPromotionPort', () => {
     const port = createGitHostPromotionPort({
       run: async (command, args, options) => {
         calls.push({ command, args, cwd: options.cwd, stdin: options.stdin });
-        if (args.join(' ') === 'diff --binary base123 commit123') {
+        if (args.join(' ') === 'diff --no-ext-diff --binary base123 commit123') {
           return { exitCode: 0, stdout: 'diff --git a/host-proof.txt b/host-proof.txt\n', stderr: '' };
         }
         if (args.join(' ') === 'apply --check -') return { exitCode: 0, stdout: '', stderr: '' };
@@ -145,7 +145,7 @@ describe('createGitHostPromotionPort', () => {
     expect(calls).toEqual([
       {
         command: 'git',
-        args: ['diff', '--binary', 'base123', 'commit123'],
+        args: ['diff', '--no-ext-diff', '--binary', 'base123', 'commit123'],
         cwd: '/repo/.brunch/cook/runs/run-1/worktree',
         stdin: undefined,
       },
@@ -183,7 +183,7 @@ describe('createGitHostPromotionPort', () => {
         changedFiles: ['host-proof.txt'],
       }),
     ).resolves.toEqual({ status: 'failed', message: 'patch failed' });
-    expect(calls).toEqual(['diff --binary base123 commit123', 'apply --check -']);
+    expect(calls).toEqual(['diff --no-ext-diff --binary base123 commit123', 'apply --check -']);
   });
 
   it('applies a real promoted git patch to host files without staging or committing', async () => {

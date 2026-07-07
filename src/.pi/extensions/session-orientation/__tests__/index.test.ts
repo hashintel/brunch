@@ -91,7 +91,7 @@ describe('runAndRecordSessionOrientation', () => {
       manager,
     });
 
-    expect(choice).toBe('dismissed');
+    expect(choice).toEqual({ choice: 'dismissed', recorded: true });
     expect(latestSessionOrientation(manager.entries)?.data).toEqual({
       schemaVersion: 1,
       choice: 'dismissed',
@@ -99,7 +99,7 @@ describe('runAndRecordSessionOrientation', () => {
     });
   });
 
-  it('reports a failed append without throwing and still returns the resolved choice', async () => {
+  it('reports a failed append without throwing and marks the resolution unrecorded', async () => {
     const ui = fakeUi(SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'ingest')!.label);
     const manager: { appendCustomEntry: () => void } = {
       appendCustomEntry: () => {
@@ -116,7 +116,7 @@ describe('runAndRecordSessionOrientation', () => {
       onAppendError: (error) => errors.push(error),
     });
 
-    expect(choice).toBe('ingest');
+    expect(choice).toEqual({ choice: 'ingest', recorded: false });
     expect(errors).toHaveLength(1);
   });
 });

@@ -18,7 +18,7 @@ import { createWorktree } from './worktree.js';
 
 // The driver composes the existing `execute_*` lifecycle steps into a single
 // self-advancing run. It owns no side effects of its own: each ReadyStep maps
-// to one step function, and the run.json status IS the loop state (D102-L).
+// to one step function, and the run.json status IS the loop state (D112-L).
 
 export type ReadyStep =
   | { readonly kind: 'worktree_create' }
@@ -46,7 +46,7 @@ export interface RunScheduler {
 }
 
 // A set-returning scheduler (length-1 today) leaves room for a future
-// PetriScheduler that fires several enabled transitions at once (D102-L,
+// PetriScheduler that fires several enabled transitions at once (D112-L,
 // geolog-and-petri-execution) without reshaping the driver loop.
 export const linearScheduler: RunScheduler = {
   ready(state, plan) {

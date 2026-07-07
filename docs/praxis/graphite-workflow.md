@@ -52,6 +52,12 @@ npm run verify                   # gate before submit
 gt submit                        # push + create/update PR
 ```
 
+## Trunks & merging
+
+Graphite tracks two trunks for this repo: `main` and `next` (see `.graphite_repo_config` in the git dir). Base a stack on whichever trunk the current frontier item's PLAN.md dependency points at.
+
+Both trunks merge through a GitHub merge queue once their PRs are approved and their required checks pass — `gt submit` pushes the stack, and Graphite (or `gh pr merge --squash --auto`) enqueues each PR; the queue rebases downstream PRs onto each newly-landed parent automatically. `next` has no required-approval gate (checks-only, frictionless integration trunk); `main` requires one approval and currently has a known issue where the queue's automatic rebase dismisses that approval on every restack, stalling multi-PR stacks — see `docs/praxis/merge-queue.md` for the mechanism and the interim one-PR-at-a-time workaround.
+
 ## Reintegrating parallel work
 
 When worktree agents produce branches outside the Graphite stack:

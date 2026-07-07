@@ -325,6 +325,81 @@ function legacyRelatedNodes(
   };
 }
 
+/**
+ * How long the boot kick's `sendCustomMessage` chain is deferred so that
+ * `bindExtensions()` can return and InteractiveMode can subscribe + render
+ * before the opening turn starts. Imperceptible against turn latency;
+ * exported so tests can await past it deterministically.
+ */
+export const BRUNCH_KICK_SEND_DEFER_MS = 50;
+
+export interface KickSendSerialChain {
+  tail: Promise<void>;
+  failed: boolean;
+}
+
+export function createKickSendSerialChain(deferMs = BRUNCH_KICK_SEND_DEFER_MS): KickSendSerialChain {
+  return {
+    tail: new Promise<void>((resolve) => {
+      setTimeout(resolve, deferMs);
+    }),
+    failed: false,
+  };
+}
+
+/**
+ * Schedules a kick-context send instead of awaiting it. The J1/J2 junctures run
+ * inside `session.bindExtensions()`'s `session_start` emit, and pi's
+ * `sendCustomMessage(…, { triggerTurn: true })` resolves only when the whole
+ * turn completes — awaiting it in the handler parks `InteractiveMode` before
+ * `subscribeToAgent()` / `renderInitialMessages()`, so the entire opening turn
+ * (including its interactive exchanges) runs over a dead transcript: dialogs
+ * float over an empty chat and review sets never render.
+ *
+ * Deferring lets the TUI subscribe first; chaining sends on the per-kick
+ * context preserves seed-before-kick ordering after that single defer window.
+ * A `'fired'` kick outcome therefore means "send scheduled" (matching the J5
+ * adapter's fire-and-forget semantics), and send failures surface through
+ * `reportAsyncDiagnostic`. Once a chained send fails, later sends in the same
+ * kick context are skipped so a directed kick cannot run with a missing seed.
+ *
+ * ceiling: 50ms timer — pi exposes no "extensions bound + TUI subscribed"
+ * signal to defer against; switch to that event if pi grows one while keeping
+ * the per-kick serial chain.
+ */
+export function scheduleKickSend(input: {
+  readonly send: () => Promise<unknown>;
+  readonly reportAsyncDiagnostic?:
+    | ((diagnostic: { readonly type: 'warning'; readonly message: string }) => void)
+    | undefined;
+  readonly chain?: KickSendSerialChain;
+  readonly deferMs?: number;
+}): Promise<void> {
+  const chain = input.chain ?? createKickSendSerialChain(input.deferMs);
+  chain.tail = chain.tail.then(async () => {
+    if (chain.failed) {
+      input.reportAsyncDiagnostic?.({
+        type: 'warning',
+        message: 'Skipping assistant kick send after an earlier scheduled send failed.',
+      });
+      return;
+    }
+
+    try {
+      await input.send();
+    } catch (error: unknown) {
+      chain.failed = true;
+      input.reportAsyncDiagnostic?.({
+        type: 'warning',
+        message: `Assistant kick turn failed after scheduling: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      });
+    }
+  });
+  return Promise.resolve();
+}
+
 export function createBrunchAgentSessionRuntimeFactory(
   context: BrunchTuiLaunchContext,
 ): CreateAgentSessionRuntimeFactory {
@@ -491,13 +566,20 @@ export function createBrunchAgentSessionRuntimeFactory(
                 const specId = currentWorkspace.spec.id;
                 const specName = graph.commandExecutor.getSpec(specId)?.name;
                 const kickUi = session.createReplacedSessionContext().ui;
+                const kickSendChain = createKickSendSerialChain();
                 return {
                   specId,
                   ...(specName ? { specName } : {}),
                   reads: graph.forSpec(specId),
                   workspaceContext: await renderWorkspaceOverviewContext(cwd),
+                  // Deferred fire-and-forget — see `scheduleKickSend` for why
+                  // awaiting the turn here would park the TUI unsubscribed.
                   sendCustomMessage: (message, sendOptions) =>
-                    session.sendCustomMessage(message, sendOptions),
+                    scheduleKickSend({
+                      send: () => session.sendCustomMessage(message, sendOptions),
+                      reportAsyncDiagnostic: context.reportAsyncDiagnostic,
+                      chain: kickSendChain,
+                    }),
                   onOriginationDecision: async (decision, { modelAvailable }) => {
                     if (context.introspection?.debugCache) {
                       const debugCache = context.introspection.debugCache;

@@ -283,6 +283,27 @@ describe('structured exchange request schemas', () => {
     ).toMatchObject({ unavailable: { message: expect.stringContaining('interactive UI') } });
   });
 
+  it('rejects blank accepted digest abstract echoes', () => {
+    for (const accepted_abstract of ['', '   ', '\n\t']) {
+      expect(() =>
+        zRequestReviewDetails.parse({
+          schema: 'brunch.structured_exchange.request',
+          v: 1,
+          exchange_id: 'digest-large-source',
+          tool_meta: {
+            prev: 'present_digest',
+            curr: 'request_review',
+            next: 'capture_review',
+          },
+          answered: {
+            decision: 'approve',
+            accepted_abstract,
+          },
+        }),
+      ).toThrow(/cannot be empty/);
+    }
+  });
+
   it('rejects none combined with other selections', () => {
     expect(() =>
       zRequestChoicesDetails.parse({

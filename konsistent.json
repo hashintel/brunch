@@ -1,0 +1,63 @@
+{
+  "$schema": "node_modules/konsistent/konsistent.schema.json",
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "rpc-method-modules",
+      "description": "Each RPC domain module in src/rpc/methods exports a `${name}RpcMethods` map named after the file (registry.ts and schemas.ts are infrastructure, not domain modules).",
+      "paths": [
+        "src/rpc/methods/{methodName}.ts",
+        "!src/rpc/methods/registry.ts",
+        "!src/rpc/methods/schemas.ts"
+      ],
+      "must": {
+        "exportConstants": ["${methodName.toCamelCase()}RpcMethods"]
+      }
+    },
+    {
+      "name": "pi-extension-barrels",
+      "description": "Every Pi extension directory exposes a public entry point at index.ts. `shared` is a helper folder, not an extension.",
+      "paths": [
+        "src/.pi/extensions/{extensionName}",
+        "!src/.pi/extensions/shared",
+        "!src/.pi/extensions/__tests__",
+        "!src/.pi/extensions/__snapshots__",
+        "!src/.pi/extensions/TOPOLOGY.md"
+      ],
+      "must": {
+        "haveType": "directory",
+        "haveFiles": ["index.ts"]
+      }
+    },
+    {
+      "name": "skill-directories",
+      "description": "Every agent skill directory carries a SKILL.md manifest.",
+      "paths": [
+        "src/agents/skills/{skillName}",
+        "!src/agents/skills/__tests__",
+        "!src/agents/skills/registry.ts",
+        "!src/agents/skills/TOPOLOGY.md"
+      ],
+      "must": {
+        "haveType": "directory",
+        "haveFiles": ["SKILL.md"]
+      }
+    },
+    {
+      "name": "src-area-topology-doc",
+      "description": "Top-level src areas document their architecture in a co-located TOPOLOGY.md (canonical per AGENTS.md).",
+      "severity": "warning",
+      "paths": [
+        "src/{area}",
+        "!src/build-info.ts",
+        "!src/constants.ts",
+        "!src/README.md",
+        "!src/treedocs.yaml"
+      ],
+      "must": {
+        "haveType": "directory",
+        "haveFiles": ["TOPOLOGY.md"]
+      }
+    }
+  ]
+}

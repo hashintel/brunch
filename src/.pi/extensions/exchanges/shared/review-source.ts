@@ -58,8 +58,9 @@ export async function collectReviewFromUi(ctx: StructuredExchangeUiContext, para
 
     let comment: string | undefined;
     if (review === 'request_changes') {
-      comment = await collectRequiredInput(ctx, 'Required change request');
-      if (comment === undefined) return terminal('cancelled');
+      const required = await collectRequiredInput(ctx, 'Required change request');
+      if (required.status !== 'answered') return terminal(required.status);
+      comment = required.value;
     } else if (typeof ui.input === 'function') {
       comment = normalizeOptionalText(await ui.input('Optional comment'));
     }
@@ -82,6 +83,18 @@ export async function collectReviewFromUi(ctx: StructuredExchangeUiContext, para
               respondsToPresentTool: params.respondsToPresentTool,
               ...(comment !== undefined ? { comment } : {}),
             });
+      return { content: [{ type: 'text' as const, text: formatRequestReview(details) }], details };
+    }
+
+    if (review === 'request_changes') {
+      if (comment === undefined) return terminal('cancelled');
+      const details = projectRequestReview({
+        exchangeId: params.exchangeId,
+        status: 'answered',
+        review,
+        respondsToPresentTool: params.respondsToPresentTool,
+        comment,
+      });
       return { content: [{ type: 'text' as const, text: formatRequestReview(details) }], details };
     }
 

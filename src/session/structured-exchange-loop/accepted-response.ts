@@ -244,6 +244,7 @@ export function acceptedResponseFromParams(
   };
 }
 
+/** Receives `comment` already trimmed by the public submit path. */
 function projectAcceptedReviewDetails(
   pending: PendingStructuredExchange,
   review: 'approve' | 'request_changes' | 'reject',
@@ -267,6 +268,21 @@ function projectAcceptedReviewDetails(
         }),
       };
     }
+    if (review === 'request_changes') {
+      if (comment === undefined || comment.length === 0) {
+        return { ok: false as const, message: 'Review request_changes requires a comment' };
+      }
+      return {
+        ok: true as const,
+        details: projectRequestReview({
+          exchangeId: pending.exchangeId,
+          status: 'answered',
+          review,
+          respondsToPresentTool,
+          comment,
+        }),
+      };
+    }
     return {
       ok: true as const,
       details: projectRequestReview({
@@ -275,6 +291,21 @@ function projectAcceptedReviewDetails(
         review,
         respondsToPresentTool,
         ...(comment !== undefined ? { comment } : {}),
+      }),
+    };
+  }
+  if (review === 'request_changes') {
+    if (comment === undefined || comment.length === 0) {
+      return { ok: false as const, message: 'Review request_changes requires a comment' };
+    }
+    return {
+      ok: true as const,
+      details: projectRequestReview({
+        exchangeId: pending.exchangeId,
+        status: 'answered',
+        review,
+        respondsToPresentTool: 'present_review_set',
+        comment,
       }),
     };
   }

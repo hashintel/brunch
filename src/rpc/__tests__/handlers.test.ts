@@ -1346,8 +1346,9 @@ describe('JSON-RPC handlers', () => {
         ]),
       },
     });
-    await expect(readFile(workspace.session.file, 'utf8')).resolves.toContain('request_review');
-    await expect(readFile(workspace.session.file, 'utf8')).resolves.toContain('requirement-draft → REQ1');
+    const sessionText = await readFile(workspace.session.file, 'utf8');
+    expect(sessionText).toContain('request_review');
+    expect(sessionText).toContain('requirement-draft → REQ1');
   });
 
   it('approves a pending digest through the public submit path and closes the projection', async () => {

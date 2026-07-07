@@ -1,6 +1,22 @@
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 import { SettingsManager, type ExtensionFactory } from '@earendil-works/pi-coding-agent';
+
+/**
+ * Brunch theme pair. The `light/dark` slash syntax enables Pi's native
+ * terminal color-scheme auto-sync: the interactive theme controller resolves
+ * the pair against the detected terminal background and re-resolves live on
+ * terminal color-scheme change events (e.g. macOS appearance flips).
+ */
+const BRUNCH_THEME_SETTING = 'brunch-light/brunch-dark';
+
+/**
+ * Theme JSONs live beside the Pi runtime surface in `.pi/themes/` and are
+ * mirrored into `dist/.pi/themes/` by `build:pi-assets`, so this relative
+ * resolution works from both the source and built trees.
+ */
+const BRUNCH_THEME_DIR = fileURLToPath(new URL('../.pi/themes/', import.meta.url));
 
 export const BRUNCH_SETTINGS_POLICY = {
   quietStartup: true,
@@ -10,6 +26,7 @@ export const BRUNCH_SETTINGS_POLICY = {
   skills: [],
   prompts: [],
   themes: [],
+  theme: BRUNCH_THEME_SETTING,
   enableSkillCommands: false,
   doubleEscapeAction: 'none',
   compaction: {
@@ -131,6 +148,9 @@ export interface BrunchResourceLoaderOptions {
   noPromptTemplates: true;
   noSkills: true;
   noThemes: true;
+  // Brunch-owned themes enter through the explicit path seam; `noThemes`
+  // continues to seal out ambient global/project theme discovery.
+  additionalThemePaths: string[];
   // D39-L seal: pin the append-system-prompt source to empty so Pi's resource
   // loader never falls through to ambient discovery of `<cwd>/.pi/APPEND_SYSTEM.md`
   // or `<agentDir>/APPEND_SYSTEM.md`. Without this an ambient global append leaks
@@ -159,6 +179,7 @@ export function brunchResourceLoaderOptions(
     noPromptTemplates: true,
     noSkills: true,
     noThemes: true,
+    additionalThemePaths: [BRUNCH_THEME_DIR],
     appendSystemPrompt: [],
     extensionFactories,
   };

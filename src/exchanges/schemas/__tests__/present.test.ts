@@ -133,6 +133,21 @@ describe('structured exchange present schemas', () => {
     });
   });
 
+  it('rejects blank digest abstracts at the present boundary', () => {
+    for (const abstract of ['', '   ', '\n\t']) {
+      expect(() =>
+        zPresentDigestDetails.parse({
+          schema: 'brunch.structured_exchange.present',
+          v: 1,
+          exchange_id: 'digest-large-source',
+          tool_meta: { curr: 'present_digest', next: 'request_response' },
+          display: { heading: 'Review source digest' },
+          digest: { abstract },
+        }),
+      ).toThrow(/cannot be empty/);
+    }
+  });
+
   it('keeps review-set details to nodes and edges only', () => {
     const reviewSetDetails = {
       schema: 'brunch.structured_exchange.present',

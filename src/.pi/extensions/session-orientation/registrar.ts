@@ -21,12 +21,12 @@
  * All handlers route through `runOrientationJuncture` so the entry rule and
  * kick rule stay in one place; the registrar itself is thin wiring only.
  *
- * Debounce: coinciding junctures (esc-abort immediately followed by a tree
- * jump, or double-fire from a compaction-retry `agent_end`) collapse to a
- * single dialog by suppressing any juncture whose event falls inside a
- * short window after the last resolution. The window is a `ceiling:` —
- * upgrade to a proper per-session state machine if the trigger set grows
- * past the current five.
+ * Gate contract: event-driven junctures (J1-J4) read both an ownership-aware
+ * in-flight claim and a short resolution window before running. User-initiated
+ * junctures write but do not read this gate: J5 mode switch always shows its
+ * explicit menu, then claims the shared gate while its menu is in flight and
+ * stamps the same resolution window. J6 still reads the window today; align it
+ * in a future sync if explicit consult should match J5.
  */
 
 import type {
@@ -57,9 +57,9 @@ export interface BrunchSessionOrientationDeps {
     | undefined;
 }
 
-// ceiling: 750ms wall-clock debounce for coinciding junctures. Upgrade to a
-// per-session juncture state machine if we grow past 5 triggers or need
-// juncture-specific debounce policies.
+// ceiling: one shared 750ms wall-clock resolution window plus one in-flight
+// ownership claim. Upgrade to a per-session juncture state machine now that the
+// trigger set has grown to six and policy differs by user/event source.
 const JUNCTURE_DEBOUNCE_MS = 750;
 
 /**
@@ -71,6 +71,7 @@ const JUNCTURE_DEBOUNCE_MS = 750;
  */
 export interface OrientationJunctureGate {
   lastResolvedAt: number;
+  activeClaim: symbol | undefined;
   /**
    * One-shot flag set by a flow that programmatically aborts an in-flight
    * assistant turn (J5 mode switch): the resulting `agent_end` with
@@ -85,13 +86,34 @@ const gates = new WeakMap<BrunchSessionOrientationDeps, OrientationJunctureGate>
 export function orientationJunctureGate(deps: BrunchSessionOrientationDeps): OrientationJunctureGate {
   let gate = gates.get(deps);
   if (!gate) {
-    gate = { lastResolvedAt: 0, suppressNextAbortJuncture: false };
+    gate = { lastResolvedAt: 0, activeClaim: undefined, suppressNextAbortJuncture: false };
     gates.set(deps, gate);
   }
   return gate;
 }
 
 export const BRUNCH_CONSULT_COMMAND = 'brunch:consult';
+
+export function claimOrientationJuncture(gate: OrientationJunctureGate): symbol | undefined {
+  if (gate.activeClaim !== undefined) return undefined;
+  return forceClaimOrientationJuncture(gate);
+}
+
+export function forceClaimOrientationJuncture(gate: OrientationJunctureGate): symbol {
+  const claim = Symbol('orientation-juncture-claim');
+  gate.activeClaim = claim;
+  return claim;
+}
+
+export function releaseOrientationJuncture(
+  gate: OrientationJunctureGate,
+  claim: symbol,
+  result?: { readonly ran: boolean; readonly kickFired: boolean },
+): void {
+  if (gate.activeClaim !== claim) return;
+  gate.activeClaim = undefined;
+  if (result?.ran || result?.kickFired) gate.lastResolvedAt = Date.now();
+}
 
 export function registerBrunchSessionOrientation(pi: ExtensionAPI, deps: BrunchSessionOrientationDeps): void {
   const debounce = orientationJunctureGate(deps);
@@ -158,23 +180,28 @@ async function runJuncture(
   invocation: JunctureInvocation,
 ): Promise<void> {
   const now = Date.now();
-  if (now - debounce.lastResolvedAt < JUNCTURE_DEBOUNCE_MS) return;
+  if (debounce.activeClaim !== undefined || now - debounce.lastResolvedAt < JUNCTURE_DEBOUNCE_MS) return;
+  const claim = claimOrientationJuncture(debounce);
+  if (claim === undefined) return;
 
-  const kickContext = await deps.resolveKickContext();
-  const result = await runJunctureForContext({
-    ctx,
-    trigger: invocation.trigger,
-    mode: invocation.mode,
-    kick: kickContext,
-    onAppendError: (error) => {
-      ctx.ui.notify(
-        `Session-orientation entry could not be recorded: ${formatErrorMessage(error)}`,
-        'warning',
-      );
-    },
-  });
-
-  if (result.ran) debounce.lastResolvedAt = Date.now();
+  let result: { readonly ran: boolean; readonly kickFired: boolean } | undefined;
+  try {
+    const kickContext = await deps.resolveKickContext();
+    result = await runJunctureForContext({
+      ctx,
+      trigger: invocation.trigger,
+      mode: invocation.mode,
+      kick: kickContext,
+      onAppendError: (error) => {
+        ctx.ui.notify(
+          `Session-orientation entry could not be recorded: ${formatErrorMessage(error)}`,
+          'warning',
+        );
+      },
+    });
+  } finally {
+    releaseOrientationJuncture(debounce, claim, result);
+  }
 }
 
 interface AssistantLikeMessage {

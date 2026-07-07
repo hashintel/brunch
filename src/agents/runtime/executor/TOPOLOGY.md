@@ -26,4 +26,4 @@ rules:
 
 ## Migration Note
 
-This is intentionally smaller than full delegated Execute orchestration. It gives Execute mode a concrete prompt/tool policy and leaves write-capable cook/run orchestration beyond `orchestrator_stub` to the `orchestrator-tool-port` frontier.
+The execute-mode run machinery itself lives in `src/executor/` (pure core over injected `ExecutionPorts`, D111-L/D112-L) and is admitted here as executor-only `execute_*` grants. Known drift (2026-07-06 ln-sync): `agents/prompts/executor.md` still teaches "`orchestrator_stub` is the honest execution boundary" although the `execute_*` chain is live — conduct realignment is owned by the re-baselined `orchestrator-tool-port` frontier in `memory/PLAN.md`.

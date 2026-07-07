@@ -11,6 +11,8 @@ runtime/
 ├── TOPOLOGY.md
 ├── foreground-policy.ts central exhaustive foreground prompt/tool facade
 ├── elicitor/         live Specify-mode elicitor prompt/context/tool source of truth
+│   ├── __tests__/    elicitor prompt/context conduct tests
+│   └── __snapshots__/ elicitor prompt/context snapshots
 ├── executor/         Execute-mode executor prompt/control/tool source of truth
 │   └── __tests__/    executor prompt conduct tests
 └── shared/           pure helpers and shared runtime policy contracts

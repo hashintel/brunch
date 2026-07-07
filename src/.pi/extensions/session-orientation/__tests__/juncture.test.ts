@@ -132,6 +132,31 @@ describe('runOrientationJuncture', () => {
       expect(sent).toEqual([]);
     });
 
+    it('does not fire a directed kick when the orientation entry append fails', async () => {
+      const manager = {
+        ...fakeSessionManager(),
+        appendCustomEntry() {
+          throw new Error('ledger write failed');
+        },
+      };
+      const { deps, sent } = fakeKickDeps();
+      const errors: unknown[] = [];
+
+      const result = await runOrientationJuncture({
+        hasUI: true,
+        ui: fakeUi(labelFor('ingest')),
+        trigger: 'consult',
+        sessionManager: manager,
+        mode: 'follow-choice',
+        kick: deps,
+        onAppendError: (error) => errors.push(error),
+      });
+
+      expect(result).toEqual({ ran: true, choice: 'ingest', kickFired: false });
+      expect(errors).toHaveLength(1);
+      expect(sent).toEqual([]);
+    });
+
     it('appends the entry then fires a live kick on a non-continue choice', async () => {
       const manager = fakeSessionManager();
       const { deps, sent } = fakeKickDeps();
@@ -211,6 +236,32 @@ describe('runOrientationJuncture', () => {
         customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
         data: { schemaVersion: 1, choice: 'dismissed', trigger: 'mode-switch' },
       });
+      expect(sent).toEqual([]);
+    });
+
+    it('does not fire a CODE directed kick when the orientation entry append fails', async () => {
+      const manager = {
+        ...fakeSessionManager(),
+        appendCustomEntry() {
+          throw new Error('ledger write failed');
+        },
+      };
+      const { deps, sent } = fakeKickDeps();
+      const errors: unknown[] = [];
+
+      const result = await runOrientationJuncture({
+        hasUI: true,
+        ui: fakeUi(codeLabelFor('design_first')),
+        trigger: 'mode-switch',
+        sessionManager: manager,
+        mode: 'follow-choice',
+        menu: CODE_SESSION_ORIENTATION_MENU,
+        kick: deps,
+        onAppendError: (error) => errors.push(error),
+      });
+
+      expect(result).toEqual({ ran: true, choice: 'design_first', kickFired: false });
+      expect(errors).toHaveLength(1);
       expect(sent).toEqual([]);
     });
 

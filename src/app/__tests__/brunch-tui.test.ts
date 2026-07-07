@@ -27,6 +27,8 @@ import {
   createBrunchSettingsManager,
   runBrunchTui,
   runWithScopedBrunchOfflineDefault,
+  createKickSendSerialChain,
+  scheduleKickSend,
   startupHeaderForActivation,
 } from '../brunch-tui.js';
 import { runBrunchCli } from '../brunch.js';
@@ -156,6 +158,174 @@ describe('Brunch TUI boot', () => {
       decision: 'newSpec',
     });
     expect(startupHeaderForActivation({ action: 'cancel' })).toBeUndefined();
+  });
+
+  it('resolves the kick send immediately and fires it only after the defer window', async () => {
+    const sent: string[] = [];
+    let resolveSent!: () => void;
+    const sentOnce = new Promise<void>((resolve) => {
+      resolveSent = resolve;
+    });
+
+    // Resolving before the send happens is the load-bearing behavior: the J1
+    // session_start handler awaits this inside bindExtensions(), and blocking
+    // there would keep InteractiveMode unsubscribed for the whole kick turn.
+    await scheduleKickSend({
+      send: () => {
+        sent.push('kick');
+        resolveSent();
+        return Promise.resolve();
+      },
+      deferMs: 0,
+    });
+    expect(sent).toEqual([]);
+
+    await sentOnce;
+    expect(sent).toEqual(['kick']);
+  });
+
+  it('runs a deferred seed send to settlement before invoking the kick send', async () => {
+    const chain = createKickSendSerialChain(0);
+    const events: string[] = [];
+    let resolveSeed!: () => void;
+    let resolveKickStarted!: () => void;
+    const seedSettled = new Promise<void>((resolve) => {
+      resolveSeed = resolve;
+    });
+    const kickStarted = new Promise<void>((resolve) => {
+      resolveKickStarted = resolve;
+    });
+
+    await scheduleKickSend({
+      chain,
+      send: async () => {
+        events.push('seed:start');
+        await seedSettled;
+        events.push('seed:settled');
+      },
+    });
+    await scheduleKickSend({
+      chain,
+      send: () => {
+        events.push('kick:start');
+        resolveKickStarted();
+        return Promise.resolve();
+      },
+    });
+
+    await waitFor(() => events.includes('seed:start'));
+    expect(events).toEqual(['seed:start']);
+
+    resolveSeed();
+    await kickStarted;
+    expect(events).toEqual(['seed:start', 'seed:settled', 'kick:start']);
+  });
+
+  it('runs three deferred sends serially in scheduling order', async () => {
+    const chain = createKickSendSerialChain(0);
+    const events: string[] = [];
+    const resolves: (() => void)[] = [];
+
+    for (const name of ['seed:one', 'seed:two', 'kick']) {
+      await scheduleKickSend({
+        chain,
+        send: async () => {
+          events.push(`${name}:start`);
+          await new Promise<void>((resolve) => resolves.push(resolve));
+          events.push(`${name}:settled`);
+        },
+      });
+    }
+
+    await waitFor(() => events.includes('seed:one:start'));
+    expect(events).toEqual(['seed:one:start']);
+
+    resolves.shift()?.();
+    await waitFor(() => events.includes('seed:two:start'));
+    expect(events).toEqual(['seed:one:start', 'seed:one:settled', 'seed:two:start']);
+
+    resolves.shift()?.();
+    await waitFor(() => events.includes('kick:start'));
+    expect(events).toEqual([
+      'seed:one:start',
+      'seed:one:settled',
+      'seed:two:start',
+      'seed:two:settled',
+      'kick:start',
+    ]);
+  });
+
+  it('routes deferred kick send failures to reportAsyncDiagnostic', async () => {
+    const diagnostics: { type: string; message: string }[] = [];
+    let resolveReported!: () => void;
+    const reportedOnce = new Promise<void>((resolve) => {
+      resolveReported = resolve;
+    });
+
+    await scheduleKickSend({
+      send: () => Promise.reject(new Error('provider exploded')),
+      reportAsyncDiagnostic: (diagnostic) => {
+        diagnostics.push(diagnostic);
+        resolveReported();
+      },
+      deferMs: 0,
+    });
+
+    await reportedOnce;
+    expect(diagnostics).toEqual([
+      { type: 'warning', message: 'Assistant kick turn failed after scheduling: provider exploded' },
+    ]);
+  });
+
+  it('routes synchronously thrown deferred kick sends to reportAsyncDiagnostic', async () => {
+    const diagnostics: { type: string; message: string }[] = [];
+    let resolveReported!: () => void;
+    const reportedOnce = new Promise<void>((resolve) => {
+      resolveReported = resolve;
+    });
+
+    await scheduleKickSend({
+      send: () => {
+        throw new Error('sync provider exploded');
+      },
+      reportAsyncDiagnostic: (diagnostic) => {
+        diagnostics.push(diagnostic);
+        resolveReported();
+      },
+      deferMs: 0,
+    });
+
+    await reportedOnce;
+    expect(diagnostics).toEqual([
+      { type: 'warning', message: 'Assistant kick turn failed after scheduling: sync provider exploded' },
+    ]);
+  });
+
+  it('skips later deferred kick sends after one send fails', async () => {
+    const chain = createKickSendSerialChain(0);
+    const diagnostics: { type: string; message: string }[] = [];
+    const events: string[] = [];
+
+    await scheduleKickSend({
+      chain,
+      send: () => Promise.reject(new Error('seed failed')),
+      reportAsyncDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
+    });
+    await scheduleKickSend({
+      chain,
+      send: () => {
+        events.push('kick:start');
+        return Promise.resolve();
+      },
+      reportAsyncDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
+    });
+
+    await waitFor(() => diagnostics.length === 2);
+    expect(events).toEqual([]);
+    expect(diagnostics).toEqual([
+      { type: 'warning', message: 'Assistant kick turn failed after scheduling: seed failed' },
+      { type: 'warning', message: 'Skipping assistant kick send after an earlier scheduled send failed.' },
+    ]);
   });
 
   it('starts a web sidecar on the active spec route with the shared update publisher before interactive mode', async () => {
@@ -1237,6 +1407,8 @@ describe('Brunch TUI boot', () => {
       noPromptTemplates: true,
       noSkills: true,
       noThemes: true,
+      // Brunch-owned themes enter through the explicit path seam only.
+      additionalThemePaths: [expect.stringMatching(/\.pi[/\\]themes[/\\]$/)],
       // D39-L: ambient APPEND_SYSTEM.md must be sealed (empty pinned source).
       appendSystemPrompt: [],
       extensionFactories: [extension],
@@ -1284,6 +1456,9 @@ describe('Brunch TUI boot', () => {
     expect(settingsManager.getImageAutoResize()).toBe(true);
     expect(settingsManager.getBlockImages()).toBe(false);
     expect(settingsManager.getTransport()).toBe('auto');
+    // Slash-form auto theme: getTheme() is undefined by contract; the raw
+    // pair setting drives Pi's terminal light/dark auto-sync.
+    expect(settingsManager.getThemeSetting()).toBe('brunch-light/brunch-dark');
     expect(settingsManager.getTheme()).toBeUndefined();
     expect(settingsManager.getLastChangelogVersion()).toBeUndefined();
     expect(settingsManager.getCollapseChangelog()).toBe(false);
@@ -1332,6 +1507,8 @@ describe('Brunch TUI boot', () => {
       noPromptTemplates: true,
       noSkills: true,
       noThemes: true,
+      // Brunch-owned themes enter through the explicit path seam only.
+      additionalThemePaths: [expect.stringMatching(/\.pi[/\\]themes[/\\]$/)],
       // D39-L: ambient APPEND_SYSTEM.md must be sealed (empty pinned source).
       appendSystemPrompt: [],
       extensionFactories: [extension],
@@ -1359,6 +1536,31 @@ describe('Brunch TUI boot', () => {
 
     expect(loader.getAppendSystemPrompt()).toEqual([]);
     expect(JSON.stringify(loader.getAppendSystemPrompt())).not.toContain(sentinel);
+  });
+
+  it('loads the Brunch theme pair through the sealed loader while ambient themes stay out', async () => {
+    // Live oracle: with noThemes sealing ambient discovery, the Brunch theme
+    // pair must still arrive via additionalThemePaths so the pinned
+    // 'brunch-light/brunch-dark' auto-sync setting can resolve both halves.
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-theme-cwd-'));
+    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-theme-agentdir-'));
+    const ambientThemeDir = join(agentDir, 'themes');
+    await mkdir(ambientThemeDir, { recursive: true });
+    await writeFile(join(ambientThemeDir, 'ambient-sentinel.json'), '{"name":"ambient-sentinel"}');
+
+    const settings = createBrunchPiSettings({ cwd, agentDir, extensionFactories: [] });
+    const loader = new DefaultResourceLoader({
+      cwd,
+      agentDir,
+      settingsManager: settings.settingsManager,
+      ...settings.resourceLoaderOptions,
+    });
+    await loader.reload();
+
+    const themeNames = loader.getThemes().themes.map((theme) => theme.name);
+    expect(themeNames).toContain('brunch-dark');
+    expect(themeNames).toContain('brunch-light');
+    expect(themeNames).not.toContain('ambient-sentinel');
   });
 
   it('keeps Pi settings/resource policy out of the TUI launcher', async () => {
@@ -1413,6 +1615,14 @@ describe('Brunch TUI boot', () => {
     expect(settingsSource).toContain('SettingsManager.inMemory');
   });
 });
+
+async function waitFor(predicate: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if (predicate()) return;
+    await new Promise<void>((resolve) => setTimeout(resolve, 1));
+  }
+  expect(predicate()).toBe(true);
+}
 
 async function writeHostilePiSettings(cwd: string, agentDir: string): Promise<void> {
   const hostileSettings = {

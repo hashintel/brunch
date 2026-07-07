@@ -4,6 +4,7 @@ import {
   zDisplayBase,
   zGraphNodeRef,
   zMarkdown,
+  zNonBlankMarkdown,
   zPresentCandidatesToolMeta,
   zPresentDetailsHeader,
   zPresentDigestToolMeta,
@@ -229,7 +230,7 @@ export const PresentCandidatesDetailsSchema = z.toJSONSchema(zPresentCandidatesD
 
 export const zDigestMaterial = z
   .object({
-    abstract: zMarkdown,
+    abstract: zNonBlankMarkdown,
     analysis: zMarkdown.optional(),
     recommendation: zMarkdown.optional(),
   })

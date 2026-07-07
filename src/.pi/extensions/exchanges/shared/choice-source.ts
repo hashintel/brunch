@@ -104,15 +104,15 @@ export async function collectChoiceFromUi(params: CollectChoiceParams) {
         choice = { id: 'none', label: 'None', kind: 'none' };
       } else if (params.allowOther && selected.id === 'other') {
         const other = await collectRequiredInput(params.ctx, 'Other', 'Describe your answer');
-        if (other === undefined) return terminal('cancelled');
-        choice = { id: 'other', label: other, kind: 'other' };
+        if (other.status !== 'answered') return terminal(other.status);
+        choice = { id: 'other', label: other.value, kind: 'other' };
       } else {
         return terminal('unavailable', `request_response choice received unknown option id ${selected.id}`);
       }
       if (structuredExchangeResponseRequiresComment({ choiceKinds: [choice.kind] })) {
         const required = await collectRequiredInput(params.ctx, params.commentPrompt ?? 'Required comment');
-        if (required === undefined) return terminal('cancelled');
-        comment = required;
+        if (required.status !== 'answered') return terminal(required.status);
+        comment = required.value;
       }
     } else {
       choice = selectedChoice(picked, 'listed');
