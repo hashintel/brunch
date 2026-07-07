@@ -43,19 +43,20 @@ function createGraphReads(db: BrunchDb, specId: number): GraphReaders {
 }
 
 describe('graph tool adapter', () => {
-  it('teaches read_graph mode companions at the schema boundary', () => {
+  it('keeps read_graph provider-legal: no top-level union, companions enforced by adapter diagnostics', () => {
+    // Anthropic-family backends reject tool input schemas with a top-level
+    // oneOf/anyOf/allOf (400 on every provider turn — 2026-07-07 FE-1159
+    // walkthrough). Mode companions are enforced by the executor's loud
+    // structural_illegal diagnostics instead (covered below).
+    expect('oneOf' in ReadGraphParams).toBe(false);
+    expect('anyOf' in ReadGraphParams).toBe(false);
+    expect('allOf' in ReadGraphParams).toBe(false);
+
     expect(Value.Check(ReadGraphParams, { mode: 'overview' })).toBe(true);
     expect(Value.Check(ReadGraphParams, { mode: 'neighborhood', nodeCode: 'G1' })).toBe(true);
-    expect(Value.Check(ReadGraphParams, { mode: 'neighborhood' })).toBe(false);
-    expect(Value.Check(ReadGraphParams, { mode: 'neighborhood', nodeCode: '' })).toBe(false);
     expect(
       Value.Check(ReadGraphParams, { mode: 'related', anchorCodes: ['G1'], edgeCategory: 'dependency' }),
     ).toBe(true);
-    expect(Value.Check(ReadGraphParams, { mode: 'related', edgeCategory: 'dependency' })).toBe(false);
-    expect(
-      Value.Check(ReadGraphParams, { mode: 'related', anchorCodes: [], edgeCategory: 'dependency' }),
-    ).toBe(false);
-    expect(Value.Check(ReadGraphParams, { mode: 'related', anchorCodes: ['G1'] })).toBe(false);
 
     // List modes deliberately keep their filter-empty behavior separate from malformed companion calls.
     expect(Value.Check(ReadGraphParams, { mode: 'list_by_kind' })).toBe(true);

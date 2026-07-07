@@ -25,6 +25,7 @@ import {
   customEntries,
   expectNoKick,
   expectProviderLegalToolPairs,
+  expectProviderLegalToolSchemas,
   messagesByRole,
   presentToolResults,
   readSessionContextDetails,
@@ -71,6 +72,10 @@ describe('origination-kick-live — the product originates the opening turn on i
       // every tool result in the payload must use a ^[a-zA-Z0-9_-]+$ id and be
       // paired with a preceding assistant toolCall carrying the same id.
       expectProviderLegalToolPairs(boot.providerContexts[0]!.messages);
+
+      // Provider legality (Anthropic 400 regression, 2026-07-07 FE-1159
+      // walkthrough): no tool input schema may be a top-level union.
+      expectProviderLegalToolSchemas(boot.providerContexts[0]!.tools);
     } finally {
       await boot.dispose();
     }

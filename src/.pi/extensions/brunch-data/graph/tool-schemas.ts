@@ -244,15 +244,11 @@ export const ReadGraphParams = {
       description: 'related: traversal direction (default: both)',
     },
   },
-  oneOf: [
-    { required: ['mode'], properties: { mode: { const: 'overview' } } },
-    { required: ['mode', 'nodeCode'], properties: { mode: { const: 'neighborhood' } } },
-    { required: ['mode'], properties: { mode: { const: 'list_by_kind' } } },
-    { required: ['mode'], properties: { mode: { const: 'list_by_band' } } },
-    { required: ['mode', 'anchorCodes', 'edgeCategory'], properties: { mode: { const: 'related' } } },
-  ],
+  // No top-level oneOf/anyOf/allOf: Anthropic-family backends reject tool input
+  // schemas with a top-level union (400 on every provider turn). Mode companions
+  // are enforced by the loud structural_illegal diagnostics in the tool executor.
   description:
-    'Read a graph overview, selected-spec node neighborhood, projection-aware flat graph slice, or related nodes. Mode-specific companions are enforced at the parameter schema boundary and mirrored by loud adapter diagnostics: neighborhood requires nodeCode; related requires anchorCodes plus edgeCategory. List modes intentionally treat omitted/empty filters as unfiltered slices; unknown filters produce an empty slice.',
+    'Read a graph overview, selected-spec node neighborhood, projection-aware flat graph slice, or related nodes. Mode-specific companions are enforced by loud adapter diagnostics: neighborhood requires nodeCode; related requires anchorCodes plus edgeCategory. List modes intentionally treat omitted/empty filters as unfiltered slices; unknown filters produce an empty slice.',
 } as const;
 
 export type ToolMutateGraphParamsSchema = Static<typeof MutateGraphParams>;
