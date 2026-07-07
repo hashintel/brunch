@@ -2,7 +2,7 @@
 
 Frontier: executor-replanning
 Linear:   FE-1114
-Status:   active
+Status:   superseded
 Mode:     single
 Created:  2026-07-07
 
@@ -11,6 +11,7 @@ Created:  2026-07-07
 - Seam: web run observer presentation.
 - Builds on: `executor-replanning--inspect-metadata.md`.
 - Posture: proving.
+- Superseded by: `memory/cards/executor-run-observer--readable-run-evidence.md`, which absorbs this narrow metadata display into the broader readable run evidence + graph traceability scope to avoid overlapping `/runs` UI work.
 
 ## Target Behavior
 

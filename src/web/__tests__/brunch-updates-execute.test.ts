@@ -8,7 +8,7 @@ function notification(updates: unknown[], topics: string[] = []) {
 }
 
 describe('brunch.updated execute topic invalidation', () => {
-  it('invalidates the exact run detail and list keys and nothing else', () => {
+  it('invalidates the exact run detail/list keys and trace indexes', () => {
     const queryClient = new QueryClient();
     const invalidate = vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue();
 
@@ -19,7 +19,8 @@ describe('brunch.updated execute topic invalidation', () => {
 
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.runs'], exact: true });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.run', 'run-1'], exact: true });
-    expect(invalidate).toHaveBeenCalledTimes(2);
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.runTraceIndex'] });
+    expect(invalidate).toHaveBeenCalledTimes(4);
   });
 
   it('falls back to broad run-detail invalidation for a bare execute.run topic', () => {
@@ -30,5 +31,6 @@ describe('brunch.updated execute topic invalidation', () => {
 
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.run'] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.runs'], exact: true });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.runTraceIndex'] });
   });
 });

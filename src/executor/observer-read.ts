@@ -70,6 +70,20 @@ export interface RunDetail extends RunSummary {
   readonly petriNet?: unknown;
 }
 
+export interface RunTraceEntry {
+  readonly nodeCode: string;
+  readonly runId: string;
+  readonly specId: string;
+  readonly runStatus: RunMetadata['status'];
+  readonly sliceIds: readonly string[];
+  readonly failedSliceIds: readonly string[];
+  readonly completedSliceIds: readonly string[];
+}
+
+export interface RunTraceIndex {
+  readonly traces: readonly RunTraceEntry[];
+}
+
 export const DEFAULT_REPORTS_TAIL_LIMIT = 50;
 export const DEFAULT_AGENT_STREAM_TAIL_LIMIT = 50;
 export const DEFAULT_VERIFY_STREAM_TAIL_LIMIT = 50;
@@ -147,6 +161,32 @@ export async function readRunDetail(
     ),
     ...(petriNet === undefined ? {} : { petriNet }),
   };
+}
+
+export async function readRunTraceIndex(cwd: string, specId: string): Promise<RunTraceIndex> {
+  let entries;
+  try {
+    entries = await readdir(runsRootPath(cwd), { withFileTypes: true });
+  } catch {
+    return { traces: [] };
+  }
+
+  const traces: RunTraceEntry[] = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const runId = entry.name;
+    let metadata: RunMetadata | undefined;
+    try {
+      metadata = await readRunMetadata(runMetadataPath(cwd, runId));
+    } catch {
+      metadata = undefined;
+    }
+    if (!metadata || metadata.specId !== specId) continue;
+
+    const reports = await readReportsTail(reportsFilePath(cwd, runId, metadata), 0);
+    traces.push(...(await traceEntriesForRun(metadata, reports.events)));
+  }
+  return { traces };
 }
 
 async function readVerifyStreamTail(
@@ -241,6 +281,68 @@ interface ExecutedPlanPayload {
     readonly id?: unknown;
     readonly derived_from?: readonly unknown[];
   }[];
+}
+
+async function traceEntriesForRun(
+  metadata: RunMetadata,
+  reports: readonly RunReportEvent[],
+): Promise<readonly RunTraceEntry[]> {
+  let plan: ExecutedPlanPayload;
+  try {
+    plan = JSON.parse(
+      await readFile(metadata.populatedPlanPath ?? metadata.planPath, 'utf8'),
+    ) as ExecutedPlanPayload;
+  } catch {
+    return [];
+  }
+
+  const sliceIdsByRequirement = sliceIdsByRequirementId(plan);
+  const sliceIdsByNodeCode = new Map<string, Set<string>>();
+  for (const requirement of plan.spec?.requirements ?? []) {
+    if (typeof requirement.item_id !== 'string') continue;
+    const sliceIds = sliceIdsByRequirement.get(requirement.item_id) ?? [];
+    sliceIdsByNodeCode.set(requirement.item_id, new Set(sliceIds));
+  }
+  for (const criterion of plan.spec?.criteria ?? []) {
+    if (typeof criterion.item_id !== 'string' || !Array.isArray(criterion.verifies)) continue;
+    const sliceIds = new Set<string>();
+    for (const requirementId of criterion.verifies) {
+      if (typeof requirementId !== 'string') continue;
+      for (const sliceId of sliceIdsByRequirement.get(requirementId) ?? []) sliceIds.add(sliceId);
+    }
+    sliceIdsByNodeCode.set(criterion.item_id, sliceIds);
+  }
+
+  const completed = new Set(metadata.completedSliceIds ?? []);
+  const latestVerdicts = latestSliceVerdicts(reports);
+  return [...sliceIdsByNodeCode]
+    .filter(([, sliceIds]) => sliceIds.size > 0)
+    .map(([nodeCode, sliceIds]) => {
+      const allSliceIds = [...sliceIds];
+      return {
+        nodeCode,
+        runId: metadata.runId,
+        specId: metadata.specId,
+        runStatus: metadata.status,
+        sliceIds: allSliceIds,
+        failedSliceIds: allSliceIds.filter((sliceId) => latestVerdicts.get(sliceId) === 'failed'),
+        completedSliceIds: allSliceIds.filter((sliceId) => completed.has(sliceId)),
+      };
+    });
+}
+
+function sliceIdsByRequirementId(plan: ExecutedPlanPayload): ReadonlyMap<string, readonly string[]> {
+  const byRequirement = new Map<string, string[]>();
+  for (const slice of plan.slices ?? []) {
+    if (typeof slice.id !== 'string' || !Array.isArray(slice.derived_from)) continue;
+    for (const requirementId of slice.derived_from) {
+      if (typeof requirementId !== 'string') continue;
+      const existing = byRequirement.get(requirementId) ?? [];
+      existing.push(slice.id);
+      byRequirement.set(requirementId, existing);
+    }
+  }
+  return byRequirement;
 }
 
 async function readRequirementStatuses(

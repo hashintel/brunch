@@ -306,6 +306,7 @@ describe('JSON-RPC handlers', () => {
     ).methods;
     expect(methods.map((entry) => entry.method).sort()).toEqual([
       'execute.run',
+      'execute.runTraceIndex',
       'execute.runs',
       'graph.nodeNeighborhood',
       'graph.overview',

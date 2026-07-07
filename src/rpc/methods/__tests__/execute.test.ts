@@ -300,3 +300,94 @@ describe('execute.run', () => {
     expect(JSON.stringify(response)).not.toContain('verify.jsonl');
   });
 });
+
+describe('execute.runTraceIndex', () => {
+  it('rejects malformed params', async () => {
+    const definition = method('execute.runTraceIndex');
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-trace-params-'));
+    for (const params of [undefined, {}, { specId: '' }]) {
+      const response = await definition.handle(contextFor(cwd), request('execute.runTraceIndex', params));
+      expect(response).toMatchObject({ error: { code: -32602 } });
+    }
+  });
+
+  it('maps requirement and criterion graph codes to run slices without artifact paths', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-trace-'));
+    const planPath = join(cwd, 'plan.yaml');
+    await writeFile(
+      planPath,
+      `${JSON.stringify({
+        spec: {
+          requirements: [
+            { item_id: 'REQ1', content: 'Build type root.' },
+            { item_id: 'REQ2', content: 'Build command surface.' },
+          ],
+          criteria: [{ item_id: 'AC1', content: 'Type root works.', verifies: ['REQ1'] }],
+        },
+        slices: [
+          { id: 'task-1', derived_from: ['REQ1'] },
+          { id: 'task-2', derived_from: ['REQ2'] },
+        ],
+      })}\n`,
+      'utf8',
+    );
+    await writeRun(cwd, 'run-1', { planPath });
+    await writeFile(
+      runMetadataPath(cwd, 'run-1'),
+      `${JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath,
+        status: 'slice_completed',
+        completedSliceIds: ['task-1', 'task-2'],
+      })}\n`,
+      'utf8',
+    );
+    await writeFile(
+      join(runDirPath(cwd, 'run-1'), 'reports.jsonl'),
+      [
+        JSON.stringify({ event: 'slice_test_result', sliceId: 'task-1', status: 'failed' }),
+        JSON.stringify({ event: 'slice_test_result', sliceId: 'task-2', status: 'passed' }),
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const response = await method('execute.runTraceIndex').handle(
+      contextFor(cwd),
+      request('execute.runTraceIndex', { specId: 42 }),
+    );
+
+    expect(response).toMatchObject({
+      result: {
+        traces: [
+          {
+            nodeCode: 'REQ1',
+            runId: 'run-1',
+            runStatus: 'slice_completed',
+            sliceIds: ['task-1'],
+            failedSliceIds: ['task-1'],
+            completedSliceIds: ['task-1'],
+          },
+          {
+            nodeCode: 'REQ2',
+            runId: 'run-1',
+            runStatus: 'slice_completed',
+            sliceIds: ['task-2'],
+            failedSliceIds: [],
+            completedSliceIds: ['task-2'],
+          },
+          {
+            nodeCode: 'AC1',
+            runId: 'run-1',
+            runStatus: 'slice_completed',
+            sliceIds: ['task-1'],
+            failedSliceIds: ['task-1'],
+            completedSliceIds: ['task-1'],
+          },
+        ],
+      },
+    });
+    expect(JSON.stringify(response)).not.toContain(planPath);
+  });
+});

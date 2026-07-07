@@ -2,6 +2,7 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 import { createRoute } from '@tanstack/react-router';
 
 import { KnowledgeGraphView } from '../features/graph/structured-list-view.js';
+import { executeRunTraceIndexQueryOptions } from '../queries/execute.js';
 import { graphOverviewQueryOptions } from '../queries/graph.js';
 import { workspaceStateQueryOptions } from '../queries/workspace.js';
 import { parseSpecId } from '../spec-id.js';
@@ -18,6 +19,7 @@ export const specRoute = createRoute({
     return Promise.all([
       context.queryClient.ensureQueryData(workspaceStateQueryOptions(context.rpcClient)),
       context.queryClient.ensureQueryData(graphOverviewQueryOptions(context.rpcClient, specId)),
+      context.queryClient.ensureQueryData(executeRunTraceIndexQueryOptions(context.rpcClient, specId)),
     ]);
   },
   component: SpecRoutePage,
@@ -46,7 +48,14 @@ function ValidSpecRoutePage({ specId }: { specId: number }) {
   const { rpcClient } = specRoute.useRouteContext();
   const { data: state } = useSuspenseQuery(workspaceStateQueryOptions(rpcClient));
   const { data: overview } = useSuspenseQuery(graphOverviewQueryOptions(rpcClient, specId));
+  const { data: runTraceIndex } = useSuspenseQuery(executeRunTraceIndexQueryOptions(rpcClient, specId));
   const specTitle = state.spec?.id === specId ? state.spec.title : undefined;
 
-  return <KnowledgeGraphView overview={overview} {...(specTitle ? { specTitle } : {})} />;
+  return (
+    <KnowledgeGraphView
+      overview={overview}
+      runTraces={runTraceIndex.traces}
+      {...(specTitle ? { specTitle } : {})}
+    />
+  );
 }

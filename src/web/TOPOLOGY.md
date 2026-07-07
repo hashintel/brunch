@@ -39,12 +39,13 @@ web/
       graph.nodeNeighborhood
       execute.runs
       execute.run
+      execute.runTraceIndex
 
   queries/
     workspace.ts -> workspace.state + workspace.selectionState query options
     session.ts   -> session.runtimeState query options
     graph.ts     -> graph overview/neighborhood query options
-    execute.ts   -> executor run list/detail query options (run observer)
+    execute.ts   -> executor run list/detail/trace-index query options (run observer)
 
   subscriptions/
     brunch-updates.ts
@@ -70,14 +71,17 @@ web/
     runs.tsx
       `/runs` loader primes execute.runs; run list with presence flags
       `/runs/$runId` loader primes execute.run; crank status, honest
-      running indicators, requirement status panel, worker/verify stream tails, reports timeline
+      running indicators, requirement status panel, readable worker/verify evidence panels
+      (deduped display plus raw stream disclosure), grouped reports timeline
       (events lead the run.json snapshot by design), unreadable-run marking
+      requirement rows link back to graph nodes and slice-log anchors
 
   features/graph/
     structured-list-view.tsx
       read-only KnowledgeGraphView: counts sub-header + kind filter chips +
       collapsible per-kind sections of node cards (ported from the prior
-      trunk's -structured-list-view, minus chat/annotate/inline-edit)
+      trunk's -structured-list-view, minus chat/annotate/inline-edit), plus
+      read-only run badges from execute.runTraceIndex for executable nodes
     kind-display.ts
       presentation-only kind section ordering + plural section labels
 

@@ -20,6 +20,11 @@ const RUNNING_INDICATORS: Readonly<Partial<Record<RunSummary['status'], string>>
   agent_result_ingested: 'verify running…',
 };
 
+const ANSI_ESCAPE_PATTERN = new RegExp(
+  String.raw`[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))`,
+  'gu',
+);
+
 export const runsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/runs',
@@ -174,6 +179,20 @@ function RequirementsPanel({ run }: { run: RunDetail }) {
               ) : (
                 <p className="text-hint text-xs">criteria: {requirement.criterionIds.join(', ')}</p>
               )}
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  to="/spec/$specId"
+                  params={{ specId: run.specId }}
+                  className="text-link font-mono text-xs"
+                >
+                  view in graph
+                </Link>
+                {requirement.sliceIds[0] === undefined ? null : (
+                  <a href={`#slice-${requirement.sliceIds[0]}`} className="text-link font-mono text-xs">
+                    view slice log
+                  </a>
+                )}
+              </div>
             </li>
           ))}
         </ol>
@@ -200,6 +219,8 @@ function StreamPanel({
   events: readonly StreamEventView[];
   total: number;
 }) {
+  const rows = compactStreamEvents(events);
+  const failures = label === 'Verify stream' ? verifyFailures(events) : [];
   return (
     <section aria-label={label} className="flex flex-col gap-2">
       <p className="text-hint text-xxs font-mono">
@@ -208,21 +229,90 @@ function StreamPanel({
       {events.length === 0 ? (
         <p className="border-rule bg-tint text-sub rounded-xl border p-4 text-sm">{emptyText}</p>
       ) : (
-        <ol className="border-rule flex flex-col gap-2 rounded-xl border bg-white p-4 shadow-[var(--shadow-card)]">
-          {events.map((event) => (
-            <li key={`${event.sliceId}-${event.sequence}`} className="flex flex-col gap-1">
-              <div className="flex flex-wrap items-baseline gap-3">
-                <span className="text-ink font-mono text-xs">{event.kind}</span>
-                <span className="text-sub text-xs">{event.sliceId}</span>
-                <span className="text-hint font-mono text-xs">#{event.sequence}</span>
-              </div>
-              <p className="text-sub text-sm whitespace-pre-wrap">{event.message}</p>
-            </li>
-          ))}
-        </ol>
+        <div className="border-rule flex flex-col gap-3 rounded-xl border bg-white p-4 shadow-[var(--shadow-card)]">
+          {failures.length === 0 ? null : (
+            <section aria-label="Verify failures" className="bg-tint border-rule rounded-lg border p-3">
+              <p className="text-link mb-2 font-mono text-xs">Verify failures</p>
+              <ul className="flex flex-col gap-2">
+                {failures.map((failure) => (
+                  <li
+                    key={`${failure.sliceId}-${failure.sequence}`}
+                    className="text-ink font-mono text-xs whitespace-pre-wrap"
+                  >
+                    {failure.message}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          <ol className="flex flex-col gap-2">
+            {rows.map((event) => (
+              <li key={`${event.sliceId}-${event.sequence}`} className="flex flex-col gap-1">
+                <div className="flex flex-wrap items-baseline gap-3">
+                  <span className="text-ink font-mono text-xs">{event.kind}</span>
+                  <span className="text-sub text-xs">{event.sliceId}</span>
+                  <span className="text-hint font-mono text-xs">#{event.sequence}</span>
+                  {event.count > 1 ? (
+                    <span className="text-hint font-mono text-xs">x{event.count}</span>
+                  ) : null}
+                </div>
+                <p className="text-sub text-sm whitespace-pre-wrap">{event.message}</p>
+              </li>
+            ))}
+          </ol>
+          <details>
+            <summary className="text-hint cursor-pointer font-mono text-xs">Raw {label} events</summary>
+            <pre className="text-sub mt-2 overflow-x-auto font-mono text-xs whitespace-pre-wrap">
+              {events.map(
+                (event) =>
+                  `${JSON.stringify({
+                    kind: event.kind,
+                    sliceId: event.sliceId,
+                    sequence: event.sequence,
+                    message: stripAnsi(event.message),
+                  })}\n`,
+              )}
+            </pre>
+          </details>
+        </div>
       )}
     </section>
   );
+}
+
+interface CompactStreamEventView extends StreamEventView {
+  readonly count: number;
+}
+
+function compactStreamEvents(events: readonly StreamEventView[]): readonly CompactStreamEventView[] {
+  const rows: CompactStreamEventView[] = [];
+  for (const event of events) {
+    const message = stripAnsi(event.message);
+    const previous = rows.at(-1);
+    if (previous && previous.sliceId === event.sliceId && previous.kind === event.kind) {
+      if (message === previous.message) {
+        rows[rows.length - 1] = { ...previous, count: previous.count + 1 };
+        continue;
+      }
+      if (message.startsWith(previous.message)) {
+        rows[rows.length - 1] = { ...event, message, count: previous.count };
+        continue;
+      }
+    }
+    rows.push({ ...event, message, count: 1 });
+  }
+  return rows;
+}
+
+function verifyFailures(events: readonly StreamEventView[]): readonly StreamEventView[] {
+  return events
+    .filter((event) => event.kind === 'stderr' || /\b(?:FAIL|Failed Tests|Error:)\b/u.test(event.message))
+    .map((event) => ({ ...event, message: stripAnsi(event.message).trim() }))
+    .filter((event) => event.message.length > 0);
+}
+
+function stripAnsi(value: string): string {
+  return value.replace(ANSI_ESCAPE_PATTERN, '');
 }
 
 function PetriRawBlock({ net }: { net: unknown }) {
@@ -244,6 +334,7 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
 }
 
 function ReportsTimeline({ run }: { run: RunDetail }) {
+  const sliceProgress = groupSliceProgress(run.reportsTail);
   return (
     <section aria-label="Run events" className="flex flex-col gap-2">
       <p className="text-hint text-xxs font-mono">
@@ -252,19 +343,66 @@ function ReportsTimeline({ run }: { run: RunDetail }) {
       {run.reportsTail.length === 0 ? (
         <p className="border-rule bg-tint text-sub rounded-xl border p-4 text-sm">No events yet.</p>
       ) : (
-        <ol className="border-rule flex flex-col gap-1 rounded-xl border bg-white p-4 shadow-[var(--shadow-card)]">
-          {run.reportsTail.map((event, index) => (
-            <li key={index} className="flex flex-wrap items-baseline gap-3">
-              <span className="text-ink font-mono text-xs">{event.event}</span>
-              {typeof event['sliceId'] === 'string' ? (
-                <span className="text-sub text-xs">{event['sliceId']}</span>
-              ) : null}
-            </li>
-          ))}
-        </ol>
+        <div className="border-rule flex flex-col gap-3 rounded-xl border bg-white p-4 shadow-[var(--shadow-card)]">
+          <ol className="flex flex-col gap-2">
+            {sliceProgress.map((slice) => (
+              <li id={`slice-${slice.sliceId}`} key={slice.sliceId} className="flex flex-col gap-1">
+                <div className="flex flex-wrap items-baseline gap-3">
+                  <span className="text-ink font-mono text-xs">{slice.sliceId}</span>
+                  <span className="text-sub text-xs">{slice.progress}</span>
+                </div>
+              </li>
+            ))}
+          </ol>
+          <details>
+            <summary className="text-hint cursor-pointer font-mono text-xs">Raw events</summary>
+            <ol className="mt-2 flex flex-col gap-1">
+              {run.reportsTail.map((event, index) => (
+                <li key={index} className="flex flex-wrap items-baseline gap-3">
+                  <span className="text-ink font-mono text-xs">{event.event}</span>
+                  {typeof event['sliceId'] === 'string' ? (
+                    <span className="text-sub text-xs">#{event['sliceId']}</span>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+          </details>
+        </div>
       )}
     </section>
   );
+}
+
+function groupSliceProgress(events: RunDetail['reportsTail']): readonly {
+  readonly sliceId: string;
+  readonly progress: string;
+}[] {
+  const bySlice = new Map<string, string[]>();
+  for (const event of events) {
+    if (typeof event['sliceId'] !== 'string') continue;
+    const current = bySlice.get(event['sliceId']) ?? [];
+    const stage = eventStage(event);
+    if (stage) current.push(stage);
+    bySlice.set(event['sliceId'], current);
+  }
+  return [...bySlice].map(([sliceId, stages]) => ({ sliceId, progress: stages.join(' -> ') }));
+}
+
+function eventStage(event: RunDetail['reportsTail'][number]): string | undefined {
+  switch (event.event) {
+    case 'slice_started':
+      return 'started';
+    case 'slice_execution_requested':
+      return 'requested';
+    case 'slice_agent_result':
+      return 'agent';
+    case 'slice_test_result':
+      return event['status'] === 'failed' ? 'verify failed' : 'verify passed';
+    case 'slice_completed':
+      return 'completed';
+    default:
+      return undefined;
+  }
 }
 
 function PresenceFlags({ presence }: { presence: RunSummary['presence'] }) {

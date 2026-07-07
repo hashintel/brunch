@@ -1,7 +1,7 @@
 import { Type } from 'typebox';
 import { Value } from 'typebox/value';
 
-import { listRuns, readRunDetail } from '../../executor/observer-read.js';
+import { listRuns, readRunDetail, readRunTraceIndex } from '../../executor/observer-read.js';
 import { assertSafeRunId } from '../../executor/run.js';
 import { createJsonRpcFailure, createJsonRpcSuccess, jsonRpcRequestId } from '../protocol.js';
 import type { RpcMethodContext, RpcMethodDefinition } from './registry.js';
@@ -10,6 +10,10 @@ import { NoParamsSchema, NonBlankStringSchema } from './schemas.js';
 export const UNKNOWN_RUN_ID_MESSAGE = 'Unknown runId';
 
 const ExecuteRunParamsSchema = Type.Object({ runId: NonBlankStringSchema }, { additionalProperties: false });
+const ExecuteRunTraceIndexParamsSchema = Type.Object(
+  { specId: Type.Integer({ minimum: 1 }) },
+  { additionalProperties: false },
+);
 
 const RunPresenceSchema = Type.Object(
   {
@@ -119,6 +123,24 @@ const ExecuteRunResultSchema = Type.Union([
   Type.Object({ runId: Type.String(), unreadable: Type.Literal(true) }, { additionalProperties: false }),
 ]);
 
+const RunTraceEntrySchema = Type.Object(
+  {
+    nodeCode: Type.String(),
+    runId: Type.String(),
+    specId: Type.String(),
+    runStatus: Type.String(),
+    sliceIds: Type.Array(Type.String()),
+    failedSliceIds: Type.Array(Type.String()),
+    completedSliceIds: Type.Array(Type.String()),
+  },
+  { additionalProperties: false },
+);
+
+const ExecuteRunTraceIndexResultSchema = Type.Object(
+  { traces: Type.Array(RunTraceEntrySchema) },
+  { additionalProperties: false },
+);
+
 export const executeRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[] = [
   {
     method: 'execute.runs',
@@ -159,6 +181,25 @@ export const executeRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[]
         return createJsonRpcFailure(requestId, -32011, UNKNOWN_RUN_ID_MESSAGE);
       }
       return createJsonRpcSuccess(requestId, detail);
+    },
+  },
+  {
+    method: 'execute.runTraceIndex',
+    access: 'read',
+    description:
+      'Return graph-node-to-run traceability for one spec, derived from run plans and reports without exposing run artifact paths.',
+    paramsSchema: ExecuteRunTraceIndexParamsSchema,
+    resultSchema: ExecuteRunTraceIndexResultSchema,
+    examples: [{ jsonrpc: '2.0', id: 22, method: 'execute.runTraceIndex', params: { specId: 1 } }],
+    async handle(context, request) {
+      const requestId = jsonRpcRequestId(request);
+      if (!Value.Check(ExecuteRunTraceIndexParamsSchema, request.params)) {
+        return createJsonRpcFailure(requestId, -32602, 'Invalid params');
+      }
+      return createJsonRpcSuccess(
+        requestId,
+        await readRunTraceIndex(context.cwd, String(request.params.specId)),
+      );
     },
   },
 ];
