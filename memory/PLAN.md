@@ -90,6 +90,8 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Lane A — deterministic orientation:**
   1. `session-entry-orientation` ([FE-1134](https://linear.app/hash/issue/FE-1134/session-orientation-dialog-at-deterministic-junctures)) — active, inner-loop closed. The mechanism question is answered (deterministic product-owned dialog, not an exchange); all scoped product junctures/chrome slices are landed, including J5 mode-switch, the RPC timeout floor, and the automated boot/web-driver J1 degradation harnesses. Closeout also fixed the masked FE-1124 boot regressions: live junctures now deliver `brunch.context_seed` through Pi's live message surface before `brunch.kick`, and resume-debt skips boot infrastructure entries when finding unresolved user debt. The propose/project seed variants are now available; outstanding outer-loop walkthrough evidence for the generative menu options remains to be run. Arc: `deterministic-orientation`.
   2. `execute-entry-readiness` ([FE-1137](https://linear.app/hash/issue/FE-1137/executor-entry-readiness-and-concentric-authority)) — branch tied off 2026-07-06 (inner loop closed incl. the esc-inert/J5-race/exchange-terminate revision; PR submitted). Outer walkthrough evidence (thin/rich seed assessment, menu→conduct routing) deferred to a continued walkthrough/testing branch stacked after the five open branches are re-braided; frontier closes when that evidence lands. Arc: `deterministic-orientation`.
+- **Lane D — tool-surface hardening:**
+  1. `tool-schema-convergence` — coverage frontier / sweep: converge all 47 Brunch-authored provider-facing tool schemas on one adapter + two permitted runtime-schema sources (Zod v4 boundary-owned, TypeBox graph/DB-owned), with build-time provider-legality. Admitted 2026-07-07 out of the FE-1159 walkthrough's live Anthropic 400 (`read_graph` top-level `oneOf`). Buildable-now; runs on its own stacked worktree/branch, low conflict with the open lanes (touches `src/.pi/extensions/**` schema declarations only). Ledger: `memory/cards/tool-schema-convergence--ledger.md`. Definition below.
 - **Lane B — capture/ingest: ✓ closed 2026-07-06.** Both members done (`exchange-capture-contract` FE-1135 2026-07-03; `present-digest` FE-1136 2026-07-06); arc `capture-ingest-throughline` closed. See Recently Completed.
 - **Lane C — exchange presentation: ✓ closed 2026-07-06.** `exchange-answering-chrome` ([FE-1138](https://linear.app/hash/issue/FE-1138/bordered-answering-chrome-for-structured-exchanges)) done, smoke confirmed; arc `exchange-presentation` closed. Branch braided atop Lane B (`ln/fe-1136-present-digest`) 2026-07-06; pending PR tie-off. See Recently Completed.
 
@@ -167,7 +169,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Linear:** [FE-1159](https://linear.app/hash/issue/FE-1159/alpha-release-readiness-packaging-model-allowlist-auth-onboarding)
 - **Branch:** `ln/fe-1159-alpha-release`
 - **Kind:** structural — distribution/packaging seam + a new auth/model-policy seam + first-run onboarding behavior.
-- **Status:** active. Admitted 2026-07-07 (spike → grill → spec, same day); all five alpha-readiness implementation threads are built (model allowlist, packaging fixes, release verification smoke, `brunch login`, and no-auth gate). Remaining closeout is the outer no-auth TUI walkthrough against a scratch `PI_CODING_AGENT_DIR` before tying off the release branch.
+- **Status:** active. Admitted 2026-07-07 (spike → grill → spec, same day); all five alpha-readiness implementation threads are built (model allowlist, packaging fixes, release verification smoke, `brunch login`, and no-auth gate). The outer walkthrough ran 2026-07-07 (evidence below); remaining closeout is branch tie-off + publish.
 - **Certainty:** mixed — packaging fixes are `earned` (spike-witnessed defects, closure-shaped); allowlist/no-auth-gate/login are `proving` (first tracer through a new seam).
 - **Why now / unlocks:** the ship gate's audience is colleagues/collaborators including non-Pi users; the published package currently crashes at boot for any fresh install, and a no-auth user gets a silent dead TUI. Nothing else on the plan makes Brunch installable.
 - **Objective (five threads, from spike evidence + settled design):**
@@ -179,10 +181,30 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Retires:** the "does the built package work elsewhere?" uncertainty (spike answered: yes, once the two defects are fixed); the implicit "first Pi-available model" default; the silent no-auth boot.
 - **Lights up:** installability for non-Pi colleagues; the first onboarding surface (`brunch login` + warning copy); a release check that can join `npm run verify` or CI.
 - **Depends on:** D39-L (sealed profile), D34-L (built-in command containment — registry-layer enforcement, not chrome suppression), D109-L (juncture semantics the no-auth gate sits upstream of), D113-L/D114-L/D115-L, A38-L, I59-L, req 1/29.
-- **Blocked by:** nothing hard. Sequencing note: the release cut itself presumably wants the open `ln/*`/`ka/*` stack merged to `next` first, but every thread here is buildable now on `ln/fe-1159-alpha-release`.
-- **Verification:** the release-verification loop (thread 5) is the frontier's own oracle family; I59-L is covered by no-auth `ModelRegistry` juncture tests (including no-UI degradation), workspace-dialog banner assertion, boot preflight propagation, single-source copy checks, and the unchanged origination backstop test; `brunch login` is exercised against a scratch `PI_CODING_AGENT_DIR`. Remaining manual debt: scratch-agent-dir no-auth TUI walkthrough. A38-L conduct reproducibility validates via alpha-user walkthroughs, outside this frontier's inner loop.
-- **Current execution pointer:** none — scoped implementation cards are consumed; remaining re-entry is the manual no-auth TUI walkthrough/branch tie-off, not another prepared scope file. Packaging, allowlist, release-check, `brunch login`, and no-auth gate threads all landed 2026-07-07 as FE-1159 commits on this branch (SHAs churn under gt restacks; find them by the `FE-1159:` prefix).
+- **Blocked by:** nothing hard. The KA stack merged to `next` 2026-07-07; this branch now sits directly on `next`, so the release cut is merge → `npm run check:release-pack` → `npm publish` (tag `alpha`).
+- **Verification:** the release-verification loop (thread 5) is the frontier's own oracle family; I59-L is covered by no-auth `ModelRegistry` juncture tests (including no-UI degradation), workspace-dialog banner assertion, boot preflight propagation, single-source copy checks, and the unchanged origination backstop test; `brunch login` is exercised against a scratch `PI_CODING_AGENT_DIR`. A38-L conduct reproducibility continues to validate via alpha-user walkthroughs.
+- **Outer walkthrough evidence (2026-07-07, scratch `PI_CODING_AGENT_DIR` + seeded `workspace-alpha-grounding` workbench):** (1) no-auth boot showed the workspace-dialog warning banner, entered the session without a J1 juncture, and wrote an empty `auth.json`; (2) `brunch login` with a real OpenRouter key wrote Pi's `auth.json` and the exit report resolved the OpenRouter allowlist entry; (3) the *first real provider turn then 400ed on every Anthropic-family backend* — `read_graph`'s params schema carried a top-level `oneOf` (FE-1053) that Anthropic rejects; the faux-provider suite structurally could not catch this. Fixed on-branch (commit `FE-1159: Drop read_graph top-level oneOf…`): union removed, companions enforced by the executor's `structural_illegal` diagnostics, Tier-2 regression oracle asserts no provider-facing tool schema has a top-level union. (4) Post-fix: junctures fire, banner gone, full elicitation loop verified live on both allowlist entries — OpenRouter kick ≈11s, question turn ≈13s incl. one tool call, graph writes landed (incl. an agent self-recovery from a `STRUCTURAL_ILLEGAL` batch); Anthropic-direct kick ≈14.5s after `brunch login` with an Anthropic API key. A38-L latency at `thinking: low` felt acceptable; no conduct anomalies observed.
+- **Current execution pointer:** branch tie-off (`gt submit`) and publish; no prepared scope file. Packaging, allowlist, release-check, `brunch login`, no-auth gate, and the walkthrough-found `read_graph` schema fix all landed as FE-1159 commits on this branch (SHAs churn under gt restacks; find them by the `FE-1159:` prefix). Post-A38-L allowlist revision candidates named by the user: `openai/gpt-5.5`, `openai/gpt-5.4-mini` (verify exact pi-ai catalog ids before adding).
 - **Traceability:** req 1, req 29; D113-L, D114-L, D115-L; A38-L; I59-L; SPEC §Future Direction (Brunch-owned config home, role-tiered model picks — both deferred).
+
+### tool-schema-convergence
+
+- **Name:** Tool-schema convergence sweep — one adapter, two schema sources, build-time provider legality
+- **Linear:** [FE-1163](https://linear.app/hash/issue/FE-1163/tool-schema-convergence-one-adapter-two-schema-sources-build-time)
+- **Branch:** `ln/fe-1163-tool-schema-convergence` (stacked worktree off `next`, after `ln/fe-1159-alpha-release` ties off)
+- **Kind:** coverage frontier / sweep (frontier shape, not posture). **Certainty: earned** — every row is closure over an already-understood seam; nothing material is unknown.
+- **Status:** admitted 2026-07-07; ledger authored, not yet scoped/built.
+- **Why now / unlocks:** the FE-1159 outer walkthrough proved the failure class is real and total — one top-level `oneOf` in `read_graph` 400ed *every* provider turn on every Anthropic-family backend, and the faux-provider suite structurally cannot see it. Today the tool surface has a three-way authoring split (Zod-via-adapter ×2 duplicate adapters, TypeBox builders, hand `as const` JSON literals), so nothing enforces provider legality at authoring time. Converging now, right after the alpha cut, hardens the entire tool surface before alpha users hit it.
+- **Boundary:** all 47 Brunch-authored tool schemas reaching providers as `input_schema` (9 families under `src/.pi/extensions/**`). **Out:** Pi-owned schemas (incl. the 4 read-only re-registrations in `agent-runtime`), RPC/web/graph-command schemas (canonical *sources* for rows, not rows).
+- **Aggregate DoD:** no required ledger row remains `spec`/`partial`: both legacy adapters (`exchanges/pi-schema.ts`, `shared/pi-tool-schema.ts`) deleted; every in-boundary `parameters:` site routes through the single shared adapter; the registry-wide legality oracle (elicitor + executor toolsets) is green.
+- **Inventory authority:** `memory/cards/tool-schema-convergence--ledger.md` (12 rows: adapter seam, 9 families, registry oracle, 1 tripwired deferred row). PLAN owns the frontier id and sequencing; the ledger owns rows only.
+- **Classification:** buildable-now. All rows derive from current source; pi-ai's pre-execute `validateToolArguments` (TypeBox `Value.Check`) already gives uniform runtime validation, so no row adds a validation layer — this is authoring/derivation closure only.
+- **Closes:** the three-way schema-authoring split; the "illegal schema discovered on a live turn" failure class.
+- **Canonicalizes:** one adapter seam (`src/.pi/extensions/shared/tool-schema.ts`) and the two-source rule (Zod where the tool boundary owns the shape; TypeBox where graph/DB truth owns it — no re-declaring graph shapes in Zod).
+- **Deletes / retires:** `exchanges/pi-schema.ts`, `shared/pi-tool-schema.ts`, and hand-authored `as const` schema literals as an authoring style.
+- **Locks in:** "every provider-facing tool schema is provider-legal at build time" — SPEC invariant candidate at first landing, with the two-source rule as a SPEC decision candidate (record via `ln-sync`).
+- **Promotion / disposal rule:** rows escape to their own frontier only if they stop being row-sized; >1 newly discovered row means the inventory wasn't closed — back through `ln-plan`. Ledger deleted at exhaustion.
+- **Traceability:** motivating evidence rides FE-1159's walkthrough record (this file, alpha-release-readiness §Outer walkthrough evidence) and commit `FE-1159: Drop read_graph top-level oneOf…`; D39-L (sealed profile) constrains where the adapter lives; SPEC decision/invariant ids assigned when the first row lands.
 
 ### session-entry-orientation
 
@@ -357,11 +379,16 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 frontiers:
   Active:
     alpha-release-readiness (FE-1159)
-      status: active; model allowlist tracer built 2026-07-07; packaging/no-auth/login/release-check remain
-      branch: ln/fe-1159-alpha-release
+      status: active; all five threads built + outer walkthrough done 2026-07-07; tie-off + publish remain
+      branch: ln/fe-1159-alpha-release (directly on next; KA stack merged)
       depends_on: D39-L, D34-L, D109-L, D113-L, D114-L, D115-L
-      threads: packaging fixes -[earned]->; allowlist built; no-auth-gate/login -[proving]->
-      note: release cut wants the open ln/*+ka/* stack merged first; remaining threads buildable now
+      threads: packaging fixes -[earned]->; allowlist/no-auth-gate/login walkthrough-witnessed -[proving]->
+      note: walkthrough found+fixed read_graph top-level oneOf (Anthropic 400); publish = merge -> check:release-pack -> npm publish
+    tool-schema-convergence (FE-1163)
+      status: admitted 2026-07-07 (sweep, buildable-now, earned); ledger authored, awaiting branch
+      shape: coverage frontier; ledger memory/cards/tool-schema-convergence--ledger.md (12 rows / 47 tools)
+      depends_on: -[optional]-> alpha-release-readiness (sequenced after the alpha cut; no hard edge)
+      note: own stacked worktree; low conflict (schema declaration sites only)
     walkthrough-batch-2 (FE-1124)
       status: active planning/seed base for sibling ship-gate lanes
       feeds: -[verification seeds]-> session-entry-orientation, execute-entry-readiness (generative options)
