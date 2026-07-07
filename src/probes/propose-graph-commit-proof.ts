@@ -137,7 +137,7 @@ export async function runProposeGraphCommitProof(
   });
   const runtimeState: BrunchAgentState = {
     schemaVersion: 1,
-    operationalMode: 'elicit',
+    operationalMode: 'specify',
   };
   appendBrunchAgentRuntimeSwitch(workspace.session.manager, runtimeState, 'extension');
   const graph = await openWorkspaceGraphRuntime(cwd);

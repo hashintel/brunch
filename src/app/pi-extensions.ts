@@ -5,33 +5,6 @@ import {
 } from '@earendil-works/pi-coding-agent';
 
 import { registerBrunchAlternatives } from '../.pi/components/alternatives.js';
-import { registerBrunchExecuteAgentResult } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteOrchestrate } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteHostPromotion } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteLaunch } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecutePlanFile } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecutePlanPreview } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecutePetriExport } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecutePromotionPrepare } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecutePopulate } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteReportInit } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteRunComplete } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteRunCreate } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteSourceCopy } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteSourcePolicy } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteSliceComplete } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteSliceExecute } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteSliceStart } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteTestResult } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteWorktreeCreate } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecutePlanCheck } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecutePlanDraftArtifact } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecutePlanDraft } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecutePlanOutlineArtifact } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecutePlanOutline } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteSnapshot } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteStatus } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchOrchestratorStub } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchOperationalModePolicy } from '../.pi/extensions/agent-runtime/index.js';
 import {
   registerBrunchPrompting,
@@ -57,6 +30,33 @@ import {
 } from '../.pi/extensions/dev-mode/index.js';
 import { BRUNCH_SESSION_QUERY_TOOL, registerBrunchSessionQuery } from '../.pi/extensions/dev-mode/index.js';
 import { registerStructuredExchange } from '../.pi/extensions/exchanges/index.js';
+import { registerBrunchExecuteAgentResult } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecuteOrchestrate } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecuteHostPromotion } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecuteLaunch } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecutePlanFile } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecutePlanPreview } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecutePetriExport } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecutePromotionPrepare } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecutePopulate } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecuteReportInit } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecuteRunComplete } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecuteRunCreate } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecuteRunUpdates } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecuteSourceCopy } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecuteSourcePolicy } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecuteSliceComplete } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecuteSliceExecute } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecuteSliceStart } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecuteTestResult } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecuteWorktreeCreate } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecutePlanCheck } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecutePlanDraftArtifact } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecutePlanDraft } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecutePlanOutlineArtifact } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecutePlanOutline } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecuteSnapshot } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecuteStatus } from '../.pi/extensions/executor/index.js';
 import { type GraphMentionSource } from '../.pi/extensions/mentions/index.js';
 import { registerBrunchMentionAutocomplete } from '../.pi/extensions/mentions/index.js';
 import { registerBrunchSessionBoundary } from '../.pi/extensions/session-hooks/index.js';
@@ -214,10 +214,7 @@ export {
   BRUNCH_EXECUTE_STATUS_TOOL,
   createExecuteStatusTool,
   registerBrunchExecuteStatus,
-  BRUNCH_ORCHESTRATOR_STUB_TOOL,
-  createOrchestratorStubTool,
-  registerBrunchOrchestratorStub,
-} from '../.pi/extensions/agent-runtime/index.js';
+} from '../.pi/extensions/executor/index.js';
 export { registerBrunchReconciliation } from '../.pi/extensions/brunch-data/index.js';
 export {
   BRUNCH_SUBAGENT_TOOL,
@@ -296,7 +293,7 @@ export function createBrunchPiExtensions(
     const promptContext = options.promptContext;
     const introspectionOptions = options.introspection;
     // Opt-in tool channel: dev-only query tools registered but kept out of the
-    // base `elicit` allowlist (D40-L) are made active only when explicitly
+    // base Specify allowlist (D40-L) are made active only when explicitly
     // opted in here. The `subagent` tool is a product tool and is allowed by
     // Specify-mode policy when registered with a non-empty delegatable set.
     const hasDelegatableSubagents = (options.subagents?.delegatableAgents.length ?? 0) > 0;
@@ -344,7 +341,18 @@ export function createBrunchPiExtensions(
       registerBrunchContext,
       registerBrunchWebTools,
       registerBrunchExecuteStatus,
-      (api) => registerBrunchExecuteOrchestrate(api, executionPorts),
+      ...(options.productUpdates
+        ? [
+            (api: ExtensionAPI) =>
+              registerBrunchExecuteRunUpdates(api, { productUpdates: options.productUpdates! }),
+          ]
+        : []),
+      (api) =>
+        registerBrunchExecuteOrchestrate(
+          api,
+          executionPorts,
+          options.productUpdates ? { productUpdates: options.productUpdates } : undefined,
+        ),
       (api) => registerBrunchExecuteAgentResult(api, executionPorts.agentRunner),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteLaunch(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanFile(api, graph)] : []),
@@ -369,7 +377,6 @@ export function createBrunchPiExtensions(
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanOutlineArtifact(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanOutline(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteSnapshot(api, graph)] : []),
-      registerBrunchOrchestratorStub,
       ...(hasDelegatableSubagents
         ? [(api: ExtensionAPI) => registerBrunchSubagents(api, options.subagents!)]
         : []),

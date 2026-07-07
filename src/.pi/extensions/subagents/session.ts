@@ -91,10 +91,16 @@ export interface RunSubagentInput {
   readonly task: string;
   readonly ctx: SubagentRunContext;
   readonly deps: SubagentSealedDeps;
+  readonly onUpdate?: (update: SubagentStreamUpdate) => void;
   /** Injectable SDK builders (defaults to the real ones) for testing. */
   readonly createServices?: typeof createAgentSessionServices;
   readonly createSession?: typeof createAgentSessionFromServices;
 }
+
+export type SubagentStreamUpdate =
+  | { readonly kind: 'status'; readonly message: string }
+  | { readonly kind: 'message'; readonly message: string }
+  | { readonly kind: 'tool'; readonly message: string };
 
 export interface SubagentResult {
   readonly agent: string;
@@ -304,6 +310,11 @@ export async function runSubagent(input: RunSubagentInput): Promise<SubagentResu
       ...(toolPlan.customTools ? { customTools: toolPlan.customTools } : {}),
     });
     dispose = () => session.dispose();
+    const unsubscribeStream = subscribeToSessionStream(session, input.onUpdate);
+    dispose = () => {
+      unsubscribeStream?.();
+      session.dispose();
+    };
 
     if (ctx.signal) {
       onAbort = () => void session.abort();
@@ -314,6 +325,7 @@ export async function runSubagent(input: RunSubagentInput): Promise<SubagentResu
       return abortedResult();
     }
 
+    input.onUpdate?.({ kind: 'status', message: `subagent ${definition.name} prompt started` });
     await session.prompt(task, { expandPromptTemplates: false, source: 'rpc' });
     const text = session.getLastAssistantText()?.trim() ?? '';
     if (text.length === 0) {
@@ -323,6 +335,7 @@ export async function runSubagent(input: RunSubagentInput): Promise<SubagentResu
         text: `Subagent "${definition.name}" returned no output.`,
       };
     }
+    input.onUpdate?.({ kind: 'status', message: `subagent ${definition.name} prompt completed` });
     return { agent: definition.name, status: 'ok', text };
   } catch (error) {
     return {
@@ -334,4 +347,59 @@ export async function runSubagent(input: RunSubagentInput): Promise<SubagentResu
     if (ctx.signal && onAbort) ctx.signal.removeEventListener('abort', onAbort);
     dispose?.();
   }
+}
+
+function subscribeToSessionStream(
+  session: unknown,
+  onUpdate: RunSubagentInput['onUpdate'],
+): (() => void) | undefined {
+  if (!onUpdate || !hasSubscribe(session)) return undefined;
+  return session.subscribe((event) => {
+    const update = streamUpdateFromSessionEvent(event);
+    if (update) onUpdate(update);
+  });
+}
+
+function hasSubscribe(
+  value: unknown,
+): value is { subscribe: (listener: (event: unknown) => void) => () => void } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'subscribe' in value &&
+    typeof (value as { subscribe?: unknown }).subscribe === 'function'
+  );
+}
+
+function streamUpdateFromSessionEvent(event: unknown): SubagentStreamUpdate | undefined {
+  const shaped = asRecord(event);
+  if (!shaped) return undefined;
+  if (shaped['type'] === 'tool_execution_start' && typeof shaped['toolName'] === 'string') {
+    return { kind: 'tool', message: `tool ${shaped['toolName']} started` };
+  }
+  if (shaped['type'] === 'tool_execution_end' && typeof shaped['toolName'] === 'string') {
+    return { kind: 'tool', message: `tool ${shaped['toolName']} completed` };
+  }
+  if (shaped['type'] !== 'message_update' && shaped['type'] !== 'message_end') return undefined;
+
+  const message = asRecord(shaped['message']);
+  if (message?.['role'] !== 'assistant' || !Array.isArray(message['content'])) return undefined;
+  const text = message['content']
+    .flatMap((block) => {
+      const item = asRecord(block);
+      return item?.['type'] === 'text' && typeof item['text'] === 'string' ? [item['text']] : [];
+    })
+    .join('\n')
+    .trim();
+  return text.length === 0 ? undefined : { kind: 'message', message: previewText(text, 800) };
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function previewText(value: string, maxChars: number): string {
+  return value.length > maxChars ? `${value.slice(0, maxChars - 3)}...` : value;
 }

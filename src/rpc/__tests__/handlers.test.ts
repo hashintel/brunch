@@ -305,6 +305,8 @@ describe('JSON-RPC handlers', () => {
       }
     ).methods;
     expect(methods.map((entry) => entry.method).sort()).toEqual([
+      'execute.run',
+      'execute.runs',
       'graph.nodeNeighborhood',
       'graph.overview',
       'rpc.discover',
@@ -2008,7 +2010,7 @@ describe('JSON-RPC handlers', () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-runtime-state-'));
     const latestState: BrunchAgentState = {
       schemaVersion: 1,
-      operationalMode: 'elicit',
+      operationalMode: 'specify',
     };
     await writeExplicitSessionFixture(cwd, [
       { type: 'session', id: 'session-1', cwd },
@@ -2051,7 +2053,7 @@ describe('JSON-RPC handlers', () => {
         specId: 1,
         sessionId: 'session-1',
         agent: {
-          operationalMode: 'elicit',
+          operationalMode: 'specify',
           role: 'elicitor',
         },
         mentions: { graphNodes: [], files: [] },

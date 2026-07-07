@@ -8,8 +8,8 @@ const baseSnapshot: ExecutionSpecSnapshot = {
   specId: '7',
   mode: 'greenfield',
   requirements: [
-    { itemId: 'REQ1', nodeId: 1, title: 'Build feature', content: 'Build feature' },
-    { itemId: 'REQ2', nodeId: 2, title: 'Wire feature', content: 'Wire feature' },
+    { itemId: 'REQ1', nodeId: 1, title: 'Build feature', content: 'Build feature', dependsOn: [] },
+    { itemId: 'REQ2', nodeId: 2, title: 'Wire feature', content: 'Wire feature', dependsOn: [] },
   ],
   criteria: [
     {
@@ -17,6 +17,7 @@ const baseSnapshot: ExecutionSpecSnapshot = {
       nodeId: 3,
       title: 'Feature is visible',
       content: 'Feature is visible',
+      dependsOn: [],
       verifies: ['REQ1'],
     },
   ],
@@ -53,5 +54,20 @@ describe('checkExecutionSpecForPlan', () => {
         message: 'Execution snapshot has no requirements to plan from.',
       },
     ]);
+  });
+
+  it('blocks dependency edges that cannot be lowered into slice dependencies', () => {
+    const result = checkExecutionSpecForPlan({
+      ...baseSnapshot,
+      unprojectedDependencies: [{ dependencyId: 'D1', dependentId: 'REQ2' }],
+    });
+
+    expect(result.status).toBe('blocked');
+    expect(result.findings).toContainEqual({
+      code: 'unprojected_dependency',
+      severity: 'error',
+      itemId: 'REQ2',
+      message: 'Dependency D1 -> REQ2 cannot be represented in the executable plan as a slice dependency.',
+    });
   });
 });

@@ -69,7 +69,7 @@ const mixedBasisOverview: GraphSlice = {
 };
 
 const runtimeState = {
-  operationalMode: 'elicit' as const,
+  operationalMode: 'specify' as const,
 };
 
 describe('fixture curation loop report', () => {

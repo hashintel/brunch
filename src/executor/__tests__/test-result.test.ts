@@ -8,7 +8,7 @@ import { agentResultPath } from '../agent-result.js';
 import type { TestRunArgs } from '../execution-ports.js';
 import { reportsPath } from '../report.js';
 import { runDirPath, runMetadataPath } from '../run.js';
-import { ingestTestResult } from '../test-result.js';
+import { ingestTestResult, verifyStreamPath } from '../test-result.js';
 import { worktreeDirPath } from '../worktree.js';
 import { createFakeTestRunnerPort } from './fake-ports.js';
 
@@ -117,7 +117,7 @@ describe('ingestTestResult', () => {
       },
     });
 
-    expect(calls).toEqual([{ worktreeDir: worktreeDirPath(cwd, 'run-1') }]);
+    expect(calls).toEqual([expect.objectContaining({ worktreeDir: worktreeDirPath(cwd, 'run-1') })]);
     expect(result).toEqual({
       status: 'test_result_ingested',
       runStatus: 'test_result_ingested',
@@ -149,6 +149,54 @@ describe('ingestTestResult', () => {
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'test_result_ingested',
     });
+  });
+
+  it('persists normalized verify stream updates before ingesting the final result', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-test-result-stream-'));
+    await createAgentResultRun(cwd);
+    const observed: unknown[] = [];
+
+    const result = await ingestTestResult({
+      cwd,
+      runId: 'run-1',
+      testRunner: {
+        async run(args) {
+          await args.onUpdate?.({ kind: 'status', message: 'npm run verify started' });
+          await args.onUpdate?.({ kind: 'stdout', message: 'tests passed\n' });
+          return { status: 'completed', verdict: 'passed', exitCode: 0, target: 'npm run verify' };
+        },
+      },
+      onVerifyUpdate: (event) => observed.push(event),
+    });
+
+    const streamPath = verifyStreamPath(cwd, 'run-1', 'task-1');
+    const stream = (await readFile(streamPath, 'utf8'))
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line));
+    expect(stream).toEqual([
+      {
+        event: 'verify_stream',
+        runId: 'run-1',
+        epicId: 'frontier-1',
+        sliceId: 'task-1',
+        sequence: 0,
+        kind: 'status',
+        message: 'npm run verify started',
+      },
+      {
+        event: 'verify_stream',
+        runId: 'run-1',
+        epicId: 'frontier-1',
+        sliceId: 'task-1',
+        sequence: 1,
+        kind: 'stdout',
+        message: 'tests passed\n',
+      },
+    ]);
+    expect(observed).toEqual(stream);
+    expect(result.sideEffects).toContainEqual({ kind: 'append_file', path: streamPath });
+    expect(result.status).toBe('test_result_ingested');
   });
 
   it('ingests a failing verdict and still advances the run', async () => {

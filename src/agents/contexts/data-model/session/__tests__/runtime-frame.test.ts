@@ -9,7 +9,7 @@ function readyProjection(): RuntimeStateProjection {
     specId: 1,
     sessionId: 'session-1',
     agent: {
-      operationalMode: 'elicit',
+      operationalMode: 'specify',
       role: 'elicitor',
     },
     mentions: {

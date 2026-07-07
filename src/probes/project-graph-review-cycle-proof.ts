@@ -26,7 +26,7 @@ const DEFAULT_SEED_VARIANT = 'grounded-intent';
 const DEFAULT_SEED_REF = `${DEFAULT_SEED_NAME}/${DEFAULT_SEED_VARIANT}`;
 
 interface ProjectGraphReviewRuntimeStateReport {
-  readonly operationalMode: 'elicit';
+  readonly operationalMode: 'specify';
 }
 
 interface ProjectGraphReviewCycleProofOptions {
@@ -191,10 +191,10 @@ export async function runProjectGraphReviewCycleProof(
 
   const runtimeState: BrunchAgentState = {
     schemaVersion: 1,
-    operationalMode: 'elicit',
+    operationalMode: 'specify',
   };
   const runtimeStateReport: ProjectGraphReviewRuntimeStateReport = {
-    operationalMode: 'elicit',
+    operationalMode: 'specify',
   };
   appendBrunchAgentRuntimeSwitch(activated.session.manager, runtimeState, 'extension');
   const productUpdates = createProductUpdatePublisher();

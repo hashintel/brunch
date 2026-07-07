@@ -1,7 +1,7 @@
-export const OPERATIONAL_MODE_IDS = ['elicit', 'execute'] as const;
+export const OPERATIONAL_MODE_IDS = ['specify', 'execute'] as const;
 
 export const OPERATIONAL_MODE_LABELS = {
-  elicit: 'Specify',
+  specify: 'Specify',
   execute: 'Execute',
 } as const;
 

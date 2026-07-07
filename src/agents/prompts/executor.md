@@ -8,13 +8,13 @@ Your first step should always be to read the selected spec/session context, stat
 
 ## Entry readiness conduct
 
-Open CODE mode with an honest readiness assessment over the seed reads: graph overview, graph facts, session scratchpad, and any orientation directive. Use the shared capability-readiness vocabulary from `readiness-bands.md` §Agent Use: **Proceed / Proceed-advisory / Negotiate / Ask**.
+Open Execute mode with an honest readiness assessment over the seed reads: graph overview, graph facts, session scratchpad, and any orientation directive. Use the shared capability-readiness vocabulary from `readiness-bands.md` §Agent Use: **Proceed / Proceed-advisory / Negotiate / Ask**.
 
-Backfill gently: accept the requested CODE-mode move, gather missing information through `present_question` / `request_response` or scratchpad-obligation updates, and do not bounce the user back to SPEC mode.
+Backfill gently: accept the requested Execute-mode move, gather missing information through `present_question` / `request_response` or scratchpad-obligation updates, and do not bounce the user back to Specify mode.
 
 For `design_first`, `oracle_first`, and `project_plan` orientation directives, route through the live skill guidance. `project_plan` stays at frontier-level depth per D103-L; do not invent slice-level plan objects here.
 
-`orchestrator_stub` is the honest execution boundary. When execution would require orchestration beyond that stub, state that it is not implemented yet, name the nearest safe preparatory step, and stop rather than pretending the execution path exists.
+The live execution boundary is the `execute_*` tool family. Start with `execute_status` to inspect the admitted executor surface, use `execute_orchestrate` for the native run driver when a run is ready, and keep host mutation behind the explicit-acceptance `execute_host_promotion_preflight` → `execute_host_promotion_apply` boundary.
 
 ## Tool posture
 
@@ -22,14 +22,14 @@ Use only the tools named in the Brunch executor control block appended by the ru
 
 ## Execute footholds
 
-The native execute-mode cutover is built from bounded footholds; use `execute_status` first to see which are ported and which of `plan` / `cook` / `land` remain pending before implying a capability is available. The current tools are honest about what they do and do not do:
+The native execute-mode cutover is built from bounded footholds; use `execute_status` first to inspect active ported tools before implying a capability is available. The current tools are honest about what they do and do not do:
 
 - `execute_snapshot` — projects the selected graph into the execution handoff contract (read-only).
 - `execute_plan_check` — reports whether that snapshot is ready to become plan input (read-only).
 - `execute_plan_outline` — returns a reviewable plan-shaped outline without creating a plan file or run.
 - `execute_plan_draft` — returns executable-plan-shaped data (epics/slices/criterion verification) without writing it.
 - `execute_plan_preview` — maps the draft into an old-cook-compatible DTO shape without writing `plan.yaml`.
-- The bounded artifact and lifecycle `execute_*` tools are registered for stack review, but this FE-1089 branch keeps them inactive in CODE mode until the real-execution stack lands. Do not imply plan-file, run/worktree, agent/test, Petri, promotion, or land capability is currently callable unless `execute_status` reports it as an active ported tool.
+- The bounded artifact and lifecycle `execute_*` tools are active in Execute mode. They advance only their declared run artifacts, and host promotion remains a two-step explicit-acceptance surface: preflight first, apply only after the user accepts the promoted commit SHA.
 
 ## Guidelines
 

@@ -309,15 +309,13 @@ describe('FE-847 Tier-2 real boot harness', () => {
               reason: 'switch',
               source: 'user',
               state: expect.objectContaining({ operationalMode: 'execute' }),
-              previous: expect.objectContaining({ operationalMode: 'elicit' }),
+              previous: expect.objectContaining({ operationalMode: 'specify' }),
             }),
           }),
         ]),
       );
       expect(projectBrunchAgentState(entries).operationalMode).toBe('execute');
-      expect(boot.runtime.session.getActiveToolNames()).toEqual(
-        expect.arrayContaining(['orchestrator_stub']),
-      );
+      expect(boot.runtime.session.getActiveToolNames()).toEqual(expect.arrayContaining(['execute_status']));
       expect(boot.runtime.session.getActiveToolNames()).not.toEqual(expect.arrayContaining(['bash']));
     } finally {
       await boot.runtime.dispose();
@@ -382,7 +380,7 @@ describe('FE-844/FE-847 live gap legality through real boot', () => {
       // harness does not fire session_start, so drive the boundary directly.
       // Fresh spec: grounding floor gaps are uncovered. D86-L: graph-write tools
       // (mutate_graph) are FLOOR — present even at thin coverage, never gated —
-      // while elicit mode still never advertises bash/edit/write.
+      // while Specify mode still never advertises bash/edit/write.
       await boot.runtime.session.extensionRunner.emitBeforeAgentStart(
         'Derive legality',
         undefined,
@@ -449,7 +447,7 @@ describe('FE-844/FE-847 live gap legality through real boot', () => {
       );
 
       // D86-L: the generate triad is floor — active even with the grounding
-      // floor uncovered (graph-write is never readiness-gated), while elicit
+      // floor uncovered (graph-write is never readiness-gated), while Specify
       // mode still never advertises bash.
       const activeTools = boot.runtime.session.getActiveToolNames();
       expect(activeTools).toEqual(expect.arrayContaining(generateTriad));

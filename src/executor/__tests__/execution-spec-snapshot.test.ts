@@ -128,6 +128,12 @@ describe('projectExecutionSpecSnapshot', () => {
           targetId: requirementA.id,
           stance: 'for',
         }),
+        edge({
+          id: 5,
+          category: 'dependency',
+          sourceId: requirementB.id,
+          targetId: requirementA.id,
+        }),
       ],
     });
 
@@ -138,6 +144,12 @@ describe('projectExecutionSpecSnapshot', () => {
     expect(snapshot.requirements[0]).toMatchObject({
       title: 'Persist layout choice',
       content: 'Persist layout choice',
+      dependsOn: [],
+    });
+    expect(snapshot.requirements[1]).toMatchObject({
+      itemId: 'REQ2',
+      title: 'Render graph canvas',
+      dependsOn: ['REQ1'],
     });
     expect(snapshot.criteria).toEqual([
       expect.objectContaining({
@@ -151,5 +163,32 @@ describe('projectExecutionSpecSnapshot', () => {
     expect(snapshot.context.decisions.map((item) => item.itemId)).toEqual(['D1']);
     expect(snapshot.context.design.map((item) => item.itemId)).toEqual(['SKT1']);
     expect(snapshot.context.oracle.map((item) => item.itemId)).toEqual(['CH1']);
+  });
+
+  it('records projected dependency edges that are not executable requirement dependencies', () => {
+    const requirement = node({
+      id: 10,
+      plane: 'intent',
+      kind: 'requirement',
+      kindOrdinal: 1,
+      title: 'Build feature',
+    });
+    const decision = node({
+      id: 20,
+      plane: 'intent',
+      kind: 'decision',
+      kindOrdinal: 1,
+      title: 'Choose architecture',
+    });
+
+    const snapshot = projectExecutionSpecSnapshot({
+      specId: 7,
+      mode: 'greenfield',
+      nodes: [requirement, decision],
+      edges: [edge({ id: 1, category: 'dependency', sourceId: decision.id, targetId: requirement.id })],
+    });
+
+    expect(snapshot.requirements[0]?.dependsOn).toEqual([]);
+    expect(snapshot.unprojectedDependencies).toEqual([{ dependencyId: 'D1', dependentId: 'REQ1' }]);
   });
 });

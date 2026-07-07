@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { BRUNCH_DIR } from '../constants.js';
@@ -110,7 +110,16 @@ export async function persistRunMetadata(
   metadataPath: string,
   metadata: RunMetadata,
 ): Promise<RunMetadataWriteEffect> {
-  await writeFile(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
+  // Write-temp+rename: concurrent observers must never read a truncated run.json
+  // (plain writeFile truncates in place). One-writer-per-cwd excludes temp collisions.
+  const tempPath = `${metadataPath}.tmp`;
+  await writeFile(tempPath, `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
+  try {
+    await rename(tempPath, metadataPath);
+  } catch (error) {
+    await rm(tempPath, { force: true });
+    throw error;
+  }
   return { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' };
 }
 
@@ -140,7 +149,7 @@ export async function createRun(args: {
   };
 
   await mkdir(runDir, { recursive: true });
-  await writeFile(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
+  await persistRunMetadata(metadataPath, metadata);
 
   return {
     status: 'created',

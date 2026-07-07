@@ -55,6 +55,11 @@ function WorkspaceStatePage() {
     <div className="h-full overflow-y-auto">
       <div className="mx-auto w-full max-w-3xl px-6 pt-8 pb-10">
         <SpecList specs={selection.specs} />
+        <p className="mt-6">
+          <Link to="/runs" className="text-link text-sm">
+            Executor runs
+          </Link>
+        </p>
       </div>
     </div>
   );

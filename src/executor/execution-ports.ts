@@ -32,6 +32,12 @@ export interface AgentRunArgs {
   readonly epicId: string;
   readonly sliceId: string;
   readonly runtime?: AgentRunnerRuntime;
+  readonly onUpdate?: (update: AgentRunUpdate) => void | Promise<void>;
+}
+
+export interface AgentRunUpdate {
+  readonly kind: 'status' | 'message' | 'tool';
+  readonly message: string;
 }
 
 export interface AgentRunnerRuntime {
@@ -57,7 +63,12 @@ export interface AgentRunnerPort {
 export interface TestRunArgs {
   readonly worktreeDir: string;
   readonly signal?: AbortSignal | undefined;
+  readonly onUpdate?: (update: TestRunUpdate) => void | Promise<void>;
 }
+
+export type TestRunUpdate =
+  | { readonly kind: 'status'; readonly message: string }
+  | { readonly kind: 'stdout' | 'stderr'; readonly message: string };
 
 export type TestRunResult =
   | {

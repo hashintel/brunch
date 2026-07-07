@@ -115,7 +115,7 @@ describe('Brunch Pi runtime', () => {
     }
   });
 
-  it('wires executor agent runner subagents in CODE mode without dev tools', async () => {
+  it('wires executor agent runner subagents in Execute mode without dev tools', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-executor-runtime-'));
     const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
     const coordinator = createWorkspaceSessionCoordinator({ cwd });

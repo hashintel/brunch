@@ -104,7 +104,7 @@ describe('context tools', () => {
               source: 'user',
               state: {
                 schemaVersion: 1,
-                operationalMode: 'elicit',
+                operationalMode: 'specify',
               },
             },
           },
@@ -127,7 +127,7 @@ describe('context tools', () => {
       specId: 1,
       sessionId: 'session-1',
       agent: {
-        operationalMode: 'elicit',
+        operationalMode: 'specify',
         role: 'elicitor',
       },
     });

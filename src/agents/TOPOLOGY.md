@@ -9,7 +9,7 @@ SPEC decisions: D39-L, D40-L, D52-L, D60-L, D85-L, D90-L, D91-L, D93-L, D98-L
 ```text
 agents/
 ├── TOPOLOGY.md
-├── prompts/           flat foreground elicit/execute body markdown
+├── prompts/           flat foreground Specify/Execute body markdown
 ├── subagents/         flat background subagent body markdown
 ├── skills/            first-level live activity resources plus their references
 ├── references/        runtime-eligible shared markdown references
