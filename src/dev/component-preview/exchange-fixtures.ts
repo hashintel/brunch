@@ -1,4 +1,5 @@
 import { formatPresentCandidates } from '../../agents/contexts/exchanges/present-candidates.js';
+import { formatPresentDigest } from '../../agents/contexts/exchanges/present-digest.js';
 import { formatPresentQuestion } from '../../agents/contexts/exchanges/present-question.js';
 import {
   formatExchangeStructuralIllegal,
@@ -12,6 +13,7 @@ import {
   formatRequestReview,
 } from '../../agents/contexts/exchanges/request-response.js';
 import { projectPresentCandidates } from '../../exchanges/projections/present-candidates.js';
+import { projectPresentDigest } from '../../exchanges/projections/present-digest.js';
 import { projectPresentQuestion } from '../../exchanges/projections/present-question.js';
 import { projectPresentReviewSet } from '../../exchanges/projections/present-review-set.js';
 import {
@@ -63,6 +65,31 @@ export const presentQuestionFixtures = [
   presentQuestionOptionsFixture,
   presentQuestionFreeTextFixture,
 ] as const;
+
+export const presentDigestFixture = (() => {
+  const params = {
+    exchangeId: 'preview-digest',
+    heading: 'Digest large source',
+    body: 'Review this prose digest before any graph mapping.',
+    digest: {
+      abstract:
+        'The source argues that the POC must keep capture lightweight: ingest should summarize raw material first, then map only accepted source-derived claims.',
+      analysis:
+        'The useful signal is the distinction between accepted source material and graph truth. The digest can feed mapping, but it does not commit nodes or edges.',
+      recommendation:
+        'Approve the digest after checking that it preserves the source constraints and omits graph proposals.',
+    },
+  };
+  const projection = projectPresentDigest(params);
+  return {
+    params,
+    projection,
+    result: {
+      content: [{ type: 'text' as const, text: formatPresentDigest(projection) }],
+      details: projection.details,
+    },
+  };
+})();
 
 export const presentCandidatesFixture = (() => {
   const params = {
@@ -246,6 +273,7 @@ export const requestReviewFixture = (() => {
     exchangeId: 'preview-request-review',
     status: 'answered',
     review: 'request_changes',
+    respondsToPresentTool: 'present_review_set',
     comment: 'Name the outer oracle before closing the frontier.',
   });
   return {

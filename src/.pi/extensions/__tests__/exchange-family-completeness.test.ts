@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { formatPresentCandidates } from '../../../agents/contexts/exchanges/present-candidates.js';
+import { formatPresentDigest } from '../../../agents/contexts/exchanges/present-digest.js';
 import { formatPresentQuestion } from '../../../agents/contexts/exchanges/present-question.js';
 import { formatPresentReviewSet } from '../../../agents/contexts/exchanges/present-review-set.js';
 import {
@@ -15,6 +16,7 @@ import {
 import { COMPONENT_PREVIEW_REGISTRY } from '../../../dev/component-preview/registry.js';
 import {
   PRESENT_CANDIDATES_TOOL,
+  PRESENT_DIGEST_TOOL,
   PRESENT_QUESTION_TOOL,
   PRESENT_REVIEW_SET_TOOL,
   REQUEST_RESPONSE_TOOL,
@@ -54,6 +56,18 @@ const exchangeFamilyCoverage = [
     formatter: formatPresentCandidates,
     previewId: 'present-candidates',
     snapshots: [{ file: 'candidates-tuples.md', markers: ['# candidate selected'] }],
+  },
+  {
+    tool: PRESENT_DIGEST_TOOL,
+    family: 'present_digest',
+    formatter: formatPresentDigest,
+    previewId: 'present-digest',
+    snapshots: [
+      {
+        file: 'digest-tuples.md',
+        markers: ['# accepted', '# changes requested', '# rejected', '# cancelled'],
+      },
+    ],
   },
   {
     tool: PRESENT_REVIEW_SET_TOOL,
@@ -111,6 +125,7 @@ describe('structured exchange family completeness', () => {
       PRESENT_QUESTION_TOOL,
       PRESENT_REVIEW_SET_TOOL,
       PRESENT_CANDIDATES_TOOL,
+      PRESENT_DIGEST_TOOL,
       REQUEST_RESPONSE_TOOL,
     ]);
     expect(new Set(exchangeFamilyCoverage.map((row) => row.tool))).toEqual(new Set(registeredToolNames()));

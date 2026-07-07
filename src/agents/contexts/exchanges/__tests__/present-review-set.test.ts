@@ -91,8 +91,18 @@ function renderTuple(
   const exchangeId = `review-${review}`;
   const response =
     review === 'cancelled'
-      ? projectRequestReview({ exchangeId, status: 'cancelled' })
-      : projectRequestReview({ exchangeId, status: 'answered', review, comment });
+      ? projectRequestReview({
+          exchangeId,
+          status: 'cancelled',
+          respondsToPresentTool: 'present_review_set',
+        })
+      : projectRequestReview({
+          exchangeId,
+          status: 'answered',
+          review,
+          respondsToPresentTool: 'present_review_set',
+          comment,
+        });
   return [
     formatPresentReviewSet(projectPresentReviewSet({ exchangeId, payload })),
     formatRequestReview(response),

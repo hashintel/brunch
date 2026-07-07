@@ -6,7 +6,8 @@ import {
   zRequestChoiceToolMeta,
   zRequestChoicesToolMeta,
   zRequestDetailsHeader,
-  zRequestReviewToolMeta,
+  zRequestDigestReviewToolMeta,
+  zRequestReviewSetToolMeta,
 } from './shared.js';
 
 export const zCancelledOutcome = z
@@ -225,27 +226,76 @@ const zReviewAnsweredPayload = z.union([
 ]);
 export const zRequestReviewAnswered = zReviewAnsweredPayload;
 
-export const zRequestReviewDetails = z.union([
+export const zRequestReviewSetDetails = z.union([
   zRequestDetailsHeader
     .extend({
-      tool_meta: zRequestReviewToolMeta,
+      tool_meta: zRequestReviewSetToolMeta,
       answered: zRequestReviewAnswered,
     })
     .strict(),
   zRequestDetailsHeader
     .extend({
-      tool_meta: zRequestReviewToolMeta.omit({ next: true }),
+      tool_meta: zRequestReviewSetToolMeta.omit({ next: true }),
       cancelled: zCancelledOutcome.shape.cancelled,
     })
     .strict(),
   zRequestDetailsHeader
     .extend({
-      tool_meta: zRequestReviewToolMeta.omit({ next: true }),
+      tool_meta: zRequestReviewSetToolMeta.omit({ next: true }),
       unavailable: zUnavailableOutcome.shape.unavailable,
     })
     .strict(),
 ]);
+
+const zDigestReviewAnsweredPayload = z.union([
+  z
+    .object({
+      decision: z.literal('approve'),
+      accepted_abstract: zMarkdown,
+      comment: zMarkdown.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      decision: z.literal('request_changes'),
+      comment: zMarkdown.refine((value) => value.trim().length > 0, {
+        message: 'request_changes requires comment',
+      }),
+    })
+    .strict(),
+  z
+    .object({
+      decision: z.literal('reject'),
+      comment: zMarkdown.optional(),
+    })
+    .strict(),
+]);
+export const zRequestDigestReviewAnswered = zDigestReviewAnsweredPayload;
+
+export const zRequestDigestReviewDetails = z.union([
+  zRequestDetailsHeader
+    .extend({
+      tool_meta: zRequestDigestReviewToolMeta,
+      answered: zRequestDigestReviewAnswered,
+    })
+    .strict(),
+  zRequestDetailsHeader
+    .extend({
+      tool_meta: zRequestDigestReviewToolMeta.omit({ next: true }),
+      cancelled: zCancelledOutcome.shape.cancelled,
+    })
+    .strict(),
+  zRequestDetailsHeader
+    .extend({
+      tool_meta: zRequestDigestReviewToolMeta.omit({ next: true }),
+      unavailable: zUnavailableOutcome.shape.unavailable,
+    })
+    .strict(),
+]);
+
+export const zRequestReviewDetails = z.union([zRequestReviewSetDetails, zRequestDigestReviewDetails]);
 export type RequestReviewDetails = z.infer<typeof zRequestReviewDetails>;
+export type RequestDigestReviewDetails = z.infer<typeof zRequestDigestReviewDetails>;
 export const RequestReviewDetailsSchema = z.toJSONSchema(zRequestReviewDetails, { unrepresentable: 'throw' });
 
 export const zRequestDetails = z.union([

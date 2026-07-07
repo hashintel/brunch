@@ -15,14 +15,26 @@ function decisionForLabel(label: string): ReviewDecision | undefined {
   return undefined;
 }
 
-export interface CollectReviewParams {
-  readonly exchangeId: string;
-  readonly prompt: string;
-}
-
+export type CollectReviewParams =
+  | {
+      readonly exchangeId: string;
+      readonly prompt: string;
+      readonly respondsToPresentTool: 'present_review_set';
+    }
+  | {
+      readonly exchangeId: string;
+      readonly prompt: string;
+      readonly respondsToPresentTool: 'present_digest';
+      readonly acceptedAbstract: string;
+    };
 export async function collectReviewFromUi(ctx: StructuredExchangeUiContext, params: CollectReviewParams) {
   const terminal = (status: 'cancelled' | 'unavailable', message?: string) => {
-    const details = projectRequestReview({ exchangeId: params.exchangeId, status, message });
+    const details = projectRequestReview({
+      exchangeId: params.exchangeId,
+      status,
+      respondsToPresentTool: params.respondsToPresentTool,
+      ...(message !== undefined ? { message } : {}),
+    });
     return {
       content: [{ type: 'text' as const, text: formatRequestReview(details) }],
       details,
@@ -53,11 +65,33 @@ export async function collectReviewFromUi(ctx: StructuredExchangeUiContext, para
     return terminal('unavailable', 'request_response review change request requires a comment');
   }
 
+  if (review === 'approve') {
+    const details =
+      params.respondsToPresentTool === 'present_digest'
+        ? projectRequestReview({
+            exchangeId: params.exchangeId,
+            status: 'answered',
+            review,
+            respondsToPresentTool: params.respondsToPresentTool,
+            acceptedAbstract: params.acceptedAbstract,
+            ...(comment !== undefined ? { comment } : {}),
+          })
+        : projectRequestReview({
+            exchangeId: params.exchangeId,
+            status: 'answered',
+            review,
+            respondsToPresentTool: params.respondsToPresentTool,
+            ...(comment !== undefined ? { comment } : {}),
+          });
+    return { content: [{ type: 'text' as const, text: formatRequestReview(details) }], details };
+  }
+
   const details = projectRequestReview({
     exchangeId: params.exchangeId,
     status: 'answered',
     review,
-    comment,
+    respondsToPresentTool: params.respondsToPresentTool,
+    ...(comment !== undefined ? { comment } : {}),
   });
   return { content: [{ type: 'text' as const, text: formatRequestReview(details) }], details };
 }

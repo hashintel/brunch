@@ -19,7 +19,7 @@ chain ingest:
 ```
 
 1. **Identify source.** Name the source in ordinary language. Done when the source and its provenance phrasing are explicit.
-2. **Digest if raw/large.** For a referenced document or brownfield area, read with legal read tools and write an assistant-authored digest in the transcript that separates direct claims from interpretation and names open uncertainties; raw tool output stays background. Done when the sweep has a bounded digest to work from, not unbounded raw bulk. (Skip for a direct human answer; optional for a small paste.)
+2. **Digest if raw/large.** For a referenced document or brownfield area, read with legal read tools and present an assistant-authored digest through `present_digest` for review. The digest separates direct claims from interpretation and names open uncertainties; raw tool output stays background. Done when the user has accepted, requested changes to, rejected, or cancelled the bounded digest instead of leaving the sweep to consume unbounded raw bulk. (Skip for a direct human answer; optional for a small paste.)
 3. **Map graph-worthy spans.** Use map references to classify spans to the sharpest supported kind and author only confident relations. Done when every useful span is either mapped, deliberately abstained, or named as missing support.
 4. **Route by confidence/conflict/settlement.** Use [`../map/references/routing.md`](../map/references/routing.md) to send mapped material to settled graph truth, advisory graph signal, a session scratchpad obligation, or `reconciliation_need`. Done when nothing low-confidence is committed and no contradiction was written as truth.
 5. **Ask from the updated world.** Compose the next question over the updated graph + scratchpad, not the pre-capture state.
@@ -38,7 +38,7 @@ chain ingest:
 - **reference**: use only legal read tools; `web_fetch` for a known URL, `web_search` only when external context would change the next move; do not expand one reference into open-ended research unless asked.
 - **brownfield**: smallest useful reconnaissance bounded by the user's area and the current gap; read nearby topology/README notes first when present; do not crawl for completeness.
 
-A digest should include: source/scope, high-confidence facts, interpretation separated from direct claims, uncertainties or contradictions, and the suggested next question/gap/graph area. Capture from the digest plus conversation, not unbounded raw tool output.
+A digest should include: source/scope, high-confidence facts, interpretation separated from direct claims, uncertainties or contradictions, and the suggested next question/gap/graph area. Present it with `present_digest` (`present_digest` offer → `request_response` review terminal). Capture from the accepted `accepted_abstract` plus conversation, not unbounded raw tool output.
 
 ### Sweep
 
@@ -58,10 +58,10 @@ Structured exchange outcome rules:
 - Answered choice requests route only selected `choice`/`choices` and required `comment` text as response material. Non-selected `answered.options` entries are option echo for rendering; do not treat them as accepted facts or graph payload.
 - Cancelled ordinary requests carry no answer, choice, option, or offer payload. If the unanswered prompt still matters, record an `open` scratchpad obligation to re-ask or verify it; do not extend the scratchpad disposition vocabulary.
 - Unavailable ordinary requests carry no response payload. Do not read unavailability as user refusal or accepted content; re-ask or add an `open` scratchpad obligation only when the missing response still matters.
-- Review `request_changes` captures the comment as direct user material and treats the next generated review set as the next offer. Do not capture the prior proposal payload or write graph truth from it.
-- Review `reject` kills the offer. Do not demote the rejected proposal into a scratchpad obligation or preserve it as live graph material.
-- Cancelled proposal-chain reviews carry no offer payload. Only unresolved intent may become an `open` scratchpad obligation; never keep the cancelled proposal nodes, edges, or candidates as capture material.
-- Superseded prior proposal entries stay transcript history only. For a proposal chain, capture/projection consumes only the accepted terminal payload; do not read earlier offers as active graph material.
+- Review `request_changes` captures the comment as direct user material and treats the next generated review set or digest as the next offer. Do not capture the prior proposal payload or write graph truth from it.
+- Review `reject` kills the offer. Do not demote the rejected proposal or digest into a scratchpad obligation or preserve it as live graph material.
+- Cancelled proposal-chain reviews carry no offer payload. Only unresolved intent may become an `open` scratchpad obligation; never keep the cancelled proposal nodes, edges, candidates, or digest abstract as capture material.
+- Superseded prior proposal entries stay transcript history only. For a proposal chain, capture/projection consumes only the accepted terminal payload; do not read earlier offers as active graph material. For `present_digest`, the accepted terminal payload is `accepted_abstract`; request-changes regeneration produces a new `present_digest` offer rather than a second conduct carrier.
 
 ## Method
 

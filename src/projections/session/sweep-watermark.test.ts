@@ -31,7 +31,7 @@ function marker(): TranscriptEntryLike {
 }
 
 describe('capture sweep watermark projection', () => {
-  it('returns conversational and digest entries appended since the last transcript-backed marker', () => {
+  it('returns conversational entries appended since the last transcript-backed marker', () => {
     const entries = [
       message('user', 'already swept'),
       marker(),
@@ -47,9 +47,20 @@ describe('capture sweep watermark projection', () => {
     expect(projectCaptureSweepWindow(entries).conversationalTail).toEqual([
       entries[4],
       entries[5],
-      entries[6],
       entries[8],
     ]);
+  });
+
+  it('excludes legacy digest custom entries from the sweep tail', () => {
+    const entries = [
+      marker(),
+      custom('brunch.digest', { summary: 'Old digest carrier.' }),
+      custom('brunch.acquisition_digest', { summary: 'Old acquisition carrier.' }),
+      custom('brunch.capture_digest', { summary: 'Old capture carrier.' }),
+      message('assistant', 'Only this conversational message remains.'),
+    ];
+
+    expect(projectCaptureSweepWindow(entries).conversationalTail).toEqual([entries[4]]);
   });
 
   it('excludes structured offers and reserved capture tool results from the sweep tail', () => {
@@ -58,13 +69,19 @@ describe('capture sweep watermark projection', () => {
       toolResult('present_question'),
       toolResult('present_candidates'),
       toolResult('present_review_set'),
+      toolResult('present_digest'),
       toolResult('capture_answer'),
       toolResult('capture_review'),
       toolResult('request_answer'),
       toolResult('request_choice'),
+      toolResult('request_response'),
     ];
 
-    expect(projectCaptureSweepWindow(entries).conversationalTail).toEqual([entries[6], entries[7]]);
+    expect(projectCaptureSweepWindow(entries).conversationalTail).toEqual([
+      entries[7],
+      entries[8],
+      entries[9],
+    ]);
   });
 
   it('advances with a sweep marker so the conversational tail is empty while background may remain behind it', () => {
@@ -78,6 +95,7 @@ describe('capture sweep watermark projection', () => {
 
     const advance = prepareCaptureSweepAdvance(beforeAdvance, { now: fixedNow });
 
+    expect(advance.conversationalTail).toEqual([beforeAdvance[3]]);
     expect(advance.marker).toEqual({
       customType: CAPTURE_SWEEP_WATERMARK_CUSTOM_TYPE,
       sweptAt: '2026-06-19T12:00:00.000Z',

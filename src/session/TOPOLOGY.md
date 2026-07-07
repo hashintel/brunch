@@ -82,7 +82,11 @@ plus the coordination logic for workspace/spec/session lifecycle.
   point over a private `structured-exchange-loop/` subtree split by purpose:
   `pending-exchange.ts` (read-path reconstruction + schema), `accepted-response.ts`
   (response toolResult materialization), and `synthetic-tool-call.ts` (the
-  provider-legality toolCall pair); external callers import only the root.
+  provider-legality toolCall pair); external callers import only the root. The
+  review-mode pending shape distinguishes `present_review_set` from
+  `present_digest`: review-set approval may commit graph drafts, while digest
+  approval mints only the `request_review` terminal with the accepted abstract
+  echo for downstream capture.
 
 - **Workspace coordination** — boot flow and spec/session selection over the
   workspace-owned `.brunch/workspace.json` state store. The

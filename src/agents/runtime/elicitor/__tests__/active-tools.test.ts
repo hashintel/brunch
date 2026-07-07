@@ -13,6 +13,7 @@ describe('activeToolNamesForLiveElicitor', () => {
         'read_graph',
         'mutate_graph',
         'present_question',
+        'present_digest',
         'request_response',
         'subagent',
         'brunch_session_query',
@@ -25,6 +26,7 @@ describe('activeToolNamesForLiveElicitor', () => {
       'read_graph',
       'mutate_graph',
       'present_question',
+      'present_digest',
       'request_response',
       'subagent',
     ]);

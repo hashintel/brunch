@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   PRESENT_CANDIDATES_TOOL,
+  PRESENT_DIGEST_TOOL,
   PRESENT_QUESTION_TOOL,
   PRESENT_REVIEW_SET_TOOL,
   REQUEST_RESPONSE_TOOL,
@@ -69,6 +70,7 @@ describe('structured exchange renderers', () => {
       PRESENT_QUESTION_TOOL,
       PRESENT_REVIEW_SET_TOOL,
       PRESENT_CANDIDATES_TOOL,
+      PRESENT_DIGEST_TOOL,
       REQUEST_RESPONSE_TOOL,
     ]);
 

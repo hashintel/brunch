@@ -4,6 +4,32 @@ This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
 
+## 2026-07-06 Sync archive (`ln-sync`, FE-1136 closeout)
+
+Archived from `memory/PLAN.md` during the 2026-07-06 `ln-sync` after `present-digest` (FE-1136)
+closed and arc `capture-ingest-throughline` closed with it. Durable truth: D110-L (the digest
+exchange kind event), D106-L (accepted-abstract echo), I57-L (digest chain witness incl. the live
+walkthrough beat), the retired `DIGEST_CUSTOM_TYPES` sweep special case, and the co-located
+topology homes named in D110-L. The consumed scope card
+`memory/cards/present-digest--exchange-kind.md` (4 cards, all done) was deleted; its walkthrough
+observation record is preserved in the frontier definition below and in the PLAN Recently Completed
+entry.
+
+
+### present-digest (FE-1136) — retired full frontier definition
+
+- **Name:** `present_digest` — the digest proposal exchange for large source material
+- **Linear:** [FE-1136](https://linear.app/hash/issue/FE-1136/present-digest-exchange-for-large-source-ingest)
+- **Branch:** `ln/fe-1136-present-digest` (stacks on `exchange-capture-contract`)
+- **Kind:** bounded feature / new exchange kind end to end. Arc: `capture-ingest-throughline`.
+- **Status:** ✓ done 2026-07-06. All four cards of the (deleted) scope card were done: tracer, sweep single-carrier retirement, supersession/cancel probes, the ln-judo-review repair slice (digest wired through the public RPC answering path with a unified review projection), and the live walkthrough beat (2026-07-06: foreign design notes → digest → request changes → regenerated digest → approve → advisory review-set commit at LSN 3 with honest `formatMutateGraphResult` receipt + reconciliation need + scratchpad routing; abstract-size pressure not observed — the accepted echo is an authored compression, two-carrier fallback stays rejected; no conduct findings to route). Consolidated the parallel `present-digest--exchange-throughline-pi-scope.md` scope file (superseded). The decision-flow chart obligation was discharged in the scope files.
+- **Certainty at closure:** earned — the payload shape and sweep-read semantics are witnessed on live seams.
+- **Shape (settled in the grill):** a digest is *not* a review-set-shaped proposal (a review set is entity drafts dry-run-validated against `CommandExecutor`, I20-L; a digest carries no graph payload). New `present_*` kind; terminal stays the **existing** review response kind (`approve | request_changes | reject`) — zero new response vocabulary; D28-L supersession applies to regeneration chains; projection to nodes/edges is a separate following step whose receipt is already honest (`formatMutateGraphResult`). The accepted terminal response **echoes the accepted abstract** (D106-L self-containment); the raw digested material stays a non-swept artifact; the `DIGEST_CUSTOM_TYPES` special case in `isSweepConversationalEntry` retired — one carrier for one fact, the D101-L pattern. (Named fallback if abstract size becomes real pressure: keep the custom entry sweepable and point at it — rejected by default as a two-carrier shape; the walkthrough found no pressure.)
+- **Scope (delivered):** schema in `src/exchanges/schemas/` + detail projection; tool registration + elicitor grant; formatter (`src/agents/contexts/exchanges/`) + renderer (`src/.pi/extensions/exchanges/`) + `dev:components` preview entry + family-completeness row; ingest-skill guidance (`src/agents/skills/ingest/SKILL.md` digest step binds to the tool; `readiness-bands.md` bulk-acquisition path cites the exchange); sweep-filter retirement + migration of the three custom types; RPC answering-path repair (`session.submitExchangeResponse` reconstructs review-mode pending state; digest approval terminal-only).
+- **Lights up:** throughline 3 of the arc — the "kick off a spec from a foreign SPEC.md / liftout analysis" ingest story with deterministic accept/ignore semantics.
+- **Retired:** the unstructured digest custom-entry path (D82-L status quo) as a capture carrier; the sweep filter's digest special case.
+- **Traceability:** D110-L, D28-L, D82-L (superseded carrier), D104-L, D105-L, D106-L, D108-L, I20-L, I51-L, I57-L; `src/exchanges/TOPOLOGY.md`, `src/projections/session/sweep-watermark.ts`, `src/agents/skills/ingest/SKILL.md`, `src/agents/references/readiness-bands.md` §Arbitrary Source Capture.
+
 ## 2026-07-03 Sync archive (`ln-sync`, FE-1135 closeout)
 
 Archived from `memory/PLAN.md` during the 2026-07-03 `ln-sync` after `exchange-capture-contract`

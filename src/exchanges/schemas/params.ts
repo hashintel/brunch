@@ -1,7 +1,7 @@
 import * as z from 'zod';
 
 import { zReviewSetProposalPayloadForBoundary } from '../../graph/review-set.js';
-import { zPresentedCandidate } from './present.js';
+import { zDigestMaterial, zPresentedCandidate } from './present.js';
 
 const zPresentedOptionParam = z
   .object({
@@ -86,6 +86,21 @@ export const zPresentCandidatesParams = z
   })
   .strict();
 export type PresentCandidatesParams = z.infer<typeof zPresentCandidatesParams>;
+
+export const zPresentDigestParams = z
+  .object({
+    exchangeId: z
+      .string()
+      .min(1)
+      .describe('Stable id tying this digest presentation to the later request_response review.'),
+    heading: z.string().trim().min(1).describe('Digest heading.'),
+    body: z.string().describe('Markdown body for context before the digest.').optional(),
+    digest: zDigestMaterial.describe(
+      'Prose-only digest material: abstract plus optional analysis and recommendation. Do not include graph nodes, edges, draft ids, command payloads, or review-set material.',
+    ),
+  })
+  .strict();
+export type PresentDigestParams = z.infer<typeof zPresentDigestParams>;
 
 export const zRequestResponseParams = z
   .object({

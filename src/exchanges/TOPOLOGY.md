@@ -16,6 +16,7 @@ exchanges/
   editor-envelope.ts      request_choices editor wire-envelope prefill/parse helpers
   projections/
     present-candidates.ts canonical present_candidates details construction
+    present-digest.ts     canonical present_digest details construction
     present-question.ts   canonical present_question details construction
     present-review-set.ts canonical present_review_set details construction
     request-response.ts   canonical request_response result details construction
@@ -25,7 +26,10 @@ exchanges/
 preserved `request_answer` / `request_choice` / `request_choices` /
 `request_review` discriminants live in transcript details, not in the public file
 topology; per-discriminant constructors are private helpers under
-`projections/request-response/`.
+`projections/request-response/`. `request_review` projection callers must pass the
+present-tool discriminator (`present_review_set` or `present_digest`) because
+both presents close through the same terminal detail kind while capture reads
+them differently; digest approval also requires the accepted abstract echo.
 
 ## Dependency direction
 

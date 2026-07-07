@@ -9,6 +9,7 @@ import {
 import { CommandExecutor } from '../../../graph/command-executor.js';
 import {
   PRESENT_CANDIDATES_TOOL,
+  PRESENT_DIGEST_TOOL,
   PRESENT_QUESTION_TOOL,
   PRESENT_REVIEW_SET_TOOL,
   REQUEST_RESPONSE_TOOL,
@@ -122,6 +123,27 @@ function validReviewPayload() {
   };
 }
 
+function pendingDigest(exchangeId: string, heading = 'Review source digest') {
+  return [
+    {
+      type: 'message',
+      message: {
+        role: 'toolResult',
+        details: {
+          schema: 'brunch.structured_exchange.present',
+          v: 1,
+          exchange_id: exchangeId,
+          tool_meta: { curr: PRESENT_DIGEST_TOOL, next: REQUEST_RESPONSE_TOOL },
+          display: { heading },
+          digest: {
+            abstract: 'The source says summarize before graph mapping.',
+            analysis: 'The digest is advisory input, not graph truth.',
+          },
+        },
+      },
+    },
+  ];
+}
 function pendingReviewSet(exchangeId: string, heading = 'Review proposal') {
   return [
     {
@@ -166,15 +188,18 @@ describe('structured exchange present/request tools', () => {
       PRESENT_QUESTION_TOOL,
       PRESENT_REVIEW_SET_TOOL,
       PRESENT_CANDIDATES_TOOL,
+      PRESENT_DIGEST_TOOL,
       REQUEST_RESPONSE_TOOL,
     ]);
     expect(tools.get(PRESENT_QUESTION_TOOL)?.executionMode).toBe('sequential');
     expect(tools.get(PRESENT_REVIEW_SET_TOOL)?.executionMode).toBe('sequential');
     expect(tools.get(PRESENT_CANDIDATES_TOOL)?.executionMode).toBe('sequential');
+    expect(tools.get(PRESENT_DIGEST_TOOL)?.executionMode).toBe('sequential');
     expect(tools.get(REQUEST_RESPONSE_TOOL)?.executionMode).toBe('sequential');
     expect(tools.get(PRESENT_QUESTION_TOOL)?.renderShell).toBe('self');
     expect(tools.get(PRESENT_REVIEW_SET_TOOL)?.renderShell).toBe('self');
     expect(tools.get(PRESENT_CANDIDATES_TOOL)?.renderShell).toBe('self');
+    expect(tools.get(PRESENT_DIGEST_TOOL)?.renderShell).toBe('self');
     expect(tools.get(REQUEST_RESPONSE_TOOL)?.renderShell).toBe('self');
   });
 
@@ -650,6 +675,40 @@ describe('structured exchange present/request tools', () => {
     expect(result.details).not.toHaveProperty('review_set');
   });
 
+  it('presents digest as durable markdown and recoverable prose-only details', async () => {
+    const present = registeredTools().get(PRESENT_DIGEST_TOOL);
+    if (!present) throw new Error('present_digest was not registered');
+
+    const result = await present.execute(
+      'present-digest-call-1',
+      {
+        exchangeId: 'digest-large-source',
+        heading: 'Review source digest',
+        body: 'Approve this before graph mapping.',
+        digest: {
+          abstract: 'The source says summarize before graph mapping.',
+          analysis: 'The digest is advisory input, not graph truth.',
+          recommendation: 'Approve after checking source fidelity.',
+        },
+      },
+      undefined,
+      undefined,
+      {} as never,
+    );
+
+    expect(result.content[0]?.text).toContain('# Review source digest');
+    expect(result.content[0]?.text).toContain('## Abstract');
+    expect(result.content[0]?.text).toContain('The source says summarize before graph mapping.');
+    expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
+    expect(result.details).toMatchObject({
+      exchange_id: 'digest-large-source',
+      tool_meta: { curr: PRESENT_DIGEST_TOOL, next: REQUEST_RESPONSE_TOOL },
+      digest: { abstract: 'The source says summarize before graph mapping.' },
+    });
+    expect(result.details).not.toHaveProperty('review_set');
+    expect(result.details).not.toHaveProperty('candidates');
+  });
+
   it('responds to pending present_candidates as a candidate pick, not a graph write', async () => {
     const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
     if (!request_response) throw new Error('request_response was not registered');
@@ -896,6 +955,74 @@ describe('structured exchange present/request tools', () => {
         answered: { decision: review, comment },
       });
     }
+  });
+
+  it('drives request_response digest review decisions and echoes accepted abstract', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+
+    for (const [selected, review, comment] of [
+      ['Approve', 'approve', 'Looks right.'],
+      ['Request changes', 'request_changes', 'Tighten the source limitation.'],
+      ['Reject', 'reject', 'Wrong direction.'],
+    ] as const) {
+      const result = await request_response.execute(
+        `request-response-digest-${review}`,
+        { exchangeId: 'digest-large-source' },
+        undefined,
+        undefined,
+        {
+          hasUI: true,
+          ui: { select: async () => selected, input: async () => comment },
+          sessionManager: { getBranch: () => pendingDigest('digest-large-source') },
+        } as never,
+      );
+
+      expect(result.content[0]?.text).toContain('## Review:');
+      expect(result.details).toMatchObject({
+        exchange_id: 'digest-large-source',
+        tool_meta: { prev: PRESENT_DIGEST_TOOL, curr: 'request_review' },
+        answered: { decision: review, comment },
+      });
+      if (review === 'approve') {
+        expect(result.details).toMatchObject({
+          answered: { accepted_abstract: 'The source says summarize before graph mapping.' },
+        });
+      }
+    }
+  });
+
+  it('records request_response digest cancellation and unavailable UI as terminal outcomes without next', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+
+    const cancelled = await request_response.execute(
+      'request-response-digest-cancelled',
+      { exchangeId: 'digest-large-source' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { select: async () => undefined },
+        sessionManager: { getBranch: () => pendingDigest('digest-large-source') },
+      } as never,
+    );
+    const unavailable = await request_response.execute(
+      'request-response-digest-unavailable',
+      { exchangeId: 'digest-large-source' },
+      undefined,
+      undefined,
+      {
+        hasUI: false,
+        ui: {},
+        sessionManager: { getBranch: () => pendingDigest('digest-large-source') },
+      } as never,
+    );
+
+    expect(cancelled.details.tool_meta).toEqual({ prev: PRESENT_DIGEST_TOOL, curr: 'request_review' });
+    expect(unavailable.details.tool_meta).toEqual({ prev: PRESENT_DIGEST_TOOL, curr: 'request_review' });
+    expect(isStructuredExchangeRequestDetails(cancelled.details)).toBe(true);
+    expect(isStructuredExchangeRequestDetails(unavailable.details)).toBe(true);
   });
 
   it('requires request_response review change requests to carry a non-empty comment', async () => {

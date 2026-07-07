@@ -6,6 +6,7 @@ import {
   zMarkdown,
   zPresentCandidatesToolMeta,
   zPresentDetailsHeader,
+  zPresentDigestToolMeta,
   zPresentQuestionToolMeta,
   zPresentReviewSetToolMeta,
 } from './shared.js';
@@ -226,10 +227,33 @@ export const PresentCandidatesDetailsSchema = z.toJSONSchema(zPresentCandidatesD
   unrepresentable: 'throw',
 });
 
+export const zDigestMaterial = z
+  .object({
+    abstract: zMarkdown,
+    analysis: zMarkdown.optional(),
+    recommendation: zMarkdown.optional(),
+  })
+  .strict();
+export type DigestMaterial = z.infer<typeof zDigestMaterial>;
+export const DigestMaterialSchema = z.toJSONSchema(zDigestMaterial, { unrepresentable: 'throw' });
+
+export const zPresentDigestDetails = zPresentDetailsHeader
+  .extend({
+    tool_meta: zPresentDigestToolMeta,
+    display: zDisplayBase,
+    digest: zDigestMaterial,
+  })
+  .strict();
+export type PresentDigestDetails = z.infer<typeof zPresentDigestDetails>;
+export const PresentDigestDetailsSchema = z.toJSONSchema(zPresentDigestDetails, {
+  unrepresentable: 'throw',
+});
+
 export const zPresentDetails = z.union([
   zPresentQuestionDetails,
   zPresentReviewSetDetails,
   zPresentCandidatesDetails,
+  zPresentDigestDetails,
 ]);
 export type PresentDetails = z.infer<typeof zPresentDetails>;
 export const PresentDetailsSchema = z.toJSONSchema(zPresentDetails, {

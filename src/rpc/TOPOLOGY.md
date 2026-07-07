@@ -208,13 +208,13 @@ session.submitExchangeResponse
     exchangeId
     answer: {text} | {optionId} | {optionIds} | {review:{decision, comment?}}
     note?
-  result: accepted terminal response plus review outcome
+  result: accepted terminal response plus review-set outcome when the pending review carries graph drafts
     review:
       approved(lsn, createdNodes)
       | request_changes
       | rejected
       | structural_illegal(diagnostics)
-  effects: appends request_* toolResult response, publishes selected-session invalidations, and on review-set approval publishes graph.overview / graph.nodeNeighborhood invalidations for the transcript-bound spec
+  effects: appends request_* toolResult response, publishes selected-session invalidations, and on review-set approval publishes graph.overview / graph.nodeNeighborhood invalidations for the transcript-bound spec. Digest review approval is terminal-only: it closes the exchange by appending `request_review` with the accepted abstract echo and does not synthesize a graph review outcome.
 
 session.submitMessage
   access: write

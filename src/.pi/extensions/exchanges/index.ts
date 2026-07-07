@@ -2,6 +2,7 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 import type { LiveExchangeAwaiter } from '../../../session/live-exchange-broker.js';
 import { PRESENT_CANDIDATES_TOOL, presentCandidatesTool } from './present-candidates.js';
+import { PRESENT_DIGEST_TOOL, presentDigestTool } from './present-digest.js';
 import { PRESENT_QUESTION_TOOL, presentQuestionTool } from './present-question.js';
 import {
   PRESENT_REVIEW_SET_TOOL,
@@ -23,11 +24,18 @@ export {
   type RequestDetails as StructuredExchangeRequestDetails,
   type RequestDetails as StructuredExchangeToolResultDetails,
 } from '../../../exchanges/schemas/index.js';
-export { PRESENT_CANDIDATES_TOOL, PRESENT_QUESTION_TOOL, PRESENT_REVIEW_SET_TOOL, REQUEST_RESPONSE_TOOL };
+export {
+  PRESENT_CANDIDATES_TOOL,
+  PRESENT_DIGEST_TOOL,
+  PRESENT_QUESTION_TOOL,
+  PRESENT_REVIEW_SET_TOOL,
+  REQUEST_RESPONSE_TOOL,
+};
 
 export const STRUCTURED_EXCHANGE_IMPLEMENTED_TOOLS = [
   presentQuestionTool,
   presentCandidatesTool,
+  presentDigestTool,
   requestResponseTool,
 ] as const;
 
@@ -43,6 +51,7 @@ export function registerStructuredExchange(pi: ExtensionAPI, deps: StructuredExc
     presentQuestionTool,
     createPresentReviewSetTool(deps.review),
     presentCandidatesTool,
+    presentDigestTool,
     deps.liveExchange ? createRequestResponseTool(deps.liveExchange) : requestResponseTool,
   ]) {
     pi.registerTool({ ...tool, renderShell: 'self' as const });

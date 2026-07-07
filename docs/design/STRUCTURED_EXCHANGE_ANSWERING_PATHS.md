@@ -138,6 +138,14 @@ notes:
   - Column B is genuinely uniform across all four kinds: `session.submitExchangeResponse`
     (src/rpc/methods/session.ts) never routes through ctx.ui for any kind, so it is UNAFFECTED
     by whatever mechanism column A uses for a given kind.
+  - The `review` kind serves two pending-present sources: `present_review_set` and
+    `present_digest` (FE-1136, D110-L). Column B reconstructs both as review-mode pending
+    exchanges via a required `respondsToPresentTool` discriminator; review-set approval may
+    commit graph drafts, while digest approval is terminal-only (mints `request_review` with
+    the accepted abstract echo, no graph review outcome). A new `present_*` kind that answers
+    through an existing response kind must be taught to the column-B pending/accepted
+    reconstruction (src/session/structured-exchange-loop/) or it is silently unanswerable
+    outside the local TUI — the exact gap FE-1136's repair slice closed.
   - Column C's gap (choice/choices/review) is a pre-existing, independently tracked gap —
     docs/archive/PLAN_HISTORY.md's FE-873 entry ("Remaining web-driver legs stay in the
     web-driver-streaming Horizon frontier") and PLAN.md's `web-driver-streaming` Horizon bullet

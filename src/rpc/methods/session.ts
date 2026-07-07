@@ -698,11 +698,19 @@ function reviewResultForAcceptedResponse(options: {
   | undefined {
   const review = (options.acceptedAnswer as { review?: unknown }).review;
   if (typeof review !== 'object' || review === null) return undefined;
-  if (options.pending.mode !== 'review' || options.pending.reviewSet === undefined) {
+  if (options.pending.mode !== 'review') {
     return {
       status: 'structural_illegal',
       diagnostics: [{ field: 'review', message: 'no pending review set' }],
     };
+  }
+  if (options.pending.reviewSet === undefined) {
+    return options.pending.respondsToPresentTool === 'present_digest'
+      ? undefined
+      : {
+          status: 'structural_illegal',
+          diagnostics: [{ field: 'review', message: 'no pending review set' }],
+        };
   }
 
   const decision = (review as { decision?: unknown }).decision;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { projectPresentDigest } from '../../exchanges/projections/present-digest.js';
 import { nextDeterministicStructuredExchange } from '../../probes/deterministic-exchange-script.js';
 import type { BrunchSessionEnvelope } from '../brunch-session-envelope.js';
 import { createSessionBindingData } from '../session-binding.js';
@@ -209,6 +210,45 @@ describe('structured exchange loop helpers', () => {
     });
   });
 
+  it('reconstructs a review-mode pending exchange from present_digest details', () => {
+    const envelope: BrunchSessionEnvelope = {
+      header: header as unknown as BrunchSessionEnvelope['header'],
+      binding,
+      entries: [
+        header,
+        bindingEntry,
+        {
+          id: 'present-digest-1',
+          type: 'message',
+          parentId: 'binding-1',
+          timestamp: 0,
+          message: {
+            role: 'toolResult',
+            toolCallId: 'present-digest-call-1',
+            toolName: 'present_digest',
+            content: [{ type: 'text', text: '# Review source digest\n\nApprove before mapping.' }],
+            details: projectPresentDigest({
+              exchangeId: 'digest-cycle',
+              heading: 'Review source digest',
+              body: 'Approve before mapping.',
+              digest: { abstract: 'The source asks for advisory capture before settlement.' },
+            }).details,
+            isError: false,
+          },
+        },
+      ] as unknown as BrunchSessionEnvelope['entries'],
+    };
+
+    expect(pendingExchangeFromEnvelope(envelope)).toMatchObject({
+      exchangeId: 'digest-cycle',
+      mode: 'review',
+      prompt: 'Review source digest',
+      respondsToPresentTool: 'present_digest',
+      digestAbstract: 'The source asks for advisory capture before settlement.',
+      options: [],
+    });
+  });
+
   it('materializes review decisions as request_review tool results and requires change comments', () => {
     const pending = {
       exchangeId: 'review-cycle',
@@ -251,6 +291,45 @@ describe('structured exchange loop helpers', () => {
         details: {
           tool_meta: { prev: 'present_review_set', curr: 'request_review' },
           answered: { decision: 'reject', comment: 'Not this batch.' },
+        },
+      },
+    });
+  });
+
+  it('materializes digest approval with an accepted abstract echo', () => {
+    const pending = {
+      exchangeId: 'digest-cycle',
+      lens: 'intent',
+      mode: 'review',
+      prompt: 'Review source digest',
+      options: [],
+      note: { allowed: true },
+      respondsToPresentTool: 'present_digest',
+      digestAbstract: 'The accepted abstract is self-contained terminal evidence.',
+    } satisfies PendingStructuredExchange;
+
+    expect(
+      acceptedResponseFromParams(pending, {
+        exchangeId: 'digest-cycle',
+        answer: { review: { decision: 'request_changes' } },
+      }),
+    ).toEqual({ ok: false, message: 'Review request_changes requires a comment' });
+
+    const accepted = acceptedResponseFromParams(pending, {
+      exchangeId: 'digest-cycle',
+      answer: { review: { decision: 'approve' } },
+    });
+
+    expect(accepted).toMatchObject({
+      ok: true,
+      toolResultMessage: {
+        toolName: 'request_response',
+        details: {
+          tool_meta: { prev: 'present_digest', curr: 'request_review' },
+          answered: {
+            decision: 'approve',
+            accepted_abstract: 'The accepted abstract is self-contained terminal evidence.',
+          },
         },
       },
     });

@@ -4,6 +4,7 @@ import * as z from 'zod';
 import {
   zPresentCandidatesDetails,
   zPresentDetails,
+  zPresentDigestDetails,
   zPresentQuestionDetails,
   zPresentReviewSetDetails,
 } from '../index.js';
@@ -113,6 +114,20 @@ describe('structured exchange present schemas', () => {
     expect(zPresentCandidatesDetails.parse(candidateDetails)).toMatchObject({
       candidates: [{ graph_refs: [{ node_id: 'node-1' }] }],
     });
+    expect(
+      zPresentDigestDetails.parse({
+        schema: 'brunch.structured_exchange.present',
+        v: 1,
+        exchange_id: 'digest-large-source',
+        tool_meta: { curr: 'present_digest', next: 'request_response' },
+        display: { heading: 'Review source digest' },
+        digest: {
+          abstract: 'The source says summarize before graph mapping.',
+          analysis: 'The digest is source-derived review input, not graph truth.',
+          recommendation: 'Approve if the source constraints are preserved.',
+        },
+      }),
+    ).toMatchObject({ tool_meta: { curr: 'present_digest' } });
     expect(zPresentDetails.parse(candidateDetails)).toMatchObject({
       tool_meta: { curr: 'present_candidates' },
     });
@@ -230,6 +245,7 @@ describe('structured exchange present schemas', () => {
     expectJsonSchemaExport(zPresentQuestionDetails);
     expectJsonSchemaExport(zPresentReviewSetDetails);
     expectJsonSchemaExport(zPresentCandidatesDetails);
+    expectJsonSchemaExport(zPresentDigestDetails);
     expectJsonSchemaExport(zPresentDetails);
   });
 });

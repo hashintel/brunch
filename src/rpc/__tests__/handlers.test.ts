@@ -8,6 +8,7 @@ import type { TSchema } from 'typebox';
 import { Value } from 'typebox/value';
 import { describe, expect, it } from 'vitest';
 
+import { projectPresentDigest } from '../../exchanges/projections/present-digest.js';
 import { projectPresentReviewSet } from '../../exchanges/projections/present-review-set.js';
 import { runCreateOnlyMutation } from '../../graph/__tests__/support/create-only-mutation.js';
 import { openWorkspaceGraphRuntime } from '../../graph/workspace-store.js';
@@ -1347,6 +1348,62 @@ describe('JSON-RPC handlers', () => {
     });
     await expect(readFile(workspace.session.file, 'utf8')).resolves.toContain('request_review');
     await expect(readFile(workspace.session.file, 'utf8')).resolves.toContain('requirement-draft → REQ1');
+  });
+
+  it('approves a pending digest through the public submit path and closes the projection', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-digest-approve-'));
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
+    const workspace = await coordinatorInstance.createSetupSession({ specTitle: 'Digest approval spec' });
+    const projection = projectPresentDigest({
+      exchangeId: 'digest-cycle',
+      heading: 'Review source digest',
+      body: 'Approve before mapping.',
+      digest: { abstract: 'The source asks for advisory capture before settlement.' },
+    });
+    workspace.session.manager.appendMessage({
+      role: 'toolResult',
+      toolCallId: 'present-digest-call-1',
+      toolName: 'present_digest',
+      content: [{ type: 'text', text: '## Review source digest\n\nApprove before mapping.' }],
+      details: projection.details,
+      isError: false,
+      timestamp: 0,
+    });
+    flushSessionManagerToFile(workspace.session.manager);
+    const handlers = createRpcHandlers({ coordinator: coordinatorInstance, cwd });
+
+    const response = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 279,
+      method: 'session.submitExchangeResponse',
+      params: {
+        exchangeId: 'digest-cycle',
+        answer: { review: { decision: 'approve' } },
+      },
+    });
+
+    expect(response).toMatchObject({
+      jsonrpc: '2.0',
+      id: 279,
+      result: {
+        status: 'accepted',
+        exchangeId: 'digest-cycle',
+        answer: { review: { decision: 'approve' } },
+      },
+    });
+
+    await expect(
+      handlers.handle({ jsonrpc: '2.0', id: 280, method: 'session.pendingExchange' }),
+    ).resolves.toMatchObject({ result: { status: 'idle', exchange: null } });
+    await expect(
+      handlers.handle({ jsonrpc: '2.0', id: 281, method: 'session.exchanges' }),
+    ).resolves.toMatchObject({ result: { status: 'ready', openPrompt: null } });
+
+    const sessionText = await readFile(workspace.session.file, 'utf8');
+    expect(sessionText).toContain('request_review');
+    expect(sessionText).toContain('present_digest');
+    expect(sessionText).toContain('accepted_abstract');
+    expect(sessionText).toContain('The source asks for advisory capture before settlement.');
   });
 
   it('rejects a review approval whose persisted review set is not a valid ReviewSetDetailsPayload', async () => {

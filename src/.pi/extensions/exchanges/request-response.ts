@@ -6,6 +6,7 @@ import {
   zRequestResponseParams,
   type PresentCandidatesDetails,
   type PresentDetails,
+  type PresentDigestDetails,
   type PresentQuestionDetails,
   type RequestResponseParams,
 } from '../../../exchanges/schemas/index.js';
@@ -156,6 +157,7 @@ export function createRequestResponseTool(answerBroker?: LiveExchangeAwaiter) {
           return collectReviewFromUi(uiCtx, {
             exchangeId: params.exchangeId,
             prompt: present.display.heading,
+            respondsToPresentTool: 'present_review_set',
           });
         case 'present_candidates': {
           const candidatesPresent = present as PresentCandidatesDetails;
@@ -172,6 +174,15 @@ export function createRequestResponseTool(answerBroker?: LiveExchangeAwaiter) {
               content: candidate.title,
             })),
             respondsToPresentTool: 'present_candidates',
+          });
+        }
+        case 'present_digest': {
+          const digestPresent = present as PresentDigestDetails;
+          return collectReviewFromUi(uiCtx, {
+            exchangeId: params.exchangeId,
+            prompt: digestPresent.display.heading,
+            respondsToPresentTool: 'present_digest',
+            acceptedAbstract: digestPresent.digest.abstract,
           });
         }
         default:

@@ -3,6 +3,7 @@ import * as z from 'zod';
 
 import {
   zPresentCandidatesParams,
+  zPresentDigestParams,
   zPresentQuestionParams,
   zPresentReviewSetParams,
   zRequestResponseParams,
@@ -66,6 +67,33 @@ describe('structured exchange present params', () => {
         ],
       }),
     ).toThrow();
+  });
+
+  it('accepts prose digest params and rejects graph-proposal-shaped fields', () => {
+    expect(
+      zPresentDigestParams.parse({
+        exchangeId: 'digest-large-source',
+        heading: '  Review source digest  ',
+        digest: {
+          abstract: 'Summarize large source material before mapping.',
+          analysis: 'This is source-derived review input, not graph truth.',
+          recommendation: 'Approve after checking fidelity.',
+        },
+      }),
+    ).toMatchObject({ heading: 'Review source digest' });
+
+    for (const field of ['nodes', 'edges', 'entityDrafts', 'edgeDrafts', 'command_payload'] as const) {
+      expect(() =>
+        zPresentDigestParams.parse({
+          exchangeId: 'digest-large-source',
+          heading: 'Review source digest',
+          digest: {
+            abstract: 'Summarize large source material before mapping.',
+            [field]: [],
+          },
+        }),
+      ).toThrow();
+    }
   });
 
   it('exports the nested present_review_set payload companion shape', () => {

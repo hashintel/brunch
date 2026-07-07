@@ -235,6 +235,45 @@ describe('structured exchange request schemas', () => {
     ).toThrow();
   });
 
+  it('parses digest review terminals with accepted abstract echo and no next on non-answered outcomes', () => {
+    expect(
+      zRequestReviewDetails.parse({
+        schema: 'brunch.structured_exchange.request',
+        v: 1,
+        exchange_id: 'digest-large-source',
+        tool_meta: {
+          prev: 'present_digest',
+          curr: 'request_review',
+          next: 'capture_review',
+        },
+        answered: {
+          decision: 'approve',
+          accepted_abstract: 'The accepted abstract is the sweep-visible digest carrier.',
+        },
+      }),
+    ).toMatchObject({ answered: { accepted_abstract: expect.stringContaining('sweep-visible') } });
+
+    expect(() =>
+      zRequestReviewDetails.parse({
+        schema: 'brunch.structured_exchange.request',
+        v: 1,
+        exchange_id: 'digest-large-source',
+        tool_meta: { prev: 'present_digest', curr: 'request_review', next: 'capture_review' },
+        cancelled: { message: 'User cancelled.' },
+      }),
+    ).toThrow();
+
+    expect(
+      zRequestReviewDetails.parse({
+        schema: 'brunch.structured_exchange.request',
+        v: 1,
+        exchange_id: 'digest-large-source',
+        tool_meta: { prev: 'present_digest', curr: 'request_review' },
+        unavailable: { message: 'request_response review requires interactive UI.' },
+      }),
+    ).toMatchObject({ unavailable: { message: expect.stringContaining('interactive UI') } });
+  });
+
   it('requires a comment for request_changes review decisions', () => {
     expect(
       zRequestReviewDetails.parse({

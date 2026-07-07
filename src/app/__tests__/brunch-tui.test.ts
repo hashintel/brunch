@@ -698,6 +698,7 @@ describe('Brunch TUI boot', () => {
       'present_question',
       'present_review_set',
       'present_candidates',
+      'present_digest',
       'request_response',
       'read_elicitation_scratchpad',
       'update_elicitation_scratchpad',

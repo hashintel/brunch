@@ -120,35 +120,24 @@ export function acceptedResponseFromParams(
         message: 'Elicitation response requires a comment for Other or None selections',
       };
     }
+    const respondsToPresentTool =
+      pending.respondsToPresentTool === 'present_candidates' ? 'present_candidates' : 'present_question';
+    const details = projectRequestChoice({
+      exchangeId: pending.exchangeId,
+      respondsToPresentTool,
+      status: 'answered',
+      choice: { id: choice.id, label: choice.label, kind: choiceKind(choice.id) },
+      options: optionEcho(pending.options),
+      comment,
+    });
     return {
       ok: true,
       answer: { optionId: choice.id, label: choice.label },
       toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'request_response'),
       toolResultMessage: {
         ...toolResultMessageBase(pending, 'request_response'),
-        content: [
-          {
-            type: 'text',
-            text: formatRequestChoice(
-              projectRequestChoice({
-                exchangeId: pending.exchangeId,
-                respondsToPresentTool: pending.respondsToPresentTool ?? 'present_question',
-                status: 'answered',
-                choice: { id: choice.id, label: choice.label, kind: choiceKind(choice.id) },
-                options: optionEcho(pending.options),
-                comment,
-              }),
-            ),
-          },
-        ],
-        details: projectRequestChoice({
-          exchangeId: pending.exchangeId,
-          respondsToPresentTool: pending.respondsToPresentTool ?? 'present_question',
-          status: 'answered',
-          choice: { id: choice.id, label: choice.label, kind: choiceKind(choice.id) },
-          options: optionEcho(pending.options),
-          comment,
-        }),
+        content: [{ type: 'text', text: formatRequestChoice(details) }],
+        details,
       },
     };
   }
@@ -163,6 +152,8 @@ export function acceptedResponseFromParams(
     ) {
       return { ok: false, message: 'Review request_changes requires a comment' };
     }
+    const details = projectAcceptedReviewDetails(pending, review.decision, comment);
+    if (!details.ok) return details;
     return {
       ok: true,
       answer: {
@@ -174,25 +165,8 @@ export function acceptedResponseFromParams(
       toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'request_response'),
       toolResultMessage: {
         ...toolResultMessageBase(pending, 'request_response'),
-        content: [
-          {
-            type: 'text',
-            text: formatRequestReview(
-              projectRequestReview({
-                exchangeId: pending.exchangeId,
-                status: 'answered',
-                review: review.decision,
-                comment,
-              }),
-            ),
-          },
-        ],
-        details: projectRequestReview({
-          exchangeId: pending.exchangeId,
-          status: 'answered',
-          review: review.decision,
-          comment,
-        }),
+        content: [{ type: 'text', text: formatRequestReview(details.details) }],
+        details: details.details,
       },
     };
   }
@@ -259,6 +233,52 @@ export function acceptedResponseFromParams(
         comment,
       }),
     },
+  };
+}
+
+function projectAcceptedReviewDetails(
+  pending: PendingStructuredExchange,
+  review: 'approve' | 'request_changes' | 'reject',
+  comment: string | undefined,
+) {
+  const respondsToPresentTool = pending.respondsToPresentTool ?? 'present_review_set';
+  if (respondsToPresentTool === 'present_digest') {
+    if (review === 'approve') {
+      if (pending.digestAbstract === undefined) {
+        return { ok: false as const, message: 'Pending digest review is missing its abstract echo' };
+      }
+      return {
+        ok: true as const,
+        details: projectRequestReview({
+          exchangeId: pending.exchangeId,
+          status: 'answered',
+          review,
+          respondsToPresentTool,
+          acceptedAbstract: pending.digestAbstract,
+          ...(comment !== undefined ? { comment } : {}),
+        }),
+      };
+    }
+    return {
+      ok: true as const,
+      details: projectRequestReview({
+        exchangeId: pending.exchangeId,
+        status: 'answered',
+        review,
+        respondsToPresentTool,
+        ...(comment !== undefined ? { comment } : {}),
+      }),
+    };
+  }
+  return {
+    ok: true as const,
+    details: projectRequestReview({
+      exchangeId: pending.exchangeId,
+      status: 'answered',
+      review,
+      respondsToPresentTool: 'present_review_set',
+      ...(comment !== undefined ? { comment } : {}),
+    }),
   };
 }
 
