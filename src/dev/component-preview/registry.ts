@@ -75,6 +75,15 @@ function sampleWorkspaceInventory(): WorkspaceLaunchInventory {
  * `.pi/components/scroll-viewport.ts`'s windowing + `▐` thumb. No `currentSpec` -> no "continue" home option, so "Continue another existing specification" is
  * index 0 and a single Enter reaches the scrollable list.
  */
+const RICH_ASK_BODY = [
+  '# Clarify the next slice',
+  '',
+  '> Use the evidence already in the transcript; do not widen the frontier.',
+  '',
+  '- Keep the answer tied to FE-1164',
+  '- Prefer the smallest reversible move',
+].join('\n');
+
 function manySpecsWorkspaceInventory(specCount: number): WorkspaceLaunchInventory {
   return {
     cwd: '/project',
@@ -165,6 +174,32 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
       ),
   },
   {
+    id: 'exchange-decision-picker-rich-body',
+    label: 'Exchange decision picker (rich body)',
+    presentedLike:
+      'inline swap — forthcoming ask single-select surface; mirrors shared rounded-box body + choices layout',
+    open: (tui, theme, keybindings) =>
+      showComponentPreview(
+        tui,
+        theme,
+        keybindings,
+        (_tui, previewTheme, _kb, done) =>
+          new ExchangeDecisionPickerComponent({
+            prompt: 'Which direction should we take?',
+            body: RICH_ASK_BODY,
+            choices: [
+              { id: 'local-workbench', label: 'Local workbench' },
+              { id: 'agent-relay', label: 'Agent relay' },
+              { id: 'defer', label: 'Defer until capture is settled' },
+            ],
+            topLabel: '[ Ask ]',
+            bottomLabel: '"FE-1164"',
+            theme: previewTheme,
+            onDone: done,
+          }),
+      ),
+  },
+  {
     id: 'exchange-answer-editor',
     label: 'Exchange answer editor',
     presentedLike: 'inline swap — src/.pi/extensions/exchanges/shared/answer-source.ts',
@@ -195,6 +230,32 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
               { id: 'risk', label: 'Flag the risk' },
               { id: 'defer', label: 'Defer to later' },
             ],
+            theme: previewTheme,
+            onDone: done,
+          }),
+      ),
+  },
+  {
+    id: 'multi-choice-picker-rich-body',
+    label: 'Multi-choice picker (rich body)',
+    presentedLike:
+      'inline swap — forthcoming ask multi-select surface; mirrors shared rounded-box body + checkbox layout',
+    open: (tui, theme, keybindings) =>
+      showComponentPreview(
+        tui,
+        theme,
+        keybindings,
+        (_tui, previewTheme, _kb, done) =>
+          new MultiChoicePickerComponent({
+            prompt: 'Which follow-ups matter?',
+            body: RICH_ASK_BODY,
+            choices: [
+              { id: 'scope', label: 'Narrow the scope' },
+              { id: 'risk', label: 'Flag the risk' },
+              { id: 'defer', label: 'Defer to later' },
+            ],
+            topLabel: '[ Ask ]',
+            bottomLabel: '"FE-1164"',
             theme: previewTheme,
             onDone: done,
           }),

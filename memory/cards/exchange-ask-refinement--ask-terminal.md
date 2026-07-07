@@ -21,7 +21,7 @@ Created:  2026-07-07
 
 ---
 
-## Card 1 — rich-body picker surface [next]
+## Card 1 — rich-body picker surface [done]
 
 Light scope card.
 
@@ -87,7 +87,7 @@ src/dev/component-preview/
 
 ---
 
-## Card 2 — standalone ask cutover [pending]
+## Card 2 — standalone ask cutover [next]
 
 Full scope card.
 

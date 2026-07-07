@@ -10,6 +10,19 @@ const theme: LabTheme = {
   getFgAnsi: () => '',
 };
 
+function createRecordingTheme() {
+  const colors: string[] = [];
+  const recordingTheme = {
+    fg: (color: string, text: string) => {
+      colors.push(color);
+      return `\u001b[31m${text}\u001b[0m`;
+    },
+    bold: (text: string) => text,
+    getFgAnsi: () => '',
+  } as unknown as LabTheme;
+  return { colors, theme: recordingTheme };
+}
+
 describe('ExchangeDecisionPickerComponent', () => {
   it('renders bordered prompt, numbered choices, active marker, help text, and scroll thumb', () => {
     const picker = new ExchangeDecisionPickerComponent({
@@ -32,6 +45,35 @@ describe('ExchangeDecisionPickerComponent', () => {
     expect(text).toContain('  2. Option 1');
     expect(text).toContain('↑/↓ or j/k move · enter commits · esc/q cancels');
     expect(text).toContain('▐');
+  });
+
+  it('renders an optional themed markdown body inside the box above the scrollable choices', () => {
+    const recording = createRecordingTheme();
+    const picker = new ExchangeDecisionPickerComponent({
+      prompt: 'Pick the next move',
+      body: '# Why this matters\n\n> Read the local evidence.\n\n- Keep scope tight',
+      choices: Array.from({ length: 12 }, (_, index) => ({
+        id: `option-${index}`,
+        label: `Option ${index}`,
+      })),
+      topLabel: '[ Specify ]',
+      bottomLabel: '"Alpha"',
+      theme: recording.theme,
+      onDone: () => {},
+    });
+
+    const rendered = picker.render(80);
+    const text = rendered.join('\n');
+
+    expect(rendered[0]).toContain('[ Specify ]');
+    expect(rendered.at(-2)).toContain('"Alpha"');
+    expect(recording.colors).toContain('mdHeading');
+    expect(recording.colors).toContain('mdQuote');
+    expect(recording.colors).toContain('mdListBullet');
+    expect(text.indexOf('Keep scope tight')).toBeLessThan(text.indexOf('Option 0'));
+    expect(text.indexOf('Option 7')).toBeGreaterThan(-1);
+    expect(text).not.toContain('Option 8');
+    expect(text.trimEnd()).toContain('↑/↓ or j/k move · enter commits · esc/q cancels');
   });
 
   it('commits and cancels stable choice ids', () => {
@@ -75,6 +117,32 @@ describe('ExchangeDecisionPickerComponent', () => {
 });
 
 describe('MultiChoicePickerComponent bordered treatment', () => {
+  it('renders the shared optional markdown body and border labels inside the same rounded-border shell', () => {
+    const recording = createRecordingTheme();
+    const picker = new MultiChoicePickerComponent({
+      prompt: 'Pick priorities',
+      body: '## Review\n\n> Choose every true statement.\n\n- Multiple answers allowed',
+      choices: [
+        { id: 'speed', label: 'Move quickly' },
+        { id: 'safety', label: 'Keep the transcript safe' },
+      ],
+      topLabel: '[ Ask ]',
+      bottomLabel: '"Beta"',
+      theme: recording.theme,
+      onDone: () => {},
+    });
+
+    const rendered = picker.render(52);
+    const text = rendered.join('\n');
+
+    expect(rendered[0]).toContain('[ Ask ]');
+    expect(rendered.at(-2)).toContain('"Beta"');
+    expect(recording.colors).toContain('mdHeading');
+    expect(recording.colors).toContain('mdQuote');
+    expect(recording.colors).toContain('mdListBullet');
+    expect(text.indexOf('Multiple answers allowed')).toBeLessThan(text.indexOf('Move quickly'));
+  });
+
   it('renders inside the same rounded-border shell while preserving toggle and commit behavior', () => {
     const results: unknown[] = [];
     const picker = new MultiChoicePickerComponent({
