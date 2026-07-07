@@ -51,8 +51,12 @@ components are render-only with injectable `theme`/props.
   differ in production, and a preview tool that assumed "always overlay" would misrepresent how a
   component actually ships.
 - Theme is a real `pi-coding-agent` `Theme` instance (`src/dev/component-preview/theme.ts`), not a
-  duck-typed stand-in — seeded with Brunch's own established 256-color palette, since the package's
-  `exports` map does not expose pi's shipped theme-loading internals outside a running session.
+  duck-typed stand-in — a `SwitchableComponentPreviewTheme` subclass loading the shipped truecolor
+  Brunch theme JSONs (`src/.pi/themes/brunch-{dark,light}.json`), since the package's `exports` map
+  does not expose pi's shipped theme-loading internals outside a running session. **ctrl+t** toggles
+  dark/light live — including while an entry is open — via a consuming TUI input listener plus
+  `tui.invalidate()`; every color read delegates to the active variant, so no component needs a
+  retheme contract. `BRUNCH_PREVIEW_THEME=light` selects the initial variant.
 - `keybindings` is a real `pi-tui` `KeybindingsManager` (`createComponentPreviewKeybindings()`), not a
   stub — `BrunchEditorComponent`'s inherited `CustomEditor.handleInput` calls `.matches(...)` for
   app-level actions (escape-to-cancel, ctrl+d-to-exit), which a stub can't satisfy. Built from

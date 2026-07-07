@@ -2,6 +2,7 @@ import type { KeybindingsManager, Theme } from '@earendil-works/pi-coding-agent'
 import { type Component, truncateToWidth, type TUI } from '@earendil-works/pi-tui';
 
 import type { ComponentPreviewEntry } from './registry.js';
+import { SwitchableComponentPreviewTheme } from './theme.js';
 
 /**
  * Menu Component listing every registered preview entry. Selecting one hands
@@ -33,9 +34,14 @@ export class ComponentGalleryComponent implements Component {
       '',
       ...this.entries.map((entry, index) => this.#entryLine(entry, index)),
       '',
-      this.theme.fg('dim', '\u2191/\u2193 or j/k move \u00b7 enter opens \u00b7 q quits'),
+      this.theme.fg('dim', `\u2191/\u2193 or j/k move \u00b7 enter opens \u00b7 q quits${this.#themeHint()}`),
     ];
     return lines.map((line) => truncateToWidth(line, safeWidth));
+  }
+
+  #themeHint(): string {
+    if (!(this.theme instanceof SwitchableComponentPreviewTheme)) return '';
+    return ` \u00b7 ctrl+t theme (${this.theme.variant})`;
   }
 
   #entryLine(entry: ComponentPreviewEntry, index: number): string {

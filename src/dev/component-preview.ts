@@ -9,7 +9,10 @@ import {
 
 import { ComponentGalleryComponent } from './component-preview/gallery-component.js';
 import { COMPONENT_PREVIEW_REGISTRY } from './component-preview/registry.js';
-import { createComponentPreviewTheme } from './component-preview/theme.js';
+import {
+  registerComponentPreviewThemeToggle,
+  SwitchableComponentPreviewTheme,
+} from './component-preview/theme.js';
 
 export interface ComponentPreviewGalleryOptions {
   /** Skip the gallery menu and open this one registry entry directly. */
@@ -48,8 +51,9 @@ export async function runComponentPreviewGallery(
 ): Promise<void> {
   const terminal = new ProcessTerminal();
   const tui = new TUI(terminal);
-  const theme = createComponentPreviewTheme();
+  const theme = new SwitchableComponentPreviewTheme();
   const keybindings = createComponentPreviewKeybindings();
+  registerComponentPreviewThemeToggle(tui, theme);
 
   if (options.entryId) {
     const entry = COMPONENT_PREVIEW_REGISTRY.find((candidate) => candidate.id === options.entryId);
