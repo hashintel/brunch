@@ -287,7 +287,7 @@ interface CompactStreamEventView extends StreamEventView {
 function compactStreamEvents(events: readonly StreamEventView[]): readonly CompactStreamEventView[] {
   const rows: CompactStreamEventView[] = [];
   for (const event of events) {
-    const message = stripAnsi(event.message);
+    const message = cleanStreamMessage(event.message);
     const previous = rows.at(-1);
     if (previous && previous.sliceId === event.sliceId && previous.kind === event.kind) {
       if (message === previous.message) {
@@ -295,7 +295,7 @@ function compactStreamEvents(events: readonly StreamEventView[]): readonly Compa
         continue;
       }
       if (message.startsWith(previous.message)) {
-        rows[rows.length - 1] = { ...event, message, count: previous.count };
+        rows[rows.length - 1] = { ...event, message, count: previous.count + 1 };
         continue;
       }
     }
@@ -307,12 +307,25 @@ function compactStreamEvents(events: readonly StreamEventView[]): readonly Compa
 function verifyFailures(events: readonly StreamEventView[]): readonly StreamEventView[] {
   return events
     .filter((event) => event.kind === 'stderr' || /\b(?:FAIL|Failed Tests|Error:)\b/u.test(event.message))
-    .map((event) => ({ ...event, message: stripAnsi(event.message).trim() }))
+    .map((event) => ({ ...event, message: cleanStreamMessage(event.message).trim() }))
     .filter((event) => event.message.length > 0);
+}
+
+function cleanStreamMessage(value: string): string {
+  return stripMarkdownMarkers(stripAnsi(value));
 }
 
 function stripAnsi(value: string): string {
   return value.replace(ANSI_ESCAPE_PATTERN, '');
+}
+
+function stripMarkdownMarkers(value: string): string {
+  return value
+    .replace(/\*\*([^*]+)\*\*/gu, '$1')
+    .replace(/__([^_]+)__/gu, '$1')
+    .replace(/`([^`]+)`/gu, '$1')
+    .replace(/^#{1,6}\s+/gmu, '')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/gu, '$1');
 }
 
 function PetriRawBlock({ net }: { net: unknown }) {

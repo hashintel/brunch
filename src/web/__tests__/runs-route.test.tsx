@@ -237,7 +237,8 @@ describe('run detail route', () => {
               sliceId: 'task-8',
               sequence: 12,
               kind: 'message',
-              message: "Now I'll write the result file to report completion.",
+              message:
+                "Now I'll write the result file to report completion.\n\n**Slice task-8** (frontier-1)",
             },
           ],
           agentStreamTotal: 3,
@@ -247,8 +248,16 @@ describe('run detail route', () => {
 
     render(<BrunchWebApp runtime={runtime} />);
 
-    expect(await screen.findByText("Now I'll write the result file to report completion.")).toBeTruthy();
-    expect(screen.getByText('x2')).toBeTruthy();
+    expect(
+      await screen.findByText((_, element) =>
+        Boolean(
+          element?.tagName === 'P' &&
+          element.textContent ===
+            "Now I'll write the result file to report completion.\n\nSlice task-8 (frontier-1)",
+        ),
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText('x3')).toBeTruthy();
     expect(screen.queryByText('Now I')).toBeNull();
     expect(screen.getByText('Raw Worker stream events')).toBeTruthy();
   });
