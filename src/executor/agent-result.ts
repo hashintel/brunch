@@ -109,6 +109,7 @@ export async function ingestAgentResult(args: {
   const streamPath = agentStreamPath(args.cwd, args.runId, metadata.activeSliceId);
   let sequence = 0;
   let wroteStream = false;
+  let streamWriteQueue = Promise.resolve();
   const runResult = await args.agentRunner.run({
     worktreeDir,
     requestPath,
@@ -117,7 +118,7 @@ export async function ingestAgentResult(args: {
     epicId: metadata.activeEpicId,
     sliceId: metadata.activeSliceId,
     ...(args.runtime ? { runtime: args.runtime } : {}),
-    onUpdate: async (update) => {
+    onUpdate: (update) => {
       const event: AgentStreamEvent = {
         event: 'agent_stream',
         runId: args.runId,
@@ -128,16 +129,21 @@ export async function ingestAgentResult(args: {
         message: update.message,
       };
       sequence += 1;
-      await mkdir(dirname(streamPath), { recursive: true });
-      await appendFile(streamPath, `${JSON.stringify(event)}\n`, 'utf8');
-      wroteStream = true;
-      try {
-        args.onAgentUpdate?.(event);
-      } catch {
-        // Observer failures never affect worker execution.
-      }
+      const write = streamWriteQueue.then(async () => {
+        await mkdir(dirname(streamPath), { recursive: true });
+        await appendFile(streamPath, `${JSON.stringify(event)}\n`, 'utf8');
+        wroteStream = true;
+        try {
+          args.onAgentUpdate?.(event);
+        } catch {
+          // Observer failures never affect worker execution.
+        }
+      });
+      streamWriteQueue = write.catch(() => undefined);
+      return write;
     },
   });
+  await streamWriteQueue;
   if (runResult.status === 'failed') {
     return {
       status: 'agent_run_failed',
