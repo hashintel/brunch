@@ -39,6 +39,7 @@ export interface RunMetadata {
   readonly promotionPath?: string;
   readonly promotionBaseSha?: string;
   readonly promotionCommitSha?: string;
+  readonly supersedesRunId?: string;
 }
 
 export type RunCreateResult =

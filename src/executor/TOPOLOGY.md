@@ -25,6 +25,7 @@ executor/
 ├── run-freshness.ts      run metadata + plan provenance -> retry/replan freshness diagnosis
 ├── run-replan-recommendation.ts run retry eligibility -> human-readable recommendation
 ├── run-retry-eligibility.ts run freshness + lifecycle status -> safe HITL action set
+├── run-supersession.ts   prior run + fresh launch -> new linked run metadata
 ├── run.ts                ready plan.yaml -> metadata-only run creation
 ├── slice-execute.ts      active slice -> execution request artifact
 ├── slice-complete.ts     test-ingested slice -> completion marker
@@ -79,6 +80,8 @@ rules:
 `run-retry-eligibility.ts` combines run freshness with the run lifecycle status to classify whether the current step can be retried, a fresh plan can be regenerated before retry, a new run is required, or the run is terminal. It only returns allowed action names; it does not execute retries, mutate plans, or supersede runs.
 
 `run-replan-recommendation.ts` wraps retry eligibility in concise human-facing diagnosis text plus one recommended action. It is still read-only core: no prompts, no tool registration, no action execution, and no run mutation.
+
+`run-supersession.ts` is the first bounded mutation helper in the HITL replanning family. Given an existing run and a fresh launch-ready plan, it creates a new `created` run with `supersedesRunId` pointing to the prior run. It refuses missing prior runs, stale/non-ready plans, and target run id collisions, and it never mutates the prior run.
 
 `worktree.ts` creates a real git worktree for an existing run through the injected `GitWorktreePort` (app-layer `git worktree add --detach <worktreeDir> HEAD`) and updates `run.json` to `status:"worktree_created"`. If the port fails, run metadata is not advanced (`status:"worktree_create_failed"`). Source population, sandbox strategy, agent execution, Petri artifacts, report logs, promotion refs, and land branches remain deferred.
 
