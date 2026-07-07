@@ -42,7 +42,7 @@ describe('composeExecutorPrompt', () => {
   it('shares the elicitor static reference-resource surface', () => {
     const executorPrompt = composePrompt();
     const elicitorPrompt = composeLiveElicitorPrompt({
-      sessionState: { operationalMode: 'elicit', agentRole: 'elicitor' },
+      sessionState: { operationalMode: 'specify', agentRole: 'elicitor' },
       spec: { id: 1, name: 'Spec' },
       workspace: { cwd: '/tmp/brunch' },
       activeTools: ['read_graph', 'present_question', 'request_response'],
