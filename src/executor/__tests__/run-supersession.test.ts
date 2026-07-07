@@ -184,4 +184,33 @@ describe('createSupersedingRun', () => {
       '"supersedesRunId": "run-old"',
     );
   });
+
+  it('preserves the previous run environment policy on the superseding run', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-supersede-environment-'));
+    await writePlan(cwd);
+    const previous = await writeRun(cwd, 'run-old');
+    const previousWithEnvironment: RunMetadata = {
+      ...previous,
+      substrate: 'empty_dir',
+      verifyTarget: { command: 'npm', args: ['test'] },
+    };
+    await writeFile(
+      runMetadataPath(cwd, 'run-old'),
+      `${JSON.stringify(previousWithEnvironment, null, 2)}\n`,
+      'utf8',
+    );
+
+    const result = await createSupersedingRun({
+      cwd,
+      previousRunId: 'run-old',
+      runId: 'run-new',
+      current,
+    });
+
+    expect(result.status).toBe('created');
+    await expect(readFile(runMetadataPath(cwd, 'run-new'), 'utf8')).resolves.toContain(
+      '"substrate": "empty_dir"',
+    );
+    await expect(readFile(runMetadataPath(cwd, 'run-new'), 'utf8')).resolves.toContain('"command": "npm"');
+  });
 });

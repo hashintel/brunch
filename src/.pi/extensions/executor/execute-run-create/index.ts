@@ -17,12 +17,9 @@ const ExecuteRunCreateParams = Type.Object({
       description: 'Run workspace substrate. Defaults to git_worktree for current compatibility.',
     }),
   ),
-  verifyCommand: Type.Optional(
-    Type.String({ description: 'Command used by execute_test_result for this run. Defaults to npm.' }),
-  ),
-  verifyArgs: Type.Optional(
-    Type.Array(Type.String(), {
-      description: 'Arguments for verifyCommand. Defaults to ["run", "verify"].',
+  verifyProfile: Type.Optional(
+    Type.Union([Type.Literal('default'), Type.Literal('npm_test')], {
+      description: 'Product-owned verify target profile. Defaults to default (npm run verify).',
     }),
   ),
   mode: Type.Optional(
@@ -70,9 +67,7 @@ export function createExecuteRunCreateTool(
         current,
         ...(params.runId ? { runId: params.runId } : {}),
         ...(params.substrate ? { substrate: params.substrate } : {}),
-        ...(params.verifyCommand
-          ? { verifyTarget: { command: params.verifyCommand, args: params.verifyArgs ?? [] } }
-          : {}),
+        ...verifyTargetForProfile(params.verifyProfile),
       });
       return {
         content: [
@@ -93,6 +88,18 @@ export function createExecuteRunCreateTool(
       };
     },
   };
+}
+
+function verifyTargetForProfile(
+  profile: ExecuteRunCreateParams['verifyProfile'],
+): { readonly verifyTarget: { readonly command: string; readonly args: readonly string[] } } | {} {
+  switch (profile) {
+    case undefined:
+    case 'default':
+      return {};
+    case 'npm_test':
+      return { verifyTarget: { command: 'npm', args: ['test'] } };
+  }
 }
 
 export function registerBrunchExecuteRunCreate(pi: ExtensionAPI, deps: ExecuteRunCreateDeps): void {

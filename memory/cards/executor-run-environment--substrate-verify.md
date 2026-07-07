@@ -18,14 +18,14 @@ Executor runs can declare their environment policy independently of source-copy 
 
 - `substrate: git_worktree` keeps the current brownfield/full-repo behavior.
 - `substrate: empty_dir` creates an isolated run directory without checking out the host repo.
-- `verifyTarget` records the command/args that `execute_test_result` should run for that run.
+- A product-owned verify profile records the bounded `verifyTarget` that `execute_test_result` should run for that run.
 
 ## Acceptance Criteria
 
-- `execute_run_create` can persist `substrate` and `verifyTarget` in `run.json`.
+- `execute_run_create` can persist `substrate` and a product-owned verify profile's `verifyTarget` in `run.json`.
 - `execute_worktree_create` creates an empty directory substrate without invoking `GitWorktreePort` when requested.
 - `execute_test_result` passes the run's `verifyTarget` to the injected `TestRunnerPort`.
-- Existing default behavior remains compatible: omitted substrate uses `git_worktree`; omitted verify target uses `npm run verify`.
+- Existing default behavior remains compatible: omitted substrate uses `git_worktree`; omitted verify profile uses `npm run verify`.
 
 ## Verification Approach
 
