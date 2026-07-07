@@ -73,7 +73,7 @@
     "@tanstack/react-query": "^5.101.2",
     "@tanstack/react-router": "^1.170.17",
     "@toon-format/toon": "^2.3.0",
-    "better-sqlite3": "^12.11.1",
+    "better-sqlite3": "12.11.1",
     "drizzle-orm": "^0.45.2",
     "drizzle-typebox": "^0.3.3",
     "linkedom": "^0.18.12",
@@ -126,13 +126,10 @@
     "node": ">=24 <25"
   },
   "allowScripts": {
-    "better-sqlite3@12.10.1": true,
-    "@google/genai@1.52.0": true,
-    "protobufjs@7.5.9": true,
-    "protobufjs@7.6.2": true,
-    "esbuild@0.18.20": true,
-    "esbuild@0.25.12": true,
-    "esbuild@0.28.0": true,
-    "fsevents@2.3.3": true
+    "better-sqlite3@12.11.1": true,
+    "@google/genai": true,
+    "protobufjs": true,
+    "esbuild": true,
+    "fsevents": true
   }
 }

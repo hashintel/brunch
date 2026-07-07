@@ -111,7 +111,49 @@ async function main() {
       throw new Error(`Expected print-mode output to include "Brunch workspace state"; got:\n${output}`);
     }
 
-    process.stdout.write('check:release-pack OK — packed artifact installs and boots from a foreign cwd\n');
+    // DB-touching leg: --mode print from an empty cwd never opens SQLite, so a
+    // broken better-sqlite3 native binding (blocked install script, ABI mismatch)
+    // would slip past the boot check. One rpc-mode workspace.activate creates
+    // .brunch/data.db through the installed binding.
+    const rpcRequest = {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'workspace.activate',
+      params: { decision: { action: 'newSpec', title: 'Release smoke spec' } },
+    };
+    const rpcResult = spawnSync(brunchBin, ['--mode', 'rpc'], {
+      cwd: foreignCwd,
+      encoding: 'utf8',
+      stdio: 'pipe',
+      input: `${JSON.stringify(rpcRequest)}\n`,
+      env: process.env,
+    });
+
+    if (rpcResult.status !== 0) {
+      throw new Error(
+        [`${brunchBin} --mode rpc failed with exit ${rpcResult.status}`, rpcResult.stdout, rpcResult.stderr]
+          .filter(Boolean)
+          .join('\n'),
+      );
+    }
+
+    const rpcResponse = (rpcResult.stdout ?? '')
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line))
+      .find((message) => message.id === 1);
+    if (!rpcResponse || rpcResponse.error || rpcResponse.result?.status !== 'ready') {
+      throw new Error(
+        `Expected workspace.activate to answer status "ready"; got:\n${rpcResult.stdout}\n${rpcResult.stderr}`,
+      );
+    }
+    if (!existsSync(path.join(foreignCwd, '.brunch', 'data.db'))) {
+      throw new Error('workspace.activate did not create .brunch/data.db (native sqlite binding untested)');
+    }
+
+    process.stdout.write(
+      'check:release-pack OK — packed artifact installs, boots from a foreign cwd, and opens SQLite\n',
+    );
   } finally {
     if (process.env.BRUNCH_KEEP_RELEASE_PACK_TMP === '1') {
       process.stderr.write(`Keeping release-pack temp dir: ${workDir}\n`);

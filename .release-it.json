@@ -1,6 +1,14 @@
 {
   "preRelease": "alpha",
+  "git": {
+    "tagName": "${version}",
+    "requireBranch": "next",
+    "requireCleanWorkingDir": true
+  },
+  "github": {
+    "release": false
+  },
   "hooks": {
-    "before:npm:release": ["npm pack --dry-run --json"]
+    "before:npm:release": ["npm run check:release-pack"]
   }
 }
