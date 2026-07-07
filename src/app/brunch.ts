@@ -47,6 +47,20 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
   }
   if (command) throw new Error(`Unknown Brunch command: ${command}`);
 
+  if (help) {
+    writeStdout(options.stdout, formatBrunchUsage());
+    return 0;
+  }
+
+  // TUI-only flags are accepted by the shared parser; warn instead of silently
+  // ignoring them when the selected mode cannot honor them.
+  if (mode !== 'tui') {
+    if (openWeb) writeStderr(options.stderr, `--open-web only applies to --mode tui; ignoring.`);
+    if (developerToolsFlag !== undefined) {
+      writeStderr(options.stderr, `--dev-tools only applies to --mode tui; ignoring.`);
+    }
+  }
+
   const cwd = cwdFlag ?? options.cwd ?? process.cwd();
   const developerTools = developerToolsFlag ?? options.developerTools ?? false;
   const coordinator = options.coordinator ?? createWorkspaceSessionCoordinator({ cwd });
@@ -94,6 +108,34 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
   }
 
   throw new Error(`Unsupported Brunch mode: ${mode}`);
+}
+
+export function formatBrunchUsage(): string {
+  return [
+    'Usage: brunch [command] [options]',
+    '',
+    'Commands:',
+    '  login                Configure provider auth for Brunch allowlisted models',
+    '',
+    'Options:',
+    '  --cwd <path>         Workspace directory (default: current directory)',
+    '  --mode <mode>        tui (default) | print | rpc',
+    '  --open-web           Open the web sidecar in a browser (tui mode only)',
+    '  --dev-tools          Enable developer tools (tui mode only)',
+    '  -h, --help           Show this usage',
+    '',
+  ].join('\n');
+}
+
+function writeStderr(stderr: Writable | ((chunk: string) => void) | undefined, line: string): void {
+  const chunk = `${line}\n`;
+  if (!stderr) {
+    process.stderr.write(chunk);
+  } else if (typeof stderr === 'function') {
+    stderr(chunk);
+  } else {
+    stderr.write(chunk);
+  }
 }
 
 function writeStdout(stdout: Writable | ((chunk: string) => void) | undefined, chunk: string): void {

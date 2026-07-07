@@ -1,4 +1,3 @@
-import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import process from 'node:process';
 
@@ -58,6 +57,7 @@ import {
   getBrunchScopedModels,
   resolveBrunchModelPolicy,
 } from './model-policy.js';
+import { openUrlBestEffort } from './open-url.js';
 import {
   chromeStateForWorkspace,
   createBrunchPiExtensions,
@@ -744,12 +744,7 @@ function webSidecarRoutePath(specId: number): string {
 }
 
 async function openBrowser(url: string): Promise<void> {
-  const command = process.platform === 'darwin' ? 'open' : 'xdg-open';
-  const child = spawn(command, [url], {
-    detached: true,
-    stdio: 'ignore',
-  });
-  child.unref();
+  openUrlBestEffort(url);
 }
 
 async function launchPiInteractive(context: BrunchTuiLaunchContext): Promise<void> {

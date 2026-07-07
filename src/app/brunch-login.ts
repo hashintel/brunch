@@ -1,4 +1,3 @@
-import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import process from 'node:process';
 import { createInterface } from 'node:readline';
@@ -17,6 +16,7 @@ import {
   createBrunchModelRegistry,
   resolveBrunchModelPolicy,
 } from './model-policy.js';
+import { openUrlBestEffort } from './open-url.js';
 
 export interface BrunchLoginAuthStorage {
   getOAuthProviders(): OAuthProviderInterface[];
@@ -231,13 +231,6 @@ function reportResolvedPolicy(
       `Auth saved, but Brunch still cannot resolve an allowlisted model: ${resolution.reason}.`,
     );
   }
-}
-
-function openUrlBestEffort(url: string): void {
-  const command = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'cmd' : 'xdg-open';
-  const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url];
-  const child = spawn(command, args, { detached: true, stdio: 'ignore' });
-  child.unref();
 }
 
 type LineSession = {
