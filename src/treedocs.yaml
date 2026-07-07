@@ -47,14 +47,14 @@ tree:
       TOPOLOGY.md: "Documents this source subtree."
       agent-runtime:
         index.ts: "Exports the public module surface."
-        orchestrator-stub:
-          index.ts: "Exports the public module surface."
         runtime:
           authority-matrix.test.ts: "Tests authority matrix behavior."
           index.ts: "Exports the public module surface."
         system-prompts:
           index.ts: "Exports the public module surface."
           world-reads.ts: "Implements world reads."
+      executor:
+        index.ts: "Exports the executor adapter surface."
       brunch-data:
         context:
           get-cwd.ts: "Implements get cwd."

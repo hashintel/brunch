@@ -1,14 +1,14 @@
 # Executor surface reconciliation
 
 Frontier: orchestrator-tool-port
-Status:   active
+Status:   done
 Mode:     slices
 Created:  2026-07-07
 
 ## Orientation
 
 - Containing seam: operational-mode runtime + Execute-mode executor surface. `src/session/schema/kinds.ts` owns mode ids/labels; `src/agents/runtime/*` maps modes to foreground agents; `src/executor/` is the pure run-lifecycle core over `ExecutionPorts`; Pi-facing execution tools are adapters.
-- Relevant frontier: `orchestrator-tool-port` / FE-1107, re-baselined after KA's executor lane landed. The mechanism exists; this file closes mode/executor surface residue.
+- Relevant frontier: `orchestrator-tool-port` / FE-1107, re-baselined after KA's executor lane landed. The mechanism exists; this file closed mode/executor surface residue on PR #298 / `ka/fe-1107-executor-surface-reconciliation`.
 - Volatile state: KA's six `memory/cards/executor-*` cards appear exhausted but remain unconfirmed. Do not delete them in these cards.
 - Restack delta (2026-07-07): the new FE-1155 branch removed the `orchestrator-stub/` source/registration/allowlist/tool constant, but stale prompt/tests/PLAN references remain. The new FE-1154 work adds executor observability and a passive `execute-run-updates` tool-result observer under `agent-runtime/`, increasing the case for a dedicated executor adapter home.
 - PR #295/#297 induction delta (resolved comments included): executor-run local artifacts now have three contracts this reconciliation must not blur — tolerant/canonical artifact reads, ordered async stream updates, and centralized plan-mode defaults before source-policy decisions.
@@ -124,7 +124,7 @@ src/.pi/extensions/__tests__/
 
 ## Card 1 — Mode vocabulary canonicalization
 
-Status: next
+Status: done
 Weight: full
 
 ### Target Behavior
@@ -208,7 +208,7 @@ src/agents/
 
 ## Card 2 — Execute tool surface relocation and stub retirement
 
-Status: next after Card 1
+Status: done
 Weight: full
 
 ### Target Behavior
