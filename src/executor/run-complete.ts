@@ -1,6 +1,7 @@
 import { appendFile, readFile } from 'node:fs/promises';
 
 import { populatedPlanPath } from './populate.js';
+import { readSliceVerificationVerdict } from './report-verdict.js';
 import { reportsPath } from './report.js';
 import { runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
@@ -26,6 +27,24 @@ export type RunCompleteResult =
       readonly metadataPath: string;
       readonly completedSliceIds: readonly string[];
       readonly expectedSliceIds: readonly string[];
+      readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: 'verification_failed';
+      readonly runStatus: RunMetadata['status'];
+      readonly runId: string;
+      readonly metadataPath: string;
+      readonly reportsPath: string;
+      readonly failedSliceIds: readonly string[];
+      readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: 'verification_missing';
+      readonly runStatus: RunMetadata['status'];
+      readonly runId: string;
+      readonly metadataPath: string;
+      readonly reportsPath: string;
+      readonly missingSliceIds: readonly string[];
       readonly sideEffects: readonly [];
     }
   | {
@@ -92,6 +111,30 @@ export async function completeRun(args: {
   }
 
   const reportPath = metadata.reportsPath ?? reportsPath(args.cwd, args.runId);
+  const verification = await readSliceVerificationVerdict({ reportsPath: reportPath, expectedSliceIds });
+  if (verification.status === 'failed') {
+    return {
+      status: 'verification_failed',
+      runStatus: metadata.status,
+      runId: args.runId,
+      metadataPath,
+      reportsPath: reportPath,
+      failedSliceIds: verification.failedSliceIds,
+      sideEffects: [],
+    };
+  }
+  if (verification.status === 'missing') {
+    return {
+      status: 'verification_missing',
+      runStatus: metadata.status,
+      runId: args.runId,
+      metadataPath,
+      reportsPath: reportPath,
+      missingSliceIds: verification.missingSliceIds,
+      sideEffects: [],
+    };
+  }
+
   const event = { event: 'run_completed', runId: args.runId, status: 'run_completed' };
   const updated: RunMetadata = { ...metadata, status: 'run_completed' };
   await appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8');

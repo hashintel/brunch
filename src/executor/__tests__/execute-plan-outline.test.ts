@@ -8,8 +8,14 @@ const snapshot: ExecutionSpecSnapshot = {
   specId: '7',
   mode: 'brownfield',
   requirements: [
-    { itemId: 'REQ1', nodeId: 1, title: 'Build feature', content: 'Build feature' },
-    { itemId: 'REQ2', nodeId: 2, title: 'Wire feature', content: 'Wire feature' },
+    { itemId: 'REQ1', nodeId: 1, title: 'Build feature', content: 'Build feature', dependsOn: [] },
+    {
+      itemId: 'REQ2',
+      nodeId: 2,
+      title: 'Wire feature',
+      content: 'Wire feature',
+      dependsOn: ['REQ1'],
+    },
   ],
   criteria: [
     {
@@ -17,6 +23,7 @@ const snapshot: ExecutionSpecSnapshot = {
       nodeId: 3,
       title: 'Feature is visible',
       content: 'Feature is visible',
+      dependsOn: [],
       verifies: ['REQ2'],
     },
   ],
@@ -39,6 +46,7 @@ describe('outlineExecutionPlan', () => {
               title: 'Build feature',
               requirementId: 'REQ1',
               summary: 'Build feature',
+              dependsOn: [],
               acceptanceCriterionIds: [],
               acceptanceCriteria: [],
             },
@@ -47,6 +55,7 @@ describe('outlineExecutionPlan', () => {
               title: 'Wire feature',
               requirementId: 'REQ2',
               summary: 'Wire feature',
+              dependsOn: ['REQ1'],
               acceptanceCriterionIds: ['AC1'],
               acceptanceCriteria: [
                 {

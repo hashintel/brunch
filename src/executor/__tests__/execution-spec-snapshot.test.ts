@@ -128,6 +128,12 @@ describe('projectExecutionSpecSnapshot', () => {
           targetId: requirementA.id,
           stance: 'for',
         }),
+        edge({
+          id: 5,
+          category: 'dependency',
+          sourceId: requirementB.id,
+          targetId: requirementA.id,
+        }),
       ],
     });
 
@@ -138,6 +144,12 @@ describe('projectExecutionSpecSnapshot', () => {
     expect(snapshot.requirements[0]).toMatchObject({
       title: 'Persist layout choice',
       content: 'Persist layout choice',
+      dependsOn: [],
+    });
+    expect(snapshot.requirements[1]).toMatchObject({
+      itemId: 'REQ2',
+      title: 'Render graph canvas',
+      dependsOn: ['REQ1'],
     });
     expect(snapshot.criteria).toEqual([
       expect.objectContaining({

@@ -1288,6 +1288,18 @@ describe('Brunch explicit Pi extension registry', () => {
     await mkdir(worktreeDir, { recursive: true });
     await writeFile(petriPath, JSON.stringify({ runId: 'run-1' }), 'utf8');
     await writeFile(
+      reportPath,
+      `${JSON.stringify({
+        event: 'slice_test_result',
+        runId: 'run-1',
+        epicId: 'frontier-1',
+        sliceId: 'task-1',
+        status: 'passed',
+        exitCode: 0,
+      })}\n`,
+      'utf8',
+    );
+    await writeFile(
       metadataPath,
       JSON.stringify({
         runId: 'run-1',

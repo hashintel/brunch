@@ -8,8 +8,8 @@ const baseSnapshot: ExecutionSpecSnapshot = {
   specId: '7',
   mode: 'greenfield',
   requirements: [
-    { itemId: 'REQ1', nodeId: 1, title: 'Build feature', content: 'Build feature' },
-    { itemId: 'REQ2', nodeId: 2, title: 'Wire feature', content: 'Wire feature' },
+    { itemId: 'REQ1', nodeId: 1, title: 'Build feature', content: 'Build feature', dependsOn: [] },
+    { itemId: 'REQ2', nodeId: 2, title: 'Wire feature', content: 'Wire feature', dependsOn: [] },
   ],
   criteria: [
     {
@@ -17,6 +17,7 @@ const baseSnapshot: ExecutionSpecSnapshot = {
       nodeId: 3,
       title: 'Feature is visible',
       content: 'Feature is visible',
+      dependsOn: [],
       verifies: ['REQ1'],
     },
   ],

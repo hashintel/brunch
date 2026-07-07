@@ -20,6 +20,7 @@ executor/
 ├── observer-read.ts      run bundle -> tolerant read-only RunSummary/RunDetail projections (consumed by rpc execute.*)
 ├── populate.ts           worktree -> plan-only worktree population
 ├── report.ts             source-copied run -> reports.jsonl initialization
+├── report-verdict.ts     reports.jsonl -> latest per-slice verification verdicts
 ├── run-complete.ts       completed slices -> run completion marker
 ├── run.ts                ready plan.yaml -> metadata-only run creation
 ├── slice-execute.ts      active slice -> execution request artifact
@@ -30,8 +31,8 @@ executor/
 ├── test-result.ts        run worktree -> verify subprocess (TestRunnerPort) -> slice test report
 ├── worktree.ts           run metadata -> real git worktree (GitWorktreePort)
 ├── execution-ports.ts    injected capability ports (git worktree, agent runner, test runner, git land, host-promotion preflight)
-├── execution-spec-snapshot.ts   graph facts -> ExecutionSpecSnapshot v1
-├── executable-plan-draft.ts     plan outline -> executable-plan draft DTO
+├── execution-spec-snapshot.ts   graph facts -> ExecutionSpecSnapshot v1, incl. requirement dependencies
+├── executable-plan-draft.ts     plan outline -> executable-plan draft DTO, incl. slice dependencies
 ├── executable-plan-draft-artifact.ts executable-plan draft -> .brunch/execution-reports artifact
 ├── execute-plan-check.ts        ExecutionSpecSnapshot -> read-only plan-input findings
 ├── execute-plan-outline.ts      ExecutionSpecSnapshot -> side-effect-free plan outline
@@ -74,7 +75,7 @@ rules:
 
 `populate.ts` performs the first bounded worktree population: it copies the selected plan into `.brunch/cook/runs/<runId>/worktree/.brunch/cook/plan.yaml` and updates `run.json` to `status:"worktree_populated"`. Host source copying, sandbox policy, agent execution, Petri artifacts, report logs, promotion refs, and land branches remain deferred.
 
-`source-policy.ts` records the host-source policy for a plan-populated run by writing `source-policy.json` and updating `run.json` to `status:"source_policy_selected"`. This is policy selection only: host source files are not copied and execution remains deferred.
+`source-policy.ts` records the source policy for a plan-populated run by writing `source-policy.json` and updating `run.json` to `status:"source_policy_selected"`. This is policy selection only: host source files are not copied and execution remains deferred. `orchestrate.ts` defaults greenfield plans to `plan_only` and requires explicit `host_source_deferred` to copy host files into that run.
 
 `source-copy.ts` performs bounded host source copying for `host_source_deferred`: it copies top-level source entries into the worktree while excluding `.brunch`, `.git`, `node_modules`, `dist`, and `build`, then records `status:"source_copied"`. Slice execution, Petri artifacts, report logs, promotion refs, and land branches remain deferred.
 
@@ -90,11 +91,11 @@ rules:
 
 `slice-complete.ts` appends `slice_completed` after test result ingestion and records the completed slice id in `run.json`. Petri artifacts, promotion refs, and land branches remain deferred.
 
-`run-complete.ts` appends `run_completed` once every plan slice is completed and records `status:"run_completed"`. Petri artifacts, promotion refs, and land branches remain deferred.
+`run-complete.ts` appends `run_completed` once every plan slice is completed and every completed slice has latest passing verification evidence in `reports.jsonl`; failed or missing verification leaves metadata unchanged. Petri artifacts, promotion refs, and land branches remain deferred.
 
 `petri.ts` writes the first minimal Petrinaut artifact at `.brunch/cook/runs/<runId>/petrinaut/net.json` for a completed run and records `status:"petri_exported"`. Promotion refs and land branches remain deferred.
 
-`promotion.ts` is the first land/promotion boundary: for a `petri_exported` run with a worktree it invokes the injected `GitLandPort`, then writes `.brunch/cook/runs/<runId>/promotion/promotion.json` (runId, specId, petriPath, reportsPath, completedSliceIds, run-local commit SHA) and records `status:"promotion_prepared"`. `GitLandPort` failure or no changes leaves metadata unchanged. This is run-local only: host branch/ref promotion remains out of scope, and actual host land remains pending.
+`promotion.ts` is the first land/promotion boundary: for a `petri_exported` run with a worktree and latest passing verification evidence it invokes the injected `GitLandPort`, then writes `.brunch/cook/runs/<runId>/promotion/promotion.json` (runId, specId, petriPath, reportsPath, completedSliceIds, run-local commit SHA) and records `status:"promotion_prepared"`. Failed or missing verification, `GitLandPort` failure, or no changes leaves metadata unchanged. This is run-local only: host branch/ref promotion remains out of scope, and actual host land remains pending.
 
 `host-promotion.ts` is the host-promotion preflight/apply boundary. Preflight validates that `run.json.promotionCommitSha` agrees with `promotion/promotion.json` and delegates read-only promoted-commit diff inspection to `GitHostPromotionPort`, returning changed files and patch summary with `sideEffects: []`. Apply requires an accepted commit SHA, reruns preflight, and delegates bounded host worktree patch application to the same port; it reports `host_worktree_apply` and still does not commit, create refs, switch branches, or stage the host index.
 

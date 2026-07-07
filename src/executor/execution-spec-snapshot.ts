@@ -8,6 +8,7 @@ export interface ExecutionSpecItemSnapshot {
   readonly nodeId: number;
   readonly title: string;
   readonly content: string;
+  readonly dependsOn: readonly string[];
 }
 
 export interface ExecutionSpecCriterionSnapshot extends ExecutionSpecItemSnapshot {
@@ -61,13 +62,19 @@ export function projectExecutionSpecSnapshot(
   const nodes = [...input.nodes].sort(byKindOrdinalThenId);
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   const requirementIds = new Set(nodes.filter((node) => node.kind === 'requirement').map((node) => node.id));
+  const requirementItemIds = new Map(
+    nodes.filter((node) => node.kind === 'requirement').map((node) => [node.id, itemId(node)]),
+  );
+  const requirementDependencies = dependencyItemIdsByRequirement(input.edges, requirementItemIds);
   const criteria = nodes.filter((node) => node.kind === 'criterion');
 
   return {
     schemaVersion: 1,
     specId: String(input.specId),
     mode: input.mode,
-    requirements: nodes.filter((node) => node.kind === 'requirement').map(itemSnapshot),
+    requirements: nodes
+      .filter((node) => node.kind === 'requirement')
+      .map((node) => itemSnapshot(node, requirementDependencies.get(itemId(node)) ?? [])),
     criteria: criteria.map((criterion) => ({
       ...itemSnapshot(criterion),
       verifies: verifiesRequirementItemIds(criterion, input.edges, nodeById, requirementIds),
@@ -77,8 +84,12 @@ export function projectExecutionSpecSnapshot(
       invariants: contextItems(nodes, 'invariant'),
       decisions: contextItems(nodes, 'decision'),
       examples: contextItems(nodes, 'example'),
-      design: nodes.filter((node) => DESIGN_KINDS.includes(node.kind as never)).map(itemSnapshot),
-      oracle: nodes.filter((node) => ORACLE_KINDS.includes(node.kind as never)).map(itemSnapshot),
+      design: nodes
+        .filter((node) => DESIGN_KINDS.includes(node.kind as never))
+        .map((node) => itemSnapshot(node)),
+      oracle: nodes
+        .filter((node) => ORACLE_KINDS.includes(node.kind as never))
+        .map((node) => itemSnapshot(node)),
     },
   };
 }
@@ -100,16 +111,35 @@ function verifiesRequirementItemIds(
   return [...ids].sort();
 }
 
-function contextItems(nodes: readonly GraphNode[], kind: ContextKind): readonly ExecutionSpecItemSnapshot[] {
-  return nodes.filter((node) => node.kind === kind).map(itemSnapshot);
+function dependencyItemIdsByRequirement(
+  edges: readonly GraphEdge[],
+  requirementItemIds: ReadonlyMap<number, string>,
+): ReadonlyMap<string, readonly string[]> {
+  const byDependent = new Map<string, Set<string>>();
+  for (const edge of edges) {
+    if (edge.category !== 'dependency') continue;
+    const dependency = requirementItemIds.get(edge.sourceId);
+    const dependent = requirementItemIds.get(edge.targetId);
+    if (!dependency || !dependent) continue;
+    const dependencies = byDependent.get(dependent) ?? new Set<string>();
+    dependencies.add(dependency);
+    byDependent.set(dependent, dependencies);
+  }
+
+  return new Map([...byDependent].map(([dependent, dependencies]) => [dependent, [...dependencies].sort()]));
 }
 
-function itemSnapshot(node: GraphNode): ExecutionSpecItemSnapshot {
+function contextItems(nodes: readonly GraphNode[], kind: ContextKind): readonly ExecutionSpecItemSnapshot[] {
+  return nodes.filter((node) => node.kind === kind).map((node) => itemSnapshot(node));
+}
+
+function itemSnapshot(node: GraphNode, dependsOn: readonly string[] = []): ExecutionSpecItemSnapshot {
   return {
     itemId: itemId(node),
     nodeId: node.id,
     title: node.title,
     content: node.body ?? node.title,
+    dependsOn,
   };
 }
 
