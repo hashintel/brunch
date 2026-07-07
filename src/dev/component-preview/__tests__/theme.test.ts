@@ -121,9 +121,14 @@ describe('registerComponentPreviewThemeToggle', () => {
       const lightAccent = createComponentPreviewTheme('light').getFgAnsi('accent');
       expect(terminal.writes.join('')).toContain(darkAccent);
       expect(terminal.writes.join('')).not.toContain(lightAccent);
-      // Registration paints the initial variant's page background (OSC 11).
+      // Registration paints the initial variant's default foreground (OSC 10,
+      // the `text` token — governs unstyled component text) and page
+      // background (OSC 11).
       const darkPageBg = theme.pageBg;
+      const darkPageFg = theme.pageFg;
       expect(darkPageBg).toBeDefined();
+      expect(darkPageFg).toBeDefined();
+      expect(terminal.writes.join('')).toContain(`\x1b]10;${darkPageFg}\x07`);
       expect(terminal.writes.join('')).toContain(`\x1b]11;${darkPageBg}\x07`);
 
       terminal.sendInput('\x14');
@@ -133,13 +138,17 @@ describe('registerComponentPreviewThemeToggle', () => {
       expect(terminal.writes.join('')).toContain(lightAccent);
       expect(received).not.toContain('\x14');
 
-      // The terminal background follows the toggle.
+      // The terminal default foreground and background follow the toggle.
       const lightPageBg = theme.pageBg;
+      const lightPageFg = theme.pageFg;
       expect(lightPageBg).not.toBe(darkPageBg);
+      expect(lightPageFg).not.toBe(darkPageFg);
+      expect(terminal.writes.join('')).toContain(`\x1b]10;${lightPageFg}\x07`);
       expect(terminal.writes.join('')).toContain(`\x1b]11;${lightPageBg}\x07`);
 
-      // Dispose restores the terminal's default background (OSC 111).
+      // Dispose restores the terminal's defaults (OSC 110 + 111).
       dispose();
+      expect(terminal.writes.join('')).toContain('\x1b]110\x07');
       expect(terminal.writes.join('')).toContain('\x1b]111\x07');
     } finally {
       terminal.stop();

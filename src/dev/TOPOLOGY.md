@@ -56,8 +56,10 @@ components are render-only with injectable `theme`/props.
   does not expose pi's shipped theme-loading internals outside a running session. **ctrl+t** toggles
   dark/light live — including while an entry is open — via a consuming TUI input listener plus
   `tui.invalidate()`; every color read delegates to the active variant, so no component needs a
-  retheme contract. The terminal page background follows the toggle too (OSC 11 set to the theme
-  JSON's `export.pageBg`, OSC 111 reset on exit) since theme colors only style glyphs.
+  retheme contract. The terminal defaults follow the toggle too — OSC 10 sets the default
+  foreground to the `text` token (so *unstyled* component text adopts the theme instead of the
+  terminal's own color) and OSC 11 sets the page background to `export.pageBg`; OSC 110/111 reset
+  both on exit — since theme colors only style explicitly wrapped glyphs.
   `BRUNCH_PREVIEW_THEME=light` selects the initial variant. The theme JSONs also **hot-reload**:
   `watchComponentPreviewTheme` watches `src/.pi/themes/` and rebuilds the variant palettes on save
   (last-good palette kept across mid-edit invalid JSON), so theme-value work iterates against the

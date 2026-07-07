@@ -104,6 +104,7 @@ export function createComponentPreviewTheme(variant?: ComponentPreviewThemeVaria
 export class SwitchableComponentPreviewTheme extends Theme {
   #variants: Record<ComponentPreviewThemeVariant, Theme>;
   #pageBgs: Record<ComponentPreviewThemeVariant, string | undefined>;
+  #pageFgs: Record<ComponentPreviewThemeVariant, string | undefined>;
   #active: ComponentPreviewThemeVariant;
 
   constructor(initial: ComponentPreviewThemeVariant = resolveInitialComponentPreviewThemeVariant()) {
@@ -118,6 +119,7 @@ export class SwitchableComponentPreviewTheme extends Theme {
       }),
     };
     this.#pageBgs = { dark: darkPalette.pageBg, light: lightPalette.pageBg };
+    this.#pageFgs = { dark: darkPalette.fgColors.text, light: lightPalette.fgColors.text };
     this.#active = initial;
   }
 
@@ -128,6 +130,16 @@ export class SwitchableComponentPreviewTheme extends Theme {
   /** Active variant's whole-page background hex (theme JSON `export.pageBg`), if declared. */
   get pageBg(): string | undefined {
     return this.#pageBgs[this.#active];
+  }
+
+  /**
+   * Active variant's default-foreground hex (the `text` token). Painted via
+   * OSC 10 so *unstyled* component text — markdown body, picker labels,
+   * anything not wrapped in `theme.fg(...)` — adopts the theme's text color
+   * instead of the terminal's own default.
+   */
+  get pageFg(): string | undefined {
+    return this.#pageFgs[this.#active];
   }
 
   toggle(): ComponentPreviewThemeVariant {
@@ -152,6 +164,7 @@ export class SwitchableComponentPreviewTheme extends Theme {
       }),
     };
     this.#pageBgs = { dark: darkPalette.pageBg, light: lightPalette.pageBg };
+    this.#pageFgs = { dark: darkPalette.fgColors.text, light: lightPalette.fgColors.text };
   }
 
   override fg(color: ThemeColor, text: string): string {
@@ -192,33 +205,40 @@ export class SwitchableComponentPreviewTheme extends Theme {
  * OSC 111. Same session-scoped ownership discipline as the harness's SGR
  * mouse opt-in in `custom-ui.ts`.
  */
+// ceiling: OSC 10/11 support varies by emulator (Ghostty/kitty/iTerm2/WezTerm
+// honor them; Zed's built-in terminal ignores them silently, keeping its own
+// colors). There is no reliable capability query worth the complexity for a
+// dev harness; revisit only if painted defaults become required in an
+// unsupporting terminal we care about.
+function paintTerminalThemeColors(tui: TUI, theme: SwitchableComponentPreviewTheme): void {
+  // OSC 10 = default foreground (unstyled text), OSC 11 = default background.
+  if (theme.pageFg !== undefined) tui.terminal.write(`\x1b]10;${theme.pageFg}\x07`);
+  if (theme.pageBg !== undefined) tui.terminal.write(`\x1b]11;${theme.pageBg}\x07`);
+}
+
+function restoreTerminalThemeColors(tui: TUI): void {
+  tui.terminal.write('\x1b]110\x07\x1b]111\x07');
+}
+
 export function registerComponentPreviewThemeToggle(
   tui: TUI,
   theme: SwitchableComponentPreviewTheme,
 ): () => void {
-  // ceiling: OSC 11 support varies by emulator (Ghostty/kitty/iTerm2/WezTerm
-  // honor it; Zed's built-in terminal ignores it silently, leaving its own
-  // background). There is no reliable capability query worth the complexity
-  // for a dev harness; revisit only if a painted background becomes required
-  // in an unsupporting terminal we care about.
-  const paintPageBackground = (): void => {
-    if (theme.pageBg !== undefined) tui.terminal.write(`\x1b]11;${theme.pageBg}\x07`);
-  };
-  paintPageBackground();
+  paintTerminalThemeColors(tui, theme);
   const removeListener = tui.addInputListener((data) => {
     // Input listeners run before the TUI's key-release filter, so guard
     // releases explicitly: under the kitty protocol ctrl+t arrives as a CSI-u
     // press *and* a CSI-u release, and matchesKey alone accepts both.
     if (isKeyRelease(data) || !matchesKey(data, Key.ctrl('t'))) return undefined;
     theme.toggle();
-    paintPageBackground();
+    paintTerminalThemeColors(tui, theme);
     tui.invalidate();
     tui.requestRender();
     return { consume: true };
   });
   return () => {
     removeListener();
-    tui.terminal.write('\x1b]111\x07');
+    restoreTerminalThemeColors(tui);
   };
 }
 
@@ -242,7 +262,7 @@ export function watchComponentPreviewTheme(tui: TUI, theme: SwitchableComponentP
       } catch {
         return; // mid-edit invalid JSON: keep the last good palette
       }
-      if (theme.pageBg !== undefined) tui.terminal.write(`\x1b]11;${theme.pageBg}\x07`);
+      paintTerminalThemeColors(tui, theme);
       tui.invalidate();
       tui.requestRender();
     }, 50);
