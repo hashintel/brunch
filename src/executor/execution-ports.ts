@@ -62,8 +62,14 @@ export interface AgentRunnerPort {
 
 export interface TestRunArgs {
   readonly worktreeDir: string;
+  readonly verifyTarget?: VerifyTarget | undefined;
   readonly signal?: AbortSignal | undefined;
   readonly onUpdate?: (update: TestRunUpdate) => void | Promise<void>;
+}
+
+export interface VerifyTarget {
+  readonly command: string;
+  readonly args: readonly string[];
 }
 
 export type TestRunUpdate =

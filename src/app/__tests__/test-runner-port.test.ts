@@ -116,6 +116,24 @@ describe('createTestRunnerPort', () => {
     expect(result).toMatchObject({ status: 'completed', verdict: 'passed', target: 'pnpm test' });
   });
 
+  it('lets a run-level verify target override the port default', async () => {
+    const calls: Array<{ command: string; args: readonly string[] }> = [];
+    const port = createTestRunnerPort({
+      run: async (command, args) => {
+        calls.push({ command, args });
+        return { exitCode: 0, stdout: '', stderr: '' };
+      },
+    });
+
+    const result = await port.run({
+      worktreeDir: '/repo/wt',
+      verifyTarget: { command: 'npm', args: ['test'] },
+    });
+
+    expect(calls).toEqual([{ command: 'npm', args: ['test'] }]);
+    expect(result).toMatchObject({ status: 'completed', verdict: 'passed', target: 'npm test' });
+  });
+
   it('emits status and subprocess output updates', async () => {
     const port = createTestRunnerPort({
       run: async (_command, _args, options) => {

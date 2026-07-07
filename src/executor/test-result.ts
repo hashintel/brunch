@@ -102,6 +102,7 @@ export async function ingestTestResult(args: {
   let wroteStream = false;
   const runResult = await args.testRunner.run({
     worktreeDir,
+    ...(metadata.verifyTarget ? { verifyTarget: metadata.verifyTarget } : {}),
     signal: args.signal,
     onUpdate: async (update) => {
       const event: VerifyStreamEvent = {

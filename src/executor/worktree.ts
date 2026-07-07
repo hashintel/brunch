@@ -1,4 +1,4 @@
-import { access, rm } from 'node:fs/promises';
+import { access, mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type { GitWorktreePort } from './execution-ports.js';
@@ -38,6 +38,7 @@ export type WorktreeCreateResult =
       readonly worktreeDir: string;
       readonly metadataPath: string;
       readonly sideEffects: readonly (
+        | { readonly kind: 'mkdir'; readonly path: string }
         | { readonly kind: 'git_worktree_add'; readonly path: string; readonly ref: string }
         | { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' }
       )[];
@@ -67,6 +68,22 @@ export async function createWorktree(args: {
 
   const runDir = runDirPath(args.cwd, args.runId);
   const worktreeDir = worktreeDirPath(args.cwd, args.runId);
+
+  if (
+    metadata.substrate === 'empty_dir' &&
+    metadata.worktreeDir &&
+    (await pathExists(metadata.worktreeDir))
+  ) {
+    return {
+      status: 'already_created',
+      runStatus: metadata.status,
+      runId: args.runId,
+      runDir,
+      worktreeDir: metadata.worktreeDir,
+      metadataPath,
+      sideEffects: [],
+    };
+  }
 
   // Idempotent: if the worktree was already created, do not re-run
   // `git worktree add` (it fails when the directory already exists). The
@@ -112,6 +129,21 @@ export async function createWorktree(args: {
       metadataPath,
       message: `run already advanced to ${metadata.status}; refusing to recreate missing or invalid worktree`,
       sideEffects: [],
+    };
+  }
+
+  if (metadata.substrate === 'empty_dir') {
+    await mkdir(targetWorktreeDir, { recursive: true });
+    const updated: RunMetadata = { ...metadata, status: 'worktree_created', worktreeDir: targetWorktreeDir };
+    const metadataEffect = await persistRunMetadata(metadataPath, updated);
+    return {
+      status: 'worktree_created',
+      runStatus: 'worktree_created',
+      runId: args.runId,
+      runDir,
+      worktreeDir: targetWorktreeDir,
+      metadataPath,
+      sideEffects: [{ kind: 'mkdir', path: targetWorktreeDir }, metadataEffect],
     };
   }
 
