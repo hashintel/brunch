@@ -63,14 +63,24 @@ interface BrunchThemePalette {
   /** Whole-page background from the theme's `export` block (used for OSC 11). */
   readonly pageBg: string | undefined;
   /**
-   * Reference default-foreground from `export.pageFg` — the terminal
-   * environment color the palette is designed against. Deliberately *not*
-   * the `text` token: `text` is ink for themed surfaces (userMessageText,
-   * toolTitle, dialog labels), while pageFg documents the assumed inherited
-   * environment default that live sessions never paint.
+   * Reference default-foreground — the terminal environment color the
+   * palette is designed against. Deliberately *not* the `text` token:
+   * `text` is `""` (terminal default, pi's canonical value), while pageFg
+   * documents the assumed inherited environment default that live sessions
+   * never paint. Read from `export.pageFg` when present, else the neutral
+   * harness default below — pi's published theme schema does not know
+   * `pageFg`, so schema-aware editors strip it from the JSONs; the harness
+   * must not depend on it surviving.
    */
   readonly pageFg: string | undefined;
 }
+
+/** Neutral reference environment (user decision 2026-07-07): most terminals
+ * roughly conform to an off-black/off-white default scheme. */
+const REFERENCE_PAGE_FG: Record<ComponentPreviewThemeVariant, string> = {
+  dark: '#e0e0e0',
+  light: '#1f1f1f',
+};
 
 function loadBrunchThemePalette(variant: ComponentPreviewThemeVariant): BrunchThemePalette {
   const raw = readFileSync(fileURLToPath(new URL(`brunch-${variant}.json`, THEME_DIR)), 'utf8');
@@ -93,7 +103,7 @@ function loadBrunchThemePalette(variant: ComponentPreviewThemeVariant): BrunchTh
     fgColors: fgColors as Record<ThemeColor, string>,
     bgColors: bgColors as Record<ThemeBgToken, string>,
     pageBg: parsed.export?.pageBg !== undefined ? resolve(parsed.export.pageBg) : undefined,
-    pageFg: parsed.export?.pageFg !== undefined ? resolve(parsed.export.pageFg) : undefined,
+    pageFg: parsed.export?.pageFg !== undefined ? resolve(parsed.export.pageFg) : REFERENCE_PAGE_FG[variant],
   };
 }
 

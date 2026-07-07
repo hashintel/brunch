@@ -101,6 +101,62 @@ fg/bg contrast strip through both live markdown surfaces.
 ✓ Full verify gate green
 ```
 
+## Card 5 — scrollback-safe working indicator [done 2026-07-07]
+
+> Built as scoped. One adjacent fix folded in: `export.pageFg` did not survive
+> in the theme JSONs (pi's published schema doesn't know the key, so
+> schema-aware editing strips it); the harness reference environment now
+> defaults in code (`REFERENCE_PAGE_FG`, off-black/off-white per the user's
+> neutral-terminal assumption) with `export.pageFg` as an optional override.
+> Outer check owed: live session — confirm `● Working…` stays static, scrollback
+> holds during a long thinking stretch, and the OSC 9;4 progress shows in a
+> supporting terminal (Ghostty).
+
+Light scope card (user decision 2026-07-07: option 1 + 3).
+
+### Objective
+
+The working indicator never fights terminal scrollback: pi's animated
+spinner (80ms `setInterval` → a write per tick → scroll-snap-to-bottom in
+emulators with scroll-on-output) becomes a static single-frame glyph, and
+activity liveness moves to the terminal-native OSC 9;4 progress channel.
+
+### Light-card cold-start reads
+
+```
+- memory/SPEC.md   — I24-L (sealed settings boundary; policy edit stays inside it)
+- memory/PLAN.md    — frontier: component-dx (FE-1115)
+- src/.pi/extensions/chrome/index.ts — registerBrunchChrome session_start/turn hooks
+- pi facts (verified in installed 0.80.3 + source clone): Loader.restartAnimation
+  starts no interval when frames.length <= 1; ctx.ui.setWorkingIndicator persists
+  options across working indicators; RPC mode stubs it (safe unconditionally);
+  settings terminal.showTerminalProgress drives OSC 9;4
+```
+
+### Acceptance Criteria
+
+```
+✓ registerBrunchChrome applies a ≤1-frame working indicator on session_start
+  (unit test over a fake ctx.ui records the options; asserts frames.length <= 1
+  — the Loader no-interval contract)
+✓ BRUNCH_SETTINGS_POLICY sets terminal.showTerminalProgress: true (existing
+  settings contract test extended)
+✓ Full verify gate green
+```
+
+### Assumption dependency
+
+None.
+
+### Expected touched paths (tentative)
+
+```
+src/.pi/extensions/chrome/index.ts        ~
+src/.pi/extensions/chrome/__tests__/ (or existing chrome test home)  ~
+src/app/pi-settings.ts                    ~
+src/app/__tests__/brunch-tui.test.ts      ?
+```
+
 ## Card 4 — theme value rework [in progress]
 
 Design-iteration card, works *through* Card 3's loop; no fixed acceptance
