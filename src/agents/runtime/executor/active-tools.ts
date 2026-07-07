@@ -21,6 +21,7 @@ export const EXECUTOR_ALLOWED_TOOL_NAMES = [
   'execute_launch',
   'execute_run_create',
   'execute_replan_recommendation',
+  'execute_replan_start_new_run',
   'execute_worktree_create',
   'execute_populate',
   'execute_source_policy',
