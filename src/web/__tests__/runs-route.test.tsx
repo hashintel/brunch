@@ -49,6 +49,7 @@ const runDetail: RunDetail = {
   agentStreamTotal: 0,
   verifyStreamTail: [],
   verifyStreamTotal: 0,
+  sliceProgress: [{ sliceId: 's1', progress: 'started -> requested' }],
   requirements: [],
 };
 
@@ -257,7 +258,7 @@ describe('run detail route', () => {
         ),
       ),
     ).toBeTruthy();
-    expect(screen.getByText('x3')).toBeTruthy();
+    expect(screen.queryByText('x3')).toBeNull();
     expect(screen.queryByText('Now I')).toBeNull();
     expect(screen.getByText('Raw Worker stream events')).toBeTruthy();
   });
@@ -268,6 +269,10 @@ describe('run detail route', () => {
       rpcClient: rpcClient({
         run: {
           ...runDetail,
+          sliceProgress: [
+            { sliceId: 'task-1', progress: 'completed' },
+            { sliceId: 'task-2', progress: 'completed' },
+          ],
           requirements: [
             {
               requirementId: 'REQ1',
@@ -390,14 +395,16 @@ describe('run detail route', () => {
         run: {
           ...runDetail,
           reportsTail: [
-            { event: 'run_ready' },
-            { event: 'slice_started', sliceId: 'task-1' },
-            { event: 'slice_execution_requested', sliceId: 'task-1' },
-            { event: 'slice_agent_result', sliceId: 'task-1' },
             { event: 'slice_test_result', sliceId: 'task-1', status: 'failed' },
             { event: 'slice_completed', sliceId: 'task-1' },
           ],
           reportsTotal: 6,
+          sliceProgress: [
+            {
+              sliceId: 'task-1',
+              progress: 'started -> requested -> agent -> verify failed -> completed',
+            },
+          ],
         },
       }),
     });
@@ -407,6 +414,35 @@ describe('run detail route', () => {
     expect(await screen.findByText('task-1')).toBeTruthy();
     expect(screen.getByText('started -> requested -> agent -> verify failed -> completed')).toBeTruthy();
     expect(screen.getByText('Raw events')).toBeTruthy();
+  });
+
+  it('omits slice-log links when no full-log slice progress anchor exists', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        run: {
+          ...runDetail,
+          sliceProgress: [],
+          requirements: [
+            {
+              requirementId: 'REQ1',
+              content: 'Build the type root.',
+              status: 'pending',
+              sliceIds: ['task-missing'],
+              completedSliceIds: [],
+              failedSliceIds: [],
+              missingVerificationSliceIds: [],
+              criterionIds: [],
+            },
+          ],
+        },
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('REQ1')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'view slice log' })).toBeNull();
   });
 
   it('omits the petri block when the payload is absent', async () => {

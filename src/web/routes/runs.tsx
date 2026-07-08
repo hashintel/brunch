@@ -155,6 +155,7 @@ function RunDetailPage() {
 }
 
 function RequirementsPanel({ run }: { run: RunDetail }) {
+  const linkedSliceIds = new Set(run.sliceProgress.map((slice) => slice.sliceId));
   return (
     <section aria-label="Requirement status" className="flex flex-col gap-2">
       <p className="text-hint text-xxs font-mono">Requirements</p>
@@ -187,7 +188,8 @@ function RequirementsPanel({ run }: { run: RunDetail }) {
                 >
                   view in graph
                 </Link>
-                {requirement.sliceIds[0] === undefined ? null : (
+                {requirement.sliceIds[0] === undefined ||
+                !linkedSliceIds.has(requirement.sliceIds[0]) ? null : (
                   <a href={`#slice-${requirement.sliceIds[0]}`} className="text-link font-mono text-xs">
                     view slice log
                   </a>
@@ -295,7 +297,7 @@ function compactStreamEvents(events: readonly StreamEventView[]): readonly Compa
         continue;
       }
       if (message.startsWith(previous.message)) {
-        rows[rows.length - 1] = { ...event, message, count: previous.count + 1 };
+        rows[rows.length - 1] = { ...event, message, count: 1 };
         continue;
       }
     }
@@ -347,18 +349,18 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
 }
 
 function ReportsTimeline({ run }: { run: RunDetail }) {
-  const sliceProgress = groupSliceProgress(run.reportsTail);
+  const hasEvents = run.reportsTail.length > 0 || run.sliceProgress.length > 0;
   return (
     <section aria-label="Run events" className="flex flex-col gap-2">
       <p className="text-hint text-xxs font-mono">
         {`Events — showing ${run.reportsTail.length} of ${run.reportsTotal} events`}
       </p>
-      {run.reportsTail.length === 0 ? (
+      {!hasEvents ? (
         <p className="border-rule bg-tint text-sub rounded-xl border p-4 text-sm">No events yet.</p>
       ) : (
         <div className="border-rule flex flex-col gap-3 rounded-xl border bg-white p-4 shadow-[var(--shadow-card)]">
           <ol className="flex flex-col gap-2">
-            {sliceProgress.map((slice) => (
+            {run.sliceProgress.map((slice) => (
               <li id={`slice-${slice.sliceId}`} key={slice.sliceId} className="flex flex-col gap-1">
                 <div className="flex flex-wrap items-baseline gap-3">
                   <span className="text-ink font-mono text-xs">{slice.sliceId}</span>
@@ -384,38 +386,6 @@ function ReportsTimeline({ run }: { run: RunDetail }) {
       )}
     </section>
   );
-}
-
-function groupSliceProgress(events: RunDetail['reportsTail']): readonly {
-  readonly sliceId: string;
-  readonly progress: string;
-}[] {
-  const bySlice = new Map<string, string[]>();
-  for (const event of events) {
-    if (typeof event['sliceId'] !== 'string') continue;
-    const current = bySlice.get(event['sliceId']) ?? [];
-    const stage = eventStage(event);
-    if (stage) current.push(stage);
-    bySlice.set(event['sliceId'], current);
-  }
-  return [...bySlice].map(([sliceId, stages]) => ({ sliceId, progress: stages.join(' -> ') }));
-}
-
-function eventStage(event: RunDetail['reportsTail'][number]): string | undefined {
-  switch (event.event) {
-    case 'slice_started':
-      return 'started';
-    case 'slice_execution_requested':
-      return 'requested';
-    case 'slice_agent_result':
-      return 'agent';
-    case 'slice_test_result':
-      return event['status'] === 'failed' ? 'verify failed' : 'verify passed';
-    case 'slice_completed':
-      return 'completed';
-    default:
-      return undefined;
-  }
 }
 
 function PresenceFlags({ presence }: { presence: RunSummary['presence'] }) {

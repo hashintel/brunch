@@ -57,6 +57,11 @@ export interface RunRequirementStatus {
   readonly criterionIds: readonly string[];
 }
 
+export interface RunSliceProgress {
+  readonly sliceId: string;
+  readonly progress: string;
+}
+
 export interface RunDetail extends RunSummary {
   readonly planPath: string;
   readonly reportsTail: readonly RunReportEvent[];
@@ -65,6 +70,7 @@ export interface RunDetail extends RunSummary {
   readonly agentStreamTotal: number;
   readonly verifyStreamTail: readonly VerifyStreamEvent[];
   readonly verifyStreamTotal: number;
+  readonly sliceProgress: readonly RunSliceProgress[];
   readonly requirements: readonly RunRequirementStatus[];
   /** Raw parsed petrinaut/net.json — deliberately unshaped (frontier: raw view only). */
   readonly petriNet?: unknown;
@@ -154,6 +160,7 @@ export async function readRunDetail(
     agentStreamTotal: agentStream.total,
     verifyStreamTail: verifyStream.tail,
     verifyStreamTotal: verifyStream.total,
+    sliceProgress: groupSliceProgress(reports.events),
     requirements: await readRequirementStatuses(
       metadata.populatedPlanPath ?? metadata.planPath,
       metadata,
@@ -161,6 +168,36 @@ export async function readRunDetail(
     ),
     ...(petriNet === undefined ? {} : { petriNet }),
   };
+}
+
+function groupSliceProgress(events: readonly RunReportEvent[]): readonly RunSliceProgress[] {
+  const bySlice = new Map<string, string[]>();
+  for (const event of events) {
+    if (typeof event['sliceId'] !== 'string') continue;
+    const stage = eventStage(event);
+    if (!stage) continue;
+    const current = bySlice.get(event['sliceId']) ?? [];
+    current.push(stage);
+    bySlice.set(event['sliceId'], current);
+  }
+  return [...bySlice].map(([sliceId, stages]) => ({ sliceId, progress: stages.join(' -> ') }));
+}
+
+function eventStage(event: RunReportEvent): string | undefined {
+  switch (event.event) {
+    case 'slice_started':
+      return 'started';
+    case 'slice_execution_requested':
+      return 'requested';
+    case 'slice_agent_result':
+      return 'agent';
+    case 'slice_test_result':
+      return event['status'] === 'failed' ? 'verify failed' : 'verify passed';
+    case 'slice_completed':
+      return 'completed';
+    default:
+      return undefined;
+  }
 }
 
 export async function readRunTraceIndex(cwd: string, specId: string): Promise<RunTraceIndex> {

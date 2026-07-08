@@ -93,6 +93,15 @@ const ExecuteRunResultSchema = Type.Union([
         ),
       ),
       verifyStreamTotal: Type.Integer({ minimum: 0 }),
+      sliceProgress: Type.Array(
+        Type.Object(
+          {
+            sliceId: Type.String(),
+            progress: Type.String(),
+          },
+          { additionalProperties: false },
+        ),
+      ),
       requirements: Type.Array(
         Type.Object(
           {
