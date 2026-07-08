@@ -227,9 +227,9 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Linear:** [FE-1166](https://linear.app/hash/issue/FE-1166/greenfield-executor-run-substrate-and-verify-policy)
 - **Branch:** `ka/fe-1166-greenfield-executor-harness` (stacks on `ka/fe-1114-executor-replanning` / PR #300)
 - **Kind:** structural / executor run environment policy
-- **Status:** active; scoped in `memory/cards/executor-run-environment--substrate-verify.md`.
+- **Status:** active. Substrate/verify policy is built on PR #302; follow-up live failure scope is open in `memory/cards/executor-run-environment--actionable-slice-request.md` (buildable next after FE-1166 tie-off). Current scope cards: `memory/cards/executor-run-environment--substrate-verify.md`; `memory/cards/executor-run-environment--actionable-slice-request.md`.
 - **Objective:** Separate run substrate and verify target from source-copy policy so greenfield fixture runs can use an isolated run directory and product-owned verification profile instead of always starting from a host git worktree and hardcoded `npm run verify`.
-- **Traceability:** FE-1114 follow-up live-run evidence; `src/executor/worktree.ts`, `src/executor/test-result.ts`, `src/app/test-runner-port.ts`, `src/.pi/extensions/executor/execute-run-create/index.ts`.
+- **Traceability:** FE-1114 follow-up live-run evidence; `src/executor/worktree.ts`, `src/executor/test-result.ts`, `src/app/test-runner-port.ts`, `src/.pi/extensions/executor/execute-run-create/index.ts`; follow-up worker-request evidence from run `run-mrbyf8u9` recorded in `memory/cards/executor-run-environment--actionable-slice-request.md`.
 
 <!-- elicitation-gap-guidance (FE-1116) full definition archived to docs/archive/PLAN_HISTORY.md (2026-07-03 ln-sync);
      durable truth: D99-L, D101-L, D102-L, I52-L, I56-L, closure oracle
