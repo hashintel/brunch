@@ -100,7 +100,20 @@ Run the project's verification harness. All checks must pass. If the card proved
 
 **Green must not be manufactured by disabling oracles.** Never `.skip` / `.todo` a test (or narrow a test glob) to get the gate green. If a test genuinely must be parked, it needs an adjacent comment naming the reason and the re-enable trigger, plus an explicit line in the completion report — and parking a test that guards a card leaf or preserved invariant means the card is **not done**, whatever the gate says. Compare the suite's skipped-test count against the parent commit; an unexplained increase is a red flag you report, not a detail you omit.
 
-**Completion is leaf-by-leaf, not vibes-level.** Before marking a card `done`, walk its Acceptance Criteria (and Invariants preserved, when present) and confirm each leaf against its named oracle. The completion report enumerates the leaves with their outcome — met, met-with-divergence (say what diverged), or **dropped (say so loudly and leave the card open)**. A one-line "done, verify green" against a multi-leaf card is the failure mode this rule exists to prevent: the gate proves the code compiles and current tests pass; only the leaf walk proves the card.
+**Completion is leaf-by-leaf, not vibes-level.** Before marking a card `done`, walk its Acceptance Criteria (and Invariants preserved, when present) and confirm each leaf against its named oracle. A one-line "done, verify green" against a multi-leaf card is the failure mode this rule exists to prevent: the gate proves the code compiles and current tests pass; only the leaf walk proves the card.
+
+The completion report uses this shape — a table, not prose highlights (prose invites the compression this rule exists to resist), captured **before** the consumed scope file is deleted, since deletion destroys the checklist a reviewer would diff against:
+
+```md
+| Leaf | Outcome | Evidence |
+| ---- | ------- | -------- |
+| [leaf text, abbreviated] | met / met-with-divergence / dropped | [oracle: test name, command output, or file:line] |
+```
+
+- **met-with-divergence** names what diverged and why. Writing or changing a test that pins behavior *contradicting* a card leaf is a divergence declaration by definition — surface it; a greener suite must not quietly renegotiate the card.
+- **dropped** is loud and leaves the card open.
+- Walk oracle-less obligations (naming comments, doc updates, deliberate-narrowing markers) **first** — the gate cannot catch those, so they are the leaves most likely to silently drop.
+- End the report with the skipped-test-count delta vs the parent commit.
 
 ## Canonical reconciliation (mandatory)
 

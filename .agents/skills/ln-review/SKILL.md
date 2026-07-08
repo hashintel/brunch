@@ -58,6 +58,8 @@ Collect findings as numbered items (category: `contract`). Frame each as: the as
 
 If `memory/SPEC.md` §Oracle Strategy by Loop Tier exists, check whether recent work implemented the oracles declared by the relevant `memory/PLAN.md` frontier definition. If a full or light scope card is available in session context, use it as a higher-resolution slice supplement, not the primary source of truth. Look for:
 
+**Card-conformance leaf walk.** When reviewing a build burst that consumed a scope card, recover the card even if it was retired on completion (`git show <pre-build-commit>:memory/cards/<file>` — deletion is part of the card lifecycle, not evidence the obligations were met) and walk its Acceptance Criteria and Invariants preserved leaf by leaf against the diff. Three finding shapes specific to this walk: a leaf with no implementing change and no declared drop; an **oracle-inverted divergence** — a test added or modified to pin behavior that *contradicts* a card leaf, silently renegotiating the card while making the suite greener; and dropped oracle-less obligations (naming comments, deliberate-narrowing markers, doc updates), which the verify gate can never catch and therefore leak first. Compare the suite's skipped-test count across the burst while you're there (see the skip lens in `references/contract-lenses.md`).
+
 - Scope card promised schema validation → is there a Zod parse in the test?
 - Scope card promised differential oracle → are there golden master fixtures?
 - Scope card promised round-trip oracle → is there a persist-then-query test?
