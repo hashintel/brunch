@@ -568,19 +568,7 @@ async function collectContinuingCandidateChoice(
       'ask continuation choice requires interactive UI',
     );
   }
-  const custom = ctx.ui.custom;
-  const picked = await withWorkingIndicatorHidden(ctx, () =>
-    custom<{ readonly id: string } | undefined>((_tui, theme, _keybindings, done) =>
-      createExchangeDecisionPickerComponent({
-        prompt: 'Choose one',
-        body: params.body,
-        choices: choicesFromParams(params),
-        theme,
-        borderColor: askBorderColor(ctx, theme),
-        onDone: done,
-      }),
-    ),
-  );
+  const picked = await presentSingleChoicePicker(params, ctx, ctx.ui.custom);
   if (!picked) {
     surfaceContinueHint(ctx);
     return continuationTerminal(params, present, 'cancelled');
@@ -700,49 +688,18 @@ function continuationReviewDetails(input: {
   readonly review: ReviewDecision;
   readonly comment: string | undefined;
 }) {
-  if ('digest' in input.present) {
-    if (input.review === 'approve') {
-      return projectRequestReview({
-        exchangeId: input.exchangeId,
-        respondsToPresentTool: 'present_digest',
-        status: 'answered',
-        review: input.review,
-        acceptedAbstract: input.present.digest.abstract,
-        ...(input.comment ? { comment: input.comment } : {}),
-      });
-    }
-    if (input.review === 'request_changes') {
-      return projectRequestReview({
-        exchangeId: input.exchangeId,
-        respondsToPresentTool: 'present_digest',
-        status: 'answered',
-        review: input.review,
-        comment: input.comment ?? '',
-      });
-    }
-    return projectRequestReview({
-      exchangeId: input.exchangeId,
-      respondsToPresentTool: 'present_digest',
-      status: 'answered',
-      review: input.review,
-      ...(input.comment ? { comment: input.comment } : {}),
-    });
-  }
-  if (input.review === 'request_changes') {
-    return projectRequestReview({
-      exchangeId: input.exchangeId,
-      respondsToPresentTool: 'present_review_set',
-      status: 'answered',
-      review: input.review,
-      comment: input.comment ?? '',
-    });
-  }
+  const isDigestReview = 'digest' in input.present;
+  const respondsToPresentTool = isDigestReview ? 'present_digest' : 'present_review_set';
+  const acceptedAbstract =
+    isDigestReview && input.review === 'approve' ? input.present.digest.abstract : undefined;
+  const comment = input.review === 'request_changes' ? (input.comment ?? '') : input.comment;
   return projectRequestReview({
     exchangeId: input.exchangeId,
-    respondsToPresentTool: 'present_review_set',
+    respondsToPresentTool,
     status: 'answered',
     review: input.review,
-    ...(input.comment ? { comment: input.comment } : {}),
+    ...(acceptedAbstract !== undefined ? { acceptedAbstract } : {}),
+    ...(input.review === 'request_changes' || comment ? { comment } : {}),
   });
 }
 

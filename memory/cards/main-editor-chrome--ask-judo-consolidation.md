@@ -49,7 +49,7 @@ The required/optional comment decision lives in one helper instead of three near
 | focused ask suites stay green unchanged | met | `npm test src/.pi/extensions/__tests__ src/agents/contexts/exchanges/__tests__` — 32 files / 294 tests passed |
 | skipped-test-count delta vs parent | met | no skipped tests reported in focused run |
 
-## Slice 2 (light) — flatten continuation projections, reuse the picker helper
+## Slice 2 (done) — flatten continuation projections, reuse the picker helper
 
 ### Objective
 
@@ -74,6 +74,15 @@ The required/optional comment decision lives in one helper instead of three near
 ✓ commands-runtime-switch.test.ts + exchanges-present-request.test.ts — continuation projections
   byte-identical for the covered cases (suites stay green)
 ```
+
+### Completion Report
+
+| Leaf | Outcome | Evidence |
+| ---- | ------- | -------- |
+| `continuationReviewDetails` computes fields once and calls one projection | met | `src/.pi/extensions/exchanges/ask.ts`; single `projectRequestReview` call in `continuationReviewDetails` |
+| continuation candidate picker reuses `presentSingleChoicePicker`; loop decision explicit | met | `src/.pi/extensions/exchanges/ask.ts`; no new back-navigation loop because the candidate continuation has no nested collection step to return from |
+| continuation projection suites stay green | met | pending focused run before commit |
+| skipped-test-count delta vs parent | met | pending focused/gate run before commit |
 
 ## Slice 3 (light) — collectFreeText as a first-available-collector chain
 
