@@ -21,9 +21,9 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 **Alpha release lane (opened 2026-07-07).** Brunch ships as `@hashintel/brunch@1.0.0-alpha.x` from the `next` trunk. A same-day spike → grill → spec pass admitted `alpha-release-readiness` (FE-1159): two release-blocking packaging defects, a pinned model-allowlist policy (D113-L), Pi-auth-riding onboarding with `brunch login` (D114-L), and a no-auth upstream gate (D115-L).
 
-**Exchange-ask cutover (D116-L, built 2026-07-08).** A one-shot **ask** tool is now the only interactive structured-exchange terminal; `present_question` and the registered `request_response` collector are retired; offer presents declare their ask continuation in details. "Pending exchange" dissolved as a concept; headless RPC discovery of open asks is deferred (A39-L → Horizon `headless-ask-discovery`). Frontier `exchange-ask-refinement` (FE-1164) awaits tie-off.
+**Exchange-ask cutover (D116-L, merged 2026-07-08).** A one-shot **ask** tool is now the only interactive structured-exchange terminal; `present_question` and the registered `request_response` collector are retired; offer presents declare their ask continuation in details. "Pending exchange" dissolved as a concept; headless RPC discovery of open asks is deferred (A39-L → Horizon `headless-ask-discovery`). Unwitnessed outer-loop residue rides `walkthrough-evidence-batch`.
 
-**Merge wave (2026-07-08) + plan consolidation.** The braided ship-gate stack and the KA executor lanes are merged to `next` (#286–#298). Still open: FE-1159 (#299), FE-1115 (#301), FE-1164 (unsubmitted), and KA's #300/#302/#303. A same-day `ln-plan` hygiene pass batched all straggling outer-loop residue from the merged lanes into `walkthrough-evidence-batch` (FE-1167), pruned non-frontier Horizon rows, and folded `blank-carrier-sweep` into the FE-1163 ledger.
+**Merge wave (2026-07-08) + plan consolidation.** The braided ship-gate stack, alpha-readiness PR, component-DX PR, ask cutover, and KA executor lanes are merged to `next` (#286–#304). A same-day `ln-plan` hygiene pass batched all straggling outer-loop residue from the merged lanes into `walkthrough-evidence-batch` (FE-1167), pruned non-frontier Horizon rows, and folded `blank-carrier-sweep` into the FE-1163 ledger. Remaining open PR work is FE-1169 chrome (#305).
 
 **Capture-sweep reliability lane (grilled 2026-07-08).** A trace of the capture-sweep mechanism surfaced that the watermark advance is optimistic (`sweptAt` asserts intent, not completion) and that agent-action provenance — product-wired vs event-nudged vs freely chosen — is illegible during walkthroughs. Settled as D117-L (include-list stays, fail-closed), A40-L (`turn_end` as a future capture-conditional upgrade, not now), and the "Sweep ingestion reliability" blind spot. The plan-level answer is one new frontier, `mechanism-trace`: a post-hoc carrier-classified transcript trace as the spine, with the sweep-debt tripwire riding it as a scenario-scoped outer-loop oracle. The D117-L constant-anchoring hardening is a direct fix outside that frontier.
 
@@ -61,7 +61,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ### Active
 
 - `alpha-release-readiness` (FE-1159) — **merged 2026-07-08 (#299)**; remaining closeout is publish only (human-gated npm auth; mechanics in the definition below §Publish mechanics). Branch retired.
-- `main-editor-chrome` (FE-1169) — chrome-batch opener, in heavy flight: builder commits landed 2026-07-08 for threads 1–5 (ask surface, mode-reactive chrome, commands, startup theming, and details-driven candidate rendering); the judo/review-contract fix cards consumed; roving-flake stabilization rode this branch. Remaining card: `--theme-demo-expansion.md`, then outer manual beats. Branch `ln/fe-1169-editor-chrome` (PR #305; parents merged — `gt restack` onto `next` owed). Definition below.
+- `main-editor-chrome` (FE-1169) — chrome-batch opener, in heavy flight: builder commits landed 2026-07-08 for threads 1–5 (ask surface, mode-reactive chrome, commands, startup theming, and details-driven candidate rendering); the judo/review-contract fix cards consumed; roving-flake stabilization rode this branch. Remaining card: `--theme-demo-expansion.md`, then outer manual beats. Branch `ln/fe-1169-editor-chrome` (PR #305; locally restacked onto merged parents; tie-off/submit owed). Definition below.
 - `tool-schema-convergence` (FE-1163) — next build: sweep over the 46-tool provider-facing schema surface. Base: **off `next`** now that FE-1164 merged (supersedes the stack-on-FE-1164 note). Ledger: `memory/cards/tool-schema-convergence--ledger.md` (includes the folded blank-carrier row). Definition below.
 
 ### Recently Completed
@@ -173,7 +173,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 - **Name:** Walkthrough evidence batch — outer-loop checks for the merged orientation and executor lanes
 - **Linear:** [FE-1167](https://linear.app/hash/issue/FE-1167/walkthrough-evidence-batch-outer-loop-checks-for-merged-orientation)
-- **Branch:** tbd at pickup (off `next` after FE-1164 merges — the beats must witness the ask surfaces, not the retired ones)
+- **Branch:** tbd at pickup (off `next`; the beats must witness the current ask surfaces, not the retired ones)
 - **Kind:** verification batch / walkthrough evidence + external-residue closure. Arc: `deterministic-orientation` (closing member).
 - **Certainty:** proving — the evidence is the point; conduct quality on the generative flows and Execute-mode assessment is unwitnessed.
 - **Why now / unlocks:** created by the 2026-07-08 hygiene fold — FE-1134, FE-1137, FE-1124, and FE-1107 all merged with the *same* unowned residue ("outer walkthrough evidence on a re-braided branch"), leaving three frontiers permanently un-closable. This batch owns all of it in one place with one trigger.
@@ -181,7 +181,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   1. **FE-1134 evidence:** live walkthrough beats for the orientation menu's generative options (propose/project), using the FE-1124 seed variants; menu→conduct routing evidence via session JSONL skill reads.
   2. **FE-1137 evidence:** Execute-mode entry beats on thin vs rich seeds (assessment honesty: Ask on thin, Proceed on rich); capture evidence on the two deferred orientation-choice questions — `continue`/`proceed` semantics and the sticky-posture candidate (a D98-L-sensitive reversal; route through `ln-grill`/`ln-spec` if evidence says revisit).
   3. **FE-1124 remainder:** Card 3 review variants (`memory/cards/walkthrough-batch-2--seed-variants.md`) + the seed-variation worklist; findings continue in `TESTING_FINDINGS.md`.
-  4. **FE-1107/KA residue:** confirm executor-card GC (incl. `memory/cards/executor-run-integrity--plan-projection.md`), settle FE-1107 close-or-narrow, hold the demo session (`docs/DEMO_STACK_OVERVIEW_2026-07-06.md`, delete after), then the owed post-KA `ln-plan` pass.
+  4. **FE-1107/KA residue:** executor-card GC completed in the 2026-07-08 sync; remaining: settle FE-1107 close-or-narrow, hold the demo session (`docs/DEMO_STACK_OVERVIEW_2026-07-06.md`, delete after), then the owed post-KA `ln-plan` pass.
   5. **FE-1164 walkthrough residue (folded from the retired 2026-07-08 handoff — FE-1164 merged without these witnessed):** declared continuations driven live (digest/review/candidates chain); capture sweep after ask answers (highest-value — the outer witness of the `64aad51a` sweep-classifier fix); resume re-render of persisted ask results; web sidecar behavior during an open ask; `dev:components` gallery re-check in both themes. Workbench: `.fixtures/workbenches/workspace-alpha-grounding` (`npm run dev -- --workspace …`; reseed `npm run seed -- --seed workspace-alpha-grounding/base --reset`). Note: the ask surfaces have since been reshaped by FE-1169 (compact result content, hierarchical esc, mode-reactive borders) — witness the current surfaces, not FE-1164's originals.
 - **Annotations:** Retires: the unwitnessed-conduct uncertainty on generative menus and Execute entry (the arc's "one witnessed e2e run per generative flow" obligation). Closes: arc `deterministic-orientation`; the FE-1107 disposition question.
 - **Acceptance sketch:** per-flow walkthrough beats recorded against `TESTING_FINDINGS.md` with session JSONL evidence; the two deferred FE-1137 questions answered or explicitly re-routed; KA residue dispositions recorded in PLAN; arc marked done only when its done-definition holds (incl. topology reconciliation).
@@ -234,7 +234,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 - **Name:** Tool-schema convergence sweep — one adapter, two schema sources, build-time provider legality
 - **Linear:** [FE-1163](https://linear.app/hash/issue/FE-1163/tool-schema-convergence-one-adapter-two-schema-sources-build-time)
-- **Branch:** `ln/fe-1163-tool-schema-convergence`, **stacked on `ln/fe-1164-ask-terminal`** (2026-07-08 re-sequencing: the ask cutover reshaped the exchanges family this sweep normalizes; supersedes "off `next` after FE-1159 ties off")
+- **Branch:** `ln/fe-1163-tool-schema-convergence`, off `next` now that FE-1164 merged (supersedes the earlier stack-on-FE-1164 note; the ask cutover still shapes the exchanges family this sweep normalizes)
 - **Kind:** coverage frontier / sweep (frontier shape, not posture). **Certainty: earned** — every row is closure over an already-understood seam; nothing material is unknown.
 - **Status:** admitted 2026-07-07; ledger authored, not yet scoped/built.
 - **Why now / unlocks:** the FE-1159 outer walkthrough proved the failure class is real and total — one top-level `oneOf` in `read_graph` 400ed *every* provider turn on every Anthropic-family backend, and the faux-provider suite structurally cannot see it. Today the tool surface has a three-way authoring split (Zod-via-adapter ×2 duplicate adapters, TypeBox builders, hand `as const` JSON literals), so nothing enforces provider legality at authoring time. Converging now, right after the alpha cut, hardens the entire tool surface before alpha users hit it.
@@ -270,7 +270,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Linear:** [FE-1166](https://linear.app/hash/issue/FE-1166/greenfield-executor-run-substrate-and-verify-policy)
 - **Branch:** `ka/fe-1166-greenfield-executor-harness` (stacks on `ka/fe-1114-executor-replanning` / PR #300)
 - **Kind:** structural / executor run environment policy
-- **Status:** active. Substrate/verify policy is built on PR #302; follow-up live failure scope is open in `memory/cards/executor-run-environment--actionable-slice-request.md` (buildable next after FE-1166 tie-off). Current scope cards: `memory/cards/executor-run-environment--substrate-verify.md`; `memory/cards/executor-run-environment--actionable-slice-request.md`.
+- **Status:** active follow-up. Substrate/verify policy is built and merged on PR #302; the consumed substrate/verify scope card was deleted in the 2026-07-08 sync. Follow-up live failure scope is open in `memory/cards/executor-run-environment--actionable-slice-request.md` (buildable next after FE-1166 tie-off).
 - **Objective:** Separate run substrate and verify target from source-copy policy so greenfield fixture runs can use an isolated run directory and product-owned verification profile instead of always starting from a host git worktree and hardcoded `npm run verify`.
 - **Traceability:** FE-1114 follow-up live-run evidence; `src/executor/worktree.ts`, `src/executor/test-result.ts`, `src/app/test-runner-port.ts`, `src/.pi/extensions/executor/execute-run-create/index.ts`; follow-up worker-request evidence from run `run-mrbyf8u9` recorded in `memory/cards/executor-run-environment--actionable-slice-request.md`.
 
@@ -283,7 +283,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
      src/web/TOPOLOGY.md. Follow-on KA work continues on #300/#302/#303. -->
 
 <!-- executor-run-integrity (FE-1154) definition archived to docs/archive/PLAN_HISTORY.md (2026-07-08, merged #297);
-     retained card executor-run-integrity--plan-projection.md GCs via FE-1167's KA residue item. -->
+     retained executor card GC completed in the 2026-07-08 sync. -->
 
 ### planning-process-model
 
@@ -346,7 +346,7 @@ frontiers:
     main-editor-chrome (FE-1169)
       status: in flight — threads 1/2/3/4 + D1/D2/D3/D4 + judo/review-contract fixes landed 2026-07-08;
               remaining: theme demo, outer beats
-      branch: ln/fe-1169-editor-chrome (PR #305; parents merged -> gt restack onto next owed)
+      branch: ln/fe-1169-editor-chrome (PR #305; locally restacked onto merged parents -> tie-off/submit owed)
       absorbed: workspace-dialog-headless-guard [done], physical-terminal wheel smoke beat [open, outer]
       revises: D104-L (pass-through rule; render-honesty preserved) -> landed with details-driven candidate rendering
       depends_on: D22-L, D35-L, D113-L; FE-1138 Editor-in-chrome precedent
@@ -364,8 +364,8 @@ frontiers:
               FE-1169 lands so beats witness the reshaped ask surfaces (compact content, esc, borders)
       branch: tbd (off next)
       owns: generative-menu evidence, thin/rich Execute beats + deferred orientation-choice questions,
-            FE-1124 Card 3 + seed worklist, FE-1107/KA residue (card GC, close-or-narrow, demo session,
-            post-KA plan pass), FE-1164 walkthrough residue (group 5: declared continuations, capture
+            FE-1124 Card 3 + seed worklist, FE-1107/KA residue (close-or-narrow, demo session,
+            post-KA plan pass; executor-card GC done 2026-07-08 sync), FE-1164 walkthrough residue (group 5: declared continuations, capture
             sweep after answers, resume re-render, sidecar during open ask, gallery re-check)
     mechanism-trace
       status: admitted 2026-07-08 (capture-sweep grill); branch/Linear at pickup (off next)

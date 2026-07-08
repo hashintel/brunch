@@ -10,6 +10,7 @@ Orientation:
 - Containing seam: the `dev:components` preview harness (`src/dev/component-preview/`), specifically the theme testbed and gallery.
 - Frontier: `main-editor-chrome` (FE-1169) thread 6's demo half. Sequenced **last** in the frontier: it witnesses the border-semantics roles the mode-reactive-chrome and commands-and-menus files create (mode-reactive + surface-identity channels).
 - Main open risk: none structural — this is a dev-tooling witness surface; the risk is scope creep into restyling components (fenced out: demo only).
+- Carry-forward decision note from the reconciled handoff: the consult menu's surface-identity channel currently uses the existing `borderAccent` theme role. This card should render that role under the surface-identity heading and either keep it as the canonical consult/menu identity role or promote a named role as a tiny SPEC/topology/lexicon touch.
 
 Posture: earned (downgraded from the frontier's proving — this card closes and witnesses roles other cards created; nothing unknown).
 
@@ -53,6 +54,7 @@ Posture: earned (downgraded from the frontier's proving — this card closes and
   frontier walkthrough notes, not drive-by fixes
 - Enumerate roles from theme data, not a hardcoded list (the develop-mode third role must appear
   for free when it lands)
+- Decide and document the `borderAccent` consult-menu role question: keep it as the surface-identity role or promote a named role consistently.
 ```
 
 ### Assumption dependency

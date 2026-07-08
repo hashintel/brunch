@@ -2,6 +2,7 @@
 
 Mode: sweep
 Frontier: `tool-schema-convergence` (memory/PLAN.md) · [FE-1163](https://linear.app/hash/issue/FE-1163/tool-schema-convergence-one-adapter-two-schema-sources-build-time)
+Base: off `next` after the FE-1164 ask cutover merged (supersedes the earlier stack-on-FE-1164 note)
 Authored: 2026-07-07 (ln-plan; ledger mapped at admission per user request — ln-scope refines row slices before build)
 
 ## Layer boundary
