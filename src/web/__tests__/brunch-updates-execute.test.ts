@@ -20,9 +20,7 @@ describe('brunch.updated execute topic invalidation', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.runs'], exact: true });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.run', 'run-1'], exact: true });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.runTraceIndex'] });
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.replanRecommendation'] });
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.replanRecommendation', 'run-1'] });
-    expect(invalidate).toHaveBeenCalledTimes(6);
+    expect(invalidate).toHaveBeenCalledTimes(4);
   });
 
   it('falls back to broad run-detail invalidation for a bare execute.run topic', () => {
@@ -34,6 +32,5 @@ describe('brunch.updated execute topic invalidation', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.run'] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.runs'], exact: true });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.runTraceIndex'] });
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.replanRecommendation'] });
   });
 });

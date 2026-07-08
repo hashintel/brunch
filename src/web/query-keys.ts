@@ -16,7 +16,5 @@ export const queryKeys = {
     runs: () => ['execute.runs'] as const,
     run: (runId: string) => ['execute.run', runId] as const,
     runTraceIndex: (specId: number) => ['execute.runTraceIndex', specId] as const,
-    replanRecommendation: (runId: string, specId: number) =>
-      ['execute.replanRecommendation', runId, specId] as const,
   },
 };

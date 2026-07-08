@@ -79,13 +79,11 @@ function invalidateProductUpdate(queryClient: QueryClient, update: ProductUpdate
   if (update.topic === 'execute.runs') {
     invalidateExact(queryClient, queryKeys.execute.runs());
     void queryClient.invalidateQueries({ queryKey: ['execute.runTraceIndex'] });
-    void queryClient.invalidateQueries({ queryKey: ['execute.replanRecommendation'] });
     return;
   }
   if (update.topic === 'execute.run' && typeof update.runId === 'string') {
     invalidateExact(queryClient, queryKeys.execute.run(update.runId));
     void queryClient.invalidateQueries({ queryKey: ['execute.runTraceIndex'] });
-    void queryClient.invalidateQueries({ queryKey: ['execute.replanRecommendation', update.runId] });
     return;
   }
   if (typeof update.topic === 'string') {
@@ -117,13 +115,11 @@ function invalidateTopic(queryClient: QueryClient, topic: string): void {
   if (topic === 'execute.runs') {
     invalidateExact(queryClient, queryKeys.execute.runs());
     void queryClient.invalidateQueries({ queryKey: ['execute.runTraceIndex'] });
-    void queryClient.invalidateQueries({ queryKey: ['execute.replanRecommendation'] });
     return;
   }
   if (topic === 'execute.run') {
     void queryClient.invalidateQueries({ queryKey: ['execute.run'] });
     void queryClient.invalidateQueries({ queryKey: ['execute.runTraceIndex'] });
-    void queryClient.invalidateQueries({ queryKey: ['execute.replanRecommendation'] });
   }
 }
 
