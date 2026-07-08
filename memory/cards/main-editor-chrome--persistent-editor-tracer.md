@@ -12,7 +12,7 @@ Orientation:
 
 - Containing seam: Pi's `ctx.ui.setEditorComponent` (public, documented, with a shipped worked example) consumed from Brunch's chrome extension — the D35-L surface that already owns footer/header/title.
 - Frontier: `main-editor-chrome` (FE-1169), thread 1 of six; this is the tracer the other five threads aim from (thread 4's mode-reactive border colors plumb through the seam this slice opens).
-- Volatile state: HANDOFF.md's lane pointer only; branch `ln/fe-1169-editor-chrome` has no implementation commits. FE-1164 tie-off is adjacent stack state, not a dependency.
+- Volatile state: Card 1 landed as `a83080d` (`FE-1169: Mount persistent Brunch editor chrome`). FE-1164 tie-off is adjacent stack state, not a dependency.
 - Main open risk: the swap path is production-unexercised — factory invocation timing at session start, differential height accounting for a taller boxed editor (F18 precedent: embedded height drift ate transcript lines), and focus/autocomplete routing are all assumptions until a live session renders.
 
 Posture: proving (inherited from main-editor-chrome).
@@ -188,11 +188,19 @@ src/dev/TOPOLOGY.md                            ?  (only if the preview entry con
 | D22-L/I22-L startup ordering | met | product-path mount test exercises `createBrunchPiExtensions`; no launch choreography changed |
 | D115-L/I59-L no-auth/no-UI degradation | met | no-UI editor guard test; no provider-turn path changed |
 
-Skipped-test delta vs parent: 0 observed in targeted suite (no skipped tests reported); full-suite gate pending after Card 2.
+Skipped-test delta vs parent: 0 observed in targeted suite (no skipped tests reported). Full-suite `npm run verify` attempted twice after Card 1 and hit the known `git-host-promotion-port` timeout both times (PLAN already names this roving-suite flake); targeted card suite and `npm run build` passed.
+
+Fresh-thread resume for Card 2:
+
+- Card 1 is committed; worktree was clean except this scope-file status update when this note was added.
+- A brief Card 2 red probe was started then intentionally removed to keep the next thread clean; the useful shape was a new `src/.pi/extensions/__tests__/workspace-action-headless.test.ts` asserting (1) no `ui.custom` means no throw, product-shaped `notify(..., 'warning')`, and no `activateWorkspace(undefined)`, and (2) UI-capable decision/cancelled/needs_human branches still flow as today.
+- The implementation target remains `src/.pi/extensions/workspace/index.ts`: guard before the `ctx.ui.custom<SpecSessionActivationDecision>(...)` call, mirroring `ask.ts`'s `ctx.hasUI && typeof ctx.ui?.custom === 'function'` capability style. No SPEC/PLAN promotion expected.
 
 ---
 
 ## Card 2 (light): workspace dialog headless guard
+
+Status: next
 
 ### Objective
 
