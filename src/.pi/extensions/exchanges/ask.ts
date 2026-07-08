@@ -108,6 +108,10 @@ type AskCommentInput =
       readonly choiceKinds?: never;
       readonly reviewDecision: ReviewDecision;
     };
+type FreeTextCollectionResult =
+  | { readonly status: 'answered'; readonly answer: string }
+  | { readonly status: 'cancelled' }
+  | { readonly status: 'try-next' };
 
 function askBorderColor(ctx: StructuredExchangeUiContext, theme: Pick<Theme, 'fg'>) {
   const mode = projectBrunchAgentState(ctx.sessionManager?.getBranch() ?? []).operationalMode;
@@ -144,55 +148,18 @@ async function collectFreeText(
   ctx: StructuredExchangeUiContext,
   answerBroker: LiveExchangeAwaiter | undefined,
 ): Promise<ToolResult> {
-  let answer: string | undefined;
-  if (ctx.hasUI && typeof ctx.ui?.custom === 'function') {
-    const custom = ctx.ui.custom;
-    const customResult = await withWorkingIndicatorHidden(ctx, () =>
-      custom<{ readonly status: 'answered'; readonly answer: string } | { readonly status: 'cancelled' }>(
-        (tui, theme, _keybindings, done) => {
-          const borderColor = askBorderColor(ctx, theme);
-          const editorTheme: EditorTheme = {
-            borderColor,
-            selectList: getSelectListTheme(),
-          };
-          return new ExchangeAnswerEditorComponent(tui, editorTheme, {
-            body: params.body,
-            theme,
-            borderColor,
-            onDone: (value) =>
-              done(value === undefined ? { status: 'cancelled' } : { status: 'answered', answer: value }),
-          });
-        },
-      ),
-    );
-    if (customResult?.status === 'answered') answer = customResult.answer;
-    else if (customResult?.status === 'cancelled') {
-      surfaceContinueHint(ctx);
-      return terminal(params, question, 'cancelled');
-    } else if (typeof ctx.ui?.editor === 'function') {
-      answer = await withWorkingIndicatorHidden(ctx, () => ctx.ui!.editor!(params.body));
-      if (answer === undefined) {
-        surfaceContinueHint(ctx);
-        return terminal(params, question, 'cancelled');
-      }
-    }
-  } else if (ctx.hasUI && typeof ctx.ui?.editor === 'function') {
-    answer = await withWorkingIndicatorHidden(ctx, () => ctx.ui!.editor!(params.body));
-    if (answer === undefined) {
-      surfaceContinueHint(ctx);
-      return terminal(params, question, 'cancelled');
-    }
-  } else if (answerBroker) {
-    answer = await answerBroker.awaitAnswer({ exchangeId: params.exchangeId });
-  } else {
+  const collected = await firstAvailableFreeTextCollector([
+    () => collectFreeTextViaCustomEditor(params, ctx),
+    () => collectFreeTextViaPlainEditor(params, ctx),
+    () => collectFreeTextViaAnswerBroker(params, answerBroker),
+  ]);
+  if (collected === undefined)
     return terminal(params, question, 'unavailable', 'ask requires interactive UI');
-  }
-
-  if (answer === undefined) {
+  if (collected.status === 'cancelled') {
     surfaceContinueHint(ctx);
     return terminal(params, question, 'cancelled');
   }
-  const trimmed = answer.trim();
+  const trimmed = collected.answer.trim();
   if (trimmed.length === 0) return terminal(params, question, 'unavailable', 'ask answer cannot be empty');
   let comment: string | undefined;
   if (params.commentPrompt && typeof ctx.ui?.input === 'function') {
@@ -207,6 +174,65 @@ async function collectFreeText(
       ...(comment ? { comment } : {}),
     }),
   );
+}
+
+async function firstAvailableFreeTextCollector(
+  collectors: readonly (() => Promise<FreeTextCollectionResult>)[],
+): Promise<Exclude<FreeTextCollectionResult, { readonly status: 'try-next' }> | undefined> {
+  for (const collect of collectors) {
+    const result = await collect();
+    if (result.status === 'try-next') continue;
+    return result;
+  }
+  return undefined;
+}
+
+async function collectFreeTextViaCustomEditor(
+  params: CollectableAskParams,
+  ctx: StructuredExchangeUiContext,
+): Promise<FreeTextCollectionResult> {
+  if (!ctx.hasUI || typeof ctx.ui?.custom !== 'function') return { status: 'try-next' };
+  const custom = ctx.ui.custom;
+  const customResult = await withWorkingIndicatorHidden(ctx, () =>
+    custom<{ readonly status: 'answered'; readonly answer: string } | { readonly status: 'cancelled' }>(
+      (tui, theme, _keybindings, done) => {
+        const borderColor = askBorderColor(ctx, theme);
+        const editorTheme: EditorTheme = {
+          borderColor,
+          selectList: getSelectListTheme(),
+        };
+        return new ExchangeAnswerEditorComponent(tui, editorTheme, {
+          body: params.body,
+          theme,
+          borderColor,
+          onDone: (value) =>
+            done(value === undefined ? { status: 'cancelled' } : { status: 'answered', answer: value }),
+        });
+      },
+    ),
+  );
+  if (customResult?.status === 'answered') return customResult;
+  if (customResult?.status === 'cancelled') return customResult;
+  // pi 0.80.x headless custom stubs resolve undefined; try the plain editor next.
+  return { status: 'try-next' };
+}
+
+async function collectFreeTextViaPlainEditor(
+  params: CollectableAskParams,
+  ctx: StructuredExchangeUiContext,
+): Promise<FreeTextCollectionResult> {
+  if (!ctx.hasUI || typeof ctx.ui?.editor !== 'function') return { status: 'try-next' };
+  const answer = await withWorkingIndicatorHidden(ctx, () => ctx.ui!.editor!(params.body));
+  return answer === undefined ? { status: 'cancelled' } : { status: 'answered', answer };
+}
+
+async function collectFreeTextViaAnswerBroker(
+  params: CollectableAskParams,
+  answerBroker: LiveExchangeAwaiter | undefined,
+): Promise<FreeTextCollectionResult> {
+  if (!answerBroker) return { status: 'try-next' };
+  const answer = await answerBroker.awaitAnswer({ exchangeId: params.exchangeId });
+  return answer === undefined ? { status: 'cancelled' } : { status: 'answered', answer };
 }
 
 async function collectSingleChoice(

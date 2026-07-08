@@ -84,7 +84,7 @@ The required/optional comment decision lives in one helper instead of three near
 | continuation projection suites stay green | met | `npm test src/.pi/extensions/__tests__/commands-runtime-switch.test.ts src/.pi/extensions/__tests__/exchanges-present-request.test.ts` — 2 files / 41 tests passed |
 | skipped-test-count delta vs parent | met | no skipped tests reported in focused run |
 
-## Slice 3 (light) — collectFreeText as a first-available-collector chain
+## Slice 3 (done) — collectFreeText as a first-available-collector chain
 
 ### Objective
 
@@ -107,6 +107,15 @@ The required/optional comment decision lives in one helper instead of three near
 ✓ ask-response-export.test.ts + ask-runtime-mount.test.ts — free-text answer, cancel, empty-answer,
   broker, and unavailable behaviors unchanged (suites stay green)
 ```
+
+### Completion Report
+
+| Leaf | Outcome | Evidence |
+| ---- | ------- | -------- |
+| `ctx.ui.editor` path and cancellation exit appear once | met | `src/.pi/extensions/exchanges/ask.ts`; `collectFreeTextViaPlainEditor` owns the editor path and `collectFreeText` owns the cancellation terminal |
+| stub-custom fallthrough is a named chain step | met | `collectFreeTextViaCustomEditor` returns `try-next` for pi 0.80.x stub custom resolution |
+| free-text focused suites stay green | met | `npm test src/.pi/extensions/__tests__/ask-response-export.test.ts src/.pi/extensions/__tests__/ask-runtime-mount.test.ts` — 2 files / 6 tests passed |
+| skipped-test-count delta vs parent | met | no skipped tests reported in focused run |
 
 ## Slice 4 (light) — fractal split: ask/continuation.ts
 
