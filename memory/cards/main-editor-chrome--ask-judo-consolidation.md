@@ -81,8 +81,8 @@ The required/optional comment decision lives in one helper instead of three near
 | ---- | ------- | -------- |
 | `continuationReviewDetails` computes fields once and calls one projection | met | `src/.pi/extensions/exchanges/ask.ts`; single `projectRequestReview` call in `continuationReviewDetails` |
 | continuation candidate picker reuses `presentSingleChoicePicker`; loop decision explicit | met | `src/.pi/extensions/exchanges/ask.ts`; no new back-navigation loop because the candidate continuation has no nested collection step to return from |
-| continuation projection suites stay green | met | pending focused run before commit |
-| skipped-test-count delta vs parent | met | pending focused/gate run before commit |
+| continuation projection suites stay green | met | `npm test src/.pi/extensions/__tests__/commands-runtime-switch.test.ts src/.pi/extensions/__tests__/exchanges-present-request.test.ts` — 2 files / 41 tests passed |
+| skipped-test-count delta vs parent | met | no skipped tests reported in focused run |
 
 ## Slice 3 (light) — collectFreeText as a first-available-collector chain
 

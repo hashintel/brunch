@@ -98,6 +98,7 @@ type PickedSingleChoice = { readonly id: string };
 type PickedMultiChoices = {
   readonly choices: readonly { readonly id: string; readonly label: string }[];
 };
+type RequestReviewProjectionInput = Parameters<typeof projectRequestReview>[0];
 type AskCommentInput =
   | {
       readonly choiceKinds: readonly SelectedChoice['kind'][];
@@ -688,19 +689,43 @@ function continuationReviewDetails(input: {
   readonly review: ReviewDecision;
   readonly comment: string | undefined;
 }) {
+  return projectRequestReview(continuationReviewDetailsInput(input));
+}
+
+function continuationReviewDetailsInput(input: {
+  readonly present: PresentDigestDetails | PresentReviewSetDetails;
+  readonly exchangeId: string;
+  readonly review: ReviewDecision;
+  readonly comment: string | undefined;
+}): RequestReviewProjectionInput {
   const isDigestReview = 'digest' in input.present;
   const respondsToPresentTool = isDigestReview ? 'present_digest' : 'present_review_set';
-  const acceptedAbstract =
-    isDigestReview && input.review === 'approve' ? input.present.digest.abstract : undefined;
-  const comment = input.review === 'request_changes' ? (input.comment ?? '') : input.comment;
-  return projectRequestReview({
+  const base = {
     exchangeId: input.exchangeId,
     respondsToPresentTool,
     status: 'answered',
-    review: input.review,
-    ...(acceptedAbstract !== undefined ? { acceptedAbstract } : {}),
-    ...(input.review === 'request_changes' || comment ? { comment } : {}),
-  });
+  } as const;
+  if (input.review === 'request_changes') {
+    return { ...base, review: input.review, comment: input.comment ?? '' };
+  }
+  if (input.review === 'approve') {
+    if (isDigestReview) {
+      return {
+        ...base,
+        respondsToPresentTool: 'present_digest',
+        review: input.review,
+        acceptedAbstract: input.present.digest.abstract,
+        ...(input.comment ? { comment: input.comment } : {}),
+      };
+    }
+    return {
+      ...base,
+      respondsToPresentTool: 'present_review_set',
+      review: input.review,
+      ...(input.comment ? { comment: input.comment } : {}),
+    };
+  }
+  return { ...base, review: input.review, ...(input.comment ? { comment: input.comment } : {}) };
 }
 
 type ParsedAskParams = ReturnType<typeof zAskParams.parse>;
