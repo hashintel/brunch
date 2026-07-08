@@ -11,6 +11,7 @@ import { ComponentGalleryComponent } from '../gallery-component.js';
 import {
   createComponentPreviewTheme,
   createThemePaintingTerminal,
+  parseBrunchThemePalette,
   registerComponentPreviewThemeToggle,
   SwitchableComponentPreviewTheme,
 } from '../theme.js';
@@ -48,6 +49,54 @@ describe('createComponentPreviewTheme', () => {
     const text = component.render(120).join('\n');
 
     expect(text).toContain('Choose Brunch mode');
+  });
+});
+
+describe('parseBrunchThemePalette', () => {
+  // Semantic validation exists so watchComponentPreviewTheme's throw-based
+  // last-good-palette fallback fires on valid-JSON-but-bad-value saves, not
+  // only on JSON syntax errors — otherwise malformed hexes flow into OSC/SGR
+  // emission as NaN channels.
+  const themeJson = (overrides: object): string =>
+    JSON.stringify({
+      name: 'probe',
+      vars: { ink: '#e2ddd7' },
+      colors: { accent: 'ink', text: '' },
+      export: { pageBg: '#26221e', pageFg: '#e0e0e0' },
+      ...overrides,
+    });
+
+  it('accepts valid hexes, empty-string tokens, and vars indirection', () => {
+    const palette = parseBrunchThemePalette(themeJson({}), 'dark');
+    expect(palette.fgColors['accent']).toBe('#e2ddd7');
+    expect(palette.fgColors['text']).toBe('');
+    expect(palette.pageBg).toBe('#26221e');
+    expect(palette.pageFg).toBe('#e0e0e0');
+  });
+
+  it('throws on a valid-JSON save with an invalid hex literal', () => {
+    expect(() =>
+      parseBrunchThemePalette(themeJson({ export: { pageBg: '#26221e', pageFg: '#nothex' } }), 'dark'),
+    ).toThrow(/pageFg/);
+  });
+
+  it('throws on a dangling var reference (resolves to itself, not a hex)', () => {
+    expect(() =>
+      parseBrunchThemePalette(themeJson({ colors: { accent: 'inkk', text: '' } }), 'dark'),
+    ).toThrow(/accent.*inkk/);
+  });
+
+  it('rejects empty string where a page color is required', () => {
+    expect(() =>
+      parseBrunchThemePalette(themeJson({ export: { pageBg: '', pageFg: '#e0e0e0' } }), 'dark'),
+    ).toThrow(/pageBg/);
+  });
+
+  it('still parses the shipped theme JSONs', () => {
+    for (const variant of ['dark', 'light'] as const) {
+      const raw = readFileSync(fileURLToPath(new URL(`brunch-${variant}.json`, THEME_DIR)), 'utf8');
+      expect(() => parseBrunchThemePalette(raw, variant)).not.toThrow();
+    }
   });
 });
 
@@ -123,8 +172,8 @@ describe('registerComponentPreviewThemeToggle', () => {
       expect(terminal.writes.join('')).toContain(darkAccent);
       expect(terminal.writes.join('')).not.toContain(lightAccent);
       // Registration paints the initial variant's default foreground (OSC 10,
-      // the `text` token — governs unstyled component text) and page
-      // background (OSC 11).
+      // the theme's `export.pageFg` reference — governs unstyled and
+      // `text`-token component text) and page background (OSC 11).
       const darkPageBg = theme.pageBg;
       const darkPageFg = theme.pageFg;
       expect(darkPageBg).toBeDefined();

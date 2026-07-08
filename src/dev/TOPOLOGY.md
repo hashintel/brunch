@@ -57,8 +57,10 @@ components are render-only with injectable `theme`/props.
   dark/light live — including while an entry is open — via a consuming TUI input listener plus
   `tui.invalidate()`; every color read delegates to the active variant, so no component needs a
   retheme contract. The terminal defaults follow the toggle too — OSC 10 sets the default
-  foreground to the `text` token (so *unstyled* component text adopts the theme instead of the
-  terminal's own color) and OSC 11 sets the page background to `export.pageBg`; OSC 110/111 reset
+  foreground to the theme's `export.pageFg` reference (the assumed environment default the palette
+  is designed against — deliberately *not* the `text` token, which is `""` = terminal default), so
+  unstyled and `text`-token glyphs render on the intended page, and OSC 11 sets the page background
+  to `export.pageBg`; OSC 110/111 reset
   both on exit — since theme colors only style explicitly wrapped glyphs. For terminals that ignore
   OSC 10/11 (Zed), `createThemePaintingTerminal` wraps the harness Terminal and injects the same
   base colors at the SGR level: frame writes are prefixed with the page fg/bg and default-reset

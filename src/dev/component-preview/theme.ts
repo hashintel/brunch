@@ -56,7 +56,7 @@ export function resolveInitialComponentPreviewThemeVariant(): ComponentPreviewTh
   return process.env.BRUNCH_PREVIEW_THEME === 'light' ? 'light' : 'dark';
 }
 
-interface BrunchThemePalette {
+export interface BrunchThemePalette {
   readonly name: string;
   readonly fgColors: Record<ThemeColor, string>;
   readonly bgColors: Record<ThemeBgToken, string>;
@@ -82,19 +82,41 @@ const REFERENCE_PAGE_FG: Record<ComponentPreviewThemeVariant, string> = {
   light: '#1f1f1f',
 };
 
-function loadBrunchThemePalette(variant: ComponentPreviewThemeVariant): BrunchThemePalette {
-  const raw = readFileSync(fileURLToPath(new URL(`brunch-${variant}.json`, THEME_DIR)), 'utf8');
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
+/**
+ * Parse and validate one Brunch theme JSON. Exported for tests; the harness
+ * itself goes through `loadBrunchThemePalette` below. Every resolved value
+ * must be `#RRGGBB` (color tokens may also be `""` = terminal default, pi's
+ * canonical `text` value) — validation runs *after* `vars` indirection, so a
+ * dangling var reference (which resolves to itself) fails the same check as a
+ * bad hex literal. Throwing here is load-bearing: `watchComponentPreviewTheme`
+ * relies on `reload()` throwing to keep the last good palette, and without
+ * this check a valid-JSON save with a bad value would sail through and emit
+ * malformed OSC/SGR sequences downstream.
+ */
+export function parseBrunchThemePalette(
+  raw: string,
+  variant: ComponentPreviewThemeVariant,
+): BrunchThemePalette {
   const parsed = JSON.parse(raw) as BrunchThemeJson;
   const vars = parsed.vars ?? {};
-  const resolve = (value: string): string => vars[value] ?? value;
+  const resolve = (token: string, value: string, allowEmpty: boolean): string => {
+    const resolved = vars[value] ?? value;
+    if (allowEmpty && resolved === '') return resolved;
+    if (!HEX_COLOR.test(resolved)) {
+      throw new Error(`theme ${parsed.name}: "${token}" resolves to "${resolved}", expected #RRGGBB`);
+    }
+    return resolved;
+  };
 
   const fgColors: Record<string, string> = {};
   const bgColors: Record<string, string> = {};
   for (const [token, value] of Object.entries(parsed.colors)) {
     if ((BG_TOKENS as readonly string[]).includes(token)) {
-      bgColors[token] = resolve(value);
+      bgColors[token] = resolve(token, value, true);
     } else {
-      fgColors[token] = resolve(value);
+      fgColors[token] = resolve(token, value, true);
     }
   }
 
@@ -102,9 +124,18 @@ function loadBrunchThemePalette(variant: ComponentPreviewThemeVariant): BrunchTh
     name: parsed.name,
     fgColors: fgColors as Record<ThemeColor, string>,
     bgColors: bgColors as Record<ThemeBgToken, string>,
-    pageBg: parsed.export?.pageBg !== undefined ? resolve(parsed.export.pageBg) : undefined,
-    pageFg: parsed.export?.pageFg !== undefined ? resolve(parsed.export.pageFg) : REFERENCE_PAGE_FG[variant],
+    pageBg:
+      parsed.export?.pageBg !== undefined ? resolve('export.pageBg', parsed.export.pageBg, false) : undefined,
+    pageFg:
+      parsed.export?.pageFg !== undefined
+        ? resolve('export.pageFg', parsed.export.pageFg, false)
+        : REFERENCE_PAGE_FG[variant],
   };
+}
+
+function loadBrunchThemePalette(variant: ComponentPreviewThemeVariant): BrunchThemePalette {
+  const raw = readFileSync(fileURLToPath(new URL(`brunch-${variant}.json`, THEME_DIR)), 'utf8');
+  return parseBrunchThemePalette(raw, variant);
 }
 
 export function createComponentPreviewTheme(variant?: ComponentPreviewThemeVariant): Theme {
@@ -178,8 +209,10 @@ export class SwitchableComponentPreviewTheme extends Theme {
    * Re-read both theme JSONs from disk and rebuild the variant Themes.
    * Because all color reads delegate per call, live components pick up the
    * new values on their next render — same choreography as `toggle()`.
-   * Throws on unreadable/invalid JSON; callers decide whether a bad
-   * mid-edit save is fatal (the watcher below just keeps the last good set).
+   * Throws on unreadable/invalid JSON *and* on semantically invalid color
+   * values (non-`#RRGGBB` after vars resolution — see
+   * `parseBrunchThemePalette`); callers decide whether a bad mid-edit save is
+   * fatal (the watcher below just keeps the last good set).
    */
   reload(): void {
     const darkPalette = loadBrunchThemePalette('dark');

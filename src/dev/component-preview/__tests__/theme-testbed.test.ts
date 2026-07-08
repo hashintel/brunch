@@ -1,5 +1,5 @@
 import type { TUI } from '@earendil-works/pi-tui';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { ThemeTestbedComponent } from '../theme-testbed.js';
 import { SwitchableComponentPreviewTheme } from '../theme.js';
@@ -7,6 +7,20 @@ import { SwitchableComponentPreviewTheme } from '../theme.js';
 function stubTui(rows = 200): TUI {
   return { terminal: { rows }, requestRender: () => {} } as unknown as TUI;
 }
+
+// Constructing ThemeTestbedComponent installs the preview theme into pi's
+// registered theme global; save and restore it so this file cannot leak the
+// preview theme into other test files sharing the same Vitest worker.
+const PI_THEME_GLOBAL = Symbol.for('@earendil-works/pi-coding-agent:theme');
+let previousPiThemeGlobal: unknown;
+
+beforeEach(() => {
+  previousPiThemeGlobal = (globalThis as Record<symbol, unknown>)[PI_THEME_GLOBAL];
+});
+
+afterEach(() => {
+  (globalThis as Record<symbol, unknown>)[PI_THEME_GLOBAL] = previousPiThemeGlobal;
+});
 
 describe('ThemeTestbedComponent', () => {
   it('renders both markdown surfaces with real token colors plus the contrast strip', () => {
