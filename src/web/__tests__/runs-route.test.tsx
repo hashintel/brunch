@@ -126,7 +126,6 @@ describe('runs list route', () => {
 
     expect(await screen.findByText('No executor runs.')).toBeTruthy();
   });
-
 });
 
 describe('run detail route', () => {

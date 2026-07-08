@@ -37,9 +37,13 @@ describe('ThemeTestbedComponent', () => {
 
     const text = testbed.render(100).join('\n');
 
-    // Section headers for both surfaces and the contrast strip are present.
+    // Section headers for both markdown surfaces, text variations, border semantics, and the contrast strip are present.
     expect(text).toContain('pi assistant surface');
     expect(text).toContain('brunch exchange surface');
+    expect(text).toContain('text variations');
+    expect(text).toContain('border levels');
+    expect(text).toContain('mode-reactive border roles');
+    expect(text).toContain('surface-identity border roles');
     expect(text).toContain('contrast strip');
 
     // The pi assistant surface produces real syntax token colors (keyword
@@ -48,9 +52,30 @@ describe('ThemeTestbedComponent', () => {
     expect(text).toContain(theme.getFgAnsi('syntaxKeyword'));
     // Both surfaces style headings through mdHeading.
     expect(text).toContain(theme.getFgAnsi('mdHeading'));
-    // The contrast strip exercises fg tokens and bg tokens.
+    // The contrast strip and semantics sections exercise fg tokens, bg tokens, and every named border role.
     expect(text).toContain(theme.getFgAnsi('muted'));
     expect(text).toContain(theme.getBgAnsi('selectedBg'));
+    expect(text).toContain(theme.getFgAnsi('borderMuted'));
+    expect(text).toContain(theme.getFgAnsi('border'));
+    expect(text).toContain(theme.getFgAnsi('borderAccent'));
+    expect(text).toContain(theme.getFgAnsi('modeSpecifyBorder' as never));
+    expect(text).toContain(theme.getFgAnsi('modeExecuteBorder' as never));
+  });
+
+  it('renders the expanded theme-demo witness in both shipped theme variants', () => {
+    for (const variant of ['dark', 'light'] as const) {
+      const theme = new SwitchableComponentPreviewTheme(variant);
+      const testbed = new ThemeTestbedComponent(theme, stubTui(), () => {});
+
+      const text = testbed.render(100).join('\n');
+
+      expect(text).toContain('emphasis');
+      expect(text).toContain('markdown body sample');
+      expect(text).toContain('Specify mode');
+      expect(text).toContain('Consult menu');
+      expect(text).toContain(theme.getFgAnsi('accent'));
+      expect(text).toContain(theme.getFgAnsi('borderAccent'));
+    }
   });
 
   it('follows a theme toggle without reconstruction (delegated reads)', () => {

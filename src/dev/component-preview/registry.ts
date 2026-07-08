@@ -112,11 +112,12 @@ function manySpecsWorkspaceInventory(specCount: number): WorkspaceLaunchInventor
 export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
   {
     id: 'theme-testbed',
-    label: 'Theme testbed (markdown, syntax highlighting, contrast strip)',
+    label: 'Theme testbed (text, borders, markdown, syntax highlighting, contrast strip)',
     presentedLike:
-      'harness-only reference surface — renders the same fixture through pi assistant markdown ' +
-      '(getMarkdownTheme + syntax* tokens) and brunch exchange markdown, plus a fg/bg contrast strip; ' +
-      'hot-reloads src/.pi/themes/*.json edits while open',
+      'harness-only reference surface — renders text variations, border levels, mode-reactive ' +
+      'and surface-identity border roles from the theme files, the same fixture through pi assistant ' +
+      'markdown (getMarkdownTheme + syntax* tokens) and brunch exchange markdown, plus a fg/bg ' +
+      'contrast strip; hot-reloads src/.pi/themes/*.json edits while open',
     open: (tui, theme, keybindings) =>
       showComponentPreview(
         tui,

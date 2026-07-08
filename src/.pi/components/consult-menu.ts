@@ -29,7 +29,7 @@ export interface ConsultMenuOptions {
 
 const MAX_VISIBLE_CHOICES = 8;
 const BOX_PADDING: RoundedBoxPadding = { x: 2, top: 1, bottom: 1 };
-const SURFACE_IDENTITY_BORDER_ROLE = 'borderAccent';
+export const CONSULT_MENU_SURFACE_IDENTITY_BORDER_ROLE = 'borderAccent';
 
 export class ConsultMenuComponent implements Component {
   #activeIndex = 0;
@@ -56,7 +56,7 @@ export class ConsultMenuComponent implements Component {
       content,
       { padding: BOX_PADDING, thumbRows, topLabel: '[ Consult ]' },
       safeWidth,
-      (text) => this.options.theme.fg(SURFACE_IDENTITY_BORDER_ROLE, text),
+      (text) => this.options.theme.fg(CONSULT_MENU_SURFACE_IDENTITY_BORDER_ROLE, text),
     );
     box.push('');
     return box;

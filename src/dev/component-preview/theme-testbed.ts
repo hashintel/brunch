@@ -1,7 +1,10 @@
 import { getMarkdownTheme, type Theme, type ThemeColor } from '@earendil-works/pi-coding-agent';
 import { type Component, Key, Markdown, matchesKey, type TUI } from '@earendil-works/pi-tui';
 
+import { CONSULT_MENU_SURFACE_IDENTITY_BORDER_ROLE } from '../../.pi/components/consult-menu.js';
+import { OPERATIONAL_MODE_BORDER_COLOR_ROLES } from '../../.pi/components/mode-border-theme.js';
 import { createStructuredExchangeMarkdownTheme } from '../../.pi/extensions/exchanges/shared/markdown.js';
+import { loadComponentPreviewBorderColorRoles } from './theme.js';
 
 /**
  * Pi shares its theme singleton across module instances through a registered
@@ -96,6 +99,61 @@ const CONTRAST_FG_TOKENS: readonly ThemeColor[] = [
 
 const SAMPLE = 'the quick brown fox jumps over 0123456789';
 
+function fgRole(theme: Theme, role: string, text: string): string {
+  return theme.fg(role as ThemeColor, text);
+}
+
+function textVariationStrip(theme: Theme): string[] {
+  const markdownBody = new Markdown(
+    'markdown body sample with **bold**, *italic*, `code`, and [link](https://example.com)',
+    0,
+    0,
+    createStructuredExchangeMarkdownTheme(theme),
+  );
+  return [
+    theme.fg('accent', '— text variations —'),
+    `plain       ${theme.fg('text', SAMPLE)}`,
+    `emphasis    ${theme.bold(SAMPLE)}  ${theme.italic(SAMPLE)}  ${theme.underline(SAMPLE)}`,
+    `dim         ${theme.fg('dim', SAMPLE)}`,
+    `muted       ${theme.fg('muted', SAMPLE)}`,
+    `accent      ${theme.fg('accent', SAMPLE)}`,
+    ...markdownBody.render(88),
+  ];
+}
+
+function borderLevelsStrip(theme: Theme): string[] {
+  return [
+    theme.fg('accent', '— border levels —'),
+    `borderMuted  ${fgRole(theme, 'borderMuted', '╭────────────────╮')} subtle / nested`,
+    `border       ${fgRole(theme, 'border', '╭────────────────╮')} ordinary chrome`,
+    `borderAccent ${fgRole(theme, 'borderAccent', '╭────────────────╮')} identity / emphasis`,
+  ];
+}
+
+function borderSemanticsStrip(theme: Theme): string[] {
+  const modeRows = Object.entries(OPERATIONAL_MODE_BORDER_COLOR_ROLES).map(
+    ([mode, role]) =>
+      `${`${mode.slice(0, 1).toUpperCase()}${mode.slice(1)} mode`.padEnd(14)} ${fgRole(theme, role, '╭────────────────╮')} ${role}`,
+  );
+  const surfaceRows = [
+    `Consult menu ${fgRole(theme, CONSULT_MENU_SURFACE_IDENTITY_BORDER_ROLE, '╭────────────────╮')} ${CONSULT_MENU_SURFACE_IDENTITY_BORDER_ROLE}`,
+    `Workspace   ${fgRole(theme, 'borderMuted', '╭────────────────╮')} borderMuted`,
+  ];
+  const allThemeBorderRoles = loadComponentPreviewBorderColorRoles().map(
+    (role) => `${role.padEnd(18)} ${fgRole(theme, role, '╭────────╮')}`,
+  );
+  return [
+    theme.fg('accent', '— mode-reactive border roles —'),
+    ...modeRows,
+    '',
+    theme.fg('accent', '— surface-identity border roles —'),
+    ...surfaceRows,
+    '',
+    theme.fg('accent', '— all border roles from theme files —'),
+    ...allThemeBorderRoles,
+  ];
+}
+
 function contrastStrip(theme: Theme): string[] {
   const lines = [
     theme.fg('accent', '— contrast strip (fg tokens on page background) —'),
@@ -161,6 +219,12 @@ export class ThemeTestbedComponent implements Component {
       this.theme.fg('accent', '━━ brunch exchange surface (createStructuredExchangeMarkdownTheme) ━━'),
       '',
       ...this.#exchangeMarkdown.render(contentWidth),
+      '',
+      ...textVariationStrip(this.theme),
+      '',
+      ...borderLevelsStrip(this.theme),
+      '',
+      ...borderSemanticsStrip(this.theme),
       '',
       ...contrastStrip(this.theme),
     ];

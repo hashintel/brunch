@@ -13,6 +13,7 @@ import { ComponentGalleryComponent } from '../gallery-component.js';
 import {
   createComponentPreviewTheme,
   createThemePaintingTerminal,
+  loadComponentPreviewBorderColorRoles,
   parseBrunchThemePalette,
   registerComponentPreviewThemeToggle,
   shouldReloadComponentPreviewThemeForWatchEvent,
@@ -132,6 +133,13 @@ describe('parseBrunchThemePalette', () => {
         );
       }
     }
+  });
+
+  it('enumerates named border roles from the shipped theme files for the demo', () => {
+    const roles = loadComponentPreviewBorderColorRoles();
+
+    expect(roles).toEqual(expect.arrayContaining(['borderMuted', 'border', 'borderAccent']));
+    expect(roles).toEqual(expect.arrayContaining(Object.values(OPERATIONAL_MODE_BORDER_COLOR_ROLES)));
   });
 });
 
