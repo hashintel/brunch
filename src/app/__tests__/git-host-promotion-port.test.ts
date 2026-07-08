@@ -53,6 +53,8 @@ describe('createGitHostPromotionPort', () => {
     const port = createGitHostPromotionPort({
       run: async (command, args, options) => {
         calls.push({ command, args, cwd: options.cwd });
+        if (args.join(' ') === 'rev-parse --show-toplevel')
+          return { exitCode: 0, stdout: '/repo/.brunch/cook/runs/run-1/worktree\n', stderr: '' };
         if (args.join(' ') === 'cat-file -e commit123^{commit}')
           return { exitCode: 0, stdout: '', stderr: '' };
         if (args.join(' ') === 'rev-parse commit123^')
@@ -74,6 +76,11 @@ describe('createGitHostPromotionPort', () => {
     });
 
     expect(calls).toEqual([
+      {
+        command: 'git',
+        args: ['rev-parse', '--show-toplevel'],
+        cwd: '/repo/.brunch/cook/runs/run-1/worktree',
+      },
       {
         command: 'git',
         args: ['cat-file', '-e', 'commit123^{commit}'],
@@ -103,7 +110,10 @@ describe('createGitHostPromotionPort', () => {
 
   it('fails closed when the promoted commit cannot be resolved', async () => {
     const port = createGitHostPromotionPort({
-      run: async () => ({ exitCode: 128, stdout: '', stderr: 'fatal: Not a valid object name commit123' }),
+      run: async (_command, args) =>
+        args.join(' ') === 'rev-parse --show-toplevel'
+          ? { exitCode: 0, stdout: '/repo/.brunch/cook/runs/run-1/worktree\n', stderr: '' }
+          : { exitCode: 128, stdout: '', stderr: 'fatal: Not a valid object name commit123' },
     });
 
     await expect(
@@ -124,6 +134,8 @@ describe('createGitHostPromotionPort', () => {
     const port = createGitHostPromotionPort({
       run: async (command, args, options) => {
         calls.push({ command, args, cwd: options.cwd, stdin: options.stdin });
+        if (args.join(' ') === 'rev-parse --show-toplevel')
+          return { exitCode: 0, stdout: '/repo/.brunch/cook/runs/run-1/worktree\n', stderr: '' };
         if (args.join(' ') === 'diff --no-ext-diff --binary base123 commit123') {
           return { exitCode: 0, stdout: 'diff --git a/host-proof.txt b/host-proof.txt\n', stderr: '' };
         }
@@ -143,6 +155,12 @@ describe('createGitHostPromotionPort', () => {
       }),
     ).resolves.toEqual({ status: 'applied', changedFiles: ['host-proof.txt'] });
     expect(calls).toEqual([
+      {
+        command: 'git',
+        args: ['rev-parse', '--show-toplevel'],
+        cwd: '/repo/.brunch/cook/runs/run-1/worktree',
+        stdin: undefined,
+      },
       {
         command: 'git',
         args: ['diff', '--no-ext-diff', '--binary', 'base123', 'commit123'],
@@ -169,6 +187,8 @@ describe('createGitHostPromotionPort', () => {
     const port = createGitHostPromotionPort({
       run: async (_command, args) => {
         calls.push(args.join(' '));
+        if (args.join(' ') === 'rev-parse --show-toplevel')
+          return { exitCode: 0, stdout: '/repo/.brunch/cook/runs/run-1/worktree\n', stderr: '' };
         if (args[0] === 'diff') return { exitCode: 0, stdout: 'patch', stderr: '' };
         return { exitCode: 1, stdout: '', stderr: 'patch failed' };
       },
@@ -183,7 +203,28 @@ describe('createGitHostPromotionPort', () => {
         changedFiles: ['host-proof.txt'],
       }),
     ).resolves.toEqual({ status: 'failed', message: 'patch failed' });
-    expect(calls).toEqual(['diff --no-ext-diff --binary base123 commit123', 'apply --check -']);
+    expect(calls).toEqual([
+      'rev-parse --show-toplevel',
+      'diff --no-ext-diff --binary base123 commit123',
+      'apply --check -',
+    ]);
+  });
+
+  it('refuses preflight when git resolves the run worktree to the host repository', async () => {
+    const port = createGitHostPromotionPort({
+      run: async () => ({ exitCode: 0, stdout: '/repo\n', stderr: '' }),
+    });
+
+    await expect(
+      port.preflight({
+        cwd: '/repo',
+        worktreeDir: '/repo/.brunch/cook/runs/run-1/worktree',
+        commitSha: 'commit123',
+      }),
+    ).resolves.toEqual({
+      status: 'failed',
+      message: 'refusing host promotion from non-isolated worktree: git root is /repo',
+    });
   });
 
   it('applies a real promoted git patch to host files without staging or committing', async () => {

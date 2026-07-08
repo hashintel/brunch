@@ -84,7 +84,7 @@ describe('createWorktree', () => {
     expect(await pathExists(join(cwd, '.brunch', 'cook', 'land'))).toBe(false);
   });
 
-  it('creates an empty directory substrate without invoking the git worktree port', async () => {
+  it('creates an empty directory substrate as an isolated git repository without invoking the git worktree port', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-empty-substrate-'));
     const planPath = planFilePath(cwd, '42');
     await mkdir(dirname(planPath), { recursive: true });
@@ -114,7 +114,7 @@ describe('createWorktree', () => {
         { kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
       ],
     });
-    await expect(access(join(worktreeDirPath(cwd, 'run-1'), '.git'))).rejects.toThrow();
+    await expect(access(join(worktreeDirPath(cwd, 'run-1'), '.git'))).resolves.toBeUndefined();
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       substrate: 'empty_dir',
       status: 'worktree_created',
@@ -145,7 +145,7 @@ describe('createWorktree', () => {
     expect(await pathExists(join(worktreeDir, 'stale.txt'))).toBe(false);
   });
 
-  it('does not repair an empty directory substrate from a stale git worktree marker', async () => {
+  it('recreates an empty directory substrate from a stale git worktree marker', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-empty-substrate-git-marker-'));
     const planPath = planFilePath(cwd, '42');
     await mkdir(dirname(planPath), { recursive: true });
@@ -164,7 +164,7 @@ describe('createWorktree', () => {
     });
 
     expect(result.status).toBe('worktree_created');
-    expect(await pathExists(join(worktreeDir, '.git'))).toBe(false);
+    expect(await pathExists(join(worktreeDir, '.git'))).toBe(true);
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       substrate: 'empty_dir',
       status: 'worktree_created',

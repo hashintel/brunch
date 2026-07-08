@@ -1,3 +1,6 @@
+import { realpath } from 'node:fs/promises';
+import { resolve } from 'node:path';
+
 import type { GitLandPort } from '../executor/execution-ports.js';
 import { runCommand, type CommandRunner } from './command-runner.js';
 
@@ -5,11 +8,15 @@ export function createGitLandPort(options: { readonly run?: CommandRunner } = {}
   const run = options.run ?? runCommand;
   return {
     async currentHead(args) {
+      const root = await assertExactGitRoot(run, args.worktreeDir);
+      if (root) return root;
       const revParse = await run('git', ['rev-parse', 'HEAD'], { cwd: args.worktreeDir });
       if (revParse.exitCode !== 0) return failedHead(revParse, `git rev-parse exited ${revParse.exitCode}`);
       return { status: 'ok', commitSha: revParse.stdout.trim() };
     },
     async promote(args) {
+      const root = await assertExactGitRoot(run, args.worktreeDir);
+      if (root) return { ...root, sideEffects: [] };
       const status = await run('git', ['status', '--porcelain'], { cwd: args.worktreeDir });
       if (status.exitCode !== 0) return failed(status, `git status exited ${status.exitCode}`);
       if (status.stdout.trim().length === 0) {
@@ -26,7 +33,11 @@ export function createGitLandPort(options: { readonly run?: CommandRunner } = {}
       const add = await run('git', ['add', '-A'], { cwd: args.worktreeDir });
       if (add.exitCode !== 0) return failed(add, `git add exited ${add.exitCode}`);
 
-      const commit = await run('git', ['commit', '-m', args.message], { cwd: args.worktreeDir });
+      const commit = await run(
+        'git',
+        ['-c', 'user.name=brunch', '-c', 'user.email=cook@brunch', 'commit', '-m', args.message],
+        { cwd: args.worktreeDir },
+      );
       if (commit.exitCode !== 0) return failed(commit, `git commit exited ${commit.exitCode}`);
 
       const revParse = await run('git', ['rev-parse', 'HEAD'], { cwd: args.worktreeDir });
@@ -40,6 +51,30 @@ export function createGitLandPort(options: { readonly run?: CommandRunner } = {}
       };
     },
   };
+}
+
+async function assertExactGitRoot(run: CommandRunner, worktreeDir: string) {
+  const root = await run('git', ['rev-parse', '--show-toplevel'], { cwd: worktreeDir });
+  if (root.exitCode !== 0) return failedHead(root, `git rev-parse --show-toplevel exited ${root.exitCode}`);
+  const [actualRoot, expectedRoot] = await Promise.all([
+    canonicalPath(root.stdout.trim()),
+    canonicalPath(worktreeDir),
+  ]);
+  if (actualRoot !== expectedRoot) {
+    return {
+      status: 'failed' as const,
+      message: `refusing to promote from non-isolated worktree: git root is ${root.stdout.trim()}`,
+    };
+  }
+  return undefined;
+}
+
+async function canonicalPath(path: string): Promise<string> {
+  try {
+    return await realpath(path);
+  } catch {
+    return resolve(path);
+  }
 }
 
 function failedHead(

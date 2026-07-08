@@ -1,8 +1,18 @@
+import { execFile } from 'node:child_process';
 import { access, mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
 
 import type { GitWorktreePort } from './execution-ports.js';
 import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
+
+const execFileAsync = promisify(execFile);
+const COMMIT_ENV = {
+  GIT_AUTHOR_NAME: 'brunch',
+  GIT_AUTHOR_EMAIL: 'cook@brunch',
+  GIT_COMMITTER_NAME: 'brunch',
+  GIT_COMMITTER_EMAIL: 'cook@brunch',
+};
 
 export type WorktreeCreateResult =
   | {
@@ -138,6 +148,18 @@ export async function createWorktree(args: {
       await rm(targetWorktreeDir, { recursive: true, force: true });
     }
     await mkdir(targetWorktreeDir, { recursive: true });
+    const gitInit = await initEmptyGitRepository(targetWorktreeDir);
+    if (gitInit) {
+      return {
+        status: 'worktree_create_failed',
+        runStatus: metadata.status,
+        runId: args.runId,
+        worktreeDir: targetWorktreeDir,
+        metadataPath,
+        message: gitInit,
+        sideEffects: [],
+      };
+    }
     const updated: RunMetadata = { ...metadata, status: 'worktree_created', worktreeDir: targetWorktreeDir };
     const metadataEffect = await persistRunMetadata(metadataPath, updated);
     return {
@@ -202,6 +224,28 @@ async function pathExists(path: string): Promise<boolean> {
 
 async function hasGitWorktreeMarker(worktreeDir: string): Promise<boolean> {
   return pathExists(join(worktreeDir, '.git'));
+}
+
+async function initEmptyGitRepository(worktreeDir: string): Promise<string | undefined> {
+  const init = await runGit(['init', '-q', '-b', 'main'], worktreeDir);
+  if (init) return init;
+  return runGit(['commit', '--allow-empty', '-q', '-m', 'brunch: empty run base'], worktreeDir, COMMIT_ENV);
+}
+
+async function runGit(
+  args: readonly string[],
+  cwd: string,
+  env?: NodeJS.ProcessEnv,
+): Promise<string | undefined> {
+  try {
+    await execFileAsync('git', [...args], { cwd, env: env ? { ...process.env, ...env } : process.env });
+    return undefined;
+  } catch (err) {
+    const failure = err as { stderr?: string; stdout?: string; message?: string };
+    return (
+      failure.stderr?.trim() || failure.stdout?.trim() || failure.message || `git ${args.join(' ')} failed`
+    );
+  }
 }
 
 function canRepairWorktreeMetadata(status: RunMetadata['status']): boolean {

@@ -8,6 +8,8 @@ describe('createGitLandPort', () => {
     const port = createGitLandPort({
       run: async (_command, args) => {
         calls.push(args.join(' '));
+        if (args.join(' ') === 'rev-parse --show-toplevel')
+          return { exitCode: 0, stdout: '/repo/wt\n', stderr: '' };
         return { exitCode: 0, stdout: 'base123\n', stderr: '' };
       },
     });
@@ -16,7 +18,7 @@ describe('createGitLandPort', () => {
       status: 'ok',
       commitSha: 'base123',
     });
-    expect(calls).toEqual(['rev-parse HEAD']);
+    expect(calls).toEqual(['rev-parse --show-toplevel', 'rev-parse HEAD']);
   });
 
   it('commits run-local worktree changes and reports the commit sha', async () => {
@@ -24,9 +26,11 @@ describe('createGitLandPort', () => {
     const port = createGitLandPort({
       run: async (command, args, options) => {
         calls.push({ command, args, cwd: options.cwd });
+        if (args.join(' ') === 'rev-parse --show-toplevel')
+          return { exitCode: 0, stdout: '/repo/.brunch/cook/runs/run-1/worktree\n', stderr: '' };
         if (args[0] === 'status') return { exitCode: 0, stdout: ' M worker-proof.txt\n', stderr: '' };
         if (args[0] === 'add') return { exitCode: 0, stdout: '', stderr: '' };
-        if (args[0] === 'commit')
+        if (args.includes('commit'))
           return { exitCode: 0, stdout: '[detached HEAD abc123] promote\n', stderr: '' };
         if (args[0] === 'rev-parse') return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
         return { exitCode: 1, stdout: '', stderr: `unexpected ${args.join(' ')}` };
@@ -39,11 +43,16 @@ describe('createGitLandPort', () => {
     });
 
     expect(calls).toEqual([
+      {
+        command: 'git',
+        args: ['rev-parse', '--show-toplevel'],
+        cwd: '/repo/.brunch/cook/runs/run-1/worktree',
+      },
       { command: 'git', args: ['status', '--porcelain'], cwd: '/repo/.brunch/cook/runs/run-1/worktree' },
       { command: 'git', args: ['add', '-A'], cwd: '/repo/.brunch/cook/runs/run-1/worktree' },
       {
         command: 'git',
-        args: ['commit', '-m', 'promote run-1'],
+        args: ['-c', 'user.name=brunch', '-c', 'user.email=cook@brunch', 'commit', '-m', 'promote run-1'],
         cwd: '/repo/.brunch/cook/runs/run-1/worktree',
       },
       { command: 'git', args: ['rev-parse', 'HEAD'], cwd: '/repo/.brunch/cook/runs/run-1/worktree' },
@@ -60,6 +69,8 @@ describe('createGitLandPort', () => {
     const port = createGitLandPort({
       run: async (_command, args) => {
         calls.push(args.join(' '));
+        if (args.join(' ') === 'rev-parse --show-toplevel')
+          return { exitCode: 0, stdout: '/repo/wt\n', stderr: '' };
         if (args[0] === 'rev-parse') return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
         return { exitCode: 0, stdout: '', stderr: '' };
       },
@@ -71,15 +82,31 @@ describe('createGitLandPort', () => {
       commitSha: 'abc123',
       sideEffects: [],
     });
-    expect(calls).toEqual(['status --porcelain', 'rev-parse HEAD']);
+    expect(calls).toEqual(['rev-parse --show-toplevel', 'status --porcelain', 'rev-parse HEAD']);
+  });
+
+  it('refuses to promote when git resolves to a parent repository', async () => {
+    const port = createGitLandPort({
+      run: async () => ({ exitCode: 0, stdout: '/repo\n', stderr: '' }),
+    });
+
+    await expect(
+      port.promote({ worktreeDir: '/repo/.brunch/cook/runs/run-1/worktree', message: 'promote' }),
+    ).resolves.toEqual({
+      status: 'failed',
+      message: 'refusing to promote from non-isolated worktree: git root is /repo',
+      sideEffects: [],
+    });
   });
 
   it('reports git failures without claiming side effects', async () => {
     const port = createGitLandPort({
       run: async (_command, args) =>
-        args[0] === 'status'
-          ? { exitCode: 0, stdout: ' M file.ts\n', stderr: '' }
-          : { exitCode: 128, stdout: '', stderr: 'fatal: cannot commit' },
+        args.join(' ') === 'rev-parse --show-toplevel'
+          ? { exitCode: 0, stdout: '/repo/wt\n', stderr: '' }
+          : args[0] === 'status'
+            ? { exitCode: 0, stdout: ' M file.ts\n', stderr: '' }
+            : { exitCode: 128, stdout: '', stderr: 'fatal: cannot commit' },
     });
 
     await expect(port.promote({ worktreeDir: '/repo/wt', message: 'promote' })).resolves.toEqual({

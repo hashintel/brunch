@@ -37,7 +37,7 @@ describe('createTestRunnerPort', () => {
     expect(calls).toEqual([
       {
         command: 'npm',
-        args: ['run', 'verify'],
+        args: ['--prefix', '/repo/.brunch/cook/runs/run-1/worktree', 'run', 'verify'],
         cwd: '/repo/.brunch/cook/runs/run-1/worktree',
         signal: controller.signal,
         timeoutMs: 10 * 60_000,
@@ -130,7 +130,7 @@ describe('createTestRunnerPort', () => {
       verifyTarget: { command: 'npm', args: ['test'] },
     });
 
-    expect(calls).toEqual([{ command: 'npm', args: ['test'] }]);
+    expect(calls).toEqual([{ command: 'npm', args: ['--prefix', '/repo/wt', 'test'] }]);
     expect(result).toMatchObject({ status: 'completed', verdict: 'passed', target: 'npm test' });
   });
 
