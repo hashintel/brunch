@@ -242,8 +242,10 @@ function ReplanningPanel({ run }: { run: RunDetail }) {
         )}
         <div className="flex flex-wrap gap-2">
           {WEB_REPLAN_ACTIONS.map((action) => {
-            const available = recommendation.data?.allowedActions.includes(action.id) ?? false;
             const webCallable = isWebCallableReplanAction(action.id);
+            const available =
+              recommendation.data?.allowedActions.includes(action.id) ??
+              (recommendation.isError && webCallable && action.id === 'abandon_run');
             const disabled = !canReadRecommendation || !available || !webCallable || actionMutation.isPending;
             return (
               <button

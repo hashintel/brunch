@@ -57,6 +57,7 @@ function rpcClient(options?: {
   runs?: RunListEntry[];
   run?: RunDetail | { runId: string; unreadable: true };
   replanRecommendation?: ReplanRecommendation;
+  replanRecommendationError?: Error;
   runError?: Error;
   calls?: RpcCall[];
 }): WebSocketRpcClient {
@@ -77,6 +78,9 @@ function rpcClient(options?: {
         return (options?.run ?? runDetail) as T;
       }
       if (method === 'execute.replanRecommendation') {
+        if (options?.replanRecommendationError) {
+          throw options.replanRecommendationError;
+        }
         return (options?.replanRecommendation ?? {
           runId: 'run-1',
           status: 'retry_current_run',
@@ -219,6 +223,27 @@ describe('run detail route', () => {
 
     const abandonButton = await screen.findByRole('button', { name: 'Abandon run' });
     await waitFor(() => expect((abandonButton as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(abandonButton);
+
+    await waitFor(() => expect(screen.getByText('Last replanning action: abandoned')).toBeTruthy());
+    expect(calls).toContainEqual({
+      method: 'execute.replanAbandonRun',
+      params: { runId: 'run-1', reason: 'Abandoned from the run observer replanning panel' },
+    });
+  });
+
+  it('keeps abandon available when replanning recommendation fails', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const calls: RpcCall[] = [];
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({ calls, replanRecommendationError: new Error('recommendation unavailable') }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('Unable to load replanning recommendation.')).toBeTruthy();
+    const abandonButton = screen.getByRole('button', { name: 'Abandon run' }) as HTMLButtonElement;
+    expect(abandonButton.disabled).toBe(false);
     fireEvent.click(abandonButton);
 
     await waitFor(() => expect(screen.getByText('Last replanning action: abandoned')).toBeTruthy());

@@ -53,9 +53,10 @@ function RootLayout() {
 
 function WorkspaceStatePage() {
   const { rpcClient } = indexRoute.useRouteContext();
+  const { data: state } = useSuspenseQuery(workspaceStateQueryOptions(rpcClient));
   const { data: selection } = useSuspenseQuery(workspaceSelectionStateQueryOptions(rpcClient));
   const { data: runs } = useSuspenseQuery(executeRunsQueryOptions(rpcClient));
-  const currentSpec = selection.specs[0]?.spec;
+  const currentSpec = state.spec ?? selection.specs[0]?.spec;
   const currentSpecId = currentSpec?.id;
   const { data: graphOverview } = useQuery({
     ...graphOverviewQueryOptions(rpcClient, currentSpecId ?? 0),
@@ -63,15 +64,24 @@ function WorkspaceStatePage() {
     retry: false,
     throwOnError: false,
   });
-  const specRuns =
-    currentSpecId === undefined ? [] : runs.runs.filter((run) => runSpecId(run) === currentSpecId);
-  const latestRuns = [...specRuns].reverse().slice(0, 3);
+  const activeSpecRunCount =
+    currentSpecId === undefined
+      ? 0
+      : selection.specs.length <= 1
+        ? runs.runs.length
+        : runs.runs.filter((run) => runSpecId(run) === currentSpecId).length;
+  const latestRuns = [...runs.runs].reverse().slice(0, 3);
 
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 pt-8 pb-10">
-        <SpecList specs={selection.specs} graphOverview={graphOverview} runCount={specRuns.length} />
-        <LatestRunsPreview runs={latestRuns} total={specRuns.length} />
+        <SpecList
+          specs={selection.specs}
+          activeSpecId={currentSpecId}
+          graphOverview={graphOverview}
+          runCount={activeSpecRunCount}
+        />
+        <LatestRunsPreview runs={latestRuns} total={runs.runs.length} />
       </div>
     </div>
   );
@@ -141,6 +151,7 @@ function UnreadableRunPreview({ run }: { run: Extract<RunListEntry, { readonly u
 
 function SpecList(options: {
   specs: WorkspaceSelectionState['specs'];
+  activeSpecId: number | undefined;
   graphOverview: GraphSlice | undefined;
   runCount: number;
 }) {
@@ -172,11 +183,13 @@ function SpecList(options: {
                   <span className="shrink-0 font-mono text-xs text-blue-700">{`Spec ${spec.id}`}</span>
                   <span className="text-ink text-sm font-medium">{spec.title}</span>
                 </span>
-                <SpecProgress
-                  technicalSolution={signals.technicalSolution}
-                  validation={signals.validation}
-                  runs={options.runCount}
-                />
+                {spec.id === options.activeSpecId ? (
+                  <SpecProgress
+                    technicalSolution={signals.technicalSolution}
+                    validation={signals.validation}
+                    runs={options.runCount}
+                  />
+                ) : null}
               </Link>
             </li>
           ))}
@@ -249,12 +262,7 @@ function specSignals(overview: GraphSlice | undefined): { technicalSolution: num
   let technicalSolution = 0;
   let validation = 0;
   for (const node of overview.nodes) {
-    if (
-      node.kind === 'module' ||
-      node.kind === 'interface' ||
-      node.kind === 'entity' ||
-      node.kind === 'sketch'
-    ) {
+    if (node.plane === 'design' || isTechnicalDesignKind(node.kind)) {
       technicalSolution += 1;
     }
     if (
@@ -267,4 +275,8 @@ function specSignals(overview: GraphSlice | undefined): { technicalSolution: num
     }
   }
   return { technicalSolution, validation };
+}
+
+function isTechnicalDesignKind(kind: GraphSlice['nodes'][number]['kind']): boolean {
+  return kind === 'module' || kind === 'interface' || kind === 'entity' || kind === 'sketch';
 }
