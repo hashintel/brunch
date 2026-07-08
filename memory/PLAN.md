@@ -98,7 +98,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - `coherence-first-class` — retired as an independent frontier; future coherence work should be driven only by a concrete triggering frontier that needs it.
 - `flue-pattern-adoption` + `framework-direction-stubs` — removed from Horizon 2026-07-08: both are postures/directions, not work items, and both already live in `memory/SPEC.md` §Future Direction ("Adoption patterns from Flue"; "Framework alignment & deferred subsystems"). Re-enter only via a concrete triggering frontier.
 - `fixture-vs-real-audit` — dropped 2026-07-08 (action-or-drop call): its operative content graduated into `ln-review`'s contract-lens catalog (the opaque-companion lens carries the untested-against-real angle); run `ln-induct` on fresh evidence rather than keeping a standing audit bucket.
-- `roving-suite-flake` — dropped 2026-07-08 (action-or-drop call): the flake has not recurred since FE-1164 rewrote one victim test; both observed victims pass in isolation. Re-open via `ln-diagnose` if a full-suite timeout costs real time again.
+- `roving-suite-flake` — dropped 2026-07-08 (action-or-drop call), **re-open condition met same day**: a builder's `npm run verify` hit the `git-host-promotion-port` full-suite timeout twice in a row during the FE-1164 witness-gap closure (passes in isolation and on other machines/runs). Owed: an `ln-diagnose` session with a trusted repro loop (suspect class: cross-suite resource contention under full-suite load — worker count, tmp-git-repo churn, or port/file-lock collision).
 - `blank-carrier-sweep` — folded 2026-07-08 into the FE-1163 ledger as row 13 (`exchanges-blank-carriers`); no longer a standalone Horizon item.
 
 ## Frontier Definitions
@@ -332,7 +332,7 @@ frontiers:
     enhance-third-mode (rejected 2026-07-03, grill: conduct bias is not runtime state; D98-L reasoning holds)
     flue-pattern-adoption / framework-direction-stubs (2026-07-08: postures, not work items; live in SPEC §Future Direction)
     fixture-vs-real-audit (2026-07-08: graduated into ln-review contract lenses)
-    roving-suite-flake (2026-07-08: not recurring; re-open via ln-diagnose on evidence)
+    roving-suite-flake (2026-07-08: re-open condition met same day — 2x verify timeout in git-host-promotion-port; ln-diagnose owed)
     blank-carrier-sweep (2026-07-08: folded into FE-1163 ledger row 13)
 
 done anchors:
