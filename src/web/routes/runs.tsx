@@ -292,7 +292,7 @@ function StreamPanel({
       {events.length === 0 ? (
         <p className="border-rule bg-tint text-sub rounded-xl border p-4 text-sm">{emptyText}</p>
       ) : (
-        <details className="border-rule rounded-xl border bg-white p-4 shadow-[var(--shadow-card)]">
+        <details open className="border-rule rounded-xl border bg-white p-4 shadow-[var(--shadow-card)]">
           <summary className="text-sub hover:text-ink cursor-pointer text-sm font-medium">
             {`${label}: show ${rows.length} compacted log rows`}
             {failures.length === 0 ? null : (

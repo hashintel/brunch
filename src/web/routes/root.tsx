@@ -65,12 +65,8 @@ function WorkspaceStatePage() {
     throwOnError: false,
   });
   const activeSpecRunCount =
-    currentSpecId === undefined
-      ? 0
-      : selection.specs.length <= 1
-        ? runs.runs.length
-        : runs.runs.filter((run) => runSpecId(run) === currentSpecId).length;
-  const latestRuns = [...runs.runs].reverse().slice(0, 3);
+    currentSpecId === undefined ? 0 : runs.runs.filter((run) => runSpecId(run) === currentSpecId).length;
+  const runPreviews = runs.runs.slice(0, 3);
 
   return (
     <div className="h-full overflow-y-auto">
@@ -81,7 +77,7 @@ function WorkspaceStatePage() {
           graphOverview={graphOverview}
           runCount={activeSpecRunCount}
         />
-        <LatestRunsPreview runs={latestRuns} total={runs.runs.length} />
+        <LatestRunsPreview runs={runPreviews} total={runs.runs.length} />
       </div>
     </div>
   );

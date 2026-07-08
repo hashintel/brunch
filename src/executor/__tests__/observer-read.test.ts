@@ -222,6 +222,22 @@ describe('readRunDetail', () => {
     ]);
   });
 
+  it('does not label non-terminal slice test results as passing verification', async () => {
+    const cwd = await fixtureCwd('brunch-observer-nonterminal-verify-');
+    const runDir = await writeRun(cwd, 'run-nonterminal', { status: 'test_result_ingested' });
+    await writeFile(
+      join(runDir, 'reports.jsonl'),
+      '{"event":"slice_started","sliceId":"task-1"}\n{"event":"slice_test_result","sliceId":"task-1","status":"running"}\n',
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-nonterminal');
+
+    expect(detail && 'sliceProgress' in detail ? detail.sliceProgress : []).toEqual([
+      { sliceId: 'task-1', progress: 'started' },
+    ]);
+  });
+
   it('builds requirement statuses from the populated plan snapshot when available', async () => {
     const cwd = await fixtureCwd('brunch-observer-populated-plan-');
     const runDir = await writeRun(cwd, 'run-populated', {

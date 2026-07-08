@@ -211,6 +211,33 @@ describe('Brunch React web app', () => {
     expect(secondSpecLink.getAttribute('href')).toBe('/spec/2');
   });
 
+  it('counts runs for the active spec on the workspace home page', async () => {
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        selectionState: populatedSelectionState,
+        runs: [
+          {
+            runId: 'run-spec-2',
+            specId: '2',
+            status: 'created',
+            presence: { worktree: false, reports: false, petri: false, promotion: false },
+          },
+          {
+            runId: 'run-spec-1',
+            specId: '1',
+            status: 'created',
+            presence: { worktree: false, reports: false, petri: false, promotion: false },
+          },
+        ],
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('2 executor runs')).toBeTruthy();
+    expect(screen.getByText('1 run')).toBeTruthy();
+  });
+
   it('renders the index without requesting session projections', async () => {
     const calls: RpcCall[] = [];
     const runtime = createBrunchWebRuntime({ rpcClient: rpcClient({ calls }) });

@@ -8,7 +8,7 @@ import { abandonRun } from '../../executor/run-abandon.js';
 import { recommendRunReplan } from '../../executor/run-replan-recommendation.js';
 import { type RunRetryEligibilityResult } from '../../executor/run-retry-eligibility.js';
 import { createSupersedingRun } from '../../executor/run-supersession.js';
-import { assertSafeRunId } from '../../executor/run.js';
+import { assertSafeRunId, readRunMetadata, runMetadataPath } from '../../executor/run.js';
 import { executeRunProductUpdates } from '../product-updates.js';
 import { createJsonRpcFailure, createJsonRpcSuccess, jsonRpcRequestId } from '../protocol.js';
 import type { RpcMethodContext, RpcMethodDefinition } from './registry.js';
@@ -294,6 +294,9 @@ export const executeRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[]
       if (!params || !safeRunId(params.runId)) {
         return createJsonRpcFailure(requestId, -32602, 'Invalid params');
       }
+      if (!(await requestSpecMatchesRun(context.cwd, params.runId, params.specId))) {
+        return createJsonRpcFailure(requestId, -32602, 'Invalid params');
+      }
       const result = await recommendRunReplan({
         cwd: context.cwd,
         runId: params.runId,
@@ -321,6 +324,9 @@ export const executeRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[]
       const requestId = jsonRpcRequestId(request);
       const params = parseParams(ExecuteReplanRegeneratePlanParamsSchema, request.params);
       if (!params || !safeRunId(params.runId)) {
+        return createJsonRpcFailure(requestId, -32602, 'Invalid params');
+      }
+      if (!(await requestSpecMatchesRun(context.cwd, params.runId, params.specId))) {
         return createJsonRpcFailure(requestId, -32602, 'Invalid params');
       }
       const result = await regeneratePlan(context, params);
@@ -355,10 +361,26 @@ export const executeRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[]
       ) {
         return createJsonRpcFailure(requestId, -32602, 'Invalid params');
       }
+      if (!(await requestSpecMatchesRun(context.cwd, params.previousRunId, params.specId))) {
+        return createJsonRpcFailure(requestId, -32602, 'Invalid params');
+      }
+      const current = await currentProjection(context, params);
+      const recommendation = await recommendRunReplan({
+        cwd: context.cwd,
+        runId: params.previousRunId,
+        current,
+      });
+      if (!recommendation.allowedActions.includes('start_new_run')) {
+        return createJsonRpcSuccess(requestId, {
+          status: 'start_new_run_not_allowed',
+          eligibility: recommendation.eligibility,
+          sideEffects: [],
+        });
+      }
       const result = await createSupersedingRun({
         cwd: context.cwd,
         previousRunId: params.previousRunId,
-        current: await currentProjection(context, params),
+        current,
         ...(params.runId ? { runId: params.runId } : {}),
       });
       if (result.sideEffects.length > 0) {
@@ -416,6 +438,11 @@ function safeRunId(runId: string): boolean {
   } catch {
     return false;
   }
+}
+
+async function requestSpecMatchesRun(cwd: string, runId: string, specId: number): Promise<boolean> {
+  const metadata = await readRunMetadata(runMetadataPath(cwd, runId));
+  return metadata === undefined || metadata.specId === String(specId);
 }
 
 async function currentProjection(

@@ -508,6 +508,18 @@ describe('execute replanning methods', () => {
     });
   });
 
+  it('rejects replanning reads when the requested spec does not own the run', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-spec-mismatch-'));
+    await writeRun(cwd, 'run-1', { specId: '99', planPath: planFilePath(cwd, '99') });
+
+    const response = await method('execute.replanRecommendation').handle(
+      contextForSpec(cwd, executableGraph(11)),
+      request('execute.replanRecommendation', { runId: 'run-1', specId: 42 }),
+    );
+
+    expect(response).toMatchObject({ error: { code: -32602, message: 'Invalid params' } });
+  });
+
   it('regenerates a stale early-run plan and publishes run updates', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-regenerate-'));
     const updates: ProductUpdate[] = [];
@@ -535,10 +547,10 @@ describe('execute replanning methods', () => {
     ).toBeUndefined();
   });
 
-  it('creates a linked superseding run and publishes old and new run updates', async () => {
+  it('does not start a superseding run from a stale plan', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-new-run-'));
     const updates: ProductUpdate[] = [];
-    await writePlan(cwd, '42', 11);
+    await writePlan(cwd, '42', 10);
     await writeRun(cwd, 'run-old', { planPath: planFilePath(cwd, '42'), status: 'worktree_populated' });
 
     const response = await method('execute.replanStartNewRun').handle(
@@ -548,18 +560,31 @@ describe('execute replanning methods', () => {
 
     expect(response).toMatchObject({
       result: {
-        status: 'created',
+        status: 'launch_not_ready',
         previousRunId: 'run-old',
-        runId: 'run-new',
-        sideEffects: [{ kind: 'mkdir' }, { kind: 'write_file' }],
+        sideEffects: [],
       },
     });
-    expect(updates).toEqual([
-      { topic: 'execute.runs' },
-      { topic: 'execute.run', runId: 'run-old' },
-      { topic: 'execute.runs' },
-      { topic: 'execute.run', runId: 'run-new' },
-    ]);
+    expect(updates).toEqual([]);
+  });
+
+  it('does not start a superseding run when current run retry is allowed', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-new-run-fresh-'));
+    await writePlan(cwd, '42', 11);
+    await writeRun(cwd, 'run-old', { planPath: planFilePath(cwd, '42'), status: 'worktree_created' });
+
+    const response = await method('execute.replanStartNewRun').handle(
+      contextForSpec(cwd, executableGraph(11)),
+      request('execute.replanStartNewRun', { previousRunId: 'run-old', runId: 'run-new', specId: 42 }),
+    );
+
+    expect(response).toMatchObject({
+      result: {
+        status: 'start_new_run_not_allowed',
+        eligibility: { status: 'retry_current_run' },
+        sideEffects: [],
+      },
+    });
   });
 
   it('marks a run abandoned and publishes exact run updates', async () => {

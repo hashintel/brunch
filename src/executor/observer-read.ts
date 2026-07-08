@@ -192,7 +192,9 @@ function eventStage(event: RunReportEvent): string | undefined {
     case 'slice_agent_result':
       return 'agent';
     case 'slice_test_result':
-      return event['status'] === 'failed' ? 'verify failed' : 'verify passed';
+      if (event['status'] === 'failed') return 'verify failed';
+      if (event['status'] === 'passed') return 'verify passed';
+      return undefined;
     case 'slice_completed':
       return 'completed';
     default:
