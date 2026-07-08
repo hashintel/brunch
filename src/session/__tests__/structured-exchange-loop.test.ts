@@ -7,6 +7,7 @@ import { createSessionBindingData } from '../session-binding.js';
 import {
   acceptedResponseFromParams,
   pendingExchangeFromEnvelope,
+  syntheticExchangeToolCallMessage,
   type PendingStructuredExchange,
 } from '../structured-exchange-loop.js';
 
@@ -22,6 +23,16 @@ const bindingEntry = {
 } as const;
 
 describe('structured exchange loop helpers', () => {
+  it('defaults synthetic ask replay to neutral exchange correlation', () => {
+    expect(syntheticExchangeToolCallMessage('ask-standalone', 'ask').content[0].arguments).toEqual({
+      exchangeId: 'ask-standalone',
+    });
+    expect(
+      syntheticExchangeToolCallMessage('offer-continuation', 'ask', { continues: 'offer-continuation' })
+        .content[0].arguments,
+    ).toEqual({ continues: 'offer-continuation' });
+  });
+
   it('rejects empty text responses without materializing a tool result', () => {
     const pending = nextDeterministicStructuredExchange(1);
 
