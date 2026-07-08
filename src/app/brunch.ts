@@ -186,6 +186,9 @@ function parseCliArgs(argv: string[]): {
       help: { type: 'boolean', short: 'h', default: false },
     },
   });
+  if (positionals.length > 1) {
+    throw new Error(`Unexpected Brunch argument: ${positionals[1]}`);
+  }
   return {
     command: positionals[0],
     help: values.help,

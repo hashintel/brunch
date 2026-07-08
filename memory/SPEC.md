@@ -630,7 +630,7 @@ The verification harness is established (oxlint + oxfmt + vitest). Commands foll
 
 `fix` and `check` share the same lint-then-format order; `fix` writes, `check` does not. There is no separate `typecheck` script — type-checking runs inside oxlint via tsgolint (`.oxlintrc.json` sets `typeAware: true` and `typeCheck: true`).
 
-The release-pack smoke is deliberately outside `verify` (it packs, installs into an isolated prefix, boots from a foreign cwd, and opens SQLite through the installed native binding — slow by design). It runs as release-it's `before:npm:release` hook, so publishing cannot skip it; `.release-it.json` also pins publishing to the `next` branch.
+The release-pack smoke is deliberately outside `verify` (it packs, asserts runtime markdown/resource assets in the tarball, installs into an isolated prefix using the platform-correct npm bin path, boots from a foreign cwd, and opens SQLite through the installed native binding — slow by design). It runs as release-it's `before:npm:release` hook, so publishing cannot skip it; `.release-it.json` also pins publishing to the `next` branch.
 
 ### Verification Policy
 

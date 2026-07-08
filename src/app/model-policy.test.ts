@@ -55,6 +55,14 @@ describe('Brunch model policy', () => {
     });
   });
 
+  it('preserves the underlying registry instance so unwrapped methods keep their receiver identity', () => {
+    const baseRegistry = ModelRegistry.inMemory(AuthStorage.inMemory({}));
+
+    const registry = createBrunchModelRegistry(baseRegistry);
+
+    expect(registry).toBe(baseRegistry);
+  });
+
   it('contains the registry to allowlisted models even with auth for other providers', () => {
     const registry = registryWithAuth({
       anthropic: { type: 'api_key', key: 'anthropic-key' },

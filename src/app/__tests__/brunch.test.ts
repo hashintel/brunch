@@ -104,6 +104,16 @@ describe('Brunch CLI dispatch', () => {
     }
   });
 
+  it('rejects extra positional arguments instead of silently ignoring CLI typos', async () => {
+    await expect(
+      runBrunchCli({
+        argv: ['login', 'extra'],
+        cwd: '/tmp/brunch-project',
+        coordinator: coordinator(),
+      }),
+    ).rejects.toThrow(/Unexpected Brunch argument: extra/u);
+  });
+
   it('warns on stderr when TUI-only flags are passed to a non-TUI mode, then proceeds', async () => {
     let stderr = '';
     let output = '';

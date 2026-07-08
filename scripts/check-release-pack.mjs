@@ -7,6 +7,7 @@ import { existsSync } from 'node:fs';
 import { mkdtemp, mkdir, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const repoRoot = process.cwd();
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -52,6 +53,28 @@ async function liveSkillPaths() {
   return names.map((name) => `dist/agents/skills/${name}/SKILL.md`);
 }
 
+const RUNTIME_MARKDOWN_ASSET_DIRS = [
+  ['src/agents/prompts', 'dist/agents/prompts'],
+  ['src/agents/subagents', 'dist/agents/subagents'],
+  ['src/agents/references', 'dist/agents/references'],
+];
+
+export async function runtimeMarkdownAssetPaths(root = repoRoot) {
+  const paths = [];
+  for (const [sourceDir, distDir] of RUNTIME_MARKDOWN_ASSET_DIRS) {
+    const entries = await readdir(path.join(root, sourceDir), { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith('.md') || entry.name === 'TOPOLOGY.md') continue;
+      paths.push(path.posix.join(distDir, entry.name));
+    }
+  }
+  return paths.sort();
+}
+
+export function installedBrunchBinPath(prefixDir, platform = process.platform) {
+  return platform === 'win32' ? path.join(prefixDir, 'brunch.cmd') : path.join(prefixDir, 'bin', 'brunch');
+}
+
 async function main() {
   const workDir = await mkdtemp(path.join(tmpdir(), 'brunch-release-pack-'));
   const packDir = path.join(workDir, 'pack');
@@ -80,13 +103,16 @@ async function main() {
     );
 
     assertIncludes(tarEntries, 'dist/agents/prompts/registry.js');
+    for (const assetPath of await runtimeMarkdownAssetPaths()) {
+      assertIncludes(tarEntries, assetPath);
+    }
     for (const skillPath of await liveSkillPaths()) {
       assertIncludes(tarEntries, skillPath);
     }
 
     run(npmCommand, ['install', '--global', '--prefix', prefixDir, tarballPath]);
 
-    const brunchBin = path.join(prefixDir, 'bin', process.platform === 'win32' ? 'brunch.cmd' : 'brunch');
+    const brunchBin = installedBrunchBinPath(prefixDir);
     if (!existsSync(brunchBin)) {
       throw new Error(`Installed package did not create expected bin at ${brunchBin}`);
     }
@@ -163,8 +189,10 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-  process.stderr.write(`${message}\n`);
-  process.exitCode = 1;
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+    process.stderr.write(`${message}\n`);
+    process.exitCode = 1;
+  });
+}

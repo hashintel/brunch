@@ -51,44 +51,58 @@ function isAllowlisted(provider: string, model: string): boolean {
   return ALLOWLIST_KEYS.has(`${provider}/${model}`);
 }
 
-function allowlistedModelsFrom(registry: ModelRegistry): BrunchModel[] {
+function allowlistedModelsFrom(
+  findModel: (provider: string, modelId: string) => BrunchModel | undefined,
+): BrunchModel[] {
   const models: BrunchModel[] = [];
   for (const entry of BRUNCH_MODEL_ALLOWLIST) {
-    const model = registry.find(entry.provider, entry.model);
+    const model = findModel(entry.provider, entry.model);
     if (model) models.push(model);
   }
   return models;
 }
 
 /**
- * Wrap Pi's registry so Brunch exposes only the code-owned model policy.
+ * Contain Pi's registry so Brunch exposes only the code-owned model policy.
  * Custom `models.json` entries are deliberately not a Brunch product surface;
- * the app creates the base registry from built-ins plus auth and this wrapper
- * is the containment boundary for `/model` cycling and explicit lookups.
+ * the app creates the base registry from built-ins plus auth and these
+ * in-place overrides are the containment boundary for `/model` cycling and
+ * explicit lookups. The registry instance stays stable so Pi-added methods keep
+ * their original receiver identity across upgrades.
  */
 export function createBrunchModelRegistry(registry: ModelRegistry): ModelRegistry {
-  const brunchRegistry = Object.create(registry) as ModelRegistry;
+  const base = {
+    refresh: registry.refresh.bind(registry),
+    getError: registry.getError.bind(registry),
+    find: registry.find.bind(registry),
+    hasConfiguredAuth: registry.hasConfiguredAuth.bind(registry),
+    getApiKeyAndHeaders: registry.getApiKeyAndHeaders.bind(registry),
+    getProviderAuthStatus: registry.getProviderAuthStatus.bind(registry),
+    getProviderDisplayName: registry.getProviderDisplayName.bind(registry),
+    getApiKeyForProvider: registry.getApiKeyForProvider.bind(registry),
+    isUsingOAuth: registry.isUsingOAuth.bind(registry),
+    registerProvider: registry.registerProvider.bind(registry),
+    unregisterProvider: registry.unregisterProvider.bind(registry),
+  };
 
-  // ceiling: explicit wrapper forwarding can lag behind Pi's registry API; forward any new
-  // mutating registry method here so upgrades cannot shadow-write onto the wrapper object.
-  brunchRegistry.refresh = () => registry.refresh();
-  brunchRegistry.getError = () => registry.getError();
-  brunchRegistry.getAll = () => allowlistedModelsFrom(registry);
-  brunchRegistry.getAvailable = () =>
-    allowlistedModelsFrom(registry).filter((model) => registry.hasConfiguredAuth(model));
-  brunchRegistry.find = (provider: string, modelId: string) =>
-    isAllowlisted(provider, modelId) ? registry.find(provider, modelId) : undefined;
-  brunchRegistry.hasConfiguredAuth = (model: BrunchModel) =>
-    isAllowlisted(model.provider, model.id) && registry.hasConfiguredAuth(model);
-  brunchRegistry.getApiKeyAndHeaders = (model: BrunchModel) => registry.getApiKeyAndHeaders(model);
-  brunchRegistry.getProviderAuthStatus = (provider: string) => registry.getProviderAuthStatus(provider);
-  brunchRegistry.getProviderDisplayName = (provider: string) => registry.getProviderDisplayName(provider);
-  brunchRegistry.getApiKeyForProvider = (provider: string) => registry.getApiKeyForProvider(provider);
-  brunchRegistry.isUsingOAuth = (model: BrunchModel) => registry.isUsingOAuth(model);
-  brunchRegistry.registerProvider = (providerName, config) => registry.registerProvider(providerName, config);
-  brunchRegistry.unregisterProvider = (providerName) => registry.unregisterProvider(providerName);
+  registry.refresh = () => base.refresh();
+  registry.getError = () => base.getError();
+  registry.getAll = () => allowlistedModelsFrom(base.find);
+  registry.getAvailable = () =>
+    allowlistedModelsFrom(base.find).filter((model) => base.hasConfiguredAuth(model));
+  registry.find = (provider: string, modelId: string) =>
+    isAllowlisted(provider, modelId) ? base.find(provider, modelId) : undefined;
+  registry.hasConfiguredAuth = (model: BrunchModel) =>
+    isAllowlisted(model.provider, model.id) && base.hasConfiguredAuth(model);
+  registry.getApiKeyAndHeaders = (model: BrunchModel) => base.getApiKeyAndHeaders(model);
+  registry.getProviderAuthStatus = (provider: string) => base.getProviderAuthStatus(provider);
+  registry.getProviderDisplayName = (provider: string) => base.getProviderDisplayName(provider);
+  registry.getApiKeyForProvider = (provider: string) => base.getApiKeyForProvider(provider);
+  registry.isUsingOAuth = (model: BrunchModel) => base.isUsingOAuth(model);
+  registry.registerProvider = (providerName, config) => base.registerProvider(providerName, config);
+  registry.unregisterProvider = (providerName) => base.unregisterProvider(providerName);
 
-  return brunchRegistry;
+  return registry;
 }
 
 export function getBrunchNoAuthGuidanceCopy(): BrunchNoAuthGuidanceCopy {
