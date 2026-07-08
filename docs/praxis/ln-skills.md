@@ -105,6 +105,7 @@ Tracer-complete is not load-bearing. Posture ranks the next *vertical* slice; it
 | `ln-induct` | Review-bot comments or point observations may be symptomatic of a systemic-ish fault. | An induced diagnostic lens, an audit for unsampled instances, and a triaged report. |
 | `ln-review` | After implementation bursts, or when architecture/model hygiene needs an opinionated audit. | Quality findings and next-step recommendations. |
 | `ln-judo-review` | A stricter sibling of `ln-review`: a PR preserves incidental complexity, a file nears a size boundary, or spaghetti branching is creeping in and you want deletion-over-rearrangement pressure. | High-conviction restructuring findings; before/after `pseudo` shape pairs. |
+| `ln-pr-review` | Reviewing someone else's PR through an architectural/strategic lens — design shift, complexity growth, quiet precedent change. Line-level and bug-hunting concerns stay with AI review bots and the author. | A brief reflective discussion, then a concise plain-English review comment posted via `gh`. |
 | `ln-refactor` | Working code needs restructuring without behavior change. | Refactor plan as tiny safe commits. |
 
 ## Discretionary skills that are easy to miss
@@ -144,6 +145,7 @@ There is currently no project-local `ln-map` skill in `.agents/skills/`. If you 
 | “Why is this failing?” | `ln-diagnose` |
 | “Is this small finding a symptom of something systemic?” | `ln-induct` |
 | “Is this code still conceptually clean?” | `ln-review` |
+| “What does this colleague's PR mean for our architecture?” | `ln-pr-review` |
 | “How do we restructure safely?” | `ln-refactor` |
 | “Are the docs still true?” | `ln-sync` |
 
