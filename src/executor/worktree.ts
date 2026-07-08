@@ -101,6 +101,7 @@ export async function createWorktree(args: {
   }
 
   if (
+    metadata.substrate !== 'empty_dir' &&
     !metadata.worktreeDir &&
     canRepairWorktreeMetadata(metadata.status) &&
     (await hasGitWorktreeMarker(worktreeDir))
