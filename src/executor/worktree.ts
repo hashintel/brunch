@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
-import { access, mkdir, rm } from 'node:fs/promises';
-import { join } from 'node:path';
+import { access, mkdir, realpath, rm } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
 import type { GitWorktreePort } from './execution-ports.js';
@@ -82,7 +82,7 @@ export async function createWorktree(args: {
   if (
     metadata.substrate === 'empty_dir' &&
     metadata.worktreeDir &&
-    (await hasGitWorktreeMarker(metadata.worktreeDir))
+    (await isExactGitRoot(metadata.worktreeDir))
   ) {
     return {
       status: 'already_created',
@@ -98,7 +98,11 @@ export async function createWorktree(args: {
   // Idempotent: if the worktree was already created, do not re-run
   // `git worktree add` (it fails when the directory already exists). The
   // previous mkdir-based path could be safely retried; preserve that.
-  if (metadata.worktreeDir && (await hasGitWorktreeMarker(metadata.worktreeDir))) {
+  if (
+    metadata.substrate !== 'empty_dir' &&
+    metadata.worktreeDir &&
+    (await hasGitWorktreeMarker(metadata.worktreeDir))
+  ) {
     return {
       status: 'already_created',
       runStatus: metadata.status,
@@ -226,6 +230,21 @@ async function hasGitWorktreeMarker(worktreeDir: string): Promise<boolean> {
   return pathExists(join(worktreeDir, '.git'));
 }
 
+async function isExactGitRoot(worktreeDir: string): Promise<boolean> {
+  if (!(await hasGitWorktreeMarker(worktreeDir))) return false;
+  const root = await runGitOutput(['rev-parse', '--show-toplevel'], worktreeDir);
+  if (!root) return false;
+  return (await canonicalPath(root)) === (await canonicalPath(worktreeDir));
+}
+
+async function canonicalPath(path: string): Promise<string> {
+  try {
+    return await realpath(path);
+  } catch {
+    return resolve(path);
+  }
+}
+
 async function initEmptyGitRepository(worktreeDir: string): Promise<string | undefined> {
   const init = await runGit(['init', '-q', '-b', 'main'], worktreeDir);
   if (init) return init;
@@ -245,6 +264,15 @@ async function runGit(
     return (
       failure.stderr?.trim() || failure.stdout?.trim() || failure.message || `git ${args.join(' ')} failed`
     );
+  }
+}
+
+async function runGitOutput(args: readonly string[], cwd: string): Promise<string | undefined> {
+  try {
+    const result = await execFileAsync('git', [...args], { cwd, env: process.env });
+    return result.stdout.trim();
+  } catch {
+    return undefined;
   }
 }
 
