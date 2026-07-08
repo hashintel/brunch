@@ -50,6 +50,10 @@ Status vocabulary: `spec` (defined, not built) · `partial` · `done`. One row =
 
 Row-count note: 4+2+2+3+2+2+27+2+2 = **46 in-boundary tools**; enumeration verified 2026-07-07 against `rg "registerTool|defineTool"` plus the Tier-2 provider payload dump, re-based 2026-07-08 after the FE-1164 ask cutover (exchanges 5 → 4). Re-verify the enumeration at row-1 build time — this ledger has already absorbed one membership change from a parallel lane.
 
+## Rider (not a row)
+
+- **D117-L sweep-classifier constant anchoring** (2026-07-08 grill; direct fix, not a sweep property): `src/projections/session/sweep-watermark.ts` still classifies the exchange terminal by the raw `'ask'` string literal — the same fixture-vs-real drift class as W1, which this ledger was already told to stay alert for. Land it while row 2's exchanges files are open: anchor the classifier to the canonical terminal-name constant (`ASK_TOOL`, today in `src/.pi/extensions/exchanges/ask.ts`). Watch dependency direction: `src/projections/` should not import from `src/.pi/extensions/`, so the constant likely hoists into the `src/exchanges/` core (D108-L home) with the extension re-exporting it — resolve at build time. Outside the layer boundary and the convergence rule, so it is **not** a row and does not enter the row count or aggregate DoD; the FE-1164 regression test in `sweep-watermark.test.ts` guards the behavior either way.
+
 ## Sequencing inside the sweep
 
 Row 1 first (everything relinks through it), row 11 second (oracle watches the rest of the pass), then families in any order — suggested: 2–3 (pure relinks, no schema rewrite) before 4–7 (literal→TypeBox rewrites, need snapshots) before 8–10 (bulk relink).
