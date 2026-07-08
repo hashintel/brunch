@@ -6,11 +6,11 @@
  * first whitespace (see `_tryExecuteExtensionCommand` in
  * `@earendil-works/pi-coding-agent/dist/core/agent-session.js`). Colons in
  * command names are passed through verbatim, so registering a command with the
- * literal name `brunch:switch` makes it invocable as `/brunch:switch`. This is
+ * literal name `brunch:menu` makes it invocable as `/brunch:menu`. This is
  * the same trick the built-in `/skill:<name>` registry uses.
  *
  * Active commands:
- *  - `/brunch:switch`   — open the spec/session picker (delegates to
+ *  - `/brunch:menu`     — open the spec/session picker (delegates to
  *                         workspace-dialog.ts).
  *  - `/brunch:mode`     — change the transcript-backed operational mode.
  *
@@ -60,12 +60,12 @@ import {
 } from '../workspace/index.js';
 
 export const BRUNCH_COMMAND_PREFIX = 'brunch:';
-export const BRUNCH_SWITCH_COMMAND = 'brunch:switch';
+export const BRUNCH_MENU_COMMAND = 'brunch:menu';
 export const BRUNCH_CONTINUE_COMMAND = 'brunch:continue';
 export const BRUNCH_MODE_COMMAND = 'brunch:mode';
 
 /** alt+b is unavailable: Pi reserves it as a built-in editor binding (cursorWordLeft). */
-export const BRUNCH_SWITCH_SHORTCUT = 'ctrl+shift+b';
+export const BRUNCH_MENU_SHORTCUT = 'ctrl+shift+b';
 export const BRUNCH_MODE_SHORTCUT = 'shift+tab';
 
 export type BrunchCommandsOptions = BrunchSpecSessionPickerOptions & {
@@ -320,7 +320,7 @@ function workspaceActionOptions(
 
 export function registerBrunchCommands(pi: ExtensionAPI, options: BrunchCommandsOptions): void {
   const { coordinator } = options;
-  pi.registerCommand(BRUNCH_SWITCH_COMMAND, {
+  pi.registerCommand(BRUNCH_MENU_COMMAND, {
     description: 'Open the Brunch spec/session picker',
     handler: async (_args, ctx: ExtensionCommandContext) => {
       await runBrunchWorkspaceAction(ctx, coordinator, workspaceActionOptions(options));
@@ -334,12 +334,12 @@ export function registerBrunchCommands(pi: ExtensionAPI, options: BrunchCommands
   // The fallback shortcut context still opens the picker; an actual
   // cross-session switch then degrades to a warning (see
   // switchToActivatedWorkspace).
-  const openSwitchPicker = async (ctx: BrunchWorkspaceActionContext) => {
+  const openMenuPicker = async (ctx: BrunchWorkspaceActionContext) => {
     const commandContext = options.getCommandContext?.();
     await runBrunchWorkspaceAction(commandContext ?? ctx, coordinator, workspaceActionOptions(options));
   };
-  pi.registerShortcut?.(BRUNCH_SWITCH_SHORTCUT, {
+  pi.registerShortcut?.(BRUNCH_MENU_SHORTCUT, {
     description: 'Open the Brunch spec/session picker',
-    handler: openSwitchPicker,
+    handler: openMenuPicker,
   });
 }

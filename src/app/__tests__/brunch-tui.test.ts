@@ -60,10 +60,10 @@ import {
   BRUNCH_EXECUTE_STATUS_TOOL,
   BRUNCH_EXECUTE_ORCHESTRATE_TOOL,
   BRUNCH_INTROSPECTION_COMMAND,
+  BRUNCH_MENU_COMMAND,
+  BRUNCH_MENU_SHORTCUT,
   BRUNCH_MODE_COMMAND,
   BRUNCH_MODE_SHORTCUT,
-  BRUNCH_SWITCH_COMMAND,
-  BRUNCH_SWITCH_SHORTCUT,
   chromeStateForWorkspace,
   createBrunchPiExtensions,
   createInMemoryBrunchIntrospectionStore,
@@ -965,7 +965,8 @@ describe('Brunch TUI boot', () => {
     expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL);
     expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL);
     expect(registeredTools).not.toContain(BRUNCH_EXECUTE_SNAPSHOT_TOOL);
-    expect(commands.get(BRUNCH_SWITCH_COMMAND)?.description).toBe('Open the Brunch spec/session picker');
+    expect(commands.get(BRUNCH_MENU_COMMAND)?.description).toBe('Open the Brunch spec/session picker');
+    expect(commands.has(['brunch', 'switch'].join(':'))).toBe(false);
     const retiredWorkspaceCommand = ['brunch', 'workspace'].join('-');
     expect(commands.has(retiredWorkspaceCommand)).toBe(false);
     expect(commands.has('brunch')).toBe(false);
@@ -974,16 +975,16 @@ describe('Brunch TUI boot', () => {
     }
     // Disabled until operational: continue is unimplemented.
     expect(commands.has(BRUNCH_CONTINUE_COMMAND)).toBe(false);
-    expect(shortcuts.get(BRUNCH_SWITCH_SHORTCUT)?.description).toBe('Open the Brunch spec/session picker');
+    expect(shortcuts.get(BRUNCH_MENU_SHORTCUT)?.description).toBe('Open the Brunch spec/session picker');
     expect(shortcuts.get(BRUNCH_MODE_SHORTCUT)?.description).toBe('Cycle the Brunch mode');
     expect(shortcuts.has('alt+m')).toBe(false);
     expect(shortcuts.has('ctrl+b')).toBe(false);
     // alt+b must stay unregistered: Pi reserves it for cursorWordLeft.
     expect(shortcuts.has('alt+b')).toBe(false);
 
-    // The switch shortcut borrows the command-capable context and completes a
-    // real cross-session switch, exactly like /brunch:switch.
-    const shortcut = shortcuts.get(BRUNCH_SWITCH_SHORTCUT);
+    // The menu shortcut borrows the command-capable context and completes a
+    // real cross-session switch, exactly like /brunch:menu.
+    const shortcut = shortcuts.get(BRUNCH_MENU_SHORTCUT);
     expect(shortcut).toBeDefined();
     const shortcutHandler = shortcut!.handler as (ctx: unknown) => Promise<void> | void;
     await shortcutHandler({

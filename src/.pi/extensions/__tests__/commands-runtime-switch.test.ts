@@ -9,7 +9,13 @@ import {
 } from '../../../session/runtime-state.js';
 import { BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE } from '../../../session/session-orientation.js';
 import { createTestLabTheme } from '../../__tests__/support/tui-theme.js';
-import { BRUNCH_MODE_COMMAND, BRUNCH_MODE_SHORTCUT, registerBrunchCommands } from '../commands/index.js';
+import {
+  BRUNCH_MENU_COMMAND,
+  BRUNCH_MENU_SHORTCUT,
+  BRUNCH_MODE_COMMAND,
+  BRUNCH_MODE_SHORTCUT,
+  registerBrunchCommands,
+} from '../commands/index.js';
 import { CODE_SESSION_ORIENTATION_MENU } from '../session-orientation/index.js';
 import {
   orientationJunctureGate,
@@ -62,6 +68,7 @@ function commandHarness(
     orientation?: boolean;
     selectResult?: string | undefined;
     modelAvailable?: boolean;
+    getCommandContext?: () => FakeCommandContext;
   } = {},
 ) {
   const entries: RuntimeEntry[] = [];
@@ -73,6 +80,14 @@ function commandHarness(
   const customCalls: Array<{ factory: (...args: unknown[]) => unknown; options: unknown }> = [];
   const selectCalls: Array<{ title: string; options: string[] }> = [];
   const chromeRefreshes: number[] = [];
+  const workspaceDecisions: unknown[] = [];
+  const coordinator = {
+    inspectWorkspace: async () => ({ projects: [] }),
+    activateWorkspace: async (decision: unknown) => {
+      workspaceDecisions.push(decision);
+      return { status: 'needs_human', reason: 'workspace action reached' };
+    },
+  };
   const ctx: FakeCommandContext = {
     // hasUI mirrors custom availability: since pi 0.80.x headless contexts
     // carry stub custom functions, so the guard checks hasUI first.
@@ -145,7 +160,8 @@ function commandHarness(
       },
     } as never,
     {
-      coordinator: {} as never,
+      coordinator: coordinator as never,
+      getCommandContext: options.getCommandContext as never,
       requestChromeRefresh: () => {
         chromeRefreshes.push(chromeRefreshes.length + 1);
       },
@@ -163,10 +179,59 @@ function commandHarness(
     customCalls,
     selectCalls,
     chromeRefreshes,
+    workspaceDecisions,
     sent,
     orientationDeps,
   };
 }
+
+describe('Brunch menu command', () => {
+  it('registers /brunch:menu without keeping the retired command as an alias', () => {
+    const harness = commandHarness();
+    const retiredCommand = ['brunch', 'switch'].join(':');
+
+    expect([...harness.commands.keys()]).toEqual([BRUNCH_MENU_COMMAND, BRUNCH_MODE_COMMAND]);
+    expect(harness.commands.has(retiredCommand)).toBe(false);
+  });
+
+  it('runs the workspace action from /brunch:menu', async () => {
+    const decision = { kind: 'newSession' };
+    const harness = commandHarness({ customResult: decision });
+
+    await harness.commands.get(BRUNCH_MENU_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.customCalls).toHaveLength(1);
+    expect(harness.workspaceDecisions).toEqual([decision]);
+    expect(harness.notifications).toEqual([
+      expect.objectContaining({ level: 'warning', message: 'workspace action reached' }),
+    ]);
+  });
+
+  it('keeps ctrl+shift+b wired to the workspace action through a command-capable context fallback', async () => {
+    const decision = { kind: 'openSession' };
+    const borrowedWaits: number[] = [];
+    const harness = commandHarness({
+      customAvailable: false,
+      customResult: decision,
+      getCommandContext: () => ({
+        ...harness.ctx,
+        hasUI: true,
+        waitForIdle: async () => {
+          borrowedWaits.push(1);
+        },
+        ui: {
+          ...harness.ctx.ui,
+          custom: async <T>(_factory: (...args: unknown[]) => unknown, _options: unknown) => decision as T,
+        },
+      }),
+    });
+
+    await harness.shortcuts.get(BRUNCH_MENU_SHORTCUT)?.handler(harness.ctx);
+
+    expect(borrowedWaits).toEqual([1]);
+    expect(harness.workspaceDecisions).toEqual([decision]);
+  });
+});
 
 describe('Brunch runtime switch commands', () => {
   it.each([['execute', { operationalMode: 'execute' }]] as const)(

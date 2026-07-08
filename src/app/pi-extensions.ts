@@ -129,10 +129,10 @@ export {
 export {
   BRUNCH_COMMAND_PREFIX,
   BRUNCH_CONTINUE_COMMAND,
+  BRUNCH_MENU_COMMAND,
+  BRUNCH_MENU_SHORTCUT,
   BRUNCH_MODE_COMMAND,
   BRUNCH_MODE_SHORTCUT,
-  BRUNCH_SWITCH_COMMAND,
-  BRUNCH_SWITCH_SHORTCUT,
   registerBrunchCommands,
 } from '../.pi/extensions/commands/index.js';
 export { runBrunchWorkspaceAction, runBrunchWorkspaceCommand } from '../.pi/extensions/workspace/index.js';

@@ -16,7 +16,7 @@ Posture: proving (inherited from main-editor-chrome).
 
 ---
 
-## Card 1 (light) — `/brunch:menu` replaces `/brunch:switch` · status: next
+## Card 1 (light) — `/brunch:menu` replaces `/brunch:switch` · status: done
 
 ### Objective
 
@@ -69,6 +69,18 @@ src/.pi/extensions/__tests__/
 ├── chrome.test.ts                            ~
 └── commands-runtime-switch.test.ts           ~  (shared command test home)
 ```
+
+### Completion report
+
+| Leaf | Outcome | Evidence |
+| ---- | ------- | -------- |
+| `/brunch:menu` registered; retired command absent | met | `commands-runtime-switch.test.ts` menu registration test; `registry.test.ts` shell registration test; `npm run test -- src/.pi/extensions/__tests__/commands-runtime-switch.test.ts src/.pi/extensions/__tests__/registry.test.ts src/.pi/extensions/__tests__/chrome.test.ts src/app/__tests__/brunch-tui.test.ts` |
+| Menu command runs `runBrunchWorkspaceAction`; `ctrl+shift+b` still opens it through command-context fallback | met | `commands-runtime-switch.test.ts` menu command + shortcut fallback tests; `brunch-tui.test.ts` boot picker shortcut assertion |
+| Visible chrome/header hints say `/brunch:menu`, not switch/create wording | met | `chrome.test.ts` footer and startup-header assertions |
+| D34-L containment not widened by rename | met | `registry.test.ts` command registration remains only Brunch namespaced commands; no built-in visibility/effect changes |
+| `rg` sweep has no retired command spelling in `src/` or `docs/` | met | `rg --hidden "brunch:switch|BRUNCH_SWITCH|switches spec/session" "src" "docs"` returned no matches |
+
+Skipped-test-count delta vs parent commit: `0` for focused tests; full-suite runs reported the existing `3 skipped` count but failed twice on the known `git-host-promotion-port.test.ts` timeout before build, then the failing file passed in isolation and `npm run build` passed.
 
 Card 1 cross-checked 2026-07-08 against `--second-look-mode-controls.md` Card 2 (superseded/deleted):
 adopted its chrome-copy and D34-L containment leaves; kept retire-outright over its conditional alias

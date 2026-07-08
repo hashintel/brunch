@@ -106,7 +106,7 @@ async function switchToActivatedWorkspace(
 ): Promise<void> {
   if (typeof ctx.switchSession !== 'function') {
     ctx.ui.notify(
-      'Use /brunch:switch to switch specs or sessions; this Pi context cannot switch sessions.',
+      'Use /brunch:menu to switch specs or sessions; this Pi context cannot switch sessions.',
       'warning',
     );
     return;

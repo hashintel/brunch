@@ -128,7 +128,7 @@ export function projectBrunchChromeFooterLines(
   const sessionLabel = telemetry?.sessionName ?? chrome.session.label ?? chrome.session.id;
   const specSessionPart = keyedStatusPart(
     theme,
-    'spec / session',
+    '/brunch:menu',
     'ctrl-shift-b',
     `${formatSpec(chrome)} / ${sessionLabel}`,
   );
