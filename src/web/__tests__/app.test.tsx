@@ -8,6 +8,7 @@ import type { GraphSlice, NodeNeighborhood } from '../../graph/queries.js';
 import type { WorkspaceState } from '../../projections/workspace/workspace-state.js';
 import { BrunchWebApp, createBrunchWebRuntime } from '../app.js';
 import type { RunTraceIndex } from '../queries/execute.js';
+import type { RunListEntry } from '../queries/execute.js';
 import { graphNodeNeighborhoodQueryOptions, graphOverviewQueryOptions } from '../queries/graph.js';
 import { queryKeys } from '../query-keys.js';
 import type { WebSocketRpcClient, WebSocketRpcNotificationListener } from '../rpc-client.js';
@@ -124,6 +125,7 @@ function rpcClient(options?: {
   graphOverview?: GraphSlice;
   nodeNeighborhood?: NodeNeighborhood;
   runTraceIndex?: RunTraceIndex;
+  runs?: readonly RunListEntry[];
   runTraceIndexError?: Error;
   calls?: RpcCall[];
   listeners?: Set<WebSocketRpcNotificationListener>;
@@ -153,6 +155,9 @@ function rpcClient(options?: {
       if (method === 'execute.runTraceIndex') {
         if (options?.runTraceIndexError) throw options.runTraceIndexError;
         return (options?.runTraceIndex ?? { traces: [] }) as T;
+      }
+      if (method === 'execute.runs') {
+        return { runs: options?.runs ?? [] } as T;
       }
       throw new Error(`unexpected RPC method ${method}`);
     },
