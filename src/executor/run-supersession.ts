@@ -1,4 +1,4 @@
-import { mkdir } from 'node:fs/promises';
+import { access, mkdir } from 'node:fs/promises';
 
 import { prepareLaunch, type LaunchCurrentProjection, type LaunchResult } from './launch.js';
 import { persistRunMetadata, readRunMetadata, runDirPath, runMetadataPath, type RunMetadata } from './run.js';
@@ -60,8 +60,9 @@ export async function createSupersedingRun(args: {
   }
 
   const runId = args.runId ?? `run-${Date.now().toString(36)}`;
+  const runDir = runDirPath(args.cwd, runId);
   const metadataPath = runMetadataPath(args.cwd, runId);
-  if (await readRunMetadata(metadataPath)) {
+  if (await pathExists(runDir)) {
     return {
       status: 'target_run_exists',
       runStatus: 'not_started',
@@ -88,7 +89,6 @@ export async function createSupersedingRun(args: {
     };
   }
 
-  const runDir = runDirPath(args.cwd, runId);
   const metadata: RunMetadata = {
     runId,
     specId: previous.specId,
@@ -110,4 +110,13 @@ export async function createSupersedingRun(args: {
     planPath: launch.planPath,
     sideEffects: [{ kind: 'mkdir', path: runDir }, metadataEffect],
   };
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
 }

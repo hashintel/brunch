@@ -125,6 +125,33 @@ describe('createSupersedingRun', () => {
     });
   });
 
+  it('refuses to attach metadata to an existing target run directory', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-supersede-existing-dir-'));
+    await writePlan(cwd);
+    await writeRun(cwd, 'run-old');
+    await mkdir(runDirPath(cwd, 'run-new'), { recursive: true });
+    await writeFile(join(runDirPath(cwd, 'run-new'), 'stale-artifact.txt'), 'old run residue', 'utf8');
+
+    const result = await createSupersedingRun({
+      cwd,
+      previousRunId: 'run-old',
+      runId: 'run-new',
+      current,
+    });
+
+    expect(result).toEqual({
+      status: 'target_run_exists',
+      runStatus: 'not_started',
+      previousRunId: 'run-old',
+      runId: 'run-new',
+      metadataPath: runMetadataPath(cwd, 'run-new'),
+      sideEffects: [],
+    });
+    await expect(readFile(join(runDirPath(cwd, 'run-new'), 'stale-artifact.txt'), 'utf8')).resolves.toBe(
+      'old run residue',
+    );
+  });
+
   it('creates a new linked run without mutating the previous run', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-supersede-create-'));
     await writePlan(cwd);
