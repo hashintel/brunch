@@ -58,25 +58,24 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Active
 
-- `alpha-release-readiness` (FE-1159) — get the `1.0.0-alpha` line publishable and onboardable (packaging fixes, pinned model allowlist, Pi-auth ride + `brunch login`, no-auth gate). Admitted 2026-07-07 from spike + grill + spec (D113-L/D114-L/D115-L, req 29, A38-L, I59-L). Built + walkthrough-witnessed; PR [#299](https://github.com/hashintel/brunch/pull/299) awaiting merge → publish. Branch `ln/fe-1159-alpha-release`. Definition below.
-- `exchange-ask-refinement` (FE-1164) — built, review-verified, and witness-gap closed 2026-07-08; branch `ln/fe-1164-ask-terminal` awaiting `gt submit` + tie-off (stacked on FE-1115 #301). See Recently Completed; definition below (kept live: `headless-ask-discovery` and `review-commentary-widening` build on it).
-- `tool-schema-convergence` (FE-1163) — next build: sweep over the 46-tool provider-facing schema surface. **Stacks on `ln/fe-1164-ask-terminal`** (2026-07-08 decision — the ask cutover reshaped the exchanges family the sweep normalizes). Ledger: `memory/cards/tool-schema-convergence--ledger.md` (now includes the folded blank-carrier row). Definition below.
-- `main-editor-chrome` (FE-1169) — **promoted from Horizon 2026-07-08**, opening the chrome batch: persistent Brunch-owned main input editor + UX-level TUI component rendering/affordance refinement (the work FE-1115's DX closure explicitly excluded). Branch `ln/fe-1169-editor-chrome`, stacked on `ln/fe-1164-ask-terminal`. Definition below.
+- `alpha-release-readiness` (FE-1159) — **merged 2026-07-08 (#299)**; remaining closeout is publish only (human-gated npm auth; mechanics in the definition below §Publish mechanics). Branch retired.
+- `main-editor-chrome` (FE-1169) — chrome-batch opener, in heavy flight: 12 builder commits landed 2026-07-08 (threads 1–2 complete; thread 4 complete; thread 5 D1/D2/D4 done; two judo fix cards consumed; roving-flake stabilization rode this branch). Remaining: `--details-driven-rendering.md` (thread 3, D104-L rewrite), D3 (`/brunch:continue`), `--theme-demo-expansion.md`, then outer manual beats. Branch `ln/fe-1169-editor-chrome` (PR #305; parents merged — `gt restack` onto `next` owed). Definition below.
+- `tool-schema-convergence` (FE-1163) — next build: sweep over the 46-tool provider-facing schema surface. Base: **off `next`** now that FE-1164 merged (supersedes the stack-on-FE-1164 note). Ledger: `memory/cards/tool-schema-convergence--ledger.md` (includes the folded blank-carrier row). Definition below.
 
 ### Recently Completed
 
 - 2026-07-08 **merge wave — ship-gate stack + KA executor lanes to `next`:** FE-1122 (#286), FE-1123 (#287), FE-1124 (#288), FE-1134 (#289), FE-1135 (#291), FE-1136 (#292), FE-1137 (#290), FE-1138 (#293), FE-1152 (#294); KA: FE-1141 (#295), FE-1154 (#297), FE-1155 (#296), FE-1107 (#298). All outer-loop residue from these lanes is batched into `walkthrough-evidence-batch` (FE-1167) — no merged frontier carries open obligations of its own. Definitions archived to `docs/archive/PLAN_HISTORY.md` (2026-07-08 hygiene pass).
-- 2026-07-08 `exchange-ask-refinement` (FE-1164) — review-fix closeout landed after the 2026-07-08 review found the first build not-done: the previously skipped structured-exchange answer suite and live web-driver/order proofs are un-skipped; standalone `ask` owns free-text/single/multi collection with custom→editor→broker/unavailable precedence where applicable; multi-choice editor-envelope fallback is live under ask; offer continuations fail loudly without declared `details.continuation`; declared candidate/digest/review options drive the pickers; legacy Pi adapter files (`present-question.ts`, `request-response.ts`, answer/choice/review sources) are deleted while preserved request-detail discriminants remain for capture/sweep/RPC parity. `npm run verify` passed except the first run hit the known roving-suite flake in `git-host-promotion-port`; rerun passed tests and build. **2026-07-08 walkthrough + witness audit addenda (same branch):** F18–F20 ask-surface fixes (free-text markdown-body rendering, free-text comment collection, commentPrompt-presence-gated optional comments); a witness audit then caught and fixed the sweep classifier excluding `ask` toolNames from the capture tail (the "capture semantics stay green" claim had been witnessed only against retired `request_response` fixtures), added the ask render-honesty oracle + `ASK_CONTENT_ELISIONS`, and gave `ask-tuples.md` a writer test with a five-branch outcome matrix. Witness-gap closure then added the real pi-tui runtime-mount battery for registered `ask` and the dedicated `present_candidates` supersession probe.
+- 2026-07-08 `exchange-ask-refinement` (FE-1164) — **tied off and merged to `next` 2026-07-08**; its unwitnessed walkthrough items folded into FE-1167 residue group 5. Definition retained below (Horizon `headless-ask-discovery` / `review-commentary-widening` build on it). Review-fix closeout landed after the 2026-07-08 review found the first build not-done: the previously skipped structured-exchange answer suite and live web-driver/order proofs are un-skipped; standalone `ask` owns free-text/single/multi collection with custom→editor→broker/unavailable precedence where applicable; multi-choice editor-envelope fallback is live under ask; offer continuations fail loudly without declared `details.continuation`; declared candidate/digest/review options drive the pickers; legacy Pi adapter files (`present-question.ts`, `request-response.ts`, answer/choice/review sources) are deleted while preserved request-detail discriminants remain for capture/sweep/RPC parity. `npm run verify` passed except the first run hit the known roving-suite flake in `git-host-promotion-port`; rerun passed tests and build. **2026-07-08 walkthrough + witness audit addenda (same branch):** F18–F20 ask-surface fixes (free-text markdown-body rendering, free-text comment collection, commentPrompt-presence-gated optional comments); a witness audit then caught and fixed the sweep classifier excluding `ask` toolNames from the capture tail (the "capture semantics stay green" claim had been witnessed only against retired `request_response` fixtures), added the ask render-honesty oracle + `ASK_CONTENT_ELISIONS`, and gave `ask-tuples.md` a writer test with a five-branch outcome matrix. Witness-gap closure then added the real pi-tui runtime-mount battery for registered `ask` and the dedicated `present_candidates` supersession probe.
 - Older completed frontiers (the 2026-07-06 wave — FE-1138, FE-1136, FE-1135, FE-1154, the KA executor lane, arc `orchestrator-cutover` — plus `exchange-rendering` FE-1123, `elicitation-gap-guidance` FE-1116, and the 2026-07-01 `component-dx` slices): `docs/archive/PLAN_HISTORY.md`.
 
 ### Next
 
-- `walkthrough-evidence-batch` ([FE-1167](https://linear.app/hash/issue/FE-1167/walkthrough-evidence-batch-outer-loop-checks-for-merged-orientation)) — the one batch owning all outer-loop residue from the merged lanes (FE-1134 generative-menu evidence, FE-1137 thin/rich Execute beats + deferred orientation-choice questions, FE-1124 Card 3 + seed worklist, FE-1107 KA-conversation residue). Runs after FE-1164 merges so the beats witness the ask surfaces. Closes arc `deterministic-orientation`. Definition below.
+- `walkthrough-evidence-batch` ([FE-1167](https://linear.app/hash/issue/FE-1167/walkthrough-evidence-batch-outer-loop-checks-for-merged-orientation)) — the one batch owning all outer-loop residue from the merged lanes (FE-1134 generative-menu evidence, FE-1137 thin/rich Execute beats + deferred orientation-choice questions, FE-1124 Card 3 + seed worklist, FE-1107 KA-conversation residue, and — folded 2026-07-08 from the retired handoff — the FE-1164 walkthrough items). Unblocked by the FE-1164 merge; prefer running after FE-1169 lands so the beats witness the reshaped ask surfaces. Closes arc `deterministic-orientation`. Definition below.
 - **Chrome batch (next work area, user-declared 2026-07-08):** opened same day by promoting `main-editor-chrome` (FE-1169) to Active — the frontier now also owns the UX-level component rendering/affordance refinement lane (widened at promotion; it does not wait for the current lanes to merge). Further chrome frontiers open here as scoped.
 
 ### Parallel / Low-Conflict
 
-- **Open PRs:** FE-1159 alpha release (#299) · FE-1115 TUI refinements (#301) · KA: FE-1114 executor replanning guards (#300), FE-1166 greenfield executor harness (#302), FE-1141 readable run evidence (#303).
+- **Open PRs:** FE-1169 chrome batch (#305). The 2026-07-08 second merge wave landed everything else: FE-1159 (#299), FE-1115 (#301), FE-1164 (#304 + stack), KA FE-1114 (#300), FE-1166 (#302), FE-1141 (#303).
 - `component-dx` (FE-1115) — **✓ closed 2026-07-08 as a frontier**: the DX goal is delivered (preview harness, theme toggle + hot reload + testbed, `matchesKey` sweep, theme value rework, scrollback-safe indicator; outer manual checks confirmed 2026-07-07; PR #301). UX-level component work is *not* covered by this closure — it opens fresh frontiers in the upcoming chrome batch. Definition archived to `docs/archive/PLAN_HISTORY.md`.
 - **Standing obligations:** `probes-and-transcripts-evolution` and `topology-readmes-and-boundaries` ride the frontier that triggers them; they are not standalone cleanup buckets.
 
@@ -175,11 +174,12 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Kind:** verification batch / walkthrough evidence + external-residue closure. Arc: `deterministic-orientation` (closing member).
 - **Certainty:** proving — the evidence is the point; conduct quality on the generative flows and Execute-mode assessment is unwitnessed.
 - **Why now / unlocks:** created by the 2026-07-08 hygiene fold — FE-1134, FE-1137, FE-1124, and FE-1107 all merged with the *same* unowned residue ("outer walkthrough evidence on a re-braided branch"), leaving three frontiers permanently un-closable. This batch owns all of it in one place with one trigger.
-- **Objective (four residue groups):**
+- **Objective (five residue groups):**
   1. **FE-1134 evidence:** live walkthrough beats for the orientation menu's generative options (propose/project), using the FE-1124 seed variants; menu→conduct routing evidence via session JSONL skill reads.
   2. **FE-1137 evidence:** Execute-mode entry beats on thin vs rich seeds (assessment honesty: Ask on thin, Proceed on rich); capture evidence on the two deferred orientation-choice questions — `continue`/`proceed` semantics and the sticky-posture candidate (a D98-L-sensitive reversal; route through `ln-grill`/`ln-spec` if evidence says revisit).
   3. **FE-1124 remainder:** Card 3 review variants (`memory/cards/walkthrough-batch-2--seed-variants.md`) + the seed-variation worklist; findings continue in `TESTING_FINDINGS.md`.
   4. **FE-1107/KA residue:** confirm executor-card GC (incl. `memory/cards/executor-run-integrity--plan-projection.md`), settle FE-1107 close-or-narrow, hold the demo session (`docs/DEMO_STACK_OVERVIEW_2026-07-06.md`, delete after), then the owed post-KA `ln-plan` pass.
+  5. **FE-1164 walkthrough residue (folded from the retired 2026-07-08 handoff — FE-1164 merged without these witnessed):** declared continuations driven live (digest/review/candidates chain); capture sweep after ask answers (highest-value — the outer witness of the `64aad51a` sweep-classifier fix); resume re-render of persisted ask results; web sidecar behavior during an open ask; `dev:components` gallery re-check in both themes. Workbench: `.fixtures/workbenches/workspace-alpha-grounding` (`npm run dev -- --workspace …`; reseed `npm run seed -- --seed workspace-alpha-grounding/base --reset`). Note: the ask surfaces have since been reshaped by FE-1169 (compact result content, hierarchical esc, mode-reactive borders) — witness the current surfaces, not FE-1164's originals.
 - **Annotations:** Retires: the unwitnessed-conduct uncertainty on generative menus and Execute entry (the arc's "one witnessed e2e run per generative flow" obligation). Closes: arc `deterministic-orientation`; the FE-1107 disposition question.
 - **Acceptance sketch:** per-flow walkthrough beats recorded against `TESTING_FINDINGS.md` with session JSONL evidence; the two deferred FE-1137 questions answered or explicitly re-routed; KA residue dispositions recorded in PLAN; arc marked done only when its done-definition holds (incl. topology reconciliation).
 - **Verification:** manual outer loop per `docs/praxis/manual-testing.md`, with session JSONL + debug-mirror artifacts as the recorded oracles.
@@ -321,35 +321,32 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 frontiers:
   Active:
     alpha-release-readiness (FE-1159)
-      status: built + walkthrough-witnessed; PR #299 awaiting merge; publish = merge -> check:release-pack -> npm publish
-      branch: ln/fe-1159-alpha-release (directly on next)
+      status: merged 2026-07-08 (#299); publish only (human-gated npm auth) -> check:release-pack -> npm publish
       depends_on: D39-L, D34-L, D109-L, D113-L, D114-L, D115-L
-    exchange-ask-refinement (FE-1164)
-      status: built + review-verified 2026-07-08; awaiting gt submit + tie-off
-      branch: ln/fe-1164-ask-terminal (stacked on tied-off ln/fe-1115-tui-refinements-1, PR #301)
-      depends_on: D116-L, D37-L, D105-L, D106-L, D110-L/I57-L (capture semantics preserved)
-      feeds: -[dissolves pending-exchange scan]-> headless-ask-discovery (Horizon, A39-L)
-             -[re-expresses payload]-> review-commentary-widening (Horizon)
+    main-editor-chrome (FE-1169)
+      status: in flight — threads 1/2/4 + D1/D2/D4 + judo fixes landed 2026-07-08 (12 commits);
+              remaining: details-driven-rendering (D104-L rewrite), D3 continue, theme demo, outer beats
+      branch: ln/fe-1169-editor-chrome (PR #305; parents merged -> gt restack onto next owed)
+      absorbed: workspace-dialog-headless-guard [done], physical-terminal wheel smoke beat [open, outer]
+      revises: D104-L (pass-through rule; render-honesty preserved) -> lands with details-driven-rendering
+      depends_on: D22-L, D35-L, D113-L; FE-1138 Editor-in-chrome precedent
+      feeds: -[groundwork]-> develop-mode (Horizon; shift+tab cycle + border roles landed mode-agnostic:
+             OPERATIONAL_MODE_IDS-derived cycling, satisfies-enforced theme roles)
     tool-schema-convergence (FE-1163)
       status: next build; ledger authored + re-based 2026-07-08 (13 rows / 46 tools, incl. folded blank-carriers row)
-      branch: ln/fe-1163-tool-schema-convergence -[hard]-> stacks on ln/fe-1164-ask-terminal (2026-07-08 decision)
+      branch: ln/fe-1163-tool-schema-convergence -[hard]-> off next (FE-1164 merged; supersedes stack-on decision)
       shape: coverage frontier; ledger memory/cards/tool-schema-convergence--ledger.md
-    main-editor-chrome (FE-1169)
-      status: promoted from Horizon + reframed via grill 2026-07-08 (six threads: editor tracer, ask UX,
-              D104-L revision, mode-reactive chrome, brunch: commands, border semantics); scoping next
-      branch: ln/fe-1169-editor-chrome -[hard]-> stacks on ln/fe-1164-ask-terminal
-      absorbed: workspace-dialog-headless-guard, physical-terminal wheel smoke beat
-      revises: D104-L (pass-through rule; render-honesty preserved) -> record via ln-sync at first landing
-      depends_on: D22-L, D35-L, D113-L; FE-1138 Editor-in-chrome precedent
-      feeds: -[groundwork]-> develop-mode (Horizon; mode-cycling key + border-by-mode land mode-agnostic)
 
   Next:
     walkthrough-evidence-batch (FE-1167)
       arc: deterministic-orientation (closing member)
-      status: admitted 2026-07-08 (hygiene fold of FE-1134/FE-1137/FE-1124/FE-1107 residue)
-      branch: tbd -[hard]-> after FE-1164 merges (beats must witness ask surfaces)
+      status: admitted 2026-07-08 (hygiene fold); UNBLOCKED — FE-1164 merged; prefer running after
+              FE-1169 lands so beats witness the reshaped ask surfaces (compact content, esc, borders)
+      branch: tbd (off next)
       owns: generative-menu evidence, thin/rich Execute beats + deferred orientation-choice questions,
-            FE-1124 Card 3 + seed worklist, FE-1107/KA residue (card GC, close-or-narrow, demo session, post-KA plan pass)
+            FE-1124 Card 3 + seed worklist, FE-1107/KA residue (card GC, close-or-narrow, demo session,
+            post-KA plan pass), FE-1164 walkthrough residue (group 5: declared continuations, capture
+            sweep after answers, resume re-render, sidecar during open ask, gallery re-check)
 
   Horizon (behind the gate):
     planning-process-model
