@@ -2,7 +2,10 @@ import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises
 import { join } from 'node:path';
 
 import { BRUNCH_DIR } from '../constants.js';
+import type { VerifyTarget } from './execution-ports.js';
 import { prepareLaunch, type LaunchCurrentProjection, type LaunchResult } from './launch.js';
+
+export type WorktreeSubstrateKind = 'git_worktree' | 'empty_dir';
 
 export interface RunMetadata {
   readonly runId: string;
@@ -25,6 +28,8 @@ export interface RunMetadata {
     | 'promotion_prepared'
     | 'abandoned';
   readonly worktreeDir?: string;
+  readonly substrate?: WorktreeSubstrateKind;
+  readonly verifyTarget?: VerifyTarget;
   readonly populatedPlanPath?: string;
   readonly populatedPlanProvenancePath?: string;
   readonly sourcePolicy?: string;
@@ -148,6 +153,8 @@ export async function createRun(args: {
   readonly specId: string;
   readonly current?: LaunchCurrentProjection;
   readonly runId?: string;
+  readonly substrate?: WorktreeSubstrateKind;
+  readonly verifyTarget?: VerifyTarget;
 }): Promise<RunCreateResult> {
   const runId = args.runId ?? `run-${Date.now().toString(36)}`;
   const runDir = runDirPath(args.cwd, runId);
@@ -191,6 +198,8 @@ export async function createRun(args: {
     specId: args.specId,
     planPath: launch.planPath,
     status: 'created',
+    ...(args.substrate ? { substrate: args.substrate } : {}),
+    ...(args.verifyTarget ? { verifyTarget: args.verifyTarget } : {}),
   };
 
   await mkdir(runDir, { recursive: true });

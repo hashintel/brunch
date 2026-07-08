@@ -1,3 +1,6 @@
+import { realpath } from 'node:fs/promises';
+import { resolve } from 'node:path';
+
 import type { GitHostPromotionPort } from '../executor/execution-ports.js';
 import { runCommand, type CommandRunner } from './command-runner.js';
 
@@ -7,6 +10,8 @@ export function createGitHostPromotionPort(
   const run = options.run ?? runCommand;
   return {
     async preflight(args) {
+      const root = await assertExactGitRoot(run, args.worktreeDir);
+      if (root) return root;
       const exists = await run('git', ['cat-file', '-e', `${args.commitSha}^{commit}`], {
         cwd: args.worktreeDir,
       });
@@ -42,6 +47,8 @@ export function createGitHostPromotionPort(
       };
     },
     async apply(args) {
+      const root = await assertExactGitRoot(run, args.worktreeDir);
+      if (root) return root;
       // --no-ext-diff: the output must be an applyable patch, so bypass any
       // user-configured external differ (e.g. a semantic diff wrapper), which
       // would otherwise replace the patch body with human-oriented output.
@@ -59,6 +66,30 @@ export function createGitHostPromotionPort(
       return { status: 'applied', changedFiles: args.changedFiles };
     },
   };
+}
+
+async function assertExactGitRoot(run: CommandRunner, worktreeDir: string) {
+  const root = await run('git', ['rev-parse', '--show-toplevel'], { cwd: worktreeDir });
+  if (root.exitCode !== 0) return failed(root, `git rev-parse --show-toplevel exited ${root.exitCode}`);
+  const [actualRoot, expectedRoot] = await Promise.all([
+    canonicalPath(root.stdout.trim()),
+    canonicalPath(worktreeDir),
+  ]);
+  if (actualRoot !== expectedRoot) {
+    return {
+      status: 'failed' as const,
+      message: `refusing host promotion from non-isolated worktree: git root is ${root.stdout.trim()}`,
+    };
+  }
+  return undefined;
+}
+
+async function canonicalPath(path: string): Promise<string> {
+  try {
+    return await realpath(path);
+  } catch {
+    return resolve(path);
+  }
 }
 
 function failed(

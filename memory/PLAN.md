@@ -221,6 +221,16 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
      mechanism delivered by the KA executor lane (D111-L/D112-L/I58-L; src/executor/TOPOLOGY.md).
      KA-conversation residue (card GC, close-or-narrow, demo session, post-KA plan pass) rides FE-1167. -->
 
+### executor-run-environment
+
+- **Name:** Greenfield executor run substrate and verify policy
+- **Linear:** [FE-1166](https://linear.app/hash/issue/FE-1166/greenfield-executor-run-substrate-and-verify-policy)
+- **Branch:** `ka/fe-1166-greenfield-executor-harness` (stacks on `ka/fe-1114-executor-replanning` / PR #300)
+- **Kind:** structural / executor run environment policy
+- **Status:** active; scoped in `memory/cards/executor-run-environment--substrate-verify.md`.
+- **Objective:** Separate run substrate and verify target from source-copy policy so greenfield fixture runs can use an isolated run directory and product-owned verification profile instead of always starting from a host git worktree and hardcoded `npm run verify`.
+- **Traceability:** FE-1114 follow-up live-run evidence; `src/executor/worktree.ts`, `src/executor/test-result.ts`, `src/app/test-runner-port.ts`, `src/.pi/extensions/executor/execute-run-create/index.ts`.
+
 <!-- elicitation-gap-guidance (FE-1116) full definition archived to docs/archive/PLAN_HISTORY.md (2026-07-03 ln-sync);
      durable truth: D99-L, D101-L, D102-L, I52-L, I56-L, closure oracle
      src/graph/__tests__/elicitation-gap-guidance-closure.test.ts, docs/archive/SESSION_LOCAL_ELICITATION_GAPS.md. -->

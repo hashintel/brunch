@@ -66,7 +66,14 @@ describe('createRun', () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-run-ready-'));
     const planPath = await writeReadyPlan(cwd);
 
-    const result = await createRun({ cwd, specId: '42', runId: 'run-1', current });
+    const result = await createRun({
+      cwd,
+      specId: '42',
+      runId: 'run-1',
+      current,
+      substrate: 'empty_dir',
+      verifyTarget: { command: 'npm', args: ['test'] },
+    });
 
     expect(result).toEqual({
       status: 'created',
@@ -85,6 +92,8 @@ describe('createRun', () => {
       specId: '42',
       planPath,
       status: 'created',
+      substrate: 'empty_dir',
+      verifyTarget: { command: 'npm', args: ['test'] },
     });
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'worktree'))).toBe(false);
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'petrinaut'))).toBe(false);

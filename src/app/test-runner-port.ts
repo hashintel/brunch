@@ -12,11 +12,12 @@ export function createTestRunnerPort(
   } = {},
 ): TestRunnerPort {
   const run = options.run ?? runCommand;
-  const command = options.command ?? 'npm';
-  const args = options.args ?? ['run', 'verify'];
-  const target = [command, ...args].join(' ');
   return {
-    async run({ worktreeDir, signal, onUpdate }) {
+    async run({ worktreeDir, verifyTarget, signal, onUpdate }) {
+      const command = verifyTarget?.command ?? options.command ?? 'npm';
+      const args = verifyTarget?.args ?? options.args ?? ['run', 'verify'];
+      const target = [command, ...args].join(' ');
+      const execArgs = command === 'npm' ? ['--prefix', worktreeDir, ...args] : args;
       await onUpdate?.({ kind: 'status', message: `${target} started` });
       let outputUpdateChain: Promise<void> = Promise.resolve();
       const queueOutputUpdate = (chunk: { readonly stream: 'stdout' | 'stderr'; readonly text: string }) => {
@@ -24,7 +25,7 @@ export function createTestRunnerPort(
           await onUpdate?.({ kind: chunk.stream, message: chunk.text });
         });
       };
-      const result = await run(command, args, {
+      const result = await run(command, execArgs, {
         cwd: worktreeDir,
         signal,
         timeoutMs: TEST_RUNNER_TIMEOUT_MS,

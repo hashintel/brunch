@@ -95,6 +95,8 @@ export async function createSupersedingRun(args: {
     planPath: launch.planPath,
     status: 'created',
     supersedesRunId: args.previousRunId,
+    ...(previous.substrate ? { substrate: previous.substrate } : {}),
+    ...(previous.verifyTarget ? { verifyTarget: previous.verifyTarget } : {}),
   };
 
   await mkdir(runDir, { recursive: true });

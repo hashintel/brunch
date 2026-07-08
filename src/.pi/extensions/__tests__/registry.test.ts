@@ -860,7 +860,13 @@ describe('Brunch explicit Pi extension registry', () => {
 
     const createRun = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_RUN_CREATE_TOOL);
     expect(createRun).toBeDefined();
-    const result = await createRun!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
+    const result = await createRun!.execute(
+      'call-1',
+      { runId: 'run-1', substrate: 'empty_dir', verifyProfile: 'npm_test' },
+      undefined,
+      undefined,
+      { cwd },
+    );
 
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
@@ -879,7 +885,8 @@ describe('Brunch explicit Pi extension registry', () => {
         { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
       ],
     });
-    await expect(readFile(metadataPath, 'utf8')).resolves.toContain('"status": "created"');
+    await expect(readFile(metadataPath, 'utf8')).resolves.toContain('"substrate": "empty_dir"');
+    await expect(readFile(metadataPath, 'utf8')).resolves.toContain('"command": "npm"');
     await expect(access(join(runDir, 'worktree'))).rejects.toThrow();
     await expect(access(join(runDir, 'reports.jsonl'))).rejects.toThrow();
   });

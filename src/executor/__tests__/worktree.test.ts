@@ -84,6 +84,264 @@ describe('createWorktree', () => {
     expect(await pathExists(join(cwd, '.brunch', 'cook', 'land'))).toBe(false);
   });
 
+  it('creates an empty directory substrate as an isolated git repository without invoking the git worktree port', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-empty-substrate-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await createRun({ cwd, specId: '42', runId: 'run-1', substrate: 'empty_dir' });
+    let gitPortCalled = false;
+
+    const result = await createWorktree({
+      cwd,
+      runId: 'run-1',
+      gitWorktree: createFakeGitWorktreePort(async () => {
+        gitPortCalled = true;
+        return { status: 'failed', worktreeDir: '/unused', message: 'should not run', sideEffects: [] };
+      }),
+    });
+
+    expect(gitPortCalled).toBe(false);
+    expect(result).toEqual({
+      status: 'worktree_created',
+      runStatus: 'worktree_created',
+      runId: 'run-1',
+      runDir: runDirPath(cwd, 'run-1'),
+      worktreeDir: worktreeDirPath(cwd, 'run-1'),
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      sideEffects: [
+        { kind: 'mkdir', path: worktreeDirPath(cwd, 'run-1') },
+        { kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
+      ],
+    });
+    await expect(access(join(worktreeDirPath(cwd, 'run-1'), '.git'))).resolves.toBeUndefined();
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      substrate: 'empty_dir',
+      status: 'worktree_created',
+      worktreeDir: worktreeDirPath(cwd, 'run-1'),
+    });
+  });
+
+  it('clears a stale empty directory substrate target before creating it', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-empty-substrate-stale-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await createRun({ cwd, specId: '42', runId: 'run-1', substrate: 'empty_dir' });
+    const worktreeDir = worktreeDirPath(cwd, 'run-1');
+    await mkdir(worktreeDir, { recursive: true });
+    await writeFile(join(worktreeDir, 'stale.txt'), 'leftover workspace', 'utf8');
+
+    const result = await createWorktree({
+      cwd,
+      runId: 'run-1',
+      gitWorktree: createFakeGitWorktreePort(async () => {
+        throw new Error('git should not run for empty_dir');
+      }),
+    });
+
+    expect(result.status).toBe('worktree_created');
+    expect(await pathExists(worktreeDir)).toBe(true);
+    expect(await pathExists(join(worktreeDir, 'stale.txt'))).toBe(false);
+  });
+
+  it('recreates an empty directory substrate from a stale git worktree marker', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-empty-substrate-git-marker-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await createRun({ cwd, specId: '42', runId: 'run-1', substrate: 'empty_dir' });
+    const worktreeDir = worktreeDirPath(cwd, 'run-1');
+    await mkdir(worktreeDir, { recursive: true });
+    await writeFile(join(worktreeDir, '.git'), 'gitdir: /tmp/worktrees/run-1\n', 'utf8');
+
+    const result = await createWorktree({
+      cwd,
+      runId: 'run-1',
+      gitWorktree: createFakeGitWorktreePort(async () => {
+        throw new Error('git should not run for empty_dir');
+      }),
+    });
+
+    expect(result.status).toBe('worktree_created');
+    expect(await pathExists(join(worktreeDir, '.git'))).toBe(true);
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      substrate: 'empty_dir',
+      status: 'worktree_created',
+      worktreeDir,
+    });
+  });
+
+  it('reinitializes a repairable empty directory substrate whose recorded worktree lost its git repo', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-empty-substrate-missing-git-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await createRun({ cwd, specId: '42', runId: 'run-1', substrate: 'empty_dir' });
+    const worktreeDir = worktreeDirPath(cwd, 'run-1');
+    await mkdir(worktreeDir, { recursive: true });
+    await writeFile(join(worktreeDir, 'not-a-repo.txt'), 'corrupt empty-dir retry', 'utf8');
+    await writeFile(
+      runMetadataPath(cwd, 'run-1'),
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath,
+        status: 'worktree_created',
+        substrate: 'empty_dir',
+        worktreeDir,
+      }),
+      'utf8',
+    );
+
+    const result = await createWorktree({
+      cwd,
+      runId: 'run-1',
+      gitWorktree: createFakeGitWorktreePort(async () => {
+        throw new Error('git should not run for empty_dir');
+      }),
+    });
+
+    expect(result.status).toBe('worktree_created');
+    expect(await pathExists(join(worktreeDir, 'not-a-repo.txt'))).toBe(false);
+    expect(await pathExists(join(worktreeDir, '.git'))).toBe(true);
+  });
+
+  it('repairs empty directory substrate metadata when the isolated repo already exists', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-empty-substrate-recover-metadata-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await createRun({ cwd, specId: '42', runId: 'run-1', substrate: 'empty_dir' });
+    const worktreeDir = worktreeDirPath(cwd, 'run-1');
+
+    const first = await createWorktree({
+      cwd,
+      runId: 'run-1',
+      gitWorktree: createFakeGitWorktreePort(async () => {
+        throw new Error('git worktree port should not run for empty_dir');
+      }),
+    });
+    expect(first.status).toBe('worktree_created');
+    await writeFile(join(worktreeDir, 'preserve.txt'), 'keep existing workspace', 'utf8');
+    await writeFile(
+      runMetadataPath(cwd, 'run-1'),
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath,
+        status: 'created',
+        substrate: 'empty_dir',
+      }),
+      'utf8',
+    );
+
+    const result = await createWorktree({
+      cwd,
+      runId: 'run-1',
+      gitWorktree: createFakeGitWorktreePort(async () => {
+        throw new Error('git worktree port should not run for empty_dir repair');
+      }),
+    });
+
+    expect(result).toEqual({
+      status: 'worktree_created',
+      runStatus: 'worktree_created',
+      runId: 'run-1',
+      runDir: runDirPath(cwd, 'run-1'),
+      worktreeDir,
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      sideEffects: [{ kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' }],
+    });
+    expect(await readFile(join(worktreeDir, 'preserve.txt'), 'utf8')).toBe('keep existing workspace');
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'worktree_created',
+      substrate: 'empty_dir',
+      worktreeDir,
+    });
+  });
+
+  it('reinitializes a repairable empty directory substrate whose git marker points outside the worktree', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-empty-substrate-host-marker-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await createRun({ cwd, specId: '42', runId: 'run-1', substrate: 'empty_dir' });
+    const worktreeDir = worktreeDirPath(cwd, 'run-1');
+    await mkdir(worktreeDir, { recursive: true });
+    await writeFile(join(worktreeDir, '.git'), 'gitdir: /tmp/host-linked-worktree\n', 'utf8');
+    await writeFile(join(worktreeDir, 'host-file.txt'), 'should be cleared', 'utf8');
+    await writeFile(
+      runMetadataPath(cwd, 'run-1'),
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath,
+        status: 'worktree_created',
+        substrate: 'empty_dir',
+        worktreeDir,
+      }),
+      'utf8',
+    );
+
+    const result = await createWorktree({
+      cwd,
+      runId: 'run-1',
+      gitWorktree: createFakeGitWorktreePort(async () => {
+        throw new Error('git worktree port should not run for empty_dir');
+      }),
+    });
+
+    expect(result.status).toBe('worktree_created');
+    expect(await pathExists(join(worktreeDir, 'host-file.txt'))).toBe(false);
+    expect(await pathExists(join(worktreeDir, '.git'))).toBe(true);
+  });
+
+  it('fails closed for an advanced empty directory substrate whose recorded worktree lost its git repo', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-empty-substrate-advanced-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await createRun({ cwd, specId: '42', runId: 'run-1', substrate: 'empty_dir' });
+    const worktreeDir = worktreeDirPath(cwd, 'run-1');
+    await mkdir(worktreeDir, { recursive: true });
+    await writeFile(
+      runMetadataPath(cwd, 'run-1'),
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath,
+        status: 'source_copied',
+        substrate: 'empty_dir',
+        worktreeDir,
+      }),
+      'utf8',
+    );
+
+    const result = await createWorktree({
+      cwd,
+      runId: 'run-1',
+      gitWorktree: createFakeGitWorktreePort(async () => {
+        throw new Error('git should not run for empty_dir retry');
+      }),
+    });
+
+    expect(result).toEqual({
+      status: 'worktree_create_failed',
+      runStatus: 'source_copied',
+      runId: 'run-1',
+      worktreeDir,
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      message: 'run already advanced to source_copied; refusing to recreate missing or invalid worktree',
+      sideEffects: [],
+    });
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'source_copied',
+      substrate: 'empty_dir',
+      worktreeDir,
+    });
+  });
+
   it('is idempotent: a second create does not re-invoke the git worktree port', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-worktree-idempotent-'));
     const planPath = planFilePath(cwd, '42');

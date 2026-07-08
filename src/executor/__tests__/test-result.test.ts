@@ -12,7 +12,10 @@ import { ingestTestResult, verifyStreamPath } from '../test-result.js';
 import { worktreeDirPath } from '../worktree.js';
 import { createFakeTestRunnerPort } from './fake-ports.js';
 
-async function createAgentResultRun(cwd: string): Promise<void> {
+async function createAgentResultRun(
+  cwd: string,
+  options: { readonly verifyTarget?: { readonly command: string; readonly args: readonly string[] } } = {},
+): Promise<void> {
   const runDir = runDirPath(cwd, 'run-1');
   const reportPath = reportsPath(cwd, 'run-1');
   const metadataPath = runMetadataPath(cwd, 'run-1');
@@ -32,6 +35,7 @@ async function createAgentResultRun(cwd: string): Promise<void> {
       activeSliceId: 'task-1',
       activeEpicId: 'frontier-1',
       agentResultPath: resultPath,
+      ...(options.verifyTarget ? { verifyTarget: options.verifyTarget } : {}),
     }),
     'utf8',
   );
@@ -149,6 +153,31 @@ describe('ingestTestResult', () => {
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'test_result_ingested',
     });
+  });
+
+  it('passes the run verify target to the test runner port', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-test-result-verify-target-'));
+    await createAgentResultRun(cwd, { verifyTarget: { command: 'npm', args: ['test'] } });
+
+    const calls: TestRunArgs[] = [];
+    const result = await ingestTestResult({
+      cwd,
+      runId: 'run-1',
+      testRunner: {
+        async run(args) {
+          calls.push(args);
+          return { status: 'completed', verdict: 'passed', exitCode: 0, target: 'npm test' };
+        },
+      },
+    });
+
+    expect(calls).toEqual([
+      expect.objectContaining({
+        worktreeDir: worktreeDirPath(cwd, 'run-1'),
+        verifyTarget: { command: 'npm', args: ['test'] },
+      }),
+    ]);
+    expect(result).toMatchObject({ status: 'test_result_ingested', verdict: 'passed' });
   });
 
   it('persists normalized verify stream updates before ingesting the final result', async () => {
