@@ -9,9 +9,10 @@ import { projectRequestReview } from '../../exchanges/projections/request-respon
 import { structuredExchangeResponseRequiresComment } from '../../exchanges/schemas/index.js';
 import type { PendingStructuredExchange } from './pending-exchange.js';
 import {
-  exchangeToolCallId,
   syntheticExchangeToolCallMessage,
+  syntheticExchangeToolResultMessage,
   type SyntheticExchangeToolCallMessage,
+  type SyntheticExchangeToolResultMessage,
 } from './synthetic-tool-call.js';
 
 interface StructuredExchangeTextResponseInput {
@@ -44,20 +45,7 @@ export type StructuredExchangeResponseInput =
   | StructuredExchangeMultiChoiceResponseInput
   | StructuredExchangeReviewResponseInput;
 
-interface AcceptedToolTextContent {
-  type: 'text';
-  text: string;
-}
-
-interface AcceptedToolResultMessage {
-  role: 'toolResult';
-  toolCallId: string;
-  toolName: string;
-  content: AcceptedToolTextContent[];
-  details: Record<string, unknown>;
-  isError: false;
-  timestamp: 0;
-}
+type AcceptedToolResultMessage = SyntheticExchangeToolResultMessage<Record<string, unknown>>;
 
 export type AcceptedStructuredExchangeResponse =
   | {
@@ -84,9 +72,10 @@ export function acceptedResponseFromParams(
       ok: true,
       answer: { text: answerText },
       toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'ask'),
-      toolResultMessage: {
-        ...toolResultMessageBase(pending, 'ask'),
-        content: [
+      toolResultMessage: syntheticExchangeToolResultMessage(
+        pending.exchangeId,
+        'ask',
+        [
           {
             type: 'text',
             text: formatRequestAnswer(
@@ -98,12 +87,12 @@ export function acceptedResponseFromParams(
             ),
           },
         ],
-        details: projectRequestAnswer({
+        projectRequestAnswer({
           exchangeId: pending.exchangeId,
           status: 'answered',
           answer: answerText,
         }),
-      },
+      ),
     };
   }
 
@@ -136,11 +125,12 @@ export function acceptedResponseFromParams(
       ok: true,
       answer: { optionId: choice.id, label: choice.label },
       toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'ask'),
-      toolResultMessage: {
-        ...toolResultMessageBase(pending, 'ask'),
-        content: [{ type: 'text', text: formatRequestChoice(details) }],
+      toolResultMessage: syntheticExchangeToolResultMessage(
+        pending.exchangeId,
+        'ask',
+        [{ type: 'text', text: formatRequestChoice(details) }],
         details,
-      },
+      ),
     };
   }
 
@@ -165,11 +155,12 @@ export function acceptedResponseFromParams(
         },
       },
       toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'ask'),
-      toolResultMessage: {
-        ...toolResultMessageBase(pending, 'ask'),
-        content: [{ type: 'text', text: formatRequestReview(details.details) }],
-        details: details.details,
-      },
+      toolResultMessage: syntheticExchangeToolResultMessage(
+        pending.exchangeId,
+        'ask',
+        [{ type: 'text', text: formatRequestReview(details.details) }],
+        details.details,
+      ),
     };
   }
 
@@ -209,9 +200,10 @@ export function acceptedResponseFromParams(
     ok: true,
     answer: { optionIds: choices.map((choice) => choice.id), choices },
     toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'ask'),
-    toolResultMessage: {
-      ...toolResultMessageBase(pending, 'ask'),
-      content: [
+    toolResultMessage: syntheticExchangeToolResultMessage(
+      pending.exchangeId,
+      'ask',
+      [
         {
           type: 'text',
           text: formatRequestChoices(
@@ -229,7 +221,7 @@ export function acceptedResponseFromParams(
           ),
         },
       ],
-      details: projectRequestChoices({
+      projectRequestChoices({
         exchangeId: pending.exchangeId,
         status: 'answered',
         choices: choices.map((choice) => ({
@@ -240,7 +232,7 @@ export function acceptedResponseFromParams(
         options: optionEcho(pending.options),
         comment,
       }),
-    },
+    ),
   };
 }
 
@@ -340,17 +332,4 @@ function optionEcho(options: readonly { id: string; content: string; rationale?:
     content: option.content,
     ...(option.rationale !== undefined ? { rationale: option.rationale } : {}),
   }));
-}
-
-function toolResultMessageBase(
-  pending: PendingStructuredExchange,
-  requestTool: 'ask' | 'request_response' | 'request_review',
-) {
-  return {
-    role: 'toolResult' as const,
-    toolCallId: exchangeToolCallId(pending.exchangeId, requestTool),
-    toolName: requestTool,
-    isError: false as const,
-    timestamp: 0 as const,
-  };
 }

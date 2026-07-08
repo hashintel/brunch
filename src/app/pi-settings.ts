@@ -223,6 +223,7 @@ export async function resolveBrunchStartupTheme({
 }
 
 function detectStartupTerminalTheme(env: NodeJS.ProcessEnv): 'dark' | 'light' {
+  // ceiling: COLORFGBG only captures startup background; live-theme-controller remains the runtime-change upgrade path.
   const colorfgbg = env.COLORFGBG ?? '';
   const background = Number.parseInt(colorfgbg.split(';').at(-1) ?? '', 10);
   if (!Number.isNaN(background)) {

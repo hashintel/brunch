@@ -36,7 +36,10 @@ import {
   operationalModeLabel,
   type OperationalModeId,
 } from '../../../session/schema/kinds.js';
-import { syntheticExchangeToolCallMessage } from '../../../session/structured-exchange-loop.js';
+import {
+  syntheticExchangeToolCallMessage,
+  syntheticExchangeToolResultMessage,
+} from '../../../session/structured-exchange-loop.js';
 import {
   BRUNCH_MENU_SHORTCUT,
   BRUNCH_MODE_PICKER_SHORTCUT,
@@ -398,15 +401,9 @@ function appendRecoveredAskResult(
   if (typeof ctx.sessionManager.appendMessage !== 'function') return false;
   const toolCallMessage = syntheticExchangeToolCallMessage(exchangeId, ASK_TOOL, { continues: exchangeId });
   ctx.sessionManager.appendMessage(toolCallMessage);
-  ctx.sessionManager.appendMessage({
-    role: 'toolResult',
-    toolCallId: toolCallMessage.content[0].id,
-    toolName: ASK_TOOL,
-    content: result.content,
-    details: result.details,
-    isError: false,
-    timestamp: 0,
-  });
+  ctx.sessionManager.appendMessage(
+    syntheticExchangeToolResultMessage(exchangeId, ASK_TOOL, result.content, result.details),
+  );
   return true;
 }
 

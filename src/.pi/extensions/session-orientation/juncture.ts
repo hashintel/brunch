@@ -226,12 +226,7 @@ export function adaptOrientationUi(ctx: {
         ),
     };
   }
-  if (ctx.mode !== 'rpc') {
-    return { select: (title, options) => ctx.ui.select(title, options) };
-  }
-  return {
-    select: (title, options) => ctx.ui.select(title, options, { timeout: ORIENTATION_RPC_DIALOG_TIMEOUT_MS }),
-  };
+  return { select: (title, options) => selectWithRpcTimeout(ctx, title, options) };
 }
 
 function selectWithRpcTimeout(
