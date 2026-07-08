@@ -80,7 +80,6 @@ function RunSummaryLink({ run }: { run: RunSummary }) {
       {RUNNING_INDICATORS[run.status] === undefined ? null : (
         <span className="text-sub text-xs">{RUNNING_INDICATORS[run.status]}</span>
       )}
-      <RunReplanMetadata run={run} />
       <PresenceFlags presence={run.presence} />
     </Link>
   );
@@ -125,15 +124,6 @@ function RunDetailPage() {
           )}
           {run.completedSliceIds === undefined || run.completedSliceIds.length === 0 ? null : (
             <DetailRow label="completed slices">{run.completedSliceIds.join(', ')}</DetailRow>
-          )}
-          {run.supersedesRunId === undefined ? null : (
-            <DetailRow label="supersedes">{run.supersedesRunId}</DetailRow>
-          )}
-          {run.abandonedAt === undefined ? null : (
-            <DetailRow label="abandoned at">{run.abandonedAt}</DetailRow>
-          )}
-          {run.abandonReason === undefined ? null : (
-            <DetailRow label="abandon reason">{run.abandonReason}</DetailRow>
           )}
           <DetailRow label="artifacts">
             <PresenceFlags presence={run.presence} />
@@ -189,18 +179,6 @@ function RequirementsPanel({ run }: { run: RunDetail }) {
         </ol>
       )}
     </section>
-  );
-}
-
-function RunReplanMetadata({ run }: { run: RunSummary }) {
-  return (
-    <>
-      {run.supersedesRunId === undefined ? null : (
-        <span className="text-hint text-xs">supersedes {run.supersedesRunId}</span>
-      )}
-      {run.abandonedAt === undefined ? null : <span className="text-link text-xs">abandoned</span>}
-      {run.abandonReason === undefined ? null : <span className="text-sub text-xs">{run.abandonReason}</span>}
-    </>
   );
 }
 
