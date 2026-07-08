@@ -98,6 +98,15 @@ type PickedSingleChoice = { readonly id: string };
 type PickedMultiChoices = {
   readonly choices: readonly { readonly id: string; readonly label: string }[];
 };
+type AskCommentInput =
+  | {
+      readonly choiceKinds: readonly SelectedChoice['kind'][];
+      readonly reviewDecision?: never;
+    }
+  | {
+      readonly choiceKinds?: never;
+      readonly reviewDecision: ReviewDecision;
+    };
 
 function askBorderColor(ctx: StructuredExchangeUiContext, theme: Pick<Theme, 'fg'>) {
   const mode = projectBrunchAgentState(ctx.sessionManager?.getBranch() ?? []).operationalMode;
@@ -276,30 +285,20 @@ async function collectPickedSingleChoice(
     if (other.status === 'unavailable') return unavailable('ask choice input unavailable');
     choice = { ...choice, label: other.value };
   }
-  let comment: string | undefined;
-  if (structuredExchangeResponseRequiresComment({ choiceKinds: [choice.kind] })) {
-    const required = await collectCommentStep({
-      requirement: 'required',
-      prompt: params.commentPrompt ?? 'Required comment',
-      ctx,
-      unavailableMessage: 'ask comment unavailable',
-    });
-    if (isBack(required)) return back();
-    if (required.status === 'unavailable') return unavailable(required.message);
-    comment = required.value.comment;
-  } else if (params.commentPrompt) {
-    const optional = await collectCommentStep({
-      requirement: 'optional',
-      prompt: params.commentPrompt,
-      ctx,
-      unavailableMessage: 'ask comment unavailable',
-    });
-    if (isBack(optional)) return back();
-    if (optional.status === 'unavailable') return unavailable(optional.message);
-    comment = optional.value.comment;
-  }
+  const comment = await collectAskComment({
+    choiceKinds: [choice.kind],
+    ctx,
+    requiredPrompt: params.commentPrompt ?? 'Required comment',
+    optionalPrompt: params.commentPrompt,
+    unavailableMessage: 'ask comment unavailable',
+  });
+  if (isBack(comment)) return back();
+  if (comment.status === 'unavailable') return unavailable(comment.message);
 
-  return { status: 'answered', value: { choice, ...(comment ? { comment } : {}) } };
+  return {
+    status: 'answered',
+    value: { choice, ...(comment.value.comment ? { comment: comment.value.comment } : {}) },
+  };
 }
 
 async function collectMultiChoice(
@@ -392,30 +391,20 @@ async function collectPickedMultiChoices(
     return unavailable('ask choices cannot combine None with other selections');
   }
 
-  let comment: string | undefined;
-  if (structuredExchangeResponseRequiresComment({ choiceKinds: selected.map((choice) => choice.kind) })) {
-    const required = await collectCommentStep({
-      requirement: 'required',
-      prompt: params.commentPrompt ?? 'Required comment',
-      ctx,
-      unavailableMessage: 'ask comment unavailable',
-    });
-    if (isBack(required)) return back();
-    if (required.status === 'unavailable') return unavailable(required.message);
-    comment = required.value.comment;
-  } else if (params.commentPrompt) {
-    const optional = await collectCommentStep({
-      requirement: 'optional',
-      prompt: params.commentPrompt,
-      ctx,
-      unavailableMessage: 'ask comment unavailable',
-    });
-    if (isBack(optional)) return back();
-    if (optional.status === 'unavailable') return unavailable(optional.message);
-    comment = optional.value.comment;
-  }
+  const comment = await collectAskComment({
+    choiceKinds: selected.map((choice) => choice.kind),
+    ctx,
+    requiredPrompt: params.commentPrompt ?? 'Required comment',
+    optionalPrompt: params.commentPrompt,
+    unavailableMessage: 'ask comment unavailable',
+  });
+  if (isBack(comment)) return back();
+  if (comment.status === 'unavailable') return unavailable(comment.message);
 
-  return { status: 'answered', value: { choices: selected, ...(comment ? { comment } : {}) } };
+  return {
+    status: 'answered',
+    value: { choices: selected, ...(comment.value.comment ? { comment: comment.value.comment } : {}) },
+  };
 }
 
 async function collectMultiChoiceViaEditor(
@@ -664,19 +653,44 @@ async function collectContinuationReviewComment(
   review: ReviewDecision,
   ctx: StructuredExchangeUiContext,
 ): Promise<StepResult<{ readonly comment?: string }>> {
-  if (structuredExchangeResponseRequiresComment({ reviewDecision: review })) {
+  return collectAskComment({
+    reviewDecision: review,
+    ctx,
+    requiredPrompt: params.commentPrompt ?? 'Required change request',
+    optionalPrompt: 'Optional comment',
+    unavailableMessage: 'ask review comment unavailable',
+  });
+}
+
+async function collectAskComment(
+  input: AskCommentInput & {
+    readonly ctx: StructuredExchangeUiContext;
+    readonly requiredPrompt: string;
+    readonly optionalPrompt?: string | undefined;
+    readonly unavailableMessage: string;
+  },
+): Promise<StepResult<{ readonly comment?: string }>> {
+  const requirement = structuredExchangeResponseRequiresComment(
+    input.reviewDecision !== undefined
+      ? { reviewDecision: input.reviewDecision }
+      : { choiceKinds: input.choiceKinds },
+  )
+    ? 'required'
+    : 'optional';
+  if (requirement === 'optional') {
+    if (input.optionalPrompt === undefined) return { status: 'answered', value: {} };
     return collectCommentStep({
-      requirement: 'required',
-      prompt: params.commentPrompt ?? 'Required change request',
-      ctx,
-      unavailableMessage: 'ask review comment unavailable',
+      requirement,
+      prompt: input.optionalPrompt,
+      ctx: input.ctx,
+      unavailableMessage: input.unavailableMessage,
     });
   }
   return collectCommentStep({
-    requirement: 'optional',
-    prompt: 'Optional comment',
-    ctx,
-    unavailableMessage: 'ask review comment unavailable',
+    requirement,
+    prompt: input.requiredPrompt,
+    ctx: input.ctx,
+    unavailableMessage: input.unavailableMessage,
   });
 }
 

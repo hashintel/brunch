@@ -16,7 +16,7 @@ Posture: earned (downgraded from the frontier's proving — pure closure refacto
 
 All four slices are behavior-preserving. Run in order; each is one commit gated by `npm run verify`.
 
-## Slice 1 (light) — one comment-collection helper
+## Slice 1 (done) — one comment-collection helper
 
 ### Objective
 
@@ -40,6 +40,14 @@ The required/optional comment decision lives in one helper instead of three near
   (ask-response-export, ask-runtime-mount, exchanges-present-request, exchange-family-completeness,
   ask.test) stay green unchanged
 ```
+
+### Completion Report
+
+| Leaf | Outcome | Evidence |
+| ---- | ------- | -------- |
+| one helper computes comment requirement; three call sites single calls; line count drops | met | `src/.pi/extensions/exchanges/ask.ts`; helper `collectAskComment`; three collector call sites delegate |
+| focused ask suites stay green unchanged | met | `npm test src/.pi/extensions/__tests__ src/agents/contexts/exchanges/__tests__` — 32 files / 294 tests passed |
+| skipped-test-count delta vs parent | met | no skipped tests reported in focused run |
 
 ## Slice 2 (light) — flatten continuation projections, reuse the picker helper
 
