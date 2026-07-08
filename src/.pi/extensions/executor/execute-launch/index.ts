@@ -1,10 +1,10 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { projectExecuteGraph } from '../../../../executor/execute-projection.js';
 import { prepareLaunch, type LaunchResult } from '../../../../executor/launch.js';
 import { BRUNCH_EXECUTE_LAUNCH_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { buildCurrentProjectionForSpec } from '../current-projection.js';
 
 export { BRUNCH_EXECUTE_LAUNCH_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -48,23 +48,16 @@ export function createExecuteLaunchTool(
         throw new Error('execute_launch requires an active cwd');
       }
       const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
-      const mode = params.mode ?? 'greenfield';
-      const projection = projectExecuteGraph({
+      const { current } = await buildCurrentProjectionForSpec({
+        cwd,
         specId: deps.specId,
-        mode,
-        graphLsn: graph.lsn,
-        nodes: graph.nodes,
-        edges: graph.edges,
+        graph,
+        mode: params.mode,
       });
       const result = await prepareLaunch({
         cwd,
         specId: String(deps.specId),
-        current: {
-          specId: String(deps.specId),
-          mode,
-          source: projection.source,
-          checkStatus: projection.check.status,
-        },
+        current,
         ...(params.planPath ? { planPath: params.planPath } : {}),
       });
       return {

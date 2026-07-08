@@ -742,6 +742,23 @@ describe('Brunch explicit Pi extension registry', () => {
       result: { status: 'ready', runStatus: 'not_started', planPath, sideEffects: [] },
       sideEffects: [],
     });
+
+    await writeFile(planPath, '{"mode":"brownfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(
+      join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json'),
+      `${JSON.stringify({
+        schemaVersion: 1,
+        specId: '42',
+        mode: 'brownfield',
+        source: { graphLsn: 19, visibility: 'active' },
+      })}\n`,
+      'utf8',
+    );
+    const brownfieldReady = await launch!.execute('call-3', {}, undefined, undefined, { cwd });
+    expect(brownfieldReady.content[0]?.text).toContain('execute_launch: ready');
+    expect(brownfieldReady.details).toMatchObject({
+      result: { status: 'ready', provenance: { mode: 'brownfield' } },
+    });
     await expect(access(join(cwd, '.brunch', 'cook', 'runs'))).rejects.toThrow();
   });
 
@@ -869,6 +886,54 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(access(join(runDir, 'reports.jsonl'))).rejects.toThrow();
   });
 
+  it('registers execute_run_create using persisted brownfield mode when mode is omitted', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-create-brownfield-'));
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(planPath, '{"mode":"brownfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(
+      provenancePath,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        specId: '42',
+        mode: 'brownfield',
+        source: { graphLsn: 20, visibility: 'active' },
+      })}\n`,
+      'utf8',
+    );
+    const registeredTools = await collectProductTools({
+      graph: {
+        specId: 42,
+        lsn: 20,
+        nodes: [
+          {
+            id: 1,
+            specId: 42,
+            plane: 'intent',
+            kind: 'requirement',
+            kindOrdinal: 1,
+            title: 'Brownfield requirement',
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+        ],
+        edges: [],
+      },
+    });
+
+    const createRun = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_RUN_CREATE_TOOL);
+    const result = await createRun!.execute('call-1', { runId: 'run-brownfield' }, undefined, undefined, {
+      cwd,
+    });
+
+    expect(result.content[0]?.text).toContain('execute_run_create: created');
+    await expect(
+      readFile(join(cwd, '.brunch', 'cook', 'runs', 'run-brownfield', 'run.json'), 'utf8'),
+    ).resolves.toContain('"status": "created"');
+  });
+
   it('registers execute_replan_recommendation as read-only HITL diagnosis', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-recommendation-'));
     const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
@@ -954,6 +1019,59 @@ describe('Brunch explicit Pi extension registry', () => {
       sideEffects: [],
     });
     await expect(access(join(runDir, 'worktree'))).rejects.toThrow();
+  });
+
+  it('diagnoses replanning against the requested run spec when selected spec differs', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-recommendation-run-spec-'));
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
+    const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
+    await mkdir(dirname(planPath), { recursive: true });
+    await mkdir(runDir, { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(
+      provenancePath,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        specId: '42',
+        mode: 'greenfield',
+        source: { graphLsn: 21, visibility: 'active' },
+      })}\n`,
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'run.json'),
+      JSON.stringify({ runId: 'run-1', specId: '42', planPath, status: 'agent_result_ingested' }),
+      'utf8',
+    );
+    const registeredTools = await collectProductTools({
+      graph: {
+        specId: 7,
+        lsn: 21,
+        nodes: [
+          {
+            id: 1,
+            specId: 42,
+            plane: 'intent',
+            kind: 'requirement',
+            kindOrdinal: 1,
+            title: 'Run spec requirement',
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+        ],
+        edges: [],
+      },
+    });
+
+    const recommend = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_REPLAN_RECOMMENDATION_TOOL);
+    const result = await recommend!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
+
+    expect(result.content[0]?.text).toContain('execute_replan_recommendation: retry_current_run');
+    expect(result.details).toMatchObject({
+      recommendation: { status: 'retry_current_run', runStatus: 'agent_result_ingested' },
+    });
   });
 
   it('registers execute_replan_start_new_run as explicit supersession creation', async () => {

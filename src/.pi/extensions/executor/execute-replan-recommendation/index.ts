@@ -1,13 +1,13 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { projectExecuteGraph } from '../../../../executor/execute-projection.js';
 import {
   recommendRunReplan,
   type RunReplanRecommendation,
 } from '../../../../executor/run-replan-recommendation.js';
 import { BRUNCH_EXECUTE_REPLAN_RECOMMENDATION_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { buildCurrentProjectionForRun } from '../current-projection.js';
 
 export { BRUNCH_EXECUTE_REPLAN_RECOMMENDATION_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -48,23 +48,17 @@ export function createExecuteReplanRecommendationTool(
       }
 
       const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
-      const mode = params.mode ?? 'greenfield';
-      const projection = projectExecuteGraph({
-        specId: deps.specId,
-        mode,
-        graphLsn: graph.lsn,
-        nodes: graph.nodes,
-        edges: graph.edges,
+      const { current } = await buildCurrentProjectionForRun({
+        cwd,
+        runId: params.runId,
+        fallbackSpecId: deps.specId,
+        graph,
+        mode: params.mode,
       });
       const recommendation = await recommendRunReplan({
         cwd,
         runId: params.runId,
-        current: {
-          specId: String(deps.specId),
-          mode,
-          source: projection.source,
-          checkStatus: projection.check.status,
-        },
+        current,
       });
 
       return {
