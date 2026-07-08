@@ -14,7 +14,7 @@ chain review-set-drafting
   draft only edges whose endpoints are present or resolvable
   check edge roles against current map/schema guidance
   present_review_set
-  request_response
+  ask({ continues })
   commit only after exact-batch approval
 ```
 

@@ -28,12 +28,30 @@ export type AskOptionParam = z.infer<typeof zAskOptionParam>;
 
 export const zAskParams = z
   .object({
-    exchangeId: z.string().min(1).describe('Stable id for this one-shot ask result.'),
+    exchangeId: z
+      .string()
+      .min(1)
+      .describe('Stable id for this one-shot ask result. Omit when continuing an offer by reference.')
+      .optional(),
+    continues: z
+      .string()
+      .min(1)
+      .describe('Exchange id of an offer whose details declare the ask payload to collect.')
+      .optional(),
+    preface: z
+      .string()
+      .trim()
+      .min(1, 'markdown cannot be empty')
+      .describe(
+        'Optional model-authored preface for a reference-based continuation; not part of the payload.',
+      )
+      .optional(),
     body: z
       .string()
       .trim()
       .min(1, 'markdown cannot be empty')
-      .describe('Markdown question body rendered and persisted with the answer.'),
+      .describe('Markdown question body rendered and persisted with the answer.')
+      .optional(),
     options: z
       .array(zAskOptionParam)
       .min(1)
@@ -61,7 +79,38 @@ export const zAskParams = z
       .describe('Optional rounded-box bottom border label.')
       .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((params, ctx) => {
+    if (params.continues) {
+      const modelAuthoredPayloadKeys = [
+        'exchangeId',
+        'body',
+        'options',
+        'multiple',
+        'allowOther',
+        'allowNone',
+        'commentPrompt',
+        'topLabel',
+        'bottomLabel',
+      ] as const;
+      for (const key of modelAuthoredPayloadKeys) {
+        if (params[key] !== undefined) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message: 'continuing ask payload is declared by the referenced offer',
+          });
+        }
+      }
+      return;
+    }
+    if (!params.exchangeId) {
+      ctx.addIssue({ code: 'custom', path: ['exchangeId'], message: 'standalone ask requires exchangeId' });
+    }
+    if (!params.body) {
+      ctx.addIssue({ code: 'custom', path: ['body'], message: 'standalone ask requires body' });
+    }
+  });
 export type AskParams = z.infer<typeof zAskParams>;
 
 const zPresentedOptionParam = z

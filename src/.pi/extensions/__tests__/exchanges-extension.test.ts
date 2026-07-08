@@ -5,7 +5,6 @@ import {
   PRESENT_CANDIDATES_TOOL,
   PRESENT_DIGEST_TOOL,
   PRESENT_REVIEW_SET_TOOL,
-  REQUEST_RESPONSE_TOOL,
   registerStructuredExchange,
 } from '../exchanges/index.js';
 
@@ -32,12 +31,11 @@ const theme = {
 };
 
 describe('structured exchange tool guidance', () => {
-  it('teaches one-shot ask and the surviving request_response offer terminal', () => {
+  it('teaches one-shot ask and declared offer continuations', () => {
     const tools = registerTools();
     const ask = tools.get(ASK_TOOL);
     const candidates = tools.get(PRESENT_CANDIDATES_TOOL);
     const review = tools.get(PRESENT_REVIEW_SET_TOOL);
-    const request = tools.get(REQUEST_RESPONSE_TOOL);
 
     expect(`${ask.description}\n${ask.promptGuidelines.join('\n')}`).toContain(
       'Omit options for free text; include options for single-select; set multiple for multi-select.',
@@ -57,9 +55,7 @@ describe('structured exchange tool guidance', () => {
     expect(`${review.description}\n${review.promptGuidelines.join('\n')}`).toContain(
       'Do not call request_review',
     );
-    expect(`${request.description}\n${request.promptGuidelines.join('\n')}`).not.toMatch(
-      /request_answer|request_choice|request_choices|request_review/,
-    );
+    expect(`${ask.description}\n${ask.promptGuidelines.join('\n')}`).toContain('continues');
   });
 });
 
@@ -71,7 +67,6 @@ describe('structured exchange renderers', () => {
       PRESENT_REVIEW_SET_TOOL,
       PRESENT_CANDIDATES_TOOL,
       PRESENT_DIGEST_TOOL,
-      REQUEST_RESPONSE_TOOL,
     ]);
 
     for (const [name, tool] of tools) {

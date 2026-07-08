@@ -190,7 +190,6 @@ describe('Brunch explicit Pi extension registry', () => {
       PRESENT_REVIEW_SET_TOOL,
       PRESENT_CANDIDATES_TOOL,
       'present_digest',
-      REQUEST_RESPONSE_TOOL,
       'read_elicitation_scratchpad',
       'update_elicitation_scratchpad',
     ]);

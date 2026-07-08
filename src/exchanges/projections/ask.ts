@@ -29,7 +29,9 @@ type AskProjectionInput =
   | (BaseAskProjectionInput & { readonly status: 'cancelled'; readonly message?: string })
   | (BaseAskProjectionInput & { readonly status: 'unavailable'; readonly message: string });
 
-export function askQuestionEcho(params: AskParams): AskQuestionEcho {
+export function askQuestionEcho(
+  params: Pick<AskParams, 'body' | 'options' | 'multiple'> & { body: string },
+): AskQuestionEcho {
   return {
     body: params.body,
     ...(params.options ? { options: params.options } : {}),

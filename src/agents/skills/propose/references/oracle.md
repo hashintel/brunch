@@ -12,12 +12,12 @@ chain oracle-proposal
   fan_out oracle ensembles, not isolated checks
   compare observability, reproducibility, controllability, cost, coverage, and blind spots
   present_candidates
-  request_response
+  ask(continues)
   compose in reasoning
   if graph material is warranted:
     draft through map/review-set guidance
     present_review_set
-    request_response
+    ask(continues)
     commit only after approval
 ```
 

@@ -33,7 +33,7 @@ schemas/
   index.ts
 ```
 
-The organization is layer-first: shared vocabulary, tool parameter schemas, present details, request details, capture details, the `request_choices` editor wire envelope, and one public export barrel. `request_response` is a tool-parameter schema only: it reuses the canonical request transcript details (`request_answer` / `request_choice` / `request_choices` / `request_review`) rather than introducing a second request-details model.
+The organization is layer-first: shared vocabulary, tool parameter schemas, present details, request details, capture details, the `request_choices` editor wire envelope, and one public export barrel. `request_response` is a legacy tool-parameter schema only; active offer collection now routes through `ask({ continues })`. The canonical request transcript details (`request_answer` / `request_choice` / `request_choices` / `request_review`) remain the preserved capture-facing vocabulary rather than a registered tool topology.
 
 `editor.ts` is not part of the transcript details model: it owns the JSON envelope prefilled into `ctx.ui.editor` for `request_choices` (the one request payload Pi built-ins cannot carry over RPC). Its wire-level `status` string never appears in transcript details, which carry outcomes as key presence.
 
@@ -79,7 +79,7 @@ Present details:
 ```yaml
 tool_meta:
   curr: present_question | present_review_set | present_candidates | present_digest
-  next: request_response
+  next: ask
 ```
 
 Request details:
@@ -91,7 +91,7 @@ tool_meta:
   next?: capture_answer | capture_choice | capture_choices | capture_review | capture_candidate
 ```
 
-`ask({ exchangeId, body, options?, multiple? })` emits canonical standalone ask request details carrying the question echo and answer in one result. `request_response({ exchangeId })` now emits canonical request details for surviving offer presents only: `request_choice` for `present_candidates`, and `request_review` for a `present_review_set` or `present_digest` decision.
+`ask({ exchangeId, body, options?, multiple? })` emits canonical standalone ask request details carrying the question echo and answer in one result. `ask({ continues })` reads the referenced offer present's `continuation` declaration and emits preserved request details for offers: `request_choice` for `present_candidates`, and `request_review` for a `present_review_set` or `present_digest` decision. Payload fields (`body`, `options`, review vocabulary) are declared by the offer, not re-authored by the continuing call.
 
 Capture details:
 
@@ -111,7 +111,7 @@ Do not add `present_tool`, `kind`, `expected_request`, `prev_required`, `next_re
 
 ## Present layer
 
-General present shape:
+General active offer present shape:
 
 ```yaml
 schema: "brunch.structured_exchange.present"
@@ -119,7 +119,7 @@ v: 1
 exchange_id: string
 tool_meta:
   curr: present_question | present_review_set | present_candidates | present_digest
-  next: request_response
+  next: ask
 response_kind?: answer | choice | choices
 display:
   heading: string
@@ -127,9 +127,9 @@ display:
   preface?: markdown
 ```
 
-### `present_question`
+### `present_question` (legacy)
 
-A merged question/offer anchor. No `options` means free text; `options` means a single choice; `options` with `multiple: true` in params projects `response_kind: choices`.
+A merged question/offer anchor kept for old persisted reads/tests. It is no longer registered; standalone questions use `ask`.
 
 ```yaml
 schema: "brunch.structured_exchange.present"
@@ -175,7 +175,7 @@ v: 1
 exchange_id: "review-set-17"
 tool_meta:
   curr: present_review_set
-  next: request_response
+  next: ask
 display:
   heading: "Review proposed requirements"
   body: "Approve the set, request changes, or reject it."
@@ -226,7 +226,7 @@ v: 1
 exchange_id: string
 tool_meta:
   curr: present_candidates
-  next: request_response
+  next: ask
 display:
   heading: string
   body?: markdown
@@ -282,7 +282,7 @@ Relationship to D31-L meta-rubric:
 
 ### `present_digest`
 
-`present_digest` carries prose-only large-source review material. It is not a review-set or graph-proposal carrier: `digest.abstract` is required and nonblank (trim-based `zNonBlankMarkdown` in `shared.ts`), `digest.analysis` and `digest.recommendation` are optional markdown, and graph draft / node / edge / command payload fields are rejected at the params/detail boundary. Its terminal is the existing review response vocabulary through `request_response`; approval echoes the accepted abstract (same nonblank boundary) on request details so sweep reads have one self-contained digest carrier.
+`present_digest` carries prose-only large-source review material. It is not a review-set or graph-proposal carrier: `digest.abstract` is required and nonblank (trim-based `zNonBlankMarkdown` in `shared.ts`), `digest.analysis` and `digest.recommendation` are optional markdown, and graph draft / node / edge / command payload fields are rejected at the params/detail boundary. Its terminal is the existing review response vocabulary through `ask({ continues })`; approval echoes the accepted abstract (same nonblank boundary) on request details so sweep reads have one self-contained digest carrier.
 
 ## Request layer
 

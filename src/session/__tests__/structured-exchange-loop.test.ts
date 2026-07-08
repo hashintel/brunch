@@ -33,7 +33,7 @@ describe('structured exchange loop helpers', () => {
     ).toEqual({ ok: false, message: 'Elicitation response requires answer text' });
   });
 
-  it('materializes accepted text responses as request_response tool results', () => {
+  it('materializes accepted text responses as ask tool results', () => {
     const pending = nextDeterministicStructuredExchange(1);
 
     const accepted = acceptedResponseFromParams(pending, {
@@ -46,7 +46,7 @@ describe('structured exchange loop helpers', () => {
       answer: { text: 'A local product specification workspace.' },
       toolResultMessage: {
         role: 'toolResult',
-        toolName: 'request_response',
+        toolName: 'ask',
         content: [{ text: '## Answer\n\nA local product specification workspace.' }],
         details: {
           schema: 'brunch.structured_exchange.request',
@@ -58,7 +58,7 @@ describe('structured exchange loop helpers', () => {
     });
   });
 
-  it('materializes accepted single-select responses as request_response tool results', () => {
+  it('materializes accepted single-select responses as ask tool results', () => {
     const pending = nextDeterministicStructuredExchange(0);
 
     const accepted = acceptedResponseFromParams(pending, {
@@ -71,7 +71,7 @@ describe('structured exchange loop helpers', () => {
       ok: true,
       answer: { optionId: 'new-from-scratch', label: 'Yes — this is new from scratch' },
       toolResultMessage: {
-        toolName: 'request_response',
+        toolName: 'ask',
         content: [{ text: expect.stringContaining('> This is greenfield.') }],
         details: {
           tool_meta: { curr: 'request_choice' },
@@ -137,7 +137,7 @@ describe('structured exchange loop helpers', () => {
       ok: true,
       answer: { optionIds: ['transcript', 'other'] },
       toolResultMessage: {
-        toolName: 'request_response',
+        toolName: 'ask',
         content: [{ text: expect.stringContaining('> Also verify friction reporting.') }],
         details: {
           tool_meta: { curr: 'request_choices' },
@@ -224,8 +224,20 @@ describe('structured exchange loop helpers', () => {
               schema: 'brunch.structured_exchange.present',
               v: 1,
               exchange_id: 'review-cycle',
-              tool_meta: { curr: 'present_review_set', next: 'request_response' },
+              tool_meta: { curr: 'present_review_set', next: 'ask' },
               display: { heading: 'Review cycle wiring', body: 'Review this graph proposal.' },
+              continuation: {
+                tool: 'ask',
+                params: {
+                  body: 'Review cycle wiring\n\nReview this graph proposal.',
+                  options: [
+                    { id: 'approve', label: 'Approve' },
+                    { id: 'request_changes', label: 'Request changes' },
+                    { id: 'reject', label: 'Reject' },
+                  ],
+                  commentPrompt: 'Required change request',
+                },
+              },
               review_set: reviewSet,
             },
             isError: false,
@@ -277,7 +289,7 @@ describe('structured exchange loop helpers', () => {
       prompt: 'Review source digest',
       respondsToPresentTool: 'present_digest',
       digestAbstract: 'The source asks for advisory capture before settlement.',
-      options: [],
+      options: expect.arrayContaining([{ id: 'approve', label: 'Approve', content: 'Approve' }]),
     });
   });
 
@@ -365,7 +377,7 @@ describe('structured exchange loop helpers', () => {
       ok: true,
       answer: { review: { decision: 'reject', comment: 'Not this batch.' } },
       toolResultMessage: {
-        toolName: 'request_response',
+        toolName: 'ask',
         details: {
           tool_meta: { prev: 'present_review_set', curr: 'request_review' },
           answered: { decision: 'reject', comment: 'Not this batch.' },
@@ -414,7 +426,7 @@ describe('structured exchange loop helpers', () => {
     expect(accepted).toMatchObject({
       ok: true,
       toolResultMessage: {
-        toolName: 'request_response',
+        toolName: 'ask',
         details: {
           tool_meta: { prev: 'present_digest', curr: 'request_review' },
           answered: {
@@ -516,8 +528,15 @@ describe('structured exchange loop helpers', () => {
               schema: 'brunch.structured_exchange.present',
               v: 1,
               exchange_id: 'cand',
-              tool_meta: { curr: 'present_candidates', next: 'request_response' },
+              tool_meta: { curr: 'present_candidates', next: 'ask' },
               display: { heading: 'Pick a candidate' },
+              continuation: {
+                tool: 'ask',
+                params: {
+                  body: 'Pick a candidate',
+                  options: [{ id: 'cand-a', label: 'Candidate A', description: 'try A' }],
+                },
+              },
               candidates: [
                 {
                   id: 'cand-a',

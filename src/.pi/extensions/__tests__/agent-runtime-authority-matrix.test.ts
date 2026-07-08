@@ -31,10 +31,10 @@ const REGISTERED_POC_TOOLS = [
   'update_elicitation_scratchpad',
   'read_reconciliation_needs',
   'update_reconciliation_needs',
-  'present_question',
+  'ask',
   'present_candidates',
   'present_review_set',
-  'request_response',
+
   'subagent',
   'execute_status',
 ] as const;
@@ -123,10 +123,10 @@ describe('minimal authority matrix', () => {
       'update_elicitation_scratchpad',
       'read_reconciliation_needs',
       'update_reconciliation_needs',
-      'present_question',
+      'ask',
       'present_candidates',
       'present_review_set',
-      'request_response',
+
       'subagent',
     ]);
     expect(
@@ -167,10 +167,10 @@ describe('minimal authority matrix', () => {
       'update_elicitation_scratchpad',
       'read_reconciliation_needs',
       'update_reconciliation_needs',
-      'present_question',
+      'ask',
       'present_candidates',
       'present_review_set',
-      'request_response',
+
       'subagent',
       'execute_status',
     ]);

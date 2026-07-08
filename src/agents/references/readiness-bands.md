@@ -51,7 +51,7 @@ Brownfield code, design notes, specs, tickets, and planning documents can imply 
 ```text
 source material
   -> assistant-authored digest via present_digest
-  -> request_response review terminal
+  -> ask continuation review terminal
   -> capture sweep
   -> graph material:
        low confidence or missing support -> session scratchpad obligation

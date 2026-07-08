@@ -914,7 +914,6 @@ describe('Brunch TUI boot', () => {
       'present_review_set',
       'present_candidates',
       'present_digest',
-      'request_response',
       'read_elicitation_scratchpad',
       'update_elicitation_scratchpad',
     ]);
@@ -1405,11 +1404,9 @@ describe('Brunch TUI boot', () => {
     registerBrunchOperationalModePolicy({
       registerTool: (tool: { name: string }) => registeredTools.push(tool.name),
       getAllTools: () =>
-        ['read', 'grep', 'find', 'ls', 'present_question', 'request_response', 'bash', 'edit', 'write'].map(
-          (name) => ({
-            name,
-          }),
-        ),
+        ['read', 'grep', 'find', 'ls', 'ask', 'bash', 'edit', 'write'].map((name) => ({
+          name,
+        })),
       setActiveTools: (tools: string[]) => activeTools.push(tools),
       on: (event: string, handler: (event: never) => unknown) => {
         events[event] = handler;
@@ -1418,7 +1415,7 @@ describe('Brunch TUI boot', () => {
 
     expect(registeredTools).toEqual(['read', 'grep', 'find', 'ls']);
     await events.session_start?.({} as never);
-    expect(activeTools).toEqual([['read', 'grep', 'find', 'ls', 'present_question', 'request_response']]);
+    expect(activeTools).toEqual([['read', 'grep', 'find', 'ls', 'ask']]);
     await expect(
       Promise.resolve(events.before_agent_start?.({ systemPrompt: 'base' } as never)),
     ).resolves.toBeUndefined();

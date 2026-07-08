@@ -10,7 +10,7 @@ import {
   createPresentReviewSetTool,
   type ReviewSetStructuredExchangeDeps,
 } from './present-review-set.js';
-import { REQUEST_RESPONSE_TOOL, createRequestResponseTool, requestResponseTool } from './request-response.js';
+import { REQUEST_RESPONSE_TOOL } from './request-response.js';
 
 export { requestChoicesViaEditor, type RequestChoicesEditorFlowParams } from './shared/choices-editor.js';
 export {
@@ -38,7 +38,6 @@ export const STRUCTURED_EXCHANGE_IMPLEMENTED_TOOLS = [
   askTool,
   presentCandidatesTool,
   presentDigestTool,
-  requestResponseTool,
 ] as const;
 
 export const STRUCTURED_EXCHANGE_STUB_TOOL_NAMES = [] as const;
@@ -54,7 +53,6 @@ export function registerStructuredExchange(pi: ExtensionAPI, deps: StructuredExc
     createPresentReviewSetTool(deps.review),
     presentCandidatesTool,
     presentDigestTool,
-    deps.liveExchange ? createRequestResponseTool(deps.liveExchange) : requestResponseTool,
   ]) {
     pi.registerTool({ ...tool, renderShell: 'self' as const });
   }

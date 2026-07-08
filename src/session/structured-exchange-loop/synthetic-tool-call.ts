@@ -49,7 +49,7 @@ export function syntheticExchangeToolCallMessage(
         type: 'toolCall',
         id: exchangeToolCallId(exchangeId, toolName),
         name: toolName,
-        arguments: { exchangeId },
+        arguments: toolName === 'ask' ? { continues: exchangeId } : { exchangeId },
       },
     ],
     api: 'brunch-exchange',

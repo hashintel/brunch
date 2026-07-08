@@ -55,11 +55,11 @@ export function createRequestResponseTool(_answerBroker?: LiveExchangeAwaiter) {
     name: REQUEST_RESPONSE_TOOL,
     label: 'Request response',
     description:
-      'Collect the response for a pending Brunch structured exchange. The runtime derives the response UI from the pending present_* entry.',
-    promptSnippet: 'Request the pending structured exchange response by exchangeId',
+      'Legacy diagnostic response collector. Active structured exchanges use ask; offer continuations call ask with continues.',
+    promptSnippet: 'Legacy request_response diagnostic; use ask instead',
     promptGuidelines: [
-      'Call request_response in the same turn as present_question or present_candidates; for present_review_set, wait for a successful result first. The pending present result is the only response-shape authority.',
-      'Pass the same exchangeId you gave the present_* call; do not repeat the prompt or choose the response kind.',
+      'Do not call request_response in active Brunch sessions; use ask directly or ask({ continues }) for offers.',
+      'This legacy surface only exists for old persisted reads/tests and unavailable diagnostics.',
     ],
     parameters: piSchema(zRequestResponseParams),
     executionMode: 'sequential',

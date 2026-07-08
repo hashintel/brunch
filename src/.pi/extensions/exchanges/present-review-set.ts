@@ -31,12 +31,12 @@ export function createPresentReviewSetTool(deps?: ReviewSetStructuredExchangeDep
     name: PRESENT_REVIEW_SET_TOOL,
     label: 'Present review set',
     description:
-      'Dry-run validate and display a Brunch graph review-set proposal. Use request_response only after this result validates successfully — unlike present_question/present_candidates, do not batch it in the same turn, because a structurally illegal proposal must be corrected and re-presented instead.',
+      'Dry-run validate and display a Brunch graph review-set proposal. Use ask with continues only after this result validates successfully, because a structurally illegal proposal must be corrected and re-presented instead.',
     promptSnippet: 'Present a graph review set for exact human approval',
     promptGuidelines: [
       'Use present_review_set only for exact graph drafts the user can approve or reject as a batch.',
       'If the tool returns structural_illegal, fix the payload and retry; do not ask the user to review invalid graph drafts.',
-      'Call request_response only after a successful present_review_set result. Do not call request_review; the runtime derives the preserved review request details from this present result.',
+      'Call ask with continues only after a successful present_review_set result. Do not call request_review; the runtime derives the preserved review request details from this present result.',
     ],
     parameters: PresentReviewSetParams,
     executionMode: 'sequential',

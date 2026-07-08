@@ -7,7 +7,7 @@ description: Derive downstream graph-plane material from accepted upstream graph
 
 Use `project` when accepted graph anchors should produce downstream plane candidates: intent commitments into design shape, or design commitments into oracle/evidence shape. Projection starts from graph material already accepted or explicitly selected for review; it is not ambient brainstorming and not a hidden `generate` mode.
 
-`project` owns derivation conduct. It does **not** own graph expression, ontology tables, exchange schemas, or persistence. Use `present_candidates` and `request_response` for recognition, then hand exact graph drafts to current `map` / review-set guidance when commitment is warranted.
+`project` owns derivation conduct. It does **not** own graph expression, ontology tables, exchange schemas, or persistence. Use `present_candidates` and `ask(continues)` for recognition, then hand exact graph drafts to current `map` / review-set guidance when commitment is warranted.
 
 ## Projection spine
 
@@ -17,12 +17,12 @@ chain project
   choose one projection lane
   derive downstream candidates with explicit anchor coverage
   present_candidates for recognition/comparison only
-  request_response for the user's recognition input
+  ask with continues for the user's recognition input
   if exact graph drafts are warranted:
     load map/review-set guidance
     draft downstream nodes + connecting edges
     present_review_set
-    request_response
+    ask(continues)
     commit only after approval through the review-set path
 ```
 

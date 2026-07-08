@@ -136,7 +136,7 @@ function pendingDigest(exchangeId: string, heading = 'Review source digest') {
           schema: 'brunch.structured_exchange.present',
           v: 1,
           exchange_id: exchangeId,
-          tool_meta: { curr: PRESENT_DIGEST_TOOL, next: REQUEST_RESPONSE_TOOL },
+          tool_meta: { curr: PRESENT_DIGEST_TOOL, next: ASK_TOOL },
           display: { heading },
           digest: {
             abstract: 'The source says summarize before graph mapping.',
@@ -157,7 +157,7 @@ function pendingReviewSet(exchangeId: string, heading = 'Review proposal') {
           schema: 'brunch.structured_exchange.present',
           v: 1,
           exchange_id: exchangeId,
-          tool_meta: { curr: PRESENT_REVIEW_SET_TOOL, next: REQUEST_RESPONSE_TOOL },
+          tool_meta: { curr: PRESENT_REVIEW_SET_TOOL, next: ASK_TOOL },
           display: { heading },
           review_set: {
             nodes: [
@@ -221,18 +221,15 @@ describe('structured exchange present/request tools', () => {
       PRESENT_REVIEW_SET_TOOL,
       PRESENT_CANDIDATES_TOOL,
       PRESENT_DIGEST_TOOL,
-      REQUEST_RESPONSE_TOOL,
     ]);
     expect(tools.get(ASK_TOOL)?.executionMode).toBe('sequential');
     expect(tools.get(PRESENT_REVIEW_SET_TOOL)?.executionMode).toBe('sequential');
     expect(tools.get(PRESENT_CANDIDATES_TOOL)?.executionMode).toBe('sequential');
     expect(tools.get(PRESENT_DIGEST_TOOL)?.executionMode).toBe('sequential');
-    expect(tools.get(REQUEST_RESPONSE_TOOL)?.executionMode).toBe('sequential');
     expect(tools.get(ASK_TOOL)?.renderShell).toBe('self');
     expect(tools.get(PRESENT_REVIEW_SET_TOOL)?.renderShell).toBe('self');
     expect(tools.get(PRESENT_CANDIDATES_TOOL)?.renderShell).toBe('self');
     expect(tools.get(PRESENT_DIGEST_TOOL)?.renderShell).toBe('self');
-    expect(tools.get(REQUEST_RESPONSE_TOOL)?.renderShell).toBe('self');
   });
 
   it.skip('persists a freeform present_question result through the shared project and format seam', async () => {
@@ -259,7 +256,7 @@ describe('structured exchange present/request tools', () => {
     expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
       exchange_id: 'problem-frame',
-      tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+      tool_meta: { curr: PRESENT_QUESTION_TOOL, next: ASK_TOOL },
       response_kind: 'answer',
       display: {
         heading: 'What problem are we solving?',
@@ -302,7 +299,7 @@ describe('structured exchange present/request tools', () => {
     expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
       exchange_id: 'shell-location',
-      tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+      tool_meta: { curr: PRESENT_QUESTION_TOOL, next: ASK_TOOL },
       response_kind: 'choice',
       display: {
         heading: 'Where should the shell live?',
@@ -326,16 +323,16 @@ describe('structured exchange present/request tools', () => {
       const component = factory(tui, theme, null, (result: unknown) => {
         answer = result;
       }) as TestPickerComponent & { setText(text: string): void };
-      expect(component.render(80).join('\n')).toContain('What should request_response ask?');
+      expect(component.render(80).join('\n')).toContain('What should ask ask?');
       component.setText('Answer collected by custom editor.');
       component.handleInput('\r');
       return answer;
     });
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
 
-    const result = await request_response.execute(
-      'request-response-custom-ui-call',
+    const result = await ask.execute(
+      'ask-continuation-custom-ui-call',
       { exchangeId: 'respond-question' },
       undefined,
       undefined,
@@ -352,9 +349,9 @@ describe('structured exchange present/request tools', () => {
                   schema: 'brunch.structured_exchange.present',
                   v: 1,
                   exchange_id: 'respond-question',
-                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: ASK_TOOL },
                   response_kind: 'answer',
-                  display: { heading: 'What should request_response ask?', body: 'This body is context.' },
+                  display: { heading: 'What should ask ask?', body: 'This body is context.' },
                 },
               },
             },
@@ -384,11 +381,11 @@ describe('structured exchange present/request tools', () => {
       component.handleInput('\x1b');
       return answer;
     });
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
 
-    const result = await request_response.execute(
-      'request-response-custom-cancel-call',
+    const result = await ask.execute(
+      'ask-continuation-custom-cancel-call',
       { exchangeId: 'respond-cancel' },
       undefined,
       undefined,
@@ -405,7 +402,7 @@ describe('structured exchange present/request tools', () => {
                   schema: 'brunch.structured_exchange.present',
                   v: 1,
                   exchange_id: 'respond-cancel',
-                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: ASK_TOOL },
                   response_kind: 'answer',
                   display: { heading: 'Cancel this?' },
                 },
@@ -420,12 +417,12 @@ describe('structured exchange present/request tools', () => {
   });
 
   it.skip('falls back to the sealed UI editor when custom UI is unavailable', async () => {
-    const editor = vi.fn(async () => 'Answer collected by request_response.');
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+    const editor = vi.fn(async () => 'Answer collected by ask.');
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
 
-    const result = await request_response.execute(
-      'request-response-ui-call',
+    const result = await ask.execute(
+      'ask-continuation-ui-call',
       { exchangeId: 'respond-question' },
       undefined,
       undefined,
@@ -442,9 +439,9 @@ describe('structured exchange present/request tools', () => {
                   schema: 'brunch.structured_exchange.present',
                   v: 1,
                   exchange_id: 'respond-question',
-                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: ASK_TOOL },
                   response_kind: 'answer',
-                  display: { heading: 'What should request_response ask?', body: 'This body is context.' },
+                  display: { heading: 'What should ask ask?', body: 'This body is context.' },
                 },
               },
             },
@@ -453,21 +450,21 @@ describe('structured exchange present/request tools', () => {
       } as never,
     );
 
-    expect(editor).toHaveBeenCalledWith('What should request_response ask?');
+    expect(editor).toHaveBeenCalledWith('What should ask ask?');
     expect(result.details).toMatchObject({
       exchange_id: 'respond-question',
       tool_meta: { prev: PRESENT_QUESTION_TOOL, curr: 'request_answer' },
-      answered: { text: 'Answer collected by request_response.' },
+      answered: { text: 'Answer collected by ask.' },
     });
   });
 
   it.skip('responds to a pending present_question through the live broker when no editor exists', async () => {
     const awaitAnswer = vi.fn(async () => 'Answer collected by broker.');
-    const request_response = registeredTools({ liveExchange: { awaitAnswer } }).get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+    const ask = registeredTools({ liveExchange: { awaitAnswer } }).get(REQUEST_RESPONSE_TOOL);
+    if (!ask) throw new Error('ask was not registered');
 
-    const result = await request_response.execute(
-      'request-response-broker-call',
+    const result = await ask.execute(
+      'ask-continuation-broker-call',
       { exchangeId: 'respond-broker' },
       undefined,
       undefined,
@@ -484,7 +481,7 @@ describe('structured exchange present/request tools', () => {
                   schema: 'brunch.structured_exchange.present',
                   v: 1,
                   exchange_id: 'respond-broker',
-                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: ASK_TOOL },
                   response_kind: 'answer',
                   display: { heading: 'Answer from broker?' },
                 },
@@ -499,12 +496,12 @@ describe('structured exchange present/request tools', () => {
     expect(result.details).toMatchObject({ answered: { text: 'Answer collected by broker.' } });
   });
 
-  it.skip('records request_response cancellation and unknown/non-question diagnostics without throwing', async () => {
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+  it.skip('records ask cancellation and unknown/non-question diagnostics without throwing', async () => {
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
 
-    const cancelled = await request_response.execute(
-      'request-response-cancelled-call',
+    const cancelled = await ask.execute(
+      'ask-continuation-cancelled-call',
       { exchangeId: 'respond-cancelled' },
       undefined,
       undefined,
@@ -521,7 +518,7 @@ describe('structured exchange present/request tools', () => {
                   schema: 'brunch.structured_exchange.present',
                   v: 1,
                   exchange_id: 'respond-cancelled',
-                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: ASK_TOOL },
                   response_kind: 'answer',
                   display: { heading: 'Cancel this?' },
                 },
@@ -531,15 +528,15 @@ describe('structured exchange present/request tools', () => {
         },
       } as never,
     );
-    const unknown = await request_response.execute(
-      'request-response-unknown-call',
+    const unknown = await ask.execute(
+      'ask-continuation-unknown-call',
       { exchangeId: 'missing' },
       undefined,
       undefined,
       { hasUI: false, ui: {}, sessionManager: { getBranch: () => [] } } as never,
     );
-    const headlessChoice = await request_response.execute(
-      'request-response-headless-choice-call',
+    const headlessChoice = await ask.execute(
+      'ask-continuation-headless-choice-call',
       { exchangeId: 'options' },
       undefined,
       undefined,
@@ -556,7 +553,7 @@ describe('structured exchange present/request tools', () => {
                   schema: 'brunch.structured_exchange.present',
                   v: 1,
                   exchange_id: 'options',
-                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: ASK_TOOL },
                   response_kind: 'choice',
                   display: { heading: 'Choose' },
                   options: [{ id: 'a', content: 'A' }],
@@ -569,8 +566,8 @@ describe('structured exchange present/request tools', () => {
     );
 
     const select = vi.fn(async () => 'A');
-    const noCustomChoice = await request_response.execute(
-      'request-response-no-custom-choice-call',
+    const noCustomChoice = await ask.execute(
+      'ask-continuation-no-custom-choice-call',
       { exchangeId: 'options' },
       undefined,
       undefined,
@@ -587,7 +584,7 @@ describe('structured exchange present/request tools', () => {
                   schema: 'brunch.structured_exchange.present',
                   v: 1,
                   exchange_id: 'options',
-                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: ASK_TOOL },
                   response_kind: 'choice',
                   display: { heading: 'Choose' },
                   options: [{ id: 'a', content: 'A' }],
@@ -606,16 +603,16 @@ describe('structured exchange present/request tools', () => {
     expect(unknown.details).toMatchObject({ status: 'unavailable' });
     expect(unknown.terminate).toBeUndefined();
     expect(headlessChoice.details).toMatchObject({
-      unavailable: { message: 'request_response choice requires interactive UI' },
+      unavailable: { message: 'ask choice requires interactive UI' },
     });
     expect(headlessChoice.terminate).toBeUndefined();
     expect(noCustomChoice.details).toMatchObject({
-      unavailable: { message: 'request_response choice requires interactive UI' },
+      unavailable: { message: 'ask choice requires interactive UI' },
     });
     expect(select).not.toHaveBeenCalled();
   });
 
-  it.skip('offers request_response as the recovery continuation for unmatched present_question', () => {
+  it.skip('offers ask as the recovery continuation for unmatched present_question', () => {
     const incomplete = findIncompleteStructuredExchangePresents([
       {
         type: 'message',
@@ -625,7 +622,7 @@ describe('structured exchange present/request tools', () => {
             schema: 'brunch.structured_exchange.present',
             v: 1,
             exchange_id: 'recover-answer',
-            tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+            tool_meta: { curr: PRESENT_QUESTION_TOOL, next: ASK_TOOL },
             response_kind: 'answer',
             display: { heading: 'Recover this answer?' },
           },
@@ -637,11 +634,11 @@ describe('structured exchange present/request tools', () => {
   });
 
   it.skip('responds to a pending choice present_question without repeating the presented content', async () => {
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
 
-    const result = await request_response.execute(
-      'request-response-choice-call-1',
+    const result = await ask.execute(
+      'ask-continuation-choice-call-1',
       { exchangeId: 'shell-location' },
       undefined,
       undefined,
@@ -661,7 +658,7 @@ describe('structured exchange present/request tools', () => {
                   schema: 'brunch.structured_exchange.present',
                   v: 1,
                   exchange_id: 'shell-location',
-                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: ASK_TOOL },
                   response_kind: 'choice',
                   display: { heading: 'Select one option.' },
                   options: [
@@ -696,14 +693,14 @@ describe('structured exchange present/request tools', () => {
   });
 
   it.skip('records an Other choice label without duplicating it as the comment', async () => {
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
     const input = vi.fn(async () =>
       input.mock.calls.length === 1 ? 'Something else entirely' : 'Needs a custom path.',
     );
 
-    const result = await request_response.execute(
-      'request-response-choice-other-call',
+    const result = await ask.execute(
+      'ask-continuation-choice-other-call',
       { exchangeId: 'shell-location-other' },
       undefined,
       undefined,
@@ -723,7 +720,7 @@ describe('structured exchange present/request tools', () => {
                   schema: 'brunch.structured_exchange.present',
                   v: 1,
                   exchange_id: 'shell-location-other',
-                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: ASK_TOOL },
                   response_kind: 'choice',
                   display: { heading: 'Select one option.' },
                   options: [{ id: 'root', content: 'Keep src/pi-extensions.ts' }],
@@ -752,13 +749,13 @@ describe('structured exchange present/request tools', () => {
   });
 
   it.skip('records a single-choice None selection with its required comment and no write-in', async () => {
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
     const inputPrompts: string[] = [];
     const workingVisibility: boolean[] = [];
 
-    const result = await request_response.execute(
-      'request-response-choice-none-call',
+    const result = await ask.execute(
+      'ask-continuation-choice-none-call',
       { exchangeId: 'shell-location-none' },
       undefined,
       undefined,
@@ -785,7 +782,7 @@ describe('structured exchange present/request tools', () => {
                   schema: 'brunch.structured_exchange.present',
                   v: 1,
                   exchange_id: 'shell-location-none',
-                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: ASK_TOOL },
                   response_kind: 'choice',
                   display: { heading: 'Select one option.' },
                   options: [{ id: 'root', content: 'Keep src/pi-extensions.ts' }],
@@ -813,11 +810,11 @@ describe('structured exchange present/request tools', () => {
   });
 
   it.skip('maps missing required single-choice input capability to unavailable', async () => {
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
 
-    const result = await request_response.execute(
-      'request-response-choice-none-no-input-call',
+    const result = await ask.execute(
+      'ask-continuation-choice-none-no-input-call',
       { exchangeId: 'shell-location-none' },
       undefined,
       undefined,
@@ -836,7 +833,7 @@ describe('structured exchange present/request tools', () => {
                   schema: 'brunch.structured_exchange.present',
                   v: 1,
                   exchange_id: 'shell-location-none',
-                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: ASK_TOOL },
                   response_kind: 'choice',
                   display: { heading: 'Select one option.' },
                   options: [{ id: 'root', content: 'Keep src/pi-extensions.ts' }],
@@ -857,13 +854,13 @@ describe('structured exchange present/request tools', () => {
   });
 
   it.skip('maps duplicate present_question option labels back to the selected stable id', async () => {
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
 
     const select = vi.fn(async () => '2. Repeat label');
     const custom = customPickByIndex(1);
-    const result = await request_response.execute(
-      'request-response-duplicate-choice-call',
+    const result = await ask.execute(
+      'ask-continuation-duplicate-choice-call',
       { exchangeId: 'duplicate-options' },
       undefined,
       undefined,
@@ -880,7 +877,7 @@ describe('structured exchange present/request tools', () => {
                   schema: 'brunch.structured_exchange.present',
                   v: 1,
                   exchange_id: 'duplicate-options',
-                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: ASK_TOOL },
                   response_kind: 'choice',
                   display: { heading: 'Select one option.' },
                   options: [
@@ -946,7 +943,7 @@ describe('structured exchange present/request tools', () => {
     expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
       exchange_id: 'candidate-direction',
-      tool_meta: { curr: PRESENT_CANDIDATES_TOOL, next: REQUEST_RESPONSE_TOOL },
+      tool_meta: { curr: PRESENT_CANDIDATES_TOOL, next: ASK_TOOL },
       candidates: [{ id: 'local-workbench', graph_refs: [{ node_id: 'node-1' }] }],
     });
     expect(result.details).not.toHaveProperty('review_set');
@@ -979,7 +976,7 @@ describe('structured exchange present/request tools', () => {
     expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
       exchange_id: 'digest-large-source',
-      tool_meta: { curr: PRESENT_DIGEST_TOOL, next: REQUEST_RESPONSE_TOOL },
+      tool_meta: { curr: PRESENT_DIGEST_TOOL, next: ASK_TOOL },
       digest: { abstract: 'The source says summarize before graph mapping.' },
     });
     expect(result.details).not.toHaveProperty('review_set');
@@ -987,12 +984,12 @@ describe('structured exchange present/request tools', () => {
   });
 
   it('responds to pending present_candidates as a candidate pick, not a graph write', async () => {
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
 
-    const result = await request_response.execute(
-      'request-response-candidate-call-1',
-      { exchangeId: 'candidate-direction' },
+    const result = await ask.execute(
+      'ask-continuation-candidate-call-1',
+      { continues: 'candidate-direction' },
       undefined,
       undefined,
       {
@@ -1008,7 +1005,7 @@ describe('structured exchange present/request tools', () => {
                   schema: 'brunch.structured_exchange.present',
                   v: 1,
                   exchange_id: 'candidate-direction',
-                  tool_meta: { curr: PRESENT_CANDIDATES_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  tool_meta: { curr: PRESENT_CANDIDATES_TOOL, next: ASK_TOOL },
                   display: { heading: 'Which direction should we take?' },
                   candidates: [
                     {
@@ -1048,14 +1045,14 @@ describe('structured exchange present/request tools', () => {
   });
 
   it('maps duplicate candidate titles back to the selected candidate id', async () => {
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
 
     const select = vi.fn(async () => '2. Same direction');
     const custom = customPickByIndex(1);
-    const result = await request_response.execute(
-      'request-response-duplicate-candidate-call',
-      { exchangeId: 'duplicate-candidates' },
+    const result = await ask.execute(
+      'ask-continuation-duplicate-candidate-call',
+      { continues: 'duplicate-candidates' },
       undefined,
       undefined,
       {
@@ -1071,7 +1068,7 @@ describe('structured exchange present/request tools', () => {
                   schema: 'brunch.structured_exchange.present',
                   v: 1,
                   exchange_id: 'duplicate-candidates',
-                  tool_meta: { curr: PRESENT_CANDIDATES_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  tool_meta: { curr: PRESENT_CANDIDATES_TOOL, next: ASK_TOOL },
                   display: { heading: 'Which direction should we take?' },
                   candidates: [
                     candidateDetails('first-candidate', 'Same direction'),
@@ -1118,7 +1115,7 @@ describe('structured exchange present/request tools', () => {
     expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
       exchange_id: 'review-cycle-1',
-      tool_meta: { curr: PRESENT_REVIEW_SET_TOOL, next: REQUEST_RESPONSE_TOOL },
+      tool_meta: { curr: PRESENT_REVIEW_SET_TOOL, next: ASK_TOOL },
       review_set: {
         nodes: [
           { draft_id: 'goal-review', proposed_code: 'G1' },
@@ -1203,18 +1200,18 @@ describe('structured exchange present/request tools', () => {
     ).rejects.toThrow();
   });
 
-  it('drives request_response review decisions against a pending present_review_set', async () => {
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+  it('drives ask review decisions against a pending present_review_set', async () => {
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
 
     for (const [_selected, review, comment] of [
       ['Approve', 'approve', 'Looks right.'],
       ['Request changes', 'request_changes', 'Tighten the grounding.'],
       ['Reject', 'reject', 'Wrong direction.'],
     ] as const) {
-      const result = await request_response.execute(
+      const result = await ask.execute(
         `request-response-review-${review}`,
-        { exchangeId: 'review-cycle-1' },
+        { continues: 'review-cycle-1' },
         undefined,
         undefined,
         {
@@ -1236,18 +1233,18 @@ describe('structured exchange present/request tools', () => {
     }
   });
 
-  it('drives request_response digest review decisions and echoes accepted abstract', async () => {
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+  it('drives ask digest review decisions and echoes accepted abstract', async () => {
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
 
     for (const [_selected, review, comment] of [
       ['Approve', 'approve', 'Looks right.'],
       ['Request changes', 'request_changes', 'Tighten the source limitation.'],
       ['Reject', 'reject', 'Wrong direction.'],
     ] as const) {
-      const result = await request_response.execute(
+      const result = await ask.execute(
         `request-response-digest-${review}`,
-        { exchangeId: 'digest-large-source' },
+        { continues: 'digest-large-source' },
         undefined,
         undefined,
         {
@@ -1274,13 +1271,13 @@ describe('structured exchange present/request tools', () => {
     }
   });
 
-  it('records request_response digest cancellation and unavailable UI as terminal outcomes without next', async () => {
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+  it('records ask digest cancellation and unavailable UI as terminal outcomes without next', async () => {
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
 
-    const cancelled = await request_response.execute(
-      'request-response-digest-cancelled',
-      { exchangeId: 'digest-large-source' },
+    const cancelled = await ask.execute(
+      'ask-continuation-digest-cancelled',
+      { continues: 'digest-large-source' },
       undefined,
       undefined,
       {
@@ -1289,9 +1286,9 @@ describe('structured exchange present/request tools', () => {
         sessionManager: { getBranch: () => pendingDigest('digest-large-source') },
       } as never,
     );
-    const unavailable = await request_response.execute(
-      'request-response-digest-unavailable',
-      { exchangeId: 'digest-large-source' },
+    const unavailable = await ask.execute(
+      'ask-continuation-digest-unavailable',
+      { continues: 'digest-large-source' },
       undefined,
       undefined,
       {
@@ -1308,13 +1305,13 @@ describe('structured exchange present/request tools', () => {
   });
 
   it('re-prompts empty review change-request comments and cancels on dismissal', async () => {
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
     const prompts: string[] = [];
 
-    const result = await request_response.execute(
-      'request-response-review-empty-change',
-      { exchangeId: 'review-cycle-1' },
+    const result = await ask.execute(
+      'ask-continuation-review-empty-change',
+      { continues: 'review-cycle-1' },
       undefined,
       undefined,
       {
@@ -1339,9 +1336,9 @@ describe('structured exchange present/request tools', () => {
       answered: { decision: 'request_changes', comment: 'Tighten the grounding.' },
     });
 
-    const dismissed = await request_response.execute(
-      'request-response-review-dismissed-change',
-      { exchangeId: 'review-cycle-1' },
+    const dismissed = await ask.execute(
+      'ask-continuation-review-dismissed-change',
+      { continues: 'review-cycle-1' },
       undefined,
       undefined,
       {
@@ -1358,12 +1355,12 @@ describe('structured exchange present/request tools', () => {
   });
 
   it('maps missing required review input capability to unavailable', async () => {
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
 
-    const result = await request_response.execute(
-      'request-response-review-no-input-required-change',
-      { exchangeId: 'review-cycle-1' },
+    const result = await ask.execute(
+      'ask-continuation-review-no-input-required-change',
+      { continues: 'review-cycle-1' },
       undefined,
       undefined,
       {
@@ -1380,13 +1377,13 @@ describe('structured exchange present/request tools', () => {
     expect(result.terminate).toBeUndefined();
   });
 
-  it('records request_response review cancellation and unavailable UI as terminal outcomes', async () => {
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+  it('records ask review cancellation and unavailable UI as terminal outcomes', async () => {
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
 
-    const cancelled = await request_response.execute(
-      'request-response-review-cancelled',
-      { exchangeId: 'review-cycle-1' },
+    const cancelled = await ask.execute(
+      'ask-continuation-review-cancelled',
+      { continues: 'review-cycle-1' },
       undefined,
       undefined,
       {
@@ -1395,9 +1392,9 @@ describe('structured exchange present/request tools', () => {
         sessionManager: { getBranch: () => pendingReviewSet('review-cycle-1') },
       } as never,
     );
-    const unavailable = await request_response.execute(
-      'request-response-review-unavailable',
-      { exchangeId: 'review-cycle-1' },
+    const unavailable = await ask.execute(
+      'ask-continuation-review-unavailable',
+      { continues: 'review-cycle-1' },
       undefined,
       undefined,
       {
@@ -1407,9 +1404,9 @@ describe('structured exchange present/request tools', () => {
       } as never,
     );
     const select = vi.fn(async () => 'Approve');
-    const noCustom = await request_response.execute(
-      'request-response-review-no-custom',
-      { exchangeId: 'review-cycle-1' },
+    const noCustom = await ask.execute(
+      'ask-continuation-review-no-custom',
+      { continues: 'review-cycle-1' },
       undefined,
       undefined,
       {
@@ -1430,12 +1427,12 @@ describe('structured exchange present/request tools', () => {
   });
 
   it.skip('responds to a pending multi-choice present_question through a TUI custom picker', async () => {
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
     const editor = vi.fn();
 
-    const result = await request_response.execute(
-      'request-response-choices-custom-call-1',
+    const result = await ask.execute(
+      'ask-continuation-choices-custom-call-1',
       { exchangeId: 'priorities' },
       undefined,
       undefined,
@@ -1467,7 +1464,7 @@ describe('structured exchange present/request tools', () => {
                   schema: 'brunch.structured_exchange.present',
                   v: 1,
                   exchange_id: 'priorities',
-                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: ASK_TOOL },
                   response_kind: 'choices',
                   display: { heading: 'Select all priorities.' },
                   options: [
@@ -1501,12 +1498,12 @@ describe('structured exchange present/request tools', () => {
   });
 
   it.skip('collects the Other write-in text when the custom picker selects Other', async () => {
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
     const inputPrompts: string[] = [];
 
-    const result = await request_response.execute(
-      'request-response-choices-custom-other-call',
+    const result = await ask.execute(
+      'ask-continuation-choices-custom-other-call',
       { exchangeId: 'priorities-other' },
       undefined,
       undefined,
@@ -1541,7 +1538,7 @@ describe('structured exchange present/request tools', () => {
                   schema: 'brunch.structured_exchange.present',
                   v: 1,
                   exchange_id: 'priorities-other',
-                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: ASK_TOOL },
                   response_kind: 'choices',
                   display: { heading: 'Select all priorities.' },
                   options: [
@@ -1569,11 +1566,11 @@ describe('structured exchange present/request tools', () => {
   });
 
   it.skip('cancels the custom-picker choices response when the Other write-in is dismissed', async () => {
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
 
-    const result = await request_response.execute(
-      'request-response-choices-custom-other-empty-call',
+    const result = await ask.execute(
+      'ask-continuation-choices-custom-other-empty-call',
       { exchangeId: 'priorities-other-empty' },
       undefined,
       undefined,
@@ -1603,7 +1600,7 @@ describe('structured exchange present/request tools', () => {
                   schema: 'brunch.structured_exchange.present',
                   v: 1,
                   exchange_id: 'priorities-other-empty',
-                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: ASK_TOOL },
                   response_kind: 'choices',
                   display: { heading: 'Select all priorities.' },
                   options: [
@@ -1627,11 +1624,11 @@ describe('structured exchange present/request tools', () => {
   });
 
   it.skip('responds to a pending multi-choice present_question through the editor fallback', async () => {
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
 
-    const result = await request_response.execute(
-      'request-response-choices-call-1',
+    const result = await ask.execute(
+      'ask-continuation-choices-call-1',
       { exchangeId: 'priorities' },
       undefined,
       undefined,
@@ -1661,7 +1658,7 @@ describe('structured exchange present/request tools', () => {
                   schema: 'brunch.structured_exchange.present',
                   v: 1,
                   exchange_id: 'priorities',
-                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: ASK_TOOL },
                   response_kind: 'choices',
                   display: { heading: 'Select all priorities.' },
                   options: [
@@ -1701,12 +1698,12 @@ describe('structured exchange present/request tools', () => {
     });
   });
 
-  it.skip('rejects request_response multi-choice other/none selections without a comment', async () => {
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+  it.skip('rejects ask multi-choice other/none selections without a comment', async () => {
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
 
-    const result = await request_response.execute(
-      'request-response-choices-call-2',
+    const result = await ask.execute(
+      'ask-continuation-choices-call-2',
       { exchangeId: 'priorities' },
       undefined,
       undefined,
@@ -1733,7 +1730,7 @@ describe('structured exchange present/request tools', () => {
                   schema: 'brunch.structured_exchange.present',
                   v: 1,
                   exchange_id: 'priorities',
-                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: ASK_TOOL },
                   response_kind: 'choices',
                   display: { heading: 'Select all priorities.' },
                   options: [{ id: 'speed', content: 'Move quickly' }],
@@ -1754,12 +1751,12 @@ describe('structured exchange present/request tools', () => {
     expect(result.content[0]?.text).toContain('request_choices requires a comment');
   });
 
-  it.skip('rejects request_response multi-choice None combined with other selections', async () => {
-    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
-    if (!request_response) throw new Error('request_response was not registered');
+  it.skip('rejects ask multi-choice None combined with other selections', async () => {
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
 
-    const result = await request_response.execute(
-      'request-response-choices-none-combined-call',
+    const result = await ask.execute(
+      'ask-continuation-choices-none-combined-call',
       { exchangeId: 'priorities' },
       undefined,
       undefined,
@@ -1789,7 +1786,7 @@ describe('structured exchange present/request tools', () => {
                   schema: 'brunch.structured_exchange.present',
                   v: 1,
                   exchange_id: 'priorities',
-                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: ASK_TOOL },
                   response_kind: 'choices',
                   display: { heading: 'Select all priorities.' },
                   options: [{ id: 'speed', content: 'Move quickly' }],
@@ -1819,7 +1816,7 @@ describe('structured exchange present/request tools', () => {
             schema: 'brunch.structured_exchange.present',
             v: 1,
             exchange_id: 'shell-location',
-            tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+            tool_meta: { curr: PRESENT_QUESTION_TOOL, next: ASK_TOOL },
             response_kind: 'choice',
             display: { heading: 'Where should the shell live?' },
             options: [{ id: 'root', content: 'Keep src/pi-extensions.ts' }],

@@ -24,9 +24,7 @@ function toolResultDetails(entry: EntryLike): unknown {
 export interface IncompleteStructuredExchangePresent {
   entry: EntryLike;
   details: PresentDetails;
-  // Single-terminal invariant: every pending present_* is continued by the one
-  // terminal request_response tool, regardless of which present produced it.
-  continuationTool: 'request_response';
+  continuationTool: 'ask';
 }
 
 export function findIncompleteStructuredExchangePresents(
@@ -42,7 +40,7 @@ export function findIncompleteStructuredExchangePresents(
       presents.set(details.exchange_id, {
         entry,
         details,
-        continuationTool: 'request_response',
+        continuationTool: 'continuation' in details ? (details.continuation?.tool ?? 'ask') : 'ask',
       });
     } else if (isStructuredExchangeRequestDetails(details)) {
       completed.add(details.exchange_id);

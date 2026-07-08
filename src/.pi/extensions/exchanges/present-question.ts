@@ -12,14 +12,11 @@ export const presentQuestionTool = defineTool({
   name: PRESENT_QUESTION_TOOL,
   label: 'Present question',
   description:
-    'Persist and display a structured Brunch question. Omit options for a free-text answer; include options for a finite choice; set multiple only when the user may pick more than one option. Call request_response in the same turn, immediately after this call — the runtime executes them in order.',
-  promptSnippet: 'Present a structured question before requesting a response',
+    'Legacy unregistered question presenter kept only for old persisted reads/tests. Use ask for new structured questions.',
+  promptSnippet: 'Legacy structured-question presenter; use ask instead',
   promptGuidelines: [
-    'Use present_question for free-text, single-choice, and multi-choice prompts; options[] presence determines the response kind.',
-    'Use multiple: true when the options are not mutually exclusive; use single-select only when exactly one answer is wanted.',
-    'Do not put numbered candidate answers in body markdown when options[] should carry them.',
-    'Call present_question and request_response together in one turn; the runtime executes them in order and derives the request details from this present result.',
-    'The durable user-visible question is this tool result, not renderCall.',
+    'Do not call present_question in active Brunch sessions.',
+    'Use ask with body/options instead; it carries question and answer in one terminal result.',
   ],
   parameters: piSchema(zPresentQuestionParams),
   executionMode: 'sequential',

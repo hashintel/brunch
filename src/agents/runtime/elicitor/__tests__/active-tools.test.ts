@@ -12,9 +12,9 @@ describe('activeToolNamesForLiveElicitor', () => {
         'edit',
         'read_graph',
         'mutate_graph',
-        'present_question',
+        'ask',
         'present_digest',
-        'request_response',
+
         'subagent',
         'brunch_session_query',
       ],
@@ -25,9 +25,9 @@ describe('activeToolNamesForLiveElicitor', () => {
       'grep',
       'read_graph',
       'mutate_graph',
-      'present_question',
+      'ask',
       'present_digest',
-      'request_response',
+
       'subagent',
     ]);
   });

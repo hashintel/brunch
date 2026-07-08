@@ -83,9 +83,9 @@ export function acceptedResponseFromParams(
     return {
       ok: true,
       answer: { text: answerText },
-      toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'request_response'),
+      toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'ask'),
       toolResultMessage: {
-        ...toolResultMessageBase(pending, 'request_response'),
+        ...toolResultMessageBase(pending, 'ask'),
         content: [
           {
             type: 'text',
@@ -135,9 +135,9 @@ export function acceptedResponseFromParams(
     return {
       ok: true,
       answer: { optionId: choice.id, label: choice.label },
-      toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'request_response'),
+      toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'ask'),
       toolResultMessage: {
-        ...toolResultMessageBase(pending, 'request_response'),
+        ...toolResultMessageBase(pending, 'ask'),
         content: [{ type: 'text', text: formatRequestChoice(details) }],
         details,
       },
@@ -164,9 +164,9 @@ export function acceptedResponseFromParams(
           ...(comment !== undefined ? { comment } : {}),
         },
       },
-      toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'request_response'),
+      toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'ask'),
       toolResultMessage: {
-        ...toolResultMessageBase(pending, 'request_response'),
+        ...toolResultMessageBase(pending, 'ask'),
         content: [{ type: 'text', text: formatRequestReview(details.details) }],
         details: details.details,
       },
@@ -208,9 +208,9 @@ export function acceptedResponseFromParams(
   return {
     ok: true,
     answer: { optionIds: choices.map((choice) => choice.id), choices },
-    toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'request_response'),
+    toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'ask'),
     toolResultMessage: {
-      ...toolResultMessageBase(pending, 'request_response'),
+      ...toolResultMessageBase(pending, 'ask'),
       content: [
         {
           type: 'text',
@@ -344,7 +344,7 @@ function optionEcho(options: readonly { id: string; content: string; rationale?:
 
 function toolResultMessageBase(
   pending: PendingStructuredExchange,
-  requestTool: 'request_response' | 'request_review',
+  requestTool: 'ask' | 'request_response' | 'request_review',
 ) {
   return {
     role: 'toolResult' as const,

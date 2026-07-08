@@ -2,78 +2,50 @@
 
 Owns Pi registration, live UI collection, and TUI transcript `renderResult`
 wiring for the structured-exchange tool family (`ask`, `present_review_set`,
-`present_candidates`, `present_digest`, and the interim offer-side
-`request_response`). Result
-details are constructed only through `src/exchanges/projections/*` and validated
-against the Zod schemas in `src/exchanges/schemas/` (see
-`src/exchanges/schemas/TOPOLOGY.md` for the details contract; D108-L
-consolidation). D104-L (as revised 2026-07-02) sets the render rule: `renderResult`
-is the Markdown pass-through of the formatter's `content` string — the content
-formatters in `agents/contexts/exchanges/` are the designed surface, and the
-render-honesty contract (details → content; elision lists beside the
-formatters) lives there. A details-built TUI-only render is the named upgrade
-path if exchange blocks should diverge from the content register.
-
-## The two envelopes
-
-There are two distinct envelopes in this seam — do not conflate them:
-
-- **Editor wire envelope** (`src/exchanges/schemas/editor.ts`,
-  `brunch.structured_exchange.request_choices.editor`). Pi UI built-ins cover
-  every other `request_*` response shape, but the multi-choice
-  `request_choices` payload cannot ride them, and Pi's `ctx.ui.custom` cannot
-  cross RPC. So TUI uses a Brunch checkbox picker first, while RPC/headless
-  fallback still prefills this JSON envelope into `ctx.ui.editor` for the
-  client to edit and return. Its `status` string is wire-level editor state
-  only.
-- **Transcript result envelope** (`src/exchanges/schemas/request.ts`,
-  `brunch.structured_exchange.request`). The outcome of a request is carried in
-  transcript details as key presence — `answered` / `cancelled` /
-  `unavailable` — never a status string.
+`present_candidates`, `present_digest`). Result details are constructed only
+through `src/exchanges/projections/*` and validated against the Zod schemas in
+`src/exchanges/schemas/` (D108-L). D104-L sets the render rule: `renderResult`
+is the Markdown pass-through of the formatter's `content` string, with
+render-honesty (details → content; elision lists beside formatters) owned in
+`agents/contexts/exchanges/`.
 
 ## Answer sources
 
 See [`docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`](../../../../docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md)
-for the underlying mechanism (why `ctx.hasUI`/`ctx.ui.custom` are a process-boot-time fact, not
-a per-caller one; the three distinct answering paths; and per-kind coverage) rather than
-re-deriving it from `pi-coding-agent` source each time it matters.
+for the underlying mechanism.
 
-`request_response` is dual-homed for free-text prompts because interactive TUI
-sessions and headless web-driver sessions close the same transcript result
-through different live surfaces. It routes through `shared/answer-source.ts`:
-when `ctx.hasUI` and `ctx.ui.custom` are present, the Brunch-owned
-`ExchangeAnswerEditorComponent` is the local TUI response surface; pi's sealed
-`ctx.ui.editor` is the UI fallback when custom UI is unavailable; the live broker
-is the fallback for headless / web-driver turns. A future web-as-driver race
-across both sources needs an awaiter-cancel path before it can replace this
-precedence rule.
+`ask` is the only registered interactive terminal. For standalone questions its
+params carry the markdown body and optional options; no options means free text,
+options means single choice, and options + `multiple` means multi-choice. For
+offer continuations the model calls `ask({ continues })`; the runtime reads the
+referenced offer's declared continuation and fills the body/options/review
+vocabulary from details. Model-authored payload fields on a continuing ask are
+rejected at the params boundary.
 
-`ask` is the standalone question terminal. Its params carry the markdown body and optional options; no options means free text, options means single choice, and options + `multiple` means multi-choice. The result details/content carry question + answer together. `present_question` is no longer registered, and `request_response` no longer dispatches question answers. Choice and multi-choice ask paths use Brunch-owned `ctx.ui.custom` pickers; free text uses the bordered answer editor, then the sealed editor fallback, then the live broker when present; no-UI option asks return `unavailable` until A39-L / headless ask discovery lands.
+Free text uses the bordered answer editor, then the sealed editor fallback, then
+the live broker when present. Choice/review continuations use Brunch-owned
+`ctx.ui.custom` pickers. No-UI option asks return `unavailable` until A39-L /
+headless ask discovery lands.
 
-## Single terminal
+## Declared continuations
 
-`request_response` is the interim offer terminal tool. It routes by the pending
-present's `tool_meta.curr`: `present_review_set` to `shared/review-source.ts`
-(approve / request-changes / reject, with a required change-request comment),
-`present_candidates` to the single-choice UI source with candidate provenance
-preserved for later `capture_candidate`, and `present_digest` to the same review
-source with the accepted abstract echoed into the approval terminal.
-The retired `request_answer` / `request_choice` / `request_choices` /
-`request_review` names survive only as transcript **result-detail discriminants**
-(`tool_meta.curr` on the request details and the `capture_*` chains). The public
-projection and content surfaces are now the single `request-response.ts`
-entrypoints, with per-discriminant helpers hidden below them; `request_response`
-derives the response kind from the pending present and emits those same
-canonical request details.
-`shared/ui-context.ts` is the one structural `ctx` slice every collector reads,
-so the tool casts the runtime `ctx` once at the boundary.
-For D106-L, `request_response` passes the pending present's listed options (or
-candidate titles) into the projection constructors so `request_choice` /
-`request_choices` details carry the full answer echo without re-listing literals
-inside collectors or formatters.
-For D107-L, `present_review_set` enriches valid graph proposals with real
-`review_set.nodes[*].proposed_code` values before persistence; later approval
-must commit under those exact codes or fail as structural illegal.
+Surviving offer presents declare their terminal in `details.continuation`:
+
+```pseudo
+present_candidates/present_digest/present_review_set result details
+  -> continuation: { tool: "ask", params: { body, options, ... } }
+  -> model calls ask({ continues: exchange_id })
+  -> ask collector emits canonical request detail discriminants
+```
+
+The collecting tool name is `ask`, but offer answers preserve the request-detail
+vocabulary on the wire: `request_choice` for candidates and `request_review` for
+review-set/digest. Digest approval still echoes `answered.accepted_abstract`.
+Those discriminants are capture/sweep semantics, not registration topology.
+
+`request_response` is no longer registered. Its legacy module/export remains as
+a diagnostic/backward-read surface while old persisted tests and details are
+retired; active collection routes through `ask`.
 
 ## Dependency rules
 
@@ -83,10 +55,6 @@ exchanges/shared/  -> shared UI dispatch/render helpers only; no tool-result det
 ```
 
 `src/exchanges/schemas/__tests__/source-boundary.test.ts` guards the
-details-contract half (this Pi extension tree declares no semantic details
-schemas of its own); `src/projections/__tests__/topology-boundaries.test.ts`
-guards the projection-layer import direction.
-`src/.pi/extensions/__tests__/exchange-family-completeness.test.ts` guards the
-exchange-rendering aggregate DoD from the registration side: every registered
-structured-exchange tool, and each `request_response` discriminant, must have a
-content formatter, preview entry, and snapshot coverage.
+details-contract half. `src/.pi/extensions/__tests__/exchange-family-completeness.test.ts`
+guards the aggregate DoD: every registered structured-exchange tool and every
+preserved request-detail discriminant has formatter, preview, and snapshot coverage.

@@ -124,9 +124,10 @@ describe('structured exchange family completeness', () => {
       PRESENT_REVIEW_SET_TOOL,
       PRESENT_CANDIDATES_TOOL,
       PRESENT_DIGEST_TOOL,
-      REQUEST_RESPONSE_TOOL,
     ]);
-    expect(new Set(exchangeFamilyCoverage.map((row) => row.tool))).toEqual(new Set(registeredToolNames()));
+    expect(new Set(exchangeFamilyCoverage.map((row) => row.tool))).toEqual(
+      new Set([...registeredToolNames(), REQUEST_RESPONSE_TOOL]),
+    );
   });
 
   it('covers every registered exchange family with a formatter, preview entry, and snapshot', () => {

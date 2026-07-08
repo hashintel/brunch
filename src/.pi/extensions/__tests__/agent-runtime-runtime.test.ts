@@ -129,8 +129,8 @@ describe('Brunch agent runtime-state projection', () => {
           'ls',
           'web_fetch',
           'web_search',
-          'present_question',
-          'request_response',
+          'ask',
+
           'read_graph',
           'read_session_context',
           'mutate_graph',
@@ -165,8 +165,8 @@ describe('Brunch agent runtime-state projection', () => {
         'ls',
         'web_fetch',
         'web_search',
-        'present_question',
-        'request_response',
+        'ask',
+
         'read_graph',
         'read_session_context',
         'mutate_graph',
