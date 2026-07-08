@@ -1,3 +1,8 @@
+import type { ReviewDecision } from '../../../../exchanges/projections/request-response.js';
+import {
+  structuredExchangeResponseRequiresComment,
+  type ChoiceKind,
+} from '../../../../exchanges/schemas/index.js';
 import { normalizeOptionalUnknownText } from '../../../../exchanges/text.js';
 import type { StructuredExchangeUiContext } from './ui-context.js';
 
@@ -33,6 +38,15 @@ export type StepResult<T> =
   | { readonly status: 'answered'; readonly value: T }
   | { readonly status: 'back' }
   | { readonly status: 'unavailable'; readonly message: string };
+type CommentRequirementInput =
+  | {
+      readonly choiceKinds: readonly ChoiceKind[];
+      readonly reviewDecision?: never;
+    }
+  | {
+      readonly choiceKinds?: never;
+      readonly reviewDecision: ReviewDecision;
+    };
 
 export function back<T>(): StepResult<T> {
   return { status: 'back' };
@@ -65,4 +79,36 @@ export async function collectCommentStep(input: {
   if (value === undefined) return back();
   const comment = normalizeOptionalUnknownText(value);
   return { status: 'answered', value: comment ? { comment } : {} };
+}
+
+export async function collectCommentRequirementStep(
+  input: CommentRequirementInput & {
+    readonly ctx: StructuredExchangeUiContext;
+    readonly requiredPrompt: string;
+    readonly optionalPrompt?: string | undefined;
+    readonly unavailableMessage: string;
+  },
+): Promise<StepResult<{ readonly comment?: string }>> {
+  const requirement = structuredExchangeResponseRequiresComment(
+    input.reviewDecision !== undefined
+      ? { reviewDecision: input.reviewDecision }
+      : { choiceKinds: input.choiceKinds },
+  )
+    ? 'required'
+    : 'optional';
+  if (requirement === 'optional') {
+    if (input.optionalPrompt === undefined) return { status: 'answered', value: {} };
+    return collectCommentStep({
+      requirement,
+      prompt: input.optionalPrompt,
+      ctx: input.ctx,
+      unavailableMessage: input.unavailableMessage,
+    });
+  }
+  return collectCommentStep({
+    requirement,
+    prompt: input.requiredPrompt,
+    ctx: input.ctx,
+    unavailableMessage: input.unavailableMessage,
+  });
 }

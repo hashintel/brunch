@@ -61,6 +61,7 @@ and capture-facing offer answers keep their historical wire vocabulary.
 
 ```pseudo
 exchanges/*        -> src/exchanges/, agents/contexts/exchanges/, .pi/components/
+exchanges/ask/     -> private continuation collectors imported only by ask.ts
 exchanges/shared/  -> shared UI dispatch/render helpers only; no tool-result detail literals
 ```
 
