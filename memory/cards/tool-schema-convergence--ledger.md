@@ -6,7 +6,7 @@ Authored: 2026-07-07 (ln-plan; ledger mapped at admission per user request — l
 
 ## Layer boundary
 
-**In:** every Brunch-authored tool schema that reaches a provider as `input_schema` — all `pi.registerTool` / `defineTool` sites under `src/.pi/extensions/**` (47 tools, 9 families).
+**In:** every Brunch-authored tool schema that reaches a provider as `input_schema` — all `pi.registerTool` / `defineTool` sites under `src/.pi/extensions/**` (46 tools, 9 families; re-based 2026-07-08 after FE-1164 retired `present_question` + `request_response` and registered `ask`).
 
 **Out:**
 
@@ -35,7 +35,7 @@ Status vocabulary: `spec` (defined, not built) · `partial` · `done`. One row =
 | # | Req | Row | Owner (authoring site) | Source kind | Status | Closure oracle |
 |---|-----|-----|------------------------|-------------|--------|----------------|
 | 1 | ● | `shared-adapter` — single adapter with legality guard; delete `exchanges/pi-schema.ts` + `shared/pi-tool-schema.ts` | `src/.pi/extensions/shared/tool-schema.ts` (new) | both | spec | adapter unit test (legal passes, top-level-union throws); zero imports of the two retired adapters |
-| 2 | ● | `exchanges-family` (5: `present_question`, `present_review_set`, `present_candidates`, `present_digest`, `request_response`) | `src/.pi/extensions/exchanges/*.ts` | Zod (already) | spec | emitted JSON schema unchanged (snapshot before/after relink); existing exchange tests green |
+| 2 | ● | `exchanges-family` (4: `ask`, `present_review_set`, `present_candidates`, `present_digest` — re-based 2026-07-08 for FE-1164; `present_question`/`request_response` retired). **Legality note:** `zAskParams` is deliberately one object + `superRefine`, *not* `z.union` — a top-level union would emit the exact `anyOf` illegality row 1's guard rejects; do not "normalize" it into a union. | `src/.pi/extensions/exchanges/*.ts` | Zod (already) | spec | emitted JSON schema unchanged (snapshot before/after relink); existing exchange tests green |
 | 3 | ● | `dev-mode-family` (2: `brunch_session_query`, `brunch_introspect_query`) | `src/.pi/extensions/dev-mode/*/index.ts` | Zod (already) | spec | same relink oracle as row 2 |
 | 4 | ● | `graph-family` (2: `read_graph`, `mutate_graph`) — retire `read_graph`'s hand literal to TypeBox builder; both through adapter | `src/.pi/extensions/brunch-data/graph/tool-schemas.ts` | TypeBox | spec | `brunch-data-graph.test.ts` + `observed-shapes-coverage` + `spec-ownership` green; emitted schema semantically unchanged |
 | 5 | ● | `context-family` (3: `read_workspace_context`, `read_specification_context`, `read_session_context`) — literals → TypeBox builder + adapter | `src/.pi/extensions/brunch-data/context/index.ts` | TypeBox | spec | context tool tests green; schema snapshot unchanged |
@@ -47,7 +47,7 @@ Status vocabulary: `spec` (defined, not built) · `partial` · `done`. One row =
 | 11 | ● | `registry-legality-oracle` — widen the FE-1159 Tier-2 assertion (elicitor boot payload only, 21 tools) to the **full registry across modes** (elicitor + executor toolsets; static registration-level test, not just one boot payload) | `src/dev/__tests__/` (+ support) | n/a | spec | one test enumerates every registered in-boundary tool and asserts adapter provenance + no top-level union |
 | 12 | ○ | `pi-readonly-reregistrations` (4: `read`, `grep`, `find`, `ls`) — Pi-owned schemas, tripwired: acts only if a Pi upgrade ships an illegal schema (row 11's oracle would catch it) | `src/.pi/extensions/agent-runtime/runtime/index.ts` | Pi upstream | deferred | covered transitively by row 11 |
 
-Row-count note: 5+2+2+3+2+2+27+2+2 = **47 in-boundary tools**; enumeration verified 2026-07-07 against `rg "registerTool|defineTool"` plus the Tier-2 provider payload dump.
+Row-count note: 4+2+2+3+2+2+27+2+2 = **46 in-boundary tools**; enumeration verified 2026-07-07 against `rg "registerTool|defineTool"` plus the Tier-2 provider payload dump, re-based 2026-07-08 after the FE-1164 ask cutover (exchanges 5 → 4). Re-verify the enumeration at row-1 build time — this ledger has already absorbed one membership change from a parallel lane.
 
 ## Sequencing inside the sweep
 
