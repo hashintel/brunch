@@ -4,10 +4,12 @@ Owns Pi registration, live UI collection, and TUI transcript `renderResult`
 wiring for the structured-exchange tool family (`ask`, `present_review_set`,
 `present_candidates`, `present_digest`). Result details are constructed only
 through `src/exchanges/projections/*` and validated against the Zod schemas in
-`src/exchanges/schemas/` (D108-L). D104-L sets the render rule: `renderResult`
-is the Markdown pass-through of the formatter's `content` string, with
-render-honesty (details → content; elision lists beside formatters) owned in
-`agents/contexts/exchanges/`.
+`src/exchanges/schemas/` (D108-L). D104-L sets the render rule:
+`renderResult` may render from validated details for a family-specific rich
+component, and must fall back to Markdown pass-through of the formatter's
+`content` string when details are malformed or no rich renderer exists.
+Render-honesty (details → content; elision lists beside formatters) stays owned
+in `agents/contexts/exchanges/`.
 
 ## Answer sources
 
@@ -59,6 +61,12 @@ and capture-facing offer answers keep their historical wire vocabulary.
 exchanges/*        -> src/exchanges/, agents/contexts/exchanges/, .pi/components/
 exchanges/shared/  -> shared UI dispatch/render helpers only; no tool-result detail literals
 ```
+
+`present_candidates` is the first details-backed transcript renderer: it parses
+`PresentCandidatesDetails` and renders proposal cards through
+`ExchangeCandidatesResultComponent`, with shared `details-rendering.ts` keeping
+legacy/malformed result fallback on canonical `content`. `ask`,
+`present_digest`, and `present_review_set` still use Markdown pass-through.
 
 `src/exchanges/schemas/__tests__/source-boundary.test.ts` guards the
 details-contract half. `src/.pi/extensions/__tests__/exchange-family-completeness.test.ts`

@@ -38,6 +38,10 @@ components/
 ├── editor-lines.ts            shared pi-tui Editor border/rule stripping helpers for boxed
 │                                editor surfaces
 ├── exchange-answer-editor.ts   bordered free-text exchange answer editor hosting pi-tui Editor
+├── exchange-candidates-result.ts details-backed `present_candidates` transcript
+│                                renderer; presents recognition proposals as
+│                                rounded cards while model-facing content stays
+│                                owned by agents/contexts/exchanges
 ├── exchange-decision-picker.ts bordered single-decision exchange response picker
 ├── exchange-markdown-body.ts   shared structured-exchange markdown body projection/theme used by
 │                                bordered answering components and transcript renderers

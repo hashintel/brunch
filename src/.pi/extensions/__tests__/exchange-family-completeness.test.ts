@@ -183,6 +183,19 @@ describe('structured exchange family completeness', () => {
       expect(preview?.presentedLike, previewId).toMatch(/legacy transcript compatibility/);
     }
   });
+
+  it('keeps candidates on the details-backed renderer while other families stay content pass-through', () => {
+    const previewsById = new Map(COMPONENT_PREVIEW_REGISTRY.map((entry) => [entry.id, entry]));
+
+    expect(previewsById.get('present-candidates')?.presentedLike).toMatch(
+      /validated details-backed renderer/,
+    );
+    for (const previewId of ['ask', 'present-digest', 'present-review-set']) {
+      expect(previewsById.get(previewId)?.presentedLike, previewId).toMatch(
+        /Markdown pass-through of content/,
+      );
+    }
+  });
 });
 
 function expectSnapshotMarkers(family: string, snapshot: SnapshotCoverage) {

@@ -741,6 +741,31 @@ describe('structured exchange ask tools', () => {
     expect(incomplete[0]?.continuationTool).toBe(ASK_TOOL);
   });
 
+  it('renders present_candidates from validated details and falls back to content for malformed details', async () => {
+    const candidates = await presentResult(PRESENT_CANDIDATES_TOOL, candidateParams());
+    const tool = registeredTools({ review: reviewDeps() }).get(PRESENT_CANDIDATES_TOOL);
+    if (!tool) throw new Error('present_candidates was not registered');
+
+    const richRendered = tool.renderResult(candidates, {}, theme).render?.(80).join('\n');
+    const fallbackRendered = tool
+      .renderResult(
+        {
+          content: [{ type: 'text', text: '# Fallback content\n\nUse the canonical content record.' }],
+          details: { schema: 'wrong', candidates: [] },
+        },
+        {},
+        theme,
+      )
+      .render?.(80)
+      .join('\n');
+
+    expect(richRendered).toContain('1. Local workbench');
+    expect(richRendered).toContain('Status: Recognition proposal');
+    expect(richRendered).not.toContain('**Core bet:**');
+    expect(fallbackRendered).toContain('Fallback content');
+    expect(fallbackRendered).toContain('Use the canonical content record.');
+  });
+
   it('drives declared candidate, review-set, and digest continuations by reference', async () => {
     const ask = registeredTools().get(ASK_TOOL);
     if (!ask) throw new Error('ask was not registered');
