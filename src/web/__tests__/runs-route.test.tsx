@@ -311,6 +311,38 @@ describe('run detail route', () => {
     );
   });
 
+  it('links failed multi-slice requirements to the failed slice log', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        run: {
+          ...runDetail,
+          sliceProgress: [
+            { sliceId: 'task-1', progress: 'completed' },
+            { sliceId: 'task-2', progress: 'verify failed' },
+          ],
+          requirements: [
+            {
+              requirementId: 'REQ1',
+              content: 'Build the type root.',
+              status: 'failed',
+              sliceIds: ['task-1', 'task-2'],
+              completedSliceIds: ['task-1'],
+              failedSliceIds: ['task-2'],
+              missingVerificationSliceIds: [],
+              criterionIds: ['AC1'],
+            },
+          ],
+        },
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('REQ1')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'view slice log' }).getAttribute('href')).toBe('#slice-task-2');
+  });
+
   it('renders normalized verify stream events when present', async () => {
     window.history.pushState(null, '', '/runs/run-1');
     const runtime = createBrunchWebRuntime({

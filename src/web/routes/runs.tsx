@@ -165,42 +165,56 @@ function RequirementsPanel({ run }: { run: RunDetail }) {
         </p>
       ) : (
         <ol className="border-rule flex flex-col gap-2 rounded-xl border bg-white p-4 shadow-[var(--shadow-card)]">
-          {run.requirements.map((requirement) => (
-            <li key={requirement.requirementId} className="flex flex-col gap-1">
-              <div className="flex flex-wrap items-baseline gap-3">
-                <span className="text-ink font-mono text-xs">{requirement.requirementId}</span>
-                <span className="text-sub font-mono text-xs">{requirement.status}</span>
-                {requirement.sliceIds.length === 0 ? null : (
-                  <span className="text-hint text-xs">{requirement.sliceIds.join(', ')}</span>
+          {run.requirements.map((requirement) => {
+            const sliceLogTarget = requirementSliceLogTarget(requirement, linkedSliceIds);
+            return (
+              <li key={requirement.requirementId} className="flex flex-col gap-1">
+                <div className="flex flex-wrap items-baseline gap-3">
+                  <span className="text-ink font-mono text-xs">{requirement.requirementId}</span>
+                  <span className="text-sub font-mono text-xs">{requirement.status}</span>
+                  {requirement.sliceIds.length === 0 ? null : (
+                    <span className="text-hint text-xs">{requirement.sliceIds.join(', ')}</span>
+                  )}
+                </div>
+                <p className="text-sub text-sm">{requirement.content}</p>
+                {requirement.criterionIds.length === 0 ? (
+                  <p className="text-hint text-xs">no criterion witness</p>
+                ) : (
+                  <p className="text-hint text-xs">criteria: {requirement.criterionIds.join(', ')}</p>
                 )}
-              </div>
-              <p className="text-sub text-sm">{requirement.content}</p>
-              {requirement.criterionIds.length === 0 ? (
-                <p className="text-hint text-xs">no criterion witness</p>
-              ) : (
-                <p className="text-hint text-xs">criteria: {requirement.criterionIds.join(', ')}</p>
-              )}
-              <div className="flex flex-wrap gap-2">
-                <Link
-                  to="/spec/$specId"
-                  params={{ specId: run.specId }}
-                  className="text-link font-mono text-xs"
-                >
-                  view in graph
-                </Link>
-                {requirement.sliceIds[0] === undefined ||
-                !linkedSliceIds.has(requirement.sliceIds[0]) ? null : (
-                  <a href={`#slice-${requirement.sliceIds[0]}`} className="text-link font-mono text-xs">
-                    view slice log
-                  </a>
-                )}
-              </div>
-            </li>
-          ))}
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    to="/spec/$specId"
+                    params={{ specId: run.specId }}
+                    className="text-link font-mono text-xs"
+                  >
+                    view in graph
+                  </Link>
+                  {sliceLogTarget === undefined ? null : (
+                    <a href={`#slice-${sliceLogTarget}`} className="text-link font-mono text-xs">
+                      view slice log
+                    </a>
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ol>
       )}
     </section>
   );
+}
+
+function requirementSliceLogTarget(
+  requirement: RunDetail['requirements'][number],
+  linkedSliceIds: ReadonlySet<string>,
+): string | undefined {
+  const priority = [
+    ...requirement.failedSliceIds,
+    ...requirement.missingVerificationSliceIds,
+    ...requirement.sliceIds,
+  ];
+  return priority.find((sliceId) => linkedSliceIds.has(sliceId));
 }
 
 interface StreamEventView {
