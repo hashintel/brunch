@@ -16,7 +16,7 @@ Posture: proving (inherited from main-editor-chrome).
 
 ---
 
-## Card 1 (full) — shift+tab cycles operational mode; thinking-cycle retired from user surface · status: next
+## Card 1 (full) — shift+tab cycles operational mode; thinking-cycle retired from user surface · status: done
 
 ### Target Behavior
 
@@ -133,6 +133,18 @@ src/.pi/extensions/__tests__/
 src/app/__tests__/brunch-tui.test.ts          ~  (profile binding assertion)
 src/app/pi-extensions.ts                      ?  (only if registration must install at boot)
 ```
+
+### Completion Notes
+
+- Built 2026-07-08: `shift+tab` now cycles the transcript-backed operational mode through
+  `applyModeSwitchAndOrient`, deriving wrap order from `OPERATIONAL_MODE_IDS`; `/brunch:mode` still owns
+  the picker/explicit command path.
+- Brunch profile creation now preserves existing `keybindings.json` entries while forcing
+  `app.thinking.cycle` to `[]`, freeing `shift+tab` from Pi's reserved thinking-cycle binding in the
+  Brunch-launched profile.
+- Verification: focused card suites green; `npm run fix` green; full `npm run verify` blocked twice by the
+  pre-existing full-suite-only `src/app/__tests__/git-host-promotion-port.test.ts` timeout documented in
+  `HANDOFF.md`, while that file passes in isolation.
 
 Card 1 merged 2026-07-08 from `--second-look-mode-controls.md` Card 1 (superseded/deleted): its
 applyModeSwitchAndOrient reuse framing, J5/waitForIdle race mitigation via getCommandContext

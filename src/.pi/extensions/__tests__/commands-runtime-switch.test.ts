@@ -9,7 +9,7 @@ import {
 } from '../../../session/runtime-state.js';
 import { BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE } from '../../../session/session-orientation.js';
 import { createTestLabTheme } from '../../__tests__/support/tui-theme.js';
-import { BRUNCH_MODE_COMMAND, registerBrunchCommands } from '../commands/index.js';
+import { BRUNCH_MODE_COMMAND, BRUNCH_MODE_SHORTCUT, registerBrunchCommands } from '../commands/index.js';
 import { CODE_SESSION_ORIENTATION_MENU } from '../session-orientation/index.js';
 import {
   orientationJunctureGate,
@@ -19,6 +19,11 @@ import {
 interface RegisteredCommand {
   description?: string;
   handler: (args: string, ctx: FakeCommandContext) => Promise<void>;
+}
+
+interface RegisteredShortcut {
+  description?: string;
+  handler: (ctx: FakeCommandContext) => Promise<void>;
 }
 
 interface RuntimeEntry {
@@ -63,6 +68,7 @@ function commandHarness(
   const sent: SentMessage[] = [];
   const notifications: Array<{ message: string; level?: 'info' | 'warning' | 'error' }> = [];
   const commands = new Map<string, RegisteredCommand>();
+  const shortcuts = new Map<string, RegisteredShortcut>();
   const activeToolNames: string[][] = [];
   const customCalls: Array<{ factory: (...args: unknown[]) => unknown; options: unknown }> = [];
   const selectCalls: Array<{ title: string; options: string[] }> = [];
@@ -112,7 +118,9 @@ function commandHarness(
       registerCommand(name: string, command: RegisteredCommand) {
         commands.set(name, command);
       },
-      registerShortcut() {},
+      registerShortcut(name: string, shortcut: RegisteredShortcut) {
+        shortcuts.set(name, shortcut);
+      },
       appendEntry(customType: string, data: BrunchAgentStateEntryData) {
         entries.push({ type: 'custom', customType, data });
       },
@@ -147,6 +155,7 @@ function commandHarness(
 
   return {
     commands,
+    shortcuts,
     ctx,
     entries,
     notifications,
@@ -257,6 +266,90 @@ describe('Brunch runtime switch commands', () => {
     expect(harness.activeToolNames.at(-1)).toEqual(
       expect.arrayContaining(['ask', 'mutate_graph', 'execute_status']),
     );
+  });
+
+  it('cycles operational mode from the shortcut through the runtime switch path', async () => {
+    const harness = commandHarness();
+
+    await harness.shortcuts.get(BRUNCH_MODE_SHORTCUT)?.handler(harness.ctx);
+    await harness.shortcuts.get(BRUNCH_MODE_SHORTCUT)?.handler(harness.ctx);
+
+    expect(harness.customCalls).toEqual([]);
+    expect(harness.entries.map((entry) => (entry.data as BrunchAgentStateEntryData).state)).toEqual([
+      { ...DEFAULT_BRUNCH_AGENT_STATE, operationalMode: 'execute' },
+      { ...DEFAULT_BRUNCH_AGENT_STATE, operationalMode: 'specify' },
+    ]);
+    expect(projectBrunchAgentState(harness.entries)).toMatchObject({ operationalMode: 'specify' });
+    expect(harness.activeToolNames).toHaveLength(2);
+    expect(harness.chromeRefreshes).toHaveLength(2);
+  });
+
+  it('borrows the command context for shortcut mode cycling so J5 can settle in-flight work', async () => {
+    const harness = commandHarness({
+      orientation: true,
+      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'proceed')!.label,
+    });
+    const shortcutCtx = { ...harness.ctx };
+    let idle = false;
+    const borrowedCtx = {
+      ...harness.ctx,
+      isIdle: () => idle,
+      abort: () => {
+        idle = true;
+      },
+      waitForIdle: async () => undefined,
+    };
+    registerBrunchCommands(
+      {
+        registerCommand() {},
+        registerShortcut(name: string, shortcut: RegisteredShortcut) {
+          harness.shortcuts.set(name, shortcut);
+        },
+        appendEntry(customType: string, data: BrunchAgentStateEntryData) {
+          harness.entries.push({ type: 'custom', customType, data });
+        },
+        getAllTools: () => [{ name: 'read' }, { name: 'execute_status' }],
+        setActiveTools(names: string[]) {
+          harness.activeToolNames.push(names);
+        },
+        sendMessage(message: unknown, sendOptions?: unknown) {
+          harness.sent.push({ message, options: sendOptions });
+        },
+      } as never,
+      {
+        coordinator: {} as never,
+        sessionOrientation: harness.orientationDeps!,
+        getCommandContext: () => borrowedCtx as never,
+      },
+    );
+
+    await harness.shortcuts.get(BRUNCH_MODE_SHORTCUT)?.handler(shortcutCtx);
+
+    expect(harness.entries).toContainEqual(
+      expect.objectContaining({
+        customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
+        data: { schemaVersion: 1, choice: 'proceed', trigger: 'mode-switch' },
+      }),
+    );
+  });
+
+  it('does not fire a provider turn from shortcut cycling when no allowlisted model is available', async () => {
+    const harness = commandHarness({
+      orientation: true,
+      modelAvailable: false,
+    });
+
+    await harness.shortcuts.get(BRUNCH_MODE_SHORTCUT)?.handler(harness.ctx);
+
+    expect(harness.entries).toContainEqual(
+      expect.objectContaining({
+        customType: BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
+        data: expect.objectContaining({
+          state: { ...DEFAULT_BRUNCH_AGENT_STATE, operationalMode: 'execute' },
+        }),
+      }),
+    );
+    expect(harness.sent).toEqual([]);
   });
 
   it('aborts an in-flight turn (claiming the J4 gate) before showing the mode-switch menu', async () => {

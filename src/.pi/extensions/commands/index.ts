@@ -18,7 +18,7 @@
  *  - `ctrl+shift+b` — spec/session picker (borrows a command-capable context
  *                     from the composition root for the actual session switch;
  *                     alt+b is reserved by Pi's editor for cursorWordLeft)
- *  - `alt+m` — mode picker
+ *  - `shift+tab` — mode cycle
  *
  * Disabled until operational (constant kept so tests can assert absence):
  *  - `/brunch:continue` — recover/restart from an interrupted `request_*` tool
@@ -66,7 +66,7 @@ export const BRUNCH_MODE_COMMAND = 'brunch:mode';
 
 /** alt+b is unavailable: Pi reserves it as a built-in editor binding (cursorWordLeft). */
 export const BRUNCH_SWITCH_SHORTCUT = 'ctrl+shift+b';
-export const BRUNCH_MODE_SHORTCUT = 'alt+m';
+export const BRUNCH_MODE_SHORTCUT = 'shift+tab';
 
 export type BrunchCommandsOptions = BrunchSpecSessionPickerOptions & {
   /** Called after a runtime posture switch so chrome (footer) re-renders from re-projected state. */
@@ -98,7 +98,7 @@ interface RuntimeSwitchContext {
   readonly modelRegistry: ExtensionCommandContext['modelRegistry'];
   /**
    * Turn-control surface for settling an in-flight assistant turn before the
-   * mode-switch orientation menu shows. Optional because the alt+m shortcut
+   * mode-switch orientation menu shows. Optional because the Shift+Tab shortcut
    * context lacks `waitForIdle`; the shortcut path borrows a full command
    * context from the composition root when one is available.
    */
@@ -113,6 +113,12 @@ function normalizeAxisArg(args: string): string {
 
 function formatOperationalModeChoices(): string {
   return OPERATIONAL_MODE_IDS.map((mode) => `${mode} (${operationalModeLabel(mode)})`).join(', ');
+}
+
+function nextOperationalMode(current: OperationalModeId): OperationalModeId {
+  const currentIndex = OPERATIONAL_MODE_IDS.indexOf(current);
+  const nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % OPERATIONAL_MODE_IDS.length;
+  return OPERATIONAL_MODE_IDS[nextIndex]!;
 }
 
 type ModeSwitchOptions = Pick<
@@ -295,11 +301,13 @@ function registerRuntimeSwitchCommands(pi: ExtensionAPI, options: ModeSwitchOpti
   });
 
   pi.registerShortcut?.(BRUNCH_MODE_SHORTCUT, {
-    description: 'Change the Brunch mode',
+    description: 'Cycle the Brunch mode',
     handler: async (ctx) => {
       // Shortcut contexts lack waitForIdle; borrow a full command context so
       // the in-flight-turn settle before the orientation menu can await idle.
-      await openModePicker(pi, options.getCommandContext?.() ?? ctx, options);
+      const commandCtx = options.getCommandContext?.() ?? ctx;
+      const current = projectBrunchAgentState(commandCtx.sessionManager.getEntries());
+      await applyModeSwitchAndOrient(pi, commandCtx, nextOperationalMode(current.operationalMode), options);
     },
   });
 }

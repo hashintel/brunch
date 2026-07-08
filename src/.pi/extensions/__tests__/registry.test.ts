@@ -200,7 +200,7 @@ describe('Brunch explicit Pi extension registry', () => {
     ]);
     expect(recording.commandNames).toEqual([BRUNCH_SWITCH_COMMAND, BRUNCH_MODE_COMMAND]);
     expect(recording.messageRenderers).toEqual(['alternatives-card-set']);
-    expect(recording.shortcuts).toEqual(['alt+m', 'ctrl+shift+b']);
+    expect(recording.shortcuts).toEqual(['shift+tab', 'ctrl+shift+b']);
     expect(recording.eventNames).toEqual([
       'session_start',
       'before_agent_start',

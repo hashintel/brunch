@@ -61,6 +61,7 @@ import {
   BRUNCH_EXECUTE_ORCHESTRATE_TOOL,
   BRUNCH_INTROSPECTION_COMMAND,
   BRUNCH_MODE_COMMAND,
+  BRUNCH_MODE_SHORTCUT,
   BRUNCH_SWITCH_COMMAND,
   BRUNCH_SWITCH_SHORTCUT,
   chromeStateForWorkspace,
@@ -974,6 +975,8 @@ describe('Brunch TUI boot', () => {
     // Disabled until operational: continue is unimplemented.
     expect(commands.has(BRUNCH_CONTINUE_COMMAND)).toBe(false);
     expect(shortcuts.get(BRUNCH_SWITCH_SHORTCUT)?.description).toBe('Open the Brunch spec/session picker');
+    expect(shortcuts.get(BRUNCH_MODE_SHORTCUT)?.description).toBe('Cycle the Brunch mode');
+    expect(shortcuts.has('alt+m')).toBe(false);
     expect(shortcuts.has('ctrl+b')).toBe(false);
     // alt+b must stay unregistered: Pi reserves it for cursorWordLeft.
     expect(shortcuts.has('alt+b')).toBe(false);
@@ -1595,6 +1598,31 @@ describe('Brunch TUI boot', () => {
       appendSystemPrompt: [],
       extensionFactories: [extension],
     });
+  });
+
+  it('removes Pi thinking-cycle from the Brunch profile while preserving other keybinding overrides', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-'));
+    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agentdir-'));
+    await writeFile(
+      join(agentDir, 'keybindings.json'),
+      JSON.stringify(
+        {
+          'app.thinking.cycle': 'shift+tab',
+          'app.model.select': 'ctrl+x',
+        },
+        null,
+        2,
+      ),
+    );
+
+    createBrunchPiSettings({ cwd, agentDir, extensionFactories: [] });
+
+    const keybindings = JSON.parse(await readFile(join(agentDir, 'keybindings.json'), 'utf8')) as Record<
+      string,
+      unknown
+    >;
+    expect(keybindings['app.thinking.cycle']).toEqual([]);
+    expect(keybindings['app.model.select']).toBe('ctrl+x');
   });
 
   it('seals ambient APPEND_SYSTEM.md out of the real Pi resource loader (D39-L)', async () => {

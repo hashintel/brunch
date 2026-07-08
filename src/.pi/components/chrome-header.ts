@@ -82,7 +82,7 @@ export class BrunchStartupHeader implements Component {
       this.theme.bold('Welcome to Brunch.'),
       'Brunch helps you and the agent co-author this specification as a local graph.',
       'The assistant is about to open with a grounded question from the seeded workspace context.',
-      'Commands: /brunch:mode or alt+m changes mode; ctrl+shift+b switches spec/session.',
+      'Commands: /brunch:mode or shift+tab cycles mode; ctrl+shift+b switches spec/session.',
     ];
     return projectRoundedBox(inner, { topLabel: 'welcome', labelAlign: 'left' }, contentWidth, (text) =>
       this.theme.fg('accent', text),
