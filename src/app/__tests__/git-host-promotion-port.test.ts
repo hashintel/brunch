@@ -8,11 +8,12 @@ import { describe, expect, it } from 'vitest';
 import { createGitHostPromotionPort } from '../git-host-promotion-port.js';
 
 const execFileAsync = promisify(execFile);
+const TEST_GIT_AUTHOR = ['-c', 'user.name=Brunch Test', '-c', 'user.email=brunch@example.test'] as const;
 const testScratchRoot = join(process.cwd(), 'tmp', 'git-host-promotion-port');
 
 async function git(cwd: string, args: readonly string[]): Promise<string> {
   const result = await execFileAsync('git', [...args], { cwd });
-  return result.stdout.trim();
+  return result.stdout.trimEnd();
 }
 
 async function createHostAndRunRepos(prefix: string): Promise<{
@@ -27,22 +28,16 @@ async function createHostAndRunRepos(prefix: string): Promise<{
   const hostDir = join(root, 'host');
   const worktreeDir = join(root, 'worktree');
   await git(root, ['init', hostDir]);
-  await git(root, ['clone', hostDir, worktreeDir]);
-
-  for (const dir of [hostDir, worktreeDir]) {
-    await git(dir, ['config', 'user.name', 'Brunch Test']);
-    await git(dir, ['config', 'user.email', 'brunch@example.test']);
-  }
 
   await writeFile(join(hostDir, 'host-proof.txt'), 'host content\n', 'utf8');
   await git(hostDir, ['add', 'host-proof.txt']);
-  await git(hostDir, ['commit', '-m', 'host base']);
+  await git(hostDir, [...TEST_GIT_AUTHOR, 'commit', '-m', 'host base']);
+  const baseSha = await git(hostDir, ['rev-parse', 'HEAD']);
 
-  await git(worktreeDir, ['pull', '--ff-only']);
-  const baseSha = await git(worktreeDir, ['rev-parse', 'HEAD']);
+  await git(hostDir, ['worktree', 'add', worktreeDir, 'HEAD']);
   await writeFile(join(worktreeDir, 'host-proof.txt'), 'promoted content\n', 'utf8');
   await git(worktreeDir, ['add', 'host-proof.txt']);
-  await git(worktreeDir, ['commit', '-m', 'promote run']);
+  await git(worktreeDir, [...TEST_GIT_AUTHOR, 'commit', '-m', 'promote run']);
   const commitSha = await git(worktreeDir, ['rev-parse', 'HEAD']);
 
   return { root, hostDir, worktreeDir, baseSha, commitSha };
@@ -247,7 +242,7 @@ describe('createGitHostPromotionPort', () => {
       expect(await readFile(join(hostDir, 'host-proof.txt'), 'utf8')).toBe('promoted content\n');
       expect(await git(hostDir, ['rev-parse', 'HEAD'])).toBe(beforeHead);
       expect(await git(hostDir, ['diff', '--cached', '--name-only'])).toBe('');
-      expect(await git(hostDir, ['status', '--short'])).toBe('M host-proof.txt');
+      expect(await git(hostDir, ['status', '--short'])).toBe(' M host-proof.txt');
     } finally {
       await rm(root, { recursive: true, force: true });
     }
