@@ -68,7 +68,11 @@ import {
   type BrunchStartupHeaderResumeFacts,
 } from './pi-extensions.js';
 import { projectBrunchPiSessionOptions } from './pi-session-options.js';
-import { applyBrunchOfflineDefault, createBrunchPiSettings } from './pi-settings.js';
+import {
+  applyBrunchOfflineDefault,
+  createBrunchPiSettings,
+  resolveBrunchStartupTheme,
+} from './pi-settings.js';
 import { loadBrunchSubagents } from './pi-subagents.js';
 export {
   BRUNCH_SETTINGS_AUDITED_GETTERS,
@@ -145,7 +149,7 @@ export interface BrunchTuiOptions {
   selectSpecTitle?: () => Promise<string | undefined>;
   runWorkspaceDialogPreflight?: (
     inventory: WorkspaceLaunchInventory,
-    options: Pick<WorkspaceDialogPreflightOptions, 'modelAvailable' | 'noAuthGuidance'>,
+    options: Pick<WorkspaceDialogPreflightOptions, 'modelAvailable' | 'noAuthGuidance' | 'theme'>,
   ) => Promise<SpecSessionActivationDecision>;
   launchInteractive?: (context: BrunchTuiLaunchContext) => Promise<void>;
   webSidecarRunner?: (options: BrunchWebSidecarRunnerOptions) => Promise<BrunchWebSidecar | null>;
@@ -262,9 +266,14 @@ async function chooseSpecSessionActivationDecision(
   inventory: WorkspaceLaunchInventory,
   options: BrunchTuiOptions,
 ): Promise<SpecSessionActivationDecision> {
+  const startupTheme = await resolveBrunchStartupTheme({
+    cwd: inventory.cwd,
+    agentDir: getAgentDir(),
+  });
   const preflightOptions = {
     modelAvailable: resolveBootModelAvailable(),
     noAuthGuidance: getBrunchNoAuthGuidanceCopy(),
+    ...(startupTheme ? { theme: startupTheme } : {}),
   };
   if (options.runWorkspaceDialogPreflight) {
     return options.runWorkspaceDialogPreflight(inventory, preflightOptions);

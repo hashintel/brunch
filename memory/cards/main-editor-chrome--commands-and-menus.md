@@ -266,7 +266,7 @@ src/.pi/extensions/__tests__/
 
 ---
 
-## Card 4 (light) — pre-session menu surfaces take the injected theme · status: pending (independent)
+## Card 4 (light) — pre-session menu surfaces take the injected theme · status: done (independent)
 
 ### Objective
 
@@ -314,3 +314,15 @@ src/app/brunch-tui.ts                         ~  (theme resolution before dialog
 src/.pi/components/workspace-dialog/          ?  (only if a default-theme fallback needs removal)
 src/app/__tests__/brunch-tui.test.ts          ~
 ```
+
+### Completion report
+
+| Leaf | Outcome | Evidence |
+| ---- | ------- | -------- |
+| Startup-gate dialog receives the resolved Brunch theme | met | `brunch-tui.test.ts` added `threads the resolved Brunch theme into workspace-dialog preflight`; red first with `undefined`, then passed with `brunch-dark` / `brunch-light` resolved from the Brunch theme pair |
+| Same Theme instance family as in-session | met | `resolveBrunchStartupTheme` loads `brunch-light` / `brunch-dark` through `DefaultResourceLoader` using `brunchResourceLoaderOptions`, the same explicit Brunch theme path used by sealed Pi settings |
+| In-session workspace dialog regression suite stays green | met | `npm run test -- src/app/__tests__/brunch-tui.test.ts src/.pi/components/__tests__/workspace-dialog.test.ts` passed 67 tests |
+| I22-L startup ordering untouched | met | Theme is added to the existing preflight options before `activateWorkspace`; no activation-flow events changed in `brunch-tui.test.ts` |
+| Manual boot check in light + dark | met-with-divergence | Replaced the live `npm run dev` boot beat with an automated light/dark boot-path oracle in this non-interactive build session; no visual terminal screenshot was captured |
+
+Skipped-test-count delta vs parent commit: `0` introduced by this slice. Focused suites reported no skips; full-suite rerun reported the existing `2 skipped` count and failed only the documented roving `git-host-promotion-port.test.ts` timeout, which passed in isolation.

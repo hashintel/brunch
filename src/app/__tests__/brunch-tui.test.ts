@@ -148,6 +148,53 @@ describe('Brunch TUI boot', () => {
     expect(observedNoAuthGuidance).toContain('/login');
   });
 
+  it('threads the resolved Brunch theme into workspace-dialog preflight', async () => {
+    for (const scenario of [
+      { colorfgbg: '15;0', expectedThemeName: 'brunch-dark' },
+      { colorfgbg: '0;15', expectedThemeName: 'brunch-light' },
+    ]) {
+      const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-'));
+      const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agentdir-'));
+      const workspace = readyWorkspace(cwd, 'session-ready');
+      let observedThemeName: string | undefined;
+
+      vi.stubEnv('PI_CODING_AGENT_DIR', agentDir);
+      vi.stubEnv('COLORFGBG', scenario.colorfgbg);
+      try {
+        await runBrunchTui({
+          cwd,
+          coordinator: {
+            inspectWorkspace: async () => ({
+              cwd,
+              currentSpec: workspace.spec,
+              currentSessionFile: workspace.session.file,
+              needsNewSpec: false,
+              specs: [],
+              unavailableSessions: [],
+            }),
+            activateWorkspace: async () => workspace,
+            bindCurrentSpecToReplacementSession: async () => workspace,
+          },
+          runWorkspaceDialogPreflight: async (_inventory, preflightOptions) => {
+            observedThemeName = (preflightOptions as { readonly theme?: { readonly name?: string } }).theme
+              ?.name;
+            return {
+              action: 'continue',
+              specId: workspace.spec.id,
+              sessionFile: workspace.session.file,
+            };
+          },
+          webSidecarRunner: async () => null,
+          launchInteractive: async () => {},
+        });
+      } finally {
+        vi.unstubAllEnvs();
+      }
+
+      expect(observedThemeName).toBe(scenario.expectedThemeName);
+    }
+  });
+
   it('runs inspect, preflight, activation, and decision propagation before launching interactive mode', async () => {
     const events: string[] = [];
     const workspace = readyWorkspace('/tmp/project', 'session-ready');
