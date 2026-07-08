@@ -101,6 +101,15 @@ describe('parseBrunchThemePalette', () => {
     ).toThrow(/pageBg/);
   });
 
+  it('rejects empty string for non-terminal-default color tokens', () => {
+    expect(() => parseBrunchThemePalette(themeJson({ colors: { accent: '', text: '' } }), 'dark')).toThrow(
+      /accent/,
+    );
+    expect(() =>
+      parseBrunchThemePalette(themeJson({ colors: { selectedBg: '', text: '' } }), 'dark'),
+    ).toThrow(/selectedBg/);
+  });
+
   it('still parses the shipped theme JSONs', () => {
     for (const variant of ['dark', 'light'] as const) {
       const raw = readFileSync(fileURLToPath(new URL(`brunch-${variant}.json`, THEME_DIR)), 'utf8');
