@@ -35,7 +35,14 @@ import { createMultiChoicePickerComponent } from '../../components/multi-choice-
 import { piSchema } from './pi-schema.js';
 import { requestChoicesViaEditor } from './shared/choices-editor.js';
 import { renderEmptyStructuredExchangeCall, renderMarkdownResult } from './shared/markdown.js';
-import { collectRequiredInput } from './shared/required-input.js';
+import {
+  back,
+  collectCommentStep,
+  collectRequiredInput,
+  isBack,
+  unavailable,
+  type StepResult,
+} from './shared/required-input.js';
 import { withWorkingIndicatorHidden, type StructuredExchangeUiContext } from './shared/ui-context.js';
 
 export const ASK_TOOL = 'ask' as const;
@@ -75,19 +82,17 @@ function terminal(
 }
 
 type ContinuationCollectParams = AskContinuationParams & { readonly exchangeId: string };
-type CollectableAskParams = StandaloneAskParams | ContinuationCollectParams;
-type CollectableAskWithOptions = CollectableAskParams & {
+export type CollectableAskParams = StandaloneAskParams | ContinuationCollectParams;
+export type CollectableAskWithOptions = CollectableAskParams & {
   readonly options: NonNullable<CollectableAskParams['options']>;
 };
-type BackResult = { readonly status: 'back' };
 type PickedSingleChoice = { readonly id: string };
 type PickedMultiChoices = {
   readonly choices: readonly { readonly id: string; readonly label: string }[];
 };
-type OptionalCommentResult = { readonly status: 'answered'; readonly comment?: string } | BackResult;
 
-function isBack(result: { readonly status: string }): result is BackResult {
-  return result.status === 'back';
+function hasOptions(params: CollectableAskParams): params is CollectableAskWithOptions {
+  return params.options !== undefined;
 }
 
 function choicesFromParams(
@@ -108,17 +113,6 @@ function selectedChoice(id: string, label: string, listedIds: ReadonlySet<string
   if (id === 'other') return { id, label, kind: 'other' };
   if (id === 'none') return { id, label, kind: 'none' };
   return { id, label, kind: listedIds.has(id) ? 'listed' : 'other' };
-}
-
-async function collectOptionalComment(
-  ctx: StructuredExchangeUiContext,
-  prompt: string,
-): Promise<OptionalCommentResult> {
-  if (typeof ctx.ui?.input !== 'function') return { status: 'answered' };
-  const value = await ctx.ui.input(prompt);
-  if (value === undefined) return { status: 'back' };
-  const comment = normalizeOptionalUnknownText(value);
-  return { status: 'answered', ...(comment ? { comment } : {}) };
 }
 
 async function collectFreeText(
@@ -163,10 +157,6 @@ async function collectFreeText(
 
   if (answer === undefined) return terminal(params, question, 'cancelled');
   const trimmed = answer.trim();
-  // The interactive TUI editor re-prompts on empty submit (ExchangeAnswerEditorComponent
-  // warns and stays open), so an empty answer only reaches here via the sealed-editor
-  // or broker rungs, where re-prompting is not possible — terminal unavailable is the
-  // deliberate degraded-path behavior (accepted divergence from the FE-1164 review card).
   if (trimmed.length === 0) return terminal(params, question, 'unavailable', 'ask answer cannot be empty');
   let comment: string | undefined;
   if (params.commentPrompt && typeof ctx.ui?.input === 'function') {
@@ -188,19 +178,20 @@ async function collectSingleChoice(
   question: AskQuestionEcho,
   ctx: StructuredExchangeUiContext,
 ): Promise<ToolResult> {
-  if (!ctx.hasUI || typeof ctx.ui?.custom !== 'function' || !params.options) {
+  if (!ctx.hasUI || typeof ctx.ui?.custom !== 'function' || !hasOptions(params)) {
     return terminal(params, question, 'unavailable', 'ask choice requires interactive UI');
   }
-  return collectSingleChoiceWithBackNavigation(params as CollectableAskWithOptions, question, ctx);
+  return collectSingleChoiceWithBackNavigation(params, question, ctx, ctx.ui.custom);
 }
 
 async function collectSingleChoiceWithBackNavigation(
   params: CollectableAskWithOptions,
   question: AskQuestionEcho,
   ctx: StructuredExchangeUiContext,
+  custom: NonNullable<NonNullable<StructuredExchangeUiContext['ui']>['custom']>,
 ): Promise<ToolResult> {
   for (;;) {
-    const picked = await presentSingleChoicePicker(params, ctx);
+    const picked = await presentSingleChoicePicker(params, ctx, custom);
     if (!picked) return terminal(params, question, 'cancelled');
     const collected = await collectPickedSingleChoice(params, picked, ctx);
     if (isBack(collected)) continue;
@@ -211,9 +202,9 @@ async function collectSingleChoiceWithBackNavigation(
         exchangeId: params.exchangeId,
         question,
         status: 'answered',
-        choice: collected.choice,
+        choice: collected.value.choice,
         options: params.options,
-        ...(collected.comment ? { comment: collected.comment } : {}),
+        ...(collected.value.comment ? { comment: collected.value.comment } : {}),
       }),
     );
   }
@@ -222,8 +213,8 @@ async function collectSingleChoiceWithBackNavigation(
 async function presentSingleChoicePicker(
   params: CollectableAskWithOptions,
   ctx: StructuredExchangeUiContext,
+  custom: NonNullable<NonNullable<StructuredExchangeUiContext['ui']>['custom']>,
 ): Promise<PickedSingleChoice | undefined> {
-  const custom = ctx.ui!.custom!;
   return withWorkingIndicatorHidden(ctx, () =>
     custom<PickedSingleChoice | undefined>((_tui, theme, _keybindings, done) =>
       createExchangeDecisionPickerComponent({
@@ -243,38 +234,42 @@ async function collectPickedSingleChoice(
   params: CollectableAskWithOptions,
   picked: PickedSingleChoice,
   ctx: StructuredExchangeUiContext,
-): Promise<
-  | { readonly status: 'answered'; readonly choice: SelectedChoice; readonly comment?: string }
-  | BackResult
-  | { readonly status: 'unavailable'; readonly message: string }
-> {
+): Promise<StepResult<{ readonly choice: SelectedChoice; readonly comment?: string }>> {
   const listed = new Set(params.options.map((option) => option.id));
   const option = choicesFromParams(params).find((choice) => choice.id === picked.id);
-  if (!option) return { status: 'unavailable', message: `ask received unknown option id ${picked.id}` };
+  if (!option) return unavailable(`ask received unknown option id ${picked.id}`);
 
   let choice = selectedChoice(option.id, option.label, listed);
   if (choice.kind === 'other') {
     const other = await collectRequiredInput(ctx, 'Other', 'Describe your answer');
-    if (isBack(other)) return other;
-    if (other.status === 'unavailable')
-      return { status: 'unavailable', message: 'ask choice input unavailable' };
+    if (other.status === 'back') return back();
+    if (other.status === 'unavailable') return unavailable('ask choice input unavailable');
     choice = { ...choice, label: other.value };
   }
   let comment: string | undefined;
   if (structuredExchangeResponseRequiresComment({ choiceKinds: [choice.kind] })) {
-    const required = await collectRequiredInput(ctx, params.commentPrompt ?? 'Required comment');
-    if (isBack(required)) return required;
-    if (required.status === 'unavailable')
-      return { status: 'unavailable', message: 'ask comment unavailable' };
-    comment = required.value;
-  } else if (params.commentPrompt && typeof ctx.ui?.input === 'function') {
-    // Optional comment collection is opt-in: omitting commentPrompt skips the step.
-    const optional = await collectOptionalComment(ctx, params.commentPrompt);
-    if (isBack(optional)) return optional;
-    comment = optional.comment;
+    const required = await collectCommentStep({
+      requirement: 'required',
+      prompt: params.commentPrompt ?? 'Required comment',
+      ctx,
+      unavailableMessage: 'ask comment unavailable',
+    });
+    if (isBack(required)) return back();
+    if (required.status === 'unavailable') return unavailable(required.message);
+    comment = required.value.comment;
+  } else if (params.commentPrompt) {
+    const optional = await collectCommentStep({
+      requirement: 'optional',
+      prompt: params.commentPrompt,
+      ctx,
+      unavailableMessage: 'ask comment unavailable',
+    });
+    if (isBack(optional)) return back();
+    if (optional.status === 'unavailable') return unavailable(optional.message);
+    comment = optional.value.comment;
   }
 
-  return { status: 'answered', choice, ...(comment ? { comment } : {}) };
+  return { status: 'answered', value: { choice, ...(comment ? { comment } : {}) } };
 }
 
 async function collectMultiChoice(
@@ -282,23 +277,24 @@ async function collectMultiChoice(
   question: AskQuestionEcho,
   ctx: StructuredExchangeUiContext,
 ): Promise<ToolResult> {
-  if (!params.options) return terminal(params, question, 'unavailable', 'ask choices require options');
+  if (!hasOptions(params)) return terminal(params, question, 'unavailable', 'ask choices require options');
   if (!ctx.hasUI) return terminal(params, question, 'unavailable', 'ask choices requires interactive UI');
   if (typeof ctx.ui?.custom !== 'function') {
     if (typeof ctx.ui?.editor === 'function') return collectMultiChoiceViaEditor(params, question, ctx);
     return terminal(params, question, 'unavailable', 'ask choices requires interactive UI');
   }
-  return collectMultiChoiceWithBackNavigation(params as CollectableAskWithOptions, question, ctx);
+  return collectMultiChoiceWithBackNavigation(params, question, ctx, ctx.ui.custom);
 }
 
 async function collectMultiChoiceWithBackNavigation(
   params: CollectableAskWithOptions,
   question: AskQuestionEcho,
   ctx: StructuredExchangeUiContext,
+  custom: NonNullable<NonNullable<StructuredExchangeUiContext['ui']>['custom']>,
 ): Promise<ToolResult> {
   let selectedChoiceIds: readonly string[] = [];
   for (;;) {
-    const picked = await presentMultiChoicePicker(params, ctx, selectedChoiceIds);
+    const picked = await presentMultiChoicePicker(params, ctx, custom, selectedChoiceIds);
     if (!picked) return terminal(params, question, 'cancelled');
     selectedChoiceIds = picked.choices.map((choice) => choice.id);
     const collected = await collectPickedMultiChoices(params, picked, ctx);
@@ -310,9 +306,9 @@ async function collectMultiChoiceWithBackNavigation(
         exchangeId: params.exchangeId,
         question,
         status: 'answered',
-        choices: collected.choices,
+        choices: collected.value.choices,
         options: params.options,
-        ...(collected.comment ? { comment: collected.comment } : {}),
+        ...(collected.value.comment ? { comment: collected.value.comment } : {}),
       }),
     );
   }
@@ -321,9 +317,9 @@ async function collectMultiChoiceWithBackNavigation(
 async function presentMultiChoicePicker(
   params: CollectableAskWithOptions,
   ctx: StructuredExchangeUiContext,
+  custom: NonNullable<NonNullable<StructuredExchangeUiContext['ui']>['custom']>,
   selectedChoiceIds: readonly string[],
 ): Promise<PickedMultiChoices | undefined> {
-  const custom = ctx.ui!.custom!;
   return withWorkingIndicatorHidden(ctx, () =>
     custom<PickedMultiChoices | undefined>((_tui, theme, _keybindings, done) =>
       createMultiChoicePickerComponent({
@@ -345,43 +341,47 @@ async function collectPickedMultiChoices(
   params: CollectableAskWithOptions,
   picked: PickedMultiChoices,
   ctx: StructuredExchangeUiContext,
-): Promise<
-  | { readonly status: 'answered'; readonly choices: readonly SelectedChoice[]; readonly comment?: string }
-  | BackResult
-  | { readonly status: 'unavailable'; readonly message: string }
-> {
+): Promise<StepResult<{ readonly choices: readonly SelectedChoice[]; readonly comment?: string }>> {
   const listed = new Set(params.options.map((option) => option.id));
   const selected: SelectedChoice[] = [];
   for (const item of picked.choices) {
     let choice = selectedChoice(item.id, item.label, listed);
     if (choice.kind === 'other') {
       const other = await collectRequiredInput(ctx, 'Other', 'Describe your answer');
-      if (isBack(other)) return other;
-      if (other.status === 'unavailable')
-        return { status: 'unavailable', message: 'ask choice input unavailable' };
+      if (other.status === 'back') return back();
+      if (other.status === 'unavailable') return unavailable('ask choice input unavailable');
       choice = { ...choice, label: other.value };
     }
     selected.push(choice);
   }
   if (selected.some((choice) => choice.kind === 'none') && selected.length > 1) {
-    return { status: 'unavailable', message: 'ask choices cannot combine None with other selections' };
+    return unavailable('ask choices cannot combine None with other selections');
   }
 
   let comment: string | undefined;
   if (structuredExchangeResponseRequiresComment({ choiceKinds: selected.map((choice) => choice.kind) })) {
-    const required = await collectRequiredInput(ctx, params.commentPrompt ?? 'Required comment');
-    if (isBack(required)) return required;
-    if (required.status === 'unavailable')
-      return { status: 'unavailable', message: 'ask comment unavailable' };
-    comment = required.value;
-  } else if (params.commentPrompt && typeof ctx.ui?.input === 'function') {
-    // Optional comment collection is opt-in: omitting commentPrompt skips the step.
-    const optional = await collectOptionalComment(ctx, params.commentPrompt);
-    if (isBack(optional)) return optional;
-    comment = optional.comment;
+    const required = await collectCommentStep({
+      requirement: 'required',
+      prompt: params.commentPrompt ?? 'Required comment',
+      ctx,
+      unavailableMessage: 'ask comment unavailable',
+    });
+    if (isBack(required)) return back();
+    if (required.status === 'unavailable') return unavailable(required.message);
+    comment = required.value.comment;
+  } else if (params.commentPrompt) {
+    const optional = await collectCommentStep({
+      requirement: 'optional',
+      prompt: params.commentPrompt,
+      ctx,
+      unavailableMessage: 'ask comment unavailable',
+    });
+    if (isBack(optional)) return back();
+    if (optional.status === 'unavailable') return unavailable(optional.message);
+    comment = optional.value.comment;
   }
 
-  return { status: 'answered', choices: selected, ...(comment ? { comment } : {}) };
+  return { status: 'answered', value: { choices: selected, ...(comment ? { comment } : {}) } };
 }
 
 async function collectMultiChoiceViaEditor(
@@ -491,50 +491,42 @@ function isDeclaredReviewPresent(present: DeclaredContinuationPresent): present 
   return present.tool_meta.curr === 'present_digest' || present.tool_meta.curr === 'present_review_set';
 }
 
+function continuingAskUnavailable(params: ContinuingAskParams, message: string): ToolResult {
+  return result(
+    projectAsk({
+      exchangeId: params.continues,
+      question: { body: params.preface ?? 'Continue structured exchange' },
+      status: 'unavailable',
+      message,
+    }),
+  );
+}
+
 async function collectContinuingAsk(
   params: ContinuingAskParams,
   ctx: StructuredExchangeUiContext,
 ): Promise<ToolResult> {
   const branch = ctx.sessionManager?.getBranch();
-  if (!branch) {
-    return result(
-      projectAsk({
-        exchangeId: params.continues,
-        question: { body: params.preface ?? 'Continue structured exchange' },
-        status: 'unavailable',
-        message: 'ask continuation requires access to the current session transcript',
-      }),
+  if (!branch)
+    return continuingAskUnavailable(
+      params,
+      'ask continuation requires access to the current session transcript',
     );
-  }
   const pending = findIncompleteStructuredExchangePresents(branch).find(
     (present) => present.details.exchange_id === params.continues,
   );
-  if (!pending) {
-    return result(
-      projectAsk({
-        exchangeId: params.continues,
-        question: { body: params.preface ?? 'Continue structured exchange' },
-        status: 'unavailable',
-        message: `No pending structured exchange found for ${params.continues}`,
-      }),
-    );
-  }
+  if (!pending)
+    return continuingAskUnavailable(params, `No pending structured exchange found for ${params.continues}`);
   const present = pending.details;
-  if (!hasDeclaredContinuation(present)) {
-    return result(
-      projectAsk({
-        exchangeId: params.continues,
-        question: { body: params.preface ?? 'Continue structured exchange' },
-        status: 'unavailable',
-        message: `Structured exchange ${params.continues} does not declare an ask continuation`,
-      }),
+  if (!hasDeclaredContinuation(present))
+    return continuingAskUnavailable(
+      params,
+      `Structured exchange ${params.continues} does not declare an ask continuation`,
     );
-  }
   const declared = { exchangeId: params.continues, ...present.continuation.params };
   if (isDeclaredCandidatePresent(present)) return collectContinuingCandidateChoice(declared, present, ctx);
   if (isDeclaredReviewPresent(present)) return collectContinuingReview(declared, present, ctx);
-  const _exhaustive: never = present;
-  return _exhaustive;
+  return present satisfies never;
 }
 
 async function collectContinuingCandidateChoice(
@@ -542,10 +534,7 @@ async function collectContinuingCandidateChoice(
   present: PresentCandidatesDetails,
   ctx: StructuredExchangeUiContext,
 ): Promise<ToolResult> {
-  // Deliberately TUI-only (no sealed-editor or broker rung): candidate continuations
-  // stay custom-UI-first, matching the retired request_response stance — headless
-  // answering rides session.submitExchangeResponse until the A39-L discovery seam lands.
-  if (!ctx.hasUI || typeof ctx.ui?.custom !== 'function' || !params.options) {
+  if (!ctx.hasUI || typeof ctx.ui?.custom !== 'function' || !hasOptions(params)) {
     return continuationTerminal(
       params,
       present,
@@ -553,8 +542,9 @@ async function collectContinuingCandidateChoice(
       'ask continuation choice requires interactive UI',
     );
   }
+  const custom = ctx.ui.custom;
   const picked = await withWorkingIndicatorHidden(ctx, () =>
-    ctx.ui!.custom!<{ readonly id: string } | undefined>((_tui, theme, _keybindings, done) =>
+    custom<{ readonly id: string } | undefined>((_tui, theme, _keybindings, done) =>
       createExchangeDecisionPickerComponent({
         prompt: 'Choose one',
         body: params.body,
@@ -588,8 +578,6 @@ async function collectContinuingReview(
   present: PresentDigestDetails | PresentReviewSetDetails,
   ctx: StructuredExchangeUiContext,
 ): Promise<ToolResult> {
-  // Deliberately TUI-only, like candidate continuations above: review collection keeps
-  // the custom-UI-first stance; headless reviews ride session.submitExchangeResponse.
   if (!ctx.hasUI || typeof ctx.ui?.custom !== 'function') {
     return continuationTerminal(
       params,
@@ -598,9 +586,10 @@ async function collectContinuingReview(
       'ask continuation review requires interactive UI',
     );
   }
+  const custom = ctx.ui.custom;
   for (;;) {
     const selected = await withWorkingIndicatorHidden(ctx, () =>
-      ctx.ui!.custom!<{ readonly id: ReviewDecision } | undefined>((_tui, theme, _keybindings, done) =>
+      custom<{ readonly id: ReviewDecision } | undefined>((_tui, theme, _keybindings, done) =>
         createExchangeDecisionPickerComponent({
           prompt: 'Review',
           body: params.body,
@@ -619,7 +608,7 @@ async function collectContinuingReview(
       present,
       exchangeId: params.exchangeId,
       review: selected.id,
-      comment: collected.comment,
+      comment: collected.value.comment,
     });
     return { content: [{ type: 'text', text: formatRequestReview(details) }], details };
   }
@@ -629,20 +618,21 @@ async function collectContinuationReviewComment(
   params: ContinuationCollectParams,
   review: ReviewDecision,
   ctx: StructuredExchangeUiContext,
-): Promise<OptionalCommentResult | { readonly status: 'unavailable'; readonly message: string }> {
-  let comment: string | undefined;
+): Promise<StepResult<{ readonly comment?: string }>> {
   if (structuredExchangeResponseRequiresComment({ reviewDecision: review })) {
-    const required = await collectRequiredInput(ctx, params.commentPrompt ?? 'Required change request');
-    if (isBack(required)) return required;
-    if (required.status === 'unavailable')
-      return { status: 'unavailable', message: 'ask review comment unavailable' };
-    comment = required.value;
-  } else if (typeof ctx.ui?.input === 'function') {
-    const optional = await collectOptionalComment(ctx, 'Optional comment');
-    if (isBack(optional)) return optional;
-    comment = optional.comment;
+    return collectCommentStep({
+      requirement: 'required',
+      prompt: params.commentPrompt ?? 'Required change request',
+      ctx,
+      unavailableMessage: 'ask review comment unavailable',
+    });
   }
-  return { status: 'answered', ...(comment ? { comment } : {}) };
+  return collectCommentStep({
+    requirement: 'optional',
+    prompt: 'Optional comment',
+    ctx,
+    unavailableMessage: 'ask review comment unavailable',
+  });
 }
 
 function continuationReviewDetails(input: {
@@ -718,6 +708,17 @@ function standaloneAskParams(params: ParsedAskParams): StandaloneAskParams {
   };
 }
 
+export function collectAskResponse(
+  params: CollectableAskParams,
+  question: AskQuestionEcho,
+  ctx: StructuredExchangeUiContext,
+  answerBroker?: LiveExchangeAwaiter,
+): Promise<ToolResult> {
+  if (!params.options) return collectFreeText(params, question, ctx, answerBroker);
+  if (params.multiple) return collectMultiChoice(params, question, ctx);
+  return collectSingleChoice(params, question, ctx);
+}
+
 export function createAskTool(answerBroker?: LiveExchangeAwaiter) {
   return defineTool({
     name: ASK_TOOL,
@@ -741,9 +742,7 @@ export function createAskTool(answerBroker?: LiveExchangeAwaiter) {
       if (isContinuingAskParams(params)) return collectContinuingAsk(params, uiCtx);
       const standalone = standaloneAskParams(params);
       const question = askQuestionEcho(standalone);
-      if (!standalone.options) return collectFreeText(standalone, question, uiCtx, answerBroker);
-      if (standalone.multiple) return collectMultiChoice(standalone, question, uiCtx);
-      return collectSingleChoice(standalone, question, uiCtx);
+      return collectAskResponse(standalone, question, uiCtx, answerBroker);
     },
 
     renderCall() {

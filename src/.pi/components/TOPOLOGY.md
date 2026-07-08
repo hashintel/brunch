@@ -29,7 +29,7 @@ components/
 ├── brunch-identity.ts
 ├── brunch-version.ts
 ├── cards.ts
-├── choice-row.ts              shared described-option row projection for picker/menu affordances
+├── choice-row.ts              shared described-option row projection and rendered-row accumulator for picker/menu affordances
 ├── chrome-header.ts
 ├── chrome-shortcuts.ts        shared shortcut constants/hint formatting consumed by chrome copy
 │                                and the command registrar that binds those keys

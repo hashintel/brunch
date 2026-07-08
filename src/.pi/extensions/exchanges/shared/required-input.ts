@@ -1,3 +1,4 @@
+import { normalizeOptionalUnknownText } from '../../../../exchanges/text.js';
 import type { StructuredExchangeUiContext } from './ui-context.js';
 
 /**
@@ -26,4 +27,42 @@ export async function collectRequiredInput(
     if (value.trim().length > 0) return { status: 'answered', value: value.trim() };
     attemptPrompt = `${prompt} (required — cannot be empty)`;
   }
+}
+
+export type StepResult<T> =
+  | { readonly status: 'answered'; readonly value: T }
+  | { readonly status: 'back' }
+  | { readonly status: 'unavailable'; readonly message: string };
+
+export function back<T>(): StepResult<T> {
+  return { status: 'back' };
+}
+
+export function unavailable<T>(message: string): StepResult<T> {
+  return { status: 'unavailable', message };
+}
+
+export function isBack<T>(
+  result: StepResult<T>,
+): result is Extract<StepResult<T>, { readonly status: 'back' }> {
+  return result.status === 'back';
+}
+
+export async function collectCommentStep(input: {
+  readonly requirement: 'required' | 'optional';
+  readonly prompt: string;
+  readonly ctx: StructuredExchangeUiContext;
+  readonly unavailableMessage: string;
+}): Promise<StepResult<{ readonly comment?: string }>> {
+  if (input.requirement === 'required') {
+    const required = await collectRequiredInput(input.ctx, input.prompt);
+    if (required.status === 'back') return back();
+    if (required.status === 'unavailable') return unavailable(input.unavailableMessage);
+    return { status: 'answered', value: { comment: required.value } };
+  }
+  if (typeof input.ctx.ui?.input !== 'function') return { status: 'answered', value: {} };
+  const value = await input.ctx.ui.input(input.prompt);
+  if (value === undefined) return back();
+  const comment = normalizeOptionalUnknownText(value);
+  return { status: 'answered', value: comment ? { comment } : {} };
 }

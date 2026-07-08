@@ -14,3 +14,17 @@ export function describedChoiceLines(input: {
   if (!description) return [input.firstLine];
   return [input.firstLine, input.theme.fg('dim', `${' '.repeat(input.continuationIndent)}${description}`)];
 }
+
+export function accumulateChoiceLines<T>(input: {
+  readonly choices: readonly T[];
+  readonly activeIndex: number;
+  readonly renderChoice: (choice: T, index: number) => readonly string[];
+}): { readonly choiceLines: readonly string[]; readonly activeLineIndex: number } {
+  const choiceLines: string[] = [];
+  let activeLineIndex = 0;
+  input.choices.forEach((choice, index) => {
+    if (index === input.activeIndex) activeLineIndex = choiceLines.length;
+    choiceLines.push(...input.renderChoice(choice, index));
+  });
+  return { choiceLines, activeLineIndex };
+}

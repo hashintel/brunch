@@ -24,10 +24,7 @@ rejected at the params boundary.
 
 Free text uses the bordered answer editor, then the sealed editor fallback, then
 the live broker when present. Choice/review continuations use Brunch-owned
-`ctx.ui.custom` pickers. Picker-root dismissal is terminal `cancelled`; nested
-Other/comment input dismissal returns to the picker, with multi-choice checkbox
-state restored. No-UI option asks return `unavailable` until A39-L / headless
-ask discovery lands.
+`ctx.ui.custom` pickers. Picker-root dismissal is terminal `cancelled`; nested Other/comment input steps share one `StepResult`-shaped collector and return to the picker, with multi-choice checkbox state restored. No-UI option asks return `unavailable` until A39-L / headless ask discovery lands.
 
 ## Declared continuations
 

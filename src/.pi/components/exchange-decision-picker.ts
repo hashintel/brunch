@@ -1,6 +1,6 @@
 import { type Component, Key, matchesKey } from '@earendil-works/pi-tui';
 
-import { describedChoiceLines } from './choice-row.js';
+import { accumulateChoiceLines, describedChoiceLines } from './choice-row.js';
 import { renderExchangeMarkdownBodyLines } from './exchange-markdown-body.js';
 import {
   projectRoundedBox,
@@ -95,13 +95,11 @@ export class ExchangeDecisionPickerComponent implements Component {
   invalidate(): void {}
 
   #choiceLines(): { readonly choiceLines: readonly string[]; readonly activeLineIndex: number } {
-    const choiceLines: string[] = [];
-    let activeLineIndex = 0;
-    this.options.choices.forEach((choice, index) => {
-      if (index === this.#activeIndex) activeLineIndex = choiceLines.length;
-      choiceLines.push(...this.#choiceLine(choice, index));
+    return accumulateChoiceLines({
+      choices: this.options.choices,
+      activeIndex: this.#activeIndex,
+      renderChoice: (choice, index) => this.#choiceLine(choice, index),
     });
-    return { choiceLines, activeLineIndex };
   }
 
   #choiceLine(choice: ExchangeDecisionPickerChoice, index: number): readonly string[] {
