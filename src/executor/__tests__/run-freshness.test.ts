@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { LaunchCurrentProjection } from '../launch.js';
 import { planFilePath, planProvenancePath } from '../plan-file.js';
+import { populatedPlanPath, populatedPlanProvenancePath } from '../populate.js';
 import { checkRunFreshness } from '../run-freshness.js';
 import { runMetadataPath } from '../run.js';
 
@@ -113,4 +114,75 @@ describe('checkRunFreshness', () => {
       launch: { status: 'blocked_projection' },
     });
   });
+
+  it('checks populated run-local plan provenance instead of refreshed spec-level provenance', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-freshness-populated-stale-'));
+    await writePlan(cwd);
+    const runPlanPath = populatedPlanPath(cwd, 'run-1');
+    await mkdir(dirname(runPlanPath), { recursive: true });
+    await writeFile(runPlanPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(
+      populatedPlanProvenancePath(cwd, 'run-1'),
+      `${JSON.stringify({
+        schemaVersion: 1,
+        specId: '42',
+        mode: 'greenfield',
+        source: { graphLsn: 10, visibility: 'active' },
+      })}\n`,
+      'utf8',
+    );
+    await writeRunWithMetadata(cwd, {
+      populatedPlanPath: runPlanPath,
+      populatedPlanProvenancePath: populatedPlanProvenancePath(cwd, 'run-1'),
+      status: 'worktree_populated',
+    });
+
+    const result = await checkRunFreshness({ cwd, runId: 'run-1', current });
+
+    expect(result).toMatchObject({
+      status: 'run_plan_stale',
+      planPath: runPlanPath,
+      launch: { status: 'stale_plan', provenance: { source: { graphLsn: 10 } } },
+    });
+  });
+
+  it('reports missing provenance for populated runs without run-local provenance', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-freshness-populated-missing-prov-'));
+    await writePlan(cwd);
+    const runPlanPath = populatedPlanPath(cwd, 'run-1');
+    await mkdir(dirname(runPlanPath), { recursive: true });
+    await writeFile(runPlanPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await writeRunWithMetadata(cwd, {
+      populatedPlanPath: runPlanPath,
+      status: 'worktree_populated',
+    });
+
+    const result = await checkRunFreshness({ cwd, runId: 'run-1', current });
+
+    expect(result).toMatchObject({
+      status: 'run_provenance_missing',
+      planPath: runPlanPath,
+      launch: { status: 'missing_provenance' },
+    });
+  });
 });
+
+async function writeRunWithMetadata(cwd: string, metadata: Record<string, unknown>): Promise<void> {
+  const metadataPath = runMetadataPath(cwd, 'run-1');
+  await mkdir(dirname(metadataPath), { recursive: true });
+  await writeFile(
+    metadataPath,
+    `${JSON.stringify(
+      {
+        runId: 'run-1',
+        specId: '42',
+        planPath: planFilePath(cwd, '42'),
+        status: 'created',
+        ...metadata,
+      },
+      null,
+      2,
+    )}\n`,
+    'utf8',
+  );
+}

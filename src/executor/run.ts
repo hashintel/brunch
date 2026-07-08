@@ -26,6 +26,7 @@ export interface RunMetadata {
     | 'abandoned';
   readonly worktreeDir?: string;
   readonly populatedPlanPath?: string;
+  readonly populatedPlanProvenancePath?: string;
   readonly sourcePolicy?: string;
   readonly sourcePolicyPath?: string;
   readonly sourceCopied?: boolean;
