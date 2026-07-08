@@ -26,8 +26,69 @@ const zAskOptionParam = z
   .strict();
 export type AskOptionParam = z.infer<typeof zAskOptionParam>;
 
-export const zAskParams = z
+const zAskLabels = z
   .object({
+    topLabel: z
+      .string()
+      .trim()
+      .min(1, 'markdown cannot be empty')
+      .describe('Optional rounded-box top border label.')
+      .optional(),
+    bottomLabel: z
+      .string()
+      .trim()
+      .min(1, 'markdown cannot be empty')
+      .describe('Optional rounded-box bottom border label.')
+      .optional(),
+  })
+  .strict();
+
+export const zStandaloneAskParams = zAskLabels
+  .extend({
+    exchangeId: z.string().min(1).describe('Stable id for this one-shot ask result.'),
+    body: z
+      .string()
+      .trim()
+      .min(1, 'markdown cannot be empty')
+      .describe('Markdown question body rendered and persisted with the answer.'),
+    options: z
+      .array(zAskOptionParam)
+      .min(1)
+      .describe('Finite response options. Omit for a free-text answer.')
+      .optional(),
+    multiple: z.boolean().describe('When options are present, allow one-or-more selections.').optional(),
+    allowOther: z.boolean().describe('Whether the user may choose Other for option responses.').optional(),
+    allowNone: z.boolean().describe('Whether the user may choose None for option responses.').optional(),
+    commentPrompt: z
+      .string()
+      .trim()
+      .min(1, 'markdown cannot be empty')
+      .describe('Prompt for an optional or required comment.')
+      .optional(),
+  })
+  .strict();
+export type StandaloneAskParams = z.infer<typeof zStandaloneAskParams>;
+
+export const zContinuingAskParams = z
+  .object({
+    continues: z
+      .string()
+      .min(1)
+      .describe('Exchange id of an offer whose details declare the ask payload to collect.'),
+    preface: z
+      .string()
+      .trim()
+      .min(1, 'markdown cannot be empty')
+      .describe(
+        'Optional model-authored preface for a reference-based continuation; not part of the payload.',
+      )
+      .optional(),
+  })
+  .strict();
+export type ContinuingAskParams = z.infer<typeof zContinuingAskParams>;
+
+export const zAskParams = zAskLabels
+  .extend({
     exchangeId: z
       .string()
       .min(1)
@@ -66,18 +127,6 @@ export const zAskParams = z
       .min(1, 'markdown cannot be empty')
       .describe('Prompt for an optional or required comment.')
       .optional(),
-    topLabel: z
-      .string()
-      .trim()
-      .min(1, 'markdown cannot be empty')
-      .describe('Optional rounded-box top border label.')
-      .optional(),
-    bottomLabel: z
-      .string()
-      .trim()
-      .min(1, 'markdown cannot be empty')
-      .describe('Optional rounded-box bottom border label.')
-      .optional(),
   })
   .strict()
   .superRefine((params, ctx) => {
@@ -111,7 +160,7 @@ export const zAskParams = z
       ctx.addIssue({ code: 'custom', path: ['body'], message: 'standalone ask requires body' });
     }
   });
-export type AskParams = z.infer<typeof zAskParams>;
+export type AskParams = StandaloneAskParams | ContinuingAskParams;
 
 const zPresentedOptionParam = z
   .object({

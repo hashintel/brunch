@@ -1,7 +1,7 @@
 # Structured-exchange answering paths
 
 Sibling to [`STRUCTURED_EXCHANGE_COLLAPSE.md`](./STRUCTURED_EXCHANGE_COLLAPSE.md). That document covers
-the exchange *model* (tool families, schema shapes, the `request_response` collapse). This one covers a
+the exchange *model* (tool families, schema shapes, and the later `ask` cutover). This one covers a
 different question that keeps needing painful re-derivation from `pi-coding-agent` source each time it
 matters: **how does a structured-exchange response actually get submitted, mechanically, across the
 local TUI, Brunch's public RPC, and the live web-driver — and what does that imply for which response
@@ -83,23 +83,23 @@ x> the only way hasUI() is ever false for a real tool call:
 
 ```
 actors:
-  llm:               agent turn
-  request_response:  the Pi tool (src/.pi/extensions/exchanges/request-response.ts)
-  local_tui:         the one real terminal InteractiveMode owns
-  rpc_client:         any JSON-RPC / web caller of Brunch's own public RPC
-  broker:            LiveExchangeBroker (src/session/live-exchange-broker.ts)
+  llm:        agent turn
+  ask:        the Pi tool (src/.pi/extensions/exchanges/ask.ts)
+  local_tui:  the one real terminal InteractiveMode owns
+  rpc_client: any JSON-RPC / web caller of Brunch's own public RPC
+  broker:     LiveExchangeBroker (src/session/live-exchange-broker.ts)
 
-# Path A — ordinary local-TUI answering (the common case; all four response kinds today)
+# Path A — ordinary local-TUI answering (the common case)
 messages:
-  llm               -> request_response: tool call                        #A1
-  request_response  -> local_tui:  ctx.ui.select / .editor / .custom      #A2
-  local_tui         <- request_response: renders in the ONE terminal      #A3
-  local_tui         -> request_response: keystroke -> resolved value      #A4
-  request_response  <- llm:  tool result appended to Pi JSONL             #A5
+  llm        -> ask:       standalone payload or { continues }             #A1
+  ask        -> local_tui: ctx.ui.custom / .editor                          #A2
+  local_tui  <- ask:       renders in the ONE terminal                      #A3
+  local_tui  -> ask:       keystroke -> resolved value                      #A4
+  ask        <- llm:       tool result appended to Pi JSONL                 #A5
 
 # Path B — Brunch's own public RPC surface (session.submitExchangeResponse)
-# Never touches ctx.ui. request_response.execute() is not invoked at all — this is
-# a distinct, Brunch-owned mutation path, not a client relaying into the tool's UI.
+# Never touches ctx.ui. ask.execute() is not invoked at all — this is a distinct,
+# Brunch-owned mutation path, not a client relaying into the tool's UI.
 messages:
   rpc_client -> session.submitExchangeResponse:  { exchangeId, answer }        #B1
   session.submitExchangeResponse -> transcript:  synthesizes toolCall + toolResult
@@ -111,18 +111,17 @@ messages:
 # The tool genuinely executes live, but no InteractiveMode is bound (a headless
 # AgentSession), so ctx.hasUI is false and the collector falls through to the broker.
 messages:
-  llm               -> request_response:  tool call                                  #C1
-  request_response  -> answer-source.ts:  ctx.hasUI? -> false                          #C2
-  answer-source.ts  -> broker.awaiter:    awaitAnswer(exchangeId)                      #C3   [blocks]
-  rpc_client        -> session.answerExchange:  { exchangeId, answer }                 #C4
-  session.answerExchange -> broker.answerer:  submitAnswer(...)                        #C5
-  broker.answerer   ~> broker.awaiter:  resolves the pending promise                   #C6
-  answer-source.ts  <- request_response: tool result appended normally, same shape as A #C7
+  llm               -> ask:             free-text ask call                              #C1
+  ask               -> broker.awaiter:  awaitAnswer(exchangeId)                         #C2   [blocks]
+  rpc_client        -> session.answerExchange:  { exchangeId, answer }                  #C3
+  session.answerExchange -> broker.answerer:  submitAnswer(...)                         #C4
+  broker.answerer   ~> broker.awaiter:  resolves the pending promise                    #C5
+  ask               <- llm:  tool result appended normally, same shape as A              #C6
 
 notes:
-  - #A2/#C2: Path A and Path C are the SAME tool execution reaching the SAME collector code
-    (src/.pi/extensions/exchanges/shared/*-source.ts) — they differ in exactly one runtime fact,
-    whether InteractiveMode is bound, not in the tool or its params.
+  - #A2/#C2: Path A and Path C are the SAME `ask` tool execution reaching the SAME free-text
+    collector — they differ in exactly one runtime fact, whether InteractiveMode is bound, not in
+    the tool or its params.
   - #B2: Path B is architecturally distinct from A and C, not a variant of either — it's a Brunch
     RPC handler directly authoring transcript entries, matching D49-L ("Brunch-owned over public
     RPC... rather than raw Pi RPC") and D38-L ("JSON-over-editor is the Pi-RPC compatibility seam,
@@ -142,10 +141,10 @@ policy: current-state coverage, not a design rule
 
 kind     | local-TUI (A)                                   | RPC direct-submit (B)         | live-driver headless (C)
 ---------|--------------------------------------------------|--------------------------------|---------------------------
-answer   | ctx.ui.custom (ExchangeAnswerEditorComponent), ctx.ui.editor fallback | works (uniform, see notes)    | broker (built, FE-873)
-choice   | ctx.ui.custom (ExchangeDecisionPickerComponent) + ctx.ui.input | works (uniform, see notes) | x> unavailable, no broker
-choices  | ctx.ui.custom (MultiChoicePickerComponent), falls back to ctx.ui.editor JSON envelope | works (uniform, see notes) | x> unavailable — no broker, and the JSON-envelope fallback also needs ctx.ui, absent here too
-review   | ctx.ui.custom (ExchangeDecisionPickerComponent) + ctx.ui.input | works (uniform, see notes) | x> unavailable, no broker
+answer   | ask free-text: ctx.ui.custom (ExchangeAnswerEditorComponent), ctx.ui.editor fallback | works (uniform, see notes)    | broker (built, FE-873)
+choice   | ask single-choice: ctx.ui.custom (ExchangeDecisionPickerComponent) + ctx.ui.input | works (uniform, see notes) | x> unavailable, no broker
+choices  | ask multi-choice: ctx.ui.custom (MultiChoicePickerComponent), falls back to ctx.ui.editor JSON envelope | works (uniform, see notes) | x> unavailable — no broker, and the JSON-envelope fallback also needs ctx.ui, absent here too
+review   | ask continuation review: ctx.ui.custom (ExchangeDecisionPickerComponent) + ctx.ui.input | works (uniform, see notes) | x> unavailable, no broker
 
 notes:
   - Column B is genuinely uniform across all four kinds: `session.submitExchangeResponse`

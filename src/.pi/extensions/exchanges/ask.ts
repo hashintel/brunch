@@ -17,22 +17,24 @@ import {
   structuredExchangeResponseRequiresComment,
   zAskParams,
   type AskContinuationParams,
-  type AskParams,
   type AskQuestionEcho,
+  type ContinuingAskParams,
+  type PresentCandidatesDetails,
   type PresentDetails,
+  type PresentDigestDetails,
+  type PresentReviewSetDetails,
   type RequestDetails,
   type SelectedChoice,
+  type StandaloneAskParams,
 } from '../../../exchanges/schemas/index.js';
+import { normalizeOptionalUnknownText } from '../../../exchanges/text.js';
 import type { LiveExchangeAwaiter } from '../../../session/live-exchange-broker.js';
 import { ExchangeAnswerEditorComponent } from '../../components/exchange-answer-editor.js';
 import { createExchangeDecisionPickerComponent } from '../../components/exchange-decision-picker.js';
 import { createMultiChoicePickerComponent } from '../../components/multi-choice-picker.js';
 import { piSchema } from './pi-schema.js';
-import {
-  normalizeOptionalText,
-  renderEmptyStructuredExchangeCall,
-  renderMarkdownResult,
-} from './shared/markdown.js';
+import { requestChoicesViaEditor } from './shared/choices-editor.js';
+import { renderEmptyStructuredExchangeCall, renderMarkdownResult } from './shared/markdown.js';
 import { collectRequiredInput } from './shared/required-input.js';
 import { withWorkingIndicatorHidden, type StructuredExchangeUiContext } from './shared/ui-context.js';
 
@@ -72,9 +74,8 @@ function terminal(
   return result(details, status === 'cancelled');
 }
 
-type StandaloneAskParams = AskParams & { readonly exchangeId: string; readonly body: string };
-type ContinuationAskParams = AskContinuationParams & { readonly exchangeId: string };
-type CollectableAskParams = StandaloneAskParams | ContinuationAskParams;
+type ContinuationCollectParams = AskContinuationParams & { readonly exchangeId: string };
+type CollectableAskParams = StandaloneAskParams | ContinuationCollectParams;
 
 function choicesFromParams(
   params: CollectableAskParams,
@@ -119,6 +120,10 @@ async function collectFreeText(
     );
     if (customResult?.status === 'answered') answer = customResult.answer;
     else if (customResult?.status === 'cancelled') return terminal(params, question, 'cancelled');
+    else if (typeof ctx.ui?.editor === 'function') {
+      answer = await withWorkingIndicatorHidden(ctx, () => ctx.ui!.editor!(params.body));
+      if (answer === undefined) return terminal(params, question, 'cancelled');
+    }
   } else if (ctx.hasUI && typeof ctx.ui?.editor === 'function') {
     answer = await withWorkingIndicatorHidden(ctx, () => ctx.ui!.editor!(params.body));
     if (answer === undefined) return terminal(params, question, 'cancelled');
@@ -175,7 +180,7 @@ async function collectSingleChoice(
     if (required.status !== 'answered') return terminal(params, question, required.status);
     comment = required.value;
   } else if (typeof ctx.ui.input === 'function') {
-    comment = normalizeOptionalText(await ctx.ui.input(params.commentPrompt ?? 'Optional comment'));
+    comment = normalizeOptionalUnknownText(await ctx.ui.input(params.commentPrompt ?? 'Optional comment'));
   }
 
   return result(
@@ -195,7 +200,10 @@ async function collectMultiChoice(
   question: AskQuestionEcho,
   ctx: StructuredExchangeUiContext,
 ): Promise<ToolResult> {
-  if (!ctx.hasUI || typeof ctx.ui?.custom !== 'function' || !params.options) {
+  if (!params.options) return terminal(params, question, 'unavailable', 'ask choices require options');
+  if (!ctx.hasUI) return terminal(params, question, 'unavailable', 'ask choices requires interactive UI');
+  if (typeof ctx.ui?.custom !== 'function') {
+    if (typeof ctx.ui?.editor === 'function') return collectMultiChoiceViaEditor(params, question, ctx);
     return terminal(params, question, 'unavailable', 'ask choices requires interactive UI');
   }
   const custom = ctx.ui.custom;
@@ -237,7 +245,7 @@ async function collectMultiChoice(
     if (required.status !== 'answered') return terminal(params, question, required.status);
     comment = required.value;
   } else if (typeof ctx.ui.input === 'function') {
-    comment = normalizeOptionalText(await ctx.ui.input(params.commentPrompt ?? 'Optional comment'));
+    comment = normalizeOptionalUnknownText(await ctx.ui.input(params.commentPrompt ?? 'Optional comment'));
   }
 
   return result(
@@ -252,8 +260,46 @@ async function collectMultiChoice(
   );
 }
 
+async function collectMultiChoiceViaEditor(
+  params: CollectableAskParams,
+  question: AskQuestionEcho,
+  ctx: StructuredExchangeUiContext,
+): Promise<ToolResult> {
+  const editorResult = await requestChoicesViaEditor(
+    {
+      exchangeId: params.exchangeId,
+      prompt: params.body,
+      choices: params.options!.map((option) => ({ id: option.id, label: option.label })),
+      options: params.options!.map((option) => ({
+        id: option.id,
+        content: option.label,
+        ...(option.description ? { rationale: option.description } : {}),
+      })),
+      ...(params.allowOther !== undefined ? { allowOther: params.allowOther } : {}),
+      ...(params.allowNone !== undefined ? { allowNone: params.allowNone } : {}),
+      ...(params.commentPrompt !== undefined ? { commentPrompt: params.commentPrompt } : {}),
+    },
+    (prefill) => ctx.ui!.editor!(prefill),
+  );
+  const details = editorResult.details;
+  if ('answered' in details) {
+    return result(
+      projectAsk({
+        exchangeId: params.exchangeId,
+        question,
+        status: 'answered',
+        choices: details.answered.choices,
+        options: params.options!,
+        ...(details.answered.comment ? { comment: details.answered.comment } : {}),
+      }),
+    );
+  }
+  if ('cancelled' in details) return terminal(params, question, 'cancelled', details.cancelled.message);
+  return terminal(params, question, 'unavailable', details.unavailable.message);
+}
+
 function continuationTerminal(
-  params: { readonly exchangeId: string; readonly body: string },
+  params: ContinuationCollectParams,
   present: PresentDetails,
   status: 'cancelled' | 'unavailable',
   message?: string,
@@ -288,8 +334,37 @@ function continuationTerminal(
   return terminal(params, question, status, message);
 }
 
+type DeclaredContinuationPresent =
+  | (PresentCandidatesDetails & {
+      readonly continuation: NonNullable<PresentCandidatesDetails['continuation']>;
+    })
+  | (PresentDigestDetails & { readonly continuation: NonNullable<PresentDigestDetails['continuation']> })
+  | (PresentReviewSetDetails & {
+      readonly continuation: NonNullable<PresentReviewSetDetails['continuation']>;
+    });
+
+function hasDeclaredContinuation(present: PresentDetails): present is DeclaredContinuationPresent {
+  return 'continuation' in present && present.continuation !== undefined;
+}
+
+function isDeclaredCandidatePresent(
+  present: DeclaredContinuationPresent,
+): present is PresentCandidatesDetails & {
+  readonly continuation: NonNullable<PresentCandidatesDetails['continuation']>;
+} {
+  return present.tool_meta.curr === 'present_candidates';
+}
+
+function isDeclaredReviewPresent(present: DeclaredContinuationPresent): present is
+  | (PresentDigestDetails & { readonly continuation: NonNullable<PresentDigestDetails['continuation']> })
+  | (PresentReviewSetDetails & {
+      readonly continuation: NonNullable<PresentReviewSetDetails['continuation']>;
+    }) {
+  return present.tool_meta.curr === 'present_digest' || present.tool_meta.curr === 'present_review_set';
+}
+
 async function collectContinuingAsk(
-  params: AskParams & { readonly continues: string },
+  params: ContinuingAskParams,
   ctx: StructuredExchangeUiContext,
 ): Promise<ToolResult> {
   const branch = ctx.sessionManager?.getBranch();
@@ -317,53 +392,26 @@ async function collectContinuingAsk(
     );
   }
   const present = pending.details;
-  const declaredContinuation = 'continuation' in present ? present.continuation : undefined;
-  const declared = {
-    exchangeId: params.continues,
-    ...(declaredContinuation?.params ?? fallbackContinuationParams(present)),
-  };
-  if (present.tool_meta.curr === 'present_candidates') {
-    return collectContinuingCandidateChoice(
-      declared,
-      present as Extract<PresentDetails, { readonly candidates: unknown }>,
-      ctx,
+  if (!hasDeclaredContinuation(present)) {
+    return result(
+      projectAsk({
+        exchangeId: params.continues,
+        question: { body: params.preface ?? 'Continue structured exchange' },
+        status: 'unavailable',
+        message: `Structured exchange ${params.continues} does not declare an ask continuation`,
+      }),
     );
   }
-  if (present.tool_meta.curr === 'present_digest' || present.tool_meta.curr === 'present_review_set') {
-    return collectContinuingReview(
-      declared,
-      present as Extract<PresentDetails, { readonly review_set: unknown } | { readonly digest: unknown }>,
-      ctx,
-    );
-  }
-  return continuationTerminal(declared, present, 'unavailable', 'Unsupported ask continuation');
-}
-
-function fallbackContinuationParams(present: PresentDetails): AskContinuationParams {
-  if ('candidates' in present) {
-    return {
-      body: [present.display.heading, present.display.body]
-        .filter((part): part is string => part !== undefined && part.length > 0)
-        .join('\n\n'),
-      options: present.candidates.map((candidate) => ({
-        id: candidate.id,
-        label: candidate.title,
-        description: candidate.user_rubric.recommendation ?? candidate.user_rubric.core_bet,
-      })),
-    };
-  }
-  return {
-    body: [present.display.heading, present.display.body]
-      .filter((part): part is string => part !== undefined && part.length > 0)
-      .join('\n\n'),
-    options: REVIEW_CHOICES.map((choice) => ({ ...choice })),
-    commentPrompt: 'Required change request',
-  };
+  const declared = { exchangeId: params.continues, ...present.continuation.params };
+  if (isDeclaredCandidatePresent(present)) return collectContinuingCandidateChoice(declared, present, ctx);
+  if (isDeclaredReviewPresent(present)) return collectContinuingReview(declared, present, ctx);
+  const _exhaustive: never = present;
+  return _exhaustive;
 }
 
 async function collectContinuingCandidateChoice(
-  params: ContinuationAskParams,
-  present: Extract<PresentDetails, { readonly candidates: unknown }>,
+  params: ContinuationCollectParams,
+  present: PresentCandidatesDetails,
   ctx: StructuredExchangeUiContext,
 ): Promise<ToolResult> {
   if (!ctx.hasUI || typeof ctx.ui?.custom !== 'function' || !params.options) {
@@ -405,8 +453,8 @@ async function collectContinuingCandidateChoice(
 }
 
 async function collectContinuingReview(
-  params: ContinuationAskParams,
-  present: Extract<PresentDetails, { readonly review_set: unknown } | { readonly digest: unknown }>,
+  params: ContinuationCollectParams,
+  present: PresentDigestDetails | PresentReviewSetDetails,
   ctx: StructuredExchangeUiContext,
 ): Promise<ToolResult> {
   if (!ctx.hasUI || typeof ctx.ui?.custom !== 'function') {
@@ -422,7 +470,7 @@ async function collectContinuingReview(
       createExchangeDecisionPickerComponent({
         prompt: 'Review',
         body: params.body,
-        choices: REVIEW_CHOICES,
+        choices: params.options,
         theme,
         onDone: (value) => done(value as { readonly id: ReviewDecision } | undefined),
       }),
@@ -436,14 +484,14 @@ async function collectContinuingReview(
     if (required.status !== 'answered') return continuationTerminal(params, present, required.status);
     comment = required.value;
   } else if (typeof ctx.ui.input === 'function') {
-    comment = normalizeOptionalText(await ctx.ui.input('Optional comment'));
+    comment = normalizeOptionalUnknownText(await ctx.ui.input('Optional comment'));
   }
   const details = continuationReviewDetails({ present, exchangeId: params.exchangeId, review, comment });
   return { content: [{ type: 'text', text: formatRequestReview(details) }], details };
 }
 
 function continuationReviewDetails(input: {
-  readonly present: Extract<PresentDetails, { readonly review_set: unknown } | { readonly digest: unknown }>;
+  readonly present: PresentDigestDetails | PresentReviewSetDetails;
   readonly exchangeId: string;
   readonly review: ReviewDecision;
   readonly comment: string | undefined;
@@ -494,11 +542,26 @@ function continuationReviewDetails(input: {
   });
 }
 
-const REVIEW_CHOICES: readonly { readonly id: ReviewDecision; readonly label: string }[] = [
-  { id: 'approve', label: 'Approve' },
-  { id: 'request_changes', label: 'Request changes' },
-  { id: 'reject', label: 'Reject' },
-];
+type ParsedAskParams = ReturnType<typeof zAskParams.parse>;
+
+function isContinuingAskParams(params: ParsedAskParams): params is ContinuingAskParams {
+  return typeof params.continues === 'string';
+}
+
+function standaloneAskParams(params: ParsedAskParams): StandaloneAskParams {
+  if (!params.exchangeId || !params.body) throw new Error('validated standalone ask is missing payload');
+  return {
+    exchangeId: params.exchangeId,
+    body: params.body,
+    ...(params.options !== undefined ? { options: params.options } : {}),
+    ...(params.multiple !== undefined ? { multiple: params.multiple } : {}),
+    ...(params.allowOther !== undefined ? { allowOther: params.allowOther } : {}),
+    ...(params.allowNone !== undefined ? { allowNone: params.allowNone } : {}),
+    ...(params.commentPrompt !== undefined ? { commentPrompt: params.commentPrompt } : {}),
+    ...(params.topLabel !== undefined ? { topLabel: params.topLabel } : {}),
+    ...(params.bottomLabel !== undefined ? { bottomLabel: params.bottomLabel } : {}),
+  };
+}
 
 export function createAskTool(answerBroker?: LiveExchangeAwaiter) {
   return defineTool({
@@ -517,11 +580,10 @@ export function createAskTool(answerBroker?: LiveExchangeAwaiter) {
     executionMode: 'sequential',
 
     async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
-      const params = zAskParams.parse(rawParams) satisfies AskParams;
+      const params = zAskParams.parse(rawParams);
       const uiCtx = ctx as unknown as StructuredExchangeUiContext;
-      if (params.continues)
-        return collectContinuingAsk(params as AskParams & { readonly continues: string }, uiCtx);
-      const standalone = params as StandaloneAskParams;
+      if (isContinuingAskParams(params)) return collectContinuingAsk(params, uiCtx);
+      const standalone = standaloneAskParams(params);
       const question = askQuestionEcho(standalone);
       if (!standalone.options) return collectFreeText(standalone, question, uiCtx, answerBroker);
       if (standalone.multiple) return collectMultiChoice(standalone, question, uiCtx);

@@ -2,7 +2,6 @@ import {
   STRUCTURED_EXCHANGE_DETAILS_VERSION,
   STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA,
   type AskDetails,
-  type AskParams,
   type AskQuestionEcho,
   type SelectedChoice,
 } from '../schemas/index.js';
@@ -29,9 +28,11 @@ type AskProjectionInput =
   | (BaseAskProjectionInput & { readonly status: 'cancelled'; readonly message?: string })
   | (BaseAskProjectionInput & { readonly status: 'unavailable'; readonly message: string });
 
-export function askQuestionEcho(
-  params: Pick<AskParams, 'body' | 'options' | 'multiple'> & { body: string },
-): AskQuestionEcho {
+export function askQuestionEcho(params: {
+  readonly body: string;
+  readonly options?: AskQuestionEcho['options'] | undefined;
+  readonly multiple?: boolean | undefined;
+}): AskQuestionEcho {
   return {
     body: params.body,
     ...(params.options ? { options: params.options } : {}),

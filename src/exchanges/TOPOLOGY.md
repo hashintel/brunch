@@ -14,6 +14,7 @@ exchanges/
   schemas/                Zod-authored params, details, capture, and editor envelopes
   recovery.ts             transcript detail recognizers and pending-present scan
   editor-envelope.ts      request_choices editor wire-envelope prefill/parse helpers
+  text.ts                 shared text normalization for projections and editor relays
   projections/
     ask.ts                canonical standalone ask details construction
     present-candidates.ts canonical present_candidates details + ask continuation construction
@@ -23,7 +24,7 @@ exchanges/
     request-response.ts   canonical preserved request-detail construction
 ```
 
-`ask.ts` is the standalone question terminal projection: one request-schema toolResult carries the question echo and answer together. Offer presents now declare their `ask` continuation in details, and the registered `ask` tool emits preserved request-detail discriminants (`request_choice` / `request_review`) when called by reference. `request-response.ts` remains as the canonical constructor home for those preserved transcript details and legacy reads; `request_response` is no longer the registered collection tool. `request_review` projection callers must pass the present-tool discriminator (`present_review_set` or `present_digest`) because both presents close through the same terminal detail kind while capture reads them differently; digest approval also requires the accepted abstract echo.
+`ask.ts` is the standalone question terminal projection: one request-schema toolResult carries the question echo and answer together. Offer presents declare their `ask` continuation in details, and the registered `ask` tool fails loudly when a referenced offer lacks that declaration. By-reference ask continuations emit preserved request-detail discriminants (`request_choice` / `request_review`) so capture/sweep readers keep their wire vocabulary. `request-response.ts` remains as the canonical constructor home for those preserved transcript details and legacy reads; `request_response` is no longer the registered collection tool. `request_review` projection callers must pass the present-tool discriminator (`present_review_set` or `present_digest`) because both presents close through the same terminal detail kind while capture reads them differently; digest approval also requires the accepted abstract echo.
 
 ## Dependency direction
 

@@ -4,6 +4,7 @@ import type {
   PresentDigestParams,
 } from '../schemas/index.js';
 import { STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA } from '../schemas/index.js';
+import { normalizeOptionalText } from '../text.js';
 
 export interface PresentDigestProjection {
   readonly heading: string;
@@ -70,8 +71,3 @@ const REVIEW_OPTIONS = [
   { id: 'request_changes', label: 'Request changes' },
   { id: 'reject', label: 'Reject' },
 ];
-
-function normalizeOptionalText(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
-}

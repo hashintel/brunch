@@ -4,6 +4,7 @@ import type {
   PresentCandidatesParams,
 } from '../schemas/index.js';
 import { STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA } from '../schemas/index.js';
+import { normalizeOptionalText } from '../text.js';
 
 export interface PresentCandidatesProjection {
   readonly heading: string;
@@ -51,9 +52,4 @@ function candidatesContinuation(input: {
       })),
     },
   };
-}
-
-function normalizeOptionalText(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
 }

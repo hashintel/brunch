@@ -1,5 +1,6 @@
 import type { AnsweredOptionEcho, RequestChoiceDetails, SelectedChoice } from '../../schemas/index.js';
 import { STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA } from '../../schemas/index.js';
+import { normalizeOptionalText } from '../../text.js';
 
 export type { AnsweredOptionEcho, RequestChoiceDetails, SelectedChoice };
 export type RequestChoicePresentTool = 'present_question' | 'present_candidates';
@@ -61,9 +62,4 @@ export function projectRequestChoice(input: RequestChoiceProjectionInput): Reque
     ...base,
     unavailable: { message: input.message ?? 'request_choice unavailable' },
   };
-}
-
-function normalizeOptionalText(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
 }

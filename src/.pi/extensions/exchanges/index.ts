@@ -4,13 +4,14 @@ import type { LiveExchangeAwaiter } from '../../../session/live-exchange-broker.
 import { ASK_TOOL, askTool, createAskTool } from './ask.js';
 import { PRESENT_CANDIDATES_TOOL, presentCandidatesTool } from './present-candidates.js';
 import { PRESENT_DIGEST_TOOL, presentDigestTool } from './present-digest.js';
-import { PRESENT_QUESTION_TOOL } from './present-question.js';
 import {
   PRESENT_REVIEW_SET_TOOL,
   createPresentReviewSetTool,
   type ReviewSetStructuredExchangeDeps,
 } from './present-review-set.js';
-import { REQUEST_RESPONSE_TOOL } from './request-response.js';
+
+export const PRESENT_QUESTION_TOOL = 'present_question' as const;
+export const REQUEST_RESPONSE_TOOL = 'request_response' as const;
 
 export { requestChoicesViaEditor, type RequestChoicesEditorFlowParams } from './shared/choices-editor.js';
 export {
@@ -25,14 +26,7 @@ export {
   type RequestDetails as StructuredExchangeRequestDetails,
   type RequestDetails as StructuredExchangeToolResultDetails,
 } from '../../../exchanges/schemas/index.js';
-export {
-  ASK_TOOL,
-  PRESENT_CANDIDATES_TOOL,
-  PRESENT_DIGEST_TOOL,
-  PRESENT_QUESTION_TOOL,
-  PRESENT_REVIEW_SET_TOOL,
-  REQUEST_RESPONSE_TOOL,
-};
+export { ASK_TOOL, PRESENT_CANDIDATES_TOOL, PRESENT_DIGEST_TOOL, PRESENT_REVIEW_SET_TOOL };
 
 export const STRUCTURED_EXCHANGE_IMPLEMENTED_TOOLS = [
   askTool,

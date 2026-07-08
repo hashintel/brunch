@@ -43,9 +43,10 @@ vocabulary on the wire: `request_choice` for candidates and `request_review` for
 review-set/digest. Digest approval still echoes `answered.accepted_abstract`.
 Those discriminants are capture/sweep semantics, not registration topology.
 
-`request_response` is no longer registered. Its legacy module/export remains as
-a diagnostic/backward-read surface while old persisted tests and details are
-retired; active collection routes through `ask`.
+`present_question` and `request_response` are no longer registered and their Pi
+adapter modules are deleted. Legacy transcript discriminants remain only in
+`src/exchanges/` schemas/projections so old persisted details can still be read
+and capture-facing offer answers keep their historical wire vocabulary.
 
 ## Dependency rules
 
