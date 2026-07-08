@@ -130,7 +130,16 @@ describe('Brunch prompt-pack topology', () => {
           events[event] = handler;
         },
         getAllTools: () =>
-          ['read', 'grep', 'bash', 'write', 'ask', 'ask'].map((name) => ({
+          [
+            'read',
+            'grep',
+            'bash',
+            'write',
+            'ask',
+            'present_candidates',
+            'present_digest',
+            'present_review_set',
+          ].map((name) => ({
             name,
           })),
       } as never,

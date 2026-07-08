@@ -43,10 +43,14 @@ Registered when graph deps are available:
 ### Structured exchange tools
 From `src/.pi/extensions/exchanges/`:
 
-- `present_question`
+- `ask`
 - `present_candidates`
 - `present_digest`
 - `present_review_set`
+
+Legacy persisted transcript vocabulary (read support only, not active registration):
+
+- `present_question`
 - `request_response`
 
 ### Alternatives card tool
@@ -119,11 +123,10 @@ Only registered when dev introspection query tools are enabled:
 - `update_elicitation_scratchpad`
 - `read_reconciliation_needs`
 - `update_reconciliation_needs`
-- `present_question`
+- `ask`
 - `present_candidates`
 - `present_digest`
 - `present_review_set`
-- `request_response`
 - `subagent`
 
 ### Execute mode allows

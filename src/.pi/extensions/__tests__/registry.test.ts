@@ -35,7 +35,6 @@ import {
   ASK_TOOL,
   PRESENT_CANDIDATES_TOOL,
   PRESENT_REVIEW_SET_TOOL,
-  REQUEST_RESPONSE_TOOL,
   registerStructuredExchange as structuredExchange,
 } from '../exchanges/index.js';
 import { BRUNCH_EXECUTE_AGENT_RESULT_TOOL } from '../executor/execute-agent-result/index.js';
@@ -2232,7 +2231,8 @@ function recordingApiWithEvents(events: Map<string, Array<(event: any, ctx: any)
         'ls',
         'present_alternatives',
         ASK_TOOL,
-        REQUEST_RESPONSE_TOOL,
+        PRESENT_CANDIDATES_TOOL,
+        PRESENT_REVIEW_SET_TOOL,
         'bash',
         'edit',
         'write',
@@ -2273,7 +2273,8 @@ function createRecordingExtensionApi() {
         'ls',
         'present_alternatives',
         ASK_TOOL,
-        REQUEST_RESPONSE_TOOL,
+        PRESENT_CANDIDATES_TOOL,
+        PRESENT_REVIEW_SET_TOOL,
         'bash',
         'edit',
         'write',
