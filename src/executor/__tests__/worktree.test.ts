@@ -207,6 +207,60 @@ describe('createWorktree', () => {
     expect(await pathExists(join(worktreeDir, '.git'))).toBe(true);
   });
 
+  it('repairs empty directory substrate metadata when the isolated repo already exists', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-empty-substrate-recover-metadata-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await createRun({ cwd, specId: '42', runId: 'run-1', substrate: 'empty_dir' });
+    const worktreeDir = worktreeDirPath(cwd, 'run-1');
+
+    const first = await createWorktree({
+      cwd,
+      runId: 'run-1',
+      gitWorktree: createFakeGitWorktreePort(async () => {
+        throw new Error('git worktree port should not run for empty_dir');
+      }),
+    });
+    expect(first.status).toBe('worktree_created');
+    await writeFile(join(worktreeDir, 'preserve.txt'), 'keep existing workspace', 'utf8');
+    await writeFile(
+      runMetadataPath(cwd, 'run-1'),
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath,
+        status: 'created',
+        substrate: 'empty_dir',
+      }),
+      'utf8',
+    );
+
+    const result = await createWorktree({
+      cwd,
+      runId: 'run-1',
+      gitWorktree: createFakeGitWorktreePort(async () => {
+        throw new Error('git worktree port should not run for empty_dir repair');
+      }),
+    });
+
+    expect(result).toEqual({
+      status: 'worktree_created',
+      runStatus: 'worktree_created',
+      runId: 'run-1',
+      runDir: runDirPath(cwd, 'run-1'),
+      worktreeDir,
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      sideEffects: [{ kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' }],
+    });
+    expect(await readFile(join(worktreeDir, 'preserve.txt'), 'utf8')).toBe('keep existing workspace');
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'worktree_created',
+      substrate: 'empty_dir',
+      worktreeDir,
+    });
+  });
+
   it('reinitializes a repairable empty directory substrate whose git marker points outside the worktree', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-empty-substrate-host-marker-'));
     const planPath = planFilePath(cwd, '42');

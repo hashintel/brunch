@@ -133,6 +133,25 @@ export async function createWorktree(args: {
     };
   }
 
+  if (
+    metadata.substrate === 'empty_dir' &&
+    !metadata.worktreeDir &&
+    canRepairWorktreeMetadata(metadata.status) &&
+    (await isExactGitRoot(worktreeDir))
+  ) {
+    const updated: RunMetadata = { ...metadata, status: 'worktree_created', worktreeDir };
+    const metadataEffect = await persistRunMetadata(metadataPath, updated);
+    return {
+      status: 'worktree_created',
+      runStatus: 'worktree_created',
+      runId: args.runId,
+      runDir,
+      worktreeDir,
+      metadataPath,
+      sideEffects: [metadataEffect],
+    };
+  }
+
   const targetWorktreeDir = metadata.worktreeDir ?? worktreeDir;
 
   if (!canRepairWorktreeMetadata(metadata.status)) {
