@@ -82,7 +82,7 @@ export async function createWorktree(args: {
   if (
     metadata.substrate === 'empty_dir' &&
     metadata.worktreeDir &&
-    (await pathExists(metadata.worktreeDir))
+    (await hasGitWorktreeMarker(metadata.worktreeDir))
   ) {
     return {
       status: 'already_created',
@@ -144,7 +144,7 @@ export async function createWorktree(args: {
   }
 
   if (metadata.substrate === 'empty_dir') {
-    if (!metadata.worktreeDir && (await pathExists(targetWorktreeDir))) {
+    if (await pathExists(targetWorktreeDir)) {
       await rm(targetWorktreeDir, { recursive: true, force: true });
     }
     await mkdir(targetWorktreeDir, { recursive: true });

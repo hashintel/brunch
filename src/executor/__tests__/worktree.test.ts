@@ -172,7 +172,42 @@ describe('createWorktree', () => {
     });
   });
 
-  it('does not downgrade an advanced empty directory substrate run on retry', async () => {
+  it('reinitializes a repairable empty directory substrate whose recorded worktree lost its git repo', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-empty-substrate-missing-git-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await createRun({ cwd, specId: '42', runId: 'run-1', substrate: 'empty_dir' });
+    const worktreeDir = worktreeDirPath(cwd, 'run-1');
+    await mkdir(worktreeDir, { recursive: true });
+    await writeFile(join(worktreeDir, 'not-a-repo.txt'), 'corrupt empty-dir retry', 'utf8');
+    await writeFile(
+      runMetadataPath(cwd, 'run-1'),
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath,
+        status: 'worktree_created',
+        substrate: 'empty_dir',
+        worktreeDir,
+      }),
+      'utf8',
+    );
+
+    const result = await createWorktree({
+      cwd,
+      runId: 'run-1',
+      gitWorktree: createFakeGitWorktreePort(async () => {
+        throw new Error('git should not run for empty_dir');
+      }),
+    });
+
+    expect(result.status).toBe('worktree_created');
+    expect(await pathExists(join(worktreeDir, 'not-a-repo.txt'))).toBe(false);
+    expect(await pathExists(join(worktreeDir, '.git'))).toBe(true);
+  });
+
+  it('fails closed for an advanced empty directory substrate whose recorded worktree lost its git repo', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-empty-substrate-advanced-'));
     const planPath = planFilePath(cwd, '42');
     await mkdir(dirname(planPath), { recursive: true });
@@ -202,12 +237,12 @@ describe('createWorktree', () => {
     });
 
     expect(result).toEqual({
-      status: 'already_created',
+      status: 'worktree_create_failed',
       runStatus: 'source_copied',
       runId: 'run-1',
-      runDir: runDirPath(cwd, 'run-1'),
       worktreeDir,
       metadataPath: runMetadataPath(cwd, 'run-1'),
+      message: 'run already advanced to source_copied; refusing to recreate missing or invalid worktree',
       sideEffects: [],
     });
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
