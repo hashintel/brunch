@@ -27,7 +27,10 @@ import { registerBrunchContext as context } from '../brunch-data/context/index.j
 import chrome from '../chrome/index.js';
 import {
   BRUNCH_MENU_COMMAND,
+  BRUNCH_MENU_SHORTCUT,
   BRUNCH_MODE_COMMAND,
+  BRUNCH_MODE_PICKER_SHORTCUT,
+  BRUNCH_MODE_SHORTCUT,
   registerBrunchCommands as commands,
 } from '../commands/index.js';
 import { registerBrunchBranchPolicyHandlers as commandPolicy } from '../commands/policy.js';
@@ -201,8 +204,13 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(recording.commandNames).toEqual([BRUNCH_MENU_COMMAND, BRUNCH_MODE_COMMAND]);
     expect(recording.commandNames).not.toContain(['brunch', 'switch'].join(':'));
     expect(recording.messageRenderers).toEqual(['alternatives-card-set']);
-    expect(recording.shortcuts).toEqual(['shift+tab', 'ctrl+shift+b']);
+    expect(recording.shortcuts).toEqual([
+      BRUNCH_MODE_PICKER_SHORTCUT,
+      BRUNCH_MODE_SHORTCUT,
+      BRUNCH_MENU_SHORTCUT,
+    ]);
     expect(recording.eventNames).toEqual([
+      'session_start',
       'session_start',
       'before_agent_start',
       'message_start',

@@ -13,6 +13,7 @@ import {
   BRUNCH_MENU_COMMAND,
   BRUNCH_MENU_SHORTCUT,
   BRUNCH_MODE_COMMAND,
+  BRUNCH_MODE_PICKER_SHORTCUT,
   BRUNCH_MODE_SHORTCUT,
   registerBrunchCommands,
 } from '../commands/index.js';
@@ -277,6 +278,19 @@ describe('Brunch runtime switch commands', () => {
     });
     expect(harness.activeToolNames).toHaveLength(1);
     expect(harness.activeToolNames.at(-1)).toEqual(expect.arrayContaining(['execute_status']));
+  });
+
+  it('opens the mode picker from alt+m while shift+tab keeps cycling', async () => {
+    const harness = commandHarness({ customResult: 'execute' });
+
+    await harness.shortcuts.get(BRUNCH_MODE_PICKER_SHORTCUT)?.handler(harness.ctx);
+    await harness.shortcuts.get(BRUNCH_MODE_SHORTCUT)?.handler(harness.ctx);
+
+    expect(harness.customCalls).toHaveLength(1);
+    expect(harness.entries.map((entry) => (entry.data as BrunchAgentStateEntryData).state)).toEqual([
+      { ...DEFAULT_BRUNCH_AGENT_STATE, operationalMode: 'execute' },
+      { ...DEFAULT_BRUNCH_AGENT_STATE, operationalMode: 'specify' },
+    ]);
   });
 
   it('reports a no-op when the picker selects the current mode', async () => {

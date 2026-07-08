@@ -18,6 +18,7 @@
  *  - `ctrl+shift+b` — spec/session picker (borrows a command-capable context
  *                     from the composition root for the actual session switch;
  *                     alt+b is reserved by Pi's editor for cursorWordLeft)
+ *  - `alt+m` — mode picker
  *  - `shift+tab` — mode cycle
  *
  * Disabled until operational (constant kept so tests can assert absence):
@@ -36,6 +37,11 @@ import {
   operationalModeLabel,
   type OperationalModeId,
 } from '../../../session/schema/kinds.js';
+import {
+  BRUNCH_MENU_SHORTCUT,
+  BRUNCH_MODE_PICKER_SHORTCUT,
+  BRUNCH_MODE_SHORTCUT,
+} from '../../components/chrome-shortcuts.js';
 import { createRuntimeModePickerComponent } from '../../components/runtime-posture/axis-picker.js';
 import {
   activeToolNamesForBrunchAgentState,
@@ -64,9 +70,11 @@ export const BRUNCH_MENU_COMMAND = 'brunch:menu';
 export const BRUNCH_CONTINUE_COMMAND = 'brunch:continue';
 export const BRUNCH_MODE_COMMAND = 'brunch:mode';
 
-/** alt+b is unavailable: Pi reserves it as a built-in editor binding (cursorWordLeft). */
-export const BRUNCH_MENU_SHORTCUT = 'ctrl+shift+b';
-export const BRUNCH_MODE_SHORTCUT = 'shift+tab';
+export {
+  BRUNCH_MENU_SHORTCUT,
+  BRUNCH_MODE_PICKER_SHORTCUT,
+  BRUNCH_MODE_SHORTCUT,
+} from '../../components/chrome-shortcuts.js';
 
 export type BrunchCommandsOptions = BrunchSpecSessionPickerOptions & {
   /** Called after a runtime posture switch so chrome (footer) re-renders from re-projected state. */
@@ -297,6 +305,14 @@ function registerRuntimeSwitchCommands(pi: ExtensionAPI, options: ModeSwitchOpti
         return;
       }
       await applyModeSwitchAndOrient(pi, ctx, selection as OperationalModeId, options);
+    },
+  });
+
+  pi.registerShortcut?.(BRUNCH_MODE_PICKER_SHORTCUT, {
+    description: 'Open the Brunch mode picker',
+    handler: async (ctx) => {
+      const commandCtx = options.getCommandContext?.() ?? ctx;
+      await openModePicker(pi, commandCtx, options);
     },
   });
 

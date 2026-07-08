@@ -31,6 +31,8 @@ components/
 ├── cards.ts
 ├── choice-row.ts              shared described-option row projection for picker/menu affordances
 ├── chrome-header.ts
+├── chrome-shortcuts.ts        shared shortcut constants/hint formatting consumed by chrome copy
+│                                and the command registrar that binds those keys
 ├── editor-lines.ts            shared pi-tui Editor border/rule stripping helpers for boxed
 │                                editor surfaces
 ├── exchange-answer-editor.ts   bordered free-text exchange answer editor hosting pi-tui Editor

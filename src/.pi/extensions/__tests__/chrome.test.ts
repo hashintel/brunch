@@ -13,7 +13,12 @@ import chromeExtension, {
   registerBrunchChrome,
   renderBrunchChrome,
 } from '../chrome/index.js';
-import { BRUNCH_MENU_COMMAND, BRUNCH_MODE_COMMAND, BRUNCH_MODE_SHORTCUT } from '../commands/index.js';
+import {
+  BRUNCH_MENU_COMMAND,
+  BRUNCH_MODE_COMMAND,
+  BRUNCH_MODE_PICKER_SHORTCUT,
+  BRUNCH_MODE_SHORTCUT,
+} from '../commands/index.js';
 
 describe('Brunch chrome projection', () => {
   it('uses activated session state instead of fabricating unbound', async () => {
@@ -53,7 +58,7 @@ describe('Brunch chrome projection', () => {
 
     expect(projectBrunchChromeFooterLines(state)).toEqual([
       '/brunch:menu [ctrl-shift-b]: Spec One / Interview #1  ui: http://127.0.0.1:49152/spec/1',
-      'mode [opt-m]: not reported | role [opt-r]: not reported',
+      'mode [alt-m]: not reported | role [opt-r]: not reported',
       'no model  ctx ──────────── ?% ?/0',
       '',
     ]);
@@ -80,7 +85,7 @@ describe('Brunch chrome projection', () => {
       },
     })[1];
 
-    expect(footerLine).toBe('mode [opt-m]: Specify | role [opt-r]: elicitor');
+    expect(footerLine).toBe('mode [alt-m]: Specify | role [opt-r]: elicitor');
     expect(footerLine).not.toContain('strategy: auto');
     expect(footerLine).not.toContain('lens');
   });
@@ -104,7 +109,7 @@ describe('Brunch chrome projection', () => {
 
     expect(projectBrunchChromeFooterLines(state)).toEqual([
       '/brunch:menu [ctrl-shift-b]: Spec One / Interview #1',
-      'mode [opt-m]: not reported | role [opt-r]: elicitor',
+      'mode [alt-m]: not reported | role [opt-r]: elicitor',
       'claude-sonnet • medium  ctx ━━━━━━────── 50% 1.0k/2.0k',
       '',
     ]);
@@ -137,7 +142,7 @@ describe('Brunch chrome projection', () => {
     expect(footer).toContain('claude-sonnet');
     expect(footer).toContain('medium');
     expect(footer).toContain('ctx ━━━━━━────── 50% 1.0k/2.0k');
-    expect(footer).toContain('mode [opt-m]: not reported | role [opt-r]: elicitor');
+    expect(footer).toContain('mode [alt-m]: not reported | role [opt-r]: elicitor');
     expect(footer).toContain('reviewer queued');
     expect(footer).not.toContain('should not echo');
   });
@@ -184,7 +189,9 @@ describe('Brunch chrome projection', () => {
     expect(collapsedLines.join('\n')).not.toContain('escape interrupt');
     expect(collapsedLines.join('\n')).toContain('Welcome to Brunch.');
     expect(collapsedLines.join('\n')).toContain('The assistant is about to open');
-    expect(collapsedLines.join('\n')).toContain(`/${BRUNCH_MODE_COMMAND} or ${BRUNCH_MODE_SHORTCUT}`);
+    expect(collapsedLines.join('\n')).toContain(
+      `/${BRUNCH_MODE_COMMAND} or ${BRUNCH_MODE_PICKER_SHORTCUT} opens mode picker; ${BRUNCH_MODE_SHORTCUT} cycles mode`,
+    );
     expect(collapsedLines.join('\n')).toContain(`/${BRUNCH_MENU_COMMAND} opens spec/session`);
     expect(collapsedLines.join('\n')).toContain('web-ui: http://127.0.0.1:49152/spec/1');
     expect(collapsedLines.join('\n')).not.toContain('Press ctrl+o');

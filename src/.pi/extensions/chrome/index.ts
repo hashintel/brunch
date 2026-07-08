@@ -25,6 +25,11 @@ import {
   type BrunchStartupHeaderFacts,
   type BrunchStartupHeaderResumeFacts,
 } from '../../components/chrome-header.js';
+import {
+  BRUNCH_MENU_SHORTCUT,
+  BRUNCH_MODE_PICKER_SHORTCUT,
+  formatChromeShortcutHint,
+} from '../../components/chrome-shortcuts.js';
 
 export type { BrunchStartupHeaderResumeFacts } from '../../components/chrome-header.js';
 
@@ -129,7 +134,7 @@ export function projectBrunchChromeFooterLines(
   const specSessionPart = keyedStatusPart(
     theme,
     '/brunch:menu',
-    'ctrl-shift-b',
+    formatChromeShortcutHint(BRUNCH_MENU_SHORTCUT),
     `${formatSpec(chrome)} / ${sessionLabel}`,
   );
   const specSessionLine = chrome.webSidecarUrl
@@ -395,7 +400,7 @@ function renderBrunchStatusLine(
     keyedStatusPart(
       theme,
       'mode',
-      'opt-m',
+      formatChromeShortcutHint(BRUNCH_MODE_PICKER_SHORTCUT),
       runtime
         ? operationalModeLabel(runtime.operationalMode)
         : chrome.runtime?.mode

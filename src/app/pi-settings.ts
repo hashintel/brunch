@@ -1,9 +1,9 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { SettingsManager, type ExtensionFactory } from '@earendil-works/pi-coding-agent';
+
+import { cleanupBrunchKeybindingFilePolicy } from './pi-keybindings.js';
 
 /**
  * Brunch theme pair. The `light/dark` slash syntax enables Pi's native
@@ -19,9 +19,6 @@ const BRUNCH_THEME_SETTING = 'brunch-light/brunch-dark';
  * resolution works from both the source and built trees.
  */
 const BRUNCH_THEME_DIR = fileURLToPath(new URL('../.pi/themes/', import.meta.url));
-const BRUNCH_KEYBINDINGS_FILE = 'keybindings.json';
-const PI_THINKING_CYCLE_KEYBINDING = 'app.thinking.cycle';
-
 export const BRUNCH_SETTINGS_POLICY = {
   quietStartup: true,
   defaultProjectTrust: 'never', // TODO: change this?
@@ -172,7 +169,7 @@ export function createBrunchPiSettings({
   agentDir,
   extensionFactories,
 }: BrunchPiSettingsOptions): BrunchPiSettings {
-  applyBrunchKeybindingPolicy(agentDir);
+  cleanupBrunchKeybindingFilePolicy(agentDir);
   return {
     settingsManager: createBrunchSettingsManager(cwd, agentDir),
     resourceLoaderOptions: brunchResourceLoaderOptions(extensionFactories),
@@ -203,29 +200,4 @@ export function applyBrunchOfflineDefault(
 
 export function createBrunchSettingsManager(_cwd: string, _agentDir: string): SettingsManager {
   return SettingsManager.inMemory(BRUNCH_SETTINGS_POLICY);
-}
-
-function applyBrunchKeybindingPolicy(agentDir: string): void {
-  const configPath = join(agentDir, BRUNCH_KEYBINDINGS_FILE);
-  const existing = readKeybindingsConfig(configPath);
-  const next = {
-    ...existing,
-    [PI_THINKING_CYCLE_KEYBINDING]: [],
-  };
-  mkdirSync(agentDir, { recursive: true });
-  writeFileSync(configPath, `${JSON.stringify(next, null, 2)}\n`);
-}
-
-function readKeybindingsConfig(configPath: string): Record<string, unknown> {
-  if (!existsSync(configPath)) return {};
-  try {
-    const parsed = JSON.parse(readFileSync(configPath, 'utf8')) as unknown;
-    return isPlainRecord(parsed) ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

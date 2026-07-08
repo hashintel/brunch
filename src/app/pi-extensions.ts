@@ -95,6 +95,7 @@ import { createAgentRunnerPort } from './agent-runner-port.js';
 import { createGitHostPromotionPort } from './git-host-promotion-port.js';
 import { createGitLandPort } from './git-land-port.js';
 import { createGitWorktreePort } from './git-worktree-port.js';
+import { registerBrunchKeybindingPolicy } from './pi-keybindings.js';
 import { createTestRunnerPort } from './test-runner-port.js';
 
 export { registerBrunchAlternatives } from '../.pi/components/alternatives.js';
@@ -132,11 +133,13 @@ export {
   BRUNCH_MENU_COMMAND,
   BRUNCH_MENU_SHORTCUT,
   BRUNCH_MODE_COMMAND,
+  BRUNCH_MODE_PICKER_SHORTCUT,
   BRUNCH_MODE_SHORTCUT,
   registerBrunchCommands,
 } from '../.pi/extensions/commands/index.js';
 export { runBrunchWorkspaceAction, runBrunchWorkspaceCommand } from '../.pi/extensions/workspace/index.js';
 export { registerBrunchWebTools } from '../.pi/extensions/web-tools/index.js';
+export { registerBrunchKeybindingPolicy } from './pi-keybindings.js';
 
 export { registerBrunchGraph } from '../.pi/extensions/brunch-data/index.js';
 export {
@@ -331,6 +334,7 @@ export function createBrunchPiExtensions(
       gitHostPromotion: options.executionPorts?.gitHostPromotion ?? createGitHostPromotionPort(),
     };
     const extensions: BrunchProductExtensionRegistrar[] = [
+      registerBrunchKeybindingPolicy,
       (api) => {
         registerBrunchSessionBoundary(api, onSessionBoundary, {
           continuitySteps,

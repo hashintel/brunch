@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 
@@ -63,6 +63,7 @@ import {
   BRUNCH_MENU_COMMAND,
   BRUNCH_MENU_SHORTCUT,
   BRUNCH_MODE_COMMAND,
+  BRUNCH_MODE_PICKER_SHORTCUT,
   BRUNCH_MODE_SHORTCUT,
   chromeStateForWorkspace,
   createBrunchPiExtensions,
@@ -976,8 +977,8 @@ describe('Brunch TUI boot', () => {
     // Disabled until operational: continue is unimplemented.
     expect(commands.has(BRUNCH_CONTINUE_COMMAND)).toBe(false);
     expect(shortcuts.get(BRUNCH_MENU_SHORTCUT)?.description).toBe('Open the Brunch spec/session picker');
+    expect(shortcuts.get(BRUNCH_MODE_PICKER_SHORTCUT)?.description).toBe('Open the Brunch mode picker');
     expect(shortcuts.get(BRUNCH_MODE_SHORTCUT)?.description).toBe('Cycle the Brunch mode');
-    expect(shortcuts.has('alt+m')).toBe(false);
     expect(shortcuts.has('ctrl+b')).toBe(false);
     // alt+b must stay unregistered: Pi reserves it for cursorWordLeft.
     expect(shortcuts.has('alt+b')).toBe(false);
@@ -1601,19 +1602,28 @@ describe('Brunch TUI boot', () => {
     });
   });
 
-  it('removes Pi thinking-cycle from the Brunch profile while preserving other keybinding overrides', async () => {
+  it('does not create profile keybindings while building sealed Brunch settings', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-'));
+    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agentdir-'));
+
+    createBrunchPiSettings({ cwd, agentDir, extensionFactories: [] });
+
+    await expect(stat(join(agentDir, 'keybindings.json'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('cleans only the exact C1 thinking-cycle suppression from existing profile keybindings', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-'));
     const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agentdir-'));
     await writeFile(
       join(agentDir, 'keybindings.json'),
-      JSON.stringify(
+      `${JSON.stringify(
         {
-          'app.thinking.cycle': 'shift+tab',
+          'app.thinking.cycle': [],
           'app.model.select': 'ctrl+x',
         },
         null,
         2,
-      ),
+      )}\n`,
     );
 
     createBrunchPiSettings({ cwd, agentDir, extensionFactories: [] });
@@ -1622,8 +1632,26 @@ describe('Brunch TUI boot', () => {
       string,
       unknown
     >;
-    expect(keybindings['app.thinking.cycle']).toEqual([]);
-    expect(keybindings['app.model.select']).toBe('ctrl+x');
+    expect(keybindings).toEqual({ 'app.model.select': 'ctrl+x' });
+  });
+
+  it('leaves user-owned keybindings content untouched', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-'));
+    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agentdir-'));
+    const configPath = join(agentDir, 'keybindings.json');
+    const original = `${JSON.stringify(
+      {
+        'app.thinking.cycle': 'shift+tab',
+        'app.model.select': 'ctrl+x',
+      },
+      null,
+      2,
+    )}\n`;
+    await writeFile(configPath, original);
+
+    createBrunchPiSettings({ cwd, agentDir, extensionFactories: [] });
+
+    expect(await readFile(configPath, 'utf8')).toBe(original);
   });
 
   it('seals ambient APPEND_SYSTEM.md out of the real Pi resource loader (D39-L)', async () => {
