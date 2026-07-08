@@ -61,6 +61,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - `alpha-release-readiness` (FE-1159) — get the `1.0.0-alpha` line publishable and onboardable (packaging fixes, pinned model allowlist, Pi-auth ride + `brunch login`, no-auth gate). Admitted 2026-07-07 from spike + grill + spec (D113-L/D114-L/D115-L, req 29, A38-L, I59-L). Built + walkthrough-witnessed; PR [#299](https://github.com/hashintel/brunch/pull/299) awaiting merge → publish. Branch `ln/fe-1159-alpha-release`. Definition below.
 - `exchange-ask-refinement` (FE-1164) — built, review-verified, and witness-gap closed 2026-07-08; branch `ln/fe-1164-ask-terminal` awaiting `gt submit` + tie-off (stacked on FE-1115 #301). See Recently Completed; definition below (kept live: `headless-ask-discovery` and `review-commentary-widening` build on it).
 - `tool-schema-convergence` (FE-1163) — next build: sweep over the 46-tool provider-facing schema surface. **Stacks on `ln/fe-1164-ask-terminal`** (2026-07-08 decision — the ask cutover reshaped the exchanges family the sweep normalizes). Ledger: `memory/cards/tool-schema-convergence--ledger.md` (now includes the folded blank-carrier row). Definition below.
+- `main-editor-chrome` (FE-1169) — **promoted from Horizon 2026-07-08**, opening the chrome batch: persistent Brunch-owned main input editor + UX-level TUI component rendering/affordance refinement (the work FE-1115's DX closure explicitly excluded). Branch `ln/fe-1169-editor-chrome`, stacked on `ln/fe-1164-ask-terminal`. Definition below.
 
 ### Recently Completed
 
@@ -71,7 +72,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ### Next
 
 - `walkthrough-evidence-batch` ([FE-1167](https://linear.app/hash/issue/FE-1167/walkthrough-evidence-batch-outer-loop-checks-for-merged-orientation)) — the one batch owning all outer-loop residue from the merged lanes (FE-1134 generative-menu evidence, FE-1137 thin/rich Execute beats + deferred orientation-choice questions, FE-1124 Card 3 + seed worklist, FE-1107 KA-conversation residue). Runs after FE-1164 merges so the beats witness the ask surfaces. Closes arc `deterministic-orientation`. Definition below.
-- **Chrome batch (next work area, user-declared 2026-07-08):** `main-editor-chrome` promotes from Horizon when the current lanes tie off; carries the absorbed `workspace-dialog-headless-guard` obligation. UX-level component refinement (beyond the delivered DX harness) opens fresh frontiers here as scoped.
+- **Chrome batch (next work area, user-declared 2026-07-08):** opened same day by promoting `main-editor-chrome` (FE-1169) to Active — the frontier now also owns the UX-level component rendering/affordance refinement lane (widened at promotion; it does not wait for the current lanes to merge). Further chrome frontiers open here as scoped.
 
 ### Parallel / Low-Conflict
 
@@ -82,8 +83,9 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ### Horizon
 
 - `planning-process-model` — **demoted from Next #1 on 2026-07-03 (grill):** exploratory D103-L bet-proving, not ship-blocking. Behind the gate. Guard: the orientation menus' "project a plan" option routes to the existing `project`/`map-plans` seam at frontier-level depth (D103-L boundary) and must **not** pull this frontier forward. Groundwork stays parked on `ln/fe-xxx-plan-plane-redesign`; full definition below.
-- `main-editor-chrome` — wire `BrunchEditorComponent` as the persistent input editor via `ctx.ui.setEditorComponent` (D22-L/D35-L chrome territory). Split out of the former `bordered-chrome-production` on 2026-07-02 because it is not exchange work; carries the unverified render-height assumption its first tracer must resolve. De-risked by FE-1138: `ExchangeAnswerEditorComponent` proved `Editor`-inside-Brunch-chrome on the one-shot seam, and the rule-strip helpers are shared in `.pi/components/editor-lines.ts`. **Head of the upcoming chrome batch** (user-declared 2026-07-08). **Absorbed obligation:** `workspace-dialog-headless-guard` — `workspace/index.ts:51` ungated `ctx.ui.custom` + `activateWorkspace` dereferencing `decision.action` is a latent headless throw (no live path hits it today); fix it in this frontier's first chrome slice rather than carrying it as its own Horizon row.
+<!-- main-editor-chrome promoted from Horizon to Active 2026-07-08 (FE-1169); definition in Frontier Definitions. -->
 - `review-commentary-widening` — GitHub-style per-item review commentary: widen the review answered payload (`comments: [{on: draft|edge|set, body}]`, a SPEC decision) plus the collection UI. Deferred post-gate at FE-1138 scope (2026-07-03): the payload ripples into the review schema that capture-contract rows and the digest terminal consume. Once `exchange-ask-refinement` lands, the widening re-expresses over the D116-L declared-ask/answer payload rather than `request_response` details. Sketch: `src/agents/contexts/exchanges/design-permutations.md` §Review-set evaluation.
+- `develop-mode` — third operational mode `develop` / Develop running a new `engineer` agent: a Brunch-aware coding assistant *without* the `execute_*` tool set and with kick/consult mechanisms inert (user-driven turns, not agent-driven). Split out of `main-editor-chrome` at the 2026-07-08 grill. Entry is a SPEC revision, not a feature slice: D98-L ("two modes only" — though Develop is a distinct agent with different grants, not the conduct-bias `Enhance` that grill rejected), req 26, and D40-L placement of `engineer` in the concentric authority matrix (executor-minus-`execute_*`? elicitor-plus-coding?), plus a new per-mode kick/consult-suppression policy axis. Route through `ln-grill`/`ln-spec` at pickup. Groundwork (mode-cycling keybinding, border-by-mode) lands mode-agnostically in `main-editor-chrome`.
 - `headless-ask-discovery` — the A39-L follow-up to D116-L: RPC discovery of open `ask` calls (streamed session events or a pending-interactive-call read method) replacing `session.pendingExchange` transcript scanning, so an agent-as-user driver can generatively build specs against a goal over the headless surface. Not first-release-critical; headless asks resolve `unavailable` until this lands. Broker (`awaitAnswer`/`session.submitExchangeResponse`) is unchanged by design.
 - `reconciliation-derivation` — derive `edge_revalidation` reconciliation needs from LSN comparison instead of persisting them; full definition below (inventory findings from 2026-07-02, worth keeping). **Confirmed behind the gate 2026-07-03 (grill G7):** the ingest throughline's conflict routing rides the existing persisted `reconciliation_need` substrate (`create_reconciliation_need` is live); nothing in the gate needs the LSN-derived generator. Honor the convergence: the `contradictory` seed variant capture now rides `walkthrough-evidence-batch` (FE-1167).
 - `reviewer-agent-mode` — D29-L's async advisory reviewer remains designed but unbuilt: narrow write authority to `reconciliation_need`, batch-acceptance trigger keyed by session/batch entry, A16-L trigger/scope questions still open. Behind the ship gate; no frontier until post-acceptance review becomes POC-blocking or reviewer residues need executable closure.
@@ -143,6 +145,27 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
      + 2026-07-06 live walkthrough beat), retired DIGEST_CUSTOM_TYPES, topology homes named in D110-L.
      Consumed scope card memory/cards/present-digest--exchange-kind.md deleted. -->
 
+
+### main-editor-chrome
+
+- **Name:** Main editor chrome + TUI component UX & rendering
+- **Linear:** [FE-1169](https://linear.app/hash/issue/FE-1169/main-editor-chrome-and-tui-component-ux-refinement)
+- **Branch:** `ln/fe-1169-editor-chrome`, stacked on `ln/fe-1164-ask-terminal` (2026-07-08 decision — starts ahead of the lane tie-off; restacks as parents merge)
+- **Kind:** bounded feature / presentation-layer production wiring (chrome territory, D22-L/D35-L) + one deliberate SPEC revision (D104-L pass-through rule). Head of the chrome batch. Reframed 2026-07-08 (grill) from the promotion-time definition.
+- **Certainty:** proving — the persistent-editor seam (`ctx.ui.setEditorComponent`) is unexercised and carries the unverified render-height assumption; details-driven transcript rendering is a new render path; the component-UX lane is judgment-heavy outer-loop work.
+- **Why now / unlocks:** user-declared chrome batch opener (2026-07-08). The DX loop is delivered (FE-1115) but UX-level rendering/affordance quality was excluded from that closure; the ask cutover (FE-1164) unified the answering surface, making its UX seams (esc dynamics, option sub-text, result duplication) newly visible and worth fixing once, canonically.
+- **Objective (six threads, grilled 2026-07-08):**
+  1. **Main editor chrome (tracer):** wire `BrunchEditorComponent` as the persistent input editor via `ctx.ui.setEditorComponent`. Carries the unverified render-height assumption its first slice must resolve. De-risked by FE-1138 (`Editor`-inside-Brunch-chrome proven on the one-shot seam; shared `.pi/components/editor-lines.ts` rule-strip helpers).
+  2. **Ask surface UX:** option rows gain description/rationale sub-text in the unified picker (two-line rows — the same component change serves the consult menu); hierarchical esc — root esc = cancel (terminal, unchanged), nested esc (Other/comment steps) = go back one step (UI-local navigation; no D109-L or A39-L entanglement); `formatAsk` result content moves to the compact unified form (one question block, options as a checklist, selection marked, non-selected struck) replacing the duplicated Question/Answer h2 sections, generalized across free-text/single/multi/comment variants via the five-branch writer golden.
+  3. **Details-driven transcript rendering (D104-L revision):** revert the "renderResult = markdown pass-through of content" rule so the TUI renders richly from toolResult `details` — driven primarily by `present_candidates` / `present_review_set` structured content. **Render-honesty survives the revision**: `content` stays the canonical model-facing record (details ⊆ content, elision lists); only the TUI's presentation source changes. Expected breakage: `exchange-family-completeness` and content-golden families change meaning — deliberate, not regression. Record the revision via `ln-sync` at first landing. Review rendering targets the *current* payload shape; the per-item commentary widening stays in Horizon `review-commentary-widening`.
+  4. **Mode-reactive input chrome:** remap `shift+tab` from Pi's thinking-level cycle (`app.thinking.cycle`) to operational-mode cycling — D113-L already pins thinking level as policy, so this closes a policy leak; main editor and ask surfaces color border + border-label by projected operational mode (works for two modes; extends to `develop` for free).
+  5. **Commands:** keep the `brunch:` namespace. `/brunch:menu` replaces the current top-level create/switch-specification entry; `/brunch:consult` forces the orientation dialog; `/brunch:continue` revives the disabled design (sequenced with the esc work — the natural "re-present the open ask" verb); `/brunch:mode` exists. Lexicon: **menu** = top-level workspace/spec navigation; **consult** = orientation dialog — distinct surfaces, distinct commands.
+  6. **Border semantics + theme expansion:** every bordered surface declares a semantic role, no raw border colors (lock-in invariant candidate). Two channels: **mode-reactive** (main editor, ask surfaces) vs **surface-identity** (workspace dialog, consult menu — stable, visibly independent of mode). Pre-session menu surfaces take the injected theme (the D22-L boot gate currently renders unthemed). `dev:components` demo expands to witness text variations, border levels, and both channels in light/dark.
+- **Annotations:** Lights up: Brunch-owned persistent input chrome; the details-driven TUI render path. Stabilizes: the chrome projection seam (D35-L single-renderer discipline); border semantics as the component family's theming contract; the unified ask surface's UX register. Retires: the render-height assumption (thread 1); the D104-L pass-through rule (thread 3, deliberate revision).
+- **Absorbed obligations:** `workspace-dialog-headless-guard` (`workspace/index.ts:51` ungated `ctx.ui.custom` — fix in the first chrome slice); the never-run physical-terminal wheel smoke beat (FE-1115 residual, iTerm2/Kitty/Ghostty).
+- **Explicitly out:** `develop` mode / `engineer` agent (own Horizon frontier, D98-L revision — see `develop-mode`); per-item review commentary widening (Horizon `review-commentary-widening`); headless ask discovery (Horizon, A39-L).
+- **Current execution pointer:** none — next step is `ln-scope` for the first slice (thread 1 recommended: it carries both absorbed obligations and anchors thread 4's border plumbing).
+- **Traceability:** D22-L (Brunch-owned TUI boot / chrome mounting), D35-L (chrome as Brunch projection over Pi UI primitives), D104-L (revised by thread 3), D106-L (self-contained echoes constrain the compact formatAsk form), D113-L (pinned thinking level justifies the remap), D34-L (command containment — keep namespace, collision test), FE-1138 precedent; `src/.pi/components/TOPOLOGY.md`, `src/.pi/extensions/chrome/TOPOLOGY.md`, `src/.pi/extensions/exchanges/TOPOLOGY.md`, `src/dev/TOPOLOGY.md`.
 
 ### walkthrough-evidence-batch
 
@@ -311,6 +334,14 @@ frontiers:
       status: next build; ledger authored + re-based 2026-07-08 (13 rows / 46 tools, incl. folded blank-carriers row)
       branch: ln/fe-1163-tool-schema-convergence -[hard]-> stacks on ln/fe-1164-ask-terminal (2026-07-08 decision)
       shape: coverage frontier; ledger memory/cards/tool-schema-convergence--ledger.md
+    main-editor-chrome (FE-1169)
+      status: promoted from Horizon + reframed via grill 2026-07-08 (six threads: editor tracer, ask UX,
+              D104-L revision, mode-reactive chrome, brunch: commands, border semantics); scoping next
+      branch: ln/fe-1169-editor-chrome -[hard]-> stacks on ln/fe-1164-ask-terminal
+      absorbed: workspace-dialog-headless-guard, physical-terminal wheel smoke beat
+      revises: D104-L (pass-through rule; render-honesty preserved) -> record via ln-sync at first landing
+      depends_on: D22-L, D35-L, D113-L; FE-1138 Editor-in-chrome precedent
+      feeds: -[groundwork]-> develop-mode (Horizon; mode-cycling key + border-by-mode land mode-agnostic)
 
   Next:
     walkthrough-evidence-batch (FE-1167)
@@ -319,9 +350,6 @@ frontiers:
       branch: tbd -[hard]-> after FE-1164 merges (beats must witness ask surfaces)
       owns: generative-menu evidence, thin/rich Execute beats + deferred orientation-choice questions,
             FE-1124 Card 3 + seed worklist, FE-1107/KA residue (card GC, close-or-narrow, demo session, post-KA plan pass)
-    main-editor-chrome
-      status: promotes from Horizon at chrome-batch start (user-declared 2026-07-08)
-      absorbed: workspace-dialog-headless-guard
 
   Horizon (behind the gate):
     planning-process-model
@@ -330,6 +358,7 @@ frontiers:
       status: confirmed behind gate 2026-07-03 (grill G7); ingest conflict routing rides the persisted substrate
     headless-ask-discovery (A39-L)
     review-commentary-widening
+    develop-mode (split from main-editor-chrome 2026-07-08; entry via ln-grill/ln-spec — D98-L/req-26/D40-L revision)
     reviewer-agent-mode
     session-branching
     compaction-and-conflict-widening
