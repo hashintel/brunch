@@ -1,125 +1,222 @@
-# Persistent editor tracer
+# Persistent Brunch editor chrome — tracer + headless guard
 
 Frontier: main-editor-chrome
 Status:   active
-Mode:     single
+Mode:     slices
 Created:  2026-07-08
 
-## Orientation note
+> Merged 2026-07-08 from two independent scoping passes (this file's first commit + a second take);
+> structure and oracles from the second pass, evidence base and product-path tier from the first.
 
-- Containing seam: Brunch TUI chrome projection, with `src/.pi/extensions/chrome/` mounting Pi UI surfaces and `src/.pi/components/brunch-editor.ts` supplying the already-previewed editor component.
-- Frontier item: `main-editor-chrome` / FE-1169 on branch `ln/fe-1169-editor-chrome`; this is thread 1 from `memory/PLAN.md` and the handoff's recommended first tracer.
-- Volatile state: `HANDOFF.md` says FE-1169 planning is committed and no scratch artifact is needed; FE-1164 tie-off remains adjacent stack state, not a dependency for this card's local implementation.
-- Main open risk: `ctx.ui.setEditorComponent` has not run through Brunch's production session-start path, so render height, focus routing, and no-UI degradation are still assumptions.
+Orientation:
 
-Posture: proving (inherited from `main-editor-chrome`)
+- Containing seam: Pi's `ctx.ui.setEditorComponent` (public, documented, with a shipped worked example) consumed from Brunch's chrome extension — the D35-L surface that already owns footer/header/title.
+- Frontier: `main-editor-chrome` (FE-1169), thread 1 of six; this is the tracer the other five threads aim from (thread 4's mode-reactive border colors plumb through the seam this slice opens).
+- Volatile state: HANDOFF.md's lane pointer only; branch `ln/fe-1169-editor-chrome` has no implementation commits. FE-1164 tie-off is adjacent stack state, not a dependency.
+- Main open risk: the swap path is production-unexercised — factory invocation timing at session start, differential height accounting for a taller boxed editor (F18 precedent: embedded height drift ate transcript lines), and focus/autocomplete routing are all assumptions until a live session renders.
 
-## Target Behavior
+Posture: proving (inherited from main-editor-chrome).
 
-Chrome initialization respects Pi UI capability when mounting Brunch-owned interactive surfaces.
+---
 
-## Full-card cold-start reads
+## Card 1 (full): `BrunchEditorComponent` becomes the persistent input editor
 
-- `memory/SPEC.md` — decisions / invariants / assumptions: D22-L, D35-L, D115-L, D34-L, D113-L, A18-L, I22-L, I59-L
-- `memory/PLAN.md` — frontier: `main-editor-chrome`
-- `HANDOFF.md` — FE-1169 next-step note and adjacent FE-1164 stack state
-- `src/.pi/components/TOPOLOGY.md` — `BrunchEditorComponent` status and component test conventions
-- `src/.pi/extensions/chrome/TOPOLOGY.md` — chrome renderer surface and dependency direction
-- `src/.pi/extensions/TOPOLOGY.md` — adapter ownership, TUI launch chrome, no-UI/RPC notes, set-editor example pointers
-- `src/dev/TOPOLOGY.md` — `dev:components` preview harness contract for `brunch-editor`
-- `node_modules/@earendil-works/pi-coding-agent/docs/tui.md` — Pattern 7 / `setEditorComponent` factory contract
-- `node_modules/@earendil-works/pi-coding-agent/examples/extensions/border-status-editor.ts` — current-version example for border/status editor mounting
+### Target Behavior
 
-## Boundary Crossings
+In a UI-capable Brunch session, the main input editor renders as the Brunch bordered editor with live border labels (operational mode top-right, spec title bottom-right, sidecar URL below) that update when runtime state changes, with no regression in typing, autocomplete, or app keybindings.
 
-```text
-→ Brunch TUI session boot (`src/app/brunch-tui.ts` / `createBrunchPiExtensions`)
-→ Pi extension registration (`src/app/pi-extensions.ts`)
-→ Chrome `session_start` handler (`src/.pi/extensions/chrome/index.ts`)
-→ Pi UI editor factory (`ctx.ui.setEditorComponent`)
-→ `BrunchEditorComponent` (`src/.pi/components/brunch-editor.ts`)
-→ Pi `CustomEditor` input/focus/render contract
+### Full-card cold-start reads
+
+```
+- memory/SPEC.md   — D22-L, D35-L, D115-L, D34-L, A18-L, I22-L, I59-L; D40-L/I25-L (mode projection)
+- memory/PLAN.md    — frontier: main-editor-chrome (threads 1 + 4 boundary)
+- src/.pi/extensions/chrome/TOPOLOGY.md — chrome ownership + single-renderer rule
+- src/.pi/components/TOPOLOGY.md — BrunchEditorComponent status + component test conventions
+- src/.pi/components/brunch-editor.ts — component + getLabels freshness contract
+- node_modules/@earendil-works/pi-coding-agent/docs/tui.md — Pattern 7 / setEditorComponent factory contract
+- node_modules/@earendil-works/pi-coding-agent/examples/extensions/border-status-editor.ts — shipped
+  current-version worked example of exactly this install (line ~148)
+- src/dev/TOPOLOGY.md — dev:components preview harness contract for brunch-editor
 ```
 
-Secondary guard path:
+### Boundary Crossings
 
-```text
-→ `/brunch:switch` / workspace shortcut action
-→ `src/.pi/extensions/workspace/index.ts`
-→ Pi UI custom-dialog capability check
-→ product-shaped cancel / needs-human / notification outcome
+```
+→ Brunch TUI session boot (src/app/brunch-tui.ts / createBrunchPiExtensions)
+→ Pi extension registration (src/app/pi-extensions.ts)
+→ chrome session_start handler (src/.pi/extensions/chrome/index.ts — registerBrunchChrome installs the
+  editor factory; BrunchChromeUi pick widens with setEditorComponent)
+→ ctx.ui.setEditorComponent(factory) [Pi public seam]
+→ BrunchEditorComponent.render → getLabels() → projectBrunchAgentState(ctx.sessionManager.getEntries())
+  + chrome state (spec title, sidecar URL)
+→ pi-tui differential renderer (height accounting)
 ```
 
-## Risks and Assumptions
+### Risks and Assumptions
 
-- RISK: Boxing the default editor changes perceived editor height or focus behavior in real `InteractiveMode`. → MITIGATION: keep the first mount thin, drive the existing `BrunchEditorComponent` harness tests, add a product-path editor-mount test, and run one real TUI smoke.
-- RISK: First labels duplicate or contradict footer chrome. → MITIGATION: mount only canonical chrome facts already in `BrunchChromeState` / live telemetry; leave richer mode-color and border-role semantics for later FE-1169 cards.
-- RISK: Headless/RPC contexts still expose enough UI methods that a naive guard gives false confidence. → MITIGATION: test the actual degraded context shape used by Brunch fakes/Tier-2 boot and keep behavior product-shaped rather than Pi-exception-shaped.
-- ASSUMPTION: Pi's `setEditorComponent` factory is safe to install from the same `session_start` handler that sets footer/header/title.
-  → IMPACT IF FALSE: FE-1169's persistent-editor thread needs a different mounting seam before border semantics and mode-reactive input chrome can proceed.
-  → VALIDATE: extension-level `session_start` test plus a product-path boot test that observes the editor factory installation.
-- ASSUMPTION: Non-TUI workspace switching must not call `ctx.ui.custom` directly.
-  → IMPACT IF FALSE: headless/RPC clients can hit a TUI-only dialog path instead of the product-shaped `needs_human` degradation promised by req 5 / D115-L.
-  → VALIDATE: targeted `runBrunchWorkspaceAction` test with a non-custom UI context.
+```
+- ASSUMPTION: InteractiveMode's differential renderer correctly accounts for the boxed editor's
+  extra rows (borders + belowLines) as content grows/shrinks.
+    → IMPACT IF FALSE: transcript-line corruption like F18; the belowLines channel may have to move
+      to the footer and the wrapper flatten — reshapes threads 4/6, not just this card.
+    → VALIDATE: manual smoke in a real terminal (grow past MIN_CONTENT_LINES, autocomplete open/close,
+      resize); harness render-at-multiple-widths assertion as the repeatable inner proxy.
+    → memory/SPEC.md §Assumptions: add as a new A-row only if it survives as a caveat rather than
+      being retired here.
+- ASSUMPTION: setEditorComponent installed from the same session_start handler that sets
+  footer/header/title takes effect for the initial editor mount, not only after a later swap.
+    → IMPACT IF FALSE: needs a deferred install hook or different mounting seam before threads 4/6
+      can proceed; contained to chrome/index.ts.
+    → VALIDATE: extension-level session_start test + product-path boot test observing the installed
+      factory; manual smoke first item. (The shipped border-status-editor example installs from an
+      extension activate path — read it before building.)
+- RISK: border labels duplicate or contradict footer chrome (mode already renders in the footer
+  status line — two sources of truth feel)
+  → MITIGATION: mount only canonical facts already in BrunchChromeState / live telemetry; decide
+    top-right = mode, bottom-right = spec title deliberately against the footer's content, and note
+    any duplication for thread 6's border-semantics pass rather than improvising here.
+- RISK: label getters sample stale runtime state after /brunch:mode switch
+  → MITIGATION: getLabels pulled fresh every render (existing contract); reuse the footer's
+    requestChromeRefresh path (commands already call it after mode switch); test asserts labels
+    re-render from re-projected entries.
+- RISK: headless/RPC contexts expose enough UI methods that a naive guard gives false confidence
+  → MITIGATION: install only when the context exposes setEditorComponent as a function (same guard
+    family as ask.ts hasUI checks) and test the actual degraded context shape used by Brunch
+    fakes/Tier-2 boot, keeping behavior product-shaped rather than Pi-exception-shaped.
+```
 
-## Posture check
+### Posture check
 
-- Proof of life: lights up the first production path through `ctx.ui.setEditorComponent` using Brunch-owned chrome state.
-- Invariants: stabilizes D35 by keeping persistent input chrome under the chrome renderer seam instead of adding a separate app-layer mount.
-- Uncertainty: retires the render-height / focus-routing assumption for the editor component in the real Brunch extension path.
+Proving. Scores on all three axes: **proof of life** (first production path through `ctx.ui.setEditorComponent` with Brunch-owned chrome state), **invariants** (stabilizes D35-L by keeping persistent input chrome under the chrome renderer seam — and shapes the getter seam thread 4 colors and `develop`-mode groundwork extends), **uncertainty** (retires the render-height / swap-timing / focus-routing assumption). Landing it tells us whether the bordered-wrapper approach holds for persistent chrome or must flatten.
 
-## Acceptance Criteria
+### Acceptance Criteria
 
-✓ `src/.pi/extensions/__tests__/chrome.test.ts` — `registerBrunchChrome` installs a `ctx.ui.setEditorComponent` factory during `session_start` when the UI context supports it.
-✓ `src/.pi/extensions/__tests__/chrome.test.ts` — the installed factory returns `BrunchEditorComponent` labels derived from activated chrome state plus live telemetry, not hardcoded placeholders.
-✓ `src/app/__tests__/brunch-tui.test.ts` — the `createBrunchPiExtensions` product path wires the editor mount through the same chrome registrar used by normal Brunch TUI launch.
-✓ `src/app/__tests__/brunch-tui.test.ts` — a non-custom/headless workspace action does not call `ctx.ui.custom`.
-✓ `src/app/__tests__/brunch-tui.test.ts` — a non-custom/headless workspace action surfaces product-shaped degradation instead of throwing.
-✓ `src/.pi/components/__tests__/brunch-editor.harness.test.ts` — existing typing, escape, and ctrl-d behavior stays green under the production-mounted component.
-✓ Manual outer smoke — one real terminal run shows the mounted editor does not corrupt input height or focus after typing and submitting one prompt.
+```
+✓ src/.pi/extensions/__tests__/chrome.test.ts — registerBrunchChrome installs a ctx.ui.setEditorComponent
+  factory during session_start when the UI context supports it; factory constructs BrunchEditorComponent
+✓ src/.pi/extensions/__tests__/chrome.test.ts — no-UI/stub context: no install attempt, no throw
+✓ src/.pi/extensions/__tests__/chrome.test.ts — labels derive from activated chrome state + live
+  telemetry (mode top-right, spec title bottom-right, sidecar URL below), not hardcoded placeholders
+✓ src/.pi/extensions/__tests__/chrome.test.ts — a runtime-state append re-renders with the new mode
+  label (getLabels freshness, not cached)
+✓ src/app/__tests__/brunch-tui.test.ts — createBrunchPiExtensions wires the editor mount through the
+  same chrome registrar used by normal Brunch TUI launch (product path, not direct injection)
+✓ src/.pi/components/__tests__/brunch-editor.harness.test.ts — boxed editor renders at multiple widths
+  with autocomplete rows open without leaking rows outside the box (repeatable proxy for the height
+  assumption); existing typing/escape/ctrl-d behavior stays green
+✓ src/.pi/components/__tests__/brunch-editor.test.ts — existing direct suite stays green
+✓ src/.pi/extensions/__tests__/registry.test.ts — extension registration inventory stays green
+✓ Manual outer smoke — one real terminal run: mounted editor does not corrupt input height or focus
+  after typing, autocomplete, resize, and submitting one prompt; anomalies recorded in build handoff/PR
+```
 
-## Invariants preserved
+### Invariants preserved
 
-- Startup chrome still renders footer/title/header through `renderBrunchChrome` — guarded by: `src/.pi/extensions/__tests__/chrome.test.ts` and `src/app/__tests__/brunch-tui.test.ts` existing chrome assertions.
-- `BrunchEditorComponent` remains a presentation component with domain labels injected by caller — guarded by: `src/.pi/components/TOPOLOGY.md` dependency rules and component tests.
-- No-auth / no-UI degraded paths must not start model turns or require TUI dialogs — guarded by: existing I59-L suites plus this card's headless workspace-action test.
-- Pi app keybindings inherited by `CustomEditor` keep working — guarded by: `src/.pi/components/__tests__/brunch-editor.harness.test.ts`.
+```
+- Default Pi editing behavior (typing, app keybindings, autocomplete, external editor ctrl+g) —
+  guarded by: CustomEditor super delegation (ambient — name it in the install comment) +
+  brunch-editor.harness.test.ts + manual smoke
+- Startup chrome still renders footer/title/header through renderBrunchChrome (D35-L single-renderer
+  discipline; no new raw ctx.ui.* scatter) — guarded by: existing chrome.test.ts + brunch-tui.test.ts
+  chrome assertions
+- BrunchEditorComponent stays a presentation component with domain labels injected by caller —
+  guarded by: src/.pi/components/TOPOLOGY.md dependency rules + component tests
+- D22-L/I22-L startup ordering: no transcript rendering or agent loop before workspace activation —
+  guarded by: existing I22-L suites (stop-the-line if red)
+- D115-L/I59-L no-auth/no-UI degradation: chrome work must not backdoor a provider turn — guarded by:
+  existing I59-L suites (stop-the-line if red)
+```
 
-## Verification Approach
+### Verification Approach
 
-- Inner: targeted Vitest — chrome registrar tests, Brunch TUI wiring tests, and `BrunchEditorComponent` harness tests prove mount, labels, degradation, and input behavior.
-- Middle: product-path extension factory test — proves the card is wired through Brunch's real extension bundle, not only a direct component injection.
-- Outer: manual TUI smoke — run a real terminal with either `npm run dev:components -- brunch-editor` plus a normal `npm run dev` session, then record any render-height/focus anomaly in the build handoff or PR notes.
+```
+- Inner: vitest — chrome registrar tests, component direct/harness tests (fake ui context): seam
+  wiring, label projection + freshness, no-UI degradation, height proxy
+- Middle: product-path test in brunch-tui.test.ts — the mount rides Brunch's real extension bundle
+- Outer: manual TUI walkthrough per docs/praxis/manual-testing.md — render height, focus, swap timing,
+  resize; ALSO discharges the absorbed physical-terminal wheel smoke beat (iTerm2/Kitty/Ghostty,
+  same session, same terminals)
+```
 
-## Cross-cutting obligations
+### Cross-cutting obligations
 
-- Preserve D35 single-renderer discipline: persistent editor mounting belongs to the chrome seam, not scattered app wiring.
-- Preserve D22/I22 startup ordering: no transcript rendering or agent loop before workspace activation.
-- Preserve D115/I59 no-auth degradation: UI chrome work must not backdoor a provider turn.
-- Keep border styling semantic through theme tokens; do not introduce raw border colors while wiring the first mount.
-- Do not pull in FE-1169 later threads (`shift+tab` mode cycling, details-driven transcript rendering, `/brunch:*` command reshaping) except for the minimum labels needed to retire this tracer's assumption.
+```
+- Border semantics (thread 6): border color stays theme 'border' in this slice, but label/color inputs
+  must flow through one getLabels-style getter so thread 4 swaps in mode-reactive color without
+  re-plumbing — no raw border colors at the install site
+- Scope fence: do not pull in FE-1169 later threads (shift+tab mode cycling, details-driven transcript
+  rendering, /brunch:* command reshaping) beyond the minimum labels this tracer needs
+- D34-L containment posture: no new commands/keybindings in this slice
+- Absorbed outer beat: physical-terminal wheel smoke recorded with this card's manual smoke evidence
+```
 
-## Expected touched paths (tentative)
+### Expected touched paths (tentative)
 
-```text
-src/.pi/extensions/
-├── chrome/
-│   ├── index.ts          ~
-│   └── TOPOLOGY.md       ~
-├── workspace/
-│   └── index.ts          ~
-├── __tests__/
-│   └── chrome.test.ts    ~
-└── TOPOLOGY.md           ?
+```
+src/.pi/extensions/chrome/
+├── index.ts                                   ~  (install editor factory; widen BrunchChromeUi pick)
+└── TOPOLOGY.md                                ~  (editor surface joins chrome ownership)
+src/.pi/extensions/__tests__/chrome.test.ts    ~
 src/.pi/components/
-├── brunch-editor.ts      ?
-├── TOPOLOGY.md           ~
-└── __tests__/
-    └── brunch-editor.harness.test.ts ?
+├── brunch-editor.ts                           ?  (only if label shape needs a gap fix)
+├── TOPOLOGY.md                                ~
+└── __tests__/brunch-editor.harness.test.ts    ~  (width/autocomplete height proxy)
 src/app/
-├── pi-extensions.ts      ?
-└── __tests__/
-    └── brunch-tui.test.ts ~
-src/dev/
-└── TOPOLOGY.md           ~
+├── pi-extensions.ts                           ~  (label/spec/sidecar inputs if not already in chrome state)
+└── __tests__/brunch-tui.test.ts               ~
+src/dev/TOPOLOGY.md                            ?  (only if the preview entry contract shifts)
 ```
+
+---
+
+## Card 2 (light): workspace dialog headless guard
+
+### Objective
+
+`runBrunchWorkspaceAction` no longer throws in no-UI contexts: the ungated `ctx.ui.custom` call (`workspace/index.ts:51`) and the subsequent `activateWorkspace(decision)` on an undefined decision are gated behind a UI-capability check that degrades to a product-shaped notify/`needs_human` outcome.
+
+### Light-card cold-start reads
+
+```
+- memory/SPEC.md   — A18-L (containment sufficiency), D115-L (no-UI degraded paths precedent)
+- memory/PLAN.md    — frontier: main-editor-chrome (absorbed obligation workspace-dialog-headless-guard)
+- src/.pi/extensions/exchanges/ask.ts — the hasUI + typeof ui.custom guard family to mirror
+```
+
+### Acceptance Criteria
+
+```
+✓ new workspace-action headless test (src/.pi/extensions/__tests__/) — stub context without ui.custom
+  (use the actual degraded context shape from Brunch fakes/Tier-2 boot, not a minimal invented stub):
+  action returns without throwing, surfaces product-shaped degradation (notify/needs_human),
+  coordinator.activateWorkspace never called with an undefined decision
+✓ same suite — UI-capable path unchanged (decision flows to activateWorkspace; cancelled/needs_human
+  branches intact)
+```
+
+### Verification Approach
+
+```
+- Inner: vitest with stubbed ExtensionContext (both capability shapes)
+```
+
+### Cross-cutting obligations
+
+```
+- Guard shape mirrors the ask.ts hasUI family — one idiom for UI-capability gating, not a second
+```
+
+### Assumption dependency
+
+None — the throw path is mechanically visible in source; no live SPEC assumption gates it.
+
+### Expected touched paths (tentative)
+
+```
+src/.pi/extensions/workspace/index.ts                          ~
+src/.pi/extensions/__tests__/workspace-action-headless.test.ts +
+```
+
+### Promotion checklist
+
+All no — stays light. (No requirement/assumption/decision change; single settled seam; guard idiom already canonical in ask.ts.)
