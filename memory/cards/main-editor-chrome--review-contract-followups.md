@@ -16,6 +16,8 @@ Posture: earned (closure/canonicalization moves over landed behavior; nothing un
 
 ## Slice 1 (light) — candidates renderer joins the canonical theme contract
 
+Status: done
+
 ### Objective
 
 `ExchangeCandidatesResultComponent` takes the canonical theme type its sibling components use, deleting the local `ThemeLike` with its `(color: never, …)` signature and the `'accent' as never` cast.

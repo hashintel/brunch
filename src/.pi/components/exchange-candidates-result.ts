@@ -3,18 +3,14 @@ import { type Component } from '@earendil-works/pi-tui';
 import type { PresentCandidatesDetails } from '../../exchanges/schemas/index.js';
 import { renderExchangeMarkdownBodyLines } from './exchange-markdown-body.js';
 import { projectRoundedBox } from './rounded-box.js';
-
-interface ThemeLike {
-  readonly fg?: (color: never, text: string) => string;
-  readonly bold?: (text: string) => string;
-}
+import type { LabTheme } from './tui-lab/index.js';
 
 const CARD_STATUS = 'Recognition proposal';
 
 export class ExchangeCandidatesResultComponent implements Component {
   constructor(
     private readonly details: PresentCandidatesDetails,
-    private readonly theme?: ThemeLike,
+    private readonly theme?: LabTheme,
   ) {}
 
   invalidate(): void {}
@@ -42,7 +38,7 @@ export class ExchangeCandidatesResultComponent implements Component {
             labelAlign: 'left',
           },
           width,
-          (text) => (this.theme?.fg ? this.theme.fg('accent' as never, text) : text),
+          (text) => (this.theme ? this.theme.fg('accent', text) : text),
         ),
       );
     }
@@ -55,16 +51,13 @@ function summaryFor(candidate: PresentCandidatesDetails['candidates'][number]): 
   return candidate.user_rubric.recommendation ?? candidate.user_rubric.core_bet;
 }
 
+// Length truncation is acceptable here because candidate-card body lines are plain, unstyled ASCII labels.
 function truncatePlain(text: string, width: number): string {
   if (text.length <= width) return text;
   if (width <= 1) return '…';
   return `${text.slice(0, width - 1)}…`;
 }
 
-function renderMarkdownLines(
-  body: string | undefined,
-  theme: ThemeLike | undefined,
-  width: number,
-): string[] {
+function renderMarkdownLines(body: string | undefined, theme: LabTheme | undefined, width: number): string[] {
   return renderExchangeMarkdownBodyLines(body, theme, width).map((line) => line.trimEnd());
 }
