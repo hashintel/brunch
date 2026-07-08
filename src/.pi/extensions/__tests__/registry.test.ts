@@ -26,6 +26,7 @@ import { registerBrunchPrompting as prompting } from '../agent-runtime/system-pr
 import { registerBrunchContext as context } from '../brunch-data/context/index.js';
 import chrome from '../chrome/index.js';
 import {
+  BRUNCH_CONSULT_COMMAND,
   BRUNCH_MENU_COMMAND,
   BRUNCH_MENU_SHORTCUT,
   BRUNCH_MODE_COMMAND,
@@ -201,7 +202,11 @@ describe('Brunch explicit Pi extension registry', () => {
       'read_elicitation_scratchpad',
       'update_elicitation_scratchpad',
     ]);
-    expect(recording.commandNames).toEqual([BRUNCH_MENU_COMMAND, BRUNCH_MODE_COMMAND]);
+    expect(recording.commandNames).toEqual([
+      BRUNCH_MENU_COMMAND,
+      BRUNCH_MODE_COMMAND,
+      BRUNCH_CONSULT_COMMAND,
+    ]);
     expect(recording.commandNames).not.toContain(['brunch', 'switch'].join(':'));
     expect(recording.messageRenderers).toEqual(['alternatives-card-set']);
     expect(recording.shortcuts).toEqual([

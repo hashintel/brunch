@@ -54,6 +54,7 @@ import {
 } from '../session-orientation/index.js';
 import { runJunctureForContext, sendCustomMessageViaExtensionApi } from '../session-orientation/juncture.js';
 import {
+  BRUNCH_CONSULT_COMMAND,
   forceClaimOrientationJuncture,
   orientationJunctureGate,
   releaseOrientationJuncture,
@@ -69,6 +70,8 @@ export const BRUNCH_COMMAND_PREFIX = 'brunch:';
 export const BRUNCH_MENU_COMMAND = 'brunch:menu';
 export const BRUNCH_CONTINUE_COMMAND = 'brunch:continue';
 export const BRUNCH_MODE_COMMAND = 'brunch:mode';
+
+export { BRUNCH_CONSULT_COMMAND } from '../session-orientation/registrar.js';
 
 export {
   BRUNCH_MENU_SHORTCUT,
@@ -228,7 +231,7 @@ async function runModeSwitchOrientation(
         hasUI: ctx.hasUI,
         modelRegistry: ctx.modelRegistry,
         sessionManager: ctx.sessionManager,
-        ui: { select: ctx.ui.select.bind(ctx.ui) },
+        ui: ctx.ui,
       },
       trigger: 'mode-switch',
       mode: 'follow-choice',
@@ -328,6 +331,43 @@ function registerRuntimeSwitchCommands(pi: ExtensionAPI, options: ModeSwitchOpti
   });
 }
 
+function registerConsultCommand(
+  pi: ExtensionAPI,
+  options: Pick<BrunchCommandsOptions, 'sessionOrientation'>,
+): void {
+  pi.registerCommand(BRUNCH_CONSULT_COMMAND, {
+    description: 'Consult the Brunch session-orientation menu',
+    handler: async (_args, ctx) => {
+      if (!options.sessionOrientation) {
+        ctx.ui.notify('Brunch consult is unavailable in this session.', 'warning');
+        return;
+      }
+      const gate = orientationJunctureGate(options.sessionOrientation);
+      const claim = forceClaimOrientationJuncture(gate);
+      let result: { readonly ran: boolean; readonly kickFired: boolean } | undefined;
+      try {
+        const kickContext = await options.sessionOrientation.resolveKickContext();
+        result = await runJunctureForContext({
+          ctx,
+          trigger: 'consult',
+          mode: 'follow-choice',
+          kick: kickContext
+            ? { ...kickContext, sendCustomMessage: sendCustomMessageViaExtensionApi(pi) }
+            : undefined,
+          onAppendError: (error) => {
+            ctx.ui.notify(
+              `Session-orientation entry could not be recorded: ${formatErrorMessage(error)}`,
+              'warning',
+            );
+          },
+        });
+      } finally {
+        releaseOrientationJuncture(gate, claim, result);
+      }
+    },
+  });
+}
+
 function workspaceActionOptions(
   options: Pick<BrunchCommandsOptions, 'productUpdates'>,
 ): Parameters<typeof runBrunchWorkspaceAction>[2] {
@@ -344,6 +384,7 @@ export function registerBrunchCommands(pi: ExtensionAPI, options: BrunchCommands
   });
 
   registerRuntimeSwitchCommands(pi, options);
+  registerConsultCommand(pi, options);
 
   // Pi shortcut contexts lack switchSession/waitForIdle, so borrow a
   // command-capable context from the composition root when available.

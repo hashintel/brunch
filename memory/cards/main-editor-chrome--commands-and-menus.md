@@ -88,7 +88,7 @@ adopted its chrome-copy and D34-L containment leaves; kept retire-outright over 
 
 ---
 
-## Card 2 (full) — `/brunch:consult` + styled consult dialog · status: pending (after Card 1)
+## Card 2 (full) — `/brunch:consult` + styled consult dialog · status: done
 
 ### Target Behavior
 
@@ -191,6 +191,19 @@ src/.pi/themes/*.json                         ~  (surface-identity role, if not 
 src/dev/component-preview/registry.ts         ~
 src/.pi/extensions/__tests__/registry.test.ts ~
 ```
+
+### Completion report
+
+| Leaf | Outcome | Evidence |
+| ---- | ------- | -------- |
+| `/brunch:consult` forces the dialog; selection routes by item id; esc/timeout remains inert, entry recorded, no kick | met | `commands-runtime-switch.test.ts` consult custom-id test; `juncture.test.ts` esc/timeout dismissed tests; focused suite: `npm run test -- src/.pi/components/__tests__/consult-menu.test.ts src/.pi/extensions/session-orientation/__tests__/registrar.test.ts src/.pi/extensions/session-orientation/__tests__/juncture.test.ts src/.pi/extensions/__tests__/commands-runtime-switch.test.ts src/.pi/extensions/__tests__/registry.test.ts` |
+| Consult menu component renders bordered box, two-line options, and a named surface-identity border role | met-with-divergence | `consult-menu.test.ts`; role uses existing theme role `borderAccent` via a local surface-identity constant rather than adding a new `surfaceIdentity` token, preserving Pi `Theme` type ownership |
+| No-UI path synthesizes no orientation entry | met | Existing `juncture.test.ts` no-UI follow-choice coverage stayed green in focused suite |
+| `dev:components` includes consult menu preview entries | met | `registry.ts` includes `consult-menu` and `consult-menu-scroll`; `npm run build` and `npm run test -- src/dev/component-preview/__tests__/theme.test.ts` passed |
+| `/brunch:consult` registered in shell registry | met | `registry.test.ts` command-order assertion and `commands-runtime-switch.test.ts` command registration test passed |
+| Orientation entries remain excluded from capture sweep | met | Full `npm run verify` reached tests; unrelated `git-host-promotion-port.test.ts` timeout stopped the gate, no capture-sweep regression surfaced |
+
+Skipped-test-count delta vs parent commit: focused consult suite reported `0` skipped; full `npm run verify` reported the existing `3 skipped` and failed before build on `git-host-promotion-port.test.ts` timeouts plus a workspace-dialog preflight timeout. The workspace-dialog preflight test passed in isolation; `git-host-promotion-port.test.ts` still times out in isolation on this machine. `npm run build` passed separately.
 
 ---
 

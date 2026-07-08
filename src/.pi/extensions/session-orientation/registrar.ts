@@ -16,7 +16,8 @@
  *        `agent_end` extension event does NOT carry `willRetry`; compaction-
  *        overflow retries fire a fresh `agent_end` and the debounce window
  *        below covers the double-dialog case. Documented ceiling.
- *  - J6: `pi.registerCommand('brunch:consult')` — always run the dialog.
+ *  - J6: `/brunch:consult` is owned by `commands/index.ts` and routes through
+ *        the same gate helpers exported here.
  *
  * All handlers route through `runOrientationJuncture` so the entry rule and
  * kick rule stay in one place; the registrar itself is thin wiring only.
@@ -156,16 +157,6 @@ export function registerBrunchSessionOrientation(pi: ExtensionAPI, deps: BrunchS
       trigger: 'abort',
       mode: 'follow-choice',
     });
-  });
-
-  pi.registerCommand(BRUNCH_CONSULT_COMMAND, {
-    description: 'Consult the session-orientation menu at will',
-    handler: async (_args, ctx) => {
-      await runJuncture(ctx, deps, debounce, {
-        trigger: 'consult',
-        mode: 'follow-choice',
-      });
-    },
   });
 }
 

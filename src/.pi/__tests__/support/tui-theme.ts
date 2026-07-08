@@ -4,6 +4,7 @@ export function createTestLabTheme(): LabTheme {
   const colorCodes: Record<string, string> = {
     accent: '\x1b[38;5;33m',
     border: '\x1b[38;5;33m',
+    borderAccent: '\x1b[38;5;214m',
     success: '\x1b[38;5;34m',
     warning: '\x1b[38;5;220m',
     error: '\x1b[38;5;196m',

@@ -33,6 +33,8 @@ components/
 ├── chrome-header.ts
 ├── chrome-shortcuts.ts        shared shortcut constants/hint formatting consumed by chrome copy
 │                                and the command registrar that binds those keys
+├── consult-menu.ts            bordered session-orientation consult menu using the shared two-line
+│                                choice-row projection and surface-identity border role
 ├── editor-lines.ts            shared pi-tui Editor border/rule stripping helpers for boxed
 │                                editor surfaces
 ├── exchange-answer-editor.ts   bordered free-text exchange answer editor hosting pi-tui Editor

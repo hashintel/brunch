@@ -34,6 +34,8 @@ import { captureMessageRenderer, previewStaticComponent, sampleCustomMessage } f
 import { ThemeTestbedComponent } from './theme-testbed.js';
 import { createComponentPreviewEditorTheme } from './theme.js';
 
+import { ConsultMenuComponent } from '../../.pi/components/consult-menu.js';
+
 export interface ComponentPreviewEntry {
   readonly id: string;
   readonly label: string;
@@ -130,6 +132,60 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
     open: (tui, theme, keybindings) =>
       showComponentPreview(tui, theme, keybindings, (_tui, previewTheme, _kb, done) =>
         createRuntimeModePickerComponent({ current: 'specify', theme: previewTheme, onDone: done }),
+      ),
+  },
+  {
+    id: 'consult-menu',
+    label: 'Consult menu',
+    presentedLike: 'inline swap — /brunch:consult orientation dialog (commands/index.ts)',
+    open: (tui, theme, keybindings) =>
+      showComponentPreview(
+        tui,
+        theme,
+        keybindings,
+        (_tui, previewTheme, _kb, done) =>
+          new ConsultMenuComponent({
+            title: 'How should this session continue?',
+            choices: [
+              { id: 'continue', label: 'Continue', description: 'Stay inert until your next instruction.' },
+              {
+                id: 'elicit_decisions',
+                label: 'Ask decision-driven questions',
+                description: 'Use the elicitor/grill style to resolve choices.',
+              },
+              {
+                id: 'propose_oracle',
+                label: 'Propose verification designs',
+                description: 'Project test and evidence strategies for this frontier.',
+              },
+            ],
+            theme: previewTheme,
+            onDone: done,
+          }),
+      ),
+  },
+  {
+    id: 'consult-menu-scroll',
+    label: 'Consult menu (scroll)',
+    presentedLike: 'inline swap — /brunch:consult orientation dialog, long-list scroll viewport demo',
+    open: (tui, theme, keybindings) =>
+      showComponentPreview(
+        tui,
+        theme,
+        keybindings,
+        (_tui, previewTheme, _kb, done) =>
+          new ConsultMenuComponent({
+            title: 'How should this session continue?',
+            choices: Array.from({ length: 16 }, (_, index) => ({
+              id: `consult-${index + 1}`,
+              label: `Consult option ${index + 1}`,
+              ...(index % 2 === 0
+                ? { description: `Description ${index + 1} keeps two-line scrolling honest.` }
+                : {}),
+            })),
+            theme: previewTheme,
+            onDone: done,
+          }),
       ),
   },
   {

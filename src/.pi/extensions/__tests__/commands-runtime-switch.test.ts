@@ -10,6 +10,7 @@ import {
 import { BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE } from '../../../session/session-orientation.js';
 import { createTestLabTheme } from '../../__tests__/support/tui-theme.js';
 import {
+  BRUNCH_CONSULT_COMMAND,
   BRUNCH_MENU_COMMAND,
   BRUNCH_MENU_SHORTCUT,
   BRUNCH_MODE_COMMAND,
@@ -191,7 +192,11 @@ describe('Brunch menu command', () => {
     const harness = commandHarness();
     const retiredCommand = ['brunch', 'switch'].join(':');
 
-    expect([...harness.commands.keys()]).toEqual([BRUNCH_MENU_COMMAND, BRUNCH_MODE_COMMAND]);
+    expect([...harness.commands.keys()]).toEqual([
+      BRUNCH_MENU_COMMAND,
+      BRUNCH_MODE_COMMAND,
+      BRUNCH_CONSULT_COMMAND,
+    ]);
     expect(harness.commands.has(retiredCommand)).toBe(false);
   });
 
@@ -231,6 +236,21 @@ describe('Brunch menu command', () => {
 
     expect(borrowedWaits).toEqual([1]);
     expect(harness.workspaceDecisions).toEqual([decision]);
+  });
+
+  it('registers /brunch:consult and forces the orientation dialog through custom UI', async () => {
+    const harness = commandHarness({ orientation: true, customResult: { id: 'propose_design' } });
+
+    await harness.commands.get(BRUNCH_CONSULT_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.customCalls).toHaveLength(1);
+    expect(harness.selectCalls).toEqual([]);
+    expect(harness.entries).toContainEqual(
+      expect.objectContaining({
+        customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
+        data: { schemaVersion: 1, choice: 'propose_design', trigger: 'consult' },
+      }),
+    );
   });
 });
 
@@ -366,7 +386,7 @@ describe('Brunch runtime switch commands', () => {
   it('borrows the command context for shortcut mode cycling so J5 can settle in-flight work', async () => {
     const harness = commandHarness({
       orientation: true,
-      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'proceed')!.label,
+      customResult: { id: 'proceed' },
     });
     const shortcutCtx = { ...harness.ctx };
     let idle = false;
@@ -434,7 +454,7 @@ describe('Brunch runtime switch commands', () => {
   it('aborts an in-flight turn (claiming the J4 gate) before showing the mode-switch menu', async () => {
     const harness = commandHarness({
       orientation: true,
-      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'proceed')!.label,
+      customResult: { id: 'proceed' },
     });
     const events: string[] = [];
     let idle = false;
@@ -449,15 +469,15 @@ describe('Brunch runtime switch commands', () => {
       events.push('waitForIdle');
       idle = true;
     };
-    const baseSelect = harness.ctx.ui.select.bind(harness.ctx.ui);
-    harness.ctx.ui.select = async (title, choices) => {
-      events.push('select');
-      return baseSelect(title, choices);
+    const baseCustom = harness.ctx.ui.custom!.bind(harness.ctx.ui);
+    harness.ctx.ui.custom = async (factory, options) => {
+      events.push('custom');
+      return baseCustom(factory, options);
     };
 
     await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
 
-    expect(events).toEqual(['abort', 'waitForIdle', 'select']);
+    expect(events).toEqual(['abort', 'waitForIdle', 'custom']);
     expect(orientationJunctureGate(harness.orientationDeps!).suppressNextAbortJuncture).toBe(true);
     expect(harness.entries).toContainEqual(
       expect.objectContaining({
@@ -504,12 +524,13 @@ describe('Brunch runtime switch commands', () => {
   it('runs the CODE-side orientation menu and kicks on the selected choice after switching to Execute', async () => {
     const harness = commandHarness({
       orientation: true,
-      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'design_first')!.label,
+      customResult: { id: 'design_first' },
     });
 
     await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
 
-    expect(harness.selectCalls[0]?.title).toBe(CODE_SESSION_ORIENTATION_MENU.title);
+    expect(harness.customCalls).toHaveLength(1);
+    expect(harness.selectCalls).toEqual([]);
     expect(harness.entries).toContainEqual(
       expect.objectContaining({
         type: 'custom',

@@ -129,6 +129,7 @@ export {
 } from '../.pi/extensions/session-hooks/index.js';
 export {
   BRUNCH_COMMAND_PREFIX,
+  BRUNCH_CONSULT_COMMAND,
   BRUNCH_CONTINUE_COMMAND,
   BRUNCH_MENU_COMMAND,
   BRUNCH_MENU_SHORTCUT,

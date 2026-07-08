@@ -295,20 +295,6 @@ describe('registerBrunchSessionOrientation', () => {
     });
   });
 
-  it('registers /brunch:consult which always runs the dialog', async () => {
-    const { pi, handlers } = collectPi();
-    registerBrunchSessionOrientation(pi, { resolveKickContext: () => undefined });
-    const { ctx, entries } = buildCtx(labelFor('propose_oracle'));
-
-    await handlers.consult!('', ctx);
-
-    expect(entries.at(-1)).toEqual({
-      type: 'custom',
-      customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
-      data: { schemaVersion: 1, choice: 'propose_oracle', trigger: 'consult' },
-    });
-  });
-
   it('skips J4 exactly once when a product flow claimed the abort via the shared gate', async () => {
     const { pi, handlers } = collectPi();
     const deps = { resolveKickContext: () => undefined };
@@ -383,12 +369,20 @@ describe('registerBrunchSessionOrientation', () => {
     registerBrunchSessionOrientation(pi, { resolveKickContext: () => undefined });
 
     const { ctx: firstCtx, entries } = buildCtx(labelFor('ingest'));
-    await handlers.consult!('', firstCtx);
+    await handlers.session_tree!({ type: 'session_tree', newLeafId: 'a', oldLeafId: 'b' }, firstCtx);
 
     // Second juncture uses a fresh manager sharing the same debounce state
     // via the closure captured at registration time.
     const { ctx: secondCtx, entries: secondEntries } = buildCtx(labelFor('ingest'));
-    await handlers.session_tree!({ type: 'session_tree', newLeafId: 'a', oldLeafId: 'b' }, secondCtx);
+    await handlers.agent_end!(
+      {
+        type: 'agent_end',
+        messages: [
+          { role: 'assistant', content: [], stopReason: 'aborted', usage: {}, timestamp: 0 } as never,
+        ],
+      },
+      secondCtx,
+    );
 
     expect(entries).toHaveLength(1);
     expect(secondEntries).toEqual([]);
