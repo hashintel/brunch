@@ -64,7 +64,7 @@ function diagnosisForEligibility(eligibility: RunRetryEligibilityResult): string
     case 'replan_before_retry':
       return `Run ${eligibility.runId} has not produced slice execution evidence yet, but its plan is not fresh. Regenerate the plan before retrying.`;
     case 'start_new_run_required':
-      return `Run ${eligibility.runId} already has execution evidence and its plan is not fresh. Start a new run from a fresh plan instead of mutating this run.`;
+      return `Run ${eligibility.runId} is not safe to replan in place at ${eligibility.runStatus}. Start a new run from a fresh plan instead of mutating this run.`;
     case 'terminal_run':
       return `Run ${eligibility.runId} is terminal at ${eligibility.runStatus}. Inspect it rather than retrying or replanning in place.`;
   }

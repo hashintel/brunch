@@ -91,10 +91,10 @@ describe('recommendRunReplan', () => {
     expect(recommendation.diagnosis).toContain('Regenerate the plan');
   });
 
-  it('recommends a new run for stale runs that already have execution evidence', async () => {
+  it('recommends a new run for stale runs that cannot be safely replanned in place', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-recommend-new-run-'));
     await writePlan(cwd, 10);
-    await writeRun(cwd, 'agent_result_ingested');
+    await writeRun(cwd, 'worktree_populated');
 
     const recommendation = await recommendRunReplan({ cwd, runId: 'run-1', current });
 
@@ -104,6 +104,8 @@ describe('recommendRunReplan', () => {
       allowedActions: ['start_new_run', 'inspect_run', 'abandon_run'],
     });
     expect(recommendation.diagnosis).toContain('Start a new run');
+    expect(recommendation.diagnosis).toContain('worktree_populated');
+    expect(recommendation.diagnosis).not.toContain('already has execution evidence');
   });
 
   it('recommends inspection for terminal runs', async () => {
