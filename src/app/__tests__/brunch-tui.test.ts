@@ -1021,8 +1021,7 @@ describe('Brunch TUI boot', () => {
     for (const commandName of [BRUNCH_MODE_COMMAND]) {
       expect(commands.has(commandName)).toBe(true);
     }
-    // Disabled until operational: continue is unimplemented.
-    expect(commands.has(BRUNCH_CONTINUE_COMMAND)).toBe(false);
+    expect(commands.has(BRUNCH_CONTINUE_COMMAND)).toBe(true);
     expect(shortcuts.get(BRUNCH_MENU_SHORTCUT)?.description).toBe('Open the Brunch spec/session picker');
     expect(shortcuts.get(BRUNCH_MODE_PICKER_SHORTCUT)?.description).toBe('Open the Brunch mode picker');
     expect(shortcuts.get(BRUNCH_MODE_SHORTCUT)?.description).toBe('Cycle the Brunch mode');

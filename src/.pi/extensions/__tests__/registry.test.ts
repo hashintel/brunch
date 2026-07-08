@@ -27,6 +27,7 @@ import { registerBrunchContext as context } from '../brunch-data/context/index.j
 import chrome from '../chrome/index.js';
 import {
   BRUNCH_CONSULT_COMMAND,
+  BRUNCH_CONTINUE_COMMAND,
   BRUNCH_MENU_COMMAND,
   BRUNCH_MENU_SHORTCUT,
   BRUNCH_MODE_COMMAND,
@@ -206,6 +207,7 @@ describe('Brunch explicit Pi extension registry', () => {
       BRUNCH_MENU_COMMAND,
       BRUNCH_MODE_COMMAND,
       BRUNCH_CONSULT_COMMAND,
+      BRUNCH_CONTINUE_COMMAND,
     ]);
     expect(recording.commandNames).not.toContain(['brunch', 'switch'].join(':'));
     expect(recording.messageRenderers).toEqual(['alternatives-card-set']);

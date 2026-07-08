@@ -17,6 +17,7 @@ export interface StructuredExchangeUiContext {
     readonly editor?: (prompt: string) => Promise<string | undefined>;
     readonly select?: (prompt: string, choices: readonly string[]) => Promise<string | undefined>;
     readonly input?: (prompt: string, placeholder?: string) => Promise<string | undefined>;
+    readonly setStatus?: (key: string, text: string) => void;
     readonly custom?: <T>(
       factory: (
         tui: TUI,

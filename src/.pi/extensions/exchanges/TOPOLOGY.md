@@ -31,8 +31,10 @@ operational-mode color role through the shared component border-color seam;
 workspace/consult surfaces keep their own surface-identity colors. Picker-root
 dismissal is terminal `cancelled`; nested Other/comment input steps share one
 `StepResult`-shaped collector and return to the picker, with multi-choice
-checkbox state restored. No-UI option asks return `unavailable` until A39-L /
-headless ask discovery lands.
+checkbox state restored. Root cancellation contributes a `brunch.continue`
+status hint naming `/brunch:continue`; the command re-presents the newest
+incomplete declared continuation through the same collector. No-UI option asks
+return `unavailable` until A39-L / headless ask discovery lands.
 
 ## Declared continuations
 

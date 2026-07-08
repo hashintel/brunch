@@ -48,6 +48,8 @@ import {
 import { withWorkingIndicatorHidden, type StructuredExchangeUiContext } from './shared/ui-context.js';
 
 export const ASK_TOOL = 'ask' as const;
+const CONTINUE_STATUS_KEY = 'brunch.continue';
+const CONTINUE_COMMAND_HINT = '/brunch:continue';
 
 type AskResultDetails = RequestDetails;
 
@@ -81,6 +83,10 @@ function terminal(
           message: message ?? 'ask unavailable',
         });
   return result(details, status === 'cancelled');
+}
+
+function surfaceContinueHint(ctx: StructuredExchangeUiContext): void {
+  ctx.ui?.setStatus?.(CONTINUE_STATUS_KEY, `Interrupted ask. Run ${CONTINUE_COMMAND_HINT} to resume.`);
 }
 
 type ContinuationCollectParams = AskContinuationParams & { readonly exchangeId: string };
@@ -150,21 +156,32 @@ async function collectFreeText(
       ),
     );
     if (customResult?.status === 'answered') answer = customResult.answer;
-    else if (customResult?.status === 'cancelled') return terminal(params, question, 'cancelled');
-    else if (typeof ctx.ui?.editor === 'function') {
+    else if (customResult?.status === 'cancelled') {
+      surfaceContinueHint(ctx);
+      return terminal(params, question, 'cancelled');
+    } else if (typeof ctx.ui?.editor === 'function') {
       answer = await withWorkingIndicatorHidden(ctx, () => ctx.ui!.editor!(params.body));
-      if (answer === undefined) return terminal(params, question, 'cancelled');
+      if (answer === undefined) {
+        surfaceContinueHint(ctx);
+        return terminal(params, question, 'cancelled');
+      }
     }
   } else if (ctx.hasUI && typeof ctx.ui?.editor === 'function') {
     answer = await withWorkingIndicatorHidden(ctx, () => ctx.ui!.editor!(params.body));
-    if (answer === undefined) return terminal(params, question, 'cancelled');
+    if (answer === undefined) {
+      surfaceContinueHint(ctx);
+      return terminal(params, question, 'cancelled');
+    }
   } else if (answerBroker) {
     answer = await answerBroker.awaitAnswer({ exchangeId: params.exchangeId });
   } else {
     return terminal(params, question, 'unavailable', 'ask requires interactive UI');
   }
 
-  if (answer === undefined) return terminal(params, question, 'cancelled');
+  if (answer === undefined) {
+    surfaceContinueHint(ctx);
+    return terminal(params, question, 'cancelled');
+  }
   const trimmed = answer.trim();
   if (trimmed.length === 0) return terminal(params, question, 'unavailable', 'ask answer cannot be empty');
   let comment: string | undefined;
@@ -201,7 +218,10 @@ async function collectSingleChoiceWithBackNavigation(
 ): Promise<ToolResult> {
   for (;;) {
     const picked = await presentSingleChoicePicker(params, ctx, custom);
-    if (!picked) return terminal(params, question, 'cancelled');
+    if (!picked) {
+      surfaceContinueHint(ctx);
+      return terminal(params, question, 'cancelled');
+    }
     const collected = await collectPickedSingleChoice(params, picked, ctx);
     if (isBack(collected)) continue;
     if (collected.status === 'unavailable')
@@ -305,7 +325,10 @@ async function collectMultiChoiceWithBackNavigation(
   let selectedChoiceIds: readonly string[] = [];
   for (;;) {
     const picked = await presentMultiChoicePicker(params, ctx, custom, selectedChoiceIds);
-    if (!picked) return terminal(params, question, 'cancelled');
+    if (!picked) {
+      surfaceContinueHint(ctx);
+      return terminal(params, question, 'cancelled');
+    }
     selectedChoiceIds = picked.choices.map((choice) => choice.id);
     const collected = await collectPickedMultiChoices(params, picked, ctx);
     if (isBack(collected)) continue;
@@ -433,7 +456,10 @@ async function collectMultiChoiceViaEditor(
       }),
     );
   }
-  if ('cancelled' in details) return terminal(params, question, 'cancelled', details.cancelled.message);
+  if ('cancelled' in details) {
+    surfaceContinueHint(ctx);
+    return terminal(params, question, 'cancelled', details.cancelled.message);
+  }
   return terminal(params, question, 'unavailable', details.unavailable.message);
 }
 
@@ -566,7 +592,10 @@ async function collectContinuingCandidateChoice(
       }),
     ),
   );
-  if (!picked) return continuationTerminal(params, present, 'cancelled');
+  if (!picked) {
+    surfaceContinueHint(ctx);
+    return continuationTerminal(params, present, 'cancelled');
+  }
   const option = params.options.find((choice) => choice.id === picked.id);
   if (!option)
     return continuationTerminal(
@@ -612,7 +641,10 @@ async function collectContinuingReview(
         }),
       ),
     );
-    if (!selected) return continuationTerminal(params, present, 'cancelled');
+    if (!selected) {
+      surfaceContinueHint(ctx);
+      return continuationTerminal(params, present, 'cancelled');
+    }
     const collected = await collectContinuationReviewComment(params, selected.id, ctx);
     if (isBack(collected)) continue;
     if (collected.status === 'unavailable')
@@ -730,6 +762,13 @@ export function collectAskResponse(
   if (!params.options) return collectFreeText(params, question, ctx, answerBroker);
   if (params.multiple) return collectMultiChoice(params, question, ctx);
   return collectSingleChoice(params, question, ctx);
+}
+
+export function collectAskContinuationResponse(
+  exchangeId: string,
+  ctx: StructuredExchangeUiContext,
+): Promise<ToolResult> {
+  return collectContinuingAsk({ continues: exchangeId }, ctx);
 }
 
 export function createAskTool(answerBroker?: LiveExchangeAwaiter) {

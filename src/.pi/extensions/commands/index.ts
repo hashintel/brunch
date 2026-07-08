@@ -12,6 +12,8 @@
  * Active commands:
  *  - `/brunch:menu`     — open the spec/session picker (delegates to
  *                         workspace-dialog.ts).
+ *  - `/brunch:continue` — recover/restart from an interrupted structured
+ *                         exchange continuation.
  *  - `/brunch:mode`     — change the transcript-backed operational mode.
  *
  * Keyboard shortcuts (match the bracketed key hints in the footer chrome):
@@ -21,22 +23,20 @@
  *  - `alt+m` — mode picker
  *  - `shift+tab` — mode cycle
  *
- * Disabled until operational (constant kept so tests can assert absence):
- *  - `/brunch:continue` — recover/restart from an interrupted `request_*` tool
- *                         or other interruption. Needs to: (a) optionally add a
- *                         system-prompt hint that bare "continue" resumes the
- *                         brunch flow, and (b) install listeners on user cancel
- *                         actions that surface a `setStatus` reminder.
+ * The ask collector owns cancellation status hints that point back to
+ * `/brunch:continue`.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
 
+import { findIncompleteStructuredExchangePresents, type EntryLike } from '../../../exchanges/recovery.js';
 import { appendBrunchAgentRuntimeSwitch } from '../../../session/runtime-state.js';
 import {
   OPERATIONAL_MODE_IDS,
   operationalModeLabel,
   type OperationalModeId,
 } from '../../../session/schema/kinds.js';
+import { syntheticExchangeToolCallMessage } from '../../../session/structured-exchange-loop.js';
 import {
   BRUNCH_MENU_SHORTCUT,
   BRUNCH_MODE_PICKER_SHORTCUT,
@@ -47,6 +47,8 @@ import {
   activeToolNamesForBrunchAgentState,
   projectBrunchAgentState,
 } from '../agent-runtime/runtime/index.js';
+import { ASK_TOOL, collectAskContinuationResponse } from '../exchanges/ask.js';
+import type { StructuredExchangeUiContext } from '../exchanges/shared/ui-context.js';
 import {
   CODE_SESSION_ORIENTATION_MENU,
   SESSION_ORIENTATION_MENU,
@@ -117,6 +119,13 @@ interface RuntimeSwitchContext {
   readonly abort?: ExtensionCommandContext['abort'];
   readonly waitForIdle?: ExtensionCommandContext['waitForIdle'];
 }
+
+type ContinueCommandContext = ExtensionCommandContext & {
+  readonly sessionManager: ExtensionCommandContext['sessionManager'] & {
+    readonly getBranch?: () => readonly EntryLike[];
+    readonly appendMessage?: (message: unknown) => unknown;
+  };
+};
 
 function normalizeAxisArg(args: string): string {
   return args.trim().split(/\s+/)[0] ?? '';
@@ -368,6 +377,63 @@ function registerConsultCommand(
   });
 }
 
+function currentBranchEntries(ctx: ContinueCommandContext): readonly EntryLike[] {
+  return ctx.sessionManager.getBranch?.() ?? (ctx.sessionManager.getEntries() as readonly EntryLike[]);
+}
+
+function latestDeclaredAskContinuation(ctx: ContinueCommandContext) {
+  return findIncompleteStructuredExchangePresents(currentBranchEntries(ctx))
+    .filter((present) => {
+      const continuation = 'continuation' in present.details ? present.details.continuation : undefined;
+      return present.continuationTool === ASK_TOOL && continuation?.tool === ASK_TOOL;
+    })
+    .at(-1);
+}
+
+function appendRecoveredAskResult(
+  ctx: ContinueCommandContext,
+  exchangeId: string,
+  result: Awaited<ReturnType<typeof collectAskContinuationResponse>>,
+): boolean {
+  if (typeof ctx.sessionManager.appendMessage !== 'function') return false;
+  const toolCallMessage = syntheticExchangeToolCallMessage(exchangeId, ASK_TOOL, { continues: exchangeId });
+  ctx.sessionManager.appendMessage(toolCallMessage);
+  ctx.sessionManager.appendMessage({
+    role: 'toolResult',
+    toolCallId: toolCallMessage.content[0].id,
+    toolName: ASK_TOOL,
+    content: result.content,
+    details: result.details,
+    isError: false,
+    timestamp: 0,
+  });
+  return true;
+}
+
+function registerContinueCommand(pi: ExtensionAPI): void {
+  pi.registerCommand(BRUNCH_CONTINUE_COMMAND, {
+    description: 'Continue the most recent interrupted Brunch structured exchange',
+    handler: async (_args, ctx) => {
+      const commandCtx = ctx as ContinueCommandContext;
+      const pending = latestDeclaredAskContinuation(commandCtx);
+      if (!pending) {
+        ctx.ui.notify('Nothing to continue.', 'info');
+        return;
+      }
+      const exchangeId = pending.details.exchange_id;
+      const askCtx: StructuredExchangeUiContext = {
+        hasUI: commandCtx.hasUI,
+        ui: commandCtx.ui as unknown as NonNullable<StructuredExchangeUiContext['ui']>,
+        sessionManager: { getBranch: () => currentBranchEntries(commandCtx) },
+      };
+      const result = await collectAskContinuationResponse(exchangeId, askCtx);
+      if (!appendRecoveredAskResult(commandCtx, exchangeId, result)) {
+        ctx.ui.notify('Brunch continue could not record the recovered answer in this session.', 'warning');
+      }
+    },
+  });
+}
+
 function workspaceActionOptions(
   options: Pick<BrunchCommandsOptions, 'productUpdates'>,
 ): Parameters<typeof runBrunchWorkspaceAction>[2] {
@@ -385,6 +451,7 @@ export function registerBrunchCommands(pi: ExtensionAPI, options: BrunchCommands
 
   registerRuntimeSwitchCommands(pi, options);
   registerConsultCommand(pi, options);
+  registerContinueCommand(pi);
 
   // Pi shortcut contexts lack switchSession/waitForIdle, so borrow a
   // command-capable context from the composition root when available.

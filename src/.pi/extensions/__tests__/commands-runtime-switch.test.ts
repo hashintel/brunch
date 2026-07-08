@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
+import type { EntryLike } from '../../../exchanges/recovery.js';
+import {
+  STRUCTURED_EXCHANGE_DETAILS_VERSION,
+  STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
+} from '../../../exchanges/schemas/index.js';
 import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
 import { BRUNCH_KICK_CUSTOM_TYPE } from '../../../session/originate-assistant-turn.js';
 import {
@@ -11,6 +16,7 @@ import { BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE } from '../../../session/session
 import { createTestLabTheme } from '../../__tests__/support/tui-theme.js';
 import {
   BRUNCH_CONSULT_COMMAND,
+  BRUNCH_CONTINUE_COMMAND,
   BRUNCH_MENU_COMMAND,
   BRUNCH_MENU_SHORTCUT,
   BRUNCH_MODE_COMMAND,
@@ -51,10 +57,14 @@ interface FakeCommandContext {
     notify(message: string, level?: 'info' | 'warning' | 'error'): void;
     select(title: string, options: string[]): Promise<string | undefined>;
     custom?<T>(factory: (...args: unknown[]) => unknown, options: unknown): Promise<T | undefined>;
+    input?(prompt: string, placeholder?: string): Promise<string | undefined>;
+    setStatus?(key: string, text: string): void;
   };
   sessionManager: {
     getEntries(): readonly RuntimeEntry[];
+    getBranch?: () => readonly EntryLike[];
     appendCustomEntry(customType: string, data: unknown): void;
+    appendMessage?: (message: unknown) => void;
   };
   mode: 'tui';
   modelRegistry: { getAvailable(): readonly unknown[] };
@@ -71,9 +81,12 @@ function commandHarness(
     selectResult?: string | undefined;
     modelAvailable?: boolean;
     getCommandContext?: () => FakeCommandContext;
+    branch?: readonly EntryLike[];
+    inputResult?: string;
   } = {},
 ) {
   const entries: RuntimeEntry[] = [];
+  const appendedMessages: unknown[] = [];
   const sent: SentMessage[] = [];
   const notifications: Array<{ message: string; level?: 'info' | 'warning' | 'error' }> = [];
   const commands = new Map<string, RegisteredCommand>();
@@ -81,6 +94,7 @@ function commandHarness(
   const activeToolNames: string[][] = [];
   const customCalls: Array<{ factory: (...args: unknown[]) => unknown; options: unknown }> = [];
   const selectCalls: Array<{ title: string; options: string[] }> = [];
+  const statusCalls: Array<{ key: string; text: string }> = [];
   const chromeRefreshes: number[] = [];
   const workspaceDecisions: unknown[] = [];
   const coordinator = {
@@ -98,15 +112,29 @@ function commandHarness(
       notify(message, level) {
         notifications.push({ message, level });
       },
+      setStatus(key, text) {
+        statusCalls.push({ key, text });
+      },
       select: async (title, choices) => {
         selectCalls.push({ title, options: choices });
         return options.selectResult ?? choices[0];
       },
+      input: async () => options.inputResult ?? '',
     },
     sessionManager: {
       getEntries: () => entries,
+      getBranch: () => [
+        ...(options.branch ?? []),
+        ...appendedMessages.map((message) => ({
+          type: 'message' as const,
+          message: message as EntryLike['message'],
+        })),
+      ],
       appendCustomEntry(customType, data) {
         entries.push({ type: 'custom', customType, data });
+      },
+      appendMessage(message) {
+        appendedMessages.push(message);
       },
     },
     mode: 'tui',
@@ -177,9 +205,11 @@ function commandHarness(
     ctx,
     entries,
     notifications,
+    appendedMessages,
     activeToolNames,
     customCalls,
     selectCalls,
+    statusCalls,
     chromeRefreshes,
     workspaceDecisions,
     sent,
@@ -196,6 +226,7 @@ describe('Brunch menu command', () => {
       BRUNCH_MENU_COMMAND,
       BRUNCH_MODE_COMMAND,
       BRUNCH_CONSULT_COMMAND,
+      BRUNCH_CONTINUE_COMMAND,
     ]);
     expect(harness.commands.has(retiredCommand)).toBe(false);
   });
@@ -251,6 +282,105 @@ describe('Brunch menu command', () => {
         data: { schemaVersion: 1, choice: 'propose_design', trigger: 'consult' },
       }),
     );
+  });
+
+  it('reports nothing to continue when there is no incomplete structured exchange', async () => {
+    const harness = commandHarness();
+
+    await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.appendedMessages).toEqual([]);
+    expect(harness.notifications).toEqual([
+      expect.objectContaining({ level: 'info', message: 'Nothing to continue.' }),
+    ]);
+  });
+
+  it('re-presents the most recent incomplete structured exchange and records the canonical answer', async () => {
+    const harness = commandHarness({
+      branch: [
+        toolResultEntry({
+          schema: STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
+          v: STRUCTURED_EXCHANGE_DETAILS_VERSION,
+          exchange_id: 'digest-review',
+          tool_meta: { curr: 'present_digest', next: 'ask' },
+          display: { heading: 'Review digest' },
+          digest: { abstract: 'The source supports building the slice.' },
+          continuation: {
+            tool: 'ask',
+            params: {
+              body: 'Review digest',
+              options: [
+                { id: 'approve', label: 'Approve' },
+                { id: 'request_changes', label: 'Request changes' },
+                { id: 'reject', label: 'Reject' },
+              ],
+            },
+          },
+        }),
+      ],
+      customResult: { id: 'approve' },
+    });
+
+    await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.customCalls).toHaveLength(1);
+    expect(harness.appendedMessages).toEqual([
+      expect.objectContaining({
+        role: 'assistant',
+        content: [expect.objectContaining({ name: 'ask', arguments: { continues: 'digest-review' } })],
+      }),
+      expect.objectContaining({
+        role: 'toolResult',
+        toolName: 'ask',
+        details: expect.objectContaining({
+          exchange_id: 'digest-review',
+          tool_meta: { prev: 'present_digest', curr: 'request_review', next: 'capture_review' },
+          answered: expect.objectContaining({
+            decision: 'approve',
+            accepted_abstract: 'The source supports building the slice.',
+          }),
+        }),
+      }),
+    ]);
+  });
+
+  it('surfaces a /brunch:continue status hint when ask collection is cancelled', async () => {
+    const harness = commandHarness({
+      branch: [
+        toolResultEntry({
+          schema: STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
+          v: STRUCTURED_EXCHANGE_DETAILS_VERSION,
+          exchange_id: 'digest-review',
+          tool_meta: { curr: 'present_digest', next: 'ask' },
+          display: { heading: 'Review digest' },
+          digest: { abstract: 'The source supports building the slice.' },
+          continuation: {
+            tool: 'ask',
+            params: {
+              body: 'Review digest',
+              options: [
+                { id: 'approve', label: 'Approve' },
+                { id: 'request_changes', label: 'Request changes' },
+                { id: 'reject', label: 'Reject' },
+              ],
+            },
+          },
+        }),
+      ],
+      customResult: undefined,
+    });
+
+    await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.statusCalls).toContainEqual({
+      key: 'brunch.continue',
+      text: expect.stringContaining('/brunch:continue'),
+    });
+    expect(harness.appendedMessages.at(-1)).toMatchObject({
+      role: 'toolResult',
+      toolName: 'ask',
+      details: { exchange_id: 'digest-review', cancelled: {} },
+    });
   });
 });
 
@@ -594,3 +724,13 @@ describe('Brunch runtime switch commands', () => {
     ]);
   });
 });
+
+function toolResultEntry(details: unknown): EntryLike {
+  return {
+    type: 'message',
+    message: {
+      role: 'toolResult',
+      details,
+    },
+  };
+}
