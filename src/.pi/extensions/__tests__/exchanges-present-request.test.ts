@@ -302,8 +302,9 @@ describe('structured exchange ask tools', () => {
       { hasUI: true, ui: { custom } } as never,
     );
 
-    expect(result.content[0]?.text).toContain('## Question');
+    expect(result.content[0]?.text).not.toContain('## Question');
     expect(result.content[0]?.text).toContain('What problem are we solving?');
+    expect(result.content[0]?.text).toContain('**Answer:**');
     expect(result.content[0]?.text).toContain('Answer collected by custom editor.');
     expect(isStructuredExchangeRequestDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({

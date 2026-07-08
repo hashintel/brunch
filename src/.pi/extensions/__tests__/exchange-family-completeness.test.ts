@@ -51,7 +51,7 @@ const exchangeFamilyCoverage = [
     family: 'ask',
     formatter: formatAsk,
     previewId: 'ask',
-    snapshots: [{ file: 'ask-tuples.md', markers: ['# ask answered', '## Question'] }],
+    snapshots: [{ file: 'ask-tuples.md', markers: ['# ask answered', '**Answer:**', '~~Renderer sweep~~'] }],
   },
   {
     tool: PRESENT_CANDIDATES_TOOL,

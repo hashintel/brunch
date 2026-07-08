@@ -189,7 +189,7 @@ Skipped-test-count delta vs parent: no new skipped/todo tests added by this card
 
 ---
 
-## Card 3 (light) — compact unified formatAsk result content · status: next
+## Card 3 (light) — compact unified formatAsk result content · status: done
 
 ### Objective
 
@@ -247,3 +247,17 @@ src/agents/contexts/exchanges/
 ├── __snapshots__/                            ~  (regenerated)
 └── __tests__/                                ~
 ```
+
+### Completion report (2026-07-08)
+
+| Leaf | Outcome | Evidence |
+| ---- | ------- | -------- |
+| Ask writer five-branch golden regenerated to compact form | met | `src/agents/contexts/exchanges/__tests__/ask.test.ts`; `src/agents/contexts/exchanges/__snapshots__/ask-tuples.md`; focused pass `npm test -- src/agents/contexts/exchanges/__tests__/ask.test.ts` |
+| Content remains self-contained: question, options, selection, comments/messages recoverable from content alone | met | `src/agents/contexts/exchanges/__snapshots__/ask-tuples.md`; selected options render `[x]`, non-selected options render strikethrough, free-text answers render `**Answer:**`, comments/messages remain inline |
+| Render-honesty details → content coverage holds; elisions changed only if genuinely elided fields changed | met | `ASK_CONTENT_ELISIONS` unchanged; `npm test -- src/agents/contexts/exchanges/__tests__/ask.test.ts src/agents/contexts/exchanges/__tests__/render-honesty.test.ts` |
+| Exchange family formatter/preview/snapshot coverage stays green | met | `src/.pi/extensions/__tests__/exchange-family-completeness.test.ts`; focused pass included in 7-suite run |
+| Capture probes stay green | met | `src/probes/__tests__/exchange-capture-contract-proof.test.ts` and `src/projections/session/sweep-watermark.test.ts` passed in focused runs |
+| Markdown pass-through renderer assertions updated to compact ask content | met | `src/.pi/extensions/__tests__/exchanges-extension.test.ts`; `src/.pi/extensions/__tests__/exchanges-present-request.test.ts` |
+| Strikethrough/checklist syntax renders through the existing static preview path | met | `npm test -- src/dev/__tests__/component-preview-gallery.test.ts src/dev/component-preview/__tests__/static-preview.test.ts` |
+
+Skipped-test-count delta vs parent: no new skipped/todo tests added by this card. Focused suites reported 0 skipped. Full `npm run verify` reached the full-suite test phase twice and failed only on the known `src/app/__tests__/git-host-promotion-port.test.ts` roving timeout; that file passed in isolation (6/6), and `npm run build` passed.
