@@ -13,11 +13,16 @@ import {
   formatRequestChoices,
   formatRequestReview,
 } from '../../../agents/contexts/exchanges/request-response.js';
+import { LIVE_ELICITOR_ALLOWED_TOOL_NAMES } from '../../../agents/runtime/elicitor/active-tools.js';
+import { EXECUTOR_ALLOWED_TOOL_NAMES } from '../../../agents/runtime/executor/active-tools.js';
 import { COMPONENT_PREVIEW_REGISTRY } from '../../../dev/component-preview/registry.js';
 import {
+  ACTIVE_STRUCTURED_EXCHANGE_TOOL_NAMES,
   ASK_TOOL,
+  LEGACY_STRUCTURED_EXCHANGE_TRANSCRIPT_TOOL_NAMES,
   PRESENT_CANDIDATES_TOOL,
   PRESENT_DIGEST_TOOL,
+  PRESENT_QUESTION_TOOL,
   PRESENT_REVIEW_SET_TOOL,
   REQUEST_RESPONSE_TOOL,
   registerStructuredExchange,
@@ -119,15 +124,34 @@ const exchangeFamilyCoverage = [
 
 describe('structured exchange family completeness', () => {
   it('keeps the coverage table in sync with registered exchange tools', () => {
-    expect(registeredToolNames()).toEqual([
+    expect(registeredToolNames()).toEqual(ACTIVE_STRUCTURED_EXCHANGE_TOOL_NAMES);
+    expect(new Set(exchangeFamilyCoverage.map((row) => row.tool))).toEqual(
+      new Set([...registeredToolNames(), REQUEST_RESPONSE_TOOL]),
+    );
+  });
+
+  it('separates current active tool inventory from legacy persisted transcript vocabulary', () => {
+    expect(ACTIVE_STRUCTURED_EXCHANGE_TOOL_NAMES).toEqual([
       ASK_TOOL,
       PRESENT_REVIEW_SET_TOOL,
       PRESENT_CANDIDATES_TOOL,
       PRESENT_DIGEST_TOOL,
     ]);
-    expect(new Set(exchangeFamilyCoverage.map((row) => row.tool))).toEqual(
-      new Set([...registeredToolNames(), REQUEST_RESPONSE_TOOL]),
+    expect(LEGACY_STRUCTURED_EXCHANGE_TRANSCRIPT_TOOL_NAMES).toEqual([
+      PRESENT_QUESTION_TOOL,
+      REQUEST_RESPONSE_TOOL,
+    ]);
+    expect(LIVE_ELICITOR_ALLOWED_TOOL_NAMES).toEqual(
+      expect.arrayContaining([...ACTIVE_STRUCTURED_EXCHANGE_TOOL_NAMES]),
     );
+    expect(EXECUTOR_ALLOWED_TOOL_NAMES).toEqual(
+      expect.arrayContaining([...ACTIVE_STRUCTURED_EXCHANGE_TOOL_NAMES]),
+    );
+    for (const legacyName of LEGACY_STRUCTURED_EXCHANGE_TRANSCRIPT_TOOL_NAMES) {
+      expect(registeredToolNames()).not.toContain(legacyName);
+      expect(LIVE_ELICITOR_ALLOWED_TOOL_NAMES).not.toContain(legacyName);
+      expect(EXECUTOR_ALLOWED_TOOL_NAMES).not.toContain(legacyName);
+    }
   });
 
   it('covers every registered exchange family with a formatter, preview entry, and snapshot', () => {

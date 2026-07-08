@@ -13,6 +13,18 @@ import {
 export const PRESENT_QUESTION_TOOL = 'present_question' as const;
 export const REQUEST_RESPONSE_TOOL = 'request_response' as const;
 
+export const ACTIVE_STRUCTURED_EXCHANGE_TOOL_NAMES = [
+  ASK_TOOL,
+  PRESENT_REVIEW_SET_TOOL,
+  PRESENT_CANDIDATES_TOOL,
+  PRESENT_DIGEST_TOOL,
+] as const;
+
+export const LEGACY_STRUCTURED_EXCHANGE_TRANSCRIPT_TOOL_NAMES = [
+  PRESENT_QUESTION_TOOL,
+  REQUEST_RESPONSE_TOOL,
+] as const;
+
 export { requestChoicesViaEditor, type RequestChoicesEditorFlowParams } from './shared/choices-editor.js';
 export {
   findIncompleteStructuredExchangePresents,
