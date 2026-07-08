@@ -1,4 +1,4 @@
-import { Editor } from '@earendil-works/pi-tui';
+import { Editor, Key, matchesKey } from '@earendil-works/pi-tui';
 import type { Component, EditorTheme, TUI } from '@earendil-works/pi-tui';
 
 import { findLastIndex, isEditorBorderLine, padContentToMinimum, stripEditorBorder } from './editor-lines.js';
@@ -79,12 +79,12 @@ export class ExchangeAnswerEditorComponent implements Component {
   }
 
   handleInput(data: string): void {
-    if (data === '\x1b' || data === '\x03') {
+    if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl('c'))) {
       this.options.onDone(undefined);
       return;
     }
     // ceiling: ctrl+g external editor is deferred; reuse pi's ExtensionEditorComponent spawn flow if this surface needs it.
-    if (data === '\x07') return;
+    if (matchesKey(data, Key.ctrl('g'))) return;
     this.#warning = undefined;
     this.#editor.handleInput(data);
   }

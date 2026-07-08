@@ -51,7 +51,11 @@ export const BRUNCH_SETTINGS_POLICY = {
     showImages: true,
     imageWidthCells: 60,
     clearOnShrink: false,
-    showTerminalProgress: false,
+    // OSC 9;4 terminal-native progress: the liveness channel for working
+    // state now that the buffer spinner is static (scrollback-safe working
+    // indicator in src/.pi/extensions/chrome/). Degrades silently where
+    // unsupported.
+    showTerminalProgress: true,
   },
   images: {
     autoResize: true,

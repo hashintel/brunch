@@ -51,8 +51,31 @@ components are render-only with injectable `theme`/props.
   differ in production, and a preview tool that assumed "always overlay" would misrepresent how a
   component actually ships.
 - Theme is a real `pi-coding-agent` `Theme` instance (`src/dev/component-preview/theme.ts`), not a
-  duck-typed stand-in — seeded with Brunch's own established 256-color palette, since the package's
-  `exports` map does not expose pi's shipped theme-loading internals outside a running session.
+  duck-typed stand-in — a `SwitchableComponentPreviewTheme` subclass loading the shipped truecolor
+  Brunch theme JSONs (`src/.pi/themes/brunch-{dark,light}.json`), since the package's `exports` map
+  does not expose pi's shipped theme-loading internals outside a running session. **ctrl+t** toggles
+  dark/light live — including while an entry is open — via a consuming TUI input listener plus
+  `tui.invalidate()`; every color read delegates to the active variant, so no component needs a
+  retheme contract. The terminal defaults follow the toggle too — OSC 10 sets the default
+  foreground to the theme's `export.pageFg` reference (the assumed environment default the palette
+  is designed against — deliberately *not* the `text` token, which is `""` = terminal default), so
+  unstyled and `text`-token glyphs render on the intended page, and OSC 11 sets the page background
+  to `export.pageBg`; OSC 110/111 reset
+  both on exit — since theme colors only style explicitly wrapped glyphs. For terminals that ignore
+  OSC 10/11 (Zed), `createThemePaintingTerminal` wraps the harness Terminal and injects the same
+  base colors at the SGR level: frame writes are prefixed with the page fg/bg and default-reset
+  codes are rewritten to the theme base, so the harness owns its page colors everywhere.
+  **Simulation note:** a live pi/Brunch session paints neither — pi *detects* the terminal
+  background and picks a theme half to harmonize (the `brunch-light/n` auto-sync setting); unstyled
+  body text there is terminal-native. The harness paint answers "how does the palette read on its
+  intended page?", which is the right truth environment for pinning values.
+  `BRUNCH_PREVIEW_THEME=light` selects the initial variant. The theme JSONs also **hot-reload**:
+  `watchComponentPreviewTheme` watches `src/.pi/themes/` and rebuilds the variant palettes on save
+  (last-good palette kept across mid-edit invalid JSON), so theme-value work iterates against the
+  live harness. The `theme-testbed` entry (`theme-testbed.ts`) is the companion surface: the same
+  markdown fixture through pi's assistant markdown theme (real highlight.js `syntax*` token colors,
+  via pi's registered global theme symbol + a bound facade) and brunch's exchange markdown theme,
+  plus a fg/bg contrast strip.
 - `keybindings` is a real `pi-tui` `KeybindingsManager` (`createComponentPreviewKeybindings()`), not a
   stub — `BrunchEditorComponent`'s inherited `CustomEditor.handleInput` calls `.matches(...)` for
   app-level actions (escape-to-cancel, ctrl+d-to-exit), which a stub can't satisfy. Built from

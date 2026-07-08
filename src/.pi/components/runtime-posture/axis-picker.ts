@@ -1,4 +1,4 @@
-import { type Component } from '@earendil-works/pi-tui';
+import { type Component, Key, matchesKey } from '@earendil-works/pi-tui';
 
 import {
   OPERATIONAL_MODE_IDS,
@@ -76,21 +76,24 @@ export class RuntimeAxisPickerComponent<TSelection extends string> implements Co
     return lines;
   }
 
+  // matchesKey, not raw-byte comparison: under the kitty keyboard protocol
+  // (negotiated by ProcessTerminal in Ghostty/kitty/...) keys arrive as CSI-u
+  // sequences that legacy byte equality misses.
   handleInput(data: string): void {
-    if (data === '\x1b' || data === 'q') {
+    if (matchesKey(data, Key.escape) || matchesKey(data, 'q')) {
       this.options.onDone();
       return;
     }
-    if (data === '\r' || data === '\n') {
+    if (matchesKey(data, Key.enter)) {
       const selection = this.options.choices[this.#activeIndex];
       this.options.onDone(selection);
       return;
     }
-    if (data === '\x1b[C' || data === 'l' || data === 'j') {
+    if (matchesKey(data, Key.right) || matchesKey(data, 'l') || matchesKey(data, 'j')) {
       this.#cycle(nextSegmentIndex);
       return;
     }
-    if (data === '\x1b[D' || data === 'h' || data === 'k') {
+    if (matchesKey(data, Key.left) || matchesKey(data, 'h') || matchesKey(data, 'k')) {
       this.#cycle(previousSegmentIndex);
     }
   }

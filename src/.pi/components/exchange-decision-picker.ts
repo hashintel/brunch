@@ -1,4 +1,4 @@
-import { type Component } from '@earendil-works/pi-tui';
+import { type Component, Key, matchesKey } from '@earendil-works/pi-tui';
 
 import {
   projectRoundedBox,
@@ -56,21 +56,24 @@ export class ExchangeDecisionPickerComponent implements Component {
     return box;
   }
 
+  // matchesKey, not raw-byte comparison: under the kitty keyboard protocol
+  // (negotiated by ProcessTerminal in Ghostty/kitty/...) keys arrive as CSI-u
+  // sequences that legacy byte equality misses.
   handleInput(data: string): void {
-    if (data === '\x1b' || data === 'q') {
+    if (matchesKey(data, Key.escape) || matchesKey(data, 'q')) {
       this.options.onDone();
       return;
     }
-    if (data === '\r' || data === '\n') {
+    if (matchesKey(data, Key.enter)) {
       const choice = this.options.choices[this.#activeIndex];
       if (choice) this.options.onDone({ id: choice.id });
       return;
     }
-    if (data === '\x1b[B' || data === 'j') {
+    if (matchesKey(data, Key.down) || matchesKey(data, 'j')) {
       this.#move(1);
       return;
     }
-    if (data === '\x1b[A' || data === 'k') this.#move(-1);
+    if (matchesKey(data, Key.up) || matchesKey(data, 'k')) this.#move(-1);
   }
 
   invalidate(): void {}

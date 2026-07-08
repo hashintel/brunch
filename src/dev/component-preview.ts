@@ -9,7 +9,12 @@ import {
 
 import { ComponentGalleryComponent } from './component-preview/gallery-component.js';
 import { COMPONENT_PREVIEW_REGISTRY } from './component-preview/registry.js';
-import { createComponentPreviewTheme } from './component-preview/theme.js';
+import {
+  createThemePaintingTerminal,
+  registerComponentPreviewThemeToggle,
+  SwitchableComponentPreviewTheme,
+  watchComponentPreviewTheme,
+} from './component-preview/theme.js';
 
 export interface ComponentPreviewGalleryOptions {
   /** Skip the gallery menu and open this one registry entry directly. */
@@ -46,9 +51,9 @@ function createComponentPreviewKeybindings(): KeybindingsManager {
 export async function runComponentPreviewGallery(
   options: ComponentPreviewGalleryOptions = {},
 ): Promise<void> {
-  const terminal = new ProcessTerminal();
+  const theme = new SwitchableComponentPreviewTheme();
+  const terminal = createThemePaintingTerminal(new ProcessTerminal(), theme);
   const tui = new TUI(terminal);
-  const theme = createComponentPreviewTheme();
   const keybindings = createComponentPreviewKeybindings();
 
   if (options.entryId) {
@@ -58,21 +63,31 @@ export async function runComponentPreviewGallery(
       throw new Error(`Unknown component preview id "${options.entryId}". Known ids: ${known}`);
     }
     tui.start();
+    const disposeThemeToggle = registerComponentPreviewThemeToggle(tui, theme);
+    const disposeThemeWatch = watchComponentPreviewTheme(tui, theme);
     try {
       await entry.open(tui, theme, keybindings);
     } finally {
+      disposeThemeWatch();
+      disposeThemeToggle();
       tui.stop();
     }
     return;
   }
 
   await new Promise<void>((resolveQuit) => {
+    let disposeThemeToggle: (() => void) | undefined;
+    let disposeThemeWatch: (() => void) | undefined;
     const gallery = new ComponentGalleryComponent(COMPONENT_PREVIEW_REGISTRY, theme, keybindings, tui, () => {
+      disposeThemeWatch?.();
+      disposeThemeToggle?.();
       tui.stop();
       resolveQuit();
     });
     tui.addChild(gallery);
     tui.setFocus(gallery);
     tui.start();
+    disposeThemeToggle = registerComponentPreviewThemeToggle(tui, theme);
+    disposeThemeWatch = watchComponentPreviewTheme(tui, theme);
   });
 }

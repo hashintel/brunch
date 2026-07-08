@@ -22,7 +22,6 @@ export const WORKSPACE_DIALOG_WIDTH = 80;
 // would be new surface for no other present need. Revisit if a real case needs it sized off the
 // actual overlay height instead of a flat cap.
 export const WORKSPACE_DIALOG_MAX_VISIBLE_OPTIONS = 8;
-const CTRL_C = '\x03';
 const ASSET_DIR = new URL('./assets/', import.meta.url);
 
 export type WorkspaceDialogTheme = Pick<Theme, 'fg'>;
@@ -67,7 +66,7 @@ class WorkspaceDialogComponent implements Component {
   }
 
   handleInput(data: string): void {
-    if (data === CTRL_C) {
+    if (matchesKey(data, Key.ctrl('c'))) {
       this.#onDecision({ action: 'cancel' });
       return;
     }

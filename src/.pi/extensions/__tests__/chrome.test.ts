@@ -253,6 +253,30 @@ describe('Brunch chrome projection', () => {
     expect(calls).toContainEqual({ method: 'setWorkingMessage', args: [undefined] });
   });
 
+  it('applies a scrollback-safe working indicator on session_start (≤1 frame → no animation interval)', async () => {
+    const calls: FakeUiCall[] = [];
+    const handlers = new Map<string, Array<(event: unknown, ctx: { ui: FakeExtensionUi }) => unknown>>();
+
+    registerBrunchChrome(
+      {
+        on: (event: string, handler: never) => {
+          handlers.set(event, [...(handlers.get(event) ?? []), handler]);
+        },
+      } as never,
+      { cwd: '/tmp/project', spec: { id: 1, title: 'Spec One' }, session: { id: 'session-1' } },
+    );
+
+    await handlers.get('session_start')?.[0]?.({}, { ui: fakeChromeUi(calls) });
+
+    const indicatorCall = calls.find((call) => call.method === 'setWorkingIndicator');
+    expect(indicatorCall).toBeDefined();
+    const options = indicatorCall!.args[0] as { frames?: string[] } | undefined;
+    // Loader.restartAnimation starts no interval when frames.length <= 1 —
+    // the contract that keeps scrollback free of periodic spinner writes.
+    expect(options?.frames).toBeDefined();
+    expect(options!.frames!.length).toBeLessThanOrEqual(1);
+  });
+
   it('backfills the working indicator at turn_start (missed-agent_start guard)', async () => {
     const calls: FakeUiCall[] = [];
     const handlers = new Map<string, Array<(event: unknown, ctx: { ui: FakeExtensionUi }) => unknown>>();
@@ -339,7 +363,12 @@ describe('Brunch chrome projection', () => {
     expect(sessionStart).toHaveLength(1);
     await sessionStart[0]!({}, { ui: fakeChromeUi(calls) });
 
-    expect(calls.map((call) => call.method)).toEqual(['setFooter', 'setHeader', 'setTitle']);
+    expect(calls.map((call) => call.method)).toEqual([
+      'setWorkingIndicator',
+      'setFooter',
+      'setHeader',
+      'setTitle',
+    ]);
   });
 
   it('keeps startup header text width-safe and newline-safe', () => {
@@ -402,7 +431,7 @@ function fakeChromeUi(calls: FakeUiCall[]): FakeExtensionUi {
     setFooter: (...args: unknown[]) => calls.push({ method: 'setFooter', args }),
     setStatus: (...args: unknown[]) => calls.push({ method: 'setStatus', args }),
     setWidget: (...args: unknown[]) => calls.push({ method: 'setWidget', args }),
-    setWorkingIndicator: (_options) => {},
+    setWorkingIndicator: (...args: unknown[]) => calls.push({ method: 'setWorkingIndicator', args }),
     setWorkingMessage: (...args: unknown[]) => calls.push({ method: 'setWorkingMessage', args }),
     setWorkingVisible: (...args: unknown[]) => calls.push({ method: 'setWorkingVisible', args }),
     setTitle: (...args: unknown[]) => calls.push({ method: 'setTitle', args }),

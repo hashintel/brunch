@@ -29,6 +29,7 @@ import {
   structuralIllegalFixture,
 } from './exchange-fixtures.js';
 import { captureMessageRenderer, previewStaticComponent, sampleCustomMessage } from './static-preview.js';
+import { ThemeTestbedComponent } from './theme-testbed.js';
 import { createComponentPreviewEditorTheme } from './theme.js';
 
 export interface ComponentPreviewEntry {
@@ -96,6 +97,21 @@ function manySpecsWorkspaceInventory(specCount: number): WorkspaceLaunchInventor
  * matters.
  */
 export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
+  {
+    id: 'theme-testbed',
+    label: 'Theme testbed (markdown, syntax highlighting, contrast strip)',
+    presentedLike:
+      'harness-only reference surface — renders the same fixture through pi assistant markdown ' +
+      '(getMarkdownTheme + syntax* tokens) and brunch exchange markdown, plus a fg/bg contrast strip; ' +
+      'hot-reloads src/.pi/themes/*.json edits while open',
+    open: (tui, theme, keybindings) =>
+      showComponentPreview(
+        tui,
+        theme,
+        keybindings,
+        (_tui, previewTheme, _kb, done) => new ThemeTestbedComponent(previewTheme, tui, () => done()),
+      ),
+  },
   {
     id: 'axis-picker',
     label: 'Runtime mode picker',

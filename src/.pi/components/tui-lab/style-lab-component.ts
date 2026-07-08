@@ -1,4 +1,4 @@
-import { type Component } from '@earendil-works/pi-tui';
+import { type Component, Key, matchesKey } from '@earendil-works/pi-tui';
 
 import {
   DEMO_MODEL_SEGMENTS,
@@ -36,14 +36,14 @@ export class TuiStyleLabComponent implements Component {
   }
 
   handleInput(data: string): void {
-    if (data === '\x1b' || data === 'q') {
+    if (matchesKey(data, Key.escape) || matchesKey(data, 'q')) {
       this.done();
       return;
     }
-    if (data === '\x1b[C' || data === 'l') {
+    if (matchesKey(data, Key.right) || matchesKey(data, 'l')) {
       this.#activeSegment = nextSegmentIndex(this.#activeSegment, DEMO_MODEL_SEGMENTS.length);
     }
-    if (data === '\x1b[D' || data === 'h') {
+    if (matchesKey(data, Key.left) || matchesKey(data, 'h')) {
       this.#activeSegment = previousSegmentIndex(this.#activeSegment, DEMO_MODEL_SEGMENTS.length);
     }
   }

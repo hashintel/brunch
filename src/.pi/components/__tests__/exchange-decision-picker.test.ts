@@ -52,6 +52,26 @@ describe('ExchangeDecisionPickerComponent', () => {
 
     expect(results).toEqual([{ id: 'second-id' }, undefined]);
   });
+
+  it('navigates and commits under kitty keyboard-protocol encodings (Ghostty regression)', () => {
+    const results: Array<{ readonly id: string } | undefined> = [];
+    const picker = new ExchangeDecisionPickerComponent({
+      prompt: 'Pick one',
+      choices: [
+        { id: 'first-id', label: 'First' },
+        { id: 'second-id', label: 'Second' },
+      ],
+      theme,
+      onDone: (result) => results.push(result),
+    });
+
+    // Kitty "report event types" press encodings: down arrow, enter, escape.
+    picker.handleInput('\x1b[1;1:1B');
+    picker.handleInput('\x1b[13;1:1u');
+    picker.handleInput('\x1b[27;1:1u');
+
+    expect(results).toEqual([{ id: 'second-id' }, undefined]);
+  });
 });
 
 describe('MultiChoicePickerComponent bordered treatment', () => {
@@ -76,5 +96,25 @@ describe('MultiChoicePickerComponent bordered treatment', () => {
     picker.handleInput('\r');
 
     expect(results).toEqual([{ choices: [{ id: 'speed', label: 'Move quickly' }] }]);
+  });
+
+  it('toggles and commits under kitty keyboard-protocol encodings (Ghostty regression)', () => {
+    const results: unknown[] = [];
+    const picker = new MultiChoicePickerComponent({
+      prompt: 'Pick priorities',
+      choices: [
+        { id: 'speed', label: 'Move quickly' },
+        { id: 'safety', label: 'Keep the transcript safe' },
+      ],
+      theme,
+      onDone: (result) => results.push(result),
+    });
+
+    // Kitty press encodings: down arrow, space, enter.
+    picker.handleInput('\x1b[1;1:1B');
+    picker.handleInput('\x1b[32;1:1u');
+    picker.handleInput('\x1b[13;1:1u');
+
+    expect(results).toEqual([{ choices: [{ id: 'safety', label: 'Keep the transcript safe' }] }]);
   });
 });

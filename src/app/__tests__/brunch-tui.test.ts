@@ -1497,7 +1497,7 @@ describe('Brunch TUI boot', () => {
     expect(settingsManager.getShowImages()).toBe(true);
     expect(settingsManager.getImageWidthCells()).toBe(60);
     expect(settingsManager.getClearOnShrink()).toBe(false);
-    expect(settingsManager.getShowTerminalProgress()).toBe(false);
+    expect(settingsManager.getShowTerminalProgress()).toBe(true);
     expect(settingsManager.getImageAutoResize()).toBe(true);
     expect(settingsManager.getBlockImages()).toBe(false);
     expect(settingsManager.getTransport()).toBe('auto');
@@ -1714,7 +1714,8 @@ async function writeHostilePiSettings(cwd: string, agentDir: string): Promise<vo
       showImages: false,
       imageWidthCells: 1,
       clearOnShrink: true,
-      showTerminalProgress: true,
+      // Hostile value must differ from the sealed policy (true) so leakage stays detectable.
+      showTerminalProgress: false,
     },
     images: {
       autoResize: false,

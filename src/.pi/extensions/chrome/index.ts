@@ -259,6 +259,16 @@ export function registerBrunchChrome(
   hooks?.bindChromeRefresh?.(() => requestFooterRender?.());
 
   pi.on('session_start', async (_event, ctx) => {
+    // Scrollback-safe working indicator: pi's default spinner re-renders
+    // every 80ms, and each write snaps scroll-on-output terminals back to
+    // the bottom — during long silent stretches (thinking, slow tools) the
+    // spinner is the only writer, exactly when the user wants to read back.
+    // A single static frame hits Loader's `frames.length <= 1` branch: no
+    // animation interval, zero periodic writes. Liveness rides the OSC 9;4
+    // terminal-progress channel instead (`showTerminalProgress` in
+    // BRUNCH_SETTINGS_POLICY). RPC mode stubs this call; headless contexts
+    // stub the whole ui object.
+    ctx.ui.setWorkingIndicator({ frames: ['●'] });
     renderBrunchChrome(ctx.ui, chrome, {
       telemetry: () => footerTelemetryFromContext(ctx, pi),
       bindFooterRenderRequest: (requestRender) => {
