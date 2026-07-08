@@ -135,6 +135,10 @@ async function collectFreeText(
 
   if (answer === undefined) return terminal(params, question, 'cancelled');
   const trimmed = answer.trim();
+  // The interactive TUI editor re-prompts on empty submit (ExchangeAnswerEditorComponent
+  // warns and stays open), so an empty answer only reaches here via the sealed-editor
+  // or broker rungs, where re-prompting is not possible — terminal unavailable is the
+  // deliberate degraded-path behavior (accepted divergence from the FE-1164 review card).
   if (trimmed.length === 0) return terminal(params, question, 'unavailable', 'ask answer cannot be empty');
   return result(projectAsk({ exchangeId: params.exchangeId, question, status: 'answered', answer: trimmed }));
 }
@@ -414,6 +418,9 @@ async function collectContinuingCandidateChoice(
   present: PresentCandidatesDetails,
   ctx: StructuredExchangeUiContext,
 ): Promise<ToolResult> {
+  // Deliberately TUI-only (no sealed-editor or broker rung): candidate continuations
+  // stay custom-UI-first, matching the retired request_response stance — headless
+  // answering rides session.submitExchangeResponse until the A39-L discovery seam lands.
   if (!ctx.hasUI || typeof ctx.ui?.custom !== 'function' || !params.options) {
     return continuationTerminal(
       params,
@@ -457,6 +464,8 @@ async function collectContinuingReview(
   present: PresentDigestDetails | PresentReviewSetDetails,
   ctx: StructuredExchangeUiContext,
 ): Promise<ToolResult> {
+  // Deliberately TUI-only, like candidate continuations above: review collection keeps
+  // the custom-UI-first stance; headless reviews ride session.submitExchangeResponse.
   if (!ctx.hasUI || typeof ctx.ui?.custom !== 'function') {
     return continuationTerminal(
       params,
@@ -479,7 +488,7 @@ async function collectContinuingReview(
   if (!selected) return continuationTerminal(params, present, 'cancelled');
   const review = selected.id;
   let comment: string | undefined;
-  if (review === 'request_changes') {
+  if (structuredExchangeResponseRequiresComment({ reviewDecision: review })) {
     const required = await collectRequiredInput(ctx, params.commentPrompt ?? 'Required change request');
     if (required.status !== 'answered') return continuationTerminal(params, present, required.status);
     comment = required.value;
