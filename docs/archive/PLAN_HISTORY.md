@@ -4,6 +4,30 @@ This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
 
+## 2026-07-08 Sync archive (`ln-sync`, retirement/reduction pass)
+
+Closed-arc blocks retired from `memory/PLAN.md` §Initiatives to one-line notes. Full blocks preserved below.
+
+### elicitor-capability-spine — ✓ done (retired arc block)
+
+- **Goal (met):** `capture` / `generate` / `project` built over the elicitor capability spine without reviving the retired `strategy` / `lens` / `method` runtime axes (A35-L); `acquire` rode the completed subagent-reconciliation substrate (A34-L), not its own frontier. Evidence: generalized capture (D80-L–D82-L), promoted real-model fan-out for `generate` (FE-1059, I51-L no-write evidence), prompt-resource `project` guidance (FE-1085, D100-L).
+- **Anchors:** D95-L, D96-L; A31-L–A35-L; I51-L.
+
+### exchange-presentation — ✓ done 2026-07-06 (retired arc block)
+
+- **Goal (met):** lock down every user-facing surface of the structured-exchange family — persisted transcript renders, live TUI answer collection, and their dev-preview loop — so exchanges read as designed product, not raw scaffolding.
+- **Members:** `exchange-rendering` ✓ done 2026-07-03 · `exchange-answering-chrome` ✓ done 2026-07-06 (both threads built; physical-terminal smoke confirmed 2026-07-06, gallery + live session).
+- **Done-definition held at closure:** every exchange kind in the closed inventory renders honestly in transcript and re-render; live local-TUI answer collection routes through Brunch-owned bordered chrome for all response kinds (raw `ctx.ui.select` retired outright; the sealed `ctx.ui.editor` survives only as the free-text fallback behind `ctx.ui.custom`); each renderer and live answering component has a `dev:components` preview entry; `src/.pi/extensions/exchanges/TOPOLOGY.md`, `src/exchanges/schemas/TOPOLOGY.md`, `src/projections/TOPOLOGY.md` shape ledger, and `src/.pi/components/TOPOLOGY.md` reconciled; formatter-home decision recorded (D104-L/D108-L). Post-gate residue deliberately deferred, not owed: per-item review commentary (see PLAN Horizon).
+- **Anchors:** D37-L, D38-L, D41-L (exchange schema/UI seam); D52-L, D60-L, D75-L (projection pipeline); `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`; TESTING_FINDINGS.md F7/F8/F11.
+
+### capture-ingest-throughline — ✓ done 2026-07-06 (retired arc block)
+
+- **Goal (met):** resolve and prove how general capture/ingest works, end to end — the 2026-07-03 grill's center of gravity. All three throughlines witnessed on live seams: (1) free input → banded sweep → D81-L gradient (capture-quality-loop probes); (2) exchange tuple → outcome-correct sweep read (`exchange-capture-contract`, FE-1135); (3) large source → digest exchange → accept → advisory map with honest `formatMutateGraphResult` receipt (`present-digest`, FE-1136, incl. the 2026-07-06 live walkthrough beat).
+- **Members:** `exchange-capture-contract` ✓ done 2026-07-03 · `present-digest` ✓ done 2026-07-06.
+- **Done-definition held at closure:** I57-L probed per chain kind (`present-digest-supersession-proof.test.ts` regeneration + cancel chains on the real `projectCaptureSweepWindow`, plus the product-minted RPC terminal witness); `DIGEST_CUSTOM_TYPES` retired from `src/projections/session/sweep-watermark.ts`; topology homes (`src/exchanges/TOPOLOGY.md`, `src/projections/TOPOLOGY.md`, ingest/map conduct homes) reconciled by the FE-1136 commits.
+- **Anchors:** D80-L–D82-L, D28-L, D50-L/I33-L, D101-L, D106-L, D107-L, D108-L, D110-L; I57-L.
+
+
 ## 2026-07-06 Sync archive (`ln-sync`, FE-1136 closeout)
 
 Archived from `memory/PLAN.md` during the 2026-07-06 `ln-sync` after `present-digest` (FE-1136)

@@ -227,7 +227,7 @@ web/
   features/
     exchanges/
       PendingExchangePanel.tsx
-      response controls for request_response (answer/choice/choices/review)
+      response controls over the preserved request-detail vocabulary (answer/choice/choices/review; emitted by ask post-D116-L)
 
     propose-graph/
       ProposeGraphExchange.tsx
