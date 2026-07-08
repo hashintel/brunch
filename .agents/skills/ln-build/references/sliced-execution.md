@@ -11,9 +11,10 @@ Loop shape:
 3. decide whether it is still a real build target or is already satisfied / stale on the current branch
 4. if it is real work, run red → green → refactor
 5. run the verification harness
-6. reconcile canonical state and update the card's status in the scope file
-7. commit only if the card produced a real card-sized change
-8. continue only if no stop condition fires
+6. walk the card's acceptance leaves (and Invariants preserved) against their named oracles — a card is `done` only leaf-by-leaf, and a dropped or parked leaf keeps the card open (see SKILL.md §Verify and commit)
+7. reconcile canonical state and update the card's status in the scope file
+8. commit only if the card produced a real card-sized change
+9. continue only if no stop condition fires
 
 Stop the sliced loop immediately when any of these becomes true:
 

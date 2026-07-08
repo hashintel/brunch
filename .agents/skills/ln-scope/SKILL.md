@@ -196,7 +196,20 @@ If scoping surfaces a real unknown that closure depended on, downgrade the slice
 ✓ [test name] — [observable assertion]
 ```
 
+**Every leaf names its oracle.** The `[test name]` half is not decoration: bind each leaf to the test file/name, command, or named check that proves it. An unbound assertion is satisfiable by vibes — a builder can report "done" against prose that nothing enforces. If you cannot name the oracle for a leaf, either the verification approach is under-designed (route to `ln-oracles`) or the leaf is not actually observable (rewrite it). For leaves that must hold on *existing* tests, name the suite explicitly — "X stays green" binds only if X is named and running (a skipped suite satisfies an unnamed leaf silently).
+
 **Notation aid.** When acceptance is more than a handful of leaves, decompose it with `pseudo tree` (obligation decomposition variant) so each leaf maps to one assertion. Use `pseudo lanes` when the slice crosses actor boundaries; `pseudo state-machine` when it changes a lifecycle.
+
+### Invariants preserved (conditional)
+
+Include this section when the card is fix-, refactor-, cutover-, or migration-shaped — any slice whose danger is *losing* existing behavior rather than failing to add new behavior. Acceptance states what becomes true; this section states what must **remain** true, each with the oracle that guards it:
+
+```
+- [invariant that must survive] — guarded by: [test/suite/probe, or "ambient — name it in a comment"]
+- [invariant that must survive] — guarded by: [...]
+```
+
+Ambient contracts are the ones that die silently in rewrites — fallback ladders, precedence orders, degraded-context behavior, capability guards. If an invariant's only guard is "the old code happened to do it," the card must either name a test to pin it or direct the builder to move (not rewrite) the carrying code. Mark stop-the-line invariants explicitly: a red there is a respec signal, not a fixture to update.
 
 ### Verification Approach
 
@@ -259,6 +272,8 @@ If you cannot name what makes this card resolvable cold, it is not settled enoug
 ✓ [observable result]
 ✓ [observable result]
 ```
+
+Bind behavioral leaves to a named oracle (test, command, or check) just as in full cards; light cards may leave genuinely trivial leaves (doc edits, config values) oracle-free.
 
 ### Verification Approach
 

@@ -12,7 +12,7 @@ Implement **one** scoped unit: the next vertical card, or the next required row 
 
 A scope file under `memory/cards/`, an inline scope card from `ln-scope`, or a trivial direct-fix request: $ARGUMENTS
 
-Extract: target behavior / objective, acceptance criteria, verification approach, cold-start reads, and (when present) expected touched paths.
+Extract: target behavior / objective, acceptance criteria, verification approach, cold-start reads, and (when present) expected touched paths and **Invariants preserved**. Invariants-preserved entries are standing obligations for the whole build, not a final checklist item: when one is guarded by an existing test, that test must run un-skipped throughout; when one is ambient (guarded only by the old code's behavior), prefer moving the carrying code over rewriting it, and diff any rewrite against the original branch-by-branch before trusting it. A red on a stop-the-line invariant is a respec signal — route back, do not adjust the fixture.
 
 Treat the selected scope file as the next execution artifact inside its containing `memory/PLAN.md` frontier item (or, for dev/tooling/docs work, the named category prefix). The frontier item is the plan-level work item and Linear/branch unit; the scope file is just the current execution step inside it — a slice, slice sequence, or sweep. Unless `ln-plan` has already split the frontier into separate items, do **not** infer a new Linear issue or Graphite branch from scope-file granularity; multiple consecutive scope files may land on the same branch.
 
@@ -70,6 +70,8 @@ Don't batch speculative tests then batch implementation: in slice mode each new 
 
 Run the relevant checks. Confirm failures are meaningful. If the card or row is already green before any code change, treat that as evidence the queue item is already satisfied or stale — not as permission to create a ceremonial red/green cycle.
 
+Un-skipping an existing test is a legitimate red: when the card's acceptance binds to a currently-skipped suite, re-enabling it *is* the failing oracle.
+
 ## Green
 
 Write the minimum coherent code to pass. Build inside-out: functional core first, thin I/O shell second, then end-to-end wiring.
@@ -95,6 +97,10 @@ Refactor only while green. Keep the tests pinned to the public behavior so they 
 ## Verify and commit
 
 Run the project's verification harness. All checks must pass. If the card proved already satisfied and no code or canonical-state change was needed, do not create an empty commit.
+
+**Green must not be manufactured by disabling oracles.** Never `.skip` / `.todo` a test (or narrow a test glob) to get the gate green. If a test genuinely must be parked, it needs an adjacent comment naming the reason and the re-enable trigger, plus an explicit line in the completion report — and parking a test that guards a card leaf or preserved invariant means the card is **not done**, whatever the gate says. Compare the suite's skipped-test count against the parent commit; an unexplained increase is a red flag you report, not a detail you omit.
+
+**Completion is leaf-by-leaf, not vibes-level.** Before marking a card `done`, walk its Acceptance Criteria (and Invariants preserved, when present) and confirm each leaf against its named oracle. The completion report enumerates the leaves with their outcome — met, met-with-divergence (say what diverged), or **dropped (say so loudly and leave the card open)**. A one-line "done, verify green" against a multi-leaf card is the failure mode this rule exists to prevent: the gate proves the code compiles and current tests pass; only the leaf walk proves the card.
 
 ## Canonical reconciliation (mandatory)
 

@@ -93,6 +93,24 @@ the dead parallel stack — closure as a side effect.
 ✓ full verify gate green; skip-count delta stated in the completion report
 ```
 
+## Invariants preserved
+
+```
+- Capture/sweep detail vocabulary on the wire (request_choice/request_review discriminants,
+  respondsToPresentTool, accepted_abstract) — guarded by: I57-L supersession probes,
+  capture-contract tests, sweep-window tests — STOP-THE-LINE: red here is a respec signal
+- Answering precedence ladder (custom → stubbed-custom editor → editor → broker → unavailable)
+  — guarded by: the un-skipped exchanges-present-request suite (this card re-enables the guard)
+- Multi-choice editor-envelope fallback — guarded by: requestChoicesFromSources tests +
+  the RPC proof probe (structured-exchange-rpc-proof)
+- Cancel semantics: user cancel → cancelled details + terminate (turn ends inert) — guarded by:
+  the un-skipped cancellation tests
+- Deliberate TUI-only narrowing for single-choice/review continuation collection — ambient:
+  name it in a comment where the broker/editor rung would go
+- RPC/TUI parity: session.submitExchangeResponse emits the same detail vocabulary as live ask
+  collection — guarded by: public-rpc-parity-proof
+```
+
 ## Verification Approach
 
 ```
