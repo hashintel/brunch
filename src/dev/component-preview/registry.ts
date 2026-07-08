@@ -6,6 +6,7 @@ import { BrunchEditorComponent } from '../../.pi/components/brunch-editor.js';
 import { BrunchStartupHeader } from '../../.pi/components/chrome-header.js';
 import { ExchangeAnswerEditorComponent } from '../../.pi/components/exchange-answer-editor.js';
 import { ExchangeDecisionPickerComponent } from '../../.pi/components/exchange-decision-picker.js';
+import { operationalModeBorderColor } from '../../.pi/components/mode-border-theme.js';
 import { MultiChoicePickerComponent } from '../../.pi/components/multi-choice-picker.js';
 import { createRuntimeModePickerComponent } from '../../.pi/components/runtime-posture/axis-picker.js';
 import { TuiStyleLabComponent } from '../../.pi/components/tui-lab/index.js';
@@ -215,6 +216,41 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
             topLabel: '[ Ask ]',
             bottomLabel: '"FE-1164"',
             theme: previewTheme,
+            borderColor: operationalModeBorderColor(previewTheme, 'specify'),
+            onDone: done,
+          }),
+      ),
+  },
+  {
+    id: 'exchange-decision-picker-rich-body-execute',
+    label: 'Exchange decision picker (rich body, Execute mode border)',
+    presentedLike:
+      'inline swap — ask single-select surface with execute-mode border role; mirrors src/.pi/extensions/exchanges/ask.ts',
+    open: (tui, theme, keybindings) =>
+      showComponentPreview(
+        tui,
+        theme,
+        keybindings,
+        (_tui, previewTheme, _kb, done) =>
+          new ExchangeDecisionPickerComponent({
+            prompt: 'Which execution path should run?',
+            body: RICH_ASK_BODY,
+            choices: [
+              {
+                id: 'run-now',
+                label: 'Run now',
+                description: 'Proceed with the prepared execution slice.',
+              },
+              {
+                id: 'narrow-first',
+                label: 'Narrow first',
+                description: 'Pause execution and shrink the card.',
+              },
+            ],
+            topLabel: '[ Ask · Execute ]',
+            bottomLabel: '"FE-1169"',
+            theme: previewTheme,
+            borderColor: operationalModeBorderColor(previewTheme, 'execute'),
             onDone: done,
           }),
       ),
@@ -481,14 +517,54 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
       'editor slot — ctx.ui.setEditorComponent (design exploration for the component-dx frontier; not yet wired into src/.pi/extensions/chrome/index.ts)',
     open: (tui, theme, keybindings) => {
       const editorTheme = createComponentPreviewEditorTheme(theme);
-      const editor = new BrunchEditorComponent(tui, editorTheme, keybindings, () => ({
-        topRight: '[ Specify ]',
-        bottomRight: '"Walking Skeleton SDK to SSE to React"',
-        belowLines: [
-          { text: 'http://localhost:3141/session', url: 'http://localhost:3141/session' },
-          'claude-sonnet-5 | 35.6%',
-        ],
-      }));
+      const editor = new BrunchEditorComponent(
+        tui,
+        editorTheme,
+        keybindings,
+        () => ({
+          topRight: '[ Specify ]',
+          bottomRight: '"Walking Skeleton SDK to SSE to React"',
+          belowLines: [
+            { text: 'http://localhost:3141/session', url: 'http://localhost:3141/session' },
+            'claude-sonnet-5 | 35.6%',
+          ],
+        }),
+        () => operationalModeBorderColor(theme, 'specify'),
+      );
+      tui.addChild(editor);
+      tui.setFocus(editor);
+      editor.focused = true;
+      tui.requestRender();
+      return new Promise<void>((resolve) => {
+        editor.onEscape = () => {
+          tui.removeChild(editor);
+          tui.requestRender();
+          resolve();
+        };
+      });
+    },
+  },
+  {
+    id: 'brunch-editor-execute',
+    label: 'Brunch editor (Execute mode border) [experimental]',
+    presentedLike:
+      'editor slot — ctx.ui.setEditorComponent with execute-mode border role; mirrors src/.pi/extensions/chrome/index.ts',
+    open: (tui, theme, keybindings) => {
+      const editorTheme = createComponentPreviewEditorTheme(theme);
+      const editor = new BrunchEditorComponent(
+        tui,
+        editorTheme,
+        keybindings,
+        () => ({
+          topRight: '[ Execute ]',
+          bottomRight: '"Run Review Harness"',
+          belowLines: [
+            { text: 'http://localhost:3141/session', url: 'http://localhost:3141/session' },
+            'executor | 42.0%',
+          ],
+        }),
+        () => operationalModeBorderColor(theme, 'execute'),
+      );
       tui.addChild(editor);
       tui.setFocus(editor);
       editor.focused = true;

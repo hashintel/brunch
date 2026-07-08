@@ -3,8 +3,10 @@ import { type Component, TUI } from '@earendil-works/pi-tui';
 import { describe, expect, it, vi } from 'vitest';
 
 import { zAskDetails } from '../../../exchanges/schemas/index.js';
+import { appendBrunchAgentRuntimeSwitch } from '../../../session/runtime-state.js';
 import { createTestLabTheme } from '../../__tests__/support/tui-theme.js';
 import { VirtualTerminal } from '../../__tests__/support/virtual-terminal.js';
+import { operationalModeBorderColorRole } from '../../components/mode-border-theme.js';
 import { createAskTool } from '../exchanges/ask.js';
 import type { StructuredExchangeUiContext } from '../exchanges/shared/ui-context.js';
 
@@ -30,6 +32,11 @@ type CustomUi = NonNullable<NonNullable<StructuredExchangeUiContext['ui']>['cust
 type CustomMock = CustomUi & ReturnType<typeof vi.fn>;
 
 const theme = createTestLabTheme() as Theme;
+const roleTheme = {
+  fg: (color: string, text: string) => `${color}:${text}`,
+  bg: (_color: string, text: string) => text,
+  bold: (text: string) => text,
+};
 
 async function executeAsk(params: Record<string, unknown>, ctx: StructuredExchangeUiContext) {
   const tool = createAskTool() as AskTool;
@@ -78,6 +85,59 @@ function expectBracketedWorkingIndicator(setWorkingVisible: ReturnType<typeof vi
 }
 
 describe('ask runtime mount contract', () => {
+  it('injects the current mode border role into every mounted ask surface', async () => {
+    const entries: Array<{ type?: unknown; customType?: unknown; data?: unknown }> = [];
+    const sessionManager = {
+      getEntries: () => entries,
+      getBranch: () => entries,
+      appendCustomEntry: (customType: string, data: unknown) => {
+        entries.push({ type: 'custom', customType, data });
+      },
+    };
+    appendBrunchAgentRuntimeSwitch(sessionManager, { schemaVersion: 1, operationalMode: 'execute' }, 'user');
+
+    const cases = [
+      { name: 'free-text', params: { exchangeId: 'mode-free', body: 'Explain the tradeoff' } },
+      {
+        name: 'single-select',
+        params: {
+          exchangeId: 'mode-single',
+          body: 'Choose one',
+          options: [{ id: 'one', label: 'One' }],
+        },
+      },
+      {
+        name: 'multi-select',
+        params: {
+          exchangeId: 'mode-multi',
+          body: 'Choose all',
+          options: [{ id: 'one', label: 'One' }],
+          multiple: true,
+        },
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      let rendered = '';
+      const custom = vi.fn(async (factory: Parameters<CustomUi>[0]) => {
+        const terminal = new VirtualTerminal(90, 28);
+        const tui = new TUI(terminal);
+        const component = factory(
+          tui,
+          roleTheme as Theme,
+          undefined as unknown as KeybindingsManager,
+          () => {},
+        );
+        rendered = component.render(80).join('\n');
+        return undefined;
+      }) as unknown as CustomMock;
+
+      await executeAsk(testCase.params, { hasUI: true, ui: { custom }, sessionManager });
+
+      expect(rendered, testCase.name).toContain(`${operationalModeBorderColorRole('execute')}:`);
+    }
+  });
+
   it('mounts free-text ask in a real TUI, resolves schema-valid details, and collects a comment rung', async () => {
     const custom = mountedCustom({
       assertViewport: (viewport) => {

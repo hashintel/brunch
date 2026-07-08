@@ -25,7 +25,7 @@ Components grow by **fractal sub-tree**: when a component outgrows a single file
 components/
 ├── alternatives.ts              single-file components
 ├── brunch-editor.ts             bordered `CustomEditor` wrapper for Brunch's persistent input editor;
-│                                caller-injected labels keep runtime/session state out of the component
+│                                caller-injected labels/color keep runtime/session state out of the component
 ├── brunch-identity.ts
 ├── brunch-version.ts
 ├── cards.ts
@@ -40,6 +40,8 @@ components/
 ├── exchange-markdown-body.ts   shared structured-exchange markdown body projection/theme used by
 │                                bordered answering components and transcript renderers
 ├── lateral-padding.ts          transparent horizontal padding wrapper
+├── mode-border-theme.ts        Brunch-owned operational-mode border color roles shared by chrome
+│                                and ask surfaces
 ├── multi-choice-picker.ts      bordered checkbox-style exchange response picker; supports
 │                                restored checked state when an owning flow re-presents it
 ├── mouse-wheel.ts              parseWheelEvent() — SGR wheel-event decoder used by the dev

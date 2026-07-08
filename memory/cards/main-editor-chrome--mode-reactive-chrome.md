@@ -160,7 +160,7 @@ key-hint copy + D34-L containment leaf adopted there).
 
 ---
 
-## Card 2 (light) — border + border-label color by operational mode · status: pending (after Card 1)
+## Card 2 (light) — border + border-label color by operational mode · status: built (gate blocked by git-host-promotion-port timeout)
 
 ### Objective
 
@@ -218,3 +218,10 @@ src/.pi/components/__tests__/                 ~
 src/.pi/extensions/__tests__/chrome.test.ts   ~
 src/dev/component-preview/registry.ts         ~
 ```
+
+### Completion Notes
+
+- Built 2026-07-08: shipped `modeSpecifyBorder` / `modeExecuteBorder` theme roles in both Brunch themes, with `OPERATIONAL_MODE_IDS`-keyed role coverage.
+- Main editor chrome now derives labels and border color fresh from projected operational mode on each render; ask free-text/single/multi and continuation picker surfaces receive the same mode-keyed border role through component theme injection.
+- `dev:components` now includes Specify/Execute variants for the editor and one ask picker surface; workspace-dialog/consult surface-identity border behavior was not touched.
+- Verification: focused Card 2 suites green; `npm run fix` green; `npm run build` green. `npm run verify` blocked in `src/app/__tests__/git-host-promotion-port.test.ts` timeout, and the same file timed out in isolation on this run.

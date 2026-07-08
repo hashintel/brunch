@@ -1,4 +1,4 @@
-import { getSelectListTheme, defineTool } from '@earendil-works/pi-coding-agent';
+import { getSelectListTheme, defineTool, type Theme } from '@earendil-works/pi-coding-agent';
 import type { EditorTheme } from '@earendil-works/pi-tui';
 
 import { formatAsk } from '../../../agents/contexts/exchanges/ask.js';
@@ -28,9 +28,11 @@ import {
   type StandaloneAskParams,
 } from '../../../exchanges/schemas/index.js';
 import { normalizeOptionalUnknownText } from '../../../exchanges/text.js';
+import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
 import type { LiveExchangeAwaiter } from '../../../session/live-exchange-broker.js';
 import { ExchangeAnswerEditorComponent } from '../../components/exchange-answer-editor.js';
 import { createExchangeDecisionPickerComponent } from '../../components/exchange-decision-picker.js';
+import { operationalModeBorderColor } from '../../components/mode-border-theme.js';
 import { createMultiChoicePickerComponent } from '../../components/multi-choice-picker.js';
 import { piSchema } from './pi-schema.js';
 import { requestChoicesViaEditor } from './shared/choices-editor.js';
@@ -91,6 +93,11 @@ type PickedMultiChoices = {
   readonly choices: readonly { readonly id: string; readonly label: string }[];
 };
 
+function askBorderColor(ctx: StructuredExchangeUiContext, theme: Pick<Theme, 'fg'>) {
+  const mode = projectBrunchAgentState(ctx.sessionManager?.getBranch() ?? []).operationalMode;
+  return operationalModeBorderColor(theme, mode);
+}
+
 function hasOptions(params: CollectableAskParams): params is CollectableAskWithOptions {
   return params.options !== undefined;
 }
@@ -127,13 +134,15 @@ async function collectFreeText(
     const customResult = await withWorkingIndicatorHidden(ctx, () =>
       custom<{ readonly status: 'answered'; readonly answer: string } | { readonly status: 'cancelled' }>(
         (tui, theme, _keybindings, done) => {
+          const borderColor = askBorderColor(ctx, theme);
           const editorTheme: EditorTheme = {
-            borderColor: (text) => theme.fg('border', text),
+            borderColor,
             selectList: getSelectListTheme(),
           };
           return new ExchangeAnswerEditorComponent(tui, editorTheme, {
             body: params.body,
             theme,
+            borderColor,
             onDone: (value) =>
               done(value === undefined ? { status: 'cancelled' } : { status: 'answered', answer: value }),
           });
@@ -224,6 +233,7 @@ async function presentSingleChoicePicker(
         ...(params.topLabel ? { topLabel: params.topLabel } : {}),
         ...(params.bottomLabel ? { bottomLabel: params.bottomLabel } : {}),
         theme,
+        borderColor: askBorderColor(ctx, theme),
         onDone: done,
       }),
     ),
@@ -331,6 +341,7 @@ async function presentMultiChoicePicker(
         ...(params.topLabel ? { topLabel: params.topLabel } : {}),
         ...(params.bottomLabel ? { bottomLabel: params.bottomLabel } : {}),
         theme,
+        borderColor: askBorderColor(ctx, theme),
         onDone: done,
       }),
     ),
@@ -550,6 +561,7 @@ async function collectContinuingCandidateChoice(
         body: params.body,
         choices: choicesFromParams(params),
         theme,
+        borderColor: askBorderColor(ctx, theme),
         onDone: done,
       }),
     ),
@@ -595,6 +607,7 @@ async function collectContinuingReview(
           body: params.body,
           choices: choicesFromParams(params),
           theme,
+          borderColor: askBorderColor(ctx, theme),
           onDone: (value) => done(value as { readonly id: ReviewDecision } | undefined),
         }),
       ),

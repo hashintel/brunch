@@ -30,6 +30,7 @@ import {
   BRUNCH_MODE_PICKER_SHORTCUT,
   formatChromeShortcutHint,
 } from '../../components/chrome-shortcuts.js';
+import { operationalModeBorderColor } from '../../components/mode-border-theme.js';
 
 export type { BrunchStartupHeaderResumeFacts } from '../../components/chrome-header.js';
 
@@ -261,8 +262,8 @@ function editorLabelsFromChromeContext(
   chrome: BrunchChromeState,
   telemetry: BrunchChromeFooterTelemetry,
 ): BrunchEditorLabels {
-  const runtime = telemetry.agentState;
-  const modeLabel = operationalModeLabel(runtime?.operationalMode ?? chrome.runtime?.mode ?? 'specify');
+  const mode = operationalModeFromChromeContext(chrome, telemetry);
+  const modeLabel = operationalModeLabel(mode);
   return {
     topRight: `[ ${modeLabel} ]`,
     bottomRight: formatSpec(chrome),
@@ -270,6 +271,14 @@ function editorLabelsFromChromeContext(
       ? { belowLines: [{ text: chrome.webSidecarUrl, url: chrome.webSidecarUrl }] }
       : {}),
   };
+}
+
+function operationalModeFromChromeContext(
+  chrome: BrunchChromeState,
+  telemetry: BrunchChromeFooterTelemetry,
+): OperationalModeId {
+  const runtime = telemetry.agentState;
+  return runtime?.operationalMode ?? chrome.runtime?.mode ?? 'specify';
 }
 
 function canSetEditorComponent(ui: ExtensionUIContext): ui is ExtensionUIContext & BrunchEditorUi {
@@ -284,8 +293,12 @@ function installBrunchEditor(
   if (!canSetEditorComponent(ui)) return;
   ui.setEditorComponent(
     (tui, theme, keybindings) =>
-      new BrunchEditorComponent(tui, theme, keybindings, () =>
-        editorLabelsFromChromeContext(chrome, getTelemetry()),
+      new BrunchEditorComponent(
+        tui,
+        theme,
+        keybindings,
+        () => editorLabelsFromChromeContext(chrome, getTelemetry()),
+        () => operationalModeBorderColor(ui.theme, operationalModeFromChromeContext(chrome, getTelemetry())),
       ),
   );
 }

@@ -35,6 +35,7 @@ export interface MultiChoicePickerOptions {
    */
   readonly exclusiveChoiceIds?: readonly string[];
   readonly theme: LabTheme;
+  readonly borderColor?: (text: string) => string;
   readonly onDone: (result?: MultiChoicePickerResult) => void;
 }
 
@@ -54,6 +55,7 @@ export class MultiChoicePickerComponent implements Component {
     const safeWidth = Math.max(1, width);
     const contentWidth = Math.max(1, roundedBoxInnerWidth(safeWidth, BOX_PADDING));
     const { theme } = this.options;
+    const borderColor = this.options.borderColor ?? ((text: string) => theme.fg('accent', text));
     const bodyLines = renderExchangeMarkdownBodyLines(this.options.body, theme, contentWidth);
     const { choiceLines, activeLineIndex } = this.#choiceLines();
     const choiceWindow = projectScrollViewport(choiceLines, MAX_VISIBLE_CHOICE_LINES, activeLineIndex);
@@ -80,7 +82,7 @@ export class MultiChoicePickerComponent implements Component {
         ...(this.options.bottomLabel ? { bottomLabel: this.options.bottomLabel } : {}),
       },
       safeWidth,
-      (text) => theme.fg('accent', text),
+      borderColor,
     );
     box.push('');
     return box;

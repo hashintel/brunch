@@ -7,6 +7,7 @@ import { appendBrunchAgentRuntimeSwitch } from '../../../session/runtime-state.j
 import type { WorkspaceSessionReadyState } from '../../../session/workspace-session-coordinator.js';
 import { BrunchEditorComponent } from '../../components/brunch-editor.js';
 import { BrunchStartupHeader } from '../../components/chrome-header.js';
+import { operationalModeBorderColorRole } from '../../components/mode-border-theme.js';
 import chromeExtension, {
   chromeStateForWorkspace,
   projectBrunchChromeFooterLines,
@@ -272,7 +273,7 @@ describe('Brunch chrome projection', () => {
     });
   });
 
-  it('keeps editor labels fresh when runtime state changes', async () => {
+  it('keeps editor labels and border color fresh when runtime state changes', async () => {
     const calls: FakeUiCall[] = [];
     const handlers = new Map<string, Array<(event: unknown, ctx: FakeChromeContext) => unknown>>();
     const entries: Array<{ type?: unknown; customType?: unknown; data?: unknown }> = [];
@@ -297,7 +298,7 @@ describe('Brunch chrome projection', () => {
     await handlers.get('session_start')?.[0]?.(
       {},
       {
-        ui: fakeChromeUi(calls, { withEditorSwap: true }),
+        ui: fakeChromeUi(calls, { withEditorSwap: true, theme: roleTheme }),
         sessionManager,
         getContextUsage: () => undefined,
         model: null,
@@ -312,12 +313,18 @@ describe('Brunch chrome projection', () => {
     expect((component as unknown as { getLabels: () => { topRight?: string } }).getLabels().topRight).toBe(
       '[ Specify ]',
     );
+    expect(
+      (component as unknown as { getBorderColor: () => (text: string) => string }).getBorderColor()('x'),
+    ).toBe(`${operationalModeBorderColorRole('specify')}:x`);
 
     appendBrunchAgentRuntimeSwitch(sessionManager, { schemaVersion: 1, operationalMode: 'execute' }, 'user');
 
     expect((component as unknown as { getLabels: () => { topRight?: string } }).getLabels().topRight).toBe(
       '[ Execute ]',
     );
+    expect(
+      (component as unknown as { getBorderColor: () => (text: string) => string }).getBorderColor()('x'),
+    ).toBe(`${operationalModeBorderColorRole('execute')}:x`);
   });
 
   it('does not install the editor in no-UI/stub contexts', async () => {
@@ -562,9 +569,10 @@ interface FakeUiCall {
 
 function fakeChromeUi(
   calls: FakeUiCall[],
-  options: { readonly withEditorSwap?: boolean } = {},
+  options: { readonly withEditorSwap?: boolean; readonly theme?: FakeTheme } = {},
 ): FakeExtensionUi {
   return {
+    theme: options.theme ?? fakeTheme,
     setHeader: (...args: unknown[]) => calls.push({ method: 'setHeader', args }),
     setFooter: (...args: unknown[]) => calls.push({ method: 'setFooter', args }),
     setStatus: (...args: unknown[]) => calls.push({ method: 'setStatus', args }),
@@ -590,6 +598,11 @@ const fakeTheme = {
   bold: (text: string) => text,
 };
 
+const roleTheme = {
+  fg: (color: string, text: string) => `${color}:${text}`,
+  bold: (text: string) => text,
+};
+
 type FakeTheme = typeof fakeTheme;
 
 type FakeExtensionUi = Pick<
@@ -604,7 +617,7 @@ type FakeExtensionUi = Pick<
   | 'setTitle'
   | 'notify'
 > &
-  Partial<Pick<ExtensionUIContext, 'setEditorComponent'>>;
+  Partial<Pick<ExtensionUIContext, 'setEditorComponent'>> & { readonly theme: FakeTheme };
 
 type FakeChromeContext = {
   readonly ui: FakeExtensionUi;

@@ -28,6 +28,7 @@ export interface ExchangeDecisionPickerOptions {
   readonly topLabel?: string;
   readonly bottomLabel?: string;
   readonly theme: LabTheme;
+  readonly borderColor?: (text: string) => string;
   readonly onDone: (result?: ExchangeDecisionPickerResult) => void;
 }
 
@@ -42,6 +43,7 @@ export class ExchangeDecisionPickerComponent implements Component {
   render(width: number): string[] {
     const safeWidth = Math.max(16, width);
     const contentWidth = Math.max(1, roundedBoxInnerWidth(safeWidth, BOX_PADDING));
+    const borderColor = this.options.borderColor ?? ((text: string) => this.options.theme.fg('accent', text));
     const { choiceLines, activeLineIndex } = this.#choiceLines();
     const choiceWindow = projectScrollViewport(choiceLines, MAX_VISIBLE_CHOICES, activeLineIndex);
     const bodyLines = renderExchangeMarkdownBodyLines(this.options.body, this.options.theme, contentWidth);
@@ -66,7 +68,7 @@ export class ExchangeDecisionPickerComponent implements Component {
         ...(this.options.bottomLabel ? { bottomLabel: this.options.bottomLabel } : {}),
       },
       safeWidth,
-      (text) => this.options.theme.fg('accent', text),
+      borderColor,
     );
     box.push('');
     return box;

@@ -9,6 +9,8 @@ export function createTestLabTheme(): LabTheme {
     error: '\x1b[38;5;196m',
     muted: '\x1b[38;5;244m',
     dim: '\x1b[38;5;240m',
+    modeSpecifyBorder: '\x1b[38;5;99m',
+    modeExecuteBorder: '\x1b[38;5;34m',
     text: '\x1b[39m',
     customMessageLabel: '\x1b[38;5;99m',
     toolTitle: '\x1b[38;5;69m',
