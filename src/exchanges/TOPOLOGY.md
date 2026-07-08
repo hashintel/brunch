@@ -14,22 +14,17 @@ exchanges/
   schemas/                Zod-authored params, details, capture, and editor envelopes
   recovery.ts             transcript detail recognizers and pending-present scan
   editor-envelope.ts      request_choices editor wire-envelope prefill/parse helpers
+  text.ts                 shared text normalization for projections and editor relays
   projections/
-    present-candidates.ts canonical present_candidates details construction
-    present-digest.ts     canonical present_digest details construction
-    present-question.ts   canonical present_question details construction
-    present-review-set.ts canonical present_review_set details construction
-    request-response.ts   canonical request_response result details construction
+    ask.ts                canonical standalone ask details construction
+    present-candidates.ts canonical present_candidates details + ask continuation construction
+    present-digest.ts     canonical present_digest details + ask continuation construction
+    present-question.ts   legacy present_question details construction (unregistered; kept for old persisted reads/tests)
+    present-review-set.ts canonical present_review_set details + ask continuation construction
+    request-response.ts   canonical preserved request-detail construction
 ```
 
-`request-response.ts` is the public request-side projection entrypoint. The
-preserved `request_answer` / `request_choice` / `request_choices` /
-`request_review` discriminants live in transcript details, not in the public file
-topology; per-discriminant constructors are private helpers under
-`projections/request-response/`. `request_review` projection callers must pass the
-present-tool discriminator (`present_review_set` or `present_digest`) because
-both presents close through the same terminal detail kind while capture reads
-them differently; digest approval also requires the accepted abstract echo.
+`ask.ts` is the standalone question terminal projection: one request-schema toolResult carries the question echo and answer together. Offer presents declare their `ask` continuation in details, and the registered `ask` tool fails loudly when a referenced offer lacks that declaration. By-reference ask continuations emit preserved request-detail discriminants (`request_choice` / `request_review`) so capture/sweep readers keep their wire vocabulary. `request-response.ts` remains as the canonical constructor home for those preserved transcript details and legacy reads; `request_response` is no longer the registered collection tool. `request_review` projection callers must pass the present-tool discriminator (`present_review_set` or `present_digest`) because both presents close through the same terminal detail kind while capture reads them differently; digest approval also requires the accepted abstract echo.
 
 ## Dependency direction
 

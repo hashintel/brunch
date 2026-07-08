@@ -29,7 +29,7 @@ describe('public Brunch RPC structured-exchange parity proof', () => {
       sessionId: expect.any(String),
     });
     expect(Date.parse(report.generatedAt)).not.toBeNaN();
-    expect(report.toolCoverage).toEqual(['present_question', 'request_response']);
+    expect(report.toolCoverage).toEqual(['ask', 'present_question']);
     expect(report.exchangeIds).toEqual([
       'deterministic-grounding-choice-1',
       'deterministic-grounding-text-2',
@@ -67,7 +67,7 @@ describe('public Brunch RPC structured-exchange parity proof', () => {
     expect(JSON.stringify(persistedReport.artifacts)).not.toContain(fixtureRoot);
     expect(persistedReport.cwd).toBe('<ephemeral-workspace>');
 
-    expect(sessionJsonl).toContain('"toolName":"present_question"');
+    expect(sessionJsonl).toContain('"toolName":"ask"');
     expect(persistedReport).toMatchObject({
       schemaVersion: 1,
       probeId: 'public-rpc-parity',

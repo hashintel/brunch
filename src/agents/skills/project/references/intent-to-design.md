@@ -11,11 +11,11 @@ chain intent-to-design
   derive 2-3 downstream design candidates
   compare boundary, dependency direction, misuse risk, and graph-anchor coverage
   present_candidates
-  request_response
+  ask(continues)
   if graph commitment is warranted:
     draft through map/review-set guidance
     present_review_set
-    request_response
+    ask(continues)
 ```
 
 A design projection is not free architecture. It must answer: what implementation shape is forced, suggested, or ruled out by accepted intent?

@@ -62,17 +62,47 @@ export const CaptureDetailsHeaderSchema = z.toJSONSchema(zCaptureDetailsHeader, 
 export const zDisplayBase = z.object({ heading: z.string().min(1), body: zMarkdown.optional() }).strict();
 export const DisplayBaseSchema = z.toJSONSchema(zDisplayBase, { unrepresentable: 'throw' });
 
+const zAskContinuationOption = z
+  .object({
+    id: z.string().min(1),
+    label: zNonBlankMarkdown,
+    description: zNonBlankMarkdown.optional(),
+  })
+  .strict();
+
+export const zAskContinuationParams = z
+  .object({
+    body: zNonBlankMarkdown,
+    options: z.array(zAskContinuationOption).min(1),
+    multiple: z.boolean().optional(),
+    allowOther: z.boolean().optional(),
+    allowNone: z.boolean().optional(),
+    commentPrompt: zNonBlankMarkdown.optional(),
+    topLabel: zNonBlankMarkdown.optional(),
+    bottomLabel: zNonBlankMarkdown.optional(),
+  })
+  .strict();
+export type AskContinuationParams = z.infer<typeof zAskContinuationParams>;
+
+export const zAskContinuationDeclaration = z
+  .object({
+    tool: z.literal('ask'),
+    params: zAskContinuationParams,
+  })
+  .strict();
+export type AskContinuationDeclaration = z.infer<typeof zAskContinuationDeclaration>;
+
 export const zPresentQuestionToolMeta = z
   .object({ curr: z.literal('present_question'), next: z.literal('request_response') })
   .strict();
 export const zPresentReviewSetToolMeta = z
-  .object({ curr: z.literal('present_review_set'), next: z.literal('request_response') })
+  .object({ curr: z.literal('present_review_set'), next: z.literal('ask') })
   .strict();
 export const zPresentCandidatesToolMeta = z
-  .object({ curr: z.literal('present_candidates'), next: z.literal('request_response') })
+  .object({ curr: z.literal('present_candidates'), next: z.literal('ask') })
   .strict();
 export const zPresentDigestToolMeta = z
-  .object({ curr: z.literal('present_digest'), next: z.literal('request_response') })
+  .object({ curr: z.literal('present_digest'), next: z.literal('ask') })
   .strict();
 
 export const zPresentToolMeta = z.discriminatedUnion('curr', [

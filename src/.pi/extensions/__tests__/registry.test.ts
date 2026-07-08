@@ -32,10 +32,9 @@ import {
 } from '../commands/index.js';
 import { registerBrunchBranchPolicyHandlers as commandPolicy } from '../commands/policy.js';
 import {
+  ASK_TOOL,
   PRESENT_CANDIDATES_TOOL,
-  PRESENT_QUESTION_TOOL,
   PRESENT_REVIEW_SET_TOOL,
-  REQUEST_RESPONSE_TOOL,
   registerStructuredExchange as structuredExchange,
 } from '../exchanges/index.js';
 import { BRUNCH_EXECUTE_AGENT_RESULT_TOOL } from '../executor/execute-agent-result/index.js';
@@ -186,11 +185,10 @@ describe('Brunch explicit Pi extension registry', () => {
       BRUNCH_EXECUTE_TEST_RESULT_TOOL,
       BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL,
       'present_alternatives',
-      PRESENT_QUESTION_TOOL,
+      ASK_TOOL,
       PRESENT_REVIEW_SET_TOOL,
       PRESENT_CANDIDATES_TOOL,
       'present_digest',
-      REQUEST_RESPONSE_TOOL,
       'read_elicitation_scratchpad',
       'update_elicitation_scratchpad',
     ]);
@@ -2232,8 +2230,9 @@ function recordingApiWithEvents(events: Map<string, Array<(event: any, ctx: any)
         'find',
         'ls',
         'present_alternatives',
-        PRESENT_QUESTION_TOOL,
-        REQUEST_RESPONSE_TOOL,
+        ASK_TOOL,
+        PRESENT_CANDIDATES_TOOL,
+        PRESENT_REVIEW_SET_TOOL,
         'bash',
         'edit',
         'write',
@@ -2273,8 +2272,9 @@ function createRecordingExtensionApi() {
         'find',
         'ls',
         'present_alternatives',
-        PRESENT_QUESTION_TOOL,
-        REQUEST_RESPONSE_TOOL,
+        ASK_TOOL,
+        PRESENT_CANDIDATES_TOOL,
+        PRESENT_REVIEW_SET_TOOL,
         'bash',
         'edit',
         'write',

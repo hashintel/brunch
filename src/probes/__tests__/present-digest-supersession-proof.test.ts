@@ -15,7 +15,15 @@ function presentDigest(exchangeId: string, abstract: string): TranscriptEntryLik
   return toolResult('present_digest', projection.details);
 }
 
+// Live terminals persist under toolName 'ask' (D116-L): the declared digest
+// continuation and the RPC-minted accepted response both ride the ask tool.
 function digestReview(details: unknown): TranscriptEntryLike {
+  return toolResult('ask', details);
+}
+
+// Pre-cutover transcripts persist terminals under the retired collection tool
+// name; sweep reads must keep honoring them.
+function legacyDigestReview(details: unknown): TranscriptEntryLike {
   return toolResult('request_response', details);
 }
 
@@ -56,7 +64,7 @@ describe('present_digest supersession proof', () => {
         }),
       ),
       presentDigest('digest-2', 'Revised abstract that is still superseded.'),
-      digestReview(
+      legacyDigestReview(
         projectRequestReview({
           exchangeId: 'digest-2',
           status: 'answered',
@@ -79,7 +87,7 @@ describe('present_digest supersession proof', () => {
 
     const tail = projectCaptureSweepWindow(entries).conversationalTail;
 
-    expect(toolNames(tail)).toEqual(['request_response', 'request_response', 'request_response']);
+    expect(toolNames(tail)).toEqual(['ask', 'request_response', 'ask']);
     expect(digestPayloads(tail)).toEqual(['Final accepted abstract for sweep capture.']);
   });
 
@@ -104,9 +112,12 @@ describe('present_digest supersession proof', () => {
 
     const tail = projectCaptureSweepWindow([
       presentDigest('digest-product-minted', 'Product-minted accepted abstract for sweep capture.'),
-      digestReview(accepted.toolResultMessage.details),
+      // The minted message itself, not a re-wrap: this pins the real persisted
+      // toolName ('ask') flowing through the sweep classifier.
+      { type: 'message', message: accepted.toolResultMessage as never },
     ]).conversationalTail;
 
+    expect(toolNames(tail)).toEqual(['ask']);
     expect(digestPayloads(tail)).toEqual(['Product-minted accepted abstract for sweep capture.']);
   });
 
@@ -124,7 +135,7 @@ describe('present_digest supersession proof', () => {
 
     const tail = projectCaptureSweepWindow(entries).conversationalTail;
 
-    expect(toolNames(tail)).toEqual(['request_response']);
+    expect(toolNames(tail)).toEqual(['ask']);
     expect(digestPayloads(tail)).toEqual([]);
   });
 });

@@ -17,7 +17,7 @@ export const presentDigestTool = defineTool({
   promptGuidelines: [
     'Use present_digest for assistant-authored summaries of raw or large source material before mapping it to graph truth.',
     'Carry prose abstract, analysis, and recommendation only; do not include graph nodes, edges, draft ids, or graph command payloads.',
-    'Follow with request_response using the same exchangeId; the accepted terminal echoes the abstract for later capture sweep reads.',
+    'Follow with ask using continues set to the same exchangeId; the accepted terminal echoes the abstract for later capture sweep reads.',
   ],
   parameters: piSchema(zPresentDigestParams),
   executionMode: 'sequential',

@@ -25,7 +25,17 @@ describe('projectPresentDigest', () => {
         analysis: 'Digest is not graph material.',
         recommendation: 'Approve after checking source fidelity.',
       },
-      tool_meta: { curr: 'present_digest', next: 'request_response' },
+      tool_meta: { curr: 'present_digest', next: 'ask' },
+      continuation: {
+        tool: 'ask',
+        params: {
+          options: [
+            { id: 'approve', label: 'Approve' },
+            { id: 'request_changes', label: 'Request changes' },
+            { id: 'reject', label: 'Reject' },
+          ],
+        },
+      },
     });
   });
 

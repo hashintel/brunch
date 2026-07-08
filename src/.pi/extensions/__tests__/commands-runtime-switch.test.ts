@@ -122,8 +122,8 @@ function commandHarness(
           'grep',
           'find',
           'ls',
-          'present_question',
-          'request_response',
+          'ask',
+
           'mutate_graph',
           'execute_status',
         ].map((name) => ({
@@ -255,7 +255,7 @@ describe('Brunch runtime switch commands', () => {
     await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
 
     expect(harness.activeToolNames.at(-1)).toEqual(
-      expect.arrayContaining(['present_question', 'request_response', 'mutate_graph', 'execute_status']),
+      expect.arrayContaining(['ask', 'mutate_graph', 'execute_status']),
     );
   });
 

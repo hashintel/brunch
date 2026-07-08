@@ -433,11 +433,11 @@ describe('FE-844/FE-847 live gap legality through real boot', () => {
     // state.test.ts proves the tool-grant POLICY with a hand-maintained
     // registeredToolNames array, but only the real product boot proves the
     // FE-1059 present_candidates un-stub is actually REGISTERED and the triad
-    // (present_candidates / present_review_set / request_response) is active
+    // (present_candidates / present_review_set / ask) is active
     // through the live registry — not merely listed in a test fixture.
     const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
     try {
-      const generateTriad = ['present_candidates', 'present_review_set', 'request_response'];
+      const generateTriad = ['present_candidates', 'present_review_set', 'ask'];
 
       // The un-stubbed present_candidates is genuinely in the real registry,
       // alongside the rest of the structured-exchange family.

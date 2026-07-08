@@ -41,6 +41,7 @@ export function exchangeToolCallId(exchangeId: string, toolName: string): string
 export function syntheticExchangeToolCallMessage(
   exchangeId: string,
   toolName: string,
+  semanticArguments?: Record<string, unknown>,
 ): SyntheticExchangeToolCallMessage {
   return {
     role: 'assistant',
@@ -49,7 +50,7 @@ export function syntheticExchangeToolCallMessage(
         type: 'toolCall',
         id: exchangeToolCallId(exchangeId, toolName),
         name: toolName,
-        arguments: { exchangeId },
+        arguments: semanticArguments ?? { exchangeId },
       },
     ],
     api: 'brunch-exchange',

@@ -40,8 +40,21 @@ describe('projectPresentCandidates', () => {
       schema: 'brunch.structured_exchange.present',
       v: 1,
       exchange_id: 'candidate-direction',
-      tool_meta: { curr: 'present_candidates', next: 'request_response' },
+      tool_meta: { curr: 'present_candidates', next: 'ask' },
       display: { heading: 'Which direction should we take?', body: 'Pick one candidate.' },
+      continuation: {
+        tool: 'ask',
+        params: {
+          body: 'Which direction should we take?\n\nPick one candidate.',
+          options: [
+            {
+              id: 'local-workbench',
+              label: 'Local workbench',
+              description: 'Choose this for the POC.',
+            },
+          ],
+        },
+      },
       candidates: [
         {
           id: 'local-workbench',

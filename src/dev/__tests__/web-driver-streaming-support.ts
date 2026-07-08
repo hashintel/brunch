@@ -177,7 +177,7 @@ export function hasToolEvent(
 export function requestAnswerArgsFromStream(events: readonly AgentSessionEvent[]): unknown {
   const event = events.find((candidate) => {
     const shaped = candidate as { type?: unknown; toolName?: unknown };
-    return shaped.type === 'tool_execution_start' && shaped.toolName === 'request_response';
+    return shaped.type === 'tool_execution_start' && shaped.toolName === 'ask';
   }) as { args?: unknown } | undefined;
   return event?.args;
 }
@@ -186,7 +186,7 @@ export function requestAnswerFromJsonl(jsonl: string): string | undefined {
   for (const line of jsonl.trim().split('\n')) {
     const entry = JSON.parse(line) as { message?: { role?: string; toolName?: string; details?: unknown } };
     const message = entry.message;
-    if (message?.role !== 'toolResult' || message.toolName !== 'request_response') continue;
+    if (message?.role !== 'toolResult' || message.toolName !== 'ask') continue;
     const details = message.details as { answered?: { text?: unknown } } | undefined;
     if (typeof details?.answered?.text === 'string') return details.answered.text;
   }

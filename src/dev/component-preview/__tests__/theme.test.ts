@@ -13,6 +13,7 @@ import {
   createThemePaintingTerminal,
   parseBrunchThemePalette,
   registerComponentPreviewThemeToggle,
+  shouldReloadComponentPreviewThemeForWatchEvent,
   SwitchableComponentPreviewTheme,
 } from '../theme.js';
 
@@ -86,10 +87,28 @@ describe('parseBrunchThemePalette', () => {
     ).toThrow(/accent.*inkk/);
   });
 
+  it('throws on a dangling page-color var before terminal painting can consume it', () => {
+    expect(() =>
+      parseBrunchThemePalette(
+        themeJson({ export: { pageBg: 'surface-missing', pageFg: '#e0e0e0' } }),
+        'dark',
+      ),
+    ).toThrow(/pageBg.*surface-missing/);
+  });
+
   it('rejects empty string where a page color is required', () => {
     expect(() =>
       parseBrunchThemePalette(themeJson({ export: { pageBg: '', pageFg: '#e0e0e0' } }), 'dark'),
     ).toThrow(/pageBg/);
+  });
+
+  it('rejects empty string for non-terminal-default color tokens', () => {
+    expect(() => parseBrunchThemePalette(themeJson({ colors: { accent: '', text: '' } }), 'dark')).toThrow(
+      /accent/,
+    );
+    expect(() =>
+      parseBrunchThemePalette(themeJson({ colors: { selectedBg: '', text: '' } }), 'dark'),
+    ).toThrow(/selectedBg/);
   });
 
   it('still parses the shipped theme JSONs', () => {
@@ -97,6 +116,14 @@ describe('parseBrunchThemePalette', () => {
       const raw = readFileSync(fileURLToPath(new URL(`brunch-${variant}.json`, THEME_DIR)), 'utf8');
       expect(() => parseBrunchThemePalette(raw, variant)).not.toThrow();
     }
+  });
+});
+
+describe('watchComponentPreviewTheme', () => {
+  it('treats filename-less filesystem events as reload candidates', () => {
+    expect(shouldReloadComponentPreviewThemeForWatchEvent(null)).toBe(true);
+    expect(shouldReloadComponentPreviewThemeForWatchEvent('brunch-dark.json')).toBe(true);
+    expect(shouldReloadComponentPreviewThemeForWatchEvent('notes.txt')).toBe(false);
   });
 });
 

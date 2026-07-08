@@ -17,12 +17,12 @@ chain propose
   load one plane reference when branch conduct matters
   fan_out candidate alternatives with explicit comparison axes
   present_candidates for recognition/comparison only
-  request_response for the user's recognition input
+  ask with continues for the user's recognition input
   fan_in in reasoning: pick | synthesize | compose
   if graph drafts are warranted:
     draft through current map/review-set boundary
     present_review_set
-    request_response
+    ask(continues)
     commit only after approval through the review-set path
 ```
 
@@ -47,7 +47,7 @@ Do not add a fan-in schema field, a plane-specific commit tool, or a multi-selec
    - `references/oracle.md` for verification ensemble candidates.
    - `references/present-review-set.md` only when drafting or checking a graph-review batch.
 3. **Fan out real alternatives.** Make differences legible: each candidate needs a core bet, best fit, cost/complexity, coverage, main risks, lock-in constraints, and optionally a recommendation.
-4. **Present candidates before drafts.** Call `present_candidates`, then `request_response`. Treat the response as recognition input, not permission to write graph truth.
+4. **Present candidates before drafts.** Call `present_candidates`, then `ask(continues)`. Treat the response as recognition input, not permission to write graph truth.
 5. **Fan in in reasoning.** Pick, synthesize, or compose according to the plane. Keep uncertainty visible; do not launder thin evidence into settled commitments.
 6. **Draft only when warranted.** If the next move is a graph batch, use current map/review-set guidance for node, edge, detail, and routing shape. Do not hand-copy ontology tables into this skill.
 7. **Commit only through approval.** A review-set batch becomes graph truth only after the user approves the exact reviewed items through the existing review-set acceptance path.

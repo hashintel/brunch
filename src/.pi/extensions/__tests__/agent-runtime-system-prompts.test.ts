@@ -130,7 +130,16 @@ describe('Brunch prompt-pack topology', () => {
           events[event] = handler;
         },
         getAllTools: () =>
-          ['read', 'grep', 'bash', 'write', 'present_question', 'request_response'].map((name) => ({
+          [
+            'read',
+            'grep',
+            'bash',
+            'write',
+            'ask',
+            'present_candidates',
+            'present_digest',
+            'present_review_set',
+          ].map((name) => ({
             name,
           })),
       } as never,
@@ -171,8 +180,8 @@ describe('Brunch prompt-pack topology', () => {
           'bash',
           'edit',
           'write',
-          'present_question',
-          'request_response',
+          'ask',
+
           'present_review_set',
           'read_graph',
           'read_session_context',
@@ -204,9 +213,7 @@ describe('Brunch prompt-pack topology', () => {
     expect(repaired?.input[0]?.content).toContain('[Brunch live skills]');
     expect(repaired?.tools).toEqual(providerTools);
     expect(activeTools).toHaveLength(1);
-    expect(providerTools.map((tool) => tool.name)).toEqual(
-      expect.arrayContaining(['present_question', 'request_response', 'mutate_graph']),
-    );
+    expect(providerTools.map((tool) => tool.name)).toEqual(expect.arrayContaining(['ask', 'mutate_graph']));
   });
 
   it('repairs every supported provider system-prompt carrier shape', async () => {
@@ -263,8 +270,7 @@ describe('Brunch prompt-pack topology', () => {
             events[event] ??= [];
             events[event].push(handler);
           },
-          getAllTools: () =>
-            ['read', 'grep', 'present_question', 'request_response'].map((name) => ({ name })),
+          getAllTools: () => ['read', 'grep', 'ask'].map((name) => ({ name })),
           setActiveTools() {},
         } as never,
         promptContext,
@@ -291,7 +297,7 @@ describe('Brunch prompt-pack topology', () => {
           events[event] ??= [];
           events[event].push(handler);
         },
-        getAllTools: () => ['read', 'grep', 'present_question', 'request_response'].map((name) => ({ name })),
+        getAllTools: () => ['read', 'grep', 'ask'].map((name) => ({ name })),
         setActiveTools() {},
       } as never,
       promptContext,
@@ -466,8 +472,8 @@ describe('Brunch prompt-pack topology', () => {
           'bash',
           'edit',
           'write',
-          'present_question',
-          'request_response',
+          'ask',
+
           'present_review_set',
           'read_graph',
           'read_session_context',
@@ -511,13 +517,12 @@ describe('Brunch prompt-pack topology', () => {
     );
 
     expect(manager.entries[0]?.customType).toBe(BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE);
-    // D86-L: graph-write tools (present_review_set / request_response / mutate_graph) are
+    // D86-L: graph-write tools (present_review_set / ask / mutate_graph) are
     // floor in Specify mode, so every entry carries them regardless of gap coverage.
     const elicitFloorTools = [
       'read',
       'grep',
-      'present_question',
-      'request_response',
+      'ask',
       'present_review_set',
       'read_graph',
       'read_session_context',
@@ -711,7 +716,7 @@ describe('Brunch prompt-pack topology', () => {
       registerShortcut() {},
       registerMessageRenderer() {},
       sendMessage() {},
-      getAllTools: () => ['read', 'grep', 'present_question', 'request_response'].map((name) => ({ name })),
+      getAllTools: () => ['read', 'grep', 'ask'].map((name) => ({ name })),
       setActiveTools() {},
     } as never);
 

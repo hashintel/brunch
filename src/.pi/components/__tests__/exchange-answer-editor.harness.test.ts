@@ -19,7 +19,7 @@ describe('ExchangeAnswerEditorComponent harness', () => {
     const tui = new TUI(terminal);
     const onDone = vi.fn();
     const component = new ExchangeAnswerEditorComponent(tui, editorTheme, {
-      prompt: 'What should Brunch remember?',
+      body: 'What should Brunch remember?',
       theme: labTheme,
       onDone,
     });
@@ -56,7 +56,7 @@ describe('ExchangeAnswerEditorComponent harness', () => {
     const tui = new TUI(terminal);
     const onDone = vi.fn();
     const component = new ExchangeAnswerEditorComponent(tui, editorTheme, {
-      prompt: 'Cancel?',
+      body: 'Cancel?',
       theme: labTheme,
       onDone,
     });

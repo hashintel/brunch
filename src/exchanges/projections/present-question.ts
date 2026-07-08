@@ -1,5 +1,6 @@
 import type { PresentQuestionDetails, PresentQuestionParams } from '../schemas/index.js';
 import { STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA } from '../schemas/index.js';
+import { normalizeOptionalText } from '../text.js';
 
 export interface PresentQuestionProjection {
   readonly heading: string;
@@ -43,9 +44,4 @@ export function projectPresentQuestion(input: PresentQuestionParams): PresentQue
     ...(input.commentPrompt !== undefined ? { comment_prompt: input.commentPrompt } : {}),
   };
   return { heading, ...(body ? { body } : {}), details };
-}
-
-function normalizeOptionalText(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
 }

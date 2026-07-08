@@ -11,8 +11,8 @@ import {
   type AnsweredOptionEcho,
   type SelectedChoice,
 } from '../../../../exchanges/schemas/index.js';
+import { normalizeOptionalText } from '../../../../exchanges/text.js';
 import { createMultiChoicePickerComponent } from '../../../components/multi-choice-picker.js';
-import { normalizeOptionalText } from './markdown.js';
 import { collectRequiredInput } from './required-input.js';
 import { withWorkingIndicatorHidden, type StructuredExchangeUiContext } from './ui-context.js';
 

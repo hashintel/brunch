@@ -12,12 +12,12 @@ chain design-proposal
   fan_out 2-3 meaningfully different design shapes
   compare depth, locality, leverage, misuse risk, specialization, and epistemic cost
   present_candidates
-  request_response
+  ask(continues)
   synthesize in reasoning
   if graph material is warranted:
     draft through map/review-set guidance
     present_review_set
-    request_response
+    ask(continues)
     commit only after approval
 ```
 

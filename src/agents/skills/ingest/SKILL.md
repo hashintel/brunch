@@ -38,7 +38,7 @@ chain ingest:
 - **reference**: use only legal read tools; `web_fetch` for a known URL, `web_search` only when external context would change the next move; do not expand one reference into open-ended research unless asked.
 - **brownfield**: smallest useful reconnaissance bounded by the user's area and the current gap; read nearby topology/README notes first when present; do not crawl for completeness.
 
-A digest should include: source/scope, high-confidence facts, interpretation separated from direct claims, uncertainties or contradictions, and the suggested next question/gap/graph area. Present it with `present_digest` (`present_digest` offer → `request_response` review terminal). Capture from the accepted `accepted_abstract` plus conversation, not unbounded raw tool output.
+A digest should include: source/scope, high-confidence facts, interpretation separated from direct claims, uncertainties or contradictions, and the suggested next question/gap/graph area. Present it with `present_digest`, then call `ask({ continues })` for the declared review terminal. Capture from the accepted `accepted_abstract` plus conversation, not unbounded raw tool output.
 
 ### Sweep
 

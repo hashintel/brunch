@@ -11,11 +11,11 @@ chain design-to-oracle
   derive oracle candidates or ensembles
   compare observability, reproducibility, controllability, cost, and blind spots
   present_candidates
-  request_response
+  ask(continues)
   if graph commitment is warranted:
     draft through map/review-set guidance
     present_review_set
-    request_response
+    ask(continues)
 ```
 
 An oracle projection is not a task list. It must name the observation that would discriminate success from failure for the design and its upstream intent.

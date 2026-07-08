@@ -4,6 +4,7 @@ import * as z from 'zod';
 import {
   zPresentCandidatesParams,
   zPresentDigestParams,
+  zAskParams,
   zPresentQuestionParams,
   zPresentReviewSetParams,
   zRequestResponseParams,
@@ -161,6 +162,35 @@ describe('structured exchange present params', () => {
     expect(schema.properties.payload.properties.pitch.properties).toHaveProperty('narrative');
     expect(schema.properties.payload.properties.entityDrafts).toBeDefined();
     expect(schema.properties.payload.properties.edgeDrafts).toBeDefined();
+  });
+});
+
+describe('structured exchange ask params', () => {
+  it('parses one-shot ask body/options and rejects blank body plus reserved option ids', () => {
+    expect(
+      zAskParams.parse({
+        exchangeId: 'problem-frame',
+        body: '  ## What problem are we solving?  ',
+      }),
+    ).toMatchObject({ body: '## What problem are we solving?' });
+
+    expect(
+      zAskParams.parse({
+        exchangeId: 'domain-shape',
+        body: 'Pick one.',
+        options: [{ id: 'local', label: 'Local workbench', description: 'Best POC fit.' }],
+      }),
+    ).toMatchObject({ options: [{ id: 'local', label: 'Local workbench' }] });
+
+    expect(() => zAskParams.parse({ exchangeId: 'blank', body: '   ' })).toThrow(/cannot be empty/);
+    expect(() =>
+      zAskParams.parse({
+        exchangeId: 'reserved',
+        body: 'Pick one.',
+        options: [{ id: 'other', label: 'Other as listed' }],
+      }),
+    ).toThrow(/reserved/);
+    expectJsonSchemaExport(zAskParams);
   });
 });
 

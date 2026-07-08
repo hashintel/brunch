@@ -89,13 +89,17 @@ interface ToolResultOptionDetails {
   label?: string;
   content?: string;
   rationale?: string;
+  description?: string;
 }
+
+type AskOptionEntry = Pick<ToolResultOptionDetails, 'id' | 'label' | 'description'>;
 
 interface ToolResultDetails {
   exchange_id?: string;
   schema?: string;
   display?: { heading?: string };
   options?: ToolResultOptionDetails[];
+  question?: { options?: AskOptionEntry[] };
 }
 
 interface ToolResultEntry {
@@ -280,7 +284,7 @@ export async function runPublicRpcParityProof(
   }
   const tools = toolResultEntries(sessionText);
   const toolCoverage = [...new Set(tools.map((entry) => entry.toolName))].sort();
-  for (const required of ['present_question', 'request_response']) {
+  for (const required of ['ask']) {
     if (!toolCoverage.includes(required)) {
       throw new Error(`Missing tool coverage for ${required}`);
     }
@@ -298,33 +302,30 @@ export async function runPublicRpcParityProof(
     throw new Error('Public RPC parity proof repeated deterministic prompts');
   }
 
-  const optionPresentResults = tools.filter(
-    (entry) => entry.toolName === 'present_question' && Array.isArray(entry.details?.options),
-  );
+  const optionPresentResults = tools.filter((entry) => {
+    const details = entry.details as { question?: { options?: unknown } } | undefined;
+    return entry.toolName === 'ask' && Array.isArray(details?.question?.options);
+  });
   for (const entry of optionPresentResults) {
-    const richOption = entry.details?.options?.find(
-      (option) => option.content !== undefined && option.rationale !== undefined,
+    const details = entry.details as { exchange_id?: string; question?: { options?: AskOptionEntry[] } };
+    const richOption = details.question?.options?.find(
+      (option) => option.label !== undefined && option.description !== undefined,
     );
     if (!richOption) {
       throw new Error(
-        `Exchange ${entry.details?.exchange_id ?? 'unknown'} JSONL option details dropped content/rationale`,
+        `Exchange ${details.exchange_id ?? 'unknown'} JSONL ask option details dropped label/description`,
       );
     }
-    const optionContent = richOption.content;
-    const optionRationale = richOption.rationale;
-    if (optionContent === undefined || optionRationale === undefined) {
+    const optionLabel = richOption.label;
+    const optionDescription = richOption.description;
+    if (optionLabel === undefined || optionDescription === undefined) {
       throw new Error(
-        `Exchange ${entry.details?.exchange_id ?? 'unknown'} JSONL option details dropped content/rationale`,
+        `Exchange ${details.exchange_id ?? 'unknown'} JSONL ask option details dropped label/description`,
       );
     }
-    if (optionContent === richOption.label) {
+    if (!entry.content.includes(optionLabel) || !entry.content.includes(optionDescription)) {
       throw new Error(
-        `Exchange ${entry.details?.exchange_id ?? 'unknown'} JSONL option content collapsed into label`,
-      );
-    }
-    if (!entry.content.includes(optionContent) || !entry.content.includes(optionRationale)) {
-      throw new Error(
-        `Exchange ${entry.details?.exchange_id ?? 'unknown'} transcript markdown dropped option artifacts`,
+        `Exchange ${details.exchange_id ?? 'unknown'} transcript markdown dropped ask option label/description`,
       );
     }
   }

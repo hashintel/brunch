@@ -10,7 +10,7 @@ Your first step should always be to read the selected spec/session context, stat
 
 Open Execute mode with an honest readiness assessment over the seed reads: graph overview, graph facts, session scratchpad, and any orientation directive. Use the shared capability-readiness vocabulary from `readiness-bands.md` §Agent Use: **Proceed / Proceed-advisory / Negotiate / Ask**.
 
-Backfill gently: accept the requested Execute-mode move, gather missing information through `present_question` / `request_response` or scratchpad-obligation updates, and do not bounce the user back to Specify mode.
+Backfill gently: accept the requested Execute-mode move, gather missing information through `ask` or scratchpad-obligation updates, and do not bounce the user back to Specify mode.
 
 For `design_first`, `oracle_first`, and `project_plan` orientation directives, route through the live skill guidance. `project_plan` stays at frontier-level depth per D103-L; do not invent slice-level plan objects here.
 

@@ -13,16 +13,31 @@ function expectJsonSchemaExport(schema: z.ZodType) {
   expect(() => z.toJSONSchema(schema, { unrepresentable: 'throw' })).not.toThrow();
 }
 
+function askReviewContinuation(body: string) {
+  return {
+    tool: 'ask' as const,
+    params: {
+      body,
+      options: [
+        { id: 'approve', label: 'Approve' },
+        { id: 'request_changes', label: 'Request changes' },
+        { id: 'reject', label: 'Reject' },
+      ],
+    },
+  };
+}
+
 describe('structured exchange present schemas', () => {
   const candidateDetails = {
     schema: 'brunch.structured_exchange.present',
     v: 1,
     exchange_id: 'candidate-direction',
-    tool_meta: { curr: 'present_candidates', next: 'request_response' },
+    tool_meta: { curr: 'present_candidates', next: 'ask' },
     display: {
       heading: 'Which direction should we take?',
       body: 'Pick one candidate.',
     },
+    continuation: askReviewContinuation('Which direction should we take?'),
     candidates: [
       {
         id: 'candidate-local-workbench',
@@ -86,8 +101,9 @@ describe('structured exchange present schemas', () => {
         schema: 'brunch.structured_exchange.present',
         v: 1,
         exchange_id: 'review-set-17',
-        tool_meta: { curr: 'present_review_set', next: 'request_response' },
+        tool_meta: { curr: 'present_review_set', next: 'ask' },
         display: { heading: 'Review proposed requirements' },
+        continuation: askReviewContinuation('Review proposed requirements'),
         review_set: {
           nodes: [
             {
@@ -119,8 +135,9 @@ describe('structured exchange present schemas', () => {
         schema: 'brunch.structured_exchange.present',
         v: 1,
         exchange_id: 'digest-large-source',
-        tool_meta: { curr: 'present_digest', next: 'request_response' },
+        tool_meta: { curr: 'present_digest', next: 'ask' },
         display: { heading: 'Review source digest' },
+        continuation: askReviewContinuation('Review source digest'),
         digest: {
           abstract: 'The source says summarize before graph mapping.',
           analysis: 'The digest is source-derived review input, not graph truth.',
@@ -140,7 +157,7 @@ describe('structured exchange present schemas', () => {
           schema: 'brunch.structured_exchange.present',
           v: 1,
           exchange_id: 'digest-large-source',
-          tool_meta: { curr: 'present_digest', next: 'request_response' },
+          tool_meta: { curr: 'present_digest', next: 'ask' },
           display: { heading: 'Review source digest' },
           digest: { abstract },
         }),
@@ -153,7 +170,7 @@ describe('structured exchange present schemas', () => {
       schema: 'brunch.structured_exchange.present',
       v: 1,
       exchange_id: 'review-set-17',
-      tool_meta: { curr: 'present_review_set', next: 'request_response' },
+      tool_meta: { curr: 'present_review_set', next: 'ask' },
       display: { heading: 'Review proposed requirements' },
       review_set: {
         nodes: [

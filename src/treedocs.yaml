@@ -96,18 +96,16 @@ tree:
           index.ts: "Exports the public module surface."
       exchanges:
         TOPOLOGY.md: "Documents this source subtree."
+        ask.ts: "Implements ask collection."
         index.ts: "Exports the public module surface."
         pi-schema.ts: "Implements pi schema."
         present-candidates.ts: "Implements present candidates."
-        present-question.ts: "Implements present question."
+        present-digest.ts: "Implements present digest."
         present-review-set.ts: "Implements present review set."
-        request-response.ts: "Implements request response."
         shared:
-          answer-source.ts: "Implements answer source."
-          choice-source.ts: "Implements choice source."
           choices-editor.ts: "Implements choices editor."
           markdown.ts: "Implements markdown."
-          review-source.ts: "Implements review source."
+          required-input.ts: "Implements required input collection."
           ui-context.ts: "Implements ui context."
       mentions:
         index.ts: "Exports the public module surface."
@@ -274,8 +272,11 @@ tree:
     tier-2-harness.ts: "Implements tier 2 harness."
   exchanges:
     TOPOLOGY.md: "Documents this source subtree."
+    editor-envelope.ts: "Implements editor envelope."
     projections:
+      ask.ts: "Implements ask projection."
       present-candidates.ts: "Implements present candidates."
+      present-digest.ts: "Implements present digest."
       present-question.ts: "Implements present question."
       present-review-set.ts: "Implements present review set."
       request-response.ts: "Implements request response."
@@ -285,6 +286,7 @@ tree:
         choices.ts: "Implements request choices projection."
         review.ts: "Implements request review projection."
     recovery.ts: "Implements exchange transcript recovery."
+    text.ts: "Implements exchange text normalization."
     schemas:
       TOPOLOGY.md: "Documents this source subtree."
       capture.ts: "Implements capture."

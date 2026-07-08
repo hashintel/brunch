@@ -1,5 +1,10 @@
-import type { PresentDigestDetails, PresentDigestParams } from '../schemas/index.js';
+import type {
+  AskContinuationDeclaration,
+  PresentDigestDetails,
+  PresentDigestParams,
+} from '../schemas/index.js';
 import { STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA } from '../schemas/index.js';
+import { normalizeOptionalText } from '../text.js';
 
 export interface PresentDigestProjection {
   readonly heading: string;
@@ -14,11 +19,12 @@ export function projectPresentDigest(input: PresentDigestParams): PresentDigestP
     schema: STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
     v: 1,
     exchange_id: input.exchangeId,
-    tool_meta: { curr: 'present_digest', next: 'request_response' },
+    tool_meta: { curr: 'present_digest', next: 'ask' },
     display: {
       heading,
       ...(body ? { body } : {}),
     },
+    continuation: digestContinuation({ heading, body, digest: input.digest }),
     digest: {
       abstract: input.digest.abstract.trim(),
       ...(normalizeOptionalText(input.digest.analysis)
@@ -32,7 +38,36 @@ export function projectPresentDigest(input: PresentDigestParams): PresentDigestP
   return { heading, ...(body ? { body } : {}), details };
 }
 
-function normalizeOptionalText(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
+function digestContinuation(input: {
+  readonly heading: string;
+  readonly body: string | undefined;
+  readonly digest: PresentDigestParams['digest'];
+}): AskContinuationDeclaration {
+  const digestBody = [
+    input.heading,
+    input.body,
+    `**Abstract**\n\n${input.digest.abstract.trim()}`,
+    normalizeOptionalText(input.digest.analysis)
+      ? `**Analysis**\n\n${normalizeOptionalText(input.digest.analysis)}`
+      : undefined,
+    normalizeOptionalText(input.digest.recommendation)
+      ? `**Recommendation**\n\n${normalizeOptionalText(input.digest.recommendation)}`
+      : undefined,
+  ]
+    .filter((part): part is string => part !== undefined && part.length > 0)
+    .join('\n\n');
+  return {
+    tool: 'ask',
+    params: {
+      body: digestBody,
+      options: REVIEW_OPTIONS,
+      commentPrompt: 'Required change request',
+    },
+  };
 }
+
+const REVIEW_OPTIONS = [
+  { id: 'approve', label: 'Approve' },
+  { id: 'request_changes', label: 'Request changes' },
+  { id: 'reject', label: 'Reject' },
+];

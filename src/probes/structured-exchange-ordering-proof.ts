@@ -4,10 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type {
-  StructuredExchangePresentDetails,
-  StructuredExchangeRequestDetails,
-} from '../.pi/extensions/exchanges/index.js';
+import type { StructuredExchangeRequestDetails } from '../.pi/extensions/exchanges/index.js';
 
 interface OrderingScenario {
   mission: string;
@@ -16,8 +13,8 @@ interface OrderingScenario {
 }
 
 interface OrderingVerdict {
-  presentResultBeforeRequestUi: boolean;
-  jsonlPresentBeforeRequest: boolean;
+  askUiOpenedBeforeResult: boolean;
+  jsonlAskPersisted: boolean;
 }
 
 interface ToolResultRecord {
@@ -30,7 +27,6 @@ export interface StructuredExchangeOrderingProofResult {
   verdict: OrderingVerdict;
   eventOrder: string[];
   jsonlToolResultOrder: string[];
-  presentDetails: StructuredExchangePresentDetails;
   requestDetails: StructuredExchangeRequestDetails;
   sessionFile: string;
   stdout: unknown[];
@@ -42,8 +38,8 @@ interface StructuredExchangeOrderingProofOptions {
 }
 
 const scenario: OrderingScenario = {
-  mission: 'Prove same-assistant-message present/request structured-exchange ordering.',
-  evaluationFocus: 'Verify sequential present_question persists before request_response opens response UI.',
+  mission: 'Prove same-assistant-message ask collection.',
+  evaluationFocus: 'Verify ask opens response UI and persists one durable question+answer result.',
   maxTurns: 1,
 };
 
@@ -94,7 +90,7 @@ export async function runStructuredExchangeOrderingProof(
       (event): event is ExtensionUiRequest => isExtensionUiRequest(event) && event.method === 'editor',
     );
     child.stdin.write(
-      `${JSON.stringify({ type: 'extension_ui_response', id: editorRequest.id, value: 'Sequential ordering looks safe for the next parity proof.' })}\n`,
+      `${JSON.stringify({ type: 'extension_ui_response', id: editorRequest.id, value: 'Sequential ask ordering looks safe for the next parity proof.' })}\n`,
     );
 
     const promptResponse = await promptAccepted;
@@ -113,31 +109,25 @@ export async function runStructuredExchangeOrderingProof(
     }
 
     const toolResults = await readToolResults(sessionFile);
-    const present = toolResults.find((result) => result.toolName === 'present_question');
-    const request = toolResults.find((result) => result.toolName === 'request_response');
-    if (!present || !request) {
-      throw new Error('Ordering proof did not persist both tool results');
-    }
+    const ask = toolResults.find((result) => result.toolName === 'ask');
+    if (!ask) throw new Error('Ordering proof did not persist ask tool result');
 
     const eventOrder = orderingEvents(client.events);
     const jsonlToolResultOrder = toolResults.map((result) => result.toolName);
-    const presentIndex = eventOrder.indexOf('present_question:end');
+    const askStartIndex = eventOrder.indexOf('ask:start');
     const requestUiIndex = eventOrder.indexOf('ui:editor');
-    const jsonlPresentIndex = jsonlToolResultOrder.indexOf('present_question');
-    const jsonlRequestIndex = jsonlToolResultOrder.indexOf('request_response');
+    const askEndIndex = eventOrder.indexOf('ask:end');
 
     return {
       scenario,
       verdict: {
-        presentResultBeforeRequestUi:
-          presentIndex !== -1 && requestUiIndex !== -1 && presentIndex < requestUiIndex,
-        jsonlPresentBeforeRequest:
-          jsonlPresentIndex !== -1 && jsonlRequestIndex !== -1 && jsonlPresentIndex < jsonlRequestIndex,
+        askUiOpenedBeforeResult:
+          askStartIndex !== -1 && requestUiIndex !== -1 && askEndIndex !== -1 && requestUiIndex < askEndIndex,
+        jsonlAskPersisted: jsonlToolResultOrder.includes('ask'),
       },
       eventOrder,
       jsonlToolResultOrder,
-      presentDetails: present.details as StructuredExchangePresentDetails,
-      requestDetails: request.details as StructuredExchangeRequestDetails,
+      requestDetails: ask.details as StructuredExchangeRequestDetails,
       sessionFile,
       stdout: client.events,
     };
@@ -184,24 +174,20 @@ export function orderingExtensionSource(adapterPath: string, fauxProviderPath: s
       pi.registerProvider(model.provider, brunchFauxProviderConfig(model, provider, BRUNCH_FAUX_HARNESS_ENV_API_KEY))
       provider.setResponses([
         fauxAssistantMessage([
-          fauxToolCall("present_question", {
+          fauxToolCall("ask", {
             exchangeId: "ordering-proof",
-            heading: "What should the next parity proof check?",
-            body: "This present result must persist before the request UI opens.",
-          }, { id: "present-ordering-call" }),
-          fauxToolCall("request_response", {
-            exchangeId: "ordering-proof",
-          }, { id: "request-ordering-call" }),
+            body: "What should the next parity proof check?",
+          }, { id: "ask-ordering-call" }),
         ], { stopReason: "toolUse" }),
         fauxAssistantMessage("Ordering proof complete.", { stopReason: "stop" }),
       ])
       pi.registerCommand("brunch-structured-exchange-ordering-proof", {
-        description: "Start the deterministic present/request ordering proof.",
+        description: "Start the deterministic ask ordering proof.",
         handler: async () => {
           const selected = await pi.setModel(provider.getModel())
           if (!selected) throw new Error("Ordering proof faux model was not selectable")
-          pi.setActiveTools(["present_question", "request_response"])
-          pi.sendUserMessage("Run the present/request ordering proof.")
+          pi.setActiveTools(["ask"])
+          pi.sendUserMessage("Run the ask ordering proof.")
         },
       })
     }
@@ -233,9 +219,7 @@ async function readToolResults(sessionFile: string): Promise<ToolResultRecord[]>
     if (!isRecord(entry) || entry.type !== 'message') return [];
     const message = entry.message;
     if (!isRecord(message) || message.role !== 'toolResult') return [];
-    if (message.toolName !== 'present_question' && message.toolName !== 'request_response') {
-      return [];
-    }
+    if (message.toolName !== 'ask') return [];
     return [{ toolName: message.toolName, details: message.details }];
   });
 }
@@ -266,97 +250,57 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isRpcResponse(value: unknown): value is RpcResponse {
-  return (
-    isRecord(value) &&
-    value.type === 'response' &&
-    typeof value.command === 'string' &&
-    typeof value.success === 'boolean'
-  );
+  return isRecord(value) && value.type === 'response' && typeof value.command === 'string';
 }
 
 function isExtensionUiRequest(value: unknown): value is ExtensionUiRequest {
-  return (
-    isRecord(value) &&
-    value.type === 'extension_ui_request' &&
-    typeof value.id === 'string' &&
-    typeof value.method === 'string'
-  );
+  return isRecord(value) && value.type === 'extension_ui_request' && typeof value.id === 'string';
 }
 
 class RpcProbeClient {
   readonly events: unknown[] = [];
   readonly #child: ChildProcessWithoutNullStreams;
   readonly #timeoutMs: number;
-  #stdout = '';
-  #stderr = '';
-  #waiters: Array<{
-    predicate: (event: unknown) => boolean;
-    resolve: (event: unknown) => void;
-    timeout: ReturnType<typeof setTimeout>;
-  }> = [];
+  readonly #waiters = new Set<() => void>();
+  #disposed = false;
 
   constructor(child: ChildProcessWithoutNullStreams, timeoutMs: number) {
     this.#child = child;
     this.#timeoutMs = timeoutMs;
-    child.stdout.on('data', (chunk) => this.#ingestStdout(String(chunk)));
-    child.stderr.on('data', (chunk) => {
-      this.#stderr += String(chunk);
-    });
+    child.stdout.on('data', (chunk: Buffer) => this.#read(chunk));
   }
 
   waitFor<T>(predicate: (event: unknown) => event is T): Promise<T> {
     const existing = this.events.find(predicate);
-    if (existing) return Promise.resolve(existing);
-
+    if (existing !== undefined) return Promise.resolve(existing);
     return new Promise<T>((resolve, reject) => {
-      const waiter = {
-        predicate,
-        resolve: (event: unknown) => {
-          clearTimeout(waiter.timeout);
-          resolve(event as T);
-        },
-        timeout: setTimeout(() => {
-          this.#waiters = this.#waiters.filter((candidate) => candidate !== waiter);
-          reject(
-            new Error(
-              `Timed out waiting for ordering proof event. Events:\n${JSON.stringify(this.events, null, 2)}\nStderr:\n${this.#stderr}`,
-            ),
-          );
-        }, this.#timeoutMs),
+      const timeout = setTimeout(() => {
+        this.#waiters.delete(check);
+        reject(new Error(`Timed out waiting for RPC probe event after ${this.#timeoutMs}ms`));
+      }, this.#timeoutMs);
+      const check = () => {
+        const event = this.events.find(predicate);
+        if (event === undefined) return;
+        clearTimeout(timeout);
+        this.#waiters.delete(check);
+        resolve(event);
       };
-      this.#waiters.push(waiter);
+      this.#waiters.add(check);
     });
   }
 
   dispose(): void {
-    for (const waiter of this.#waiters) {
-      clearTimeout(waiter.timeout);
-    }
-    this.#waiters = [];
+    if (this.#disposed) return;
+    this.#disposed = true;
     this.#child.kill('SIGTERM');
   }
 
-  #ingestStdout(chunk: string): void {
-    this.#stdout += chunk;
-    for (;;) {
-      const newline = this.#stdout.indexOf('\n');
-      if (newline === -1) return;
-      const line = this.#stdout.slice(0, newline).trim();
-      this.#stdout = this.#stdout.slice(newline + 1);
-      if (line.length === 0) continue;
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(line);
-      } catch {
-        continue;
-      }
-      this.events.push(parsed);
-      for (const waiter of this.#waiters) {
-        if (waiter.predicate(parsed)) {
-          this.#waiters = this.#waiters.filter((candidate) => candidate !== waiter);
-          waiter.resolve(parsed);
-        }
-      }
+  #read(chunk: Buffer): void {
+    for (const line of chunk.toString('utf8').split('\n')) {
+      if (line.trim().length === 0) continue;
+      const event = JSON.parse(line) as unknown;
+      this.events.push(event);
     }
+    for (const waiter of this.#waiters) waiter();
   }
 }

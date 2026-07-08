@@ -12,14 +12,22 @@ function stubTui(rows = 200): TUI {
 // registered theme global; save and restore it so this file cannot leak the
 // preview theme into other test files sharing the same Vitest worker.
 const PI_THEME_GLOBAL = Symbol.for('@earendil-works/pi-coding-agent:theme');
+let hadPreviousPiThemeGlobal: boolean;
 let previousPiThemeGlobal: unknown;
 
 beforeEach(() => {
-  previousPiThemeGlobal = (globalThis as Record<symbol, unknown>)[PI_THEME_GLOBAL];
+  const globals = globalThis as Record<symbol, unknown>;
+  hadPreviousPiThemeGlobal = PI_THEME_GLOBAL in globals;
+  previousPiThemeGlobal = globals[PI_THEME_GLOBAL];
 });
 
 afterEach(() => {
-  (globalThis as Record<symbol, unknown>)[PI_THEME_GLOBAL] = previousPiThemeGlobal;
+  const globals = globalThis as Record<symbol, unknown>;
+  if (hadPreviousPiThemeGlobal) {
+    globals[PI_THEME_GLOBAL] = previousPiThemeGlobal;
+  } else {
+    delete globals[PI_THEME_GLOBAL];
+  }
 });
 
 describe('ThemeTestbedComponent', () => {

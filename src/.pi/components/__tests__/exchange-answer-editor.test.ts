@@ -16,7 +16,7 @@ const editorTheme: EditorTheme = {
 
 const stripLines = (lines: readonly string[]) => lines.map(stripAnsi);
 
-function createComponent(onDone = vi.fn()) {
+function createComponent(onDone = vi.fn(), body = 'What problem are we solving?') {
   const terminal = new VirtualTerminal(80, 24);
   const tui = new TUI(terminal);
   return {
@@ -24,7 +24,7 @@ function createComponent(onDone = vi.fn()) {
     tui,
     onDone,
     component: new ExchangeAnswerEditorComponent(tui, editorTheme, {
-      prompt: 'What problem are we solving?',
+      body,
       theme: labTheme,
       onDone,
     }),
@@ -32,7 +32,7 @@ function createComponent(onDone = vi.fn()) {
 }
 
 describe('ExchangeAnswerEditorComponent', () => {
-  it('renders the prompt, stripped editor content, help, padding, and no editor rule rows inside a rounded box', () => {
+  it('renders the body, stripped editor content, help, padding, and no editor rule rows inside a rounded box', () => {
     const { component } = createComponent();
     component.setText('A graph-native spec workspace.');
 
@@ -47,6 +47,25 @@ describe('ExchangeAnswerEditorComponent', () => {
 
     const inside = lines.slice(1, -2).map((line) => line.replace(/[│ ]/g, ''));
     expect(inside.some((line) => /^─+$/.test(line))).toBe(false);
+  });
+
+  it('renders a multi-line markdown body as real lines inside the box borders', () => {
+    const { component } = createComponent(
+      vi.fn(),
+      'This is a **free-text** question. No options.\n\nWhat is your name?',
+    );
+
+    const lines = stripLines(component.render(72));
+
+    // Every rendered element must be a single physical line: an embedded newline
+    // breaks the rounded-box borders and the TUI's differential height accounting
+    // (the walkthrough-observed free-text corruption).
+    expect(lines.some((line) => line.includes('\n'))).toBe(false);
+    const nameLine = lines.find((line) => line.includes('What is your name?'));
+    expect(nameLine).toBeDefined();
+    expect(nameLine).toContain('│');
+    // Markdown is rendered, not passed through raw.
+    expect(lines.join('\n')).not.toContain('**free-text**');
   });
 
   it('keeps the editor mounted and renders a warning on empty submit', () => {

@@ -106,7 +106,7 @@ function pendingExchangeFromStructuredPresent(
       mode: 'review',
       prompt,
       ...(detailsText.length > 0 ? { details: detailsText } : {}),
-      options: [],
+      options: pendingOptionsFromContinuation(details),
       note: { allowed: true },
       reviewSet: details.review_set,
       respondsToPresentTool: 'present_review_set',
@@ -120,10 +120,23 @@ function pendingExchangeFromStructuredPresent(
       mode: 'review',
       prompt,
       ...(detailsText.length > 0 ? { details: detailsText } : {}),
-      options: [],
+      options: pendingOptionsFromContinuation(details),
       note: { allowed: true },
       digestAbstract: details.digest.abstract,
       respondsToPresentTool: 'present_digest',
+    };
+  }
+
+  if ('candidates' in details) {
+    return {
+      exchangeId: details.exchange_id,
+      lens: 'intent',
+      mode: 'single-select',
+      prompt,
+      ...(detailsText.length > 0 ? { details: detailsText } : {}),
+      options: pendingOptionsFromContinuation(details),
+      note: { allowed: true },
+      respondsToPresentTool: 'present_candidates',
     };
   }
 
@@ -137,11 +150,6 @@ function pendingExchangeFromStructuredPresent(
     ...(detailsText.length > 0 ? { details: detailsText } : {}),
     options: pendingOptionsFromDetails(details, markdown),
     note: { allowed: true },
-    // Preserve which present tool opened a single-select exchange so the answer
-    // captures as the matching tool (candidate vs choice).
-    ...(mode === 'single-select' && details.tool_meta.curr === 'present_candidates'
-      ? { respondsToPresentTool: 'present_candidates' as const }
-      : {}),
   };
 }
 
@@ -159,6 +167,21 @@ function presentDetailsText(details: PresentDetails, markdown: string): string {
   }
   if ('preface' in details.display && details.display.preface) return details.display.preface;
   return details.display.body ?? markdown;
+}
+
+function pendingOptionsFromContinuation(
+  details: Extract<PresentDetails, { readonly continuation?: unknown }>,
+): PendingChoice[] {
+  if (details.continuation) {
+    return details.continuation.params.options.map((option) => ({
+      id: option.id,
+      label: option.label,
+      content: option.label,
+      ...(option.description !== undefined ? { rationale: option.description } : {}),
+    }));
+  }
+  if ('candidates' in details) return parsePendingCandidates(details.candidates);
+  return [];
 }
 
 function pendingOptionsFromDetails(details: PresentDetails, markdown: string): PendingChoice[] {

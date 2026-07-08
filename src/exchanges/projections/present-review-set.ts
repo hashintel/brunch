@@ -1,6 +1,10 @@
 import { roleNamedEdgeDraftEndpoints } from '../../graph/command-executor/role-named-edge-draft.js';
 import type { ReviewSetProposalPayload } from '../../graph/review-set.js';
-import type { PresentReviewSetDetails, ReviewSetDetailsPayload } from '../schemas/index.js';
+import type {
+  AskContinuationDeclaration,
+  PresentReviewSetDetails,
+  ReviewSetDetailsPayload,
+} from '../schemas/index.js';
 import { STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA } from '../schemas/index.js';
 
 export interface PresentReviewSetProjection {
@@ -19,12 +23,13 @@ export function projectPresentReviewSet(input: {
     exchange_id: input.exchangeId,
     tool_meta: {
       curr: 'present_review_set',
-      next: 'request_response',
+      next: 'ask',
     },
     display: {
       heading: input.payload.pitch.title.trim(),
       ...(body ? { body } : {}),
     },
+    continuation: reviewSetContinuation({ heading: input.payload.pitch.title.trim(), body }),
     review_set: reviewSetDetailsPayload(input.payload),
   };
   return {
@@ -32,6 +37,26 @@ export function projectPresentReviewSet(input: {
     payload: input.payload,
   };
 }
+
+function reviewSetContinuation(input: {
+  readonly heading: string;
+  readonly body: string;
+}): AskContinuationDeclaration {
+  return {
+    tool: 'ask',
+    params: {
+      body: [input.heading, input.body].filter((part) => part.length > 0).join('\n\n'),
+      options: REVIEW_OPTIONS,
+      commentPrompt: 'Required change request',
+    },
+  };
+}
+
+const REVIEW_OPTIONS = [
+  { id: 'approve', label: 'Approve' },
+  { id: 'request_changes', label: 'Request changes' },
+  { id: 'reject', label: 'Reject' },
+];
 
 function reviewSetDetailsPayload(payload: ReviewSetProposalPayload): ReviewSetDetailsPayload {
   return {

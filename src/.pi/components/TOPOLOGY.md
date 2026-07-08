@@ -34,6 +34,8 @@ components/
 │                                editor surfaces
 ├── exchange-answer-editor.ts   bordered free-text exchange answer editor hosting pi-tui Editor
 ├── exchange-decision-picker.ts bordered single-decision exchange response picker
+├── exchange-markdown-body.ts   shared structured-exchange markdown body projection/theme used by
+│                                bordered answering components and transcript renderers
 ├── lateral-padding.ts          transparent horizontal padding wrapper
 ├── multi-choice-picker.ts      bordered checkbox-style exchange response picker
 ├── mouse-wheel.ts              parseWheelEvent() — SGR wheel-event decoder used by the dev
@@ -67,6 +69,7 @@ components/
 ```pseudo
 rules:
   .pi/components/  ->  .pi/components/*          [shared primitives within the seam]
+  .pi/components/  ->  pi-tui Markdown            [render-only markdown projection for exchange bodies]
   .pi/components/  ->  graph/, session/, projections/ [render input types/DTOs only]
   .pi/extensions/  ->  .pi/components/*          [extensions consume components]
   .pi/components/  x>  .pi/extensions/           [components stay presentation-only]

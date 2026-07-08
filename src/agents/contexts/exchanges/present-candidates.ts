@@ -38,6 +38,15 @@ export const PRESENT_CANDIDATES_CONTENT_ELISIONS: readonly RenderElision[] = [
   { path: 'exchange_id', reason: 'structural exchange correlation id' },
   { path: 'tool_meta.curr', reason: 'structural tool-chain marker' },
   { path: 'tool_meta.next', reason: 'structural tool-chain marker' },
+  { path: 'continuation.tool', reason: 'declared ask continuation is machine-facing response wiring' },
+  {
+    path: 'continuation.params.body',
+    reason: 'declared ask continuation duplicates rendered prompt content',
+  },
+  {
+    path: 'continuation.params.options.*.*',
+    reason: 'declared ask continuation is machine-facing response wiring',
+  },
   { path: 'candidates.*.id', reason: 'stable answer id; visible candidate title and order represent it' },
   { path: 'candidates.*.meta_rubric.*', reason: 'model-facing comparison hides evaluator bookkeeping' },
   {

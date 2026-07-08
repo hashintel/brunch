@@ -1,5 +1,6 @@
 import { type Component, Key, matchesKey } from '@earendil-works/pi-tui';
 
+import { renderExchangeMarkdownBodyLines } from './exchange-markdown-body.js';
 import {
   projectRoundedBox,
   roundedBoxInnerWidth,
@@ -19,7 +20,10 @@ export interface MultiChoicePickerResult {
 
 export interface MultiChoicePickerOptions {
   readonly prompt: string;
+  readonly body?: string;
   readonly choices: readonly MultiChoicePickerChoice[];
+  readonly topLabel?: string;
+  readonly bottomLabel?: string;
   /**
    * Choice ids that contradict every other selection (e.g. a "none of these"
    * choice). Selecting one clears the rest; selecting any other choice clears
@@ -43,8 +47,10 @@ export class MultiChoicePickerComponent implements Component {
     const safeWidth = Math.max(1, width);
     const contentWidth = Math.max(1, roundedBoxInnerWidth(safeWidth, BOX_PADDING));
     const { theme } = this.options;
+    const bodyLines = renderExchangeMarkdownBodyLines(this.options.body, theme, contentWidth);
     const stacked = stackSections([
       [theme.fg('accent', this.options.prompt)],
+      bodyLines,
       this.options.choices.map((choice, index) => this.#choiceLine(choice, index)),
       [
         ...(this.#warning ? [theme.fg('warning', this.#warning)] : []),
@@ -52,8 +58,15 @@ export class MultiChoicePickerComponent implements Component {
       ],
     ]);
     const lines = safeLines(stacked.lines, contentWidth);
-    const box = projectRoundedBox(lines, { padding: BOX_PADDING }, safeWidth, (text) =>
-      theme.fg('accent', text),
+    const box = projectRoundedBox(
+      lines,
+      {
+        padding: BOX_PADDING,
+        ...(this.options.topLabel ? { topLabel: this.options.topLabel } : {}),
+        ...(this.options.bottomLabel ? { bottomLabel: this.options.bottomLabel } : {}),
+      },
+      safeWidth,
+      (text) => theme.fg('accent', text),
     );
     box.push('');
     return box;

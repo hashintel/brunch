@@ -2,6 +2,7 @@ import * as z from 'zod';
 
 import { zReviewSetProposalPayloadForBoundary } from '../../graph/review-set.js';
 import { zDigestMaterial, zPresentedCandidate } from './present.js';
+import { zNonBlankMarkdown } from './shared.js';
 
 // 'other' and 'none' are reserved: the runtime injects them as escape choices
 // (allowOther/allowNone), and the RPC answer path maps those raw ids to the
@@ -11,6 +12,159 @@ const RESERVED_ESCAPE_OPTION_IDS = ['other', 'none'] as const;
 function isNotReservedEscapeId(id: string): boolean {
   return !RESERVED_ESCAPE_OPTION_IDS.includes(id as (typeof RESERVED_ESCAPE_OPTION_IDS)[number]);
 }
+
+const zAskOptionParam = z
+  .object({
+    id: z
+      .string()
+      .min(1)
+      .regex(/^[^>\r\n]+$/, 'Option id must not contain ">" or line breaks.')
+      .refine(isNotReservedEscapeId, 'Option ids "other" and "none" are reserved escape choices.'),
+    label: z.string().trim().min(1),
+    description: zNonBlankMarkdown.optional(),
+  })
+  .strict();
+export type AskOptionParam = z.infer<typeof zAskOptionParam>;
+
+const zAskLabels = z
+  .object({
+    topLabel: z
+      .string()
+      .trim()
+      .min(1, 'markdown cannot be empty')
+      .describe('Optional rounded-box top border label.')
+      .optional(),
+    bottomLabel: z
+      .string()
+      .trim()
+      .min(1, 'markdown cannot be empty')
+      .describe('Optional rounded-box bottom border label.')
+      .optional(),
+  })
+  .strict();
+
+export const zStandaloneAskParams = zAskLabels
+  .extend({
+    exchangeId: z.string().min(1).describe('Stable id for this one-shot ask result.'),
+    body: z
+      .string()
+      .trim()
+      .min(1, 'markdown cannot be empty')
+      .describe('Markdown question body rendered and persisted with the answer.'),
+    options: z
+      .array(zAskOptionParam)
+      .min(1)
+      .describe('Finite response options. Omit for a free-text answer.')
+      .optional(),
+    multiple: z.boolean().describe('When options are present, allow one-or-more selections.').optional(),
+    allowOther: z.boolean().describe('Whether the user may choose Other for option responses.').optional(),
+    allowNone: z.boolean().describe('Whether the user may choose None for option responses.').optional(),
+    commentPrompt: z
+      .string()
+      .trim()
+      .min(1, 'markdown cannot be empty')
+      .describe(
+        'Prompt for an optional trailing comment; omit to skip the optional-comment step. Comments the response schema requires (Other/None selections) are always collected.',
+      )
+      .optional(),
+  })
+  .strict();
+export type StandaloneAskParams = z.infer<typeof zStandaloneAskParams>;
+
+export const zContinuingAskParams = z
+  .object({
+    continues: z
+      .string()
+      .min(1)
+      .describe('Exchange id of an offer whose details declare the ask payload to collect.'),
+    preface: z
+      .string()
+      .trim()
+      .min(1, 'markdown cannot be empty')
+      .describe(
+        'Optional model-authored preface for a reference-based continuation; not part of the payload.',
+      )
+      .optional(),
+  })
+  .strict();
+export type ContinuingAskParams = z.infer<typeof zContinuingAskParams>;
+
+export const zAskParams = zAskLabels
+  .extend({
+    exchangeId: z
+      .string()
+      .min(1)
+      .describe('Stable id for this one-shot ask result. Omit when continuing an offer by reference.')
+      .optional(),
+    continues: z
+      .string()
+      .min(1)
+      .describe('Exchange id of an offer whose details declare the ask payload to collect.')
+      .optional(),
+    preface: z
+      .string()
+      .trim()
+      .min(1, 'markdown cannot be empty')
+      .describe(
+        'Optional model-authored preface for a reference-based continuation; not part of the payload.',
+      )
+      .optional(),
+    body: z
+      .string()
+      .trim()
+      .min(1, 'markdown cannot be empty')
+      .describe('Markdown question body rendered and persisted with the answer.')
+      .optional(),
+    options: z
+      .array(zAskOptionParam)
+      .min(1)
+      .describe('Finite response options. Omit for a free-text answer.')
+      .optional(),
+    multiple: z.boolean().describe('When options are present, allow one-or-more selections.').optional(),
+    allowOther: z.boolean().describe('Whether the user may choose Other for option responses.').optional(),
+    allowNone: z.boolean().describe('Whether the user may choose None for option responses.').optional(),
+    commentPrompt: z
+      .string()
+      .trim()
+      .min(1, 'markdown cannot be empty')
+      .describe(
+        'Prompt for an optional trailing comment; omit to skip the optional-comment step. Comments the response schema requires (Other/None selections) are always collected.',
+      )
+      .optional(),
+  })
+  .strict()
+  .superRefine((params, ctx) => {
+    if (params.continues) {
+      const modelAuthoredPayloadKeys = [
+        'exchangeId',
+        'body',
+        'options',
+        'multiple',
+        'allowOther',
+        'allowNone',
+        'commentPrompt',
+        'topLabel',
+        'bottomLabel',
+      ] as const;
+      for (const key of modelAuthoredPayloadKeys) {
+        if (params[key] !== undefined) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message: 'continuing ask payload is declared by the referenced offer',
+          });
+        }
+      }
+      return;
+    }
+    if (!params.exchangeId) {
+      ctx.addIssue({ code: 'custom', path: ['exchangeId'], message: 'standalone ask requires exchangeId' });
+    }
+    if (!params.body) {
+      ctx.addIssue({ code: 'custom', path: ['body'], message: 'standalone ask requires body' });
+    }
+  });
+export type AskParams = StandaloneAskParams | ContinuingAskParams;
 
 const zPresentedOptionParam = z
   .object({

@@ -13,7 +13,7 @@ chain intent-proposal
   gather grounding bundle + edge-local graph anchors
   fan_out coherent territory candidates
   present_candidates
-  request_response
+  ask(continues)
   record the picked direction as recognition input
   stop before graph commitment unless a separate review-set draft is warranted
 ```
@@ -54,4 +54,4 @@ Use existing `graph_refs` only for selected-spec nodes the candidate actually re
 
 ## Review-set boundary
 
-Most intent proposal sessions should stop after `present_candidates -> request_response`; the next move may be `map`, `elicit`, or another proposal. If the user asks to turn the picked framing into graph material, draft through `references/present-review-set.md` and current `map` guidance so the exact nodes/edges can be approved as a batch.
+Most intent proposal sessions should stop after `present_candidates -> ask(continues)`; the next move may be `map`, `elicit`, or another proposal. If the user asks to turn the picked framing into graph material, draft through `references/present-review-set.md` and current `map` guidance so the exact nodes/edges can be approved as a batch.

@@ -104,7 +104,7 @@ const presentReviewSetToolResult = {
       schema: 'brunch.structured_exchange.present',
       v: 1,
       exchange_id: 'review-cycle',
-      tool_meta: { curr: 'present_review_set', next: 'request_response' },
+      tool_meta: { curr: 'present_review_set', next: 'ask' },
       display: {
         heading: 'Review cycle wiring',
         body: 'Review this graph proposal.',
@@ -157,7 +157,7 @@ const presentDigestToolResult = {
       schema: 'brunch.structured_exchange.present',
       v: 1,
       exchange_id: 'digest-cycle',
-      tool_meta: { curr: 'present_digest', next: 'request_response' },
+      tool_meta: { curr: 'present_digest', next: 'ask' },
       display: {
         heading: 'Review source digest',
         body: 'Approve this digest before mapping.',
@@ -174,7 +174,7 @@ const requestDigestReviewToolResult = {
   message: {
     role: 'toolResult',
     toolCallId: 'request-digest-review-call-1',
-    toolName: 'request_response',
+    toolName: 'ask',
     content: [{ type: 'text', text: '### Review decision\n\nApproved.' }],
     details: {
       schema: 'brunch.structured_exchange.request',
@@ -634,7 +634,7 @@ describe('session exchange projection', () => {
     manager.appendMessage({
       role: 'toolResult',
       toolCallId: 'call-exchange-jsonl',
-      toolName: 'request_response',
+      toolName: 'ask',
       content: [{ type: 'text', text: 'User answered: Developer tooling' }],
       details: {
         schema: 'brunch.structured_exchange.request',

@@ -1,5 +1,10 @@
-import type { PresentCandidatesDetails, PresentCandidatesParams } from '../schemas/index.js';
+import type {
+  AskContinuationDeclaration,
+  PresentCandidatesDetails,
+  PresentCandidatesParams,
+} from '../schemas/index.js';
 import { STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA } from '../schemas/index.js';
+import { normalizeOptionalText } from '../text.js';
 
 export interface PresentCandidatesProjection {
   readonly heading: string;
@@ -14,11 +19,12 @@ export function projectPresentCandidates(input: PresentCandidatesParams): Presen
     schema: STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
     v: 1,
     exchange_id: input.exchangeId,
-    tool_meta: { curr: 'present_candidates', next: 'request_response' },
+    tool_meta: { curr: 'present_candidates', next: 'ask' },
     display: {
       heading,
       ...(body ? { body } : {}),
     },
+    continuation: candidatesContinuation({ heading, body, candidates: input.candidates }),
     candidates: input.candidates.map((candidate) => ({
       id: candidate.id,
       title: candidate.title.trim(),
@@ -30,7 +36,20 @@ export function projectPresentCandidates(input: PresentCandidatesParams): Presen
   return { heading, ...(body ? { body } : {}), details };
 }
 
-function normalizeOptionalText(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
+function candidatesContinuation(input: {
+  readonly heading: string;
+  readonly body: string | undefined;
+  readonly candidates: PresentCandidatesParams['candidates'];
+}): AskContinuationDeclaration {
+  return {
+    tool: 'ask',
+    params: {
+      body: [input.heading, input.body].filter((part) => part && part.length > 0).join('\n\n'),
+      options: input.candidates.map((candidate) => ({
+        id: candidate.id,
+        label: candidate.title.trim(),
+        description: candidate.user_rubric.recommendation ?? candidate.user_rubric.core_bet,
+      })),
+    },
+  };
 }

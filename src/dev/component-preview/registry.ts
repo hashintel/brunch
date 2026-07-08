@@ -17,6 +17,7 @@ import { renderMarkdownResult } from '../../.pi/extensions/exchanges/shared/mark
 import type { WorkspaceLaunchInventory } from '../../session/workspace-session-coordinator.js';
 import { showComponentPreview } from './custom-ui.js';
 import {
+  askFixture,
   presentCandidatesFixture,
   presentDigestFixture,
   presentQuestionOptionsFixture,
@@ -75,6 +76,15 @@ function sampleWorkspaceInventory(): WorkspaceLaunchInventory {
  * `.pi/components/scroll-viewport.ts`'s windowing + `▐` thumb. No `currentSpec` -> no "continue" home option, so "Continue another existing specification" is
  * index 0 and a single Enter reaches the scrollable list.
  */
+const RICH_ASK_BODY = [
+  '# Clarify the next slice',
+  '',
+  '> Use the evidence already in the transcript; do not widen the frontier.',
+  '',
+  '- Keep the answer tied to FE-1164',
+  '- Prefer the smallest reversible move',
+].join('\n');
+
 function manySpecsWorkspaceInventory(specCount: number): WorkspaceLaunchInventory {
   return {
     cwd: '/project',
@@ -165,6 +175,32 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
       ),
   },
   {
+    id: 'exchange-decision-picker-rich-body',
+    label: 'Exchange decision picker (rich body)',
+    presentedLike:
+      'inline swap — forthcoming ask single-select surface; mirrors shared rounded-box body + choices layout',
+    open: (tui, theme, keybindings) =>
+      showComponentPreview(
+        tui,
+        theme,
+        keybindings,
+        (_tui, previewTheme, _kb, done) =>
+          new ExchangeDecisionPickerComponent({
+            prompt: 'Which direction should we take?',
+            body: RICH_ASK_BODY,
+            choices: [
+              { id: 'local-workbench', label: 'Local workbench' },
+              { id: 'agent-relay', label: 'Agent relay' },
+              { id: 'defer', label: 'Defer until capture is settled' },
+            ],
+            topLabel: '[ Ask ]',
+            bottomLabel: '"FE-1164"',
+            theme: previewTheme,
+            onDone: done,
+          }),
+      ),
+  },
+  {
     id: 'exchange-answer-editor',
     label: 'Exchange answer editor',
     presentedLike: 'inline swap — src/.pi/extensions/exchanges/shared/answer-source.ts',
@@ -172,7 +208,7 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
       showComponentPreview(tui, theme, keybindings, (_tui, previewTheme, _kb, done) => {
         const editorTheme = createComponentPreviewEditorTheme(theme);
         return new ExchangeAnswerEditorComponent(_tui, editorTheme, {
-          prompt: 'What problem are we solving?',
+          body: RICH_ASK_BODY,
           theme: previewTheme,
           onDone: done,
         });
@@ -195,6 +231,32 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
               { id: 'risk', label: 'Flag the risk' },
               { id: 'defer', label: 'Defer to later' },
             ],
+            theme: previewTheme,
+            onDone: done,
+          }),
+      ),
+  },
+  {
+    id: 'multi-choice-picker-rich-body',
+    label: 'Multi-choice picker (rich body)',
+    presentedLike:
+      'inline swap — forthcoming ask multi-select surface; mirrors shared rounded-box body + checkbox layout',
+    open: (tui, theme, keybindings) =>
+      showComponentPreview(
+        tui,
+        theme,
+        keybindings,
+        (_tui, previewTheme, _kb, done) =>
+          new MultiChoicePickerComponent({
+            prompt: 'Which follow-ups matter?',
+            body: RICH_ASK_BODY,
+            choices: [
+              { id: 'scope', label: 'Narrow the scope' },
+              { id: 'risk', label: 'Flag the risk' },
+              { id: 'defer', label: 'Defer to later' },
+            ],
+            topLabel: '[ Ask ]',
+            bottomLabel: '"FE-1164"',
             theme: previewTheme,
             onDone: done,
           }),
@@ -286,6 +348,13 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
     },
   },
   {
+    id: 'ask',
+    label: 'ask transcript render',
+    presentedLike:
+      'tool result renderer — src/.pi/extensions/exchanges/ask.ts (renderResult = Markdown pass-through of content, D104-L)',
+    open: (tui, theme) => previewStaticComponent(tui, renderMarkdownResult(askFixture.result, theme)),
+  },
+  {
     id: 'present-candidates',
     label: 'present_candidates transcript render',
     presentedLike:
@@ -303,9 +372,9 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
   },
   {
     id: 'present-question',
-    label: 'present_question transcript render',
+    label: 'legacy transcript compatibility — present_question render',
     presentedLike:
-      'tool result renderer — src/.pi/extensions/exchanges/present-question.ts (renderResult = Markdown pass-through of content, D104-L)',
+      'legacy transcript compatibility formatter — src/exchanges/projections/present-question.ts (Markdown pass-through of preserved content, D104-L)',
     open: (tui, theme) =>
       previewStaticComponent(tui, renderMarkdownResult(presentQuestionOptionsFixture.result, theme)),
   },
@@ -327,41 +396,41 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
   },
   {
     id: 'request-answer',
-    label: 'request_response answer transcript render',
+    label: 'legacy transcript compatibility — request_response answer render',
     presentedLike:
-      'tool result renderer — src/.pi/extensions/exchanges/request-response.ts (renderResult = Markdown pass-through of content, D104-L)',
+      'legacy transcript compatibility formatter — preserved request_answer detail markdown (D104-L)',
     open: (tui, theme) =>
       previewStaticComponent(tui, renderMarkdownResult(requestAnswerFixture.result, theme)),
   },
   {
     id: 'request-choice',
-    label: 'request_response choice transcript render',
+    label: 'legacy transcript compatibility — request_response choice render',
     presentedLike:
-      'tool result renderer — src/.pi/extensions/exchanges/request-response.ts (renderResult = Markdown pass-through of content, D104-L)',
+      'legacy transcript compatibility formatter — preserved request_choice detail markdown (D104-L)',
     open: (tui, theme) =>
       previewStaticComponent(tui, renderMarkdownResult(requestChoiceFixture.result, theme)),
   },
   {
     id: 'request-choices',
-    label: 'request_response choices transcript render',
+    label: 'legacy transcript compatibility — request_response choices render',
     presentedLike:
-      'tool result renderer — src/.pi/extensions/exchanges/request-response.ts (renderResult = Markdown pass-through of content, D104-L)',
+      'legacy transcript compatibility formatter — preserved request_choices detail markdown (D104-L)',
     open: (tui, theme) =>
       previewStaticComponent(tui, renderMarkdownResult(requestChoicesFixture.result, theme)),
   },
   {
     id: 'request-review',
-    label: 'request_response review transcript render',
+    label: 'legacy transcript compatibility — request_response review render',
     presentedLike:
-      'tool result renderer — src/.pi/extensions/exchanges/request-response.ts (renderResult = Markdown pass-through of content, D104-L)',
+      'legacy transcript compatibility formatter — preserved request_review detail markdown (D104-L)',
     open: (tui, theme) =>
       previewStaticComponent(tui, renderMarkdownResult(requestReviewFixture.result, theme)),
   },
   {
     id: 'request-terminal',
-    label: 'request_response terminal transcript render',
+    label: 'legacy transcript compatibility — request_response terminal render',
     presentedLike:
-      'tool result renderer — src/.pi/extensions/exchanges/request-response.ts (renderResult = Markdown pass-through of content, D104-L)',
+      'legacy transcript compatibility formatter — preserved terminal request-detail markdown (D104-L)',
     open: (tui, theme) =>
       previewStaticComponent(tui, renderMarkdownResult(requestTerminalFixture.result, theme)),
   },

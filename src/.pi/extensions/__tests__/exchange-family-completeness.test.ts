@@ -3,9 +3,9 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { formatAsk } from '../../../agents/contexts/exchanges/ask.js';
 import { formatPresentCandidates } from '../../../agents/contexts/exchanges/present-candidates.js';
 import { formatPresentDigest } from '../../../agents/contexts/exchanges/present-digest.js';
-import { formatPresentQuestion } from '../../../agents/contexts/exchanges/present-question.js';
 import { formatPresentReviewSet } from '../../../agents/contexts/exchanges/present-review-set.js';
 import {
   formatRequestAnswer,
@@ -13,8 +13,13 @@ import {
   formatRequestChoices,
   formatRequestReview,
 } from '../../../agents/contexts/exchanges/request-response.js';
+import { LIVE_ELICITOR_ALLOWED_TOOL_NAMES } from '../../../agents/runtime/elicitor/active-tools.js';
+import { EXECUTOR_ALLOWED_TOOL_NAMES } from '../../../agents/runtime/executor/active-tools.js';
 import { COMPONENT_PREVIEW_REGISTRY } from '../../../dev/component-preview/registry.js';
 import {
+  ACTIVE_STRUCTURED_EXCHANGE_TOOL_NAMES,
+  ASK_TOOL,
+  LEGACY_STRUCTURED_EXCHANGE_TRANSCRIPT_TOOL_NAMES,
   PRESENT_CANDIDATES_TOOL,
   PRESENT_DIGEST_TOOL,
   PRESENT_QUESTION_TOOL,
@@ -42,13 +47,11 @@ interface SnapshotCoverage {
 
 const exchangeFamilyCoverage = [
   {
-    tool: PRESENT_QUESTION_TOOL,
-    family: 'present_question',
-    formatter: formatPresentQuestion,
-    previewId: 'present-question',
-    snapshots: [
-      { file: 'question-tuples.md', markers: ['# free-text answered', '# single-choice answered'] },
-    ],
+    tool: ASK_TOOL,
+    family: 'ask',
+    formatter: formatAsk,
+    previewId: 'ask',
+    snapshots: [{ file: 'ask-tuples.md', markers: ['# ask answered', '## Question'] }],
   },
   {
     tool: PRESENT_CANDIDATES_TOOL,
@@ -121,14 +124,34 @@ const exchangeFamilyCoverage = [
 
 describe('structured exchange family completeness', () => {
   it('keeps the coverage table in sync with registered exchange tools', () => {
-    expect(registeredToolNames()).toEqual([
-      PRESENT_QUESTION_TOOL,
+    expect(registeredToolNames()).toEqual(ACTIVE_STRUCTURED_EXCHANGE_TOOL_NAMES);
+    expect(new Set(exchangeFamilyCoverage.map((row) => row.tool))).toEqual(
+      new Set([...registeredToolNames(), REQUEST_RESPONSE_TOOL]),
+    );
+  });
+
+  it('separates current active tool inventory from legacy persisted transcript vocabulary', () => {
+    expect(ACTIVE_STRUCTURED_EXCHANGE_TOOL_NAMES).toEqual([
+      ASK_TOOL,
       PRESENT_REVIEW_SET_TOOL,
       PRESENT_CANDIDATES_TOOL,
       PRESENT_DIGEST_TOOL,
+    ]);
+    expect(LEGACY_STRUCTURED_EXCHANGE_TRANSCRIPT_TOOL_NAMES).toEqual([
+      PRESENT_QUESTION_TOOL,
       REQUEST_RESPONSE_TOOL,
     ]);
-    expect(new Set(exchangeFamilyCoverage.map((row) => row.tool))).toEqual(new Set(registeredToolNames()));
+    expect(LIVE_ELICITOR_ALLOWED_TOOL_NAMES).toEqual(
+      expect.arrayContaining([...ACTIVE_STRUCTURED_EXCHANGE_TOOL_NAMES]),
+    );
+    expect(EXECUTOR_ALLOWED_TOOL_NAMES).toEqual(
+      expect.arrayContaining([...ACTIVE_STRUCTURED_EXCHANGE_TOOL_NAMES]),
+    );
+    for (const legacyName of LEGACY_STRUCTURED_EXCHANGE_TRANSCRIPT_TOOL_NAMES) {
+      expect(registeredToolNames()).not.toContain(legacyName);
+      expect(LIVE_ELICITOR_ALLOWED_TOOL_NAMES).not.toContain(legacyName);
+      expect(EXECUTOR_ALLOWED_TOOL_NAMES).not.toContain(legacyName);
+    }
   });
 
   it('covers every registered exchange family with a formatter, preview entry, and snapshot', () => {
@@ -140,6 +163,24 @@ describe('structured exchange family completeness', () => {
       for (const snapshot of row.snapshots) {
         expectSnapshotMarkers(row.family, snapshot);
       }
+    }
+  });
+
+  it('labels preview-only legacy transcript surfaces as legacy compatibility', () => {
+    const previewsById = new Map(COMPONENT_PREVIEW_REGISTRY.map((entry) => [entry.id, entry]));
+    const legacyPreviewIds = [
+      'present-question',
+      'request-answer',
+      'request-choice',
+      'request-choices',
+      'request-review',
+      'request-terminal',
+    ];
+
+    for (const previewId of legacyPreviewIds) {
+      const preview = previewsById.get(previewId);
+      expect(preview?.label, previewId).toMatch(/legacy transcript compatibility/);
+      expect(preview?.presentedLike, previewId).toMatch(/legacy transcript compatibility/);
     }
   });
 });

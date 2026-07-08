@@ -1,5 +1,6 @@
 import { type Component, Key, matchesKey } from '@earendil-works/pi-tui';
 
+import { renderExchangeMarkdownBodyLines } from './exchange-markdown-body.js';
 import {
   projectRoundedBox,
   roundedBoxInnerWidth,
@@ -20,7 +21,10 @@ export interface ExchangeDecisionPickerResult {
 
 export interface ExchangeDecisionPickerOptions {
   readonly prompt: string;
+  readonly body?: string;
   readonly choices: readonly ExchangeDecisionPickerChoice[];
+  readonly topLabel?: string;
+  readonly bottomLabel?: string;
   readonly theme: LabTheme;
   readonly onDone: (result?: ExchangeDecisionPickerResult) => void;
 }
@@ -38,19 +42,29 @@ export class ExchangeDecisionPickerComponent implements Component {
     const contentWidth = Math.max(1, roundedBoxInnerWidth(safeWidth, BOX_PADDING));
     const choiceLines = this.options.choices.map((choice, index) => this.#choiceLine(choice, index));
     const choiceWindow = projectScrollViewport(choiceLines, MAX_VISIBLE_CHOICES, this.#activeIndex);
+    const bodyLines = renderExchangeMarkdownBodyLines(this.options.body, this.options.theme, contentWidth);
     const stacked = stackSections([
       [this.options.theme.fg('accent', this.options.prompt)],
+      bodyLines,
       [...choiceWindow.lines],
       [this.options.theme.fg('dim', '↑/↓ or j/k move · enter commits · esc/q cancels')],
     ]);
     const content = safeLines(stacked.lines, contentWidth);
-    const choiceStart = stacked.offsets[1] ?? 0;
+    const choiceStart = stacked.offsets[2] ?? 0;
     const thumbRows = new Set(
       choiceWindow.isThumbRow.flatMap((isThumb, index) => (isThumb ? [choiceStart + index] : [])),
     );
 
-    const box = projectRoundedBox(content, { padding: BOX_PADDING, thumbRows }, safeWidth, (text) =>
-      this.options.theme.fg('accent', text),
+    const box = projectRoundedBox(
+      content,
+      {
+        padding: BOX_PADDING,
+        thumbRows,
+        ...(this.options.topLabel ? { topLabel: this.options.topLabel } : {}),
+        ...(this.options.bottomLabel ? { bottomLabel: this.options.bottomLabel } : {}),
+      },
+      safeWidth,
+      (text) => this.options.theme.fg('accent', text),
     );
     box.push('');
     return box;

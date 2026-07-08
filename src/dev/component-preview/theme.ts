@@ -83,12 +83,17 @@ const REFERENCE_PAGE_FG: Record<ComponentPreviewThemeVariant, string> = {
 };
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+const TERMINAL_DEFAULT_FG_TOKENS = ['text'] as const;
+
+function allowsTerminalDefaultToken(token: string): boolean {
+  return (TERMINAL_DEFAULT_FG_TOKENS as readonly string[]).includes(token);
+}
 
 /**
  * Parse and validate one Brunch theme JSON. Exported for tests; the harness
  * itself goes through `loadBrunchThemePalette` below. Every resolved value
- * must be `#RRGGBB` (color tokens may also be `""` = terminal default, pi's
- * canonical `text` value) — validation runs *after* `vars` indirection, so a
+ * must be `#RRGGBB` (except the declared terminal-default fg token `text`,
+ * which may be `""` per pi's theme format) — validation runs *after* `vars` indirection, so a
  * dangling var reference (which resolves to itself) fails the same check as a
  * bad hex literal. Throwing here is load-bearing: `watchComponentPreviewTheme`
  * relies on `reload()` throwing to keep the last good palette, and without
@@ -114,9 +119,9 @@ export function parseBrunchThemePalette(
   const bgColors: Record<string, string> = {};
   for (const [token, value] of Object.entries(parsed.colors)) {
     if ((BG_TOKENS as readonly string[]).includes(token)) {
-      bgColors[token] = resolve(token, value, true);
+      bgColors[token] = resolve(token, value, false);
     } else {
-      fgColors[token] = resolve(token, value, true);
+      fgColors[token] = resolve(token, value, allowsTerminalDefaultToken(token));
     }
   }
 
@@ -382,10 +387,14 @@ export function registerComponentPreviewThemeToggle(
  * wait for the next write). Debounced because editors typically fire
  * multiple fs events per save.
  */
+export function shouldReloadComponentPreviewThemeForWatchEvent(filename: string | null): boolean {
+  return filename === null || /^brunch-.*\.json$/.test(filename);
+}
+
 export function watchComponentPreviewTheme(tui: TUI, theme: SwitchableComponentPreviewTheme): () => void {
   let timer: NodeJS.Timeout | undefined;
   const watcher = watch(fileURLToPath(THEME_DIR), (_event, filename) => {
-    if (filename !== null && !/^brunch-.*\.json$/.test(filename)) return;
+    if (!shouldReloadComponentPreviewThemeForWatchEvent(filename)) return;
     clearTimeout(timer);
     timer = setTimeout(() => {
       try {

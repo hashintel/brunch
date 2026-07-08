@@ -1,5 +1,6 @@
 import type { AnsweredOptionEcho, RequestChoicesDetails, SelectedChoice } from '../../schemas/index.js';
 import { REQUEST_OUTCOME_KEYS, STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA } from '../../schemas/index.js';
+import { normalizeOptionalText } from '../../text.js';
 
 // Re-exported so session-side consumers can reach the outcome union without
 // importing extension internals.
@@ -48,9 +49,4 @@ export function projectRequestChoices(input: RequestChoicesProjectionInput): Req
     ...base,
     unavailable: { message: input.message ?? 'request_choices unavailable' },
   };
-}
-
-function normalizeOptionalText(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
 }
