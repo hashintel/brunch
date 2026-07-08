@@ -94,6 +94,23 @@ export function expectProviderLegalToolPairs(messages: readonly unknown[]): void
   }
 }
 
+/**
+ * Anthropic-family backends reject tool input schemas whose top level is a
+ * union (400 "input_schema does not support oneOf, allOf, or anyOf at the top
+ * level" — 2026-07-07 FE-1159 walkthrough). Every provider-facing tool schema
+ * must keep unions below the top level.
+ */
+export function expectProviderLegalToolSchemas(
+  tools: readonly { readonly name: string; readonly parameters?: unknown }[],
+): void {
+  for (const tool of tools) {
+    if (!isRecord(tool.parameters)) continue;
+    for (const key of ['oneOf', 'anyOf', 'allOf']) {
+      expect(key in tool.parameters, `tool ${tool.name} has top-level ${key}`).toBe(false);
+    }
+  }
+}
+
 export function presentToolResults(entries: readonly unknown[]): readonly Record<string, unknown>[] {
   return messagesByRole(entries, 'toolResult').filter(
     (message) => typeof message.toolName === 'string' && message.toolName.startsWith('present_'),

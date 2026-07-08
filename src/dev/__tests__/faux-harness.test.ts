@@ -145,7 +145,7 @@ describe('createBrunchFauxHarness', () => {
       expect(harness.providerContexts).toHaveLength(1);
       expect(systemPrompt).toContain('[Brunch live elicitor control]');
       expect(systemPrompt).toContain(
-        '- prompt resources: code-owned live skill list only; no runtime axis negotiation',
+        '- prompt resources: code-owned live skill and shared reference lists only; no runtime axis negotiation',
       );
       expect(systemPrompt).toContain('<brunch-skills>');
       expect(activeToolsLine).toContain('read');

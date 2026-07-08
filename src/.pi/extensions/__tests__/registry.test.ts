@@ -1118,8 +1118,8 @@ describe('Brunch explicit Pi extension registry', () => {
         runId: 'run-1',
         epicId: 'frontier-1',
         sliceId: 'task-1',
-        runtime: { modelRegistry, model },
         onUpdate: expect.any(Function),
+        runtime: { modelRegistry, model },
       },
     ]);
     expect(result.details).toMatchObject({

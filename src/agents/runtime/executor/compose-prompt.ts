@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 
 import { operationalModeLabel } from '../../../session/schema/kinds.js';
 import { bundledAgentBodyLocation } from '../../prompts/registry.js';
+import { renderBrunchReferences } from '../../references/registry.js';
 import { renderBrunchSkills } from '../../skills/registry.js';
 import type { ForegroundRuntimePromptInput, ForegroundRuntimePromptResult } from '../foreground-policy.js';
 
@@ -12,6 +13,7 @@ export function composeExecutorPrompt(input: ForegroundRuntimePromptInput): Fore
       input.agentBody ?? readExecutorBody(),
       renderExecutorControl(input),
       renderBrunchSkills(),
+      renderBrunchReferences(),
     ]),
   };
 }
@@ -32,7 +34,7 @@ function renderExecutorControl(input: ForegroundRuntimePromptInput): string {
     `- operational mode id: ${input.sessionState.operationalMode} (${operationalModeLabel(input.sessionState.operationalMode)})`,
     `- foreground role: ${input.sessionState.agentRole}`,
     `- active tools: ${tools}`,
-    '- prompt resources: code-owned live skill list only; no runtime axis negotiation',
+    '- prompt resources: code-owned live skill and shared reference lists only; no runtime axis negotiation',
     '- readiness posture: assess seed reads before acting; bands guide conduct but never gate tool authority',
     '- direct shell/edit/write tools stay blocked by Brunch runtime policy',
   ].join('\n');

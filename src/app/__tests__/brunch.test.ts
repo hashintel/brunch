@@ -82,6 +82,60 @@ function collectStream(stream: PassThrough): string[] {
 }
 
 describe('Brunch CLI dispatch', () => {
+  it('prints root usage for --help and -h without launching any mode', async () => {
+    for (const flag of ['--help', '-h']) {
+      let output = '';
+      const code = await runBrunchCli({
+        argv: [flag],
+        cwd: '/tmp/brunch-project',
+        coordinator: coordinator(),
+        stdout: (chunk) => {
+          output += chunk;
+        },
+        launchTui: async () => {
+          throw new Error(`${flag} must not launch the TUI`);
+        },
+      });
+
+      expect(code).toBe(0);
+      expect(output).toContain('Usage: brunch');
+      expect(output).toContain('login');
+      expect(output).toContain('--mode');
+    }
+  });
+
+  it('rejects extra positional arguments instead of silently ignoring CLI typos', async () => {
+    await expect(
+      runBrunchCli({
+        argv: ['login', 'extra'],
+        cwd: '/tmp/brunch-project',
+        coordinator: coordinator(),
+      }),
+    ).rejects.toThrow(/Unexpected Brunch argument: extra/u);
+  });
+
+  it('warns on stderr when TUI-only flags are passed to a non-TUI mode, then proceeds', async () => {
+    let stderr = '';
+    let output = '';
+
+    const code = await runBrunchCli({
+      argv: ['--mode', 'print', '--open-web', '--dev-tools'],
+      cwd: '/tmp/brunch-project',
+      coordinator: coordinator(),
+      stdout: (chunk) => {
+        output += chunk;
+      },
+      stderr: (chunk) => {
+        stderr += chunk;
+      },
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain('status: select_spec');
+    expect(stderr).toContain('--open-web only applies to --mode tui');
+    expect(stderr).toContain('--dev-tools only applies to --mode tui');
+  });
+
   it('rejects --mode web as a deferred feature (web UI runs only as the TUI sidecar)', async () => {
     await expect(
       runBrunchCli({

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { composeLiveElicitorPrompt } from '../../elicitor/compose-live-prompt.js';
 import { composeExecutorPrompt } from '../compose-prompt.js';
 
 function composePrompt(): string {
@@ -37,4 +38,30 @@ describe('composeExecutorPrompt', () => {
     expect(prompt).not.toMatch(/\*\*Negotiate\*\* when/);
     expect(prompt).not.toMatch(/\*\*Ask\*\* when/);
   });
+
+  it('shares the elicitor static reference-resource surface', () => {
+    const executorPrompt = composePrompt();
+    const elicitorPrompt = composeLiveElicitorPrompt({
+      sessionState: { operationalMode: 'specify', agentRole: 'elicitor' },
+      spec: { id: 1, name: 'Spec' },
+      workspace: { cwd: '/tmp/brunch' },
+      activeTools: ['read_graph', 'present_question', 'request_response'],
+    }).prompt;
+
+    const sharedReferenceNames = referenceNamesFrom(elicitorPrompt);
+
+    expect(sharedReferenceNames).toEqual([
+      'data-model',
+      'node-neighbourhoods',
+      'product-concept',
+      'readiness-bands',
+    ]);
+    expect(referenceNamesFrom(executorPrompt)).toEqual(sharedReferenceNames);
+    expect(executorPrompt).not.toContain('Twenty-four kinds across four planes');
+    expect(executorPrompt).not.toContain('An edge-local neighborhood is a stronger context object');
+  });
 });
+
+function referenceNamesFrom(prompt: string): string[] {
+  return [...prompt.matchAll(/<reference>\s*<name>([^<]+)<\/name>/g)].map((match) => match[1] ?? '');
+}

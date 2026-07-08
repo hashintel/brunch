@@ -10,7 +10,7 @@ import {
   type ExtensionUIContext,
   type RegisteredCommand,
 } from '@earendil-works/pi-coding-agent';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { userMessage } from '../../probes/test-helpers.js';
 import {
@@ -97,6 +97,52 @@ describe('Brunch TUI boot', () => {
     if (!oracle.ok) {
       expect(oracle.errors).toEqual([]);
     }
+  });
+
+  it('threads boot-time model availability into workspace-dialog preflight', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-'));
+    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agentdir-'));
+    const workspace = readyWorkspace(cwd, 'session-ready');
+    let observedModelAvailable: boolean | undefined;
+    let observedNoAuthGuidance: string | undefined;
+
+    vi.stubEnv('PI_CODING_AGENT_DIR', agentDir);
+    vi.stubEnv('ANTHROPIC_API_KEY', undefined);
+    vi.stubEnv('OPENROUTER_API_KEY', undefined);
+    try {
+      await runBrunchTui({
+        cwd,
+        coordinator: {
+          inspectWorkspace: async () => ({
+            cwd,
+            currentSpec: workspace.spec,
+            currentSessionFile: workspace.session.file,
+            needsNewSpec: false,
+            specs: [],
+            unavailableSessions: [],
+          }),
+          activateWorkspace: async () => workspace,
+          bindCurrentSpecToReplacementSession: async () => workspace,
+        },
+        runWorkspaceDialogPreflight: async (_inventory, preflightOptions) => {
+          observedModelAvailable = preflightOptions?.modelAvailable;
+          observedNoAuthGuidance = preflightOptions?.noAuthGuidance?.lines.join('\n');
+          return {
+            action: 'continue',
+            specId: workspace.spec.id,
+            sessionFile: workspace.session.file,
+          };
+        },
+        webSidecarRunner: async () => null,
+        launchInteractive: async () => {},
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+
+    expect(observedModelAvailable).toBe(false);
+    expect(observedNoAuthGuidance).toContain('brunch login');
+    expect(observedNoAuthGuidance).toContain('/login');
   });
 
   it('runs inspect, preflight, activation, and decision propagation before launching interactive mode', async () => {

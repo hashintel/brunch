@@ -6,11 +6,12 @@ export interface BrunchPiSessionPolicyInput {
   readonly sessionStartEvent?: CreateAgentSessionFromServicesOptions['sessionStartEvent'];
   readonly thinkingLevel: NonNullable<CreateAgentSessionFromServicesOptions['thinkingLevel']>;
   readonly model?: CreateAgentSessionFromServicesOptions['model'];
+  readonly scopedModels?: CreateAgentSessionFromServicesOptions['scopedModels'];
 }
 
 type BrunchPiSessionPolicyOptions = Pick<
   CreateAgentSessionFromServicesOptions,
-  'excludeTools' | 'model' | 'noTools' | 'sessionStartEvent' | 'thinkingLevel'
+  'excludeTools' | 'model' | 'noTools' | 'scopedModels' | 'sessionStartEvent' | 'thinkingLevel'
 >;
 
 export function projectBrunchPiSessionOptions(
@@ -22,5 +23,6 @@ export function projectBrunchPiSessionOptions(
     excludeTools: [...BRUNCH_WITHHELD_BUILTIN_TOOL_NAMES],
     thinkingLevel: input.thinkingLevel,
     ...(input.model ? { model: input.model } : {}),
+    ...(input.scopedModels ? { scopedModels: input.scopedModels } : {}),
   };
 }

@@ -351,6 +351,20 @@ describe('Brunch prompt-pack topology', () => {
     ).resolves.toMatchObject({
       systemPrompt: expect.stringContaining('# Executor'),
     });
+    await expect(
+      Promise.resolve(
+        events.before_agent_start?.(
+          { systemPrompt: 'base' } as never,
+          {
+            sessionManager: {
+              getEntries: () => [runtimeEntry(executeState)],
+            },
+          } as never,
+        ),
+      ),
+    ).resolves.toMatchObject({
+      systemPrompt: expect.stringContaining('[Brunch shared references]'),
+    });
   });
 
   it('refreshes selected-spec prompt context through the shell session-boundary path before composing', async () => {

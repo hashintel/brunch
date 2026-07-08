@@ -53,8 +53,14 @@ function collectPi(): { pi: ExtensionAPI; handlers: Handlers } {
   return { pi, handlers };
 }
 
-function buildCtx(response: string | undefined, seed: readonly CapturedEntry[] = []) {
+function buildCtx(
+  response: string | undefined,
+  seed: readonly CapturedEntry[] = [],
+  options: { readonly availableModels?: readonly unknown[] } = {},
+) {
   const entries: CapturedEntry[] = [...seed];
+  const notifications: Array<{ readonly message: string; readonly type: unknown }> = [];
+  let selectCount = 0;
   const sessionManager = {
     appendCustomEntry(customType: string, data: unknown) {
       entries.push({ type: 'custom', customType, data });
@@ -71,13 +77,16 @@ function buildCtx(response: string | undefined, seed: readonly CapturedEntry[] =
   const ctx = {
     hasUI: true,
     ui: {
-      select: async (_title: string, _options: string[]) => response,
-      notify: () => {},
+      select: async (_title: string, _options: string[]) => {
+        selectCount += 1;
+        return response;
+      },
+      notify: (message: string, type?: unknown) => notifications.push({ message, type }),
     },
     sessionManager: sessionManager as unknown,
-    modelRegistry: { getAvailable: () => [{}] } as unknown,
+    modelRegistry: { getAvailable: () => options.availableModels ?? [{}] } as unknown,
   } as unknown as ExtensionContext;
-  return { ctx, entries };
+  return { ctx, entries, notifications, getSelectCount: () => selectCount };
 }
 
 type SentMessage = { message: unknown; options: unknown };
@@ -123,6 +132,69 @@ describe('registerBrunchSessionOrientation', () => {
       expect(entries).toEqual([]);
     },
   );
+
+  it('suppresses J1 and shows login guidance when no allowlisted model is currently available', async () => {
+    const { pi, handlers } = collectPi();
+    const sent: SentMessage[] = [];
+    registerBrunchSessionOrientation(pi, {
+      resolveKickContext: () => fakeKickContext(sent),
+      noAuthNotice: 'No Brunch model auth: Run brunch login, or use /login in this session.',
+    });
+    const { ctx, entries, notifications, getSelectCount } = buildCtx(labelFor('ingest'), [], {
+      availableModels: [],
+    });
+
+    await handlers.session_start!({ type: 'session_start', reason: 'startup' }, ctx);
+
+    expect(entries).toEqual([]);
+    expect(sent).toEqual([]);
+    expect(getSelectCount()).toBe(0);
+    expect(notifications).toEqual([
+      {
+        type: 'warning',
+        message: expect.stringContaining('brunch login'),
+      },
+    ]);
+    expect(notifications[0]!.message).toContain('/login');
+  });
+
+  it('live-reads model availability so auth added mid-session re-enables the next juncture', async () => {
+    const { pi, handlers } = collectPi();
+    let availableModels: readonly unknown[] = [];
+    registerBrunchSessionOrientation(pi, { resolveKickContext: () => undefined });
+    const { ctx, entries, getSelectCount } = buildCtx(labelFor('ingest'), [], {
+      get availableModels() {
+        return availableModels;
+      },
+    });
+
+    await handlers.session_tree!({ type: 'session_tree', newLeafId: 'a', oldLeafId: 'b' }, ctx);
+    availableModels = [{}];
+    await handlers.session_tree!({ type: 'session_tree', newLeafId: 'c', oldLeafId: 'd' }, ctx);
+
+    expect(getSelectCount()).toBe(1);
+    expect(entries.at(-1)).toEqual({
+      type: 'custom',
+      customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
+      data: { schemaVersion: 1, choice: 'ingest', trigger: 'tree' },
+    });
+  });
+
+  it('suppresses event junctures without dialog, entry, or kick when no allowlisted model is currently available', async () => {
+    const { pi, handlers } = collectPi();
+    const sent: SentMessage[] = [];
+    registerBrunchSessionOrientation(pi, { resolveKickContext: () => fakeKickContext(sent) });
+    const { ctx, entries, notifications, getSelectCount } = buildCtx(labelFor('ingest'), [], {
+      availableModels: [],
+    });
+
+    await handlers.session_tree!({ type: 'session_tree', newLeafId: 'a', oldLeafId: 'b' }, ctx);
+
+    expect(entries).toEqual([]);
+    expect(sent).toEqual([]);
+    expect(getSelectCount()).toBe(0);
+    expect(notifications).toEqual([]);
+  });
 
   it('runs the dialog on session_start reason startup with trigger entry (J1 boot) and fires a boot kick', async () => {
     const { pi, handlers } = collectPi();
