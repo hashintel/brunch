@@ -86,6 +86,15 @@ describe('parseBrunchThemePalette', () => {
     ).toThrow(/accent.*inkk/);
   });
 
+  it('throws on a dangling page-color var before terminal painting can consume it', () => {
+    expect(() =>
+      parseBrunchThemePalette(
+        themeJson({ export: { pageBg: 'surface-missing', pageFg: '#e0e0e0' } }),
+        'dark',
+      ),
+    ).toThrow(/pageBg.*surface-missing/);
+  });
+
   it('rejects empty string where a page color is required', () => {
     expect(() =>
       parseBrunchThemePalette(themeJson({ export: { pageBg: '', pageFg: '#e0e0e0' } }), 'dark'),
