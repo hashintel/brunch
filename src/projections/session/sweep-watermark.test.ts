@@ -84,6 +84,22 @@ describe('capture sweep watermark projection', () => {
     ]);
   });
 
+  it('includes live ask terminal results in the sweep tail alongside preserved legacy request_* rows (FE-1164 regression)', () => {
+    // Post-D116-L every live terminal persists under toolName 'ask': standalone
+    // answers, declared offer continuations, and RPC-minted accepted responses.
+    // The walkthrough-era 'request_'-prefix classifier silently excluded all of
+    // them, so answered material never reached capture.
+    const entries = [
+      marker(),
+      toolResult('present_digest'),
+      toolResult('ask'),
+      toolResult('request_answer'),
+      toolResult('read_graph'),
+    ];
+
+    expect(projectCaptureSweepWindow(entries).conversationalTail).toEqual([entries[2], entries[3]]);
+  });
+
   it('advances with a sweep marker so the conversational tail is empty while background may remain behind it', () => {
     const beforeAdvance = [
       marker(),

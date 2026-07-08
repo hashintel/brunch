@@ -64,7 +64,10 @@ export function isSweepConversationalEntry(entry: TranscriptEntryLike): boolean 
   if (role === 'user' || role === 'assistant') return true;
   if (role === 'toolResult') {
     const toolName = typeof message.toolName === 'string' ? message.toolName : '';
-    return toolName.startsWith('request_');
+    // 'ask' is the live terminal tool (D116-L): standalone answers, declared offer
+    // continuations, and RPC-minted accepted responses all persist under it. The
+    // 'request_' prefix survives only for pre-cutover persisted transcripts.
+    return toolName === 'ask' || toolName.startsWith('request_');
   }
   return false;
 }
