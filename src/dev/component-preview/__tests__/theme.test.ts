@@ -13,6 +13,7 @@ import {
   createThemePaintingTerminal,
   parseBrunchThemePalette,
   registerComponentPreviewThemeToggle,
+  shouldReloadComponentPreviewThemeForWatchEvent,
   SwitchableComponentPreviewTheme,
 } from '../theme.js';
 
@@ -115,6 +116,14 @@ describe('parseBrunchThemePalette', () => {
       const raw = readFileSync(fileURLToPath(new URL(`brunch-${variant}.json`, THEME_DIR)), 'utf8');
       expect(() => parseBrunchThemePalette(raw, variant)).not.toThrow();
     }
+  });
+});
+
+describe('watchComponentPreviewTheme', () => {
+  it('treats filename-less filesystem events as reload candidates', () => {
+    expect(shouldReloadComponentPreviewThemeForWatchEvent(null)).toBe(true);
+    expect(shouldReloadComponentPreviewThemeForWatchEvent('brunch-dark.json')).toBe(true);
+    expect(shouldReloadComponentPreviewThemeForWatchEvent('notes.txt')).toBe(false);
   });
 });
 

@@ -387,10 +387,14 @@ export function registerComponentPreviewThemeToggle(
  * wait for the next write). Debounced because editors typically fire
  * multiple fs events per save.
  */
+export function shouldReloadComponentPreviewThemeForWatchEvent(filename: string | null): boolean {
+  return filename === null || /^brunch-.*\.json$/.test(filename);
+}
+
 export function watchComponentPreviewTheme(tui: TUI, theme: SwitchableComponentPreviewTheme): () => void {
   let timer: NodeJS.Timeout | undefined;
   const watcher = watch(fileURLToPath(THEME_DIR), (_event, filename) => {
-    if (filename !== null && !/^brunch-.*\.json$/.test(filename)) return;
+    if (!shouldReloadComponentPreviewThemeForWatchEvent(filename)) return;
     clearTimeout(timer);
     timer = setTimeout(() => {
       try {
