@@ -1,6 +1,10 @@
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import {
+  ACTIVE_STRUCTURED_EXCHANGE_TOOL_NAMES,
+  LEGACY_STRUCTURED_EXCHANGE_TRANSCRIPT_TOOL_NAMES,
+} from '../../exchanges/index.js';
 import { systemPromptFromProviderPayload } from '../../shared/provider-system-prompt.js';
 
 export interface BrunchDebugCacheOptions {
@@ -12,12 +16,13 @@ const BRUNCH_DEBUG_CONTENT_TOOL_NAMES = new Set([
   'brunch_session_query',
   'mutate_graph',
   'present_alternatives',
-  'present_question',
-  'present_review_set',
+  ...ACTIVE_STRUCTURED_EXCHANGE_TOOL_NAMES,
+  // Legacy transcript compatibility only: debug mirrors preserved persisted
+  // entries, not active tool registration.
+  ...LEGACY_STRUCTURED_EXCHANGE_TRANSCRIPT_TOOL_NAMES,
   'read_graph',
   'read_session_context',
   'read_workspace_context',
-  'request_response',
 ]);
 
 export async function mirrorSystemPromptToDebugCache(

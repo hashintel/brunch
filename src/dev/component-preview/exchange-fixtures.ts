@@ -252,6 +252,8 @@ export const requestAnswerFixture = (() => {
 })();
 
 export const requestChoiceFixture = (() => {
+  // Legacy transcript compatibility fixture: present_question is retired as a
+  // registered tool but remains a persisted-read discriminator.
   const details = projectRequestChoice({
     exchangeId: 'preview-request-choice',
     respondsToPresentTool: 'present_question',

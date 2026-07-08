@@ -17,6 +17,10 @@ allow_none?, comment_prompt? · choice/choices — label, kind (listed|other), c
 answer — text · review — decision (approve|request_changes|reject), comment? ·
 terminal — cancelled | unavailable(message) | diagnostic(message).
 
+Status note (ask cutover): `present_question` / `request_response` examples below are
+legacy transcript compatibility vocabulary, not current active tool registration. The
+active runtime surface is `ask` plus surviving offer presents.
+
 ## present_question — options with rationale
 
 ---

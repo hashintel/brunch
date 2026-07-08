@@ -165,6 +165,24 @@ describe('structured exchange family completeness', () => {
       }
     }
   });
+
+  it('labels preview-only legacy transcript surfaces as legacy compatibility', () => {
+    const previewsById = new Map(COMPONENT_PREVIEW_REGISTRY.map((entry) => [entry.id, entry]));
+    const legacyPreviewIds = [
+      'present-question',
+      'request-answer',
+      'request-choice',
+      'request-choices',
+      'request-review',
+      'request-terminal',
+    ];
+
+    for (const previewId of legacyPreviewIds) {
+      const preview = previewsById.get(previewId);
+      expect(preview?.label, previewId).toMatch(/legacy transcript compatibility/);
+      expect(preview?.presentedLike, previewId).toMatch(/legacy transcript compatibility/);
+    }
+  });
 });
 
 function expectSnapshotMarkers(family: string, snapshot: SnapshotCoverage) {

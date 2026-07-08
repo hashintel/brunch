@@ -372,9 +372,9 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
   },
   {
     id: 'present-question',
-    label: 'present_question transcript render',
+    label: 'legacy transcript compatibility — present_question render',
     presentedLike:
-      'tool result renderer — src/.pi/extensions/exchanges/present-question.ts (renderResult = Markdown pass-through of content, D104-L)',
+      'legacy transcript compatibility formatter — src/exchanges/projections/present-question.ts (Markdown pass-through of preserved content, D104-L)',
     open: (tui, theme) =>
       previewStaticComponent(tui, renderMarkdownResult(presentQuestionOptionsFixture.result, theme)),
   },
@@ -396,41 +396,41 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
   },
   {
     id: 'request-answer',
-    label: 'request_response answer transcript render',
+    label: 'legacy transcript compatibility — request_response answer render',
     presentedLike:
-      'tool result renderer — src/.pi/extensions/exchanges/request-response.ts (renderResult = Markdown pass-through of content, D104-L)',
+      'legacy transcript compatibility formatter — preserved request_answer detail markdown (D104-L)',
     open: (tui, theme) =>
       previewStaticComponent(tui, renderMarkdownResult(requestAnswerFixture.result, theme)),
   },
   {
     id: 'request-choice',
-    label: 'request_response choice transcript render',
+    label: 'legacy transcript compatibility — request_response choice render',
     presentedLike:
-      'tool result renderer — src/.pi/extensions/exchanges/request-response.ts (renderResult = Markdown pass-through of content, D104-L)',
+      'legacy transcript compatibility formatter — preserved request_choice detail markdown (D104-L)',
     open: (tui, theme) =>
       previewStaticComponent(tui, renderMarkdownResult(requestChoiceFixture.result, theme)),
   },
   {
     id: 'request-choices',
-    label: 'request_response choices transcript render',
+    label: 'legacy transcript compatibility — request_response choices render',
     presentedLike:
-      'tool result renderer — src/.pi/extensions/exchanges/request-response.ts (renderResult = Markdown pass-through of content, D104-L)',
+      'legacy transcript compatibility formatter — preserved request_choices detail markdown (D104-L)',
     open: (tui, theme) =>
       previewStaticComponent(tui, renderMarkdownResult(requestChoicesFixture.result, theme)),
   },
   {
     id: 'request-review',
-    label: 'request_response review transcript render',
+    label: 'legacy transcript compatibility — request_response review render',
     presentedLike:
-      'tool result renderer — src/.pi/extensions/exchanges/request-response.ts (renderResult = Markdown pass-through of content, D104-L)',
+      'legacy transcript compatibility formatter — preserved request_review detail markdown (D104-L)',
     open: (tui, theme) =>
       previewStaticComponent(tui, renderMarkdownResult(requestReviewFixture.result, theme)),
   },
   {
     id: 'request-terminal',
-    label: 'request_response terminal transcript render',
+    label: 'legacy transcript compatibility — request_response terminal render',
     presentedLike:
-      'tool result renderer — src/.pi/extensions/exchanges/request-response.ts (renderResult = Markdown pass-through of content, D104-L)',
+      'legacy transcript compatibility formatter — preserved terminal request-detail markdown (D104-L)',
     open: (tui, theme) =>
       previewStaticComponent(tui, renderMarkdownResult(requestTerminalFixture.result, theme)),
   },
