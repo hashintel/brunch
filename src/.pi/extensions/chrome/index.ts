@@ -19,6 +19,7 @@ import type {
   WorkspaceSessionChromeState,
   WorkspaceSessionReadyState,
 } from '../../../session/workspace-session-coordinator.js';
+import { BrunchEditorComponent, type BrunchEditorLabels } from '../../components/brunch-editor.js';
 import {
   BrunchStartupHeader,
   type BrunchStartupHeaderFacts,
@@ -107,6 +108,7 @@ export interface BrunchChromeState extends WorkspaceSessionChromeState {
 }
 
 export type BrunchChromeUi = Pick<ExtensionUIContext, 'setFooter' | 'setHeader' | 'setTitle'>;
+type BrunchEditorUi = Pick<ExtensionUIContext, 'setEditorComponent'>;
 
 type BrunchChromeTheme = Pick<Theme, 'fg'>;
 
@@ -250,6 +252,39 @@ export function renderBrunchChrome(
   ui.setTitle(formatChromeTitle(chrome));
 }
 
+function editorLabelsFromChromeContext(
+  chrome: BrunchChromeState,
+  telemetry: BrunchChromeFooterTelemetry,
+): BrunchEditorLabels {
+  const runtime = telemetry.agentState;
+  const modeLabel = operationalModeLabel(runtime?.operationalMode ?? chrome.runtime?.mode ?? 'specify');
+  return {
+    topRight: `[ ${modeLabel} ]`,
+    bottomRight: formatSpec(chrome),
+    ...(chrome.webSidecarUrl
+      ? { belowLines: [{ text: chrome.webSidecarUrl, url: chrome.webSidecarUrl }] }
+      : {}),
+  };
+}
+
+function canSetEditorComponent(ui: ExtensionUIContext): ui is ExtensionUIContext & BrunchEditorUi {
+  return typeof ui.setEditorComponent === 'function';
+}
+
+function installBrunchEditor(
+  ui: ExtensionUIContext,
+  chrome: BrunchChromeState,
+  getTelemetry: () => BrunchChromeFooterTelemetry,
+): void {
+  if (!canSetEditorComponent(ui)) return;
+  ui.setEditorComponent(
+    (tui, theme, keybindings) =>
+      new BrunchEditorComponent(tui, theme, keybindings, () =>
+        editorLabelsFromChromeContext(chrome, getTelemetry()),
+      ),
+  );
+}
+
 export function registerBrunchChrome(
   pi: ExtensionAPI,
   chrome: BrunchChromeState,
@@ -269,8 +304,10 @@ export function registerBrunchChrome(
     // BRUNCH_SETTINGS_POLICY). RPC mode stubs this call; headless contexts
     // stub the whole ui object.
     ctx.ui.setWorkingIndicator({ frames: ['●'] });
+    const getTelemetry = () => footerTelemetryFromContext(ctx, pi);
+    installBrunchEditor(ctx.ui, chrome, getTelemetry);
     renderBrunchChrome(ctx.ui, chrome, {
-      telemetry: () => footerTelemetryFromContext(ctx, pi),
+      telemetry: getTelemetry,
       bindFooterRenderRequest: (requestRender) => {
         requestFooterRender = requestRender;
       },

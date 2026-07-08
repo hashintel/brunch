@@ -762,6 +762,44 @@ describe('Brunch TUI boot', () => {
     expect(await readFile(launchedSessionFile!, 'utf8')).not.toContain('stale transcript');
   });
 
+  it('wires the persistent editor mount through the normal Brunch extension bundle', async () => {
+    const calls: string[] = [];
+    const sessionStart: Array<(event: unknown, ctx: FakeExtensionContext) => Promise<void>> = [];
+    const ui: FakeExtensionUi = {
+      ...fakeUi((method) => calls.push(method)),
+      setEditorComponent: (_factory) => calls.push('setEditorComponent'),
+    };
+
+    await createBrunchPiExtensions(
+      chromeStateForWorkspace(readyWorkspace('/tmp/project', 'session-1')),
+      undefined,
+      { coordinator: noOpWorkspaceCoordinator('/tmp/project') },
+    )({
+      on: (event: string, handler: never) => {
+        if (event === 'session_start') sessionStart.push(handler);
+      },
+      registerCommand: (_name: string, _options: unknown) => {},
+      registerShortcut: (_name: string, _options: unknown) => {},
+      registerTool: (_tool: unknown) => {},
+      registerMessageRenderer: (_type: string) => {},
+      sendMessage: (_message: unknown) => {},
+      getAllTools: () => [],
+      setActiveTools: (_tools: string[]) => {},
+      getThinkingLevel: () => 'low',
+    } as never);
+
+    for (const handler of sessionStart) {
+      await handler({}, {
+        sessionManager: { getEntries: () => [], getSessionName: () => null },
+        ui,
+        getContextUsage: () => undefined,
+        model: null,
+      } as never);
+    }
+
+    expect(calls).toContain('setEditorComponent');
+  });
+
   it('binds replacement sessions through internal session boundary events', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-'));
     const manager = SessionManager.create(cwd, join(cwd, '.brunch', 'sessions'));
@@ -1886,7 +1924,8 @@ interface FakeAutocompleteProvider {
 type FakeExtensionUi = Pick<
   ExtensionUIContext,
   'setFooter' | 'setHeader' | 'setStatus' | 'setWidget' | 'setWorkingIndicator' | 'setTitle' | 'notify'
->;
+> &
+  Partial<Pick<ExtensionUIContext, 'setEditorComponent'>>;
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string');

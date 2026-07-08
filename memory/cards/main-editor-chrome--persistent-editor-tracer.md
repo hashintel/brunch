@@ -21,6 +21,8 @@ Posture: proving (inherited from main-editor-chrome).
 
 ## Card 1 (full): `BrunchEditorComponent` becomes the persistent input editor
 
+Status: done — 2026-07-08
+
 ### Target Behavior
 
 In a UI-capable Brunch session, the main input editor renders as the Brunch bordered editor with live border labels (operational mode top-right, spec title bottom-right, sidecar URL below) that update when runtime state changes, with no regression in typing, autocomplete, or app keybindings.
@@ -166,6 +168,27 @@ src/app/
 └── __tests__/brunch-tui.test.ts               ~
 src/dev/TOPOLOGY.md                            ?  (only if the preview entry contract shifts)
 ```
+
+### Completion report
+
+| Leaf | Outcome | Evidence |
+| ---- | ------- | -------- |
+| Install `ctx.ui.setEditorComponent` factory during `session_start` | met | `src/.pi/extensions/__tests__/chrome.test.ts` — “installs BrunchEditorComponent during session_start when the UI supports editor swaps” |
+| No-UI/stub context does not install or throw | met | `src/.pi/extensions/__tests__/chrome.test.ts` — “does not install the editor in no-UI/stub contexts” |
+| Labels derive from chrome state + live telemetry | met | `src/.pi/extensions/__tests__/chrome.test.ts` — mode/spec/sidecar assertions from factory labels |
+| Runtime-state append re-renders with new mode label | met | `src/.pi/extensions/__tests__/chrome.test.ts` — “keeps editor labels fresh when runtime state changes” |
+| Product path wires mount through normal extension bundle | met | `src/app/__tests__/brunch-tui.test.ts` — “wires the persistent editor mount through the normal Brunch extension bundle” |
+| Boxed editor renders at multiple widths with autocomplete rows boxed | met | `src/.pi/components/__tests__/brunch-editor.harness.test.ts` — “keeps autocomplete rows inside the box at multiple widths” |
+| Existing direct editor suite stays green | met | `npm run test -- src/.pi/components/__tests__/brunch-editor.harness.test.ts src/.pi/components/__tests__/brunch-editor.test.ts src/.pi/extensions/__tests__/chrome.test.ts src/app/__tests__/brunch-tui.test.ts src/.pi/extensions/__tests__/registry.test.ts` — 5 files / 113 tests passed |
+| Extension registration inventory stays green | met | same targeted command — `src/.pi/extensions/__tests__/registry.test.ts` included |
+| Manual outer smoke | met-with-divergence | `expect` pseudo-terminal smoke launched `npm run dev -- --workspace .fixtures/workbenches/workspace-alpha-grounding`, accepted the default dialog, typed editor text, opened slash autocomplete, resized PTY, submitted, and exited without crash; physical iTerm2/Kitty/Ghostty wheel-specific check remains better human evidence but no anomaly was observed in the agent-drivable terminal |
+| Default Pi editing behavior preserved | met | existing `BrunchEditorComponent` extends `CustomEditor`; `src/.pi/components/__tests__/brunch-editor.harness.test.ts` typing/escape/ctrl-d tests green |
+| Startup chrome still renders through one chrome seam | met | `registerBrunchChrome` owns editor + footer/header/title install; chrome topology updated; existing chrome tests green |
+| Component stays presentation-only with caller-injected labels | met | `BrunchEditorComponent` unchanged; labels built in chrome registrar; `src/.pi/components/TOPOLOGY.md` refreshed |
+| D22-L/I22-L startup ordering | met | product-path mount test exercises `createBrunchPiExtensions`; no launch choreography changed |
+| D115-L/I59-L no-auth/no-UI degradation | met | no-UI editor guard test; no provider-turn path changed |
+
+Skipped-test delta vs parent: 0 observed in targeted suite (no skipped tests reported); full-suite gate pending after Card 2.
 
 ---
 

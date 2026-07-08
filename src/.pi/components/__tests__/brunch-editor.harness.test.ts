@@ -1,8 +1,10 @@
-import { getSelectListTheme, type KeybindingsManager } from '@earendil-works/pi-coding-agent';
+import type { KeybindingsManager } from '@earendil-works/pi-coding-agent';
 import {
   KeybindingsManager as PiTuiKeybindingsManager,
   TUI,
   TUI_KEYBINDINGS,
+  visibleWidth,
+  type AutocompleteProvider,
   type KeybindingDefinitions,
 } from '@earendil-works/pi-tui';
 import type { EditorTheme } from '@earendil-works/pi-tui';
@@ -15,7 +17,13 @@ import { BrunchEditorComponent } from '../brunch-editor.js';
 const labTheme = createTestLabTheme();
 const editorTheme: EditorTheme = {
   borderColor: (str: string) => labTheme.fg('accent', str),
-  selectList: getSelectListTheme(),
+  selectList: {
+    selectedPrefix: (text) => text,
+    selectedText: (text) => text,
+    description: (text) => text,
+    scrollInfo: (text) => text,
+    noMatch: (text) => text,
+  },
 };
 // CustomEditor's own handleInput needs a real KeybindingsManager (it calls
 // `.matches(...)` for app-level actions: escape-to-cancel, ctrl+d-to-exit)
@@ -73,6 +81,54 @@ describe('BrunchEditorComponent harness', () => {
     } finally {
       terminal.stop();
       tui.stop();
+    }
+  });
+
+  it('keeps autocomplete rows inside the box at multiple widths', async () => {
+    const autocompleteProvider: AutocompleteProvider = {
+      triggerCharacters: ['@'],
+      getSuggestions: async () => ({
+        prefix: '@',
+        items: [
+          { value: '@alpha', label: '@alpha', description: 'first suggestion' },
+          { value: '@beta', label: '@beta', description: 'second suggestion' },
+        ],
+      }),
+      applyCompletion: (lines, cursorLine, cursorCol, item) => ({
+        lines: [lines[cursorLine]!.slice(0, cursorCol - 1) + item.value],
+        cursorLine,
+        cursorCol: item.value.length,
+      }),
+    };
+
+    for (const width of [48, 72]) {
+      const terminal = new VirtualTerminal(width, 24);
+      const tui = new TUI(terminal);
+      const editor = new BrunchEditorComponent(tui, editorTheme, keybindings, () => ({
+        topRight: '[ Specify ]',
+        bottomRight: 'Alpha Spec',
+      }));
+      editor.setAutocompleteProvider(autocompleteProvider);
+      tui.addChild(editor);
+      tui.setFocus(editor);
+      editor.focused = true;
+      terminal.clearScreen();
+      tui.start();
+
+      try {
+        await terminal.waitForRender();
+        terminal.sendInput('@');
+        await waitForViewport(terminal, (viewport) => viewport.some((line) => line.includes('@alpha')));
+
+        const viewport = terminal.getViewport();
+        expect(viewport.every((line) => visibleWidth(line) <= width)).toBe(true);
+        const suggestionLine = viewport.find((line) => line.includes('@alpha'));
+        expect(suggestionLine?.trimStart().startsWith('│')).toBe(true);
+        expect(suggestionLine?.trimEnd().endsWith('│')).toBe(true);
+      } finally {
+        terminal.stop();
+        tui.stop();
+      }
     }
   });
 
@@ -159,3 +215,15 @@ describe('BrunchEditorComponent harness', () => {
     }
   });
 });
+
+async function waitForViewport(
+  terminal: VirtualTerminal,
+  predicate: (viewport: readonly string[]) => boolean,
+): Promise<void> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await terminal.waitForRender();
+    if (predicate(terminal.getViewport())) return;
+    await new Promise<void>((resolve) => setTimeout(resolve, 5));
+  }
+  expect(predicate(terminal.getViewport())).toBe(true);
+}

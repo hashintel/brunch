@@ -1,8 +1,11 @@
-import type { ExtensionUIContext } from '@earendil-works/pi-coding-agent';
+import { getSelectListTheme, type ExtensionUIContext } from '@earendil-works/pi-coding-agent';
+import type { EditorTheme } from '@earendil-works/pi-tui';
 import { visibleWidth } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vitest';
 
+import { appendBrunchAgentRuntimeSwitch } from '../../../session/runtime-state.js';
 import type { WorkspaceSessionReadyState } from '../../../session/workspace-session-coordinator.js';
+import { BrunchEditorComponent } from '../../components/brunch-editor.js';
 import { BrunchStartupHeader } from '../../components/chrome-header.js';
 import chromeExtension, {
   chromeStateForWorkspace,
@@ -212,6 +215,131 @@ describe('Brunch chrome projection', () => {
     expect(text).not.toContain('Welcome to Brunch.');
     expect(text).not.toContain('/brunch:mode');
     expect(text).toContain('Graph capture flows through Brunch commands and structured exchanges.');
+  });
+
+  it('installs BrunchEditorComponent during session_start when the UI supports editor swaps', async () => {
+    const calls: FakeUiCall[] = [];
+    const handlers = new Map<string, Array<(event: unknown, ctx: FakeChromeContext) => unknown>>();
+    const entries: Array<{ type?: unknown; customType?: unknown; data?: unknown }> = [];
+
+    registerBrunchChrome(
+      {
+        on: (event: string, handler: never) => {
+          handlers.set(event, [...(handlers.get(event) ?? []), handler]);
+        },
+        getThinkingLevel: () => 'low',
+      } as never,
+      {
+        cwd: '/tmp/project',
+        spec: { id: 1, title: 'Spec One' },
+        session: { id: 'session-1', label: 'Interview #1' },
+        webSidecarUrl: 'http://127.0.0.1:49152/spec/1',
+      },
+    );
+
+    await handlers.get('session_start')?.[0]?.(
+      {},
+      {
+        ui: fakeChromeUi(calls, { withEditorSwap: true }),
+        sessionManager: {
+          getEntries: () => entries,
+          getSessionName: () => 'Interview #1',
+          appendCustomEntry: (customType, data) => entries.push({ type: 'custom', customType, data }),
+        },
+        getContextUsage: () => undefined,
+        model: null,
+      },
+    );
+
+    const factory = calls.find((call) => call.method === 'setEditorComponent')?.args[0];
+    expect(factory).toEqual(expect.any(Function));
+    const component = (
+      factory as (tui: never, theme: EditorTheme, keybindings: never) => BrunchEditorComponent
+    )(undefined as never, fakeEditorTheme, undefined as never);
+    expect(component).toBeInstanceOf(BrunchEditorComponent);
+    const labels = (component as unknown as { getLabels: () => unknown }).getLabels();
+    expect(labels).toEqual({
+      topRight: '[ Specify ]',
+      bottomRight: 'Spec One',
+      belowLines: [{ text: 'http://127.0.0.1:49152/spec/1', url: 'http://127.0.0.1:49152/spec/1' }],
+    });
+  });
+
+  it('keeps editor labels fresh when runtime state changes', async () => {
+    const calls: FakeUiCall[] = [];
+    const handlers = new Map<string, Array<(event: unknown, ctx: FakeChromeContext) => unknown>>();
+    const entries: Array<{ type?: unknown; customType?: unknown; data?: unknown }> = [];
+    const sessionManager = {
+      getEntries: () => entries,
+      getSessionName: () => null,
+      appendCustomEntry: (customType: string, data: unknown) => {
+        entries.push({ type: 'custom', customType, data });
+      },
+    };
+
+    registerBrunchChrome(
+      {
+        on: (event: string, handler: never) => {
+          handlers.set(event, [...(handlers.get(event) ?? []), handler]);
+        },
+        getThinkingLevel: () => 'low',
+      } as never,
+      { cwd: '/tmp/project', spec: { id: 1, title: 'Spec One' }, session: { id: 'session-1' } },
+    );
+
+    await handlers.get('session_start')?.[0]?.(
+      {},
+      {
+        ui: fakeChromeUi(calls, { withEditorSwap: true }),
+        sessionManager,
+        getContextUsage: () => undefined,
+        model: null,
+      },
+    );
+    const factory = calls.find((call) => call.method === 'setEditorComponent')?.args[0] as (
+      tui: never,
+      theme: EditorTheme,
+      keybindings: never,
+    ) => BrunchEditorComponent;
+    const component = factory(undefined as never, fakeEditorTheme, undefined as never);
+    expect((component as unknown as { getLabels: () => { topRight?: string } }).getLabels().topRight).toBe(
+      '[ Specify ]',
+    );
+
+    appendBrunchAgentRuntimeSwitch(sessionManager, { schemaVersion: 1, operationalMode: 'execute' }, 'user');
+
+    expect((component as unknown as { getLabels: () => { topRight?: string } }).getLabels().topRight).toBe(
+      '[ Execute ]',
+    );
+  });
+
+  it('does not install the editor in no-UI/stub contexts', async () => {
+    const calls: FakeUiCall[] = [];
+    const handlers = new Map<string, Array<(event: unknown, ctx: FakeChromeContext) => unknown>>();
+
+    registerBrunchChrome(
+      {
+        on: (event: string, handler: never) => {
+          handlers.set(event, [...(handlers.get(event) ?? []), handler]);
+        },
+        getThinkingLevel: () => 'low',
+      } as never,
+      { cwd: '/tmp/project', spec: { id: 1, title: 'Spec One' }, session: { id: 'session-1' } },
+    );
+
+    await expect(
+      handlers.get('session_start')?.[0]?.(
+        {},
+        {
+          ui: fakeChromeUi(calls),
+          sessionManager: { getEntries: () => [], getSessionName: () => null },
+          getContextUsage: () => undefined,
+          model: null,
+        },
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(calls.map((call) => call.method)).not.toContain('setEditorComponent');
   });
 
   it('never re-publishes the retired brunch.kick status key', async () => {
@@ -425,7 +553,10 @@ interface FakeUiCall {
   args: unknown[];
 }
 
-function fakeChromeUi(calls: FakeUiCall[]): FakeExtensionUi {
+function fakeChromeUi(
+  calls: FakeUiCall[],
+  options: { readonly withEditorSwap?: boolean } = {},
+): FakeExtensionUi {
   return {
     setHeader: (...args: unknown[]) => calls.push({ method: 'setHeader', args }),
     setFooter: (...args: unknown[]) => calls.push({ method: 'setFooter', args }),
@@ -434,10 +565,18 @@ function fakeChromeUi(calls: FakeUiCall[]): FakeExtensionUi {
     setWorkingIndicator: (...args: unknown[]) => calls.push({ method: 'setWorkingIndicator', args }),
     setWorkingMessage: (...args: unknown[]) => calls.push({ method: 'setWorkingMessage', args }),
     setWorkingVisible: (...args: unknown[]) => calls.push({ method: 'setWorkingVisible', args }),
+    ...(options.withEditorSwap
+      ? { setEditorComponent: (...args: unknown[]) => calls.push({ method: 'setEditorComponent', args }) }
+      : {}),
     setTitle: (...args: unknown[]) => calls.push({ method: 'setTitle', args }),
     notify: (_message: string, _type?: 'info' | 'warning' | 'error') => {},
   };
 }
+
+const fakeEditorTheme: EditorTheme = {
+  borderColor: (text) => text,
+  selectList: getSelectListTheme(),
+};
 
 const fakeTheme = {
   fg: (_color: string, text: string) => text,
@@ -457,4 +596,16 @@ type FakeExtensionUi = Pick<
   | 'setWorkingVisible'
   | 'setTitle'
   | 'notify'
->;
+> &
+  Partial<Pick<ExtensionUIContext, 'setEditorComponent'>>;
+
+type FakeChromeContext = {
+  readonly ui: FakeExtensionUi;
+  readonly sessionManager: {
+    getEntries: () => readonly unknown[];
+    getSessionName: () => string | null;
+    appendCustomEntry?: (customType: string, data: unknown) => void;
+  };
+  readonly getContextUsage: () => undefined;
+  readonly model: null;
+};

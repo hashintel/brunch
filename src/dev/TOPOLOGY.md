@@ -104,13 +104,11 @@ components are render-only with injectable `theme`/props.
   component already handles. No new preview lane or wrapper component was needed — it is a fixture
   variation on the existing `ctx.ui.custom` overlay lane. Real physical terminal wheel emission
   remains a manual smoke-test residual; the automated harness injects the SGR bytes directly.
-- A fourth, `[experimental]` entry (`brunch-editor`) previews `ctx.ui.setEditorComponent` —
-  `BrunchEditorComponent` (`.pi/components/brunch-editor.ts`) wraps `CustomEditor` in a `│`-bordered box
-  with runtime-state labels baked into the border corners, since the default `Editor` has no side
-  borders at all. This is a design exploration for the `component-dx` frontier, not yet wired into
-  `src/.pi/extensions/chrome/index.ts` — it mounts directly (`tui.addChild` + `onEscape` dismiss) rather
-  than through `showComponentPreview` or `previewStaticComponent`, since it needs real focus and input
-  routing that a static preview doesn't exercise.
+- The `brunch-editor` entry previews the same `BrunchEditorComponent` that production chrome installs
+  via `ctx.ui.setEditorComponent`: a `CustomEditor` wrapped in a bordered box with caller-injected
+  runtime labels. It mounts directly (`tui.addChild` + `onEscape` dismiss) rather than through
+  `showComponentPreview` or `previewStaticComponent`, since it needs real focus and input routing that a
+  static preview doesn't exercise.
 
 ## Debug Mirrors And Dev Tools
 

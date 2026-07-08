@@ -75,7 +75,11 @@ export function projectBorderedChrome(
   const { contentLines, trailingLines } = stripEditorBorder(innerLines, rawBottomIndex);
   const boxedContent = projectRoundedBox(
     padContentToMinimum(contentLines, MIN_CONTENT_LINES, Math.max(1, width - SIDE_BUDGET)),
-    { topLabel: labels.topRight, bottomLabel: labels.bottomRight, preserveContentWidth: true },
+    {
+      ...(labels.topRight !== undefined ? { topLabel: labels.topRight } : {}),
+      ...(labels.bottomRight !== undefined ? { bottomLabel: labels.bottomRight } : {}),
+      preserveContentWidth: true,
+    },
     width,
     borderColor,
   );

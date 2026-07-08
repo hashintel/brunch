@@ -4,7 +4,7 @@ SPEC decisions: D35-L (chrome is a Brunch projection wrapper over Pi UI primitiv
 
 ## Owns
 
-Projection of canonical workspace/session facts into Pi's TUI shell surfaces — footer, terminal title, and startup header — through one Brunch-owned renderer (`renderBrunchChrome`). The projection is stateless: it holds no mutable chrome state and derives every surface from the `BrunchChromeState` value it is handed plus render-time telemetry.
+Projection of canonical workspace/session facts into Pi's TUI shell surfaces — footer, terminal title, startup header, and the persistent input editor — through Brunch-owned chrome installers (`renderBrunchChrome` plus `registerBrunchChrome`'s editor factory). The projection is stateless: it holds no mutable chrome state and derives every surface from the `BrunchChromeState` value it is handed plus render-time telemetry.
 
 ## Does NOT own
 
@@ -15,7 +15,7 @@ Projection of canonical workspace/session facts into Pi's TUI shell surfaces —
 
 ## Public surface
 
-`renderBrunchChrome`, `registerBrunchChrome`, `chromeStateForWorkspace`, `projectBrunchChromeFooterLines`, and the `BrunchChromeState` / `BrunchChromeFooterTelemetry` / `BrunchChromeRenderOptions` types. The `default` export (`brunchChrome`) exists only for dev `/reload` iteration (D39-L).
+`renderBrunchChrome`, `registerBrunchChrome`, `chromeStateForWorkspace`, `projectBrunchChromeFooterLines`, and the `BrunchChromeState` / `BrunchChromeFooterTelemetry` / `BrunchChromeRenderOptions` types. `registerBrunchChrome` also installs `BrunchEditorComponent` via Pi's `ctx.ui.setEditorComponent` when that UI capability exists; headless/stub contexts are guarded by capability check. The `default` export (`brunchChrome`) exists only for dev `/reload` iteration (D39-L).
 
 ## State shape (`BrunchChromeState`)
 
@@ -23,6 +23,7 @@ Projection of canonical workspace/session facts into Pi's TUI shell surfaces —
 
 ## Render surfaces
 
+- **Input editor**: `registerBrunchChrome` installs `BrunchEditorComponent` through `ctx.ui.setEditorComponent` on `session_start` when present. Its labels are sampled fresh on every render: top-right operational mode from `projectBrunchAgentState(ctx.sessionManager.getEntries())`, bottom-right spec title from `BrunchChromeState`, and a below-line sidecar URL when available.
 - **Footer** (`projectBrunchChromeFooterLines`): (1) `spec / session` keyed part, with an `ui: <sidecarUrl>` right column when a sidecar URL is present; (2) the Brunch status line — live `mode` from the projected agent state (telemetry) or `chrome.runtime` fallback; legacy `strategy` / `lens` values may render only when supplied by quarantined compatibility projections and are not a live D98 runtime contract; (3) model label + a context-usage gauge; (4) other extensions' statuses, then a trailing blank line.
 - **Title** (`formatChromeTitle`): `brunch — <project>` or `brunch — <project> · <spec>`.
 - **Startup header**: rendered via `BrunchStartupHeader` only when `startupHeader` is set; installed for every non-cancel launch activation so the shell never falls back to Pi's quiet empty header. The header composes an identity block plus, conditional on decision, a rounded-box welcome element (F13: `newSpec`/`newSession`) or a rounded-box resume state/status element (F16a: `openSession`).
@@ -48,4 +49,4 @@ Imports `projections/session` (runtime-state), `session/` types, and `.pi/compon
 - The startup-header expand affordance was removed 2026-06-11 (no advertised unwired behavior); it may return only with a real input path.
 - `getGitBranch` is no longer read by the footer compositor.
 
-Tests: [`src/app/__tests__/brunch-tui.test.ts`](../../../app/__tests__/brunch-tui.test.ts) ("requests startup header chrome for every activated launch decision"; `brunch.chrome` widget absence).
+Tests: [`src/app/__tests__/brunch-tui.test.ts`](../../../app/__tests__/brunch-tui.test.ts) ("requests startup header chrome for every activated launch decision"; persistent editor mount through the normal extension bundle; `brunch.chrome` widget absence).
