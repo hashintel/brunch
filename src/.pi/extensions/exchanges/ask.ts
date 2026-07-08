@@ -110,7 +110,7 @@ async function collectFreeText(
             selectList: getSelectListTheme(),
           };
           return new ExchangeAnswerEditorComponent(tui, editorTheme, {
-            prompt: params.body,
+            body: params.body,
             theme,
             onDone: (value) =>
               done(value === undefined ? { status: 'cancelled' } : { status: 'answered', answer: value }),
@@ -140,7 +140,19 @@ async function collectFreeText(
   // or broker rungs, where re-prompting is not possible — terminal unavailable is the
   // deliberate degraded-path behavior (accepted divergence from the FE-1164 review card).
   if (trimmed.length === 0) return terminal(params, question, 'unavailable', 'ask answer cannot be empty');
-  return result(projectAsk({ exchangeId: params.exchangeId, question, status: 'answered', answer: trimmed }));
+  let comment: string | undefined;
+  if (params.commentPrompt && typeof ctx.ui?.input === 'function') {
+    comment = normalizeOptionalUnknownText(await ctx.ui.input(params.commentPrompt));
+  }
+  return result(
+    projectAsk({
+      exchangeId: params.exchangeId,
+      question,
+      status: 'answered',
+      answer: trimmed,
+      ...(comment ? { comment } : {}),
+    }),
+  );
 }
 
 async function collectSingleChoice(
@@ -183,8 +195,9 @@ async function collectSingleChoice(
     const required = await collectRequiredInput(ctx, params.commentPrompt ?? 'Required comment');
     if (required.status !== 'answered') return terminal(params, question, required.status);
     comment = required.value;
-  } else if (typeof ctx.ui.input === 'function') {
-    comment = normalizeOptionalUnknownText(await ctx.ui.input(params.commentPrompt ?? 'Optional comment'));
+  } else if (params.commentPrompt && typeof ctx.ui.input === 'function') {
+    // Optional comment collection is opt-in: omitting commentPrompt skips the step.
+    comment = normalizeOptionalUnknownText(await ctx.ui.input(params.commentPrompt));
   }
 
   return result(
@@ -248,8 +261,9 @@ async function collectMultiChoice(
     const required = await collectRequiredInput(ctx, params.commentPrompt ?? 'Required comment');
     if (required.status !== 'answered') return terminal(params, question, required.status);
     comment = required.value;
-  } else if (typeof ctx.ui.input === 'function') {
-    comment = normalizeOptionalUnknownText(await ctx.ui.input(params.commentPrompt ?? 'Optional comment'));
+  } else if (params.commentPrompt && typeof ctx.ui.input === 'function') {
+    // Optional comment collection is opt-in: omitting commentPrompt skips the step.
+    comment = normalizeOptionalUnknownText(await ctx.ui.input(params.commentPrompt));
   }
 
   return result(
@@ -582,6 +596,7 @@ export function createAskTool(answerBroker?: LiveExchangeAwaiter) {
     promptGuidelines: [
       'Use ask for ordinary Brunch questions; do not call present_question.',
       'Put the full question in body markdown. Use options[] for finite choices instead of numbered body text.',
+      'Set commentPrompt only when a trailing comment is worth collecting; omitting it skips the optional-comment step.',
       'The ask result is the durable transcript artifact; renderCall is intentionally non-semantic.',
       'For offer continuations, call ask with continues only; the runtime fills body/options from the present_* declaration.',
     ],

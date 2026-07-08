@@ -1,4 +1,5 @@
 import type { AskDetails } from '../../../exchanges/schemas/index.js';
+import type { RenderElision } from './render-honesty.js';
 
 function optionLines(details: AskDetails): string[] {
   const options = details.question.options ?? [];
@@ -26,8 +27,10 @@ export function formatAsk(details: AskDetails): string {
   lines.push('', '## Answer', '');
   if ('answered' in details) {
     const { answered } = details;
-    if ('text' in answered) lines.push(answered.text);
-    else if ('choice' in answered) {
+    if ('text' in answered) {
+      lines.push(answered.text);
+      if (answered.comment) lines.push('', `_${answered.comment}_`);
+    } else if ('choice' in answered) {
       lines.push(answered.choice.label);
       if (answered.comment) lines.push('', `_${answered.comment}_`);
     } else {
@@ -43,4 +46,22 @@ export function formatAsk(details: AskDetails): string {
   return lines.join('\n');
 }
 
-export const ASK_CONTENT_ELISIONS = [] as const;
+export const ASK_CONTENT_ELISIONS: readonly RenderElision[] = [
+  { path: 'schema', reason: 'transport schema tag, not user-facing answer content' },
+  { path: 'v', reason: 'transport schema version, not user-facing answer content' },
+  { path: 'exchange_id', reason: 'correlation id, not transcript prose' },
+  { path: 'tool_meta.*', reason: 'tool-chain routing metadata, not transcript prose' },
+  { path: 'question.options.*.id', reason: 'stable option ids are represented by ordered option labels' },
+  { path: 'question.multiple', reason: 'selection mode is conveyed by the checked-option rendering' },
+  { path: 'answered.choice.id', reason: 'stable option id is represented by the selected option label' },
+  {
+    path: 'answered.choice.kind',
+    reason: 'the selected label carries the user-facing answer; write-ins keep their label',
+  },
+  { path: 'answered.choices.*.id', reason: 'stable option ids are represented by the answer list labels' },
+  {
+    path: 'answered.choices.*.kind',
+    reason: 'the selected labels carry the user-facing answer; write-ins keep their label',
+  },
+  { path: 'answered.options.*.id', reason: 'stable option ids are represented by ordered option labels' },
+];

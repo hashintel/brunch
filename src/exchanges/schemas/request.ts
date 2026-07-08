@@ -331,6 +331,7 @@ export const zAskDetails = z.union([
       answered: z
         .object({
           text: zNonBlankMarkdown,
+          comment: zMarkdown.optional(),
         })
         .strict(),
     })

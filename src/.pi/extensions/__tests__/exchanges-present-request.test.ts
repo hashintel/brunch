@@ -274,6 +274,79 @@ describe('structured exchange ask tools', () => {
     expect(result.details).toMatchObject({ answered: { text: 'Answer collected by sealed editor.' } });
   });
 
+  it('collects an optional free-text comment only when commentPrompt is provided', async () => {
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
+    const input = vi.fn(async () => 'Context for the answer.');
+
+    const withPrompt = await ask.execute(
+      'ask-freeform-comment',
+      {
+        exchangeId: 'freeform-comment',
+        body: 'What problem are we solving?',
+        commentPrompt: 'Anything else?',
+      },
+      undefined,
+      undefined,
+      { hasUI: true, ui: { editor: async () => 'The core answer.', input } } as never,
+    );
+    const withoutPrompt = await ask.execute(
+      'ask-freeform-no-comment',
+      { exchangeId: 'freeform-no-comment', body: 'What problem are we solving?' },
+      undefined,
+      undefined,
+      { hasUI: true, ui: { editor: async () => 'The core answer.', input } } as never,
+    );
+
+    expect(input).toHaveBeenCalledExactlyOnceWith('Anything else?');
+    expect(withPrompt.details).toMatchObject({
+      answered: { text: 'The core answer.', comment: 'Context for the answer.' },
+    });
+    expect(withPrompt.content[0]?.text).toContain('Context for the answer.');
+    expect(withoutPrompt.details).toMatchObject({ answered: { text: 'The core answer.' } });
+    expect((withoutPrompt.details as { answered?: { comment?: string } }).answered?.comment).toBeUndefined();
+  });
+
+  it('skips the optional comment for choice asks that omit commentPrompt', async () => {
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
+    const input = vi.fn(async () => 'Should never be collected.');
+
+    const single = await ask.execute(
+      'ask-choice-no-comment-prompt',
+      {
+        exchangeId: 'choice-no-comment-prompt',
+        body: 'Select one option.',
+        options: [
+          { id: 'first-option', label: 'First' },
+          { id: 'second-option', label: 'Second' },
+        ],
+      },
+      undefined,
+      undefined,
+      { hasUI: true, ui: { custom: customPickByIndex(0), input } } as never,
+    );
+    const multi = await ask.execute(
+      'ask-choices-no-comment-prompt',
+      {
+        exchangeId: 'choices-no-comment-prompt',
+        body: 'Select all that apply.',
+        options: [
+          { id: 'speed', label: 'Move quickly' },
+          { id: 'safety', label: 'Keep the transcript safe' },
+        ],
+        multiple: true,
+      },
+      undefined,
+      undefined,
+      { hasUI: true, ui: { custom: customMultiPick([0]), input } } as never,
+    );
+
+    expect(input).not.toHaveBeenCalled();
+    expect(single.details).toMatchObject({ answered: { choice: { id: 'first-option' } } });
+    expect(multi.details).toMatchObject({ answered: { choices: [{ id: 'speed' }] } });
+  });
+
   it('records cancellation with terminate, broker fallback, unavailable, and empty-answer discipline', async () => {
     const awaitAnswer = vi.fn(async () => 'Answer collected by broker.');
     const ask = registeredTools({ liveExchange: { awaitAnswer } }).get(ASK_TOOL);

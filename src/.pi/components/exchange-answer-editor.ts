@@ -2,6 +2,7 @@ import { Editor, Key, matchesKey } from '@earendil-works/pi-tui';
 import type { Component, EditorTheme, TUI } from '@earendil-works/pi-tui';
 
 import { findLastIndex, isEditorBorderLine, padContentToMinimum, stripEditorBorder } from './editor-lines.js';
+import { renderExchangeMarkdownBodyLines } from './exchange-markdown-body.js';
 import {
   projectRoundedBox,
   roundedBoxInnerWidth,
@@ -11,7 +12,8 @@ import {
 import { safeLines, type LabTheme } from './tui-lab/index.js';
 
 export interface ExchangeAnswerEditorOptions {
-  readonly prompt: string;
+  /** Markdown question body rendered above the editor (multi-line safe). */
+  readonly body: string;
   readonly theme: LabTheme;
   readonly onDone: (result?: string) => void;
 }
@@ -61,8 +63,13 @@ export class ExchangeAnswerEditorComponent implements Component {
     const { contentLines, trailingLines } = stripEditorBorder(editorLines, bottomIndex);
     const editorContent = padContentToMinimum(contentLines, MIN_EDITOR_LINES, contentWidth);
     const warning = this.#warning ? [this.options.theme.fg('warning', this.#warning)] : [];
+    // The body is markdown and may span lines; rendering it through the shared
+    // markdown-body helper (like the pickers) keeps every array element a real
+    // single line — an embedded newline would break the rounded-box borders and
+    // the TUI's differential height accounting.
+    const bodyLines = renderExchangeMarkdownBodyLines(this.options.body, this.options.theme, contentWidth);
     const stacked = stackSections([
-      [this.options.theme.fg('accent', this.options.prompt)],
+      bodyLines,
       [...editorContent],
       warning,
       [this.options.theme.fg('dim', HELP_LINE)],

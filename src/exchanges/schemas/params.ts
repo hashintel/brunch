@@ -63,7 +63,9 @@ export const zStandaloneAskParams = zAskLabels
       .string()
       .trim()
       .min(1, 'markdown cannot be empty')
-      .describe('Prompt for an optional or required comment.')
+      .describe(
+        'Prompt for an optional trailing comment; omit to skip the optional-comment step. Comments the response schema requires (Other/None selections) are always collected.',
+      )
       .optional(),
   })
   .strict();
@@ -125,7 +127,9 @@ export const zAskParams = zAskLabels
       .string()
       .trim()
       .min(1, 'markdown cannot be empty')
-      .describe('Prompt for an optional or required comment.')
+      .describe(
+        'Prompt for an optional trailing comment; omit to skip the optional-comment step. Comments the response schema requires (Other/None selections) are always collected.',
+      )
       .optional(),
   })
   .strict()

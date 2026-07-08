@@ -208,7 +208,7 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
       showComponentPreview(tui, theme, keybindings, (_tui, previewTheme, _kb, done) => {
         const editorTheme = createComponentPreviewEditorTheme(theme);
         return new ExchangeAnswerEditorComponent(_tui, editorTheme, {
-          prompt: 'What problem are we solving?',
+          body: RICH_ASK_BODY,
           theme: previewTheme,
           onDone: done,
         });

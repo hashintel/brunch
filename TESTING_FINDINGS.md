@@ -92,6 +92,22 @@ Verified in vivo: F1 ✓ (elicitor persona + skills manifest in captured provide
 
 **Superseded (2026-07-03 grill):** the mechanism proposed above ("a `request_response` single-select") is retired — the menu is **not an exchange**; it is a deterministic, product-owned Pi extension dialog (`ctx.ui.select` fired on juncture events, outcome recorded via `brunch.session_orientation` custom entry). The scoping questions listed are answered: deterministic chrome (not prompt-directed), fires on every named juncture with escape/timeout defaulting to "continue", and choices route to the live skill seams. The "generatively expand/enhance" option survives as a menu route to `propose`; the Enhance-as-third-mode reading is rejected. Canonical shape: `memory/PLAN.md` § `session-entry-orientation`.
 
+## Beat 6 — FE-1164 ask-surface walkthrough (2026-07-08, `ln/fe-1164-ask-terminal`)
+
+Standalone `ask` permutation battery driven live (8 variations). Single-select, multi-select, and editor-fallback variations rendered and collected correctly; three findings on the free-text and comment seams, all fixed inline on the branch.
+
+### F18 · transport/projection (TUI rendering) · MAJOR · fix-inline
+
+**Free-text ask corrupted the rounded box and ate lines below while typing.** `ExchangeAnswerEditorComponent` rendered the whole markdown body as one accent-colored array element; a multi-line body embeds `\n` inside a single "line", which breaks the rounded-box borders (the second body line rendered outside the box) and corrupts the TUI's differential height accounting (re-renders consumed lines below). Markdown was also passed through raw (`**` visible). Fix: the editor now renders its body through the shared `renderExchangeMarkdownBodyLines` like the pickers; component test pins that a multi-line markdown body yields single physical lines inside the borders. The `dev:components` preview entry now uses the rich multi-line body so the gallery exercises this case.
+
+### F19 · product behavior · minor · fix-inline
+
+**Free-text ask with `commentPrompt` never asked for the comment.** The free-text collection path ignored `commentPrompt` entirely, and the ask free-text answered schema had no `comment` field. Fix: schema/projection/formatter widened with an optional `comment`; the TUI path collects it via `ctx.ui.input` when `commentPrompt` is provided.
+
+### F20 · product behavior · minor · fix-inline (design call)
+
+**Choice asks always prompted "Optional comment" even without `commentPrompt`.** Settled semantics: the optional-comment step is opt-in — present `commentPrompt` collects, omitting it skips. Schema-required comments (Other/None selections, request_changes) are always collected regardless. Param descriptions and ask promptGuidelines updated so the model knows omission skips the step.
+
 ## Cross-checks recorded in passing
 
 - `entry-contents.md` ✓ healthy: context seed at LSN 2, graph facts (counts by kind, zero-count kinds with bands), empty scratchpad, **no** gap scores/ranks — matches D101-L/D102-L expectations.

@@ -12,7 +12,11 @@ interface BaseAskProjectionInput {
 }
 
 type AskProjectionInput =
-  | (BaseAskProjectionInput & { readonly status: 'answered'; readonly answer: string })
+  | (BaseAskProjectionInput & {
+      readonly status: 'answered';
+      readonly answer: string;
+      readonly comment?: string;
+    })
   | (BaseAskProjectionInput & {
       readonly status: 'answered';
       readonly choice: SelectedChoice;
@@ -62,7 +66,7 @@ export function projectAsk(input: AskProjectionInput): AskDetails {
     return {
       ...base,
       tool_meta: { curr: 'ask', next: 'capture_answer' },
-      answered: { text: input.answer },
+      answered: { text: input.answer, ...(input.comment ? { comment: input.comment } : {}) },
     };
   }
   if ('choices' in input) {
