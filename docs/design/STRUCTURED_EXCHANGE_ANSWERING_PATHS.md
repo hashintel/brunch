@@ -158,6 +158,11 @@ notes:
     through an existing response kind must be taught to the column-B pending/accepted
     reconstruction (src/session/structured-exchange-loop/) or it is silently unanswerable
     outside the local TUI — the exact gap FE-1136's repair slice closed.
+  - Column A treats escape hierarchically on optioned ask surfaces: Esc/q at the picker root
+    resolves the ask as terminal `cancelled`, while Esc inside nested Other/comment inputs returns
+    to the picker. Multi-choice re-presents with checked state restored and discards only the
+    in-progress write-in text. The sealed `ctx.ui.editor` JSON-envelope fallback stays flat
+    because it returns one submitted string or `undefined`, not nested key-level navigation.
   - Column C's gap (choice/choices/review) is a pre-existing, independently tracked gap —
     docs/archive/PLAN_HISTORY.md's FE-873 entry ("Remaining web-driver legs stay in the
     web-driver-streaming Horizon frontier") and PLAN.md's `web-driver-streaming` Horizon bullet

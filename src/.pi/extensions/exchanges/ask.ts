@@ -76,6 +76,19 @@ function terminal(
 
 type ContinuationCollectParams = AskContinuationParams & { readonly exchangeId: string };
 type CollectableAskParams = StandaloneAskParams | ContinuationCollectParams;
+type CollectableAskWithOptions = CollectableAskParams & {
+  readonly options: NonNullable<CollectableAskParams['options']>;
+};
+type BackResult = { readonly status: 'back' };
+type PickedSingleChoice = { readonly id: string };
+type PickedMultiChoices = {
+  readonly choices: readonly { readonly id: string; readonly label: string }[];
+};
+type OptionalCommentResult = { readonly status: 'answered'; readonly comment?: string } | BackResult;
+
+function isBack(result: { readonly status: string }): result is BackResult {
+  return result.status === 'back';
+}
 
 function choicesFromParams(
   params: CollectableAskParams,
@@ -95,6 +108,17 @@ function selectedChoice(id: string, label: string, listedIds: ReadonlySet<string
   if (id === 'other') return { id, label, kind: 'other' };
   if (id === 'none') return { id, label, kind: 'none' };
   return { id, label, kind: listedIds.has(id) ? 'listed' : 'other' };
+}
+
+async function collectOptionalComment(
+  ctx: StructuredExchangeUiContext,
+  prompt: string,
+): Promise<OptionalCommentResult> {
+  if (typeof ctx.ui?.input !== 'function') return { status: 'answered' };
+  const value = await ctx.ui.input(prompt);
+  if (value === undefined) return { status: 'back' };
+  const comment = normalizeOptionalUnknownText(value);
+  return { status: 'answered', ...(comment ? { comment } : {}) };
 }
 
 async function collectFreeText(
@@ -167,9 +191,41 @@ async function collectSingleChoice(
   if (!ctx.hasUI || typeof ctx.ui?.custom !== 'function' || !params.options) {
     return terminal(params, question, 'unavailable', 'ask choice requires interactive UI');
   }
-  const custom = ctx.ui.custom;
-  const picked = await withWorkingIndicatorHidden(ctx, () =>
-    custom<{ readonly id: string } | undefined>((_tui, theme, _keybindings, done) =>
+  return collectSingleChoiceWithBackNavigation(params as CollectableAskWithOptions, question, ctx);
+}
+
+async function collectSingleChoiceWithBackNavigation(
+  params: CollectableAskWithOptions,
+  question: AskQuestionEcho,
+  ctx: StructuredExchangeUiContext,
+): Promise<ToolResult> {
+  for (;;) {
+    const picked = await presentSingleChoicePicker(params, ctx);
+    if (!picked) return terminal(params, question, 'cancelled');
+    const collected = await collectPickedSingleChoice(params, picked, ctx);
+    if (isBack(collected)) continue;
+    if (collected.status === 'unavailable')
+      return terminal(params, question, 'unavailable', collected.message);
+    return result(
+      projectAsk({
+        exchangeId: params.exchangeId,
+        question,
+        status: 'answered',
+        choice: collected.choice,
+        options: params.options,
+        ...(collected.comment ? { comment: collected.comment } : {}),
+      }),
+    );
+  }
+}
+
+async function presentSingleChoicePicker(
+  params: CollectableAskWithOptions,
+  ctx: StructuredExchangeUiContext,
+): Promise<PickedSingleChoice | undefined> {
+  const custom = ctx.ui!.custom!;
+  return withWorkingIndicatorHidden(ctx, () =>
+    custom<PickedSingleChoice | undefined>((_tui, theme, _keybindings, done) =>
       createExchangeDecisionPickerComponent({
         prompt: 'Choose one',
         body: params.body,
@@ -181,39 +237,44 @@ async function collectSingleChoice(
       }),
     ),
   );
-  if (!picked) return terminal(params, question, 'cancelled');
+}
 
+async function collectPickedSingleChoice(
+  params: CollectableAskWithOptions,
+  picked: PickedSingleChoice,
+  ctx: StructuredExchangeUiContext,
+): Promise<
+  | { readonly status: 'answered'; readonly choice: SelectedChoice; readonly comment?: string }
+  | BackResult
+  | { readonly status: 'unavailable'; readonly message: string }
+> {
   const listed = new Set(params.options.map((option) => option.id));
   const option = choicesFromParams(params).find((choice) => choice.id === picked.id);
-  if (!option)
-    return terminal(params, question, 'unavailable', `ask received unknown option id ${picked.id}`);
+  if (!option) return { status: 'unavailable', message: `ask received unknown option id ${picked.id}` };
 
   let choice = selectedChoice(option.id, option.label, listed);
   if (choice.kind === 'other') {
     const other = await collectRequiredInput(ctx, 'Other', 'Describe your answer');
-    if (other.status !== 'answered') return terminal(params, question, other.status);
+    if (isBack(other)) return other;
+    if (other.status === 'unavailable')
+      return { status: 'unavailable', message: 'ask choice input unavailable' };
     choice = { ...choice, label: other.value };
   }
   let comment: string | undefined;
   if (structuredExchangeResponseRequiresComment({ choiceKinds: [choice.kind] })) {
     const required = await collectRequiredInput(ctx, params.commentPrompt ?? 'Required comment');
-    if (required.status !== 'answered') return terminal(params, question, required.status);
+    if (isBack(required)) return required;
+    if (required.status === 'unavailable')
+      return { status: 'unavailable', message: 'ask comment unavailable' };
     comment = required.value;
-  } else if (params.commentPrompt && typeof ctx.ui.input === 'function') {
+  } else if (params.commentPrompt && typeof ctx.ui?.input === 'function') {
     // Optional comment collection is opt-in: omitting commentPrompt skips the step.
-    comment = normalizeOptionalUnknownText(await ctx.ui.input(params.commentPrompt));
+    const optional = await collectOptionalComment(ctx, params.commentPrompt);
+    if (isBack(optional)) return optional;
+    comment = optional.comment;
   }
 
-  return result(
-    projectAsk({
-      exchangeId: params.exchangeId,
-      question,
-      status: 'answered',
-      choice,
-      options: params.options,
-      ...(comment ? { comment } : {}),
-    }),
-  );
+  return { status: 'answered', choice, ...(comment ? { comment } : {}) };
 }
 
 async function collectMultiChoice(
@@ -227,59 +288,100 @@ async function collectMultiChoice(
     if (typeof ctx.ui?.editor === 'function') return collectMultiChoiceViaEditor(params, question, ctx);
     return terminal(params, question, 'unavailable', 'ask choices requires interactive UI');
   }
-  const custom = ctx.ui.custom;
-  const picked = await withWorkingIndicatorHidden(ctx, () =>
-    custom<{ readonly choices: readonly { readonly id: string; readonly label: string }[] } | undefined>(
-      (_tui, theme, _keybindings, done) =>
-        createMultiChoicePickerComponent({
-          prompt: 'Choose all that apply',
-          body: params.body,
-          choices: choicesFromParams(params),
-          ...(params.allowNone ? { exclusiveChoiceIds: ['none'] } : {}),
-          ...(params.topLabel ? { topLabel: params.topLabel } : {}),
-          ...(params.bottomLabel ? { bottomLabel: params.bottomLabel } : {}),
-          theme,
-          onDone: done,
-        }),
+  return collectMultiChoiceWithBackNavigation(params as CollectableAskWithOptions, question, ctx);
+}
+
+async function collectMultiChoiceWithBackNavigation(
+  params: CollectableAskWithOptions,
+  question: AskQuestionEcho,
+  ctx: StructuredExchangeUiContext,
+): Promise<ToolResult> {
+  let selectedChoiceIds: readonly string[] = [];
+  for (;;) {
+    const picked = await presentMultiChoicePicker(params, ctx, selectedChoiceIds);
+    if (!picked) return terminal(params, question, 'cancelled');
+    selectedChoiceIds = picked.choices.map((choice) => choice.id);
+    const collected = await collectPickedMultiChoices(params, picked, ctx);
+    if (isBack(collected)) continue;
+    if (collected.status === 'unavailable')
+      return terminal(params, question, 'unavailable', collected.message);
+    return result(
+      projectAsk({
+        exchangeId: params.exchangeId,
+        question,
+        status: 'answered',
+        choices: collected.choices,
+        options: params.options,
+        ...(collected.comment ? { comment: collected.comment } : {}),
+      }),
+    );
+  }
+}
+
+async function presentMultiChoicePicker(
+  params: CollectableAskWithOptions,
+  ctx: StructuredExchangeUiContext,
+  selectedChoiceIds: readonly string[],
+): Promise<PickedMultiChoices | undefined> {
+  const custom = ctx.ui!.custom!;
+  return withWorkingIndicatorHidden(ctx, () =>
+    custom<PickedMultiChoices | undefined>((_tui, theme, _keybindings, done) =>
+      createMultiChoicePickerComponent({
+        prompt: 'Choose all that apply',
+        body: params.body,
+        choices: choicesFromParams(params),
+        ...(selectedChoiceIds.length > 0 ? { initialSelectedChoiceIds: selectedChoiceIds } : {}),
+        ...(params.allowNone ? { exclusiveChoiceIds: ['none'] } : {}),
+        ...(params.topLabel ? { topLabel: params.topLabel } : {}),
+        ...(params.bottomLabel ? { bottomLabel: params.bottomLabel } : {}),
+        theme,
+        onDone: done,
+      }),
     ),
   );
-  if (!picked) return terminal(params, question, 'cancelled');
+}
 
+async function collectPickedMultiChoices(
+  params: CollectableAskWithOptions,
+  picked: PickedMultiChoices,
+  ctx: StructuredExchangeUiContext,
+): Promise<
+  | { readonly status: 'answered'; readonly choices: readonly SelectedChoice[]; readonly comment?: string }
+  | BackResult
+  | { readonly status: 'unavailable'; readonly message: string }
+> {
   const listed = new Set(params.options.map((option) => option.id));
   const selected: SelectedChoice[] = [];
   for (const item of picked.choices) {
     let choice = selectedChoice(item.id, item.label, listed);
     if (choice.kind === 'other') {
       const other = await collectRequiredInput(ctx, 'Other', 'Describe your answer');
-      if (other.status !== 'answered') return terminal(params, question, other.status);
+      if (isBack(other)) return other;
+      if (other.status === 'unavailable')
+        return { status: 'unavailable', message: 'ask choice input unavailable' };
       choice = { ...choice, label: other.value };
     }
     selected.push(choice);
   }
   if (selected.some((choice) => choice.kind === 'none') && selected.length > 1) {
-    return terminal(params, question, 'unavailable', 'ask choices cannot combine None with other selections');
+    return { status: 'unavailable', message: 'ask choices cannot combine None with other selections' };
   }
 
   let comment: string | undefined;
   if (structuredExchangeResponseRequiresComment({ choiceKinds: selected.map((choice) => choice.kind) })) {
     const required = await collectRequiredInput(ctx, params.commentPrompt ?? 'Required comment');
-    if (required.status !== 'answered') return terminal(params, question, required.status);
+    if (isBack(required)) return required;
+    if (required.status === 'unavailable')
+      return { status: 'unavailable', message: 'ask comment unavailable' };
     comment = required.value;
-  } else if (params.commentPrompt && typeof ctx.ui.input === 'function') {
+  } else if (params.commentPrompt && typeof ctx.ui?.input === 'function') {
     // Optional comment collection is opt-in: omitting commentPrompt skips the step.
-    comment = normalizeOptionalUnknownText(await ctx.ui.input(params.commentPrompt));
+    const optional = await collectOptionalComment(ctx, params.commentPrompt);
+    if (isBack(optional)) return optional;
+    comment = optional.comment;
   }
 
-  return result(
-    projectAsk({
-      exchangeId: params.exchangeId,
-      question,
-      status: 'answered',
-      choices: selected,
-      options: params.options,
-      ...(comment ? { comment } : {}),
-    }),
-  );
+  return { status: 'answered', choices: selected, ...(comment ? { comment } : {}) };
 }
 
 async function collectMultiChoiceViaEditor(
@@ -496,29 +598,51 @@ async function collectContinuingReview(
       'ask continuation review requires interactive UI',
     );
   }
-  const selected = await withWorkingIndicatorHidden(ctx, () =>
-    ctx.ui!.custom!<{ readonly id: ReviewDecision } | undefined>((_tui, theme, _keybindings, done) =>
-      createExchangeDecisionPickerComponent({
-        prompt: 'Review',
-        body: params.body,
-        choices: choicesFromParams(params),
-        theme,
-        onDone: (value) => done(value as { readonly id: ReviewDecision } | undefined),
-      }),
-    ),
-  );
-  if (!selected) return continuationTerminal(params, present, 'cancelled');
-  const review = selected.id;
+  for (;;) {
+    const selected = await withWorkingIndicatorHidden(ctx, () =>
+      ctx.ui!.custom!<{ readonly id: ReviewDecision } | undefined>((_tui, theme, _keybindings, done) =>
+        createExchangeDecisionPickerComponent({
+          prompt: 'Review',
+          body: params.body,
+          choices: choicesFromParams(params),
+          theme,
+          onDone: (value) => done(value as { readonly id: ReviewDecision } | undefined),
+        }),
+      ),
+    );
+    if (!selected) return continuationTerminal(params, present, 'cancelled');
+    const collected = await collectContinuationReviewComment(params, selected.id, ctx);
+    if (isBack(collected)) continue;
+    if (collected.status === 'unavailable')
+      return continuationTerminal(params, present, 'unavailable', collected.message);
+    const details = continuationReviewDetails({
+      present,
+      exchangeId: params.exchangeId,
+      review: selected.id,
+      comment: collected.comment,
+    });
+    return { content: [{ type: 'text', text: formatRequestReview(details) }], details };
+  }
+}
+
+async function collectContinuationReviewComment(
+  params: ContinuationCollectParams,
+  review: ReviewDecision,
+  ctx: StructuredExchangeUiContext,
+): Promise<OptionalCommentResult | { readonly status: 'unavailable'; readonly message: string }> {
   let comment: string | undefined;
   if (structuredExchangeResponseRequiresComment({ reviewDecision: review })) {
     const required = await collectRequiredInput(ctx, params.commentPrompt ?? 'Required change request');
-    if (required.status !== 'answered') return continuationTerminal(params, present, required.status);
+    if (isBack(required)) return required;
+    if (required.status === 'unavailable')
+      return { status: 'unavailable', message: 'ask review comment unavailable' };
     comment = required.value;
-  } else if (typeof ctx.ui.input === 'function') {
-    comment = normalizeOptionalUnknownText(await ctx.ui.input('Optional comment'));
+  } else if (typeof ctx.ui?.input === 'function') {
+    const optional = await collectOptionalComment(ctx, 'Optional comment');
+    if (isBack(optional)) return optional;
+    comment = optional.comment;
   }
-  const details = continuationReviewDetails({ present, exchangeId: params.exchangeId, review, comment });
-  return { content: [{ type: 'text', text: formatRequestReview(details) }], details };
+  return { status: 'answered', ...(comment ? { comment } : {}) };
 }
 
 function continuationReviewDetails(input: {

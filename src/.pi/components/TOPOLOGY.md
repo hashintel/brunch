@@ -38,7 +38,8 @@ components/
 ├── exchange-markdown-body.ts   shared structured-exchange markdown body projection/theme used by
 │                                bordered answering components and transcript renderers
 ├── lateral-padding.ts          transparent horizontal padding wrapper
-├── multi-choice-picker.ts      bordered checkbox-style exchange response picker
+├── multi-choice-picker.ts      bordered checkbox-style exchange response picker; supports
+│                                restored checked state when an owning flow re-presents it
 ├── mouse-wheel.ts              parseWheelEvent() — SGR wheel-event decoder used by the dev
 │                                preview harness; components still receive ordinary key bytes
 ├── rounded-box.ts              projectRoundedBox() + stackSections() — pure rounded-border primitive

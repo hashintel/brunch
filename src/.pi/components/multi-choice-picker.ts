@@ -25,6 +25,7 @@ export interface MultiChoicePickerOptions {
   readonly prompt: string;
   readonly body?: string;
   readonly choices: readonly MultiChoicePickerChoice[];
+  readonly initialSelectedChoiceIds?: readonly string[];
   readonly topLabel?: string;
   readonly bottomLabel?: string;
   /**
@@ -42,10 +43,12 @@ const MAX_VISIBLE_CHOICE_LINES = 8;
 
 export class MultiChoicePickerComponent implements Component {
   #activeIndex = 0;
-  readonly #selected = new Set<string>();
+  readonly #selected: Set<string>;
   #warning: string | undefined;
 
-  constructor(private readonly options: MultiChoicePickerOptions) {}
+  constructor(private readonly options: MultiChoicePickerOptions) {
+    this.#selected = new Set(options.initialSelectedChoiceIds ?? []);
+  }
 
   render(width: number): string[] {
     const safeWidth = Math.max(1, width);

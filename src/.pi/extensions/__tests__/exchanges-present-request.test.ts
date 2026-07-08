@@ -133,6 +133,52 @@ function customPickWithRenderedText(index: number, expectedText: string) {
   });
 }
 
+function customPickSequence(indexes: readonly number[]) {
+  let presentation = 0;
+  return vi.fn(async (factory: (...args: unknown[]) => unknown) => {
+    const index = indexes[presentation];
+    presentation += 1;
+    if (index === undefined) throw new Error('custom picker presented more times than expected');
+    let picked: unknown;
+    const component = factory(null, theme, null, (result: unknown) => {
+      picked = result;
+    }) as TestPickerComponent;
+    expect(component.render(80).join('\n')).toContain('╭');
+    for (let step = 0; step < index; step += 1) component.handleInput('\x1b[B');
+    component.handleInput('\r');
+    return picked;
+  });
+}
+
+function customMultiPickThenAssertRestored(options: {
+  readonly firstIndexes: readonly number[];
+  readonly restoredText: string;
+  readonly secondIndexes: readonly number[];
+}) {
+  let presentation = 0;
+  return vi.fn(async (factory: (...args: unknown[]) => unknown) => {
+    let picked: unknown;
+    const component = factory(null, theme, null, (result: unknown) => {
+      picked = result;
+    }) as TestPickerComponent;
+    const rendered = component.render(80).join('\n');
+    expect(rendered).toContain('╭');
+    const indexes = presentation === 0 ? options.firstIndexes : options.secondIndexes;
+    if (presentation === 1) expect(rendered).toContain(options.restoredText);
+    presentation += 1;
+    let cursor = 0;
+    for (const index of indexes) {
+      while (cursor < index) {
+        component.handleInput('\x1b[B');
+        cursor += 1;
+      }
+      component.handleInput(' ');
+    }
+    component.handleInput('\r');
+    return picked;
+  });
+}
+
 function customCancel() {
   return vi.fn(async (factory: (...args: unknown[]) => unknown) => {
     let picked: unknown = 'not-cancelled';
@@ -785,5 +831,115 @@ describe('structured exchange ask tools', () => {
         message: 'Structured exchange undeclared-candidate does not declare an ask continuation',
       },
     });
+  });
+
+  it('backs out from nested single-choice steps to the picker without recording cancellation', async () => {
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
+
+    const otherInput = vi.fn(async () => undefined);
+    const other = await ask.execute(
+      'ask-choice-other-back',
+      {
+        exchangeId: 'choice-other-back',
+        body: 'Select one option.',
+        options: [{ id: 'root', label: 'Keep the listed option' }],
+        allowOther: true,
+      },
+      undefined,
+      undefined,
+      { hasUI: true, ui: { custom: customPickSequence([1, 0]), input: otherInput } } as never,
+    );
+
+    const requiredCommentInput = vi.fn(async () => undefined);
+    const requiredComment = await ask.execute(
+      'ask-choice-required-comment-back',
+      {
+        exchangeId: 'choice-required-comment-back',
+        body: 'Select one option.',
+        options: [{ id: 'root', label: 'Keep the listed option' }],
+        allowNone: true,
+      },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom: customPickSequence([1, 0]), input: requiredCommentInput },
+      } as never,
+    );
+
+    const optionalCommentInput = vi.fn(async () =>
+      optionalCommentInput.mock.calls.length === 1 ? undefined : '',
+    );
+    const optionalComment = await ask.execute(
+      'ask-choice-optional-comment-back',
+      {
+        exchangeId: 'choice-optional-comment-back',
+        body: 'Select one option.',
+        options: [
+          { id: 'first', label: 'First path' },
+          { id: 'second', label: 'Second path' },
+        ],
+        commentPrompt: 'Optional comment',
+      },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom: customPickSequence([0, 1]), input: optionalCommentInput },
+      } as never,
+    );
+
+    expect(other.details).toMatchObject({
+      answered: { choice: { id: 'root', label: 'Keep the listed option', kind: 'listed' } },
+    });
+    expect(requiredComment.details).toMatchObject({
+      answered: { choice: { id: 'root', label: 'Keep the listed option', kind: 'listed' } },
+    });
+    expect(optionalComment.details).toMatchObject({
+      answered: { choice: { id: 'second', label: 'Second path', kind: 'listed' } },
+    });
+    expect(other.terminate).toBeUndefined();
+    expect(requiredComment.terminate).toBeUndefined();
+    expect(optionalComment.terminate).toBeUndefined();
+    expect(otherInput).toHaveBeenCalledExactlyOnceWith('Other', 'Describe your answer');
+    expect(requiredCommentInput).toHaveBeenCalledExactlyOnceWith('Required comment', undefined);
+    expect(optionalCommentInput).toHaveBeenNthCalledWith(1, 'Optional comment');
+    expect(optionalCommentInput).toHaveBeenNthCalledWith(2, 'Optional comment');
+  });
+
+  it('backs out from multi-choice Other entry with checkbox state restored', async () => {
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
+    const input = vi.fn(async () => undefined);
+    const custom = customMultiPickThenAssertRestored({
+      firstIndexes: [0, 2],
+      restoredText: '[x] Move quickly',
+      secondIndexes: [2],
+    });
+
+    const result = await ask.execute(
+      'ask-multi-other-back',
+      {
+        exchangeId: 'multi-other-back',
+        body: 'Select all priorities.',
+        options: [
+          { id: 'speed', label: 'Move quickly' },
+          { id: 'safety', label: 'Keep the transcript safe' },
+        ],
+        multiple: true,
+        allowOther: true,
+      },
+      undefined,
+      undefined,
+      { hasUI: true, ui: { custom, input } } as never,
+    );
+
+    expect(result.details).toMatchObject({
+      answered: { choices: [{ id: 'speed', label: 'Move quickly', kind: 'listed' }] },
+    });
+    expect(result.terminate).toBeUndefined();
+    expect(custom).toHaveBeenCalledTimes(2);
+    expect(input).toHaveBeenCalledExactlyOnceWith('Other', 'Describe your answer');
   });
 });

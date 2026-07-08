@@ -77,7 +77,7 @@ src/dev/component-preview/registry.ts         ~  (mixed-description preview data
 
 ---
 
-## Card 2 (full) — hierarchical esc: root cancels, nested steps go back · status: next
+## Card 2 (full) — hierarchical esc: root cancels, nested steps go back · status: done
 
 ### Target Behavior
 
@@ -173,9 +173,23 @@ src/.pi/components/__tests__/ (picker harnesses) ~
 docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md ~  (esc semantics row)
 ```
 
+### Completion report (2026-07-08)
+
+| Leaf | Outcome | Evidence |
+| ---- | ------- | -------- |
+| Root esc on decision/multi picker remains terminal `cancelled` + `terminate` | met | `src/.pi/extensions/__tests__/ask-runtime-mount.test.ts` root escape battery; `npm test -- src/.pi/extensions/__tests__/ask-runtime-mount.test.ts` included in focused pass |
+| Other editor esc returns to picker; later listed option answers without cancelled result | met | `src/.pi/extensions/__tests__/exchanges-present-request.test.ts` `backs out from nested single-choice steps...` |
+| Required-comment and optional-comment esc return to picker, not skip/cancel | met | `src/.pi/extensions/__tests__/exchanges-present-request.test.ts` `backs out from nested single-choice steps...` |
+| Multi-choice nested esc restores checkbox state; in-progress Other text discarded | met | `src/.pi/extensions/__tests__/exchanges-present-request.test.ts` `backs out from multi-choice Other entry...`; `src/.pi/components/__tests__/multi-choice-picker.test.ts` initial selection assertion |
+| Registered ask runtime mount behavior does not regress | met | `src/.pi/extensions/__tests__/ask-runtime-mount.test.ts` passed in focused run |
+| Broker/headless paths untouched; commentPrompt opt-in preserved | met | Existing ask-suite broker/unavailable and commentPrompt cases in `src/.pi/extensions/__tests__/exchanges-present-request.test.ts` passed |
+| Sealed editor fallback hierarchical esc assumption | met-with-divergence | `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md` documents flat fallback: editor returns string/undefined, not nested key-level navigation |
+
+Skipped-test-count delta vs parent: no new skipped/todo tests added by this card (`rg` skip inventory shows only pre-existing skips); focused suites reported 0 skipped. Full suite currently reports 3 skipped and is blocked by the known `git-host-promotion-port` roving timeout, which passes in isolation.
+
 ---
 
-## Card 3 (light) — compact unified formatAsk result content · status: pending (after Card 2)
+## Card 3 (light) — compact unified formatAsk result content · status: next
 
 ### Objective
 
