@@ -69,7 +69,7 @@ exchanges/shared/  -> shared UI dispatch/render helpers only; no tool-result det
 renderers: they parse their family details and render proposal cards through
 `ExchangeCandidatesResultComponent` / `ExchangeReviewSetResultComponent`, with
 shared `details-rendering.ts` keeping legacy/malformed result fallback on
-canonical `content`. `ask` and `present_digest` still use Markdown pass-through.
+canonical `content`. `ask` and `present_digest` intentionally use Markdown pass-through; for digest, the prose formatter content is the transcript presentation.
 
 `src/exchanges/schemas/__tests__/source-boundary.test.ts` guards the
 details-contract half. `src/.pi/extensions/__tests__/exchange-family-completeness.test.ts`
