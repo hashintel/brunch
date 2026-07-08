@@ -305,6 +305,10 @@ describe('JSON-RPC handlers', () => {
       }
     ).methods;
     expect(methods.map((entry) => entry.method).sort()).toEqual([
+      'execute.replanAbandonRun',
+      'execute.replanRecommendation',
+      'execute.replanRegeneratePlan',
+      'execute.replanStartNewRun',
       'execute.run',
       'execute.runTraceIndex',
       'execute.runs',

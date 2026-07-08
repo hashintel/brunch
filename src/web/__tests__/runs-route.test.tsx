@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { WorkspaceState } from '../../projections/workspace/workspace-state.js';
 import { BrunchWebApp, createBrunchWebRuntime } from '../app.js';
-import type { RunDetail, RunListEntry } from '../queries/execute.js';
+import type { ReplanRecommendation, RunDetail, RunListEntry } from '../queries/execute.js';
 import type { WebSocketRpcClient, WebSocketRpcNotificationListener } from '../rpc-client.js';
 
 interface RpcCall {
@@ -56,6 +56,7 @@ const runDetail: RunDetail = {
 function rpcClient(options?: {
   runs?: RunListEntry[];
   run?: RunDetail | { runId: string; unreadable: true };
+  replanRecommendation?: ReplanRecommendation;
   runError?: Error;
   calls?: RpcCall[];
 }): WebSocketRpcClient {
@@ -74,6 +75,25 @@ function rpcClient(options?: {
           throw options.runError;
         }
         return (options?.run ?? runDetail) as T;
+      }
+      if (method === 'execute.replanRecommendation') {
+        return (options?.replanRecommendation ?? {
+          runId: 'run-1',
+          status: 'retry_current_run',
+          runStatus: 'slice_execution_requested',
+          diagnosis: 'Run run-1 is fresh. Retry the current step.',
+          recommendedAction: 'retry_current_step',
+          allowedActions: ['retry_current_step', 'inspect_run', 'abandon_run'],
+        }) as T;
+      }
+      if (method === 'execute.replanRegeneratePlan') {
+        return { status: 'regenerated_plan', sideEffects: [{ kind: 'write_file' }] } as T;
+      }
+      if (method === 'execute.replanStartNewRun') {
+        return { status: 'created', sideEffects: [{ kind: 'write_file' }] } as T;
+      }
+      if (method === 'execute.replanAbandonRun') {
+        return { status: 'abandoned', sideEffects: [{ kind: 'write_file' }] } as T;
       }
       throw new Error(`unexpected RPC method ${method}`);
     },
@@ -149,6 +169,68 @@ describe('run detail route', () => {
     expect(screen.getByText('worktree')).toBeTruthy();
     expect(screen.getByText('petri')).toBeTruthy();
     expect(calls).toContainEqual({ method: 'execute.run', params: { runId: 'run-1' } });
+    expect(calls).toContainEqual({
+      method: 'execute.replanRecommendation',
+      params: { runId: 'run-1', specId: 1 },
+    });
+  });
+
+  it('renders replanning recommendation and disables executor-runtime retry', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const runtime = createBrunchWebRuntime({ rpcClient: rpcClient() });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('retry_current_run')).toBeTruthy();
+    expect(screen.getByText('recommended: retry current step')).toBeTruthy();
+    expect(screen.getByText(/requires executor runtime authority/u)).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Retry current step' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect((screen.getByRole('button', { name: 'Abandon run' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('calls a web-callable replanning action and shows the result status', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const calls: RpcCall[] = [];
+    const runtime = createBrunchWebRuntime({ rpcClient: rpcClient({ calls }) });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    const abandonButton = await screen.findByRole('button', { name: 'Abandon run' });
+    await waitFor(() => expect((abandonButton as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(abandonButton);
+
+    await waitFor(() => expect(screen.getByText('Last replanning action: abandoned')).toBeTruthy());
+    expect(calls).toContainEqual({
+      method: 'execute.replanAbandonRun',
+      params: { runId: 'run-1', reason: 'Abandoned from the run observer replanning panel' },
+    });
+  });
+
+  it('renders start-new-run as the recommended stale-run recovery path', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        replanRecommendation: {
+          runId: 'run-1',
+          status: 'start_new_run_required',
+          runStatus: 'worktree_populated',
+          diagnosis: 'Run run-1 is not safe to replan in place. Start a new run.',
+          recommendedAction: 'start_new_run',
+          allowedActions: ['start_new_run', 'inspect_run', 'abandon_run'],
+        },
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('start_new_run_required')).toBeTruthy();
+    expect(screen.getByText('recommended: start new run')).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Start new run' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole('button', { name: 'Regenerate plan' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
   });
 
   it('renders the raw petri net payload in a collapsed block when present', async () => {

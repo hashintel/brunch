@@ -1,9 +1,15 @@
-import { useSuspenseQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { Link, createRoute, type ErrorComponentProps } from '@tanstack/react-router';
 
 import {
   executeRunQueryOptions,
+  executeReplanAbandonRun,
+  executeReplanRecommendationQueryOptions,
+  executeReplanRegeneratePlan,
+  executeReplanStartNewRun,
   executeRunsQueryOptions,
+  type ReplanRecommendation,
+  type RunRetryAction,
   type RunDetail,
   type RunListEntry,
   type RunSummary,
@@ -134,6 +140,7 @@ function RunDetailPage() {
             <PresenceFlags presence={run.presence} />
           </DetailRow>
         </dl>
+        <ReplanningPanel run={run} />
         <RequirementsPanel run={run} />
         <StreamPanel
           label="Worker stream"
@@ -152,6 +159,125 @@ function RunDetailPage() {
       </div>
     </PageColumn>
   );
+}
+
+function ReplanningPanel({ run }: { run: RunDetail }) {
+  const { queryClient, rpcClient } = runDetailRoute.useRouteContext();
+  const specId = Number(run.specId);
+  const canReadRecommendation = Number.isInteger(specId) && specId > 0;
+  const recommendation = useQuery({
+    ...executeReplanRecommendationQueryOptions(rpcClient, { runId: run.runId, specId }),
+    enabled: canReadRecommendation,
+  });
+  const actionMutation = useMutation({
+    mutationFn: (action: WebReplanAction) => executeWebReplanAction(rpcClient, run, specId, action),
+    async onSuccess() {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['execute.runs'] }),
+        queryClient.invalidateQueries({ queryKey: ['execute.run', run.runId] }),
+      ]);
+    },
+  });
+
+  return (
+    <section aria-label="Replanning" className="flex flex-col gap-2">
+      <p className="text-hint text-xxs font-mono">Replanning</p>
+      <div className="border-rule flex flex-col gap-3 rounded-xl border bg-white p-4 shadow-[var(--shadow-card)]">
+        {!canReadRecommendation ? (
+          <p className="text-sub text-sm">This run has an invalid spec id for replanning.</p>
+        ) : recommendation.isPending ? (
+          <p className="text-sub text-sm">Checking replanning options…</p>
+        ) : recommendation.isError ? (
+          <p className="text-link text-sm">Unable to load replanning recommendation.</p>
+        ) : (
+          <ReplanningRecommendationView recommendation={recommendation.data} />
+        )}
+        <div className="flex flex-wrap gap-2">
+          {WEB_REPLAN_ACTIONS.map((action) => {
+            const available = recommendation.data?.allowedActions.includes(action.id) ?? false;
+            const webCallable = isWebCallableReplanAction(action.id);
+            const disabled = !canReadRecommendation || !available || !webCallable || actionMutation.isPending;
+            return (
+              <button
+                key={action.id}
+                type="button"
+                disabled={disabled}
+                onClick={() => {
+                  if (isWebCallableReplanAction(action.id)) actionMutation.mutate(action.id);
+                }}
+                className="border-rule disabled:text-hint disabled:bg-tint text-ink rounded-lg border px-3 py-1.5 text-xs disabled:cursor-not-allowed"
+              >
+                {action.label}
+              </button>
+            );
+          })}
+        </div>
+        {recommendation.data?.allowedActions.includes('retry_current_step') ? (
+          <p className="text-hint text-xs">
+            Retry current step requires executor runtime authority and is available through the Execute tool,
+            not web RPC.
+          </p>
+        ) : null}
+        {actionMutation.data === undefined ? null : (
+          <p className="text-sub text-sm">Last replanning action: {actionMutation.data.status}</p>
+        )}
+        {actionMutation.isError ? <p className="text-link text-sm">Replanning action failed.</p> : null}
+      </div>
+    </section>
+  );
+}
+
+function ReplanningRecommendationView({ recommendation }: { recommendation: ReplanRecommendation }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap items-baseline gap-3">
+        <span className="text-ink font-mono text-xs">{recommendation.status}</span>
+        <span className="text-sub text-xs">
+          recommended: {formatReplanAction(recommendation.recommendedAction)}
+        </span>
+      </div>
+      <p className="text-sub text-sm">{recommendation.diagnosis}</p>
+      <p className="text-hint text-xs">
+        allowed: {recommendation.allowedActions.map(formatReplanAction).join(', ')}
+      </p>
+    </div>
+  );
+}
+
+type WebReplanAction = 'regenerate_plan' | 'start_new_run' | 'abandon_run';
+
+const WEB_REPLAN_ACTIONS: readonly { readonly id: RunRetryAction; readonly label: string }[] = [
+  { id: 'retry_current_step', label: 'Retry current step' },
+  { id: 'regenerate_plan', label: 'Regenerate plan' },
+  { id: 'start_new_run', label: 'Start new run' },
+  { id: 'abandon_run', label: 'Abandon run' },
+];
+
+function isWebCallableReplanAction(action: RunRetryAction): action is WebReplanAction {
+  return action === 'regenerate_plan' || action === 'start_new_run' || action === 'abandon_run';
+}
+
+function executeWebReplanAction(
+  rpcClient: Parameters<typeof executeReplanRegeneratePlan>[0],
+  run: RunDetail,
+  specId: number,
+  action: WebReplanAction,
+) {
+  switch (action) {
+    case 'regenerate_plan':
+      return executeReplanRegeneratePlan(rpcClient, { runId: run.runId, specId });
+    case 'start_new_run':
+      return executeReplanStartNewRun(rpcClient, { previousRunId: run.runId, specId });
+    case 'abandon_run':
+      return executeReplanAbandonRun(rpcClient, {
+        runId: run.runId,
+        reason: 'Abandoned from the run observer replanning panel',
+      });
+  }
+}
+
+function formatReplanAction(action: RunRetryAction): string {
+  return action.replace(/_/gu, ' ');
 }
 
 function RequirementsPanel({ run }: { run: RunDetail }) {

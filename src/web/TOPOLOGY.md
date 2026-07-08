@@ -40,6 +40,7 @@ web/
       execute.runs
       execute.run
       execute.runTraceIndex
+      execute.replanRecommendation
 
   queries/
     workspace.ts -> workspace.state + workspace.selectionState query options
@@ -71,7 +72,8 @@ web/
     runs.tsx
       `/runs` loader primes execute.runs; run list with presence flags
       `/runs/$runId` loader primes execute.run; crank status, honest
-      running indicators, requirement status panel, readable worker/verify evidence panels
+      running indicators, replanning recommendation/action panel, requirement status panel,
+      readable worker/verify evidence panels
       (deduped display plus raw stream disclosure), grouped reports timeline
       (events lead the run.json snapshot by design), unreadable-run marking
       requirement rows link back to graph nodes and slice-log anchors

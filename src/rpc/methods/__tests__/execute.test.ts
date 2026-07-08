@@ -1,10 +1,14 @@
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { runDirPath, runMetadataPath } from '../../../executor/run.js';
+import { planFilePath, planProvenancePath } from '../../../executor/plan-file.js';
+import { runDirPath, runMetadataPath, type RunMetadata } from '../../../executor/run.js';
+import type { GraphEdge } from '../../../graph/schema/edges.js';
+import type { GraphNode } from '../../../graph/schema/nodes.js';
+import { createProductUpdatePublisher, type ProductUpdate } from '../../product-updates.js';
 import type { JsonRpcRequest } from '../../protocol.js';
 import { executeRpcMethods, UNKNOWN_RUN_ID_MESSAGE } from '../execute.js';
 import type { RpcMethodContext } from '../registry.js';
@@ -13,6 +17,30 @@ function contextFor(cwd: string): RpcMethodContext {
   // execute.* handlers consume only cwd; the remaining context members are
   // coordinator/session machinery these read projections must never touch.
   return { cwd } as RpcMethodContext;
+}
+
+function contextForSpec(
+  cwd: string,
+  graph: { readonly nodes: readonly GraphNode[]; readonly edges: readonly GraphEdge[]; readonly lsn: number },
+  updates?: ProductUpdate[],
+): RpcMethodContext {
+  const productUpdates = createProductUpdatePublisher();
+  productUpdates.subscribe((published) => updates?.push(...published));
+  return {
+    cwd,
+    productUpdates,
+    getGraphRuntime: async () => ({
+      commandExecutor: {} as never,
+      forSpec: () => ({
+        queryGraph: () => graph,
+        getNodes: () => [],
+        resolveNodeCode: () => undefined,
+        resolveEdgeId: () => undefined,
+        getOpenReconciliationNeeds: () => [],
+        latestLsn: () => graph.lsn,
+      }),
+    }),
+  } as unknown as RpcMethodContext;
 }
 
 function method(name: string) {
@@ -33,14 +61,82 @@ function request(name: string, params?: unknown): JsonRpcRequest {
 async function writeRun(
   cwd: string,
   runId: string,
-  options: { readonly planPath?: string } = {},
+  options: {
+    readonly planPath?: string;
+    readonly status?: RunMetadata['status'];
+    readonly specId?: string;
+  } = {},
 ): Promise<void> {
   await mkdir(runDirPath(cwd, runId), { recursive: true });
   await writeFile(
     runMetadataPath(cwd, runId),
-    `${JSON.stringify({ runId, specId: '42', planPath: options.planPath ?? '/plan.yaml', status: 'created' })}\n`,
+    `${JSON.stringify({ runId, specId: options.specId ?? '42', planPath: options.planPath ?? '/plan.yaml', status: options.status ?? 'created' })}\n`,
     'utf8',
   );
+}
+
+async function writePlan(cwd: string, specId = '42', graphLsn = 11): Promise<void> {
+  const path = planFilePath(cwd, specId);
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(
+    path,
+    `${JSON.stringify({ mode: 'greenfield', spec: { spec_id: specId }, epics: [], slices: [] })}\n`,
+    'utf8',
+  );
+  await writeFile(
+    planProvenancePath(cwd, specId),
+    `${JSON.stringify({ schemaVersion: 1, specId, mode: 'greenfield', source: { graphLsn, visibility: 'active' } })}\n`,
+    'utf8',
+  );
+}
+
+function executableGraph(lsn = 11): {
+  readonly nodes: readonly GraphNode[];
+  readonly edges: readonly GraphEdge[];
+  readonly lsn: number;
+} {
+  const requirement: GraphNode = {
+    id: 1,
+    specId: 42,
+    plane: 'intent',
+    kind: 'requirement',
+    kindOrdinal: 1,
+    title: 'Build run observer actions',
+    basis: 'explicit',
+    settlement: 'settled',
+    createdAtLsn: 1,
+    updatedAtLsn: 1,
+  };
+  const criterion: GraphNode = {
+    id: 2,
+    specId: 42,
+    plane: 'intent',
+    kind: 'criterion',
+    kindOrdinal: 1,
+    title: 'Actions are safe',
+    basis: 'explicit',
+    settlement: 'settled',
+    createdAtLsn: 1,
+    updatedAtLsn: 1,
+  };
+  return {
+    lsn,
+    nodes: [requirement, criterion],
+    edges: [
+      {
+        id: 1,
+        specId: 42,
+        category: 'witness',
+        sourceId: criterion.id,
+        targetId: requirement.id,
+        stance: 'for',
+        basis: 'explicit',
+        settlement: 'settled',
+        createdAtLsn: 1,
+        updatedAtLsn: 1,
+      },
+    ],
+  };
 }
 
 describe('execute.runs', () => {
@@ -389,5 +485,100 @@ describe('execute.runTraceIndex', () => {
       },
     });
     expect(JSON.stringify(response)).not.toContain(planPath);
+  });
+});
+
+describe('execute replanning methods', () => {
+  it('returns the same recommendation classes as executor core', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-recommend-'));
+    await writePlan(cwd, '42', 10);
+    await writeRun(cwd, 'run-1', { planPath: planFilePath(cwd, '42'), status: 'worktree_created' });
+
+    const response = await method('execute.replanRecommendation').handle(
+      contextForSpec(cwd, executableGraph(11)),
+      request('execute.replanRecommendation', { runId: 'run-1', specId: 42 }),
+    );
+
+    expect(response).toMatchObject({
+      result: {
+        status: 'replan_before_retry',
+        recommendedAction: 'regenerate_plan',
+        allowedActions: ['regenerate_plan', 'start_new_run', 'abandon_run'],
+      },
+    });
+  });
+
+  it('regenerates a stale early-run plan and publishes run updates', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-regenerate-'));
+    const updates: ProductUpdate[] = [];
+    await writePlan(cwd, '42', 10);
+    await writeRun(cwd, 'run-1', { planPath: planFilePath(cwd, '42'), status: 'worktree_created' });
+
+    const response = await method('execute.replanRegeneratePlan').handle(
+      contextForSpec(cwd, executableGraph(11), updates),
+      request('execute.replanRegeneratePlan', { runId: 'run-1', specId: 42 }),
+    );
+
+    expect(response).toMatchObject({
+      result: {
+        status: 'regenerated_plan',
+        eligibility: { status: 'replan_before_retry' },
+        sideEffects: [{ kind: 'write_file' }, { kind: 'write_file' }],
+      },
+    });
+    expect(updates).toEqual([{ topic: 'execute.runs' }, { topic: 'execute.run', runId: 'run-1' }]);
+  });
+
+  it('refuses to expose retry-current-step through web RPC', () => {
+    expect(
+      executeRpcMethods.find((entry) => entry.method === 'execute.replanRetryCurrentStep'),
+    ).toBeUndefined();
+  });
+
+  it('creates a linked superseding run and publishes old and new run updates', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-new-run-'));
+    const updates: ProductUpdate[] = [];
+    await writePlan(cwd, '42', 11);
+    await writeRun(cwd, 'run-old', { planPath: planFilePath(cwd, '42'), status: 'worktree_populated' });
+
+    const response = await method('execute.replanStartNewRun').handle(
+      contextForSpec(cwd, executableGraph(11), updates),
+      request('execute.replanStartNewRun', { previousRunId: 'run-old', runId: 'run-new', specId: 42 }),
+    );
+
+    expect(response).toMatchObject({
+      result: {
+        status: 'created',
+        previousRunId: 'run-old',
+        runId: 'run-new',
+        sideEffects: [{ kind: 'mkdir' }, { kind: 'write_file' }],
+      },
+    });
+    expect(updates).toEqual([
+      { topic: 'execute.runs' },
+      { topic: 'execute.run', runId: 'run-old' },
+      { topic: 'execute.runs' },
+      { topic: 'execute.run', runId: 'run-new' },
+    ]);
+  });
+
+  it('marks a run abandoned and publishes exact run updates', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-abandon-'));
+    const updates: ProductUpdate[] = [];
+    await writeRun(cwd, 'run-1', { status: 'agent_result_ingested' });
+
+    const response = await method('execute.replanAbandonRun').handle(
+      contextForSpec(cwd, executableGraph(), updates),
+      request('execute.replanAbandonRun', { runId: 'run-1', reason: 'User chose to replan' }),
+    );
+
+    expect(response).toMatchObject({
+      result: {
+        status: 'abandoned',
+        runStatus: 'abandoned',
+        sideEffects: [{ kind: 'write_file' }],
+      },
+    });
+    expect(updates).toEqual([{ topic: 'execute.runs' }, { topic: 'execute.run', runId: 'run-1' }]);
   });
 });

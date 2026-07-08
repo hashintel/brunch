@@ -371,6 +371,12 @@ query key families:
 | `execute.runs` | `executeRunsQueryOptions(rpc)` | implemented; run observer list route | exact `execute.runs` |
 | `execute.run` | `executeRunQueryOptions(rpc, runId)` | implemented; run detail route incl. reports + worker/verify stream tails | exact `execute.run(runId)` |
 | `execute.runTraceIndex` | `executeRunTraceIndexQueryOptions(rpc, specId)` | implemented; spec graph run badges | exact `execute.runTraceIndex(specId)` when graph/run evidence changes |
+| `execute.replanRecommendation` | target query helper | implemented; web-safe replanning diagnosis | none |
+| `execute.replanRegeneratePlan` | target mutation helper | implemented; stale early-run plan/provenance regeneration | exact `execute.runs` + `execute.run(runId)` on write |
+| `execute.replanStartNewRun` | target mutation helper | implemented; create linked superseding run | exact old/new `execute.run(runId)` + `execute.runs` on write |
+| `execute.replanAbandonRun` | target mutation helper | implemented; evidence-preserving abandon | exact `execute.runs` + `execute.run(runId)` on write |
+
+`execute.replanRetryCurrentStep` is deliberately **not** a public web RPC method: retrying a lifecycle step requires `ExecutionPorts` and executor runtime/model context, so it remains on the executor tool surface until a separate host-authority slice deliberately wires those ports into RPC/web-host context.
 
 Route/use pattern:
 
