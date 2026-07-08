@@ -184,13 +184,15 @@ describe('structured exchange family completeness', () => {
     }
   });
 
-  it('keeps candidates on the details-backed renderer while other families stay content pass-through', () => {
+  it('keeps adopted present families on details-backed renderers while other families stay content pass-through', () => {
     const previewsById = new Map(COMPONENT_PREVIEW_REGISTRY.map((entry) => [entry.id, entry]));
 
-    expect(previewsById.get('present-candidates')?.presentedLike).toMatch(
-      /validated details-backed renderer/,
-    );
-    for (const previewId of ['ask', 'present-digest', 'present-review-set']) {
+    for (const previewId of ['present-candidates', 'present-review-set']) {
+      expect(previewsById.get(previewId)?.presentedLike, previewId).toMatch(
+        /validated details-backed renderer/,
+      );
+    }
+    for (const previewId of ['ask', 'present-digest']) {
       expect(previewsById.get(previewId)?.presentedLike, previewId).toMatch(
         /Markdown pass-through of content/,
       );

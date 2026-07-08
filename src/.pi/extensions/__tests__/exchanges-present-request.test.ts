@@ -766,6 +766,55 @@ describe('structured exchange ask tools', () => {
     expect(fallbackRendered).toContain('Use the canonical content record.');
   });
 
+  it('renders present_review_set from validated details and falls back for malformed or structural-illegal details', async () => {
+    const review = await presentResult(PRESENT_REVIEW_SET_TOOL, {
+      exchangeId: 'review-cycle-1',
+      proposalEntryId: 'proposal-entry-1',
+      payload: validReviewPayload(),
+    });
+    const tool = registeredTools({ review: reviewDeps() }).get(PRESENT_REVIEW_SET_TOOL);
+    if (!tool) throw new Error('present_review_set was not registered');
+
+    const richRendered = tool.renderResult(review, {}, theme).render?.(80).join('\n');
+    const malformedFallback = tool
+      .renderResult(
+        {
+          content: [{ type: 'text', text: '# Fallback content\n\nUse the canonical content record.' }],
+          details: { schema: 'wrong', review_set: { nodes: [], edges: [] } },
+        },
+        {},
+        theme,
+      )
+      .render?.(80)
+      .join('\n');
+    const structuralIllegal = await registeredTools()
+      .get(PRESENT_REVIEW_SET_TOOL)
+      ?.execute(
+        'review-no-deps',
+        {
+          exchangeId: 'review-cycle-1',
+          proposalEntryId: 'proposal-entry-1',
+          payload: validReviewPayload(),
+        },
+        undefined,
+        undefined,
+        {} as never,
+      );
+    if (!structuralIllegal) throw new Error('present_review_set returned no structural-illegal result');
+    const structuralIllegalRendered = tool.renderResult(structuralIllegal, {}, theme).render?.(80).join('\n');
+
+    expect(richRendered).toContain('Status: Review-set proposal');
+    expect(richRendered).toContain('G1 · goal');
+    expect(richRendered).toContain('Depends on: REQ1');
+    expect(richRendered).not.toContain('accepted');
+    expect(richRendered).not.toContain('committed');
+    expect(richRendered).not.toContain('applied');
+    expect(malformedFallback).toContain('Fallback content');
+    expect(malformedFallback).toContain('Use the canonical content record.');
+    expect(structuralIllegalRendered).toContain('STRUCTURAL_ILLEGAL');
+    expect(structuralIllegalRendered).toContain('review-set graph dependencies unavailable');
+  });
+
   it('drives declared candidate, review-set, and digest continuations by reference', async () => {
     const ask = registeredTools().get(ASK_TOOL);
     if (!ask) throw new Error('ask was not registered');

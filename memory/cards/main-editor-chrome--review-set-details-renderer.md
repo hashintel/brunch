@@ -14,7 +14,7 @@ Orientation:
 
 Posture: earned (downgraded from the frontier's proving — the render path, fallback rule, schemas, and golden-family pattern are all landed and witnessed by the candidates adopter; this is pattern replication plus one assess decision).
 
-## Slice 1 (light) — present_review_set renders from validated details
+## Slice 1 (light) — present_review_set renders from validated details — done
 
 ### Objective
 
@@ -35,16 +35,17 @@ Posture: earned (downgraded from the frontier's proving — the render path, fal
 ### Acceptance Criteria
 
 ```
-✓ present-review-set renderResult — renders via renderDetailsOrMarkdownResult with
+✓ present-review-set renderResult — met: renders via renderDetailsOrMarkdownResult with
   zPresentReviewSetDetails; malformed/absent details fall back to renderMarkdownResult
-  (unit test alongside the existing exchanges suites)
-✓ exchange-review-set-result golden family — new component renders node/edge drafts with proposed
-  codes across the width/theme matrix, per SPEC §Verification Design item 1 (mirror
-  exchange-candidates-result.test.ts)
-✓ dev:components registry — a present_review_set transcript-render entry from the existing
-  exchange fixtures (mirror the present-candidates entry; presentedLike updated from pass-through)
-✓ npm run verify — gate green; exchange-family-completeness and content goldens unchanged
-  (content formatters are untouched — details is the only new render source)
+  (src/.pi/extensions/__tests__/exchanges-present-request.test.ts)
+✓ exchange-review-set-result golden family — met: new component renders node/edge drafts with proposed
+  codes across the width/theme matrix, per SPEC §Verification Design item 1
+  (src/.pi/components/__tests__/exchange-review-set-result.test.ts)
+✓ dev:components registry — met: a present_review_set transcript-render entry from the existing
+  exchange fixtures mirrors the present-candidates entry; presentedLike updated from pass-through
+  (src/dev/component-preview/registry.ts; exchange-family-completeness)
+✓ npm run verify — met: gate green; exchange-family-completeness and content goldens unchanged
+  (content formatters untouched — details is the only new render source)
 ```
 
 ## Slice 2 (light) — assess present_digest; adopt or decline explicitly

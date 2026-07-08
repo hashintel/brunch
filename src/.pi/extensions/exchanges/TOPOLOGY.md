@@ -65,11 +65,11 @@ exchanges/ask/     -> private continuation collectors imported only by ask.ts
 exchanges/shared/  -> shared UI dispatch/render helpers only; no tool-result detail literals
 ```
 
-`present_candidates` is the first details-backed transcript renderer: it parses
-`PresentCandidatesDetails` and renders proposal cards through
-`ExchangeCandidatesResultComponent`, with shared `details-rendering.ts` keeping
-legacy/malformed result fallback on canonical `content`. `ask`,
-`present_digest`, and `present_review_set` still use Markdown pass-through.
+`present_candidates` and `present_review_set` are details-backed transcript
+renderers: they parse their family details and render proposal cards through
+`ExchangeCandidatesResultComponent` / `ExchangeReviewSetResultComponent`, with
+shared `details-rendering.ts` keeping legacy/malformed result fallback on
+canonical `content`. `ask` and `present_digest` still use Markdown pass-through.
 
 `src/exchanges/schemas/__tests__/source-boundary.test.ts` guards the
 details-contract half. `src/.pi/extensions/__tests__/exchange-family-completeness.test.ts`

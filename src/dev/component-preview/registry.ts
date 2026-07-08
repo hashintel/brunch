@@ -8,6 +8,7 @@ import { ConsultMenuComponent } from '../../.pi/components/consult-menu.js';
 import { ExchangeAnswerEditorComponent } from '../../.pi/components/exchange-answer-editor.js';
 import { ExchangeCandidatesResultComponent } from '../../.pi/components/exchange-candidates-result.js';
 import { ExchangeDecisionPickerComponent } from '../../.pi/components/exchange-decision-picker.js';
+import { ExchangeReviewSetResultComponent } from '../../.pi/components/exchange-review-set-result.js';
 import { operationalModeBorderColor } from '../../.pi/components/mode-border-theme.js';
 import { MultiChoicePickerComponent } from '../../.pi/components/multi-choice-picker.js';
 import { createRuntimeModePickerComponent } from '../../.pi/components/runtime-posture/axis-picker.js';
@@ -505,9 +506,12 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
     id: 'present-review-set',
     label: 'present_review_set transcript render',
     presentedLike:
-      'tool result renderer — src/.pi/extensions/exchanges/present-review-set.ts (renderResult = Markdown pass-through of content, D104-L)',
+      'tool result renderer — src/.pi/extensions/exchanges/present-review-set.ts (validated details-backed renderer with content fallback, D104-L)',
     open: (tui, theme) =>
-      previewStaticComponent(tui, renderMarkdownResult(presentReviewSetFixture.result, theme)),
+      previewStaticComponent(
+        tui,
+        new ExchangeReviewSetResultComponent(presentReviewSetFixture.projection.details, theme),
+      ),
   },
   {
     id: 'structural-illegal',

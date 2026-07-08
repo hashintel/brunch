@@ -43,6 +43,9 @@ components/
 │                                rounded cards while model-facing content stays
 │                                owned by agents/contexts/exchanges
 ├── exchange-decision-picker.ts bordered single-decision exchange response picker
+├── exchange-review-set-result.ts details-backed `present_review_set` transcript
+│                                renderer; presents proposed node/edge drafts and
+│                                proposed graph codes as non-committal proposal cards
 ├── exchange-markdown-body.ts   shared structured-exchange markdown body projection/theme used by
 │                                bordered answering components and transcript renderers
 ├── lateral-padding.ts          transparent horizontal padding wrapper
