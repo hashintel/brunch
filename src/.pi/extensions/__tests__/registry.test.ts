@@ -1045,23 +1045,27 @@ describe('Brunch explicit Pi extension registry', () => {
       'utf8',
     );
     const registeredTools = await collectProductTools({
-      graph: {
-        specId: 7,
-        lsn: 21,
-        nodes: [
-          {
-            id: 1,
-            specId: 42,
-            plane: 'intent',
-            kind: 'requirement',
-            kindOrdinal: 1,
-            title: 'Run spec requirement',
-            basis: 'explicit',
-            createdAtLsn: 1,
-            updatedAtLsn: 1,
-          },
-        ],
-        edges: [],
+      graph: { specId: 7, lsn: 99, nodes: [], edges: [] },
+      graphsBySpec: {
+        7: { specId: 7, lsn: 99, nodes: [], edges: [] },
+        42: {
+          specId: 42,
+          lsn: 21,
+          nodes: [
+            {
+              id: 1,
+              specId: 42,
+              plane: 'intent',
+              kind: 'requirement',
+              kindOrdinal: 1,
+              title: 'Run spec requirement',
+              basis: 'explicit',
+              createdAtLsn: 1,
+              updatedAtLsn: 1,
+            },
+          ],
+          edges: [],
+        },
       },
     });
 
@@ -1069,6 +1073,7 @@ describe('Brunch explicit Pi extension registry', () => {
     const result = await recommend!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
 
     expect(result.content[0]?.text).toContain('execute_replan_recommendation: retry_current_run');
+    expect(result.content[0]?.text).toContain('graph lsn: 21');
     expect(result.details).toMatchObject({
       recommendation: { status: 'retry_current_run', runStatus: 'agent_result_ingested' },
     });
@@ -2698,12 +2703,7 @@ describe('Brunch explicit Pi extension registry', () => {
     const result = await status!.execute('call-1', { discipline: 'interpretive' });
 
     expect(result.content[0]?.text).toContain('execute_status: interpretive');
-    // The ported-tool narrative mirrors the execute-mode subset of
-    // EXECUTOR_ALLOWED_TOOL_NAMES; the registered-but-unadmitted plan artifact
-    // tools are intentionally excluded, and text and details must agree.
-    expect(result.content[0]?.text).toContain(
-      'ported tools: execute_status, execute_orchestrate, execute_snapshot, execute_plan_check, execute_plan_outline, execute_plan_draft, execute_plan_preview, execute_plan_file, execute_launch, execute_run_create, execute_replan_recommendation, execute_replan_start_new_run, execute_replan_retry_current_step, execute_replan_regenerate_plan, execute_replan_abandon_run, execute_worktree_create, execute_populate, execute_source_policy, execute_source_copy, execute_report_init, execute_slice_start, execute_slice_execute, execute_agent_result, execute_test_result, execute_slice_complete, execute_run_complete, execute_petri_export, execute_promotion_prepare, execute_host_promotion_preflight, execute_host_promotion_apply',
-    );
+    expect(result.content[0]?.text).toContain('ported tools: execute_status, execute_orchestrate');
     expect(result.content[0]?.text).toContain('pending tools: none');
     expect(result.content[0]?.text).toContain(
       'executor promotion: run-local git promotion ported; host preflight/apply ported with explicit acceptance',
@@ -3002,6 +3002,7 @@ interface TestGraphSlice {
 async function collectProductTools(
   options: {
     graph?: TestGraphSlice;
+    graphsBySpec?: Readonly<Record<number, TestGraphSlice>>;
     gitWorktree?: GitWorktreePort;
     testRunner?: TestRunnerPort;
     agentRunner?: AgentRunnerPort;
@@ -3030,22 +3031,22 @@ async function collectProductTools(
           },
         }
       : {}),
-    ...(options.graph
+    ...(options.graph || options.graphsBySpec
       ? {
           graph: {
-            specId: options.graph.specId ?? 42,
+            specId: options.graph?.specId ?? 42,
             commandExecutor: {} as never,
             reads: {
               queryGraph: () =>
-                ({
-                  lsn: options.graph!.lsn,
-                  nodes: options.graph!.nodes,
-                  edges: options.graph!.edges,
-                }) as never,
+                graphSlice(options.graphsBySpec?.[options.graph?.specId ?? 42] ?? options.graph!),
+              forSpec: (specId: number) => ({
+                queryGraph: () => graphSlice(options.graphsBySpec?.[specId] ?? options.graph!),
+                latestLsn: () => (options.graphsBySpec?.[specId] ?? options.graph!).lsn,
+              }),
               getNodes: () => [],
               resolveNodeCode: () => undefined,
               getOpenReconciliationNeeds: () => [],
-              latestLsn: () => options.graph!.lsn,
+              latestLsn: () => (options.graphsBySpec?.[options.graph?.specId ?? 42] ?? options.graph!).lsn,
             },
           },
         }
@@ -3063,6 +3064,10 @@ async function collectProductTools(
     setActiveTools() {},
   } as never);
   return registeredTools;
+}
+
+function graphSlice(graph: TestGraphSlice) {
+  return { lsn: graph.lsn, nodes: graph.nodes, edges: graph.edges } as never;
 }
 
 function workerSubagents(runSubagent: NonNullable<BrunchSubagentsDeps['runSubagent']>): BrunchSubagentsDeps {

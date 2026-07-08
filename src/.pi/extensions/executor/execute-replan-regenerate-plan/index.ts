@@ -66,12 +66,11 @@ export function createExecuteReplanRegeneratePlanTool(
         throw new Error('execute_replan_regenerate_plan requires an active cwd');
       }
 
-      const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
       const { current, projection } = await buildCurrentProjectionForRun({
         cwd,
         runId: params.runId,
         fallbackSpecId: deps.specId,
-        graph,
+        reads: deps.reads,
         mode: params.mode,
       });
       const eligibility = await assessRunRetryEligibility({ cwd, runId: params.runId, current });
@@ -106,7 +105,7 @@ export function createExecuteReplanRegeneratePlanTool(
               finalResult.status === 'regenerated_plan'
                 ? `plan path: ${finalResult.artifact.path}`
                 : undefined,
-              `graph lsn: ${graph.lsn}`,
+              `graph lsn: ${current.source.graphLsn}`,
               `side effects: ${finalResult.sideEffects.map((effect) => effect.kind).join(', ') || 'none'}`,
             ]
               .filter((line): line is string => typeof line === 'string')

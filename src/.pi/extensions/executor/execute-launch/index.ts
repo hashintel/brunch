@@ -47,11 +47,10 @@ export function createExecuteLaunchTool(
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_launch requires an active cwd');
       }
-      const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
       const { current } = await buildCurrentProjectionForSpec({
         cwd,
         specId: deps.specId,
-        graph,
+        reads: deps.reads,
         mode: params.mode,
       });
       const result = await prepareLaunch({
@@ -68,7 +67,7 @@ export function createExecuteLaunchTool(
               `execute_launch: ${result.status}`,
               `run status: ${result.runStatus}`,
               `plan path: ${result.planPath}`,
-              `graph lsn: ${graph.lsn}`,
+              `graph lsn: ${current.source.graphLsn}`,
               'side effects: none',
             ].join('\n'),
           },

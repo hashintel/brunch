@@ -45,12 +45,11 @@ export function createExecuteReplanStartNewRunTool(
         throw new Error('execute_replan_start_new_run requires an active cwd');
       }
 
-      const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
       const { current } = await buildCurrentProjectionForRun({
         cwd,
         runId: params.previousRunId,
         fallbackSpecId: deps.specId,
-        graph,
+        reads: deps.reads,
         mode: params.mode,
       });
       const result = await createSupersedingRun({
@@ -70,7 +69,7 @@ export function createExecuteReplanStartNewRunTool(
               `previous run id: ${params.previousRunId}`,
               'runId' in result ? `run id: ${result.runId}` : undefined,
               'planPath' in result ? `plan path: ${result.planPath}` : undefined,
-              `graph lsn: ${graph.lsn}`,
+              `graph lsn: ${current.source.graphLsn}`,
               `side effects: ${result.sideEffects.map((effect) => effect.kind).join(', ') || 'none'}`,
             ]
               .filter((line): line is string => typeof line === 'string')

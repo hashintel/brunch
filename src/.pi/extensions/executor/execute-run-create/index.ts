@@ -45,11 +45,10 @@ export function createExecuteRunCreateTool(
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_run_create requires an active cwd');
       }
-      const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
       const { current } = await buildCurrentProjectionForSpec({
         cwd,
         specId: deps.specId,
-        graph,
+        reads: deps.reads,
         mode: params.mode,
       });
       const result = await createRun({
@@ -66,7 +65,7 @@ export function createExecuteRunCreateTool(
               `execute_run_create: ${result.status}`,
               `run status: ${result.runStatus}`,
               'planPath' in result ? `plan path: ${result.planPath}` : undefined,
-              `graph lsn: ${graph.lsn}`,
+              `graph lsn: ${current.source.graphLsn}`,
               `side effects: ${result.sideEffects.map((effect) => effect.kind).join(', ') || 'none'}`,
             ]
               .filter((line): line is string => typeof line === 'string')

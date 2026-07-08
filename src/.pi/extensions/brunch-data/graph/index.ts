@@ -29,6 +29,7 @@ import { MutateGraphParams, ReadGraphParams } from './tool-schemas.js';
 
 export interface GraphReaders {
   readonly queryGraph: (filter?: GraphFilter, options?: { visibility?: GraphVisibility }) => GraphSlice;
+  readonly forSpec?: (specId: number) => Pick<GraphReaders, 'queryGraph' | 'latestLsn'>;
   readonly getNodes: (
     selectors: readonly NodeSelector[],
     options?: { hops?: number; visibility?: GraphVisibility },

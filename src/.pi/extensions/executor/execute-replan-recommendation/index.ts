@@ -47,12 +47,11 @@ export function createExecuteReplanRecommendationTool(
         throw new Error('execute_replan_recommendation requires an active cwd');
       }
 
-      const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
       const { current } = await buildCurrentProjectionForRun({
         cwd,
         runId: params.runId,
         fallbackSpecId: deps.specId,
-        graph,
+        reads: deps.reads,
         mode: params.mode,
       });
       const recommendation = await recommendRunReplan({
@@ -71,7 +70,7 @@ export function createExecuteReplanRecommendationTool(
               `recommended action: ${recommendation.recommendedAction}`,
               `allowed actions: ${recommendation.allowedActions.join(', ')}`,
               `diagnosis: ${recommendation.diagnosis}`,
-              `graph lsn: ${graph.lsn}`,
+              `graph lsn: ${current.source.graphLsn}`,
               'side effects: none',
             ].join('\n'),
           },

@@ -68,12 +68,11 @@ export function createExecuteReplanRetryCurrentStepTool(
         throw new Error('execute_replan_retry_current_step requires an active cwd');
       }
 
-      const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
       const { current } = await buildCurrentProjectionForRun({
         cwd,
         runId: params.runId,
         fallbackSpecId: deps.specId,
-        graph,
+        reads: deps.reads,
         mode: params.mode,
       });
       const eligibility = await assessRunRetryEligibility({
@@ -117,7 +116,7 @@ export function createExecuteReplanRetryCurrentStepTool(
               'outcome' in result && 'runStatus' in result.outcome
                 ? `outcome run status: ${result.outcome.runStatus}`
                 : undefined,
-              `graph lsn: ${graph.lsn}`,
+              `graph lsn: ${current.source.graphLsn}`,
               'side effects: delegated to lifecycle step',
             ]
               .filter((line): line is string => typeof line === 'string')

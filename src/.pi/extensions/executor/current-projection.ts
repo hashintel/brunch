@@ -10,19 +10,20 @@ type ExecuteGraphInput = Parameters<typeof projectExecuteGraph>[0];
 export async function buildCurrentProjectionForSpec(args: {
   readonly cwd: string;
   readonly specId: number;
-  readonly graph: ReturnType<GraphReaders['queryGraph']>;
+  readonly reads: Pick<GraphReaders, 'queryGraph' | 'forSpec'>;
   readonly mode?: ExecutionMode | undefined;
 }): Promise<{
   readonly current: LaunchCurrentProjection;
   readonly projection: ReturnType<typeof projectExecuteGraph>;
 }> {
   const mode = await resolveMode({ cwd: args.cwd, specId: String(args.specId), mode: args.mode });
+  const graph = queryGraphForSpec(args.reads, args.specId);
   const projection = projectExecuteGraph({
     specId: args.specId,
     mode,
-    graphLsn: args.graph.lsn,
-    nodes: args.graph.nodes as ExecuteGraphInput['nodes'],
-    edges: args.graph.edges as ExecuteGraphInput['edges'],
+    graphLsn: graph.lsn,
+    nodes: graph.nodes as ExecuteGraphInput['nodes'],
+    edges: graph.edges as ExecuteGraphInput['edges'],
   });
   return {
     projection,
@@ -39,7 +40,7 @@ export async function buildCurrentProjectionForRun(args: {
   readonly cwd: string;
   readonly runId: string;
   readonly fallbackSpecId: number;
-  readonly graph: ReturnType<GraphReaders['queryGraph']>;
+  readonly reads: Pick<GraphReaders, 'queryGraph' | 'forSpec'>;
   readonly mode?: ExecutionMode | undefined;
 }): Promise<{
   readonly current: LaunchCurrentProjection;
@@ -51,9 +52,13 @@ export async function buildCurrentProjectionForRun(args: {
   return buildCurrentProjectionForSpec({
     cwd: args.cwd,
     specId,
-    graph: args.graph,
+    reads: args.reads,
     mode: args.mode,
   });
+}
+
+function queryGraphForSpec(reads: Pick<GraphReaders, 'queryGraph' | 'forSpec'>, specId: number) {
+  return (reads.forSpec?.(specId) ?? reads).queryGraph(undefined, { visibility: 'active' });
 }
 
 async function resolveMode(args: {
