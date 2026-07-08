@@ -54,6 +54,11 @@ import { BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL } from '../executor/execute-plan-outli
 import { BRUNCH_EXECUTE_PLAN_PREVIEW_TOOL } from '../executor/execute-plan-preview/index.js';
 import { BRUNCH_EXECUTE_POPULATE_TOOL } from '../executor/execute-populate/index.js';
 import { BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL } from '../executor/execute-promotion-prepare/index.js';
+import { BRUNCH_EXECUTE_REPLAN_ABANDON_RUN_TOOL } from '../executor/execute-replan-abandon-run/index.js';
+import { BRUNCH_EXECUTE_REPLAN_RECOMMENDATION_TOOL } from '../executor/execute-replan-recommendation/index.js';
+import { BRUNCH_EXECUTE_REPLAN_REGENERATE_PLAN_TOOL } from '../executor/execute-replan-regenerate-plan/index.js';
+import { BRUNCH_EXECUTE_REPLAN_RETRY_CURRENT_STEP_TOOL } from '../executor/execute-replan-retry-current-step/index.js';
+import { BRUNCH_EXECUTE_REPLAN_START_NEW_RUN_TOOL } from '../executor/execute-replan-start-new-run/index.js';
 import { BRUNCH_EXECUTE_REPORT_INIT_TOOL } from '../executor/execute-report-init/index.js';
 import { BRUNCH_EXECUTE_RUN_COMPLETE_TOOL } from '../executor/execute-run-complete/index.js';
 import { BRUNCH_EXECUTE_RUN_CREATE_TOOL } from '../executor/execute-run-create/index.js';
@@ -177,6 +182,7 @@ describe('Brunch explicit Pi extension registry', () => {
       BRUNCH_EXECUTE_POPULATE_TOOL,
       BRUNCH_EXECUTE_REPORT_INIT_TOOL,
       BRUNCH_EXECUTE_RUN_COMPLETE_TOOL,
+      BRUNCH_EXECUTE_REPLAN_ABANDON_RUN_TOOL,
       BRUNCH_EXECUTE_SOURCE_POLICY_TOOL,
       BRUNCH_EXECUTE_SOURCE_COPY_TOOL,
       BRUNCH_EXECUTE_SLICE_COMPLETE_TOOL,
@@ -597,16 +603,27 @@ describe('Brunch explicit Pi extension registry', () => {
     const result = await planFile!.execute('call-1', { mode: 'brownfield' }, undefined, undefined, { cwd });
 
     const path = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
     expect(result.content[0]?.text).toContain('execute_plan_file:');
     expect(result.details).toMatchObject({
-      artifact: { path, writeMode: 'overwrite' },
+      artifact: { path, provenancePath, writeMode: 'overwrite' },
       source: { graphLsn: 18, visibility: 'active' },
-      sideEffects: [{ kind: 'write_file', path, ifExists: 'overwrite' }],
+      sideEffects: [
+        { kind: 'write_file', path, ifExists: 'overwrite' },
+        { kind: 'write_file', path: provenancePath, ifExists: 'overwrite' },
+      ],
     });
     const payload = JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>;
     expect(payload).toMatchObject({ mode: 'brownfield', spec: { spec_id: '42' } });
     expect(payload).not.toHaveProperty('schemaVersion');
     expect(payload).not.toHaveProperty('sideEffects');
+    const provenance = JSON.parse(await readFile(provenancePath, 'utf8')) as Record<string, unknown>;
+    expect(provenance).toMatchObject({
+      schemaVersion: 1,
+      specId: '42',
+      mode: 'brownfield',
+      source: { graphLsn: 18, visibility: 'active' },
+    });
   });
 
   it('registers execute_launch as a selected-spec non-running readiness boundary', async () => {
@@ -632,7 +649,48 @@ describe('Brunch explicit Pi extension registry', () => {
         specId: 42,
         commandExecutor: {} as never,
         reads: {
-          queryGraph: () => ({ lsn: 19, nodes: [], edges: [] }) as never,
+          queryGraph: () =>
+            ({
+              lsn: 19,
+              nodes: [
+                {
+                  id: 1,
+                  specId: 42,
+                  plane: 'intent',
+                  kind: 'requirement',
+                  kindOrdinal: 1,
+                  title: 'Run the cooked feature',
+                  body: 'Feature runs through the alpha executor.',
+                  basis: 'explicit',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+                {
+                  id: 2,
+                  specId: 42,
+                  plane: 'intent',
+                  kind: 'criterion',
+                  kindOrdinal: 1,
+                  title: 'Feature visible',
+                  basis: 'explicit',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+              ],
+              edges: [
+                {
+                  id: 1,
+                  specId: 42,
+                  category: 'witness',
+                  stance: 'for',
+                  sourceId: 2,
+                  targetId: 1,
+                  basis: 'explicit',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+              ],
+            }) as never,
           getNodes: () => [],
           resolveNodeCode: () => undefined,
           getOpenReconciliationNeeds: () => [],
@@ -665,6 +723,16 @@ describe('Brunch explicit Pi extension registry', () => {
 
     await mkdir(dirname(planPath), { recursive: true });
     await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(
+      join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json'),
+      `${JSON.stringify({
+        schemaVersion: 1,
+        specId: '42',
+        mode: 'greenfield',
+        source: { graphLsn: 19, visibility: 'active' },
+      })}\n`,
+      'utf8',
+    );
     const ready = await launch!.execute('call-2', {}, undefined, undefined, { cwd });
 
     expect(ready.content[0]?.text).toContain('execute_launch: ready');
@@ -672,14 +740,42 @@ describe('Brunch explicit Pi extension registry', () => {
       result: { status: 'ready', runStatus: 'not_started', planPath, sideEffects: [] },
       sideEffects: [],
     });
+
+    await writeFile(planPath, '{"mode":"brownfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(
+      join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json'),
+      `${JSON.stringify({
+        schemaVersion: 1,
+        specId: '42',
+        mode: 'brownfield',
+        source: { graphLsn: 19, visibility: 'active' },
+      })}\n`,
+      'utf8',
+    );
+    const brownfieldReady = await launch!.execute('call-3', {}, undefined, undefined, { cwd });
+    expect(brownfieldReady.content[0]?.text).toContain('execute_launch: ready');
+    expect(brownfieldReady.details).toMatchObject({
+      result: { status: 'ready', provenance: { mode: 'brownfield' } },
+    });
     await expect(access(join(cwd, '.brunch', 'cook', 'runs'))).rejects.toThrow();
   });
 
   it('registers execute_run_create as metadata-only run creation', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-create-'));
     const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
     await mkdir(dirname(planPath), { recursive: true });
     await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(
+      provenancePath,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        specId: '42',
+        mode: 'greenfield',
+        source: { graphLsn: 20, visibility: 'active' },
+      })}\n`,
+      'utf8',
+    );
     const registeredTools: Array<{
       name: string;
       execute: (
@@ -701,7 +797,48 @@ describe('Brunch explicit Pi extension registry', () => {
         specId: 42,
         commandExecutor: {} as never,
         reads: {
-          queryGraph: () => ({ lsn: 20, nodes: [], edges: [] }) as never,
+          queryGraph: () =>
+            ({
+              lsn: 20,
+              nodes: [
+                {
+                  id: 1,
+                  specId: 42,
+                  plane: 'intent',
+                  kind: 'requirement',
+                  kindOrdinal: 1,
+                  title: 'Run the cooked feature',
+                  body: 'Feature runs through the alpha executor.',
+                  basis: 'explicit',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+                {
+                  id: 2,
+                  specId: 42,
+                  plane: 'intent',
+                  kind: 'criterion',
+                  kindOrdinal: 1,
+                  title: 'Feature visible',
+                  basis: 'explicit',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+              ],
+              edges: [
+                {
+                  id: 1,
+                  specId: 42,
+                  category: 'witness',
+                  stance: 'for',
+                  sourceId: 2,
+                  targetId: 1,
+                  basis: 'explicit',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+              ],
+            }) as never,
           getNodes: () => [],
           resolveNodeCode: () => undefined,
           getOpenReconciliationNeeds: () => [],
@@ -745,6 +882,741 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(readFile(metadataPath, 'utf8')).resolves.toContain('"status": "created"');
     await expect(access(join(runDir, 'worktree'))).rejects.toThrow();
     await expect(access(join(runDir, 'reports.jsonl'))).rejects.toThrow();
+  });
+
+  it('registers execute_run_create using persisted brownfield mode when mode is omitted', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-create-brownfield-'));
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(planPath, '{"mode":"brownfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(
+      provenancePath,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        specId: '42',
+        mode: 'brownfield',
+        source: { graphLsn: 20, visibility: 'active' },
+      })}\n`,
+      'utf8',
+    );
+    const registeredTools = await collectProductTools({
+      graph: {
+        specId: 42,
+        lsn: 20,
+        nodes: [
+          {
+            id: 1,
+            specId: 42,
+            plane: 'intent',
+            kind: 'requirement',
+            kindOrdinal: 1,
+            title: 'Brownfield requirement',
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+        ],
+        edges: [],
+      },
+    });
+
+    const createRun = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_RUN_CREATE_TOOL);
+    const result = await createRun!.execute('call-1', { runId: 'run-brownfield' }, undefined, undefined, {
+      cwd,
+    });
+
+    expect(result.content[0]?.text).toContain('execute_run_create: created');
+    await expect(
+      readFile(join(cwd, '.brunch', 'cook', 'runs', 'run-brownfield', 'run.json'), 'utf8'),
+    ).resolves.toContain('"status": "created"');
+  });
+
+  it('registers execute_replan_recommendation as read-only HITL diagnosis', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-recommendation-'));
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
+    const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
+    const metadataPath = join(runDir, 'run.json');
+    await mkdir(dirname(planPath), { recursive: true });
+    await mkdir(runDir, { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(
+      provenancePath,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        specId: '42',
+        mode: 'greenfield',
+        source: { graphLsn: 21, visibility: 'active' },
+      })}\n`,
+      'utf8',
+    );
+    await writeFile(
+      metadataPath,
+      JSON.stringify({ runId: 'run-1', specId: '42', planPath, status: 'agent_result_ingested' }),
+      'utf8',
+    );
+    const registeredTools = await collectProductTools({
+      graph: {
+        specId: 42,
+        lsn: 21,
+        nodes: [
+          {
+            id: 1,
+            specId: 42,
+            plane: 'intent',
+            kind: 'requirement',
+            kindOrdinal: 1,
+            title: 'Run the cooked feature',
+            body: 'Feature runs through the alpha executor.',
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+          {
+            id: 2,
+            specId: 42,
+            plane: 'intent',
+            kind: 'criterion',
+            kindOrdinal: 1,
+            title: 'Feature visible',
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+        ],
+        edges: [
+          {
+            id: 1,
+            specId: 42,
+            category: 'witness',
+            stance: 'for',
+            sourceId: 2,
+            targetId: 1,
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+        ],
+      },
+    });
+
+    const recommend = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_REPLAN_RECOMMENDATION_TOOL);
+    expect(recommend).toBeDefined();
+    const result = await recommend!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
+
+    expect(result.content[0]?.text).toContain('execute_replan_recommendation: retry_current_run');
+    expect(result.content[0]?.text).toContain('recommended action: retry_current_step');
+    expect(result.details).toMatchObject({
+      recommendation: {
+        status: 'retry_current_run',
+        recommendedAction: 'retry_current_step',
+        allowedActions: ['retry_current_step', 'inspect_run', 'abandon_run'],
+        sideEffects: [],
+      },
+      sideEffects: [],
+    });
+    await expect(access(join(runDir, 'worktree'))).rejects.toThrow();
+  });
+
+  it('diagnoses replanning against the requested run spec when selected spec differs', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-recommendation-run-spec-'));
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
+    const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
+    await mkdir(dirname(planPath), { recursive: true });
+    await mkdir(runDir, { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(
+      provenancePath,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        specId: '42',
+        mode: 'greenfield',
+        source: { graphLsn: 21, visibility: 'active' },
+      })}\n`,
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'run.json'),
+      JSON.stringify({ runId: 'run-1', specId: '42', planPath, status: 'agent_result_ingested' }),
+      'utf8',
+    );
+    const registeredTools = await collectProductTools({
+      graph: { specId: 7, lsn: 99, nodes: [], edges: [] },
+      graphsBySpec: {
+        7: { specId: 7, lsn: 99, nodes: [], edges: [] },
+        42: {
+          specId: 42,
+          lsn: 21,
+          nodes: [
+            {
+              id: 1,
+              specId: 42,
+              plane: 'intent',
+              kind: 'requirement',
+              kindOrdinal: 1,
+              title: 'Run spec requirement',
+              basis: 'explicit',
+              createdAtLsn: 1,
+              updatedAtLsn: 1,
+            },
+          ],
+          edges: [],
+        },
+      },
+    });
+
+    const recommend = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_REPLAN_RECOMMENDATION_TOOL);
+    const result = await recommend!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
+
+    expect(result.content[0]?.text).toContain('execute_replan_recommendation: retry_current_run');
+    expect(result.content[0]?.text).toContain('graph lsn: 21');
+    expect(result.details).toMatchObject({
+      recommendation: { status: 'retry_current_run', runStatus: 'agent_result_ingested' },
+    });
+  });
+
+  it('registers execute_replan_start_new_run as explicit supersession creation', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-start-new-run-'));
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
+    const oldRunDir = join(cwd, '.brunch', 'cook', 'runs', 'run-old');
+    const oldMetadataPath = join(oldRunDir, 'run.json');
+    await mkdir(dirname(planPath), { recursive: true });
+    await mkdir(oldRunDir, { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(
+      provenancePath,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        specId: '42',
+        mode: 'greenfield',
+        source: { graphLsn: 22, visibility: 'active' },
+      })}\n`,
+      'utf8',
+    );
+    await writeFile(
+      oldMetadataPath,
+      JSON.stringify({ runId: 'run-old', specId: '42', planPath, status: 'agent_result_ingested' }),
+      'utf8',
+    );
+    const registeredTools = await collectProductTools({
+      graph: {
+        specId: 42,
+        lsn: 22,
+        nodes: [
+          {
+            id: 1,
+            specId: 42,
+            plane: 'intent',
+            kind: 'requirement',
+            kindOrdinal: 1,
+            title: 'Run the cooked feature',
+            body: 'Feature runs through the alpha executor.',
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+          {
+            id: 2,
+            specId: 42,
+            plane: 'intent',
+            kind: 'criterion',
+            kindOrdinal: 1,
+            title: 'Feature visible',
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+        ],
+        edges: [
+          {
+            id: 1,
+            specId: 42,
+            category: 'witness',
+            stance: 'for',
+            sourceId: 2,
+            targetId: 1,
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+        ],
+      },
+    });
+
+    const startNewRun = registeredTools.find(
+      (tool) => tool.name === BRUNCH_EXECUTE_REPLAN_START_NEW_RUN_TOOL,
+    );
+    expect(startNewRun).toBeDefined();
+    const result = await startNewRun!.execute(
+      'call-1',
+      { previousRunId: 'run-old', runId: 'run-new' },
+      undefined,
+      undefined,
+      { cwd },
+    );
+
+    const newMetadataPath = join(cwd, '.brunch', 'cook', 'runs', 'run-new', 'run.json');
+    expect(result.content[0]?.text).toContain('execute_replan_start_new_run: created');
+    expect(result.details).toMatchObject({
+      result: {
+        status: 'created',
+        runStatus: 'created',
+        previousRunId: 'run-old',
+        runId: 'run-new',
+        metadataPath: newMetadataPath,
+        planPath,
+      },
+      sideEffects: [
+        { kind: 'mkdir', path: dirname(newMetadataPath) },
+        { kind: 'write_file', path: newMetadataPath, ifExists: 'overwrite' },
+      ],
+    });
+    await expect(readFile(oldMetadataPath, 'utf8')).resolves.not.toContain('supersedesRunId');
+    await expect(readFile(newMetadataPath, 'utf8')).resolves.toContain('"supersedesRunId": "run-old"');
+  });
+
+  it('registers execute_replan_retry_current_step as guarded one-step retry', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-retry-current-step-'));
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
+    const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
+    const metadataPath = join(runDir, 'run.json');
+    await mkdir(dirname(planPath), { recursive: true });
+    await mkdir(runDir, { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(
+      provenancePath,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        specId: '42',
+        mode: 'greenfield',
+        source: { graphLsn: 23, visibility: 'active' },
+      })}\n`,
+      'utf8',
+    );
+    await writeFile(
+      metadataPath,
+      JSON.stringify({ runId: 'run-1', specId: '42', planPath, status: 'created' }),
+      'utf8',
+    );
+    const registeredTools = await collectProductTools({
+      graph: {
+        specId: 42,
+        lsn: 23,
+        nodes: [
+          {
+            id: 1,
+            specId: 42,
+            plane: 'intent',
+            kind: 'requirement',
+            kindOrdinal: 1,
+            title: 'Run the cooked feature',
+            body: 'Feature runs through the alpha executor.',
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+          {
+            id: 2,
+            specId: 42,
+            plane: 'intent',
+            kind: 'criterion',
+            kindOrdinal: 1,
+            title: 'Feature visible',
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+        ],
+        edges: [
+          {
+            id: 1,
+            specId: 42,
+            category: 'witness',
+            stance: 'for',
+            sourceId: 2,
+            targetId: 1,
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+        ],
+      },
+      gitWorktree: createFakeGitWorktreePort(),
+    });
+
+    const retry = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_REPLAN_RETRY_CURRENT_STEP_TOOL);
+    expect(retry).toBeDefined();
+    const result = await retry!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
+
+    expect(result.content[0]?.text).toContain('execute_replan_retry_current_step: retried_current_step');
+    expect(result.content[0]?.text).toContain('outcome run status: worktree_created');
+    expect(result.details).toMatchObject({
+      result: {
+        status: 'retried_current_step',
+        eligibility: { status: 'retry_current_run' },
+        outcome: { status: 'completed', runStatus: 'worktree_created' },
+        sideEffects: [],
+      },
+      sideEffects: [],
+    });
+    await expect(readFile(metadataPath, 'utf8')).resolves.toContain('"status": "worktree_created"');
+  });
+
+  it('registers execute_replan_retry_current_step as stale-run refusal', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-retry-current-step-stale-'));
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
+    const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
+    const metadataPath = join(runDir, 'run.json');
+    await mkdir(dirname(planPath), { recursive: true });
+    await mkdir(runDir, { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(
+      provenancePath,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        specId: '42',
+        mode: 'greenfield',
+        source: { graphLsn: 22, visibility: 'active' },
+      })}\n`,
+      'utf8',
+    );
+    await writeFile(
+      metadataPath,
+      JSON.stringify({ runId: 'run-1', specId: '42', planPath, status: 'created' }),
+      'utf8',
+    );
+    const registeredTools = await collectProductTools({
+      graph: {
+        specId: 42,
+        lsn: 23,
+        nodes: [
+          {
+            id: 1,
+            specId: 42,
+            plane: 'intent',
+            kind: 'requirement',
+            kindOrdinal: 1,
+            title: 'Run the cooked feature',
+            body: 'Feature runs through the alpha executor.',
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+          {
+            id: 2,
+            specId: 42,
+            plane: 'intent',
+            kind: 'criterion',
+            kindOrdinal: 1,
+            title: 'Feature visible',
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+        ],
+        edges: [
+          {
+            id: 1,
+            specId: 42,
+            category: 'witness',
+            stance: 'for',
+            sourceId: 2,
+            targetId: 1,
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+        ],
+      },
+      gitWorktree: createFakeGitWorktreePort(),
+    });
+
+    const retry = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_REPLAN_RETRY_CURRENT_STEP_TOOL);
+    const result = await retry!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
+
+    expect(result.content[0]?.text).toContain('execute_replan_retry_current_step: retry_not_allowed');
+    expect(result.details).toMatchObject({
+      result: { status: 'retry_not_allowed', eligibility: { status: 'replan_before_retry' } },
+      sideEffects: [],
+    });
+    await expect(readFile(metadataPath, 'utf8')).resolves.toContain('"status":"created"');
+  });
+
+  it('registers execute_replan_regenerate_plan as guarded early-run plan refresh', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-regenerate-plan-'));
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
+    const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
+    const metadataPath = join(runDir, 'run.json');
+    await mkdir(dirname(planPath), { recursive: true });
+    await mkdir(runDir, { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(
+      provenancePath,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        specId: '42',
+        mode: 'greenfield',
+        source: { graphLsn: 22, visibility: 'active' },
+      })}\n`,
+      'utf8',
+    );
+    const originalMetadata = { runId: 'run-1', specId: '42', planPath, status: 'created' };
+    await writeFile(metadataPath, JSON.stringify(originalMetadata), 'utf8');
+    const registeredTools = await collectProductTools({
+      graph: {
+        specId: 42,
+        lsn: 23,
+        nodes: [
+          {
+            id: 1,
+            specId: 42,
+            plane: 'intent',
+            kind: 'requirement',
+            kindOrdinal: 1,
+            title: 'Run the cooked feature',
+            body: 'Feature runs through the alpha executor.',
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+          {
+            id: 2,
+            specId: 42,
+            plane: 'intent',
+            kind: 'criterion',
+            kindOrdinal: 1,
+            title: 'Feature visible',
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+        ],
+        edges: [
+          {
+            id: 1,
+            specId: 42,
+            category: 'witness',
+            stance: 'for',
+            sourceId: 2,
+            targetId: 1,
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+        ],
+      },
+    });
+
+    const regenerate = registeredTools.find(
+      (tool) => tool.name === BRUNCH_EXECUTE_REPLAN_REGENERATE_PLAN_TOOL,
+    );
+    expect(regenerate).toBeDefined();
+    const result = await regenerate!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
+
+    expect(result.content[0]?.text).toContain('execute_replan_regenerate_plan: regenerated_plan');
+    expect(result.details).toMatchObject({
+      result: {
+        status: 'regenerated_plan',
+        eligibility: { status: 'replan_before_retry' },
+        artifact: { path: planPath, provenancePath, writeMode: 'overwrite' },
+      },
+      sideEffects: [
+        { kind: 'write_file', path: planPath, ifExists: 'overwrite' },
+        { kind: 'write_file', path: provenancePath, ifExists: 'overwrite' },
+      ],
+    });
+    await expect(readFile(provenancePath, 'utf8')).resolves.toContain('"graphLsn": 23');
+    await expect(readFile(metadataPath, 'utf8')).resolves.toBe(JSON.stringify(originalMetadata));
+  });
+
+  it('regenerates the requested run spec plan, not the selected session spec plan', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-regenerate-plan-run-spec-'));
+    const runPlanPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const runProvenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
+    const selectedPlanPath = join(cwd, '.brunch', 'cook', 'specs', '7', 'plan.yaml');
+    const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
+    const metadataPath = join(runDir, 'run.json');
+    await mkdir(dirname(runPlanPath), { recursive: true });
+    await mkdir(dirname(selectedPlanPath), { recursive: true });
+    await mkdir(runDir, { recursive: true });
+    await writeFile(runPlanPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(selectedPlanPath, 'selected spec must not be touched\n', 'utf8');
+    await writeFile(
+      runProvenancePath,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        specId: '42',
+        mode: 'greenfield',
+        source: { graphLsn: 22, visibility: 'active' },
+      })}\n`,
+      'utf8',
+    );
+    await writeFile(
+      metadataPath,
+      JSON.stringify({ runId: 'run-1', specId: '42', planPath: runPlanPath, status: 'created' }),
+      'utf8',
+    );
+    const registeredTools = await collectProductTools({
+      graph: {
+        specId: 7,
+        lsn: 23,
+        nodes: [
+          {
+            id: 1,
+            specId: 42,
+            plane: 'intent',
+            kind: 'requirement',
+            kindOrdinal: 1,
+            title: 'Run spec requirement',
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+        ],
+        edges: [],
+      },
+    });
+
+    const regenerate = registeredTools.find(
+      (tool) => tool.name === BRUNCH_EXECUTE_REPLAN_REGENERATE_PLAN_TOOL,
+    );
+    const result = await regenerate!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
+
+    expect(result.details).toMatchObject({
+      result: {
+        status: 'regenerated_plan',
+        artifact: { path: runPlanPath, provenancePath: runProvenancePath },
+      },
+    });
+    await expect(readFile(runProvenancePath, 'utf8')).resolves.toContain('"specId": "42"');
+    await expect(readFile(runProvenancePath, 'utf8')).resolves.toContain('"graphLsn": 23');
+    await expect(readFile(selectedPlanPath, 'utf8')).resolves.toBe('selected spec must not be touched\n');
+  });
+
+  it('registers execute_replan_regenerate_plan as fresh-run refusal', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-regenerate-plan-fresh-'));
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
+    const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
+    const metadataPath = join(runDir, 'run.json');
+    await mkdir(dirname(planPath), { recursive: true });
+    await mkdir(runDir, { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(
+      provenancePath,
+      `${JSON.stringify({ schemaVersion: 1, specId: '42', mode: 'greenfield', source: { graphLsn: 24, visibility: 'active' } })}\n`,
+      'utf8',
+    );
+    await writeFile(
+      metadataPath,
+      JSON.stringify({ runId: 'run-1', specId: '42', planPath, status: 'created' }),
+      'utf8',
+    );
+    const registeredTools = await collectProductTools({
+      graph: {
+        specId: 42,
+        lsn: 24,
+        nodes: [
+          {
+            id: 1,
+            specId: 42,
+            plane: 'intent',
+            kind: 'requirement',
+            kindOrdinal: 1,
+            title: 'Run the cooked feature',
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+          {
+            id: 2,
+            specId: 42,
+            plane: 'intent',
+            kind: 'criterion',
+            kindOrdinal: 1,
+            title: 'Feature visible',
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+        ],
+        edges: [
+          {
+            id: 1,
+            specId: 42,
+            category: 'witness',
+            stance: 'for',
+            sourceId: 2,
+            targetId: 1,
+            basis: 'explicit',
+            createdAtLsn: 1,
+            updatedAtLsn: 1,
+          },
+        ],
+      },
+    });
+
+    const regenerate = registeredTools.find(
+      (tool) => tool.name === BRUNCH_EXECUTE_REPLAN_REGENERATE_PLAN_TOOL,
+    );
+    const result = await regenerate!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
+
+    expect(result.content[0]?.text).toContain('execute_replan_regenerate_plan: regenerate_not_allowed');
+    expect(result.details).toMatchObject({
+      result: { status: 'regenerate_not_allowed', eligibility: { status: 'retry_current_run' } },
+      sideEffects: [],
+    });
+  });
+
+  it('registers execute_replan_abandon_run as evidence-preserving abandonment', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-abandon-run-'));
+    const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
+    const metadataPath = join(runDir, 'run.json');
+    await mkdir(runDir, { recursive: true });
+    await writeFile(
+      metadataPath,
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath: '/plan.yaml',
+        status: 'agent_result_ingested',
+        worktreeDir: '/worktree',
+      }),
+      'utf8',
+    );
+    const registeredTools = await collectProductTools();
+
+    const abandon = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_REPLAN_ABANDON_RUN_TOOL);
+    expect(abandon).toBeDefined();
+    const result = await abandon!.execute(
+      'call-1',
+      { runId: 'run-1', reason: 'User chose a new plan' },
+      undefined,
+      undefined,
+      { cwd },
+    );
+
+    expect(result.content[0]?.text).toContain('execute_replan_abandon_run: abandoned');
+    expect(result.details).toMatchObject({
+      result: {
+        status: 'abandoned',
+        runStatus: 'abandoned',
+        runId: 'run-1',
+        metadataPath,
+      },
+      sideEffects: [{ kind: 'write_file', path: metadataPath, ifExists: 'overwrite' }],
+    });
+    await expect(readFile(metadataPath, 'utf8')).resolves.toContain('"status": "abandoned"');
+    await expect(readFile(metadataPath, 'utf8')).resolves.toContain('"worktreeDir": "/worktree"');
+    await expect(readFile(metadataPath, 'utf8')).resolves.toContain(
+      '"abandonReason": "User chose a new plan"',
+    );
   });
 
   it('registers execute_worktree_create as empty worktree materialization only', async () => {
@@ -1252,7 +2124,11 @@ describe('Brunch explicit Pi extension registry', () => {
       }),
       'utf8',
     );
-    await writeFile(reportPath, '{"event":"run_ready"}\n', 'utf8');
+    await writeFile(
+      reportPath,
+      '{"event":"run_ready"}\n{"event":"slice_test_result","sliceId":"task-1","status":"passed"}\n',
+      'utf8',
+    );
     const registeredTools = await collectProductTools({
       graph: { specId: 42, lsn: 30, nodes: [], edges: [] },
     });
@@ -1600,8 +2476,8 @@ describe('Brunch explicit Pi extension registry', () => {
     ).resolves.toContain('Run the cooked feature');
   });
 
-  it('blocks execute_plan_outline_artifact before writing when projection has unprojected dependencies', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-plan-outline-blocked-'));
+  it('writes execute_plan_outline_artifact when non-requirement dependency edges are only graph context', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-plan-outline-context-deps-'));
     const artifactPath = join(cwd, '.brunch', 'execution-reports', '42', 'plan-outline.json');
     const registeredTools: Array<{
       name: string;
@@ -1714,10 +2590,10 @@ describe('Brunch explicit Pi extension registry', () => {
     } as never);
 
     const artifact = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL);
-    await expect(artifact!.execute('call-1', {}, undefined, undefined, { cwd })).rejects.toThrow(
-      'Execution plan projection is blocked',
-    );
-    await expect(access(artifactPath)).rejects.toThrow();
+    const result = await artifact!.execute('call-1', {}, undefined, undefined, { cwd });
+
+    expect(result.content[0]?.text).toContain('execute_plan_outline_artifact:');
+    await expect(access(artifactPath)).resolves.toBeUndefined();
   });
 
   it('registers execute_snapshot only with selected graph deps and returns a side-effect-free projection', async () => {
@@ -1825,12 +2701,7 @@ describe('Brunch explicit Pi extension registry', () => {
     const result = await status!.execute('call-1', { discipline: 'interpretive' });
 
     expect(result.content[0]?.text).toContain('execute_status: interpretive');
-    // The ported-tool narrative mirrors the execute-mode subset of
-    // EXECUTOR_ALLOWED_TOOL_NAMES; the registered-but-unadmitted plan artifact
-    // tools are intentionally excluded, and text and details must agree.
-    expect(result.content[0]?.text).toContain(
-      'ported tools: execute_status, execute_orchestrate, execute_snapshot, execute_plan_check, execute_plan_outline, execute_plan_draft, execute_plan_preview, execute_plan_file, execute_launch, execute_run_create, execute_worktree_create, execute_populate, execute_source_policy, execute_source_copy, execute_report_init, execute_slice_start, execute_slice_execute, execute_agent_result, execute_test_result, execute_slice_complete, execute_run_complete, execute_petri_export, execute_promotion_prepare, execute_host_promotion_preflight, execute_host_promotion_apply',
-    );
+    expect(result.content[0]?.text).toContain('ported tools: execute_status, execute_orchestrate');
     expect(result.content[0]?.text).toContain('pending tools: none');
     expect(result.content[0]?.text).toContain(
       'executor promotion: run-local git promotion ported; host preflight/apply ported with explicit acceptance',
@@ -1849,6 +2720,11 @@ describe('Brunch explicit Pi extension registry', () => {
         'execute_plan_file',
         'execute_launch',
         'execute_run_create',
+        'execute_replan_recommendation',
+        'execute_replan_start_new_run',
+        'execute_replan_retry_current_step',
+        'execute_replan_regenerate_plan',
+        'execute_replan_abandon_run',
         'execute_worktree_create',
         'execute_populate',
         'execute_source_policy',
@@ -2124,6 +3000,7 @@ interface TestGraphSlice {
 async function collectProductTools(
   options: {
     graph?: TestGraphSlice;
+    graphsBySpec?: Readonly<Record<number, TestGraphSlice>>;
     gitWorktree?: GitWorktreePort;
     testRunner?: TestRunnerPort;
     agentRunner?: AgentRunnerPort;
@@ -2152,22 +3029,22 @@ async function collectProductTools(
           },
         }
       : {}),
-    ...(options.graph
+    ...(options.graph || options.graphsBySpec
       ? {
           graph: {
-            specId: options.graph.specId ?? 42,
+            specId: options.graph?.specId ?? 42,
             commandExecutor: {} as never,
             reads: {
               queryGraph: () =>
-                ({
-                  lsn: options.graph!.lsn,
-                  nodes: options.graph!.nodes,
-                  edges: options.graph!.edges,
-                }) as never,
+                graphSlice(options.graphsBySpec?.[options.graph?.specId ?? 42] ?? options.graph!),
+              forSpec: (specId: number) => ({
+                queryGraph: () => graphSlice(options.graphsBySpec?.[specId] ?? options.graph!),
+                latestLsn: () => (options.graphsBySpec?.[specId] ?? options.graph!).lsn,
+              }),
               getNodes: () => [],
               resolveNodeCode: () => undefined,
               getOpenReconciliationNeeds: () => [],
-              latestLsn: () => options.graph!.lsn,
+              latestLsn: () => (options.graphsBySpec?.[options.graph?.specId ?? 42] ?? options.graph!).lsn,
             },
           },
         }
@@ -2185,6 +3062,10 @@ async function collectProductTools(
     setActiveTools() {},
   } as never);
   return registeredTools;
+}
+
+function graphSlice(graph: TestGraphSlice) {
+  return { lsn: graph.lsn, nodes: graph.nodes, edges: graph.edges } as never;
 }
 
 function workerSubagents(runSubagent: NonNullable<BrunchSubagentsDeps['runSubagent']>): BrunchSubagentsDeps {

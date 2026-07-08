@@ -441,6 +441,13 @@ export function createBrunchAgentSessionRuntimeFactory(
           filter?: Parameters<ReturnType<WorkspaceGraphRuntime['forSpec']>['queryGraph']>[0],
           options?: Parameters<ReturnType<WorkspaceGraphRuntime['forSpec']>['queryGraph']>[1],
         ) => graph.forSpec(currentWorkspace.spec.id).queryGraph(filter, options),
+        forSpec: (specId: number) => ({
+          queryGraph: (
+            filter?: Parameters<ReturnType<WorkspaceGraphRuntime['forSpec']>['queryGraph']>[0],
+            options?: Parameters<ReturnType<WorkspaceGraphRuntime['forSpec']>['queryGraph']>[1],
+          ) => graph.forSpec(specId).queryGraph(filter, options),
+          latestLsn: () => graph.forSpec(specId).latestLsn(),
+        }),
         getOverview: (options?: { show?: 'active' | 'all' }) =>
           graphSliceWithCounts(
             graph.forSpec(currentWorkspace.spec.id).queryGraph(undefined, toReadOptions(options)),

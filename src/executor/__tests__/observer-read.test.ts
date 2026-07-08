@@ -79,6 +79,28 @@ describe('listRuns', () => {
       },
     ]);
   });
+
+  it('surfaces replanning lineage and abandoned metadata in run summaries', async () => {
+    const cwd = await fixtureCwd('brunch-observer-replan-summary-');
+    await writeRun(cwd, 'run-a', {
+      status: 'abandoned',
+      supersedesRunId: 'run-old',
+      abandonedAt: '2026-07-07T00:00:00.000Z',
+      abandonReason: 'User chose a fresh plan',
+    });
+
+    expect(await listRuns(cwd)).toEqual([
+      {
+        runId: 'run-a',
+        specId: '42',
+        status: 'abandoned',
+        supersedesRunId: 'run-old',
+        abandonedAt: '2026-07-07T00:00:00.000Z',
+        abandonReason: 'User chose a fresh plan',
+        presence: { worktree: false, reports: false, petri: false, promotion: false },
+      },
+    ]);
+  });
 });
 
 describe('readRunDetail', () => {
@@ -122,6 +144,24 @@ describe('readRunDetail', () => {
       'slice_started',
       'slice_execution_requested',
     ]);
+  });
+
+  it('surfaces replanning metadata in run detail', async () => {
+    const cwd = await fixtureCwd('brunch-observer-replan-detail-');
+    await writeRun(cwd, 'run-d', {
+      status: 'abandoned',
+      supersedesRunId: 'run-old',
+      abandonedAt: '2026-07-07T00:00:00.000Z',
+      abandonReason: 'User chose a fresh plan',
+    });
+
+    await expect(readRunDetail(cwd, 'run-d')).resolves.toMatchObject({
+      runId: 'run-d',
+      status: 'abandoned',
+      supersedesRunId: 'run-old',
+      abandonedAt: '2026-07-07T00:00:00.000Z',
+      abandonReason: 'User chose a fresh plan',
+    });
   });
 
   it('carries the raw parsed petri net when the artifact exists and parses', async () => {

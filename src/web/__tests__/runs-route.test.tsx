@@ -125,6 +125,32 @@ describe('runs list route', () => {
 
     expect(await screen.findByText('No executor runs.')).toBeTruthy();
   });
+
+  it('renders replanning metadata on run summaries when present', async () => {
+    window.history.pushState(null, '', '/runs');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        runs: [
+          {
+            runId: 'run-2',
+            specId: '1',
+            status: 'abandoned',
+            supersedesRunId: 'run-1',
+            abandonedAt: '2026-07-07T00:00:00.000Z',
+            abandonReason: 'User chose a fresh plan',
+            presence: { worktree: false, reports: true, petri: false, promotion: false },
+          },
+        ],
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByRole('link', { name: /run-2/u })).toBeTruthy();
+    expect(screen.getByText('supersedes run-1')).toBeTruthy();
+    expect(screen.getAllByText('abandoned')).toHaveLength(2);
+    expect(screen.getByText('User chose a fresh plan')).toBeTruthy();
+  });
 });
 
 describe('run detail route', () => {
@@ -300,6 +326,31 @@ describe('run detail route', () => {
     render(<BrunchWebApp runtime={runtime} />);
 
     expect(await screen.findByText(/verify running/iu)).toBeTruthy();
+  });
+
+  it('renders replanning metadata on run detail when present', async () => {
+    window.history.pushState(null, '', '/runs/run-2');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        run: {
+          ...runDetail,
+          runId: 'run-2',
+          status: 'abandoned',
+          supersedesRunId: 'run-1',
+          abandonedAt: '2026-07-07T00:00:00.000Z',
+          abandonReason: 'User chose a fresh plan',
+        },
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('supersedes')).toBeTruthy();
+    expect(screen.getByText('run-1')).toBeTruthy();
+    expect(screen.getByText('abandoned at')).toBeTruthy();
+    expect(screen.getByText('2026-07-07T00:00:00.000Z')).toBeTruthy();
+    expect(screen.getByText('abandon reason')).toBeTruthy();
+    expect(screen.getByText('User chose a fresh plan')).toBeTruthy();
   });
 
   it('marks a run with unreadable metadata instead of rendering stale detail', async () => {

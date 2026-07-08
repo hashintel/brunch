@@ -11,8 +11,9 @@ executor/
 ├── TOPOLOGY.md
 ├── agent-result.ts       AgentRunnerPort -> slice result report + normalized worker stream artifact
 ├── orchestrate.ts        run facts + RunScheduler -> drive() over the lifecycle steps
-├── plan-file.ts          old cook-compatible DTO preview -> spec-scoped plan.yaml
-├── launch.ts             spec-scoped plan.yaml -> non-running launch readiness
+├── run-abandon.ts        active run -> abandoned run metadata, preserving artifacts
+├── plan-file.ts          old cook-compatible DTO preview -> spec-scoped plan.yaml + provenance
+├── launch.ts             spec-scoped plan.yaml provenance -> non-running launch readiness
 ├── plan-preview.ts       executable-plan draft -> old cook-compatible DTO preview
 ├── petri.ts              completed run -> minimal Petrinaut net.json
 ├── promotion.ts          petri-exported run -> run-local promotion (GitLandPort) + report
@@ -22,6 +23,10 @@ executor/
 ├── report.ts             source-copied run -> reports.jsonl initialization
 ├── report-verdict.ts     reports.jsonl -> latest per-slice verification verdicts
 ├── run-complete.ts       completed slices -> run completion marker
+├── run-freshness.ts      run metadata + plan provenance -> retry/replan freshness diagnosis
+├── run-replan-recommendation.ts run retry eligibility -> human-readable recommendation
+├── run-retry-eligibility.ts run freshness + lifecycle status -> safe HITL action set
+├── run-supersession.ts   prior run + fresh launch -> new linked run metadata
 ├── run.ts                ready plan.yaml -> metadata-only run creation
 ├── slice-execute.ts      active slice -> execution request artifact
 ├── slice-complete.ts     test-ingested slice -> completion marker
@@ -31,7 +36,7 @@ executor/
 ├── test-result.ts        run worktree -> verify subprocess (TestRunnerPort) -> slice test report + normalized verify stream artifact
 ├── worktree.ts           run metadata -> real git worktree (GitWorktreePort)
 ├── execution-ports.ts    injected capability ports (git worktree, agent runner, test runner, git land, host-promotion preflight)
-├── execution-spec-snapshot.ts   graph facts -> ExecutionSpecSnapshot v1, incl. requirement dependencies + unprojected dependency guards
+├── execution-spec-snapshot.ts   graph facts -> ExecutionSpecSnapshot v1, incl. executable requirement dependencies
 ├── executable-plan-draft.ts     plan outline -> executable-plan draft DTO, incl. slice dependencies
 ├── executable-plan-draft-artifact.ts executable-plan draft -> .brunch/execution-reports artifact
 ├── execute-plan-check.ts        ExecutionSpecSnapshot -> read-only plan-input findings
@@ -49,7 +54,9 @@ rules:
   executor/ x> db/, .pi/, app/, rpc/, web/ [no storage, adapter, transport, or UI effects]
 ```
 
-`ExecutionSpecSnapshot` is the durable projection seam between the spec/graph product and the native execute-mode orchestrator. Both `main`-derived imports and `next` graph reads can target this shape while their internal models continue to evolve. Requirement-to-requirement dependency edges are the only graph dependencies currently representable as executable slice `depends_on`; any projected dependency edge outside that shape is preserved as an unprojected dependency and blocks plan-producing tools instead of being silently flattened. Every helper advances run metadata with at most one explicit, declared side effect (I58-L): plan/outline artifact writers touch only `.brunch/execution-reports`; cook helpers write only the declared files under `.brunch/cook` or the run worktree described per module below; agent/test/promotion effects are delegated to injected ports; port failure leaves run metadata unadvanced. No helper mutates the graph, and host mutation is limited to the accepted-SHA file apply in `host-promotion.ts`.
+`ExecutionSpecSnapshot` is the durable projection seam between the spec/graph product and the native execute-mode orchestrator. Both `main`-derived imports and `next` graph reads can target this shape while their internal models continue to evolve. Requirement-to-requirement dependency edges are the only graph dependencies lowered into executable slice `depends_on`; dependency edges with non-requirement endpoints remain graph context/hygiene concerns and do not block executable plan production merely because the cook scheduler cannot represent them. Every helper advances run metadata with at most one explicit, declared side effect (I58-L): plan/outline artifact writers touch only `.brunch/execution-reports`; cook helpers write only the declared files under `.brunch/cook` or the run worktree described per module below; agent/test/promotion effects are delegated to injected ports; port failure leaves run metadata unadvanced. No helper mutates the graph, and host mutation is limited to the accepted-SHA file apply in `host-promotion.ts`.
+
+`run-abandon.ts` is a bounded HITL replanning mutation: it marks an active run `abandoned` while preserving existing evidence paths and files. It refuses missing and already-terminal completed/promoted runs, and it never deletes worktrees, reports, Petri artifacts, promotion artifacts, or graph state.
 
 ## Cook plan preview compatibility
 
@@ -65,11 +72,19 @@ rules:
 | `epics[].probe`, `epics[].reachability` | deferred/absent | Alpha has no truthful boot/probe or host-blind reachability source yet. |
 | `slices[].writes` | deferred/absent | Alpha has no file-layout authoring source yet; do not invent ownership. |
 
-`plan-file.ts` is the first executable-plan-file boundary: it strips preview-only fields (`schemaVersion`, `sideEffects`) and writes old-cook `Plan` payload data to `.brunch/cook/specs/<specId>/plan.yaml` as a single explicit `write_file` side effect. It still does not create cook runs, worktrees, Petri artifacts, graph mutations, or promotion refs.
+`plan-file.ts` is the first executable-plan-file boundary: it strips preview-only fields (`schemaVersion`, `sideEffects`) and writes old-cook `Plan` payload data to `.brunch/cook/specs/<specId>/plan.yaml`, plus a sibling `plan.provenance.json` recording the graph LSN / visibility / mode used to produce that payload. It still does not create cook runs, worktrees, Petri artifacts, graph mutations, or promotion refs.
 
-`launch.ts` is the first runner-facing boundary, but it is intentionally non-running: it validates whether the selected spec's bounded `plan.yaml` is missing or ready and returns `runStatus: not_started` with no side effects. Actual run creation, worktrees, Petri artifacts, reports, promotion refs, and land branches remain out of scope until a later runner slice accepts those side effects explicitly.
+`launch.ts` is the first runner-facing boundary, but it is intentionally non-running: it validates whether the selected spec's bounded `plan.yaml` is missing, lacks provenance, is stale against the current graph projection, is blocked by current projection findings, or is ready, and returns `runStatus: not_started` with no side effects. Actual run creation, worktrees, Petri artifacts, reports, promotion refs, and land branches remain out of scope until a later runner slice accepts those side effects explicitly.
 
 `run.ts` creates only metadata for a ready plan: `.brunch/cook/runs/<runId>/run.json` with the selected spec id, plan path, and `status:"created"`. It accepts the first run-resource side effect but still does not create a worktree, Petri artifact, report log, promotion ref, or land branch.
+
+`run-freshness.ts` is a read-only replanning helper for existing runs. It reads `run.json`, reuses launch freshness/provenance checks against the current graph projection stamp, and reports whether the run is fresh, stale, missing provenance, missing its plan, blocked by projection, or missing entirely. It does not mutate run metadata, generate a new plan, or choose HITL recovery actions.
+
+`run-retry-eligibility.ts` combines run freshness with the run lifecycle status to classify whether the current step can be retried, a fresh plan can be regenerated before retry, a new run is required, or the run is terminal. It only returns allowed action names; it does not execute retries, mutate plans, or supersede runs.
+
+`run-replan-recommendation.ts` wraps retry eligibility in concise human-facing diagnosis text plus one recommended action. It is still read-only core: no prompts, no tool registration, no action execution, and no run mutation.
+
+`run-supersession.ts` is the first bounded mutation helper in the HITL replanning family. Given an existing run and a fresh launch-ready plan, it creates a new `created` run with `supersedesRunId` pointing to the prior run. It refuses missing prior runs, stale/non-ready plans, and target run id collisions, and it never mutates the prior run.
 
 `worktree.ts` creates a real git worktree for an existing run through the injected `GitWorktreePort` (app-layer `git worktree add --detach <worktreeDir> HEAD`) and updates `run.json` to `status:"worktree_created"`. If the port fails, run metadata is not advanced (`status:"worktree_create_failed"`). Source population, sandbox strategy, agent execution, Petri artifacts, report logs, promotion refs, and land branches remain deferred.
 

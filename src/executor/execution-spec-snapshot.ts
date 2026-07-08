@@ -24,11 +24,6 @@ export interface ExecutionSpecContextSnapshot {
   readonly oracle: readonly ExecutionSpecItemSnapshot[];
 }
 
-export interface ExecutionSpecUnprojectedDependency {
-  readonly dependencyId: string;
-  readonly dependentId: string;
-}
-
 export interface ExecutionSpecSnapshot {
   readonly schemaVersion: 1;
   readonly specId: string;
@@ -36,7 +31,6 @@ export interface ExecutionSpecSnapshot {
   readonly requirements: readonly ExecutionSpecItemSnapshot[];
   readonly criteria: readonly ExecutionSpecCriterionSnapshot[];
   readonly context: ExecutionSpecContextSnapshot;
-  readonly unprojectedDependencies?: readonly ExecutionSpecUnprojectedDependency[];
 }
 
 export interface ProjectExecutionSpecSnapshotInput {
@@ -67,17 +61,11 @@ export function projectExecutionSpecSnapshot(
 ): ExecutionSpecSnapshot {
   const nodes = [...input.nodes].sort(byKindOrdinalThenId);
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
-  const itemIdsByNodeId = new Map(nodes.map((node) => [node.id, itemId(node)]));
   const requirementIds = new Set(nodes.filter((node) => node.kind === 'requirement').map((node) => node.id));
   const requirementItemIds = new Map(
     nodes.filter((node) => node.kind === 'requirement').map((node) => [node.id, itemId(node)]),
   );
   const requirementDependencies = dependencyItemIdsByRequirement(input.edges, requirementItemIds);
-  const unprojectedDependencies = unprojectedDependencyItemIds(
-    input.edges,
-    itemIdsByNodeId,
-    requirementItemIds,
-  );
   const criteria = nodes.filter((node) => node.kind === 'criterion');
 
   return {
@@ -103,7 +91,6 @@ export function projectExecutionSpecSnapshot(
         .filter((node) => ORACLE_KINDS.includes(node.kind as never))
         .map((node) => itemSnapshot(node)),
     },
-    ...(unprojectedDependencies.length > 0 ? { unprojectedDependencies } : {}),
   };
 }
 
@@ -140,25 +127,6 @@ function dependencyItemIdsByRequirement(
   }
 
   return new Map([...byDependent].map(([dependent, dependencies]) => [dependent, [...dependencies].sort()]));
-}
-
-function unprojectedDependencyItemIds(
-  edges: readonly GraphEdge[],
-  itemIdsByNodeId: ReadonlyMap<number, string>,
-  requirementItemIds: ReadonlyMap<number, string>,
-): readonly ExecutionSpecUnprojectedDependency[] {
-  return edges
-    .filter((edge) => edge.category === 'dependency')
-    .flatMap((edge) => {
-      const dependencyId = itemIdsByNodeId.get(edge.sourceId);
-      const dependentId = itemIdsByNodeId.get(edge.targetId);
-      if (!dependencyId || !dependentId) return [];
-      if (requirementItemIds.has(edge.sourceId) && requirementItemIds.has(edge.targetId)) return [];
-      return [{ dependencyId, dependentId }];
-    })
-    .sort(
-      (a, b) => a.dependentId.localeCompare(b.dependentId) || a.dependencyId.localeCompare(b.dependencyId),
-    );
 }
 
 function contextItems(nodes: readonly GraphNode[], kind: ContextKind): readonly ExecutionSpecItemSnapshot[] {

@@ -29,7 +29,11 @@ The native execute-mode cutover is built from bounded footholds; use `execute_st
 - `execute_plan_outline` — returns a reviewable plan-shaped outline without creating a plan file or run.
 - `execute_plan_draft` — returns executable-plan-shaped data (epics/slices/criterion verification) without writing it.
 - `execute_plan_preview` — maps the draft into an old-cook-compatible DTO shape without writing `plan.yaml`.
+- `execute_plan_file` — writes the selected spec's current executable plan and sibling provenance; regenerate it after graph changes.
+- `execute_launch` — validates the bounded plan path against the current graph projection; `ready` is the only launchable result. Treat `missing_plan`, `missing_provenance`, and `stale_plan` as instructions to rerun `execute_plan_file`; treat `blocked_projection` as a graph/plan-input issue, not something to bypass with an old plan.
 - The bounded artifact and lifecycle `execute_*` tools are active in Execute mode. They advance only their declared run artifacts, and host promotion remains a two-step explicit-acceptance surface: preflight first, apply only after the user accepts the promoted commit SHA.
+
+Requirement-to-requirement `dependency` edges are the executable scheduling source. Dependency edges with non-requirement endpoints may be graph-hygiene concerns, but they are not cook slice blockers by themselves; do not register reconciliation needs for legitimate design-plane dependencies merely because the execution scheduler cannot lower design nodes into slices.
 
 ## Guidelines
 

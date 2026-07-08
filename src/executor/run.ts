@@ -1,8 +1,8 @@
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { BRUNCH_DIR } from '../constants.js';
-import { prepareLaunch } from './launch.js';
+import { prepareLaunch, type LaunchCurrentProjection, type LaunchResult } from './launch.js';
 
 export interface RunMetadata {
   readonly runId: string;
@@ -22,9 +22,11 @@ export interface RunMetadata {
     | 'slice_completed'
     | 'run_completed'
     | 'petri_exported'
-    | 'promotion_prepared';
+    | 'promotion_prepared'
+    | 'abandoned';
   readonly worktreeDir?: string;
   readonly populatedPlanPath?: string;
+  readonly populatedPlanProvenancePath?: string;
   readonly sourcePolicy?: string;
   readonly sourcePolicyPath?: string;
   readonly sourceCopied?: boolean;
@@ -39,6 +41,9 @@ export interface RunMetadata {
   readonly promotionPath?: string;
   readonly promotionBaseSha?: string;
   readonly promotionCommitSha?: string;
+  readonly supersedesRunId?: string;
+  readonly abandonedAt?: string;
+  readonly abandonReason?: string;
 }
 
 export type RunCreateResult =
@@ -46,6 +51,21 @@ export type RunCreateResult =
       readonly status: 'missing_plan';
       readonly runStatus: 'not_started';
       readonly planPath: string;
+      readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: 'launch_not_ready';
+      readonly runStatus: LaunchResult['runStatus'];
+      readonly planPath: string;
+      readonly launch: LaunchResult;
+      readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: 'target_run_exists';
+      readonly runStatus: 'not_started';
+      readonly runId: string;
+      readonly runDir: string;
+      readonly metadataPath: string;
       readonly sideEffects: readonly [];
     }
   | {
@@ -126,9 +146,28 @@ export async function persistRunMetadata(
 export async function createRun(args: {
   readonly cwd: string;
   readonly specId: string;
+  readonly current?: LaunchCurrentProjection;
   readonly runId?: string;
 }): Promise<RunCreateResult> {
-  const launch = await prepareLaunch({ cwd: args.cwd, specId: args.specId });
+  const runId = args.runId ?? `run-${Date.now().toString(36)}`;
+  const runDir = runDirPath(args.cwd, runId);
+  const metadataPath = runMetadataPath(args.cwd, runId);
+  if (await pathExists(runDir)) {
+    return {
+      status: 'target_run_exists',
+      runStatus: 'not_started',
+      runId,
+      runDir,
+      metadataPath,
+      sideEffects: [],
+    };
+  }
+
+  const launch = await prepareLaunch({
+    cwd: args.cwd,
+    specId: args.specId,
+    ...(args.current === undefined ? {} : { current: args.current }),
+  });
   if (launch.status === 'missing_plan') {
     return {
       status: 'missing_plan',
@@ -137,10 +176,16 @@ export async function createRun(args: {
       sideEffects: launch.sideEffects,
     };
   }
+  if (launch.status !== 'ready') {
+    return {
+      status: 'launch_not_ready',
+      runStatus: launch.runStatus,
+      planPath: launch.planPath,
+      launch,
+      sideEffects: [],
+    };
+  }
 
-  const runId = args.runId ?? `run-${Date.now().toString(36)}`;
-  const runDir = runDirPath(args.cwd, runId);
-  const metadataPath = runMetadataPath(args.cwd, runId);
   const metadata: RunMetadata = {
     runId,
     specId: args.specId,
@@ -163,4 +208,13 @@ export async function createRun(args: {
       { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
     ],
   };
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
 }

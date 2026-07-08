@@ -19,6 +19,9 @@ export interface RunSummary {
   readonly status: RunMetadata['status'];
   readonly activeSliceId?: string;
   readonly completedSliceIds?: readonly string[];
+  readonly supersedesRunId?: string;
+  readonly abandonedAt?: string;
+  readonly abandonReason?: string;
   readonly presence: RunPresence;
 }
 
@@ -176,6 +179,9 @@ async function summarizeRun(cwd: string, runId: string, metadata: RunMetadata): 
     status: metadata.status,
     ...(metadata.activeSliceId === undefined ? {} : { activeSliceId: metadata.activeSliceId }),
     ...(metadata.completedSliceIds === undefined ? {} : { completedSliceIds: metadata.completedSliceIds }),
+    ...(metadata.supersedesRunId === undefined ? {} : { supersedesRunId: metadata.supersedesRunId }),
+    ...(metadata.abandonedAt === undefined ? {} : { abandonedAt: metadata.abandonedAt }),
+    ...(metadata.abandonReason === undefined ? {} : { abandonReason: metadata.abandonReason }),
     presence: { worktree, reports, petri, promotion },
   };
 }

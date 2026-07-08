@@ -41,8 +41,8 @@ This is a proving tracer. It stabilizes the executor projection invariant by mak
 
 ## Acceptance Criteria
 
-✓ `src/executor/__tests__/execution-spec-snapshot.test.ts` — projected dependency edges outside requirement-to-requirement shape are preserved as unprojected dependencies.
-✓ `src/executor/__tests__/execute-plan-check.test.ts` — unprojected dependencies block plan readiness with an error instead of allowing a flat executable plan.
+✓ `src/executor/__tests__/execution-spec-snapshot.test.ts` — requirement-to-requirement dependency edges are the only dependency edges lowered into executable slice dependencies.
+✓ `src/executor/__tests__/execute-plan-check.test.ts` — plan readiness is blocked by missing executable inputs, not by non-requirement dependency context the cook scheduler does not lower.
 ✓ Plan-producing execute tools assert plan readiness before returning or writing outline/draft/preview/plan artifacts.
 
 ## Verification Approach
@@ -80,3 +80,7 @@ memory/cards/
 ## Build Note
 
 Targeted projection tests passed in the original isolated worktree. The FE-1154 branch later passed `npm run verify`; this derivative card remains in-tree only because executor-card cleanup is awaiting KA confirmation.
+
+## Revision Note
+
+The original slice blocked every dependency edge outside requirement-to-requirement shape as an unprojected dependency. FE-1114 follow-up evidence showed that was too broad: legitimate design-plane dependency context should not block execution when the real requirement-slice diamond is present. Current behavior lowers only requirement-to-requirement dependencies and leaves other dependency edges to graph hygiene/reconciliation workflows outside executable scheduling.

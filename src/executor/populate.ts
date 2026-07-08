@@ -1,6 +1,7 @@
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
+import { planProvenancePath } from './plan-file.js';
 import { runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 import { worktreeDirPath } from './worktree.js';
 
@@ -27,15 +28,18 @@ export type PopulateResult =
       readonly worktreeDir: string;
       readonly metadataPath: string;
       readonly populatedPlanPath: string;
-      readonly sideEffects: readonly [
-        { readonly kind: 'mkdir'; readonly path: string },
-        { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
-        { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
-      ];
+      readonly sideEffects: readonly (
+        | { readonly kind: 'mkdir'; readonly path: string }
+        | { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' }
+      )[];
     };
 
 export function populatedPlanPath(cwd: string, runId: string): string {
   return join(worktreeDirPath(cwd, runId), '.brunch', 'cook', 'plan.yaml');
+}
+
+export function populatedPlanProvenancePath(cwd: string, runId: string): string {
+  return join(worktreeDirPath(cwd, runId), '.brunch', 'cook', 'plan.provenance.json');
 }
 
 export async function populateWorktree(args: {
@@ -67,16 +71,22 @@ export async function populateWorktree(args: {
   }
 
   const destination = populatedPlanPath(args.cwd, args.runId);
+  const provenanceDestination = populatedPlanProvenancePath(args.cwd, args.runId);
   const destinationDir = dirname(destination);
+  const provenance = await optionalReadFile(planProvenancePath(args.cwd, metadata.specId));
   const updated: RunMetadata = {
     ...metadata,
     status: 'worktree_populated',
     worktreeDir,
     populatedPlanPath: destination,
+    ...(provenance === undefined ? {} : { populatedPlanProvenancePath: provenanceDestination }),
   };
 
   await mkdir(destinationDir, { recursive: true });
   await writeFile(destination, await readFile(metadata.planPath, 'utf8'), 'utf8');
+  if (provenance !== undefined) {
+    await writeFile(provenanceDestination, provenance, 'utf8');
+  }
   const metadataEffect = await persistRunMetadata(metadataPath, updated);
 
   return {
@@ -89,9 +99,23 @@ export async function populateWorktree(args: {
     sideEffects: [
       { kind: 'mkdir', path: destinationDir },
       { kind: 'write_file', path: destination, ifExists: 'overwrite' },
+      ...(provenance === undefined
+        ? []
+        : [{ kind: 'write_file' as const, path: provenanceDestination, ifExists: 'overwrite' as const }]),
       metadataEffect,
     ],
   };
+}
+
+async function optionalReadFile(path: string): Promise<string | undefined> {
+  try {
+    return await readFile(path, 'utf8');
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      return undefined;
+    }
+    throw error;
+  }
 }
 
 async function pathExists(path: string): Promise<boolean> {

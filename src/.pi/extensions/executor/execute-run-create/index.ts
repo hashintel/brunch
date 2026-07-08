@@ -3,12 +3,19 @@ import { Type, type Static } from 'typebox';
 
 import { createRun, type RunCreateResult } from '../../../../executor/run.js';
 import { BRUNCH_EXECUTE_RUN_CREATE_TOOL } from '../../../../session/schema/tool-names.js';
+import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { buildCurrentProjectionForSpec } from '../current-projection.js';
 
 export { BRUNCH_EXECUTE_RUN_CREATE_TOOL } from '../../../../session/schema/tool-names.js';
 
 const ExecuteRunCreateParams = Type.Object({
   runId: Type.Optional(
     Type.String({ description: 'Optional deterministic run id. Defaults to a generated id.' }),
+  ),
+  mode: Type.Optional(
+    Type.Union([Type.Literal('greenfield'), Type.Literal('brownfield')], {
+      description: 'Execution mode expected for the selected plan file. Defaults to greenfield.',
+    }),
   ),
 });
 
@@ -21,6 +28,7 @@ interface ExecuteRunCreateDetails {
 
 export interface ExecuteRunCreateDeps {
   readonly specId: number;
+  readonly reads: Pick<GraphReaders, 'queryGraph'>;
 }
 
 export function createExecuteRunCreateTool(
@@ -37,9 +45,16 @@ export function createExecuteRunCreateTool(
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_run_create requires an active cwd');
       }
+      const { current } = await buildCurrentProjectionForSpec({
+        cwd,
+        specId: deps.specId,
+        reads: deps.reads,
+        mode: params.mode,
+      });
       const result = await createRun({
         cwd,
         specId: String(deps.specId),
+        current,
         ...(params.runId ? { runId: params.runId } : {}),
       });
       return {
@@ -49,9 +64,12 @@ export function createExecuteRunCreateTool(
             text: [
               `execute_run_create: ${result.status}`,
               `run status: ${result.runStatus}`,
-              `plan path: ${result.planPath}`,
+              'planPath' in result ? `plan path: ${result.planPath}` : undefined,
+              `graph lsn: ${current.source.graphLsn}`,
               `side effects: ${result.sideEffects.map((effect) => effect.kind).join(', ') || 'none'}`,
-            ].join('\n'),
+            ]
+              .filter((line): line is string => typeof line === 'string')
+              .join('\n'),
           },
         ],
         details: { result, sideEffects: result.sideEffects },

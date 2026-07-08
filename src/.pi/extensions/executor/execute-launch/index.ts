@@ -3,10 +3,17 @@ import { Type, type Static } from 'typebox';
 
 import { prepareLaunch, type LaunchResult } from '../../../../executor/launch.js';
 import { BRUNCH_EXECUTE_LAUNCH_TOOL } from '../../../../session/schema/tool-names.js';
+import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { buildCurrentProjectionForSpec } from '../current-projection.js';
 
 export { BRUNCH_EXECUTE_LAUNCH_TOOL } from '../../../../session/schema/tool-names.js';
 
 const ExecuteLaunchParams = Type.Object({
+  mode: Type.Optional(
+    Type.Union([Type.Literal('greenfield'), Type.Literal('brownfield')], {
+      description: 'Execution mode expected for the selected plan file. Defaults to greenfield.',
+    }),
+  ),
   planPath: Type.Optional(
     Type.String({
       description: 'Optional explicit plan file path. Defaults to .brunch/cook/specs/<specId>/plan.yaml.',
@@ -23,6 +30,7 @@ interface ExecuteLaunchDetails {
 
 export interface ExecuteLaunchDeps {
   readonly specId: number;
+  readonly reads: Pick<GraphReaders, 'queryGraph'>;
 }
 
 export function createExecuteLaunchTool(
@@ -39,9 +47,16 @@ export function createExecuteLaunchTool(
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_launch requires an active cwd');
       }
+      const { current } = await buildCurrentProjectionForSpec({
+        cwd,
+        specId: deps.specId,
+        reads: deps.reads,
+        mode: params.mode,
+      });
       const result = await prepareLaunch({
         cwd,
         specId: String(deps.specId),
+        current,
         ...(params.planPath ? { planPath: params.planPath } : {}),
       });
       return {
@@ -52,6 +67,7 @@ export function createExecuteLaunchTool(
               `execute_launch: ${result.status}`,
               `run status: ${result.runStatus}`,
               `plan path: ${result.planPath}`,
+              `graph lsn: ${current.source.graphLsn}`,
               'side effects: none',
             ].join('\n'),
           },
