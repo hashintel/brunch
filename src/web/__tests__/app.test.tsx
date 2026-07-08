@@ -7,6 +7,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import type { GraphSlice, NodeNeighborhood } from '../../graph/queries.js';
 import type { WorkspaceState } from '../../projections/workspace/workspace-state.js';
 import { BrunchWebApp, createBrunchWebRuntime } from '../app.js';
+import type { RunTraceIndex } from '../queries/execute.js';
+import type { RunListEntry } from '../queries/execute.js';
 import { graphNodeNeighborhoodQueryOptions, graphOverviewQueryOptions } from '../queries/graph.js';
 import { queryKeys } from '../query-keys.js';
 import type { WebSocketRpcClient, WebSocketRpcNotificationListener } from '../rpc-client.js';
@@ -122,6 +124,9 @@ function rpcClient(options?: {
   selectionState?: unknown;
   graphOverview?: GraphSlice;
   nodeNeighborhood?: NodeNeighborhood;
+  runTraceIndex?: RunTraceIndex;
+  runs?: readonly RunListEntry[];
+  runTraceIndexError?: Error;
   calls?: RpcCall[];
   listeners?: Set<WebSocketRpcNotificationListener>;
   close?: ReturnType<typeof vi.fn>;
@@ -146,6 +151,13 @@ function rpcClient(options?: {
       }
       if (method === 'graph.nodeNeighborhood') {
         return (options?.nodeNeighborhood ?? foundNeighborhood) as T;
+      }
+      if (method === 'execute.runTraceIndex') {
+        if (options?.runTraceIndexError) throw options.runTraceIndexError;
+        return (options?.runTraceIndex ?? { traces: [] }) as T;
+      }
+      if (method === 'execute.runs') {
+        return { runs: options?.runs ?? [] } as T;
       }
       throw new Error(`unexpected RPC method ${method}`);
     },
@@ -199,6 +211,33 @@ describe('Brunch React web app', () => {
     expect(secondSpecLink.getAttribute('href')).toBe('/spec/2');
   });
 
+  it('counts runs for the active spec on the workspace home page', async () => {
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        selectionState: populatedSelectionState,
+        runs: [
+          {
+            runId: 'run-spec-2',
+            specId: '2',
+            status: 'created',
+            presence: { worktree: false, reports: false, petri: false, promotion: false },
+          },
+          {
+            runId: 'run-spec-1',
+            specId: '1',
+            status: 'created',
+            presence: { worktree: false, reports: false, petri: false, promotion: false },
+          },
+        ],
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('2 executor runs')).toBeTruthy();
+    expect(screen.getByText('1 run')).toBeTruthy();
+  });
+
   it('renders the index without requesting session projections', async () => {
     const calls: RpcCall[] = [];
     const runtime = createBrunchWebRuntime({ rpcClient: rpcClient({ calls }) });
@@ -224,6 +263,78 @@ describe('Brunch React web app', () => {
     expect(screen.getByText('Spec A requirement')).toBeTruthy();
     expect(screen.getAllByText('Assumptions').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Requirements').length).toBeGreaterThan(0);
+  });
+
+  it('renders executor run badges on executable graph nodes', async () => {
+    window.history.pushState(null, '', '/spec/1');
+    const graphOverview = {
+      nodes: [
+        populatedGraphOverview.nodes[0]!,
+        {
+          id: 12,
+          specId: 1,
+          plane: 'intent',
+          kind: 'criterion',
+          kindOrdinal: 1,
+          title: 'Type root works',
+          basis: 'explicit',
+          settlement: 'settled',
+          createdAtLsn: 1,
+          updatedAtLsn: 1,
+        },
+      ],
+      edges: [],
+      lsn: 1,
+    } satisfies GraphSlice;
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        graphOverview,
+        runTraceIndex: {
+          traces: [
+            {
+              nodeCode: 'REQ1',
+              runId: 'run-1',
+              specId: '1',
+              runStatus: 'slice_completed',
+              sliceIds: ['task-1'],
+              failedSliceIds: ['task-1'],
+              completedSliceIds: ['task-1'],
+            },
+            {
+              nodeCode: 'AC1',
+              runId: 'run-1',
+              specId: '1',
+              runStatus: 'slice_completed',
+              sliceIds: ['task-1'],
+              failedSliceIds: ['task-1'],
+              completedSliceIds: ['task-1'],
+            },
+          ],
+        },
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    const runLinks = await screen.findAllByRole('link', { name: /task-1 failed/u });
+    expect(runLinks).toHaveLength(2);
+    expect(runLinks[0]?.getAttribute('href')).toBe('/runs/run-1');
+  });
+
+  it('keeps the spec graph usable when run trace projection is unavailable', async () => {
+    window.history.pushState(null, '', '/spec/1');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        graphOverview: populatedGraphOverview,
+        runTraceIndexError: new Error('Method not found'),
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('Knowledge Graph')).toBeTruthy();
+    expect(screen.getByText('Spec A requirement')).toBeTruthy();
+    expect(screen.queryByText('Something went wrong!')).toBeNull();
   });
 
   it('derives graph overview counts from GraphSlice arrays without count aliases', async () => {

@@ -1,9 +1,11 @@
+import { Link } from '@tanstack/react-router';
 import { type ReactNode, useRef, useState } from 'react';
 
 import type { GraphSlice } from '../../../graph/queries.js';
 import { NODE_KIND_METADATA, type NodeKind } from '../../../graph/schema/nodes.js';
 import { ChevronIcon, EyeIcon, EyeOffIcon } from '../../components/icons.js';
-import { NodeRefChip, planeAccent } from '../../components/node-card.js';
+import { NodeRefChip, nodeRefCode, planeAccent } from '../../components/node-card.js';
+import type { RunTraceEntry } from '../../queries/execute.js';
 import { buildKindSections, type KindSection } from './kind-display.js';
 
 type GraphNode = GraphSlice['nodes'][number];
@@ -15,7 +17,15 @@ type GraphNode = GraphSlice['nodes'][number];
 // affordances (none are wired in the web sidecar). Retains the header +
 // filter-bar + grouped-section shell. Accents are plane-based per D72-L.
 
-export function KnowledgeGraphView({ overview, specTitle }: { overview: GraphSlice; specTitle?: string }) {
+export function KnowledgeGraphView({
+  overview,
+  runTraces,
+  specTitle,
+}: {
+  overview: GraphSlice;
+  runTraces?: readonly RunTraceEntry[];
+  specTitle?: string;
+}) {
   const sections = buildKindSections(overview.nodes);
   const [hiddenKinds, setHiddenKinds] = useState<ReadonlySet<NodeKind>>(new Set());
   const sectionRefs = useRef(new Map<NodeKind, HTMLElement | null>());
@@ -115,6 +125,7 @@ export function KnowledgeGraphView({ overview, specTitle }: { overview: GraphSli
               <KindSectionBlock
                 key={section.kind}
                 section={section}
+                runTraces={runTraces ?? []}
                 registerRef={(el) => sectionRefs.current.set(section.kind, el)}
               />
             ))}
@@ -177,9 +188,11 @@ function KindChip({
 
 function KindSectionBlock({
   section,
+  runTraces,
   registerRef,
 }: {
   section: KindSection;
+  runTraces: readonly RunTraceEntry[];
   registerRef: (el: HTMLElement | null) => void;
 }) {
   const [open, setOpen] = useState(true);
@@ -200,7 +213,13 @@ function KindSectionBlock({
       {open && (
         <div className="flex flex-col gap-2">
           {section.nodes.map((node) => (
-            <ItemRow key={node.id} node={node} />
+            <ItemRow
+              key={node.id}
+              node={node}
+              runTraces={runTraces.filter(
+                (trace) => trace.nodeCode === nodeRefCode(node.kind, node.kindOrdinal),
+              )}
+            />
           ))}
         </div>
       )}
@@ -208,7 +227,7 @@ function KindSectionBlock({
   );
 }
 
-function ItemRow({ node }: { node: GraphNode }) {
+function ItemRow({ node, runTraces }: { node: GraphNode; runTraces: readonly RunTraceEntry[] }) {
   return (
     <article
       data-graph-row
@@ -219,8 +238,30 @@ function ItemRow({ node }: { node: GraphNode }) {
         <p className="text-ink text-sm">{node.title}</p>
       </div>
       {node.body ? <p className="text-sub mt-1.5 pl-1 text-xs leading-relaxed">{node.body}</p> : null}
+      {runTraces.length === 0 ? null : (
+        <div className="mt-2 flex flex-wrap gap-1.5 pl-1">
+          {runTraces.map((trace) => (
+            <Link
+              key={`${trace.runId}-${trace.nodeCode}`}
+              to="/runs/$runId"
+              params={{ runId: trace.runId }}
+              className="bg-wash text-sub hover:text-ink rounded px-1.5 py-0.5 font-mono text-[10px]"
+            >
+              {traceLabel(trace)}
+            </Link>
+          ))}
+        </div>
+      )}
     </article>
   );
+}
+
+function traceLabel(trace: RunTraceEntry): string {
+  if (trace.failedSliceIds.length === 1) return `${trace.failedSliceIds[0]} failed`;
+  if (trace.failedSliceIds.length > 1) return `${trace.failedSliceIds.length} failed slices`;
+  if (trace.sliceIds.length === 1)
+    return `${trace.sliceIds[0]} ${trace.completedSliceIds.length > 0 ? 'completed' : 'pending'}`;
+  return `${trace.sliceIds.length} slices`;
 }
 
 function EmptyState({

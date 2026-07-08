@@ -88,6 +88,7 @@ full RPC host:
     graph.nodeNeighborhood
     execute.runs
     execute.run
+    execute.runTraceIndex
   writes:
     workspace.activate
     session.triggerExchange
@@ -106,6 +107,7 @@ TUI-started web sidecar without live driver handle:
     graph.nodeNeighborhood
     execute.runs
     execute.run
+    execute.runTraceIndex
   rejected as method-not-found:
     workspace.activate
     session.triggerExchange
@@ -125,6 +127,7 @@ TUI-started web sidecar observer connection (/rpc), even when live driver handle
     graph.nodeNeighborhood
     execute.runs
     execute.run
+    execute.runTraceIndex
   rejected as method-not-found:
     workspace.activate
     session.triggerExchange
@@ -271,6 +274,12 @@ execute.run
   params: {runId}
   result: recorded run snapshot, per-requirement status, artifact-presence flags, reports tail, normalized worker/verify stream tails, optional raw Petri net
   source: .brunch/cook/runs/<runId> read projection; raw artifact paths, Pi event payloads, and subprocess handles do not cross the RPC boundary
+
+execute.runTraceIndex
+  access: read
+  params: {specId}
+  result: graph node code -> run/slice trace entries for requirements and criteria exercised by executor runs
+  source: .brunch/cook/runs/* plan/report projections; raw artifact paths do not cross the RPC boundary
 ```
 
 ## Product update notifications
@@ -290,6 +299,7 @@ brunch.updated:
       - graph.nodeNeighborhood
       - execute.runs
       - execute.run
+      - execute.runTraceIndex
     updates:
       - {topic, specId?, sessionId?, nodeId?, lsn?}
 ```
@@ -340,6 +350,7 @@ query key families:
   session.runtimeState     -> ['session.runtimeState', specId, sessionId]
   graph.overview           -> ['graph.overview', specId]
   graph.nodeNeighborhood   -> ['graph.nodeNeighborhood', specId, nodeId, hops]
+  execute.runTraceIndex    -> ['execute.runTraceIndex', specId]
 ```
 
 | RPC method | Web Query/Mutation mapping | Current web status | Invalidation source |
@@ -359,6 +370,13 @@ query key families:
 | `graph.nodeNeighborhood` | `graphNodeNeighborhoodQueryOptions(rpc, specId, nodeId, hops?)` | implemented query option; graph panel selection not yet wired | exact/prefix neighborhood invalidation when `nodeId` is present; broad topic fallback otherwise |
 | `execute.runs` | `executeRunsQueryOptions(rpc)` | implemented; run observer list route | exact `execute.runs` |
 | `execute.run` | `executeRunQueryOptions(rpc, runId)` | implemented; run detail route incl. reports + worker/verify stream tails | exact `execute.run(runId)` |
+| `execute.runTraceIndex` | `executeRunTraceIndexQueryOptions(rpc, specId)` | implemented; spec graph run badges | exact `execute.runTraceIndex(specId)` when graph/run evidence changes |
+| `execute.replanRecommendation` | target query helper | implemented; web-safe replanning diagnosis | none |
+| `execute.replanRegeneratePlan` | target mutation helper | implemented; stale early-run plan/provenance regeneration | exact `execute.runs` + `execute.run(runId)` on write |
+| `execute.replanStartNewRun` | target mutation helper | implemented; create linked superseding run | exact old/new `execute.run(runId)` + `execute.runs` on write |
+| `execute.replanAbandonRun` | target mutation helper | implemented; evidence-preserving abandon | exact `execute.runs` + `execute.run(runId)` on write |
+
+`execute.replanRetryCurrentStep` is deliberately **not** a public web RPC method: retrying a lifecycle step requires `ExecutionPorts` and executor runtime/model context, so it remains on the executor tool surface until a separate host-authority slice deliberately wires those ports into RPC/web-host context.
 
 Route/use pattern:
 

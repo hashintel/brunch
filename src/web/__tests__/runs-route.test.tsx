@@ -49,6 +49,7 @@ const runDetail: RunDetail = {
   agentStreamTotal: 0,
   verifyStreamTail: [],
   verifyStreamTotal: 0,
+  sliceProgress: [{ sliceId: 's1', progress: 'started -> requested' }],
   requirements: [],
 };
 
@@ -150,6 +151,26 @@ describe('run detail route', () => {
     expect(calls).toContainEqual({ method: 'execute.run', params: { runId: 'run-1' } });
   });
 
+  it('renders older run detail payloads that omit evidence arrays', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const sparseRun = {
+      runId: 'run-1',
+      specId: '1',
+      status: 'worktree_created',
+      presence: { worktree: true, reports: false, petri: false, promotion: false },
+      planPath: '/plan.yaml',
+    } as RunDetail;
+    const runtime = createBrunchWebRuntime({ rpcClient: rpcClient({ run: sparseRun }) });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('worktree_created')).toBeTruthy();
+    expect(screen.getByText('No requirements projected.')).toBeTruthy();
+    expect(screen.getByText('No worker stream yet.')).toBeTruthy();
+    expect(screen.getByText('No verify stream yet.')).toBeTruthy();
+    expect(screen.getAllByText(/0 of 0 events/u)).toHaveLength(3);
+  });
+
   it('renders the raw petri net payload in a collapsed block when present', async () => {
     window.history.pushState(null, '', '/runs/run-1');
     const runtime = createBrunchWebRuntime({
@@ -205,12 +226,73 @@ describe('run detail route', () => {
     expect(screen.getByText('Created src/types.ts')).toBeTruthy();
   });
 
+  it('collapses noisy worker stream repeats while keeping raw events available', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        run: {
+          ...runDetail,
+          agentStreamTail: [
+            {
+              event: 'agent_stream',
+              runId: 'run-1',
+              epicId: 'frontier-1',
+              sliceId: 'task-8',
+              sequence: 10,
+              kind: 'message',
+              message: 'Now I',
+            },
+            {
+              event: 'agent_stream',
+              runId: 'run-1',
+              epicId: 'frontier-1',
+              sliceId: 'task-8',
+              sequence: 11,
+              kind: 'message',
+              message: "Now I'll write the result file to report completion.",
+            },
+            {
+              event: 'agent_stream',
+              runId: 'run-1',
+              epicId: 'frontier-1',
+              sliceId: 'task-8',
+              sequence: 12,
+              kind: 'message',
+              message:
+                "Now I'll write the result file to report completion.\n\n**Slice task-8** (frontier-1)",
+            },
+          ],
+          agentStreamTotal: 3,
+        },
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(
+      await screen.findByText((_, element) =>
+        Boolean(
+          element?.tagName === 'P' &&
+          element.textContent ===
+            "Now I'll write the result file to report completion.\n\nSlice task-8 (frontier-1)",
+        ),
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText('x3')).toBeNull();
+    expect(screen.queryByText('Now I')).toBeNull();
+    expect(screen.getByText('Raw Worker stream events')).toBeTruthy();
+  });
+
   it('renders projected requirement statuses when present', async () => {
     window.history.pushState(null, '', '/runs/run-1');
     const runtime = createBrunchWebRuntime({
       rpcClient: rpcClient({
         run: {
           ...runDetail,
+          sliceProgress: [
+            { sliceId: 'task-1', progress: 'completed' },
+            { sliceId: 'task-2', progress: 'completed' },
+          ],
           requirements: [
             {
               requirementId: 'REQ1',
@@ -243,6 +325,42 @@ describe('run detail route', () => {
     expect(screen.getByText('passed')).toBeTruthy();
     expect(screen.getByText('unverified')).toBeTruthy();
     expect(screen.getByText('no criterion witness')).toBeTruthy();
+    expect(screen.getAllByRole('link', { name: 'view in graph' })[0]?.getAttribute('href')).toBe('/spec/1');
+    expect(screen.getAllByRole('link', { name: 'view slice log' })[0]?.getAttribute('href')).toBe(
+      '#slice-task-1',
+    );
+  });
+
+  it('links failed multi-slice requirements to the failed slice log', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        run: {
+          ...runDetail,
+          sliceProgress: [
+            { sliceId: 'task-1', progress: 'completed' },
+            { sliceId: 'task-2', progress: 'verify failed' },
+          ],
+          requirements: [
+            {
+              requirementId: 'REQ1',
+              content: 'Build the type root.',
+              status: 'failed',
+              sliceIds: ['task-1', 'task-2'],
+              completedSliceIds: ['task-1'],
+              failedSliceIds: ['task-2'],
+              missingVerificationSliceIds: [],
+              criterionIds: ['AC1'],
+            },
+          ],
+        },
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('REQ1')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'view slice log' }).getAttribute('href')).toBe('#slice-task-2');
   });
 
   it('renders normalized verify stream events when present', async () => {
@@ -280,6 +398,103 @@ describe('run detail route', () => {
 
     expect(await screen.findByText(/Verify stream — showing 2 of 2 events/u)).toBeTruthy();
     expect(screen.getByText('tests passed')).toBeTruthy();
+  });
+
+  it('renders verify failures first and strips ANSI escape codes', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        run: {
+          ...runDetail,
+          verifyStreamTail: [
+            {
+              event: 'verify_stream',
+              runId: 'run-1',
+              epicId: 'frontier-1',
+              sliceId: 'task-8',
+              sequence: 0,
+              kind: 'stdout',
+              message: '\u001b[32m✓\u001b[39m src/types.test.ts (3 tests)',
+            },
+            {
+              event: 'verify_stream',
+              runId: 'run-1',
+              epicId: 'frontier-1',
+              sliceId: 'task-8',
+              sequence: 1,
+              kind: 'stderr',
+              message:
+                '\u001b[41m FAIL \u001b[49m src/app/__tests__/brunch-tui.test.ts\nError: missing cli.js',
+            },
+          ],
+          verifyStreamTotal: 2,
+        },
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('Verify failures')).toBeTruthy();
+    expect(screen.getAllByText(/FAIL\s+src\/app\/__tests__\/brunch-tui.test.ts/u).length).toBeGreaterThan(0);
+    expect(document.body.textContent).not.toContain('\u001b[');
+    expect(screen.getByText('Raw Verify stream events')).toBeTruthy();
+  });
+
+  it('groups lifecycle reports by slice progression while preserving raw events', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        run: {
+          ...runDetail,
+          reportsTail: [
+            { event: 'slice_test_result', sliceId: 'task-1', status: 'failed' },
+            { event: 'slice_completed', sliceId: 'task-1' },
+          ],
+          reportsTotal: 6,
+          sliceProgress: [
+            {
+              sliceId: 'task-1',
+              progress: 'started -> requested -> agent -> verify failed -> completed',
+            },
+          ],
+        },
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('task-1')).toBeTruthy();
+    expect(screen.getByText('started -> requested -> agent -> verify failed -> completed')).toBeTruthy();
+    expect(screen.getByText('Raw events')).toBeTruthy();
+  });
+
+  it('omits slice-log links when no full-log slice progress anchor exists', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        run: {
+          ...runDetail,
+          sliceProgress: [],
+          requirements: [
+            {
+              requirementId: 'REQ1',
+              content: 'Build the type root.',
+              status: 'pending',
+              sliceIds: ['task-missing'],
+              completedSliceIds: [],
+              failedSliceIds: [],
+              missingVerificationSliceIds: [],
+              criterionIds: [],
+            },
+          ],
+        },
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('REQ1')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'view slice log' })).toBeNull();
   });
 
   it('omits the petri block when the payload is absent', async () => {

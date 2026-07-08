@@ -1,6 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -9,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { createGitHostPromotionPort } from '../git-host-promotion-port.js';
 
 const execFileAsync = promisify(execFile);
+const testScratchRoot = join(process.cwd(), 'tmp', 'git-host-promotion-port');
 
 async function git(cwd: string, args: readonly string[]): Promise<string> {
   const result = await execFileAsync('git', [...args], { cwd });
@@ -22,7 +22,8 @@ async function createHostAndRunRepos(prefix: string): Promise<{
   readonly baseSha: string;
   readonly commitSha: string;
 }> {
-  const root = await mkdtemp(join(tmpdir(), prefix));
+  await mkdir(testScratchRoot, { recursive: true });
+  const root = await mkdtemp(join(testScratchRoot, prefix));
   const hostDir = join(root, 'host');
   const worktreeDir = join(root, 'worktree');
   await git(root, ['init', hostDir]);
@@ -228,45 +229,53 @@ describe('createGitHostPromotionPort', () => {
   });
 
   it('applies a real promoted git patch to host files without staging or committing', async () => {
-    const { hostDir, worktreeDir, baseSha, commitSha } = await createHostAndRunRepos(
+    const { root, hostDir, worktreeDir, baseSha, commitSha } = await createHostAndRunRepos(
       'brunch-host-promotion-real-apply-',
     );
-    const beforeHead = await git(hostDir, ['rev-parse', 'HEAD']);
+    try {
+      const beforeHead = await git(hostDir, ['rev-parse', 'HEAD']);
 
-    const result = await createGitHostPromotionPort().apply({
-      cwd: hostDir,
-      worktreeDir,
-      baseSha,
-      commitSha,
-      changedFiles: ['host-proof.txt'],
-    });
+      const result = await createGitHostPromotionPort().apply({
+        cwd: hostDir,
+        worktreeDir,
+        baseSha,
+        commitSha,
+        changedFiles: ['host-proof.txt'],
+      });
 
-    expect(result).toEqual({ status: 'applied', changedFiles: ['host-proof.txt'] });
-    expect(await readFile(join(hostDir, 'host-proof.txt'), 'utf8')).toBe('promoted content\n');
-    expect(await git(hostDir, ['rev-parse', 'HEAD'])).toBe(beforeHead);
-    expect(await git(hostDir, ['diff', '--cached', '--name-only'])).toBe('');
-    expect(await git(hostDir, ['status', '--short'])).toBe('M host-proof.txt');
+      expect(result).toEqual({ status: 'applied', changedFiles: ['host-proof.txt'] });
+      expect(await readFile(join(hostDir, 'host-proof.txt'), 'utf8')).toBe('promoted content\n');
+      expect(await git(hostDir, ['rev-parse', 'HEAD'])).toBe(beforeHead);
+      expect(await git(hostDir, ['diff', '--cached', '--name-only'])).toBe('');
+      expect(await git(hostDir, ['status', '--short'])).toBe('M host-proof.txt');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   it('fails real patch check without mutating conflicting host files', async () => {
-    const { hostDir, worktreeDir, baseSha, commitSha } = await createHostAndRunRepos(
+    const { root, hostDir, worktreeDir, baseSha, commitSha } = await createHostAndRunRepos(
       'brunch-host-promotion-real-conflict-',
     );
-    await writeFile(join(hostDir, 'host-proof.txt'), 'conflicting host edit\n', 'utf8');
-    const beforeHostFile = await readFile(join(hostDir, 'host-proof.txt'), 'utf8');
-    const beforeHead = await git(hostDir, ['rev-parse', 'HEAD']);
+    try {
+      await writeFile(join(hostDir, 'host-proof.txt'), 'conflicting host edit\n', 'utf8');
+      const beforeHostFile = await readFile(join(hostDir, 'host-proof.txt'), 'utf8');
+      const beforeHead = await git(hostDir, ['rev-parse', 'HEAD']);
 
-    const result = await createGitHostPromotionPort().apply({
-      cwd: hostDir,
-      worktreeDir,
-      baseSha,
-      commitSha,
-      changedFiles: ['host-proof.txt'],
-    });
+      const result = await createGitHostPromotionPort().apply({
+        cwd: hostDir,
+        worktreeDir,
+        baseSha,
+        commitSha,
+        changedFiles: ['host-proof.txt'],
+      });
 
-    expect(result).toMatchObject({ status: 'failed' });
-    expect(await readFile(join(hostDir, 'host-proof.txt'), 'utf8')).toBe(beforeHostFile);
-    expect(await git(hostDir, ['rev-parse', 'HEAD'])).toBe(beforeHead);
-    expect(await git(hostDir, ['diff', '--cached', '--name-only'])).toBe('');
+      expect(result).toMatchObject({ status: 'failed' });
+      expect(await readFile(join(hostDir, 'host-proof.txt'), 'utf8')).toBe(beforeHostFile);
+      expect(await git(hostDir, ['rev-parse', 'HEAD'])).toBe(beforeHead);
+      expect(await git(hostDir, ['diff', '--cached', '--name-only'])).toBe('');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });

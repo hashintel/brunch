@@ -137,6 +137,7 @@ describe('readRunDetail', () => {
       runId: 'run-d',
       planPath: '/plan.yaml',
       reportsTotal: 3,
+      sliceProgress: [{ sliceId: 's1', progress: 'started -> requested' }],
       presence: { worktree: false, reports: true, petri: false, promotion: false },
     });
     expect(detail && 'reportsTail' in detail ? detail.reportsTail.map((e) => e.event) : []).toEqual([
@@ -197,15 +198,43 @@ describe('readRunDetail', () => {
   it('limits the reports tail while reporting the full total', async () => {
     const cwd = await fixtureCwd('brunch-observer-tail-limit-');
     const runDir = await writeRun(cwd, 'run-l', { status: 'run_completed' });
-    const lines = Array.from({ length: 5 }, (_, i) => `{"event":"e${i}"}`);
+    const lines = [
+      '{"event":"slice_started","sliceId":"task-1"}',
+      '{"event":"slice_execution_requested","sliceId":"task-1"}',
+      '{"event":"slice_agent_result","sliceId":"task-1"}',
+      '{"event":"slice_test_result","sliceId":"task-1","status":"failed"}',
+      '{"event":"slice_completed","sliceId":"task-1"}',
+    ];
     await writeFile(join(runDir, 'reports.jsonl'), `${lines.join('\n')}\n`, 'utf8');
 
     const detail = await readRunDetail(cwd, 'run-l', { reportsTailLimit: 2 });
 
     expect(detail).toMatchObject({ reportsTotal: 5 });
     expect(detail && 'reportsTail' in detail ? detail.reportsTail.map((e) => e.event) : []).toEqual([
-      'e3',
-      'e4',
+      'slice_test_result',
+      'slice_completed',
+    ]);
+    expect(detail && 'sliceProgress' in detail ? detail.sliceProgress : []).toEqual([
+      {
+        sliceId: 'task-1',
+        progress: 'started -> requested -> agent -> verify failed -> completed',
+      },
+    ]);
+  });
+
+  it('does not label non-terminal slice test results as passing verification', async () => {
+    const cwd = await fixtureCwd('brunch-observer-nonterminal-verify-');
+    const runDir = await writeRun(cwd, 'run-nonterminal', { status: 'test_result_ingested' });
+    await writeFile(
+      join(runDir, 'reports.jsonl'),
+      '{"event":"slice_started","sliceId":"task-1"}\n{"event":"slice_test_result","sliceId":"task-1","status":"running"}\n',
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-nonterminal');
+
+    expect(detail && 'sliceProgress' in detail ? detail.sliceProgress : []).toEqual([
+      { sliceId: 'task-1', progress: 'started' },
     ]);
   });
 
