@@ -7,6 +7,7 @@ import {
   assessRunRetryEligibility,
   type RunRetryEligibilityResult,
 } from '../../../../executor/run-retry-eligibility.js';
+import { readRunMetadata, runMetadataPath } from '../../../../executor/run.js';
 import { BRUNCH_EXECUTE_REPLAN_REGENERATE_PLAN_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
 
@@ -67,16 +68,18 @@ export function createExecuteReplanRegeneratePlanTool(
       }
 
       const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
+      const metadata = await readRunMetadata(runMetadataPath(cwd, params.runId));
+      const targetSpecId = Number(metadata?.specId ?? deps.specId);
       const mode = params.mode ?? 'greenfield';
       const projection = projectExecuteGraph({
-        specId: deps.specId,
+        specId: targetSpecId,
         mode,
         graphLsn: graph.lsn,
         nodes: graph.nodes,
         edges: graph.edges,
       });
       const current = {
-        specId: String(deps.specId),
+        specId: String(targetSpecId),
         mode,
         source: projection.source,
         checkStatus: projection.check.status,
