@@ -133,6 +133,9 @@ export async function createWorktree(args: {
   }
 
   if (metadata.substrate === 'empty_dir') {
+    if (!metadata.worktreeDir && (await pathExists(targetWorktreeDir))) {
+      await rm(targetWorktreeDir, { recursive: true, force: true });
+    }
     await mkdir(targetWorktreeDir, { recursive: true });
     const updated: RunMetadata = { ...metadata, status: 'worktree_created', worktreeDir: targetWorktreeDir };
     const metadataEffect = await persistRunMetadata(metadataPath, updated);

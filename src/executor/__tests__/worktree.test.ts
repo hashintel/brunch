@@ -122,6 +122,29 @@ describe('createWorktree', () => {
     });
   });
 
+  it('clears a stale empty directory substrate target before creating it', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-empty-substrate-stale-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await createRun({ cwd, specId: '42', runId: 'run-1', substrate: 'empty_dir' });
+    const worktreeDir = worktreeDirPath(cwd, 'run-1');
+    await mkdir(worktreeDir, { recursive: true });
+    await writeFile(join(worktreeDir, 'stale.txt'), 'leftover workspace', 'utf8');
+
+    const result = await createWorktree({
+      cwd,
+      runId: 'run-1',
+      gitWorktree: createFakeGitWorktreePort(async () => {
+        throw new Error('git should not run for empty_dir');
+      }),
+    });
+
+    expect(result.status).toBe('worktree_created');
+    expect(await pathExists(worktreeDir)).toBe(true);
+    expect(await pathExists(join(worktreeDir, 'stale.txt'))).toBe(false);
+  });
+
   it('does not downgrade an advanced empty directory substrate run on retry', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-empty-substrate-advanced-'));
     const planPath = planFilePath(cwd, '42');
