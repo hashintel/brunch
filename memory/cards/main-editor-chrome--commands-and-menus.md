@@ -9,7 +9,7 @@ Orientation:
 
 - Containing seam: the `brunch:` command registry (`src/.pi/extensions/commands/index.ts`), the orientation-juncture dialog (`src/.pi/extensions/session-orientation/`), and the startup workspace dialog (`src/.pi/components/workspace-dialog/`).
 - Frontier: `main-editor-chrome` (FE-1169) thread 5, plus thread 6's menu-styling halves (E1 pre-session theming, consult two-line styling). Lexicon (grill-settled): **menu** = top-level workspace/spec navigation; **consult** = orientation dialog.
-- Ordering: lands after `main-editor-chrome--mode-reactive-chrome.md` Card 1 (both write `commands/index.ts`; sequential, not parallel). Card 3 here depends on the exported ask re-present loop from `main-editor-chrome--ask-surface-ux.md` Card 2. Card 1's two-line row projection (ask-surface-ux file) is reused by Card 2 here.
+- Ordering: lands after `main-editor-chrome--mode-reactive-chrome.md` Card 1 (both write `commands/index.ts`; sequential, not parallel). **Judo-review resequencing (2026-07-08):** Card 2 additionally waits on `--keybinding-scope-fix.md` (footer-hint mechanism) and `--ask-step-refactor.md` (hoisted choice-line accumulator; decide shared-list-core vs third sibling component there first). Card 3 waits on `--ask-step-refactor.md`, which delivers the exported re-present loop (A2 landed it internal-only) and the shared comment step Card 3 composes.
 - Main open risk: the orientation juncture currently renders through a plain select (`runJunctureForContext` → `menu.items.map(label)`); restyling it means the juncture path takes a custom component — the esc→`dismissed` inert mapping (D109-L) must survive that swap exactly.
 
 Posture: proving (inherited from main-editor-chrome).

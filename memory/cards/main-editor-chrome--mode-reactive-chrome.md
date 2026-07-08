@@ -146,6 +146,12 @@ src/app/pi-extensions.ts                      ?  (only if registration must inst
   pre-existing full-suite-only `src/app/__tests__/git-host-promotion-port.test.ts` timeout documented in
   `HANDOFF.md`, while that file passes in isolation.
 
+**Card 1 built 2026-07-08 (`b11a4995`) — post-landing judo-review addendum:** the shipped keybinding
+mechanism (file-write to the shared `~/.pi/agent/keybindings.json`) and the alt+m removal + stale
+`opt-m` footer hint are superseded by `memory/cards/main-editor-chrome--keybinding-scope-fix.md`,
+which also owns updating Card 1's profile-assertion leaf to the in-process mechanism. Card 2 (border
+color) is unaffected but lands after that fix.
+
 Card 1 merged 2026-07-08 from `--second-look-mode-controls.md` Card 1 (superseded/deleted): its
 applyModeSwitchAndOrient reuse framing, J5/waitForIdle race mitigation via getCommandContext
 borrowing, no-auth I59-L leaf, pi-settings.ts as the binding home, and the blocked→ln-spike escape.
