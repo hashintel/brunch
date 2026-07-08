@@ -118,47 +118,62 @@ function RunDetailPage() {
     );
   }
 
-  const indicator = RUNNING_INDICATORS[run.status];
+  const detail = normalizeRunDetail(run);
+  const indicator = RUNNING_INDICATORS[detail.status];
   return (
     <PageColumn>
       <div className="flex flex-col gap-4">
         <header className="flex flex-wrap items-baseline gap-3">
-          <h1 className="text-hint font-mono text-xs">{run.runId}</h1>
-          <span className="text-ink text-sm">{run.status}</span>
+          <h1 className="text-hint font-mono text-xs">{detail.runId}</h1>
+          <span className="text-ink text-sm">{detail.status}</span>
           {indicator === undefined ? null : <span className="text-sub text-xs">{indicator}</span>}
         </header>
         <dl className="border-rule flex flex-col gap-1 rounded-xl border bg-white p-4 text-sm shadow-[var(--shadow-card)]">
-          <DetailRow label="spec">{run.specId}</DetailRow>
-          <DetailRow label="plan">{run.planPath}</DetailRow>
-          {run.activeSliceId === undefined ? null : (
-            <DetailRow label="active slice">{run.activeSliceId}</DetailRow>
+          <DetailRow label="spec">{detail.specId}</DetailRow>
+          <DetailRow label="plan">{detail.planPath}</DetailRow>
+          {detail.activeSliceId === undefined ? null : (
+            <DetailRow label="active slice">{detail.activeSliceId}</DetailRow>
           )}
-          {run.completedSliceIds === undefined || run.completedSliceIds.length === 0 ? null : (
-            <DetailRow label="completed slices">{run.completedSliceIds.join(', ')}</DetailRow>
+          {detail.completedSliceIds === undefined || detail.completedSliceIds.length === 0 ? null : (
+            <DetailRow label="completed slices">{detail.completedSliceIds.join(', ')}</DetailRow>
           )}
           <DetailRow label="artifacts">
-            <PresenceFlags presence={run.presence} />
+            <PresenceFlags presence={detail.presence} />
           </DetailRow>
         </dl>
-        <ReplanningPanel run={run} />
-        <RequirementsPanel run={run} />
+        <ReplanningPanel run={detail} />
+        <RequirementsPanel run={detail} />
         <StreamPanel
           label="Worker stream"
           emptyText="No worker stream yet."
-          events={run.agentStreamTail}
-          total={run.agentStreamTotal}
+          events={detail.agentStreamTail}
+          total={detail.agentStreamTotal}
         />
         <StreamPanel
           label="Verify stream"
           emptyText="No verify stream yet."
-          events={run.verifyStreamTail}
-          total={run.verifyStreamTotal}
+          events={detail.verifyStreamTail}
+          total={detail.verifyStreamTotal}
         />
-        <ReportsTimeline run={run} />
-        {run.petriNet === undefined ? null : <PetriRawBlock net={run.petriNet} />}
+        <ReportsTimeline run={detail} />
+        {detail.petriNet === undefined ? null : <PetriRawBlock net={detail.petriNet} />}
       </div>
     </PageColumn>
   );
+}
+
+function normalizeRunDetail(run: RunDetail): RunDetail {
+  return {
+    ...run,
+    reportsTail: run.reportsTail ?? [],
+    reportsTotal: run.reportsTotal ?? 0,
+    agentStreamTail: run.agentStreamTail ?? [],
+    agentStreamTotal: run.agentStreamTotal ?? 0,
+    verifyStreamTail: run.verifyStreamTail ?? [],
+    verifyStreamTotal: run.verifyStreamTotal ?? 0,
+    sliceProgress: run.sliceProgress ?? [],
+    requirements: run.requirements ?? [],
+  };
 }
 
 function ReplanningPanel({ run }: { run: RunDetail }) {
@@ -175,6 +190,7 @@ function ReplanningPanel({ run }: { run: RunDetail }) {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['execute.runs'] }),
         queryClient.invalidateQueries({ queryKey: ['execute.run', run.runId] }),
+        queryClient.invalidateQueries({ queryKey: ['execute.replanRecommendation', run.runId] }),
       ]);
     },
   });

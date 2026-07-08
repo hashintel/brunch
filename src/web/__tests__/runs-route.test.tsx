@@ -175,6 +175,26 @@ describe('run detail route', () => {
     });
   });
 
+  it('renders older run detail payloads that omit evidence arrays', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const sparseRun = {
+      runId: 'run-1',
+      specId: '1',
+      status: 'worktree_created',
+      presence: { worktree: true, reports: false, petri: false, promotion: false },
+      planPath: '/plan.yaml',
+    } as RunDetail;
+    const runtime = createBrunchWebRuntime({ rpcClient: rpcClient({ run: sparseRun }) });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('worktree_created')).toBeTruthy();
+    expect(screen.getByText('No requirements projected.')).toBeTruthy();
+    expect(screen.getByText('No worker stream yet.')).toBeTruthy();
+    expect(screen.getByText('No verify stream yet.')).toBeTruthy();
+    expect(screen.getAllByText(/0 of 0 events/u)).toHaveLength(3);
+  });
+
   it('renders replanning recommendation and disables executor-runtime retry', async () => {
     window.history.pushState(null, '', '/runs/run-1');
     const runtime = createBrunchWebRuntime({ rpcClient: rpcClient() });
