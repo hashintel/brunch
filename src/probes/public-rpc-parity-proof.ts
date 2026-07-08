@@ -313,24 +313,19 @@ export async function runPublicRpcParityProof(
     );
     if (!richOption) {
       throw new Error(
-        `Exchange ${details.exchange_id ?? 'unknown'} JSONL option details dropped content/rationale`,
+        `Exchange ${details.exchange_id ?? 'unknown'} JSONL ask option details dropped label/description`,
       );
     }
-    const optionContent = richOption.label;
-    const optionRationale = richOption.description;
-    if (optionContent === undefined || optionRationale === undefined) {
+    const optionLabel = richOption.label;
+    const optionDescription = richOption.description;
+    if (optionLabel === undefined || optionDescription === undefined) {
       throw new Error(
-        `Exchange ${details.exchange_id ?? 'unknown'} JSONL option details dropped content/rationale`,
+        `Exchange ${details.exchange_id ?? 'unknown'} JSONL ask option details dropped label/description`,
       );
     }
-    if (optionContent === richOption.label) {
+    if (!entry.content.includes(optionLabel) || !entry.content.includes(optionDescription)) {
       throw new Error(
-        `Exchange ${details.exchange_id ?? 'unknown'} JSONL option content collapsed into label`,
-      );
-    }
-    if (!entry.content.includes(optionContent) || !entry.content.includes(optionRationale)) {
-      throw new Error(
-        `Exchange ${details.exchange_id ?? 'unknown'} transcript markdown dropped option artifacts`,
+        `Exchange ${details.exchange_id ?? 'unknown'} transcript markdown dropped ask option label/description`,
       );
     }
   }
