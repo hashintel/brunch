@@ -95,6 +95,49 @@ describe('ExchangeDecisionPickerComponent', () => {
     expect(results).toEqual([{ id: 'second-id' }, undefined]);
   });
 
+  it('renders choice descriptions as dim second lines without blank rows for choices without descriptions', () => {
+    const recording = createRecordingTheme();
+    const picker = new ExchangeDecisionPickerComponent({
+      prompt: 'Pick the next move',
+      choices: [
+        { id: 'local', label: 'Local workbench', description: 'Keeps the proof close to fixtures.' },
+        { id: 'relay', label: 'Agent relay' },
+      ],
+      theme: recording.theme,
+      onDone: () => {},
+    });
+
+    const rendered = picker.render(80).join('\n');
+
+    expect(rendered).toContain('Local workbench');
+    expect(rendered).toContain('Keeps the proof close to fixtures.');
+    expect(renderingLine(rendered, 'Keeps the proof close to fixtures.')).toContain('    ');
+    expect(recording.colors).toContain('dim');
+    expect(rendered).toContain('  2. Agent relay');
+    expect(rendered).not.toContain('Agent relay\n│');
+  });
+
+  it('pages long two-line choice lists by rendered rows while keeping the active choice visible', () => {
+    const picker = new ExchangeDecisionPickerComponent({
+      prompt: 'Pick the next move',
+      choices: Array.from({ length: 12 }, (_, index) => ({
+        id: `option-${index}`,
+        label: `Option ${index}`,
+        description: `Description ${index}`,
+      })),
+      theme,
+      onDone: () => {},
+    });
+
+    for (let step = 0; step < 9; step += 1) picker.handleInput('j');
+    const rendered = picker.render(80).join('\n');
+
+    expect(rendered).toContain('Option 9');
+    expect(rendered).toContain('Description 9');
+    expect(rendered).not.toContain('Option 0');
+    expect(rendered).toContain('▐');
+  });
+
   it('navigates and commits under kitty keyboard-protocol encodings (Ghostty regression)', () => {
     const results: Array<{ readonly id: string } | undefined> = [];
     const picker = new ExchangeDecisionPickerComponent({
@@ -166,6 +209,48 @@ describe('MultiChoicePickerComponent bordered treatment', () => {
     expect(results).toEqual([{ choices: [{ id: 'speed', label: 'Move quickly' }] }]);
   });
 
+  it('renders choice descriptions below labels with checkbox column preserved', () => {
+    const recording = createRecordingTheme();
+    const picker = new MultiChoicePickerComponent({
+      prompt: 'Pick priorities',
+      choices: [
+        { id: 'speed', label: 'Move quickly', description: 'Useful when the path is already settled.' },
+        { id: 'safety', label: 'Keep the transcript safe' },
+      ],
+      theme: recording.theme,
+      onDone: () => {},
+    });
+
+    const rendered = picker.render(80).join('\n');
+    const description = renderingLine(rendered, 'Useful when the path is already settled.');
+
+    expect(rendered).toContain('Move quickly');
+    expect(description).toContain('    Useful when the path is already settled.');
+    expect(recording.colors).toContain('dim');
+    expect(rendered).toContain('Keep the transcript safe');
+  });
+
+  it('pages long two-line checkbox lists by rendered rows while keeping the active choice visible', () => {
+    const picker = new MultiChoicePickerComponent({
+      prompt: 'Pick priorities',
+      choices: Array.from({ length: 12 }, (_, index) => ({
+        id: `option-${index}`,
+        label: `Option ${index}`,
+        description: `Description ${index}`,
+      })),
+      theme,
+      onDone: () => {},
+    });
+
+    for (let step = 0; step < 9; step += 1) picker.handleInput('j');
+    const rendered = picker.render(80).join('\n');
+
+    expect(rendered).toContain('Option 9');
+    expect(rendered).toContain('Description 9');
+    expect(rendered).not.toContain('Option 0');
+    expect(rendered).toContain('▐');
+  });
+
   it('toggles and commits under kitty keyboard-protocol encodings (Ghostty regression)', () => {
     const results: unknown[] = [];
     const picker = new MultiChoicePickerComponent({
@@ -186,3 +271,9 @@ describe('MultiChoicePickerComponent bordered treatment', () => {
     expect(results).toEqual([{ choices: [{ id: 'safety', label: 'Keep the transcript safe' }] }]);
   });
 });
+
+function renderingLine(rendered: string, needle: string): string {
+  const line = rendered.split('\n').find((candidate) => candidate.includes(needle));
+  if (!line) throw new Error(`Unable to find rendered line containing ${needle}`);
+  return line;
+}

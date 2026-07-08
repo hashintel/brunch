@@ -1,5 +1,6 @@
 import { type Component, Key, matchesKey } from '@earendil-works/pi-tui';
 
+import { describedChoiceLines } from './choice-row.js';
 import { renderExchangeMarkdownBodyLines } from './exchange-markdown-body.js';
 import {
   projectRoundedBox,
@@ -13,6 +14,7 @@ import { safeLines, type LabTheme } from './tui-lab/index.js';
 export interface ExchangeDecisionPickerChoice {
   readonly id: string;
   readonly label: string;
+  readonly description?: string;
 }
 
 export interface ExchangeDecisionPickerResult {
@@ -40,8 +42,8 @@ export class ExchangeDecisionPickerComponent implements Component {
   render(width: number): string[] {
     const safeWidth = Math.max(16, width);
     const contentWidth = Math.max(1, roundedBoxInnerWidth(safeWidth, BOX_PADDING));
-    const choiceLines = this.options.choices.map((choice, index) => this.#choiceLine(choice, index));
-    const choiceWindow = projectScrollViewport(choiceLines, MAX_VISIBLE_CHOICES, this.#activeIndex);
+    const { choiceLines, activeLineIndex } = this.#choiceLines();
+    const choiceWindow = projectScrollViewport(choiceLines, MAX_VISIBLE_CHOICES, activeLineIndex);
     const bodyLines = renderExchangeMarkdownBodyLines(this.options.body, this.options.theme, contentWidth);
     const stacked = stackSections([
       [this.options.theme.fg('accent', this.options.prompt)],
@@ -92,12 +94,27 @@ export class ExchangeDecisionPickerComponent implements Component {
 
   invalidate(): void {}
 
-  #choiceLine(choice: ExchangeDecisionPickerChoice, index: number): string {
+  #choiceLines(): { readonly choiceLines: readonly string[]; readonly activeLineIndex: number } {
+    const choiceLines: string[] = [];
+    let activeLineIndex = 0;
+    this.options.choices.forEach((choice, index) => {
+      if (index === this.#activeIndex) activeLineIndex = choiceLines.length;
+      choiceLines.push(...this.#choiceLine(choice, index));
+    });
+    return { choiceLines, activeLineIndex };
+  }
+
+  #choiceLine(choice: ExchangeDecisionPickerChoice, index: number): readonly string[] {
     const active = index === this.#activeIndex;
     const marker = active ? this.options.theme.fg('accent', '›') : ' ';
     const ordinal = `${index + 1}.`;
     const label = active ? (this.options.theme.bold?.(choice.label) ?? choice.label) : choice.label;
-    return `${marker} ${ordinal} ${label}`;
+    return describedChoiceLines({
+      firstLine: `${marker} ${ordinal} ${label}`,
+      continuationIndent: 2 + ordinal.length + 1,
+      choice,
+      theme: this.options.theme,
+    });
   }
 
   #move(delta: number): void {

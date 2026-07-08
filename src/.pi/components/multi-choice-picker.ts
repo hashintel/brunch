@@ -1,5 +1,6 @@
 import { type Component, Key, matchesKey } from '@earendil-works/pi-tui';
 
+import { describedChoiceLines } from './choice-row.js';
 import { renderExchangeMarkdownBodyLines } from './exchange-markdown-body.js';
 import {
   projectRoundedBox,
@@ -7,11 +8,13 @@ import {
   stackSections,
   type RoundedBoxPadding,
 } from './rounded-box.js';
+import { projectScrollViewport } from './scroll-viewport.js';
 import { safeLines, type LabTheme } from './tui-lab/index.js';
 
 export interface MultiChoicePickerChoice {
   readonly id: string;
   readonly label: string;
+  readonly description?: string;
 }
 
 export interface MultiChoicePickerResult {
@@ -35,6 +38,7 @@ export interface MultiChoicePickerOptions {
 }
 
 const BOX_PADDING: RoundedBoxPadding = { x: 2, top: 1, bottom: 1 };
+const MAX_VISIBLE_CHOICE_LINES = 8;
 
 export class MultiChoicePickerComponent implements Component {
   #activeIndex = 0;
@@ -48,20 +52,27 @@ export class MultiChoicePickerComponent implements Component {
     const contentWidth = Math.max(1, roundedBoxInnerWidth(safeWidth, BOX_PADDING));
     const { theme } = this.options;
     const bodyLines = renderExchangeMarkdownBodyLines(this.options.body, theme, contentWidth);
+    const { choiceLines, activeLineIndex } = this.#choiceLines();
+    const choiceWindow = projectScrollViewport(choiceLines, MAX_VISIBLE_CHOICE_LINES, activeLineIndex);
     const stacked = stackSections([
       [theme.fg('accent', this.options.prompt)],
       bodyLines,
-      this.options.choices.map((choice, index) => this.#choiceLine(choice, index)),
+      [...choiceWindow.lines],
       [
         ...(this.#warning ? [theme.fg('warning', this.#warning)] : []),
         theme.fg('dim', '↑/↓ move · space toggles · enter commits · esc/q cancels'),
       ],
     ]);
     const lines = safeLines(stacked.lines, contentWidth);
+    const choiceStart = stacked.offsets[2] ?? 0;
+    const thumbRows = new Set(
+      choiceWindow.isThumbRow.flatMap((isThumb, index) => (isThumb ? [choiceStart + index] : [])),
+    );
     const box = projectRoundedBox(
       lines,
       {
         padding: BOX_PADDING,
+        thumbRows,
         ...(this.options.topLabel ? { topLabel: this.options.topLabel } : {}),
         ...(this.options.bottomLabel ? { bottomLabel: this.options.bottomLabel } : {}),
       },
@@ -102,14 +113,29 @@ export class MultiChoicePickerComponent implements Component {
 
   invalidate(): void {}
 
-  #choiceLine(choice: MultiChoicePickerChoice, index: number): string {
+  #choiceLines(): { readonly choiceLines: readonly string[]; readonly activeLineIndex: number } {
+    const choiceLines: string[] = [];
+    let activeLineIndex = 0;
+    this.options.choices.forEach((choice, index) => {
+      if (index === this.#activeIndex) activeLineIndex = choiceLines.length;
+      choiceLines.push(...this.#choiceLine(choice, index));
+    });
+    return { choiceLines, activeLineIndex };
+  }
+
+  #choiceLine(choice: MultiChoicePickerChoice, index: number): readonly string[] {
     const { theme } = this.options;
     const active = index === this.#activeIndex;
     const selected = this.#selected.has(choice.id);
     const marker = active ? theme.fg('accent', '›') : ' ';
     const checkbox = selected ? theme.fg('success', '[x]') : theme.fg('dim', '[ ]');
     const label = selected ? (theme.bold?.(choice.label) ?? choice.label) : choice.label;
-    return `${marker} ${checkbox} ${label}`;
+    return describedChoiceLines({
+      firstLine: `${marker} ${checkbox} ${label}`,
+      continuationIndent: 6,
+      choice,
+      theme,
+    });
   }
 
   #toggleActive(): void {

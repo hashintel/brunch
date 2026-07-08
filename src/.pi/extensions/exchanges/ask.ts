@@ -79,9 +79,13 @@ type CollectableAskParams = StandaloneAskParams | ContinuationCollectParams;
 
 function choicesFromParams(
   params: CollectableAskParams,
-): readonly { readonly id: string; readonly label: string }[] {
+): readonly { readonly id: string; readonly label: string; readonly description?: string }[] {
   return [
-    ...(params.options ?? []),
+    ...(params.options?.map((option) => ({
+      id: option.id,
+      label: option.label,
+      ...(option.description ? { description: option.description } : {}),
+    })) ?? []),
     ...(params.allowOther ? [{ id: 'other', label: 'Other' }] : []),
     ...(params.allowNone ? [{ id: 'none', label: 'None' }] : []),
   ];
@@ -287,7 +291,11 @@ async function collectMultiChoiceViaEditor(
     {
       exchangeId: params.exchangeId,
       prompt: params.body,
-      choices: params.options!.map((option) => ({ id: option.id, label: option.label })),
+      choices: params.options!.map((option) => ({
+        id: option.id,
+        label: option.label,
+        ...(option.description ? { description: option.description } : {}),
+      })),
       options: params.options!.map((option) => ({
         id: option.id,
         content: option.label,
@@ -493,7 +501,7 @@ async function collectContinuingReview(
       createExchangeDecisionPickerComponent({
         prompt: 'Review',
         body: params.body,
-        choices: params.options,
+        choices: choicesFromParams(params),
         theme,
         onDone: (value) => done(value as { readonly id: ReviewDecision } | undefined),
       }),

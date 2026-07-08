@@ -29,6 +29,7 @@ components/
 ├── brunch-identity.ts
 ├── brunch-version.ts
 ├── cards.ts
+├── choice-row.ts              shared described-option row projection for picker/menu affordances
 ├── chrome-header.ts
 ├── editor-lines.ts            shared pi-tui Editor border/rule stripping helpers for boxed
 │                                editor surfaces

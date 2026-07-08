@@ -120,6 +120,19 @@ function customMultiPick(indexes: readonly number[]) {
   });
 }
 
+function customPickWithRenderedText(index: number, expectedText: string) {
+  return vi.fn(async (factory: (...args: unknown[]) => unknown) => {
+    let picked: unknown;
+    const component = factory(null, theme, null, (result: unknown) => {
+      picked = result;
+    }) as TestPickerComponent;
+    expect(component.render(80).join('\n')).toContain(expectedText);
+    for (let step = 0; step < index; step += 1) component.handleInput('\x1b[B');
+    component.handleInput('\r');
+    return picked;
+  });
+}
+
 function customCancel() {
   return vi.fn(async (factory: (...args: unknown[]) => unknown) => {
     let picked: unknown = 'not-cancelled';
@@ -463,6 +476,51 @@ describe('structured exchange ask tools', () => {
       answered: { choice: { id: 'none', label: 'None', kind: 'none' }, comment: 'No listed option fits.' },
     });
     expect(noInput.details).toMatchObject({ unavailable: {} });
+  });
+
+  it('carries option descriptions into standalone and declared-continuation picker choices', async () => {
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
+    const standalone = await ask.execute(
+      'ask-choice-description',
+      {
+        exchangeId: 'choice-description',
+        body: 'Select one option.',
+        options: [
+          {
+            id: 'local-workbench',
+            label: 'Local workbench',
+            description: 'Keeps the proof close to fixtures.',
+          },
+        ],
+      },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom: customPickWithRenderedText(0, 'Keeps the proof close to fixtures.') },
+      } as never,
+    );
+
+    const candidates = await presentResult(PRESENT_CANDIDATES_TOOL, candidateParams());
+    const continuation = await ask.execute(
+      'ask-candidate-continuation-description',
+      { continues: 'candidate-direction' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom: customPickWithRenderedText(0, 'Choose this for the POC.') },
+        sessionManager: { getBranch: () => branchWith(candidates.details) },
+      } as never,
+    );
+
+    expect(standalone.details).toMatchObject({
+      answered: { choice: { id: 'local-workbench', label: 'Local workbench', kind: 'listed' } },
+    });
+    expect(continuation.details).toMatchObject({
+      answered: { choice: { id: 'local-workbench', label: 'Local workbench', kind: 'listed' } },
+    });
   });
 
   it('collects standalone multi-choice asks through custom UI and editor envelope fallback', async () => {

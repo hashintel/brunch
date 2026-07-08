@@ -18,7 +18,7 @@ Confirmed code facts (2026-07-08): `choicesFromParams` (ask.ts) maps options to 
 
 ---
 
-## Card 1 (light) — two-line option rows restore description sub-text · status: next
+## Card 1 (light) — two-line option rows restore description sub-text · status: done
 
 ### Objective
 
@@ -77,7 +77,7 @@ src/dev/component-preview/registry.ts         ~  (mixed-description preview data
 
 ---
 
-## Card 2 (full) — hierarchical esc: root cancels, nested steps go back · status: pending (after Card 1)
+## Card 2 (full) — hierarchical esc: root cancels, nested steps go back · status: next
 
 ### Target Behavior
 

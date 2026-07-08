@@ -144,9 +144,17 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
           new ExchangeDecisionPickerComponent({
             prompt: 'Which direction should we take?',
             choices: [
-              { id: 'local-workbench', label: 'Local workbench' },
+              {
+                id: 'local-workbench',
+                label: 'Local workbench',
+                description: 'Keeps the evidence close to reusable fixtures.',
+              },
               { id: 'agent-relay', label: 'Agent relay' },
-              { id: 'defer', label: 'Defer until capture is settled' },
+              {
+                id: 'defer',
+                label: 'Defer until capture is settled',
+                description: 'Use when the current answer would churn soon.',
+              },
             ],
             theme: previewTheme,
             onDone: done,
@@ -168,6 +176,9 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
             choices: Array.from({ length: 20 }, (_, index) => ({
               id: `candidate-${index + 1}`,
               label: `Candidate framing ${index + 1} — option label with realistic width`,
+              ...(index % 2 === 0
+                ? { description: `Rationale ${index + 1} keeps the two-line scroll window honest.` }
+                : {}),
             })),
             theme: previewTheme,
             onDone: done,
@@ -189,9 +200,17 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
             prompt: 'Which direction should we take?',
             body: RICH_ASK_BODY,
             choices: [
-              { id: 'local-workbench', label: 'Local workbench' },
+              {
+                id: 'local-workbench',
+                label: 'Local workbench',
+                description: 'Best when a fixture can witness the behavior.',
+              },
               { id: 'agent-relay', label: 'Agent relay' },
-              { id: 'defer', label: 'Defer until capture is settled' },
+              {
+                id: 'defer',
+                label: 'Defer until capture is settled',
+                description: 'Avoids locking the wrong contract too early.',
+              },
             ],
             topLabel: '[ Ask ]',
             bottomLabel: '"FE-1164"',
@@ -227,9 +246,13 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
           new MultiChoicePickerComponent({
             prompt: 'Which follow-ups matter?',
             choices: [
-              { id: 'scope', label: 'Narrow the scope' },
+              {
+                id: 'scope',
+                label: 'Narrow the scope',
+                description: 'Collapse the work to the next buildable slice.',
+              },
               { id: 'risk', label: 'Flag the risk' },
-              { id: 'defer', label: 'Defer to later' },
+              { id: 'defer', label: 'Defer to later', description: 'Name it without pulling it forward.' },
             ],
             theme: previewTheme,
             onDone: done,
@@ -251,9 +274,13 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
             prompt: 'Which follow-ups matter?',
             body: RICH_ASK_BODY,
             choices: [
-              { id: 'scope', label: 'Narrow the scope' },
+              {
+                id: 'scope',
+                label: 'Narrow the scope',
+                description: 'Good when the frontier is real but too wide.',
+              },
               { id: 'risk', label: 'Flag the risk' },
-              { id: 'defer', label: 'Defer to later' },
+              { id: 'defer', label: 'Defer to later', description: 'Keep the session moving.' },
             ],
             topLabel: '[ Ask ]',
             bottomLabel: '"FE-1164"',
