@@ -284,6 +284,40 @@ describe('Brunch menu command', () => {
     );
   });
 
+  it('derives /brunch:consult (J6) menu from Execute runtime state', async () => {
+    const harness = commandHarness({
+      orientation: true,
+      customAvailable: false,
+      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'project_plan')!.label,
+    });
+    harness.ctx.hasUI = true;
+    harness.entries.push({
+      type: 'custom',
+      customType: BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
+      data: {
+        schemaVersion: 1,
+        reason: 'switch',
+        source: 'user',
+        state: { schemaVersion: 1, operationalMode: 'execute' },
+      },
+    });
+
+    await harness.commands.get(BRUNCH_CONSULT_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.selectCalls).toEqual([
+      {
+        title: CODE_SESSION_ORIENTATION_MENU.title,
+        options: CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.label),
+      },
+    ]);
+    expect(harness.entries).toContainEqual(
+      expect.objectContaining({
+        customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
+        data: { schemaVersion: 1, choice: 'project_plan', trigger: 'consult' },
+      }),
+    );
+  });
+
   it('reports nothing to continue when there is no incomplete structured exchange', async () => {
     const harness = commandHarness();
 
