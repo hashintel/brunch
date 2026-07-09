@@ -32,15 +32,26 @@ type AskProjectionInput =
   | (BaseAskProjectionInput & { readonly status: 'cancelled'; readonly message?: string })
   | (BaseAskProjectionInput & { readonly status: 'unavailable'; readonly message: string });
 
+const OTHER_ELABORATION_PROMPT = 'Describe your answer';
+
 export function askQuestionEcho(params: {
   readonly body: string;
   readonly options?: AskQuestionEcho['options'] | undefined;
   readonly multiple?: boolean | undefined;
+  readonly commentPrompt?: string | undefined;
+  readonly otherPrompt?: string | undefined;
+  readonly allowOther?: boolean | undefined;
 }): AskQuestionEcho {
   return {
     body: params.body,
     ...(params.options && params.options.length > 0 ? { options: params.options } : {}),
     ...(params.multiple ? { multiple: true } : {}),
+    ...(params.commentPrompt ? { commentPrompt: params.commentPrompt } : {}),
+    ...(params.otherPrompt
+      ? { otherPrompt: params.otherPrompt }
+      : params.allowOther
+        ? { otherPrompt: OTHER_ELABORATION_PROMPT }
+        : {}),
   };
 }
 
