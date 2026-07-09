@@ -8,7 +8,7 @@ import {
   type PresentCandidatesParams,
 } from '../../../exchanges/schemas/index.js';
 import { ExchangeCandidatesResultComponent } from '../../components/exchange-candidates-result.js';
-import { piSchema } from './pi-schema.js';
+import { toolParameters } from '../shared/tool-schema.js';
 import { renderDetailsOrMarkdownResult } from './shared/details-rendering.js';
 import { renderEmptyStructuredExchangeCall, renderMarkdownResult } from './shared/markdown.js';
 
@@ -26,7 +26,7 @@ export const presentCandidatesTool = defineTool({
     'Call present_candidates and then ask with continues in the same turn; do not repeat or edit the candidate options.',
     'Do not add fan_in_mode, scalar ratings, grounding prose, caveats, or graph writes to this presentation.',
   ],
-  parameters: piSchema(zPresentCandidatesParams),
+  parameters: toolParameters(zPresentCandidatesParams),
   executionMode: 'sequential',
 
   async execute(_toolCallId, rawParams) {

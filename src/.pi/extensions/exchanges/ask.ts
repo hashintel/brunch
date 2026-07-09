@@ -19,8 +19,8 @@ import { ExchangeAnswerEditorComponent } from '../../components/exchange-answer-
 import { createExchangeDecisionPickerComponent } from '../../components/exchange-decision-picker.js';
 import { operationalModeBorderColor } from '../../components/mode-border-theme.js';
 import { createMultiChoicePickerComponent } from '../../components/multi-choice-picker.js';
+import { toolParameters } from '../shared/tool-schema.js';
 import { collectContinuingAsk } from './ask/continuation.js';
-import { piSchema } from './pi-schema.js';
 import { requestChoicesViaEditor } from './shared/choices-editor.js';
 import { renderEmptyStructuredExchangeCall, renderMarkdownResult } from './shared/markdown.js';
 import {
@@ -484,7 +484,7 @@ export function createAskTool(answerBroker?: LiveExchangeAwaiter) {
       'The ask result is the durable transcript artifact; renderCall is intentionally non-semantic.',
       'For offer continuations, call ask with continues only; the runtime fills body/options from the present_* declaration.',
     ],
-    parameters: piSchema(zAskParams),
+    parameters: toolParameters(zAskParams),
     executionMode: 'sequential',
 
     async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
