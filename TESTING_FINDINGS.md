@@ -82,7 +82,7 @@ Concern: digest → ask repetition and ask markdown/result fidelity.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §`present_digest` flow, §mapping the digest.
 Observation: digest content is repeated inside the `ask` UI; ask rendering appears markdown-limited or differently formatted; JSON appeared in the TUI after an ask invocation; optional-comment prompts are not preserved with the submitted comment; “Something else” duplicated the built-in Other affordance; nested esc works but help text does not say so; nested states use plain bordered editors rather than the full rounded/mode-reactive box.
 Expected: large present-then-ask flows should keep pretext outside the ask; result rendering should preserve enough prompt framing for comments; custom “Something else” options should be discouraged or normalized against Other; nested ask states should explain esc/back behavior and share the intended chrome.
-Disposition: scoped exchange-rendering/ask-UX batch; JSON leak may need diagnose first.
+Disposition: WR4 built the ask comment-framing echo: `commentPrompt` and Other-elaboration framing now persist into standalone ask details and model-facing formatted text. Remaining A6 facets stay split across later rows: conduct/repetition/Other-option guidance in WR5, raw JSON leak diagnosis in WR6, and nested chrome/help text outside this row unless pulled by an owned seam.
 
 #### A7 · capture logic · high · spec/plan needed
 

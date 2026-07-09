@@ -9,10 +9,13 @@ collection, and `renderResult` (validated details-backed rich renderers with
 Markdown pass-through fallback where a family opts in, per D104-L). This
 directory formats returned text that becomes tool-result context.
 
-`ask` is the active terminal formatter for standalone questions. Offer
-continuations are collected by the registered `ask` tool, but their durable
-result details intentionally keep the existing `request_choice` / `request_review`
-discriminants so capture/sweep readers keep their semantic vocabulary.
+`ask` is the active terminal formatter for standalone questions. It renders the
+question body, answer, selected/listed options, and optional comment/Other
+framing prompts from the durable question echo so recorded comments remain
+legible without the transient UI state. Offer continuations are collected by the
+registered `ask` tool, but their durable result details intentionally keep the
+existing `request_choice` / `request_review` discriminants so capture/sweep
+readers keep their semantic vocabulary.
 
 `present_candidates` uses persisted-content comparison lines rather than
 card-like sections: each candidate is an h2 with labeled bold rubric lines. The
