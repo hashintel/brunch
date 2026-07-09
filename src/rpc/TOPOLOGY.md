@@ -249,7 +249,7 @@ session.answerExchange
   params: {exchangeId, answer}
   result: {status: completed}
   errors: -32601 on ordinary observers or when no broker handle is attached; -32008 when no matching live exchange is pending
-  effects: resolves the in-process request_response promise; Pi then appends the provider-legal tool result and continues the same live turn, whose AgentSessionEvents stream as brunch.sessionEvent frames and reduce to Pi JSONL transcript truth
+  effects: resolves the in-process ask answer promise; Pi then appends the provider-legal tool result and continues the same live turn, whose AgentSessionEvents stream as brunch.sessionEvent frames and reduce to Pi JSONL transcript truth
   boundary: not a transcript append API and not a second exchange store; review-over-RPC and terminal-vs-web answer racing are separate follow-ons
 
 graph.overview

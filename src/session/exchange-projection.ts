@@ -226,9 +226,10 @@ function rangeFor(ids: string[]): EntryRange {
 }
 
 function requestClosesPresent(request: RequestDetails, present: PresentDetails): boolean {
+  if (request.exchange_id !== present.exchange_id) return false;
+  if (request.tool_meta.curr === 'ask') return true;
   return (
     'prev' in request.tool_meta &&
-    request.exchange_id === present.exchange_id &&
     request.tool_meta.prev === present.tool_meta.curr &&
     expectedRequestDetailTool(present) === request.tool_meta.curr
   );

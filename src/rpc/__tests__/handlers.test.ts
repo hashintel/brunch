@@ -1178,7 +1178,8 @@ describe('JSON-RPC handlers', () => {
 
     const sessionText = await readFile(workspace.session.file, 'utf8');
     expect(sessionText).toContain('brunch.structured_exchange.request');
-    expect(sessionText).toContain('request_choice');
+    expect(sessionText).toContain('"tool_meta":{"curr":"ask","next":"capture_choice"}');
+    expect(sessionText).not.toContain('"prev":"present_question","curr":"request_choice"');
     expect(sessionText).toContain('This is a greenfield product.');
   });
 

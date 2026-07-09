@@ -39,7 +39,7 @@ export function askQuestionEcho(params: {
 }): AskQuestionEcho {
   return {
     body: params.body,
-    ...(params.options ? { options: params.options } : {}),
+    ...(params.options && params.options.length > 0 ? { options: params.options } : {}),
     ...(params.multiple ? { multiple: true } : {}),
   };
 }

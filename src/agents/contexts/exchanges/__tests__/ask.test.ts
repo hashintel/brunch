@@ -65,6 +65,18 @@ const branchMatrix = [
 ] as const;
 
 describe('ask formatter', () => {
+  it('omits empty question option arrays so echoes satisfy their schema', () => {
+    const details = projectAsk({
+      exchangeId: 'empty-options',
+      status: 'answered',
+      question: askQuestionEcho({ body: 'Name the next move.', options: [] }),
+      answer: 'Keep it narrow.',
+    });
+
+    expect(details.question).toEqual({ body: 'Name the next move.' });
+    expect(() => zAskDetails.parse(details)).not.toThrow();
+  });
+
   it('produces schema-valid details for every projected ask outcome branch', () => {
     for (const { details } of branchMatrix) {
       expect(() => zAskDetails.parse(details)).not.toThrow();

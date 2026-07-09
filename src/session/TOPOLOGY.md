@@ -63,8 +63,8 @@ plus the coordination logic for workspace/spec/session lifecycle.
   toolResult materialization, and the process-local live answer rendezvous used
   by the TUI sidecar (`live-exchange-broker.ts`). RPC maps these domain results
   to JSON-RPC status and error codes; transcript mechanics stay here. The broker
-  holds only an in-flight `request_response` promise keyed by exchange id; the
-  answered result still reduces to canonical `request_answer` / `request_choice`
+  holds only an in-flight ask answer promise keyed by exchange id (`awaitAnswer`);
+  the answered result still reduces to canonical `request_answer` / `request_choice`
   / `request_choices` Pi JSONL details. The broker exists only for `answer`
   (free-text) today — `choice`/`choices`/review have no broker-equivalent yet, a
   named `web-driver-streaming` Horizon gap, not an oversight here. See
