@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "probeId": "project-graph-review-cycle",
+  "runId": "fe-1175-scope-handoff-live",
+  "generatedAt": "2026-07-09T15:18:16.445Z",
+  "mission": "Prove the project-graph capability path can present an exact review set and approve it through public RPC.",
+  "evaluationFocus": "FE-809 real agent proposal → present_review_set → session.submitExchangeResponse approval → explicit graph readback.",
+  "seedName": "workspace-alpha-grounding",
+  "seedVariant": "scope-handoff-ready",
+  "cwd": "<ephemeral-workspace>",
+  "specId": 1,
+  "sessionId": "019f4775-48c3-7771-a2f0-38abc7999fda",
+  "prompt": "Brunch FE-1175 scope-handoff proof. The selected spec already has accepted upstream anchors: REQ1 is the settled requirement, MOD1 is the settled design module, and CH1 is the settled verification check. Use read_graph in overview mode to inspect existing node codes. Then use present_review_set exactly once to propose one plan-lens scope handoff package that the executor could consume directly. Proposal constraints: create one frontier and one scope; compose the scope under the frontier; link the scope to existing REQ1 with realization, existing MOD1 with composition, and existing CH1 with dependency; use schemaVersion 1, lens \"plan\", epistemicStatus \"asserted\", and non-empty grounding/pitch fields; do not call mutate_graph directly; stop after a successful present_review_set so the external Brunch RPC reviewer can approve it.",
+  "runtimeState": {
+    "operationalMode": "specify"
+  },
+  "model": "claude-sonnet-4-6",
+  "success": true,
+  "baseGraph": {
+    "nodeCount": 4,
+    "edgeCount": 3,
+    "lsn": 2
+  },
+  "finalGraph": {
+    "nodeCount": 6,
+    "edgeCount": 7,
+    "lsn": 3,
+    "explicitNodeCount": 6,
+    "explicitEdgeCount": 7,
+    "implicitNodeCount": 0,
+    "implicitEdgeCount": 0
+  },
+  "graphDelta": {
+    "lsnAdvanced": true,
+    "nodeDelta": 2,
+    "edgeDelta": 4
+  },
+  "toolEvidence": {
+    "presentReviewSetCount": 1,
+    "requestResponseCount": 0,
+    "successfulPresentReviewSetCount": 1,
+    "structuralIllegalPresentReviewSetCount": 0
+  },
+  "pendingReview": {
+    "observed": true,
+    "exchangeId": "fe-1175-scope-handoff",
+    "nodeDraftCount": 2,
+    "edgeDraftCount": 4
+  },
+  "approval": {
+    "attempted": true,
+    "status": "approved",
+    "lsn": 3,
+    "createdNodeRefs": {
+      "d-frontier": {
+        "id": 5,
+        "code": "F1"
+      },
+      "d-scope": {
+        "id": 6,
+        "code": "SCP1"
+      }
+    }
+  },
+  "createdNodes": [
+    {
+      "id": 5,
+      "code": "F1",
+      "plane": "plan",
+      "kind": "frontier",
+      "title": "FE-1175 Selected Spec Entry Delivery",
+      "basis": "explicit"
+    },
+    {
+      "id": 6,
+      "code": "SCP1",
+      "plane": "plan",
+      "kind": "scope",
+      "title": "Selected Spec Entry — Handoff Scope",
+      "basis": "explicit"
+    }
+  ],
+  "scopeHandoffReviewSet": {
+    "observed": true,
+    "frontierDraftCount": 1,
+    "scopeDraftCount": 1,
+    "frontierScopeCompositionCount": 1,
+    "requirementAnchorCount": 1,
+    "designAnchorCount": 1,
+    "verificationAnchorCount": 1,
+    "committedFrontierCount": 1,
+    "committedScopeCount": 1
+  },
+  "productUpdates": [
+    {
+      "topic": "workspace.state",
+      "specId": 1,
+      "sessionId": "019f4775-48c3-7771-a2f0-38abc7999fda"
+    },
+    {
+      "topic": "workspace.selectionState",
+      "specId": 1,
+      "sessionId": "019f4775-48c3-7771-a2f0-38abc7999fda"
+    },
+    {
+      "topic": "session.pendingExchange",
+      "specId": 1,
+      "sessionId": "019f4775-48c3-7771-a2f0-38abc7999fda"
+    },
+    {
+      "topic": "session.exchanges",
+      "specId": 1,
+      "sessionId": "019f4775-48c3-7771-a2f0-38abc7999fda"
+    },
+    {
+      "topic": "session.runtimeState",
+      "specId": 1,
+      "sessionId": "019f4775-48c3-7771-a2f0-38abc7999fda"
+    },
+    {
+      "topic": "graph.overview",
+      "specId": 1,
+      "lsn": 3
+    },
+    {
+      "topic": "graph.nodeNeighborhood",
+      "specId": 1,
+      "lsn": 3
+    }
+  ],
+  "friction": [],
+  "artifacts": {
+    "runDir": "runs/project-graph-review-cycle/fe-1175-scope-handoff-live",
+    "sessionJsonl": "runs/project-graph-review-cycle/fe-1175-scope-handoff-live/session.jsonl",
+    "reportJson": "runs/project-graph-review-cycle/fe-1175-scope-handoff-live/report.json",
+    "graphOverviewJson": "runs/project-graph-review-cycle/fe-1175-scope-handoff-live/graph-overview.json"
+  }
+}

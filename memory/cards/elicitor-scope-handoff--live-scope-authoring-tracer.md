@@ -1,7 +1,7 @@
 # Live scope authoring from elicitor to accepted review set
 
 Frontier: elicitor-scope-handoff
-Status:   proposed
+Status:   active
 Mode:     single
 Created:  2026-07-09
 
@@ -60,6 +60,7 @@ This is a proving tracer: it does not extend the durable model further. It only 
 
 - Inner: focused tests around live prompt/guidance shaping and plan-lens review-set presentation only where the tracer crosses a subtle behavioral boundary.
 - Outer: one manual Specify-mode walkthrough from accepted upstream truth to approved `scope`.
+- Live proof: `node --import tsx src/probes/project-graph-review-cycle-proof.ts --seed-name workspace-alpha-grounding --seed-variant scope-handoff-ready --review-set-expectation scope_handoff --run-id fe-1175-scope-handoff-live --prompt "..."` -> promoted run evidence at `.fixtures/runs/project-graph-review-cycle/fe-1175-scope-handoff-live/`.
 
 ## Cross-cutting Obligations
 
