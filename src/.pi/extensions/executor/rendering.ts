@@ -1,0 +1,392 @@
+import { Text } from '@earendil-works/pi-tui';
+
+interface ThemeLike {
+  fg(kind: string, value: string): string;
+  bold(value: string): string;
+}
+
+interface ToolResultLike {
+  readonly content?: readonly { readonly type?: string; readonly text?: string }[];
+  readonly details?: unknown;
+}
+
+interface RenderOptions {
+  readonly expanded: boolean;
+  readonly isPartial: boolean;
+}
+
+function renderContextComponent(context: unknown): Text | undefined {
+  return context && typeof context === 'object' && 'lastComponent' in context
+    ? (context as { lastComponent?: Text }).lastComponent
+    : undefined;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function firstText(result: ToolResultLike): string {
+  return result.content?.find((part) => part.type === 'text')?.text ?? '';
+}
+
+function stringOrUndefined(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
+}
+
+function stringOrNumber(value: unknown): string | number | undefined {
+  return typeof value === 'string' || typeof value === 'number' ? value : undefined;
+}
+
+function countArray(value: unknown): number {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function fallbackText(result: ToolResultLike): string {
+  return firstText(result).trim() || 'No result';
+}
+
+function setText(context: unknown, text: string): Text {
+  const component = renderContextComponent(context) ?? new Text('', 0, 0);
+  component.setText(text);
+  return component;
+}
+
+function withExpandHint(summary: string, options: RenderOptions, theme: ThemeLike): string {
+  if (options.expanded) return summary;
+  return theme.fg('muted', `${summary} · Ctrl+O to expand`);
+}
+
+function compactField(value: string | undefined, fallback: string): string {
+  return value ?? fallback;
+}
+
+function eventScope(record: Record<string, unknown> | undefined): string {
+  const runId = compactField(stringOrUndefined(record?.['runId']), 'unknown');
+  const epicId = compactField(stringOrUndefined(record?.['epicId']), '-');
+  const sliceId = compactField(stringOrUndefined(record?.['sliceId']), '-');
+  const sequence = compactField(stringOrNumber(record?.['sequence'])?.toString(), '?');
+  return `run ${runId} · epic ${epicId} · slice ${sliceId} · event ${sequence}`;
+}
+
+function compactExpandHint(summary: string): string {
+  return `${summary}   Ctrl+O`;
+}
+
+function orchestrateCollapsed(
+  details: Record<string, unknown>,
+  options: RenderOptions,
+  _theme: ThemeLike,
+): string {
+  const progress = asRecord(details['progress']);
+  const outcome = asRecord(details['outcome']);
+  const agentStream = asRecord(details['agentStream']);
+  const verifyStream = asRecord(details['verifyStream']);
+  const runId =
+    stringOrUndefined(progress?.['runId']) ??
+    stringOrUndefined(agentStream?.['runId']) ??
+    stringOrUndefined(verifyStream?.['runId']);
+  const epicId =
+    stringOrUndefined(progress?.['activeEpicId']) ??
+    stringOrUndefined(agentStream?.['epicId']) ??
+    stringOrUndefined(verifyStream?.['epicId']);
+  const sliceId =
+    stringOrUndefined(progress?.['activeSliceId']) ??
+    stringOrUndefined(agentStream?.['sliceId']) ??
+    stringOrUndefined(verifyStream?.['sliceId']);
+  const step = stringOrUndefined(progress?.['step']) ?? stringOrUndefined(outcome?.['step']);
+  const phase = progress
+    ? stringOrUndefined(progress['phase'])
+    : outcome
+      ? outcome['status']?.toString()
+      : undefined;
+  const completed = countArray(progress?.['completedSliceIds']);
+  let tail = `status ${compactField(stringOrUndefined(progress?.['runStatus']), 'unknown')}`;
+  if (verifyStream) {
+    tail = `${compactField(stringOrUndefined(verifyStream['kind']), 'verify')}: ${compactField(stringOrUndefined(verifyStream['message']), 'unknown')}`;
+  } else if (agentStream) {
+    tail = `${compactField(stringOrUndefined(agentStream['kind']), 'worker')}: ${compactField(stringOrUndefined(agentStream['message']), 'unknown')}`;
+  } else if (outcome && stringOrUndefined(outcome['status']) === 'halted') {
+    tail = `reason ${compactField(stringOrUndefined(outcome['reason']), 'unknown')}`;
+  } else if (outcome) {
+    tail = `outcome ${compactField(stringOrUndefined(outcome['status']), 'unknown')}`;
+  }
+  return [
+    orchestrateSummary(details, options),
+    `run ${compactField(runId, 'unknown')}   epic ${compactField(epicId, '-')}   slice ${compactField(sliceId, '-')}`,
+    `now ${compactField(step, '-')}   ${compactField(phase, 'unknown')}   done ${completed}`,
+    compactExpandHint(
+      tail.startsWith('reason ')
+        ? `reason ${tail.slice('reason '.length)}`
+        : tail.startsWith('status ')
+          ? `state ${tail.slice('status '.length)}`
+          : tail,
+    ),
+  ].join('\n');
+}
+
+function standaloneCollapsed(
+  lines: [string, string, string],
+  options: RenderOptions,
+  theme: ThemeLike,
+): string {
+  return [lines[0], lines[1], lines[2], withExpandHint('no side effects', options, theme)].join('\n');
+}
+
+function sectionDivider(title: string): string {
+  return `--- ${title} ---`;
+}
+
+function orchestrateSummary(details: Record<string, unknown>, options: RenderOptions): string {
+  const outcome = asRecord(details['outcome']);
+  if (outcome) {
+    const status = stringOrUndefined(outcome['status']);
+    if (status === 'halted') return `halted · ${stringOrUndefined(outcome['step']) ?? 'unknown'}`;
+    if (status === 'completed') return `completed · ${stringOrUndefined(outcome['runStatus']) ?? 'unknown'}`;
+    if (status === 'missing_run') return 'missing · run';
+  }
+
+  const progress = asRecord(details['progress']);
+  if (progress) {
+    const step = stringOrUndefined(progress['step']) ?? 'step';
+    const slice = stringOrUndefined(progress['activeSliceId']);
+    if (options.isPartial) {
+      if (step === 'test_result') return `running · slice ${slice ?? 'unknown'} · verify pending`;
+      return `running · slice ${slice ?? 'unknown'} · ${step}`;
+    }
+    return `running · slice ${slice ?? 'unknown'} · ${stringOrUndefined(progress['runStatus']) ?? step}`;
+  }
+
+  return 'running · execute';
+}
+
+function orchestrateExpanded(details: Record<string, unknown>, options: RenderOptions): string {
+  const progress = asRecord(details['progress']);
+  const outcome = asRecord(details['outcome']);
+  const agentStream = asRecord(details['agentStream']);
+  const verifyStream = asRecord(details['verifyStream']);
+
+  const lines: string[] = [orchestrateSummary(details, options), '', sectionDivider('Run Status')];
+  const runId =
+    stringOrUndefined(progress?.['runId']) ??
+    stringOrUndefined(agentStream?.['runId']) ??
+    stringOrUndefined(verifyStream?.['runId']);
+  if (runId) lines.push(`run id: ${runId}`);
+  const activeEpicId = stringOrUndefined(progress?.['activeEpicId']);
+  if (activeEpicId) lines.push(`active epic: ${activeEpicId}`);
+  const activeSliceId =
+    stringOrUndefined(progress?.['activeSliceId']) ??
+    stringOrUndefined(agentStream?.['sliceId']) ??
+    stringOrUndefined(verifyStream?.['sliceId']);
+  if (activeSliceId) lines.push(`active slice: ${activeSliceId}`);
+  const runStatus =
+    stringOrUndefined(progress?.['runStatus']) ?? stringOrUndefined(outcome?.['runStatus']) ?? 'unknown';
+  lines.push(`current state: ${runStatus}`);
+  lines.push(`current step: ${stringOrUndefined(progress?.['step']) ?? '-'}`);
+  lines.push(
+    `phase: ${stringOrUndefined(progress?.['phase']) ?? compactField(stringOrUndefined(outcome?.['status']), 'unknown')}`,
+  );
+  lines.push(`slices completed: ${countArray(progress?.['completedSliceIds'])}`);
+
+  lines.push('', sectionDivider('Timeline'));
+  if (progress) {
+    const phase = stringOrUndefined(progress['phase']);
+    const step = stringOrUndefined(progress['step']) ?? 'unknown';
+    const fromStatus = stringOrUndefined(progress['fromStatus']);
+    const marker = phase === 'completed' ? '[✓]' : '[>]';
+    const transition =
+      phase === 'started' && fromStatus ? `${step} started from ${fromStatus}` : `${step} -> ${runStatus}`;
+    lines.push(`${marker} ${transition}`);
+    lines.push(`phase change: ${phase ?? 'unknown'} from ${fromStatus ?? 'unknown'}`);
+    if (stringOrUndefined(outcome?.['runStatus'])) {
+      lines.push(`next target: ${stringOrUndefined(outcome?.['runStatus'])}`);
+    }
+  } else if (outcome) {
+    const status = stringOrUndefined(outcome['status']) ?? 'unknown';
+    lines.push(`[✓] outcome -> ${status}`);
+  } else {
+    lines.push('no timeline data');
+  }
+
+  lines.push('', sectionDivider('Subtool Activity'));
+  if (agentStream) {
+    lines.push('agent_result');
+    lines.push(`- ${eventScope(agentStream)}`);
+    lines.push(
+      `- ${stringOrUndefined(agentStream['kind']) ?? 'event'}: ${stringOrUndefined(agentStream['message']) ?? 'unknown'}`,
+    );
+  }
+  if (verifyStream) {
+    lines.push('test_result');
+    lines.push(`- ${eventScope(verifyStream)}`);
+    lines.push(
+      `- ${stringOrUndefined(verifyStream['kind']) ?? 'event'}: ${stringOrUndefined(verifyStream['message']) ?? 'unknown'}`,
+    );
+  }
+  if (!agentStream && !verifyStream) lines.push('none');
+
+  lines.push('', sectionDivider('Outcome'));
+  if (outcome) {
+    const status = stringOrUndefined(outcome['status']) ?? 'unknown';
+    lines.push(`outcome: ${status}`);
+    if (status === 'halted') {
+      lines.push(`halted at: ${stringOrUndefined(outcome['step']) ?? 'unknown'}`);
+      lines.push(`reason: ${stringOrUndefined(outcome['reason']) ?? 'unknown'}`);
+    } else {
+      lines.push(`final state: ${stringOrUndefined(outcome['runStatus']) ?? status}`);
+    }
+  } else {
+    lines.push(`final state: ${runStatus}`);
+  }
+
+  return lines.join('\n');
+}
+
+export function renderExecuteOrchestrateResult(
+  result: ToolResultLike,
+  options: RenderOptions,
+  theme: ThemeLike,
+  context: unknown,
+): Text {
+  const details = asRecord(result.details);
+  if (!details) return setText(context, fallbackText(result));
+  return setText(
+    context,
+    options.expanded ? orchestrateExpanded(details, options) : orchestrateCollapsed(details, options, theme),
+  );
+}
+
+export function renderExecuteSnapshotResult(
+  result: ToolResultLike,
+  options: RenderOptions,
+  theme: ThemeLike,
+  context: unknown,
+): Text {
+  const details = asRecord(result.details);
+  const snapshot = asRecord(details?.['snapshot']);
+  if (!snapshot) return setText(context, fallbackText(result));
+  const specId = stringOrNumber(snapshot['specId']) ?? 'unknown';
+  const summary = `ready · spec ${specId}`;
+  if (!options.expanded) {
+    return setText(
+      context,
+      standaloneCollapsed(
+        [
+          summary,
+          `mode ${compactField(stringOrUndefined(snapshot['mode']), 'unknown')} · graph ${compactField(stringOrNumber(details?.['source'] && asRecord(details['source'])?.['graphLsn'])?.toString(), 'unknown')}`,
+          `requirements ${countArray(snapshot['requirements'])} · criteria ${countArray(snapshot['criteria'])}`,
+        ],
+        options,
+        theme,
+      ),
+    );
+  }
+  return setText(
+    context,
+    [
+      summary,
+      '',
+      'Status',
+      `snapshot status: ${stringOrUndefined(snapshot['mode']) ?? 'unknown'}`,
+      `graph lsn: ${stringOrNumber(asRecord(details?.['source'])?.['graphLsn']) ?? 'unknown'}`,
+      `requirements: ${countArray(snapshot['requirements'])}`,
+      `criteria: ${countArray(snapshot['criteria'])}`,
+      '',
+      'Side Effects',
+      'none',
+    ].join('\n'),
+  );
+}
+
+export function renderExecutePlanCheckResult(
+  result: ToolResultLike,
+  options: RenderOptions,
+  theme: ThemeLike,
+  context: unknown,
+): Text {
+  const details = asRecord(result.details);
+  const check = asRecord(details?.['check']);
+  if (!check) return setText(context, fallbackText(result));
+  const findings = countArray(check['findings']);
+  const summary = `${stringOrUndefined(check['status']) ?? 'unknown'} · ${findings} findings`;
+  const source = asRecord(details?.['source']);
+  if (!options.expanded) {
+    const topFinding = asRecord(Array.isArray(check['findings']) ? check['findings'][0] : undefined);
+    return setText(
+      context,
+      [
+        summary,
+        `graph ${compactField(stringOrNumber(source?.['graphLsn'])?.toString(), 'unknown')} · ${compactField(stringOrUndefined(source?.['visibility']), 'unknown')} view`,
+        `requirements ${stringOrNumber(asRecord(check['counts'])?.['requirements']) ?? 0} · criteria ${stringOrNumber(asRecord(check['counts'])?.['criteria']) ?? 0} · verified ${stringOrNumber(asRecord(check['counts'])?.['verifiedRequirements']) ?? 0}`,
+        withExpandHint(
+          `top issue ${compactField(stringOrUndefined(topFinding?.['message']), 'none')}`,
+          options,
+          theme,
+        ),
+      ].join('\n'),
+    );
+  }
+  const lines = [
+    summary,
+    '',
+    'Status',
+    `check status: ${stringOrUndefined(check['status']) ?? 'unknown'}`,
+    `graph lsn: ${stringOrNumber(source?.['graphLsn']) ?? 'unknown'}`,
+    `view: ${stringOrUndefined(source?.['visibility']) ?? 'unknown'}`,
+    `requirements: ${stringOrNumber(asRecord(check['counts'])?.['requirements']) ?? 0}`,
+    `criteria: ${stringOrNumber(asRecord(check['counts'])?.['criteria']) ?? 0}`,
+    `verified requirements: ${stringOrNumber(asRecord(check['counts'])?.['verifiedRequirements']) ?? 0}`,
+    '',
+    'Findings',
+  ];
+  for (const finding of Array.isArray(check['findings']) ? check['findings'] : []) {
+    const record = asRecord(finding);
+    lines.push(`- ${stringOrUndefined(record?.['message']) ?? 'unknown finding'}`);
+  }
+  if (findings === 0) lines.push('none');
+  lines.push('', 'Side Effects', 'none');
+  return setText(context, lines.join('\n'));
+}
+
+export function renderExecuteStatusResult(
+  result: ToolResultLike,
+  options: RenderOptions,
+  theme: ThemeLike,
+  context: unknown,
+): Text {
+  const details = asRecord(result.details);
+  if (!details) return setText(context, fallbackText(result));
+  const discipline = stringOrUndefined(details['discipline']) ?? 'unknown';
+  const summary = `ready · ${discipline}`;
+  if (!options.expanded) {
+    return setText(
+      context,
+      [
+        summary,
+        `disciplines ${stringArray(details['availableDisciplines']).length} · ported ${stringArray(details['portedTools']).length}`,
+        `pending ${stringArray(details['pendingTools']).length}`,
+        withExpandHint('no side effects', options, theme),
+      ].join('\n'),
+    );
+  }
+  return setText(
+    context,
+    [
+      summary,
+      '',
+      'Status',
+      `discipline: ${discipline}`,
+      `available disciplines: ${stringArray(details['availableDisciplines']).join(', ') || 'none'}`,
+      `ported tools: ${stringArray(details['portedTools']).length}`,
+      `pending tools: ${stringArray(details['pendingTools']).length}`,
+      '',
+      'Side Effects',
+      'none',
+    ].join('\n'),
+  );
+}

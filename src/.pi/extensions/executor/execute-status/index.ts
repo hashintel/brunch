@@ -3,6 +3,7 @@ import { Type, type Static } from 'typebox';
 
 import { EXECUTOR_ALLOWED_TOOL_NAMES } from '../../../../agents/runtime/executor/active-tools.js';
 import { BRUNCH_EXECUTE_STATUS_TOOL } from '../../../../session/schema/tool-names.js';
+import { renderExecuteStatusResult } from '../rendering.js';
 
 export { BRUNCH_EXECUTE_STATUS_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -39,6 +40,9 @@ export function createExecuteStatusTool(): ToolDefinition<typeof ExecuteStatusPa
     description:
       'Report the current native execute-mode orchestration foothold. Side-effect free: creates no plans, runs, worktrees, or graph mutations.',
     parameters: ExecuteStatusParams,
+    renderResult(result, options, theme, context) {
+      return renderExecuteStatusResult(result, options, theme as never, context);
+    },
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
       const discipline = params.discipline ?? 'strict';
       return {
