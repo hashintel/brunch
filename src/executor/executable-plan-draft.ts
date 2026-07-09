@@ -53,7 +53,11 @@ export function draftExecutablePlan(outline: ExecutionPlanOutline): ExecutablePl
   }));
   const taskIdByRequirement = new Map(
     outline.frontiers.flatMap((frontier) =>
-      frontier.tasks.map((task) => [task.requirementId, task.id] as const),
+      frontier.tasks.flatMap((task) =>
+        (task.requirementIds ?? [task.requirementId]).map(
+          (requirementId) => [requirementId, task.id] as const,
+        ),
+      ),
     ),
   );
   const slices = outline.frontiers.flatMap((frontier) => {
@@ -65,7 +69,14 @@ export function draftExecutablePlan(outline: ExecutionPlanOutline): ExecutablePl
       ...(task.scopeId ? { scopeId: task.scopeId } : {}),
       requirementId: task.requirementId,
       requirementIds: task.requirementIds ?? [task.requirementId],
-      dependsOn: task.dependsOn.flatMap((requirementId) => taskIdByRequirement.get(requirementId) ?? []),
+      dependsOn: [
+        ...new Set(
+          task.dependsOn.flatMap((requirementId) => {
+            const dependencyTaskId = taskIdByRequirement.get(requirementId);
+            return dependencyTaskId === undefined || dependencyTaskId === task.id ? [] : [dependencyTaskId];
+          }),
+        ),
+      ],
       designContext: (task.designContext ?? []).map((item) => ({
         itemId: item.itemId,
         title: item.title,

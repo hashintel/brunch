@@ -140,4 +140,45 @@ describe('draftExecutablePlan', () => {
       expect.objectContaining({ id: 'task-2', dependsOn: ['task-1'] }),
     ]);
   });
+
+  it('maps dependencies through secondary requirement ids packaged in a scope', () => {
+    expect(
+      draftExecutablePlan({
+        ...outline,
+        frontiers: [
+          {
+            id: 'frontier-1',
+            title: 'Execution handoff',
+            tasks: [
+              {
+                id: 'task-1',
+                title: 'Build feature scope',
+                scopeId: 'SCP1',
+                requirementId: 'REQ1',
+                requirementIds: ['REQ1', 'REQ2'],
+                summary: 'Build and wire the feature.',
+                dependsOn: [],
+                acceptanceCriterionIds: [],
+                acceptanceCriteria: [],
+                designContext: [],
+                verificationContext: [],
+              },
+              {
+                id: 'task-2',
+                title: 'Ship shortcut',
+                requirementId: 'REQ3',
+                summary: 'Ship shortcut',
+                dependsOn: ['REQ2'],
+                acceptanceCriterionIds: [],
+                acceptanceCriteria: [],
+              },
+            ],
+          },
+        ],
+      }).slices,
+    ).toEqual([
+      expect.objectContaining({ id: 'task-1', dependsOn: [] }),
+      expect.objectContaining({ id: 'task-2', dependsOn: ['task-1'] }),
+    ]);
+  });
 });

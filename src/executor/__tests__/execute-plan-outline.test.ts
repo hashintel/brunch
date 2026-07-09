@@ -59,6 +59,27 @@ const snapshot: ExecutionSpecSnapshot = {
 };
 
 describe('outlineExecutionPlan', () => {
+  it('drops dependencies that stay inside the same scope package', () => {
+    const scope = snapshot.scopes[0]!;
+
+    expect(
+      outlineExecutionPlan({
+        ...snapshot,
+        scopes: [
+          {
+            ...scope,
+            requirementIds: ['REQ1', 'REQ2'],
+          },
+        ],
+      }).frontiers[0]?.tasks,
+    ).toEqual([
+      expect.objectContaining({
+        requirementIds: ['REQ1', 'REQ2'],
+        dependsOn: [],
+      }),
+    ]);
+  });
+
   it('assigns globally unique task ids when scoped and unscoped frontiers coexist', () => {
     const outline = outlineExecutionPlan(snapshot);
 

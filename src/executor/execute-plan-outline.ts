@@ -102,9 +102,15 @@ function frontiersForScopes(snapshot: ExecutionSpecSnapshot): readonly Execution
       requirementId: scope.requirementIds[0] ?? scope.itemId,
       requirementIds: scope.requirementIds,
       summary: scope.content,
-      dependsOn: scope.requirementIds.flatMap(
-        (requirementId) => requirementsById.get(requirementId)?.dependsOn ?? [],
-      ),
+      dependsOn: [
+        ...new Set(
+          scope.requirementIds.flatMap((requirementId) =>
+            (requirementsById.get(requirementId)?.dependsOn ?? []).filter(
+              (dependencyId) => !scope.requirementIds.includes(dependencyId),
+            ),
+          ),
+        ),
+      ],
       acceptanceCriterionIds: scope.criteria.map((criterion) => criterion.itemId),
       acceptanceCriteria: scope.criteria.map(outlineCriterion),
       designContext: scope.design,
