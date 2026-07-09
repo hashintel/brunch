@@ -436,13 +436,16 @@ function keyedStatusPart(
 
 function formatModel(chrome: BrunchChromeState, telemetry: BrunchChromeFooterTelemetry | undefined): string {
   const model = telemetry?.model;
-  const modelName = model?.id ?? chrome.runtime?.model ?? 'no model';
-  const thinking = telemetry?.thinkingLevel ?? chrome.runtime?.thinking;
+  const hasRealTelemetryModel = !!model && model.id !== 'unknown' && model.provider !== 'unknown';
+  const modelName = hasRealTelemetryModel ? model.id : (chrome.runtime?.model ?? 'no model');
+  const thinking = hasRealTelemetryModel
+    ? (telemetry?.thinkingLevel ?? chrome.runtime?.thinking)
+    : chrome.runtime?.thinking;
   let label = modelName;
   if (thinking && (model?.reasoning !== false || chrome.runtime?.thinking)) {
     label = thinking === 'off' ? `${modelName} • thinking off` : `${modelName} • ${thinking}`;
   }
-  if ((telemetry?.availableProviderCount ?? 0) > 1 && model?.provider) {
+  if ((telemetry?.availableProviderCount ?? 0) > 1 && hasRealTelemetryModel && model.provider) {
     return `(${model.provider}) ${label}`;
   }
   return label;
