@@ -1,6 +1,6 @@
 # .pi/extensions/ — Pi adapter registrars
 
-SPEC decisions: D34-L, D35-L, D37-L, D39-L, D40-L, D44-L, D52-L, D69-L, D71-L, D90-L, D91-L, D93-L, D98-L, D109-L, D115-L
+SPEC decisions: D34-L, D35-L, D37-L, D39-L, D40-L, D44-L, D52-L, D69-L, D71-L, D90-L, D91-L, D93-L, D98-L, D109-L, D115-L, D118-L
 
 ## Owns
 
@@ -76,7 +76,7 @@ rules:
 
 `exchanges/schemas/` is the intentional current exception to "adapter-only": it owns the Zod-authored structured-exchange details schema per D37-L/D41-L until a separate schema-ownership slice moves or names that seam. Provider-facing tool-parameter conversion is now confined to `shared/tool-schema.ts`: Zod-owned tool boundaries emit JSON Schema draft 2020-12 via `z.toJSONSchema(..., { unrepresentable: 'throw' })`, TypeBox-owned graph/DB boundaries pass through their canonical schema, and the adapter rejects top-level `oneOf`/`anyOf`/`allOf` before provider registration tests can go live.
 
-Migration note (FE-1163 `tool-schema-convergence`, admitted 2026-07-07): row 1 collapsed the two legacy Zod adapters into the shared adapter with the build-time provider-legality guard (Anthropic-family backends 400 on top-level unions, witnessed live on `read_graph` during the FE-1159 walkthrough). Remaining rows relink every provider-facing family through that adapter and widen the registry oracle. Ledger: `memory/cards/tool-schema-convergence--ledger.md`.
+Migration note (FE-1163 `tool-schema-convergence`, exhausted 2026-07-09): the sweep collapsed the two legacy Zod adapters into the shared adapter with the build-time provider-legality guard (Anthropic-family backends 400 on top-level unions, witnessed live on `read_graph` during the FE-1159 walkthrough), relinked all 51 Brunch-authored provider-facing tool schemas through that adapter, and widened the registry oracle across elicitor, executor, and dev toolsets. The temporary ledger was deleted at closure; current state lives here plus SPEC D118-L/I60-L.
 
 `exchanges/shared/markdown.ts` contains Pi-rendering helpers. Keep Pi `renderCall` / `renderResult` widgets and UI-only message components local to `.pi/`; reusable provider-visible exchange result text belongs in `agents/contexts/exchanges/`.
 
