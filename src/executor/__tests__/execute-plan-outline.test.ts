@@ -118,7 +118,87 @@ describe('outlineExecutionPlan', () => {
     ).toEqual([]);
   });
 
-  it('drops dependencies that stay inside the same scope package', () => {
+  it('lowers a multi-requirement scope into multiple scoped tasks', () => {
+    expect(
+      outlineExecutionPlan({
+        ...snapshot,
+        requirements: [
+          snapshot.requirements[0]!,
+          snapshot.requirements[1]!,
+          {
+            itemId: 'REQ3',
+            nodeId: 6,
+            title: 'Ship keyboard shortcut',
+            content: 'Ship keyboard shortcut',
+            dependsOn: ['REQ2'],
+          },
+        ],
+        criteria: [
+          snapshot.criteria[0]!,
+          {
+            itemId: 'AC2',
+            nodeId: 7,
+            title: 'Shortcut opens feature',
+            content: 'Shortcut opens feature',
+            dependsOn: [],
+            verifies: ['REQ3'],
+          },
+        ],
+        scopes: [
+          {
+            ...snapshot.scopes[0]!,
+            title: 'Feature delivery scope',
+            requirementIds: ['REQ2', 'REQ3'],
+            criteria: [
+              snapshot.scopes[0]!.criteria[0]!,
+              {
+                itemId: 'AC2',
+                nodeId: 7,
+                title: 'Shortcut opens feature',
+                content: 'Shortcut opens feature',
+                dependsOn: [],
+                verifies: ['REQ3'],
+              },
+            ],
+          },
+        ],
+      }).frontiers,
+    ).toEqual([
+      {
+        id: 'F1',
+        title: 'Execution handoff',
+        tasks: [
+          expect.objectContaining({
+            id: 'task-1',
+            scopeId: 'SCP1',
+            title: 'Wire feature',
+            requirementId: 'REQ2',
+            requirementIds: ['REQ2'],
+            summary: 'Wire feature',
+            dependsOn: ['REQ1'],
+            acceptanceCriterionIds: ['AC1'],
+          }),
+          expect.objectContaining({
+            id: 'task-2',
+            scopeId: 'SCP1',
+            title: 'Ship keyboard shortcut',
+            requirementId: 'REQ3',
+            requirementIds: ['REQ3'],
+            summary: 'Ship keyboard shortcut',
+            dependsOn: ['REQ2'],
+            acceptanceCriterionIds: ['AC2'],
+          }),
+        ],
+      },
+      {
+        id: 'frontier-unscoped-requirements',
+        title: 'Implement unscoped requirements',
+        tasks: [expect.objectContaining({ id: 'task-3', requirementId: 'REQ1' })],
+      },
+    ]);
+  });
+
+  it('keeps internal requirement dependencies visible when a scope fans out', () => {
     const scope = snapshot.scopes[0]!;
 
     expect(
@@ -133,8 +213,14 @@ describe('outlineExecutionPlan', () => {
       }).frontiers[0]?.tasks,
     ).toEqual([
       expect.objectContaining({
-        requirementIds: ['REQ1', 'REQ2'],
+        requirementId: 'REQ1',
+        requirementIds: ['REQ1'],
         dependsOn: [],
+      }),
+      expect.objectContaining({
+        requirementId: 'REQ2',
+        requirementIds: ['REQ2'],
+        dependsOn: ['REQ1'],
       }),
     ]);
   });
