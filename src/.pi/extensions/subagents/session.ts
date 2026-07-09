@@ -41,6 +41,7 @@ import {
 import { Type, type Static } from 'typebox';
 
 import { createReadGraphTool, type GraphReaders } from '../brunch-data/graph/index.js';
+import { toolParameters } from '../shared/tool-schema.js';
 import { createWebFetchTool } from '../web-tools/web/web-fetch.js';
 import { createWebSearchTool } from '../web-tools/web/web-search.js';
 import type { SubagentDefinition } from './agents.js';
@@ -192,7 +193,7 @@ function createWriteWorktreeFileTool(cwd: string): ToolDefinition<typeof WriteWo
     label: 'write_worktree_file',
     description:
       'Write a complete file under this worker worktree. Path must be relative and stay inside cwd.',
-    parameters: WriteWorktreeFileParams,
+    parameters: toolParameters(WriteWorktreeFileParams),
     async execute(_toolCallId, params) {
       const target = boundedWorktreePath(cwd, params.path);
       await mkdir(dirname(target), { recursive: true });
