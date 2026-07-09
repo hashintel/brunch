@@ -82,7 +82,7 @@ import { BRUNCH_EXECUTE_TEST_RESULT_TOOL } from '../executor/execute-test-result
 import { BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL } from '../executor/execute-worktree-create/index.js';
 import { registerBrunchMentionAutocomplete as mentionAutocomplete } from '../mentions/index.js';
 import { registerBrunchSessionBoundary as sessionLifecycle } from '../session-hooks/session/lifecycle.js';
-import { assertProviderLegalToolSchema } from '../shared/tool-schema.js';
+import { assertProviderLegalToolSchema, hasToolParametersProvenance } from '../shared/tool-schema.js';
 import { parseSubagentMarkdown, type BrunchSubagentsDeps, type SubagentResult } from '../subagents/index.js';
 
 const extensionDefaults = {
@@ -2796,6 +2796,10 @@ describe('Brunch explicit Pi extension registry', () => {
     for (const name of expectedToolNames) {
       const tool = toolsByName.get(name);
       expect(tool, `${name} must be registered for registry-level schema legality`).toBeDefined();
+      expect(
+        hasToolParametersProvenance(tool!.parameters),
+        `${name} parameters must come through toolParameters()`,
+      ).toBe(true);
       assertProviderLegalToolSchema(tool!.parameters);
     }
   });

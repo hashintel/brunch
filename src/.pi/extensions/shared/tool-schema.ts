@@ -2,6 +2,7 @@ import type { TSchema } from 'typebox';
 import * as z from 'zod';
 
 const ILLEGAL_TOP_LEVEL_UNION_KEYS = ['oneOf', 'anyOf', 'allOf'] as const;
+const TOOL_PARAMETERS_PROVENANCE = Symbol('brunch.toolParameters.provenance');
 
 export type ToolSchemaSource = z.ZodType | TSchema;
 
@@ -17,7 +18,15 @@ export function toolParameters<const Schema extends ToolSchemaSource>(
 ): Schema extends z.ZodType ? TSchema : Schema {
   const jsonSchema = isZodSchema(schema) ? z.toJSONSchema(schema, { unrepresentable: 'throw' }) : schema;
   assertProviderLegalToolSchema(jsonSchema);
+  markToolParameters(jsonSchema);
   return jsonSchema as Schema extends z.ZodType ? TSchema : Schema;
+}
+
+export function hasToolParametersProvenance(schema: unknown): boolean {
+  return (
+    isJsonObject(schema) &&
+    Object.getOwnPropertyDescriptor(schema, TOOL_PARAMETERS_PROVENANCE)?.value === true
+  );
 }
 
 export function assertProviderLegalToolSchema(schema: unknown): void {
@@ -31,6 +40,13 @@ export function assertProviderLegalToolSchema(schema: unknown): void {
       `Tool parameters must not use top-level ${illegalKey}; wrap the union inside an object property.`,
     );
   }
+}
+
+function markToolParameters(schema: TSchema): void {
+  Object.defineProperty(schema, TOOL_PARAMETERS_PROVENANCE, {
+    value: true,
+    enumerable: false,
+  });
 }
 
 function isZodSchema(schema: ToolSchemaSource): schema is z.ZodType {
