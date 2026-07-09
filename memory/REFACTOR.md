@@ -53,9 +53,9 @@ Each leaves the codebase working; `npm run verify` gates each.
 
 1. ✅ Render the startup-header welcome shortcuts through the canonical hint formatter so header and
    footer share one register. Cosmetic; existing header tests updated to reject the raw `+` form.
-2. Make the keybinding-file cleanup fully best-effort: tolerate write failure the same way read
-   failure is tolerated (skip silently or warn; never throw out of settings creation). Pin with a
-   test that a failing write does not propagate.
+2. ✅ Make the keybinding-file cleanup fully best-effort: tolerate write failure the same way read
+   failure is tolerated (skip silently; never throw out of settings creation). Pinned with a
+   read-only file test that a failing write does not propagate.
 3. Deduplicate the continue-hint helper into a single home and give the status a lifecycle: hint is
    set only on cancels the continue command can recover (declared continuations); a successful
    `/brunch:continue` recovery clears the status key. Standalone-ask cancels either surface no

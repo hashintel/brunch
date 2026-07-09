@@ -31,7 +31,7 @@ export function cleanupBrunchKeybindingFilePolicy(agentDir: string): void {
   if (!existing || !isEmptyArray(existing[PI_THINKING_CYCLE_KEYBINDING])) return;
 
   const { [PI_THINKING_CYCLE_KEYBINDING]: _removed, ...next } = existing;
-  writeFileSync(configPath, `${JSON.stringify(next, null, 2)}\n`);
+  writeKeybindingsConfig(configPath, next);
 }
 
 function readKeybindingsConfig(configPath: string): Record<string, unknown> | undefined {
@@ -40,6 +40,14 @@ function readKeybindingsConfig(configPath: string): Record<string, unknown> | un
     return isPlainRecord(parsed) ? parsed : undefined;
   } catch {
     return undefined;
+  }
+}
+
+function writeKeybindingsConfig(configPath: string, config: Record<string, unknown>): void {
+  try {
+    writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  } catch {
+    // Best-effort cleanup: stale C1-era file suppression must not kill Brunch startup.
   }
 }
 

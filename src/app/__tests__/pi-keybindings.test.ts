@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -75,5 +75,21 @@ describe('Brunch Pi keybinding policy', () => {
     cleanupBrunchKeybindingFilePolicy(agentDir);
 
     expect(JSON.parse(await readFile(configPath, 'utf8'))).toEqual({ 'app.model.select': 'ctrl+x' });
+  });
+
+  it('does not propagate write failures from the old file-suppression cleanup', async () => {
+    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agentdir-'));
+    const configPath = join(agentDir, 'keybindings.json');
+    const staleConfig = `${JSON.stringify({ 'app.thinking.cycle': [], 'app.model.select': 'ctrl+x' })}\n`;
+
+    await writeFile(configPath, staleConfig);
+    await chmod(configPath, 0o444);
+
+    try {
+      expect(() => cleanupBrunchKeybindingFilePolicy(agentDir)).not.toThrow();
+      expect(await readFile(configPath, 'utf8')).toBe(staleConfig);
+    } finally {
+      await chmod(configPath, 0o644);
+    }
   });
 });
