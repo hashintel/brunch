@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -15,8 +15,12 @@ import type {
   ExecutionPorts,
   TestRunnerPort,
 } from '../../../../executor/execution-ports.js';
+import { readRunDetail } from '../../../../executor/observer-read.js';
+import { petriEventsPath } from '../../../../executor/petri-events.js';
+import { petriMarkingPath } from '../../../../executor/petri-marking.js';
+import { petriNetPath } from '../../../../executor/petri.js';
 import { planFilePath } from '../../../../executor/plan-file.js';
-import { createRun } from '../../../../executor/run.js';
+import { createRun, runMetadataPath } from '../../../../executor/run.js';
 import { createProductUpdatePublisher, type ProductUpdate } from '../../../../rpc/product-updates.js';
 import { createExecuteOrchestrateTool } from '../execute-orchestrate/index.js';
 
@@ -70,6 +74,55 @@ async function createDrivableRun(cwd: string): Promise<void> {
   await createRun({ cwd, specId: '42', runId: 'run-1' });
 }
 
+async function writeReplayablePetriArtifacts(cwd: string, runId: string): Promise<void> {
+  await mkdir(join(cwd, '.brunch', 'cook', 'runs', runId, 'petrinaut'), { recursive: true });
+  await writeFile(
+    petriNetPath(cwd, runId),
+    `${JSON.stringify({
+      runId,
+      subnets: [{ id: 'run', kind: 'run_control', transitionIds: ['worktree_create'] }],
+      places: [
+        { id: 'run:created', subnetId: 'run', name: 'Created' },
+        { id: 'run:promotion_prepared', subnetId: 'run', name: 'Promotion prepared' },
+      ],
+      transitions: [
+        {
+          id: 'worktree_create',
+          subnetId: 'run',
+          step: { kind: 'worktree_create' },
+          contract: { kind: 'mechanical', lane: 'run' },
+          inputArcs: [{ placeId: 'run:created', weight: 1 }],
+          outputArcs: [{ placeId: 'run:promotion_prepared', weight: 1 }],
+        },
+      ],
+      initialMarking: { 'run:created': 1 },
+    })}\n`,
+    'utf8',
+  );
+  await writeFile(
+    petriEventsPath(cwd, runId),
+    `${JSON.stringify({
+      kind: 'transition_fired',
+      runId,
+      runStatus: 'promotion_prepared',
+      transitionId: 'worktree_create',
+      subnetId: 'run',
+      step: 'worktree_create',
+      fromStatus: 'created',
+      toStatus: 'promotion_prepared',
+    })}\n`,
+    'utf8',
+  );
+}
+
+async function overwriteRunMetadata(
+  cwd: string,
+  runId: string,
+  metadata: Record<string, unknown>,
+): Promise<void> {
+  await writeFile(runMetadataPath(cwd, runId), `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
+}
+
 describe('execute_orchestrate intra-drive updates', () => {
   it('publishes run-scoped updates for every step advance during a drive', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-orchestrate-updates-'));
@@ -88,11 +141,160 @@ describe('execute_orchestrate intra-drive updates', () => {
     );
 
     expect(result.details?.outcome?.status).toBe('completed');
-    // One publish per advanced step: created -> ... -> promotion_prepared for one slice = 13 steps.
-    expect(published).toHaveLength(13);
+    expect(published).toHaveLength(14);
     for (const updates of published) {
-      expect(updates).toEqual([{ topic: 'execute.runs' }, { topic: 'execute.run', runId: 'run-1' }]);
+      expect(updates).toMatchObject([
+        { topic: 'execute.runs' },
+        {
+          topic: 'execute.run',
+          runId: 'run-1',
+          petriProjectionSource: 'snapshot',
+        },
+      ]);
+      expect(updates[1]).toHaveProperty('petriReadySteps');
+      expect(updates[1]).toHaveProperty('petriBlockedSteps');
     }
+    const detail = await readRunDetail(cwd, 'run-1');
+    expect(detail && !('unreadable' in detail) ? detail.petriProjectionSource : undefined).toBe('snapshot');
+  });
+
+  it('publishes current Petri frontier hints on run updates during orchestration', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-orchestrate-frontier-hints-'));
+    await createDrivableRun(cwd);
+    const publisher = createProductUpdatePublisher();
+    const published: ProductUpdate[][] = [];
+    publisher.subscribe((updates) => published.push([...updates]));
+
+    const tool = createExecuteOrchestrateTool(fakePorts(), { productUpdates: publisher });
+    const result = await tool.execute(
+      't1',
+      { runId: 'run-1' },
+      undefined as never,
+      undefined as never,
+      { cwd } as never,
+    );
+
+    expect(result.details?.outcome?.status).toBe('completed');
+    expect(
+      published.some((updates) =>
+        updates.some(
+          (update) =>
+            update.topic === 'execute.run' &&
+            update.runId === 'run-1' &&
+            JSON.stringify(update).includes('"petriReadySteps":[{"kind":"slice_start","sliceId":"t1"}]'),
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      published.some((updates) =>
+        updates.some(
+          (update) =>
+            update.topic === 'execute.run' &&
+            update.runId === 'run-1' &&
+            JSON.stringify(update).includes('"petriReadySteps":[{"kind":"slice_execute"}]'),
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it('publishes replay stale-snapshot hints after a halted drive when the persisted marking snapshot cannot be refreshed', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-orchestrate-stale-marking-'));
+    await createDrivableRun(cwd);
+    await writeReplayablePetriArtifacts(cwd, 'run-1');
+    await overwriteRunMetadata(cwd, 'run-1', {
+      runId: 'run-1',
+      specId: '42',
+      planPath: planFilePath(cwd, '42'),
+      status: 'abandoned',
+      abandonedAt: '2026-07-09T00:00:00.000Z',
+    });
+    await writeFile(
+      petriMarkingPath(cwd, 'run-1'),
+      `${JSON.stringify({
+        currentMarking: { 'run:promotion_prepared': 2 },
+        firedTransitionCount: 99,
+        lifecycleProvenance: { runStatus: 'run_completed' },
+        terminalEventKind: 'net_completed',
+      })}\n`,
+      'utf8',
+    );
+    await chmod(petriMarkingPath(cwd, 'run-1'), 0o444);
+
+    const publisher = createProductUpdatePublisher();
+    const published: ProductUpdate[][] = [];
+    publisher.subscribe((updates) => published.push([...updates]));
+
+    const tool = createExecuteOrchestrateTool(fakePorts(), { productUpdates: publisher });
+    const result = await tool.execute(
+      't1',
+      { runId: 'run-1' },
+      undefined as never,
+      undefined as never,
+      { cwd } as never,
+    );
+
+    expect(result.details?.outcome).toEqual({
+      status: 'halted',
+      step: 'abandoned',
+      runStatus: 'abandoned',
+      reason: 'abandoned',
+    });
+    expect(published.at(-1)).toMatchObject([
+      { topic: 'execute.runs' },
+      {
+        topic: 'execute.run',
+        runId: 'run-1',
+        petriProjectionSource: 'replay',
+        petriProjectionReplayReason: 'snapshot_stale',
+        petriReadySteps: [],
+        petriBlockedSteps: [],
+      },
+    ]);
+  });
+
+  it('publishes replay missing-snapshot hints after a halted drive when the persisted marking snapshot is unreadable', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-orchestrate-missing-marking-'));
+    await createDrivableRun(cwd);
+    await writeReplayablePetriArtifacts(cwd, 'run-1');
+    await overwriteRunMetadata(cwd, 'run-1', {
+      runId: 'run-1',
+      specId: '42',
+      planPath: planFilePath(cwd, '42'),
+      status: 'abandoned',
+      abandonedAt: '2026-07-09T00:00:00.000Z',
+    });
+    await mkdir(petriMarkingPath(cwd, 'run-1'), { recursive: true });
+
+    const publisher = createProductUpdatePublisher();
+    const published: ProductUpdate[][] = [];
+    publisher.subscribe((updates) => published.push([...updates]));
+
+    const tool = createExecuteOrchestrateTool(fakePorts(), { productUpdates: publisher });
+    const result = await tool.execute(
+      't1',
+      { runId: 'run-1' },
+      undefined as never,
+      undefined as never,
+      { cwd } as never,
+    );
+
+    expect(result.details?.outcome).toEqual({
+      status: 'halted',
+      step: 'abandoned',
+      runStatus: 'abandoned',
+      reason: 'abandoned',
+    });
+    expect(published.at(-1)).toMatchObject([
+      { topic: 'execute.runs' },
+      {
+        topic: 'execute.run',
+        runId: 'run-1',
+        petriProjectionSource: 'replay',
+        petriProjectionReplayReason: 'snapshot_missing_or_unreadable',
+        petriReadySteps: [],
+        petriBlockedSteps: [],
+      },
+    ]);
   });
 
   it('publishes nothing intra-drive when no publisher is injected', async () => {

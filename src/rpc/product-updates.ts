@@ -1,3 +1,5 @@
+import type { BlockedStep, ReadyStep } from '../executor/orchestrate-topology.js';
+
 export const BRUNCH_UPDATED_METHOD = 'brunch.updated';
 
 type ProductUpdateTopic =
@@ -18,6 +20,10 @@ export interface ProductUpdate {
   readonly nodeId?: number;
   readonly lsn?: number;
   readonly runId?: string;
+  readonly petriProjectionSource?: 'snapshot' | 'replay' | null;
+  readonly petriProjectionReplayReason?: 'snapshot_missing_or_unreadable' | 'snapshot_stale' | null;
+  readonly petriReadySteps?: readonly ReadyStep[] | null;
+  readonly petriBlockedSteps?: readonly BlockedStep[] | null;
 }
 
 export interface ProductUpdateNotification {
@@ -83,10 +89,35 @@ export function selectedSessionProductUpdates(target?: {
   ];
 }
 
-export function executeRunProductUpdates(runId?: string): readonly ProductUpdate[] {
+export interface ExecuteRunProductUpdateHints {
+  readonly petriProjectionSource?: 'snapshot' | 'replay' | null;
+  readonly petriProjectionReplayReason?: 'snapshot_missing_or_unreadable' | 'snapshot_stale' | null;
+  readonly petriReadySteps?: readonly ReadyStep[] | null;
+  readonly petriBlockedSteps?: readonly BlockedStep[] | null;
+}
+
+export function executeRunProductUpdates(
+  runId?: string,
+  hints?: ExecuteRunProductUpdateHints,
+): readonly ProductUpdate[] {
   return [
     { topic: 'execute.runs' },
-    ...(runId === undefined ? [] : [{ topic: 'execute.run', runId } as const]),
+    ...(runId === undefined
+      ? []
+      : [
+          {
+            topic: 'execute.run',
+            runId,
+            ...(hints?.petriProjectionSource === undefined
+              ? {}
+              : { petriProjectionSource: hints.petriProjectionSource }),
+            ...(hints?.petriProjectionReplayReason === undefined
+              ? {}
+              : { petriProjectionReplayReason: hints.petriProjectionReplayReason }),
+            ...(hints?.petriReadySteps === undefined ? {} : { petriReadySteps: hints.petriReadySteps }),
+            ...(hints?.petriBlockedSteps === undefined ? {} : { petriBlockedSteps: hints.petriBlockedSteps }),
+          } as const,
+        ]),
   ];
 }
 

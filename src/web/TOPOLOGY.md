@@ -74,8 +74,9 @@ web/
       running indicators, requirement status panel,
       readable worker/verify evidence panels
       (deduped display plus raw stream disclosure), grouped reports timeline
-      (events lead the run.json snapshot by design), unreadable-run marking
-      requirement rows link back to graph nodes and slice-log anchors
+      (events lead the run.json snapshot by design), derived Petri projection
+      summary plus raw net disclosure, unreadable-run marking, requirement
+      rows link back to graph nodes and slice-log anchors
 
   features/graph/
     structured-list-view.tsx
@@ -366,7 +367,7 @@ future graph projections:
 
 ## Subscription / notification bridge
 
-Current proof code listens for `brunch.updated` and invalidates broad keys. Target shape:
+Current code listens for `brunch.updated`, prefers exact invalidation when the notification carries ids, and patches cached `execute.run` detail with live Petri hint fields before invalidating the exact query. The patch is advisory-only: it lets the run-detail UI reflect `snapshot` vs `replay` and either replay reason (`snapshot_stale` or `snapshot_missing_or_unreadable`) immediately while canonical run truth still comes from the subsequent `execute.run` refetch.
 
 ```pseudo
 useBrunchUpdateInvalidation(rpc, queryClient)
@@ -398,6 +399,8 @@ useBrunchUpdateInvalidation(rpc, queryClient)
       invalidate exact execute.runs
 
     if topic == execute.run:
+      if update includes petriProjectionSource or petriProjectionReplayReason:
+        patch cached execute.run(runId) detail with those fields first
       invalidate exact execute.run(runId); broad without runId
 ```
 

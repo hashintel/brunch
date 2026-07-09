@@ -65,12 +65,19 @@ async function writeRun(
     readonly planPath?: string;
     readonly status?: RunMetadata['status'];
     readonly specId?: string;
+    readonly activeSliceId?: string;
   } = {},
 ): Promise<void> {
   await mkdir(runDirPath(cwd, runId), { recursive: true });
   await writeFile(
     runMetadataPath(cwd, runId),
-    `${JSON.stringify({ runId, specId: options.specId ?? '42', planPath: options.planPath ?? '/plan.yaml', status: options.status ?? 'created' })}\n`,
+    `${JSON.stringify({
+      runId,
+      specId: options.specId ?? '42',
+      planPath: options.planPath ?? '/plan.yaml',
+      status: options.status ?? 'created',
+      ...(options.activeSliceId === undefined ? {} : { activeSliceId: options.activeSliceId }),
+    })}\n`,
     'utf8',
   );
 }
@@ -209,6 +216,61 @@ describe('execute.run', () => {
         verifyStreamTotal: 0,
         verifyStreamTail: [],
         presence: { worktree: false, reports: true, petri: false, promotion: false },
+      },
+    });
+  });
+
+  it('returns the current Petri ready frontier when lifecycle facts admit multiple dependency-ready starts', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-ready-frontier-'));
+    const planPath = join(cwd, 'plan.yaml');
+    await writeFile(
+      planPath,
+      `${JSON.stringify({
+        mode: 'greenfield',
+        slices: [{ id: 'task-1' }, { id: 'task-2', depends_on: ['task-1'] }, { id: 'task-3' }],
+      })}\n`,
+      'utf8',
+    );
+    await writeRun(cwd, 'run-1', { planPath, status: 'reports_initialized' });
+
+    const response = await method('execute.run').handle(
+      contextFor(cwd),
+      request('execute.run', { runId: 'run-1' }),
+    );
+
+    expect(response).toMatchObject({
+      result: {
+        petriReadySteps: [
+          { kind: 'slice_start', sliceId: 'task-1' },
+          { kind: 'slice_start', sliceId: 'task-3' },
+        ],
+        petriBlockedSteps: [
+          { kind: 'slice_start', sliceId: 'task-2', blockers: [{ kind: 'dependency', sliceId: 'task-1' }] },
+        ],
+      },
+    });
+  });
+
+  it('returns active-slice blockers when another dependency-ready slice cannot start yet', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-active-blocker-'));
+    const planPath = join(cwd, 'plan.yaml');
+    await writeFile(
+      planPath,
+      `${JSON.stringify({ mode: 'greenfield', slices: [{ id: 'task-1' }, { id: 'task-2' }] })}\n`,
+      'utf8',
+    );
+    await writeRun(cwd, 'run-1', { planPath, status: 'slice_started', activeSliceId: 'task-1' });
+
+    const response = await method('execute.run').handle(
+      contextFor(cwd),
+      request('execute.run', { runId: 'run-1' }),
+    );
+
+    expect(response).toMatchObject({
+      result: {
+        petriBlockedSteps: [
+          { kind: 'slice_start', sliceId: 'task-2', blockers: [{ kind: 'active_slice', sliceId: 'task-1' }] },
+        ],
       },
     });
   });
@@ -395,6 +457,109 @@ describe('execute.run', () => {
     });
     expect(JSON.stringify(response)).not.toContain('verify.jsonl');
   });
+
+  it('returns the raw Petri event tail/count without exposing artifact paths', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-petri-events-'));
+    await writeRun(cwd, 'run-1', { status: 'agent_result_ingested' });
+    await mkdir(join(runDirPath(cwd, 'run-1'), 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDirPath(cwd, 'run-1'), 'petrinaut', 'events.jsonl'),
+      `${JSON.stringify({
+        kind: 'transition_fired',
+        runId: 'run-1',
+        runStatus: 'slice_started',
+        transitionId: 'slice_start:task-1',
+        subnetId: 'slice:task-1',
+        step: 'slice_start',
+        fromStatus: 'reports_initialized',
+        toStatus: 'slice_started',
+      })}\n`,
+      'utf8',
+    );
+
+    const response = await method('execute.run').handle(
+      contextFor(cwd),
+      request('execute.run', { runId: 'run-1' }),
+    );
+
+    expect(response).toMatchObject({
+      result: {
+        petriEventsTotal: 1,
+        petriEventsTail: [
+          {
+            kind: 'transition_fired',
+            runId: 'run-1',
+            transitionId: 'slice_start:task-1',
+            subnetId: 'slice:task-1',
+          },
+        ],
+      },
+    });
+    expect(JSON.stringify(response)).not.toContain('events.jsonl');
+  });
+
+  it('returns a derived Petri projection separately from the raw net payload', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-petri-projection-'));
+    await writeRun(cwd, 'run-1', { status: 'promotion_prepared' });
+    await mkdir(join(runDirPath(cwd, 'run-1'), 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDirPath(cwd, 'run-1'), 'petrinaut', 'net.json'),
+      `${JSON.stringify({
+        runId: 'run-1',
+        subnets: [{ id: 'run', kind: 'run_control', transitionIds: ['worktree_create'] }],
+        places: [
+          { id: 'run:created', subnetId: 'run', name: 'Created' },
+          { id: 'run:promotion_prepared', subnetId: 'run', name: 'Promotion prepared' },
+        ],
+        transitions: [
+          {
+            id: 'worktree_create',
+            subnetId: 'run',
+            step: { kind: 'worktree_create' },
+            contract: { kind: 'mechanical', lane: 'run' },
+            inputArcs: [{ placeId: 'run:created', weight: 1 }],
+            outputArcs: [{ placeId: 'run:promotion_prepared', weight: 1 }],
+          },
+        ],
+        initialMarking: { 'run:created': 1 },
+      })}\n`,
+      'utf8',
+    );
+    await writeFile(
+      join(runDirPath(cwd, 'run-1'), 'petrinaut', 'events.jsonl'),
+      `${JSON.stringify({
+        kind: 'transition_fired',
+        runId: 'run-1',
+        runStatus: 'promotion_prepared',
+        transitionId: 'worktree_create',
+        subnetId: 'run',
+        step: 'worktree_create',
+        fromStatus: 'created',
+        toStatus: 'promotion_prepared',
+      })}\n${JSON.stringify({ kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' })}\n`,
+      'utf8',
+    );
+
+    const response = await method('execute.run').handle(
+      contextFor(cwd),
+      request('execute.run', { runId: 'run-1' }),
+    );
+
+    expect(response).toMatchObject({
+      result: {
+        petriProjection: {
+          currentMarking: { 'run:promotion_prepared': 1 },
+          firedTransitionCount: 1,
+          terminalEventKind: 'net_completed',
+        },
+        petriProjectionSource: 'replay',
+        petriProjectionReplayReason: 'snapshot_missing_or_unreadable',
+        petriNet: {
+          places: expect.arrayContaining([{ id: 'run:created', subnetId: 'run', name: 'Created' }]),
+        },
+      },
+    });
+  });
 });
 
 describe('execute.runTraceIndex', () => {
@@ -538,7 +703,15 @@ describe('execute replanning methods', () => {
         sideEffects: [{ kind: 'write_file' }, { kind: 'write_file' }],
       },
     });
-    expect(updates).toEqual([{ topic: 'execute.runs' }, { topic: 'execute.run', runId: 'run-1' }]);
+    expect(updates).toEqual([
+      { topic: 'execute.runs' },
+      {
+        topic: 'execute.run',
+        runId: 'run-1',
+        petriReadySteps: [{ kind: 'populate' }],
+        petriBlockedSteps: [],
+      },
+    ]);
   });
 
   it('refuses to expose retry-current-step through web RPC', () => {
@@ -605,5 +778,85 @@ describe('execute replanning methods', () => {
       },
     });
     expect(updates).toEqual([{ topic: 'execute.runs' }, { topic: 'execute.run', runId: 'run-1' }]);
+  });
+
+  it('publishes replay stale-snapshot hints when abandon invalidates the persisted marking snapshot', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-abandon-petri-'));
+    const updates: ProductUpdate[] = [];
+    await writeRun(cwd, 'run-1', { status: 'agent_result_ingested' });
+    await mkdir(join(runDirPath(cwd, 'run-1'), 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDirPath(cwd, 'run-1'), 'petrinaut', 'net.json'),
+      `${JSON.stringify({
+        runId: 'run-1',
+        subnets: [{ id: 'run', kind: 'run_control', transitionIds: ['worktree_create'] }],
+        places: [
+          { id: 'run:created', subnetId: 'run', name: 'Created' },
+          { id: 'run:agent_result_ingested', subnetId: 'run', name: 'Agent result ingested' },
+        ],
+        transitions: [
+          {
+            id: 'worktree_create',
+            subnetId: 'run',
+            step: { kind: 'worktree_create' },
+            contract: { kind: 'mechanical', lane: 'run' },
+            inputArcs: [{ placeId: 'run:created', weight: 1 }],
+            outputArcs: [{ placeId: 'run:agent_result_ingested', weight: 1 }],
+          },
+        ],
+        initialMarking: { 'run:created': 1 },
+      })}\n`,
+      'utf8',
+    );
+    await writeFile(
+      join(runDirPath(cwd, 'run-1'), 'petrinaut', 'events.jsonl'),
+      `${JSON.stringify({
+        kind: 'transition_fired',
+        runId: 'run-1',
+        runStatus: 'agent_result_ingested',
+        transitionId: 'worktree_create',
+        subnetId: 'run',
+        step: 'worktree_create',
+        fromStatus: 'created',
+        toStatus: 'agent_result_ingested',
+      })}\n`,
+      'utf8',
+    );
+    await writeFile(
+      join(runDirPath(cwd, 'run-1'), 'petrinaut', 'marking.json'),
+      `${JSON.stringify(
+        {
+          currentMarking: { 'run:agent_result_ingested': 2 },
+          firedTransitionCount: 99,
+          lifecycleProvenance: {
+            runStatus: 'agent_result_ingested',
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    const response = await method('execute.replanAbandonRun').handle(
+      contextForSpec(cwd, executableGraph(), updates),
+      request('execute.replanAbandonRun', { runId: 'run-1', reason: 'User chose to replan' }),
+    );
+
+    expect(response).toMatchObject({
+      result: {
+        status: 'abandoned',
+        runStatus: 'abandoned',
+      },
+    });
+    expect(updates).toEqual([
+      { topic: 'execute.runs' },
+      {
+        topic: 'execute.run',
+        runId: 'run-1',
+        petriProjectionSource: 'replay',
+        petriProjectionReplayReason: 'snapshot_stale',
+      },
+    ]);
   });
 });

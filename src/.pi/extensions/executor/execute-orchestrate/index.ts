@@ -3,6 +3,7 @@ import { Type, type Static } from 'typebox';
 
 import type { AgentStreamEvent } from '../../../../executor/agent-result.js';
 import type { ExecutionPorts } from '../../../../executor/execution-ports.js';
+import { readRunDetail } from '../../../../executor/observer-read.js';
 import { drive, type DriveOutcome, type DriveStepProgress } from '../../../../executor/orchestrate.js';
 import type { VerifyStreamEvent } from '../../../../executor/test-result.js';
 import { executeRunProductUpdates, type ProductUpdatePublisher } from '../../../../rpc/product-updates.js';
@@ -52,6 +53,37 @@ export function createExecuteOrchestrateTool(
         throw new Error('execute_orchestrate requires an active cwd');
       }
       const publisher = deps?.productUpdates;
+      const publishRunUpdate = async (): Promise<void> => {
+        if (!publisher) return;
+        const detail = await readRunDetail(cwd, params.runId).catch(() => undefined);
+        const readableDetail = detail && !('unreadable' in detail) ? detail : undefined;
+        const hints = readableDetail
+          ? {
+              ...(readableDetail.petriProjectionSource === undefined
+                ? {}
+                : { petriProjectionSource: readableDetail.petriProjectionSource ?? null }),
+              ...(readableDetail.petriProjectionReplayReason === undefined
+                ? {}
+                : {
+                    petriProjectionReplayReason: readableDetail.petriProjectionReplayReason ?? null,
+                  }),
+              ...(readableDetail.petriReadySteps === undefined
+                ? {}
+                : { petriReadySteps: readableDetail.petriReadySteps }),
+              ...(readableDetail.petriBlockedSteps === undefined
+                ? {}
+                : { petriBlockedSteps: readableDetail.petriBlockedSteps }),
+            }
+          : undefined;
+        publisher.publish(executeRunProductUpdates(params.runId, hints));
+      };
+      let pendingRunUpdate = Promise.resolve();
+      const queueRunUpdate = (): void => {
+        if (!publisher) return;
+        pendingRunUpdate = pendingRunUpdate.then(async () => {
+          await publishRunUpdate();
+        });
+      };
       const emitProgress = (progress: DriveStepProgress): void => {
         const sliceLine = progress.activeSliceId
           ? [
@@ -137,7 +169,7 @@ export function createExecuteOrchestrateTool(
           emitProgress(progress);
         },
         onStepComplete: (_step, _runStatus, progress) => {
-          publisher?.publish(executeRunProductUpdates(params.runId));
+          queueRunUpdate();
           emitProgress(progress);
         },
         onAgentUpdate: emitAgentUpdate,
@@ -149,6 +181,8 @@ export function createExecuteOrchestrateTool(
         },
         ...(_signal ? { signal: _signal } : {}),
       });
+      await pendingRunUpdate;
+      await publishRunUpdate();
       return {
         content: [
           {

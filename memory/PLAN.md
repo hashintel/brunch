@@ -90,18 +90,19 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - `review-commentary-widening` — GitHub-style per-item review commentary: widen the review answered payload (`comments: [{on: draft|edge|set, body}]`, a SPEC decision) plus the collection UI. Deferred post-gate at FE-1138 scope (2026-07-03): the payload ripples into the review schema that capture-contract rows and the digest terminal consume. Once `exchange-ask-refinement` lands, the widening re-expresses over the D116-L declared-ask/answer payload rather than `request_response` details. Sketch: `src/agents/contexts/exchanges/design-permutations.md` §Review-set evaluation.
 - `develop-mode` — third operational mode `develop` / Develop running a new `engineer` agent: a Brunch-aware coding assistant *without* the `execute_*` tool set and with kick/consult mechanisms inert (user-driven turns, not agent-driven). Split out of `main-editor-chrome` at the 2026-07-08 grill. Entry is a SPEC revision, not a feature slice: D98-L ("two modes only" — though Develop is a distinct agent with different grants, not the conduct-bias `Enhance` that grill rejected), req 26, and D40-L placement of `engineer` in the concentric authority matrix (executor-minus-`execute_*`? elicitor-plus-coding?), plus a new per-mode kick/consult-suppression policy axis. Route through `ln-grill`/`ln-spec` at pickup. Groundwork (mode-cycling keybinding, border-by-mode) lands mode-agnostically in `main-editor-chrome`.
 - `headless-ask-discovery` — the A39-L follow-up to D116-L: RPC discovery of open `ask` calls (streamed session events or a pending-interactive-call read method) replacing `session.pendingExchange` transcript scanning, so an agent-as-user driver can generatively build specs against a goal over the headless surface. Not first-release-critical; headless asks resolve `unavailable` until this lands. Broker (`awaitAnswer`/`session.submitExchangeResponse`) is unchanged by design.
+- `petri-interpreter-port` — port the proven Petri interpreter substrate from `main` into the `next` executor, replacing the placeholder `geolog-and-petri-execution` bucket with a concrete executor frontier. Scope it around **subnet-preserving compilation**, not a flat scheduler rewrite: keep run-control and per-slice subnet identities explicit from the first tracer so semantic/review lanes, durable resume, and future exports do not require re-keying the runtime later. Behind the gate; first tracer stays serial and runtime-local.
 - `reconciliation-derivation` — derive `edge_revalidation` reconciliation needs from LSN comparison instead of persisting them; full definition below (inventory findings from 2026-07-02, worth keeping). **Confirmed behind the gate 2026-07-03 (grill G7):** the ingest throughline's conflict routing rides the existing persisted `reconciliation_need` substrate (`create_reconciliation_need` is live); nothing in the gate needs the LSN-derived generator. Honor the convergence: the `contradictory` seed variant capture now rides `walkthrough-evidence-batch` (FE-1167).
 - `reviewer-agent-mode` — D29-L's async advisory reviewer remains designed but unbuilt: narrow write authority to `reconciliation_need`, batch-acceptance trigger keyed by session/batch entry, A16-L trigger/scope questions still open. Behind the ship gate; no frontier until post-acceptance review becomes POC-blocking or reviewer residues need executable closure.
 - `session-branching` — support session branching (D24-L reversal); needs branch-aware continuity/coherence design (A37-L).
 - `compaction-and-conflict-widening` — long-horizon continuity through compaction.
 - `agent-tracing` — passive trace instrumentation over Pi lifecycle events for debugging plus conduct/quality evaluation: NDJSON emitter extension (introspection-tap discipline), subagent span joining via SDK `session.subscribe`, and a mechanical-trace × semantic-JSONL join for deterministic conduct checks and judged passes. Entry move is an `ln-spike` (dev-gated `nikiforovall/pi-otel` import: do span trees beat `.brunch/debug/` + JSONL projections?) before any port of `JoshMock/the-agency` observability as the in-product base. Traces are dev/eval artifacts, never product truth (no event-spine backdoor). Design: `docs/design/AGENT_TRACING.md`; sibling idea note `docs/design/RLM_INVESTIGATION_PATTERN.md`. Relation: Next `mechanism-trace` is the transcript-native sibling (carrier classification, no event plane); if both land they may join on a shared trace vocabulary.
 - `web-driver-streaming` — remaining consumer/UI and non-freeform answer legs after the built topology-A relay battery.
-- `geolog-and-petri-execution` — exploratory, parallel to Brunch proper.
 
 ### Retired / Never
 
 - `coherence-first-class` — retired as an independent frontier; future coherence work should be driven only by a concrete triggering frontier that needs it.
 - `flue-pattern-adoption` + `framework-direction-stubs` — removed from Horizon 2026-07-08: both are postures/directions, not work items, and both already live in `memory/SPEC.md` §Future Direction ("Adoption patterns from Flue"; "Framework alignment & deferred subsystems"). Re-enter only via a concrete triggering frontier.
+- `geolog-and-petri-execution` — split 2026-07-08: Petri is now the concrete Horizon frontier `petri-interpreter-port`; geolog can re-enter only when it has its own triggering seam instead of sharing a vague exploratory bucket.
 - `fixture-vs-real-audit` — dropped 2026-07-08 (action-or-drop call): its operative content graduated into `ln-review`'s contract-lens catalog (the opaque-companion lens carries the untested-against-real angle); run `ln-induct` on fresh evidence rather than keeping a standing audit bucket.
 - `roving-suite-flake` — dropped 2026-07-08 (action-or-drop call), re-opened and closed by same-day `ln-diagnose`: repeated full-suite runs reproduced the `git-host-promotion-port` timeout while isolation stayed green; phase timestamps showed no `git apply` hang, only cumulative spawned-git slowdown under default Vitest worker load, with the real-TUI harness showing the same scheduling sensitivity. Fix: `npm test` caps Vitest at 4 workers and the promotion real-git fixture removes clone/pull/config churn while preserving the real patch/apply witness. Oracle: default `npm test -- --reporter=dot` passed after the cap (228 files passed / 1 skipped, 1561 tests passed / 3 skipped, ~53s).
 - `blank-carrier-sweep` — folded 2026-07-08 into the FE-1163 ledger as row 13 (`exchanges-blank-carriers`); no longer a standalone Horizon item.
@@ -305,6 +306,28 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Traceability:** D103-L (plane stops at frontier; opens this model), D100-L (`project` seam), D56-L / D94-L (kind set + REQ/AC boundary), D87-L (`unknown` = horizon on the intent plane), D99-L (advisory/settled); relates to `orchestrator-tool-port` (D98-L executor may own execution/scope concerns). SPEC §Future Direction "Planning persistence evolution".
 
 
+### petri-interpreter-port
+
+- **Name:** Execute-mode Petri interpreter port — subnet-preserving scheduler/runtime
+- **Linear:** unassigned (create on pickup)
+- **Branch:** tbd
+- **Kind:** structural / executor run substrate
+- **Status:** Horizon; admitted 2026-07-08 by porting the proven `main` Petri substrate into the `next` executor plan and splitting the vague `geolog-and-petri-execution` bucket.
+- **Certainty:** proving.
+- **Why now / unlocks:** D112-L already shaped `RunScheduler.ready()` as a set-returning seam so a real Petri scheduler can replace `linearScheduler` without reshaping the drive loop. Today `src/executor/orchestrate.ts` still hard-codes a flat status ladder even though the lifecycle steps, observer tails, and Petri export/report surfaces now exist. Porting the interpreter next turns the accepted executor lifecycle into explicit runtime structure, so later questions — parallel firing, durable marking resume, semantic/review lanes, and richer export/projection — can be asked over a real net instead of another round of status-enum surgery.
+- **Objective:** Port the `main` Petri substrate (interpreter, transition contracts, firing-policy seam, structured transition events) into `src/executor/` as an internal runtime that drives today's step handlers. Compile the current execute lifecycle into **explicit subnets**, not a flat list of ready steps: at minimum a run-control subnet plus per-slice subnets keyed by stable slice ids, with subnet/lane identity preserved in the compiled topology even if the first tracer still fires serially. The first landing must preserve current product truth — existing lifecycle step functions remain the only side-effecting boundaries; `run.json` stays loop state for observers/recovery; `execute_petri_export` remains a projection/export surface, not a second runtime.
+- **Acceptance sketch:**
+  - (1) A Petri runtime under `src/executor/` can drive the current lifecycle end-to-end through injected step handlers, and `drive()` can be backed by either the existing linear scheduler or the new Petri scheduler without changing callers.
+  - (2) The compiler emits explicit subnet metadata/ids for run-control and slice-control groups rather than flattening directly to `ReadyStep`s; current topology may remain serial, but the grouping is structural from day one.
+  - (3) The first compiled net reproduces today's lifecycle ordering exactly (`created` → `worktree_created` → `worktree_populated` → `source_policy_selected` → `source_copied` → `reports_initialized` → slice loop → `run_completed` → `petri_exported` → `promotion_prepared`) and halts in the same places the current steps hold status unchanged.
+  - (4) Structured transition events are emitted as Brunch-owned executor runtime facts rather than inferred later from `run.json` diffs.
+  - (5) Naming and read surfaces stay honest: the existing `petrinaut/net.json` export/read path is clearly treated as a raw projection of run state, not confused with the interpreter's internal runtime representation.
+  - (6) Non-goals for the first tracer: graph compilation, semantic/oracle/review lanes, durable marking persistence, Petrinaut live sync, and any geolog coupling.
+- **First tracer:** compile a serial net for the current executor lifecycle using today's step functions as transition actions, preserving subnet ids and transition contracts now while explicitly deferring parallel firing and marking persistence. The tracer should prove the topology split (`compileExecutorTopology(...) -> blueprint`, `wireExecutorHandlers(...) -> runtime net`) before any attempt to outgrow the current lifecycle.
+- **Current execution pointer:** the alpha-orchestrator tracer, compiled export, raw runtime-event journal, replay read model, export-honesty hardening, and first durable-marking seam are locally landed in falcon via [`src/executor/orchestrate-topology.ts`](../src/executor/orchestrate-topology.ts), [`src/executor/orchestrate.ts`](../src/executor/orchestrate.ts), [`src/executor/petri-runtime.ts`](../src/executor/petri-runtime.ts), [`src/executor/petri-terminal.ts`](../src/executor/petri-terminal.ts), [`src/executor/petri-events.ts`](../src/executor/petri-events.ts), [`src/executor/petri-marking.ts`](../src/executor/petri-marking.ts), [`src/executor/petri.ts`](../src/executor/petri.ts), [`src/executor/petri-replay-eligibility.ts`](../src/executor/petri-replay-eligibility.ts), and [`src/executor/petri-replay.ts`](../src/executor/petri-replay.ts), plus the executor/RPC/web tests: explicit run/slice subnet compilation, explicit place/arc + `initialMarking` export, `petriScheduler` lifecycle parity, executor-owned transition events, shared transition readiness/terminal classification helpers, a materialized serial runtime (`currentMarking`, enabled transitions, ready steps) plus bound transition executors that dispatch through the existing lifecycle step handlers, persisted `petrinaut/events.jsonl` tails through `execute.run`, a persisted `petrinaut/marking.json` snapshot for current marking / fired-count / terminal summary with replay fallback when absent or unreadable, a derived `petriProjection` surfaced through `execute.run`, and refusal of unreadable plan inputs instead of fallback topology reconstruction are verified. Parallel firing and graph compilation remain the next substantive Petri questions; durable resume/recovery from marking remains deferred because `run.json` is still the only lifecycle authority.
+- **Traceability:** D111-L (executor lifecycle ownership in `src/executor/`), D112-L (set-returning scheduler seam for a future Petri scheduler), `memory/SPEC.md` §Future Direction "Plan execution & Petri-net compatibility", and the proven prior-art substrate on `main` (`src/orchestrator/src/petri-net.ts`, `docs/next/architecture/plan-graph-petri-orchestration.md` — especially the slice-net/subnet model).
+
+
 ### reconciliation-derivation
 
 - **Name:** Derive `edge_revalidation` reconciliation needs from LSN comparison; keep the table for judgment-shaped kinds
@@ -380,6 +403,9 @@ frontiers:
   Horizon (behind the gate):
     planning-process-model
       status: demoted 2026-07-03; orientation plan option must not pull it forward
+    petri-interpreter-port
+      status: admitted 2026-07-08; split out of the retired geolog-and-petri bucket; first tracer stays serial + subnet-preserving
+      depends_on: D111-L, D112-L; current executor lifecycle steps stay canonical side-effect boundaries
     reconciliation-derivation
       status: confirmed behind gate 2026-07-03 (grill G7); ingest conflict routing rides the persisted substrate
     headless-ask-discovery (A39-L)
@@ -390,12 +416,12 @@ frontiers:
     compaction-and-conflict-widening
     agent-tracing
     web-driver-streaming
-    geolog-and-petri-execution
 
   Retired:
     coherence-first-class
     enhance-third-mode (rejected 2026-07-03, grill: conduct bias is not runtime state; D98-L reasoning holds)
     flue-pattern-adoption / framework-direction-stubs (2026-07-08: postures, not work items; live in SPEC §Future Direction)
+    geolog-and-petri-execution (2026-07-08: split; Petri promoted to `petri-interpreter-port`, geolog waits for a concrete trigger)
     fixture-vs-real-audit (2026-07-08: graduated into ln-review contract lenses)
     roving-suite-flake (2026-07-08: re-open condition met same day — 2x verify timeout in git-host-promotion-port; ln-diagnose owed)
     blank-carrier-sweep (2026-07-08: folded into FE-1163 ledger row 13)

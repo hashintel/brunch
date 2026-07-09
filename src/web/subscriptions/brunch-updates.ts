@@ -10,6 +10,10 @@ type ProductUpdate = {
   readonly sessionId?: unknown;
   readonly nodeId?: unknown;
   readonly runId?: unknown;
+  readonly petriProjectionSource?: unknown;
+  readonly petriProjectionReplayReason?: unknown;
+  readonly petriReadySteps?: unknown;
+  readonly petriBlockedSteps?: unknown;
 };
 
 export function useBrunchUpdateSubscription(queryClient: QueryClient, rpcClient: WebSocketRpcClient): void {
@@ -82,6 +86,7 @@ function invalidateProductUpdate(queryClient: QueryClient, update: ProductUpdate
     return;
   }
   if (update.topic === 'execute.run' && typeof update.runId === 'string') {
+    patchExecuteRunDetail(queryClient, update);
     invalidateExact(queryClient, queryKeys.execute.run(update.runId));
     void queryClient.invalidateQueries({ queryKey: ['execute.runTraceIndex'] });
     return;
@@ -125,6 +130,92 @@ function invalidateTopic(queryClient: QueryClient, topic: string): void {
 
 function invalidateExact(queryClient: QueryClient, queryKey: QueryKey): void {
   void queryClient.invalidateQueries({ queryKey, exact: true });
+}
+
+function patchExecuteRunDetail(queryClient: QueryClient, update: ProductUpdate): void {
+  if (typeof update.runId !== 'string') return;
+  if (
+    !('petriProjectionSource' in update) &&
+    !('petriProjectionReplayReason' in update) &&
+    !('petriReadySteps' in update) &&
+    !('petriBlockedSteps' in update)
+  ) {
+    return;
+  }
+  queryClient.setQueryData(queryKeys.execute.run(update.runId), (current: unknown) => {
+    if (!isRecord(current) || 'unreadable' in current) return current;
+    const next = { ...current };
+    if ('petriProjectionSource' in update) {
+      if (update.petriProjectionSource === null) delete next.petriProjectionSource;
+      else if (update.petriProjectionSource === 'snapshot' || update.petriProjectionSource === 'replay') {
+        next.petriProjectionSource = update.petriProjectionSource;
+      }
+    }
+    if ('petriProjectionReplayReason' in update) {
+      if (update.petriProjectionReplayReason === null) delete next.petriProjectionReplayReason;
+      else if (
+        update.petriProjectionReplayReason === 'snapshot_missing_or_unreadable' ||
+        update.petriProjectionReplayReason === 'snapshot_stale'
+      ) {
+        next.petriProjectionReplayReason = update.petriProjectionReplayReason;
+      }
+    }
+    if ('petriReadySteps' in update) {
+      if (update.petriReadySteps === null) delete next.petriReadySteps;
+      else if (isReadyStepArray(update.petriReadySteps)) next.petriReadySteps = update.petriReadySteps;
+    }
+    if ('petriBlockedSteps' in update) {
+      if (update.petriBlockedSteps === null) delete next.petriBlockedSteps;
+      else if (isBlockedStepArray(update.petriBlockedSteps))
+        next.petriBlockedSteps = update.petriBlockedSteps;
+    }
+    return next;
+  });
+}
+
+function isReadyStepArray(value: unknown): value is readonly Record<string, unknown>[] {
+  return Array.isArray(value) && value.every(isReadyStep);
+}
+
+function isReadyStep(value: unknown): value is Record<string, unknown> {
+  if (!isRecord(value) || typeof value.kind !== 'string') return false;
+  if (value.kind === 'slice_start') return typeof value.sliceId === 'string';
+  return [
+    'worktree_create',
+    'populate',
+    'source_policy',
+    'source_copy',
+    'report_init',
+    'slice_execute',
+    'agent_result',
+    'test_result',
+    'slice_complete',
+    'run_complete',
+    'petri_export',
+    'promotion',
+  ].includes(value.kind);
+}
+
+function isBlockedStepArray(value: unknown): value is readonly Record<string, unknown>[] {
+  return Array.isArray(value) && value.every(isBlockedStep);
+}
+
+function isBlockedStep(value: unknown): value is Record<string, unknown> {
+  return (
+    isRecord(value) &&
+    value.kind === 'slice_start' &&
+    typeof value.sliceId === 'string' &&
+    Array.isArray(value.blockers) &&
+    value.blockers.every(isBlockedStepReason)
+  );
+}
+
+function isBlockedStepReason(value: unknown): value is Record<string, unknown> {
+  return (
+    isRecord(value) &&
+    (value.kind === 'dependency' || value.kind === 'active_slice') &&
+    typeof value.sliceId === 'string'
+  );
 }
 
 function isProductUpdate(value: unknown): value is ProductUpdate {

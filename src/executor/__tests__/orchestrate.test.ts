@@ -1,4 +1,5 @@
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdirSync, rmSync } from 'node:fs';
+import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -6,8 +7,27 @@ import { describe, expect, it } from 'vitest';
 
 import { ingestAgentResult } from '../agent-result.js';
 import type { AgentRunnerPort, ExecutionPorts, TestRunnerPort } from '../execution-ports.js';
-import { drive, linearScheduler, type ReadyStep } from '../orchestrate.js';
-import { exportPetri } from '../petri.js';
+import {
+  compileExecutorTopology,
+  drive,
+  frontierFiringPolicy,
+  linearScheduler,
+  type ExecutorNetEvent,
+  petriScheduler,
+  type ReadyStep,
+  serialFiringPolicy,
+} from '../orchestrate.js';
+import { petriMarkingPath, readPetriMarkingSnapshot } from '../petri-marking.js';
+import {
+  bindExecutorPetriRuntime,
+  enabledPetriTransitionIds,
+  impliedPetriTransitionHistory,
+  materializeExecutorPetriRuntime,
+  projectExecutorPetriTransitionHistory,
+  resolvePetriTransitionIdForReadyStep,
+} from '../petri-runtime.js';
+import { classifyDriveTerminal } from '../petri-terminal.js';
+import { exportPetri, petriNetPath } from '../petri.js';
 import { planFilePath } from '../plan-file.js';
 import { populateWorktree } from '../populate.js';
 import { preparePromotion } from '../promotion.js';
@@ -45,15 +65,18 @@ function fakePorts(overrides: Partial<ExecutionPorts> = {}): ExecutionPorts {
   };
 }
 
-function planJson(sliceIds: readonly string[], options: { readonly includeMode?: boolean } = {}): string {
+function planJson(
+  slices: readonly (string | { readonly id: string; readonly dependsOn?: readonly string[] })[],
+  options: { readonly includeMode?: boolean } = {},
+): string {
   return JSON.stringify({
     ...(options.includeMode === false ? {} : { mode: 'greenfield' }),
     epics: [{ id: 'frontier-1', summary: 'Build feature', depends_on: [], verification: [] }],
-    slices: sliceIds.map((id) => ({
-      id,
+    slices: slices.map((slice) => ({
+      id: typeof slice === 'string' ? slice : slice.id,
       epic_id: 'frontier-1',
-      definition: `${id}.`,
-      depends_on: [],
+      definition: `${typeof slice === 'string' ? slice : slice.id}.`,
+      depends_on: typeof slice === 'string' ? [] : (slice.dependsOn ?? []),
       verification: [],
     })),
   });
@@ -61,7 +84,10 @@ function planJson(sliceIds: readonly string[], options: { readonly includeMode?:
 
 async function createRunAtCreated(
   cwd: string,
-  sliceIds: readonly string[] = ['task-1', 'task-2'],
+  sliceIds: readonly (string | { readonly id: string; readonly dependsOn?: readonly string[] })[] = [
+    'task-1',
+    'task-2',
+  ],
 ): Promise<void> {
   await mkdir(join(cwd, 'src'), { recursive: true });
   await writeFile(join(cwd, 'src', 'app.ts'), 'export const app = true;\n', 'utf8');
@@ -74,12 +100,32 @@ function metadata(status: RunMetadata['status'], extra: Partial<RunMetadata> = {
   return { runId: 'run-1', specId: '42', planPath: 'plan.yaml', status, ...extra };
 }
 
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function readReportEvents(cwd: string): Promise<unknown[]> {
   const raw = await readFile(reportsPath(cwd, 'run-1'), 'utf8');
   return raw
     .trim()
     .split('\n')
     .map((line) => JSON.parse(line) as unknown);
+}
+
+async function readPetriEvents(cwd: string): Promise<readonly ExecutorNetEvent[]> {
+  const raw = await readFile(
+    join(cwd, '.brunch', 'cook', 'runs', 'run-1', 'petrinaut', 'events.jsonl'),
+    'utf8',
+  );
+  return raw
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line) as ExecutorNetEvent);
 }
 
 // The differential baseline for the parity oracle: crank the same lifecycle steps
@@ -361,24 +407,328 @@ describe('drive', () => {
   });
 });
 
+describe('classifyDriveTerminal', () => {
+  it('classifies exhausted abandoned runs as halted and other exhausted runs as completed', () => {
+    expect(
+      classifyDriveTerminal({ kind: 'scheduler_exhausted', runId: 'run-1', runStatus: 'promotion_prepared' }),
+    ).toEqual({
+      event: { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+      outcome: { status: 'completed', runStatus: 'promotion_prepared' },
+    });
+
+    expect(
+      classifyDriveTerminal({ kind: 'scheduler_exhausted', runId: 'run-1', runStatus: 'abandoned' }),
+    ).toEqual({
+      event: { kind: 'net_halted', runId: 'run-1', runStatus: 'abandoned', reason: 'abandoned' },
+      outcome: { status: 'halted', step: 'abandoned', runStatus: 'abandoned', reason: 'abandoned' },
+    });
+  });
+
+  it('classifies a non-advancing step as a halted terminal with the same reason in the event and outcome', () => {
+    expect(
+      classifyDriveTerminal({
+        kind: 'step_halted',
+        runId: 'run-1',
+        runStatus: 'agent_result_ingested',
+        step: 'test_result',
+        reason: 'test_run_failed',
+      }),
+    ).toEqual({
+      event: {
+        kind: 'net_halted',
+        runId: 'run-1',
+        runStatus: 'agent_result_ingested',
+        step: 'test_result',
+        reason: 'test_run_failed',
+      },
+      outcome: {
+        status: 'halted',
+        step: 'test_result',
+        runStatus: 'agent_result_ingested',
+        reason: 'test_run_failed',
+      },
+    });
+  });
+});
+
+describe('petri runtime helpers', () => {
+  it('derive enabled transition ids and ready-step transition ids from the same slice-frontier facts', () => {
+    const plan = { mode: 'greenfield', slices: [{ id: 'task-1' }, { id: 'task-2' }] } as const;
+
+    expect(
+      enabledPetriTransitionIds(metadata('slice_completed', { completedSliceIds: ['task-1'] }), plan),
+    ).toEqual(['slice_start:task-2']);
+    expect(
+      resolvePetriTransitionIdForReadyStep(
+        { kind: 'slice_start', sliceId: 'task-2' },
+        metadata('slice_completed', { completedSliceIds: ['task-1'] }),
+        plan,
+      ),
+    ).toBe('slice_start:task-2');
+
+    expect(enabledPetriTransitionIds(metadata('agent_result_ingested', {}), plan)).toEqual([
+      'test_result:task-1',
+    ]);
+    expect(
+      resolvePetriTransitionIdForReadyStep(
+        { kind: 'test_result' },
+        metadata('agent_result_ingested', {}),
+        plan,
+      ),
+    ).toBe('test_result:task-1');
+
+    expect(enabledPetriTransitionIds(metadata('promotion_prepared'), plan)).toEqual([]);
+  });
+
+  it('surfaces every dependency-ready slice start in the Petri frontier while serial policy still picks one', () => {
+    const plan = {
+      mode: 'greenfield',
+      slices: [{ id: 'task-1' }, { id: 'task-2', depends_on: ['task-1'] }, { id: 'task-3' }],
+    } as const;
+
+    const frontier = petriScheduler.ready(metadata('reports_initialized'), plan);
+
+    expect(frontier).toEqual([
+      { kind: 'slice_start', sliceId: 'task-1' },
+      { kind: 'slice_start', sliceId: 'task-3' },
+    ]);
+    expect(
+      serialFiringPolicy.select({ readySteps: frontier, state: metadata('reports_initialized'), plan }),
+    ).toEqual([{ kind: 'slice_start', sliceId: 'task-1' }]);
+    expect(
+      frontierFiringPolicy.select({ readySteps: frontier, state: metadata('reports_initialized'), plan }),
+    ).toEqual(frontier);
+  });
+
+  it('surfaces blocked slice starts with unmet dependency ids alongside the ready frontier', () => {
+    const plan = {
+      mode: 'greenfield',
+      slices: [{ id: 'task-1' }, { id: 'task-2', depends_on: ['task-1'] }, { id: 'task-3' }],
+    } as const;
+
+    const runtime = materializeExecutorPetriRuntime(metadata('reports_initialized'), plan);
+
+    expect(runtime.blockedSteps).toEqual([
+      { kind: 'slice_start', sliceId: 'task-2', blockers: [{ kind: 'dependency', sliceId: 'task-1' }] },
+    ]);
+  });
+
+  it('surfaces dependency-ready slice starts as blocked by the active slice while another slice is in flight', () => {
+    const plan = { mode: 'greenfield', slices: [{ id: 'task-1' }, { id: 'task-2' }] } as const;
+
+    const runtime = materializeExecutorPetriRuntime(
+      metadata('slice_started', { activeSliceId: 'task-1' }),
+      plan,
+    );
+
+    expect(runtime.blockedSteps).toEqual([
+      { kind: 'slice_start', sliceId: 'task-2', blockers: [{ kind: 'active_slice', sliceId: 'task-1' }] },
+    ]);
+  });
+
+  it('rejects duplicate slice ids before materializing Petri runtime identity', () => {
+    const plan = { mode: 'greenfield', slices: [{ id: 'task-1' }, { id: 'task-1' }] } as const;
+
+    expect(() => materializeExecutorPetriRuntime(metadata('created'), plan)).toThrow(
+      'Duplicate slice id in executor topology: task-1',
+    );
+  });
+
+  it('materializes a marking-backed runtime view over the compiled topology for the current serial state', () => {
+    const plan = { mode: 'greenfield', slices: [{ id: 'task-1' }, { id: 'task-2' }] } as const;
+
+    const frontierRuntime = materializeExecutorPetriRuntime(
+      metadata('slice_completed', { completedSliceIds: ['task-1'] }),
+      plan,
+    );
+    expect(frontierRuntime.currentMarking).toEqual({ 'run:slice_frontier': 1 });
+    expect(frontierRuntime.enabledTransitions.map((transition) => transition.id)).toEqual([
+      'slice_start:task-2',
+    ]);
+    expect(frontierRuntime.readySteps).toEqual([{ kind: 'slice_start', sliceId: 'task-2' }]);
+
+    const inFlightRuntime = materializeExecutorPetriRuntime(metadata('agent_result_ingested', {}), plan);
+    expect(inFlightRuntime.currentMarking).toEqual({ 'slice:task-1:agent_result_ingested': 1 });
+    expect(inFlightRuntime.enabledTransitions.map((transition) => transition.id)).toEqual([
+      'test_result:task-1',
+    ]);
+    expect(inFlightRuntime.transitionForReadyStep({ kind: 'test_result' })?.id).toBe('test_result:task-1');
+  });
+
+  it('uses Petri input arcs with executor frontier guards, not raw place fan-out, to pick enabled transitions', () => {
+    const plan = {
+      mode: 'greenfield',
+      slices: [{ id: 'task-1' }, { id: 'task-2', depends_on: ['task-1'] }, { id: 'task-3' }],
+    } as const;
+
+    const frontierRuntime = materializeExecutorPetriRuntime(metadata('reports_initialized'), plan);
+
+    expect(frontierRuntime.currentMarking).toEqual({ 'run:slice_frontier': 1 });
+    expect(frontierRuntime.enabledTransitions.map((transition) => transition.id)).toEqual([
+      'slice_start:task-1',
+      'slice_start:task-3',
+    ]);
+    expect(frontierRuntime.enabledTransitions.map((transition) => transition.step)).toEqual([
+      { kind: 'slice_start', sliceId: 'task-1' },
+      { kind: 'slice_start', sliceId: 'task-3' },
+    ]);
+
+    const unblockedRuntime = materializeExecutorPetriRuntime(
+      metadata('slice_completed', { completedSliceIds: ['task-1'] }),
+      plan,
+    );
+    expect(unblockedRuntime.currentMarking).toEqual({ 'run:slice_frontier': 1 });
+    expect(unblockedRuntime.enabledTransitions.map((transition) => transition.id)).toEqual([
+      'slice_start:task-2',
+      'slice_start:task-3',
+    ]);
+    expect(unblockedRuntime.enabledTransitions.map((transition) => transition.step)).toEqual([
+      { kind: 'slice_start', sliceId: 'task-2' },
+      { kind: 'slice_start', sliceId: 'task-3' },
+    ]);
+
+    const doneRuntime = materializeExecutorPetriRuntime(
+      metadata('slice_completed', { completedSliceIds: ['task-1', 'task-2', 'task-3'] }),
+      plan,
+    );
+    expect(doneRuntime.currentMarking).toEqual({ 'run:slice_frontier': 1 });
+    expect(doneRuntime.enabledTransitions.map((transition) => transition.id)).toEqual(['run_complete']);
+  });
+
+  it('derives current marking by replaying the transition history implied by lifecycle facts', () => {
+    const plan = { mode: 'greenfield', slices: [{ id: 'task-1' }, { id: 'task-2' }] } as const;
+
+    expect(
+      projectExecutorPetriTransitionHistory(
+        metadata('agent_result_ingested', {
+          completedSliceIds: ['task-1'],
+          activeSliceId: 'task-2',
+        }),
+        plan,
+      ),
+    ).toEqual({
+      currentSliceId: 'task-2',
+      transitionIds: [
+        'worktree_create',
+        'populate',
+        'source_policy',
+        'source_copy',
+        'report_init',
+        'slice_start:task-1',
+        'slice_execute:task-1',
+        'agent_result:task-1',
+        'test_result:task-1',
+        'slice_complete:task-1',
+        'slice_start:task-2',
+        'slice_execute:task-2',
+        'agent_result:task-2',
+      ],
+    });
+
+    expect(impliedPetriTransitionHistory(metadata('abandoned'), plan)).toBeUndefined();
+
+    const inFlightRuntime = materializeExecutorPetriRuntime(
+      metadata('agent_result_ingested', {
+        completedSliceIds: ['task-1'],
+        activeSliceId: 'task-2',
+      }),
+      plan,
+    );
+    expect(inFlightRuntime.currentMarking).toEqual({ 'slice:task-2:agent_result_ingested': 1 });
+  });
+
+  it('binds materialized Petri transitions to the existing lifecycle step handlers', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-runtime-bindings-'));
+    await createRunAtCreated(cwd, ['task-1']);
+
+    const createdState = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+    const createdRuntime = materializeExecutorPetriRuntime(createdState!, undefined);
+    const createdBindings = bindExecutorPetriRuntime(createdRuntime, {
+      cwd,
+      runId: 'run-1',
+      ports: fakePorts(),
+    });
+
+    const worktreeTransition = createdBindings.transitionForReadyStep({ kind: 'worktree_create' });
+    expect(worktreeTransition?.transition.id).toBe('worktree_create');
+    await expect(worktreeTransition?.execute()).resolves.toMatchObject({
+      status: 'worktree_created',
+      runStatus: 'worktree_created',
+    });
+
+    await populateWorktree({ cwd, runId: 'run-1' });
+    await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'plan_only' });
+    await copyHostSource({ cwd, runId: 'run-1' });
+    await initializeReports({ cwd, runId: 'run-1' });
+
+    const reportsReadyState = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+    const reportsReadyRuntime = materializeExecutorPetriRuntime(reportsReadyState!, {
+      mode: 'greenfield',
+      slices: [{ id: 'task-1' }],
+    });
+    const reportsReadyBindings = bindExecutorPetriRuntime(reportsReadyRuntime, {
+      cwd,
+      runId: 'run-1',
+      ports: fakePorts(),
+    });
+
+    const sliceStartTransition = reportsReadyBindings.transitionForReadyStep({
+      kind: 'slice_start',
+      sliceId: 'task-1',
+    });
+    expect(sliceStartTransition?.transition.id).toBe('slice_start:task-1');
+    await expect(sliceStartTransition?.execute()).resolves.toMatchObject({
+      status: 'slice_started',
+      runStatus: 'slice_started',
+      sliceId: 'task-1',
+    });
+  });
+});
+
 describe('linearScheduler', () => {
   it('returns exactly one ready step per turn and none once completed', () => {
-    const cases: { readonly status: RunMetadata['status']; readonly expected: readonly ReadyStep[] }[] = [
+    const slicePlan = { slices: [{ id: 'task-1' }] };
+    const cases: {
+      readonly status: RunMetadata['status'];
+      readonly extra?: Partial<RunMetadata>;
+      readonly plan?: Parameters<typeof linearScheduler.ready>[1];
+      readonly expected: readonly ReadyStep[];
+    }[] = [
       { status: 'created', expected: [{ kind: 'worktree_create' }] },
       { status: 'worktree_created', expected: [{ kind: 'populate' }] },
       { status: 'worktree_populated', expected: [{ kind: 'source_policy' }] },
       { status: 'source_policy_selected', expected: [{ kind: 'source_copy' }] },
       { status: 'source_copied', expected: [{ kind: 'report_init' }] },
-      { status: 'slice_started', expected: [{ kind: 'slice_execute' }] },
-      { status: 'slice_execution_requested', expected: [{ kind: 'agent_result' }] },
-      { status: 'agent_result_ingested', expected: [{ kind: 'test_result' }] },
-      { status: 'test_result_ingested', expected: [{ kind: 'slice_complete' }] },
+      {
+        status: 'slice_started',
+        extra: { activeSliceId: 'task-1' },
+        plan: slicePlan,
+        expected: [{ kind: 'slice_execute' }],
+      },
+      {
+        status: 'slice_execution_requested',
+        extra: { activeSliceId: 'task-1' },
+        plan: slicePlan,
+        expected: [{ kind: 'agent_result' }],
+      },
+      {
+        status: 'agent_result_ingested',
+        extra: { activeSliceId: 'task-1' },
+        plan: slicePlan,
+        expected: [{ kind: 'test_result' }],
+      },
+      {
+        status: 'test_result_ingested',
+        extra: { activeSliceId: 'task-1' },
+        plan: slicePlan,
+        expected: [{ kind: 'slice_complete' }],
+      },
       { status: 'run_completed', expected: [{ kind: 'petri_export' }] },
       { status: 'petri_exported', expected: [{ kind: 'promotion' }] },
       { status: 'promotion_prepared', expected: [] },
     ];
-    for (const { status, expected } of cases) {
-      expect(linearScheduler.ready(metadata(status), undefined)).toEqual(expected);
+    for (const { status, extra, plan, expected } of cases) {
+      expect(linearScheduler.ready(metadata(status, extra), plan)).toEqual(expected);
     }
   });
 
@@ -396,5 +746,576 @@ describe('linearScheduler', () => {
     expect(
       linearScheduler.ready(metadata('slice_completed', { completedSliceIds: ['task-1', 'task-2'] }), plan),
     ).toEqual([{ kind: 'run_complete' }]);
+  });
+});
+
+describe('compileExecutorTopology', () => {
+  it('preserves one run subnet and one slice subnet per slice, including the source-policy boundary', () => {
+    const topology = compileExecutorTopology({
+      mode: 'greenfield',
+      slices: [{ id: 'task-1' }, { id: 'task-2' }],
+    });
+
+    expect(topology.subnets).toEqual([
+      {
+        id: 'run',
+        kind: 'run_control',
+        transitionIds: [
+          'worktree_create',
+          'populate',
+          'source_policy',
+          'source_copy',
+          'report_init',
+          'run_complete',
+          'petri_export',
+          'promotion',
+        ],
+      },
+      {
+        id: 'slice:task-1',
+        kind: 'slice_control',
+        sliceId: 'task-1',
+        transitionIds: [
+          'slice_start:task-1',
+          'slice_execute:task-1',
+          'agent_result:task-1',
+          'test_result:task-1',
+          'slice_complete:task-1',
+        ],
+      },
+      {
+        id: 'slice:task-2',
+        kind: 'slice_control',
+        sliceId: 'task-2',
+        transitionIds: [
+          'slice_start:task-2',
+          'slice_execute:task-2',
+          'agent_result:task-2',
+          'test_result:task-2',
+          'slice_complete:task-2',
+        ],
+      },
+    ]);
+    expect(topology.transitions).toContainEqual(
+      expect.objectContaining({
+        id: 'source_policy',
+        subnetId: 'run',
+        step: { kind: 'source_policy' },
+      }),
+    );
+  });
+
+  it('compiles executor frontier policy into transition guards instead of leaving it implicit in the runtime', () => {
+    const topology = compileExecutorTopology({
+      mode: 'greenfield',
+      slices: [{ id: 'task-1' }, { id: 'task-2', depends_on: ['task-1'] }],
+    });
+
+    expect(topology.transitions).toContainEqual(
+      expect.objectContaining({
+        id: 'slice_start:task-1',
+        guard: { kind: 'slice_ready', sliceId: 'task-1', dependsOn: [] },
+      }),
+    );
+    expect(topology.transitions).toContainEqual(
+      expect.objectContaining({
+        id: 'slice_start:task-2',
+        guard: { kind: 'slice_ready', sliceId: 'task-2', dependsOn: ['task-1'] },
+      }),
+    );
+    expect(topology.transitions).toContainEqual(
+      expect.objectContaining({
+        id: 'run_complete',
+        guard: { kind: 'no_remaining_slices' },
+      }),
+    );
+    expect(topology.transitions).toContainEqual(
+      expect.objectContaining({
+        id: 'test_result:task-2',
+        guard: { kind: 'active_slice', sliceId: 'task-2' },
+      }),
+    );
+  });
+});
+
+describe('petriScheduler', () => {
+  it('keeps linear scheduling as the serial firing-policy view over the Petri frontier', () => {
+    const plan = { mode: 'greenfield' as const, slices: [{ id: 'task-1' }, { id: 'task-2' }] };
+    const cases: RunMetadata['status'][] = [
+      'created',
+      'worktree_created',
+      'worktree_populated',
+      'source_policy_selected',
+      'source_copied',
+      'reports_initialized',
+      'slice_started',
+      'slice_execution_requested',
+      'agent_result_ingested',
+      'test_result_ingested',
+      'slice_completed',
+      'run_completed',
+      'petri_exported',
+      'promotion_prepared',
+      'abandoned',
+    ];
+
+    for (const status of cases) {
+      const state =
+        status === 'slice_completed' ? metadata(status, { completedSliceIds: ['task-1'] }) : metadata(status);
+      expect(
+        serialFiringPolicy.select({ readySteps: petriScheduler.ready(state, plan), state, plan }),
+      ).toEqual(linearScheduler.ready(state, plan));
+    }
+  });
+
+  it('drives the run to the same terminal state as the linear scheduler', async () => {
+    const linear = await mkdtemp(join(tmpdir(), 'brunch-petri-scheduler-linear-'));
+    await createRunAtCreated(linear, ['task-1', 'task-2']);
+    const linearOutcome = await drive({ cwd: linear, runId: 'run-1', ports: fakePorts() }, linearScheduler);
+
+    const petri = await mkdtemp(join(tmpdir(), 'brunch-petri-scheduler-petri-'));
+    await createRunAtCreated(petri, ['task-1', 'task-2']);
+    const petriOutcome = await drive({ cwd: petri, runId: 'run-1', ports: fakePorts() }, petriScheduler);
+
+    expect(petriOutcome).toEqual(linearOutcome);
+    expect(await readReportEvents(petri)).toEqual(await readReportEvents(linear));
+    expect(await readRunMetadata(runMetadataPath(petri, 'run-1'))).toMatchObject({
+      status: 'promotion_prepared',
+      completedSliceIds: ['task-1', 'task-2'],
+      sourcePolicy: 'plan_only',
+      promotionCommitSha: 'abc123',
+    });
+  });
+
+  it('passes the full ready frontier through firing policy selection before each drive step', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-firing-policy-frontier-'));
+    await createRunAtCreated(cwd, [
+      { id: 'task-1' },
+      { id: 'task-2', dependsOn: ['task-1'] },
+      { id: 'task-3' },
+    ]);
+    const seenFrontiers: string[][] = [];
+
+    const outcome = await drive({ cwd, runId: 'run-1', ports: fakePorts() }, petriScheduler, {
+      select({ readySteps }) {
+        seenFrontiers.push(
+          readySteps.map((step) =>
+            step.kind === 'slice_start' ? `${step.kind}:${step.sliceId}` : step.kind,
+          ),
+        );
+        return readySteps;
+      },
+    });
+
+    expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+    expect(seenFrontiers).toContainEqual(['slice_start:task-1', 'slice_start:task-3']);
+    expect(seenFrontiers).toContainEqual(['slice_start:task-2', 'slice_start:task-3']);
+  });
+
+  it('emits transition events in lifecycle order, including the source-policy boundary', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-events-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    const seen: ExecutorNetEvent[] = [];
+
+    const outcome = await drive(
+      {
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts(),
+        onNetEvent: (event) => {
+          seen.push(event);
+        },
+      },
+      petriScheduler,
+    );
+
+    expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+    expect(seen.map((event) => event.kind)).toEqual([
+      'transition_fired',
+      'transition_fired',
+      'transition_fired',
+      'transition_fired',
+      'transition_fired',
+      'transition_fired',
+      'transition_fired',
+      'transition_fired',
+      'transition_fired',
+      'transition_fired',
+      'transition_fired',
+      'transition_fired',
+      'transition_fired',
+      'net_completed',
+    ]);
+    expect(
+      seen
+        .filter((event) => event.kind === 'transition_fired')
+        .map((event) => ({
+          transitionId: event.transitionId,
+          subnetId: event.subnetId,
+          contract: event.contract,
+          consumed: event.consumed,
+          produced: event.produced,
+          fromStatus: event.fromStatus,
+          toStatus: event.toStatus,
+        })),
+    ).toEqual([
+      {
+        transitionId: 'worktree_create',
+        subnetId: 'run',
+        contract: { kind: 'mechanical', lane: 'run' },
+        consumed: ['run:created'],
+        produced: ['run:worktree_created'],
+        fromStatus: 'created',
+        toStatus: 'worktree_created',
+      },
+      {
+        transitionId: 'populate',
+        subnetId: 'run',
+        contract: { kind: 'mechanical', lane: 'run' },
+        consumed: ['run:worktree_created'],
+        produced: ['run:worktree_populated'],
+        fromStatus: 'worktree_created',
+        toStatus: 'worktree_populated',
+      },
+      {
+        transitionId: 'source_policy',
+        subnetId: 'run',
+        contract: { kind: 'structural', lane: 'run' },
+        consumed: ['run:worktree_populated'],
+        produced: ['run:source_policy_selected'],
+        fromStatus: 'worktree_populated',
+        toStatus: 'source_policy_selected',
+      },
+      {
+        transitionId: 'source_copy',
+        subnetId: 'run',
+        contract: { kind: 'mechanical', lane: 'run' },
+        consumed: ['run:source_policy_selected'],
+        produced: ['run:source_copied'],
+        fromStatus: 'source_policy_selected',
+        toStatus: 'source_copied',
+      },
+      {
+        transitionId: 'report_init',
+        subnetId: 'run',
+        contract: { kind: 'mechanical', lane: 'run' },
+        consumed: ['run:source_copied'],
+        produced: ['run:slice_frontier'],
+        fromStatus: 'source_copied',
+        toStatus: 'reports_initialized',
+      },
+      {
+        transitionId: 'slice_start:task-1',
+        subnetId: 'slice:task-1',
+        contract: { kind: 'structural', lane: 'slice' },
+        consumed: ['run:slice_frontier'],
+        produced: ['slice:task-1:started'],
+        fromStatus: 'reports_initialized',
+        toStatus: 'slice_started',
+      },
+      {
+        transitionId: 'slice_execute:task-1',
+        subnetId: 'slice:task-1',
+        contract: { kind: 'mechanical', lane: 'slice' },
+        consumed: ['slice:task-1:started'],
+        produced: ['slice:task-1:execution_requested'],
+        fromStatus: 'slice_started',
+        toStatus: 'slice_execution_requested',
+      },
+      {
+        transitionId: 'agent_result:task-1',
+        subnetId: 'slice:task-1',
+        contract: { kind: 'mechanical', lane: 'slice' },
+        consumed: ['slice:task-1:execution_requested'],
+        produced: ['slice:task-1:agent_result_ingested'],
+        fromStatus: 'slice_execution_requested',
+        toStatus: 'agent_result_ingested',
+      },
+      {
+        transitionId: 'test_result:task-1',
+        subnetId: 'slice:task-1',
+        contract: { kind: 'mechanical', lane: 'slice' },
+        consumed: ['slice:task-1:agent_result_ingested'],
+        produced: ['slice:task-1:test_result_ingested'],
+        fromStatus: 'agent_result_ingested',
+        toStatus: 'test_result_ingested',
+      },
+      {
+        transitionId: 'slice_complete:task-1',
+        subnetId: 'slice:task-1',
+        contract: { kind: 'structural', lane: 'slice' },
+        consumed: ['slice:task-1:test_result_ingested'],
+        produced: ['run:slice_frontier'],
+        fromStatus: 'test_result_ingested',
+        toStatus: 'slice_completed',
+      },
+      {
+        transitionId: 'run_complete',
+        subnetId: 'run',
+        contract: { kind: 'mechanical', lane: 'run' },
+        consumed: ['run:slice_frontier'],
+        produced: ['run:run_completed'],
+        fromStatus: 'slice_completed',
+        toStatus: 'run_completed',
+      },
+      {
+        transitionId: 'petri_export',
+        subnetId: 'run',
+        contract: { kind: 'mechanical', lane: 'run' },
+        consumed: ['run:run_completed'],
+        produced: ['run:petri_exported'],
+        fromStatus: 'run_completed',
+        toStatus: 'petri_exported',
+      },
+      {
+        transitionId: 'promotion',
+        subnetId: 'run',
+        contract: { kind: 'mechanical', lane: 'run' },
+        consumed: ['run:petri_exported'],
+        produced: ['run:promotion_prepared'],
+        fromStatus: 'petri_exported',
+        toStatus: 'promotion_prepared',
+      },
+    ]);
+    expect(seen.at(-1)).toEqual({
+      kind: 'net_completed',
+      runId: 'run-1',
+      runStatus: 'promotion_prepared',
+    });
+    expect(await readPetriEvents(cwd)).toEqual(seen);
+  });
+
+  it('persists a durable marking snapshot alongside the runtime event journal', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-marking-'));
+    await createRunAtCreated(cwd, ['task-1']);
+
+    const outcome = await drive({ cwd, runId: 'run-1', ports: fakePorts() }, petriScheduler);
+
+    expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+    await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toEqual({
+      currentMarking: { 'run:promotion_prepared': 1 },
+      firedTransitionCount: 13,
+      lifecycleProvenance: {
+        activeSliceId: 'task-1',
+        runStatus: 'promotion_prepared',
+        completedSliceIds: ['task-1'],
+      },
+      terminalEventKind: 'net_completed',
+    });
+  });
+
+  it('keeps the durable fired-transition count exact after one missed snapshot write in a completed run', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-marking-recover-completed-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    const blockingPath = petriMarkingPath(cwd, 'run-1');
+    let netEventCount = 0;
+
+    const outcome = await drive(
+      {
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts(),
+        onNetEvent: () => {
+          netEventCount += 1;
+          if (netEventCount === 1) {
+            mkdirSync(join(cwd, '.brunch', 'cook', 'runs', 'run-1', 'petrinaut'), { recursive: true });
+            mkdirSync(blockingPath, { recursive: true });
+            return;
+          }
+          if (netEventCount === 2) {
+            rmSync(blockingPath, { recursive: true, force: true });
+          }
+        },
+      },
+      petriScheduler,
+    );
+
+    expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+    await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toEqual({
+      currentMarking: { 'run:promotion_prepared': 1 },
+      firedTransitionCount: 13,
+      lifecycleProvenance: {
+        activeSliceId: 'task-1',
+        runStatus: 'promotion_prepared',
+        completedSliceIds: ['task-1'],
+      },
+      terminalEventKind: 'net_completed',
+    });
+  });
+
+  it('keeps the durable fired-transition count exact after one missed snapshot write in a halted run', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-marking-recover-halted-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    const blockingPath = petriMarkingPath(cwd, 'run-1');
+    let netEventCount = 0;
+
+    const outcome = await drive(
+      {
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts({
+          testRunner: createFakeTestRunnerPort({ status: 'failed', message: 'runner exploded' }),
+        }),
+        onNetEvent: () => {
+          netEventCount += 1;
+          if (netEventCount === 1) {
+            mkdirSync(join(cwd, '.brunch', 'cook', 'runs', 'run-1', 'petrinaut'), { recursive: true });
+            mkdirSync(blockingPath, { recursive: true });
+            return;
+          }
+          if (netEventCount === 2) {
+            rmSync(blockingPath, { recursive: true, force: true });
+          }
+        },
+      },
+      petriScheduler,
+    );
+
+    expect(outcome).toEqual({
+      status: 'halted',
+      step: 'test_result',
+      runStatus: 'agent_result_ingested',
+      reason: 'test_run_failed',
+    });
+    await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toEqual({
+      currentMarking: { 'slice:task-1:agent_result_ingested': 1 },
+      firedTransitionCount: 8,
+      lifecycleProvenance: {
+        activeSliceId: 'task-1',
+        runStatus: 'agent_result_ingested',
+      },
+      haltedReason: 'test_run_failed',
+      terminalEventKind: 'net_halted',
+    });
+  });
+
+  it('emits a halt event instead of a false completion event when a Petri step cannot advance', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-events-halt-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    const seen: ExecutorNetEvent[] = [];
+
+    const outcome = await drive(
+      {
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts({
+          testRunner: createFakeTestRunnerPort({ status: 'failed', message: 'runner exploded' }),
+        }),
+        onNetEvent: (event) => {
+          seen.push(event);
+        },
+      },
+      petriScheduler,
+    );
+
+    expect(outcome).toEqual({
+      status: 'halted',
+      step: 'test_result',
+      runStatus: 'agent_result_ingested',
+      reason: 'test_run_failed',
+    });
+    expect(seen.some((event) => event.kind === 'net_completed')).toBe(false);
+    expect(seen.at(-1)).toEqual({
+      kind: 'net_halted',
+      runId: 'run-1',
+      runStatus: 'agent_result_ingested',
+      step: 'test_result',
+      reason: 'test_run_failed',
+    });
+    expect(await readPetriEvents(cwd)).toEqual(seen);
+  });
+
+  it('halts at petri_export when the compiled plan input is unreadable', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-export-unreadable-'));
+    const planPath = join(cwd, 'broken-plan.json');
+    const seen: ExecutorNetEvent[] = [];
+
+    await writeFile(planPath, '{"mode":', 'utf8');
+    await mkdir(join(cwd, '.brunch', 'cook', 'runs', 'run-1'), { recursive: true });
+    await writeFile(
+      runMetadataPath(cwd, 'run-1'),
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath,
+        status: 'run_completed',
+        reportsPath: reportsPath(cwd, 'run-1'),
+        completedSliceIds: ['task-1'],
+      }),
+      'utf8',
+    );
+
+    const outcome = await drive(
+      {
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts(),
+        onNetEvent: (event) => {
+          seen.push(event);
+        },
+      },
+      petriScheduler,
+    );
+
+    expect(outcome).toEqual({
+      status: 'halted',
+      step: 'petri_export',
+      runStatus: 'run_completed',
+      reason: 'petri_input_unreadable',
+    });
+    expect(await pathExists(petriNetPath(cwd, 'run-1'))).toBe(false);
+    expect(seen.some((event) => event.kind === 'net_completed')).toBe(false);
+    expect(seen.at(-1)).toEqual({
+      kind: 'net_halted',
+      runId: 'run-1',
+      runStatus: 'run_completed',
+      step: 'petri_export',
+      reason: 'petri_input_unreadable',
+    });
+  });
+
+  it('treats an abandoned run as a halted terminal at both the driver and journal boundary', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-abandoned-terminal-'));
+    const seen: ExecutorNetEvent[] = [];
+
+    await mkdir(join(cwd, '.brunch', 'cook', 'runs', 'run-1'), { recursive: true });
+    await writeFile(
+      runMetadataPath(cwd, 'run-1'),
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath: '/plan.yaml',
+        status: 'abandoned',
+        abandonedAt: '2026-07-09T00:00:00.000Z',
+      }),
+      'utf8',
+    );
+
+    const outcome = await drive(
+      {
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts(),
+        onNetEvent: (event) => {
+          seen.push(event);
+        },
+      },
+      petriScheduler,
+    );
+
+    expect(outcome).toEqual({
+      status: 'halted',
+      step: 'abandoned',
+      runStatus: 'abandoned',
+      reason: 'abandoned',
+    });
+    expect(seen).toEqual([
+      {
+        kind: 'net_halted',
+        runId: 'run-1',
+        runStatus: 'abandoned',
+        reason: 'abandoned',
+      },
+    ]);
   });
 });

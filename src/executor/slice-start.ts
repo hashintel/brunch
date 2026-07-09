@@ -1,5 +1,6 @@
 import { appendFile, readFile } from 'node:fs/promises';
 
+import { readyPlanSliceIds, type SchedulerPlan } from './orchestrate-topology.js';
 import { populatedPlanPath } from './populate.js';
 import { reportsPath } from './report.js';
 import {
@@ -13,6 +14,11 @@ import {
 interface PlanSlice {
   readonly id: string;
   readonly epic_id: string;
+  readonly depends_on?: SchedulerPlan['slices'] extends readonly (infer Slice)[]
+    ? Slice extends { readonly depends_on?: infer DependsOn }
+      ? DependsOn
+      : readonly string[]
+    : readonly string[];
 }
 
 interface PlanPayload {
@@ -87,11 +93,12 @@ export async function startSlice(args: {
 
   const reportPath = metadata.reportsPath ?? reportsPath(args.cwd, args.runId);
   const plan = await readPlan(metadata.populatedPlanPath ?? populatedPlanPath(args.cwd, args.runId));
-  const completedSliceIds = new Set(metadata.completedSliceIds ?? []);
-  // Always advance from the next incomplete slice; an explicit id narrows the
-  // expected slice but cannot skip ahead or restart a completed slice.
-  const nextSlice = plan.slices?.find((candidate) => !completedSliceIds.has(candidate.id));
-  const slice = args.sliceId && nextSlice?.id !== args.sliceId ? undefined : nextSlice;
+  const readySliceIds = new Set(readyPlanSliceIds(plan, metadata.completedSliceIds ?? []));
+  const slice = args.sliceId
+    ? readySliceIds.has(args.sliceId)
+      ? plan.slices?.find((candidate) => candidate.id === args.sliceId)
+      : undefined
+    : plan.slices?.find((candidate) => readySliceIds.has(candidate.id));
 
   if (!slice) {
     return {

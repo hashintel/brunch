@@ -69,7 +69,7 @@ rpc/
     ├── session-driver.ts              -> live AgentSession driver method
     ├── session-exchange-answer.ts     -> live exchange answer method
     ├── graph.ts                       -> graph.* handlers
-    ├── execute.ts                     -> execute.* run-observer read projections
+    ├── execute.ts                     -> execute.* run-observer read projections incl. raw Petri artifacts and derived replay view
     └── schemas.ts                     -> shared protocol schemas
 ```
 
@@ -272,7 +272,7 @@ graph.nodeNeighborhood
 execute.run
   access: read
   params: {runId}
-  result: recorded run snapshot, per-requirement status, artifact-presence flags, reports tail, normalized worker/verify stream tails, optional raw Petri net
+  result: recorded run snapshot, per-requirement status, artifact-presence flags, reports tail, raw Petri runtime-event tail, normalized worker/verify stream tails, optional derived Petri projection, and optional raw Petri net
   source: .brunch/cook/runs/<runId> read projection; raw artifact paths, Pi event payloads, and subprocess handles do not cross the RPC boundary
 
 execute.runTraceIndex
@@ -301,10 +301,12 @@ brunch.updated:
       - execute.run
       - execute.runTraceIndex
     updates:
-      - {topic, specId?, sessionId?, nodeId?, lsn?}
+      - {topic, specId?, sessionId?, nodeId?, lsn?, runId?, petriProjectionSource?, petriProjectionReplayReason?}
 ```
 
 WebSocket and stdio transports both carry these notifications independently from request responses. The notification payload is owned by `rpc/`; graph and session mutation adapters receive only a narrow product-update publisher.
+
+`execute.run` updates may carry lightweight live Petri read hints in addition to `runId`: `petriProjectionSource` (`snapshot` or `replay`) and `petriProjectionReplayReason` (`snapshot_missing_or_unreadable` or `snapshot_stale`). These hints are cache-shaping only, not canonical run detail; the authoritative projection still comes from `execute.run`. The executor orchestrate path emits a conservative synchronous `snapshot` hint on per-step completion because the drive observer hook is not awaited, while write-side `execute.replan*` RPC mutations can await `readRunDetail(...)` and publish honest replay/snapshot hints from current read-side truth.
 
 The TUI-started web sidecar also multiplexes live session-stream frames on the same `/rpc` WebSocket when a live in-process `AgentSession` exists:
 
@@ -369,12 +371,12 @@ query key families:
 | `graph.overview` | `graphOverviewQueryOptions(rpc, specId)` | implemented; spec route loader primes it | exact `graph.overview(specId)` when `specId` is present |
 | `graph.nodeNeighborhood` | `graphNodeNeighborhoodQueryOptions(rpc, specId, nodeId, hops?)` | implemented query option; graph panel selection not yet wired | exact/prefix neighborhood invalidation when `nodeId` is present; broad topic fallback otherwise |
 | `execute.runs` | `executeRunsQueryOptions(rpc)` | implemented; run observer list route | exact `execute.runs` |
-| `execute.run` | `executeRunQueryOptions(rpc, runId)` | implemented; run detail route incl. reports + worker/verify stream tails | exact `execute.run(runId)` |
+| `execute.run` | `executeRunQueryOptions(rpc, runId)` | implemented; run detail route incl. reports + worker/verify stream tails | exact `execute.run(runId)`; updates may also carry live Petri projection hints for immediate cache patching |
 | `execute.runTraceIndex` | `executeRunTraceIndexQueryOptions(rpc, specId)` | implemented; spec graph run badges | exact `execute.runTraceIndex(specId)` when graph/run evidence changes |
 | `execute.replanRecommendation` | target query helper | implemented; web-safe replanning diagnosis | none |
-| `execute.replanRegeneratePlan` | target mutation helper | implemented; stale early-run plan/provenance regeneration | exact `execute.runs` + `execute.run(runId)` on write |
-| `execute.replanStartNewRun` | target mutation helper | implemented; create linked superseding run | exact old/new `execute.run(runId)` + `execute.runs` on write |
-| `execute.replanAbandonRun` | target mutation helper | implemented; evidence-preserving abandon | exact `execute.runs` + `execute.run(runId)` on write |
+| `execute.replanRegeneratePlan` | target mutation helper | implemented; stale early-run plan/provenance regeneration | exact `execute.runs` + `execute.run(runId)` on write, with read-side Petri hints when available |
+| `execute.replanStartNewRun` | target mutation helper | implemented; create linked superseding run | exact old/new `execute.run(runId)` + `execute.runs` on write, with read-side Petri hints when available |
+| `execute.replanAbandonRun` | target mutation helper | implemented; evidence-preserving abandon | exact `execute.runs` + `execute.run(runId)` on write, with read-side Petri hints when available |
 
 `execute.replanRetryCurrentStep` is deliberately **not** a public web RPC method: retrying a lifecycle step requires `ExecutionPorts` and executor runtime/model context, so it remains on the executor tool surface until a separate host-authority slice deliberately wires those ports into RPC/web-host context.
 

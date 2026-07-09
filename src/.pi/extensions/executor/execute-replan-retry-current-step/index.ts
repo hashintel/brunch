@@ -5,8 +5,8 @@ import type { ExecutionPorts } from '../../../../executor/execution-ports.js';
 import {
   drive,
   linearScheduler,
+  serialFiringPolicy,
   type DriveOutcome,
-  type RunScheduler,
 } from '../../../../executor/orchestrate.js';
 import {
   assessRunRetryEligibility,
@@ -98,7 +98,9 @@ export function createExecuteReplanRetryCurrentStepTool(
                   },
                   ...(_signal ? { signal: _signal } : {}),
                 },
-                oneStepScheduler(),
+                linearScheduler,
+                serialFiringPolicy,
+                { maxFirings: 1 },
               ),
               sideEffects: [],
             }
@@ -125,18 +127,6 @@ export function createExecuteReplanRetryCurrentStepTool(
         ],
         details: { result, sideEffects: result.sideEffects },
       };
-    },
-  };
-}
-
-function oneStepScheduler(): RunScheduler {
-  let consumed = false;
-  return {
-    ready(state, plan) {
-      if (consumed) return [];
-      const ready = linearScheduler.ready(state, plan);
-      if (ready.length > 0) consumed = true;
-      return ready;
     },
   };
 }
