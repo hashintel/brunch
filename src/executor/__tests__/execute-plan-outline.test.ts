@@ -7,7 +7,9 @@ const snapshot: ExecutionSpecSnapshot = {
   schemaVersion: 1,
   specId: '7',
   mode: 'brownfield',
-  frontiers: [{ itemId: 'F1', nodeId: 9, title: 'Execution handoff', content: 'Execution handoff', dependsOn: [] }],
+  frontiers: [
+    { itemId: 'F1', nodeId: 9, title: 'Execution handoff', content: 'Execution handoff', dependsOn: [] },
+  ],
   requirements: [
     { itemId: 'REQ1', nodeId: 1, title: 'Build feature', content: 'Build feature', dependsOn: [] },
     {
@@ -48,15 +50,24 @@ const snapshot: ExecutionSpecSnapshot = {
           verifies: ['REQ2'],
         },
       ],
-      design: [{ itemId: 'MOD1', nodeId: 4, title: 'Feature module', content: 'Feature module', dependsOn: [] }],
-      verification: [
-        { itemId: 'CH1', nodeId: 5, title: 'Smoke test', content: 'Smoke test', dependsOn: [] },
+      design: [
+        { itemId: 'MOD1', nodeId: 4, title: 'Feature module', content: 'Feature module', dependsOn: [] },
       ],
+      verification: [{ itemId: 'CH1', nodeId: 5, title: 'Smoke test', content: 'Smoke test', dependsOn: [] }],
     },
   ],
 };
 
 describe('outlineExecutionPlan', () => {
+  it('assigns globally unique task ids when scoped and unscoped frontiers coexist', () => {
+    const outline = outlineExecutionPlan(snapshot);
+
+    expect(outline.frontiers.flatMap((frontier) => frontier.tasks.map((task) => task.id))).toEqual([
+      'task-1',
+      'task-2',
+    ]);
+  });
+
   it('creates scope tasks and keeps orphan requirements visible', () => {
     expect(outlineExecutionPlan(snapshot)).toEqual({
       schemaVersion: 1,
@@ -84,7 +95,13 @@ describe('outlineExecutionPlan', () => {
                 },
               ],
               designContext: [
-                { itemId: 'MOD1', nodeId: 4, title: 'Feature module', content: 'Feature module', dependsOn: [] },
+                {
+                  itemId: 'MOD1',
+                  nodeId: 4,
+                  title: 'Feature module',
+                  content: 'Feature module',
+                  dependsOn: [],
+                },
               ],
               verificationContext: [
                 { itemId: 'CH1', nodeId: 5, title: 'Smoke test', content: 'Smoke test', dependsOn: [] },
@@ -97,7 +114,7 @@ describe('outlineExecutionPlan', () => {
           title: 'Implement unscoped requirements',
           tasks: [
             {
-              id: 'task-1',
+              id: 'task-2',
               title: 'Build feature',
               requirementId: 'REQ1',
               summary: 'Build feature',
@@ -153,7 +170,13 @@ describe('outlineExecutionPlan', () => {
                 },
               ],
               designContext: [
-                { itemId: 'MOD1', nodeId: 4, title: 'Feature module', content: 'Feature module', dependsOn: [] },
+                {
+                  itemId: 'MOD1',
+                  nodeId: 4,
+                  title: 'Feature module',
+                  content: 'Feature module',
+                  dependsOn: [],
+                },
               ],
               verificationContext: [
                 { itemId: 'CH1', nodeId: 5, title: 'Smoke test', content: 'Smoke test', dependsOn: [] },
@@ -166,7 +189,7 @@ describe('outlineExecutionPlan', () => {
           title: 'Implement unscoped requirements',
           tasks: [
             {
-              id: 'task-1',
+              id: 'task-2',
               title: 'Build feature',
               requirementId: 'REQ1',
               summary: 'Build feature',
@@ -175,7 +198,7 @@ describe('outlineExecutionPlan', () => {
               acceptanceCriteria: [],
             },
             {
-              id: 'task-2',
+              id: 'task-3',
               title: 'Ship keyboard shortcut',
               requirementId: 'REQ3',
               summary: 'Ship keyboard shortcut',

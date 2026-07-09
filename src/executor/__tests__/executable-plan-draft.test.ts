@@ -72,12 +72,8 @@ describe('draftExecutablePlan', () => {
           requirementId: 'REQ1',
           requirementIds: ['REQ1'],
           dependsOn: [],
-          designContext: [
-            { itemId: 'MOD1', title: 'Feature module', content: 'Feature module' },
-          ],
-          verificationContext: [
-            { itemId: 'CH1', title: 'Smoke test', content: 'Smoke test' },
-          ],
+          designContext: [{ itemId: 'MOD1', title: 'Feature module', content: 'Feature module' }],
+          verificationContext: [{ itemId: 'CH1', title: 'Smoke test', content: 'Smoke test' }],
           verification: [{ kind: 'criterion', criterionId: 'AC1', target: 'Feature is visible.' }],
         },
         {
@@ -96,5 +92,52 @@ describe('draftExecutablePlan', () => {
       ],
       sideEffects: [],
     });
+  });
+
+  it('keeps requirement dependencies when they cross frontier boundaries', () => {
+    expect(
+      draftExecutablePlan({
+        ...outline,
+        frontiers: [
+          {
+            id: 'frontier-1',
+            title: 'Implement unscoped requirements',
+            tasks: [
+              {
+                id: 'task-1',
+                title: 'Build feature',
+                requirementId: 'REQ1',
+                summary: 'Build feature',
+                dependsOn: [],
+                acceptanceCriterionIds: [],
+                acceptanceCriteria: [],
+              },
+            ],
+          },
+          {
+            id: 'frontier-2',
+            title: 'Execution handoff',
+            tasks: [
+              {
+                id: 'task-2',
+                title: 'Wire feature scope',
+                scopeId: 'SCP1',
+                requirementId: 'REQ2',
+                requirementIds: ['REQ2'],
+                summary: 'Wire the feature.',
+                dependsOn: ['REQ1'],
+                acceptanceCriterionIds: [],
+                acceptanceCriteria: [],
+                designContext: [],
+                verificationContext: [],
+              },
+            ],
+          },
+        ],
+      }).slices,
+    ).toEqual([
+      expect.objectContaining({ id: 'task-1', dependsOn: [] }),
+      expect.objectContaining({ id: 'task-2', dependsOn: ['task-1'] }),
+    ]);
   });
 });

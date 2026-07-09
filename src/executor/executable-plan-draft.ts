@@ -15,7 +15,11 @@ export interface ExecutablePlanDraftSlice {
   readonly requirementId: string;
   readonly requirementIds: readonly string[];
   readonly dependsOn: readonly string[];
-  readonly designContext: readonly { readonly itemId: string; readonly title: string; readonly content: string }[];
+  readonly designContext: readonly {
+    readonly itemId: string;
+    readonly title: string;
+    readonly content: string;
+  }[];
   readonly verificationContext: readonly {
     readonly itemId: string;
     readonly title: string;
@@ -47,10 +51,12 @@ export function draftExecutablePlan(outline: ExecutionPlanOutline): ExecutablePl
     sliceIds: frontier.tasks.map((task) => task.id),
     dependsOn: [],
   }));
+  const taskIdByRequirement = new Map(
+    outline.frontiers.flatMap((frontier) =>
+      frontier.tasks.map((task) => [task.requirementId, task.id] as const),
+    ),
+  );
   const slices = outline.frontiers.flatMap((frontier) => {
-    const taskIdByRequirement = new Map(
-      frontier.tasks.map((frontierTask) => [frontierTask.requirementId, frontierTask.id]),
-    );
     return frontier.tasks.map((task) => ({
       id: task.id,
       epicId: frontier.id,
