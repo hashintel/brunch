@@ -383,6 +383,41 @@ describe('Brunch menu command', () => {
       details: { exchange_id: 'digest-review', cancelled: {} },
     });
   });
+
+  it('keeps the exchange resumable after a cancelled continue attempt', async () => {
+    const harness = commandHarness({
+      branch: [
+        toolResultEntry({
+          schema: STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
+          v: STRUCTURED_EXCHANGE_DETAILS_VERSION,
+          exchange_id: 'digest-review',
+          tool_meta: { curr: 'present_digest', next: 'ask' },
+          display: { heading: 'Review digest' },
+          digest: { abstract: 'The source supports building the slice.' },
+          continuation: {
+            tool: 'ask',
+            params: {
+              body: 'Review digest',
+              options: [
+                { id: 'approve', label: 'Approve' },
+                { id: 'request_changes', label: 'Request changes' },
+                { id: 'reject', label: 'Reject' },
+              ],
+            },
+          },
+        }),
+      ],
+      customResult: undefined,
+    });
+
+    await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
+    await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.customCalls).toHaveLength(2);
+    expect(harness.notifications).not.toContainEqual(
+      expect.objectContaining({ message: 'Nothing to continue.' }),
+    );
+  });
 });
 
 describe('Brunch runtime switch commands', () => {

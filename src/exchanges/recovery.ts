@@ -43,7 +43,11 @@ export function findIncompleteStructuredExchangePresents(
         continuationTool: 'continuation' in details ? (details.continuation?.tool ?? 'ask') : 'ask',
       });
     } else if (isStructuredExchangeRequestDetails(details)) {
-      completed.add(details.exchange_id);
+      // Completion contract: only an answered terminal closes an exchange for
+      // recovery purposes. Cancelled/unavailable terminals keep the declared
+      // continuation resumable — the /brunch:continue hint and ask({continues})
+      // both promise re-collection after those outcomes.
+      if ('answered' in details) completed.add(details.exchange_id);
     }
   }
 

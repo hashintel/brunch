@@ -743,6 +743,86 @@ describe('structured exchange ask tools', () => {
     expect(incomplete[0]?.continuationTool).toBe(ASK_TOOL);
   });
 
+  it('keeps a declared continuation resumable after cancelled or unavailable terminals', async () => {
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
+    const candidates = await presentResult(PRESENT_CANDIDATES_TOOL, candidateParams());
+
+    const cancelled = await ask.execute(
+      'ask-candidate-cancel',
+      { continues: 'candidate-direction' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom: customCancel(), setStatus: vi.fn() },
+        sessionManager: { getBranch: () => branchWith(candidates.details) },
+      } as never,
+    );
+    expect(cancelled.details).toMatchObject({ cancelled: {} });
+
+    const branchAfterCancel = [
+      ...branchWith(candidates.details),
+      { type: 'message', message: { role: 'toolResult', details: cancelled.details } },
+    ];
+    expect(findIncompleteStructuredExchangePresents(branchAfterCancel)).toHaveLength(1);
+
+    const reCollected = await ask.execute(
+      'ask-candidate-after-cancel',
+      { continues: 'candidate-direction' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom: customPickByIndex(0), setStatus: vi.fn() },
+        sessionManager: { getBranch: () => branchAfterCancel },
+      } as never,
+    );
+    expect(reCollected.details).toMatchObject({
+      answered: { choice: { id: 'local-workbench', kind: 'listed' } },
+    });
+
+    const branchAfterAnswer = [
+      ...branchAfterCancel,
+      { type: 'message', message: { role: 'toolResult', details: reCollected.details } },
+    ];
+    expect(findIncompleteStructuredExchangePresents(branchAfterAnswer)).toHaveLength(0);
+  });
+
+  it('surfaces the continue hint on continuation cancel and clears it on a later answer', async () => {
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
+    const candidates = await presentResult(PRESENT_CANDIDATES_TOOL, candidateParams());
+
+    const cancelStatus = vi.fn();
+    await ask.execute(
+      'ask-candidate-cancel-hint',
+      { continues: 'candidate-direction' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom: customCancel(), setStatus: cancelStatus },
+        sessionManager: { getBranch: () => branchWith(candidates.details) },
+      } as never,
+    );
+    expect(cancelStatus).toHaveBeenCalledWith('brunch.continue', expect.stringContaining('/brunch:continue'));
+
+    const answerStatus = vi.fn();
+    await ask.execute(
+      'ask-candidate-answer-hint',
+      { continues: 'candidate-direction' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom: customPickByIndex(0), setStatus: answerStatus },
+        sessionManager: { getBranch: () => branchWith(candidates.details) },
+      } as never,
+    );
+    expect(answerStatus).toHaveBeenCalledWith('brunch.continue', undefined);
+  });
+
   it('renders present_candidates from validated details and falls back to content for malformed details', async () => {
     const candidates = await presentResult(PRESENT_CANDIDATES_TOOL, candidateParams());
     const tool = registeredTools({ review: reviewDeps() }).get(PRESENT_CANDIDATES_TOOL);

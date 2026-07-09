@@ -50,7 +50,7 @@ import {
   activeToolNamesForBrunchAgentState,
   projectBrunchAgentState,
 } from '../agent-runtime/runtime/index.js';
-import { ASK_TOOL, clearContinueHint, collectAskContinuationResponse } from '../exchanges/ask.js';
+import { ASK_TOOL, collectAskContinuationResponse } from '../exchanges/ask.js';
 import type { StructuredExchangeUiContext } from '../exchanges/shared/ui-context.js';
 import {
   CODE_SESSION_ORIENTATION_MENU,
@@ -407,10 +407,6 @@ function appendRecoveredAskResult(
   return true;
 }
 
-function isAnsweredAskRecovery(result: Awaited<ReturnType<typeof collectAskContinuationResponse>>): boolean {
-  return typeof result.details === 'object' && result.details !== null && 'answered' in result.details;
-}
-
 function registerContinueCommand(pi: ExtensionAPI): void {
   pi.registerCommand(BRUNCH_CONTINUE_COMMAND, {
     description: 'Continue the most recent interrupted Brunch structured exchange',
@@ -427,12 +423,12 @@ function registerContinueCommand(pi: ExtensionAPI): void {
         ui: commandCtx.ui as unknown as NonNullable<StructuredExchangeUiContext['ui']>,
         sessionManager: { getBranch: () => currentBranchEntries(commandCtx) },
       };
+      // The continuation collector owns the brunch.continue hint lifecycle:
+      // it re-surfaces the hint on cancel and clears it on an answered result.
       const result = await collectAskContinuationResponse(exchangeId, askCtx);
       if (!appendRecoveredAskResult(commandCtx, exchangeId, result)) {
         ctx.ui.notify('Brunch continue could not record the recovered answer in this session.', 'warning');
-        return;
       }
-      if (isAnsweredAskRecovery(result)) clearContinueHint(askCtx);
     },
   });
 }

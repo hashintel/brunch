@@ -249,6 +249,7 @@ async function collectContinuingCandidateChoice(
     choice: { id: option.id, label: option.label, kind: 'listed' },
     options: present.candidates.map((candidate) => ({ id: candidate.id, content: candidate.title })),
   });
+  clearContinueHint(ctx);
   return { content: [{ type: 'text', text: formatRequestChoice(details) }], details };
 }
 
@@ -293,6 +294,7 @@ async function collectContinuingReview(
       review: selected.id,
       comment: collected.value.comment,
     });
+    clearContinueHint(ctx);
     return { content: [{ type: 'text', text: formatRequestReview(details) }], details };
   }
 }
