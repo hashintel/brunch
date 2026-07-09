@@ -151,6 +151,7 @@ function commandHarness(
     ? {
         resolveKickContext: () => ({
           specId: 7,
+          specName: 'Alpha',
           reads: { queryGraph: () => ({ nodes: [], edges: [], lsn: 1 }) as never },
           workspaceContext: '',
           sendCustomMessage: async () => undefined,
@@ -276,6 +277,16 @@ describe('Brunch menu command', () => {
 
     expect(harness.customCalls).toHaveLength(1);
     expect(harness.selectCalls).toEqual([]);
+    const rendered = (
+      harness.customCalls[0]!.factory(undefined, createTestLabTheme(), undefined, () => {}) as {
+        render(width: number): string[];
+      }
+    )
+      .render(80)
+      .join('\n');
+    expect(rendered).toContain('[ Specify ]');
+    expect(rendered).toContain('"Alpha"');
+    expect(rendered).not.toContain('[ Consult ]');
     expect(harness.entries).toContainEqual(
       expect.objectContaining({
         customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
@@ -586,7 +597,7 @@ describe('Brunch runtime switch commands', () => {
   it('borrows the command context for shortcut mode cycling so J5 can settle in-flight work', async () => {
     const harness = commandHarness({
       orientation: true,
-      customResult: { id: 'proceed' },
+      customResult: { id: 'design_first' },
     });
     const shortcutCtx = { ...harness.ctx };
     let idle = false;
@@ -627,7 +638,7 @@ describe('Brunch runtime switch commands', () => {
     expect(harness.entries).toContainEqual(
       expect.objectContaining({
         customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
-        data: { schemaVersion: 1, choice: 'proceed', trigger: 'mode-switch' },
+        data: { schemaVersion: 1, choice: 'design_first', trigger: 'mode-switch' },
       }),
     );
   });
@@ -654,7 +665,7 @@ describe('Brunch runtime switch commands', () => {
   it('aborts an in-flight turn (claiming the J4 gate) before showing the mode-switch menu', async () => {
     const harness = commandHarness({
       orientation: true,
-      customResult: { id: 'proceed' },
+      customResult: { id: 'design_first' },
     });
     const events: string[] = [];
     let idle = false;
@@ -682,7 +693,7 @@ describe('Brunch runtime switch commands', () => {
     expect(harness.entries).toContainEqual(
       expect.objectContaining({
         customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
-        data: { schemaVersion: 1, choice: 'proceed', trigger: 'mode-switch' },
+        data: { schemaVersion: 1, choice: 'design_first', trigger: 'mode-switch' },
       }),
     );
   });
@@ -690,7 +701,7 @@ describe('Brunch runtime switch commands', () => {
   it('skips the abort path when waitForIdle is unavailable', async () => {
     const harness = commandHarness({
       orientation: true,
-      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'proceed')!.label,
+      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'design_first')!.label,
     });
     const aborts: number[] = [];
     harness.ctx.isIdle = () => false;
@@ -707,7 +718,7 @@ describe('Brunch runtime switch commands', () => {
   it('leaves an idle agent alone on mode switch (no abort, no gate claim)', async () => {
     const harness = commandHarness({
       orientation: true,
-      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'proceed')!.label,
+      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'design_first')!.label,
     });
     const aborts: number[] = [];
     harness.ctx.isIdle = () => true;

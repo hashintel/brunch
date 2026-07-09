@@ -61,6 +61,33 @@ describe('runSessionOrientationDialog', () => {
     expect(ui.calls[0]?.title).toContain('Execute');
     expect(ui.calls[0]?.title).not.toBe(SESSION_ORIENTATION_MENU.title);
   });
+
+  it('keeps surface chrome labels and role-specific menu content on the descriptors', () => {
+    expect(SESSION_ORIENTATION_MENU.topLabel).toBe('[ Specify ]');
+    expect(SESSION_ORIENTATION_MENU.noKickChoice).toBe('continue');
+    expect(SESSION_ORIENTATION_MENU.items.at(-1)).toMatchObject({
+      id: 'continue',
+      label: 'Wait for me',
+    });
+    expect(SESSION_ORIENTATION_MENU.items.map((item) => item.id)).toEqual([
+      'elicit_decisions',
+      'elicit_examples',
+      'propose_intent',
+      'propose_design',
+      'propose_oracle',
+      'ingest',
+      'continue',
+    ]);
+
+    expect(CODE_SESSION_ORIENTATION_MENU.topLabel).toBe('[ Execute ]');
+    expect(CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.id)).toEqual([
+      'design_first',
+      'oracle_first',
+      'project_plan',
+    ]);
+    expect(CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.id)).not.toContain('proceed');
+    expect(CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.id)).not.toContain('backfill');
+  });
 });
 
 describe('runAndRecordSessionOrientation', () => {

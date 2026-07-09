@@ -203,7 +203,7 @@ describe('runOrientationJuncture', () => {
 
       const result = await runOrientationJuncture({
         hasUI: false,
-        ui: fakeUi(codeLabelFor('backfill')),
+        ui: fakeUi(codeLabelFor('design_first')),
         trigger: 'mode-switch',
         sessionManager: manager,
         mode: 'follow-choice',

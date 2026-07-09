@@ -106,7 +106,7 @@ Concern: `/brunch:consult` style/action routing and rendering after graph mutati
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §changing styles with `/consult`.
 Observation: After graph mutations the agent gave an unprompted summary/overview and then `/consult` → example-based reoriented into a question, which is promising. Rendering issues remain: markdown `\n\n` appeared inline in the question, node identifiers need a styling convention such as backticks/`<kbd>`, and the consult/main-menu border role should be visually distinct from editor/ask mode-reactive borders.
 Expected: consult choices should visibly be a surface-identity menu, route cleanly to the selected style/action, and preserve markdown/node-id legibility in the resulting ask.
-Disposition: scoped rendering/design follow-up; routing behavior is promising but needs more evidence in Run C.
+Disposition: consult-menu chrome/content built in WR2 (FE-1180). Markdown/node-id polish remains deferred unless a later owned row makes it cheap; routing behavior is promising but needs more evidence in Run B/D.
 
 #### A10 · observability · low · logged
 
@@ -127,7 +127,7 @@ Concern: Specify-mode `/brunch:consult` menu on a resumed non-empty spec.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-C.md` §resume orientation on non-empty spec.
 Observation: Menu border says `[ Consult ]` where the role label should be `[ Specify ]`, and the spec name should remain on the lower right. Fixed-height scrolling hides options because the scrollbar is too subtle. “Continue” is first, semantically confused, and really means “stay inert until user types a custom instruction,” closer to an Other/manual option than a primary action.
 Expected: consult menu should use role/spec chrome, show all materially relevant choices or make overflow obvious, and reserve inert/manual entry for a lower-priority option with clearer naming.
-Disposition: scoped consult-menu rendering/content fix.
+Disposition: built in WR2 (FE-1180): consult menu now uses role/spec top-bottom labels, visible overflow thumb, wait-flavored inert option last, and role-specific option content.
 
 #### C2 · mode switch / consult menu · high · scoped
 
@@ -135,7 +135,7 @@ Concern: Specify → Execute switch and Execute entry menu.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-C.md` §switch Specify → Execute, §`/brunch:consult` in Execute mode.
 Observation: Switching via `/mode` opens a consult menu, but its border still says `[ Consult ]` instead of `[ Execute ]`; option rendering is inconsistent, with only one option showing subtext. The first two options are agent-discretionary rather than user-facing. Re-invoking `/brunch:consult` while in Execute mode showed the Specify menu, not the Executor menu.
 Expected: Execute-mode consult should show the executor-specific choices only: design/oracle/commit work, plan compilation, plan execution. It should not expose internal/discretionary agent actions, and it must respect the active mode on re-entry.
-Disposition: scoped bug/content fix; also evidence for FE-1167 Execute-entry orientation residue.
+Disposition: built in WR1/WR2 (FE-1180): active-mode re-entry fixed in WR1; Execute menu chrome/content fixed in WR2 with agent-discretionary options removed. Still evidence for FE-1167 Execute-entry orientation residue.
 
 #### C3 · exchange protocol + skill routing · high · diagnose
 

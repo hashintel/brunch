@@ -22,6 +22,8 @@ describe('ConsultMenuComponent', () => {
     const recording = createRecordingTheme();
     const menu = new ConsultMenuComponent({
       title: 'How should this session continue?',
+      topLabel: '[ Specify ]',
+      bottomLabel: '"Alpha"',
       choices: [
         { id: 'continue', label: 'Continue', description: 'Wait for my next instruction.' },
         { id: 'propose_oracle', label: 'Design verification', description: 'Project the oracle path.' },
@@ -33,14 +35,36 @@ describe('ConsultMenuComponent', () => {
     const rendered = menu.render(80);
     const text = rendered.join('\n');
 
-    expect(rendered[0]).toContain('[ Consult ]');
+    expect(rendered[0]).toContain('[ Specify ]');
+    expect(rendered.at(-2)).toContain('"Alpha"');
     expect(text).toContain('How should this session continue?');
     expect(text).toContain('› 1. Continue');
     expect(text).toContain('Wait for my next instruction.');
     expect(text).toContain('  2. Design verification');
     expect(text).toContain('Project the oracle path.');
+    expect(text).not.toContain('[ Consult ]');
     expect(recording.colors).toContain('borderAccent');
     expect(recording.colors).toContain('dim');
+  });
+
+  it('shows a visible scroll thumb when choices overflow the consult viewport', () => {
+    const menu = new ConsultMenuComponent({
+      title: 'How should this session continue?',
+      topLabel: '[ Execute ]',
+      choices: Array.from({ length: 12 }, (_, index) => ({
+        id: `choice-${index + 1}`,
+        label: `Choice ${index + 1}`,
+        description: `Description ${index + 1}`,
+      })),
+      theme: createTestLabTheme(),
+      onDone: () => {},
+    });
+
+    const rendered = menu.render(80).join('\n');
+
+    expect(rendered).toContain('▐');
+    expect(rendered).toContain('Choice 1');
+    expect(rendered).not.toContain('Choice 12');
   });
 
   it('commits stable item ids and treats escape as an inert cancel', () => {

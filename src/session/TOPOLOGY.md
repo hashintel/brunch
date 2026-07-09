@@ -45,8 +45,9 @@ plus the coordination logic for workspace/spec/session lifecycle.
   recent resolution, and `freshSessionOrientationChoice` additionally checks it
   against the last-fired `brunch.kick` entry so a choice recorded before an
   earlier kick never re-routes a later one. The choice union covers both the
-  SPEC-side menu ids and the CODE-side execute-entry ids (`proceed`, `backfill`,
-  `design_first`, `oracle_first`, `project_plan`) on the same carrier — no
+  SPEC-side menu ids and the CODE-side execute-entry ids (`design_first`,
+  `oracle_first`, `project_plan`; `proceed`/`backfill` remain parseable legacy ids
+  but are no longer offered by the Execute menu) on the same carrier — no
   parallel entry type — plus the inert `dismissed` (escape/timeout resolution:
   entry recorded, no kick, no opening-turn directive). Directed choices require the orientation entry to persist before a live kick fires; degraded no-UI boot may still proceed without an orientation entry. `originate-assistant-turn.ts` folds the fresh choice into
   `composeContextSeedContent`'s orientation section
