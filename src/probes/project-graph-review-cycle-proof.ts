@@ -37,6 +37,7 @@ interface ProjectGraphReviewCycleProofOptions {
   readonly runId?: string;
   readonly prompt?: string;
   readonly agentDir?: string;
+  readonly reviewSetExpectation?: ReviewSetExpectation;
 }
 
 export interface ProjectGraphReviewCycleArtifacts {
@@ -66,6 +67,20 @@ interface ReviewCycleApprovalEvidence {
   readonly createdNodeRefs?: Record<string, unknown>;
   readonly diagnostics?: readonly Record<string, unknown>[];
   readonly error?: string;
+}
+
+type ReviewSetExpectation = 'scope_handoff';
+
+interface ScopeHandoffReviewSetEvidence {
+  readonly observed: boolean;
+  readonly frontierDraftCount: number;
+  readonly scopeDraftCount: number;
+  readonly frontierScopeCompositionCount: number;
+  readonly requirementAnchorCount: number;
+  readonly designAnchorCount: number;
+  readonly verificationAnchorCount: number;
+  readonly committedFrontierCount: number;
+  readonly committedScopeCount: number;
 }
 
 interface ProjectGraphReviewCycleCreatedNode {
@@ -121,6 +136,7 @@ export interface ProjectGraphReviewCycleReport {
   };
   readonly approval: ReviewCycleApprovalEvidence;
   readonly createdNodes: readonly ProjectGraphReviewCycleCreatedNode[];
+  readonly scopeHandoffReviewSet?: ScopeHandoffReviewSetEvidence | undefined;
   readonly productUpdates: readonly ProductUpdate[];
   readonly friction: readonly string[];
   readonly artifacts?: ProjectGraphReviewCycleArtifacts;
@@ -144,6 +160,7 @@ export interface ProjectGraphReviewCycleSummaryInput {
   readonly approvalResponse?: JsonRpcResponse;
   readonly productUpdates?: readonly ProductUpdate[];
   readonly friction?: readonly string[];
+  readonly reviewSetExpectation?: ReviewSetExpectation;
 }
 
 interface PendingExchangeResult {
@@ -256,6 +273,9 @@ export async function runProjectGraphReviewCycleProof(
       ...(approvalResponse !== undefined ? { approvalResponse } : {}),
       productUpdates: observedUpdates,
       friction,
+      ...(options.reviewSetExpectation !== undefined
+        ? { reviewSetExpectation: options.reviewSetExpectation }
+        : {}),
     });
 
     report = {
@@ -303,6 +323,10 @@ export function summarizeProjectGraphReviewCycleProof(
     nodeDelta: input.finalOverview.nodes.length - input.baseOverview.nodes.length,
     edgeDelta: input.finalOverview.edges.length - input.baseOverview.edges.length,
   };
+  const scopeHandoffReviewSet =
+    input.reviewSetExpectation === 'scope_handoff'
+      ? summarizeScopeHandoffReviewSet({ sessionText: input.sessionText, createdNodes })
+      : undefined;
   const friction = [...(input.friction ?? [])];
 
   if (toolEvidence.presentReviewSetCount === 0) {
@@ -329,13 +353,53 @@ export function summarizeProjectGraphReviewCycleProof(
     friction.push('No explicit nodes created after the base fixture LSN were present in graph readback.');
   }
 
+  if (scopeHandoffReviewSet) {
+    if (!scopeHandoffReviewSet.observed) {
+      friction.push('No successful scope-handoff review set was recorded in the session transcript.');
+    }
+    if (scopeHandoffReviewSet.frontierDraftCount === 0) {
+      friction.push('Scope-handoff review set did not draft a frontier node.');
+    }
+    if (scopeHandoffReviewSet.scopeDraftCount === 0) {
+      friction.push('Scope-handoff review set did not draft a scope node.');
+    }
+    if (scopeHandoffReviewSet.frontierScopeCompositionCount === 0) {
+      friction.push('Scope-handoff review set did not compose the scope package under a frontier.');
+    }
+    if (scopeHandoffReviewSet.requirementAnchorCount === 0) {
+      friction.push('Scope-handoff review set did not link the scope package to an existing requirement anchor.');
+    }
+    if (scopeHandoffReviewSet.designAnchorCount === 0) {
+      friction.push('Scope-handoff review set did not link the scope package to an existing design anchor.');
+    }
+    if (scopeHandoffReviewSet.verificationAnchorCount === 0) {
+      friction.push('Scope-handoff review set did not link the scope package to an existing verification anchor.');
+    }
+    if (scopeHandoffReviewSet.committedFrontierCount === 0) {
+      friction.push('Graph readback did not include a committed frontier from the scope-handoff review set.');
+    }
+    if (scopeHandoffReviewSet.committedScopeCount === 0) {
+      friction.push('Graph readback did not include a committed scope from the scope-handoff review set.');
+    }
+  }
+
   const success =
     toolEvidence.successfulPresentReviewSetCount > 0 &&
     pendingReview.observed &&
     approval.status === 'approved' &&
     graphDelta.lsnAdvanced &&
     graphDelta.nodeDelta > 0 &&
-    createdNodes.length > 0;
+    createdNodes.length > 0 &&
+    (!scopeHandoffReviewSet ||
+      (scopeHandoffReviewSet.observed &&
+        scopeHandoffReviewSet.frontierDraftCount > 0 &&
+        scopeHandoffReviewSet.scopeDraftCount > 0 &&
+        scopeHandoffReviewSet.frontierScopeCompositionCount > 0 &&
+        scopeHandoffReviewSet.requirementAnchorCount > 0 &&
+        scopeHandoffReviewSet.designAnchorCount > 0 &&
+        scopeHandoffReviewSet.verificationAnchorCount > 0 &&
+        scopeHandoffReviewSet.committedFrontierCount > 0 &&
+        scopeHandoffReviewSet.committedScopeCount > 0));
 
   return {
     schemaVersion: 1,
@@ -374,9 +438,136 @@ export function summarizeProjectGraphReviewCycleProof(
     pendingReview,
     approval,
     createdNodes,
+    ...(scopeHandoffReviewSet ? { scopeHandoffReviewSet } : {}),
     productUpdates: input.productUpdates ?? [],
     friction,
   };
+}
+
+function summarizeScopeHandoffReviewSet(input: {
+  readonly sessionText: string;
+  readonly createdNodes: readonly ProjectGraphReviewCycleCreatedNode[];
+}): ScopeHandoffReviewSetEvidence {
+  const details = latestSuccessfulPresentReviewSetDetails(input.sessionText);
+  const createdFrontierCount = input.createdNodes.filter((node) => node.kind === 'frontier').length;
+  const createdScopeCount = input.createdNodes.filter((node) => node.kind === 'scope').length;
+  if (!details) {
+    return {
+      observed: false,
+      frontierDraftCount: 0,
+      scopeDraftCount: 0,
+      frontierScopeCompositionCount: 0,
+      requirementAnchorCount: 0,
+      designAnchorCount: 0,
+      verificationAnchorCount: 0,
+      committedFrontierCount: createdFrontierCount,
+      committedScopeCount: createdScopeCount,
+    };
+  }
+
+  const nodes = Array.isArray(details.nodes) ? details.nodes.filter(isRecord) : [];
+  const edges = Array.isArray(details.edges) ? details.edges.filter(isRecord) : [];
+  const frontierDraftIds = new Set(
+    nodes.flatMap((node) =>
+      node.kind === 'frontier' && typeof node.draft_id === 'string' ? [node.draft_id] : [],
+    ),
+  );
+  const scopeDraftIds = new Set(
+    nodes.flatMap((node) => (node.kind === 'scope' && typeof node.draft_id === 'string' ? [node.draft_id] : [])),
+  );
+
+  return {
+    observed: true,
+    frontierDraftCount: frontierDraftIds.size,
+    scopeDraftCount: scopeDraftIds.size,
+    frontierScopeCompositionCount: countFrontierScopeComposition(edges, frontierDraftIds, scopeDraftIds),
+    requirementAnchorCount: countScopeAnchor(edges, scopeDraftIds, {
+      category: 'realization',
+      sourceField: 'abstract',
+      targetField: 'concrete',
+      existingPrefix: 'REQ',
+    }),
+    designAnchorCount: countScopeAnchor(edges, scopeDraftIds, {
+      category: 'composition',
+      sourceField: 'part',
+      targetField: 'whole',
+      existingPrefix: 'MOD',
+    }),
+    verificationAnchorCount: countScopeAnchor(edges, scopeDraftIds, {
+      category: 'dependency',
+      sourceField: 'dependency',
+      targetField: 'dependent',
+      existingPrefix: 'CH',
+    }),
+    committedFrontierCount: createdFrontierCount,
+    committedScopeCount: createdScopeCount,
+  };
+}
+
+function latestSuccessfulPresentReviewSetDetails(
+  sessionText: string,
+): { readonly nodes?: unknown; readonly edges?: unknown } | undefined {
+  let latest: { readonly nodes?: unknown; readonly edges?: unknown } | undefined;
+  for (const message of toolResultMessages(sessionText)) {
+    if (message.toolName !== 'present_review_set') continue;
+    const details = isRecord(message.details) ? message.details : undefined;
+    if (details?.schema !== 'brunch.structured_exchange.present') continue;
+    const reviewSet = isRecord(details.review_set) ? details.review_set : undefined;
+    if (!reviewSet) continue;
+    latest = reviewSet as { readonly nodes?: unknown; readonly edges?: unknown };
+  }
+  return latest;
+}
+
+function countFrontierScopeComposition(
+  edges: readonly Record<string, unknown>[],
+  frontierDraftIds: ReadonlySet<string>,
+  scopeDraftIds: ReadonlySet<string>,
+): number {
+  return edges.filter((edge) => {
+    if (edge.category !== 'composition') return false;
+    const wholeDraftId = draftId(isRecord(edge.whole) ? edge.whole : undefined);
+    const partDraftId = draftId(isRecord(edge.part) ? edge.part : undefined);
+    return (
+      typeof wholeDraftId === 'string' &&
+      typeof partDraftId === 'string' &&
+      frontierDraftIds.has(wholeDraftId) &&
+      scopeDraftIds.has(partDraftId)
+    );
+  }).length;
+}
+
+function countScopeAnchor(
+  edges: readonly Record<string, unknown>[],
+  scopeDraftIds: ReadonlySet<string>,
+  options: {
+    readonly category: string;
+    readonly sourceField: string;
+    readonly targetField: string;
+    readonly existingPrefix: string;
+  },
+): number {
+  return edges.filter((edge) => {
+    if (edge.category !== options.category) return false;
+    const sourceValue = edge[options.sourceField];
+    const targetValue = edge[options.targetField];
+    const sourceCode = existingCode(isRecord(sourceValue) ? sourceValue : undefined);
+    const targetDraftId = draftId(isRecord(targetValue) ? targetValue : undefined);
+    return (
+      typeof sourceCode === 'string' &&
+      sourceCode.startsWith(options.existingPrefix) &&
+      typeof targetDraftId === 'string' &&
+      scopeDraftIds.has(targetDraftId)
+    );
+  }).length;
+}
+
+function existingCode(value: Record<string, unknown> | undefined): string | undefined {
+  return typeof value?.existing_code === 'string' ? value.existing_code : undefined;
+}
+
+function draftId(value: Record<string, unknown> | undefined): string | undefined {
+  return typeof value?.draft_id === 'string' ? value.draft_id : undefined;
 }
 
 export async function writeProjectGraphReviewCycleArtifacts(options: {
@@ -575,7 +766,15 @@ function parseCliArgs(argv: readonly string[]): ProjectGraphReviewCycleProofOpti
     ...(options['run-id'] !== undefined ? { runId: options['run-id'] } : {}),
     ...(options.prompt !== undefined ? { prompt: options.prompt } : {}),
     ...(options['agent-dir'] !== undefined ? { agentDir: options['agent-dir'] } : {}),
+    ...(options['review-set-expectation'] !== undefined
+      ? { reviewSetExpectation: parseReviewSetExpectation(options['review-set-expectation']) }
+      : {}),
   };
+}
+
+function parseReviewSetExpectation(value: string): ReviewSetExpectation {
+  if (value === 'scope_handoff') return value;
+  throw new Error(`Unknown review-set expectation: ${value}`);
 }
 
 function requiredValue(argv: readonly string[], index: number, flag: string): string {
