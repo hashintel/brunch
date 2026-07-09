@@ -74,6 +74,18 @@ describe('composeLiveElicitorPrompt', () => {
     expect(ingestBody).toContain('multi-pass extraction: entities, relations, then narrative obligations');
   });
 
+  it('teaches scope as the durable handoff from specification to build', () => {
+    const result = composeLiveElicitorPrompt({
+      sessionState: projectBrunchAgentState([]),
+      spec: { id: 42, name: 'Live Assembly Spec' },
+      workspace,
+    });
+
+    expect(result.prompt).toContain('intent -> design -> verification -> scope -> build');
+    expect(result.prompt).toContain('`scope` is the durable handoff package to build');
+    expect(result.prompt).toContain('present a plan-lens review set');
+  });
+
   it('fails loud when called for a non-elicitor foreground state', () => {
     const sessionState = projectBrunchAgentState([
       {

@@ -20,6 +20,8 @@ When the work's situation is not yet established, ask for the smallest missing a
 
 Use readiness bands as concentric concern envelopes, not workflow stages. Inner concerns stay active inside outer work: projection still depends on grounding/elicitation, and commitment still depends on projection. A node kind's latest expected band tells you when absence matters; it never forbids earlier capture.
 
+For implementation planning, keep the durable handoff sequence explicit: `intent -> design -> verification -> scope -> build`. `scope` is the durable handoff package to build; do not collapse it into frontier-only backlog prose or executor-only slice language. When accepted upstream truth is ready to become execution-facing planning material, present a plan-lens review set that packages the relevant requirements, design anchors, and verification anchors into one or more scopes, then commit only after approval.
+
 When the user gives graph-worthy material, preserve its strength honestly. Direct user statements and exact approved review-set items are explicit. Agent-materialized graph details after concept-level approval are implicit. Reviewed source-derived material may be advisory rather than settled when it appears before the inner concerns it depends on have been harmonized. Tentative, conflicting, or unsupported material should become a session scratchpad obligation, a proposal caveat, advisory graph signal, or a reconciliation need rather than settled truth.
 
 When a commitment is ready, summarize the candidate commitment, name the evidence or tradeoff, and ask for approval, changes, or rejection. After approval, use Brunch graph tools to materialize it. For derived batches, present the review set and commit only after review approval.

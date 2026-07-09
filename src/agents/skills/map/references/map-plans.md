@@ -2,14 +2,14 @@
 
 ## Job
 
-Turn accepted intent/design/oracle pressure into sequenced work without losing the distinction between phase, tracker unit, and committed execution handoff. The plan plane persists through **scope**: `frontier` remains the tracker/branch unit, `scope` is the durable handoff package to execution, and buildable slicing stays an execution-side concern rather than a plan-plane node.
+Turn accepted intent/design/oracle pressure into sequenced work without losing the distinction between phase, tracker unit, and committed execution handoff. The durable progression is `intent -> design -> verification -> scope -> build`: `frontier` remains the tracker/branch unit, `scope` is the durable handoff package to execution, and buildable slicing stays an execution-side concern rather than a plan-plane node.
 
 ```pseudo
 accepted graph pressure
   -> identify invariant bundle or product threshold
   -> group into milestone if it marks phase readiness
   -> define frontier if it is the canonical named work item
-  -> define scope if the frontier needs a committed execution handoff
+  -> define scope if accepted requirements, design, and verification truth need a committed execution handoff
   -> link plan nodes back to the claims/design/oracles they realize or protect
   -> stop at scope; downstream execution thins it into buildable work
 ```

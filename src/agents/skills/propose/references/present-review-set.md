@@ -68,7 +68,7 @@ This is an authoring sketch, not a replacement schema. If it diverges from curre
 | intent | goals, requirements, constraints, assumptions, decisions, criteria, examples | treating every answer as a decision or requirement |
 | design | modules, interfaces, entities, sketches anchored in intent | speculative architecture without anchors |
 | oracle | criteria, checks, methods, evidence obligations, examples | implementation tasks with no observation |
-| plan | milestones, frontiers, scopes tied to claims/design/oracles | backlog tasks detached from graph pressure |
+| plan | milestones, frontiers, scopes tied to accepted claims, design, and verification anchors | backlog tasks detached from graph pressure |
 
 ## Routing policy
 
@@ -92,5 +92,6 @@ Notes:
 - Does each edge have both endpoints in the batch or selected spec?
 - Are negative cases represented with a current legal edge/category pattern?
 - Are design/oracle/plan nodes anchored to accepted or proposed intent?
+- For plan batches that hand off to execution, do scope nodes package accepted requirements, design, and verification truth rather than frontier-only task prose?
 - Are invented schema fields removed?
 - Are uncertainty and blind spots visible in proposal prose, not hidden in graph truth?

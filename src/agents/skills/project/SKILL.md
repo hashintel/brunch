@@ -9,6 +9,8 @@ Use `project` when accepted graph anchors should produce downstream plane candid
 
 `project` owns derivation conduct. It does **not** own graph expression, ontology tables, exchange schemas, or persistence. Use `present_candidates` and `ask(continues)` for recognition, then hand exact graph drafts to current `map` / review-set guidance when commitment is warranted.
 
+When projection is in service of implementation planning, keep the downstream handoff explicit: `intent -> design -> verification -> scope -> build`. `project` still owns only the intent-to-design and design-to-oracle derivation moves; once accepted design and verification anchors are ready to become execution-facing planning material, continue through `map-plans` plus review-set drafting so the handoff is a committed `scope`, not freeform task prose.
+
 ## Projection spine
 
 ```pseudo
