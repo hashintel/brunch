@@ -79,6 +79,9 @@ interface ScopeHandoffReviewSetEvidence {
   readonly requirementAnchorCount: number;
   readonly designAnchorCount: number;
   readonly verificationAnchorCount: number;
+  readonly committedRequirementAnchorCount: number;
+  readonly committedDesignAnchorCount: number;
+  readonly committedVerificationAnchorCount: number;
   readonly committedFrontierCount: number;
   readonly committedScopeCount: number;
 }
@@ -325,7 +328,11 @@ export function summarizeProjectGraphReviewCycleProof(
   };
   const scopeHandoffReviewSet =
     input.reviewSetExpectation === 'scope_handoff'
-      ? summarizeScopeHandoffReviewSet({ sessionText: input.sessionText, createdNodes })
+      ? summarizeScopeHandoffReviewSet({
+          sessionText: input.sessionText,
+          createdNodes,
+          finalOverview: input.finalOverview,
+        })
       : undefined;
   const friction = [...(input.friction ?? [])];
 
@@ -367,13 +374,32 @@ export function summarizeProjectGraphReviewCycleProof(
       friction.push('Scope-handoff review set did not compose the scope package under a frontier.');
     }
     if (scopeHandoffReviewSet.requirementAnchorCount === 0) {
-      friction.push('Scope-handoff review set did not link the scope package to an existing requirement anchor.');
+      friction.push(
+        'Scope-handoff review set did not link the scope package to an existing requirement anchor.',
+      );
     }
     if (scopeHandoffReviewSet.designAnchorCount === 0) {
       friction.push('Scope-handoff review set did not link the scope package to an existing design anchor.');
     }
     if (scopeHandoffReviewSet.verificationAnchorCount === 0) {
-      friction.push('Scope-handoff review set did not link the scope package to an existing verification anchor.');
+      friction.push(
+        'Scope-handoff review set did not link the scope package to an existing verification anchor.',
+      );
+    }
+    if (scopeHandoffReviewSet.committedRequirementAnchorCount === 0) {
+      friction.push(
+        'Graph readback did not preserve a committed requirement anchor on the scope-handoff package.',
+      );
+    }
+    if (scopeHandoffReviewSet.committedDesignAnchorCount === 0) {
+      friction.push(
+        'Graph readback did not preserve a committed design anchor on the scope-handoff package.',
+      );
+    }
+    if (scopeHandoffReviewSet.committedVerificationAnchorCount === 0) {
+      friction.push(
+        'Graph readback did not preserve a committed verification anchor on the scope-handoff package.',
+      );
     }
     if (scopeHandoffReviewSet.committedFrontierCount === 0) {
       friction.push('Graph readback did not include a committed frontier from the scope-handoff review set.');
@@ -398,6 +424,9 @@ export function summarizeProjectGraphReviewCycleProof(
         scopeHandoffReviewSet.requirementAnchorCount > 0 &&
         scopeHandoffReviewSet.designAnchorCount > 0 &&
         scopeHandoffReviewSet.verificationAnchorCount > 0 &&
+        scopeHandoffReviewSet.committedRequirementAnchorCount > 0 &&
+        scopeHandoffReviewSet.committedDesignAnchorCount > 0 &&
+        scopeHandoffReviewSet.committedVerificationAnchorCount > 0 &&
         scopeHandoffReviewSet.committedFrontierCount > 0 &&
         scopeHandoffReviewSet.committedScopeCount > 0));
 
@@ -447,10 +476,14 @@ export function summarizeProjectGraphReviewCycleProof(
 function summarizeScopeHandoffReviewSet(input: {
   readonly sessionText: string;
   readonly createdNodes: readonly ProjectGraphReviewCycleCreatedNode[];
+  readonly finalOverview: GraphSlice;
 }): ScopeHandoffReviewSetEvidence {
   const details = latestSuccessfulPresentReviewSetDetails(input.sessionText);
   const createdFrontierCount = input.createdNodes.filter((node) => node.kind === 'frontier').length;
   const createdScopeCount = input.createdNodes.filter((node) => node.kind === 'scope').length;
+  const createdScopeNodeIds = new Set(
+    input.createdNodes.flatMap((node) => (node.kind === 'scope' ? [node.id] : [])),
+  );
   if (!details) {
     return {
       observed: false,
@@ -460,6 +493,21 @@ function summarizeScopeHandoffReviewSet(input: {
       requirementAnchorCount: 0,
       designAnchorCount: 0,
       verificationAnchorCount: 0,
+      committedRequirementAnchorCount: countCommittedScopeAnchor(input.finalOverview, createdScopeNodeIds, {
+        category: 'realization',
+        sourceKinds: ['requirement'],
+        direction: 'incoming',
+      }),
+      committedDesignAnchorCount: countCommittedScopeAnchor(input.finalOverview, createdScopeNodeIds, {
+        category: 'composition',
+        sourceKinds: ['module', 'interface', 'entity', 'sketch'],
+        direction: 'outgoing',
+      }),
+      committedVerificationAnchorCount: countCommittedScopeAnchor(input.finalOverview, createdScopeNodeIds, {
+        category: 'dependency',
+        sourceKinds: ['check', 'vv_method', 'evidence', 'vv_obligation'],
+        direction: 'incoming',
+      }),
       committedFrontierCount: createdFrontierCount,
       committedScopeCount: createdScopeCount,
     };
@@ -473,7 +521,9 @@ function summarizeScopeHandoffReviewSet(input: {
     ),
   );
   const scopeDraftIds = new Set(
-    nodes.flatMap((node) => (node.kind === 'scope' && typeof node.draft_id === 'string' ? [node.draft_id] : [])),
+    nodes.flatMap((node) =>
+      node.kind === 'scope' && typeof node.draft_id === 'string' ? [node.draft_id] : [],
+    ),
   );
 
   return {
@@ -499,9 +549,47 @@ function summarizeScopeHandoffReviewSet(input: {
       targetField: 'dependent',
       existingPrefix: 'CH',
     }),
+    committedRequirementAnchorCount: countCommittedScopeAnchor(input.finalOverview, createdScopeNodeIds, {
+      category: 'realization',
+      sourceKinds: ['requirement'],
+      direction: 'incoming',
+    }),
+    committedDesignAnchorCount: countCommittedScopeAnchor(input.finalOverview, createdScopeNodeIds, {
+      category: 'composition',
+      sourceKinds: ['module', 'interface', 'entity', 'sketch'],
+      direction: 'outgoing',
+    }),
+    committedVerificationAnchorCount: countCommittedScopeAnchor(input.finalOverview, createdScopeNodeIds, {
+      category: 'dependency',
+      sourceKinds: ['check', 'vv_method', 'evidence', 'vv_obligation'],
+      direction: 'incoming',
+    }),
     committedFrontierCount: createdFrontierCount,
     committedScopeCount: createdScopeCount,
   };
+}
+
+function countCommittedScopeAnchor(
+  overview: GraphSlice,
+  scopeNodeIds: ReadonlySet<number>,
+  options: {
+    readonly category: string;
+    readonly sourceKinds: readonly GraphNode['kind'][];
+    readonly direction: 'incoming' | 'outgoing';
+  },
+): number {
+  const nodeById = new Map(overview.nodes.map((node) => [node.id, node]));
+  return overview.edges.filter((edge) => {
+    if (edge.category !== options.category) return false;
+    const relatedSourceId = options.direction === 'incoming' ? edge.sourceId : edge.targetId;
+    const relatedTargetId = options.direction === 'incoming' ? edge.targetId : edge.sourceId;
+    const sourceNode = nodeById.get(relatedSourceId);
+    return (
+      sourceNode !== undefined &&
+      options.sourceKinds.includes(sourceNode.kind) &&
+      scopeNodeIds.has(relatedTargetId)
+    );
+  }).length;
 }
 
 function latestSuccessfulPresentReviewSetDetails(

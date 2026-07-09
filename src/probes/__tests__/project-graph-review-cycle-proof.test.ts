@@ -171,8 +171,24 @@ const scopeApprovedOverview: GraphSlice = {
       createdAtLsn: 6,
       updatedAtLsn: 6,
     },
+    {
+      id: 4,
+      specId: 9,
+      sourceId: 5,
+      targetId: 2,
+      category: 'composition',
+      basis: 'explicit',
+      settlement: 'settled',
+      createdAtLsn: 6,
+      updatedAtLsn: 6,
+    },
   ],
   lsn: 6,
+};
+
+const scopeApprovedOverviewMissingDesignAnchor: GraphSlice = {
+  ...scopeApprovedOverview,
+  edges: scopeApprovedOverview.edges.filter((edge) => edge.id !== 4),
 };
 
 const runtimeState = {
@@ -549,6 +565,9 @@ describe('project-graph review-cycle proof report', () => {
       requirementAnchorCount: 1,
       designAnchorCount: 1,
       verificationAnchorCount: 1,
+      committedRequirementAnchorCount: 1,
+      committedDesignAnchorCount: 1,
+      committedVerificationAnchorCount: 1,
       committedFrontierCount: 1,
       committedScopeCount: 1,
     });
@@ -580,6 +599,30 @@ describe('project-graph review-cycle proof report', () => {
     });
     expect(report.friction).toContain(
       'Scope-handoff review set did not link the scope package to an existing verification anchor.',
+    );
+  });
+
+  it('fails closed when approval drops a committed design anchor from graph readback', () => {
+    const report = summarizeProjectGraphReviewCycleProof({
+      runId: 'scope-handoff-review-test',
+      generatedAt: '2026-07-09T00:00:00.000Z',
+      cwd: '/tmp/brunch-scope-handoff-review-test',
+      seedVariant: 'scope-handoff-ready',
+      specId: 9,
+      sessionId: 'session-scope-1',
+      prompt: 'Present a scope handoff review set.',
+      runtimeState,
+      sessionText: [scopePresentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
+      baseOverview: scopeBaseOverview,
+      finalOverview: scopeApprovedOverviewMissingDesignAnchor,
+      pendingResponse: scopePendingReviewResponse(),
+      approvalResponse: scopeApprovedResponse(),
+      reviewSetExpectation: 'scope_handoff',
+    });
+
+    expect(report.success).toBe(false);
+    expect(report.friction).toContain(
+      'Graph readback did not preserve a committed design anchor on the scope-handoff package.',
     );
   });
 });
