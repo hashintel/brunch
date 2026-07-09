@@ -58,7 +58,7 @@ export const SelectedChoiceSchema = z.toJSONSchema(zSelectedChoice, {
 export const zAnsweredOptionEcho = z
   .object({
     id: z.string().min(1),
-    content: zMarkdown,
+    content: zNonBlankMarkdown,
     rationale: zMarkdown.optional(),
   })
   .strict();

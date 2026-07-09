@@ -165,6 +165,44 @@ describe('structured exchange present schemas', () => {
     }
   });
 
+  it('rejects blank present option content and required candidate rubric carriers', () => {
+    for (const content of ['', '   ', '\n\t']) {
+      expect(() =>
+        zPresentQuestionDetails.parse({
+          schema: 'brunch.structured_exchange.present',
+          v: 1,
+          exchange_id: 'domain-shape',
+          tool_meta: { curr: 'present_question', next: 'request_response' },
+          response_kind: 'choice',
+          display: { heading: 'Pick one' },
+          options: [{ id: 'blank', content }],
+        }),
+      ).toThrow(/cannot be empty/);
+    }
+
+    const firstCandidate = candidateDetails.candidates[0]!;
+    for (const field of [
+      'core_bet',
+      'best_fit',
+      'cost_complexity',
+      'covers_well',
+      'main_risks',
+      'lock_in_constraints',
+    ] as const) {
+      expect(() =>
+        zPresentCandidatesDetails.parse({
+          ...candidateDetails,
+          candidates: [
+            {
+              ...firstCandidate,
+              user_rubric: { ...firstCandidate.user_rubric, [field]: '   ' },
+            },
+          ],
+        }),
+      ).toThrow(/cannot be empty/);
+    }
+  });
+
   it('keeps review-set details to nodes and edges only', () => {
     const reviewSetDetails = {
       schema: 'brunch.structured_exchange.present',

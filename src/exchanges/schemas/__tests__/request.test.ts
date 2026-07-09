@@ -133,6 +133,23 @@ describe('structured exchange request schemas', () => {
     ).toThrow();
   });
 
+  it('rejects blank answered option echo content', () => {
+    for (const content of ['', '   ', '\n\t']) {
+      expect(() =>
+        zRequestChoiceDetails.parse({
+          schema: 'brunch.structured_exchange.request',
+          v: 1,
+          exchange_id: 'domain-shape',
+          tool_meta: { prev: 'present_question', curr: 'request_choice', next: 'capture_choice' },
+          answered: {
+            choice: { id: 'local-first', label: 'Local-first app', kind: 'listed' },
+            options: [{ id: 'local-first', content }],
+          },
+        }),
+      ).toThrow(/cannot be empty/);
+    }
+  });
+
   it('supports candidate choices and requires comments for other or none choices', () => {
     expect(
       zRequestChoiceDetails.parse({
