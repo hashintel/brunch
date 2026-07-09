@@ -86,18 +86,6 @@ Rules:
 - Skip the diagram for straightforward changes.
 - Keep diagrams compact and use the same canonical terms as the issue and PR.
 
-Example architecture summary:
-
-```text
-committed scope
-      |
-      v
-ordered build slices
-      |
-      v
-worker briefs
-```
-
 ## Title Style
 
 Prefer:
