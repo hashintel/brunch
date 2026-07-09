@@ -191,4 +191,82 @@ describe('projectExecutionSpecSnapshot', () => {
     expect(snapshot.requirements[0]?.dependsOn).toEqual([]);
     expect(snapshot).not.toHaveProperty('unprojectedDependencies');
   });
+
+  it('projects committed scope packages into executor-facing scope snapshots', () => {
+    const frontier = node({
+      id: 1,
+      plane: 'plan',
+      kind: 'frontier',
+      kindOrdinal: 1,
+      title: 'Execution handoff',
+    });
+    const scope = node({
+      id: 2,
+      plane: 'plan',
+      kind: 'scope',
+      kindOrdinal: 1,
+      title: 'Canvas scope',
+      body: 'Build the graph canvas from committed design and verification anchors.',
+    });
+    const requirement = node({
+      id: 3,
+      plane: 'intent',
+      kind: 'requirement',
+      kindOrdinal: 1,
+      title: 'Render graph canvas',
+    });
+    const criterion = node({
+      id: 4,
+      plane: 'intent',
+      kind: 'criterion',
+      kindOrdinal: 1,
+      title: 'Canvas becomes visible',
+      body: 'A visible canvas proves the view is reachable.',
+    });
+    const design = node({
+      id: 5,
+      plane: 'design',
+      kind: 'module',
+      kindOrdinal: 1,
+      title: 'Canvas route module',
+    });
+    const verification = node({
+      id: 6,
+      plane: 'oracle',
+      kind: 'check',
+      kindOrdinal: 1,
+      title: 'Canvas smoke test',
+    });
+
+    const snapshot = projectExecutionSpecSnapshot({
+      specId: 7,
+      mode: 'brownfield',
+      nodes: [frontier, scope, requirement, criterion, design, verification],
+      edges: [
+        edge({ id: 1, category: 'composition', sourceId: frontier.id, targetId: scope.id }),
+        edge({ id: 2, category: 'realization', sourceId: scope.id, targetId: requirement.id }),
+        edge({ id: 3, category: 'realization', sourceId: scope.id, targetId: criterion.id }),
+        edge({ id: 4, category: 'composition', sourceId: scope.id, targetId: design.id }),
+        edge({ id: 5, category: 'witness', sourceId: verification.id, targetId: scope.id, stance: 'for' }),
+        edge({ id: 6, category: 'witness', sourceId: criterion.id, targetId: requirement.id, stance: 'for' }),
+      ],
+    });
+
+    expect(snapshot.scopes).toEqual([
+      {
+        itemId: 'SCP1',
+        nodeId: 2,
+        title: 'Canvas scope',
+        content: 'Build the graph canvas from committed design and verification anchors.',
+        dependsOn: [],
+        frontierIds: ['F1'],
+        requirementIds: ['REQ1'],
+        criteria: [
+          expect.objectContaining({ itemId: 'AC1', content: 'A visible canvas proves the view is reachable.' }),
+        ],
+        design: [expect.objectContaining({ itemId: 'MOD1', title: 'Canvas route module' })],
+        verification: [expect.objectContaining({ itemId: 'CH1', title: 'Canvas smoke test' })],
+      },
+    ]);
+  });
 });

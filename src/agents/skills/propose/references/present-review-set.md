@@ -9,7 +9,7 @@ Draft a batch the user can approve, request changes to, or reject as one unit. K
 ```pseudo
 chain review-set-drafting
   start from recognized candidate material
-  choose topical slice: intent | design | oracle | plan
+  choose topical batch: intent | design | oracle | plan
   draft nodes with stable titles and reviewable bodies
   draft only edges whose endpoints are present or resolvable
   check edge roles against current map/schema guidance
@@ -68,7 +68,7 @@ This is an authoring sketch, not a replacement schema. If it diverges from curre
 | intent | goals, requirements, constraints, assumptions, decisions, criteria, examples | treating every answer as a decision or requirement |
 | design | modules, interfaces, entities, sketches anchored in intent | speculative architecture without anchors |
 | oracle | criteria, checks, methods, evidence obligations, examples | implementation tasks with no observation |
-| plan | milestones, frontiers, slices tied to claims/design/oracles | backlog tasks detached from graph pressure |
+| plan | milestones, frontiers, scopes tied to claims/design/oracles | backlog tasks detached from graph pressure |
 
 ## Routing policy
 

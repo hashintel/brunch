@@ -1,6 +1,7 @@
 import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
+import { populatedPlanPath } from './populate.js';
 import { reportsPath } from './report.js';
 import {
   assertSafeSliceId,
@@ -77,12 +78,22 @@ export async function requestSliceExecution(args: {
   const reportPath = metadata.reportsPath ?? reportsPath(args.cwd, args.runId);
   const requestPath = sliceExecutionRequestPath(args.cwd, args.runId, metadata.activeSliceId);
   const requestDir = dirname(requestPath);
+  const slice = await readPlanSlice({ cwd: args.cwd, metadata, sliceId: metadata.activeSliceId });
   const request = {
     runId: args.runId,
     sliceId: metadata.activeSliceId,
     epicId: metadata.activeEpicId,
+    ...(slice?.scopeId ? { scopeId: slice.scopeId } : {}),
     action: 'execute_slice',
     status: 'requested',
+    ...(slice?.definition ? { definition: slice.definition } : {}),
+    ...(slice?.criteria ? { criteria: slice.criteria } : {}),
+    ...(slice?.derivedFrom ? { derivedFrom: slice.derivedFrom } : {}),
+    ...(slice?.designContext ? { designContext: slice.designContext } : {}),
+    ...(slice?.verificationContext ? { verificationContext: slice.verificationContext } : {}),
+    ...(slice?.criteria && slice.criteria.length > 0
+      ? { instruction: 'Make the minimum change that satisfies every criterion.' }
+      : {}),
   };
   const event = {
     event: 'slice_execution_requested',
@@ -118,4 +129,74 @@ export async function requestSliceExecution(args: {
       metadataEffect,
     ],
   };
+}
+
+interface PlanSliceRequestShape {
+  readonly scope_id?: string;
+  readonly definition?: string;
+  readonly verification?: readonly { readonly kind?: string; readonly target?: string }[];
+  readonly derived_from?: readonly string[];
+  readonly design_context?: readonly { readonly item_id?: string; readonly content?: string }[];
+  readonly verification_context?: readonly { readonly item_id?: string; readonly content?: string }[];
+}
+
+async function readPlanSlice(args: {
+  readonly cwd: string;
+  readonly metadata: RunMetadata;
+  readonly sliceId: string;
+}): Promise<
+  | {
+      readonly scopeId?: string;
+      readonly definition?: string;
+      readonly criteria?: readonly { readonly kind: string; readonly target: string }[];
+      readonly derivedFrom?: readonly string[];
+      readonly designContext?: readonly { readonly itemId: string; readonly content: string }[];
+      readonly verificationContext?: readonly { readonly itemId: string; readonly content: string }[];
+    }
+  | undefined
+> {
+  const planPath = args.metadata.populatedPlanPath ?? populatedPlanPath(args.cwd, args.metadata.runId);
+  try {
+    const payload = JSON.parse(await import('node:fs/promises').then(({ readFile }) => readFile(planPath, 'utf8'))) as {
+      readonly slices?: readonly ({ readonly id?: string } & PlanSliceRequestShape)[];
+    };
+    const slice = payload.slices?.find((candidate) => candidate.id === args.sliceId);
+    if (!slice) return undefined;
+    return {
+      ...(typeof slice.scope_id === 'string' ? { scopeId: slice.scope_id } : {}),
+      ...(typeof slice.definition === 'string' ? { definition: slice.definition } : {}),
+      ...(Array.isArray(slice.verification)
+        ? {
+            criteria: slice.verification.flatMap((criterion) =>
+              typeof criterion?.kind === 'string' && typeof criterion?.target === 'string'
+                ? [{ kind: criterion.kind, target: criterion.target }]
+                : [],
+            ),
+          }
+        : {}),
+      ...(Array.isArray(slice.derived_from)
+        ? { derivedFrom: slice.derived_from.filter((value): value is string => typeof value === 'string') }
+        : {}),
+      ...(Array.isArray(slice.design_context)
+        ? {
+            designContext: slice.design_context.flatMap((item) =>
+              typeof item?.item_id === 'string' && typeof item?.content === 'string'
+                ? [{ itemId: item.item_id, content: item.content }]
+                : [],
+            ),
+          }
+        : {}),
+      ...(Array.isArray(slice.verification_context)
+        ? {
+            verificationContext: slice.verification_context.flatMap((item) =>
+              typeof item?.item_id === 'string' && typeof item?.content === 'string'
+                ? [{ itemId: item.item_id, content: item.content }]
+                : [],
+            ),
+          }
+        : {}),
+    };
+  } catch {
+    return undefined;
+  }
 }

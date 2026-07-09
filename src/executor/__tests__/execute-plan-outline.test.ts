@@ -7,6 +7,7 @@ const snapshot: ExecutionSpecSnapshot = {
   schemaVersion: 1,
   specId: '7',
   mode: 'brownfield',
+  frontiers: [{ itemId: 'F1', nodeId: 9, title: 'Execution handoff', content: 'Execution handoff', dependsOn: [] }],
   requirements: [
     { itemId: 'REQ1', nodeId: 1, title: 'Build feature', content: 'Build feature', dependsOn: [] },
     {
@@ -28,33 +29,51 @@ const snapshot: ExecutionSpecSnapshot = {
     },
   ],
   context: { constraints: [], invariants: [], decisions: [], examples: [], design: [], oracle: [] },
+  scopes: [
+    {
+      itemId: 'SCP1',
+      nodeId: 10,
+      title: 'Wire feature scope',
+      content: 'Wire the feature from committed design and verification anchors.',
+      dependsOn: [],
+      frontierIds: ['F1'],
+      requirementIds: ['REQ2'],
+      criteria: [
+        {
+          itemId: 'AC1',
+          nodeId: 3,
+          title: 'Feature is visible',
+          content: 'Feature is visible',
+          dependsOn: [],
+          verifies: ['REQ2'],
+        },
+      ],
+      design: [{ itemId: 'MOD1', nodeId: 4, title: 'Feature module', content: 'Feature module', dependsOn: [] }],
+      verification: [
+        { itemId: 'CH1', nodeId: 5, title: 'Smoke test', content: 'Smoke test', dependsOn: [] },
+      ],
+    },
+  ],
 };
 
 describe('outlineExecutionPlan', () => {
-  it('creates one reviewable frontier with requirement tasks and criterion refs', () => {
+  it('creates one reviewable frontier with scope tasks and attached context', () => {
     expect(outlineExecutionPlan(snapshot)).toEqual({
       schemaVersion: 1,
       specId: '7',
       mode: 'brownfield',
       frontiers: [
         {
-          id: 'frontier-1',
-          title: 'Implement projected requirements',
+          id: 'F1',
+          title: 'Execution handoff',
           tasks: [
             {
               id: 'task-1',
-              title: 'Build feature',
-              requirementId: 'REQ1',
-              summary: 'Build feature',
-              dependsOn: [],
-              acceptanceCriterionIds: [],
-              acceptanceCriteria: [],
-            },
-            {
-              id: 'task-2',
-              title: 'Wire feature',
+              title: 'Wire feature scope',
+              scopeId: 'SCP1',
               requirementId: 'REQ2',
-              summary: 'Wire feature',
+              requirementIds: ['REQ2'],
+              summary: 'Wire the feature from committed design and verification anchors.',
               dependsOn: ['REQ1'],
               acceptanceCriterionIds: ['AC1'],
               acceptanceCriteria: [
@@ -63,6 +82,12 @@ describe('outlineExecutionPlan', () => {
                   title: 'Feature is visible',
                   content: 'Feature is visible',
                 },
+              ],
+              designContext: [
+                { itemId: 'MOD1', nodeId: 4, title: 'Feature module', content: 'Feature module', dependsOn: [] },
+              ],
+              verificationContext: [
+                { itemId: 'CH1', nodeId: 5, title: 'Smoke test', content: 'Smoke test', dependsOn: [] },
               ],
             },
           ],

@@ -20,3 +20,11 @@ Lock output with snapshots and semantic invariants.
 
 - basis: explicit
 - source: renderer-golden-coverage
+
+## Scope
+
+### SCP1 Scope handoff tracer
+
+Package reviewed specification truth into one executor handoff unit.
+
+- basis: explicit

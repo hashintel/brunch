@@ -194,4 +194,134 @@ describe('CommandExecutor.acceptReviewSet', () => {
     expect(db.select().from(nodeKindCounters).all()).toHaveLength(0);
     expect(graphClockLsn(db, specId)).toBe(0);
   });
+
+  it('can commit a scope package that links frontier, requirement, criterion, design, and verification anchors', () => {
+    const result = executor.acceptReviewSet({
+      specId,
+      proposalEntryId: 'scope-package',
+      payload: {
+        schemaVersion: 1,
+        lens: 'design',
+        epistemicStatus: 'asserted',
+        grounding: {
+          summary: 'The user approved one scope as the handoff from specification to execution.',
+          support: ['The tracer packages one reviewed implementation unit.'],
+        },
+        pitch: {
+          title: 'Canvas scope package',
+          narrative: 'Commit one scope plus its design and verification anchors.',
+        },
+        entityDrafts: [
+          {
+            draftId: 'frontier-execution',
+            proposedCode: 'F1',
+            plane: 'plan',
+            kind: 'frontier',
+            title: 'Execution handoff',
+          },
+          {
+            draftId: 'scope-canvas',
+            proposedCode: 'SCP1',
+            plane: 'plan',
+            kind: 'scope',
+            title: 'Canvas scope',
+            body: 'Build the graph canvas from reviewed design and verification anchors.',
+          },
+          {
+            draftId: 'req-canvas',
+            proposedCode: 'REQ1',
+            plane: 'intent',
+            kind: 'requirement',
+            title: 'Render graph canvas',
+          },
+          {
+            draftId: 'ac-canvas',
+            proposedCode: 'AC1',
+            plane: 'intent',
+            kind: 'criterion',
+            title: 'Canvas is reachable',
+            body: 'A visible canvas proves the new surface is reachable.',
+          },
+          {
+            draftId: 'mod-canvas',
+            proposedCode: 'MOD1',
+            plane: 'design',
+            kind: 'module',
+            title: 'Canvas route module',
+          },
+          {
+            draftId: 'check-canvas',
+            proposedCode: 'CH1',
+            plane: 'oracle',
+            kind: 'check',
+            title: 'Canvas smoke test',
+          },
+        ],
+        edgeDrafts: [
+          {
+            category: 'composition',
+            whole: { draftId: 'frontier-execution' },
+            part: { draftId: 'scope-canvas' },
+          },
+          {
+            category: 'realization',
+            abstract: { draftId: 'scope-canvas' },
+            concrete: { draftId: 'req-canvas' },
+          },
+          {
+            category: 'realization',
+            abstract: { draftId: 'scope-canvas' },
+            concrete: { draftId: 'ac-canvas' },
+          },
+          {
+            category: 'composition',
+            whole: { draftId: 'scope-canvas' },
+            part: { draftId: 'mod-canvas' },
+          },
+          {
+            category: 'witness',
+            oracle: { draftId: 'check-canvas' },
+            claim: { draftId: 'scope-canvas' },
+            stance: 'for',
+          },
+          {
+            category: 'witness',
+            oracle: { draftId: 'ac-canvas' },
+            claim: { draftId: 'req-canvas' },
+            stance: 'for',
+          },
+        ],
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'success',
+      createdNodes: {
+        'frontier-execution': { code: 'F1' },
+        'scope-canvas': { code: 'SCP1' },
+        'req-canvas': { code: 'REQ1' },
+        'ac-canvas': { code: 'AC1' },
+        'mod-canvas': { code: 'MOD1' },
+        'check-canvas': { code: 'CH1' },
+      },
+    });
+
+    const persistedNodes = db
+      .select({ kind: nodes.kind, title: nodes.title, kindOrdinal: nodes.kind_ordinal })
+      .from(nodes)
+      .all();
+    expect(persistedNodes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: 'scope', title: 'Canvas scope', kindOrdinal: 1 }),
+        expect.objectContaining({ kind: 'frontier', title: 'Execution handoff', kindOrdinal: 1 }),
+      ]),
+    );
+    expect(db.select({ category: edges.category, stance: edges.stance }).from(edges).all()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ category: 'composition' }),
+        expect.objectContaining({ category: 'realization' }),
+        expect.objectContaining({ category: 'witness', stance: 'for' }),
+      ]),
+    );
+  });
 });

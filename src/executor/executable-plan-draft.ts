@@ -11,8 +11,16 @@ export interface ExecutablePlanDraftSlice {
   readonly epicId: string;
   readonly title: string;
   readonly definition: string;
+  readonly scopeId?: string;
   readonly requirementId: string;
+  readonly requirementIds: readonly string[];
   readonly dependsOn: readonly string[];
+  readonly designContext: readonly { readonly itemId: string; readonly title: string; readonly content: string }[];
+  readonly verificationContext: readonly {
+    readonly itemId: string;
+    readonly title: string;
+    readonly content: string;
+  }[];
   readonly verification: readonly ExecutablePlanDraftVerificationTarget[];
 }
 
@@ -48,8 +56,20 @@ export function draftExecutablePlan(outline: ExecutionPlanOutline): ExecutablePl
       epicId: frontier.id,
       title: task.title,
       definition: task.summary,
+      ...(task.scopeId ? { scopeId: task.scopeId } : {}),
       requirementId: task.requirementId,
+      requirementIds: task.requirementIds ?? [task.requirementId],
       dependsOn: task.dependsOn.flatMap((requirementId) => taskIdByRequirement.get(requirementId) ?? []),
+      designContext: (task.designContext ?? []).map((item) => ({
+        itemId: item.itemId,
+        title: item.title,
+        content: item.content,
+      })),
+      verificationContext: (task.verificationContext ?? []).map((item) => ({
+        itemId: item.itemId,
+        title: item.title,
+        content: item.content,
+      })),
       verification: task.acceptanceCriteria.map((criterion) => ({
         kind: 'criterion' as const,
         criterionId: criterion.criterionId,

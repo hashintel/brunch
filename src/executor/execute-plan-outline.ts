@@ -14,10 +14,14 @@ export interface ExecutionPlanOutlineTask {
   readonly id: string;
   readonly title: string;
   readonly requirementId: string;
+  readonly scopeId?: string;
+  readonly requirementIds?: readonly string[];
   readonly summary: string;
   readonly dependsOn: readonly string[];
   readonly acceptanceCriterionIds: readonly string[];
   readonly acceptanceCriteria: readonly ExecutionPlanOutlineCriterion[];
+  readonly designContext?: readonly ExecutionSpecItemSnapshot[];
+  readonly verificationContext?: readonly ExecutionSpecItemSnapshot[];
 }
 
 export interface ExecutionPlanOutlineFrontier {
@@ -39,9 +43,48 @@ export function outlineExecutionPlan(snapshot: ExecutionSpecSnapshot): Execution
     schemaVersion: 1,
     specId: snapshot.specId,
     mode: snapshot.mode,
-    frontiers: snapshot.requirements.length === 0 ? [] : [frontierForRequirements(snapshot)],
+    frontiers:
+      snapshot.scopes.length > 0
+        ? frontiersForScopes(snapshot)
+        : snapshot.requirements.length === 0
+          ? []
+          : [frontierForRequirements(snapshot)],
     sideEffects: [],
   };
+}
+
+function frontiersForScopes(snapshot: ExecutionSpecSnapshot): readonly ExecutionPlanOutlineFrontier[] {
+  const frontierTitleById = new Map(snapshot.frontiers.map((frontier) => [frontier.itemId, frontier.title]));
+  const requirementsById = new Map(snapshot.requirements.map((requirement) => [requirement.itemId, requirement]));
+  const scopesByFrontier = new Map<string, typeof snapshot.scopes>();
+
+  for (const scope of snapshot.scopes) {
+    const frontierIds = scope.frontierIds.length > 0 ? scope.frontierIds : ['frontier-1'];
+    for (const frontierId of frontierIds) {
+      const scopes = scopesByFrontier.get(frontierId) ?? [];
+      scopesByFrontier.set(frontierId, [...scopes, scope]);
+    }
+  }
+
+  return [...scopesByFrontier.entries()].map(([frontierId, scopes]) => ({
+    id: frontierId,
+    title: frontierTitleById.get(frontierId) ?? 'Execution handoff',
+    tasks: scopes.map((scope, index) => ({
+      id: `task-${index + 1}`,
+      title: scope.title,
+      scopeId: scope.itemId,
+      requirementId: scope.requirementIds[0] ?? scope.itemId,
+      requirementIds: scope.requirementIds,
+      summary: scope.content,
+      dependsOn: scope.requirementIds.flatMap((requirementId) =>
+        requirementsById.get(requirementId)?.dependsOn ?? [],
+      ),
+      acceptanceCriterionIds: scope.criteria.map((criterion) => criterion.itemId),
+      acceptanceCriteria: scope.criteria.map(outlineCriterion),
+      designContext: scope.design,
+      verificationContext: scope.verification,
+    })),
+  }));
 }
 
 function frontierForRequirements(snapshot: ExecutionSpecSnapshot): ExecutionPlanOutlineFrontier {

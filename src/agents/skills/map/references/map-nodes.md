@@ -52,14 +52,14 @@ Continue in [`map-design.md`](map-design.md) when deciding whether design materi
 
 ### Plan plane — how it is sequenced
 
-Activating concepts: phase boundary, invariant bundle, tracker unit, branch unit, walking skeleton, tracer-bullet slice, risk retirement.
+Activating concepts: phase boundary, invariant bundle, tracker unit, branch unit, committed execution handoff, risk retirement.
 
 | Material role                                 | Kind        | Example question forms                                |
 | --------------------------------------------- | ----------- | ----------------------------------------------------- |
 | phase threshold or invariant bundle           | `milestone` | "What bundle must be true before this phase is done?" |
 | canonical named work/tracker/branch unit      | `frontier`  | "What is the next named unit of work?"                |
-| buildable implementation unit inside frontier | `slice`     | "What is the thinnest verifiable slice?"              |
+| committed execution handoff inside frontier   | `scope`     | "What package should execution receive as durable truth?" |
 
-Continue in [`map-plans.md`](map-plans.md) when distinguishing phase, frontier, and slice or linking work back to graph pressure.
+Continue in [`map-plans.md`](map-plans.md) when distinguishing phase, frontier, and scope or linking work back to graph pressure.
 
 Readiness bands guide questioning and mapping; they do not gate graph truth. If the user or a reviewed source clearly supplies a later-band item early, map it honestly with the right kind and basis, then mark settlement according to whether it has been harmonized.

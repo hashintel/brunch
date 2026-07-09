@@ -8,7 +8,7 @@ export interface PlanMarkdownOutputInput {
   readonly nodes: readonly GraphNode[];
 }
 
-const PLAN_KIND_ORDER = ['milestone', 'frontier'] as const;
+const PLAN_KIND_ORDER = ['milestone', 'frontier', 'scope'] as const;
 
 export function renderPlanMarkdownOutput(input: PlanMarkdownOutputInput): string {
   const planNodes = input.nodes.filter((node) => node.plane === 'plan');

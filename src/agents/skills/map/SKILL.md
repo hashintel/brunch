@@ -14,7 +14,7 @@ Read the focused references when detail matters:
 - [`references/map-edges.md`](references/map-edges.md) — the closed edge categories and role-named grammar.
 - [`references/map-design.md`](references/map-design.md) — `module`, `interface`, `entity`, and `sketch` routing.
 - [`references/map-oracles.md`](references/map-oracles.md) — criteria, checks, evidence, methods, obligations, and witnesses.
-- [`references/map-plans.md`](references/map-plans.md) — `milestone`, `frontier`, and `slice` routing.
+- [`references/map-plans.md`](references/map-plans.md) — `milestone`, `frontier`, and `scope` routing.
 - [`references/routing.md`](references/routing.md) — confidence/conflict routing into settled graph truth, advisory graph signal, gaps, reconciliation, or review.
 
 Each plane answers a different concern. Stay on the plane the active work is on; cross-plane links are edges, not kind changes. Promote across planes only when the material genuinely hardens.
@@ -102,23 +102,23 @@ Typical edges: `witness` (oracle→claim, `stance: for|against`), `realization` 
 
 how it's sequenced  #plan
 
-Sequence the work. A `frontier` is the plan/tracker/branch unit; a `slice` is the buildable unit inside it; a `milestone` is a bounded phase.
+Sequence the work. A `frontier` is the plan/tracker/branch unit; a `scope` is the durable handoff package from specification into execution; a `milestone` is a bounded phase. Buildable `slice`s stay downstream in executor flow rather than persisting as plan nodes.
 
 ```
-kinds: milestone (M) | frontier (F) | slice (S)
+kinds: milestone (M) | frontier (F) | scope (SCP)
 
 tree plan containment:
   milestone
     frontier        the tracker/branch unit
-      slice         the buildable unit; establishes requirements
+      scope         the committed handoff package for execution
 ```
 
 ```
 coherence checks (plan)
-  frontier -> contains >=1 slice (composition)?
-  slice    -> establishes >=1 requirement (realization, renders "established by")?
-  frontier -> dependencies mirror intent dependencies, not intra-frontier slice order
+  frontier -> contains >=1 scope (composition)?
+  scope    -> establishes >=1 requirement and packages design/verification for execution?
+  frontier -> dependencies mirror intent dependencies, not intra-frontier execution order
   milestone-> frontiers map to an invariant bundle to establish
 ```
 
-Typical edges: `composition` (milestone→frontier→slice), `realization` (requirement→slice, renders "established by"), `dependency` (frontier→frontier).
+Typical edges: `composition` (milestone→frontier→scope), `realization` (requirement→scope, renders "established by"), `dependency` (frontier→frontier).
