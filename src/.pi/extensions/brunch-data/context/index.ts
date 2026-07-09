@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { Type } from 'typebox';
 
 import {
   renderRuntimeFrame,
@@ -9,9 +10,23 @@ import {
   type RuntimeStateProjection,
 } from '../../../../projections/session/runtime-state.js';
 import { NonLinearTranscriptError } from '../../../../session/brunch-session-envelope.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 import { readWorkspaceContext } from './get-cwd.js';
 import { readSpecificationContext } from './get-specification.js';
 import { resolveSelectedSpecBinding, type SessionManagerLike } from './session-binding.js';
+
+const WorkspaceContextParamsSchema = Type.Object(
+  {
+    mode: Type.String({ enum: ['cwd_inventory', 'workspace_overview'] }),
+  },
+  { additionalProperties: false },
+);
+const WorkspaceContextParams = toolParameters(
+  WorkspaceContextParamsSchema,
+) as typeof WorkspaceContextParamsSchema;
+
+const EmptyContextParamsSchema = Type.Object({}, { additionalProperties: false });
+const EmptyContextParams = toolParameters(EmptyContextParamsSchema) as typeof EmptyContextParamsSchema;
 
 export function registerBrunchContext(pi: ExtensionAPI): void {
   pi.registerTool({
@@ -25,17 +40,7 @@ export function registerBrunchContext(pi: ExtensionAPI): void {
       'This is a deterministic workspace inventory: .brunch presence, session-file sizes, visible top-level tree, and markdown sizes.',
       'The tree is gitignore-aware and read-only; ignored paths are excluded from counts and listings.',
     ],
-    parameters: {
-      type: 'object',
-      properties: {
-        mode: {
-          type: 'string',
-          enum: ['cwd_inventory', 'workspace_overview'],
-        },
-      },
-      required: ['mode'],
-      additionalProperties: false,
-    },
+    parameters: WorkspaceContextParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       if (params.mode !== 'cwd_inventory' && params.mode !== 'workspace_overview') {
         const details = {
@@ -72,11 +77,7 @@ export function registerBrunchContext(pi: ExtensionAPI): void {
       'This render is scope-clustered: overview, full graph overview, session-local elicitation scratchpad, and spec-scoped sessions; use it for graph-fact reasoning, not gap ranking.',
       'Use read_graph when you need a filtered graph slice or node neighborhood after reading this overview.',
     ],
-    parameters: {
-      type: 'object',
-      properties: {},
-      additionalProperties: false,
-    },
+    parameters: EmptyContextParams,
     async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
       const result = await readSpecificationContext(ctx?.sessionManager);
       return {
@@ -98,11 +99,7 @@ export function registerBrunchContext(pi: ExtensionAPI): void {
       'Do not treat this as the per-turn AUTO choice surface; it reports the durable runtime frame the session is operating under.',
       'Graph-node mentions render as projected handles such as #D12 when available, not raw ids.',
     ],
-    parameters: {
-      type: 'object',
-      properties: {},
-      additionalProperties: false,
-    },
+    parameters: EmptyContextParams,
     async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
       const details = projectSessionContext(ctx?.sessionManager);
       return {
