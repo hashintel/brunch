@@ -480,9 +480,11 @@ export function createAskTool(answerBroker?: LiveExchangeAwaiter) {
     promptGuidelines: [
       'Use ask for ordinary Brunch questions; do not call present_question.',
       'Put the full question in body markdown. Use options[] for finite choices instead of numbered body text.',
+      'Never author a listed option that duplicates the built-in Other affordance; set allowOther when an open-ended answer is needed.',
       'Set commentPrompt only when a trailing comment is worth collecting; omitting it skips the optional-comment step.',
       'The ask result is the durable transcript artifact; renderCall is intentionally non-semantic.',
       'For offer continuations, call ask with continues only; the runtime fills body/options from the present_* declaration.',
+      "Do not restate a present_* offer's large pretext or digest body in the continuing ask body; the present result remains the pretext.",
     ],
     parameters: piSchema(zAskParams),
     executionMode: 'sequential',
