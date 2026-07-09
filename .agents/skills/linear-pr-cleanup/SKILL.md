@@ -81,6 +81,22 @@ Rules:
 - Do not paste the whole Linear description into the PR.
 - Include actual verification commands if known.
 - If testing was not run, say so directly.
+- If the change involves architecture or a complex flow, add a small ASCII diagram under `What` when it improves clarity.
+- Prefer ASCII diagrams over Mermaid, images, or long prose.
+- Skip the diagram for straightforward changes.
+- Keep diagrams compact and use the same canonical terms as the issue and PR.
+
+Example architecture summary:
+
+```text
+committed scope
+      |
+      v
+ordered build slices
+      |
+      v
+worker briefs
+```
 
 ## Title Style
 
