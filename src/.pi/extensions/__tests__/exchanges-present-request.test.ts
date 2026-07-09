@@ -807,6 +807,8 @@ describe('structured exchange ask tools', () => {
       } as never,
     );
     expect(cancelStatus).toHaveBeenCalledWith('brunch.continue', expect.stringContaining('/brunch:continue'));
+    expect(cancelStatus).toHaveBeenCalledWith('brunch.continue', expect.stringContaining('/brunch:consult'));
+    expect(cancelStatus).toHaveBeenCalledWith('brunch.continue', expect.stringContaining('/brunch:mode'));
 
     const answerStatus = vi.fn();
     await ask.execute(

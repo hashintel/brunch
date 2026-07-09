@@ -66,7 +66,7 @@ Concern: `/continue` semantics.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §`/continue` command, §cancellation, §continuation.
 Observation: command description is too specific and execution says “nothing to continue” in cases where the user means “resume/kick whatever was interrupted or blocked,” including esc, quit/resume, no-auth prevented default kick, or a cancelled ask that leaves the user out of flow. After cancelling an ask, the UI gives no notification telling the user how to resume or reorient.
 Expected: `/brunch:continue` should be the general “continue interrupted Brunch work” affordance, not only declared ask-continuation recovery; cancellation should surface a short recovery notice naming `/continue`, `/consult`, and `/mode` as appropriate.
-Disposition: likely scoped build; centralize command strings while widening semantics and adding cancellation recovery guidance.
+Disposition: built in WR3 (FE-1180): `/brunch:continue` now re-presents declared asks as the special case and otherwise resumes interrupted Brunch work through manual-trigger origination; cancelled declared asks surface recovery copy naming `/brunch:continue`, `/brunch:consult`, and `/brunch:mode`; command strings are centralized.
 
 #### A5 · prompt/context + observability · high · diagnose
 

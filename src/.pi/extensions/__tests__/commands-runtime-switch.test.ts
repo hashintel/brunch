@@ -329,15 +329,77 @@ describe('Brunch menu command', () => {
     );
   });
 
-  it('reports nothing to continue when there is no incomplete structured exchange', async () => {
+  it('reports unavailable resume when no incomplete structured exchange exists and no kick seam is bound', async () => {
     const harness = commandHarness();
 
     await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
 
     expect(harness.appendedMessages).toEqual([]);
+    expect(harness.sent).toEqual([]);
     expect(harness.notifications).toEqual([
-      expect.objectContaining({ level: 'info', message: 'Nothing to continue.' }),
+      expect.objectContaining({ level: 'warning', message: 'Brunch resume is unavailable in this session.' }),
     ]);
+  });
+
+  it('resumes no-auth-suppressed boot work through a manual-trigger kick when no declared ask is open', async () => {
+    const harness = commandHarness({ orientation: true });
+
+    await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.appendedMessages).toEqual([]);
+    expect(harness.sent).toContainEqual({
+      message: expect.objectContaining({
+        customType: BRUNCH_KICK_CUSTOM_TYPE,
+        details: { origin: 'manual_trigger' },
+      }),
+      options: { triggerTurn: true },
+    });
+  });
+
+  it('resumes general interrupted work through a manual-trigger kick when no declared ask is open', async () => {
+    const harness = commandHarness({ orientation: true });
+    harness.entries.push({
+      type: 'message',
+      message: { role: 'assistant', content: 'Waiting here.', timestamp: 1 },
+    } as never);
+    harness.ctx.sessionManager.getBranch = () => harness.entries as never;
+
+    await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.appendedMessages).toEqual([]);
+    expect(harness.sent).toContainEqual({
+      message: expect.objectContaining({
+        customType: BRUNCH_KICK_CUSTOM_TYPE,
+        details: { origin: 'manual_trigger' },
+      }),
+      options: { triggerTurn: true },
+    });
+  });
+
+  it('lets explicit continue override a prior dismissed orientation entry', async () => {
+    const harness = commandHarness({ orientation: true });
+    harness.entries.push(
+      {
+        type: 'custom',
+        customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
+        data: { schemaVersion: 1, choice: 'dismissed', trigger: 'consult' },
+      },
+      {
+        type: 'message',
+        message: { role: 'assistant', content: 'Waiting here.', timestamp: 1 },
+      } as never,
+    );
+    harness.ctx.sessionManager.getBranch = () => harness.entries as never;
+
+    await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.sent).toContainEqual({
+      message: expect.objectContaining({
+        customType: BRUNCH_KICK_CUSTOM_TYPE,
+        details: { origin: 'manual_trigger' },
+      }),
+      options: { triggerTurn: true },
+    });
   });
 
   it('re-presents the most recent incomplete structured exchange, records the canonical answer, and clears the continue hint', async () => {
@@ -421,6 +483,14 @@ describe('Brunch menu command', () => {
     expect(harness.statusCalls).toContainEqual({
       key: 'brunch.continue',
       text: expect.stringContaining('/brunch:continue'),
+    });
+    expect(harness.statusCalls).toContainEqual({
+      key: 'brunch.continue',
+      text: expect.stringContaining('/brunch:consult'),
+    });
+    expect(harness.statusCalls).toContainEqual({
+      key: 'brunch.continue',
+      text: expect.stringContaining('/brunch:mode'),
     });
     expect(harness.appendedMessages.at(-1)).toMatchObject({
       role: 'toolResult',

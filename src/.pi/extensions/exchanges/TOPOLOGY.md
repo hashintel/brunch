@@ -32,8 +32,9 @@ workspace/consult surfaces keep their own surface-identity colors. Picker-root
 dismissal is terminal `cancelled`; nested Other/comment input steps share one
 `StepResult`-shaped collector and return to the picker, with multi-choice
 checkbox state restored. Declared-continuation root cancellation contributes a
-`brunch.continue` status hint naming `/brunch:continue`; standalone ask
-cancellation is terminal and does not promise recovery. Only an **answered**
+`brunch.continue` status hint naming `/brunch:continue`, `/brunch:consult`, and
+`/brunch:mode`; standalone ask cancellation is terminal and does not promise
+recovery. Only an **answered**
 terminal completes a declared continuation in the recovery scan
 (`src/exchanges/recovery.ts`): cancelled/unavailable results keep the offer
 resumable, so the hint and `ask({ continues })` stay honest after a cancel. The
