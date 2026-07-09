@@ -271,6 +271,7 @@ export async function drive(
             runStatus: result.runStatus,
             transitionId: transition.id,
             subnetId: transition.subnetId,
+            ...(transition.epicId === undefined ? {} : { epicId: transition.epicId }),
             step: next.kind,
             contract: transition.contract,
             consumed: transition.inputArcs.map((arc) => arc.placeId),

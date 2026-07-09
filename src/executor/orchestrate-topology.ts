@@ -31,6 +31,7 @@ export interface SchedulerPlan {
 
 export interface SchedulerPlanSlice {
   readonly id: string;
+  readonly epic_id?: string;
   readonly depends_on?: readonly string[];
 }
 
@@ -44,6 +45,7 @@ export interface ExecutorSubnet {
   readonly id: string;
   readonly kind: 'run_control' | 'slice_control';
   readonly sliceId?: string;
+  readonly epicId?: string;
   readonly transitionIds: readonly string[];
 }
 
@@ -66,6 +68,7 @@ export type ExecutorTransitionGuard =
 export interface ExecutorTransition {
   readonly id: string;
   readonly subnetId: string;
+  readonly epicId?: string;
   readonly step: ReadyStep;
   readonly inputArcs: readonly ExecutorArc[];
   readonly outputArcs: readonly ExecutorArc[];
@@ -90,6 +93,7 @@ export type ExecutorNetEvent =
       readonly runStatus: import('./run.js').RunMetadata['status'];
       readonly transitionId: string;
       readonly subnetId: string;
+      readonly epicId?: string;
       readonly step: ReadyStep['kind'];
       readonly contract: ExecutorTransition['contract'];
       readonly consumed: readonly string[];
@@ -272,6 +276,7 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
     id: `slice:${slice.id}`,
     kind: 'slice_control',
     sliceId: slice.id,
+    ...(slice.epic_id === undefined ? {} : { epicId: slice.epic_id }),
     transitionIds: [
       sliceTransitionId('slice_start', slice.id),
       sliceTransitionId('slice_execute', slice.id),
@@ -307,6 +312,7 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
       {
         id: sliceTransitionId('slice_start', sliceId),
         subnetId: subnet.id,
+        ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
         step: { kind: 'slice_start', sliceId },
         inputArcs: [{ placeId: RUN_SLICE_FRONTIER_PLACE, weight: 1 }],
         outputArcs: [{ placeId: sliceStartedPlace(sliceId), weight: 1 }],
@@ -322,6 +328,7 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
       {
         id: sliceTransitionId('slice_execute', sliceId),
         subnetId: subnet.id,
+        ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
         step: { kind: 'slice_execute' },
         inputArcs: [{ placeId: sliceStartedPlace(sliceId), weight: 1 }],
         outputArcs: [{ placeId: sliceExecutionRequestedPlace(sliceId), weight: 1 }],
@@ -331,6 +338,7 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
       {
         id: sliceTransitionId('agent_result', sliceId),
         subnetId: subnet.id,
+        ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
         step: { kind: 'agent_result' },
         inputArcs: [{ placeId: sliceExecutionRequestedPlace(sliceId), weight: 1 }],
         outputArcs: [{ placeId: sliceAgentResultPlace(sliceId), weight: 1 }],
@@ -340,6 +348,7 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
       {
         id: sliceTransitionId('test_result', sliceId),
         subnetId: subnet.id,
+        ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
         step: { kind: 'test_result' },
         inputArcs: [{ placeId: sliceAgentResultPlace(sliceId), weight: 1 }],
         outputArcs: [{ placeId: sliceTestResultPlace(sliceId), weight: 1 }],
@@ -349,6 +358,7 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
       {
         id: sliceTransitionId('slice_complete', sliceId),
         subnetId: subnet.id,
+        ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
         step: { kind: 'slice_complete' },
         inputArcs: [{ placeId: sliceTestResultPlace(sliceId), weight: 1 }],
         outputArcs: [{ placeId: RUN_SLICE_FRONTIER_PLACE, weight: 1 }],

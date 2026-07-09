@@ -30,7 +30,10 @@ async function createCompletedRun(cwd: string): Promise<void> {
     planPath,
     JSON.stringify({
       mode: 'greenfield',
-      slices: [{ id: 'task-1' }, { id: 'task-2' }],
+      slices: [
+        { id: 'task-1', epic_id: 'frontier-1' },
+        { id: 'task-2', epic_id: 'frontier-1' },
+      ],
     }),
     'utf8',
   );
@@ -78,7 +81,10 @@ describe('exportPetri', () => {
     const result = await exportPetri({ cwd, runId: 'run-1' });
     const topology = compileExecutorTopology({
       mode: 'greenfield',
-      slices: [{ id: 'task-1' }, { id: 'task-2' }],
+      slices: [
+        { id: 'task-1', epic_id: 'frontier-1' },
+        { id: 'task-2', epic_id: 'frontier-1' },
+      ],
     });
 
     expect(result).toEqual({
@@ -100,6 +106,9 @@ describe('exportPetri', () => {
       transitions: topology.transitions,
       initialMarking: topology.initialMarking,
     });
+    expect(topology.subnets).toContainEqual(
+      expect.objectContaining({ id: 'slice:task-1', epicId: 'frontier-1' }),
+    );
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'petri_exported',
       petriPath: petriNetPath(cwd, 'run-1'),

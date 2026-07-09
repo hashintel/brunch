@@ -753,7 +753,10 @@ describe('compileExecutorTopology', () => {
   it('preserves one run subnet and one slice subnet per slice, including the source-policy boundary', () => {
     const topology = compileExecutorTopology({
       mode: 'greenfield',
-      slices: [{ id: 'task-1' }, { id: 'task-2' }],
+      slices: [
+        { id: 'task-1', epic_id: 'frontier-1' },
+        { id: 'task-2', epic_id: 'frontier-2' },
+      ],
     });
 
     expect(topology.subnets).toEqual([
@@ -775,6 +778,7 @@ describe('compileExecutorTopology', () => {
         id: 'slice:task-1',
         kind: 'slice_control',
         sliceId: 'task-1',
+        epicId: 'frontier-1',
         transitionIds: [
           'slice_start:task-1',
           'slice_execute:task-1',
@@ -787,6 +791,7 @@ describe('compileExecutorTopology', () => {
         id: 'slice:task-2',
         kind: 'slice_control',
         sliceId: 'task-2',
+        epicId: 'frontier-2',
         transitionIds: [
           'slice_start:task-2',
           'slice_execute:task-2',
@@ -801,6 +806,13 @@ describe('compileExecutorTopology', () => {
         id: 'source_policy',
         subnetId: 'run',
         step: { kind: 'source_policy' },
+      }),
+    );
+    expect(topology.transitions).toContainEqual(
+      expect.objectContaining({
+        id: 'slice_start:task-1',
+        subnetId: 'slice:task-1',
+        epicId: 'frontier-1',
       }),
     );
   });
@@ -952,6 +964,7 @@ describe('petriScheduler', () => {
         .map((event) => ({
           transitionId: event.transitionId,
           subnetId: event.subnetId,
+          epicId: event.epicId,
           contract: event.contract,
           consumed: event.consumed,
           produced: event.produced,
@@ -1007,6 +1020,7 @@ describe('petriScheduler', () => {
       {
         transitionId: 'slice_start:task-1',
         subnetId: 'slice:task-1',
+        epicId: 'frontier-1',
         contract: { kind: 'structural', lane: 'slice' },
         consumed: ['run:slice_frontier'],
         produced: ['slice:task-1:started'],
@@ -1016,6 +1030,7 @@ describe('petriScheduler', () => {
       {
         transitionId: 'slice_execute:task-1',
         subnetId: 'slice:task-1',
+        epicId: 'frontier-1',
         contract: { kind: 'mechanical', lane: 'slice' },
         consumed: ['slice:task-1:started'],
         produced: ['slice:task-1:execution_requested'],
@@ -1025,6 +1040,7 @@ describe('petriScheduler', () => {
       {
         transitionId: 'agent_result:task-1',
         subnetId: 'slice:task-1',
+        epicId: 'frontier-1',
         contract: { kind: 'mechanical', lane: 'slice' },
         consumed: ['slice:task-1:execution_requested'],
         produced: ['slice:task-1:agent_result_ingested'],
@@ -1034,6 +1050,7 @@ describe('petriScheduler', () => {
       {
         transitionId: 'test_result:task-1',
         subnetId: 'slice:task-1',
+        epicId: 'frontier-1',
         contract: { kind: 'mechanical', lane: 'slice' },
         consumed: ['slice:task-1:agent_result_ingested'],
         produced: ['slice:task-1:test_result_ingested'],
@@ -1043,6 +1060,7 @@ describe('petriScheduler', () => {
       {
         transitionId: 'slice_complete:task-1',
         subnetId: 'slice:task-1',
+        epicId: 'frontier-1',
         contract: { kind: 'structural', lane: 'slice' },
         consumed: ['slice:task-1:test_result_ingested'],
         produced: ['run:slice_frontier'],
