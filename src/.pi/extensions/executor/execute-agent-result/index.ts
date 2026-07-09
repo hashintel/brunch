@@ -4,6 +4,7 @@ import { Type, type Static } from 'typebox';
 import { ingestAgentResult, type AgentResultIngestResult } from '../../../../executor/agent-result.js';
 import type { AgentRunnerPort } from '../../../../executor/execution-ports.js';
 import { BRUNCH_EXECUTE_AGENT_RESULT_TOOL } from '../../../../session/schema/tool-names.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_AGENT_RESULT_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -26,7 +27,7 @@ export function createExecuteAgentResultTool(
     label: 'execute_agent_result',
     description:
       'Run the agent runner for the active slice in its worktree and ingest the true result. Does not run tests or create Petri artifacts.',
-    parameters: ExecuteAgentResultParams,
+    parameters: toolParameters(ExecuteAgentResultParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {

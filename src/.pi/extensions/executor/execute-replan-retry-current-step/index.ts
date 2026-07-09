@@ -14,6 +14,7 @@ import {
 } from '../../../../executor/run-retry-eligibility.js';
 import { BRUNCH_EXECUTE_REPLAN_RETRY_CURRENT_STEP_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 import { buildCurrentProjectionForRun } from '../current-projection.js';
 
 export { BRUNCH_EXECUTE_REPLAN_RETRY_CURRENT_STEP_TOOL } from '../../../../session/schema/tool-names.js';
@@ -61,7 +62,7 @@ export function createExecuteReplanRetryCurrentStepTool(
     label: 'execute_replan_retry_current_step',
     description:
       'Retry exactly one ready executor lifecycle step when the run is fresh and retry-eligible. Does not regenerate plans or drive the run to completion.',
-    parameters: ExecuteReplanRetryCurrentStepParams,
+    parameters: toolParameters(ExecuteReplanRetryCurrentStepParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {

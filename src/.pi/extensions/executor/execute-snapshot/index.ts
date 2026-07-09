@@ -5,6 +5,7 @@ import { projectExecuteGraph } from '../../../../executor/execute-projection.js'
 import type { ExecutionSpecSnapshot } from '../../../../executor/execution-spec-snapshot.js';
 import { BRUNCH_EXECUTE_SNAPSHOT_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 import { renderExecuteSnapshotResult } from '../rendering.js';
 
 export { BRUNCH_EXECUTE_SNAPSHOT_TOOL } from '../../../../session/schema/tool-names.js';
@@ -42,7 +43,7 @@ export function createExecuteSnapshotTool(
     label: 'execute_snapshot',
     description:
       'Project the selected specification graph into ExecutionSpecSnapshot v1. Side-effect free: reads graph truth only.',
-    parameters: ExecuteSnapshotParams,
+    parameters: toolParameters(ExecuteSnapshotParams),
     renderResult(result, options, theme, context) {
       return renderExecuteSnapshotResult(result, options, theme as never, context);
     },

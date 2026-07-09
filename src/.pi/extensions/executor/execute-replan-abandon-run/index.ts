@@ -3,6 +3,7 @@ import { Type, type Static } from 'typebox';
 
 import { abandonRun, type RunAbandonResult } from '../../../../executor/run-abandon.js';
 import { BRUNCH_EXECUTE_REPLAN_ABANDON_RUN_TOOL } from '../../../../session/schema/tool-names.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_REPLAN_ABANDON_RUN_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -27,7 +28,7 @@ export function createExecuteReplanAbandonRunTool(): ToolDefinition<
     label: 'execute_replan_abandon_run',
     description:
       'Mark an active executor run abandoned without deleting worktrees, reports, Petri artifacts, promotions, or graph state.',
-    parameters: ExecuteReplanAbandonRunParams,
+    parameters: toolParameters(ExecuteReplanAbandonRunParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {

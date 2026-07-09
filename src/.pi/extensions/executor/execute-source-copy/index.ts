@@ -3,6 +3,7 @@ import { Type, type Static } from 'typebox';
 
 import { copyHostSource, type SourceCopyResult } from '../../../../executor/source-copy.js';
 import { BRUNCH_EXECUTE_SOURCE_COPY_TOOL } from '../../../../session/schema/tool-names.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_SOURCE_COPY_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -26,7 +27,7 @@ export function createExecuteSourceCopyTool(): ToolDefinition<
     label: 'execute_source_copy',
     description:
       'Copy bounded host source entries into the cook worktree. Does not execute slices or create Petri/report artifacts.',
-    parameters: ExecuteSourceCopyParams,
+    parameters: toolParameters(ExecuteSourceCopyParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {

@@ -12,6 +12,7 @@ import {
   BRUNCH_EXECUTE_HOST_PROMOTION_APPLY_TOOL,
   BRUNCH_EXECUTE_HOST_PROMOTION_PREFLIGHT_TOOL,
 } from '../../../../session/schema/tool-names.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export {
   BRUNCH_EXECUTE_HOST_PROMOTION_APPLY_TOOL,
@@ -45,7 +46,7 @@ export function createExecuteHostPromotionPreflightTool(
     label: 'execute_host_promotion_preflight',
     description:
       'Inspect a run-local promotion and report the host diff that can be applied. Does not mutate host files, refs, branches, or index state.',
-    parameters: ExecuteHostPromotionPreflightParams,
+    parameters: toolParameters(ExecuteHostPromotionPreflightParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0)
@@ -67,7 +68,7 @@ export function createExecuteHostPromotionApplyTool(
     label: 'execute_host_promotion_apply',
     description:
       'Apply an accepted run-local promotion patch to host files. Requires acceptedCommitSha; does not commit, create refs, switch branches, or stage the host index.',
-    parameters: ExecuteHostPromotionApplyParams,
+    parameters: toolParameters(ExecuteHostPromotionApplyParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0)

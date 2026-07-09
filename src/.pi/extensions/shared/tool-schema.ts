@@ -12,10 +12,12 @@ export type ToolSchemaSource = z.ZodType | TSchema;
  * boundaries pass through their TypeBox source of truth. In both cases the
  * provider-facing shape must be legal before a live model turn can see it.
  */
-export function toolParameters(schema: ToolSchemaSource): TSchema {
+export function toolParameters<const Schema extends ToolSchemaSource>(
+  schema: Schema,
+): Schema extends z.ZodType ? TSchema : Schema {
   const jsonSchema = isZodSchema(schema) ? z.toJSONSchema(schema, { unrepresentable: 'throw' }) : schema;
   assertProviderLegalToolSchema(jsonSchema);
-  return jsonSchema as TSchema;
+  return jsonSchema as Schema extends z.ZodType ? TSchema : Schema;
 }
 
 export function assertProviderLegalToolSchema(schema: unknown): void {

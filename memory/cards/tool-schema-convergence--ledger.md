@@ -7,7 +7,7 @@ Authored: 2026-07-07 (ln-plan; ledger mapped at admission per user request — l
 
 ## Layer boundary
 
-**In:** every Brunch-authored tool schema that reaches a provider as `input_schema` — all `pi.registerTool` / `defineTool` sites under `src/.pi/extensions/**` (46 tools, 9 families; re-based 2026-07-08 after FE-1164 retired `present_question` + `request_response` and registered `ask`).
+**In:** every Brunch-authored tool schema that reaches a provider as `input_schema` — all `pi.registerTool` / `defineTool` sites under `src/.pi/extensions/**` (51 tools, 9 families; re-based 2026-07-09 after FE-1163 row 8 found the executor family has 32 active `execute_*` registrations, not the ledger's stale 27).
 
 **Out:**
 
@@ -42,14 +42,14 @@ Status vocabulary: `spec` (defined, not built) · `partial` · `done`. One row =
 | 5 | ● | `context-family` (3: `read_workspace_context`, `read_specification_context`, `read_session_context`) — literals → TypeBox builder + adapter | `src/.pi/extensions/brunch-data/context/index.ts` | TypeBox | done | context tool tests green; schema snapshot unchanged |
 | 6 | ● | `scratchpad-family` (2: `read_elicitation_scratchpad`, `update_elicitation_scratchpad`) — literals → TypeBox + adapter | `src/.pi/extensions/brunch-data/elicitation/scratchpad-tools.ts` | TypeBox | done | scratchpad tests green; snapshot unchanged |
 | 7 | ● | `reconciliation-family` (2: `read_reconciliation_needs`, `update_reconciliation_needs`) — literals → TypeBox + adapter; nested `target.oneOf` is legal (below top level), keep | `src/.pi/extensions/brunch-data/reconciliation/index.ts` | TypeBox | done | reconciliation tests green; snapshot unchanged |
-| 8 | ● | `executor-family` (27 `execute_*` tools incl. both host-promotion tools) — already TypeBox builders; route through adapter | `src/.pi/extensions/executor/execute-*/index.ts` | TypeBox | spec | executor tool tests green; registry-wide legality oracle covers execute-mode toolset |
+| 8 | ● | `executor-family` (32 `execute_*` tools incl. both host-promotion tools) — already TypeBox builders; route through adapter | `src/.pi/extensions/executor/execute-*/index.ts` | TypeBox | done | executor tool tests green; registry-wide legality oracle covers execute-mode toolset |
 | 9 | ● | `web-tools-family` (2: `web_fetch`, `web_search`) | `src/.pi/extensions/web-tools/web/*.ts` | TypeBox | spec | web-tools tests green; snapshot unchanged |
 | 10 | ● | `subagents-family` (2: `subagent`, `write_worktree_file`) | `src/.pi/extensions/subagents/{index,session}.ts` | TypeBox | spec | subagents tests green; snapshot unchanged |
 | 11 | ● | `registry-legality-oracle` — widen the FE-1159 Tier-2 assertion (elicitor boot payload only, 21 tools) to the **full registry across modes** (elicitor + executor toolsets; static registration-level test, not just one boot payload) | `src/dev/__tests__/` (+ support) | n/a | done | `registry.test.ts` enumerates active in-boundary tools from canonical elicitor/executor/dev constants and asserts registered schema provider legality |
 | 12 | ○ | `pi-readonly-reregistrations` (4: `read`, `grep`, `find`, `ls`) — Pi-owned schemas, tripwired: acts only if a Pi upgrade ships an illegal schema (row 11's oracle would catch it) | `src/.pi/extensions/agent-runtime/runtime/index.ts` | Pi upstream | deferred | covered transitively by row 11 |
 | 13 | ● | `exchanges-blank-carriers` — extend the trim-based `zNonBlankMarkdown` boundary across the remaining required prose carriers that still accept blank: candidate rubric fields, `zPresentOption.content`, `zAnsweredOptionEcho.content` (folded 2026-07-08 from the retired Horizon `blank-carrier-sweep`; ask params already born non-blank per FE-1164). Different property from the adapter rule but same authoring sites as row 2 — close it while row 2's files are open. | `src/exchanges/schemas/present.ts` / `request.ts` | Zod | done | schema unit tests reject blank/whitespace values per carrier; existing exchange suites green |
 
-Row-count note: 4+2+2+3+2+2+27+2+2 = **46 in-boundary tools**; enumeration verified 2026-07-07 against `rg "registerTool|defineTool"` plus the Tier-2 provider payload dump, re-based 2026-07-08 after the FE-1164 ask cutover (exchanges 5 → 4). Re-verify the enumeration at row-1 build time — this ledger has already absorbed one membership change from a parallel lane.
+Row-count note: 4+2+2+3+2+2+32+2+2 = **51 in-boundary tools**; enumeration re-verified 2026-07-09 during row 8 against `rg "parameters:" src/.pi/extensions/executor/execute-*/index.ts` after the stale 27-tool executor count was found. The earlier 2026-07-07/08 enumeration had already absorbed one membership change from a parallel lane.
 
 ## Rider (not a row)
 

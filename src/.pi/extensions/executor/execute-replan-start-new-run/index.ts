@@ -4,6 +4,7 @@ import { Type, type Static } from 'typebox';
 import { createSupersedingRun, type RunSupersessionResult } from '../../../../executor/run-supersession.js';
 import { BRUNCH_EXECUTE_REPLAN_START_NEW_RUN_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 import { buildCurrentProjectionForRun } from '../current-projection.js';
 
 export { BRUNCH_EXECUTE_REPLAN_START_NEW_RUN_TOOL } from '../../../../session/schema/tool-names.js';
@@ -38,7 +39,7 @@ export function createExecuteReplanStartNewRunTool(
     label: 'execute_replan_start_new_run',
     description:
       'Create a fresh executor run that supersedes a prior run when the current plan is launch-ready. Does not mutate the prior run or execute the new run.',
-    parameters: ExecuteReplanStartNewRunParams,
+    parameters: toolParameters(ExecuteReplanStartNewRunParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {

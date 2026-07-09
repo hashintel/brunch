@@ -3,6 +3,7 @@ import { Type, type Static } from 'typebox';
 
 import { completeSlice, type SliceCompleteResult } from '../../../../executor/slice-complete.js';
 import { BRUNCH_EXECUTE_SLICE_COMPLETE_TOOL } from '../../../../session/schema/tool-names.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_SLICE_COMPLETE_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -26,7 +27,7 @@ export function createExecuteSliceCompleteTool(): ToolDefinition<
     label: 'execute_slice_complete',
     description:
       'Mark the active slice complete after ingested test results. Does not create Petri artifacts, promote, or land.',
-    parameters: ExecuteSliceCompleteParams,
+    parameters: toolParameters(ExecuteSliceCompleteParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {

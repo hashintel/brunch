@@ -4,6 +4,7 @@ import { Type, type Static } from 'typebox';
 import type { GitLandPort } from '../../../../executor/execution-ports.js';
 import { preparePromotion, type PromotionPrepareResult } from '../../../../executor/promotion.js';
 import { BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL } from '../../../../session/schema/tool-names.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -22,7 +23,7 @@ export function createExecutePromotionPrepareTool(
     label: 'execute_promotion_prepare',
     description:
       'Prepare a descriptive promotion report for a Petri-exported cook run. Does not create a git branch, promotion ref, or worktree mutation; does not land.',
-    parameters: ExecutePromotionPrepareParams,
+    parameters: toolParameters(ExecutePromotionPrepareParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0)

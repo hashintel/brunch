@@ -3,6 +3,7 @@ import { Type, type Static } from 'typebox';
 
 import { populateWorktree, type PopulateResult } from '../../../../executor/populate.js';
 import { BRUNCH_EXECUTE_POPULATE_TOOL } from '../../../../session/schema/tool-names.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_POPULATE_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -26,7 +27,7 @@ export function createExecutePopulateTool(): ToolDefinition<
     label: 'execute_populate',
     description:
       'Populate an existing cook worktree with the selected plan source only. Does not copy host source, execute slices, or create Petri artifacts.',
-    parameters: ExecutePopulateParams,
+    parameters: toolParameters(ExecutePopulateParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {

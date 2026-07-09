@@ -8,6 +8,7 @@ import {
 } from '../../../../executor/execute-projection.js';
 import { BRUNCH_EXECUTE_PLAN_DRAFT_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_PLAN_DRAFT_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -44,7 +45,7 @@ export function createExecutePlanDraftTool(
     label: 'execute_plan_draft',
     description:
       'Create a side-effect-free executable-plan draft from the selected specification graph. Does not write plan files or create cook runs.',
-    parameters: ExecutePlanDraftParams,
+    parameters: toolParameters(ExecutePlanDraftParams),
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
       const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
       const projection = projectExecuteGraph({

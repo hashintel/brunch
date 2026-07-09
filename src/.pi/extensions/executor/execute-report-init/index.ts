@@ -3,6 +3,7 @@ import { Type, type Static } from 'typebox';
 
 import { initializeReports, type ReportInitResult } from '../../../../executor/report.js';
 import { BRUNCH_EXECUTE_REPORT_INIT_TOOL } from '../../../../session/schema/tool-names.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_REPORT_INIT_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -26,7 +27,7 @@ export function createExecuteReportInitTool(): ToolDefinition<
     label: 'execute_report_init',
     description:
       'Initialize reports.jsonl for a source-copied cook run. Does not execute slices or create Petri artifacts.',
-    parameters: ExecuteReportInitParams,
+    parameters: toolParameters(ExecuteReportInitParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
