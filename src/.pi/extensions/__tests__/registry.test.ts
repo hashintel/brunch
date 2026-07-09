@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { LIVE_ELICITOR_ALLOWED_TOOL_NAMES } from '../../../agents/runtime/elicitor/active-tools.js';
+import { EXECUTOR_ALLOWED_TOOL_NAMES } from '../../../agents/runtime/executor/active-tools.js';
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
 import {
   createFakeGitHostPromotionPort,
@@ -36,6 +38,8 @@ import {
   registerBrunchCommands as commands,
 } from '../commands/index.js';
 import { registerBrunchBranchPolicyHandlers as commandPolicy } from '../commands/policy.js';
+import { BRUNCH_INTROSPECT_QUERY_TOOL } from '../dev-mode/introspect-query/index.js';
+import { BRUNCH_SESSION_QUERY_TOOL } from '../dev-mode/session-query/index.js';
 import {
   ASK_TOOL,
   PRESENT_CANDIDATES_TOOL,
@@ -78,6 +82,7 @@ import { BRUNCH_EXECUTE_TEST_RESULT_TOOL } from '../executor/execute-test-result
 import { BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL } from '../executor/execute-worktree-create/index.js';
 import { registerBrunchMentionAutocomplete as mentionAutocomplete } from '../mentions/index.js';
 import { registerBrunchSessionBoundary as sessionLifecycle } from '../session-hooks/session/lifecycle.js';
+import { assertProviderLegalToolSchema } from '../shared/tool-schema.js';
 import { parseSubagentMarkdown, type BrunchSubagentsDeps, type SubagentResult } from '../subagents/index.js';
 
 const extensionDefaults = {
@@ -2769,6 +2774,32 @@ describe('Brunch explicit Pi extension registry', () => {
     });
   });
 
+  it('keeps every active Brunch-authored tool provider-legal across elicitor, executor, and dev modes', async () => {
+    const registeredTools = await collectProductTools({
+      graph: { specId: 42, lsn: 1, nodes: [], edges: [] },
+      subagents: workerSubagents(
+        async () => ({ agent: 'worker', status: 'ok', text: 'ok' }) satisfies SubagentResult,
+      ),
+      introspectionQueryTools: true,
+    });
+    const toolsByName = new Map(registeredTools.map((tool) => [tool.name, tool]));
+    const expectedToolNames = [
+      ...new Set([
+        ...LIVE_ELICITOR_ALLOWED_TOOL_NAMES,
+        ...EXECUTOR_ALLOWED_TOOL_NAMES,
+        BRUNCH_SESSION_QUERY_TOOL,
+        BRUNCH_INTROSPECT_QUERY_TOOL,
+      ]),
+    ].filter((name) => !['read', 'grep', 'find', 'ls'].includes(name));
+
+    expect([...toolsByName.keys()]).toEqual(expect.arrayContaining(expectedToolNames));
+    for (const name of expectedToolNames) {
+      const tool = toolsByName.get(name);
+      expect(tool, `${name} must be registered for registry-level schema legality`).toBeDefined();
+      assertProviderLegalToolSchema(tool!.parameters);
+    }
+  });
+
   it('registers both graph-register and reconciliation-register tools when graph deps are provided', async () => {
     const recording = createRecordingExtensionApi();
 
@@ -3001,6 +3032,7 @@ const brunchChromeFixture = {
 
 type RegisteredTestTool = {
   name: string;
+  parameters?: unknown;
   execute: (
     toolCallId: string,
     params: unknown,
@@ -3030,6 +3062,7 @@ async function collectProductTools(
     gitLand?: GitLandPort;
     gitHostPromotion?: GitHostPromotionPort;
     subagents?: BrunchSubagentsDeps;
+    introspectionQueryTools?: boolean;
   } = {},
 ): Promise<RegisteredTestTool[]> {
   const registeredTools: RegisteredTestTool[] = [];
@@ -3037,6 +3070,7 @@ async function collectProductTools(
     coordinator: {} as never,
     graphMentionSource: { listMentionCandidates: () => [] },
     ...(options.subagents ? { subagents: options.subagents } : {}),
+    ...(options.introspectionQueryTools ? { introspection: { queryTools: true } } : {}),
     ...(options.gitWorktree ||
     options.testRunner ||
     options.agentRunner ||
@@ -3108,7 +3142,7 @@ Worker body.
 `),
       ],
     ]),
-    delegatableAgents: [],
+    delegatableAgents: ['worker'],
     maxConcurrency: 1,
     agentDir: '/agent',
     createSettingsManager: () => ({}) as never,
