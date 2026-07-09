@@ -93,5 +93,6 @@ Notes:
 - Are negative cases represented with a current legal edge/category pattern?
 - Are design/oracle/plan nodes anchored to accepted or proposed intent?
 - For plan batches that hand off to execution, do scope nodes package accepted requirements, design, and verification truth rather than frontier-only task prose?
+- For a single handoff package, is there one owning frontier around the scope rather than an unnecessary milestone or extra frontier decomposition?
 - Are invented schema fields removed?
 - Are uncertainty and blind spots visible in proposal prose, not hidden in graph truth?

@@ -84,6 +84,10 @@ describe('composeLiveElicitorPrompt', () => {
     expect(result.prompt).toContain('intent -> design -> verification -> scope -> build');
     expect(result.prompt).toContain('`scope` is the durable handoff package to build');
     expect(result.prompt).toContain('present a plan-lens review set');
+    expect(result.prompt).toContain('keep the handoff package under one frontier unless an accepted phase threshold truly requires more plan structure');
+    expect(result.prompt).toContain('Link the scope to existing requirements with `realization`, design units with `composition`, and verification checks with `dependency`');
+    expect(result.prompt).toContain('The frontier contains the scope; the scope should not contain a frontier, and design/check anchors should stay on the scope when there is only one handoff package');
+    expect(result.prompt).toContain('For a single execution-facing handoff package');
   });
 
   it('fails loud when called for a non-elicitor foreground state', () => {

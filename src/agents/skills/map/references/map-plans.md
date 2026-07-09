@@ -77,6 +77,8 @@ policy: exclusive
 notes:
   - #R2 can contain several scopes through `composition`.
   - #R3 should package a plausible verification route for execution.
+  - For one execution-facing handoff package, default to one frontier containing the scope; add a milestone or extra frontier only when the accepted graph truth already names a broader phase threshold or a second true tracker unit.
+  - The owning frontier is the `composition.whole` and the scope is the `composition.part`; keep design and verification anchors on the scope itself unless several scopes genuinely share the same frontier.
 
 ## Plan mapping matrix
 
@@ -93,6 +95,7 @@ notes:
 ## Anti-patterns
 
 - Do not turn every task into a `frontier`; frontiers are named work items, scopes are committed handoffs.
+- Do not decompose one handoff package into a milestone plus extra frontier nodes just to restate implementation steps; keep the scope under its owning frontier unless a real second planning boundary exists.
 - Do not create plan nodes detached from accepted claims/design/oracles.
 - Do not sequence by aesthetic completeness; sequence by pressure, dependency, risk, and verification economics.
 - Do not use plan nodes as a hidden backlog for uncertain facts; use a session scratchpad obligation, `unknown`, or review notes.
