@@ -1,116 +1,119 @@
 # Walkthrough Findings Log
 
-Doctor-mode log for the TESTING_PLAN.md walkthrough, 2026-07-02. Session: `workspace-alpha-grounding`, seeded `base`, `--reset --open-web --dev-tools`. Classification taxonomy per TESTING_PLAN.md §Finding classification. Status: `logged` (observed, not yet acted), `scoped` (needs a scoped fix), `fix-inline` (small, fixed during walkthrough), `wontfix`.
+## Current status — post-PR-305 alpha walkthroughs
 
-## Beat 1 — New session, kick, first question (scenario 1)
+Status: `TESTING_PLAN.md` now supersedes the original broad 2026-07-02 plan with a concern-grouped post-PR-305 alpha walkthrough script. PR #305 has merged; today’s work is outer-loop testing on top of the merged surface, not gating that PR. Append observations under this section. Keep the historical findings below as provenance, not as the active checklist.
 
-### F1 · prompt/context · MAJOR · scoped → `memory/cards/walkthrough--kick-prompt-and-origination-record.md` (Card 1)
+Current concern groups:
 
-**Root cause (traced):** pi's `sendCustomMessage({triggerTurn: true})` — the kick path — calls `_runAgentPrompt` directly (agent-session.js:1004) and never calls `emitBeforeAgentStart`, the only place `registerBrunchPrompting`'s append runs. Kick turns run on Pi's base prompt; ordinary user turns are unaffected.
+- onboarding and first-run safety: no Pi auth, bare cwd, populated cwd, disposable Brunch 0.x database copy
+- workspace/spec posture orientation and capture logic
+- seeding conditions and initial agent orientation
+- prompt, skill, and model routing audit
+- `.brunch/debug/` mirror and trigger legibility
+- `/brunch:consult` style/action menu options for elicitor and executor
+- merged chrome/rendering carryover: wheel, mode switch, gallery, continue/recovery, persistent editor
+- FE-1167 overlap opportunities when naturally witnessed
 
-**Blast radius widened (beat 2, in vivo):** answering via the `request_response` picker resolves the tool call *inside the same kick run* — no new turn, no `before_agent_start`. The whole elicitation conversation can proceed through repeated present/request cycles within one agent run, so **every provider call in it uses the base prompt** (verified: `system-prompt.md` still has zero elicitor content after the first answer). The `before_provider_request` guard fix is confirmed as the right shape — it must repair every provider call, not just turn starts. Same mechanism explains F2 timing: origination outcome still unflushed after the answer because the run is still open.
+### Cross-check against historical findings and new concerns
 
-**Elicitor system prompt never reached the provider.** `.brunch/debug/system-prompt.md` (captured final provider prompt) is Pi's default "expert coding assistant" persona + Brunch tool promptGuidelines + Pi docs section — no `elicitor.md` persona, no Brunch skills manifest, no readiness-band framing. `registerBrunchPrompting` (`src/.pi/extensions/agent-runtime/system-prompts/index.ts`) appends the composed foreground prompt in `before_agent_start`, but the append is absent from the captured payload. Hypotheses: composition root didn't register it (the "must-wire" hazard its own comment warns about), or `before_agent_start` fired before/without the merge, or the capture predates the append. Downstream effects likely masked as separate symptoms: verbosity (F5), possibly single-select choice (F8), skill routing untestable (scenario 2 blocked until fixed). Elicitor-ish behavior observed anyway is carried by the context seed + tool guidelines, not the persona prompt.
+| Historical item | Current disposition for this session |
+| --- | --- |
+| F1–F6 kick prompt/origination/thinking/welcome basics | Historical defects from the first walkthrough. Re-observe only as part of onboarding, debug-mirror, and initial-orientation concerns. |
+| F7, F8, F11 old `present_question` / `request_response` rendering | Superseded by D116-L one-shot `ask` and FE-1169 compact ask rendering. Re-test current `ask`, candidates, and review-set rendering only. |
+| F9 single-select vs multi-select conduct | Fold into prompt/skill routing and `/brunch:consult` style/action audit if it recurs. |
+| F10 Other-label/comment duplication | Old request-response-path finding. Re-observe only through current `ask` Other/comment behavior if encountered. |
+| F12 registry event-order failure | Fixed historical builder issue; no manual action. |
+| F13–F17 welcome placement, kick salience, resume orientation, deterministic menu | Now map to onboarding, initial orientation, posture/capture logic, and consult-menu checks. FE-1167 owns the remaining deterministic-orientation evidence unless checked off explicitly. |
+| F18–F20 FE-1164 ask free-text/comment defects | Fixed inline on FE-1164; current session should only catch regressions in the reshaped `ask` surface. |
+| Cross-check: stale prompt text about ranked gaps | Actively check during prompt/debug audit; route as prompt/context if still present. |
+| New: no-auth and login onboarding | Partly witnessed in FE-1159, but re-run in a scratch `PI_CODING_AGENT_DIR` because this is alpha-user critical. |
+| New: bare/populated/legacy workspace entry | Not covered by the historical log; record as onboarding-safety findings. |
+| New: durable `spec.posture` semantics | Treat as an open product/spec question unless code/session evidence proves a real carrier exists. |
+| New: dynamic model selection | Evidence-gathering only; implementation would require SPEC/PLAN work. |
 
-### F2 · observability · reframed, scoped → `memory/cards/walkthrough--kick-prompt-and-origination-record.md` (Card 2)
+### 2026-07-09 run A — bare entrypoint, no auth → first digest/review flow
 
-**Root cause (traced):** not a missing writer — the record is written only in `completeAssistantKick`'s `onOutcome` (`brunch-tui.ts:513`), and the kick turn is held open by the pending `request_response`. The file appears once the user answers. Real defect: decision record should be written at decision time so hung/abandoned/killed kicks still leave evidence; outcome appends later.
+Source notes + screenshots: `testing/findings-2026-07-09.md`.
 
-**No origination record for the kick.** `.brunch/debug/origination.md` missing despite kick having occurred. The writer exists (`src/.pi/extensions/dev-mode/introspection/debug-cache.ts` appends on `brunch.origination` custom entries) but session JSONL contains no `brunch.origination` entry at all — only `session_binding`, `agent_runtime_state (init)`, and two `custom_message`s. Either the launcher's kick path bypasses `originate-assistant-turn` record emission, or the record was never appended. Per TESTING_PLAN audit rule, trigger happened ⇒ missing file is a failure.
+#### A1 · onboarding safety · high · logged
 
-### F3 · demo friction · minor · scoped → `memory/cards/walkthrough--kick-chrome-and-thinking.md` (Card 3)
+Concern: CLI invocation and first-run shape.
+Evidence: `testing/findings-2026-07-09.md` §CLI invocation, §startup menu, §main UI.
+Observation: `--workspace` is clumsy; web sidecar default feels inverted; no-auth startup still offers dead-end/low-value choices; warning copy is long and reveals model-policy details; footer showed `unknown`.
+Expected: first alpha entry should make the safe next action obvious, keep implementation/model policy mostly hidden, and avoid offering actions that cannot proceed without auth.
+Disposition: scoped candidate; CLI surface changes may need PLAN/SPEC if they alter public alpha invocation.
 
-**No activity indicator during kick.** Between session creation and first token, nothing renders; user can't tell the agent is thinking. Wants an immediate spinner/indicator on kick.
+#### A2 · onboarding safety · high · diagnose
 
-### F4 · product behavior · minor · scoped → `memory/cards/walkthrough--kick-chrome-and-thinking.md` (Card 2)
+Concern: `brunch login` and in-session `/login` auth UX.
+Evidence: `testing/findings-2026-07-09.md` §brunch login, §in-session `/login` flow.
+Observation: CLI login works but echoed a pasted API key in clear text; provider choices are restricted to the current allowlist; in-session `/login` feels better but model restrictions still produce friction when saved auth does not resolve an allowed default.
+Expected: pasted secrets should be hidden; login should minimize auth/setup friction without exposing internal model-policy choices.
+Disposition: diagnose/build for secret echo; model/provider restriction is a model-policy design question. Secret in source note was redacted locally; rotate the real key if it was live.
 
-**No "Welcome to Brunch" intro block.** Before the assistant's first message there should be a standard, visually distinct intro (color/decoration): what Brunch is, what will happen, common commands. Candidate home: deterministic TUI chrome on session start, not model-generated.
+#### A3 · chrome / model policy · medium · diagnose
 
-### F5 · prompt/context · minor · scoped → `memory/cards/walkthrough--elicitor-prompt-refinements.md` (re-observe post-F1)
+Concern: mode shortcut and thinking-level collision.
+Evidence: `testing/findings-2026-07-09.md` §main UI.
+Observation: `shift+tab` still appears entangled with Pi thinking-level behavior/warnings in the observed no-auth/main UI path.
+Expected: Brunch mode switching should not leak Pi thinking-level friction into the alpha UI; plain Pi scoping can keep its own binding.
+Disposition: diagnose whether this is no-auth-only, a missed keybinding suppression path, or a real Pi API limit; fallback candidate is a non-conflicting mode shortcut such as ctrl-M / ctrl-shift-M.
 
-**Assistant messaging too verbose.** Candidate fix: concision directive in elicitor persona ("be clear and concise; may sacrifice grammar for clarity; use lists/pseudocode/diagrams; don't over-rely on inline styling"). Re-evaluate only after F1 is fixed — the persona that would carry this guidance isn't currently reaching the model.
+#### A4 · product behavior · high · scoped
 
-### F6 · transport/projection (TUI rendering) · minor · scoped → `memory/cards/walkthrough--kick-chrome-and-thinking.md` (Card 1; pi setting `hideThinkingBlock` exists)
+Concern: `/continue` semantics.
+Evidence: `testing/findings-2026-07-09.md` §`/continue` command.
+Observation: command description is too specific and execution says “nothing to continue” in cases where the user means “resume/kick whatever was interrupted or blocked,” including esc, quit/resume, or no-auth prevented default kick.
+Expected: `/brunch:continue` should be the general “continue interrupted Brunch work” affordance, not only declared ask-continuation recovery.
+Disposition: likely scoped build; centralize command strings while widening semantics.
 
-**Thinking block rendered inline, not collapsed.** Session JSONL confirms the model emitted a proper `thinking` content block; the TUI renders it as italic inline prose above the response instead of a collapsed-by-default thinking affordance. Data is correct; rendering is the defect.
+#### A5 · prompt/context + observability · high · diagnose
 
-### F7 · transport/projection (TUI rendering) · minor · logged
+Concern: seed/context insertion and tool rendering.
+Evidence: `testing/findings-2026-07-09.md` §built-in tools.
+Observation: Brunch tool outputs render verbosely; agent appeared to request/read information that the session should likely have been seeded with already.
+Expected: initial context seed should be present before first useful provider conduct, and debug mirrors should make the seed insertion point/trigger obvious.
+Disposition: diagnose seed insertion path, especially no-auth → post-login continuation; separately scope compact renderers for Brunch tool calls/results if supported.
 
-**`present_question` transcript template hard to read.** Options render as `## 1. **…**` headings with bold-heavy styling; visual hierarchy between question, body, options, rationale is muddy. Template lives in the projection/formatter for `present_question` tool results (`src/projections/exchanges/present-question.ts` / tool-contents rendering).
+#### A6 · exchange protocol + rendering · high · scoped
 
-### F8 · transport/projection + exchange protocol · minor · logged
+Concern: digest → ask repetition and ask markdown/result fidelity.
+Evidence: `testing/findings-2026-07-09.md` §`present_digest` flow, §mapping the digest.
+Observation: digest content is repeated inside the `ask` UI; ask rendering appears markdown-limited or differently formatted; JSON appeared in the TUI after an ask invocation; optional-comment prompts are not preserved with the submitted comment; “Something else” duplicated the built-in Other affordance; nested esc works but help text does not say so; nested states use plain bordered editors rather than the full rounded/mode-reactive box.
+Expected: large present-then-ask flows should keep pretext outside the ask; result rendering should preserve enough prompt framing for comments; custom “Something else” options should be discouraged or normalized against Other; nested ask states should explain esc/back behavior and share the intended chrome.
+Disposition: scoped exchange-rendering/ask-UX batch; JSON leak may need diagnose first.
 
-**`request_response` selector rendering is raw and duplicative.** The selector re-lists all options below the already-rendered question: (a) no markdown applied — literal `**` asterisks show (`request-response.ts` maps `label: option.content` straight into the picker; `choice-source.ts` uses it verbatim); (b) each option flattened to one line; (c) options unnumbered, so they don't correlate with the numbered list above; (d) "Other" appears with no affordance/explanation of what it does. Reads as repetition of the question in a flatter style.
+#### A7 · capture logic · high · spec/plan needed
 
-### F9 · prompt/context (agent judgment) · minor · scoped → `memory/cards/walkthrough--elicitor-prompt-refinements.md`
+Concern: digest acceptance, mapping, review-set offer, and direct mutation semantics.
+Evidence: `testing/findings-2026-07-09.md` §mapping the digest, §review-set flow.
+Observation: after accepting a digest the agent asked more questions, then later offered a review set. In the older product logic, an approved digest may have been enough authority to mutate directly. However the review-set structure was more rigorous, and a second pass after user feedback extracted edges that the first pass missed.
+Expected: Brunch needs a clearer contract for when digest approval authorizes direct graph mutation vs when it should produce a review set or multi-pass proposal.
+Disposition: structural discussion/spec candidate. The evidence supports exploring more structured digest payloads, multi-pass extraction, and possibly parallel subagents for richer graph proposal coverage.
 
-**Single-select chosen where multi-select fit.** "What's the primary thing a user is trying to figure out?" plausibly wants multiple answers. Capability exists — `present_question` supports `multiple`; the agent didn't use it. Prompt guidance nudge ("prefer multi-select when options aren't mutually exclusive") belongs in the elicitor persona / present_question promptGuideline. Blocked-by/related-to F1.
+#### A8 · prompt/skill/model · medium · logged
 
-## Beat 2 — First answer via "Other", follow-up question
+Concern: proposal quality, latency, and instruction following.
+Evidence: `testing/findings-2026-07-09.md` §review-set flow.
+Observation: the first review proposal missed thesis/story nodes and edges; explicitly telling the agent fixed some of this in a second proposal; inference took a long time.
+Expected: prompt/skill routing should make expected extraction breadth explicit before user correction; model/thinking policy should balance latency and quality.
+Disposition: feed into prompt/skill/model audit; do not implement dynamic models from this single run.
 
-### F10 · exchange protocol (data, not rendering) · minor · logged
+Use future entries like:
 
-**"Other" answers duplicate text into label AND comment.** `choice-source.ts:81-82`: when the user picks Other, the typed text becomes both `choice.label` and `comment`, so `formatRequestChoice` renders "Selected: **text**" followed by "Comment: > text" — same text twice. Fix: Other text is the label; comment stays empty (or ask the optional comment question separately, as the listed-choice path does). Not a rendering issue — candidate for the build batch despite the F7/F8 exclusion.
+```md
+#### FX · kind · severity · status
 
-### F11 · transport/projection (TUI rendering) · minor · logged (rides F7/F8 rendering work)
+Concern: [onboarding | posture/capture | seeding/orientation | prompt/skill/model | debug mirrors | consult menu | chrome carryover | FE-1167 overlap]
+Evidence: [workspace/auth dir/terminal/theme/session/debug file/RPC read]
+Observation: ...
+Expected: ...
+Disposition: [pass | logged | diagnose | scoped | spec/plan needed | FE-1167 overlap]
+```
 
-**`request_response` answered-result template is flat.** "# Response / Selected: … / Comment: > …" reads as raw scaffolding; no visual tie back to the question it answers. Same family as F7/F8 — deferred with them; see the render-topology map (below/pseudo) for where the template lives (`src/agents/contexts/exchanges/request-choice.ts` et al).
+## Retired historical material
 
-## Beat 3 — Builder-reported (FE-1122 batch)
+The original 2026-07-02 walkthrough log was retired from this active findings file. Archived copy: `docs/archive/TESTING_FINDINGS_2026-07-02.md`.
 
-### F12 · harness (test ledger) · minor · fixed (`6e263787` on `ln/fe-1122-walkthrough-fixes`)
-
-**`registry.test.ts` event-order failure: extra `message_start`.** Triaged: NOT pre-existing and NOT flake — commit `6eae06db` (F3 kick-activity) added `pi.on('message_start', …)` in `src/.pi/extensions/chrome/index.ts` to clear the indicator on first assistant output; `src/.pi/extensions/__tests__/registry.test.ts` is an exact registration ledger and needed the new listener added between `thinking_level_select` and `turn_end`. Fixed on the causing branch; fe-1123/fe-1124 restacked; test green (7/7).
-
-**Postscript (doctor note):** the builder reported this failure as "unrelated/pre-existing" — wrong; its own F3 commit introduced the listener. Treat builder-thread attribution claims about test failures as unverified until traced.
-
-## Beat 4 — Relaunch verification (batch-1 fixes live)
-
-Verified in vivo: F1 ✓ (elicitor persona + skills manifest in captured provider prompt; agent chose multi-select unprompted, also confirming F9), F2 ✓ (`origination.md` decision record present while first question still pending), F4 ✓ (welcome renders before assistant output), F6 ✓ (thinking collapsed).
-
-### F13 · product behavior (chrome design) · minor · scoped → `session-entry-orientation` (PLAN Next #1, thread 1)
-
-**Welcome block placement + styling.** The welcome copy is part of `BrunchStartupHeader` itself (`ui.setHeader`, `src/.pi/extensions/chrome/index.ts:224`), not a separate block. Wanted: welcome as its own element *after* the header, with stronger styling/decoration to stand out. Content is good.
-
-### F14 · demo friction · minor · scoped → `session-entry-orientation` (PLAN Next #1, thread 1)
-
-**Kick activity indicator too low-salience.** F3 landed as a status-line entry (`setStatus('brunch.kick', 'opening assistant turn…')`, `brunch-tui.ts:510`) — user didn't notice it during a real kick. Pi exposes `setWorkingMessage` / `setWorkingVisible` / `setWorkingIndicator` (the main loading animation), which is the salient surface; the kick should probably drive that instead of (or in addition to) a status entry.
-
-### F15 · product behavior (TUI rendering) · minor · option (a) scoped → `session-entry-orientation` (thread 1); (b) upstream pi; (c) closed with `exchange-rendering`
-
-**Collapsed thinking/tool blocks should summarize what happened.** Wanted: "Thinking..." → "Thought for N seconds", "Exploring..." → "Explored N files", or generic "Working..." → "Worked for N seconds". Pi capability check: `ctx.ui.setHiddenThinkingLabel(label)` exists and is extension-settable at runtime, but it is a **single global label** propagated to all rendered assistant messages (`interactive-mode.js:1373-1381`) and reset to default on turn boundaries — so per-message retrospective labels ("Thought for 12s" on *that* block) are not natively supported; a duration-updating label would apply to every collapsed block at once. Per-message labels or tool-call collapse summaries ("Explored 4 files") for pi built-in tools would need an upstream pi change; Brunch-owned tools could get summary-style `renderCall`/`renderResult` treatment inside the exchange-rendering frontier instead. Candidates: (a) cheap — set a session-global "Worked for Ns" label at turn_end (accepting the global-label semantics), (b) upstream pi feature request for per-message labels, (c) fold Brunch-tool collapse summaries into `exchange-rendering`'s renderCall row.
-
-## Beat 5 — Resume re-entry (relaunch without `--reset`)
-
-### F16 · product behavior + prompt/context (re-entry framing) · MAJOR · scoped → `session-entry-orientation` (PLAN Next #1, threads 1–2)
-
-**Resume gives no "where are we" orientation.** On re-entry the session should (a) surface deterministic state/status in the TUI — current mode, graph stats, possibly tucked into the transcript as chrome — and (b) have the elicitor open with an *assessment* of the spec's current state: not a raw node/edge listing, but a summary of what the graph expresses, plus a forecast of what's TODO and what comes next. Example shape: "Welcome back to **Alpha Grounding**. This is an early-stage spec with 5 nodes and 0 edges…" followed by a compact reading of the nodes (G1/TH1/CTX1/CON1/T1) and where the elicitation is headed. This is also the natural teaching surface — the re-entry summary is where the user learns what Brunch can do next. Two homes: deterministic chrome (rides the F13 welcome-block family, resume variant) and elicitor persona/kick-prompt guidance for the assessment framing (rides the F5/F9 elicitor-refinements family). The graph facts the summary needs are already in the context seed (entry-contents cross-check ✓).
-
-### F17 · product behavior (kick/exchange design) · MAJOR · scoped → `session-entry-orientation` (PLAN Next #1, thread 3; mechanism superseded — see note)
-
-**Resume should open with a process-level mode selection, not dive back into elicitation.** First interaction on re-entry should be a `request_response` single-select asking what the user wants to do — e.g.: continue specification via design-decision questions · continue via example-based questions · generatively expand/enhance the spec from what we know · design the technical implementation · design the verification approach — and only then proceed with questioning. This is the user-facing surface of the skills manifest routing (elicit variants / propose / project) and converges with TESTING_PLAN goal 6 (generative discoverability) and the scenario 7 mode-switch probe: the generative options in this menu are exactly the paths with no discriminating seed yet (see fixture-prep worklist). Design questions to settle when scoping: is the menu deterministic kick chrome or prompt-directed agent behavior; does it appear on every resume or only when the graph is past some threshold; how a choice maps to skill routing.
-
-**Superseded (2026-07-03 grill):** the mechanism proposed above ("a `request_response` single-select") is retired — the menu is **not an exchange**; it is a deterministic, product-owned Pi extension dialog (`ctx.ui.select` fired on juncture events, outcome recorded via `brunch.session_orientation` custom entry). The scoping questions listed are answered: deterministic chrome (not prompt-directed), fires on every named juncture with escape/timeout defaulting to "continue", and choices route to the live skill seams. The "generatively expand/enhance" option survives as a menu route to `propose`; the Enhance-as-third-mode reading is rejected. Canonical shape: `memory/PLAN.md` § `session-entry-orientation`.
-
-## Beat 6 — FE-1164 ask-surface walkthrough (2026-07-08, `ln/fe-1164-ask-terminal`)
-
-Standalone `ask` permutation battery driven live (8 variations). Single-select, multi-select, and editor-fallback variations rendered and collected correctly; three findings on the free-text and comment seams, all fixed inline on the branch.
-
-### F18 · transport/projection (TUI rendering) · MAJOR · fix-inline
-
-**Free-text ask corrupted the rounded box and ate lines below while typing.** `ExchangeAnswerEditorComponent` rendered the whole markdown body as one accent-colored array element; a multi-line body embeds `\n` inside a single "line", which breaks the rounded-box borders (the second body line rendered outside the box) and corrupts the TUI's differential height accounting (re-renders consumed lines below). Markdown was also passed through raw (`**` visible). Fix: the editor now renders its body through the shared `renderExchangeMarkdownBodyLines` like the pickers; component test pins that a multi-line markdown body yields single physical lines inside the borders. The `dev:components` preview entry now uses the rich multi-line body so the gallery exercises this case.
-
-### F19 · product behavior · minor · fix-inline
-
-**Free-text ask with `commentPrompt` never asked for the comment.** The free-text collection path ignored `commentPrompt` entirely, and the ask free-text answered schema had no `comment` field. Fix: schema/projection/formatter widened with an optional `comment`; the TUI path collects it via `ctx.ui.input` when `commentPrompt` is provided.
-
-### F20 · product behavior · minor · fix-inline (design call)
-
-**Choice asks always prompted "Optional comment" even without `commentPrompt`.** Settled semantics: the optional-comment step is opt-in — present `commentPrompt` collects, omitting it skips. Schema-required comments (Other/None selections, request_changes) are always collected regardless. Param descriptions and ask promptGuidelines updated so the model knows omission skips the step.
-
-## Cross-checks recorded in passing
-
-- `entry-contents.md` ✓ healthy: context seed at LSN 2, graph facts (counts by kind, zero-count kinds with bands), empty scratchpad, **no** gap scores/ranks — matches D101-L/D102-L expectations.
-- `tool-contents.md` ✓ present with well-formed `present_question` markdown.
-- Stale vocabulary in live prompt: `read_specification_context` guideline says "ranked elicitation gaps" — persisted/ranked gaps are retired (D101-L). Fix the promptGuideline text. · prompt/context · minor · scoped → `memory/cards/walkthrough--elicitor-prompt-refinements.md`
-- Settlement guidance in live prompt keys advisory on **provenance** ("source-derived bulk-acquisition material"), not on plane (design/oracle/commitment). Note for scenario 4: the code-side convention is provenance-based, aligning with the proposed enforcement-by-provenance idea rather than a per-plane rule.
+Historical statuses that still matter have been re-collated above into current post-PR-305 concerns. Do not append new findings to the archived log.
