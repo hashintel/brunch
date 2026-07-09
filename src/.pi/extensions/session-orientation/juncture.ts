@@ -195,13 +195,14 @@ export async function runJunctureForContext(
   }
   const junctureUi = adaptOrientationUi(ctx);
   const kick = input.kick;
+  const menu = input.menu ? withSpecLabel(input.menu, kick?.specName) : undefined;
   return runOrientationJuncture({
     hasUI: ctx.hasUI,
     ui: junctureUi,
     trigger: input.trigger,
     sessionManager,
     mode: input.mode,
-    ...(input.menu !== undefined ? { menu: input.menu } : {}),
+    ...(menu !== undefined ? { menu } : {}),
     onAppendError: input.onAppendError,
     ...(kick ? { kick: { ...kick, modelAvailable: ctx.modelRegistry.getAvailable().length > 0 } } : {}),
   });
@@ -219,6 +220,8 @@ export function adaptOrientationUi(ctx: {
         custom((tui, theme, _keybindings, done) =>
           createConsultMenuComponent({
             title: menu.title,
+            ...(menu.topLabel ? { topLabel: menu.topLabel } : {}),
+            ...(menu.bottomLabel ? { bottomLabel: menu.bottomLabel } : {}),
             choices: menu.items,
             theme,
             onDone: done,
@@ -227,6 +230,14 @@ export function adaptOrientationUi(ctx: {
     };
   }
   return { select: (title, options) => selectWithRpcTimeout(ctx, title, options) };
+}
+
+function withSpecLabel(
+  menu: SessionOrientationMenuDescriptor,
+  specName: string | undefined,
+): SessionOrientationMenuDescriptor {
+  if (!specName || menu.bottomLabel) return menu;
+  return { ...menu, bottomLabel: `"${specName}"` };
 }
 
 function selectWithRpcTimeout(
