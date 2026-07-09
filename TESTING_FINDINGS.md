@@ -34,12 +34,12 @@ Current concern groups:
 
 ### 2026-07-09 run A — bare entrypoint, no auth → first digest/review flow
 
-Source notes + screenshots: `testing/findings-2026-07-09.md`.
+Source notes + screenshots: `testing/walkthroughs/2026-07-09/2026-07-09-A.md`.
 
 #### A1 · onboarding safety · high · logged
 
 Concern: CLI invocation and first-run shape.
-Evidence: `testing/findings-2026-07-09.md` §CLI invocation, §startup menu, §main UI.
+Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §CLI invocation, §startup menu, §main UI.
 Observation: `--workspace` is clumsy; web sidecar default feels inverted; no-auth startup still offers dead-end/low-value choices; warning copy is long and reveals model-policy details; footer showed `unknown`.
 Expected: first alpha entry should make the safe next action obvious, keep implementation/model policy mostly hidden, and avoid offering actions that cannot proceed without auth.
 Disposition: scoped candidate; CLI surface changes may need PLAN/SPEC if they alter public alpha invocation.
@@ -47,7 +47,7 @@ Disposition: scoped candidate; CLI surface changes may need PLAN/SPEC if they al
 #### A2 · onboarding safety · high · diagnose
 
 Concern: `brunch login` and in-session `/login` auth UX.
-Evidence: `testing/findings-2026-07-09.md` §brunch login, §in-session `/login` flow.
+Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §brunch login, §in-session `/login` flow.
 Observation: CLI login works but echoed a pasted API key in clear text; provider choices are restricted to the current allowlist; in-session `/login` feels better but model restrictions still produce friction when saved auth does not resolve an allowed default.
 Expected: pasted secrets should be hidden; login should minimize auth/setup friction without exposing internal model-policy choices.
 Disposition: diagnose/build for secret echo; model/provider restriction is a model-policy design question. Secret in source note was redacted locally; rotate the real key if it was live.
@@ -55,7 +55,7 @@ Disposition: diagnose/build for secret echo; model/provider restriction is a mod
 #### A3 · chrome / model policy · medium · diagnose
 
 Concern: mode shortcut and thinking-level collision.
-Evidence: `testing/findings-2026-07-09.md` §main UI.
+Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §main UI.
 Observation: `shift+tab` still appears entangled with Pi thinking-level behavior/warnings in the observed no-auth/main UI path.
 Expected: Brunch mode switching should not leak Pi thinking-level friction into the alpha UI; plain Pi scoping can keep its own binding.
 Disposition: diagnose whether this is no-auth-only, a missed keybinding suppression path, or a real Pi API limit; fallback candidate is a non-conflicting mode shortcut such as ctrl-M / ctrl-shift-M.
@@ -63,15 +63,15 @@ Disposition: diagnose whether this is no-auth-only, a missed keybinding suppress
 #### A4 · product behavior · high · scoped
 
 Concern: `/continue` semantics.
-Evidence: `testing/findings-2026-07-09.md` §`/continue` command.
-Observation: command description is too specific and execution says “nothing to continue” in cases where the user means “resume/kick whatever was interrupted or blocked,” including esc, quit/resume, or no-auth prevented default kick.
-Expected: `/brunch:continue` should be the general “continue interrupted Brunch work” affordance, not only declared ask-continuation recovery.
-Disposition: likely scoped build; centralize command strings while widening semantics.
+Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §`/continue` command, §cancellation, §continuation.
+Observation: command description is too specific and execution says “nothing to continue” in cases where the user means “resume/kick whatever was interrupted or blocked,” including esc, quit/resume, no-auth prevented default kick, or a cancelled ask that leaves the user out of flow. After cancelling an ask, the UI gives no notification telling the user how to resume or reorient.
+Expected: `/brunch:continue` should be the general “continue interrupted Brunch work” affordance, not only declared ask-continuation recovery; cancellation should surface a short recovery notice naming `/continue`, `/consult`, and `/mode` as appropriate.
+Disposition: likely scoped build; centralize command strings while widening semantics and adding cancellation recovery guidance.
 
 #### A5 · prompt/context + observability · high · diagnose
 
 Concern: seed/context insertion and tool rendering.
-Evidence: `testing/findings-2026-07-09.md` §built-in tools.
+Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §built-in tools.
 Observation: Brunch tool outputs render verbosely; agent appeared to request/read information that the session should likely have been seeded with already.
 Expected: initial context seed should be present before first useful provider conduct, and debug mirrors should make the seed insertion point/trigger obvious.
 Disposition: diagnose seed insertion path, especially no-auth → post-login continuation; separately scope compact renderers for Brunch tool calls/results if supported.
@@ -79,7 +79,7 @@ Disposition: diagnose seed insertion path, especially no-auth → post-login con
 #### A6 · exchange protocol + rendering · high · scoped
 
 Concern: digest → ask repetition and ask markdown/result fidelity.
-Evidence: `testing/findings-2026-07-09.md` §`present_digest` flow, §mapping the digest.
+Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §`present_digest` flow, §mapping the digest.
 Observation: digest content is repeated inside the `ask` UI; ask rendering appears markdown-limited or differently formatted; JSON appeared in the TUI after an ask invocation; optional-comment prompts are not preserved with the submitted comment; “Something else” duplicated the built-in Other affordance; nested esc works but help text does not say so; nested states use plain bordered editors rather than the full rounded/mode-reactive box.
 Expected: large present-then-ask flows should keep pretext outside the ask; result rendering should preserve enough prompt framing for comments; custom “Something else” options should be discouraged or normalized against Other; nested ask states should explain esc/back behavior and share the intended chrome.
 Disposition: scoped exchange-rendering/ask-UX batch; JSON leak may need diagnose first.
@@ -87,7 +87,7 @@ Disposition: scoped exchange-rendering/ask-UX batch; JSON leak may need diagnose
 #### A7 · capture logic · high · spec/plan needed
 
 Concern: digest acceptance, mapping, review-set offer, and direct mutation semantics.
-Evidence: `testing/findings-2026-07-09.md` §mapping the digest, §review-set flow.
+Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §mapping the digest, §review-set flow.
 Observation: after accepting a digest the agent asked more questions, then later offered a review set. In the older product logic, an approved digest may have been enough authority to mutate directly. However the review-set structure was more rigorous, and a second pass after user feedback extracted edges that the first pass missed.
 Expected: Brunch needs a clearer contract for when digest approval authorizes direct graph mutation vs when it should produce a review set or multi-pass proposal.
 Disposition: structural discussion/spec candidate. The evidence supports exploring more structured digest payloads, multi-pass extraction, and possibly parallel subagents for richer graph proposal coverage.
@@ -95,10 +95,26 @@ Disposition: structural discussion/spec candidate. The evidence supports explori
 #### A8 · prompt/skill/model · medium · logged
 
 Concern: proposal quality, latency, and instruction following.
-Evidence: `testing/findings-2026-07-09.md` §review-set flow.
+Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §review-set flow.
 Observation: the first review proposal missed thesis/story nodes and edges; explicitly telling the agent fixed some of this in a second proposal; inference took a long time.
 Expected: prompt/skill routing should make expected extraction breadth explicit before user correction; model/thinking policy should balance latency and quality.
 Disposition: feed into prompt/skill/model audit; do not implement dynamic models from this single run.
+
+#### A9 · consult menu + exchange rendering · medium · scoped
+
+Concern: `/brunch:consult` style/action routing and rendering after graph mutations.
+Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §changing styles with `/consult`.
+Observation: After graph mutations the agent gave an unprompted summary/overview and then `/consult` → example-based reoriented into a question, which is promising. Rendering issues remain: markdown `\n\n` appeared inline in the question, node identifiers need a styling convention such as backticks/`<kbd>`, and the consult/main-menu border role should be visually distinct from editor/ask mode-reactive borders.
+Expected: consult choices should visibly be a surface-identity menu, route cleanly to the selected style/action, and preserve markdown/node-id legibility in the resulting ask.
+Disposition: scoped rendering/design follow-up; routing behavior is promising but needs more evidence in Run C.
+
+#### A10 · observability · low · logged
+
+Concern: `/introspect` usefulness.
+Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §`/introspect`.
+Observation: `/introspect` reports only terse object summaries (`basePromptOptions=object(8)`, `latestPassiveCapture=turn-2 object(10)`), leaving the operator unsure what to do next.
+Expected: introspection should either show the actionable summary inline or point directly to the debug files/artifacts that contain the captured prompt/session data.
+Disposition: observability polish candidate; likely lower priority than auth, continue, and exchange rendering.
 
 Use future entries like:
 
