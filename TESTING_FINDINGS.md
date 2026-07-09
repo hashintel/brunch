@@ -74,7 +74,7 @@ Concern: seed/context insertion and tool rendering.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §built-in tools.
 Observation: Brunch tool outputs render verbosely; agent appeared to request/read information that the session should likely have been seeded with already.
 Expected: initial context seed should be present before first useful provider conduct, and debug mirrors should make the seed insertion point/trigger obvious.
-Disposition: diagnose seed insertion path, especially no-auth → post-login continuation; separately scope compact renderers for Brunch tool calls/results if supported.
+Disposition: built in WR7 (FE-1180): diagnosis found the recovery seam is the general `/brunch:continue` manual-trigger path; regression coverage now proves it inserts `brunch.context_seed` before the trigger-turn `brunch.kick` and exposes manual-trigger origination evidence for debug mirrors. Compact Brunch tool-call/result rendering remains deferred row WR9.
 
 #### A6 · exchange protocol + rendering · high · scoped
 

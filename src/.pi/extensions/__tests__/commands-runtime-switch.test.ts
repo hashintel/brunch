@@ -97,6 +97,7 @@ function commandHarness(
   const statusCalls: Array<{ key: string; text: string | undefined }> = [];
   const chromeRefreshes: number[] = [];
   const workspaceDecisions: unknown[] = [];
+  const originationDecisions: unknown[] = [];
   const coordinator = {
     inspectWorkspace: async () => ({ projects: [] }),
     activateWorkspace: async (decision: unknown) => {
@@ -155,6 +156,9 @@ function commandHarness(
           reads: { queryGraph: () => ({ nodes: [], edges: [], lsn: 1 }) as never },
           workspaceContext: '',
           sendCustomMessage: async () => undefined,
+          onOriginationDecision: (decision, context) => {
+            originationDecisions.push({ decision, context });
+          },
         }),
       }
     : undefined;
@@ -213,6 +217,7 @@ function commandHarness(
     statusCalls,
     chromeRefreshes,
     workspaceDecisions,
+    originationDecisions,
     sent,
     orientationDeps,
   };
@@ -341,19 +346,44 @@ describe('Brunch menu command', () => {
     ]);
   });
 
-  it('resumes no-auth-suppressed boot work through a manual-trigger kick when no declared ask is open', async () => {
+  it('resumes no-auth-suppressed boot work with seed-before-kick debug evidence when no declared ask is open', async () => {
     const harness = commandHarness({ orientation: true });
 
     await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
 
     expect(harness.appendedMessages).toEqual([]);
-    expect(harness.sent).toContainEqual({
-      message: expect.objectContaining({
-        customType: BRUNCH_KICK_CUSTOM_TYPE,
-        details: { origin: 'manual_trigger' },
-      }),
-      options: { triggerTurn: true },
-    });
+    expect(harness.sent).toEqual([
+      {
+        message: expect.objectContaining({
+          customType: 'brunch.context_seed',
+          content: expect.stringContaining('Alpha'),
+          details: { specId: 7, snapshotLsn: 1 },
+        }),
+        options: undefined,
+      },
+      {
+        message: expect.objectContaining({
+          customType: BRUNCH_KICK_CUSTOM_TYPE,
+          details: { origin: 'manual_trigger' },
+        }),
+        options: { triggerTurn: true },
+      },
+    ]);
+    expect(harness.originationDecisions).toEqual([
+      {
+        decision: expect.objectContaining({
+          action: 'start',
+          origin: 'manual_trigger',
+          seedEntries: [
+            expect.objectContaining({
+              customType: 'brunch.context_seed',
+              details: { specId: 7, snapshotLsn: 1 },
+            }),
+          ],
+        }),
+        context: { modelAvailable: true },
+      },
+    ]);
   });
 
   it('resumes general interrupted work through a manual-trigger kick when no declared ask is open', async () => {
