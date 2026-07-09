@@ -2,13 +2,22 @@ import { defineTool } from '@earendil-works/pi-coding-agent';
 
 import { formatPresentDigest } from '../../../agents/contexts/exchanges/present-digest.js';
 import { projectPresentDigest } from '../../../exchanges/projections/present-digest.js';
-import { zPresentDigestParams, type PresentDigestParams } from '../../../exchanges/schemas/index.js';
+import {
+  zPresentDigestParams,
+  type PresentDigestDetails,
+  type PresentDigestParams,
+} from '../../../exchanges/schemas/index.js';
 import { toolParameters } from '../shared/tool-schema.js';
 import { renderEmptyStructuredExchangeCall, renderMarkdownResult } from './shared/markdown.js';
+import { validationFailureResult, type ExchangeValidationFailureDetails } from './shared/validation.js';
 
 export const PRESENT_DIGEST_TOOL = 'present_digest' as const;
 
-export const presentDigestTool = defineTool({
+const PresentDigestParams = toolParameters(zPresentDigestParams);
+
+type PresentDigestToolDetails = PresentDigestDetails | ExchangeValidationFailureDetails;
+
+export const presentDigestTool = defineTool<typeof PresentDigestParams, PresentDigestToolDetails>({
   name: PRESENT_DIGEST_TOOL,
   label: 'Present digest',
   description:
@@ -20,11 +29,13 @@ export const presentDigestTool = defineTool({
     'Follow with ask using continues set to the same exchangeId; the accepted terminal echoes the abstract for later capture sweep reads.',
     'For the declared review continuation, ask only for approve / request changes / reject; do not repeat the digest body in the ask.',
   ],
-  parameters: toolParameters(zPresentDigestParams),
+  parameters: PresentDigestParams,
   executionMode: 'sequential',
 
   async execute(_toolCallId, rawParams) {
-    const params = zPresentDigestParams.parse(rawParams) satisfies PresentDigestParams;
+    const parsed = zPresentDigestParams.safeParse(rawParams);
+    if (!parsed.success) return validationFailureResult(PRESENT_DIGEST_TOOL, parsed.error);
+    const params = parsed.data satisfies PresentDigestParams;
     const projection = projectPresentDigest(params);
     return {
       content: [{ type: 'text' as const, text: formatPresentDigest(projection) }],

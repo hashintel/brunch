@@ -2,7 +2,10 @@
 
 Owns Pi registration, live UI collection, and TUI transcript `renderResult`
 wiring for the structured-exchange tool family (`ask`, `present_review_set`,
-`present_candidates`, `present_digest`). Result details are constructed only
+`present_candidates`, `present_digest`). Params-boundary validation failures are
+caught inside this adapter family and returned as themed `TOOL_INPUT_INVALID`
+markdown tool results, so Pi's generic tool-error path does not expose raw
+schema payloads in the transcript. Result details are constructed only
 through `src/exchanges/projections/*` and validated against the Zod schemas in
 `src/exchanges/schemas/` (D108-L). D104-L sets the render rule:
 `renderResult` may render from validated details for a family-specific rich

@@ -82,7 +82,7 @@ Concern: digest → ask repetition and ask markdown/result fidelity.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §`present_digest` flow, §mapping the digest.
 Observation: digest content is repeated inside the `ask` UI; ask rendering appears markdown-limited or differently formatted; JSON appeared in the TUI after an ask invocation; optional-comment prompts are not preserved with the submitted comment; “Something else” duplicated the built-in Other affordance; nested esc works but help text does not say so; nested states use plain bordered editors rather than the full rounded/mode-reactive box.
 Expected: large present-then-ask flows should keep pretext outside the ask; result rendering should preserve enough prompt framing for comments; custom “Something else” options should be discouraged or normalized against Other; nested ask states should explain esc/back behavior and share the intended chrome.
-Disposition: WR4 built the ask comment-framing echo: `commentPrompt` and Other-elaboration framing now persist into standalone ask details and model-facing formatted text. WR5 built conduct guidance for large-present continuation bodies and Other-equivalent options. Remaining A6 facets stay split across later rows: raw JSON leak diagnosis in WR6, and nested chrome/help text outside this row unless pulled by an owned seam.
+Disposition: WR4 built the ask comment-framing echo: `commentPrompt` and Other-elaboration framing now persist into standalone ask details and model-facing formatted text. WR5 built conduct guidance for large-present continuation bodies and Other-equivalent options. WR6 built exchange-tool validation failure rendering so ask invocation failures return human-readable `TOOL_INPUT_INVALID` markdown without raw payload leaks. Remaining A6 facets: nested chrome/help text is outside these rows unless pulled by an owned seam.
 
 #### A7 · capture logic · high · spec/plan needed
 
@@ -143,7 +143,7 @@ Concern: Technical/verification design routing from consult.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-C.md` §“technical design” and “verification design” routing.
 Observation: Agent struggled to call `present_candidates`; error output and JSON leaked into the TUI; final choice came without a recommendation even though the expected technical-design shape is closer to “design it twice” plus recommendation/synthesis. After the user answered, the agent followed up with a plain text question instead of using `ask`.
 Expected: design/oracle routing should reliably use the structured exchange tools, avoid raw validation JSON in the transcript, and follow the intended design-comparison shape with a recommendation or explicit synthesis path.
-Disposition: diagnose tool-call failure + prompt/skill routing; likely feeds an exchange-tool robustness and design-skill guidance fix.
+Disposition: WR6 built the exchange-tool validation failure rendering portion: invalid structured-exchange tool arguments now return themed `TOOL_INPUT_INVALID` markdown instead of raw validation payload leaks. The design/oracle recommendation shape, fallback to plain text instead of `ask`, and broader prompt/skill routing concerns remain diagnostic/planning inputs outside WR6.
 
 #### C4 · executor readiness · medium · logged
 
