@@ -78,10 +78,13 @@ export function projectExecutionSpecSnapshot(
   const requirementDependencies = dependencyItemIdsByRequirement(input.edges, requirementItemIds);
   const criteria = nodes.filter((node) => node.kind === 'criterion');
   const criteriaById = new Map(
-    criteria.map((criterion) => [criterion.id, {
-      ...itemSnapshot(criterion),
-      verifies: verifiesRequirementItemIds(criterion, input.edges, nodeById, requirementIds),
-    }]),
+    criteria.map((criterion) => [
+      criterion.id,
+      {
+        ...itemSnapshot(criterion),
+        verifies: verifiesRequirementItemIds(criterion, input.edges, nodeById, requirementIds),
+      },
+    ]),
   );
   const frontierItems = nodes.filter((node) => node.kind === 'frontier').map((node) => itemSnapshot(node));
 
@@ -137,11 +140,20 @@ function scopeSnapshot(args: {
     // Accept the older tracer shape while the durable handoff model settles.
     { category: 'realization', direction: 'outgoing', kinds: ['requirement'] },
   ]);
-  const criteria = relatedUnionNodeIds(args.node.id, args.edges, args.nodeById, [
-    { category: 'dependency', direction: 'incoming', kinds: ['criterion'] },
-    // Accept the older tracer shape while the durable handoff model settles.
-    { category: 'realization', direction: 'outgoing', kinds: ['criterion'] },
-  ])
+  const criterionIds = new Set(
+    relatedUnionNodeIds(args.node.id, args.edges, args.nodeById, [
+      { category: 'dependency', direction: 'incoming', kinds: ['criterion'] },
+      // Accept the older tracer shape while the durable handoff model settles.
+      { category: 'realization', direction: 'outgoing', kinds: ['criterion'] },
+    ]),
+  );
+  for (const [criterionNodeId, criterion] of args.criteriaById) {
+    if (criterion.verifies.some((requirementId) => requirementIds.includes(requirementId))) {
+      criterionIds.add(criterionNodeId);
+    }
+  }
+  const criteria = [...criterionIds]
+    .sort((a, b) => a - b)
     .map((nodeId) => args.criteriaById.get(nodeId))
     .filter((criterion): criterion is ExecutionSpecCriterionSnapshot => criterion !== undefined);
   const design = relatedItems(args.node.id, args.edges, args.nodeById, {
@@ -225,8 +237,7 @@ function relatedNodeIds(
   for (const edge of edges) {
     if (edge.category !== args.category) continue;
     if (edge.category === 'witness' && edge.stance === 'against') continue;
-    const matches =
-      args.direction === 'incoming' ? edge.targetId === anchorId : edge.sourceId === anchorId;
+    const matches = args.direction === 'incoming' ? edge.targetId === anchorId : edge.sourceId === anchorId;
     if (!matches) continue;
     const relatedId = args.direction === 'incoming' ? edge.sourceId : edge.targetId;
     const node = nodeById.get(relatedId);

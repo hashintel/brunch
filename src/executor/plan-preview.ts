@@ -101,24 +101,35 @@ function previewSpec(draft: ExecutablePlanDraft): PlanPreviewSpec {
   const criteria = new Map<string, PlanPreviewSpecCriterion>();
 
   for (const slice of draft.slices) {
-    for (const requirementId of slice.requirementIds) {
-      if (!requirements.has(requirementId)) {
-        requirements.set(requirementId, { item_id: requirementId, content: slice.definition });
+    const scopedRequirements =
+      slice.requirements && slice.requirements.length > 0
+        ? slice.requirements
+        : slice.requirementIds.map((requirementId) => ({
+            itemId: requirementId,
+            content: slice.definition,
+          }));
+    for (const requirement of scopedRequirements) {
+      if (!requirements.has(requirement.itemId)) {
+        requirements.set(requirement.itemId, {
+          item_id: requirement.itemId,
+          content: requirement.content,
+        });
       }
     }
 
     for (const target of slice.verification) {
+      const verifies = target.verifies && target.verifies.length > 0 ? target.verifies : slice.requirementIds;
       const existing = criteria.get(target.criterionId);
       if (existing) {
         criteria.set(target.criterionId, {
           ...existing,
-          verifies: Array.from(new Set([...existing.verifies, ...slice.requirementIds])),
+          verifies: Array.from(new Set([...existing.verifies, ...verifies])),
         });
       } else {
         criteria.set(target.criterionId, {
           item_id: target.criterionId,
           content: target.target,
-          verifies: [...slice.requirementIds],
+          verifies: [...verifies],
         });
       }
     }

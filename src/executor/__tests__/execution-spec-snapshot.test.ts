@@ -262,7 +262,10 @@ describe('projectExecutionSpecSnapshot', () => {
         frontierIds: ['F1'],
         requirementIds: ['REQ1'],
         criteria: [
-          expect.objectContaining({ itemId: 'AC1', content: 'A visible canvas proves the view is reachable.' }),
+          expect.objectContaining({
+            itemId: 'AC1',
+            content: 'A visible canvas proves the view is reachable.',
+          }),
         ],
         design: [expect.objectContaining({ itemId: 'MOD1', title: 'Canvas route module' })],
         verification: [expect.objectContaining({ itemId: 'CH1', title: 'Canvas smoke test' })],
@@ -324,5 +327,52 @@ describe('projectExecutionSpecSnapshot', () => {
       criteria: [expect.objectContaining({ itemId: 'AC1' })],
       verification: [expect.objectContaining({ itemId: 'CH1' })],
     });
+  });
+
+  it('pulls witness-only criteria into a scope through its scoped requirements', () => {
+    const frontier = node({
+      id: 1,
+      plane: 'plan',
+      kind: 'frontier',
+      kindOrdinal: 1,
+      title: 'Execution handoff',
+    });
+    const scope = node({
+      id: 2,
+      plane: 'plan',
+      kind: 'scope',
+      kindOrdinal: 1,
+      title: 'Canvas scope',
+    });
+    const requirement = node({
+      id: 3,
+      plane: 'intent',
+      kind: 'requirement',
+      kindOrdinal: 1,
+      title: 'Render graph canvas',
+    });
+    const criterion = node({
+      id: 4,
+      plane: 'intent',
+      kind: 'criterion',
+      kindOrdinal: 1,
+      title: 'Canvas becomes visible',
+      body: 'A visible canvas proves the view is reachable.',
+    });
+
+    const snapshot = projectExecutionSpecSnapshot({
+      specId: 7,
+      mode: 'brownfield',
+      nodes: [frontier, scope, requirement, criterion],
+      edges: [
+        edge({ id: 1, category: 'composition', sourceId: frontier.id, targetId: scope.id }),
+        edge({ id: 2, category: 'realization', sourceId: requirement.id, targetId: scope.id }),
+        edge({ id: 3, category: 'witness', sourceId: criterion.id, targetId: requirement.id, stance: 'for' }),
+      ],
+    });
+
+    expect(snapshot.scopes[0]?.criteria).toEqual([
+      expect.objectContaining({ itemId: 'AC1', verifies: ['REQ1'] }),
+    ]);
   });
 });

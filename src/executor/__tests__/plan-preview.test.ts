@@ -67,4 +67,44 @@ describe('previewPlan', () => {
     expect(preview.epics[0]).not.toHaveProperty('reachability');
     expect(preview.slices[0]).not.toHaveProperty('writes');
   });
+
+  it('keeps per-requirement content and criterion coverage truthful for multi-requirement scopes', () => {
+    const preview = previewPlan({
+      ...draft,
+      slices: [
+        {
+          ...draft.slices[0],
+          definition: 'Build the combined feature scope.',
+          requirementIds: ['REQ1', 'REQ2'],
+          verification: [
+            {
+              kind: 'criterion',
+              criterionId: 'AC1',
+              target: 'Feature entry is visible.',
+              verifies: ['REQ1'],
+            },
+            {
+              kind: 'criterion',
+              criterionId: 'AC2',
+              target: 'Shortcut opens the feature.',
+              verifies: ['REQ2'],
+            },
+          ],
+          requirements: [
+            { itemId: 'REQ1', title: 'Build feature', content: 'Render the feature entry point.' },
+            { itemId: 'REQ2', title: 'Add shortcut', content: 'Ship the keyboard shortcut.' },
+          ],
+        },
+      ],
+    } as unknown as ExecutablePlanDraft);
+
+    expect(preview.spec.requirements).toEqual([
+      { item_id: 'REQ1', content: 'Render the feature entry point.' },
+      { item_id: 'REQ2', content: 'Ship the keyboard shortcut.' },
+    ]);
+    expect(preview.spec.criteria).toEqual([
+      { item_id: 'AC1', content: 'Feature entry is visible.', verifies: ['REQ1'] },
+      { item_id: 'AC2', content: 'Shortcut opens the feature.', verifies: ['REQ2'] },
+    ]);
+  });
 });

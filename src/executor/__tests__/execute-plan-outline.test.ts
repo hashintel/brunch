@@ -113,6 +113,16 @@ describe('outlineExecutionPlan', () => {
                   criterionId: 'AC1',
                   title: 'Feature is visible',
                   content: 'Feature is visible',
+                  verifies: ['REQ2'],
+                },
+              ],
+              requirements: [
+                {
+                  itemId: 'REQ2',
+                  nodeId: 2,
+                  title: 'Wire feature',
+                  content: 'Wire feature',
+                  dependsOn: ['REQ1'],
                 },
               ],
               designContext: [
@@ -138,6 +148,15 @@ describe('outlineExecutionPlan', () => {
               id: 'task-2',
               title: 'Build feature',
               requirementId: 'REQ1',
+              requirements: [
+                {
+                  itemId: 'REQ1',
+                  nodeId: 1,
+                  title: 'Build feature',
+                  content: 'Build feature',
+                  dependsOn: [],
+                },
+              ],
               summary: 'Build feature',
               dependsOn: [],
               acceptanceCriterionIds: [],
@@ -188,6 +207,16 @@ describe('outlineExecutionPlan', () => {
                   criterionId: 'AC1',
                   title: 'Feature is visible',
                   content: 'Feature is visible',
+                  verifies: ['REQ2'],
+                },
+              ],
+              requirements: [
+                {
+                  itemId: 'REQ2',
+                  nodeId: 2,
+                  title: 'Wire feature',
+                  content: 'Wire feature',
+                  dependsOn: ['REQ1'],
                 },
               ],
               designContext: [
@@ -213,6 +242,15 @@ describe('outlineExecutionPlan', () => {
               id: 'task-2',
               title: 'Build feature',
               requirementId: 'REQ1',
+              requirements: [
+                {
+                  itemId: 'REQ1',
+                  nodeId: 1,
+                  title: 'Build feature',
+                  content: 'Build feature',
+                  dependsOn: [],
+                },
+              ],
               summary: 'Build feature',
               dependsOn: [],
               acceptanceCriterionIds: [],
@@ -222,6 +260,15 @@ describe('outlineExecutionPlan', () => {
               id: 'task-3',
               title: 'Ship keyboard shortcut',
               requirementId: 'REQ3',
+              requirements: [
+                {
+                  itemId: 'REQ3',
+                  nodeId: 6,
+                  title: 'Ship keyboard shortcut',
+                  content: 'Ship keyboard shortcut',
+                  dependsOn: [],
+                },
+              ],
               summary: 'Ship keyboard shortcut',
               dependsOn: [],
               acceptanceCriterionIds: [],

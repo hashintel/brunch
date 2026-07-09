@@ -8,6 +8,7 @@ export interface ExecutionPlanOutlineCriterion {
   readonly criterionId: string;
   readonly title: string;
   readonly content: string;
+  readonly verifies?: readonly string[];
 }
 
 export interface ExecutionPlanOutlineTask {
@@ -16,6 +17,7 @@ export interface ExecutionPlanOutlineTask {
   readonly requirementId: string;
   readonly scopeId?: string;
   readonly requirementIds?: readonly string[];
+  readonly requirements?: readonly ExecutionSpecItemSnapshot[];
   readonly summary: string;
   readonly dependsOn: readonly string[];
   readonly acceptanceCriterionIds: readonly string[];
@@ -96,25 +98,34 @@ function frontiersForScopes(snapshot: ExecutionSpecSnapshot): readonly Execution
     id: frontierId,
     title: frontierTitleById.get(frontierId) ?? 'Execution handoff',
     tasks: scopes.map((scope, index) => ({
-      id: `task-${index + 1}`,
-      title: scope.title,
-      scopeId: scope.itemId,
-      requirementId: scope.requirementIds[0] ?? scope.itemId,
-      requirementIds: scope.requirementIds,
-      summary: scope.content,
-      dependsOn: [
-        ...new Set(
-          scope.requirementIds.flatMap((requirementId) =>
-            (requirementsById.get(requirementId)?.dependsOn ?? []).filter(
-              (dependencyId) => !scope.requirementIds.includes(dependencyId),
+      ...(() => {
+        const requirements = scope.requirementIds.flatMap((requirementId) => {
+          const requirement = requirementsById.get(requirementId);
+          return requirement ? [requirement] : [];
+        });
+        return {
+          id: `task-${index + 1}`,
+          title: scope.title,
+          scopeId: scope.itemId,
+          requirementId: requirements[0]?.itemId ?? scope.itemId,
+          ...(scope.requirementIds.length > 0 ? { requirementIds: scope.requirementIds } : {}),
+          ...(requirements.length > 0 ? { requirements } : {}),
+          summary: scope.content,
+          dependsOn: [
+            ...new Set(
+              scope.requirementIds.flatMap((requirementId) =>
+                (requirementsById.get(requirementId)?.dependsOn ?? []).filter(
+                  (dependencyId) => !scope.requirementIds.includes(dependencyId),
+                ),
+              ),
             ),
-          ),
-        ),
-      ],
-      acceptanceCriterionIds: scope.criteria.map((criterion) => criterion.itemId),
-      acceptanceCriteria: scope.criteria.map(outlineCriterion),
-      designContext: scope.design,
-      verificationContext: scope.verification,
+          ],
+          acceptanceCriterionIds: scope.criteria.map((criterion) => criterion.itemId),
+          acceptanceCriteria: scope.criteria.map(outlineCriterion),
+          designContext: scope.design,
+          verificationContext: scope.verification,
+        };
+      })(),
     })),
   }));
 }
@@ -143,6 +154,7 @@ function taskForRequirement(
     id: `task-${index + 1}`,
     title: requirement.title,
     requirementId: requirement.itemId,
+    requirements: [requirement],
     summary: requirement.content,
     dependsOn: requirement.dependsOn,
     acceptanceCriterionIds: acceptanceCriteria.map((criterion) => criterion.criterionId),
@@ -155,5 +167,6 @@ function outlineCriterion(criterion: ExecutionSpecCriterionSnapshot): ExecutionP
     criterionId: criterion.itemId,
     title: criterion.title,
     content: criterion.content,
+    ...(criterion.verifies.length > 0 ? { verifies: criterion.verifies } : {}),
   };
 }

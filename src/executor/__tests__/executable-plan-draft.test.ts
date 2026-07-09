@@ -181,4 +181,37 @@ describe('draftExecutablePlan', () => {
       expect.objectContaining({ id: 'task-2', dependsOn: ['task-1'] }),
     ]);
   });
+
+  it('falls back to the primary requirement id when a scope task carries an empty requirementIds list', () => {
+    expect(
+      draftExecutablePlan({
+        ...outline,
+        frontiers: [
+          {
+            id: 'frontier-1',
+            title: 'Execution handoff',
+            tasks: [
+              {
+                id: 'task-1',
+                title: 'Build feature scope',
+                scopeId: 'SCP1',
+                requirementId: 'REQ1',
+                requirementIds: [],
+                summary: 'Build the feature.',
+                dependsOn: [],
+                acceptanceCriterionIds: [],
+                acceptanceCriteria: [],
+              },
+            ],
+          },
+        ],
+      }).slices,
+    ).toEqual([
+      expect.objectContaining({
+        id: 'task-1',
+        requirementId: 'REQ1',
+        requirementIds: ['REQ1'],
+      }),
+    ]);
+  });
 });
