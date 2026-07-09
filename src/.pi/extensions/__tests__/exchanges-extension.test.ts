@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  zAskParams,
+  zPresentCandidatesParams,
+  zPresentDigestParams,
+  zPresentReviewSetParams,
+} from '../../../exchanges/schemas/index.js';
+import {
   ASK_TOOL,
   PRESENT_CANDIDATES_TOOL,
   PRESENT_DIGEST_TOOL,
   PRESENT_REVIEW_SET_TOOL,
   registerStructuredExchange,
 } from '../exchanges/index.js';
+import { toolParameters } from '../shared/tool-schema.js';
 
 const ansiPattern = new RegExp(`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`, 'g');
 
@@ -71,6 +78,21 @@ describe('structured exchange renderers', () => {
 
     for (const [name, tool] of tools) {
       expect(stripAnsi(tool.renderCall({}, theme, {}).render(80).join('\n')), name).toBe('');
+    }
+  });
+
+  it('registers exchange parameters through the shared Zod adapter without changing emitted schemas', () => {
+    const tools = registerTools();
+    const expectedSchemas = new Map([
+      [ASK_TOOL, toolParameters(zAskParams)],
+      [PRESENT_REVIEW_SET_TOOL, toolParameters(zPresentReviewSetParams)],
+      [PRESENT_CANDIDATES_TOOL, toolParameters(zPresentCandidatesParams)],
+      [PRESENT_DIGEST_TOOL, toolParameters(zPresentDigestParams)],
+    ] as const);
+
+    expect([...tools.keys()]).toEqual([...expectedSchemas.keys()]);
+    for (const [name, expectedSchema] of expectedSchemas) {
+      expect(tools.get(name)?.parameters).toEqual(expectedSchema);
     }
   });
 
