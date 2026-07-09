@@ -57,7 +57,7 @@ const snapshot: ExecutionSpecSnapshot = {
 };
 
 describe('outlineExecutionPlan', () => {
-  it('creates one reviewable frontier with scope tasks and attached context', () => {
+  it('creates scope tasks and keeps orphan requirements visible', () => {
     expect(outlineExecutionPlan(snapshot)).toEqual({
       schemaVersion: 1,
       specId: '7',
@@ -89,6 +89,99 @@ describe('outlineExecutionPlan', () => {
               verificationContext: [
                 { itemId: 'CH1', nodeId: 5, title: 'Smoke test', content: 'Smoke test', dependsOn: [] },
               ],
+            },
+          ],
+        },
+        {
+          id: 'frontier-unscoped-requirements',
+          title: 'Implement unscoped requirements',
+          tasks: [
+            {
+              id: 'task-1',
+              title: 'Build feature',
+              requirementId: 'REQ1',
+              summary: 'Build feature',
+              dependsOn: [],
+              acceptanceCriterionIds: [],
+              acceptanceCriteria: [],
+            },
+          ],
+        },
+      ],
+      sideEffects: [],
+    });
+  });
+
+  it('keeps additional requirements that are not packaged into any scope', () => {
+    expect(
+      outlineExecutionPlan({
+        ...snapshot,
+        requirements: [
+          ...snapshot.requirements,
+          {
+            itemId: 'REQ3',
+            nodeId: 6,
+            title: 'Ship keyboard shortcut',
+            content: 'Ship keyboard shortcut',
+            dependsOn: [],
+          },
+        ],
+      }),
+    ).toEqual({
+      schemaVersion: 1,
+      specId: '7',
+      mode: 'brownfield',
+      frontiers: [
+        {
+          id: 'F1',
+          title: 'Execution handoff',
+          tasks: [
+            {
+              id: 'task-1',
+              title: 'Wire feature scope',
+              scopeId: 'SCP1',
+              requirementId: 'REQ2',
+              requirementIds: ['REQ2'],
+              summary: 'Wire the feature from committed design and verification anchors.',
+              dependsOn: ['REQ1'],
+              acceptanceCriterionIds: ['AC1'],
+              acceptanceCriteria: [
+                {
+                  criterionId: 'AC1',
+                  title: 'Feature is visible',
+                  content: 'Feature is visible',
+                },
+              ],
+              designContext: [
+                { itemId: 'MOD1', nodeId: 4, title: 'Feature module', content: 'Feature module', dependsOn: [] },
+              ],
+              verificationContext: [
+                { itemId: 'CH1', nodeId: 5, title: 'Smoke test', content: 'Smoke test', dependsOn: [] },
+              ],
+            },
+          ],
+        },
+        {
+          id: 'frontier-unscoped-requirements',
+          title: 'Implement unscoped requirements',
+          tasks: [
+            {
+              id: 'task-1',
+              title: 'Build feature',
+              requirementId: 'REQ1',
+              summary: 'Build feature',
+              dependsOn: [],
+              acceptanceCriterionIds: [],
+              acceptanceCriteria: [],
+            },
+            {
+              id: 'task-2',
+              title: 'Ship keyboard shortcut',
+              requirementId: 'REQ3',
+              summary: 'Ship keyboard shortcut',
+              dependsOn: [],
+              acceptanceCriterionIds: [],
+              acceptanceCriteria: [],
             },
           ],
         },

@@ -39,16 +39,29 @@ export interface ExecutionPlanOutline {
 }
 
 export function outlineExecutionPlan(snapshot: ExecutionSpecSnapshot): ExecutionPlanOutline {
+  const scopeFrontiers = frontiersForScopes(snapshot);
+  const unscopedRequirementIds = new Set(
+    snapshot.scopes.flatMap((scope) => scope.requirementIds),
+  );
+  const orphanRequirements = snapshot.requirements.filter(
+    (requirement) => !unscopedRequirementIds.has(requirement.itemId),
+  );
+
   return {
     schemaVersion: 1,
     specId: snapshot.specId,
     mode: snapshot.mode,
     frontiers:
       snapshot.scopes.length > 0
-        ? frontiersForScopes(snapshot)
+        ? [
+            ...scopeFrontiers,
+            ...(orphanRequirements.length > 0
+              ? [frontierForRequirements(snapshot, orphanRequirements)]
+              : []),
+          ]
         : snapshot.requirements.length === 0
           ? []
-          : [frontierForRequirements(snapshot)],
+          : [frontierForRequirements(snapshot, snapshot.requirements)],
     sideEffects: [],
   };
 }
@@ -87,11 +100,15 @@ function frontiersForScopes(snapshot: ExecutionSpecSnapshot): readonly Execution
   }));
 }
 
-function frontierForRequirements(snapshot: ExecutionSpecSnapshot): ExecutionPlanOutlineFrontier {
+function frontierForRequirements(
+  snapshot: ExecutionSpecSnapshot,
+  requirements: readonly ExecutionSpecItemSnapshot[],
+): ExecutionPlanOutlineFrontier {
   return {
-    id: 'frontier-1',
-    title: 'Implement projected requirements',
-    tasks: snapshot.requirements.map((requirement, index) =>
+    id: snapshot.scopes.length > 0 ? 'frontier-unscoped-requirements' : 'frontier-1',
+    title:
+      snapshot.scopes.length > 0 ? 'Implement unscoped requirements' : 'Implement projected requirements',
+    tasks: requirements.map((requirement, index) =>
       taskForRequirement(snapshot, requirement, index),
     ),
   };
