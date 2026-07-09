@@ -33,7 +33,7 @@ Stop at the first row that holds.
 - Relate only confident endpoints. Commit missing high-confidence endpoints first, then add role-named edges; skip the edge and add a scratchpad obligation when either endpoint is weak.
 - `basis` records approval directness, not the mutation path. Audit/provenance lives in `change_log`; lightweight source attribution can live on the node `source`.
 - Advisory graph material is persistable reviewed signal. It still needs promotion, rewrite, split, supersession, reconciliation, or abandonment before it is settled truth.
-- Accepted `present_digest` material is source-derived review input, not automatic graph truth. Route its `accepted_abstract` by confidence and conflict: advisory until harmonized, settled only when accepted and harmonized, scratchpad for low confidence, reconciliation for contradiction.
+- Accepted `present_digest` material is source-derived review input, not automatic graph truth. Route its `accepted_abstract` by confidence and conflict: advisory until harmonized, settled only when accepted and harmonized, scratchpad for low confidence, reconciliation for contradiction. The default follow-up is direct mutation into the strongest honest substrate (usually advisory graph material), not a broad question or a review set; reserve review sets for judgment-heavy candidates that need explicit item-level approval.
 - Accepted `present_candidates` selections are recognition input, not graph truth. They can steer map/review-set drafting; non-picked candidates remain offer history.
 
 ## Relation-Bearing Batches

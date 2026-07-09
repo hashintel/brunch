@@ -82,7 +82,7 @@ Concern: digest → ask repetition and ask markdown/result fidelity.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §`present_digest` flow, §mapping the digest.
 Observation: digest content is repeated inside the `ask` UI; ask rendering appears markdown-limited or differently formatted; JSON appeared in the TUI after an ask invocation; optional-comment prompts are not preserved with the submitted comment; “Something else” duplicated the built-in Other affordance; nested esc works but help text does not say so; nested states use plain bordered editors rather than the full rounded/mode-reactive box.
 Expected: large present-then-ask flows should keep pretext outside the ask; result rendering should preserve enough prompt framing for comments; custom “Something else” options should be discouraged or normalized against Other; nested ask states should explain esc/back behavior and share the intended chrome.
-Disposition: WR4 built the ask comment-framing echo: `commentPrompt` and Other-elaboration framing now persist into standalone ask details and model-facing formatted text. Remaining A6 facets stay split across later rows: conduct/repetition/Other-option guidance in WR5, raw JSON leak diagnosis in WR6, and nested chrome/help text outside this row unless pulled by an owned seam.
+Disposition: WR4 built the ask comment-framing echo: `commentPrompt` and Other-elaboration framing now persist into standalone ask details and model-facing formatted text. WR5 built conduct guidance for large-present continuation bodies and Other-equivalent options. Remaining A6 facets stay split across later rows: raw JSON leak diagnosis in WR6, and nested chrome/help text outside this row unless pulled by an owned seam.
 
 #### A7 · capture logic · high · spec/plan needed
 
@@ -90,7 +90,7 @@ Concern: digest acceptance, mapping, review-set offer, and direct mutation seman
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §mapping the digest, §review-set flow.
 Observation: after accepting a digest the agent asked more questions, then later offered a review set. In the older product logic, an approved digest may have been enough authority to mutate directly. However the review-set structure was more rigorous, and a second pass after user feedback extracted edges that the first pass missed.
 Expected: Brunch needs a clearer contract for when digest approval authorizes direct graph mutation vs when it should produce a review set or multi-pass proposal.
-Disposition: structural discussion/spec candidate. The evidence supports exploring more structured digest payloads, multi-pass extraction, and possibly parallel subagents for richer graph proposal coverage.
+Disposition: WR5 built the inner conduct contract: accepted digests now default to direct mapping into advisory graph mutations when supported, multi-pass extraction is pinned (entities, relations, narrative obligations), and broad follow-up questions before mapping are discouraged. More structured digest payloads or parallel subagents remain future design questions if later evidence demands them.
 
 #### A8 · prompt/skill/model · medium · logged
 
@@ -98,7 +98,7 @@ Concern: proposal quality, latency, and instruction following.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §review-set flow.
 Observation: the first review proposal missed thesis/story nodes and edges; explicitly telling the agent fixed some of this in a second proposal; inference took a long time.
 Expected: prompt/skill routing should make expected extraction breadth explicit before user correction; model/thinking policy should balance latency and quality.
-Disposition: feed into prompt/skill/model audit; do not implement dynamic models from this single run.
+Disposition: WR5 added digest extraction-breadth guidance for accepted digests. Remaining latency/model-policy observations stay in the prompt/skill/model audit; do not implement dynamic models from this single run.
 
 #### A9 · consult menu + exchange rendering · medium · scoped
 
