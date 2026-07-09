@@ -116,6 +116,51 @@ Observation: `/introspect` reports only terse object summaries (`basePromptOptio
 Expected: introspection should either show the actionable summary inline or point directly to the debug files/artifacts that contain the captured prompt/session data.
 Disposition: observability polish candidate; likely lower priority than auth, continue, and exchange rendering.
 
+### 2026-07-09 run C — developed/resume spec, Execute + design/oracle/commit flows
+
+Source notes + screenshots: `testing/walkthroughs/2026-07-09/2026-07-09-C.md`.
+Session/debug outputs observed under `.fixtures/workbenches/brunch-self/.brunch/`.
+
+#### C1 · consult menu · medium · scoped
+
+Concern: Specify-mode `/brunch:consult` menu on a resumed non-empty spec.
+Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-C.md` §resume orientation on non-empty spec.
+Observation: Menu border says `[ Consult ]` where the role label should be `[ Specify ]`, and the spec name should remain on the lower right. Fixed-height scrolling hides options because the scrollbar is too subtle. “Continue” is first, semantically confused, and really means “stay inert until user types a custom instruction,” closer to an Other/manual option than a primary action.
+Expected: consult menu should use role/spec chrome, show all materially relevant choices or make overflow obvious, and reserve inert/manual entry for a lower-priority option with clearer naming.
+Disposition: scoped consult-menu rendering/content fix.
+
+#### C2 · mode switch / consult menu · high · scoped
+
+Concern: Specify → Execute switch and Execute entry menu.
+Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-C.md` §switch Specify → Execute, §`/brunch:consult` in Execute mode.
+Observation: Switching via `/mode` opens a consult menu, but its border still says `[ Consult ]` instead of `[ Execute ]`; option rendering is inconsistent, with only one option showing subtext. The first two options are agent-discretionary rather than user-facing. Re-invoking `/brunch:consult` while in Execute mode showed the Specify menu, not the Executor menu.
+Expected: Execute-mode consult should show the executor-specific choices only: design/oracle/commit work, plan compilation, plan execution. It should not expose internal/discretionary agent actions, and it must respect the active mode on re-entry.
+Disposition: scoped bug/content fix; also evidence for FE-1167 Execute-entry orientation residue.
+
+#### C3 · exchange protocol + skill routing · high · diagnose
+
+Concern: Technical/verification design routing from consult.
+Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-C.md` §“technical design” and “verification design” routing.
+Observation: Agent struggled to call `present_candidates`; error output and JSON leaked into the TUI; final choice came without a recommendation even though the expected technical-design shape is closer to “design it twice” plus recommendation/synthesis. After the user answered, the agent followed up with a plain text question instead of using `ask`.
+Expected: design/oracle routing should reliably use the structured exchange tools, avoid raw validation JSON in the transcript, and follow the intended design-comparison shape with a recommendation or explicit synthesis path.
+Disposition: diagnose tool-call failure + prompt/skill routing; likely feeds an exchange-tool robustness and design-skill guidance fix.
+
+#### C4 · executor readiness · medium · logged
+
+Concern: Execute “plan and execute” behavior on a relatively developed spec.
+Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-C.md` §whether Execute asks for missing design/oracle/commitment before pretending it can execute.
+Observation: Going straight to “plan and execute” from Execute entry did not backfill design/oracle/commitment; the executor reasoned the plan was relatively ready and projected a plan. The user did not continue far enough to judge execution quality, and noted this area belongs partly to a colleague.
+Expected: Execute should be honest about readiness: proceed only when enough design/oracle/commitment exists, otherwise route to prep work without mode ping-pong.
+Disposition: logged as partial FE-1167 Execute-entry evidence; not enough alone to scope a fix.
+
+#### C5 · prompt/skill/model · low · logged
+
+Concern: Richer graph context overload.
+Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-C.md` §whether richer graph context overloads prompt/skill routing.
+Observation: User was not sure how to evaluate overload from this run.
+Expected: Future runs need a sharper oracle for prompt overload, such as repeated tool-call schema errors, missed required skill reads, failure to summarize graph state, excessive latency, or generic-agent behavior despite specific context.
+Disposition: leave as audit-method gap; fold into prompt/skill/model audit rather than treating as product failure.
+
 Use future entries like:
 
 ```md
