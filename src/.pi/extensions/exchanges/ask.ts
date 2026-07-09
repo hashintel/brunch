@@ -32,6 +32,7 @@ import {
   type StepResult,
 } from './shared/required-input.js';
 import { withWorkingIndicatorHidden, type StructuredExchangeUiContext } from './shared/ui-context.js';
+import { validationFailureResult } from './shared/validation.js';
 
 export const ASK_TOOL = 'ask' as const;
 export { clearContinueHint, collectAskContinuationResponse } from './ask/continuation.js';
@@ -490,7 +491,9 @@ export function createAskTool(answerBroker?: LiveExchangeAwaiter) {
     executionMode: 'sequential',
 
     async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
-      const params = zAskParams.parse(rawParams);
+      const parsed = zAskParams.safeParse(rawParams);
+      if (!parsed.success) return validationFailureResult(ASK_TOOL, parsed.error);
+      const params = parsed.data;
       const uiCtx = ctx as unknown as StructuredExchangeUiContext;
       if (isContinuingAskParams(params)) return collectContinuingAsk(params, uiCtx);
       const standalone = standaloneAskParams(params);

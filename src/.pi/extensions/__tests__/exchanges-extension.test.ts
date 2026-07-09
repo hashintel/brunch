@@ -110,6 +110,39 @@ describe('structured exchange renderers', () => {
     expect(rendered).toContain('Local-first graph work.');
   });
 
+  it('renders exchange tool validation failures as human-readable markdown without raw payloads', async () => {
+    const tools = registerTools();
+    const ask = tools.get(ASK_TOOL);
+    const candidates = tools.get(PRESENT_CANDIDATES_TOOL);
+
+    const askResult = await ask.execute(
+      'bad-ask-call',
+      { exchangeId: 'bad-ask', body: { raw: 'do-not-leak' } },
+      undefined,
+      undefined,
+      { hasUI: false } as never,
+    );
+    const candidatesResult = await candidates.execute(
+      'bad-candidates-call',
+      { exchangeId: 'bad-candidates', heading: { raw: 'do-not-leak' }, candidates: [] },
+      undefined,
+      undefined,
+      {} as never,
+    );
+
+    for (const [toolName, tool, result] of [
+      [ASK_TOOL, ask, askResult],
+      [PRESENT_CANDIDATES_TOOL, candidates, candidatesResult],
+    ] as const) {
+      expect(result.details).toMatchObject({ status: 'validation_failed', tool: toolName });
+      const rendered = stripAnsi(tool.renderResult(result, {}, theme, {}).render(80).join('\n'));
+      expect(rendered).toContain('TOOL_INPUT_INVALID');
+      expect(rendered).toContain(`The ${toolName} tool could not use the supplied arguments.`);
+      expect(rendered).not.toContain('do-not-leak');
+      expect(rendered).not.toContain('"raw"');
+    }
+  });
+
   it('renders ask as the Markdown pass-through of its content string', async () => {
     // D104-L revision 2026-07-02: the formatter's content markdown is the designed
     // surface for both audiences; renderResult displays that same string.
