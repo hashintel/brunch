@@ -120,9 +120,10 @@ coherence checks (plan)
   frontier -> dependencies mirror intent dependencies, not intra-frontier execution order
   milestone-> frontiers map to an invariant bundle to establish
 
-  single handoff package -> one frontier + one or more scopes by default;
-                           do not add milestone/extra frontier nodes unless a real phase threshold
-                           or distinct tracker boundary is already accepted upstream
+  single handoff package -> one owning frontier + one scope by default;
+                           only widen to several scopes when the accepted package truly contains
+                           several build handoffs; do not add milestone/extra frontier nodes
+                           unless a real phase threshold or distinct tracker boundary is accepted upstream
 ```
 
 Typical edges: `composition` (milestone→frontier→scope), `realization` (requirement→scope, renders "established by"), `dependency` (frontier→frontier).

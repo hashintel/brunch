@@ -7,15 +7,15 @@ Created:  2026-07-09
 
 ## Orientation
 
-- Seam: accepted intent/design/verification truth -> live Specify-mode planning proposal -> plan-lens review set -> committed `scope`.
+- Seam: accepted intent/design/verification truth -> live Specify-mode planning proposal -> plan-lens review set -> committed `frontier` + `scope` handoff.
 - Frontier: `elicitor-scope-handoff` turns FE-1173's proven downstream seam into a natural live authoring path.
 - Posture: proving.
-- Main risk: the live elicitor may keep generating frontier-level or freeform task prose, leaving `scope` as a technically valid shape with no canonical producer.
+- Main risk: the live elicitor may keep generating frontier-level or freeform task prose, or draft a standalone `scope`, leaving the canonical `frontier -> scope` handoff under-specified in live authoring.
 - Cross-cutting obligations: keep `scope` elicitation-owned, keep `slice` executor-only, and preserve the existing review-set commitment discipline instead of adding a direct graph-write shortcut.
 
 ## Target Behavior
 
-When the user asks Brunch to plan implementation work in Specify mode, the live planning flow proposes one or more `scope` packages grounded in accepted intent/design/verification truth, presents them through the plan-lens review path, and commits the approved `scope` shape without executor-side repair heuristics.
+When the user asks Brunch to plan implementation work in Specify mode, the live planning flow proposes a canonical `frontier -> scope` handoff package grounded in accepted intent/design/verification truth, presents it through the plan-lens review path, and commits the approved plan shape without executor-side repair heuristics.
 
 ## Full-card cold-start reads
 
@@ -33,9 +33,9 @@ When the user asks Brunch to plan implementation work in Specify mode, the live 
 ```text
 accepted intent / design / verification truth
 -> live elicitor planning prompt + skill guidance
--> plan-lens proposal containing scope packages
+-> plan-lens proposal containing frontier + scope handoff
 -> present_review_set approval
--> committed `scope`
+-> committed `frontier` + `scope`
 ```
 
 ## Risks and Assumptions
@@ -43,7 +43,7 @@ accepted intent / design / verification truth
 - RISK: prompt/guidance changes could teach the language but still leave the runtime presenting frontier-only review sets. -> MITIGATION: prove the path through the actual plan-lens review-set surface, not just prompt text or unit-level formatting helpers.
 - RISK: live authoring may smuggle executor concerns back into `scope` content. -> MITIGATION: keep acceptance focused on upstream truth grounding and review-set commitment, not worker-brief wording.
 - ASSUMPTION: the existing `project`/`propose` skill seams can steer scope-shaped proposals without a new exchange family. -> IMPACT IF FALSE: a follow-up must change proposal/review surface ownership, not just wording. -> VALIDATE: one live flow reaches `present_review_set` with scope packages on the existing seam.
-- ASSUMPTION: one manual end-to-end proof is enough for this tracer. -> IMPACT IF FALSE: a second slice should add broader prompt/oracle coverage before productizing the flow. -> VALIDATE: the live walkthrough produces a committed scope visible in export/executor surfaces.
+- ASSUMPTION: one manual end-to-end proof is enough for this tracer. -> IMPACT IF FALSE: a second slice should add broader prompt/oracle coverage before productizing the flow. -> VALIDATE: the live walkthrough produces a committed frontier + scope package visible in export/executor surfaces.
 
 ## Posture Check
 
@@ -51,16 +51,18 @@ This is a proving tracer: it does not extend the durable model further. It only 
 
 ## Acceptance Criteria
 
-✓ Live project/planning guidance teaches `intent -> design -> verification -> scope -> build` and names `scope` as the handoff unit.
-✓ A live Specify-mode planning proposal can present a plan-lens review set containing scope packages grounded in accepted upstream truth.
-✓ Approving that review set commits the same `scope` graph shape FE-1173 proved, with no executor-owned backfill logic.
-✓ One manual walkthrough demonstrates the end-to-end path and confirms the committed scope is visible through the existing export/executor surfaces.
+✓ Live project/planning guidance teaches `intent -> design -> verification -> scope -> build` and names the default handoff as an owning `frontier` plus `scope`.
+✓ A live Specify-mode planning proposal can present a plan-lens review set containing a `frontier -> scope` package grounded in accepted upstream truth.
+✓ Approving that review set commits the same `frontier -> scope` graph shape FE-1173 proved, with no executor-owned backfill logic.
+✓ One manual walkthrough demonstrates the end-to-end path and confirms the committed package is visible through the existing export/executor surfaces.
+✓ One relaxed live proof, without explicit edge-by-edge prompt coaching, also produces the canonical `frontier -> scope` package and anchors it to accepted requirement/design/verification truth.
 
 ## Verification Approach
 
 - Inner: focused tests around live prompt/guidance shaping and plan-lens review-set presentation only where the tracer crosses a subtle behavioral boundary.
 - Outer: one manual Specify-mode walkthrough from accepted upstream truth to approved `scope`.
 - Live proof: `node --import tsx src/probes/project-graph-review-cycle-proof.ts --seed-name workspace-alpha-grounding --seed-variant scope-handoff-ready --review-set-expectation scope_handoff --run-id fe-1175-scope-handoff-live --prompt "..."` -> promoted run evidence at `.fixtures/runs/project-graph-review-cycle/fe-1175-scope-handoff-live/`.
+- Relaxed live proof: same probe and seed with the shorter prompt naming only accepted intent/design/oracle anchors and one execution-facing handoff package -> promoted run evidence at `.fixtures/runs/project-graph-review-cycle/fe-1175-scope-handoff-relaxed-r6/`.
 
 ## Cross-cutting Obligations
 
