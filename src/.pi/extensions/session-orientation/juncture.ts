@@ -208,6 +208,36 @@ export async function runJunctureForContext(
   });
 }
 
+export async function runManualTriggerKickForContext(input: {
+  readonly ctx: Pick<OrientationContextLike, 'modelRegistry' | 'sessionManager'>;
+  readonly kick: JunctureContextKick | undefined;
+  readonly onAppendError: (error: unknown) => void;
+}): Promise<{ readonly kickFired: boolean }> {
+  const sessionManager = input.ctx.sessionManager;
+  if (!sessionManagerCanAppend(sessionManager)) {
+    input.onAppendError(
+      new Error(
+        'Manual Brunch resume requires a mutable Pi session manager with appendCustomEntry/getEntries.',
+      ),
+    );
+    return { kickFired: false };
+  }
+  if (!input.kick) return { kickFired: false };
+  await originateAndKick(
+    sessionManager,
+    {
+      ...input.kick,
+      modelAvailable: input.ctx.modelRegistry.getAvailable().length > 0,
+    },
+    {
+      resumeOrigin: 'manual_trigger',
+      forceSeed: true,
+      forceStartOrigin: 'manual_trigger',
+    },
+  );
+  return { kickFired: true };
+}
+
 export function adaptOrientationUi(ctx: {
   readonly ui: OrientationUiLike;
   readonly mode: ExtensionMode;
@@ -333,6 +363,8 @@ export async function runOrientationJuncture(
 interface OriginateAndKickOptions {
   readonly resumeOrigin: 'manual_trigger' | 'resume_debt';
   readonly forceSeed: boolean;
+  /** Explicit user resume commands must be visible as manual-trigger kicks even on an empty transcript. */
+  readonly forceStartOrigin?: 'manual_trigger';
 }
 
 async function originateAndKick(
@@ -353,18 +385,23 @@ async function originateAndKick(
     ...(options.forceSeed ? { forceSeed: true } : {}),
   });
 
-  await deliverSeedEntries(sessionManager, kick, origination.decision.seedEntries);
+  const decision =
+    options.forceStartOrigin && origination.decision.action === 'start'
+      ? { ...origination.decision, origin: options.forceStartOrigin }
+      : origination.decision;
+
+  await deliverSeedEntries(sessionManager, kick, decision.seedEntries);
 
   if (kick.onOriginationDecision) {
-    await kick.onOriginationDecision(origination.decision, { modelAvailable: kick.modelAvailable });
+    await kick.onOriginationDecision(decision, { modelAvailable: kick.modelAvailable });
   }
 
   await completeAssistantKick({
-    decision: origination.decision,
+    decision,
     modelAvailable: kick.modelAvailable,
     sendCustomMessage: kick.sendCustomMessage,
     onOutcome: (outcome) => {
-      if (kick.onKickOutcome) void kick.onKickOutcome(outcome, origination.decision);
+      if (kick.onKickOutcome) void kick.onKickOutcome(outcome, decision);
     },
   });
 }
