@@ -9,6 +9,7 @@
     "release": false
   },
   "npm": {
+    "publish": true,
     "skipChecks": true
   },
   "hooks": {
