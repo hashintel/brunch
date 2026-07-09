@@ -4,8 +4,12 @@ import type { Component, TUI } from '@earendil-works/pi-tui';
 import { registerBrunchAlternatives } from '../../.pi/components/alternatives.js';
 import { BrunchEditorComponent } from '../../.pi/components/brunch-editor.js';
 import { BrunchStartupHeader } from '../../.pi/components/chrome-header.js';
+import { ConsultMenuComponent } from '../../.pi/components/consult-menu.js';
 import { ExchangeAnswerEditorComponent } from '../../.pi/components/exchange-answer-editor.js';
+import { ExchangeCandidatesResultComponent } from '../../.pi/components/exchange-candidates-result.js';
 import { ExchangeDecisionPickerComponent } from '../../.pi/components/exchange-decision-picker.js';
+import { ExchangeReviewSetResultComponent } from '../../.pi/components/exchange-review-set-result.js';
+import { operationalModeBorderColor } from '../../.pi/components/mode-border-theme.js';
 import { MultiChoicePickerComponent } from '../../.pi/components/multi-choice-picker.js';
 import { createRuntimeModePickerComponent } from '../../.pi/components/runtime-posture/axis-picker.js';
 import { TuiStyleLabComponent } from '../../.pi/components/tui-lab/index.js';
@@ -109,11 +113,12 @@ function manySpecsWorkspaceInventory(specCount: number): WorkspaceLaunchInventor
 export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
   {
     id: 'theme-testbed',
-    label: 'Theme testbed (markdown, syntax highlighting, contrast strip)',
+    label: 'Theme testbed (text, borders, markdown, syntax highlighting, contrast strip)',
     presentedLike:
-      'harness-only reference surface — renders the same fixture through pi assistant markdown ' +
-      '(getMarkdownTheme + syntax* tokens) and brunch exchange markdown, plus a fg/bg contrast strip; ' +
-      'hot-reloads src/.pi/themes/*.json edits while open',
+      'harness-only reference surface — renders text variations, border levels, mode-reactive ' +
+      'and surface-identity border roles from the theme files, the same fixture through pi assistant ' +
+      'markdown (getMarkdownTheme + syntax* tokens) and brunch exchange markdown, plus a fg/bg ' +
+      'contrast strip; hot-reloads src/.pi/themes/*.json edits while open',
     open: (tui, theme, keybindings) =>
       showComponentPreview(
         tui,
@@ -132,6 +137,60 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
       ),
   },
   {
+    id: 'consult-menu',
+    label: 'Consult menu',
+    presentedLike: 'inline swap — /brunch:consult orientation dialog (commands/index.ts)',
+    open: (tui, theme, keybindings) =>
+      showComponentPreview(
+        tui,
+        theme,
+        keybindings,
+        (_tui, previewTheme, _kb, done) =>
+          new ConsultMenuComponent({
+            title: 'How should this session continue?',
+            choices: [
+              { id: 'continue', label: 'Continue', description: 'Stay inert until your next instruction.' },
+              {
+                id: 'elicit_decisions',
+                label: 'Ask decision-driven questions',
+                description: 'Use the elicitor/grill style to resolve choices.',
+              },
+              {
+                id: 'propose_oracle',
+                label: 'Propose verification designs',
+                description: 'Project test and evidence strategies for this frontier.',
+              },
+            ],
+            theme: previewTheme,
+            onDone: done,
+          }),
+      ),
+  },
+  {
+    id: 'consult-menu-scroll',
+    label: 'Consult menu (scroll)',
+    presentedLike: 'inline swap — /brunch:consult orientation dialog, long-list scroll viewport demo',
+    open: (tui, theme, keybindings) =>
+      showComponentPreview(
+        tui,
+        theme,
+        keybindings,
+        (_tui, previewTheme, _kb, done) =>
+          new ConsultMenuComponent({
+            title: 'How should this session continue?',
+            choices: Array.from({ length: 16 }, (_, index) => ({
+              id: `consult-${index + 1}`,
+              label: `Consult option ${index + 1}`,
+              ...(index % 2 === 0
+                ? { description: `Description ${index + 1} keeps two-line scrolling honest.` }
+                : {}),
+            })),
+            theme: previewTheme,
+            onDone: done,
+          }),
+      ),
+  },
+  {
     id: 'exchange-decision-picker',
     label: 'Exchange decision picker',
     presentedLike: 'inline swap — src/.pi/extensions/exchanges/shared/choice-source.ts and review-source.ts',
@@ -144,9 +203,17 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
           new ExchangeDecisionPickerComponent({
             prompt: 'Which direction should we take?',
             choices: [
-              { id: 'local-workbench', label: 'Local workbench' },
+              {
+                id: 'local-workbench',
+                label: 'Local workbench',
+                description: 'Keeps the evidence close to reusable fixtures.',
+              },
               { id: 'agent-relay', label: 'Agent relay' },
-              { id: 'defer', label: 'Defer until capture is settled' },
+              {
+                id: 'defer',
+                label: 'Defer until capture is settled',
+                description: 'Use when the current answer would churn soon.',
+              },
             ],
             theme: previewTheme,
             onDone: done,
@@ -168,6 +235,9 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
             choices: Array.from({ length: 20 }, (_, index) => ({
               id: `candidate-${index + 1}`,
               label: `Candidate framing ${index + 1} — option label with realistic width`,
+              ...(index % 2 === 0
+                ? { description: `Rationale ${index + 1} keeps the two-line scroll window honest.` }
+                : {}),
             })),
             theme: previewTheme,
             onDone: done,
@@ -189,13 +259,56 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
             prompt: 'Which direction should we take?',
             body: RICH_ASK_BODY,
             choices: [
-              { id: 'local-workbench', label: 'Local workbench' },
+              {
+                id: 'local-workbench',
+                label: 'Local workbench',
+                description: 'Best when a fixture can witness the behavior.',
+              },
               { id: 'agent-relay', label: 'Agent relay' },
-              { id: 'defer', label: 'Defer until capture is settled' },
+              {
+                id: 'defer',
+                label: 'Defer until capture is settled',
+                description: 'Avoids locking the wrong contract too early.',
+              },
             ],
             topLabel: '[ Ask ]',
             bottomLabel: '"FE-1164"',
             theme: previewTheme,
+            borderColor: operationalModeBorderColor(previewTheme, 'specify'),
+            onDone: done,
+          }),
+      ),
+  },
+  {
+    id: 'exchange-decision-picker-rich-body-execute',
+    label: 'Exchange decision picker (rich body, Execute mode border)',
+    presentedLike:
+      'inline swap — ask single-select surface with execute-mode border role; mirrors src/.pi/extensions/exchanges/ask.ts',
+    open: (tui, theme, keybindings) =>
+      showComponentPreview(
+        tui,
+        theme,
+        keybindings,
+        (_tui, previewTheme, _kb, done) =>
+          new ExchangeDecisionPickerComponent({
+            prompt: 'Which execution path should run?',
+            body: RICH_ASK_BODY,
+            choices: [
+              {
+                id: 'run-now',
+                label: 'Run now',
+                description: 'Proceed with the prepared execution slice.',
+              },
+              {
+                id: 'narrow-first',
+                label: 'Narrow first',
+                description: 'Pause execution and shrink the card.',
+              },
+            ],
+            topLabel: '[ Ask · Execute ]',
+            bottomLabel: '"FE-1169"',
+            theme: previewTheme,
+            borderColor: operationalModeBorderColor(previewTheme, 'execute'),
             onDone: done,
           }),
       ),
@@ -227,9 +340,13 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
           new MultiChoicePickerComponent({
             prompt: 'Which follow-ups matter?',
             choices: [
-              { id: 'scope', label: 'Narrow the scope' },
+              {
+                id: 'scope',
+                label: 'Narrow the scope',
+                description: 'Collapse the work to the next buildable slice.',
+              },
               { id: 'risk', label: 'Flag the risk' },
-              { id: 'defer', label: 'Defer to later' },
+              { id: 'defer', label: 'Defer to later', description: 'Name it without pulling it forward.' },
             ],
             theme: previewTheme,
             onDone: done,
@@ -251,9 +368,13 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
             prompt: 'Which follow-ups matter?',
             body: RICH_ASK_BODY,
             choices: [
-              { id: 'scope', label: 'Narrow the scope' },
+              {
+                id: 'scope',
+                label: 'Narrow the scope',
+                description: 'Good when the frontier is real but too wide.',
+              },
               { id: 'risk', label: 'Flag the risk' },
-              { id: 'defer', label: 'Defer to later' },
+              { id: 'defer', label: 'Defer to later', description: 'Keep the session moving.' },
             ],
             topLabel: '[ Ask ]',
             bottomLabel: '"FE-1164"',
@@ -358,9 +479,12 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
     id: 'present-candidates',
     label: 'present_candidates transcript render',
     presentedLike:
-      'tool result renderer — src/.pi/extensions/exchanges/present-candidates.ts (renderResult = Markdown pass-through of content, D104-L)',
+      'tool result renderer — src/.pi/extensions/exchanges/present-candidates.ts (validated details-backed renderer with content fallback, D104-L)',
     open: (tui, theme) =>
-      previewStaticComponent(tui, renderMarkdownResult(presentCandidatesFixture.result, theme)),
+      previewStaticComponent(
+        tui,
+        new ExchangeCandidatesResultComponent(presentCandidatesFixture.projection.details, theme),
+      ),
   },
   {
     id: 'present-digest',
@@ -382,9 +506,12 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
     id: 'present-review-set',
     label: 'present_review_set transcript render',
     presentedLike:
-      'tool result renderer — src/.pi/extensions/exchanges/present-review-set.ts (renderResult = Markdown pass-through of content, D104-L)',
+      'tool result renderer — src/.pi/extensions/exchanges/present-review-set.ts (validated details-backed renderer with content fallback, D104-L)',
     open: (tui, theme) =>
-      previewStaticComponent(tui, renderMarkdownResult(presentReviewSetFixture.result, theme)),
+      previewStaticComponent(
+        tui,
+        new ExchangeReviewSetResultComponent(presentReviewSetFixture.projection.details, theme),
+      ),
   },
   {
     id: 'structural-illegal',
@@ -454,14 +581,54 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
       'editor slot — ctx.ui.setEditorComponent (design exploration for the component-dx frontier; not yet wired into src/.pi/extensions/chrome/index.ts)',
     open: (tui, theme, keybindings) => {
       const editorTheme = createComponentPreviewEditorTheme(theme);
-      const editor = new BrunchEditorComponent(tui, editorTheme, keybindings, () => ({
-        topRight: '[ Specify ]',
-        bottomRight: '"Walking Skeleton SDK to SSE to React"',
-        belowLines: [
-          { text: 'http://localhost:3141/session', url: 'http://localhost:3141/session' },
-          'claude-sonnet-5 | 35.6%',
-        ],
-      }));
+      const editor = new BrunchEditorComponent(
+        tui,
+        editorTheme,
+        keybindings,
+        () => ({
+          topRight: '[ Specify ]',
+          bottomRight: '"Walking Skeleton SDK to SSE to React"',
+          belowLines: [
+            { text: 'http://localhost:3141/session', url: 'http://localhost:3141/session' },
+            'claude-sonnet-5 | 35.6%',
+          ],
+        }),
+        () => operationalModeBorderColor(theme, 'specify'),
+      );
+      tui.addChild(editor);
+      tui.setFocus(editor);
+      editor.focused = true;
+      tui.requestRender();
+      return new Promise<void>((resolve) => {
+        editor.onEscape = () => {
+          tui.removeChild(editor);
+          tui.requestRender();
+          resolve();
+        };
+      });
+    },
+  },
+  {
+    id: 'brunch-editor-execute',
+    label: 'Brunch editor (Execute mode border) [experimental]',
+    presentedLike:
+      'editor slot — ctx.ui.setEditorComponent with execute-mode border role; mirrors src/.pi/extensions/chrome/index.ts',
+    open: (tui, theme, keybindings) => {
+      const editorTheme = createComponentPreviewEditorTheme(theme);
+      const editor = new BrunchEditorComponent(
+        tui,
+        editorTheme,
+        keybindings,
+        () => ({
+          topRight: '[ Execute ]',
+          bottomRight: '"Run Review Harness"',
+          belowLines: [
+            { text: 'http://localhost:3141/session', url: 'http://localhost:3141/session' },
+            'executor | 42.0%',
+          ],
+        }),
+        () => operationalModeBorderColor(theme, 'execute'),
+      );
       tui.addChild(editor);
       tui.setFocus(editor);
       editor.focused = true;

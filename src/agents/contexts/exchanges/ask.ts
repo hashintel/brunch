@@ -3,43 +3,44 @@ import type { RenderElision } from './render-honesty.js';
 
 function optionLines(details: AskDetails): string[] {
   const options = details.question.options ?? [];
-  if (options.length === 0) return [];
   const answered = 'answered' in details ? details.answered : undefined;
-  const selectedIds = new Set<string>();
-  if (answered && 'choice' in answered) selectedIds.add(answered.choice.id);
-  if (answered && 'choices' in answered) for (const choice of answered.choices) selectedIds.add(choice.id);
-  return [
-    '## Options',
-    '',
-    ...options.map((option, index) => {
-      const marker = selectedIds.has(option.id) ? '[x]' : '[ ]';
-      const description = option.description ? ` — ${option.description}` : '';
-      return `- ${marker} ${index + 1}. __${option.label}__${description}`;
-    }),
-  ];
+  if (!answered || (!('choice' in answered) && !('choices' in answered))) return [];
+
+  const selected = 'choice' in answered ? [answered.choice] : answered.choices;
+  const selectedIds = new Set(selected.map((choice) => choice.id));
+  const listedRows = options.map((option) => {
+    const selected = selectedIds.has(option.id);
+    const marker = selected ? '[x]' : '[ ]';
+    const label = selected ? `__${option.label}__` : `~~${option.label}~~`;
+    const description = option.description ? ` — ${option.description}` : '';
+    return `- ${marker} ${label}${description}`;
+  });
+  const writeInRows = selected
+    .filter((choice) => !options.some((option) => option.id === choice.id))
+    .map((choice) => `- [x] __${choice.label}__`);
+  return [...listedRows, ...writeInRows];
 }
 
 export function formatAsk(details: AskDetails): string {
-  const lines = ['## Question', '', details.question.body];
+  const lines = [details.question.body];
   const options = optionLines(details);
   if (options.length > 0) lines.push('', ...options);
 
-  lines.push('', '## Answer', '');
   if ('answered' in details) {
     const { answered } = details;
     if ('text' in answered) {
-      lines.push(answered.text);
+      lines.push('', `**Answer:** ${answered.text}`);
       if (answered.comment) lines.push('', `_${answered.comment}_`);
     } else if ('choice' in answered) {
-      lines.push(answered.choice.label);
       if (answered.comment) lines.push('', `_${answered.comment}_`);
     } else {
-      lines.push(...answered.choices.map((choice) => `- ${choice.label}`));
       if (answered.comment) lines.push('', `_${answered.comment}_`);
     }
   } else if ('cancelled' in details) {
+    lines.push('');
     lines.push(`_${details.cancelled.message ?? 'User cancelled.'}_`);
   } else {
+    lines.push('');
     lines.push(`_${details.unavailable.message}_`);
   }
 

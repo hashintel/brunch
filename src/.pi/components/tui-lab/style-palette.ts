@@ -3,6 +3,7 @@ import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
 export type LabThemeColor =
   | 'accent'
   | 'border'
+  | 'borderAccent'
   | 'success'
   | 'warning'
   | 'error'
@@ -36,6 +37,7 @@ export const BRUNCH_STYLE_ROLES: readonly PaletteRole[] = [
   { name: 'warn', color: 'warning', sample: 'needs attention' },
   { name: 'bad', color: 'error', sample: 'blocked / invalid' },
   { name: 'quiet', color: 'muted', sample: 'secondary context' },
+  { name: 'surface', color: 'borderAccent', sample: 'surface identity border' },
   { name: 'code', color: 'syntaxKeyword', sample: 'structured token' },
 ] as const;
 

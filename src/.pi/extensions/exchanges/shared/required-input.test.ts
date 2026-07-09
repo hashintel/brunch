@@ -24,12 +24,12 @@ describe('collectRequiredInput', () => {
     expect(input.mock.calls[2]).toEqual(['Required comment (required — cannot be empty)', 'placeholder']);
   });
 
-  it('resolves cancelled when the user dismisses the input, even after an empty re-prompt', async () => {
+  it('resolves back when the user dismisses the input, even after an empty re-prompt', async () => {
     const input = vi.fn(async () => (input.mock.calls.length === 1 ? '' : undefined));
 
     const result = await collectRequiredInput(ctxWithInput(input), 'Required comment');
 
-    expect(result).toEqual({ status: 'cancelled' });
+    expect(result).toEqual({ status: 'back' });
     expect(input).toHaveBeenCalledTimes(2);
   });
 

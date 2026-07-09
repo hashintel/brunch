@@ -126,7 +126,6 @@ describe('structured exchange renderers', () => {
     );
 
     const rendered = stripAnsi(ask.renderResult(result, {}, theme, {}).render(80).join('\n'));
-    expect(rendered).toContain('Question');
     expect(rendered).toContain('Body text');
     expect(rendered).toContain('ask requires interactive UI');
   });

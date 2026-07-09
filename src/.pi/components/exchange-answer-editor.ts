@@ -15,6 +15,7 @@ export interface ExchangeAnswerEditorOptions {
   /** Markdown question body rendered above the editor (multi-line safe). */
   readonly body: string;
   readonly theme: LabTheme;
+  readonly borderColor?: (text: string) => string;
   readonly onDone: (result?: string) => void;
 }
 
@@ -58,6 +59,7 @@ export class ExchangeAnswerEditorComponent implements Component {
   render(width: number): string[] {
     const safeWidth = Math.max(16, width);
     const contentWidth = Math.max(1, roundedBoxInnerWidth(safeWidth, BOX_PADDING));
+    const borderColor = this.options.borderColor ?? ((text: string) => this.options.theme.fg('accent', text));
     const editorLines = this.#editor.render(contentWidth);
     const bottomIndex = findLastIndex(editorLines, isEditorBorderLine);
     const { contentLines, trailingLines } = stripEditorBorder(editorLines, bottomIndex);
@@ -79,7 +81,7 @@ export class ExchangeAnswerEditorComponent implements Component {
       safeLines(stacked.lines, contentWidth),
       { padding: BOX_PADDING },
       safeWidth,
-      (text) => this.options.theme.fg('accent', text),
+      borderColor,
     );
     box.push('');
     return box;

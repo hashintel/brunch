@@ -75,7 +75,11 @@ export function projectBorderedChrome(
   const { contentLines, trailingLines } = stripEditorBorder(innerLines, rawBottomIndex);
   const boxedContent = projectRoundedBox(
     padContentToMinimum(contentLines, MIN_CONTENT_LINES, Math.max(1, width - SIDE_BUDGET)),
-    { topLabel: labels.topRight, bottomLabel: labels.bottomRight, preserveContentWidth: true },
+    {
+      ...(labels.topRight !== undefined ? { topLabel: labels.topRight } : {}),
+      ...(labels.bottomRight !== undefined ? { bottomLabel: labels.bottomRight } : {}),
+      preserveContentWidth: true,
+    },
     width,
     borderColor,
   );
@@ -108,6 +112,7 @@ export class BrunchEditorComponent extends CustomEditor {
     private readonly editorTheme: EditorTheme,
     keybindings: KeybindingsManager,
     private readonly getLabels: () => BrunchEditorLabels,
+    private readonly getBorderColor: () => (str: string) => string = () => editorTheme.borderColor,
   ) {
     super(tui, editorTheme, keybindings);
   }
@@ -115,6 +120,6 @@ export class BrunchEditorComponent extends CustomEditor {
   override render(width: number): string[] {
     const innerWidth = Math.max(1, width - SIDE_BUDGET);
     const innerLines = super.render(innerWidth);
-    return projectBorderedChrome(innerLines, this.getLabels(), width, this.editorTheme.borderColor);
+    return projectBorderedChrome(innerLines, this.getLabels(), width, this.getBorderColor());
   }
 }

@@ -120,6 +120,65 @@ function customMultiPick(indexes: readonly number[]) {
   });
 }
 
+function customPickWithRenderedText(index: number, expectedText: string) {
+  return vi.fn(async (factory: (...args: unknown[]) => unknown) => {
+    let picked: unknown;
+    const component = factory(null, theme, null, (result: unknown) => {
+      picked = result;
+    }) as TestPickerComponent;
+    expect(component.render(80).join('\n')).toContain(expectedText);
+    for (let step = 0; step < index; step += 1) component.handleInput('\x1b[B');
+    component.handleInput('\r');
+    return picked;
+  });
+}
+
+function customPickSequence(indexes: readonly number[]) {
+  let presentation = 0;
+  return vi.fn(async (factory: (...args: unknown[]) => unknown) => {
+    const index = indexes[presentation];
+    presentation += 1;
+    if (index === undefined) throw new Error('custom picker presented more times than expected');
+    let picked: unknown;
+    const component = factory(null, theme, null, (result: unknown) => {
+      picked = result;
+    }) as TestPickerComponent;
+    expect(component.render(80).join('\n')).toContain('╭');
+    for (let step = 0; step < index; step += 1) component.handleInput('\x1b[B');
+    component.handleInput('\r');
+    return picked;
+  });
+}
+
+function customMultiPickThenAssertRestored(options: {
+  readonly firstIndexes: readonly number[];
+  readonly restoredText: string;
+  readonly secondIndexes: readonly number[];
+}) {
+  let presentation = 0;
+  return vi.fn(async (factory: (...args: unknown[]) => unknown) => {
+    let picked: unknown;
+    const component = factory(null, theme, null, (result: unknown) => {
+      picked = result;
+    }) as TestPickerComponent;
+    const rendered = component.render(80).join('\n');
+    expect(rendered).toContain('╭');
+    const indexes = presentation === 0 ? options.firstIndexes : options.secondIndexes;
+    if (presentation === 1) expect(rendered).toContain(options.restoredText);
+    presentation += 1;
+    let cursor = 0;
+    for (const index of indexes) {
+      while (cursor < index) {
+        component.handleInput('\x1b[B');
+        cursor += 1;
+      }
+      component.handleInput(' ');
+    }
+    component.handleInput('\r');
+    return picked;
+  });
+}
+
 function customCancel() {
   return vi.fn(async (factory: (...args: unknown[]) => unknown) => {
     let picked: unknown = 'not-cancelled';
@@ -243,8 +302,9 @@ describe('structured exchange ask tools', () => {
       { hasUI: true, ui: { custom } } as never,
     );
 
-    expect(result.content[0]?.text).toContain('## Question');
+    expect(result.content[0]?.text).not.toContain('## Question');
     expect(result.content[0]?.text).toContain('What problem are we solving?');
+    expect(result.content[0]?.text).toContain('**Answer:**');
     expect(result.content[0]?.text).toContain('Answer collected by custom editor.');
     expect(isStructuredExchangeRequestDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
@@ -349,6 +409,7 @@ describe('structured exchange ask tools', () => {
 
   it('records cancellation with terminate, broker fallback, unavailable, and empty-answer discipline', async () => {
     const awaitAnswer = vi.fn(async () => 'Answer collected by broker.');
+    const setStatus = vi.fn();
     const ask = registeredTools({ liveExchange: { awaitAnswer } }).get(ASK_TOOL);
     if (!ask) throw new Error('ask was not registered');
 
@@ -357,7 +418,7 @@ describe('structured exchange ask tools', () => {
       { exchangeId: 'cancelled', body: 'Cancel?' },
       undefined,
       undefined,
-      { hasUI: true, ui: { custom: customCancel() } } as never,
+      { hasUI: true, ui: { custom: customCancel(), setStatus } } as never,
     );
     const brokered = await ask.execute(
       'ask-brokered',
@@ -381,6 +442,7 @@ describe('structured exchange ask tools', () => {
 
     expect(cancelled.details).toMatchObject({ tool_meta: { curr: ASK_TOOL }, cancelled: {} });
     expect(cancelled.terminate).toBe(true);
+    expect(setStatus).not.toHaveBeenCalled();
     expect(awaitAnswer).toHaveBeenCalledWith({ exchangeId: 'brokered' });
     expect(brokered.details).toMatchObject({ answered: { text: 'Answer collected by broker.' } });
     expect(unavailable.details).toMatchObject({ unavailable: { message: 'ask requires interactive UI' } });
@@ -463,6 +525,51 @@ describe('structured exchange ask tools', () => {
       answered: { choice: { id: 'none', label: 'None', kind: 'none' }, comment: 'No listed option fits.' },
     });
     expect(noInput.details).toMatchObject({ unavailable: {} });
+  });
+
+  it('carries option descriptions into standalone and declared-continuation picker choices', async () => {
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
+    const standalone = await ask.execute(
+      'ask-choice-description',
+      {
+        exchangeId: 'choice-description',
+        body: 'Select one option.',
+        options: [
+          {
+            id: 'local-workbench',
+            label: 'Local workbench',
+            description: 'Keeps the proof close to fixtures.',
+          },
+        ],
+      },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom: customPickWithRenderedText(0, 'Keeps the proof close to fixtures.') },
+      } as never,
+    );
+
+    const candidates = await presentResult(PRESENT_CANDIDATES_TOOL, candidateParams());
+    const continuation = await ask.execute(
+      'ask-candidate-continuation-description',
+      { continues: 'candidate-direction' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom: customPickWithRenderedText(0, 'Choose this for the POC.') },
+        sessionManager: { getBranch: () => branchWith(candidates.details) },
+      } as never,
+    );
+
+    expect(standalone.details).toMatchObject({
+      answered: { choice: { id: 'local-workbench', label: 'Local workbench', kind: 'listed' } },
+    });
+    expect(continuation.details).toMatchObject({
+      answered: { choice: { id: 'local-workbench', label: 'Local workbench', kind: 'listed' } },
+    });
   });
 
   it('collects standalone multi-choice asks through custom UI and editor envelope fallback', async () => {
@@ -636,6 +743,160 @@ describe('structured exchange ask tools', () => {
     expect(incomplete[0]?.continuationTool).toBe(ASK_TOOL);
   });
 
+  it('keeps a declared continuation resumable after cancelled or unavailable terminals', async () => {
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
+    const candidates = await presentResult(PRESENT_CANDIDATES_TOOL, candidateParams());
+
+    const cancelled = await ask.execute(
+      'ask-candidate-cancel',
+      { continues: 'candidate-direction' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom: customCancel(), setStatus: vi.fn() },
+        sessionManager: { getBranch: () => branchWith(candidates.details) },
+      } as never,
+    );
+    expect(cancelled.details).toMatchObject({ cancelled: {} });
+
+    const branchAfterCancel = [
+      ...branchWith(candidates.details),
+      { type: 'message', message: { role: 'toolResult', details: cancelled.details } },
+    ];
+    expect(findIncompleteStructuredExchangePresents(branchAfterCancel)).toHaveLength(1);
+
+    const reCollected = await ask.execute(
+      'ask-candidate-after-cancel',
+      { continues: 'candidate-direction' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom: customPickByIndex(0), setStatus: vi.fn() },
+        sessionManager: { getBranch: () => branchAfterCancel },
+      } as never,
+    );
+    expect(reCollected.details).toMatchObject({
+      answered: { choice: { id: 'local-workbench', kind: 'listed' } },
+    });
+
+    const branchAfterAnswer = [
+      ...branchAfterCancel,
+      { type: 'message', message: { role: 'toolResult', details: reCollected.details } },
+    ];
+    expect(findIncompleteStructuredExchangePresents(branchAfterAnswer)).toHaveLength(0);
+  });
+
+  it('surfaces the continue hint on continuation cancel and clears it on a later answer', async () => {
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
+    const candidates = await presentResult(PRESENT_CANDIDATES_TOOL, candidateParams());
+
+    const cancelStatus = vi.fn();
+    await ask.execute(
+      'ask-candidate-cancel-hint',
+      { continues: 'candidate-direction' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom: customCancel(), setStatus: cancelStatus },
+        sessionManager: { getBranch: () => branchWith(candidates.details) },
+      } as never,
+    );
+    expect(cancelStatus).toHaveBeenCalledWith('brunch.continue', expect.stringContaining('/brunch:continue'));
+
+    const answerStatus = vi.fn();
+    await ask.execute(
+      'ask-candidate-answer-hint',
+      { continues: 'candidate-direction' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom: customPickByIndex(0), setStatus: answerStatus },
+        sessionManager: { getBranch: () => branchWith(candidates.details) },
+      } as never,
+    );
+    expect(answerStatus).toHaveBeenCalledWith('brunch.continue', undefined);
+  });
+
+  it('renders present_candidates from validated details and falls back to content for malformed details', async () => {
+    const candidates = await presentResult(PRESENT_CANDIDATES_TOOL, candidateParams());
+    const tool = registeredTools({ review: reviewDeps() }).get(PRESENT_CANDIDATES_TOOL);
+    if (!tool) throw new Error('present_candidates was not registered');
+
+    const richRendered = tool.renderResult(candidates, {}, theme).render?.(80).join('\n');
+    const fallbackRendered = tool
+      .renderResult(
+        {
+          content: [{ type: 'text', text: '# Fallback content\n\nUse the canonical content record.' }],
+          details: { schema: 'wrong', candidates: [] },
+        },
+        {},
+        theme,
+      )
+      .render?.(80)
+      .join('\n');
+
+    expect(richRendered).toContain('1. Local workbench');
+    expect(richRendered).toContain('Status: Recognition proposal');
+    expect(richRendered).not.toContain('**Core bet:**');
+    expect(fallbackRendered).toContain('Fallback content');
+    expect(fallbackRendered).toContain('Use the canonical content record.');
+  });
+
+  it('renders present_review_set from validated details and falls back for malformed or structural-illegal details', async () => {
+    const review = await presentResult(PRESENT_REVIEW_SET_TOOL, {
+      exchangeId: 'review-cycle-1',
+      proposalEntryId: 'proposal-entry-1',
+      payload: validReviewPayload(),
+    });
+    const tool = registeredTools({ review: reviewDeps() }).get(PRESENT_REVIEW_SET_TOOL);
+    if (!tool) throw new Error('present_review_set was not registered');
+
+    const richRendered = tool.renderResult(review, {}, theme).render?.(80).join('\n');
+    const malformedFallback = tool
+      .renderResult(
+        {
+          content: [{ type: 'text', text: '# Fallback content\n\nUse the canonical content record.' }],
+          details: { schema: 'wrong', review_set: { nodes: [], edges: [] } },
+        },
+        {},
+        theme,
+      )
+      .render?.(80)
+      .join('\n');
+    const structuralIllegal = await registeredTools()
+      .get(PRESENT_REVIEW_SET_TOOL)
+      ?.execute(
+        'review-no-deps',
+        {
+          exchangeId: 'review-cycle-1',
+          proposalEntryId: 'proposal-entry-1',
+          payload: validReviewPayload(),
+        },
+        undefined,
+        undefined,
+        {} as never,
+      );
+    if (!structuralIllegal) throw new Error('present_review_set returned no structural-illegal result');
+    const structuralIllegalRendered = tool.renderResult(structuralIllegal, {}, theme).render?.(80).join('\n');
+
+    expect(richRendered).toContain('Status: Review-set proposal');
+    expect(richRendered).toContain('G1 · goal');
+    expect(richRendered).toContain('Depends on: REQ1');
+    expect(richRendered).not.toContain('accepted');
+    expect(richRendered).not.toContain('committed');
+    expect(richRendered).not.toContain('applied');
+    expect(malformedFallback).toContain('Fallback content');
+    expect(malformedFallback).toContain('Use the canonical content record.');
+    expect(structuralIllegalRendered).toContain('STRUCTURAL_ILLEGAL');
+    expect(structuralIllegalRendered).toContain('review-set graph dependencies unavailable');
+  });
+
   it('drives declared candidate, review-set, and digest continuations by reference', async () => {
     const ask = registeredTools().get(ASK_TOOL);
     if (!ask) throw new Error('ask was not registered');
@@ -727,5 +988,115 @@ describe('structured exchange ask tools', () => {
         message: 'Structured exchange undeclared-candidate does not declare an ask continuation',
       },
     });
+  });
+
+  it('backs out from nested single-choice steps to the picker without recording cancellation', async () => {
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
+
+    const otherInput = vi.fn(async () => undefined);
+    const other = await ask.execute(
+      'ask-choice-other-back',
+      {
+        exchangeId: 'choice-other-back',
+        body: 'Select one option.',
+        options: [{ id: 'root', label: 'Keep the listed option' }],
+        allowOther: true,
+      },
+      undefined,
+      undefined,
+      { hasUI: true, ui: { custom: customPickSequence([1, 0]), input: otherInput } } as never,
+    );
+
+    const requiredCommentInput = vi.fn(async () => undefined);
+    const requiredComment = await ask.execute(
+      'ask-choice-required-comment-back',
+      {
+        exchangeId: 'choice-required-comment-back',
+        body: 'Select one option.',
+        options: [{ id: 'root', label: 'Keep the listed option' }],
+        allowNone: true,
+      },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom: customPickSequence([1, 0]), input: requiredCommentInput },
+      } as never,
+    );
+
+    const optionalCommentInput = vi.fn(async () =>
+      optionalCommentInput.mock.calls.length === 1 ? undefined : '',
+    );
+    const optionalComment = await ask.execute(
+      'ask-choice-optional-comment-back',
+      {
+        exchangeId: 'choice-optional-comment-back',
+        body: 'Select one option.',
+        options: [
+          { id: 'first', label: 'First path' },
+          { id: 'second', label: 'Second path' },
+        ],
+        commentPrompt: 'Optional comment',
+      },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom: customPickSequence([0, 1]), input: optionalCommentInput },
+      } as never,
+    );
+
+    expect(other.details).toMatchObject({
+      answered: { choice: { id: 'root', label: 'Keep the listed option', kind: 'listed' } },
+    });
+    expect(requiredComment.details).toMatchObject({
+      answered: { choice: { id: 'root', label: 'Keep the listed option', kind: 'listed' } },
+    });
+    expect(optionalComment.details).toMatchObject({
+      answered: { choice: { id: 'second', label: 'Second path', kind: 'listed' } },
+    });
+    expect(other.terminate).toBeUndefined();
+    expect(requiredComment.terminate).toBeUndefined();
+    expect(optionalComment.terminate).toBeUndefined();
+    expect(otherInput).toHaveBeenCalledExactlyOnceWith('Other', 'Describe your answer');
+    expect(requiredCommentInput).toHaveBeenCalledExactlyOnceWith('Required comment', undefined);
+    expect(optionalCommentInput).toHaveBeenNthCalledWith(1, 'Optional comment');
+    expect(optionalCommentInput).toHaveBeenNthCalledWith(2, 'Optional comment');
+  });
+
+  it('backs out from multi-choice Other entry with checkbox state restored', async () => {
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
+    const input = vi.fn(async () => undefined);
+    const custom = customMultiPickThenAssertRestored({
+      firstIndexes: [0, 2],
+      restoredText: '[x] Move quickly',
+      secondIndexes: [2],
+    });
+
+    const result = await ask.execute(
+      'ask-multi-other-back',
+      {
+        exchangeId: 'multi-other-back',
+        body: 'Select all priorities.',
+        options: [
+          { id: 'speed', label: 'Move quickly' },
+          { id: 'safety', label: 'Keep the transcript safe' },
+        ],
+        multiple: true,
+        allowOther: true,
+      },
+      undefined,
+      undefined,
+      { hasUI: true, ui: { custom, input } } as never,
+    );
+
+    expect(result.details).toMatchObject({
+      answered: { choices: [{ id: 'speed', label: 'Move quickly', kind: 'listed' }] },
+    });
+    expect(result.terminate).toBeUndefined();
+    expect(custom).toHaveBeenCalledTimes(2);
+    expect(input).toHaveBeenCalledExactlyOnceWith('Other', 'Describe your answer');
   });
 });

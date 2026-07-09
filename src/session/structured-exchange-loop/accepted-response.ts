@@ -1,7 +1,9 @@
+import { formatAsk } from '../../agents/contexts/exchanges/ask.js';
 import { formatRequestAnswer } from '../../agents/contexts/exchanges/request-response.js';
 import { formatRequestChoice } from '../../agents/contexts/exchanges/request-response.js';
 import { formatRequestChoices } from '../../agents/contexts/exchanges/request-response.js';
 import { formatRequestReview } from '../../agents/contexts/exchanges/request-response.js';
+import { askQuestionEcho, projectAsk } from '../../exchanges/projections/ask.js';
 import { projectRequestAnswer } from '../../exchanges/projections/request-response.js';
 import { projectRequestChoice } from '../../exchanges/projections/request-response.js';
 import { projectRequestChoices } from '../../exchanges/projections/request-response.js';
@@ -9,9 +11,10 @@ import { projectRequestReview } from '../../exchanges/projections/request-respon
 import { structuredExchangeResponseRequiresComment } from '../../exchanges/schemas/index.js';
 import type { PendingStructuredExchange } from './pending-exchange.js';
 import {
-  exchangeToolCallId,
   syntheticExchangeToolCallMessage,
+  syntheticExchangeToolResultMessage,
   type SyntheticExchangeToolCallMessage,
+  type SyntheticExchangeToolResultMessage,
 } from './synthetic-tool-call.js';
 
 interface StructuredExchangeTextResponseInput {
@@ -44,20 +47,7 @@ export type StructuredExchangeResponseInput =
   | StructuredExchangeMultiChoiceResponseInput
   | StructuredExchangeReviewResponseInput;
 
-interface AcceptedToolTextContent {
-  type: 'text';
-  text: string;
-}
-
-interface AcceptedToolResultMessage {
-  role: 'toolResult';
-  toolCallId: string;
-  toolName: string;
-  content: AcceptedToolTextContent[];
-  details: Record<string, unknown>;
-  isError: false;
-  timestamp: 0;
-}
+type AcceptedToolResultMessage = SyntheticExchangeToolResultMessage<Record<string, unknown>>;
 
 export type AcceptedStructuredExchangeResponse =
   | {
@@ -84,9 +74,10 @@ export function acceptedResponseFromParams(
       ok: true,
       answer: { text: answerText },
       toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'ask'),
-      toolResultMessage: {
-        ...toolResultMessageBase(pending, 'ask'),
-        content: [
+      toolResultMessage: syntheticExchangeToolResultMessage(
+        pending.exchangeId,
+        'ask',
+        [
           {
             type: 'text',
             text: formatRequestAnswer(
@@ -98,12 +89,12 @@ export function acceptedResponseFromParams(
             ),
           },
         ],
-        details: projectRequestAnswer({
+        projectRequestAnswer({
           exchangeId: pending.exchangeId,
           status: 'answered',
           answer: answerText,
         }),
-      },
+      ),
     };
   }
 
@@ -122,26 +113,45 @@ export function acceptedResponseFromParams(
         message: 'Elicitation response requires a comment for Other or None selections',
       };
     }
-    const respondsToPresentTool =
-      pending.respondsToPresentTool === 'present_candidates' ? 'present_candidates' : 'present_question';
-    const details = projectRequestChoice({
+    if (pending.respondsToPresentTool === 'present_candidates') {
+      const details = projectRequestChoice({
+        exchangeId: pending.exchangeId,
+        respondsToPresentTool: pending.respondsToPresentTool,
+        status: 'answered',
+        choice: { id: choice.id, label: choice.label, kind: choiceKind(choice.id) },
+        options: optionEcho(pending.options),
+        comment,
+      });
+      return acceptedSingleSelectResponse(pending.exchangeId, choice, formatRequestChoice(details), details);
+    }
+
+    if (pending.respondsToPresentTool !== undefined) {
+      return {
+        ok: false,
+        message: `Single-select answers are only supported for present_candidates or standalone ask; got ${pending.respondsToPresentTool}`,
+      };
+    }
+
+    const details = projectAsk({
       exchangeId: pending.exchangeId,
-      respondsToPresentTool,
       status: 'answered',
+      question: askQuestionEcho({
+        body: pending.prompt,
+        options: pending.options.map((option) => ({
+          id: option.id,
+          label: option.label,
+          ...(option.rationale !== undefined ? { description: option.rationale } : {}),
+        })),
+      }),
       choice: { id: choice.id, label: choice.label, kind: choiceKind(choice.id) },
-      options: optionEcho(pending.options),
-      comment,
+      options: pending.options.map((option) => ({
+        id: option.id,
+        label: option.label,
+        ...(option.rationale !== undefined ? { description: option.rationale } : {}),
+      })),
+      ...(comment !== undefined ? { comment } : {}),
     });
-    return {
-      ok: true,
-      answer: { optionId: choice.id, label: choice.label },
-      toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'ask'),
-      toolResultMessage: {
-        ...toolResultMessageBase(pending, 'ask'),
-        content: [{ type: 'text', text: formatRequestChoice(details) }],
-        details,
-      },
-    };
+    return acceptedSingleSelectResponse(pending.exchangeId, choice, formatAsk(details), details);
   }
 
   if ('review' in params.answer) {
@@ -165,11 +175,12 @@ export function acceptedResponseFromParams(
         },
       },
       toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'ask'),
-      toolResultMessage: {
-        ...toolResultMessageBase(pending, 'ask'),
-        content: [{ type: 'text', text: formatRequestReview(details.details) }],
-        details: details.details,
-      },
+      toolResultMessage: syntheticExchangeToolResultMessage(
+        pending.exchangeId,
+        'ask',
+        [{ type: 'text', text: formatRequestReview(details.details) }],
+        details.details,
+      ),
     };
   }
 
@@ -209,9 +220,10 @@ export function acceptedResponseFromParams(
     ok: true,
     answer: { optionIds: choices.map((choice) => choice.id), choices },
     toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'ask'),
-    toolResultMessage: {
-      ...toolResultMessageBase(pending, 'ask'),
-      content: [
+    toolResultMessage: syntheticExchangeToolResultMessage(
+      pending.exchangeId,
+      'ask',
+      [
         {
           type: 'text',
           text: formatRequestChoices(
@@ -229,7 +241,7 @@ export function acceptedResponseFromParams(
           ),
         },
       ],
-      details: projectRequestChoices({
+      projectRequestChoices({
         exchangeId: pending.exchangeId,
         status: 'answered',
         choices: choices.map((choice) => ({
@@ -240,7 +252,7 @@ export function acceptedResponseFromParams(
         options: optionEcho(pending.options),
         comment,
       }),
-    },
+    ),
   };
 }
 
@@ -321,6 +333,25 @@ function projectAcceptedReviewDetails(
   };
 }
 
+function acceptedSingleSelectResponse(
+  exchangeId: string,
+  choice: { readonly id: string; readonly label: string },
+  text: string,
+  details: Record<string, unknown>,
+): AcceptedStructuredExchangeResponse {
+  return {
+    ok: true,
+    answer: { optionId: choice.id, label: choice.label },
+    toolCallMessage: syntheticExchangeToolCallMessage(exchangeId, 'ask'),
+    toolResultMessage: syntheticExchangeToolResultMessage(
+      exchangeId,
+      'ask',
+      [{ type: 'text', text }],
+      details,
+    ),
+  };
+}
+
 function invalidResponseMode(): AcceptedStructuredExchangeResponse {
   return {
     ok: false,
@@ -340,17 +371,4 @@ function optionEcho(options: readonly { id: string; content: string; rationale?:
     content: option.content,
     ...(option.rationale !== undefined ? { rationale: option.rationale } : {}),
   }));
-}
-
-function toolResultMessageBase(
-  pending: PendingStructuredExchange,
-  requestTool: 'ask' | 'request_response' | 'request_review',
-) {
-  return {
-    role: 'toolResult' as const,
-    toolCallId: exchangeToolCallId(pending.exchangeId, requestTool),
-    toolName: requestTool,
-    isError: false as const,
-    timestamp: 0 as const,
-  };
 }

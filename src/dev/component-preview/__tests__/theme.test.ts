@@ -6,11 +6,14 @@ import { TUI } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vitest';
 
 import { VirtualTerminal } from '../../../.pi/__tests__/support/virtual-terminal.js';
+import { OPERATIONAL_MODE_BORDER_COLOR_ROLES } from '../../../.pi/components/mode-border-theme.js';
 import { createRuntimeModePickerComponent } from '../../../.pi/components/runtime-posture/axis-picker.js';
+import { OPERATIONAL_MODE_IDS } from '../../../session/schema/kinds.js';
 import { ComponentGalleryComponent } from '../gallery-component.js';
 import {
   createComponentPreviewTheme,
   createThemePaintingTerminal,
+  loadComponentPreviewBorderColorRoles,
   parseBrunchThemePalette,
   registerComponentPreviewThemeToggle,
   shouldReloadComponentPreviewThemeForWatchEvent,
@@ -116,6 +119,27 @@ describe('parseBrunchThemePalette', () => {
       const raw = readFileSync(fileURLToPath(new URL(`brunch-${variant}.json`, THEME_DIR)), 'utf8');
       expect(() => parseBrunchThemePalette(raw, variant)).not.toThrow();
     }
+  });
+
+  it('defines one mode border color role per operational mode in both shipped themes', () => {
+    const requiredRoles = OPERATIONAL_MODE_IDS.map((mode) => OPERATIONAL_MODE_BORDER_COLOR_ROLES[mode]);
+
+    for (const variant of ['dark', 'light'] as const) {
+      const raw = readFileSync(fileURLToPath(new URL(`brunch-${variant}.json`, THEME_DIR)), 'utf8');
+      const palette = parseBrunchThemePalette(raw, variant);
+      for (const role of requiredRoles) {
+        expect((palette.fgColors as Record<string, string>)[role], `${variant} ${role}`).toMatch(
+          /^#[0-9a-fA-F]{6}$/,
+        );
+      }
+    }
+  });
+
+  it('enumerates named border roles from the shipped theme files for the demo', () => {
+    const roles = loadComponentPreviewBorderColorRoles();
+
+    expect(roles).toEqual(expect.arrayContaining(['borderMuted', 'border', 'borderAccent']));
+    expect(roles).toEqual(expect.arrayContaining(Object.values(OPERATIONAL_MODE_BORDER_COLOR_ROLES)));
   });
 });
 

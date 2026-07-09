@@ -53,4 +53,19 @@ describe('MultiChoicePickerComponent exclusivity', () => {
 
     expect(result?.choices.map((choice) => choice.id)).toEqual(['a']);
   });
+
+  it('can re-open with previous checkbox state selected', () => {
+    const component = createMultiChoicePickerComponent({
+      prompt: 'Pick any that apply',
+      choices: CHOICES,
+      initialSelectedChoiceIds: ['a', 'none'],
+      theme,
+      onDone: () => {},
+    });
+
+    const rendered = component.render(80).join('\n');
+    expect(rendered).toContain('› [x] Option A');
+    expect(rendered).toContain('  [ ] Option B');
+    expect(rendered).toContain('  [x] None');
+  });
 });

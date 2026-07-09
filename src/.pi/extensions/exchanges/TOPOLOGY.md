@@ -4,10 +4,12 @@ Owns Pi registration, live UI collection, and TUI transcript `renderResult`
 wiring for the structured-exchange tool family (`ask`, `present_review_set`,
 `present_candidates`, `present_digest`). Result details are constructed only
 through `src/exchanges/projections/*` and validated against the Zod schemas in
-`src/exchanges/schemas/` (D108-L). D104-L sets the render rule: `renderResult`
-is the Markdown pass-through of the formatter's `content` string, with
-render-honesty (details → content; elision lists beside formatters) owned in
-`agents/contexts/exchanges/`.
+`src/exchanges/schemas/` (D108-L). D104-L sets the render rule:
+`renderResult` may render from validated details for a family-specific rich
+component, and must fall back to Markdown pass-through of the formatter's
+`content` string when details are malformed or no rich renderer exists.
+Render-honesty (details → content; elision lists beside formatters) stays owned
+in `agents/contexts/exchanges/`.
 
 ## Answer sources
 
@@ -24,8 +26,22 @@ rejected at the params boundary.
 
 Free text uses the bordered answer editor, then the sealed editor fallback, then
 the live broker when present. Choice/review continuations use Brunch-owned
-`ctx.ui.custom` pickers. No-UI option asks return `unavailable` until A39-L /
-headless ask discovery lands.
+`ctx.ui.custom` pickers. Mounted answer/picker borders take the current
+operational-mode color role through the shared component border-color seam;
+workspace/consult surfaces keep their own surface-identity colors. Picker-root
+dismissal is terminal `cancelled`; nested Other/comment input steps share one
+`StepResult`-shaped collector and return to the picker, with multi-choice
+checkbox state restored. Declared-continuation root cancellation contributes a
+`brunch.continue` status hint naming `/brunch:continue`; standalone ask
+cancellation is terminal and does not promise recovery. Only an **answered**
+terminal completes a declared continuation in the recovery scan
+(`src/exchanges/recovery.ts`): cancelled/unavailable results keep the offer
+resumable, so the hint and `ask({ continues })` stay honest after a cancel. The
+continuation collector owns the hint lifecycle — it surfaces the hint on cancel
+and clears it on any answered collection (command-recovered or agent-driven).
+The command re-presents the newest incomplete declared continuation through the
+same collector. No-UI option asks return `unavailable` until A39-L / headless
+ask discovery lands.
 
 ## Declared continuations
 
@@ -52,8 +68,15 @@ and capture-facing offer answers keep their historical wire vocabulary.
 
 ```pseudo
 exchanges/*        -> src/exchanges/, agents/contexts/exchanges/, .pi/components/
+exchanges/ask/     -> private continuation collectors imported only by ask.ts
 exchanges/shared/  -> shared UI dispatch/render helpers only; no tool-result detail literals
 ```
+
+`present_candidates` and `present_review_set` are details-backed transcript
+renderers: they parse their family details and render proposal cards through
+`ExchangeCandidatesResultComponent` / `ExchangeReviewSetResultComponent`, with
+shared `details-rendering.ts` keeping legacy/malformed result fallback on
+canonical `content`. `ask` and `present_digest` intentionally use Markdown pass-through; for digest, the prose formatter content is the transcript presentation.
 
 `src/exchanges/schemas/__tests__/source-boundary.test.ts` guards the
 details-contract half. `src/.pi/extensions/__tests__/exchange-family-completeness.test.ts`

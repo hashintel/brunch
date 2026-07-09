@@ -69,8 +69,11 @@ describe('structured exchange loop helpers', () => {
     });
   });
 
-  it('materializes accepted single-select responses as ask tool results', () => {
-    const pending = nextDeterministicStructuredExchange(0);
+  it('materializes accepted candidate single-select responses as ask tool results', () => {
+    const pending = {
+      ...nextDeterministicStructuredExchange(0),
+      respondsToPresentTool: 'present_candidates',
+    } satisfies PendingStructuredExchange;
 
     const accepted = acceptedResponseFromParams(pending, {
       exchangeId: pending.exchangeId,
@@ -93,6 +96,48 @@ describe('structured exchange loop helpers', () => {
         },
       },
     });
+  });
+
+  it('materializes standalone ask single-select responses without retired present vocabulary', () => {
+    const pending = nextDeterministicStructuredExchange(0);
+
+    const accepted = acceptedResponseFromParams(pending, {
+      exchangeId: pending.exchangeId,
+      answer: { optionId: 'new-from-scratch' },
+      note: 'This is greenfield.',
+    });
+
+    expect(accepted).toMatchObject({
+      ok: true,
+      toolResultMessage: {
+        toolName: 'ask',
+        details: {
+          tool_meta: { curr: 'ask', next: 'capture_choice' },
+          answered: { comment: 'This is greenfield.', choice: { id: 'new-from-scratch' } },
+        },
+      },
+    });
+    expect(JSON.stringify(accepted)).not.toContain('present_question');
+  });
+
+  it('rejects non-candidate single-select answers instead of minting retired present vocabulary', () => {
+    const pending = {
+      ...nextDeterministicStructuredExchange(0),
+      respondsToPresentTool: 'present_question',
+    } satisfies PendingStructuredExchange;
+
+    const accepted = acceptedResponseFromParams(pending, {
+      exchangeId: pending.exchangeId,
+      answer: { optionId: 'new-from-scratch' },
+      note: 'This legacy question should not be relabeled.',
+    });
+
+    expect(accepted).toEqual({
+      ok: false,
+      message:
+        'Single-select answers are only supported for present_candidates or standalone ask; got present_question',
+    });
+    expect(JSON.stringify(accepted)).not.toContain('request_choice');
   });
 
   it('rejects single-select Other or None without a comment', () => {

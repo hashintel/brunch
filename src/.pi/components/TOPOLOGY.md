@@ -24,20 +24,35 @@ Components grow by **fractal sub-tree**: when a component outgrows a single file
 ```text
 components/
 ├── alternatives.ts              single-file components
-├── brunch-editor.ts             [experimental] bordered custom editor with embedded runtime-state
-│                                labels — design exploration, not yet wired into production chrome
+├── brunch-editor.ts             bordered `CustomEditor` wrapper for Brunch's persistent input editor;
+│                                caller-injected labels/color keep runtime/session state out of the component
 ├── brunch-identity.ts
 ├── brunch-version.ts
 ├── cards.ts
+├── choice-row.ts              shared described-option row projection and rendered-row accumulator for picker/menu affordances
 ├── chrome-header.ts
+├── chrome-shortcuts.ts        shared shortcut constants/hint formatting consumed by chrome copy
+│                                and the command registrar that binds those keys
+├── consult-menu.ts            bordered session-orientation consult menu using the shared two-line
+│                                choice-row projection and `borderAccent` surface-identity border role
 ├── editor-lines.ts            shared pi-tui Editor border/rule stripping helpers for boxed
 │                                editor surfaces
 ├── exchange-answer-editor.ts   bordered free-text exchange answer editor hosting pi-tui Editor
+├── exchange-candidates-result.ts details-backed `present_candidates` transcript
+│                                renderer; presents recognition proposals as
+│                                rounded cards while model-facing content stays
+│                                owned by agents/contexts/exchanges
 ├── exchange-decision-picker.ts bordered single-decision exchange response picker
+├── exchange-review-set-result.ts details-backed `present_review_set` transcript
+│                                renderer; presents proposed node/edge drafts and
+│                                proposed graph codes as non-committal proposal cards
 ├── exchange-markdown-body.ts   shared structured-exchange markdown body projection/theme used by
 │                                bordered answering components and transcript renderers
 ├── lateral-padding.ts          transparent horizontal padding wrapper
-├── multi-choice-picker.ts      bordered checkbox-style exchange response picker
+├── mode-border-theme.ts        Brunch-owned operational-mode border color roles shared by chrome
+│                                and ask surfaces
+├── multi-choice-picker.ts      bordered checkbox-style exchange response picker; supports
+│                                restored checked state when an owning flow re-presents it
 ├── mouse-wheel.ts              parseWheelEvent() — SGR wheel-event decoder used by the dev
 │                                preview harness; components still receive ordinary key bytes
 ├── rounded-box.ts              projectRoundedBox() + stackSections() — pure rounded-border primitive

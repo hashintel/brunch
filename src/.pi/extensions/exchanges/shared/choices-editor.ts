@@ -132,7 +132,8 @@ export async function requestChoicesFromSources(
       let choices: readonly RequestChoicesEditorChoice[] = picked.choices;
       if (choices.some((choice) => choice.id === 'other')) {
         const other = await collectRequiredInput(ctx, 'Other', 'Describe your answer');
-        if (other.status !== 'answered') return terminalResult(params.exchangeId, other.status);
+        if (other.status !== 'answered')
+          return terminalResult(params.exchangeId, other.status === 'back' ? 'cancelled' : other.status);
         choices = choices.map((choice) =>
           choice.id === 'other' ? { ...choice, label: other.value } : choice,
         );
@@ -146,7 +147,11 @@ export async function requestChoicesFromSources(
       let comment: string | undefined;
       if (requiresComment) {
         const required = await collectRequiredInput(ctx, params.commentPrompt ?? 'Required comment');
-        if (required.status !== 'answered') return terminalResult(params.exchangeId, required.status);
+        if (required.status !== 'answered')
+          return terminalResult(
+            params.exchangeId,
+            required.status === 'back' ? 'cancelled' : required.status,
+          );
         comment = required.value;
       } else if (params.commentPrompt !== undefined) {
         comment = await ui.input?.(params.commentPrompt);

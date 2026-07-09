@@ -1,7 +1,14 @@
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import { SettingsManager, type ExtensionFactory } from '@earendil-works/pi-coding-agent';
+import {
+  DefaultResourceLoader,
+  SettingsManager,
+  type ExtensionFactory,
+  type Theme,
+} from '@earendil-works/pi-coding-agent';
+
+import { cleanupBrunchKeybindingFilePolicy } from './pi-keybindings.js';
 
 /**
  * Brunch theme pair. The `light/dark` slash syntax enables Pi's native
@@ -9,7 +16,9 @@ import { SettingsManager, type ExtensionFactory } from '@earendil-works/pi-codin
  * the pair against the detected terminal background and re-resolves live on
  * terminal color-scheme change events (e.g. macOS appearance flips).
  */
-const BRUNCH_THEME_SETTING = 'brunch-light/brunch-dark';
+const BRUNCH_LIGHT_THEME_NAME = 'brunch-light';
+const BRUNCH_DARK_THEME_NAME = 'brunch-dark';
+const BRUNCH_THEME_SETTING = `${BRUNCH_LIGHT_THEME_NAME}/${BRUNCH_DARK_THEME_NAME}`;
 
 /**
  * Theme JSONs live beside the Pi runtime surface in `.pi/themes/` and are
@@ -17,7 +26,6 @@ const BRUNCH_THEME_SETTING = 'brunch-light/brunch-dark';
  * resolution works from both the source and built trees.
  */
 const BRUNCH_THEME_DIR = fileURLToPath(new URL('../.pi/themes/', import.meta.url));
-
 export const BRUNCH_SETTINGS_POLICY = {
   quietStartup: true,
   defaultProjectTrust: 'never', // TODO: change this?
@@ -146,6 +154,12 @@ export interface BrunchPiSettings {
   resourceLoaderOptions: BrunchResourceLoaderOptions;
 }
 
+export interface BrunchStartupThemeOptions {
+  cwd: string;
+  agentDir: string;
+  env?: NodeJS.ProcessEnv;
+}
+
 export interface BrunchResourceLoaderOptions {
   noContextFiles: true;
   noExtensions: true;
@@ -168,6 +182,7 @@ export function createBrunchPiSettings({
   agentDir,
   extensionFactories,
 }: BrunchPiSettingsOptions): BrunchPiSettings {
+  cleanupBrunchKeybindingFilePolicy(agentDir);
   return {
     settingsManager: createBrunchSettingsManager(cwd, agentDir),
     resourceLoaderOptions: brunchResourceLoaderOptions(extensionFactories),
@@ -187,6 +202,34 @@ export function brunchResourceLoaderOptions(
     appendSystemPrompt: [],
     extensionFactories,
   };
+}
+
+export async function resolveBrunchStartupTheme({
+  cwd,
+  agentDir,
+  env = process.env,
+}: BrunchStartupThemeOptions): Promise<Theme | undefined> {
+  const settingsManager = createBrunchSettingsManager(cwd, agentDir);
+  const resourceLoader = new DefaultResourceLoader({
+    cwd,
+    agentDir,
+    settingsManager,
+    ...brunchResourceLoaderOptions([]),
+  });
+  await resourceLoader.reload();
+  const themeName =
+    detectStartupTerminalTheme(env) === 'light' ? BRUNCH_LIGHT_THEME_NAME : BRUNCH_DARK_THEME_NAME;
+  return resourceLoader.getThemes().themes.find((theme) => theme.name === themeName);
+}
+
+function detectStartupTerminalTheme(env: NodeJS.ProcessEnv): 'dark' | 'light' {
+  // ceiling: COLORFGBG only captures startup background; live-theme-controller remains the runtime-change upgrade path.
+  const colorfgbg = env.COLORFGBG ?? '';
+  const background = Number.parseInt(colorfgbg.split(';').at(-1) ?? '', 10);
+  if (!Number.isNaN(background)) {
+    return background < 8 ? 'dark' : 'light';
+  }
+  return 'dark';
 }
 
 export function applyBrunchOfflineDefault(

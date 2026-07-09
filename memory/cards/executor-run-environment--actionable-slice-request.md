@@ -28,7 +28,7 @@ Executable plan artifacts preserve graph verification/check nodes that witness p
 - `memory/SPEC.md` — D98-L, D111-L, D112-L, I58-L; capability requirements 24-26.
 - `memory/PLAN.md` — frontier: `executor-run-environment`; related closed frontier: `executor-run-integrity`.
 - `src/executor/TOPOLOGY.md` — projection boundary, cook compatibility, and side-effect rules.
-- `memory/cards/executor-run-environment--substrate-verify.md` — current substrate/verify behavior this card completes.
+- `memory/PLAN.md` — `executor-run-environment` definition; substrate/verify behavior is built and merged (former substrate scope card consumed).
 
 ### Boundary Crossings
 
@@ -70,7 +70,7 @@ The active slice execution request contains enough context for a sealed worker i
 - `memory/SPEC.md` — D98-L, D111-L, D112-L, I58-L; capability requirements 24-26.
 - `memory/PLAN.md` — frontier: `executor-run-environment`; related closed frontier: `executor-run-integrity`.
 - `src/executor/TOPOLOGY.md` — `slice-execute.ts`, `agent-result.ts`, `test-result.ts`, and run side-effect rules.
-- `memory/cards/executor-run-environment--substrate-verify.md` — current `empty_dir` and `npm_test` policy.
+- `memory/PLAN.md` — `executor-run-environment` definition; current `empty_dir` and `npm_test` policy is built and merged.
 
 ### Boundary Crossings
 

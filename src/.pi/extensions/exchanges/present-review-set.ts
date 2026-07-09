@@ -6,13 +6,16 @@ import {
 } from '../../../agents/contexts/exchanges/present-review-set.js';
 import { projectPresentReviewSet } from '../../../exchanges/projections/present-review-set.js';
 import {
+  zPresentReviewSetDetails,
   zPresentReviewSetParams,
   type PresentReviewSetDetails,
   type PresentReviewSetParams,
 } from '../../../exchanges/schemas/index.js';
 import type { CommandExecutor, StructuralIllegal } from '../../../graph/command-executor.js';
 import type { ReviewSetProposalPayload } from '../../../graph/review-set.js';
+import { ExchangeReviewSetResultComponent } from '../../components/exchange-review-set-result.js';
 import { piSchema } from './pi-schema.js';
+import { renderDetailsOrMarkdownResult } from './shared/details-rendering.js';
 import { renderEmptyStructuredExchangeCall, renderMarkdownResult } from './shared/markdown.js';
 
 export const PRESENT_REVIEW_SET_TOOL = 'present_review_set' as const;
@@ -94,7 +97,12 @@ export function createPresentReviewSetTool(deps?: ReviewSetStructuredExchangeDep
     },
 
     renderResult(result, _options, theme) {
-      return renderMarkdownResult(result, theme);
+      return renderDetailsOrMarkdownResult(
+        result,
+        zPresentReviewSetDetails,
+        (details) => new ExchangeReviewSetResultComponent(details, theme),
+        () => renderMarkdownResult(result, theme),
+      );
     },
   });
 }

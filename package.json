@@ -41,7 +41,7 @@
     "seed": "tsx src/graph/seed-fixtures.ts",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
-    "test": "vitest --run",
+    "test": "vitest --run --maxWorkers=4",
     "test:watch": "vitest",
     "test:context-surfaces": "vitest --run src/agents/contexts src/app/__tests__/print-workspace-state.test.ts src/session/__tests__/transcript-markdown.test.ts",
     "test:context-surfaces:watch": "vitest src/agents/contexts src/app/__tests__/print-workspace-state.test.ts src/session/__tests__/transcript-markdown.test.ts",

@@ -51,7 +51,7 @@ const exchangeFamilyCoverage = [
     family: 'ask',
     formatter: formatAsk,
     previewId: 'ask',
-    snapshots: [{ file: 'ask-tuples.md', markers: ['# ask answered', '## Question'] }],
+    snapshots: [{ file: 'ask-tuples.md', markers: ['# ask answered', '**Answer:**', '~~Renderer sweep~~'] }],
   },
   {
     tool: PRESENT_CANDIDATES_TOOL,
@@ -181,6 +181,21 @@ describe('structured exchange family completeness', () => {
       const preview = previewsById.get(previewId);
       expect(preview?.label, previewId).toMatch(/legacy transcript compatibility/);
       expect(preview?.presentedLike, previewId).toMatch(/legacy transcript compatibility/);
+    }
+  });
+
+  it('keeps adopted present families on details-backed renderers while other families stay content pass-through', () => {
+    const previewsById = new Map(COMPONENT_PREVIEW_REGISTRY.map((entry) => [entry.id, entry]));
+
+    for (const previewId of ['present-candidates', 'present-review-set']) {
+      expect(previewsById.get(previewId)?.presentedLike, previewId).toMatch(
+        /validated details-backed renderer/,
+      );
+    }
+    for (const previewId of ['ask', 'present-digest']) {
+      expect(previewsById.get(previewId)?.presentedLike, previewId).toMatch(
+        /Markdown pass-through of content/,
+      );
     }
   });
 });

@@ -30,6 +30,16 @@ export interface SyntheticExchangeToolCallMessage {
   timestamp: 0;
 }
 
+export interface SyntheticExchangeToolResultMessage<TDetails = Record<string, unknown>> {
+  role: 'toolResult';
+  toolCallId: string;
+  toolName: string;
+  content: { type: 'text'; text: string }[];
+  details: TDetails;
+  isError: false;
+  timestamp: 0;
+}
+
 /**
  * Anthropic constrains `tool_use_id` to `^[a-zA-Z0-9_-]+$`, so the synthetic
  * id joins exchange id and tool name with `__` (never `:`).
@@ -65,6 +75,23 @@ export function syntheticExchangeToolCallMessage(
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
     },
     stopReason: 'toolUse',
+    timestamp: 0,
+  };
+}
+
+export function syntheticExchangeToolResultMessage<TDetails>(
+  exchangeId: string,
+  toolName: string,
+  content: { type: 'text'; text: string }[],
+  details: TDetails,
+): SyntheticExchangeToolResultMessage<TDetails> {
+  return {
+    role: 'toolResult',
+    toolCallId: exchangeToolCallId(exchangeId, toolName),
+    toolName,
+    content,
+    details,
+    isError: false,
     timestamp: 0,
   };
 }

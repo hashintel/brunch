@@ -41,6 +41,8 @@
     "mdListBullet": "apricot",
     "mdQuote": "gray",
     "mdQuoteBorder": "gray",
+    "modeExecuteBorder": "green",
+    "modeSpecifyBorder": "fuchsia",
     "muted": "gray",
     "selectedBg": "selectedBg",
     "success": "green",

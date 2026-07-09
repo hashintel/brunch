@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 
@@ -60,9 +60,11 @@ import {
   BRUNCH_EXECUTE_STATUS_TOOL,
   BRUNCH_EXECUTE_ORCHESTRATE_TOOL,
   BRUNCH_INTROSPECTION_COMMAND,
+  BRUNCH_MENU_COMMAND,
+  BRUNCH_MENU_SHORTCUT,
   BRUNCH_MODE_COMMAND,
-  BRUNCH_SWITCH_COMMAND,
-  BRUNCH_SWITCH_SHORTCUT,
+  BRUNCH_MODE_PICKER_SHORTCUT,
+  BRUNCH_MODE_SHORTCUT,
   chromeStateForWorkspace,
   createBrunchPiExtensions,
   createInMemoryBrunchIntrospectionStore,
@@ -144,6 +146,53 @@ describe('Brunch TUI boot', () => {
     expect(observedModelAvailable).toBe(false);
     expect(observedNoAuthGuidance).toContain('brunch login');
     expect(observedNoAuthGuidance).toContain('/login');
+  });
+
+  it('threads the resolved Brunch theme into workspace-dialog preflight', async () => {
+    for (const scenario of [
+      { colorfgbg: '15;0', expectedThemeName: 'brunch-dark' },
+      { colorfgbg: '0;15', expectedThemeName: 'brunch-light' },
+    ]) {
+      const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-'));
+      const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agentdir-'));
+      const workspace = readyWorkspace(cwd, 'session-ready');
+      let observedThemeName: string | undefined;
+
+      vi.stubEnv('PI_CODING_AGENT_DIR', agentDir);
+      vi.stubEnv('COLORFGBG', scenario.colorfgbg);
+      try {
+        await runBrunchTui({
+          cwd,
+          coordinator: {
+            inspectWorkspace: async () => ({
+              cwd,
+              currentSpec: workspace.spec,
+              currentSessionFile: workspace.session.file,
+              needsNewSpec: false,
+              specs: [],
+              unavailableSessions: [],
+            }),
+            activateWorkspace: async () => workspace,
+            bindCurrentSpecToReplacementSession: async () => workspace,
+          },
+          runWorkspaceDialogPreflight: async (_inventory, preflightOptions) => {
+            observedThemeName = (preflightOptions as { readonly theme?: { readonly name?: string } }).theme
+              ?.name;
+            return {
+              action: 'continue',
+              specId: workspace.spec.id,
+              sessionFile: workspace.session.file,
+            };
+          },
+          webSidecarRunner: async () => null,
+          launchInteractive: async () => {},
+        });
+      } finally {
+        vi.unstubAllEnvs();
+      }
+
+      expect(observedThemeName).toBe(scenario.expectedThemeName);
+    }
   });
 
   it('runs inspect, preflight, activation, and decision propagation before launching interactive mode', async () => {
@@ -762,6 +811,44 @@ describe('Brunch TUI boot', () => {
     expect(await readFile(launchedSessionFile!, 'utf8')).not.toContain('stale transcript');
   });
 
+  it('wires the persistent editor mount through the normal Brunch extension bundle', async () => {
+    const calls: string[] = [];
+    const sessionStart: Array<(event: unknown, ctx: FakeExtensionContext) => Promise<void>> = [];
+    const ui: FakeExtensionUi = {
+      ...fakeUi((method) => calls.push(method)),
+      setEditorComponent: (_factory) => calls.push('setEditorComponent'),
+    };
+
+    await createBrunchPiExtensions(
+      chromeStateForWorkspace(readyWorkspace('/tmp/project', 'session-1')),
+      undefined,
+      { coordinator: noOpWorkspaceCoordinator('/tmp/project') },
+    )({
+      on: (event: string, handler: never) => {
+        if (event === 'session_start') sessionStart.push(handler);
+      },
+      registerCommand: (_name: string, _options: unknown) => {},
+      registerShortcut: (_name: string, _options: unknown) => {},
+      registerTool: (_tool: unknown) => {},
+      registerMessageRenderer: (_type: string) => {},
+      sendMessage: (_message: unknown) => {},
+      getAllTools: () => [],
+      setActiveTools: (_tools: string[]) => {},
+      getThinkingLevel: () => 'low',
+    } as never);
+
+    for (const handler of sessionStart) {
+      await handler({}, {
+        sessionManager: { getEntries: () => [], getSessionName: () => null },
+        ui,
+        getContextUsage: () => undefined,
+        model: null,
+      } as never);
+    }
+
+    expect(calls).toContain('setEditorComponent');
+  });
+
   it('binds replacement sessions through internal session boundary events', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-'));
     const manager = SessionManager.create(cwd, join(cwd, '.brunch', 'sessions'));
@@ -926,23 +1013,25 @@ describe('Brunch TUI boot', () => {
     expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL);
     expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL);
     expect(registeredTools).not.toContain(BRUNCH_EXECUTE_SNAPSHOT_TOOL);
-    expect(commands.get(BRUNCH_SWITCH_COMMAND)?.description).toBe('Open the Brunch spec/session picker');
+    expect(commands.get(BRUNCH_MENU_COMMAND)?.description).toBe('Open the Brunch spec/session picker');
+    expect(commands.has(['brunch', 'switch'].join(':'))).toBe(false);
     const retiredWorkspaceCommand = ['brunch', 'workspace'].join('-');
     expect(commands.has(retiredWorkspaceCommand)).toBe(false);
     expect(commands.has('brunch')).toBe(false);
     for (const commandName of [BRUNCH_MODE_COMMAND]) {
       expect(commands.has(commandName)).toBe(true);
     }
-    // Disabled until operational: continue is unimplemented.
-    expect(commands.has(BRUNCH_CONTINUE_COMMAND)).toBe(false);
-    expect(shortcuts.get(BRUNCH_SWITCH_SHORTCUT)?.description).toBe('Open the Brunch spec/session picker');
+    expect(commands.has(BRUNCH_CONTINUE_COMMAND)).toBe(true);
+    expect(shortcuts.get(BRUNCH_MENU_SHORTCUT)?.description).toBe('Open the Brunch spec/session picker');
+    expect(shortcuts.get(BRUNCH_MODE_PICKER_SHORTCUT)?.description).toBe('Open the Brunch mode picker');
+    expect(shortcuts.get(BRUNCH_MODE_SHORTCUT)?.description).toBe('Cycle the Brunch mode');
     expect(shortcuts.has('ctrl+b')).toBe(false);
     // alt+b must stay unregistered: Pi reserves it for cursorWordLeft.
     expect(shortcuts.has('alt+b')).toBe(false);
 
-    // The switch shortcut borrows the command-capable context and completes a
-    // real cross-session switch, exactly like /brunch:switch.
-    const shortcut = shortcuts.get(BRUNCH_SWITCH_SHORTCUT);
+    // The menu shortcut borrows the command-capable context and completes a
+    // real cross-session switch, exactly like /brunch:menu.
+    const shortcut = shortcuts.get(BRUNCH_MENU_SHORTCUT);
     expect(shortcut).toBeDefined();
     const shortcutHandler = shortcut!.handler as (ctx: unknown) => Promise<void> | void;
     await shortcutHandler({
@@ -1559,6 +1648,58 @@ describe('Brunch TUI boot', () => {
     });
   });
 
+  it('does not create profile keybindings while building sealed Brunch settings', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-'));
+    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agentdir-'));
+
+    createBrunchPiSettings({ cwd, agentDir, extensionFactories: [] });
+
+    await expect(stat(join(agentDir, 'keybindings.json'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('cleans only the exact C1 thinking-cycle suppression from existing profile keybindings', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-'));
+    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agentdir-'));
+    await writeFile(
+      join(agentDir, 'keybindings.json'),
+      `${JSON.stringify(
+        {
+          'app.thinking.cycle': [],
+          'app.model.select': 'ctrl+x',
+        },
+        null,
+        2,
+      )}\n`,
+    );
+
+    createBrunchPiSettings({ cwd, agentDir, extensionFactories: [] });
+
+    const keybindings = JSON.parse(await readFile(join(agentDir, 'keybindings.json'), 'utf8')) as Record<
+      string,
+      unknown
+    >;
+    expect(keybindings).toEqual({ 'app.model.select': 'ctrl+x' });
+  });
+
+  it('leaves user-owned keybindings content untouched', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-'));
+    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agentdir-'));
+    const configPath = join(agentDir, 'keybindings.json');
+    const original = `${JSON.stringify(
+      {
+        'app.thinking.cycle': 'shift+tab',
+        'app.model.select': 'ctrl+x',
+      },
+      null,
+      2,
+    )}\n`;
+    await writeFile(configPath, original);
+
+    createBrunchPiSettings({ cwd, agentDir, extensionFactories: [] });
+
+    expect(await readFile(configPath, 'utf8')).toBe(original);
+  });
+
   it('seals ambient APPEND_SYSTEM.md out of the real Pi resource loader (D39-L)', async () => {
     // Live oracle: drive Pi's real DefaultResourceLoader through Brunch's seal
     // with an ambient global APPEND_SYSTEM.md planted in agentDir. Without
@@ -1886,7 +2027,8 @@ interface FakeAutocompleteProvider {
 type FakeExtensionUi = Pick<
   ExtensionUIContext,
   'setFooter' | 'setHeader' | 'setStatus' | 'setWidget' | 'setWorkingIndicator' | 'setTitle' | 'notify'
->;
+> &
+  Partial<Pick<ExtensionUIContext, 'setEditorComponent'>>;
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string');

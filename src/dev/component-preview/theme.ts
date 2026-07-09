@@ -138,9 +138,29 @@ export function parseBrunchThemePalette(
   };
 }
 
+function readBrunchThemeJson(variant: ComponentPreviewThemeVariant): string {
+  return readFileSync(fileURLToPath(new URL(`brunch-${variant}.json`, THEME_DIR)), 'utf8');
+}
+
 function loadBrunchThemePalette(variant: ComponentPreviewThemeVariant): BrunchThemePalette {
-  const raw = readFileSync(fileURLToPath(new URL(`brunch-${variant}.json`, THEME_DIR)), 'utf8');
-  return parseBrunchThemePalette(raw, variant);
+  return parseBrunchThemePalette(readBrunchThemeJson(variant), variant);
+}
+
+export function loadComponentPreviewThemeColorRoles(): readonly string[] {
+  const roles = new Set<string>();
+  for (const variant of ['dark', 'light'] as const) {
+    const raw = readBrunchThemeJson(variant);
+    parseBrunchThemePalette(raw, variant);
+    const parsed = JSON.parse(raw) as BrunchThemeJson;
+    for (const role of Object.keys(parsed.colors)) roles.add(role);
+  }
+  return [...roles].sort();
+}
+
+export function loadComponentPreviewBorderColorRoles(): readonly string[] {
+  return loadComponentPreviewThemeColorRoles().filter(
+    (role) => role === 'border' || role.toLowerCase().includes('border'),
+  );
 }
 
 export function createComponentPreviewTheme(variant?: ComponentPreviewThemeVariant): Theme {

@@ -53,6 +53,7 @@ import {
   type SessionOrientationTrigger,
 } from '../../../session/session-orientation.js';
 import type { StartAssistantTurnDecision } from '../../../session/start-assistant-turn.js';
+import { createConsultMenuComponent } from '../../components/consult-menu.js';
 import {
   runAndRecordSessionOrientation,
   SESSION_ORIENTATION_MENU,
@@ -142,8 +143,13 @@ export const ORIENTATION_RPC_DIALOG_TIMEOUT_MS = 60_000;
 
 type ExtensionMode = ExtensionContext['mode'];
 
+interface OrientationUiLike {
+  readonly select: ExtensionUIContext['select'];
+  readonly custom?: ExtensionUIContext['custom'];
+}
+
 interface OrientationContextLike {
-  readonly ui: Pick<ExtensionUIContext, 'select'>;
+  readonly ui: OrientationUiLike;
   readonly mode: ExtensionMode;
   readonly hasUI: boolean;
   readonly modelRegistry: Pick<ModelRegistry, 'getAvailable'>;
@@ -202,15 +208,34 @@ export async function runJunctureForContext(
 }
 
 export function adaptOrientationUi(ctx: {
-  readonly ui: Pick<ExtensionUIContext, 'select'>;
+  readonly ui: OrientationUiLike;
   readonly mode: ExtensionMode;
 }): SessionOrientationDialogUi {
-  if (ctx.mode !== 'rpc') {
-    return { select: (title, options) => ctx.ui.select(title, options) };
+  const custom = ctx.ui.custom;
+  if (typeof custom === 'function') {
+    return {
+      select: (title, options) => selectWithRpcTimeout(ctx, title, options),
+      customMenu: (menu) =>
+        custom((tui, theme, _keybindings, done) =>
+          createConsultMenuComponent({
+            title: menu.title,
+            choices: menu.items,
+            theme,
+            onDone: done,
+          }),
+        ),
+    };
   }
-  return {
-    select: (title, options) => ctx.ui.select(title, options, { timeout: ORIENTATION_RPC_DIALOG_TIMEOUT_MS }),
-  };
+  return { select: (title, options) => selectWithRpcTimeout(ctx, title, options) };
+}
+
+function selectWithRpcTimeout(
+  ctx: { readonly ui: Pick<OrientationUiLike, 'select'>; readonly mode: ExtensionMode },
+  title: string,
+  options: string[],
+): Promise<string | undefined> {
+  if (ctx.mode !== 'rpc') return ctx.ui.select(title, options);
+  return ctx.ui.select(title, options, { timeout: ORIENTATION_RPC_DIALOG_TIMEOUT_MS });
 }
 
 /**

@@ -5,9 +5,9 @@ SPEC decisions: D13-L, D84-L, D96-L, D104-L, D106-L, D108-L, D116-L
 Owns model-facing text for structured-exchange tool results (`ask`, `present_*`,
 and preserved canonical `request_*` detail discriminants). `src/exchanges/`
 owns schemas and projections; Pi exchange adapters own registration, TUI
-collection, and `renderResult` (Markdown pass-through of the `content` string
-per D104-L). This directory formats returned text that becomes tool-result
-context.
+collection, and `renderResult` (validated details-backed rich renderers with
+Markdown pass-through fallback where a family opts in, per D104-L). This
+directory formats returned text that becomes tool-result context.
 
 `ask` is the active terminal formatter for standalone questions. Offer
 continuations are collected by the registered `ask` tool, but their durable
@@ -15,9 +15,11 @@ result details intentionally keep the existing `request_choice` / `request_revie
 discriminants so capture/sweep readers keep their semantic vocabulary.
 
 `present_candidates` uses persisted-content comparison lines rather than
-card-like sections: each candidate is an h2 with labeled bold rubric lines.
-Structural ids, continuation declarations, meta-rubric bookkeeping, and graph
-refs are declared content elisions.
+card-like sections: each candidate is an h2 with labeled bold rubric lines. The
+TUI transcript renderer separately projects the same validated details as
+recognition-proposal cards; this formatter remains the canonical model-facing
+record. Structural ids, continuation declarations, meta-rubric bookkeeping, and
+graph refs are declared content elisions.
 
 `present_digest` renders prose digest facets directly (`Abstract`, optional
 `Analysis`, optional `Recommendation`). The paired approval terminal is still a

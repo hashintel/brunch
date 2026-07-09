@@ -23,7 +23,9 @@ export {
 } from './structured-exchange-loop/pending-exchange.js';
 export {
   syntheticExchangeToolCallMessage,
+  syntheticExchangeToolResultMessage,
   type SyntheticExchangeToolCallMessage,
+  type SyntheticExchangeToolResultMessage,
 } from './structured-exchange-loop/synthetic-tool-call.js';
 export {
   acceptedResponseFromParams,

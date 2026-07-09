@@ -19,11 +19,18 @@ import type {
   WorkspaceSessionChromeState,
   WorkspaceSessionReadyState,
 } from '../../../session/workspace-session-coordinator.js';
+import { BrunchEditorComponent, type BrunchEditorLabels } from '../../components/brunch-editor.js';
 import {
   BrunchStartupHeader,
   type BrunchStartupHeaderFacts,
   type BrunchStartupHeaderResumeFacts,
 } from '../../components/chrome-header.js';
+import {
+  BRUNCH_MENU_SHORTCUT,
+  BRUNCH_MODE_PICKER_SHORTCUT,
+  formatChromeShortcutHint,
+} from '../../components/chrome-shortcuts.js';
+import { operationalModeBorderColor } from '../../components/mode-border-theme.js';
 
 export type { BrunchStartupHeaderResumeFacts } from '../../components/chrome-header.js';
 
@@ -107,6 +114,7 @@ export interface BrunchChromeState extends WorkspaceSessionChromeState {
 }
 
 export type BrunchChromeUi = Pick<ExtensionUIContext, 'setFooter' | 'setHeader' | 'setTitle'>;
+type BrunchEditorUi = Pick<ExtensionUIContext, 'setEditorComponent'>;
 
 type BrunchChromeTheme = Pick<Theme, 'fg'>;
 
@@ -126,8 +134,8 @@ export function projectBrunchChromeFooterLines(
   const sessionLabel = telemetry?.sessionName ?? chrome.session.label ?? chrome.session.id;
   const specSessionPart = keyedStatusPart(
     theme,
-    'spec / session',
-    'ctrl-shift-b',
+    '/brunch:menu',
+    formatChromeShortcutHint(BRUNCH_MENU_SHORTCUT),
     `${formatSpec(chrome)} / ${sessionLabel}`,
   );
   const specSessionLine = chrome.webSidecarUrl
@@ -250,6 +258,51 @@ export function renderBrunchChrome(
   ui.setTitle(formatChromeTitle(chrome));
 }
 
+function editorLabelsFromChromeContext(
+  chrome: BrunchChromeState,
+  telemetry: BrunchChromeFooterTelemetry,
+): BrunchEditorLabels {
+  const mode = operationalModeFromChromeContext(chrome, telemetry);
+  const modeLabel = operationalModeLabel(mode);
+  return {
+    topRight: `[ ${modeLabel} ]`,
+    bottomRight: formatSpec(chrome),
+    ...(chrome.webSidecarUrl
+      ? { belowLines: [{ text: chrome.webSidecarUrl, url: chrome.webSidecarUrl }] }
+      : {}),
+  };
+}
+
+function operationalModeFromChromeContext(
+  chrome: BrunchChromeState,
+  telemetry: BrunchChromeFooterTelemetry,
+): OperationalModeId {
+  const runtime = telemetry.agentState;
+  return runtime?.operationalMode ?? chrome.runtime?.mode ?? 'specify';
+}
+
+function canSetEditorComponent(ui: ExtensionUIContext): ui is ExtensionUIContext & BrunchEditorUi {
+  return typeof ui.setEditorComponent === 'function';
+}
+
+function installBrunchEditor(
+  ui: ExtensionUIContext,
+  chrome: BrunchChromeState,
+  getTelemetry: () => BrunchChromeFooterTelemetry,
+): void {
+  if (!canSetEditorComponent(ui)) return;
+  ui.setEditorComponent(
+    (tui, theme, keybindings) =>
+      new BrunchEditorComponent(
+        tui,
+        theme,
+        keybindings,
+        () => editorLabelsFromChromeContext(chrome, getTelemetry()),
+        () => operationalModeBorderColor(ui.theme, operationalModeFromChromeContext(chrome, getTelemetry())),
+      ),
+  );
+}
+
 export function registerBrunchChrome(
   pi: ExtensionAPI,
   chrome: BrunchChromeState,
@@ -269,8 +322,10 @@ export function registerBrunchChrome(
     // BRUNCH_SETTINGS_POLICY). RPC mode stubs this call; headless contexts
     // stub the whole ui object.
     ctx.ui.setWorkingIndicator({ frames: ['●'] });
+    const getTelemetry = () => footerTelemetryFromContext(ctx, pi);
+    installBrunchEditor(ctx.ui, chrome, getTelemetry);
     renderBrunchChrome(ctx.ui, chrome, {
-      telemetry: () => footerTelemetryFromContext(ctx, pi),
+      telemetry: getTelemetry,
       bindFooterRenderRequest: (requestRender) => {
         requestFooterRender = requestRender;
       },
@@ -358,7 +413,7 @@ function renderBrunchStatusLine(
     keyedStatusPart(
       theme,
       'mode',
-      'opt-m',
+      formatChromeShortcutHint(BRUNCH_MODE_PICKER_SHORTCUT),
       runtime
         ? operationalModeLabel(runtime.operationalMode)
         : chrome.runtime?.mode

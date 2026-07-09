@@ -27,10 +27,12 @@ import {
   type SessionOrientationEntrySessionManager,
   type SessionOrientationTrigger,
 } from '../../../session/session-orientation.js';
+import type { ConsultMenuResult } from '../../components/consult-menu.js';
 
 export interface SessionOrientationMenuItem {
   readonly id: SessionOrientationChoice;
   readonly label: string;
+  readonly description?: string;
 }
 
 export interface SessionOrientationMenuDescriptor {
@@ -44,29 +46,58 @@ export const SESSION_ORIENTATION_MENU = {
   title: 'How should this session continue?',
   noKickChoice: 'continue',
   items: [
-    { id: 'continue', label: 'continue' },
-    { id: 'elicit_decisions', label: 'continue via decision-driven questions [elicit/grill-style]' },
-    { id: 'elicit_examples', label: 'continue via example-driven questions [elicit/disambiguate-style]' },
-    { id: 'propose_intent', label: 'propose candidate spec designs [propose:intent]' },
-    { id: 'propose_design', label: 'propose technical designs [propose/project:design]' },
-    { id: 'propose_oracle', label: 'propose verification designs [propose/project:oracle]' },
-    { id: 'ingest', label: 'ingest source material [ingest]' },
+    { id: 'continue', label: 'Continue', description: 'Stay inert until your next instruction.' },
+    {
+      id: 'elicit_decisions',
+      label: 'Ask decision-driven questions',
+      description: 'Use the elicitor/grill style to resolve product and architectural choices.',
+    },
+    {
+      id: 'elicit_examples',
+      label: 'Ask example-driven questions',
+      description: 'Use examples and counterexamples to collapse ambiguity.',
+    },
+    {
+      id: 'propose_intent',
+      label: 'Propose candidate spec designs',
+      description: 'Project product intent alternatives before choosing one.',
+    },
+    {
+      id: 'propose_design',
+      label: 'Propose technical designs',
+      description: 'Project implementation shapes and tradeoffs.',
+    },
+    {
+      id: 'propose_oracle',
+      label: 'Propose verification designs',
+      description: 'Project test and evidence strategies for this frontier.',
+    },
+    {
+      id: 'ingest',
+      label: 'Ingest source material',
+      description: 'Fold supplied context into Brunch truth.',
+    },
   ],
 } as const satisfies SessionOrientationMenuDescriptor;
 
 export const CODE_SESSION_ORIENTATION_MENU = {
   title: 'How should Execute mode start?',
   items: [
-    { id: 'proceed', label: 'proceed with a readiness assessment' },
-    { id: 'backfill', label: 'backfill missing information via questions [Negotiate/Ask]' },
-    { id: 'design_first', label: 'design the technical approach first [propose/project:design]' },
-    { id: 'oracle_first', label: 'design the verification approach first [propose/project:oracle]' },
-    { id: 'project_plan', label: 'project a frontier-level plan and proceed [project]' },
+    { id: 'proceed', label: 'Proceed with readiness assessment' },
+    {
+      id: 'backfill',
+      label: 'Backfill missing information',
+      description: 'Negotiate or ask before executing.',
+    },
+    { id: 'design_first', label: 'Design the technical approach first' },
+    { id: 'oracle_first', label: 'Design the verification approach first' },
+    { id: 'project_plan', label: 'Project a frontier-level plan and proceed' },
   ],
 } as const satisfies SessionOrientationMenuDescriptor;
 
 export interface SessionOrientationDialogUi {
   select(title: string, options: string[]): Promise<string | undefined>;
+  customMenu?(menu: SessionOrientationMenuDescriptor): Promise<ConsultMenuResult | undefined>;
 }
 
 export interface RunSessionOrientationDialogOptions {
@@ -79,6 +110,10 @@ export async function runSessionOrientationDialog(
   options: RunSessionOrientationDialogOptions = {},
 ): Promise<SessionOrientationChoice> {
   const menu = options.menu ?? SESSION_ORIENTATION_MENU;
+  if (ui.customMenu) {
+    const picked = await ui.customMenu(menu);
+    return menu.items.find((item) => item.id === picked?.id)?.id ?? 'dismissed';
+  }
   const picked = await ui.select(
     menu.title,
     menu.items.map((item) => item.label),

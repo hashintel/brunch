@@ -26,7 +26,7 @@ export default defineConfig(() => ({
     exclude: ['**/node_modules/**', '**/dist/**', '**/dist-web/**', '**/_suspended/**', '**/.brunch/**'],
     // Real-git witnesses (host promotion) and real-TUI harness tests run at
     // 4-5s on machines with slow process spawn; the 5s default flakes under
-    // full-suite load.
+    // full-suite load. The test script bounds worker count separately.
     testTimeout: 15000,
   },
 }));

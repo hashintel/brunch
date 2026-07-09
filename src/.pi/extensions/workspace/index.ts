@@ -47,8 +47,12 @@ export async function runBrunchWorkspaceAction(
   if (options.waitForIdle !== false && canWaitForIdle(ctx)) {
     await ctx.waitForIdle();
   }
+  if (!canShowWorkspaceDialog(ctx)) {
+    ctx.ui.notify('Spec/session switch requires interactive UI.', 'warning');
+    return;
+  }
   const inventory = await coordinator.inspectWorkspace();
-  const decision = await ctx.ui.custom<SpecSessionActivationDecision>(
+  const decision = await ctx.ui.custom!<SpecSessionActivationDecision>(
     (_tui, theme, _keybindings, done) =>
       createWorkspaceDialogComponent({
         inventory,
@@ -92,13 +96,17 @@ function canWaitForIdle(
   return typeof ctx.waitForIdle === 'function';
 }
 
+function canShowWorkspaceDialog(ctx: BrunchWorkspaceActionContext): boolean {
+  return ctx.hasUI !== false && typeof ctx.ui.custom === 'function';
+}
+
 async function switchToActivatedWorkspace(
   ctx: BrunchWorkspaceActionContext,
   activated: WorkspaceSessionReadyState,
 ): Promise<void> {
   if (typeof ctx.switchSession !== 'function') {
     ctx.ui.notify(
-      'Use /brunch:switch to switch specs or sessions; this Pi context cannot switch sessions.',
+      'Use /brunch:menu to switch specs or sessions; this Pi context cannot switch sessions.',
       'warning',
     );
     return;

@@ -72,10 +72,11 @@ components are render-only with injectable `theme`/props.
   `BRUNCH_PREVIEW_THEME=light` selects the initial variant. The theme JSONs also **hot-reload**:
   `watchComponentPreviewTheme` watches `src/.pi/themes/` and rebuilds the variant palettes on save
   (last-good palette kept across mid-edit invalid JSON), so theme-value work iterates against the
-  live harness. The `theme-testbed` entry (`theme-testbed.ts`) is the companion surface: the same
-  markdown fixture through pi's assistant markdown theme (real highlight.js `syntax*` token colors,
-  via pi's registered global theme symbol + a bound facade) and brunch's exchange markdown theme,
-  plus a fg/bg contrast strip.
+  live harness. The `theme-testbed` entry (`theme-testbed.ts`) is the companion surface: text style
+  variations, border levels, every theme-file border role, the mode-reactive and surface-identity
+  semantic border channels, the same markdown fixture through pi's assistant markdown theme (real
+  highlight.js `syntax*` token colors, via pi's registered global theme symbol + a bound facade) and
+  brunch's exchange markdown theme, plus a fg/bg contrast strip.
 - `keybindings` is a real `pi-tui` `KeybindingsManager` (`createComponentPreviewKeybindings()`), not a
   stub — `BrunchEditorComponent`'s inherited `CustomEditor.handleInput` calls `.matches(...)` for
   app-level actions (escape-to-cancel, ctrl+d-to-exit), which a stub can't satisfy. Built from
@@ -104,13 +105,12 @@ components are render-only with injectable `theme`/props.
   component already handles. No new preview lane or wrapper component was needed — it is a fixture
   variation on the existing `ctx.ui.custom` overlay lane. Real physical terminal wheel emission
   remains a manual smoke-test residual; the automated harness injects the SGR bytes directly.
-- A fourth, `[experimental]` entry (`brunch-editor`) previews `ctx.ui.setEditorComponent` —
-  `BrunchEditorComponent` (`.pi/components/brunch-editor.ts`) wraps `CustomEditor` in a `│`-bordered box
-  with runtime-state labels baked into the border corners, since the default `Editor` has no side
-  borders at all. This is a design exploration for the `component-dx` frontier, not yet wired into
-  `src/.pi/extensions/chrome/index.ts` — it mounts directly (`tui.addChild` + `onEscape` dismiss) rather
-  than through `showComponentPreview` or `previewStaticComponent`, since it needs real focus and input
-  routing that a static preview doesn't exercise.
+- The `brunch-editor` entries preview the same `BrunchEditorComponent` that production chrome installs
+  via `ctx.ui.setEditorComponent`: a `CustomEditor` wrapped in a bordered box with caller-injected
+  runtime labels and mode-reactive border colors. The ask rich-body entries likewise include Specify and
+  Execute mode border variants. Editor entries mount directly (`tui.addChild` + `onEscape` dismiss)
+  rather than through `showComponentPreview` or `previewStaticComponent`, since they need real focus and
+  input routing that a static preview doesn't exercise.
 
 ## Debug Mirrors And Dev Tools
 

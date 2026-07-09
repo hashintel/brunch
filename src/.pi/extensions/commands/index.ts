@@ -6,12 +6,14 @@
  * first whitespace (see `_tryExecuteExtensionCommand` in
  * `@earendil-works/pi-coding-agent/dist/core/agent-session.js`). Colons in
  * command names are passed through verbatim, so registering a command with the
- * literal name `brunch:switch` makes it invocable as `/brunch:switch`. This is
+ * literal name `brunch:menu` makes it invocable as `/brunch:menu`. This is
  * the same trick the built-in `/skill:<name>` registry uses.
  *
  * Active commands:
- *  - `/brunch:switch`   — open the spec/session picker (delegates to
+ *  - `/brunch:menu`     — open the spec/session picker (delegates to
  *                         workspace-dialog.ts).
+ *  - `/brunch:continue` — recover/restart from an interrupted structured
+ *                         exchange continuation.
  *  - `/brunch:mode`     — change the transcript-backed operational mode.
  *
  * Keyboard shortcuts (match the bracketed key hints in the footer chrome):
@@ -19,28 +21,37 @@
  *                     from the composition root for the actual session switch;
  *                     alt+b is reserved by Pi's editor for cursorWordLeft)
  *  - `alt+m` — mode picker
+ *  - `shift+tab` — mode cycle
  *
- * Disabled until operational (constant kept so tests can assert absence):
- *  - `/brunch:continue` — recover/restart from an interrupted `request_*` tool
- *                         or other interruption. Needs to: (a) optionally add a
- *                         system-prompt hint that bare "continue" resumes the
- *                         brunch flow, and (b) install listeners on user cancel
- *                         actions that surface a `setStatus` reminder.
+ * The ask collector owns cancellation status hints that point back to
+ * `/brunch:continue`.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
 
+import { findIncompleteStructuredExchangePresents, type EntryLike } from '../../../exchanges/recovery.js';
 import { appendBrunchAgentRuntimeSwitch } from '../../../session/runtime-state.js';
 import {
   OPERATIONAL_MODE_IDS,
   operationalModeLabel,
   type OperationalModeId,
 } from '../../../session/schema/kinds.js';
+import {
+  syntheticExchangeToolCallMessage,
+  syntheticExchangeToolResultMessage,
+} from '../../../session/structured-exchange-loop.js';
+import {
+  BRUNCH_MENU_SHORTCUT,
+  BRUNCH_MODE_PICKER_SHORTCUT,
+  BRUNCH_MODE_SHORTCUT,
+} from '../../components/chrome-shortcuts.js';
 import { createRuntimeModePickerComponent } from '../../components/runtime-posture/axis-picker.js';
 import {
   activeToolNamesForBrunchAgentState,
   projectBrunchAgentState,
 } from '../agent-runtime/runtime/index.js';
+import { ASK_TOOL, collectAskContinuationResponse } from '../exchanges/ask.js';
+import type { StructuredExchangeUiContext } from '../exchanges/shared/ui-context.js';
 import {
   CODE_SESSION_ORIENTATION_MENU,
   SESSION_ORIENTATION_MENU,
@@ -48,6 +59,7 @@ import {
 } from '../session-orientation/index.js';
 import { runJunctureForContext, sendCustomMessageViaExtensionApi } from '../session-orientation/juncture.js';
 import {
+  BRUNCH_CONSULT_COMMAND,
   forceClaimOrientationJuncture,
   orientationJunctureGate,
   releaseOrientationJuncture,
@@ -60,13 +72,17 @@ import {
 } from '../workspace/index.js';
 
 export const BRUNCH_COMMAND_PREFIX = 'brunch:';
-export const BRUNCH_SWITCH_COMMAND = 'brunch:switch';
+export const BRUNCH_MENU_COMMAND = 'brunch:menu';
 export const BRUNCH_CONTINUE_COMMAND = 'brunch:continue';
 export const BRUNCH_MODE_COMMAND = 'brunch:mode';
 
-/** alt+b is unavailable: Pi reserves it as a built-in editor binding (cursorWordLeft). */
-export const BRUNCH_SWITCH_SHORTCUT = 'ctrl+shift+b';
-export const BRUNCH_MODE_SHORTCUT = 'alt+m';
+export { BRUNCH_CONSULT_COMMAND } from '../session-orientation/registrar.js';
+
+export {
+  BRUNCH_MENU_SHORTCUT,
+  BRUNCH_MODE_PICKER_SHORTCUT,
+  BRUNCH_MODE_SHORTCUT,
+} from '../../components/chrome-shortcuts.js';
 
 export type BrunchCommandsOptions = BrunchSpecSessionPickerOptions & {
   /** Called after a runtime posture switch so chrome (footer) re-renders from re-projected state. */
@@ -98,7 +114,7 @@ interface RuntimeSwitchContext {
   readonly modelRegistry: ExtensionCommandContext['modelRegistry'];
   /**
    * Turn-control surface for settling an in-flight assistant turn before the
-   * mode-switch orientation menu shows. Optional because the alt+m shortcut
+   * mode-switch orientation menu shows. Optional because the Shift+Tab shortcut
    * context lacks `waitForIdle`; the shortcut path borrows a full command
    * context from the composition root when one is available.
    */
@@ -107,12 +123,25 @@ interface RuntimeSwitchContext {
   readonly waitForIdle?: ExtensionCommandContext['waitForIdle'];
 }
 
+type ContinueCommandContext = ExtensionCommandContext & {
+  readonly sessionManager: ExtensionCommandContext['sessionManager'] & {
+    readonly getBranch?: () => readonly EntryLike[];
+    readonly appendMessage?: (message: unknown) => unknown;
+  };
+};
+
 function normalizeAxisArg(args: string): string {
   return args.trim().split(/\s+/)[0] ?? '';
 }
 
 function formatOperationalModeChoices(): string {
   return OPERATIONAL_MODE_IDS.map((mode) => `${mode} (${operationalModeLabel(mode)})`).join(', ');
+}
+
+function nextOperationalMode(current: OperationalModeId): OperationalModeId {
+  const currentIndex = OPERATIONAL_MODE_IDS.indexOf(current);
+  const nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % OPERATIONAL_MODE_IDS.length;
+  return OPERATIONAL_MODE_IDS[nextIndex]!;
 }
 
 type ModeSwitchOptions = Pick<
@@ -214,7 +243,7 @@ async function runModeSwitchOrientation(
         hasUI: ctx.hasUI,
         modelRegistry: ctx.modelRegistry,
         sessionManager: ctx.sessionManager,
-        ui: { select: ctx.ui.select.bind(ctx.ui) },
+        ui: ctx.ui,
       },
       trigger: 'mode-switch',
       mode: 'follow-choice',
@@ -294,12 +323,112 @@ function registerRuntimeSwitchCommands(pi: ExtensionAPI, options: ModeSwitchOpti
     },
   });
 
+  pi.registerShortcut?.(BRUNCH_MODE_PICKER_SHORTCUT, {
+    description: 'Open the Brunch mode picker',
+    handler: async (ctx) => {
+      const commandCtx = options.getCommandContext?.() ?? ctx;
+      await openModePicker(pi, commandCtx, options);
+    },
+  });
+
   pi.registerShortcut?.(BRUNCH_MODE_SHORTCUT, {
-    description: 'Change the Brunch mode',
+    description: 'Cycle the Brunch mode',
     handler: async (ctx) => {
       // Shortcut contexts lack waitForIdle; borrow a full command context so
       // the in-flight-turn settle before the orientation menu can await idle.
-      await openModePicker(pi, options.getCommandContext?.() ?? ctx, options);
+      const commandCtx = options.getCommandContext?.() ?? ctx;
+      const current = projectBrunchAgentState(commandCtx.sessionManager.getEntries());
+      await applyModeSwitchAndOrient(pi, commandCtx, nextOperationalMode(current.operationalMode), options);
+    },
+  });
+}
+
+function registerConsultCommand(
+  pi: ExtensionAPI,
+  options: Pick<BrunchCommandsOptions, 'sessionOrientation'>,
+): void {
+  pi.registerCommand(BRUNCH_CONSULT_COMMAND, {
+    description: 'Consult the Brunch session-orientation menu',
+    handler: async (_args, ctx) => {
+      if (!options.sessionOrientation) {
+        ctx.ui.notify('Brunch consult is unavailable in this session.', 'warning');
+        return;
+      }
+      const gate = orientationJunctureGate(options.sessionOrientation);
+      const claim = forceClaimOrientationJuncture(gate);
+      let result: { readonly ran: boolean; readonly kickFired: boolean } | undefined;
+      try {
+        const kickContext = await options.sessionOrientation.resolveKickContext();
+        result = await runJunctureForContext({
+          ctx,
+          trigger: 'consult',
+          mode: 'follow-choice',
+          kick: kickContext
+            ? { ...kickContext, sendCustomMessage: sendCustomMessageViaExtensionApi(pi) }
+            : undefined,
+          onAppendError: (error) => {
+            ctx.ui.notify(
+              `Session-orientation entry could not be recorded: ${formatErrorMessage(error)}`,
+              'warning',
+            );
+          },
+        });
+      } finally {
+        releaseOrientationJuncture(gate, claim, result);
+      }
+    },
+  });
+}
+
+function currentBranchEntries(ctx: ContinueCommandContext): readonly EntryLike[] {
+  return ctx.sessionManager.getBranch?.() ?? (ctx.sessionManager.getEntries() as readonly EntryLike[]);
+}
+
+function latestDeclaredAskContinuation(ctx: ContinueCommandContext) {
+  return findIncompleteStructuredExchangePresents(currentBranchEntries(ctx))
+    .filter((present) => {
+      const continuation = 'continuation' in present.details ? present.details.continuation : undefined;
+      return present.continuationTool === ASK_TOOL && continuation?.tool === ASK_TOOL;
+    })
+    .at(-1);
+}
+
+function appendRecoveredAskResult(
+  ctx: ContinueCommandContext,
+  exchangeId: string,
+  result: Awaited<ReturnType<typeof collectAskContinuationResponse>>,
+): boolean {
+  if (typeof ctx.sessionManager.appendMessage !== 'function') return false;
+  const toolCallMessage = syntheticExchangeToolCallMessage(exchangeId, ASK_TOOL, { continues: exchangeId });
+  ctx.sessionManager.appendMessage(toolCallMessage);
+  ctx.sessionManager.appendMessage(
+    syntheticExchangeToolResultMessage(exchangeId, ASK_TOOL, result.content, result.details),
+  );
+  return true;
+}
+
+function registerContinueCommand(pi: ExtensionAPI): void {
+  pi.registerCommand(BRUNCH_CONTINUE_COMMAND, {
+    description: 'Continue the most recent interrupted Brunch structured exchange',
+    handler: async (_args, ctx) => {
+      const commandCtx = ctx as ContinueCommandContext;
+      const pending = latestDeclaredAskContinuation(commandCtx);
+      if (!pending) {
+        ctx.ui.notify('Nothing to continue.', 'info');
+        return;
+      }
+      const exchangeId = pending.details.exchange_id;
+      const askCtx: StructuredExchangeUiContext = {
+        hasUI: commandCtx.hasUI,
+        ui: commandCtx.ui as unknown as NonNullable<StructuredExchangeUiContext['ui']>,
+        sessionManager: { getBranch: () => currentBranchEntries(commandCtx) },
+      };
+      // The continuation collector owns the brunch.continue hint lifecycle:
+      // it re-surfaces the hint on cancel and clears it on an answered result.
+      const result = await collectAskContinuationResponse(exchangeId, askCtx);
+      if (!appendRecoveredAskResult(commandCtx, exchangeId, result)) {
+        ctx.ui.notify('Brunch continue could not record the recovered answer in this session.', 'warning');
+      }
     },
   });
 }
@@ -312,7 +441,7 @@ function workspaceActionOptions(
 
 export function registerBrunchCommands(pi: ExtensionAPI, options: BrunchCommandsOptions): void {
   const { coordinator } = options;
-  pi.registerCommand(BRUNCH_SWITCH_COMMAND, {
+  pi.registerCommand(BRUNCH_MENU_COMMAND, {
     description: 'Open the Brunch spec/session picker',
     handler: async (_args, ctx: ExtensionCommandContext) => {
       await runBrunchWorkspaceAction(ctx, coordinator, workspaceActionOptions(options));
@@ -320,18 +449,20 @@ export function registerBrunchCommands(pi: ExtensionAPI, options: BrunchCommands
   });
 
   registerRuntimeSwitchCommands(pi, options);
+  registerConsultCommand(pi, options);
+  registerContinueCommand(pi);
 
   // Pi shortcut contexts lack switchSession/waitForIdle, so borrow a
   // command-capable context from the composition root when available.
   // The fallback shortcut context still opens the picker; an actual
   // cross-session switch then degrades to a warning (see
   // switchToActivatedWorkspace).
-  const openSwitchPicker = async (ctx: BrunchWorkspaceActionContext) => {
+  const openMenuPicker = async (ctx: BrunchWorkspaceActionContext) => {
     const commandContext = options.getCommandContext?.();
     await runBrunchWorkspaceAction(commandContext ?? ctx, coordinator, workspaceActionOptions(options));
   };
-  pi.registerShortcut?.(BRUNCH_SWITCH_SHORTCUT, {
+  pi.registerShortcut?.(BRUNCH_MENU_SHORTCUT, {
     description: 'Open the Brunch spec/session picker',
-    handler: openSwitchPicker,
+    handler: openMenuPicker,
   });
 }
