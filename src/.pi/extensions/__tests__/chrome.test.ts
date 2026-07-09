@@ -7,6 +7,7 @@ import { appendBrunchAgentRuntimeSwitch } from '../../../session/runtime-state.j
 import type { WorkspaceSessionReadyState } from '../../../session/workspace-session-coordinator.js';
 import { BrunchEditorComponent } from '../../components/brunch-editor.js';
 import { BrunchStartupHeader } from '../../components/chrome-header.js';
+import { formatChromeShortcutHint } from '../../components/chrome-shortcuts.js';
 import { operationalModeBorderColorRole } from '../../components/mode-border-theme.js';
 import chromeExtension, {
   chromeStateForWorkspace,
@@ -191,8 +192,12 @@ describe('Brunch chrome projection', () => {
     expect(collapsedLines.join('\n')).toContain('Welcome to Brunch.');
     expect(collapsedLines.join('\n')).toContain('The assistant is about to open');
     expect(collapsedLines.join('\n')).toContain(
-      `/${BRUNCH_MODE_COMMAND} or ${BRUNCH_MODE_PICKER_SHORTCUT} opens mode picker; ${BRUNCH_MODE_SHORTCUT} cycles mode`,
+      `/${BRUNCH_MODE_COMMAND} or ${formatChromeShortcutHint(
+        BRUNCH_MODE_PICKER_SHORTCUT,
+      )} opens mode picker; ${formatChromeShortcutHint(BRUNCH_MODE_SHORTCUT)} cycles mode`,
     );
+    expect(collapsedLines.join('\n')).not.toContain(BRUNCH_MODE_PICKER_SHORTCUT);
+    expect(collapsedLines.join('\n')).not.toContain(BRUNCH_MODE_SHORTCUT);
     expect(collapsedLines.join('\n')).toContain(`/${BRUNCH_MENU_COMMAND} opens spec/session`);
     expect(collapsedLines.join('\n')).toContain('web-ui: http://127.0.0.1:49152/spec/1');
     expect(collapsedLines.join('\n')).not.toContain('Press ctrl+o');
