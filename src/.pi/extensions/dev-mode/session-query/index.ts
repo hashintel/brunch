@@ -45,7 +45,7 @@ const zFind = z
   })
   .strict();
 
-const zBrunchSessionQueryParams = z
+export const zBrunchSessionQueryParams = z
   .object({
     find: zFind,
     select: z.union([z.string(), z.array(z.string())]).optional(),

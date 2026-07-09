@@ -27,7 +27,7 @@ const zFind = z
   .strict()
   .optional();
 
-const zBrunchIntrospectQueryParams = z
+export const zBrunchIntrospectQueryParams = z
   .object({
     find: zFind,
     select: z.union([z.string(), z.array(z.string())]).optional(),

@@ -7,12 +7,14 @@ import {
   createBrunchIntrospectQueryTool,
   queryIntrospectionCaptures,
   registerBrunchIntrospectQuery,
+  zBrunchIntrospectQueryParams,
 } from '../dev-mode/introspect-query/index.js';
 import {
   type BrunchIntrospectionStore,
   createInMemoryBrunchIntrospectionStore,
   registerBrunchIntrospection,
 } from '../dev-mode/introspection/index.js';
+import { toolParameters } from '../shared/tool-schema.js';
 
 describe('brunch_introspect_query', () => {
   it('returns the latest capture and projects payload and baseOptions paths', () => {
@@ -131,6 +133,12 @@ describe('brunch_introspect_query', () => {
       store,
     });
     expect(tools.map((tool) => tool.name)).toEqual([BRUNCH_INTROSPECT_QUERY_TOOL]);
+  });
+
+  it('registers parameters through the shared Zod adapter without changing the emitted schema', () => {
+    expect(createBrunchIntrospectQueryTool(createInMemoryBrunchIntrospectionStore()).parameters).toEqual(
+      toolParameters(zBrunchIntrospectQueryParams),
+    );
   });
 
   it('advertises a JSON Schema draft 2020-12 parameter schema (no draft-07 tuple form)', () => {
