@@ -104,6 +104,7 @@ async function readExecutionRequest(requestPath: string): Promise<string | undef
 }
 
 function renderWorkerTask(args: Parameters<AgentRunnerPort['run']>[0], request: string): string {
+  const renderedBrief = renderWorkerBrief(request);
   return [
     `Run id: ${args.runId}`,
     `Epic id: ${args.epicId}`,
@@ -111,7 +112,81 @@ function renderWorkerTask(args: Parameters<AgentRunnerPort['run']>[0], request: 
     `Request path: ${args.requestPath}`,
     `Result path: ${args.resultPath}`,
     '',
-    'Execution request:',
-    request,
+    renderedBrief,
   ].join('\n');
+}
+
+interface ExecutionRequestCriterion {
+  readonly kind?: string;
+  readonly target?: string;
+}
+
+interface ExecutionRequestContextItem {
+  readonly itemId?: string;
+  readonly content?: string;
+}
+
+interface ExecutionRequest {
+  readonly scopeId?: string;
+  readonly definition?: string;
+  readonly criteria?: readonly ExecutionRequestCriterion[];
+  readonly derivedFrom?: readonly string[];
+  readonly designContext?: readonly ExecutionRequestContextItem[];
+  readonly verificationContext?: readonly ExecutionRequestContextItem[];
+}
+
+function renderWorkerBrief(request: string): string {
+  const parsedRequest = parseExecutionRequest(request);
+  if (!parsedRequest) {
+    return ['Execution request:', request].join('\n');
+  }
+
+  const lines = [
+    ...(parsedRequest.scopeId ? [`Scope id: ${parsedRequest.scopeId}`] : []),
+    ...(parsedRequest.definition ? ['Slice goal:', parsedRequest.definition] : []),
+    ...renderCriterionLines(parsedRequest.criteria),
+    ...renderListSection('Derived from requirements', parsedRequest.derivedFrom),
+    ...renderContextSection('Design context', parsedRequest.designContext),
+    ...renderContextSection('Verification context', parsedRequest.verificationContext),
+  ];
+
+  return lines.length > 0 ? lines.join('\n') : ['Execution request:', request].join('\n');
+}
+
+function parseExecutionRequest(request: string): ExecutionRequest | undefined {
+  try {
+    return JSON.parse(request) as ExecutionRequest;
+  } catch {
+    return undefined;
+  }
+}
+
+function renderCriterionLines(criteria: ExecutionRequest['criteria']): string[] {
+  const renderedCriteria =
+    criteria?.flatMap((criterion) =>
+      typeof criterion?.kind === 'string' && typeof criterion?.target === 'string'
+        ? [`- ${criterion.kind}: ${criterion.target}`]
+        : [],
+    ) ?? [];
+
+  return renderedCriteria.length > 0 ? ['Done criteria:', ...renderedCriteria] : [];
+}
+
+function renderListSection(title: string, values: readonly string[] | undefined): string[] {
+  const renderedValues = values?.filter((value): value is string => typeof value === 'string') ?? [];
+  return renderedValues.length > 0 ? [title + ':', ...renderedValues.map((value) => `- ${value}`)] : [];
+}
+
+function renderContextSection(
+  title: string,
+  items: readonly ExecutionRequestContextItem[] | undefined,
+): string[] {
+  const renderedItems =
+    items?.flatMap((item) =>
+      typeof item?.itemId === 'string' && typeof item?.content === 'string'
+        ? [`- [${item.itemId}] ${item.content}`]
+        : [],
+    ) ?? [];
+
+  return renderedItems.length > 0 ? [title + ':', ...renderedItems] : [];
 }
