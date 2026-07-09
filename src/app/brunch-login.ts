@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import process from 'node:process';
-import { createInterface } from 'node:readline';
+import { createInterface, type Interface } from 'node:readline';
 import type { Readable, Writable } from 'node:stream';
 
 import type { OAuthLoginCallbacks, OAuthProviderInterface } from '@earendil-works/pi-ai/compat';
@@ -161,7 +161,10 @@ async function runApiKeyLogin(options: {
   stdout?: Writable | ((chunk: string) => void) | undefined;
 }): Promise<void> {
   writeLine(options.stdout, '');
-  const key = await options.session.ask(`Paste ${options.provider.providerName} API key (or q to cancel): `);
+  const key = await options.session.ask(
+    `Paste ${options.provider.providerName} API key (input hidden; or q to cancel): `,
+    { secret: true },
+  );
   if (key.toLowerCase() === 'q' || key.trim() === '') throw new BrunchLoginAbort();
   options.authStorage.set(options.provider.provider, { type: 'api_key', key: key.trim() });
 }
@@ -233,9 +236,11 @@ function reportResolvedPolicy(
   }
 }
 
+type LineSessionAskOptions = { readonly secret?: boolean };
+
 type LineSession = {
   readonly stdout: Writable | ((chunk: string) => void) | undefined;
-  ask(prompt: string): Promise<string>;
+  ask(prompt: string, options?: LineSessionAskOptions): Promise<string>;
   close(): void;
 };
 
@@ -243,21 +248,59 @@ function createLineSession(
   stdin: Readable,
   stdout: Writable | ((chunk: string) => void) | undefined,
 ): LineSession {
-  const readline = createInterface({ input: stdin, terminal: false });
+  const output = writableOutput(stdout);
+  const terminal = Boolean((stdin as { isTTY?: boolean }).isTTY && output);
+  const readline = createInterface({ input: stdin, ...(output ? { output } : {}), terminal });
   const lines = readline[Symbol.asyncIterator]();
+  let muted = false;
+  const originalWriteToOutput = maskReadlineOutput(readline, () => muted);
 
   return {
     stdout,
-    async ask(prompt: string) {
+    async ask(prompt: string, options: LineSessionAskOptions = {}) {
       write(stdout, prompt);
-      const next = await lines.next();
-      if (next.done) throw new BrunchLoginAbort('Login cancelled before input was provided');
-      return String(next.value).trim();
+      muted = options.secret === true;
+      try {
+        const next = await lines.next();
+        if (next.done) throw new BrunchLoginAbort('Login cancelled before input was provided');
+        if (muted) writeLine(stdout, '');
+        return String(next.value).trim();
+      } finally {
+        muted = false;
+      }
     },
     close() {
+      restoreReadlineOutput(readline, originalWriteToOutput);
       readline.close();
     },
   };
+}
+
+function writableOutput(stdout: Writable | ((chunk: string) => void) | undefined): Writable | undefined {
+  if (!stdout) return process.stdout;
+  return typeof stdout === 'function' ? undefined : stdout;
+}
+
+type MaskableReadline = Interface & {
+  _writeToOutput?: (text: string) => void;
+};
+
+function maskReadlineOutput(
+  readline: Interface,
+  isMuted: () => boolean,
+): ((text: string) => void) | undefined {
+  const maskable = readline as MaskableReadline;
+  const original = maskable._writeToOutput;
+  if (!original) return undefined;
+  maskable._writeToOutput = function writeMaskedOutput(this: Interface, text: string) {
+    if (isMuted()) return;
+    original.call(this, text);
+  };
+  return original;
+}
+
+function restoreReadlineOutput(readline: Interface, original: ((text: string) => void) | undefined): void {
+  if (original) (readline as MaskableReadline)._writeToOutput = original;
 }
 
 function writeLine(stdout: Writable | ((chunk: string) => void) | undefined, line: string): void {

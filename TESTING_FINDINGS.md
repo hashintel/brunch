@@ -42,7 +42,7 @@ Concern: CLI invocation and first-run shape.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §CLI invocation, §startup menu, §main UI.
 Observation: `--workspace` is clumsy; web sidecar default feels inverted; no-auth startup still offers dead-end/low-value choices; warning copy is long and reveals model-policy details; footer showed `unknown`.
 Expected: first alpha entry should make the safe next action obvious, keep implementation/model policy mostly hidden, and avoid offering actions that cannot proceed without auth.
-Disposition: scoped candidate; CLI surface changes may need PLAN/SPEC if they alter public alpha invocation.
+Disposition: built in WR8 (FE-1180): no-auth copy is now short and hides model-policy internals, the startup dialog keeps spec/session creation available while warning that provider turns are disabled until auth, and footer chrome renders `no model` instead of `unknown`. CLI invocation shape (`--workspace`, web default inversion) remains outside this remediation row.
 
 #### A2 · onboarding safety · high · diagnose
 
@@ -50,7 +50,7 @@ Concern: `brunch login` and in-session `/login` auth UX.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §brunch login, §in-session `/login` flow.
 Observation: CLI login works but echoed a pasted API key in clear text; provider choices are restricted to the current allowlist; in-session `/login` feels better but model restrictions still produce friction when saved auth does not resolve an allowed default.
 Expected: pasted secrets should be hidden; login should minimize auth/setup friction without exposing internal model-policy choices.
-Disposition: diagnose/build for secret echo; model/provider restriction is a model-policy design question. Secret in source note was redacted locally; rotate the real key if it was live.
+Disposition: built in WR8 (FE-1180): `brunch login` API-key entry now uses hidden input and labels the prompt as hidden; login/warning copy steers users toward in-session `/login` as the preferred path. Model/provider restriction remains a model-policy design question. Secret in source note was redacted locally; rotate the real key if it was live.
 
 #### A3 · chrome / model policy · medium · diagnose
 

@@ -89,6 +89,8 @@ describe('brunch login', () => {
     expect(authStorage.get('openai')).toEqual({ type: 'api_key', key: 'keep-me' });
     expect(chunks.join('')).toContain('1) Anthropic — Claude Sonnet 4.6 (Anthropic)');
     expect(chunks.join('')).toContain('2) OpenRouter — Claude Sonnet 4.6 (OpenRouter)');
+    expect(chunks.join('')).toContain('API key (input hidden; or q to cancel)');
+    expect(chunks.join('')).not.toContain('or-key');
     expect(chunks.join('')).toContain('Brunch will use Claude Sonnet 4.6 (OpenRouter)');
   });
 
