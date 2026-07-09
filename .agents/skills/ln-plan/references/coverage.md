@@ -12,7 +12,7 @@ Optimize for **breadth closure** across one named load-bearing layer without wid
 
 A frontier is coverage **only when all of these hold**:
 
-1. **Named layer, load-bearing as a whole.** The thing being planned is a real layer or capability family whose value depends on its breadth (for example: an observed-shape inventory, a renderer family, a tool surface) rather than one vertical claim.
+1. **Named layer, load-bearing as a whole.** The thing being planned is a real layer or capability family whose value depends on its breadth (for example: an observed-shape inventory, a renderer family, a tool surface) rather than one vertical claim. A **named contract surface with a closed external inventory** also qualifies — e.g. a finished walkthrough findings ledger whose remediation terminates on closure over the findings — provided rows still map to owning seams (findings n:1 to rows), not one row per symptom.
 2. **Closeable inventory.** You can enumerate the layer up front without reading future implementation tea leaves. If the list is expected to keep growing as you build, it is not coverage.
 3. **Required vs deferred marking.** Rows can be marked `●` vs `○` honestly.
 4. **Owner + oracle per required row.** Every required row has one canonical owner and one closure oracle. If you cannot say who owns the row or how you would know it is closed, the row is still fog.

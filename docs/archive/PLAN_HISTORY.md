@@ -4,6 +4,36 @@ This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
 
+## 2026-07-09 Sync archive (`ln-sync`, alpha-publish + FE-1169 closeout)
+
+### Recently Completed bullets trimmed from `memory/PLAN.md`
+
+- 2026-07-08 **merge wave — ship-gate stack + KA executor lanes to `next`:** FE-1122 (#286), FE-1123 (#287), FE-1124 (#288), FE-1134 (#289), FE-1135 (#291), FE-1136 (#292), FE-1137 (#290), FE-1138 (#293), FE-1152 (#294); KA: FE-1141 (#295), FE-1154 (#297), FE-1155 (#296), FE-1107 (#298). All outer-loop residue from these lanes is batched into `walkthrough-evidence-batch` (FE-1167) — no merged frontier carries open obligations of its own.
+- 2026-07-08 `exchange-ask-refinement` (FE-1164) — tied off and merged to `next` 2026-07-08 (#304 + stack); unwitnessed walkthrough items folded into FE-1167 residue group 5. Review-fix closeout, F18–F20 ask-surface fixes, the sweep-classifier witness-audit fix (`64aad51a`), ask render-honesty oracle + `ASK_CONTENT_ELISIONS`, `ask-tuples.md` writer goldens, and the witness-gap runtime-mount/supersession probes all landed on-branch before tie-off. Definition retained in `memory/PLAN.md` (Horizon `headless-ask-discovery` / `review-commentary-widening` build on it).
+
+### alpha-release-readiness (FE-1159) — ✓ closed 2026-07-09 (published)
+
+Definition archived verbatim from `memory/PLAN.md` at publish closeout. `1.0.0-alpha.0` is live on npm under dist-tag `alpha` (`latest` untouched at 0.8.0); the git tag `1.0.0-alpha.0` exists on the `next` trunk.
+
+- **Name:** Alpha release readiness — packaging, model allowlist, auth onboarding
+- **Linear:** [FE-1159](https://linear.app/hash/issue/FE-1159/alpha-release-readiness-packaging-model-allowlist-auth-onboarding)
+- **Kind:** structural — distribution/packaging seam + a new auth/model-policy seam + first-run onboarding behavior.
+- **Delivered (five threads):** (1) `build:pi-assets` preserves compiled output while copying prompt/subagent/reference markdown assets; `drizzle-orm`/`drizzle-typebox` runtime deps. (2) Code-owned ordered model allowlist enforced by a Brunch-owned `ModelRegistry` (D113-L), scoped `/model` cycling. (3) No-auth gate: workspace-dialog warning banner, junctures + kick suppressed when no allowlisted model resolves (D115-L, I59-L). (4) `brunch login` over Pi's public `AuthStorage` writing `~/.pi/agent/auth.json` (D114-L). (5) `npm run check:release-pack` release-verification loop (tarball assertion, isolated-prefix install, foreign-cwd `--mode print` smoke, DB-touching rpc leg proving the better-sqlite3 binding).
+- **Outer walkthrough evidence (2026-07-07):** no-auth boot banner + no J1; `brunch login` with real OpenRouter key; the walkthrough-found `read_graph` top-level `oneOf` 400 (fixed on-branch; motivated FE-1163); post-fix full elicitation loop verified live on both allowlist entries; A38-L latency acceptable at `thinking: low`.
+- **Publish mechanics (executed):** manual-local release-it from the `next` trunk, `requireBranch: next`, bare-version tag, `check:release-pack` pre-publish hook, dist-tag `alpha`. First publish `npm run release -- --no-increment` shipping `1.0.0-alpha.0`; subsequent alphas bump prerelease.
+- **Traceability:** req 1, req 29; D113-L, D114-L, D115-L; A38-L; I59-L. Post-A38-L allowlist revision candidates named by the user: `openai/gpt-5.5`, `openai/gpt-5.4-mini` (verify pi-ai catalog ids before adding).
+
+### main-editor-chrome (FE-1169) — ✓ merged 2026-07-09 (#305)
+
+Definition archived from `memory/PLAN.md` at merge closeout. Durable truth: D22-L/D35-L chrome projections, the D104-L details-driven-rendering revision, D34-L command containment, `src/.pi/components/TOPOLOGY.md`, `src/.pi/extensions/chrome/TOPOLOGY.md`, `src/.pi/extensions/exchanges/TOPOLOGY.md`, `src/dev/TOPOLOGY.md`. The outer manual beats (wheel smoke, live mode-switch, gallery walk, candidates/review-set previews, continue/recovery, persistent-editor render-height) transferred to the alpha walkthrough lane (TESTING_PLAN.md Concern 7); findings feeding `walkthrough-remediation-1`.
+
+- **Name:** Main editor chrome + TUI component UX & rendering
+- **Linear:** [FE-1169](https://linear.app/hash/issue/FE-1169/main-editor-chrome-and-tui-component-ux-refinement)
+- **Kind:** bounded feature / presentation-layer production wiring (chrome territory, D22-L/D35-L) + one deliberate SPEC revision (D104-L pass-through rule). Head of the chrome batch.
+- **Delivered (six threads, grilled 2026-07-08):** (1) `BrunchEditorComponent` persistent editor via `ctx.ui.setEditorComponent` (render-height assumption retired); (2) ask surface UX — option sub-text rows, hierarchical esc, compact `formatAsk` unified result form with five-branch writer goldens; (3) details-driven transcript rendering for `present_candidates`/`present_review_set` (D104-L revision; render-honesty preserved; `present_digest` deliberately declined); (4) mode-reactive input chrome — `shift+tab` remapped to operational-mode cycling (in-process thinking-cycle suppression), border + border-label by projected mode; (5) commands — `/brunch:menu`, `/brunch:consult`, `/brunch:continue` (declared-ask recovery + synthetic pair + hint lifecycle; superseded post-merge by D119-L widening), `/brunch:mode`, restored `alt+m` picker; (6) border semantics — mode-reactive vs surface-identity channels, theme-testbed expansion witnessing all border roles in both themes. Absorbed: `workspace-dialog-headless-guard`; startup preflight theming. The 2026-07-09 induct passes landed the completion-predicate fix (answered-only completes a declared continuation) and the retired-vocabulary write-path fix. Named residue: `requestClosesPresent` in `src/session/exchange-projection.ts` treats any request terminal as closing — reconcile when Horizon `headless-ask-discovery` touches that seam.
+- **Consumed scope cards:** ask-surface-ux, mode-reactive-chrome, commands-and-menus, keybinding-scope-fix, ask-step-refactor, details-driven-rendering, ask-judo-consolidation, review-contract-followups, review-set-details-renderer (all deleted); PR-305 review-findings refactor (`memory/REFACTOR.md`, deleted).
+- **Traceability:** D22-L, D35-L, D104-L (revised), D106-L, D113-L, D34-L, FE-1138 precedent; feeds `develop-mode` groundwork (mode-agnostic cycling + satisfies-enforced theme roles).
+
 ## 2026-07-08 Sync archive (`ln-sync`, retirement/reduction pass)
 
 Closed-arc blocks retired from `memory/PLAN.md` §Initiatives to one-line notes. Full blocks preserved below.
