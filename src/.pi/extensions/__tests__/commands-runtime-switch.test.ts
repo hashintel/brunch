@@ -58,7 +58,7 @@ interface FakeCommandContext {
     select(title: string, options: string[]): Promise<string | undefined>;
     custom?<T>(factory: (...args: unknown[]) => unknown, options: unknown): Promise<T | undefined>;
     input?(prompt: string, placeholder?: string): Promise<string | undefined>;
-    setStatus?(key: string, text: string): void;
+    setStatus?(key: string, text: string | undefined): void;
   };
   sessionManager: {
     getEntries(): readonly RuntimeEntry[];
@@ -94,7 +94,7 @@ function commandHarness(
   const activeToolNames: string[][] = [];
   const customCalls: Array<{ factory: (...args: unknown[]) => unknown; options: unknown }> = [];
   const selectCalls: Array<{ title: string; options: string[] }> = [];
-  const statusCalls: Array<{ key: string; text: string }> = [];
+  const statusCalls: Array<{ key: string; text: string | undefined }> = [];
   const chromeRefreshes: number[] = [];
   const workspaceDecisions: unknown[] = [];
   const coordinator = {
@@ -295,7 +295,7 @@ describe('Brunch menu command', () => {
     ]);
   });
 
-  it('re-presents the most recent incomplete structured exchange and records the canonical answer', async () => {
+  it('re-presents the most recent incomplete structured exchange, records the canonical answer, and clears the continue hint', async () => {
     const harness = commandHarness({
       branch: [
         toolResultEntry({
@@ -324,6 +324,7 @@ describe('Brunch menu command', () => {
     await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
 
     expect(harness.customCalls).toHaveLength(1);
+    expect(harness.statusCalls).toContainEqual({ key: 'brunch.continue', text: undefined });
     expect(harness.appendedMessages).toEqual([
       expect.objectContaining({
         role: 'assistant',

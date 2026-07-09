@@ -34,9 +34,7 @@ import {
 import { withWorkingIndicatorHidden, type StructuredExchangeUiContext } from './shared/ui-context.js';
 
 export const ASK_TOOL = 'ask' as const;
-export { collectAskContinuationResponse } from './ask/continuation.js';
-const CONTINUE_STATUS_KEY = 'brunch.continue';
-const CONTINUE_COMMAND_HINT = '/brunch:continue';
+export { clearContinueHint, collectAskContinuationResponse } from './ask/continuation.js';
 
 type AskResultDetails = RequestDetails;
 
@@ -70,10 +68,6 @@ function terminal(
           message: message ?? 'ask unavailable',
         });
   return result(details, status === 'cancelled');
-}
-
-function surfaceContinueHint(ctx: StructuredExchangeUiContext): void {
-  ctx.ui?.setStatus?.(CONTINUE_STATUS_KEY, `Interrupted ask. Run ${CONTINUE_COMMAND_HINT} to resume.`);
 }
 
 type ContinuationCollectParams = AskContinuationParams & { readonly exchangeId: string };
@@ -132,10 +126,7 @@ async function collectFreeText(
   ]);
   if (collected === undefined)
     return terminal(params, question, 'unavailable', 'ask requires interactive UI');
-  if (collected.status === 'cancelled') {
-    surfaceContinueHint(ctx);
-    return terminal(params, question, 'cancelled');
-  }
+  if (collected.status === 'cancelled') return terminal(params, question, 'cancelled');
   const trimmed = collected.answer.trim();
   if (trimmed.length === 0) return terminal(params, question, 'unavailable', 'ask answer cannot be empty');
   let comment: string | undefined;
@@ -231,10 +222,7 @@ async function collectSingleChoiceWithBackNavigation(
 ): Promise<ToolResult> {
   for (;;) {
     const picked = await presentSingleChoicePicker(params, ctx, custom);
-    if (!picked) {
-      surfaceContinueHint(ctx);
-      return terminal(params, question, 'cancelled');
-    }
+    if (!picked) return terminal(params, question, 'cancelled');
     const collected = await collectPickedSingleChoice(params, picked, ctx);
     if (isBack(collected)) continue;
     if (collected.status === 'unavailable')
@@ -328,10 +316,7 @@ async function collectMultiChoiceWithBackNavigation(
   let selectedChoiceIds: readonly string[] = [];
   for (;;) {
     const picked = await presentMultiChoicePicker(params, ctx, custom, selectedChoiceIds);
-    if (!picked) {
-      surfaceContinueHint(ctx);
-      return terminal(params, question, 'cancelled');
-    }
+    if (!picked) return terminal(params, question, 'cancelled');
     selectedChoiceIds = picked.choices.map((choice) => choice.id);
     const collected = await collectPickedMultiChoices(params, picked, ctx);
     if (isBack(collected)) continue;
@@ -449,10 +434,7 @@ async function collectMultiChoiceViaEditor(
       }),
     );
   }
-  if ('cancelled' in details) {
-    surfaceContinueHint(ctx);
-    return terminal(params, question, 'cancelled', details.cancelled.message);
-  }
+  if ('cancelled' in details) return terminal(params, question, 'cancelled', details.cancelled.message);
   return terminal(params, question, 'unavailable', details.unavailable.message);
 }
 

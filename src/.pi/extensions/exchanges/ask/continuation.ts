@@ -75,8 +75,12 @@ function terminal(
   return result(details, status === 'cancelled');
 }
 
-function surfaceContinueHint(ctx: StructuredExchangeUiContext): void {
+export function surfaceContinueHint(ctx: StructuredExchangeUiContext): void {
   ctx.ui?.setStatus?.(CONTINUE_STATUS_KEY, `Interrupted ask. Run ${CONTINUE_COMMAND_HINT} to resume.`);
+}
+
+export function clearContinueHint(ctx: StructuredExchangeUiContext): void {
+  ctx.ui?.setStatus?.(CONTINUE_STATUS_KEY, undefined);
 }
 
 function askBorderColor(ctx: StructuredExchangeUiContext, theme: Pick<Theme, 'fg'>) {

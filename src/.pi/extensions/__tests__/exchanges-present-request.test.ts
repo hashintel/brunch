@@ -409,6 +409,7 @@ describe('structured exchange ask tools', () => {
 
   it('records cancellation with terminate, broker fallback, unavailable, and empty-answer discipline', async () => {
     const awaitAnswer = vi.fn(async () => 'Answer collected by broker.');
+    const setStatus = vi.fn();
     const ask = registeredTools({ liveExchange: { awaitAnswer } }).get(ASK_TOOL);
     if (!ask) throw new Error('ask was not registered');
 
@@ -417,7 +418,7 @@ describe('structured exchange ask tools', () => {
       { exchangeId: 'cancelled', body: 'Cancel?' },
       undefined,
       undefined,
-      { hasUI: true, ui: { custom: customCancel() } } as never,
+      { hasUI: true, ui: { custom: customCancel(), setStatus } } as never,
     );
     const brokered = await ask.execute(
       'ask-brokered',
@@ -441,6 +442,7 @@ describe('structured exchange ask tools', () => {
 
     expect(cancelled.details).toMatchObject({ tool_meta: { curr: ASK_TOOL }, cancelled: {} });
     expect(cancelled.terminate).toBe(true);
+    expect(setStatus).not.toHaveBeenCalled();
     expect(awaitAnswer).toHaveBeenCalledWith({ exchangeId: 'brokered' });
     expect(brokered.details).toMatchObject({ answered: { text: 'Answer collected by broker.' } });
     expect(unavailable.details).toMatchObject({ unavailable: { message: 'ask requires interactive UI' } });
