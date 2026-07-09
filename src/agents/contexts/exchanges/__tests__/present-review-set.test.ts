@@ -68,6 +68,20 @@ describe('formatPresentReviewSet', () => {
       }),
     ).toEqual([]);
   });
+
+  it('renders a plan-lens scope package with requirement, design, and verification anchors', () => {
+    const rendered = formatPresentReviewSet(
+      projectPresentReviewSet({ exchangeId: 'scope-review-launch', payload: scopePackagePayload }),
+    );
+
+    expect(rendered).toContain('## Proposal: Commit the executor handoff package');
+    expect(rendered).toContain('__$SCP2: Executor handoff package__');
+    expect(rendered).toContain('part of __F7__');
+    expect(rendered).toContain('realizes __REQ8__');
+    expect(rendered).toContain('depends on __$CH9__');
+    expect(rendered).toContain('__$MOD7: Scope package assembler__');
+    expect(rendered).toContain('part of __$SCP2__');
+  });
 });
 
 const structuralIllegalDiagnostics = {
@@ -249,6 +263,69 @@ const rejectedPayload = {
       category: 'composition',
       whole: { existingCode: 'F5' },
       part: { draftId: 'frontier-answering-chrome' },
+    },
+  ],
+} satisfies ReviewSetProposalPayload;
+
+const scopePackagePayload = {
+  schemaVersion: 1,
+  lens: 'plan',
+  epistemicStatus: 'asserted',
+  grounding: {
+    summary: 'The executor needs one committed handoff package below the frontier.',
+    support: [
+      'The handoff should carry requirement, design, and verification truth together.',
+    ],
+  },
+  pitch: {
+    title: 'Commit the executor handoff package',
+    narrative: 'Package the accepted requirement, design, and verification anchors into one reviewable scope.',
+  },
+  entityDrafts: [
+    {
+      draftId: 'scope-handoff-package',
+      proposedCode: 'SCP2',
+      plane: 'plan',
+      kind: 'scope',
+      title: 'Executor handoff package',
+      body: 'One committed package for the executor tracer.',
+    },
+    {
+      draftId: 'module-scope-assembler',
+      proposedCode: 'MOD7',
+      plane: 'design',
+      kind: 'module',
+      title: 'Scope package assembler',
+    },
+    {
+      draftId: 'check-scope-proof',
+      proposedCode: 'CH9',
+      plane: 'oracle',
+      kind: 'check',
+      title: 'Scope handoff proof',
+    },
+  ],
+  edgeDrafts: [
+    {
+      category: 'composition',
+      whole: { existingCode: 'F7' },
+      part: { draftId: 'scope-handoff-package' },
+    },
+    {
+      category: 'realization',
+      abstract: { existingCode: 'REQ8' },
+      concrete: { draftId: 'scope-handoff-package' },
+    },
+    {
+      category: 'dependency',
+      dependency: { draftId: 'check-scope-proof' },
+      dependent: { draftId: 'scope-handoff-package' },
+      rationale: 'The committed handoff only stands if the proof check remains green.',
+    },
+    {
+      category: 'composition',
+      whole: { draftId: 'scope-handoff-package' },
+      part: { draftId: 'module-scope-assembler' },
     },
   ],
 } satisfies ReviewSetProposalPayload;

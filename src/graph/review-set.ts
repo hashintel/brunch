@@ -19,7 +19,7 @@ import { EDGE_CATEGORIES, EDGE_STANCES, NODE_KINDS, NODE_PLANES } from './schema
 import type { NodeKind, NodePlane } from './schema/nodes.js';
 import { formatGraphNodeCode, parseGraphNodeCode } from './schema/nodes.js';
 
-type ReviewSetLens = 'intent' | 'design' | 'oracle';
+type ReviewSetLens = 'intent' | 'design' | 'oracle' | 'plan';
 type ReviewSetEpistemicStatus = 'inferred' | 'assumed' | 'asserted' | 'observed';
 
 interface ReviewSetProposalGrounding {
@@ -66,7 +66,7 @@ interface ReviewSetTranslationSuccess {
 
 export type ReviewSetTranslationResult = ReviewSetTranslationSuccess | StructuralIllegal;
 
-const VALID_LENSES = ['intent', 'design', 'oracle'] as const;
+const VALID_LENSES = ['intent', 'design', 'oracle', 'plan'] as const;
 const VALID_EPISTEMIC_STATUSES = ['inferred', 'assumed', 'asserted', 'observed'] as const;
 const VALID_PLANES = NODE_PLANES;
 const VALID_NODE_KINDS = NODE_KINDS as unknown as readonly string[];
@@ -328,7 +328,7 @@ function validateReviewSetPayloadShape(
   if (value.schemaVersion !== 1)
     diagnostics.push({ field: 'schemaVersion', message: 'schemaVersion must be 1' });
   if (!isOneOf(value.lens, VALID_LENSES)) {
-    diagnostics.push({ field: 'lens', message: 'lens must be intent, design, or oracle' });
+    diagnostics.push({ field: 'lens', message: 'lens must be intent, design, oracle, or plan' });
   }
   if (!isOneOf(value.epistemicStatus, VALID_EPISTEMIC_STATUSES)) {
     diagnostics.push({ field: 'epistemicStatus', message: 'epistemicStatus is required' });

@@ -217,6 +217,54 @@ function validReviewPayload() {
   };
 }
 
+function validPlanReviewPayload() {
+  return {
+    schemaVersion: 1,
+    lens: 'plan',
+    epistemicStatus: 'asserted',
+    grounding: {
+      summary: 'The user wants one committed handoff package below the frontier.',
+      support: ['The executor needs requirement, design, and verification anchors together.'],
+    },
+    pitch: {
+      title: 'Commit the scope handoff package',
+      narrative: 'Review one plan-lens package that the executor can consume directly.',
+    },
+    entityDrafts: [
+      {
+        draftId: 'frontier-scope-proof',
+        plane: 'plan',
+        kind: 'frontier',
+        title: 'Scope proof frontier',
+      },
+      {
+        draftId: 'scope-handoff',
+        plane: 'plan',
+        kind: 'scope',
+        title: 'Executor handoff package',
+      },
+      {
+        draftId: 'check-handoff-proof',
+        plane: 'oracle',
+        kind: 'check',
+        title: 'Scope handoff proof',
+      },
+    ],
+    edgeDrafts: [
+      {
+        category: 'composition',
+        whole: { draftId: 'frontier-scope-proof' },
+        part: { draftId: 'scope-handoff' },
+      },
+      {
+        category: 'dependency',
+        dependency: { draftId: 'check-handoff-proof' },
+        dependent: { draftId: 'scope-handoff' },
+      },
+    ],
+  };
+}
+
 function candidateParams(exchangeId = 'candidate-direction') {
   return {
     exchangeId,
@@ -895,6 +943,23 @@ describe('structured exchange ask tools', () => {
     expect(malformedFallback).toContain('Use the canonical content record.');
     expect(structuralIllegalRendered).toContain('STRUCTURAL_ILLEGAL');
     expect(structuralIllegalRendered).toContain('review-set graph dependencies unavailable');
+  });
+
+  it('accepts a plan-lens review set with a scope package', async () => {
+    const review = await presentResult(PRESENT_REVIEW_SET_TOOL, {
+      exchangeId: 'scope-review-cycle',
+      proposalEntryId: 'proposal-entry-scope',
+      payload: validPlanReviewPayload(),
+    });
+    const tool = registeredTools({ review: reviewDeps() }).get(PRESENT_REVIEW_SET_TOOL);
+    if (!tool) throw new Error('present_review_set was not registered');
+
+    const rendered = tool.renderResult(review, {}, theme).render?.(80).join('\n');
+
+    expect(rendered).toContain('Status: Review-set proposal');
+    expect(rendered).toContain('SCP1 · scope');
+    expect(rendered).toContain('Part of: F1');
+    expect(rendered).toContain('Depends on: CH1');
   });
 
   it('drives declared candidate, review-set, and digest continuations by reference', async () => {
