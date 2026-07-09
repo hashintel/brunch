@@ -343,6 +343,13 @@ function registerRuntimeSwitchCommands(pi: ExtensionAPI, options: ModeSwitchOpti
   });
 }
 
+function menuForCurrentOperationalMode(ctx: {
+  readonly sessionManager: RuntimeSwitchContext['sessionManager'];
+}): SessionOrientationMenuDescriptor {
+  const state = projectBrunchAgentState(ctx.sessionManager.getEntries());
+  return state.operationalMode === 'execute' ? CODE_SESSION_ORIENTATION_MENU : SESSION_ORIENTATION_MENU;
+}
+
 function registerConsultCommand(
   pi: ExtensionAPI,
   options: Pick<BrunchCommandsOptions, 'sessionOrientation'>,
@@ -363,6 +370,7 @@ function registerConsultCommand(
           ctx,
           trigger: 'consult',
           mode: 'follow-choice',
+          menu: menuForCurrentOperationalMode(ctx),
           kick: kickContext
             ? { ...kickContext, sendCustomMessage: sendCustomMessageViaExtensionApi(pi) }
             : undefined,
