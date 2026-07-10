@@ -304,7 +304,7 @@ describe('Brunch menu command', () => {
     const harness = commandHarness({
       orientation: true,
       customAvailable: false,
-      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'project_plan')!.label,
+      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'execute_plan')!.label,
     });
     harness.ctx.hasUI = true;
     harness.entries.push({
@@ -329,7 +329,7 @@ describe('Brunch menu command', () => {
     expect(harness.entries).toContainEqual(
       expect.objectContaining({
         customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
-        data: { schemaVersion: 1, choice: 'project_plan', trigger: 'consult' },
+        data: { schemaVersion: 1, choice: 'execute_plan', trigger: 'consult' },
       }),
     );
   });
@@ -697,7 +697,7 @@ describe('Brunch runtime switch commands', () => {
   it('borrows the command context for shortcut mode cycling so J5 can settle in-flight work', async () => {
     const harness = commandHarness({
       orientation: true,
-      customResult: { id: 'design_first' },
+      customResult: { id: 'prepare_execution' },
     });
     const shortcutCtx = { ...harness.ctx };
     let idle = false;
@@ -738,7 +738,7 @@ describe('Brunch runtime switch commands', () => {
     expect(harness.entries).toContainEqual(
       expect.objectContaining({
         customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
-        data: { schemaVersion: 1, choice: 'design_first', trigger: 'mode-switch' },
+        data: { schemaVersion: 1, choice: 'prepare_execution', trigger: 'mode-switch' },
       }),
     );
   });
@@ -765,7 +765,7 @@ describe('Brunch runtime switch commands', () => {
   it('aborts an in-flight turn (claiming the J4 gate) before showing the mode-switch menu', async () => {
     const harness = commandHarness({
       orientation: true,
-      customResult: { id: 'design_first' },
+      customResult: { id: 'prepare_execution' },
     });
     const events: string[] = [];
     let idle = false;
@@ -793,7 +793,7 @@ describe('Brunch runtime switch commands', () => {
     expect(harness.entries).toContainEqual(
       expect.objectContaining({
         customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
-        data: { schemaVersion: 1, choice: 'design_first', trigger: 'mode-switch' },
+        data: { schemaVersion: 1, choice: 'prepare_execution', trigger: 'mode-switch' },
       }),
     );
   });
@@ -801,7 +801,8 @@ describe('Brunch runtime switch commands', () => {
   it('skips the abort path when waitForIdle is unavailable', async () => {
     const harness = commandHarness({
       orientation: true,
-      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'design_first')!.label,
+      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'prepare_execution')!
+        .label,
     });
     const aborts: number[] = [];
     harness.ctx.isIdle = () => false;
@@ -818,7 +819,8 @@ describe('Brunch runtime switch commands', () => {
   it('leaves an idle agent alone on mode switch (no abort, no gate claim)', async () => {
     const harness = commandHarness({
       orientation: true,
-      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'design_first')!.label,
+      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'prepare_execution')!
+        .label,
     });
     const aborts: number[] = [];
     harness.ctx.isIdle = () => true;
@@ -835,7 +837,7 @@ describe('Brunch runtime switch commands', () => {
   it('runs the CODE-side orientation menu and kicks on the selected choice after switching to Execute', async () => {
     const harness = commandHarness({
       orientation: true,
-      customResult: { id: 'design_first' },
+      customResult: { id: 'prepare_execution' },
     });
 
     await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
@@ -846,13 +848,13 @@ describe('Brunch runtime switch commands', () => {
       expect.objectContaining({
         type: 'custom',
         customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
-        data: { schemaVersion: 1, choice: 'design_first', trigger: 'mode-switch' },
+        data: { schemaVersion: 1, choice: 'prepare_execution', trigger: 'mode-switch' },
       }),
     );
     expect(harness.sent).toHaveLength(2);
     expect(harness.sent[0]?.message).toMatchObject({
       customType: 'brunch.context_seed',
-      content: expect.stringContaining('chosen: design_first'),
+      content: expect.stringContaining('chosen: prepare_execution'),
     });
     expect(harness.sent[1]).toEqual({
       message: expect.objectContaining({ customType: BRUNCH_KICK_CUSTOM_TYPE }),

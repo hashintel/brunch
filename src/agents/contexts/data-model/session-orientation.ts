@@ -24,12 +24,12 @@ const ORIENTATION_DIRECTIVES: Record<SessionOrientationDirectiveChoice, string> 
     'Open with a readiness assessment over the seeded graph, facts, and scratchpad; name the next safe execution step before acting.',
   backfill:
     'Accept the user’s desired execution move, then backfill missing information in Execute mode with targeted questions before acting.',
-  design_first:
-    'Open by designing the technical approach first; route through propose/project:design conduct before execution.',
-  oracle_first:
-    'Open by designing the verification approach first; route through propose/project:oracle conduct before execution.',
-  project_plan:
-    'Open by projecting a frontier-level plan at D103-L depth, then proceed only to the next safe execution step.',
+  prepare_execution:
+    'Open by assessing design, oracle, and commitment evidence; recommend one next preparation path and obtain structured user confirmation before beginning it.',
+  compile_plan:
+    'Open by assessing plan-compilation readiness across design, oracle, and commitment sufficiency; name concrete gaps, then offer compile-now versus backfill-first.',
+  execute_plan:
+    'Open by validating that the compiled plan is fresh and executable; if valid, begin only the next safe scoped unit, and otherwise route to compilation or backfill.',
 };
 
 export function formatSessionOrientationSeed(choice: SessionOrientationDirectiveChoice): string {

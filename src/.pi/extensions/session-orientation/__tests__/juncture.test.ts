@@ -203,7 +203,7 @@ describe('runOrientationJuncture', () => {
 
       const result = await runOrientationJuncture({
         hasUI: false,
-        ui: fakeUi(codeLabelFor('design_first')),
+        ui: fakeUi(codeLabelFor('prepare_execution')),
         trigger: 'mode-switch',
         sessionManager: manager,
         mode: 'follow-choice',
@@ -251,7 +251,7 @@ describe('runOrientationJuncture', () => {
 
       const result = await runOrientationJuncture({
         hasUI: true,
-        ui: fakeUi(codeLabelFor('design_first')),
+        ui: fakeUi(codeLabelFor('prepare_execution')),
         trigger: 'mode-switch',
         sessionManager: manager,
         mode: 'follow-choice',
@@ -260,7 +260,7 @@ describe('runOrientationJuncture', () => {
         onAppendError: (error) => errors.push(error),
       });
 
-      expect(result).toEqual({ ran: true, choice: 'design_first', kickFired: false });
+      expect(result).toEqual({ ran: true, choice: 'prepare_execution', kickFired: false });
       expect(errors).toHaveLength(1);
       expect(sent).toEqual([]);
     });

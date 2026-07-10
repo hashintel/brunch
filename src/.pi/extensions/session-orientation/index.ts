@@ -88,19 +88,20 @@ export const CODE_SESSION_ORIENTATION_MENU = {
   topLabel: '[ Execute ]',
   items: [
     {
-      id: 'design_first',
+      id: 'prepare_execution',
       label: 'Design / oracle / commit work',
-      description: 'Backfill the technical approach, verification, or commitment before execution.',
+      description:
+        'Assess preparation evidence, recommend one design/oracle/commitment path, and ask before beginning it.',
     },
     {
-      id: 'oracle_first',
+      id: 'compile_plan',
       label: 'Plan compilation readiness',
-      description: 'Shape the verification path and readiness evidence before compiling the plan.',
+      description: 'Assess readiness, name gaps, then offer compile-now versus backfill-first.',
     },
     {
-      id: 'project_plan',
+      id: 'execute_plan',
       label: 'Plan execution',
-      description: 'Project the frontier-level execution plan, then proceed only to the next safe step.',
+      description: 'Validate the plan is fresh and ready, then begin only the next safe scoped unit.',
     },
   ],
 } as const satisfies SessionOrientationMenuDescriptor;
