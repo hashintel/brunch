@@ -2774,6 +2774,27 @@ describe('Brunch explicit Pi extension registry', () => {
     });
   });
 
+  it('covers the exact 32-tool executor family, including both artifact tools', async () => {
+    const registeredTools = await collectProductTools({
+      graph: { specId: 42, lsn: 1, nodes: [], edges: [] },
+    });
+    const executorTools = registeredTools
+      .filter((tool) => tool.name.startsWith('execute_'))
+      .sort((left, right) => left.name.localeCompare(right.name));
+    const expectedNames = [
+      ...EXECUTOR_ALLOWED_TOOL_NAMES.filter((name) => name.startsWith('execute_')),
+      BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL,
+      BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL,
+    ].sort((left, right) => left.localeCompare(right));
+
+    expect(executorTools.map((tool) => tool.name)).toEqual(expectedNames);
+    expect(executorTools).toHaveLength(32);
+    for (const tool of executorTools) {
+      expect(hasToolParametersProvenance(tool.parameters), `${tool.name} adapter provenance`).toBe(true);
+      assertProviderLegalToolSchema(tool.parameters);
+    }
+  });
+
   it('keeps every active Brunch-authored tool provider-legal across elicitor, executor, and dev modes', async () => {
     const registeredTools = await collectProductTools({
       graph: { specId: 42, lsn: 1, nodes: [], edges: [] },

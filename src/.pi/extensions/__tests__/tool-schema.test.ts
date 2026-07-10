@@ -12,11 +12,12 @@ describe('toolParameters', () => {
     });
   });
 
-  it('accepts legal TypeBox object schemas', () => {
-    expect(toolParameters(Type.Object({ query: Type.String() }))).toMatchObject({
-      type: 'object',
-      properties: { query: { type: 'string' } },
-    });
+  it('passes legal TypeBox objects through without changing their emitted shape', () => {
+    const schema = Type.Object({ query: Type.String() });
+    const serializedBefore = JSON.stringify(schema);
+
+    expect(toolParameters(schema)).toBe(schema);
+    expect(JSON.stringify(schema)).toBe(serializedBefore);
   });
 
   it('rejects non-object roots', () => {
