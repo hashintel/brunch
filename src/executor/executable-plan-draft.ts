@@ -53,12 +53,6 @@ export interface ExecutablePlanDraft {
 }
 
 export function draftExecutablePlan(outline: ExecutionPlanOutline): ExecutablePlanDraft {
-  const epics = outline.frontiers.map((frontier) => ({
-    id: frontier.id,
-    title: frontier.title,
-    sliceIds: frontier.tasks.map((task) => task.id),
-    dependsOn: [],
-  }));
   const taskIdByRequirement = new Map<string, string>();
   for (const task of outline.frontiers.flatMap((frontier) => frontier.tasks)) {
     const requirementIds =
@@ -119,12 +113,20 @@ export function draftExecutablePlan(outline: ExecutionPlanOutline): ExecutablePl
     });
   });
 
+  const orderedSlices = orderSlicesByDependencies(slices);
+  const epics = outline.frontiers.map((frontier) => ({
+    id: frontier.id,
+    title: frontier.title,
+    sliceIds: orderedSlices.filter((slice) => slice.epicId === frontier.id).map((slice) => slice.id),
+    dependsOn: [],
+  }));
+
   return {
     schemaVersion: 1,
     specId: outline.specId,
     mode: outline.mode,
     epics,
-    slices: orderSlicesByDependencies(slices),
+    slices: orderedSlices,
     sideEffects: [],
   };
 }
