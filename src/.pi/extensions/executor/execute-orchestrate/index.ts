@@ -7,6 +7,7 @@ import { drive, type DriveOutcome, type DriveStepProgress } from '../../../../ex
 import type { VerifyStreamEvent } from '../../../../executor/test-result.js';
 import { executeRunProductUpdates, type ProductUpdatePublisher } from '../../../../rpc/product-updates.js';
 import { BRUNCH_EXECUTE_ORCHESTRATE_TOOL } from '../../../../session/schema/tool-names.js';
+import { renderExecuteOrchestrateResult } from '../rendering.js';
 
 export { BRUNCH_EXECUTE_ORCHESTRATE_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -22,6 +23,7 @@ interface ExecuteOrchestrateDetails {
     readonly runId: string;
     readonly step: string;
     readonly phase: 'started' | 'completed';
+    readonly fromStatus: string;
     readonly runStatus: string;
     readonly activeEpicId?: string;
     readonly activeSliceId?: string;
@@ -46,13 +48,40 @@ export function createExecuteOrchestrateTool(
     description:
       'Drive an executor run end-to-end to promotion_prepared (run-local land) by advancing each lifecycle step the scheduler reports ready. Halts without advancing if a step cannot execute. Does not perform host promotion/land.',
     parameters: ExecuteOrchestrateParams,
+    renderResult(result, options, theme, context) {
+      return renderExecuteOrchestrateResult(result, options, theme as never, context);
+    },
     async execute(_toolCallId, params, _signal, onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_orchestrate requires an active cwd');
       }
       const publisher = deps?.productUpdates;
+      let latestProgress: ExecuteOrchestrateDetails['progress'];
+      let latestAgentStream: ExecuteOrchestrateDetails['agentStream'];
+      let latestVerifyStream: ExecuteOrchestrateDetails['verifyStream'];
+      const progressStepStreams = (
+        stepKind: string,
+      ): Pick<ExecuteOrchestrateDetails, 'agentStream' | 'verifyStream'> => {
+        if (stepKind === 'agent_result') {
+          return latestAgentStream ? { agentStream: latestAgentStream } : {};
+        }
+        if (stepKind === 'test_result') {
+          return latestVerifyStream ? { verifyStream: latestVerifyStream } : {};
+        }
+        return {};
+      };
       const emitProgress = (progress: DriveStepProgress): void => {
+        latestProgress = {
+          runId: params.runId,
+          step: progress.step.kind,
+          phase: progress.phase,
+          fromStatus: progress.fromStatus,
+          runStatus: progress.runStatus,
+          ...(progress.activeEpicId ? { activeEpicId: progress.activeEpicId } : {}),
+          ...(progress.activeSliceId ? { activeSliceId: progress.activeSliceId } : {}),
+          completedSliceIds: progress.completedSliceIds,
+        };
         const sliceLine = progress.activeSliceId
           ? [
               `slice: ${progress.activeSliceId}`,
@@ -79,19 +108,13 @@ export function createExecuteOrchestrateTool(
             },
           ],
           details: {
-            progress: {
-              runId: params.runId,
-              step: progress.step.kind,
-              phase: progress.phase,
-              runStatus: progress.runStatus,
-              ...(progress.activeEpicId ? { activeEpicId: progress.activeEpicId } : {}),
-              ...(progress.activeSliceId ? { activeSliceId: progress.activeSliceId } : {}),
-              completedSliceIds: progress.completedSliceIds,
-            },
+            progress: latestProgress,
+            ...progressStepStreams(progress.step.kind),
           },
         });
       };
       const emitAgentUpdate = (event: AgentStreamEvent): void => {
+        latestAgentStream = event;
         publisher?.publish(executeRunProductUpdates(params.runId));
         onUpdate?.({
           content: [
@@ -107,10 +130,14 @@ export function createExecuteOrchestrateTool(
               ].join('\n'),
             },
           ],
-          details: { agentStream: event },
+          details: {
+            ...(latestProgress ? { progress: latestProgress } : {}),
+            agentStream: event,
+          },
         });
       };
       const emitVerifyUpdate = (event: VerifyStreamEvent): void => {
+        latestVerifyStream = event;
         publisher?.publish(executeRunProductUpdates(params.runId));
         onUpdate?.({
           content: [
@@ -126,7 +153,10 @@ export function createExecuteOrchestrateTool(
               ].join('\n'),
             },
           ],
-          details: { verifyStream: event },
+          details: {
+            ...(latestProgress ? { progress: latestProgress } : {}),
+            verifyStream: event,
+          },
         });
       };
       const outcome = await drive({
@@ -161,7 +191,12 @@ export function createExecuteOrchestrateTool(
             ].join('\n'),
           },
         ],
-        details: { outcome },
+        details: {
+          outcome,
+          ...(latestProgress ? { progress: latestProgress } : {}),
+          ...(latestAgentStream ? { agentStream: latestAgentStream } : {}),
+          ...(latestVerifyStream ? { verifyStream: latestVerifyStream } : {}),
+        },
       };
     },
   };
