@@ -37,7 +37,7 @@ export function reducePetriLiveExecutionExport(args: {
   readonly events: readonly ExecutorNetEvent[];
 }): PetriLiveExecutionExport {
   const definition = augmentPetriDefinitionWithRunStatus(projectPetriLiveNetDefinition(args.sdcpnFile));
-  const transitions = new Map(definition.transitions.map((transition) => [transition.id, transition]));
+  const transitions = transitionMap(definition.transitions);
   const transitionFirings: PetriLiveTransitionFiring[] = [];
   let terminalFired = false;
 
@@ -230,10 +230,22 @@ function initialStateFromSdcpn(sdcpnFile: SdcpnFile): PetriLiveMarking {
 
   const marking: PetriLiveMarking = {};
   for (const [placeId, count] of Object.entries(scenario.initialState.content)) {
-    const parsed = Number.parseInt(count, 10);
+    if (!/^[0-9]+$/u.test(count)) throw new Error(`Invalid Petrinaut initial marking count: ${placeId}`);
+    const parsed = Number(count);
     if (Number.isInteger(parsed) && parsed > 0) marking[placeId] = parsed;
   }
   return marking;
+}
+
+function transitionMap(
+  transitions: readonly PetriLiveNetDefinition['transitions'][number][],
+): Map<string, PetriLiveNetDefinition['transitions'][number]> {
+  const map = new Map<string, PetriLiveNetDefinition['transitions'][number]>();
+  for (const transition of transitions) {
+    if (map.has(transition.id)) throw new Error(`Duplicate Petrinaut transition id: ${transition.id}`);
+    map.set(transition.id, transition);
+  }
+  return map;
 }
 
 function reduceArcs(arcs: readonly (SdcpnInputArc | SdcpnOutputArc)[]): PetriLiveMarking {

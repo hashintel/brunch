@@ -705,6 +705,30 @@ describe('reducePetriLiveExecutionExport', () => {
       }),
     ).toThrow(/missing-transition/);
   });
+
+  it('fails closed when SDCPN transition ids collide', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-live-export-duplicate-transition-'));
+    await createCompletedRun(cwd);
+    await exportPetri({ cwd, runId: 'run-1' });
+    const sdcpnFile = JSON.parse(await readFile(petriSdcpnPath(cwd, 'run-1'), 'utf8'));
+    sdcpnFile.transitions = [sdcpnFile.transitions[0], sdcpnFile.transitions[0]];
+
+    expect(() => reducePetriLiveExecutionExport({ sdcpnFile, events: [] })).toThrow(
+      /Duplicate Petrinaut transition id/,
+    );
+  });
+
+  it('fails closed when SDCPN initial marking counts are not integer strings', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-live-export-malformed-marking-'));
+    await createCompletedRun(cwd);
+    await exportPetri({ cwd, runId: 'run-1' });
+    const sdcpnFile = JSON.parse(await readFile(petriSdcpnPath(cwd, 'run-1'), 'utf8'));
+    sdcpnFile.scenarios[0].initialState.content['run:created'] = '1abc';
+
+    expect(() => reducePetriLiveExecutionExport({ sdcpnFile, events: [] })).toThrow(
+      /Invalid Petrinaut initial marking count/,
+    );
+  });
 });
 
 describe('Petrinaut launcher URL helpers', () => {

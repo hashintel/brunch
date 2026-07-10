@@ -197,7 +197,7 @@ function safeLoopbackHostHeader(host: string | undefined): string | undefined {
   try {
     const parsed = new URL(`http://${host}`);
     return parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost' || parsed.hostname === '[::1]'
-      ? host
+      ? parsed.host
       : undefined;
   } catch {
     return undefined;

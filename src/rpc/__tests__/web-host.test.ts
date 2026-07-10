@@ -1024,6 +1024,27 @@ describe('web host', () => {
       else process.env.PETRINAUT_URL = previousPetrinautUrl;
     }
   });
+
+  it('normalizes accepted loopback Host headers before composing launch redirect URLs', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-launch-host-normalize-'));
+    await writePetrinautReplayRun(cwd, 'run-1');
+    const previousPetrinautUrl = process.env.PETRINAUT_URL;
+    process.env.PETRINAUT_URL = 'https://petrinaut.example/brunch';
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const response = await rawGetWithHost(host.url, '/petrinaut/launch?runId=run-1', 'localhost');
+      const location = response.headers.get('location');
+
+      expect(response.status).toBe(302);
+      expect(new URL(location!).searchParams.get('sse')).toBe(
+        'http://localhost/petrinaut/stream?runId=run-1',
+      );
+    } finally {
+      await host.close();
+      if (previousPetrinautUrl === undefined) delete process.env.PETRINAUT_URL;
+      else process.env.PETRINAUT_URL = previousPetrinautUrl;
+    }
+  });
 });
 
 async function websocketRpc(url: string, request: unknown): Promise<unknown> {
