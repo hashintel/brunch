@@ -9,6 +9,7 @@ import { writePlanFile } from '../../../../executor/plan-file.js';
 import type { PlanPreview } from '../../../../executor/plan-preview.js';
 import { BRUNCH_EXECUTE_PLAN_FILE_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_PLAN_FILE_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -47,7 +48,7 @@ export function createExecutePlanFileTool(
     label: 'execute_plan_file',
     description:
       'Write an old-cook-compatible plan.yaml under .brunch/cook/specs/<specId>. Does not create cook runs or worktrees.',
-    parameters: ExecutePlanFileParams,
+    parameters: toolParameters(ExecutePlanFileParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {

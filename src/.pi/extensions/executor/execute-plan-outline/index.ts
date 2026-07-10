@@ -8,6 +8,7 @@ import {
 } from '../../../../executor/execute-projection.js';
 import { BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -44,7 +45,7 @@ export function createExecutePlanOutlineTool(
     label: 'execute_plan_outline',
     description:
       'Create a side-effect-free reviewable plan outline from the selected specification graph. Does not create plan files or cook runs.',
-    parameters: ExecutePlanOutlineParams,
+    parameters: toolParameters(ExecutePlanOutlineParams),
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
       const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
       const projection = projectExecuteGraph({

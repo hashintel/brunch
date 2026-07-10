@@ -4,7 +4,7 @@ import {
   type SessionManager,
 } from '@earendil-works/pi-coding-agent';
 
-import { registerBrunchAlternatives } from '../.pi/components/alternatives.js';
+import { registerBrunchAlternatives as registerBrunchAlternativesComponent } from '../.pi/components/alternatives.js';
 import { registerBrunchOperationalModePolicy } from '../.pi/extensions/agent-runtime/index.js';
 import {
   registerBrunchPrompting,
@@ -73,6 +73,7 @@ import {
   registerBrunchSessionOrientation,
   type BrunchSessionOrientationDeps,
 } from '../.pi/extensions/session-orientation/registrar.js';
+import { toolParameters } from '../.pi/extensions/shared/tool-schema.js';
 import { registerBrunchSubagents, type BrunchSubagentsDeps } from '../.pi/extensions/subagents/index.js';
 import { registerBrunchWebTools } from '../.pi/extensions/web-tools/index.js';
 import type { ExecutionPorts } from '../executor/execution-ports.js';
@@ -98,7 +99,9 @@ import { createGitWorktreePort } from './git-worktree-port.js';
 import { registerBrunchKeybindingPolicy } from './pi-keybindings.js';
 import { createTestRunnerPort } from './test-runner-port.js';
 
-export { registerBrunchAlternatives } from '../.pi/components/alternatives.js';
+export function registerBrunchAlternatives(pi: ExtensionAPI): void {
+  registerBrunchAlternativesComponent(pi, (schema) => toolParameters(schema) as typeof schema);
+}
 export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from '../.pi/extensions/commands/policy.js';
 export { registerBrunchMentionAutocomplete } from '../.pi/extensions/mentions/index.js';
 export {

@@ -10,6 +10,7 @@
  */
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { Type } from 'typebox';
 
 import {
   formatElicitationScratchpad,
@@ -22,6 +23,7 @@ import {
   type ElicitationScratchpadEntrySessionManager,
   type ElicitationScratchpadItem,
 } from '../../../../session/elicitation-scratchpad.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export const READ_ELICITATION_SCRATCHPAD_TOOL = 'read_elicitation_scratchpad';
 export const UPDATE_ELICITATION_SCRATCHPAD_TOOL = 'update_elicitation_scratchpad';
@@ -52,35 +54,50 @@ function currentScratchpad(
   return latestElicitationScratchpad(sessionManager?.getEntries() ?? []);
 }
 
-const ReadElicitationScratchpadParams = {
-  type: 'object',
-  additionalProperties: false,
-  properties: {},
-  description:
-    'Read the current session-local elicitation scratchpad: obligations the agent has noted still need asking, reconstructed from this session branch. Non-authoritative — durable truth is the graph.',
-} as const;
+const ReadElicitationScratchpadParamsSchema = Type.Object(
+  {},
+  {
+    additionalProperties: false,
+    description:
+      'Read the current session-local elicitation scratchpad: obligations the agent has noted still need asking, reconstructed from this session branch. Non-authoritative — durable truth is the graph.',
+  },
+);
+const ReadElicitationScratchpadParams = toolParameters(
+  ReadElicitationScratchpadParamsSchema,
+) as typeof ReadElicitationScratchpadParamsSchema;
 
-const UpdateElicitationScratchpadParams = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['operation'],
-  properties: {
-    operation: {
+const UpdateElicitationScratchpadParamsSchema = Type.Object(
+  {
+    operation: Type.Unsafe<'add' | 'resolve' | 'update'>({
       enum: ['add', 'resolve', 'update'],
       description:
         "'add' appends a new open obligation; 'resolve' marks an existing obligation resolved; 'update' replaces an obligation's text/rationale/meta",
-    },
-    id: {
-      type: 'string',
-      description: 'add: id for the new obligation; resolve/update: id of the existing one',
-    },
-    obligation: { type: 'string', description: 'add/update: the obligation text (what still needs asking)' },
-    rationale: { type: 'string', description: 'add/update: why this obligation exists' },
-    meta: { type: 'object', description: 'add/update: free-form non-authoritative reference data' },
+    }),
+    id: Type.Optional(
+      Type.String({
+        description: 'add: id for the new obligation; resolve/update: id of the existing one',
+      }),
+    ),
+    obligation: Type.Optional(
+      Type.String({ description: 'add/update: the obligation text (what still needs asking)' }),
+    ),
+    rationale: Type.Optional(Type.String({ description: 'add/update: why this obligation exists' })),
+    meta: Type.Optional(
+      Type.Unsafe<Record<string, unknown>>({
+        type: 'object',
+        description: 'add/update: free-form non-authoritative reference data',
+      }),
+    ),
   },
-  description:
-    'Write the session-local elicitation scratchpad. Always appends a full-replacement snapshot of the current scratchpad; never persists to the graph.',
-} as const;
+  {
+    additionalProperties: false,
+    description:
+      'Write the session-local elicitation scratchpad. Always appends a full-replacement snapshot of the current scratchpad; never persists to the graph.',
+  },
+);
+const UpdateElicitationScratchpadParams = toolParameters(
+  UpdateElicitationScratchpadParamsSchema,
+) as typeof UpdateElicitationScratchpadParamsSchema;
 
 export interface UpdateElicitationScratchpadParamValues {
   operation: 'add' | 'resolve' | 'update';

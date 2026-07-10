@@ -4,6 +4,8 @@ import { parseHTML } from 'linkedom';
 import TurndownService from 'turndown';
 import { Type } from 'typebox';
 
+import { toolParameters } from '../../shared/tool-schema.js';
+
 const USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -365,19 +367,23 @@ export function createWebFetchTool() {
       'Use web_fetch when the user provides a specific URL or when web_search results include a page that needs closer reading.',
       'Use web_fetch useJinaFallback only when normal fetching fails or appears JavaScript-rendered; it sends the URL to r.jina.ai.',
     ],
-    parameters: Type.Object({
-      url: Type.String({ description: 'URL to fetch.' }),
-      maxChars: Type.Optional(
-        Type.Integer({
-          description: 'Maximum characters to return. Default 40000, max 200000.',
-          minimum: 1000,
-          maximum: 200000,
-        }),
-      ),
-      useJinaFallback: Type.Optional(
-        Type.Boolean({ description: 'Whether to try r.jina.ai if normal extraction fails. Default false.' }),
-      ),
-    }),
+    parameters: toolParameters(
+      Type.Object({
+        url: Type.String({ description: 'URL to fetch.' }),
+        maxChars: Type.Optional(
+          Type.Integer({
+            description: 'Maximum characters to return. Default 40000, max 200000.',
+            minimum: 1000,
+            maximum: 200000,
+          }),
+        ),
+        useJinaFallback: Type.Optional(
+          Type.Boolean({
+            description: 'Whether to try r.jina.ai if normal extraction fails. Default false.',
+          }),
+        ),
+      }),
+    ),
     async execute(_toolCallId: string, params: WebFetchParams, signal?: AbortSignal) {
       const result = await fetchAndExtract(params, signal);
       if (result.error) throw new Error(`${params.url}: ${result.error}`);

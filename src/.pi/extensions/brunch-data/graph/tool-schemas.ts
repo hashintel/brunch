@@ -30,6 +30,7 @@ import {
   type NodeKindWithFormDetail,
   type RoleNamedEdgeDraftOf,
 } from '../../../../graph/index.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 const ALL_KINDS = [...INTENT_KINDS, ...ORACLE_KINDS, ...DESIGN_KINDS, ...PLAN_KINDS] as const;
 const DETAIL_KINDS = new Set<string>(NODE_KINDS_REQUIRING_DETAIL);
@@ -176,7 +177,7 @@ export const MutateCreateEdgeSchema = Type.Union(
   EDGE_CATEGORIES.map((category) => roleNamedCreateEdgeSchema(category)),
 );
 
-export const MutateGraphParams = Type.Object(
+const MutateGraphParamsSchema = Type.Object(
   {
     createBasis: Type.Optional(
       StringEnum(['explicit', 'implicit'] as const, {
@@ -199,56 +200,74 @@ export const MutateGraphParams = Type.Object(
   { additionalProperties: false },
 );
 
+export const MutateGraphParams = toolParameters(MutateGraphParamsSchema) as typeof MutateGraphParamsSchema;
+
 const READ_GRAPH_MODES = ['overview', 'neighborhood', 'list_by_kind', 'list_by_band', 'related'] as const;
 
-export const ReadGraphParams = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['mode'],
-  properties: {
-    mode: { enum: [...READ_GRAPH_MODES] },
-    show: {
-      enum: ['active', 'all'] satisfies readonly GraphVisibility[],
-      description: 'Graph visibility to read (default: active)',
-    },
-    nodeCode: {
-      type: 'string',
-      minLength: 1,
-      description: 'neighborhood: projected code of the anchor node in the selected spec, e.g. G1 or CON2',
-    },
-    hops: { type: 'number', description: 'Neighborhood traversal depth (default: 1)' },
-    kinds: {
-      type: 'array',
-      items: { type: 'string' },
-      description:
-        'list_by_kind: optional node-kind filter. Omit or pass [] for an unfiltered slice; unknown kinds produce an empty slice.',
-    },
-    readinessBands: {
-      type: 'array',
-      items: { enum: [...READINESS_BANDS] },
-      description:
-        'list_by_band: optional readiness-band filter. Omit or pass [] for an unfiltered slice; unknown bands produce an empty slice.',
-    },
-    anchorCodes: {
-      type: 'array',
-      minItems: 1,
-      items: { type: 'string', minLength: 1 },
-      description: 'related: one or more projected codes of anchor nodes in the selected spec',
-    },
-    edgeCategory: {
-      enum: [...EDGE_CATEGORIES],
-      description: 'related: edge category to follow',
-    },
-    direction: {
-      enum: ['outgoing', 'incoming', 'both'] satisfies readonly EdgeDirection[],
-      description: 'related: traversal direction (default: both)',
-    },
-  },
-  // No top-level oneOf/anyOf/allOf: Anthropic-family backends reject tool input
-  // schemas with a top-level union (400 on every provider turn). Mode companions
-  // are enforced by the loud structural_illegal diagnostics in the tool executor.
-  description:
-    'Read a graph overview, selected-spec node neighborhood, projection-aware flat graph slice, or related nodes. Mode-specific companions are enforced by loud adapter diagnostics: neighborhood requires nodeCode; related requires anchorCodes plus edgeCategory. List modes intentionally treat omitted/empty filters as unfiltered slices; unknown filters produce an empty slice.',
-} as const;
+function enumOnlySchema<const TValues extends readonly string[]>(
+  values: TValues,
+  options?: { readonly description?: string },
+) {
+  return Type.Unsafe<TValues[number]>({
+    enum: [...values],
+    ...(options?.description === undefined ? {} : { description: options.description }),
+  }) as ReturnType<typeof Type.Unsafe<TValues[number]>> & { readonly enum: TValues };
+}
 
-export type ToolMutateGraphParamsSchema = Static<typeof MutateGraphParams>;
+const ReadGraphParamsSchema = Type.Object(
+  {
+    mode: enumOnlySchema(READ_GRAPH_MODES),
+    show: Type.Optional(
+      enumOnlySchema(['active', 'all'] satisfies readonly GraphVisibility[], {
+        description: 'Graph visibility to read (default: active)',
+      }),
+    ),
+    nodeCode: Type.Optional(
+      Type.String({
+        minLength: 1,
+        description: 'neighborhood: projected code of the anchor node in the selected spec, e.g. G1 or CON2',
+      }),
+    ),
+    hops: Type.Optional(Type.Number({ description: 'Neighborhood traversal depth (default: 1)' })),
+    kinds: Type.Optional(
+      Type.Array(Type.String(), {
+        description:
+          'list_by_kind: optional node-kind filter. Omit or pass [] for an unfiltered slice; unknown kinds produce an empty slice.',
+      }),
+    ),
+    readinessBands: Type.Optional(
+      Type.Array(enumOnlySchema(READINESS_BANDS), {
+        description:
+          'list_by_band: optional readiness-band filter. Omit or pass [] for an unfiltered slice; unknown bands produce an empty slice.',
+      }),
+    ),
+    anchorCodes: Type.Optional(
+      Type.Array(Type.String({ minLength: 1 }), {
+        minItems: 1,
+        description: 'related: one or more projected codes of anchor nodes in the selected spec',
+      }),
+    ),
+    edgeCategory: Type.Optional(
+      enumOnlySchema(EDGE_CATEGORIES, {
+        description: 'related: edge category to follow',
+      }),
+    ),
+    direction: Type.Optional(
+      enumOnlySchema(['outgoing', 'incoming', 'both'] satisfies readonly EdgeDirection[], {
+        description: 'related: traversal direction (default: both)',
+      }),
+    ),
+  },
+  {
+    additionalProperties: false,
+    // No top-level oneOf/anyOf/allOf: Anthropic-family backends reject tool input
+    // schemas with a top-level union (400 on every provider turn). Mode companions
+    // are enforced by the loud structural_illegal diagnostics in the tool executor.
+    description:
+      'Read a graph overview, selected-spec node neighborhood, projection-aware flat graph slice, or related nodes. Mode-specific companions are enforced by loud adapter diagnostics: neighborhood requires nodeCode; related requires anchorCodes plus edgeCategory. List modes intentionally treat omitted/empty filters as unfiltered slices; unknown filters produce an empty slice.',
+  },
+);
+
+export const ReadGraphParams = toolParameters(ReadGraphParamsSchema) as typeof ReadGraphParamsSchema;
+
+export type ToolMutateGraphParamsSchema = Static<typeof MutateGraphParamsSchema>;

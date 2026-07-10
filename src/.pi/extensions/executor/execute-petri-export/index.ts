@@ -3,6 +3,7 @@ import { Type, type Static } from 'typebox';
 
 import { exportPetri, type PetriExportResult } from '../../../../executor/petri.js';
 import { BRUNCH_EXECUTE_PETRI_EXPORT_TOOL } from '../../../../session/schema/tool-names.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_PETRI_EXPORT_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -21,7 +22,7 @@ export function createExecutePetriExportTool(): ToolDefinition<
     name: BRUNCH_EXECUTE_PETRI_EXPORT_TOOL,
     label: 'execute_petri_export',
     description: 'Export a minimal Petri artifact for a completed cook run. Does not promote or land.',
-    parameters: ExecutePetriExportParams,
+    parameters: toolParameters(ExecutePetriExportParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0)

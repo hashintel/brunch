@@ -3,6 +3,7 @@ import { Type, type Static } from 'typebox';
 
 import { completeRun, type RunCompleteResult } from '../../../../executor/run-complete.js';
 import { BRUNCH_EXECUTE_RUN_COMPLETE_TOOL } from '../../../../session/schema/tool-names.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_RUN_COMPLETE_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -22,7 +23,7 @@ export function createExecuteRunCompleteTool(): ToolDefinition<
     label: 'execute_run_complete',
     description:
       'Mark a cook run complete after all slices are complete. Does not create Petri artifacts, promote, or land.',
-    parameters: ExecuteRunCompleteParams,
+    parameters: toolParameters(ExecuteRunCompleteParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0)

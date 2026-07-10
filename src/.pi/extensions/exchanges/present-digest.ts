@@ -3,7 +3,7 @@ import { defineTool } from '@earendil-works/pi-coding-agent';
 import { formatPresentDigest } from '../../../agents/contexts/exchanges/present-digest.js';
 import { projectPresentDigest } from '../../../exchanges/projections/present-digest.js';
 import { zPresentDigestParams, type PresentDigestParams } from '../../../exchanges/schemas/index.js';
-import { piSchema } from './pi-schema.js';
+import { toolParameters } from '../shared/tool-schema.js';
 import { renderEmptyStructuredExchangeCall, renderMarkdownResult } from './shared/markdown.js';
 
 export const PRESENT_DIGEST_TOOL = 'present_digest' as const;
@@ -19,7 +19,7 @@ export const presentDigestTool = defineTool({
     'Carry prose abstract, analysis, and recommendation only; do not include graph nodes, edges, draft ids, or graph command payloads.',
     'Follow with ask using continues set to the same exchangeId; the accepted terminal echoes the abstract for later capture sweep reads.',
   ],
-  parameters: piSchema(zPresentDigestParams),
+  parameters: toolParameters(zPresentDigestParams),
   executionMode: 'sequential',
 
   async execute(_toolCallId, rawParams) {

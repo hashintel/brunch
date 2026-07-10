@@ -1,7 +1,6 @@
 import { defineTool, type ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import * as z from 'zod';
 
-import { devToolParameters } from '../../shared/pi-tool-schema.js';
 import {
   DEFAULT_MAX_BYTES,
   DEFAULT_MAX_LINES,
@@ -11,6 +10,7 @@ import {
   truncateQueryOutput,
   type TruncationResult,
 } from '../../shared/query-projection.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 import {
   type BrunchIntrospectionStore,
   type BrunchIntrospectionTurnCapture,
@@ -27,7 +27,7 @@ const zFind = z
   .strict()
   .optional();
 
-const zBrunchIntrospectQueryParams = z
+export const zBrunchIntrospectQueryParams = z
   .object({
     find: zFind,
     select: z.union([z.string(), z.array(z.string())]).optional(),
@@ -71,7 +71,7 @@ export function registerBrunchIntrospectQuery(
 }
 
 export function createBrunchIntrospectQueryTool(store: BrunchIntrospectionStore) {
-  return defineTool<ReturnType<typeof devToolParameters>, BrunchIntrospectQueryDetails>({
+  return defineTool<ReturnType<typeof toolParameters>, BrunchIntrospectQueryDetails>({
     name: BRUNCH_INTROSPECT_QUERY_TOOL,
     label: 'Brunch introspect query',
     description: [
@@ -85,7 +85,7 @@ export function createBrunchIntrospectQueryTool(store: BrunchIntrospectionStore)
       'Use brunch_introspect_query when the user asks what prompt, tools, or provider payload you actually received; quote returned values verbatim rather than paraphrasing when exactness matters.',
       'Treat baseOptions as base prompt inputs only; use payload for the final provider-serialized request.',
     ],
-    parameters: devToolParameters(zBrunchIntrospectQueryParams),
+    parameters: toolParameters(zBrunchIntrospectQueryParams),
     async execute(_toolCallId, rawParams) {
       const params = zBrunchIntrospectQueryParams.parse(rawParams);
       const rows = queryIntrospectionCaptures(store, params);

@@ -6,6 +6,7 @@ import {
   type SliceExecutionRequestResult,
 } from '../../../../executor/slice-execute.js';
 import { BRUNCH_EXECUTE_SLICE_EXECUTE_TOOL } from '../../../../session/schema/tool-names.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_SLICE_EXECUTE_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -29,7 +30,7 @@ export function createExecuteSliceExecuteTool(): ToolDefinition<
     label: 'execute_slice_execute',
     description:
       'Create an execution request artifact for the active slice. Does not run agents, tests, or Petri transitions.',
-    parameters: ExecuteSliceExecuteParams,
+    parameters: toolParameters(ExecuteSliceExecuteParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {

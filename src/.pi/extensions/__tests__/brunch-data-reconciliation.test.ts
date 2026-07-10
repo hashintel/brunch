@@ -17,17 +17,24 @@ import {
   registerBrunchReconciliation,
   UPDATE_RECONCILIATION_NEEDS_TOOL,
 } from '../brunch-data/reconciliation/index.js';
+import { reconciliationToolSchemaBaseline } from './fixtures/reconciliation-tool-schemas.pre-fe-1163.js';
+import { normalizeToolSchema } from './tool-schema-baseline.js';
 
 interface ToolResult {
   content: Array<{ type: 'text'; text: string }>;
   details: Record<string, unknown>;
 }
 
+type ReconciliationTool = {
+  parameters: unknown;
+  execute: (...args: never[]) => Promise<unknown>;
+};
+
 function collectTools(deps: Parameters<typeof registerBrunchReconciliation>[1]) {
-  const tools = new Map<string, { execute: (...args: never[]) => Promise<unknown> }>();
+  const tools = new Map<string, ReconciliationTool>();
   registerBrunchReconciliation(
     {
-      registerTool(tool: { name: string; execute: (...args: never[]) => Promise<unknown> }) {
+      registerTool(tool: { name: string } & ReconciliationTool) {
         tools.set(tool.name, tool);
       },
     } as never,
@@ -68,6 +75,15 @@ function harness() {
 }
 
 describe('reconciliation register tools', () => {
+  it('preserves the pre-FE-1163 provider-facing family schema semantics', () => {
+    const schemas = Object.fromEntries([...harness().tools].map(([name, tool]) => [name, tool.parameters]));
+
+    expect(Object.keys(schemas)).toEqual(Object.keys(reconciliationToolSchemaBaseline.schemas));
+    expect(normalizeToolSchema(schemas)).toEqual(
+      normalizeToolSchema(reconciliationToolSchemaBaseline.schemas),
+    );
+  });
+
   it('registers read and update tools under canonical names', () => {
     const tools = collectTools({
       specId: 1,

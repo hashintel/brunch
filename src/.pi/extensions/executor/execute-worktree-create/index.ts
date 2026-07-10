@@ -4,6 +4,7 @@ import { Type, type Static } from 'typebox';
 import type { GitWorktreePort } from '../../../../executor/execution-ports.js';
 import { createWorktree, type WorktreeCreateResult } from '../../../../executor/worktree.js';
 import { BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL } from '../../../../session/schema/tool-names.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -26,7 +27,7 @@ export function createExecuteWorktreeCreateTool(
     label: 'execute_worktree_create',
     description:
       'Create the git worktree for an existing cook run. Does not populate it, execute slices, or create Petri artifacts.',
-    parameters: ExecuteWorktreeCreateParams,
+    parameters: toolParameters(ExecuteWorktreeCreateParams),
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {

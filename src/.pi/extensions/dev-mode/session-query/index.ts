@@ -1,7 +1,6 @@
 import { defineTool, type ExtensionAPI, type SessionEntry } from '@earendil-works/pi-coding-agent';
 import * as z from 'zod';
 
-import { devToolParameters } from '../../shared/pi-tool-schema.js';
 import {
   DEFAULT_MAX_BYTES,
   DEFAULT_MAX_LINES,
@@ -11,6 +10,7 @@ import {
   truncateQueryOutput,
   type TruncationResult,
 } from '../../shared/query-projection.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export const BRUNCH_SESSION_QUERY_TOOL = 'brunch_session_query';
 const DEFAULT_LAST_MATCHING = 1;
@@ -45,7 +45,7 @@ const zFind = z
   })
   .strict();
 
-const zBrunchSessionQueryParams = z
+export const zBrunchSessionQueryParams = z
   .object({
     find: zFind,
     select: z.union([z.string(), z.array(z.string())]).optional(),
@@ -82,7 +82,7 @@ export function registerBrunchSessionQuery(pi: ExtensionAPI): void {
 }
 
 export function createBrunchSessionQueryTool() {
-  return defineTool<ReturnType<typeof devToolParameters>, BrunchSessionQueryDetails>({
+  return defineTool<ReturnType<typeof toolParameters>, BrunchSessionQueryDetails>({
     name: BRUNCH_SESSION_QUERY_TOOL,
     label: 'Brunch session query',
     description: [
@@ -96,7 +96,7 @@ export function createBrunchSessionQueryTool() {
     promptGuidelines: [
       'Use brunch_session_query when the user asks for exact prior session-log values; quote returned values verbatim rather than paraphrasing when exactness matters.',
     ],
-    parameters: devToolParameters(zBrunchSessionQueryParams),
+    parameters: toolParameters(zBrunchSessionQueryParams),
     async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
       const params = zBrunchSessionQueryParams.parse(rawParams);
       const branch = ctx.sessionManager.getBranch();

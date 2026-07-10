@@ -8,6 +8,7 @@ import {
 import type { PlanPreview } from '../../../../executor/plan-preview.js';
 import { BRUNCH_EXECUTE_PLAN_PREVIEW_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_PLAN_PREVIEW_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -41,7 +42,7 @@ export function createExecutePlanPreviewTool(
     label: 'execute_plan_preview',
     description:
       'Preview the old cook-compatible plan shape derived from the selected specification graph. Does not write plan files or create cook runs.',
-    parameters: ExecutePlanPreviewParams,
+    parameters: toolParameters(ExecutePlanPreviewParams),
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
       const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
       const projection = projectExecuteGraph({

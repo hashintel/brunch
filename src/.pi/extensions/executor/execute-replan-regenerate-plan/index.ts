@@ -8,6 +8,7 @@ import {
 } from '../../../../executor/run-retry-eligibility.js';
 import { BRUNCH_EXECUTE_REPLAN_REGENERATE_PLAN_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 import { buildCurrentProjectionForRun } from '../current-projection.js';
 
 export { BRUNCH_EXECUTE_REPLAN_REGENERATE_PLAN_TOOL } from '../../../../session/schema/tool-names.js';
@@ -59,7 +60,7 @@ export function createExecuteReplanRegeneratePlanTool(
     label: 'execute_replan_regenerate_plan',
     description:
       'Regenerate plan.yaml and provenance for a stale early executor run when current graph projection is plan-ready. Does not mutate run metadata.',
-    parameters: ExecuteReplanRegeneratePlanParams,
+    parameters: toolParameters(ExecuteReplanRegeneratePlanParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {

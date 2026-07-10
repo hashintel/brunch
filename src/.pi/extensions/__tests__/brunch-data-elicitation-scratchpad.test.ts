@@ -11,6 +11,8 @@ import {
   registerBrunchElicitationScratchpad,
   UPDATE_ELICITATION_SCRATCHPAD_TOOL,
 } from '../brunch-data/elicitation/index.js';
+import { scratchpadToolSchemaBaseline } from './fixtures/scratchpad-tool-schemas.pre-fe-1163.js';
+import { normalizeToolSchema } from './tool-schema-baseline.js';
 
 class FakeSessionManager {
   entries: Array<{ type: 'custom'; customType: string; data: unknown }> = [];
@@ -24,10 +26,15 @@ class FakeSessionManager {
   }
 }
 
+type ScratchpadTool = {
+  parameters: unknown;
+  execute: (...args: never[]) => Promise<unknown>;
+};
+
 function collectScratchpadTools() {
-  const tools = new Map<string, { execute: (...args: never[]) => Promise<unknown> }>();
+  const tools = new Map<string, ScratchpadTool>();
   registerBrunchElicitationScratchpad({
-    registerTool(tool: { name: string; execute: (...args: never[]) => Promise<unknown> }) {
+    registerTool(tool: { name: string } & ScratchpadTool) {
       tools.set(tool.name, tool);
     },
   } as never);
@@ -51,6 +58,15 @@ async function executeTool(
 }
 
 describe('read_elicitation_scratchpad', () => {
+  it('preserves the pre-FE-1163 provider-facing family schema semantics', () => {
+    const schemas = Object.fromEntries(
+      [...collectScratchpadTools()].map(([name, tool]) => [name, tool.parameters]),
+    );
+
+    expect(Object.keys(schemas)).toEqual(Object.keys(scratchpadToolSchemaBaseline.schemas));
+    expect(normalizeToolSchema(schemas)).toEqual(normalizeToolSchema(scratchpadToolSchemaBaseline.schemas));
+  });
+
   it('reports an empty scratchpad reconstructed from an empty branch', async () => {
     const sessionManager = new FakeSessionManager();
     const result = (await executeTool(READ_ELICITATION_SCRATCHPAD_TOOL, {}, sessionManager)) as {

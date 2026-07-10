@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { EXECUTOR_ALLOWED_TOOL_NAMES } from '../../../agents/runtime/executor/active-tools.js';
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
 import {
   createFakeGitHostPromotionPort,
@@ -78,7 +79,9 @@ import { BRUNCH_EXECUTE_TEST_RESULT_TOOL } from '../executor/execute-test-result
 import { BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL } from '../executor/execute-worktree-create/index.js';
 import { registerBrunchMentionAutocomplete as mentionAutocomplete } from '../mentions/index.js';
 import { registerBrunchSessionBoundary as sessionLifecycle } from '../session-hooks/session/lifecycle.js';
+import { assertProviderLegalToolSchema, hasToolParametersProvenance } from '../shared/tool-schema.js';
 import { parseSubagentMarkdown, type BrunchSubagentsDeps, type SubagentResult } from '../subagents/index.js';
+import { createSubagentToolCatalog } from '../subagents/session.js';
 
 const extensionDefaults = {
   'components/alternatives.ts': alternatives,
@@ -2769,6 +2772,114 @@ describe('Brunch explicit Pi extension registry', () => {
     });
   });
 
+  it('covers the exact 32-tool executor family, including both artifact tools', async () => {
+    const registeredTools = await collectProductTools({
+      graph: { specId: 42, lsn: 1, nodes: [], edges: [] },
+    });
+    const executorTools = registeredTools
+      .filter((tool) => tool.name.startsWith('execute_'))
+      .sort((left, right) => left.name.localeCompare(right.name));
+    const expectedNames = [
+      ...EXECUTOR_ALLOWED_TOOL_NAMES.filter((name) => name.startsWith('execute_')),
+      BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL,
+      BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL,
+    ].sort((left, right) => left.localeCompare(right));
+
+    expect(executorTools.map((tool) => tool.name)).toEqual(expectedNames);
+    expect(executorTools).toHaveLength(32);
+    for (const tool of executorTools) {
+      expect(hasToolParametersProvenance(tool.parameters), `${tool.name} adapter provenance`).toBe(true);
+      assertProviderLegalToolSchema(tool.parameters);
+    }
+  });
+
+  it('keeps the exact 52-tool provider-facing Brunch inventory legal and adapter-derived', async () => {
+    const registeredTools = await collectProductTools({
+      graph: { specId: 42, lsn: 1, nodes: [], edges: [] },
+      subagents: workerSubagents(
+        async () => ({ agent: 'worker', status: 'ok', text: 'ok' }) satisfies SubagentResult,
+      ),
+      introspectionQueryTools: true,
+    });
+    const piOwnedBuiltins = new Set(['read', 'grep', 'find', 'ls']);
+    const registeredProductTools = registeredTools.filter((tool) => !piOwnedBuiltins.has(tool.name));
+    const registeredProductNames = registeredProductTools.map((tool) => tool.name);
+    const duplicateProductNames = registeredProductNames.filter(
+      (name, index) => registeredProductNames.indexOf(name) !== index,
+    );
+    const registeredProductNameSet = new Set(registeredProductNames);
+    const childOnlyTools = [...createSubagentToolCatalog('/tmp').values()].filter(
+      (tool) => !piOwnedBuiltins.has(tool.name) && !registeredProductNameSet.has(tool.name),
+    );
+    const actualTools = [...registeredProductTools, ...childOnlyTools];
+    const expectedNames = [
+      'ask',
+      'present_alternatives',
+      'present_candidates',
+      'present_digest',
+      'present_review_set',
+      'brunch_introspect_query',
+      'brunch_session_query',
+      'mutate_graph',
+      'read_graph',
+      'read_workspace_context',
+      'read_specification_context',
+      'read_session_context',
+      'read_elicitation_scratchpad',
+      'update_elicitation_scratchpad',
+      'read_reconciliation_needs',
+      'update_reconciliation_needs',
+      'execute_agent_result',
+      'execute_host_promotion_apply',
+      'execute_host_promotion_preflight',
+      'execute_launch',
+      'execute_orchestrate',
+      'execute_petri_export',
+      'execute_plan_check',
+      'execute_plan_draft',
+      'execute_plan_draft_artifact',
+      'execute_plan_file',
+      'execute_plan_outline',
+      'execute_plan_outline_artifact',
+      'execute_plan_preview',
+      'execute_populate',
+      'execute_promotion_prepare',
+      'execute_replan_abandon_run',
+      'execute_replan_recommendation',
+      'execute_replan_regenerate_plan',
+      'execute_replan_retry_current_step',
+      'execute_replan_start_new_run',
+      'execute_report_init',
+      'execute_run_complete',
+      'execute_run_create',
+      'execute_slice_complete',
+      'execute_slice_execute',
+      'execute_slice_start',
+      'execute_snapshot',
+      'execute_source_copy',
+      'execute_source_policy',
+      'execute_status',
+      'execute_test_result',
+      'execute_worktree_create',
+      'web_fetch',
+      'web_search',
+      'subagent',
+      'write_worktree_file',
+    ].sort((left, right) => left.localeCompare(right));
+
+    expect(duplicateProductNames).toEqual([]);
+    expect(childOnlyTools.map((tool) => tool.name)).toEqual(['write_worktree_file']);
+    expect(actualTools.map((tool) => tool.name).sort((left, right) => left.localeCompare(right))).toEqual(
+      expectedNames,
+    );
+    expect(actualTools).toHaveLength(52);
+    for (const tool of actualTools) {
+      expect(tool, 'every inventory member must resolve from a production registrar/catalog').toBeDefined();
+      expect(hasToolParametersProvenance(tool!.parameters), `${tool!.name} adapter provenance`).toBe(true);
+      assertProviderLegalToolSchema(tool!.parameters);
+    }
+  });
+
   it('registers both graph-register and reconciliation-register tools when graph deps are provided', async () => {
     const recording = createRecordingExtensionApi();
 
@@ -3001,6 +3112,7 @@ const brunchChromeFixture = {
 
 type RegisteredTestTool = {
   name: string;
+  parameters?: unknown;
   execute: (
     toolCallId: string,
     params: unknown,
@@ -3030,6 +3142,7 @@ async function collectProductTools(
     gitLand?: GitLandPort;
     gitHostPromotion?: GitHostPromotionPort;
     subagents?: BrunchSubagentsDeps;
+    introspectionQueryTools?: boolean;
   } = {},
 ): Promise<RegisteredTestTool[]> {
   const registeredTools: RegisteredTestTool[] = [];
@@ -3037,6 +3150,7 @@ async function collectProductTools(
     coordinator: {} as never,
     graphMentionSource: { listMentionCandidates: () => [] },
     ...(options.subagents ? { subagents: options.subagents } : {}),
+    ...(options.introspectionQueryTools ? { introspection: { queryTools: true } } : {}),
     ...(options.gitWorktree ||
     options.testRunner ||
     options.agentRunner ||
@@ -3108,7 +3222,7 @@ Worker body.
 `),
       ],
     ]),
-    delegatableAgents: [],
+    delegatableAgents: ['worker'],
     maxConcurrency: 1,
     agentDir: '/agent',
     createSettingsManager: () => ({}) as never,

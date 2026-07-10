@@ -7,6 +7,7 @@ import {
   type SourcePolicyResult,
 } from '../../../../executor/source-policy.js';
 import { BRUNCH_EXECUTE_SOURCE_POLICY_TOOL } from '../../../../session/schema/tool-names.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_SOURCE_POLICY_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -33,7 +34,7 @@ export function createExecuteSourcePolicyTool(): ToolDefinition<
     label: 'execute_source_policy',
     description:
       'Record the source population policy for a cook run. Does not copy host source, execute slices, or create Petri artifacts.',
-    parameters: ExecuteSourcePolicyParams,
+    parameters: toolParameters(ExecuteSourcePolicyParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {

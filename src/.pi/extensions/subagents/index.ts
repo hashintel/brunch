@@ -15,6 +15,7 @@ import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-age
 import { Text } from '@earendil-works/pi-tui';
 import { Type, type Static } from 'typebox';
 
+import { toolParameters } from '../shared/tool-schema.js';
 import type { SubagentDefinition } from './agents.js';
 import {
   runSubagent as defaultRunSubagent,
@@ -301,7 +302,7 @@ export function registerBrunchSubagents(pi: ExtensionAPI, deps: BrunchSubagentsD
       `Each subagent runs in its own context with no memory of this conversation — put everything it needs in "task". ` +
       `Use a single { agent, task } or fan out with { tasks: [{ agent, task }, ...] }. ` +
       `Available agents: ${agentCatalog(visibleDefinitions)}.`,
-    parameters: ParamsSchema,
+    parameters: toolParameters(ParamsSchema),
     async execute(_toolCallId, params: Params, signal, _onUpdate, ctx) {
       const hasSingleShape = params.agent !== undefined || params.task !== undefined;
       const hasParallelShape = params.tasks !== undefined;

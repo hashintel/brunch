@@ -13,6 +13,8 @@ import {
   createInMemoryBrunchIntrospectionStore,
   registerBrunchIntrospection,
 } from '../dev-mode/introspection/index.js';
+import { devModeToolSchemaBaseline } from './fixtures/dev-mode-tool-schemas.pre-fe-1163.js';
+import { normalizeToolSchema } from './tool-schema-baseline.js';
 
 describe('brunch_introspect_query', () => {
   it('returns the latest capture and projects payload and baseOptions paths', () => {
@@ -131,6 +133,14 @@ describe('brunch_introspect_query', () => {
       store,
     });
     expect(tools.map((tool) => tool.name)).toEqual([BRUNCH_INTROSPECT_QUERY_TOOL]);
+  });
+
+  it('preserves the pre-FE-1163 provider-facing schema semantics', () => {
+    expect(
+      normalizeToolSchema(
+        createBrunchIntrospectQueryTool(createInMemoryBrunchIntrospectionStore()).parameters,
+      ),
+    ).toEqual(normalizeToolSchema(devModeToolSchemaBaseline.schemas.brunch_introspect_query));
   });
 
   it('advertises a JSON Schema draft 2020-12 parameter schema (no draft-07 tuple form)', () => {

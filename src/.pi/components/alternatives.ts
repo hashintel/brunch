@@ -13,7 +13,7 @@
 import { StringEnum } from '@earendil-works/pi-ai';
 import type { ExtensionAPI, ThemeColor } from '@earendil-works/pi-coding-agent';
 import { Container, Text } from '@earendil-works/pi-tui';
-import { Type } from 'typebox';
+import { Type, type TSchema } from 'typebox';
 
 import { CardComponent, ResponsiveColumns, chunk } from './cards.js';
 
@@ -100,7 +100,10 @@ function supportsAlternativesPrimitive(pi: ExtensionAPI): boolean {
   );
 }
 
-export function registerBrunchAlternatives(pi: ExtensionAPI) {
+export function registerBrunchAlternatives(
+  pi: ExtensionAPI,
+  adaptToolParameters: <Schema extends TSchema>(schema: Schema) => Schema,
+) {
   if (!supportsAlternativesPrimitive(pi)) {
     return;
   }
@@ -152,7 +155,7 @@ export function registerBrunchAlternatives(pi: ExtensionAPI) {
       "Each alternative's body should be self-contained markdown — headings, lists, code blocks all work.",
       'After present_alternatives, ask the user which one they prefer rather than picking yourself.',
     ],
-    parameters: PresentAlternativesParams,
+    parameters: adaptToolParameters(PresentAlternativesParams),
 
     async execute(_toolCallId, params) {
       const details: AlternativesDetails = {

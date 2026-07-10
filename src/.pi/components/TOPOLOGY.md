@@ -1,6 +1,6 @@
 # `.pi/components` — Reusable Pi TUI components
 
-SPEC decisions: D52-L (sealed Pi-harness runtime surface), D115-L (no-auth workspace-dialog warning).
+SPEC decisions: D52-L (sealed Pi-harness runtime surface), D115-L (no-auth workspace-dialog warning), D118-L (provider-facing tool-schema adapter).
 
 This directory owns reusable components rendered inside the embedded Pi coding-agent harness: TUI overlays, chrome regions, message helpers, and the shared visual primitives (theme/badge/segment-track) they build on. These are **Pi-native presentation pieces**, not generic React components and not product wiring.
 
@@ -23,7 +23,8 @@ Components grow by **fractal sub-tree**: when a component outgrows a single file
 
 ```text
 components/
-├── alternatives.ts              single-file components
+├── alternatives.ts              standalone card-set renderer/tool; app composition injects the required
+│                                D118-L tool-parameter adapter so the component never imports extensions
 ├── brunch-editor.ts             bordered `CustomEditor` wrapper for Brunch's persistent input editor;
 │                                caller-injected labels/color keep runtime/session state out of the component
 ├── brunch-identity.ts

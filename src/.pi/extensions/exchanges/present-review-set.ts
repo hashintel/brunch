@@ -14,7 +14,7 @@ import {
 import type { CommandExecutor, StructuralIllegal } from '../../../graph/command-executor.js';
 import type { ReviewSetProposalPayload } from '../../../graph/review-set.js';
 import { ExchangeReviewSetResultComponent } from '../../components/exchange-review-set-result.js';
-import { piSchema } from './pi-schema.js';
+import { toolParameters } from '../shared/tool-schema.js';
 import { renderDetailsOrMarkdownResult } from './shared/details-rendering.js';
 import { renderEmptyStructuredExchangeCall, renderMarkdownResult } from './shared/markdown.js';
 
@@ -27,7 +27,7 @@ export interface ReviewSetStructuredExchangeDeps {
 
 type PresentReviewSetToolDetails = StructuralIllegal | PresentReviewSetDetails;
 
-const PresentReviewSetParams = piSchema(zPresentReviewSetParams);
+const PresentReviewSetParams = toolParameters(zPresentReviewSetParams);
 
 export function createPresentReviewSetTool(deps?: ReviewSetStructuredExchangeDeps) {
   return defineTool<typeof PresentReviewSetParams, PresentReviewSetToolDetails>({

@@ -10,11 +10,18 @@ import { openWorkspaceCommandExecutor } from '../../../graph/index.js';
 import { seedFixture, type SeedFixture } from '../../../graph/seed-fixtures.js';
 import { createSessionBindingData, SESSION_BINDING_TYPE } from '../../../session/session-binding.js';
 import { registerBrunchContext } from '../brunch-data/context/index.js';
+import { contextToolSchemaBaseline } from './fixtures/context-tool-schemas.pre-fe-1163.js';
+import { normalizeToolSchema } from './tool-schema-baseline.js';
+
+type ContextTool = {
+  parameters: unknown;
+  execute: (...args: any[]) => Promise<unknown>;
+};
 
 function collectContextTools() {
-  const tools = new Map<string, { execute: (...args: any[]) => Promise<unknown> }>();
+  const tools = new Map<string, ContextTool>();
   registerBrunchContext({
-    registerTool(tool: { name: string; execute: (...args: any[]) => Promise<unknown> }) {
+    registerTool(tool: { name: string } & ContextTool) {
       tools.set(tool.name, tool);
     },
   } as never);
@@ -22,6 +29,15 @@ function collectContextTools() {
 }
 
 describe('context tools', () => {
+  it('preserves the pre-FE-1163 provider-facing schema semantics', () => {
+    const schemas = Object.fromEntries(
+      [...collectContextTools()].map(([name, tool]) => [name, tool.parameters]),
+    );
+
+    expect(Object.keys(schemas)).toEqual(Object.keys(contextToolSchemaBaseline.schemas));
+    expect(normalizeToolSchema(schemas)).toEqual(normalizeToolSchema(contextToolSchemaBaseline.schemas));
+  });
+
   it('read_workspace_context returns a gitignore-aware cwd inventory', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-context-tool-'));
     await mkdir(join(cwd, '.brunch', 'sessions'), { recursive: true });

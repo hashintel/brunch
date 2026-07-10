@@ -1,6 +1,6 @@
 # .pi/extensions/ — Pi adapter registrars
 
-SPEC decisions: D34-L, D35-L, D37-L, D39-L, D40-L, D44-L, D52-L, D69-L, D71-L, D90-L, D91-L, D93-L, D98-L, D109-L, D115-L
+SPEC decisions: D34-L, D35-L, D37-L, D39-L, D40-L, D44-L, D52-L, D69-L, D71-L, D90-L, D91-L, D93-L, D98-L, D109-L, D115-L, D118-L
 
 ## Owns
 
@@ -43,7 +43,7 @@ extensions/
 ├── exchanges/              structured-exchange present_* / request_* Pi tools
 ├── mentions/               #graph mention prompt hint + autocomplete provider
 ├── session-orientation/    session-entry-orientation descriptors, dialog adapter, juncture orchestrator, and gate state
-├── shared/                 projection/truncation helpers + Zod→Pi schema adapter for dev query tools
+├── shared/                 projection/truncation helpers + shared provider-facing tool schema adapter
 └── workspace/              spec/session picker command adapter
 ```
 
@@ -74,9 +74,9 @@ rules:
 
 ## Migration notes
 
-`exchanges/schemas/` is the intentional current exception to "adapter-only": it owns the Zod-authored structured-exchange details schema per D37-L/D41-L until a separate schema-ownership slice moves or names that seam. Zod-to-Pi `TSchema` conversion is confined to two per-plane adapters: `exchanges/pi-schema.ts` (structured-exchange) and `shared/pi-tool-schema.ts` (dev-gated query tools). Both export JSON Schema draft 2020-12 (`z.toJSONSchema`), which strict provider validators require.
+`exchanges/schemas/` is the intentional current exception to "adapter-only": it owns the Zod-authored structured-exchange details schema per D37-L/D41-L until a separate schema-ownership slice moves or names that seam. Provider-facing tool-parameter conversion is now confined to `shared/tool-schema.ts`: Zod-owned tool boundaries emit JSON Schema draft 2020-12 via `z.toJSONSchema(..., { unrepresentable: 'throw' })`, TypeBox-owned graph/DB boundaries pass through their canonical schema, and the adapter requires an object root and rejects top-level `oneOf`/`anyOf`/`allOf` before provider registration tests can go live.
 
-Migration note (FE-1163 `tool-schema-convergence`, admitted 2026-07-07): the two adapters are slated to collapse into one shared adapter with a build-time provider-legality guard (no top-level `oneOf`/`anyOf`/`allOf` — Anthropic-family backends 400 on it, witnessed live on `read_graph` during the FE-1159 walkthrough). Ledger: `memory/cards/tool-schema-convergence--ledger.md`.
+Migration note (FE-1163 `tool-schema-convergence`, exhausted 2026-07-10): the sweep collapsed the two legacy Zod adapters into the shared adapter with bounded build-time provider constraints (Anthropic-family backends 400 on top-level unions, witnessed live on `read_graph` during the FE-1159 walkthrough) and relinked all 52 Brunch-authored provider-facing tool schemas. The exact production-derived inventory includes both executor artifact registrations, standalone component-owned `present_alternatives`, and sealed-child `write_worktree_file`; persisted semantic baselines protect every authoring-representation change, while pure-TypeBox relinks are protected by object identity/serialization plus family inventories. `registry.test.ts` derives complete registrar/catalog output, rejects duplicate registrations, and pins all 52 members with adapter provenance and constraint checks. Compatibility beyond the named constraints remains deliberately tripwired to provider/model changes or live rejection evidence.
 
 `exchanges/shared/markdown.ts` contains Pi-rendering helpers. Keep Pi `renderCall` / `renderResult` widgets and UI-only message components local to `.pi/`; reusable provider-visible exchange result text belongs in `agents/contexts/exchanges/`.
 

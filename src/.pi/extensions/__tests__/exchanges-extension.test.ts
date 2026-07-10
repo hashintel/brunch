@@ -7,6 +7,8 @@ import {
   PRESENT_REVIEW_SET_TOOL,
   registerStructuredExchange,
 } from '../exchanges/index.js';
+import { exchangeToolSchemaBaseline } from './fixtures/exchange-tool-schemas.pre-fe-1163.js';
+import { normalizeToolSchema } from './tool-schema-baseline.js';
 
 const ansiPattern = new RegExp(`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`, 'g');
 
@@ -72,6 +74,16 @@ describe('structured exchange renderers', () => {
     for (const [name, tool] of tools) {
       expect(stripAnsi(tool.renderCall({}, theme, {}).render(80).join('\n')), name).toBe('');
     }
+  });
+
+  it('preserves the pre-FE-1163 provider-facing schema semantics', () => {
+    const tools = registerTools();
+    const currentSchemas = Object.fromEntries(
+      [...tools].map(([name, tool]) => [name, normalizeToolSchema(tool.parameters)]),
+    );
+
+    expect([...tools.keys()]).toEqual(Object.keys(exchangeToolSchemaBaseline.schemas));
+    expect(currentSchemas).toEqual(normalizeToolSchema(exchangeToolSchemaBaseline.schemas));
   });
 
   it('renders present_candidates from tool result markdown content', async () => {
