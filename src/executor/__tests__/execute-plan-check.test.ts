@@ -57,4 +57,84 @@ describe('checkExecutionSpecForPlan', () => {
       },
     ]);
   });
+
+  it('blocks incomplete or ambiguously-owned scope packages', () => {
+    const scope = {
+      itemId: 'SCP1',
+      nodeId: 10,
+      title: 'Feature scope',
+      content: '',
+      dependsOn: [],
+      frontierIds: [],
+      requirementIds: ['REQ1'],
+      criteria: [],
+      design: [],
+      verification: [],
+    } as const;
+
+    const result = checkExecutionSpecForPlan({ ...baseSnapshot, scopes: [scope] });
+
+    expect(result.status).toBe('blocked');
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'scope_without_frontier', severity: 'error', itemId: 'SCP1' }),
+        expect.objectContaining({ code: 'scope_without_definition', severity: 'error', itemId: 'SCP1' }),
+        expect.objectContaining({ code: 'scope_without_criterion', severity: 'error', itemId: 'SCP1' }),
+        expect.objectContaining({ code: 'scope_without_design', severity: 'error', itemId: 'SCP1' }),
+        expect.objectContaining({ code: 'scope_without_verification', severity: 'error', itemId: 'SCP1' }),
+      ]),
+    );
+  });
+
+  it('blocks requirements packaged by more than one scope', () => {
+    const completeScope = {
+      itemId: 'SCP1',
+      nodeId: 10,
+      title: 'Feature scope',
+      content: 'Build the feature.',
+      dependsOn: [],
+      frontierIds: ['F1'],
+      requirementIds: ['REQ1'],
+      criteria: [baseSnapshot.criteria[0]!],
+      design: [{ itemId: 'MOD1', nodeId: 11, title: 'Module', content: 'Module', dependsOn: [] }],
+      verification: [{ itemId: 'CH1', nodeId: 12, title: 'Check', content: 'Check', dependsOn: [] }],
+    } as const;
+
+    const result = checkExecutionSpecForPlan({
+      ...baseSnapshot,
+      scopes: [completeScope, { ...completeScope, itemId: 'SCP2', nodeId: 13 }],
+    });
+
+    expect(result.status).toBe('blocked');
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({ code: 'requirement_in_multiple_scopes', severity: 'error', itemId: 'REQ1' }),
+    );
+  });
+
+  it('blocks a scoped dependency whose requirement has no executable scope', () => {
+    const requirement = baseSnapshot.requirements[1]!;
+    const scope = {
+      itemId: 'SCP1',
+      nodeId: 10,
+      title: 'Dependent scope',
+      content: 'Build the dependent feature.',
+      dependsOn: [],
+      frontierIds: ['F1'],
+      requirementIds: ['REQ2'],
+      criteria: [{ ...baseSnapshot.criteria[0]!, verifies: ['REQ2'] }],
+      design: [{ itemId: 'MOD1', nodeId: 11, title: 'Module', content: 'Module', dependsOn: [] }],
+      verification: [{ itemId: 'CH1', nodeId: 12, title: 'Check', content: 'Check', dependsOn: [] }],
+    } as const;
+
+    const result = checkExecutionSpecForPlan({
+      ...baseSnapshot,
+      requirements: [baseSnapshot.requirements[0]!, { ...requirement, dependsOn: ['REQ1'] }],
+      scopes: [scope],
+    });
+
+    expect(result.status).toBe('blocked');
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({ code: 'scope_dependency_without_scope', itemId: 'REQ1' }),
+    );
+  });
 });

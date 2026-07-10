@@ -33,6 +33,7 @@ describe('previewPlan', () => {
     expect(previewPlan(draft)).toMatchObject({
       schemaVersion: 1,
       mode: 'brownfield',
+      scope_handoff_required: true,
       spec: {
         spec_id: '7',
         requirements: [{ item_id: 'REQ1', content: 'Build the feature.' }],

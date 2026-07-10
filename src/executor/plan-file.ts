@@ -6,6 +6,7 @@ import type { PlanPreview } from './plan-preview.js';
 
 export interface PlanFilePayload {
   readonly mode: PlanPreview['mode'];
+  readonly scope_handoff_required: boolean;
   readonly spec: PlanPreview['spec'];
   readonly epics: PlanPreview['epics'];
   readonly slices: PlanPreview['slices'];
@@ -42,6 +43,7 @@ export function planProvenancePath(cwd: string, specId: string): string {
 export function planFilePayload(preview: PlanPreview): PlanFilePayload {
   return {
     mode: preview.mode,
+    scope_handoff_required: preview.scope_handoff_required,
     spec: preview.spec,
     epics: preview.epics,
     slices: preview.slices,

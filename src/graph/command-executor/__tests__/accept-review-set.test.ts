@@ -265,13 +265,13 @@ describe('CommandExecutor.acceptReviewSet', () => {
           },
           {
             category: 'realization',
-            abstract: { draftId: 'scope-canvas' },
-            concrete: { draftId: 'req-canvas' },
+            abstract: { draftId: 'req-canvas' },
+            concrete: { draftId: 'scope-canvas' },
           },
           {
-            category: 'realization',
-            abstract: { draftId: 'scope-canvas' },
-            concrete: { draftId: 'ac-canvas' },
+            category: 'dependency',
+            dependency: { draftId: 'ac-canvas' },
+            dependent: { draftId: 'scope-canvas' },
           },
           {
             category: 'composition',
@@ -279,10 +279,9 @@ describe('CommandExecutor.acceptReviewSet', () => {
             part: { draftId: 'mod-canvas' },
           },
           {
-            category: 'witness',
-            oracle: { draftId: 'check-canvas' },
-            claim: { draftId: 'scope-canvas' },
-            stance: 'for',
+            category: 'dependency',
+            dependency: { draftId: 'check-canvas' },
+            dependent: { draftId: 'scope-canvas' },
           },
           {
             category: 'witness',

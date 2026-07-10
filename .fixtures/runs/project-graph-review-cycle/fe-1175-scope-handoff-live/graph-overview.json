@@ -15,6 +15,20 @@
       "updatedAtLsn": 2
     },
     {
+      "id": 5,
+      "specId": 1,
+      "plane": "intent",
+      "kind": "criterion",
+      "kindOrdinal": 1,
+      "title": "Selected spec appears before downstream work",
+      "body": "The selected spec identity and accepted intent summary are visible before any downstream proposal.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "fixture",
+      "createdAtLsn": 2,
+      "updatedAtLsn": 2
+    },
+    {
       "id": 1,
       "specId": 1,
       "plane": "intent",
@@ -57,26 +71,26 @@
       "updatedAtLsn": 2
     },
     {
-      "id": 5,
+      "id": 6,
       "specId": 1,
       "plane": "plan",
       "kind": "frontier",
       "kindOrdinal": 1,
-      "title": "FE-1175 Selected Spec Entry Delivery",
-      "body": "Delivery frontier for the selected-spec entry feature. Groups all execution-ready scopes that satisfy the spec entry orientation requirement.",
+      "title": "FE-1175 Selected Spec Entry — Execution Frontier",
+      "body": "Owns the scope handoff for the selected-spec orientation feature. Gate: scope d-scope is accepted and executor-ready.",
       "basis": "explicit",
       "settlement": "settled",
       "createdAtLsn": 3,
       "updatedAtLsn": 3
     },
     {
-      "id": 6,
+      "id": 7,
       "specId": 1,
       "plane": "plan",
       "kind": "scope",
       "kindOrdinal": 1,
-      "title": "Selected Spec Entry — Handoff Scope",
-      "body": "Executor-ready scope. Implement the selected-spec entry summary renderer (MOD1) to satisfy the requirement to show the selected spec before deeper work begins (REQ1). Exit when the selected spec entry proof check (CH1) passes.",
+      "title": "Selected Spec Entry — Execution Scope",
+      "body": "Executor-facing handoff package. Deliver a selected-spec entry summary renderer (MOD1) satisfying REQ1, verified by CH1, and accepted by AC1.",
       "basis": "explicit",
       "settlement": "settled",
       "createdAtLsn": 3,
@@ -123,50 +137,87 @@
     {
       "id": 4,
       "specId": 1,
-      "category": "composition",
+      "category": "witness",
       "sourceId": 5,
-      "targetId": 6,
+      "targetId": 2,
       "basis": "explicit",
       "settlement": "settled",
-      "createdAtLsn": 3,
-      "updatedAtLsn": 3,
-      "rationale": "The scope is a constituent delivery unit under the FE-1175 frontier."
+      "createdAtLsn": 2,
+      "updatedAtLsn": 2,
+      "stance": "for",
+      "rationale": "The criterion states the observable acceptance condition for the selected-spec requirement."
     },
     {
       "id": 5,
       "specId": 1,
       "category": "realization",
-      "sourceId": 2,
-      "targetId": 6,
+      "sourceId": 5,
+      "targetId": 4,
       "basis": "explicit",
       "settlement": "settled",
-      "createdAtLsn": 3,
-      "updatedAtLsn": 3,
-      "rationale": "The scope directly realizes REQ1 — showing the selected spec before deeper work begins."
+      "createdAtLsn": 2,
+      "updatedAtLsn": 2,
+      "rationale": "The check is the concrete verification machinery for the acceptance criterion."
     },
     {
       "id": 6,
       "specId": 1,
       "category": "composition",
       "sourceId": 6,
+      "targetId": 7,
+      "basis": "explicit",
+      "settlement": "settled",
+      "createdAtLsn": 3,
+      "updatedAtLsn": 3,
+      "rationale": "The scope lives under the frontier as its single execution-facing handoff package."
+    },
+    {
+      "id": 7,
+      "specId": 1,
+      "category": "realization",
+      "sourceId": 2,
+      "targetId": 7,
+      "basis": "explicit",
+      "settlement": "settled",
+      "createdAtLsn": 3,
+      "updatedAtLsn": 3,
+      "rationale": "REQ1 is realized by this scope; the scope is the committed delivery unit for that requirement."
+    },
+    {
+      "id": 8,
+      "specId": 1,
+      "category": "composition",
+      "sourceId": 7,
       "targetId": 3,
       "basis": "explicit",
       "settlement": "settled",
       "createdAtLsn": 3,
       "updatedAtLsn": 3,
-      "rationale": "MOD1 (the renderer) is a constituent part of this scope's implementation surface."
+      "rationale": "MOD1 is the design unit composed under this scope."
     },
     {
-      "id": 7,
+      "id": 9,
       "specId": 1,
       "category": "dependency",
-      "sourceId": 4,
-      "targetId": 6,
+      "sourceId": 5,
+      "targetId": 7,
       "basis": "explicit",
       "settlement": "settled",
       "createdAtLsn": 3,
       "updatedAtLsn": 3,
-      "rationale": "The scope depends on CH1 as its exit criterion; it is not done until CH1 passes."
+      "rationale": "AC1 is an acceptance gate; the scope depends on it being satisfied before closure."
+    },
+    {
+      "id": 10,
+      "specId": 1,
+      "category": "dependency",
+      "sourceId": 4,
+      "targetId": 7,
+      "basis": "explicit",
+      "settlement": "settled",
+      "createdAtLsn": 3,
+      "updatedAtLsn": 3,
+      "rationale": "CH1 is the verification check; the scope depends on it passing before closure."
     }
   ],
   "lsn": 3

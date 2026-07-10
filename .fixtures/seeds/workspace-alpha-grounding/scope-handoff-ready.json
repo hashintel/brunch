@@ -43,6 +43,16 @@
       "basis": "explicit",
       "settlement": "settled",
       "source": "fixture"
+    },
+    {
+      "local_id": 5,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "Selected spec appears before downstream work",
+      "body": "The selected spec identity and accepted intent summary are visible before any downstream proposal.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "fixture"
     }
   ],
   "edges": [
@@ -69,6 +79,23 @@
       "basis": "explicit",
       "settlement": "settled",
       "rationale": "The execution handoff should depend on a proof that the selected-spec entry behavior is present."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 5,
+      "target_local_id": 2,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The criterion states the observable acceptance condition for the selected-spec requirement."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 5,
+      "target_local_id": 4,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The check is the concrete verification machinery for the acceptance criterion."
     }
   ]
 }

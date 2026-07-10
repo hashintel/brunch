@@ -2,38 +2,38 @@
   "schemaVersion": 1,
   "probeId": "project-graph-review-cycle",
   "runId": "fe-1175-scope-handoff-relaxed-r6",
-  "generatedAt": "2026-07-09T15:38:13.637Z",
-  "mission": "Prove the project-graph capability path can present an exact review set and approve it through public RPC.",
-  "evaluationFocus": "FE-809 real agent proposal → present_review_set → session.submitExchangeResponse approval → explicit graph readback.",
+  "generatedAt": "2026-07-10T12:23:02.501Z",
+  "mission": "Prove live Specify authoring can commit a complete scope package that the executor projects into a plan-ready slice.",
+  "evaluationFocus": "FE-1175 live proposal → review approval → committed graph readback → production executor projection.",
   "seedName": "workspace-alpha-grounding",
   "seedVariant": "scope-handoff-ready",
   "cwd": "<ephemeral-workspace>",
   "specId": 1,
-  "sessionId": "019f4787-8d2a-7f54-a8fa-49cc933a36a8",
-  "prompt": "Brunch FE-1175 relaxed scope-handoff proof. The selected spec already has accepted upstream anchors in intent, design, and oracle. Read the graph overview, then propose one exact plan-lens review set that turns those accepted anchors into an execution-facing handoff package. Use present_review_set exactly once, do not mutate the graph directly, and stop after the review set so the external RPC reviewer can handle approval.",
+  "sessionId": "019f4bfb-3694-7761-895a-6ec7c876d85d",
+  "prompt": "Brunch FE-1175 relaxed scope-handoff proof. The selected spec already has accepted upstream anchors in intent, design, and oracle. Read the graph overview, then propose one exact plan-lens review set that turns those accepted anchors into a complete execution-facing handoff package. Use present_review_set exactly once, do not mutate the graph directly, and stop after the review set so the external RPC reviewer can handle approval.",
   "runtimeState": {
     "operationalMode": "specify"
   },
   "model": "claude-sonnet-4-6",
   "success": true,
   "baseGraph": {
-    "nodeCount": 4,
-    "edgeCount": 3,
+    "nodeCount": 5,
+    "edgeCount": 5,
     "lsn": 2
   },
   "finalGraph": {
-    "nodeCount": 6,
-    "edgeCount": 7,
+    "nodeCount": 7,
+    "edgeCount": 10,
     "lsn": 3,
-    "explicitNodeCount": 6,
-    "explicitEdgeCount": 7,
+    "explicitNodeCount": 7,
+    "explicitEdgeCount": 10,
     "implicitNodeCount": 0,
     "implicitEdgeCount": 0
   },
   "graphDelta": {
     "lsnAdvanced": true,
     "nodeDelta": 2,
-    "edgeDelta": 4
+    "edgeDelta": 5
   },
   "toolEvidence": {
     "presentReviewSetCount": 1,
@@ -43,9 +43,9 @@
   },
   "pendingReview": {
     "observed": true,
-    "exchangeId": "FE-1175-plan-handoff",
+    "exchangeId": "rs-fe1175-scope-handoff",
     "nodeDraftCount": 2,
-    "edgeDraftCount": 4
+    "edgeDraftCount": 5
   },
   "approval": {
     "attempted": true,
@@ -53,30 +53,30 @@
     "lsn": 3,
     "createdNodeRefs": {
       "d-frontier": {
-        "id": 5,
+        "id": 6,
         "code": "F1"
       },
       "d-scope": {
-        "id": 6,
+        "id": 7,
         "code": "SCP1"
       }
     }
   },
   "createdNodes": [
     {
-      "id": 5,
+      "id": 6,
       "code": "F1",
       "plane": "plan",
       "kind": "frontier",
-      "title": "Orient user in workspace — delivery horizon",
+      "title": "Orient user at workspace entry",
       "basis": "explicit"
     },
     {
-      "id": 6,
+      "id": 7,
       "code": "SCP1",
       "plane": "plan",
       "kind": "scope",
-      "title": "Implement selected-spec entry summary renderer",
+      "title": "Render selected-spec entry summary",
       "basis": "explicit"
     }
   ],
@@ -94,31 +94,48 @@
     "committedFrontierCount": 1,
     "committedScopeCount": 1
   },
+  "scopeHandoffExecutor": {
+    "checkStatus": "ok",
+    "findingCodes": [],
+    "sliceCount": 1,
+    "scopeSliceCount": 1,
+    "readyScopeSliceCount": 1,
+    "criterionTargetCount": 1,
+    "designContextCount": 1,
+    "verificationContextCount": 1,
+    "workerRequestStatus": "ready",
+    "workerRequest": {
+      "scopeId": "SCP1",
+      "criterionCount": 1,
+      "designContextCount": 1,
+      "verificationContextCount": 1
+    }
+  },
   "productUpdates": [
     {
       "topic": "workspace.state",
       "specId": 1,
-      "sessionId": "019f4787-8d2a-7f54-a8fa-49cc933a36a8"
+      "sessionId": "019f4bfb-3694-7761-895a-6ec7c876d85d"
     },
     {
       "topic": "workspace.selectionState",
       "specId": 1,
-      "sessionId": "019f4787-8d2a-7f54-a8fa-49cc933a36a8"
+      "sessionId": "019f4bfb-3694-7761-895a-6ec7c876d85d"
     },
     {
       "topic": "session.pendingExchange",
       "specId": 1,
-      "sessionId": "019f4787-8d2a-7f54-a8fa-49cc933a36a8"
+      "sessionId": "019f4bfb-3694-7761-895a-6ec7c876d85d"
     },
     {
       "topic": "session.exchanges",
       "specId": 1,
-      "sessionId": "019f4787-8d2a-7f54-a8fa-49cc933a36a8"
+      "sessionId": "019f4bfb-3694-7761-895a-6ec7c876d85d"
     },
     {
       "topic": "session.runtimeState",
       "specId": 1,
-      "sessionId": "019f4787-8d2a-7f54-a8fa-49cc933a36a8"
+      "sessionId": "019f4bfb-3694-7761-895a-6ec7c876d85d"
     },
     {
       "topic": "graph.overview",

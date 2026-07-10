@@ -11,6 +11,17 @@ import {
   type BrunchAgentState,
 } from '../.pi/extensions/agent-runtime/runtime/index.js';
 import { createBrunchAgentSessionRuntimeFactory } from '../app/brunch-tui.js';
+import { projectExecuteGraph } from '../executor/execute-projection.js';
+import type { GitWorktreePort } from '../executor/execution-ports.js';
+import { writePlanFile } from '../executor/plan-file.js';
+import { populateWorktree } from '../executor/populate.js';
+import { initializeReports } from '../executor/report.js';
+import { createRun } from '../executor/run.js';
+import { requestSliceExecution } from '../executor/slice-execute.js';
+import { startSlice } from '../executor/slice-start.js';
+import { copyHostSource } from '../executor/source-copy.js';
+import { selectSourcePolicy } from '../executor/source-policy.js';
+import { createWorktree } from '../executor/worktree.js';
 import { openWorkspaceGraphRuntime, type GraphNode, type GraphSlice } from '../graph/index.js';
 import { formatGraphNodeCode, parseGraphNodeCode } from '../graph/schema/nodes.js';
 import { seedFixture, type SeedFixture } from '../graph/seed-fixtures.js';
@@ -86,6 +97,25 @@ interface ScopeHandoffReviewSetEvidence {
   readonly committedScopeCount: number;
 }
 
+interface ScopeHandoffExecutorEvidence {
+  readonly checkStatus: 'ok' | 'blocked';
+  readonly findingCodes: readonly string[];
+  readonly sliceCount: number;
+  readonly scopeSliceCount: number;
+  readonly readyScopeSliceCount: number;
+  readonly criterionTargetCount: number;
+  readonly designContextCount: number;
+  readonly verificationContextCount: number;
+  readonly workerRequestStatus: 'not_attempted' | 'ready' | 'failed';
+  readonly workerRequestError?: string;
+  readonly workerRequest?: {
+    readonly scopeId?: string;
+    readonly criterionCount: number;
+    readonly designContextCount: number;
+    readonly verificationContextCount: number;
+  };
+}
+
 interface ProjectGraphReviewCycleCreatedNode {
   readonly id: number;
   readonly code: string;
@@ -140,6 +170,7 @@ export interface ProjectGraphReviewCycleReport {
   readonly approval: ReviewCycleApprovalEvidence;
   readonly createdNodes: readonly ProjectGraphReviewCycleCreatedNode[];
   readonly scopeHandoffReviewSet?: ScopeHandoffReviewSetEvidence | undefined;
+  readonly scopeHandoffExecutor?: ScopeHandoffExecutorEvidence | undefined;
   readonly productUpdates: readonly ProductUpdate[];
   readonly friction: readonly string[];
   readonly artifacts?: ProjectGraphReviewCycleArtifacts;
@@ -164,6 +195,8 @@ export interface ProjectGraphReviewCycleSummaryInput {
   readonly productUpdates?: readonly ProductUpdate[];
   readonly friction?: readonly string[];
   readonly reviewSetExpectation?: ReviewSetExpectation;
+  readonly scopeHandoffExecutor?: ScopeHandoffExecutorEvidence;
+  readonly requireWorkerRequest?: boolean;
 }
 
 interface PendingExchangeResult {
@@ -258,6 +291,15 @@ export async function runProjectGraphReviewCycleProof(
 
     const sessionText = await readFile(activated.session.file, 'utf8');
     const finalOverview = graph.forSpec(seedResult.specId).queryGraph();
+    const scopeHandoffExecutor =
+      options.reviewSetExpectation === 'scope_handoff'
+        ? await materializeScopeHandoffWorkerRequest({
+            cwd,
+            runId: `${runId}-executor`,
+            specId: seedResult.specId,
+            overview: finalOverview,
+          })
+        : undefined;
     let report = summarizeProjectGraphReviewCycleProof({
       runId,
       generatedAt,
@@ -279,6 +321,7 @@ export async function runProjectGraphReviewCycleProof(
       ...(options.reviewSetExpectation !== undefined
         ? { reviewSetExpectation: options.reviewSetExpectation }
         : {}),
+      ...(scopeHandoffExecutor ? { scopeHandoffExecutor, requireWorkerRequest: true } : {}),
     });
 
     report = {
@@ -333,6 +376,10 @@ export function summarizeProjectGraphReviewCycleProof(
           createdNodes,
           finalOverview: input.finalOverview,
         })
+      : undefined;
+  const scopeHandoffExecutor =
+    input.reviewSetExpectation === 'scope_handoff'
+      ? (input.scopeHandoffExecutor ?? summarizeScopeHandoffExecutor(input.specId, input.finalOverview))
       : undefined;
   const friction = [...(input.friction ?? [])];
 
@@ -408,6 +455,24 @@ export function summarizeProjectGraphReviewCycleProof(
       friction.push('Graph readback did not include a committed scope from the scope-handoff review set.');
     }
   }
+  if (scopeHandoffExecutor) {
+    if (scopeHandoffExecutor.checkStatus !== 'ok') {
+      friction.push(
+        `Committed scope handoff is blocked by executor plan checks: ${scopeHandoffExecutor.findingCodes.join(', ')}.`,
+      );
+    }
+    if (
+      scopeHandoffReviewSet &&
+      scopeHandoffExecutor.readyScopeSliceCount !== scopeHandoffReviewSet.committedScopeCount
+    ) {
+      friction.push('Committed scope packages did not all lower into execution-ready scope slices.');
+    }
+    if (input.requireWorkerRequest && !hasCompleteWorkerRequest(scopeHandoffExecutor)) {
+      friction.push(
+        `Committed scope handoff did not reach a worker request: ${scopeHandoffExecutor.workerRequestError ?? scopeHandoffExecutor.workerRequestStatus}.`,
+      );
+    }
+  }
 
   const success =
     toolEvidence.successfulPresentReviewSetCount > 0 &&
@@ -428,7 +493,10 @@ export function summarizeProjectGraphReviewCycleProof(
         scopeHandoffReviewSet.committedDesignAnchorCount > 0 &&
         scopeHandoffReviewSet.committedVerificationAnchorCount > 0 &&
         scopeHandoffReviewSet.committedFrontierCount > 0 &&
-        scopeHandoffReviewSet.committedScopeCount > 0));
+        scopeHandoffReviewSet.committedScopeCount > 0 &&
+        scopeHandoffExecutor?.checkStatus === 'ok' &&
+        scopeHandoffExecutor.readyScopeSliceCount === scopeHandoffReviewSet.committedScopeCount &&
+        (!input.requireWorkerRequest || hasCompleteWorkerRequest(scopeHandoffExecutor))));
 
   return {
     schemaVersion: 1,
@@ -436,9 +504,13 @@ export function summarizeProjectGraphReviewCycleProof(
     runId: input.runId,
     generatedAt: input.generatedAt,
     mission:
-      'Prove the project-graph capability path can present an exact review set and approve it through public RPC.',
+      input.reviewSetExpectation === 'scope_handoff'
+        ? 'Prove live Specify authoring can commit a complete scope package that the executor projects into a plan-ready slice.'
+        : 'Prove the project-graph capability path can present an exact review set and approve it through public RPC.',
     evaluationFocus:
-      'FE-809 real agent proposal → present_review_set → session.submitExchangeResponse approval → explicit graph readback.',
+      input.reviewSetExpectation === 'scope_handoff'
+        ? 'FE-1175 live proposal → review approval → committed graph readback → production executor projection.'
+        : 'FE-809 real agent proposal → present_review_set → session.submitExchangeResponse approval → explicit graph readback.',
     seedName: input.seedName ?? DEFAULT_SEED_NAME,
     seedVariant: input.seedVariant,
     cwd: input.cwd,
@@ -468,10 +540,145 @@ export function summarizeProjectGraphReviewCycleProof(
     approval,
     createdNodes,
     ...(scopeHandoffReviewSet ? { scopeHandoffReviewSet } : {}),
+    ...(scopeHandoffExecutor ? { scopeHandoffExecutor } : {}),
     productUpdates: input.productUpdates ?? [],
     friction,
   };
 }
+
+function summarizeScopeHandoffExecutor(specId: number, overview: GraphSlice): ScopeHandoffExecutorEvidence {
+  const projection = projectExecuteGraph({
+    specId,
+    mode: 'greenfield',
+    graphLsn: overview.lsn,
+    nodes: overview.nodes,
+    edges: overview.edges,
+  });
+  const scopeSlices = projection.planPreview.slices.filter((slice) => slice.scope_id !== undefined);
+  const readyScopeSlices = scopeSlices.filter(
+    (slice) =>
+      slice.verification.length > 0 &&
+      (slice.design_context?.length ?? 0) > 0 &&
+      (slice.verification_context?.length ?? 0) > 0,
+  );
+  return {
+    checkStatus: projection.check.status,
+    findingCodes: projection.check.findings.map((finding) => finding.code),
+    sliceCount: projection.planPreview.slices.length,
+    scopeSliceCount: scopeSlices.length,
+    readyScopeSliceCount: readyScopeSlices.length,
+    criterionTargetCount: scopeSlices.reduce((count, slice) => count + slice.verification.length, 0),
+    designContextCount: scopeSlices.reduce((count, slice) => count + (slice.design_context?.length ?? 0), 0),
+    verificationContextCount: scopeSlices.reduce(
+      (count, slice) => count + (slice.verification_context?.length ?? 0),
+      0,
+    ),
+    workerRequestStatus: 'not_attempted',
+  };
+}
+
+export async function materializeScopeHandoffWorkerRequest(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly specId: number;
+  readonly overview: GraphSlice;
+}): Promise<ScopeHandoffExecutorEvidence> {
+  const projection = projectExecuteGraph({
+    specId: args.specId,
+    mode: 'greenfield',
+    graphLsn: args.overview.lsn,
+    nodes: args.overview.nodes,
+    edges: args.overview.edges,
+  });
+  const evidence = summarizeScopeHandoffExecutor(args.specId, args.overview);
+  if (projection.check.status !== 'ok') return evidence;
+
+  try {
+    await writePlanFile({ cwd: args.cwd, preview: projection.planPreview, source: projection.source });
+    const run = await createRun({
+      cwd: args.cwd,
+      specId: String(args.specId),
+      runId: args.runId,
+      substrate: 'empty_dir',
+    });
+    if (run.status !== 'created') throw new Error(`run creation returned ${run.status}`);
+    const worktree = await createWorktree({
+      cwd: args.cwd,
+      runId: args.runId,
+      gitWorktree: UNUSED_GIT_WORKTREE_PORT,
+    });
+    if (worktree.status !== 'worktree_created')
+      throw new Error(`worktree creation returned ${worktree.status}`);
+    const populated = await populateWorktree({ cwd: args.cwd, runId: args.runId });
+    if (populated.status !== 'worktree_populated') throw new Error(`population returned ${populated.status}`);
+    const policy = await selectSourcePolicy({ cwd: args.cwd, runId: args.runId, policy: 'plan_only' });
+    if (policy.status !== 'source_policy_selected')
+      throw new Error(`source policy returned ${policy.status}`);
+    const copied = await copyHostSource({ cwd: args.cwd, runId: args.runId });
+    if (copied.runStatus !== 'source_copied') throw new Error(`source copy returned ${copied.status}`);
+    const reports = await initializeReports({ cwd: args.cwd, runId: args.runId });
+    if (reports.status !== 'reports_initialized')
+      throw new Error(`report initialization returned ${reports.status}`);
+    const started = await startSlice({ cwd: args.cwd, runId: args.runId });
+    if (started.status !== 'slice_started') throw new Error(`slice start returned ${started.status}`);
+    const requested = await requestSliceExecution({ cwd: args.cwd, runId: args.runId });
+    if (requested.status !== 'slice_execution_requested') {
+      throw new Error(`slice request returned ${requested.status}`);
+    }
+    const request = JSON.parse(await readFile(requested.requestPath, 'utf8')) as {
+      readonly scopeId?: string;
+      readonly criteria?: readonly unknown[];
+      readonly designContext?: readonly unknown[];
+      readonly verificationContext?: readonly unknown[];
+    };
+    const workerRequest = {
+      ...(request.scopeId ? { scopeId: request.scopeId } : {}),
+      criterionCount: request.criteria?.length ?? 0,
+      designContextCount: request.designContext?.length ?? 0,
+      verificationContextCount: request.verificationContext?.length ?? 0,
+    };
+    const result: ScopeHandoffExecutorEvidence = {
+      ...evidence,
+      workerRequestStatus: 'ready',
+      workerRequest,
+    };
+    if (hasCompleteWorkerRequest(result)) return result;
+    return {
+      ...evidence,
+      workerRequestStatus: 'failed',
+      workerRequestError: 'worker request omitted required scope, criterion, design, or verification context',
+      workerRequest,
+    };
+  } catch (error) {
+    return {
+      ...evidence,
+      workerRequestStatus: 'failed',
+      workerRequestError: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+function hasCompleteWorkerRequest(evidence: ScopeHandoffExecutorEvidence): boolean {
+  return (
+    evidence.workerRequestStatus === 'ready' &&
+    evidence.workerRequest?.scopeId !== undefined &&
+    evidence.workerRequest.scopeId.trim().length > 0 &&
+    evidence.workerRequest.criterionCount > 0 &&
+    evidence.workerRequest.designContextCount > 0 &&
+    evidence.workerRequest.verificationContextCount > 0
+  );
+}
+
+const UNUSED_GIT_WORKTREE_PORT: GitWorktreePort = {
+  async create(args) {
+    return {
+      status: 'failed',
+      worktreeDir: args.worktreeDir,
+      message: 'empty_dir proof runs must not call the git-worktree port',
+      sideEffects: [],
+    };
+  },
+};
 
 function summarizeScopeHandoffReviewSet(input: {
   readonly sessionText: string;

@@ -273,7 +273,7 @@ describe('projectExecutionSpecSnapshot', () => {
     ]);
   });
 
-  it('still projects scope anchors written with the older tracer directions', () => {
+  it('does not accept non-canonical scope anchor directions', () => {
     const frontier = node({
       id: 1,
       plane: 'plan',
@@ -322,14 +322,10 @@ describe('projectExecutionSpecSnapshot', () => {
       ],
     });
 
-    expect(snapshot.scopes[0]).toMatchObject({
-      requirementIds: ['REQ1'],
-      criteria: [expect.objectContaining({ itemId: 'AC1' })],
-      verification: [expect.objectContaining({ itemId: 'CH1' })],
-    });
+    expect(snapshot.scopes[0]).toMatchObject({ requirementIds: [], criteria: [], verification: [] });
   });
 
-  it('pulls witness-only criteria into a scope through its scoped requirements', () => {
+  it('requires criteria to be attached directly to the scope package', () => {
     const frontier = node({
       id: 1,
       plane: 'plan',
@@ -371,8 +367,30 @@ describe('projectExecutionSpecSnapshot', () => {
       ],
     });
 
-    expect(snapshot.scopes[0]?.criteria).toEqual([
-      expect.objectContaining({ itemId: 'AC1', verifies: ['REQ1'] }),
-    ]);
+    expect(snapshot.scopes[0]?.criteria).toEqual([]);
+  });
+
+  it('excludes advisory nodes and edges from executable truth', () => {
+    const requirement = node({
+      id: 1,
+      plane: 'intent',
+      kind: 'requirement',
+      kindOrdinal: 1,
+      title: 'Settled requirement',
+    });
+    const advisoryScope = {
+      ...node({ id: 2, plane: 'plan', kind: 'scope', kindOrdinal: 1, title: 'Advisory scope' }),
+      settlement: 'advisory' as const,
+    };
+
+    const snapshot = projectExecutionSpecSnapshot({
+      specId: 7,
+      mode: 'greenfield',
+      nodes: [requirement, advisoryScope],
+      edges: [],
+    });
+
+    expect(snapshot.requirements.map((item) => item.itemId)).toEqual(['REQ1']);
+    expect(snapshot.scopes).toEqual([]);
   });
 });

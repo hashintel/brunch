@@ -16,6 +16,7 @@ import type { PlanPreview } from '../plan-preview.js';
 const preview: PlanPreview = {
   schemaVersion: 1,
   mode: 'brownfield',
+  scope_handoff_required: false,
   spec: {
     spec_id: '42',
     requirements: [{ item_id: 'REQ1', content: 'Build the feature.' }],
@@ -43,6 +44,7 @@ describe('cook plan file writer', () => {
 
     expect(payload).toEqual({
       mode: 'brownfield',
+      scope_handoff_required: false,
       spec: preview.spec,
       epics: preview.epics,
       slices: preview.slices,

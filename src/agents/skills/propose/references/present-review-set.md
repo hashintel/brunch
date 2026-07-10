@@ -92,7 +92,7 @@ Notes:
 - Does each edge have both endpoints in the batch or selected spec?
 - Are negative cases represented with a current legal edge/category pattern?
 - Are design/oracle/plan nodes anchored to accepted or proposed intent?
-- For plan batches that hand off to execution, do scope nodes package accepted requirements, design, and verification truth rather than frontier-only task prose?
+- For plan batches that hand off to execution, does every scope package accepted requirements, executable criteria, design anchors, and verification machinery rather than frontier-only task prose?
 - For a single handoff package, is there one owning frontier around the scope rather than an unnecessary milestone or extra frontier decomposition?
 - If the batch drafts a new scope handoff, does it either draft the owning frontier too or attach the scope to an already-accepted frontier?
 - Are invented schema fields removed?

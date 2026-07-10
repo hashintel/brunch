@@ -1923,13 +1923,30 @@ describe('Brunch explicit Pi extension registry', () => {
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
     const reportPath = join(runDir, 'reports.jsonl');
+    const populatedPlanPath = join(runDir, 'populated-plan.json');
     await mkdir(runDir, { recursive: true });
+    await writeFile(
+      populatedPlanPath,
+      JSON.stringify({
+        slices: [
+          {
+            id: 'task-1',
+            epic_id: 'frontier-1',
+            definition: 'Execute the requested slice.',
+            verification: [],
+            derived_from: ['REQ1'],
+          },
+        ],
+      }),
+      'utf8',
+    );
     await writeFile(
       metadataPath,
       JSON.stringify({
         runId: 'run-1',
         specId: '42',
         planPath: '/tmp/plan.yaml',
+        populatedPlanPath,
         status: 'slice_started',
         reportsPath: reportPath,
         activeSliceId: 'task-1',
@@ -3317,7 +3334,17 @@ async function collectProductTools(
 }
 
 function graphSlice(graph: TestGraphSlice) {
-  return { lsn: graph.lsn, nodes: graph.nodes, edges: graph.edges } as never;
+  return {
+    lsn: graph.lsn,
+    nodes: graph.nodes.map((node) => {
+      const value = node as Record<string, unknown>;
+      return { ...value, settlement: value.settlement ?? 'settled' };
+    }),
+    edges: graph.edges.map((edge) => {
+      const value = edge as Record<string, unknown>;
+      return { ...value, settlement: value.settlement ?? 'settled' };
+    }),
+  } as never;
 }
 
 function workerSubagents(runSubagent: NonNullable<BrunchSubagentsDeps['runSubagent']>): BrunchSubagentsDeps {

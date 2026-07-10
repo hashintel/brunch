@@ -66,7 +66,13 @@ async function createTwoSliceReportReadyRun(cwd: string): Promise<void> {
       epics: [{ id: 'frontier-1', summary: 'Build feature', depends_on: [], verification: [] }],
       slices: [
         { id: 'task-1', epic_id: 'frontier-1', definition: 'First.', depends_on: [], verification: [] },
-        { id: 'task-2', epic_id: 'frontier-1', definition: 'Second.', depends_on: [], verification: [] },
+        {
+          id: 'task-2',
+          epic_id: 'frontier-1',
+          definition: 'Second.',
+          depends_on: ['task-1'],
+          verification: [],
+        },
       ],
     }),
     'utf8',
@@ -194,7 +200,7 @@ describe('startSlice', () => {
     });
   });
 
-  it('does not let an explicit slice id skip the next incomplete slice', async () => {
+  it('does not let an explicit slice id bypass an incomplete dependency', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-explicit-skip-'));
     await createDependencyReportReadyRun(cwd);
 

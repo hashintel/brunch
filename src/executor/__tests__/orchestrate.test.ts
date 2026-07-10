@@ -1124,6 +1124,38 @@ describe('linearScheduler', () => {
       linearScheduler.ready(metadata('slice_completed', { completedSliceIds: ['task-1', 'task-2'] }), plan),
     ).toEqual([{ kind: 'run_complete' }]);
   });
+
+  it('starts only slices whose declared dependencies are complete', () => {
+    const plan = {
+      slices: [
+        { id: 'task-2', depends_on: ['task-1'] },
+        { id: 'task-1', depends_on: [] },
+      ],
+    };
+
+    expect(linearScheduler.ready(metadata('reports_initialized'), plan)).toEqual([
+      { kind: 'slice_start', sliceId: 'task-1' },
+    ]);
+    expect(
+      linearScheduler.ready(metadata('slice_completed', { completedSliceIds: ['task-1'] }), plan),
+    ).toEqual([{ kind: 'slice_start', sliceId: 'task-2' }]);
+  });
+
+  it('fails closed when incomplete slices have unsatisfied or cyclic dependencies', () => {
+    const plan = {
+      slices: [
+        { id: 'task-1', depends_on: ['task-2'] },
+        { id: 'task-2', depends_on: ['task-1'] },
+      ],
+    };
+
+    expect(linearScheduler.ready(metadata('reports_initialized'), plan)).toEqual([
+      {
+        kind: 'dependency_blocked',
+        reason: 'No executable slice is ready; unresolved dependencies: task-1 -> task-2, task-2 -> task-1',
+      },
+    ]);
+  });
 });
 
 describe('compileExecutorTopology', () => {
