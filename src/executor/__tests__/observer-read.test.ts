@@ -446,6 +446,57 @@ describe('readRunDetail', () => {
     });
   });
 
+  it('strips an impossible claimed firing set from an otherwise matching marking snapshot', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-marking-overclaimed-');
+    const planPath = join(cwd, 'plan.json');
+    await writeFile(
+      planPath,
+      JSON.stringify({
+        mode: 'greenfield',
+        epics: [{ id: 'frontier-1', summary: 'F', depends_on: [], verification: [] }],
+        slices: [
+          { id: 'task-1', epic_id: 'frontier-1', definition: 'task-1.', depends_on: [], verification: [] },
+          { id: 'task-2', epic_id: 'frontier-1', definition: 'task-2.', depends_on: [], verification: [] },
+        ],
+      }),
+      'utf8',
+    );
+    const runDir = await writeRun(cwd, 'run-petri-marking-overclaimed', {
+      planPath,
+      status: 'reports_initialized',
+    });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'marking.json'),
+      `${JSON.stringify(
+        {
+          claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-2'],
+          currentMarking: { 'run:slice_frontier': 1 },
+          firedTransitionCount: 5,
+          lifecycleProvenance: { runStatus: 'reports_initialized' },
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-marking-overclaimed');
+
+    expect(detail).toMatchObject({
+      petriProjection: {
+        currentMarking: { 'run:slice_frontier': 1 },
+        firedTransitionCount: 5,
+      },
+      petriProjectionSource: 'snapshot',
+    });
+    expect(detail).not.toMatchObject({
+      petriProjection: {
+        claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-2'],
+      },
+    });
+  });
+
   it('falls back to replay when the persisted marking snapshot provenance no longer matches run metadata', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-marking-stale-');
     const runDir = await writeRun(cwd, 'run-petri-marking-stale', {

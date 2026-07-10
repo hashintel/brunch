@@ -9,7 +9,7 @@ import { petriEventsPath } from './petri-events.js';
 import { petriMarkingSnapshotMatchesRunMetadata, readPetriMarkingSnapshot } from './petri-marking.js';
 import { canProjectPetriReplay } from './petri-replay-eligibility.js';
 import { replayPetri, type PetriProjection } from './petri-replay.js';
-import { materializeExecutorPetriRuntime } from './petri-runtime.js';
+import { materializeExecutorPetriRuntime, type ExecutorPetriRuntime } from './petri-runtime.js';
 import { readRunMetadata, runDirPath, runMetadataPath, type RunMetadata } from './run.js';
 import { verifyStreamPath, type VerifyStreamEvent } from './test-result.js';
 
@@ -180,7 +180,10 @@ export async function readRunDetail(
     petriMarkingSnapshotMatchesRunMetadata(petriMarkingSnapshot, metadata);
   const petriProjectionEntry =
     (hasMatchingPetriMarkingSnapshot
-      ? { projection: toPetriProjection(petriMarkingSnapshot), source: 'snapshot' as const }
+      ? {
+          projection: toPetriProjection(petriMarkingSnapshot, petriRuntime),
+          source: 'snapshot' as const,
+        }
       : undefined) ??
     (canProjectPetriReplay({ petriNet, petriEvents })
       ? toProjectionEntry(replayPetri({ net: petriNet, events: petriEvents.events }), 'replay', {
@@ -224,22 +227,45 @@ export async function readRunDetail(
   };
 }
 
-function toPetriProjection(snapshot: {
-  readonly claimedTransitionIds?: readonly string[];
-  readonly currentMarking: Record<string, number>;
-  readonly firedTransitionCount: number;
-  readonly terminalEventKind?: PetriProjection['terminalEventKind'];
-  readonly haltedReason?: string;
-}): PetriProjection {
+function toPetriProjection(
+  snapshot: {
+    readonly claimedTransitionIds?: readonly string[];
+    readonly currentMarking: Record<string, number>;
+    readonly firedTransitionCount: number;
+    readonly terminalEventKind?: PetriProjection['terminalEventKind'];
+    readonly haltedReason?: string;
+  },
+  runtime?: Pick<ExecutorPetriRuntime, 'currentMarking' | 'enabledTransitions'>,
+): PetriProjection {
+  const claimedTransitionIds = sanitizeClaimedTransitionIds(snapshot.claimedTransitionIds, runtime);
   return {
-    ...(snapshot.claimedTransitionIds === undefined
-      ? {}
-      : { claimedTransitionIds: snapshot.claimedTransitionIds }),
+    ...(claimedTransitionIds === undefined ? {} : { claimedTransitionIds }),
     currentMarking: snapshot.currentMarking,
     firedTransitionCount: snapshot.firedTransitionCount,
     ...(snapshot.terminalEventKind === undefined ? {} : { terminalEventKind: snapshot.terminalEventKind }),
     ...(snapshot.haltedReason === undefined ? {} : { haltedReason: snapshot.haltedReason }),
   };
+}
+
+function sanitizeClaimedTransitionIds(
+  claimedTransitionIds: readonly string[] | undefined,
+  runtime?: Pick<ExecutorPetriRuntime, 'currentMarking' | 'enabledTransitions'>,
+): readonly string[] | undefined {
+  if (claimedTransitionIds === undefined || claimedTransitionIds.length === 0 || runtime === undefined) {
+    return claimedTransitionIds;
+  }
+  const enabledById = new Map(runtime.enabledTransitions.map((transition) => [transition.id, transition]));
+  const claimedInputs = new Map<string, number>();
+  for (const transitionId of claimedTransitionIds) {
+    const transition = enabledById.get(transitionId);
+    if (!transition) return undefined;
+    for (const arc of transition.inputArcs) {
+      const nextClaimed = (claimedInputs.get(arc.placeId) ?? 0) + arc.weight;
+      if (nextClaimed > (runtime.currentMarking[arc.placeId] ?? 0)) return undefined;
+      claimedInputs.set(arc.placeId, nextClaimed);
+    }
+  }
+  return claimedTransitionIds;
 }
 
 async function readPetriRuntimePlan(metadata: RunMetadata): Promise<SchedulerPlan | undefined> {
