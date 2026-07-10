@@ -17,10 +17,15 @@ import type {
 } from '../../../../executor/execution-ports.js';
 import { readRunDetail } from '../../../../executor/observer-read.js';
 import { petriEventsPath } from '../../../../executor/petri-events.js';
-import { petriMarkingPath } from '../../../../executor/petri-marking.js';
+import { petriMarkingPath, writePetriMarkingSnapshot } from '../../../../executor/petri-marking.js';
 import { petriNetPath } from '../../../../executor/petri.js';
 import { planFilePath } from '../../../../executor/plan-file.js';
+import { populateWorktree } from '../../../../executor/populate.js';
+import { initializeReports } from '../../../../executor/report.js';
 import { createRun, runMetadataPath } from '../../../../executor/run.js';
+import { copyHostSource } from '../../../../executor/source-copy.js';
+import { selectSourcePolicy } from '../../../../executor/source-policy.js';
+import { createWorktree } from '../../../../executor/worktree.js';
 import { createProductUpdatePublisher, type ProductUpdate } from '../../../../rpc/product-updates.js';
 import { createExecuteOrchestrateTool } from '../execute-orchestrate/index.js';
 
@@ -58,7 +63,7 @@ function fakePorts(
   };
 }
 
-async function createDrivableRun(cwd: string): Promise<void> {
+async function createDrivableRun(cwd: string, sliceIds: readonly string[] = ['t1']): Promise<void> {
   await mkdir(join(cwd, 'src'), { recursive: true });
   await writeFile(join(cwd, 'src', 'app.ts'), 'export const app = true;\n', 'utf8');
   await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
@@ -67,7 +72,13 @@ async function createDrivableRun(cwd: string): Promise<void> {
     JSON.stringify({
       mode: 'greenfield',
       epics: [{ id: 'e1', summary: 'E', depends_on: [], verification: [] }],
-      slices: [{ id: 't1', epic_id: 'e1', definition: 't1.', depends_on: [], verification: [] }],
+      slices: sliceIds.map((sliceId) => ({
+        id: sliceId,
+        epic_id: 'e1',
+        definition: `${sliceId}.`,
+        depends_on: [],
+        verification: [],
+      })),
     }),
     'utf8',
   );
@@ -231,6 +242,48 @@ describe('execute_orchestrate intra-drive updates', () => {
             update.runId === 'run-1' &&
             JSON.stringify(update).includes('"claimedTransitionIds":["slice_start:t1"]'),
         ),
+      ),
+    ).toBe(true);
+  });
+
+  it('honors a resumed claimed firing order through the default execute_orchestrate path', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-orchestrate-resumed-claim-order-'));
+    await createDrivableRun(cwd, ['t1', 't2']);
+    await createWorktree({ cwd, runId: 'run-1', gitWorktree: fakePorts().gitWorktree });
+    await populateWorktree({ cwd, runId: 'run-1' });
+    await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
+    await copyHostSource({ cwd, runId: 'run-1' });
+    await initializeReports({ cwd, runId: 'run-1' });
+    await writePetriMarkingSnapshot({
+      cwd,
+      runId: 'run-1',
+      snapshot: {
+        claimedTransitionIds: ['slice_start:t2'],
+        currentMarking: { 'run:slice_frontier': 1 },
+        firedTransitionCount: 5,
+        lifecycleProvenance: { runStatus: 'reports_initialized' },
+      },
+    });
+
+    const updates: string[] = [];
+    const tool = createExecuteOrchestrateTool(fakePorts());
+    const result = await tool.execute(
+      't1',
+      { runId: 'run-1' },
+      undefined as never,
+      ((update: { readonly content: readonly { readonly type: string; readonly text?: string }[] }) => {
+        const item = update.content[0];
+        if (item?.type === 'text' && typeof item.text === 'string') updates.push(item.text);
+      }) as never,
+      { cwd } as never,
+    );
+
+    expect(result.details?.outcome?.status).toBe('completed');
+    expect(
+      updates.some(
+        (update) =>
+          update.startsWith('execute_orchestrate: slice_execute started from slice_started') &&
+          update.includes('slice: t2'),
       ),
     ).toBe(true);
   });
