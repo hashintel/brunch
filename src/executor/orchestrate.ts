@@ -268,8 +268,8 @@ export async function drive(
       const currentState = await readRunMetadata(metadataPath);
       if (!currentState) return { status: 'missing_run', runId: ctx.runId };
       const currentPlan = await planForScheduler(ctx.cwd, currentState);
-      const currentReadySteps = scheduler.ready(currentState, currentPlan);
-      const next = currentReadySteps.find((candidate) => readyStepsEqual(candidate, selectedStep));
+      const currentRuntime = materializeExecutorPetriRuntime(currentState, currentPlan);
+      const next = currentRuntime.readySteps.find((candidate) => readyStepsEqual(candidate, selectedStep));
       if (!next) continue;
 
       try {
@@ -282,10 +282,7 @@ export async function drive(
         // Observer failures never affect the drive.
       }
 
-      const boundRuntime = bindExecutorPetriRuntime(
-        materializeExecutorPetriRuntime(currentState, currentPlan),
-        ctx,
-      );
+      const boundRuntime = bindExecutorPetriRuntime(currentRuntime, ctx);
       const boundTransition = boundRuntime.transitionForReadyStep(next);
       const result = boundTransition ? await boundTransition.execute() : await neverBoundReadyStep(next);
       if (result.runStatus === currentState.status) {

@@ -1255,6 +1255,38 @@ describe('petriScheduler', () => {
     });
   });
 
+  it('honors a resumed claim-set even when the default scheduler view would have picked a different ready step', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-claim-resume-linear-'));
+    await createRunAtCreated(cwd, ['task-1', 'task-2']);
+    await createWorktree({ cwd, runId: 'run-1', gitWorktree: fakePorts().gitWorktree });
+    await populateWorktree({ cwd, runId: 'run-1' });
+    await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
+    await copyHostSource({ cwd, runId: 'run-1' });
+    await initializeReports({ cwd, runId: 'run-1' });
+    await writePetriMarkingSnapshot({
+      cwd,
+      runId: 'run-1',
+      snapshot: {
+        claimedTransitionIds: ['slice_start:task-2'],
+        currentMarking: { 'run:slice_frontier': 1 },
+        firedTransitionCount: 5,
+        lifecycleProvenance: { runStatus: 'reports_initialized' },
+      },
+    });
+
+    await expect(
+      drive({ cwd, runId: 'run-1', ports: fakePorts() }, undefined, undefined, { maxFirings: 1 }),
+    ).resolves.toEqual({
+      status: 'completed',
+      runStatus: 'slice_started',
+    });
+    await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+      status: 'slice_started',
+      activeSliceId: 'task-2',
+      activeEpicId: 'frontier-1',
+    });
+  });
+
   it('keeps the durable fired-transition count exact after one missed snapshot write in a completed run', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-marking-recover-completed-'));
     await createRunAtCreated(cwd, ['task-1']);
