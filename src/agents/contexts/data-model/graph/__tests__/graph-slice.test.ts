@@ -143,8 +143,9 @@ test('overview: kind-coverage fixture golden stays uncapped and sectioned', asyn
     readGraphSliceFixture({ name: 'kind-coverage-matrix', variant: 'base' }),
   );
   await expect(rendered).toMatchFileSnapshot('../__snapshots__/graph-overview-kind-coverage-matrix.md');
-  expect(rendered).toContain('Graph overview (LSN 2): 24 nodes, 7 edges');
+  expect(rendered).toContain('Graph overview (LSN 2): 25 nodes, 8 edges');
   expect(rendered).toContain('| F2 | 24 | Lock one neighborhood preview |');
+  expect(rendered).toContain('| SCP1 | 25 | Neighborhood preview handoff |');
 });
 
 function node(input: {

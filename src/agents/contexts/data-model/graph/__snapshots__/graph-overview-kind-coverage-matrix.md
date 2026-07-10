@@ -1,6 +1,6 @@
-Graph overview (LSN 2): 24 nodes, 7 edges
+Graph overview (LSN 2): 25 nodes, 8 edges
 
-legend: G=goal, TH=thesis, T=term, CTX=context, ST=story, UNK=unknown, REQ=requirement, A=assumption, CON=constraint, INV=invariant, D=decision, AC=criterion, EX=example, CH=check, VV=vv_method, E=evidence, O=vv_obligation, MOD=module, API=interface, ENT=entity, SKT=sketch, M=milestone, F=frontier
+legend: G=goal, TH=thesis, T=term, CTX=context, ST=story, UNK=unknown, REQ=requirement, A=assumption, CON=constraint, INV=invariant, D=decision, AC=criterion, EX=example, CH=check, VV=vv_method, E=evidence, O=vv_obligation, MOD=module, API=interface, ENT=entity, SKT=sketch, M=milestone, F=frontier, SCP=scope
 
 nodes — intent · grounding (2)
 | code | id | title |
@@ -55,12 +55,13 @@ nodes — design · unbanded (1)
 | - | - | - |
 | SKT1 | 21 | Renderer output sketch |
 
-nodes — plan · commitment (3)
+nodes — plan · commitment (4)
 | code | id | title |
 | - | - | - |
 | M1 | 22 | Cross-cut render feedback loop |
 | F1 | 23 | Preview harness slice |
 | F2 | 24 | Lock one neighborhood preview |
+| SCP1 | 25 | Neighborhood preview handoff |
 
 edges (sorted by upstream)
 | id | upstream | relation | downstream |
@@ -72,3 +73,4 @@ edges (sorted by upstream)
 | 4 | MOD1 | realized by | REQ1 |
 | 1 | REQ1 | motivated by | G1 |
 | 3 | REQ1 | required by | AC1 |
+| 8 | SCP1 | part of | F2 |
