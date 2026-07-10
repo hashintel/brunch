@@ -305,7 +305,18 @@ function createNoModelAgentServices(): BrunchAgentServicesOverride {
   return { authStorage, modelRegistry };
 }
 
-export function createTier2FauxAgentServices(options: { readonly responseText?: string } = {}): {
+export function createTier2FauxAgentServices(
+  options: {
+    readonly responseText?: string;
+    /**
+     * Tier-2 observability hook at the faux backend boundary. Product wiring
+     * still owns session creation, command registration, origination, cache
+     * writes, and send scheduling; the hook only lets an oracle prove what was
+     * already visible before the substituted provider returns output.
+     */
+    readonly beforeProviderResponse?: () => void | Promise<void>;
+  } = {},
+): {
   readonly agentServices: BrunchAgentServicesOverride;
   readonly providerContexts: readonly ProviderContextSnapshot[];
   readonly unregister: () => void;
@@ -317,12 +328,12 @@ export function createTier2FauxAgentServices(options: { readonly responseText?: 
     models: [{ id: model.modelId, name: model.modelName, input: ['text'] }],
   });
   const providerContexts: ProviderContextSnapshot[] = [];
-  provider.setResponses([
-    (context: Context) => {
-      providerContexts.push(snapshotProviderContext(context));
-      return fauxAssistantMessage(options.responseText ?? 'Opening offer from the product-originated turn.');
-    },
-  ]);
+  const respond = async (context: Context) => {
+    await options.beforeProviderResponse?.();
+    providerContexts.push(snapshotProviderContext(context));
+    return fauxAssistantMessage(options.responseText ?? 'Opening offer from the product-originated turn.');
+  };
+  provider.setResponses([respond, respond]);
   const authStorage = AuthStorage.inMemory({
     [model.provider]: { type: 'api_key', key: BRUNCH_FAUX_HARNESS_API_KEY },
   });
