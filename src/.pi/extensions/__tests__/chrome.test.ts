@@ -382,21 +382,48 @@ describe('Brunch chrome projection', () => {
     expect(calls.some((call) => call.method === 'setStatus')).toBe(false);
   });
 
-  it('restores the default working message at turn_end (F14)', async () => {
+  it('refreshes at turn_end but clears the kick-scoped working message only at agent_settled', async () => {
     const calls: FakeUiCall[] = [];
-    const handlers = new Map<string, Array<(event: unknown, ctx: { ui: FakeExtensionUi }) => unknown>>();
+    const handlers = new Map<string, Array<(event: unknown, ctx: FakeChromeContext) => unknown>>();
+    const ctx: FakeChromeContext = {
+      ui: fakeChromeUi(calls),
+      sessionManager: { getEntries: () => [], getSessionName: () => null },
+      getContextUsage: () => undefined,
+      model: null,
+    };
 
     registerBrunchChrome(
       {
         on: (event: string, handler: never) => {
           handlers.set(event, [...(handlers.get(event) ?? []), handler]);
         },
+        getThinkingLevel: () => 'low',
       } as never,
       { cwd: '/tmp/project', spec: { id: 1, title: 'Spec One' }, session: { id: 'session-1' } },
     );
 
-    await handlers.get('turn_end')?.[0]?.({}, { ui: fakeChromeUi(calls) });
+    await handlers.get('session_start')?.[0]?.({}, ctx);
+    const footerFactory = calls.find((call) => call.method === 'setFooter')?.args[0] as (
+      tui: { requestRender: () => void },
+      theme: FakeTheme,
+      footerData: {
+        getExtensionStatuses: () => ReadonlyMap<string, string>;
+        getAvailableProviderCount: () => number;
+      },
+    ) => unknown;
+    let footerRefreshes = 0;
+    footerFactory({ requestRender: () => (footerRefreshes += 1) }, fakeTheme, {
+      getExtensionStatuses: () => new Map(),
+      getAvailableProviderCount: () => 1,
+    });
+    calls.length = 0;
 
+    await handlers.get('turn_end')?.[0]?.({}, ctx);
+    expect(footerRefreshes).toBe(1);
+    expect(calls).not.toContainEqual({ method: 'setWorkingMessage', args: [undefined] });
+
+    await handlers.get('agent_settled')?.[0]?.({}, ctx);
+    expect(footerRefreshes).toBe(2);
     expect(calls).toContainEqual({ method: 'setWorkingMessage', args: [undefined] });
   });
 

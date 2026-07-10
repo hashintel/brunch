@@ -11,11 +11,10 @@
  *        guarded off for `reload` (extension reload; J8 guard) and `fork`
  *        (blocked upstream by `commands/policy.ts`; J7 guard).
  *  - J3: `pi.on('session_tree')` — after tree navigation, always dialog.
- *  - J4: `pi.on('agent_end')` when the tail assistant message has
- *        `stopReason === 'aborted'` (C3 probe, `pi-ai` `StopReason`).
- *        `agent_end` extension event does NOT carry `willRetry`; compaction-
- *        overflow retries fire a fresh `agent_end` and the debounce window
- *        below covers the double-dialog case. Documented ceiling.
+ *  - J4: `pi.on('agent_end')` records whether the latest low-level run ended
+ *        with an aborted assistant message (C3 probe, `pi-ai` `StopReason`);
+ *        `pi.on('agent_settled')` opens the juncture only when that abort is
+ *        still terminal after retries, compaction, and queued continuations.
  *  - J6: `/brunch:consult` is owned by `commands/index.ts` and routes through
  *        the same gate helpers exported here.
  *
@@ -32,6 +31,7 @@
 
 import type {
   AgentEndEvent,
+  AgentSettledEvent,
   ExtensionAPI,
   ExtensionContext,
   SessionStartEvent,
@@ -126,6 +126,7 @@ export function releaseOrientationJuncture(
 
 export function registerBrunchSessionOrientation(pi: ExtensionAPI, deps: BrunchSessionOrientationDeps): void {
   const debounce = orientationJunctureGate(deps);
+  let abortJuncturePending = false;
 
   pi.on('session_start', async (event: SessionStartEvent, ctx: ExtensionContext) => {
     if (event.reason === 'startup') {
@@ -152,14 +153,19 @@ export function registerBrunchSessionOrientation(pi: ExtensionAPI, deps: BrunchS
     });
   });
 
-  pi.on('agent_end', async (event: AgentEndEvent, ctx: ExtensionContext) => {
-    if (!isEscAbortedAgentEnd(event)) return;
-    if (debounce.suppressNextAbortJuncture) {
-      // A product flow (J5 mode switch) aborted this turn itself and owns the
-      // next dialog; consuming the flag keeps J4 out of its way.
-      debounce.suppressNextAbortJuncture = false;
-      return;
-    }
+  pi.on('agent_end', async (event: AgentEndEvent) => {
+    abortJuncturePending = isEscAbortedAgentEnd(event);
+    if (!abortJuncturePending || !debounce.suppressNextAbortJuncture) return;
+
+    // A product flow (J5 mode switch) aborted this turn itself and owns the
+    // next dialog; consuming the flag keeps J4 out of its way at settlement.
+    debounce.suppressNextAbortJuncture = false;
+    abortJuncturePending = false;
+  });
+
+  pi.on('agent_settled', async (_event: AgentSettledEvent, ctx: ExtensionContext) => {
+    if (!abortJuncturePending) return;
+    abortJuncturePending = false;
     await runJuncture(ctx, deps, debounce, {
       trigger: 'abort',
       mode: 'follow-choice',
