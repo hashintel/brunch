@@ -201,12 +201,15 @@ describe('projectExecuteGraph', () => {
       { ...base, id: 1, category: 'composition', sourceId: 1, targetId: 2 },
       { ...base, id: 2, category: 'realization', sourceId: 10, targetId: 2 },
       { ...base, id: 3, category: 'realization', sourceId: 11, targetId: 2 },
-      { ...base, id: 4, category: 'dependency', sourceId: 12, targetId: 10 },
-      { ...base, id: 5, category: 'dependency', sourceId: 10, targetId: 11 },
-      { ...base, id: 6, category: 'witness', sourceId: 20, targetId: 10, stance: 'for' },
-      { ...base, id: 7, category: 'witness', sourceId: 21, targetId: 11, stance: 'for' },
-      { ...base, id: 8, category: 'composition', sourceId: 2, targetId: 30 },
-      { ...base, id: 9, category: 'dependency', sourceId: 40, targetId: 2 },
+      { ...base, id: 4, category: 'realization', sourceId: 12, targetId: 2 },
+      { ...base, id: 5, category: 'dependency', sourceId: 12, targetId: 10 },
+      { ...base, id: 6, category: 'dependency', sourceId: 10, targetId: 11 },
+      { ...base, id: 7, category: 'witness', sourceId: 20, targetId: 10, stance: 'for' },
+      { ...base, id: 8, category: 'witness', sourceId: 21, targetId: 11, stance: 'for' },
+      { ...base, id: 9, category: 'composition', sourceId: 2, targetId: 30 },
+      { ...base, id: 10, category: 'dependency', sourceId: 40, targetId: 2 },
+      { ...base, id: 11, category: 'dependency', sourceId: 20, targetId: 2 },
+      { ...base, id: 12, category: 'dependency', sourceId: 21, targetId: 2 },
     ];
 
     const projection = projectExecuteGraph({ specId: 7, graphLsn: 9, mode: 'brownfield', nodes, edges });
@@ -227,15 +230,17 @@ describe('projectExecuteGraph', () => {
             requirementId: 'REQ2',
             dependsOn: ['REQ1'],
           }),
+          expect.objectContaining({
+            id: 'task-3',
+            scopeId: 'SCP1',
+            requirementId: 'REQ3',
+            dependsOn: [],
+          }),
         ],
-      }),
-      expect.objectContaining({
-        id: 'frontier-unscoped-requirements',
-        tasks: [expect.objectContaining({ id: 'task-3', requirementId: 'REQ3' })],
       }),
     ]);
     expect(projection.planPreview.slices).toEqual([
-      expect.objectContaining({ id: 'task-3', derived_from: ['REQ3'], depends_on: [] }),
+      expect.objectContaining({ id: 'task-3', scope_id: 'SCP1', derived_from: ['REQ3'], depends_on: [] }),
       expect.objectContaining({
         id: 'task-1',
         scope_id: 'SCP1',
