@@ -199,7 +199,10 @@ describe('brunch.updated execute topic invalidation', () => {
         firedTransitionCount: 18,
         terminalEventKind: 'net_completed',
       },
-      petriProjectionSource: 'replay',
+      petriProjectionSource: 'snapshot',
+    });
+    expect(queryClient.getQueryData(['execute.run', 'run-1'])).not.toMatchObject({
+      petriProjectionReplayReason: 'snapshot_stale',
     });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.run', 'run-1'], exact: true });
   });

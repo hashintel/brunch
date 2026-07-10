@@ -147,8 +147,13 @@ function patchExecuteRunDetail(queryClient: QueryClient, update: ProductUpdate):
   queryClient.setQueryData(queryKeys.execute.run(update.runId), (current: unknown) => {
     if (!isRecord(current) || 'unreadable' in current) return current;
     const next = { ...current };
+    const hasProjectionUpdate = 'petriProjection' in update;
+    const projectionIsValid =
+      !hasProjectionUpdate || update.petriProjection === null || isPetriProjection(update.petriProjection);
     if ('petriProjectionSource' in update) {
-      if (update.petriProjectionSource === null) delete next.petriProjectionSource;
+      if (!projectionIsValid) {
+        // Ignore projection metadata when the accompanying projection payload is malformed.
+      } else if (update.petriProjectionSource === null) delete next.petriProjectionSource;
       else if (update.petriProjectionSource === 'snapshot' || update.petriProjectionSource === 'replay') {
         next.petriProjectionSource = update.petriProjectionSource;
       }
@@ -158,7 +163,9 @@ function patchExecuteRunDetail(queryClient: QueryClient, update: ProductUpdate):
       else if (isPetriProjection(update.petriProjection)) next.petriProjection = update.petriProjection;
     }
     if ('petriProjectionReplayReason' in update) {
-      if (update.petriProjectionReplayReason === null) delete next.petriProjectionReplayReason;
+      if (!projectionIsValid) {
+        // Ignore projection metadata when the accompanying projection payload is malformed.
+      } else if (update.petriProjectionReplayReason === null) delete next.petriProjectionReplayReason;
       else if (
         update.petriProjectionReplayReason === 'snapshot_missing_or_unreadable' ||
         update.petriProjectionReplayReason === 'snapshot_stale'
