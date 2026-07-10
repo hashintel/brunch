@@ -73,7 +73,12 @@ describe('graph node code metadata', () => {
     for (const kind of projectionKinds) {
       expect(latestExpectedBand(kind)).toBe('projection');
     }
-    const commitmentKinds = ['milestone', 'frontier', 'scope', 'criterion'] as const satisfies readonly NodeKind[];
+    const commitmentKinds = [
+      'milestone',
+      'frontier',
+      'scope',
+      'criterion',
+    ] as const satisfies readonly NodeKind[];
     for (const kind of commitmentKinds) {
       expect(latestExpectedBand(kind)).toBe('commitment');
     }

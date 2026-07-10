@@ -157,7 +157,9 @@ async function readPlanSlice(args: {
 > {
   const planPath = args.metadata.populatedPlanPath ?? populatedPlanPath(args.cwd, args.metadata.runId);
   try {
-    const payload = JSON.parse(await import('node:fs/promises').then(({ readFile }) => readFile(planPath, 'utf8'))) as {
+    const payload = JSON.parse(
+      await import('node:fs/promises').then(({ readFile }) => readFile(planPath, 'utf8')),
+    ) as {
       readonly slices?: readonly ({ readonly id?: string } & PlanSliceRequestShape)[];
     };
     const slice = payload.slices?.find((candidate) => candidate.id === args.sliceId);

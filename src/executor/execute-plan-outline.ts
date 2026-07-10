@@ -42,9 +42,15 @@ export interface ExecutionPlanOutline {
 
 export function outlineExecutionPlan(snapshot: ExecutionSpecSnapshot): ExecutionPlanOutline {
   const scopeFrontiers = frontiersForScopes(snapshot);
-  const unscopedRequirementIds = new Set(snapshot.scopes.flatMap((scope) => scope.requirementIds));
+  const scopedRequirementIds = new Set(
+    scopeFrontiers.flatMap((frontier) =>
+      frontier.tasks.flatMap((task) =>
+        task.requirementIds && task.requirementIds.length > 0 ? task.requirementIds : [task.requirementId],
+      ),
+    ),
+  );
   const orphanRequirements = snapshot.requirements.filter(
-    (requirement) => !unscopedRequirementIds.has(requirement.itemId),
+    (requirement) => !scopedRequirementIds.has(requirement.itemId),
   );
 
   return {
@@ -85,12 +91,19 @@ function frontiersForScopes(snapshot: ExecutionSpecSnapshot): readonly Execution
     snapshot.requirements.map((requirement) => [requirement.itemId, requirement]),
   );
   const scopesByFrontier = new Map<string, typeof snapshot.scopes>();
+  const claimedRequirementIds = new Set<string>();
 
   for (const scope of snapshot.scopes) {
-    if (scope.requirementIds.length === 0) continue;
+    const requirementIds = scope.requirementIds.filter((requirementId) => {
+      if (claimedRequirementIds.has(requirementId)) return false;
+      claimedRequirementIds.add(requirementId);
+      return true;
+    });
+
+    if (requirementIds.length === 0) continue;
     const frontierId = scope.frontierIds[0] ?? snapshot.frontiers[0]?.itemId ?? 'frontier-1';
     const scopes = scopesByFrontier.get(frontierId) ?? [];
-    scopesByFrontier.set(frontierId, [...scopes, scope]);
+    scopesByFrontier.set(frontierId, [...scopes, { ...scope, requirementIds }]);
   }
 
   return [...scopesByFrontier.entries()].map(([frontierId, scopes]) => ({

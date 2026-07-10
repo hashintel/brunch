@@ -273,13 +273,12 @@ const scopePackagePayload = {
   epistemicStatus: 'asserted',
   grounding: {
     summary: 'The executor needs one committed handoff package below the frontier.',
-    support: [
-      'The handoff should carry requirement, design, and verification truth together.',
-    ],
+    support: ['The handoff should carry requirement, design, and verification truth together.'],
   },
   pitch: {
     title: 'Commit the executor handoff package',
-    narrative: 'Package the accepted requirement, design, and verification anchors into one reviewable scope.',
+    narrative:
+      'Package the accepted requirement, design, and verification anchors into one reviewable scope.',
   },
   entityDrafts: [
     {

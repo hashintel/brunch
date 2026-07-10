@@ -97,6 +97,34 @@ describe('outlineExecutionPlan', () => {
     ]);
   });
 
+  it('claims shared scope requirements once', () => {
+    const scope = snapshot.scopes[0]!;
+    const outline = outlineExecutionPlan({
+      ...snapshot,
+      scopes: [
+        scope,
+        {
+          ...scope,
+          itemId: 'SCP2',
+          nodeId: 12,
+          title: 'Duplicate wire feature scope',
+          requirementIds: ['REQ2'],
+        },
+      ],
+    });
+
+    expect(outline.frontiers).toEqual([
+      expect.objectContaining({
+        id: 'F1',
+        tasks: [expect.objectContaining({ scopeId: 'SCP1', requirementIds: ['REQ2'] })],
+      }),
+      expect.objectContaining({
+        id: 'frontier-unscoped-requirements',
+        tasks: [expect.objectContaining({ requirementId: 'REQ1' })],
+      }),
+    ]);
+  });
+
   it('uses the committed frontier id when a scope has no parent edge', () => {
     const scope = snapshot.scopes[0]!;
 
