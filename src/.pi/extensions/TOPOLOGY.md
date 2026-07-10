@@ -78,7 +78,7 @@ Provider-facing tool-parameter conversion is confined to `shared/tool-schema.ts`
 
 ## Shared default tool rendering
 
-`shared/define-brunch-tool.ts` owns the canonical self-shell one-line status renderer for Brunch-authored tools that do not need family-specific transcript rendering. Its status-transition contract is scoped to Pi's live interactive TUI lifecycle; Pi HTML export remains an unsupported built-in under D34-L and is not a compatibility surface for this adapter. The production-derived registry classifies 45 shared-default tools, 7 intentional-custom tools, and 4 Pi-owned re-registrations; custom and Pi-owned renderers remain outside the wrapper.
+`shared/define-brunch-tool.ts` owns the canonical self-shell one-line status renderer for Brunch-authored tools that do not need family-specific transcript rendering. Its status-transition contract is scoped to Pi's live interactive TUI lifecycle; Pi HTML export remains an unsupported built-in under D34-L and is not a compatibility surface for this adapter. The production-derived registry classifies 41 shared-default tools, 11 intentional-custom tools, and 4 Pi-owned re-registrations; custom and Pi-owned renderers remain outside the wrapper. The custom set includes the four executor tools with dedicated result renderers (`execute_orchestrate`, `execute_plan_check`, `execute_snapshot`, and `execute_status`).
 
 ## Migration notes
 

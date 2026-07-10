@@ -15,7 +15,7 @@ Completed 2026-07-10. Product and dev TUI launches open the advertised sidecar r
 
 ### default-tool-rendering (FE-1186) — retired frontier definition
 
-Completed 2026-07-10 after a 45-row adoption sweep and judo-review correction. `defineBrunchTool` is the canonical definition path for fallback-rendered Brunch tools; the production registry pins 45 shared-default / 7 intentional-custom / 4 Pi-owned definitions. A runtime witness through Pi's exported `ToolExecutionComponent` proves the supported live interactive TUI keeps one padded status receipt and suppresses model-facing result content, including expanded mode. Pi HTML export remains an unsupported built-in under D34-L, not a compatibility surface for this adapter. Durable truth: D119-L/I61-L and `src/.pi/extensions/TOPOLOGY.md`; the exhausted ledger and review-fix card were deleted.
+Completed 2026-07-10 after an initial 45-row adoption sweep, judo-review correction, and semantic restack repair excluding four executor tools whose dedicated result renderers landed in the parent branch. `defineBrunchTool` is the canonical definition path for fallback-rendered Brunch tools; the production registry pins 41 shared-default / 11 intentional-custom / 4 Pi-owned definitions. A runtime witness through Pi's exported `ToolExecutionComponent` proves the supported live interactive TUI keeps one padded status receipt and suppresses model-facing result content, including expanded mode. Pi HTML export remains an unsupported built-in under D34-L, not a compatibility surface for this adapter. Durable truth: D119-L/I61-L and `src/.pi/extensions/TOPOLOGY.md`; the exhausted ledger and review-fix card were deleted.
 
 ## 2026-07-08 Sync archive (`ln-sync`, retirement/reduction pass)
 

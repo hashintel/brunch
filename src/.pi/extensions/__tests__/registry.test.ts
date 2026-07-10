@@ -2792,9 +2792,6 @@ describe('Brunch explicit Pi extension registry', () => {
     for (const tool of executorTools) {
       expect(hasToolParametersProvenance(tool.parameters), `${tool.name} adapter provenance`).toBe(true);
       assertProviderLegalToolSchema(tool.parameters);
-      expect(tool.renderShell, `${tool.name} shell`).toBe('self');
-      expect(tool.renderCall, `${tool.name} call renderer`).toEqual(expect.any(Function));
-      expect(tool.renderResult, `${tool.name} result renderer`).toEqual(expect.any(Function));
     }
   });
 
@@ -2831,7 +2828,7 @@ describe('Brunch explicit Pi extension registry', () => {
       (tool) => !piOwnedBuiltins.has(tool.name) && !registeredProductNameSet.has(tool.name),
     );
     const actualTools = [...registeredProductTools, ...childOnlyTools];
-    const intentionalCustomRendererNames = [
+    const intentionalCustomCallRendererNames = [
       'ask',
       'present_candidates',
       'present_digest',
@@ -2839,6 +2836,13 @@ describe('Brunch explicit Pi extension registry', () => {
       'subagent',
       'web_fetch',
       'web_search',
+    ];
+    const intentionalCustomRendererNames = [
+      ...intentionalCustomCallRendererNames,
+      'execute_orchestrate',
+      'execute_plan_check',
+      'execute_snapshot',
+      'execute_status',
     ].sort((left, right) => left.localeCompare(right));
     const expectedNames = [
       'ask',
@@ -2921,7 +2925,9 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(customRenderedTools.map((tool) => tool.name).sort()).toEqual(intentionalCustomRendererNames);
     for (const tool of customRenderedTools) {
       expect(hasBrunchDefaultRenderer(tool), `${tool.name} must keep its custom renderer`).toBe(false);
-      expect(tool.renderCall, `${tool.name} call renderer`).toEqual(expect.any(Function));
+      if (intentionalCustomCallRendererNames.includes(tool.name)) {
+        expect(tool.renderCall, `${tool.name} call renderer`).toEqual(expect.any(Function));
+      }
       expect(tool.renderResult, `${tool.name} result renderer`).toEqual(expect.any(Function));
     }
 

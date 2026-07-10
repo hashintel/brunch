@@ -1,15 +1,14 @@
+import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import type { AgentStreamEvent } from '../../../../executor/agent-result.js';
 import type { ExecutionPorts } from '../../../../executor/execution-ports.js';
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import type { VerifyStreamEvent } from '../../../../executor/test-result.js';
-import { BRUNCH_EXECUTE_ORCHESTRATE_TOOL } from '../../../../session/schema/tool-names.js';
-import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { drive, type DriveOutcome, type DriveStepProgress } from '../../../../executor/orchestrate.js';
+import type { VerifyStreamEvent } from '../../../../executor/test-result.js';
 import { executeRunProductUpdates, type ProductUpdatePublisher } from '../../../../rpc/product-updates.js';
-import { renderExecuteOrchestrateResult } from '../rendering.js';
+import { BRUNCH_EXECUTE_ORCHESTRATE_TOOL } from '../../../../session/schema/tool-names.js';
 import { toolParameters } from '../../shared/tool-schema.js';
+import { renderExecuteOrchestrateResult } from '../rendering.js';
 
 export { BRUNCH_EXECUTE_ORCHESTRATE_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -40,8 +39,11 @@ export interface ExecuteOrchestrateDeps {
   readonly productUpdates?: ProductUpdatePublisher;
 }
 
-export function createExecuteOrchestrateTool(ports: ExecutionPorts, deps?: ExecuteOrchestrateDeps) {
-  return defineBrunchTool<typeof ExecuteOrchestrateParams, ExecuteOrchestrateDetails>({
+export function createExecuteOrchestrateTool(
+  ports: ExecutionPorts,
+  deps?: ExecuteOrchestrateDeps,
+): ToolDefinition<typeof ExecuteOrchestrateParams, ExecuteOrchestrateDetails> {
+  return {
     name: BRUNCH_EXECUTE_ORCHESTRATE_TOOL,
     label: 'execute_orchestrate',
     description:
@@ -198,7 +200,7 @@ export function createExecuteOrchestrateTool(ports: ExecutionPorts, deps?: Execu
         },
       };
     },
-  });
+  };
 }
 
 export function registerBrunchExecuteOrchestrate(

@@ -1,13 +1,12 @@
+import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import type { ExecutePlanCheckResult } from '../../../../executor/execute-plan-check.js';
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import type { GraphReaders } from '../../brunch-data/graph/index.js';
-import { BRUNCH_EXECUTE_PLAN_CHECK_TOOL } from '../../../../session/schema/tool-names.js';
-import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { projectExecuteGraph } from '../../../../executor/execute-projection.js';
-import { renderExecutePlanCheckResult } from '../rendering.js';
+import { BRUNCH_EXECUTE_PLAN_CHECK_TOOL } from '../../../../session/schema/tool-names.js';
+import type { GraphReaders } from '../../brunch-data/graph/index.js';
 import { toolParameters } from '../../shared/tool-schema.js';
+import { renderExecutePlanCheckResult } from '../rendering.js';
 
 export { BRUNCH_EXECUTE_PLAN_CHECK_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -36,8 +35,10 @@ export interface ExecutePlanCheckDeps {
   readonly reads: Pick<GraphReaders, 'queryGraph'>;
 }
 
-export function createExecutePlanCheckTool(deps: ExecutePlanCheckDeps) {
-  return defineBrunchTool<typeof ExecutePlanCheckParams, ExecutePlanCheckDetails>({
+export function createExecutePlanCheckTool(
+  deps: ExecutePlanCheckDeps,
+): ToolDefinition<typeof ExecutePlanCheckParams, ExecutePlanCheckDetails> {
+  return {
     name: BRUNCH_EXECUTE_PLAN_CHECK_TOOL,
     label: 'execute_plan_check',
     description:
@@ -77,7 +78,7 @@ export function createExecutePlanCheckTool(deps: ExecutePlanCheckDeps) {
         },
       };
     },
-  });
+  };
 }
 
 export function registerBrunchExecutePlanCheck(pi: ExtensionAPI, deps: ExecutePlanCheckDeps): void {

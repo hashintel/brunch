@@ -1,13 +1,12 @@
+import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import type { ExecutionSpecSnapshot } from '../../../../executor/execution-spec-snapshot.js';
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import type { GraphReaders } from '../../brunch-data/graph/index.js';
-import { BRUNCH_EXECUTE_SNAPSHOT_TOOL } from '../../../../session/schema/tool-names.js';
-import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { projectExecuteGraph } from '../../../../executor/execute-projection.js';
-import { renderExecuteSnapshotResult } from '../rendering.js';
+import type { ExecutionSpecSnapshot } from '../../../../executor/execution-spec-snapshot.js';
+import { BRUNCH_EXECUTE_SNAPSHOT_TOOL } from '../../../../session/schema/tool-names.js';
+import type { GraphReaders } from '../../brunch-data/graph/index.js';
 import { toolParameters } from '../../shared/tool-schema.js';
+import { renderExecuteSnapshotResult } from '../rendering.js';
 
 export { BRUNCH_EXECUTE_SNAPSHOT_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -36,8 +35,10 @@ export interface ExecuteSnapshotDeps {
   readonly reads: Pick<GraphReaders, 'queryGraph'>;
 }
 
-export function createExecuteSnapshotTool(deps: ExecuteSnapshotDeps) {
-  return defineBrunchTool<typeof ExecuteSnapshotParams, ExecuteSnapshotDetails>({
+export function createExecuteSnapshotTool(
+  deps: ExecuteSnapshotDeps,
+): ToolDefinition<typeof ExecuteSnapshotParams, ExecuteSnapshotDetails> {
+  return {
     name: BRUNCH_EXECUTE_SNAPSHOT_TOOL,
     label: 'execute_snapshot',
     description:
@@ -76,7 +77,7 @@ export function createExecuteSnapshotTool(deps: ExecuteSnapshotDeps) {
         },
       };
     },
-  });
+  };
 }
 
 export function registerBrunchExecuteSnapshot(pi: ExtensionAPI, deps: ExecuteSnapshotDeps): void {
