@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import { compileExecutorTopology, type SchedulerPlan } from './orchestrate-topology.js';
+import { compileExecutorTopology, projectSchedulerPlan, type SchedulerPlan } from './orchestrate-topology.js';
 import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
 export type PetriExportResult =
@@ -46,7 +46,7 @@ export function petriNetPath(cwd: string, runId: string): string {
 async function readExportPlan(metadata: RunMetadata): Promise<SchedulerPlan | undefined> {
   const path = metadata.populatedPlanPath ?? metadata.planPath;
   try {
-    return JSON.parse(await readFile(path, 'utf8')) as SchedulerPlan;
+    return projectSchedulerPlan(JSON.parse(await readFile(path, 'utf8')));
   } catch {
     return undefined;
   }

@@ -7,6 +7,7 @@ import {
   blockedPlanSliceSteps,
   compileExecutorTopology,
   normalizeSchedulerPlanMode,
+  projectSchedulerPlan,
   readyPlanSliceIds,
   sliceTransitionId,
   type BlockedStep,
@@ -429,6 +430,6 @@ async function sourcePolicyForRun(ctx: ExecutorTransitionBindingContext): Promis
 
   const metadata = await readRunMetadata(runMetadataPath(ctx.cwd, ctx.runId));
   const path = metadata?.populatedPlanPath ?? populatedPlanPath(ctx.cwd, ctx.runId);
-  const plan = JSON.parse(await readFile(path, 'utf8')) as SchedulerPlan;
+  const plan = projectSchedulerPlan(JSON.parse(await readFile(path, 'utf8')));
   return normalizeSchedulerPlanMode(plan) === 'brownfield' ? 'host_source_deferred' : 'plan_only';
 }

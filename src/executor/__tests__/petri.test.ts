@@ -136,6 +136,33 @@ describe('exportPetri', () => {
     });
   });
 
+  it('refuses to export when the compiled plan input is structurally invalid', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-invalid-plan-shape-'));
+    await createCompletedRun(cwd);
+    await writeFile(
+      join(cwd, 'plan.yaml'),
+      JSON.stringify({
+        mode: 'greenfield',
+        slices: [{ epic_id: 'frontier-1' }],
+      }),
+      'utf8',
+    );
+
+    const result = await exportPetri({ cwd, runId: 'run-1' });
+
+    expect(result).toEqual({
+      status: 'petri_input_unreadable',
+      runStatus: 'run_completed',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      sideEffects: [],
+    });
+    expect(await pathExists(petriNetPath(cwd, 'run-1'))).toBe(false);
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'run_completed',
+    });
+  });
+
   it('refuses to export a Petri net when slice ids collide in the compiled plan', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-duplicate-slice-id-'));
     await createCompletedRun(cwd);

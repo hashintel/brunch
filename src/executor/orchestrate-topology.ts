@@ -38,8 +38,43 @@ export interface SchedulerPlanSlice {
 
 export type SchedulerPlanMode = NonNullable<SchedulerPlan['mode']>;
 
+export function projectSchedulerPlan(value: unknown): SchedulerPlan | undefined {
+  if (!isRecord(value)) return undefined;
+  if (value.mode !== undefined && value.mode !== 'greenfield' && value.mode !== 'brownfield')
+    return undefined;
+  if (value.slices !== undefined && !Array.isArray(value.slices)) return undefined;
+
+  const slices = value.slices?.map(projectSchedulerPlanSlice);
+  if (slices?.some((slice) => slice === undefined)) return undefined;
+
+  return {
+    ...(value.mode === undefined ? {} : { mode: value.mode }),
+    ...(slices === undefined ? {} : { slices: slices as readonly SchedulerPlanSlice[] }),
+  };
+}
+
 export function normalizeSchedulerPlanMode(plan: SchedulerPlan | undefined): SchedulerPlanMode {
   return plan?.mode ?? 'greenfield';
+}
+
+function projectSchedulerPlanSlice(value: unknown): SchedulerPlanSlice | undefined {
+  if (!isRecord(value) || typeof value.id !== 'string') return undefined;
+  if (value.epic_id !== undefined && typeof value.epic_id !== 'string') return undefined;
+  if (
+    value.depends_on !== undefined &&
+    (!Array.isArray(value.depends_on) || value.depends_on.some((sliceId) => typeof sliceId !== 'string'))
+  ) {
+    return undefined;
+  }
+  return {
+    id: value.id,
+    ...(value.epic_id === undefined ? {} : { epic_id: value.epic_id }),
+    ...(value.depends_on === undefined ? {} : { depends_on: value.depends_on as readonly string[] }),
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 export interface ExecutorSubnet {

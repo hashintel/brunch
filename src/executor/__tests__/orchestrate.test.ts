@@ -1292,6 +1292,62 @@ describe('petriScheduler', () => {
     });
   });
 
+  it('halts at petri_export when the compiled plan input parses but is structurally invalid', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-export-invalid-shape-'));
+    const planPath = join(cwd, 'broken-plan.json');
+    const seen: ExecutorNetEvent[] = [];
+
+    await writeFile(
+      planPath,
+      JSON.stringify({
+        mode: 'greenfield',
+        slices: [{ epic_id: 'frontier-1' }],
+      }),
+      'utf8',
+    );
+    await mkdir(join(cwd, '.brunch', 'cook', 'runs', 'run-1'), { recursive: true });
+    await writeFile(
+      runMetadataPath(cwd, 'run-1'),
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath,
+        status: 'run_completed',
+        reportsPath: reportsPath(cwd, 'run-1'),
+        completedSliceIds: ['task-1'],
+      }),
+      'utf8',
+    );
+
+    const outcome = await drive(
+      {
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts(),
+        onNetEvent: (event) => {
+          seen.push(event);
+        },
+      },
+      petriScheduler,
+    );
+
+    expect(outcome).toEqual({
+      status: 'halted',
+      step: 'petri_export',
+      runStatus: 'run_completed',
+      reason: 'petri_input_unreadable',
+    });
+    expect(await pathExists(petriNetPath(cwd, 'run-1'))).toBe(false);
+    expect(seen.some((event) => event.kind === 'net_completed')).toBe(false);
+    expect(seen.at(-1)).toEqual({
+      kind: 'net_halted',
+      runId: 'run-1',
+      runStatus: 'run_completed',
+      step: 'petri_export',
+      reason: 'petri_input_unreadable',
+    });
+  });
+
   it('treats an abandoned run as a halted terminal at both the driver and journal boundary', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-abandoned-terminal-'));
     const seen: ExecutorNetEvent[] = [];

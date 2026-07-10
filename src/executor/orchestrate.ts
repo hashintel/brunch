@@ -4,6 +4,7 @@ import type { AgentStreamEvent } from './agent-result.js';
 import type { AgentRunnerRuntime, ExecutionPorts } from './execution-ports.js';
 import {
   compileExecutorTopology,
+  projectSchedulerPlan,
   type ExecutorNetEvent,
   type ReadyStep,
   type SchedulerPlan,
@@ -336,7 +337,7 @@ async function planForScheduler(cwd: string, state: RunMetadata): Promise<Schedu
       ? populatedPlanPath(cwd, state.runId)
       : undefined;
   if (!path) return undefined;
-  return JSON.parse(await readFile(path, 'utf8')) as SchedulerPlan;
+  return projectSchedulerPlan(JSON.parse(await readFile(path, 'utf8')));
 }
 
 async function neverBoundReadyStep(step: ReadyStep): Promise<StepResult> {
