@@ -70,7 +70,7 @@ describe('execute_orchestrate rendering', () => {
         'running · slice t1 · verify pending',
         'run run-1   epic e1   slice t1',
         'now test_result   started   done 0',
-        'state agent_result_ingested   [+] expand · Ctrl+O',
+        'state agent_result_ingested   Ctrl + O to expand',
       ].join('\n'),
     );
   });
@@ -110,7 +110,7 @@ describe('execute_orchestrate rendering', () => {
         'halted · test_result',
         'run unknown   epic -   slice -',
         'now test_result   halted   done 0',
-        'reason failed   [+] expand · Ctrl+O',
+        'reason failed   Ctrl + O to expand',
       ].join('\n'),
     );
     expect(completed).toBe(
@@ -118,7 +118,53 @@ describe('execute_orchestrate rendering', () => {
         'completed · promotion_prepared',
         'run unknown   epic -   slice -',
         'now -   completed   done 0',
-        'outcome completed   [+] expand · Ctrl+O',
+        'outcome completed   Ctrl + O to expand',
+      ].join('\n'),
+    );
+  });
+
+  it('surfaces recent worker and verify activity in the collapsed summary', () => {
+    const rendered = renderResult(
+      tool,
+      {
+        content: [{ type: 'text', text: 'fallback' }],
+        details: {
+          progress: {
+            runId: 'run-1',
+            step: 'test_result',
+            phase: 'completed',
+            runStatus: 'test_result_ingested',
+            activeEpicId: 'e1',
+            activeSliceId: 't1',
+            completedSliceIds: ['t0'],
+          },
+          agentStream: {
+            kind: 'message',
+            runId: 'run-1',
+            epicId: 'e1',
+            sliceId: 't1',
+            sequence: 2,
+            message: 'edited src/types.ts',
+          },
+          verifyStream: {
+            kind: 'stdout',
+            runId: 'run-1',
+            epicId: 'e1',
+            sliceId: 't1',
+            sequence: 3,
+            message: 'tests passed',
+          },
+        },
+      },
+      { expanded: false, isPartial: false },
+    );
+
+    expect(rendered).toBe(
+      [
+        'running · slice t1 · test_result_ingested',
+        'run run-1   epic e1   slice t1',
+        'now test_result   completed   done 1',
+        'activity 2 events · latest verify stdout · tests passed   Ctrl + O to expand',
       ].join('\n'),
     );
   });
@@ -166,7 +212,7 @@ describe('execute_orchestrate rendering', () => {
     expect(rendered).toBe(
       [
         'completed · promotion_prepared',
-        '[-] collapse · Ctrl+O',
+        'Ctrl + O to collapse',
         '',
         '--- Run Status ---',
         'run id: run-1',
@@ -183,12 +229,13 @@ describe('execute_orchestrate rendering', () => {
         'next target: promotion_prepared',
         '',
         '--- Subtool Activity ---',
-        'agent_result',
-        '- run run-1 · epic e1 · slice t1 · event 2',
-        '- message: edited src/types.ts',
-        'test_result',
-        '- run run-1 · epic e1 · slice t1 · event 3',
-        '- stdout: tests passed',
+        'event rail: 2',
+        '→ worker message · event 2',
+        '  run run-1 · epic e1 · slice t1 · event 2',
+        '  edited src/types.ts',
+        '→ verify stdout · event 3',
+        '  run run-1 · epic e1 · slice t1 · event 3',
+        '  tests passed',
         '',
         '--- Outcome ---',
         'outcome: completed',

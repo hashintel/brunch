@@ -58,11 +58,11 @@ function setText(context: unknown, text: string): Text {
 }
 
 function collapsedToggleHint(theme: ThemeLike): string {
-  return theme.fg('muted', '[+] expand · Ctrl+O');
+  return theme.fg('muted', 'Ctrl + O to expand');
 }
 
 function expandedToggleHint(theme: ThemeLike): string {
-  return theme.fg('muted', '[-] collapse · Ctrl+O');
+  return theme.fg('muted', 'Ctrl + O to collapse');
 }
 
 function withExpandHint(summary: string, options: RenderOptions, theme: ThemeLike): string {
@@ -82,6 +82,50 @@ function eventScope(record: Record<string, unknown> | undefined): string {
   return `run ${runId} · epic ${epicId} · slice ${sliceId} · event ${sequence}`;
 }
 
+interface ActivityEvent {
+  readonly source: 'worker' | 'verify';
+  readonly kind: string;
+  readonly message: string;
+  readonly scope: string;
+  readonly sequence: number | undefined;
+}
+
+function numberOrUndefined(value: unknown): number | undefined {
+  return typeof value === 'number' ? value : undefined;
+}
+
+function activityEvent(
+  source: 'worker' | 'verify',
+  record: Record<string, unknown> | undefined,
+): ActivityEvent | undefined {
+  if (!record) return undefined;
+  return {
+    source,
+    kind: stringOrUndefined(record['kind']) ?? 'event',
+    message: stringOrUndefined(record['message']) ?? 'unknown',
+    scope: eventScope(record),
+    sequence: numberOrUndefined(record['sequence']),
+  };
+}
+
+function activityEvents(details: Record<string, unknown>): ActivityEvent[] {
+  return [
+    activityEvent('worker', asRecord(details['agentStream'])),
+    activityEvent('verify', asRecord(details['verifyStream'])),
+  ]
+    .filter((event): event is ActivityEvent => event !== undefined)
+    .sort((left, right) => {
+      if (left.sequence === undefined && right.sequence === undefined) return 0;
+      if (left.sequence === undefined) return 1;
+      if (right.sequence === undefined) return -1;
+      return left.sequence - right.sequence;
+    });
+}
+
+function activityCountLabel(count: number): string {
+  return `activity ${count} event${count === 1 ? '' : 's'}`;
+}
+
 function compactExpandHint(summary: string, theme: ThemeLike): string {
   return `${summary}   ${collapsedToggleHint(theme)}`;
 }
@@ -95,6 +139,7 @@ function orchestrateCollapsed(
   const outcome = asRecord(details['outcome']);
   const agentStream = asRecord(details['agentStream']);
   const verifyStream = asRecord(details['verifyStream']);
+  const events = activityEvents(details);
   const runId =
     stringOrUndefined(progress?.['runId']) ??
     stringOrUndefined(agentStream?.['runId']) ??
@@ -115,10 +160,11 @@ function orchestrateCollapsed(
       : undefined;
   const completed = countArray(progress?.['completedSliceIds']);
   let tail = `status ${compactField(stringOrUndefined(progress?.['runStatus']), 'unknown')}`;
-  if (verifyStream) {
-    tail = `${compactField(stringOrUndefined(verifyStream['kind']), 'verify')}: ${compactField(stringOrUndefined(verifyStream['message']), 'unknown')}`;
-  } else if (agentStream) {
-    tail = `${compactField(stringOrUndefined(agentStream['kind']), 'worker')}: ${compactField(stringOrUndefined(agentStream['message']), 'unknown')}`;
+  if (events.length > 0) {
+    const latestEvent = events.at(-1);
+    if (latestEvent) {
+      tail = `${activityCountLabel(events.length)} · latest ${latestEvent.source} ${latestEvent.kind} · ${latestEvent.message}`;
+    }
   } else if (outcome && stringOrUndefined(outcome['status']) === 'halted') {
     tail = `reason ${compactField(stringOrUndefined(outcome['reason']), 'unknown')}`;
   } else if (outcome) {
@@ -232,21 +278,17 @@ function orchestrateExpanded(
   }
 
   lines.push('', sectionDivider('Subtool Activity'));
-  if (agentStream) {
-    lines.push('agent_result');
-    lines.push(`- ${eventScope(agentStream)}`);
-    lines.push(
-      `- ${stringOrUndefined(agentStream['kind']) ?? 'event'}: ${stringOrUndefined(agentStream['message']) ?? 'unknown'}`,
-    );
+  const events = activityEvents(details);
+  if (events.length === 0) {
+    lines.push('none');
+  } else {
+    lines.push(`event rail: ${events.length}`);
+    for (const event of events) {
+      lines.push(`→ ${event.source} ${event.kind} · event ${event.sequence ?? '?'}`);
+      lines.push(`  ${event.scope}`);
+      lines.push(`  ${event.message}`);
+    }
   }
-  if (verifyStream) {
-    lines.push('test_result');
-    lines.push(`- ${eventScope(verifyStream)}`);
-    lines.push(
-      `- ${stringOrUndefined(verifyStream['kind']) ?? 'event'}: ${stringOrUndefined(verifyStream['message']) ?? 'unknown'}`,
-    );
-  }
-  if (!agentStream && !verifyStream) lines.push('none');
 
   lines.push('', sectionDivider('Outcome'));
   if (outcome) {
