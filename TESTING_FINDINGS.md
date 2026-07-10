@@ -50,7 +50,7 @@ Concern: `brunch login` and in-session `/login` auth UX.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §brunch login, §in-session `/login` flow.
 Observation: CLI login works but echoed a pasted API key in clear text; provider choices are restricted to the current allowlist; in-session `/login` feels better but model restrictions still produce friction when saved auth does not resolve an allowed default.
 Expected: pasted secrets should be hidden; login should minimize auth/setup friction without exposing internal model-policy choices.
-Disposition: built in WR8 (FE-1180): `brunch login` API-key entry now uses hidden input and labels the prompt as hidden; login/warning copy steers users toward in-session `/login` as the preferred path. Model/provider restriction remains a model-policy design question. Secret in source note was redacted locally; rotate the real key if it was live.
+Disposition: built in WR8/WR15 (FE-1180): `brunch login` API-key entry uses hidden input and labels the prompt as hidden; login/warning copy steers users toward in-session `/login` as the preferred path. WR15 adds the interactive oracle: a real PTY paste capture omits the sentinel key while isolated Pi auth storage receives the exact key, and cancellation exits nonzero without API-key auth. Model/provider restriction remains a model-policy design question. Secret in source note was redacted locally; rotate the real key if it was live.
 
 #### A3 · chrome / model policy · medium · diagnose
 
@@ -167,7 +167,7 @@ The required WR1–WR8 implementations exist, but the post-build audit reopened 
 
 - **Execute routing (C2/C3/C4):** the FE-1180 labels broadened legacy `design_first` / `oracle_first` / `project_plan` directives without changing provider conduct. D120-L now requires preparation assessment + structured choice, compilation-readiness assessment + compile/backfill choice, and readiness-validated execution of the next safe unit. Required follow-up: WR13.
 - **Continue honesty (A4):** general continuation can report `kickFired: true` after the completion seam skipped or failed the provider turn. Required follow-up: WR14.
-- **Secret masking (A2):** implementation exists, but the current test is non-TTY and therefore does not witness interactive paste masking. Required PTY evidence: WR15.
+- **Secret masking (A2):** WR15 adds the required PTY witness: a real terminal paste omits the sentinel secret from captured bytes while isolated Pi auth storage receives the exact key; cancellation exits nonzero without API-key auth, and the non-TTY test remains supporting persistence/provider-order coverage.
 - **Conduct guidance (A6/A7/A8/C3):** source-substring sentinels prove wording exists, not that live tool/skill composition carries it or that the agent follows it. Required consumer-level evidence + outer re-observation: WR16/WR18.
 - **Debug legibility and seed usefulness (A5):** callback ordering is proven, but production `.brunch/debug/` files and agent use of seeded facts are not. Required wired mirror evidence + Run B: WR17/WR18.
 - **Visual/UX choices (A9/C1/C2):** role labels and scrollbar glyphs render, but border distinctness, overflow salience, choice comprehension, and recovery-hint noticeability remain outer-loop judgments. Required focused gallery/live evidence: WR18.
