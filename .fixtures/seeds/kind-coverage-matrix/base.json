@@ -27,7 +27,8 @@
     { "local_id": 24, "plane": "design", "kind": "sketch", "title": "Renderer output sketch", "basis": "explicit", "source": "fixture" },
     { "local_id": 18, "plane": "plan", "kind": "milestone", "title": "Cross-cut render feedback loop", "basis": "explicit", "source": "fixture" },
     { "local_id": 19, "plane": "plan", "kind": "frontier", "title": "Preview harness slice", "basis": "explicit", "source": "fixture" },
-    { "local_id": 20, "plane": "plan", "kind": "frontier", "title": "Lock one neighborhood preview", "basis": "explicit", "source": "fixture" }
+    { "local_id": 20, "plane": "plan", "kind": "frontier", "title": "Lock one neighborhood preview", "basis": "explicit", "source": "fixture" },
+    { "local_id": 25, "plane": "plan", "kind": "scope", "title": "Neighborhood preview handoff", "basis": "explicit", "source": "fixture" }
   ],
   "edges": [
     { "category": "rationale", "source_local_id": 1, "target_local_id": 7, "stance": "for", "basis": "explicit", "rationale": "The preview exists to advance renderer-facing product understanding." },
@@ -36,6 +37,7 @@
     { "category": "realization", "source_local_id": 16, "target_local_id": 7, "basis": "explicit", "rationale": "The harness materializes the renderer-facing requirement." },
     { "category": "witness", "source_local_id": 14, "target_local_id": 8, "stance": "for", "basis": "explicit", "rationale": "A written preview file witnesses the golden-lock criterion." },
     { "category": "composition", "source_local_id": 18, "target_local_id": 19, "basis": "explicit" },
-    { "category": "composition", "source_local_id": 19, "target_local_id": 20, "basis": "explicit" }
+    { "category": "composition", "source_local_id": 19, "target_local_id": 20, "basis": "explicit" },
+    { "category": "composition", "source_local_id": 20, "target_local_id": 25, "basis": "explicit" }
   ]
 }
