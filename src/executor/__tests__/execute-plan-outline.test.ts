@@ -59,6 +59,24 @@ const snapshot: ExecutionSpecSnapshot = {
 };
 
 describe('outlineExecutionPlan', () => {
+  it('does not emit an overlapping task for a scope without requirements', () => {
+    const scope = snapshot.scopes[0]!;
+    const outline = outlineExecutionPlan({
+      ...snapshot,
+      scopes: [{ ...scope, requirementIds: [] }],
+    });
+
+    expect(outline.frontiers).toEqual([
+      expect.objectContaining({
+        id: 'frontier-unscoped-requirements',
+        tasks: [
+          expect.objectContaining({ requirementId: 'REQ1' }),
+          expect.objectContaining({ requirementId: 'REQ2' }),
+        ],
+      }),
+    ]);
+  });
+
   it('lowers a scope once when it names multiple parent frontiers', () => {
     const scope = snapshot.scopes[0]!;
     const outline = outlineExecutionPlan({
