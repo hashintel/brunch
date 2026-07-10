@@ -45,7 +45,7 @@ No required row remains `spec`, `new`, or `partial`; every production-registered
 | Capability | Status | Req | Fill | Owner / next | Notes |
 | --- | --- | --- | --- | --- | --- |
 | Shared `defineBrunchTool` contract and one-line status component | `built` | ● | `earned` | `src/.pi/extensions/shared/define-brunch-tool.ts` | Reuses `src/.pi/components/lateral-padding.ts` for transparent one-column alignment. Focused tests drive running, partial, success, and error render contexts; compile/type-aware lint witnesses parameter/details/state inference. |
-| Workspace/spec/session context tools | `partial` | ● | `earned` | `src/.pi/extensions/brunch-data/context/index.ts` | Three fallback-rendered tools; production registry is the closure oracle. |
+| Workspace/spec/session context tools | `built` | ● | `earned` | `src/.pi/extensions/brunch-data/context/index.ts` | Three tools adopt the shared renderer; focused family inventory is green and the production registry remains the aggregate closure oracle. |
 | Graph tools | `partial` | ● | `earned` | `src/.pi/extensions/brunch-data/graph/index.ts` | `mutate_graph` and `read_graph`; the same `read_graph` factory also serves sealed children. |
 | Elicitation scratchpad tools | `partial` | ● | `earned` | `src/.pi/extensions/brunch-data/elicitation/scratchpad-tools.ts` | Read/update pair. |
 | Reconciliation tools | `partial` | ● | `earned` | `src/.pi/extensions/brunch-data/reconciliation/index.ts` | Read/update pair. |
