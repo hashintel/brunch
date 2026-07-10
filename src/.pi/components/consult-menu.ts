@@ -22,6 +22,8 @@ export interface ConsultMenuResult {
 
 export interface ConsultMenuOptions {
   readonly title: string;
+  readonly topLabel?: string;
+  readonly bottomLabel?: string;
   readonly choices: readonly ConsultMenuChoice[];
   readonly theme: LabTheme;
   readonly onDone: (result?: ConsultMenuResult) => void;
@@ -54,7 +56,12 @@ export class ConsultMenuComponent implements Component {
 
     const box = projectRoundedBox(
       content,
-      { padding: BOX_PADDING, thumbRows, topLabel: '[ Consult ]' },
+      {
+        padding: BOX_PADDING,
+        thumbRows,
+        ...(this.options.topLabel ? { topLabel: this.options.topLabel } : {}),
+        ...(this.options.bottomLabel ? { bottomLabel: this.options.bottomLabel } : {}),
+      },
       safeWidth,
       (text) => this.options.theme.fg(CONSULT_MENU_SURFACE_IDENTITY_BORDER_ROLE, text),
     );

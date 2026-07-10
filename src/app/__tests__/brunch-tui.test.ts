@@ -67,6 +67,7 @@ import {
   BRUNCH_MODE_SHORTCUT,
   chromeStateForWorkspace,
   createBrunchPiExtensions,
+  projectBrunchChromeFooterLines,
   createInMemoryBrunchIntrospectionStore,
   registerBrunchAlternatives,
   registerBrunchOperationalModePolicy,
@@ -146,6 +147,8 @@ describe('Brunch TUI boot', () => {
     expect(observedModelAvailable).toBe(false);
     expect(observedNoAuthGuidance).toContain('brunch login');
     expect(observedNoAuthGuidance).toContain('/login');
+    expect(observedNoAuthGuidance).not.toContain('allowlist');
+    expect(observedNoAuthGuidance).not.toContain('Claude Sonnet');
   });
 
   it('threads the resolved Brunch theme into workspace-dialog preflight', async () => {
@@ -234,6 +237,20 @@ describe('Brunch TUI boot', () => {
     });
 
     expect(events).toEqual(['inspect', 'preflight', 'activate:continue', 'launch:session-ready:continue']);
+  });
+
+  it('renders no-model footer text instead of Pi unknown placeholders', () => {
+    const lines = projectBrunchChromeFooterLines(
+      chromeStateForWorkspace(readyWorkspace('/tmp/project', 'session-ready')),
+      {
+        model: { provider: 'unknown', id: 'unknown' },
+        thinkingLevel: 'medium',
+        availableProviderCount: 0,
+      },
+    );
+
+    expect(lines.join('\n')).toContain('no model');
+    expect(lines.join('\n')).not.toContain('unknown');
   });
 
   it('requests startup header chrome for every activated launch decision', () => {

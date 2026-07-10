@@ -38,7 +38,14 @@ import type {
   SessionTreeEvent,
 } from '@earendil-works/pi-coding-agent';
 
+import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
 import type { SessionOrientationTrigger } from '../../../session/session-orientation.js';
+import { BRUNCH_CONSULT_COMMAND } from '../commands/names.js';
+import {
+  CODE_SESSION_ORIENTATION_MENU,
+  SESSION_ORIENTATION_MENU,
+  type SessionOrientationMenuDescriptor,
+} from './index.js';
 import { runJunctureForContext, type JunctureContextKick, type OrientationJunctureMode } from './juncture.js';
 
 export interface BrunchSessionOrientationDeps {
@@ -94,7 +101,7 @@ export function orientationJunctureGate(deps: BrunchSessionOrientationDeps): Ori
   return gate;
 }
 
-export const BRUNCH_CONSULT_COMMAND = 'brunch:consult';
+export { BRUNCH_CONSULT_COMMAND };
 
 export function claimOrientationJuncture(gate: OrientationJunctureGate): symbol | undefined {
   if (gate.activeClaim !== undefined) return undefined;
@@ -165,6 +172,11 @@ interface JunctureInvocation {
   readonly mode: OrientationJunctureMode;
 }
 
+function menuForContext(ctx: ExtensionContext): SessionOrientationMenuDescriptor {
+  const state = projectBrunchAgentState(ctx.sessionManager.getEntries());
+  return state.operationalMode === 'execute' ? CODE_SESSION_ORIENTATION_MENU : SESSION_ORIENTATION_MENU;
+}
+
 async function runJuncture(
   ctx: ExtensionContext,
   deps: BrunchSessionOrientationDeps,
@@ -191,6 +203,7 @@ async function runJuncture(
       trigger: invocation.trigger,
       mode: invocation.mode,
       kick: kickContext,
+      menu: menuForContext(ctx),
       onAppendError: (error) => {
         ctx.ui.notify(
           `Session-orientation entry could not be recorded: ${formatErrorMessage(error)}`,

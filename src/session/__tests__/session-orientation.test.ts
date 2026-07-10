@@ -44,12 +44,16 @@ describe('parseSessionOrientationEntryData', () => {
     });
   });
 
-  it('accepts a well-formed CODE-side resolution on the same carrier', () => {
+  it('accepts a well-formed Execute-side D120-L resolution on the same carrier', () => {
     expect(
-      parseSessionOrientationEntryData({ schemaVersion: 1, choice: 'design_first', trigger: 'mode-switch' }),
+      parseSessionOrientationEntryData({
+        schemaVersion: 1,
+        choice: 'prepare_execution',
+        trigger: 'mode-switch',
+      }),
     ).toEqual({
       schemaVersion: 1,
-      choice: 'design_first',
+      choice: 'prepare_execution',
       trigger: 'mode-switch',
     });
   });

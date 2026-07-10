@@ -91,7 +91,7 @@ tool_meta:
   next?: capture_answer | capture_choice | capture_choices | capture_review | capture_candidate
 ```
 
-`ask({ exchangeId, body, options?, multiple? })` emits canonical standalone ask request details carrying the question echo and answer in one result. `ask({ continues })` reads the referenced offer present's `continuation` declaration and emits preserved request details for offers: `request_choice` for `present_candidates`, and `request_review` for a `present_review_set` or `present_digest` decision. Payload fields (`body`, `options`, review vocabulary) are declared by the offer, not re-authored by the continuing call.
+`ask({ exchangeId, body, options?, multiple? })` emits canonical standalone ask request details carrying the question echo and answer in one result. The question echo includes optional comment and Other-elaboration prompt text when those UI steps exist, preserving the frame for later transcript readers. `ask({ continues })` reads the referenced offer present's `continuation` declaration and emits preserved request details for offers: `request_choice` for `present_candidates`, and `request_review` for a `present_review_set` or `present_digest` decision. Payload fields (`body`, `options`, review vocabulary) are declared by the offer, not re-authored by the continuing call.
 
 Capture details:
 
@@ -314,6 +314,7 @@ Rules:
 - `request_review` follows `present_review_set` or `present_digest` and may lead to `capture_review`.
 - `request_review` supports `approve`, `request_changes`, and `reject`; `comment` is required for `request_changes`. Digest approvals also carry `accepted_abstract` as the sweep-visible digest echo.
 - `other` and `none` choices require a user `comment`.
+- Standalone `ask` request details preserve `question.commentPrompt` and `question.otherPrompt` when those UI steps existed, so the comment/write-in answer is self-contained.
 - `request_choice` and `request_choices` answered payloads carry `answered.options`: the full listed option echo from the pending present (`id`, `content`, optional `rationale`). Selected write-ins stay in `choice(s)` as `kind: other | none`; they are not appended to `options`.
 
 Variant payload examples:

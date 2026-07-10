@@ -1,6 +1,6 @@
 # session/ — Session domain layer
 
-SPEC decisions: D6-L, D11-L, D12-L, D13-L, D21-L, D40-L, D52-L, D76-L, D77-L, D78-L, D84-L / A29-L, D101-L, D102-L, I56-L
+SPEC decisions: D6-L, D11-L, D12-L, D13-L, D21-L, D40-L, D52-L, D76-L, D77-L, D78-L, D84-L, D101-L, D102-L, I56-L
 
 ## Owns
 
@@ -45,8 +45,9 @@ plus the coordination logic for workspace/spec/session lifecycle.
   recent resolution, and `freshSessionOrientationChoice` additionally checks it
   against the last-fired `brunch.kick` entry so a choice recorded before an
   earlier kick never re-routes a later one. The choice union covers both the
-  SPEC-side menu ids and the CODE-side execute-entry ids (`proceed`, `backfill`,
-  `design_first`, `oracle_first`, `project_plan`) on the same carrier — no
+  SPEC-side menu ids and the Execute D120-L workflow ids (`prepare_execution`,
+  `compile_plan`, `execute_plan`; `proceed`/`backfill` remain parseable legacy ids
+  but are no longer offered by the Execute menu) on the same carrier — no
   parallel entry type — plus the inert `dismissed` (escape/timeout resolution:
   entry recorded, no kick, no opening-turn directive). Directed choices require the orientation entry to persist before a live kick fires; degraded no-UI boot may still proceed without an orientation entry. `originate-assistant-turn.ts` folds the fresh choice into
   `composeContextSeedContent`'s orientation section
@@ -121,7 +122,9 @@ plus the coordination logic for workspace/spec/session lifecycle.
   probe-land machinery in `probes/deterministic-exchange-script.ts`). The LLM
   turn completing a 'start' decision is fired by the launch path after session
   creation via `session.sendCustomMessage(kickTurnMessage(origin), { triggerTurn: true })`,
-  guarded on model availability (unauthenticated launches idle); the assistant
+  guarded on model availability (unauthenticated launches idle); completion
+  returns a classified `KickCompletionOutcome` (`fired`, `skipped`, or `failed`)
+  so callers distinguish a provider turn from an attempted origination. The assistant
   authors the opening live, typically via real `present_*`/`request_*` tool
   calls. The RPC `session.triggerExchange` is a kick surface — it seeds and
   reports pending state only for assistant-created exchanges.

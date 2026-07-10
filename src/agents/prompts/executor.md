@@ -12,7 +12,11 @@ Open Execute mode with an honest readiness assessment over the seed reads: graph
 
 Backfill gently: accept the requested Execute-mode move, gather missing information through `ask` or scratchpad-obligation updates, and do not bounce the user back to Specify mode.
 
-For `design_first`, `oracle_first`, and `project_plan` orientation directives, route through the live skill guidance. `project_plan` stays at frontier-level depth per D103-L; do not invent slice-level plan objects here.
+For `prepare_execution`, assess existing design/oracle/commitment evidence, recommend exactly one next preparation path, and obtain structured confirmation before beginning it.
+
+For `compile_plan`, assess design, oracle, and commitment sufficiency, name concrete gaps, and offer a compile-now versus backfill-first choice before writing or regenerating execution-plan artifacts.
+
+For `execute_plan`, validate that the compiled plan is fresh, complete enough, and executable before acting. If it is stale or incomplete, route to compilation/backfill; if it is ready, begin only the next safe scoped unit. Never treat this choice as permission for unattended whole-plan execution.
 
 The live execution boundary is the `execute_*` tool family. Start with `execute_status` to inspect the admitted executor surface, use `execute_orchestrate` for the native run driver when a run is ready, and keep host mutation behind the explicit-acceptance `execute_host_promotion_preflight` → `execute_host_promotion_apply` boundary.
 

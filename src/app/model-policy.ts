@@ -108,12 +108,10 @@ export function createBrunchModelRegistry(registry: ModelRegistry): ModelRegistr
 export function getBrunchNoAuthGuidanceCopy(): BrunchNoAuthGuidanceCopy {
   const lines = [
     'Provider turns are disabled until auth is configured.',
-    'Run brunch login, or use /login in this session.',
-    'Brunch allowlist:',
-    ...BRUNCH_MODEL_ALLOWLIST.map((entry) => `- ${entry.displayName}`),
+    'Open a spec/session and run /login, or use brunch login before launching.',
   ];
   return {
-    title: 'No Brunch model auth',
+    title: 'No model auth',
     lines,
     body: lines.join(' '),
   };

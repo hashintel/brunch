@@ -108,22 +108,33 @@ export interface CompleteAssistantKickInput {
  * This function owns the guard and guarantees one classified outcome for each
  * decision, so launch paths do not silently skip or bury failures in console IO.
  */
-export async function completeAssistantKick(input: CompleteAssistantKickInput): Promise<void> {
+export async function completeAssistantKick(
+  input: CompleteAssistantKickInput,
+): Promise<KickCompletionOutcome> {
   if (input.decision.action === 'idle') {
-    input.onOutcome({ status: 'skipped', reason: idleKickSkipReason(input.decision.reason) });
-    return;
+    const outcome: KickCompletionOutcome = {
+      status: 'skipped',
+      reason: idleKickSkipReason(input.decision.reason),
+    };
+    input.onOutcome(outcome);
+    return outcome;
   }
 
   if (!input.modelAvailable) {
-    input.onOutcome({ status: 'skipped', reason: 'no_model_available' });
-    return;
+    const outcome: KickCompletionOutcome = { status: 'skipped', reason: 'no_model_available' };
+    input.onOutcome(outcome);
+    return outcome;
   }
 
   try {
     await input.sendCustomMessage(kickTurnMessage(input.decision.origin), { triggerTurn: true });
-    input.onOutcome({ status: 'fired', origin: input.decision.origin });
+    const outcome: KickCompletionOutcome = { status: 'fired', origin: input.decision.origin };
+    input.onOutcome(outcome);
+    return outcome;
   } catch (error: unknown) {
-    input.onOutcome({ status: 'failed', origin: input.decision.origin, error });
+    const outcome: KickCompletionOutcome = { status: 'failed', origin: input.decision.origin, error };
+    input.onOutcome(outcome);
+    return outcome;
   }
 }
 

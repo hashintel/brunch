@@ -29,16 +29,16 @@
     "tag": "alpha"
   },
   "scripts": {
-    "dev": "tsx scripts/dev.ts",
-    "dev:raw": "tsx src/app/brunch.ts",
-    "dev:components": "tsx scripts/dev-components.ts",
-    "probe:generate-fan-out": "PI_OFFLINE=0 PATH=\"$HOME/.local/share/mise/installs/node/lts/bin:$PATH\" tsx src/dev/generate-fan-out-witness.ts",
+    "dev": "nub scripts/dev.ts",
+    "dev:raw": "nub src/app/brunch.ts",
+    "dev:components": "nub scripts/dev-components.ts",
+    "probe:generate-fan-out": "PI_OFFLINE=0 PATH=\"$HOME/.local/share/mise/installs/node/lts/bin:$PATH\" nub src/dev/generate-fan-out-witness.ts",
     "build": "tsc -p tsconfig.build.json && npm run build:info && npm run build:pi-assets && npm run build:web",
     "build:info": "node scripts/write-build-info.mjs",
     "prepack": "RELEASE=true npm run build",
     "build:pi-assets": "mkdir -p dist/.pi/components/workspace-dialog dist/.pi/extensions/subagents dist/.pi/themes dist/agents/prompts dist/agents/subagents dist/agents/skills dist/agents/contexts dist/agents/references && rm -f dist/agents/prompts/*.md dist/agents/subagents/*.md dist/agents/references/*.md && cp -R src/.pi/components/workspace-dialog/assets dist/.pi/components/workspace-dialog/ && cp src/.pi/themes/*.json dist/.pi/themes/ && cp src/agents/prompts/elicitor.md src/agents/prompts/executor.md dist/agents/prompts/ && cp src/agents/subagents/explorer.md src/agents/subagents/projector.md src/agents/subagents/researcher.md src/agents/subagents/reviewer.md src/agents/subagents/worker.md dist/agents/subagents/ && cp src/agents/references/*.md dist/agents/references/ && cp src/.pi/extensions/subagents/config.json dist/.pi/extensions/subagents/ && node scripts/copy-skill-resources.mjs",
     "build:web": "vite build",
-    "seed": "tsx src/graph/seed-fixtures.ts",
+    "seed": "nub src/graph/seed-fixtures.ts",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
     "test": "vitest --run --maxWorkers=4",
@@ -89,6 +89,7 @@
   },
   "devDependencies": {
     "@clack/prompts": "^1.7.0",
+    "@nubjs/nub": "^0.4.5",
     "@sinclair/typebox": "^0.34.49",
     "@tailwindcss/vite": "^4.3.2",
     "@testing-library/dom": "^10.4.1",
@@ -130,6 +131,7 @@
     "@google/genai": true,
     "protobufjs": true,
     "esbuild": true,
-    "fsevents": true
+    "fsevents": true,
+    "@nubjs/nub@0.4.5": true
   }
 }

@@ -17,6 +17,7 @@ import { ExchangeReviewSetResultComponent } from '../../components/exchange-revi
 import { toolParameters } from '../shared/tool-schema.js';
 import { renderDetailsOrMarkdownResult } from './shared/details-rendering.js';
 import { renderEmptyStructuredExchangeCall, renderMarkdownResult } from './shared/markdown.js';
+import { validationFailureResult, type ExchangeValidationFailureDetails } from './shared/validation.js';
 
 export const PRESENT_REVIEW_SET_TOOL = 'present_review_set' as const;
 
@@ -25,7 +26,10 @@ export interface ReviewSetStructuredExchangeDeps {
   readonly commandExecutor: Pick<CommandExecutor, 'assignProposedReviewSetCodes' | 'dryRunAcceptReviewSet'>;
 }
 
-type PresentReviewSetToolDetails = StructuralIllegal | PresentReviewSetDetails;
+type PresentReviewSetToolDetails =
+  | StructuralIllegal
+  | PresentReviewSetDetails
+  | ExchangeValidationFailureDetails;
 
 const PresentReviewSetParams = toolParameters(zPresentReviewSetParams);
 
@@ -45,7 +49,9 @@ export function createPresentReviewSetTool(deps?: ReviewSetStructuredExchangeDep
     executionMode: 'sequential',
 
     async execute(_toolCallId, rawParams) {
-      const params = zPresentReviewSetParams.parse(rawParams) satisfies PresentReviewSetParams;
+      const parsed = zPresentReviewSetParams.safeParse(rawParams);
+      if (!parsed.success) return validationFailureResult(PRESENT_REVIEW_SET_TOOL, parsed.error);
+      const params = parsed.data satisfies PresentReviewSetParams;
       if (!deps) {
         const details = {
           status: 'structural_illegal' as const,

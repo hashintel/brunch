@@ -14,6 +14,7 @@ const freeTextDetails = projectAsk({
   exchangeId: 'ask-free-text',
   question: askQuestionEcho({
     body: 'This is a **free-text** question. No options.\n\nWhat problem are we solving?',
+    commentPrompt: 'Anything else the record should remember?',
   }),
   status: 'answered',
   answer: 'A graph-native spec workspace over the Pi harness.',
@@ -42,6 +43,20 @@ const multiChoiceDetails = projectAsk({
   comment: 'Start thin, then widen.',
 });
 
+const otherChoiceDetails = projectAsk({
+  exchangeId: 'ask-other-choice',
+  question: askQuestionEcho({
+    body: 'Which direction should the next slice take?',
+    options: [...OPTIONS, { id: 'other', label: 'Other' }],
+    allowOther: true,
+    commentPrompt: 'Why is this better than the listed choices?',
+  }),
+  status: 'answered',
+  choice: { id: 'other', label: 'Do the schema echo first, then the formatter.', kind: 'other' },
+  options: [...OPTIONS, { id: 'other', label: 'Other' }],
+  comment: 'The listed choices did not name the comment framing problem.',
+});
+
 const cancelledDetails = projectAsk({
   exchangeId: 'ask-cancelled',
   question: askQuestionEcho({ body: 'Cancel me.' }),
@@ -60,6 +75,7 @@ const branchMatrix = [
   { name: 'ask answered — free text', details: freeTextDetails },
   { name: 'ask answered — single choice', details: singleChoiceDetails },
   { name: 'ask answered — multi choice', details: multiChoiceDetails },
+  { name: 'ask answered — Other choice', details: otherChoiceDetails },
   { name: 'ask cancelled', details: cancelledDetails },
   { name: 'ask unavailable', details: unavailableDetails },
 ] as const;
@@ -75,6 +91,20 @@ describe('ask formatter', () => {
 
     expect(details.question).toEqual({ body: 'Name the next move.' });
     expect(() => zAskDetails.parse(details)).not.toThrow();
+  });
+
+  it('carries comment and Other framing through the question echo', () => {
+    expect(freeTextDetails.question).toMatchObject({
+      commentPrompt: 'Anything else the record should remember?',
+    });
+    expect(otherChoiceDetails.question).toMatchObject({
+      commentPrompt: 'Why is this better than the listed choices?',
+      otherPrompt: 'Describe your answer',
+    });
+    expect(formatAsk(freeTextDetails)).toContain(
+      '**Comment prompt:** Anything else the record should remember?',
+    );
+    expect(formatAsk(otherChoiceDetails)).toContain('**Other prompt:** Describe your answer');
   });
 
   it('produces schema-valid details for every projected ask outcome branch', () => {
