@@ -27,7 +27,13 @@ export type BlockedStepReason =
 /** The minimal plan projection the scheduler needs to resolve the slice frontier. */
 export interface SchedulerPlan {
   readonly mode?: 'greenfield' | 'brownfield';
+  readonly epics?: readonly SchedulerPlanEpic[];
   readonly slices?: readonly SchedulerPlanSlice[];
+}
+
+export interface SchedulerPlanEpic {
+  readonly id: string;
+  readonly depends_on?: readonly string[];
 }
 
 export interface SchedulerPlanSlice {
@@ -42,13 +48,17 @@ export function projectSchedulerPlan(value: unknown): SchedulerPlan | undefined 
   if (!isRecord(value)) return undefined;
   if (value.mode !== undefined && value.mode !== 'greenfield' && value.mode !== 'brownfield')
     return undefined;
+  if (value.epics !== undefined && !Array.isArray(value.epics)) return undefined;
   if (value.slices !== undefined && !Array.isArray(value.slices)) return undefined;
 
+  const epics = value.epics?.map(projectSchedulerPlanEpic);
   const slices = value.slices?.map(projectSchedulerPlanSlice);
+  if (epics?.some((epic) => epic === undefined)) return undefined;
   if (slices?.some((slice) => slice === undefined)) return undefined;
 
   return {
     ...(value.mode === undefined ? {} : { mode: value.mode }),
+    ...(epics === undefined ? {} : { epics: epics as readonly SchedulerPlanEpic[] }),
     ...(slices === undefined ? {} : { slices: slices as readonly SchedulerPlanSlice[] }),
   };
 }
@@ -69,6 +79,20 @@ function projectSchedulerPlanSlice(value: unknown): SchedulerPlanSlice | undefin
   return {
     id: value.id,
     ...(value.epic_id === undefined ? {} : { epic_id: value.epic_id }),
+    ...(value.depends_on === undefined ? {} : { depends_on: value.depends_on as readonly string[] }),
+  };
+}
+
+function projectSchedulerPlanEpic(value: unknown): SchedulerPlanEpic | undefined {
+  if (!isRecord(value) || typeof value.id !== 'string') return undefined;
+  if (
+    value.depends_on !== undefined &&
+    (!Array.isArray(value.depends_on) || value.depends_on.some((epicId) => typeof epicId !== 'string'))
+  ) {
+    return undefined;
+  }
+  return {
+    id: value.id,
     ...(value.depends_on === undefined ? {} : { depends_on: value.depends_on as readonly string[] }),
   };
 }
@@ -115,7 +139,14 @@ export interface ExecutorTransition {
   };
 }
 
+export interface ExecutorEpic {
+  readonly id: string;
+  readonly dependsOn: readonly string[];
+  readonly sliceIds: readonly string[];
+}
+
 export interface ExecutorTopology {
+  readonly epics?: readonly ExecutorEpic[];
   readonly subnets: readonly ExecutorSubnet[];
   readonly places: readonly ExecutorPlace[];
   readonly transitions: readonly ExecutorTransition[];
@@ -242,6 +273,11 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
     }
     seenSliceIds.add(slice.id);
   }
+  const compiledEpics = plan?.epics?.map<ExecutorEpic>((epic) => ({
+    id: epic.id,
+    dependsOn: epic.depends_on ?? [],
+    sliceIds: (plan?.slices ?? []).filter((slice) => slice.epic_id === epic.id).map((slice) => slice.id),
+  }));
 
   const runSubnet: ExecutorSubnet = {
     id: 'run',
@@ -410,6 +446,7 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
   });
 
   return {
+    ...(compiledEpics === undefined ? {} : { epics: compiledEpics }),
     subnets: [runSubnet, ...sliceSubnets],
     places: [...runPlaces, ...slicePlaces],
     transitions: [...runTransitions, ...sliceTransitions],

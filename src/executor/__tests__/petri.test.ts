@@ -30,6 +30,7 @@ async function createCompletedRun(cwd: string): Promise<void> {
     planPath,
     JSON.stringify({
       mode: 'greenfield',
+      epics: [{ id: 'frontier-1', depends_on: [] }],
       slices: [
         { id: 'task-1', epic_id: 'frontier-1' },
         { id: 'task-2', epic_id: 'frontier-1' },
@@ -81,6 +82,7 @@ describe('exportPetri', () => {
     const result = await exportPetri({ cwd, runId: 'run-1' });
     const topology = compileExecutorTopology({
       mode: 'greenfield',
+      epics: [{ id: 'frontier-1', depends_on: [] }],
       slices: [
         { id: 'task-1', epic_id: 'frontier-1' },
         { id: 'task-2', epic_id: 'frontier-1' },
@@ -101,6 +103,7 @@ describe('exportPetri', () => {
     });
     expect(JSON.parse(await readFile(petriNetPath(cwd, 'run-1'), 'utf8'))).toEqual({
       runId: 'run-1',
+      epics: topology.epics,
       subnets: topology.subnets,
       places: topology.places,
       transitions: topology.transitions,

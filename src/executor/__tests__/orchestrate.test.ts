@@ -753,11 +753,20 @@ describe('compileExecutorTopology', () => {
   it('preserves one run subnet and one slice subnet per slice, including the source-policy boundary', () => {
     const topology = compileExecutorTopology({
       mode: 'greenfield',
+      epics: [
+        { id: 'frontier-1', depends_on: [] },
+        { id: 'frontier-2', depends_on: ['frontier-1'] },
+      ],
       slices: [
         { id: 'task-1', epic_id: 'frontier-1' },
         { id: 'task-2', epic_id: 'frontier-2' },
       ],
     });
+
+    expect(topology.epics).toEqual([
+      { id: 'frontier-1', dependsOn: [], sliceIds: ['task-1'] },
+      { id: 'frontier-2', dependsOn: ['frontier-1'], sliceIds: ['task-2'] },
+    ]);
 
     expect(topology.subnets).toEqual([
       {

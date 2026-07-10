@@ -96,6 +96,7 @@ export async function exportPetri(args: {
     `${JSON.stringify(
       {
         runId: args.runId,
+        ...(topology.epics === undefined ? {} : { epics: topology.epics }),
         subnets: topology.subnets,
         places: topology.places,
         transitions: topology.transitions,
