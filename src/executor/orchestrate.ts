@@ -204,7 +204,36 @@ function schedulerPlanRequiredStep(state: RunMetadata): ReadyStep['kind'] | unde
 }
 
 function petriInputRequiredStep(state: RunMetadata): ReadyStep['kind'] | undefined {
-  return state.status === 'run_completed' ? 'petri_export' : schedulerPlanRequiredStep(state);
+  switch (state.status) {
+    case 'created':
+      return 'worktree_create';
+    case 'worktree_created':
+      return 'populate';
+    case 'worktree_populated':
+      return 'source_policy';
+    case 'source_policy_selected':
+      return 'source_copy';
+    case 'source_copied':
+      return 'report_init';
+    case 'reports_initialized':
+    case 'slice_completed':
+      return 'slice_start';
+    case 'slice_started':
+      return 'slice_execute';
+    case 'slice_execution_requested':
+      return 'agent_result';
+    case 'agent_result_ingested':
+      return 'test_result';
+    case 'test_result_ingested':
+      return 'slice_complete';
+    case 'run_completed':
+      return 'petri_export';
+    case 'petri_exported':
+    case 'promotion_prepared':
+      return 'promotion';
+    case 'abandoned':
+      return undefined;
+  }
 }
 
 async function materializeDriveRuntime(args: {
@@ -222,6 +251,15 @@ async function materializeDriveRuntime(args: {
   } catch {
     const step = petriInputRequiredStep(args.state);
     if (!step) {
+      if (args.state.status === 'abandoned') {
+        const terminal = classifyDriveTerminal({
+          kind: 'scheduler_exhausted',
+          runId: args.ctx.runId,
+          runStatus: args.state.status,
+        });
+        await emitNetEvent(args.ctx, terminal.event);
+        return { terminal };
+      }
       throw new Error(`unexpected Petri materialization failure for run status ${args.state.status}`);
     }
     const terminal = classifyDriveTerminal({
@@ -246,13 +284,7 @@ function snapshotAlreadyCapturesTerminal(args: {
   const { snapshot, state, runtime, plan, terminal } = args;
   if (!snapshot || !petriMarkingSnapshotMatchesRunMetadata(snapshot, state)) return false;
   if (snapshot.firedTransitionCount !== firedTransitionCountForState(state, plan)) return false;
-  const runtimeEntries = Object.entries(runtime.currentMarking);
-  if (
-    runtimeEntries.length !== Object.keys(snapshot.currentMarking).length ||
-    runtimeEntries.some(([placeId, count]) => snapshot.currentMarking[placeId] !== count)
-  ) {
-    return false;
-  }
+  if (!petriMarkingsEqual(snapshot.currentMarking, runtime.currentMarking)) return false;
   if (snapshot.terminalEventKind !== terminal.event.kind) return false;
   return terminal.event.kind !== 'net_halted' || snapshot.haltedReason === terminal.event.reason;
 }
@@ -261,7 +293,7 @@ export type DriveOutcome =
   | { readonly status: 'completed'; readonly runStatus: RunMetadata['status'] }
   | {
       readonly status: 'halted';
-      readonly step: ReadyStep['kind'] | 'abandoned';
+      readonly step: ReadyStep['kind'] | 'abandoned' | 'deadlocked';
       readonly runStatus: RunMetadata['status'];
       readonly reason: string;
     }
@@ -315,7 +347,7 @@ export async function drive(
     const runtime = runtimeResult.runtime;
     const readySteps = scheduler.ready(state, plan, runtime);
     const selectedSteps =
-      (await readClaimedReadySteps(ctx, state, runtime, readySteps)) ??
+      (await readClaimedReadySteps(ctx, state, plan, runtime, readySteps)) ??
       firingPolicy.select({
         readySteps,
         readyRuntime: {
@@ -503,6 +535,7 @@ async function neverBoundReadyStep(step: ReadyStep): Promise<StepResult> {
 async function readClaimedReadySteps(
   ctx: Pick<DriveContext, 'cwd' | 'runId'>,
   state: RunMetadata,
+  plan: SchedulerPlan | undefined,
   runtime: ExecutorPetriRuntime,
   readySteps: readonly ReadyStep[],
 ): Promise<readonly ReadyStep[] | undefined> {
@@ -515,6 +548,8 @@ async function readClaimedReadySteps(
   ) {
     return undefined;
   }
+  if (snapshot.firedTransitionCount !== firedTransitionCountForState(state, plan)) return undefined;
+  if (!petriMarkingsEqual(snapshot.currentMarking, runtime.currentMarking)) return undefined;
   const enabledById = new Map(
     readySteps.flatMap((step) => {
       const transition = runtime.transitionForReadyStep(step);
@@ -536,4 +571,12 @@ async function readClaimedReadySteps(
   }
 
   return claimedSteps;
+}
+
+function petriMarkingsEqual(left: Record<string, number>, right: Record<string, number>): boolean {
+  const leftEntries = Object.entries(left);
+  return (
+    leftEntries.length === Object.keys(right).length &&
+    leftEntries.every(([placeId, count]) => right[placeId] === count)
+  );
 }

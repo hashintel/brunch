@@ -799,6 +799,8 @@ describe('execute replanning methods', () => {
         petriProjection: null,
         petriProjectionSource: null,
         petriProjectionReplayReason: null,
+        petriReadySteps: null,
+        petriBlockedSteps: null,
       },
     ]);
   });
@@ -883,6 +885,8 @@ describe('execute replanning methods', () => {
         },
         petriProjectionSource: 'replay',
         petriProjectionReplayReason: 'snapshot_stale',
+        petriReadySteps: null,
+        petriBlockedSteps: null,
       },
     ]);
   });

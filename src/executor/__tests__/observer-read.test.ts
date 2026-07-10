@@ -717,7 +717,7 @@ describe('readRunDetail', () => {
     });
   });
 
-  it('keeps terminal metadata from a matching marking snapshot when run metadata makes it checkable', async () => {
+  it('omits terminal snapshot metadata when the runtime plan cannot be reconstructed', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-marking-terminal-checkable-');
     const runDir = await writeRun(cwd, 'run-petri-marking-terminal-checkable', {
       status: 'promotion_prepared',
@@ -744,14 +744,8 @@ describe('readRunDetail', () => {
 
     const detail = await readRunDetail(cwd, 'run-petri-marking-terminal-checkable');
 
-    expect(detail).toMatchObject({
-      petriProjection: {
-        currentMarking: { 'run:promotion_prepared': 1 },
-        firedTransitionCount: 8,
-        terminalEventKind: 'net_completed',
-      },
-      petriProjectionSource: 'snapshot',
-    });
+    expect(detail).not.toHaveProperty('petriProjection');
+    expect(detail).not.toHaveProperty('petriProjectionSource');
   });
 
   it('treats a marking snapshot as unreadable when it pairs a non-halted terminal kind with a halted reason', async () => {
@@ -928,7 +922,7 @@ describe('readRunDetail', () => {
     });
   });
 
-  it('strips snapshot claims when the live Petri runtime cannot be reconstructed', async () => {
+  it('omits snapshot projection when the live Petri runtime cannot be reconstructed', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-marking-no-runtime-');
     const planPath = join(cwd, 'missing-plan.json');
     const runDir = await writeRun(cwd, 'run-petri-marking-no-runtime', {
@@ -953,18 +947,8 @@ describe('readRunDetail', () => {
 
     const detail = await readRunDetail(cwd, 'run-petri-marking-no-runtime');
 
-    expect(detail).toMatchObject({
-      petriProjection: {
-        currentMarking: { 'run:slice_frontier': 1 },
-        firedTransitionCount: 5,
-      },
-      petriProjectionSource: 'snapshot',
-    });
-    expect(detail).not.toMatchObject({
-      petriProjection: {
-        claimedTransitionIds: ['slice_start:task-1'],
-      },
-    });
+    expect(detail).not.toHaveProperty('petriProjection');
+    expect(detail).not.toHaveProperty('petriProjectionSource');
   });
 
   it('omits a provenance-matching marking snapshot when its current marking contradicts the live runtime', async () => {

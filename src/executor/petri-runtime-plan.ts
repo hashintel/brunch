@@ -5,11 +5,11 @@ import { populatedPlanPath } from './populate.js';
 import type { RunMetadata } from './run.js';
 
 export function petriRuntimePlanPathCandidates(cwd: string, state: RunMetadata): readonly string[] {
+  if (state.populatedPlanPath !== undefined) return [state.populatedPlanPath];
   const candidates = [
-    state.populatedPlanPath,
-    state.status === 'reports_initialized' || state.status === 'slice_completed'
-      ? populatedPlanPath(cwd, state.runId)
-      : undefined,
+    state.status === 'created' || state.status === 'worktree_created'
+      ? undefined
+      : populatedPlanPath(cwd, state.runId),
     state.planPath,
   ];
   return candidates.filter(

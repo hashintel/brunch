@@ -356,6 +356,30 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
     }
     seenSliceIds.add(slice.id);
   }
+  for (const slice of plan?.slices ?? []) {
+    for (const dependencyId of planSliceDependsOn(slice)) {
+      if (dependencyId === slice.id) {
+        throw new Error(`Slice cannot depend on itself in executor topology: ${slice.id}`);
+      }
+      if (!seenSliceIds.has(dependencyId)) {
+        throw new Error(`Unknown slice dependency in executor topology: ${slice.id} -> ${dependencyId}`);
+      }
+    }
+  }
+  const visited = new Set<string>();
+  const visiting = new Set<string>();
+  const slicesById = new Map((plan?.slices ?? []).map((slice) => [slice.id, slice]));
+  const visit = (sliceId: string): void => {
+    if (visited.has(sliceId)) return;
+    if (visiting.has(sliceId)) throw new Error(`Cyclic slice dependency in executor topology: ${sliceId}`);
+    const slice = slicesById.get(sliceId);
+    if (!slice) throw new Error(`Unknown slice in executor topology: ${sliceId}`);
+    visiting.add(sliceId);
+    for (const dependencyId of planSliceDependsOn(slice)) visit(dependencyId);
+    visiting.delete(sliceId);
+    visited.add(sliceId);
+  };
+  for (const sliceId of seenSliceIds) visit(sliceId);
   const compiledEpics = plan?.epics?.map<ExecutorEpic>((epic) => ({
     id: epic.id,
     ...(epic.summary === undefined ? {} : { summary: epic.summary }),

@@ -284,28 +284,35 @@ describe('canProjectPetriReplay', () => {
     expect(
       canProjectPetriReplay({
         petriNet: { initialMarking: {}, transitions: [] },
-        petriEvents: { exists: true, torn: false },
+        petriEvents: { exists: true, torn: false, total: 1 },
       }),
     ).toBe(true);
 
     expect(
       canProjectPetriReplay({
         petriNet: undefined,
-        petriEvents: { exists: true, torn: false },
+        petriEvents: { exists: true, torn: false, total: 1 },
       }),
     ).toBe(false);
 
     expect(
       canProjectPetriReplay({
         petriNet: { initialMarking: {}, transitions: [] },
-        petriEvents: { exists: false, torn: false },
+        petriEvents: { exists: false, torn: false, total: 0 },
       }),
     ).toBe(false);
 
     expect(
       canProjectPetriReplay({
         petriNet: { initialMarking: {}, transitions: [] },
-        petriEvents: { exists: true, torn: true },
+        petriEvents: { exists: true, torn: true, total: 1 },
+      }),
+    ).toBe(false);
+
+    expect(
+      canProjectPetriReplay({
+        petriNet: { initialMarking: {}, transitions: [] },
+        petriEvents: { exists: true, torn: false, total: 0 },
       }),
     ).toBe(false);
   });

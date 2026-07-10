@@ -18,6 +18,7 @@ import {
   serialFiringPolicy,
 } from '../orchestrate.js';
 import { petriMarkingPath, readPetriMarkingSnapshot, writePetriMarkingSnapshot } from '../petri-marking.js';
+import { petriRuntimePlanPathCandidates } from '../petri-runtime-plan.js';
 import {
   bindExecutorPetriRuntime,
   enabledPetriTransitionIds,
@@ -29,7 +30,7 @@ import {
 import { classifyDriveTerminal } from '../petri-terminal.js';
 import { exportPetri, petriNetPath } from '../petri.js';
 import { planFilePath } from '../plan-file.js';
-import { populateWorktree } from '../populate.js';
+import { populatedPlanPath as runPopulatedPlanPath, populateWorktree } from '../populate.js';
 import { preparePromotion } from '../promotion.js';
 import { initializeReports, reportsPath } from '../report.js';
 import { completeRun } from '../run-complete.js';
@@ -412,7 +413,7 @@ describe('drive', () => {
 });
 
 describe('classifyDriveTerminal', () => {
-  it('classifies exhausted abandoned runs as halted and other exhausted runs as completed', () => {
+  it('classifies only terminal runs as completed and nonterminal exhaustion as deadlocked', () => {
     expect(
       classifyDriveTerminal({ kind: 'scheduler_exhausted', runId: 'run-1', runStatus: 'promotion_prepared' }),
     ).toEqual({
@@ -425,6 +426,22 @@ describe('classifyDriveTerminal', () => {
     ).toEqual({
       event: { kind: 'net_halted', runId: 'run-1', runStatus: 'abandoned', reason: 'abandoned' },
       outcome: { status: 'halted', step: 'abandoned', runStatus: 'abandoned', reason: 'abandoned' },
+    });
+
+    expect(
+      classifyDriveTerminal({
+        kind: 'scheduler_exhausted',
+        runId: 'run-1',
+        runStatus: 'reports_initialized',
+      }),
+    ).toEqual({
+      event: { kind: 'net_deadlocked', runId: 'run-1', runStatus: 'reports_initialized' },
+      outcome: {
+        status: 'halted',
+        step: 'deadlocked',
+        runStatus: 'reports_initialized',
+        reason: 'petri_deadlocked',
+      },
     });
   });
 
@@ -545,6 +562,72 @@ describe('petri runtime helpers', () => {
     expect(() => materializeExecutorPetriRuntime(metadata('created'), plan)).toThrow(
       'Duplicate slice id in executor topology: task-1',
     );
+  });
+
+  it('rejects self-referential, unknown, and cyclic slice dependencies before materializing runtime identity', () => {
+    expect(() =>
+      compileExecutorTopology({
+        mode: 'greenfield',
+        slices: [{ id: 'task-1', depends_on: ['task-1'] }],
+      }),
+    ).toThrow('Slice cannot depend on itself in executor topology: task-1');
+
+    expect(() =>
+      compileExecutorTopology({
+        mode: 'greenfield',
+        slices: [{ id: 'task-1', depends_on: ['missing'] }],
+      }),
+    ).toThrow('Unknown slice dependency in executor topology: task-1 -> missing');
+
+    expect(() =>
+      compileExecutorTopology({
+        mode: 'greenfield',
+        slices: [
+          { id: 'task-1', depends_on: ['task-2'] },
+          { id: 'task-2', depends_on: ['task-1'] },
+        ],
+      }),
+    ).toThrow('Cyclic slice dependency in executor topology: task-1');
+  });
+
+  it('rejects completed-slice history that is duplicated or violates dependency order', () => {
+    const plan = {
+      mode: 'greenfield',
+      slices: [{ id: 'task-1' }, { id: 'task-2', depends_on: ['task-1'] }],
+    } as const;
+
+    expect(() =>
+      materializeExecutorPetriRuntime(metadata('slice_completed', { completedSliceIds: ['task-2'] }), plan),
+    ).toThrow('Cannot project Petri transition history for run status slice_completed');
+    expect(() =>
+      materializeExecutorPetriRuntime(
+        metadata('slice_completed', { completedSliceIds: ['task-1', 'task-1'] }),
+        plan,
+      ),
+    ).toThrow('Cannot project Petri transition history for run status slice_completed');
+  });
+
+  it('checks the known worktree plan before the source plan throughout post-population statuses', () => {
+    const cwd = '/workspace';
+    for (const status of [
+      'worktree_populated',
+      'source_policy_selected',
+      'source_copied',
+      'reports_initialized',
+      'slice_started',
+      'slice_execution_requested',
+      'agent_result_ingested',
+      'test_result_ingested',
+      'slice_completed',
+      'run_completed',
+      'petri_exported',
+      'promotion_prepared',
+    ] as const) {
+      expect(petriRuntimePlanPathCandidates(cwd, metadata(status))).toEqual([
+        runPopulatedPlanPath(cwd, 'run-1'),
+        'plan.yaml',
+      ]);
+    }
   });
 
   it('materializes a marking-backed runtime view over the compiled topology for the current serial state', () => {
@@ -1255,6 +1338,49 @@ describe('petriScheduler', () => {
     });
   });
 
+  it.each([
+    {
+      label: 'marking',
+      currentMarking: { 'run:created': 1 },
+      firedTransitionCount: 5,
+    },
+    {
+      label: 'firing count',
+      currentMarking: { 'run:slice_frontier': 1 },
+      firedTransitionCount: 99,
+    },
+  ])(
+    'ignores a persisted claim-set with a stale $label',
+    async ({ currentMarking, firedTransitionCount }) => {
+      const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-claim-stale-runtime-'));
+      await createRunAtCreated(cwd, ['task-1', 'task-2']);
+      await createWorktree({ cwd, runId: 'run-1', gitWorktree: fakePorts().gitWorktree });
+      await populateWorktree({ cwd, runId: 'run-1' });
+      await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
+      await copyHostSource({ cwd, runId: 'run-1' });
+      await initializeReports({ cwd, runId: 'run-1' });
+      await writePetriMarkingSnapshot({
+        cwd,
+        runId: 'run-1',
+        snapshot: {
+          claimedTransitionIds: ['slice_start:task-2'],
+          currentMarking,
+          firedTransitionCount,
+          lifecycleProvenance: { runStatus: 'reports_initialized' },
+        },
+      });
+
+      await expect(
+        drive({ cwd, runId: 'run-1', ports: fakePorts() }, petriScheduler, frontierFiringPolicy, {
+          maxFirings: 1,
+        }),
+      ).resolves.toEqual({ status: 'completed', runStatus: 'slice_started' });
+      await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+        activeSliceId: 'task-1',
+      });
+    },
+  );
+
   it('ignores a resumed claim-set when it falls outside the current scheduler frontier', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-claim-resume-linear-'));
     await createRunAtCreated(cwd, ['task-1', 'task-2']);
@@ -1578,6 +1704,107 @@ describe('petriScheduler', () => {
     ]);
   });
 
+  it('fails closed on duplicate slice ids before the first lifecycle side effect', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-drive-created-duplicate-slices-'));
+    await createRunAtCreated(cwd, ['task-1', 'task-1']);
+
+    await expect(drive({ cwd, runId: 'run-1', ports: fakePorts() })).resolves.toEqual({
+      status: 'halted',
+      step: 'worktree_create',
+      runStatus: 'created',
+      reason: 'petri_input_unreadable',
+    });
+    await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+      status: 'created',
+    });
+  });
+
+  it('fails closed when lifecycle history names a slice outside the runtime plan', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-drive-foreign-active-slice-'));
+    const planPath = join(cwd, 'plan.json');
+    await writeFile(planPath, planJson(['task-1']), 'utf8');
+    await mkdir(join(cwd, '.brunch', 'cook', 'runs', 'run-1'), { recursive: true });
+    await writeFile(
+      runMetadataPath(cwd, 'run-1'),
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath,
+        status: 'slice_started',
+        activeSliceId: 'foreign-slice',
+        reportsPath: reportsPath(cwd, 'run-1'),
+      }),
+      'utf8',
+    );
+
+    await expect(drive({ cwd, runId: 'run-1', ports: fakePorts() })).resolves.toEqual({
+      status: 'halted',
+      step: 'slice_execute',
+      runStatus: 'slice_started',
+      reason: 'petri_input_unreadable',
+    });
+  });
+
+  it('does not fall back to the source plan when an explicit populated plan is unreadable', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-drive-corrupt-populated-plan-'));
+    const planPath = join(cwd, 'plan.json');
+    const populatedPlanPath = join(cwd, 'worktree-plan.json');
+    await writeFile(planPath, planJson(['task-1']), 'utf8');
+    await writeFile(populatedPlanPath, '{"mode":', 'utf8');
+    await mkdir(join(cwd, '.brunch', 'cook', 'runs', 'run-1'), { recursive: true });
+    await writeFile(
+      runMetadataPath(cwd, 'run-1'),
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath,
+        populatedPlanPath,
+        status: 'reports_initialized',
+        reportsPath: reportsPath(cwd, 'run-1'),
+      }),
+      'utf8',
+    );
+
+    await expect(drive({ cwd, runId: 'run-1', ports: fakePorts() })).resolves.toEqual({
+      status: 'halted',
+      step: 'slice_start',
+      runStatus: 'reports_initialized',
+      reason: 'scheduler_plan_unreadable',
+    });
+  });
+
+  it('rejects cyclic slice dependencies as unreadable Petri topology', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-drive-cyclic-plan-'));
+    const planPath = join(cwd, 'cyclic-plan.json');
+    await writeFile(
+      planPath,
+      planJson([
+        { id: 'task-1', dependsOn: ['task-2'] },
+        { id: 'task-2', dependsOn: ['task-1'] },
+      ]),
+      'utf8',
+    );
+    await mkdir(join(cwd, '.brunch', 'cook', 'runs', 'run-1'), { recursive: true });
+    await writeFile(
+      runMetadataPath(cwd, 'run-1'),
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath,
+        status: 'reports_initialized',
+        reportsPath: reportsPath(cwd, 'run-1'),
+      }),
+      'utf8',
+    );
+
+    await expect(drive({ cwd, runId: 'run-1', ports: fakePorts() })).resolves.toEqual({
+      status: 'halted',
+      step: 'slice_start',
+      runStatus: 'reports_initialized',
+      reason: 'petri_input_unreadable',
+    });
+  });
+
   it('halts at petri_export when the compiled plan input is unreadable', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-export-unreadable-'));
     const planPath = join(cwd, 'broken-plan.json');
@@ -1726,6 +1953,25 @@ describe('petriScheduler', () => {
         reason: 'abandoned',
       },
     ]);
+  });
+
+  it('returns the abandoned halt even when the abandoned run plan has invalid topology', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-abandoned-invalid-topology-'));
+    const planPath = join(cwd, 'duplicate-slices.json');
+    await writeFile(planPath, planJson(['task-1', 'task-1']), 'utf8');
+    await mkdir(join(cwd, '.brunch', 'cook', 'runs', 'run-1'), { recursive: true });
+    await writeFile(
+      runMetadataPath(cwd, 'run-1'),
+      JSON.stringify({ runId: 'run-1', specId: '42', planPath, status: 'abandoned' }),
+      'utf8',
+    );
+
+    await expect(drive({ cwd, runId: 'run-1', ports: fakePorts() })).resolves.toEqual({
+      status: 'halted',
+      step: 'abandoned',
+      runStatus: 'abandoned',
+      reason: 'abandoned',
+    });
   });
 
   it('does not append duplicate terminal journal events when a completed run is driven again', async () => {

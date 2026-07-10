@@ -77,7 +77,8 @@ export function nextIncompletePetriSliceId(
   state: RunMetadata,
   plan: SchedulerPlan | undefined,
 ): string | undefined {
-  return readyPlanSliceIds(plan, state.completedSliceIds ?? [])[0];
+  const completed = new Set(state.completedSliceIds ?? []);
+  return plan?.slices?.find((slice) => !completed.has(slice.id))?.id;
 }
 
 export function activeOrNextPetriSliceId(
@@ -108,6 +109,7 @@ export function projectExecutorPetriTransitionHistory(
 ): ExecutorPetriTransitionHistoryProjection | undefined {
   if (state.status === 'created') return { transitionIds: [] };
   if (state.status === 'abandoned') return undefined;
+  if (!completedSliceHistoryIsValid(plan, state.completedSliceIds ?? [])) return undefined;
 
   const transitionIds = [
     ...baseRunTransitionHistory(state.status),
@@ -169,6 +171,21 @@ export function projectExecutorPetriTransitionHistory(
     default:
       return { transitionIds };
   }
+}
+
+function completedSliceHistoryIsValid(
+  plan: SchedulerPlan | undefined,
+  completedSliceIds: readonly string[],
+): boolean {
+  const completed = new Set<string>();
+  const slicesById = new Map((plan?.slices ?? []).map((slice) => [slice.id, slice]));
+  for (const sliceId of completedSliceIds) {
+    const slice = slicesById.get(sliceId);
+    if (!slice || completed.has(sliceId)) return false;
+    if ((slice.depends_on ?? []).some((dependencyId) => !completed.has(dependencyId))) return false;
+    completed.add(sliceId);
+  }
+  return true;
 }
 
 export function materializeExecutorPetriRuntime(
@@ -321,8 +338,12 @@ function materializeCurrentMarking(
   state: RunMetadata,
   plan: SchedulerPlan | undefined,
 ): Record<string, number> {
+  if (state.status === 'abandoned') return {};
   const history = projectExecutorPetriTransitionHistory(state, plan);
-  return history ? (replayTransitionHistory(topology, history.transitionIds)?.currentMarking ?? {}) : {};
+  if (!history) throw new Error(`Cannot project Petri transition history for run status ${state.status}`);
+  const replay = replayTransitionHistory(topology, history.transitionIds);
+  if (!replay) throw new Error(`Cannot replay Petri transition history for run status ${state.status}`);
+  return replay.currentMarking;
 }
 
 function baseRunTransitionHistory(status: RunMetadata['status']): readonly string[] {

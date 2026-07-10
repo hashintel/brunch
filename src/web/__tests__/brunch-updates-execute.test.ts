@@ -421,4 +421,31 @@ describe('brunch.updated execute topic invalidation', () => {
     });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.run', 'run-1'], exact: true });
   });
+
+  it('clears cached Petri frontier hints when runtime reconstruction becomes unreadable', () => {
+    const queryClient = new QueryClient();
+    vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue();
+    queryClient.setQueryData(['execute.run', 'run-1'], {
+      runId: 'run-1',
+      petriReadySteps: [{ kind: 'slice_start', sliceId: 'task-1' }],
+      petriBlockedSteps: [{ kind: 'slice_start', sliceId: 'task-2', blockers: [] }],
+    });
+
+    invalidateBrunchUpdate(
+      queryClient,
+      notification([
+        {
+          topic: 'execute.run',
+          runId: 'run-1',
+          petriReadySteps: null,
+          petriBlockedSteps: null,
+        },
+      ]),
+    );
+
+    expect(queryClient.getQueryData(['execute.run', 'run-1'])).not.toMatchObject({
+      petriReadySteps: expect.anything(),
+      petriBlockedSteps: expect.anything(),
+    });
+  });
 });

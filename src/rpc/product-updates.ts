@@ -110,8 +110,8 @@ export function executeRunProductUpdateHintsFromDetail(detail: {
     petriProjection: detail.petriProjection ?? null,
     petriProjectionSource: detail.petriProjectionSource ?? null,
     petriProjectionReplayReason: detail.petriProjectionReplayReason ?? null,
-    ...(detail.petriReadySteps === undefined ? {} : { petriReadySteps: detail.petriReadySteps }),
-    ...(detail.petriBlockedSteps === undefined ? {} : { petriBlockedSteps: detail.petriBlockedSteps }),
+    petriReadySteps: detail.petriReadySteps ?? null,
+    petriBlockedSteps: detail.petriBlockedSteps ?? null,
   };
 }
 

@@ -292,13 +292,13 @@ function petriMarkingSnapshotMatchesRuntime(
   plan: SchedulerPlan | undefined,
   runtime?: Pick<ExecutorPetriRuntime, 'currentMarking'>,
 ): boolean {
+  if (runtime === undefined) return false;
   if (
     projectExecutorPetriTransitionHistory(metadata, plan)?.transitionIds.length !==
     snapshot.firedTransitionCount
   ) {
     return false;
   }
-  if (runtime === undefined) return true;
   const runtimeEntries = Object.entries(runtime.currentMarking);
   const snapshotEntries = Object.entries(snapshot.currentMarking);
   return (

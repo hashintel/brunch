@@ -10,10 +10,10 @@ export type DriveTerminalClassification =
       };
     }
   | {
-      readonly event: Extract<ExecutorNetEvent, { readonly kind: 'net_halted' }>;
+      readonly event: Extract<ExecutorNetEvent, { readonly kind: 'net_halted' | 'net_deadlocked' }>;
       readonly outcome: {
         readonly status: 'halted';
-        readonly step: ReadyStep['kind'] | 'abandoned';
+        readonly step: ReadyStep['kind'] | 'abandoned' | 'deadlocked';
         readonly runStatus: RunMetadata['status'];
         readonly reason: string;
       };
@@ -65,6 +65,22 @@ export function classifyDriveTerminal(
         step: 'abandoned',
         runStatus: args.runStatus,
         reason: 'abandoned',
+      },
+    };
+  }
+
+  if (args.runStatus !== 'promotion_prepared') {
+    return {
+      event: {
+        kind: 'net_deadlocked',
+        runId: args.runId,
+        runStatus: args.runStatus,
+      },
+      outcome: {
+        status: 'halted',
+        step: 'deadlocked',
+        runStatus: args.runStatus,
+        reason: 'petri_deadlocked',
       },
     };
   }
