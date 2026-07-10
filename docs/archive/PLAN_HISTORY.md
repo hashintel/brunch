@@ -3,11 +3,29 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-07-10 Sync archive (`ln-sync`, FE-1180 closeout + rolling-frontier repair)
+
+### walkthrough-remediation-1 (FE-1180) — retired frontier definition
+
+Closed 2026-07-10 by explicit promotion rather than false pass. WR1–WR8 and WR13–WR17 built the deterministic remediation; WR18 recorded O1–O10 outer evidence. Passes remain evidence, while every failure/unknown moved to `walkthrough-remediation-2` / FE-1187. Durable truth: D119-L, D120-L/I62-L, D99-L, D106-L, D109-L, D115-L/I59-L, `TESTING_FINDINGS.md`, and `testing/walkthroughs/2026-07-10/WR18-manual.md`. The replacement sweep ledger and stale handoff were deleted.
+
+### exchange-ask-refinement (FE-1164) — retired frontier definition
+
+Merged 2026-07-08 (#304 + stack). One-shot `ask` is the only registered interactive structured-exchange terminal; surviving offers declare ask continuations in details; free-text/single/multi collection, editor/broker/unavailable fallbacks, capture-tail classification, render honesty, writer goldens, the real pi-tui runtime-mount battery, and candidate-supersession proof all landed. Outer walkthrough residue moved to FE-1167 group 5. Durable truth: D116-L, A39-L, D37-L, D104-L–D106-L, D110-L/I57-L, and the exchange topology homes.
+
+### main-editor-chrome execute-card follow-up (#313) — consumed scope
+
+The post-#305 follow-up added structured, status-first renderers for `execute_orchestrate`, `execute_plan_check`, `execute_snapshot`, and `execute_status`. Literal collapsed/expanded snapshots plus existing lifecycle tests preserve D111-L/D112-L/I58-L; the normal-width manual readability beat remains outer evidence, not unfinished implementation. `memory/cards/main-editor-chrome--execute-orchestrator-tui.md` was exhausted and deleted.
+
+### Rolling-frontier reductions
+
+Older live completion bullets for `webui-default`, `tool-schema-convergence`, `alpha-release-readiness`, `main-editor-chrome`, the 2026-07-08 merge wave, and `exchange-ask-refinement` were removed from `memory/PLAN.md`; their history was already archived here. Parallel-merge decision-ID collisions were repaired without semantic change: provider tool-schema adapter D118-L → D121-L, and default tool rendering D119-L → D122-L. The earlier spec-posture D118-L and continue/wait D119-L keep their ids.
+
 ## 2026-07-10 Sync archive (`ln-sync`, FE-1186 closeout)
 
 ### tool-schema-convergence (FE-1163) — retired frontier definition
 
-Completed 2026-07-10 after `ln-review` → `ln-witness` closure repair. The sweep converged all 52 Brunch-authored provider-facing schemas on `src/.pi/extensions/shared/tool-schema.ts`, preserving Zod tool-boundary authority and TypeBox graph/DB authority while enforcing object roots and rejecting top-level unions. The production-derived registry plus sealed-child catalog pins exact membership, adapter provenance, duplicate rejection, and semantic preservation. Durable truth: D118-L/I60-L and `src/.pi/extensions/TOPOLOGY.md`; the exhausted ledger was deleted.
+Completed 2026-07-10 after `ln-review` → `ln-witness` closure repair. The sweep converged all 52 Brunch-authored provider-facing schemas on `src/.pi/extensions/shared/tool-schema.ts`, preserving Zod tool-boundary authority and TypeBox graph/DB authority while enforcing object roots and rejecting top-level unions. The production-derived registry plus sealed-child catalog pins exact membership, adapter provenance, duplicate rejection, and semantic preservation. Durable truth: D121-L/I60-L and `src/.pi/extensions/TOPOLOGY.md`; the exhausted ledger was deleted.
 
 ### webui-default (FE-1185) — retired frontier definition
 
@@ -15,7 +33,7 @@ Completed 2026-07-10. Product and dev TUI launches open the advertised sidecar r
 
 ### default-tool-rendering (FE-1186) — retired frontier definition
 
-Completed 2026-07-10 after an initial 45-row adoption sweep, judo-review correction, and semantic restack repair excluding four executor tools whose dedicated result renderers landed in the parent branch. `defineBrunchTool` is the canonical definition path for fallback-rendered Brunch tools; the production registry pins 41 shared-default / 11 intentional-custom / 4 Pi-owned definitions. A runtime witness through Pi's exported `ToolExecutionComponent` proves the supported live interactive TUI keeps one padded status receipt and suppresses model-facing result content, including expanded mode. Pi HTML export remains an unsupported built-in under D34-L, not a compatibility surface for this adapter. Durable truth: D119-L/I61-L and `src/.pi/extensions/TOPOLOGY.md`; the exhausted ledger and review-fix card were deleted.
+Completed 2026-07-10 after an initial 45-row adoption sweep, judo-review correction, and semantic restack repair excluding four executor tools whose dedicated result renderers landed in the parent branch. `defineBrunchTool` is the canonical definition path for fallback-rendered Brunch tools; the production registry pins 41 shared-default / 11 intentional-custom / 4 Pi-owned definitions. A runtime witness through Pi's exported `ToolExecutionComponent` proves the supported live interactive TUI keeps one padded status receipt and suppresses model-facing result content, including expanded mode. Pi HTML export remains an unsupported built-in under D34-L, not a compatibility surface for this adapter. Durable truth: D122-L/I61-L and `src/.pi/extensions/TOPOLOGY.md`; the exhausted ledger and review-fix card were deleted.
 
 ## 2026-07-09 Sync archive (`ln-sync`, alpha-publish + FE-1169 closeout)
 

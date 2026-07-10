@@ -66,15 +66,11 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Recently Completed
 
-- 2026-07-10 `walkthrough-remediation-1` (FE-1180) — **✓ closed by WR18 explicit promotion, not false pass**. WR1–WR8 and WR13–WR17 built; WR18 manual evidence recorded in `TESTING_FINDINGS.md`; all remaining failures/unknowns moved to `walkthrough-remediation-2` / FE-1187 and the consumed WR18 ledger was deleted.
-- 2026-07-10 `default-tool-rendering` (FE-1186) — all 41 fallback-rendered Brunch tools use `defineBrunchTool`; the production registry pins the 41 shared-default / 11 intentional-custom / 4 Pi-owned classification, including the four executor tools whose dedicated result renderers landed in the parent branch. The review fix witnesses one-row status/result suppression through Pi's live `ToolExecutionComponent`. D119-L/I61-L explicitly scope status transitions to the supported live interactive TUI; Pi HTML export remains unsupported under D34-L.
-- 2026-07-10 `webui-default` (FE-1185) — the product and dev CLIs now open the TUI sidecar route in the browser by default; `--no-webui` suppresses only browser opening while host startup and URL advertisement remain unchanged. Active help, topology, runbooks, and tests use the canonical opt-out spelling.
-- 2026-07-10 `tool-schema-convergence` (FE-1163) — closure audit repaired: the shared adapter now requires object roots; persisted semantic differentials cover every authoring-representation change; pure-TypeBox families retain object identity/serialization; and the production-derived oracle pins the exact 52-tool foreground, dev, executor-artifact, standalone-alternatives, and sealed-child inventory with adapter provenance and named legality constraints. The exhausted ledger was deleted; durable state lives in D118-L/I60-L and `src/.pi/extensions/TOPOLOGY.md`.
-- 2026-07-09 `alpha-release-readiness` (FE-1159) — **✓ closed: `1.0.0-alpha.0` published to npm under dist-tag `alpha`** (git tag on `next`; `latest` untouched at 0.8.0). Durable truth: D113-L/D114-L/D115-L, I59-L, `check:release-pack`. Definition archived to `docs/archive/PLAN_HISTORY.md`. A38-L conduct reproducibility continues validating via the alpha walkthrough lane.
-- 2026-07-09 `main-editor-chrome` (FE-1169) — **merged #305**. All six threads delivered; `memory/REFACTOR.md` and all nine scope cards consumed. Outer manual beats transferred to the walkthrough lane (TESTING_PLAN.md Concern 7); its `/brunch:continue` semantics are superseded post-merge by D119-L (widening rides `walkthrough-remediation-1`). Named residue: `requestClosesPresent` reconciliation waits for Horizon `headless-ask-discovery`. Definition archived to `docs/archive/PLAN_HISTORY.md`.
-- 2026-07-08 **merge wave — ship-gate stack + KA executor lanes to `next`:** FE-1122 (#286), FE-1123 (#287), FE-1124 (#288), FE-1134 (#289), FE-1135 (#291), FE-1136 (#292), FE-1137 (#290), FE-1138 (#293), FE-1152 (#294); KA: FE-1141 (#295), FE-1154 (#297), FE-1155 (#296), FE-1107 (#298). All outer-loop residue from these lanes is batched into `walkthrough-evidence-batch` (FE-1167) — no merged frontier carries open obligations of its own. Definitions archived to `docs/archive/PLAN_HISTORY.md` (2026-07-08 hygiene pass).
-- 2026-07-08 `exchange-ask-refinement` (FE-1164) — **tied off and merged to `next` 2026-07-08**; its unwitnessed walkthrough items folded into FE-1167 residue group 5. Definition retained below (Horizon `headless-ask-discovery` / `review-commentary-widening` build on it). Review-fix closeout landed after the 2026-07-08 review found the first build not-done: the previously skipped structured-exchange answer suite and live web-driver/order proofs are un-skipped; standalone `ask` owns free-text/single/multi collection with custom→editor→broker/unavailable precedence where applicable; multi-choice editor-envelope fallback is live under ask; offer continuations fail loudly without declared `details.continuation`; declared candidate/digest/review options drive the pickers; legacy Pi adapter files (`present-question.ts`, `request-response.ts`, answer/choice/review sources) are deleted while preserved request-detail discriminants remain for capture/sweep/RPC parity. `npm run verify` passed except the first run hit the known roving-suite flake in `git-host-promotion-port`; rerun passed tests and build. **2026-07-08 walkthrough + witness audit addenda (same branch):** F18–F20 ask-surface fixes (free-text markdown-body rendering, free-text comment collection, commentPrompt-presence-gated optional comments); a witness audit then caught and fixed the sweep classifier excluding `ask` toolNames from the capture tail (the "capture semantics stay green" claim had been witnessed only against retired `request_response` fixtures), added the ask render-honesty oracle + `ASK_CONTENT_ELISIONS`, and gave `ask-tuples.md` a writer test with a five-branch outcome matrix. Witness-gap closure then added the real pi-tui runtime-mount battery for registered `ask` and the dedicated `present_candidates` supersession probe.
-- Older completed frontiers (the 2026-07-06 wave — FE-1138, FE-1136, FE-1135, FE-1154, the KA executor lane, arc `orchestrator-cutover` — plus `exchange-rendering` FE-1123, `elicitation-gap-guidance` FE-1116, and the 2026-07-01 `component-dx` slices): `docs/archive/PLAN_HISTORY.md`.
+- 2026-07-10 `walkthrough-remediation-1` (FE-1180) — **✓ closed by explicit promotion, not false pass**. WR1–WR8 and WR13–WR17 built; WR18 evidence is recorded in `TESTING_FINDINGS.md`; every remaining failure/unknown moved to `walkthrough-remediation-2` / FE-1187; the exhausted ledger and stale handoff were deleted.
+- 2026-07-10 `default-tool-rendering` (FE-1186) — all 41 fallback-rendered Brunch tools use `defineBrunchTool`; the production registry pins the 41 shared-default / 11 intentional-custom / 4 Pi-owned classification. D122-L/I61-L scope the renderer contract to Pi's live interactive TUI; Pi HTML export remains unsupported under D34-L.
+- 2026-07-10 `main-editor-chrome` execute-card follow-up (#313) — structured, status-first renderers landed for `execute_orchestrate`, `execute_plan_check`, `execute_snapshot`, and `execute_status`; literal snapshots plus lifecycle negative-space tests preserve D111-L/D112-L/I58-L. The scope card was exhausted and deleted; the normal-width manual readability beat remains outer evidence, not unfinished implementation.
+
+Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md).
 
 ### Next
 
@@ -82,19 +78,16 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - `spec-posture` (Linear at pickup) — structural: persisted spec-row posture (D118-L, A41-L) + deterministic establishment flow. Start after FE-1187 resolves reshaped auth/ask surface residue so run D witnesses the corrected surface; its outer oracle is exactly run D's populated-cwd/brownfield beats. Definition below.
 - `walkthrough-evidence-batch` ([FE-1167](https://linear.app/hash/issue/FE-1167/walkthrough-evidence-batch-outer-loop-checks-for-merged-orientation)) — the one batch owning all outer-loop residue from the merged lanes (FE-1134 generative-menu evidence, FE-1137 thin/rich Execute beats + deferred orientation-choice questions, FE-1124 Card 3 + seed worklist, FE-1107 KA-conversation residue, and — folded 2026-07-08 from the retired handoff — the FE-1164 walkthrough items). FE-1164/FE-1169 are merged, but the batch now waits for FE-1187 so its beats witness D120-L-consistent and WR18-remediated ask/consult/Execute surfaces (and note remediation row 5's conduct changes shift what "expected conduct" means for the generative beats). Closes arc `deterministic-orientation`. Definition below.
 - `mechanism-trace` (Linear at pickup) — post-hoc mechanism-provenance trace over session transcripts (carrier classes `wiring` / `nudge` / `conduct`), a static wiring inventory, and the sweep-debt tripwire as a derived scenario-scoped assertion. Best run **before or alongside** `walkthrough-evidence-batch` (FE-1167) — the trace is exactly the instrument those walkthrough beats lack. Definition below. The D117-L constant-anchoring hardening in `sweep-watermark.ts` is a direct fix, not part of this frontier — land it on the next branch that touches the exchanges family or as a standalone commit.
-- **Legacy question read-path retirement** (hygiene slice, no Linear issue until pickup; from the 2026-07-09 `ln-induct` pass over PR #304 — finding 4, delete-over-fence decision agreed): remove the `present_question`-era branches from the pending-exchange scan and recovery skip, drop the `src/.pi/README.md` "Legacy persisted transcript vocabulary" section, regenerate old-tuple fixtures (`session-transcript`, `rpc/handlers`, `exchanges-editor-envelope`, `public-rpc-parity-proof` coverage assertion, `project-graph-review-cycle-proof` probe), and check committed `.fixtures/` runs for old tuples first. The pending-exchange scan machinery itself **stays** — D116-L names it as the interim until Horizon `headless-ask-discovery` (A39-L). Run off `next` (FE-1169 merged). The write-path half of the same induction (retired-vocabulary minting fallback, TOPOLOGY drift, echo guard) is fixed on #305: standalone ask single-select answers use `ask` details, explicit legacy question single-select answers fail loudly, and broker topology uses ask vocabulary.
-- **Chrome batch (work area, user-declared 2026-07-08):** opener `main-editor-chrome` (FE-1169) merged 2026-07-09 (#305). Further chrome frontiers open here as scoped; the review-set TUI visual design (remediation ledger row 11, deferred) is the first named candidate.
+- `legacy-question-read-path-retirement` (Linear at pickup) — earned deletion frontier for the remaining `present_question`-era read branches and fixtures. The interim pending-exchange scan stays until Horizon `headless-ask-discovery` (A39-L). Definition below.
 
 ### Parallel / Low-Conflict
 
-- **Open PRs:** none from the merged lanes (FE-1169 #305 landed 2026-07-09; the 2026-07-08 wave landed FE-1159 #299, FE-1115 #301, FE-1164 #304 + stack, KA FE-1114 #300, FE-1166 #302, FE-1141 #303).
-- `component-dx` (FE-1115) — **✓ closed 2026-07-08 as a frontier**: the DX goal is delivered (preview harness, theme toggle + hot reload + testbed, `matchesKey` sweep, theme value rework, scrollback-safe indicator; outer manual checks confirmed 2026-07-07; PR #301). UX-level component work is *not* covered by this closure — it opens fresh frontiers in the upcoming chrome batch. Definition archived to `docs/archive/PLAN_HISTORY.md`.
+- `executor-run-environment` (FE-1166 follow-up) — the substrate/verify policy is merged; the real-run failure remains prepared in [`memory/cards/executor-run-environment--actionable-slice-request.md`](cards/executor-run-environment--actionable-slice-request.md). Before build, `ln-plan` must settle whether this remains FE-1166 work or becomes a fresh frontier/branch; do not let the prepared card bypass the tracker/branch boundary.
 - **Standing obligations:** `probes-and-transcripts-evolution` and `topology-readmes-and-boundaries` ride the frontier that triggers them; they are not standalone cleanup buckets.
 
 ### Horizon
 
 - `planning-process-model` — **demoted from Next #1 on 2026-07-03 (grill):** exploratory D103-L bet-proving, not ship-blocking. Behind the gate. Guard: the orientation menus' "project a plan" option routes to the existing `project`/`map-plans` seam at frontier-level depth (D103-L boundary) and must **not** pull this frontier forward. Groundwork stays parked on `ln/fe-xxx-plan-plane-redesign`; full definition below.
-<!-- main-editor-chrome promoted from Horizon to Active 2026-07-08 (FE-1169); definition in Frontier Definitions. -->
 - `review-commentary-widening` — GitHub-style per-item review commentary: widen the review answered payload (`comments: [{on: draft|edge|set, body}]`, a SPEC decision) plus the collection UI. Deferred post-gate at FE-1138 scope (2026-07-03): the payload ripples into the review schema that capture-contract rows and the digest terminal consume. Once `exchange-ask-refinement` lands, the widening re-expresses over the D116-L declared-ask/answer payload rather than `request_response` details. Sketch: `src/agents/contexts/exchanges/design-permutations.md` §Review-set evaluation.
 - `develop-mode` — third operational mode `develop` / Develop running a new `engineer` agent: a Brunch-aware coding assistant *without* the `execute_*` tool set and with kick/consult mechanisms inert (user-driven turns, not agent-driven). Split out of `main-editor-chrome` at the 2026-07-08 grill. Entry is a SPEC revision, not a feature slice: D98-L ("two modes only" — though Develop is a distinct agent with different grants, not the conduct-bias `Enhance` that grill rejected), req 26, and D40-L placement of `engineer` in the concentric authority matrix (executor-minus-`execute_*`? elicitor-plus-coding?), plus a new per-mode kick/consult-suppression policy axis. Route through `ln-grill`/`ln-spec` at pickup. Groundwork (mode-cycling keybinding, border-by-mode) lands mode-agnostically in `main-editor-chrome`.
 - `headless-ask-discovery` — the A39-L follow-up to D116-L: RPC discovery of open `ask` calls (streamed session events or a pending-interactive-call read method) replacing `session.pendingExchange` transcript scanning, so an agent-as-user driver can generatively build specs against a goal over the headless surface. Not first-release-critical; headless asks resolve `unavailable` until this lands. Broker (`awaitAnswer`/`session.submitExchangeResponse`) is unchanged by design.
@@ -120,20 +113,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
      frontier closed as done for DX. Durable truth: src/dev/TOPOLOGY.md §Component Preview Harness,
      src/.pi/components/TOPOLOGY.md. UX component work opens fresh frontiers in the chrome batch. -->
 
-### exchange-ask-refinement
-
-- **Name:** One-shot ask terminal + structured-exchange presentation refinement
-- **Linear:** [FE-1164](https://linear.app/hash/issue/FE-1164/one-shot-ask-terminal-and-exchange-presentation-refinement)
-- **Branch:** `ln/fe-1164-ask-terminal`, stacked on `ln/fe-1115-tui-refinements-1` (PR #301; carries this frontier's planning commits — revised 2026-07-07 from the earlier branch-per-category call)
-- **Kind:** structural (tool-family cutover per D116-L) + bounded presentation refinement
-- **Certainty:** proving
-- **Objective:** Simple questions become one `ask` tool call — rich markdown question body + options rendered inside the shared rounded-box UI while open, one durable toolResult carrying question + answer together — and the surviving offer presents (`present_candidates` / `present_digest` / `present_review_set`) declare their expected ask continuation in details (reference-invoked via `continues: <exchange_id>`, runtime-filled, never model-re-authored). `present_question`, the question discriminants of `request_response`, and the pending-exchange scan machinery for questions retire. The shared answering surface gains the markdown body (exchange markdown theme inside `projectRoundedBox`, scroll-viewport options) and keeps the border-label channel available for session-chrome annotations (operational mode / spec title, per `BrunchEditorComponent`'s pattern).
-- **Annotations:** Lights up: the one-shot ask path (params → custom UI → single durable result) — the shape model priors already expect. Stabilizes: the exchange terminal seam (declared continuation replaces hand-taught per-kind dispatch) and the shared rounded-box answering surface.
-- **Acceptance sketch (slices via `ln-scope`):** (1) rich-body picker: decision/multi-choice pickers render a markdown body inside the box, previewable in `dev:components`; (2) standalone ask cutover: `ask` registered, `present_question` + question discriminants retired, TUI collection + broker fallback + `unavailable` headless behavior, one durable result rendering question+answer; (3) offer declared continuations: details carry the declaration, `ask` accepts `continues:`, review/candidate vocabulary flows as declared payload, capture semantics (I57-L probes, `respondsToPresentTool` reads) stay green. Conduct/prompt guidance, `exchange-family-completeness` and sweep-window tests, and content-golden families updated per slice.
-- **Absorbed follow-ups:** the FE-1136 "derived per-kind terminal mapping" follow-up is retired by design (declaration replaces the mapping); the 5× duplicated `normalizeOptionalText` hoist in `src/exchanges/projections/` rides this lane. `blank-carrier-sweep` (Horizon) stays separate but the new ask params should be born with `zNonBlankMarkdown` boundaries, not swept later.
-- **Deferred:** headless RPC discovery of open asks → Horizon `headless-ask-discovery` (A39-L).
-- **Current execution pointer:** none — witness-gap closure consumed 2026-07-08 (`src/.pi/extensions/__tests__/ask-runtime-mount.test.ts`, `src/probes/__tests__/present-candidates-supersession-proof.test.ts`) before tie-off.
-- **Traceability:** D116-L (design), A39-L (deferred seam), D37-L (details carry semantics; renderCall non-semantic), D105-L (boundary validation), D106-L (self-contained echoes), D110-L/I57-L (digest/review capture semantics survived the rewiring), D104-L (render-honesty contract extends to ask results).
+<!-- exchange-ask-refinement (FE-1164) archived to docs/archive/PLAN_HISTORY.md (2026-07-10 ln-sync); durable truth: D116-L, A39-L, exchange topology homes, runtime-mount and supersession probes. -->
 
 <!-- exchange-rendering (FE-1123) full definition archived to docs/archive/PLAN_HISTORY.md (2026-07-03 ln-sync);
      durable truth: D104-L, D108-L, exchange-family-completeness.test.ts, src/exchanges/TOPOLOGY.md. -->
@@ -162,44 +142,18 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
      src/.pi/extensions/chrome/TOPOLOGY.md, src/.pi/extensions/exchanges/TOPOLOGY.md, src/dev/TOPOLOGY.md.
      Outer manual beats ride the alpha walkthrough lane (TESTING_PLAN.md Concern 7). -->
 
-### walkthrough-remediation-1
+<!-- walkthrough-remediation-1 (FE-1180) archived to docs/archive/PLAN_HISTORY.md (2026-07-10 ln-sync); WR18 residue lives in walkthrough-remediation-2 / FE-1187. -->
 
-- **Name:** Walkthrough remediation sweep 1 — run-A/run-C findings closure
-- **Linear:** [FE-1180](https://linear.app/hash/issue/FE-1180/walkthrough-remediation-sweep-1-run-ac-findings-closure)
-- **Branch:** `ln/fe-1180-walkthrough-remediation` (off `next`; renamed from `ln/fe-TEMP-alpha-walkthroughs` — carries the run A/C evidence commits and the 2026-07-09 collation)
-- **Status:** ✓ closed 2026-07-10 by WR18 explicit promotion. Required rows WR1–WR8 and WR13–WR17 built; WR18 recorded pass evidence and promoted failures/unknowns to FE-1187 rather than marking them as false passes. The replacement WR13–WR18 sweep ledger is exhausted and deleted.
-- **Kind:** coverage-shaped remediation sweep (frontier shape per `ln-plan/references/coverage.md`, generalized: the closed inventory is a **findings contract**, not a code layer — the 2026-07-09 walkthrough findings ledger). Rows map to owning seams, findings n:1 to rows.
-- **Certainty:** earned for WR13–WR17 after D120-L disambiguation; WR18 is evidence-gated outer closure.
-- **Closes:** the mechanism-vs-meaning gap exposed by the FE-1180 witness audit: visible Execute promises diverging from provider conduct, successful-looking recovery without a fired kick, non-TTY security evidence, source-only conduct sentinels, and callback-only debug evidence.
-- **Locks in:** I62-L label/id/directive/workflow identity plus discriminating security, conduct-composition, debug-mirror, and focused outer UX evidence.
-- **Why now / unlocks:** user-declared 2026-07-09 — walkthrough runs B/D address concerns (seed legibility, orientation sequencing, populated-cwd entry) better served after remediation; remediation first, then B/D as closure evidence. Findings: `TESTING_FINDINGS.md` (A1–A10, C1–C5); induction record in the 2026-07-09 session (promoted lenses below).
-- **Boundary:** run-A/run-C findings and the induction lenses only. **Out:** spec-posture persistence (own frontier below), FE-1167's residue groups (unchanged), model-policy/dynamic-model changes (evidence-gathering only, per TESTING_PLAN Concern 4), review-set visual design (needs a design session — deferred row).
-- **Candidate row inventory (ledger authored at `ln-scope`, `Mode: sweep`, findings mapped n:1 to seam rows):**
-  1. ● mode-aware orientation menus — derive menu from `projectBrunchAgentState(...).operationalMode` at the juncture seam; fixes the observed Execute-consult bug (C2) **and** the unsampled J2/J3/J4 registrar sites (induction 1a/1b). Owner: `session-orientation/juncture.ts` + `registrar.ts` + `commands/index.ts`. Oracle: per-mode juncture tests.
-  2. ● consult-menu chrome + content — role/spec border labels (thread `topLabel`/`bottomLabel` like the pickers), consistent option rendering, drop agent-discretionary options from Execute menu, tighter style/action sets (elicitor: by-decision / by-example / by-proposal / prep-for-execution; executor: design-oracle-commit / plan compilation / plan execution), wait-flavored rename + reposition of `noKickChoice` (D119-L), overflow legibility (C1/C2, A9). Owner: `consult-menu.ts` + menu descriptors. Oracle: component tests + `dev:components` gallery.
-  3. ● `/continue` unification — D119-L semantics (re-present open declared ask, else originate+kick via `manual_trigger`; overrides dismissals), command-string centralization, cancellation recovery notice (A4). Owner: `commands/` + `exchanges/ask/continuation.ts`. Oracle: command tests incl. the no-auth-then-login kick case.
-  4. ● ask framing echo — carry `commentPrompt` (and Other-elaboration framing) into `AskQuestionEcho`/`projectAsk`/`formatAsk` so recorded comments keep their framing (A6, induction 2 — D106-L self-containment). Owner: `exchanges/schemas` + `projections/ask.ts` + `agents/contexts/exchanges/ask.ts`. Oracle: ask-tuples writer goldens.
-  5. ● ask/present conduct contracts — negative guidance: never author an Other-equivalent option; never restate present pretext in a continuation body (large digests sit outside the ask); digest structure guidance + digest-approval→direct-advisory-mutation default + multi-pass extraction (D99-L conduct clarification; A6, A7, A8). Owner: `ask` promptGuidelines + ingest/elicit conduct homes. Oracle: dual-audience probe + run-B/D re-observation.
-  6. ● JSON leak on exchange-tool failure paths — `ln-diagnose` first (locate the raw-payload render path: ask invocation A6, `present_candidates` retry C3), then themed failure rendering. Owner: tbd by diagnosis. **Evidence-gated.**
-  7. ● seed insertion legibility — `ln-diagnose` the no-auth→post-login seed path (agent read information it should have been seeded with, A5); fix shape follows diagnosis. **Evidence-gated.** Run B's "seed inserted before first useful action" beat is the closure oracle.
-  8. ● no-auth onboarding surface — gate dead-end startup options, shorten warning copy without leaking model policy, fix footer `unknown`, mask pasted API keys in `brunch login`, steer toward in-session `/login` (A1, A2). Owner: workspace-dialog + login CLI. Oracle: no-auth boot test + manual re-run of TESTING_PLAN 1A.
-  9. ○ compact `renderShell`/tool-result rendering for Brunch tools (A5) — deferred unless cheap alongside row 6.
-  10. ○ `/introspect` legibility (A10) — deferred, low.
-  11. ○ review-set TUI visual design (A6/run-A observation) — deferred to a design session; not row-sized.
-  12. ○ markdown polish: `\n\n` inline rendering, node-id styling convention (A9) — deferred unless cheap alongside row 2.
-- **Audit reopening inventory (replacement ledger authored at `ln-scope`):**
-  13. built Execute orientation semantic identity — materialized D120-L/I62-L across visible menu descriptions, canonical semantic ids, provider seed directives, and the three resulting preparation/readiness/execution workflows. Retired the broadened-label-over-legacy-directive shape. Oracle: table-driven menu choice → persisted entry → composed seed contract plus workflow-level tests.
-  14. built Honest general-continue completion — classified kick outcomes now return through `completeAssistantKick` into juncture/manual-trigger results; `kickFired` means `status: fired`; no-model/idle retries append no carriers; a failed kick reports honestly and its already-delivered trailing seed is reused by the next retry; fired manual resume is preserved. Oracle: parameterized command/helper tests over fired/skipped/idle/failed outcomes plus failed-kick retry deduplication.
-  15. built Interactive API-key secrecy — `src/probes/scripts/verify-brunch-login-secret.sh` drives `brunch login` through a real Python-stdlib PTY, proves terminal bytes omit the pasted sentinel while isolated Pi auth storage receives the exact key, and proves cancellation exits nonzero without API-key auth.
-  16. built Live WR5 guidance composition — registered ask/digest tool definitions now carry Other/pretext/review-continuation guidance through the consumer surface, and live skill registry + composed foreground prompt manifest expose `ingest` with its routed `map` reference path for digest-approval direct mutation and multi-pass extraction. Source-file substring sentinel retired; model adherence remains WR18 outer evidence.
-  17. built Production debug-mirror legibility — the real `runBrunchTui` boot plus `/brunch:continue` command wiring now proves the workspace-local debug mirrors expose seed contents, `manual_trigger`, the fired completion outcome, and seed-entry-before-outcome record order through `entry-contents.md`/`origination.md`.
-  18. built Focused outer closure evidence — WR18 manual evidence (`testing/walkthroughs/2026-07-10/WR18-manual.md`) recorded O1–O10 outcomes in `TESTING_FINDINGS.md`. Closure is by explicit promotion: pass evidence remains pass evidence, and all failures/unknowns route to `walkthrough-remediation-2` / FE-1187.
-- **Aggregate DoD:** satisfied for FE-1180 by explicit promotion: WR1–WR8 and WR13–WR17 remain built; WR18 O1–O10 evidence is recorded; every remaining failure/unknown has FE-1187 ownership and PLAN disposition.
-- **Inventory authority:** the original consumed ledger and the replacement WR13–WR18 ledger are historical in git; no active FE-1180 ledger remains. PLAN owns frontier identity/sequencing; findings remain evidence, not a second plan.
-- **Classification:** closed evidence-gated sweep.
-- **Current execution pointer:** none — ledger exhausted and deleted.
-- **Promotion / disposal rule:** completed: WR18 residue promoted to FE-1187; replacement ledger deleted after closure.
-- **Traceability:** D119-L (WR3/WR14), D99-L (WR5/WR16), D106-L (WR4), D109-L/D120-L/I62-L (WR1/WR2/WR13/WR18), D115-L/I59-L (WR8/WR15/WR18), D104-L (WR6), D69-L/D97-L (WR17); TESTING_PLAN.md concerns 1/3/4/5/6/7.
+### legacy-question-read-path-retirement
+
+- **Name:** Retire legacy `present_question` read paths and fixtures
+- **Linear:** unassigned (create at pickup, FE team / brunch project)
+- **Branch:** tbd at pickup (off `next`)
+- **Kind:** earned deletion / vocabulary convergence
+- **Certainty:** earned — D116-L's ask write path is settled; this frontier removes only persisted-read compatibility branches and stale fixtures.
+- **Deletes / retires:** `present_question` branches in pending-exchange scan and recovery skip; `src/.pi/README.md`'s legacy-vocabulary section; old-tuple fixtures in session/RPC/editor/probe tests after checking committed `.fixtures/runs/` for required historical evidence.
+- **Keeps:** the pending-exchange scan itself as the interim projection until `headless-ask-discovery` (A39-L); current ask/request-detail transcript semantics.
+- **Traceability:** D116-L, A39-L; 2026-07-09 `ln-induct` finding 4 over PR #304. The write-path half already landed on #305.
 
 ### walkthrough-remediation-2
 
@@ -212,7 +166,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Entry:** spec-first through `ln-spec` / disambiguation before implementation. D113-L–D115-L currently encode the alpha allowlist/login/no-auth gate; they must be reconciled with the user's direction to remove provider/model restrictions, stop treating `brunch login` as the preferred path, and remove the startup warning.
 - **Boundary / findings inventory:** Shift+Tab extension/built-in shortcut conflict; provider/model restrictions; startup-menu auth warning and `brunch login` guidance/product path; duplicated `.brunch/debug/origination.md` records; unintended Pi-documentation references in `system-prompt.md`; missing `/continue` / `/consult` / `/mode` hints after ask cancellation; repeated offer content in present→ask continuation; no-model `/brunch:continue` plus no seed/kick carrier observation; extraction breadth after a thin first pass; O7/O8/O9 live D120-L Execute workflows; O10 both-theme component/live-TUI checks.
 - **Dependencies:** owns all WR18 residue promoted out of FE-1180 and precedes `spec-posture`, `walkthrough-evidence-batch`, and later walkthrough evidence that depends on the reshaped auth/ask/Execute surfaces.
-- **Traceability:** WR18 closure record in `TESTING_FINDINGS.md`; evidence at `testing/walkthroughs/2026-07-10/WR18-manual.md`; D113-L–D115-L reversal/disambiguation; D119-L, D120-L/I60-L, D99-L conduct; TESTING_PLAN concerns 1/3/4/6/7.
+- **Traceability:** WR18 closure record in `TESTING_FINDINGS.md`; evidence at `testing/walkthroughs/2026-07-10/WR18-manual.md`; D113-L–D115-L reversal/disambiguation; D119-L, D120-L/I62-L, D99-L conduct; TESTING_PLAN concerns 1/3/4/6/7.
 
 ### spec-posture
 
@@ -284,9 +238,9 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 - **Name:** Greenfield executor run substrate and verify policy
 - **Linear:** [FE-1166](https://linear.app/hash/issue/FE-1166/greenfield-executor-run-substrate-and-verify-policy)
-- **Branch:** `ka/fe-1166-greenfield-executor-harness` (stacks on `ka/fe-1114-executor-replanning` / PR #300)
+- **Branch:** original `ka/fe-1166-greenfield-executor-harness` merged in PR #302; follow-up branch disposition pending `ln-plan`.
 - **Kind:** structural / executor run environment policy
-- **Status:** active follow-up. Substrate/verify policy is built and merged on PR #302; the consumed substrate/verify scope card was deleted in the 2026-07-08 sync. Follow-up live failure scope is open in `memory/cards/executor-run-environment--actionable-slice-request.md` (buildable next after FE-1166 tie-off).
+- **Status:** original frontier delivered; one real-run failure is prepared in `memory/cards/executor-run-environment--actionable-slice-request.md`. Do not build until `ln-plan` decides whether it remains FE-1166 work or becomes a fresh frontier/branch.
 - **Objective:** Separate run substrate and verify target from source-copy policy so greenfield fixture runs can use an isolated run directory and product-owned verification profile instead of always starting from a host git worktree and hardcoded `npm run verify`.
 - **Traceability:** FE-1114 follow-up live-run evidence; `src/executor/worktree.ts`, `src/executor/test-result.ts`, `src/app/test-runner-port.ts`, `src/.pi/extensions/executor/execute-run-create/index.ts`; follow-up worker-request evidence from run `run-mrbyf8u9` recorded in `memory/cards/executor-run-environment--actionable-slice-request.md`.
 
@@ -355,83 +309,35 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ```text
 frontiers:
-  Active:
-    walkthrough-remediation-1 (FE-1180)
-      status: reopened 2026-07-10; branch ln/fe-1180-walkthrough-remediation
-      shape: evidence-gated coverage-shaped remediation sweep; WR1-WR8 and WR13-WR17 built; WR18 ledger active at memory/cards/walkthrough-remediation-1--closure-ledger.md
-      closes: Execute label/id/directive/workflow divergence, dishonest continue outcome, PTY secrecy gap,
-              source-only conduct oracle, callback-only debug evidence, focused outer UX/conduct evidence
-      -[hard]-> spec-posture (start after FE-1180 deterministic rows; run D belongs to spec-posture)
-      leaves_open: FE-1167 outer-loop residue, deferred non-DoD polish rows WR9-WR12
-      depends_on: D120-L, I62-L, D119-L, D99-L, D106-L, D109-L, D115-L
-    alpha-walkthrough-lane (not a frontier)
-      status: runs A + C done; Concern 1A / Run B / focused Execute-gallery evidence are now unblocked by FE-1180 WR13-WR17; run D waits on spec-posture
-      feeds: walkthrough-remediation-1 (WR18), spec-posture (run D outer oracle), walkthrough-evidence-batch (FE-1167 overlap rows when naturally witnessed)
+  walkthrough-remediation-2 (FE-1187)
+    -[hard]-> spec-posture
+    -[hard]-> walkthrough-evidence-batch (FE-1167)
+    depends_on: D113-L-D115-L disambiguation, D119-L, D120-L/I62-L, D99-L
 
-  Next:
-    spec-posture
-      status: admitted 2026-07-09; promoted row from walkthrough-remediation-1
-      owns: D118-L materialization (origin field, confirmed spec.kind, relates-to reference), deterministic
-            establishment at spec creation/resume, A41-L vocabulary + root-spec call
-      outer oracle: run D populated-cwd/brownfield beats + run B orientation beats (Concern 2 matrix)
-      depends_on: D118-L, A41-L, D89-L, D109-L
-    walkthrough-evidence-batch (FE-1167)
-      arc: deterministic-orientation (closing member)
-      status: admitted 2026-07-08 (hygiene fold); UNBLOCKED — FE-1164 + FE-1169 merged; prefer running after
-              walkthrough-remediation-1 so beats witness the remediated ask/consult surfaces
-      branch: tbd (off next)
-      owns: generative-menu evidence, thin/rich Execute beats + deferred orientation-choice questions,
-            FE-1124 Card 3 + seed worklist, FE-1107/KA residue (close-or-narrow, demo session,
-            post-KA plan pass; executor-card GC done 2026-07-08 sync), FE-1164 walkthrough residue (group 5: declared continuations, capture
-            sweep after answers, resume re-render, sidecar during open ask, gallery re-check)
-    mechanism-trace
-      status: admitted 2026-07-08 (capture-sweep grill); branch/Linear at pickup (off next)
-      owns: carrier-classified transcript trace (wiring/nudge/conduct), static wiring inventory,
-            sweep-debt tripwire (scenario-scoped outer-loop assertion over the trace)
-      -[optional]-> walkthrough-evidence-batch (the trace instruments FE-1167's beats; prefer trace first)
-      relates: agent-tracing (Horizon; event-plane spans vs this transcript-native classification — may join later)
-      excludes: A40-L turn_end rewiring (future), D117-L constant-anchoring (direct fix, non-frontier)
-      depends_on: D80-L, D81-L, D117-L, I57-L; A40-L (named, not retired)
+  spec-posture
+    owns: D118-L materialization + A41-L vocabulary/root-spec validation
+    outer_oracle: run D populated-cwd/brownfield beats + run B orientation beats
 
-  Horizon (behind the gate):
-    planning-process-model
-      status: demoted 2026-07-03; orientation plan option must not pull it forward
-    reconciliation-derivation
-      status: confirmed behind gate 2026-07-03 (grill G7); ingest conflict routing rides the persisted substrate
-    headless-ask-discovery (A39-L)
-    review-commentary-widening
-    develop-mode (split from main-editor-chrome 2026-07-08; entry via ln-grill/ln-spec — D98-L/req-26/D40-L revision)
-    reviewer-agent-mode
-    session-branching
-    compaction-and-conflict-widening
-    agent-tracing
-    web-driver-streaming
-    geolog-and-petri-execution
+  mechanism-trace
+    -[optional instrument]-> walkthrough-evidence-batch (FE-1167)
+    excludes: A40-L turn_end rewiring, D117-L direct hardening
 
-  Retired:
-    coherence-first-class
-    enhance-third-mode (rejected 2026-07-03, grill: conduct bias is not runtime state; D98-L reasoning holds)
-    flue-pattern-adoption / framework-direction-stubs (2026-07-08: postures, not work items; live in SPEC §Future Direction)
-    fixture-vs-real-audit (2026-07-08: graduated into ln-review contract lenses)
-    roving-suite-flake (2026-07-08: re-open condition met same day — 2x verify timeout in git-host-promotion-port; ln-diagnose owed)
-    blank-carrier-sweep (2026-07-08: folded into FE-1163 ledger row 13)
+  walkthrough-evidence-batch (FE-1167)
+    closes_arc: deterministic-orientation
+    live_card: memory/cards/walkthrough-batch-2--seed-variants.md (Card 3)
 
-done anchors:
-  generalized-capture -> elicitor-generate, elicitor-project
-  elicitor-generate -> elicitor-project
-  elicitor-capability-spine (arc) -> deterministic-orientation menus route to its live skills
-  exchange-rendering -> present-digest (family-completeness extension), exchange-answering-chrome
-  exchange-answering-chrome -> main-editor-chrome (Editor-in-chrome proof + shared editor-lines helpers)
-  main-editor-chrome -> walkthrough-remediation-1 (the merged chrome/ask surfaces are the remediation target)
-  alpha-release-readiness -> alpha-walkthrough-lane (published alpha is the surface under audit)
-  exchange-capture-contract -> present-digest (I57-L accepted-terminal read rules + conduct homes)
-  elicitation-gap-guidance -> exchange-capture-contract (scratchpad outlet), execute-entry-readiness (postures)
-  subagent-reconciliation -> acquisition arm + future subagent diversity
+  legacy-question-read-path-retirement
+    status: admitted; Linear/branch at pickup
+    depends_on: D116-L ask cutover
+    preserves: interim pending-exchange scan until A39-L/headless-ask-discovery
+
+  executor-run-environment (FE-1166 follow-up)
+    status: prepared, low-conflict; tracker/branch disposition required before build
+    live_card: memory/cards/executor-run-environment--actionable-slice-request.md
 
 rules:
   candidates never commit graph truth (I51-L)
   topology files own current subtree state
   scratch evidence is not durable until promoted to .fixtures/runs/
-  an arc (§Initiatives) closes only when its done-definition holds, incl. topology-README reconciliation + residue discharge
-  ship-gate frontiers chart their decision flows (paths + endpoints) at ln-scope time
+  arcs close only after topology reconciliation and residue discharge
 ```
