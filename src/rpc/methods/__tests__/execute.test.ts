@@ -941,9 +941,9 @@ describe('execute replanning methods', () => {
       spec: {
         spec_id: '42',
         requirements: [
+          { item_id: 'REQ3', content: 'Build foundation' },
           { item_id: 'REQ1', content: 'Wire feature' },
           { item_id: 'REQ2', content: 'Ship keyboard shortcut' },
-          { item_id: 'REQ3', content: 'Build foundation' },
         ],
         criteria: [
           { item_id: 'AC1', content: 'Feature is visible', verifies: ['REQ1'] },
@@ -960,6 +960,14 @@ describe('execute replanning methods', () => {
         },
       ],
       slices: [
+        {
+          id: 'task-3',
+          epic_id: 'frontier-unscoped-requirements',
+          definition: 'Build foundation',
+          depends_on: [],
+          verification: [],
+          derived_from: ['REQ3'],
+        },
         {
           id: 'task-1',
           epic_id: 'F1',
@@ -981,14 +989,6 @@ describe('execute replanning methods', () => {
           derived_from: ['REQ2'],
           design_context: [{ item_id: 'MOD1', content: 'Feature module' }],
           verification_context: [{ item_id: 'CH1', content: 'Feature smoke test' }],
-        },
-        {
-          id: 'task-3',
-          epic_id: 'frontier-unscoped-requirements',
-          definition: 'Build foundation',
-          depends_on: [],
-          verification: [],
-          derived_from: ['REQ3'],
         },
       ],
     });
