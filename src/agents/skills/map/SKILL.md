@@ -116,7 +116,7 @@ tree plan containment:
 ```
 coherence checks (plan)
   frontier -> contains >=1 scope (composition)?
-  scope    -> exactly one frontier owner + >=1 requirement/criterion/design/check for execution?
+  scope    -> exactly one frontier owner + >=1 requirement + >=1 criterion + >=1 design + >=1 check for execution?
   frontier -> dependencies mirror intent dependencies, not intra-frontier execution order
   milestone-> frontiers map to an invariant bundle to establish
 
