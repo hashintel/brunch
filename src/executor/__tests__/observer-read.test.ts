@@ -460,6 +460,93 @@ describe('readRunDetail', () => {
     });
   });
 
+  it('strips unverifiable terminal metadata from an otherwise matching marking snapshot', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-marking-terminal-unverifiable-');
+    const planPath = join(cwd, 'plan.json');
+    await writeFile(
+      planPath,
+      JSON.stringify({
+        mode: 'greenfield',
+        epics: [{ id: 'frontier-1', summary: 'F', depends_on: [], verification: [] }],
+        slices: [
+          { id: 'task-1', epic_id: 'frontier-1', definition: 'task-1.', depends_on: [], verification: [] },
+        ],
+      }),
+      'utf8',
+    );
+    const runDir = await writeRun(cwd, 'run-petri-marking-terminal-unverifiable', {
+      planPath,
+      status: 'reports_initialized',
+    });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'marking.json'),
+      `${JSON.stringify(
+        {
+          currentMarking: { 'run:slice_frontier': 1 },
+          firedTransitionCount: 5,
+          lifecycleProvenance: { runStatus: 'reports_initialized' },
+          terminalEventKind: 'net_completed',
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-marking-terminal-unverifiable');
+
+    expect(detail).toMatchObject({
+      petriProjection: {
+        currentMarking: { 'run:slice_frontier': 1 },
+        firedTransitionCount: 5,
+      },
+      petriProjectionSource: 'snapshot',
+    });
+    expect(detail).not.toMatchObject({
+      petriProjection: {
+        terminalEventKind: 'net_completed',
+      },
+    });
+  });
+
+  it('keeps terminal metadata from a matching marking snapshot when run metadata makes it checkable', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-marking-terminal-checkable-');
+    const runDir = await writeRun(cwd, 'run-petri-marking-terminal-checkable', {
+      status: 'promotion_prepared',
+      completedSliceIds: ['task-1'],
+    });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'marking.json'),
+      `${JSON.stringify(
+        {
+          currentMarking: { 'run:promotion_prepared': 1 },
+          firedTransitionCount: 8,
+          lifecycleProvenance: {
+            runStatus: 'promotion_prepared',
+            completedSliceIds: ['task-1'],
+          },
+          terminalEventKind: 'net_completed',
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-marking-terminal-checkable');
+
+    expect(detail).toMatchObject({
+      petriProjection: {
+        currentMarking: { 'run:promotion_prepared': 1 },
+        firedTransitionCount: 8,
+        terminalEventKind: 'net_completed',
+      },
+      petriProjectionSource: 'snapshot',
+    });
+  });
+
   it('omits a provenance-matching marking snapshot when its fired transition count contradicts live run state', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-marking-count-mismatch-');
     const planPath = join(cwd, 'plan.json');

@@ -178,6 +178,9 @@ export async function readRunDetail(
   const petriRuntime =
     petriRuntimePlan === undefined ? undefined : materializeExecutorPetriRuntime(metadata, petriRuntimePlan);
   const petriNet = await readPetriNet(petriFilePath(cwd, runId, metadata));
+  const petriReplayProjection = canProjectPetriReplay({ petriNet, petriEvents })
+    ? replayPetri({ net: petriNet, events: petriEvents.events })
+    : undefined;
   const petriMarkingSnapshot = await readPetriMarkingSnapshot({ cwd, runId });
   const hasMatchingPetriMarkingSnapshot =
     petriMarkingSnapshot !== undefined &&
@@ -186,12 +189,12 @@ export async function readRunDetail(
   const petriProjectionEntry =
     (hasMatchingPetriMarkingSnapshot
       ? {
-          projection: toPetriProjection(petriMarkingSnapshot, petriRuntime),
+          projection: toPetriProjection(petriMarkingSnapshot, metadata, petriRuntime, petriReplayProjection),
           source: 'snapshot' as const,
         }
       : undefined) ??
-    (canProjectPetriReplay({ petriNet, petriEvents })
-      ? toProjectionEntry(replayPetri({ net: petriNet, events: petriEvents.events }), 'replay', {
+    (petriReplayProjection
+      ? toProjectionEntry(petriReplayProjection, 'replay', {
           replayReason:
             petriMarkingSnapshot === undefined ? 'snapshot_missing_or_unreadable' : 'snapshot_stale',
         })
@@ -240,15 +243,17 @@ function toPetriProjection(
     readonly terminalEventKind?: PetriProjection['terminalEventKind'];
     readonly haltedReason?: string;
   },
+  metadata: RunMetadata,
   runtime?: Pick<ExecutorPetriRuntime, 'currentMarking' | 'enabledTransitions'>,
+  replayProjection?: Pick<PetriProjection, 'terminalEventKind' | 'haltedReason'>,
 ): PetriProjection {
   const claimedTransitionIds = sanitizeClaimedTransitionIds(snapshot.claimedTransitionIds, runtime);
+  const terminalSummary = sanitizeTerminalSummary(snapshot, metadata, replayProjection);
   return {
     ...(claimedTransitionIds === undefined ? {} : { claimedTransitionIds }),
     currentMarking: snapshot.currentMarking,
     firedTransitionCount: snapshot.firedTransitionCount,
-    ...(snapshot.terminalEventKind === undefined ? {} : { terminalEventKind: snapshot.terminalEventKind }),
-    ...(snapshot.haltedReason === undefined ? {} : { haltedReason: snapshot.haltedReason }),
+    ...terminalSummary,
   };
 }
 
@@ -293,6 +298,51 @@ function petriMarkingSnapshotMatchesRuntime(
     runtimeEntries.length === snapshotEntries.length &&
     runtimeEntries.every(([placeId, count]) => snapshot.currentMarking[placeId] === count)
   );
+}
+
+function sanitizeTerminalSummary(
+  snapshot: {
+    readonly terminalEventKind?: PetriProjection['terminalEventKind'] | undefined;
+    readonly haltedReason?: string | undefined;
+  },
+  metadata: RunMetadata,
+  replayProjection?: {
+    readonly terminalEventKind?: PetriProjection['terminalEventKind'] | undefined;
+    readonly haltedReason?: string | undefined;
+  },
+): Pick<PetriProjection, 'terminalEventKind' | 'haltedReason'> {
+  if (snapshot.terminalEventKind === undefined && snapshot.haltedReason === undefined) {
+    return {};
+  }
+  const checkable = replayProjection?.terminalEventKind
+    ? replayProjection
+    : expectedTerminalSummary(metadata);
+  if (!checkable?.terminalEventKind) {
+    return {};
+  }
+  if (snapshot.terminalEventKind !== checkable.terminalEventKind) {
+    return {};
+  }
+  if (snapshot.haltedReason !== checkable.haltedReason) {
+    return {};
+  }
+  return {
+    terminalEventKind: checkable.terminalEventKind,
+    ...(checkable.haltedReason === undefined ? {} : { haltedReason: checkable.haltedReason }),
+  };
+}
+
+function expectedTerminalSummary(
+  metadata: RunMetadata,
+): Pick<PetriProjection, 'terminalEventKind' | 'haltedReason'> | undefined {
+  switch (metadata.status) {
+    case 'promotion_prepared':
+      return { terminalEventKind: 'net_completed' };
+    case 'abandoned':
+      return { terminalEventKind: 'net_halted', haltedReason: 'abandoned' };
+    default:
+      return undefined;
+  }
 }
 
 async function readPetriRuntimePlan(metadata: RunMetadata): Promise<SchedulerPlan | undefined> {
