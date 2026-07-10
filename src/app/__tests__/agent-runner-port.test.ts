@@ -66,6 +66,7 @@ describe('createAgentRunnerPort', () => {
       JSON.stringify({
         scopeId: 'SCP1',
         definition: 'write proof',
+        instruction: 'Satisfy the done criteria before returning.',
         criteria: [{ kind: 'criterion', target: 'worker proof exists' }],
         derivedFrom: ['REQ1'],
         designContext: [{ itemId: 'MOD1', content: 'worker proof module' }],
@@ -96,6 +97,7 @@ describe('createAgentRunnerPort', () => {
     expect(calls[0]).toMatchObject({ agent: 'worker', cwd: worktreeDir });
     expect(calls[0]!.task).toContain('Scope id: SCP1');
     expect(calls[0]!.task).toContain('Slice goal:\nwrite proof');
+    expect(calls[0]!.task).toContain('Instruction:\nSatisfy the done criteria before returning.');
     expect(calls[0]!.task).toContain('Done criteria:\n- criterion: worker proof exists');
     expect(calls[0]!.task).toContain('Derived from requirements:\n- REQ1');
     expect(calls[0]!.task).toContain('Design context:\n- [MOD1] worker proof module');

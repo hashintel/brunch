@@ -129,6 +129,7 @@ interface ExecutionRequestContextItem {
 interface ExecutionRequest {
   readonly scopeId?: string;
   readonly definition?: string;
+  readonly instruction?: string;
   readonly criteria?: readonly ExecutionRequestCriterion[];
   readonly derivedFrom?: readonly string[];
   readonly designContext?: readonly ExecutionRequestContextItem[];
@@ -144,6 +145,7 @@ function renderWorkerBrief(request: string): string {
   const lines = [
     ...(parsedRequest.scopeId ? [`Scope id: ${parsedRequest.scopeId}`] : []),
     ...(parsedRequest.definition ? ['Slice goal:', parsedRequest.definition] : []),
+    ...(parsedRequest.instruction ? ['Instruction:', parsedRequest.instruction] : []),
     ...renderCriterionLines(parsedRequest.criteria),
     ...renderListSection('Derived from requirements', parsedRequest.derivedFrom),
     ...renderContextSection('Design context', parsedRequest.designContext),
