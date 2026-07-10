@@ -361,6 +361,7 @@ describe('run detail route', () => {
               ...runDetail,
               status: 'promotion_prepared',
               petriProjection: {
+                claimedTransitionIds: ['slice_start:t1'],
                 currentMarking: { 'run:promotion_prepared': 1 },
                 firedTransitionCount: 18,
                 terminalEventKind: 'net_completed',
@@ -383,6 +384,7 @@ describe('run detail route', () => {
     render(<BrunchWebApp runtime={runtime} />);
 
     expect(await screen.findByText(/source: snapshot/u)).toBeTruthy();
+    expect(screen.getByText(/claimed: slice_start:t1/u)).toBeTruthy();
     expect(listeners.size).toBeGreaterThan(0);
 
     await act(async () => {
@@ -396,6 +398,11 @@ describe('run detail route', () => {
               {
                 topic: 'execute.run',
                 runId: 'run-1',
+                petriProjection: {
+                  currentMarking: { 'run:promotion_prepared': 1 },
+                  firedTransitionCount: 18,
+                  terminalEventKind: 'net_completed',
+                },
                 petriProjectionSource: 'replay',
                 petriProjectionReplayReason: 'snapshot_stale',
               },
@@ -412,6 +419,9 @@ describe('run detail route', () => {
       expect(
         screen.getByText(/persisted marking snapshot no longer matches current lifecycle facts/u),
       ).toBeTruthy();
+    });
+    await waitFor(() => {
+      expect(screen.queryByText(/claimed: slice_start:t1/u)).toBeNull();
     });
 
     refetch.resolve({

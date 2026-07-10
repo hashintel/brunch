@@ -10,6 +10,7 @@ type ProductUpdate = {
   readonly sessionId?: unknown;
   readonly nodeId?: unknown;
   readonly runId?: unknown;
+  readonly petriProjection?: unknown;
   readonly petriProjectionSource?: unknown;
   readonly petriProjectionReplayReason?: unknown;
   readonly petriReadySteps?: unknown;
@@ -135,6 +136,7 @@ function invalidateExact(queryClient: QueryClient, queryKey: QueryKey): void {
 function patchExecuteRunDetail(queryClient: QueryClient, update: ProductUpdate): void {
   if (typeof update.runId !== 'string') return;
   if (
+    !('petriProjection' in update) &&
     !('petriProjectionSource' in update) &&
     !('petriProjectionReplayReason' in update) &&
     !('petriReadySteps' in update) &&
@@ -150,6 +152,10 @@ function patchExecuteRunDetail(queryClient: QueryClient, update: ProductUpdate):
       else if (update.petriProjectionSource === 'snapshot' || update.petriProjectionSource === 'replay') {
         next.petriProjectionSource = update.petriProjectionSource;
       }
+    }
+    if ('petriProjection' in update) {
+      if (update.petriProjection === null) delete next.petriProjection;
+      else if (isPetriProjection(update.petriProjection)) next.petriProjection = update.petriProjection;
     }
     if ('petriProjectionReplayReason' in update) {
       if (update.petriProjectionReplayReason === null) delete next.petriProjectionReplayReason;
@@ -175,6 +181,30 @@ function patchExecuteRunDetail(queryClient: QueryClient, update: ProductUpdate):
 
 function isReadyStepArray(value: unknown): value is readonly Record<string, unknown>[] {
   return Array.isArray(value) && value.every(isReadyStep);
+}
+
+function isPetriProjection(value: unknown): value is Record<string, unknown> {
+  if (!isRecord(value) || !isRecord(value.currentMarking)) return false;
+  if (
+    ('claimedTransitionIds' in value &&
+      value.claimedTransitionIds !== undefined &&
+      (!Array.isArray(value.claimedTransitionIds) ||
+        value.claimedTransitionIds.some((transitionId) => typeof transitionId !== 'string'))) ||
+    typeof value.firedTransitionCount !== 'number' ||
+    !Number.isInteger(value.firedTransitionCount) ||
+    value.firedTransitionCount < 0
+  ) {
+    return false;
+  }
+  if (
+    value.terminalEventKind !== undefined &&
+    value.terminalEventKind !== 'net_completed' &&
+    value.terminalEventKind !== 'net_halted' &&
+    value.terminalEventKind !== 'net_deadlocked'
+  ) {
+    return false;
+  }
+  return value.haltedReason === undefined || typeof value.haltedReason === 'string';
 }
 
 function isReadyStep(value: unknown): value is Record<string, unknown> {

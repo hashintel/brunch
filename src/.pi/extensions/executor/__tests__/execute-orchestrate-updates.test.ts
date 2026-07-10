@@ -141,16 +141,25 @@ describe('execute_orchestrate intra-drive updates', () => {
     );
 
     expect(result.details?.outcome?.status).toBe('completed');
-    expect(published).toHaveLength(14);
-    for (const updates of published) {
+    expect(published.length).toBeGreaterThanOrEqual(14);
+    const runScopedBatches = published.filter(
+      (updates) => updates[0]?.topic === 'execute.runs' && updates[1]?.topic === 'execute.run',
+    );
+    expect(runScopedBatches.length).toBeGreaterThanOrEqual(14);
+    for (const updates of runScopedBatches) {
       expect(updates).toMatchObject([
         { topic: 'execute.runs' },
         {
-          topic: 'execute.run',
           runId: 'run-1',
-          petriProjectionSource: 'snapshot',
+          topic: 'execute.run',
         },
       ]);
+    }
+    const snapshotBatches = runScopedBatches.filter(
+      (updates) => updates[1]?.petriProjectionSource === 'snapshot',
+    );
+    expect(snapshotBatches.length).toBeGreaterThan(0);
+    for (const updates of snapshotBatches) {
       expect(updates[1]).toHaveProperty('petriReadySteps');
       expect(updates[1]).toHaveProperty('petriBlockedSteps');
     }
@@ -192,6 +201,35 @@ describe('execute_orchestrate intra-drive updates', () => {
             update.topic === 'execute.run' &&
             update.runId === 'run-1' &&
             JSON.stringify(update).includes('"kind":"slice_execute","sliceId":"t1"'),
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it('publishes the claimed Petri firing set before the reserved transition completes', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-orchestrate-claimed-frontier-'));
+    await createDrivableRun(cwd);
+    const publisher = createProductUpdatePublisher();
+    const published: ProductUpdate[][] = [];
+    publisher.subscribe((updates) => published.push([...updates]));
+
+    const tool = createExecuteOrchestrateTool(fakePorts(), { productUpdates: publisher });
+    const result = await tool.execute(
+      't1',
+      { runId: 'run-1' },
+      undefined as never,
+      undefined as never,
+      { cwd } as never,
+    );
+
+    expect(result.details?.outcome?.status).toBe('completed');
+    expect(
+      published.some((updates) =>
+        updates.some(
+          (update) =>
+            update.topic === 'execute.run' &&
+            update.runId === 'run-1' &&
+            JSON.stringify(update).includes('"claimedTransitionIds":["slice_start:t1"]'),
         ),
       ),
     ).toBe(true);

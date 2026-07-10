@@ -1,4 +1,5 @@
 import type { BlockedStep, ReadyStep } from '../executor/orchestrate-topology.js';
+import type { PetriProjection } from '../executor/petri-replay.js';
 
 export const BRUNCH_UPDATED_METHOD = 'brunch.updated';
 
@@ -20,6 +21,7 @@ export interface ProductUpdate {
   readonly nodeId?: number;
   readonly lsn?: number;
   readonly runId?: string;
+  readonly petriProjection?: PetriProjection | null;
   readonly petriProjectionSource?: 'snapshot' | 'replay' | null;
   readonly petriProjectionReplayReason?: 'snapshot_missing_or_unreadable' | 'snapshot_stale' | null;
   readonly petriReadySteps?: readonly ReadyStep[] | null;
@@ -90,6 +92,7 @@ export function selectedSessionProductUpdates(target?: {
 }
 
 export interface ExecuteRunProductUpdateHints {
+  readonly petriProjection?: PetriProjection | null;
   readonly petriProjectionSource?: 'snapshot' | 'replay' | null;
   readonly petriProjectionReplayReason?: 'snapshot_missing_or_unreadable' | 'snapshot_stale' | null;
   readonly petriReadySteps?: readonly ReadyStep[] | null;
@@ -108,6 +111,7 @@ export function executeRunProductUpdates(
           {
             topic: 'execute.run',
             runId,
+            ...(hints?.petriProjection === undefined ? {} : { petriProjection: hints.petriProjection }),
             ...(hints?.petriProjectionSource === undefined
               ? {}
               : { petriProjectionSource: hints.petriProjectionSource }),

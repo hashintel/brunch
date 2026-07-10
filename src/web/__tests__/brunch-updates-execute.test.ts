@@ -48,6 +48,7 @@ describe('brunch.updated execute topic invalidation', () => {
       petriEventsTail: [],
       petriEventsTotal: 0,
       petriProjection: {
+        claimedTransitionIds: ['slice_start:old'],
         currentMarking: { 'run:promotion_prepared': 1 },
         firedTransitionCount: 18,
         terminalEventKind: 'net_completed',
@@ -66,6 +67,11 @@ describe('brunch.updated execute topic invalidation', () => {
         {
           topic: 'execute.run',
           runId: 'run-1',
+          petriProjection: {
+            claimedTransitionIds: ['slice_start:t1'],
+            currentMarking: { 'run:slice_frontier': 1 },
+            firedTransitionCount: 5,
+          },
           petriProjectionSource: 'replay',
           petriProjectionReplayReason: 'snapshot_stale',
         },
@@ -73,6 +79,11 @@ describe('brunch.updated execute topic invalidation', () => {
     );
 
     expect(queryClient.getQueryData(['execute.run', 'run-1'])).toMatchObject({
+      petriProjection: {
+        claimedTransitionIds: ['slice_start:t1'],
+        currentMarking: { 'run:slice_frontier': 1 },
+        firedTransitionCount: 5,
+      },
       petriProjectionSource: 'replay',
       petriProjectionReplayReason: 'snapshot_stale',
     });
@@ -93,6 +104,7 @@ describe('brunch.updated execute topic invalidation', () => {
       petriEventsTail: [],
       petriEventsTotal: 0,
       petriProjection: {
+        claimedTransitionIds: ['slice_start:t1'],
         currentMarking: { 'run:promotion_prepared': 1 },
         firedTransitionCount: 18,
         terminalEventKind: 'net_completed',
@@ -111,6 +123,11 @@ describe('brunch.updated execute topic invalidation', () => {
         {
           topic: 'execute.run',
           runId: 'run-1',
+          petriProjection: {
+            currentMarking: { 'run:promotion_prepared': 1 },
+            firedTransitionCount: 18,
+            terminalEventKind: 'net_completed',
+          },
           petriProjectionSource: 'replay',
           petriProjectionReplayReason: 'snapshot_missing_or_unreadable',
         },
@@ -118,8 +135,16 @@ describe('brunch.updated execute topic invalidation', () => {
     );
 
     expect(queryClient.getQueryData(['execute.run', 'run-1'])).toMatchObject({
+      petriProjection: {
+        currentMarking: { 'run:promotion_prepared': 1 },
+        firedTransitionCount: 18,
+        terminalEventKind: 'net_completed',
+      },
       petriProjectionSource: 'replay',
       petriProjectionReplayReason: 'snapshot_missing_or_unreadable',
+    });
+    expect(queryClient.getQueryData(['execute.run', 'run-1'])).not.toMatchObject({
+      petriProjection: { claimedTransitionIds: ['slice_start:t1'] },
     });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.run', 'run-1'], exact: true });
   });
