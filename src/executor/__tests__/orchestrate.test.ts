@@ -1287,6 +1287,50 @@ describe('petriScheduler', () => {
     });
   });
 
+  it('fails closed when a persisted claim-set overclaims the current marking', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-claim-overclaim-'));
+    await createRunAtCreated(cwd, ['task-1', 'task-2']);
+    await createWorktree({ cwd, runId: 'run-1', gitWorktree: fakePorts().gitWorktree });
+    await populateWorktree({ cwd, runId: 'run-1' });
+    await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
+    await copyHostSource({ cwd, runId: 'run-1' });
+    await initializeReports({ cwd, runId: 'run-1' });
+    await writePetriMarkingSnapshot({
+      cwd,
+      runId: 'run-1',
+      snapshot: {
+        claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-2'],
+        currentMarking: { 'run:slice_frontier': 1 },
+        firedTransitionCount: 5,
+        lifecycleProvenance: { runStatus: 'reports_initialized' },
+      },
+    });
+
+    let claimedSnapshotPromise: Promise<Awaited<ReturnType<typeof readPetriMarkingSnapshot>>> | undefined;
+    const outcome = await drive(
+      {
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts(),
+        onStepStart: (_kind, _runStatus, progress) => {
+          if (progress.step.kind !== 'slice_start' || claimedSnapshotPromise) return;
+          claimedSnapshotPromise = readPetriMarkingSnapshot({ cwd, runId: 'run-1' });
+        },
+      },
+      petriScheduler,
+      frontierFiringPolicy,
+      { maxFirings: 1 },
+    );
+
+    expect(outcome).toEqual({ status: 'completed', runStatus: 'slice_started' });
+    await expect(claimedSnapshotPromise).resolves.toMatchObject({
+      claimedTransitionIds: ['slice_start:task-1'],
+    });
+    await expect(claimedSnapshotPromise).resolves.not.toMatchObject({
+      claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-2'],
+    });
+  });
+
   it('keeps the durable fired-transition count exact after one missed snapshot write in a completed run', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-marking-recover-completed-'));
     await createRunAtCreated(cwd, ['task-1']);

@@ -410,5 +410,18 @@ async function readClaimedReadySteps(
     runtime.enabledTransitions.map((transition) => [transition.id, transition.step]),
   );
   const claimedSteps = snapshot.claimedTransitionIds.map((transitionId) => enabledById.get(transitionId));
-  return claimedSteps.every((step) => step !== undefined) ? claimedSteps : undefined;
+  if (!claimedSteps.every((step) => step !== undefined)) return undefined;
+
+  const claimedInputs = new Map<string, number>();
+  for (const transitionId of snapshot.claimedTransitionIds) {
+    const transition = runtime.enabledTransitions.find((candidate) => candidate.id === transitionId);
+    if (!transition) return undefined;
+    for (const arc of transition.inputArcs) {
+      const nextClaimed = (claimedInputs.get(arc.placeId) ?? 0) + arc.weight;
+      if (nextClaimed > (runtime.currentMarking[arc.placeId] ?? 0)) return undefined;
+      claimedInputs.set(arc.placeId, nextClaimed);
+    }
+  }
+
+  return claimedSteps;
 }
