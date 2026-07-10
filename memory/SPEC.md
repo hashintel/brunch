@@ -360,7 +360,7 @@ The POC's purpose is to prove three things: (a) that pi's coding-agent harness c
 ### Framework alignment & deferred subsystems
 
 - **Geolog (TA1.2 data store).** Datalog-shaped logical store eventually backing intent/oracle queries. Domain modelling itself is non-trivial and parallel to Brunch. See pi-seam-extensions §Framework alignment.
-- **Plan execution & Petri-net compatibility.** Plan-graph compiled alongside an execution petri-net carrying colored tokens that refer back to plan nodes by ID. Currently exploratory; not part of POC scope.
+- **Plan execution & Petri-net compatibility.** FE-1183 materialized the executor-side serial Petri substrate while preserving `run.json` as lifecycle authority; current topology lives in [`src/executor/TOPOLOGY.md`](src/executor/TOPOLOGY.md). Colored plan-node tokens, semantic/review lanes, and durable parallel side-effect authority remain future work and require fresh frontier admission rather than implicit expansion of the port.
 - **Context subsystem.** Acknowledged as large-scope; deferred. Brunch may stub minimal structure (e.g. an explicit per-turn `Context` namespace under `prepareNextTurn`) without implementing the full subsystem.
 - **Capability tiers** (distinct from authority tiers). A future second axis classifying what an agent *can* do versus what it *may* do. Stub deferred.
 - **Candidate artefacts.** Pre-graph, agent-proposed nodes/edges awaiting user adjudication. Low-confidence elicitor or future auditor findings may eventually flow here or into reconciliation needs, …
