@@ -87,11 +87,9 @@ function frontiersForScopes(snapshot: ExecutionSpecSnapshot): readonly Execution
   const scopesByFrontier = new Map<string, typeof snapshot.scopes>();
 
   for (const scope of snapshot.scopes) {
-    const frontierIds = scope.frontierIds.length > 0 ? scope.frontierIds : ['frontier-1'];
-    for (const frontierId of frontierIds) {
-      const scopes = scopesByFrontier.get(frontierId) ?? [];
-      scopesByFrontier.set(frontierId, [...scopes, scope]);
-    }
+    const frontierId = scope.frontierIds[0] ?? snapshot.frontiers[0]?.itemId ?? 'frontier-1';
+    const scopes = scopesByFrontier.get(frontierId) ?? [];
+    scopesByFrontier.set(frontierId, [...scopes, scope]);
   }
 
   return [...scopesByFrontier.entries()].map(([frontierId, scopes]) => ({

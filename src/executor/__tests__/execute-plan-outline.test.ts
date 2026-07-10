@@ -59,6 +59,37 @@ const snapshot: ExecutionSpecSnapshot = {
 };
 
 describe('outlineExecutionPlan', () => {
+  it('lowers a scope once when it names multiple parent frontiers', () => {
+    const scope = snapshot.scopes[0]!;
+    const outline = outlineExecutionPlan({
+      ...snapshot,
+      frontiers: [
+        ...snapshot.frontiers,
+        { itemId: 'F2', nodeId: 11, title: 'Other frontier', content: 'Other frontier', dependsOn: [] },
+      ],
+      scopes: [{ ...scope, frontierIds: ['F1', 'F2'] }],
+    });
+
+    expect(outline.frontiers).toEqual([
+      expect.objectContaining({
+        id: 'F1',
+        tasks: [expect.objectContaining({ scopeId: 'SCP1' })],
+      }),
+      expect.objectContaining({ id: 'frontier-unscoped-requirements' }),
+    ]);
+  });
+
+  it('uses the committed frontier id when a scope has no parent edge', () => {
+    const scope = snapshot.scopes[0]!;
+
+    expect(
+      outlineExecutionPlan({
+        ...snapshot,
+        scopes: [{ ...scope, frontierIds: [] }],
+      }).frontiers[0],
+    ).toEqual(expect.objectContaining({ id: 'F1', title: 'Execution handoff' }));
+  });
+
   it('drops dependencies that stay inside the same scope package', () => {
     const scope = snapshot.scopes[0]!;
 
