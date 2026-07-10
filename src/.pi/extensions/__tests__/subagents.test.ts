@@ -22,6 +22,7 @@ import {
   defaultBrunchFauxModel,
 } from '../../../probes/faux-provider.js';
 import type { GraphReaders } from '../brunch-data/graph/index.js';
+import { assertProviderLegalToolSchema, hasToolParametersProvenance } from '../shared/tool-schema.js';
 import {
   loadSubagentDefinitions,
   parseSubagentMarkdown,
@@ -434,6 +435,16 @@ describe('registerBrunchSubagents', () => {
   it('registers a single "subagent" tool', () => {
     const { getTool } = harness();
     expect(getTool().name).toBe(BRUNCH_SUBAGENT_TOOL);
+  });
+
+  it('covers both Brunch-owned provider schemas across foreground and sealed-child catalogs', () => {
+    const tools = [harness().getTool(), createSubagentToolCatalog('/tmp').get('write_worktree_file')!];
+
+    expect(tools.map((tool) => tool.name)).toEqual(['subagent', 'write_worktree_file']);
+    for (const tool of tools) {
+      expect(hasToolParametersProvenance(tool.parameters), `${tool.name} adapter provenance`).toBe(true);
+      assertProviderLegalToolSchema(tool.parameters);
+    }
   });
 
   it('renders single, parallel, and invalid call shapes with bounded task previews', () => {
