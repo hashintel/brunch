@@ -41,6 +41,7 @@ import {
 import { Type, type Static } from 'typebox';
 
 import { createReadGraphTool, type GraphReaders } from '../brunch-data/graph/index.js';
+import { defineBrunchTool } from '../shared/define-brunch-tool.js';
 import { toolParameters } from '../shared/tool-schema.js';
 import { createWebFetchTool } from '../web-tools/web/web-fetch.js';
 import { createWebSearchTool } from '../web-tools/web/web-search.js';
@@ -188,7 +189,7 @@ export function createSubagentToolCatalog(
 }
 
 function createWriteWorktreeFileTool(cwd: string): ToolDefinition<typeof WriteWorktreeFileParams> {
-  return {
+  return defineBrunchTool({
     name: 'write_worktree_file',
     label: 'write_worktree_file',
     description:
@@ -203,7 +204,7 @@ function createWriteWorktreeFileTool(cwd: string): ToolDefinition<typeof WriteWo
         details: { sideEffects: [{ kind: 'write_file', path: target, ifExists: 'overwrite' }] },
       };
     },
-  };
+  });
 }
 
 function boundedWorktreePath(cwd: string, rawPath: string): string {

@@ -52,7 +52,7 @@ No required row remains `spec`, `new`, or `partial`; every production-registered
 | Dev session/introspection query tools | `built` | ● | `earned` | `src/.pi/extensions/dev-mode/{session-query,introspect-query}/index.ts` | Both query factories now use `defineBrunchTool`; focused dev-query and introspection suites are green. |
 | Executor tool family | `built` | ● | `earned` | `src/.pi/extensions/executor/execute-*/index.ts` | All 32 production executor tool factories adopt the wrapper; registry/schema suites close the family. Observer-only `execute-run-updates` remains excluded. |
 | Standalone alternatives tool | `built` | ● | `earned` | `src/.pi/components/alternatives.ts` | The fallback-rendered tool receipt adopts the wrapper; registry and preview tests preserve the `alternatives-card-set` custom-message renderer. |
-| Sealed-child worktree writer | `partial` | ● | `earned` | `src/.pi/extensions/subagents/session.ts` | `write_worktree_file` is Brunch-authored; SDK read tools and custom-rendered web tools stay excluded. |
+| Sealed-child worktree writer | `built` | ● | `earned` | `src/.pi/extensions/subagents/session.ts` | `write_worktree_file` adopts the wrapper; SDK read tools and custom-rendered web tools remain excluded. Subagent and registry suites are green. |
 | Production-registry classification oracle | `spec` | ● | `earned` | `src/.pi/extensions/__tests__/registry.test.ts` | Derive registered definitions, assert wrapper rendering on the fallback set, and pin the explicit custom/Pi-owned exclusion set without source-text scanning. |
 | Intentional custom-renderer families | `have` | ○ | `earned` | Existing exchange, subagent, web, and agent-runtime owners | Must remain byte/behavior unchanged; guarded by their existing renderer suites. |
 

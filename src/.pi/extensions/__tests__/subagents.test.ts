@@ -445,6 +445,11 @@ describe('registerBrunchSubagents', () => {
       expect(hasToolParametersProvenance(tool.parameters), `${tool.name} adapter provenance`).toBe(true);
       assertProviderLegalToolSchema(tool.parameters);
     }
+
+    const writer = tools[1]!;
+    expect(writer.renderShell).toBe('self');
+    expect(writer.renderCall).toEqual(expect.any(Function));
+    expect(writer.renderResult).toEqual(expect.any(Function));
   });
 
   it('renders single, parallel, and invalid call shapes with bounded task previews', () => {
