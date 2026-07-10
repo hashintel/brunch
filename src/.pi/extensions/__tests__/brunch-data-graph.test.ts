@@ -107,6 +107,31 @@ describe('graph tool adapter', () => {
 });
 
 describe('graph tools end-to-end', () => {
+  it('adopts the shared Brunch default renderer for mutate_graph and read_graph', () => {
+    const db = createTestDb();
+    const executor = new CommandExecutor(db);
+    const specId = seedSpec(db);
+    const tools: Array<{
+      name: string;
+      renderShell?: string;
+      renderCall?: unknown;
+      renderResult?: unknown;
+    }> = [];
+
+    registerBrunchGraph({ registerTool: (tool: unknown) => tools.push(tool as never) } as never, {
+      specId,
+      commandExecutor: executor,
+      reads: createGraphReads(db, specId),
+    });
+
+    expect(tools.map((tool) => tool.name)).toEqual(['mutate_graph', 'read_graph']);
+    for (const tool of tools) {
+      expect(tool.renderShell, tool.name).toBe('self');
+      expect(tool.renderCall, tool.name).toEqual(expect.any(Function));
+      expect(tool.renderResult, tool.name).toEqual(expect.any(Function));
+    }
+  });
+
   it('mutate_graph creates nodes and read_graph overview reads the selected-spec slice', async () => {
     const db = createTestDb();
     const executor = new CommandExecutor(db);

@@ -46,7 +46,7 @@ No required row remains `spec`, `new`, or `partial`; every production-registered
 | --- | --- | --- | --- | --- | --- |
 | Shared `defineBrunchTool` contract and one-line status component | `built` | ● | `earned` | `src/.pi/extensions/shared/define-brunch-tool.ts` | Reuses `src/.pi/components/lateral-padding.ts` for transparent one-column alignment. Focused tests drive running, partial, success, and error render contexts; compile/type-aware lint witnesses parameter/details/state inference. |
 | Workspace/spec/session context tools | `built` | ● | `earned` | `src/.pi/extensions/brunch-data/context/index.ts` | Three tools adopt the shared renderer; focused family inventory is green and the production registry remains the aggregate closure oracle. |
-| Graph tools | `partial` | ● | `earned` | `src/.pi/extensions/brunch-data/graph/index.ts` | `mutate_graph` and `read_graph`; the same `read_graph` factory also serves sealed children. |
+| Graph tools | `built` | ● | `earned` | `src/.pi/extensions/brunch-data/graph/index.ts` | `mutate_graph` and the shared `read_graph` factory adopt the wrapper; sealed-child graph reads inherit the same renderer. |
 | Elicitation scratchpad tools | `partial` | ● | `earned` | `src/.pi/extensions/brunch-data/elicitation/scratchpad-tools.ts` | Read/update pair. |
 | Reconciliation tools | `partial` | ● | `earned` | `src/.pi/extensions/brunch-data/reconciliation/index.ts` | Read/update pair. |
 | Dev session/introspection query tools | `partial` | ● | `earned` | `src/.pi/extensions/dev-mode/{session-query,introspect-query}/index.ts` | Replace direct Pi `defineTool` use with the Brunch wrapper. |
