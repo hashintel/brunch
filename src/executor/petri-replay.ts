@@ -29,8 +29,7 @@ export function replayPetri(args: {
   if (!net) return undefined;
 
   const transitionIds: string[] = [];
-  let terminalEventKind: PetriProjection['terminalEventKind'];
-  let haltedReason: string | undefined;
+  let terminalSummary: Pick<PetriProjection, 'terminalEventKind' | 'haltedReason'> | undefined | null;
 
   for (const event of args.events) {
     switch (event.kind) {
@@ -40,8 +39,7 @@ export function replayPetri(args: {
       case 'net_completed':
       case 'net_halted':
       case 'net_deadlocked':
-        terminalEventKind = event.kind;
-        haltedReason = event.kind === 'net_halted' ? event.reason : undefined;
+        terminalSummary = mergeTerminalSummary(terminalSummary, event);
         break;
     }
   }
@@ -52,9 +50,26 @@ export function replayPetri(args: {
   return {
     currentMarking: replay.currentMarking,
     firedTransitionCount: replay.firedTransitionCount,
-    ...(terminalEventKind === undefined ? {} : { terminalEventKind }),
-    ...(haltedReason === undefined ? {} : { haltedReason }),
+    ...terminalSummary,
   };
+}
+
+function mergeTerminalSummary(
+  current: Pick<PetriProjection, 'terminalEventKind' | 'haltedReason'> | undefined | null,
+  event: Extract<ExecutorNetEvent, { readonly kind: 'net_completed' | 'net_halted' | 'net_deadlocked' }>,
+): Pick<PetriProjection, 'terminalEventKind' | 'haltedReason'> | undefined | null {
+  const next =
+    event.kind === 'net_halted'
+      ? typeof event.reason === 'string'
+        ? { terminalEventKind: 'net_halted' as const, haltedReason: event.reason }
+        : undefined
+      : { terminalEventKind: event.kind };
+  if (current === null) return null;
+  if (next === undefined) return null;
+  if (current === undefined) return next;
+  return current.terminalEventKind === next.terminalEventKind && current.haltedReason === next.haltedReason
+    ? current
+    : null;
 }
 
 export function replayTransitionHistory(

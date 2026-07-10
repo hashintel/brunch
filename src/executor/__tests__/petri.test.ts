@@ -307,6 +307,73 @@ describe('canProjectPetriReplay', () => {
   });
 });
 
+describe('replayPetri', () => {
+  it('strips terminal summary when the raw journal contains contradictory terminal events', () => {
+    const topology = compileExecutorTopology({
+      mode: 'greenfield',
+      slices: [{ id: 'task-1' }],
+    });
+
+    expect(
+      replayPetri({
+        net: topology,
+        events: [
+          {
+            kind: 'transition_fired',
+            runId: 'run-1',
+            runStatus: 'promotion_prepared',
+            transitionId: 'worktree_create',
+            subnetId: 'run',
+            step: 'worktree_create',
+            contract: { kind: 'mechanical', lane: 'run' },
+            consumed: ['run:created'],
+            produced: ['run:worktree_created'],
+            fromStatus: 'created',
+            toStatus: 'worktree_created',
+          },
+          { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+          { kind: 'net_deadlocked', runId: 'run-1', runStatus: 'promotion_prepared' },
+        ],
+      }),
+    ).toEqual({
+      currentMarking: { 'run:worktree_created': 1 },
+      firedTransitionCount: 1,
+    });
+  });
+
+  it('strips terminal summary when a replayed halt event has no reason', () => {
+    const topology = compileExecutorTopology({
+      mode: 'greenfield',
+      slices: [{ id: 'task-1' }],
+    });
+
+    expect(
+      replayPetri({
+        net: topology,
+        events: [
+          {
+            kind: 'transition_fired',
+            runId: 'run-1',
+            runStatus: 'worktree_created',
+            transitionId: 'worktree_create',
+            subnetId: 'run',
+            step: 'worktree_create',
+            contract: { kind: 'mechanical', lane: 'run' },
+            consumed: ['run:created'],
+            produced: ['run:worktree_created'],
+            fromStatus: 'created',
+            toStatus: 'worktree_created',
+          },
+          { kind: 'net_halted', runId: 'run-1', runStatus: 'worktree_created' },
+        ],
+      }),
+    ).toEqual({
+      currentMarking: { 'run:worktree_created': 1 },
+      firedTransitionCount: 1,
+    });
+  });
+});
+
 describe('replayTransitionHistory', () => {
   it('replays transition ids over a compiled executor topology for shared runtime/read-side marking recovery', () => {
     const topology = compileExecutorTopology({

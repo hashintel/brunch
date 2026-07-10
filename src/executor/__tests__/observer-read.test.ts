@@ -374,6 +374,78 @@ describe('readRunDetail', () => {
     });
   });
 
+  it('omits terminal summary from replay when the raw journal contains contradictory terminal events', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-terminal-conflict-');
+    const runDir = await writeRun(cwd, 'run-petri-terminal-conflict', { status: 'promotion_prepared' });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'net.json'),
+      JSON.stringify({
+        runId: 'run-petri-terminal-conflict',
+        subnets: [{ id: 'run', kind: 'run_control', transitionIds: ['worktree_create'] }],
+        places: [
+          { id: 'run:created', subnetId: 'run', name: 'Created' },
+          { id: 'run:promotion_prepared', subnetId: 'run', name: 'Promotion prepared' },
+        ],
+        transitions: [
+          {
+            id: 'worktree_create',
+            subnetId: 'run',
+            step: { kind: 'worktree_create' },
+            contract: { kind: 'mechanical', lane: 'run' },
+            inputArcs: [{ placeId: 'run:created', weight: 1 }],
+            outputArcs: [{ placeId: 'run:promotion_prepared', weight: 1 }],
+          },
+        ],
+        initialMarking: { 'run:created': 1 },
+      }),
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'petrinaut', 'events.jsonl'),
+      [
+        JSON.stringify({
+          kind: 'transition_fired',
+          runId: 'run-petri-terminal-conflict',
+          runStatus: 'promotion_prepared',
+          transitionId: 'worktree_create',
+          subnetId: 'run',
+          step: 'worktree_create',
+          fromStatus: 'created',
+          toStatus: 'promotion_prepared',
+        }),
+        JSON.stringify({
+          kind: 'net_completed',
+          runId: 'run-petri-terminal-conflict',
+          runStatus: 'promotion_prepared',
+        }),
+        JSON.stringify({
+          kind: 'net_deadlocked',
+          runId: 'run-petri-terminal-conflict',
+          runStatus: 'promotion_prepared',
+        }),
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-terminal-conflict');
+
+    expect(detail).toMatchObject({
+      petriProjection: {
+        currentMarking: { 'run:promotion_prepared': 1 },
+        firedTransitionCount: 1,
+      },
+      petriProjectionSource: 'replay',
+      petriProjectionReplayReason: 'snapshot_missing_or_unreadable',
+    });
+    expect(detail).not.toMatchObject({
+      petriProjection: {
+        terminalEventKind: 'net_completed',
+      },
+    });
+  });
+
   it('prefers the persisted marking snapshot over replay when both are present and its derived facts still match', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-marking-snapshot-');
     const planPath = join(cwd, 'plan.json');
