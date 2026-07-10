@@ -124,6 +124,74 @@ describe('execute_orchestrate rendering', () => {
     );
   });
 
+  it('prefers terminal halted outcome state over stale in-flight progress', () => {
+    const collapsed = renderResult(
+      tool,
+      {
+        content: [{ type: 'text', text: 'fallback' }],
+        details: {
+          progress: {
+            runId: 'run-1',
+            step: 'test_result',
+            phase: 'started',
+            fromStatus: 'agent_result_ingested',
+            runStatus: 'agent_result_ingested',
+            activeEpicId: 'e1',
+            activeSliceId: 't1',
+            completedSliceIds: ['t0'],
+          },
+          outcome: {
+            status: 'halted',
+            step: 'test_result',
+            runStatus: 'agent_result_ingested',
+            reason: 'failed',
+          },
+        },
+      },
+      { expanded: false, isPartial: false },
+    );
+
+    const expanded = renderResult(
+      tool,
+      {
+        content: [{ type: 'text', text: 'fallback' }],
+        details: {
+          progress: {
+            runId: 'run-1',
+            step: 'test_result',
+            phase: 'started',
+            fromStatus: 'agent_result_ingested',
+            runStatus: 'agent_result_ingested',
+            activeEpicId: 'e1',
+            activeSliceId: 't1',
+            completedSliceIds: ['t0'],
+          },
+          outcome: {
+            status: 'halted',
+            step: 'test_result',
+            runStatus: 'agent_result_ingested',
+            reason: 'failed',
+          },
+        },
+      },
+      { expanded: true, isPartial: false },
+    );
+
+    expect(collapsed).toBe(
+      [
+        'halted · test_result',
+        'run run-1   epic e1   slice t1',
+        'now test_result   halted   done 1',
+        'reason failed   Ctrl + O to expand',
+      ].join('\n'),
+    );
+    expect(expanded).toContain('current step: test_result');
+    expect(expanded).toContain('phase: halted');
+    expect(expanded).toContain('[!] test_result halted -> agent_result_ingested');
+    expect(expanded).toContain('phase change: halted from agent_result_ingested');
+    expect(expanded).not.toContain('phase: started');
+  });
+
   it('surfaces recent worker and verify activity in the collapsed summary', () => {
     const rendered = renderResult(
       tool,

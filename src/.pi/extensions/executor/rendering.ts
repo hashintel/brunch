@@ -162,6 +162,11 @@ function compactExpandHint(summary: string, theme: ThemeLike): string {
   return `${summary}   ${collapsedToggleHint(theme)}`;
 }
 
+function terminalOutcomeStatus(outcome: Record<string, unknown> | undefined): string | undefined {
+  const status = stringOrUndefined(outcome?.['status']);
+  return status === 'halted' || status === 'completed' ? status : undefined;
+}
+
 function orchestrateCollapsed(
   details: Record<string, unknown>,
   options: RenderOptions,
@@ -184,12 +189,8 @@ function orchestrateCollapsed(
     stringOrUndefined(progress?.['activeSliceId']) ??
     stringOrUndefined(agentStream?.['sliceId']) ??
     stringOrUndefined(verifyStream?.['sliceId']);
-  const step = stringOrUndefined(progress?.['step']) ?? stringOrUndefined(outcome?.['step']);
-  const phase = progress
-    ? stringOrUndefined(progress['phase'])
-    : outcome
-      ? outcome['status']?.toString()
-      : undefined;
+  const step = stringOrUndefined(outcome?.['step']) ?? stringOrUndefined(progress?.['step']);
+  const phase = terminalOutcomeStatus(outcome) ?? stringOrUndefined(progress?.['phase']);
   const completed = countArray(progress?.['completedSliceIds']);
   let tail = `status ${compactField(stringOrUndefined(progress?.['runStatus']), 'unknown')}`;
   if (events.length > 0) {
@@ -285,15 +286,22 @@ function orchestrateExpanded(
   if (activeSliceId) lines.push(`active slice: ${activeSliceId}`);
   const runStatus =
     stringOrUndefined(progress?.['runStatus']) ?? stringOrUndefined(outcome?.['runStatus']) ?? 'unknown';
+  const currentStep = stringOrUndefined(outcome?.['step']) ?? stringOrUndefined(progress?.['step']) ?? '-';
+  const currentPhase = terminalOutcomeStatus(outcome) ?? stringOrUndefined(progress?.['phase']) ?? 'unknown';
   lines.push(`current state: ${runStatus}`);
-  lines.push(`current step: ${stringOrUndefined(progress?.['step']) ?? '-'}`);
-  lines.push(
-    `phase: ${stringOrUndefined(progress?.['phase']) ?? compactField(stringOrUndefined(outcome?.['status']), 'unknown')}`,
-  );
+  lines.push(`current step: ${currentStep}`);
+  lines.push(`phase: ${currentPhase}`);
   lines.push(`slices completed: ${countArray(progress?.['completedSliceIds'])}`);
 
   lines.push('', sectionDivider('Timeline'));
-  if (progress) {
+  const haltedOutcome = terminalOutcomeStatus(outcome) === 'halted';
+  if (haltedOutcome) {
+    const step = stringOrUndefined(outcome?.['step']) ?? stringOrUndefined(progress?.['step']) ?? 'unknown';
+    const fromStatus =
+      stringOrUndefined(progress?.['fromStatus']) ?? stringOrUndefined(outcome?.['runStatus']) ?? 'unknown';
+    lines.push(`[!] ${step} halted -> ${runStatus}`);
+    lines.push(`phase change: halted from ${fromStatus}`);
+  } else if (progress) {
     const phase = stringOrUndefined(progress['phase']);
     const step = stringOrUndefined(progress['step']) ?? 'unknown';
     const fromStatus = stringOrUndefined(progress['fromStatus']);
