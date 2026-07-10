@@ -17,7 +17,9 @@ import {
 import { READINESS_BANDS } from '../../../graph/schema/kinds.js';
 import { translateMutateGraph } from '../brunch-data/graph/command-adapter.js';
 import { registerBrunchGraph, type GraphReaders } from '../brunch-data/graph/index.js';
-import { ReadGraphParams } from '../brunch-data/graph/tool-schemas.js';
+import { MutateGraphParams, ReadGraphParams } from '../brunch-data/graph/tool-schemas.js';
+import { graphToolSchemaBaseline } from './fixtures/graph-tool-schemas.pre-fe-1163.js';
+import { normalizeToolSchema } from './tool-schema-baseline.js';
 
 let nextSpecSlug = 0;
 
@@ -43,6 +45,12 @@ function createGraphReads(db: BrunchDb, specId: number): GraphReaders {
 }
 
 describe('graph tool adapter', () => {
+  it('preserves the pre-FE-1163 provider-facing schema semantics', () => {
+    expect(normalizeToolSchema({ read_graph: ReadGraphParams, mutate_graph: MutateGraphParams })).toEqual(
+      normalizeToolSchema(graphToolSchemaBaseline.schemas),
+    );
+  });
+
   it('keeps read_graph provider-legal: no top-level union, companions enforced by adapter diagnostics', () => {
     // Anthropic-family backends reject tool input schemas with a top-level
     // oneOf/anyOf/allOf (400 on every provider turn — 2026-07-07 FE-1159
