@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
 import { EXECUTOR_ALLOWED_TOOL_NAMES } from '../../../agents/runtime/executor/active-tools.js';
@@ -2790,6 +2791,9 @@ describe('Brunch explicit Pi extension registry', () => {
     for (const tool of executorTools) {
       expect(hasToolParametersProvenance(tool.parameters), `${tool.name} adapter provenance`).toBe(true);
       assertProviderLegalToolSchema(tool.parameters);
+      expect(tool.renderShell, `${tool.name} shell`).toBe('self');
+      expect(tool.renderCall, `${tool.name} call renderer`).toEqual(expect.any(Function));
+      expect(tool.renderResult, `${tool.name} result renderer`).toEqual(expect.any(Function));
     }
   });
 
@@ -3110,9 +3114,10 @@ const brunchChromeFixture = {
   },
 };
 
-type RegisteredTestTool = {
-  name: string;
-  parameters?: unknown;
+type RegisteredTestTool = Pick<
+  ToolDefinition,
+  'name' | 'parameters' | 'renderShell' | 'renderCall' | 'renderResult'
+> & {
   execute: (
     toolCallId: string,
     params: unknown,

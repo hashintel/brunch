@@ -1,8 +1,9 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import { copyHostSource, type SourceCopyResult } from '../../../../executor/source-copy.js';
 import { BRUNCH_EXECUTE_SOURCE_COPY_TOOL } from '../../../../session/schema/tool-names.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_SOURCE_COPY_TOOL } from '../../../../session/schema/tool-names.js';
@@ -18,11 +19,8 @@ interface ExecuteSourceCopyDetails {
   readonly sideEffects: SourceCopyResult['sideEffects'];
 }
 
-export function createExecuteSourceCopyTool(): ToolDefinition<
-  typeof ExecuteSourceCopyParams,
-  ExecuteSourceCopyDetails
-> {
-  return {
+export function createExecuteSourceCopyTool() {
+  return defineBrunchTool<typeof ExecuteSourceCopyParams, ExecuteSourceCopyDetails>({
     name: BRUNCH_EXECUTE_SOURCE_COPY_TOOL,
     label: 'execute_source_copy',
     description:
@@ -49,7 +47,7 @@ export function createExecuteSourceCopyTool(): ToolDefinition<
         details: { result, sideEffects: result.sideEffects },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecuteSourceCopy(pi: ExtensionAPI): void {

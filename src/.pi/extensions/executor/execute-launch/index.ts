@@ -1,9 +1,10 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import { prepareLaunch, type LaunchResult } from '../../../../executor/launch.js';
 import { BRUNCH_EXECUTE_LAUNCH_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { toolParameters } from '../../shared/tool-schema.js';
 import { buildCurrentProjectionForSpec } from '../current-projection.js';
 
@@ -34,10 +35,8 @@ export interface ExecuteLaunchDeps {
   readonly reads: Pick<GraphReaders, 'queryGraph'>;
 }
 
-export function createExecuteLaunchTool(
-  deps: ExecuteLaunchDeps,
-): ToolDefinition<typeof ExecuteLaunchParams, ExecuteLaunchDetails> {
-  return {
+export function createExecuteLaunchTool(deps: ExecuteLaunchDeps) {
+  return defineBrunchTool<typeof ExecuteLaunchParams, ExecuteLaunchDetails>({
     name: BRUNCH_EXECUTE_LAUNCH_TOOL,
     label: 'execute_launch',
     description:
@@ -76,7 +75,7 @@ export function createExecuteLaunchTool(
         details: { result, sideEffects: result.sideEffects },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecuteLaunch(pi: ExtensionAPI, deps: ExecuteLaunchDeps): void {

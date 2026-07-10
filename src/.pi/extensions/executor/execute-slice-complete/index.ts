@@ -1,8 +1,9 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import { completeSlice, type SliceCompleteResult } from '../../../../executor/slice-complete.js';
 import { BRUNCH_EXECUTE_SLICE_COMPLETE_TOOL } from '../../../../session/schema/tool-names.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_SLICE_COMPLETE_TOOL } from '../../../../session/schema/tool-names.js';
@@ -18,11 +19,8 @@ interface ExecuteSliceCompleteDetails {
   readonly sideEffects: SliceCompleteResult['sideEffects'];
 }
 
-export function createExecuteSliceCompleteTool(): ToolDefinition<
-  typeof ExecuteSliceCompleteParams,
-  ExecuteSliceCompleteDetails
-> {
-  return {
+export function createExecuteSliceCompleteTool() {
+  return defineBrunchTool<typeof ExecuteSliceCompleteParams, ExecuteSliceCompleteDetails>({
     name: BRUNCH_EXECUTE_SLICE_COMPLETE_TOOL,
     label: 'execute_slice_complete',
     description:
@@ -49,7 +47,7 @@ export function createExecuteSliceCompleteTool(): ToolDefinition<
         details: { result, sideEffects: result.sideEffects },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecuteSliceComplete(pi: ExtensionAPI): void {

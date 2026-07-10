@@ -1,13 +1,13 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { EXECUTOR_ALLOWED_TOOL_NAMES } from '../../../../agents/runtime/executor/active-tools.js';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { BRUNCH_EXECUTE_STATUS_TOOL } from '../../../../session/schema/tool-names.js';
-import { toolParameters } from '../../shared/tool-schema.js';
+import { EXECUTOR_ALLOWED_TOOL_NAMES } from '../../../../agents/runtime/executor/active-tools.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { renderExecuteStatusResult } from '../rendering.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_STATUS_TOOL } from '../../../../session/schema/tool-names.js';
-
 // The ported-tool narrative is the execute-mode foothold subset of the executor
 // admission policy — the single source of truth. Deriving it here keeps the
 // human-readable line and the structured `details.portedTools` from drifting
@@ -34,8 +34,8 @@ interface ExecuteStatusDetails {
   readonly sideEffects: readonly [];
 }
 
-export function createExecuteStatusTool(): ToolDefinition<typeof ExecuteStatusParams, ExecuteStatusDetails> {
-  return {
+export function createExecuteStatusTool() {
+  return defineBrunchTool<typeof ExecuteStatusParams, ExecuteStatusDetails>({
     name: BRUNCH_EXECUTE_STATUS_TOOL,
     label: 'execute_status',
     description:
@@ -69,7 +69,7 @@ export function createExecuteStatusTool(): ToolDefinition<typeof ExecuteStatusPa
         },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecuteStatus(pi: ExtensionAPI): void {

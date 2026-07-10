@@ -1,9 +1,10 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import { ingestAgentResult, type AgentResultIngestResult } from '../../../../executor/agent-result.js';
 import type { AgentRunnerPort } from '../../../../executor/execution-ports.js';
 import { BRUNCH_EXECUTE_AGENT_RESULT_TOOL } from '../../../../session/schema/tool-names.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_AGENT_RESULT_TOOL } from '../../../../session/schema/tool-names.js';
@@ -19,10 +20,8 @@ interface ExecuteAgentResultDetails {
   readonly sideEffects: AgentResultIngestResult['sideEffects'];
 }
 
-export function createExecuteAgentResultTool(
-  agentRunner: AgentRunnerPort,
-): ToolDefinition<typeof ExecuteAgentResultParams, ExecuteAgentResultDetails> {
-  return {
+export function createExecuteAgentResultTool(agentRunner: AgentRunnerPort) {
+  return defineBrunchTool<typeof ExecuteAgentResultParams, ExecuteAgentResultDetails>({
     name: BRUNCH_EXECUTE_AGENT_RESULT_TOOL,
     label: 'execute_agent_result',
     description:
@@ -58,7 +57,7 @@ export function createExecuteAgentResultTool(
         details: { result, sideEffects: result.sideEffects },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecuteAgentResult(pi: ExtensionAPI, agentRunner: AgentRunnerPort): void {

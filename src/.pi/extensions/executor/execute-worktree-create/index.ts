@@ -1,9 +1,10 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import type { GitWorktreePort } from '../../../../executor/execution-ports.js';
 import { createWorktree, type WorktreeCreateResult } from '../../../../executor/worktree.js';
 import { BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL } from '../../../../session/schema/tool-names.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL } from '../../../../session/schema/tool-names.js';
@@ -19,10 +20,8 @@ interface ExecuteWorktreeCreateDetails {
   readonly sideEffects: WorktreeCreateResult['sideEffects'];
 }
 
-export function createExecuteWorktreeCreateTool(
-  gitWorktree: GitWorktreePort,
-): ToolDefinition<typeof ExecuteWorktreeCreateParams, ExecuteWorktreeCreateDetails> {
-  return {
+export function createExecuteWorktreeCreateTool(gitWorktree: GitWorktreePort) {
+  return defineBrunchTool<typeof ExecuteWorktreeCreateParams, ExecuteWorktreeCreateDetails>({
     name: BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL,
     label: 'execute_worktree_create',
     description:
@@ -49,7 +48,7 @@ export function createExecuteWorktreeCreateTool(
         details: { result, sideEffects: result.sideEffects },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecuteWorktreeCreate(pi: ExtensionAPI, gitWorktree: GitWorktreePort): void {
