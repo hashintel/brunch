@@ -51,7 +51,7 @@ Status vocabulary: `have` (closed before this closeout) · `partial` (implementa
 | # | Capability | Status | Req | Fill | Owner / next | Source inputs and closure oracle |
 |---|---|---|---|---|---|---|
 | 1 | `shared-adapter` — one Zod/TypeBox adapter, legacy adapters retired, named provider constraints enforced | built | ● | earned | `src/.pi/extensions/shared/tool-schema.ts`; `src/.pi/extensions/__tests__/tool-schema.test.ts` | Existing union/provenance tests plus counterexamples proving `z.string()` and `Type.String()` roots fail loudly; legal Zod/TypeBox objects and nested unions stay green. |
-| 2 | `exchanges-family` — 4 schemas | partial | ● | earned | exchange schema/extension tests | Recover the pre-sweep emitted schemas and compare a normalized semantic projection against current output; do not recompute expected output through the current adapter. |
+| 2 | `exchanges-family` — 4 schemas | built | ● | earned | exchange schema/extension tests | Recover the pre-sweep emitted schemas and compare a normalized semantic projection against current output; do not recompute expected output through the current adapter. |
 | 3 | `dev-mode-family` — 2 schemas | partial | ● | earned | dev query tests | Same semantic pre/post differential; existing draft-2020-12 tuple checks remain green. |
 | 4 | `graph-family` — 2 schemas | partial | ● | earned | graph schema tests | Differential covers root/object shape, required fields, properties, enum/union structure, descriptions, and `additionalProperties` where present; graph/DB TypeBox ownership remains canonical. |
 | 5 | `context-family` — 3 schemas | partial | ● | earned | context tool tests | Same semantic pre/post differential for the literal→TypeBox rewrite. |

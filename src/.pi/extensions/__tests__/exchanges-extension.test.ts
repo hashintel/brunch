@@ -1,24 +1,34 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  zAskParams,
-  zPresentCandidatesParams,
-  zPresentDigestParams,
-  zPresentReviewSetParams,
-} from '../../../exchanges/schemas/index.js';
-import {
   ASK_TOOL,
   PRESENT_CANDIDATES_TOOL,
   PRESENT_DIGEST_TOOL,
   PRESENT_REVIEW_SET_TOOL,
   registerStructuredExchange,
 } from '../exchanges/index.js';
-import { toolParameters } from '../shared/tool-schema.js';
+import { exchangeToolSchemaBaseline } from './fixtures/exchange-tool-schemas.pre-fe-1163.js';
 
 const ansiPattern = new RegExp(`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`, 'g');
 
 function stripAnsi(text: string): string {
   return text.replace(ansiPattern, '');
+}
+
+function normalizeToolSchema(value: unknown, parentKey?: string): unknown {
+  if (Array.isArray(value)) {
+    if (parentKey === 'required' && value.every((item): item is string => typeof item === 'string')) {
+      return [...value].sort((left, right) => left.localeCompare(right));
+    }
+    return value.map((item) => normalizeToolSchema(item));
+  }
+  if (typeof value !== 'object' || value === null) return value;
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => key !== '$schema')
+      .map(([key, nested]) => [key, normalizeToolSchema(nested, key)]),
+  );
 }
 
 function registerTools() {
@@ -81,19 +91,14 @@ describe('structured exchange renderers', () => {
     }
   });
 
-  it('registers exchange parameters through the shared Zod adapter without changing emitted schemas', () => {
+  it('preserves the pre-FE-1163 provider-facing schema semantics', () => {
     const tools = registerTools();
-    const expectedSchemas = new Map([
-      [ASK_TOOL, toolParameters(zAskParams)],
-      [PRESENT_REVIEW_SET_TOOL, toolParameters(zPresentReviewSetParams)],
-      [PRESENT_CANDIDATES_TOOL, toolParameters(zPresentCandidatesParams)],
-      [PRESENT_DIGEST_TOOL, toolParameters(zPresentDigestParams)],
-    ] as const);
+    const currentSchemas = Object.fromEntries(
+      [...tools].map(([name, tool]) => [name, normalizeToolSchema(tool.parameters)]),
+    );
 
-    expect([...tools.keys()]).toEqual([...expectedSchemas.keys()]);
-    for (const [name, expectedSchema] of expectedSchemas) {
-      expect(tools.get(name)?.parameters).toEqual(expectedSchema);
-    }
+    expect([...tools.keys()]).toEqual(Object.keys(exchangeToolSchemaBaseline.schemas));
+    expect(currentSchemas).toEqual(normalizeToolSchema(exchangeToolSchemaBaseline.schemas));
   });
 
   it('renders present_candidates from tool result markdown content', async () => {
