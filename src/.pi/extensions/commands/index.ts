@@ -30,6 +30,7 @@
 import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
 
 import { findIncompleteStructuredExchangePresents, type EntryLike } from '../../../exchanges/recovery.js';
+import type { KickCompletionOutcome } from '../../../session/originate-assistant-turn.js';
 import { appendBrunchAgentRuntimeSwitch } from '../../../session/runtime-state.js';
 import {
   OPERATIONAL_MODE_IDS,
@@ -278,6 +279,29 @@ function formatErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function formatContinueOutcome(outcome: KickCompletionOutcome | undefined): {
+  readonly message: string;
+  readonly level: 'info' | 'warning';
+} {
+  if (outcome?.status === 'failed') {
+    return {
+      message: `Brunch resume could not complete: ${formatErrorMessage(outcome.error)}`,
+      level: 'warning',
+    };
+  }
+  if (outcome?.status === 'skipped' && outcome.reason === 'no_model_available') {
+    return {
+      message:
+        'No allowlisted model is available, so Brunch did not start an assistant turn. Run /login or brunch login, then try /brunch:continue again.',
+      level: 'info',
+    };
+  }
+  return {
+    message: `Nothing to resume. Try ${slashCommand(BRUNCH_CONSULT_COMMAND)} or ${slashCommand(BRUNCH_MODE_COMMAND)}.`,
+    level: 'info',
+  };
+}
+
 function applyModeSwitch(
   pi: ExtensionAPI,
   ctx: RuntimeSwitchContext,
@@ -475,10 +499,8 @@ async function runGeneralContinue(
     },
   });
   if (!result.kickFired) {
-    ctx.ui.notify(
-      `Nothing to resume. Try ${slashCommand(BRUNCH_CONSULT_COMMAND)} or ${slashCommand(BRUNCH_MODE_COMMAND)}.`,
-      'info',
-    );
+    const notice = formatContinueOutcome(result.kickOutcome);
+    ctx.ui.notify(notice.message, notice.level);
   }
 }
 

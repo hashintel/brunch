@@ -122,7 +122,9 @@ plus the coordination logic for workspace/spec/session lifecycle.
   probe-land machinery in `probes/deterministic-exchange-script.ts`). The LLM
   turn completing a 'start' decision is fired by the launch path after session
   creation via `session.sendCustomMessage(kickTurnMessage(origin), { triggerTurn: true })`,
-  guarded on model availability (unauthenticated launches idle); the assistant
+  guarded on model availability (unauthenticated launches idle); completion
+  returns a classified `KickCompletionOutcome` (`fired`, `skipped`, or `failed`)
+  so callers distinguish a provider turn from an attempted origination. The assistant
   authors the opening live, typically via real `present_*`/`request_*` tool
   calls. The RPC `session.triggerExchange` is a kick surface — it seeds and
   reports pending state only for assistant-created exchanges.
