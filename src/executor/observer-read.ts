@@ -4,11 +4,11 @@ import { join } from 'node:path';
 import { BRUNCH_DIR } from '../constants.js';
 import { agentStreamPath, type AgentStreamEvent } from './agent-result.js';
 import type { BlockedStep, ExecutorNetEvent, ReadyStep, SchedulerPlan } from './orchestrate-topology.js';
-import { projectSchedulerPlan } from './orchestrate-topology.js';
 import { petriEventsPath } from './petri-events.js';
 import { petriMarkingSnapshotMatchesRunMetadata, readPetriMarkingSnapshot } from './petri-marking.js';
 import { canProjectPetriReplay } from './petri-replay-eligibility.js';
 import { replayPetri, type PetriProjection } from './petri-replay.js';
+import { readPetriRuntimePlan } from './petri-runtime-plan.js';
 import {
   materializeExecutorPetriRuntime,
   projectExecutorPetriTransitionHistory,
@@ -174,7 +174,7 @@ export async function readRunDetail(
   const petriEvents = await readPetriEvents(petriEventsPath(cwd, runId), petriEventsLimit);
   const agentStream = await readAgentStreamTail(cwd, runId, metadata, agentStreamLimit);
   const verifyStream = await readVerifyStreamTail(cwd, runId, metadata, verifyStreamLimit);
-  const petriRuntimePlan = await readPetriRuntimePlan(metadata);
+  const petriRuntimePlan = await readPetriRuntimePlan(cwd, metadata);
   let petriRuntime: ReturnType<typeof materializeExecutorPetriRuntime> | undefined;
   try {
     petriRuntime =
@@ -349,16 +349,6 @@ function expectedTerminalSummary(
       return { terminalEventKind: 'net_halted', haltedReason: 'abandoned' };
     default:
       return undefined;
-  }
-}
-
-async function readPetriRuntimePlan(metadata: RunMetadata): Promise<SchedulerPlan | undefined> {
-  try {
-    return projectSchedulerPlan(
-      JSON.parse(await readFile(metadata.populatedPlanPath ?? metadata.planPath, 'utf8')),
-    );
-  } catch {
-    return undefined;
   }
 }
 

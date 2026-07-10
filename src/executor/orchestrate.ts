@@ -1,10 +1,7 @@
-import { readFile } from 'node:fs/promises';
-
 import type { AgentStreamEvent } from './agent-result.js';
 import type { AgentRunnerRuntime, ExecutionPorts } from './execution-ports.js';
 import {
   compileExecutorTopology,
-  projectSchedulerPlan,
   type ExecutorNetEvent,
   type ReadyStep,
   type SchedulerPlan,
@@ -19,6 +16,7 @@ import {
   writePetriMarkingSnapshot,
 } from './petri-marking.js';
 import type { PetriProjection } from './petri-replay.js';
+import { readPetriRuntimePlan } from './petri-runtime-plan.js';
 import {
   bindExecutorPetriRuntime,
   materializeExecutorPetriRuntime,
@@ -26,7 +24,6 @@ import {
   type ExecutorPetriRuntime,
 } from './petri-runtime.js';
 import { classifyDriveTerminal } from './petri-terminal.js';
-import { populatedPlanPath } from './populate.js';
 import { readRunMetadata, runMetadataPath, type RunMetadata } from './run.js';
 import type { SourcePolicyKind } from './source-policy.js';
 import type { VerifyStreamEvent } from './test-result.js';
@@ -40,7 +37,11 @@ export type { ExecutorNetEvent, ReadyStep, SchedulerPlan, SchedulerPlanMode };
 
 export interface RunScheduler {
   /** Pure: given current run facts, return the ready step frontier (`[]` when done). */
-  ready(state: RunMetadata, plan: SchedulerPlan | undefined): readonly ReadyStep[];
+  ready(
+    state: RunMetadata,
+    plan: SchedulerPlan | undefined,
+    runtime?: ExecutorPetriRuntime,
+  ): readonly ReadyStep[];
 }
 
 export interface RunFiringPolicy {
@@ -59,15 +60,15 @@ export interface RunFiringPolicy {
 // PetriScheduler that fires several enabled transitions at once (D112-L,
 // geolog-and-petri-execution) without reshaping the driver loop.
 export const linearScheduler: RunScheduler = {
-  ready(state, plan) {
-    const [next] = materializeExecutorPetriRuntime(state, plan).readySteps;
+  ready(state, plan, runtime) {
+    const [next] = (runtime ?? materializeExecutorPetriRuntime(state, plan)).readySteps;
     return next ? [next] : [];
   },
 };
 
 export const petriScheduler: RunScheduler = {
-  ready(state, plan) {
-    return materializeExecutorPetriRuntime(state, plan).readySteps;
+  ready(state, plan, runtime) {
+    return (runtime ?? materializeExecutorPetriRuntime(state, plan)).readySteps;
   },
 };
 
@@ -98,7 +99,10 @@ export const frontierFiringPolicy: RunFiringPolicy = {
   },
 };
 
-async function emitNetEvent(ctx: DriveContext, event: ExecutorNetEvent): Promise<void> {
+async function emitNetEvent(
+  ctx: Pick<DriveContext, 'cwd' | 'runId' | 'onNetEvent'>,
+  event: ExecutorNetEvent,
+): Promise<void> {
   try {
     await appendPetriEvent({ cwd: ctx.cwd, runId: ctx.runId, event });
   } catch {
@@ -111,7 +115,10 @@ async function emitNetEvent(ctx: DriveContext, event: ExecutorNetEvent): Promise
   }
 }
 
-async function persistPetriMarkingSnapshot(ctx: DriveContext, snapshot: PetriMarkingSnapshot): Promise<void> {
+async function persistPetriMarkingSnapshot(
+  ctx: Pick<DriveContext, 'cwd' | 'runId'>,
+  snapshot: PetriMarkingSnapshot,
+): Promise<void> {
   try {
     await writePetriMarkingSnapshot({ cwd: ctx.cwd, runId: ctx.runId, snapshot });
   } catch {
@@ -178,20 +185,6 @@ export interface DriveStepProgress {
   readonly completedSliceIds: readonly string[];
 }
 
-function planPathCandidates(cwd: string, state: RunMetadata): readonly string[] {
-  const candidates = [
-    state.populatedPlanPath,
-    state.status === 'reports_initialized' || state.status === 'slice_completed'
-      ? populatedPlanPath(cwd, state.runId)
-      : undefined,
-    state.planPath,
-  ];
-  return candidates.filter(
-    (candidate, index): candidate is string =>
-      typeof candidate === 'string' && candidates.indexOf(candidate) === index,
-  );
-}
-
 function schedulerPlanRequiredStep(state: RunMetadata): ReadyStep['kind'] | undefined {
   switch (state.status) {
     case 'reports_initialized':
@@ -207,6 +200,39 @@ function schedulerPlanRequiredStep(state: RunMetadata): ReadyStep['kind'] | unde
       return 'slice_complete';
     default:
       return undefined;
+  }
+}
+
+function petriInputRequiredStep(state: RunMetadata): ReadyStep['kind'] | undefined {
+  return state.status === 'run_completed' ? 'petri_export' : schedulerPlanRequiredStep(state);
+}
+
+async function materializeDriveRuntime(args: {
+  readonly ctx: Pick<DriveContext, 'cwd' | 'runId' | 'onNetEvent'>;
+  readonly state: RunMetadata;
+  readonly plan: SchedulerPlan | undefined;
+}): Promise<
+  | { readonly runtime: ExecutorPetriRuntime }
+  | {
+      readonly terminal: ReturnType<typeof classifyDriveTerminal>;
+    }
+> {
+  try {
+    return { runtime: materializeExecutorPetriRuntime(args.state, args.plan) };
+  } catch {
+    const step = petriInputRequiredStep(args.state);
+    if (!step) {
+      throw new Error(`unexpected Petri materialization failure for run status ${args.state.status}`);
+    }
+    const terminal = classifyDriveTerminal({
+      kind: 'step_halted',
+      runId: args.ctx.runId,
+      runStatus: args.state.status,
+      step,
+      reason: 'petri_input_unreadable',
+    });
+    await emitNetEvent(args.ctx, terminal.event);
+    return { terminal };
   }
 }
 
@@ -269,7 +295,7 @@ export async function drive(
       return { status: 'completed', runStatus: state.status };
     }
 
-    const plan = await planForScheduler(ctx.cwd, state);
+    const plan = await readPetriRuntimePlan(ctx.cwd, state);
     const requiredPlanStep = schedulerPlanRequiredStep(state);
     if (plan === undefined && requiredPlanStep) {
       const terminal = classifyDriveTerminal({
@@ -282,8 +308,12 @@ export async function drive(
       await emitNetEvent(ctx, terminal.event);
       return terminal.outcome;
     }
-    const runtime = materializeExecutorPetriRuntime(state, plan);
-    const readySteps = scheduler.ready(state, plan);
+    const runtimeResult = await materializeDriveRuntime({ ctx, state, plan });
+    if ('terminal' in runtimeResult) {
+      return runtimeResult.terminal.outcome;
+    }
+    const runtime = runtimeResult.runtime;
+    const readySteps = scheduler.ready(state, plan, runtime);
     const selectedSteps =
       (await readClaimedReadySteps(ctx, state, runtime, readySteps)) ??
       firingPolicy.select({
@@ -336,8 +366,16 @@ export async function drive(
     for (const [selectedIndex, selectedStep] of selectedSteps.entries()) {
       const currentState = await readRunMetadata(metadataPath);
       if (!currentState) return { status: 'missing_run', runId: ctx.runId };
-      const currentPlan = await planForScheduler(ctx.cwd, currentState);
-      const currentRuntime = materializeExecutorPetriRuntime(currentState, currentPlan);
+      const currentPlan = await readPetriRuntimePlan(ctx.cwd, currentState);
+      const currentRuntimeResult = await materializeDriveRuntime({
+        ctx,
+        state: currentState,
+        plan: currentPlan,
+      });
+      if ('terminal' in currentRuntimeResult) {
+        return currentRuntimeResult.terminal.outcome;
+      }
+      const currentRuntime = currentRuntimeResult.runtime;
       const next = currentRuntime.readySteps.find((candidate) => readyStepsEqual(candidate, selectedStep));
       if (!next) continue;
 
@@ -396,8 +434,16 @@ export async function drive(
           });
           const nextState = await readRunMetadata(metadataPath);
           if (nextState) {
-            const nextPlan = await planForScheduler(ctx.cwd, nextState);
-            const nextRuntime = materializeExecutorPetriRuntime(nextState, nextPlan);
+            const nextPlan = await readPetriRuntimePlan(ctx.cwd, nextState);
+            const nextRuntimeResult = await materializeDriveRuntime({
+              ctx,
+              state: nextState,
+              plan: nextPlan,
+            });
+            if ('terminal' in nextRuntimeResult) {
+              return nextRuntimeResult.terminal.outcome;
+            }
+            const nextRuntime = nextRuntimeResult.runtime;
             await persistPetriMarkingSnapshot(
               ctx,
               await nextPetriSnapshot({
@@ -448,18 +494,6 @@ function progressForStep(
     ...(state.activeSliceId ? { activeSliceId: state.activeSliceId } : {}),
     completedSliceIds: state.completedSliceIds ?? [],
   };
-}
-
-async function planForScheduler(cwd: string, state: RunMetadata): Promise<SchedulerPlan | undefined> {
-  for (const path of planPathCandidates(cwd, state)) {
-    try {
-      const projected = projectSchedulerPlan(JSON.parse(await readFile(path, 'utf8')));
-      if (projected) return projected;
-    } catch {
-      // Fall through to the next candidate and fail closed to undefined.
-    }
-  }
-  return undefined;
 }
 
 async function neverBoundReadyStep(step: ReadyStep): Promise<StepResult> {

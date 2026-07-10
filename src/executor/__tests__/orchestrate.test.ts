@@ -1523,6 +1523,61 @@ describe('petriScheduler', () => {
     ]);
   });
 
+  it('halts when duplicate slice ids make the Petri runtime unreadable during drive', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-drive-duplicate-slices-'));
+    const planPath = join(cwd, 'duplicate-slices.json');
+    const seen: ExecutorNetEvent[] = [];
+
+    await writeFile(
+      planPath,
+      JSON.stringify({
+        mode: 'greenfield',
+        slices: [{ id: 'task-1' }, { id: 'task-1' }],
+      }),
+      'utf8',
+    );
+    await mkdir(join(cwd, '.brunch', 'cook', 'runs', 'run-1'), { recursive: true });
+    await writeFile(
+      runMetadataPath(cwd, 'run-1'),
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath,
+        status: 'reports_initialized',
+        reportsPath: reportsPath(cwd, 'run-1'),
+      }),
+      'utf8',
+    );
+
+    const outcome = await drive(
+      {
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts(),
+        onNetEvent: (event) => {
+          seen.push(event);
+        },
+      },
+      linearScheduler,
+    );
+
+    expect(outcome).toEqual({
+      status: 'halted',
+      step: 'slice_start',
+      runStatus: 'reports_initialized',
+      reason: 'petri_input_unreadable',
+    });
+    expect(seen).toEqual([
+      {
+        kind: 'net_halted',
+        runId: 'run-1',
+        runStatus: 'reports_initialized',
+        step: 'slice_start',
+        reason: 'petri_input_unreadable',
+      },
+    ]);
+  });
+
   it('halts at petri_export when the compiled plan input is unreadable', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-export-unreadable-'));
     const planPath = join(cwd, 'broken-plan.json');

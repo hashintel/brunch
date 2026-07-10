@@ -1,11 +1,12 @@
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import { agentStreamPath } from '../agent-result.js';
 import { listRuns, readRunDetail } from '../observer-read.js';
+import { populatedPlanPath } from '../populate.js';
 import { runDirPath, runMetadataPath, type RunMetadata } from '../run.js';
 import { verifyStreamPath } from '../test-result.js';
 
@@ -205,6 +206,31 @@ describe('readRunDetail', () => {
     });
     expect(detail && 'petriReadySteps' in detail ? detail.petriReadySteps : undefined).toBeUndefined();
     expect(detail && 'petriBlockedSteps' in detail ? detail.petriBlockedSteps : undefined).toBeUndefined();
+  });
+
+  it('uses the same populated plan fallback as drive when Petri runtime metadata omits it', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-runtime-plan-fallback-');
+    const fallbackPlanPath = populatedPlanPath(cwd, 'run-fallback-plan');
+    await mkdir(dirname(fallbackPlanPath), { recursive: true });
+    await writeFile(
+      fallbackPlanPath,
+      JSON.stringify({
+        mode: 'greenfield',
+        slices: [{ id: 'task-1' }, { id: 'task-2', depends_on: ['task-1'] }],
+      }),
+      'utf8',
+    );
+    await writeRun(cwd, 'run-fallback-plan', {
+      planPath: join(cwd, 'missing-plan.json'),
+      status: 'slice_completed',
+      completedSliceIds: ['task-1'],
+    });
+
+    const detail = await readRunDetail(cwd, 'run-fallback-plan');
+
+    expect(detail).toMatchObject({
+      petriReadySteps: [{ kind: 'slice_start', sliceId: 'task-2' }],
+    });
   });
 
   it('returns the reports tail, skipping an in-flight partial trailing line', async () => {
