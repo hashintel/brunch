@@ -12,7 +12,7 @@ import {
 } from '../.pi/extensions/agent-runtime/runtime/index.js';
 import { createBrunchAgentSessionRuntimeFactory } from '../app/brunch-tui.js';
 import { openWorkspaceGraphRuntime, type GraphNode, type GraphSlice } from '../graph/index.js';
-import { formatGraphNodeCode } from '../graph/schema/nodes.js';
+import { formatGraphNodeCode, parseGraphNodeCode } from '../graph/schema/nodes.js';
 import { seedFixture, type SeedFixture } from '../graph/seed-fixtures.js';
 import { createRpcHandlers } from '../rpc/handlers.js';
 import { createProductUpdatePublisher, type ProductUpdate } from '../rpc/product-updates.js';
@@ -535,19 +535,19 @@ function summarizeScopeHandoffReviewSet(input: {
       category: 'realization',
       sourceField: 'abstract',
       targetField: 'concrete',
-      existingPrefix: 'REQ',
+      existingKinds: ['requirement'],
     }),
     designAnchorCount: countScopeAnchor(edges, scopeDraftIds, {
       category: 'composition',
       sourceField: 'part',
       targetField: 'whole',
-      existingPrefix: 'MOD',
+      existingKinds: ['module', 'interface', 'entity', 'sketch'],
     }),
     verificationAnchorCount: countScopeAnchor(edges, scopeDraftIds, {
       category: 'dependency',
       sourceField: 'dependency',
       targetField: 'dependent',
-      existingPrefix: 'CH',
+      existingKinds: ['check', 'vv_method', 'evidence', 'vv_obligation'],
     }),
     committedRequirementAnchorCount: countCommittedScopeAnchor(input.finalOverview, createdScopeNodeIds, {
       category: 'realization',
@@ -632,7 +632,7 @@ function countScopeAnchor(
     readonly category: string;
     readonly sourceField: string;
     readonly targetField: string;
-    readonly existingPrefix: string;
+    readonly existingKinds: readonly GraphNode['kind'][];
   },
 ): number {
   return edges.filter((edge) => {
@@ -640,10 +640,11 @@ function countScopeAnchor(
     const sourceValue = edge[options.sourceField];
     const targetValue = edge[options.targetField];
     const sourceCode = existingCode(isRecord(sourceValue) ? sourceValue : undefined);
+    const sourceKind = sourceCode ? parseGraphNodeCode(sourceCode)?.kind : undefined;
     const targetDraftId = draftId(isRecord(targetValue) ? targetValue : undefined);
     return (
-      typeof sourceCode === 'string' &&
-      sourceCode.startsWith(options.existingPrefix) &&
+      sourceKind !== undefined &&
+      options.existingKinds.includes(sourceKind) &&
       typeof targetDraftId === 'string' &&
       scopeDraftIds.has(targetDraftId)
     );

@@ -277,7 +277,13 @@ function approvedResponse(): JsonRpcResponse {
   };
 }
 
-function scopePresentReviewSetEntry(includeVerificationLink = true): string {
+function scopePresentReviewSetEntry(
+  includeVerificationLink = true,
+  anchors: { readonly design: string; readonly verification: string } = {
+    design: 'MOD1',
+    verification: 'CH1',
+  },
+): string {
   return toolResultEntry('present_review_set', {
     schema: 'brunch.structured_exchange.present',
     v: 1,
@@ -315,13 +321,13 @@ function scopePresentReviewSetEntry(includeVerificationLink = true): string {
         {
           category: 'composition',
           whole: { draft_id: 'scope-selected-spec-handoff' },
-          part: { existing_code: 'MOD1' },
+          part: { existing_code: anchors.design },
         },
         ...(includeVerificationLink
           ? [
               {
                 category: 'dependency',
-                dependency: { existing_code: 'CH1' },
+                dependency: { existing_code: anchors.verification },
                 dependent: { draft_id: 'scope-selected-spec-handoff' },
               },
             ]
@@ -572,6 +578,56 @@ describe('project-graph review-cycle proof report', () => {
       committedScopeCount: 1,
     });
     expect(report.friction).toEqual([]);
+  });
+
+  it('accepts every supported design and verification anchor kind', () => {
+    const baseOverview: GraphSlice = {
+      ...scopeBaseOverview,
+      nodes: scopeBaseOverview.nodes.map((node) =>
+        node.id === 2
+          ? { ...node, kind: 'interface' }
+          : node.id === 3
+            ? { ...node, kind: 'vv_method' }
+            : node,
+      ),
+    };
+    const finalOverview: GraphSlice = {
+      ...scopeApprovedOverview,
+      nodes: scopeApprovedOverview.nodes.map((node) =>
+        node.id === 2
+          ? { ...node, kind: 'interface' }
+          : node.id === 3
+            ? { ...node, kind: 'vv_method' }
+            : node,
+      ),
+    };
+    const report = summarizeProjectGraphReviewCycleProof({
+      runId: 'scope-handoff-kind-review-test',
+      generatedAt: '2026-07-09T00:00:00.000Z',
+      cwd: '/tmp/brunch-scope-handoff-kind-review-test',
+      seedVariant: 'scope-handoff-ready',
+      specId: 9,
+      sessionId: 'session-scope-kinds',
+      prompt: 'Present a scope handoff review set.',
+      runtimeState,
+      sessionText: [
+        scopePresentReviewSetEntry(true, { design: 'API1', verification: 'VV1' }),
+        requestResponseReviewEntry(),
+      ].join('\n'),
+      baseOverview,
+      finalOverview,
+      pendingResponse: scopePendingReviewResponse(),
+      approvalResponse: scopeApprovedResponse(),
+      reviewSetExpectation: 'scope_handoff',
+    });
+
+    expect(report.success).toBe(true);
+    expect(report.scopeHandoffReviewSet).toMatchObject({
+      designAnchorCount: 1,
+      verificationAnchorCount: 1,
+      committedDesignAnchorCount: 1,
+      committedVerificationAnchorCount: 1,
+    });
   });
 
   it('fails closed when the scope handoff review set omits a verification anchor', () => {
