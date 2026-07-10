@@ -153,7 +153,7 @@ export interface BrunchTuiOptions {
   ) => Promise<SpecSessionActivationDecision>;
   launchInteractive?: (context: BrunchTuiLaunchContext) => Promise<void>;
   webSidecarRunner?: (options: BrunchWebSidecarRunnerOptions) => Promise<BrunchWebSidecar | null>;
-  /** Opt-in (`--open-web`): launch the web sidecar URL in the default browser. */
+  /** CLI-resolved browser preference; `--no-webui` supplies false. */
   openWeb?: boolean;
   /** Opt-in prompt-affecting developer query tools. Product subagents are not dev-gated. */
   developerTools?: boolean;

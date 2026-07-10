@@ -31,14 +31,14 @@ It delegates to `src/dev/dev-cli.ts` and is the front door for local workbenches
 Useful forms:
 
 ```sh
-# Interactive TUI workbench from a tracked seed; also opens the web observer.
-npm run dev -- --seed workspace-alpha-grounding/base --reset --open-web
+# Interactive TUI workbench from a tracked seed; opens the web observer by default.
+npm run dev -- --seed workspace-alpha-grounding/base --reset
 
 # Same, with prompt-affecting developer tools enabled.
-npm run dev -- --seed workspace-alpha-grounding/base --reset --open-web --dev-tools
+npm run dev -- --seed workspace-alpha-grounding/base --reset --dev-tools
 
 # Re-open an existing workbench.
-npm run dev -- --workspace .fixtures/workbenches/workspace-alpha-grounding --open-web
+npm run dev -- --workspace .fixtures/workbenches/workspace-alpha-grounding
 
 # Public RPC read/write host without TUI.
 npm run dev -- rpc rpc.discover --workspace .fixtures/workbenches/workspace-alpha-grounding
@@ -69,7 +69,7 @@ Source/dev TUI launches create passive debug mirrors by default through `debugMi
 | `brunch_session_query` tool | Yes | Dev-gated read-only query over current session branch. Candidate for retirement if the ordinary debug mirrors prove sufficient. |
 | `brunch_introspect_query` tool | Yes | Dev-gated read-only query over captured provider payload/base prompt inputs. Candidate for retirement if the ordinary debug mirrors prove sufficient. |
 | `subagent` tool | No | Product Brunch subagent affordance in Specify mode when a delegatable set is registered. |
-| Web sidecar / `--open-web` | No | Opens read-only browser observer attached to the TUI process. |
+| Web sidecar (default; `--no-webui` opts out of browser opening) | No | Opens the read-only browser observer attached to the TUI process. |
 | `rpc`, `mutate`, `export` dev CLI subcommands | No | Scripted host/curation/export commands; not prompt-affecting tools. |
 
 Audit rule: a missing debug file is only a failure if its trigger happened. For example, no `system-prompt.md` before any provider request is expected; no `entry-contents.md` after session origination/continuity seed is suspicious.
@@ -93,7 +93,7 @@ For each scenario:
 Suggested starting workbench:
 
 ```sh
-npm run dev -- --seed workspace-alpha-grounding/base --reset --open-web --dev-tools
+npm run dev -- --seed workspace-alpha-grounding/base --reset --dev-tools
 ```
 
 ## Scenario catalog

@@ -15,7 +15,7 @@ describe('runDevCli', () => {
     const launchCalls: BrunchCliOptions[] = [];
 
     const code = await runDevCli({
-      argv: ['--seed', 'workspace-alpha-grounding/base', '--reset', '--open-web'],
+      argv: ['--seed', 'workspace-alpha-grounding/base', '--reset'],
       cwd: REPO_ROOT,
       seedWorkspace: async (options) => {
         events.push('seed');
@@ -41,7 +41,28 @@ describe('runDevCli', () => {
     expect(launchCalls).toEqual([
       expect.objectContaining({
         cwd: WORKBENCH,
-        argv: ['--mode', 'tui', '--open-web'],
+        argv: ['--mode', 'tui'],
+      }),
+    ]);
+  });
+
+  it('forwards --no-webui for direct dev launches that suppress browser opening', async () => {
+    const launches: BrunchCliOptions[] = [];
+
+    const code = await runDevCli({
+      argv: ['--workspace', WORKBENCH, '--no-webui'],
+      cwd: REPO_ROOT,
+      launchBrunch: async (options) => {
+        launches.push(options);
+        return 0;
+      },
+    });
+
+    expect(code).toBe(0);
+    expect(launches).toEqual([
+      expect.objectContaining({
+        cwd: WORKBENCH,
+        argv: ['--mode', 'tui', '--no-webui'],
       }),
     ]);
   });
@@ -98,9 +119,82 @@ describe('runDevCli', () => {
     expect(launches).toEqual([
       expect.objectContaining({
         cwd: WORKBENCH,
-        argv: ['--mode', 'tui'],
+        argv: ['--mode', 'tui', '--no-webui'],
       }),
     ]);
+  });
+
+  it('keeps an explicit --no-webui opt-out through the interactive prompt flow', async () => {
+    const chooseWorkbench = vi.fn<DevCliPrompts['chooseWorkbench']>().mockResolvedValue(WORKBENCH);
+    const chooseSeed = vi.fn<DevCliPrompts['chooseSeed']>().mockResolvedValue('__current__');
+    const confirmSeedReset = vi.fn<DevCliPrompts['confirmSeedReset']>();
+    const confirmOpenWeb = vi.fn<DevCliPrompts['confirmOpenWeb']>().mockResolvedValue(true);
+    const launches: BrunchCliOptions[] = [];
+    const stdin = new PassThrough() as PassThrough & { isTTY: boolean };
+    const stdout = new PassThrough() as PassThrough & { isTTY: boolean };
+    stdin.isTTY = true;
+    stdout.isTTY = true;
+
+    const code = await runDevCli({
+      argv: ['--no-webui'],
+      cwd: REPO_ROOT,
+      stdin,
+      stdout,
+      prompts: {
+        intro: vi.fn(),
+        outro: vi.fn(),
+        cancel: vi.fn(),
+        chooseWorkbench,
+        chooseSeed,
+        confirmSeedReset,
+        confirmOpenWeb,
+      },
+      launchBrunch: async (options) => {
+        launches.push(options);
+        return 0;
+      },
+    });
+
+    expect(code).toBe(0);
+    expect(confirmOpenWeb).not.toHaveBeenCalled();
+    expect(launches).toEqual([
+      expect.objectContaining({
+        cwd: WORKBENCH,
+        argv: ['--mode', 'tui', '--no-webui'],
+      }),
+    ]);
+  });
+
+  it('rejects explicit --reset without --seed before entering the prompt flow', async () => {
+    const chooseWorkbench = vi.fn<DevCliPrompts['chooseWorkbench']>();
+    const stdin = new PassThrough() as PassThrough & { isTTY: boolean };
+    const stdout = new PassThrough() as PassThrough & { isTTY: boolean };
+    stdin.isTTY = true;
+    stdout.isTTY = true;
+    let stderr = '';
+
+    const code = await runDevCli({
+      argv: ['--reset'],
+      cwd: REPO_ROOT,
+      stdin,
+      stdout,
+      stderr: (chunk) => {
+        stderr += chunk;
+      },
+      prompts: {
+        intro: vi.fn(),
+        outro: vi.fn(),
+        cancel: vi.fn(),
+        chooseWorkbench,
+        chooseSeed: vi.fn(),
+        confirmSeedReset: vi.fn(),
+        confirmOpenWeb: vi.fn(),
+      },
+    });
+
+    expect(code).toBe(1);
+    expect(stderr).toContain('--reset only applies when paired with --seed.');
+    expect(chooseWorkbench).not.toHaveBeenCalled();
   });
 
   it('treats prompt-selected seeding as an explicit reset before launch', async () => {
@@ -167,7 +261,7 @@ describe('runDevCli', () => {
     expect(launches).toEqual([
       expect.objectContaining({
         cwd: WORKBENCH,
-        argv: ['--mode', 'tui', '--open-web'],
+        argv: ['--mode', 'tui'],
       }),
     ]);
   });
@@ -185,6 +279,8 @@ describe('runDevCli', () => {
 
     expect(code).toBe(0);
     expect(stdout).toContain('--seed <name>/<variant>');
+    expect(stdout).toContain('--no-webui');
+    expect(stdout).not.toContain('--open-web');
     expect(stdout).not.toContain('<name/variant>');
   });
 

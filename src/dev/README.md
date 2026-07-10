@@ -25,14 +25,14 @@ This directory does not own product runtime behavior, public RPC contracts, grap
 # Interactive launcher; prompts for a tracked seed-derived workbench.
 npm run dev
 
-# Reset a workbench from one tracked seed and launch TUI.
+# Reset a workbench from one tracked seed and launch TUI; the web observer opens by default.
 npm run dev -- --seed workspace-alpha-grounding/base --reset
 
-# Reset, launch TUI, and open the web observer sidecar.
-npm run dev -- --seed workspace-alpha-grounding/base --reset --open-web
+# Same, without automatically opening the web observer in a browser.
+npm run dev -- --seed workspace-alpha-grounding/base --reset --no-webui
 
 # Same, with prompt-affecting developer query tools enabled.
-npm run dev -- --seed workspace-alpha-grounding/base --reset --open-web --dev-tools
+npm run dev -- --seed workspace-alpha-grounding/base --reset --dev-tools
 
 # Re-open an existing workbench without reseeding.
 npm run dev -- --workspace .fixtures/workbenches/workspace-alpha-grounding
@@ -90,7 +90,7 @@ Available in normal source/dev TUI runs without `--dev-tools`:
 - product `subagent` tool in Specify mode, when a delegatable set is registered
 - passive debug cache mirroring
 - `/introspect` command when the introspection extension is present through the debug mirror
-- web sidecar launch via `--open-web`
+- default web sidecar browser launch (`--no-webui` suppresses automatic browser opening)
 - ordinary Brunch product tools selected by operational mode
 
 ## Audit checklist for recent model changes
@@ -99,7 +99,7 @@ Use [`../../TESTING_PLAN.md`](../../TESTING_PLAN.md) for the full demo/audit pla
 
 1. Start with a reset seed workbench:
    ```sh
-   npm run dev -- --seed workspace-alpha-grounding/base --reset --open-web --dev-tools
+   npm run dev -- --seed workspace-alpha-grounding/base --reset --dev-tools
    ```
 2. Confirm `.brunch/debug/entry-contents.md` and `.brunch/debug/origination.md` appear after activation/origination.
 3. Trigger one provider turn and confirm `.brunch/debug/system-prompt.md` includes the live Brunch skills manifest.

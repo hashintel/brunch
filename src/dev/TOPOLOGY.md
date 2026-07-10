@@ -28,7 +28,7 @@ Current subcommands:
 
 ```text
 npm run dev
-npm run dev -- --seed workspace-alpha-grounding/base --reset --open-web
+npm run dev -- --seed workspace-alpha-grounding/base --reset
 npm run dev -- rpc graph.overview '{"specId":1}' --workspace .fixtures/workbenches/workspace-alpha-grounding
 npm run dev -- mutate --workspace .fixtures/workbenches/workspace-alpha-grounding --params-file /tmp/mutate.json
 npm run dev -- export --workspace .fixtures/workbenches/workspace-alpha-grounding --spec-id 1 --out .fixtures/seeds/custom/example.json

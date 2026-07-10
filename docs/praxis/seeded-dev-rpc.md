@@ -30,7 +30,7 @@ npm run seed -- --workspace "$DEV_WORKSPACE" --seed bilal-macro-view/grounded-in
 The friendly path is the dev launcher:
 
 ```bash
-npm run dev -- --workspace "$DEV_WORKSPACE" --open-web
+npm run dev -- --workspace "$DEV_WORKSPACE"
 ```
 
 Or just run `npm run dev` and answer the prompt flow.

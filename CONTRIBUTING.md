@@ -42,8 +42,8 @@ Useful launch variants:
 # launch against another workspace directory
 npm run dev -- --cwd .fixtures/workbenches/live-graph-observer
 
-# ask the TUI launch path to open the sidecar browser
-npm run dev -- --open-web
+# suppress automatic browser opening while keeping the sidecar host running
+npm run dev -- --no-webui
 
 # run the JSON-RPC line server
 npm run dev -- --mode rpc
