@@ -76,6 +76,37 @@ describe('execute_orchestrate rendering', () => {
     );
   });
 
+  it('uses ingested status instead of verify pending for completed partial verify updates', () => {
+    const rendered = renderResult(
+      tool,
+      {
+        content: [{ type: 'text', text: 'raw multiline fallback' }],
+        details: {
+          progress: {
+            runId: 'run-1',
+            step: 'test_result',
+            phase: 'completed',
+            fromStatus: 'agent_result_ingested',
+            runStatus: 'test_result_ingested',
+            activeEpicId: 'e1',
+            activeSliceId: 't1',
+            completedSliceIds: ['t0'],
+          },
+        },
+      },
+      { expanded: false, isPartial: true },
+    );
+
+    expect(rendered).toBe(
+      [
+        'running · slice t1 · test_result_ingested',
+        'run run-1   epic e1   slice t1',
+        'now test_result   completed   done 1',
+        'state test_result_ingested   Ctrl + O to expand',
+      ].join('\n'),
+    );
+  });
+
   it('renders a short status-first collapsed summary for halted and completed outcomes', () => {
     const halted = renderResult(
       tool,

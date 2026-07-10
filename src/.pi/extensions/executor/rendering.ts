@@ -243,11 +243,15 @@ function orchestrateSummary(details: Record<string, unknown>, options: RenderOpt
   if (progress) {
     const step = stringOrUndefined(progress['step']) ?? 'step';
     const slice = stringOrUndefined(progress['activeSliceId']);
+    const runStatus = stringOrUndefined(progress['runStatus']) ?? step;
     if (options.isPartial) {
-      if (step === 'test_result') return `running · slice ${slice ?? 'unknown'} · verify pending`;
+      if (step === 'test_result' && stringOrUndefined(progress['phase']) !== 'completed') {
+        return `running · slice ${slice ?? 'unknown'} · verify pending`;
+      }
+      if (step === 'test_result') return `running · slice ${slice ?? 'unknown'} · ${runStatus}`;
       return `running · slice ${slice ?? 'unknown'} · ${step}`;
     }
-    return `running · slice ${slice ?? 'unknown'} · ${stringOrUndefined(progress['runStatus']) ?? step}`;
+    return `running · slice ${slice ?? 'unknown'} · ${runStatus}`;
   }
 
   return 'running · execute';
