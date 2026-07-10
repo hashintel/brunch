@@ -1,26 +1,34 @@
 ---
-description: Iteratively slice and/or sweep through a plan frontier, delegating scope-card builds, verifiying and validating results; continue until frontier is exhausted
+description: Iteratively scope and build a plan frontier, reviewing each delegated unit until the frontier is exhausted
 argument-hint: "[plan-frontier-id-or-description]"
 ---
 
-Act as a coordinator/scoper/reviewer for the implementation of plan frontier: ${1:-`next`}
+Act as a coordinator/scoper/reviewer for the implementation of plan frontier: ${1:-next}
 
-You will work in a loop... 
+Work in a review-bounded loop:
 
-1. apply /skill:ln-scope to create scope card file(s) for the current plan frontier, then 
-2. delegate those card files to a builder agent who will implement them, then 
-3. verify and validate the builder's work, and either request revisions or accept as complete, and LOOP
+1. consume an existing active scope artifact, or apply `/skill:ln-scope` only when no suitable artifact exists;
+2. delegate one reviewable execution unit to a builder;
+3. independently verify the builder's claims and either request revision or accept the unit;
+4. update the frontier's epistemic state, then loop.
 
-You will repeat this procedure until the frontier is closed, blocked, or needs human/product judgment.
+One execution unit means:
+
+- `Mode: single` — one card;
+- `Mode: sweep` — exactly one row, then return for coordinator review;
+- `Mode: slices` — card-by-card only while `ln-build`'s sliced-execution stop conditions permit continuation.
+
+Repeat until the frontier is closed, blocked, or needs human/product judgment. Do not let one delegation consume an entire sweep ledger.
 
 ## How to start:
 
 1. **Orient on the frontier.** Read `memory/PLAN.md` and the relevant frontier definition. Read `memory/SPEC.md`, `HANDOFF.md` if present, and any topology/canonical docs needed to understand this frontier's seam, inherited certainty posture, cross-cutting obligations, and open risks.
-2. **Inspect existing execution artifacts.** Check `memory/cards/` for active scope files for this frontier. Prefer consuming an already-active relevant scope file before creating another. A `Mode: sweep` ledger is already a scope artifact; do not create a second card just to start a sweep row. If multiple active files exist, apply `ln-build` / `ln-scope` selection rules and ask when ambiguous.
-3. **Scope the next buildable unit when needed.** Invoke `ln-scope` against this frontier, not against an implementation guess. Let `ln-scope` decide whether to produce one `Mode: single` card, a short `Mode: slices` sequence, or a `Mode: sweep` ledger. Sometimes a few cards can be scoped at once; sometimes the next card is epistemic/probe-like and you should wait for its build result before scoping further.
-4. **Delegate the scoped artifact to a builder.** Once there is a concrete scope file path, delegate that file to the `builder` subagent using the builder prompt below. Set the subagent `cwd` to the current repository root. The subagent has no conversation context, so include the full builder prompt.
-5. **Review the builder's claims.** Treat the builder report as claims, not as completion. Inspect status, commits, diffs, acceptance evidence, verification, reconciliation, and residual risk.
-6. **Update epistemic state.** Decide whether the result closes the scoped unit, changes what the frontier means, invalidates downstream cards, or exposes a new unknown. Then either accept and continue, request a focused revision, route back through `ln-scope` / `ln-spec` / `ln-plan`, ask the user, or stop with a blocked report.
+2. **Inspect existing execution artifacts.** Check `memory/cards/` for active scope files for this frontier. An active relevant file wins over creating another. A `Mode: sweep` ledger is already a complete scope artifact; do not invoke `ln-scope` merely to start its next row. If multiple active files exist, apply `ln-build` / `ln-scope` selection rules and ask when ambiguous.
+3. **Scope only when needed.** Invoke `ln-scope` against the frontier, not an implementation guess, only when no suitable active scope artifact exists or review invalidated the existing artifact. Let `ln-scope` choose `single`, `slices`, or `sweep`. Wait for an epistemic/probe-like card's result before scoping dependent work.
+4. **Baseline shared-worktree state.** Immediately before delegation, inspect `git status --short`. Record every pre-existing modified/untracked path as protected state, identify the selected unit's tentative write manifest, and include both in the builder prompt. Never assume a dirty file belongs to the builder merely because it relates to the frontier.
+5. **Delegate one execution unit.** Delegate the concrete scope-file path to the `builder` subagent using the prompt below, with `cwd` set to the repository root. The subagent has no conversation context, so include the full prompt, protected-state baseline, and allowed manifest. A sweep delegation stops after exactly one row.
+6. **Review claims, not summaries.** Treat the builder report as claims, not completion. Ensure no builder process remains active before reviewing or delegating another writer. Inspect status, commits, diffs, acceptance evidence, verification, reconciliation, and residual risk.
+7. **Update epistemic state.** Decide whether the result closes the scoped unit, changes what the frontier means, invalidates downstream cards, or exposes a new unknown. Then either accept and continue, request a focused revision, route back through `ln-scope` / `ln-spec` / `ln-plan`, ask the user, or stop with a blocked report.
 
 ## How to prompt the `builder` subagent:
 
@@ -29,9 +37,22 @@ Replace `<relative-scope-card-file-path>` with the concrete scope-card-file for 
 ```md
 /skill:ln-build Please build out <relative-scope-card-file-path>
 
-Treat this file as the execution contract. Build the next ready card or sweep row. If the file is `Mode: slices`, continue card-by-card only while `ln-build`'s sliced-execution stop conditions do not fire. Make one commit per completed card/row. If a card/row is already satisfied and no code or canonical-state change is needed, do not create an empty commit.
+Treat this file as the execution contract. Build one reviewable execution unit:
 
-Run the verification required by `ln-build`. Preserve `ln-build`'s mandatory leaf-by-leaf acceptance report and canonical reconciliation. Never manufacture green by skipping, deleting, narrowing, or disabling oracles.
+- `Mode: single` — the next ready card;
+- `Mode: sweep` — exactly the next ready row, then stop and report;
+- `Mode: slices` — continue card-by-card only while `ln-build`'s sliced-execution stop conditions do not fire.
+
+Make one commit per completed card/row. Do not start another sweep row after committing the selected row. If a card/row is already satisfied and no code or canonical-state change is needed, do not create an empty commit.
+
+Run the verification required by `ln-build`. Preserve `ln-build`'s mandatory leaf-by-leaf acceptance report and canonical reconciliation. Never manufacture green by skipping, deleting, narrowing, or disabling oracles. Prioritize leaving a verified, committed unit and structured report over exploring later work.
+
+Shared-worktree contract supplied by the coordinator:
+
+- Protected pre-existing state: <paste exact `git status --short` baseline, or `none`>.
+- Tentative allowed write manifest: <paste the selected card/row's expected paths plus required canonical reconciliation paths>.
+
+Treat protected paths outside the allowed manifest as foreign work. Stage literal paths only; never bulk-stage, clean, reset, stash, or overwrite protected state. If the implementation needs a path outside the manifest, stop when it crosses a new seam; otherwise note the bounded divergence in the report.
 
 On success, report structured claims:
 
@@ -49,12 +70,25 @@ On success, report structured claims:
 Stop and report instead of continuing if `ln-build` stop conditions fire, cold-start reads or invariants are stale, the required seam diverges materially from the scope card, verification fails for a reason you cannot fix inside the current card/row, or unexpected foreign work appears.
 ```
 
+Replace both shared-worktree placeholders before delegating. Do not send the template with unresolved placeholders.
+
+## If delegation times out or returns without a report
+
+Treat silence as an interrupted delegation, not a failed implementation and not permission to launch a second writer.
+
+1. Confirm the builder process is no longer active. If uncertain, stop and ask rather than racing it.
+2. Inspect `git status --short` against the recorded baseline. Never reset or discard the interrupted builder's diff.
+3. Review the uncommitted diff against the selected card/row exactly as you would review claimed work.
+4. If the unit is complete, run the missing verification, perform any missing status/canonical reconciliation, stage literal owned paths, and commit it as the coordinator.
+5. If incomplete, delegate a fresh builder to **finish the existing diff**. Include the baseline, current diff paths, completed evidence, and exact missing leaves; forbid restarting or reverting the work.
+6. Do not advance the scope pointer until the unit is verified and committed. Report that recovery occurred.
+
 ## How to review builder work
 
 Do not accept the work from the subagent's summary alone. Treat the summary as reviewable claims.
 
 1. Read the builder's structured report and identify the claimed commits, files, acceptance leaves, verification evidence, divergences, and residual risks.
-2. Inspect `git status --short` and the relevant commit diffs/stats. Use literal paths and commit hashes; do not bulk-stage or clean anything.
+2. Confirm the delegated writer is no longer active, then inspect `git status --short` against the captured baseline and inspect the relevant commit diffs/stats. Use literal paths and commit hashes; do not bulk-stage or clean anything.
 3. Compare the claimed acceptance evidence to the actual diff and to the scope file's acceptance criteria. If the scope file was deleted, inspect the consumed version from git history when needed.
 4. Check canonical reconciliation claims against `memory/SPEC.md`, `memory/PLAN.md`, any touched `src/**/TOPOLOGY.md`, and the consumed scope file lifecycle.
 5. Decide one of:
