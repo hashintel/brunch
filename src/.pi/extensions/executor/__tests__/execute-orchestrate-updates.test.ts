@@ -219,15 +219,20 @@ describe('execute_orchestrate intra-drive updates', () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-orchestrate-verify-stream-'));
     await createDrivableRun(cwd);
     const updates: string[] = [];
+    const detailUpdates: unknown[] = [];
 
     const tool = createExecuteOrchestrateTool(fakePorts({ testRunner: streamingTestRunner }));
     const result = await tool.execute(
       't1',
       { runId: 'run-1' },
       undefined as never,
-      ((update: { readonly content: readonly { readonly type: string; readonly text?: string }[] }) => {
+      ((update: {
+        readonly content: readonly { readonly type: string; readonly text?: string }[];
+        readonly details?: unknown;
+      }) => {
         const item = update.content[0];
         if (item?.type === 'text' && typeof item.text === 'string') updates.push(item.text);
+        detailUpdates.push(update.details);
       }) as never,
       { cwd } as never,
     );
@@ -243,5 +248,17 @@ describe('execute_orchestrate intra-drive updates', () => {
     expect(testStart).toBeGreaterThanOrEqual(0);
     expect(verifyUpdate).toBeGreaterThan(testStart);
     expect(testComplete).toBeGreaterThan(verifyUpdate);
+    const completedProgressDetail = detailUpdates.find(
+      (detail) =>
+        detail &&
+        typeof detail === 'object' &&
+        'progress' in detail &&
+        (detail as { readonly progress?: { readonly step?: string; readonly phase?: string } }).progress
+          ?.step === 'test_result' &&
+        (detail as { readonly progress?: { readonly step?: string; readonly phase?: string } }).progress
+          ?.phase === 'completed',
+    ) as { readonly verifyStream?: { readonly message?: string } } | undefined;
+    expect(completedProgressDetail?.verifyStream?.message).toBe('tests passed');
+    expect(result.details?.verifyStream?.message).toBe('tests passed');
   });
 });

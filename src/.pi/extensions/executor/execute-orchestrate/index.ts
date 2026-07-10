@@ -58,6 +58,8 @@ export function createExecuteOrchestrateTool(
       }
       const publisher = deps?.productUpdates;
       let latestProgress: ExecuteOrchestrateDetails['progress'];
+      let latestAgentStream: ExecuteOrchestrateDetails['agentStream'];
+      let latestVerifyStream: ExecuteOrchestrateDetails['verifyStream'];
       const emitProgress = (progress: DriveStepProgress): void => {
         latestProgress = {
           runId: params.runId,
@@ -96,10 +98,13 @@ export function createExecuteOrchestrateTool(
           ],
           details: {
             progress: latestProgress,
+            ...(latestAgentStream ? { agentStream: latestAgentStream } : {}),
+            ...(latestVerifyStream ? { verifyStream: latestVerifyStream } : {}),
           },
         });
       };
       const emitAgentUpdate = (event: AgentStreamEvent): void => {
+        latestAgentStream = event;
         publisher?.publish(executeRunProductUpdates(params.runId));
         onUpdate?.({
           content: [
@@ -122,6 +127,7 @@ export function createExecuteOrchestrateTool(
         });
       };
       const emitVerifyUpdate = (event: VerifyStreamEvent): void => {
+        latestVerifyStream = event;
         publisher?.publish(executeRunProductUpdates(params.runId));
         onUpdate?.({
           content: [
@@ -178,6 +184,8 @@ export function createExecuteOrchestrateTool(
         details: {
           outcome,
           ...(latestProgress ? { progress: latestProgress } : {}),
+          ...(latestAgentStream ? { agentStream: latestAgentStream } : {}),
+          ...(latestVerifyStream ? { verifyStream: latestVerifyStream } : {}),
         },
       };
     },
