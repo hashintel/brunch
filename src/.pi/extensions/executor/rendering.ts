@@ -273,7 +273,10 @@ function orchestrateExpanded(
     stringOrUndefined(agentStream?.['runId']) ??
     stringOrUndefined(verifyStream?.['runId']);
   if (runId) lines.push(`run id: ${runId}`);
-  const activeEpicId = stringOrUndefined(progress?.['activeEpicId']);
+  const activeEpicId =
+    stringOrUndefined(progress?.['activeEpicId']) ??
+    stringOrUndefined(agentStream?.['epicId']) ??
+    stringOrUndefined(verifyStream?.['epicId']);
   if (activeEpicId) lines.push(`active epic: ${activeEpicId}`);
   const activeSliceId =
     stringOrUndefined(progress?.['activeSliceId']) ??

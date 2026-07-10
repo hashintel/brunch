@@ -208,6 +208,37 @@ describe('execute_orchestrate rendering', () => {
     expect(rendered).not.toContain('tool write_worktree_file completed');
   });
 
+  it('falls back to stream epic ids in expanded run status', () => {
+    const rendered = renderResult(
+      tool,
+      {
+        content: [{ type: 'text', text: 'fallback' }],
+        details: {
+          progress: {
+            runId: 'run-1',
+            step: 'agent_result',
+            phase: 'started',
+            fromStatus: 'slice_execution_requested',
+            runStatus: 'slice_execution_requested',
+            activeSliceId: 'task-1',
+            completedSliceIds: [],
+          },
+          agentStream: {
+            kind: 'tool',
+            runId: 'run-1',
+            epicId: 'frontier-1',
+            sliceId: 'task-1',
+            sequence: 56,
+            message: 'tool write_worktree_file completed',
+          },
+        },
+      },
+      { expanded: true, isPartial: true },
+    );
+
+    expect(rendered).toContain('active epic: frontier-1');
+  });
+
   it('renders exact expanded sections and ordering from structured details', () => {
     const rendered = renderResult(
       tool,

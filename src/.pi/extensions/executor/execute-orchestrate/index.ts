@@ -115,7 +115,10 @@ export function createExecuteOrchestrateTool(
               ].join('\n'),
             },
           ],
-          details: { agentStream: event },
+          details: {
+            ...(latestProgress ? { progress: latestProgress } : {}),
+            agentStream: event,
+          },
         });
       };
       const emitVerifyUpdate = (event: VerifyStreamEvent): void => {
@@ -134,7 +137,10 @@ export function createExecuteOrchestrateTool(
               ].join('\n'),
             },
           ],
-          details: { verifyStream: event },
+          details: {
+            ...(latestProgress ? { progress: latestProgress } : {}),
+            verifyStream: event,
+          },
         });
       };
       const outcome = await drive({

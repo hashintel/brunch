@@ -177,15 +177,20 @@ describe('execute_orchestrate intra-drive updates', () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-orchestrate-worker-stream-'));
     await createDrivableRun(cwd);
     const updates: string[] = [];
+    const detailUpdates: unknown[] = [];
 
     const tool = createExecuteOrchestrateTool(fakePorts({ agentRunner: streamingAgentRunner }));
     const result = await tool.execute(
       't1',
       { runId: 'run-1' },
       undefined as never,
-      ((update: { readonly content: readonly { readonly type: string; readonly text?: string }[] }) => {
+      ((update: {
+        readonly content: readonly { readonly type: string; readonly text?: string }[];
+        readonly details?: unknown;
+      }) => {
         const item = update.content[0];
         if (item?.type === 'text' && typeof item.text === 'string') updates.push(item.text);
+        detailUpdates.push(update.details);
       }) as never,
       { cwd } as never,
     );
@@ -201,6 +206,13 @@ describe('execute_orchestrate intra-drive updates', () => {
     expect(agentStart).toBeGreaterThanOrEqual(0);
     expect(workerUpdate).toBeGreaterThan(agentStart);
     expect(agentComplete).toBeGreaterThan(workerUpdate);
+    const workerDetail = detailUpdates.find(
+      (detail) => detail && typeof detail === 'object' && 'agentStream' in detail,
+    ) as { readonly progress?: { readonly step?: string; readonly runStatus?: string } } | undefined;
+    expect(workerDetail?.progress).toMatchObject({
+      step: 'agent_result',
+      runStatus: 'slice_execution_requested',
+    });
   });
 
   it('emits verify stream updates between test_result start and completion', async () => {
