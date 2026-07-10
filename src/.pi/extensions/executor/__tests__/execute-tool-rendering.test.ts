@@ -64,7 +64,7 @@ describe('standalone execute tool rendering', () => {
         'ready · spec 42',
         'mode greenfield · graph 128',
         'requirements 7 · criteria 0',
-        'no side effects · Ctrl+O to expand',
+        'no side effects · [+] expand · Ctrl+O',
       ].join('\n'),
     );
   });
@@ -99,7 +99,7 @@ describe('standalone execute tool rendering', () => {
         'blocked · 2 findings',
         'graph 128 · active view',
         'requirements 2 · criteria 0 · verified 0',
-        'top issue Requirement R2 has no verification criteria · Ctrl+O to expand',
+        'top issue Requirement R2 has no verification criteria · [+] expand · Ctrl+O',
       ].join('\n'),
     );
   });
@@ -122,9 +122,12 @@ describe('standalone execute tool rendering', () => {
     );
 
     expect(rendered).toBe(
-      ['ready · strict', 'disciplines 2 · ported 2', 'pending 0', 'no side effects · Ctrl+O to expand'].join(
-        '\n',
-      ),
+      [
+        'ready · strict',
+        'disciplines 2 · ported 2',
+        'pending 0',
+        'no side effects · [+] expand · Ctrl+O',
+      ].join('\n'),
     );
   });
 
@@ -156,6 +159,7 @@ describe('standalone execute tool rendering', () => {
     expect(rendered).toBe(
       [
         'blocked · 2 findings',
+        '[-] collapse · Ctrl+O',
         '',
         'Status',
         'check status: blocked',

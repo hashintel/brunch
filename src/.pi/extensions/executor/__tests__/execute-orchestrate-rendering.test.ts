@@ -70,7 +70,7 @@ describe('execute_orchestrate rendering', () => {
         'running · slice t1 · verify pending',
         'run run-1   epic e1   slice t1',
         'now test_result   started   done 0',
-        'state agent_result_ingested   Ctrl+O',
+        'state agent_result_ingested   [+] expand · Ctrl+O',
       ].join('\n'),
     );
   });
@@ -110,7 +110,7 @@ describe('execute_orchestrate rendering', () => {
         'halted · test_result',
         'run unknown   epic -   slice -',
         'now test_result   halted   done 0',
-        'reason failed   Ctrl+O',
+        'reason failed   [+] expand · Ctrl+O',
       ].join('\n'),
     );
     expect(completed).toBe(
@@ -118,7 +118,7 @@ describe('execute_orchestrate rendering', () => {
         'completed · promotion_prepared',
         'run unknown   epic -   slice -',
         'now -   completed   done 0',
-        'outcome completed   Ctrl+O',
+        'outcome completed   [+] expand · Ctrl+O',
       ].join('\n'),
     );
   });
@@ -166,6 +166,7 @@ describe('execute_orchestrate rendering', () => {
     expect(rendered).toBe(
       [
         'completed · promotion_prepared',
+        '[-] collapse · Ctrl+O',
         '',
         '--- Run Status ---',
         'run id: run-1',

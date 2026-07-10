@@ -57,9 +57,17 @@ function setText(context: unknown, text: string): Text {
   return component;
 }
 
+function collapsedToggleHint(theme: ThemeLike): string {
+  return theme.fg('muted', '[+] expand · Ctrl+O');
+}
+
+function expandedToggleHint(theme: ThemeLike): string {
+  return theme.fg('muted', '[-] collapse · Ctrl+O');
+}
+
 function withExpandHint(summary: string, options: RenderOptions, theme: ThemeLike): string {
   if (options.expanded) return summary;
-  return theme.fg('muted', `${summary} · Ctrl+O to expand`);
+  return `${summary} · ${collapsedToggleHint(theme)}`;
 }
 
 function compactField(value: string | undefined, fallback: string): string {
@@ -74,14 +82,14 @@ function eventScope(record: Record<string, unknown> | undefined): string {
   return `run ${runId} · epic ${epicId} · slice ${sliceId} · event ${sequence}`;
 }
 
-function compactExpandHint(summary: string): string {
-  return `${summary}   Ctrl+O`;
+function compactExpandHint(summary: string, theme: ThemeLike): string {
+  return `${summary}   ${collapsedToggleHint(theme)}`;
 }
 
 function orchestrateCollapsed(
   details: Record<string, unknown>,
   options: RenderOptions,
-  _theme: ThemeLike,
+  theme: ThemeLike,
 ): string {
   const progress = asRecord(details['progress']);
   const outcome = asRecord(details['outcome']);
@@ -126,6 +134,7 @@ function orchestrateCollapsed(
         : tail.startsWith('status ')
           ? `state ${tail.slice('status '.length)}`
           : tail,
+      theme,
     ),
   ].join('\n');
 }
@@ -165,13 +174,22 @@ function orchestrateSummary(details: Record<string, unknown>, options: RenderOpt
   return 'running · execute';
 }
 
-function orchestrateExpanded(details: Record<string, unknown>, options: RenderOptions): string {
+function orchestrateExpanded(
+  details: Record<string, unknown>,
+  options: RenderOptions,
+  theme: ThemeLike,
+): string {
   const progress = asRecord(details['progress']);
   const outcome = asRecord(details['outcome']);
   const agentStream = asRecord(details['agentStream']);
   const verifyStream = asRecord(details['verifyStream']);
 
-  const lines: string[] = [orchestrateSummary(details, options), '', sectionDivider('Run Status')];
+  const lines: string[] = [
+    orchestrateSummary(details, options),
+    expandedToggleHint(theme),
+    '',
+    sectionDivider('Run Status'),
+  ];
   const runId =
     stringOrUndefined(progress?.['runId']) ??
     stringOrUndefined(agentStream?.['runId']) ??
@@ -257,7 +275,9 @@ export function renderExecuteOrchestrateResult(
   if (!details) return setText(context, fallbackText(result));
   return setText(
     context,
-    options.expanded ? orchestrateExpanded(details, options) : orchestrateCollapsed(details, options, theme),
+    options.expanded
+      ? orchestrateExpanded(details, options, theme)
+      : orchestrateCollapsed(details, options, theme),
   );
 }
 
@@ -290,6 +310,7 @@ export function renderExecuteSnapshotResult(
     context,
     [
       summary,
+      expandedToggleHint(theme),
       '',
       'Status',
       `snapshot status: ${stringOrUndefined(snapshot['mode']) ?? 'unknown'}`,
@@ -333,6 +354,7 @@ export function renderExecutePlanCheckResult(
   }
   const lines = [
     summary,
+    expandedToggleHint(theme),
     '',
     'Status',
     `check status: ${stringOrUndefined(check['status']) ?? 'unknown'}`,
@@ -378,6 +400,7 @@ export function renderExecuteStatusResult(
     context,
     [
       summary,
+      expandedToggleHint(theme),
       '',
       'Status',
       `discipline: ${discipline}`,
