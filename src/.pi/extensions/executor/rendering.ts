@@ -193,13 +193,13 @@ function orchestrateCollapsed(
   const phase = terminalOutcomeStatus(outcome) ?? stringOrUndefined(progress?.['phase']);
   const completed = countArray(progress?.['completedSliceIds']);
   let tail = `status ${compactField(stringOrUndefined(progress?.['runStatus']), 'unknown')}`;
-  if (events.length > 0) {
+  if (outcome && stringOrUndefined(outcome['status']) === 'halted') {
+    tail = `reason ${compactField(stringOrUndefined(outcome['reason']), 'unknown')}`;
+  } else if (events.length > 0) {
     const latestEvent = events.at(-1);
     if (latestEvent) {
       tail = `${activityCountLabel(events.length)} · ${latestActivityLabel(latestEvent)} · ${latestEvent.message}`;
     }
-  } else if (outcome && stringOrUndefined(outcome['status']) === 'halted') {
-    tail = `reason ${compactField(stringOrUndefined(outcome['reason']), 'unknown')}`;
   } else if (outcome) {
     tail = `outcome ${compactField(stringOrUndefined(outcome['status']), 'unknown')}`;
   }

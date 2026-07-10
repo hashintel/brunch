@@ -223,6 +223,45 @@ describe('execute_orchestrate rendering', () => {
     expect(expanded).not.toContain('phase: started');
   });
 
+  it('keeps the halt reason visible in collapsed cards even when stream activity exists', () => {
+    const rendered = renderResult(
+      tool,
+      {
+        content: [{ type: 'text', text: 'fallback' }],
+        details: {
+          progress: {
+            runId: 'run-1',
+            step: 'test_result',
+            phase: 'started',
+            fromStatus: 'agent_result_ingested',
+            runStatus: 'agent_result_ingested',
+            activeEpicId: 'e1',
+            activeSliceId: 't1',
+            completedSliceIds: ['t0'],
+          },
+          verifyStream: {
+            kind: 'stderr',
+            runId: 'run-1',
+            epicId: 'e1',
+            sliceId: 't1',
+            sequence: 9,
+            message: 'tests failed',
+          },
+          outcome: {
+            status: 'halted',
+            step: 'test_result',
+            runStatus: 'agent_result_ingested',
+            reason: 'failed',
+          },
+        },
+      },
+      { expanded: false, isPartial: false },
+    );
+
+    expect(rendered).toContain('reason failed   Ctrl + O to expand');
+    expect(rendered).not.toContain('latest verify error');
+  });
+
   it('surfaces recent worker and verify activity in the collapsed summary', () => {
     const rendered = renderResult(
       tool,

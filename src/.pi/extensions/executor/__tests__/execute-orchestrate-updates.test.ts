@@ -261,4 +261,59 @@ describe('execute_orchestrate intra-drive updates', () => {
     expect(completedProgressDetail?.verifyStream?.message).toBe('tests passed');
     expect(result.details?.verifyStream?.message).toBe('tests passed');
   });
+
+  it('does not carry stale worker streams into later verify progress updates', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-orchestrate-step-scoped-streams-'));
+    await createDrivableRun(cwd);
+    const detailUpdates: unknown[] = [];
+
+    const tool = createExecuteOrchestrateTool(
+      fakePorts({ agentRunner: streamingAgentRunner, testRunner: streamingTestRunner }),
+    );
+    const result = await tool.execute(
+      't1',
+      { runId: 'run-1' },
+      undefined as never,
+      ((update: {
+        readonly content: readonly { readonly type: string; readonly text?: string }[];
+        readonly details?: unknown;
+      }) => {
+        detailUpdates.push(update.details);
+      }) as never,
+      { cwd } as never,
+    );
+
+    const verifyStartedProgressDetail = detailUpdates.find(
+      (detail) =>
+        detail &&
+        typeof detail === 'object' &&
+        'progress' in detail &&
+        (detail as { readonly progress?: { readonly step?: string; readonly phase?: string } }).progress
+          ?.step === 'test_result' &&
+        (detail as { readonly progress?: { readonly step?: string; readonly phase?: string } }).progress
+          ?.phase === 'started',
+    ) as
+      | { readonly agentStream?: unknown; readonly verifyStream?: { readonly message?: string } }
+      | undefined;
+
+    const verifyCompletedProgressDetail = detailUpdates.find(
+      (detail) =>
+        detail &&
+        typeof detail === 'object' &&
+        'progress' in detail &&
+        (detail as { readonly progress?: { readonly step?: string; readonly phase?: string } }).progress
+          ?.step === 'test_result' &&
+        (detail as { readonly progress?: { readonly step?: string; readonly phase?: string } }).progress
+          ?.phase === 'completed',
+    ) as
+      | { readonly agentStream?: unknown; readonly verifyStream?: { readonly message?: string } }
+      | undefined;
+
+    expect(verifyStartedProgressDetail?.agentStream).toBeUndefined();
+    expect(verifyStartedProgressDetail?.verifyStream).toBeUndefined();
+    expect(verifyCompletedProgressDetail?.agentStream).toBeUndefined();
+    expect(verifyCompletedProgressDetail?.verifyStream?.message).toBe('tests passed');
+    expect(result.details?.agentStream?.message).toBe('edited src/types.ts');
+    expect(result.details?.verifyStream?.message).toBe('tests passed');
+  });
 });

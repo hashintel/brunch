@@ -60,6 +60,17 @@ export function createExecuteOrchestrateTool(
       let latestProgress: ExecuteOrchestrateDetails['progress'];
       let latestAgentStream: ExecuteOrchestrateDetails['agentStream'];
       let latestVerifyStream: ExecuteOrchestrateDetails['verifyStream'];
+      const progressStepStreams = (
+        stepKind: string,
+      ): Pick<ExecuteOrchestrateDetails, 'agentStream' | 'verifyStream'> => {
+        if (stepKind === 'agent_result') {
+          return latestAgentStream ? { agentStream: latestAgentStream } : {};
+        }
+        if (stepKind === 'test_result') {
+          return latestVerifyStream ? { verifyStream: latestVerifyStream } : {};
+        }
+        return {};
+      };
       const emitProgress = (progress: DriveStepProgress): void => {
         latestProgress = {
           runId: params.runId,
@@ -98,8 +109,7 @@ export function createExecuteOrchestrateTool(
           ],
           details: {
             progress: latestProgress,
-            ...(latestAgentStream ? { agentStream: latestAgentStream } : {}),
-            ...(latestVerifyStream ? { verifyStream: latestVerifyStream } : {}),
+            ...progressStepStreams(progress.step.kind),
           },
         });
       };
