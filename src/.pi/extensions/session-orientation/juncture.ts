@@ -35,8 +35,13 @@ import type {
   SessionManager,
 } from '@earendil-works/pi-coding-agent';
 
-import type { TranscriptEntryLike } from '../../../projections/session/continuity-entry-classifier.js';
 import {
+  CONTEXT_SEED_CUSTOM_TYPE,
+  customEntryType,
+  type TranscriptEntryLike,
+} from '../../../projections/session/continuity-entry-classifier.js';
+import {
+  BRUNCH_KICK_CUSTOM_TYPE,
   completeAssistantKick,
   originateAssistantTurn,
   type KickCompletionOutcome,
@@ -232,7 +237,10 @@ export async function runManualTriggerKickForContext(input: {
     },
     {
       resumeOrigin: 'manual_trigger',
-      forceSeed: true,
+      // A failed kick can leave its provider-visible seed in the transcript.
+      // Reuse that seed on retry; otherwise explicit continuation still forces
+      // fresh grounding before the next kick.
+      forceSeed: !hasSeedAwaitingKick(sessionManager.getEntries()),
       forceStartOrigin: 'manual_trigger',
       deliverSeedWithoutModel: false,
     },
@@ -297,6 +305,15 @@ export function sendCustomMessageViaExtensionApi(pi: ExtensionAPI): LiveKickDeps
 
 function hasAvailableModel(ctx: Pick<OrientationContextLike, 'modelRegistry'>): boolean {
   return ctx.modelRegistry.getAvailable().length > 0;
+}
+
+function hasSeedAwaitingKick(entries: readonly TranscriptEntryLike[]): boolean {
+  for (let index = entries.length - 1; index >= 0; index--) {
+    const customType = customEntryType(entries[index]!);
+    if (customType === BRUNCH_KICK_CUSTOM_TYPE) return false;
+    if (customType === CONTEXT_SEED_CUSTOM_TYPE) return true;
+  }
+  return false;
 }
 
 function sessionManagerCanAppend(sessionManager: unknown): sessionManager is JunctureSessionManager {
