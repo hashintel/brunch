@@ -1,4 +1,4 @@
-import type { ExecutorTopology } from './orchestrate-topology.js';
+import type { ExecutorTopology } from '../orchestrate-topology.js';
 
 export const SDCPN_FILE_FORMAT_VERSION = 1;
 

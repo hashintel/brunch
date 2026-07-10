@@ -1,4 +1,4 @@
-import type { PetrinautStreamFrame } from './petrinaut-stream-frames.js';
+import type { PetrinautStreamFrame } from './stream-frames.js';
 
 export function serializePetrinautSseFrame(frame: PetrinautStreamFrame): string {
   return `event: ${frame.kind}\ndata: ${JSON.stringify(frameData(frame))}\n\n`;

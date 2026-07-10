@@ -23,7 +23,13 @@ export async function appendPetriEvent(args: {
 }): Promise<void> {
   await mkdir(petriDirPath(args.cwd, args.runId), { recursive: true });
   await appendFile(petriEventsPath(args.cwd, args.runId), `${JSON.stringify(args.event)}\n`, 'utf8');
-  for (const listener of listenersByRun.get(listenerKey(args.cwd, args.runId)) ?? []) listener(args.event);
+  for (const listener of listenersByRun.get(listenerKey(args.cwd, args.runId)) ?? []) {
+    try {
+      listener(args.event);
+    } catch {
+      // Live observers must never change the durable append result.
+    }
+  }
 }
 
 export function subscribePetriEvents(args: {

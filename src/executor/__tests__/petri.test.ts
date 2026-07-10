@@ -8,24 +8,24 @@ import * as z from 'zod';
 import type { ExecutorNetEvent } from '../orchestrate-topology.js';
 import { compileExecutorTopology } from '../orchestrate.js';
 import { petriEventsPath } from '../petri-events.js';
-import {
-  PETRI_RUN_COMPLETED_PLACE,
-  PETRI_RUN_FINISH_TRANSITION,
-  PETRI_RUN_HALTED_PLACE,
-  reducePetriLiveExecutionExport,
-} from '../petri-live-export.js';
 import { canProjectPetriReplay } from '../petri-replay-eligibility.js';
 import { replayPetri, replayTransitionHistory } from '../petri-replay.js';
-import { SDCPN_FILE_FORMAT_VERSION } from '../petri-sdcpn.js';
 import { exportPetri, petriNetPath, petriSdcpnPath } from '../petri.js';
 import {
   composePetrinautLauncherUrl,
   PETRINAUT_URL_INVALID_MESSAGE,
   PETRINAUT_URL_MISSING_MESSAGE,
   resolvePetrinautUrl,
-} from '../petrinaut-launcher-url.js';
-import { serializePetrinautSseFrame, serializePetrinautSseFrames } from '../petrinaut-sse.js';
-import { foldPetrinautStreamFrames, projectPetrinautStreamFrames } from '../petrinaut-stream-frames.js';
+} from '../petrinaut/launcher-url.js';
+import {
+  PETRI_RUN_COMPLETED_PLACE,
+  PETRI_RUN_FINISH_TRANSITION,
+  PETRI_RUN_HALTED_PLACE,
+  reducePetriLiveExecutionExport,
+} from '../petrinaut/live-export.js';
+import { SDCPN_FILE_FORMAT_VERSION } from '../petrinaut/sdcpn.js';
+import { serializePetrinautSseFrame, serializePetrinautSseFrames } from '../petrinaut/sse.js';
+import { foldPetrinautStreamFrames, projectPetrinautStreamFrames } from '../petrinaut/stream-frames.js';
 import { populatedPlanPath } from '../populate.js';
 import { reportsPath } from '../report.js';
 import { runDirPath, runMetadataPath } from '../run.js';
@@ -676,6 +676,34 @@ describe('reducePetriLiveExecutionExport', () => {
     ).toEqual([
       { transitionId: PETRI_RUN_FINISH_TRANSITION, input: {}, output: { [PETRI_RUN_HALTED_PLACE]: 1 } },
     ]);
+  });
+
+  it('fails closed when a journal transition is absent from the SDCPN definition', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-live-export-unknown-transition-'));
+    await createCompletedRun(cwd);
+    await exportPetri({ cwd, runId: 'run-1' });
+    const sdcpnFile = JSON.parse(await readFile(petriSdcpnPath(cwd, 'run-1'), 'utf8'));
+
+    expect(() =>
+      reducePetriLiveExecutionExport({
+        sdcpnFile,
+        events: [
+          {
+            kind: 'transition_fired',
+            runId: 'run-1',
+            runStatus: 'worktree_created',
+            transitionId: 'missing-transition',
+            subnetId: 'run',
+            step: 'worktree_create',
+            contract: { kind: 'mechanical', lane: 'run' },
+            consumed: ['run:created'],
+            produced: ['run:worktree_created'],
+            fromStatus: 'created',
+            toStatus: 'worktree_created',
+          },
+        ],
+      }),
+    ).toThrow(/missing-transition/);
   });
 });
 

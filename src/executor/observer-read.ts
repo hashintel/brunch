@@ -5,7 +5,6 @@ import { BRUNCH_DIR } from '../constants.js';
 import { agentStreamPath, type AgentStreamEvent } from './agent-result.js';
 import type { BlockedStep, ExecutorNetEvent, ReadyStep, SchedulerPlan } from './orchestrate-topology.js';
 import { petriEventsPath } from './petri-events.js';
-import { reducePetriLiveExecutionExport, type PetriLiveExecutionExport } from './petri-live-export.js';
 import { petriMarkingSnapshotMatchesRunMetadata, readPetriMarkingSnapshot } from './petri-marking.js';
 import { canProjectPetriReplay } from './petri-replay-eligibility.js';
 import { replayPetri, type PetriProjection } from './petri-replay.js';
@@ -15,8 +14,9 @@ import {
   projectExecutorPetriTransitionHistory,
   type ExecutorPetriRuntime,
 } from './petri-runtime.js';
-import { type SdcpnFile } from './petri-sdcpn.js';
-import { composePetrinautLauncherUrl, resolvePetrinautUrl } from './petrinaut-launcher-url.js';
+import { composePetrinautLauncherUrl, resolvePetrinautUrl } from './petrinaut/launcher-url.js';
+import { reducePetriLiveExecutionExport, type PetriLiveExecutionExport } from './petrinaut/live-export.js';
+import { type SdcpnFile } from './petrinaut/sdcpn.js';
 import { readRunMetadata, runDirPath, runMetadataPath, type RunMetadata } from './run.js';
 import { verifyStreamPath, type VerifyStreamEvent } from './test-result.js';
 

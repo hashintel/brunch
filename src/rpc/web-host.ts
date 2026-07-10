@@ -5,13 +5,13 @@ import { fileURLToPath } from 'node:url';
 
 import { readRunDetail, petrinautStreamPathForRun } from '../executor/observer-read.js';
 import { subscribePetriEvents } from '../executor/petri-events.js';
-import { composePetrinautLauncherUrl, resolvePetrinautUrl } from '../executor/petrinaut-launcher-url.js';
-import { serializePetrinautSseFrame, serializePetrinautSseFrames } from '../executor/petrinaut-sse.js';
+import { composePetrinautLauncherUrl, resolvePetrinautUrl } from '../executor/petrinaut/launcher-url.js';
+import { serializePetrinautSseFrame, serializePetrinautSseFrames } from '../executor/petrinaut/sse.js';
 import {
   projectPetrinautStreamFrames,
   type PetrinautStreamFrame,
   type PetrinautTerminalState,
-} from '../executor/petrinaut-stream-frames.js';
+} from '../executor/petrinaut/stream-frames.js';
 import type { WorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 import { createReadOnlyRpcHandlers, createWebSidecarRpcHandlers } from './handlers.js';
 import type { SessionTurnDriver } from './methods/session-driver.js';
@@ -241,21 +241,26 @@ async function servePetrinautStream(
 
   let sentFiringCount = detail.petrinautLiveExport.transitionFirings.length;
   let terminalSent = false;
+  let sendQueue = Promise.resolve();
   const unsubscribe = subscribePetriEvents({
     cwd,
     runId,
     listener: () => {
-      void sendNewPetrinautFrames({
-        response,
-        cwd,
-        runId,
-        sentFiringCount,
-        terminalSent,
-        onSent: (state) => {
-          sentFiringCount = state.sentFiringCount;
-          terminalSent = state.terminalSent;
-        },
-      });
+      sendQueue = sendQueue.then(() =>
+        sendNewPetrinautFrames({
+          response,
+          cwd,
+          runId,
+          sentFiringCount,
+          terminalSent,
+          onSent: (state) => {
+            sentFiringCount = state.sentFiringCount;
+            terminalSent = state.terminalSent;
+          },
+        }).catch(() => {
+          // A failed observer refresh must not poison later event delivery attempts.
+        }),
+      );
     },
   });
   response.on('close', unsubscribe);

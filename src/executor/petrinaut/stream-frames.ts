@@ -3,7 +3,7 @@ import type {
   PetriLiveMarking,
   PetriLiveNetDefinition,
   PetriLiveTransitionFiring,
-} from './petri-live-export.js';
+} from './live-export.js';
 
 export type PetrinautTerminalState = 'completed' | 'halted' | 'deadlocked';
 export type PetrinautRunState = 'running' | PetrinautTerminalState;

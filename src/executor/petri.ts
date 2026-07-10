@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 
 import { compileExecutorTopology, type SchedulerPlan } from './orchestrate-topology.js';
 import { readPetriRuntimePlan } from './petri-runtime-plan.js';
-import { petriTopologyToSdcpnFile } from './petri-sdcpn.js';
+import { petriTopologyToSdcpnFile } from './petrinaut/sdcpn.js';
 import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
 export type PetriExportResult =

@@ -2,6 +2,7 @@ import type { QueryClient, QueryKey } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
 import { parsePetriProjection } from '../../executor/petri-projection.js';
+import { parsePetriLiveExecutionExport } from '../../executor/petrinaut/live-export.js';
 import { queryKeys } from '../query-keys.js';
 import type { WebSocketRpcClient, WebSocketRpcNotification } from '../rpc-client.js';
 
@@ -200,8 +201,10 @@ function patchExecuteRunDetail(queryClient: QueryClient, update: ProductUpdate):
         delete next.petrinautStreamPath;
         delete next.petrinautLauncherTemplateUrl;
         delete next.petrinautLaunchPath;
-      } else if (isPetrinautLiveExport(update.petrinautLiveExport)) {
-        next.petrinautLiveExport = update.petrinautLiveExport;
+      } else {
+        const parsedLiveExport = parsePetriLiveExecutionExport(update.petrinautLiveExport);
+        if (parsedLiveExport === undefined) return next;
+        next.petrinautLiveExport = parsedLiveExport;
         next.petrinautStreamPath = `/petrinaut/stream?runId=${encodeURIComponent(runId)}`;
       }
     }
@@ -217,11 +220,6 @@ function patchExecuteRunDetail(queryClient: QueryClient, update: ProductUpdate):
     }
     return next;
   });
-}
-
-function isPetrinautLiveExport(value: unknown): value is Record<string, unknown> {
-  if (!isRecord(value) || !isRecord(value.definition) || !isRecord(value.initialState)) return false;
-  return Array.isArray(value.transitionFirings);
 }
 
 function isReadyStepArray(value: unknown): value is readonly Record<string, unknown>[] {

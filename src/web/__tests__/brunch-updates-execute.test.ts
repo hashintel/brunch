@@ -525,4 +525,43 @@ describe('brunch.updated execute topic invalidation', () => {
     });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.run', 'run-1'], exact: true });
   });
+
+  it('ignores malformed Petrinaut live export patches before invalidating the exact run query', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue();
+    queryClient.setQueryData(['execute.run', 'run-1'], {
+      runId: 'run-1',
+      petrinautLiveExport: {
+        definition: {
+          version: 1,
+          meta: { generator: 'brunch' },
+          title: 'Existing',
+          places: [],
+          transitions: [],
+        },
+        initialState: {},
+        transitionFirings: [],
+      },
+    });
+
+    invalidateBrunchUpdate(
+      queryClient,
+      notification([
+        {
+          topic: 'execute.run',
+          runId: 'run-1',
+          petrinautLiveExport: {
+            definition: { title: 'Malformed' },
+            initialState: { p: -1 },
+            transitionFirings: 'not-an-array',
+          },
+        },
+      ]),
+    );
+
+    expect(queryClient.getQueryData(['execute.run', 'run-1'])).toMatchObject({
+      petrinautLiveExport: { definition: { title: 'Existing' } },
+    });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.run', 'run-1'], exact: true });
+  });
 });

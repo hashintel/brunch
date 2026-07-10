@@ -1,6 +1,6 @@
 import type { BlockedStep, ReadyStep } from '../executor/orchestrate-topology.js';
-import type { PetriLiveExecutionExport } from '../executor/petri-live-export.js';
 import type { PetriProjection } from '../executor/petri-projection.js';
+import type { PetriLiveExecutionExport } from '../executor/petrinaut/live-export.js';
 
 export const BRUNCH_UPDATED_METHOD = 'brunch.updated';
 
