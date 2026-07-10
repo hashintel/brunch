@@ -135,8 +135,8 @@ const defaultPrompts: DevCliPrompts = {
     }),
   confirmOpenWeb: async (workspaceLabel) =>
     clackConfirm({
-      message: `Open the web observer sidecar too for ${workspaceLabel}?`,
-      initialValue: false,
+      message: `Open the web observer sidecar for ${workspaceLabel}?`,
+      initialValue: true,
     }),
 };
 
@@ -235,7 +235,7 @@ async function runLaunchCommand(args: readonly string[], options: DevCliOptions 
     argv: [
       '--mode',
       flags.mode,
-      ...(openWeb ? ['--open-web'] : []),
+      ...(!openWeb ? ['--no-webui'] : []),
       ...(flags.developerTools ? ['--dev-tools'] : []),
     ],
     cwd: workspace,
@@ -390,7 +390,7 @@ function parseLaunchFlags(args: readonly string[], cwd: string): LaunchFlags {
       seed: { type: 'string' },
       reset: { type: 'boolean', default: false },
       mode: { type: 'string', default: 'tui' },
-      'open-web': { type: 'boolean', default: false },
+      'no-webui': { type: 'boolean', default: false },
       'dev-tools': { type: 'boolean', default: false },
       help: { type: 'boolean', short: 'h', default: false },
     },
@@ -403,7 +403,7 @@ function parseLaunchFlags(args: readonly string[], cwd: string): LaunchFlags {
     seed: values.seed,
     reset: values.reset,
     mode: values.mode,
-    openWeb: values['open-web'],
+    openWeb: !values['no-webui'],
     developerTools: values['dev-tools'],
     help: values.help,
   };
@@ -612,9 +612,9 @@ function devCliUsage(): string {
   return [
     'Usage:',
     '  npm run dev',
-    '  npm run dev -- --seed <name>/<variant> --reset [--open-web] [--dev-tools]',
-    '  npm run dev -- --workspace <dir> [--mode tui|print|rpc] [--open-web] [--dev-tools]',
-    '  npm run dev -- --workspace <dir> --seed <name>/<variant> --reset [--open-web] [--dev-tools]',
+    '  npm run dev -- --seed <name>/<variant> --reset [--no-webui] [--dev-tools]',
+    '  npm run dev -- --workspace <dir> [--mode tui|print|rpc] [--no-webui] [--dev-tools]',
+    '  npm run dev -- --workspace <dir> --seed <name>/<variant> --reset [--no-webui] [--dev-tools]',
     '  npm run dev -- rpc <method> [params-json] --workspace <dir>',
     '  npm run dev -- mutate --workspace <dir> (--params <json> | --params-file <file>)',
     '  npm run dev -- export --workspace <dir> --spec-id <id> [--out <file>] [--show all|active]',
@@ -633,8 +633,8 @@ function launchUsage(): string {
     '',
     'Launch examples:',
     '  npm run dev',
-    '  npm run dev -- --seed workspace-alpha-grounding/base --reset --open-web',
-    '  npm run dev -- --workspace .fixtures/workbenches/workspace-alpha-grounding --open-web',
+    '  npm run dev -- --seed workspace-alpha-grounding/base --reset',
+    '  npm run dev -- --workspace .fixtures/workbenches/workspace-alpha-grounding --no-webui',
   ].join('\n');
 }
 

@@ -35,6 +35,7 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
     cwd: cwdFlag,
     mode,
     openWeb,
+    noWebui,
     developerTools: developerToolsFlag,
   } = parseCliArgs(argv);
 
@@ -55,7 +56,7 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
   // TUI-only flags are accepted by the shared parser; warn instead of silently
   // ignoring them when the selected mode cannot honor them.
   if (mode !== 'tui') {
-    if (openWeb) writeStderr(options.stderr, `--open-web only applies to --mode tui; ignoring.`);
+    if (noWebui) writeStderr(options.stderr, `--no-webui only applies to --mode tui; ignoring.`);
     if (developerToolsFlag !== undefined) {
       writeStderr(options.stderr, `--dev-tools only applies to --mode tui; ignoring.`);
     }
@@ -120,7 +121,7 @@ export function formatBrunchUsage(): string {
     'Options:',
     '  --cwd <path>         Workspace directory (default: current directory)',
     '  --mode <mode>        tui (default) | print | rpc',
-    '  --open-web           Open the web sidecar in a browser (tui mode only)',
+    '  --no-webui           Do not open the web sidecar in a browser (tui mode only)',
     '  --dev-tools          Enable developer tools (tui mode only)',
     '  -h, --help           Show this usage',
     '',
@@ -169,11 +170,12 @@ function parseCliArgs(argv: string[]): {
   cwd: string | undefined;
   mode: string;
   openWeb: boolean;
+  noWebui: boolean;
   developerTools: boolean | undefined;
 } {
   // node:util parseArgs accepts both `--flag value` and `--flag=value` forms and
-  // fails loud on unknown or malformed flags. --open-web is a plain boolean whose
-  // default is false, so there is no `=false` form to model: omit it to opt out.
+  // fails loud on unknown or malformed flags. --no-webui is a plain boolean whose
+  // default is false, so there is no `=false` form to model: omit it for the default.
   // --dev-tools is optional so programmatic callers can supply the fallback.
   const { values, positionals } = parseArgs({
     args: argv,
@@ -181,7 +183,7 @@ function parseCliArgs(argv: string[]): {
     options: {
       cwd: { type: 'string' },
       mode: { type: 'string', default: 'tui' },
-      'open-web': { type: 'boolean', default: false },
+      'no-webui': { type: 'boolean', default: false },
       'dev-tools': { type: 'boolean' },
       help: { type: 'boolean', short: 'h', default: false },
     },
@@ -194,7 +196,8 @@ function parseCliArgs(argv: string[]): {
     help: values.help,
     cwd: resolveCwdFlag(values.cwd),
     mode: values.mode,
-    openWeb: values['open-web'],
+    openWeb: !values['no-webui'],
+    noWebui: values['no-webui'],
     developerTools: values['dev-tools'],
   };
 }

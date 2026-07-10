@@ -4,7 +4,7 @@ This is the outer-loop ship-correctness runbook for `poc-live-ship-gate` (FE-811
 
 ## Boundary
 
-- Entry point: `brunch --mode tui --open-web` (or `npm run dev -- --mode tui --open-web` from this repo).
+- Entry point: `brunch --mode tui` (or `npm run dev -- --mode tui` from this repo); the browser sidecar opens by default.
 - Workspace: a fresh isolated cwd under `.fixtures/workbenches/ship-gate-runbook`.
 - Provider: a real configured model provider. Do not set `PI_OFFLINE=1` for the proof run.
 - Observer: the web sidecar URL printed by the TUI. The ordinary sidecar is read-only; do not use private in-process wiring.
@@ -31,7 +31,7 @@ npm run seed -- --workspace "$WORKSPACE" --seed workspace-beta-commitments/base
 Launch the real product; source/dev runs mirror prompt/posture artifacts into `.brunch/debug/` automatically:
 
 ```bash
-npm run dev -- --workspace "$WORKSPACE" --open-web
+npm run dev -- --workspace "$WORKSPACE"
 ```
 
 Record the sidecar URL printed by the TUI in `report.json` and open it in the browser. The launch path must be the product TUI sidecar, not a test harness or imported handler.
@@ -86,7 +86,7 @@ A committed run directory uses this shape:
   "runId": "2026-06-22T00-00-00Z",
   "generatedAt": "2026-06-22T00:00:00.000Z",
   "cwd": "<repo>/.fixtures/workbenches/ship-gate-runbook",
-  "cli": "brunch --mode tui --open-web",
+  "cli": "brunch --mode tui",
   "provider": { "kind": "real", "model": "<provider model id>" },
   "success": true,
   "selectedSpec": { "id": 1, "title": "<title>" },

@@ -21,11 +21,11 @@ Brunch creates or reuses a local `.brunch/` workspace under the current director
 Useful launch variants:
 
 ```bash
-# default interactive TUI
+# interactive TUI + browser sidecar (default)
 npx @hashintel/brunch@alpha
 
-# TUI plus browser sidecar launch
-npx @hashintel/brunch@alpha --open-web
+# suppress automatic browser opening while keeping the sidecar host available
+npx @hashintel/brunch@alpha --no-webui
 ```
 
 Prefer `npx` during the alpha line. Global installs are easy to leave stale while the CLI, local workspace shape, and Pi integration are still moving.
@@ -88,11 +88,11 @@ Seed a chosen graph into a workbench, then launch from the repo root:
 # Seed one tracked fixture into a named workbench (--reset wipes prior runtime state first)
 npm run seed -- --workspace .fixtures/workbenches/live-graph-observer --seed workspace-spread/alpha-grounding --reset
 
-# Interactive TUI writer + read-only web sidecar against that workbench
+# Interactive TUI writer + read-only web sidecar against that workbench; opens the browser by default
 npm run dev -- --cwd .fixtures/workbenches/live-graph-observer
 
-# Open the sidecar in a browser as well
-npm run dev -- --cwd .fixtures/workbenches/live-graph-observer --open-web
+# Keep the sidecar host running without automatically opening a browser
+npm run dev -- --cwd .fixtures/workbenches/live-graph-observer --no-webui
 ```
 
 Seed selection is `<set>/<slug>` from `.fixtures/seeds/` (see [`.fixtures/seeds/README.md`](./.fixtures/seeds/README.md) for the disposition catalog). Use `--all-seeds` instead of `--seed` only when you deliberately want every tracked fixture loaded as its own spec; a bare `npm run seed` fails with usage rather than seeding the shell cwd.

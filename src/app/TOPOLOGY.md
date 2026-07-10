@@ -16,7 +16,8 @@ Current entrypoints:
 - `print-workspace-state.ts` — terse human/product print-mode rendering for
   `brunch --mode print`.
 - `brunch-tui.ts` — TUI launch path, embedded Pi session runtime wiring, and the
-  web sidecar (`startWebHost`; browser launch is opt-in via `--open-web`). It
+  web sidecar (`startWebHost`; the browser opens by default and `--no-webui`
+  suppresses only that browser opening). It
   resolves boot-time allowlisted-model availability for the workspace-dialog
   warning, and passes the same no-auth notice into session-orientation wiring.
   Its boot-kick live `sendCustomMessage` adapter resolves at scheduling time so

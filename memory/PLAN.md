@@ -64,6 +64,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - `main-editor-chrome` (FE-1169) — chrome-batch opener, in heavy flight: builder commits landed 2026-07-08 for threads 1–5 (ask surface, mode-reactive chrome, commands, startup theming, and details-driven candidate rendering); the judo/review-contract fix cards, B2 review-set details renderer, theme demo, roving-flake stabilization, and 2026-07-09 induction fix-now refactor are consumed. Remaining: the PR-305 review-findings refactor (`memory/REFACTOR.md`), then outer manual beats. Branch `ln/fe-1169-editor-chrome` (PR #305; locally restacked onto merged parents; tie-off/submit owed). Definition below.
 
 ### Recently Completed
+- 2026-07-10 `webui-default` (FE-1185) — the product and dev CLIs now open the TUI sidecar route in the browser by default; `--no-webui` suppresses only browser opening while host startup and URL advertisement remain unchanged. Active help, topology, runbooks, and tests use the canonical opt-out spelling.
 - 2026-07-10 `tool-schema-convergence` (FE-1163) — closure audit repaired: the shared adapter now requires object roots; persisted semantic differentials cover every authoring-representation change; pure-TypeBox families retain object identity/serialization; and the production-derived oracle pins the exact 52-tool foreground, dev, executor-artifact, standalone-alternatives, and sealed-child inventory with adapter provenance and named legality constraints. The exhausted ledger was deleted; durable state lives in D118-L/I60-L and `src/.pi/extensions/TOPOLOGY.md`.
 - 2026-07-08 **merge wave — ship-gate stack + KA executor lanes to `next`:** FE-1122 (#286), FE-1123 (#287), FE-1124 (#288), FE-1134 (#289), FE-1135 (#291), FE-1136 (#292), FE-1137 (#290), FE-1138 (#293), FE-1152 (#294); KA: FE-1141 (#295), FE-1154 (#297), FE-1155 (#296), FE-1107 (#298). All outer-loop residue from these lanes is batched into `walkthrough-evidence-batch` (FE-1167) — no merged frontier carries open obligations of its own. Definitions archived to `docs/archive/PLAN_HISTORY.md` (2026-07-08 hygiene pass).
 - 2026-07-08 `exchange-ask-refinement` (FE-1164) — **tied off and merged to `next` 2026-07-08**; its unwitnessed walkthrough items folded into FE-1167 residue group 5. Definition retained below (Horizon `headless-ask-discovery` / `review-commentary-widening` build on it). Review-fix closeout landed after the 2026-07-08 review found the first build not-done: the previously skipped structured-exchange answer suite and live web-driver/order proofs are un-skipped; standalone `ask` owns free-text/single/multi collection with custom→editor→broker/unavailable precedence where applicable; multi-choice editor-envelope fallback is live under ask; offer continuations fail loudly without declared `details.continuation`; declared candidate/digest/review options drive the pickers; legacy Pi adapter files (`present-question.ts`, `request-response.ts`, answer/choice/review sources) are deleted while preserved request-detail discriminants remain for capture/sweep/RPC parity. `npm run verify` passed except the first run hit the known roving-suite flake in `git-host-promotion-port`; rerun passed tests and build. **2026-07-08 walkthrough + witness audit addenda (same branch):** F18–F20 ask-surface fixes (free-text markdown-body rendering, free-text comment collection, commentPrompt-presence-gated optional comments); a witness audit then caught and fixed the sweep classifier excluding `ask` toolNames from the capture tail (the "capture semantics stay green" claim had been witnessed only against retired `request_response` fixtures), added the ask render-honesty oracle + `ASK_CONTENT_ELISIONS`, and gave `ask-tuples.md` a writer test with a five-branch outcome matrix. Witness-gap closure then added the real pi-tui runtime-mount battery for registered `ask` and the dedicated `present_candidates` supersession probe.
@@ -265,6 +266,20 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
      mechanism delivered by the KA executor lane (D111-L/D112-L/I58-L; src/executor/TOPOLOGY.md).
      KA-conversation residue (card GC, close-or-narrow, demo session, post-KA plan pass) rides FE-1167. -->
 
+### webui-default
+
+- **Name:** Open the web UI by default with an opt-out flag
+- **Linear:** [FE-1185](https://linear.app/hash/issue/FE-1185/open-the-web-ui-by-default-with-an-opt-out-flag)
+- **Branch:** `ln/fe-1185-webui-default`, stacked on `ln/fe-1163-tool-schema-convergence`
+- **Kind:** bounded CLI behavior change inside the settled TUI/web-sidecar launch seam
+- **Status:** done 2026-07-10
+- **Certainty:** earned — the sidecar host already starts for every TUI session; this closes the remaining browser-launch default mismatch rather than proving a new seam.
+- **Objective:** `brunch` opens the advertised sidecar route in the default browser unless `--no-webui` is supplied; the opt-out suppresses browser opening only, not sidecar host startup or URL advertisement.
+- **Canonicalizes:** one product and dev-launcher default, with `--no-webui` as the sole CLI spelling; retire `--open-web` without a compatibility alias under the pre-release rewrite posture.
+- **Acceptance:** default TUI launch passes browser opening through the real launch boundary; `--no-webui` suppresses only the opener; print/RPC remain browser-free; dev launcher, tests, help, topology, and active runbooks use the new default and spelling.
+- **Verification:** focused app/dev CLI and TUI launch tests, then `npm run verify`.
+- **Traceability:** product contract req 4; `src/app/TOPOLOGY.md`, `src/dev/TOPOLOGY.md`, `src/web/TOPOLOGY.md`.
+
 ### executor-run-environment
 
 - **Name:** Greenfield executor run substrate and verify policy
@@ -409,6 +424,7 @@ done anchors:
   exchange-capture-contract -> present-digest (I57-L accepted-terminal read rules + conduct homes)
   elicitation-gap-guidance -> exchange-capture-contract (scratchpad outlet), execute-entry-readiness (postures)
   subagent-reconciliation -> acquisition arm + future subagent diversity
+  tool-schema-convergence -> webui-default (Graphite merge order only; no behavior dependency)
 
 rules:
   candidates never commit graph truth (I51-L)
