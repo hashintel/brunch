@@ -16,6 +16,9 @@ type ProductUpdate = {
   readonly petriProjectionReplayReason?: unknown;
   readonly petriReadySteps?: unknown;
   readonly petriBlockedSteps?: unknown;
+  readonly petrinautLiveExport?: unknown;
+  readonly petrinautLauncherTemplateUrl?: unknown;
+  readonly petrinautLaunchPath?: unknown;
 };
 
 export function useBrunchUpdateSubscription(queryClient: QueryClient, rpcClient: WebSocketRpcClient): void {
@@ -136,16 +139,20 @@ function invalidateExact(queryClient: QueryClient, queryKey: QueryKey): void {
 
 function patchExecuteRunDetail(queryClient: QueryClient, update: ProductUpdate): void {
   if (typeof update.runId !== 'string') return;
+  const runId = update.runId;
   if (
     !('petriProjection' in update) &&
     !('petriProjectionSource' in update) &&
     !('petriProjectionReplayReason' in update) &&
     !('petriReadySteps' in update) &&
-    !('petriBlockedSteps' in update)
+    !('petriBlockedSteps' in update) &&
+    !('petrinautLiveExport' in update) &&
+    !('petrinautLauncherTemplateUrl' in update) &&
+    !('petrinautLaunchPath' in update)
   ) {
     return;
   }
-  queryClient.setQueryData(queryKeys.execute.run(update.runId), (current: unknown) => {
+  queryClient.setQueryData(queryKeys.execute.run(runId), (current: unknown) => {
     if (!isRecord(current) || 'unreadable' in current) return current;
     const next = { ...current };
     const hasProjectionUpdate = 'petriProjection' in update;
@@ -187,8 +194,34 @@ function patchExecuteRunDetail(queryClient: QueryClient, update: ProductUpdate):
       else if (isBlockedStepArray(update.petriBlockedSteps))
         next.petriBlockedSteps = update.petriBlockedSteps;
     }
+    if ('petrinautLiveExport' in update) {
+      if (update.petrinautLiveExport === null) {
+        delete next.petrinautLiveExport;
+        delete next.petrinautStreamPath;
+        delete next.petrinautLauncherTemplateUrl;
+        delete next.petrinautLaunchPath;
+      } else if (isPetrinautLiveExport(update.petrinautLiveExport)) {
+        next.petrinautLiveExport = update.petrinautLiveExport;
+        next.petrinautStreamPath = `/petrinaut/stream?runId=${encodeURIComponent(runId)}`;
+      }
+    }
+    if ('petrinautLauncherTemplateUrl' in update) {
+      if (update.petrinautLauncherTemplateUrl === null) delete next.petrinautLauncherTemplateUrl;
+      else if (typeof update.petrinautLauncherTemplateUrl === 'string')
+        next.petrinautLauncherTemplateUrl = update.petrinautLauncherTemplateUrl;
+    }
+    if ('petrinautLaunchPath' in update) {
+      if (update.petrinautLaunchPath === null) delete next.petrinautLaunchPath;
+      else if (typeof update.petrinautLaunchPath === 'string')
+        next.petrinautLaunchPath = update.petrinautLaunchPath;
+    }
     return next;
   });
+}
+
+function isPetrinautLiveExport(value: unknown): value is Record<string, unknown> {
+  if (!isRecord(value) || !isRecord(value.definition) || !isRecord(value.initialState)) return false;
+  return Array.isArray(value.transitionFirings);
 }
 
 function isReadyStepArray(value: unknown): value is readonly Record<string, unknown>[] {

@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 
 import { compileExecutorTopology, type SchedulerPlan } from './orchestrate-topology.js';
 import { readPetriRuntimePlan } from './petri-runtime-plan.js';
+import { petriTopologyToSdcpnFile } from './petri-sdcpn.js';
 import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
 export type PetriExportResult =
@@ -33,8 +34,10 @@ export type PetriExportResult =
       readonly runId: string;
       readonly metadataPath: string;
       readonly petriPath: string;
+      readonly petriSdcpnPath: string;
       readonly sideEffects: readonly [
         { readonly kind: 'mkdir'; readonly path: string },
+        { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
         { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
         { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
       ];
@@ -42,6 +45,10 @@ export type PetriExportResult =
 
 export function petriNetPath(cwd: string, runId: string): string {
   return join(runDirPath(cwd, runId), 'petrinaut', 'net.json');
+}
+
+export function petriSdcpnPath(cwd: string, runId: string): string {
+  return join(runDirPath(cwd, runId), 'petrinaut', 'net.sdcpn.json');
 }
 
 async function readExportPlan(cwd: string, metadata: RunMetadata): Promise<SchedulerPlan | undefined> {
@@ -72,6 +79,7 @@ export async function exportPetri(args: {
     };
 
   const path = petriNetPath(args.cwd, args.runId);
+  const sdcpnPath = petriSdcpnPath(args.cwd, args.runId);
   const dir = dirname(path);
   const plan = await readExportPlan(args.cwd, metadata);
   if (!plan) {
@@ -114,6 +122,11 @@ export async function exportPetri(args: {
     )}\n`,
     'utf8',
   );
+  await writeFile(
+    sdcpnPath,
+    `${JSON.stringify(petriTopologyToSdcpnFile({ runId: args.runId, topology }), null, 2)}\n`,
+    'utf8',
+  );
   const metadataEffect = await persistRunMetadata(metadataPath, updated);
   return {
     status: 'petri_exported',
@@ -121,9 +134,11 @@ export async function exportPetri(args: {
     runId: args.runId,
     metadataPath,
     petriPath: path,
+    petriSdcpnPath: sdcpnPath,
     sideEffects: [
       { kind: 'mkdir', path: dir },
       { kind: 'write_file', path, ifExists: 'overwrite' },
+      { kind: 'write_file', path: sdcpnPath, ifExists: 'overwrite' },
       metadataEffect,
     ],
   };

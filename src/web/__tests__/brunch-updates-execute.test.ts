@@ -448,4 +448,81 @@ describe('brunch.updated execute topic invalidation', () => {
       petriBlockedSteps: expect.anything(),
     });
   });
+
+  it('patches and clears cached Petrinaut live export hints before invalidating the exact run query', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue();
+    queryClient.setQueryData(['execute.run', 'run-1'], {
+      runId: 'run-1',
+      specId: '1',
+      status: 'petri_exported',
+      presence: { worktree: true, reports: true, petri: true, promotion: false },
+      planPath: '/plan.yaml',
+      reportsTail: [],
+      reportsTotal: 0,
+      petriEventsTail: [],
+      petriEventsTotal: 0,
+      agentStreamTail: [],
+      agentStreamTotal: 0,
+      verifyStreamTail: [],
+      verifyStreamTotal: 0,
+      sliceProgress: [],
+      requirements: [],
+    });
+
+    invalidateBrunchUpdate(
+      queryClient,
+      notification([
+        {
+          topic: 'execute.run',
+          runId: 'run-1',
+          petrinautLiveExport: {
+            definition: {
+              version: 1,
+              meta: { generator: 'brunch' },
+              title: 'Executor run run-1',
+              places: [{ id: 'run:created', name: 'RunCreated' }],
+              transitions: [],
+            },
+            initialState: { 'run:created': 1 },
+            transitionFirings: [],
+          },
+          petrinautLauncherTemplateUrl:
+            'https://petrinaut.example/brunch?runId=run-1&sse=%2Fpetrinaut%2Fstream%3FrunId%3Drun-1',
+          petrinautLaunchPath: '/petrinaut/launch?runId=run-1',
+        },
+      ]),
+    );
+
+    expect(queryClient.getQueryData(['execute.run', 'run-1'])).toMatchObject({
+      petrinautStreamPath: '/petrinaut/stream?runId=run-1',
+      petrinautLauncherTemplateUrl:
+        'https://petrinaut.example/brunch?runId=run-1&sse=%2Fpetrinaut%2Fstream%3FrunId%3Drun-1',
+      petrinautLaunchPath: '/petrinaut/launch?runId=run-1',
+      petrinautLiveExport: {
+        definition: { title: 'Executor run run-1' },
+        initialState: { 'run:created': 1 },
+        transitionFirings: [],
+      },
+    });
+
+    invalidateBrunchUpdate(
+      queryClient,
+      notification([{ topic: 'execute.run', runId: 'run-1', petrinautLiveExport: null }]),
+    );
+
+    expect(queryClient.getQueryData(['execute.run', 'run-1'])).not.toMatchObject({
+      petrinautLiveExport: expect.anything(),
+    });
+    expect(queryClient.getQueryData(['execute.run', 'run-1'])).not.toMatchObject({
+      petrinautStreamPath: expect.anything(),
+    });
+    expect(queryClient.getQueryData(['execute.run', 'run-1'])).not.toMatchObject({
+      petrinautLauncherTemplateUrl: expect.anything(),
+    });
+    expect(queryClient.getQueryData(['execute.run', 'run-1'])).not.toMatchObject({
+      petrinautLaunchPath: expect.anything(),
+    });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.run', 'run-1'], exact: true });
+  });
 });

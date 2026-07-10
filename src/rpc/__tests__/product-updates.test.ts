@@ -10,6 +10,9 @@ describe('executeRunProductUpdateHintsFromDetail', () => {
       petriProjectionReplayReason: null,
       petriReadySteps: null,
       petriBlockedSteps: null,
+      petrinautLiveExport: null,
+      petrinautLauncherTemplateUrl: null,
+      petrinautLaunchPath: null,
     });
   });
 });

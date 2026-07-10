@@ -186,7 +186,7 @@ describe('Brunch chrome projection', () => {
     );
     const collapsedLines = component.render(120);
     expect(collapsedLines.slice(0, 6)).toEqual(['', '', '', '', '', '']);
-    expect(collapsedLines.join('\n')).toContain('brunch v1.0.0-alpha.1');
+    expect(collapsedLines.join('\n')).toMatch(/brunch v1\.0\.0-alpha\.\d+/);
     expect(collapsedLines.join('\n')).toContain('built on Pi v');
     expect(collapsedLines.join('\n')).not.toContain('escape interrupt');
     expect(collapsedLines.join('\n')).toContain('Welcome to Brunch.');

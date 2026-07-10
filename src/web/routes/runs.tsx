@@ -192,6 +192,15 @@ function RunDetailPage() {
             replayReason={detail.petriProjectionReplayReason}
           />
         )}
+        {detail.petrinautLiveExport === undefined ? null : (
+          <PetrinautLiveExportBlock
+            streamPath={
+              detail.petrinautStreamPath ?? `/petrinaut/stream?runId=${encodeURIComponent(detail.runId)}`
+            }
+            launchPath={detail.petrinautLaunchPath}
+            liveExport={detail.petrinautLiveExport}
+          />
+        )}
         {detail.petriNet === undefined ? null : <PetriRawBlock net={detail.petriNet} />}
       </div>
     </PageColumn>
@@ -420,6 +429,35 @@ function PetriRawBlock({ net }: { net: unknown }) {
       <summary className="text-hint cursor-pointer font-mono text-xs">Petri net (raw)</summary>
       <pre className="text-sub mt-2 overflow-x-auto text-xs">{JSON.stringify(net, null, 2)}</pre>
     </details>
+  );
+}
+
+function PetrinautLiveExportBlock({
+  streamPath,
+  launchPath,
+  liveExport,
+}: {
+  streamPath: string;
+  launchPath: string | undefined;
+  liveExport: NonNullable<RunDetail['petrinautLiveExport']>;
+}) {
+  const markedPlaces = Object.keys(liveExport.initialState).length;
+  return (
+    <section className="border-rule flex flex-col gap-2 rounded-xl border bg-white p-4 shadow-[var(--shadow-card)]">
+      <p className="text-hint font-mono text-xs">Petrinaut live export</p>
+      <p className="text-sub text-xs">
+        {`${liveExport.definition.places.length} places • ${liveExport.definition.transitions.length} transitions • ${liveExport.transitionFirings.length} firings`}
+      </p>
+      <p className="text-sub text-xs">{`${markedPlaces} initially marked places`}</p>
+      <a className="text-link font-mono text-xs" href={streamPath}>
+        SSE replay endpoint
+      </a>
+      {launchPath === undefined ? null : (
+        <a className="text-link font-mono text-xs" href={launchPath}>
+          Open in Petrinaut
+        </a>
+      )}
+    </section>
   );
 }
 

@@ -28,6 +28,54 @@ async function writeRun(cwd: string, runId: string, metadata: Partial<RunMetadat
   return runDir;
 }
 
+function minimalSdcpnFile() {
+  return {
+    version: 1,
+    meta: { generator: 'brunch', generatorVersion: 'executor-topology-v1' },
+    title: 'Executor run run-petri-live',
+    places: [
+      {
+        id: 'run:created',
+        name: 'RunCreated',
+        colorId: null,
+        dynamicsEnabled: false,
+        differentialEquationId: null,
+      },
+      {
+        id: 'run:worktree_created',
+        name: 'RunWorktreeCreated',
+        colorId: null,
+        dynamicsEnabled: false,
+        differentialEquationId: null,
+      },
+    ],
+    transitions: [
+      {
+        id: 'worktree_create',
+        name: 'worktree_create',
+        inputArcs: [{ placeId: 'run:created', weight: 1, type: 'standard' }],
+        outputArcs: [{ placeId: 'run:worktree_created', weight: 1 }],
+        lambdaType: 'predicate',
+        lambdaCode: 'export default Lambda(() => true)',
+        transitionKernelCode: 'export default TransitionKernel(() => ({}))',
+      },
+    ],
+    types: [],
+    differentialEquations: [],
+    parameters: [],
+    scenarios: [
+      {
+        id: 'scenario__initial-marking',
+        name: 'Initial marking',
+        scenarioParameters: [],
+        parameterOverrides: {},
+        initialState: { type: 'per_place', content: { 'run:created': '1' } },
+      },
+    ],
+    metrics: [],
+  };
+}
+
 describe('listRuns', () => {
   it('returns an empty list when no runs directory exists', async () => {
     const cwd = await fixtureCwd('brunch-observer-empty-');
@@ -308,6 +356,94 @@ describe('readRunDetail', () => {
     expect(missing && 'petriNet' in missing ? missing.petriNet : 'absent').toBe('absent');
     expect(torn).toMatchObject({ presence: { petri: true } });
     expect(torn && 'petriNet' in torn ? torn.petriNet : 'absent').toBe('absent');
+  });
+
+  it('derives a Petrinaut live export when SDCPN and an untorn journal are present', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petrinaut-live-');
+    const runDir = await writeRun(cwd, 'run-petri-live', { status: 'worktree_created' });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(join(runDir, 'petrinaut', 'net.sdcpn.json'), JSON.stringify(minimalSdcpnFile()), 'utf8');
+    await writeFile(
+      join(runDir, 'petrinaut', 'events.jsonl'),
+      `${JSON.stringify({
+        kind: 'transition_fired',
+        runId: 'run-petri-live',
+        runStatus: 'worktree_created',
+        transitionId: 'worktree_create',
+        subnetId: 'run',
+        step: 'worktree_create',
+        consumed: ['run:created'],
+        produced: ['run:worktree_created'],
+        fromStatus: 'created',
+        toStatus: 'worktree_created',
+      })}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-live', {
+      petrinautEnv: { PETRINAUT_URL: 'https://petrinaut.example/brunch?theme=dark' },
+    });
+
+    expect(detail).toMatchObject({
+      petrinautStreamPath: '/petrinaut/stream?runId=run-petri-live',
+      petrinautLaunchPath: '/petrinaut/launch?runId=run-petri-live',
+      petrinautLauncherTemplateUrl:
+        'https://petrinaut.example/brunch?theme=dark&runId=run-petri-live&sse=%2Fpetrinaut%2Fstream%3FrunId%3Drun-petri-live',
+      petrinautLiveExport: {
+        initialState: { 'run:created': 1 },
+        transitionFirings: [
+          {
+            transitionId: 'worktree_create',
+            input: { 'run:created': 1 },
+            output: { 'run:worktree_created': 1 },
+          },
+        ],
+      },
+    });
+    expect(JSON.stringify(detail)).not.toContain('net.sdcpn.json');
+
+    const invalidUrlDetail = await readRunDetail(cwd, 'run-petri-live', {
+      petrinautEnv: { PETRINAUT_URL: 'file:///tmp/petrinaut.html' },
+    });
+    expect(invalidUrlDetail).toMatchObject({
+      petrinautStreamPath: '/petrinaut/stream?runId=run-petri-live',
+    });
+    expect(
+      invalidUrlDetail && 'petrinautLauncherTemplateUrl' in invalidUrlDetail
+        ? invalidUrlDetail.petrinautLauncherTemplateUrl
+        : 'absent',
+    ).toBe('absent');
+  });
+
+  it('omits Petrinaut live export when the SDCPN file or journal is missing or torn', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petrinaut-live-absent-');
+    const missingJournalDir = await writeRun(cwd, 'run-missing-journal', { status: 'worktree_created' });
+    const tornJournalDir = await writeRun(cwd, 'run-torn-journal', { status: 'worktree_created' });
+    await mkdir(join(missingJournalDir, 'petrinaut'), { recursive: true });
+    await mkdir(join(tornJournalDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(missingJournalDir, 'petrinaut', 'net.sdcpn.json'),
+      JSON.stringify(minimalSdcpnFile()),
+      'utf8',
+    );
+    await writeFile(
+      join(tornJournalDir, 'petrinaut', 'net.sdcpn.json'),
+      JSON.stringify(minimalSdcpnFile()),
+      'utf8',
+    );
+    await writeFile(join(tornJournalDir, 'petrinaut', 'events.jsonl'), '{"kind":', 'utf8');
+
+    const missingJournal = await readRunDetail(cwd, 'run-missing-journal');
+    const tornJournal = await readRunDetail(cwd, 'run-torn-journal');
+
+    expect(
+      missingJournal && 'petrinautLiveExport' in missingJournal
+        ? missingJournal.petrinautLiveExport
+        : 'absent',
+    ).toBe('absent');
+    expect(
+      tornJournal && 'petrinautLiveExport' in tornJournal ? tornJournal.petrinautLiveExport : 'absent',
+    ).toBe('absent');
   });
 
   it('returns a raw Petri event tail/count when the journal exists and skips torn trailing lines', async () => {

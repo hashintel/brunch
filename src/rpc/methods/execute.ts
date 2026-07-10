@@ -146,6 +146,76 @@ const BlockedStepSchema = Type.Object(
   { additionalProperties: false },
 );
 
+const PetrinautLiveMarkingSchema = Type.Record(Type.String(), Type.Integer({ minimum: 0 }));
+
+const PetrinautLiveInputArcSchema = Type.Object(
+  {
+    placeId: Type.String(),
+    weight: Type.Number({ exclusiveMinimum: 0 }),
+    type: Type.Union([Type.Literal('standard'), Type.Literal('inhibitor')]),
+  },
+  { additionalProperties: false },
+);
+
+const PetrinautLiveOutputArcSchema = Type.Object(
+  {
+    placeId: Type.String(),
+    weight: Type.Number({ exclusiveMinimum: 0 }),
+  },
+  { additionalProperties: false },
+);
+
+const PetrinautLiveExportSchema = Type.Object(
+  {
+    definition: Type.Object(
+      {
+        version: Type.Number(),
+        meta: Type.Object(
+          {
+            generator: Type.String(),
+            generatorVersion: Type.Optional(Type.String()),
+          },
+          { additionalProperties: false },
+        ),
+        title: Type.String(),
+        places: Type.Array(
+          Type.Object(
+            {
+              id: Type.String(),
+              name: Type.String(),
+            },
+            { additionalProperties: false },
+          ),
+        ),
+        transitions: Type.Array(
+          Type.Object(
+            {
+              id: Type.String(),
+              name: Type.String(),
+              inputArcs: Type.Array(PetrinautLiveInputArcSchema),
+              outputArcs: Type.Array(PetrinautLiveOutputArcSchema),
+            },
+            { additionalProperties: false },
+          ),
+        ),
+      },
+      { additionalProperties: false },
+    ),
+    initialState: PetrinautLiveMarkingSchema,
+    transitionFirings: Type.Array(
+      Type.Object(
+        {
+          transitionId: Type.String(),
+          input: PetrinautLiveMarkingSchema,
+          output: PetrinautLiveMarkingSchema,
+        },
+        { additionalProperties: false },
+      ),
+    ),
+  },
+  { additionalProperties: false },
+);
+
 const RunListEntrySchema = Type.Union([
   Type.Object(
     {
@@ -273,6 +343,10 @@ const ExecuteRunResultSchema = Type.Union([
         ),
       ),
       petriNet: Type.Optional(Type.Unknown({ description: 'Raw petrinaut/net.json when present.' })),
+      petrinautLiveExport: Type.Optional(PetrinautLiveExportSchema),
+      petrinautStreamPath: Type.Optional(Type.String()),
+      petrinautLauncherTemplateUrl: Type.Optional(Type.String()),
+      petrinautLaunchPath: Type.Optional(Type.String()),
     },
     { additionalProperties: false },
   ),

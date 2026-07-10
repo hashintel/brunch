@@ -3,15 +3,80 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+import * as z from 'zod';
 
+import type { ExecutorNetEvent } from '../orchestrate-topology.js';
 import { compileExecutorTopology } from '../orchestrate.js';
 import { petriEventsPath } from '../petri-events.js';
+import {
+  PETRI_RUN_COMPLETED_PLACE,
+  PETRI_RUN_FINISH_TRANSITION,
+  PETRI_RUN_HALTED_PLACE,
+  reducePetriLiveExecutionExport,
+} from '../petri-live-export.js';
 import { canProjectPetriReplay } from '../petri-replay-eligibility.js';
 import { replayPetri, replayTransitionHistory } from '../petri-replay.js';
-import { exportPetri, petriNetPath } from '../petri.js';
+import { SDCPN_FILE_FORMAT_VERSION } from '../petri-sdcpn.js';
+import { exportPetri, petriNetPath, petriSdcpnPath } from '../petri.js';
+import {
+  composePetrinautLauncherUrl,
+  PETRINAUT_URL_INVALID_MESSAGE,
+  PETRINAUT_URL_MISSING_MESSAGE,
+  resolvePetrinautUrl,
+} from '../petrinaut-launcher-url.js';
+import { serializePetrinautSseFrame, serializePetrinautSseFrames } from '../petrinaut-sse.js';
+import { foldPetrinautStreamFrames, projectPetrinautStreamFrames } from '../petrinaut-stream-frames.js';
 import { populatedPlanPath } from '../populate.js';
 import { reportsPath } from '../report.js';
 import { runDirPath, runMetadataPath } from '../run.js';
+
+const sdcpnFileSchema = z.object({
+  version: z.number().int().min(1).max(SDCPN_FILE_FORMAT_VERSION),
+  meta: z.object({ generator: z.literal('brunch'), generatorVersion: z.string().optional() }),
+  title: z.string().min(1),
+  places: z.array(
+    z.object({
+      id: z.string().min(1),
+      name: z.string().regex(/^[A-Z][a-zA-Z]*\d*$/),
+      colorId: z.null(),
+      dynamicsEnabled: z.literal(false),
+      differentialEquationId: z.null(),
+    }),
+  ),
+  transitions: z.array(
+    z.object({
+      id: z.string().min(1),
+      name: z.string().min(1),
+      inputArcs: z.array(
+        z.object({
+          placeId: z.string().min(1),
+          weight: z.number().positive(),
+          type: z.enum(['standard', 'inhibitor']),
+        }),
+      ),
+      outputArcs: z.array(z.object({ placeId: z.string().min(1), weight: z.number().positive() })),
+      lambdaType: z.enum(['predicate', 'stochastic']),
+      lambdaCode: z.string().min(1),
+      transitionKernelCode: z.string().min(1),
+    }),
+  ),
+  types: z.array(z.never()),
+  differentialEquations: z.array(z.never()),
+  parameters: z.array(z.never()),
+  scenarios: z.array(
+    z.object({
+      id: z.string().min(1),
+      name: z.string().min(1),
+      scenarioParameters: z.array(z.never()),
+      parameterOverrides: z.record(z.string(), z.string()),
+      initialState: z.object({
+        type: z.literal('per_place'),
+        content: z.record(z.string(), z.string()),
+      }),
+    }),
+  ),
+  metrics: z.array(z.never()),
+});
 
 async function pathExists(path: string): Promise<boolean> {
   try {
@@ -120,9 +185,11 @@ describe('exportPetri', () => {
       runId: 'run-1',
       metadataPath: runMetadataPath(cwd, 'run-1'),
       petriPath: petriNetPath(cwd, 'run-1'),
+      petriSdcpnPath: petriSdcpnPath(cwd, 'run-1'),
       sideEffects: [
         { kind: 'mkdir', path: join(runDirPath(cwd, 'run-1'), 'petrinaut') },
         { kind: 'write_file', path: petriNetPath(cwd, 'run-1'), ifExists: 'overwrite' },
+        { kind: 'write_file', path: petriSdcpnPath(cwd, 'run-1'), ifExists: 'overwrite' },
         { kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
       ],
     });
@@ -141,6 +208,25 @@ describe('exportPetri', () => {
       status: 'petri_exported',
       petriPath: petriNetPath(cwd, 'run-1'),
     });
+    const sdcpnFile = JSON.parse(await readFile(petriSdcpnPath(cwd, 'run-1'), 'utf8'));
+    expect(sdcpnFileSchema.safeParse(sdcpnFile).success).toBe(true);
+    expect(sdcpnFile).toMatchObject({
+      version: SDCPN_FILE_FORMAT_VERSION,
+      meta: { generator: 'brunch', generatorVersion: 'executor-topology-v1' },
+      title: 'Executor run run-1',
+      scenarios: [
+        {
+          id: 'scenario__initial-marking',
+          initialState: { type: 'per_place', content: { 'run:created': '1' } },
+        },
+      ],
+    });
+    expect(sdcpnFile.places.map((place: { readonly id: string }) => place.id).sort()).toEqual(
+      topology.places.map((place) => place.id).sort(),
+    );
+    expect(sdcpnFile.transitions.map((transition: { readonly id: string }) => transition.id).sort()).toEqual(
+      topology.transitions.map((transition) => transition.id).sort(),
+    );
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'promotion'))).toBe(false);
   });
 
@@ -487,5 +573,272 @@ describe('replayTransitionHistory', () => {
     });
 
     expect(replayTransitionHistory(topology, ['missing-transition'])).toBeUndefined();
+  });
+});
+
+describe('reducePetriLiveExecutionExport', () => {
+  it('projects SDCPN plus journal events into a compact Petrinaut live payload', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-live-export-'));
+    await createCompletedRun(cwd);
+    await exportPetri({ cwd, runId: 'run-1' });
+    const sdcpnFile = JSON.parse(await readFile(petriSdcpnPath(cwd, 'run-1'), 'utf8'));
+    const events: ExecutorNetEvent[] = [
+      {
+        kind: 'transition_fired',
+        runId: 'run-1',
+        runStatus: 'worktree_created',
+        transitionId: 'worktree_create',
+        subnetId: 'run',
+        step: 'worktree_create',
+        contract: { kind: 'mechanical', lane: 'run' },
+        consumed: ['run:created'],
+        produced: ['run:worktree_created'],
+        fromStatus: 'created',
+        toStatus: 'worktree_created',
+      },
+      {
+        kind: 'transition_fired',
+        runId: 'run-1',
+        runStatus: 'worktree_populated',
+        transitionId: 'populate',
+        subnetId: 'run',
+        step: 'populate',
+        contract: { kind: 'mechanical', lane: 'run' },
+        consumed: ['run:worktree_created'],
+        produced: ['run:worktree_populated'],
+        fromStatus: 'worktree_created',
+        toStatus: 'worktree_populated',
+      },
+      { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+    ];
+
+    const payload = reducePetriLiveExecutionExport({ sdcpnFile, events });
+
+    expect(payload.initialState).toEqual({ 'run:created': 1 });
+    expect(payload.definition.places).toContainEqual({
+      id: PETRI_RUN_COMPLETED_PLACE,
+      name: 'Run completed',
+    });
+    expect(payload.definition.places).toContainEqual({ id: PETRI_RUN_HALTED_PLACE, name: 'Run halted' });
+    expect(payload.definition.transitions).toContainEqual({
+      id: PETRI_RUN_FINISH_TRANSITION,
+      name: 'Run finish',
+      inputArcs: [],
+      outputArcs: [
+        { placeId: PETRI_RUN_COMPLETED_PLACE, weight: 1 },
+        { placeId: PETRI_RUN_HALTED_PLACE, weight: 1 },
+      ],
+    });
+    expect(payload.definition.transitions[0]).toEqual({
+      id: 'worktree_create',
+      name: 'worktree_create',
+      inputArcs: [{ placeId: 'run:created', weight: 1, type: 'standard' }],
+      outputArcs: [{ placeId: 'run:worktree_created', weight: 1 }],
+    });
+    expect(payload.transitionFirings).toEqual([
+      {
+        transitionId: 'worktree_create',
+        input: { 'run:created': 1 },
+        output: { 'run:worktree_created': 1 },
+      },
+      {
+        transitionId: 'populate',
+        input: { 'run:worktree_created': 1 },
+        output: { 'run:worktree_populated': 1 },
+      },
+      {
+        transitionId: PETRI_RUN_FINISH_TRANSITION,
+        input: {},
+        output: { [PETRI_RUN_COMPLETED_PLACE]: 1 },
+      },
+    ]);
+  });
+
+  it('projects halt and deadlock terminal events to the halted run-status place', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-live-export-halted-'));
+    await createCompletedRun(cwd);
+    await exportPetri({ cwd, runId: 'run-1' });
+    const sdcpnFile = JSON.parse(await readFile(petriSdcpnPath(cwd, 'run-1'), 'utf8'));
+
+    expect(
+      reducePetriLiveExecutionExport({
+        sdcpnFile,
+        events: [{ kind: 'net_halted', runId: 'run-1', runStatus: 'worktree_created', reason: 'boom' }],
+      }).transitionFirings,
+    ).toEqual([
+      { transitionId: PETRI_RUN_FINISH_TRANSITION, input: {}, output: { [PETRI_RUN_HALTED_PLACE]: 1 } },
+    ]);
+    expect(
+      reducePetriLiveExecutionExport({
+        sdcpnFile,
+        events: [{ kind: 'net_deadlocked', runId: 'run-1', runStatus: 'worktree_created' }],
+      }).transitionFirings,
+    ).toEqual([
+      { transitionId: PETRI_RUN_FINISH_TRANSITION, input: {}, output: { [PETRI_RUN_HALTED_PLACE]: 1 } },
+    ]);
+  });
+});
+
+describe('Petrinaut launcher URL helpers', () => {
+  it('resolves Petrinaut URL from CLI before env and reports stable missing/invalid errors', () => {
+    expect(
+      resolvePetrinautUrl({
+        cliFlag: 'https://cli.example/brunch',
+        env: { PETRINAUT_URL: 'https://env.example/brunch' },
+      }),
+    ).toEqual({ url: 'https://cli.example/brunch' });
+    expect(resolvePetrinautUrl({ env: { PETRINAUT_URL: 'https://env.example/brunch' } })).toEqual({
+      url: 'https://env.example/brunch',
+    });
+    expect(resolvePetrinautUrl({ cliFlag: ' ', env: { PETRINAUT_URL: '' } })).toEqual({
+      error: PETRINAUT_URL_MISSING_MESSAGE,
+    });
+    expect(resolvePetrinautUrl({ cliFlag: 'file:///tmp/petrinaut.html', env: {} })).toEqual({
+      error: PETRINAUT_URL_INVALID_MESSAGE,
+    });
+  });
+
+  it('composes runId and encoded SSE endpoint while preserving Petrinaut path/query', () => {
+    const streamUrl = 'http://127.0.0.1:51234/stream?x=1&y=2';
+    const url = composePetrinautLauncherUrl({
+      petrinautUrl: 'https://petrinaut.example/brunch?theme=dark',
+      runId: 'run-1',
+      streamUrl,
+    });
+    const parsed = new URL(url);
+
+    expect(parsed.pathname).toBe('/brunch');
+    expect(parsed.searchParams.get('theme')).toBe('dark');
+    expect(parsed.searchParams.get('runId')).toBe('run-1');
+    expect(parsed.searchParams.get('sse')).toBe(streamUrl);
+    expect(parsed.searchParams.has('mode')).toBe(false);
+    expect(url).toContain('sse=http%3A%2F%2F127.0.0.1%3A51234%2Fstream%3Fx%3D1%26y%3D2');
+  });
+});
+
+describe('Petrinaut stream frame projection', () => {
+  it('projects a live export into ordered stream frames and folds back to the export', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-stream-frames-'));
+    await createCompletedRun(cwd);
+    await exportPetri({ cwd, runId: 'run-1' });
+    const sdcpnFile = JSON.parse(await readFile(petriSdcpnPath(cwd, 'run-1'), 'utf8'));
+    const liveExport = reducePetriLiveExecutionExport({
+      sdcpnFile,
+      events: [
+        {
+          kind: 'transition_fired',
+          runId: 'run-1',
+          runStatus: 'worktree_created',
+          transitionId: 'worktree_create',
+          subnetId: 'run',
+          step: 'worktree_create',
+          contract: { kind: 'mechanical', lane: 'run' },
+          consumed: ['run:created'],
+          produced: ['run:worktree_created'],
+          fromStatus: 'created',
+          toStatus: 'worktree_created',
+        },
+      ],
+    });
+
+    const frames = projectPetrinautStreamFrames({ liveExport });
+
+    expect(frames.map((frame) => frame.kind)).toEqual([
+      'status',
+      'definition',
+      'initial_state',
+      'transition_firing',
+    ]);
+    expect(frames[0]).toEqual({ kind: 'status', state: 'running' });
+    expect(foldPetrinautStreamFrames(frames)).toEqual(liveExport);
+  });
+
+  it('adds terminal status and terminal frames when terminal state is supplied', () => {
+    const liveExport = {
+      definition: {
+        version: 1,
+        meta: { generator: 'brunch' },
+        title: 'run',
+        places: [],
+        transitions: [],
+      },
+      initialState: {},
+      transitionFirings: [],
+    };
+
+    const frames = projectPetrinautStreamFrames({
+      liveExport,
+      terminal: { state: 'halted', reason: 'promotion_failed' },
+    });
+
+    expect(frames).toEqual([
+      { kind: 'status', state: 'halted', reason: 'promotion_failed' },
+      { kind: 'definition', definition: liveExport.definition },
+      { kind: 'initial_state', initialState: {} },
+      { kind: 'terminal', state: 'halted', reason: 'promotion_failed' },
+    ]);
+  });
+});
+
+describe('Petrinaut SSE serialization', () => {
+  it('serializes one frame as a named SSE event with one JSON data line and a blank terminator', () => {
+    expect(serializePetrinautSseFrame({ kind: 'status', state: 'halted', reason: 'promotion_failed' })).toBe(
+      'event: status\ndata: {"state":"halted","reason":"promotion_failed"}\n\n',
+    );
+  });
+
+  it('serializes each frame kind with the expected event name and JSON payload', () => {
+    const frames = projectPetrinautStreamFrames({
+      liveExport: {
+        definition: {
+          version: 1,
+          meta: { generator: 'brunch' },
+          title: 'run',
+          places: [{ id: 'run:created', name: 'RunCreated' }],
+          transitions: [],
+        },
+        initialState: { 'run:created': 1 },
+        transitionFirings: [
+          {
+            transitionId: 'worktree_create',
+            input: { 'run:created': 1 },
+            output: { 'run:worktree_created': 1 },
+          },
+        ],
+      },
+      terminal: { state: 'completed' },
+    });
+    const chunks = serializePetrinautSseFrames(frames)
+      .split('\n\n')
+      .filter((chunk) => chunk.length > 0);
+
+    expect(chunks.map((chunk) => chunk.split('\n')[0])).toEqual([
+      'event: status',
+      'event: definition',
+      'event: initial_state',
+      'event: transition_firing',
+      'event: terminal',
+    ]);
+    expect(JSON.parse(chunks[1]!.split('\n')[1]!.slice('data: '.length))).toMatchObject({
+      title: 'run',
+      places: [{ id: 'run:created' }],
+    });
+    expect(JSON.parse(chunks[3]!.split('\n')[1]!.slice('data: '.length))).toEqual({
+      transitionId: 'worktree_create',
+      input: { 'run:created': 1 },
+      output: { 'run:worktree_created': 1 },
+    });
+    expect(JSON.parse(chunks[4]!.split('\n')[1]!.slice('data: '.length))).toEqual({ state: 'completed' });
+  });
+
+  it('batch serialization is exactly the concatenation of per-frame chunks', () => {
+    const frames = [
+      { kind: 'status' as const, state: 'running' as const },
+      { kind: 'initial_state' as const, initialState: { p1: 2 } },
+    ];
+
+    expect(serializePetrinautSseFrames(frames)).toBe(
+      `${serializePetrinautSseFrame(frames[0]!)}${serializePetrinautSseFrame(frames[1]!)}`,
+    );
   });
 });

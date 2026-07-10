@@ -571,6 +571,99 @@ describe('execute.run', () => {
       },
     });
   });
+
+  it('returns the derived Petrinaut live export without exposing SDCPN artifact paths', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-petrinaut-live-'));
+    await writeRun(cwd, 'run-1', { status: 'worktree_created' });
+    await mkdir(join(runDirPath(cwd, 'run-1'), 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDirPath(cwd, 'run-1'), 'petrinaut', 'net.sdcpn.json'),
+      `${JSON.stringify({
+        version: 1,
+        meta: { generator: 'brunch', generatorVersion: 'executor-topology-v1' },
+        title: 'Executor run run-1',
+        places: [
+          {
+            id: 'run:created',
+            name: 'RunCreated',
+            colorId: null,
+            dynamicsEnabled: false,
+            differentialEquationId: null,
+          },
+          {
+            id: 'run:worktree_created',
+            name: 'RunWorktreeCreated',
+            colorId: null,
+            dynamicsEnabled: false,
+            differentialEquationId: null,
+          },
+        ],
+        transitions: [
+          {
+            id: 'worktree_create',
+            name: 'worktree_create',
+            inputArcs: [{ placeId: 'run:created', weight: 1, type: 'standard' }],
+            outputArcs: [{ placeId: 'run:worktree_created', weight: 1 }],
+            lambdaType: 'predicate',
+            lambdaCode: 'export default Lambda(() => true)',
+            transitionKernelCode: 'export default TransitionKernel(() => ({}))',
+          },
+        ],
+        types: [],
+        differentialEquations: [],
+        parameters: [],
+        scenarios: [
+          {
+            id: 'scenario__initial-marking',
+            name: 'Initial marking',
+            scenarioParameters: [],
+            parameterOverrides: {},
+            initialState: { type: 'per_place', content: { 'run:created': '1' } },
+          },
+        ],
+        metrics: [],
+      })}\n`,
+      'utf8',
+    );
+    await writeFile(
+      join(runDirPath(cwd, 'run-1'), 'petrinaut', 'events.jsonl'),
+      `${JSON.stringify({
+        kind: 'transition_fired',
+        runId: 'run-1',
+        runStatus: 'worktree_created',
+        transitionId: 'worktree_create',
+        subnetId: 'run',
+        step: 'worktree_create',
+        consumed: ['run:created'],
+        produced: ['run:worktree_created'],
+        fromStatus: 'created',
+        toStatus: 'worktree_created',
+      })}\n`,
+      'utf8',
+    );
+
+    const response = await method('execute.run').handle(
+      contextFor(cwd),
+      request('execute.run', { runId: 'run-1' }),
+    );
+
+    expect(response).toMatchObject({
+      result: {
+        petrinautLiveExport: {
+          initialState: { 'run:created': 1 },
+          transitionFirings: [
+            {
+              transitionId: 'worktree_create',
+              input: { 'run:created': 1 },
+              output: { 'run:worktree_created': 1 },
+            },
+          ],
+        },
+        petrinautStreamPath: '/petrinaut/stream?runId=run-1',
+      },
+    });
+    expect(JSON.stringify(response)).not.toContain('net.sdcpn.json');
+  });
 });
 
 describe('execute.runTraceIndex', () => {
@@ -724,6 +817,9 @@ describe('execute replanning methods', () => {
         petriProjectionReplayReason: null,
         petriReadySteps: [{ kind: 'populate' }],
         petriBlockedSteps: [],
+        petrinautLiveExport: null,
+        petrinautLauncherTemplateUrl: null,
+        petrinautLaunchPath: null,
       },
     ]);
   });
@@ -801,6 +897,9 @@ describe('execute replanning methods', () => {
         petriProjectionReplayReason: null,
         petriReadySteps: null,
         petriBlockedSteps: null,
+        petrinautLiveExport: null,
+        petrinautLauncherTemplateUrl: null,
+        petrinautLaunchPath: null,
       },
     ]);
   });
@@ -887,6 +986,9 @@ describe('execute replanning methods', () => {
         petriProjectionReplayReason: 'snapshot_stale',
         petriReadySteps: null,
         petriBlockedSteps: null,
+        petrinautLiveExport: null,
+        petrinautLauncherTemplateUrl: null,
+        petrinautLaunchPath: null,
       },
     ]);
   });
