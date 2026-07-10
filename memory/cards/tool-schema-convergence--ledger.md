@@ -56,7 +56,7 @@ Status vocabulary: `have` (closed before this closeout) · `partial` (implementa
 | 4 | `graph-family` — 2 schemas | built | ● | earned | graph schema tests | Differential covers root/object shape, required fields, properties, enum/union structure, descriptions, and `additionalProperties` where present; graph/DB TypeBox ownership remains canonical. |
 | 5 | `context-family` — 3 schemas | built | ● | earned | context tool tests | Same semantic pre/post differential for the literal→TypeBox rewrite. |
 | 6 | `scratchpad-family` — 2 schemas | built | ● | earned | scratchpad tool tests | Same semantic pre/post differential for the literal→TypeBox rewrite. |
-| 7 | `reconciliation-family` — 2 schemas | partial | ● | earned | reconciliation tool tests | Same semantic pre/post differential, preserving the legal nested target union. |
+| 7 | `reconciliation-family` — 2 schemas | built | ● | earned | reconciliation tool tests | Same semantic pre/post differential, preserving the legal nested target union. |
 | 8 | `executor-family` — 32 schemas | partial | ● | earned | registry closure test | Pure TypeBox relinks retain their emitted shape; the aggregate oracle must include both artifact tools omitted by the current 48-tool allowlist projection. |
 | 9 | `web-tools-family` — 2 schemas | partial | ● | earned | web-tool tests | Same semantic pre/post differential for the literal→TypeBox rewrite. |
 | 10 | `subagents-family` — 2 schemas | partial | ● | earned | subagent catalog + registry closure test | Aggregate provenance/legality oracle includes sealed-child `write_worktree_file`, not only foreground `subagent`. |
