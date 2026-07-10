@@ -1,6 +1,6 @@
 # .pi/extensions/ — Pi adapter registrars
 
-SPEC decisions: D34-L, D35-L, D37-L, D39-L, D40-L, D44-L, D52-L, D69-L, D71-L, D90-L, D91-L, D93-L, D98-L, D109-L, D115-L, D118-L
+SPEC decisions: D34-L, D35-L, D37-L, D39-L, D40-L, D44-L, D52-L, D69-L, D71-L, D90-L, D91-L, D93-L, D98-L, D109-L, D115-L, D118-L, D119-L
 
 ## Owns
 
@@ -78,7 +78,7 @@ rules:
 
 Migration note (FE-1163 `tool-schema-convergence`, exhausted 2026-07-10): the sweep collapsed the two legacy Zod adapters into the shared adapter with bounded build-time provider constraints (Anthropic-family backends 400 on top-level unions, witnessed live on `read_graph` during the FE-1159 walkthrough) and relinked all 52 Brunch-authored provider-facing tool schemas. The exact production-derived inventory includes both executor artifact registrations, standalone component-owned `present_alternatives`, and sealed-child `write_worktree_file`; persisted semantic baselines protect every authoring-representation change, while pure-TypeBox relinks are protected by object identity/serialization plus family inventories. `registry.test.ts` derives complete registrar/catalog output, rejects duplicate registrations, and pins all 52 members with adapter provenance and constraint checks. Compatibility beyond the named constraints remains deliberately tripwired to provider/model changes or live rejection evidence.
 
-Migration note (FE-1186 `default-tool-rendering`, in progress): `shared/define-brunch-tool.ts` owns the canonical self-shell one-line status renderer for Brunch-authored tools that do not need family-specific transcript rendering. Intentional custom renderers and Pi-owned tools remain outside that wrapper.
+Migration note (FE-1186 `default-tool-rendering`, exhausted 2026-07-10): `shared/define-brunch-tool.ts` owns the canonical self-shell one-line status renderer for Brunch-authored tools that do not need family-specific transcript rendering. The production-derived registry classifies 45 shared-default tools, 7 intentional-custom tools, and 4 Pi-owned re-registrations; custom and Pi-owned renderers remain outside the wrapper.
 
 `exchanges/shared/markdown.ts` contains Pi-rendering helpers. Keep Pi `renderCall` / `renderResult` widgets and UI-only message components local to `.pi/`; reusable provider-visible exchange result text belongs in `agents/contexts/exchanges/`.
 

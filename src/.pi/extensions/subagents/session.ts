@@ -188,7 +188,7 @@ export function createSubagentToolCatalog(
   return pool;
 }
 
-function createWriteWorktreeFileTool(cwd: string): ToolDefinition<typeof WriteWorktreeFileParams> {
+function createWriteWorktreeFileTool(cwd: string) {
   return defineBrunchTool({
     name: 'write_worktree_file',
     label: 'write_worktree_file',

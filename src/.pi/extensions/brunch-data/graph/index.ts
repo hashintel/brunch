@@ -54,7 +54,17 @@ export interface ReadGraphToolDeps {
   readonly appendEntry?: ExtensionAPI['appendEntry'];
 }
 
-export function createReadGraphTool(deps: ReadGraphToolDeps): ToolDefinition<typeof ReadGraphParams> {
+type ReadGraphToolDetails =
+  | GraphSlice
+  | readonly NodeNeighborhood[]
+  | {
+      readonly status: 'structural_illegal';
+      readonly diagnostics: readonly { readonly field: string; readonly message: string }[];
+    };
+
+export function createReadGraphTool(
+  deps: ReadGraphToolDeps,
+): ToolDefinition<typeof ReadGraphParams, ReadGraphToolDetails> {
   return defineBrunchTool({
     name: 'read_graph',
     label: 'Read Graph',
@@ -75,13 +85,7 @@ export function createReadGraphTool(deps: ReadGraphToolDeps): ToolDefinition<typ
     async execute(_toolCallId, params) {
       const options = params.show === undefined ? undefined : { visibility: params.show };
       let text: string;
-      let details:
-        | GraphSlice
-        | readonly NodeNeighborhood[]
-        | {
-            readonly status: 'structural_illegal';
-            readonly diagnostics: readonly { readonly field: string; readonly message: string }[];
-          };
+      let details: ReadGraphToolDetails;
 
       if (params.mode === 'overview') {
         const slice = deps.reads.queryGraph(undefined, options);

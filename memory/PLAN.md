@@ -62,9 +62,9 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 - `alpha-release-readiness` (FE-1159) — **merged 2026-07-08 (#299)**; remaining closeout is publish only (human-gated npm auth; mechanics in the definition below §Publish mechanics). Branch retired.
 - `main-editor-chrome` (FE-1169) — chrome-batch opener, in heavy flight: builder commits landed 2026-07-08 for threads 1–5 (ask surface, mode-reactive chrome, commands, startup theming, and details-driven candidate rendering); the judo/review-contract fix cards, B2 review-set details renderer, theme demo, roving-flake stabilization, and 2026-07-09 induction fix-now refactor are consumed. Remaining: the PR-305 review-findings refactor (`memory/REFACTOR.md`), then outer manual beats. Branch `ln/fe-1169-editor-chrome` (PR #305; locally restacked onto merged parents; tie-off/submit owed). Definition below.
-- `default-tool-rendering` ([FE-1186](https://linear.app/hash/issue/FE-1186/centralize-default-pi-tool-rendering)) — centralize Brunch's default Pi tool transcript renderer behind `defineBrunchTool`, migrating only tools that currently rely on Pi fallback rendering while leaving intentional custom renderers unchanged. Branch `ln/fe-1186-centralize-default-pi-tool-rendering`, stacked on FE-1185 for merge order only. Definition below.
 
 ### Recently Completed
+- 2026-07-10 `default-tool-rendering` (FE-1186) — all 45 fallback-rendered Brunch tools now use `defineBrunchTool`; the production registry pins the 45 shared-default / 7 intentional-custom / 4 Pi-owned classification. Durable state lives in D119-L/I61-L and `src/.pi/extensions/TOPOLOGY.md`.
 - 2026-07-10 `webui-default` (FE-1185) — the product and dev CLIs now open the TUI sidecar route in the browser by default; `--no-webui` suppresses only browser opening while host startup and URL advertisement remain unchanged. Active help, topology, runbooks, and tests use the canonical opt-out spelling.
 - 2026-07-10 `tool-schema-convergence` (FE-1163) — closure audit repaired: the shared adapter now requires object roots; persisted semantic differentials cover every authoring-representation change; pure-TypeBox families retain object identity/serialization; and the production-derived oracle pins the exact 52-tool foreground, dev, executor-artifact, standalone-alternatives, and sealed-child inventory with adapter provenance and named legality constraints. The exhausted ledger was deleted; durable state lives in D118-L/I60-L and `src/.pi/extensions/TOPOLOGY.md`.
 - 2026-07-08 **merge wave — ship-gate stack + KA executor lanes to `next`:** FE-1122 (#286), FE-1123 (#287), FE-1124 (#288), FE-1134 (#289), FE-1135 (#291), FE-1136 (#292), FE-1137 (#290), FE-1138 (#293), FE-1152 (#294); KA: FE-1141 (#295), FE-1154 (#297), FE-1155 (#296), FE-1107 (#298). All outer-loop residue from these lanes is batched into `walkthrough-evidence-batch` (FE-1167) — no merged frontier carries open obligations of its own. Definitions archived to `docs/archive/PLAN_HISTORY.md` (2026-07-08 hygiene pass).
@@ -287,18 +287,19 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Linear:** [FE-1186](https://linear.app/hash/issue/FE-1186/centralize-default-pi-tool-rendering)
 - **Branch:** `ln/fe-1186-centralize-default-pi-tool-rendering`, stacked on `ln/fe-1185-webui-default` for Graphite merge order only; no behavioral dependency.
 - **Kind:** coverage frontier / sweep over the closed Brunch-authored Pi tool inventory. **Classification:** buildable-now.
+- **Status:** done 2026-07-10; all required rows built and the production-registry classification oracle is green.
 - **Certainty:** earned — Pi's renderer contract and Brunch's custom-rendered exceptions are already known; this frontier closes the scattered fallback-rendering default rather than proving a new seam.
 - **Why now / unlocks:** Brunch already owns rich renderers where semantics demand them, but the remaining tool surface still inherits Pi's generic shell piecemeal. One default seam makes Brunch's status language consistent and gives future fallback-rendered tools a canonical definition path.
 - **Boundary:** Brunch-authored provider tools with no `renderCall` or `renderResult`. Out: intentional custom renderers, Pi-owned built-ins/re-registrations, model-facing result content, and custom-message rendering.
 - **Objective:** add a typed `defineBrunchTool` wrapper under `src/.pi/extensions/shared/` that accepts Pi `ToolDefinition`s without `renderShell`, `renderCall`, or `renderResult`, then supplies Brunch's canonical self-shell one-line status renderer. The line is `◉ Brunch: {label || name}`: a bold accent/success/error dot carries running/final status, all other text is muted, and the existing transparent lateral-padding component preserves Pi's one-column alignment. Adopt it only for in-boundary tools.
 - **Aggregate DoD:** every production-registered Brunch tool either carries the shared default renderer or belongs to the explicit intentional-custom/Pi-owned exclusion set; no required ledger row remains `spec`, `new`, or `partial`.
-- **Inventory authority:** `memory/cards/default-tool-rendering--fallback-renderer-sweep.md`, derived from the production registrar plus sealed-child catalog.
+- **Inventory authority:** exhausted; `src/.pi/extensions/__tests__/registry.test.ts` now derives and pins the production registrar plus sealed-child catalog.
 - **Canonicalizes:** one Brunch-owned definition path for default-rendered Pi tools, projected from Pi's canonical `ToolDefinition` type rather than restating it.
 - **Locks in:** every in-boundary tool carries `renderShell: 'self'`, the one-line status renderer, and one column of transparent lateral padding; custom-rendered tools retain their existing behavior and ownership.
 - **Explicitly out:** restyling or replacing intentional custom renderers; showing default tool result text in the TUI (including expanded mode); changing model-facing `content`; introducing a Pi-global renderer hook or wrapping Pi-owned built-ins.
-- **Promotion / disposal rule:** promote any row that reveals a genuinely different renderer contract into its own frontier; delete the exhausted ledger after every required row closes and topology is reconciled.
+- **Promotion / disposal rule:** completed without promotion; the exhausted ledger was deleted after topology and canonical state reconciled.
 - **Verification:** focused wrapper/component and production-registry tests, then `npm run verify`.
-- **Traceability:** D39-L (sealed Brunch Pi profile), D52-L (`.pi/extensions/` adapter ownership), D104-L/I23-L (custom structured-exchange rendering remains distinct); `src/.pi/extensions/TOPOLOGY.md`.
+- **Traceability:** D119-L/I61-L (shared-default seam and production classification), D39-L (sealed Brunch Pi profile), D52-L (`.pi/extensions/` adapter ownership), D104-L/I23-L (custom structured-exchange rendering remains distinct); `src/.pi/extensions/TOPOLOGY.md`.
 
 ### executor-run-environment
 
@@ -392,11 +393,6 @@ frontiers:
       status: done 2026-07-10; exact 52-tool oracle + semantic preservation closure green
       branch: ln/fe-1163-tool-schema-convergence -[hard]-> off next (FE-1164 merged; supersedes stack-on decision)
       shape: coverage frontier; ledger exhausted and deleted
-    default-tool-rendering (FE-1186)
-      status: active; centralize the default renderer and migrate only fallback-rendered Brunch tools
-      branch: ln/fe-1186-centralize-default-pi-tool-rendering -[merge order only]-> ln/fe-1185-webui-default
-      canonicalizes: defineBrunchTool under src/.pi/extensions/shared/
-      excludes: intentional custom renderers; Pi-owned built-in tools
 
   Next:
     walkthrough-evidence-batch (FE-1167)
@@ -450,6 +446,7 @@ done anchors:
   elicitation-gap-guidance -> exchange-capture-contract (scratchpad outlet), execute-entry-readiness (postures)
   subagent-reconciliation -> acquisition arm + future subagent diversity
   tool-schema-convergence -> webui-default (Graphite merge order only; no behavior dependency)
+  default-tool-rendering -> D119-L/I61-L + src/.pi/extensions/TOPOLOGY.md
 
 rules:
   candidates never commit graph truth (I51-L)

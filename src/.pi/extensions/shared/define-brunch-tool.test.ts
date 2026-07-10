@@ -1,7 +1,7 @@
 import { Type } from 'typebox';
 import { describe, expect, it } from 'vitest';
 
-import { defineBrunchTool } from './define-brunch-tool.js';
+import { defineBrunchTool, hasBrunchDefaultRenderer } from './define-brunch-tool.js';
 
 const theme = {
   fg: (color: string, text: string) => `<${color}>${text}</${color}>`,
@@ -51,6 +51,8 @@ describe('defineBrunchTool', () => {
     const call = tool.renderCall!({ value: 'hello' }, theme as never, renderContext(state) as never);
 
     expect(tool.renderShell).toBe('self');
+    expect(hasBrunchDefaultRenderer(tool)).toBe(true);
+    expect(hasBrunchDefaultRenderer({ renderShell: 'self' })).toBe(false);
     expect(render(call).trimEnd()).toBe(
       ' <accent><bold>◉</bold></accent><muted> Brunch: Example tool</muted>',
     );
