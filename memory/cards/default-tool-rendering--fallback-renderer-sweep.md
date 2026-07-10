@@ -48,7 +48,7 @@ No required row remains `spec`, `new`, or `partial`; every production-registered
 | Workspace/spec/session context tools | `built` | ● | `earned` | `src/.pi/extensions/brunch-data/context/index.ts` | Three tools adopt the shared renderer; focused family inventory is green and the production registry remains the aggregate closure oracle. |
 | Graph tools | `built` | ● | `earned` | `src/.pi/extensions/brunch-data/graph/index.ts` | `mutate_graph` and the shared `read_graph` factory adopt the wrapper; sealed-child graph reads inherit the same renderer. |
 | Elicitation scratchpad tools | `built` | ● | `earned` | `src/.pi/extensions/brunch-data/elicitation/scratchpad-tools.ts` | Read/update pair adopts the shared renderer; family inventory and behavior tests are green. |
-| Reconciliation tools | `partial` | ● | `earned` | `src/.pi/extensions/brunch-data/reconciliation/index.ts` | Read/update pair. |
+| Reconciliation tools | `built` | ● | `earned` | `src/.pi/extensions/brunch-data/reconciliation/index.ts` | Read/update pair adopts the shared renderer; family registration and behavior tests are green. |
 | Dev session/introspection query tools | `partial` | ● | `earned` | `src/.pi/extensions/dev-mode/{session-query,introspect-query}/index.ts` | Replace direct Pi `defineTool` use with the Brunch wrapper. |
 | Executor tool family | `partial` | ● | `earned` | `src/.pi/extensions/executor/execute-*/index.ts` | Closed by the production executor registrar inventory; observer-only `execute-run-updates` is not a tool row. |
 | Standalone alternatives tool | `partial` | ● | `earned` | `src/.pi/components/alternatives.ts` | Its custom-message card renderer remains unchanged; only the fallback-rendered tool receipt adopts the wrapper. |

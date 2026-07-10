@@ -27,6 +27,9 @@ interface ToolResult {
 
 type ReconciliationTool = {
   parameters: unknown;
+  renderShell?: string;
+  renderCall?: unknown;
+  renderResult?: unknown;
   execute: (...args: never[]) => Promise<unknown>;
 };
 
@@ -92,6 +95,11 @@ describe('reconciliation register tools', () => {
     });
 
     expect([...tools.keys()]).toEqual([READ_RECONCILIATION_NEEDS_TOOL, UPDATE_RECONCILIATION_NEEDS_TOOL]);
+    for (const [name, tool] of tools) {
+      expect(tool.renderShell, name).toBe('self');
+      expect(tool.renderCall, name).toEqual(expect.any(Function));
+      expect(tool.renderResult, name).toEqual(expect.any(Function));
+    }
   });
 
   it('creates a semantic-conflict node-pair need through CommandExecutor and reads the open agenda', async () => {
