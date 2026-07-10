@@ -1,6 +1,6 @@
 # Ship-gate runbook artifacts
 
-This directory is reserved for reviewed live `brunch --mode tui` proof runs from `docs/architecture/poc-live-ship-runbook.md`; the browser sidecar opens by default.
+This directory is reserved for reviewed live proof runs from `docs/architecture/poc-live-ship-runbook.md`. New runs use `brunch --mode tui`, which opens the browser sidecar by default; each committed `report.json` preserves the exact historical CLI invocation used for that run.
 
 A real run is stored as `.fixtures/runs/ship-gate-runbook/<run-id>/` and must include, at minimum:
 

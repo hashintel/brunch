@@ -72,6 +72,7 @@ interface LaunchFlags {
   readonly reset: boolean;
   readonly mode: string;
   readonly openWeb: boolean;
+  readonly noWebui: boolean;
   readonly developerTools: boolean;
   readonly help: boolean;
 }
@@ -189,6 +190,9 @@ async function runLaunchCommand(args: readonly string[], options: DevCliOptions 
   if (flags.seed && !seedRef) {
     throw new DevCliUsageError('--seed must be a tracked seed ref in the form <name>/<variant>.');
   }
+  if (flags.reset && !flags.seed) {
+    throw new DevCliUsageError('--reset only applies when paired with --seed.');
+  }
 
   const currentWorkbench = currentWorkbenchForCwd(options.cwd);
   const prompts = options.prompts ?? defaultPrompts;
@@ -204,7 +208,7 @@ async function runLaunchCommand(args: readonly string[], options: DevCliOptions 
     if (!isInteractiveTerminal(options.stdin, options.stdout)) {
       throw new DevCliUsageError('No workbench was provided and no interactive terminal is available.');
     }
-    const plan = await promptForLaunchPlan(prompts);
+    const plan = await promptForLaunchPlan(prompts, flags.noWebui ? false : undefined);
     if (!plan) return 0;
     workspace = plan.workspace;
     seed = plan.seed;
@@ -245,7 +249,10 @@ async function runLaunchCommand(args: readonly string[], options: DevCliOptions 
   });
 }
 
-async function promptForLaunchPlan(prompts: DevCliPrompts): Promise<LaunchPromptPlan | null> {
+async function promptForLaunchPlan(
+  prompts: DevCliPrompts,
+  openWebOverride?: boolean,
+): Promise<LaunchPromptPlan | null> {
   const workbenches = await listTrackedWorkbenches();
   if (workbenches.length === 0) {
     throw new DevCliUsageError('No tracked seeds are available to derive workbenches from.');
@@ -281,7 +288,7 @@ async function promptForLaunchPlan(prompts: DevCliPrompts): Promise<LaunchPrompt
     seed = seedChoice;
   }
 
-  const openWeb = await prompts.confirmOpenWeb(workspaceLabel);
+  const openWeb = openWebOverride ?? (await prompts.confirmOpenWeb(workspaceLabel));
   if (isCancel(openWeb)) {
     prompts.cancel('Launch cancelled.');
     return null;
@@ -404,6 +411,7 @@ function parseLaunchFlags(args: readonly string[], cwd: string): LaunchFlags {
     reset: values.reset,
     mode: values.mode,
     openWeb: !values['no-webui'],
+    noWebui: values['no-webui'],
     developerTools: values['dev-tools'],
     help: values.help,
   };
