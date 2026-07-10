@@ -2797,6 +2797,20 @@ describe('Brunch explicit Pi extension registry', () => {
     }
   });
 
+  it('keeps present_alternatives on the shared default renderer without changing its message renderer', async () => {
+    const alternativesTool = (await collectProductTools()).find(
+      (tool) => tool.name === 'present_alternatives',
+    );
+
+    expect(alternativesTool?.renderShell).toBe('self');
+    expect(alternativesTool?.renderCall).toEqual(expect.any(Function));
+    expect(alternativesTool?.renderResult).toEqual(expect.any(Function));
+
+    const recording = createRecordingExtensionApi();
+    alternatives(recording.api, (schema) => schema);
+    expect(recording.messageRenderers).toEqual(['alternatives-card-set']);
+  });
+
   it('keeps the exact 52-tool provider-facing Brunch inventory legal and adapter-derived', async () => {
     const registeredTools = await collectProductTools({
       graph: { specId: 42, lsn: 1, nodes: [], edges: [] },

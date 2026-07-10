@@ -15,6 +15,7 @@ import type { ExtensionAPI, ThemeColor } from '@earendil-works/pi-coding-agent';
 import { Container, Text } from '@earendil-works/pi-tui';
 import { Type, type TSchema } from 'typebox';
 
+import { defineBrunchTool } from '../extensions/shared/define-brunch-tool.js';
 import { CardComponent, ResponsiveColumns, chunk } from './cards.js';
 
 // ── Types & schema ─────────────────────────────────────────────────────
@@ -144,47 +145,49 @@ export function registerBrunchAlternatives(
   });
 
   // ── Tool ────────────────────────────────────────────────────────────
-  pi.registerTool({
-    name: 'present_alternatives',
-    label: 'Present Alternatives',
-    description:
-      'Present 1–6 alternative options to the user as bordered cards. Each alternative has a short title and a markdown body. Optional `flavor` (accent/success/warning/muted) styles the card border. Use when comparing options, surfacing draft variants, or laying out trade-offs.',
-    promptSnippet: 'Present comparable alternatives as bordered cards in the transcript',
-    promptGuidelines: [
-      'Use present_alternatives when the user needs to compare 2–6 options side by side.',
-      "Each alternative's body should be self-contained markdown — headings, lists, code blocks all work.",
-      'After present_alternatives, ask the user which one they prefer rather than picking yourself.',
-    ],
-    parameters: adaptToolParameters(PresentAlternativesParams),
+  pi.registerTool(
+    defineBrunchTool({
+      name: 'present_alternatives',
+      label: 'Present Alternatives',
+      description:
+        'Present 1–6 alternative options to the user as bordered cards. Each alternative has a short title and a markdown body. Optional `flavor` (accent/success/warning/muted) styles the card border. Use when comparing options, surfacing draft variants, or laying out trade-offs.',
+      promptSnippet: 'Present comparable alternatives as bordered cards in the transcript',
+      promptGuidelines: [
+        'Use present_alternatives when the user needs to compare 2–6 options side by side.',
+        "Each alternative's body should be self-contained markdown — headings, lists, code blocks all work.",
+        'After present_alternatives, ask the user which one they prefer rather than picking yourself.',
+      ],
+      parameters: adaptToolParameters(PresentAlternativesParams),
 
-    async execute(_toolCallId, params) {
-      const details: AlternativesDetails = {
-        headline: params.headline,
-        alternatives: params.alternatives,
-        layout: params.layout,
-        columnCount: params.columnCount,
-        minColumnWidth: params.minColumnWidth,
-      };
+      async execute(_toolCallId, params) {
+        const details: AlternativesDetails = {
+          headline: params.headline,
+          alternatives: params.alternatives,
+          layout: params.layout,
+          columnCount: params.columnCount,
+          minColumnWidth: params.minColumnWidth,
+        };
 
-      pi.sendMessage({
-        customType: 'alternatives-card-set',
-        content: alternativesToMarkdown(details), // fallback / replay
-        display: true,
-        details,
-      });
+        pi.sendMessage({
+          customType: 'alternatives-card-set',
+          content: alternativesToMarkdown(details), // fallback / replay
+          display: true,
+          details,
+        });
 
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Presented ${params.alternatives.length} alternative${
-              params.alternatives.length === 1 ? '' : 's'
-            }.`,
-          },
-        ],
-        details: { count: params.alternatives.length },
-        terminate: true,
-      };
-    },
-  });
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Presented ${params.alternatives.length} alternative${
+                params.alternatives.length === 1 ? '' : 's'
+              }.`,
+            },
+          ],
+          details: { count: params.alternatives.length },
+          terminate: true,
+        };
+      },
+    }),
+  );
 }
