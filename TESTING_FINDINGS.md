@@ -74,7 +74,7 @@ Concern: seed/context insertion and tool rendering.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §built-in tools.
 Observation: Brunch tool outputs render verbosely; agent appeared to request/read information that the session should likely have been seeded with already.
 Expected: initial context seed should be present before first useful provider conduct, and debug mirrors should make the seed insertion point/trigger obvious.
-Disposition: built in WR7 (FE-1180): diagnosis found the recovery seam is the general `/brunch:continue` manual-trigger path; regression coverage now proves it inserts `brunch.context_seed` before the trigger-turn `brunch.kick` and exposes manual-trigger origination evidence for debug mirrors. Compact Brunch tool-call/result rendering remains deferred row WR9.
+Disposition: built in WR7/WR17 (FE-1180): diagnosis found the recovery seam is the general `/brunch:continue` manual-trigger path; regression coverage now proves it inserts `brunch.context_seed` before the trigger-turn `brunch.kick`, and the production-wired `runBrunchTui` + command path writes operator-readable `.brunch/debug/entry-contents.md` / `origination.md` showing seed contents, `manual_trigger`, fired outcome, and seed-entry-before-outcome ordering. Compact Brunch tool-call/result rendering remains deferred row WR9.
 
 #### A6 · exchange protocol + rendering · high · scoped
 
@@ -169,7 +169,7 @@ The required WR1–WR8 implementations exist, but the post-build audit reopened 
 - **Continue honesty (A4):** general continuation can report `kickFired: true` after the completion seam skipped or failed the provider turn. Required follow-up: WR14.
 - **Secret masking (A2):** WR15 adds the required PTY witness: a real terminal paste omits the sentinel secret from captured bytes while isolated Pi auth storage receives the exact key; cancellation exits nonzero without API-key auth, and the non-TTY test remains supporting persistence/provider-order coverage.
 - **Conduct guidance (A6/A7/A8/C3):** WR16 replaced the source-substring sentinel with consumer-level tests: registered ask/digest tool definitions carry the Other/pretext/review-continuation guidance, and the live foreground skill/prompt manifest exposes `ingest` plus its routed `map` reference path for digest-approval direct mutation and multi-pass extraction. Model adherence remains outer re-observation: WR18.
-- **Debug legibility and seed usefulness (A5):** callback ordering is proven, but production `.brunch/debug/` files and agent use of seeded facts are not. Required wired mirror evidence + Run B: WR17/WR18.
+- **Debug legibility and seed usefulness (A5):** WR17 now proves the production-wired manual-trigger continuation writes `.brunch/debug/entry-contents.md` and `origination.md` with seed contents, `manual_trigger`, fired outcome, and seed-entry-before-outcome ordering. Agent use of seeded facts remains Run B outer evidence: WR18.
 - **Visual/UX choices (A9/C1/C2):** role labels and scrollbar glyphs render, but border distinctness, overflow salience, choice comprehension, and recovery-hint noticeability remain outer-loop judgments. Required focused gallery/live evidence: WR18.
 
 Deferred WR9–WR12 remain honest non-DoD scope: compact tool rendering, `/introspect` legibility, review-set visual redesign, and markdown/node-id polish. In particular, FE-1180 does not close the broader review-set/ask visual-revamp impulse; WR11 still requires a dedicated design session/frontier when prioritized.

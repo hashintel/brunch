@@ -62,7 +62,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Active
 
-- `walkthrough-remediation-1` (FE-1180) — **reopened by 2026-07-10 review/witness**. WR1–WR8 and WR13–WR16 remain built; close WR17–WR18 from `memory/cards/walkthrough-remediation-1--closure-ledger.md` before restoring closed status. Existing issue/branch; WR17 is next. Definition below.
+- `walkthrough-remediation-1` (FE-1180) — **reopened by 2026-07-10 review/witness**. WR1–WR8 and WR13–WR17 remain built; close WR18 from `memory/cards/walkthrough-remediation-1--closure-ledger.md` before restoring closed status. Existing issue/branch; WR18 is next. Definition below.
 - **Alpha walkthrough lane** — the post-publish outer-loop audit over the merged surface (`TESTING_PLAN.md` concern groups; findings in `TESTING_FINDINGS.md`). Runs A and C are the source evidence. After FE-1180's deterministic audit rows land, rerun Concern 1A plus Run B and a focused Execute/gallery beat for FE-1180 closure; run D stays the outer oracle for `spec-posture`. Not a frontier itself.
 - `tool-schema-convergence` (FE-1163) — next independent build: sweep over the 46-tool provider-facing schema surface. Base: **off `next`** now that FE-1164 merged (supersedes the stack-on-FE-1164 note). Ledger: `memory/cards/tool-schema-convergence--ledger.md` (includes the folded blank-carrier row). Candidate row from the 2026-07-09 `ln-induct` pass (finding 5), admit at pickup: derive test `getAllTools()` inventory stubs from the canonical active-tool constants instead of hand-listing (three fixture sites drifted in PR #304). Definition below.
 
@@ -187,12 +187,12 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   14. built Honest general-continue completion — classified kick outcomes now return through `completeAssistantKick` into juncture/manual-trigger results; `kickFired` means `status: fired`, no-model/idle skips do not append seed/kick carriers on retry, failed sends notify honestly, and fired manual resume is preserved. Oracle: parameterized command/helper tests over fired/skipped/idle/failed outcomes.
   15. built Interactive API-key secrecy — `src/probes/scripts/verify-brunch-login-secret.sh` drives `brunch login` through a real Python-stdlib PTY, proves terminal bytes omit the pasted sentinel while isolated Pi auth storage receives the exact key, and proves cancellation exits nonzero without API-key auth.
   16. built Live WR5 guidance composition — registered ask/digest tool definitions now carry Other/pretext/review-continuation guidance through the consumer surface, and live skill registry + composed foreground prompt manifest expose `ingest` with its routed `map` reference path for digest-approval direct mutation and multi-pass extraction. Source-file substring sentinel retired; model adherence remains WR18 outer evidence.
-  17. ● Production debug-mirror legibility — drive the wired manual-trigger continuation against a temporary workspace and prove `entry-contents.md`/`origination.md` expose seed contents, trigger, and seed-before-kick order.
+  17. built Production debug-mirror legibility — the real `runBrunchTui` boot plus `/brunch:continue` command wiring now proves the workspace-local debug mirrors expose seed contents, `manual_trigger`, the fired completion outcome, and seed-entry-before-outcome record order through `entry-contents.md`/`origination.md`.
   18. ● Focused outer closure evidence — after WR13–WR17, rerun TESTING_PLAN Concern 1A, Run B, and a focused Execute/component-gallery beat in both themes. Record whether conduct follows WR5, the agent uses seeded facts, recovery hints are noticed, Execute choices produce their promised workflows, and consult border/overflow treatment is legible. New product defects route through planning; this row does not silently absorb them.
 - **Aggregate DoD:** WR1–WR8 remain built; no required WR13–WR18 row remains open; D120-L/I60-L are materialized in topology/code; `TESTING_FINDINGS.md` distinguishes automated mechanism evidence from the new outer observations; the focused outer beats pass or any failures are promoted explicitly.
 - **Inventory authority:** the original consumed ledger is historical in git; a replacement `memory/cards/walkthrough-remediation-1--closure-ledger.md` is authored by `ln-scope` and owns WR13–WR18 only. PLAN owns frontier identity/sequencing; findings remain evidence, not a second plan.
 - **Classification:** evidence-gated — WR13–WR17 are buildable now; WR18 runs only after they land.
-- **Current execution pointer:** `memory/cards/walkthrough-remediation-1--closure-ledger.md` — WR17 next.
+- **Current execution pointer:** `memory/cards/walkthrough-remediation-1--closure-ledger.md` — WR18 next.
 - **Promotion / disposal rule:** any row escaping row size promotes to its own frontier and stays open in the replacement ledger until landed; more than one further discovered capability or a new seam routes back through `ln-plan`. Delete the replacement ledger only after WR18 closes.
 - **Traceability:** D119-L (WR3/WR14), D99-L (WR5/WR16), D106-L (WR4), D109-L/D120-L/I60-L (WR1/WR2/WR13/WR18), D115-L/I59-L (WR8/WR15/WR18), D104-L (WR6), D69-L/D97-L (WR17); TESTING_PLAN.md concerns 1/3/4/5/6/7.
 
@@ -359,14 +359,14 @@ frontiers:
   Active:
     walkthrough-remediation-1 (FE-1180)
       status: reopened 2026-07-10; branch ln/fe-1180-walkthrough-remediation
-      shape: evidence-gated coverage-shaped remediation sweep; WR1-WR8 and WR13-WR16 built; WR17-WR18 ledger active at memory/cards/walkthrough-remediation-1--closure-ledger.md
+      shape: evidence-gated coverage-shaped remediation sweep; WR1-WR8 and WR13-WR17 built; WR18 ledger active at memory/cards/walkthrough-remediation-1--closure-ledger.md
       closes: Execute label/id/directive/workflow divergence, dishonest continue outcome, PTY secrecy gap,
               source-only conduct oracle, callback-only debug evidence, focused outer UX/conduct evidence
       -[hard]-> spec-posture (start after FE-1180 deterministic rows; run D belongs to spec-posture)
       leaves_open: FE-1167 outer-loop residue, deferred non-DoD polish rows WR9-WR12
       depends_on: D120-L, I60-L, D119-L, D99-L, D106-L, D109-L, D115-L
     alpha-walkthrough-lane (not a frontier)
-      status: runs A + C done; Concern 1A / Run B / focused Execute-gallery evidence wait on FE-1180 WR13-WR17; run D waits on spec-posture
+      status: runs A + C done; Concern 1A / Run B / focused Execute-gallery evidence are now unblocked by FE-1180 WR13-WR17; run D waits on spec-posture
       feeds: walkthrough-remediation-1 (WR18), spec-posture (run D outer oracle), walkthrough-evidence-batch (FE-1167 overlap rows when naturally witnessed)
     tool-schema-convergence (FE-1163)
       status: independent build; ledger authored + re-based 2026-07-08 (13 rows / 46 tools, incl. folded blank-carriers row)
