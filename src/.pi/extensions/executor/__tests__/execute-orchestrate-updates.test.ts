@@ -173,6 +173,7 @@ describe('execute_orchestrate intra-drive updates', () => {
     for (const updates of snapshotBatches) {
       expect(updates[1]).toHaveProperty('petriReadySteps');
       expect(updates[1]).toHaveProperty('petriBlockedSteps');
+      expect(updates[1]?.petriProjectionReplayReason).toBeNull();
     }
     const detail = await readRunDetail(cwd, 'run-1');
     expect(detail && !('unreadable' in detail) ? detail.petriProjectionSource : undefined).toBe('snapshot');

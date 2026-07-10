@@ -59,17 +59,9 @@ export function createExecuteOrchestrateTool(
         const readableDetail = detail && !('unreadable' in detail) ? detail : undefined;
         const hints = readableDetail
           ? {
-              ...(readableDetail.petriProjection === undefined
-                ? { petriProjection: null }
-                : { petriProjection: readableDetail.petriProjection }),
-              ...(readableDetail.petriProjectionSource === undefined
-                ? {}
-                : { petriProjectionSource: readableDetail.petriProjectionSource ?? null }),
-              ...(readableDetail.petriProjectionReplayReason === undefined
-                ? {}
-                : {
-                    petriProjectionReplayReason: readableDetail.petriProjectionReplayReason ?? null,
-                  }),
+              petriProjection: readableDetail.petriProjection ?? null,
+              petriProjectionSource: readableDetail.petriProjectionSource ?? null,
+              petriProjectionReplayReason: readableDetail.petriProjectionReplayReason ?? null,
               ...(readableDetail.petriReadySteps === undefined
                 ? {}
                 : { petriReadySteps: readableDetail.petriReadySteps }),
