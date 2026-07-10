@@ -4,10 +4,12 @@ import { dirname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { readRunDetail, petrinautStreamPathForRun } from '../executor/observer-read.js';
+import { subscribePetriEvents } from '../executor/petri-events.js';
 import { composePetrinautLauncherUrl, resolvePetrinautUrl } from '../executor/petrinaut-launcher-url.js';
-import { serializePetrinautSseFrames } from '../executor/petrinaut-sse.js';
+import { serializePetrinautSseFrame, serializePetrinautSseFrames } from '../executor/petrinaut-sse.js';
 import {
   projectPetrinautStreamFrames,
+  type PetrinautStreamFrame,
   type PetrinautTerminalState,
 } from '../executor/petrinaut-stream-frames.js';
 import type { WorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
@@ -227,14 +229,78 @@ async function servePetrinautStream(
     'access-control-allow-origin': '*',
   });
   const terminal = petrinautTerminalFromDetail(detail);
-  response.end(
-    serializePetrinautSseFrames(
-      projectPetrinautStreamFrames({
-        liveExport: detail.petrinautLiveExport,
-        ...(terminal === undefined ? {} : { terminal }),
-      }),
-    ),
-  );
+  const initialFrames = projectPetrinautStreamFrames({
+    liveExport: detail.petrinautLiveExport,
+    ...(terminal === undefined ? {} : { terminal }),
+  });
+  response.write(serializePetrinautSseFrames(initialFrames));
+  if (terminal !== undefined) {
+    response.end();
+    return;
+  }
+
+  let sentFiringCount = detail.petrinautLiveExport.transitionFirings.length;
+  let terminalSent = false;
+  const unsubscribe = subscribePetriEvents({
+    cwd,
+    runId,
+    listener: () => {
+      void sendNewPetrinautFrames({
+        response,
+        cwd,
+        runId,
+        sentFiringCount,
+        terminalSent,
+        onSent: (state) => {
+          sentFiringCount = state.sentFiringCount;
+          terminalSent = state.terminalSent;
+        },
+      });
+    },
+  });
+  response.on('close', unsubscribe);
+}
+
+async function sendNewPetrinautFrames(args: {
+  readonly response: ServerResponse;
+  readonly cwd: string;
+  readonly runId: string;
+  readonly sentFiringCount: number;
+  readonly terminalSent: boolean;
+  readonly onSent: (state: { readonly sentFiringCount: number; readonly terminalSent: boolean }) => void;
+}): Promise<void> {
+  if (args.response.writableEnded) return;
+  const detail = await readRunDetail(args.cwd, args.runId).catch(() => undefined);
+  if (detail === undefined || 'unreadable' in detail || detail.petrinautLiveExport === undefined) return;
+  const terminal = petrinautTerminalFromDetail(detail);
+  const frames = projectPetrinautStreamFrames({
+    liveExport: detail.petrinautLiveExport,
+    ...(terminal === undefined ? {} : { terminal }),
+  });
+  const nextFrames = newPetrinautFrames(frames, args.sentFiringCount, args.terminalSent);
+  for (const frame of nextFrames) args.response.write(serializePetrinautSseFrame(frame));
+  const sentFiringCount = detail.petrinautLiveExport.transitionFirings.length;
+  const terminalSent = args.terminalSent || nextFrames.some((frame) => frame.kind === 'terminal');
+  args.onSent({ sentFiringCount, terminalSent });
+  if (terminalSent && !args.response.writableEnded) args.response.end();
+}
+
+function newPetrinautFrames(
+  frames: readonly PetrinautStreamFrame[],
+  sentFiringCount: number,
+  terminalSent: boolean,
+): readonly PetrinautStreamFrame[] {
+  let seenFirings = 0;
+  const next: PetrinautStreamFrame[] = [];
+  for (const frame of frames) {
+    if (frame.kind === 'transition_firing') {
+      if (seenFirings >= sentFiringCount) next.push(frame);
+      seenFirings += 1;
+    } else if (frame.kind === 'terminal' && !terminalSent) {
+      next.push(frame);
+    }
+  }
+  return next;
 }
 
 function isPetrinautStreamRequest(requestUrl: string | undefined): boolean {

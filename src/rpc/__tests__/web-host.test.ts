@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
+import { appendPetriEvent } from '../../executor/petri-events.js';
 import { runDirPath, runMetadataPath } from '../../executor/run.js';
 import { runCreateOnlyMutation } from '../../graph/__tests__/support/create-only-mutation.js';
 import { openWorkspaceGraphRuntime } from '../../graph/workspace-store.js';
@@ -101,7 +102,12 @@ function parseSse(body: string): Array<{ event: string; data: unknown }> {
     });
 }
 
-async function writePetrinautReplayRun(cwd: string, runId: string): Promise<void> {
+async function writePetrinautReplayRun(
+  cwd: string,
+  runId: string,
+  options: { readonly terminal?: boolean } = {},
+): Promise<void> {
+  const terminal = options.terminal ?? true;
   const runDir = runDirPath(cwd, runId);
   await mkdir(join(runDir, 'petrinaut'), { recursive: true });
   await writeFile(
@@ -175,18 +181,24 @@ async function writePetrinautReplayRun(cwd: string, runId: string): Promise<void
   );
   await writeFile(
     join(runDir, 'petrinaut', 'events.jsonl'),
-    `${JSON.stringify({
-      kind: 'transition_fired',
-      runId,
-      runStatus: 'worktree_created',
-      transitionId: 'worktree_create',
-      subnetId: 'run',
-      step: 'worktree_create',
-      consumed: ['run:created'],
-      produced: ['run:worktree_created'],
-      fromStatus: 'created',
-      toStatus: 'worktree_created',
-    })}\n${JSON.stringify({ kind: 'net_completed', runId, runStatus: 'promotion_prepared' })}\n`,
+    [
+      JSON.stringify({
+        kind: 'transition_fired',
+        runId,
+        runStatus: 'worktree_created',
+        transitionId: 'worktree_create',
+        subnetId: 'run',
+        step: 'worktree_create',
+        consumed: ['run:created'],
+        produced: ['run:worktree_created'],
+        fromStatus: 'created',
+        toStatus: 'worktree_created',
+      }),
+      ...(terminal
+        ? [JSON.stringify({ kind: 'net_completed', runId, runStatus: 'promotion_prepared' })]
+        : []),
+      '',
+    ].join('\n'),
     'utf8',
   );
 }
@@ -878,6 +890,47 @@ describe('web host', () => {
         input: { 'run:created': 1 },
         output: { 'run:worktree_created': 1 },
       });
+      expect(frames[5]?.data).toEqual({ state: 'completed' });
+    } finally {
+      await host.close();
+    }
+  });
+
+  it('keeps Petrinaut SSE connections open and streams later in-process Petri events', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-live-'));
+    await writePetrinautReplayRun(cwd, 'run-1', { terminal: false });
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      const first = await reader.read();
+      expect(first.done).toBe(false);
+      let body = decoder.decode(first.value);
+
+      await appendPetriEvent({
+        cwd,
+        runId: 'run-1',
+        event: { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+      });
+
+      for (;;) {
+        const next = await reader.read();
+        if (next.done) break;
+        body += decoder.decode(next.value);
+      }
+      const frames = parseSse(body);
+
+      expect(frames.map((frame) => frame.event)).toEqual([
+        'status',
+        'definition',
+        'initial_state',
+        'transition_firing',
+        'transition_firing',
+        'terminal',
+      ]);
+      expect(frames[0]?.data).toEqual({ state: 'running' });
+      expect(frames[4]?.data).toMatchObject({ transitionId: 'run:finish', output: { 'run:completed': 1 } });
       expect(frames[5]?.data).toEqual({ state: 'completed' });
     } finally {
       await host.close();

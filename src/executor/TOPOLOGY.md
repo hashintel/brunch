@@ -12,7 +12,7 @@ executor/
 ├── agent-result.ts       AgentRunnerPort -> slice result report + normalized worker stream artifact
 ├── orchestrate-topology.ts compiled executor topology + shared run/slice subnet identities, explicit places/arcs, initial marking, and executor transition guards
 ├── orchestrate.ts        run facts + RunScheduler -> drive() over lifecycle steps, delegating Petri runtime/terminal helpers + raw runtime-event journal
-├── petri-events.ts       bounded `petrinaut/events.jsonl` path + append helper for raw runtime facts
+├── petri-events.ts       bounded `petrinaut/events.jsonl` path + append helper plus in-process listeners for raw runtime facts
 ├── petri-projection.ts   shared Petri projection contract + parser/normalizer for snapshot/read/live-update boundaries
 ├── petri-runtime-plan.ts shared populated-plan fallback resolution for driver and observer Petri materialization
 ├── petri-marking.ts      bounded `petrinaut/marking.json` snapshot path + tolerant persisted current-marking helper with non-authoritative lifecycle provenance and claimed-firing resume hints
@@ -23,7 +23,12 @@ executor/
 ├── plan-file.ts          old cook-compatible DTO preview -> spec-scoped plan.yaml + provenance
 ├── launch.ts             spec-scoped plan.yaml provenance -> non-running launch readiness
 ├── plan-preview.ts       executable-plan draft -> old cook-compatible DTO preview
-├── petri.ts              completed run -> topology-aware raw petrinaut/net.json projection
+├── petri.ts              completed run -> topology-aware raw `petrinaut/net.json` + loader-compatible `net.sdcpn.json` projections
+├── petri-sdcpn.ts        ExecutorTopology -> Petrinaut SDCPN import envelope (visualization/import, not execution authority)
+├── petri-live-export.ts  SDCPN + event journal -> Petrinaut actual/live payload with initial marking and arc-scoped firings
+├── petrinaut-stream-frames.ts live export -> ordered status/definition/initial/firing/terminal frames
+├── petrinaut-sse.ts      stream frames -> text/event-stream chunks
+├── petrinaut-launcher-url.ts configured Petrinaut route + run/stream params -> launch URL
 ├── petri-replay.ts       raw net export + runtime-event journal -> derived Petri projection/current-marking projection
 ├── promotion.ts          petri-exported run -> run-local promotion (GitLandPort) + report
 ├── host-promotion.ts     promoted run -> preflight/apply report (GitHostPromotionPort)
@@ -120,7 +125,9 @@ rules:
 
 `run-complete.ts` appends `run_completed` once every plan slice is completed and every completed slice has latest passing verification evidence in `reports.jsonl`; failed or missing verification leaves metadata unchanged. Petri artifacts, promotion refs, and land branches remain deferred.
 
-`petri.ts` writes a topology-aware raw Petrinaut artifact at `.brunch/cook/runs/<runId>/petrinaut/net.json` for a completed run and records `status:"petri_exported"`. The file is a Brunch-owned projection over the shared executor topology compiler plus current run facts (for example run/slice subnet identity, explicit place/arc wiring, and initial marking), not the runtime authority itself and not yet a live-stream / SDCPN / Petrinaut-contract surface. Export uses the same `petri-runtime-plan.ts` resolution as the driver and observer paths, so the raw net describes the same plan snapshot that drove the run. If the required plan input is missing or unreadable, export refuses loudly and leaves the run at `run_completed` rather than reconstructing topology from ambient metadata. Promotion refs and land branches remain deferred.
+`petri.ts` writes a topology-aware raw Petrinaut artifact at `.brunch/cook/runs/<runId>/petrinaut/net.json` plus a loader-compatible SDCPN import projection at `petrinaut/net.sdcpn.json` for a completed run and records `status:"petri_exported"`. The files are Brunch-owned projections over the shared executor topology compiler plus current run facts (for example run/slice subnet identity, explicit place/arc wiring, and initial marking), not the runtime authority itself. Export uses the same `petri-runtime-plan.ts` resolution as the driver and observer paths, so the raw net describes the same plan snapshot that drove the run. If the required plan input is missing or unreadable, export refuses loudly and leaves the run at `run_completed` rather than reconstructing topology from ambient metadata. Promotion refs and land branches remain deferred.
+
+`petri-live-export.ts`, `petrinaut-stream-frames.ts`, and `petrinaut-sse.ts` are read/transport projections only. They reduce `net.sdcpn.json` + `events.jsonl` into Petrinaut actual/live payloads, ordered stream frames, and SSE chunks. They never own lifecycle truth, never mutate `run.json`, and never grant parallel side-effect authority. `petri-events.ts` also publishes process-local listener callbacks after appending to `events.jsonl`; these listeners power best-effort same-process web streams, while the journal remains the replayable artifact.
 
 `petri-replay.ts` is a read-side reducer only: given the raw `petrinaut/net.json` export and a non-empty, complete `petrinaut/events.jsonl` journal, it replays transition firings into a derived current-marking projection (`currentMarking`, `firedTransitionCount`, terminal summary). `petri-replay-eligibility.ts` owns the gate for when that replay is even allowed; `petri-replay.ts` owns only the reduction once the artifact pair is admitted. `petri-projection.ts` owns the shared Petri projection contract plus the parser/normalizer used at snapshot read, observer read, and live `execute.run` cache-patch boundaries so those surfaces enforce one payload shape instead of drifting copies. `petri-marking.ts` is the first durability seam above that reducer: it persists the executor's latest current-marking snapshot to `petrinaut/marking.json` as a Brunch-owned runtime artifact, annotated with the lifecycle facts (`runStatus`, `activeSliceId`, `completedSliceIds`) it was derived from so readers can reject stale snapshots when `run.json` has moved on. It is still not lifecycle/recovery truth, but it now carries a bounded recovery hint: when the persisted `claimedTransitionIds`, `currentMarking`, and `firedTransitionCount` still match the live runtime for the same lifecycle facts, the driver may resume that claimed firing order instead of recomputing a fresh one. Missing, empty, malformed, torn, provenance-mismatched, or runtime-mismatched artifacts fail closed to replay, fresh frontier selection, or "no derived projection" rather than mutating run state.
 
