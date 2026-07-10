@@ -83,4 +83,20 @@ describe('live skill manifest rendering', () => {
       process.chdir(originalCwd);
     }
   });
+
+  it('exposes ingest and its routed map reference through the live manifest entry', () => {
+    const ingest = loadLiveBrunchSkillManifestEntries().find((entry) => entry.name === 'ingest');
+
+    expect(ingest).toBeDefined();
+    expect(ingest?.location.endsWith('agents/skills/ingest/SKILL.md')).toBe(true);
+    const ingestBody = readFileSync(ingest!.location, 'utf8');
+    expect(ingestBody).toContain('../map/references/routing.md');
+    expect(ingestBody).toContain(
+      'Default after digest approval: map the accepted_abstract directly into advisory graph mutations',
+    );
+    expect(ingestBody).toContain('multi-pass extraction: entities, relations, then narrative obligations');
+    expect(ingestBody).toContain(
+      'Do not treat digest approval as a reason to ask a broad follow-up before mapping',
+    );
+  });
 });

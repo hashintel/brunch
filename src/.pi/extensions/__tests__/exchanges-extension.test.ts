@@ -57,6 +57,21 @@ describe('structured exchange tool guidance', () => {
     );
     expect(`${ask.description}\n${ask.promptGuidelines.join('\n')}`).toContain('continues');
   });
+
+  it('exposes WR5 continuation conduct guidance through registered tool definitions', () => {
+    const tools = registerTools();
+    const ask = tools.get(ASK_TOOL);
+    const digest = tools.get(PRESENT_DIGEST_TOOL);
+    const guidance = [ask, digest]
+      .map((tool) => `${tool.description}\n${tool.promptGuidelines.join('\n')}`)
+      .join('\n');
+
+    expect(guidance).toContain('Never author a listed option that duplicates the built-in Other affordance');
+    expect(guidance).toContain("Do not restate a present_* offer's large pretext or digest body");
+    expect(guidance).toContain(
+      'For the declared review continuation, ask only for approve / request changes / reject',
+    );
+  });
 });
 
 describe('structured exchange renderers', () => {
