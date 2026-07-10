@@ -172,6 +172,24 @@ The required WR1–WR8 implementations exist, but the post-build audit reopened 
 - **Debug legibility and seed usefulness (A5):** WR17 now proves the production-wired manual-trigger continuation writes `.brunch/debug/entry-contents.md` and `origination.md` with seed contents, `manual_trigger`, fired outcome, and seed-entry-before-outcome ordering. Agent use of seeded facts remains Run B outer evidence: WR18.
 - **Visual/UX choices (A9/C1/C2):** role labels and scrollbar glyphs render, but border distinctness, overflow salience, choice comprehension, and recovery-hint noticeability remain outer-loop judgments. Required focused gallery/live evidence: WR18.
 
+#### WR18 closure — focused outer evidence
+
+Evidence: `testing/walkthroughs/2026-07-10/WR18-manual.md` and its referenced screenshots.
+Ownership disposition: FE-1180 closes by explicit promotion, not by treating promoted findings as passes. Residual failures/unknowns are owned by `walkthrough-remediation-2` / [FE-1187](https://linear.app/hash/issue/FE-1187/walkthrough-remediation-sweep-2-wr18-follow-up-closure).
+
+| ID | Outcome | Evidence / promoted disposition |
+| --- | --- | --- |
+| O1 | promoted failure + unknown | Pass evidence: spec/session creation remains usable without auth, no orientation/provider turn before auth, and no ambient auth used. Promoted failures: Shift+Tab extension/built-in shortcut conflict; provider/model restrictions; startup-menu auth warning and `brunch login` guidance/product path. Promoted unknown: no-model `/brunch:continue` plus no seed/kick carrier observation. Owner: FE-1187. |
+| O2 | pass + promoted failure | Pass evidence: normal post-auth orientation/provider turn. Promoted failure: provider/model restrictions and `brunch login` product path residue from O1/O2. Owner: FE-1187. |
+| O3 | pass + promoted failure | Pass evidence: seed precedes first useful action; first action uses seeded graph facts/readiness; debug/session artifacts are legible. Promoted failures: duplicated records in `.brunch/debug/origination.md`; unintended Pi-documentation references in `system-prompt.md`. Owner: FE-1187. |
+| O4 | pass + promoted failure | Pass evidence: Specify `/brunch:consult` labels/routing are understandable; Escape is inert. Promoted failure: missing `/continue` / `/consult` / `/mode` hints after ask cancellation. Owner: FE-1187. |
+| O5 | pass + promoted failure | Pass evidence: model did not author an Other-equivalent option. Promoted failure: repeated offer content in present→ask continuation. Owner: FE-1187. |
+| O6 | pass + promoted unknown | Pass evidence: digest approval led directly to supported advisory mutation. Promoted unknown: extraction breadth after a thin first pass. Owner: FE-1187. |
+| O7 | promoted unknown | O7 live D120-L Execute workflow not observed; owner: FE-1187. |
+| O8 | promoted unknown | O8 live D120-L Execute workflow not observed; owner: FE-1187. |
+| O9 | promoted unknown | O9 live D120-L Execute workflow not observed; owner: FE-1187. |
+| O10 | promoted unknown | Both-theme component/live-TUI checks not observed; owner: FE-1187. |
+
 Deferred WR9–WR12 remain honest non-DoD scope: compact tool rendering, `/introspect` legibility, review-set visual redesign, and markdown/node-id polish. In particular, FE-1180 does not close the broader review-set/ask visual-revamp impulse; WR11 still requires a dedicated design session/frontier when prioritized.
 
 Use future entries like:
