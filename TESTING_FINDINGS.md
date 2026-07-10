@@ -161,6 +161,19 @@ Observation: User was not sure how to evaluate overload from this run.
 Expected: Future runs need a sharper oracle for prompt overload, such as repeated tool-call schema errors, missed required skill reads, failure to summarize graph state, excessive latency, or generic-agent behavior despite specific context.
 Disposition: leave as audit-method gap; fold into prompt/skill/model audit rather than treating as product failure.
 
+### 2026-07-10 FE-1180 review/witness audit
+
+The required WR1–WR8 implementations exist, but the post-build audit reopened FE-1180 because several finding dispositions had mechanism evidence without meaning-level closure:
+
+- **Execute routing (C2/C3/C4):** the FE-1180 labels broadened legacy `design_first` / `oracle_first` / `project_plan` directives without changing provider conduct. D120-L now requires preparation assessment + structured choice, compilation-readiness assessment + compile/backfill choice, and readiness-validated execution of the next safe unit. Required follow-up: WR13.
+- **Continue honesty (A4):** general continuation can report `kickFired: true` after the completion seam skipped or failed the provider turn. Required follow-up: WR14.
+- **Secret masking (A2):** implementation exists, but the current test is non-TTY and therefore does not witness interactive paste masking. Required PTY evidence: WR15.
+- **Conduct guidance (A6/A7/A8/C3):** source-substring sentinels prove wording exists, not that live tool/skill composition carries it or that the agent follows it. Required consumer-level evidence + outer re-observation: WR16/WR18.
+- **Debug legibility and seed usefulness (A5):** callback ordering is proven, but production `.brunch/debug/` files and agent use of seeded facts are not. Required wired mirror evidence + Run B: WR17/WR18.
+- **Visual/UX choices (A9/C1/C2):** role labels and scrollbar glyphs render, but border distinctness, overflow salience, choice comprehension, and recovery-hint noticeability remain outer-loop judgments. Required focused gallery/live evidence: WR18.
+
+Deferred WR9–WR12 remain honest non-DoD scope: compact tool rendering, `/introspect` legibility, review-set visual redesign, and markdown/node-id polish. In particular, FE-1180 does not close the broader review-set/ask visual-revamp impulse; WR11 still requires a dedicated design session/frontier when prioritized.
+
 Use future entries like:
 
 ```md

@@ -36,7 +36,7 @@ Build the first open required row in this order:
 
 ```text
 WR13 Execute semantic identity [built]
-  → WR14 honest continue completion
+  → WR14 honest continue completion [built]
   → WR15 interactive API-key secrecy
   → WR16 live conduct composition
   → WR17 production debug mirrors
@@ -62,7 +62,7 @@ WR14–WR17 may be reordered when test setup makes that cheaper, but WR18 remain
 | ID | Capability | Status | Req | Fill | Owner / next | Source inputs + closure oracle |
 | --- | --- | --- | --- | --- | --- | --- |
 | WR13 | Execute orientation semantic identity | `built` | ● | earned | session orientation carrier + Execute prompt/skill conduct | Built 2026-07-10: canonical ids `prepare_execution` / `compile_plan` / `execute_plan` now cross visible menu → persisted entry → context seed, and the live Execute prompt pins preparation recommendation/confirmation, compilation readiness with compile/backfill choice, and readiness-validated next-safe-unit execution. |
-| WR14 | Honest general-continue completion | `spec` | ● | earned | `session-orientation/juncture.ts` + command adapter | D119-L and `KickCompletionOutcome`. Close when fired/skipped/failed/idle outcomes propagate honestly and `/brunch:continue` never reports success merely because origination was attempted. |
+| WR14 | Honest general-continue completion | `built` | ● | earned | `session-orientation/juncture.ts` + command adapter | Built 2026-07-10: `completeAssistantKick` now returns its classified outcome, juncture/manual-trigger helpers derive `kickFired` only from `status: fired`, no-model/idle skips avoid seed/kick carrier retries, failed sends surface as warning completion failures, and outcome callbacks remain one-per-attempt. |
 | WR15 | Interactive API-key secrecy | `spec` | ● | earned | `app/brunch-login.ts` + PTY probe | A2/D115-L high-stakes boundary. Close when a real PTY paste leaves no sentinel secret in captured terminal bytes while auth storage receives the exact key; the non-TTY test remains supporting coverage. |
 | WR16 | Live WR5 guidance composition | `spec` | ● | earned | registered exchange tools + live agent skill/prompt composition | D99-L/D58-L/I38-L. Close when consumer-level tests prove the actual registered ask/digest guidance and live ingest/map resource path carry the Other/pretext/direct-mutation/multi-pass rules; retire the source-file substring sentinel. |
 | WR17 | Production debug-mirror legibility | `spec` | ● | earned | TUI composition root + passive debug cache | A5/D69-L/D97-L. Close when the wired manual-trigger continuation writes `entry-contents.md` and `origination.md` that identify seed contents, `manual_trigger`, and seed-before-kick order without a provider call being required for the evidence. |

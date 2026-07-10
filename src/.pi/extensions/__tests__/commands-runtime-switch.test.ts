@@ -80,6 +80,7 @@ function commandHarness(
     orientation?: boolean;
     selectResult?: string | undefined;
     modelAvailable?: boolean;
+    sendMessageError?: Error;
     getCommandContext?: () => FakeCommandContext;
     branch?: readonly EntryLike[];
     inputResult?: string;
@@ -191,6 +192,12 @@ function commandHarness(
         activeToolNames.push(names);
       },
       sendMessage(message: unknown, sendOptions?: unknown) {
+        if (
+          (message as { customType?: unknown }).customType === BRUNCH_KICK_CUSTOM_TYPE &&
+          options.sendMessageError
+        ) {
+          throw options.sendMessageError;
+        }
         sent.push({ message, options: sendOptions });
       },
     } as never,
@@ -343,6 +350,41 @@ describe('Brunch menu command', () => {
     expect(harness.sent).toEqual([]);
     expect(harness.notifications).toEqual([
       expect.objectContaining({ level: 'warning', message: 'Brunch resume is unavailable in this session.' }),
+    ]);
+  });
+
+  it('reports no-model continue honestly without appending seed or kick carriers', async () => {
+    const harness = commandHarness({ orientation: true, modelAvailable: false });
+
+    await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
+    await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.sent).toEqual([]);
+    expect(harness.notifications).toEqual([
+      expect.objectContaining({
+        level: 'info',
+        message: expect.stringContaining('No allowlisted model is available'),
+      }),
+      expect.objectContaining({
+        level: 'info',
+        message: expect.stringContaining('No allowlisted model is available'),
+      }),
+    ]);
+  });
+
+  it('reports failed continue completion honestly', async () => {
+    const harness = commandHarness({
+      orientation: true,
+      sendMessageError: new Error('provider queue failed'),
+    });
+
+    await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.notifications).toEqual([
+      expect.objectContaining({
+        level: 'warning',
+        message: expect.stringContaining('provider queue failed'),
+      }),
     ]);
   });
 
