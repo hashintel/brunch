@@ -64,7 +64,8 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - `main-editor-chrome` (FE-1169) — chrome-batch opener, in heavy flight: builder commits landed 2026-07-08 for threads 1–5 (ask surface, mode-reactive chrome, commands, startup theming, and details-driven candidate rendering); the judo/review-contract fix cards, B2 review-set details renderer, theme demo, roving-flake stabilization, and 2026-07-09 induction fix-now refactor are consumed. Remaining: the PR-305 review-findings refactor (`memory/REFACTOR.md`), then outer manual beats. Branch `ln/fe-1169-editor-chrome` (PR #305; locally restacked onto merged parents; tie-off/submit owed). Definition below.
 
 ### Recently Completed
-- 2026-07-10 `default-tool-rendering` (FE-1186) — all 45 fallback-rendered Brunch tools now use `defineBrunchTool`; the production registry pins the 45 shared-default / 7 intentional-custom / 4 Pi-owned classification. Durable state lives in D119-L/I61-L and `src/.pi/extensions/TOPOLOGY.md`.
+
+- 2026-07-10 `default-tool-rendering` (FE-1186) — all 45 fallback-rendered Brunch tools use `defineBrunchTool`; the production registry pins the 45 shared-default / 7 intentional-custom / 4 Pi-owned classification, and the review fix now witnesses one-row status/result suppression through Pi's live `ToolExecutionComponent`. D119-L/I61-L explicitly scope status transitions to the supported live interactive TUI; Pi HTML export remains unsupported under D34-L.
 - 2026-07-10 `webui-default` (FE-1185) — the product and dev CLIs now open the TUI sidecar route in the browser by default; `--no-webui` suppresses only browser opening while host startup and URL advertisement remain unchanged. Active help, topology, runbooks, and tests use the canonical opt-out spelling.
 - 2026-07-10 `tool-schema-convergence` (FE-1163) — closure audit repaired: the shared adapter now requires object roots; persisted semantic differentials cover every authoring-representation change; pure-TypeBox families retain object identity/serialization; and the production-derived oracle pins the exact 52-tool foreground, dev, executor-artifact, standalone-alternatives, and sealed-child inventory with adapter provenance and named legality constraints. The exhausted ledger was deleted; durable state lives in D118-L/I60-L and `src/.pi/extensions/TOPOLOGY.md`.
 - 2026-07-08 **merge wave — ship-gate stack + KA executor lanes to `next`:** FE-1122 (#286), FE-1123 (#287), FE-1124 (#288), FE-1134 (#289), FE-1135 (#291), FE-1136 (#292), FE-1137 (#290), FE-1138 (#293), FE-1152 (#294); KA: FE-1141 (#295), FE-1154 (#297), FE-1155 (#296), FE-1107 (#298). All outer-loop residue from these lanes is batched into `walkthrough-evidence-batch` (FE-1167) — no merged frontier carries open obligations of its own. Definitions archived to `docs/archive/PLAN_HISTORY.md` (2026-07-08 hygiene pass).
@@ -233,25 +234,6 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Current execution pointer:** branch tie-off (`gt submit`) and publish; no prepared scope file. Packaging, allowlist, release-check, `brunch login`, no-auth gate, the walkthrough-found `read_graph` schema fix, and PR-299 review fixes all landed as FE-1159 commits on this branch (SHAs churn under gt restacks; find them by the `FE-1159:` prefix). Post-A38-L allowlist revision candidates named by the user: `openai/gpt-5.5`, `openai/gpt-5.4-mini` (verify exact pi-ai catalog ids before adding).
 - **Traceability:** req 1, req 29; D113-L, D114-L, D115-L; A38-L; I59-L; SPEC §Future Direction (Brunch-owned config home, role-tiered model picks — both deferred).
 
-### tool-schema-convergence
-
-- **Name:** Tool-schema convergence sweep — one adapter, two schema sources, build-time provider legality
-- **Linear:** [FE-1163](https://linear.app/hash/issue/FE-1163/tool-schema-convergence-one-adapter-two-schema-sources-build-time)
-- **Branch:** `ln/fe-1163-tool-schema-convergence`, off `next` now that FE-1164 merged (supersedes the earlier stack-on-FE-1164 note; the ask cutover still shapes the exchanges family this sweep normalizes)
-- **Kind:** coverage frontier / sweep (frontier shape, not posture). **Certainty: earned** — every row is closure over an already-understood seam; nothing material is unknown.
-- **Status:** done 2026-07-10 after the `ln-review` → `ln-witness` closure audit and repair sweep.
-- **Why now / unlocks:** the FE-1159 outer walkthrough proved the failure class is real and total — one top-level `oneOf` in `read_graph` 400ed *every* provider turn on every Anthropic-family backend, and the faux-provider suite structurally cannot see it. Today the tool surface has a three-way authoring split (Zod-via-adapter ×2 duplicate adapters, TypeBox builders, hand `as const` JSON literals), so nothing enforces provider legality at authoring time. Converging now, right after the alpha cut, hardens the entire tool surface before alpha users hit it.
-- **Boundary:** all 52 Brunch-authored tool schemas reaching providers as `input_schema` (the 9 extension families plus standalone `present_alternatives` under `src/.pi/components/`; re-based 2026-07-10 after the closure oracle exposed that component-owned registrar). **Out:** Pi-owned schemas (incl. the 4 read-only re-registrations in `agent-runtime`), RPC/web/graph-command schemas (canonical *sources* for rows, not rows).
-- **Aggregate DoD:** met: both legacy adapters remain deleted; all 52 in-boundary schemas route through the shared adapter; object-root/top-level-union constraints, nested unions, duplicate-registration rejection, and exact registry provenance are covered; persisted pre-sweep semantic baselines protect every family whose authoring representation changed.
-- **Inventory authority:** the exact 52-member inventory is derived from the complete production registrar output plus the sealed-child catalog and pinned by `src/.pi/extensions/__tests__/registry.test.ts`; the exhausted temporary ledger was deleted.
-- **Classification:** buildable-now. All rows derive from current source; pi-ai's pre-execute `validateToolArguments` (TypeBox `Value.Check`) already gives uniform runtime validation, so no row adds a validation layer — this is authoring/derivation closure only.
-- **Closes:** the three-way schema-authoring split; the "illegal schema discovered on a live turn" failure class.
-- **Canonicalizes:** one adapter seam (`src/.pi/extensions/shared/tool-schema.ts`) and the two-source rule (Zod where the tool boundary owns the shape; TypeBox where graph/DB truth owns it — no re-declaring graph shapes in Zod).
-- **Deletes / retires:** `exchanges/pi-schema.ts`, `shared/pi-tool-schema.ts`, and hand-authored `as const` schema literals as an authoring style.
-- **Locks in:** D118-L's one-adapter/two-authority rule and I60-L's bounded build-time constraints over the exact production-derived inventory.
-- **Promotion / disposal rule:** completed; no row required promotion, and the exhausted ledger was deleted.
-- **Traceability:** motivating evidence rides FE-1159's walkthrough record (this file, alpha-release-readiness §Outer walkthrough evidence) and commit `FE-1159: Drop read_graph top-level oneOf…`; D39-L (sealed profile) constrains where the adapter lives; SPEC decision/invariant ids assigned when the first row lands.
-
 <!-- session-entry-orientation (FE-1134) definition archived to docs/archive/PLAN_HISTORY.md (2026-07-08, merged #289);
      durable truth: D109-L, src/.pi/extensions/TOPOLOGY.md, src/session/TOPOLOGY.md.
      Outer walkthrough evidence rides walkthrough-evidence-batch (FE-1167). -->
@@ -266,40 +248,6 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 <!-- orchestrator-tool-port (FE-1107) definition archived to docs/archive/PLAN_HISTORY.md (2026-07-08, merged #298);
      mechanism delivered by the KA executor lane (D111-L/D112-L/I58-L; src/executor/TOPOLOGY.md).
      KA-conversation residue (card GC, close-or-narrow, demo session, post-KA plan pass) rides FE-1167. -->
-
-### webui-default
-
-- **Name:** Open the web UI by default with an opt-out flag
-- **Linear:** [FE-1185](https://linear.app/hash/issue/FE-1185/open-the-web-ui-by-default-with-an-opt-out-flag)
-- **Branch:** `ln/fe-1185-webui-default`, stacked on `ln/fe-1163-tool-schema-convergence`
-- **Kind:** bounded CLI behavior change inside the settled TUI/web-sidecar launch seam
-- **Status:** done 2026-07-10
-- **Certainty:** earned — the sidecar host already starts for every TUI session; this closes the remaining browser-launch default mismatch rather than proving a new seam.
-- **Objective:** `brunch` opens the advertised sidecar route in the default browser unless `--no-webui` is supplied; the opt-out suppresses browser opening only, not sidecar host startup or URL advertisement.
-- **Canonicalizes:** one product and dev-launcher default, with `--no-webui` as the sole CLI spelling; retire `--open-web` without a compatibility alias under the pre-release rewrite posture.
-- **Acceptance:** default TUI launch passes browser opening through the real launch boundary; `--no-webui` suppresses only the opener; print/RPC remain browser-free; dev launcher, tests, help, topology, and active runbooks use the new default and spelling.
-- **Verification:** focused app/dev CLI and TUI launch tests, then `npm run verify`.
-- **Traceability:** product contract req 4; `src/app/TOPOLOGY.md`, `src/dev/TOPOLOGY.md`, `src/web/TOPOLOGY.md`.
-
-### default-tool-rendering
-
-- **Name:** Centralize default Pi tool rendering
-- **Linear:** [FE-1186](https://linear.app/hash/issue/FE-1186/centralize-default-pi-tool-rendering)
-- **Branch:** `ln/fe-1186-centralize-default-pi-tool-rendering`, stacked on `ln/fe-1185-webui-default` for Graphite merge order only; no behavioral dependency.
-- **Kind:** coverage frontier / sweep over the closed Brunch-authored Pi tool inventory. **Classification:** buildable-now.
-- **Status:** done 2026-07-10; all required rows built and the production-registry classification oracle is green.
-- **Certainty:** earned — Pi's renderer contract and Brunch's custom-rendered exceptions are already known; this frontier closes the scattered fallback-rendering default rather than proving a new seam.
-- **Why now / unlocks:** Brunch already owns rich renderers where semantics demand them, but the remaining tool surface still inherits Pi's generic shell piecemeal. One default seam makes Brunch's status language consistent and gives future fallback-rendered tools a canonical definition path.
-- **Boundary:** Brunch-authored provider tools with no `renderCall` or `renderResult`. Out: intentional custom renderers, Pi-owned built-ins/re-registrations, model-facing result content, and custom-message rendering.
-- **Objective:** add a typed `defineBrunchTool` wrapper under `src/.pi/extensions/shared/` that accepts Pi `ToolDefinition`s without `renderShell`, `renderCall`, or `renderResult`, then supplies Brunch's canonical self-shell one-line status renderer. The line is `◉ Brunch: {label || name}`: a bold accent/success/error dot carries running/final status, all other text is muted, and the existing transparent lateral-padding component preserves Pi's one-column alignment. Adopt it only for in-boundary tools.
-- **Aggregate DoD:** every production-registered Brunch tool either carries the shared default renderer or belongs to the explicit intentional-custom/Pi-owned exclusion set; no required ledger row remains `spec`, `new`, or `partial`.
-- **Inventory authority:** exhausted; `src/.pi/extensions/__tests__/registry.test.ts` now derives and pins the production registrar plus sealed-child catalog.
-- **Canonicalizes:** one Brunch-owned definition path for default-rendered Pi tools, projected from Pi's canonical `ToolDefinition` type rather than restating it.
-- **Locks in:** every in-boundary tool carries `renderShell: 'self'`, the one-line status renderer, and one column of transparent lateral padding; custom-rendered tools retain their existing behavior and ownership.
-- **Explicitly out:** restyling or replacing intentional custom renderers; showing default tool result text in the TUI (including expanded mode); changing model-facing `content`; introducing a Pi-global renderer hook or wrapping Pi-owned built-ins.
-- **Promotion / disposal rule:** completed without promotion; the exhausted ledger was deleted after topology and canonical state reconciled.
-- **Verification:** focused wrapper/component and production-registry tests, then `npm run verify`.
-- **Traceability:** D119-L/I61-L (shared-default seam and production classification), D39-L (sealed Brunch Pi profile), D52-L (`.pi/extensions/` adapter ownership), D104-L/I23-L (custom structured-exchange rendering remains distinct); `src/.pi/extensions/TOPOLOGY.md`.
 
 ### executor-run-environment
 
@@ -389,11 +337,6 @@ frontiers:
       depends_on: D22-L, D35-L, D113-L; FE-1138 Editor-in-chrome precedent
       feeds: -[groundwork]-> develop-mode (Horizon; shift+tab cycle + border roles landed mode-agnostic:
              OPERATIONAL_MODE_IDS-derived cycling, satisfies-enforced theme roles)
-    tool-schema-convergence (FE-1163)
-      status: done 2026-07-10; exact 52-tool oracle + semantic preservation closure green
-      branch: ln/fe-1163-tool-schema-convergence -[hard]-> off next (FE-1164 merged; supersedes stack-on decision)
-      shape: coverage frontier; ledger exhausted and deleted
-
   Next:
     walkthrough-evidence-batch (FE-1167)
       arc: deterministic-orientation (closing member)
@@ -445,8 +388,6 @@ done anchors:
   exchange-capture-contract -> present-digest (I57-L accepted-terminal read rules + conduct homes)
   elicitation-gap-guidance -> exchange-capture-contract (scratchpad outlet), execute-entry-readiness (postures)
   subagent-reconciliation -> acquisition arm + future subagent diversity
-  tool-schema-convergence -> webui-default (Graphite merge order only; no behavior dependency)
-  default-tool-rendering -> D119-L/I61-L + src/.pi/extensions/TOPOLOGY.md
 
 rules:
   candidates never commit graph truth (I51-L)

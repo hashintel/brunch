@@ -1,3 +1,4 @@
+import { initTheme, ToolExecutionComponent } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 import { describe, expect, it } from 'vitest';
 
@@ -86,6 +87,54 @@ describe('defineBrunchTool', () => {
     );
     expect(render(call).trimEnd()).toBe(' <error><bold>◉</bold></error><muted> Brunch: Example tool</muted>');
     expect(render(call)).not.toContain('failure details');
+  });
+
+  it('preserves one receipt row through Pi’s live interactive lifecycle', () => {
+    initTheme(undefined, false);
+    const tool = createTool();
+    const component = new ToolExecutionComponent(
+      tool.name,
+      'call-1',
+      { value: 'hello' },
+      undefined,
+      tool,
+      { requestRender() {} } as never,
+      '/tmp',
+    );
+    const receiptLines = () => component.render(80).filter((line) => line.trim().length > 0);
+
+    component.markExecutionStarted();
+    component.setArgsComplete();
+    expect(receiptLines()).toHaveLength(1);
+    expect(receiptLines()[0]).toContain('Brunch: Example tool');
+
+    component.updateResult(
+      {
+        content: [{ type: 'text', text: 'still running' }],
+        details: { length: 0 },
+        isError: false,
+      },
+      true,
+    );
+    expect(receiptLines()).toHaveLength(1);
+    expect(receiptLines().join('\n')).not.toContain('still running');
+
+    component.updateResult({
+      content: [{ type: 'text', text: 'secret result' }],
+      details: { length: 6 },
+      isError: false,
+    });
+    component.setExpanded(true);
+    expect(receiptLines()).toHaveLength(1);
+    expect(receiptLines().join('\n')).not.toContain('secret result');
+
+    component.updateResult({
+      content: [{ type: 'text', text: 'failure details' }],
+      details: { length: 0 },
+      isError: true,
+    });
+    expect(receiptLines()).toHaveLength(1);
+    expect(receiptLines().join('\n')).not.toContain('failure details');
   });
 
   it('falls back to the tool name when the label is empty', () => {

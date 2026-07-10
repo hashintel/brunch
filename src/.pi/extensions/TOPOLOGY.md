@@ -72,13 +72,17 @@ rules:
 
 `chrome/` is the only product extension that should install Brunch's persistent TUI shell chrome. It receives launch facts from `src/app/brunch-tui.ts` through `BrunchChromeState`; it does not read web host, workspace, or activation state itself.
 
+## Provider-facing tool schemas
+
+Provider-facing tool-parameter conversion is confined to `shared/tool-schema.ts`: Zod-owned tool boundaries emit JSON Schema draft 2020-12 via `z.toJSONSchema(..., { unrepresentable: 'throw' })`, while TypeBox-owned graph/DB boundaries pass through their canonical schema. The adapter requires an object root and rejects top-level `oneOf`/`anyOf`/`allOf`; `registry.test.ts` derives the complete 52-tool registrar/catalog inventory, rejects duplicate registrations, and pins adapter provenance and these bounded provider constraints. Compatibility beyond them remains tripwired to provider/model changes or live rejection evidence.
+
+## Shared default tool rendering
+
+`shared/define-brunch-tool.ts` owns the canonical self-shell one-line status renderer for Brunch-authored tools that do not need family-specific transcript rendering. Its status-transition contract is scoped to Pi's live interactive TUI lifecycle; Pi HTML export remains an unsupported built-in under D34-L and is not a compatibility surface for this adapter. The production-derived registry classifies 45 shared-default tools, 7 intentional-custom tools, and 4 Pi-owned re-registrations; custom and Pi-owned renderers remain outside the wrapper.
+
 ## Migration notes
 
-`exchanges/schemas/` is the intentional current exception to "adapter-only": it owns the Zod-authored structured-exchange details schema per D37-L/D41-L until a separate schema-ownership slice moves or names that seam. Provider-facing tool-parameter conversion is now confined to `shared/tool-schema.ts`: Zod-owned tool boundaries emit JSON Schema draft 2020-12 via `z.toJSONSchema(..., { unrepresentable: 'throw' })`, TypeBox-owned graph/DB boundaries pass through their canonical schema, and the adapter requires an object root and rejects top-level `oneOf`/`anyOf`/`allOf` before provider registration tests can go live.
-
-Migration note (FE-1163 `tool-schema-convergence`, exhausted 2026-07-10): the sweep collapsed the two legacy Zod adapters into the shared adapter with bounded build-time provider constraints (Anthropic-family backends 400 on top-level unions, witnessed live on `read_graph` during the FE-1159 walkthrough) and relinked all 52 Brunch-authored provider-facing tool schemas. The exact production-derived inventory includes both executor artifact registrations, standalone component-owned `present_alternatives`, and sealed-child `write_worktree_file`; persisted semantic baselines protect every authoring-representation change, while pure-TypeBox relinks are protected by object identity/serialization plus family inventories. `registry.test.ts` derives complete registrar/catalog output, rejects duplicate registrations, and pins all 52 members with adapter provenance and constraint checks. Compatibility beyond the named constraints remains deliberately tripwired to provider/model changes or live rejection evidence.
-
-Migration note (FE-1186 `default-tool-rendering`, exhausted 2026-07-10): `shared/define-brunch-tool.ts` owns the canonical self-shell one-line status renderer for Brunch-authored tools that do not need family-specific transcript rendering. The production-derived registry classifies 45 shared-default tools, 7 intentional-custom tools, and 4 Pi-owned re-registrations; custom and Pi-owned renderers remain outside the wrapper.
+`exchanges/schemas/` is the intentional current exception to "adapter-only": it owns the Zod-authored structured-exchange details schema per D37-L/D41-L until a separate schema-ownership slice moves or names that seam.
 
 `exchanges/shared/markdown.ts` contains Pi-rendering helpers. Keep Pi `renderCall` / `renderResult` widgets and UI-only message components local to `.pi/`; reusable provider-visible exchange result text belongs in `agents/contexts/exchanges/`.
 
