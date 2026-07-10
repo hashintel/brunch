@@ -23,6 +23,7 @@ interface ExecuteOrchestrateDetails {
     readonly runId: string;
     readonly step: string;
     readonly phase: 'started' | 'completed';
+    readonly fromStatus: string;
     readonly runStatus: string;
     readonly activeEpicId?: string;
     readonly activeSliceId?: string;
@@ -56,7 +57,18 @@ export function createExecuteOrchestrateTool(
         throw new Error('execute_orchestrate requires an active cwd');
       }
       const publisher = deps?.productUpdates;
+      let latestProgress: ExecuteOrchestrateDetails['progress'];
       const emitProgress = (progress: DriveStepProgress): void => {
+        latestProgress = {
+          runId: params.runId,
+          step: progress.step.kind,
+          phase: progress.phase,
+          fromStatus: progress.fromStatus,
+          runStatus: progress.runStatus,
+          ...(progress.activeEpicId ? { activeEpicId: progress.activeEpicId } : {}),
+          ...(progress.activeSliceId ? { activeSliceId: progress.activeSliceId } : {}),
+          completedSliceIds: progress.completedSliceIds,
+        };
         const sliceLine = progress.activeSliceId
           ? [
               `slice: ${progress.activeSliceId}`,
@@ -83,15 +95,7 @@ export function createExecuteOrchestrateTool(
             },
           ],
           details: {
-            progress: {
-              runId: params.runId,
-              step: progress.step.kind,
-              phase: progress.phase,
-              runStatus: progress.runStatus,
-              ...(progress.activeEpicId ? { activeEpicId: progress.activeEpicId } : {}),
-              ...(progress.activeSliceId ? { activeSliceId: progress.activeSliceId } : {}),
-              completedSliceIds: progress.completedSliceIds,
-            },
+            progress: latestProgress,
           },
         });
       };
@@ -165,7 +169,10 @@ export function createExecuteOrchestrateTool(
             ].join('\n'),
           },
         ],
-        details: { outcome },
+        details: {
+          outcome,
+          ...(latestProgress ? { progress: latestProgress } : {}),
+        },
       };
     },
   };

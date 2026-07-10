@@ -55,6 +55,7 @@ describe('execute_orchestrate rendering', () => {
             runId: 'run-1',
             step: 'test_result',
             phase: 'started',
+            fromStatus: 'agent_result_ingested',
             runStatus: 'agent_result_ingested',
             activeEpicId: 'e1',
             activeSliceId: 't1',
@@ -133,6 +134,7 @@ describe('execute_orchestrate rendering', () => {
             runId: 'run-1',
             step: 'test_result',
             phase: 'completed',
+            fromStatus: 'agent_result_ingested',
             runStatus: 'test_result_ingested',
             activeEpicId: 'e1',
             activeSliceId: 't1',
@@ -164,9 +166,46 @@ describe('execute_orchestrate rendering', () => {
         'running · slice t1 · test_result_ingested',
         'run run-1   epic e1   slice t1',
         'now test_result   completed   done 1',
-        'activity 2 events · latest verify stdout · tests passed   Ctrl + O to expand',
+        'activity 2 events · latest verify output · tests passed   Ctrl + O to expand',
       ].join('\n'),
     );
+  });
+
+  it('renders worker tool calls as readable updates instead of raw event numbers', () => {
+    const rendered = renderResult(
+      tool,
+      {
+        content: [{ type: 'text', text: 'fallback' }],
+        details: {
+          progress: {
+            runId: 'run-1',
+            step: 'agent_result',
+            phase: 'started',
+            fromStatus: 'slice_execution_requested',
+            runStatus: 'slice_execution_requested',
+            activeEpicId: 'frontier-1',
+            activeSliceId: 'task-1',
+            completedSliceIds: [],
+          },
+          agentStream: {
+            kind: 'tool',
+            runId: 'run-1',
+            epicId: 'frontier-1',
+            sliceId: 'task-1',
+            sequence: 56,
+            message: 'tool write_worktree_file completed',
+          },
+        },
+      },
+      { expanded: true, isPartial: true },
+    );
+
+    expect(rendered).toContain('recent updates: 1');
+    expect(rendered).toContain('→ worker tool call #56');
+    expect(rendered).toContain('  run run-1 · epic frontier-1 · slice task-1');
+    expect(rendered).toContain('  write_worktree_file completed');
+    expect(rendered).not.toContain('event 56');
+    expect(rendered).not.toContain('tool write_worktree_file completed');
   });
 
   it('renders exact expanded sections and ordering from structured details', () => {
@@ -179,6 +218,7 @@ describe('execute_orchestrate rendering', () => {
             runId: 'run-1',
             step: 'test_result',
             phase: 'completed',
+            fromStatus: 'agent_result_ingested',
             runStatus: 'test_result_ingested',
             activeEpicId: 'e1',
             activeSliceId: 't1',
@@ -225,16 +265,16 @@ describe('execute_orchestrate rendering', () => {
         '',
         '--- Timeline ---',
         '[✓] test_result -> test_result_ingested',
-        'phase change: completed from unknown',
+        'phase change: completed from agent_result_ingested',
         'next target: promotion_prepared',
         '',
         '--- Subtool Activity ---',
-        'event rail: 2',
-        '→ worker message · event 2',
-        '  run run-1 · epic e1 · slice t1 · event 2',
+        'recent updates: 2',
+        '→ worker update #2',
+        '  run run-1 · epic e1 · slice t1',
         '  edited src/types.ts',
-        '→ verify stdout · event 3',
-        '  run run-1 · epic e1 · slice t1 · event 3',
+        '→ verify output #3',
+        '  run run-1 · epic e1 · slice t1',
         '  tests passed',
         '',
         '--- Outcome ---',

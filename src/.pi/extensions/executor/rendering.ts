@@ -74,12 +74,11 @@ function compactField(value: string | undefined, fallback: string): string {
   return value ?? fallback;
 }
 
-function eventScope(record: Record<string, unknown> | undefined): string {
+function runScope(record: Record<string, unknown> | undefined): string {
   const runId = compactField(stringOrUndefined(record?.['runId']), 'unknown');
   const epicId = compactField(stringOrUndefined(record?.['epicId']), '-');
   const sliceId = compactField(stringOrUndefined(record?.['sliceId']), '-');
-  const sequence = compactField(stringOrNumber(record?.['sequence'])?.toString(), '?');
-  return `run ${runId} · epic ${epicId} · slice ${sliceId} · event ${sequence}`;
+  return `run ${runId} · epic ${epicId} · slice ${sliceId}`;
 }
 
 interface ActivityEvent {
@@ -99,13 +98,46 @@ function activityEvent(
   record: Record<string, unknown> | undefined,
 ): ActivityEvent | undefined {
   if (!record) return undefined;
+  const kind = stringOrUndefined(record['kind']) ?? 'event';
+  const rawMessage = stringOrUndefined(record['message']) ?? 'unknown';
   return {
     source,
-    kind: stringOrUndefined(record['kind']) ?? 'event',
-    message: stringOrUndefined(record['message']) ?? 'unknown',
-    scope: eventScope(record),
+    kind,
+    message: normalizeActivityMessage(source, kind, rawMessage),
+    scope: runScope(record),
     sequence: numberOrUndefined(record['sequence']),
   };
+}
+
+function normalizeActivityMessage(source: 'worker' | 'verify', kind: string, message: string): string {
+  const trimmed = message.trim() || 'unknown';
+  if (source === 'worker' && kind === 'tool') {
+    return trimmed.replace(/^tool\s+/u, '') || 'unknown';
+  }
+  return trimmed;
+}
+
+function activityUpdateLabel(event: ActivityEvent): string {
+  const sequenceSuffix = event.sequence === undefined ? '' : ` #${event.sequence}`;
+  if (event.source === 'worker') {
+    if (event.kind === 'tool') return `worker tool call${sequenceSuffix}`;
+    if (event.kind === 'status') return `worker status${sequenceSuffix}`;
+    return `worker update${sequenceSuffix}`;
+  }
+  if (event.kind === 'stderr') return `verify error output${sequenceSuffix}`;
+  if (event.kind === 'status') return `verify status${sequenceSuffix}`;
+  return `verify output${sequenceSuffix}`;
+}
+
+function latestActivityLabel(event: ActivityEvent): string {
+  if (event.source === 'worker') {
+    if (event.kind === 'tool') return 'latest tool call';
+    if (event.kind === 'status') return 'latest worker status';
+    return 'latest worker update';
+  }
+  if (event.kind === 'stderr') return 'latest verify error';
+  if (event.kind === 'status') return 'latest verify status';
+  return 'latest verify output';
 }
 
 function activityEvents(details: Record<string, unknown>): ActivityEvent[] {
@@ -163,7 +195,7 @@ function orchestrateCollapsed(
   if (events.length > 0) {
     const latestEvent = events.at(-1);
     if (latestEvent) {
-      tail = `${activityCountLabel(events.length)} · latest ${latestEvent.source} ${latestEvent.kind} · ${latestEvent.message}`;
+      tail = `${activityCountLabel(events.length)} · ${latestActivityLabel(latestEvent)} · ${latestEvent.message}`;
     }
   } else if (outcome && stringOrUndefined(outcome['status']) === 'halted') {
     tail = `reason ${compactField(stringOrUndefined(outcome['reason']), 'unknown')}`;
@@ -282,9 +314,9 @@ function orchestrateExpanded(
   if (events.length === 0) {
     lines.push('none');
   } else {
-    lines.push(`event rail: ${events.length}`);
+    lines.push(`recent updates: ${events.length}`);
     for (const event of events) {
-      lines.push(`→ ${event.source} ${event.kind} · event ${event.sequence ?? '?'}`);
+      lines.push(`→ ${activityUpdateLabel(event)}`);
       lines.push(`  ${event.scope}`);
       lines.push(`  ${event.message}`);
     }

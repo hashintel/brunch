@@ -112,6 +112,14 @@ describe('execute_orchestrate intra-drive updates', () => {
       status: 'completed',
       runStatus: 'promotion_prepared',
     });
+    expect(result.details?.progress).toMatchObject({
+      runId: 'run-1',
+      step: 'promotion',
+      phase: 'completed',
+      fromStatus: 'petri_exported',
+      runStatus: 'promotion_prepared',
+      completedSliceIds: ['t1'],
+    });
   });
 
   it('emits tool updates before and after every step during a drive', async () => {
