@@ -9,7 +9,11 @@ import { petriEventsPath } from './petri-events.js';
 import { petriMarkingSnapshotMatchesRunMetadata, readPetriMarkingSnapshot } from './petri-marking.js';
 import { canProjectPetriReplay } from './petri-replay-eligibility.js';
 import { replayPetri, type PetriProjection } from './petri-replay.js';
-import { materializeExecutorPetriRuntime, type ExecutorPetriRuntime } from './petri-runtime.js';
+import {
+  materializeExecutorPetriRuntime,
+  projectExecutorPetriTransitionHistory,
+  type ExecutorPetriRuntime,
+} from './petri-runtime.js';
 import { readRunMetadata, runDirPath, runMetadataPath, type RunMetadata } from './run.js';
 import { verifyStreamPath, type VerifyStreamEvent } from './test-result.js';
 
@@ -178,7 +182,7 @@ export async function readRunDetail(
   const hasMatchingPetriMarkingSnapshot =
     petriMarkingSnapshot !== undefined &&
     petriMarkingSnapshotMatchesRunMetadata(petriMarkingSnapshot, metadata) &&
-    petriMarkingSnapshotMatchesRuntime(petriMarkingSnapshot, petriRuntime);
+    petriMarkingSnapshotMatchesRuntime(petriMarkingSnapshot, metadata, petriRuntimePlan, petriRuntime);
   const petriProjectionEntry =
     (hasMatchingPetriMarkingSnapshot
       ? {
@@ -271,9 +275,17 @@ function sanitizeClaimedTransitionIds(
 }
 
 function petriMarkingSnapshotMatchesRuntime(
-  snapshot: { readonly currentMarking: Record<string, number> },
+  snapshot: { readonly currentMarking: Record<string, number>; readonly firedTransitionCount: number },
+  metadata: RunMetadata,
+  plan: SchedulerPlan | undefined,
   runtime?: Pick<ExecutorPetriRuntime, 'currentMarking'>,
 ): boolean {
+  if (
+    projectExecutorPetriTransitionHistory(metadata, plan)?.transitionIds.length !==
+    snapshot.firedTransitionCount
+  ) {
+    return false;
+  }
   if (runtime === undefined) return true;
   const runtimeEntries = Object.entries(runtime.currentMarking);
   const snapshotEntries = Object.entries(snapshot.currentMarking);
