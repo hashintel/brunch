@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { formatSessionOrientationSeed } from '../../../../agents/contexts/data-model/session-orientation.js';
 import { latestSessionOrientation } from '../../../../session/session-orientation.js';
 import {
   CODE_SESSION_ORIENTATION_MENU,
@@ -81,13 +82,57 @@ describe('runSessionOrientationDialog', () => {
 
     expect(CODE_SESSION_ORIENTATION_MENU.topLabel).toBe('[ Execute ]');
     expect(CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.id)).toEqual([
-      'design_first',
-      'oracle_first',
-      'project_plan',
+      'prepare_execution',
+      'compile_plan',
+      'execute_plan',
     ]);
     expect(CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.id)).not.toContain('proceed');
     expect(CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.id)).not.toContain('backfill');
+    expect(CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.id)).not.toContain('design_first');
+    expect(CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.id)).not.toContain('oracle_first');
+    expect(CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.id)).not.toContain('project_plan');
   });
+
+  it.each([
+    {
+      id: 'prepare_execution',
+      label: 'Design / oracle / commit work',
+      directive: /assessing design, oracle, and commitment evidence; recommend one next preparation path/i,
+    },
+    {
+      id: 'compile_plan',
+      label: 'Plan compilation readiness',
+      directive: /assessing plan-compilation readiness.*offer compile-now versus backfill-first/i,
+    },
+    {
+      id: 'execute_plan',
+      label: 'Plan execution',
+      directive: /validating that the compiled plan is fresh.*begin only the next safe scoped unit/i,
+    },
+  ] as const)(
+    'keeps Execute %s visible menu, persisted id, and context seed semantically aligned',
+    async (row) => {
+      const ui = fakeUi(row.label);
+      const manager = new FakeSessionManager();
+
+      const result = await runAndRecordSessionOrientation({
+        hasUI: true,
+        ui,
+        trigger: 'consult',
+        manager,
+        menu: CODE_SESSION_ORIENTATION_MENU,
+      });
+
+      expect(result).toEqual({ choice: row.id, recorded: true });
+      expect(latestSessionOrientation(manager.entries)?.data).toEqual({
+        schemaVersion: 1,
+        choice: row.id,
+        trigger: 'consult',
+      });
+      expect(formatSessionOrientationSeed(row.id)).toContain(`chosen: ${row.id}`);
+      expect(formatSessionOrientationSeed(row.id)).toMatch(row.directive);
+    },
+  );
 });
 
 describe('runAndRecordSessionOrientation', () => {

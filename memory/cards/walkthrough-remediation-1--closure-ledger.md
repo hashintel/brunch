@@ -1,0 +1,262 @@
+# Walkthrough remediation sweep 1 — audit closure ledger
+
+Frontier: walkthrough-remediation-1
+Status:   active
+Mode:     sweep
+Created:  2026-07-10
+
+## Orientation
+
+- Seam: FE-1180's user-visible orientation, recovery, onboarding-security, prompt-conduct, debug-evidence, and TUI presentation surfaces.
+- Frontier: `walkthrough-remediation-1` / FE-1180, reopened after the 2026-07-10 `ln-review` + `ln-witness` pass found mechanism-vs-meaning gaps after WR1–WR8.
+- Volatile state: `HANDOFF.md` is pre-WR13 transfer provenance; its WR13-next row status is superseded by `memory/PLAN.md` and this ledger. The audit findings are reconciled into `TESTING_FINDINGS.md`, D120-L/I60-L, and `memory/PLAN.md` WR13–WR18.
+- Main risk: a builder could make tests green by pinning labels, ids, directives, or debug callbacks separately while the production path still diverges. Every required row therefore crosses the real consumer or user-facing boundary named below.
+
+Posture: earned (inherited from `walkthrough-remediation-1`) for WR13–WR17; WR18 is evidence-gated outer closure.
+
+Cross-cutting obligations:
+
+- D120-L / I60-L: one semantic identity across visible Execute choice, persisted id, provider directive, and workflow.
+- D109-L / D119-L: dismissal remains inert; explicit `/brunch:continue` resumes through honest product origination.
+- D115-L / I59-L: no provider turn fires without an available allowlisted model; non-model product functions remain available.
+- D69-L / D97-L: debug mirrors are passive evidence, not a second runtime or truth store.
+- Verification design: structural claims require production-consumer evidence; UX feel and model conduct remain outer-loop judgments.
+
+## Sweep preflight
+
+1. **Boundary.** In: only WR13–WR18 from `memory/PLAN.md` — Execute semantic identity, continue completion honesty, interactive login secrecy, live WR5 guidance composition, production debug-mirror legibility, and focused outer closure. Out: WR9 compact tool rendering, WR10 `/introspect`, WR11 review-set visual redesign, WR12 markdown/node-id polish, `spec-posture`, FE-1167's wider residue, dynamic model policy, and unrelated branch cleanup.
+2. **Source-of-truth inputs.** D120-L/I60-L own Execute behavior; D119-L and `KickCompletionOutcome` own continue truth; terminal bytes + auth storage own secret masking; registered tools and live skill/prompt composition own WR5 guidance; the production TUI composition and `.brunch/debug/` files own debug legibility; `TESTING_PLAN.md` owns the outer tasks.
+3. **Owner and closure.** Every row below names one owning seam, expected touched paths, and a discriminating oracle. Source/prose substring tests are supporting evidence only.
+4. **Class.** Evidence-gated. WR13–WR17 are buildable now. WR18 is blocked until all five are built and the source/dev TUI can be exercised against the corrected surface.
+5. **Closed inventory.** WR13–WR18 are the complete audit inventory. One newly discovered omission may be added with justification; more than one or any new seam stops the sweep and returns to `ln-plan`.
+
+## Build order
+
+Build the first open required row in this order:
+
+```text
+WR13 Execute semantic identity [built]
+  → WR14 honest continue completion
+  → WR15 interactive API-key secrecy
+  → WR16 live conduct composition
+  → WR17 production debug mirrors
+  → WR18 focused outer closure
+```
+
+WR14–WR17 may be reordered when test setup makes that cheaper, but WR18 remains last. One `ln-build` invocation closes one row and updates this ledger plus `TESTING_FINDINGS.md` when evidence changes.
+
+## Cold-start reads
+
+- `memory/SPEC.md` — D69-L, D97-L, D109-L, D115-L, D119-L, D120-L; I59-L, I60-L; Verification Design.
+- `memory/PLAN.md` — frontier `walkthrough-remediation-1`, audit reopening inventory WR13–WR18.
+- `HANDOFF.md` — pre-WR13 transfer provenance only; cold-start warning: do not treat its WR13-next row status as current because `memory/PLAN.md` and this ledger supersede it.
+- `TESTING_FINDINGS.md` — A1–A10, C1–C5, and §2026-07-10 FE-1180 review/witness audit.
+- `TESTING_PLAN.md` — Concerns 1, 3, 4, 5, 6, 7.
+- `src/.pi/extensions/TOPOLOGY.md` — orientation, commands, no-auth gate, and debug-mirror composition.
+- `src/session/TOPOLOGY.md` — orientation carrier and context-seed ownership.
+- `src/agents/prompts/TOPOLOGY.md` and `src/agents/skills/TOPOLOGY.md` — live prompt/skill ownership.
+- `src/dev/TOPOLOGY.md` and `docs/praxis/manual-testing.md` — debug evidence and outer-loop protocol.
+
+## Required rows
+
+| ID | Capability | Status | Req | Fill | Owner / next | Source inputs + closure oracle |
+| --- | --- | --- | --- | --- | --- | --- |
+| WR13 | Execute orientation semantic identity | `built` | ● | earned | session orientation carrier + Execute prompt/skill conduct | Built 2026-07-10: canonical ids `prepare_execution` / `compile_plan` / `execute_plan` now cross visible menu → persisted entry → context seed, and the live Execute prompt pins preparation recommendation/confirmation, compilation readiness with compile/backfill choice, and readiness-validated next-safe-unit execution. |
+| WR14 | Honest general-continue completion | `spec` | ● | earned | `session-orientation/juncture.ts` + command adapter | D119-L and `KickCompletionOutcome`. Close when fired/skipped/failed/idle outcomes propagate honestly and `/brunch:continue` never reports success merely because origination was attempted. |
+| WR15 | Interactive API-key secrecy | `spec` | ● | earned | `app/brunch-login.ts` + PTY probe | A2/D115-L high-stakes boundary. Close when a real PTY paste leaves no sentinel secret in captured terminal bytes while auth storage receives the exact key; the non-TTY test remains supporting coverage. |
+| WR16 | Live WR5 guidance composition | `spec` | ● | earned | registered exchange tools + live agent skill/prompt composition | D99-L/D58-L/I38-L. Close when consumer-level tests prove the actual registered ask/digest guidance and live ingest/map resource path carry the Other/pretext/direct-mutation/multi-pass rules; retire the source-file substring sentinel. |
+| WR17 | Production debug-mirror legibility | `spec` | ● | earned | TUI composition root + passive debug cache | A5/D69-L/D97-L. Close when the wired manual-trigger continuation writes `entry-contents.md` and `origination.md` that identify seed contents, `manual_trigger`, and seed-before-kick order without a provider call being required for the evidence. |
+| WR18 | Focused outer closure evidence | `new` | ● | proving | manual testing protocol; blocked by WR13–WR17 | TESTING_PLAN Concern 1A + Run B + focused Execute/gallery beat. Close only with recorded observations for WR5 conduct, seed usefulness, recovery-hint noticeability, Execute workflow fidelity, and border/overflow legibility in both themes. Product failures route back through planning rather than being absorbed here. |
+
+## Row briefs
+
+### WR13 · Execute orientation semantic identity
+
+**Closure target:** retire the legacy offered ids `design_first` / `oracle_first` / `project_plan` and the broadened-label-over-narrow-directive dual shape.
+
+**Required behavior:**
+
+- Canonical offered ids name the visible workflows directly (recommended vocabulary: `prepare_execution`, `compile_plan`, `execute_plan`); under free-rewrite posture, do not add read aliases solely for local/dev transcripts.
+- Preparation assesses design/oracle/commitment evidence, recommends one next prep path, and uses structured confirmation before beginning it.
+- Compilation assesses readiness and offers compile-now versus backfill-first.
+- Execution validates plan freshness/readiness and begins only the next safe scoped unit; stale/incomplete plans route to compilation/backfill, and no choice authorizes unattended whole-plan execution.
+- Remove or regenerate stale tests/snapshots/docs that mint the retired offered ids. Existing unrelated parseable legacy ids are not widened by symmetry.
+
+**Acceptance oracles:**
+
+- `src/.pi/extensions/session-orientation/__tests__/index.test.ts` — canonical menu ids and labels.
+- New/extended table-driven contract test crossing `runSessionOrientationDialog`/entry persistence through `formatSessionOrientationSeed` — each visible choice produces a semantically matching directive (I60-L).
+- `src/agents/runtime/executor/__tests__/compose-prompt.test.ts` — live Execute prompt carries all three D120-L workflow guards, including structured confirmation and next-safe-unit ceiling.
+- Existing J2–J6 and mode-switch tests stay green with canonical ids.
+
+**Invariants preserved:**
+
+- Escape/timeout remains `dismissed`, recorded and inert — `session-orientation` index/juncture tests.
+- Specify choices and `continue`/wait behavior do not change — existing orientation and command suites.
+- Plan projection remains frontier-level per D103-L; execution uses the existing `execute_*` authority boundary.
+
+**Expected touched paths (tentative):**
+
+```text
+src/session/
+├── session-orientation.ts                                      ~
+├── TOPOLOGY.md                                                 ~
+└── __tests__/session-orientation.test.ts                       ~
+src/agents/
+├── contexts/data-model/session-orientation.ts                  ~
+├── prompts/executor.md                                         ~
+├── runtime/executor/__tests__/compose-prompt.test.ts           ~
+└── skills/                                                     ?  # only if a live skill needs D120-L workflow conduct
+src/.pi/extensions/
+├── TOPOLOGY.md                                                 ~
+└── session-orientation/
+    ├── index.ts                                                ~
+    └── __tests__/{index,juncture,registrar}.test.ts             ~
+src/.pi/extensions/__tests__/commands-runtime-switch.test.ts    ~
+```
+
+### WR14 · Honest general-continue completion
+
+**Closure target:** make `kickFired` describe a fired provider turn, not a completed attempt.
+
+**Required behavior:**
+
+- Propagate the classified `KickCompletionOutcome` through manual-trigger origination.
+- Derive `kickFired` only from `status: fired`.
+- Preserve `onKickOutcome` exactly once for fired, skipped, and failed outcomes.
+- `/brunch:continue` gives an honest no-model/idle/failure result and does not append duplicate seed/kick carriers on retry.
+
+**Acceptance oracles:**
+
+- Parameterized `juncture.test.ts` cases for fired, `no_model_available`, idle, and failed send.
+- `commands-runtime-switch.test.ts` proves user-visible command behavior for no-model and failed completion while preserving successful general resume and declared-ask recovery.
+- Existing D119-L cancellation/re-presentation tests remain green.
+
+**Expected touched paths (tentative):**
+
+```text
+src/.pi/extensions/
+├── session-orientation/juncture.ts                              ~
+├── session-orientation/__tests__/juncture.test.ts               ~
+├── commands/index.ts                                           ~
+└── __tests__/commands-runtime-switch.test.ts                    ~
+src/session/originate-assistant-turn.ts                          ?  # only if outcome return ownership must deepen here
+src/session/__tests__/originate-assistant-turn.test.ts           ?
+```
+
+### WR15 · Interactive API-key secrecy
+
+**Closure target:** replace false non-TTY proof with a real interactive-terminal witness.
+
+**Required behavior:**
+
+- PTY-captured terminal output never contains the pasted sentinel key.
+- The exact key reaches Pi-shaped auth storage.
+- Prompt and post-entry newline remain usable; cancellation still exits nonzero without writing auth.
+- Prefer stdlib and the repository's existing cross-platform `script` pattern; add no dependency unless the PTY oracle is impossible without one.
+
+**Acceptance oracles:**
+
+- A new executable probe/script drives `brunch login` through a PTY on supported macOS/Linux `script` forms and checks terminal bytes plus an isolated `PI_CODING_AGENT_DIR/auth.json`.
+- A Vitest wrapper or script contract test keeps the probe runnable and fails loudly when the platform lacks the declared PTY prerequisite.
+- `src/app/__tests__/brunch-login.test.ts` remains as non-interactive persistence/provider-order coverage but no longer claims to prove echo suppression by itself.
+
+**Expected touched paths (tentative):**
+
+```text
+src/app/
+├── brunch-login.ts                                             ?
+└── __tests__/brunch-login.test.ts                              ~
+src/probes/
+├── scripts/verify-brunch-login-secret.sh                       +
+└── __tests__/brunch-login-secret-script.test.ts                +
+package.json                                                     ?  # only if a named probe command is warranted
+```
+
+### WR16 · Live WR5 guidance composition
+
+**Closure target:** retire tests that freeze source prose without proving the live consumer receives it.
+
+**Required behavior:**
+
+- Registered `ask` and `present_digest` tool objects expose the Other/pretext/review-vocabulary guidance through the same surface provider composition reads.
+- The code-owned live skill registry and composed prompt manifest expose `ingest` and its routed `map` reference path; test through registry/composition APIs, not `readFile(process.cwd()/src/...)`.
+- Keep exact prose flexible where a semantic assertion over the registered/composed artifact is sufficient.
+
+**Acceptance oracles:**
+
+- Extend `src/.pi/extensions/__tests__/exchanges-extension.test.ts` over `registerStructuredExchange` output for tool guidance.
+- Extend the appropriate live prompt/skill registry composition suite to prove ingest + map routing resources are reachable from the active foreground manifest.
+- Delete `src/probes/__tests__/walkthrough-remediation-conduct-contract.test.ts` when its only claims have consumer-level replacements.
+
+**Expected touched paths (tentative):**
+
+```text
+src/.pi/extensions/__tests__/exchanges-extension.test.ts         ~
+src/agents/
+├── skills/__tests__/registry.test.ts                            ?
+├── runtime/elicitor/__tests__/compose-live-prompt.test.ts       ?
+└── runtime/executor/__tests__/compose-prompt.test.ts            ?
+src/probes/__tests__/walkthrough-remediation-conduct-contract.test.ts -
+```
+
+### WR17 · Production debug-mirror legibility
+
+**Closure target:** cross the real continuation composition root into operator-readable files.
+
+**Required behavior:**
+
+- A manual-trigger continuation writes the seed entry to `entry-contents.md` before its kick outcome record appears in `origination.md`.
+- `origination.md` names `manual_trigger` and the classified completion outcome.
+- The oracle uses the production-wired callback/cache path, not direct calls to cache helpers.
+- Debug files remain passive and workspace-local; no canonical state is introduced.
+
+**Acceptance oracles:**
+
+- Extend `src/dev/__tests__/tier-2-harness.test.ts` or the narrowest real-boot harness to invoke the wired continuation and inspect both files in a temporary workspace.
+- Existing debug-cache unit tests remain supporting evidence; the new test must fail if `brunch-tui.ts` omits the mirror wiring.
+
+**Expected touched paths (tentative):**
+
+```text
+src/app/brunch-tui.ts                                           ?
+src/dev/__tests__/tier-2-harness.test.ts                        ~
+src/.pi/extensions/dev-mode/introspection/                      ?
+src/dev/TOPOLOGY.md                                             ?
+```
+
+### WR18 · Focused outer closure evidence
+
+**Evidence gate:** WR13–WR17 are `built`; `npm run verify` passes; testing uses disposable workbenches/scratch auth only.
+
+**Manual beats:**
+
+1. TESTING_PLAN Concern 1A with scratch `PI_CODING_AGENT_DIR`: verify safe entry, actual hidden paste, post-login continuation, and honest no-model behavior.
+2. Run B: inspect seed/debug files, confirm first useful conduct uses seeded facts, exercise Specify `/brunch:consult`, and observe WR5 digest/Other behavior if naturally reached.
+3. Focused Execute beat: select each D120-L choice from a controlled developed spec and record the first provider workflow; no choice may silently produce a legacy directive.
+4. `npm run dev:components` in both themes plus live TUI: compare consult `borderAccent` with mode-reactive ask/editor borders, overflow thumb salience, and recovery-hint noticeability.
+
+**Evidence recording:**
+
+- Append observations and exact workspace/theme/session/debug references to `TESTING_FINDINGS.md`.
+- Screenshots/source notes go under `testing/walkthroughs/<date>/`; promote runtime artifacts to `.fixtures/runs/` only when reviewed and replay-worthy.
+- A failure is not fixed inside WR18 unless it is demonstrably a tiny correction inside a WR13–WR17 owner. Otherwise classify it and route through `ln-plan`.
+
+**Expected touched paths (tentative):**
+
+```text
+TESTING_FINDINGS.md                                             ~
+testing/walkthroughs/2026-07-10/                                +
+.fixtures/runs/                                                 ?  # reviewed promotion only
+memory/PLAN.md                                                   ~  # close frontier only after evidence passes
+memory/cards/walkthrough-remediation-1--closure-ledger.md        -  # delete only at exhaustion
+```
+
+## Aggregate DoD
+
+- WR13–WR18 are `have` or `built`; no required row is `spec`, `new`, or `partial`.
+- D120-L/I60-L are materialized in code, tests, and the current topology homes.
+- The PTY secret oracle, consumer-level conduct oracle, wired debug-mirror oracle, and focused outer evidence all pass.
+- `TESTING_FINDINGS.md` records actual post-change observations rather than only implementation dispositions.
+- `npm run verify` passes before the final code commit; `npm run check` is the read-only confirmation after evidence/doc-only updates.
+- Only then: delete this ledger, restore FE-1180 to closed in `memory/PLAN.md`, and leave WR9–WR12 explicitly deferred.

@@ -27,7 +27,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 **Capture-sweep reliability lane (grilled 2026-07-08).** A trace of the capture-sweep mechanism surfaced that the watermark advance is optimistic (`sweptAt` asserts intent, not completion) and that agent-action provenance — product-wired vs event-nudged vs freely chosen — is illegible during walkthroughs. Settled as D117-L (include-list stays, fail-closed), A40-L (`turn_end` as a future capture-conditional upgrade, not now), and the "Sweep ingestion reliability" blind spot. The plan-level answer is one new frontier, `mechanism-trace`: a post-hoc carrier-classified transcript trace as the spine, with the sweep-debt tripwire riding it as a scenario-scoped outer-loop oracle. The D117-L constant-anchoring hardening is a direct fix outside that frontier.
 
-**Alpha walkthrough lane (2026-07-09).** Post-PR-305 outer-loop walkthroughs (TESTING_PLAN.md concern groups; findings in TESTING_FINDINGS.md) ran A and C, then a same-day induct → grill → spec pass settled D118-L (spec posture persistence), D119-L (unified `/continue` + continue/wait lexicon), the D99-L digest-conduct clarification, and A41-L. The plan-level answer: `walkthrough-remediation-1` (coverage-shaped sweep over the findings ledger) plus the promoted `spec-posture` frontier, sequenced **before** walkthrough runs B/D so those runs witness the remediated surface and serve as closure evidence.
+**Alpha walkthrough lane (2026-07-09/10).** Post-PR-305 outer-loop walkthroughs (TESTING_PLAN.md concern groups; findings in TESTING_FINDINGS.md) ran A and C, then a same-day induct → grill → spec pass settled D118-L (spec posture persistence), D119-L (unified `/continue` + continue/wait lexicon), the D99-L digest-conduct clarification, and A41-L. The 2026-07-10 FE-1180 review/witness pass reopened `walkthrough-remediation-1`: required rows WR1–WR8 were built, but Execute labels diverged from their provider directives and several security/conduct/debug claims lacked discriminating evidence. D120-L/I60-L now settle the Execute workflows. Close the reopened audit rows, run the focused no-auth/Run-B/Execute evidence, then let `spec-posture` use run D as its outer oracle.
 
 **Topology and evidence discipline.** Directory `TOPOLOGY.md` files under `src/**` own current topology state. `memory/SPEC.md` owns the thin product contract and live decision/invariant index; long-form SPEC history is archived in `docs/archive/SPEC_HISTORY.md`. `memory/PLAN.md` owns only rolling frontier state. Scratch probe artifacts under `.fixtures/scratch/` are not durable evidence until reviewed and promoted to `.fixtures/runs/`.
 
@@ -62,20 +62,20 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Active
 
-- **Alpha walkthrough lane** — the post-publish outer-loop audit over the merged surface (`TESTING_PLAN.md` concern groups; findings in `TESTING_FINDINGS.md`). Runs A and C done + collated 2026-07-09; runs B and D are now unblocked by closed `walkthrough-remediation-1` and should witness the remediated surface as closure evidence. Not a frontier itself — it feeds and closes the two admitted frontiers under Next.
-- `tool-schema-convergence` (FE-1163) — next build: sweep over the 46-tool provider-facing schema surface. Base: **off `next`** now that FE-1164 merged (supersedes the stack-on-FE-1164 note). Ledger: `memory/cards/tool-schema-convergence--ledger.md` (includes the folded blank-carrier row). Candidate row from the 2026-07-09 `ln-induct` pass (finding 5), admit at pickup: derive test `getAllTools()` inventory stubs from the canonical active-tool constants instead of hand-listing (three fixture sites drifted in PR #304). Definition below.
+- `walkthrough-remediation-1` (FE-1180) — **reopened by 2026-07-10 review/witness**. WR1–WR8 and WR13 remain built; close WR14–WR18 from `memory/cards/walkthrough-remediation-1--closure-ledger.md` before restoring closed status. Existing issue/branch; WR14 is next. Definition below.
+- **Alpha walkthrough lane** — the post-publish outer-loop audit over the merged surface (`TESTING_PLAN.md` concern groups; findings in `TESTING_FINDINGS.md`). Runs A and C are the source evidence. After FE-1180's deterministic audit rows land, rerun Concern 1A plus Run B and a focused Execute/gallery beat for FE-1180 closure; run D stays the outer oracle for `spec-posture`. Not a frontier itself.
+- `tool-schema-convergence` (FE-1163) — next independent build: sweep over the 46-tool provider-facing schema surface. Base: **off `next`** now that FE-1164 merged (supersedes the stack-on-FE-1164 note). Ledger: `memory/cards/tool-schema-convergence--ledger.md` (includes the folded blank-carrier row). Candidate row from the 2026-07-09 `ln-induct` pass (finding 5), admit at pickup: derive test `getAllTools()` inventory stubs from the canonical active-tool constants instead of hand-listing (three fixture sites drifted in PR #304). Definition below.
 
 ### Recently Completed
 
 - 2026-07-09 `alpha-release-readiness` (FE-1159) — **✓ closed: `1.0.0-alpha.0` published to npm under dist-tag `alpha`** (git tag on `next`; `latest` untouched at 0.8.0). Durable truth: D113-L/D114-L/D115-L, I59-L, `check:release-pack`. Definition archived to `docs/archive/PLAN_HISTORY.md`. A38-L conduct reproducibility continues validating via the alpha walkthrough lane.
-- 2026-07-09 `walkthrough-remediation-1` (FE-1180) — **✓ closed: run-A/run-C remediation sweep required rows WR1–WR8 built**. `TESTING_FINDINGS.md` A1–A10/C1–C5 dispositions reconciled; runs B/D are now unblocked as outer closure evidence. Durable truth: D99-L/D104-L/D106-L/D109-L/D115-L/D119-L and existing topology homes; consumed ledger deleted.
 - 2026-07-09 `main-editor-chrome` (FE-1169) — **merged #305**. All six threads delivered; `memory/REFACTOR.md` and all nine scope cards consumed. Outer manual beats transferred to the walkthrough lane (TESTING_PLAN.md Concern 7); its `/brunch:continue` semantics are superseded post-merge by D119-L (widening rides `walkthrough-remediation-1`). Named residue: `requestClosesPresent` reconciliation waits for Horizon `headless-ask-discovery`. Definition archived to `docs/archive/PLAN_HISTORY.md`.
 - Older completions (2026-07-08 merge wave incl. FE-1164, the 2026-07-06 wave, and earlier): `docs/archive/PLAN_HISTORY.md`.
 
 ### Next
 
-- `spec-posture` (Linear at pickup) — structural: persisted spec-row posture (D118-L, A41-L) + deterministic establishment flow. Promoted row from the remediation ledger; its outer oracle is exactly run D's populated-cwd/brownfield beats. Definition below.
-- `walkthrough-evidence-batch` ([FE-1167](https://linear.app/hash/issue/FE-1167/walkthrough-evidence-batch-outer-loop-checks-for-merged-orientation)) — the one batch owning all outer-loop residue from the merged lanes (FE-1134 generative-menu evidence, FE-1137 thin/rich Execute beats + deferred orientation-choice questions, FE-1124 Card 3 + seed worklist, FE-1107 KA-conversation residue, and — folded 2026-07-08 from the retired handoff — the FE-1164 walkthrough items). Unblocked by the FE-1164/FE-1169 merges and the closed `walkthrough-remediation-1` sweep; run the beats against the remediated surfaces (and note remediation row 5's conduct changes shift what "expected conduct" means for the generative beats). Closes arc `deterministic-orientation`. Definition below.
+- `spec-posture` (Linear at pickup) — structural: persisted spec-row posture (D118-L, A41-L) + deterministic establishment flow. Start after FE-1180's deterministic audit rows so run D witnesses the corrected surface; its outer oracle is exactly run D's populated-cwd/brownfield beats. Definition below.
+- `walkthrough-evidence-batch` ([FE-1167](https://linear.app/hash/issue/FE-1167/walkthrough-evidence-batch-outer-loop-checks-for-merged-orientation)) — the one batch owning all outer-loop residue from the merged lanes (FE-1134 generative-menu evidence, FE-1137 thin/rich Execute beats + deferred orientation-choice questions, FE-1124 Card 3 + seed worklist, FE-1107 KA-conversation residue, and — folded 2026-07-08 from the retired handoff — the FE-1164 walkthrough items). FE-1164/FE-1169 are merged, but the batch now waits for reopened `walkthrough-remediation-1` so its beats witness D120-L-consistent ask/consult surfaces (and note remediation row 5's conduct changes shift what "expected conduct" means for the generative beats). Closes arc `deterministic-orientation`. Definition below.
 - `mechanism-trace` (Linear at pickup) — post-hoc mechanism-provenance trace over session transcripts (carrier classes `wiring` / `nudge` / `conduct`), a static wiring inventory, and the sweep-debt tripwire as a derived scenario-scoped assertion. Best run **before or alongside** `walkthrough-evidence-batch` (FE-1167) — the trace is exactly the instrument those walkthrough beats lack. Definition below. The D117-L constant-anchoring hardening in `sweep-watermark.ts` is a direct fix, not part of this frontier — land it on the next branch that touches the exchanges family or as a standalone commit.
 - **Legacy question read-path retirement** (hygiene slice, no Linear issue until pickup; from the 2026-07-09 `ln-induct` pass over PR #304 — finding 4, delete-over-fence decision agreed): remove the `present_question`-era branches from the pending-exchange scan and recovery skip, drop the `src/.pi/README.md` "Legacy persisted transcript vocabulary" section, regenerate old-tuple fixtures (`session-transcript`, `rpc/handlers`, `exchanges-editor-envelope`, `public-rpc-parity-proof` coverage assertion, `project-graph-review-cycle-proof` probe), and check committed `.fixtures/` runs for old tuples first. The pending-exchange scan machinery itself **stays** — D116-L names it as the interim until Horizon `headless-ask-discovery` (A39-L). Run off `next` (FE-1169 merged). The write-path half of the same induction (retired-vocabulary minting fallback, TOPOLOGY drift, echo guard) is fixed on #305: standalone ask single-select answers use `ask` details, explicit legacy question single-select answers fail loudly, and broker topology uses ask vocabulary.
 - **Chrome batch (work area, user-declared 2026-07-08):** opener `main-editor-chrome` (FE-1169) merged 2026-07-09 (#305). Further chrome frontiers open here as scoped; the review-set TUI visual design (remediation ledger row 11, deferred) is the first named candidate.
@@ -162,9 +162,11 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Name:** Walkthrough remediation sweep 1 — run-A/run-C findings closure
 - **Linear:** [FE-1180](https://linear.app/hash/issue/FE-1180/walkthrough-remediation-sweep-1-run-ac-findings-closure)
 - **Branch:** `ln/fe-1180-walkthrough-remediation` (off `next`; renamed from `ln/fe-TEMP-alpha-walkthroughs` — carries the run A/C evidence commits and the 2026-07-09 collation)
-- **Status:** ✓ closed 2026-07-09; required rows WR1–WR8 built, ledger consumed/deleted, runs B/D unblocked for outer closure evidence.
+- **Status:** ◐ reopened 2026-07-10 by post-build review/witness. Required rows WR1–WR8 remain built; the consumed ledger was correctly deleted at first exhaustion, but the audit found more than one new required row. The replacement WR13–WR18 sweep ledger is now active.
 - **Kind:** coverage-shaped remediation sweep (frontier shape per `ln-plan/references/coverage.md`, generalized: the closed inventory is a **findings contract**, not a code layer — the 2026-07-09 walkthrough findings ledger). Rows map to owning seams, findings n:1 to rows.
-- **Certainty:** mixed — most rows `earned` (closure over understood seams); two rows evidence-gated on `ln-diagnose`.
+- **Certainty:** earned for WR13–WR17 after D120-L disambiguation; WR18 is evidence-gated outer closure.
+- **Closes:** the mechanism-vs-meaning gap exposed by the FE-1180 witness audit: visible Execute promises diverging from provider conduct, successful-looking recovery without a fired kick, non-TTY security evidence, source-only conduct sentinels, and callback-only debug evidence.
+- **Locks in:** I60-L label/id/directive/workflow identity plus discriminating security, conduct-composition, debug-mirror, and focused outer UX evidence.
 - **Why now / unlocks:** user-declared 2026-07-09 — walkthrough runs B/D address concerns (seed legibility, orientation sequencing, populated-cwd entry) better served after remediation; remediation first, then B/D as closure evidence. Findings: `TESTING_FINDINGS.md` (A1–A10, C1–C5); induction record in the 2026-07-09 session (promoted lenses below).
 - **Boundary:** run-A/run-C findings and the induction lenses only. **Out:** spec-posture persistence (own frontier below), FE-1167's residue groups (unchanged), model-policy/dynamic-model changes (evidence-gathering only, per TESTING_PLAN Concern 4), review-set visual design (needs a design session — deferred row).
 - **Candidate row inventory (ledger authored at `ln-scope`, `Mode: sweep`, findings mapped n:1 to seam rows):**
@@ -180,11 +182,19 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   10. ○ `/introspect` legibility (A10) — deferred, low.
   11. ○ review-set TUI visual design (A6/run-A observation) — deferred to a design session; not row-sized.
   12. ○ markdown polish: `\n\n` inline rendering, node-id styling convention (A9) — deferred unless cheap alongside row 2.
-- **Aggregate DoD:** no ● row remains open; closure evidence recorded against `TESTING_FINDINGS.md` dispositions; runs B/D then execute against the remediated surface.
-- **Inventory authority:** consumed ledger `memory/cards/walkthrough-remediation-1--ledger.md` (deleted at exhaustion). PLAN owns the frontier id and sequencing. Findings stay in `TESTING_FINDINGS.md` (evidence, not a second plan).
-- **Classification:** buildable-now, with rows 6–7 internally gated on `ln-diagnose` outcomes (required, diagnose-first — not deferred).
-- **Promotion / disposal rule:** rows escaping row size promote to their own frontier and stay open in the ledger until landed (spec-posture already promoted at admission); >1 newly discovered row → back through `ln-plan`. Ledger deleted at exhaustion.
-- **Traceability:** D119-L (row 3), D99-L conduct clarification (row 5), D106-L (row 4), D109-L (row 1), D115-L (row 8), D104-L render-honesty (row 6); induction lenses recorded 2026-07-09; TESTING_PLAN.md concerns 1/4/5/6.
+- **Audit reopening inventory (replacement ledger authored at `ln-scope`):**
+  13. built Execute orientation semantic identity — materialized D120-L/I60-L across visible menu descriptions, canonical semantic ids, provider seed directives, and the three resulting preparation/readiness/execution workflows. Retired the broadened-label-over-legacy-directive shape. Oracle: table-driven menu choice → persisted entry → composed seed contract plus workflow-level tests.
+  14. ● Honest general-continue completion — return the classified kick outcome so `no_model_available`, idle, and failed sends cannot report `kickFired: true`; preserve the fired path. Oracle: parameterized command/helper tests over all completion outcomes.
+  15. ● Interactive API-key secrecy — prove the masking seam through a real PTY/TTY paste; the existing non-TTY assertion is supporting evidence only. Oracle: terminal-byte capture contains no sentinel secret while Pi auth storage receives it.
+  16. ● Live WR5 guidance composition — replace source-file substring sentinels with consumer-level evidence that registered tool guidance and live skill/manifest composition carry the Other/digest/multi-pass rules. Model adherence stays WR18 outer evidence.
+  17. ● Production debug-mirror legibility — drive the wired manual-trigger continuation against a temporary workspace and prove `entry-contents.md`/`origination.md` expose seed contents, trigger, and seed-before-kick order.
+  18. ● Focused outer closure evidence — after WR13–WR17, rerun TESTING_PLAN Concern 1A, Run B, and a focused Execute/component-gallery beat in both themes. Record whether conduct follows WR5, the agent uses seeded facts, recovery hints are noticed, Execute choices produce their promised workflows, and consult border/overflow treatment is legible. New product defects route through planning; this row does not silently absorb them.
+- **Aggregate DoD:** WR1–WR8 remain built; no required WR13–WR18 row remains open; D120-L/I60-L are materialized in topology/code; `TESTING_FINDINGS.md` distinguishes automated mechanism evidence from the new outer observations; the focused outer beats pass or any failures are promoted explicitly.
+- **Inventory authority:** the original consumed ledger is historical in git; a replacement `memory/cards/walkthrough-remediation-1--closure-ledger.md` is authored by `ln-scope` and owns WR13–WR18 only. PLAN owns frontier identity/sequencing; findings remain evidence, not a second plan.
+- **Classification:** evidence-gated — WR13–WR17 are buildable now; WR18 runs only after they land.
+- **Current execution pointer:** `memory/cards/walkthrough-remediation-1--closure-ledger.md` — WR14 next.
+- **Promotion / disposal rule:** any row escaping row size promotes to its own frontier and stays open in the replacement ledger until landed; more than one further discovered capability or a new seam routes back through `ln-plan`. Delete the replacement ledger only after WR18 closes.
+- **Traceability:** D119-L (WR3/WR14), D99-L (WR5/WR16), D106-L (WR4), D109-L/D120-L/I60-L (WR1/WR2/WR13/WR18), D115-L/I59-L (WR8/WR15/WR18), D104-L (WR6), D69-L/D97-L (WR17); TESTING_PLAN.md concerns 1/3/4/5/6/7.
 
 ### spec-posture
 
@@ -347,21 +357,21 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ```text
 frontiers:
   Active:
+    walkthrough-remediation-1 (FE-1180)
+      status: reopened 2026-07-10; branch ln/fe-1180-walkthrough-remediation
+      shape: evidence-gated coverage-shaped remediation sweep; WR1-WR8 and WR13 built; WR14-WR18 ledger active at memory/cards/walkthrough-remediation-1--closure-ledger.md
+      closes: Execute label/id/directive/workflow divergence, dishonest continue outcome, PTY secrecy gap,
+              source-only conduct oracle, callback-only debug evidence, focused outer UX/conduct evidence
+      -[hard]-> spec-posture (start after FE-1180 deterministic rows; run D belongs to spec-posture)
+      leaves_open: FE-1167 outer-loop residue, deferred non-DoD polish rows WR9-WR12
+      depends_on: D120-L, I60-L, D119-L, D99-L, D106-L, D109-L, D115-L
     alpha-walkthrough-lane (not a frontier)
-      status: runs A + C done + collated 2026-07-09; runs B/D unblocked by closed walkthrough-remediation-1
-      feeds: spec-posture (run D outer oracle), walkthrough-evidence-batch (FE-1167 overlap rows when naturally witnessed)
+      status: runs A + C done; Concern 1A / Run B / focused Execute-gallery evidence wait on FE-1180 WR13-WR17; run D waits on spec-posture
+      feeds: walkthrough-remediation-1 (WR18), spec-posture (run D outer oracle), walkthrough-evidence-batch (FE-1167 overlap rows when naturally witnessed)
     tool-schema-convergence (FE-1163)
-      status: next build; ledger authored + re-based 2026-07-08 (13 rows / 46 tools, incl. folded blank-carriers row)
+      status: independent build; ledger authored + re-based 2026-07-08 (13 rows / 46 tools, incl. folded blank-carriers row)
       branch: ln/fe-1163-tool-schema-convergence -[hard]-> off next (FE-1164 merged; supersedes stack-on decision)
       shape: coverage frontier; ledger memory/cards/tool-schema-convergence--ledger.md
-
-  Recently completed:
-    walkthrough-remediation-1 (FE-1180)
-      status: closed 2026-07-09; branch ln/fe-1180-walkthrough-remediation
-      shape: coverage-shaped remediation sweep; required rows WR1-WR8 built; ledger consumed/deleted
-      unblocks: walkthrough runs B/D (remediated-surface closure evidence), walkthrough-evidence-batch current-surface beats
-      leaves_open: spec-posture (promoted frontier), FE-1167 outer-loop evidence, deferred non-DoD polish rows WR9-WR12
-      depends_on: D119-L, D99-L (conduct clarification), D106-L, D109-L, D115-L
 
   Next:
     spec-posture

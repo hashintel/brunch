@@ -21,6 +21,8 @@ export const BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE = 'brunch.session_orientatio
 
 /**
  * Canonical choice ids (decision-flow chart §Choice schema — single source).
+ * Execute choices use D120-L workflow ids directly so visible labels,
+ * persisted entries, and provider directives share one semantic identity.
  * `dismissed` is the escape/timeout resolution: the menu was shown and the
  * user backed out, so the session stays inert (entry recorded, no kick, no
  * opening-turn directive).
@@ -35,9 +37,9 @@ export type SessionOrientationChoice =
   | 'ingest'
   | 'proceed'
   | 'backfill'
-  | 'design_first'
-  | 'oracle_first'
-  | 'project_plan'
+  | 'prepare_execution'
+  | 'compile_plan'
+  | 'execute_plan'
   | 'dismissed';
 
 /** Choices that carry an opening-turn directive — everything except an inert dismissal. */
@@ -53,9 +55,9 @@ export const SESSION_ORIENTATION_CHOICES: readonly SessionOrientationChoice[] = 
   'ingest',
   'proceed',
   'backfill',
-  'design_first',
-  'oracle_first',
-  'project_plan',
+  'prepare_execution',
+  'compile_plan',
+  'execute_plan',
   'dismissed',
 ];
 

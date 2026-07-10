@@ -251,7 +251,7 @@ describe('registerBrunchSessionOrientation', () => {
   it('derives the J2 post-switch menu from Execute runtime state', async () => {
     const { pi, handlers } = collectPi();
     registerBrunchSessionOrientation(pi, { resolveKickContext: () => undefined });
-    const { ctx, entries, selectOptions } = buildCtx(codeLabelFor('project_plan'), [executeModeEntry()]);
+    const { ctx, entries, selectOptions } = buildCtx(codeLabelFor('execute_plan'), [executeModeEntry()]);
 
     await handlers.session_start!({ type: 'session_start', reason: 'resume' }, ctx);
 
@@ -259,7 +259,7 @@ describe('registerBrunchSessionOrientation', () => {
     expect(entries.at(-1)).toEqual({
       type: 'custom',
       customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
-      data: { schemaVersion: 1, choice: 'project_plan', trigger: 'switch' },
+      data: { schemaVersion: 1, choice: 'execute_plan', trigger: 'switch' },
     });
   });
 
@@ -284,7 +284,7 @@ describe('registerBrunchSessionOrientation', () => {
   it('derives the J3 tree menu from Execute runtime state', async () => {
     const { pi, handlers } = collectPi();
     registerBrunchSessionOrientation(pi, { resolveKickContext: () => undefined });
-    const { ctx, entries, selectOptions } = buildCtx(codeLabelFor('oracle_first'), [executeModeEntry()]);
+    const { ctx, entries, selectOptions } = buildCtx(codeLabelFor('compile_plan'), [executeModeEntry()]);
 
     await handlers.session_tree!({ type: 'session_tree', newLeafId: 'a', oldLeafId: 'b' }, ctx);
 
@@ -292,7 +292,7 @@ describe('registerBrunchSessionOrientation', () => {
     expect(entries.at(-1)).toEqual({
       type: 'custom',
       customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
-      data: { schemaVersion: 1, choice: 'oracle_first', trigger: 'tree' },
+      data: { schemaVersion: 1, choice: 'compile_plan', trigger: 'tree' },
     });
   });
 
@@ -348,7 +348,7 @@ describe('registerBrunchSessionOrientation', () => {
   it('derives the J4 abort menu from Execute runtime state', async () => {
     const { pi, handlers } = collectPi();
     registerBrunchSessionOrientation(pi, { resolveKickContext: () => undefined });
-    const { ctx, entries, selectOptions } = buildCtx(codeLabelFor('design_first'), [executeModeEntry()]);
+    const { ctx, entries, selectOptions } = buildCtx(codeLabelFor('prepare_execution'), [executeModeEntry()]);
 
     await handlers.agent_end!(
       {
@@ -370,7 +370,7 @@ describe('registerBrunchSessionOrientation', () => {
     expect(entries.at(-1)).toEqual({
       type: 'custom',
       customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
-      data: { schemaVersion: 1, choice: 'design_first', trigger: 'abort' },
+      data: { schemaVersion: 1, choice: 'prepare_execution', trigger: 'abort' },
     });
   });
 
