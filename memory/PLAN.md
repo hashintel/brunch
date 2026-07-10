@@ -62,7 +62,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 - `alpha-release-readiness` (FE-1159) — **merged 2026-07-08 (#299)**; remaining closeout is publish only (human-gated npm auth; mechanics in the definition below §Publish mechanics). Branch retired.
 - `main-editor-chrome` (FE-1169) — chrome-batch opener, in heavy flight: builder commits landed 2026-07-08 for threads 1–5 (ask surface, mode-reactive chrome, commands, startup theming, and details-driven candidate rendering); the judo/review-contract fix cards, B2 review-set details renderer, theme demo, roving-flake stabilization, and 2026-07-09 induction fix-now refactor are consumed. Remaining: the PR-305 review-findings refactor (`memory/REFACTOR.md`), then outer manual beats. Branch `ln/fe-1169-editor-chrome` (PR #305; locally restacked onto merged parents; tie-off/submit owed). Definition below.
-- `tool-schema-convergence` (FE-1163) — implementation landed across all 51 provider-facing Brunch tool surfaces, but the 2026-07-10 closure audit reopened the sweep: object-root enforcement, the converted-family differentials through reconciliation, and exact 32-tool executor coverage (including both artifact tools) are now closed; the aggregate registry oracle still covers only 48 tools, and the remaining converted families still lack genuine pre/post differentials. Restored ledger: `memory/cards/tool-schema-convergence--ledger.md`. Definition below.
+- `tool-schema-convergence` (FE-1163) — implementation landed across all 51 provider-facing Brunch tool surfaces, but the 2026-07-10 closure audit reopened the sweep: object-root enforcement, the converted-family differentials through reconciliation, and exact 32-tool executor coverage (including both artifact tools) are now closed; all authoring-representation differentials are now closed, and the web pair is proven as a pure TypeBox relink; only exact aggregate/subagent-catalog breadth remains open. Restored ledger: `memory/cards/tool-schema-convergence--ledger.md`. Definition below.
 
 ### Recently Completed
 - 2026-07-08 **merge wave — ship-gate stack + KA executor lanes to `next`:** FE-1122 (#286), FE-1123 (#287), FE-1124 (#288), FE-1134 (#289), FE-1135 (#291), FE-1136 (#292), FE-1137 (#290), FE-1138 (#293), FE-1152 (#294); KA: FE-1141 (#295), FE-1154 (#297), FE-1155 (#296), FE-1107 (#298). All outer-loop residue from these lanes is batched into `walkthrough-evidence-batch` (FE-1167) — no merged frontier carries open obligations of its own. Definitions archived to `docs/archive/PLAN_HISTORY.md` (2026-07-08 hygiene pass).
@@ -354,7 +354,7 @@ frontiers:
       feeds: -[groundwork]-> develop-mode (Horizon; shift+tab cycle + border roles landed mode-agnostic:
              OPERATIONAL_MODE_IDS-derived cycling, satisfies-enforced theme roles)
     tool-schema-convergence (FE-1163)
-      status: active closeout after 2026-07-10 closure audit; object-root + differentials through reconciliation + exact executor-32 closed; aggregate/subagent/web rows remain partial
+      status: active closeout after 2026-07-10 closure audit; object-root + all required differentials + executor-32/web-2 closed; aggregate/subagent rows remain partial
       branch: ln/fe-1163-tool-schema-convergence -[hard]-> off next (FE-1164 merged; supersedes stack-on decision)
       shape: coverage frontier; restored ledger memory/cards/tool-schema-convergence--ledger.md
 

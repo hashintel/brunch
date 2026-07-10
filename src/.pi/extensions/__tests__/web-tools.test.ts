@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { hasToolParametersProvenance, assertProviderLegalToolSchema } from '../shared/tool-schema.js';
 import { registerBrunchWebTools } from '../web-tools/web/index.js';
 
 interface RegisteredTool {
@@ -21,6 +22,16 @@ function registeredWebTools(): Record<string, RegisteredTool> {
 }
 
 describe('Brunch web tools', () => {
+  it('covers both pure-TypeBox schemas through the shared adapter', () => {
+    const tools = registeredWebTools();
+
+    expect(Object.keys(tools)).toEqual(['web_fetch', 'web_search']);
+    for (const tool of Object.values(tools)) {
+      expect(hasToolParametersProvenance(tool.parameters), `${tool.name} adapter provenance`).toBe(true);
+      assertProviderLegalToolSchema(tool.parameters);
+    }
+  });
+
   it('extracts readable markdown from HTML', async () => {
     vi.stubGlobal(
       'fetch',
