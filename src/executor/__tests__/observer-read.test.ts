@@ -547,6 +547,87 @@ describe('readRunDetail', () => {
     });
   });
 
+  it('treats a marking snapshot as unreadable when it pairs a non-halted terminal kind with a halted reason', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-marking-terminal-malformed-');
+    const runDir = await writeRun(cwd, 'run-petri-marking-terminal-malformed', {
+      status: 'promotion_prepared',
+      completedSliceIds: ['task-1'],
+    });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'net.json'),
+      JSON.stringify({
+        runId: 'run-petri-marking-terminal-malformed',
+        subnets: [{ id: 'run', kind: 'run_control', transitionIds: ['worktree_create'] }],
+        places: [
+          { id: 'run:created', subnetId: 'run', name: 'Created' },
+          { id: 'run:promotion_prepared', subnetId: 'run', name: 'Promotion prepared' },
+        ],
+        transitions: [
+          {
+            id: 'worktree_create',
+            subnetId: 'run',
+            step: { kind: 'worktree_create' },
+            contract: { kind: 'mechanical', lane: 'run' },
+            inputArcs: [{ placeId: 'run:created', weight: 1 }],
+            outputArcs: [{ placeId: 'run:promotion_prepared', weight: 1 }],
+          },
+        ],
+        initialMarking: { 'run:created': 1 },
+      }),
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'petrinaut', 'events.jsonl'),
+      `${JSON.stringify({
+        kind: 'transition_fired',
+        runId: 'run-petri-marking-terminal-malformed',
+        runStatus: 'promotion_prepared',
+        transitionId: 'worktree_create',
+        subnetId: 'run',
+        step: 'worktree_create',
+        fromStatus: 'created',
+        toStatus: 'promotion_prepared',
+      })}\n${JSON.stringify({ kind: 'net_completed', runId: 'run-petri-marking-terminal-malformed', runStatus: 'promotion_prepared' })}\n`,
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'petrinaut', 'marking.json'),
+      `${JSON.stringify(
+        {
+          currentMarking: { 'run:promotion_prepared': 1 },
+          firedTransitionCount: 6,
+          lifecycleProvenance: {
+            runStatus: 'promotion_prepared',
+            completedSliceIds: ['task-1'],
+          },
+          terminalEventKind: 'net_completed',
+          haltedReason: 'should-not-be-here',
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-marking-terminal-malformed');
+
+    expect(detail).toMatchObject({
+      petriProjection: {
+        currentMarking: { 'run:promotion_prepared': 1 },
+        firedTransitionCount: 1,
+        terminalEventKind: 'net_completed',
+      },
+      petriProjectionSource: 'replay',
+      petriProjectionReplayReason: 'snapshot_missing_or_unreadable',
+    });
+    expect(detail).not.toMatchObject({
+      petriProjection: {
+        haltedReason: 'should-not-be-here',
+      },
+    });
+  });
+
   it('omits a provenance-matching marking snapshot when its fired transition count contradicts live run state', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-marking-count-mismatch-');
     const planPath = join(cwd, 'plan.json');

@@ -214,7 +214,9 @@ function isPetriProjection(value: unknown): value is Record<string, unknown> {
   ) {
     return false;
   }
-  return value.haltedReason === undefined || typeof value.haltedReason === 'string';
+  if (value.haltedReason !== undefined && typeof value.haltedReason !== 'string') return false;
+  if (value.terminalEventKind === 'net_halted') return typeof value.haltedReason === 'string';
+  return value.haltedReason === undefined;
 }
 
 function isReadyStep(value: unknown): value is Record<string, unknown> {

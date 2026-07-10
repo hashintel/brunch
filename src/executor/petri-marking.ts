@@ -96,6 +96,8 @@ function asPetriProjection(value: unknown): PetriMarkingSnapshot | undefined {
 
   const haltedReason = typeof value.haltedReason === 'string' ? value.haltedReason : undefined;
   if (value.haltedReason !== undefined && haltedReason === undefined) return undefined;
+  if (terminalEventKind === 'net_halted' && haltedReason === undefined) return undefined;
+  if (terminalEventKind !== 'net_halted' && haltedReason !== undefined) return undefined;
 
   const lifecycleProvenance = asLifecycleProvenance(value.lifecycleProvenance);
   if (value.lifecycleProvenance !== undefined && lifecycleProvenance === undefined) return undefined;
