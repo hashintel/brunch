@@ -23,6 +23,7 @@ import {
   type ElicitationScratchpadEntrySessionManager,
   type ElicitationScratchpadItem,
 } from '../../../../session/elicitation-scratchpad.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { toolParameters } from '../../shared/tool-schema.js';
 
 export const READ_ELICITATION_SCRATCHPAD_TOOL = 'read_elicitation_scratchpad';
@@ -189,110 +190,114 @@ export function applyElicitationScratchpadUpdate(
 }
 
 export function registerBrunchElicitationScratchpad(pi: ExtensionAPI): void {
-  pi.registerTool({
-    name: READ_ELICITATION_SCRATCHPAD_TOOL,
-    label: 'Read Elicitation Scratchpad',
-    description:
-      'Read the session-local elicitation scratchpad: obligations noted as still needing to be asked, reconstructed from this session branch. Non-authoritative — durable truth is the graph.',
-    promptSnippet: 'Read the current session-local elicitation scratchpad',
-    promptGuidelines: [
-      'Use read_elicitation_scratchpad to see what this session has noted still needs asking.',
-      'The scratchpad is session-local and non-authoritative; it never overrides graph facts.',
-    ],
-    parameters: ReadElicitationScratchpadParams,
+  pi.registerTool(
+    defineBrunchTool({
+      name: READ_ELICITATION_SCRATCHPAD_TOOL,
+      label: 'Read Elicitation Scratchpad',
+      description:
+        'Read the session-local elicitation scratchpad: obligations noted as still needing to be asked, reconstructed from this session branch. Non-authoritative — durable truth is the graph.',
+      promptSnippet: 'Read the current session-local elicitation scratchpad',
+      promptGuidelines: [
+        'Use read_elicitation_scratchpad to see what this session has noted still needs asking.',
+        'The scratchpad is session-local and non-authoritative; it never overrides graph facts.',
+      ],
+      parameters: ReadElicitationScratchpadParams,
 
-    async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
-      const items = currentScratchpad(ctx?.sessionManager);
-      return {
-        content: [{ type: 'text' as const, text: formatElicitationScratchpad(items) }],
-        details: { items },
-      };
-    },
-  });
+      async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
+        const items = currentScratchpad(ctx?.sessionManager);
+        return {
+          content: [{ type: 'text' as const, text: formatElicitationScratchpad(items) }],
+          details: { items },
+        };
+      },
+    }),
+  );
 
-  pi.registerTool({
-    name: UPDATE_ELICITATION_SCRATCHPAD_TOOL,
-    label: 'Update Elicitation Scratchpad',
-    description:
-      "Update the session-local elicitation scratchpad. 'add' appends a new open obligation, 'resolve' marks one resolved, 'update' edits its text/rationale/meta. Always appends a full-replacement snapshot; never writes the graph.",
-    promptSnippet: 'Add, resolve, or update a session-local elicitation scratchpad obligation',
-    promptGuidelines: [
-      'update_elicitation_scratchpad only changes session-local scratch state, never graph truth.',
-      'Route low-confidence noticings here instead of committing them to the graph (D81-L).',
-    ],
-    parameters: UpdateElicitationScratchpadParams,
+  pi.registerTool(
+    defineBrunchTool({
+      name: UPDATE_ELICITATION_SCRATCHPAD_TOOL,
+      label: 'Update Elicitation Scratchpad',
+      description:
+        "Update the session-local elicitation scratchpad. 'add' appends a new open obligation, 'resolve' marks one resolved, 'update' edits its text/rationale/meta. Always appends a full-replacement snapshot; never writes the graph.",
+      promptSnippet: 'Add, resolve, or update a session-local elicitation scratchpad obligation',
+      promptGuidelines: [
+        'update_elicitation_scratchpad only changes session-local scratch state, never graph truth.',
+        'Route low-confidence noticings here instead of committing them to the graph (D81-L).',
+      ],
+      parameters: UpdateElicitationScratchpadParams,
 
-    async execute(_toolCallId, params: UpdateElicitationScratchpadParamValues, _signal, _onUpdate, ctx) {
-      const current = currentScratchpad(ctx?.sessionManager);
-      const result = applyElicitationScratchpadUpdate(current, params);
+      async execute(_toolCallId, params: UpdateElicitationScratchpadParamValues, _signal, _onUpdate, ctx) {
+        const current = currentScratchpad(ctx?.sessionManager);
+        const result = applyElicitationScratchpadUpdate(current, params);
 
-      if (result.status === 'structural_illegal') {
+        if (result.status === 'structural_illegal') {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: `STRUCTURAL_ILLEGAL\n${result.diagnostics.map((d) => `- ${d.field}: ${d.message}`).join('\n')}`,
+              },
+            ],
+            details: result,
+          };
+        }
+
+        if (!supportsScratchpadEntries(ctx?.sessionManager)) {
+          const unavailableResult: ScratchpadUpdateResult = {
+            status: 'structural_illegal',
+            diagnostics: [
+              {
+                field: 'sessionManager.appendCustomEntry',
+                message: 'session manager cannot persist elicitation scratchpad snapshots',
+              },
+            ],
+          };
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: `STRUCTURAL_ILLEGAL\n${unavailableResult.diagnostics
+                  .map((d) => `- ${d.field}: ${d.message}`)
+                  .join('\n')}`,
+              },
+            ],
+            details: unavailableResult,
+          };
+        }
+
+        const snapshotData = { schemaVersion: 1 as const, items: result.items };
+        if (!parseElicitationScratchpadEntryData(snapshotData)) {
+          const invalidResult: ScratchpadUpdateResult = {
+            status: 'structural_illegal',
+            diagnostics: [
+              { field: 'items', message: 'updated scratchpad would not parse as a valid snapshot' },
+            ],
+          };
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: `STRUCTURAL_ILLEGAL\n${invalidResult.diagnostics
+                  .map((d) => `- ${d.field}: ${d.message}`)
+                  .join('\n')}`,
+              },
+            ],
+            details: invalidResult,
+          };
+        }
+
+        appendElicitationScratchpadSnapshot(ctx.sessionManager, result.items);
+
         return {
           content: [
             {
               type: 'text' as const,
-              text: `STRUCTURAL_ILLEGAL\n${result.diagnostics.map((d) => `- ${d.field}: ${d.message}`).join('\n')}`,
+              text: formatElicitationScratchpadUpdateResult(result.items, params.operation),
             },
           ],
           details: result,
         };
-      }
-
-      if (!supportsScratchpadEntries(ctx?.sessionManager)) {
-        const unavailableResult: ScratchpadUpdateResult = {
-          status: 'structural_illegal',
-          diagnostics: [
-            {
-              field: 'sessionManager.appendCustomEntry',
-              message: 'session manager cannot persist elicitation scratchpad snapshots',
-            },
-          ],
-        };
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: `STRUCTURAL_ILLEGAL\n${unavailableResult.diagnostics
-                .map((d) => `- ${d.field}: ${d.message}`)
-                .join('\n')}`,
-            },
-          ],
-          details: unavailableResult,
-        };
-      }
-
-      const snapshotData = { schemaVersion: 1 as const, items: result.items };
-      if (!parseElicitationScratchpadEntryData(snapshotData)) {
-        const invalidResult: ScratchpadUpdateResult = {
-          status: 'structural_illegal',
-          diagnostics: [
-            { field: 'items', message: 'updated scratchpad would not parse as a valid snapshot' },
-          ],
-        };
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: `STRUCTURAL_ILLEGAL\n${invalidResult.diagnostics
-                .map((d) => `- ${d.field}: ${d.message}`)
-                .join('\n')}`,
-            },
-          ],
-          details: invalidResult,
-        };
-      }
-
-      appendElicitationScratchpadSnapshot(ctx.sessionManager, result.items);
-
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: formatElicitationScratchpadUpdateResult(result.items, params.operation),
-          },
-        ],
-        details: result,
-      };
-    },
-  });
+      },
+    }),
+  );
 }

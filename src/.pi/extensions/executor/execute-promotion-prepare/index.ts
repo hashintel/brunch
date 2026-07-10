@@ -1,9 +1,10 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import type { GitLandPort } from '../../../../executor/execution-ports.js';
 import { preparePromotion, type PromotionPrepareResult } from '../../../../executor/promotion.js';
 import { BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL } from '../../../../session/schema/tool-names.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL } from '../../../../session/schema/tool-names.js';
@@ -15,10 +16,8 @@ interface ExecutePromotionPrepareDetails {
   readonly sideEffects: PromotionPrepareResult['sideEffects'];
 }
 
-export function createExecutePromotionPrepareTool(
-  gitLand: GitLandPort,
-): ToolDefinition<typeof ExecutePromotionPrepareParams, ExecutePromotionPrepareDetails> {
-  return {
+export function createExecutePromotionPrepareTool(gitLand: GitLandPort) {
+  return defineBrunchTool<typeof ExecutePromotionPrepareParams, ExecutePromotionPrepareDetails>({
     name: BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL,
     label: 'execute_promotion_prepare',
     description:
@@ -44,7 +43,7 @@ export function createExecutePromotionPrepareTool(
         details: { result, sideEffects: result.sideEffects },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecutePromotionPrepare(pi: ExtensionAPI, gitLand: GitLandPort): void {

@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
 import { EXECUTOR_ALLOWED_TOOL_NAMES } from '../../../agents/runtime/executor/active-tools.js';
@@ -79,6 +80,7 @@ import { BRUNCH_EXECUTE_TEST_RESULT_TOOL } from '../executor/execute-test-result
 import { BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL } from '../executor/execute-worktree-create/index.js';
 import { registerBrunchMentionAutocomplete as mentionAutocomplete } from '../mentions/index.js';
 import { registerBrunchSessionBoundary as sessionLifecycle } from '../session-hooks/session/lifecycle.js';
+import { hasBrunchDefaultRenderer } from '../shared/define-brunch-tool.js';
 import { assertProviderLegalToolSchema, hasToolParametersProvenance } from '../shared/tool-schema.js';
 import { parseSubagentMarkdown, type BrunchSubagentsDeps, type SubagentResult } from '../subagents/index.js';
 import { createSubagentToolCatalog } from '../subagents/session.js';
@@ -2793,6 +2795,20 @@ describe('Brunch explicit Pi extension registry', () => {
     }
   });
 
+  it('keeps present_alternatives on the shared default renderer without changing its message renderer', async () => {
+    const alternativesTool = (await collectProductTools()).find(
+      (tool) => tool.name === 'present_alternatives',
+    );
+
+    expect(alternativesTool?.renderShell).toBe('self');
+    expect(alternativesTool?.renderCall).toEqual(expect.any(Function));
+    expect(alternativesTool?.renderResult).toEqual(expect.any(Function));
+
+    const recording = createRecordingExtensionApi();
+    alternatives(recording.api, (schema) => schema);
+    expect(recording.messageRenderers).toEqual(['alternatives-card-set']);
+  });
+
   it('keeps the exact 52-tool provider-facing Brunch inventory legal and adapter-derived', async () => {
     const registeredTools = await collectProductTools({
       graph: { specId: 42, lsn: 1, nodes: [], edges: [] },
@@ -2812,6 +2828,22 @@ describe('Brunch explicit Pi extension registry', () => {
       (tool) => !piOwnedBuiltins.has(tool.name) && !registeredProductNameSet.has(tool.name),
     );
     const actualTools = [...registeredProductTools, ...childOnlyTools];
+    const intentionalCustomCallRendererNames = [
+      'ask',
+      'present_candidates',
+      'present_digest',
+      'present_review_set',
+      'subagent',
+      'web_fetch',
+      'web_search',
+    ];
+    const intentionalCustomRendererNames = [
+      ...intentionalCustomCallRendererNames,
+      'execute_orchestrate',
+      'execute_plan_check',
+      'execute_snapshot',
+      'execute_status',
+    ].sort((left, right) => left.localeCompare(right));
     const expectedNames = [
       'ask',
       'present_alternatives',
@@ -2877,6 +2909,32 @@ describe('Brunch explicit Pi extension registry', () => {
       expect(tool, 'every inventory member must resolve from a production registrar/catalog').toBeDefined();
       expect(hasToolParametersProvenance(tool!.parameters), `${tool!.name} adapter provenance`).toBe(true);
       assertProviderLegalToolSchema(tool!.parameters);
+    }
+
+    const defaultRenderedNames = actualTools
+      .filter(hasBrunchDefaultRenderer)
+      .map((tool) => tool.name)
+      .sort((left, right) => left.localeCompare(right));
+    expect(defaultRenderedNames).toEqual(
+      expectedNames.filter((name) => !intentionalCustomRendererNames.includes(name)),
+    );
+
+    const customRenderedTools = actualTools.filter((tool) =>
+      intentionalCustomRendererNames.includes(tool.name),
+    );
+    expect(customRenderedTools.map((tool) => tool.name).sort()).toEqual(intentionalCustomRendererNames);
+    for (const tool of customRenderedTools) {
+      expect(hasBrunchDefaultRenderer(tool), `${tool.name} must keep its custom renderer`).toBe(false);
+      if (intentionalCustomCallRendererNames.includes(tool.name)) {
+        expect(tool.renderCall, `${tool.name} call renderer`).toEqual(expect.any(Function));
+      }
+      expect(tool.renderResult, `${tool.name} result renderer`).toEqual(expect.any(Function));
+    }
+
+    const piOwnedTools = registeredTools.filter((tool) => piOwnedBuiltins.has(tool.name));
+    expect(piOwnedTools.map((tool) => tool.name)).toEqual(['read', 'grep', 'find', 'ls']);
+    for (const tool of piOwnedTools) {
+      expect(hasBrunchDefaultRenderer(tool), `${tool.name} remains Pi-owned`).toBe(false);
     }
   });
 
@@ -3110,9 +3168,10 @@ const brunchChromeFixture = {
   },
 };
 
-type RegisteredTestTool = {
-  name: string;
-  parameters?: unknown;
+type RegisteredTestTool = Pick<
+  ToolDefinition,
+  'name' | 'parameters' | 'renderShell' | 'renderCall' | 'renderResult'
+> & {
   execute: (
     toolCallId: string,
     params: unknown,

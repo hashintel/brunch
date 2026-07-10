@@ -3,6 +3,19 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-07-10 Sync archive (`ln-sync`, FE-1186 closeout)
+
+### tool-schema-convergence (FE-1163) — retired frontier definition
+
+Completed 2026-07-10 after `ln-review` → `ln-witness` closure repair. The sweep converged all 52 Brunch-authored provider-facing schemas on `src/.pi/extensions/shared/tool-schema.ts`, preserving Zod tool-boundary authority and TypeBox graph/DB authority while enforcing object roots and rejecting top-level unions. The production-derived registry plus sealed-child catalog pins exact membership, adapter provenance, duplicate rejection, and semantic preservation. Durable truth: D118-L/I60-L and `src/.pi/extensions/TOPOLOGY.md`; the exhausted ledger was deleted.
+
+### webui-default (FE-1185) — retired frontier definition
+
+Completed 2026-07-10. Product and dev TUI launches open the advertised sidecar route by default; `--no-webui` suppresses browser opening only, without suppressing host startup or URL advertisement. The pre-release rewrite retired `--open-web` without an alias. Durable truth: product requirement 4 and the app/dev/web topology homes.
+
+### default-tool-rendering (FE-1186) — retired frontier definition
+
+Completed 2026-07-10 after an initial 45-row adoption sweep, judo-review correction, and semantic restack repair excluding four executor tools whose dedicated result renderers landed in the parent branch. `defineBrunchTool` is the canonical definition path for fallback-rendered Brunch tools; the production registry pins 41 shared-default / 11 intentional-custom / 4 Pi-owned definitions. A runtime witness through Pi's exported `ToolExecutionComponent` proves the supported live interactive TUI keeps one padded status receipt and suppresses model-facing result content, including expanded mode. Pi HTML export remains an unsupported built-in under D34-L, not a compatibility surface for this adapter. Durable truth: D119-L/I61-L and `src/.pi/extensions/TOPOLOGY.md`; the exhausted ledger and review-fix card were deleted.
 
 ## 2026-07-08 Sync archive (`ln-sync`, retirement/reduction pass)
 

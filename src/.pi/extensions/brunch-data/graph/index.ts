@@ -24,6 +24,7 @@ import type {
 } from '../../../../graph/index.js';
 import { graphMutationProductUpdates, type ProductUpdatePublisher } from '../../../../rpc/product-updates.js';
 import { stampOwnMutationWatermark } from '../../../../session/prepare-next-turn.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { translateMutateGraph } from './command-adapter.js';
 import { MutateGraphParams, ReadGraphParams } from './tool-schemas.js';
 
@@ -53,8 +54,18 @@ export interface ReadGraphToolDeps {
   readonly appendEntry?: ExtensionAPI['appendEntry'];
 }
 
-export function createReadGraphTool(deps: ReadGraphToolDeps): ToolDefinition<typeof ReadGraphParams> {
-  return {
+type ReadGraphToolDetails =
+  | GraphSlice
+  | readonly NodeNeighborhood[]
+  | {
+      readonly status: 'structural_illegal';
+      readonly diagnostics: readonly { readonly field: string; readonly message: string }[];
+    };
+
+export function createReadGraphTool(
+  deps: ReadGraphToolDeps,
+): ToolDefinition<typeof ReadGraphParams, ReadGraphToolDetails> {
+  return defineBrunchTool({
     name: 'read_graph',
     label: 'Read Graph',
     description:
@@ -74,13 +85,7 @@ export function createReadGraphTool(deps: ReadGraphToolDeps): ToolDefinition<typ
     async execute(_toolCallId, params) {
       const options = params.show === undefined ? undefined : { visibility: params.show };
       let text: string;
-      let details:
-        | GraphSlice
-        | readonly NodeNeighborhood[]
-        | {
-            readonly status: 'structural_illegal';
-            readonly diagnostics: readonly { readonly field: string; readonly message: string }[];
-          };
+      let details: ReadGraphToolDetails;
 
       if (params.mode === 'overview') {
         const slice = deps.reads.queryGraph(undefined, options);
@@ -145,45 +150,47 @@ export function createReadGraphTool(deps: ReadGraphToolDeps): ToolDefinition<typ
 
       return { content: [{ type: 'text' as const, text }], details };
     },
-  };
+  });
 }
 
 export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): void {
   const { commandExecutor, reads } = deps;
 
-  pi.registerTool({
-    name: 'mutate_graph',
-    label: 'Mutate Graph',
-    description:
-      'Atomically apply a create-only graph mutation batch in the specification graph. ' +
-      "Each create_node op gets a temporary batch ref (e.g. 'n1') that create_edge ops can reference. " +
-      'Edges can also reference existing nodes by projected code via {existingCode: "G1"}. ' +
-      'The entire mutation succeeds or fails atomically.',
-    promptSnippet: 'Atomically mutate the specification graph with create_node and create_edge ops',
-    promptGuidelines: [
-      'Use mutate_graph to persist specification elements (goals, requirements, decisions, etc.) after the user has accepted the concept.',
-      'Each create_node op must have a unique batch `ref` string. create_edge ops reference nodes by role-named fields using that `ref` or `{existingCode: "G1"}` for nodes already in the selected spec.',
-      'If mutate_graph returns STRUCTURAL_ILLEGAL, read the diagnostics, fix the issues, and retry. Do not show intermediate failures to the user.',
-      'The `stance` field is required on `witness` and `rationale` create_edge ops, and invalid on all other categories.',
-      'Detail rules: `decision` and `term` require detail; `requirement`, `criterion`, and `invariant` may use `plain`/`gherkin`/`formal`; `context` may use `given`; other kinds omit detail.',
-      'Set `createSettlement: "advisory"` only for reviewed, source-derived bulk-acquisition material (brownfield code, referenced documents, pasted specs/plans) that has not yet been harmonized against inner-band concerns. Omit it (defaults to `settled`) for directly-stated user facts and ordinary capture.',
-    ],
-    parameters: MutateGraphParams,
+  pi.registerTool(
+    defineBrunchTool({
+      name: 'mutate_graph',
+      label: 'Mutate Graph',
+      description:
+        'Atomically apply a create-only graph mutation batch in the specification graph. ' +
+        "Each create_node op gets a temporary batch ref (e.g. 'n1') that create_edge ops can reference. " +
+        'Edges can also reference existing nodes by projected code via {existingCode: "G1"}. ' +
+        'The entire mutation succeeds or fails atomically.',
+      promptSnippet: 'Atomically mutate the specification graph with create_node and create_edge ops',
+      promptGuidelines: [
+        'Use mutate_graph to persist specification elements (goals, requirements, decisions, etc.) after the user has accepted the concept.',
+        'Each create_node op must have a unique batch `ref` string. create_edge ops reference nodes by role-named fields using that `ref` or `{existingCode: "G1"}` for nodes already in the selected spec.',
+        'If mutate_graph returns STRUCTURAL_ILLEGAL, read the diagnostics, fix the issues, and retry. Do not show intermediate failures to the user.',
+        'The `stance` field is required on `witness` and `rationale` create_edge ops, and invalid on all other categories.',
+        'Detail rules: `decision` and `term` require detail; `requirement`, `criterion`, and `invariant` may use `plain`/`gherkin`/`formal`; `context` may use `given`; other kinds omit detail.',
+        'Set `createSettlement: "advisory"` only for reviewed, source-derived bulk-acquisition material (brownfield code, referenced documents, pasted specs/plans) that has not yet been harmonized against inner-band concerns. Omit it (defaults to `settled`) for directly-stated user facts and ordinary capture.',
+      ],
+      parameters: MutateGraphParams,
 
-    async execute(_toolCallId, params) {
-      const specId = deps.specId;
-      const input = translateMutateGraph(params, specId, reads.resolveNodeCode);
-      const result = 'status' in input ? input : commandExecutor.mutateGraph(input);
-      const text = formatMutateGraphResult(result);
-      if (result.status === 'success') {
-        deps.productUpdates?.publish(graphMutationProductUpdates({ specId, lsn: result.lsn }));
-        const carrier = stampOwnMutationWatermark({ specId, lsn: result.lsn, source: 'mutate_graph' });
-        pi.appendEntry(carrier.customType, carrier.data);
-      }
+      async execute(_toolCallId, params) {
+        const specId = deps.specId;
+        const input = translateMutateGraph(params, specId, reads.resolveNodeCode);
+        const result = 'status' in input ? input : commandExecutor.mutateGraph(input);
+        const text = formatMutateGraphResult(result);
+        if (result.status === 'success') {
+          deps.productUpdates?.publish(graphMutationProductUpdates({ specId, lsn: result.lsn }));
+          const carrier = stampOwnMutationWatermark({ specId, lsn: result.lsn, source: 'mutate_graph' });
+          pi.appendEntry(carrier.customType, carrier.data);
+        }
 
-      return { content: [{ type: 'text' as const, text }], details: result };
-    },
-  });
+        return { content: [{ type: 'text' as const, text }], details: result };
+      },
+    }),
+  );
 
   pi.registerTool(
     createReadGraphTool({

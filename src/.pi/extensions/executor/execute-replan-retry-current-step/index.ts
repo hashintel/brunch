@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import type { ExecutionPorts } from '../../../../executor/execution-ports.js';
@@ -14,6 +14,7 @@ import {
 } from '../../../../executor/run-retry-eligibility.js';
 import { BRUNCH_EXECUTE_REPLAN_RETRY_CURRENT_STEP_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { toolParameters } from '../../shared/tool-schema.js';
 import { buildCurrentProjectionForRun } from '../current-projection.js';
 
@@ -56,8 +57,8 @@ export interface ExecuteReplanRetryCurrentStepDeps {
 export function createExecuteReplanRetryCurrentStepTool(
   ports: ExecutionPorts,
   deps: ExecuteReplanRetryCurrentStepDeps,
-): ToolDefinition<typeof ExecuteReplanRetryCurrentStepParams, ExecuteReplanRetryCurrentStepDetails> {
-  return {
+) {
+  return defineBrunchTool<typeof ExecuteReplanRetryCurrentStepParams, ExecuteReplanRetryCurrentStepDetails>({
     name: BRUNCH_EXECUTE_REPLAN_RETRY_CURRENT_STEP_TOOL,
     label: 'execute_replan_retry_current_step',
     description:
@@ -127,7 +128,7 @@ export function createExecuteReplanRetryCurrentStepTool(
         details: { result, sideEffects: result.sideEffects },
       };
     },
-  };
+  });
 }
 
 function oneStepScheduler(): RunScheduler {

@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import type { GitHostPromotionPort } from '../../../../executor/execution-ports.js';
@@ -12,6 +12,7 @@ import {
   BRUNCH_EXECUTE_HOST_PROMOTION_APPLY_TOOL,
   BRUNCH_EXECUTE_HOST_PROMOTION_PREFLIGHT_TOOL,
 } from '../../../../session/schema/tool-names.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { toolParameters } from '../../shared/tool-schema.js';
 
 export {
@@ -38,10 +39,8 @@ interface ExecuteHostPromotionApplyDetails {
   readonly sideEffects: HostPromotionApplyResult['sideEffects'];
 }
 
-export function createExecuteHostPromotionPreflightTool(
-  gitHostPromotion: GitHostPromotionPort,
-): ToolDefinition<typeof ExecuteHostPromotionPreflightParams, ExecuteHostPromotionPreflightDetails> {
-  return {
+export function createExecuteHostPromotionPreflightTool(gitHostPromotion: GitHostPromotionPort) {
+  return defineBrunchTool<typeof ExecuteHostPromotionPreflightParams, ExecuteHostPromotionPreflightDetails>({
     name: BRUNCH_EXECUTE_HOST_PROMOTION_PREFLIGHT_TOOL,
     label: 'execute_host_promotion_preflight',
     description:
@@ -57,13 +56,11 @@ export function createExecuteHostPromotionPreflightTool(
         details: { result, sideEffects: result.sideEffects },
       };
     },
-  };
+  });
 }
 
-export function createExecuteHostPromotionApplyTool(
-  gitHostPromotion: GitHostPromotionPort,
-): ToolDefinition<typeof ExecuteHostPromotionApplyParams, ExecuteHostPromotionApplyDetails> {
-  return {
+export function createExecuteHostPromotionApplyTool(gitHostPromotion: GitHostPromotionPort) {
+  return defineBrunchTool<typeof ExecuteHostPromotionApplyParams, ExecuteHostPromotionApplyDetails>({
     name: BRUNCH_EXECUTE_HOST_PROMOTION_APPLY_TOOL,
     label: 'execute_host_promotion_apply',
     description:
@@ -84,7 +81,7 @@ export function createExecuteHostPromotionApplyTool(
         details: { result, sideEffects: result.sideEffects },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecuteHostPromotion(

@@ -17,6 +17,14 @@ import { devModeToolSchemaBaseline } from './fixtures/dev-mode-tool-schemas.pre-
 import { normalizeToolSchema } from './tool-schema-baseline.js';
 
 describe('brunch_introspect_query', () => {
+  it('adopts the shared Brunch default renderer', () => {
+    const tool = createBrunchIntrospectQueryTool(createInMemoryBrunchIntrospectionStore());
+
+    expect(tool.renderShell).toBe('self');
+    expect(tool.renderCall).toEqual(expect.any(Function));
+    expect(tool.renderResult).toEqual(expect.any(Function));
+  });
+
   it('returns the latest capture and projects payload and baseOptions paths', () => {
     const store = seededStore();
 

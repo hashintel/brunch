@@ -1,8 +1,9 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import { abandonRun, type RunAbandonResult } from '../../../../executor/run-abandon.js';
 import { BRUNCH_EXECUTE_REPLAN_ABANDON_RUN_TOOL } from '../../../../session/schema/tool-names.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_REPLAN_ABANDON_RUN_TOOL } from '../../../../session/schema/tool-names.js';
@@ -19,11 +20,8 @@ interface ExecuteReplanAbandonRunDetails {
   readonly sideEffects: RunAbandonResult['sideEffects'];
 }
 
-export function createExecuteReplanAbandonRunTool(): ToolDefinition<
-  typeof ExecuteReplanAbandonRunParams,
-  ExecuteReplanAbandonRunDetails
-> {
-  return {
+export function createExecuteReplanAbandonRunTool() {
+  return defineBrunchTool<typeof ExecuteReplanAbandonRunParams, ExecuteReplanAbandonRunDetails>({
     name: BRUNCH_EXECUTE_REPLAN_ABANDON_RUN_TOOL,
     label: 'execute_replan_abandon_run',
     description:
@@ -56,7 +54,7 @@ export function createExecuteReplanAbandonRunTool(): ToolDefinition<
         details: { result, sideEffects: result.sideEffects },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecuteReplanAbandonRun(pi: ExtensionAPI): void {

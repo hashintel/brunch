@@ -1,9 +1,10 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import type { TestRunnerPort } from '../../../../executor/execution-ports.js';
 import { ingestTestResult, type TestResultIngestResult } from '../../../../executor/test-result.js';
 import { BRUNCH_EXECUTE_TEST_RESULT_TOOL } from '../../../../session/schema/tool-names.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_TEST_RESULT_TOOL } from '../../../../session/schema/tool-names.js';
@@ -19,10 +20,8 @@ interface ExecuteTestResultDetails {
   readonly sideEffects: TestResultIngestResult['sideEffects'];
 }
 
-export function createExecuteTestResultTool(
-  testRunner: TestRunnerPort,
-): ToolDefinition<typeof ExecuteTestResultParams, ExecuteTestResultDetails> {
-  return {
+export function createExecuteTestResultTool(testRunner: TestRunnerPort) {
+  return defineBrunchTool<typeof ExecuteTestResultParams, ExecuteTestResultDetails>({
     name: BRUNCH_EXECUTE_TEST_RESULT_TOOL,
     label: 'execute_test_result',
     description:
@@ -49,7 +48,7 @@ export function createExecuteTestResultTool(
         details: { result, sideEffects: result.sideEffects },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecuteTestResult(pi: ExtensionAPI, testRunner: TestRunnerPort): void {

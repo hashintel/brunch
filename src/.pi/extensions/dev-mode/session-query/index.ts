@@ -1,6 +1,7 @@
-import { defineTool, type ExtensionAPI, type SessionEntry } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI, SessionEntry } from '@earendil-works/pi-coding-agent';
 import * as z from 'zod';
 
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import {
   DEFAULT_MAX_BYTES,
   DEFAULT_MAX_LINES,
@@ -82,7 +83,7 @@ export function registerBrunchSessionQuery(pi: ExtensionAPI): void {
 }
 
 export function createBrunchSessionQueryTool() {
-  return defineTool<ReturnType<typeof toolParameters>, BrunchSessionQueryDetails>({
+  return defineBrunchTool<ReturnType<typeof toolParameters>, BrunchSessionQueryDetails>({
     name: BRUNCH_SESSION_QUERY_TOOL,
     label: 'Brunch session query',
     description: [

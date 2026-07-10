@@ -1,9 +1,10 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import { createSupersedingRun, type RunSupersessionResult } from '../../../../executor/run-supersession.js';
 import { BRUNCH_EXECUTE_REPLAN_START_NEW_RUN_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { toolParameters } from '../../shared/tool-schema.js';
 import { buildCurrentProjectionForRun } from '../current-projection.js';
 
@@ -31,10 +32,8 @@ export interface ExecuteReplanStartNewRunDeps {
   readonly reads: Pick<GraphReaders, 'queryGraph'>;
 }
 
-export function createExecuteReplanStartNewRunTool(
-  deps: ExecuteReplanStartNewRunDeps,
-): ToolDefinition<typeof ExecuteReplanStartNewRunParams, ExecuteReplanStartNewRunDetails> {
-  return {
+export function createExecuteReplanStartNewRunTool(deps: ExecuteReplanStartNewRunDeps) {
+  return defineBrunchTool<typeof ExecuteReplanStartNewRunParams, ExecuteReplanStartNewRunDetails>({
     name: BRUNCH_EXECUTE_REPLAN_START_NEW_RUN_TOOL,
     label: 'execute_replan_start_new_run',
     description:
@@ -80,7 +79,7 @@ export function createExecuteReplanStartNewRunTool(
         details: { result, sideEffects: result.sideEffects },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecuteReplanStartNewRun(

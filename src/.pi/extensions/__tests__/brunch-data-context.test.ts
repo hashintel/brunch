@@ -15,6 +15,9 @@ import { normalizeToolSchema } from './tool-schema-baseline.js';
 
 type ContextTool = {
   parameters: unknown;
+  renderShell?: string;
+  renderCall?: unknown;
+  renderResult?: unknown;
   execute: (...args: any[]) => Promise<unknown>;
 };
 
@@ -29,6 +32,21 @@ function collectContextTools() {
 }
 
 describe('context tools', () => {
+  it('adopts the shared Brunch default renderer for every context tool', () => {
+    const tools = collectContextTools();
+
+    expect([...tools.keys()]).toEqual([
+      'read_workspace_context',
+      'read_specification_context',
+      'read_session_context',
+    ]);
+    for (const [name, tool] of tools) {
+      expect(tool.renderShell, name).toBe('self');
+      expect(tool.renderCall, name).toEqual(expect.any(Function));
+      expect(tool.renderResult, name).toEqual(expect.any(Function));
+    }
+  });
+
   it('preserves the pre-FE-1163 provider-facing schema semantics', () => {
     const schemas = Object.fromEntries(
       [...collectContextTools()].map(([name, tool]) => [name, tool.parameters]),

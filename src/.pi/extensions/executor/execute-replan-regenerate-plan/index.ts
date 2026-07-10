@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import { writePlanFile, type PlanFileWriteResult } from '../../../../executor/plan-file.js';
@@ -8,6 +8,7 @@ import {
 } from '../../../../executor/run-retry-eligibility.js';
 import { BRUNCH_EXECUTE_REPLAN_REGENERATE_PLAN_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { toolParameters } from '../../shared/tool-schema.js';
 import { buildCurrentProjectionForRun } from '../current-projection.js';
 
@@ -52,10 +53,8 @@ export interface ExecuteReplanRegeneratePlanDeps {
   readonly reads: Pick<GraphReaders, 'queryGraph'>;
 }
 
-export function createExecuteReplanRegeneratePlanTool(
-  deps: ExecuteReplanRegeneratePlanDeps,
-): ToolDefinition<typeof ExecuteReplanRegeneratePlanParams, ExecuteReplanRegeneratePlanDetails> {
-  return {
+export function createExecuteReplanRegeneratePlanTool(deps: ExecuteReplanRegeneratePlanDeps) {
+  return defineBrunchTool<typeof ExecuteReplanRegeneratePlanParams, ExecuteReplanRegeneratePlanDetails>({
     name: BRUNCH_EXECUTE_REPLAN_REGENERATE_PLAN_TOOL,
     label: 'execute_replan_regenerate_plan',
     description:
@@ -116,7 +115,7 @@ export function createExecuteReplanRegeneratePlanTool(
         details: { result: finalResult, sideEffects: finalResult.sideEffects },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecuteReplanRegeneratePlan(

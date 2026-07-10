@@ -54,6 +54,14 @@ const branch = [
 ];
 
 describe('brunch_session_query', () => {
+  it('adopts the shared Brunch default renderer', () => {
+    const tool = createBrunchSessionQueryTool();
+
+    expect(tool.renderShell).toBe('self');
+    expect(tool.renderCall).toEqual(expect.any(Function));
+    expect(tool.renderResult).toEqual(expect.any(Function));
+  });
+
   it('finds entries by role, toolName, customType, and contains predicates', () => {
     expect(querySessionBranch(branch, { find: { role: 'toolResult', toolName: 'read_graph' } })).toEqual([
       expect.objectContaining({

@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import { writeExecutablePlanDraftArtifact } from '../../../../executor/executable-plan-draft-artifact.js';
@@ -9,6 +9,7 @@ import {
 } from '../../../../executor/execute-projection.js';
 import { BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL } from '../../../../session/schema/tool-names.js';
@@ -36,10 +37,8 @@ export interface ExecutePlanDraftArtifactDeps {
   readonly reads: Pick<GraphReaders, 'queryGraph'>;
 }
 
-export function createExecutePlanDraftArtifactTool(
-  deps: ExecutePlanDraftArtifactDeps,
-): ToolDefinition<typeof ExecutePlanDraftArtifactParams, ExecutePlanDraftArtifactDetails> {
-  return {
+export function createExecutePlanDraftArtifactTool(deps: ExecutePlanDraftArtifactDeps) {
+  return defineBrunchTool<typeof ExecutePlanDraftArtifactParams, ExecutePlanDraftArtifactDetails>({
     name: BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL,
     label: 'execute_plan_draft_artifact',
     description:
@@ -82,7 +81,7 @@ export function createExecutePlanDraftArtifactTool(
         },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecutePlanDraftArtifact(

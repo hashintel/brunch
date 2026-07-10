@@ -1,8 +1,9 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import { startSlice, type SliceStartResult } from '../../../../executor/slice-start.js';
 import { BRUNCH_EXECUTE_SLICE_START_TOOL } from '../../../../session/schema/tool-names.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_SLICE_START_TOOL } from '../../../../session/schema/tool-names.js';
@@ -19,11 +20,8 @@ interface ExecuteSliceStartDetails {
   readonly sideEffects: SliceStartResult['sideEffects'];
 }
 
-export function createExecuteSliceStartTool(): ToolDefinition<
-  typeof ExecuteSliceStartParams,
-  ExecuteSliceStartDetails
-> {
-  return {
+export function createExecuteSliceStartTool() {
+  return defineBrunchTool<typeof ExecuteSliceStartParams, ExecuteSliceStartDetails>({
     name: BRUNCH_EXECUTE_SLICE_START_TOOL,
     label: 'execute_slice_start',
     description:
@@ -54,7 +52,7 @@ export function createExecuteSliceStartTool(): ToolDefinition<
         details: { result, sideEffects: result.sideEffects },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecuteSliceStart(pi: ExtensionAPI): void {

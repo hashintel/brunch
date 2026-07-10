@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import {
@@ -7,6 +7,7 @@ import {
 } from '../../../../executor/run-replan-recommendation.js';
 import { BRUNCH_EXECUTE_REPLAN_RECOMMENDATION_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { toolParameters } from '../../shared/tool-schema.js';
 import { buildCurrentProjectionForRun } from '../current-projection.js';
 
@@ -33,10 +34,8 @@ export interface ExecuteReplanRecommendationDeps {
   readonly reads: Pick<GraphReaders, 'queryGraph'>;
 }
 
-export function createExecuteReplanRecommendationTool(
-  deps: ExecuteReplanRecommendationDeps,
-): ToolDefinition<typeof ExecuteReplanRecommendationParams, ExecuteReplanRecommendationDetails> {
-  return {
+export function createExecuteReplanRecommendationTool(deps: ExecuteReplanRecommendationDeps) {
+  return defineBrunchTool<typeof ExecuteReplanRecommendationParams, ExecuteReplanRecommendationDetails>({
     name: BRUNCH_EXECUTE_REPLAN_RECOMMENDATION_TOOL,
     label: 'execute_replan_recommendation',
     description:
@@ -79,7 +78,7 @@ export function createExecuteReplanRecommendationTool(
         details: { recommendation, sideEffects: recommendation.sideEffects },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecuteReplanRecommendation(
