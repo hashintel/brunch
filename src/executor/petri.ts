@@ -1,6 +1,7 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
+import { compileExecutorTopology, projectSchedulerPlan, type SchedulerPlan } from './orchestrate-topology.js';
 import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
 export type PetriExportResult =
@@ -14,6 +15,13 @@ export type PetriExportResult =
   | {
       readonly status: 'run_not_completed';
       readonly runStatus: RunMetadata['status'];
+      readonly runId: string;
+      readonly metadataPath: string;
+      readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: 'petri_input_unreadable';
+      readonly runStatus: 'run_completed';
       readonly runId: string;
       readonly metadataPath: string;
       readonly sideEffects: readonly [];
@@ -33,6 +41,15 @@ export type PetriExportResult =
 
 export function petriNetPath(cwd: string, runId: string): string {
   return join(runDirPath(cwd, runId), 'petrinaut', 'net.json');
+}
+
+async function readExportPlan(metadata: RunMetadata): Promise<SchedulerPlan | undefined> {
+  const path = metadata.populatedPlanPath ?? metadata.planPath;
+  try {
+    return projectSchedulerPlan(JSON.parse(await readFile(path, 'utf8')));
+  } catch {
+    return undefined;
+  }
 }
 
 export async function exportPetri(args: {
@@ -60,11 +77,45 @@ export async function exportPetri(args: {
 
   const path = petriNetPath(args.cwd, args.runId);
   const dir = dirname(path);
+  const plan = await readExportPlan(metadata);
+  if (!plan) {
+    return {
+      status: 'petri_input_unreadable',
+      runStatus: 'run_completed',
+      runId: args.runId,
+      metadataPath,
+      sideEffects: [],
+    };
+  }
+
   const updated: RunMetadata = { ...metadata, status: 'petri_exported', petriPath: path };
+  let topology: ReturnType<typeof compileExecutorTopology>;
+  try {
+    topology = compileExecutorTopology(plan);
+  } catch {
+    return {
+      status: 'petri_input_unreadable',
+      runStatus: 'run_completed',
+      runId: args.runId,
+      metadataPath,
+      sideEffects: [],
+    };
+  }
   await mkdir(dir, { recursive: true });
   await writeFile(
     path,
-    `${JSON.stringify({ runId: args.runId, places: ['run_completed'], transitions: [] }, null, 2)}\n`,
+    `${JSON.stringify(
+      {
+        runId: args.runId,
+        ...(topology.epics === undefined ? {} : { epics: topology.epics }),
+        subnets: topology.subnets,
+        places: topology.places,
+        transitions: topology.transitions,
+        initialMarking: topology.initialMarking,
+      },
+      null,
+      2,
+    )}\n`,
     'utf8',
   );
   const metadataEffect = await persistRunMetadata(metadataPath, updated);

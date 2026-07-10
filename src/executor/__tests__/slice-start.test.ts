@@ -79,6 +79,38 @@ async function createTwoSliceReportReadyRun(cwd: string): Promise<void> {
   await initializeReports({ cwd, runId: 'run-1' });
 }
 
+async function createDependencyReportReadyRun(cwd: string): Promise<void> {
+  const planPath = planFilePath(cwd, '42');
+  await mkdir(join(cwd, 'src'), { recursive: true });
+  await writeFile(join(cwd, 'src', 'app.ts'), 'export const app = true;\n', 'utf8');
+  await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
+  await writeFile(
+    planPath,
+    JSON.stringify({
+      mode: 'greenfield',
+      epics: [{ id: 'frontier-1', summary: 'Build feature', depends_on: [], verification: [] }],
+      slices: [
+        { id: 'task-1', epic_id: 'frontier-1', definition: 'First.', depends_on: [], verification: [] },
+        {
+          id: 'task-2',
+          epic_id: 'frontier-1',
+          definition: 'Second.',
+          depends_on: ['task-1'],
+          verification: [],
+        },
+        { id: 'task-3', epic_id: 'frontier-1', definition: 'Third.', depends_on: [], verification: [] },
+      ],
+    }),
+    'utf8',
+  );
+  await createRun({ cwd, specId: '42', runId: 'run-1' });
+  await createWorktree({ cwd, runId: 'run-1', gitWorktree: createFakeGitWorktreePort() });
+  await populateWorktree({ cwd, runId: 'run-1' });
+  await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
+  await copyHostSource({ cwd, runId: 'run-1' });
+  await initializeReports({ cwd, runId: 'run-1' });
+}
+
 describe('startSlice', () => {
   it('does not start a slice when reports are not initialized', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-missing-report-'));
@@ -164,7 +196,7 @@ describe('startSlice', () => {
 
   it('does not let an explicit slice id skip the next incomplete slice', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-explicit-skip-'));
-    await createTwoSliceReportReadyRun(cwd);
+    await createDependencyReportReadyRun(cwd);
 
     const result = await startSlice({ cwd, runId: 'run-1', sliceId: 'task-2' });
 
@@ -178,6 +210,24 @@ describe('startSlice', () => {
     });
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'reports_initialized',
+    });
+  });
+
+  it('accepts an explicit slice id when that slice is dependency-ready in the current frontier', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-explicit-ready-'));
+    await createDependencyReportReadyRun(cwd);
+
+    const result = await startSlice({ cwd, runId: 'run-1', sliceId: 'task-3' });
+
+    expect(result).toMatchObject({
+      status: 'slice_started',
+      runStatus: 'slice_started',
+      sliceId: 'task-3',
+      epicId: 'frontier-1',
+    });
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'slice_started',
+      activeSliceId: 'task-3',
     });
   });
 

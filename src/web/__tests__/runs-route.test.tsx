@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { WorkspaceState } from '../../projections/workspace/workspace-state.js';
@@ -45,6 +45,8 @@ const runDetail: RunDetail = {
     { event: 'slice_execution_requested', sliceId: 's1' },
   ],
   reportsTotal: 3,
+  petriEventsTail: [],
+  petriEventsTotal: 0,
   agentStreamTail: [],
   agentStreamTotal: 0,
   verifyStreamTail: [],
@@ -83,6 +85,16 @@ function rpcClient(options?: {
     },
     close: vi.fn(),
   } as unknown as WebSocketRpcClient;
+}
+
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
 }
 
 const originalScrollToDescriptor = Object.getOwnPropertyDescriptor(window, 'scrollTo');
@@ -186,6 +198,418 @@ describe('run detail route', () => {
 
     expect(await screen.findByText('Petri net (raw)')).toBeTruthy();
     expect(screen.getByText(/petri-place-1/u)).toBeTruthy();
+  });
+
+  it('renders the derived Petri projection separately from the raw net', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        run: {
+          ...runDetail,
+          status: 'promotion_prepared',
+          petriProjection: {
+            claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-2'],
+            currentMarking: { 'run:promotion_prepared': 1 },
+            firedTransitionCount: 18,
+            terminalEventKind: 'net_completed',
+          },
+          petriProjectionSource: 'snapshot',
+          petriNet: { places: [{ id: 'petri-place-1' }] },
+        } as RunDetail,
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('Petri projection (derived)')).toBeTruthy();
+    expect(screen.getByText(/run:promotion_prepared/u)).toBeTruthy();
+    expect(screen.getByText(/18 fired transitions/u)).toBeTruthy();
+    expect(screen.getByText(/claimed: slice_start:task-1, slice_start:task-2/u)).toBeTruthy();
+    expect(screen.getByText(/source: snapshot/u)).toBeTruthy();
+    expect(screen.getByText('Petri net (raw)')).toBeTruthy();
+  });
+
+  it('renders the current Petri ready frontier when execute.run returns dependency-ready steps', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        run: {
+          ...runDetail,
+          status: 'reports_initialized',
+          petriReadySteps: [
+            { kind: 'slice_start', sliceId: 'task-1', epicId: 'frontier-1', derivedFrom: ['REQ1'] },
+            { kind: 'slice_start', sliceId: 'task-3', epicId: 'frontier-2', derivedFrom: ['REQ3'] },
+          ],
+          petriBlockedSteps: [
+            {
+              kind: 'slice_start',
+              sliceId: 'task-2',
+              epicId: 'frontier-1',
+              derivedFrom: ['REQ2'],
+              blockers: [{ kind: 'dependency', sliceId: 'task-1' }],
+            },
+          ],
+        } as RunDetail,
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('Petri frontier (derived)')).toBeTruthy();
+    expect(screen.getByText(/slice_start:task-1 \(frontier-1\) ← REQ1/u)).toBeTruthy();
+    expect(screen.getByText(/slice_start:task-3 \(frontier-2\) ← REQ3/u)).toBeTruthy();
+    expect(screen.getByText(/slice_start:task-2 \(frontier-1\) ← REQ2 blocked by task-1/u)).toBeTruthy();
+  });
+
+  it('renders active-slice blockers when another dependency-ready slice cannot start yet', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        run: {
+          ...runDetail,
+          status: 'slice_started',
+          activeSliceId: 'task-1',
+          petriReadySteps: [{ kind: 'slice_execute', sliceId: 'task-1', derivedFrom: ['REQ1'] }],
+          petriBlockedSteps: [
+            {
+              kind: 'slice_start',
+              sliceId: 'task-2',
+              blockers: [{ kind: 'active_slice', sliceId: 'task-1' }],
+            },
+          ],
+        } as RunDetail,
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('Petri frontier (derived)')).toBeTruthy();
+    expect(screen.getByText(/slice_execute:task-1 ← REQ1/u)).toBeTruthy();
+    expect(screen.getByText(/slice_start:task-2 blocked by active slice task-1/u)).toBeTruthy();
+  });
+
+  it('renders a stale-snapshot note when replay replaced a mismatched persisted marking snapshot', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        run: {
+          ...runDetail,
+          status: 'promotion_prepared',
+          petriProjection: {
+            currentMarking: { 'run:promotion_prepared': 1 },
+            firedTransitionCount: 18,
+            terminalEventKind: 'net_completed',
+          },
+          petriProjectionSource: 'replay',
+          petriProjectionReplayReason: 'snapshot_stale',
+        } as RunDetail,
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('Petri projection (derived)')).toBeTruthy();
+    expect(screen.getByText(/source: replay/u)).toBeTruthy();
+    expect(
+      screen.getByText(/persisted marking snapshot no longer matches current lifecycle facts/u),
+    ).toBeTruthy();
+  });
+
+  it('renders a missing-snapshot note when replay replaced an absent or unreadable persisted marking snapshot', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        run: {
+          ...runDetail,
+          status: 'promotion_prepared',
+          petriProjection: {
+            currentMarking: { 'run:promotion_prepared': 1 },
+            firedTransitionCount: 18,
+            terminalEventKind: 'net_completed',
+          },
+          petriProjectionSource: 'replay',
+          petriProjectionReplayReason: 'snapshot_missing_or_unreadable',
+        } as RunDetail,
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('Petri projection (derived)')).toBeTruthy();
+    expect(screen.getByText(/source: replay/u)).toBeTruthy();
+    expect(screen.getByText(/no readable persisted marking snapshot was available/u)).toBeTruthy();
+  });
+
+  it('shows the stale-snapshot note immediately from a live execute.run cache patch before refetch settles', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const refetch = deferred<RunDetail>();
+    let executeRunRequests = 0;
+    const listeners = new Set<WebSocketRpcNotificationListener>();
+    const client = {
+      async request<T>(method: string, params?: unknown): Promise<T> {
+        if (method === 'workspace.state') {
+          return readyState as T;
+        }
+        if (method === 'execute.runs') {
+          return { runs: runEntries } as T;
+        }
+        if (method === 'execute.run') {
+          expect(params).toEqual({ runId: 'run-1' });
+          executeRunRequests += 1;
+          if (executeRunRequests === 1) {
+            return {
+              ...runDetail,
+              status: 'promotion_prepared',
+              petriProjection: {
+                claimedTransitionIds: ['slice_start:t1'],
+                currentMarking: { 'run:promotion_prepared': 1 },
+                firedTransitionCount: 18,
+                terminalEventKind: 'net_completed',
+              },
+              petriProjectionSource: 'snapshot',
+            } as T;
+          }
+          return (await refetch.promise) as T;
+        }
+        throw new Error(`unexpected RPC method ${method}`);
+      },
+      subscribe(listener: WebSocketRpcNotificationListener) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      close: vi.fn(),
+    } as WebSocketRpcClient;
+    const runtime = createBrunchWebRuntime({ rpcClient: client });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText(/source: snapshot/u)).toBeTruthy();
+    expect(screen.getByText(/claimed: slice_start:t1/u)).toBeTruthy();
+    expect(listeners.size).toBeGreaterThan(0);
+
+    await act(async () => {
+      for (const listener of listeners) {
+        listener({
+          jsonrpc: '2.0',
+          method: 'brunch.updated',
+          params: {
+            topics: ['execute.run'],
+            updates: [
+              {
+                topic: 'execute.run',
+                runId: 'run-1',
+                petriProjection: {
+                  currentMarking: { 'run:promotion_prepared': 1 },
+                  firedTransitionCount: 18,
+                  terminalEventKind: 'net_completed',
+                },
+                petriProjectionSource: 'replay',
+                petriProjectionReplayReason: 'snapshot_stale',
+              },
+            ],
+          },
+        });
+      }
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/source: replay/u)).toBeTruthy();
+    });
+    await waitFor(() => {
+      expect(
+        screen.getByText(/persisted marking snapshot no longer matches current lifecycle facts/u),
+      ).toBeTruthy();
+    });
+    await waitFor(() => {
+      expect(screen.queryByText(/claimed: slice_start:t1/u)).toBeNull();
+    });
+
+    refetch.resolve({
+      ...runDetail,
+      status: 'promotion_prepared',
+      petriProjection: {
+        currentMarking: { 'run:promotion_prepared': 1 },
+        firedTransitionCount: 18,
+        terminalEventKind: 'net_completed',
+      },
+      petriProjectionSource: 'replay',
+      petriProjectionReplayReason: 'snapshot_stale',
+    });
+  });
+
+  it('shows the missing-snapshot note immediately from a live execute.run cache patch before refetch settles', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const refetch = deferred<RunDetail>();
+    let executeRunRequests = 0;
+    const listeners = new Set<WebSocketRpcNotificationListener>();
+    const client = {
+      async request<T>(method: string, params?: unknown): Promise<T> {
+        if (method === 'workspace.state') {
+          return readyState as T;
+        }
+        if (method === 'execute.runs') {
+          return { runs: runEntries } as T;
+        }
+        if (method === 'execute.run') {
+          expect(params).toEqual({ runId: 'run-1' });
+          executeRunRequests += 1;
+          if (executeRunRequests === 1) {
+            return {
+              ...runDetail,
+              status: 'promotion_prepared',
+              petriProjection: {
+                currentMarking: { 'run:promotion_prepared': 1 },
+                firedTransitionCount: 18,
+                terminalEventKind: 'net_completed',
+              },
+              petriProjectionSource: 'snapshot',
+            } as T;
+          }
+          return (await refetch.promise) as T;
+        }
+        throw new Error(`unexpected RPC method ${method}`);
+      },
+      subscribe(listener: WebSocketRpcNotificationListener) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      close: vi.fn(),
+    } as WebSocketRpcClient;
+    const runtime = createBrunchWebRuntime({ rpcClient: client });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText(/source: snapshot/u)).toBeTruthy();
+    expect(listeners.size).toBeGreaterThan(0);
+
+    await act(async () => {
+      for (const listener of listeners) {
+        listener({
+          jsonrpc: '2.0',
+          method: 'brunch.updated',
+          params: {
+            topics: ['execute.run'],
+            updates: [
+              {
+                topic: 'execute.run',
+                runId: 'run-1',
+                petriProjectionSource: 'replay',
+                petriProjectionReplayReason: 'snapshot_missing_or_unreadable',
+              },
+            ],
+          },
+        });
+      }
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/source: replay/u)).toBeTruthy();
+    });
+    await waitFor(() => {
+      expect(screen.getByText(/no readable persisted marking snapshot was available/u)).toBeTruthy();
+    });
+
+    refetch.resolve({
+      ...runDetail,
+      status: 'promotion_prepared',
+      petriProjection: {
+        currentMarking: { 'run:promotion_prepared': 1 },
+        firedTransitionCount: 18,
+        terminalEventKind: 'net_completed',
+      },
+      petriProjectionSource: 'replay',
+      petriProjectionReplayReason: 'snapshot_missing_or_unreadable',
+    });
+  });
+
+  it('clears a replay note immediately when a later live execute.run snapshot hint sets replay reason to null', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const refetch = deferred<RunDetail>();
+    let executeRunRequests = 0;
+    const listeners = new Set<WebSocketRpcNotificationListener>();
+    const client = {
+      async request<T>(method: string, params?: unknown): Promise<T> {
+        if (method === 'workspace.state') {
+          return readyState as T;
+        }
+        if (method === 'execute.runs') {
+          return { runs: runEntries } as T;
+        }
+        if (method === 'execute.run') {
+          expect(params).toEqual({ runId: 'run-1' });
+          executeRunRequests += 1;
+          if (executeRunRequests === 1) {
+            return {
+              ...runDetail,
+              status: 'promotion_prepared',
+              petriProjection: {
+                currentMarking: { 'run:promotion_prepared': 1 },
+                firedTransitionCount: 18,
+                terminalEventKind: 'net_completed',
+              },
+              petriProjectionSource: 'replay',
+              petriProjectionReplayReason: 'snapshot_stale',
+            } as T;
+          }
+          return (await refetch.promise) as T;
+        }
+        throw new Error(`unexpected RPC method ${method}`);
+      },
+      subscribe(listener: WebSocketRpcNotificationListener) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      close: vi.fn(),
+    } as WebSocketRpcClient;
+    const runtime = createBrunchWebRuntime({ rpcClient: client });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText(/source: replay/u)).toBeTruthy();
+    expect(
+      screen.getByText(/persisted marking snapshot no longer matches current lifecycle facts/u),
+    ).toBeTruthy();
+    expect(listeners.size).toBeGreaterThan(0);
+
+    await act(async () => {
+      for (const listener of listeners) {
+        listener({
+          jsonrpc: '2.0',
+          method: 'brunch.updated',
+          params: {
+            topics: ['execute.run'],
+            updates: [
+              {
+                topic: 'execute.run',
+                runId: 'run-1',
+                petriProjectionSource: 'snapshot',
+                petriProjectionReplayReason: null,
+              },
+            ],
+          },
+        });
+      }
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/source: snapshot/u)).toBeTruthy();
+    });
+    await waitFor(() => {
+      expect(
+        screen.queryByText(/persisted marking snapshot no longer matches current lifecycle facts/u),
+      ).toBeNull();
+    });
+
+    refetch.resolve({
+      ...runDetail,
+      status: 'promotion_prepared',
+      petriProjection: {
+        currentMarking: { 'run:promotion_prepared': 1 },
+        firedTransitionCount: 18,
+        terminalEventKind: 'net_completed',
+      },
+      petriProjectionSource: 'snapshot',
+    });
   });
 
   it('renders normalized worker stream events when present', async () => {

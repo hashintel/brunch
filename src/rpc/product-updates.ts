@@ -1,3 +1,6 @@
+import type { BlockedStep, ReadyStep } from '../executor/orchestrate-topology.js';
+import type { PetriProjection } from '../executor/petri-projection.js';
+
 export const BRUNCH_UPDATED_METHOD = 'brunch.updated';
 
 type ProductUpdateTopic =
@@ -18,6 +21,11 @@ export interface ProductUpdate {
   readonly nodeId?: number;
   readonly lsn?: number;
   readonly runId?: string;
+  readonly petriProjection?: PetriProjection | null;
+  readonly petriProjectionSource?: 'snapshot' | 'replay' | null;
+  readonly petriProjectionReplayReason?: 'snapshot_missing_or_unreadable' | 'snapshot_stale' | null;
+  readonly petriReadySteps?: readonly ReadyStep[] | null;
+  readonly petriBlockedSteps?: readonly BlockedStep[] | null;
 }
 
 export interface ProductUpdateNotification {
@@ -83,10 +91,53 @@ export function selectedSessionProductUpdates(target?: {
   ];
 }
 
-export function executeRunProductUpdates(runId?: string): readonly ProductUpdate[] {
+export interface ExecuteRunProductUpdateHints {
+  readonly petriProjection?: PetriProjection | null;
+  readonly petriProjectionSource?: 'snapshot' | 'replay' | null;
+  readonly petriProjectionReplayReason?: 'snapshot_missing_or_unreadable' | 'snapshot_stale' | null;
+  readonly petriReadySteps?: readonly ReadyStep[] | null;
+  readonly petriBlockedSteps?: readonly BlockedStep[] | null;
+}
+
+export function executeRunProductUpdateHintsFromDetail(detail: {
+  readonly petriProjection?: PetriProjection;
+  readonly petriProjectionSource?: 'snapshot' | 'replay';
+  readonly petriProjectionReplayReason?: 'snapshot_missing_or_unreadable' | 'snapshot_stale';
+  readonly petriReadySteps?: readonly ReadyStep[];
+  readonly petriBlockedSteps?: readonly BlockedStep[];
+}): ExecuteRunProductUpdateHints {
+  return {
+    petriProjection: detail.petriProjection ?? null,
+    petriProjectionSource: detail.petriProjectionSource ?? null,
+    petriProjectionReplayReason: detail.petriProjectionReplayReason ?? null,
+    petriReadySteps: detail.petriReadySteps ?? null,
+    petriBlockedSteps: detail.petriBlockedSteps ?? null,
+  };
+}
+
+export function executeRunProductUpdates(
+  runId?: string,
+  hints?: ExecuteRunProductUpdateHints,
+): readonly ProductUpdate[] {
   return [
     { topic: 'execute.runs' },
-    ...(runId === undefined ? [] : [{ topic: 'execute.run', runId } as const]),
+    ...(runId === undefined
+      ? []
+      : [
+          {
+            topic: 'execute.run',
+            runId,
+            ...(hints?.petriProjection === undefined ? {} : { petriProjection: hints.petriProjection }),
+            ...(hints?.petriProjectionSource === undefined
+              ? {}
+              : { petriProjectionSource: hints.petriProjectionSource }),
+            ...(hints?.petriProjectionReplayReason === undefined
+              ? {}
+              : { petriProjectionReplayReason: hints.petriProjectionReplayReason }),
+            ...(hints?.petriReadySteps === undefined ? {} : { petriReadySteps: hints.petriReadySteps }),
+            ...(hints?.petriBlockedSteps === undefined ? {} : { petriBlockedSteps: hints.petriBlockedSteps }),
+          } as const,
+        ]),
   ];
 }
 

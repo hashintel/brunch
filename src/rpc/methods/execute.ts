@@ -9,7 +9,11 @@ import { recommendRunReplan } from '../../executor/run-replan-recommendation.js'
 import { type RunRetryEligibilityResult } from '../../executor/run-retry-eligibility.js';
 import { createSupersedingRun } from '../../executor/run-supersession.js';
 import { assertSafeRunId, readRunMetadata, runMetadataPath } from '../../executor/run.js';
-import { executeRunProductUpdates } from '../product-updates.js';
+import {
+  executeRunProductUpdateHintsFromDetail,
+  type ExecuteRunProductUpdateHints,
+  type ProductUpdate,
+} from '../product-updates.js';
 import { createJsonRpcFailure, createJsonRpcSuccess, jsonRpcRequestId } from '../protocol.js';
 import type { RpcMethodContext, RpcMethodDefinition } from './registry.js';
 import { NoParamsSchema, NonBlankStringSchema, PositiveIntegerSchema } from './schemas.js';
@@ -67,6 +71,81 @@ const RunPresenceSchema = Type.Object(
   { additionalProperties: false },
 );
 
+const ReadyStepSchema = Type.Union([
+  Type.Object({ kind: Type.Literal('worktree_create') }, { additionalProperties: false }),
+  Type.Object({ kind: Type.Literal('populate') }, { additionalProperties: false }),
+  Type.Object({ kind: Type.Literal('source_policy') }, { additionalProperties: false }),
+  Type.Object({ kind: Type.Literal('source_copy') }, { additionalProperties: false }),
+  Type.Object({ kind: Type.Literal('report_init') }, { additionalProperties: false }),
+  Type.Object(
+    {
+      kind: Type.Literal('slice_start'),
+      sliceId: Type.String(),
+      epicId: Type.Optional(Type.String()),
+      derivedFrom: Type.Optional(Type.Array(Type.String())),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      kind: Type.Literal('slice_execute'),
+      sliceId: Type.String(),
+      epicId: Type.Optional(Type.String()),
+      derivedFrom: Type.Optional(Type.Array(Type.String())),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      kind: Type.Literal('agent_result'),
+      sliceId: Type.String(),
+      epicId: Type.Optional(Type.String()),
+      derivedFrom: Type.Optional(Type.Array(Type.String())),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      kind: Type.Literal('test_result'),
+      sliceId: Type.String(),
+      epicId: Type.Optional(Type.String()),
+      derivedFrom: Type.Optional(Type.Array(Type.String())),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      kind: Type.Literal('slice_complete'),
+      sliceId: Type.String(),
+      epicId: Type.Optional(Type.String()),
+      derivedFrom: Type.Optional(Type.Array(Type.String())),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object({ kind: Type.Literal('run_complete') }, { additionalProperties: false }),
+  Type.Object({ kind: Type.Literal('petri_export') }, { additionalProperties: false }),
+  Type.Object({ kind: Type.Literal('promotion') }, { additionalProperties: false }),
+]);
+
+const BlockedStepReasonSchema = Type.Object(
+  {
+    kind: Type.Union([Type.Literal('dependency'), Type.Literal('active_slice')]),
+    sliceId: Type.String(),
+  },
+  { additionalProperties: false },
+);
+
+const BlockedStepSchema = Type.Object(
+  {
+    kind: Type.Literal('slice_start'),
+    sliceId: Type.String(),
+    epicId: Type.Optional(Type.String()),
+    derivedFrom: Type.Optional(Type.Array(Type.String())),
+    blockers: Type.Array(BlockedStepReasonSchema),
+  },
+  { additionalProperties: false },
+);
+
 const RunListEntrySchema = Type.Union([
   Type.Object(
     {
@@ -105,6 +184,32 @@ const ExecuteRunResultSchema = Type.Union([
       planPath: Type.String(),
       reportsTail: Type.Array(Type.Object({ event: Type.String() }, { additionalProperties: true })),
       reportsTotal: Type.Integer({ minimum: 0 }),
+      petriEventsTail: Type.Array(Type.Object({ kind: Type.String() }, { additionalProperties: true })),
+      petriEventsTotal: Type.Integer({ minimum: 0 }),
+      petriReadySteps: Type.Optional(Type.Array(ReadyStepSchema)),
+      petriBlockedSteps: Type.Optional(Type.Array(BlockedStepSchema)),
+      petriProjection: Type.Optional(
+        Type.Object(
+          {
+            claimedTransitionIds: Type.Optional(Type.Array(Type.String())),
+            currentMarking: Type.Record(Type.String(), Type.Integer({ minimum: 0 })),
+            firedTransitionCount: Type.Integer({ minimum: 0 }),
+            terminalEventKind: Type.Optional(
+              Type.Union([
+                Type.Literal('net_completed'),
+                Type.Literal('net_halted'),
+                Type.Literal('net_deadlocked'),
+              ]),
+            ),
+            haltedReason: Type.Optional(Type.String()),
+          },
+          { additionalProperties: false },
+        ),
+      ),
+      petriProjectionSource: Type.Optional(Type.Union([Type.Literal('snapshot'), Type.Literal('replay')])),
+      petriProjectionReplayReason: Type.Optional(
+        Type.Union([Type.Literal('snapshot_missing_or_unreadable'), Type.Literal('snapshot_stale')]),
+      ),
       agentStreamTail: Type.Array(
         Type.Object(
           {
@@ -233,7 +338,7 @@ export const executeRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[]
     method: 'execute.run',
     access: 'read',
     description:
-      'Return one executor run projection: recorded run.json snapshot, artifact-presence flags, and the reports.jsonl event tail (events lead the metadata snapshot by design).',
+      'Return one executor run projection: recorded run.json snapshot, artifact-presence flags, reports.jsonl and Petri runtime-event tails, plus optional derived Petri projection and raw net artifacts (events lead the metadata snapshot by design).',
     paramsSchema: ExecuteRunParamsSchema,
     resultSchema: ExecuteRunResultSchema,
     examples: [{ jsonrpc: '2.0', id: 21, method: 'execute.run', params: { runId: 'run-1' } }],
@@ -331,7 +436,7 @@ export const executeRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[]
       }
       const result = await regeneratePlan(context, params);
       if (result.sideEffects.length > 0) {
-        context.productUpdates?.publish(executeRunProductUpdates(params.runId));
+        await publishExecuteRunProductUpdates(context, [params.runId]);
       }
       return createJsonRpcSuccess(requestId, result);
     },
@@ -384,9 +489,9 @@ export const executeRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[]
         ...(params.runId ? { runId: params.runId } : {}),
       });
       if (result.sideEffects.length > 0) {
-        context.productUpdates?.publish([
-          ...executeRunProductUpdates(params.previousRunId),
-          ...executeRunProductUpdates(result.status === 'created' ? result.runId : undefined),
+        await publishExecuteRunProductUpdates(context, [
+          params.previousRunId,
+          result.status === 'created' ? result.runId : undefined,
         ]);
       }
       return createJsonRpcSuccess(requestId, result);
@@ -419,12 +524,40 @@ export const executeRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[]
         ...(params.reason ? { reason: params.reason } : {}),
       });
       if (result.sideEffects.length > 0) {
-        context.productUpdates?.publish(executeRunProductUpdates(params.runId));
+        await publishExecuteRunProductUpdates(context, [params.runId]);
       }
       return createJsonRpcSuccess(requestId, result);
     },
   },
 ];
+
+async function publishExecuteRunProductUpdates(
+  context: RpcMethodContext,
+  runIds: readonly (string | undefined)[],
+): Promise<void> {
+  if (!context.productUpdates) return;
+  const uniqueRunIds = [...new Set(runIds.filter((runId): runId is string => typeof runId === 'string'))];
+  const updates: ProductUpdate[] = [{ topic: 'execute.runs' }];
+  for (const runId of uniqueRunIds) {
+    updates.push({
+      topic: 'execute.run',
+      runId,
+      ...(await readExecuteRunProductUpdateHints(context.cwd, runId)),
+    });
+  }
+  context.productUpdates.publish(updates);
+}
+
+async function readExecuteRunProductUpdateHints(
+  cwd: string,
+  runId: string,
+): Promise<ExecuteRunProductUpdateHints | undefined> {
+  const detail = await readRunDetail(cwd, runId).catch(() => undefined);
+  if (!detail || 'unreadable' in detail) {
+    return undefined;
+  }
+  return executeRunProductUpdateHintsFromDetail(detail);
+}
 
 function parseParams<Schema extends TSchema>(schema: Schema, value: unknown): Static<Schema> | undefined {
   if (!Value.Check(schema, value)) return undefined;

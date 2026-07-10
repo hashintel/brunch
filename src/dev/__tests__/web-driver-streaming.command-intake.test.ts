@@ -97,6 +97,20 @@ describe('web-driver-streaming command intake', () => {
         );
         flushSessionManagerToFile(runtime.session.sessionManager, context.workspace.session.file);
 
+        await waitFor(
+          () => {
+            const fingerprints = [driver, ...observers].map((client) =>
+              client.sessionFrames().map((frame) => JSON.stringify(frame.params)),
+            );
+            return (
+              fingerprints[1]?.length === fingerprints[0]?.length &&
+              fingerprints[2]?.length === fingerprints[0]?.length
+            );
+          },
+          3000,
+          'observer session streams to catch up with the driver stream',
+        );
+
         const fingerprints = [driver, ...observers].map((client) =>
           client.sessionFrames().map((frame) => JSON.stringify(frame.params)),
         );

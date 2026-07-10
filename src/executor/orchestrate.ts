@@ -1,101 +1,152 @@
-import { readFile } from 'node:fs/promises';
-
-import { ingestAgentResult } from './agent-result.js';
 import type { AgentStreamEvent } from './agent-result.js';
 import type { AgentRunnerRuntime, ExecutionPorts } from './execution-ports.js';
-import { exportPetri } from './petri.js';
-import { populatedPlanPath, populateWorktree } from './populate.js';
-import { preparePromotion } from './promotion.js';
-import { initializeReports } from './report.js';
-import { completeRun } from './run-complete.js';
+import {
+  compileExecutorTopology,
+  type ExecutorNetEvent,
+  type ReadyStep,
+  type SchedulerPlan,
+  type SchedulerPlanMode,
+} from './orchestrate-topology.js';
+import { appendPetriEvent } from './petri-events.js';
+import {
+  petriMarkingLifecycleProvenance,
+  petriMarkingSnapshotMatchesRunMetadata,
+  readPetriMarkingSnapshot,
+  type PetriMarkingSnapshot,
+  writePetriMarkingSnapshot,
+} from './petri-marking.js';
+import type { PetriProjection } from './petri-replay.js';
+import { readPetriRuntimePlan } from './petri-runtime-plan.js';
+import {
+  bindExecutorPetriRuntime,
+  materializeExecutorPetriRuntime,
+  projectExecutorPetriTransitionHistory,
+  type ExecutorPetriRuntime,
+} from './petri-runtime.js';
+import { classifyDriveTerminal } from './petri-terminal.js';
 import { readRunMetadata, runMetadataPath, type RunMetadata } from './run.js';
-import { completeSlice } from './slice-complete.js';
-import { requestSliceExecution } from './slice-execute.js';
-import { startSlice } from './slice-start.js';
-import { copyHostSource } from './source-copy.js';
-import { selectSourcePolicy, type SourcePolicyKind } from './source-policy.js';
-import { ingestTestResult } from './test-result.js';
+import type { SourcePolicyKind } from './source-policy.js';
 import type { VerifyStreamEvent } from './test-result.js';
-import { createWorktree } from './worktree.js';
+
+export { compileExecutorTopology };
+export type { ExecutorNetEvent, ReadyStep, SchedulerPlan, SchedulerPlanMode };
 
 // The driver composes the existing `execute_*` lifecycle steps into a single
 // self-advancing run. It owns no side effects of its own: each ReadyStep maps
 // to one step function, and the run.json status IS the loop state (D112-L).
 
-export type ReadyStep =
-  | { readonly kind: 'worktree_create' }
-  | { readonly kind: 'populate' }
-  | { readonly kind: 'source_policy' }
-  | { readonly kind: 'source_copy' }
-  | { readonly kind: 'report_init' }
-  | { readonly kind: 'slice_start'; readonly sliceId: string }
-  | { readonly kind: 'slice_execute' }
-  | { readonly kind: 'agent_result' }
-  | { readonly kind: 'test_result' }
-  | { readonly kind: 'slice_complete' }
-  | { readonly kind: 'run_complete' }
-  | { readonly kind: 'petri_export' }
-  | { readonly kind: 'promotion' };
-
-/** The minimal plan projection the scheduler needs to resolve the slice frontier. */
-export interface SchedulerPlan {
-  readonly mode?: 'greenfield' | 'brownfield';
-  readonly slices?: readonly { readonly id: string }[];
-}
-
-export type SchedulerPlanMode = NonNullable<SchedulerPlan['mode']>;
-
-export function normalizeSchedulerPlanMode(plan: SchedulerPlan | undefined): SchedulerPlanMode {
-  return plan?.mode ?? 'greenfield';
-}
-
 export interface RunScheduler {
   /** Pure: given current run facts, return the ready step frontier (`[]` when done). */
-  ready(state: RunMetadata, plan: SchedulerPlan | undefined): readonly ReadyStep[];
+  ready(
+    state: RunMetadata,
+    plan: SchedulerPlan | undefined,
+    runtime?: ExecutorPetriRuntime,
+  ): readonly ReadyStep[];
+}
+
+export interface RunFiringPolicy {
+  /** Pure: choose which ready steps from the current frontier this drive turn should attempt to fire. */
+  select(args: {
+    readonly readySteps: readonly ReadyStep[];
+    readonly readyRuntime?: Pick<ExecutorPetriRuntime, 'currentMarking'> & {
+      readonly enabledTransitions: readonly ReturnType<ExecutorPetriRuntime['transitionForReadyStep']>[];
+    };
+    readonly state: RunMetadata;
+    readonly plan: SchedulerPlan | undefined;
+  }): readonly ReadyStep[];
 }
 
 // A set-returning scheduler (length-1 today) leaves room for a future
 // PetriScheduler that fires several enabled transitions at once (D112-L,
 // geolog-and-petri-execution) without reshaping the driver loop.
 export const linearScheduler: RunScheduler = {
-  ready(state, plan) {
-    switch (state.status) {
-      case 'created':
-        return [{ kind: 'worktree_create' }];
-      case 'worktree_created':
-        return [{ kind: 'populate' }];
-      case 'worktree_populated':
-        return [{ kind: 'source_policy' }];
-      case 'source_policy_selected':
-        return [{ kind: 'source_copy' }];
-      case 'source_copied':
-        return [{ kind: 'report_init' }];
-      case 'reports_initialized':
-      case 'slice_completed': {
-        // Slice-frontier readiness derives from completion facts, not the coarse
-        // status: the next step is the first plan slice not yet completed.
-        const completed = new Set(state.completedSliceIds ?? []);
-        const next = plan?.slices?.find((slice) => !completed.has(slice.id));
-        return next ? [{ kind: 'slice_start', sliceId: next.id }] : [{ kind: 'run_complete' }];
-      }
-      case 'slice_started':
-        return [{ kind: 'slice_execute' }];
-      case 'slice_execution_requested':
-        return [{ kind: 'agent_result' }];
-      case 'agent_result_ingested':
-        return [{ kind: 'test_result' }];
-      case 'test_result_ingested':
-        return [{ kind: 'slice_complete' }];
-      case 'run_completed':
-        return [{ kind: 'petri_export' }];
-      case 'petri_exported':
-        return [{ kind: 'promotion' }];
-      case 'promotion_prepared':
-      case 'abandoned':
-        return [];
-    }
+  ready(state, plan, runtime) {
+    const [next] = (runtime ?? materializeExecutorPetriRuntime(state, plan)).readySteps;
+    return next ? [next] : [];
   },
 };
+
+export const petriScheduler: RunScheduler = {
+  ready(state, plan, runtime) {
+    return (runtime ?? materializeExecutorPetriRuntime(state, plan)).readySteps;
+  },
+};
+
+export const serialFiringPolicy: RunFiringPolicy = {
+  select({ readySteps }) {
+    return readySteps.slice(0, 1);
+  },
+};
+
+export const frontierFiringPolicy: RunFiringPolicy = {
+  select({ readySteps, readyRuntime }) {
+    if (!readyRuntime) return readySteps;
+    const claimedInputs = new Map<string, number>();
+    const selectedSteps: ReadyStep[] = [];
+    for (const transition of readyRuntime.enabledTransitions) {
+      if (!transition) continue;
+      const canClaim = transition.inputArcs.every((arc) => {
+        const claimed = claimedInputs.get(arc.placeId) ?? 0;
+        return claimed + arc.weight <= (readyRuntime.currentMarking[arc.placeId] ?? 0);
+      });
+      if (!canClaim) continue;
+      for (const arc of transition.inputArcs) {
+        claimedInputs.set(arc.placeId, (claimedInputs.get(arc.placeId) ?? 0) + arc.weight);
+      }
+      selectedSteps.push(transition.step);
+    }
+    return selectedSteps;
+  },
+};
+
+async function emitNetEvent(
+  ctx: Pick<DriveContext, 'cwd' | 'runId' | 'onNetEvent'>,
+  event: ExecutorNetEvent,
+): Promise<void> {
+  try {
+    await appendPetriEvent({ cwd: ctx.cwd, runId: ctx.runId, event });
+  } catch {
+    // Journal failures never affect the drive.
+  }
+  try {
+    ctx.onNetEvent?.(event);
+  } catch {
+    // Observer failures never affect the drive.
+  }
+}
+
+async function persistPetriMarkingSnapshot(
+  ctx: Pick<DriveContext, 'cwd' | 'runId'>,
+  snapshot: PetriMarkingSnapshot,
+): Promise<void> {
+  try {
+    await writePetriMarkingSnapshot({ cwd: ctx.cwd, runId: ctx.runId, snapshot });
+  } catch {
+    // Marking snapshot failures never affect the drive.
+  }
+}
+
+async function nextPetriSnapshot(args: {
+  readonly claimedTransitionIds?: readonly string[];
+  readonly currentMarking: Record<string, number>;
+  readonly firedTransitionCount: number;
+  readonly lifecycleProvenance: ReturnType<typeof petriMarkingLifecycleProvenance>;
+  readonly terminalEventKind?: PetriProjection['terminalEventKind'];
+  readonly haltedReason?: string;
+}): Promise<PetriMarkingSnapshot> {
+  return {
+    ...(args.claimedTransitionIds === undefined ? {} : { claimedTransitionIds: args.claimedTransitionIds }),
+    currentMarking: args.currentMarking,
+    firedTransitionCount: args.firedTransitionCount,
+    lifecycleProvenance: args.lifecycleProvenance,
+    ...(args.terminalEventKind === undefined ? {} : { terminalEventKind: args.terminalEventKind }),
+    ...(args.haltedReason === undefined ? {} : { haltedReason: args.haltedReason }),
+  };
+}
+
+function firedTransitionCountForState(state: RunMetadata, plan: SchedulerPlan | undefined): number {
+  return projectExecutorPetriTransitionHistory(state, plan)?.transitionIds.length ?? 0;
+}
 
 export interface DriveContext {
   readonly cwd: string;
@@ -120,6 +171,8 @@ export interface DriveContext {
   readonly onAgentUpdate?: (event: AgentStreamEvent) => void;
   /** Fired when the verify runner emits normalized stream events during test_result. */
   readonly onVerifyUpdate?: (event: VerifyStreamEvent) => void;
+  /** Fired when the executor runtime emits Petri-shaped transition or terminal facts. */
+  readonly onNetEvent?: (event: ExecutorNetEvent) => void;
 }
 
 export interface DriveStepProgress {
@@ -132,11 +185,115 @@ export interface DriveStepProgress {
   readonly completedSliceIds: readonly string[];
 }
 
+function schedulerPlanRequiredStep(state: RunMetadata): ReadyStep['kind'] | undefined {
+  switch (state.status) {
+    case 'reports_initialized':
+    case 'slice_completed':
+      return 'slice_start';
+    case 'slice_started':
+      return 'slice_execute';
+    case 'slice_execution_requested':
+      return 'agent_result';
+    case 'agent_result_ingested':
+      return 'test_result';
+    case 'test_result_ingested':
+      return 'slice_complete';
+    default:
+      return undefined;
+  }
+}
+
+function petriInputRequiredStep(state: RunMetadata): ReadyStep['kind'] | undefined {
+  switch (state.status) {
+    case 'created':
+      return 'worktree_create';
+    case 'worktree_created':
+      return 'populate';
+    case 'worktree_populated':
+      return 'source_policy';
+    case 'source_policy_selected':
+      return 'source_copy';
+    case 'source_copied':
+      return 'report_init';
+    case 'reports_initialized':
+    case 'slice_completed':
+      return 'slice_start';
+    case 'slice_started':
+      return 'slice_execute';
+    case 'slice_execution_requested':
+      return 'agent_result';
+    case 'agent_result_ingested':
+      return 'test_result';
+    case 'test_result_ingested':
+      return 'slice_complete';
+    case 'run_completed':
+      return 'petri_export';
+    case 'petri_exported':
+    case 'promotion_prepared':
+      return 'promotion';
+    case 'abandoned':
+      return undefined;
+  }
+}
+
+async function materializeDriveRuntime(args: {
+  readonly ctx: Pick<DriveContext, 'cwd' | 'runId' | 'onNetEvent'>;
+  readonly state: RunMetadata;
+  readonly plan: SchedulerPlan | undefined;
+}): Promise<
+  | { readonly runtime: ExecutorPetriRuntime }
+  | {
+      readonly terminal: ReturnType<typeof classifyDriveTerminal>;
+    }
+> {
+  try {
+    return { runtime: materializeExecutorPetriRuntime(args.state, args.plan) };
+  } catch {
+    const step = petriInputRequiredStep(args.state);
+    if (!step) {
+      if (args.state.status === 'abandoned') {
+        const terminal = classifyDriveTerminal({
+          kind: 'scheduler_exhausted',
+          runId: args.ctx.runId,
+          runStatus: args.state.status,
+        });
+        await emitNetEvent(args.ctx, terminal.event);
+        return { terminal };
+      }
+      throw new Error(`unexpected Petri materialization failure for run status ${args.state.status}`);
+    }
+    const terminal = classifyDriveTerminal({
+      kind: 'step_halted',
+      runId: args.ctx.runId,
+      runStatus: args.state.status,
+      step,
+      reason: 'petri_input_unreadable',
+    });
+    await emitNetEvent(args.ctx, terminal.event);
+    return { terminal };
+  }
+}
+
+function snapshotAlreadyCapturesTerminal(args: {
+  readonly snapshot: PetriMarkingSnapshot | undefined;
+  readonly state: RunMetadata;
+  readonly runtime: ExecutorPetriRuntime;
+  readonly plan: SchedulerPlan | undefined;
+  readonly terminal: ReturnType<typeof classifyDriveTerminal>;
+}): boolean {
+  const { snapshot, state, runtime, plan, terminal } = args;
+  if (!snapshot || !petriMarkingSnapshotMatchesRunMetadata(snapshot, state)) return false;
+  if (snapshot.firedTransitionCount !== firedTransitionCountForState(state, plan)) return false;
+  if (!petriMarkingsEqual(snapshot.currentMarking, runtime.currentMarking)) return false;
+  if (snapshot.terminalEventKind !== terminal.event.kind) return false;
+  return terminal.event.kind !== 'net_halted' || snapshot.haltedReason === terminal.event.reason;
+}
+
 export type DriveOutcome =
   | { readonly status: 'completed'; readonly runStatus: RunMetadata['status'] }
   | {
       readonly status: 'halted';
-      readonly step: ReadyStep['kind'];
+      readonly step: ReadyStep['kind'] | 'abandoned' | 'deadlocked';
       readonly runStatus: RunMetadata['status'];
       readonly reason: string;
     }
@@ -155,41 +312,203 @@ interface StepResult {
 export async function drive(
   ctx: DriveContext,
   scheduler: RunScheduler = linearScheduler,
+  firingPolicy: RunFiringPolicy = serialFiringPolicy,
+  options: { readonly maxFirings?: number } = {},
 ): Promise<DriveOutcome> {
   const metadataPath = runMetadataPath(ctx.cwd, ctx.runId);
+  let firedTransitions = 0;
   // ceiling: coarse halt detection — a step that leaves run.json's status
   // unchanged is treated as stuck. Replace with per-step outcome classification
   // if steps gain retry/abort semantics beyond advance-or-hold.
   for (;;) {
     const state = await readRunMetadata(metadataPath);
     if (!state) return { status: 'missing_run', runId: ctx.runId };
-
-    const plan = await planForScheduler(ctx.cwd, state);
-    const [next] = scheduler.ready(state, plan);
-    if (!next) return { status: 'completed', runStatus: state.status };
-
-    try {
-      ctx.onStepStart?.(next.kind, state.status, progressForStep('started', next, state, state.status));
-    } catch {
-      // Observer failures never affect the drive.
+    if (options.maxFirings !== undefined && firedTransitions >= options.maxFirings) {
+      return { status: 'completed', runStatus: state.status };
     }
 
-    const result = await runStep(next, ctx);
-    if (result.runStatus === state.status) {
-      return { status: 'halted', step: next.kind, runStatus: state.status, reason: result.status };
+    const plan = await readPetriRuntimePlan(ctx.cwd, state);
+    const requiredPlanStep = schedulerPlanRequiredStep(state);
+    if (plan === undefined && requiredPlanStep) {
+      const terminal = classifyDriveTerminal({
+        kind: 'step_halted',
+        runId: ctx.runId,
+        runStatus: state.status,
+        step: requiredPlanStep,
+        reason: 'scheduler_plan_unreadable',
+      });
+      await emitNetEvent(ctx, terminal.event);
+      return terminal.outcome;
     }
-    if (result.runStatus !== 'not_started') {
+    const runtimeResult = await materializeDriveRuntime({ ctx, state, plan });
+    if ('terminal' in runtimeResult) {
+      return runtimeResult.terminal.outcome;
+    }
+    const runtime = runtimeResult.runtime;
+    const readySteps = scheduler.ready(state, plan, runtime);
+    const selectedSteps =
+      (await readClaimedReadySteps(ctx, state, plan, runtime, readySteps)) ??
+      firingPolicy.select({
+        readySteps,
+        readyRuntime: {
+          currentMarking: runtime.currentMarking,
+          enabledTransitions: readySteps.map((step) => runtime.transitionForReadyStep(step)),
+        },
+        state,
+        plan,
+      });
+    if (selectedSteps.length === 0) {
+      const terminal = classifyDriveTerminal({
+        kind: 'scheduler_exhausted',
+        runId: ctx.runId,
+        runStatus: state.status,
+      });
+      const snapshot = await readPetriMarkingSnapshot({ cwd: ctx.cwd, runId: ctx.runId });
+      if (snapshotAlreadyCapturesTerminal({ snapshot, state, runtime, plan, terminal })) {
+        return terminal.outcome;
+      }
+      await emitNetEvent(ctx, terminal.event);
+      await persistPetriMarkingSnapshot(
+        ctx,
+        await nextPetriSnapshot({
+          currentMarking: runtime.currentMarking,
+          firedTransitionCount: firedTransitionCountForState(state, plan),
+          lifecycleProvenance: petriMarkingLifecycleProvenance(state),
+          terminalEventKind: terminal.event.kind,
+          ...(terminal.event.kind === 'net_halted' ? { haltedReason: terminal.event.reason } : {}),
+        }),
+      );
+      return terminal.outcome;
+    }
+
+    const claimedTransitionIds = selectedSteps.flatMap((step) => {
+      const transition = runtime.transitionForReadyStep(step);
+      return transition ? [transition.id] : [];
+    });
+    await persistPetriMarkingSnapshot(
+      ctx,
+      await nextPetriSnapshot({
+        ...(claimedTransitionIds.length === 0 ? {} : { claimedTransitionIds }),
+        currentMarking: runtime.currentMarking,
+        firedTransitionCount: firedTransitionCountForState(state, plan),
+        lifecycleProvenance: petriMarkingLifecycleProvenance(state),
+      }),
+    );
+
+    for (const [selectedIndex, selectedStep] of selectedSteps.entries()) {
+      const currentState = await readRunMetadata(metadataPath);
+      if (!currentState) return { status: 'missing_run', runId: ctx.runId };
+      const currentPlan = await readPetriRuntimePlan(ctx.cwd, currentState);
+      const currentRuntimeResult = await materializeDriveRuntime({
+        ctx,
+        state: currentState,
+        plan: currentPlan,
+      });
+      if ('terminal' in currentRuntimeResult) {
+        return currentRuntimeResult.terminal.outcome;
+      }
+      const currentRuntime = currentRuntimeResult.runtime;
+      const next = currentRuntime.readySteps.find((candidate) => readyStepsEqual(candidate, selectedStep));
+      if (!next) continue;
+
       try {
-        ctx.onStepComplete?.(
+        ctx.onStepStart?.(
           next.kind,
-          result.runStatus,
-          progressForStep('completed', next, state, result.runStatus),
+          currentState.status,
+          progressForStep('started', next, currentState, currentState.status),
         );
       } catch {
         // Observer failures never affect the drive.
       }
+
+      const boundRuntime = bindExecutorPetriRuntime(currentRuntime, ctx);
+      const boundTransition = boundRuntime.transitionForReadyStep(next);
+      const result = boundTransition ? await boundTransition.execute() : await neverBoundReadyStep(next);
+      if (result.runStatus === currentState.status) {
+        const terminal = classifyDriveTerminal({
+          kind: 'step_halted',
+          runId: ctx.runId,
+          runStatus: currentState.status,
+          step: next.kind,
+          reason: result.status,
+        });
+        await emitNetEvent(ctx, terminal.event);
+        await persistPetriMarkingSnapshot(
+          ctx,
+          await nextPetriSnapshot({
+            currentMarking: boundRuntime.runtime.currentMarking,
+            firedTransitionCount: firedTransitionCountForState(currentState, currentPlan),
+            lifecycleProvenance: petriMarkingLifecycleProvenance(currentState),
+            terminalEventKind: terminal.event.kind,
+            ...(terminal.event.kind === 'net_halted' ? { haltedReason: terminal.event.reason } : {}),
+          }),
+        );
+        return terminal.outcome;
+      }
+      if (result.runStatus !== 'not_started') {
+        const transition = boundTransition?.transition;
+        if (transition) {
+          firedTransitions += 1;
+          await emitNetEvent(ctx, {
+            kind: 'transition_fired',
+            runId: ctx.runId,
+            runStatus: result.runStatus,
+            transitionId: transition.id,
+            subnetId: transition.subnetId,
+            ...(transition.epicId === undefined ? {} : { epicId: transition.epicId }),
+            ...(transition.derivedFrom === undefined ? {} : { derivedFrom: transition.derivedFrom }),
+            step: next.kind,
+            contract: transition.contract,
+            consumed: transition.inputArcs.map((arc) => arc.placeId),
+            produced: transition.outputArcs.map((arc) => arc.placeId),
+            fromStatus: currentState.status,
+            toStatus: result.runStatus,
+          });
+          const nextState = await readRunMetadata(metadataPath);
+          if (nextState) {
+            const nextPlan = await readPetriRuntimePlan(ctx.cwd, nextState);
+            const nextRuntimeResult = await materializeDriveRuntime({
+              ctx,
+              state: nextState,
+              plan: nextPlan,
+            });
+            if ('terminal' in nextRuntimeResult) {
+              return nextRuntimeResult.terminal.outcome;
+            }
+            const nextRuntime = nextRuntimeResult.runtime;
+            await persistPetriMarkingSnapshot(
+              ctx,
+              await nextPetriSnapshot({
+                ...(selectedIndex + 1 >= claimedTransitionIds.length
+                  ? {}
+                  : { claimedTransitionIds: claimedTransitionIds.slice(selectedIndex + 1) }),
+                currentMarking: nextRuntime.currentMarking,
+                firedTransitionCount: firedTransitionCountForState(nextState, nextPlan),
+                lifecycleProvenance: petriMarkingLifecycleProvenance(nextState),
+              }),
+            );
+          }
+        }
+        try {
+          ctx.onStepComplete?.(
+            next.kind,
+            result.runStatus,
+            progressForStep('completed', next, currentState, result.runStatus),
+          );
+        } catch {
+          // Observer failures never affect the drive.
+        }
+        if (options.maxFirings !== undefined && firedTransitions >= options.maxFirings) {
+          return { status: 'completed', runStatus: result.runStatus };
+        }
+      }
     }
   }
+}
+
+function readyStepsEqual(left: ReadyStep, right: ReadyStep): boolean {
+  if (left.kind !== right.kind) return false;
+  return 'sliceId' in left && 'sliceId' in right ? left.sliceId === right.sliceId : true;
 }
 
 function progressForStep(
@@ -209,70 +528,55 @@ function progressForStep(
   };
 }
 
-async function planForScheduler(cwd: string, state: RunMetadata): Promise<SchedulerPlan | undefined> {
-  if (state.status !== 'reports_initialized' && state.status !== 'slice_completed') return undefined;
-  const path = state.populatedPlanPath ?? populatedPlanPath(cwd, state.runId);
-  return JSON.parse(await readFile(path, 'utf8')) as SchedulerPlan;
+async function neverBoundReadyStep(step: ReadyStep): Promise<StepResult> {
+  throw new Error(`missing bound Petri transition for ready step ${step.kind}`);
 }
 
-async function runStep(step: ReadyStep, ctx: DriveContext): Promise<StepResult> {
-  const { cwd, runId, ports } = ctx;
-  switch (step.kind) {
-    case 'worktree_create':
-      return createWorktree({
-        cwd,
-        runId,
-        gitWorktree: ports.gitWorktree,
-        ...(ctx.signal ? { signal: ctx.signal } : {}),
-      });
-    case 'populate':
-      return populateWorktree({ cwd, runId });
-    case 'source_policy':
-      return selectSourcePolicy({
-        cwd,
-        runId,
-        policy: await sourcePolicyForRun(ctx),
-      });
-    case 'source_copy':
-      return copyHostSource({ cwd, runId });
-    case 'report_init':
-      return initializeReports({ cwd, runId });
-    case 'slice_start':
-      return startSlice({ cwd, runId, sliceId: step.sliceId });
-    case 'slice_execute':
-      return requestSliceExecution({ cwd, runId });
-    case 'agent_result':
-      return ingestAgentResult({
-        cwd,
-        runId,
-        agentRunner: ports.agentRunner,
-        ...(ctx.runtime ? { runtime: ctx.runtime } : {}),
-        ...(ctx.onAgentUpdate ? { onAgentUpdate: ctx.onAgentUpdate } : {}),
-      });
-    case 'test_result':
-      return ingestTestResult({
-        cwd,
-        runId,
-        testRunner: ports.testRunner,
-        ...(ctx.signal ? { signal: ctx.signal } : {}),
-        ...(ctx.onVerifyUpdate ? { onVerifyUpdate: ctx.onVerifyUpdate } : {}),
-      });
-    case 'slice_complete':
-      return completeSlice({ cwd, runId });
-    case 'run_complete':
-      return completeRun({ cwd, runId });
-    case 'petri_export':
-      return exportPetri({ cwd, runId });
-    case 'promotion':
-      return preparePromotion({ cwd, runId, gitLand: ports.gitLand });
+async function readClaimedReadySteps(
+  ctx: Pick<DriveContext, 'cwd' | 'runId'>,
+  state: RunMetadata,
+  plan: SchedulerPlan | undefined,
+  runtime: ExecutorPetriRuntime,
+  readySteps: readonly ReadyStep[],
+): Promise<readonly ReadyStep[] | undefined> {
+  const snapshot = await readPetriMarkingSnapshot({ cwd: ctx.cwd, runId: ctx.runId });
+  if (
+    !snapshot ||
+    !petriMarkingSnapshotMatchesRunMetadata(snapshot, state) ||
+    snapshot.claimedTransitionIds === undefined ||
+    snapshot.claimedTransitionIds.length === 0
+  ) {
+    return undefined;
   }
+  if (snapshot.firedTransitionCount !== firedTransitionCountForState(state, plan)) return undefined;
+  if (!petriMarkingsEqual(snapshot.currentMarking, runtime.currentMarking)) return undefined;
+  const enabledById = new Map(
+    readySteps.flatMap((step) => {
+      const transition = runtime.transitionForReadyStep(step);
+      return transition ? [[transition.id, transition.step] as const] : [];
+    }),
+  );
+  const claimedSteps = snapshot.claimedTransitionIds.map((transitionId) => enabledById.get(transitionId));
+  if (!claimedSteps.every((step) => step !== undefined)) return undefined;
+
+  const claimedInputs = new Map<string, number>();
+  for (const transitionId of snapshot.claimedTransitionIds) {
+    const transition = runtime.enabledTransitions.find((candidate) => candidate.id === transitionId);
+    if (!transition) return undefined;
+    for (const arc of transition.inputArcs) {
+      const nextClaimed = (claimedInputs.get(arc.placeId) ?? 0) + arc.weight;
+      if (nextClaimed > (runtime.currentMarking[arc.placeId] ?? 0)) return undefined;
+      claimedInputs.set(arc.placeId, nextClaimed);
+    }
+  }
+
+  return claimedSteps;
 }
 
-async function sourcePolicyForRun(ctx: DriveContext): Promise<SourcePolicyKind> {
-  if (ctx.sourcePolicy) return ctx.sourcePolicy;
-
-  const metadata = await readRunMetadata(runMetadataPath(ctx.cwd, ctx.runId));
-  const path = metadata?.populatedPlanPath ?? populatedPlanPath(ctx.cwd, ctx.runId);
-  const plan = JSON.parse(await readFile(path, 'utf8')) as SchedulerPlan;
-  return normalizeSchedulerPlanMode(plan) === 'brownfield' ? 'host_source_deferred' : 'plan_only';
+function petriMarkingsEqual(left: Record<string, number>, right: Record<string, number>): boolean {
+  const leftEntries = Object.entries(left);
+  return (
+    leftEntries.length === Object.keys(right).length &&
+    leftEntries.every(([placeId, count]) => right[placeId] === count)
+  );
 }

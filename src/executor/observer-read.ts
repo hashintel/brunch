@@ -3,6 +3,17 @@ import { join } from 'node:path';
 
 import { BRUNCH_DIR } from '../constants.js';
 import { agentStreamPath, type AgentStreamEvent } from './agent-result.js';
+import type { BlockedStep, ExecutorNetEvent, ReadyStep, SchedulerPlan } from './orchestrate-topology.js';
+import { petriEventsPath } from './petri-events.js';
+import { petriMarkingSnapshotMatchesRunMetadata, readPetriMarkingSnapshot } from './petri-marking.js';
+import { canProjectPetriReplay } from './petri-replay-eligibility.js';
+import { replayPetri, type PetriProjection } from './petri-replay.js';
+import { readPetriRuntimePlan } from './petri-runtime-plan.js';
+import {
+  materializeExecutorPetriRuntime,
+  projectExecutorPetriTransitionHistory,
+  type ExecutorPetriRuntime,
+} from './petri-runtime.js';
 import { readRunMetadata, runDirPath, runMetadataPath, type RunMetadata } from './run.js';
 import { verifyStreamPath, type VerifyStreamEvent } from './test-result.js';
 
@@ -62,10 +73,20 @@ export interface RunSliceProgress {
   readonly progress: string;
 }
 
+export type PetriProjectionSource = 'snapshot' | 'replay';
+export type PetriProjectionReplayReason = 'snapshot_missing_or_unreadable' | 'snapshot_stale';
+
 export interface RunDetail extends RunSummary {
   readonly planPath: string;
   readonly reportsTail: readonly RunReportEvent[];
   readonly reportsTotal: number;
+  readonly petriEventsTail: readonly ExecutorNetEvent[];
+  readonly petriEventsTotal: number;
+  readonly petriReadySteps?: readonly ReadyStep[];
+  readonly petriBlockedSteps?: readonly BlockedStep[];
+  readonly petriProjection?: PetriProjection;
+  readonly petriProjectionSource?: PetriProjectionSource;
+  readonly petriProjectionReplayReason?: PetriProjectionReplayReason;
   readonly agentStreamTail: readonly AgentStreamEvent[];
   readonly agentStreamTotal: number;
   readonly verifyStreamTail: readonly VerifyStreamEvent[];
@@ -91,6 +112,7 @@ export interface RunTraceIndex {
 }
 
 export const DEFAULT_REPORTS_TAIL_LIMIT = 50;
+export const DEFAULT_PETRI_EVENTS_TAIL_LIMIT = 50;
 export const DEFAULT_AGENT_STREAM_TAIL_LIMIT = 50;
 export const DEFAULT_VERIFY_STREAM_TAIL_LIMIT = 50;
 
@@ -145,17 +167,67 @@ export async function readRunDetail(
   }
   const summary = await summarizeRun(cwd, runId, metadata);
   const limit = options?.reportsTailLimit ?? DEFAULT_REPORTS_TAIL_LIMIT;
+  const petriEventsLimit = DEFAULT_PETRI_EVENTS_TAIL_LIMIT;
   const agentStreamLimit = options?.agentStreamTailLimit ?? DEFAULT_AGENT_STREAM_TAIL_LIMIT;
   const verifyStreamLimit = options?.verifyStreamTailLimit ?? DEFAULT_VERIFY_STREAM_TAIL_LIMIT;
   const reports = await readReportsTail(reportsFilePath(cwd, runId, metadata), limit);
+  const petriEvents = await readPetriEvents(petriEventsPath(cwd, runId), petriEventsLimit);
   const agentStream = await readAgentStreamTail(cwd, runId, metadata, agentStreamLimit);
   const verifyStream = await readVerifyStreamTail(cwd, runId, metadata, verifyStreamLimit);
+  const petriRuntimePlan = await readPetriRuntimePlan(cwd, metadata);
+  let petriRuntime: ReturnType<typeof materializeExecutorPetriRuntime> | undefined;
+  try {
+    petriRuntime =
+      petriRuntimePlan === undefined
+        ? undefined
+        : materializeExecutorPetriRuntime(metadata, petriRuntimePlan);
+  } catch {
+    petriRuntime = undefined;
+  }
   const petriNet = await readPetriNet(petriFilePath(cwd, runId, metadata));
+  const petriReplayProjection = canProjectPetriReplay({ petriNet, petriEvents })
+    ? replayPetri({ net: petriNet, events: petriEvents.events })
+    : undefined;
+  const petriMarkingSnapshot = await readPetriMarkingSnapshot({ cwd, runId });
+  const hasMatchingPetriMarkingSnapshot =
+    petriMarkingSnapshot !== undefined &&
+    petriMarkingSnapshotMatchesRunMetadata(petriMarkingSnapshot, metadata) &&
+    petriMarkingSnapshotMatchesRuntime(petriMarkingSnapshot, metadata, petriRuntimePlan, petriRuntime);
+  const petriProjectionEntry =
+    (hasMatchingPetriMarkingSnapshot
+      ? {
+          projection: toPetriProjection(petriMarkingSnapshot, metadata, petriRuntime, petriReplayProjection),
+          source: 'snapshot' as const,
+        }
+      : undefined) ??
+    (petriReplayProjection
+      ? toProjectionEntry(petriReplayProjection, 'replay', {
+          replayReason:
+            petriMarkingSnapshot === undefined ? 'snapshot_missing_or_unreadable' : 'snapshot_stale',
+        })
+      : undefined);
   return {
     ...summary,
     planPath: metadata.planPath,
     reportsTail: reports.tail,
     reportsTotal: reports.total,
+    petriEventsTail: petriEvents.tail,
+    petriEventsTotal: petriEvents.total,
+    ...(petriRuntime === undefined
+      ? {}
+      : {
+          petriReadySteps: petriRuntime.readySteps,
+          petriBlockedSteps: petriRuntime.blockedSteps,
+        }),
+    ...(petriProjectionEntry === undefined
+      ? {}
+      : {
+          petriProjection: petriProjectionEntry.projection,
+          petriProjectionSource: petriProjectionEntry.source,
+          ...(petriProjectionEntry.replayReason === undefined
+            ? {}
+            : { petriProjectionReplayReason: petriProjectionEntry.replayReason }),
+        }),
     agentStreamTail: agentStream.tail,
     agentStreamTotal: agentStream.total,
     verifyStreamTail: verifyStream.tail,
@@ -168,6 +240,132 @@ export async function readRunDetail(
     ),
     ...(petriNet === undefined ? {} : { petriNet }),
   };
+}
+
+function toPetriProjection(
+  snapshot: {
+    readonly claimedTransitionIds?: readonly string[];
+    readonly currentMarking: Record<string, number>;
+    readonly firedTransitionCount: number;
+    readonly terminalEventKind?: PetriProjection['terminalEventKind'];
+    readonly haltedReason?: string;
+  },
+  metadata: RunMetadata,
+  runtime?: Pick<ExecutorPetriRuntime, 'currentMarking' | 'enabledTransitions'>,
+  replayProjection?: Pick<PetriProjection, 'terminalEventKind' | 'haltedReason'>,
+): PetriProjection {
+  const claimedTransitionIds = sanitizeClaimedTransitionIds(snapshot.claimedTransitionIds, runtime);
+  const terminalSummary = sanitizeTerminalSummary(snapshot, metadata, replayProjection);
+  return {
+    ...(claimedTransitionIds === undefined ? {} : { claimedTransitionIds }),
+    currentMarking: snapshot.currentMarking,
+    firedTransitionCount: snapshot.firedTransitionCount,
+    ...terminalSummary,
+  };
+}
+
+function sanitizeClaimedTransitionIds(
+  claimedTransitionIds: readonly string[] | undefined,
+  runtime?: Pick<ExecutorPetriRuntime, 'currentMarking' | 'enabledTransitions'>,
+): readonly string[] | undefined {
+  if (claimedTransitionIds === undefined || claimedTransitionIds.length === 0) {
+    return claimedTransitionIds;
+  }
+  if (runtime === undefined) return undefined;
+  const enabledById = new Map(runtime.enabledTransitions.map((transition) => [transition.id, transition]));
+  const claimedInputs = new Map<string, number>();
+  for (const transitionId of claimedTransitionIds) {
+    const transition = enabledById.get(transitionId);
+    if (!transition) return undefined;
+    for (const arc of transition.inputArcs) {
+      const nextClaimed = (claimedInputs.get(arc.placeId) ?? 0) + arc.weight;
+      if (nextClaimed > (runtime.currentMarking[arc.placeId] ?? 0)) return undefined;
+      claimedInputs.set(arc.placeId, nextClaimed);
+    }
+  }
+  return claimedTransitionIds;
+}
+
+function petriMarkingSnapshotMatchesRuntime(
+  snapshot: { readonly currentMarking: Record<string, number>; readonly firedTransitionCount: number },
+  metadata: RunMetadata,
+  plan: SchedulerPlan | undefined,
+  runtime?: Pick<ExecutorPetriRuntime, 'currentMarking'>,
+): boolean {
+  if (runtime === undefined) return false;
+  if (
+    projectExecutorPetriTransitionHistory(metadata, plan)?.transitionIds.length !==
+    snapshot.firedTransitionCount
+  ) {
+    return false;
+  }
+  const runtimeEntries = Object.entries(runtime.currentMarking);
+  const snapshotEntries = Object.entries(snapshot.currentMarking);
+  return (
+    runtimeEntries.length === snapshotEntries.length &&
+    runtimeEntries.every(([placeId, count]) => snapshot.currentMarking[placeId] === count)
+  );
+}
+
+function sanitizeTerminalSummary(
+  snapshot: {
+    readonly terminalEventKind?: PetriProjection['terminalEventKind'] | undefined;
+    readonly haltedReason?: string | undefined;
+  },
+  metadata: RunMetadata,
+  replayProjection?: {
+    readonly terminalEventKind?: PetriProjection['terminalEventKind'] | undefined;
+    readonly haltedReason?: string | undefined;
+  },
+): Pick<PetriProjection, 'terminalEventKind' | 'haltedReason'> {
+  if (snapshot.terminalEventKind === undefined && snapshot.haltedReason === undefined) {
+    return {};
+  }
+  const checkable = replayProjection?.terminalEventKind
+    ? replayProjection
+    : expectedTerminalSummary(metadata);
+  if (!checkable?.terminalEventKind) {
+    return {};
+  }
+  if (snapshot.terminalEventKind !== checkable.terminalEventKind) {
+    return {};
+  }
+  if (snapshot.haltedReason !== checkable.haltedReason) {
+    return {};
+  }
+  return {
+    terminalEventKind: checkable.terminalEventKind,
+    ...(checkable.haltedReason === undefined ? {} : { haltedReason: checkable.haltedReason }),
+  };
+}
+
+function expectedTerminalSummary(
+  metadata: RunMetadata,
+): Pick<PetriProjection, 'terminalEventKind' | 'haltedReason'> | undefined {
+  switch (metadata.status) {
+    case 'promotion_prepared':
+      return { terminalEventKind: 'net_completed' };
+    case 'abandoned':
+      return { terminalEventKind: 'net_halted', haltedReason: 'abandoned' };
+    default:
+      return undefined;
+  }
+}
+
+function toProjectionEntry(
+  projection: PetriProjection | undefined,
+  source: PetriProjectionSource,
+  options?: { readonly replayReason?: PetriProjectionReplayReason },
+):
+  | {
+      readonly projection: PetriProjection;
+      readonly source: PetriProjectionSource;
+      readonly replayReason?: PetriProjectionReplayReason;
+    }
+  | undefined {
+  return projection
+    ? { projection, source, ...(options?.replayReason ? { replayReason: options.replayReason } : {}) }
+    : undefined;
 }
 
 function groupSliceProgress(events: readonly RunReportEvent[]): readonly RunSliceProgress[] {
@@ -246,10 +444,11 @@ async function readVerifyStreamTail(
 
 async function summarizeRun(cwd: string, runId: string, metadata: RunMetadata): Promise<RunSummary> {
   const runDir = runDirPath(cwd, runId);
-  const [worktree, reports, petri, promotion] = await Promise.all([
+  const [worktree, reports, petriNet, petriEvents, promotion] = await Promise.all([
     pathExists(metadata.worktreeDir ?? join(runDir, 'worktree')),
     pathExists(reportsFilePath(cwd, runId, metadata)),
     pathExists(petriFilePath(cwd, runId, metadata)),
+    pathExists(petriEventsPath(cwd, runId)),
     pathExists(metadata.promotionPath ?? join(runDir, 'promotion', 'promotion.json')),
   ]);
   return {
@@ -261,7 +460,7 @@ async function summarizeRun(cwd: string, runId: string, metadata: RunMetadata): 
     ...(metadata.supersedesRunId === undefined ? {} : { supersedesRunId: metadata.supersedesRunId }),
     ...(metadata.abandonedAt === undefined ? {} : { abandonedAt: metadata.abandonedAt }),
     ...(metadata.abandonReason === undefined ? {} : { abandonReason: metadata.abandonReason }),
-    presence: { worktree, reports, petri, promotion },
+    presence: { worktree, reports, petri: petriNet || petriEvents, promotion },
   };
 }
 
@@ -279,6 +478,42 @@ async function readPetriNet(path: string): Promise<unknown> {
   } catch {
     return undefined;
   }
+}
+
+async function readPetriEvents(
+  path: string,
+  limit: number,
+): Promise<{
+  exists: boolean;
+  events: readonly ExecutorNetEvent[];
+  tail: readonly ExecutorNetEvent[];
+  total: number;
+  torn: boolean;
+}> {
+  let raw: string;
+  try {
+    raw = await readFile(path, 'utf8');
+  } catch {
+    return { exists: false, events: [], tail: [], total: 0, torn: false };
+  }
+  const events: ExecutorNetEvent[] = [];
+  let torn = false;
+  const lines = raw.split('\n');
+  const lastIndex = lines.length - 1;
+  const hasTrailingNewline = raw.endsWith('\n');
+  for (const [index, line] of lines.entries()) {
+    if (index === lastIndex && line.length === 0) continue;
+    if (line.length === 0) continue;
+    try {
+      events.push(JSON.parse(line) as ExecutorNetEvent);
+    } catch {
+      // A torn journal line never blocks the readable event tail.
+      // Accept a complete final line even when the file is missing a trailing newline.
+      torn = true;
+      if (index !== lastIndex || hasTrailingNewline) continue;
+    }
+  }
+  return { exists: true, events, tail: events.slice(-limit), total: events.length, torn };
 }
 
 async function readReportsTail(

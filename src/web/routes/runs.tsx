@@ -181,6 +181,17 @@ function RunDetailPage() {
           total={detail.verifyStreamTotal}
         />
         <ReportsTimeline run={detail} />
+        {detail.petriProjection === undefined &&
+        (detail.petriReadySteps?.length ?? 0) === 0 &&
+        (detail.petriBlockedSteps?.length ?? 0) === 0 ? null : (
+          <PetriProjectionBlock
+            projection={detail.petriProjection}
+            readySteps={detail.petriReadySteps}
+            blockedSteps={detail.petriBlockedSteps}
+            source={detail.petriProjectionSource}
+            replayReason={detail.petriProjectionReplayReason}
+          />
+        )}
         {detail.petriNet === undefined ? null : <PetriRawBlock net={detail.petriNet} />}
       </div>
     </PageColumn>
@@ -192,6 +203,10 @@ function normalizeRunDetail(run: RunDetail): RunDetail {
     ...run,
     reportsTail: run.reportsTail ?? [],
     reportsTotal: run.reportsTotal ?? 0,
+    petriEventsTail: run.petriEventsTail ?? [],
+    petriEventsTotal: run.petriEventsTotal ?? 0,
+    petriReadySteps: run.petriReadySteps ?? [],
+    petriBlockedSteps: run.petriBlockedSteps ?? [],
     agentStreamTail: run.agentStreamTail ?? [],
     agentStreamTotal: run.agentStreamTotal ?? 0,
     verifyStreamTail: run.verifyStreamTail ?? [],
@@ -406,6 +421,92 @@ function PetriRawBlock({ net }: { net: unknown }) {
       <pre className="text-sub mt-2 overflow-x-auto text-xs">{JSON.stringify(net, null, 2)}</pre>
     </details>
   );
+}
+
+function PetriProjectionBlock({
+  projection,
+  readySteps,
+  blockedSteps,
+  source,
+  replayReason,
+}: {
+  projection?: RunDetail['petriProjection'];
+  readySteps?: RunDetail['petriReadySteps'];
+  blockedSteps?: RunDetail['petriBlockedSteps'];
+  source?: RunDetail['petriProjectionSource'];
+  replayReason?: RunDetail['petriProjectionReplayReason'];
+}) {
+  return (
+    <section className="border-rule flex flex-col gap-2 rounded-xl border bg-white p-4 shadow-[var(--shadow-card)]">
+      <p className="text-hint font-mono text-xs">
+        {projection === undefined ? 'Petri frontier (derived)' : 'Petri projection (derived)'}
+      </p>
+      {projection === undefined ? null : (
+        <p className="text-sub text-xs">
+          {`${projection.firedTransitionCount} fired transitions`}
+          {source === undefined ? '' : ` • source: ${source}`}
+        </p>
+      )}
+      {projection?.claimedTransitionIds === undefined ||
+      projection.claimedTransitionIds.length === 0 ? null : (
+        <p className="text-sub text-xs">{`claimed: ${projection.claimedTransitionIds.join(', ')}`}</p>
+      )}
+      {replayReason !== 'snapshot_missing_or_unreadable' ? null : (
+        <p className="text-sub text-xs">
+          replay chosen because no readable persisted marking snapshot was available
+        </p>
+      )}
+      {replayReason !== 'snapshot_stale' ? null : (
+        <p className="text-sub text-xs">
+          replay chosen because the persisted marking snapshot no longer matches current lifecycle facts
+        </p>
+      )}
+      {projection?.terminalEventKind === undefined ? null : (
+        <p className="text-sub text-xs">
+          {projection.terminalEventKind}
+          {projection.haltedReason === undefined ? '' : ` — ${projection.haltedReason}`}
+        </p>
+      )}
+      {readySteps === undefined || readySteps.length === 0 ? null : (
+        <div className="flex flex-col gap-1">
+          <p className="text-sub text-xs">Ready now</p>
+          <ul className="text-sub flex flex-col gap-1 font-mono text-xs">
+            {readySteps.map((step, index) => (
+              <li key={`${step.kind}-${'sliceId' in step ? step.sliceId : index}`}>
+                {describeReadyStep(step)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {blockedSteps === undefined || blockedSteps.length === 0 ? null : (
+        <div className="flex flex-col gap-1">
+          <p className="text-sub text-xs">Blocked now</p>
+          <ul className="text-sub flex flex-col gap-1 font-mono text-xs">
+            {blockedSteps.map((step) => (
+              <li key={`${step.kind}-${step.sliceId}`}>{describeBlockedStep(step)}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {projection === undefined ? null : (
+        <pre className="text-sub overflow-x-auto text-xs">
+          {JSON.stringify(projection.currentMarking, null, 2)}
+        </pre>
+      )}
+    </section>
+  );
+}
+
+function describeReadyStep(step: NonNullable<RunDetail['petriReadySteps']>[number]): string {
+  if (!('sliceId' in step)) return step.kind;
+  return `${step.kind}:${step.sliceId}${step.epicId === undefined ? '' : ` (${step.epicId})`}${step.derivedFrom === undefined ? '' : ` ← ${step.derivedFrom.join(', ')}`}`;
+}
+
+function describeBlockedStep(step: NonNullable<RunDetail['petriBlockedSteps']>[number]): string {
+  return `${describeReadyStep(step)} blocked by ${step.blockers
+    .map((blocker) => (blocker.kind === 'dependency' ? blocker.sliceId : `active slice ${blocker.sliceId}`))
+    .join(', ')}`;
 }
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {

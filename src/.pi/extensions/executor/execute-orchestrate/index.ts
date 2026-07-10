@@ -3,9 +3,14 @@ import { Type, type Static } from 'typebox';
 
 import type { AgentStreamEvent } from '../../../../executor/agent-result.js';
 import type { ExecutionPorts } from '../../../../executor/execution-ports.js';
+import { readRunDetail } from '../../../../executor/observer-read.js';
 import { drive, type DriveOutcome, type DriveStepProgress } from '../../../../executor/orchestrate.js';
 import type { VerifyStreamEvent } from '../../../../executor/test-result.js';
-import { executeRunProductUpdates, type ProductUpdatePublisher } from '../../../../rpc/product-updates.js';
+import {
+  executeRunProductUpdateHintsFromDetail,
+  executeRunProductUpdates,
+  type ProductUpdatePublisher,
+} from '../../../../rpc/product-updates.js';
 import { BRUNCH_EXECUTE_ORCHESTRATE_TOOL } from '../../../../session/schema/tool-names.js';
 import { toolParameters } from '../../shared/tool-schema.js';
 import { renderExecuteOrchestrateResult } from '../rendering.js';
@@ -58,6 +63,20 @@ export function createExecuteOrchestrateTool(
         throw new Error('execute_orchestrate requires an active cwd');
       }
       const publisher = deps?.productUpdates;
+      const publishRunUpdate = async (): Promise<void> => {
+        if (!publisher) return;
+        const detail = await readRunDetail(cwd, params.runId).catch(() => undefined);
+        const readableDetail = detail && !('unreadable' in detail) ? detail : undefined;
+        const hints = readableDetail ? executeRunProductUpdateHintsFromDetail(readableDetail) : undefined;
+        publisher.publish(executeRunProductUpdates(params.runId, hints));
+      };
+      let pendingRunUpdate = Promise.resolve();
+      const queueRunUpdate = (): void => {
+        if (!publisher) return;
+        pendingRunUpdate = pendingRunUpdate.then(async () => {
+          await publishRunUpdate();
+        });
+      };
       let latestProgress: ExecuteOrchestrateDetails['progress'];
       let latestAgentStream: ExecuteOrchestrateDetails['agentStream'];
       let latestVerifyStream: ExecuteOrchestrateDetails['verifyStream'];
@@ -115,8 +134,8 @@ export function createExecuteOrchestrateTool(
         });
       };
       const emitAgentUpdate = (event: AgentStreamEvent): void => {
+        queueRunUpdate();
         latestAgentStream = event;
-        publisher?.publish(executeRunProductUpdates(params.runId));
         onUpdate?.({
           content: [
             {
@@ -138,8 +157,8 @@ export function createExecuteOrchestrateTool(
         });
       };
       const emitVerifyUpdate = (event: VerifyStreamEvent): void => {
+        queueRunUpdate();
         latestVerifyStream = event;
-        publisher?.publish(executeRunProductUpdates(params.runId));
         onUpdate?.({
           content: [
             {
@@ -165,10 +184,11 @@ export function createExecuteOrchestrateTool(
         runId: params.runId,
         ports,
         onStepStart: (_step, _runStatus, progress) => {
+          queueRunUpdate();
           emitProgress(progress);
         },
         onStepComplete: (_step, _runStatus, progress) => {
-          publisher?.publish(executeRunProductUpdates(params.runId));
+          queueRunUpdate();
           emitProgress(progress);
         },
         onAgentUpdate: emitAgentUpdate,
@@ -180,6 +200,8 @@ export function createExecuteOrchestrateTool(
         },
         ...(_signal ? { signal: _signal } : {}),
       });
+      await pendingRunUpdate;
+      await publishRunUpdate();
       return {
         content: [
           {

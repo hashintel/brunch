@@ -1,11 +1,12 @@
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import { agentStreamPath } from '../agent-result.js';
 import { listRuns, readRunDetail } from '../observer-read.js';
+import { populatedPlanPath } from '../populate.js';
 import { runDirPath, runMetadataPath, type RunMetadata } from '../run.js';
 import { verifyStreamPath } from '../test-result.js';
 
@@ -118,6 +119,120 @@ describe('readRunDetail', () => {
     expect(await readRunDetail(cwd, 'run-t')).toEqual({ runId: 'run-t', unreadable: true });
   });
 
+  it('surfaces the current Petri ready frontier from run lifecycle facts and plan dependencies', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-ready-steps-');
+    const planPath = join(cwd, 'plan.yaml');
+    await writeFile(
+      planPath,
+      JSON.stringify({
+        mode: 'greenfield',
+        slices: [
+          { id: 'task-1', epic_id: 'frontier-1', derived_from: ['REQ1'] },
+          { id: 'task-2', epic_id: 'frontier-1', depends_on: ['task-1'], derived_from: ['REQ2'] },
+          { id: 'task-3', epic_id: 'frontier-2', derived_from: ['REQ3'] },
+        ],
+      }),
+      'utf8',
+    );
+    await writeRun(cwd, 'run-ready-frontier', {
+      planPath,
+      status: 'reports_initialized',
+    });
+
+    const detail = await readRunDetail(cwd, 'run-ready-frontier');
+
+    expect(detail).toMatchObject({
+      petriReadySteps: [
+        { kind: 'slice_start', sliceId: 'task-1', epicId: 'frontier-1', derivedFrom: ['REQ1'] },
+        { kind: 'slice_start', sliceId: 'task-3', epicId: 'frontier-2', derivedFrom: ['REQ3'] },
+      ],
+      petriBlockedSteps: [
+        {
+          kind: 'slice_start',
+          sliceId: 'task-2',
+          epicId: 'frontier-1',
+          derivedFrom: ['REQ2'],
+          blockers: [{ kind: 'dependency', sliceId: 'task-1' }],
+        },
+      ],
+    });
+  });
+
+  it('surfaces active-slice blockers when another dependency-ready slice cannot start yet', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-active-blocker-');
+    const planPath = join(cwd, 'plan.yaml');
+    await writeFile(
+      planPath,
+      JSON.stringify({ mode: 'greenfield', slices: [{ id: 'task-1' }, { id: 'task-2' }] }),
+      'utf8',
+    );
+    await writeRun(cwd, 'run-active-blocker', {
+      planPath,
+      status: 'slice_started',
+      activeSliceId: 'task-1',
+    });
+
+    const detail = await readRunDetail(cwd, 'run-active-blocker');
+
+    expect(detail).toMatchObject({
+      petriBlockedSteps: [
+        {
+          kind: 'slice_start',
+          sliceId: 'task-2',
+          blockers: [{ kind: 'active_slice', sliceId: 'task-1' }],
+        },
+      ],
+    });
+  });
+
+  it('keeps run detail readable when duplicate slice ids make the Petri runtime invalid', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-duplicate-slice-id-');
+    const planPath = join(cwd, 'plan.yaml');
+    await writeFile(
+      planPath,
+      JSON.stringify({ mode: 'greenfield', slices: [{ id: 'task-1' }, { id: 'task-1' }] }),
+      'utf8',
+    );
+    await writeRun(cwd, 'run-duplicate-slices', {
+      planPath,
+      status: 'reports_initialized',
+    });
+
+    const detail = await readRunDetail(cwd, 'run-duplicate-slices');
+
+    expect(detail).toMatchObject({
+      runId: 'run-duplicate-slices',
+      status: 'reports_initialized',
+    });
+    expect(detail && 'petriReadySteps' in detail ? detail.petriReadySteps : undefined).toBeUndefined();
+    expect(detail && 'petriBlockedSteps' in detail ? detail.petriBlockedSteps : undefined).toBeUndefined();
+  });
+
+  it('uses the same populated plan fallback as drive when Petri runtime metadata omits it', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-runtime-plan-fallback-');
+    const fallbackPlanPath = populatedPlanPath(cwd, 'run-fallback-plan');
+    await mkdir(dirname(fallbackPlanPath), { recursive: true });
+    await writeFile(
+      fallbackPlanPath,
+      JSON.stringify({
+        mode: 'greenfield',
+        slices: [{ id: 'task-1' }, { id: 'task-2', depends_on: ['task-1'] }],
+      }),
+      'utf8',
+    );
+    await writeRun(cwd, 'run-fallback-plan', {
+      planPath: join(cwd, 'missing-plan.json'),
+      status: 'slice_completed',
+      completedSliceIds: ['task-1'],
+    });
+
+    const detail = await readRunDetail(cwd, 'run-fallback-plan');
+
+    expect(detail).toMatchObject({
+      petriReadySteps: [{ kind: 'slice_start', sliceId: 'task-2' }],
+    });
+  });
+
   it('returns the reports tail, skipping an in-flight partial trailing line', async () => {
     const cwd = await fixtureCwd('brunch-observer-detail-');
     const runDir = await writeRun(cwd, 'run-d', {
@@ -193,6 +308,833 @@ describe('readRunDetail', () => {
     expect(missing && 'petriNet' in missing ? missing.petriNet : 'absent').toBe('absent');
     expect(torn).toMatchObject({ presence: { petri: true } });
     expect(torn && 'petriNet' in torn ? torn.petriNet : 'absent').toBe('absent');
+  });
+
+  it('returns a raw Petri event tail/count when the journal exists and skips torn trailing lines', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-events-');
+    const runDir = await writeRun(cwd, 'run-petri-events', { status: 'agent_result_ingested' });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'events.jsonl'),
+      [
+        JSON.stringify({
+          kind: 'transition_fired',
+          runId: 'run-petri-events',
+          runStatus: 'slice_started',
+          transitionId: 'slice_start:task-1',
+          subnetId: 'slice:task-1',
+          step: 'slice_start',
+          fromStatus: 'reports_initialized',
+          toStatus: 'slice_started',
+        }),
+        JSON.stringify({
+          kind: 'net_halted',
+          runId: 'run-petri-events',
+          runStatus: 'agent_result_ingested',
+          step: 'test_result',
+          reason: 'test_run_failed',
+        }),
+        '{"kind":"transition_fired"',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-events');
+
+    expect(detail).toMatchObject({
+      petriEventsTotal: 2,
+      petriEventsTail: [
+        {
+          kind: 'transition_fired',
+          runId: 'run-petri-events',
+          transitionId: 'slice_start:task-1',
+          subnetId: 'slice:task-1',
+        },
+        {
+          kind: 'net_halted',
+          runId: 'run-petri-events',
+          step: 'test_result',
+          reason: 'test_run_failed',
+        },
+      ],
+    });
+  });
+
+  it('returns a derived Petri projection when both raw artifacts are present', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-projection-');
+    const runDir = await writeRun(cwd, 'run-petri-projection', { status: 'promotion_prepared' });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'net.json'),
+      JSON.stringify({
+        runId: 'run-petri-projection',
+        subnets: [{ id: 'run', kind: 'run_control', transitionIds: ['worktree_create'] }],
+        places: [
+          { id: 'run:created', subnetId: 'run', name: 'Created' },
+          { id: 'run:promotion_prepared', subnetId: 'run', name: 'Promotion prepared' },
+        ],
+        transitions: [
+          {
+            id: 'worktree_create',
+            subnetId: 'run',
+            step: { kind: 'worktree_create' },
+            contract: { kind: 'mechanical', lane: 'run' },
+            inputArcs: [{ placeId: 'run:created', weight: 1 }],
+            outputArcs: [{ placeId: 'run:promotion_prepared', weight: 1 }],
+          },
+        ],
+        initialMarking: { 'run:created': 1 },
+      }),
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'petrinaut', 'events.jsonl'),
+      [
+        JSON.stringify({
+          kind: 'transition_fired',
+          runId: 'run-petri-projection',
+          runStatus: 'promotion_prepared',
+          transitionId: 'worktree_create',
+          subnetId: 'run',
+          step: 'worktree_create',
+          fromStatus: 'created',
+          toStatus: 'promotion_prepared',
+        }),
+        JSON.stringify({
+          kind: 'net_completed',
+          runId: 'run-petri-projection',
+          runStatus: 'promotion_prepared',
+        }),
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-projection');
+
+    expect(detail).toMatchObject({
+      petriProjection: {
+        currentMarking: { 'run:promotion_prepared': 1 },
+        firedTransitionCount: 1,
+        terminalEventKind: 'net_completed',
+      },
+      petriProjectionSource: 'replay',
+      petriProjectionReplayReason: 'snapshot_missing_or_unreadable',
+    });
+  });
+
+  it('omits terminal summary from replay when the raw journal contains contradictory terminal events', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-terminal-conflict-');
+    const runDir = await writeRun(cwd, 'run-petri-terminal-conflict', { status: 'promotion_prepared' });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'net.json'),
+      JSON.stringify({
+        runId: 'run-petri-terminal-conflict',
+        subnets: [{ id: 'run', kind: 'run_control', transitionIds: ['worktree_create'] }],
+        places: [
+          { id: 'run:created', subnetId: 'run', name: 'Created' },
+          { id: 'run:promotion_prepared', subnetId: 'run', name: 'Promotion prepared' },
+        ],
+        transitions: [
+          {
+            id: 'worktree_create',
+            subnetId: 'run',
+            step: { kind: 'worktree_create' },
+            contract: { kind: 'mechanical', lane: 'run' },
+            inputArcs: [{ placeId: 'run:created', weight: 1 }],
+            outputArcs: [{ placeId: 'run:promotion_prepared', weight: 1 }],
+          },
+        ],
+        initialMarking: { 'run:created': 1 },
+      }),
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'petrinaut', 'events.jsonl'),
+      [
+        JSON.stringify({
+          kind: 'transition_fired',
+          runId: 'run-petri-terminal-conflict',
+          runStatus: 'promotion_prepared',
+          transitionId: 'worktree_create',
+          subnetId: 'run',
+          step: 'worktree_create',
+          fromStatus: 'created',
+          toStatus: 'promotion_prepared',
+        }),
+        JSON.stringify({
+          kind: 'net_completed',
+          runId: 'run-petri-terminal-conflict',
+          runStatus: 'promotion_prepared',
+        }),
+        JSON.stringify({
+          kind: 'net_deadlocked',
+          runId: 'run-petri-terminal-conflict',
+          runStatus: 'promotion_prepared',
+        }),
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-terminal-conflict');
+
+    expect(detail).toMatchObject({
+      petriProjection: {
+        currentMarking: { 'run:promotion_prepared': 1 },
+        firedTransitionCount: 1,
+      },
+      petriProjectionSource: 'replay',
+      petriProjectionReplayReason: 'snapshot_missing_or_unreadable',
+    });
+    expect(detail).not.toMatchObject({
+      petriProjection: {
+        terminalEventKind: 'net_completed',
+      },
+    });
+  });
+
+  it('omits terminal summary from replay when the raw journal fires after a terminal event', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-terminal-order-');
+    const runDir = await writeRun(cwd, 'run-petri-terminal-order', { status: 'worktree_populated' });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'net.json'),
+      JSON.stringify({
+        runId: 'run-petri-terminal-order',
+        subnets: [{ id: 'run', kind: 'run_control', transitionIds: ['worktree_create', 'populate'] }],
+        places: [
+          { id: 'run:created', subnetId: 'run', name: 'Created' },
+          { id: 'run:worktree_created', subnetId: 'run', name: 'Worktree created' },
+          { id: 'run:worktree_populated', subnetId: 'run', name: 'Worktree populated' },
+        ],
+        transitions: [
+          {
+            id: 'worktree_create',
+            subnetId: 'run',
+            step: { kind: 'worktree_create' },
+            contract: { kind: 'mechanical', lane: 'run' },
+            inputArcs: [{ placeId: 'run:created', weight: 1 }],
+            outputArcs: [{ placeId: 'run:worktree_created', weight: 1 }],
+          },
+          {
+            id: 'populate',
+            subnetId: 'run',
+            step: { kind: 'populate' },
+            contract: { kind: 'mechanical', lane: 'run' },
+            inputArcs: [{ placeId: 'run:worktree_created', weight: 1 }],
+            outputArcs: [{ placeId: 'run:worktree_populated', weight: 1 }],
+          },
+        ],
+        initialMarking: { 'run:created': 1 },
+      }),
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'petrinaut', 'events.jsonl'),
+      [
+        JSON.stringify({
+          kind: 'transition_fired',
+          runId: 'run-petri-terminal-order',
+          runStatus: 'worktree_created',
+          transitionId: 'worktree_create',
+          subnetId: 'run',
+          step: 'worktree_create',
+          fromStatus: 'created',
+          toStatus: 'worktree_created',
+        }),
+        JSON.stringify({
+          kind: 'net_completed',
+          runId: 'run-petri-terminal-order',
+          runStatus: 'worktree_created',
+        }),
+        JSON.stringify({
+          kind: 'transition_fired',
+          runId: 'run-petri-terminal-order',
+          runStatus: 'worktree_populated',
+          transitionId: 'populate',
+          subnetId: 'run',
+          step: 'populate',
+          fromStatus: 'worktree_created',
+          toStatus: 'worktree_populated',
+        }),
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-terminal-order');
+
+    expect(detail).toMatchObject({
+      petriProjection: {
+        currentMarking: { 'run:worktree_populated': 1 },
+        firedTransitionCount: 2,
+      },
+      petriProjectionSource: 'replay',
+      petriProjectionReplayReason: 'snapshot_missing_or_unreadable',
+    });
+    expect(detail).not.toMatchObject({
+      petriProjection: {
+        terminalEventKind: 'net_completed',
+      },
+    });
+  });
+
+  it('prefers the persisted marking snapshot over replay when both are present and its derived facts still match', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-marking-snapshot-');
+    const planPath = join(cwd, 'plan.json');
+    await writeFile(
+      planPath,
+      JSON.stringify({
+        mode: 'greenfield',
+        epics: [{ id: 'frontier-1', summary: 'F', depends_on: [], verification: [] }],
+        slices: [
+          { id: 'task-1', epic_id: 'frontier-1', definition: 'task-1.', depends_on: [], verification: [] },
+          { id: 'task-2', epic_id: 'frontier-1', definition: 'task-2.', depends_on: [], verification: [] },
+        ],
+      }),
+      'utf8',
+    );
+    const runDir = await writeRun(cwd, 'run-petri-marking-snapshot', {
+      planPath,
+      status: 'reports_initialized',
+    });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'net.json'),
+      JSON.stringify({
+        runId: 'run-petri-marking-snapshot',
+        subnets: [{ id: 'run', kind: 'run_control', transitionIds: ['worktree_create'] }],
+        places: [
+          { id: 'run:created', subnetId: 'run', name: 'Created' },
+          { id: 'run:slice_frontier', subnetId: 'run', name: 'Slice frontier' },
+        ],
+        transitions: [
+          {
+            id: 'worktree_create',
+            subnetId: 'run',
+            step: { kind: 'worktree_create' },
+            contract: { kind: 'mechanical', lane: 'run' },
+            inputArcs: [{ placeId: 'run:created', weight: 1 }],
+            outputArcs: [{ placeId: 'run:slice_frontier', weight: 1 }],
+          },
+        ],
+        initialMarking: { 'run:created': 1 },
+      }),
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'petrinaut', 'events.jsonl'),
+      `${JSON.stringify({
+        kind: 'transition_fired',
+        runId: 'run-petri-marking-snapshot',
+        runStatus: 'reports_initialized',
+        transitionId: 'worktree_create',
+        subnetId: 'run',
+        step: 'worktree_create',
+        fromStatus: 'created',
+        toStatus: 'reports_initialized',
+      })}\n`,
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'petrinaut', 'marking.json'),
+      `${JSON.stringify(
+        {
+          claimedTransitionIds: ['slice_start:task-1'],
+          currentMarking: { 'run:slice_frontier': 1 },
+          firedTransitionCount: 5,
+          lifecycleProvenance: {
+            runStatus: 'reports_initialized',
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-marking-snapshot');
+
+    expect(detail).toMatchObject({
+      petriProjection: {
+        claimedTransitionIds: ['slice_start:task-1'],
+        currentMarking: { 'run:slice_frontier': 1 },
+        firedTransitionCount: 5,
+      },
+      petriProjectionSource: 'snapshot',
+    });
+  });
+
+  it('strips unverifiable terminal metadata from an otherwise matching marking snapshot', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-marking-terminal-unverifiable-');
+    const planPath = join(cwd, 'plan.json');
+    await writeFile(
+      planPath,
+      JSON.stringify({
+        mode: 'greenfield',
+        epics: [{ id: 'frontier-1', summary: 'F', depends_on: [], verification: [] }],
+        slices: [
+          { id: 'task-1', epic_id: 'frontier-1', definition: 'task-1.', depends_on: [], verification: [] },
+        ],
+      }),
+      'utf8',
+    );
+    const runDir = await writeRun(cwd, 'run-petri-marking-terminal-unverifiable', {
+      planPath,
+      status: 'reports_initialized',
+    });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'marking.json'),
+      `${JSON.stringify(
+        {
+          currentMarking: { 'run:slice_frontier': 1 },
+          firedTransitionCount: 5,
+          lifecycleProvenance: { runStatus: 'reports_initialized' },
+          terminalEventKind: 'net_completed',
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-marking-terminal-unverifiable');
+
+    expect(detail).toMatchObject({
+      petriProjection: {
+        currentMarking: { 'run:slice_frontier': 1 },
+        firedTransitionCount: 5,
+      },
+      petriProjectionSource: 'snapshot',
+    });
+    expect(detail).not.toMatchObject({
+      petriProjection: {
+        terminalEventKind: 'net_completed',
+      },
+    });
+  });
+
+  it('omits terminal snapshot metadata when the runtime plan cannot be reconstructed', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-marking-terminal-checkable-');
+    const runDir = await writeRun(cwd, 'run-petri-marking-terminal-checkable', {
+      status: 'promotion_prepared',
+      completedSliceIds: ['task-1'],
+    });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'marking.json'),
+      `${JSON.stringify(
+        {
+          currentMarking: { 'run:promotion_prepared': 1 },
+          firedTransitionCount: 8,
+          lifecycleProvenance: {
+            runStatus: 'promotion_prepared',
+            completedSliceIds: ['task-1'],
+          },
+          terminalEventKind: 'net_completed',
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-marking-terminal-checkable');
+
+    expect(detail).not.toHaveProperty('petriProjection');
+    expect(detail).not.toHaveProperty('petriProjectionSource');
+  });
+
+  it('treats a marking snapshot as unreadable when it pairs a non-halted terminal kind with a halted reason', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-marking-terminal-malformed-');
+    const runDir = await writeRun(cwd, 'run-petri-marking-terminal-malformed', {
+      status: 'promotion_prepared',
+      completedSliceIds: ['task-1'],
+    });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'net.json'),
+      JSON.stringify({
+        runId: 'run-petri-marking-terminal-malformed',
+        subnets: [{ id: 'run', kind: 'run_control', transitionIds: ['worktree_create'] }],
+        places: [
+          { id: 'run:created', subnetId: 'run', name: 'Created' },
+          { id: 'run:promotion_prepared', subnetId: 'run', name: 'Promotion prepared' },
+        ],
+        transitions: [
+          {
+            id: 'worktree_create',
+            subnetId: 'run',
+            step: { kind: 'worktree_create' },
+            contract: { kind: 'mechanical', lane: 'run' },
+            inputArcs: [{ placeId: 'run:created', weight: 1 }],
+            outputArcs: [{ placeId: 'run:promotion_prepared', weight: 1 }],
+          },
+        ],
+        initialMarking: { 'run:created': 1 },
+      }),
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'petrinaut', 'events.jsonl'),
+      `${JSON.stringify({
+        kind: 'transition_fired',
+        runId: 'run-petri-marking-terminal-malformed',
+        runStatus: 'promotion_prepared',
+        transitionId: 'worktree_create',
+        subnetId: 'run',
+        step: 'worktree_create',
+        fromStatus: 'created',
+        toStatus: 'promotion_prepared',
+      })}\n${JSON.stringify({ kind: 'net_completed', runId: 'run-petri-marking-terminal-malformed', runStatus: 'promotion_prepared' })}\n`,
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'petrinaut', 'marking.json'),
+      `${JSON.stringify(
+        {
+          currentMarking: { 'run:promotion_prepared': 1 },
+          firedTransitionCount: 6,
+          lifecycleProvenance: {
+            runStatus: 'promotion_prepared',
+            completedSliceIds: ['task-1'],
+          },
+          terminalEventKind: 'net_completed',
+          haltedReason: 'should-not-be-here',
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-marking-terminal-malformed');
+
+    expect(detail).toMatchObject({
+      petriProjection: {
+        currentMarking: { 'run:promotion_prepared': 1 },
+        firedTransitionCount: 1,
+        terminalEventKind: 'net_completed',
+      },
+      petriProjectionSource: 'replay',
+      petriProjectionReplayReason: 'snapshot_missing_or_unreadable',
+    });
+    expect(detail).not.toMatchObject({
+      petriProjection: {
+        haltedReason: 'should-not-be-here',
+      },
+    });
+  });
+
+  it('omits a provenance-matching marking snapshot when its fired transition count contradicts live run state', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-marking-count-mismatch-');
+    const planPath = join(cwd, 'plan.json');
+    await writeFile(
+      planPath,
+      JSON.stringify({
+        mode: 'greenfield',
+        epics: [{ id: 'frontier-1', summary: 'F', depends_on: [], verification: [] }],
+        slices: [
+          { id: 'task-1', epic_id: 'frontier-1', definition: 'task-1.', depends_on: [], verification: [] },
+        ],
+      }),
+      'utf8',
+    );
+    const runDir = await writeRun(cwd, 'run-petri-marking-count-mismatch', {
+      planPath,
+      status: 'reports_initialized',
+    });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'marking.json'),
+      `${JSON.stringify(
+        {
+          currentMarking: { 'run:slice_frontier': 1 },
+          firedTransitionCount: 99,
+          lifecycleProvenance: { runStatus: 'reports_initialized' },
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-marking-count-mismatch');
+
+    expect(detail && 'petriProjection' in detail ? detail.petriProjection : 'absent').toBe('absent');
+    expect(detail).toMatchObject({
+      petriReadySteps: [{ kind: 'slice_start', sliceId: 'task-1', epicId: 'frontier-1' }],
+      petriBlockedSteps: [],
+    });
+  });
+
+  it('strips an impossible claimed firing set from an otherwise matching marking snapshot', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-marking-overclaimed-');
+    const planPath = join(cwd, 'plan.json');
+    await writeFile(
+      planPath,
+      JSON.stringify({
+        mode: 'greenfield',
+        epics: [{ id: 'frontier-1', summary: 'F', depends_on: [], verification: [] }],
+        slices: [
+          { id: 'task-1', epic_id: 'frontier-1', definition: 'task-1.', depends_on: [], verification: [] },
+          { id: 'task-2', epic_id: 'frontier-1', definition: 'task-2.', depends_on: [], verification: [] },
+        ],
+      }),
+      'utf8',
+    );
+    const runDir = await writeRun(cwd, 'run-petri-marking-overclaimed', {
+      planPath,
+      status: 'reports_initialized',
+    });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'marking.json'),
+      `${JSON.stringify(
+        {
+          claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-2'],
+          currentMarking: { 'run:slice_frontier': 1 },
+          firedTransitionCount: 5,
+          lifecycleProvenance: { runStatus: 'reports_initialized' },
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-marking-overclaimed');
+
+    expect(detail).toMatchObject({
+      petriProjection: {
+        currentMarking: { 'run:slice_frontier': 1 },
+        firedTransitionCount: 5,
+      },
+      petriProjectionSource: 'snapshot',
+    });
+    expect(detail).not.toMatchObject({
+      petriProjection: {
+        claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-2'],
+      },
+    });
+  });
+
+  it('omits snapshot projection when the live Petri runtime cannot be reconstructed', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-marking-no-runtime-');
+    const planPath = join(cwd, 'missing-plan.json');
+    const runDir = await writeRun(cwd, 'run-petri-marking-no-runtime', {
+      planPath,
+      status: 'reports_initialized',
+    });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'marking.json'),
+      `${JSON.stringify(
+        {
+          claimedTransitionIds: ['slice_start:task-1'],
+          currentMarking: { 'run:slice_frontier': 1 },
+          firedTransitionCount: 5,
+          lifecycleProvenance: { runStatus: 'reports_initialized' },
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-marking-no-runtime');
+
+    expect(detail).not.toHaveProperty('petriProjection');
+    expect(detail).not.toHaveProperty('petriProjectionSource');
+  });
+
+  it('omits a provenance-matching marking snapshot when its current marking contradicts the live runtime', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-marking-runtime-mismatch-');
+    const planPath = join(cwd, 'plan.json');
+    await writeFile(
+      planPath,
+      JSON.stringify({
+        mode: 'greenfield',
+        epics: [{ id: 'frontier-1', summary: 'F', depends_on: [], verification: [] }],
+        slices: [
+          { id: 'task-1', epic_id: 'frontier-1', definition: 'task-1.', depends_on: [], verification: [] },
+        ],
+      }),
+      'utf8',
+    );
+    const runDir = await writeRun(cwd, 'run-petri-marking-runtime-mismatch', {
+      planPath,
+      status: 'reports_initialized',
+    });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'marking.json'),
+      `${JSON.stringify(
+        {
+          currentMarking: { 'run:promotion_prepared': 1 },
+          firedTransitionCount: 99,
+          lifecycleProvenance: { runStatus: 'reports_initialized' },
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-marking-runtime-mismatch');
+
+    expect(detail && 'petriProjection' in detail ? detail.petriProjection : 'absent').toBe('absent');
+    expect(detail).toMatchObject({
+      petriReadySteps: [{ kind: 'slice_start', sliceId: 'task-1', epicId: 'frontier-1' }],
+      petriBlockedSteps: [],
+    });
+  });
+
+  it('falls back to replay when the persisted marking snapshot provenance no longer matches run metadata', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-marking-stale-');
+    const runDir = await writeRun(cwd, 'run-petri-marking-stale', {
+      status: 'promotion_prepared',
+      completedSliceIds: ['task-1'],
+    });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'net.json'),
+      JSON.stringify({
+        runId: 'run-petri-marking-stale',
+        subnets: [{ id: 'run', kind: 'run_control', transitionIds: ['worktree_create'] }],
+        places: [
+          { id: 'run:created', subnetId: 'run', name: 'Created' },
+          { id: 'run:promotion_prepared', subnetId: 'run', name: 'Promotion prepared' },
+        ],
+        transitions: [
+          {
+            id: 'worktree_create',
+            subnetId: 'run',
+            step: { kind: 'worktree_create' },
+            contract: { kind: 'mechanical', lane: 'run' },
+            inputArcs: [{ placeId: 'run:created', weight: 1 }],
+            outputArcs: [{ placeId: 'run:promotion_prepared', weight: 1 }],
+          },
+        ],
+        initialMarking: { 'run:created': 1 },
+      }),
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'petrinaut', 'events.jsonl'),
+      `${JSON.stringify({
+        kind: 'transition_fired',
+        runId: 'run-petri-marking-stale',
+        runStatus: 'promotion_prepared',
+        transitionId: 'worktree_create',
+        subnetId: 'run',
+        step: 'worktree_create',
+        fromStatus: 'created',
+        toStatus: 'promotion_prepared',
+      })}\n${JSON.stringify({ kind: 'net_completed', runId: 'run-petri-marking-stale', runStatus: 'promotion_prepared' })}\n`,
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'petrinaut', 'marking.json'),
+      `${JSON.stringify(
+        {
+          currentMarking: { 'run:promotion_prepared': 2 },
+          firedTransitionCount: 99,
+          lifecycleProvenance: {
+            runStatus: 'run_completed',
+          },
+          terminalEventKind: 'net_completed',
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-marking-stale');
+
+    expect(detail).toMatchObject({
+      petriProjection: {
+        currentMarking: { 'run:promotion_prepared': 1 },
+        firedTransitionCount: 1,
+        terminalEventKind: 'net_completed',
+      },
+      petriProjectionSource: 'replay',
+      petriProjectionReplayReason: 'snapshot_stale',
+    });
+  });
+
+  it('omits the derived Petri projection when the raw net exists but the runtime journal is missing', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-no-journal-');
+    const runDir = await writeRun(cwd, 'run-petri-no-journal', { status: 'petri_exported' });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'net.json'),
+      JSON.stringify({
+        runId: 'run-petri-no-journal',
+        subnets: [{ id: 'run', kind: 'run_control', transitionIds: ['worktree_create'] }],
+        places: [{ id: 'run:created', subnetId: 'run', name: 'Created' }],
+        transitions: [
+          {
+            id: 'worktree_create',
+            subnetId: 'run',
+            step: { kind: 'worktree_create' },
+            contract: { kind: 'mechanical', lane: 'run' },
+            inputArcs: [{ placeId: 'run:created', weight: 1 }],
+            outputArcs: [{ placeId: 'run:created', weight: 1 }],
+          },
+        ],
+        initialMarking: { 'run:created': 1 },
+      }),
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-no-journal');
+
+    expect(detail && 'petriProjection' in detail ? detail.petriProjection : 'absent').toBe('absent');
+    expect(detail).toMatchObject({
+      presence: { petri: true },
+      petriEventsTotal: 0,
+      petriEventsTail: [],
+    });
+  });
+
+  it('parses a complete final Petri journal line even without a trailing newline', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-final-line-');
+    const runDir = await writeRun(cwd, 'run-petri-final-line', { status: 'promotion_prepared' });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'net.json'),
+      JSON.stringify({
+        runId: 'run-petri-final-line',
+        subnets: [{ id: 'run', kind: 'run_control', transitionIds: ['promotion'] }],
+        places: [{ id: 'run:promotion_prepared', subnetId: 'run', name: 'Promotion prepared' }],
+        transitions: [],
+        initialMarking: { 'run:promotion_prepared': 1 },
+      }),
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'petrinaut', 'events.jsonl'),
+      JSON.stringify({
+        kind: 'net_completed',
+        runId: 'run-petri-final-line',
+        runStatus: 'promotion_prepared',
+      }),
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-final-line');
+
+    expect(detail).toMatchObject({
+      petriEventsTotal: 1,
+      petriEventsTail: [
+        { kind: 'net_completed', runId: 'run-petri-final-line', runStatus: 'promotion_prepared' },
+      ],
+    });
   });
 
   it('limits the reports tail while reporting the full total', async () => {
