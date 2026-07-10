@@ -17,8 +17,6 @@ import { ExchangeReviewSetResultComponent } from '../../components/exchange-revi
 import { toolParameters } from '../shared/tool-schema.js';
 import { renderDetailsOrMarkdownResult } from './shared/details-rendering.js';
 import { renderEmptyStructuredExchangeCall, renderMarkdownResult } from './shared/markdown.js';
-
-import { piSchema } from './pi-schema.js';
 import { validationFailureResult, type ExchangeValidationFailureDetails } from './shared/validation.js';
 
 export const PRESENT_REVIEW_SET_TOOL = 'present_review_set' as const;

@@ -32,8 +32,6 @@ import {
   type StepResult,
 } from './shared/required-input.js';
 import { withWorkingIndicatorHidden, type StructuredExchangeUiContext } from './shared/ui-context.js';
-
-import { piSchema } from './pi-schema.js';
 import { validationFailureResult } from './shared/validation.js';
 
 export const ASK_TOOL = 'ask' as const;
