@@ -28,6 +28,9 @@ class FakeSessionManager {
 
 type ScratchpadTool = {
   parameters: unknown;
+  renderShell?: string;
+  renderCall?: unknown;
+  renderResult?: unknown;
   execute: (...args: never[]) => Promise<unknown>;
 };
 
@@ -58,6 +61,17 @@ async function executeTool(
 }
 
 describe('read_elicitation_scratchpad', () => {
+  it('adopts the shared Brunch default renderer for both scratchpad tools', () => {
+    const tools = collectScratchpadTools();
+
+    expect([...tools.keys()]).toEqual([READ_ELICITATION_SCRATCHPAD_TOOL, UPDATE_ELICITATION_SCRATCHPAD_TOOL]);
+    for (const [name, tool] of tools) {
+      expect(tool.renderShell, name).toBe('self');
+      expect(tool.renderCall, name).toEqual(expect.any(Function));
+      expect(tool.renderResult, name).toEqual(expect.any(Function));
+    }
+  });
+
   it('preserves the pre-FE-1163 provider-facing family schema semantics', () => {
     const schemas = Object.fromEntries(
       [...collectScratchpadTools()].map(([name, tool]) => [name, tool.parameters]),
