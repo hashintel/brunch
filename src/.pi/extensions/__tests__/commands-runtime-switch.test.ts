@@ -41,9 +41,11 @@ interface RegisteredShortcut {
 }
 
 interface RuntimeEntry {
-  type: 'custom';
+  type: 'custom' | 'custom_message';
   customType: string;
-  data: unknown;
+  data?: unknown;
+  content?: string;
+  details?: unknown;
 }
 
 interface SentMessage {
@@ -81,6 +83,8 @@ function commandHarness(
     selectResult?: string | undefined;
     modelAvailable?: boolean;
     sendMessageError?: Error;
+    failFirstKickWith?: Error;
+    persistSentMessages?: boolean;
     getCommandContext?: () => FakeCommandContext;
     branch?: readonly EntryLike[];
     inputResult?: string;
@@ -99,6 +103,7 @@ function commandHarness(
   const chromeRefreshes: number[] = [];
   const workspaceDecisions: unknown[] = [];
   const originationDecisions: unknown[] = [];
+  let firstKickFailed = false;
   const coordinator = {
     inspectWorkspace: async () => ({ projects: [] }),
     activateWorkspace: async (decision: unknown) => {
@@ -192,13 +197,24 @@ function commandHarness(
         activeToolNames.push(names);
       },
       sendMessage(message: unknown, sendOptions?: unknown) {
-        if (
-          (message as { customType?: unknown }).customType === BRUNCH_KICK_CUSTOM_TYPE &&
-          options.sendMessageError
-        ) {
+        const customType = (message as { customType?: unknown }).customType;
+        if (customType === BRUNCH_KICK_CUSTOM_TYPE && options.sendMessageError) {
           throw options.sendMessageError;
         }
+        if (customType === BRUNCH_KICK_CUSTOM_TYPE && options.failFirstKickWith && !firstKickFailed) {
+          firstKickFailed = true;
+          throw options.failFirstKickWith;
+        }
         sent.push({ message, options: sendOptions });
+        if (options.persistSentMessages && typeof customType === 'string') {
+          const carrier = message as { content?: unknown; details?: unknown };
+          entries.push({
+            type: 'custom_message',
+            customType,
+            ...(typeof carrier.content === 'string' ? { content: carrier.content } : {}),
+            ...(carrier.details !== undefined ? { details: carrier.details } : {}),
+          });
+        }
       },
     } as never,
     {
@@ -380,6 +396,29 @@ describe('Brunch menu command', () => {
 
     await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
 
+    expect(harness.notifications).toEqual([
+      expect.objectContaining({
+        level: 'warning',
+        message: expect.stringContaining('provider queue failed'),
+      }),
+    ]);
+  });
+
+  it('reuses a delivered seed when retrying after kick delivery fails', async () => {
+    const harness = commandHarness({
+      orientation: true,
+      failFirstKickWith: new Error('provider queue failed'),
+      persistSentMessages: true,
+    });
+
+    await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
+    await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.sent.map(({ message }) => (message as { customType?: string }).customType)).toEqual([
+      'brunch.context_seed',
+      'brunch.kick',
+    ]);
+    expect(harness.entries.filter(({ customType }) => customType === 'brunch.context_seed')).toHaveLength(1);
     expect(harness.notifications).toEqual([
       expect.objectContaining({
         level: 'warning',
