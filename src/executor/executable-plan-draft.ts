@@ -124,7 +124,31 @@ export function draftExecutablePlan(outline: ExecutionPlanOutline): ExecutablePl
     specId: outline.specId,
     mode: outline.mode,
     epics,
-    slices,
+    slices: orderSlicesByDependencies(slices),
     sideEffects: [],
   };
+}
+
+function orderSlicesByDependencies(
+  slices: readonly ExecutablePlanDraftSlice[],
+): readonly ExecutablePlanDraftSlice[] {
+  const sliceIds = new Set(slices.map((slice) => slice.id));
+  const completed = new Set<string>();
+  const remaining = [...slices];
+  const ordered: ExecutablePlanDraftSlice[] = [];
+
+  // ceiling: O(n²) stable topological sort; index dependencies if plans grow beyond a few hundred slices.
+  while (remaining.length > 0) {
+    const nextIndex = remaining.findIndex((slice) =>
+      slice.dependsOn.every((dependencyId) => !sliceIds.has(dependencyId) || completed.has(dependencyId)),
+    );
+    if (nextIndex === -1) return [...ordered, ...remaining];
+
+    const [next] = remaining.splice(nextIndex, 1);
+    if (!next) continue;
+    ordered.push(next);
+    completed.add(next.id);
+  }
+
+  return ordered;
 }

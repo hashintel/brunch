@@ -235,6 +235,7 @@ describe('projectExecuteGraph', () => {
       }),
     ]);
     expect(projection.planPreview.slices).toEqual([
+      expect.objectContaining({ id: 'task-3', derived_from: ['REQ3'], depends_on: [] }),
       expect.objectContaining({
         id: 'task-1',
         scope_id: 'SCP1',
@@ -247,7 +248,6 @@ describe('projectExecuteGraph', () => {
         derived_from: ['REQ2'],
         depends_on: ['task-1'],
       }),
-      expect.objectContaining({ id: 'task-3', derived_from: ['REQ3'], depends_on: [] }),
     ]);
   });
 });

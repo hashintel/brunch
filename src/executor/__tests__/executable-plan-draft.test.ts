@@ -100,21 +100,6 @@ describe('draftExecutablePlan', () => {
         ...outline,
         frontiers: [
           {
-            id: 'frontier-1',
-            title: 'Implement unscoped requirements',
-            tasks: [
-              {
-                id: 'task-1',
-                title: 'Build feature',
-                requirementId: 'REQ1',
-                summary: 'Build feature',
-                dependsOn: [],
-                acceptanceCriterionIds: [],
-                acceptanceCriteria: [],
-              },
-            ],
-          },
-          {
             id: 'frontier-2',
             title: 'Execution handoff',
             tasks: [
@@ -130,6 +115,21 @@ describe('draftExecutablePlan', () => {
                 acceptanceCriteria: [],
                 designContext: [],
                 verificationContext: [],
+              },
+            ],
+          },
+          {
+            id: 'frontier-1',
+            title: 'Implement unscoped requirements',
+            tasks: [
+              {
+                id: 'task-1',
+                title: 'Build feature',
+                requirementId: 'REQ1',
+                summary: 'Build feature',
+                dependsOn: [],
+                acceptanceCriterionIds: [],
+                acceptanceCriteria: [],
               },
             ],
           },
