@@ -1,6 +1,7 @@
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
+import { parsePetriProjection } from '../../executor/petri-projection.js';
 import { queryKeys } from '../query-keys.js';
 import type { WebSocketRpcClient, WebSocketRpcNotification } from '../rpc-client.js';
 
@@ -148,8 +149,12 @@ function patchExecuteRunDetail(queryClient: QueryClient, update: ProductUpdate):
     if (!isRecord(current) || 'unreadable' in current) return current;
     const next = { ...current };
     const hasProjectionUpdate = 'petriProjection' in update;
+    const parsedProjection =
+      !hasProjectionUpdate || update.petriProjection === null
+        ? update.petriProjection
+        : parsePetriProjection(update.petriProjection);
     const projectionIsValid =
-      !hasProjectionUpdate || update.petriProjection === null || isPetriProjection(update.petriProjection);
+      !hasProjectionUpdate || update.petriProjection === null || parsedProjection !== undefined;
     if ('petriProjectionSource' in update) {
       if (!projectionIsValid) {
         // Ignore projection metadata when the accompanying projection payload is malformed.
@@ -160,7 +165,7 @@ function patchExecuteRunDetail(queryClient: QueryClient, update: ProductUpdate):
     }
     if ('petriProjection' in update) {
       if (update.petriProjection === null) delete next.petriProjection;
-      else if (isPetriProjection(update.petriProjection)) next.petriProjection = update.petriProjection;
+      else if (parsedProjection) next.petriProjection = parsedProjection;
     }
     if ('petriProjectionReplayReason' in update) {
       if (!projectionIsValid) {
@@ -188,35 +193,6 @@ function patchExecuteRunDetail(queryClient: QueryClient, update: ProductUpdate):
 
 function isReadyStepArray(value: unknown): value is readonly Record<string, unknown>[] {
   return Array.isArray(value) && value.every(isReadyStep);
-}
-
-function isPetriProjection(value: unknown): value is Record<string, unknown> {
-  if (!isRecord(value) || !isRecord(value.currentMarking)) return false;
-  for (const count of Object.values(value.currentMarking)) {
-    if (typeof count !== 'number' || !Number.isInteger(count) || count < 0) return false;
-  }
-  if (
-    ('claimedTransitionIds' in value &&
-      value.claimedTransitionIds !== undefined &&
-      (!Array.isArray(value.claimedTransitionIds) ||
-        value.claimedTransitionIds.some((transitionId) => typeof transitionId !== 'string'))) ||
-    typeof value.firedTransitionCount !== 'number' ||
-    !Number.isInteger(value.firedTransitionCount) ||
-    value.firedTransitionCount < 0
-  ) {
-    return false;
-  }
-  if (
-    value.terminalEventKind !== undefined &&
-    value.terminalEventKind !== 'net_completed' &&
-    value.terminalEventKind !== 'net_halted' &&
-    value.terminalEventKind !== 'net_deadlocked'
-  ) {
-    return false;
-  }
-  if (value.haltedReason !== undefined && typeof value.haltedReason !== 'string') return false;
-  if (value.terminalEventKind === 'net_halted') return typeof value.haltedReason === 'string';
-  return value.haltedReason === undefined;
 }
 
 function isReadyStep(value: unknown): value is Record<string, unknown> {

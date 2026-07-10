@@ -1,5 +1,5 @@
 import type { BlockedStep, ReadyStep } from '../executor/orchestrate-topology.js';
-import type { PetriProjection } from '../executor/petri-replay.js';
+import type { PetriProjection } from '../executor/petri-projection.js';
 
 export const BRUNCH_UPDATED_METHOD = 'brunch.updated';
 
@@ -97,6 +97,22 @@ export interface ExecuteRunProductUpdateHints {
   readonly petriProjectionReplayReason?: 'snapshot_missing_or_unreadable' | 'snapshot_stale' | null;
   readonly petriReadySteps?: readonly ReadyStep[] | null;
   readonly petriBlockedSteps?: readonly BlockedStep[] | null;
+}
+
+export function executeRunProductUpdateHintsFromDetail(detail: {
+  readonly petriProjection?: PetriProjection;
+  readonly petriProjectionSource?: 'snapshot' | 'replay';
+  readonly petriProjectionReplayReason?: 'snapshot_missing_or_unreadable' | 'snapshot_stale';
+  readonly petriReadySteps?: readonly ReadyStep[];
+  readonly petriBlockedSteps?: readonly BlockedStep[];
+}): ExecuteRunProductUpdateHints {
+  return {
+    petriProjection: detail.petriProjection ?? null,
+    petriProjectionSource: detail.petriProjectionSource ?? null,
+    petriProjectionReplayReason: detail.petriProjectionReplayReason ?? null,
+    ...(detail.petriReadySteps === undefined ? {} : { petriReadySteps: detail.petriReadySteps }),
+    ...(detail.petriBlockedSteps === undefined ? {} : { petriBlockedSteps: detail.petriBlockedSteps }),
+  };
 }
 
 export function executeRunProductUpdates(

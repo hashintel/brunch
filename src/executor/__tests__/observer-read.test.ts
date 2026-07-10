@@ -446,6 +446,92 @@ describe('readRunDetail', () => {
     });
   });
 
+  it('omits terminal summary from replay when the raw journal fires after a terminal event', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-terminal-order-');
+    const runDir = await writeRun(cwd, 'run-petri-terminal-order', { status: 'worktree_populated' });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'net.json'),
+      JSON.stringify({
+        runId: 'run-petri-terminal-order',
+        subnets: [{ id: 'run', kind: 'run_control', transitionIds: ['worktree_create', 'populate'] }],
+        places: [
+          { id: 'run:created', subnetId: 'run', name: 'Created' },
+          { id: 'run:worktree_created', subnetId: 'run', name: 'Worktree created' },
+          { id: 'run:worktree_populated', subnetId: 'run', name: 'Worktree populated' },
+        ],
+        transitions: [
+          {
+            id: 'worktree_create',
+            subnetId: 'run',
+            step: { kind: 'worktree_create' },
+            contract: { kind: 'mechanical', lane: 'run' },
+            inputArcs: [{ placeId: 'run:created', weight: 1 }],
+            outputArcs: [{ placeId: 'run:worktree_created', weight: 1 }],
+          },
+          {
+            id: 'populate',
+            subnetId: 'run',
+            step: { kind: 'populate' },
+            contract: { kind: 'mechanical', lane: 'run' },
+            inputArcs: [{ placeId: 'run:worktree_created', weight: 1 }],
+            outputArcs: [{ placeId: 'run:worktree_populated', weight: 1 }],
+          },
+        ],
+        initialMarking: { 'run:created': 1 },
+      }),
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'petrinaut', 'events.jsonl'),
+      [
+        JSON.stringify({
+          kind: 'transition_fired',
+          runId: 'run-petri-terminal-order',
+          runStatus: 'worktree_created',
+          transitionId: 'worktree_create',
+          subnetId: 'run',
+          step: 'worktree_create',
+          fromStatus: 'created',
+          toStatus: 'worktree_created',
+        }),
+        JSON.stringify({
+          kind: 'net_completed',
+          runId: 'run-petri-terminal-order',
+          runStatus: 'worktree_created',
+        }),
+        JSON.stringify({
+          kind: 'transition_fired',
+          runId: 'run-petri-terminal-order',
+          runStatus: 'worktree_populated',
+          transitionId: 'populate',
+          subnetId: 'run',
+          step: 'populate',
+          fromStatus: 'worktree_created',
+          toStatus: 'worktree_populated',
+        }),
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-terminal-order');
+
+    expect(detail).toMatchObject({
+      petriProjection: {
+        currentMarking: { 'run:worktree_populated': 1 },
+        firedTransitionCount: 2,
+      },
+      petriProjectionSource: 'replay',
+      petriProjectionReplayReason: 'snapshot_missing_or_unreadable',
+    });
+    expect(detail).not.toMatchObject({
+      petriProjection: {
+        terminalEventKind: 'net_completed',
+      },
+    });
+  });
+
   it('prefers the persisted marking snapshot over replay when both are present and its derived facts still match', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-marking-snapshot-');
     const planPath = join(cwd, 'plan.json');

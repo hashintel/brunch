@@ -149,6 +149,62 @@ describe('brunch.updated execute topic invalidation', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.run', 'run-1'], exact: true });
   });
 
+  it('normalizes zero-count places out of a live Petri projection patch', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue();
+    queryClient.setQueryData(['execute.run', 'run-1'], {
+      runId: 'run-1',
+      specId: '1',
+      status: 'promotion_prepared',
+      presence: { worktree: true, reports: true, petri: true, promotion: true },
+      planPath: '/plan.yaml',
+      reportsTail: [],
+      reportsTotal: 0,
+      petriEventsTail: [],
+      petriEventsTotal: 0,
+      petriProjection: {
+        currentMarking: { 'run:promotion_prepared': 1 },
+        firedTransitionCount: 18,
+      },
+      petriProjectionSource: 'snapshot',
+      agentStreamTail: [],
+      agentStreamTotal: 0,
+      verifyStreamTail: [],
+      verifyStreamTotal: 0,
+      sliceProgress: [],
+      requirements: [],
+    });
+
+    invalidateBrunchUpdate(
+      queryClient,
+      notification([
+        {
+          topic: 'execute.run',
+          runId: 'run-1',
+          petriProjection: {
+            currentMarking: { 'run:slice_frontier': 1, 'run:spent': 0 },
+            firedTransitionCount: 5,
+          },
+          petriProjectionSource: 'replay',
+        },
+      ]),
+    );
+
+    expect(queryClient.getQueryData(['execute.run', 'run-1'])).toMatchObject({
+      petriProjection: {
+        currentMarking: { 'run:slice_frontier': 1 },
+        firedTransitionCount: 5,
+      },
+      petriProjectionSource: 'replay',
+    });
+    expect(queryClient.getQueryData(['execute.run', 'run-1'])).not.toMatchObject({
+      petriProjection: {
+        currentMarking: { 'run:spent': 0 },
+      },
+    });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['execute.run', 'run-1'], exact: true });
+  });
+
   it('ignores a malformed Petri projection whose marking counts are not non-negative integers', () => {
     const queryClient = new QueryClient();
     const invalidate = vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue();

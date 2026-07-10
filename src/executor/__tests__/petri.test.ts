@@ -341,6 +341,51 @@ describe('replayPetri', () => {
     });
   });
 
+  it('strips terminal summary when the raw journal fires again after a terminal event', () => {
+    const topology = compileExecutorTopology({
+      mode: 'greenfield',
+      slices: [{ id: 'task-1' }],
+    });
+
+    expect(
+      replayPetri({
+        net: topology,
+        events: [
+          {
+            kind: 'transition_fired',
+            runId: 'run-1',
+            runStatus: 'worktree_created',
+            transitionId: 'worktree_create',
+            subnetId: 'run',
+            step: 'worktree_create',
+            contract: { kind: 'mechanical', lane: 'run' },
+            consumed: ['run:created'],
+            produced: ['run:worktree_created'],
+            fromStatus: 'created',
+            toStatus: 'worktree_created',
+          },
+          { kind: 'net_completed', runId: 'run-1', runStatus: 'worktree_created' },
+          {
+            kind: 'transition_fired',
+            runId: 'run-1',
+            runStatus: 'reports_initialized',
+            transitionId: 'populate',
+            subnetId: 'run',
+            step: 'populate',
+            contract: { kind: 'mechanical', lane: 'run' },
+            consumed: ['run:worktree_created'],
+            produced: ['run:worktree_populated'],
+            fromStatus: 'worktree_created',
+            toStatus: 'worktree_populated',
+          },
+        ],
+      }),
+    ).toEqual({
+      currentMarking: { 'run:worktree_populated': 1 },
+      firedTransitionCount: 2,
+    });
+  });
+
   it('strips terminal summary when a replayed halt event has no reason', () => {
     const topology = compileExecutorTopology({
       mode: 'greenfield',

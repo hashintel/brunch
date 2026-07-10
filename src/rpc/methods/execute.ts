@@ -9,7 +9,11 @@ import { recommendRunReplan } from '../../executor/run-replan-recommendation.js'
 import { type RunRetryEligibilityResult } from '../../executor/run-retry-eligibility.js';
 import { createSupersedingRun } from '../../executor/run-supersession.js';
 import { assertSafeRunId, readRunMetadata, runMetadataPath } from '../../executor/run.js';
-import { type ExecuteRunProductUpdateHints, type ProductUpdate } from '../product-updates.js';
+import {
+  executeRunProductUpdateHintsFromDetail,
+  type ExecuteRunProductUpdateHints,
+  type ProductUpdate,
+} from '../product-updates.js';
 import { createJsonRpcFailure, createJsonRpcSuccess, jsonRpcRequestId } from '../protocol.js';
 import type { RpcMethodContext, RpcMethodDefinition } from './registry.js';
 import { NoParamsSchema, NonBlankStringSchema, PositiveIntegerSchema } from './schemas.js';
@@ -552,16 +556,7 @@ async function readExecuteRunProductUpdateHints(
   if (!detail || 'unreadable' in detail) {
     return undefined;
   }
-  return {
-    ...(detail.petriProjectionSource === undefined
-      ? {}
-      : { petriProjectionSource: detail.petriProjectionSource }),
-    ...(detail.petriProjectionReplayReason === undefined
-      ? {}
-      : { petriProjectionReplayReason: detail.petriProjectionReplayReason ?? null }),
-    ...(detail.petriReadySteps === undefined ? {} : { petriReadySteps: detail.petriReadySteps }),
-    ...(detail.petriBlockedSteps === undefined ? {} : { petriBlockedSteps: detail.petriBlockedSteps }),
-  };
+  return executeRunProductUpdateHintsFromDetail(detail);
 }
 
 function parseParams<Schema extends TSchema>(schema: Schema, value: unknown): Static<Schema> | undefined {

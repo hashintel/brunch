@@ -719,6 +719,9 @@ describe('execute replanning methods', () => {
       {
         topic: 'execute.run',
         runId: 'run-1',
+        petriProjection: null,
+        petriProjectionSource: null,
+        petriProjectionReplayReason: null,
         petriReadySteps: [{ kind: 'populate' }],
         petriBlockedSteps: [],
       },
@@ -788,7 +791,16 @@ describe('execute replanning methods', () => {
         sideEffects: [{ kind: 'write_file' }],
       },
     });
-    expect(updates).toEqual([{ topic: 'execute.runs' }, { topic: 'execute.run', runId: 'run-1' }]);
+    expect(updates).toEqual([
+      { topic: 'execute.runs' },
+      {
+        topic: 'execute.run',
+        runId: 'run-1',
+        petriProjection: null,
+        petriProjectionSource: null,
+        petriProjectionReplayReason: null,
+      },
+    ]);
   });
 
   it('publishes replay stale-snapshot hints when abandon invalidates the persisted marking snapshot', async () => {
@@ -865,6 +877,10 @@ describe('execute replanning methods', () => {
       {
         topic: 'execute.run',
         runId: 'run-1',
+        petriProjection: {
+          currentMarking: { 'run:agent_result_ingested': 1 },
+          firedTransitionCount: 1,
+        },
         petriProjectionSource: 'replay',
         petriProjectionReplayReason: 'snapshot_stale',
       },

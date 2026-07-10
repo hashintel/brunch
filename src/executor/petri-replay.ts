@@ -1,4 +1,7 @@
 import type { ExecutorNetEvent } from './orchestrate-topology.js';
+import type { PetriProjection } from './petri-projection.js';
+
+export type { PetriProjection } from './petri-projection.js';
 
 export type ReplayArc = { readonly placeId: string; readonly weight: number };
 
@@ -13,14 +16,6 @@ export type ReplayNet = {
   readonly initialMarking: Record<string, number>;
 };
 
-export interface PetriProjection {
-  readonly claimedTransitionIds?: readonly string[];
-  readonly currentMarking: Record<string, number>;
-  readonly firedTransitionCount: number;
-  readonly terminalEventKind?: 'net_completed' | 'net_halted' | 'net_deadlocked';
-  readonly haltedReason?: string;
-}
-
 export function replayPetri(args: {
   readonly net: unknown;
   readonly events: readonly ExecutorNetEvent[];
@@ -29,16 +24,19 @@ export function replayPetri(args: {
   if (!net) return undefined;
 
   const transitionIds: string[] = [];
+  let sawTerminalEvent = false;
   let terminalSummary: Pick<PetriProjection, 'terminalEventKind' | 'haltedReason'> | undefined | null;
 
   for (const event of args.events) {
     switch (event.kind) {
       case 'transition_fired':
         transitionIds.push(event.transitionId);
+        if (sawTerminalEvent) terminalSummary = null;
         break;
       case 'net_completed':
       case 'net_halted':
       case 'net_deadlocked':
+        sawTerminalEvent = true;
         terminalSummary = mergeTerminalSummary(terminalSummary, event);
         break;
     }

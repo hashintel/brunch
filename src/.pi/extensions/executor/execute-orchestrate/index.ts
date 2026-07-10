@@ -6,7 +6,11 @@ import type { ExecutionPorts } from '../../../../executor/execution-ports.js';
 import { readRunDetail } from '../../../../executor/observer-read.js';
 import { drive, type DriveOutcome, type DriveStepProgress } from '../../../../executor/orchestrate.js';
 import type { VerifyStreamEvent } from '../../../../executor/test-result.js';
-import { executeRunProductUpdates, type ProductUpdatePublisher } from '../../../../rpc/product-updates.js';
+import {
+  executeRunProductUpdateHintsFromDetail,
+  executeRunProductUpdates,
+  type ProductUpdatePublisher,
+} from '../../../../rpc/product-updates.js';
 import { BRUNCH_EXECUTE_ORCHESTRATE_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_ORCHESTRATE_TOOL } from '../../../../session/schema/tool-names.js';
@@ -57,19 +61,7 @@ export function createExecuteOrchestrateTool(
         if (!publisher) return;
         const detail = await readRunDetail(cwd, params.runId).catch(() => undefined);
         const readableDetail = detail && !('unreadable' in detail) ? detail : undefined;
-        const hints = readableDetail
-          ? {
-              petriProjection: readableDetail.petriProjection ?? null,
-              petriProjectionSource: readableDetail.petriProjectionSource ?? null,
-              petriProjectionReplayReason: readableDetail.petriProjectionReplayReason ?? null,
-              ...(readableDetail.petriReadySteps === undefined
-                ? {}
-                : { petriReadySteps: readableDetail.petriReadySteps }),
-              ...(readableDetail.petriBlockedSteps === undefined
-                ? {}
-                : { petriBlockedSteps: readableDetail.petriBlockedSteps }),
-            }
-          : undefined;
+        const hints = readableDetail ? executeRunProductUpdateHintsFromDetail(readableDetail) : undefined;
         publisher.publish(executeRunProductUpdates(params.runId, hints));
       };
       let pendingRunUpdate = Promise.resolve();

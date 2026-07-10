@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { petriDirPath } from './petri-events.js';
-import type { PetriProjection } from './petri-replay.js';
+import { parsePetriProjection, type PetriProjection } from './petri-projection.js';
 import type { RunMetadata } from './run.js';
 
 export interface PetriMarkingLifecycleProvenance {
@@ -37,7 +37,7 @@ export async function readPetriMarkingSnapshot(args: {
   readonly runId: string;
 }): Promise<PetriMarkingSnapshot | undefined> {
   try {
-    return asPetriProjection(JSON.parse(await readFile(petriMarkingPath(args.cwd, args.runId), 'utf8')));
+    return asPetriMarkingSnapshot(JSON.parse(await readFile(petriMarkingPath(args.cwd, args.runId), 'utf8')));
   } catch {
     return undefined;
   }
@@ -67,47 +67,15 @@ export function petriMarkingSnapshotMatchesRunMetadata(
   );
 }
 
-function asPetriProjection(value: unknown): PetriMarkingSnapshot | undefined {
-  if (!isRecord(value) || !isRecord(value.currentMarking)) return undefined;
-  if (
-    typeof value.firedTransitionCount !== 'number' ||
-    !Number.isInteger(value.firedTransitionCount) ||
-    value.firedTransitionCount < 0
-  ) {
-    return undefined;
-  }
-
-  const currentMarking: Record<string, number> = {};
-  for (const [placeId, count] of Object.entries(value.currentMarking)) {
-    if (typeof count !== 'number' || !Number.isInteger(count) || count < 0) return undefined;
-    if (count > 0) currentMarking[placeId] = count;
-  }
-
-  const claimedTransitionIds = value.claimedTransitionIds;
-  if (claimedTransitionIds !== undefined && !isStringArray(claimedTransitionIds)) return undefined;
-
-  const terminalEventKind =
-    value.terminalEventKind === 'net_completed' ||
-    value.terminalEventKind === 'net_halted' ||
-    value.terminalEventKind === 'net_deadlocked'
-      ? value.terminalEventKind
-      : undefined;
-  if (value.terminalEventKind !== undefined && terminalEventKind === undefined) return undefined;
-
-  const haltedReason = typeof value.haltedReason === 'string' ? value.haltedReason : undefined;
-  if (value.haltedReason !== undefined && haltedReason === undefined) return undefined;
-  if (terminalEventKind === 'net_halted' && haltedReason === undefined) return undefined;
-  if (terminalEventKind !== 'net_halted' && haltedReason !== undefined) return undefined;
-
+function asPetriMarkingSnapshot(value: unknown): PetriMarkingSnapshot | undefined {
+  if (!isRecord(value)) return undefined;
+  const projection = parsePetriProjection(value);
+  if (!projection) return undefined;
   const lifecycleProvenance = asLifecycleProvenance(value.lifecycleProvenance);
   if (value.lifecycleProvenance !== undefined && lifecycleProvenance === undefined) return undefined;
 
   return {
-    ...(claimedTransitionIds === undefined ? {} : { claimedTransitionIds }),
-    currentMarking,
-    firedTransitionCount: value.firedTransitionCount,
-    ...(terminalEventKind === undefined ? {} : { terminalEventKind }),
-    ...(haltedReason === undefined ? {} : { haltedReason }),
+    ...projection,
     ...(lifecycleProvenance === undefined ? {} : { lifecycleProvenance }),
   };
 }
