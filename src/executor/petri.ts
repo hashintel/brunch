@@ -1,7 +1,8 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import { compileExecutorTopology, projectSchedulerPlan, type SchedulerPlan } from './orchestrate-topology.js';
+import { compileExecutorTopology, type SchedulerPlan } from './orchestrate-topology.js';
+import { readPetriRuntimePlan } from './petri-runtime-plan.js';
 import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
 export type PetriExportResult =
@@ -43,13 +44,8 @@ export function petriNetPath(cwd: string, runId: string): string {
   return join(runDirPath(cwd, runId), 'petrinaut', 'net.json');
 }
 
-async function readExportPlan(metadata: RunMetadata): Promise<SchedulerPlan | undefined> {
-  const path = metadata.populatedPlanPath ?? metadata.planPath;
-  try {
-    return projectSchedulerPlan(JSON.parse(await readFile(path, 'utf8')));
-  } catch {
-    return undefined;
-  }
+async function readExportPlan(cwd: string, metadata: RunMetadata): Promise<SchedulerPlan | undefined> {
+  return readPetriRuntimePlan(cwd, metadata);
 }
 
 export async function exportPetri(args: {
@@ -77,7 +73,7 @@ export async function exportPetri(args: {
 
   const path = petriNetPath(args.cwd, args.runId);
   const dir = dirname(path);
-  const plan = await readExportPlan(metadata);
+  const plan = await readExportPlan(args.cwd, metadata);
   if (!plan) {
     return {
       status: 'petri_input_unreadable',
