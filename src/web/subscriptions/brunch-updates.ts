@@ -185,6 +185,9 @@ function isReadyStepArray(value: unknown): value is readonly Record<string, unkn
 
 function isPetriProjection(value: unknown): value is Record<string, unknown> {
   if (!isRecord(value) || !isRecord(value.currentMarking)) return false;
+  for (const count of Object.values(value.currentMarking)) {
+    if (typeof count !== 'number' || !Number.isInteger(count) || count < 0) return false;
+  }
   if (
     ('claimedTransitionIds' in value &&
       value.claimedTransitionIds !== undefined &&
