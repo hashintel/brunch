@@ -1,8 +1,10 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import { populateWorktree, type PopulateResult } from '../../../../executor/populate.js';
 import { BRUNCH_EXECUTE_POPULATE_TOOL } from '../../../../session/schema/tool-names.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_POPULATE_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -17,16 +19,13 @@ interface ExecutePopulateDetails {
   readonly sideEffects: PopulateResult['sideEffects'];
 }
 
-export function createExecutePopulateTool(): ToolDefinition<
-  typeof ExecutePopulateParams,
-  ExecutePopulateDetails
-> {
-  return {
+export function createExecutePopulateTool() {
+  return defineBrunchTool<typeof ExecutePopulateParams, ExecutePopulateDetails>({
     name: BRUNCH_EXECUTE_POPULATE_TOOL,
     label: 'execute_populate',
     description:
       'Populate an existing cook worktree with the selected plan source only. Does not copy host source, execute slices, or create Petri artifacts.',
-    parameters: ExecutePopulateParams,
+    parameters: toolParameters(ExecutePopulateParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
@@ -48,7 +47,7 @@ export function createExecutePopulateTool(): ToolDefinition<
         details: { result, sideEffects: result.sideEffects },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecutePopulate(pi: ExtensionAPI): void {

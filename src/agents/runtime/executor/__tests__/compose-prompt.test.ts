@@ -26,7 +26,10 @@ describe('composeExecutorPrompt', () => {
     expect(prompt).toContain('readiness-bands.md` §Agent Use');
     expect(prompt).toContain('accept the requested Execute-mode move');
     expect(prompt).toMatch(/do not bounce the user back to Specify mode/i);
-    expect(prompt).toContain('`project_plan` stays at frontier-level depth per D103-L');
+    expect(prompt).toMatch(/`prepare_execution`.*recommend exactly one next preparation path/s);
+    expect(prompt).toMatch(/`compile_plan`.*offer a compile-now versus backfill-first choice/s);
+    expect(prompt).toMatch(/`execute_plan`.*begin only the next safe scoped unit/s);
+    expect(prompt).toMatch(/Never treat this choice as permission for unattended whole-plan execution/);
     expect(prompt).toMatch(/live execution boundary is the `execute_\*` tool family/);
     expect(prompt).toContain('explicit-acceptance `execute_host_promotion_preflight`');
     expect(prompt).toContain(

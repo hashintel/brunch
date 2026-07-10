@@ -2,7 +2,10 @@
 
 Owns Pi registration, live UI collection, and TUI transcript `renderResult`
 wiring for the structured-exchange tool family (`ask`, `present_review_set`,
-`present_candidates`, `present_digest`). Result details are constructed only
+`present_candidates`, `present_digest`). Params-boundary validation failures are
+caught inside this adapter family and returned as themed `TOOL_INPUT_INVALID`
+markdown tool results, so Pi's generic tool-error path does not expose raw
+schema payloads in the transcript. Result details are constructed only
 through `src/exchanges/projections/*` and validated against the Zod schemas in
 `src/exchanges/schemas/` (D108-L). D104-L sets the render rule:
 `renderResult` may render from validated details for a family-specific rich
@@ -32,8 +35,9 @@ workspace/consult surfaces keep their own surface-identity colors. Picker-root
 dismissal is terminal `cancelled`; nested Other/comment input steps share one
 `StepResult`-shaped collector and return to the picker, with multi-choice
 checkbox state restored. Declared-continuation root cancellation contributes a
-`brunch.continue` status hint naming `/brunch:continue`; standalone ask
-cancellation is terminal and does not promise recovery. Only an **answered**
+`brunch.continue` status hint naming `/brunch:continue`, `/brunch:consult`, and
+`/brunch:mode`; standalone ask cancellation is terminal and does not promise
+recovery. Only an **answered**
 terminal completes a declared continuation in the recovery scan
 (`src/exchanges/recovery.ts`): cancelled/unavailable results keep the offer
 resumable, so the hint and `ask({ continues })` stay honest after a cancel. The

@@ -35,8 +35,13 @@ import type {
   SessionManager,
 } from '@earendil-works/pi-coding-agent';
 
-import type { TranscriptEntryLike } from '../../../projections/session/continuity-entry-classifier.js';
 import {
+  CONTEXT_SEED_CUSTOM_TYPE,
+  customEntryType,
+  type TranscriptEntryLike,
+} from '../../../projections/session/continuity-entry-classifier.js';
+import {
+  BRUNCH_KICK_CUSTOM_TYPE,
   completeAssistantKick,
   originateAssistantTurn,
   type KickCompletionOutcome,
@@ -127,6 +132,7 @@ export interface RunOrientationJunctureResult {
   readonly ran: boolean;
   readonly choice?: SessionOrientationChoice;
   readonly kickFired: boolean;
+  readonly kickOutcome?: KickCompletionOutcome;
 }
 
 /**
@@ -195,16 +201,51 @@ export async function runJunctureForContext(
   }
   const junctureUi = adaptOrientationUi(ctx);
   const kick = input.kick;
+  const menu = input.menu ? withSpecLabel(input.menu, kick?.specName) : undefined;
   return runOrientationJuncture({
     hasUI: ctx.hasUI,
     ui: junctureUi,
     trigger: input.trigger,
     sessionManager,
     mode: input.mode,
-    ...(input.menu !== undefined ? { menu: input.menu } : {}),
+    ...(menu !== undefined ? { menu } : {}),
     onAppendError: input.onAppendError,
     ...(kick ? { kick: { ...kick, modelAvailable: ctx.modelRegistry.getAvailable().length > 0 } } : {}),
   });
+}
+
+export async function runManualTriggerKickForContext(input: {
+  readonly ctx: Pick<OrientationContextLike, 'modelRegistry' | 'sessionManager'>;
+  readonly kick: JunctureContextKick | undefined;
+  readonly onAppendError: (error: unknown) => void;
+}): Promise<{ readonly kickFired: boolean; readonly kickOutcome?: KickCompletionOutcome }> {
+  const sessionManager = input.ctx.sessionManager;
+  if (!sessionManagerCanAppend(sessionManager)) {
+    input.onAppendError(
+      new Error(
+        'Manual Brunch resume requires a mutable Pi session manager with appendCustomEntry/getEntries.',
+      ),
+    );
+    return { kickFired: false };
+  }
+  if (!input.kick) return { kickFired: false };
+  const kickOutcome = await originateAndKick(
+    sessionManager,
+    {
+      ...input.kick,
+      modelAvailable: input.ctx.modelRegistry.getAvailable().length > 0,
+    },
+    {
+      resumeOrigin: 'manual_trigger',
+      // A failed kick can leave its provider-visible seed in the transcript.
+      // Reuse that seed on retry; otherwise explicit continuation still forces
+      // fresh grounding before the next kick.
+      forceSeed: !hasSeedAwaitingKick(sessionManager.getEntries()),
+      forceStartOrigin: 'manual_trigger',
+      deliverSeedWithoutModel: false,
+    },
+  );
+  return { kickFired: kickOutcome.status === 'fired', kickOutcome };
 }
 
 export function adaptOrientationUi(ctx: {
@@ -219,6 +260,8 @@ export function adaptOrientationUi(ctx: {
         custom((tui, theme, _keybindings, done) =>
           createConsultMenuComponent({
             title: menu.title,
+            ...(menu.topLabel ? { topLabel: menu.topLabel } : {}),
+            ...(menu.bottomLabel ? { bottomLabel: menu.bottomLabel } : {}),
             choices: menu.items,
             theme,
             onDone: done,
@@ -227,6 +270,14 @@ export function adaptOrientationUi(ctx: {
     };
   }
   return { select: (title, options) => selectWithRpcTimeout(ctx, title, options) };
+}
+
+function withSpecLabel(
+  menu: SessionOrientationMenuDescriptor,
+  specName: string | undefined,
+): SessionOrientationMenuDescriptor {
+  if (!specName || menu.bottomLabel) return menu;
+  return { ...menu, bottomLabel: `"${specName}"` };
 }
 
 function selectWithRpcTimeout(
@@ -254,6 +305,15 @@ export function sendCustomMessageViaExtensionApi(pi: ExtensionAPI): LiveKickDeps
 
 function hasAvailableModel(ctx: Pick<OrientationContextLike, 'modelRegistry'>): boolean {
   return ctx.modelRegistry.getAvailable().length > 0;
+}
+
+function hasSeedAwaitingKick(entries: readonly TranscriptEntryLike[]): boolean {
+  for (let index = entries.length - 1; index >= 0; index--) {
+    const customType = customEntryType(entries[index]!);
+    if (customType === BRUNCH_KICK_CUSTOM_TYPE) return false;
+    if (customType === CONTEXT_SEED_CUSTOM_TYPE) return true;
+  }
+  return false;
 }
 
 function sessionManagerCanAppend(sessionManager: unknown): sessionManager is JunctureSessionManager {
@@ -297,11 +357,11 @@ export async function runOrientationJuncture(
     ) {
       return { ran: dialogRan, ...(choice !== undefined ? { choice } : {}), kickFired: false };
     }
-    await originateAndKick(input.sessionManager, input.kick, {
+    const kickOutcome = await originateAndKick(input.sessionManager, input.kick, {
       resumeOrigin: 'manual_trigger',
       forceSeed: true,
     });
-    return { ran: true, choice, kickFired: true };
+    return { ran: true, choice, kickFired: kickOutcome.status === 'fired', kickOutcome };
   }
 
   // mode === 'boot': originate+kick (respecting resume-debt idle) unless the
@@ -312,23 +372,32 @@ export async function runOrientationJuncture(
     return { ran: dialogRan, ...(choice !== undefined ? { choice } : {}), kickFired: false };
   }
   const forceSeed = choice !== undefined && choice !== menu.noKickChoice;
-  await originateAndKick(input.sessionManager, input.kick, {
+  const kickOutcome = await originateAndKick(input.sessionManager, input.kick, {
     resumeOrigin: 'resume_debt',
     forceSeed,
   });
-  return { ran: dialogRan, ...(choice !== undefined ? { choice } : {}), kickFired: true };
+  return {
+    ran: dialogRan,
+    ...(choice !== undefined ? { choice } : {}),
+    kickFired: kickOutcome.status === 'fired',
+    kickOutcome,
+  };
 }
 
 interface OriginateAndKickOptions {
   readonly resumeOrigin: 'manual_trigger' | 'resume_debt';
   readonly forceSeed: boolean;
+  /** Explicit user resume commands must be visible as manual-trigger kicks even on an empty transcript. */
+  readonly forceStartOrigin?: 'manual_trigger';
+  /** Most boot paths still persist seed evidence when no model is available; explicit retry commands do not. */
+  readonly deliverSeedWithoutModel?: boolean;
 }
 
 async function originateAndKick(
   sessionManager: JunctureSessionManager,
   kick: LiveKickDeps,
   options: OriginateAndKickOptions,
-): Promise<void> {
+): Promise<KickCompletionOutcome> {
   const entries = sessionManager.getEntries();
   const origination = originateAssistantTurn({
     specId: kick.specId,
@@ -342,18 +411,25 @@ async function originateAndKick(
     ...(options.forceSeed ? { forceSeed: true } : {}),
   });
 
-  await deliverSeedEntries(sessionManager, kick, origination.decision.seedEntries);
+  const decision =
+    options.forceStartOrigin && origination.decision.action === 'start'
+      ? { ...origination.decision, origin: options.forceStartOrigin }
+      : origination.decision;
 
   if (kick.onOriginationDecision) {
-    await kick.onOriginationDecision(origination.decision, { modelAvailable: kick.modelAvailable });
+    await kick.onOriginationDecision(decision, { modelAvailable: kick.modelAvailable });
   }
 
-  await completeAssistantKick({
-    decision: origination.decision,
+  if (decision.action === 'start' && (kick.modelAvailable || options.deliverSeedWithoutModel !== false)) {
+    await deliverSeedEntries(sessionManager, kick, decision.seedEntries);
+  }
+
+  return completeAssistantKick({
+    decision,
     modelAvailable: kick.modelAvailable,
     sendCustomMessage: kick.sendCustomMessage,
     onOutcome: (outcome) => {
-      if (kick.onKickOutcome) void kick.onKickOutcome(outcome, origination.decision);
+      if (kick.onKickOutcome) void kick.onKickOutcome(outcome, decision);
     },
   });
 }

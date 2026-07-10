@@ -37,61 +37,72 @@ export interface SessionOrientationMenuItem {
 
 export interface SessionOrientationMenuDescriptor {
   readonly title: string;
+  readonly topLabel?: string;
+  readonly bottomLabel?: string;
   readonly items: readonly SessionOrientationMenuItem[];
   /** A resolved choice that records an orientation entry but suppresses the live kick. */
   readonly noKickChoice?: SessionOrientationChoice;
 }
 
 export const SESSION_ORIENTATION_MENU = {
-  title: 'How should this session continue?',
+  title: 'Choose how Specify mode should continue',
+  topLabel: '[ Specify ]',
   noKickChoice: 'continue',
   items: [
-    { id: 'continue', label: 'Continue', description: 'Stay inert until your next instruction.' },
     {
       id: 'elicit_decisions',
-      label: 'Ask decision-driven questions',
-      description: 'Use the elicitor/grill style to resolve product and architectural choices.',
+      label: 'Work by decision',
+      description: 'Use grill-style pressure to resolve product and architectural choices.',
     },
     {
       id: 'elicit_examples',
-      label: 'Ask example-driven questions',
+      label: 'Work by example',
       description: 'Use examples and counterexamples to collapse ambiguity.',
     },
     {
       id: 'propose_intent',
-      label: 'Propose candidate spec designs',
-      description: 'Project product intent alternatives before choosing one.',
+      label: 'Propose a spec direction',
+      description: 'Project product-intent alternatives before choosing one.',
     },
     {
       id: 'propose_design',
-      label: 'Propose technical designs',
-      description: 'Project implementation shapes and tradeoffs.',
+      label: 'Prep technical design for execution',
+      description: 'Compare implementation shapes and tradeoffs before Execute mode takes over.',
     },
     {
       id: 'propose_oracle',
-      label: 'Propose verification designs',
-      description: 'Project test and evidence strategies for this frontier.',
+      label: 'Prep verification for execution',
+      description: 'Design the test and evidence strategy for this frontier.',
     },
     {
       id: 'ingest',
       label: 'Ingest source material',
-      description: 'Fold supplied context into Brunch truth.',
+      description: 'Fold supplied context into Brunch truth before asking anything else.',
     },
+    { id: 'continue', label: 'Wait for me', description: 'Stay inert until your next instruction.' },
   ],
 } as const satisfies SessionOrientationMenuDescriptor;
 
 export const CODE_SESSION_ORIENTATION_MENU = {
-  title: 'How should Execute mode start?',
+  title: 'Choose how Execute mode should continue',
+  topLabel: '[ Execute ]',
   items: [
-    { id: 'proceed', label: 'Proceed with readiness assessment' },
     {
-      id: 'backfill',
-      label: 'Backfill missing information',
-      description: 'Negotiate or ask before executing.',
+      id: 'prepare_execution',
+      label: 'Design / oracle / commit work',
+      description:
+        'Assess preparation evidence, recommend one design/oracle/commitment path, and ask before beginning it.',
     },
-    { id: 'design_first', label: 'Design the technical approach first' },
-    { id: 'oracle_first', label: 'Design the verification approach first' },
-    { id: 'project_plan', label: 'Project a frontier-level plan and proceed' },
+    {
+      id: 'compile_plan',
+      label: 'Plan compilation readiness',
+      description: 'Assess readiness, name gaps, then offer compile-now versus backfill-first.',
+    },
+    {
+      id: 'execute_plan',
+      label: 'Plan execution',
+      description: 'Validate the plan is fresh and ready, then begin only the next safe scoped unit.',
+    },
   ],
 } as const satisfies SessionOrientationMenuDescriptor;
 

@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import {
@@ -7,6 +7,8 @@ import {
   type SourcePolicyResult,
 } from '../../../../executor/source-policy.js';
 import { BRUNCH_EXECUTE_SOURCE_POLICY_TOOL } from '../../../../session/schema/tool-names.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_SOURCE_POLICY_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -24,16 +26,13 @@ interface ExecuteSourcePolicyDetails {
   readonly sideEffects: SourcePolicyResult['sideEffects'];
 }
 
-export function createExecuteSourcePolicyTool(): ToolDefinition<
-  typeof ExecuteSourcePolicyParams,
-  ExecuteSourcePolicyDetails
-> {
-  return {
+export function createExecuteSourcePolicyTool() {
+  return defineBrunchTool<typeof ExecuteSourcePolicyParams, ExecuteSourcePolicyDetails>({
     name: BRUNCH_EXECUTE_SOURCE_POLICY_TOOL,
     label: 'execute_source_policy',
     description:
       'Record the source population policy for a cook run. Does not copy host source, execute slices, or create Petri artifacts.',
-    parameters: ExecuteSourcePolicyParams,
+    parameters: toolParameters(ExecuteSourcePolicyParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
@@ -59,7 +58,7 @@ export function createExecuteSourcePolicyTool(): ToolDefinition<
         details: { result, sideEffects: result.sideEffects },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecuteSourcePolicy(pi: ExtensionAPI): void {

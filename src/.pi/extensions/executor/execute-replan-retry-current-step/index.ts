@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import type { ExecutionPorts } from '../../../../executor/execution-ports.js';
@@ -14,6 +14,8 @@ import {
 } from '../../../../executor/run-retry-eligibility.js';
 import { BRUNCH_EXECUTE_REPLAN_RETRY_CURRENT_STEP_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 import { buildCurrentProjectionForRun } from '../current-projection.js';
 
 export { BRUNCH_EXECUTE_REPLAN_RETRY_CURRENT_STEP_TOOL } from '../../../../session/schema/tool-names.js';
@@ -55,13 +57,13 @@ export interface ExecuteReplanRetryCurrentStepDeps {
 export function createExecuteReplanRetryCurrentStepTool(
   ports: ExecutionPorts,
   deps: ExecuteReplanRetryCurrentStepDeps,
-): ToolDefinition<typeof ExecuteReplanRetryCurrentStepParams, ExecuteReplanRetryCurrentStepDetails> {
-  return {
+) {
+  return defineBrunchTool<typeof ExecuteReplanRetryCurrentStepParams, ExecuteReplanRetryCurrentStepDetails>({
     name: BRUNCH_EXECUTE_REPLAN_RETRY_CURRENT_STEP_TOOL,
     label: 'execute_replan_retry_current_step',
     description:
       'Retry exactly one ready executor lifecycle step when the run is fresh and retry-eligible. Does not regenerate plans or drive the run to completion.',
-    parameters: ExecuteReplanRetryCurrentStepParams,
+    parameters: toolParameters(ExecuteReplanRetryCurrentStepParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
@@ -128,7 +130,7 @@ export function createExecuteReplanRetryCurrentStepTool(
         details: { result, sideEffects: result.sideEffects },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecuteReplanRetryCurrentStep(

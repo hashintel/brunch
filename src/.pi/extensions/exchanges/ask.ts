@@ -19,8 +19,8 @@ import { ExchangeAnswerEditorComponent } from '../../components/exchange-answer-
 import { createExchangeDecisionPickerComponent } from '../../components/exchange-decision-picker.js';
 import { operationalModeBorderColor } from '../../components/mode-border-theme.js';
 import { createMultiChoicePickerComponent } from '../../components/multi-choice-picker.js';
+import { toolParameters } from '../shared/tool-schema.js';
 import { collectContinuingAsk } from './ask/continuation.js';
-import { piSchema } from './pi-schema.js';
 import { requestChoicesViaEditor } from './shared/choices-editor.js';
 import { renderEmptyStructuredExchangeCall, renderMarkdownResult } from './shared/markdown.js';
 import {
@@ -32,6 +32,7 @@ import {
   type StepResult,
 } from './shared/required-input.js';
 import { withWorkingIndicatorHidden, type StructuredExchangeUiContext } from './shared/ui-context.js';
+import { validationFailureResult } from './shared/validation.js';
 
 export const ASK_TOOL = 'ask' as const;
 export { clearContinueHint, collectAskContinuationResponse } from './ask/continuation.js';
@@ -480,15 +481,19 @@ export function createAskTool(answerBroker?: LiveExchangeAwaiter) {
     promptGuidelines: [
       'Use ask for ordinary Brunch questions; do not call present_question.',
       'Put the full question in body markdown. Use options[] for finite choices instead of numbered body text.',
+      'Never author a listed option that duplicates the built-in Other affordance; set allowOther when an open-ended answer is needed.',
       'Set commentPrompt only when a trailing comment is worth collecting; omitting it skips the optional-comment step.',
       'The ask result is the durable transcript artifact; renderCall is intentionally non-semantic.',
       'For offer continuations, call ask with continues only; the runtime fills body/options from the present_* declaration.',
+      "Do not restate a present_* offer's large pretext or digest body in the continuing ask body; the present result remains the pretext.",
     ],
-    parameters: piSchema(zAskParams),
+    parameters: toolParameters(zAskParams),
     executionMode: 'sequential',
 
     async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
-      const params = zAskParams.parse(rawParams);
+      const parsed = zAskParams.safeParse(rawParams);
+      if (!parsed.success) return validationFailureResult(ASK_TOOL, parsed.error);
+      const params = parsed.data;
       const uiCtx = ctx as unknown as StructuredExchangeUiContext;
       if (isContinuingAskParams(params)) return collectContinuingAsk(params, uiCtx);
       const standalone = standaloneAskParams(params);

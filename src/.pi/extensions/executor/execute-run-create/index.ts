@@ -1,9 +1,11 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import { createRun, type RunCreateResult } from '../../../../executor/run.js';
 import { BRUNCH_EXECUTE_RUN_CREATE_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 import { buildCurrentProjectionForSpec } from '../current-projection.js';
 
 export { BRUNCH_EXECUTE_RUN_CREATE_TOOL } from '../../../../session/schema/tool-names.js';
@@ -41,15 +43,13 @@ export interface ExecuteRunCreateDeps {
   readonly reads: Pick<GraphReaders, 'queryGraph'>;
 }
 
-export function createExecuteRunCreateTool(
-  deps: ExecuteRunCreateDeps,
-): ToolDefinition<typeof ExecuteRunCreateParams, ExecuteRunCreateDetails> {
-  return {
+export function createExecuteRunCreateTool(deps: ExecuteRunCreateDeps) {
+  return defineBrunchTool<typeof ExecuteRunCreateParams, ExecuteRunCreateDetails>({
     name: BRUNCH_EXECUTE_RUN_CREATE_TOOL,
     label: 'execute_run_create',
     description:
       'Create metadata for a cook run from the selected spec plan. Does not create worktrees, Petri artifacts, or execute slices.',
-    parameters: ExecuteRunCreateParams,
+    parameters: toolParameters(ExecuteRunCreateParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
@@ -87,7 +87,7 @@ export function createExecuteRunCreateTool(
         details: { result, sideEffects: result.sideEffects },
       };
     },
-  };
+  });
 }
 
 function verifyTargetForProfile(

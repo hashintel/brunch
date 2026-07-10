@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import type { ExecutionPlanOutline } from '../../../../executor/execute-plan-outline.js';
@@ -9,6 +9,8 @@ import {
 import { writePlanOutlineArtifact } from '../../../../executor/plan-outline-artifact.js';
 import { BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -41,15 +43,13 @@ export interface ExecutePlanOutlineArtifactDeps {
   readonly reads: Pick<GraphReaders, 'queryGraph'>;
 }
 
-export function createExecutePlanOutlineArtifactTool(
-  deps: ExecutePlanOutlineArtifactDeps,
-): ToolDefinition<typeof ExecutePlanOutlineArtifactParams, ExecutePlanOutlineArtifactDetails> {
-  return {
+export function createExecutePlanOutlineArtifactTool(deps: ExecutePlanOutlineArtifactDeps) {
+  return defineBrunchTool<typeof ExecutePlanOutlineArtifactParams, ExecutePlanOutlineArtifactDetails>({
     name: BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL,
     label: 'execute_plan_outline_artifact',
     description:
       'Write the current reviewable plan outline artifact under .brunch/execution-reports. Does not create cook runs or worktrees.',
-    parameters: ExecutePlanOutlineArtifactParams,
+    parameters: toolParameters(ExecutePlanOutlineArtifactParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
@@ -87,7 +87,7 @@ export function createExecutePlanOutlineArtifactTool(
         },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecutePlanOutlineArtifact(

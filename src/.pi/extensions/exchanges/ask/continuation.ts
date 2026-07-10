@@ -24,11 +24,19 @@ import {
 import { projectBrunchAgentState } from '../../../../projections/session/runtime-state.js';
 import { createExchangeDecisionPickerComponent } from '../../../components/exchange-decision-picker.js';
 import { operationalModeBorderColor } from '../../../components/mode-border-theme.js';
+import {
+  BRUNCH_CONSULT_COMMAND,
+  BRUNCH_CONTINUE_COMMAND,
+  BRUNCH_MODE_COMMAND,
+  slashCommand,
+} from '../../commands/names.js';
 import { collectCommentRequirementStep, isBack, type StepResult } from '../shared/required-input.js';
 import { withWorkingIndicatorHidden, type StructuredExchangeUiContext } from '../shared/ui-context.js';
 
 const CONTINUE_STATUS_KEY = 'brunch.continue';
-const CONTINUE_COMMAND_HINT = '/brunch:continue';
+const CONTINUE_COMMAND_HINT = slashCommand(BRUNCH_CONTINUE_COMMAND);
+const CONSULT_COMMAND_HINT = slashCommand(BRUNCH_CONSULT_COMMAND);
+const MODE_COMMAND_HINT = slashCommand(BRUNCH_MODE_COMMAND);
 
 type AskResultDetails = RequestDetails;
 type RequestReviewProjectionInput = Parameters<typeof projectRequestReview>[0];
@@ -76,7 +84,10 @@ function terminal(
 }
 
 export function surfaceContinueHint(ctx: StructuredExchangeUiContext): void {
-  ctx.ui?.setStatus?.(CONTINUE_STATUS_KEY, `Interrupted ask. Run ${CONTINUE_COMMAND_HINT} to resume.`);
+  ctx.ui?.setStatus?.(
+    CONTINUE_STATUS_KEY,
+    `Interrupted ask. Run ${CONTINUE_COMMAND_HINT} to resume, ${CONSULT_COMMAND_HINT} to choose a next move, or ${MODE_COMMAND_HINT} to switch roles.`,
+  );
 }
 
 export function clearContinueHint(ctx: StructuredExchangeUiContext): void {

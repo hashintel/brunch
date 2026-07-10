@@ -1,6 +1,6 @@
 # `.pi/components` — Reusable Pi TUI components
 
-SPEC decisions: D52-L (sealed Pi-harness runtime surface), D115-L (no-auth workspace-dialog warning).
+SPEC decisions: D52-L (sealed Pi-harness runtime surface), D115-L (no-auth workspace-dialog warning), D118-L (provider-facing tool-schema adapter).
 
 This directory owns reusable components rendered inside the embedded Pi coding-agent harness: TUI overlays, chrome regions, message helpers, and the shared visual primitives (theme/badge/segment-track) they build on. These are **Pi-native presentation pieces**, not generic React components and not product wiring.
 
@@ -23,7 +23,8 @@ Components grow by **fractal sub-tree**: when a component outgrows a single file
 
 ```text
 components/
-├── alternatives.ts              single-file components
+├── alternatives.ts              standalone card-set renderer/tool; app composition injects the required
+│                                D118-L tool-parameter adapter so the component never imports extensions
 ├── brunch-editor.ts             bordered `CustomEditor` wrapper for Brunch's persistent input editor;
 │                                caller-injected labels/color keep runtime/session state out of the component
 ├── brunch-identity.ts
@@ -34,7 +35,8 @@ components/
 ├── chrome-shortcuts.ts        shared shortcut constants/hint formatting consumed by chrome copy
 │                                and the command registrar that binds those keys
 ├── consult-menu.ts            bordered session-orientation consult menu using the shared two-line
-│                                choice-row projection and `borderAccent` surface-identity border role
+│                                choice-row projection, visible scroll thumb, role/spec top/bottom label
+│                                channel, and `borderAccent` surface-identity border role
 ├── editor-lines.ts            shared pi-tui Editor border/rule stripping helpers for boxed
 │                                editor surfaces
 ├── exchange-answer-editor.ts   bordered free-text exchange answer editor hosting pi-tui Editor

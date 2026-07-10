@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import type { ExecutionPlanOutline } from '../../../../executor/execute-plan-outline.js';
@@ -8,6 +8,8 @@ import {
 } from '../../../../executor/execute-projection.js';
 import { BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -36,15 +38,13 @@ export interface ExecutePlanOutlineDeps {
   readonly reads: Pick<GraphReaders, 'queryGraph'>;
 }
 
-export function createExecutePlanOutlineTool(
-  deps: ExecutePlanOutlineDeps,
-): ToolDefinition<typeof ExecutePlanOutlineParams, ExecutePlanOutlineDetails> {
-  return {
+export function createExecutePlanOutlineTool(deps: ExecutePlanOutlineDeps) {
+  return defineBrunchTool<typeof ExecutePlanOutlineParams, ExecutePlanOutlineDetails>({
     name: BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL,
     label: 'execute_plan_outline',
     description:
       'Create a side-effect-free reviewable plan outline from the selected specification graph. Does not create plan files or cook runs.',
-    parameters: ExecutePlanOutlineParams,
+    parameters: toolParameters(ExecutePlanOutlineParams),
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
       const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
       const projection = projectExecuteGraph({
@@ -76,7 +76,7 @@ export function createExecutePlanOutlineTool(
         },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecutePlanOutline(pi: ExtensionAPI, deps: ExecutePlanOutlineDeps): void {

@@ -109,15 +109,17 @@ describe('Brunch model policy', () => {
     });
   });
 
-  it('formats no-auth guidance from the allowlist for every entry surface', () => {
+  it('formats short no-auth guidance without exposing model policy internals', () => {
     const copy = getBrunchNoAuthGuidanceCopy();
 
-    expect(copy.title).toContain('No Brunch model auth');
-    expect(copy.body).toContain('brunch login');
+    expect(copy.title).toContain('No model auth');
     expect(copy.body).toContain('/login');
+    expect(copy.body).toContain('brunch login');
     for (const entry of BRUNCH_MODEL_ALLOWLIST) {
-      expect(copy.body).toContain(entry.displayName);
+      expect(copy.body).not.toContain(entry.displayName);
+      expect(copy.body).not.toContain(entry.model);
     }
+    expect(copy.lines.join('\n')).not.toContain('allowlist');
   });
 
   it('boots a Pi session on the resolved allowlisted model and scoped cycle list', async () => {

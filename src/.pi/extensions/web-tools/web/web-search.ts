@@ -1,6 +1,8 @@
 import { Text } from '@earendil-works/pi-tui';
 import { Type } from 'typebox';
 
+import { toolParameters } from '../../shared/tool-schema.js';
+
 const BRAVE_LLM_CONTEXT_URL = 'https://api.search.brave.com/res/v1/llm/context';
 
 const DEFAULT_COUNT = 20;
@@ -189,51 +191,53 @@ export function createWebSearchTool() {
       'Use web_search freshness filters for time-sensitive queries: pd for day, pw for week, pm for month, py for year.',
       'Use web_search maxTokens around 2048 for simple facts, 8192 for normal research, and 16384+ for deep research.',
     ],
-    parameters: Type.Object({
-      query: Type.String({ description: 'Search query, maximum 400 characters.', maxLength: 400 }),
-      count: Type.Optional(
-        Type.Integer({
-          description: 'Max search results to consider. Default 20, max 50.',
-          minimum: 1,
-          maximum: 50,
-        }),
-      ),
-      freshness: Type.Optional(
-        Type.Union(
-          [Type.Literal('pd'), Type.Literal('pw'), Type.Literal('pm'), Type.Literal('py'), Type.String()],
-          {
-            description: 'Freshness: pd, pw, pm, py, or YYYY-MM-DDtoYYYY-MM-DD.',
-          },
+    parameters: toolParameters(
+      Type.Object({
+        query: Type.String({ description: 'Search query, maximum 400 characters.', maxLength: 400 }),
+        count: Type.Optional(
+          Type.Integer({
+            description: 'Max search results to consider. Default 20, max 50.',
+            minimum: 1,
+            maximum: 50,
+          }),
         ),
-      ),
-      maxTokens: Type.Optional(
-        Type.Integer({
-          description: 'Maximum tokens of context to return. Default 8192, max 32768.',
-          minimum: 1024,
-          maximum: 32768,
-        }),
-      ),
-      maxUrls: Type.Optional(
-        Type.Integer({
-          description: 'Maximum URLs in response. Default 20, max 50.',
-          minimum: 1,
-          maximum: 50,
-        }),
-      ),
-      threshold: Type.Optional(
-        Type.Union(
-          [
-            Type.Literal('strict'),
-            Type.Literal('balanced'),
-            Type.Literal('lenient'),
-            Type.Literal('disabled'),
-          ],
-          {
-            description: 'Relevance filtering: strict, balanced, lenient, or disabled.',
-          },
+        freshness: Type.Optional(
+          Type.Union(
+            [Type.Literal('pd'), Type.Literal('pw'), Type.Literal('pm'), Type.Literal('py'), Type.String()],
+            {
+              description: 'Freshness: pd, pw, pm, py, or YYYY-MM-DDtoYYYY-MM-DD.',
+            },
+          ),
         ),
-      ),
-    }),
+        maxTokens: Type.Optional(
+          Type.Integer({
+            description: 'Maximum tokens of context to return. Default 8192, max 32768.',
+            minimum: 1024,
+            maximum: 32768,
+          }),
+        ),
+        maxUrls: Type.Optional(
+          Type.Integer({
+            description: 'Maximum URLs in response. Default 20, max 50.',
+            minimum: 1,
+            maximum: 50,
+          }),
+        ),
+        threshold: Type.Optional(
+          Type.Union(
+            [
+              Type.Literal('strict'),
+              Type.Literal('balanced'),
+              Type.Literal('lenient'),
+              Type.Literal('disabled'),
+            ],
+            {
+              description: 'Relevance filtering: strict, balanced, lenient, or disabled.',
+            },
+          ),
+        ),
+      }),
+    ),
     async execute(_toolCallId: string, params: WebSearchParams, signal?: AbortSignal) {
       const text = await searchBraveContext(params, signal);
       return {

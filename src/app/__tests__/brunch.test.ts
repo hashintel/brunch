@@ -101,6 +101,8 @@ describe('Brunch CLI dispatch', () => {
       expect(output).toContain('Usage: brunch');
       expect(output).toContain('login');
       expect(output).toContain('--mode');
+      expect(output).toContain('--no-webui');
+      expect(output).not.toContain('--open-web');
     }
   });
 
@@ -119,7 +121,7 @@ describe('Brunch CLI dispatch', () => {
     let output = '';
 
     const code = await runBrunchCli({
-      argv: ['--mode', 'print', '--open-web', '--dev-tools'],
+      argv: ['--mode', 'print', '--no-webui', '--dev-tools'],
       cwd: '/tmp/brunch-project',
       coordinator: coordinator(),
       stdout: (chunk) => {
@@ -132,7 +134,7 @@ describe('Brunch CLI dispatch', () => {
 
     expect(code).toBe(0);
     expect(output).toContain('status: select_spec');
-    expect(stderr).toContain('--open-web only applies to --mode tui');
+    expect(stderr).toContain('--no-webui only applies to --mode tui');
     expect(stderr).toContain('--dev-tools only applies to --mode tui');
   });
 
@@ -186,16 +188,19 @@ describe('Brunch CLI dispatch', () => {
     ]);
   });
 
-  it('keeps the web sidecar browser launch opt-in via --open-web', async () => {
+  it('opens the web UI by default and accepts only --no-webui as the opt-out', async () => {
     const launches: boolean[] = [];
     const launchTui = async (options?: { openWeb?: boolean }) => {
       launches.push(options?.openWeb === true);
     };
 
     await runBrunchCli({ argv: [], coordinator: coordinator(), launchTui });
-    await runBrunchCli({ argv: ['--open-web'], coordinator: coordinator(), launchTui });
+    await runBrunchCli({ argv: ['--no-webui'], coordinator: coordinator(), launchTui });
 
-    expect(launches).toEqual([false, true]);
+    expect(launches).toEqual([true, false]);
+    await expect(
+      runBrunchCli({ argv: ['--open-web'], coordinator: coordinator(), launchTui }),
+    ).rejects.toThrow(/Unknown option '--open-web'/u);
   });
 
   it('routes --mode print through the coordinator state and exits', async () => {

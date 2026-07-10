@@ -1,8 +1,10 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import { initializeReports, type ReportInitResult } from '../../../../executor/report.js';
 import { BRUNCH_EXECUTE_REPORT_INIT_TOOL } from '../../../../session/schema/tool-names.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_REPORT_INIT_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -17,16 +19,13 @@ interface ExecuteReportInitDetails {
   readonly sideEffects: ReportInitResult['sideEffects'];
 }
 
-export function createExecuteReportInitTool(): ToolDefinition<
-  typeof ExecuteReportInitParams,
-  ExecuteReportInitDetails
-> {
-  return {
+export function createExecuteReportInitTool() {
+  return defineBrunchTool<typeof ExecuteReportInitParams, ExecuteReportInitDetails>({
     name: BRUNCH_EXECUTE_REPORT_INIT_TOOL,
     label: 'execute_report_init',
     description:
       'Initialize reports.jsonl for a source-copied cook run. Does not execute slices or create Petri artifacts.',
-    parameters: ExecuteReportInitParams,
+    parameters: toolParameters(ExecuteReportInitParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
@@ -48,7 +47,7 @@ export function createExecuteReportInitTool(): ToolDefinition<
         details: { result, sideEffects: result.sideEffects },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecuteReportInit(pi: ExtensionAPI): void {

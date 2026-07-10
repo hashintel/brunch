@@ -11,6 +11,8 @@ import {
   querySessionBranch,
   registerBrunchSessionQuery,
 } from '../dev-mode/session-query/index.js';
+import { devModeToolSchemaBaseline } from './fixtures/dev-mode-tool-schemas.pre-fe-1163.js';
+import { normalizeToolSchema } from './tool-schema-baseline.js';
 
 const branch = [
   messageEntry('u1', { role: 'user', content: 'show me the graph summary' }),
@@ -52,6 +54,14 @@ const branch = [
 ];
 
 describe('brunch_session_query', () => {
+  it('adopts the shared Brunch default renderer', () => {
+    const tool = createBrunchSessionQueryTool();
+
+    expect(tool.renderShell).toBe('self');
+    expect(tool.renderCall).toEqual(expect.any(Function));
+    expect(tool.renderResult).toEqual(expect.any(Function));
+  });
+
   it('finds entries by role, toolName, customType, and contains predicates', () => {
     expect(querySessionBranch(branch, { find: { role: 'toolResult', toolName: 'read_graph' } })).toEqual([
       expect.objectContaining({
@@ -203,6 +213,12 @@ describe('brunch_session_query', () => {
     const tools: Array<{ name: string }> = [];
     registerBrunchSessionQuery({ registerTool: (tool: { name: string }) => tools.push(tool) } as never);
     expect(tools.map((tool) => tool.name)).toEqual([BRUNCH_SESSION_QUERY_TOOL]);
+  });
+
+  it('preserves the pre-FE-1163 provider-facing schema semantics', () => {
+    expect(normalizeToolSchema(createBrunchSessionQueryTool().parameters)).toEqual(
+      normalizeToolSchema(devModeToolSchemaBaseline.schemas.brunch_session_query),
+    );
   });
 
   it('advertises a JSON Schema draft 2020-12 parameter schema (range uses prefixItems, no draft-07 tuple form)', () => {

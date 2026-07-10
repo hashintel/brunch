@@ -16,9 +16,11 @@ import {
   bootTier2ProductOriginatedTurn,
   bootTier2RuntimeFromFixture,
   bootTier2RuntimeThroughRunBrunchTui,
+  createTier2FauxAgentServices,
   rebootTier2Runtime,
   resumeTier2Fixture,
   runTier2RealBootFauxTurn,
+  waitForCondition,
   withTier2FauxAgentServices,
 } from '../tier-2-harness.js';
 import {
@@ -35,21 +37,56 @@ import {
   waitForKick,
 } from './support/tier-2-test-support.js';
 
-async function readOriginationDebug(cwd: string, expected: string): Promise<string> {
+async function readDebugFile(cwd: string, file: string, expected: string): Promise<string> {
   const deadline = Date.now() + 2000;
   let text = '';
   while (Date.now() <= deadline) {
     try {
-      text = await readFile(`${cwd}/.brunch/debug/origination.md`, 'utf8');
+      text = await readFile(`${cwd}/.brunch/debug/${file}`, 'utf8');
       if (text.includes(expected)) return text;
     } catch {
       // File may not exist until the fire-and-forget debug append finishes.
     }
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
-  throw new Error(
-    `Timed out waiting for origination debug record containing ${expected}. Last text: ${text}`,
-  );
+  throw new Error(`Timed out waiting for ${file} containing ${expected}. Last text: ${text}`);
+}
+
+async function readOriginationDebug(cwd: string, expected: string): Promise<string> {
+  return readDebugFile(cwd, 'origination.md', expected);
+}
+
+function originationJsonRecords(text: string): readonly unknown[] {
+  return [...text.matchAll(/```json\n([\s\S]*?)\n```/g)].map((match) => JSON.parse(match[1]!));
+}
+
+async function readOriginationRecordsUntil(
+  cwd: string,
+  matches: (record: unknown, index: number) => boolean,
+  description: string,
+): Promise<{ readonly records: readonly unknown[]; readonly index: number }> {
+  const deadline = Date.now() + 2000;
+  let text = '';
+  while (Date.now() <= deadline) {
+    try {
+      text = await readFile(`${cwd}/.brunch/debug/origination.md`, 'utf8');
+      const records = originationJsonRecords(text);
+      const index = records.findIndex(matches);
+      if (index >= 0) return { records, index };
+    } catch {
+      // File may not exist until the fire-and-forget debug append finishes.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(`Timed out waiting for origination record ${description}. Last text: ${text}`);
+}
+
+function deferred(): { readonly promise: Promise<void>; readonly resolve: () => void } {
+  let resolve!: () => void;
+  const promise = new Promise<void>((innerResolve) => {
+    resolve = innerResolve;
+  });
+  return { promise, resolve };
 }
 
 describe('origination-kick-live — the product originates the opening turn on its own bones', () => {
@@ -189,6 +226,82 @@ describe('origination-kick-live — the product originates the opening turn on i
     } finally {
       await boot.runtime.dispose();
       boot.restoreEnv();
+    }
+  });
+
+  it('mirrors the wired manual-trigger continuation into operator-readable debug files', async () => {
+    const manualProviderGate = deferred();
+    let faux!: ReturnType<typeof createTier2FauxAgentServices>;
+    let manualContinueStarted = false;
+    let manualProviderBoundaryReached = false;
+    let manualProviderContinue: Promise<unknown> | undefined;
+    faux = createTier2FauxAgentServices({
+      responseText: 'Manual trigger continuation response.',
+      beforeProviderResponse: async () => {
+        if (!manualContinueStarted) return;
+        manualProviderBoundaryReached = true;
+        await manualProviderGate.promise;
+      },
+    });
+    const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: true, agentServices: faux.agentServices });
+    try {
+      await waitForCondition(
+        () => faux.providerContexts.length >= 1,
+        8000,
+        'startup provider call before manual-trigger debug check',
+      );
+      const providerCallsBeforeManualContinue = faux.providerContexts.length;
+      const command = boot.runtime.session.extensionRunner.getCommand('brunch:continue');
+      expect(command).toBeDefined();
+
+      manualContinueStarted = true;
+      manualProviderContinue = Promise.resolve(
+        command?.handler('', boot.runtime.session.extensionRunner.createCommandContext()),
+      );
+      await waitForCondition(
+        () => manualProviderBoundaryReached,
+        8000,
+        'manual-trigger provider boundary before debug evidence check',
+      );
+
+      const entryContents = await readDebugFile(boot.cwd, 'entry-contents.md', 'brunch.context_seed');
+      expect(entryContents).toContain('Context seeded for spec');
+      expect(entryContents).toContain('Boot seam');
+
+      const { index: manualDecisionIndex } = await readOriginationRecordsUntil(
+        boot.cwd,
+        (record) => {
+          const text = JSON.stringify(record);
+          return text.includes('"origin":"manual_trigger"') && !text.includes('"outcome"');
+        },
+        'manual-trigger decision-only record',
+      );
+      expect(manualDecisionIndex).toBeGreaterThanOrEqual(0);
+
+      const { index: manualOutcomeIndex } = await readOriginationRecordsUntil(
+        boot.cwd,
+        (record, index) => {
+          const text = JSON.stringify(record);
+          return (
+            index > manualDecisionIndex &&
+            text.includes('"origin":"manual_trigger"') &&
+            text.includes('"outcome"') &&
+            text.includes('"status":"fired"')
+          );
+        },
+        'manual-trigger fired outcome record',
+      );
+      expect(manualOutcomeIndex).toBeGreaterThan(manualDecisionIndex);
+      expect(faux.providerContexts).toHaveLength(providerCallsBeforeManualContinue);
+
+      manualProviderGate.resolve();
+      await manualProviderContinue;
+    } finally {
+      manualProviderGate.resolve();
+      await manualProviderContinue?.catch(() => undefined);
+      await boot.runtime.dispose();
+      boot.restoreEnv();
+      faux.unregister();
     }
   });
 

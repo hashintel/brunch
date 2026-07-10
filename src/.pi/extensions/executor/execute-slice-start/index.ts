@@ -1,8 +1,10 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import { startSlice, type SliceStartResult } from '../../../../executor/slice-start.js';
 import { BRUNCH_EXECUTE_SLICE_START_TOOL } from '../../../../session/schema/tool-names.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_SLICE_START_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -18,16 +20,13 @@ interface ExecuteSliceStartDetails {
   readonly sideEffects: SliceStartResult['sideEffects'];
 }
 
-export function createExecuteSliceStartTool(): ToolDefinition<
-  typeof ExecuteSliceStartParams,
-  ExecuteSliceStartDetails
-> {
-  return {
+export function createExecuteSliceStartTool() {
+  return defineBrunchTool<typeof ExecuteSliceStartParams, ExecuteSliceStartDetails>({
     name: BRUNCH_EXECUTE_SLICE_START_TOOL,
     label: 'execute_slice_start',
     description:
       'Append a slice-start marker for a ready cook run. Does not execute agents, tests, or Petri transitions.',
-    parameters: ExecuteSliceStartParams,
+    parameters: toolParameters(ExecuteSliceStartParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
@@ -53,7 +52,7 @@ export function createExecuteSliceStartTool(): ToolDefinition<
         details: { result, sideEffects: result.sideEffects },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecuteSliceStart(pi: ExtensionAPI): void {

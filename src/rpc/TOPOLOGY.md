@@ -337,7 +337,7 @@ Boundary — in layer: the streaming transport relay and its battery. Out of lay
 | — | command-intake slice 1 (web drives a plain turn) | `built` | ● | `src/dev/__tests__/web-driver-streaming.command-intake.test.ts` | narrow `session.driveTurn` sidecar method re-enters the live AgentSession |
 | — | render feel (token / tool / dialog) | `n/a` | ○ | manual walkthrough | outer-loop only; no automated perceptual gate |
 
-Classification: the required topology-A streaming rows are built for the current `request_answer` tracer. The UI-host finding (`ctx.hasUI` is run-mode-bound; not injectable on a bare in-process `AgentSession`) is recorded in `memory/SPEC.md` A28-L/D84-L; the landed answer broker reframes the answer source as Brunch-owned for Brunch-authored `request_*` tools rather than a Pi UI-host injection.
+Classification: the required topology-A streaming rows are built for the current `request_answer` tracer. The UI-host finding (`ctx.hasUI` is run-mode-bound; not injectable on a bare in-process `AgentSession`) is recorded by D84-L (the validating assumptions are archived); the landed answer broker reframes the answer source as Brunch-owned for Brunch-authored `request_*` tools rather than a Pi UI-host injection.
 
 ## RPC methods to web Query hooks
 

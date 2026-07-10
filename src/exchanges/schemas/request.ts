@@ -58,7 +58,7 @@ export const SelectedChoiceSchema = z.toJSONSchema(zSelectedChoice, {
 export const zAnsweredOptionEcho = z
   .object({
     id: z.string().min(1),
-    content: zMarkdown,
+    content: zNonBlankMarkdown,
     rationale: zMarkdown.optional(),
   })
   .strict();
@@ -319,6 +319,8 @@ const zAskQuestionEcho = z
     body: zNonBlankMarkdown,
     options: z.array(zAskQuestionOptionEcho).min(1).optional(),
     multiple: z.boolean().optional(),
+    commentPrompt: zNonBlankMarkdown.optional(),
+    otherPrompt: zNonBlankMarkdown.optional(),
   })
   .strict();
 export type AskQuestionEcho = z.infer<typeof zAskQuestionEcho>;

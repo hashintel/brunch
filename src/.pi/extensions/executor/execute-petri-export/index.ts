@@ -1,8 +1,10 @@
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import { exportPetri, type PetriExportResult } from '../../../../executor/petri.js';
 import { BRUNCH_EXECUTE_PETRI_EXPORT_TOOL } from '../../../../session/schema/tool-names.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export { BRUNCH_EXECUTE_PETRI_EXPORT_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -13,15 +15,12 @@ interface ExecutePetriExportDetails {
   readonly sideEffects: PetriExportResult['sideEffects'];
 }
 
-export function createExecutePetriExportTool(): ToolDefinition<
-  typeof ExecutePetriExportParams,
-  ExecutePetriExportDetails
-> {
-  return {
+export function createExecutePetriExportTool() {
+  return defineBrunchTool<typeof ExecutePetriExportParams, ExecutePetriExportDetails>({
     name: BRUNCH_EXECUTE_PETRI_EXPORT_TOOL,
     label: 'execute_petri_export',
     description: 'Export a minimal Petri artifact for a completed cook run. Does not promote or land.',
-    parameters: ExecutePetriExportParams,
+    parameters: toolParameters(ExecutePetriExportParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0)
@@ -42,7 +41,7 @@ export function createExecutePetriExportTool(): ToolDefinition<
         details: { result, sideEffects: result.sideEffects },
       };
     },
-  };
+  });
 }
 
 export function registerBrunchExecutePetriExport(pi: ExtensionAPI): void {

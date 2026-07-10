@@ -41,9 +41,11 @@ interface RegisteredShortcut {
 }
 
 interface RuntimeEntry {
-  type: 'custom';
+  type: 'custom' | 'custom_message';
   customType: string;
-  data: unknown;
+  data?: unknown;
+  content?: string;
+  details?: unknown;
 }
 
 interface SentMessage {
@@ -80,6 +82,9 @@ function commandHarness(
     orientation?: boolean;
     selectResult?: string | undefined;
     modelAvailable?: boolean;
+    sendMessageError?: Error;
+    failFirstKickWith?: Error;
+    persistSentMessages?: boolean;
     getCommandContext?: () => FakeCommandContext;
     branch?: readonly EntryLike[];
     inputResult?: string;
@@ -97,6 +102,8 @@ function commandHarness(
   const statusCalls: Array<{ key: string; text: string | undefined }> = [];
   const chromeRefreshes: number[] = [];
   const workspaceDecisions: unknown[] = [];
+  const originationDecisions: unknown[] = [];
+  let firstKickFailed = false;
   const coordinator = {
     inspectWorkspace: async () => ({ projects: [] }),
     activateWorkspace: async (decision: unknown) => {
@@ -151,9 +158,13 @@ function commandHarness(
     ? {
         resolveKickContext: () => ({
           specId: 7,
+          specName: 'Alpha',
           reads: { queryGraph: () => ({ nodes: [], edges: [], lsn: 1 }) as never },
           workspaceContext: '',
           sendCustomMessage: async () => undefined,
+          onOriginationDecision: (decision, context) => {
+            originationDecisions.push({ decision, context });
+          },
         }),
       }
     : undefined;
@@ -186,7 +197,24 @@ function commandHarness(
         activeToolNames.push(names);
       },
       sendMessage(message: unknown, sendOptions?: unknown) {
+        const customType = (message as { customType?: unknown }).customType;
+        if (customType === BRUNCH_KICK_CUSTOM_TYPE && options.sendMessageError) {
+          throw options.sendMessageError;
+        }
+        if (customType === BRUNCH_KICK_CUSTOM_TYPE && options.failFirstKickWith && !firstKickFailed) {
+          firstKickFailed = true;
+          throw options.failFirstKickWith;
+        }
         sent.push({ message, options: sendOptions });
+        if (options.persistSentMessages && typeof customType === 'string') {
+          const carrier = message as { content?: unknown; details?: unknown };
+          entries.push({
+            type: 'custom_message',
+            customType,
+            ...(typeof carrier.content === 'string' ? { content: carrier.content } : {}),
+            ...(carrier.details !== undefined ? { details: carrier.details } : {}),
+          });
+        }
       },
     } as never,
     {
@@ -212,6 +240,7 @@ function commandHarness(
     statusCalls,
     chromeRefreshes,
     workspaceDecisions,
+    originationDecisions,
     sent,
     orientationDeps,
   };
@@ -276,6 +305,16 @@ describe('Brunch menu command', () => {
 
     expect(harness.customCalls).toHaveLength(1);
     expect(harness.selectCalls).toEqual([]);
+    const rendered = (
+      harness.customCalls[0]!.factory(undefined, createTestLabTheme(), undefined, () => {}) as {
+        render(width: number): string[];
+      }
+    )
+      .render(80)
+      .join('\n');
+    expect(rendered).toContain('[ Specify ]');
+    expect(rendered).toContain('"Alpha"');
+    expect(rendered).not.toContain('[ Consult ]');
     expect(harness.entries).toContainEqual(
       expect.objectContaining({
         customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
@@ -284,15 +323,194 @@ describe('Brunch menu command', () => {
     );
   });
 
-  it('reports nothing to continue when there is no incomplete structured exchange', async () => {
+  it('derives /brunch:consult (J6) menu from Execute runtime state', async () => {
+    const harness = commandHarness({
+      orientation: true,
+      customAvailable: false,
+      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'execute_plan')!.label,
+    });
+    harness.ctx.hasUI = true;
+    harness.entries.push({
+      type: 'custom',
+      customType: BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
+      data: {
+        schemaVersion: 1,
+        reason: 'switch',
+        source: 'user',
+        state: { schemaVersion: 1, operationalMode: 'execute' },
+      },
+    });
+
+    await harness.commands.get(BRUNCH_CONSULT_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.selectCalls).toEqual([
+      {
+        title: CODE_SESSION_ORIENTATION_MENU.title,
+        options: CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.label),
+      },
+    ]);
+    expect(harness.entries).toContainEqual(
+      expect.objectContaining({
+        customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
+        data: { schemaVersion: 1, choice: 'execute_plan', trigger: 'consult' },
+      }),
+    );
+  });
+
+  it('reports unavailable resume when no incomplete structured exchange exists and no kick seam is bound', async () => {
     const harness = commandHarness();
 
     await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
 
     expect(harness.appendedMessages).toEqual([]);
+    expect(harness.sent).toEqual([]);
     expect(harness.notifications).toEqual([
-      expect.objectContaining({ level: 'info', message: 'Nothing to continue.' }),
+      expect.objectContaining({ level: 'warning', message: 'Brunch resume is unavailable in this session.' }),
     ]);
+  });
+
+  it('reports no-model continue honestly without appending seed or kick carriers', async () => {
+    const harness = commandHarness({ orientation: true, modelAvailable: false });
+
+    await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
+    await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.sent).toEqual([]);
+    expect(harness.notifications).toEqual([
+      expect.objectContaining({
+        level: 'info',
+        message: expect.stringContaining('No allowlisted model is available'),
+      }),
+      expect.objectContaining({
+        level: 'info',
+        message: expect.stringContaining('No allowlisted model is available'),
+      }),
+    ]);
+  });
+
+  it('reports failed continue completion honestly', async () => {
+    const harness = commandHarness({
+      orientation: true,
+      sendMessageError: new Error('provider queue failed'),
+    });
+
+    await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.notifications).toEqual([
+      expect.objectContaining({
+        level: 'warning',
+        message: expect.stringContaining('provider queue failed'),
+      }),
+    ]);
+  });
+
+  it('reuses a delivered seed when retrying after kick delivery fails', async () => {
+    const harness = commandHarness({
+      orientation: true,
+      failFirstKickWith: new Error('provider queue failed'),
+      persistSentMessages: true,
+    });
+
+    await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
+    await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.sent.map(({ message }) => (message as { customType?: string }).customType)).toEqual([
+      'brunch.context_seed',
+      'brunch.kick',
+    ]);
+    expect(harness.entries.filter(({ customType }) => customType === 'brunch.context_seed')).toHaveLength(1);
+    expect(harness.notifications).toEqual([
+      expect.objectContaining({
+        level: 'warning',
+        message: expect.stringContaining('provider queue failed'),
+      }),
+    ]);
+  });
+
+  it('resumes no-auth-suppressed boot work with seed-before-kick debug evidence when no declared ask is open', async () => {
+    const harness = commandHarness({ orientation: true });
+
+    await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.appendedMessages).toEqual([]);
+    expect(harness.sent).toEqual([
+      {
+        message: expect.objectContaining({
+          customType: 'brunch.context_seed',
+          content: expect.stringContaining('Alpha'),
+          details: { specId: 7, snapshotLsn: 1 },
+        }),
+        options: undefined,
+      },
+      {
+        message: expect.objectContaining({
+          customType: BRUNCH_KICK_CUSTOM_TYPE,
+          details: { origin: 'manual_trigger' },
+        }),
+        options: { triggerTurn: true },
+      },
+    ]);
+    expect(harness.originationDecisions).toEqual([
+      {
+        decision: expect.objectContaining({
+          action: 'start',
+          origin: 'manual_trigger',
+          seedEntries: [
+            expect.objectContaining({
+              customType: 'brunch.context_seed',
+              details: { specId: 7, snapshotLsn: 1 },
+            }),
+          ],
+        }),
+        context: { modelAvailable: true },
+      },
+    ]);
+  });
+
+  it('resumes general interrupted work through a manual-trigger kick when no declared ask is open', async () => {
+    const harness = commandHarness({ orientation: true });
+    harness.entries.push({
+      type: 'message',
+      message: { role: 'assistant', content: 'Waiting here.', timestamp: 1 },
+    } as never);
+    harness.ctx.sessionManager.getBranch = () => harness.entries as never;
+
+    await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.appendedMessages).toEqual([]);
+    expect(harness.sent).toContainEqual({
+      message: expect.objectContaining({
+        customType: BRUNCH_KICK_CUSTOM_TYPE,
+        details: { origin: 'manual_trigger' },
+      }),
+      options: { triggerTurn: true },
+    });
+  });
+
+  it('lets explicit continue override a prior dismissed orientation entry', async () => {
+    const harness = commandHarness({ orientation: true });
+    harness.entries.push(
+      {
+        type: 'custom',
+        customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
+        data: { schemaVersion: 1, choice: 'dismissed', trigger: 'consult' },
+      },
+      {
+        type: 'message',
+        message: { role: 'assistant', content: 'Waiting here.', timestamp: 1 },
+      } as never,
+    );
+    harness.ctx.sessionManager.getBranch = () => harness.entries as never;
+
+    await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.sent).toContainEqual({
+      message: expect.objectContaining({
+        customType: BRUNCH_KICK_CUSTOM_TYPE,
+        details: { origin: 'manual_trigger' },
+      }),
+      options: { triggerTurn: true },
+    });
   });
 
   it('re-presents the most recent incomplete structured exchange, records the canonical answer, and clears the continue hint', async () => {
@@ -376,6 +594,14 @@ describe('Brunch menu command', () => {
     expect(harness.statusCalls).toContainEqual({
       key: 'brunch.continue',
       text: expect.stringContaining('/brunch:continue'),
+    });
+    expect(harness.statusCalls).toContainEqual({
+      key: 'brunch.continue',
+      text: expect.stringContaining('/brunch:consult'),
+    });
+    expect(harness.statusCalls).toContainEqual({
+      key: 'brunch.continue',
+      text: expect.stringContaining('/brunch:mode'),
     });
     expect(harness.appendedMessages.at(-1)).toMatchObject({
       role: 'toolResult',
@@ -552,7 +778,7 @@ describe('Brunch runtime switch commands', () => {
   it('borrows the command context for shortcut mode cycling so J5 can settle in-flight work', async () => {
     const harness = commandHarness({
       orientation: true,
-      customResult: { id: 'proceed' },
+      customResult: { id: 'prepare_execution' },
     });
     const shortcutCtx = { ...harness.ctx };
     let idle = false;
@@ -593,7 +819,7 @@ describe('Brunch runtime switch commands', () => {
     expect(harness.entries).toContainEqual(
       expect.objectContaining({
         customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
-        data: { schemaVersion: 1, choice: 'proceed', trigger: 'mode-switch' },
+        data: { schemaVersion: 1, choice: 'prepare_execution', trigger: 'mode-switch' },
       }),
     );
   });
@@ -620,7 +846,7 @@ describe('Brunch runtime switch commands', () => {
   it('aborts an in-flight turn (claiming the J4 gate) before showing the mode-switch menu', async () => {
     const harness = commandHarness({
       orientation: true,
-      customResult: { id: 'proceed' },
+      customResult: { id: 'prepare_execution' },
     });
     const events: string[] = [];
     let idle = false;
@@ -648,7 +874,7 @@ describe('Brunch runtime switch commands', () => {
     expect(harness.entries).toContainEqual(
       expect.objectContaining({
         customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
-        data: { schemaVersion: 1, choice: 'proceed', trigger: 'mode-switch' },
+        data: { schemaVersion: 1, choice: 'prepare_execution', trigger: 'mode-switch' },
       }),
     );
   });
@@ -656,7 +882,8 @@ describe('Brunch runtime switch commands', () => {
   it('skips the abort path when waitForIdle is unavailable', async () => {
     const harness = commandHarness({
       orientation: true,
-      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'proceed')!.label,
+      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'prepare_execution')!
+        .label,
     });
     const aborts: number[] = [];
     harness.ctx.isIdle = () => false;
@@ -673,7 +900,8 @@ describe('Brunch runtime switch commands', () => {
   it('leaves an idle agent alone on mode switch (no abort, no gate claim)', async () => {
     const harness = commandHarness({
       orientation: true,
-      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'proceed')!.label,
+      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'prepare_execution')!
+        .label,
     });
     const aborts: number[] = [];
     harness.ctx.isIdle = () => true;
@@ -690,7 +918,7 @@ describe('Brunch runtime switch commands', () => {
   it('runs the CODE-side orientation menu and kicks on the selected choice after switching to Execute', async () => {
     const harness = commandHarness({
       orientation: true,
-      customResult: { id: 'design_first' },
+      customResult: { id: 'prepare_execution' },
     });
 
     await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
@@ -701,13 +929,13 @@ describe('Brunch runtime switch commands', () => {
       expect.objectContaining({
         type: 'custom',
         customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
-        data: { schemaVersion: 1, choice: 'design_first', trigger: 'mode-switch' },
+        data: { schemaVersion: 1, choice: 'prepare_execution', trigger: 'mode-switch' },
       }),
     );
     expect(harness.sent).toHaveLength(2);
     expect(harness.sent[0]?.message).toMatchObject({
       customType: 'brunch.context_seed',
-      content: expect.stringContaining('chosen: design_first'),
+      content: expect.stringContaining('chosen: prepare_execution'),
     });
     expect(harness.sent[1]).toEqual({
       message: expect.objectContaining({ customType: BRUNCH_KICK_CUSTOM_TYPE }),

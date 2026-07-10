@@ -4,12 +4,8 @@ import type { WorkspaceLaunchInventory } from '../../../session/workspace-sessio
 import { createWorkspaceDialogComponent, type WorkspaceDialogNoAuthGuidance } from './component.js';
 
 const noAuthGuidance: WorkspaceDialogNoAuthGuidance = {
-  title: 'No Brunch model auth',
-  lines: [
-    'Run brunch login, or use /login in this session.',
-    '- Claude Sonnet 4.6 (Anthropic)',
-    '- Claude Sonnet 4.6 (OpenRouter)',
-  ],
+  title: 'No model auth',
+  lines: ['Open a spec/session and run /login, or use brunch login before launching.'],
 };
 
 const inventory: WorkspaceLaunchInventory = {
@@ -32,11 +28,11 @@ describe('WorkspaceDialogComponent', () => {
 
     const rendered = component.render(80).join('\n');
 
-    expect(rendered).toContain('No Brunch model auth');
+    expect(rendered).toContain('No model auth');
     expect(rendered).toContain('brunch login');
     expect(rendered).toContain('/login');
-    expect(rendered).toContain('Claude Sonnet 4.6 (Anthropic)');
-    expect(rendered).toContain('Claude Sonnet 4.6 (OpenRouter)');
+    expect(rendered).not.toContain('Claude Sonnet 4.6');
+    expect(rendered).not.toContain('allowlist');
     expect(rendered).toContain('Start a new specification');
   });
 
@@ -49,7 +45,7 @@ describe('WorkspaceDialogComponent', () => {
 
     const rendered = component.render(80).join('\n');
 
-    expect(rendered).not.toContain('No Brunch model auth');
+    expect(rendered).not.toContain('No model auth');
     expect(rendered).not.toContain('brunch login');
   });
 });

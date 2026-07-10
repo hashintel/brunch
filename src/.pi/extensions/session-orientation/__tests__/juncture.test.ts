@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { BRUNCH_KICK_CUSTOM_TYPE } from '../../../../session/originate-assistant-turn.js';
+import {
+  BRUNCH_KICK_CUSTOM_TYPE,
+  type KickCompletionOutcome,
+} from '../../../../session/originate-assistant-turn.js';
 import {
   BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
   type SessionOrientationEntryData,
@@ -15,7 +18,7 @@ import {
 } from '../juncture.js';
 
 interface CapturedEntry {
-  readonly type: 'custom' | 'custom_message';
+  readonly type: 'custom' | 'custom_message' | 'message';
   readonly customType: string;
   readonly data?: unknown;
   readonly content?: string;
@@ -56,8 +59,10 @@ type SentMessage = { message: unknown; options: unknown };
 function fakeKickDeps(overrides: Partial<LiveKickDeps> = {}): {
   deps: LiveKickDeps;
   sent: SentMessage[];
+  outcomes: Array<{ outcome: KickCompletionOutcome; decision: unknown }>;
 } {
   const sent: SentMessage[] = [];
+  const outcomes: Array<{ outcome: KickCompletionOutcome; decision: unknown }> = [];
   const deps: LiveKickDeps = {
     specId: 5,
     reads: {
@@ -69,9 +74,12 @@ function fakeKickDeps(overrides: Partial<LiveKickDeps> = {}): {
       sent.push({ message, options });
       return undefined;
     },
+    onKickOutcome: (outcome, decision) => {
+      outcomes.push({ outcome, decision });
+    },
     ...overrides,
   };
-  return { deps, sent };
+  return { deps, sent, outcomes };
 }
 
 function expectSeedThenKick(sent: readonly SentMessage[]) {
@@ -203,7 +211,7 @@ describe('runOrientationJuncture', () => {
 
       const result = await runOrientationJuncture({
         hasUI: false,
-        ui: fakeUi(codeLabelFor('backfill')),
+        ui: fakeUi(codeLabelFor('prepare_execution')),
         trigger: 'mode-switch',
         sessionManager: manager,
         mode: 'follow-choice',
@@ -251,7 +259,7 @@ describe('runOrientationJuncture', () => {
 
       const result = await runOrientationJuncture({
         hasUI: true,
-        ui: fakeUi(codeLabelFor('design_first')),
+        ui: fakeUi(codeLabelFor('prepare_execution')),
         trigger: 'mode-switch',
         sessionManager: manager,
         mode: 'follow-choice',
@@ -260,8 +268,93 @@ describe('runOrientationJuncture', () => {
         onAppendError: (error) => errors.push(error),
       });
 
-      expect(result).toEqual({ ran: true, choice: 'design_first', kickFired: false });
+      expect(result).toEqual({ ran: true, choice: 'prepare_execution', kickFired: false });
       expect(errors).toHaveLength(1);
+      expect(sent).toEqual([]);
+    });
+
+    it('propagates honest completion outcomes and derives kickFired only from fired CODE kicks', async () => {
+      const cases: Array<{
+        name: string;
+        deps: Partial<LiveKickDeps>;
+        expectedResult: boolean;
+        expectedOutcome: KickCompletionOutcome;
+      }> = [
+        {
+          name: 'fired',
+          deps: {},
+          expectedResult: true,
+          expectedOutcome: { status: 'fired', origin: 'new_session' },
+        },
+        {
+          name: 'no model',
+          deps: { modelAvailable: false },
+          expectedResult: false,
+          expectedOutcome: { status: 'skipped', reason: 'no_model_available' },
+        },
+        {
+          name: 'failed send',
+          deps: {
+            sendCustomMessage: async (message, options) => {
+              if (message.customType === BRUNCH_KICK_CUSTOM_TYPE) throw new Error('provider queue failed');
+              return fakeKickDeps().deps.sendCustomMessage(message, options);
+            },
+          },
+          expectedResult: false,
+          expectedOutcome: {
+            status: 'failed',
+            origin: 'new_session',
+            error: expect.objectContaining({ message: 'provider queue failed' }) as never,
+          },
+        },
+      ];
+
+      for (const testCase of cases) {
+        const manager = fakeSessionManager();
+        const { deps, outcomes } = fakeKickDeps(testCase.deps);
+
+        const result = await runOrientationJuncture({
+          hasUI: true,
+          ui: fakeUi(codeLabelFor('prepare_execution')),
+          trigger: 'mode-switch',
+          sessionManager: manager,
+          mode: 'follow-choice',
+          menu: CODE_SESSION_ORIENTATION_MENU,
+          kick: deps,
+        });
+
+        expect(result, testCase.name).toMatchObject({
+          ran: true,
+          choice: 'prepare_execution',
+          kickFired: testCase.expectedResult,
+        });
+        expect(
+          outcomes.map(({ outcome }) => outcome),
+          testCase.name,
+        ).toEqual([testCase.expectedOutcome]);
+      }
+    });
+
+    it('reports idle boot completion honestly when origination has no unresolved debt', async () => {
+      const manager = fakeSessionManager([
+        { type: 'message', customType: 'message', content: 'assistant already answered' },
+        { type: 'custom_message', customType: BRUNCH_KICK_CUSTOM_TYPE, content: 'prior kick' },
+      ]);
+      const { deps, outcomes, sent } = fakeKickDeps();
+
+      const result = await runOrientationJuncture({
+        hasUI: true,
+        ui: fakeUi(labelFor('continue')),
+        trigger: 'entry',
+        sessionManager: manager,
+        mode: 'boot',
+        kick: deps,
+      });
+
+      expect(result).toMatchObject({ ran: true, choice: 'continue', kickFired: false });
+      expect(outcomes.map(({ outcome }) => outcome)).toEqual([
+        { status: 'skipped', reason: 'idle_no_unresolved_debt' },
+      ]);
       expect(sent).toEqual([]);
     });
 
@@ -280,7 +373,7 @@ describe('runOrientationJuncture', () => {
           kick: deps,
         });
 
-        expect(result).toEqual({ ran: true, choice, kickFired: true });
+        expect(result).toMatchObject({ ran: true, choice, kickFired: true });
         const { seed } = expectSeedThenKick(sent);
         expect(String(seed.content)).toContain(`chosen: ${choice}`);
       }

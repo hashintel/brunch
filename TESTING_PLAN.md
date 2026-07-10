@@ -1,299 +1,328 @@
-# Brunch Demo / Audit / Diagnose Testing Plan
+# Brunch Outer-Loop Testing Plan
 
-This pass validates the current Brunch POC after the recent data-model and agent-model changes landed on the Graphite stack. It is a demo plan and an audit checklist: run through real dev scenarios, observe what the agent saw and did, and classify any divergence.
+Status: **current post-PR-305 alpha walkthrough script**. PR #305 has merged, so this is not a gate for `main-editor-chrome`; it is an outer-loop audit on top of the merged product surface. The 2026-07-02 broad demo/audit plan is superseded; its still-relevant observations are collated in `TESTING_FINDINGS.md`.
 
-## Goals
+Use this file as a concern-grouped checklist, not a priority order. Findings go in `TESTING_FINDINGS.md`; durable planning changes still reconcile through `memory/PLAN.md` / `memory/SPEC.md`, not new sidecar ledgers.
 
-1. Prove the current dev launcher and workbench loop are understandable and repeatable.
-2. Confirm `.brunch/debug/*` observability is present for source/dev runs.
-3. Exercise Specify-mode elicitor behavior across orientation, elicitation, proposal, projection, mapping, review, and commitment flows.
-4. Verify recent model changes in live context:
-   - no persisted/count-based elicitation gap scoring
-   - session-local elicitation scratchpad as asking agenda, not graph truth
-   - readiness as just-in-time graph-fact reasoning
-   - graph item `settlement` distinct from `basis`
-   - absolute, readable Brunch `SKILL.md` locations in the live prompt manifest
-5. Capture divergences as product, data-model, prompt/context, skill-routing, transport/projection, or demo-friction findings.
-6. Pressure-test two design questions with live evidence — **both answered by the 2026-07-03 grill; probes remain as verification, not open design**:
-   - **Generative discoverability**: does the Specify-mode elicitor ever spontaneously go generative (`propose`/`project`) when the spec needs it, and would a user ever discover they can ask for it? *Answered:* generative flows are offered at deterministic junctures via the product-owned orientation dialog (`session-entry-orientation`), not model volition; Enhance as a third mode is rejected (two modes only, D98-L). The probe now verifies menu→conduct routing.
-   - **Reboot semantics**: "kick" is currently origination-only; the working hypothesis was that all restart-like session events should be able to trigger a kick. *Answered differently:* the resolution is the orientation dialog on juncture events (`session_start` new/resume/fork, `session_tree`, esc/abort settle, mode switch, `/consult`) whose recorded `brunch.session_orientation` outcome feeds the next kick — not kick-on-every-FTR-event. Scenario 7's evidence fed this decision.
+## Session frame
 
-## Primary invocation surface
-
-The dev launcher is `scripts/dev.ts`, exposed through:
+Current branch observed when this plan was updated:
 
 ```sh
-npm run dev
+git branch --show-current
+# ln/fe-TEMP-alpha-walkthroughs
 ```
 
-It delegates to `src/dev/dev-cli.ts` and is the front door for local workbenches, scripted RPC reads, graph curation, and fixture export.
+Core evidence rule: workbench `.brunch/` state is local runtime, not canonical fixture truth. Promote only reviewed artifacts deliberately under `.fixtures/runs/`.
 
-Useful forms:
+Baseline inspection commands:
 
 ```sh
-# Interactive TUI workbench from a tracked seed; also opens the web observer.
-npm run dev -- --seed workspace-alpha-grounding/base --reset --open-web
-
-# Same, with prompt-affecting developer tools enabled.
-npm run dev -- --seed workspace-alpha-grounding/base --reset --open-web --dev-tools
-
-# Re-open an existing workbench.
-npm run dev -- --workspace .fixtures/workbenches/workspace-alpha-grounding --open-web
-
-# Public RPC read/write host without TUI.
-npm run dev -- rpc rpc.discover --workspace .fixtures/workbenches/workspace-alpha-grounding
-npm run dev -- rpc workspace.state --workspace .fixtures/workbenches/workspace-alpha-grounding
-npm run dev -- rpc graph.overview '{"specId":1}' --workspace .fixtures/workbenches/workspace-alpha-grounding
-
-# Explicit local graph curation through CommandExecutor.
-npm run dev -- mutate --workspace .fixtures/workbenches/workspace-alpha-grounding --params-file /tmp/mutate.json
-
-# Export current workbench graph state as a reusable seed candidate.
-npm run dev -- export --workspace .fixtures/workbenches/workspace-alpha-grounding --spec-id 1 --out .fixtures/seeds/custom/example.json
+git rev-parse --short HEAD
+git branch --show-current
+npm run dev -- rpc workspace.state --workspace <workspace>
+npm run dev -- rpc session.runtimeState --workspace <workspace>
+npm run dev -- rpc graph.overview '{"specId":1}' --workspace <workspace>
 ```
 
-Seeding is never implicit. Launch-time seeding must pair `--seed <name>/<variant>` with `--reset` so stale local session state does not masquerade as reusable truth.
+Useful debug mirrors, when triggered:
 
-## Debug and dev-tool matrix
+- `<workspace>/.brunch/debug/entry-contents.md`
+- `<workspace>/.brunch/debug/origination.md`
+- `<workspace>/.brunch/debug/system-prompt.md` after a provider request
+- `<workspace>/.brunch/debug/tool-contents.md` after Brunch tool results
+- `<workspace>/.brunch/debug/transcript.md` only when the harness/debug path writes it; absence in ordinary TUI runs is not automatically a failure
+- session JSONL under the workspace `.brunch` state
 
-Source/dev TUI launches create passive debug mirrors by default through `debugMirror: isBrunchDevelopmentRuntime()`. The CLI does not require `--dev-tools` for this default mirror.
+## Concern 1 — Onboarding and first-run safety
 
-| Surface | Requires `--dev-tools`? | Expected output / effect |
-| --- | --- | --- |
-| `.brunch/debug/entry-contents.md` | No, in source/dev TUI runs | Brunch-authored custom entries and custom-message contents such as context seed, `worldUpdate`, continuity drains, and capture-sweep markers. Should exist even for seeded-but-unkicked sessions when a seed entry is appended. |
-| `.brunch/debug/origination.md` | No, in source/dev TUI runs | Origination decision/outcome records: start/resume/idle/no-model evidence. |
-| `.brunch/debug/system-prompt.md` | No, in source/dev TUI runs, but needs a provider request | Latest captured final provider system prompt from `before_provider_request`. Absence before any provider call is expected. |
-| `.brunch/debug/tool-contents.md` | No, in source/dev TUI runs, but needs matching tool results | Text from explicit Brunch-owned tool results, including `read_graph`, `read_session_context`, `read_workspace_context`, `present_question`, `present_review_set`, `request_response`, `mutate_graph`, and the dev query tools when used. |
-| `.brunch/debug/transcript.md` | Harness-dependent | Written by faux / tier-2 harness loops, not the ordinary TUI mirror. |
-| `/introspect` command | No when introspection/debug mirror is enabled | Reports base prompt inputs plus latest passive provider payload capture to the TUI. |
-| `brunch_session_query` tool | Yes | Dev-gated read-only query over current session branch. Candidate for retirement if the ordinary debug mirrors prove sufficient. |
-| `brunch_introspect_query` tool | Yes | Dev-gated read-only query over captured provider payload/base prompt inputs. Candidate for retirement if the ordinary debug mirrors prove sufficient. |
-| `subagent` tool | No | Product Brunch subagent affordance in Specify mode when a delegatable set is registered. |
-| Web sidecar / `--open-web` | No | Opens read-only browser observer attached to the TUI process. |
-| `rpc`, `mutate`, `export` dev CLI subcommands | No | Scripted host/curation/export commands; not prompt-affecting tools. |
+Purpose: verify Brunch works for alpha users who are not already Pi users, and that workspace entry is safe across empty, populated, and legacy workspaces.
 
-Audit rule: a missing debug file is only a failure if its trigger happened. For example, no `system-prompt.md` before any provider request is expected; no `entry-contents.md` after session origination/continuity seed is suspicious.
+### 1A. No pre-existing Pi auth/login
 
-## Baseline scenario loop
-
-For each scenario:
-
-1. Reset or select a workbench.
-2. Capture initial projections:
-   ```sh
-   npm run dev -- rpc workspace.state --workspace <workspace>
-   npm run dev -- rpc session.runtimeState --workspace <workspace>
-   npm run dev -- rpc graph.overview '{"specId":1}' --workspace <workspace>
-   ```
-3. Run the TUI scenario.
-4. Inspect `.brunch/debug/*` and the session JSONL.
-5. Re-read RPC projections and graph overview/neighborhood.
-6. Classify findings.
-
-Suggested starting workbench:
+Use a scratch Pi agent dir so ambient `~/.pi/agent/auth.json` cannot leak into the run. `PI_CODING_AGENT_DIR` isolates file-backed auth only; Pi also resolves provider API-key environment variables, so the two Brunch-allowlisted fallbacks must be removed for a real no-auth run:
 
 ```sh
-npm run dev -- --seed workspace-alpha-grounding/base --reset --open-web --dev-tools
+AGENT_DIR=$(mktemp -d /tmp/brunch-agent-auth.XXXXXX)
+WORKSPACE=.fixtures/workbenches/manual-no-auth
+mkdir -p "$WORKSPACE"
+
+# Source/dev launcher form:
+env -u ANTHROPIC_API_KEY -u OPENROUTER_API_KEY \
+  PI_CODING_AGENT_DIR="$AGENT_DIR" \
+  npm run dev -- --workspace "$WORKSPACE" --open-web
+
+# Built/package CLI form (`brunch` uses --cwd, not --workspace):
+env -u ANTHROPIC_API_KEY -u OPENROUTER_API_KEY \
+  PI_CODING_AGENT_DIR="$AGENT_DIR" \
+  brunch --cwd "$WORKSPACE" --open-web
 ```
 
-## Scenario catalog
+Check:
 
-### 1. New session orientation
+- Workspace entry warns that no allowlisted model auth is configured.
+- Spec/session creation remains available.
+- No orientation juncture or provider turn fires before auth exists.
+- Copy points to `brunch login` and `/login`.
+- `auth.json` is created only under the scratch `PI_CODING_AGENT_DIR` if the flow needs it; no ambient auth is read.
 
-Expected behavior:
+Then run the login path from the same scratch agent dir:
 
-- Agent starts from selected spec/workspace context.
-- Agent asks for the smallest missing anchor if the frame is thin.
-- Agent focuses one concrete vein rather than attempting to cover all zero-count kinds.
-- `entry-contents.md` shows context seed and scratchpad/graph-fact material.
-- `system-prompt.md` includes the live Brunch skills manifest after the first provider request.
+```sh
+# Source/dev launcher form:
+PI_CODING_AGENT_DIR="$AGENT_DIR" npm run dev -- login
 
-Evidence to inspect:
+# Built/package CLI form:
+PI_CODING_AGENT_DIR="$AGENT_DIR" brunch login
+```
 
-- `.brunch/debug/entry-contents.md`
-- `.brunch/debug/origination.md`
-- `.brunch/debug/system-prompt.md`
-- `session.pendingExchange`, `session.exchanges`, `session.runtimeState`
+Check:
 
-### 2. Skill-routing smoke
+- Provider choices match the Brunch allowlist order.
+- API-key or OAuth flow writes Pi-shaped auth storage.
+- Exit report says which allowlisted model and thinking policy Brunch will use.
+- Relaunch now fires normal orientation/kick behavior.
 
-Prompt the agent toward moves that should trigger different Brunch prompt resources:
+### 1B. New bare workspace
 
-- “Look over the current graph and tell me what changed your next move.” → `analyze`
-- “Ask me the next focused question.” → `elicit`
-- “I’m pasting source notes; digest and route them.” → `ingest`
-- “Turn that answer into graph shape.” → `map`
-- “Generate candidate requirements / oracles / design options.” → `propose`
-- “Project accepted requirements into design/oracle material.” → `project`
-- “Critique what we have before committing more.” → `review`
-- “Walk me through how Brunch works.” → `tutorial`
+Use a throwaway empty cwd under `.fixtures/workbenches/`; do not use the repo root.
 
-Expected behavior:
+Check:
 
-- The live prompt manifest lists exactly the first-level skills.
-- Each `<location>` is an absolute path ending in `agents/skills/<id>/SKILL.md`.
-- The path is readable from the running process cwd.
-- The model uses the read tool to load a matching skill before leaning on detailed guidance.
+- Workspace/spec chooser handles no existing `.brunch/` state.
+- New spec creation is understandable.
+- First orientation asks/assumes greenfield only after confirming the workspace is bare.
+- The agent does not invent brownfield codebase context.
 
-Evidence to inspect:
+### 1C. New populated workspace
 
-- `.brunch/debug/system-prompt.md`
-- `.brunch/debug/tool-contents.md`
-- session JSONL tool calls/results
-- `src/agents/skills/__tests__/registry.test.ts`
+Use a throwaway cwd with a few ordinary project files but no `.brunch/` state.
 
-Failure modes to discriminate: never-reads (manifest ignored), wrong-skill (reads a non-matching SKILL.md), reads-but-ignores (loads it, conduct unchanged).
+Check:
 
-#### Per-skill discriminating state (seed-gap matrix)
+- Brunch notices or is able to reason that the cwd is populated.
+- New-spec flow asks/confirms whether this is a full product, a feature inside the codebase, or another scope.
+- It asks/confirms whether the work is brownfield before using codebase facts as specification authority.
 
-Each probe needs graph state where the target skill is the *distinctively correct* move; without it, routing evidence is ambiguous.
+### 1D. Existing Brunch 0.x database — caution
 
-| skill | trigger probe | discriminating state | fit today |
-| --- | --- | --- | --- |
-| analyze | "what changes your next move?" | mid-size graph | ◔ alpha trivial; `bilal-macro-view/base` (232n) is wrong workbench |
-| elicit | "ask next focused question" | thin intent + zero-count bands | ✓ alpha is exactly this |
-| ingest | paste source notes | any state (empty workbench cleanest) | ✓ now |
-| map | "turn answer into graph shape" | chained after elicit/ingest | ✓ chained |
-| propose | "generate candidate reqs/oracles" | settled intent + EMPTY target plane | ✓ `workspace-alpha-grounding/intent-settled` |
-| project | "project reqs into design/oracle" | ACCEPTED upstream + empty downstream | ✓ `workspace-alpha-grounding/requirements-accepted` |
-| review | "critique before committing" | plantable weaknesses; advisory items | ◔ no seed has settlement variation |
-| tutorial | "walk me through Brunch" | state-independent | ✓ now |
+Do not point this test at an irreplaceable real workspace. Use a disposable copy of a 0.x `.brunch/` directory if one is available.
 
-#### Seed-variation worklist (fixture-prep; offered as a batch-2 scope card, not yet scoped)
+Check:
 
-- `✓ <ws>/intent-settled` → unlocks propose: settled goal/req intent, empty design+oracle planes
-- `✓ <ws>/requirements-accepted` → unlocks project: settled requirements, zero criterion/check/vv_*
-- `+ <ws>/advisory-pending` → unlocks review: settled+advisory mix — **new variant class**; A36-L made seeds settlement-independent, so check `seedFixture` accepts settlement on the way in first
-- `+ <ws>/contradictory` → review + `semantic_conflict` testing (converges with `reconciliation-derivation` frontier)
-- `? mid-size alpha (~30n)` for analyze
-- Prep path: drive a workbench live to the desired state → `npm run dev -- export` as seed candidate
+- Boot does not silently corrupt or partially migrate the legacy database.
+- If migration is supported, the user sees a clear compatibility/migration path before writes.
+- If migration is not supported, Brunch fails safe with a legible message and no destructive writes.
+- Record the exact source version and copied workspace path.
 
-Key dependency: the generative paths (propose/project) are exactly the ones with no discriminating seed — those variants are a prerequisite for the generative-discoverability probe (goal 6) and for verifying the F17 mode-menu options, not just skill routing.
+If no disposable 0.x database is available today, log this as an unwitnessed onboarding risk rather than manufacturing one mid-session.
 
-### 3. Readiness and next-question flow
+## Concern 2 — Workspace/spec posture orientation and capture logic
 
-Expected behavior:
+Purpose: validate whether the entry flow establishes enough posture before the agent starts treating material as spec truth.
 
-- Deterministic renderers expose raw facts: graph LSN, node counts by kind, zero-count kinds with latest expected bands.
-- No count-based readiness score, rank, importance, persisted gap grade, or coverage estimate appears.
-- The elicitor uses bands as absence signals and capability-readiness as judgment, not as a gate.
-- Missing material becomes a structured question or session-local scratchpad obligation, not a persisted `elicitation_gaps` row.
+Use this matrix as the behavioral oracle:
 
-Evidence to inspect:
+```text
+no specs exist yet: create a new spec
+├── workspace populated?
+│   └── ask/confirm
+│       ├── is this full product or feature within codebase?
+│       └── is this brownfield?
+└── workspace is bare?
+    └── confirm: is this greenfield?
 
-- `.brunch/debug/entry-contents.md` for context seed rendering
-- `.brunch/debug/system-prompt.md` for per-turn selected workspace/spec graph context
-- `brunch_session_query` if `--dev-tools` is enabled
-- `session.runtimeState` and session JSONL for scratchpad entries
+some specs exist
+├── resume a spec
+│   ├── assume posture is capture unless stored state says otherwise
+│   └── orient: style/action
+├── new spec & workspace populated
+│   └── ask/confirm
+│       ├── is this full product or feature within codebase?
+│       └── does it relate to another spec?
+└── new spec & workspace is bare
+    └── ask/confirm
+        ├── is this a product, feature, or something smaller?
+        ├── does it relate to another spec?
+        └── is this greenfield?
+```
 
-Canonical code paths:
+Check for each path sampled:
 
-- `src/agents/contexts/seeds/graph-fact-seed.ts`
-- `src/agents/contexts/seeds/origination.ts`
-- `src/agents/contexts/seeds/turn-context.ts`
-- `src/agents/prompts/elicitor.md`
-- `src/agents/references/readiness-bands.md`
-- `src/session/elicitation-scratchpad.ts`
+- What, if anything, records `spec.posture` or equivalent posture/state?
+- Does the agent ask posture-establishing questions before domain-detail questions?
+- Does capture distinguish user-confirmed posture from inferred or speculative posture?
+- Does resuming a spec preserve prior orientation instead of restarting as blank?
+- If posture is only prompt-carried today, is that legible in debug mirrors and session JSONL?
 
-### 4. Settlement visibility and graph writes
+## Concern 3 — Seeding conditions and initial agent orientation
 
-Expected behavior:
+Purpose: verify that seeded/initial context is useful, not overwhelming, and that the agent follows Brunch guidance before asking questions.
 
-- DB schema includes `settlement` on `nodes` and `edges` with default `settled`.
-- Commands can create advisory graph material and promote advisory → settled.
-- Commands reject invalid settlements and settled → advisory regression.
-- Graph projections/renderers surface advisory items honestly.
-- **Capture-time settlement convention** (prompt-carried, not code-enforced — watch closely): intent-plane captures may land settled with direct authority; design/oracle/commitment-plane material captured during ingest/map lands `advisory` and is settled only through the review window. Known hazard: `mutate_graph` defaults omitted settlement to `settled`, so a forgetful elicitor silently over-settles ingested material. Record every non-intent-plane create where the agent omitted or wrongly set settlement — this decides whether we need provenance/action-traced enforcement (or a mode-derived signal) in code.
+Suggested seeds/workbenches:
 
-Evidence to inspect:
+```sh
+npm run seed -- --seed workspace-alpha-grounding/base --reset
+npm run dev -- --workspace .fixtures/workbenches/workspace-alpha-grounding --open-web --dev-tools
+```
 
-- `drizzle/0008_sharp_storm.sql`
-- `src/db/schema.ts`
-- `src/graph/__tests__/settlement.test.ts`
-- `graph.overview` / `graph.nodeNeighborhood`
-- `.brunch/debug/tool-contents.md` after `read_graph` or graph mutation tools
+Also sample at least one richer or differently-shaped seed if time allows, such as `workspace-alpha-grounding/intent-settled`, `workspace-alpha-grounding/requirements-accepted`, or a realistic project-port seed from `.fixtures/seeds/`.
 
-### 5. Structured exchange and review set
+Inspect:
 
-Expected behavior:
+- `entry-contents.md`: what overview is injected?
+- `system-prompt.md`: what directives and heuristics explain how to interpret the overview?
+- Session JSONL: what orientation/custom entries were appended?
+- First assistant behavior: does it read/interpret current graph facts first, then ask?
 
-- Assistant authors present-side exchanges with `present_question`, `present_candidates`, or `present_review_set`.
-- Follow-up collection uses `request_response`.
-- Selection responses preserve the current result-detail vocabulary (`request_answer`, `request_choice`, `request_choices`).
-- Review-set approval commits atomically through the graph command layer.
-- No graph write happens before recognition/approval when the flow is candidate/review based.
+Check:
 
-Evidence to inspect:
+- No stale count-based gap scoring or ranked elicitation gap language appears.
+- The agent uses readiness/posture guidance before asking a next question.
+- The agent distinguishes graph facts, advisory material, scratchpad obligations, and user-confirmed intent.
+- It is possible to steer “how to think” through the intended style/action menu or prompt resources rather than ad hoc user coercion.
 
-- session JSONL paired toolCall/toolResult entries
-- `session.pendingExchange`
-- `session.exchanges`
-- graph LSN before/after approval
-- `.brunch/debug/tool-contents.md`
+Open question to capture: is this actually establishing `spec.posture`, or only simulating posture through prompt context?
 
-### 6. Public RPC and web observer parity
+## Concern 4 — Prompt, skill, and model routing audit
 
-Expected behavior:
+Purpose: learn whether the active agent sees the right prompt resources, whether skill routing overloads the model, and whether the model policy is helping or hurting.
 
-- `rpc.discover` exposes Brunch product methods, not raw Pi capability inference.
-- Ordinary web sidecar `/rpc` is read-only.
-- `/rpc/driver` exposes live driver methods only when TUI live handles exist.
-- Graph/session changes publish visible projection invalidations.
+For each sampled session, inspect after a provider request:
 
-Evidence to inspect:
+- `system-prompt.md` for foreground role prompt, skill manifest, model/thinking policy, and stale instructions.
+- `tool-contents.md` for tool result legibility.
+- session JSONL for skill `read` calls and tool choices.
 
-- `rpc.discover` from dev CLI
-- browser sidecar behavior
-- `graph.overview`, `session.pendingExchange`, `session.exchanges` before/after turns
+Questions to answer:
 
-### 7. Mode switch, FTR events, and session reboot
+- What prompt or skill content is not loading when it should?
+- What content is loading but overloading or distracting the model?
+- Does the model follow Brunch-specific guidance first, or default to generic coding-assistant behavior?
+- Does `thinking: low` help responsiveness without hurting conduct?
+- Would some actions work better with thinking off, or with a different model?
+- Which exact model ids should be tested next? Verify catalog ids before changing policy.
+- Are there action classes that justify dynamic model selection later (for example: orientation, capture, proposal generation, execution planning, code execution)?
 
-Known state going in: `applyModeSwitch` (`src/.pi/extensions/commands/index.ts`) swaps the system prompt + active tools and appends a `brunch.agent_runtime_state` custom entry (`reason: 'switch'`), but does **not** trigger a kick — kick today is origination-only (D78-L, `src/session/originate-assistant-turn.ts`). **Resolution decided (2026-07-03 grill):** the seam is the deterministic orientation dialog on juncture events — `session-entry-orientation` owns the dialog + juncture set, `execute-entry-readiness` owns the Execute-mode entry assessment — not a unified "kick on every FTR event" mechanism. This scenario's probes remain useful as before/after evidence for those frontiers.
+Do not implement dynamic models during the walkthrough. Classify evidence as:
 
-Expected behavior (current contract):
+- model-policy tweak candidate
+- prompt trim / skill trim candidate
+- skill-routing bug
+- future dynamic-model frontier
 
-- `/brunch:mode` (or `alt+m`) switches Specify ↔ Execute.
-- Runtime-switch entry appears in session state with `previous` + `source`.
-- A status-change notification is visible in the transcript/TUI.
-- The next provider request uses the new role's system prompt (`elicitor.md` vs `executor.md`) and the new active-tool set.
-- Executor mode blocks shell/edit/write and exposes executor-only `execute_*` tools.
+## Concern 5 — Debug mirror and trigger legibility
 
-Dramaturgical probes (observe, classify, don't fix in-line unless trivial):
+Purpose: confirm `.brunch/debug/` tells the operator what happened without requiring raw DB spelunking.
 
-- After switching, does the new agent orient itself unprompted, or does it sit silent until poked? (This is the missing mode-entry kick.)
-- **Execute-gate pushback**: switch to Execute with a spec that has intent but thin design/oracle/commitment coverage and say "OK let's go." Does the executor push back — "let's figure out technical design, verification design, and plan sequencing first" — and route the user back, or does it barrel ahead? *Settled (2026-07-03 grill):* two modes only; Enhance is rejected. The target conduct is now defined by `execute-entry-readiness` (entry assessment + gentle backfill, no mode ping-pong) — this probe becomes its before/after walkthrough beat.
-- Resume an existing session (`--workspace` without `--seed`): does re-entry produce a coherent reorientation, and is there any session-state evidence of the re-entry event?
+Check:
 
-Evidence to inspect:
+- `system-prompt.md` appears after the first provider request and is clearly the final provider prompt.
+- `entry-contents.md` names product-injected entries and overviews in a way that explains trigger/source.
+- `origination.md` records decisions and outcomes early enough to debug hung/aborted starts.
+- `tool-contents.md` has enough latest/tail context to know which tool result was just mirrored.
+- `transcript.md` behavior is understood: either present with a clear trigger, or absent with a known reason.
 
-- `.brunch/debug/system-prompt.md` before/after switch
-- `.brunch/debug/origination.md` (expect NO mode-switch kick record — confirming the gap)
-- `session.runtimeState` and session JSONL runtime-switch entries
-- `src/.pi/extensions/__tests__/commands-runtime-switch.test.ts` as the current contract
+Desired finding shape if inadequate: name the missing operator question, e.g. “What triggered this turn?”, “Which tool result is this?”, “What was the last provider prompt?”, rather than prescribing a storage format.
 
-### 8. Seeded-scenario probe via tier-2 harness
+## Concern 6 — Style/action `/brunch:consult` menu
 
-Expected behavior:
+Purpose: verify the consult surface offers useful action choices for each role without reviving old runtime strategy/lens/method axes.
 
-- A tracked seed loads a scenario to a known state, a scripted input runs, and output quality is validated — without the interactive TUI.
-- The probe writes JSONL evidence under `.fixtures/scratch/` suitable for promotion.
+In Specify / elicitor mode, `/brunch:consult` should make these choices discoverable or naturally reachable:
 
-Canonical code paths:
+- by-decision
+- by-example
+- by-proposal
+- prep for execution: design / oracle / commitment
 
-- `src/dev/tier-2-harness.ts`, `src/dev/faux-harness.ts`
-- `src/probes/capture-quality-loop.ts`, `src/probes/fixture-curation-loop.ts`
-- `src/graph/seed-fixtures.ts`
+In Execute / executor mode, `/brunch:consult` should make these choices discoverable or naturally reachable:
 
-Evidence to inspect:
+- design / oracle / commitment work
+- plan compilation
+- plan execution
 
-- probe run JSONL + report/oracle artifact
-- `.brunch/debug/transcript.md` (tier-2 harness writes this)
+Check:
 
-Fixture grooming rider: while here, inventory `.fixtures/seeds/` (18 seed dirs) for staleness against the current data model, wipe and reseed dev workbenches, and shortlist which seeds become the preset scenarios for repeatable probes. Grooming actions are their own scoped task — record candidates, don't churn fixtures mid-walkthrough.
+- Labels are understandable to a first-time alpha user.
+- Choices route to the intended role/skill behavior.
+- The menu does not imply unsupported third modes or obsolete Enhance-style behavior.
+- Escape/dismiss behavior is inert and legible.
+- Menu outcome is recorded in session state/JSONL clearly enough to audit routing.
+
+## Concern 7 — Merged chrome/rendering carryover checks
+
+Purpose: retain the useful FE-1169 manual checks now that #305 has merged.
+
+### 7A. Physical-terminal wheel smoke
+
+Run the current TUI in available real terminals: iTerm2 / Kitty / Ghostty.
+
+Check wheel/trackpad scrolling, rounded-box integrity, editor redraw, status/footer/header stability, and terminal-specific failures.
+
+### 7B. Live mode-switch beat
+
+In Brunch:
+
+- `shift+tab` cycles Specify ↔ Execute.
+- `alt+m` opens the picker.
+- footer/header labels, editor label, and border color update.
+- ask surfaces pick up the active mode border role.
+
+Scoping proof:
+
+```sh
+pi
+```
+
+Plain Pi should still own its normal `shift+tab` thinking-cycle behavior.
+
+### 7C. Component gallery walk
+
+```sh
+npm run dev:components
+```
+
+Walk both themes. Check candidates preview, review-set rich render, theme-testbed text variations, border levels, mode-reactive roles, and surface-identity roles.
+
+### 7D. Continue/recovery
+
+Declared continuation:
+
+1. Present a declared continuation, preferably candidates → ask.
+2. Root-esc before answering.
+3. Confirm status hint names `/brunch:continue`.
+4. Run `/brunch:continue`.
+5. Answer.
+6. Confirm one durable synthetic pair and status clears.
+
+Standalone ask:
+
+1. Root-esc a standalone ask.
+2. Confirm no continue hint appears.
+
+### 7E. Persistent editor render-height/focus
+
+Across normal input, dialogs, pickers, ask cancellation/recovery, mode switches, scroll, and relaunch:
+
+- editor height is stable
+- input does not overwrite transcript or borders
+- focus returns to the editor
+- multi-line input wraps/grows predictably
+
+## Concern 8 — FE-1167 overlap opportunities
+
+These remain owned by FE-1167 unless witnessed explicitly with evidence today:
+
+- Web sidecar during an open ask.
+- Capture sweep after ask answers.
+- Resume re-render of persisted ask results.
+- Generative menu evidence: intent/design/oracle/frontier-level plan flows entered through deterministic junctures.
+- Execute thin/rich entry beats and deferred orientation-choice questions.
+
+If a current test naturally covers one, mark it in `TESTING_FINDINGS.md` as `FE-1167 overlap`; do not force the whole FE-1167 batch unless priorities change.
 
 ## Finding classification
-
-Use this taxonomy while diagnosing:
 
 | Finding kind | Meaning |
 | --- | --- |
@@ -301,20 +330,17 @@ Use this taxonomy while diagnosing:
 | data model | Graph/session facts are missing, stale, illegally shaped, or over/under-settled. |
 | prompt/context | The model did not see the right context, or saw misleading/stale prompt text. |
 | skill routing | Skill manifest/path/load behavior is wrong, or model chooses the wrong prompt resource. |
-| exchange protocol | Structured exchange present/response/review-set tuple is illegal or unobservable. |
+| model policy | Model, thinking level, or provider choice appears to affect conduct, speed, or capability. |
+| exchange protocol | Structured exchange present/answer/review-set tuple is illegal or unobservable. |
 | transport/projection | RPC/web/TUI projections disagree with canonical state. |
 | observability | Behavior might be correct, but debug/probe surfaces do not let us prove it. |
+| onboarding safety | First-run, auth, workspace, or legacy-data behavior risks confusing or damaging users. |
 | demo friction | Product may be sound, but the operator path is too hard for demos. |
 
-## Promotion discipline
+Post-session routing:
 
-Scratch output under `.fixtures/scratch/` is not durable evidence. Promote a run only after review:
-
-1. Move reviewed artifacts under `.fixtures/runs/<probe-id>/<run-id>/`.
-2. Include source `session.jsonl` and a report/oracle artifact.
-3. Normalize local absolute paths.
-4. Run the promoted-path guard before committing promoted evidence.
-
-```sh
-npm run check:promoted-run-paths
-```
+- Broken behavior with unclear cause → `ln-diagnose`.
+- Bounded fix inside a named settled seam → `ln-scope` / `ln-build`, or direct build if tiny.
+- Systemic prompt/skill/model issues → likely `ln-induct`, `ln-review`, or `ln-oracles` before build.
+- Findings that change frontier ordering, admit a new frontier, or close FE-1167 sub-items → reconcile with `memory/PLAN.md` via `ln-sync` / `ln-plan`.
+- Architecture changes such as dynamic model routing or durable `spec.posture` semantics require `ln-spec` / `ln-plan` before implementation.

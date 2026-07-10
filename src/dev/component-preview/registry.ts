@@ -147,18 +147,24 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
         keybindings,
         (_tui, previewTheme, _kb, done) =>
           new ConsultMenuComponent({
-            title: 'How should this session continue?',
+            title: 'Choose how Specify mode should continue',
+            topLabel: '[ Specify ]',
+            bottomLabel: '"Alpha"',
             choices: [
-              { id: 'continue', label: 'Continue', description: 'Stay inert until your next instruction.' },
               {
                 id: 'elicit_decisions',
-                label: 'Ask decision-driven questions',
-                description: 'Use the elicitor/grill style to resolve choices.',
+                label: 'Work by decision',
+                description: 'Use grill-style pressure to resolve choices.',
               },
               {
                 id: 'propose_oracle',
-                label: 'Propose verification designs',
+                label: 'Prep verification for execution',
                 description: 'Project test and evidence strategies for this frontier.',
+              },
+              {
+                id: 'continue',
+                label: 'Wait for me',
+                description: 'Stay inert until your next instruction.',
               },
             ],
             theme: previewTheme,
@@ -177,7 +183,9 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
         keybindings,
         (_tui, previewTheme, _kb, done) =>
           new ConsultMenuComponent({
-            title: 'How should this session continue?',
+            title: 'Choose how Execute mode should continue',
+            topLabel: '[ Execute ]',
+            bottomLabel: '"Alpha"',
             choices: Array.from({ length: 16 }, (_, index) => ({
               id: `consult-${index + 1}`,
               label: `Consult option ${index + 1}`,
@@ -450,7 +458,9 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
     presentedLike:
       'transcript message renderer — src/.pi/components/alternatives.ts (registerBrunchAlternatives, dispatched via the present_alternatives tool)',
     open: (tui, theme) => {
-      const renderer = captureMessageRenderer('alternatives-card-set', registerBrunchAlternatives);
+      const renderer = captureMessageRenderer('alternatives-card-set', (pi) =>
+        registerBrunchAlternatives(pi, (schema) => schema),
+      );
       const message = sampleCustomMessage('alternatives-card-set', {
         headline: 'Pick a direction',
         alternatives: [

@@ -10,6 +10,7 @@
 
 import type { Static } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { Type } from 'typebox';
 
 import {
   formatReconciliationNeeds,
@@ -23,6 +24,8 @@ import type {
   ResolveReconNeedResult,
   StructuralIllegal,
 } from '../../../../graph/index.js';
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 
 export const READ_RECONCILIATION_NEEDS_TOOL = 'read_reconciliation_needs';
 export const UPDATE_RECONCILIATION_NEEDS_TOOL = 'update_reconciliation_needs';
@@ -42,100 +45,116 @@ export interface BrunchReconciliationDeps {
   };
 }
 
-const ReadReconciliationNeedsParams = {
-  type: 'object',
-  additionalProperties: false,
-  properties: {},
-  description: 'Read the open reconciliation-need agenda for the selected spec.',
-} as const;
+const ReadReconciliationNeedsParamsSchema = Type.Object(
+  {},
+  {
+    additionalProperties: false,
+    description: 'Read the open reconciliation-need agenda for the selected spec.',
+  },
+);
+const ReadReconciliationNeedsParams = toolParameters(
+  ReadReconciliationNeedsParamsSchema,
+) as typeof ReadReconciliationNeedsParamsSchema;
 
-const UpdateReconciliationNeedsParams = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['action'],
-  properties: {
-    action: {
+const UpdateReconciliationNeedsParamsSchema = Type.Object(
+  {
+    action: Type.Unsafe<'create' | 'resolve'>({
       enum: ['create', 'resolve'],
       description: "One write per call: 'create' records a new impasse; 'resolve' closes one.",
-    },
-    needKind: {
-      enum: [...RECONCILIATION_NEED_KINDS],
-      description: 'create: kind of reconciliation need to record.',
-    },
-    target: {
-      oneOf: [
-        {
-          type: 'object',
-          additionalProperties: false,
-          required: ['kind', 'edgeId'],
-          properties: { kind: { const: 'edge' }, edgeId: { type: 'number' } },
-        },
-        {
-          type: 'object',
-          additionalProperties: false,
-          required: ['kind', 'aId', 'bId'],
-          properties: { kind: { const: 'node_pair' }, aId: { type: 'number' }, bId: { type: 'number' } },
-        },
-      ],
-      description: 'create: existing edge or pair of existing nodes this impasse is about.',
-    },
-    reason: {
-      type: 'string',
-      description: 'create: brief reason for the impasse. Do not encode replacement graph truth here.',
-    },
-    needId: { type: 'string', description: 'resolve: id of the reconciliation need to close.' },
+    }),
+    needKind: Type.Optional(
+      Type.Unsafe<(typeof RECONCILIATION_NEED_KINDS)[number]>({
+        enum: [...RECONCILIATION_NEED_KINDS],
+        description: 'create: kind of reconciliation need to record.',
+      }),
+    ),
+    target: Type.Optional(
+      Type.Unsafe<{ kind: 'edge'; edgeId: number } | { kind: 'node_pair'; aId: number; bId: number }>({
+        oneOf: [
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['kind', 'edgeId'],
+            properties: { kind: { const: 'edge' }, edgeId: { type: 'number' } },
+          },
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['kind', 'aId', 'bId'],
+            properties: { kind: { const: 'node_pair' }, aId: { type: 'number' }, bId: { type: 'number' } },
+          },
+        ],
+        description: 'create: existing edge or pair of existing nodes this impasse is about.',
+      }),
+    ),
+    reason: Type.Optional(
+      Type.String({
+        description: 'create: brief reason for the impasse. Do not encode replacement graph truth here.',
+      }),
+    ),
+    needId: Type.Optional(Type.String({ description: 'resolve: id of the reconciliation need to close.' })),
   },
-  description:
-    'Update the reconciliation register for the selected spec: create or resolve one impasse per call.',
-} as const;
+  {
+    additionalProperties: false,
+    description:
+      'Update the reconciliation register for the selected spec: create or resolve one impasse per call.',
+  },
+);
+const UpdateReconciliationNeedsParams = toolParameters(
+  UpdateReconciliationNeedsParamsSchema,
+) as typeof UpdateReconciliationNeedsParamsSchema;
 
-type UpdateReconciliationNeedsParamValues = Static<typeof UpdateReconciliationNeedsParams>;
+type UpdateReconciliationNeedsParamValues = Static<typeof UpdateReconciliationNeedsParamsSchema>;
 
 type UpdateResult = CreateReconNeedResult | ResolveReconNeedResult;
 
 export function registerBrunchReconciliation(pi: ExtensionAPI, deps: BrunchReconciliationDeps): void {
-  pi.registerTool({
-    name: READ_RECONCILIATION_NEEDS_TOOL,
-    label: 'Read Reconciliation Needs',
-    description:
-      'Read open reconciliation needs for the selected spec: contradictions, possible duplicates, edge revalidation, and other retrospective impasses.',
-    promptSnippet: 'Read the open reconciliation-need agenda',
-    promptGuidelines: [
-      'Use read_reconciliation_needs to inspect retrospective impasses over existing graph truth. These are distinct from elicitation gaps.',
-    ],
-    parameters: ReadReconciliationNeedsParams,
+  pi.registerTool(
+    defineBrunchTool({
+      name: READ_RECONCILIATION_NEEDS_TOOL,
+      label: 'Read Reconciliation Needs',
+      description:
+        'Read open reconciliation needs for the selected spec: contradictions, possible duplicates, edge revalidation, and other retrospective impasses.',
+      promptSnippet: 'Read the open reconciliation-need agenda',
+      promptGuidelines: [
+        'Use read_reconciliation_needs to inspect retrospective impasses over existing graph truth. These are distinct from elicitation gaps.',
+      ],
+      parameters: ReadReconciliationNeedsParams,
 
-    async execute() {
-      const needs = deps.reads.getOpenReconciliationNeeds(deps.specId);
-      return {
-        content: [{ type: 'text' as const, text: formatReconciliationNeeds(needs) }],
-        details: { needs },
-      };
-    },
-  });
+      async execute() {
+        const needs = deps.reads.getOpenReconciliationNeeds(deps.specId);
+        return {
+          content: [{ type: 'text' as const, text: formatReconciliationNeeds(needs) }],
+          details: { needs },
+        };
+      },
+    }),
+  );
 
-  pi.registerTool({
-    name: UPDATE_RECONCILIATION_NEEDS_TOOL,
-    label: 'Update Reconciliation Needs',
-    description:
-      'Create or resolve a reconciliation need through the Brunch command layer. ' +
-      'Use this for contradictions over existing graph truth; it records the impasse and never overwrites graph nodes.',
-    promptSnippet: 'Create or resolve a reconciliation need',
-    promptGuidelines: [
-      'For a contradiction between two existing nodes, create a semantic_conflict reconciliation need with a node_pair target.',
-      'Do not use reconciliation needs as graph truth. The reason records why repair is needed, not the replacement fact.',
-      'update_reconciliation_needs performs one register write per call; on STRUCTURAL_ILLEGAL read the diagnostics, fix the input, and retry.',
-    ],
-    parameters: UpdateReconciliationNeedsParams,
+  pi.registerTool(
+    defineBrunchTool({
+      name: UPDATE_RECONCILIATION_NEEDS_TOOL,
+      label: 'Update Reconciliation Needs',
+      description:
+        'Create or resolve a reconciliation need through the Brunch command layer. ' +
+        'Use this for contradictions over existing graph truth; it records the impasse and never overwrites graph nodes.',
+      promptSnippet: 'Create or resolve a reconciliation need',
+      promptGuidelines: [
+        'For a contradiction between two existing nodes, create a semantic_conflict reconciliation need with a node_pair target.',
+        'Do not use reconciliation needs as graph truth. The reason records why repair is needed, not the replacement fact.',
+        'update_reconciliation_needs performs one register write per call; on STRUCTURAL_ILLEGAL read the diagnostics, fix the input, and retry.',
+      ],
+      parameters: UpdateReconciliationNeedsParams,
 
-    async execute(_toolCallId, params) {
-      const result = executeUpdate(deps, params);
-      return {
-        content: [{ type: 'text' as const, text: formatReconciliationUpdateResult(result, params.action) }],
-        details: result,
-      };
-    },
-  });
+      async execute(_toolCallId, params) {
+        const result = executeUpdate(deps, params);
+        return {
+          content: [{ type: 'text' as const, text: formatReconciliationUpdateResult(result, params.action) }],
+          details: result,
+        };
+      },
+    }),
+  );
 }
 
 function executeUpdate(

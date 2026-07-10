@@ -8,8 +8,9 @@ import type {
 import { describe, expect, it } from 'vitest';
 
 import { BRUNCH_KICK_CUSTOM_TYPE } from '../../../../session/originate-assistant-turn.js';
+import { BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE } from '../../../../session/runtime-state.js';
 import { BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE } from '../../../../session/session-orientation.js';
-import { SESSION_ORIENTATION_MENU } from '../index.js';
+import { CODE_SESSION_ORIENTATION_MENU, SESSION_ORIENTATION_MENU } from '../index.js';
 import type { JunctureContextKick } from '../juncture.js';
 import {
   BRUNCH_CONSULT_COMMAND,
@@ -26,6 +27,23 @@ interface CapturedEntry {
 
 function labelFor(id: string): string {
   return SESSION_ORIENTATION_MENU.items.find((item) => item.id === id)!.label;
+}
+
+function codeLabelFor(id: string): string {
+  return CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === id)!.label;
+}
+
+function executeModeEntry(): CapturedEntry {
+  return {
+    type: 'custom',
+    customType: BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
+    data: {
+      schemaVersion: 1,
+      reason: 'switch',
+      source: 'user',
+      state: { schemaVersion: 1, operationalMode: 'execute' },
+    },
+  };
 }
 
 interface Handlers {
@@ -61,6 +79,7 @@ function buildCtx(
   const entries: CapturedEntry[] = [...seed];
   const notifications: Array<{ readonly message: string; readonly type: unknown }> = [];
   let selectCount = 0;
+  const selectOptions: string[][] = [];
   const sessionManager = {
     appendCustomEntry(customType: string, data: unknown) {
       entries.push({ type: 'custom', customType, data });
@@ -79,6 +98,7 @@ function buildCtx(
     ui: {
       select: async (_title: string, _options: string[]) => {
         selectCount += 1;
+        selectOptions.push(_options);
         return response;
       },
       notify: (message: string, type?: unknown) => notifications.push({ message, type }),
@@ -86,7 +106,7 @@ function buildCtx(
     sessionManager: sessionManager as unknown,
     modelRegistry: { getAvailable: () => options.availableModels ?? [{}] } as unknown,
   } as unknown as ExtensionContext;
-  return { ctx, entries, notifications, getSelectCount: () => selectCount };
+  return { ctx, entries, notifications, getSelectCount: () => selectCount, selectOptions };
 }
 
 type SentMessage = { message: unknown; options: unknown };
@@ -228,6 +248,21 @@ describe('registerBrunchSessionOrientation', () => {
     },
   );
 
+  it('derives the J2 post-switch menu from Execute runtime state', async () => {
+    const { pi, handlers } = collectPi();
+    registerBrunchSessionOrientation(pi, { resolveKickContext: () => undefined });
+    const { ctx, entries, selectOptions } = buildCtx(codeLabelFor('execute_plan'), [executeModeEntry()]);
+
+    await handlers.session_start!({ type: 'session_start', reason: 'resume' }, ctx);
+
+    expect(selectOptions.at(-1)).toEqual(CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.label));
+    expect(entries.at(-1)).toEqual({
+      type: 'custom',
+      customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
+      data: { schemaVersion: 1, choice: 'execute_plan', trigger: 'switch' },
+    });
+  });
+
   it('runs the dialog on session_tree with trigger tree', async () => {
     const { pi, handlers } = collectPi();
     const sent: SentMessage[] = [];
@@ -244,6 +279,21 @@ describe('registerBrunchSessionOrientation', () => {
       trigger: 'tree',
     });
     expectSeedThenKick(sent);
+  });
+
+  it('derives the J3 tree menu from Execute runtime state', async () => {
+    const { pi, handlers } = collectPi();
+    registerBrunchSessionOrientation(pi, { resolveKickContext: () => undefined });
+    const { ctx, entries, selectOptions } = buildCtx(codeLabelFor('compile_plan'), [executeModeEntry()]);
+
+    await handlers.session_tree!({ type: 'session_tree', newLeafId: 'a', oldLeafId: 'b' }, ctx);
+
+    expect(selectOptions.at(-1)).toEqual(CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.label));
+    expect(entries.at(-1)).toEqual({
+      type: 'custom',
+      customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
+      data: { schemaVersion: 1, choice: 'compile_plan', trigger: 'tree' },
+    });
   });
 
   it('fires on agent_end only when the tail assistant message stopReason is aborted (C3 probe)', async () => {
@@ -292,6 +342,35 @@ describe('registerBrunchSessionOrientation', () => {
       type: 'custom',
       customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
       data: { schemaVersion: 1, choice: 'elicit_examples', trigger: 'abort' },
+    });
+  });
+
+  it('derives the J4 abort menu from Execute runtime state', async () => {
+    const { pi, handlers } = collectPi();
+    registerBrunchSessionOrientation(pi, { resolveKickContext: () => undefined });
+    const { ctx, entries, selectOptions } = buildCtx(codeLabelFor('prepare_execution'), [executeModeEntry()]);
+
+    await handlers.agent_end!(
+      {
+        type: 'agent_end',
+        messages: [
+          {
+            role: 'assistant',
+            content: [],
+            stopReason: 'aborted',
+            usage: { input: 0, output: 0 },
+            timestamp: 0,
+          } as never,
+        ],
+      },
+      ctx,
+    );
+
+    expect(selectOptions.at(-1)).toEqual(CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.label));
+    expect(entries.at(-1)).toEqual({
+      type: 'custom',
+      customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
+      data: { schemaVersion: 1, choice: 'prepare_execution', trigger: 'abort' },
     });
   });
 

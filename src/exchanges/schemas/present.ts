@@ -24,7 +24,7 @@ export type ResponseKind = z.infer<typeof zResponseKind>;
 export const zPresentOption = z
   .object({
     id: z.string().min(1),
-    content: zMarkdown,
+    content: zNonBlankMarkdown,
     rationale: zMarkdown.optional(),
   })
   .strict();
@@ -180,12 +180,12 @@ export const PresentReviewSetDetailsSchema = z.toJSONSchema(zPresentReviewSetDet
 
 export const zCandidateUserRubric = z
   .object({
-    core_bet: zMarkdown,
-    best_fit: zMarkdown,
-    cost_complexity: zMarkdown,
-    covers_well: zMarkdown,
-    main_risks: zMarkdown,
-    lock_in_constraints: zMarkdown,
+    core_bet: zNonBlankMarkdown,
+    best_fit: zNonBlankMarkdown,
+    cost_complexity: zNonBlankMarkdown,
+    covers_well: zNonBlankMarkdown,
+    main_risks: zNonBlankMarkdown,
+    lock_in_constraints: zNonBlankMarkdown,
     recommendation: zMarkdown.optional(),
   })
   .strict();

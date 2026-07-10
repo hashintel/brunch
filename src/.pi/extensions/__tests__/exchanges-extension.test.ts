@@ -7,6 +7,8 @@ import {
   PRESENT_REVIEW_SET_TOOL,
   registerStructuredExchange,
 } from '../exchanges/index.js';
+import { exchangeToolSchemaBaseline } from './fixtures/exchange-tool-schemas.pre-fe-1163.js';
+import { normalizeToolSchema } from './tool-schema-baseline.js';
 
 const ansiPattern = new RegExp(`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`, 'g');
 
@@ -57,6 +59,21 @@ describe('structured exchange tool guidance', () => {
     );
     expect(`${ask.description}\n${ask.promptGuidelines.join('\n')}`).toContain('continues');
   });
+
+  it('exposes WR5 continuation conduct guidance through registered tool definitions', () => {
+    const tools = registerTools();
+    const ask = tools.get(ASK_TOOL);
+    const digest = tools.get(PRESENT_DIGEST_TOOL);
+    const guidance = [ask, digest]
+      .map((tool) => `${tool.description}\n${tool.promptGuidelines.join('\n')}`)
+      .join('\n');
+
+    expect(guidance).toContain('Never author a listed option that duplicates the built-in Other affordance');
+    expect(guidance).toContain("Do not restate a present_* offer's large pretext or digest body");
+    expect(guidance).toContain(
+      'For the declared review continuation, ask only for approve / request changes / reject',
+    );
+  });
 });
 
 describe('structured exchange renderers', () => {
@@ -72,6 +89,16 @@ describe('structured exchange renderers', () => {
     for (const [name, tool] of tools) {
       expect(stripAnsi(tool.renderCall({}, theme, {}).render(80).join('\n')), name).toBe('');
     }
+  });
+
+  it('preserves the pre-FE-1163 provider-facing schema semantics', () => {
+    const tools = registerTools();
+    const currentSchemas = Object.fromEntries(
+      [...tools].map(([name, tool]) => [name, normalizeToolSchema(tool.parameters)]),
+    );
+
+    expect([...tools.keys()]).toEqual(Object.keys(exchangeToolSchemaBaseline.schemas));
+    expect(currentSchemas).toEqual(normalizeToolSchema(exchangeToolSchemaBaseline.schemas));
   });
 
   it('renders present_candidates from tool result markdown content', async () => {
@@ -108,6 +135,39 @@ describe('structured exchange renderers', () => {
     expect(rendered).toContain('Choose direction');
     expect(rendered).toContain('Local workbench');
     expect(rendered).toContain('Local-first graph work.');
+  });
+
+  it('renders exchange tool validation failures as human-readable markdown without raw payloads', async () => {
+    const tools = registerTools();
+    const ask = tools.get(ASK_TOOL);
+    const candidates = tools.get(PRESENT_CANDIDATES_TOOL);
+
+    const askResult = await ask.execute(
+      'bad-ask-call',
+      { exchangeId: 'bad-ask', body: { raw: 'do-not-leak' } },
+      undefined,
+      undefined,
+      { hasUI: false } as never,
+    );
+    const candidatesResult = await candidates.execute(
+      'bad-candidates-call',
+      { exchangeId: 'bad-candidates', heading: { raw: 'do-not-leak' }, candidates: [] },
+      undefined,
+      undefined,
+      {} as never,
+    );
+
+    for (const [toolName, tool, result] of [
+      [ASK_TOOL, ask, askResult],
+      [PRESENT_CANDIDATES_TOOL, candidates, candidatesResult],
+    ] as const) {
+      expect(result.details).toMatchObject({ status: 'validation_failed', tool: toolName });
+      const rendered = stripAnsi(tool.renderResult(result, {}, theme, {}).render(80).join('\n'));
+      expect(rendered).toContain('TOOL_INPUT_INVALID');
+      expect(rendered).toContain(`The ${toolName} tool could not use the supplied arguments.`);
+      expect(rendered).not.toContain('do-not-leak');
+      expect(rendered).not.toContain('"raw"');
+    }
   });
 
   it('renders ask as the Markdown pass-through of its content string', async () => {

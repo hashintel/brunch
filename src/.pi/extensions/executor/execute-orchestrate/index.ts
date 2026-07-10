@@ -12,6 +12,7 @@ import {
   type ProductUpdatePublisher,
 } from '../../../../rpc/product-updates.js';
 import { BRUNCH_EXECUTE_ORCHESTRATE_TOOL } from '../../../../session/schema/tool-names.js';
+import { toolParameters } from '../../shared/tool-schema.js';
 import { renderExecuteOrchestrateResult } from '../rendering.js';
 
 export { BRUNCH_EXECUTE_ORCHESTRATE_TOOL } from '../../../../session/schema/tool-names.js';
@@ -52,7 +53,7 @@ export function createExecuteOrchestrateTool(
     label: 'execute_orchestrate',
     description:
       'Drive an executor run end-to-end to promotion_prepared (run-local land) by advancing each lifecycle step the scheduler reports ready. Halts without advancing if a step cannot execute. Does not perform host promotion/land.',
-    parameters: ExecuteOrchestrateParams,
+    parameters: toolParameters(ExecuteOrchestrateParams),
     renderResult(result, options, theme, context) {
       return renderExecuteOrchestrateResult(result, options, theme as never, context);
     },

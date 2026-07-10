@@ -7,11 +7,12 @@ function optionLines(details: AskDetails): string[] {
   if (!answered || (!('choice' in answered) && !('choices' in answered))) return [];
 
   const selected = 'choice' in answered ? [answered.choice] : answered.choices;
-  const selectedIds = new Set(selected.map((choice) => choice.id));
+  const selectedById = new Map(selected.map((choice) => [choice.id, choice]));
   const listedRows = options.map((option) => {
-    const selected = selectedIds.has(option.id);
+    const selected = selectedById.get(option.id);
     const marker = selected ? '[x]' : '[ ]';
-    const label = selected ? `__${option.label}__` : `~~${option.label}~~`;
+    const selectedLabel = selected?.kind === 'other' ? `${option.label}: ${selected.label}` : option.label;
+    const label = selected ? `__${selectedLabel}__` : `~~${option.label}~~`;
     const description = option.description ? ` — ${option.description}` : '';
     return `- ${marker} ${label}${description}`;
   });
@@ -21,8 +22,17 @@ function optionLines(details: AskDetails): string[] {
   return [...listedRows, ...writeInRows];
 }
 
+function framingLines(details: AskDetails): string[] {
+  const lines: string[] = [];
+  if (details.question.commentPrompt) lines.push(`**Comment prompt:** ${details.question.commentPrompt}`);
+  if (details.question.otherPrompt) lines.push(`**Other prompt:** ${details.question.otherPrompt}`);
+  return lines;
+}
+
 export function formatAsk(details: AskDetails): string {
   const lines = [details.question.body];
+  const framing = framingLines(details);
+  if (framing.length > 0) lines.push('', ...framing);
   const options = optionLines(details);
   if (options.length > 0) lines.push('', ...options);
 

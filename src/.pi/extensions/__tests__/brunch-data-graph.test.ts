@@ -17,7 +17,9 @@ import {
 import { READINESS_BANDS } from '../../../graph/schema/kinds.js';
 import { translateMutateGraph } from '../brunch-data/graph/command-adapter.js';
 import { registerBrunchGraph, type GraphReaders } from '../brunch-data/graph/index.js';
-import { ReadGraphParams } from '../brunch-data/graph/tool-schemas.js';
+import { MutateGraphParams, ReadGraphParams } from '../brunch-data/graph/tool-schemas.js';
+import { graphToolSchemaBaseline } from './fixtures/graph-tool-schemas.pre-fe-1163.js';
+import { normalizeToolSchema } from './tool-schema-baseline.js';
 
 let nextSpecSlug = 0;
 
@@ -43,6 +45,12 @@ function createGraphReads(db: BrunchDb, specId: number): GraphReaders {
 }
 
 describe('graph tool adapter', () => {
+  it('preserves the pre-FE-1163 provider-facing schema semantics', () => {
+    expect(normalizeToolSchema({ read_graph: ReadGraphParams, mutate_graph: MutateGraphParams })).toEqual(
+      normalizeToolSchema(graphToolSchemaBaseline.schemas),
+    );
+  });
+
   it('keeps read_graph provider-legal: no top-level union, companions enforced by adapter diagnostics', () => {
     // Anthropic-family backends reject tool input schemas with a top-level
     // oneOf/anyOf/allOf (400 on every provider turn — 2026-07-07 FE-1159
@@ -99,6 +107,31 @@ describe('graph tool adapter', () => {
 });
 
 describe('graph tools end-to-end', () => {
+  it('adopts the shared Brunch default renderer for mutate_graph and read_graph', () => {
+    const db = createTestDb();
+    const executor = new CommandExecutor(db);
+    const specId = seedSpec(db);
+    const tools: Array<{
+      name: string;
+      renderShell?: string;
+      renderCall?: unknown;
+      renderResult?: unknown;
+    }> = [];
+
+    registerBrunchGraph({ registerTool: (tool: unknown) => tools.push(tool as never) } as never, {
+      specId,
+      commandExecutor: executor,
+      reads: createGraphReads(db, specId),
+    });
+
+    expect(tools.map((tool) => tool.name)).toEqual(['mutate_graph', 'read_graph']);
+    for (const tool of tools) {
+      expect(tool.renderShell, tool.name).toBe('self');
+      expect(tool.renderCall, tool.name).toEqual(expect.any(Function));
+      expect(tool.renderResult, tool.name).toEqual(expect.any(Function));
+    }
+  });
+
   it('mutate_graph creates nodes and read_graph overview reads the selected-spec slice', async () => {
     const db = createTestDb();
     const executor = new CommandExecutor(db);

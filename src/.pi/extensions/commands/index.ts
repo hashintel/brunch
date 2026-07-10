@@ -30,6 +30,7 @@
 import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
 
 import { findIncompleteStructuredExchangePresents, type EntryLike } from '../../../exchanges/recovery.js';
+import type { KickCompletionOutcome } from '../../../session/originate-assistant-turn.js';
 import { appendBrunchAgentRuntimeSwitch } from '../../../session/runtime-state.js';
 import {
   OPERATIONAL_MODE_IDS,
@@ -57,9 +58,12 @@ import {
   SESSION_ORIENTATION_MENU,
   type SessionOrientationMenuDescriptor,
 } from '../session-orientation/index.js';
-import { runJunctureForContext, sendCustomMessageViaExtensionApi } from '../session-orientation/juncture.js';
 import {
-  BRUNCH_CONSULT_COMMAND,
+  runJunctureForContext,
+  runManualTriggerKickForContext,
+  sendCustomMessageViaExtensionApi,
+} from '../session-orientation/juncture.js';
+import {
   forceClaimOrientationJuncture,
   orientationJunctureGate,
   releaseOrientationJuncture,
@@ -70,13 +74,21 @@ import {
   type BrunchSpecSessionPickerOptions,
   type BrunchWorkspaceActionContext,
 } from '../workspace/index.js';
+import {
+  BRUNCH_CONSULT_COMMAND,
+  BRUNCH_CONTINUE_COMMAND,
+  BRUNCH_MENU_COMMAND,
+  BRUNCH_MODE_COMMAND,
+  slashCommand,
+} from './names.js';
 
-export const BRUNCH_COMMAND_PREFIX = 'brunch:';
-export const BRUNCH_MENU_COMMAND = 'brunch:menu';
-export const BRUNCH_CONTINUE_COMMAND = 'brunch:continue';
-export const BRUNCH_MODE_COMMAND = 'brunch:mode';
-
-export { BRUNCH_CONSULT_COMMAND } from '../session-orientation/registrar.js';
+export {
+  BRUNCH_COMMAND_PREFIX,
+  BRUNCH_CONSULT_COMMAND,
+  BRUNCH_CONTINUE_COMMAND,
+  BRUNCH_MENU_COMMAND,
+  BRUNCH_MODE_COMMAND,
+} from './names.js';
 
 export {
   BRUNCH_MENU_SHORTCUT,
@@ -267,6 +279,29 @@ function formatErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function formatContinueOutcome(outcome: KickCompletionOutcome | undefined): {
+  readonly message: string;
+  readonly level: 'info' | 'warning';
+} {
+  if (outcome?.status === 'failed') {
+    return {
+      message: `Brunch resume could not complete: ${formatErrorMessage(outcome.error)}`,
+      level: 'warning',
+    };
+  }
+  if (outcome?.status === 'skipped' && outcome.reason === 'no_model_available') {
+    return {
+      message:
+        'No allowlisted model is available, so Brunch did not start an assistant turn. Run /login or brunch login, then try /brunch:continue again.',
+      level: 'info',
+    };
+  }
+  return {
+    message: `Nothing to resume. Try ${slashCommand(BRUNCH_CONSULT_COMMAND)} or ${slashCommand(BRUNCH_MODE_COMMAND)}.`,
+    level: 'info',
+  };
+}
+
 function applyModeSwitch(
   pi: ExtensionAPI,
   ctx: RuntimeSwitchContext,
@@ -343,6 +378,13 @@ function registerRuntimeSwitchCommands(pi: ExtensionAPI, options: ModeSwitchOpti
   });
 }
 
+function menuForCurrentOperationalMode(ctx: {
+  readonly sessionManager: RuntimeSwitchContext['sessionManager'];
+}): SessionOrientationMenuDescriptor {
+  const state = projectBrunchAgentState(ctx.sessionManager.getEntries());
+  return state.operationalMode === 'execute' ? CODE_SESSION_ORIENTATION_MENU : SESSION_ORIENTATION_MENU;
+}
+
 function registerConsultCommand(
   pi: ExtensionAPI,
   options: Pick<BrunchCommandsOptions, 'sessionOrientation'>,
@@ -363,6 +405,7 @@ function registerConsultCommand(
           ctx,
           trigger: 'consult',
           mode: 'follow-choice',
+          menu: menuForCurrentOperationalMode(ctx),
           kick: kickContext
             ? { ...kickContext, sendCustomMessage: sendCustomMessageViaExtensionApi(pi) }
             : undefined,
@@ -407,14 +450,17 @@ function appendRecoveredAskResult(
   return true;
 }
 
-function registerContinueCommand(pi: ExtensionAPI): void {
+function registerContinueCommand(
+  pi: ExtensionAPI,
+  options: Pick<BrunchCommandsOptions, 'sessionOrientation'>,
+): void {
   pi.registerCommand(BRUNCH_CONTINUE_COMMAND, {
-    description: 'Continue the most recent interrupted Brunch structured exchange',
+    description: 'Resume interrupted Brunch work',
     handler: async (_args, ctx) => {
       const commandCtx = ctx as ContinueCommandContext;
       const pending = latestDeclaredAskContinuation(commandCtx);
       if (!pending) {
-        ctx.ui.notify('Nothing to continue.', 'info');
+        await runGeneralContinue(pi, commandCtx, options);
         return;
       }
       const exchangeId = pending.details.exchange_id;
@@ -431,6 +477,31 @@ function registerContinueCommand(pi: ExtensionAPI): void {
       }
     },
   });
+}
+
+async function runGeneralContinue(
+  pi: ExtensionAPI,
+  ctx: ContinueCommandContext,
+  options: Pick<BrunchCommandsOptions, 'sessionOrientation'>,
+): Promise<void> {
+  if (!options.sessionOrientation) {
+    ctx.ui.notify('Brunch resume is unavailable in this session.', 'warning');
+    return;
+  }
+  const kickContext = await options.sessionOrientation.resolveKickContext();
+  const result = await runManualTriggerKickForContext({
+    ctx,
+    kick: kickContext
+      ? { ...kickContext, sendCustomMessage: sendCustomMessageViaExtensionApi(pi) }
+      : undefined,
+    onAppendError: (error) => {
+      ctx.ui.notify(`Brunch resume could not start: ${formatErrorMessage(error)}`, 'warning');
+    },
+  });
+  if (!result.kickFired) {
+    const notice = formatContinueOutcome(result.kickOutcome);
+    ctx.ui.notify(notice.message, notice.level);
+  }
 }
 
 function workspaceActionOptions(
@@ -450,7 +521,7 @@ export function registerBrunchCommands(pi: ExtensionAPI, options: BrunchCommands
 
   registerRuntimeSwitchCommands(pi, options);
   registerConsultCommand(pi, options);
-  registerContinueCommand(pi);
+  registerContinueCommand(pi, options);
 
   // Pi shortcut contexts lack switchSession/waitForIdle, so borrow a
   // command-capable context from the composition root when available.
