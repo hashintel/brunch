@@ -1,6 +1,7 @@
 import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Interface } from 'node:readline';
 import { PassThrough, Readable } from 'node:stream';
 
 import type { OAuthLoginCallbacks, OAuthProviderInterface } from '@earendil-works/pi-ai/compat';
@@ -141,6 +142,40 @@ describe('brunch login', () => {
     expect(code).toBe(0);
     expect(authJson).toMatchObject({ openrouter: { type: 'api_key', key: 'or-key' } });
     expect(chunks.join('')).toContain('Brunch will use Claude Sonnet 4.6 (OpenRouter)');
+  });
+
+  it('fails closed before consuming or persisting a TTY secret when masking is unavailable', async () => {
+    const authStorage = AuthStorage.inMemory({});
+    const stdin = stdinFrom('2\nsecret-that-must-not-be-consumed\n');
+    Object.defineProperty(stdin, 'isTTY', { value: true });
+    const stdout = new PassThrough();
+    Object.defineProperty(stdout, 'isTTY', { value: true });
+    const chunks = collectStream(stdout);
+    const maskablePrototype = Interface.prototype as Interface & {
+      _writeToOutput?: (text: string) => void;
+    };
+    const originalWriteToOutput = maskablePrototype._writeToOutput;
+    delete maskablePrototype._writeToOutput;
+
+    try {
+      const code = await runBrunchLogin({
+        stdin,
+        stdout,
+        authStorage,
+        modelRegistry: registryFor(authStorage),
+      });
+
+      expect(code).toBe(1);
+      expect(authStorage.get('openrouter')).toBeUndefined();
+      expect(chunks.join('')).toContain('Cannot safely hide API key input');
+      expect(chunks.join('')).not.toContain('secret-that-must-not-be-consumed');
+    } finally {
+      Object.defineProperty(Interface.prototype, '_writeToOutput', {
+        configurable: true,
+        value: originalWriteToOutput,
+        writable: true,
+      });
+    }
   });
 
   it('returns nonzero with a readable message when the user cancels', async () => {

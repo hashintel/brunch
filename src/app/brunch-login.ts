@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import process from 'node:process';
-import { createInterface, type Interface } from 'node:readline';
+import { createInterface, Interface } from 'node:readline';
 import type { Readable, Writable } from 'node:stream';
 
 import type { OAuthLoginCallbacks, OAuthProviderInterface } from '@earendil-works/pi-ai/compat';
@@ -250,6 +250,15 @@ function createLineSession(
 ): LineSession {
   const output = writableOutput(stdout);
   const terminal = Boolean((stdin as { isTTY?: boolean }).isTTY && output);
+  if (terminal && !hasReadlineMaskingCapability(Interface.prototype)) {
+    return {
+      stdout,
+      async ask() {
+        throw new Error('Cannot safely hide API key input in this terminal; login aborted.');
+      },
+      close() {},
+    };
+  }
   const readline = createInterface({ input: stdin, ...(output ? { output } : {}), terminal });
   const lines = readline[Symbol.asyncIterator]();
   let muted = false;
@@ -284,6 +293,10 @@ function writableOutput(stdout: Writable | ((chunk: string) => void) | undefined
 type MaskableReadline = Interface & {
   _writeToOutput?: (text: string) => void;
 };
+
+function hasReadlineMaskingCapability(readline: Interface): boolean {
+  return typeof (readline as MaskableReadline)._writeToOutput === 'function';
+}
 
 function maskReadlineOutput(
   readline: Interface,
