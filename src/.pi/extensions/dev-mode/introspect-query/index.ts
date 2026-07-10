@@ -1,6 +1,7 @@
-import { defineTool, type ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import * as z from 'zod';
 
+import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import {
   DEFAULT_MAX_BYTES,
   DEFAULT_MAX_LINES,
@@ -71,7 +72,7 @@ export function registerBrunchIntrospectQuery(
 }
 
 export function createBrunchIntrospectQueryTool(store: BrunchIntrospectionStore) {
-  return defineTool<ReturnType<typeof toolParameters>, BrunchIntrospectQueryDetails>({
+  return defineBrunchTool<ReturnType<typeof toolParameters>, BrunchIntrospectQueryDetails>({
     name: BRUNCH_INTROSPECT_QUERY_TOOL,
     label: 'Brunch introspect query',
     description: [
