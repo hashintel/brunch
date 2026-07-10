@@ -55,12 +55,12 @@
       "rationale": "The user-facing requirement is the concrete behavior that establishes the orientation goal."
     },
     {
-      "category": "composition",
-      "source_local_id": 3,
-      "target_local_id": 2,
+      "category": "realization",
+      "source_local_id": 2,
+      "target_local_id": 3,
       "basis": "explicit",
       "settlement": "settled",
-      "rationale": "The renderer materializes the accepted requirement."
+      "rationale": "The renderer is the concrete design realization of the accepted requirement."
     },
     {
       "category": "dependency",

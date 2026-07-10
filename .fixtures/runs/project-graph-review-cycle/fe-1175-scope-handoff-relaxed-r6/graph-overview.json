@@ -99,14 +99,14 @@
     {
       "id": 2,
       "specId": 1,
-      "category": "composition",
-      "sourceId": 3,
-      "targetId": 2,
+      "category": "realization",
+      "sourceId": 2,
+      "targetId": 3,
       "basis": "explicit",
       "settlement": "settled",
       "createdAtLsn": 2,
       "updatedAtLsn": 2,
-      "rationale": "The renderer materializes the accepted requirement."
+      "rationale": "The renderer is the concrete design realization of the accepted requirement."
     },
     {
       "id": 3,

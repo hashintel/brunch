@@ -88,6 +88,9 @@
     "requirementAnchorCount": 1,
     "designAnchorCount": 1,
     "verificationAnchorCount": 1,
+    "committedRequirementAnchorCount": 1,
+    "committedDesignAnchorCount": 1,
+    "committedVerificationAnchorCount": 1,
     "committedFrontierCount": 1,
     "committedScopeCount": 1
   },
