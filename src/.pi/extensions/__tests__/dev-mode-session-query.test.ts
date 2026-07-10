@@ -10,9 +10,9 @@ import {
   createBrunchSessionQueryTool,
   querySessionBranch,
   registerBrunchSessionQuery,
-  zBrunchSessionQueryParams,
 } from '../dev-mode/session-query/index.js';
-import { toolParameters } from '../shared/tool-schema.js';
+import { devModeToolSchemaBaseline } from './fixtures/dev-mode-tool-schemas.pre-fe-1163.js';
+import { normalizeToolSchema } from './tool-schema-baseline.js';
 
 const branch = [
   messageEntry('u1', { role: 'user', content: 'show me the graph summary' }),
@@ -207,8 +207,10 @@ describe('brunch_session_query', () => {
     expect(tools.map((tool) => tool.name)).toEqual([BRUNCH_SESSION_QUERY_TOOL]);
   });
 
-  it('registers parameters through the shared Zod adapter without changing the emitted schema', () => {
-    expect(createBrunchSessionQueryTool().parameters).toEqual(toolParameters(zBrunchSessionQueryParams));
+  it('preserves the pre-FE-1163 provider-facing schema semantics', () => {
+    expect(normalizeToolSchema(createBrunchSessionQueryTool().parameters)).toEqual(
+      normalizeToolSchema(devModeToolSchemaBaseline.schemas.brunch_session_query),
+    );
   });
 
   it('advertises a JSON Schema draft 2020-12 parameter schema (range uses prefixItems, no draft-07 tuple form)', () => {
