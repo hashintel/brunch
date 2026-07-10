@@ -8,6 +8,10 @@
   "github": {
     "release": false
   },
+  "npm": {
+    "publish": true,
+    "skipChecks": true
+  },
   "hooks": {
     "before:npm:release": ["npm run check:release-pack"]
   }

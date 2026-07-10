@@ -5,6 +5,7 @@ import type { ExecutePlanCheckResult } from '../../../../executor/execute-plan-c
 import { projectExecuteGraph } from '../../../../executor/execute-projection.js';
 import { BRUNCH_EXECUTE_PLAN_CHECK_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { renderExecutePlanCheckResult } from '../rendering.js';
 
 export { BRUNCH_EXECUTE_PLAN_CHECK_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -42,6 +43,9 @@ export function createExecutePlanCheckTool(
     description:
       'Check whether the selected specification graph has enough ExecutionSpecSnapshot coverage to become plan input. Side-effect free.',
     parameters: ExecutePlanCheckParams,
+    renderResult(result, options, theme, context) {
+      return renderExecutePlanCheckResult(result, options, theme as never, context);
+    },
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
       const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
       const projection = projectExecuteGraph({
