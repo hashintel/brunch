@@ -38,7 +38,7 @@ Build the first open required row in this order:
 WR13 Execute semantic identity [built]
   → WR14 honest continue completion [built]
   → WR15 interactive API-key secrecy [built]
-  → WR16 live conduct composition
+  → WR16 live conduct composition [built]
   → WR17 production debug mirrors
   → WR18 focused outer closure
 ```
@@ -64,7 +64,7 @@ WR14–WR17 may be reordered when test setup makes that cheaper, but WR18 remain
 | WR13 | Execute orientation semantic identity | `built` | ● | earned | session orientation carrier + Execute prompt/skill conduct | Built 2026-07-10: canonical ids `prepare_execution` / `compile_plan` / `execute_plan` now cross visible menu → persisted entry → context seed, and the live Execute prompt pins preparation recommendation/confirmation, compilation readiness with compile/backfill choice, and readiness-validated next-safe-unit execution. |
 | WR14 | Honest general-continue completion | `built` | ● | earned | `session-orientation/juncture.ts` + command adapter | Built 2026-07-10: `completeAssistantKick` now returns its classified outcome, juncture/manual-trigger helpers derive `kickFired` only from `status: fired`, no-model/idle skips avoid seed/kick carrier retries, failed sends surface as warning completion failures, and outcome callbacks remain one-per-attempt. |
 | WR15 | Interactive API-key secrecy | `built` | ● | earned | `app/brunch-login.ts` + PTY probe | Built 2026-07-10: `src/probes/scripts/verify-brunch-login-secret.sh` drives `brunch login` through a real Python-stdlib PTY, proves captured terminal bytes omit the sentinel API key, proves isolated `PI_CODING_AGENT_DIR/auth.json` stores the exact key, and covers cancellation as nonzero/no-auth-write; the non-TTY test remains supporting coverage only. |
-| WR16 | Live WR5 guidance composition | `spec` | ● | earned | registered exchange tools + live agent skill/prompt composition | D99-L/D58-L/I38-L. Close when consumer-level tests prove the actual registered ask/digest guidance and live ingest/map resource path carry the Other/pretext/direct-mutation/multi-pass rules; retire the source-file substring sentinel. |
+| WR16 | Live WR5 guidance composition | `built` | ● | earned | registered exchange tools + live agent skill/prompt composition | Built 2026-07-10: `exchanges-extension.test.ts` now proves registered ask/digest tool definitions expose Other/pretext/review-continuation conduct; live skill registry and composed elicitor prompt tests prove the active foreground manifest exposes `ingest` and its routed `map` reference path carrying digest-approval direct mutation and multi-pass extraction rules; the source-file substring sentinel was retired. |
 | WR17 | Production debug-mirror legibility | `spec` | ● | earned | TUI composition root + passive debug cache | A5/D69-L/D97-L. Close when the wired manual-trigger continuation writes `entry-contents.md` and `origination.md` that identify seed contents, `manual_trigger`, and seed-before-kick order without a provider call being required for the evidence. |
 | WR18 | Focused outer closure evidence | `new` | ● | proving | manual testing protocol; blocked by WR13–WR17 | TESTING_PLAN Concern 1A + Run B + focused Execute/gallery beat. Close only with recorded observations for WR5 conduct, seed usefulness, recovery-hint noticeability, Execute workflow fidelity, and border/overflow legibility in both themes. Product failures route back through planning rather than being absorbed here. |
 

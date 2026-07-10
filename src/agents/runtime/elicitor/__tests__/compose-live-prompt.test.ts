@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
@@ -51,6 +52,26 @@ describe('composeLiveElicitorPrompt', () => {
     expect(result.prompt).toContain('Be clear and concise');
     expect(result.prompt).toContain('Prefer structural forms');
     expect(result.prompt).toContain('Use multi-select when options are not mutually exclusive');
+  });
+
+  it('carries ingest and map routing resources in the active foreground manifest', () => {
+    const result = composeLiveElicitorPrompt({
+      sessionState: projectBrunchAgentState([]),
+      spec: { id: 42, name: 'Live Assembly Spec' },
+      workspace,
+    });
+    const ingestLocation = result.prompt.match(
+      /<skill>\s*<name>ingest<\/name>[\s\S]*?<location>([^<]+)<\/location>/,
+    )?.[1];
+
+    expect(ingestLocation).toBeDefined();
+    expect(ingestLocation).toMatch(/agents\/skills\/ingest\/SKILL\.md$/);
+    const ingestBody = readFileSync(ingestLocation!, 'utf8');
+    expect(ingestBody).toContain('../map/references/routing.md');
+    expect(ingestBody).toContain(
+      'Default after digest approval: map the accepted_abstract directly into advisory graph mutations',
+    );
+    expect(ingestBody).toContain('multi-pass extraction: entities, relations, then narrative obligations');
   });
 
   it('fails loud when called for a non-elicitor foreground state', () => {
