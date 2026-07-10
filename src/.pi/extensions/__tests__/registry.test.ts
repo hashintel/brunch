@@ -84,6 +84,7 @@ import { registerBrunchMentionAutocomplete as mentionAutocomplete } from '../men
 import { registerBrunchSessionBoundary as sessionLifecycle } from '../session-hooks/session/lifecycle.js';
 import { assertProviderLegalToolSchema, hasToolParametersProvenance } from '../shared/tool-schema.js';
 import { parseSubagentMarkdown, type BrunchSubagentsDeps, type SubagentResult } from '../subagents/index.js';
+import { createSubagentToolCatalog } from '../subagents/session.js';
 
 const extensionDefaults = {
   'components/alternatives.ts': alternatives,
@@ -2795,7 +2796,7 @@ describe('Brunch explicit Pi extension registry', () => {
     }
   });
 
-  it('keeps every active Brunch-authored tool provider-legal across elicitor, executor, and dev modes', async () => {
+  it('keeps the exact 51-tool provider-facing Brunch inventory legal and adapter-derived', async () => {
     const registeredTools = await collectProductTools({
       graph: { specId: 42, lsn: 1, nodes: [], edges: [] },
       subagents: workerSubagents(
@@ -2804,23 +2805,80 @@ describe('Brunch explicit Pi extension registry', () => {
       introspectionQueryTools: true,
     });
     const toolsByName = new Map(registeredTools.map((tool) => [tool.name, tool]));
-    const expectedToolNames = [
+    const piOwnedBuiltins = new Set(['read', 'grep', 'find', 'ls']);
+    const reachableProductNames = [
       ...new Set([
         ...LIVE_ELICITOR_ALLOWED_TOOL_NAMES,
         ...EXECUTOR_ALLOWED_TOOL_NAMES,
         BRUNCH_SESSION_QUERY_TOOL,
         BRUNCH_INTROSPECT_QUERY_TOOL,
+        BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL,
+        BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL,
       ]),
-    ].filter((name) => !['read', 'grep', 'find', 'ls'].includes(name));
+    ].filter((name) => !piOwnedBuiltins.has(name));
+    const childWriteTool = createSubagentToolCatalog('/tmp').get('write_worktree_file')!;
+    const actualTools = [...reachableProductNames.map((name) => toolsByName.get(name)), childWriteTool];
+    const expectedNames = [
+      'ask',
+      'present_candidates',
+      'present_digest',
+      'present_review_set',
+      'brunch_introspect_query',
+      'brunch_session_query',
+      'mutate_graph',
+      'read_graph',
+      'read_workspace_context',
+      'read_specification_context',
+      'read_session_context',
+      'read_elicitation_scratchpad',
+      'update_elicitation_scratchpad',
+      'read_reconciliation_needs',
+      'update_reconciliation_needs',
+      'execute_agent_result',
+      'execute_host_promotion_apply',
+      'execute_host_promotion_preflight',
+      'execute_launch',
+      'execute_orchestrate',
+      'execute_petri_export',
+      'execute_plan_check',
+      'execute_plan_draft',
+      'execute_plan_draft_artifact',
+      'execute_plan_file',
+      'execute_plan_outline',
+      'execute_plan_outline_artifact',
+      'execute_plan_preview',
+      'execute_populate',
+      'execute_promotion_prepare',
+      'execute_replan_abandon_run',
+      'execute_replan_recommendation',
+      'execute_replan_regenerate_plan',
+      'execute_replan_retry_current_step',
+      'execute_replan_start_new_run',
+      'execute_report_init',
+      'execute_run_complete',
+      'execute_run_create',
+      'execute_slice_complete',
+      'execute_slice_execute',
+      'execute_slice_start',
+      'execute_snapshot',
+      'execute_source_copy',
+      'execute_source_policy',
+      'execute_status',
+      'execute_test_result',
+      'execute_worktree_create',
+      'web_fetch',
+      'web_search',
+      'subagent',
+      'write_worktree_file',
+    ].sort((left, right) => left.localeCompare(right));
 
-    expect([...toolsByName.keys()]).toEqual(expect.arrayContaining(expectedToolNames));
-    for (const name of expectedToolNames) {
-      const tool = toolsByName.get(name);
-      expect(tool, `${name} must be registered for registry-level schema legality`).toBeDefined();
-      expect(
-        hasToolParametersProvenance(tool!.parameters),
-        `${name} parameters must come through toolParameters()`,
-      ).toBe(true);
+    expect(
+      [...reachableProductNames, childWriteTool.name].sort((left, right) => left.localeCompare(right)),
+    ).toEqual(expectedNames);
+    expect(actualTools).toHaveLength(51);
+    for (const tool of actualTools) {
+      expect(tool, 'every inventory member must resolve from a production registrar/catalog').toBeDefined();
+      expect(hasToolParametersProvenance(tool!.parameters), `${tool!.name} adapter provenance`).toBe(true);
       assertProviderLegalToolSchema(tool!.parameters);
     }
   });
