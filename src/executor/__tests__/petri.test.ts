@@ -30,10 +30,22 @@ async function createCompletedRun(cwd: string): Promise<void> {
     planPath,
     JSON.stringify({
       mode: 'greenfield',
-      epics: [{ id: 'frontier-1', depends_on: [] }],
+      epics: [{ id: 'frontier-1', summary: 'Build feature', depends_on: [], verification: [] }],
       slices: [
-        { id: 'task-1', epic_id: 'frontier-1' },
-        { id: 'task-2', epic_id: 'frontier-1' },
+        {
+          id: 'task-1',
+          epic_id: 'frontier-1',
+          definition: 'task-1.',
+          verification: [{ kind: 'criterion', criterionId: 'AC1', target: 'task-1 works.' }],
+          derived_from: ['REQ1'],
+        },
+        {
+          id: 'task-2',
+          epic_id: 'frontier-1',
+          definition: 'task-2.',
+          verification: [{ kind: 'criterion', criterionId: 'AC2', target: 'task-2 works.' }],
+          derived_from: ['REQ2'],
+        },
       ],
     }),
     'utf8',
@@ -82,10 +94,22 @@ describe('exportPetri', () => {
     const result = await exportPetri({ cwd, runId: 'run-1' });
     const topology = compileExecutorTopology({
       mode: 'greenfield',
-      epics: [{ id: 'frontier-1', depends_on: [] }],
+      epics: [{ id: 'frontier-1', summary: 'Build feature', depends_on: [], verification: [] }],
       slices: [
-        { id: 'task-1', epic_id: 'frontier-1' },
-        { id: 'task-2', epic_id: 'frontier-1' },
+        {
+          id: 'task-1',
+          epic_id: 'frontier-1',
+          definition: 'task-1.',
+          verification: [{ kind: 'criterion', criterionId: 'AC1', target: 'task-1 works.' }],
+          derived_from: ['REQ1'],
+        },
+        {
+          id: 'task-2',
+          epic_id: 'frontier-1',
+          definition: 'task-2.',
+          verification: [{ kind: 'criterion', criterionId: 'AC2', target: 'task-2 works.' }],
+          derived_from: ['REQ2'],
+        },
       ],
     });
 
@@ -110,7 +134,7 @@ describe('exportPetri', () => {
       initialMarking: topology.initialMarking,
     });
     expect(topology.subnets).toContainEqual(
-      expect.objectContaining({ id: 'slice:task-1', epicId: 'frontier-1' }),
+      expect.objectContaining({ id: 'slice:task-1', epicId: 'frontier-1', derivedFrom: ['REQ1'] }),
     );
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'petri_exported',

@@ -179,9 +179,18 @@ function isReadyStepArray(value: unknown): value is readonly Record<string, unkn
 
 function isReadyStep(value: unknown): value is Record<string, unknown> {
   if (!isRecord(value) || typeof value.kind !== 'string') return false;
-  if (value.kind === 'slice_start') {
+  if (
+    value.kind === 'slice_start' ||
+    value.kind === 'slice_execute' ||
+    value.kind === 'agent_result' ||
+    value.kind === 'test_result' ||
+    value.kind === 'slice_complete'
+  ) {
     return (
-      typeof value.sliceId === 'string' && (value.epicId === undefined || typeof value.epicId === 'string')
+      typeof value.sliceId === 'string' &&
+      (value.epicId === undefined || typeof value.epicId === 'string') &&
+      (value.derivedFrom === undefined ||
+        (Array.isArray(value.derivedFrom) && value.derivedFrom.every((item) => typeof item === 'string')))
     );
   }
   return [
@@ -210,6 +219,8 @@ function isBlockedStep(value: unknown): value is Record<string, unknown> {
     value.kind === 'slice_start' &&
     typeof value.sliceId === 'string' &&
     (value.epicId === undefined || typeof value.epicId === 'string') &&
+    (value.derivedFrom === undefined ||
+      (Array.isArray(value.derivedFrom) && value.derivedFrom.every((item) => typeof item === 'string'))) &&
     Array.isArray(value.blockers) &&
     value.blockers.every(isBlockedStepReason)
   );

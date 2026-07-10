@@ -72,13 +72,17 @@ function planJson(
   return JSON.stringify({
     ...(options.includeMode === false ? {} : { mode: 'greenfield' }),
     epics: [{ id: 'frontier-1', summary: 'Build feature', depends_on: [], verification: [] }],
-    slices: slices.map((slice) => ({
-      id: typeof slice === 'string' ? slice : slice.id,
-      epic_id: 'frontier-1',
-      definition: `${typeof slice === 'string' ? slice : slice.id}.`,
-      depends_on: typeof slice === 'string' ? [] : (slice.dependsOn ?? []),
-      verification: [],
-    })),
+    slices: slices.map((slice, index) => {
+      const sliceId = typeof slice === 'string' ? slice : slice.id;
+      return {
+        id: sliceId,
+        epic_id: 'frontier-1',
+        definition: `${sliceId}.`,
+        depends_on: typeof slice === 'string' ? [] : (slice.dependsOn ?? []),
+        verification: [{ kind: 'criterion', criterionId: `AC${index + 1}`, target: `${sliceId} works.` }],
+        derived_from: [`REQ${index + 1}`],
+      };
+    }),
   });
 }
 
@@ -471,7 +475,7 @@ describe('petri runtime helpers', () => {
     ]);
     expect(
       resolvePetriTransitionIdForReadyStep(
-        { kind: 'test_result' },
+        { kind: 'test_result', sliceId: 'task-1' },
         metadata('agent_result_ingested', {}),
         plan,
       ),
@@ -485,6 +489,7 @@ describe('petri runtime helpers', () => {
       mode: 'greenfield',
       slices: [{ id: 'task-1' }, { id: 'task-2', depends_on: ['task-1'] }, { id: 'task-3' }],
     } as const;
+    const runtime = materializeExecutorPetriRuntime(metadata('reports_initialized'), plan);
 
     const frontier = petriScheduler.ready(metadata('reports_initialized'), plan);
 
@@ -496,8 +501,16 @@ describe('petri runtime helpers', () => {
       serialFiringPolicy.select({ readySteps: frontier, state: metadata('reports_initialized'), plan }),
     ).toEqual([{ kind: 'slice_start', sliceId: 'task-1' }]);
     expect(
-      frontierFiringPolicy.select({ readySteps: frontier, state: metadata('reports_initialized'), plan }),
-    ).toEqual(frontier);
+      frontierFiringPolicy.select({
+        readySteps: frontier,
+        readyRuntime: {
+          currentMarking: runtime.currentMarking,
+          enabledTransitions: frontier.map((step) => runtime.transitionForReadyStep(step)),
+        },
+        state: metadata('reports_initialized'),
+        plan,
+      }),
+    ).toEqual([{ kind: 'slice_start', sliceId: 'task-1' }]);
   });
 
   it('surfaces blocked slice starts with unmet dependency ids alongside the ready frontier', () => {
@@ -552,7 +565,9 @@ describe('petri runtime helpers', () => {
     expect(inFlightRuntime.enabledTransitions.map((transition) => transition.id)).toEqual([
       'test_result:task-1',
     ]);
-    expect(inFlightRuntime.transitionForReadyStep({ kind: 'test_result' })?.id).toBe('test_result:task-1');
+    expect(inFlightRuntime.transitionForReadyStep({ kind: 'test_result', sliceId: 'task-1' })?.id).toBe(
+      'test_result:task-1',
+    );
   });
 
   it('uses Petri input arcs with executor frontier guards, not raw place fan-out, to pick enabled transitions', () => {
@@ -703,25 +718,25 @@ describe('linearScheduler', () => {
         status: 'slice_started',
         extra: { activeSliceId: 'task-1' },
         plan: slicePlan,
-        expected: [{ kind: 'slice_execute' }],
+        expected: [{ kind: 'slice_execute', sliceId: 'task-1' }],
       },
       {
         status: 'slice_execution_requested',
         extra: { activeSliceId: 'task-1' },
         plan: slicePlan,
-        expected: [{ kind: 'agent_result' }],
+        expected: [{ kind: 'agent_result', sliceId: 'task-1' }],
       },
       {
         status: 'agent_result_ingested',
         extra: { activeSliceId: 'task-1' },
         plan: slicePlan,
-        expected: [{ kind: 'test_result' }],
+        expected: [{ kind: 'test_result', sliceId: 'task-1' }],
       },
       {
         status: 'test_result_ingested',
         extra: { activeSliceId: 'task-1' },
         plan: slicePlan,
-        expected: [{ kind: 'slice_complete' }],
+        expected: [{ kind: 'slice_complete', sliceId: 'task-1' }],
       },
       { status: 'run_completed', expected: [{ kind: 'petri_export' }] },
       { status: 'petri_exported', expected: [{ kind: 'promotion' }] },
@@ -754,18 +769,42 @@ describe('compileExecutorTopology', () => {
     const topology = compileExecutorTopology({
       mode: 'greenfield',
       epics: [
-        { id: 'frontier-1', depends_on: [] },
-        { id: 'frontier-2', depends_on: ['frontier-1'] },
+        { id: 'frontier-1', summary: 'Build foundation', depends_on: [], verification: [] },
+        { id: 'frontier-2', summary: 'Build feature', depends_on: ['frontier-1'], verification: [] },
       ],
       slices: [
-        { id: 'task-1', epic_id: 'frontier-1' },
-        { id: 'task-2', epic_id: 'frontier-2' },
+        {
+          id: 'task-1',
+          epic_id: 'frontier-1',
+          definition: 'Implement foundation.',
+          verification: [{ kind: 'criterion', criterionId: 'AC1', target: 'Foundation works.' }],
+          derived_from: ['REQ1'],
+        },
+        {
+          id: 'task-2',
+          epic_id: 'frontier-2',
+          definition: 'Implement feature.',
+          verification: [{ kind: 'criterion', criterionId: 'AC2', target: 'Feature works.' }],
+          derived_from: ['REQ2'],
+        },
       ],
     });
 
     expect(topology.epics).toEqual([
-      { id: 'frontier-1', dependsOn: [], sliceIds: ['task-1'] },
-      { id: 'frontier-2', dependsOn: ['frontier-1'], sliceIds: ['task-2'] },
+      {
+        id: 'frontier-1',
+        summary: 'Build foundation',
+        dependsOn: [],
+        verification: [],
+        sliceIds: ['task-1'],
+      },
+      {
+        id: 'frontier-2',
+        summary: 'Build feature',
+        dependsOn: ['frontier-1'],
+        verification: [],
+        sliceIds: ['task-2'],
+      },
     ]);
 
     expect(topology.subnets).toEqual([
@@ -788,6 +827,9 @@ describe('compileExecutorTopology', () => {
         kind: 'slice_control',
         sliceId: 'task-1',
         epicId: 'frontier-1',
+        definition: 'Implement foundation.',
+        verification: [{ kind: 'criterion', criterionId: 'AC1', target: 'Foundation works.' }],
+        derivedFrom: ['REQ1'],
         transitionIds: [
           'slice_start:task-1',
           'slice_execute:task-1',
@@ -801,6 +843,9 @@ describe('compileExecutorTopology', () => {
         kind: 'slice_control',
         sliceId: 'task-2',
         epicId: 'frontier-2',
+        definition: 'Implement feature.',
+        verification: [{ kind: 'criterion', criterionId: 'AC2', target: 'Feature works.' }],
+        derivedFrom: ['REQ2'],
         transitionIds: [
           'slice_start:task-2',
           'slice_execute:task-2',
@@ -973,7 +1018,8 @@ describe('petriScheduler', () => {
         .map((event) => ({
           transitionId: event.transitionId,
           subnetId: event.subnetId,
-          epicId: event.epicId,
+          ...(event.epicId === undefined ? {} : { epicId: event.epicId }),
+          ...(event.derivedFrom === undefined ? {} : { derivedFrom: event.derivedFrom }),
           contract: event.contract,
           consumed: event.consumed,
           produced: event.produced,
@@ -1030,6 +1076,7 @@ describe('petriScheduler', () => {
         transitionId: 'slice_start:task-1',
         subnetId: 'slice:task-1',
         epicId: 'frontier-1',
+        derivedFrom: ['REQ1'],
         contract: { kind: 'structural', lane: 'slice' },
         consumed: ['run:slice_frontier'],
         produced: ['slice:task-1:started'],
@@ -1040,6 +1087,7 @@ describe('petriScheduler', () => {
         transitionId: 'slice_execute:task-1',
         subnetId: 'slice:task-1',
         epicId: 'frontier-1',
+        derivedFrom: ['REQ1'],
         contract: { kind: 'mechanical', lane: 'slice' },
         consumed: ['slice:task-1:started'],
         produced: ['slice:task-1:execution_requested'],
@@ -1050,6 +1098,7 @@ describe('petriScheduler', () => {
         transitionId: 'agent_result:task-1',
         subnetId: 'slice:task-1',
         epicId: 'frontier-1',
+        derivedFrom: ['REQ1'],
         contract: { kind: 'mechanical', lane: 'slice' },
         consumed: ['slice:task-1:execution_requested'],
         produced: ['slice:task-1:agent_result_ingested'],
@@ -1060,6 +1109,7 @@ describe('petriScheduler', () => {
         transitionId: 'test_result:task-1',
         subnetId: 'slice:task-1',
         epicId: 'frontier-1',
+        derivedFrom: ['REQ1'],
         contract: { kind: 'mechanical', lane: 'slice' },
         consumed: ['slice:task-1:agent_result_ingested'],
         produced: ['slice:task-1:test_result_ingested'],
@@ -1070,6 +1120,7 @@ describe('petriScheduler', () => {
         transitionId: 'slice_complete:task-1',
         subnetId: 'slice:task-1',
         epicId: 'frontier-1',
+        derivedFrom: ['REQ1'],
         contract: { kind: 'structural', lane: 'slice' },
         consumed: ['slice:task-1:test_result_ingested'],
         produced: ['run:slice_frontier'],

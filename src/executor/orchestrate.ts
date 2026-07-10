@@ -21,6 +21,7 @@ import {
   bindExecutorPetriRuntime,
   materializeExecutorPetriRuntime,
   projectExecutorPetriTransitionHistory,
+  type ExecutorPetriRuntime,
 } from './petri-runtime.js';
 import { classifyDriveTerminal } from './petri-terminal.js';
 import { populatedPlanPath } from './populate.js';
@@ -44,6 +45,9 @@ export interface RunFiringPolicy {
   /** Pure: choose which ready steps from the current frontier this drive turn should attempt to fire. */
   select(args: {
     readonly readySteps: readonly ReadyStep[];
+    readonly readyRuntime?: Pick<ExecutorPetriRuntime, 'currentMarking'> & {
+      readonly enabledTransitions: readonly ReturnType<ExecutorPetriRuntime['transitionForReadyStep']>[];
+    };
     readonly state: RunMetadata;
     readonly plan: SchedulerPlan | undefined;
   }): readonly ReadyStep[];
@@ -72,8 +76,23 @@ export const serialFiringPolicy: RunFiringPolicy = {
 };
 
 export const frontierFiringPolicy: RunFiringPolicy = {
-  select({ readySteps }) {
-    return readySteps;
+  select({ readySteps, readyRuntime }) {
+    if (!readyRuntime) return readySteps;
+    const claimedInputs = new Map<string, number>();
+    const selectedSteps: ReadyStep[] = [];
+    for (const transition of readyRuntime.enabledTransitions) {
+      if (!transition) continue;
+      const canClaim = transition.inputArcs.every((arc) => {
+        const claimed = claimedInputs.get(arc.placeId) ?? 0;
+        return claimed + arc.weight <= (readyRuntime.currentMarking[arc.placeId] ?? 0);
+      });
+      if (!canClaim) continue;
+      for (const arc of transition.inputArcs) {
+        claimedInputs.set(arc.placeId, (claimedInputs.get(arc.placeId) ?? 0) + arc.weight);
+      }
+      selectedSteps.push(transition.step);
+    }
+    return selectedSteps;
   },
 };
 
@@ -194,10 +213,18 @@ export async function drive(
     }
 
     const plan = await planForScheduler(ctx.cwd, state);
+    const runtime = materializeExecutorPetriRuntime(state, plan);
     const readySteps = scheduler.ready(state, plan);
-    const selectedSteps = firingPolicy.select({ readySteps, state, plan });
+    const selectedSteps = firingPolicy.select({
+      readySteps,
+      readyRuntime: {
+        currentMarking: runtime.currentMarking,
+        enabledTransitions: readySteps.map((step) => runtime.transitionForReadyStep(step)),
+      },
+      state,
+      plan,
+    });
     if (selectedSteps.length === 0) {
-      const runtime = materializeExecutorPetriRuntime(state, plan);
       const terminal = classifyDriveTerminal({
         kind: 'scheduler_exhausted',
         runId: ctx.runId,
@@ -273,6 +300,7 @@ export async function drive(
             transitionId: transition.id,
             subnetId: transition.subnetId,
             ...(transition.epicId === undefined ? {} : { epicId: transition.epicId }),
+            ...(transition.derivedFrom === undefined ? {} : { derivedFrom: transition.derivedFrom }),
             step: next.kind,
             contract: transition.contract,
             consumed: transition.inputArcs.map((arc) => arc.placeId),

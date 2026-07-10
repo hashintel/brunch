@@ -235,14 +235,15 @@ describe('run detail route', () => {
           ...runDetail,
           status: 'reports_initialized',
           petriReadySteps: [
-            { kind: 'slice_start', sliceId: 'task-1', epicId: 'frontier-1' },
-            { kind: 'slice_start', sliceId: 'task-3', epicId: 'frontier-2' },
+            { kind: 'slice_start', sliceId: 'task-1', epicId: 'frontier-1', derivedFrom: ['REQ1'] },
+            { kind: 'slice_start', sliceId: 'task-3', epicId: 'frontier-2', derivedFrom: ['REQ3'] },
           ],
           petriBlockedSteps: [
             {
               kind: 'slice_start',
               sliceId: 'task-2',
               epicId: 'frontier-1',
+              derivedFrom: ['REQ2'],
               blockers: [{ kind: 'dependency', sliceId: 'task-1' }],
             },
           ],
@@ -253,9 +254,9 @@ describe('run detail route', () => {
     render(<BrunchWebApp runtime={runtime} />);
 
     expect(await screen.findByText('Petri frontier (derived)')).toBeTruthy();
-    expect(screen.getByText(/slice_start:task-1 \(frontier-1\)/u)).toBeTruthy();
-    expect(screen.getByText(/slice_start:task-3 \(frontier-2\)/u)).toBeTruthy();
-    expect(screen.getByText(/slice_start:task-2 \(frontier-1\) blocked by task-1/u)).toBeTruthy();
+    expect(screen.getByText(/slice_start:task-1 \(frontier-1\) ← REQ1/u)).toBeTruthy();
+    expect(screen.getByText(/slice_start:task-3 \(frontier-2\) ← REQ3/u)).toBeTruthy();
+    expect(screen.getByText(/slice_start:task-2 \(frontier-1\) ← REQ2 blocked by task-1/u)).toBeTruthy();
   });
 
   it('renders active-slice blockers when another dependency-ready slice cannot start yet', async () => {
@@ -266,7 +267,7 @@ describe('run detail route', () => {
           ...runDetail,
           status: 'slice_started',
           activeSliceId: 'task-1',
-          petriReadySteps: [{ kind: 'slice_execute' }],
+          petriReadySteps: [{ kind: 'slice_execute', sliceId: 'task-1', derivedFrom: ['REQ1'] }],
           petriBlockedSteps: [
             {
               kind: 'slice_start',
@@ -281,7 +282,7 @@ describe('run detail route', () => {
     render(<BrunchWebApp runtime={runtime} />);
 
     expect(await screen.findByText('Petri frontier (derived)')).toBeTruthy();
-    expect(screen.getByText(/slice_execute/u)).toBeTruthy();
+    expect(screen.getByText(/slice_execute:task-1 ← REQ1/u)).toBeTruthy();
     expect(screen.getByText(/slice_start:task-2 blocked by active slice task-1/u)).toBeTruthy();
   });
 

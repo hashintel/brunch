@@ -202,7 +202,7 @@ describe('brunch.updated execute topic invalidation', () => {
         {
           topic: 'execute.run',
           runId: 'run-1',
-          petriReadySteps: [{ kind: 'slice_execute' }],
+          petriReadySteps: [{ kind: 'slice_execute', sliceId: 'task-1', derivedFrom: ['REQ1'] }],
           petriBlockedSteps: [
             {
               kind: 'slice_start',
@@ -215,7 +215,7 @@ describe('brunch.updated execute topic invalidation', () => {
     );
 
     expect(queryClient.getQueryData(['execute.run', 'run-1'])).toMatchObject({
-      petriReadySteps: [{ kind: 'slice_execute' }],
+      petriReadySteps: [{ kind: 'slice_execute', sliceId: 'task-1', derivedFrom: ['REQ1'] }],
       petriBlockedSteps: [
         { kind: 'slice_start', sliceId: 'task-2', blockers: [{ kind: 'active_slice', sliceId: 'task-1' }] },
       ],

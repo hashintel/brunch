@@ -4,11 +4,36 @@ export type ReadyStep =
   | { readonly kind: 'source_policy' }
   | { readonly kind: 'source_copy' }
   | { readonly kind: 'report_init' }
-  | { readonly kind: 'slice_start'; readonly sliceId: string; readonly epicId?: string }
-  | { readonly kind: 'slice_execute' }
-  | { readonly kind: 'agent_result' }
-  | { readonly kind: 'test_result' }
-  | { readonly kind: 'slice_complete' }
+  | {
+      readonly kind: 'slice_start';
+      readonly sliceId: string;
+      readonly epicId?: string;
+      readonly derivedFrom?: readonly string[];
+    }
+  | {
+      readonly kind: 'slice_execute';
+      readonly sliceId: string;
+      readonly epicId?: string;
+      readonly derivedFrom?: readonly string[];
+    }
+  | {
+      readonly kind: 'agent_result';
+      readonly sliceId: string;
+      readonly epicId?: string;
+      readonly derivedFrom?: readonly string[];
+    }
+  | {
+      readonly kind: 'test_result';
+      readonly sliceId: string;
+      readonly epicId?: string;
+      readonly derivedFrom?: readonly string[];
+    }
+  | {
+      readonly kind: 'slice_complete';
+      readonly sliceId: string;
+      readonly epicId?: string;
+      readonly derivedFrom?: readonly string[];
+    }
   | { readonly kind: 'run_complete' }
   | { readonly kind: 'petri_export' }
   | { readonly kind: 'promotion' };
@@ -17,6 +42,7 @@ export interface BlockedStep {
   readonly kind: 'slice_start';
   readonly sliceId: string;
   readonly epicId?: string;
+  readonly derivedFrom?: readonly string[];
   readonly blockers: readonly BlockedStepReason[];
 }
 
@@ -31,15 +57,26 @@ export interface SchedulerPlan {
   readonly slices?: readonly SchedulerPlanSlice[];
 }
 
+export interface SchedulerPlanVerificationTarget {
+  readonly kind: 'criterion';
+  readonly criterionId?: string;
+  readonly target: string;
+}
+
 export interface SchedulerPlanEpic {
   readonly id: string;
+  readonly summary?: string;
   readonly depends_on?: readonly string[];
+  readonly verification?: readonly SchedulerPlanVerificationTarget[];
 }
 
 export interface SchedulerPlanSlice {
   readonly id: string;
   readonly epic_id?: string;
+  readonly definition?: string;
   readonly depends_on?: readonly string[];
+  readonly verification?: readonly SchedulerPlanVerificationTarget[];
+  readonly derived_from?: readonly string[];
 }
 
 export type SchedulerPlanMode = NonNullable<SchedulerPlan['mode']>;
@@ -70,30 +107,68 @@ export function normalizeSchedulerPlanMode(plan: SchedulerPlan | undefined): Sch
 function projectSchedulerPlanSlice(value: unknown): SchedulerPlanSlice | undefined {
   if (!isRecord(value) || typeof value.id !== 'string') return undefined;
   if (value.epic_id !== undefined && typeof value.epic_id !== 'string') return undefined;
+  if (value.definition !== undefined && typeof value.definition !== 'string') return undefined;
   if (
     value.depends_on !== undefined &&
     (!Array.isArray(value.depends_on) || value.depends_on.some((sliceId) => typeof sliceId !== 'string'))
   ) {
     return undefined;
   }
+  const verification = projectSchedulerPlanVerification(value.verification);
+  if (value.verification !== undefined && verification === undefined) return undefined;
+  if (
+    value.derived_from !== undefined &&
+    (!Array.isArray(value.derived_from) || value.derived_from.some((itemId) => typeof itemId !== 'string'))
+  ) {
+    return undefined;
+  }
   return {
     id: value.id,
     ...(value.epic_id === undefined ? {} : { epic_id: value.epic_id }),
+    ...(value.definition === undefined ? {} : { definition: value.definition }),
     ...(value.depends_on === undefined ? {} : { depends_on: value.depends_on as readonly string[] }),
+    ...(verification === undefined ? {} : { verification }),
+    ...(value.derived_from === undefined ? {} : { derived_from: value.derived_from as readonly string[] }),
   };
 }
 
 function projectSchedulerPlanEpic(value: unknown): SchedulerPlanEpic | undefined {
   if (!isRecord(value) || typeof value.id !== 'string') return undefined;
+  if (value.summary !== undefined && typeof value.summary !== 'string') return undefined;
   if (
     value.depends_on !== undefined &&
     (!Array.isArray(value.depends_on) || value.depends_on.some((epicId) => typeof epicId !== 'string'))
   ) {
     return undefined;
   }
+  const verification = projectSchedulerPlanVerification(value.verification);
+  if (value.verification !== undefined && verification === undefined) return undefined;
   return {
     id: value.id,
+    ...(value.summary === undefined ? {} : { summary: value.summary }),
     ...(value.depends_on === undefined ? {} : { depends_on: value.depends_on as readonly string[] }),
+    ...(verification === undefined ? {} : { verification }),
+  };
+}
+
+function projectSchedulerPlanVerification(
+  value: unknown,
+): readonly SchedulerPlanVerificationTarget[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) return undefined;
+  const targets = value.map(projectSchedulerPlanVerificationTarget);
+  return targets.some((target) => target === undefined)
+    ? undefined
+    : (targets as readonly SchedulerPlanVerificationTarget[]);
+}
+
+function projectSchedulerPlanVerificationTarget(value: unknown): SchedulerPlanVerificationTarget | undefined {
+  if (!isRecord(value) || value.kind !== 'criterion' || typeof value.target !== 'string') return undefined;
+  if (value.criterionId !== undefined && typeof value.criterionId !== 'string') return undefined;
+  return {
+    kind: 'criterion',
+    ...(value.criterionId === undefined ? {} : { criterionId: value.criterionId }),
+    target: value.target,
   };
 }
 
@@ -106,6 +181,9 @@ export interface ExecutorSubnet {
   readonly kind: 'run_control' | 'slice_control';
   readonly sliceId?: string;
   readonly epicId?: string;
+  readonly definition?: string;
+  readonly verification?: readonly SchedulerPlanVerificationTarget[];
+  readonly derivedFrom?: readonly string[];
   readonly transitionIds: readonly string[];
 }
 
@@ -129,6 +207,7 @@ export interface ExecutorTransition {
   readonly id: string;
   readonly subnetId: string;
   readonly epicId?: string;
+  readonly derivedFrom?: readonly string[];
   readonly step: ReadyStep;
   readonly inputArcs: readonly ExecutorArc[];
   readonly outputArcs: readonly ExecutorArc[];
@@ -141,7 +220,9 @@ export interface ExecutorTransition {
 
 export interface ExecutorEpic {
   readonly id: string;
+  readonly summary?: string;
   readonly dependsOn: readonly string[];
+  readonly verification?: readonly SchedulerPlanVerificationTarget[];
   readonly sliceIds: readonly string[];
 }
 
@@ -161,6 +242,7 @@ export type ExecutorNetEvent =
       readonly transitionId: string;
       readonly subnetId: string;
       readonly epicId?: string;
+      readonly derivedFrom?: readonly string[];
       readonly step: ReadyStep['kind'];
       readonly contract: ExecutorTransition['contract'];
       readonly consumed: readonly string[];
@@ -254,6 +336,7 @@ export function blockedPlanSliceSteps(
       kind: 'slice_start' as const,
       sliceId: slice.id,
       ...(slice.epic_id === undefined ? {} : { epicId: slice.epic_id }),
+      ...(slice.derived_from === undefined ? {} : { derivedFrom: slice.derived_from }),
       blockers: planSliceDependsOn(slice)
         .filter((sliceId) => !completed.has(sliceId))
         .map((sliceId) => ({ kind: 'dependency' as const, sliceId })),
@@ -275,7 +358,9 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
   }
   const compiledEpics = plan?.epics?.map<ExecutorEpic>((epic) => ({
     id: epic.id,
+    ...(epic.summary === undefined ? {} : { summary: epic.summary }),
     dependsOn: epic.depends_on ?? [],
+    ...(epic.verification === undefined ? {} : { verification: epic.verification }),
     sliceIds: (plan?.slices ?? []).filter((slice) => slice.epic_id === epic.id).map((slice) => slice.id),
   }));
 
@@ -350,6 +435,9 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
     kind: 'slice_control',
     sliceId: slice.id,
     ...(slice.epic_id === undefined ? {} : { epicId: slice.epic_id }),
+    ...(slice.definition === undefined ? {} : { definition: slice.definition }),
+    ...(slice.verification === undefined ? {} : { verification: slice.verification }),
+    ...(slice.derived_from === undefined ? {} : { derivedFrom: slice.derived_from }),
     transitionIds: [
       sliceTransitionId('slice_start', slice.id),
       sliceTransitionId('slice_execute', slice.id),
@@ -386,10 +474,12 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
         id: sliceTransitionId('slice_start', sliceId),
         subnetId: subnet.id,
         ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
+        ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
         step: {
           kind: 'slice_start',
           sliceId,
           ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
+          ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
         },
         inputArcs: [{ placeId: RUN_SLICE_FRONTIER_PLACE, weight: 1 }],
         outputArcs: [{ placeId: sliceStartedPlace(sliceId), weight: 1 }],
@@ -406,7 +496,13 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
         id: sliceTransitionId('slice_execute', sliceId),
         subnetId: subnet.id,
         ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
-        step: { kind: 'slice_execute' },
+        ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
+        step: {
+          kind: 'slice_execute',
+          sliceId,
+          ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
+          ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
+        },
         inputArcs: [{ placeId: sliceStartedPlace(sliceId), weight: 1 }],
         outputArcs: [{ placeId: sliceExecutionRequestedPlace(sliceId), weight: 1 }],
         guard: { kind: 'active_slice', sliceId },
@@ -416,7 +512,13 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
         id: sliceTransitionId('agent_result', sliceId),
         subnetId: subnet.id,
         ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
-        step: { kind: 'agent_result' },
+        ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
+        step: {
+          kind: 'agent_result',
+          sliceId,
+          ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
+          ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
+        },
         inputArcs: [{ placeId: sliceExecutionRequestedPlace(sliceId), weight: 1 }],
         outputArcs: [{ placeId: sliceAgentResultPlace(sliceId), weight: 1 }],
         guard: { kind: 'active_slice', sliceId },
@@ -426,7 +528,13 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
         id: sliceTransitionId('test_result', sliceId),
         subnetId: subnet.id,
         ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
-        step: { kind: 'test_result' },
+        ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
+        step: {
+          kind: 'test_result',
+          sliceId,
+          ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
+          ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
+        },
         inputArcs: [{ placeId: sliceAgentResultPlace(sliceId), weight: 1 }],
         outputArcs: [{ placeId: sliceTestResultPlace(sliceId), weight: 1 }],
         guard: { kind: 'active_slice', sliceId },
@@ -436,7 +544,13 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
         id: sliceTransitionId('slice_complete', sliceId),
         subnetId: subnet.id,
         ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
-        step: { kind: 'slice_complete' },
+        ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
+        step: {
+          kind: 'slice_complete',
+          sliceId,
+          ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
+          ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
+        },
         inputArcs: [{ placeId: sliceTestResultPlace(sliceId), weight: 1 }],
         outputArcs: [{ placeId: RUN_SLICE_FRONTIER_PLACE, weight: 1 }],
         guard: { kind: 'active_slice', sliceId },

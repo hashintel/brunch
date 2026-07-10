@@ -283,6 +283,13 @@ function epicIdForSlice(plan: SchedulerPlan | undefined, sliceId: string): strin
   return plan?.slices?.find((slice) => slice.id === sliceId)?.epic_id;
 }
 
+function derivedFromForSlice(
+  plan: SchedulerPlan | undefined,
+  sliceId: string,
+): readonly string[] | undefined {
+  return plan?.slices?.find((slice) => slice.id === sliceId)?.derived_from;
+}
+
 function blockedExecutorSteps(
   state: RunMetadata,
   plan: SchedulerPlan | undefined,
@@ -294,10 +301,12 @@ function blockedExecutorSteps(
       .filter((sliceId) => sliceId !== activeSliceId)
       .map<BlockedStep>((sliceId) => {
         const epicId = epicIdForSlice(plan, sliceId);
+        const derivedFrom = derivedFromForSlice(plan, sliceId);
         return {
           kind: 'slice_start',
           sliceId,
           ...(epicId === undefined ? {} : { epicId }),
+          ...(derivedFrom === undefined ? {} : { derivedFrom }),
           blockers: [{ kind: 'active_slice', sliceId: activeSliceId }],
         };
       });

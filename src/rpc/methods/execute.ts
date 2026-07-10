@@ -74,13 +74,50 @@ const ReadyStepSchema = Type.Union([
   Type.Object({ kind: Type.Literal('source_copy') }, { additionalProperties: false }),
   Type.Object({ kind: Type.Literal('report_init') }, { additionalProperties: false }),
   Type.Object(
-    { kind: Type.Literal('slice_start'), sliceId: Type.String(), epicId: Type.Optional(Type.String()) },
+    {
+      kind: Type.Literal('slice_start'),
+      sliceId: Type.String(),
+      epicId: Type.Optional(Type.String()),
+      derivedFrom: Type.Optional(Type.Array(Type.String())),
+    },
     { additionalProperties: false },
   ),
-  Type.Object({ kind: Type.Literal('slice_execute') }, { additionalProperties: false }),
-  Type.Object({ kind: Type.Literal('agent_result') }, { additionalProperties: false }),
-  Type.Object({ kind: Type.Literal('test_result') }, { additionalProperties: false }),
-  Type.Object({ kind: Type.Literal('slice_complete') }, { additionalProperties: false }),
+  Type.Object(
+    {
+      kind: Type.Literal('slice_execute'),
+      sliceId: Type.String(),
+      epicId: Type.Optional(Type.String()),
+      derivedFrom: Type.Optional(Type.Array(Type.String())),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      kind: Type.Literal('agent_result'),
+      sliceId: Type.String(),
+      epicId: Type.Optional(Type.String()),
+      derivedFrom: Type.Optional(Type.Array(Type.String())),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      kind: Type.Literal('test_result'),
+      sliceId: Type.String(),
+      epicId: Type.Optional(Type.String()),
+      derivedFrom: Type.Optional(Type.Array(Type.String())),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      kind: Type.Literal('slice_complete'),
+      sliceId: Type.String(),
+      epicId: Type.Optional(Type.String()),
+      derivedFrom: Type.Optional(Type.Array(Type.String())),
+    },
+    { additionalProperties: false },
+  ),
   Type.Object({ kind: Type.Literal('run_complete') }, { additionalProperties: false }),
   Type.Object({ kind: Type.Literal('petri_export') }, { additionalProperties: false }),
   Type.Object({ kind: Type.Literal('promotion') }, { additionalProperties: false }),
@@ -99,6 +136,7 @@ const BlockedStepSchema = Type.Object(
     kind: Type.Literal('slice_start'),
     sliceId: Type.String(),
     epicId: Type.Optional(Type.String()),
+    derivedFrom: Type.Optional(Type.Array(Type.String())),
     blockers: Type.Array(BlockedStepReasonSchema),
   },
   { additionalProperties: false },

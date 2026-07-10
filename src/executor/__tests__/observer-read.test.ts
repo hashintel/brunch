@@ -126,9 +126,9 @@ describe('readRunDetail', () => {
       JSON.stringify({
         mode: 'greenfield',
         slices: [
-          { id: 'task-1', epic_id: 'frontier-1' },
-          { id: 'task-2', epic_id: 'frontier-1', depends_on: ['task-1'] },
-          { id: 'task-3', epic_id: 'frontier-2' },
+          { id: 'task-1', epic_id: 'frontier-1', derived_from: ['REQ1'] },
+          { id: 'task-2', epic_id: 'frontier-1', depends_on: ['task-1'], derived_from: ['REQ2'] },
+          { id: 'task-3', epic_id: 'frontier-2', derived_from: ['REQ3'] },
         ],
       }),
       'utf8',
@@ -142,14 +142,15 @@ describe('readRunDetail', () => {
 
     expect(detail).toMatchObject({
       petriReadySteps: [
-        { kind: 'slice_start', sliceId: 'task-1', epicId: 'frontier-1' },
-        { kind: 'slice_start', sliceId: 'task-3', epicId: 'frontier-2' },
+        { kind: 'slice_start', sliceId: 'task-1', epicId: 'frontier-1', derivedFrom: ['REQ1'] },
+        { kind: 'slice_start', sliceId: 'task-3', epicId: 'frontier-2', derivedFrom: ['REQ3'] },
       ],
       petriBlockedSteps: [
         {
           kind: 'slice_start',
           sliceId: 'task-2',
           epicId: 'frontier-1',
+          derivedFrom: ['REQ2'],
           blockers: [{ kind: 'dependency', sliceId: 'task-1' }],
         },
       ],
@@ -174,7 +175,11 @@ describe('readRunDetail', () => {
 
     expect(detail).toMatchObject({
       petriBlockedSteps: [
-        { kind: 'slice_start', sliceId: 'task-2', blockers: [{ kind: 'active_slice', sliceId: 'task-1' }] },
+        {
+          kind: 'slice_start',
+          sliceId: 'task-2',
+          blockers: [{ kind: 'active_slice', sliceId: 'task-1' }],
+        },
       ],
     });
   });

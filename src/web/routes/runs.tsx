@@ -496,7 +496,7 @@ function PetriProjectionBlock({
 
 function describeReadyStep(step: NonNullable<RunDetail['petriReadySteps']>[number]): string {
   if (!('sliceId' in step)) return step.kind;
-  return `${step.kind}:${step.sliceId}${step.epicId === undefined ? '' : ` (${step.epicId})`}`;
+  return `${step.kind}:${step.sliceId}${step.epicId === undefined ? '' : ` (${step.epicId})`}${step.derivedFrom === undefined ? '' : ` ← ${step.derivedFrom.join(', ')}`}`;
 }
 
 function describeBlockedStep(step: NonNullable<RunDetail['petriBlockedSteps']>[number]): string {
