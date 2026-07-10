@@ -9,6 +9,7 @@ import { petriEventsPath } from '../petri-events.js';
 import { canProjectPetriReplay } from '../petri-replay-eligibility.js';
 import { replayPetri, replayTransitionHistory } from '../petri-replay.js';
 import { exportPetri, petriNetPath } from '../petri.js';
+import { populatedPlanPath } from '../populate.js';
 import { reportsPath } from '../report.js';
 import { runDirPath, runMetadataPath } from '../run.js';
 
@@ -141,6 +142,38 @@ describe('exportPetri', () => {
       petriPath: petriNetPath(cwd, 'run-1'),
     });
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'promotion'))).toBe(false);
+  });
+
+  it('exports from the same worktree plan fallback used by drive and observers', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-export-worktree-plan-fallback-'));
+    await createCompletedRun(cwd);
+    const runPlanPath = populatedPlanPath(cwd, 'run-1');
+    await mkdir(join(runDirPath(cwd, 'run-1'), 'worktree', '.brunch', 'cook'), { recursive: true });
+    await writeFile(
+      runPlanPath,
+      JSON.stringify({
+        mode: 'greenfield',
+        slices: [{ id: 'worktree-task' }],
+      }),
+      'utf8',
+    );
+    await writeFile(
+      join(cwd, 'plan.yaml'),
+      JSON.stringify({
+        mode: 'greenfield',
+        slices: [{ id: 'source-task' }],
+      }),
+      'utf8',
+    );
+
+    const result = await exportPetri({ cwd, runId: 'run-1' });
+
+    expect(result.status).toBe('petri_exported');
+    const net = JSON.parse(await readFile(petriNetPath(cwd, 'run-1'), 'utf8')) as {
+      readonly subnets: readonly { readonly id: string }[];
+    };
+    expect(net.subnets).toContainEqual(expect.objectContaining({ id: 'slice:worktree-task' }));
+    expect(net.subnets).not.toContainEqual(expect.objectContaining({ id: 'slice:source-task' }));
   });
 
   it('refuses to export when the compiled plan input is unreadable', async () => {
