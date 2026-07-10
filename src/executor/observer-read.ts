@@ -177,7 +177,8 @@ export async function readRunDetail(
   const petriMarkingSnapshot = await readPetriMarkingSnapshot({ cwd, runId });
   const hasMatchingPetriMarkingSnapshot =
     petriMarkingSnapshot !== undefined &&
-    petriMarkingSnapshotMatchesRunMetadata(petriMarkingSnapshot, metadata);
+    petriMarkingSnapshotMatchesRunMetadata(petriMarkingSnapshot, metadata) &&
+    petriMarkingSnapshotMatchesRuntime(petriMarkingSnapshot, petriRuntime);
   const petriProjectionEntry =
     (hasMatchingPetriMarkingSnapshot
       ? {
@@ -267,6 +268,19 @@ function sanitizeClaimedTransitionIds(
     }
   }
   return claimedTransitionIds;
+}
+
+function petriMarkingSnapshotMatchesRuntime(
+  snapshot: { readonly currentMarking: Record<string, number> },
+  runtime?: Pick<ExecutorPetriRuntime, 'currentMarking'>,
+): boolean {
+  if (runtime === undefined) return true;
+  const runtimeEntries = Object.entries(runtime.currentMarking);
+  const snapshotEntries = Object.entries(snapshot.currentMarking);
+  return (
+    runtimeEntries.length === snapshotEntries.length &&
+    runtimeEntries.every(([placeId, count]) => snapshot.currentMarking[placeId] === count)
+  );
 }
 
 async function readPetriRuntimePlan(metadata: RunMetadata): Promise<SchedulerPlan | undefined> {

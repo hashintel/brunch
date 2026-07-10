@@ -550,6 +550,48 @@ describe('readRunDetail', () => {
     });
   });
 
+  it('omits a provenance-matching marking snapshot when its current marking contradicts the live runtime', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-marking-runtime-mismatch-');
+    const planPath = join(cwd, 'plan.json');
+    await writeFile(
+      planPath,
+      JSON.stringify({
+        mode: 'greenfield',
+        epics: [{ id: 'frontier-1', summary: 'F', depends_on: [], verification: [] }],
+        slices: [
+          { id: 'task-1', epic_id: 'frontier-1', definition: 'task-1.', depends_on: [], verification: [] },
+        ],
+      }),
+      'utf8',
+    );
+    const runDir = await writeRun(cwd, 'run-petri-marking-runtime-mismatch', {
+      planPath,
+      status: 'reports_initialized',
+    });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'marking.json'),
+      `${JSON.stringify(
+        {
+          currentMarking: { 'run:promotion_prepared': 1 },
+          firedTransitionCount: 99,
+          lifecycleProvenance: { runStatus: 'reports_initialized' },
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-marking-runtime-mismatch');
+
+    expect(detail && 'petriProjection' in detail ? detail.petriProjection : 'absent').toBe('absent');
+    expect(detail).toMatchObject({
+      petriReadySteps: [{ kind: 'slice_start', sliceId: 'task-1', epicId: 'frontier-1' }],
+      petriBlockedSteps: [],
+    });
+  });
+
   it('falls back to replay when the persisted marking snapshot provenance no longer matches run metadata', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-marking-stale-');
     const runDir = await writeRun(cwd, 'run-petri-marking-stale', {
