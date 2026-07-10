@@ -181,7 +181,9 @@ describe('execute_orchestrate intra-drive updates', () => {
           (update) =>
             update.topic === 'execute.run' &&
             update.runId === 'run-1' &&
-            JSON.stringify(update).includes('"petriReadySteps":[{"kind":"slice_start","sliceId":"t1"}]'),
+            JSON.stringify(update).includes(
+              '"petriReadySteps":[{"kind":"slice_start","sliceId":"t1","epicId":"e1"}]',
+            ),
         ),
       ),
     ).toBe(true);

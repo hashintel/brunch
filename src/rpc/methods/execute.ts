@@ -73,7 +73,10 @@ const ReadyStepSchema = Type.Union([
   Type.Object({ kind: Type.Literal('source_policy') }, { additionalProperties: false }),
   Type.Object({ kind: Type.Literal('source_copy') }, { additionalProperties: false }),
   Type.Object({ kind: Type.Literal('report_init') }, { additionalProperties: false }),
-  Type.Object({ kind: Type.Literal('slice_start'), sliceId: Type.String() }, { additionalProperties: false }),
+  Type.Object(
+    { kind: Type.Literal('slice_start'), sliceId: Type.String(), epicId: Type.Optional(Type.String()) },
+    { additionalProperties: false },
+  ),
   Type.Object({ kind: Type.Literal('slice_execute') }, { additionalProperties: false }),
   Type.Object({ kind: Type.Literal('agent_result') }, { additionalProperties: false }),
   Type.Object({ kind: Type.Literal('test_result') }, { additionalProperties: false }),
@@ -95,6 +98,7 @@ const BlockedStepSchema = Type.Object(
   {
     kind: Type.Literal('slice_start'),
     sliceId: Type.String(),
+    epicId: Type.Optional(Type.String()),
     blockers: Type.Array(BlockedStepReasonSchema),
   },
   { additionalProperties: false },

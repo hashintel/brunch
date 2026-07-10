@@ -179,7 +179,11 @@ function isReadyStepArray(value: unknown): value is readonly Record<string, unkn
 
 function isReadyStep(value: unknown): value is Record<string, unknown> {
   if (!isRecord(value) || typeof value.kind !== 'string') return false;
-  if (value.kind === 'slice_start') return typeof value.sliceId === 'string';
+  if (value.kind === 'slice_start') {
+    return (
+      typeof value.sliceId === 'string' && (value.epicId === undefined || typeof value.epicId === 'string')
+    );
+  }
   return [
     'worktree_create',
     'populate',
@@ -205,6 +209,7 @@ function isBlockedStep(value: unknown): value is Record<string, unknown> {
     isRecord(value) &&
     value.kind === 'slice_start' &&
     typeof value.sliceId === 'string' &&
+    (value.epicId === undefined || typeof value.epicId === 'string') &&
     Array.isArray(value.blockers) &&
     value.blockers.every(isBlockedStepReason)
   );

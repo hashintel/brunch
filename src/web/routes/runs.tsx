@@ -469,7 +469,7 @@ function PetriProjectionBlock({
           <ul className="text-sub flex flex-col gap-1 font-mono text-xs">
             {readySteps.map((step, index) => (
               <li key={`${step.kind}-${'sliceId' in step ? step.sliceId : index}`}>
-                {'sliceId' in step ? `${step.kind}:${step.sliceId}` : step.kind}
+                {describeReadyStep(step)}
               </li>
             ))}
           </ul>
@@ -480,9 +480,7 @@ function PetriProjectionBlock({
           <p className="text-sub text-xs">Blocked now</p>
           <ul className="text-sub flex flex-col gap-1 font-mono text-xs">
             {blockedSteps.map((step) => (
-              <li key={`${step.kind}-${step.sliceId}`}>
-                {`${step.kind}:${step.sliceId} blocked by ${describeBlockedStep(step)}`}
-              </li>
+              <li key={`${step.kind}-${step.sliceId}`}>{describeBlockedStep(step)}</li>
             ))}
           </ul>
         </div>
@@ -496,10 +494,15 @@ function PetriProjectionBlock({
   );
 }
 
+function describeReadyStep(step: NonNullable<RunDetail['petriReadySteps']>[number]): string {
+  if (!('sliceId' in step)) return step.kind;
+  return `${step.kind}:${step.sliceId}${step.epicId === undefined ? '' : ` (${step.epicId})`}`;
+}
+
 function describeBlockedStep(step: NonNullable<RunDetail['petriBlockedSteps']>[number]): string {
-  return step.blockers
+  return `${describeReadyStep(step)} blocked by ${step.blockers
     .map((blocker) => (blocker.kind === 'dependency' ? blocker.sliceId : `active slice ${blocker.sliceId}`))
-    .join(', ');
+    .join(', ')}`;
 }
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {

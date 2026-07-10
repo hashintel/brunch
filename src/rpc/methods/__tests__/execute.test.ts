@@ -227,7 +227,11 @@ describe('execute.run', () => {
       planPath,
       `${JSON.stringify({
         mode: 'greenfield',
-        slices: [{ id: 'task-1' }, { id: 'task-2', depends_on: ['task-1'] }, { id: 'task-3' }],
+        slices: [
+          { id: 'task-1', epic_id: 'frontier-1' },
+          { id: 'task-2', epic_id: 'frontier-1', depends_on: ['task-1'] },
+          { id: 'task-3', epic_id: 'frontier-2' },
+        ],
       })}\n`,
       'utf8',
     );
@@ -241,11 +245,16 @@ describe('execute.run', () => {
     expect(response).toMatchObject({
       result: {
         petriReadySteps: [
-          { kind: 'slice_start', sliceId: 'task-1' },
-          { kind: 'slice_start', sliceId: 'task-3' },
+          { kind: 'slice_start', sliceId: 'task-1', epicId: 'frontier-1' },
+          { kind: 'slice_start', sliceId: 'task-3', epicId: 'frontier-2' },
         ],
         petriBlockedSteps: [
-          { kind: 'slice_start', sliceId: 'task-2', blockers: [{ kind: 'dependency', sliceId: 'task-1' }] },
+          {
+            kind: 'slice_start',
+            sliceId: 'task-2',
+            epicId: 'frontier-1',
+            blockers: [{ kind: 'dependency', sliceId: 'task-1' }],
+          },
         ],
       },
     });

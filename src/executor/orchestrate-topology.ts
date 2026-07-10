@@ -4,7 +4,7 @@ export type ReadyStep =
   | { readonly kind: 'source_policy' }
   | { readonly kind: 'source_copy' }
   | { readonly kind: 'report_init' }
-  | { readonly kind: 'slice_start'; readonly sliceId: string }
+  | { readonly kind: 'slice_start'; readonly sliceId: string; readonly epicId?: string }
   | { readonly kind: 'slice_execute' }
   | { readonly kind: 'agent_result' }
   | { readonly kind: 'test_result' }
@@ -16,6 +16,7 @@ export type ReadyStep =
 export interface BlockedStep {
   readonly kind: 'slice_start';
   readonly sliceId: string;
+  readonly epicId?: string;
   readonly blockers: readonly BlockedStepReason[];
 }
 
@@ -186,6 +187,7 @@ export function blockedPlanSliceSteps(
     .map((slice) => ({
       kind: 'slice_start' as const,
       sliceId: slice.id,
+      ...(slice.epic_id === undefined ? {} : { epicId: slice.epic_id }),
       blockers: planSliceDependsOn(slice)
         .filter((sliceId) => !completed.has(sliceId))
         .map((sliceId) => ({ kind: 'dependency' as const, sliceId })),
@@ -313,7 +315,11 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
         id: sliceTransitionId('slice_start', sliceId),
         subnetId: subnet.id,
         ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
-        step: { kind: 'slice_start', sliceId },
+        step: {
+          kind: 'slice_start',
+          sliceId,
+          ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
+        },
         inputArcs: [{ placeId: RUN_SLICE_FRONTIER_PLACE, weight: 1 }],
         outputArcs: [{ placeId: sliceStartedPlace(sliceId), weight: 1 }],
         guard: {

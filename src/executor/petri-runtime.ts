@@ -278,6 +278,10 @@ function readyStepsEqual(left: ReadyStep, right: ReadyStep): boolean {
   return 'sliceId' in left && 'sliceId' in right ? left.sliceId === right.sliceId : true;
 }
 
+function epicIdForSlice(plan: SchedulerPlan | undefined, sliceId: string): string | undefined {
+  return plan?.slices?.find((slice) => slice.id === sliceId)?.epic_id;
+}
+
 function blockedExecutorSteps(
   state: RunMetadata,
   plan: SchedulerPlan | undefined,
@@ -287,11 +291,15 @@ function blockedExecutorSteps(
   if (activeSliceId) {
     return readyPlanSliceIds(plan, state.completedSliceIds ?? [])
       .filter((sliceId) => sliceId !== activeSliceId)
-      .map((sliceId) => ({
-        kind: 'slice_start' as const,
-        sliceId,
-        blockers: [{ kind: 'active_slice' as const, sliceId: activeSliceId }],
-      }));
+      .map<BlockedStep>((sliceId) => {
+        const epicId = epicIdForSlice(plan, sliceId);
+        return {
+          kind: 'slice_start',
+          sliceId,
+          ...(epicId === undefined ? {} : { epicId }),
+          blockers: [{ kind: 'active_slice', sliceId: activeSliceId }],
+        };
+      });
   }
   return currentMarking['run:slice_frontier'] === 1
     ? blockedPlanSliceSteps(plan, state.completedSliceIds ?? [])
