@@ -5,7 +5,6 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { LIVE_ELICITOR_ALLOWED_TOOL_NAMES } from '../../../agents/runtime/elicitor/active-tools.js';
 import { EXECUTOR_ALLOWED_TOOL_NAMES } from '../../../agents/runtime/executor/active-tools.js';
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
 import {
@@ -38,8 +37,6 @@ import {
   registerBrunchCommands as commands,
 } from '../commands/index.js';
 import { registerBrunchBranchPolicyHandlers as commandPolicy } from '../commands/policy.js';
-import { BRUNCH_INTROSPECT_QUERY_TOOL } from '../dev-mode/introspect-query/index.js';
-import { BRUNCH_SESSION_QUERY_TOOL } from '../dev-mode/session-query/index.js';
 import {
   ASK_TOOL,
   PRESENT_CANDIDATES_TOOL,
@@ -2796,7 +2793,7 @@ describe('Brunch explicit Pi extension registry', () => {
     }
   });
 
-  it('keeps the exact 51-tool provider-facing Brunch inventory legal and adapter-derived', async () => {
+  it('keeps the exact 52-tool provider-facing Brunch inventory legal and adapter-derived', async () => {
     const registeredTools = await collectProductTools({
       graph: { specId: 42, lsn: 1, nodes: [], edges: [] },
       subagents: workerSubagents(
@@ -2804,22 +2801,20 @@ describe('Brunch explicit Pi extension registry', () => {
       ),
       introspectionQueryTools: true,
     });
-    const toolsByName = new Map(registeredTools.map((tool) => [tool.name, tool]));
     const piOwnedBuiltins = new Set(['read', 'grep', 'find', 'ls']);
-    const reachableProductNames = [
-      ...new Set([
-        ...LIVE_ELICITOR_ALLOWED_TOOL_NAMES,
-        ...EXECUTOR_ALLOWED_TOOL_NAMES,
-        BRUNCH_SESSION_QUERY_TOOL,
-        BRUNCH_INTROSPECT_QUERY_TOOL,
-        BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL,
-        BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL,
-      ]),
-    ].filter((name) => !piOwnedBuiltins.has(name));
-    const childWriteTool = createSubagentToolCatalog('/tmp').get('write_worktree_file')!;
-    const actualTools = [...reachableProductNames.map((name) => toolsByName.get(name)), childWriteTool];
+    const registeredProductTools = registeredTools.filter((tool) => !piOwnedBuiltins.has(tool.name));
+    const registeredProductNames = registeredProductTools.map((tool) => tool.name);
+    const duplicateProductNames = registeredProductNames.filter(
+      (name, index) => registeredProductNames.indexOf(name) !== index,
+    );
+    const registeredProductNameSet = new Set(registeredProductNames);
+    const childOnlyTools = [...createSubagentToolCatalog('/tmp').values()].filter(
+      (tool) => !piOwnedBuiltins.has(tool.name) && !registeredProductNameSet.has(tool.name),
+    );
+    const actualTools = [...registeredProductTools, ...childOnlyTools];
     const expectedNames = [
       'ask',
+      'present_alternatives',
       'present_candidates',
       'present_digest',
       'present_review_set',
@@ -2872,10 +2867,12 @@ describe('Brunch explicit Pi extension registry', () => {
       'write_worktree_file',
     ].sort((left, right) => left.localeCompare(right));
 
-    expect(
-      [...reachableProductNames, childWriteTool.name].sort((left, right) => left.localeCompare(right)),
-    ).toEqual(expectedNames);
-    expect(actualTools).toHaveLength(51);
+    expect(duplicateProductNames).toEqual([]);
+    expect(childOnlyTools.map((tool) => tool.name)).toEqual(['write_worktree_file']);
+    expect(actualTools.map((tool) => tool.name).sort((left, right) => left.localeCompare(right))).toEqual(
+      expectedNames,
+    );
+    expect(actualTools).toHaveLength(52);
     for (const tool of actualTools) {
       expect(tool, 'every inventory member must resolve from a production registrar/catalog').toBeDefined();
       expect(hasToolParametersProvenance(tool!.parameters), `${tool!.name} adapter provenance`).toBe(true);

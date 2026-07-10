@@ -41,7 +41,9 @@ describe('captureMessageRenderer', () => {
   });
 
   it("captures registerBrunchAlternatives's real renderer and renders a sample message", async () => {
-    const renderer = captureMessageRenderer('alternatives-card-set', registerBrunchAlternatives);
+    const renderer = captureMessageRenderer('alternatives-card-set', (pi) =>
+      registerBrunchAlternatives(pi, (schema) => schema),
+    );
 
     const message = sampleCustomMessage('alternatives-card-set', {
       headline: 'Pick a direction',

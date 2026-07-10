@@ -450,7 +450,9 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
     presentedLike:
       'transcript message renderer — src/.pi/components/alternatives.ts (registerBrunchAlternatives, dispatched via the present_alternatives tool)',
     open: (tui, theme) => {
-      const renderer = captureMessageRenderer('alternatives-card-set', registerBrunchAlternatives);
+      const renderer = captureMessageRenderer('alternatives-card-set', (pi) =>
+        registerBrunchAlternatives(pi, (schema) => schema),
+      );
       const message = sampleCustomMessage('alternatives-card-set', {
         headline: 'Pick a direction',
         alternatives: [
