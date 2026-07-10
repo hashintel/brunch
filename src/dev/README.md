@@ -25,11 +25,11 @@ This directory does not own product runtime behavior, public RPC contracts, grap
 # Interactive launcher; prompts for a tracked seed-derived workbench.
 npm run dev
 
-# Reset a workbench from one tracked seed and launch TUI.
+# Reset a workbench from one tracked seed and launch TUI; the web observer opens by default.
 npm run dev -- --seed workspace-alpha-grounding/base --reset
 
-# Reset and launch TUI; the web observer opens by default.
-npm run dev -- --seed workspace-alpha-grounding/base --reset
+# Same, without automatically opening the web observer in a browser.
+npm run dev -- --seed workspace-alpha-grounding/base --reset --no-webui
 
 # Same, with prompt-affecting developer query tools enabled.
 npm run dev -- --seed workspace-alpha-grounding/base --reset --dev-tools

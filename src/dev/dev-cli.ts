@@ -136,7 +136,7 @@ const defaultPrompts: DevCliPrompts = {
     }),
   confirmOpenWeb: async (workspaceLabel) =>
     clackConfirm({
-      message: `Open the web observer sidecar for ${workspaceLabel}?`,
+      message: `Open the web observer in your browser for ${workspaceLabel}?`,
       initialValue: true,
     }),
 };
