@@ -54,7 +54,7 @@ Status vocabulary: `have` (closed before this closeout) · `partial` (implementa
 | 2 | `exchanges-family` — 4 schemas | built | ● | earned | exchange schema/extension tests | Recover the pre-sweep emitted schemas and compare a normalized semantic projection against current output; do not recompute expected output through the current adapter. |
 | 3 | `dev-mode-family` — 2 schemas | built | ● | earned | dev query tests | Same semantic pre/post differential; existing draft-2020-12 tuple checks remain green. |
 | 4 | `graph-family` — 2 schemas | built | ● | earned | graph schema tests | Differential covers root/object shape, required fields, properties, enum/union structure, descriptions, and `additionalProperties` where present; graph/DB TypeBox ownership remains canonical. |
-| 5 | `context-family` — 3 schemas | partial | ● | earned | context tool tests | Same semantic pre/post differential for the literal→TypeBox rewrite. |
+| 5 | `context-family` — 3 schemas | built | ● | earned | context tool tests | Same semantic pre/post differential for the literal→TypeBox rewrite. |
 | 6 | `scratchpad-family` — 2 schemas | partial | ● | earned | scratchpad tool tests | Same semantic pre/post differential for the literal→TypeBox rewrite. |
 | 7 | `reconciliation-family` — 2 schemas | partial | ● | earned | reconciliation tool tests | Same semantic pre/post differential, preserving the legal nested target union. |
 | 8 | `executor-family` — 32 schemas | partial | ● | earned | registry closure test | Pure TypeBox relinks retain their emitted shape; the aggregate oracle must include both artifact tools omitted by the current 48-tool allowlist projection. |
