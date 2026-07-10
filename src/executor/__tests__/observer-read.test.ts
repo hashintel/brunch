@@ -419,6 +419,7 @@ describe('readRunDetail', () => {
       join(runDir, 'petrinaut', 'marking.json'),
       `${JSON.stringify(
         {
+          claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-2'],
           currentMarking: { 'run:promotion_prepared': 2 },
           firedTransitionCount: 99,
           lifecycleProvenance: {
@@ -436,6 +437,7 @@ describe('readRunDetail', () => {
 
     expect(detail).toMatchObject({
       petriProjection: {
+        claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-2'],
         currentMarking: { 'run:promotion_prepared': 2 },
         firedTransitionCount: 99,
         terminalEventKind: 'net_completed',

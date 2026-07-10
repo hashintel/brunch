@@ -225,12 +225,16 @@ export async function readRunDetail(
 }
 
 function toPetriProjection(snapshot: {
+  readonly claimedTransitionIds?: readonly string[];
   readonly currentMarking: Record<string, number>;
   readonly firedTransitionCount: number;
   readonly terminalEventKind?: PetriProjection['terminalEventKind'];
   readonly haltedReason?: string;
 }): PetriProjection {
   return {
+    ...(snapshot.claimedTransitionIds === undefined
+      ? {}
+      : { claimedTransitionIds: snapshot.claimedTransitionIds }),
     currentMarking: snapshot.currentMarking,
     firedTransitionCount: snapshot.firedTransitionCount,
     ...(snapshot.terminalEventKind === undefined ? {} : { terminalEventKind: snapshot.terminalEventKind }),

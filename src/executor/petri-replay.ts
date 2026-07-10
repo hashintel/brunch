@@ -14,6 +14,7 @@ export type ReplayNet = {
 };
 
 export interface PetriProjection {
+  readonly claimedTransitionIds?: readonly string[];
   readonly currentMarking: Record<string, number>;
   readonly firedTransitionCount: number;
   readonly terminalEventKind?: 'net_completed' | 'net_halted' | 'net_deadlocked';

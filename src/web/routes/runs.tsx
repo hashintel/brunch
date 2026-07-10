@@ -447,6 +447,10 @@ function PetriProjectionBlock({
           {source === undefined ? '' : ` • source: ${source}`}
         </p>
       )}
+      {projection?.claimedTransitionIds === undefined ||
+      projection.claimedTransitionIds.length === 0 ? null : (
+        <p className="text-sub text-xs">{`claimed: ${projection.claimedTransitionIds.join(', ')}`}</p>
+      )}
       {replayReason !== 'snapshot_missing_or_unreadable' ? null : (
         <p className="text-sub text-xs">
           replay chosen because no readable persisted marking snapshot was available

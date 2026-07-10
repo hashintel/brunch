@@ -208,6 +208,7 @@ describe('run detail route', () => {
           ...runDetail,
           status: 'promotion_prepared',
           petriProjection: {
+            claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-2'],
             currentMarking: { 'run:promotion_prepared': 1 },
             firedTransitionCount: 18,
             terminalEventKind: 'net_completed',
@@ -223,6 +224,7 @@ describe('run detail route', () => {
     expect(await screen.findByText('Petri projection (derived)')).toBeTruthy();
     expect(screen.getByText(/run:promotion_prepared/u)).toBeTruthy();
     expect(screen.getByText(/18 fired transitions/u)).toBeTruthy();
+    expect(screen.getByText(/claimed: slice_start:task-1, slice_start:task-2/u)).toBeTruthy();
     expect(screen.getByText(/source: snapshot/u)).toBeTruthy();
     expect(screen.getByText('Petri net (raw)')).toBeTruthy();
   });

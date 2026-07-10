@@ -187,6 +187,7 @@ const ExecuteRunResultSchema = Type.Union([
       petriProjection: Type.Optional(
         Type.Object(
           {
+            claimedTransitionIds: Type.Optional(Type.Array(Type.String())),
             currentMarking: Type.Record(Type.String(), Type.Integer({ minimum: 0 })),
             firedTransitionCount: Type.Integer({ minimum: 0 }),
             terminalEventKind: Type.Optional(

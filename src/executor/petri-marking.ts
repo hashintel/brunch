@@ -83,6 +83,9 @@ function asPetriProjection(value: unknown): PetriMarkingSnapshot | undefined {
     if (count > 0) currentMarking[placeId] = count;
   }
 
+  const claimedTransitionIds = value.claimedTransitionIds;
+  if (claimedTransitionIds !== undefined && !isStringArray(claimedTransitionIds)) return undefined;
+
   const terminalEventKind =
     value.terminalEventKind === 'net_completed' ||
     value.terminalEventKind === 'net_halted' ||
@@ -98,6 +101,7 @@ function asPetriProjection(value: unknown): PetriMarkingSnapshot | undefined {
   if (value.lifecycleProvenance !== undefined && lifecycleProvenance === undefined) return undefined;
 
   return {
+    ...(claimedTransitionIds === undefined ? {} : { claimedTransitionIds }),
     currentMarking,
     firedTransitionCount: value.firedTransitionCount,
     ...(terminalEventKind === undefined ? {} : { terminalEventKind }),

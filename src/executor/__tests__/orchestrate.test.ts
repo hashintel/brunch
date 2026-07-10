@@ -1182,6 +1182,36 @@ describe('petriScheduler', () => {
     });
   });
 
+  it('persists the selected Petri claim-set before the first reserved transition fires', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-marking-claims-'));
+    await createRunAtCreated(cwd, ['task-1', 'task-2']);
+    let claimedSnapshotPromise: Promise<Awaited<ReturnType<typeof readPetriMarkingSnapshot>>> | undefined;
+
+    const outcome = await drive(
+      {
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts(),
+        onStepStart: (_kind, _runStatus, progress) => {
+          if (progress.step.kind !== 'slice_start' || claimedSnapshotPromise) return;
+          claimedSnapshotPromise = readPetriMarkingSnapshot({ cwd, runId: 'run-1' });
+        },
+      },
+      petriScheduler,
+      frontierFiringPolicy,
+    );
+
+    expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+    await expect(claimedSnapshotPromise).resolves.toEqual({
+      claimedTransitionIds: ['slice_start:task-1'],
+      currentMarking: { 'run:slice_frontier': 1 },
+      firedTransitionCount: 5,
+      lifecycleProvenance: {
+        runStatus: 'reports_initialized',
+      },
+    });
+  });
+
   it('keeps the durable fired-transition count exact after one missed snapshot write in a completed run', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-marking-recover-completed-'));
     await createRunAtCreated(cwd, ['task-1']);

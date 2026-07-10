@@ -118,6 +118,7 @@ async function persistPetriMarkingSnapshot(ctx: DriveContext, snapshot: PetriMar
 }
 
 async function nextPetriSnapshot(args: {
+  readonly claimedTransitionIds?: readonly string[];
   readonly currentMarking: Record<string, number>;
   readonly firedTransitionCount: number;
   readonly lifecycleProvenance: ReturnType<typeof petriMarkingLifecycleProvenance>;
@@ -125,6 +126,7 @@ async function nextPetriSnapshot(args: {
   readonly haltedReason?: string;
 }): Promise<PetriMarkingSnapshot> {
   return {
+    ...(args.claimedTransitionIds === undefined ? {} : { claimedTransitionIds: args.claimedTransitionIds }),
     currentMarking: args.currentMarking,
     firedTransitionCount: args.firedTransitionCount,
     lifecycleProvenance: args.lifecycleProvenance,
@@ -244,7 +246,21 @@ export async function drive(
       return terminal.outcome;
     }
 
-    for (const selectedStep of selectedSteps) {
+    const claimedTransitionIds = selectedSteps.flatMap((step) => {
+      const transition = runtime.transitionForReadyStep(step);
+      return transition ? [transition.id] : [];
+    });
+    await persistPetriMarkingSnapshot(
+      ctx,
+      await nextPetriSnapshot({
+        ...(claimedTransitionIds.length === 0 ? {} : { claimedTransitionIds }),
+        currentMarking: runtime.currentMarking,
+        firedTransitionCount: firedTransitionCountForState(state, plan),
+        lifecycleProvenance: petriMarkingLifecycleProvenance(state),
+      }),
+    );
+
+    for (const [selectedIndex, selectedStep] of selectedSteps.entries()) {
       const currentState = await readRunMetadata(metadataPath);
       if (!currentState) return { status: 'missing_run', runId: ctx.runId };
       const currentPlan = await planForScheduler(ctx.cwd, currentState);
@@ -315,6 +331,9 @@ export async function drive(
             await persistPetriMarkingSnapshot(
               ctx,
               await nextPetriSnapshot({
+                ...(selectedIndex + 1 >= claimedTransitionIds.length
+                  ? {}
+                  : { claimedTransitionIds: claimedTransitionIds.slice(selectedIndex + 1) }),
                 currentMarking: nextRuntime.currentMarking,
                 firedTransitionCount: firedTransitionCountForState(nextState, nextPlan),
                 lifecycleProvenance: petriMarkingLifecycleProvenance(nextState),
