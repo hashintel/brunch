@@ -184,6 +184,29 @@ describe('readRunDetail', () => {
     });
   });
 
+  it('keeps run detail readable when duplicate slice ids make the Petri runtime invalid', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-duplicate-slice-id-');
+    const planPath = join(cwd, 'plan.yaml');
+    await writeFile(
+      planPath,
+      JSON.stringify({ mode: 'greenfield', slices: [{ id: 'task-1' }, { id: 'task-1' }] }),
+      'utf8',
+    );
+    await writeRun(cwd, 'run-duplicate-slices', {
+      planPath,
+      status: 'reports_initialized',
+    });
+
+    const detail = await readRunDetail(cwd, 'run-duplicate-slices');
+
+    expect(detail).toMatchObject({
+      runId: 'run-duplicate-slices',
+      status: 'reports_initialized',
+    });
+    expect(detail && 'petriReadySteps' in detail ? detail.petriReadySteps : undefined).toBeUndefined();
+    expect(detail && 'petriBlockedSteps' in detail ? detail.petriBlockedSteps : undefined).toBeUndefined();
+  });
+
   it('returns the reports tail, skipping an in-flight partial trailing line', async () => {
     const cwd = await fixtureCwd('brunch-observer-detail-');
     const runDir = await writeRun(cwd, 'run-d', {
@@ -1066,6 +1089,41 @@ describe('readRunDetail', () => {
       presence: { petri: true },
       petriEventsTotal: 0,
       petriEventsTail: [],
+    });
+  });
+
+  it('parses a complete final Petri journal line even without a trailing newline', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-final-line-');
+    const runDir = await writeRun(cwd, 'run-petri-final-line', { status: 'promotion_prepared' });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'net.json'),
+      JSON.stringify({
+        runId: 'run-petri-final-line',
+        subnets: [{ id: 'run', kind: 'run_control', transitionIds: ['promotion'] }],
+        places: [{ id: 'run:promotion_prepared', subnetId: 'run', name: 'Promotion prepared' }],
+        transitions: [],
+        initialMarking: { 'run:promotion_prepared': 1 },
+      }),
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'petrinaut', 'events.jsonl'),
+      JSON.stringify({
+        kind: 'net_completed',
+        runId: 'run-petri-final-line',
+        runStatus: 'promotion_prepared',
+      }),
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-final-line');
+
+    expect(detail).toMatchObject({
+      petriEventsTotal: 1,
+      petriEventsTail: [
+        { kind: 'net_completed', runId: 'run-petri-final-line', runStatus: 'promotion_prepared' },
+      ],
     });
   });
 

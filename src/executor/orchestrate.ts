@@ -178,6 +178,59 @@ export interface DriveStepProgress {
   readonly completedSliceIds: readonly string[];
 }
 
+function planPathCandidates(cwd: string, state: RunMetadata): readonly string[] {
+  const candidates = [
+    state.populatedPlanPath,
+    state.status === 'reports_initialized' || state.status === 'slice_completed'
+      ? populatedPlanPath(cwd, state.runId)
+      : undefined,
+    state.planPath,
+  ];
+  return candidates.filter(
+    (candidate, index): candidate is string =>
+      typeof candidate === 'string' && candidates.indexOf(candidate) === index,
+  );
+}
+
+function schedulerPlanRequiredStep(state: RunMetadata): ReadyStep['kind'] | undefined {
+  switch (state.status) {
+    case 'reports_initialized':
+    case 'slice_completed':
+      return 'slice_start';
+    case 'slice_started':
+      return 'slice_execute';
+    case 'slice_execution_requested':
+      return 'agent_result';
+    case 'agent_result_ingested':
+      return 'test_result';
+    case 'test_result_ingested':
+      return 'slice_complete';
+    default:
+      return undefined;
+  }
+}
+
+function snapshotAlreadyCapturesTerminal(args: {
+  readonly snapshot: PetriMarkingSnapshot | undefined;
+  readonly state: RunMetadata;
+  readonly runtime: ExecutorPetriRuntime;
+  readonly plan: SchedulerPlan | undefined;
+  readonly terminal: ReturnType<typeof classifyDriveTerminal>;
+}): boolean {
+  const { snapshot, state, runtime, plan, terminal } = args;
+  if (!snapshot || !petriMarkingSnapshotMatchesRunMetadata(snapshot, state)) return false;
+  if (snapshot.firedTransitionCount !== firedTransitionCountForState(state, plan)) return false;
+  const runtimeEntries = Object.entries(runtime.currentMarking);
+  if (
+    runtimeEntries.length !== Object.keys(snapshot.currentMarking).length ||
+    runtimeEntries.some(([placeId, count]) => snapshot.currentMarking[placeId] !== count)
+  ) {
+    return false;
+  }
+  if (snapshot.terminalEventKind !== terminal.event.kind) return false;
+  return terminal.event.kind !== 'net_halted' || snapshot.haltedReason === terminal.event.reason;
+}
+
 export type DriveOutcome =
   | { readonly status: 'completed'; readonly runStatus: RunMetadata['status'] }
   | {
@@ -217,10 +270,22 @@ export async function drive(
     }
 
     const plan = await planForScheduler(ctx.cwd, state);
+    const requiredPlanStep = schedulerPlanRequiredStep(state);
+    if (plan === undefined && requiredPlanStep) {
+      const terminal = classifyDriveTerminal({
+        kind: 'step_halted',
+        runId: ctx.runId,
+        runStatus: state.status,
+        step: requiredPlanStep,
+        reason: 'scheduler_plan_unreadable',
+      });
+      await emitNetEvent(ctx, terminal.event);
+      return terminal.outcome;
+    }
     const runtime = materializeExecutorPetriRuntime(state, plan);
     const readySteps = scheduler.ready(state, plan);
     const selectedSteps =
-      (await readClaimedReadySteps(ctx, state, runtime)) ??
+      (await readClaimedReadySteps(ctx, state, runtime, readySteps)) ??
       firingPolicy.select({
         readySteps,
         readyRuntime: {
@@ -236,6 +301,10 @@ export async function drive(
         runId: ctx.runId,
         runStatus: state.status,
       });
+      const snapshot = await readPetriMarkingSnapshot({ cwd: ctx.cwd, runId: ctx.runId });
+      if (snapshotAlreadyCapturesTerminal({ snapshot, state, runtime, plan, terminal })) {
+        return terminal.outcome;
+      }
       await emitNetEvent(ctx, terminal.event);
       await persistPetriMarkingSnapshot(
         ctx,
@@ -351,6 +420,9 @@ export async function drive(
         } catch {
           // Observer failures never affect the drive.
         }
+        if (options.maxFirings !== undefined && firedTransitions >= options.maxFirings) {
+          return { status: 'completed', runStatus: result.runStatus };
+        }
       }
     }
   }
@@ -379,13 +451,15 @@ function progressForStep(
 }
 
 async function planForScheduler(cwd: string, state: RunMetadata): Promise<SchedulerPlan | undefined> {
-  const path = state.populatedPlanPath
-    ? state.populatedPlanPath
-    : state.status === 'reports_initialized' || state.status === 'slice_completed'
-      ? populatedPlanPath(cwd, state.runId)
-      : undefined;
-  if (!path) return undefined;
-  return projectSchedulerPlan(JSON.parse(await readFile(path, 'utf8')));
+  for (const path of planPathCandidates(cwd, state)) {
+    try {
+      const projected = projectSchedulerPlan(JSON.parse(await readFile(path, 'utf8')));
+      if (projected) return projected;
+    } catch {
+      // Fall through to the next candidate and fail closed to undefined.
+    }
+  }
+  return undefined;
 }
 
 async function neverBoundReadyStep(step: ReadyStep): Promise<StepResult> {
@@ -396,6 +470,7 @@ async function readClaimedReadySteps(
   ctx: Pick<DriveContext, 'cwd' | 'runId'>,
   state: RunMetadata,
   runtime: ExecutorPetriRuntime,
+  readySteps: readonly ReadyStep[],
 ): Promise<readonly ReadyStep[] | undefined> {
   const snapshot = await readPetriMarkingSnapshot({ cwd: ctx.cwd, runId: ctx.runId });
   if (
@@ -407,7 +482,10 @@ async function readClaimedReadySteps(
     return undefined;
   }
   const enabledById = new Map(
-    runtime.enabledTransitions.map((transition) => [transition.id, transition.step]),
+    readySteps.flatMap((step) => {
+      const transition = runtime.transitionForReadyStep(step);
+      return transition ? [[transition.id, transition.step] as const] : [];
+    }),
   );
   const claimedSteps = snapshot.claimedTransitionIds.map((transitionId) => enabledById.get(transitionId));
   if (!claimedSteps.every((step) => step !== undefined)) return undefined;

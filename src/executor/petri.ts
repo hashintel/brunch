@@ -89,7 +89,18 @@ export async function exportPetri(args: {
   }
 
   const updated: RunMetadata = { ...metadata, status: 'petri_exported', petriPath: path };
-  const topology = compileExecutorTopology(plan);
+  let topology: ReturnType<typeof compileExecutorTopology>;
+  try {
+    topology = compileExecutorTopology(plan);
+  } catch {
+    return {
+      status: 'petri_input_unreadable',
+      runStatus: 'run_completed',
+      runId: args.runId,
+      metadataPath,
+      sideEffects: [],
+    };
+  }
   await mkdir(dir, { recursive: true });
   await writeFile(
     path,

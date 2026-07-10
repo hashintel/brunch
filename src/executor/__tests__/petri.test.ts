@@ -202,9 +202,13 @@ describe('exportPetri', () => {
       'utf8',
     );
 
-    await expect(exportPetri({ cwd, runId: 'run-1' })).rejects.toThrow(
-      'Duplicate slice id in executor topology: task-1',
-    );
+    await expect(exportPetri({ cwd, runId: 'run-1' })).resolves.toEqual({
+      status: 'petri_input_unreadable',
+      runStatus: 'run_completed',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      sideEffects: [],
+    });
     expect(await pathExists(petriNetPath(cwd, 'run-1'))).toBe(false);
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'run_completed',

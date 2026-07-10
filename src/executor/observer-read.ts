@@ -175,8 +175,15 @@ export async function readRunDetail(
   const agentStream = await readAgentStreamTail(cwd, runId, metadata, agentStreamLimit);
   const verifyStream = await readVerifyStreamTail(cwd, runId, metadata, verifyStreamLimit);
   const petriRuntimePlan = await readPetriRuntimePlan(metadata);
-  const petriRuntime =
-    petriRuntimePlan === undefined ? undefined : materializeExecutorPetriRuntime(metadata, petriRuntimePlan);
+  let petriRuntime: ReturnType<typeof materializeExecutorPetriRuntime> | undefined;
+  try {
+    petriRuntime =
+      petriRuntimePlan === undefined
+        ? undefined
+        : materializeExecutorPetriRuntime(metadata, petriRuntimePlan);
+  } catch {
+    petriRuntime = undefined;
+  }
   const petriNet = await readPetriNet(petriFilePath(cwd, runId, metadata));
   const petriReplayProjection = canProjectPetriReplay({ petriNet, petriEvents })
     ? replayPetri({ net: petriNet, events: petriEvents.events })
@@ -501,13 +508,19 @@ async function readPetriEvents(
   }
   const events: ExecutorNetEvent[] = [];
   let torn = false;
-  for (const line of raw.split('\n').slice(0, -1)) {
+  const lines = raw.split('\n');
+  const lastIndex = lines.length - 1;
+  const hasTrailingNewline = raw.endsWith('\n');
+  for (const [index, line] of lines.entries()) {
+    if (index === lastIndex && line.length === 0) continue;
     if (line.length === 0) continue;
     try {
       events.push(JSON.parse(line) as ExecutorNetEvent);
     } catch {
       // A torn journal line never blocks the readable event tail.
+      // Accept a complete final line even when the file is missing a trailing newline.
       torn = true;
+      if (index !== lastIndex || hasTrailingNewline) continue;
     }
   }
   return { exists: true, events, tail: events.slice(-limit), total: events.length, torn };

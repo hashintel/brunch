@@ -247,7 +247,7 @@ describe('execute_orchestrate intra-drive updates', () => {
     ).toBe(true);
   });
 
-  it('honors a resumed claimed firing order through the default execute_orchestrate path', async () => {
+  it('ignores a resumed claimed firing order when it falls outside the default scheduler frontier', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-orchestrate-resumed-claim-order-'));
     await createDrivableRun(cwd, ['t1', 't2']);
     await createWorktree({ cwd, runId: 'run-1', gitWorktree: fakePorts().gitWorktree });
@@ -284,7 +284,7 @@ describe('execute_orchestrate intra-drive updates', () => {
       updates.some(
         (update) =>
           update.startsWith('execute_orchestrate: slice_execute started from slice_started') &&
-          update.includes('slice: t2'),
+          update.includes('slice: t1'),
       ),
     ).toBe(true);
   });

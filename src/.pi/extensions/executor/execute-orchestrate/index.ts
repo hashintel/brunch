@@ -111,7 +111,7 @@ export function createExecuteOrchestrateTool(
         });
       };
       const emitAgentUpdate = (event: AgentStreamEvent): void => {
-        publisher?.publish(executeRunProductUpdates(params.runId));
+        queueRunUpdate();
         onUpdate?.({
           content: [
             {
@@ -130,7 +130,7 @@ export function createExecuteOrchestrateTool(
         });
       };
       const emitVerifyUpdate = (event: VerifyStreamEvent): void => {
-        publisher?.publish(executeRunProductUpdates(params.runId));
+        queueRunUpdate();
         onUpdate?.({
           content: [
             {

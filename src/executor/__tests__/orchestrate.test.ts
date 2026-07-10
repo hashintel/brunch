@@ -1255,7 +1255,7 @@ describe('petriScheduler', () => {
     });
   });
 
-  it('honors a resumed claim-set even when the default scheduler view would have picked a different ready step', async () => {
+  it('ignores a resumed claim-set when it falls outside the current scheduler frontier', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-claim-resume-linear-'));
     await createRunAtCreated(cwd, ['task-1', 'task-2']);
     await createWorktree({ cwd, runId: 'run-1', gitWorktree: fakePorts().gitWorktree });
@@ -1282,8 +1282,31 @@ describe('petriScheduler', () => {
     });
     await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
       status: 'slice_started',
-      activeSliceId: 'task-2',
+      activeSliceId: 'task-1',
       activeEpicId: 'frontier-1',
+    });
+  });
+
+  it('stops after the first fired transition when maxFirings limits a parallel frontier batch', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-max-firings-frontier-'));
+    await createRunAtCreated(cwd, ['task-1', 'task-2']);
+    await createWorktree({ cwd, runId: 'run-1', gitWorktree: fakePorts().gitWorktree });
+    await populateWorktree({ cwd, runId: 'run-1' });
+    await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
+    await copyHostSource({ cwd, runId: 'run-1' });
+    await initializeReports({ cwd, runId: 'run-1' });
+
+    const outcome = await drive(
+      { cwd, runId: 'run-1', ports: fakePorts() },
+      petriScheduler,
+      frontierFiringPolicy,
+      { maxFirings: 1 },
+    );
+
+    expect(outcome).toEqual({ status: 'completed', runStatus: 'slice_started' });
+    await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+      status: 'slice_started',
+      activeSliceId: 'task-1',
     });
   });
 
@@ -1452,6 +1475,54 @@ describe('petriScheduler', () => {
     expect(await readPetriEvents(cwd)).toEqual(seen);
   });
 
+  it('halts instead of reporting a false completion when the frontier plan is unreadable mid-run', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-unreadable-frontier-plan-'));
+    const planPath = join(cwd, 'broken-plan.json');
+    const seen: ExecutorNetEvent[] = [];
+
+    await writeFile(planPath, '{"mode":', 'utf8');
+    await mkdir(join(cwd, '.brunch', 'cook', 'runs', 'run-1'), { recursive: true });
+    await writeFile(
+      runMetadataPath(cwd, 'run-1'),
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath,
+        status: 'reports_initialized',
+        reportsPath: reportsPath(cwd, 'run-1'),
+      }),
+      'utf8',
+    );
+
+    const outcome = await drive(
+      {
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts(),
+        onNetEvent: (event) => {
+          seen.push(event);
+        },
+      },
+      petriScheduler,
+    );
+
+    expect(outcome).toEqual({
+      status: 'halted',
+      step: 'slice_start',
+      runStatus: 'reports_initialized',
+      reason: 'scheduler_plan_unreadable',
+    });
+    expect(seen).toEqual([
+      {
+        kind: 'net_halted',
+        runId: 'run-1',
+        runStatus: 'reports_initialized',
+        step: 'slice_start',
+        reason: 'scheduler_plan_unreadable',
+      },
+    ]);
+  });
+
   it('halts at petri_export when the compiled plan input is unreadable', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-export-unreadable-'));
     const planPath = join(cwd, 'broken-plan.json');
@@ -1600,5 +1671,20 @@ describe('petriScheduler', () => {
         reason: 'abandoned',
       },
     ]);
+  });
+
+  it('does not append duplicate terminal journal events when a completed run is driven again', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-terminal-dedup-'));
+    await createRunAtCreated(cwd, ['task-1']);
+
+    await drive({ cwd, runId: 'run-1', ports: fakePorts() }, petriScheduler);
+    const firstPass = await readPetriEvents(cwd);
+
+    const secondOutcome = await drive({ cwd, runId: 'run-1', ports: fakePorts() }, petriScheduler);
+    const secondPass = await readPetriEvents(cwd);
+
+    expect(secondOutcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+    expect(secondPass).toEqual(firstPass);
+    expect(secondPass.filter((event) => event.kind === 'net_completed')).toHaveLength(1);
   });
 });
