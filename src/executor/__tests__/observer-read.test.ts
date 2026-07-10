@@ -376,7 +376,23 @@ describe('readRunDetail', () => {
 
   it('prefers the persisted marking snapshot over replay when both are present', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-marking-snapshot-');
-    const runDir = await writeRun(cwd, 'run-petri-marking-snapshot', { status: 'promotion_prepared' });
+    const planPath = join(cwd, 'plan.json');
+    await writeFile(
+      planPath,
+      JSON.stringify({
+        mode: 'greenfield',
+        epics: [{ id: 'frontier-1', summary: 'F', depends_on: [], verification: [] }],
+        slices: [
+          { id: 'task-1', epic_id: 'frontier-1', definition: 'task-1.', depends_on: [], verification: [] },
+          { id: 'task-2', epic_id: 'frontier-1', definition: 'task-2.', depends_on: [], verification: [] },
+        ],
+      }),
+      'utf8',
+    );
+    const runDir = await writeRun(cwd, 'run-petri-marking-snapshot', {
+      planPath,
+      status: 'reports_initialized',
+    });
     await mkdir(join(runDir, 'petrinaut'), { recursive: true });
     await writeFile(
       join(runDir, 'petrinaut', 'net.json'),
@@ -406,26 +422,25 @@ describe('readRunDetail', () => {
       `${JSON.stringify({
         kind: 'transition_fired',
         runId: 'run-petri-marking-snapshot',
-        runStatus: 'promotion_prepared',
+        runStatus: 'reports_initialized',
         transitionId: 'worktree_create',
         subnetId: 'run',
         step: 'worktree_create',
         fromStatus: 'created',
-        toStatus: 'promotion_prepared',
-      })}\n${JSON.stringify({ kind: 'net_completed', runId: 'run-petri-marking-snapshot', runStatus: 'promotion_prepared' })}\n`,
+        toStatus: 'reports_initialized',
+      })}\n${JSON.stringify({ kind: 'net_completed', runId: 'run-petri-marking-snapshot', runStatus: 'reports_initialized' })}\n`,
       'utf8',
     );
     await writeFile(
       join(runDir, 'petrinaut', 'marking.json'),
       `${JSON.stringify(
         {
-          claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-2'],
-          currentMarking: { 'run:promotion_prepared': 2 },
+          claimedTransitionIds: ['slice_start:task-1'],
+          currentMarking: { 'run:slice_frontier': 1 },
           firedTransitionCount: 99,
           lifecycleProvenance: {
-            runStatus: 'promotion_prepared',
+            runStatus: 'reports_initialized',
           },
-          terminalEventKind: 'net_completed',
         },
         null,
         2,
@@ -437,10 +452,9 @@ describe('readRunDetail', () => {
 
     expect(detail).toMatchObject({
       petriProjection: {
-        claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-2'],
-        currentMarking: { 'run:promotion_prepared': 2 },
+        claimedTransitionIds: ['slice_start:task-1'],
+        currentMarking: { 'run:slice_frontier': 1 },
         firedTransitionCount: 99,
-        terminalEventKind: 'net_completed',
       },
       petriProjectionSource: 'snapshot',
     });
@@ -493,6 +507,45 @@ describe('readRunDetail', () => {
     expect(detail).not.toMatchObject({
       petriProjection: {
         claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-2'],
+      },
+    });
+  });
+
+  it('strips snapshot claims when the live Petri runtime cannot be reconstructed', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-marking-no-runtime-');
+    const planPath = join(cwd, 'missing-plan.json');
+    const runDir = await writeRun(cwd, 'run-petri-marking-no-runtime', {
+      planPath,
+      status: 'reports_initialized',
+    });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'marking.json'),
+      `${JSON.stringify(
+        {
+          claimedTransitionIds: ['slice_start:task-1'],
+          currentMarking: { 'run:slice_frontier': 1 },
+          firedTransitionCount: 5,
+          lifecycleProvenance: { runStatus: 'reports_initialized' },
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-marking-no-runtime');
+
+    expect(detail).toMatchObject({
+      petriProjection: {
+        currentMarking: { 'run:slice_frontier': 1 },
+        firedTransitionCount: 5,
+      },
+      petriProjectionSource: 'snapshot',
+    });
+    expect(detail).not.toMatchObject({
+      petriProjection: {
+        claimedTransitionIds: ['slice_start:task-1'],
       },
     });
   });

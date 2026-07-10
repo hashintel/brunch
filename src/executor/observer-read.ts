@@ -251,9 +251,10 @@ function sanitizeClaimedTransitionIds(
   claimedTransitionIds: readonly string[] | undefined,
   runtime?: Pick<ExecutorPetriRuntime, 'currentMarking' | 'enabledTransitions'>,
 ): readonly string[] | undefined {
-  if (claimedTransitionIds === undefined || claimedTransitionIds.length === 0 || runtime === undefined) {
+  if (claimedTransitionIds === undefined || claimedTransitionIds.length === 0) {
     return claimedTransitionIds;
   }
+  if (runtime === undefined) return undefined;
   const enabledById = new Map(runtime.enabledTransitions.map((transition) => [transition.id, transition]));
   const claimedInputs = new Map<string, number>();
   for (const transitionId of claimedTransitionIds) {
