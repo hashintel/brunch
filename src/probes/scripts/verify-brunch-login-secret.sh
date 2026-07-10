@@ -5,7 +5,8 @@ set -euo pipefail
 # `brunch login` does not render the API-key bytes, while Pi-shaped auth storage
 # receives the exact key. Uses only bash + Python stdlib pty support.
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 WORK_DIR="${WORK_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/brunch-login-secret.XXXXXX")}"
 SUCCESS_AGENT_DIR="$WORK_DIR/success-agent"
 CANCEL_AGENT_DIR="$WORK_DIR/cancel-agent"
@@ -30,84 +31,7 @@ run_pty_login() {
   PROBE_TIMEOUT_SECONDS="$PROBE_TIMEOUT_SECONDS" \
   SENTINEL_SECRET="$SENTINEL_SECRET" \
   SCENARIO="$scenario" \
-  python3 - <<'PY' >"$capture_file"
-import os
-import pty
-import select
-import signal
-import subprocess
-import sys
-import time
-
-command = os.environ["BRUNCH_LOGIN_COMMAND"]
-scenario = os.environ["SCENARIO"]
-secret = os.environ["SENTINEL_SECRET"]
-timeout = float(os.environ["PROBE_TIMEOUT_SECONDS"])
-
-env = os.environ.copy()
-master_fd, slave_fd = pty.openpty()
-process = subprocess.Popen(
-    ["/bin/sh", "-c", command],
-    stdin=slave_fd,
-    stdout=slave_fd,
-    stderr=slave_fd,
-    cwd=os.getcwd(),
-    env=env,
-    close_fds=True,
-)
-os.close(slave_fd)
-
-captured = bytearray()
-sent_provider = False
-sent_secret = False
-sent_cancel = False
-start = time.monotonic()
-exit_code = None
-
-try:
-    while True:
-        if time.monotonic() - start > timeout:
-            process.kill()
-            raise TimeoutError(f"timed out waiting for brunch login {scenario} flow")
-
-        readable, _, _ = select.select([master_fd], [], [], 0.05)
-        if readable:
-            try:
-                chunk = os.read(master_fd, 4096)
-            except OSError:
-                chunk = b""
-            if chunk:
-                captured.extend(chunk)
-                text = captured.decode("utf-8", errors="replace")
-                if not sent_provider and "Provider number" in text:
-                    os.write(master_fd, b"2\n")
-                    sent_provider = True
-                if scenario == "success" and sent_provider and not sent_secret and "API key" in text:
-                    os.write(master_fd, (secret + "\n").encode())
-                    sent_secret = True
-                if scenario == "cancel" and sent_provider and not sent_cancel and "API key" in text:
-                    os.write(master_fd, b"q\n")
-                    sent_cancel = True
-
-        exit_code = process.poll()
-        if exit_code is not None:
-            break
-finally:
-    try:
-        os.close(master_fd)
-    except OSError:
-        pass
-
-sys.stdout.buffer.write(bytes(captured))
-if scenario == "success" and not sent_secret:
-    raise SystemExit("probe never reached the hidden API-key prompt")
-if scenario == "cancel" and not sent_cancel:
-    raise SystemExit("probe never reached the cancellation prompt")
-if scenario == "success" and exit_code != 0:
-    raise SystemExit(f"expected success exit 0, got {exit_code}")
-if scenario == "cancel" and exit_code == 0:
-    raise SystemExit("expected cancellation to exit nonzero")
-PY
+  python3 "$SCRIPT_DIR/verify-brunch-login-secret.py" >"$capture_file"
 }
 
 if ! command -v python3 >/dev/null 2>&1; then

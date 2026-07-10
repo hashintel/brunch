@@ -40,7 +40,7 @@ Purpose: verify Brunch works for alpha users who are not already Pi users, and t
 
 ### 1A. No pre-existing Pi auth/login
 
-Use a scratch Pi agent dir so ambient `~/.pi/agent/auth.json` cannot leak into the run:
+Use a scratch Pi agent dir so ambient `~/.pi/agent/auth.json` cannot leak into the run. `PI_CODING_AGENT_DIR` isolates file-backed auth only; Pi also resolves provider API-key environment variables, so the two Brunch-allowlisted fallbacks must be removed for a real no-auth run:
 
 ```sh
 AGENT_DIR=$(mktemp -d /tmp/brunch-agent-auth.XXXXXX)
@@ -48,10 +48,14 @@ WORKSPACE=.fixtures/workbenches/manual-no-auth
 mkdir -p "$WORKSPACE"
 
 # Source/dev launcher form:
-PI_CODING_AGENT_DIR="$AGENT_DIR" npm run dev -- --workspace "$WORKSPACE" --open-web
+env -u ANTHROPIC_API_KEY -u OPENROUTER_API_KEY \
+  PI_CODING_AGENT_DIR="$AGENT_DIR" \
+  npm run dev -- --workspace "$WORKSPACE" --open-web
 
 # Built/package CLI form (`brunch` uses --cwd, not --workspace):
-PI_CODING_AGENT_DIR="$AGENT_DIR" brunch --cwd "$WORKSPACE" --open-web
+env -u ANTHROPIC_API_KEY -u OPENROUTER_API_KEY \
+  PI_CODING_AGENT_DIR="$AGENT_DIR" \
+  brunch --cwd "$WORKSPACE" --open-web
 ```
 
 Check:

@@ -79,8 +79,11 @@ export async function runStructuredExchangeOrderingProof(
 
   const client = new RpcProbeClient(child, timeoutMs);
   try {
-    const promptAccepted = client.waitFor(
+    const promptPreflightAccepted = client.waitFor(
       (event): event is RpcResponse => isRpcResponse(event) && event.command === 'prompt',
+    );
+    const agentCompleted = client.waitFor(
+      (event): event is Record<string, unknown> => isRecord(event) && event.type === 'agent_end',
     );
     child.stdin.write(
       `${JSON.stringify({ id: 'ordering', type: 'prompt', message: '/brunch-structured-exchange-ordering-proof' })}\n`,
@@ -93,10 +96,11 @@ export async function runStructuredExchangeOrderingProof(
       `${JSON.stringify({ type: 'extension_ui_response', id: editorRequest.id, value: 'Sequential ask ordering looks safe for the next parity proof.' })}\n`,
     );
 
-    const promptResponse = await promptAccepted;
+    const promptResponse = await promptPreflightAccepted;
     if (!promptResponse.success) {
       throw new Error(`Ordering proof prompt failed: ${promptResponse.error ?? 'unknown error'}`);
     }
+    await agentCompleted;
 
     const stateResponse = client.waitFor(
       (event): event is RpcResponse<{ sessionFile?: string }> => isRpcResponse(event) && event.id === 'state',
