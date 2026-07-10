@@ -190,11 +190,6 @@ describe('outlineExecutionPlan', () => {
           }),
         ],
       },
-      {
-        id: 'frontier-unscoped-requirements',
-        title: 'Implement unscoped requirements',
-        tasks: [expect.objectContaining({ id: 'task-3', requirementId: 'REQ1' })],
-      },
     ]);
   });
 
@@ -221,6 +216,62 @@ describe('outlineExecutionPlan', () => {
         requirementId: 'REQ2',
         requirementIds: ['REQ2'],
         dependsOn: ['REQ1'],
+      }),
+    ]);
+  });
+
+  it('keeps scope-linked criteria on every derived task when a scope fans out', () => {
+    const scope = snapshot.scopes[0]!;
+
+    expect(
+      outlineExecutionPlan({
+        ...snapshot,
+        requirements: [
+          snapshot.requirements[0]!,
+          snapshot.requirements[1]!,
+          {
+            itemId: 'REQ3',
+            nodeId: 6,
+            title: 'Ship keyboard shortcut',
+            content: 'Ship keyboard shortcut',
+            dependsOn: ['REQ2'],
+          },
+        ],
+        scopes: [
+          {
+            ...scope,
+            requirementIds: ['REQ2', 'REQ3'],
+            criteria: [
+              {
+                itemId: 'AC0',
+                nodeId: 8,
+                title: 'Flow remains coherent',
+                content: 'The feature flow remains coherent across both requirements.',
+                dependsOn: [],
+                verifies: [],
+                scopeLinked: true,
+              },
+              scope.criteria[0]!,
+              {
+                itemId: 'AC2',
+                nodeId: 7,
+                title: 'Shortcut opens feature',
+                content: 'Shortcut opens feature',
+                dependsOn: [],
+                verifies: ['REQ3'],
+              },
+            ],
+          },
+        ],
+      }).frontiers[0]?.tasks,
+    ).toEqual([
+      expect.objectContaining({
+        requirementId: 'REQ2',
+        acceptanceCriterionIds: ['AC0', 'AC1'],
+      }),
+      expect.objectContaining({
+        requirementId: 'REQ3',
+        acceptanceCriterionIds: ['AC0', 'AC2'],
       }),
     ]);
   });

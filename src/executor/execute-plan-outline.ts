@@ -141,6 +141,7 @@ function tasksForScope(
     const acceptanceCriteria = scope.criteria
       .filter(
         (criterion) =>
+          criterion.scopeLinked === true ||
           criterion.verifies === undefined ||
           criterion.verifies.length === 0 ||
           criterion.verifies.includes(requirement.itemId),
