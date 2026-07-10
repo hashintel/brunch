@@ -66,7 +66,7 @@ WR14–WR17 may be reordered when test setup makes that cheaper, but WR18 remain
 | WR15 | Interactive API-key secrecy | `built` | ● | earned | `app/brunch-login.ts` + PTY probe | Built 2026-07-10: `src/probes/scripts/verify-brunch-login-secret.sh` drives `brunch login` through a real Python-stdlib PTY, proves captured terminal bytes omit the sentinel API key, proves isolated `PI_CODING_AGENT_DIR/auth.json` stores the exact key, and covers cancellation as nonzero/no-auth-write; the non-TTY test remains supporting coverage only. |
 | WR16 | Live WR5 guidance composition | `built` | ● | earned | registered exchange tools + live agent skill/prompt composition | Built 2026-07-10: `exchanges-extension.test.ts` now proves registered ask/digest tool definitions expose Other/pretext/review-continuation conduct; live skill registry and composed elicitor prompt tests prove the active foreground manifest exposes `ingest` and its routed `map` reference path carrying digest-approval direct mutation and multi-pass extraction rules; the source-file substring sentinel was retired. |
 | WR17 | Production debug-mirror legibility | `built` | ● | earned | TUI composition root + passive debug cache | Built 2026-07-10: `src/dev/__tests__/tier-2-harness.test.ts` now drives `/brunch:continue` through the real `runBrunchTui` boot + command wiring with debug mirroring enabled, then inspects workspace-local `.brunch/debug/entry-contents.md` and `origination.md` for seed contents, `manual_trigger`, fired outcome, and seed-entry-before-outcome record order. |
-| WR18 | Focused outer closure evidence | `new` | ● | proving | manual testing protocol; blocked by WR13–WR17 | TESTING_PLAN Concern 1A + Run B + focused Execute/gallery beat. Close only with recorded observations for WR5 conduct, seed usefulness, recovery-hint noticeability, Execute workflow fidelity, and border/overflow legibility in both themes. Product failures route back through planning rather than being absorbed here. |
+| WR18 | Focused outer closure evidence | `new` | ● | proving | manual testing protocol; blocked by WR13–WR17 | The authoritative end-of-frontier outer closure checklist is in the WR18 brief below. Every obligation must reach an allowed terminal state; `not encountered` / `not observed` leaves WR18 and FE-1180 open. |
 
 ## Row briefs
 
@@ -227,20 +227,34 @@ src/dev/TOPOLOGY.md                                             ?
 
 ### WR18 · Focused outer closure evidence
 
-**Evidence gate:** WR13–WR17 are `built`; `npm run verify` passes; testing uses disposable workbenches/scratch auth only.
+**Evidence gate:** WR13–WR17 are `built`; the verification gate passes; testing uses disposable workbenches and scratch auth only.
 
-**Manual beats:**
+#### End-of-frontier outer closure checklist — authoritative
 
-1. TESTING_PLAN Concern 1A with scratch `PI_CODING_AGENT_DIR`: verify safe entry, actual hidden paste, post-login continuation, and honest no-model behavior.
-2. Run B: inspect seed/debug files, confirm first useful conduct uses seeded facts, exercise Specify `/brunch:consult`, and observe WR5 digest/Other behavior if naturally reached.
-3. Focused Execute beat: select each D120-L choice from a controlled developed spec and record the first provider workflow; no choice may silently produce a legacy directive.
-4. `npm run dev:components` in both themes plus live TUI: compare consult `borderAccent` with mode-reactive ask/editor borders, overflow thumb salience, and recovery-hint noticeability.
+This is the single closure inventory for WR18 and therefore for the end of `walkthrough-remediation-1`. `TESTING_PLAN.md`, Run B's worksheet, and prior findings supply scenarios and evidence; they do not own a second closure list.
+
+| ID | Outer obligation | Required observation |
+| --- | --- | --- |
+| O1 | No-auth entry is safe and honest | With a scratch `PI_CODING_AGENT_DIR`, workspace/spec/session creation remains usable; no orientation or provider turn fires before auth exists; copy points to `brunch login` and `/login`; `/brunch:continue` reports no model honestly without appending seed/kick carriers; ambient auth is not read. |
+| O2 | Interactive login and post-login recovery work | In the same scratch agent dir, an actual pasted credential remains visually hidden, writes only Pi-shaped scratch auth, and exposes the allowlisted provider/model policy; after login, relaunch or explicit continuation reaches normal orientation and a real seed-before-kick provider turn. |
+| O3 | Run B seed/debug evidence is useful to the agent | In a reset `workspace-alpha-grounding/base` workbench, `entry-contents.md`, `origination.md`, `system-prompt.md`, and session JSONL make the seed and trigger legible; the seed precedes the first useful provider action; that action demonstrably interprets seeded graph facts/readiness rather than behaving as an ungrounded generic assistant. |
+| O4 | Specify consultation and recovery affordances are usable | Live `/brunch:consult` in Specify mode presents understandable role/spec-labelled choices, routes the selected choice as described, keeps escape inert, and makes the `/continue` / `/consult` / `/mode` recovery hints noticeable and actionable where cancellation or interruption exposes them. |
+| O5 | WR5 Other/pretext conduct holds live | In a live ask/present continuation, the model does not author an option equivalent to built-in Other and does not repeat a large present/digest pretext inside the continuation ask body. |
+| O6 | WR5 accepted-digest mapping conduct holds live | Given an accepted digest with enough authority to map, the model defaults to supported advisory graph mutation instead of broad re-questioning and performs the required multi-pass extraction across entities, relations, and narrative obligations. |
+| O7 | Execute preparation matches its promise | Selecting `prepare_execution` produces assessment of design/oracle/commitment evidence, recommends one next preparation path, and asks for structured confirmation before beginning it. |
+| O8 | Execute compilation matches its promise | Selecting `compile_plan` assesses readiness and offers compile-now versus backfill-first rather than silently following a legacy directive. |
+| O9 | Execute execution matches its promise | Selecting `execute_plan` validates plan freshness/readiness and begins only the next safe scoped unit; stale or incomplete plans route to compilation/backfill, never unattended whole-plan execution. |
+| O10 | Both-theme visual treatment is legible | In `dev:components` and the live TUI, in both themes, consult borders remain distinguishable from mode-reactive ask/editor borders, role/spec labels read correctly, overflow thumbs are salient, and recovery hints remain visible in the states that expose them. |
+
+**Closure rule:** each O1–O10 row must be recorded in `TESTING_FINDINGS.md` as either `pass` with exact evidence, or `promoted failure` with the finding, owner/frontier, and explicit PLAN disposition that removes it from FE-1180. `Not encountered`, `not naturally reached`, `not observed`, and missing evidence are open states and cannot close WR18. In particular, if Run B does not naturally reach O5/O6, run a focused conduct beat; absence of opportunity is not evidence.
+
+**Execution grouping (non-authoritative):** Concern 1A covers O1–O2; Run B covers O3–O4 and may cover O5–O6; a focused conduct beat is mandatory for any O5/O6 obligation Run B does not exercise; controlled Execute sessions cover O7–O9; the both-theme component/live-TUI gallery covers O10.
 
 **Evidence recording:**
 
-- Append observations and exact workspace/theme/session/debug references to `TESTING_FINDINGS.md`.
+- Append a status and exact workspace/theme/session/debug references for every O1–O10 row to `TESTING_FINDINGS.md`.
 - Screenshots/source notes go under `testing/walkthroughs/<date>/`; promote runtime artifacts to `.fixtures/runs/` only when reviewed and replay-worthy.
-- A failure is not fixed inside WR18 unless it is demonstrably a tiny correction inside a WR13–WR17 owner. Otherwise classify it and route through `ln-plan`.
+- A failure is not fixed inside WR18 unless it is demonstrably a tiny correction inside a WR13–WR17 owner. Otherwise classify it and route through `ln-plan`; until that promotion is explicit, the obligation remains open.
 
 **Expected touched paths (tentative):**
 
@@ -256,7 +270,7 @@ memory/cards/walkthrough-remediation-1--closure-ledger.md        -  # delete onl
 
 - WR13–WR18 are `have` or `built`; no required row is `spec`, `new`, or `partial`.
 - D120-L/I60-L are materialized in code, tests, and the current topology homes.
-- The PTY secret oracle, consumer-level conduct oracle, wired debug-mirror oracle, and focused outer evidence all pass.
-- `TESTING_FINDINGS.md` records actual post-change observations rather than only implementation dispositions.
+- The PTY secret oracle, consumer-level conduct oracle, and wired debug-mirror oracle pass; every WR18 O1–O10 obligation reaches an allowed terminal state under the authoritative checklist above.
+- `TESTING_FINDINGS.md` records actual post-change observations and evidence for every O1–O10 row rather than only implementation dispositions.
 - `npm run verify` passes before the final code commit; `npm run check` is the read-only confirmation after evidence/doc-only updates.
 - Only then: delete this ledger, restore FE-1180 to closed in `memory/PLAN.md`, and leave WR9–WR12 explicitly deferred.
