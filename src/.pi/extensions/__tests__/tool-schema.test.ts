@@ -19,6 +19,11 @@ describe('toolParameters', () => {
     });
   });
 
+  it('rejects non-object roots', () => {
+    expect(() => toolParameters(z.string())).toThrow(/object root/);
+    expect(() => toolParameters(Type.String())).toThrow(/object root/);
+  });
+
   it('rejects top-level provider-illegal unions', () => {
     expect(() => toolParameters(z.union([z.object({ a: z.string() }), z.object({ b: z.string() })]))).toThrow(
       /top-level anyOf/,

@@ -40,6 +40,10 @@ export function assertProviderLegalToolSchema(schema: unknown): void {
       `Tool parameters must not use top-level ${illegalKey}; wrap the union inside an object property.`,
     );
   }
+
+  if (schema.type !== 'object') {
+    throw new Error('Tool parameters must use an object root.');
+  }
 }
 
 function markToolParameters(schema: TSchema): void {
