@@ -13,6 +13,8 @@ import {
 import { appendPetriEvent } from './petri-events.js';
 import {
   petriMarkingLifecycleProvenance,
+  petriMarkingSnapshotMatchesRunMetadata,
+  readPetriMarkingSnapshot,
   type PetriMarkingSnapshot,
   writePetriMarkingSnapshot,
 } from './petri-marking.js';
@@ -217,15 +219,17 @@ export async function drive(
     const plan = await planForScheduler(ctx.cwd, state);
     const runtime = materializeExecutorPetriRuntime(state, plan);
     const readySteps = scheduler.ready(state, plan);
-    const selectedSteps = firingPolicy.select({
-      readySteps,
-      readyRuntime: {
-        currentMarking: runtime.currentMarking,
-        enabledTransitions: readySteps.map((step) => runtime.transitionForReadyStep(step)),
-      },
-      state,
-      plan,
-    });
+    const selectedSteps =
+      (await readClaimedReadySteps(ctx, state, runtime)) ??
+      firingPolicy.select({
+        readySteps,
+        readyRuntime: {
+          currentMarking: runtime.currentMarking,
+          enabledTransitions: readySteps.map((step) => runtime.transitionForReadyStep(step)),
+        },
+        state,
+        plan,
+      });
     if (selectedSteps.length === 0) {
       const terminal = classifyDriveTerminal({
         kind: 'scheduler_exhausted',
@@ -389,4 +393,25 @@ async function planForScheduler(cwd: string, state: RunMetadata): Promise<Schedu
 
 async function neverBoundReadyStep(step: ReadyStep): Promise<StepResult> {
   throw new Error(`missing bound Petri transition for ready step ${step.kind}`);
+}
+
+async function readClaimedReadySteps(
+  ctx: Pick<DriveContext, 'cwd' | 'runId'>,
+  state: RunMetadata,
+  runtime: ExecutorPetriRuntime,
+): Promise<readonly ReadyStep[] | undefined> {
+  const snapshot = await readPetriMarkingSnapshot({ cwd: ctx.cwd, runId: ctx.runId });
+  if (
+    !snapshot ||
+    !petriMarkingSnapshotMatchesRunMetadata(snapshot, state) ||
+    snapshot.claimedTransitionIds === undefined ||
+    snapshot.claimedTransitionIds.length === 0
+  ) {
+    return undefined;
+  }
+  const enabledById = new Map(
+    runtime.enabledTransitions.map((transition) => [transition.id, transition.step]),
+  );
+  const claimedSteps = snapshot.claimedTransitionIds.map((transitionId) => enabledById.get(transitionId));
+  return claimedSteps.every((step) => step !== undefined) ? claimedSteps : undefined;
 }

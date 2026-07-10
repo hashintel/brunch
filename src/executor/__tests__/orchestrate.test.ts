@@ -17,7 +17,7 @@ import {
   type ReadyStep,
   serialFiringPolicy,
 } from '../orchestrate.js';
-import { petriMarkingPath, readPetriMarkingSnapshot } from '../petri-marking.js';
+import { petriMarkingPath, readPetriMarkingSnapshot, writePetriMarkingSnapshot } from '../petri-marking.js';
 import {
   bindExecutorPetriRuntime,
   enabledPetriTransitionIds,
@@ -1209,6 +1209,49 @@ describe('petriScheduler', () => {
       lifecycleProvenance: {
         runStatus: 'reports_initialized',
       },
+    });
+  });
+
+  it('resumes a matching persisted claim-set before recomputing a fresh frontier selection', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-claim-resume-'));
+    await createRunAtCreated(cwd, ['task-1', 'task-2']);
+    await createWorktree({ cwd, runId: 'run-1', gitWorktree: fakePorts().gitWorktree });
+    await populateWorktree({ cwd, runId: 'run-1' });
+    await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
+    await copyHostSource({ cwd, runId: 'run-1' });
+    await initializeReports({ cwd, runId: 'run-1' });
+    await writePetriMarkingSnapshot({
+      cwd,
+      runId: 'run-1',
+      snapshot: {
+        claimedTransitionIds: ['slice_start:task-2'],
+        currentMarking: { 'run:slice_frontier': 1 },
+        firedTransitionCount: 5,
+        lifecycleProvenance: { runStatus: 'reports_initialized' },
+      },
+    });
+
+    const startedSteps: ReadyStep[] = [];
+    const outcome = await drive(
+      {
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts(),
+        onStepStart: (kind, _runStatus, progress) => {
+          if (kind === 'slice_start') startedSteps.push(progress.step);
+        },
+      },
+      petriScheduler,
+      frontierFiringPolicy,
+      { maxFirings: 1 },
+    );
+
+    expect(outcome).toEqual({ status: 'completed', runStatus: 'slice_started' });
+    expect(startedSteps).toMatchObject([{ kind: 'slice_start', sliceId: 'task-2', epicId: 'frontier-1' }]);
+    expect(await readRunMetadata(runMetadataPath(cwd, 'run-1'))).toMatchObject({
+      status: 'slice_started',
+      activeSliceId: 'task-2',
+      activeEpicId: 'frontier-1',
     });
   });
 
