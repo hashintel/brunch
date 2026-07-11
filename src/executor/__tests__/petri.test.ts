@@ -21,8 +21,8 @@ import {
   PETRI_RUN_COMPLETED_PLACE,
   PETRI_RUN_FINISH_TRANSITION,
   PETRI_RUN_HALTED_PLACE,
-  reducePetriLiveExecutionExport,
-} from '../petrinaut/live-export.js';
+  reducePetrinautReplayExport,
+} from '../petrinaut/replay-export.js';
 import { SDCPN_FILE_FORMAT_VERSION } from '../petrinaut/sdcpn.js';
 import { serializePetrinautSseFrame, serializePetrinautSseFrames } from '../petrinaut/sse.js';
 import { foldPetrinautStreamFrames, projectPetrinautStreamFrames } from '../petrinaut/stream-frames.js';
@@ -576,9 +576,9 @@ describe('replayTransitionHistory', () => {
   });
 });
 
-describe('reducePetriLiveExecutionExport', () => {
-  it('projects SDCPN plus journal events into a compact Petrinaut live payload', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-live-export-'));
+describe('reducePetrinautReplayExport', () => {
+  it('projects SDCPN plus journal events into a compact Petrinaut replay payload', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-replay-export-'));
     await createCompletedRun(cwd);
     await exportPetri({ cwd, runId: 'run-1' });
     const sdcpnFile = JSON.parse(await readFile(petriSdcpnPath(cwd, 'run-1'), 'utf8'));
@@ -612,7 +612,7 @@ describe('reducePetriLiveExecutionExport', () => {
       { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
     ];
 
-    const payload = reducePetriLiveExecutionExport({ sdcpnFile, events });
+    const payload = reducePetrinautReplayExport({ sdcpnFile, events });
 
     expect(payload.initialState).toEqual({ 'run:created': 1 });
     expect(payload.definition.places).toContainEqual({
@@ -655,13 +655,13 @@ describe('reducePetriLiveExecutionExport', () => {
   });
 
   it('projects halt and deadlock terminal events to the halted run-status place', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-live-export-halted-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-replay-export-halted-'));
     await createCompletedRun(cwd);
     await exportPetri({ cwd, runId: 'run-1' });
     const sdcpnFile = JSON.parse(await readFile(petriSdcpnPath(cwd, 'run-1'), 'utf8'));
 
     expect(
-      reducePetriLiveExecutionExport({
+      reducePetrinautReplayExport({
         sdcpnFile,
         events: [{ kind: 'net_halted', runId: 'run-1', runStatus: 'worktree_created', reason: 'boom' }],
       }).transitionFirings,
@@ -669,7 +669,7 @@ describe('reducePetriLiveExecutionExport', () => {
       { transitionId: PETRI_RUN_FINISH_TRANSITION, input: {}, output: { [PETRI_RUN_HALTED_PLACE]: 1 } },
     ]);
     expect(
-      reducePetriLiveExecutionExport({
+      reducePetrinautReplayExport({
         sdcpnFile,
         events: [{ kind: 'net_deadlocked', runId: 'run-1', runStatus: 'worktree_created' }],
       }).transitionFirings,
@@ -679,13 +679,13 @@ describe('reducePetriLiveExecutionExport', () => {
   });
 
   it('fails closed when a journal transition is absent from the SDCPN definition', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-live-export-unknown-transition-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-replay-export-unknown-transition-'));
     await createCompletedRun(cwd);
     await exportPetri({ cwd, runId: 'run-1' });
     const sdcpnFile = JSON.parse(await readFile(petriSdcpnPath(cwd, 'run-1'), 'utf8'));
 
     expect(() =>
-      reducePetriLiveExecutionExport({
+      reducePetrinautReplayExport({
         sdcpnFile,
         events: [
           {
@@ -707,45 +707,39 @@ describe('reducePetriLiveExecutionExport', () => {
   });
 
   it('fails closed when SDCPN transition ids collide', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-live-export-duplicate-transition-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-replay-export-duplicate-transition-'));
     await createCompletedRun(cwd);
     await exportPetri({ cwd, runId: 'run-1' });
     const sdcpnFile = JSON.parse(await readFile(petriSdcpnPath(cwd, 'run-1'), 'utf8'));
     sdcpnFile.transitions = [sdcpnFile.transitions[0], sdcpnFile.transitions[0]];
 
-    expect(() => reducePetriLiveExecutionExport({ sdcpnFile, events: [] })).toThrow(
+    expect(() => reducePetrinautReplayExport({ sdcpnFile, events: [] })).toThrow(
       /Duplicate Petrinaut transition id/,
     );
   });
 
   it('fails closed when SDCPN initial marking counts are not integer strings', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-live-export-malformed-marking-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-replay-export-malformed-marking-'));
     await createCompletedRun(cwd);
     await exportPetri({ cwd, runId: 'run-1' });
     const sdcpnFile = JSON.parse(await readFile(petriSdcpnPath(cwd, 'run-1'), 'utf8'));
     sdcpnFile.scenarios[0].initialState.content['run:created'] = '1abc';
 
-    expect(() => reducePetriLiveExecutionExport({ sdcpnFile, events: [] })).toThrow(
+    expect(() => reducePetrinautReplayExport({ sdcpnFile, events: [] })).toThrow(
       /Invalid Petrinaut initial marking count/,
     );
   });
 });
 
 describe('Petrinaut launcher URL helpers', () => {
-  it('resolves Petrinaut URL from CLI before env and reports stable missing/invalid errors', () => {
-    expect(
-      resolvePetrinautUrl({
-        cliFlag: 'https://cli.example/brunch',
-        env: { PETRINAUT_URL: 'https://env.example/brunch' },
-      }),
-    ).toEqual({ url: 'https://cli.example/brunch' });
+  it('resolves Petrinaut URL from env and reports stable missing/invalid errors', () => {
     expect(resolvePetrinautUrl({ env: { PETRINAUT_URL: 'https://env.example/brunch' } })).toEqual({
       url: 'https://env.example/brunch',
     });
-    expect(resolvePetrinautUrl({ cliFlag: ' ', env: { PETRINAUT_URL: '' } })).toEqual({
+    expect(resolvePetrinautUrl({ env: { PETRINAUT_URL: '' } })).toEqual({
       error: PETRINAUT_URL_MISSING_MESSAGE,
     });
-    expect(resolvePetrinautUrl({ cliFlag: 'file:///tmp/petrinaut.html', env: {} })).toEqual({
+    expect(resolvePetrinautUrl({ env: { PETRINAUT_URL: 'file:///tmp/petrinaut.html' } })).toEqual({
       error: PETRINAUT_URL_INVALID_MESSAGE,
     });
   });
@@ -769,12 +763,12 @@ describe('Petrinaut launcher URL helpers', () => {
 });
 
 describe('Petrinaut stream frame projection', () => {
-  it('projects a live export into ordered stream frames and folds back to the export', async () => {
+  it('projects a replay export into ordered stream frames and folds back to the export', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-stream-frames-'));
     await createCompletedRun(cwd);
     await exportPetri({ cwd, runId: 'run-1' });
     const sdcpnFile = JSON.parse(await readFile(petriSdcpnPath(cwd, 'run-1'), 'utf8'));
-    const liveExport = reducePetriLiveExecutionExport({
+    const replayExport = reducePetrinautReplayExport({
       sdcpnFile,
       events: [
         {
@@ -793,7 +787,7 @@ describe('Petrinaut stream frame projection', () => {
       ],
     });
 
-    const frames = projectPetrinautStreamFrames({ liveExport });
+    const frames = projectPetrinautStreamFrames({ replayExport });
 
     expect(frames.map((frame) => frame.kind)).toEqual([
       'status',
@@ -802,11 +796,11 @@ describe('Petrinaut stream frame projection', () => {
       'transition_firing',
     ]);
     expect(frames[0]).toEqual({ kind: 'status', state: 'running' });
-    expect(foldPetrinautStreamFrames(frames)).toEqual(liveExport);
+    expect(foldPetrinautStreamFrames(frames)).toEqual(replayExport);
   });
 
   it('adds terminal status and terminal frames when terminal state is supplied', () => {
-    const liveExport = {
+    const replayExport = {
       definition: {
         version: 1,
         meta: { generator: 'brunch' },
@@ -819,13 +813,13 @@ describe('Petrinaut stream frame projection', () => {
     };
 
     const frames = projectPetrinautStreamFrames({
-      liveExport,
+      replayExport,
       terminal: { state: 'halted', reason: 'promotion_failed' },
     });
 
     expect(frames).toEqual([
       { kind: 'status', state: 'halted', reason: 'promotion_failed' },
-      { kind: 'definition', definition: liveExport.definition },
+      { kind: 'definition', definition: replayExport.definition },
       { kind: 'initial_state', initialState: {} },
       { kind: 'terminal', state: 'halted', reason: 'promotion_failed' },
     ]);
@@ -841,7 +835,7 @@ describe('Petrinaut SSE serialization', () => {
 
   it('serializes each frame kind with the expected event name and JSON payload', () => {
     const frames = projectPetrinautStreamFrames({
-      liveExport: {
+      replayExport: {
         definition: {
           version: 1,
           meta: { generator: 'brunch' },

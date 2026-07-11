@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import { agentStreamPath } from '../agent-result.js';
 import { listRuns, readRunDetail } from '../observer-read.js';
+import type { ExecutorNetEvent } from '../orchestrate-topology.js';
 import { populatedPlanPath } from '../populate.js';
 import { runDirPath, runMetadataPath, type RunMetadata } from '../run.js';
 import { verifyStreamPath } from '../test-result.js';
@@ -73,6 +74,25 @@ function minimalSdcpnFile() {
       },
     ],
     metrics: [],
+  };
+}
+
+function transitionEvent(
+  overrides: Partial<Extract<ExecutorNetEvent, { readonly kind: 'transition_fired' }>> = {},
+): Extract<ExecutorNetEvent, { readonly kind: 'transition_fired' }> {
+  return {
+    kind: 'transition_fired',
+    runId: 'run-1',
+    runStatus: 'worktree_created',
+    transitionId: 'worktree_create',
+    subnetId: 'run',
+    step: 'worktree_create',
+    contract: { kind: 'mechanical', lane: 'run' },
+    consumed: ['run:created'],
+    produced: ['run:worktree_created'],
+    fromStatus: 'created',
+    toStatus: 'worktree_created',
+    ...overrides,
   };
 }
 
@@ -358,25 +378,18 @@ describe('readRunDetail', () => {
     expect(torn && 'petriNet' in torn ? torn.petriNet : 'absent').toBe('absent');
   });
 
-  it('derives a Petrinaut live export when SDCPN and an untorn journal are present', async () => {
+  it('derives a Petrinaut replay export when SDCPN and an untorn journal are present', async () => {
     const cwd = await fixtureCwd('brunch-observer-petrinaut-live-');
     const runDir = await writeRun(cwd, 'run-petri-live', { status: 'worktree_created' });
     await mkdir(join(runDir, 'petrinaut'), { recursive: true });
     await writeFile(join(runDir, 'petrinaut', 'net.sdcpn.json'), JSON.stringify(minimalSdcpnFile()), 'utf8');
     await writeFile(
       join(runDir, 'petrinaut', 'events.jsonl'),
-      `${JSON.stringify({
-        kind: 'transition_fired',
-        runId: 'run-petri-live',
-        runStatus: 'worktree_created',
-        transitionId: 'worktree_create',
-        subnetId: 'run',
-        step: 'worktree_create',
-        consumed: ['run:created'],
-        produced: ['run:worktree_created'],
-        fromStatus: 'created',
-        toStatus: 'worktree_created',
-      })}\n`,
+      `${JSON.stringify(
+        transitionEvent({
+          runId: 'run-petri-live',
+        }),
+      )}\n`,
       'utf8',
     );
 
@@ -387,9 +400,7 @@ describe('readRunDetail', () => {
     expect(detail).toMatchObject({
       petrinautStreamPath: '/petrinaut/stream?runId=run-petri-live',
       petrinautLaunchPath: '/petrinaut/launch?runId=run-petri-live',
-      petrinautLauncherTemplateUrl:
-        'https://petrinaut.example/brunch?theme=dark&runId=run-petri-live&sse=%2Fpetrinaut%2Fstream%3FrunId%3Drun-petri-live',
-      petrinautLiveExport: {
+      petrinautReplayExport: {
         initialState: { 'run:created': 1 },
         transitionFirings: [
           {
@@ -409,13 +420,13 @@ describe('readRunDetail', () => {
       petrinautStreamPath: '/petrinaut/stream?runId=run-petri-live',
     });
     expect(
-      invalidUrlDetail && 'petrinautLauncherTemplateUrl' in invalidUrlDetail
-        ? invalidUrlDetail.petrinautLauncherTemplateUrl
+      invalidUrlDetail && 'petrinautLaunchPath' in invalidUrlDetail
+        ? invalidUrlDetail.petrinautLaunchPath
         : 'absent',
     ).toBe('absent');
   });
 
-  it('omits Petrinaut live export when the SDCPN file or journal is missing or torn', async () => {
+  it('omits Petrinaut replay export when the SDCPN file or journal is missing or torn', async () => {
     const cwd = await fixtureCwd('brunch-observer-petrinaut-live-absent-');
     const missingJournalDir = await writeRun(cwd, 'run-missing-journal', { status: 'worktree_created' });
     const tornJournalDir = await writeRun(cwd, 'run-torn-journal', { status: 'worktree_created' });
@@ -437,12 +448,12 @@ describe('readRunDetail', () => {
     const tornJournal = await readRunDetail(cwd, 'run-torn-journal');
 
     expect(
-      missingJournal && 'petrinautLiveExport' in missingJournal
-        ? missingJournal.petrinautLiveExport
+      missingJournal && 'petrinautReplayExport' in missingJournal
+        ? missingJournal.petrinautReplayExport
         : 'absent',
     ).toBe('absent');
     expect(
-      tornJournal && 'petrinautLiveExport' in tornJournal ? tornJournal.petrinautLiveExport : 'absent',
+      tornJournal && 'petrinautReplayExport' in tornJournal ? tornJournal.petrinautReplayExport : 'absent',
     ).toBe('absent');
   });
 
@@ -453,16 +464,20 @@ describe('readRunDetail', () => {
     await writeFile(
       join(runDir, 'petrinaut', 'events.jsonl'),
       [
-        JSON.stringify({
-          kind: 'transition_fired',
-          runId: 'run-petri-events',
-          runStatus: 'slice_started',
-          transitionId: 'slice_start:task-1',
-          subnetId: 'slice:task-1',
-          step: 'slice_start',
-          fromStatus: 'reports_initialized',
-          toStatus: 'slice_started',
-        }),
+        JSON.stringify(
+          transitionEvent({
+            runId: 'run-petri-events',
+            runStatus: 'slice_started',
+            transitionId: 'slice_start:task-1',
+            subnetId: 'slice:task-1',
+            step: 'slice_start',
+            contract: { kind: 'structural', lane: 'slice' },
+            consumed: ['run:slice_frontier'],
+            produced: ['slice:task-1:started'],
+            fromStatus: 'reports_initialized',
+            toStatus: 'slice_started',
+          }),
+        ),
         JSON.stringify({
           kind: 'net_halted',
           runId: 'run-petri-events',
@@ -526,16 +541,14 @@ describe('readRunDetail', () => {
     await writeFile(
       join(runDir, 'petrinaut', 'events.jsonl'),
       [
-        JSON.stringify({
-          kind: 'transition_fired',
-          runId: 'run-petri-projection',
-          runStatus: 'promotion_prepared',
-          transitionId: 'worktree_create',
-          subnetId: 'run',
-          step: 'worktree_create',
-          fromStatus: 'created',
-          toStatus: 'promotion_prepared',
-        }),
+        JSON.stringify(
+          transitionEvent({
+            runId: 'run-petri-projection',
+            runStatus: 'promotion_prepared',
+            produced: ['run:promotion_prepared'],
+            toStatus: 'promotion_prepared',
+          }),
+        ),
         JSON.stringify({
           kind: 'net_completed',
           runId: 'run-petri-projection',
@@ -589,16 +602,14 @@ describe('readRunDetail', () => {
     await writeFile(
       join(runDir, 'petrinaut', 'events.jsonl'),
       [
-        JSON.stringify({
-          kind: 'transition_fired',
-          runId: 'run-petri-terminal-conflict',
-          runStatus: 'promotion_prepared',
-          transitionId: 'worktree_create',
-          subnetId: 'run',
-          step: 'worktree_create',
-          fromStatus: 'created',
-          toStatus: 'promotion_prepared',
-        }),
+        JSON.stringify(
+          transitionEvent({
+            runId: 'run-petri-terminal-conflict',
+            runStatus: 'promotion_prepared',
+            produced: ['run:promotion_prepared'],
+            toStatus: 'promotion_prepared',
+          }),
+        ),
         JSON.stringify({
           kind: 'net_completed',
           runId: 'run-petri-terminal-conflict',
@@ -613,6 +624,7 @@ describe('readRunDetail', () => {
       ].join('\n'),
       'utf8',
     );
+    await writeFile(join(runDir, 'petrinaut', 'net.sdcpn.json'), JSON.stringify(minimalSdcpnFile()), 'utf8');
 
     const detail = await readRunDetail(cwd, 'run-petri-terminal-conflict');
 
@@ -629,6 +641,55 @@ describe('readRunDetail', () => {
         terminalEventKind: 'net_completed',
       },
     });
+    expect(
+      detail && 'petrinautReplayExport' in detail ? detail.petrinautReplayExport : undefined,
+    ).toBeUndefined();
+  });
+
+  it('omits Petrinaut replay export when SDCPN arcs reference unknown places', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petrinaut-invalid-sdcpn-');
+    const runDir = await writeRun(cwd, 'run-petrinaut-invalid-sdcpn', { status: 'promotion_prepared' });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    const sdcpn = minimalSdcpnFile();
+    sdcpn.transitions[0]!.outputArcs[0]!.placeId = 'missing-place';
+    await writeFile(join(runDir, 'petrinaut', 'net.sdcpn.json'), JSON.stringify(sdcpn), 'utf8');
+    await writeFile(
+      join(runDir, 'petrinaut', 'events.jsonl'),
+      `${JSON.stringify({
+        kind: 'transition_fired',
+        runId: 'run-petrinaut-invalid-sdcpn',
+        runStatus: 'worktree_created',
+        transitionId: 'worktree_create',
+        subnetId: 'run',
+        step: 'worktree_create',
+        consumed: ['run:created'],
+        produced: ['missing-place'],
+        fromStatus: 'created',
+        toStatus: 'worktree_created',
+      })}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petrinaut-invalid-sdcpn');
+
+    expect(
+      detail && 'petrinautReplayExport' in detail ? detail.petrinautReplayExport : undefined,
+    ).toBeUndefined();
+  });
+
+  it('omits malformed Petri journal events instead of projecting them as terminal facts', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petrinaut-invalid-event-');
+    const runDir = await writeRun(cwd, 'run-petrinaut-invalid-event', { status: 'promotion_prepared' });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(join(runDir, 'petrinaut', 'net.sdcpn.json'), JSON.stringify(minimalSdcpnFile()), 'utf8');
+    await writeFile(join(runDir, 'petrinaut', 'events.jsonl'), '{"kind":"net_completed"}\n', 'utf8');
+
+    const detail = await readRunDetail(cwd, 'run-petrinaut-invalid-event');
+
+    expect(detail).toMatchObject({ petriEventsTotal: 0, petriEventsTail: [] });
+    expect(
+      detail && 'petrinautReplayExport' in detail ? detail.petrinautReplayExport : undefined,
+    ).toBeUndefined();
   });
 
   it('omits terminal summary from replay when the raw journal fires after a terminal event', async () => {
@@ -670,31 +731,28 @@ describe('readRunDetail', () => {
     await writeFile(
       join(runDir, 'petrinaut', 'events.jsonl'),
       [
-        JSON.stringify({
-          kind: 'transition_fired',
-          runId: 'run-petri-terminal-order',
-          runStatus: 'worktree_created',
-          transitionId: 'worktree_create',
-          subnetId: 'run',
-          step: 'worktree_create',
-          fromStatus: 'created',
-          toStatus: 'worktree_created',
-        }),
+        JSON.stringify(
+          transitionEvent({
+            runId: 'run-petri-terminal-order',
+          }),
+        ),
         JSON.stringify({
           kind: 'net_completed',
           runId: 'run-petri-terminal-order',
           runStatus: 'worktree_created',
         }),
-        JSON.stringify({
-          kind: 'transition_fired',
-          runId: 'run-petri-terminal-order',
-          runStatus: 'worktree_populated',
-          transitionId: 'populate',
-          subnetId: 'run',
-          step: 'populate',
-          fromStatus: 'worktree_created',
-          toStatus: 'worktree_populated',
-        }),
+        JSON.stringify(
+          transitionEvent({
+            runId: 'run-petri-terminal-order',
+            runStatus: 'worktree_populated',
+            transitionId: 'populate',
+            step: 'populate',
+            consumed: ['run:worktree_created'],
+            produced: ['run:worktree_populated'],
+            fromStatus: 'worktree_created',
+            toStatus: 'worktree_populated',
+          }),
+        ),
         '',
       ].join('\n'),
       'utf8',
@@ -762,16 +820,14 @@ describe('readRunDetail', () => {
     );
     await writeFile(
       join(runDir, 'petrinaut', 'events.jsonl'),
-      `${JSON.stringify({
-        kind: 'transition_fired',
-        runId: 'run-petri-marking-snapshot',
-        runStatus: 'reports_initialized',
-        transitionId: 'worktree_create',
-        subnetId: 'run',
-        step: 'worktree_create',
-        fromStatus: 'created',
-        toStatus: 'reports_initialized',
-      })}\n`,
+      `${JSON.stringify(
+        transitionEvent({
+          runId: 'run-petri-marking-snapshot',
+          runStatus: 'reports_initialized',
+          produced: ['run:slice_frontier'],
+          toStatus: 'reports_initialized',
+        }),
+      )}\n`,
       'utf8',
     );
     await writeFile(
@@ -916,16 +972,14 @@ describe('readRunDetail', () => {
     );
     await writeFile(
       join(runDir, 'petrinaut', 'events.jsonl'),
-      `${JSON.stringify({
-        kind: 'transition_fired',
-        runId: 'run-petri-marking-terminal-malformed',
-        runStatus: 'promotion_prepared',
-        transitionId: 'worktree_create',
-        subnetId: 'run',
-        step: 'worktree_create',
-        fromStatus: 'created',
-        toStatus: 'promotion_prepared',
-      })}\n${JSON.stringify({ kind: 'net_completed', runId: 'run-petri-marking-terminal-malformed', runStatus: 'promotion_prepared' })}\n`,
+      `${JSON.stringify(
+        transitionEvent({
+          runId: 'run-petri-marking-terminal-malformed',
+          runStatus: 'promotion_prepared',
+          produced: ['run:promotion_prepared'],
+          toStatus: 'promotion_prepared',
+        }),
+      )}\n${JSON.stringify({ kind: 'net_completed', runId: 'run-petri-marking-terminal-malformed', runStatus: 'promotion_prepared' })}\n`,
       'utf8',
     );
     await writeFile(
@@ -1161,16 +1215,14 @@ describe('readRunDetail', () => {
     );
     await writeFile(
       join(runDir, 'petrinaut', 'events.jsonl'),
-      `${JSON.stringify({
-        kind: 'transition_fired',
-        runId: 'run-petri-marking-stale',
-        runStatus: 'promotion_prepared',
-        transitionId: 'worktree_create',
-        subnetId: 'run',
-        step: 'worktree_create',
-        fromStatus: 'created',
-        toStatus: 'promotion_prepared',
-      })}\n${JSON.stringify({ kind: 'net_completed', runId: 'run-petri-marking-stale', runStatus: 'promotion_prepared' })}\n`,
+      `${JSON.stringify(
+        transitionEvent({
+          runId: 'run-petri-marking-stale',
+          runStatus: 'promotion_prepared',
+          produced: ['run:promotion_prepared'],
+          toStatus: 'promotion_prepared',
+        }),
+      )}\n${JSON.stringify({ kind: 'net_completed', runId: 'run-petri-marking-stale', runStatus: 'promotion_prepared' })}\n`,
       'utf8',
     );
     await writeFile(

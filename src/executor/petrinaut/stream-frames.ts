@@ -1,22 +1,22 @@
 import type {
-  PetriLiveExecutionExport,
-  PetriLiveMarking,
-  PetriLiveNetDefinition,
-  PetriLiveTransitionFiring,
-} from './live-export.js';
+  PetrinautReplayExport,
+  PetrinautReplayMarking,
+  PetrinautReplayNetDefinition,
+  PetrinautReplayTransitionFiring,
+} from './replay-export.js';
 
 export type PetrinautTerminalState = 'completed' | 'halted' | 'deadlocked';
 export type PetrinautRunState = 'running' | PetrinautTerminalState;
 
 export type PetrinautStreamFrame =
   | { readonly kind: 'status'; readonly state: PetrinautRunState; readonly reason?: string }
-  | { readonly kind: 'definition'; readonly definition: PetriLiveNetDefinition }
-  | { readonly kind: 'initial_state'; readonly initialState: PetriLiveMarking }
-  | { readonly kind: 'transition_firing'; readonly firing: PetriLiveTransitionFiring }
+  | { readonly kind: 'definition'; readonly definition: PetrinautReplayNetDefinition }
+  | { readonly kind: 'initial_state'; readonly initialState: PetrinautReplayMarking }
+  | { readonly kind: 'transition_firing'; readonly firing: PetrinautReplayTransitionFiring }
   | { readonly kind: 'terminal'; readonly state: PetrinautTerminalState; readonly reason?: string };
 
 export function projectPetrinautStreamFrames(args: {
-  readonly liveExport: PetriLiveExecutionExport;
+  readonly replayExport: PetrinautReplayExport;
   readonly terminal?: { readonly state: PetrinautTerminalState; readonly reason?: string };
 }): readonly PetrinautStreamFrame[] {
   return [
@@ -25,9 +25,9 @@ export function projectPetrinautStreamFrames(args: {
       state: args.terminal?.state ?? 'running',
       ...(args.terminal?.reason === undefined ? {} : { reason: args.terminal.reason }),
     },
-    { kind: 'definition', definition: args.liveExport.definition },
-    { kind: 'initial_state', initialState: args.liveExport.initialState },
-    ...args.liveExport.transitionFirings.map((firing) => ({ kind: 'transition_firing' as const, firing })),
+    { kind: 'definition', definition: args.replayExport.definition },
+    { kind: 'initial_state', initialState: args.replayExport.initialState },
+    ...args.replayExport.transitionFirings.map((firing) => ({ kind: 'transition_firing' as const, firing })),
     ...(args.terminal === undefined
       ? []
       : [
@@ -40,7 +40,7 @@ export function projectPetrinautStreamFrames(args: {
   ];
 }
 
-export function foldPetrinautStreamFrames(frames: readonly PetrinautStreamFrame[]): PetriLiveExecutionExport {
+export function foldPetrinautStreamFrames(frames: readonly PetrinautStreamFrame[]): PetrinautReplayExport {
   const definition = frames.find(
     (frame): frame is Extract<PetrinautStreamFrame, { kind: 'definition' }> => frame.kind === 'definition',
   )?.definition;

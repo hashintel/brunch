@@ -146,9 +146,9 @@ const BlockedStepSchema = Type.Object(
   { additionalProperties: false },
 );
 
-const PetrinautLiveMarkingSchema = Type.Record(Type.String(), Type.Integer({ minimum: 0 }));
+const PetrinautReplayMarkingSchema = Type.Record(Type.String(), Type.Integer({ minimum: 0 }));
 
-const PetrinautLiveInputArcSchema = Type.Object(
+const PetrinautReplayInputArcSchema = Type.Object(
   {
     placeId: Type.String(),
     weight: Type.Number({ exclusiveMinimum: 0 }),
@@ -157,7 +157,7 @@ const PetrinautLiveInputArcSchema = Type.Object(
   { additionalProperties: false },
 );
 
-const PetrinautLiveOutputArcSchema = Type.Object(
+const PetrinautReplayOutputArcSchema = Type.Object(
   {
     placeId: Type.String(),
     weight: Type.Number({ exclusiveMinimum: 0 }),
@@ -165,7 +165,7 @@ const PetrinautLiveOutputArcSchema = Type.Object(
   { additionalProperties: false },
 );
 
-const PetrinautLiveExportSchema = Type.Object(
+const PetrinautReplayExportSchema = Type.Object(
   {
     definition: Type.Object(
       {
@@ -192,8 +192,8 @@ const PetrinautLiveExportSchema = Type.Object(
             {
               id: Type.String(),
               name: Type.String(),
-              inputArcs: Type.Array(PetrinautLiveInputArcSchema),
-              outputArcs: Type.Array(PetrinautLiveOutputArcSchema),
+              inputArcs: Type.Array(PetrinautReplayInputArcSchema),
+              outputArcs: Type.Array(PetrinautReplayOutputArcSchema),
             },
             { additionalProperties: false },
           ),
@@ -201,13 +201,13 @@ const PetrinautLiveExportSchema = Type.Object(
       },
       { additionalProperties: false },
     ),
-    initialState: PetrinautLiveMarkingSchema,
+    initialState: PetrinautReplayMarkingSchema,
     transitionFirings: Type.Array(
       Type.Object(
         {
           transitionId: Type.String(),
-          input: PetrinautLiveMarkingSchema,
-          output: PetrinautLiveMarkingSchema,
+          input: PetrinautReplayMarkingSchema,
+          output: PetrinautReplayMarkingSchema,
         },
         { additionalProperties: false },
       ),
@@ -343,9 +343,8 @@ const ExecuteRunResultSchema = Type.Union([
         ),
       ),
       petriNet: Type.Optional(Type.Unknown({ description: 'Raw petrinaut/net.json when present.' })),
-      petrinautLiveExport: Type.Optional(PetrinautLiveExportSchema),
+      petrinautReplayExport: Type.Optional(PetrinautReplayExportSchema),
       petrinautStreamPath: Type.Optional(Type.String()),
-      petrinautLauncherTemplateUrl: Type.Optional(Type.String()),
       petrinautLaunchPath: Type.Optional(Type.String()),
     },
     { additionalProperties: false },

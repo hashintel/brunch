@@ -4,12 +4,10 @@ import { dirname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { readRunDetail, petrinautStreamPathForRun } from '../executor/observer-read.js';
-import { subscribePetriEvents } from '../executor/petri-events.js';
 import { composePetrinautLauncherUrl, resolvePetrinautUrl } from '../executor/petrinaut/launcher-url.js';
-import { serializePetrinautSseFrame, serializePetrinautSseFrames } from '../executor/petrinaut/sse.js';
+import { serializePetrinautSseFrames } from '../executor/petrinaut/sse.js';
 import {
   projectPetrinautStreamFrames,
-  type PetrinautStreamFrame,
   type PetrinautTerminalState,
 } from '../executor/petrinaut/stream-frames.js';
 import type { WorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
@@ -50,7 +48,7 @@ export async function startWebHost(options: WebHostOptions): Promise<RunningWebH
     }
 
     if (request.method === 'GET' && isPetrinautStreamRequest(request.url)) {
-      void servePetrinautStream(response, options.cwd, request.url);
+      void servePetrinautStream(response, options.cwd, request.url, request.headers.origin);
       return;
     }
 
@@ -169,7 +167,7 @@ async function servePetrinautLaunch(
     return;
   }
   const detail = await readRunDetail(cwd, runId).catch(() => undefined);
-  if (detail === undefined || 'unreadable' in detail || detail.petrinautLiveExport === undefined) {
+  if (detail === undefined || 'unreadable' in detail || detail.petrinautReplayExport === undefined) {
     response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
     response.end('Petrinaut stream not available');
     return;
@@ -208,6 +206,7 @@ async function servePetrinautStream(
   response: ServerResponse,
   cwd: string,
   requestUrl: string | undefined,
+  origin: string | undefined,
 ): Promise<void> {
   const runId = petrinautStreamRunId(requestUrl);
   if (runId === undefined) {
@@ -216,96 +215,33 @@ async function servePetrinautStream(
     return;
   }
   const detail = await readRunDetail(cwd, runId).catch(() => undefined);
-  if (detail === undefined || 'unreadable' in detail || detail.petrinautLiveExport === undefined) {
+  if (detail === undefined || 'unreadable' in detail || detail.petrinautReplayExport === undefined) {
     response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
     response.end('Petrinaut stream not available');
     return;
   }
 
+  const corsOrigin = allowedPetrinautOrigin(origin);
   response.writeHead(200, {
     'content-type': 'text/event-stream',
     'cache-control': 'no-cache',
-    connection: 'keep-alive',
-    'access-control-allow-origin': '*',
+    connection: 'close',
+    vary: 'Origin',
+    ...(corsOrigin === undefined ? {} : { 'access-control-allow-origin': corsOrigin }),
   });
   const terminal = petrinautTerminalFromDetail(detail);
   const initialFrames = projectPetrinautStreamFrames({
-    liveExport: detail.petrinautLiveExport,
+    replayExport: detail.petrinautReplayExport,
     ...(terminal === undefined ? {} : { terminal }),
   });
-  response.write(serializePetrinautSseFrames(initialFrames));
-  if (terminal !== undefined) {
-    response.end();
-    return;
-  }
-
-  let sentFiringCount = detail.petrinautLiveExport.transitionFirings.length;
-  let terminalSent = false;
-  let sendQueue = Promise.resolve();
-  const unsubscribe = subscribePetriEvents({
-    cwd,
-    runId,
-    listener: () => {
-      sendQueue = sendQueue.then(() =>
-        sendNewPetrinautFrames({
-          response,
-          cwd,
-          runId,
-          sentFiringCount,
-          terminalSent,
-          onSent: (state) => {
-            sentFiringCount = state.sentFiringCount;
-            terminalSent = state.terminalSent;
-          },
-        }).catch(() => {
-          // A failed observer refresh must not poison later event delivery attempts.
-        }),
-      );
-    },
-  });
-  response.on('close', unsubscribe);
+  response.end(serializePetrinautSseFrames(initialFrames));
 }
 
-async function sendNewPetrinautFrames(args: {
-  readonly response: ServerResponse;
-  readonly cwd: string;
-  readonly runId: string;
-  readonly sentFiringCount: number;
-  readonly terminalSent: boolean;
-  readonly onSent: (state: { readonly sentFiringCount: number; readonly terminalSent: boolean }) => void;
-}): Promise<void> {
-  if (args.response.writableEnded) return;
-  const detail = await readRunDetail(args.cwd, args.runId).catch(() => undefined);
-  if (detail === undefined || 'unreadable' in detail || detail.petrinautLiveExport === undefined) return;
-  const terminal = petrinautTerminalFromDetail(detail);
-  const frames = projectPetrinautStreamFrames({
-    liveExport: detail.petrinautLiveExport,
-    ...(terminal === undefined ? {} : { terminal }),
-  });
-  const nextFrames = newPetrinautFrames(frames, args.sentFiringCount, args.terminalSent);
-  for (const frame of nextFrames) args.response.write(serializePetrinautSseFrame(frame));
-  const sentFiringCount = detail.petrinautLiveExport.transitionFirings.length;
-  const terminalSent = args.terminalSent || nextFrames.some((frame) => frame.kind === 'terminal');
-  args.onSent({ sentFiringCount, terminalSent });
-  if (terminalSent && !args.response.writableEnded) args.response.end();
-}
-
-function newPetrinautFrames(
-  frames: readonly PetrinautStreamFrame[],
-  sentFiringCount: number,
-  terminalSent: boolean,
-): readonly PetrinautStreamFrame[] {
-  let seenFirings = 0;
-  const next: PetrinautStreamFrame[] = [];
-  for (const frame of frames) {
-    if (frame.kind === 'transition_firing') {
-      if (seenFirings >= sentFiringCount) next.push(frame);
-      seenFirings += 1;
-    } else if (frame.kind === 'terminal' && !terminalSent) {
-      next.push(frame);
-    }
-  }
-  return next;
+function allowedPetrinautOrigin(origin: string | undefined): string | undefined {
+  if (origin === undefined) return undefined;
+  const resolved = resolvePetrinautUrl({ env: process.env });
+  if ('error' in resolved) return undefined;
+  return new URL(resolved.url).origin === origin ? origin : undefined;
 }
 
 function isPetrinautStreamRequest(requestUrl: string | undefined): boolean {
@@ -337,8 +273,17 @@ function petrinautStreamRunId(requestUrl: string | undefined): string | undefine
 }
 
 function petrinautTerminalFromDetail(detail: {
+  readonly status?: string;
+  readonly abandonReason?: string;
   readonly petriProjection?: { readonly terminalEventKind?: string; readonly haltedReason?: string };
 }): { readonly state: PetrinautTerminalState; readonly reason?: string } | undefined {
+  if (detail.status === 'promotion_prepared') return { state: 'completed' };
+  if (detail.status === 'abandoned') {
+    return {
+      state: 'halted',
+      ...(detail.abandonReason === undefined ? {} : { reason: detail.abandonReason }),
+    };
+  }
   switch (detail.petriProjection?.terminalEventKind) {
     case 'net_completed':
       return { state: 'completed' };

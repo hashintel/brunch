@@ -55,6 +55,110 @@ export interface SdcpnFile {
   readonly metrics: readonly never[];
 }
 
+export function parseSdcpnFile(value: unknown): SdcpnFile | undefined {
+  if (!isRecord(value) || !Number.isInteger(value.version) || typeof value.title !== 'string')
+    return undefined;
+  if (!isRecord(value.meta) || typeof value.meta.generator !== 'string') return undefined;
+  if (value.meta.generatorVersion !== undefined && typeof value.meta.generatorVersion !== 'string') {
+    return undefined;
+  }
+  if (
+    !Array.isArray(value.places) ||
+    !Array.isArray(value.transitions) ||
+    !Array.isArray(value.types) ||
+    !Array.isArray(value.differentialEquations) ||
+    !Array.isArray(value.parameters) ||
+    !Array.isArray(value.scenarios) ||
+    !Array.isArray(value.metrics)
+  ) {
+    return undefined;
+  }
+  if (
+    value.types.length > 0 ||
+    value.differentialEquations.length > 0 ||
+    value.parameters.length > 0 ||
+    value.metrics.length > 0
+  ) {
+    return undefined;
+  }
+
+  const placeIds = new Set<string>();
+  for (const place of value.places) {
+    if (
+      !isRecord(place) ||
+      typeof place.id !== 'string' ||
+      typeof place.name !== 'string' ||
+      place.colorId !== null ||
+      place.dynamicsEnabled !== false ||
+      place.differentialEquationId !== null ||
+      placeIds.has(place.id)
+    ) {
+      return undefined;
+    }
+    placeIds.add(place.id);
+  }
+
+  const transitionIds = new Set<string>();
+  for (const transition of value.transitions) {
+    if (
+      !isRecord(transition) ||
+      typeof transition.id !== 'string' ||
+      typeof transition.name !== 'string' ||
+      transitionIds.has(transition.id) ||
+      !Array.isArray(transition.inputArcs) ||
+      !Array.isArray(transition.outputArcs) ||
+      (transition.lambdaType !== 'predicate' && transition.lambdaType !== 'stochastic') ||
+      typeof transition.lambdaCode !== 'string' ||
+      typeof transition.transitionKernelCode !== 'string'
+    ) {
+      return undefined;
+    }
+    transitionIds.add(transition.id);
+    for (const arc of transition.inputArcs) {
+      if (
+        !isRecord(arc) ||
+        typeof arc.placeId !== 'string' ||
+        !placeIds.has(arc.placeId) ||
+        !isPositiveInteger(arc.weight) ||
+        (arc.type !== 'standard' && arc.type !== 'inhibitor')
+      ) {
+        return undefined;
+      }
+    }
+    for (const arc of transition.outputArcs) {
+      if (
+        !isRecord(arc) ||
+        typeof arc.placeId !== 'string' ||
+        !placeIds.has(arc.placeId) ||
+        !isPositiveInteger(arc.weight)
+      ) {
+        return undefined;
+      }
+    }
+  }
+
+  for (const scenario of value.scenarios) {
+    if (
+      !isRecord(scenario) ||
+      typeof scenario.id !== 'string' ||
+      typeof scenario.name !== 'string' ||
+      !Array.isArray(scenario.scenarioParameters) ||
+      scenario.scenarioParameters.length > 0 ||
+      !isStringRecord(scenario.parameterOverrides) ||
+      !isRecord(scenario.initialState) ||
+      scenario.initialState.type !== 'per_place' ||
+      !isStringRecord(scenario.initialState.content)
+    ) {
+      return undefined;
+    }
+    for (const [placeId, count] of Object.entries(scenario.initialState.content)) {
+      if (!placeIds.has(placeId) || !/^[0-9]+$/u.test(count)) return undefined;
+    }
+  }
+
+  return value as unknown as SdcpnFile;
+}
+
 export function petriTopologyToSdcpnFile(args: {
   readonly runId: string;
   readonly topology: ExecutorTopology;
@@ -133,4 +237,16 @@ function pascalCaseLetters(source: string): string {
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join('');
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  return isRecord(value) && Object.values(value).every((entry) => typeof entry === 'string');
 }

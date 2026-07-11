@@ -2,7 +2,6 @@ import type { QueryClient, QueryKey } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
 import { parsePetriProjection } from '../../executor/petri-projection.js';
-import { parsePetriLiveExecutionExport } from '../../executor/petrinaut/live-export.js';
 import { queryKeys } from '../query-keys.js';
 import type { WebSocketRpcClient, WebSocketRpcNotification } from '../rpc-client.js';
 
@@ -17,9 +16,6 @@ type ProductUpdate = {
   readonly petriProjectionReplayReason?: unknown;
   readonly petriReadySteps?: unknown;
   readonly petriBlockedSteps?: unknown;
-  readonly petrinautLiveExport?: unknown;
-  readonly petrinautLauncherTemplateUrl?: unknown;
-  readonly petrinautLaunchPath?: unknown;
 };
 
 export function useBrunchUpdateSubscription(queryClient: QueryClient, rpcClient: WebSocketRpcClient): void {
@@ -146,10 +142,7 @@ function patchExecuteRunDetail(queryClient: QueryClient, update: ProductUpdate):
     !('petriProjectionSource' in update) &&
     !('petriProjectionReplayReason' in update) &&
     !('petriReadySteps' in update) &&
-    !('petriBlockedSteps' in update) &&
-    !('petrinautLiveExport' in update) &&
-    !('petrinautLauncherTemplateUrl' in update) &&
-    !('petrinautLaunchPath' in update)
+    !('petriBlockedSteps' in update)
   ) {
     return;
   }
@@ -194,29 +187,6 @@ function patchExecuteRunDetail(queryClient: QueryClient, update: ProductUpdate):
       if (update.petriBlockedSteps === null) delete next.petriBlockedSteps;
       else if (isBlockedStepArray(update.petriBlockedSteps))
         next.petriBlockedSteps = update.petriBlockedSteps;
-    }
-    if ('petrinautLiveExport' in update) {
-      if (update.petrinautLiveExport === null) {
-        delete next.petrinautLiveExport;
-        delete next.petrinautStreamPath;
-        delete next.petrinautLauncherTemplateUrl;
-        delete next.petrinautLaunchPath;
-      } else {
-        const parsedLiveExport = parsePetriLiveExecutionExport(update.petrinautLiveExport);
-        if (parsedLiveExport === undefined) return next;
-        next.petrinautLiveExport = parsedLiveExport;
-        next.petrinautStreamPath = `/petrinaut/stream?runId=${encodeURIComponent(runId)}`;
-      }
-    }
-    if ('petrinautLauncherTemplateUrl' in update) {
-      if (update.petrinautLauncherTemplateUrl === null) delete next.petrinautLauncherTemplateUrl;
-      else if (typeof update.petrinautLauncherTemplateUrl === 'string')
-        next.petrinautLauncherTemplateUrl = update.petrinautLauncherTemplateUrl;
-    }
-    if ('petrinautLaunchPath' in update) {
-      if (update.petrinautLaunchPath === null) delete next.petrinautLaunchPath;
-      else if (typeof update.petrinautLaunchPath === 'string')
-        next.petrinautLaunchPath = update.petrinautLaunchPath;
     }
     return next;
   });

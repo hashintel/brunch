@@ -192,13 +192,13 @@ function RunDetailPage() {
             replayReason={detail.petriProjectionReplayReason}
           />
         )}
-        {detail.petrinautLiveExport === undefined ? null : (
-          <PetrinautLiveExportBlock
+        {detail.petrinautReplayExport === undefined ? null : (
+          <PetrinautReplayExportBlock
             streamPath={
               detail.petrinautStreamPath ?? `/petrinaut/stream?runId=${encodeURIComponent(detail.runId)}`
             }
             launchPath={detail.petrinautLaunchPath}
-            liveExport={detail.petrinautLiveExport}
+            replayExport={detail.petrinautReplayExport}
           />
         )}
         {detail.petriNet === undefined ? null : <PetriRawBlock net={detail.petriNet} />}
@@ -432,21 +432,21 @@ function PetriRawBlock({ net }: { net: unknown }) {
   );
 }
 
-function PetrinautLiveExportBlock({
+function PetrinautReplayExportBlock({
   streamPath,
   launchPath,
-  liveExport,
+  replayExport,
 }: {
   streamPath: string;
   launchPath: string | undefined;
-  liveExport: NonNullable<RunDetail['petrinautLiveExport']>;
+  replayExport: NonNullable<RunDetail['petrinautReplayExport']>;
 }) {
-  const markedPlaces = Object.keys(liveExport.initialState).length;
+  const markedPlaces = Object.keys(replayExport.initialState).length;
   return (
     <section className="border-rule flex flex-col gap-2 rounded-xl border bg-white p-4 shadow-[var(--shadow-card)]">
-      <p className="text-hint font-mono text-xs">Petrinaut live export</p>
+      <p className="text-hint font-mono text-xs">Petrinaut replay export</p>
       <p className="text-sub text-xs">
-        {`${liveExport.definition.places.length} places • ${liveExport.definition.transitions.length} transitions • ${liveExport.transitionFirings.length} firings`}
+        {`${replayExport.definition.places.length} places • ${replayExport.definition.transitions.length} transitions • ${replayExport.transitionFirings.length} firings`}
       </p>
       <p className="text-sub text-xs">{`${markedPlaces} initially marked places`}</p>
       <a className="text-link font-mono text-xs" href={streamPath}>

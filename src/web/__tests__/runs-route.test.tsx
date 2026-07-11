@@ -200,7 +200,7 @@ describe('run detail route', () => {
     expect(screen.getByText(/petri-place-1/u)).toBeTruthy();
   });
 
-  it('renders the derived Petrinaut live export summary when present', async () => {
+  it('renders the derived Petrinaut replay export summary when present', async () => {
     window.history.pushState(null, '', '/runs/run-1');
     const runtime = createBrunchWebRuntime({
       rpcClient: rpcClient({
@@ -209,9 +209,7 @@ describe('run detail route', () => {
           status: 'worktree_created',
           petrinautStreamPath: '/petrinaut/stream?runId=run-1',
           petrinautLaunchPath: '/petrinaut/launch?runId=run-1',
-          petrinautLauncherTemplateUrl:
-            'https://petrinaut.example/brunch?runId=run-1&sse=%2Fpetrinaut%2Fstream%3FrunId%3Drun-1',
-          petrinautLiveExport: {
+          petrinautReplayExport: {
             definition: {
               version: 1,
               meta: { generator: 'brunch', generatorVersion: 'executor-topology-v1' },
@@ -244,7 +242,7 @@ describe('run detail route', () => {
 
     render(<BrunchWebApp runtime={runtime} />);
 
-    expect(await screen.findByText('Petrinaut live export')).toBeTruthy();
+    expect(await screen.findByText('Petrinaut replay export')).toBeTruthy();
     expect(screen.getByText('2 places • 1 transitions • 1 firings')).toBeTruthy();
     expect(screen.getByText('1 initially marked places')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'SSE replay endpoint' }).getAttribute('href')).toBe(

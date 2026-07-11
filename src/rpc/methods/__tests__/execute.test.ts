@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import type { ExecutorNetEvent } from '../../../executor/orchestrate-topology.js';
 import { planFilePath, planProvenancePath } from '../../../executor/plan-file.js';
 import { runDirPath, runMetadataPath, type RunMetadata } from '../../../executor/run.js';
 import type { GraphEdge } from '../../../graph/schema/edges.js';
@@ -56,6 +57,25 @@ function request(name: string, params?: unknown): JsonRpcRequest {
     method: name,
     ...(params === undefined ? {} : { params }),
   } as JsonRpcRequest;
+}
+
+function transitionEvent(
+  overrides: Partial<Extract<ExecutorNetEvent, { readonly kind: 'transition_fired' }>> = {},
+): Extract<ExecutorNetEvent, { readonly kind: 'transition_fired' }> {
+  return {
+    kind: 'transition_fired',
+    runId: 'run-1',
+    runStatus: 'worktree_created',
+    transitionId: 'worktree_create',
+    subnetId: 'run',
+    step: 'worktree_create',
+    contract: { kind: 'mechanical', lane: 'run' },
+    consumed: ['run:created'],
+    produced: ['run:worktree_created'],
+    fromStatus: 'created',
+    toStatus: 'worktree_created',
+    ...overrides,
+  };
 }
 
 async function writeRun(
@@ -475,16 +495,20 @@ describe('execute.run', () => {
     await mkdir(join(runDirPath(cwd, 'run-1'), 'petrinaut'), { recursive: true });
     await writeFile(
       join(runDirPath(cwd, 'run-1'), 'petrinaut', 'events.jsonl'),
-      `${JSON.stringify({
-        kind: 'transition_fired',
-        runId: 'run-1',
-        runStatus: 'slice_started',
-        transitionId: 'slice_start:task-1',
-        subnetId: 'slice:task-1',
-        step: 'slice_start',
-        fromStatus: 'reports_initialized',
-        toStatus: 'slice_started',
-      })}\n`,
+      `${JSON.stringify(
+        transitionEvent({
+          runId: 'run-1',
+          runStatus: 'slice_started',
+          transitionId: 'slice_start:task-1',
+          subnetId: 'slice:task-1',
+          step: 'slice_start',
+          contract: { kind: 'structural', lane: 'slice' },
+          consumed: ['run:slice_frontier'],
+          produced: ['slice:task-1:started'],
+          fromStatus: 'reports_initialized',
+          toStatus: 'slice_started',
+        }),
+      )}\n`,
       'utf8',
     );
 
@@ -538,16 +562,14 @@ describe('execute.run', () => {
     );
     await writeFile(
       join(runDirPath(cwd, 'run-1'), 'petrinaut', 'events.jsonl'),
-      `${JSON.stringify({
-        kind: 'transition_fired',
-        runId: 'run-1',
-        runStatus: 'promotion_prepared',
-        transitionId: 'worktree_create',
-        subnetId: 'run',
-        step: 'worktree_create',
-        fromStatus: 'created',
-        toStatus: 'promotion_prepared',
-      })}\n${JSON.stringify({ kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' })}\n`,
+      `${JSON.stringify(
+        transitionEvent({
+          runId: 'run-1',
+          runStatus: 'promotion_prepared',
+          produced: ['run:promotion_prepared'],
+          toStatus: 'promotion_prepared',
+        }),
+      )}\n${JSON.stringify({ kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' })}\n`,
       'utf8',
     );
 
@@ -572,7 +594,7 @@ describe('execute.run', () => {
     });
   });
 
-  it('returns the derived Petrinaut live export without exposing SDCPN artifact paths', async () => {
+  it('returns the derived Petrinaut replay export without exposing SDCPN artifact paths', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-petrinaut-live-'));
     await writeRun(cwd, 'run-1', { status: 'worktree_created' });
     await mkdir(join(runDirPath(cwd, 'run-1'), 'petrinaut'), { recursive: true });
@@ -627,18 +649,11 @@ describe('execute.run', () => {
     );
     await writeFile(
       join(runDirPath(cwd, 'run-1'), 'petrinaut', 'events.jsonl'),
-      `${JSON.stringify({
-        kind: 'transition_fired',
-        runId: 'run-1',
-        runStatus: 'worktree_created',
-        transitionId: 'worktree_create',
-        subnetId: 'run',
-        step: 'worktree_create',
-        consumed: ['run:created'],
-        produced: ['run:worktree_created'],
-        fromStatus: 'created',
-        toStatus: 'worktree_created',
-      })}\n`,
+      `${JSON.stringify(
+        transitionEvent({
+          runId: 'run-1',
+        }),
+      )}\n`,
       'utf8',
     );
 
@@ -649,7 +664,7 @@ describe('execute.run', () => {
 
     expect(response).toMatchObject({
       result: {
-        petrinautLiveExport: {
+        petrinautReplayExport: {
           initialState: { 'run:created': 1 },
           transitionFirings: [
             {
@@ -817,9 +832,6 @@ describe('execute replanning methods', () => {
         petriProjectionReplayReason: null,
         petriReadySteps: [{ kind: 'populate' }],
         petriBlockedSteps: [],
-        petrinautLiveExport: null,
-        petrinautLauncherTemplateUrl: null,
-        petrinautLaunchPath: null,
       },
     ]);
   });
@@ -897,9 +909,6 @@ describe('execute replanning methods', () => {
         petriProjectionReplayReason: null,
         petriReadySteps: null,
         petriBlockedSteps: null,
-        petrinautLiveExport: null,
-        petrinautLauncherTemplateUrl: null,
-        petrinautLaunchPath: null,
       },
     ]);
   });
@@ -934,16 +943,14 @@ describe('execute replanning methods', () => {
     );
     await writeFile(
       join(runDirPath(cwd, 'run-1'), 'petrinaut', 'events.jsonl'),
-      `${JSON.stringify({
-        kind: 'transition_fired',
-        runId: 'run-1',
-        runStatus: 'agent_result_ingested',
-        transitionId: 'worktree_create',
-        subnetId: 'run',
-        step: 'worktree_create',
-        fromStatus: 'created',
-        toStatus: 'agent_result_ingested',
-      })}\n`,
+      `${JSON.stringify(
+        transitionEvent({
+          runId: 'run-1',
+          runStatus: 'agent_result_ingested',
+          produced: ['run:agent_result_ingested'],
+          toStatus: 'agent_result_ingested',
+        }),
+      )}\n`,
       'utf8',
     );
     await writeFile(
@@ -986,9 +993,6 @@ describe('execute replanning methods', () => {
         petriProjectionReplayReason: 'snapshot_stale',
         petriReadySteps: null,
         petriBlockedSteps: null,
-        petrinautLiveExport: null,
-        petrinautLauncherTemplateUrl: null,
-        petrinautLaunchPath: null,
       },
     ]);
   });

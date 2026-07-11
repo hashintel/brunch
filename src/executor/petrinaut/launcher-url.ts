@@ -1,19 +1,13 @@
 export interface ResolvePetrinautUrlInput {
-  readonly cliFlag?: string;
   readonly env: { readonly PETRINAUT_URL?: string };
 }
 
 export type ResolvePetrinautUrlResult = { readonly url: string } | { readonly error: string };
 
-export const PETRINAUT_URL_MISSING_MESSAGE =
-  'Petrinaut URL required: set PETRINAUT_URL or pass --petrinaut-url=<url>';
-export const PETRINAUT_URL_INVALID_MESSAGE =
-  'Petrinaut URL must be an absolute http(s) URL: set PETRINAUT_URL or pass --petrinaut-url=<url>';
+export const PETRINAUT_URL_MISSING_MESSAGE = 'Petrinaut URL required: set PETRINAUT_URL';
+export const PETRINAUT_URL_INVALID_MESSAGE = 'Petrinaut URL must be an absolute http(s) URL';
 
 export function resolvePetrinautUrl(input: ResolvePetrinautUrlInput): ResolvePetrinautUrlResult {
-  const fromCli = input.cliFlag?.trim();
-  if (fromCli) return resolveAbsoluteHttpUrl(fromCli);
-
   const fromEnv = input.env.PETRINAUT_URL?.trim();
   if (fromEnv) return resolveAbsoluteHttpUrl(fromEnv);
 

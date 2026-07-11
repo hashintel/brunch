@@ -1,6 +1,5 @@
 import type { BlockedStep, ReadyStep } from '../executor/orchestrate-topology.js';
 import type { PetriProjection } from '../executor/petri-projection.js';
-import type { PetriLiveExecutionExport } from '../executor/petrinaut/live-export.js';
 
 export const BRUNCH_UPDATED_METHOD = 'brunch.updated';
 
@@ -27,9 +26,6 @@ export interface ProductUpdate {
   readonly petriProjectionReplayReason?: 'snapshot_missing_or_unreadable' | 'snapshot_stale' | null;
   readonly petriReadySteps?: readonly ReadyStep[] | null;
   readonly petriBlockedSteps?: readonly BlockedStep[] | null;
-  readonly petrinautLiveExport?: PetriLiveExecutionExport | null;
-  readonly petrinautLauncherTemplateUrl?: string | null;
-  readonly petrinautLaunchPath?: string | null;
 }
 
 export interface ProductUpdateNotification {
@@ -101,9 +97,6 @@ export interface ExecuteRunProductUpdateHints {
   readonly petriProjectionReplayReason?: 'snapshot_missing_or_unreadable' | 'snapshot_stale' | null;
   readonly petriReadySteps?: readonly ReadyStep[] | null;
   readonly petriBlockedSteps?: readonly BlockedStep[] | null;
-  readonly petrinautLiveExport?: PetriLiveExecutionExport | null;
-  readonly petrinautLauncherTemplateUrl?: string | null;
-  readonly petrinautLaunchPath?: string | null;
 }
 
 export function executeRunProductUpdateHintsFromDetail(detail: {
@@ -112,9 +105,6 @@ export function executeRunProductUpdateHintsFromDetail(detail: {
   readonly petriProjectionReplayReason?: 'snapshot_missing_or_unreadable' | 'snapshot_stale';
   readonly petriReadySteps?: readonly ReadyStep[];
   readonly petriBlockedSteps?: readonly BlockedStep[];
-  readonly petrinautLiveExport?: PetriLiveExecutionExport;
-  readonly petrinautLauncherTemplateUrl?: string;
-  readonly petrinautLaunchPath?: string;
 }): ExecuteRunProductUpdateHints {
   return {
     petriProjection: detail.petriProjection ?? null,
@@ -122,9 +112,6 @@ export function executeRunProductUpdateHintsFromDetail(detail: {
     petriProjectionReplayReason: detail.petriProjectionReplayReason ?? null,
     petriReadySteps: detail.petriReadySteps ?? null,
     petriBlockedSteps: detail.petriBlockedSteps ?? null,
-    petrinautLiveExport: detail.petrinautLiveExport ?? null,
-    petrinautLauncherTemplateUrl: detail.petrinautLauncherTemplateUrl ?? null,
-    petrinautLaunchPath: detail.petrinautLaunchPath ?? null,
   };
 }
 
@@ -149,15 +136,6 @@ export function executeRunProductUpdates(
               : { petriProjectionReplayReason: hints.petriProjectionReplayReason }),
             ...(hints?.petriReadySteps === undefined ? {} : { petriReadySteps: hints.petriReadySteps }),
             ...(hints?.petriBlockedSteps === undefined ? {} : { petriBlockedSteps: hints.petriBlockedSteps }),
-            ...(hints?.petrinautLiveExport === undefined
-              ? {}
-              : { petrinautLiveExport: hints.petrinautLiveExport }),
-            ...(hints?.petrinautLauncherTemplateUrl === undefined
-              ? {}
-              : { petrinautLauncherTemplateUrl: hints.petrinautLauncherTemplateUrl }),
-            ...(hints?.petrinautLaunchPath === undefined
-              ? {}
-              : { petrinautLaunchPath: hints.petrinautLaunchPath }),
           } as const,
         ]),
   ];
