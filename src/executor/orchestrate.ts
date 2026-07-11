@@ -24,7 +24,7 @@ import {
   type ExecutorPetriRuntime,
 } from './petri-runtime.js';
 import { classifyDriveTerminal } from './petri-terminal.js';
-import { preparePetriObservation } from './petri.js';
+import { PetriObservationInputError, preparePetriObservation } from './petri.js';
 import { readRunMetadata, runMetadataPath, type RunMetadata } from './run.js';
 import type { SourcePolicyKind } from './source-policy.js';
 import type { VerifyStreamEvent } from './test-result.js';
@@ -329,8 +329,14 @@ export async function drive(
       return { status: 'completed', runStatus: state.status };
     }
 
-    const plan = await readPetriRuntimePlan(ctx.cwd, state);
+    let plan = await readPetriRuntimePlan(ctx.cwd, state);
     const requiredPlanStep = schedulerPlanRequiredStep(state);
+    const observationPreparationStep =
+      state.status === 'created'
+        ? 'worktree_create'
+        : state.status === 'worktree_created'
+          ? 'populate'
+          : undefined;
     if (plan === undefined && requiredPlanStep) {
       const terminal = classifyDriveTerminal({
         kind: 'step_halted',
@@ -342,12 +348,23 @@ export async function drive(
       await emitNetEvent(ctx, terminal.event);
       return terminal.outcome;
     }
-    if (!observationPreparationAttempted && plan !== undefined) {
+    if (!observationPreparationAttempted && plan !== undefined && observationPreparationStep !== undefined) {
       observationPreparationAttempted = true;
       try {
-        await preparePetriObservation({ cwd: ctx.cwd, runId: ctx.runId });
-      } catch {
-        // Observer artifact failures never affect lifecycle authority.
+        plan = await preparePetriObservation({ cwd: ctx.cwd, runId: ctx.runId });
+      } catch (error) {
+        const terminal = classifyDriveTerminal({
+          kind: 'step_halted',
+          runId: ctx.runId,
+          runStatus: state.status,
+          step: observationPreparationStep,
+          reason:
+            error instanceof PetriObservationInputError
+              ? 'petri_input_unreadable'
+              : 'petrinaut_observation_unavailable',
+        });
+        await emitNetEvent(ctx, terminal.event);
+        return terminal.outcome;
       }
     }
     const runtimeResult = await materializeDriveRuntime({ ctx, state, plan });

@@ -100,7 +100,7 @@ export interface RunDetail extends RunSummary {
   readonly petriNet?: unknown;
   /** Derived Petrinaut replay payload from net.sdcpn.json + the complete Petri event journal. */
   readonly petrinautReplayExport?: PetrinautReplayExport;
-  /** Relative SSE endpoint for the finite Petrinaut replay export. */
+  /** Relative replay-backed SSE endpoint; active same-process runs continue through terminal state. */
   readonly petrinautStreamPath?: string;
   /** Relative Brunch endpoint that redirects to the configured Petrinaut launcher URL. */
   readonly petrinautLaunchPath?: string;

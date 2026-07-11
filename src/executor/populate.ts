@@ -1,6 +1,7 @@
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
+import { petriPlanSnapshotPath } from './petri-plan-snapshot.js';
 import { planProvenancePath } from './plan-file.js';
 import { runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 import { worktreeDirPath } from './worktree.js';
@@ -83,7 +84,8 @@ export async function populateWorktree(args: {
   };
 
   await mkdir(destinationDir, { recursive: true });
-  await writeFile(destination, await readFile(metadata.planPath, 'utf8'), 'utf8');
+  const frozenPlan = await optionalReadFile(petriPlanSnapshotPath(args.cwd, args.runId));
+  await writeFile(destination, frozenPlan ?? (await readFile(metadata.planPath, 'utf8')), 'utf8');
   if (provenance !== undefined) {
     await writeFile(provenanceDestination, provenance, 'utf8');
   }

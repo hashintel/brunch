@@ -15,7 +15,9 @@ import {
 import type { ExecutionPorts } from '../../executor/execution-ports.js';
 import { drive } from '../../executor/orchestrate.js';
 import { appendPetriEvent } from '../../executor/petri-events.js';
+import { preparePetriObservation } from '../../executor/petri.js';
 import { planFilePath } from '../../executor/plan-file.js';
+import { abandonRun } from '../../executor/run-abandon.js';
 import { createRun } from '../../executor/run.js';
 import { runDirPath, runMetadataPath, type RunMetadata } from '../../executor/run.js';
 import { runCreateOnlyMutation } from '../../graph/__tests__/support/create-only-mutation.js';
@@ -1018,22 +1020,7 @@ describe('web host', () => {
       'utf8',
     );
     await createRun({ cwd, specId: '42', runId: 'run-1' });
-    let releaseWorktree!: () => void;
-    const worktreeReleased = new Promise<void>((resolve) => {
-      releaseWorktree = resolve;
-    });
-    let worktreeStarted!: () => void;
-    const worktreeStart = new Promise<void>((resolve) => {
-      worktreeStarted = resolve;
-    });
-    const underlying = createFakeGitWorktreePort();
-    const gitWorktree = createFakeGitWorktreePort(async (args) => {
-      worktreeStarted();
-      await worktreeReleased;
-      return underlying.create(args);
-    });
-    const driven = drive({ cwd, runId: 'run-1', ports: executorPorts(gitWorktree) });
-    await worktreeStart;
+    await preparePetriObservation({ cwd, runId: 'run-1' });
     const host = await startWebHost({ cwd, port: 0 });
     try {
       const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
@@ -1043,7 +1030,11 @@ describe('web host', () => {
       expect(first.done).toBe(false);
       let body = decoder.decode(first.value);
 
-      releaseWorktree();
+      const driven = drive({
+        cwd,
+        runId: 'run-1',
+        ports: executorPorts(createFakeGitWorktreePort()),
+      });
       await expect(driven).resolves.toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
       for (;;) {
         const next = await reader.read();
@@ -1059,10 +1050,17 @@ describe('web host', () => {
         'initial_state',
       ]);
       expect(firings[0]?.data).toMatchObject({ transitionId: 'worktree_create' });
-      expect(firings.at(-1)?.data).toMatchObject({ transitionId: 'run:finish' });
+      expect(
+        firings
+          .slice(-2)
+          .map((frame) =>
+            typeof frame.data === 'object' && frame.data !== null && 'transitionId' in frame.data
+              ? frame.data.transitionId
+              : undefined,
+          ),
+      ).toEqual(['promotion', 'run:finish']);
       expect(frames.at(-1)).toEqual({ event: 'terminal', data: { state: 'completed' } });
     } finally {
-      releaseWorktree();
       await host.close();
     }
   });
@@ -1083,6 +1081,94 @@ describe('web host', () => {
 
     await host.close();
     await expect(reader.read()).resolves.toMatchObject({ done: true });
+  });
+
+  it('wakes an active Petrinaut stream when the run is abandoned without a journal append', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-abandon-'));
+    await writePetrinautReplayRun(cwd, 'run-1', { terminal: false, status: 'worktree_created' });
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      const first = await reader.read();
+      let body = decoder.decode(first.value);
+
+      await abandonRun({ cwd, runId: 'run-1', reason: 'operator stopped run' });
+      for (;;) {
+        const next = await reader.read();
+        if (next.done) break;
+        body += decoder.decode(next.value);
+      }
+      const frames = parseSse(body);
+
+      expect(frames.at(-2)).toMatchObject({
+        event: 'transition_firing',
+        data: { transitionId: 'run:finish', output: { 'run:halted': 1 } },
+      });
+      expect(frames.at(-1)).toEqual({
+        event: 'terminal',
+        data: { state: 'halted', reason: 'operator stopped run' },
+      });
+    } finally {
+      await host.close();
+    }
+  });
+
+  it('closes an active stream when a terminal refresh becomes unreadable', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-invalid-refresh-'));
+    await writePetrinautReplayRun(cwd, 'run-1', { terminal: false, status: 'worktree_created' });
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const reader = response.body!.getReader();
+      expect((await reader.read()).done).toBe(false);
+      await writeFile(join(runDirPath(cwd, 'run-1'), 'petrinaut', 'net.sdcpn.json'), '{', 'utf8');
+
+      await appendPetriEvent({
+        cwd,
+        runId: 'run-1',
+        event: { kind: 'net_halted', runId: 'run-1', runStatus: 'worktree_created', reason: 'broken' },
+      });
+
+      await expect(reader.read()).resolves.toMatchObject({ done: true });
+    } finally {
+      await host.close();
+    }
+  });
+
+  it('reconnects from artifacts to the same firing and terminal timeline as an uninterrupted observer', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-reconnect-'));
+    await writePetrinautReplayRun(cwd, 'run-1', { terminal: false });
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const continuous = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const continuousReader = continuous.body!.getReader();
+      const decoder = new TextDecoder();
+      const first = await continuousReader.read();
+      let continuousBody = decoder.decode(first.value);
+
+      const interrupted = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      await interrupted.body!.cancel();
+      await appendPetriEvent({
+        cwd,
+        runId: 'run-1',
+        event: { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+      });
+
+      for (;;) {
+        const next = await continuousReader.read();
+        if (next.done) break;
+        continuousBody += decoder.decode(next.value);
+      }
+      const reconnected = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const continuousFrames = parseSse(continuousBody).slice(1);
+      const reconnectedFrames = parseSse(await reconnected.text()).slice(1);
+
+      expect(reconnectedFrames).toEqual(continuousFrames);
+    } finally {
+      await host.close();
+    }
   });
 
   it('uses authoritative run metadata when a completed run is missing its terminal journal event', async () => {

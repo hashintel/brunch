@@ -19,6 +19,7 @@ import {
 } from '../orchestrate.js';
 import { petriEventsPath } from '../petri-events.js';
 import { petriMarkingPath, readPetriMarkingSnapshot, writePetriMarkingSnapshot } from '../petri-marking.js';
+import { petriPlanSnapshotPath } from '../petri-plan-snapshot.js';
 import { petriRuntimePlanPathCandidates } from '../petri-runtime-plan.js';
 import {
   bindExecutorPetriRuntime,
@@ -35,7 +36,7 @@ import { populatedPlanPath as runPopulatedPlanPath, populateWorktree } from '../
 import { preparePromotion } from '../promotion.js';
 import { initializeReports, reportsPath } from '../report.js';
 import { completeRun } from '../run-complete.js';
-import { createRun, readRunMetadata, runMetadataPath, type RunMetadata } from '../run.js';
+import { createRun, readRunMetadata, runDirPath, runMetadataPath, type RunMetadata } from '../run.js';
 import { completeSlice } from '../slice-complete.js';
 import { requestSliceExecution } from '../slice-execute.js';
 import { startSlice } from '../slice-start.js';
@@ -182,8 +183,32 @@ describe('drive', () => {
     expect(await readFile(petriEventsPath(cwd, 'run-1'), 'utf8')).toBe('');
     expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.status).toBe('created');
 
+    await writeFile(planFilePath(cwd, '42'), planJson(['changed-after-publication']), 'utf8');
     releaseWorktree();
     await expect(driven).resolves.toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+    const populatedPlan = JSON.parse(await readFile(runPopulatedPlanPath(cwd, 'run-1'), 'utf8'));
+    expect(populatedPlan.slices.map((slice: { readonly id: string }) => slice.id)).toEqual(['task-1']);
+  });
+
+  it('halts before the first lifecycle effect when Petrinaut observation cannot be prepared', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-petrinaut-prepare-failure-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    await writeFile(join(runDirPath(cwd, 'run-1'), 'petrinaut'), 'not-a-directory', 'utf8');
+    let worktreeCalls = 0;
+    const gitWorktree = createFakeGitWorktreePort(async (args) => {
+      worktreeCalls += 1;
+      return createFakeGitWorktreePort().create(args);
+    });
+
+    const outcome = await drive({ cwd, runId: 'run-1', ports: fakePorts({ gitWorktree }) });
+
+    expect(outcome).toEqual({
+      status: 'halted',
+      step: 'worktree_create',
+      runStatus: 'created',
+      reason: 'petrinaut_observation_unavailable',
+    });
+    expect(worktreeCalls).toBe(0);
   });
 
   it('drives a created run through to run-local promotion', async () => {
@@ -656,6 +681,7 @@ describe('petri runtime helpers', () => {
     ] as const) {
       expect(petriRuntimePlanPathCandidates(cwd, metadata(status))).toEqual([
         runPopulatedPlanPath(cwd, 'run-1'),
+        petriPlanSnapshotPath(cwd, 'run-1'),
         'plan.yaml',
       ]);
     }

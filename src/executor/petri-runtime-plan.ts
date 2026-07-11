@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 
 import { projectSchedulerPlan, type SchedulerPlan } from './orchestrate-topology.js';
+import { petriPlanSnapshotPath } from './petri-plan-snapshot.js';
 import { populatedPlanPath } from './populate.js';
 import type { RunMetadata } from './run.js';
 
@@ -8,8 +9,9 @@ export function petriRuntimePlanPathCandidates(cwd: string, state: RunMetadata):
   if (state.populatedPlanPath !== undefined) return [state.populatedPlanPath];
   const candidates = [
     state.status === 'created' || state.status === 'worktree_created'
-      ? undefined
+      ? petriPlanSnapshotPath(cwd, state.runId)
       : populatedPlanPath(cwd, state.runId),
+    petriPlanSnapshotPath(cwd, state.runId),
     state.planPath,
   ];
   return candidates.filter(

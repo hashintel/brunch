@@ -153,8 +153,14 @@ describe('exportPetri', () => {
     expect(await readFile(petriEventsPath(cwd, 'run-1'), 'utf8')).toBe('');
 
     await writeFile(petriEventsPath(cwd, 'run-1'), 'existing-event\n', 'utf8');
+    await writeFile(
+      planPath,
+      JSON.stringify({ mode: 'greenfield', slices: [{ id: 'changed-task' }] }),
+      'utf8',
+    );
     await preparePetriObservation({ cwd, runId: 'run-1' });
     expect(await readFile(petriEventsPath(cwd, 'run-1'), 'utf8')).toBe('existing-event\n');
+    expect(await readFile(petriNetPath(cwd, 'run-1'), 'utf8')).toBe(preparedNet);
 
     await writeFile(
       runMetadataPath(cwd, 'run-1'),

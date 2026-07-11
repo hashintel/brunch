@@ -781,7 +781,7 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(access(join(cwd, '.brunch', 'cook', 'runs'))).rejects.toThrow();
   });
 
-  it('registers execute_run_create as metadata-only run creation', async () => {
+  it('registers execute_run_create with an attachable immutable Petrinaut observation snapshot', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-create-'));
     const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
     const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
@@ -904,12 +904,18 @@ describe('Brunch explicit Pi extension registry', () => {
       sideEffects: [
         { kind: 'mkdir', path: runDir },
         { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
+        { kind: 'mkdir', path: join(runDir, 'petrinaut') },
+        { kind: 'write_file', path: join(runDir, 'petrinaut', 'plan.json') },
+        { kind: 'write_file', path: join(runDir, 'petrinaut', 'net.json') },
+        { kind: 'write_file', path: join(runDir, 'petrinaut', 'net.sdcpn.json') },
+        { kind: 'write_file', path: join(runDir, 'petrinaut', 'events.jsonl') },
       ],
     });
     await expect(readFile(metadataPath, 'utf8')).resolves.toContain('"substrate": "empty_dir"');
     await expect(readFile(metadataPath, 'utf8')).resolves.toContain('"command": "npm"');
     await expect(access(join(runDir, 'worktree'))).rejects.toThrow();
     await expect(access(join(runDir, 'reports.jsonl'))).rejects.toThrow();
+    await expect(readFile(join(runDir, 'petrinaut', 'events.jsonl'), 'utf8')).resolves.toBe('');
   });
 
   it('registers execute_run_create using persisted brownfield mode when mode is omitted', async () => {

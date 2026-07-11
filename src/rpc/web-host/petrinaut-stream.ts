@@ -9,6 +9,7 @@ import {
   type PetrinautStreamFrame,
   type PetrinautTerminalState,
 } from '../../executor/petrinaut/stream-frames.js';
+import { subscribeRunMetadata } from '../../executor/run.js';
 
 interface ActiveStream {
   close(): void;
@@ -61,12 +62,22 @@ async function servePetrinautStream(args: {
   let disposed = false;
   let sentFiringCount = 0;
   let terminalSent = false;
+  let refreshQueued = false;
   let sendQueue = Promise.resolve();
   const activeStream: ActiveStream = { close: () => dispose(true) };
   const unsubscribe = subscribePetriEvents({
     cwd: args.cwd,
     runId: resolvedRunId,
     listener: () => {
+      dirty = true;
+      if (initialized) enqueueRefresh();
+    },
+  });
+  const unsubscribeMetadata = subscribeRunMetadata({
+    cwd: args.cwd,
+    runId: resolvedRunId,
+    listener: (metadata) => {
+      if (metadata.status !== 'abandoned') return;
       dirty = true;
       if (initialized) enqueueRefresh();
     },
@@ -78,19 +89,24 @@ async function servePetrinautStream(args: {
     if (disposed) return;
     disposed = true;
     unsubscribe();
+    unsubscribeMetadata();
     args.activeStreams.delete(activeStream);
     if (endResponse && !args.response.writableEnded) args.response.end();
   }
 
   function enqueueRefresh(): void {
+    if (disposed || refreshQueued) return;
+    refreshQueued = true;
     sendQueue = sendQueue
       .then(async () => {
         if (disposed || !dirty) return;
         dirty = false;
         const detail = await readRunDetail(args.cwd, resolvedRunId).catch(() => undefined);
-        if (detail === undefined || 'unreadable' in detail || detail.petrinautReplayExport === undefined)
+        if (detail === undefined || 'unreadable' in detail || detail.petrinautReplayExport === undefined) {
+          dispose(true);
           return;
-        const terminal = petrinautTerminalFromDetail(detail);
+        }
+        const terminal = petrinautTerminalFromDetail(detail, false);
         const frames = projectPetrinautStreamFrames({
           replayExport: detail.petrinautReplayExport,
           ...(terminal === undefined ? {} : { terminal }),
@@ -104,7 +120,11 @@ async function servePetrinautStream(args: {
         if (terminalSent) dispose(true);
       })
       .catch(() => {
-        // Failed observer delivery must not poison later journal notifications.
+        dispose(true);
+      })
+      .finally(() => {
+        refreshQueued = false;
+        if (dirty && !disposed) enqueueRefresh();
       });
   }
 
@@ -117,7 +137,7 @@ async function servePetrinautStream(args: {
     return;
   }
 
-  const terminal = petrinautTerminalFromDetail(detail);
+  const terminal = petrinautTerminalFromDetail(detail, true);
   const initialFrames = projectPetrinautStreamFrames({
     replayExport: detail.petrinautReplayExport,
     ...(terminal === undefined ? {} : { terminal }),
@@ -160,12 +180,15 @@ function newPetrinautFrames(
   return next;
 }
 
-function petrinautTerminalFromDetail(detail: {
-  readonly status?: string;
-  readonly abandonReason?: string;
-  readonly petriProjection?: { readonly terminalEventKind?: string; readonly haltedReason?: string };
-}): { readonly state: PetrinautTerminalState; readonly reason?: string } | undefined {
-  if (detail.status === 'promotion_prepared') return { state: 'completed' };
+function petrinautTerminalFromDetail(
+  detail: {
+    readonly status?: string;
+    readonly abandonReason?: string;
+    readonly petriProjection?: { readonly terminalEventKind?: string; readonly haltedReason?: string };
+  },
+  allowCompletedMetadata: boolean,
+): { readonly state: PetrinautTerminalState; readonly reason?: string } | undefined {
+  if (allowCompletedMetadata && detail.status === 'promotion_prepared') return { state: 'completed' };
   if (detail.status === 'abandoned') {
     return {
       state: 'halted',

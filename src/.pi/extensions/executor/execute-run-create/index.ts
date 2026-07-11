@@ -1,6 +1,11 @@
+import { dirname } from 'node:path';
+
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
+import { petriEventsPath } from '../../../../executor/petri-events.js';
+import { petriPlanSnapshotPath } from '../../../../executor/petri-plan-snapshot.js';
+import { petriNetPath, petriSdcpnPath, preparePetriObservation } from '../../../../executor/petri.js';
 import { createRun, type RunCreateResult } from '../../../../executor/run.js';
 import { BRUNCH_EXECUTE_RUN_CREATE_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
@@ -35,7 +40,7 @@ type ExecuteRunCreateParams = Static<typeof ExecuteRunCreateParams>;
 
 interface ExecuteRunCreateDetails {
   readonly result: RunCreateResult;
-  readonly sideEffects: RunCreateResult['sideEffects'];
+  readonly sideEffects: readonly { readonly kind: string; readonly path?: string }[];
 }
 
 export interface ExecuteRunCreateDeps {
@@ -48,7 +53,7 @@ export function createExecuteRunCreateTool(deps: ExecuteRunCreateDeps) {
     name: BRUNCH_EXECUTE_RUN_CREATE_TOOL,
     label: 'execute_run_create',
     description:
-      'Create metadata for a cook run from the selected spec plan. Does not create worktrees, Petri artifacts, or execute slices.',
+      'Create a cook run plus its immutable plan/Petrinaut observer snapshot. Does not create a worktree or execute slices.',
     parameters: toolParameters(ExecuteRunCreateParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
@@ -69,6 +74,17 @@ export function createExecuteRunCreateTool(deps: ExecuteRunCreateDeps) {
         ...(params.substrate ? { substrate: params.substrate } : {}),
         ...verifyTargetForProfile(params.verifyProfile),
       });
+      const observerSideEffects =
+        result.status === 'created'
+          ? await preparePetriObservation({ cwd, runId: result.runId }).then(() => [
+              { kind: 'mkdir', path: dirname(petriNetPath(cwd, result.runId)) },
+              { kind: 'write_file', path: petriPlanSnapshotPath(cwd, result.runId) },
+              { kind: 'write_file', path: petriNetPath(cwd, result.runId) },
+              { kind: 'write_file', path: petriSdcpnPath(cwd, result.runId) },
+              { kind: 'write_file', path: petriEventsPath(cwd, result.runId) },
+            ])
+          : [];
+      const sideEffects = [...result.sideEffects, ...observerSideEffects];
       return {
         content: [
           {
@@ -78,13 +94,13 @@ export function createExecuteRunCreateTool(deps: ExecuteRunCreateDeps) {
               `run status: ${result.runStatus}`,
               'planPath' in result ? `plan path: ${result.planPath}` : undefined,
               `graph lsn: ${current.source.graphLsn}`,
-              `side effects: ${result.sideEffects.map((effect) => effect.kind).join(', ') || 'none'}`,
+              `side effects: ${sideEffects.map((effect) => effect.kind).join(', ') || 'none'}`,
             ]
               .filter((line): line is string => typeof line === 'string')
               .join('\n'),
           },
         ],
-        details: { result, sideEffects: result.sideEffects },
+        details: { result, sideEffects },
       };
     },
   });
