@@ -15,7 +15,8 @@ rpc handler surfaces:
 │   └── read methods only
 └── TUI-started web sidecar
     ├── /rpc observer connections: read methods only
-    └── /rpc/driver connection: read methods + live-session driver methods when handles exist
+    ├── /rpc/driver connection: read methods + live-session driver methods when handles exist
+    └── /petrinaut/stream: artifact replay followed by same-process live journal wake-ups
 ```
 
 The full CLI/RPC host includes mutation-capable workspace/session methods. The TUI-started web sidecar is an attachment to the TUI-hosted process: ordinary `/rpc` observer connections expose projection/read methods plus `rpc.discover` and reject workspace/session write methods as `Method not found`. The explicitly designated `/rpc/driver` connection adds live driver methods only when their process-local handles are attached (`session.driveTurn` for a live `AgentSession`, `session.answerExchange` for a live exchange broker). Browser clients, CLI probes, TUI adapters, and future relays speak Brunch method names; they do not coordinate raw Pi RPC plus Brunch product RPC themselves.
@@ -308,7 +309,7 @@ WebSocket and stdio transports both carry these notifications independently from
 
 `execute.run` updates may carry lightweight live Petri read hints in addition to `runId`: `petriProjectionSource` (`snapshot` or `replay`), `petriProjectionReplayReason` (`snapshot_missing_or_unreadable` or `snapshot_stale`), and ready/blocked frontier hints. Complete Petrinaut replay exports do not ride invalidation notifications; clients refetch canonical `execute.run` detail. The executor orchestrate path emits a conservative synchronous `snapshot` hint on per-step completion because the drive observer hook is not awaited, while write-side `execute.replan*` RPC mutations can await `readRunDetail(...)` and publish honest replay/snapshot hints from current read-side truth.
 
-Petrinaut HTTP surfaces are sidecar routes, not JSON-RPC methods. `/petrinaut/stream?runId=<id>` returns one finite `text/event-stream` replay derived from validated `petrinaut/net.sdcpn.json` + `events.jsonl` and then closes. Cross-origin read permission is emitted only for the configured `PETRINAUT_URL` origin. `/petrinaut/launch?runId=<id>` redirects to configured `PETRINAUT_URL` with an absolute local `sse` URL; it rejects missing config, missing artifacts, and non-loopback `Host` headers. Both routes are observer surfaces only and never affect run lifecycle authority.
+Petrinaut HTTP surfaces are sidecar routes, not JSON-RPC methods. `/petrinaut/stream?runId=<id>` subscribes before reading validated `petrinaut/net.sdcpn.json` + `events.jsonl`, emits the complete replay, catches up any append that raced the snapshot, then stays open for same-process journal wake-ups through terminal state. Late joiners reconstruct the same ordered timeline from artifacts. Active streams unsubscribe and end during web-host shutdown. Cross-origin read permission is emitted only for the configured `PETRINAUT_URL` origin. `/petrinaut/launch?runId=<id>` redirects to configured `PETRINAUT_URL` with an absolute local `sse` URL; it rejects missing config, missing artifacts, and non-loopback `Host` headers. Both routes are observer surfaces only and never affect run lifecycle authority.
 
 The TUI-started web sidecar also multiplexes live session-stream frames on the same `/rpc` WebSocket when a live in-process `AgentSession` exists:
 

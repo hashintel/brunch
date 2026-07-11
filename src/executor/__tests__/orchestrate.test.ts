@@ -17,6 +17,7 @@ import {
   type ReadyStep,
   serialFiringPolicy,
 } from '../orchestrate.js';
+import { petriEventsPath } from '../petri-events.js';
 import { petriMarkingPath, readPetriMarkingSnapshot, writePetriMarkingSnapshot } from '../petri-marking.js';
 import { petriRuntimePlanPathCandidates } from '../petri-runtime-plan.js';
 import {
@@ -28,7 +29,7 @@ import {
   resolvePetriTransitionIdForReadyStep,
 } from '../petri-runtime.js';
 import { classifyDriveTerminal } from '../petri-terminal.js';
-import { exportPetri, petriNetPath } from '../petri.js';
+import { exportPetri, petriNetPath, petriSdcpnPath } from '../petri.js';
 import { planFilePath } from '../plan-file.js';
 import { populatedPlanPath as runPopulatedPlanPath, populateWorktree } from '../populate.js';
 import { preparePromotion } from '../promotion.js';
@@ -155,6 +156,36 @@ async function crankManually(cwd: string, ports: ExecutionPorts): Promise<void> 
 }
 
 describe('drive', () => {
+  it('prepares Petrinaut observation before invoking the first lifecycle effect', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-petrinaut-before-effect-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    let releaseWorktree!: () => void;
+    const worktreeReleased = new Promise<void>((resolve) => {
+      releaseWorktree = resolve;
+    });
+    let worktreeStarted!: () => void;
+    const worktreeStart = new Promise<void>((resolve) => {
+      worktreeStarted = resolve;
+    });
+    const underlying = createFakeGitWorktreePort();
+    const gitWorktree = createFakeGitWorktreePort(async (args) => {
+      worktreeStarted();
+      await worktreeReleased;
+      return underlying.create(args);
+    });
+
+    const driven = drive({ cwd, runId: 'run-1', ports: fakePorts({ gitWorktree }) });
+    await worktreeStart;
+
+    expect(await pathExists(petriNetPath(cwd, 'run-1'))).toBe(true);
+    expect(await pathExists(petriSdcpnPath(cwd, 'run-1'))).toBe(true);
+    expect(await readFile(petriEventsPath(cwd, 'run-1'), 'utf8')).toBe('');
+    expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.status).toBe('created');
+
+    releaseWorktree();
+    await expect(driven).resolves.toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+  });
+
   it('drives a created run through to run-local promotion', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-complete-'));
     await createRunAtCreated(cwd, ['task-1', 'task-2']);

@@ -24,6 +24,7 @@ import {
   type ExecutorPetriRuntime,
 } from './petri-runtime.js';
 import { classifyDriveTerminal } from './petri-terminal.js';
+import { preparePetriObservation } from './petri.js';
 import { readRunMetadata, runMetadataPath, type RunMetadata } from './run.js';
 import type { SourcePolicyKind } from './source-policy.js';
 import type { VerifyStreamEvent } from './test-result.js';
@@ -317,6 +318,7 @@ export async function drive(
 ): Promise<DriveOutcome> {
   const metadataPath = runMetadataPath(ctx.cwd, ctx.runId);
   let firedTransitions = 0;
+  let observationPreparationAttempted = false;
   // ceiling: coarse halt detection — a step that leaves run.json's status
   // unchanged is treated as stuck. Replace with per-step outcome classification
   // if steps gain retry/abort semantics beyond advance-or-hold.
@@ -339,6 +341,14 @@ export async function drive(
       });
       await emitNetEvent(ctx, terminal.event);
       return terminal.outcome;
+    }
+    if (!observationPreparationAttempted && plan !== undefined) {
+      observationPreparationAttempted = true;
+      try {
+        await preparePetriObservation({ cwd: ctx.cwd, runId: ctx.runId });
+      } catch {
+        // Observer artifact failures never affect lifecycle authority.
+      }
     }
     const runtimeResult = await materializeDriveRuntime({ ctx, state, plan });
     if ('terminal' in runtimeResult) {

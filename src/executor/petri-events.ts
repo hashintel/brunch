@@ -4,6 +4,12 @@ import { join } from 'node:path';
 import type { ExecutorNetEvent, ReadyStep } from './orchestrate-topology.js';
 import { runDirPath, type RunMetadata } from './run.js';
 
+export type PetriEventListener = (event: ExecutorNetEvent) => void;
+
+// ceiling: notifications are process-local wake-up hints; replace with file watching
+// or a durable broker when executor and web host no longer share one process.
+const listenersByRun = new Map<string, Set<PetriEventListener>>();
+
 export function petriDirPath(cwd: string, runId: string): string {
   return join(runDirPath(cwd, runId), 'petrinaut');
 }
@@ -19,6 +25,28 @@ export async function appendPetriEvent(args: {
 }): Promise<void> {
   await mkdir(petriDirPath(args.cwd, args.runId), { recursive: true });
   await appendFile(petriEventsPath(args.cwd, args.runId), `${JSON.stringify(args.event)}\n`, 'utf8');
+  for (const listener of listenersByRun.get(listenerKey(args.cwd, args.runId)) ?? []) {
+    try {
+      listener(args.event);
+    } catch {
+      // Observer callbacks never change the durable append result.
+    }
+  }
+}
+
+export function subscribePetriEvents(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly listener: PetriEventListener;
+}): () => void {
+  const key = listenerKey(args.cwd, args.runId);
+  const listeners = listenersByRun.get(key) ?? new Set<PetriEventListener>();
+  listeners.add(args.listener);
+  listenersByRun.set(key, listeners);
+  return () => {
+    listeners.delete(args.listener);
+    if (listeners.size === 0) listenersByRun.delete(key);
+  };
 }
 
 export function parsePetriEvent(value: unknown): ExecutorNetEvent | undefined {
@@ -105,4 +133,8 @@ function isStringArray(value: unknown): value is readonly string[] {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function listenerKey(cwd: string, runId: string): string {
+  return `${cwd}\0${runId}`;
 }

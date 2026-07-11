@@ -304,8 +304,8 @@ Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_
 ### petrinaut-live-run-stream
 
 - **Name:** Petrinaut live run stream — pre-execution definition through terminal replay
-- **Linear:** unassigned (create at pickup, FE team / brunch project)
-- **Branch:** tbd at pickup (off `next` after PR #320)
+- **Linear:** [FE-1190](https://linear.app/hash/issue/FE-1190/petrinaut-live-run-stream)
+- **Branch:** `ka/fe-1190-petrinaut-live-run-stream` (off `next`)
 - **Kind:** structural observer transport over the executor event journal.
 - **Certainty:** proving.
 - **Lights up:** a Petrinaut connection established before the first executor transition, with late-join replay equivalent to the observed live sequence.
@@ -313,6 +313,7 @@ Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_
 - **Acceptance sketch:** production lifecycle test connects before the first transition; reconnect receives the same ordered timeline; terminal closes the stream; malformed artifacts fail closed; configured-origin CORS remains enforced; stream observers cannot mutate or claim execution.
 - **Depends on:** FE-1183 / PR #320 finite replay contract. Explicitly excludes durable parallel side-effect authority.
 - **Traceability:** D111-L, D112-L, I58-L; `src/executor/TOPOLOGY.md`, `src/rpc/TOPOLOGY.md`.
+- **Status:** implementation complete locally on FE-1190; pre-execution SDCPN/journal preparation, subscribe-before-snapshot catch-up, replay-equivalent same-connection terminal delivery, and host-shutdown cleanup are covered by executor and real HTTP lifecycle tests. `npm run verify` passed; PR/merge pending.
 
 
 ### reconciliation-derivation
@@ -368,7 +369,7 @@ frontiers:
       depends_on: D111-L, D112-L; current executor lifecycle steps stay canonical side-effect boundaries
 
     petrinaut-live-run-stream
-      status: Horizon; Linear/branch at pickup
+      status: implementation complete on FE-1190 / ka/fe-1190-petrinaut-live-run-stream; PR/merge pending
       excludes: lifecycle authority, parallel side-effect authority
 
   mechanism-trace

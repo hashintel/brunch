@@ -1,7 +1,8 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, open, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import { compileExecutorTopology, type SchedulerPlan } from './orchestrate-topology.js';
+import { petriEventsPath } from './petri-events.js';
 import { readPetriRuntimePlan } from './petri-runtime-plan.js';
 import { petriTopologyToSdcpnFile } from './petrinaut/sdcpn.js';
 import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
@@ -55,6 +56,20 @@ async function readExportPlan(cwd: string, metadata: RunMetadata): Promise<Sched
   return readPetriRuntimePlan(cwd, metadata);
 }
 
+export async function preparePetriObservation(args: {
+  readonly cwd: string;
+  readonly runId: string;
+}): Promise<void> {
+  const metadata = await readRunMetadata(runMetadataPath(args.cwd, args.runId));
+  if (!metadata) throw new Error(`Cannot prepare Petrinaut observation for missing run: ${args.runId}`);
+  const plan = await readExportPlan(args.cwd, metadata);
+  if (!plan) throw new Error(`Cannot prepare Petrinaut observation without a readable plan: ${args.runId}`);
+  const artifacts = compilePetriArtifacts(args.runId, plan);
+  await writePetriArtifacts({ cwd: args.cwd, runId: args.runId, artifacts });
+  const journal = await open(petriEventsPath(args.cwd, args.runId), 'a');
+  await journal.close();
+}
+
 export async function exportPetri(args: {
   readonly cwd: string;
   readonly runId: string;
@@ -93,9 +108,9 @@ export async function exportPetri(args: {
   }
 
   const updated: RunMetadata = { ...metadata, status: 'petri_exported', petriPath: path };
-  let topology: ReturnType<typeof compileExecutorTopology>;
+  let artifacts: ReturnType<typeof compilePetriArtifacts>;
   try {
-    topology = compileExecutorTopology(plan);
+    artifacts = compilePetriArtifacts(args.runId, plan);
   } catch {
     return {
       status: 'petri_input_unreadable',
@@ -105,28 +120,7 @@ export async function exportPetri(args: {
       sideEffects: [],
     };
   }
-  await mkdir(dir, { recursive: true });
-  await writeFile(
-    path,
-    `${JSON.stringify(
-      {
-        runId: args.runId,
-        ...(topology.epics === undefined ? {} : { epics: topology.epics }),
-        subnets: topology.subnets,
-        places: topology.places,
-        transitions: topology.transitions,
-        initialMarking: topology.initialMarking,
-      },
-      null,
-      2,
-    )}\n`,
-    'utf8',
-  );
-  await writeFile(
-    sdcpnPath,
-    `${JSON.stringify(petriTopologyToSdcpnFile({ runId: args.runId, topology }), null, 2)}\n`,
-    'utf8',
-  );
+  await writePetriArtifacts({ cwd: args.cwd, runId: args.runId, artifacts });
   const metadataEffect = await persistRunMetadata(metadataPath, updated);
   return {
     status: 'petri_exported',
@@ -142,4 +136,31 @@ export async function exportPetri(args: {
       metadataEffect,
     ],
   };
+}
+
+function compilePetriArtifacts(runId: string, plan: SchedulerPlan) {
+  const topology = compileExecutorTopology(plan);
+  return {
+    net: {
+      runId,
+      ...(topology.epics === undefined ? {} : { epics: topology.epics }),
+      subnets: topology.subnets,
+      places: topology.places,
+      transitions: topology.transitions,
+      initialMarking: topology.initialMarking,
+    },
+    sdcpn: petriTopologyToSdcpnFile({ runId, topology }),
+  };
+}
+
+async function writePetriArtifacts(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly artifacts: ReturnType<typeof compilePetriArtifacts>;
+}): Promise<void> {
+  const path = petriNetPath(args.cwd, args.runId);
+  const sdcpnPath = petriSdcpnPath(args.cwd, args.runId);
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, `${JSON.stringify(args.artifacts.net, null, 2)}\n`, 'utf8');
+  await writeFile(sdcpnPath, `${JSON.stringify(args.artifacts.sdcpn, null, 2)}\n`, 'utf8');
 }
