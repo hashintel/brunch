@@ -1,7 +1,7 @@
 import type { ServerResponse } from 'node:http';
 
 import { readRunDetail } from '../../executor/observer-read.js';
-import { subscribePetriEvents } from '../../executor/petri-events.js';
+import { subscribePetriEvents, subscribePetriJournalFailures } from '../../executor/petri-events.js';
 import { resolvePetrinautUrl } from '../../executor/petrinaut/launcher-url.js';
 import { serializePetrinautSseFrame, serializePetrinautSseFrames } from '../../executor/petrinaut/sse.js';
 import {
@@ -82,6 +82,13 @@ async function servePetrinautStream(args: {
       if (initialized) enqueueRefresh();
     },
   });
+  // A broken journal produces no further append wake-ups; close so reconnect
+  // can recover from durable state.
+  const unsubscribeJournalFailures = subscribePetriJournalFailures({
+    cwd: args.cwd,
+    runId: resolvedRunId,
+    listener: () => dispose(true),
+  });
   args.activeStreams.add(activeStream);
   args.response.on('close', () => dispose(false));
 
@@ -90,6 +97,7 @@ async function servePetrinautStream(args: {
     disposed = true;
     unsubscribe();
     unsubscribeMetadata();
+    unsubscribeJournalFailures();
     args.activeStreams.delete(activeStream);
     if (endResponse && !args.response.writableEnded) args.response.end();
   }

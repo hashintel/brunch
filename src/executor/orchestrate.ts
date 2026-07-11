@@ -100,20 +100,38 @@ export const frontierFiringPolicy: RunFiringPolicy = {
   },
 };
 
+// Fail closed (FE-1190): an unjournaled event reaches no hint surface and the
+// drive halts, keeping the journal a truthful prefix of run facts.
+// ceiling: retry after a journal-failure halt resumes from run.json without
+// backfilling the lost event; gate retry on journal-vs-lifecycle counts if
+// gapped journals show up.
 async function emitNetEvent(
   ctx: Pick<DriveContext, 'cwd' | 'runId' | 'onNetEvent'>,
   event: ExecutorNetEvent,
-): Promise<void> {
+): Promise<{ readonly journaled: boolean }> {
   try {
     await appendPetriEvent({ cwd: ctx.cwd, runId: ctx.runId, event });
   } catch {
-    // Journal failures never affect the drive.
+    return { journaled: false };
   }
   try {
     ctx.onNetEvent?.(event);
   } catch {
     // Observer failures never affect the drive.
   }
+  return { journaled: true };
+}
+
+// An unjournaled terminal must not read as completed; an already-halted
+// terminal keeps its root-cause reason.
+function journalFailureOutcome(terminal: ReturnType<typeof classifyDriveTerminal>): DriveOutcome {
+  if (terminal.outcome.status === 'halted') return terminal.outcome;
+  return {
+    status: 'halted',
+    step: 'terminal',
+    runStatus: terminal.outcome.runStatus,
+    reason: 'petri_journal_append_failed',
+  };
 }
 
 async function persistPetriMarkingSnapshot(
@@ -241,12 +259,7 @@ async function materializeDriveRuntime(args: {
   readonly ctx: Pick<DriveContext, 'cwd' | 'runId' | 'onNetEvent'>;
   readonly state: RunMetadata;
   readonly plan: SchedulerPlan | undefined;
-}): Promise<
-  | { readonly runtime: ExecutorPetriRuntime }
-  | {
-      readonly terminal: ReturnType<typeof classifyDriveTerminal>;
-    }
-> {
+}): Promise<{ readonly runtime: ExecutorPetriRuntime } | { readonly outcome: DriveOutcome }> {
   try {
     return { runtime: materializeExecutorPetriRuntime(args.state, args.plan) };
   } catch {
@@ -259,7 +272,7 @@ async function materializeDriveRuntime(args: {
           runStatus: args.state.status,
         });
         await emitNetEvent(args.ctx, terminal.event);
-        return { terminal };
+        return { outcome: terminal.outcome };
       }
       throw new Error(`unexpected Petri materialization failure for run status ${args.state.status}`);
     }
@@ -271,7 +284,7 @@ async function materializeDriveRuntime(args: {
       reason: 'petri_input_unreadable',
     });
     await emitNetEvent(args.ctx, terminal.event);
-    return { terminal };
+    return { outcome: terminal.outcome };
   }
 }
 
@@ -294,7 +307,8 @@ export type DriveOutcome =
   | { readonly status: 'completed'; readonly runStatus: RunMetadata['status'] }
   | {
       readonly status: 'halted';
-      readonly step: ReadyStep['kind'] | 'abandoned' | 'deadlocked';
+      // 'terminal' marks a net terminal fact that could not be durably journaled.
+      readonly step: ReadyStep['kind'] | 'abandoned' | 'deadlocked' | 'terminal';
       readonly runStatus: RunMetadata['status'];
       readonly reason: string;
     }
@@ -368,8 +382,8 @@ export async function drive(
       }
     }
     const runtimeResult = await materializeDriveRuntime({ ctx, state, plan });
-    if ('terminal' in runtimeResult) {
-      return runtimeResult.terminal.outcome;
+    if ('outcome' in runtimeResult) {
+      return runtimeResult.outcome;
     }
     const runtime = runtimeResult.runtime;
     const readySteps = scheduler.ready(state, plan, runtime);
@@ -394,7 +408,8 @@ export async function drive(
       if (snapshotAlreadyCapturesTerminal({ snapshot, state, runtime, plan, terminal })) {
         return terminal.outcome;
       }
-      await emitNetEvent(ctx, terminal.event);
+      const emitted = await emitNetEvent(ctx, terminal.event);
+      if (!emitted.journaled) return journalFailureOutcome(terminal);
       await persistPetriMarkingSnapshot(
         ctx,
         await nextPetriSnapshot({
@@ -431,8 +446,8 @@ export async function drive(
         state: currentState,
         plan: currentPlan,
       });
-      if ('terminal' in currentRuntimeResult) {
-        return currentRuntimeResult.terminal.outcome;
+      if ('outcome' in currentRuntimeResult) {
+        return currentRuntimeResult.outcome;
       }
       const currentRuntime = currentRuntimeResult.runtime;
       const next = currentRuntime.readySteps.find((candidate) => readyStepsEqual(candidate, selectedStep));
@@ -459,7 +474,8 @@ export async function drive(
           step: next.kind,
           reason: result.status,
         });
-        await emitNetEvent(ctx, terminal.event);
+        const emitted = await emitNetEvent(ctx, terminal.event);
+        if (!emitted.journaled) return journalFailureOutcome(terminal);
         await persistPetriMarkingSnapshot(
           ctx,
           await nextPetriSnapshot({
@@ -476,7 +492,7 @@ export async function drive(
         const transition = boundTransition?.transition;
         if (transition) {
           firedTransitions += 1;
-          await emitNetEvent(ctx, {
+          const emitted = await emitNetEvent(ctx, {
             kind: 'transition_fired',
             runId: ctx.runId,
             runStatus: result.runStatus,
@@ -491,6 +507,14 @@ export async function drive(
             fromStatus: currentState.status,
             toStatus: result.runStatus,
           });
+          if (!emitted.journaled) {
+            return {
+              status: 'halted',
+              step: next.kind,
+              runStatus: result.runStatus,
+              reason: 'petri_journal_append_failed',
+            };
+          }
           const nextState = await readRunMetadata(metadataPath);
           if (nextState) {
             const nextPlan = await readPetriRuntimePlan(ctx.cwd, nextState);
@@ -499,8 +523,8 @@ export async function drive(
               state: nextState,
               plan: nextPlan,
             });
-            if ('terminal' in nextRuntimeResult) {
-              return nextRuntimeResult.terminal.outcome;
+            if ('outcome' in nextRuntimeResult) {
+              return nextRuntimeResult.outcome;
             }
             const nextRuntime = nextRuntimeResult.runtime;
             await persistPetriMarkingSnapshot(

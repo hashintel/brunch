@@ -5,10 +5,12 @@ import type { ExecutorNetEvent, ReadyStep } from './orchestrate-topology.js';
 import { runDirPath, type RunMetadata } from './run.js';
 
 export type PetriEventListener = (event: ExecutorNetEvent) => void;
+export type PetriJournalFailureListener = () => void;
 
-// ceiling: notifications are process-local wake-up hints; replace with file watching
-// or a durable broker when executor and web host no longer share one process.
+// ceiling: both buses are process-local hints; replace with file watching or a
+// durable broker when executor and web host no longer share one process.
 const listenersByRun = new Map<string, Set<PetriEventListener>>();
+const failureListenersByRun = new Map<string, Set<PetriJournalFailureListener>>();
 
 export function petriDirPath(cwd: string, runId: string): string {
   return join(runDirPath(cwd, runId), 'petrinaut');
@@ -23,9 +25,22 @@ export async function appendPetriEvent(args: {
   readonly runId: string;
   readonly event: ExecutorNetEvent;
 }): Promise<void> {
-  await mkdir(petriDirPath(args.cwd, args.runId), { recursive: true });
-  await appendFile(petriEventsPath(args.cwd, args.runId), `${JSON.stringify(args.event)}\n`, 'utf8');
-  for (const listener of listenersByRun.get(listenerKey(args.cwd, args.runId)) ?? []) {
+  const key = listenerKey(args.cwd, args.runId);
+  try {
+    await mkdir(petriDirPath(args.cwd, args.runId), { recursive: true });
+    await appendFile(petriEventsPath(args.cwd, args.runId), `${JSON.stringify(args.event)}\n`, 'utf8');
+  } catch (error) {
+    // Observers must learn the journal broke or they wait on a wake-up that cannot come.
+    for (const listener of failureListenersByRun.get(key) ?? []) {
+      try {
+        listener();
+      } catch {
+        // Observer callbacks never change the durable append result.
+      }
+    }
+    throw error;
+  }
+  for (const listener of listenersByRun.get(key) ?? []) {
     try {
       listener(args.event);
     } catch {
@@ -39,13 +54,28 @@ export function subscribePetriEvents(args: {
   readonly runId: string;
   readonly listener: PetriEventListener;
 }): () => void {
-  const key = listenerKey(args.cwd, args.runId);
-  const listeners = listenersByRun.get(key) ?? new Set<PetriEventListener>();
-  listeners.add(args.listener);
-  listenersByRun.set(key, listeners);
+  return subscribeListener(listenersByRun, listenerKey(args.cwd, args.runId), args.listener);
+}
+
+export function subscribePetriJournalFailures(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly listener: PetriJournalFailureListener;
+}): () => void {
+  return subscribeListener(failureListenersByRun, listenerKey(args.cwd, args.runId), args.listener);
+}
+
+function subscribeListener<Listener>(
+  listenersByKey: Map<string, Set<Listener>>,
+  key: string,
+  listener: Listener,
+): () => void {
+  const listeners = listenersByKey.get(key) ?? new Set<Listener>();
+  listeners.add(listener);
+  listenersByKey.set(key, listeners);
   return () => {
-    listeners.delete(args.listener);
-    if (listeners.size === 0) listenersByRun.delete(key);
+    listeners.delete(listener);
+    if (listeners.size === 0) listenersByKey.delete(key);
   };
 }
 

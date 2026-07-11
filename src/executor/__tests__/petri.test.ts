@@ -7,7 +7,12 @@ import * as z from 'zod';
 
 import type { ExecutorNetEvent } from '../orchestrate-topology.js';
 import { compileExecutorTopology } from '../orchestrate.js';
-import { petriEventsPath } from '../petri-events.js';
+import {
+  appendPetriEvent,
+  petriEventsPath,
+  subscribePetriEvents,
+  subscribePetriJournalFailures,
+} from '../petri-events.js';
 import { canProjectPetriReplay } from '../petri-replay-eligibility.js';
 import { replayPetri, replayTransitionHistory } from '../petri-replay.js';
 import { exportPetri, petriNetPath, petriSdcpnPath, preparePetriObservation } from '../petri.js';
@@ -435,6 +440,50 @@ describe('exportPetri', () => {
       firedTransitionCount: 18,
       terminalEventKind: 'net_completed',
     });
+  });
+});
+
+describe('appendPetriEvent', () => {
+  it('rejects a failed durable append, keeps success listeners silent, and wakes failure listeners run-scoped', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-append-failure-'));
+    // Occupy the journal path with a directory so appendFile fails (EISDIR).
+    await mkdir(petriEventsPath(cwd, 'run-1'), { recursive: true });
+    const successKinds: string[] = [];
+    let failureWakeUps = 0;
+    let otherRunFailureWakeUps = 0;
+    const unsubscribes = [
+      subscribePetriEvents({ cwd, runId: 'run-1', listener: (event) => successKinds.push(event.kind) }),
+      subscribePetriJournalFailures({
+        cwd,
+        runId: 'run-1',
+        listener: () => {
+          failureWakeUps += 1;
+        },
+      }),
+      subscribePetriJournalFailures({
+        cwd,
+        runId: 'run-2',
+        listener: () => {
+          otherRunFailureWakeUps += 1;
+        },
+      }),
+    ];
+
+    try {
+      await expect(
+        appendPetriEvent({
+          cwd,
+          runId: 'run-1',
+          event: { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+        }),
+      ).rejects.toThrow();
+    } finally {
+      for (const unsubscribe of unsubscribes) unsubscribe();
+    }
+
+    expect(successKinds).toEqual([]);
+    expect(failureWakeUps).toBe(1);
+    expect(otherRunFailureWakeUps).toBe(0);
   });
 });
 

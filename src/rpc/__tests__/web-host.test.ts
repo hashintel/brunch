@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,13 +13,13 @@ import {
   createFakeTestRunnerPort,
 } from '../../executor/__tests__/fake-ports.js';
 import type { ExecutionPorts } from '../../executor/execution-ports.js';
-import { drive } from '../../executor/orchestrate.js';
-import { appendPetriEvent } from '../../executor/petri-events.js';
+import { drive, linearScheduler, serialFiringPolicy } from '../../executor/orchestrate.js';
+import { appendPetriEvent, subscribePetriEvents } from '../../executor/petri-events.js';
 import { preparePetriObservation } from '../../executor/petri.js';
 import { planFilePath } from '../../executor/plan-file.js';
 import { abandonRun } from '../../executor/run-abandon.js';
 import { createRun } from '../../executor/run.js';
-import { runDirPath, runMetadataPath, type RunMetadata } from '../../executor/run.js';
+import { readRunMetadata, runDirPath, runMetadataPath, type RunMetadata } from '../../executor/run.js';
 import { runCreateOnlyMutation } from '../../graph/__tests__/support/create-only-mutation.js';
 import { openWorkspaceGraphRuntime } from '../../graph/workspace-store.js';
 import { assistantMessage, userMessage } from '../../probes/test-helpers.js';
@@ -1060,6 +1060,87 @@ describe('web host', () => {
           ),
       ).toEqual(['promotion', 'run:finish']);
       expect(frames.at(-1)).toEqual({ event: 'terminal', data: { state: 'completed' } });
+    } finally {
+      await host.close();
+    }
+  });
+
+  // Regression oracle for the FE-1190 fail-closed journal contract (Bugbot finding).
+  it('closes an active stream when a durable journal append fails mid-run', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-journal-failure-'));
+    await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
+    await writeFile(
+      planFilePath(cwd, '42'),
+      JSON.stringify({
+        mode: 'greenfield',
+        epics: [{ id: 'frontier-1', summary: 'Build feature', depends_on: [], verification: [] }],
+        slices: [
+          {
+            id: 'task-1',
+            epic_id: 'frontier-1',
+            definition: 'Build task one.',
+            depends_on: [],
+            verification: [],
+          },
+        ],
+      }),
+      'utf8',
+    );
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
+    await preparePetriObservation({ cwd, runId: 'run-1' });
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      const first = await reader.read();
+      expect(first.done).toBe(false);
+      let body = decoder.decode(first.value);
+
+      const ports = executorPorts(createFakeGitWorktreePort());
+      await expect(
+        drive({ cwd, runId: 'run-1', ports }, linearScheduler, serialFiringPolicy, { maxFirings: 2 }),
+      ).resolves.toEqual({ status: 'completed', runStatus: 'worktree_populated' });
+      while ((body.match(/event: transition_firing/gu) ?? []).length < 2 || !body.endsWith('\n\n')) {
+        const next = await reader.read();
+        expect(next.done).toBe(false);
+        body += decoder.decode(next.value);
+      }
+
+      // Replace the journal file with a directory so every later appendFile fails (EISDIR).
+      const journalPath = join(runDirPath(cwd, 'run-1'), 'petrinaut', 'events.jsonl');
+      await rm(journalPath);
+      await mkdir(journalPath);
+
+      const wakeUpsAfterBreak: string[] = [];
+      const unsubscribe = subscribePetriEvents({
+        cwd,
+        runId: 'run-1',
+        listener: (event) => wakeUpsAfterBreak.push(event.kind),
+      });
+      try {
+        await expect(drive({ cwd, runId: 'run-1', ports })).resolves.toEqual({
+          status: 'halted',
+          step: 'source_policy',
+          runStatus: 'source_policy_selected',
+          reason: 'petri_journal_append_failed',
+        });
+      } finally {
+        unsubscribe();
+      }
+      const metadata = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+      expect(metadata?.status).toBe('source_policy_selected');
+      expect(wakeUpsAfterBreak).toEqual([]);
+
+      for (;;) {
+        const next = await reader.read();
+        if (next.done) break;
+        body += decoder.decode(next.value);
+      }
+
+      const frames = parseSse(body);
+      expect(frames.filter((frame) => frame.event === 'transition_firing')).toHaveLength(2);
+      expect(frames.some((frame) => frame.event === 'terminal')).toBe(false);
     } finally {
       await host.close();
     }

@@ -1,5 +1,5 @@
 import { mkdirSync, rmSync } from 'node:fs';
-import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -17,7 +17,7 @@ import {
   type ReadyStep,
   serialFiringPolicy,
 } from '../orchestrate.js';
-import { petriEventsPath } from '../petri-events.js';
+import { petriEventsPath, subscribePetriJournalFailures } from '../petri-events.js';
 import { petriMarkingPath, readPetriMarkingSnapshot, writePetriMarkingSnapshot } from '../petri-marking.js';
 import { petriPlanSnapshotPath } from '../petri-plan-snapshot.js';
 import { petriRuntimePlanPathCandidates } from '../petri-runtime-plan.js';
@@ -222,6 +222,66 @@ describe('drive', () => {
     expect(meta?.status).toBe('promotion_prepared');
     expect(meta?.completedSliceIds).toEqual(['task-1', 'task-2']);
     expect(meta?.promotionCommitSha).toBe('abc123');
+  });
+
+  it('halts without further lifecycle steps when a transition journal append fails', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-journal-append-failure-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    const ports = fakePorts();
+    await expect(
+      drive({ cwd, runId: 'run-1', ports }, linearScheduler, serialFiringPolicy, { maxFirings: 2 }),
+    ).resolves.toEqual({ status: 'completed', runStatus: 'worktree_populated' });
+
+    // Replace the journal file with a directory so every later appendFile fails (EISDIR).
+    const journalPath = petriEventsPath(cwd, 'run-1');
+    await rm(journalPath);
+    await mkdir(journalPath);
+    let failureWakeUps = 0;
+    const unsubscribe = subscribePetriJournalFailures({
+      cwd,
+      runId: 'run-1',
+      listener: () => {
+        failureWakeUps += 1;
+      },
+    });
+
+    try {
+      await expect(drive({ cwd, runId: 'run-1', ports })).resolves.toEqual({
+        status: 'halted',
+        step: 'source_policy',
+        runStatus: 'source_policy_selected',
+        reason: 'petri_journal_append_failed',
+      });
+    } finally {
+      unsubscribe();
+    }
+    expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.status).toBe('source_policy_selected');
+    expect(failureWakeUps).toBe(1);
+    const snapshot = await readPetriMarkingSnapshot({ cwd, runId: 'run-1' });
+    expect(snapshot?.terminalEventKind).toBeUndefined();
+  });
+
+  it('halts scheduler exhaustion without persisting a terminal snapshot when the terminal append fails', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-terminal-journal-failure-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    const ports = fakePorts();
+    await expect(drive({ cwd, runId: 'run-1', ports })).resolves.toEqual({
+      status: 'completed',
+      runStatus: 'promotion_prepared',
+    });
+
+    await rm(petriMarkingPath(cwd, 'run-1'));
+    const journalPath = petriEventsPath(cwd, 'run-1');
+    await rm(journalPath);
+    await mkdir(journalPath);
+
+    await expect(drive({ cwd, runId: 'run-1', ports })).resolves.toEqual({
+      status: 'halted',
+      step: 'terminal',
+      runStatus: 'promotion_prepared',
+      reason: 'petri_journal_append_failed',
+    });
+    expect(await pathExists(petriMarkingPath(cwd, 'run-1'))).toBe(false);
   });
 
   it('defaults greenfield runs to plan-only source policy without copying host source', async () => {
