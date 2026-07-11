@@ -272,7 +272,7 @@ graph.nodeNeighborhood
 execute.run
   access: read
   params: {runId}
-  result: recorded run snapshot, per-requirement status, artifact-presence flags, reports tail, raw Petri runtime-event tail, normalized worker/verify stream tails, optional derived Petri projection, and optional raw Petri net
+  result: recorded run snapshot, per-requirement status, artifact-presence flags, reports tail, raw Petri runtime-event tail, normalized worker/verify stream tails, optional derived Petri projection, optional raw Petri net, and optional Petrinaut replay export metadata
   source: .brunch/cook/runs/<runId> read projection; raw artifact paths, Pi event payloads, and subprocess handles do not cross the RPC boundary
 
 execute.runTraceIndex
@@ -306,7 +306,9 @@ brunch.updated:
 
 WebSocket and stdio transports both carry these notifications independently from request responses. The notification payload is owned by `rpc/`; graph and session mutation adapters receive only a narrow product-update publisher.
 
-`execute.run` updates may carry lightweight live Petri read hints in addition to `runId`: `petriProjectionSource` (`snapshot` or `replay`) and `petriProjectionReplayReason` (`snapshot_missing_or_unreadable` or `snapshot_stale`). These hints are cache-shaping only, not canonical run detail; the authoritative projection still comes from `execute.run`. The executor orchestrate path emits a conservative synchronous `snapshot` hint on per-step completion because the drive observer hook is not awaited, while write-side `execute.replan*` RPC mutations can await `readRunDetail(...)` and publish honest replay/snapshot hints from current read-side truth.
+`execute.run` updates may carry lightweight live Petri read hints in addition to `runId`: `petriProjectionSource` (`snapshot` or `replay`), `petriProjectionReplayReason` (`snapshot_missing_or_unreadable` or `snapshot_stale`), and ready/blocked frontier hints. Complete Petrinaut replay exports do not ride invalidation notifications; clients refetch canonical `execute.run` detail. The executor orchestrate path emits a conservative synchronous `snapshot` hint on per-step completion because the drive observer hook is not awaited, while write-side `execute.replan*` RPC mutations can await `readRunDetail(...)` and publish honest replay/snapshot hints from current read-side truth.
+
+Petrinaut HTTP surfaces are sidecar routes, not JSON-RPC methods. `/petrinaut/stream?runId=<id>` returns one finite `text/event-stream` replay derived from validated `petrinaut/net.sdcpn.json` + `events.jsonl` and then closes. Cross-origin read permission is emitted only for the configured `PETRINAUT_URL` origin. `/petrinaut/launch?runId=<id>` redirects to configured `PETRINAUT_URL` with an absolute local `sse` URL; it rejects missing config, missing artifacts, and non-loopback `Host` headers. Both routes are observer surfaces only and never affect run lifecycle authority.
 
 The TUI-started web sidecar also multiplexes live session-stream frames on the same `/rpc` WebSocket when a live in-process `AgentSession` exists:
 

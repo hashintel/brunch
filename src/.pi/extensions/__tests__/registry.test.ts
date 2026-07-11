@@ -2177,6 +2177,55 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(access(join(runDir, 'petrinaut'))).rejects.toThrow();
   });
 
+  it('registers execute_petri_export as topology plus SDCPN export', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-petri-export-'));
+    const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
+    const metadataPath = join(runDir, 'run.json');
+    const reportPath = join(runDir, 'reports.jsonl');
+    const planPath = join(cwd, 'plan.yaml');
+    await mkdir(runDir, { recursive: true });
+    await writeFile(planPath, JSON.stringify({ mode: 'greenfield', slices: [{ id: 'task-1' }] }), 'utf8');
+    await writeFile(reportPath, '{"event":"run_completed","runId":"run-1"}\n', 'utf8');
+    await writeFile(
+      metadataPath,
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath,
+        status: 'run_completed',
+        reportsPath: reportPath,
+        completedSliceIds: ['task-1'],
+      }),
+      'utf8',
+    );
+    const registeredTools = await collectProductTools({
+      graph: { specId: 42, lsn: 31, nodes: [], edges: [] },
+    });
+
+    const petriExport = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_PETRI_EXPORT_TOOL);
+    expect(petriExport).toBeDefined();
+    const result = await petriExport!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
+
+    const petriPath = join(runDir, 'petrinaut', 'net.json');
+    const sdcpnPath = join(runDir, 'petrinaut', 'net.sdcpn.json');
+    expect(result.content[0]?.text).toContain('execute_petri_export: petri_exported');
+    expect(result.content[0]?.text).toContain(`net: ${petriPath}`);
+    expect(result.content[0]?.text).toContain(`sdcpn: ${sdcpnPath}`);
+    expect(result.content[0]?.text).toContain('sse: /petrinaut/stream?runId=run-1');
+    expect(result.content[0]?.text).toContain('launch: /petrinaut/launch?runId=run-1');
+    expect(result.details).toMatchObject({
+      result: { status: 'petri_exported', petriPath, petriSdcpnPath: sdcpnPath },
+      sideEffects: [
+        { kind: 'mkdir', path: dirname(petriPath) },
+        { kind: 'write_file', path: petriPath, ifExists: 'overwrite' },
+        { kind: 'write_file', path: sdcpnPath, ifExists: 'overwrite' },
+        { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
+      ],
+    });
+    await expect(readFile(petriPath, 'utf8')).resolves.toContain('worktree_create');
+    await expect(readFile(sdcpnPath, 'utf8')).resolves.toContain('Executor run run-1');
+  });
+
   it('registers execute_promotion_prepare as injected run-local promotion', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-promotion-prepare-'));
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');

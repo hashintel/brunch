@@ -200,6 +200,59 @@ describe('run detail route', () => {
     expect(screen.getByText(/petri-place-1/u)).toBeTruthy();
   });
 
+  it('renders the derived Petrinaut replay export summary when present', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        run: {
+          ...runDetail,
+          status: 'worktree_created',
+          petrinautStreamPath: '/petrinaut/stream?runId=run-1',
+          petrinautLaunchPath: '/petrinaut/launch?runId=run-1',
+          petrinautReplayExport: {
+            definition: {
+              version: 1,
+              meta: { generator: 'brunch', generatorVersion: 'executor-topology-v1' },
+              title: 'Executor run run-1',
+              places: [
+                { id: 'run:created', name: 'RunCreated' },
+                { id: 'run:worktree_created', name: 'RunWorktreeCreated' },
+              ],
+              transitions: [
+                {
+                  id: 'worktree_create',
+                  name: 'worktree_create',
+                  inputArcs: [{ placeId: 'run:created', weight: 1, type: 'standard' }],
+                  outputArcs: [{ placeId: 'run:worktree_created', weight: 1 }],
+                },
+              ],
+            },
+            initialState: { 'run:created': 1 },
+            transitionFirings: [
+              {
+                transitionId: 'worktree_create',
+                input: { 'run:created': 1 },
+                output: { 'run:worktree_created': 1 },
+              },
+            ],
+          },
+        } as RunDetail,
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('Petrinaut replay export')).toBeTruthy();
+    expect(screen.getByText('2 places • 1 transitions • 1 firings')).toBeTruthy();
+    expect(screen.getByText('1 initially marked places')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'SSE replay endpoint' }).getAttribute('href')).toBe(
+      '/petrinaut/stream?runId=run-1',
+    );
+    expect(screen.getByRole('link', { name: 'Open in Petrinaut' }).getAttribute('href')).toBe(
+      '/petrinaut/launch?runId=run-1',
+    );
+  });
+
   it('renders the derived Petri projection separately from the raw net', async () => {
     window.history.pushState(null, '', '/runs/run-1');
     const runtime = createBrunchWebRuntime({

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { BRUNCH_DIR } from '../constants.js';
 import { agentStreamPath, type AgentStreamEvent } from './agent-result.js';
 import type { BlockedStep, ExecutorNetEvent, ReadyStep, SchedulerPlan } from './orchestrate-topology.js';
-import { petriEventsPath } from './petri-events.js';
+import { parsePetriEvent, petriEventsPath } from './petri-events.js';
 import { petriMarkingSnapshotMatchesRunMetadata, readPetriMarkingSnapshot } from './petri-marking.js';
 import { canProjectPetriReplay } from './petri-replay-eligibility.js';
 import { replayPetri, type PetriProjection } from './petri-replay.js';
@@ -14,6 +14,9 @@ import {
   projectExecutorPetriTransitionHistory,
   type ExecutorPetriRuntime,
 } from './petri-runtime.js';
+import { resolvePetrinautUrl } from './petrinaut/launcher-url.js';
+import { reducePetrinautReplayExport, type PetrinautReplayExport } from './petrinaut/replay-export.js';
+import { parseSdcpnFile, type SdcpnFile } from './petrinaut/sdcpn.js';
 import { readRunMetadata, runDirPath, runMetadataPath, type RunMetadata } from './run.js';
 import { verifyStreamPath, type VerifyStreamEvent } from './test-result.js';
 
@@ -95,6 +98,12 @@ export interface RunDetail extends RunSummary {
   readonly requirements: readonly RunRequirementStatus[];
   /** Raw parsed petrinaut/net.json — deliberately unshaped (frontier: raw view only). */
   readonly petriNet?: unknown;
+  /** Derived Petrinaut replay payload from net.sdcpn.json + the complete Petri event journal. */
+  readonly petrinautReplayExport?: PetrinautReplayExport;
+  /** Relative SSE endpoint for the finite Petrinaut replay export. */
+  readonly petrinautStreamPath?: string;
+  /** Relative Brunch endpoint that redirects to the configured Petrinaut launcher URL. */
+  readonly petrinautLaunchPath?: string;
 }
 
 export interface RunTraceEntry {
@@ -155,6 +164,7 @@ export async function readRunDetail(
     readonly reportsTailLimit?: number;
     readonly agentStreamTailLimit?: number;
     readonly verifyStreamTailLimit?: number;
+    readonly petrinautEnv?: { readonly PETRINAUT_URL?: string };
   },
 ): Promise<RunDetail | UnreadableRun | undefined> {
   const runDir = runDirPath(cwd, runId);
@@ -185,9 +195,17 @@ export async function readRunDetail(
     petriRuntime = undefined;
   }
   const petriNet = await readPetriNet(petriFilePath(cwd, runId, metadata));
+  const petriSdcpnFile = await readPetriSdcpnFile(petriSdcpnFilePath(cwd, runId));
   const petriReplayProjection = canProjectPetriReplay({ petriNet, petriEvents })
     ? replayPetri({ net: petriNet, events: petriEvents.events })
     : undefined;
+  const petrinautReplayExport =
+    petriSdcpnFile !== undefined && petriEvents.exists && !petriEvents.torn
+      ? readPetrinautReplayExport(petriSdcpnFile, petriEvents.events)
+      : undefined;
+  const petrinautStreamPath = petrinautStreamPathForRun(runId);
+  const petrinautLaunchAvailable =
+    petrinautReplayExport === undefined ? false : canLaunchPetrinaut(options?.petrinautEnv ?? process.env);
   const petriMarkingSnapshot = await readPetriMarkingSnapshot({ cwd, runId });
   const hasMatchingPetriMarkingSnapshot =
     petriMarkingSnapshot !== undefined &&
@@ -239,7 +257,26 @@ export async function readRunDetail(
       reports.events,
     ),
     ...(petriNet === undefined ? {} : { petriNet }),
+    ...(petrinautReplayExport === undefined
+      ? {}
+      : {
+          petrinautReplayExport,
+          petrinautStreamPath,
+          ...(petrinautLaunchAvailable ? { petrinautLaunchPath: petrinautLaunchPathForRun(runId) } : {}),
+        }),
   };
+}
+
+export function petrinautStreamPathForRun(runId: string): string {
+  return `/petrinaut/stream?runId=${encodeURIComponent(runId)}`;
+}
+
+export function petrinautLaunchPathForRun(runId: string): string {
+  return `/petrinaut/launch?runId=${encodeURIComponent(runId)}`;
+}
+
+function canLaunchPetrinaut(env: { readonly PETRINAUT_URL?: string }): boolean {
+  return 'url' in resolvePetrinautUrl({ env });
 }
 
 function toPetriProjection(
@@ -472,9 +509,32 @@ function petriFilePath(cwd: string, runId: string, metadata: RunMetadata): strin
   return metadata.petriPath ?? join(runDirPath(cwd, runId), 'petrinaut', 'net.json');
 }
 
+function petriSdcpnFilePath(cwd: string, runId: string): string {
+  return join(runDirPath(cwd, runId), 'petrinaut', 'net.sdcpn.json');
+}
+
 async function readPetriNet(path: string): Promise<unknown> {
   try {
     return JSON.parse(await readFile(path, 'utf8')) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+async function readPetriSdcpnFile(path: string): Promise<SdcpnFile | undefined> {
+  try {
+    return parseSdcpnFile(JSON.parse(await readFile(path, 'utf8')));
+  } catch {
+    return undefined;
+  }
+}
+
+function readPetrinautReplayExport(
+  sdcpnFile: SdcpnFile,
+  events: readonly ExecutorNetEvent[],
+): PetrinautReplayExport | undefined {
+  try {
+    return reducePetrinautReplayExport({ sdcpnFile, events });
   } catch {
     return undefined;
   }
@@ -505,7 +565,12 @@ async function readPetriEvents(
     if (index === lastIndex && line.length === 0) continue;
     if (line.length === 0) continue;
     try {
-      events.push(JSON.parse(line) as ExecutorNetEvent);
+      const event = parsePetriEvent(JSON.parse(line));
+      if (event === undefined) {
+        torn = true;
+        continue;
+      }
+      events.push(event);
     } catch {
       // A torn journal line never blocks the readable event tail.
       // Accept a complete final line even when the file is missing a trailing newline.

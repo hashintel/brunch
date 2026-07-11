@@ -136,6 +136,7 @@ function invalidateExact(queryClient: QueryClient, queryKey: QueryKey): void {
 
 function patchExecuteRunDetail(queryClient: QueryClient, update: ProductUpdate): void {
   if (typeof update.runId !== 'string') return;
+  const runId = update.runId;
   if (
     !('petriProjection' in update) &&
     !('petriProjectionSource' in update) &&
@@ -145,7 +146,7 @@ function patchExecuteRunDetail(queryClient: QueryClient, update: ProductUpdate):
   ) {
     return;
   }
-  queryClient.setQueryData(queryKeys.execute.run(update.runId), (current: unknown) => {
+  queryClient.setQueryData(queryKeys.execute.run(runId), (current: unknown) => {
     if (!isRecord(current) || 'unreadable' in current) return current;
     const next = { ...current };
     const hasProjectionUpdate = 'petriProjection' in update;

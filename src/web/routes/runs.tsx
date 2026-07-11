@@ -192,6 +192,15 @@ function RunDetailPage() {
             replayReason={detail.petriProjectionReplayReason}
           />
         )}
+        {detail.petrinautReplayExport === undefined ? null : (
+          <PetrinautReplayExportBlock
+            streamPath={
+              detail.petrinautStreamPath ?? `/petrinaut/stream?runId=${encodeURIComponent(detail.runId)}`
+            }
+            launchPath={detail.petrinautLaunchPath}
+            replayExport={detail.petrinautReplayExport}
+          />
+        )}
         {detail.petriNet === undefined ? null : <PetriRawBlock net={detail.petriNet} />}
       </div>
     </PageColumn>
@@ -420,6 +429,35 @@ function PetriRawBlock({ net }: { net: unknown }) {
       <summary className="text-hint cursor-pointer font-mono text-xs">Petri net (raw)</summary>
       <pre className="text-sub mt-2 overflow-x-auto text-xs">{JSON.stringify(net, null, 2)}</pre>
     </details>
+  );
+}
+
+function PetrinautReplayExportBlock({
+  streamPath,
+  launchPath,
+  replayExport,
+}: {
+  streamPath: string;
+  launchPath: string | undefined;
+  replayExport: NonNullable<RunDetail['petrinautReplayExport']>;
+}) {
+  const markedPlaces = Object.keys(replayExport.initialState).length;
+  return (
+    <section className="border-rule flex flex-col gap-2 rounded-xl border bg-white p-4 shadow-[var(--shadow-card)]">
+      <p className="text-hint font-mono text-xs">Petrinaut replay export</p>
+      <p className="text-sub text-xs">
+        {`${replayExport.definition.places.length} places • ${replayExport.definition.transitions.length} transitions • ${replayExport.transitionFirings.length} firings`}
+      </p>
+      <p className="text-sub text-xs">{`${markedPlaces} initially marked places`}</p>
+      <a className="text-link font-mono text-xs" href={streamPath}>
+        SSE replay endpoint
+      </a>
+      {launchPath === undefined ? null : (
+        <a className="text-link font-mono text-xs" href={launchPath}>
+          Open in Petrinaut
+        </a>
+      )}
+    </section>
   );
 }
 

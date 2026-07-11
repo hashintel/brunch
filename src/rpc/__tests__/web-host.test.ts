@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
+import { runDirPath, runMetadataPath, type RunMetadata } from '../../executor/run.js';
 import { runCreateOnlyMutation } from '../../graph/__tests__/support/create-only-mutation.js';
 import { openWorkspaceGraphRuntime } from '../../graph/workspace-store.js';
 import { assistantMessage, userMessage } from '../../probes/test-helpers.js';
@@ -48,6 +49,35 @@ async function rawGet(url: string, path: string): Promise<Response> {
   });
 }
 
+async function rawGetWithHost(url: string, path: string, host: string): Promise<Response> {
+  const base = new URL(url);
+  return new Promise((resolve, reject) => {
+    const req = request(
+      {
+        hostname: base.hostname,
+        port: base.port,
+        method: 'GET',
+        path,
+        headers: { Host: host },
+      },
+      (res) => {
+        const chunks: Uint8Array[] = [];
+        res.on('data', (chunk: Uint8Array) => chunks.push(chunk));
+        res.on('end', () => {
+          resolve(
+            new Response(Buffer.concat(chunks), {
+              ...(res.statusCode !== undefined ? { status: res.statusCode } : {}),
+              headers: res.headers as Record<string, string>,
+            }),
+          );
+        });
+      },
+    );
+    req.on('error', reject);
+    req.end();
+  });
+}
+
 async function builtWebAssets(): Promise<string> {
   const assetRoot = await mkdtemp(join(tmpdir(), 'brunch-web-assets-'));
   await mkdir(join(assetRoot, 'assets'));
@@ -57,6 +87,125 @@ async function builtWebAssets(): Promise<string> {
   );
   await writeFile(join(assetRoot, 'assets', 'brunch-web.js'), "console.log('built web')");
   return assetRoot;
+}
+
+function parseSse(body: string): Array<{ event: string; data: unknown }> {
+  return body
+    .split('\n\n')
+    .filter((chunk) => chunk.length > 0)
+    .map((chunk) => {
+      const lines = chunk.split('\n');
+      const event = lines.find((line) => line.startsWith('event: '))?.slice('event: '.length) ?? '';
+      const data = lines.find((line) => line.startsWith('data: '))?.slice('data: '.length) ?? '';
+      return { event, data: data.length === 0 ? undefined : JSON.parse(data) };
+    });
+}
+
+async function writePetrinautReplayRun(
+  cwd: string,
+  runId: string,
+  options: { readonly terminal?: boolean; readonly status?: RunMetadata['status'] } = {},
+): Promise<void> {
+  const terminal = options.terminal ?? true;
+  const runDir = runDirPath(cwd, runId);
+  await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+  await writeFile(
+    runMetadataPath(cwd, runId),
+    `${JSON.stringify({
+      runId,
+      specId: '42',
+      planPath: '/plan.yaml',
+      status: options.status ?? (terminal ? 'promotion_prepared' : 'petri_exported'),
+    })}\n`,
+    'utf8',
+  );
+  await writeFile(
+    join(runDir, 'petrinaut', 'net.json'),
+    `${JSON.stringify({
+      runId,
+      transitions: [
+        {
+          id: 'worktree_create',
+          inputArcs: [{ placeId: 'run:created', weight: 1 }],
+          outputArcs: [{ placeId: 'run:worktree_created', weight: 1 }],
+        },
+      ],
+      initialMarking: { 'run:created': 1 },
+    })}\n`,
+    'utf8',
+  );
+  await writeFile(
+    join(runDir, 'petrinaut', 'net.sdcpn.json'),
+    `${JSON.stringify({
+      version: 1,
+      meta: { generator: 'brunch', generatorVersion: 'executor-topology-v1' },
+      title: `Executor run ${runId}`,
+      places: [
+        {
+          id: 'run:created',
+          name: 'RunCreated',
+          colorId: null,
+          dynamicsEnabled: false,
+          differentialEquationId: null,
+        },
+        {
+          id: 'run:worktree_created',
+          name: 'RunWorktreeCreated',
+          colorId: null,
+          dynamicsEnabled: false,
+          differentialEquationId: null,
+        },
+      ],
+      transitions: [
+        {
+          id: 'worktree_create',
+          name: 'worktree_create',
+          inputArcs: [{ placeId: 'run:created', weight: 1, type: 'standard' }],
+          outputArcs: [{ placeId: 'run:worktree_created', weight: 1 }],
+          lambdaType: 'predicate',
+          lambdaCode: 'export default Lambda(() => true)',
+          transitionKernelCode: 'export default TransitionKernel(() => ({}))',
+        },
+      ],
+      types: [],
+      differentialEquations: [],
+      parameters: [],
+      scenarios: [
+        {
+          id: 'scenario__initial-marking',
+          name: 'Initial marking',
+          scenarioParameters: [],
+          parameterOverrides: {},
+          initialState: { type: 'per_place', content: { 'run:created': '1' } },
+        },
+      ],
+      metrics: [],
+    })}\n`,
+    'utf8',
+  );
+  await writeFile(
+    join(runDir, 'petrinaut', 'events.jsonl'),
+    [
+      JSON.stringify({
+        kind: 'transition_fired',
+        runId,
+        runStatus: 'worktree_created',
+        transitionId: 'worktree_create',
+        subnetId: 'run',
+        step: 'worktree_create',
+        contract: { kind: 'mechanical', lane: 'run' },
+        consumed: ['run:created'],
+        produced: ['run:worktree_created'],
+        fromStatus: 'created',
+        toStatus: 'worktree_created',
+      }),
+      ...(terminal
+        ? [JSON.stringify({ kind: 'net_completed', runId, runStatus: 'promotion_prepared' })]
+        : []),
+      '',
+    ].join('\n'),
+    'utf8',
+  );
 }
 
 describe('web host', () => {
@@ -717,6 +866,217 @@ describe('web host', () => {
       expect(response.status).toBe(404);
     } finally {
       await host.close();
+    }
+  });
+
+  it('serves artifact-backed Petrinaut SSE replay for a run with derived replay artifacts', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-'));
+    await writePetrinautReplayRun(cwd, 'run-1');
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const frames = parseSse(await response.text());
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toMatch(/^text\/event-stream/u);
+      expect(response.headers.get('access-control-allow-origin')).toBeNull();
+      expect(frames.map((frame) => frame.event)).toEqual([
+        'status',
+        'definition',
+        'initial_state',
+        'transition_firing',
+        'transition_firing',
+        'terminal',
+      ]);
+      expect(frames[0]?.data).toEqual({ state: 'completed' });
+      expect(frames[2]?.data).toEqual({ 'run:created': 1 });
+      expect(frames[3]?.data).toMatchObject({
+        transitionId: 'worktree_create',
+        input: { 'run:created': 1 },
+        output: { 'run:worktree_created': 1 },
+      });
+      expect(frames[5]?.data).toEqual({ state: 'completed' });
+    } finally {
+      await host.close();
+    }
+  });
+
+  it('serves a finite Petrinaut SSE replay when the journal has no terminal event', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-finite-'));
+    await writePetrinautReplayRun(cwd, 'run-1', { terminal: false });
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const controller = new AbortController();
+      const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`, {
+        signal: controller.signal,
+      });
+      const body = await Promise.race([
+        response.text(),
+        new Promise<'timed_out'>((resolve) => setTimeout(() => resolve('timed_out'), 100)),
+      ]);
+      controller.abort();
+
+      expect(body).not.toBe('timed_out');
+      const frames = parseSse(body as string);
+
+      expect(frames.map((frame) => frame.event)).toEqual([
+        'status',
+        'definition',
+        'initial_state',
+        'transition_firing',
+      ]);
+      expect(frames[0]?.data).toEqual({ state: 'running' });
+    } finally {
+      await host.close();
+    }
+  });
+
+  it('uses authoritative run metadata when a completed run is missing its terminal journal event', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-authority-'));
+    await writePetrinautReplayRun(cwd, 'run-1', { terminal: false, status: 'promotion_prepared' });
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const frames = parseSse(await response.text());
+
+      expect(frames[0]).toEqual({ event: 'status', data: { state: 'completed' } });
+      expect(frames.at(-1)).toEqual({ event: 'terminal', data: { state: 'completed' } });
+    } finally {
+      await host.close();
+    }
+  });
+
+  it('grants Petrinaut SSE CORS only to the configured Petrinaut origin', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-cors-'));
+    await writePetrinautReplayRun(cwd, 'run-1');
+    const previousPetrinautUrl = process.env.PETRINAUT_URL;
+    process.env.PETRINAUT_URL = 'https://petrinaut.example/brunch';
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const allowed = await fetch(`${host.url}/petrinaut/stream?runId=run-1`, {
+        headers: { Origin: 'https://petrinaut.example' },
+      });
+      const denied = await fetch(`${host.url}/petrinaut/stream?runId=run-1`, {
+        headers: { Origin: 'https://evil.example' },
+      });
+
+      expect(allowed.headers.get('access-control-allow-origin')).toBe('https://petrinaut.example');
+      expect(allowed.headers.get('vary')).toBe('Origin');
+      expect(denied.headers.get('access-control-allow-origin')).toBeNull();
+      expect(denied.headers.get('vary')).toBe('Origin');
+    } finally {
+      await host.close();
+      if (previousPetrinautUrl === undefined) delete process.env.PETRINAUT_URL;
+      else process.env.PETRINAUT_URL = previousPetrinautUrl;
+    }
+  });
+
+  it('rejects Petrinaut SSE replay without a runId or without derived artifacts', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-missing-'));
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const missingRunId = await fetch(`${host.url}/petrinaut/stream`);
+      const unavailable = await fetch(`${host.url}/petrinaut/stream?runId=run-missing`);
+
+      expect(missingRunId.status).toBe(400);
+      expect(await missingRunId.text()).toBe('Missing runId');
+      expect(unavailable.status).toBe(404);
+      expect(await unavailable.text()).toBe('Petrinaut stream not available');
+    } finally {
+      await host.close();
+    }
+  });
+
+  it('redirects Petrinaut launch requests to the configured launcher with an absolute SSE URL', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-launch-'));
+    await writePetrinautReplayRun(cwd, 'run-1');
+    const previousPetrinautUrl = process.env.PETRINAUT_URL;
+    process.env.PETRINAUT_URL = 'https://petrinaut.example/brunch?theme=dark';
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const response = await fetch(`${host.url}/petrinaut/launch?runId=run-1`, { redirect: 'manual' });
+      const location = response.headers.get('location');
+
+      expect(response.status).toBe(302);
+      expect(response.headers.get('cache-control')).toBe('no-store');
+      expect(location).toBeTruthy();
+      const parsed = new URL(location!);
+      expect(parsed.origin).toBe('https://petrinaut.example');
+      expect(parsed.pathname).toBe('/brunch');
+      expect(parsed.searchParams.get('theme')).toBe('dark');
+      expect(parsed.searchParams.get('runId')).toBe('run-1');
+      expect(parsed.searchParams.get('sse')).toBe(`${host.url}/petrinaut/stream?runId=run-1`);
+    } finally {
+      await host.close();
+      if (previousPetrinautUrl === undefined) delete process.env.PETRINAUT_URL;
+      else process.env.PETRINAUT_URL = previousPetrinautUrl;
+    }
+  });
+
+  it('rejects Petrinaut launch requests without a runId, configured URL, or stream artifacts', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-launch-missing-'));
+    const previousPetrinautUrl = process.env.PETRINAUT_URL;
+    delete process.env.PETRINAUT_URL;
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const missingRunId = await fetch(`${host.url}/petrinaut/launch`);
+      const missingConfig = await fetch(`${host.url}/petrinaut/launch?runId=run-1`);
+      process.env.PETRINAUT_URL = 'file:///tmp/petrinaut.html';
+      const invalidConfig = await fetch(`${host.url}/petrinaut/launch?runId=run-1`);
+      process.env.PETRINAUT_URL = 'https://petrinaut.example/brunch';
+      const unavailable = await fetch(`${host.url}/petrinaut/launch?runId=run-1`);
+
+      expect(missingRunId.status).toBe(400);
+      expect(await missingRunId.text()).toBe('Missing runId');
+      expect(missingConfig.status).toBe(404);
+      expect(await missingConfig.text()).toBe('Petrinaut URL not configured');
+      expect(invalidConfig.status).toBe(404);
+      expect(await invalidConfig.text()).toBe('Petrinaut URL not configured');
+      expect(unavailable.status).toBe(404);
+      expect(await unavailable.text()).toBe('Petrinaut stream not available');
+    } finally {
+      await host.close();
+      if (previousPetrinautUrl === undefined) delete process.env.PETRINAUT_URL;
+      else process.env.PETRINAUT_URL = previousPetrinautUrl;
+    }
+  });
+
+  it('rejects Petrinaut launch redirects for non-loopback Host headers', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-launch-host-'));
+    await writePetrinautReplayRun(cwd, 'run-1');
+    const previousPetrinautUrl = process.env.PETRINAUT_URL;
+    process.env.PETRINAUT_URL = 'https://petrinaut.example/brunch';
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const response = await rawGetWithHost(host.url, '/petrinaut/launch?runId=run-1', 'evil.example');
+
+      expect(response.status).toBe(400);
+      expect(await response.text()).toBe('Invalid Host header');
+    } finally {
+      await host.close();
+      if (previousPetrinautUrl === undefined) delete process.env.PETRINAUT_URL;
+      else process.env.PETRINAUT_URL = previousPetrinautUrl;
+    }
+  });
+
+  it('normalizes accepted loopback Host headers before composing launch redirect URLs', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-launch-host-normalize-'));
+    await writePetrinautReplayRun(cwd, 'run-1');
+    const previousPetrinautUrl = process.env.PETRINAUT_URL;
+    process.env.PETRINAUT_URL = 'https://petrinaut.example/brunch';
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const response = await rawGetWithHost(host.url, '/petrinaut/launch?runId=run-1', 'localhost');
+      const location = response.headers.get('location');
+
+      expect(response.status).toBe(302);
+      expect(new URL(location!).searchParams.get('sse')).toBe(
+        'http://localhost/petrinaut/stream?runId=run-1',
+      );
+    } finally {
+      await host.close();
+      if (previousPetrinautUrl === undefined) delete process.env.PETRINAUT_URL;
+      else process.env.PETRINAUT_URL = previousPetrinautUrl;
     }
   });
 });
