@@ -859,6 +859,97 @@ describe('readRunDetail', () => {
     });
   });
 
+  it('backfills the terminal from replay when a matching marking snapshot lags the journal terminal', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-marking-terminal-lag-');
+    const planPath = join(cwd, 'plan.json');
+    await writeFile(
+      planPath,
+      JSON.stringify({
+        mode: 'greenfield',
+        epics: [{ id: 'frontier-1', summary: 'F', depends_on: [], verification: [] }],
+        slices: [
+          { id: 'task-1', epic_id: 'frontier-1', definition: 'task-1.', depends_on: [], verification: [] },
+          { id: 'task-2', epic_id: 'frontier-1', definition: 'task-2.', depends_on: [], verification: [] },
+        ],
+      }),
+      'utf8',
+    );
+    const runDir = await writeRun(cwd, 'run-petri-marking-terminal-lag', {
+      planPath,
+      status: 'reports_initialized',
+    });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'net.json'),
+      JSON.stringify({
+        runId: 'run-petri-marking-terminal-lag',
+        subnets: [{ id: 'run', kind: 'run_control', transitionIds: ['worktree_create'] }],
+        places: [
+          { id: 'run:created', subnetId: 'run', name: 'Created' },
+          { id: 'run:slice_frontier', subnetId: 'run', name: 'Slice frontier' },
+        ],
+        transitions: [
+          {
+            id: 'worktree_create',
+            subnetId: 'run',
+            step: { kind: 'worktree_create' },
+            contract: { kind: 'mechanical', lane: 'run' },
+            inputArcs: [{ placeId: 'run:created', weight: 1 }],
+            outputArcs: [{ placeId: 'run:slice_frontier', weight: 1 }],
+          },
+        ],
+        initialMarking: { 'run:created': 1 },
+      }),
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'petrinaut', 'events.jsonl'),
+      [
+        JSON.stringify(
+          transitionEvent({
+            runId: 'run-petri-marking-terminal-lag',
+            runStatus: 'reports_initialized',
+            produced: ['run:slice_frontier'],
+            toStatus: 'reports_initialized',
+          }),
+        ),
+        JSON.stringify({
+          kind: 'net_halted',
+          runId: 'run-petri-marking-terminal-lag',
+          runStatus: 'reports_initialized',
+          reason: 'agent_failed',
+        }),
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'petrinaut', 'marking.json'),
+      `${JSON.stringify(
+        {
+          currentMarking: { 'run:slice_frontier': 1 },
+          firedTransitionCount: 5,
+          lifecycleProvenance: { runStatus: 'reports_initialized' },
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-petri-marking-terminal-lag');
+
+    expect(detail).toMatchObject({
+      petriProjection: {
+        currentMarking: { 'run:slice_frontier': 1 },
+        firedTransitionCount: 5,
+        terminalEventKind: 'net_halted',
+        haltedReason: 'agent_failed',
+      },
+      petriProjectionSource: 'snapshot',
+    });
+  });
+
   it('strips unverifiable terminal metadata from an otherwise matching marking snapshot', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-marking-terminal-unverifiable-');
     const planPath = join(cwd, 'plan.json');

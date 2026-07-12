@@ -1146,6 +1146,86 @@ describe('web host', () => {
     }
   });
 
+  // Regression oracle for the terminal-lagging marking snapshot race (FE-1190 Bugbot):
+  // a live refresh between the journal terminal append and the terminal marking persist
+  // must still deliver the terminal from replay truth instead of hanging.
+  it('delivers the journal terminal when the wake-up outruns the marking snapshot', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-terminal-race-'));
+    await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
+    await writeFile(
+      planFilePath(cwd, '42'),
+      JSON.stringify({
+        mode: 'greenfield',
+        epics: [{ id: 'frontier-1', summary: 'Build feature', depends_on: [], verification: [] }],
+        slices: [
+          {
+            id: 'task-1',
+            epic_id: 'frontier-1',
+            definition: 'Build task one.',
+            depends_on: [],
+            verification: [],
+          },
+        ],
+      }),
+      'utf8',
+    );
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
+    await preparePetriObservation({ cwd, runId: 'run-1' });
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      const first = await reader.read();
+      expect(first.done).toBe(false);
+      let body = decoder.decode(first.value);
+
+      // Crank one firing at a time; each drive() call returns before scheduler
+      // exhaustion, so the loop lands exactly in the race window: run.json and the
+      // marking snapshot record promotion_prepared while the journal has no terminal.
+      const ports = executorPorts(createFakeGitWorktreePort());
+      let firedTransitions = 0;
+      for (;;) {
+        await drive({ cwd, runId: 'run-1', ports }, linearScheduler, serialFiringPolicy, {
+          maxFirings: 1,
+        });
+        firedTransitions += 1;
+        const metadata = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+        if (metadata?.status === 'promotion_prepared') break;
+      }
+      while (
+        (body.match(/event: transition_firing/gu) ?? []).length < firedTransitions ||
+        !body.endsWith('\n\n')
+      ) {
+        const next = await reader.read();
+        expect(next.done).toBe(false);
+        body += decoder.decode(next.value);
+      }
+
+      // The next thing drive() would do: append the journal terminal. The wake-up
+      // fires while the marking snapshot still lacks terminalEventKind.
+      await appendPetriEvent({
+        cwd,
+        runId: 'run-1',
+        event: { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+      });
+      for (;;) {
+        const next = await reader.read();
+        if (next.done) break;
+        body += decoder.decode(next.value);
+      }
+
+      const frames = parseSse(body);
+      expect(frames.filter((frame) => frame.event === 'transition_firing')).toHaveLength(
+        firedTransitions + 1,
+      );
+      expect(body).toContain('"transitionId":"run:finish"');
+      expect(frames.at(-1)).toEqual({ event: 'terminal', data: { state: 'completed' } });
+    } finally {
+      await host.close();
+    }
+  });
+
   it('closes active Petrinaut streams during web host shutdown', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-shutdown-'));
     await writePetrinautReplayRun(cwd, 'run-1', { terminal: false });

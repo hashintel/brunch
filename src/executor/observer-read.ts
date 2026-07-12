@@ -356,7 +356,14 @@ function sanitizeTerminalSummary(
   },
 ): Pick<PetriProjection, 'terminalEventKind' | 'haltedReason'> {
   if (snapshot.terminalEventKind === undefined && snapshot.haltedReason === undefined) {
-    return {};
+    // A matching snapshot may lag the journal by the terminal fact (the append
+    // wake-up races the marking persist). Backfill from replay truth only — never
+    // from metadata expectation, so completion stays journal-ordered.
+    if (!replayProjection?.terminalEventKind) return {};
+    return {
+      terminalEventKind: replayProjection.terminalEventKind,
+      ...(replayProjection.haltedReason === undefined ? {} : { haltedReason: replayProjection.haltedReason }),
+    };
   }
   const checkable = replayProjection?.terminalEventKind
     ? replayProjection
