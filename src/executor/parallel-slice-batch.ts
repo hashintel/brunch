@@ -7,6 +7,7 @@ import {
   ParallelAuthorityError,
 } from './parallel-slice-batch/authority.js';
 import { executeIsolatedSlice, mergeAttemptHistory } from './parallel-slice-batch/effects.js';
+import { emitParallelStepProgress } from './parallel-slice-batch/progress.js';
 import type {
   ParallelSliceBatchArgs,
   ParallelSliceBatchResult,
@@ -64,6 +65,10 @@ export async function executeParallelSliceBatch(
     for (const step of args.steps) {
       await authority.fire(sliceTransitionId('slice_start', step.sliceId));
     }
+    for (const step of args.steps) {
+      emitParallelStepProgress(ctx, 'started', step, args.state);
+      emitParallelStepProgress(ctx, 'completed', step, args.state);
+    }
   } catch (error) {
     return {
       status: 'halted',
@@ -103,6 +108,8 @@ export async function executeParallelSliceBatch(
       }
       if (halt?.step === 'slice_integrate') continue;
 
+      const integrateStep = { kind: 'slice_integrate' as const, sliceId, epicId: result.epicId };
+      emitParallelStepProgress(ctx, 'started', integrateStep, summary);
       const integrated = await ctx.ports.gitSliceIntegration.integrate({
         runWorktreeDir: summary.worktreeDir!,
         sliceWorktreeDir: result.workspaceDir,
@@ -138,6 +145,9 @@ export async function executeParallelSliceBatch(
         sliceCommitSha: integrated.sliceCommitSha,
         integrationCommitSha: integrated.integrationCommitSha,
       });
+      emitParallelStepProgress(ctx, 'completed', integrateStep, summary);
+      const completeStep = { kind: 'slice_complete' as const, sliceId, epicId: result.epicId };
+      emitParallelStepProgress(ctx, 'started', completeStep, summary);
       await authority.fire(sliceTransitionId('slice_complete', sliceId));
       await authority.appendReport({
         event: 'slice_completed',
@@ -151,6 +161,7 @@ export async function executeParallelSliceBatch(
       summary = updateRunSummary(summary, result, integrated.integrationCommitSha);
       await persistRunMetadata(runMetadataPath(ctx.cwd, ctx.runId), summary);
       await authority.setState(summary);
+      emitParallelStepProgress(ctx, 'completed', completeStep, summary, summary.status);
     }
   } catch (error) {
     return authorityFailure(summary.status, error);

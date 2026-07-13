@@ -2408,7 +2408,7 @@ describe('petriScheduler', () => {
     });
   });
 
-  it('persists the selected Petri claim-set before the first reserved transition fires', async () => {
+  it('persists every parallel claim before observer progress begins', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-marking-claims-'));
     await createRunAtCreated(cwd, ['task-1', 'task-2']);
     let claimedSnapshotPromise: Promise<Awaited<ReturnType<typeof readPetriMarkingSnapshot>>> | undefined;
@@ -2429,11 +2429,14 @@ describe('petriScheduler', () => {
 
     expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
     await expect(claimedSnapshotPromise).resolves.toEqual({
-      claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-2'],
-      currentMarking: { 'slice:task-1:claim': 1, 'slice:task-2:claim': 1 },
-      firedTransitionCount: 5,
+      currentMarking: { 'slice:task-1:started': 1, 'slice:task-2:started': 1 },
+      firedTransitionCount: 7,
       lifecycleProvenance: {
         runStatus: 'reports_initialized',
+      },
+      parallelSliceBatch: {
+        claimedSliceIds: ['task-1', 'task-2'],
+        settledSliceIds: [],
       },
     });
   });

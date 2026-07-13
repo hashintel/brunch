@@ -4,7 +4,13 @@ import { Type, type Static } from 'typebox';
 import type { AgentStreamEvent } from '../../../../executor/agent-result.js';
 import type { ExecutionPorts } from '../../../../executor/execution-ports.js';
 import { readRunDetail } from '../../../../executor/observer-read.js';
-import { drive, type DriveOutcome, type DriveStepProgress } from '../../../../executor/orchestrate.js';
+import {
+  drive,
+  frontierFiringPolicy,
+  petriScheduler,
+  type DriveOutcome,
+  type DriveStepProgress,
+} from '../../../../executor/orchestrate.js';
 import type { VerifyStreamEvent } from '../../../../executor/test-result.js';
 import {
   executeRunProductUpdateHintsFromDetail,
@@ -80,14 +86,20 @@ export function createExecuteOrchestrateTool(
       let latestProgress: ExecuteOrchestrateDetails['progress'];
       let latestAgentStream: ExecuteOrchestrateDetails['agentStream'];
       let latestVerifyStream: ExecuteOrchestrateDetails['verifyStream'];
+      const progressBySlice = new Map<string, NonNullable<ExecuteOrchestrateDetails['progress']>>();
+      const agentStreamBySlice = new Map<string, AgentStreamEvent>();
+      const verifyStreamBySlice = new Map<string, VerifyStreamEvent>();
       const progressStepStreams = (
         stepKind: string,
+        sliceId?: string,
       ): Pick<ExecuteOrchestrateDetails, 'agentStream' | 'verifyStream'> => {
         if (stepKind === 'agent_result') {
-          return latestAgentStream ? { agentStream: latestAgentStream } : {};
+          const stream = sliceId ? agentStreamBySlice.get(sliceId) : latestAgentStream;
+          return stream ? { agentStream: stream } : {};
         }
         if (stepKind === 'test_result') {
-          return latestVerifyStream ? { verifyStream: latestVerifyStream } : {};
+          const stream = sliceId ? verifyStreamBySlice.get(sliceId) : latestVerifyStream;
+          return stream ? { verifyStream: stream } : {};
         }
         return {};
       };
@@ -102,6 +114,7 @@ export function createExecuteOrchestrateTool(
           ...(progress.activeSliceId ? { activeSliceId: progress.activeSliceId } : {}),
           completedSliceIds: progress.completedSliceIds,
         };
+        if (progress.activeSliceId) progressBySlice.set(progress.activeSliceId, latestProgress);
         const sliceLine = progress.activeSliceId
           ? [
               `slice: ${progress.activeSliceId}`,
@@ -129,13 +142,15 @@ export function createExecuteOrchestrateTool(
           ],
           details: {
             progress: latestProgress,
-            ...progressStepStreams(progress.step.kind),
+            ...progressStepStreams(progress.step.kind, progress.activeSliceId),
           },
         });
       };
       const emitAgentUpdate = (event: AgentStreamEvent): void => {
         queueRunUpdate();
         latestAgentStream = event;
+        agentStreamBySlice.set(event.sliceId, event);
+        const progress = progressBySlice.get(event.sliceId) ?? latestProgress;
         onUpdate?.({
           content: [
             {
@@ -151,7 +166,7 @@ export function createExecuteOrchestrateTool(
             },
           ],
           details: {
-            ...(latestProgress ? { progress: latestProgress } : {}),
+            ...(progress ? { progress } : {}),
             agentStream: event,
           },
         });
@@ -159,6 +174,8 @@ export function createExecuteOrchestrateTool(
       const emitVerifyUpdate = (event: VerifyStreamEvent): void => {
         queueRunUpdate();
         latestVerifyStream = event;
+        verifyStreamBySlice.set(event.sliceId, event);
+        const progress = progressBySlice.get(event.sliceId) ?? latestProgress;
         onUpdate?.({
           content: [
             {
@@ -174,32 +191,36 @@ export function createExecuteOrchestrateTool(
             },
           ],
           details: {
-            ...(latestProgress ? { progress: latestProgress } : {}),
+            ...(progress ? { progress } : {}),
             verifyStream: event,
           },
         });
       };
-      const outcome = await drive({
-        cwd,
-        runId: params.runId,
-        ports,
-        onStepStart: (_step, _runStatus, progress) => {
-          queueRunUpdate();
-          emitProgress(progress);
-        },
-        onStepComplete: (_step, _runStatus, progress) => {
-          queueRunUpdate();
-          emitProgress(progress);
-        },
-        onAgentUpdate: emitAgentUpdate,
-        onVerifyUpdate: emitVerifyUpdate,
-        runtime: {
-          ...(ctx.modelRegistry ? { modelRegistry: ctx.modelRegistry } : {}),
-          ...(ctx.model ? { model: ctx.model } : {}),
+      const outcome = await drive(
+        {
+          cwd,
+          runId: params.runId,
+          ports,
+          onStepStart: (_step, _runStatus, progress) => {
+            queueRunUpdate();
+            emitProgress(progress);
+          },
+          onStepComplete: (_step, _runStatus, progress) => {
+            queueRunUpdate();
+            emitProgress(progress);
+          },
+          onAgentUpdate: emitAgentUpdate,
+          onVerifyUpdate: emitVerifyUpdate,
+          runtime: {
+            ...(ctx.modelRegistry ? { modelRegistry: ctx.modelRegistry } : {}),
+            ...(ctx.model ? { model: ctx.model } : {}),
+            ...(_signal ? { signal: _signal } : {}),
+          },
           ...(_signal ? { signal: _signal } : {}),
         },
-        ...(_signal ? { signal: _signal } : {}),
-      });
+        petriScheduler,
+        frontierFiringPolicy,
+      );
       await pendingRunUpdate;
       await publishRunUpdate();
       return {

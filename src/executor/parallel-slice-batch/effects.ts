@@ -15,6 +15,7 @@ import { sliceExecutionRequestPath } from '../slice-execute.js';
 import { sliceWorkspacePath } from '../slice-workspace.js';
 import { verifyStreamPath, type VerifyStreamEvent } from '../test-result.js';
 import type { BatchAuthority } from './authority.js';
+import { emitParallelStepProgress } from './progress.js';
 import type {
   ParallelSliceBatchContext,
   ParallelSliceStep,
@@ -37,6 +38,8 @@ export async function executeIsolatedSlice(args: {
     return failed(step.sliceId, 'slice_execute', 'parallel_slice_input_unavailable', {});
   }
   const workspaceDir = sliceWorkspacePath(ctx.cwd, ctx.runId, step.sliceId);
+  const executeStep = { ...step, kind: 'slice_execute' as const };
+  emitParallelStepProgress(ctx, 'started', executeStep, args.state);
   const workspace = await ctx.ports.gitSliceIntegration.prepare({
     runWorktreeDir,
     sliceWorktreeDir: workspaceDir,
@@ -61,6 +64,7 @@ export async function executeIsolatedSlice(args: {
     sliceId: step.sliceId,
     status: 'slice_execution_requested',
   });
+  emitParallelStepProgress(ctx, 'completed', executeStep, args.state);
 
   let attemptHistory: SliceAttemptHistory = {};
   const agent = await runAgentAttempts({
@@ -70,6 +74,8 @@ export async function executeIsolatedSlice(args: {
     epicId,
     workspaceDir,
     requestPath,
+    state: args.state,
+    step,
   });
   attemptHistory = mergeAttemptHistory(attemptHistory, agent.attemptHistory);
   if (agent.status === 'failed') return failed(step.sliceId, 'agent_result', agent.reason, attemptHistory);
@@ -81,6 +87,8 @@ export async function executeIsolatedSlice(args: {
     sliceId: step.sliceId,
     epicId,
     workspaceDir,
+    step,
+    state: args.state,
   });
   attemptHistory = mergeAttemptHistory(attemptHistory, verification.attemptHistory);
   if (verification.status === 'failed') {
@@ -103,6 +111,8 @@ async function runAgentAttempts(args: {
   readonly epicId: string;
   readonly workspaceDir: string;
   readonly requestPath: string;
+  readonly state: import('../run.js').RunMetadata;
+  readonly step: ParallelSliceStep;
 }): Promise<
   | { readonly status: 'succeeded'; readonly attemptHistory: SliceAttemptHistory }
   | { readonly status: 'failed'; readonly reason: string; readonly attemptHistory: SliceAttemptHistory }
@@ -111,6 +121,8 @@ async function runAgentAttempts(args: {
     const streamPath = agentStreamPath(args.ctx.cwd, args.ctx.runId, args.sliceId, attempt);
     let sequence = 0;
     let streamQueue = Promise.resolve();
+    const agentStep = { ...args.step, kind: 'agent_result' as const };
+    emitParallelStepProgress(args.ctx, 'started', agentStep, args.state);
     const result = await args.ctx.ports.agentRunner.run({
       worktreeDir: args.workspaceDir,
       requestPath: args.requestPath,
@@ -147,6 +159,7 @@ async function runAgentAttempts(args: {
         status: 'completed',
         ...(result.summary ? { summary: result.summary } : {}),
       });
+      emitParallelStepProgress(args.ctx, 'completed', agentStep, args.state);
       return {
         status: 'succeeded',
         attemptHistory: attemptHistory(args.sliceId, 'agent', 'succeeded', attempt),
@@ -173,6 +186,8 @@ async function runVerifyAttempts(args: {
   readonly sliceId: string;
   readonly epicId: string;
   readonly workspaceDir: string;
+  readonly step: ParallelSliceStep;
+  readonly state: import('../run.js').RunMetadata;
 }): Promise<
   | { readonly status: 'succeeded'; readonly attemptHistory: SliceAttemptHistory }
   | { readonly status: 'failed'; readonly reason: string; readonly attemptHistory: SliceAttemptHistory }
@@ -180,6 +195,8 @@ async function runVerifyAttempts(args: {
   for (let attempt = 1; attempt <= SLICE_ATTEMPT_LIMIT; attempt += 1) {
     const streamPath = verifyStreamPath(args.ctx.cwd, args.ctx.runId, args.sliceId, attempt);
     let sequence = 0;
+    const verifyStep = { ...args.step, kind: 'test_result' as const };
+    emitParallelStepProgress(args.ctx, 'started', verifyStep, args.state);
     const result = await args.ctx.ports.testRunner.run({
       worktreeDir: args.workspaceDir,
       ...(args.verifyTarget ? { verifyTarget: args.verifyTarget } : {}),
@@ -208,6 +225,7 @@ async function runVerifyAttempts(args: {
         exitCode: result.exitCode,
         ...(result.target ? { target: result.target } : {}),
       });
+      emitParallelStepProgress(args.ctx, 'completed', verifyStep, args.state);
       return result.verdict === 'passed'
         ? {
             status: 'succeeded',

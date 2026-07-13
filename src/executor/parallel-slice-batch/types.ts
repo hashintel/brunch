@@ -1,6 +1,7 @@
 import type { AgentStreamEvent } from '../agent-result.js';
 import type { AgentRunnerRuntime, ExecutionPorts } from '../execution-ports.js';
 import type { ReadyStep, SchedulerPlan } from '../orchestrate-topology.js';
+import type { DriveStepProgress } from '../orchestrate.js';
 import type { ExecutorPetriRuntime } from '../petri-runtime.js';
 import type { RunMetadata, SliceAttemptHistory } from '../run.js';
 import type { VerifyStreamEvent } from '../test-result.js';
@@ -11,6 +12,16 @@ export interface ParallelSliceBatchContext {
   readonly ports: ExecutionPorts;
   readonly runtime?: AgentRunnerRuntime;
   readonly signal?: AbortSignal;
+  readonly onStepStart?: (
+    step: ReadyStep['kind'],
+    runStatus: RunMetadata['status'],
+    progress: DriveStepProgress,
+  ) => void;
+  readonly onStepComplete?: (
+    step: ReadyStep['kind'],
+    runStatus: RunMetadata['status'],
+    progress: DriveStepProgress,
+  ) => void;
   readonly onAgentUpdate?: (event: AgentStreamEvent) => void;
   readonly onVerifyUpdate?: (event: VerifyStreamEvent) => void;
 }

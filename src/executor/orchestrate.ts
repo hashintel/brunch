@@ -445,7 +445,7 @@ export async function drive(
       parallelSliceFrontier &&
       plan !== undefined &&
       firingPolicy === frontierFiringPolicy &&
-      ctx.onStepStart === undefined &&
+      parallelSliceSteps.length > 1 &&
       options.maxFirings === undefined
     ) {
       const batch = await executeParallelSliceBatch({

@@ -242,6 +242,7 @@ Retires the binding serial-authority assumption discovered by Slice 2 and lights
 
 ### Acceptance Criteria
 
+✓ production-path oracle — registered `execute_orchestrate` composes `petriScheduler` + `frontierFiringPolicy`, overlaps independent effects, and preserves coherent progress updates.
 ✓ `orchestrate.test.ts` concurrency oracle — two dependency-independent agent effects cross a shared barrier before either completes.
 ✓ claim-order oracle — every effect starts only after its claim event and marking snapshot are durable.
 ✓ failure-isolation oracle — one failed slice leaves a successful sibling's completion durable and never rewinds its marking.
@@ -270,6 +271,8 @@ Retires the binding serial-authority assumption discovered by Slice 2 and lights
 
 | Leaf | Outcome | Evidence |
 | --- | --- | --- |
+| Production `execute_orchestrate` reaches parallel authority | met | `execute-orchestrate-updates.test.ts`: the registered tool holds two independent injected agents behind one deterministic barrier, observes both entered before release, and emits worker details whose `progress.activeSliceId` matches each stream's slice. Production explicitly composes `petriScheduler` + `frontierFiringPolicy`; attached step observers no longer disable multi-slice batching. |
+| Serial and one-step callers retain bounded semantics | met | `drive()` defaults remain linear/serial; parallel batching requires the explicit frontier policy, at least two slice starts, and no `maxFirings`. `execute_replan_retry_current_step` remains explicit `linearScheduler` + `serialFiringPolicy` + `maxFirings: 1`; executor max-firing and extension retry suites remain green. |
 | Independent agent effects genuinely overlap | met | `orchestrate.test.ts`: deterministic promise barrier observes both slice ids entered before either is released; entry order is intentionally unconstrained. |
 | Claims and marking are durable before dispatch | met | `orchestrate.test.ts`: each agent entry observes both `slice_start` journal facts and consumed claim places; blocked agents expose both attempt-1 places from the snapshot while `run.json` remains `reports_initialized`. Journal- and marking-write fault tests start zero agent effects. |
 | Per-slice failure cannot rewind a successful sibling | met | `orchestrate.test.ts`: task-1 exhaustion retains task-2 integration/completion report and transition facts; terminal snapshot and journal replay agree on task-1 exhausted plus task-2 epic-member marking. |

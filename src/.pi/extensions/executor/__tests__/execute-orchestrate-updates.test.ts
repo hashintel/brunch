@@ -28,7 +28,10 @@ import { copyHostSource } from '../../../../executor/source-copy.js';
 import { selectSourcePolicy } from '../../../../executor/source-policy.js';
 import { createWorktree } from '../../../../executor/worktree.js';
 import { createProductUpdatePublisher, type ProductUpdate } from '../../../../rpc/product-updates.js';
-import { createExecuteOrchestrateTool } from '../execute-orchestrate/index.js';
+import {
+  createExecuteOrchestrateTool,
+  registerBrunchExecuteOrchestrate,
+} from '../execute-orchestrate/index.js';
 
 const completedAgentRunner: AgentRunnerPort = {
   async run() {
@@ -140,6 +143,68 @@ async function overwriteRunMetadata(
 }
 
 describe('execute_orchestrate intra-drive updates', () => {
+  it('overlaps independent slices through the registered production tool with slice-coherent updates', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-orchestrate-production-parallel-'));
+    await createDrivableRun(cwd, ['t1', 't2']);
+    const entered: string[] = [];
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let bothEntered!: () => void;
+    const overlap = new Promise<void>((resolve) => {
+      bothEntered = resolve;
+    });
+    const agentRunner: AgentRunnerPort = {
+      async run(args) {
+        entered.push(args.sliceId);
+        await args.onUpdate?.({ kind: 'status', message: `working ${args.sliceId}` });
+        if (entered.length === 2) bothEntered();
+        await released;
+        return { status: 'completed' };
+      },
+    };
+    let registered: ReturnType<typeof createExecuteOrchestrateTool> | undefined;
+    registerBrunchExecuteOrchestrate(
+      {
+        registerTool: (tool: ReturnType<typeof createExecuteOrchestrateTool>) => {
+          registered = tool;
+        },
+      } as never,
+      fakePorts({ agentRunner }),
+    );
+    const details: unknown[] = [];
+    const execution = registered!.execute(
+      'call-1',
+      { runId: 'run-1' },
+      undefined as never,
+      ((update: { readonly details?: unknown }) => details.push(update.details)) as never,
+      { cwd } as never,
+    );
+
+    await overlap;
+    release();
+    const result = await execution;
+
+    expect(new Set(entered)).toEqual(new Set(['t1', 't2']));
+    expect(result.details?.outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+    const workerDetails = details.filter(
+      (
+        detail,
+      ): detail is {
+        readonly progress: { readonly activeSliceId?: string; readonly step: string };
+        readonly agentStream: { readonly sliceId: string };
+      } => detail !== null && typeof detail === 'object' && 'progress' in detail && 'agentStream' in detail,
+    );
+    expect(new Set(workerDetails.map((detail) => detail.agentStream.sliceId))).toEqual(new Set(['t1', 't2']));
+    for (const detail of workerDetails) {
+      expect(detail.progress).toMatchObject({
+        step: 'agent_result',
+        activeSliceId: detail.agentStream.sliceId,
+      });
+    }
+  });
+
   it('publishes run-scoped updates for every step advance during a drive', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-orchestrate-updates-'));
     await createDrivableRun(cwd);
@@ -252,7 +317,7 @@ describe('execute_orchestrate intra-drive updates', () => {
     ).toBe(true);
   });
 
-  it('ignores a resumed claimed firing order when it falls outside the default scheduler frontier', async () => {
+  it('ignores a stale serial claim and uses the complete production Petri frontier', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-orchestrate-resumed-claim-order-'));
     await createDrivableRun(cwd, ['t1', 't2']);
     await createWorktree({ cwd, runId: 'run-1', gitWorktree: fakePorts().gitWorktree });
@@ -285,13 +350,11 @@ describe('execute_orchestrate intra-drive updates', () => {
     );
 
     expect(result.details?.outcome?.status).toBe('completed');
-    expect(
-      updates.some(
-        (update) =>
-          update.startsWith('execute_orchestrate: slice_execute started from slice_started') &&
-          update.includes('slice: t1'),
-      ),
-    ).toBe(true);
+    const parallelStarts = updates.filter((update) =>
+      update.startsWith('execute_orchestrate: slice_execute started from reports_initialized'),
+    );
+    expect(parallelStarts.some((update) => update.includes('slice: t1'))).toBe(true);
+    expect(parallelStarts.some((update) => update.includes('slice: t2'))).toBe(true);
   });
 
   it('publishes replay stale-snapshot hints after a halted drive when the persisted marking snapshot cannot be refreshed', async () => {
