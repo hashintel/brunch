@@ -67,10 +67,16 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
   `direction.ts` (upstream/downstream/lateral for the reconciliation
   flow). Pure functions; no DB access.
 
-- **Workspace graph runtime** (`workspace-store.ts`) — opens `.brunch/data.db`
+- **Workspace graph runtime** (`workspace-store.ts`) — opens
+  `.brunch/brunch-v1.db` (D124-L: the `brunch-v{major}.db` lineage policy)
   through `db/connection.ts` and returns the `CommandExecutor` plus bound
-  query readers for adapters. No legacy-seed repair remains; there is no
-  seeded register to repair.
+  query readers for adapters. Owns the fail-safe `application_id` open guard
+  (I63-L: a foreign or 0.x file is never opened, migrated, or deleted),
+  one-shot recovery of a legacy alpha `data.db` by rename, and pure-filesystem
+  detection of a sibling 0.x `.brunch/brunch.db` surfaced as
+  populated-cwd/brownfield posture evidence to
+  `session/workspace-session-coordinator.ts`'s establishment seam (D118-L). No
+  legacy-seed repair remains; there is no seeded register to repair.
 
 ## Observed read-shape ledger
 
@@ -172,6 +178,10 @@ graph/
     row -> domain mapping
 
   workspace-store.ts
+    WORKSPACE_DB_FILENAME ('brunch-v1.db', the brunch-v{major}.db lineage constant)
+    openWorkspaceDb(cwd) — recovery + application_id stamp/check guard (I63-L)
+    WorkspaceDbRefusalError
+    detectLegacyZeroXDatabase(cwd) — pure fs check for sibling 0.x brunch.db
     openWorkspaceGraphRuntime(cwd)
     bound queryGraph/getNodes readers
     openWorkspaceCommandExecutor(cwd)
