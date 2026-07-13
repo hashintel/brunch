@@ -33,6 +33,7 @@ export interface RunMetadata {
     | 'slice_execution_requested'
     | 'agent_result_ingested'
     | 'test_result_ingested'
+    | 'slice_integrated'
     | 'slice_completed'
     | 'run_completed'
     | 'petri_exported'
@@ -55,6 +56,9 @@ export interface RunMetadata {
   readonly sliceAttemptHistory?: SliceAttemptHistory;
   readonly sliceExecutionRequestPath?: string;
   readonly agentResultPath?: string;
+  readonly activeSliceWorkspaceDir?: string;
+  readonly activeSliceBaseSha?: string;
+  readonly integratedSliceCommits?: Readonly<Record<string, string>>;
   readonly completedSliceIds?: readonly string[];
   readonly petriPath?: string;
   readonly promotionPath?: string;
@@ -80,6 +84,22 @@ export function appendSliceAttemptCycle(
       [stage]: [...(sliceHistory[stage] ?? []), cycle],
     },
   };
+}
+
+export function activeSliceAttemptNumber(metadata: RunMetadata): number {
+  return (metadata.activeSliceAttempts ?? 0) + 1;
+}
+
+export function sliceArtifactAttemptNumber(
+  metadata: RunMetadata,
+  sliceId: string,
+  stage: SliceAttemptStage,
+): number {
+  const completedAttempts = (metadata.sliceAttemptHistory?.[sliceId]?.[stage] ?? []).reduce(
+    (total, cycle) => total + (cycle.outcome === 'reset' ? 0 : cycle.attempts),
+    0,
+  );
+  return completedAttempts + activeSliceAttemptNumber(metadata);
 }
 
 export type RunCreateResult =

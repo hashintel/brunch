@@ -29,7 +29,7 @@ async function createTestResultRun(cwd: string): Promise<void> {
       runId: 'run-1',
       specId: '42',
       planPath: '/tmp/plan.yaml',
-      status: 'test_result_ingested',
+      status: 'slice_integrated',
       reportsPath: reportPath,
       activeSliceId: 'task-1',
       activeEpicId: 'frontier-1',

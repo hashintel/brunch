@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createFakeGitHostPromotionPort,
   createFakeGitLandPort,
+  createFakeGitSliceIntegrationPort,
   createFakeGitWorktreePort,
   createFakeTestRunnerPort,
 } from '../../../../executor/__tests__/fake-ports.js';
@@ -56,6 +57,7 @@ function fakePorts(
 ): ExecutionPorts {
   return {
     gitWorktree: createFakeGitWorktreePort(),
+    gitSliceIntegration: createFakeGitSliceIntegrationPort(),
     agentRunner: options.agentRunner ?? completedAgentRunner,
     testRunner: options.testRunner ?? createFakeTestRunnerPort(),
     gitLand: createFakeGitLandPort(),
@@ -456,7 +458,9 @@ describe('execute_orchestrate intra-drive updates', () => {
       'execute_orchestrate: agent_result -> agent_result_ingested',
       'execute_orchestrate: test_result started from agent_result_ingested',
       'execute_orchestrate: test_result -> test_result_ingested',
-      'execute_orchestrate: slice_complete started from test_result_ingested',
+      'execute_orchestrate: slice_integrate started from test_result_ingested',
+      'execute_orchestrate: slice_integrate -> slice_integrated',
+      'execute_orchestrate: slice_complete started from slice_integrated',
       'execute_orchestrate: slice_complete -> slice_completed',
       'execute_orchestrate: run_complete started from slice_completed',
       'execute_orchestrate: run_complete -> run_completed',

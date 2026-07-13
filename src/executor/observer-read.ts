@@ -482,6 +482,7 @@ async function readVerifyStreamTail(
     metadata,
     'verify_stream',
     verifyStreamPath,
+    'verify',
   );
   return { tail: events.slice(-limit), total: events.length };
 }
@@ -804,6 +805,7 @@ async function readAgentStreamTail(
     metadata,
     'agent_stream',
     agentStreamPath,
+    'agent',
   );
   return { tail: events.slice(-limit), total: events.length };
 }
@@ -813,7 +815,8 @@ async function readStreamEvents<T extends { readonly event: string }>(
   runId: string,
   metadata: RunMetadata,
   eventName: T['event'],
-  pathFor: (cwd: string, runId: string, sliceId: string) => string,
+  pathFor: (cwd: string, runId: string, sliceId: string, attempt?: number) => string,
+  stage: 'agent' | 'verify',
 ): Promise<readonly T[]> {
   if (!metadata.activeSliceId && (!metadata.completedSliceIds || metadata.completedSliceIds.length === 0)) {
     return [];
@@ -826,9 +829,34 @@ async function readStreamEvents<T extends { readonly event: string }>(
   ];
   const events: T[] = [];
   for (const sliceId of sliceIds) {
-    events.push(...(await readStreamFile<T>(pathFor(cwd, runId, sliceId), eventName)));
+    const attempts = streamArtifactAttemptCount(metadata, sliceId, stage);
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      events.push(...(await readStreamFile<T>(pathFor(cwd, runId, sliceId, attempt), eventName)));
+    }
   }
   return events;
+}
+
+function streamArtifactAttemptCount(
+  metadata: RunMetadata,
+  sliceId: string,
+  stage: 'agent' | 'verify',
+): number {
+  const cycles = metadata.sliceAttemptHistory?.[sliceId]?.[stage] ?? [];
+  const completedAttempts = cycles.reduce(
+    (total, cycle) => total + (cycle.outcome === 'reset' ? 0 : cycle.attempts),
+    0,
+  );
+  const isActiveStage =
+    metadata.activeSliceId === sliceId &&
+    ((stage === 'agent' && metadata.status === 'slice_execution_requested') ||
+      (stage === 'verify' && metadata.status === 'agent_result_ingested'));
+  const latest = cycles.at(-1);
+  const exhausted = latest?.outcome === 'exhausted' && metadata.activeSliceAttempts === latest.attempts;
+  return Math.max(
+    1,
+    completedAttempts + (isActiveStage && !exhausted ? (metadata.activeSliceAttempts ?? 0) + 1 : 0),
+  );
 }
 
 async function readStreamFile<T extends { readonly event: string }>(

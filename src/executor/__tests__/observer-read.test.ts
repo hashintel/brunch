@@ -1527,6 +1527,9 @@ describe('readRunDetail', () => {
     await writeRun(cwd, 'run-stream', {
       status: 'agent_result_ingested',
       activeSliceId: 'task-1',
+      sliceAttemptHistory: {
+        'task-1': { agent: [{ outcome: 'succeeded', attempts: 2 }] },
+      },
     });
     await mkdir(join(runDirPath(cwd, 'run-stream'), 'streams', 'task-1'), { recursive: true });
     await writeFile(
@@ -1537,6 +1540,11 @@ describe('readRunDetail', () => {
         JSON.stringify({ event: 'agent_stream', stream: 'stderr', text: 'second' }),
         '',
       ].join('\n'),
+      'utf8',
+    );
+    await writeFile(
+      agentStreamPath(cwd, 'run-stream', 'task-1', 2),
+      `${JSON.stringify({ event: 'agent_stream', stream: 'stdout', text: 'retry' })}\n`,
       'utf8',
     );
     await writeFile(
@@ -1552,6 +1560,7 @@ describe('readRunDetail', () => {
     expect(detail && 'agentStreamTail' in detail ? detail.agentStreamTail : []).toEqual([
       { event: 'agent_stream', stream: 'stdout', text: 'first' },
       { event: 'agent_stream', stream: 'stderr', text: 'second' },
+      { event: 'agent_stream', stream: 'stdout', text: 'retry' },
     ]);
     expect(detail && 'verifyStreamTail' in detail ? detail.verifyStreamTail : []).toEqual([
       { event: 'verify_stream', stream: 'stdout', text: 'verify' },

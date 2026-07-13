@@ -5,6 +5,7 @@ import type {
   GitHostPromotionPort,
   GitLandPort,
   GitLandResult,
+  GitSliceIntegrationPort,
   GitWorktreePort,
   TestRunnerPort,
   TestRunResult,
@@ -22,6 +23,35 @@ export function createFakeGitWorktreePort(
   },
 ): GitWorktreePort {
   return { create };
+}
+
+export function createFakeGitSliceIntegrationPort(
+  options: Partial<GitSliceIntegrationPort> = {},
+): GitSliceIntegrationPort {
+  return {
+    prepare:
+      options.prepare ??
+      (async ({ sliceWorktreeDir }) => {
+        await mkdir(sliceWorktreeDir, { recursive: true });
+        await writeFile(join(sliceWorktreeDir, '.git'), 'gitdir: /tmp/brunch-fake-slice-worktree\n', 'utf8');
+        return {
+          status: 'prepared',
+          baseSha: 'base123',
+          sideEffects: [{ kind: 'git_worktree_add', path: sliceWorktreeDir, ref: 'base123' }],
+        };
+      }),
+    integrate:
+      options.integrate ??
+      (async ({ runWorktreeDir, sliceWorktreeDir }) => ({
+        status: 'integrated',
+        sliceCommitSha: 'slice123',
+        integrationCommitSha: 'integrated123',
+        sideEffects: [
+          { kind: 'git_commit', path: sliceWorktreeDir, sha: 'slice123' },
+          { kind: 'git_integrate', path: runWorktreeDir, sha: 'integrated123' },
+        ],
+      })),
+  };
 }
 
 export function createFakeTestRunnerPort(

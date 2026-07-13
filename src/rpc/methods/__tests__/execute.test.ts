@@ -333,6 +333,7 @@ describe('execute.run', () => {
       planPath,
       `${JSON.stringify({
         mode: 'greenfield',
+        epics: [{ id: 'frontier-1' }, { id: 'frontier-2' }],
         slices: [
           { id: 'task-1', epic_id: 'frontier-1', derived_from: ['REQ1'] },
           { id: 'task-2', epic_id: 'frontier-1', depends_on: ['task-1'], derived_from: ['REQ2'] },
@@ -409,7 +410,7 @@ describe('execute.run', () => {
     );
     await mkdir(join(runDirPath(cwd, 'run-1'), 'streams', 'task-1'), { recursive: true });
     await writeFile(
-      join(runDirPath(cwd, 'run-1'), 'streams', 'task-1', 'agent.jsonl'),
+      join(runDirPath(cwd, 'run-1'), 'streams', 'task-1', 'agent-attempt-1.jsonl'),
       `${JSON.stringify({
         event: 'agent_stream',
         runId: 'run-1',
@@ -538,7 +539,7 @@ describe('execute.run', () => {
     );
     await mkdir(join(runDirPath(cwd, 'run-1'), 'streams', 'task-1'), { recursive: true });
     await writeFile(
-      join(runDirPath(cwd, 'run-1'), 'streams', 'task-1', 'verify.jsonl'),
+      join(runDirPath(cwd, 'run-1'), 'streams', 'task-1', 'verify-attempt-1.jsonl'),
       `${JSON.stringify({
         event: 'verify_stream',
         runId: 'run-1',

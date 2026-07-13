@@ -1,6 +1,7 @@
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
+import type { GitSliceIntegrationPort } from './execution-ports.js';
 import { populatedPlanPath } from './populate.js';
 import { reportsPath } from './report.js';
 import {
@@ -11,8 +12,17 @@ import {
   readRunMetadata,
   type RunMetadata,
 } from './run.js';
+import { sliceWorkspacePath } from './slice-workspace.js';
 
 export type SliceExecutionRequestResult =
+  | {
+      readonly status: 'slice_workspace_failed';
+      readonly runStatus: 'slice_started';
+      readonly runId: string;
+      readonly sliceId: string;
+      readonly message: string;
+      readonly sideEffects: readonly [];
+    }
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -45,12 +55,12 @@ export type SliceExecutionRequestResult =
       readonly metadataPath: string;
       readonly reportsPath: string;
       readonly requestPath: string;
-      readonly sideEffects: readonly [
-        { readonly kind: 'mkdir'; readonly path: string },
-        { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
-        { readonly kind: 'append_file'; readonly path: string },
-        { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
-      ];
+      readonly sideEffects: readonly (
+        | { readonly kind: 'git_worktree_add'; readonly path: string; readonly ref: string }
+        | { readonly kind: 'mkdir'; readonly path: string }
+        | { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' }
+        | { readonly kind: 'append_file'; readonly path: string }
+      )[];
     };
 
 export function sliceExecutionRequestPath(cwd: string, runId: string, sliceId: string): string {
@@ -61,6 +71,7 @@ export function sliceExecutionRequestPath(cwd: string, runId: string, sliceId: s
 export async function requestSliceExecution(args: {
   readonly cwd: string;
   readonly runId: string;
+  readonly gitSliceIntegration: GitSliceIntegrationPort;
 }): Promise<SliceExecutionRequestResult> {
   const metadataPath = runMetadataPath(args.cwd, args.runId);
   const metadata = await readRunMetadata(metadataPath);
@@ -83,8 +94,36 @@ export async function requestSliceExecution(args: {
       sideEffects: [],
     };
   }
+  assertSafeSliceId(metadata.activeSliceId);
 
   const reportPath = metadata.reportsPath ?? reportsPath(args.cwd, args.runId);
+  const runWorktreeDir = metadata.worktreeDir;
+  if (!runWorktreeDir) {
+    return {
+      status: 'slice_workspace_failed',
+      runStatus: 'slice_started',
+      runId: args.runId,
+      sliceId: metadata.activeSliceId,
+      message: 'run worktree is unavailable',
+      sideEffects: [],
+    };
+  }
+  const sliceWorktreeDir = sliceWorkspacePath(args.cwd, args.runId, metadata.activeSliceId);
+  const workspace = await args.gitSliceIntegration.prepare({
+    runWorktreeDir,
+    sliceWorktreeDir,
+    sliceId: metadata.activeSliceId,
+  });
+  if (workspace.status === 'failed') {
+    return {
+      status: 'slice_workspace_failed',
+      runStatus: 'slice_started',
+      runId: args.runId,
+      sliceId: metadata.activeSliceId,
+      message: workspace.message,
+      sideEffects: [],
+    };
+  }
   const requestPath = sliceExecutionRequestPath(args.cwd, args.runId, metadata.activeSliceId);
   const requestDir = dirname(requestPath);
   const sliceResult = await readPlanSlice({ cwd: args.cwd, metadata, sliceId: metadata.activeSliceId });
@@ -126,6 +165,8 @@ export async function requestSliceExecution(args: {
   const updated: RunMetadata = {
     ...metadata,
     status: 'slice_execution_requested',
+    activeSliceWorkspaceDir: sliceWorktreeDir,
+    activeSliceBaseSha: workspace.baseSha,
     sliceExecutionRequestPath: requestPath,
   };
 
@@ -144,6 +185,7 @@ export async function requestSliceExecution(args: {
     reportsPath: reportPath,
     requestPath,
     sideEffects: [
+      ...workspace.sideEffects,
       { kind: 'mkdir', path: requestDir },
       { kind: 'write_file', path: requestPath, ifExists: 'overwrite' },
       { kind: 'append_file', path: reportPath },

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { ingestAgentResult } from '../agent-result.js';
+import { agentStreamPath, ingestAgentResult } from '../agent-result.js';
 import type { AgentRunnerPort, ExecutionPorts, TestRunnerPort } from '../execution-ports.js';
 import {
   compileExecutorTopology,
@@ -17,7 +17,7 @@ import {
   type ReadyStep,
   serialFiringPolicy,
 } from '../orchestrate.js';
-import { petriEventsPath, subscribePetriJournalFailures } from '../petri-events.js';
+import { petriEventsPath, subscribePetriEvents, subscribePetriJournalFailures } from '../petri-events.js';
 import { petriMarkingPath, readPetriMarkingSnapshot, writePetriMarkingSnapshot } from '../petri-marking.js';
 import { petriPlanSnapshotPath } from '../petri-plan-snapshot.js';
 import { replayPetri } from '../petri-replay.js';
@@ -47,14 +47,17 @@ import {
 } from '../run.js';
 import { completeSlice } from '../slice-complete.js';
 import { requestSliceExecution } from '../slice-execute.js';
+import { integrateSlice } from '../slice-integration.js';
 import { startSlice } from '../slice-start.js';
+import { sliceWorkspacePath } from '../slice-workspace.js';
 import { copyHostSource } from '../source-copy.js';
 import { selectSourcePolicy } from '../source-policy.js';
-import { ingestTestResult } from '../test-result.js';
+import { ingestTestResult, verifyStreamPath } from '../test-result.js';
 import { createWorktree } from '../worktree.js';
 import {
   createFakeGitHostPromotionPort,
   createFakeGitLandPort,
+  createFakeGitSliceIntegrationPort,
   createFakeGitWorktreePort,
   createFakeTestRunnerPort,
 } from './fake-ports.js';
@@ -65,12 +68,18 @@ const completedAgentRunner: AgentRunnerPort = {
   },
 };
 
-function flakyAgentRunner(failures: number): AgentRunnerPort & { readonly calls: () => number } {
+function flakyAgentRunner(
+  failures: number,
+): AgentRunnerPort & { readonly calls: () => number; readonly resultPaths: () => readonly string[] } {
   let calls = 0;
+  const resultPaths: string[] = [];
   return {
     calls: () => calls,
-    async run() {
+    resultPaths: () => resultPaths,
+    async run(args) {
       calls += 1;
+      resultPaths.push(args.resultPath);
+      await args.onUpdate?.({ kind: 'status', message: `agent attempt ${calls}` });
       return calls <= failures ? { status: 'failed', message: 'flaky agent' } : { status: 'completed' };
     },
   };
@@ -80,8 +89,9 @@ function flakyTestRunner(failures: number): TestRunnerPort & { readonly calls: (
   let calls = 0;
   return {
     calls: () => calls,
-    async run() {
+    async run(args) {
       calls += 1;
+      await args.onUpdate?.({ kind: 'status', message: `verify attempt ${calls}` });
       return calls <= failures
         ? { status: 'failed', message: 'flaky verify' }
         : { status: 'completed', verdict: 'passed', exitCode: 0 };
@@ -92,6 +102,7 @@ function flakyTestRunner(failures: number): TestRunnerPort & { readonly calls: (
 function fakePorts(overrides: Partial<ExecutionPorts> = {}): ExecutionPorts {
   return {
     gitWorktree: createFakeGitWorktreePort(),
+    gitSliceIntegration: createFakeGitSliceIntegrationPort(),
     agentRunner: completedAgentRunner,
     testRunner: createFakeTestRunnerPort(),
     gitLand: createFakeGitLandPort(),
@@ -178,9 +189,14 @@ async function crankManually(cwd: string, ports: ExecutionPorts): Promise<void> 
   for (;;) {
     const started = await startSlice({ cwd, runId: 'run-1' });
     if (started.status !== 'slice_started') break;
-    await requestSliceExecution({ cwd, runId: 'run-1' });
+    await requestSliceExecution({
+      cwd,
+      runId: 'run-1',
+      gitSliceIntegration: ports.gitSliceIntegration,
+    });
     await ingestAgentResult({ cwd, runId: 'run-1', agentRunner: ports.agentRunner });
     await ingestTestResult({ cwd, runId: 'run-1', testRunner: ports.testRunner });
+    await integrateSlice({ cwd, runId: 'run-1', gitSliceIntegration: ports.gitSliceIntegration });
     await completeSlice({ cwd, runId: 'run-1' });
   }
   await completeRun({ cwd, runId: 'run-1' });
@@ -256,6 +272,93 @@ describe('drive', () => {
     expect(meta?.promotionCommitSha).toBe('abc123');
   });
 
+  it('runs dependent slices in stable isolated workspaces and integrates them in dependency order', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-slice-workspaces-'));
+    await createRunAtCreated(cwd, ['task-1', { id: 'task-2', dependsOn: ['task-1'] }]);
+    const prepared: string[] = [];
+    const integrated: string[] = [];
+    const agentWorktrees: string[] = [];
+    const gitSliceIntegration = createFakeGitSliceIntegrationPort({
+      async prepare(args) {
+        prepared.push(args.sliceWorktreeDir);
+        return {
+          status: 'prepared',
+          baseSha: `${args.sliceId}-base`,
+          sideEffects: [
+            { kind: 'git_worktree_add', path: args.sliceWorktreeDir, ref: `${args.sliceId}-base` },
+          ],
+        };
+      },
+      async integrate(args) {
+        integrated.push(args.sliceId);
+        return {
+          status: 'integrated',
+          sliceCommitSha: `${args.sliceId}-slice`,
+          integrationCommitSha: `${args.sliceId}-integrated`,
+          sideEffects: [
+            { kind: 'git_commit', path: args.sliceWorktreeDir, sha: `${args.sliceId}-slice` },
+            { kind: 'git_integrate', path: args.runWorktreeDir, sha: `${args.sliceId}-integrated` },
+          ],
+        };
+      },
+    });
+
+    const outcome = await drive({
+      cwd,
+      runId: 'run-1',
+      ports: fakePorts({
+        gitSliceIntegration,
+        agentRunner: {
+          async run(args) {
+            agentWorktrees.push(args.worktreeDir);
+            return { status: 'completed' };
+          },
+        },
+      }),
+    });
+
+    expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+    expect(prepared).toEqual([
+      sliceWorkspacePath(cwd, 'run-1', 'task-1'),
+      sliceWorkspacePath(cwd, 'run-1', 'task-2'),
+    ]);
+    expect(agentWorktrees).toEqual(prepared);
+    expect(integrated).toEqual(['task-1', 'task-2']);
+  });
+
+  it('halts on an integration conflict without firing the integration transition', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-slice-conflict-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    const outcome = await drive({
+      cwd,
+      runId: 'run-1',
+      ports: fakePorts({
+        gitSliceIntegration: createFakeGitSliceIntegrationPort({
+          async integrate() {
+            return { status: 'conflict', message: 'shared.txt conflicts', sideEffects: [] };
+          },
+        }),
+      }),
+    });
+
+    expect(outcome).toEqual({
+      status: 'halted',
+      step: 'slice_integrate',
+      runStatus: 'test_result_ingested',
+      reason: 'slice_integration_conflict',
+    });
+    const events = await readPetriEvents(cwd);
+    expect(events).not.toContainEqual(expect.objectContaining({ transitionId: 'slice_integrate:task-1' }));
+    expect(events.at(-1)).toMatchObject({
+      kind: 'net_halted',
+      step: 'slice_integrate',
+      reason: 'slice_integration_conflict',
+    });
+    expect(await readReportEvents(cwd)).toContainEqual(
+      expect.objectContaining({ event: 'slice_integration_conflict', message: 'shared.txt conflicts' }),
+    );
+  });
+
   it('retries a failed agent attempt in-run and journals every attempt', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-attempt-retry-'));
     await createRunAtCreated(cwd, ['task-1']);
@@ -265,6 +368,20 @@ describe('drive', () => {
 
     expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
     expect(agentRunner.calls()).toBe(3);
+    expect(agentRunner.resultPaths()).toEqual([
+      expect.stringContaining('/agent-output/task-1/attempt-1/result.json'),
+      expect.stringContaining('/agent-output/task-1/attempt-2/result.json'),
+      expect.stringContaining('/agent-output/task-1/attempt-3/result.json'),
+    ]);
+    await expect(readFile(agentStreamPath(cwd, 'run-1', 'task-1', 1), 'utf8')).resolves.toContain(
+      'agent attempt 1',
+    );
+    await expect(readFile(agentStreamPath(cwd, 'run-1', 'task-1', 2), 'utf8')).resolves.toContain(
+      'agent attempt 2',
+    );
+    await expect(readFile(agentStreamPath(cwd, 'run-1', 'task-1', 3), 'utf8')).resolves.toContain(
+      'agent attempt 3',
+    );
     const events = await readPetriEvents(cwd);
     const attempts = events.filter((event) => event.kind === 'attempt_failed');
     expect(attempts).toEqual([
@@ -334,18 +451,23 @@ describe('drive', () => {
     await createRunAtCreated(cwd, ['task-1']);
     const seen: ExecutorNetEvent[] = [];
     const preservedJournal = `${petriEventsPath(cwd, 'run-1')}.preserved`;
-
-    const outcome = await drive({
+    const unsubscribe = subscribePetriEvents({
       cwd,
       runId: 'run-1',
-      ports: fakePorts({ agentRunner: flakyAgentRunner(Number.POSITIVE_INFINITY) }),
-      onNetEvent(event) {
+      listener(event) {
         seen.push(event);
         if (event.kind !== 'attempt_failed') return;
         renameSync(petriEventsPath(cwd, 'run-1'), preservedJournal);
         mkdirSync(petriEventsPath(cwd, 'run-1'));
       },
     });
+
+    const outcome = await drive({
+      cwd,
+      runId: 'run-1',
+      ports: fakePorts({ agentRunner: flakyAgentRunner(Number.POSITIVE_INFINITY) }),
+    });
+    unsubscribe();
 
     expect(outcome).toEqual({
       status: 'halted',
@@ -368,6 +490,15 @@ describe('drive', () => {
 
     expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
     expect(testRunner.calls()).toBe(3);
+    await expect(readFile(verifyStreamPath(cwd, 'run-1', 'task-1', 1), 'utf8')).resolves.toContain(
+      'verify attempt 1',
+    );
+    await expect(readFile(verifyStreamPath(cwd, 'run-1', 'task-1', 2), 'utf8')).resolves.toContain(
+      'verify attempt 2',
+    );
+    await expect(readFile(verifyStreamPath(cwd, 'run-1', 'task-1', 3), 'utf8')).resolves.toContain(
+      'verify attempt 3',
+    );
     const events = await readPetriEvents(cwd);
     expect(
       events
@@ -739,12 +870,12 @@ describe('drive', () => {
 
     expect(outcome).toEqual({
       status: 'halted',
-      step: 'run_complete',
-      runStatus: 'slice_completed',
-      reason: 'verification_failed',
+      step: 'slice_integrate',
+      runStatus: 'test_result_ingested',
+      reason: 'slice_verification_not_passed',
     });
     const meta = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
-    expect(meta?.status).toBe('slice_completed');
+    expect(meta?.status).toBe('test_result_ingested');
     expect((await readReportEvents(cwd)).map((event) => (event as { event?: string }).event)).not.toContain(
       'run_completed',
     );
@@ -1205,6 +1336,7 @@ describe('petri runtime helpers', () => {
         'slice_execute:task-1',
         'agent_result:task-1:attempt:1',
         'test_result:task-1:attempt:1',
+        'slice_integrate:task-1',
         'slice_complete:task-1',
         'slice_start:task-2',
         'slice_execute:task-2',
@@ -1309,6 +1441,12 @@ describe('linearScheduler', () => {
       },
       {
         status: 'test_result_ingested',
+        extra: { activeSliceId: 'task-1' },
+        plan: slicePlan,
+        expected: [{ kind: 'slice_integrate', sliceId: 'task-1' }],
+      },
+      {
+        status: 'slice_integrated',
         extra: { activeSliceId: 'task-1' },
         plan: slicePlan,
         expected: [{ kind: 'slice_complete', sliceId: 'task-1' }],
@@ -1498,7 +1636,12 @@ describe('compileExecutorTopology', () => {
         definition: 'Implement foundation.',
         verification: [{ kind: 'criterion', criterionId: 'AC1', target: 'Foundation works.' }],
         derivedFrom: ['REQ1'],
-        transitionIds: ['slice_start:task-1', 'slice_execute:task-1', 'slice_complete:task-1'],
+        transitionIds: [
+          'slice_start:task-1',
+          'slice_execute:task-1',
+          'slice_integrate:task-1',
+          'slice_complete:task-1',
+        ],
       },
       {
         id: 'slice:task-2',
@@ -1508,7 +1651,12 @@ describe('compileExecutorTopology', () => {
         definition: 'Implement feature.',
         verification: [{ kind: 'criterion', criterionId: 'AC2', target: 'Feature works.' }],
         derivedFrom: ['REQ2'],
-        transitionIds: ['slice_start:task-2', 'slice_execute:task-2', 'slice_complete:task-2'],
+        transitionIds: [
+          'slice_start:task-2',
+          'slice_execute:task-2',
+          'slice_integrate:task-2',
+          'slice_complete:task-2',
+        ],
       },
     ]);
     expect(topology.transitions).toContainEqual(
@@ -1641,22 +1789,19 @@ describe('petriScheduler', () => {
   it('emits transition events in lifecycle order, including the source-policy boundary', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-events-'));
     await createRunAtCreated(cwd, ['task-1']);
-    const seen: ExecutorNetEvent[] = [];
-
     const outcome = await drive(
       {
         cwd,
         runId: 'run-1',
         ports: fakePorts(),
-        onNetEvent: (event) => {
-          seen.push(event);
-        },
       },
       petriScheduler,
     );
+    const seen = await readPetriEvents(cwd);
 
     expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
     expect(seen.map((event) => event.kind)).toEqual([
+      'transition_fired',
       'transition_fired',
       'transition_fired',
       'transition_fired',
@@ -1780,14 +1925,25 @@ describe('petriScheduler', () => {
         toStatus: 'test_result_ingested',
       },
       {
+        transitionId: 'slice_integrate:task-1',
+        subnetId: 'slice:task-1',
+        epicId: 'frontier-1',
+        derivedFrom: ['REQ1'],
+        contract: { kind: 'mechanical', lane: 'slice' },
+        consumed: ['slice:task-1:test_result_ingested'],
+        produced: ['slice:task-1:integrated'],
+        fromStatus: 'test_result_ingested',
+        toStatus: 'slice_integrated',
+      },
+      {
         transitionId: 'slice_complete:task-1',
         subnetId: 'slice:task-1',
         epicId: 'frontier-1',
         derivedFrom: ['REQ1'],
         contract: { kind: 'structural', lane: 'slice' },
-        consumed: ['slice:task-1:test_result_ingested'],
+        consumed: ['slice:task-1:integrated'],
         produced: ['epic:frontier-1:member:task-1'],
-        fromStatus: 'test_result_ingested',
+        fromStatus: 'slice_integrated',
         toStatus: 'slice_completed',
       },
       {
@@ -1841,7 +1997,7 @@ describe('petriScheduler', () => {
     expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
     await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toEqual({
       currentMarking: { 'run:promotion_prepared': 1 },
-      firedTransitionCount: 15,
+      firedTransitionCount: 16,
       lifecycleProvenance: {
         activeSliceId: 'task-1',
         runStatus: 'promotion_prepared',
@@ -2071,31 +2227,34 @@ describe('petriScheduler', () => {
     await createRunAtCreated(cwd, ['task-1']);
     const blockingPath = petriMarkingPath(cwd, 'run-1');
     let netEventCount = 0;
+    const unsubscribe = subscribePetriEvents({
+      cwd,
+      runId: 'run-1',
+      listener() {
+        netEventCount += 1;
+        if (netEventCount === 1) {
+          mkdirSync(join(cwd, '.brunch', 'cook', 'runs', 'run-1', 'petrinaut'), { recursive: true });
+          mkdirSync(blockingPath, { recursive: true });
+          return;
+        }
+        if (netEventCount === 2) rmSync(blockingPath, { recursive: true, force: true });
+      },
+    });
 
     const outcome = await drive(
       {
         cwd,
         runId: 'run-1',
         ports: fakePorts(),
-        onNetEvent: () => {
-          netEventCount += 1;
-          if (netEventCount === 1) {
-            mkdirSync(join(cwd, '.brunch', 'cook', 'runs', 'run-1', 'petrinaut'), { recursive: true });
-            mkdirSync(blockingPath, { recursive: true });
-            return;
-          }
-          if (netEventCount === 2) {
-            rmSync(blockingPath, { recursive: true, force: true });
-          }
-        },
       },
       petriScheduler,
     );
+    unsubscribe();
 
     expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
     await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toEqual({
       currentMarking: { 'run:promotion_prepared': 1 },
-      firedTransitionCount: 15,
+      firedTransitionCount: 16,
       lifecycleProvenance: {
         activeSliceId: 'task-1',
         runStatus: 'promotion_prepared',
@@ -2110,6 +2269,19 @@ describe('petriScheduler', () => {
     await createRunAtCreated(cwd, ['task-1']);
     const blockingPath = petriMarkingPath(cwd, 'run-1');
     let netEventCount = 0;
+    const unsubscribe = subscribePetriEvents({
+      cwd,
+      runId: 'run-1',
+      listener() {
+        netEventCount += 1;
+        if (netEventCount === 1) {
+          mkdirSync(join(cwd, '.brunch', 'cook', 'runs', 'run-1', 'petrinaut'), { recursive: true });
+          mkdirSync(blockingPath, { recursive: true });
+          return;
+        }
+        if (netEventCount === 2) rmSync(blockingPath, { recursive: true, force: true });
+      },
+    });
 
     const outcome = await drive(
       {
@@ -2118,20 +2290,10 @@ describe('petriScheduler', () => {
         ports: fakePorts({
           testRunner: createFakeTestRunnerPort({ status: 'failed', message: 'runner exploded' }),
         }),
-        onNetEvent: () => {
-          netEventCount += 1;
-          if (netEventCount === 1) {
-            mkdirSync(join(cwd, '.brunch', 'cook', 'runs', 'run-1', 'petrinaut'), { recursive: true });
-            mkdirSync(blockingPath, { recursive: true });
-            return;
-          }
-          if (netEventCount === 2) {
-            rmSync(blockingPath, { recursive: true, force: true });
-          }
-        },
       },
       petriScheduler,
     );
+    unsubscribe();
 
     expect(outcome).toEqual({
       status: 'halted',
@@ -2154,8 +2316,6 @@ describe('petriScheduler', () => {
   it('emits a halt event instead of a false completion event when a Petri step cannot advance', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-events-halt-'));
     await createRunAtCreated(cwd, ['task-1']);
-    const seen: ExecutorNetEvent[] = [];
-
     const outcome = await drive(
       {
         cwd,
@@ -2163,12 +2323,10 @@ describe('petriScheduler', () => {
         ports: fakePorts({
           testRunner: createFakeTestRunnerPort({ status: 'failed', message: 'runner exploded' }),
         }),
-        onNetEvent: (event) => {
-          seen.push(event);
-        },
       },
       petriScheduler,
     );
+    const seen = await readPetriEvents(cwd);
 
     expect(outcome).toEqual({
       status: 'halted',
@@ -2190,8 +2348,6 @@ describe('petriScheduler', () => {
   it('halts instead of reporting a false completion when the frontier plan is unreadable mid-run', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-unreadable-frontier-plan-'));
     const planPath = join(cwd, 'broken-plan.json');
-    const seen: ExecutorNetEvent[] = [];
-
     await writeFile(planPath, '{"mode":', 'utf8');
     await mkdir(join(cwd, '.brunch', 'cook', 'runs', 'run-1'), { recursive: true });
     await writeFile(
@@ -2211,12 +2367,10 @@ describe('petriScheduler', () => {
         cwd,
         runId: 'run-1',
         ports: fakePorts(),
-        onNetEvent: (event) => {
-          seen.push(event);
-        },
       },
       petriScheduler,
     );
+    const seen = await readPetriEvents(cwd);
 
     expect(outcome).toEqual({
       status: 'halted',
@@ -2238,8 +2392,6 @@ describe('petriScheduler', () => {
   it('halts when duplicate slice ids make the Petri runtime unreadable during drive', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-drive-duplicate-slices-'));
     const planPath = join(cwd, 'duplicate-slices.json');
-    const seen: ExecutorNetEvent[] = [];
-
     await writeFile(
       planPath,
       JSON.stringify({
@@ -2266,12 +2418,10 @@ describe('petriScheduler', () => {
         cwd,
         runId: 'run-1',
         ports: fakePorts(),
-        onNetEvent: (event) => {
-          seen.push(event);
-        },
       },
       linearScheduler,
     );
+    const seen = await readPetriEvents(cwd);
 
     expect(outcome).toEqual({
       status: 'halted',
@@ -2394,8 +2544,6 @@ describe('petriScheduler', () => {
   it('halts at petri_export when the compiled plan input is unreadable', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-export-unreadable-'));
     const planPath = join(cwd, 'broken-plan.json');
-    const seen: ExecutorNetEvent[] = [];
-
     await writeFile(planPath, '{"mode":', 'utf8');
     await mkdir(join(cwd, '.brunch', 'cook', 'runs', 'run-1'), { recursive: true });
     await writeFile(
@@ -2416,12 +2564,10 @@ describe('petriScheduler', () => {
         cwd,
         runId: 'run-1',
         ports: fakePorts(),
-        onNetEvent: (event) => {
-          seen.push(event);
-        },
       },
       petriScheduler,
     );
+    const seen = await readPetriEvents(cwd);
 
     expect(outcome).toEqual({
       status: 'halted',
@@ -2443,8 +2589,6 @@ describe('petriScheduler', () => {
   it('halts at petri_export when the compiled plan input parses but is structurally invalid', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-export-invalid-shape-'));
     const planPath = join(cwd, 'broken-plan.json');
-    const seen: ExecutorNetEvent[] = [];
-
     await writeFile(
       planPath,
       JSON.stringify({
@@ -2472,12 +2616,10 @@ describe('petriScheduler', () => {
         cwd,
         runId: 'run-1',
         ports: fakePorts(),
-        onNetEvent: (event) => {
-          seen.push(event);
-        },
       },
       petriScheduler,
     );
+    const seen = await readPetriEvents(cwd);
 
     expect(outcome).toEqual({
       status: 'halted',
@@ -2498,8 +2640,6 @@ describe('petriScheduler', () => {
 
   it('treats an abandoned run as a halted terminal at both the driver and journal boundary', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-abandoned-terminal-'));
-    const seen: ExecutorNetEvent[] = [];
-
     await mkdir(join(cwd, '.brunch', 'cook', 'runs', 'run-1'), { recursive: true });
     await writeFile(
       runMetadataPath(cwd, 'run-1'),
@@ -2518,12 +2658,10 @@ describe('petriScheduler', () => {
         cwd,
         runId: 'run-1',
         ports: fakePorts(),
-        onNetEvent: (event) => {
-          seen.push(event);
-        },
       },
       petriScheduler,
     );
+    const seen = await readPetriEvents(cwd);
 
     expect(outcome).toEqual({
       status: 'halted',

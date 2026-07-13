@@ -48,7 +48,7 @@ export async function completeSlice(args: {
     };
   }
 
-  if (metadata.status !== 'test_result_ingested' || !metadata.activeSliceId || !metadata.activeEpicId) {
+  if (metadata.status !== 'slice_integrated' || !metadata.activeSliceId || !metadata.activeEpicId) {
     return {
       status: 'test_result_not_ingested',
       runStatus: metadata.status,

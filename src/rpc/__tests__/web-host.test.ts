@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createFakeGitHostPromotionPort,
   createFakeGitLandPort,
+  createFakeGitSliceIntegrationPort,
   createFakeGitWorktreePort,
   createFakeTestRunnerPort,
 } from '../../executor/__tests__/fake-ports.js';
@@ -117,6 +118,7 @@ function parseSse(body: string): Array<{ event: string; data: unknown }> {
 function executorPorts(gitWorktree: ExecutionPorts['gitWorktree']): ExecutionPorts {
   return {
     gitWorktree,
+    gitSliceIntegration: createFakeGitSliceIntegrationPort(),
     agentRunner: {
       async run() {
         return { status: 'completed' };
@@ -1216,8 +1218,10 @@ describe('web host', () => {
       }
 
       const frames = parseSse(body);
+      // Completing the sole epic emits its integrate/complete gates in the same
+      // drive turn; run:finish is the terminal projection transition.
       expect(frames.filter((frame) => frame.event === 'transition_firing')).toHaveLength(
-        firedTransitions + 1,
+        firedTransitions + 3,
       );
       expect(body).toContain('"transitionId":"run:finish"');
       expect(frames.at(-1)).toEqual({ event: 'terminal', data: { state: 'completed' } });

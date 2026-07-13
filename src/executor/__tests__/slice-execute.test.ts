@@ -10,10 +10,11 @@ import { initializeReports, reportsPath } from '../report.js';
 import { runDirPath, runMetadataPath, createRun, readRunMetadata } from '../run.js';
 import { requestSliceExecution, sliceExecutionRequestPath } from '../slice-execute.js';
 import { startSlice } from '../slice-start.js';
+import { sliceWorkspacePath } from '../slice-workspace.js';
 import { copyHostSource } from '../source-copy.js';
 import { selectSourcePolicy } from '../source-policy.js';
 import { createWorktree } from '../worktree.js';
-import { createFakeGitWorktreePort } from './fake-ports.js';
+import { createFakeGitSliceIntegrationPort, createFakeGitWorktreePort } from './fake-ports.js';
 
 async function pathExists(path: string): Promise<boolean> {
   try {
@@ -134,7 +135,11 @@ async function createSecondScopeSliceStartedRun(cwd: string): Promise<void> {
 describe('requestSliceExecution', () => {
   it('does not request execution before a slice is active', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-execute-missing-run-'));
-    const result = await requestSliceExecution({ cwd, runId: 'run-1' });
+    const result = await requestSliceExecution({
+      cwd,
+      runId: 'run-1',
+      gitSliceIntegration: createFakeGitSliceIntegrationPort(),
+    });
 
     expect(result).toEqual({
       status: 'missing_run',
@@ -149,7 +154,11 @@ describe('requestSliceExecution', () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-execute-ready-'));
     await createSliceStartedRun(cwd);
 
-    const result = await requestSliceExecution({ cwd, runId: 'run-1' });
+    const result = await requestSliceExecution({
+      cwd,
+      runId: 'run-1',
+      gitSliceIntegration: createFakeGitSliceIntegrationPort(),
+    });
 
     expect(result).toEqual({
       status: 'slice_execution_requested',
@@ -161,6 +170,11 @@ describe('requestSliceExecution', () => {
       reportsPath: reportsPath(cwd, 'run-1'),
       requestPath: sliceExecutionRequestPath(cwd, 'run-1', 'task-1'),
       sideEffects: [
+        {
+          kind: 'git_worktree_add',
+          path: sliceWorkspacePath(cwd, 'run-1', 'task-1'),
+          ref: 'base123',
+        },
         { kind: 'mkdir', path: join(runDirPath(cwd, 'run-1'), 'agent-output', 'task-1') },
         {
           kind: 'write_file',
@@ -251,7 +265,13 @@ describe('requestSliceExecution', () => {
       'utf8',
     );
 
-    await expect(requestSliceExecution({ cwd, runId: 'run-1' })).rejects.toThrow('invalid sliceId');
+    await expect(
+      requestSliceExecution({
+        cwd,
+        runId: 'run-1',
+        gitSliceIntegration: createFakeGitSliceIntegrationPort(),
+      }),
+    ).rejects.toThrow('invalid sliceId');
     expect(await pathExists(join(runDir, '..', 'escape', 'request.json'))).toBe(false);
   });
 

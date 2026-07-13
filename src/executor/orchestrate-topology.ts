@@ -29,6 +29,12 @@ export type ReadyStep =
       readonly derivedFrom?: readonly string[];
     }
   | {
+      readonly kind: 'slice_integrate';
+      readonly sliceId: string;
+      readonly epicId?: string;
+      readonly derivedFrom?: readonly string[];
+    }
+  | {
       readonly kind: 'slice_complete';
       readonly sliceId: string;
       readonly epicId?: string;
@@ -315,6 +321,10 @@ function sliceTestResultPlace(sliceId: string): string {
   return `slice:${sliceId}:test_result_ingested`;
 }
 
+function sliceIntegratedPlace(sliceId: string): string {
+  return `slice:${sliceId}:integrated`;
+}
+
 export type AttemptStage = 'agent' | 'verify';
 
 export function attemptPlaceId(stage: AttemptStage, sliceId: string, attempt: number): string {
@@ -567,6 +577,7 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
     transitionIds: [
       sliceTransitionId('slice_start', slice.id),
       sliceTransitionId('slice_execute', slice.id),
+      sliceTransitionId('slice_integrate', slice.id),
       sliceTransitionId('slice_complete', slice.id),
     ],
   }));
@@ -580,6 +591,7 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
         subnetId: subnet.id,
         name: 'Test result ingested',
       },
+      { id: sliceIntegratedPlace(sliceId), subnetId: subnet.id, name: 'Slice integrated' },
       { id: sliceCompletedPlace(sliceId), subnetId: subnet.id, name: 'Slice completed' },
       ...planSliceDependsOn(plan?.slices?.find((slice) => slice.id === sliceId) ?? { id: sliceId }).map(
         (dependencyId) => ({
@@ -649,6 +661,22 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
         contract: { kind: 'mechanical', lane: 'slice' },
       },
       {
+        id: sliceTransitionId('slice_integrate', sliceId),
+        subnetId: subnet.id,
+        ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
+        ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
+        step: {
+          kind: 'slice_integrate',
+          sliceId,
+          ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
+          ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
+        },
+        inputArcs: [{ placeId: sliceTestResultPlace(sliceId), weight: 1 }],
+        outputArcs: [{ placeId: sliceIntegratedPlace(sliceId), weight: 1 }],
+        guard: { kind: 'active_slice', sliceId },
+        contract: { kind: 'mechanical', lane: 'slice' },
+      },
+      {
         id: sliceTransitionId('slice_complete', sliceId),
         subnetId: subnet.id,
         ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
@@ -659,7 +687,7 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
           ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
           ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
         },
-        inputArcs: [{ placeId: sliceTestResultPlace(sliceId), weight: 1 }],
+        inputArcs: [{ placeId: sliceIntegratedPlace(sliceId), weight: 1 }],
         outputArcs: [
           ...(subnet.epicId === undefined
             ? [{ placeId: sliceCompletedPlace(sliceId), weight: 1 }]

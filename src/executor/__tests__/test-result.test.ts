@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { dirname } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -16,11 +17,10 @@ async function createAgentResultRun(
   cwd: string,
   options: { readonly verifyTarget?: { readonly command: string; readonly args: readonly string[] } } = {},
 ): Promise<void> {
-  const runDir = runDirPath(cwd, 'run-1');
   const reportPath = reportsPath(cwd, 'run-1');
   const metadataPath = runMetadataPath(cwd, 'run-1');
   const resultPath = agentResultPath(cwd, 'run-1', 'task-1');
-  await mkdir(join(runDir, 'agent-output', 'task-1'), { recursive: true });
+  await mkdir(dirname(resultPath), { recursive: true });
   await writeFile(resultPath, JSON.stringify({ status: 'completed', summary: 'Implemented task.' }), 'utf8');
   await writeFile(reportPath, '{"event":"run_ready"}\n', 'utf8');
   await writeFile(

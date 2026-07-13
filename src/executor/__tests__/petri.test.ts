@@ -396,11 +396,13 @@ describe('exportPetri', () => {
         'slice_execute:task-1',
         'agent_result:task-1:attempt:1',
         'test_result:task-1:attempt:1',
+        'slice_integrate:task-1',
         'slice_complete:task-1',
         'slice_start:task-2',
         'slice_execute:task-2',
         'agent_result:task-2:attempt:1',
         'test_result:task-2:attempt:1',
+        'slice_integrate:task-2',
         'slice_complete:task-2',
         'epic_integrate:frontier-1',
         'epic_complete:frontier-1',
@@ -440,7 +442,7 @@ describe('exportPetri', () => {
 
     expect(projection).toEqual({
       currentMarking: { 'run:promotion_prepared': 1 },
-      firedTransitionCount: 20,
+      firedTransitionCount: 22,
       terminalEventKind: 'net_completed',
     });
   });
@@ -793,11 +795,13 @@ describe('replayTransitionHistory', () => {
       'slice_execute:task-1',
       'agent_result:task-1:attempt:1',
       'test_result:task-1:attempt:1',
+      'slice_integrate:task-1',
       'slice_complete:task-1',
       'slice_start:task-2',
       'slice_execute:task-2',
       'agent_result:task-2:attempt:1',
       'test_result:task-2:attempt:1',
+      'slice_integrate:task-2',
       'slice_complete:task-2',
     ]);
 
@@ -813,11 +817,13 @@ describe('replayTransitionHistory', () => {
         'slice_execute:task-1',
         'agent_result:task-1:attempt:1',
         'test_result:task-1:attempt:1',
+        'slice_integrate:task-1',
         'slice_complete:task-1',
         'slice_start:task-2',
         'slice_execute:task-2',
         'agent_result:task-2:attempt:1',
         'test_result:task-2:attempt:1',
+        'slice_integrate:task-2',
         'slice_complete:task-2',
         'epic_integrate:epic-1',
         'epic_verify:epic-1',

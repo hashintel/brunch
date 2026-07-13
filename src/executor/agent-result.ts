@@ -6,11 +6,13 @@ import { SLICE_ATTEMPT_LIMIT } from './orchestrate-topology.js';
 import { reportsPath } from './report.js';
 import {
   assertSafeSliceId,
+  activeSliceAttemptNumber,
   appendSliceAttemptCycle,
   runDirPath,
   runMetadataPath,
   persistRunMetadata,
   readRunMetadata,
+  sliceArtifactAttemptNumber,
   type RunMetadata,
 } from './run.js';
 import { sliceExecutionRequestPath } from './slice-execute.js';
@@ -60,9 +62,9 @@ export type AgentResultIngestResult =
       )[];
     };
 
-export function agentResultPath(cwd: string, runId: string, sliceId: string): string {
+export function agentResultPath(cwd: string, runId: string, sliceId: string, attempt = 1): string {
   assertSafeSliceId(sliceId);
-  return join(runDirPath(cwd, runId), 'agent-output', sliceId, 'result.json');
+  return join(runDirPath(cwd, runId), 'agent-output', sliceId, `attempt-${attempt}`, 'result.json');
 }
 
 export interface AgentStreamEvent extends AgentRunUpdate {
@@ -73,9 +75,9 @@ export interface AgentStreamEvent extends AgentRunUpdate {
   readonly sequence: number;
 }
 
-export function agentStreamPath(cwd: string, runId: string, sliceId: string): string {
+export function agentStreamPath(cwd: string, runId: string, sliceId: string, attempt = 1): string {
   assertSafeSliceId(sliceId);
-  return join(runDirPath(cwd, runId), 'streams', sliceId, 'agent.jsonl');
+  return join(runDirPath(cwd, runId), 'streams', sliceId, `agent-attempt-${attempt}.jsonl`);
 }
 
 export async function ingestAgentResult(args: {
@@ -107,12 +109,14 @@ export async function ingestAgentResult(args: {
     };
   }
 
-  const worktreeDir = metadata.worktreeDir ?? worktreeDirPath(args.cwd, args.runId);
+  const worktreeDir =
+    metadata.activeSliceWorkspaceDir ?? metadata.worktreeDir ?? worktreeDirPath(args.cwd, args.runId);
   const requestPath =
     metadata.sliceExecutionRequestPath ??
     sliceExecutionRequestPath(args.cwd, args.runId, metadata.activeSliceId);
-  const resultPath = agentResultPath(args.cwd, args.runId, metadata.activeSliceId);
-  const streamPath = agentStreamPath(args.cwd, args.runId, metadata.activeSliceId);
+  const artifactAttempt = sliceArtifactAttemptNumber(metadata, metadata.activeSliceId, 'agent');
+  const resultPath = agentResultPath(args.cwd, args.runId, metadata.activeSliceId, artifactAttempt);
+  const streamPath = agentStreamPath(args.cwd, args.runId, metadata.activeSliceId, artifactAttempt);
   let sequence = 0;
   let wroteStream = false;
   let streamWriteQueue = Promise.resolve();
@@ -151,7 +155,7 @@ export async function ingestAgentResult(args: {
   });
   await streamWriteQueue;
   if (runResult.status === 'failed') {
-    const attempts = (metadata.activeSliceAttempts ?? 0) + 1;
+    const attempts = activeSliceAttemptNumber(metadata);
     const metadataEffect = await persistRunMetadata(metadataPath, {
       ...metadata,
       activeSliceAttempts: attempts,

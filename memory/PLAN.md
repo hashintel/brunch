@@ -29,7 +29,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 **Alpha walkthrough lane (2026-07-09/10).** Post-PR-305 outer-loop walkthroughs (TESTING_PLAN.md concern groups; findings in TESTING_FINDINGS.md) ran A and C, then a same-day induct → grill → spec pass settled D118-L (spec posture persistence), D119-L (unified `/continue` + continue/wait lexicon), the D99-L digest-conduct clarification, and A41-L. The 2026-07-10 FE-1180 review/witness pass reopened `walkthrough-remediation-1`: required rows WR1–WR8 were built, but Execute labels diverged from their provider directives and several security/conduct/debug claims lacked discriminating evidence. D120-L/I62-L now settle the Execute workflows. FE-1180 closed by explicit WR18 promotion of remaining failures/unknowns into `walkthrough-remediation-2` / FE-1187. FE-1187 now owns the reshaped auth/model-policy, ask/recovery, debug/prompt, conduct, Execute, and both-theme evidence before later walkthrough beats depend on those surfaces.
 
-**Petri execution lane (2026-07-12/13).** FE-1190's live stream merged (#322, 2026-07-13) after two Bugbot findings closed with deterministic oracles (fail-closed journal appends; terminal-lagging snapshot backfill from replay truth). FE-1192's attempt lifecycle then merged (#324, 2026-07-13). The remaining old-`main` parity work is consolidated into one frontier and PR: `petri-execution-parity` (isolated slice execution/fan-in, then epic integration). `petri-durable-parallel-authority` remains a conditional post-parity authority flip.
+**Petri execution lane (2026-07-12/13).** FE-1190's live stream merged (#322, 2026-07-13) after two Bugbot findings closed with deterministic oracles (fail-closed journal appends; terminal-lagging snapshot backfill from replay truth). FE-1192's attempt lifecycle then merged (#324, 2026-07-13). The remaining old-`main` parity work is consolidated into one frontier and PR: `petri-execution-parity` (isolated slice execution/fan-in, bounded durable parallel slice authority, then epic integration). The authority trigger fired during FE-1195 and is absorbed under D123-L rather than remaining a separate frontier.
 
 **Topology and evidence discipline.** Directory `TOPOLOGY.md` files under `src/**` own current topology state. `memory/SPEC.md` owns the thin product contract and live decision/invariant index; long-form SPEC history is archived in `docs/archive/SPEC_HISTORY.md`. `memory/PLAN.md` owns only rolling frontier state. Scratch probe artifacts under `.fixtures/scratch/` are not durable evidence until reviewed and promoted to `.fixtures/runs/`.
 
@@ -124,7 +124,6 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - `consequential-fact-discovery-tracer` — **Later (2026-07-13)**: bounded Tier-2 real-provider tracer for the consequential-fact discovery oracle. Re-entry: after Group 1 closes and the ask/prompt surface stabilizes. Full campaign additionally gated on `headless-ask-discovery` (Group 2) + a useful tracer report. Definition below.
 - `agent-tracing` — passive trace instrumentation over Pi lifecycle events for debugging plus conduct/quality evaluation: NDJSON emitter extension (introspection-tap discipline), subagent span joining via SDK `session.subscribe`, and a mechanical-trace × semantic-JSONL join for deterministic conduct checks and judged passes. Entry move is an `ln-spike` (dev-gated `nikiforovall/pi-otel` import: do span trees beat `.brunch/debug/` + JSONL projections?) before any port of `JoshMock/the-agency` observability as the in-product base. Traces are dev/eval artifacts, never product truth (no event-spine backdoor). Design: `docs/design/AGENT_TRACING.md`; sibling idea note `docs/design/RLM_INVESTIGATION_PATTERN.md`. Relation: Later `mechanism-trace` is the transcript-native sibling (carrier classification, no event plane); if both land they may join on a shared trace vocabulary. Absorbs Pi-native P5 (provider/cache observability — latency, cache behavior, whole-run spans), spike-led.
 - `multi-session-daemon-architecture` — unscheduled architecture note: if Brunch ever needs attachable live-session hosting beyond the current TUI-owned sidecar, prefer an optional local session-host layer that owns live foreground session topology only, not graph/transcript/executor truth. Design: `docs/design/MULTI_SESSION_DAEMON_ARCHITECTURE.md`; thin decision candidate: `docs/design/SESSION_HOST_DECISION_CANDIDATE.md`.
-- `petri-durable-parallel-authority` — the repeatedly deferred authority flip (SPEC §Future Direction): durable marking/journal authority for concurrently firing side effects once `run.json`'s single-status ladder cannot represent in-flight parallelism. Conditional post-parity work (epic integration gates are absorbed into `petri-execution-parity`). Promote to Next only when `petri-execution-parity` evidence shows serial authority is the binding constraint — do not pull it forward for old-`main` Petrinaut parity.
 
 ### Retired / Never
 
@@ -391,13 +390,14 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Kind:** structural — per-slice side-effect isolation, explicit integration, and epic lifecycle semantics.
 - **Certainty:** proving.
 - **Depends on:** FE-1192's merged attempt identity and bounded-retry facts; FE-1190's frozen-definition live stream; FE-1166's run-environment substrate policy.
-- **Objective:** close old-`main` Petri execution parity in one branch through two ordered slices. First, let independently enabled slice subnets execute with per-slice/per-attempt side-effect isolation and fan outputs into the run workspace through an explicit conflict-reporting integration transition. Then make epics integration gates rather than identity labels: member completion enables epic-level fan-in/verification and an explicit epic-complete transition in the compiled topology. `run.json` remains serial lifecycle authority throughout.
-- **Lights up:** two independent slices executing in isolated substrates, converging through explicit fan-in, and completing only through their owning epic's integration/verification gate.
+- **Objective:** close old-`main` Petri execution parity in one branch through ordered slices. Execute each slice in one stable per-slice workspace, keep retry artifacts attempt-distinct, and fan successful commits into the run workspace through an explicit conflict-reporting integration transition. Promote durable journal/marking claims to authority for concurrently firing isolated slice effects while `run.json` remains run-summary and serial run-control authority. Then make epics integration gates rather than identity labels: member completion enables epic-level fan-in/verification and an explicit epic-complete transition in the compiled topology.
+- **Lights up:** dependency-independent slices executing concurrently in isolated substrates, converging through explicit fan-in, and completing only through owning epic gates.
 - **Stabilizes:** attempt-visible slice subnet topology, the isolation/fan-in seam, epic lifecycle vocabulary, and `frontierFiringPolicy` as a load-bearing co-firable selection policy.
 - **Acceptance sketch:** independent slices run without cross-contamination; integration conflicts fail closed into the existing halted/replan outcome; the frozen Petrinaut definition and stream show attempt, slice integration, epic verification, and epic completion honestly; an epic cannot complete before every member slice succeeds and its epic-level verification passes; serial `run.json` ordering and I58-L side-effect honesty survive.
 - **Inherited from FE-1192 (2026-07-13):** decide and implement Petrinaut-visible attempt topology (static self-loop transitions / retry-budget places) now that concurrent subnets make attempts load-bearing; extract the mirrored failure-path counter pattern from `agent-result.ts`/`test-result.ts` with the `attempts`-field presence as `drive()`'s retry discriminant; settle `DriveContext.onNetEvent` by making it a real live-hint consumer or deleting it and correcting the topology claim.
+- **Authority trigger (2026-07-13):** stable per-slice workspaces, attempt-distinct artifacts, real-git conflict-preflight fan-in, explicit `slice_integrate` lifecycle facts, shared attempt-counter helpers, and removal of `DriveContext.onNetEvent` are implemented. Their oracle proved Slice 1's co-firable starts cannot become overlapping effects while serial `run.json` permits one active slice. The user promoted durable parallel authority into this same frontier/PR; D123-L owns the bounded authority split.
 - **Current execution pointer:** [`memory/cards/petri-execution-parity--slice-epic-integration.md`](cards/petri-execution-parity--slice-epic-integration.md) — three ordered slices: topology semantics, isolated fan-in, epic verification/completion.
-- **Explicitly out:** durable marking/journal authority for concurrently firing side effects; split-process delivery; semantic/review lanes beyond epic verification; geolog coupling. Promote `petri-durable-parallel-authority` only if this frontier proves serial authority is the binding constraint.
+- **Explicitly out:** split-process delivery; semantic/review lanes beyond epic verification; geolog coupling. Durable parallel slice authority is now in scope under D123-L because this frontier proved serial authority is the binding constraint.
 - **Traceability:** D112-L (set-returning scheduler + `frontierFiringPolicy`), FE-1166 substrate/verify policy, `docs/praxis/worktree-agents.md`; SPEC §Future Direction (durable parallel authority stays excluded).
 
 
@@ -482,15 +482,14 @@ KA stream:
   petri-execution-parity (FE-1195)
     status: active 2026-07-13 on ka/fe-1195-petri-execution-parity
     depends_on: merged FE-1192 attempt identity + FE-1190 live stream
-    -[on promotion]-> petri-durable-parallel-authority (later; only on serial-authority evidence)
-    excludes: durable parallel side-effect authority
+    owns: D123-L bounded durable parallel slice authority
+    excludes: split-process delivery and generic event-spine authority
   executor-run-environment (FE-1166 follow-up)
     status: prepared; tracker/branch disposition required before build
     live_card: memory/cards/executor-run-environment--actionable-slice-request.md
 
 later: mechanism-trace (tripwire extracted to FE-1187) |
-  consequential-fact-discovery-tracer | agent-tracing (absorbs P5) |
-  petri-durable-parallel-authority (post-parity; epic integration absorbed into FE-1195)
+  consequential-fact-discovery-tracer | agent-tracing (absorbs P5)
 
 rules:
   candidates never commit graph truth (I51-L)

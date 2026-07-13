@@ -42,7 +42,7 @@ The frozen executor net represents independent slice frontiers, bounded attempt 
 
 - RISK: static attempt loops diverge from FE-1192 retry facts → MITIGATION: one retry-budget constant and contrastive topology/replay tests for retry and exhaustion.
 - ASSUMPTION: serial durable lifecycle facts can project the richer topology without becoming marking authority.
-  → IMPACT IF FALSE: stop before side-effect concurrency and promote `petri-durable-parallel-authority`.
+  → IMPACT IF FALSE: stop before side-effect concurrency and promote the authority model inside this frontier.
   → VALIDATE: materialization and replay tests from pre-run through terminal state.
 
 ### Posture check
@@ -103,7 +103,7 @@ src/executor/
 
 ## Slice 2 — Isolated slice execution and deterministic fan-in
 
-Status: queued
+Status: done
 Weight: full
 
 ### Target Behavior
@@ -163,6 +163,24 @@ Lights up the first isolated slice-output path and directly tests whether serial
 - Side effects are bounded and named under I58-L.
 - No untracked workspace cleanup is introduced.
 
+### Concurrency divergence
+
+The safe old-`main` isolation/fan-in shape is implemented. Its oracle proved that actual overlapping effects require the authority promotion now scoped as Slice 3; Slice 2 therefore closes on isolation and deterministic fan-in rather than simulating overlap through the single active-slice ladder.
+
+### Completion Report
+
+| Leaf | Outcome | Evidence |
+| --- | --- | --- |
+| Distinct stable per-slice workspaces and attempt-distinct artifacts | met-with-divergence | `orchestrate.test.ts` proves dependency-ordered agents receive distinct stable workspace paths; retry tests prove attempt-distinct result and agent/verify stream paths. Workspaces are per-slice, not per-attempt. Effects remain serial rather than actually overlapping. |
+| Non-conflicting commits integrate deterministically | met | `git-slice-integration-port.test.ts` real-git ordered integration; `orchestrate.test.ts` fake-port dependency-order lifecycle. |
+| Conflict halts/replans without partial run-workspace mutation | met | Real-git conflict test proves unchanged run HEAD/tree/index; core and drive tests prove structured conflict report, unchanged `run.json`, no `slice_integrate` firing, and `net_halted`. |
+| Integration transition precedes dependent readiness | met | `orchestrate.test.ts`, `petri.test.ts`, extension updates, and RPC stream tests include explicit `slice_integrate:<sliceId>` before `slice_complete`/dependency release. |
+| Host mutation remains behind accepted promotion | met | Slice adapter mutates only run-local/slice worktrees; host-promotion real-git suite remains green. |
+| Executor core imports no app/git implementation | met | `boundaries.test.ts`. |
+| `run.json` remains one-writer serial authority | met-with-divergence | Lifecycle tests remain serial and replay-equivalent for this slice; the resulting concurrency limit promoted D123-L and Slice 3. |
+
+Skipped-test delta vs parent: 0.
+
 ### Expected touched paths (tentative)
 
 ```text
@@ -183,9 +201,91 @@ src/app/
 └── __tests__/                    ~
 ```
 
-## Slice 3 — Epic verification and completion
+## Slice 3 — Durable parallel slice authority
 
-Status: queued
+Status: next
+Weight: full
+
+### Target Behavior
+
+Dependency-independent slice effects overlap only after their claims are durable, and each completion or failure updates authoritative journal/marking state independently.
+
+### Cold-start reads
+
+- `memory/SPEC.md` — D111-L, D112-L, D123-L, I58-L
+- `memory/PLAN.md` — frontier `petri-execution-parity`
+- `src/executor/TOPOLOGY.md` — run summary, journal, marking, and side-effect boundaries
+- `src/executor/orchestrate.ts`, `src/executor/petri-runtime.ts`, `src/executor/petri-marking.ts` — current serial driver and recovery hints
+- `src/executor/slice-workspace.ts`, `src/executor/slice-integration.ts` — isolated effect boundaries from Slice 2
+
+### Boundary Crossings
+
+→ co-firable Petri frontier
+→ durable claim journal + marking
+→ concurrently executing isolated slice effects
+→ per-slice durable completion/failure
+→ serial conflict-checked integration
+→ run-summary projection
+
+### Risks and Assumptions
+
+- RISK: process interruption leaves ambiguous external effects → MITIGATION: persist claims before dispatch and recover claimed-but-unfinished slices as explicit halted/replan work, never silently re-fire.
+- RISK: one slice failure rolls back unrelated claims → MITIGATION: completion/failure is per-slice; successful sibling evidence remains durable and integrable.
+- RISK: concurrent fan-in races mutate the run tree → MITIGATION: effects overlap only in isolated workspaces; integration remains serialized in deterministic dependency order.
+- ASSUMPTION: same-process bounded concurrency is sufficient for parity; split-process delivery remains out.
+  → IMPACT IF FALSE: a durable broker/file watcher becomes a new frontier.
+  → VALIDATE: controlled promise barriers plus restart/replay fixtures.
+
+### Posture check
+
+Retires the binding serial-authority assumption discovered by Slice 2 and lights up the first truthful overlapping side-effect path.
+
+### Acceptance Criteria
+
+✓ `orchestrate.test.ts` concurrency oracle — two dependency-independent agent effects cross a shared barrier before either completes.
+✓ claim-order oracle — every effect starts only after its claim event and marking snapshot are durable.
+✓ failure-isolation oracle — one failed slice leaves a successful sibling's completion durable and never rewinds its marking.
+✓ recovery oracle — claimed-but-unfinished effects after restart halt/replan without automatic duplicate side effects.
+✓ fan-in oracle — successful outputs integrate serially in deterministic dependency order; conflicts preserve the last clean run tree.
+✓ observer/Petrinaut oracle — live and reconnect timelines expose simultaneous in-flight slice places and converge to equivalent terminal replay.
+
+### Invariants preserved
+
+- Run-control and host promotion remain serial and explicitly accepted — guarded by existing lifecycle/promotion suites.
+- Journal append failure starts no unclaimed side effect — guarded by fail-closed claim tests.
+- Frozen topology is never rewritten during execution — guarded by Petrinaut definition tests.
+
+### Verification Approach
+
+- Inner: deterministic barrier-based concurrency tests, journal/marking replay tests, and real-git serial fan-in tests.
+- Middle: executor/app/RPC suites and `npm run fix`.
+
+### Cross-cutting obligations
+
+- D123-L authority applies only to concurrently firing isolated slice effects.
+- `run.json` remains observer summary and serial run-control authority, not concurrent slice truth.
+- No split-process broker or generic event spine.
+
+### Expected touched paths (tentative)
+
+```text
+src/executor/
+├── orchestrate.ts                ~
+├── petri-runtime.ts              ~
+├── petri-marking.ts              ~
+├── petri-events.ts               ~
+├── run.ts                        ~
+├── observer-read.ts              ~
+├── TOPOLOGY.md                   ~
+└── __tests__/                    ~
+src/rpc/                          ?
+memory/SPEC.md                    ~
+memory/PLAN.md                    ~
+```
+
+## Slice 4 — Epic verification and completion
+
+Status: stale — re-scope after Slice 3 authority materializes
 Weight: full
 
 ### Target Behavior
@@ -244,7 +344,7 @@ Lights up the complete member-slices → integration → epic verification → d
 ### Cross-cutting obligations
 
 - Topology documentation must describe the materialized epic and isolation seams.
-- SPEC Future Direction must retain durable parallel authority as future work unless evidence promotes it.
+- D123-L's bounded authority split must remain limited to concurrently firing isolated slice effects.
 
 ### Expected touched paths (tentative)
 

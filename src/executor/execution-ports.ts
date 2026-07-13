@@ -24,6 +24,55 @@ export interface GitWorktreePort {
   create(args: GitWorktreeCreateArgs): Promise<GitWorktreeCreateResult>;
 }
 
+export interface GitSliceWorkspaceArgs {
+  readonly runWorktreeDir: string;
+  readonly sliceWorktreeDir: string;
+  readonly sliceId: string;
+}
+
+export type GitSliceWorkspaceResult =
+  | {
+      readonly status: 'prepared';
+      readonly baseSha: string;
+      readonly sideEffects: readonly {
+        readonly kind: 'git_worktree_add';
+        readonly path: string;
+        readonly ref: string;
+      }[];
+    }
+  | { readonly status: 'failed'; readonly message: string; readonly sideEffects: readonly [] };
+
+export interface GitSliceIntegrateArgs extends GitSliceWorkspaceArgs {
+  readonly baseSha: string;
+}
+
+export type GitSliceIntegrateEffect =
+  | { readonly kind: 'git_commit'; readonly path: string; readonly sha: string }
+  | { readonly kind: 'git_integrate'; readonly path: string; readonly sha: string };
+
+export type GitSliceIntegrateResult =
+  | {
+      readonly status: 'integrated';
+      readonly sliceCommitSha: string;
+      readonly integrationCommitSha: string;
+      readonly sideEffects: readonly GitSliceIntegrateEffect[];
+    }
+  | {
+      readonly status: 'conflict';
+      readonly message: string;
+      readonly sideEffects: readonly GitSliceIntegrateEffect[];
+    }
+  | {
+      readonly status: 'failed';
+      readonly message: string;
+      readonly sideEffects: readonly GitSliceIntegrateEffect[];
+    };
+
+export interface GitSliceIntegrationPort {
+  prepare(args: GitSliceWorkspaceArgs): Promise<GitSliceWorkspaceResult>;
+  integrate(args: GitSliceIntegrateArgs): Promise<GitSliceIntegrateResult>;
+}
+
 export interface AgentRunArgs {
   readonly worktreeDir: string;
   readonly requestPath: string;
@@ -179,6 +228,7 @@ export interface GitHostPromotionPort extends GitHostPromotionPreflightPort {
 
 export interface ExecutionPorts {
   readonly gitWorktree: GitWorktreePort;
+  readonly gitSliceIntegration: GitSliceIntegrationPort;
   readonly agentRunner: AgentRunnerPort;
   readonly testRunner: TestRunnerPort;
   readonly gitLand: GitLandPort;

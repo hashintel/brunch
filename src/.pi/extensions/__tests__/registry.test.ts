@@ -11,6 +11,7 @@ import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
 import {
   createFakeGitHostPromotionPort,
   createFakeGitLandPort,
+  createFakeGitSliceIntegrationPort,
   createFakeGitWorktreePort,
   createFakeTestRunnerPort,
 } from '../../../executor/__tests__/fake-ports.js';
@@ -19,6 +20,7 @@ import type {
   AgentRunnerPort,
   GitHostPromotionPort,
   GitLandPort,
+  GitSliceIntegrationPort,
   GitWorktreePort,
   TestRunnerPort,
 } from '../../../executor/execution-ports.js';
@@ -1919,6 +1921,7 @@ describe('Brunch explicit Pi extension registry', () => {
     const metadataPath = join(runDir, 'run.json');
     const reportPath = join(runDir, 'reports.jsonl');
     const populatedPlanPath = join(runDir, 'populated-plan.json');
+    const worktreeDir = join(runDir, 'worktree');
     await mkdir(runDir, { recursive: true });
     await writeFile(
       populatedPlanPath,
@@ -1943,6 +1946,7 @@ describe('Brunch explicit Pi extension registry', () => {
         planPath: '/tmp/plan.yaml',
         populatedPlanPath,
         status: 'slice_started',
+        worktreeDir,
         reportsPath: reportPath,
         activeSliceId: 'task-1',
         activeEpicId: 'frontier-1',
@@ -1952,6 +1956,7 @@ describe('Brunch explicit Pi extension registry', () => {
     await writeFile(reportPath, '{"event":"run_ready"}\n', 'utf8');
     const registeredTools = await collectProductTools({
       graph: { specId: 42, lsn: 27, nodes: [], edges: [] },
+      gitSliceIntegration: createFakeGitSliceIntegrationPort(),
     });
 
     const sliceExecute = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_SLICE_EXECUTE_TOOL);
@@ -1968,6 +1973,11 @@ describe('Brunch explicit Pi extension registry', () => {
         requestPath,
       },
       sideEffects: [
+        {
+          kind: 'git_worktree_add',
+          path: join(runDir, 'slice-workspaces', 'task-1', 'worktree'),
+          ref: 'base123',
+        },
         { kind: 'mkdir', path: dirname(requestPath) },
         { kind: 'write_file', path: requestPath, ifExists: 'overwrite' },
         { kind: 'append_file', path: reportPath },
@@ -1985,7 +1995,7 @@ describe('Brunch explicit Pi extension registry', () => {
     const reportPath = join(runDir, 'reports.jsonl');
     const worktreeDir = join(runDir, 'worktree');
     const requestPath = join(runDir, 'agent-output', 'task-1', 'request.json');
-    const resultPath = join(runDir, 'agent-output', 'task-1', 'result.json');
+    const resultPath = join(runDir, 'agent-output', 'task-1', 'attempt-1', 'result.json');
     await mkdir(dirname(requestPath), { recursive: true });
     await mkdir(worktreeDir, { recursive: true });
     await writeFile(requestPath, JSON.stringify({ task: 'execute_slice' }), 'utf8');
@@ -2057,7 +2067,7 @@ describe('Brunch explicit Pi extension registry', () => {
     const reportPath = join(runDir, 'reports.jsonl');
     const worktreeDir = join(runDir, 'worktree');
     const requestPath = join(runDir, 'agent-output', 'task-1', 'request.json');
-    const resultPath = join(runDir, 'agent-output', 'task-1', 'result.json');
+    const resultPath = join(runDir, 'agent-output', 'task-1', 'attempt-1', 'result.json');
     await mkdir(dirname(requestPath), { recursive: true });
     await mkdir(worktreeDir, { recursive: true });
     await writeFile(requestPath, JSON.stringify({ task: 'write proof' }), 'utf8');
@@ -2152,11 +2162,13 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(access(join(runDir, 'petrinaut'))).rejects.toThrow();
   });
 
-  it('registers execute_slice_complete as completion marker only', async () => {
+  it('registers execute_slice_complete as explicit integration then completion', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-slice-complete-'));
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
     const reportPath = join(runDir, 'reports.jsonl');
+    const worktreeDir = join(runDir, 'worktree');
+    const sliceWorktreeDir = join(runDir, 'slice-workspaces', 'task-1', 'worktree');
     await mkdir(runDir, { recursive: true });
     await writeFile(
       metadataPath,
@@ -2165,9 +2177,12 @@ describe('Brunch explicit Pi extension registry', () => {
         specId: '42',
         planPath: '/tmp/plan.yaml',
         status: 'test_result_ingested',
+        worktreeDir,
         reportsPath: reportPath,
         activeSliceId: 'task-1',
         activeEpicId: 'frontier-1',
+        activeSliceWorkspaceDir: sliceWorktreeDir,
+        activeSliceBaseSha: 'base123',
       }),
       'utf8',
     );
@@ -2178,6 +2193,7 @@ describe('Brunch explicit Pi extension registry', () => {
     );
     const registeredTools = await collectProductTools({
       graph: { specId: 42, lsn: 30, nodes: [], edges: [] },
+      gitSliceIntegration: createFakeGitSliceIntegrationPort(),
     });
 
     const complete = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_SLICE_COMPLETE_TOOL);
@@ -2188,6 +2204,10 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(result.details).toMatchObject({
       result: { status: 'slice_completed', runStatus: 'slice_completed', sliceId: 'task-1' },
       sideEffects: [
+        { kind: 'git_commit', path: sliceWorktreeDir, sha: 'slice123' },
+        { kind: 'git_integrate', path: worktreeDir, sha: 'integrated123' },
+        { kind: 'append_file', path: reportPath },
+        { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
         { kind: 'append_file', path: reportPath },
         { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
       ],
@@ -3264,6 +3284,7 @@ async function collectProductTools(
     graph?: TestGraphSlice;
     graphsBySpec?: Readonly<Record<number, TestGraphSlice>>;
     gitWorktree?: GitWorktreePort;
+    gitSliceIntegration?: GitSliceIntegrationPort;
     testRunner?: TestRunnerPort;
     agentRunner?: AgentRunnerPort;
     gitLand?: GitLandPort;
@@ -3279,6 +3300,7 @@ async function collectProductTools(
     ...(options.subagents ? { subagents: options.subagents } : {}),
     ...(options.introspectionQueryTools ? { introspection: { queryTools: true } } : {}),
     ...(options.gitWorktree ||
+    options.gitSliceIntegration ||
     options.testRunner ||
     options.agentRunner ||
     options.gitLand ||
@@ -3286,6 +3308,7 @@ async function collectProductTools(
       ? {
           executionPorts: {
             ...(options.gitWorktree ? { gitWorktree: options.gitWorktree } : {}),
+            ...(options.gitSliceIntegration ? { gitSliceIntegration: options.gitSliceIntegration } : {}),
             ...(options.testRunner ? { testRunner: options.testRunner } : {}),
             ...(options.agentRunner ? { agentRunner: options.agentRunner } : {}),
             ...(options.gitLand ? { gitLand: options.gitLand } : {}),

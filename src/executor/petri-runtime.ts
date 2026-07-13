@@ -31,6 +31,7 @@ import { completeRun } from './run-complete.js';
 import { readRunMetadata, runMetadataPath, type RunMetadata } from './run.js';
 import { completeSlice } from './slice-complete.js';
 import { requestSliceExecution } from './slice-execute.js';
+import { integrateSlice } from './slice-integration.js';
 import { startSlice } from './slice-start.js';
 import { copyHostSource } from './source-copy.js';
 import { selectSourcePolicy, type SourcePolicyKind } from './source-policy.js';
@@ -165,6 +166,20 @@ export function projectExecutorPetriTransitionHistory(
               sliceTransitionId('slice_execute', currentSliceId),
               ...completedStageTransitionHistory(state, 'agent', currentSliceId, true),
               ...completedStageTransitionHistory(state, 'verify', currentSliceId, true),
+            ],
+            currentSliceId,
+          }
+        : undefined;
+    case 'slice_integrated':
+      return currentSliceId
+        ? {
+            transitionIds: [
+              ...transitionIds,
+              sliceTransitionId('slice_start', currentSliceId),
+              sliceTransitionId('slice_execute', currentSliceId),
+              ...completedStageTransitionHistory(state, 'agent', currentSliceId, true),
+              ...completedStageTransitionHistory(state, 'verify', currentSliceId, true),
+              sliceTransitionId('slice_integrate', currentSliceId),
             ],
             currentSliceId,
           }
@@ -309,6 +324,8 @@ function resolveTransitionIdForReadyStep(
       return currentAttemptSuccessTransitionId('verify', state, plan);
     case 'slice_complete':
       return currentSliceTransitionId('slice_complete', state, plan);
+    case 'slice_integrate':
+      return currentSliceTransitionId('slice_integrate', state, plan);
   }
 }
 
@@ -382,7 +399,7 @@ function baseRunTransitionHistory(status: RunMetadata['status']): readonly strin
 }
 
 function currentSliceTransitionId(
-  kind: 'slice_execute' | 'slice_complete',
+  kind: 'slice_execute' | 'slice_integrate' | 'slice_complete',
   state: RunMetadata,
   plan: SchedulerPlan | undefined,
 ): string | undefined {
@@ -461,6 +478,7 @@ function completedSliceTransitionHistory(
       sliceTransitionId('slice_execute', sliceId),
       ...completedStageTransitionHistory(state, 'agent', sliceId, true),
       ...completedStageTransitionHistory(state, 'verify', sliceId, true),
+      sliceTransitionId('slice_integrate', sliceId),
       sliceTransitionId('slice_complete', sliceId),
     );
     completedSlices.add(sliceId);
@@ -498,6 +516,7 @@ function inFlightSliceId(state: RunMetadata, plan: SchedulerPlan | undefined): s
     case 'slice_execution_requested':
     case 'agent_result_ingested':
     case 'test_result_ingested':
+    case 'slice_integrated':
       return activeOrNextPetriSliceId(state, plan);
     default:
       return undefined;
@@ -532,7 +551,7 @@ export async function executeExecutorReadyStep(
     case 'slice_start':
       return startSlice({ cwd, runId, sliceId: step.sliceId });
     case 'slice_execute':
-      return requestSliceExecution({ cwd, runId });
+      return requestSliceExecution({ cwd, runId, gitSliceIntegration: ports.gitSliceIntegration });
     case 'agent_result':
       return ingestAgentResult({
         cwd,
@@ -551,6 +570,8 @@ export async function executeExecutorReadyStep(
       });
     case 'slice_complete':
       return completeSlice({ cwd, runId });
+    case 'slice_integrate':
+      return integrateSlice({ cwd, runId, gitSliceIntegration: ports.gitSliceIntegration });
     case 'run_complete':
       return completeRun({ cwd, runId });
     case 'petri_export':

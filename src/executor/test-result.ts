@@ -6,11 +6,13 @@ import { SLICE_ATTEMPT_LIMIT } from './orchestrate-topology.js';
 import { reportsPath } from './report.js';
 import {
   assertSafeSliceId,
+  activeSliceAttemptNumber,
   appendSliceAttemptCycle,
   runDirPath,
   runMetadataPath,
   persistRunMetadata,
   readRunMetadata,
+  sliceArtifactAttemptNumber,
   type RunMetadata,
 } from './run.js';
 import { worktreeDirPath } from './worktree.js';
@@ -68,9 +70,9 @@ export type VerifyStreamEvent = TestRunUpdate & {
   readonly sequence: number;
 };
 
-export function verifyStreamPath(cwd: string, runId: string, sliceId: string): string {
+export function verifyStreamPath(cwd: string, runId: string, sliceId: string, attempt = 1): string {
   assertSafeSliceId(sliceId);
-  return join(runDirPath(cwd, runId), 'streams', sliceId, 'verify.jsonl');
+  return join(runDirPath(cwd, runId), 'streams', sliceId, `verify-attempt-${attempt}.jsonl`);
 }
 
 export async function ingestTestResult(args: {
@@ -102,8 +104,14 @@ export async function ingestTestResult(args: {
     };
   }
 
-  const worktreeDir = metadata.worktreeDir ?? worktreeDirPath(args.cwd, args.runId);
-  const streamPath = verifyStreamPath(args.cwd, args.runId, metadata.activeSliceId);
+  const worktreeDir =
+    metadata.activeSliceWorkspaceDir ?? metadata.worktreeDir ?? worktreeDirPath(args.cwd, args.runId);
+  const streamPath = verifyStreamPath(
+    args.cwd,
+    args.runId,
+    metadata.activeSliceId,
+    sliceArtifactAttemptNumber(metadata, metadata.activeSliceId, 'verify'),
+  );
   let sequence = 0;
   let wroteStream = false;
   const runResult = await args.testRunner.run({
@@ -132,7 +140,7 @@ export async function ingestTestResult(args: {
     },
   });
   if (runResult.status === 'failed') {
-    const attempts = (metadata.activeSliceAttempts ?? 0) + 1;
+    const attempts = activeSliceAttemptNumber(metadata);
     const metadataEffect = await persistRunMetadata(metadataPath, {
       ...metadata,
       activeSliceAttempts: attempts,

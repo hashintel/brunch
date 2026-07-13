@@ -116,18 +116,13 @@ export const frontierFiringPolicy: RunFiringPolicy = {
 // backfilling the lost event; gate retry on journal-vs-lifecycle counts if
 // gapped journals show up.
 async function emitNetEvent(
-  ctx: Pick<DriveContext, 'cwd' | 'runId' | 'onNetEvent'>,
+  ctx: Pick<DriveContext, 'cwd' | 'runId'>,
   event: ExecutorNetEvent,
 ): Promise<{ readonly journaled: boolean }> {
   try {
     await appendPetriEvent({ cwd: ctx.cwd, runId: ctx.runId, event });
   } catch {
     return { journaled: false };
-  }
-  try {
-    ctx.onNetEvent?.(event);
-  } catch {
-    // Observer failures never affect the drive.
   }
   return { journaled: true };
 }
@@ -200,8 +195,6 @@ export interface DriveContext {
   readonly onAgentUpdate?: (event: AgentStreamEvent) => void;
   /** Fired when the verify runner emits normalized stream events during test_result. */
   readonly onVerifyUpdate?: (event: VerifyStreamEvent) => void;
-  /** Fired when the executor runtime emits Petri-shaped transition or terminal facts. */
-  readonly onNetEvent?: (event: ExecutorNetEvent) => void;
 }
 
 export interface DriveStepProgress {
@@ -226,6 +219,8 @@ function schedulerPlanRequiredStep(state: RunMetadata): ReadyStep['kind'] | unde
     case 'agent_result_ingested':
       return 'test_result';
     case 'test_result_ingested':
+      return 'slice_integrate';
+    case 'slice_integrated':
       return 'slice_complete';
     default:
       return undefined;
@@ -254,6 +249,8 @@ function petriInputRequiredStep(state: RunMetadata): ReadyStep['kind'] | undefin
     case 'agent_result_ingested':
       return 'test_result';
     case 'test_result_ingested':
+      return 'slice_integrate';
+    case 'slice_integrated':
       return 'slice_complete';
     case 'run_completed':
       return 'petri_export';
@@ -266,7 +263,7 @@ function petriInputRequiredStep(state: RunMetadata): ReadyStep['kind'] | undefin
 }
 
 async function materializeDriveRuntime(args: {
-  readonly ctx: Pick<DriveContext, 'cwd' | 'runId' | 'onNetEvent'>;
+  readonly ctx: Pick<DriveContext, 'cwd' | 'runId'>;
   readonly state: RunMetadata;
   readonly plan: SchedulerPlan | undefined;
 }): Promise<{ readonly runtime: ExecutorPetriRuntime } | { readonly outcome: DriveOutcome }> {
