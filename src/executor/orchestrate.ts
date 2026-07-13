@@ -472,7 +472,7 @@ export async function drive(
       const result = boundTransition ? await boundTransition.execute() : await neverBoundReadyStep(next);
       if (result.runStatus === currentState.status) {
         if (
-          result.status === 'agent_run_failed' &&
+          (result.status === 'agent_run_failed' || result.status === 'test_run_failed') &&
           'attempts' in result &&
           typeof result.attempts === 'number' &&
           currentState.activeSliceId !== undefined

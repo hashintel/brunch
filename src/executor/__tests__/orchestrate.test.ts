@@ -75,6 +75,19 @@ function flakyAgentRunner(failures: number): AgentRunnerPort & { readonly calls:
   };
 }
 
+function flakyTestRunner(failures: number): TestRunnerPort & { readonly calls: () => number } {
+  let calls = 0;
+  return {
+    calls: () => calls,
+    async run() {
+      calls += 1;
+      return calls <= failures
+        ? { status: 'failed', message: 'flaky verify' }
+        : { status: 'completed', verdict: 'passed', exitCode: 0 };
+    },
+  };
+}
+
 function fakePorts(overrides: Partial<ExecutionPorts> = {}): ExecutionPorts {
   return {
     gitWorktree: createFakeGitWorktreePort(),
@@ -297,6 +310,60 @@ describe('drive', () => {
     expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.activeSliceAttempts).toBe(3);
   });
 
+  it('retries a crashed verify attempt in-run and journals every attempt', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-verify-attempt-retry-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    const testRunner = flakyTestRunner(2);
+
+    const outcome = await drive({ cwd, runId: 'run-1', ports: fakePorts({ testRunner }) });
+
+    expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+    expect(testRunner.calls()).toBe(3);
+    const events = await readPetriEvents(cwd);
+    expect(
+      events
+        .filter((event) => event.kind === 'attempt_failed')
+        .map((event) => ({ step: event.step, attempt: event.attempt, reason: event.reason })),
+    ).toEqual([
+      { step: 'test_result', attempt: 1, reason: 'test_run_failed' },
+      { step: 'test_result', attempt: 2, reason: 'test_run_failed' },
+    ]);
+    const verifyFiring = events.find(
+      (event) => event.kind === 'transition_fired' && event.step === 'test_result',
+    );
+    expect(verifyFiring).toMatchObject({ attempt: 3 });
+    expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.activeSliceAttempts).toBeUndefined();
+  });
+
+  it('gives verify crashes a fresh bound after agent attempts succeeded', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-per-stage-bound-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    const agentRunner = flakyAgentRunner(2);
+    const testRunner = flakyTestRunner(Number.POSITIVE_INFINITY);
+
+    const outcome = await drive({ cwd, runId: 'run-1', ports: fakePorts({ agentRunner, testRunner }) });
+
+    expect(outcome).toEqual({
+      status: 'halted',
+      step: 'test_result',
+      runStatus: 'agent_result_ingested',
+      reason: 'test_run_failed',
+    });
+    expect(agentRunner.calls()).toBe(3);
+    expect(testRunner.calls()).toBe(3);
+    expect(
+      (await readPetriEvents(cwd))
+        .filter((event) => event.kind === 'attempt_failed')
+        .map((event) => ({ step: event.step, attempt: event.attempt })),
+    ).toEqual([
+      { step: 'agent_result', attempt: 1 },
+      { step: 'agent_result', attempt: 2 },
+      { step: 'test_result', attempt: 1 },
+      { step: 'test_result', attempt: 2 },
+      { step: 'test_result', attempt: 3 },
+    ]);
+  });
+
   it('resets the attempt bound on explicit retry so a retried drive gets fresh attempts', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-attempt-reset-'));
     await createRunAtCreated(cwd, ['task-1']);
@@ -498,6 +565,8 @@ describe('drive', () => {
       'complete:slice_execute:slice_execution_requested',
       'start:agent_result:slice_execution_requested',
       'complete:agent_result:agent_result_ingested',
+      'start:test_result:agent_result_ingested',
+      'start:test_result:agent_result_ingested',
       'start:test_result:agent_result_ingested',
     ]);
   });
