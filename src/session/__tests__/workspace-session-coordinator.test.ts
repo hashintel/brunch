@@ -548,6 +548,56 @@ describe('WorkspaceSessionCoordinator', () => {
     });
   });
 
+  it('A41-L probe: a real multi-spec workspace fixture round-trips the reference-only relates-to shape', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+
+    // A root spec plus two others relating back to it (and to each other) —
+    // no spec-to-spec claim model (supersedes/informed_by/depends_on/claims),
+    // just a plain integer reference per spec (A41-L bet).
+    const root = await coordinator.activateWorkspace({
+      action: 'newSpec',
+      title: 'Root product spec',
+      kind: 'product',
+      origin: 'greenfield',
+    });
+    if (root.status !== 'ready') throw new Error('unreachable');
+
+    const feature = await coordinator.activateWorkspace({
+      action: 'newSpec',
+      title: 'Feature spec',
+      kind: 'feature',
+      origin: 'brownfield',
+      relatesToSpecId: root.spec.id,
+    });
+    if (feature.status !== 'ready') throw new Error('unreachable');
+
+    const focusedFunction = await coordinator.activateWorkspace({
+      action: 'newSpec',
+      title: 'Focused function spec',
+      kind: 'function',
+      origin: 'brownfield',
+      relatesToSpecId: feature.spec.id,
+    });
+    if (focusedFunction.status !== 'ready') throw new Error('unreachable');
+
+    const inventory = await coordinator.inspectWorkspace();
+    const byId = new Map(inventory.specs.map((entry) => [entry.spec.id, entry.spec]));
+
+    expect(byId.get(root.spec.id)?.relatesToSpecId).toBeNull();
+    expect(byId.get(feature.spec.id)?.relatesToSpecId).toBe(root.spec.id);
+    expect(byId.get(focusedFunction.spec.id)?.relatesToSpecId).toBe(feature.spec.id);
+
+    // Reference-only shape: the spec record surface carries no claim-model
+    // vocabulary (supersedes/informed_by/parallel_to/depends_on/claims,
+    // docs/design/SPEC_INITIATIVE_MODEL.md's deferred model) — just id/title/
+    // kind/origin/relatesToSpecId.
+    const featureSpec = byId.get(feature.spec.id);
+    expect(featureSpec && Object.keys(featureSpec).sort()).toEqual(
+      ['id', 'kind', 'origin', 'relatesToSpecId', 'title'].sort(),
+    );
+  });
+
   it('never re-asks establishment for a spec with stored posture; asks once for a posture-unestablished spec (D118-L)', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
     const coordinator = createWorkspaceSessionCoordinator({ cwd });
