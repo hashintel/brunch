@@ -5,6 +5,8 @@ import { SessionManager } from '@earendil-works/pi-coding-agent';
 
 import { BRUNCH_DIR, SESSION_DIR } from '../constants.js';
 import { openWorkspaceCommandExecutor, type SpecRecord } from '../graph/index.js';
+import type { SpecKind, SpecOrigin } from '../graph/schema/kinds.js';
+import { inspectWorkspaceCwdInventory } from '../workspace/cwd-inventory.js';
 import { slugify } from '../workspace/project-identity.js';
 import {
   readOrCreateWorkspaceState as readOrCreateWorkspaceStateFile,
@@ -28,6 +30,16 @@ import {
 interface WorkspaceSpecState {
   id: number;
   title: string;
+  /**
+   * Spec posture (D118-L). Optional so existing chrome/display fixtures
+   * unrelated to posture establishment (`{id, title}` only) stay valid —
+   * every coordinator-sourced spec state populates these.
+   */
+  kind?: SpecKind;
+  /** Spec posture origin; `null`/absent means posture is not yet established. */
+  origin?: SpecOrigin | null;
+  /** Reference-only relates-to-spec (A41-L); `null`/absent means no relation. */
+  relatesToSpecId?: number | null;
 }
 
 export type { WorkspacePostureState, WorkspaceProjectState } from '../workspace/workspace-state-store.js';
@@ -95,6 +107,15 @@ interface WorkspaceNewSessionDecision {
 interface WorkspaceNewSpecDecision {
   action: 'newSpec';
   title: string;
+  /**
+   * Posture confirmed by the establishment step (D118-L). Optional so specs
+   * created outside the dialog (e.g. via RPC) remain posture-unestablished
+   * and get the establishment step at next resume, rather than widening the
+   * public RPC decision contract (`rpc/methods/workspace.ts`) for this slice.
+   */
+  kind?: SpecKind;
+  origin?: SpecOrigin;
+  relatesToSpecId?: number;
 }
 
 interface WorkspaceCancelDecision {
@@ -147,6 +168,12 @@ export interface WorkspaceLaunchInventory {
   needsNewSpec: boolean;
   specs: WorkspaceLaunchSpec[];
   unavailableSessions: WorkspaceUnavailableSession[];
+  /**
+   * Whether cwd holds product code beyond `.brunch/` (D118-L establishment
+   * branch). Optional so existing fixtures unrelated to posture establishment
+   * stay valid; coordinator-sourced inventories always populate it.
+   */
+  workspacePopulated?: boolean;
 }
 
 export interface SpecSessionActivationCoordinator {
@@ -158,11 +185,16 @@ export interface DefaultWorkspaceCoordinator {
   openDefaultWorkspace(): Promise<WorkspaceSessionState>;
 }
 
+export interface WorkspaceSetupSessionOptions {
+  specTitle?: string;
+  createNewSpec?: boolean;
+  specKind?: SpecKind;
+  specOrigin?: SpecOrigin;
+  relatesToSpecId?: number;
+}
+
 interface WorkspaceSetupCoordinator {
-  createSetupSession(options?: {
-    specTitle?: string;
-    createNewSpec?: boolean;
-  }): Promise<WorkspaceSessionReadyState>;
+  createSetupSession(options?: WorkspaceSetupSessionOptions): Promise<WorkspaceSessionReadyState>;
   createSetupSessionForCurrentSpec(): Promise<WorkspaceSessionState>;
 }
 
@@ -213,6 +245,9 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
       return this.createSetupSession({
         specTitle: decision.title,
         createNewSpec: true,
+        ...(decision.kind ? { specKind: decision.kind } : {}),
+        ...(decision.origin ? { specOrigin: decision.origin } : {}),
+        ...(decision.relatesToSpecId !== undefined ? { relatesToSpecId: decision.relatesToSpecId } : {}),
       });
     }
 
@@ -279,14 +314,17 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
     return readyState(this.#cwd, spec, session, state.project);
   }
 
-  async createSetupSession(options?: {
-    specTitle?: string;
-    createNewSpec?: boolean;
-  }): Promise<WorkspaceSessionReadyState> {
+  async createSetupSession(options?: WorkspaceSetupSessionOptions): Promise<WorkspaceSessionReadyState> {
     const state = await readOrCreateWorkspaceState(this.#cwd);
     const existing =
       state.defaults && !options?.createNewSpec ? await getSpecState(this.#cwd, state.defaults.specId) : null;
-    const spec = existing ?? (await createSpec(this.#cwd, options?.specTitle));
+    const spec =
+      existing ??
+      (await createSpec(this.#cwd, options?.specTitle, {
+        ...(options?.specKind !== undefined ? { kind: options.specKind } : {}),
+        ...(options?.specOrigin !== undefined ? { origin: options.specOrigin } : {}),
+        ...(options?.relatesToSpecId !== undefined ? { relatesToSpecId: options.relatesToSpecId } : {}),
+      }));
     const session = await createBoundSession(this.#cwd, spec);
     await writeWorkspaceDefaults(this.#cwd, spec.id, session.id);
     return readyState(this.#cwd, spec, session, state.project);
@@ -328,13 +366,27 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
   }
 }
 
-async function createSpec(cwd: string, title = 'Untitled spec'): Promise<WorkspaceSpecState> {
+async function createSpec(
+  cwd: string,
+  title = 'Untitled spec',
+  posture: { kind?: SpecKind; origin?: SpecOrigin; relatesToSpecId?: number } = {},
+): Promise<WorkspaceSpecState> {
   const executor = await openWorkspaceCommandExecutor(cwd);
-  const result = executor.createSpec({ name: title, slug: slugifySpecName(title) });
+  const result = executor.createSpec({
+    name: title,
+    slug: slugifySpecName(title),
+    ...(posture.kind !== undefined ? { kind: posture.kind } : {}),
+    ...(posture.origin !== undefined ? { origin: posture.origin } : {}),
+    ...(posture.relatesToSpecId !== undefined ? { relatesToSpecId: posture.relatesToSpecId } : {}),
+  });
   if (result.status !== 'success') {
     throw new Error(`Unable to create spec: ${result.diagnostics.map((d) => d.message).join(', ')}`);
   }
-  return { id: result.specId, title };
+  const spec = executor.getSpec(result.specId);
+  if (!spec) {
+    throw new Error('Unable to read back the spec just created');
+  }
+  return specStateFromRecord(spec);
 }
 
 async function getSpecState(cwd: string, specId: number): Promise<WorkspaceSpecState | null> {
@@ -349,7 +401,13 @@ async function listSpecStates(cwd: string): Promise<WorkspaceSpecState[]> {
 }
 
 function specStateFromRecord(spec: SpecRecord): WorkspaceSpecState {
-  return { id: spec.id, title: spec.name };
+  return {
+    id: spec.id,
+    title: spec.name,
+    kind: spec.kind,
+    origin: spec.origin,
+    relatesToSpecId: spec.relatesToSpecId,
+  };
 }
 
 function slugifySpecName(name: string): string {
@@ -466,7 +524,11 @@ async function inspectWorkspaceInventory(cwd: string): Promise<WorkspaceLaunchIn
   const sessions = await inspectCanonicalSessionFiles(cwd);
   const specsById = new Map<number, WorkspaceLaunchSpec>();
   const unavailableSessions: WorkspaceUnavailableSession[] = [];
-  const [currentSpec, dbSpecs] = await Promise.all([defaultSpecFromState(cwd, state), listSpecStates(cwd)]);
+  const [currentSpec, dbSpecs, workspacePopulated] = await Promise.all([
+    defaultSpecFromState(cwd, state),
+    listSpecStates(cwd),
+    isWorkspacePopulated(cwd),
+  ]);
 
   for (const dbSpec of dbSpecs) {
     specsById.set(dbSpec.id, {
@@ -509,7 +571,20 @@ async function inspectWorkspaceInventory(cwd: string): Promise<WorkspaceLaunchIn
     needsNewSpec: specs.length === 0,
     specs,
     unavailableSessions: unavailableSessions.sort((left, right) => left.file.localeCompare(right.file)),
+    workspacePopulated,
   };
+}
+
+/**
+ * Whether cwd holds product code beyond `.brunch/` — the D118-L establishment
+ * branch signal. Distinct from `.brunch/workspace.json`'s posture stub
+ * (unchanged, D118-L): this reads the filesystem, not stored workspace state.
+ */
+async function isWorkspacePopulated(cwd: string): Promise<boolean> {
+  const inventory = await inspectWorkspaceCwdInventory(cwd);
+  return (inventory.topology.children ?? []).some(
+    (entry) => entry.name !== BRUNCH_DIR && entry.fileCount > 0,
+  );
 }
 
 function getOrCreateLaunchSpec(

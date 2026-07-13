@@ -9,6 +9,7 @@ import { openWorkspaceCommandExecutor } from '../../graph/index.js';
 import { assistantMessage, userMessage, isCustomEntry } from '../../probes/test-helpers.js';
 import { projectSessionExchanges } from '../exchange-projection.js';
 import { SESSION_BINDING_TYPE } from '../session-binding.js';
+import { decideSpecEstablishmentAsks } from '../spec-establishment.js';
 import {
   createWorkspaceSessionCoordinator,
   verifyWorkspaceSessionStores,
@@ -327,15 +328,27 @@ describe('WorkspaceSessionCoordinator', () => {
       unavailableSessions: [],
     });
     expect(inventory.specs).toEqual([
-      { spec: { id: alpha.specId, title: 'Alpha' }, sessions: [] },
-      { spec: { id: beta.specId, title: 'Beta' }, sessions: [] },
+      {
+        spec: { id: alpha.specId, title: 'Alpha', kind: 'product', origin: null, relatesToSpecId: null },
+        sessions: [],
+      },
+      {
+        spec: { id: beta.specId, title: 'Beta', kind: 'product', origin: null, relatesToSpecId: null },
+        sessions: [],
+      },
     ]);
 
     const activated = await coordinator.activateWorkspace({ action: 'newSession', specId: beta.specId });
 
     expect(activated.status).toBe('ready');
     if (activated.status !== 'ready') return;
-    expect(activated.spec).toEqual({ id: beta.specId, title: 'Beta' });
+    expect(activated.spec).toEqual({
+      id: beta.specId,
+      title: 'Beta',
+      kind: 'product',
+      origin: null,
+      relatesToSpecId: null,
+    });
   });
 
   it('marks unbound or incompatible sessions unavailable during inventory', async () => {
@@ -507,6 +520,72 @@ describe('WorkspaceSessionCoordinator', () => {
       expectedSessionCount: 1,
     });
     expect(oracle.ok).toBe(true);
+  });
+
+  it('activates a new spec decision carrying establishment-confirmed posture (D118-L, A41-L)', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+
+    const root = await coordinator.activateWorkspace({ action: 'newSpec', title: 'Root spec' });
+    if (root.status !== 'ready') throw new Error('unreachable');
+
+    const created = await coordinator.activateWorkspace({
+      action: 'newSpec',
+      title: 'Feature spec',
+      kind: 'feature',
+      origin: 'brownfield',
+      relatesToSpecId: root.spec.id,
+    });
+
+    expect(created.status).toBe('ready');
+    if (created.status !== 'ready') throw new Error('unreachable');
+    expect(created.spec).toEqual({
+      id: created.spec.id,
+      title: 'Feature spec',
+      kind: 'feature',
+      origin: 'brownfield',
+      relatesToSpecId: root.spec.id,
+    });
+  });
+
+  it('never re-asks establishment for a spec with stored posture; asks once for a posture-unestablished spec (D118-L)', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+
+    // Established via the dialog's posture-carrying decision.
+    const established = await coordinator.activateWorkspace({
+      action: 'newSpec',
+      title: 'Established spec',
+      origin: 'greenfield',
+    });
+    if (established.status !== 'ready') throw new Error('unreachable');
+
+    // Created outside the dialog (e.g. RPC) — posture-unestablished.
+    const unestablished = await coordinator.activateWorkspace({
+      action: 'newSpec',
+      title: 'Unestablished spec',
+    });
+    if (unestablished.status !== 'ready') throw new Error('unreachable');
+
+    const inventory = await coordinator.inspectWorkspace();
+    const establishedSpec = inventory.specs.find((entry) => entry.spec.id === established.spec.id)?.spec;
+    const unestablishedSpec = inventory.specs.find(
+      (entry) => entry.spec.id === unestablished.spec.id,
+    )?.spec;
+    if (!establishedSpec || !unestablishedSpec) throw new Error('unreachable');
+
+    expect(
+      decideSpecEstablishmentAsks({
+        currentOrigin: establishedSpec.origin ?? null,
+        workspacePopulated: inventory.workspacePopulated ?? false,
+      }),
+    ).toEqual([]);
+    expect(
+      decideSpecEstablishmentAsks({
+        currentOrigin: unestablishedSpec.origin ?? null,
+        workspacePopulated: inventory.workspacePopulated ?? false,
+      }),
+    ).toEqual(['confirmOrigin']);
   });
 
   it('activates cancel without mutating workspace state or session files', async () => {
