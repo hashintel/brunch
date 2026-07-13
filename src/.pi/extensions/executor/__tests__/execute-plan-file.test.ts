@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -107,20 +107,46 @@ describe('createExecutePlanFileTool with a planner', () => {
     expect(payload.slices.map((slice) => slice.id)).toEqual(['task-1']);
   });
 
+  it('uses brownfield workspace detection in deterministic lowering', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-plan-file-brownfield-det-'));
+    await writeFile(join(cwd, 'package.json'), JSON.stringify({ scripts: { test: 'vitest run' } }), 'utf8');
+
+    await tool().execute('t1', { mode: 'brownfield' }, undefined, undefined, { cwd } as never);
+
+    const payload = JSON.parse(await readFile(planFilePath(cwd, '7'), 'utf8')) as {
+      execution_contract?: {
+        detectedCapabilities: readonly { id: string }[];
+        resolvedActions: { verify: readonly { command: string; args: readonly string[] }[] };
+      };
+    };
+    expect(payload.execution_contract?.detectedCapabilities.map(({ id }) => id)).toEqual([
+      'node.npm',
+      'node.npm-test',
+    ]);
+    expect(payload.execution_contract?.resolvedActions.verify).toEqual([
+      expect.objectContaining({ command: 'npm', args: ['test'] }),
+    ]);
+  });
+
   it('falls back to deterministic lowering explicitly when the planner cannot run', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-plan-file-unavailable-'));
+    await writeFile(join(cwd, 'package.json'), JSON.stringify({ scripts: { test: 'vitest run' } }), 'utf8');
     const planner: PlannerPort = {
       synthesize: async () => ({ status: 'failed', message: 'should not be called' }),
     };
 
-    const result = await tool(planner).execute('t1', {}, undefined, undefined, { cwd } as never);
+    const result = await tool(planner).execute('t1', { mode: 'brownfield' }, undefined, undefined, {
+      cwd,
+    } as never);
 
     expect((result.content[0] as { text?: string })?.text).toContain(
       'planner unavailable (no model context); deterministic lowering used',
     );
     const payload = JSON.parse(await readFile(planFilePath(cwd, '7'), 'utf8')) as {
       slices: readonly { id: string }[];
+      execution_contract?: { resolvedActions: { verify: readonly { args: readonly string[] }[] } };
     };
     expect(payload.slices.map((slice) => slice.id)).toEqual(['task-1']);
+    expect(payload.execution_contract?.resolvedActions.verify[0]?.args).toEqual(['test']);
   });
 });

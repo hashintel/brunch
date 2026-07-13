@@ -33,6 +33,7 @@ async function writePlan(
   cwd: string,
   mode: 'greenfield' | 'brownfield' = 'greenfield',
   detectedCapabilities: readonly CapabilityRequirement[] = [],
+  verifyTarget?: { readonly command: string; readonly args: readonly string[] } | null,
 ) {
   const projection = projectExecuteGraph({
     specId: 7,
@@ -42,7 +43,29 @@ async function writePlan(
     mode,
     detectedCapabilities,
   });
-  await writePlanFile({ cwd, preview: projection.planPreview, source: projection.source });
+  const preview =
+    verifyTarget !== undefined
+      ? {
+          ...projection.planPreview,
+          execution_contract: {
+            ...projection.executionContract,
+            resolvedActions: {
+              ...projection.executionContract.resolvedActions,
+              verify: verifyTarget
+                ? [
+                    {
+                      capabilityId: 'test.persisted',
+                      providerId: 'test-persisted',
+                      command: verifyTarget.command,
+                      args: verifyTarget.args,
+                    },
+                  ]
+                : [],
+            },
+          },
+        }
+      : projection.planPreview;
+  await writePlanFile({ cwd, preview, source: projection.source });
 }
 
 async function runMetadata(cwd: string, runId: string) {
@@ -71,6 +94,16 @@ describe('createExecuteRunCreateTool', () => {
     });
   });
 
+  it('uses the persisted plan contract instead of re-projecting verification from the graph', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-create-persisted-contract-'));
+    await writePlan(cwd, 'greenfield', [], { command: 'pytest', args: ['-q'] });
+
+    const result = await tool().execute('t1', { runId: 'run-1' }, undefined, undefined, { cwd } as never);
+
+    expect((result.details as { result: { status: string } }).result.status).toBe('created');
+    expect((await runMetadata(cwd, 'run-1')).verifyTarget).toEqual({ command: 'pytest', args: ['-q'] });
+  });
+
   it('reuses detected brownfield conventions for the run verify target', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-create-brownfield-'));
     await writeFile(
@@ -94,6 +127,7 @@ describe('createExecuteRunCreateTool', () => {
   it('rejects run creation when the contract resolves no verification action', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-create-blocked-'));
     await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'host', scripts: {} }), 'utf8');
+    await writePlan(cwd, 'brownfield', [], null);
 
     const result = await tool().execute('t1', { runId: 'run-1', mode: 'brownfield' }, undefined, undefined, {
       cwd,

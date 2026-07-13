@@ -7,6 +7,7 @@ import type { ExecutionContract } from '../../../../executor/execution-contract.
 import { petriEventsPath } from '../../../../executor/petri-events.js';
 import { petriPlanSnapshotPath } from '../../../../executor/petri-plan-snapshot.js';
 import { petriNetPath, petriSdcpnPath, preparePetriObservation } from '../../../../executor/petri.js';
+import { readPlanFilePayload } from '../../../../executor/plan-file.js';
 import {
   runExecutionActive,
   withRunExecutionAuthority,
@@ -67,13 +68,14 @@ export function createExecuteRunCreateTool(deps: ExecuteRunCreateDeps) {
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_run_create requires an active cwd');
       }
-      const { current, projection } = await buildCurrentProjectionForSpec({
+      const { current } = await buildCurrentProjectionForSpec({
         cwd,
         specId: deps.specId,
         reads: deps.reads,
         mode: params.mode,
       });
-      const admission = admitExecutionContract(projection.executionContract);
+      const plan = await readPlanFilePayload({ cwd, specId: String(deps.specId) });
+      const admission = admitExecutionContract(plan?.execution_contract);
       if (admission.status === 'rejected') {
         return {
           content: [
@@ -151,10 +153,16 @@ function toolResult(result: RunCreateResult, graphLsn: number, sideEffects: read
 }
 
 function admitExecutionContract(
-  contract: ExecutionContract,
+  contract: ExecutionContract | undefined,
 ):
   | { readonly status: 'admitted'; readonly verifyTarget: { command: string; args: readonly string[] } }
   | { readonly status: 'rejected'; readonly reasons: readonly string[] } {
+  if (!contract) {
+    return {
+      status: 'rejected',
+      reasons: ['the persisted plan contains no execution contract'],
+    };
+  }
   const reasons = [
     ...contract.blocked.map(
       (entry) => `blocked capability ${entry.id} (${entry.reason}); no execution path exists for it`,

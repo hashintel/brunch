@@ -60,7 +60,7 @@ export function projectExecuteGraph(input: ProjectExecuteGraphInput): ExecuteGra
   const required: readonly CapabilityRequirement[] =
     recipe.required.length > 0
       ? recipe.required
-      : detected.length === 0
+      : snapshot.mode === 'greenfield' && detected.length === 0
         ? [{ id: 'node.npm-verify', source: { kind: 'default' } }]
         : [];
   const executionContract = withRecipeIssues(

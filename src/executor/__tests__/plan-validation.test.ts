@@ -25,6 +25,10 @@ describe('validateCandidatePlan', () => {
     ]);
   });
 
+  it('rejects a candidate bound to a different spec', () => {
+    expect(codes({ ...coherentCandidate(), specId: '8' })).toContain('spec_id_mismatch');
+  });
+
   it('flags membership defects: unknown epic, missing scope, unknown scope', () => {
     const base = coherentCandidate();
     expect(codes({ ...base, slices: [{ ...base.slices[0]!, epicId: 'F9' }, base.slices[1]!] })).toContain(

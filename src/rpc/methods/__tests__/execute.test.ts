@@ -1239,19 +1239,12 @@ describe('execute replanning methods', () => {
       epics: [{ id: 'F1', summary: 'Execution handoff', depends_on: [], verification: [] }],
       execution_contract: {
         schemaVersion: 1,
-        requiredCapabilities: [{ id: 'node.npm-verify', source: { kind: 'default' } }],
+        requiredCapabilities: [],
         detectedCapabilities: [],
         resolvedActions: {
           setup: [],
           build: [],
-          verify: [
-            {
-              capabilityId: 'node.npm-verify',
-              providerId: 'node-npm',
-              command: 'npm',
-              args: ['run', 'verify'],
-            },
-          ],
+          verify: [],
         },
         blocked: [],
         conflicts: [],

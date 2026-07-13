@@ -348,6 +348,20 @@ describe('projectExecuteGraph execution contract', () => {
     ]);
   });
 
+  it('does not apply the greenfield default when brownfield detection finds no verify command', () => {
+    const projection = projectExecuteGraph({
+      specId: 7,
+      graphLsn: 9,
+      nodes,
+      edges: [],
+      mode: 'brownfield',
+      detectedCapabilities: [],
+    });
+
+    expect(projection.executionContract.requiredCapabilities).toEqual([]);
+    expect(projection.executionContract.resolvedActions.verify).toEqual([]);
+  });
+
   it('derives the contract from spec-declared execute.* recipe lines instead of the npm default', () => {
     const projection = projectExecuteGraph({
       specId: 7,

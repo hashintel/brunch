@@ -101,6 +101,37 @@ const extensionDefaults = {
   'exchanges/index.ts': structuredExchange,
 };
 
+function admittedPlanPayload(mode: 'greenfield' | 'brownfield'): string {
+  const brownfield = mode === 'brownfield';
+  const capabilityId = brownfield ? 'node.npm-test' : 'node.npm-verify';
+  return JSON.stringify({
+    mode,
+    epics: [],
+    slices: [],
+    execution_contract: {
+      schemaVersion: 1,
+      requiredCapabilities: brownfield ? [] : [{ id: capabilityId, source: { kind: 'default' } }],
+      detectedCapabilities: brownfield
+        ? [{ id: capabilityId, source: { kind: 'detected', path: 'package.json' } }]
+        : [],
+      resolvedActions: {
+        setup: [],
+        build: [],
+        verify: [
+          {
+            capabilityId,
+            providerId: 'node-npm',
+            command: 'npm',
+            args: brownfield ? ['test'] : ['run', 'verify'],
+          },
+        ],
+      },
+      blocked: [],
+      conflicts: [],
+    },
+  });
+}
+
 describe('Brunch explicit Pi extension registry', () => {
   it('keeps named factory exports for src/.pi iteration', () => {
     for (const [path, factory] of Object.entries(extensionDefaults)) {
@@ -853,7 +884,7 @@ describe('Brunch explicit Pi extension registry', () => {
     const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
     const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
     await mkdir(dirname(planPath), { recursive: true });
-    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(planPath, admittedPlanPayload('greenfield'), 'utf8');
     await writeFile(
       provenancePath,
       `${JSON.stringify({
@@ -990,7 +1021,7 @@ describe('Brunch explicit Pi extension registry', () => {
     const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
     const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
     await mkdir(dirname(planPath), { recursive: true });
-    await writeFile(planPath, '{"mode":"brownfield","epics":[],"slices":[]}', 'utf8');
+    await writeFile(planPath, admittedPlanPayload('brownfield'), 'utf8');
     await writeFile(
       provenancePath,
       `${JSON.stringify({

@@ -71,12 +71,15 @@ export function createExecutePlanFileTool(deps: ExecutePlanFileDeps) {
         throw new Error('execute_plan_file requires an active cwd');
       }
       const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
+      const mode = params.mode ?? 'greenfield';
+      const detected = mode === 'brownfield' ? await detectWorkspaceCapabilities(cwd) : [];
       const projection = projectExecuteGraph({
         specId: deps.specId,
-        mode: params.mode ?? 'greenfield',
+        mode,
         graphLsn: graph.lsn,
         nodes: graph.nodes,
         edges: graph.edges,
+        detectedCapabilities: detected,
       });
       assertExecuteProjectionPlanReady(projection);
       let preview = projection.planPreview;
@@ -88,8 +91,6 @@ export function createExecutePlanFileTool(deps: ExecutePlanFileDeps) {
         // an invalid model plan — invalid candidates still block with findings below.
         plannerNote = 'planner unavailable (no model context); deterministic lowering used';
       } else if (deps.planner) {
-        const mode = params.mode ?? 'greenfield';
-        const detected = mode === 'brownfield' ? await detectWorkspaceCapabilities(cwd) : [];
         const planningInput = projectPlanningInput(projection.snapshot);
         const recipe = extractSpecRecipe(planningInput.commitments);
         if (recipe.issues.length > 0) {

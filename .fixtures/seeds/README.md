@@ -41,6 +41,7 @@ than loading anything into the shell cwd.
 | `fable` | preview | Faithful external-project graph with broad all-plane coverage for realistic renderer/readback previews. |
 | `kind-coverage-matrix` | test | Compact synthetic coverage matrix for every graph kind and readiness band. |
 | `rd-loop` | preview | Faithful harness graph that provides a second realistic all-planes anchor beside Brunch itself. |
+| `rust-todo-cli` | test | Rust todo CLI planning graph used to witness non-Node execution-plan synthesis and capability admission. |
 | `workspace-alpha-grounding` | test | Small workspace-oriented grounding fixture used for smoke workbenches and projection tests. |
 | `workspace-beta-commitments` | test | Small workspace-oriented commitments fixture paired with the alpha workbench family for multi-spec tests. |
 | `yamlbase` | preview | Faithful external-project graph used as a worked template for porting planning prose into seed truth. |

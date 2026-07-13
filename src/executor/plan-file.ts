@@ -53,6 +53,20 @@ export function planFilePayload(preview: PlanPreview): PlanFilePayload {
   };
 }
 
+export async function readPlanFilePayload(args: {
+  readonly cwd: string;
+  readonly specId: string;
+}): Promise<PlanFilePayload | undefined> {
+  try {
+    return JSON.parse(await readFile(planFilePath(args.cwd, args.specId), 'utf8')) as PlanFilePayload;
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
 export function planFileProvenance(args: {
   readonly preview: PlanPreview;
   readonly source: PlanFileProvenance['source'];

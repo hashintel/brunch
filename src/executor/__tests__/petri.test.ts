@@ -155,6 +155,7 @@ describe('exportPetri', () => {
       release = resolve;
     });
     const owner = withRunExecutionAuthority({ cwd, runId: 'run-1', execute: () => held });
+    await new Promise((resolve) => setImmediate(resolve));
 
     await expect(exportPetri({ cwd, runId: 'run-1' })).resolves.toEqual({
       status: 'run_execution_active',

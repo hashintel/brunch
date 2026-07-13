@@ -10,6 +10,7 @@ import type { PlanningProjection } from './planning-projection.js';
 
 export type PlanValidationFindingCode =
   | 'malformed_candidate'
+  | 'spec_id_mismatch'
   | 'duplicate_id'
   | 'epic_empty'
   | 'epic_dependency_unknown'
@@ -57,6 +58,13 @@ export function validateCandidatePlan(args: {
   const error = (code: PlanValidationFindingCode, message: string, itemId?: string) => {
     findings.push({ code, severity: 'error', ...(itemId ? { itemId } : {}), message });
   };
+
+  if (candidate.specId !== projection.specId) {
+    error(
+      'spec_id_mismatch',
+      `Candidate spec id ${candidate.specId} does not match planning projection ${projection.specId}.`,
+    );
+  }
 
   const epicIds = new Set<string>();
   for (const epic of candidate.epics) {
