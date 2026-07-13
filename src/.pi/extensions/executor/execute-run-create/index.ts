@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
+import type { ExecutionContract } from '../../../../executor/execution-contract.js';
 import { petriEventsPath } from '../../../../executor/petri-events.js';
 import { petriPlanSnapshotPath } from '../../../../executor/petri-plan-snapshot.js';
 import { petriNetPath, petriSdcpnPath, preparePetriObservation } from '../../../../executor/petri.js';
@@ -33,11 +34,6 @@ const ExecuteRunCreateParams = Type.Object({
       description: 'Run workspace substrate. Defaults to git_worktree for current compatibility.',
     }),
   ),
-  verifyProfile: Type.Optional(
-    Type.Union([Type.Literal('default'), Type.Literal('npm_test')], {
-      description: 'Product-owned verify target profile. Defaults to default (npm run verify).',
-    }),
-  ),
   mode: Type.Optional(
     Type.Union([Type.Literal('greenfield'), Type.Literal('brownfield')], {
       description: 'Execution mode expected for the selected plan file. Defaults to greenfield.',
@@ -48,7 +44,9 @@ const ExecuteRunCreateParams = Type.Object({
 type ExecuteRunCreateParams = Static<typeof ExecuteRunCreateParams>;
 
 interface ExecuteRunCreateDetails {
-  readonly result: RunCreateResult;
+  readonly result:
+    | RunCreateResult
+    | { readonly status: 'execution_contract_blocked'; readonly reasons: readonly string[] };
   readonly sideEffects: readonly { readonly kind: string; readonly path?: string }[];
 }
 
@@ -69,12 +67,31 @@ export function createExecuteRunCreateTool(deps: ExecuteRunCreateDeps) {
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_run_create requires an active cwd');
       }
-      const { current } = await buildCurrentProjectionForSpec({
+      const { current, projection } = await buildCurrentProjectionForSpec({
         cwd,
         specId: deps.specId,
         reads: deps.reads,
         mode: params.mode,
       });
+      const admission = admitExecutionContract(projection.executionContract);
+      if (admission.status === 'rejected') {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: [
+                'execute_run_create: execution_contract_blocked',
+                ...admission.reasons.map((reason) => `- ${reason}`),
+                'No run artifacts were created. Resolve the contract before creating a run.',
+              ].join('\n'),
+            },
+          ],
+          details: {
+            result: { status: 'execution_contract_blocked', reasons: admission.reasons },
+            sideEffects: [],
+          },
+        };
+      }
       const runId = params.runId ?? `run-${Date.now().toString(36)}`;
       return withRunExecutionAuthority({
         cwd,
@@ -94,7 +111,7 @@ export function createExecuteRunCreateTool(deps: ExecuteRunCreateDeps) {
             current,
             runId,
             ...(params.substrate ? { substrate: params.substrate } : {}),
-            ...verifyTargetForProfile(params.verifyProfile),
+            verifyTarget: admission.verifyTarget,
           });
           const observerSideEffects =
             result.status === 'created'
@@ -133,16 +150,25 @@ function toolResult(result: RunCreateResult, graphLsn: number, sideEffects: read
   };
 }
 
-function verifyTargetForProfile(
-  profile: ExecuteRunCreateParams['verifyProfile'],
-): { readonly verifyTarget: { readonly command: string; readonly args: readonly string[] } } | {} {
-  switch (profile) {
-    case undefined:
-    case 'default':
-      return {};
-    case 'npm_test':
-      return { verifyTarget: { command: 'npm', args: ['test'] } };
-  }
+function admitExecutionContract(
+  contract: ExecutionContract,
+):
+  | { readonly status: 'admitted'; readonly verifyTarget: { command: string; args: readonly string[] } }
+  | { readonly status: 'rejected'; readonly reasons: readonly string[] } {
+  const reasons = [
+    ...contract.blocked.map(
+      (entry) => `blocked capability ${entry.id} (${entry.reason}); no execution path exists for it`,
+    ),
+    ...contract.conflicts.map((conflict) => conflict.message),
+    ...(contract.resolvedActions.verify.length === 0 && contract.blocked.length === 0
+      ? ['the admitted plan resolves no verification action']
+      : []),
+  ];
+  if (reasons.length > 0) return { status: 'rejected', reasons };
+  // ceiling: one run-wide verify target; per-scope/per-epic verify sequences arrive with
+  // the FE-1197 slice B/C polyglot boundary work.
+  const action = contract.resolvedActions.verify[0]!;
+  return { status: 'admitted', verifyTarget: { command: action.command, args: action.args } };
 }
 
 export function registerBrunchExecuteRunCreate(pi: ExtensionAPI, deps: ExecuteRunCreateDeps): void {

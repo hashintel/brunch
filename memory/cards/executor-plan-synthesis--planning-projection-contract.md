@@ -21,7 +21,7 @@ Created:  2026-07-13
 
 **Action safety shape.** (a) model-authored argv (unsafe); (b) fixed command templates keyed by enum (old-main, repudiated); (c) **chosen: providers resolve to the existing `VerifyTarget`-shaped `{command, args}` values plus typed setup/build intents; only provider-resolved actions reach `RunMetadata.verifyTarget`/ports.** The model (Slice B) may only select/compose capability ids and intents; deterministic code resolves what runs.
 
-## Card A1 — Plan-owned execution contract in the plan artifact
+## Card A1 — Plan-owned execution contract in the plan artifact [done 31c264e6]
 
 ### Target Behavior
 

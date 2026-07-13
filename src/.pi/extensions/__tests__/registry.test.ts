@@ -950,7 +950,7 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(createRun).toBeDefined();
     const result = await createRun!.execute(
       'call-1',
-      { runId: 'run-1', substrate: 'empty_dir', verifyProfile: 'npm_test' },
+      { runId: 'run-1', substrate: 'empty_dir' },
       undefined,
       undefined,
       { cwd },

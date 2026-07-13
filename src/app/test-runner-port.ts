@@ -14,8 +14,15 @@ export function createTestRunnerPort(
   const run = options.run ?? runCommand;
   return {
     async run({ worktreeDir, verifyTarget, signal, onUpdate }) {
-      const command = verifyTarget?.command ?? options.command ?? 'npm';
-      const args = verifyTarget?.args ?? options.args ?? ['run', 'verify'];
+      // The run's admitted execution contract is the only verify-command source;
+      // an absent target is a typed failure, never an ambient default (FE-1197).
+      const command = verifyTarget?.command ?? options.command;
+      const args = verifyTarget?.args ?? options.args;
+      if (command === undefined || args === undefined) {
+        const message = 'no verify target configured for this run';
+        await onUpdate?.({ kind: 'status', message });
+        return { status: 'failed', message };
+      }
       const target = [command, ...args].join(' ');
       const execArgs = command === 'npm' ? ['--prefix', worktreeDir, ...args] : args;
       await onUpdate?.({ kind: 'status', message: `${target} started` });
