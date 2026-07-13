@@ -47,13 +47,13 @@ absolute path (`/Users/<user>/…`, `/home/<user>/…`) with a placeholder such 
 committing. `npm run check:promoted-run-paths` guards this over `git ls-files
 .fixtures/runs`; `.fixtures/seeds/**` is a separate, out-of-scope concern.
 
-Seed workbench state explicitly; `npm run dev` never seeds by implication. See
+Seed workbench state explicitly; direct `npm run dev` never seeds, and `npm run dev-cli` seeds only through its explicit seed/reset path. See
 [`seeds/README.md`](./seeds/README.md) for the roster-level seed disposition
 catalog. From the repo root, load one tracked seed into one named workspace with:
 
 ```sh
 npm run seed -- --seed workspace-alpha-grounding/base --reset
-npm run dev -- --workspace .fixtures/workbenches/workspace-alpha-grounding
+npm run dev-cli -- --workspace .fixtures/workbenches/workspace-alpha-grounding
 ```
 
 The seed command writes only the target workspace's `.brunch/data.db` and reports

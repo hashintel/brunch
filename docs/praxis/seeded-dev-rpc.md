@@ -30,10 +30,10 @@ npm run seed -- --workspace "$DEV_WORKSPACE" --seed bilal-macro-view/grounded-in
 The friendly path is the dev launcher:
 
 ```bash
-npm run dev -- --workspace "$DEV_WORKSPACE"
+npm run dev-cli -- --workspace "$DEV_WORKSPACE"
 ```
 
-Or just run `npm run dev` and answer the prompt flow.
+Or just run `npm run dev-cli` and answer the prompt flow.
 
 Notes:
 
@@ -46,15 +46,15 @@ Notes:
 The launcher exposes one-shot RPC reads without a separate helper script:
 
 ```bash
-npm run dev -- rpc workspace.selectionState --workspace "$DEV_WORKSPACE"
-npm run dev -- rpc graph.overview '{"specId":1}' --workspace "$DEV_WORKSPACE"
+npm run dev-cli -- rpc workspace.selectionState --workspace "$DEV_WORKSPACE"
+npm run dev-cli -- rpc graph.overview '{"specId":1}' --workspace "$DEV_WORKSPACE"
 ```
 
 Projected node codes are rendered from `kind + kindOrdinal` (`G1`, `TH1`, `CTX1`, `CR1`, ...). Use `graph.overview` to discover the current code before addressing existing nodes by code in a curation payload.
 
 ## 4. Curate graph truth through the explicit local seam
 
-`npm run dev -- mutate ...` is the replacement for the old gated `dev.graph.mutateGraph` RPC path. It still routes through `CommandExecutor.mutateGraph`; it is just no longer disguised as a public RPC method.
+`npm run dev-cli -- mutate ...` is the replacement for the old gated `dev.graph.mutateGraph` RPC path. It still routes through `CommandExecutor.mutateGraph`; it is just no longer disguised as a public RPC method.
 
 Example payload:
 
@@ -85,19 +85,19 @@ cat > /tmp/brunch-mutate.json <<'JSON'
 }
 JSON
 
-npm run dev -- mutate --workspace "$DEV_WORKSPACE" --params-file /tmp/brunch-mutate.json
+npm run dev-cli -- mutate --workspace "$DEV_WORKSPACE" --params-file /tmp/brunch-mutate.json
 ```
 
 You can also pipe JSON on stdin:
 
 ```bash
-cat /tmp/brunch-mutate.json | npm run dev -- mutate --workspace "$DEV_WORKSPACE"
+cat /tmp/brunch-mutate.json | npm run dev-cli -- mutate --workspace "$DEV_WORKSPACE"
 ```
 
 Read back the result:
 
 ```bash
-npm run dev -- rpc graph.overview '{"specId":1}' --workspace "$DEV_WORKSPACE"
+npm run dev-cli -- rpc graph.overview '{"specId":1}' --workspace "$DEV_WORKSPACE"
 ```
 
 Basis rule of thumb:
@@ -110,13 +110,13 @@ Do not use local `mutate` commands as proof that the product `mutate_graph` tool
 ## 5. Export curated truth back to a seed fixture
 
 ```bash
-npm run dev -- export --workspace "$DEV_WORKSPACE" --spec-id 1 --out "$REPO/.fixtures/seeds/<name>/<variant>.json"
+npm run dev-cli -- export --workspace "$DEV_WORKSPACE" --spec-id 1 --out "$REPO/.fixtures/seeds/<name>/<variant>.json"
 ```
 
 For inspection without writing:
 
 ```bash
-npm run dev -- export --workspace "$DEV_WORKSPACE" --spec-id 1 | jq '{spec, nodeCount:(.nodes|length), edgeCount:(.edges|length)}'
+npm run dev-cli -- export --workspace "$DEV_WORKSPACE" --spec-id 1 | jq '{spec, nodeCount:(.nodes|length), edgeCount:(.edges|length)}'
 ```
 
 ## 6. Run the product-path fixture curation tracer

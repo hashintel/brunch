@@ -17,7 +17,7 @@ catalog when building a broad manual workbench / probe-input database:
 
 ```sh
 npm run seed -- --seed workspace-alpha-grounding/base --reset
-npm run dev -- --seed workspace-alpha-grounding/base --reset
+npm run dev-cli -- --seed workspace-alpha-grounding/base --reset
 npm run seed -- --workspace .fixtures/workbenches/<name> --all-seeds --reset
 ```
 

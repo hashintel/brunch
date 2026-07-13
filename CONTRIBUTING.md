@@ -58,7 +58,8 @@ Brunch stores local runtime state under the target workspace's `.brunch/` direct
 
 | Command | Purpose |
 | --- | --- |
-| `npm run dev` | Run the Brunch CLI from source. Defaults to `--mode tui`. |
+| `npm run dev` | Run the Brunch CLI directly from source. Defaults to `--mode tui`. |
+| `npm run dev-cli` | Select/create a temporary, named, existing, or seed-derived dev instance. |
 | `npm run test` | Run Vitest once. |
 | `npm run fix` | Apply lint fixes, then format. |
 | `npm run check` | Read-only lint + format check. |
@@ -118,12 +119,14 @@ Fixture conventions live in [`.fixtures/README.md`](./.fixtures/README.md). Shor
 - `.fixtures/runs/` — curated probe evidence with reports/transcripts.
 - `.fixtures/scratch/` — ignored dev-loop output.
 
-Seed explicitly; `npm run dev` never seeds for you:
+Direct source launch never seeds for you:
 
 ```bash
 npm run seed -- --workspace .fixtures/workbenches/live-graph-observer --seed workspace-spread/alpha-grounding
 npm run dev -- --cwd .fixtures/workbenches/live-graph-observer
 ```
+
+For an interactive temporary/named/existing/seeded instance flow, use `npm run dev-cli` instead.
 
 Add `--reset` to the seed command when you want to wipe that workbench's Brunch runtime state before loading the seed.
 

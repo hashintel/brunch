@@ -20,9 +20,9 @@ Baseline inspection commands:
 ```sh
 git rev-parse --short HEAD
 git branch --show-current
-npm run dev -- rpc workspace.state --workspace <workspace>
-npm run dev -- rpc session.runtimeState --workspace <workspace>
-npm run dev -- rpc graph.overview '{"specId":1}' --workspace <workspace>
+npm run dev-cli -- rpc workspace.state --workspace <workspace>
+npm run dev-cli -- rpc session.runtimeState --workspace <workspace>
+npm run dev-cli -- rpc graph.overview '{"specId":1}' --workspace <workspace>
 ```
 
 Useful debug mirrors, when triggered:
@@ -47,15 +47,15 @@ AGENT_DIR=$(mktemp -d /tmp/brunch-agent-auth.XXXXXX)
 WORKSPACE=.fixtures/workbenches/manual-no-auth
 mkdir -p "$WORKSPACE"
 
-# Source/dev launcher form:
+# Source/direct CLI form (the browser opens by default):
 env -u ANTHROPIC_API_KEY -u OPENROUTER_API_KEY \
   PI_CODING_AGENT_DIR="$AGENT_DIR" \
-  npm run dev -- --workspace "$WORKSPACE" --open-web
+  npm run dev -- --cwd "$WORKSPACE"
 
-# Built/package CLI form (`brunch` uses --cwd, not --workspace):
+# Built/package CLI form:
 env -u ANTHROPIC_API_KEY -u OPENROUTER_API_KEY \
   PI_CODING_AGENT_DIR="$AGENT_DIR" \
-  brunch --cwd "$WORKSPACE" --open-web
+  brunch --cwd "$WORKSPACE"
 ```
 
 Check:
@@ -163,7 +163,7 @@ Suggested seeds/workbenches:
 
 ```sh
 npm run seed -- --seed workspace-alpha-grounding/base --reset
-npm run dev -- --workspace .fixtures/workbenches/workspace-alpha-grounding --open-web --dev-tools
+npm run dev-cli -- --workspace .fixtures/workbenches/workspace-alpha-grounding --dev-tools
 ```
 
 Also sample at least one richer or differently-shaped seed if time allows, such as `workspace-alpha-grounding/intent-settled`, `workspace-alpha-grounding/requirements-accepted`, or a realistic project-port seed from `.fixtures/seeds/`.

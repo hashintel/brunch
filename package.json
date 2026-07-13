@@ -29,8 +29,8 @@
     "tag": "alpha"
   },
   "scripts": {
-    "dev": "nub scripts/dev.ts",
-    "dev:raw": "nub src/app/brunch.ts",
+    "dev": "nub src/app/brunch.ts",
+    "dev-cli": "nub scripts/dev.ts",
     "dev:components": "nub scripts/dev-components.ts",
     "probe:generate-fan-out": "PI_OFFLINE=0 PATH=\"$HOME/.local/share/mise/installs/node/lts/bin:$PATH\" nub src/dev/generate-fan-out-witness.ts",
     "build": "tsc -p tsconfig.build.json && npm run build:info && npm run build:pi-assets && npm run build:web",

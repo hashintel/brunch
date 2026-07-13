@@ -69,7 +69,8 @@ Common development commands:
 
 | Command          | Purpose                                                   |
 | ---------------- | --------------------------------------------------------- |
-| `npm run dev`    | Run the Brunch CLI from source. Defaults to TUI mode.     |
+| `npm run dev`    | Run the Brunch CLI directly from source. Defaults to TUI. |
+| `npm run dev-cli` | Select/create temporary, named, or seeded dev instances. |
 | `npm run test`   | Run Vitest once.                                          |
 | `npm run fix`    | Apply lint fixes, then format.                            |
 | `npm run check`  | Read-only lint, format, and skill consistency checks.     |
@@ -97,7 +98,7 @@ npm run dev -- --cwd .fixtures/workbenches/live-graph-observer --no-webui
 
 Seed selection is `<set>/<slug>` from `.fixtures/seeds/` (see [`.fixtures/seeds/README.md`](./.fixtures/seeds/README.md) for the disposition catalog). Use `--all-seeds` instead of `--seed` only when you deliberately want every tracked fixture loaded as its own spec; a bare `npm run seed` fails with usage rather than seeding the shell cwd.
 
-For agent-addressable inspection or curation over JSON-RPC, use the seeded-RPC walkthrough in [`docs/praxis/seeded-dev-rpc.md`](./docs/praxis/seeded-dev-rpc.md). Keep one writer per workspace: do not run concurrent dev RPC writes and a TUI/agent session against the same cwd unless you are deliberately testing concurrency.
+For interactive workbench selection (`--temp`, `--workbench <name>`, existing workspaces, or seed/reset), run `npm run dev-cli`. For agent-addressable inspection or curation over JSON-RPC, use the seeded-RPC walkthrough in [`docs/praxis/seeded-dev-rpc.md`](./docs/praxis/seeded-dev-rpc.md). Keep one writer per workspace: do not run concurrent dev RPC writes and a TUI/agent session against the same cwd unless you are deliberately testing concurrency.
 
 Live provider runs require `PI_OFFLINE=0` plus configured Pi auth; otherwise the default offline launch exercises the workspace, graph, and UI paths without reaching a provider.
 

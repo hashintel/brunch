@@ -11,7 +11,7 @@ This keeps the dev process and browser observable without leaving the agent sess
 
 ## Seeded walkthrough workflow
 
-Manual testing happens in a **workbench** — a launchable cwd under `.fixtures/workbenches/` whose `.brunch/` is gitignored local runtime state (see `.fixtures/README.md` for the four-role tree). Never use the repo root as the test workspace, and never rely on implicit seeding: `npm run dev` only opens the named workspace.
+Manual testing happens in a **workbench** — a launchable cwd under `.fixtures/workbenches/` whose `.brunch/` is gitignored local runtime state (see `.fixtures/README.md` for the four-role tree). Never use the repo root as the test workspace, and never rely on implicit seeding: `npm run dev-cli` only seeds when the seed/reset path is chosen explicitly.
 
 ```bash
 # 1. Seed one named fixture into one named workbench.
@@ -22,7 +22,7 @@ Manual testing happens in a **workbench** — a launchable cwd under `.fixtures/
 npm run seed -- --seed workspace-alpha-grounding/base --reset
 
 # 2. Launch the TUI (plus web observer sidecar) against that workbench.
-npm run dev -- --workspace .fixtures/workbenches/workspace-alpha-grounding
+npm run dev-cli -- --workspace .fixtures/workbenches/workspace-alpha-grounding
 ```
 
 Then:
@@ -33,7 +33,7 @@ Then:
 4. To test resume, quit and relaunch against the same workbench — state is per-cwd in `.brunch/data.db`.
 5. To switch scenarios, stop the process and re-run step 1 with a different `--seed` (keep `--reset`).
 
-For non-interactive smoke, `npm run dev -- --workspace <workbench> --mode print` projects the workspace and exits; `npm run dev -- rpc <method> [params-json] --workspace <workbench>` gives one-shot RPC reads; `npm run dev -- mutate --workspace <workbench> --params-file <file>` is the explicit local curation seam.
+For non-interactive smoke, `npm run dev-cli -- --workspace <workbench> --mode print` projects the workspace and exits; `npm run dev-cli -- rpc <method> [params-json] --workspace <workbench>` gives one-shot RPC reads; `npm run dev-cli -- mutate --workspace <workbench> --params-file <file>` is the explicit local curation seam.
 
 ## Choosing a seed
 

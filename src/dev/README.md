@@ -1,12 +1,12 @@
 # Brunch dev loops
 
-`src/dev/` owns Brunch-only development loops and curation seams. The public entry point is the repository script:
+`src/dev/` owns Brunch-only development loops and curation seams. The workbench launcher entry point is:
 
 ```sh
-npm run dev
+npm run dev-cli
 ```
 
-That command runs `scripts/dev.ts`, which calls `runDevCli()` in `src/dev/dev-cli.ts`. Use this launcher for local workbenches instead of invoking product internals directly.
+That command runs `scripts/dev.ts`, which calls `runDevCli()` in `src/dev/dev-cli.ts`. `npm run dev` directly runs the product CLI from TypeScript source and accepts its ordinary flags.
 
 ## What lives here
 
@@ -22,37 +22,40 @@ This directory does not own product runtime behavior, public RPC contracts, grap
 ## Dev launcher quick reference
 
 ```sh
-# Interactive launcher; prompts for a tracked seed-derived workbench.
-npm run dev
+# Interactive launcher; choose a temporary, new, existing, or seed-derived instance.
+npm run dev-cli
+
+# Launch a bare auto-named instance under the system temp directory.
+npm run dev-cli -- --temp
+
+# Create or open a named workbench without seeding.
+npm run dev-cli -- --workbench my-workbench
 
 # Reset a workbench from one tracked seed and launch TUI; the web observer opens by default.
-npm run dev -- --seed workspace-alpha-grounding/base --reset
+npm run dev-cli -- --seed workspace-alpha-grounding/base --reset
 
 # Same, without automatically opening the web observer in a browser.
-npm run dev -- --seed workspace-alpha-grounding/base --reset --no-webui
+npm run dev-cli -- --seed workspace-alpha-grounding/base --reset --no-webui
 
-# Same, with prompt-affecting developer query tools enabled.
-npm run dev -- --seed workspace-alpha-grounding/base --reset --dev-tools
-
-# Re-open an existing workbench without reseeding.
-npm run dev -- --workspace .fixtures/workbenches/workspace-alpha-grounding
+# Re-open an existing arbitrary workspace path without reseeding.
+npm run dev-cli -- --workspace .fixtures/workbenches/workspace-alpha-grounding
 
 # Read public product RPC projections.
-npm run dev -- rpc workspace.state --workspace .fixtures/workbenches/workspace-alpha-grounding
-npm run dev -- rpc graph.overview '{"specId":1}' --workspace .fixtures/workbenches/workspace-alpha-grounding
+npm run dev-cli -- rpc workspace.state --workspace .fixtures/workbenches/workspace-alpha-grounding
+npm run dev-cli -- rpc graph.overview '{"specId":1}' --workspace .fixtures/workbenches/workspace-alpha-grounding
 
 # Shape graph fixture state through the product command layer.
-npm run dev -- mutate --workspace .fixtures/workbenches/workspace-alpha-grounding --params-file /tmp/mutate.json
+npm run dev-cli -- mutate --workspace .fixtures/workbenches/workspace-alpha-grounding --params-file /tmp/mutate.json
 
 # Export a workbench spec as a seed candidate.
-npm run dev -- export --workspace .fixtures/workbenches/workspace-alpha-grounding --spec-id 1 --out .fixtures/seeds/custom/example.json
+npm run dev-cli -- export --workspace .fixtures/workbenches/workspace-alpha-grounding --spec-id 1 --out .fixtures/seeds/custom/example.json
 ```
 
 Rules:
 
 - Seeding is explicit. Launch-time seeding requires both `--seed <name>/<variant>` and `--reset`.
 - With `--seed` and no `--workspace`, the launcher derives `.fixtures/workbenches/<name>/`.
-- Use `npm run dev:raw -- ...` only when you need direct raw app access.
+- Use `npm run dev -- ...` when workbench selection or fixture operations are unnecessary.
 
 ## Debug mirrors
 
@@ -99,7 +102,7 @@ Use [`../../TESTING_PLAN.md`](../../TESTING_PLAN.md) for the full demo/audit pla
 
 1. Start with a reset seed workbench:
    ```sh
-   npm run dev -- --seed workspace-alpha-grounding/base --reset --dev-tools
+   npm run dev-cli -- --seed workspace-alpha-grounding/base --reset --dev-tools
    ```
 2. Confirm `.brunch/debug/entry-contents.md` and `.brunch/debug/origination.md` appear after activation/origination.
 3. Trigger one provider turn and confirm `.brunch/debug/system-prompt.md` includes the live Brunch skills manifest.
@@ -107,8 +110,8 @@ Use [`../../TESTING_PLAN.md`](../../TESTING_PLAN.md) for the full demo/audit pla
 5. Inspect context seed output for graph facts and scratchpad, not readiness scores or persisted gap rows.
 6. Use RPC reads to compare transcript-visible behavior with graph projections:
    ```sh
-   npm run dev -- rpc session.runtimeState --workspace <workspace>
-   npm run dev -- rpc session.exchanges --workspace <workspace>
-   npm run dev -- rpc graph.overview '{"specId":1}' --workspace <workspace>
+   npm run dev-cli -- rpc session.runtimeState --workspace <workspace>
+   npm run dev-cli -- rpc session.exchanges --workspace <workspace>
+   npm run dev-cli -- rpc graph.overview '{"specId":1}' --workspace <workspace>
    ```
 7. For settlement behavior, verify graph reads/writes surface `settlement` and respect advisory → settled monotonic promotion.
