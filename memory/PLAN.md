@@ -29,6 +29,8 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 **Alpha walkthrough lane (2026-07-09/10).** Post-PR-305 outer-loop walkthroughs (TESTING_PLAN.md concern groups; findings in TESTING_FINDINGS.md) ran A and C, then a same-day induct → grill → spec pass settled D118-L (spec posture persistence), D119-L (unified `/continue` + continue/wait lexicon), the D99-L digest-conduct clarification, and A41-L. The 2026-07-10 FE-1180 review/witness pass reopened `walkthrough-remediation-1`: required rows WR1–WR8 were built, but Execute labels diverged from their provider directives and several security/conduct/debug claims lacked discriminating evidence. D120-L/I62-L now settle the Execute workflows. FE-1180 closed by explicit WR18 promotion of remaining failures/unknowns into `walkthrough-remediation-2` / FE-1187. FE-1187 now owns the reshaped auth/model-policy, ask/recovery, debug/prompt, conduct, Execute, and both-theme evidence before later walkthrough beats depend on those surfaces.
 
+**Petri execution lane (2026-07-12/13).** FE-1190's live stream closed review with two Bugbot findings fixed (fail-closed journal appends; terminal-lagging snapshot backfill from replay truth); PR #322 v5 is fully green with the merge deliberately held. The next Petri sequence is admitted behind that merge: `executor-slice-attempt-lifecycle` → `petri-slice-isolation-fan-in` → `petri-epic-integration` → `petri-durable-parallel-authority` (dependency ordering settled 2026-07-11; definitions fleshed from SPEC/topology state at admission 2026-07-13 — validate shape at pickup).
+
 **Topology and evidence discipline.** Directory `TOPOLOGY.md` files under `src/**` own current topology state. `memory/SPEC.md` owns the thin product contract and live decision/invariant index; long-form SPEC history is archived in `docs/archive/SPEC_HISTORY.md`. `memory/PLAN.md` owns only rolling frontier state. Scratch probe artifacts under `.fixtures/scratch/` are not durable evidence until reviewed and promoted to `.fixtures/runs/`.
 
 ## Initiatives
@@ -82,9 +84,11 @@ Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_
 
 ### Parallel / Low-Conflict
 
-- **Open PRs:** FE-1190 live-from-start Petrinaut observation is on draft PR #322. FE-1183's replay/export closure merged in #320; its interpreter and plan-alignment predecessors landed through #311/#319.
-- `petri-interpreter-port` (FE-1183) — implementation complete; PR #320 adds the final finite replay/export observer surface without live execution authority. True live-from-start streaming and durable parallel side-effect authority remain separate fresh-frontier decisions.
-- `petrinaut-live-run-stream` (FE-1190) — implementation complete on draft PR #322; review hardening freezes one run plan, makes observation attachable at run creation, orders terminal delivery through journal/abandonment wake-ups, coalesces refreshes, and proves reconnect equivalence.
+- **Open PRs:** FE-1190 live-from-start Petrinaut observation is on PR #322 (v5, all checks green including Bugbot; merge deliberately held by the user). FE-1183's replay/export closure merged in #320; its interpreter and plan-alignment predecessors landed through #311/#319.
+- `petri-interpreter-port` (FE-1183) — done; PR #320 merged the final finite replay/export observer surface without live execution authority.
+- `petrinaut-live-run-stream` (FE-1190) — implementation + review complete on PR #322; both 2026-07-12 Bugbot findings closed with deterministic oracles (fail-closed journal appends; terminal-lagging snapshot backfill). Merge pending; it gates the admitted Petri sequence below.
+- `executor-slice-attempt-lifecycle` — **admitted 2026-07-13, blocked by the #322 merge.** First member of the Petri sequence: first-class slice attempts (identity, bounded in-run retry, honest failed-attempt facts). Definition below.
+- `petri-slice-isolation-fan-in` — admitted 2026-07-13, behind `executor-slice-attempt-lifecycle`: isolated per-slice side effects + explicit fan-in under unchanged serial `run.json` authority. Definition below.
 - `executor-run-environment` (FE-1166 follow-up) — the substrate/verify policy is merged; the real-run failure remains prepared in [`memory/cards/executor-run-environment--actionable-slice-request.md`](cards/executor-run-environment--actionable-slice-request.md). Before build, `ln-plan` must settle whether this remains FE-1166 work or becomes a fresh frontier/branch; do not let the prepared card bypass the tracker/branch boundary.
 - **Standing obligations:** `probes-and-transcripts-evolution` and `topology-readmes-and-boundaries` ride the frontier that triggers them; they are not standalone cleanup buckets.
 
@@ -94,7 +98,8 @@ Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_
 - `review-commentary-widening` — GitHub-style per-item review commentary: widen the review answered payload (`comments: [{on: draft|edge|set, body}]`, a SPEC decision) plus the collection UI. Deferred post-gate at FE-1138 scope (2026-07-03): the payload ripples into the review schema that capture-contract rows and the digest terminal consume. Once `exchange-ask-refinement` lands, the widening re-expresses over the D116-L declared-ask/answer payload rather than `request_response` details. Sketch: `src/agents/contexts/exchanges/design-permutations.md` §Review-set evaluation.
 - `develop-mode` — third operational mode `develop` / Develop running a new `engineer` agent: a Brunch-aware coding assistant *without* the `execute_*` tool set and with kick/consult mechanisms inert (user-driven turns, not agent-driven). Split out of `main-editor-chrome` at the 2026-07-08 grill. Entry is a SPEC revision, not a feature slice: D98-L ("two modes only" — though Develop is a distinct agent with different grants, not the conduct-bias `Enhance` that grill rejected), req 26, and D40-L placement of `engineer` in the concentric authority matrix (executor-minus-`execute_*`? elicitor-plus-coding?), plus a new per-mode kick/consult-suppression policy axis. Route through `ln-grill`/`ln-spec` at pickup. Groundwork (mode-cycling keybinding, border-by-mode) lands mode-agnostically in `main-editor-chrome`.
 - `headless-ask-discovery` — the A39-L follow-up to D116-L: RPC discovery of open `ask` calls (streamed session events or a pending-interactive-call read method) replacing `session.pendingExchange` transcript scanning, so an agent-as-user driver can generatively build specs against a goal over the headless surface. Not first-release-critical; headless asks resolve `unavailable` until this lands. Broker (`awaitAnswer`/`session.submitExchangeResponse`) is unchanged by design.
-- **Petri follow-up trigger:** durable parallel side-effect authority remains deferred after FE-1183. Route through `ln-plan` after PR #320 merges and admit a fresh frontier only when parallel firing must own recoverable side effects; do not extend FE-1183 merely for broader old-`main` Petrinaut parity.
+- `petri-epic-integration` — epics become integration gates, not just identity labels: an epic-complete transition gated on member slices, with epic-level verification/fan-in in the compiled topology (`epicId` identity already flows through subnets and emitted facts). Behind `petri-slice-isolation-fan-in`; shape via `ln-grill`/`ln-scope` at pickup.
+- `petri-durable-parallel-authority` — the repeatedly deferred authority flip (SPEC §Future Direction): durable marking/journal authority for concurrently firing side effects once `run.json`'s single-status ladder cannot represent in-flight parallelism. Final member of the admitted Petri sequence, discharging the former "Petri follow-up trigger" row. Promote to Next only when `petri-slice-isolation-fan-in` evidence shows serial authority is the binding constraint — do not pull it forward for old-`main` Petrinaut parity.
 - `reconciliation-derivation` — derive `edge_revalidation` reconciliation needs from LSN comparison instead of persisting them; full definition below (inventory findings from 2026-07-02, worth keeping). **Confirmed behind the gate 2026-07-03 (grill G7):** the ingest throughline's conflict routing rides the existing persisted `reconciliation_need` substrate (`create_reconciliation_need` is live); nothing in the gate needs the LSN-derived generator. Honor the convergence: the `contradictory` seed variant capture now rides `walkthrough-evidence-batch` (FE-1167).
 - `reviewer-agent-mode` — D29-L's async advisory reviewer remains designed but unbuilt: narrow write authority to `reconciliation_need`, batch-acceptance trigger keyed by session/batch entry, A16-L trigger/scope questions still open. Behind the ship gate; no frontier until post-acceptance review becomes POC-blocking or reviewer residues need executable closure.
 - `session-branching` — support session branching (D24-L reversal); needs branch-aware continuity/coherence design (A37-L).
@@ -316,6 +321,35 @@ Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_
 - **Status:** implementation and review hardening complete on PR #322. Run creation freezes one plan and materializes attachable observer artifacts; live delivery uses subscribe-before-snapshot catch-up, journal-ordered completion, metadata-only abandonment wake-ups, single-flight refresh, reconnect equivalence, and host-shutdown cleanup. Two Bugbot findings closed 2026-07-12: (1) fail-closed append semantics — a failed durable append halts the drive (`petri_journal_append_failed`), reaches no hint surface or marking snapshot, and closes active streams via a run-scoped journal-failure wake-up (deterministic EISDIR-injection oracles); (2) a matching marking snapshot that lags the journal terminal no longer masks it — the projection backfills the terminal from replay truth only, so a live refresh racing the marking persist still delivers the terminal frame (deterministic window-state oracles). Final review/merge pending.
 
 
+### executor-slice-attempt-lifecycle
+
+- **Name:** Slice attempt lifecycle — first-class attempts in the executor net
+- **Linear:** unassigned (create at pickup, FE team / brunch project)
+- **Branch:** tbd at pickup (off `next`, after PR #322 merges)
+- **Kind:** structural — executor lifecycle + Petri topology semantics (new attempt seam).
+- **Certainty:** proving.
+- **Blocked by:** the deliberately held PR #322 merge (`petrinaut-live-run-stream`) — do not branch before it lands.
+- **Why now / unlocks:** today a failed slice step halts the whole drive, recovery exists only as the run-scoped HITL `execute_replan_*` family, and a failed attempt is invisible in the compiled net (the transition simply never fires). Attempt identity is the prerequisite for everything downstream in this sequence: isolation/fan-in needs per-attempt workspaces, and epic integration needs to represent partial failure without abandoning the run.
+- **Objective:** make slice execution attempts first-class executor facts — attempt identity and verdict on agent/verify steps, bounded in-run retry expressed as topology (attempt-scoped places/transitions or attempt provenance) rather than driver special-cases, and honest journal/stream representation of failed attempts. `run.json` remains lifecycle authority; `execute_replan_*` remains the escalation path when attempts exhaust.
+- **Lights up:** an in-run attempt loop (failed agent/verify attempt → bounded retry) visible in the journal and the Petrinaut stream.
+- **Stabilizes:** attempt identity as the vocabulary `petri-slice-isolation-fan-in` and `petri-epic-integration` build on.
+- **Acceptance sketch (validate at pickup — the 2026-07-11 session settled only the ordering):** a slice whose first attempt fails can retry in-run within a declared bound without abandoning the run; attempts carry stable identity through executor facts (journal, reports, read surfaces); exhausted attempts land in the existing halted/replan flow; serial lifecycle ordering, journal-truth ordering (hints never outrun durable append), and I58-L side-effect honesty are preserved.
+- **Traceability:** D111-L, D112-L, I58-L; SPEC §Future Direction "Plan execution & Petri-net compatibility"; `src/executor/TOPOLOGY.md`; the run-scoped recovery family (PR #303 stack).
+
+### petri-slice-isolation-fan-in
+
+- **Name:** Parallel slice isolation and fan-in under serial authority
+- **Linear:** unassigned (create at pickup, FE team / brunch project)
+- **Branch:** tbd at pickup (stacks on `executor-slice-attempt-lifecycle`)
+- **Kind:** structural — per-slice side-effect isolation + an explicit integration seam.
+- **Certainty:** proving.
+- **Blocked by:** `executor-slice-attempt-lifecycle` (attempt identity), which itself waits on the #322 merge.
+- **Objective:** let independently enabled slice subnets execute with isolated side effects (per-slice/per-attempt workspace isolation over the FE-1166 substrate policy) and fan their outputs back into the run workspace through an explicit integration step that surfaces conflicts — parallelism in side-effect *execution* while `run.json` stays the serial lifecycle authority. Durable parallel authority is explicitly excluded (it is the sequence's final member).
+- **Lights up:** two independent slices executing in isolated substrates with an explicit fan-in/integration transition in the compiled topology.
+- **Stabilizes:** the isolation/fan-in seam that `petri-durable-parallel-authority` would later govern; `frontierFiringPolicy`'s co-firable selection becomes load-bearing instead of latent.
+- **Acceptance sketch (validate at pickup):** independent slices run in isolated workspaces without cross-contamination; integration conflicts fail closed with an honest halted/replan outcome rather than silent clobber; the Petrinaut stream renders concurrent slice subnets truthfully; serial `run.json` ordering survives.
+- **Traceability:** D112-L (set-returning scheduler + `frontierFiringPolicy`), FE-1166 substrate/verify policy, `docs/praxis/worktree-agents.md`; SPEC §Future Direction (durable parallel authority stays excluded).
+
 ### reconciliation-derivation
 
 - **Name:** Derive `edge_revalidation` reconciliation needs from LSN comparison; keep the table for judgment-shaped kinds
@@ -369,8 +403,20 @@ frontiers:
       depends_on: D111-L, D112-L; current executor lifecycle steps stay canonical side-effect boundaries
 
     petrinaut-live-run-stream
-      status: implementation complete on FE-1190 / PR #322; review/merge pending
+      status: complete on FE-1190 / PR #322 (v5 green, both Bugbot findings closed); merge held by user
       excludes: lifecycle authority, parallel side-effect authority
+      -[on merge]-> executor-slice-attempt-lifecycle
+
+    executor-slice-attempt-lifecycle
+      status: admitted 2026-07-13; Linear/branch at pickup
+      -[hard]-> petri-slice-isolation-fan-in
+      stabilizes: attempt identity for the whole Petri sequence
+
+    petri-slice-isolation-fan-in
+      status: admitted 2026-07-13; Linear/branch at pickup
+      -[hard]-> petri-epic-integration (horizon)
+      -[hard]-> petri-durable-parallel-authority (horizon; promote only on serial-authority evidence)
+      excludes: durable parallel side-effect authority
 
   mechanism-trace
     -[optional instrument]-> walkthrough-evidence-batch (FE-1167)
