@@ -78,7 +78,16 @@ export type {
 } from './queries.js';
 
 export { CommandExecutor } from './command-executor.js';
-export { openWorkspaceCommandExecutor, openWorkspaceGraphRuntime } from './workspace-store.js';
+export {
+  detectLegacyZeroXDatabase,
+  LEGACY_ALPHA_DB_FILENAME,
+  LEGACY_ZERO_X_DB_FILENAME,
+  openWorkspaceCommandExecutor,
+  openWorkspaceDb,
+  openWorkspaceGraphRuntime,
+  WORKSPACE_DB_FILENAME,
+  WorkspaceDbRefusalError,
+} from './workspace-store.js';
 export type { WorkspaceGraphRuntime } from './workspace-store.js';
 export type {
   CreateReconNeedResult,

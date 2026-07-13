@@ -24,7 +24,7 @@
  *   npm run seed -- --workspace <dir> --all-seeds [--reset]
  *
  * `--reset` deletes the target workspace's **runtime state** before seeding
- * — `.brunch/data.db` (plus `-wal`/`-shm`), the `.brunch/sessions/` and
+ * — `.brunch/brunch-v1.db` (plus `-wal`/`-shm`), the `.brunch/sessions/` and
  * `.brunch/debug/` directories, and `.brunch/workspace.json` — so "fresh
  * workbench from one named seed" is a single command and a relaunch takes
  * the new-session path (seed + kick) instead of resuming a stale session
@@ -42,7 +42,7 @@ import { CommandExecutor } from './command-executor.js';
 import type { EdgeCategory, EdgeStance } from './schema/edges.js';
 import type { SpecKind } from './schema/kinds.js';
 import type { NodeBasis, NodePlane, NodeSettlement } from './schema/nodes.js';
-import { openWorkspaceCommandExecutor } from './workspace-store.js';
+import { openWorkspaceCommandExecutor, WORKSPACE_DB_FILENAME } from './workspace-store.js';
 
 // ---------------------------------------------------------------------------
 // Seed contract — shape of a consolidated `<variant>.json` fixture
@@ -311,7 +311,7 @@ function workspaceRuntimeState(workspace: string): {
   readonly directories: readonly string[];
 } {
   const brunchDir = join(workspace, '.brunch');
-  const dbPath = join(brunchDir, 'data.db');
+  const dbPath = join(brunchDir, WORKSPACE_DB_FILENAME);
   return {
     files: [dbPath, `${dbPath}-wal`, `${dbPath}-shm`, join(brunchDir, 'workspace.json')],
     directories: [join(brunchDir, 'sessions'), join(brunchDir, 'debug')],
@@ -365,7 +365,7 @@ export async function runSeedFixturesCli(options: SeedCliOptions = {}): Promise<
   }
 
   try {
-    const destinationDb = join(parsed.workspace, '.brunch', 'data.db');
+    const destinationDb = join(parsed.workspace, '.brunch', WORKSPACE_DB_FILENAME);
     if (parsed.reset) {
       const runtimeState = workspaceRuntimeState(parsed.workspace);
       for (const file of runtimeState.files) {
@@ -481,7 +481,7 @@ function seedUsage(): string {
     '  --seed       when --workspace is omitted, derive .fixtures/workbenches/<name>/\n' +
     '  --all-seeds  opt in to seed every tracked fixture as its own spec (requires --workspace)\n' +
     '  --reset      delete the target workspace runtime state before seeding:\n' +
-    '           .brunch/data.db (+ -wal/-shm), sessions/, debug/, and workspace.json\n'
+    `           .brunch/${WORKSPACE_DB_FILENAME} (+ -wal/-shm), sessions/, debug/, and workspace.json\n`
   );
 }
 

@@ -11,7 +11,7 @@ import { specs } from './schema.js';
 describe('specs row schema — posture round-trip (D118-L, A41-L)', () => {
   it('round-trips a nullable origin and a nullable self-referencing relatesToSpecId', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'brunch-row-schemas-'));
-    const dbPath = join(dir, 'data.db');
+    const dbPath = join(dir, 'test.db');
 
     try {
       const db = createDb(dbPath);

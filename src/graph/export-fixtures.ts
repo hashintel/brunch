@@ -7,14 +7,15 @@
  */
 
 import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 
 import { eq } from 'drizzle-orm';
 
-import { createDb, type BrunchDb } from '../db/connection.js';
+import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
 import { queryGraph, type GraphVisibility } from './queries.js';
 import type { SeedFixture, SeedFixtureEdge, SeedFixtureNode } from './seed-fixtures.js';
+import { openWorkspaceDb } from './workspace-store.js';
 
 export interface ExportSeedFixtureInput {
   readonly specId: number;
@@ -25,11 +26,11 @@ export interface ExportSeedFixtureInput {
   readonly show?: GraphVisibility;
 }
 
-export function exportSeedFixtureFromWorkspace(
+export async function exportSeedFixtureFromWorkspace(
   workspace: string,
   input: ExportSeedFixtureInput,
-): SeedFixture {
-  const db = createDb(join(resolve(workspace), '.brunch', 'data.db'));
+): Promise<SeedFixture> {
+  const db = await openWorkspaceDb(resolve(workspace));
   return exportSeedFixture(db, input);
 }
 
@@ -161,7 +162,7 @@ function usage(): string {
 
 async function main(): Promise<void> {
   const args = parseCliArgs(process.argv.slice(2));
-  const fixture = exportSeedFixtureFromWorkspace(args.workspace, {
+  const fixture = await exportSeedFixtureFromWorkspace(args.workspace, {
     specId: args.specId,
     ...(args.show === undefined ? {} : { show: args.show }),
   });
