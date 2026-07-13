@@ -633,6 +633,16 @@ describe('drive', () => {
     await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toMatchObject({
       epicVerificationClaims: [{ epicId: 'epic-1', phase: 'claimed' }],
     });
+    await expect(readRunDetail(cwd, 'run-1')).resolves.toMatchObject({
+      petriReadySteps: [],
+      petriBlockedSteps: [
+        {
+          kind: 'epic_verify',
+          epicId: 'epic-1',
+          blockers: [{ kind: 'epic_verification_authority', phase: 'claimed' }],
+        },
+      ],
+    });
     let runnerCalls = 0;
     const testRunner: TestRunnerPort = {
       async run() {
@@ -668,6 +678,34 @@ describe('drive', () => {
       reason: 'epic_verification_interrupted',
     });
     expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.verifiedEpicIds).toBeUndefined();
+  });
+
+  it('fails closed when restart reconciliation encounters a torn Petri journal', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-history-torn-journal-'));
+    await prepareEpicVerificationReadyRun(cwd);
+    await appendFile(petriEventsPath(cwd, 'run-1'), '{"kind":"transition_fired"', 'utf8');
+    let runnerCalls = 0;
+
+    await expect(
+      drive({
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts({
+          testRunner: {
+            async run() {
+              runnerCalls += 1;
+              return { status: 'completed', verdict: 'passed', exitCode: 0 };
+            },
+          },
+        }),
+      }),
+    ).resolves.toEqual({
+      status: 'halted',
+      step: 'epic_verify',
+      runStatus: 'slice_completed',
+      reason: 'petri_input_unreadable',
+    });
+    expect(runnerCalls).toBe(0);
   });
 
   it('catches epic verification summary up from transitioned marking without rerunning', async () => {
@@ -726,6 +764,16 @@ describe('drive', () => {
     });
     await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toMatchObject({
       epicVerificationClaims: [{ epicId: 'epic-1', phase: 'transitioned' }],
+    });
+    await expect(readRunDetail(cwd, 'run-1')).resolves.toMatchObject({
+      petriReadySteps: [{ kind: 'epic_complete', epicId: 'epic-1' }],
+      petriBlockedSteps: [
+        {
+          kind: 'epic_verify',
+          epicId: 'epic-1',
+          blockers: [{ kind: 'epic_verification_authority', phase: 'transitioned' }],
+        },
+      ],
     });
     let runnerCalls = 0;
 
@@ -1144,10 +1192,10 @@ describe('drive', () => {
           'slice:task-2:agent_attempt:1': 1,
         },
       },
-      agentStreamTail: [
+      agentStreamTail: expect.arrayContaining([
         expect.objectContaining({ sliceId: 'task-1', message: 'running task-1' }),
         expect.objectContaining({ sliceId: 'task-2', message: 'running task-2' }),
-      ],
+      ]),
       sliceStreamInventory: [
         { sliceId: 'task-1', state: 'running', agentAttempts: [1], verifyAttempts: [] },
         { sliceId: 'task-2', state: 'running', agentAttempts: [1], verifyAttempts: [] },
@@ -1207,6 +1255,105 @@ describe('drive', () => {
         { sliceId: 'task-2', state: 'claimed', agentAttempts: [], verifyAttempts: [] },
       ],
     });
+    release();
+    await driving;
+  });
+
+  it('preserves cross-slice stream order across reconnect before applying the tail limit', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-parallel-stream-order-'));
+    await createRunAtCreated(cwd, ['task-1', 'task-2']);
+    let a1Written!: () => void;
+    const a1 = new Promise<void>((resolve) => {
+      a1Written = resolve;
+    });
+    let b1Written!: () => void;
+    const b1 = new Promise<void>((resolve) => {
+      b1Written = resolve;
+    });
+    let v1Written!: () => void;
+    const v1 = new Promise<void>((resolve) => {
+      v1Written = resolve;
+    });
+    let w1Written!: () => void;
+    const w1 = new Promise<void>((resolve) => {
+      w1Written = resolve;
+    });
+    let verifyEventsWritten!: () => void;
+    const emitted = new Promise<void>((resolve) => {
+      verifyEventsWritten = resolve;
+    });
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const driving = drive(
+      {
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts({
+          agentRunner: {
+            async run(args) {
+              if (args.sliceId === 'task-1') {
+                await args.onUpdate?.({ kind: 'message', message: 'A1' });
+                a1Written();
+                await b1;
+                await args.onUpdate?.({ kind: 'message', message: 'A2' });
+              } else {
+                await a1;
+                await args.onUpdate?.({ kind: 'message', message: 'B1' });
+                b1Written();
+              }
+              return { status: 'completed' };
+            },
+          },
+          testRunner: {
+            async run(args) {
+              if (args.worktreeDir.includes('/task-1/')) {
+                await args.onUpdate?.({ kind: 'stdout', message: 'V1' });
+                v1Written();
+                await w1;
+                await args.onUpdate?.({ kind: 'stdout', message: 'V2' });
+                verifyEventsWritten();
+              } else {
+                await v1;
+                await args.onUpdate?.({ kind: 'stdout', message: 'W1' });
+                w1Written();
+              }
+              await released;
+              return { status: 'completed', verdict: 'passed', exitCode: 0 };
+            },
+          },
+        }),
+      },
+      petriScheduler,
+      frontierFiringPolicy,
+    );
+    await emitted;
+
+    const complete = await readRunDetail(cwd, 'run-1');
+    expect(complete && 'agentStreamTail' in complete ? complete.agentStreamTail : []).toMatchObject([
+      { sliceId: 'task-1', message: 'A1', runSequence: 0 },
+      { sliceId: 'task-2', message: 'B1', runSequence: 1 },
+      { sliceId: 'task-1', message: 'A2', runSequence: 2 },
+    ]);
+    const newest = await readRunDetail(cwd, 'run-1', { agentStreamTailLimit: 2 });
+    expect(newest && 'agentStreamTail' in newest ? newest.agentStreamTail : []).toMatchObject([
+      { sliceId: 'task-2', message: 'B1', runSequence: 1 },
+      { sliceId: 'task-1', message: 'A2', runSequence: 2 },
+    ]);
+    expect(complete && 'verifyStreamTail' in complete ? complete.verifyStreamTail : []).toMatchObject([
+      { sliceId: 'task-1', message: 'V1', runSequence: 3 },
+      { sliceId: 'task-2', message: 'W1', runSequence: 4 },
+      { sliceId: 'task-1', message: 'V2', runSequence: 5 },
+    ]);
+    const newestVerify = await readRunDetail(cwd, 'run-1', { verifyStreamTailLimit: 2 });
+    expect(
+      newestVerify && 'verifyStreamTail' in newestVerify ? newestVerify.verifyStreamTail : [],
+    ).toMatchObject([
+      { sliceId: 'task-2', message: 'W1', runSequence: 4 },
+      { sliceId: 'task-1', message: 'V2', runSequence: 5 },
+    ]);
+
     release();
     await driving;
   });
@@ -1273,7 +1420,22 @@ describe('drive', () => {
 
   it('keeps every failed batch slice visible after terminal reconnect', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-parallel-all-failed-observer-'));
-    await createRunAtCreated(cwd, ['task-1', 'task-2']);
+    await createRunAtCreatedWithPlan(cwd, {
+      mode: 'greenfield',
+      spec: {
+        requirements: [{ item_id: 'REQ-all', content: 'Both slices must succeed.' }],
+        criteria: [{ item_id: 'AC-all', verifies: ['REQ-all'] }],
+      },
+      epics: [{ id: 'frontier-1', depends_on: [], verification: [] }],
+      slices: ['task-1', 'task-2'].map((id) => ({
+        id,
+        epic_id: 'frontier-1',
+        definition: id,
+        depends_on: [],
+        verification: [],
+        derived_from: ['REQ-all'],
+      })),
+    });
     await drive(
       {
         cwd,
@@ -1302,6 +1464,13 @@ describe('drive', () => {
         { sliceId: 'task-2', state: 'failed', agentAttempts: [1, 2, 3], verifyAttempts: [] },
       ],
       agentStreamTotal: 6,
+      requirements: [
+        expect.objectContaining({
+          requirementId: 'REQ-all',
+          status: 'failed',
+          failedSliceIds: ['task-1', 'task-2'],
+        }),
+      ],
     });
   });
 
@@ -1506,7 +1675,30 @@ describe('drive', () => {
 
   it('persists failed settlement and integrates an ordered sibling while a later sibling hangs', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-parallel-incremental-settlement-'));
-    await createRunAtCreated(cwd, ['task-1', 'task-2', 'task-3']);
+    await createRunAtCreatedWithPlan(cwd, {
+      mode: 'greenfield',
+      spec: {
+        requirements: [
+          { item_id: 'REQ-failed', content: 'Failed member.' },
+          { item_id: 'REQ-integrated', content: 'Integrated member.' },
+          { item_id: 'REQ-running', content: 'Running member.' },
+        ],
+        criteria: [
+          { item_id: 'AC-failed', verifies: ['REQ-failed'] },
+          { item_id: 'AC-integrated', verifies: ['REQ-integrated'] },
+          { item_id: 'AC-running', verifies: ['REQ-running'] },
+        ],
+      },
+      epics: [{ id: 'frontier-1', depends_on: [], verification: [] }],
+      slices: ['task-1', 'task-2', 'task-3'].map((id, index) => ({
+        id,
+        epic_id: 'frontier-1',
+        definition: id,
+        depends_on: [],
+        verification: [],
+        derived_from: [['REQ-failed'], ['REQ-integrated'], ['REQ-running']][index],
+      })),
+    });
     let releaseThird!: () => void;
     const thirdReleased = new Promise<void>((resolve) => {
       releaseThird = resolve;
@@ -1515,11 +1707,15 @@ describe('drive', () => {
     const cleanSiblingIntegrated = new Promise<void>((resolve) => {
       task2Integrated = resolve;
     });
+    let fanInWriteWindowDetail: Promise<Awaited<ReturnType<typeof readRunDetail>>> | undefined;
     const unsubscribe = subscribeRunMetadata({
       cwd,
       runId: 'run-1',
       listener(metadata) {
-        if (metadata.completedSliceIds?.includes('task-2')) task2Integrated();
+        if (metadata.completedSliceIds?.includes('task-2')) {
+          fanInWriteWindowDetail ??= readRunDetail(cwd, 'run-1');
+          task2Integrated();
+        }
       },
     });
     const baseIntegration = createFakeGitSliceIntegrationPort();
@@ -1541,6 +1737,24 @@ describe('drive', () => {
 
     const driving = drive({ cwd, runId: 'run-1', ports }, petriScheduler, frontierFiringPolicy);
     await cleanSiblingIntegrated;
+
+    await expect(fanInWriteWindowDetail).resolves.toMatchObject({
+      petriReadySteps: [],
+      petriBlockedSteps: expect.arrayContaining([
+        expect.objectContaining({
+          sliceId: 'task-1',
+          blockers: [{ kind: 'parallel_authority', state: 'failed' }],
+        }),
+        expect.objectContaining({
+          sliceId: 'task-2',
+          blockers: [{ kind: 'parallel_authority', state: 'integrated' }],
+        }),
+        expect.objectContaining({
+          sliceId: 'task-3',
+          blockers: [{ kind: 'parallel_authority', state: 'running' }],
+        }),
+      ]),
+    });
 
     await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toMatchObject({
       parallelSliceBatch: {
@@ -1567,6 +1781,15 @@ describe('drive', () => {
         { sliceId: 'task-1', state: 'failed' },
         { sliceId: 'task-2', state: 'integrated' },
         { sliceId: 'task-3', state: 'running' },
+      ],
+      requirements: [
+        expect.objectContaining({
+          requirementId: 'REQ-failed',
+          status: 'failed',
+          failedSliceIds: ['task-1'],
+        }),
+        expect.objectContaining({ requirementId: 'REQ-integrated', status: 'passed' }),
+        expect.objectContaining({ requirementId: 'REQ-running', status: 'running' }),
       ],
     });
     await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
@@ -3405,9 +3628,15 @@ describe('petriScheduler', () => {
       await expect(readFile(sliceExecutionRequestPath(serial, 'run-1', sliceId), 'utf8')).resolves.toBe(
         await readFile(sliceExecutionRequestPath(parallel, 'run-1', sliceId), 'utf8'),
       );
-      await expect(readFile(agentStreamPath(serial, 'run-1', sliceId, 1), 'utf8')).resolves.toBe(
+      const serialAgentEvent = JSON.parse(
+        await readFile(agentStreamPath(serial, 'run-1', sliceId, 1), 'utf8'),
+      ) as Record<string, unknown>;
+      const parallelAgentEvent = JSON.parse(
         await readFile(agentStreamPath(parallel, 'run-1', sliceId, 1), 'utf8'),
-      );
+      ) as Record<string, unknown>;
+      delete serialAgentEvent['runSequence'];
+      delete parallelAgentEvent['runSequence'];
+      expect(serialAgentEvent).toEqual(parallelAgentEvent);
       expect(serialReports.filter((event) => (event as { sliceId?: string }).sliceId === sliceId)).toEqual(
         parallelReports.filter((event) => (event as { sliceId?: string }).sliceId === sliceId),
       );

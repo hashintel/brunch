@@ -1,4 +1,4 @@
-import type { ExecutionPlanOutline } from './execute-plan-outline.js';
+import { assertExecutionPlanOutlineVersion, type ExecutionPlanOutline } from './execute-plan-outline.js';
 
 export interface ExecutablePlanDraftVerificationTarget {
   readonly kind: 'criterion';
@@ -45,7 +45,7 @@ export interface ExecutablePlanDraftEpic {
 }
 
 export interface ExecutablePlanDraft {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
   readonly specId: string;
   readonly mode: ExecutionPlanOutline['mode'];
   readonly epics: readonly ExecutablePlanDraftEpic[];
@@ -54,6 +54,7 @@ export interface ExecutablePlanDraft {
 }
 
 export function draftExecutablePlan(outline: ExecutionPlanOutline): ExecutablePlanDraft {
+  assertExecutionPlanOutlineVersion(outline);
   const allTasks = [...outline.frontiers.flatMap((frontier) => frontier.tasks), ...outline.orphanTasks];
   const taskIdByRequirement = new Map<string, string>();
   for (const task of allTasks) {
@@ -88,13 +89,19 @@ export function draftExecutablePlan(outline: ExecutionPlanOutline): ExecutablePl
   }));
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     specId: outline.specId,
     mode: outline.mode,
     epics,
     slices: orderedSlices,
     sideEffects: [],
   };
+}
+
+export function assertExecutablePlanDraftVersion(draft: Pick<ExecutablePlanDraft, 'schemaVersion'>): void {
+  if (draft.schemaVersion !== 2) {
+    throw new Error(`Unsupported executable plan draft schema version: ${String(draft.schemaVersion)}`);
+  }
 }
 
 function draftSlice(

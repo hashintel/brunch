@@ -155,3 +155,63 @@ src/executor/
 ├── TOPOLOGY.md                    ~
 └── __tests__/                     ~
 ```
+
+## Slice 4 — Fresh review authority and observer closure
+
+Status: done
+Weight: full
+
+### Target Behavior
+
+Concurrent authority remains singular and visible through write windows, restart, reconnect, and every observer projection.
+
+### Acceptance Criteria
+
+✓ fan-in admission tests — active batch marking survives summary updates; standalone starts cannot duplicate active work.
+✓ epic-claim tests — claimed/transitioned verification is blocked explicitly and cannot appear ready.
+✓ reconnect tests — persisted run ordering preserves cross-slice agent/verify order before tail limiting.
+✓ restart tests — malformed/torn epic history halts without metadata fallback or effects.
+✓ projection tests — mixed and all-failed parallel requirement states agree through executor, RPC, and web.
+
+### Completion Report
+
+| Leaf | Outcome | Evidence |
+| --- | --- | --- |
+| Batch remains authority in fan-in summary window | met | `orchestrate.test.ts`: metadata-listener write-window detail retains failed/integrated/running blockers and no ready starts. |
+| Standalone start shares run admission | met | `slice-start.test.ts`: contended owner and persisted batch both refuse with no metadata mutation. |
+| Epic verification claim blocks readiness | met | `orchestrate.test.ts`: claimed and transitioned snapshots suppress `epic_verify` and expose `epic_verification_authority`. |
+| Reconnect preserves global stream order | met | `orchestrate.test.ts`: agent `A1,B1,A2` and verify `V1,W1,V2` survive reconnect; limit 2 returns the newest global pair. |
+| Torn epic journal fails closed | met | `orchestrate.test.ts`: restart returns structured `petri_input_unreadable` and invokes no runner. |
+| Parallel requirement status is shared | met | mixed/all-failed executor tests, active RPC projection, and web running-status rendering. |
+| D123/D124 and shared core remain bounded | met | parallel authority stays in marking; run admission remains process-local; stream writes remain in `isolated-slice-operations.ts`. |
+
+Skipped-test delta vs parent: 0.
+
+## Slice 5 — Versioned production projection and stream crash closure
+
+Status: done
+Weight: full
+
+### Target Behavior
+
+The authored execution projection has one current version and one production witness, while stream reconnect authority cannot omit an event persisted before a mirror fault.
+
+### Acceptance Criteria
+
+✓ version tests — snapshot, outline, draft, and preview emit v2 and reject v1 at consuming boundaries.
+✓ artifact tests — outline/draft artifacts persist v2; cook plan provenance remains v1.
+✓ production consumer test — registered `execute_plan_file` persists multi-frontier authored semantics and an orphan slice.
+✓ crash-window test — ordered stream carrier persists before the attempt mirror and reconnect still returns the event when the mirror fails.
+✓ topology test — executor decision register includes D124-L and D125-L.
+
+### Completion Report
+
+| Leaf | Outcome | Evidence |
+| --- | --- | --- |
+| Projection chain is coherently v2 | met | focused snapshot/check/outline/draft/preview tests assert v2 and explicit v1 rejection. |
+| Persisted artifacts carry current version | met | outline and draft artifact tests compare exact v2 payloads; plan-file test pins `PlanFileProvenance.schemaVersion: 1`. |
+| Registered production path carries D125 authored semantics | met | `registry.test.ts`: `execute_plan_file` persists F1/F2 memberships, F2 dependency, AC1 epic/slice verification, and orphan task-3. |
+| Stream fault cannot hide a persisted event | met | `slice-stream-events.test.ts`: attempt mirror fails after journal append; `readRunDetail` reconnect returns runSequence 0. |
+| Decision register is complete | met | `src/executor/TOPOLOGY.md` header names D124-L and D125-L. |
+
+Skipped-test delta vs parent: 0.

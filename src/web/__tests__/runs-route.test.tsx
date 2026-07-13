@@ -791,6 +791,16 @@ describe('run detail route', () => {
               missingVerificationSliceIds: [],
               criterionIds: [],
             },
+            {
+              requirementId: 'REQ3',
+              content: 'Build the active parallel member.',
+              status: 'running',
+              sliceIds: ['task-3'],
+              completedSliceIds: [],
+              failedSliceIds: [],
+              missingVerificationSliceIds: [],
+              criterionIds: ['AC3'],
+            },
           ],
         },
       }),
@@ -801,6 +811,7 @@ describe('run detail route', () => {
     expect(await screen.findByText('REQ1')).toBeTruthy();
     expect(screen.getByText('passed')).toBeTruthy();
     expect(screen.getByText('unverified')).toBeTruthy();
+    expect(screen.getByText('running')).toBeTruthy();
     expect(screen.getByText('no criterion witness')).toBeTruthy();
     expect(screen.getAllByRole('link', { name: 'view in graph' })[0]?.getAttribute('href')).toBe('/spec/1');
     expect(screen.getAllByRole('link', { name: 'view slice log' })[0]?.getAttribute('href')).toBe(

@@ -299,12 +299,23 @@ describe('execute.run', () => {
       planFilePath(cwd, '42'),
       JSON.stringify({
         mode: 'greenfield',
+        spec: {
+          requirements: [
+            { item_id: 'REQ1', content: 'First parallel slice.' },
+            { item_id: 'REQ2', content: 'Second parallel slice.' },
+          ],
+          criteria: [
+            { item_id: 'AC1', verifies: ['REQ1'] },
+            { item_id: 'AC2', verifies: ['REQ2'] },
+          ],
+        },
         epics: [{ id: 'epic-1', depends_on: [], verification: [] }],
-        slices: ['task-1', 'task-2'].map((id) => ({
+        slices: ['task-1', 'task-2'].map((id, index) => ({
           id,
           epic_id: 'epic-1',
           depends_on: [],
           verification: [],
+          derived_from: [index === 0 ? 'REQ1' : 'REQ2'],
         })),
       }),
       'utf8',
@@ -319,12 +330,18 @@ describe('execute.run', () => {
     const released = new Promise<void>((resolve) => {
       release = resolve;
     });
+    let firstUpdateWritten!: () => void;
+    const firstUpdate = new Promise<void>((resolve) => {
+      firstUpdateWritten = resolve;
+    });
     const ports: ExecutionPorts = {
       gitWorktree: createFakeGitWorktreePort(),
       gitSliceIntegration: createFakeGitSliceIntegrationPort(),
       agentRunner: {
         async run(args) {
+          if (args.sliceId === 'task-2') await firstUpdate;
           await args.onUpdate?.({ kind: 'status', message: `rpc ${args.sliceId}` });
+          if (args.sliceId === 'task-1') firstUpdateWritten();
           entered += 1;
           if (entered === 2) bothEntered();
           await released;
@@ -356,6 +373,10 @@ describe('execute.run', () => {
         sliceStreamInventory: [
           { sliceId: 'task-1', state: 'running', agentAttempts: [1], verifyAttempts: [] },
           { sliceId: 'task-2', state: 'running', agentAttempts: [1], verifyAttempts: [] },
+        ],
+        requirements: [
+          expect.objectContaining({ requirementId: 'REQ1', status: 'running' }),
+          expect.objectContaining({ requirementId: 'REQ2', status: 'running' }),
         ],
       },
     });

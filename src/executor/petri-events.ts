@@ -52,18 +52,34 @@ export async function appendPetriEvent(args: {
 export async function readDurableEpicTransitionHistory(args: {
   readonly cwd: string;
   readonly runId: string;
-}): Promise<readonly string[] | undefined> {
+}): Promise<
+  | { readonly status: 'missing' | 'unavailable' | 'unreadable' }
+  | { readonly status: 'readable'; readonly history: readonly string[] }
+> {
   try {
-    return (await readFile(petriEventsPath(args.cwd, args.runId), 'utf8'))
+    const history: string[] = [];
+    for (const line of (await readFile(petriEventsPath(args.cwd, args.runId), 'utf8'))
       .split('\n')
-      .filter(Boolean)
-      .map((line) => parsePetriEvent(JSON.parse(line)))
-      .flatMap((event) =>
-        event?.kind === 'transition_fired' && event.contract.lane === 'epic' ? [event.transitionId] : [],
-      );
-  } catch {
-    return undefined;
+      .filter(Boolean)) {
+      let event: ExecutorNetEvent | undefined;
+      try {
+        event = parsePetriEvent(JSON.parse(line));
+      } catch {
+        return { status: 'unreadable' };
+      }
+      if (!event) return { status: 'unreadable' };
+      if (event.kind === 'transition_fired' && event.contract.lane === 'epic') {
+        history.push(event.transitionId);
+      }
+    }
+    return { status: 'readable', history };
+  } catch (error) {
+    return isNodeError(error) && error.code === 'ENOENT' ? { status: 'missing' } : { status: 'unavailable' };
   }
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && 'code' in error;
 }
 
 export function subscribePetriEvents(args: {

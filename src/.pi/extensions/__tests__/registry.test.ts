@@ -24,6 +24,7 @@ import type {
   GitWorktreePort,
   TestRunnerPort,
 } from '../../../executor/execution-ports.js';
+import { planFilePath } from '../../../executor/plan-file.js';
 import { registerBrunchAlternatives as alternatives } from '../../components/alternatives.js';
 import { registerBrunchOperationalModePolicy as operationalMode } from '../agent-runtime/runtime/index.js';
 import { registerBrunchPrompting as prompting } from '../agent-runtime/system-prompts/index.js';
@@ -384,7 +385,7 @@ describe('Brunch explicit Pi extension registry', () => {
       source: { graphLsn: 17, visibility: 'active' },
       sideEffects: [],
       preview: {
-        schemaVersion: 1,
+        schemaVersion: 2,
         mode: 'brownfield',
         spec: {
           spec_id: '42',
@@ -464,7 +465,7 @@ describe('Brunch explicit Pi extension registry', () => {
       source: { graphLsn: 15, visibility: 'active' },
       sideEffects: [],
       draft: {
-        schemaVersion: 1,
+        schemaVersion: 2,
         specId: '42',
         mode: 'brownfield',
         epics: [],
@@ -643,6 +644,73 @@ describe('Brunch explicit Pi extension registry', () => {
       mode: 'brownfield',
       source: { graphLsn: 18, visibility: 'active' },
     });
+  });
+
+  it('persists authored frontier semantics through the registered execute_plan_file production path', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-plan-file-authored-'));
+    const base = {
+      specId: 42,
+      basis: 'explicit',
+      settlement: 'settled',
+      createdAtLsn: 1,
+      updatedAtLsn: 1,
+    } as const;
+    const registeredTools = await collectProductTools({
+      graph: {
+        specId: 42,
+        lsn: 19,
+        nodes: [
+          { ...base, id: 1, plane: 'plan', kind: 'frontier', kindOrdinal: 1, title: 'Foundation' },
+          { ...base, id: 2, plane: 'plan', kind: 'frontier', kindOrdinal: 2, title: 'Feature' },
+          { ...base, id: 10, plane: 'intent', kind: 'requirement', kindOrdinal: 1, title: 'Build base' },
+          { ...base, id: 11, plane: 'intent', kind: 'requirement', kindOrdinal: 2, title: 'Build feature' },
+          { ...base, id: 12, plane: 'intent', kind: 'requirement', kindOrdinal: 3, title: 'Orphan task' },
+          {
+            ...base,
+            id: 20,
+            plane: 'intent',
+            kind: 'criterion',
+            kindOrdinal: 1,
+            title: 'Feature verified',
+          },
+        ],
+        edges: [
+          { ...base, id: 1, category: 'composition', sourceId: 1, targetId: 10 },
+          { ...base, id: 2, category: 'composition', sourceId: 2, targetId: 11 },
+          { ...base, id: 3, category: 'dependency', sourceId: 1, targetId: 2 },
+          { ...base, id: 4, category: 'witness', sourceId: 20, targetId: 2, stance: 'for' },
+          { ...base, id: 5, category: 'witness', sourceId: 20, targetId: 11, stance: 'for' },
+        ],
+      },
+    });
+    const planFile = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_PLAN_FILE_TOOL)!;
+
+    await planFile.execute('call-1', { mode: 'greenfield' }, undefined, undefined, { cwd });
+
+    const payload = JSON.parse(await readFile(planFilePath(cwd, '42'), 'utf8')) as {
+      readonly epics: readonly unknown[];
+      readonly slices: readonly unknown[];
+    };
+    expect(payload.epics).toEqual([
+      { id: 'F1', summary: 'Foundation', depends_on: [], verification: [] },
+      {
+        id: 'F2',
+        summary: 'Feature',
+        depends_on: ['F1'],
+        verification: [{ kind: 'criterion', criterionId: 'AC1', target: 'Feature verified' }],
+      },
+    ]);
+    expect(payload.slices).toEqual([
+      expect.objectContaining({ id: 'task-1', epic_id: 'F1', derived_from: ['REQ1'] }),
+      expect.objectContaining({
+        id: 'task-2',
+        epic_id: 'F2',
+        derived_from: ['REQ2'],
+        verification: [{ kind: 'criterion', criterionId: 'AC1', target: 'Feature verified' }],
+      }),
+      expect.not.objectContaining({ id: 'task-3', epic_id: expect.anything() }),
+    ]);
+    expect(payload.slices[2]).toMatchObject({ id: 'task-3', derived_from: ['REQ3'] });
   });
 
   it('registers execute_launch as a selected-spec non-running readiness boundary', async () => {
@@ -2500,7 +2568,7 @@ describe('Brunch explicit Pi extension registry', () => {
       source: { graphLsn: 13, visibility: 'active' },
       sideEffects: [],
       outline: {
-        schemaVersion: 1,
+        schemaVersion: 2,
         specId: '42',
         mode: 'brownfield',
         frontiers: [],
@@ -2796,7 +2864,7 @@ describe('Brunch explicit Pi extension registry', () => {
       source: { graphLsn: 11, visibility: 'active' },
       sideEffects: [],
       snapshot: {
-        schemaVersion: 1,
+        schemaVersion: 2,
         specId: '42',
         mode: 'brownfield',
         requirements: [expect.objectContaining({ itemId: 'REQ1' })],

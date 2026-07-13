@@ -4,7 +4,7 @@ import { checkExecutionSpecForPlan } from '../execute-plan-check.js';
 import type { ExecutionSpecSnapshot } from '../execution-spec-snapshot.js';
 
 const baseSnapshot: ExecutionSpecSnapshot = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   specId: '7',
   mode: 'greenfield',
   frontiers: [],
@@ -28,6 +28,12 @@ const baseSnapshot: ExecutionSpecSnapshot = {
 };
 
 describe('checkExecutionSpecForPlan', () => {
+  it('rejects a v1 execution snapshot', () => {
+    expect(() =>
+      checkExecutionSpecForPlan({ ...baseSnapshot, schemaVersion: 1 } as unknown as ExecutionSpecSnapshot),
+    ).toThrow('Unsupported execution spec snapshot schema version: 1');
+  });
+
   it('summarizes plan-input coverage and returns warnings without side effects', () => {
     const result = checkExecutionSpecForPlan(baseSnapshot);
 

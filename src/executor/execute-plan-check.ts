@@ -1,4 +1,4 @@
-import type { ExecutionSpecSnapshot } from './execution-spec-snapshot.js';
+import { assertExecutionSpecSnapshotVersion, type ExecutionSpecSnapshot } from './execution-spec-snapshot.js';
 
 export type ExecutePlanCheckFindingCode =
   | 'empty_snapshot'
@@ -38,6 +38,7 @@ export interface ExecutePlanCheckResult {
 }
 
 export function checkExecutionSpecForPlan(snapshot: ExecutionSpecSnapshot): ExecutePlanCheckResult {
+  assertExecutionSpecSnapshotVersion(snapshot);
   const findings: ExecutePlanCheckFinding[] = [];
   const requirementIds = new Set(snapshot.requirements.map((requirement) => requirement.itemId));
   const verifiedRequirementIds = new Set<string>();

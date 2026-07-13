@@ -8,7 +8,7 @@ import type { ExecutionPlanOutline } from '../execute-plan-outline.js';
 import { planOutlineArtifactPath, writePlanOutlineArtifact } from '../plan-outline-artifact.js';
 
 const outline: ExecutionPlanOutline = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   specId: '7',
   mode: 'greenfield',
   frontiers: [],

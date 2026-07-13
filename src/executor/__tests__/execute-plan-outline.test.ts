@@ -4,7 +4,7 @@ import { outlineExecutionPlan } from '../execute-plan-outline.js';
 import type { ExecutionSpecSnapshot } from '../execution-spec-snapshot.js';
 
 const snapshot: ExecutionSpecSnapshot = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   specId: '7',
   mode: 'brownfield',
   requirements: [
@@ -310,7 +310,7 @@ describe('outlineExecutionPlan', () => {
 
   it('creates only committed scope tasks once scopes exist', () => {
     expect(outlineExecutionPlan(snapshot)).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
       specId: '7',
       mode: 'brownfield',
       frontiers: [
@@ -384,5 +384,11 @@ describe('outlineExecutionPlan', () => {
 
     expect(outline.frontiers).toHaveLength(1);
     expect(outline.frontiers[0]?.tasks.map((task) => task.requirementIds)).toEqual([['REQ2']]);
+  });
+
+  it('rejects a v1 execution snapshot instead of interpreting the incompatible shape', () => {
+    expect(() =>
+      outlineExecutionPlan({ ...snapshot, schemaVersion: 1 } as unknown as ExecutionSpecSnapshot),
+    ).toThrow('Unsupported execution spec snapshot schema version: 1');
   });
 });

@@ -3,6 +3,7 @@ import type {
   ExecutionSpecItemSnapshot,
   ExecutionSpecSnapshot,
 } from './execution-spec-snapshot.js';
+import { assertExecutionSpecSnapshotVersion } from './execution-spec-snapshot.js';
 
 export interface ExecutionPlanOutlineCriterion {
   readonly criterionId: string;
@@ -35,7 +36,7 @@ export interface ExecutionPlanOutlineFrontier {
 }
 
 export interface ExecutionPlanOutline {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
   readonly specId: string;
   readonly mode: ExecutionSpecSnapshot['mode'];
   readonly frontiers: readonly ExecutionPlanOutlineFrontier[];
@@ -44,9 +45,10 @@ export interface ExecutionPlanOutline {
 }
 
 export function outlineExecutionPlan(snapshot: ExecutionSpecSnapshot): ExecutionPlanOutline {
+  assertExecutionSpecSnapshotVersion(snapshot);
   if (snapshot.scopes.length > 0) {
     return {
-      schemaVersion: 1,
+      schemaVersion: 2,
       specId: snapshot.specId,
       mode: snapshot.mode,
       frontiers: assignTaskIds(frontiersForScopes(snapshot)),
@@ -62,7 +64,7 @@ export function outlineExecutionPlan(snapshot: ExecutionSpecSnapshot): Execution
     ]),
   );
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     specId: snapshot.specId,
     mode: snapshot.mode,
     frontiers: snapshot.frontiers.map((frontier) => ({
@@ -198,6 +200,14 @@ function tasksForScope(
       verificationContext: scope.verification,
     };
   });
+}
+
+export function assertExecutionPlanOutlineVersion(
+  outline: Pick<ExecutionPlanOutline, 'schemaVersion'>,
+): void {
+  if (outline.schemaVersion !== 2) {
+    throw new Error(`Unsupported execution plan outline schema version: ${String(outline.schemaVersion)}`);
+  }
 }
 
 function taskForRequirement(

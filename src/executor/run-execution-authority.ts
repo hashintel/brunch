@@ -7,10 +7,11 @@ export async function withRunExecutionAuthority<Result>(args: {
   readonly cwd: string;
   readonly runId: string;
   readonly execute: () => Promise<Result>;
+  readonly onContended?: () => Promise<Result> | Result;
 }): Promise<Result> {
   const key = JSON.stringify([await canonicalPath(args.cwd), args.runId]);
   const active = executions.get(key);
-  if (active) return active as Promise<Result>;
+  if (active) return args.onContended ? args.onContended() : (active as Promise<Result>);
 
   const owned = Promise.resolve().then(args.execute);
   executions.set(key, owned);

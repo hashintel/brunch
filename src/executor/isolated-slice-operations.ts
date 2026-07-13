@@ -1,4 +1,4 @@
-import { appendFile, mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
 import type {
@@ -11,6 +11,7 @@ import type {
   VerifyTarget,
 } from './execution-ports.js';
 import { SLICE_ATTEMPT_LIMIT, type ReadyStep } from './orchestrate-topology.js';
+import { appendRunOrderedStreamEvent } from './slice-stream-events.js';
 
 export interface AgentStreamEvent {
   readonly event: 'agent_stream';
@@ -18,6 +19,7 @@ export interface AgentStreamEvent {
   readonly epicId?: string;
   readonly sliceId: string;
   readonly sequence: number;
+  readonly runSequence?: number;
   readonly kind: 'status' | 'message' | 'tool';
   readonly message: string;
 }
@@ -28,6 +30,7 @@ export interface VerifyStreamEvent {
   readonly epicId?: string;
   readonly sliceId: string;
   readonly sequence: number;
+  readonly runSequence?: number;
   readonly kind: 'status' | 'stdout' | 'stderr';
   readonly message: string;
 }
@@ -137,8 +140,8 @@ export async function runIsolatedAgentAttempt(args: {
     sliceId: args.sliceId,
     ...(args.runtime ? { runtime: args.runtime } : {}),
     onUpdate: (update) => {
-      const event: AgentStreamEvent = {
-        event: 'agent_stream',
+      const event = {
+        event: 'agent_stream' as const,
         runId: args.runId,
         ...(args.epicId === undefined ? {} : { epicId: args.epicId }),
         sliceId: args.sliceId,
@@ -147,10 +150,10 @@ export async function runIsolatedAgentAttempt(args: {
         message: update.message,
       };
       const write = streamQueue.then(async () => {
-        await appendStream(args.streamPath, event);
+        const persisted = await appendRunOrderedStreamEvent({ streamPath: args.streamPath, event });
         wroteStream = true;
         try {
-          args.onUpdate?.(event);
+          args.onUpdate?.(persisted);
         } catch {
           // Observer failures never affect execution.
         }
@@ -192,8 +195,8 @@ export async function runIsolatedVerifyAttempt(args: {
     ...(args.verifyTarget ? { verifyTarget: args.verifyTarget } : {}),
     ...(args.signal ? { signal: args.signal } : {}),
     onUpdate: async (update) => {
-      const event: VerifyStreamEvent = {
-        event: 'verify_stream',
+      const event = {
+        event: 'verify_stream' as const,
         runId: args.runId,
         ...(args.epicId === undefined ? {} : { epicId: args.epicId }),
         sliceId: args.sliceId,
@@ -201,10 +204,10 @@ export async function runIsolatedVerifyAttempt(args: {
         kind: update.kind,
         message: update.message,
       };
-      await appendStream(args.streamPath, event);
+      const persisted = await appendRunOrderedStreamEvent({ streamPath: args.streamPath, event });
       wroteStream = true;
       try {
-        args.onUpdate?.(event);
+        args.onUpdate?.(persisted);
       } catch {
         // Observer failures never affect execution.
       }
@@ -284,11 +287,6 @@ export function sliceAttemptDisposition(attempt: number): 'retry' | 'exhausted' 
 
 export function thrownSliceEffectReason(kind: string, error: unknown): string {
   return `${kind}: ${error instanceof Error ? error.message : 'unknown error'}`;
-}
-
-async function appendStream(path: string, event: object): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
-  await appendFile(path, `${JSON.stringify(event)}\n`, 'utf8');
 }
 
 export type IsolatedSliceFailureStep = Extract<

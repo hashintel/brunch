@@ -7,8 +7,10 @@ import {
   type BlockedStep,
   type SchedulerPlan,
 } from './orchestrate-topology.js';
+import { readPetriMarkingSnapshot } from './petri-marking.js';
 import { populatedPlanPath } from './populate.js';
 import { reportsPath } from './report.js';
+import { withRunExecutionAuthority } from './run-execution-authority.js';
 import {
   assertSafeSliceId,
   runMetadataPath,
@@ -23,6 +25,13 @@ export type SliceStartResult =
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
+      readonly runId: string;
+      readonly metadataPath: string;
+      readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: 'run_execution_active' | 'parallel_batch_active';
+      readonly runStatus: RunMetadata['status'] | 'not_started';
       readonly runId: string;
       readonly metadataPath: string;
       readonly sideEffects: readonly [];
@@ -62,12 +71,54 @@ export async function startSlice(args: {
   readonly runId: string;
   readonly sliceId?: string;
 }): Promise<SliceStartResult> {
+  return startSliceOwned(args);
+}
+
+export async function startSliceWithExecutionAuthority(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly sliceId?: string;
+}): Promise<SliceStartResult> {
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId: args.runId,
+    execute: () => startSliceOwned(args),
+    onContended: async () => {
+      const metadataPath = runMetadataPath(args.cwd, args.runId);
+      const metadata = await readRunMetadata(metadataPath);
+      return {
+        status: 'run_execution_active',
+        runStatus: metadata?.status ?? 'not_started',
+        runId: args.runId,
+        metadataPath,
+        sideEffects: [],
+      };
+    },
+  });
+}
+
+async function startSliceOwned(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly sliceId?: string;
+}): Promise<SliceStartResult> {
   const metadataPath = runMetadataPath(args.cwd, args.runId);
   const metadata = await readRunMetadata(metadataPath);
   if (!metadata) {
     return {
       status: 'missing_run',
       runStatus: 'not_started',
+      runId: args.runId,
+      metadataPath,
+      sideEffects: [],
+    };
+  }
+
+  const marking = await readPetriMarkingSnapshot({ cwd: args.cwd, runId: args.runId });
+  if (marking?.parallelSliceBatch) {
+    return {
+      status: 'parallel_batch_active',
+      runStatus: metadata.status,
       runId: args.runId,
       metadataPath,
       sideEffects: [],

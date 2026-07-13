@@ -418,17 +418,26 @@ async function driveOwned(
       continue;
     }
     const durableEpicHistory = await readDurableEpicTransitionHistory({ cwd: ctx.cwd, runId: ctx.runId });
-    if (durableEpicHistory !== undefined) {
-      const epicSummary = epicSummaryFromHistory(durableEpicHistory);
+    if (durableEpicHistory.status === 'unreadable') {
+      return classifyDriveTerminal({
+        kind: 'step_halted',
+        runId: ctx.runId,
+        runStatus: state.status,
+        step: reconciliationStep(state, plan),
+        reason: 'petri_input_unreadable',
+      }).outcome;
+    }
+    if (durableEpicHistory.status === 'readable') {
+      const epicSummary = epicSummaryFromHistory(durableEpicHistory.history);
       if (
-        !stringArraysEqual(durableEpicHistory, state.epicTransitionHistory ?? []) ||
+        !stringArraysEqual(durableEpicHistory.history, state.epicTransitionHistory ?? []) ||
         !stringArraysEqual(epicSummary.integratedEpicIds, state.integratedEpicIds ?? []) ||
         !stringArraysEqual(epicSummary.verifiedEpicIds, state.verifiedEpicIds ?? []) ||
         !stringArraysEqual(epicSummary.completedEpicIds, state.completedEpicIds ?? [])
       ) {
         await persistRunMetadata(metadataPath, {
           ...state,
-          epicTransitionHistory: durableEpicHistory,
+          epicTransitionHistory: durableEpicHistory.history,
           integratedEpicIds: epicSummary.integratedEpicIds,
           verifiedEpicIds: epicSummary.verifiedEpicIds,
           completedEpicIds: epicSummary.completedEpicIds,
@@ -790,6 +799,14 @@ async function driveOwned(
         }
       }
     }
+  }
+}
+
+function reconciliationStep(state: RunMetadata, plan: SchedulerPlan | undefined): ReadyStep['kind'] {
+  try {
+    return materializeExecutorPetriRuntime(state, plan).readySteps[0]?.kind ?? 'slice_start';
+  } catch {
+    return 'slice_start';
   }
 }
 

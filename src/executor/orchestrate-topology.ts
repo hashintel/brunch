@@ -51,13 +51,19 @@ export type ReadyStep =
 // need differentiated retry policies.
 export const SLICE_ATTEMPT_LIMIT = 3;
 
-export interface BlockedStep {
-  readonly kind: 'slice_start';
-  readonly sliceId: string;
-  readonly epicId?: string;
-  readonly derivedFrom?: readonly string[];
-  readonly blockers: readonly BlockedStepReason[];
-}
+export type BlockedStep =
+  | {
+      readonly kind: 'slice_start';
+      readonly sliceId: string;
+      readonly epicId?: string;
+      readonly derivedFrom?: readonly string[];
+      readonly blockers: readonly BlockedStepReason[];
+    }
+  | {
+      readonly kind: 'epic_verify';
+      readonly epicId: string;
+      readonly blockers: readonly BlockedStepReason[];
+    };
 
 export type BlockedStepReason =
   | { readonly kind: 'dependency'; readonly sliceId: string }
@@ -66,6 +72,7 @@ export type BlockedStepReason =
       readonly kind: 'parallel_authority';
       readonly state: 'claimed' | 'running' | 'succeeded_unintegrated' | 'failed' | 'integrated';
     }
+  | { readonly kind: 'epic_verification_authority'; readonly phase: 'claimed' | 'transitioned' }
   | { readonly kind: 'active_slice'; readonly sliceId: string };
 
 /** The minimal plan projection the scheduler needs to resolve the slice frontier. */

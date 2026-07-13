@@ -4,7 +4,7 @@ import type { ExecutablePlanDraft } from '../executable-plan-draft.js';
 import { previewPlan } from '../plan-preview.js';
 
 const draft: ExecutablePlanDraft = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   specId: '7',
   mode: 'brownfield',
   epics: [
@@ -37,7 +37,7 @@ const draft: ExecutablePlanDraft = {
 describe('previewPlan', () => {
   it('maps executable draft data into the old cook Plan shape without side effects', () => {
     expect(previewPlan(draft)).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: 2,
       mode: 'brownfield',
       scope_handoff_required: true,
       spec: {
@@ -63,6 +63,12 @@ describe('previewPlan', () => {
       ],
       sideEffects: [],
     });
+  });
+
+  it('rejects a v1 executable draft instead of previewing an incompatible shape', () => {
+    expect(() => previewPlan({ ...draft, schemaVersion: 1 } as unknown as ExecutablePlanDraft)).toThrow(
+      'Unsupported executable plan draft schema version: 1',
+    );
   });
 
   it('leaves old runner fields absent when the executable draft cannot derive them truthfully', () => {

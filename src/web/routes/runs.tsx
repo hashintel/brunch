@@ -522,7 +522,9 @@ function PetriProjectionBlock({
           <p className="text-sub text-xs">Blocked now</p>
           <ul className="text-sub flex flex-col gap-1 font-mono text-xs">
             {blockedSteps.map((step) => (
-              <li key={`${step.kind}-${step.sliceId}`}>{describeBlockedStep(step)}</li>
+              <li key={`${step.kind}-${step.kind === 'slice_start' ? step.sliceId : step.epicId}`}>
+                {describeBlockedStep(step)}
+              </li>
             ))}
           </ul>
         </div>
@@ -550,7 +552,9 @@ function describeBlockedStep(step: NonNullable<RunDetail['petriBlockedSteps']>[n
           ? `epic ${blocker.epicId}`
           : blocker.kind === 'parallel_authority'
             ? `parallel ${blocker.state}`
-            : `active slice ${blocker.sliceId}`,
+            : blocker.kind === 'epic_verification_authority'
+              ? `epic verification ${blocker.phase}`
+              : `active slice ${blocker.sliceId}`,
     )
     .join(', ')}`;
 }

@@ -137,7 +137,7 @@ describe('projectExecutionSpecSnapshot', () => {
       ],
     });
 
-    expect(snapshot.schemaVersion).toBe(1);
+    expect(snapshot.schemaVersion).toBe(2);
     expect(snapshot.specId).toBe('7');
     expect(snapshot.mode).toBe('brownfield');
     expect(snapshot.requirements.map((item) => item.itemId)).toEqual(['REQ1', 'REQ2']);

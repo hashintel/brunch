@@ -4,11 +4,13 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { writePetriMarkingSnapshot } from '../petri-marking.js';
 import { planFilePath } from '../plan-file.js';
 import { populateWorktree } from '../populate.js';
 import { initializeReports, reportsPath } from '../report.js';
+import { withRunExecutionAuthority } from '../run-execution-authority.js';
 import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, createRun } from '../run.js';
-import { startSlice } from '../slice-start.js';
+import { startSlice, startSliceWithExecutionAuthority } from '../slice-start.js';
 import { copyHostSource } from '../source-copy.js';
 import { selectSourcePolicy } from '../source-policy.js';
 import { createWorktree } from '../worktree.js';
@@ -242,6 +244,63 @@ describe('startSlice', () => {
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'slice_started',
       activeSliceId: 'task-3',
+    });
+  });
+
+  it('refuses a standalone start while the run execution owner is active', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-run-authority-'));
+    await createReportReadyRun(cwd);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let entered!: () => void;
+    const acquired = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const owner = withRunExecutionAuthority({
+      cwd,
+      runId: 'run-1',
+      async execute() {
+        entered();
+        await held;
+        return 'owner';
+      },
+    });
+    await acquired;
+
+    await expect(startSliceWithExecutionAuthority({ cwd, runId: 'run-1' })).resolves.toEqual({
+      status: 'run_execution_active',
+      runStatus: 'reports_initialized',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      sideEffects: [],
+    });
+    expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.activeSliceId).toBeUndefined();
+    release();
+    await owner;
+  });
+
+  it('refuses a standalone start when durable parallel batch authority is active', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-parallel-authority-'));
+    await createTwoSliceReportReadyRun(cwd);
+    await writePetriMarkingSnapshot({
+      cwd,
+      runId: 'run-1',
+      snapshot: {
+        currentMarking: { 'slice:task-1:started': 1, 'slice:task-2:started': 1 },
+        firedTransitionCount: 7,
+        lifecycleProvenance: { runStatus: 'reports_initialized' },
+        parallelSliceBatch: { claimedSliceIds: ['task-1', 'task-2'], settlements: [] },
+      },
+    });
+
+    await expect(startSliceWithExecutionAuthority({ cwd, runId: 'run-1' })).resolves.toEqual({
+      status: 'parallel_batch_active',
+      runStatus: 'reports_initialized',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      sideEffects: [],
     });
   });
 

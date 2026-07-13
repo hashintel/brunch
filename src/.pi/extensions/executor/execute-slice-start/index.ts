@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { startSlice, type SliceStartResult } from '../../../../executor/slice-start.js';
+import { startSliceWithExecutionAuthority, type SliceStartResult } from '../../../../executor/slice-start.js';
 import { BRUNCH_EXECUTE_SLICE_START_TOOL } from '../../../../session/schema/tool-names.js';
 import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { toolParameters } from '../../shared/tool-schema.js';
@@ -32,7 +32,7 @@ export function createExecuteSliceStartTool() {
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_slice_start requires an active cwd');
       }
-      const result = await startSlice({
+      const result = await startSliceWithExecutionAuthority({
         cwd,
         runId: params.runId,
         ...(params.sliceId ? { sliceId: params.sliceId } : {}),

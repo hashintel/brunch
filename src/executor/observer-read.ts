@@ -23,6 +23,7 @@ import { resolvePetrinautUrl } from './petrinaut/launcher-url.js';
 import { reducePetrinautReplayExport, type PetrinautReplayExport } from './petrinaut/replay-export.js';
 import { parseSdcpnFile, type SdcpnFile } from './petrinaut/sdcpn.js';
 import { readRunMetadata, runDirPath, runMetadataPath, type RunMetadata } from './run.js';
+import { runStreamEventsPath } from './slice-stream-events.js';
 import { verifyStreamPath } from './test-result.js';
 
 export interface RunPresence {
@@ -248,6 +249,23 @@ export async function readRunDetail(
       observedPetriRuntime = materializeExecutorPetriRuntime(metadata, petriRuntimePlan, {
         currentMarking: petriMarkingSnapshot.currentMarking,
         parallelSliceBatch: petriMarkingSnapshot.parallelSliceBatch,
+        ...(petriMarkingSnapshot.epicVerificationClaims
+          ? { epicVerificationClaims: petriMarkingSnapshot.epicVerificationClaims }
+          : {}),
+      });
+    } catch {
+      observedPetriRuntime = undefined;
+    }
+  }
+  if (
+    hasMatchingPetriMarkingSnapshot &&
+    petriMarkingSnapshot.epicVerificationClaims &&
+    !petriMarkingSnapshot.parallelSliceBatch
+  ) {
+    try {
+      observedPetriRuntime = materializeExecutorPetriRuntime(metadata, petriRuntimePlan, {
+        currentMarking: petriMarkingSnapshot.currentMarking,
+        epicVerificationClaims: petriMarkingSnapshot.epicVerificationClaims,
       });
     } catch {
       observedPetriRuntime = undefined;
@@ -300,6 +318,7 @@ export async function readRunDetail(
       metadata.populatedPlanPath ?? metadata.planPath,
       metadata,
       reports.events,
+      observedPetriRuntime?.blockedSteps ?? [],
     ),
     ...(petriNet === undefined ? {} : { petriNet }),
     ...(petrinautReplayExport === undefined
@@ -753,6 +772,7 @@ async function readRequirementStatuses(
   planPath: string,
   metadata: RunMetadata,
   reports: readonly RunReportEvent[],
+  blockedSteps: readonly BlockedStep[],
 ): Promise<readonly RunRequirementStatus[]> {
   let plan: ExecutedPlanPayload;
   try {
@@ -763,6 +783,13 @@ async function readRequirementStatuses(
 
   const completed = new Set(metadata.completedSliceIds ?? []);
   const latestVerdicts = latestSliceVerdicts(reports);
+  const parallelStates = new Map(
+    blockedSteps.flatMap((step) => {
+      if (step.kind !== 'slice_start') return [];
+      const blocker = step.blockers.find((candidate) => candidate.kind === 'parallel_authority');
+      return blocker?.kind === 'parallel_authority' ? [[step.sliceId, blocker.state] as const] : [];
+    }),
+  );
   const criteriaByRequirement = criteriaCoverage(plan);
   const slices = plan.slices ?? [];
 
@@ -773,7 +800,13 @@ async function readRequirementStatuses(
       return slice.derived_from.includes(requirement.item_id) ? [slice.id] : [];
     });
     const completedSliceIds = sliceIds.filter((sliceId) => completed.has(sliceId));
-    const failedSliceIds = sliceIds.filter((sliceId) => latestVerdicts.get(sliceId) === 'failed');
+    const failedSliceIds = sliceIds.filter(
+      (sliceId) => latestVerdicts.get(sliceId) === 'failed' || parallelStates.get(sliceId) === 'failed',
+    );
+    const activeSliceIds = sliceIds.filter((sliceId) => {
+      const state = parallelStates.get(sliceId);
+      return state === 'claimed' || state === 'running' || state === 'succeeded_unintegrated';
+    });
     const missingVerificationSliceIds = completedSliceIds.filter((sliceId) => !latestVerdicts.has(sliceId));
     const criterionIds = criteriaByRequirement.get(requirement.item_id) ?? [];
 
@@ -784,6 +817,7 @@ async function readRequirementStatuses(
         status: requirementStatus({
           sliceIds,
           ...(metadata.activeSliceId === undefined ? {} : { activeSliceId: metadata.activeSliceId }),
+          activeSliceIds,
           completedSliceIds,
           failedSliceIds,
           missingVerificationSliceIds,
@@ -827,6 +861,7 @@ function criteriaCoverage(plan: ExecutedPlanPayload): Map<string, readonly strin
 function requirementStatus(args: {
   readonly sliceIds: readonly string[];
   readonly activeSliceId?: string;
+  readonly activeSliceIds: readonly string[];
   readonly completedSliceIds: readonly string[];
   readonly failedSliceIds: readonly string[];
   readonly missingVerificationSliceIds: readonly string[];
@@ -834,6 +869,7 @@ function requirementStatus(args: {
 }): RunRequirementStatusKind {
   if (args.sliceIds.length === 0) return 'unmapped';
   if (args.failedSliceIds.length > 0) return 'failed';
+  if (args.activeSliceIds.length > 0) return 'running';
   if (
     args.activeSliceId !== undefined &&
     args.sliceIds.includes(args.activeSliceId) &&
@@ -895,6 +931,12 @@ async function readStreamEvents<T extends { readonly event: string }>(
       ? [metadata.activeSliceId]
       : []),
   ];
+  const runOrdered = await readRunOrderedStreamEvents<T>(
+    runStreamEventsPath(agentStreamPath(cwd, runId, '_stream_index_')),
+    eventName,
+    new Set(sliceIds),
+  );
+  if (runOrdered !== undefined) return runOrdered;
   const events: T[] = [];
   for (const sliceId of sliceIds) {
     const attempts = authoritySliceIds
@@ -905,6 +947,29 @@ async function readStreamEvents<T extends { readonly event: string }>(
     }
   }
   return events;
+}
+
+async function readRunOrderedStreamEvents<T extends { readonly event: string }>(
+  path: string,
+  eventName: T['event'],
+  sliceIds: ReadonlySet<string>,
+): Promise<readonly T[] | undefined> {
+  let raw: string;
+  try {
+    raw = await readFile(path, 'utf8');
+  } catch {
+    return undefined;
+  }
+  const events: (T & { readonly runSequence?: number; readonly sliceId?: string })[] = [];
+  for (const line of raw.split('\n').slice(0, -1)) {
+    try {
+      const event = JSON.parse(line) as T & { readonly runSequence?: number; readonly sliceId?: string };
+      if (event.event === eventName && event.sliceId && sliceIds.has(event.sliceId)) events.push(event);
+    } catch {
+      // A torn index line does not hide prior durable stream events.
+    }
+  }
+  return events.sort((left, right) => (left.runSequence ?? 0) - (right.runSequence ?? 0));
 }
 
 async function streamArtifactAttempts(
@@ -936,7 +1001,7 @@ async function readSliceStreamInventory(
   return Promise.all(
     sliceIds.map(async (sliceId) => {
       const blocker = blockedSteps
-        .find((step) => step.sliceId === sliceId)
+        .find((step) => step.kind === 'slice_start' && step.sliceId === sliceId)
         ?.blockers.find((reason) => reason.kind === 'parallel_authority');
       return {
         sliceId,

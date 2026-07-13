@@ -23,7 +23,7 @@ import {
   type ReadyStep,
   type SchedulerPlan,
 } from './orchestrate-topology.js';
-import type { PetriMarkingSnapshot } from './petri-marking.js';
+import type { EpicVerificationClaim, PetriMarkingSnapshot } from './petri-marking.js';
 import type { ParallelSliceBatchSnapshot } from './petri-marking.js';
 import { replayTransitionHistory } from './petri-replay.js';
 import { exportPetri } from './petri.js';
@@ -232,15 +232,19 @@ export function materializeExecutorPetriRuntime(
   authority?: {
     readonly currentMarking: Record<string, number>;
     readonly parallelSliceBatch?: ParallelSliceBatchSnapshot;
+    readonly epicVerificationClaims?: readonly EpicVerificationClaim[];
   },
 ): ExecutorPetriRuntime {
   const topology = compileExecutorTopology(plan);
   const currentMarking = authority?.currentMarking ?? materializeCurrentMarking(topology, state, plan);
+  const claimedEpicIds = new Set(authority?.epicVerificationClaims?.map((claim) => claim.epicId) ?? []);
   const enabledTransitions = authority?.parallelSliceBatch
     ? []
     : topology.transitions.filter(
         (transition): transition is ExecutableExecutorTransition =>
-          transition.step !== undefined && isPetriTransitionEnabled(transition, currentMarking, state, plan),
+          transition.step !== undefined &&
+          !(transition.step.kind === 'epic_verify' && claimedEpicIds.has(transition.step.epicId)) &&
+          isPetriTransitionEnabled(transition, currentMarking, state, plan),
       );
 
   return {
@@ -368,50 +372,64 @@ function blockedExecutorSteps(
   authority?: {
     readonly currentMarking: Record<string, number>;
     readonly parallelSliceBatch?: ParallelSliceBatchSnapshot;
+    readonly epicVerificationClaims?: readonly EpicVerificationClaim[];
   },
 ): readonly BlockedStep[] {
+  const epicClaimBlockers: BlockedStep[] = (authority?.epicVerificationClaims ?? []).map((claim) => ({
+    kind: 'epic_verify',
+    epicId: claim.epicId,
+    blockers: [{ kind: 'epic_verification_authority', phase: claim.phase }],
+  }));
   if (authority?.parallelSliceBatch) {
     const batch = authority.parallelSliceBatch;
-    return batch.claimedSliceIds.map((sliceId) => {
-      const slice = plan?.slices?.find((candidate) => candidate.id === sliceId);
-      return {
-        kind: 'slice_start',
-        sliceId,
-        ...(slice?.epic_id === undefined ? {} : { epicId: slice.epic_id }),
-        ...(slice?.derived_from === undefined ? {} : { derivedFrom: slice.derived_from }),
-        blockers: [
-          {
-            kind: 'parallel_authority',
-            state: parallelSliceAuthorityState(
-              sliceId,
-              authority.currentMarking,
-              batch,
-              state.completedSliceIds ?? [],
-            ),
-          },
-        ],
-      };
-    });
-  }
-  const activeSliceId = inFlightSliceId(state, plan);
-  if (activeSliceId) {
-    return readyPlanSliceIds(plan, state.completedSliceIds ?? [], state.completedEpicIds ?? [])
-      .filter((sliceId) => sliceId !== activeSliceId)
-      .map<BlockedStep>((sliceId) => {
-        const epicId = epicIdForSlice(plan, sliceId);
-        const derivedFrom = derivedFromForSlice(plan, sliceId);
+    return [
+      ...batch.claimedSliceIds.map<BlockedStep>((sliceId) => {
+        const slice = plan?.slices?.find((candidate) => candidate.id === sliceId);
         return {
           kind: 'slice_start',
           sliceId,
-          ...(epicId === undefined ? {} : { epicId }),
-          ...(derivedFrom === undefined ? {} : { derivedFrom }),
-          blockers: [{ kind: 'active_slice', sliceId: activeSliceId }],
+          ...(slice?.epic_id === undefined ? {} : { epicId: slice.epic_id }),
+          ...(slice?.derived_from === undefined ? {} : { derivedFrom: slice.derived_from }),
+          blockers: [
+            {
+              kind: 'parallel_authority',
+              state: parallelSliceAuthorityState(
+                sliceId,
+                authority.currentMarking,
+                batch,
+                state.completedSliceIds ?? [],
+              ),
+            },
+          ],
         };
-      });
+      }),
+      ...epicClaimBlockers,
+    ];
   }
-  return state.status === 'reports_initialized' || state.status === 'slice_completed'
-    ? blockedPlanSliceSteps(plan, state.completedSliceIds ?? [], state.completedEpicIds ?? [])
-    : [];
+  const activeSliceId = inFlightSliceId(state, plan);
+  if (activeSliceId) {
+    return [
+      ...readyPlanSliceIds(plan, state.completedSliceIds ?? [], state.completedEpicIds ?? [])
+        .filter((sliceId) => sliceId !== activeSliceId)
+        .map<BlockedStep>((sliceId) => {
+          const epicId = epicIdForSlice(plan, sliceId);
+          const derivedFrom = derivedFromForSlice(plan, sliceId);
+          return {
+            kind: 'slice_start',
+            sliceId,
+            ...(epicId === undefined ? {} : { epicId }),
+            ...(derivedFrom === undefined ? {} : { derivedFrom }),
+            blockers: [{ kind: 'active_slice', sliceId: activeSliceId }],
+          };
+        }),
+      ...epicClaimBlockers,
+    ];
+  }
+  const sliceBlockers =
+    state.status === 'reports_initialized' || state.status === 'slice_completed'
+      ? blockedPlanSliceSteps(plan, state.completedSliceIds ?? [], state.completedEpicIds ?? [])
+      : [];
+  return [...sliceBlockers, ...epicClaimBlockers];
 }
 
 function parallelSliceAuthorityState(

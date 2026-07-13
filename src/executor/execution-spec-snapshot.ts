@@ -44,7 +44,7 @@ export interface ExecutionSpecScopeSnapshot extends ExecutionSpecItemSnapshot {
 }
 
 export interface ExecutionSpecSnapshot {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
   readonly specId: string;
   readonly mode: ExecutionSpecMode;
   readonly requirements: readonly ExecutionSpecRequirementSnapshot[];
@@ -114,7 +114,7 @@ export function projectExecutionSpecSnapshot(
   );
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     specId: String(input.specId),
     mode: input.mode,
     requirements: nodes
@@ -158,6 +158,14 @@ export function projectExecutionSpecSnapshot(
         .map((node) => itemSnapshot(node)),
     },
   };
+}
+
+export function assertExecutionSpecSnapshotVersion(
+  snapshot: Pick<ExecutionSpecSnapshot, 'schemaVersion'>,
+): void {
+  if (snapshot.schemaVersion !== 2) {
+    throw new Error(`Unsupported execution spec snapshot schema version: ${String(snapshot.schemaVersion)}`);
+  }
 }
 
 function scopeSnapshot(args: {

@@ -1,4 +1,4 @@
-import type { ExecutablePlanDraft } from './executable-plan-draft.js';
+import { assertExecutablePlanDraftVersion, type ExecutablePlanDraft } from './executable-plan-draft.js';
 
 export interface PlanPreviewVerificationTarget {
   readonly kind: 'criterion';
@@ -47,7 +47,7 @@ export interface PlanPreviewSlice {
 }
 
 export interface PlanPreview {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
   readonly mode: ExecutablePlanDraft['mode'];
   readonly scope_handoff_required: boolean;
   readonly spec: PlanPreviewSpec;
@@ -59,8 +59,9 @@ export interface PlanPreview {
 }
 
 export function previewPlan(draft: ExecutablePlanDraft): PlanPreview {
+  assertExecutablePlanDraftVersion(draft);
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     mode: draft.mode,
     scope_handoff_required: draft.slices.some((slice) => slice.scopeId !== undefined),
     spec: previewSpec(draft),
@@ -105,6 +106,12 @@ export function previewPlan(draft: ExecutablePlanDraft): PlanPreview {
     })),
     sideEffects: [],
   };
+}
+
+export function assertPlanPreviewVersion(preview: Pick<PlanPreview, 'schemaVersion'>): void {
+  if (preview.schemaVersion !== 2) {
+    throw new Error(`Unsupported plan preview schema version: ${String(preview.schemaVersion)}`);
+  }
 }
 
 function previewSpec(draft: ExecutablePlanDraft): PlanPreviewSpec {

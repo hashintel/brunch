@@ -83,10 +83,13 @@ export function petriMarkingSnapshotMatchesRunMetadata(
 ): boolean {
   const provenance = snapshot.lifecycleProvenance;
   if (!provenance) return false;
-  if (provenance.runStatus !== metadata.status) return false;
-  if (provenance.activeSliceId !== metadata.activeSliceId) return false;
   const snapshotCompleted = provenance.completedSliceIds ?? [];
   const metadataCompleted = metadata.completedSliceIds ?? [];
+  if (snapshot.parallelSliceBatch) {
+    return snapshotCompleted.every((sliceId) => metadataCompleted.includes(sliceId));
+  }
+  if (provenance.runStatus !== metadata.status) return false;
+  if (provenance.activeSliceId !== metadata.activeSliceId) return false;
   return (
     snapshotCompleted.length === metadataCompleted.length &&
     snapshotCompleted.every((sliceId, index) => sliceId === metadataCompleted[index])
