@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
+import { parseArgs } from 'node:util';
 
 import type { TranscriptEntryLike } from '../projections/session/continuity-entry-classifier.js';
 import {
@@ -116,24 +117,38 @@ function uncheckable(
   };
 }
 
+const usage = [
+  'usage:',
+  '  node --import tsx src/probes/sweep-debt-tripwire.ts --session <session.jsonl> --expect capture|ignore',
+  '  node dist/probes/sweep-debt-tripwire.js --session <session.jsonl> --expect capture|ignore',
+].join('\n');
+
 function parseArguments(argv: readonly string[]): {
   readonly sessionPath: string;
   readonly expectation: SweepDebtExpectation;
 } {
-  const sessionIndex = argv.indexOf('--session');
-  const expectationIndex = argv.indexOf('--expect');
-  const sessionPath = sessionIndex >= 0 ? argv[sessionIndex + 1] : undefined;
-  const expectation = expectationIndex >= 0 ? argv[expectationIndex + 1] : undefined;
-  if (!sessionPath || (expectation !== 'capture' && expectation !== 'ignore')) {
-    throw new Error(
-      [
-        'usage:',
-        '  node --import tsx src/probes/sweep-debt-tripwire.ts --session <session.jsonl> --expect capture|ignore',
-        '  node dist/probes/sweep-debt-tripwire.js --session <session.jsonl> --expect capture|ignore',
-      ].join('\n'),
-    );
+  try {
+    const { values } = parseArgs({
+      args: argv,
+      allowPositionals: false,
+      strict: true,
+      options: {
+        session: { type: 'string' },
+        expect: { type: 'string' },
+      },
+    });
+    const sessionPath = values.session;
+    const expectation = values.expect;
+    if (!sessionPath || (expectation !== 'capture' && expectation !== 'ignore')) {
+      throw new Error(usage);
+    }
+    return { sessionPath, expectation };
+  } catch (error) {
+    if (error instanceof Error && error.message !== usage) {
+      throw new Error(`${error.message}\n${usage}`, { cause: error });
+    }
+    throw error;
   }
-  return { sessionPath, expectation };
 }
 
 async function main(): Promise<void> {

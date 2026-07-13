@@ -175,11 +175,28 @@ describe('sweep-debt tripwire', () => {
     },
   );
 
-  it('advertises the supported source and built operator invocations', () => {
-    const result = spawnSync(process.execPath, ['--import', 'tsx', 'src/probes/sweep-debt-tripwire.ts'], {
-      cwd: process.cwd(),
-      encoding: 'utf8',
-    });
+  it.each([
+    ['no arguments', () => []],
+    [
+      'an unknown option',
+      (sessionPath: string) => ['--session', sessionPath, '--expect', 'ignore', '--unknown'],
+    ],
+    ['a positional', (sessionPath: string) => ['--session', sessionPath, '--expect', 'ignore', 'extra']],
+    ['a missing session value', () => ['--session', '--expect', 'ignore']],
+    ['a missing expectation value', (sessionPath: string) => ['--session', sessionPath, '--expect']],
+  ])('rejects %s with the supported source and built invocations', async (_case, makeArgs) => {
+    const directory = await mkdtemp(join(tmpdir(), 'sweep-debt-tripwire-'));
+    const sessionPath = join(directory, 'session.jsonl');
+    await writeFile(sessionPath, `${JSON.stringify(message('user', 'Still open.'))}\n`);
+
+    const result = spawnSync(
+      process.execPath,
+      ['--import', 'tsx', 'src/probes/sweep-debt-tripwire.ts', ...makeArgs(sessionPath)],
+      {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+      },
+    );
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
