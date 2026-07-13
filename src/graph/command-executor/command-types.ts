@@ -50,6 +50,13 @@ interface ReconNeedResolveSuccess {
   readonly lsn: number;
 }
 
+/** Successful edge-revalidation acknowledgement. */
+interface AcknowledgeEdgeRevalidationSuccess {
+  readonly status: 'success';
+  /** The spec LSN written as the edge's acknowledged-LSN watermark. */
+  readonly lsn: number;
+}
+
 /** Successful spec creation. */
 interface CreateSpecSuccess {
   readonly status: 'success';
@@ -76,6 +83,7 @@ export type CommandResult =
   | AcceptReviewSetSuccess
   | ReconNeedSuccess
   | ReconNeedResolveSuccess
+  | AcknowledgeEdgeRevalidationSuccess
   | CreateSpecSuccess
   | StructuralIllegal
   | NeedsHuman
@@ -90,6 +98,9 @@ export type CreateReconNeedResult = ReconNeedSuccess | StructuralIllegal;
 
 /** Result of a resolveReconciliationNeed command. */
 export type ResolveReconNeedResult = ReconNeedResolveSuccess | StructuralIllegal;
+
+/** Result of an acknowledgeEdgeRevalidation command. */
+export type AcknowledgeEdgeRevalidationResult = AcknowledgeEdgeRevalidationSuccess | StructuralIllegal;
 
 /** Result of a createSpec command. */
 export type CreateSpecResult = CreateSpecSuccess | StructuralIllegal;
@@ -176,4 +187,10 @@ export interface CreateReconNeedInput {
 export interface ResolveReconNeedInput {
   readonly specId: number;
   readonly id: number;
+}
+
+/** Input for acknowledging a derived `edge_revalidation` staleness signal. */
+export interface AcknowledgeEdgeRevalidationInput {
+  readonly specId: number;
+  readonly edgeId: number;
 }

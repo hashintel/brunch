@@ -145,4 +145,20 @@ describe('getDerivedEdgeRevalidations', () => {
 
     expect(getDerivedEdgeRevalidations(db, specId)).toMatchObject([{ edgeId, kind: 'edge_revalidation' }]);
   });
+
+  it('clears through the acknowledgement command: derive → acknowledge → nothing → churn → derives again', () => {
+    const { edgeId, upstreamNodeId } = seedStaleDependency();
+    expect(getDerivedEdgeRevalidations(db, specId)).toHaveLength(1);
+
+    const ack = executor.acknowledgeEdgeRevalidation({ specId, edgeId });
+    if (ack.status !== 'success') throw new Error('acknowledge failed');
+    expect(getDerivedEdgeRevalidations(db, specId)).toEqual([]);
+
+    const churn = executor.mutateGraph({
+      specId,
+      ops: [{ op: 'patch_node', node: { existing: upstreamNodeId }, patch: { title: 'R1 churned' } }],
+    });
+    if (churn.status !== 'success') throw new Error('churn failed');
+    expect(getDerivedEdgeRevalidations(db, specId)).toMatchObject([{ edgeId, kind: 'edge_revalidation' }]);
+  });
 });

@@ -25,6 +25,8 @@ import type {
   AcceptReviewSetDryRunResult,
   AcceptReviewSetInput,
   AcceptReviewSetResult,
+  AcknowledgeEdgeRevalidationInput,
+  AcknowledgeEdgeRevalidationResult,
   CreateNodeInput,
   CreateNodeResult,
   CreateReconNeedInput,
@@ -75,6 +77,8 @@ export type {
   AcceptReviewSetDryRunResult,
   AcceptReviewSetInput,
   AcceptReviewSetResult,
+  AcknowledgeEdgeRevalidationInput,
+  AcknowledgeEdgeRevalidationResult,
   CommandResult,
   CreateNodeInput,
   CreateNodeResult,
@@ -556,6 +560,58 @@ export class CommandExecutor {
           lsn,
           operation: 'resolve_reconciliation_need',
           payload: JSON.stringify({ id: input.id, specId: input.specId }),
+        })
+        .run();
+
+      return { status: 'success' as const, lsn };
+    });
+  }
+
+  /**
+   * Acknowledge a derived `edge_revalidation` staleness signal.
+   *
+   * Bumps the target edge's `acknowledged_lsn` watermark to a freshly allocated
+   * spec LSN — the first and only write in the reconciliation-derivation
+   * frontier, structurally separate from the read-only derivation. Idempotent:
+   * re-acknowledging advances the watermark to a fresh, higher LSN and leaves the
+   * edge cleared. A general graph command like `resolveReconciliationNeed`; it
+   * carries no reviewer-agent authority (I16-L stays as-is).
+   */
+  acknowledgeEdgeRevalidation(input: AcknowledgeEdgeRevalidationInput): AcknowledgeEdgeRevalidationResult {
+    return this.db.transaction((tx) => {
+      const edge = tx
+        .select({ id: schema.edges.id, spec_id: schema.edges.spec_id })
+        .from(schema.edges)
+        .where(eq(schema.edges.id, input.edgeId))
+        .get();
+      if (!edge) {
+        return {
+          status: 'structural_illegal' as const,
+          diagnostics: [{ field: 'edgeId', message: `edge ${input.edgeId} does not exist` }],
+        };
+      }
+      if (edge.spec_id !== input.specId) {
+        return {
+          status: 'structural_illegal' as const,
+          diagnostics: [
+            {
+              field: 'edgeId',
+              message: `edge ${input.edgeId} belongs to a different spec (command spec ${input.specId})`,
+            },
+          ],
+        };
+      }
+
+      const lsn = this.bumpExistingSpecLsn(tx, input.specId);
+
+      tx.update(schema.edges).set({ acknowledged_lsn: lsn }).where(eq(schema.edges.id, input.edgeId)).run();
+
+      tx.insert(schema.changeLog)
+        .values({
+          spec_id: input.specId,
+          lsn,
+          operation: 'acknowledge_edge_revalidation',
+          payload: JSON.stringify({ edgeId: input.edgeId, specId: input.specId }),
         })
         .run();
 

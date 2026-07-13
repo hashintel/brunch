@@ -32,7 +32,7 @@ agent write authority (I16-L widening), stop — that is a SPEC decision, not a 
 
 ---
 
-## Card 1 — per-edge acknowledged-LSN watermark + derivation switch  [status: next]
+## Card 1 — per-edge acknowledged-LSN watermark + derivation switch  [status: done]
 
 Full card (schema migration).
 

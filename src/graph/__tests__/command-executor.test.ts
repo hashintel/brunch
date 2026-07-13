@@ -11,6 +11,7 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { createDb, type BrunchDb } from '../../db/connection.js';
 import {
   changeLog,
+  edges,
   graphClock,
   nodeKindCounters,
   nodes,
@@ -892,6 +893,69 @@ describe('CommandExecutor', () => {
       expect(resolve2.status).toBe('structural_illegal');
       if (resolve2.status !== 'structural_illegal') throw new Error('unreachable');
       expect(resolve2.diagnostics[0]!.message).toContain('already resolved');
+    });
+  });
+
+  describe('acknowledgeEdgeRevalidation', () => {
+    function seedEdge(): number {
+      const batch = runCreateOnlyMutation(executor, {
+        specId,
+        nodes: [
+          { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'R1' },
+          { ref: 'a1', plane: 'intent', kind: 'assumption', title: 'A1' },
+        ],
+        edges: [{ category: 'dependency', source: 'r1', target: 'a1' }],
+      });
+      if (batch.status !== 'success') throw new Error('unreachable');
+      return batch.createdEdges[0]!;
+    }
+
+    function acknowledgedLsn(edgeId: number): number | null {
+      return db.select({ lsn: edges.acknowledged_lsn }).from(edges).where(eq(edges.id, edgeId)).get()!.lsn;
+    }
+
+    it("bumps the edge's acknowledged_lsn to the freshly allocated spec LSN", () => {
+      const edgeId = seedEdge();
+      const result = executor.acknowledgeEdgeRevalidation({ specId, edgeId });
+
+      expect(result.status).toBe('success');
+      if (result.status !== 'success') throw new Error('unreachable');
+      expect(result.lsn).toBe(graphClockLsn(db, specId));
+      expect(acknowledgedLsn(edgeId)).toBe(result.lsn);
+    });
+
+    it('is idempotent: re-acknowledging succeeds and advances the watermark monotonically', () => {
+      const edgeId = seedEdge();
+      const first = executor.acknowledgeEdgeRevalidation({ specId, edgeId });
+      const second = executor.acknowledgeEdgeRevalidation({ specId, edgeId });
+
+      expect(first.status).toBe('success');
+      expect(second.status).toBe('success');
+      if (first.status !== 'success' || second.status !== 'success') throw new Error('unreachable');
+      expect(second.lsn).toBeGreaterThan(first.lsn);
+      expect(acknowledgedLsn(edgeId)).toBe(second.lsn);
+    });
+
+    it('rejects an unknown edge id with a structured diagnostic consistent with sibling commands', () => {
+      const result = executor.acknowledgeEdgeRevalidation({ specId, edgeId: 9999 });
+
+      expect(result.status).toBe('structural_illegal');
+      if (result.status !== 'structural_illegal') throw new Error('unreachable');
+      expect(result.diagnostics[0]!.field).toBe('edgeId');
+      expect(result.diagnostics[0]!.message).toContain('9999');
+    });
+
+    it('appends an acknowledge_edge_revalidation change_log row', () => {
+      const edgeId = seedEdge();
+      const result = executor.acknowledgeEdgeRevalidation({ specId, edgeId });
+      if (result.status !== 'success') throw new Error('unreachable');
+
+      const logged = db
+        .select({ operation: changeLog.operation, lsn: changeLog.lsn })
+        .from(changeLog)
+        .where(eq(changeLog.spec_id, specId))
+        .all();
+      expect(logged).toContainEqual({ operation: 'acknowledge_edge_revalidation', lsn: result.lsn });
     });
   });
 });
