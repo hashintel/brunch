@@ -23,6 +23,7 @@ import {
   type ReadyStep,
   type SchedulerPlan,
 } from './orchestrate-topology.js';
+import type { PetriMarkingSnapshot } from './petri-marking.js';
 import { replayTransitionHistory } from './petri-replay.js';
 import { exportPetri } from './petri.js';
 import { populatedPlanPath, populateWorktree } from './populate.js';
@@ -66,12 +67,17 @@ export interface ExecutorTransitionBindingContext {
   readonly onAgentUpdate?: (event: AgentStreamEvent) => void;
   readonly onVerifyUpdate?: (event: VerifyStreamEvent) => void;
   readonly plan?: SchedulerPlan;
+  readonly currentMarking?: Record<string, number>;
+  readonly firedTransitionCount?: number;
+  readonly markingSnapshot?: PetriMarkingSnapshot;
 }
 
 export interface ExecutorStepResult {
   readonly status: string;
   readonly runStatus: RunMetadata['status'] | 'not_started';
   readonly advanced?: true;
+  readonly skipTransition?: true;
+  readonly epicVerificationPassed?: string;
 }
 
 export interface BoundExecutorPetriTransition {
@@ -614,6 +620,9 @@ export async function executeExecutorReadyStep(
         step,
         plan: ctx.plan,
         testRunner: ports.testRunner,
+        ...(ctx.currentMarking ? { currentMarking: ctx.currentMarking } : {}),
+        ...(ctx.firedTransitionCount === undefined ? {} : { firedTransitionCount: ctx.firedTransitionCount }),
+        ...(ctx.markingSnapshot ? { markingSnapshot: ctx.markingSnapshot } : {}),
         ...(ctx.signal ? { signal: ctx.signal } : {}),
       });
     case 'run_complete':

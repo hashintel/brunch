@@ -101,6 +101,10 @@ export function parsePetriEvent(value: unknown): ExecutorNetEvent | undefined {
     }
     return value as unknown as ExecutorNetEvent;
   }
+  if (value.kind === 'epic_verification_claimed') {
+    if (typeof value.epicId !== 'string' || value.step !== 'epic_verify') return undefined;
+    return value as unknown as ExecutorNetEvent;
+  }
   if (value.kind !== 'transition_fired') return undefined;
   if (value.attempt !== undefined && !isAttemptNumber(value.attempt)) return undefined;
   if (

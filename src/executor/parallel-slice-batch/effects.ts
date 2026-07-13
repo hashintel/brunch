@@ -14,7 +14,7 @@ import { appendSliceAttemptCycle, type SliceAttemptHistory } from '../run.js';
 import { sliceExecutionRequestPath } from '../slice-execute.js';
 import { sliceWorkspacePath } from '../slice-workspace.js';
 import { verifyStreamPath, type VerifyStreamEvent } from '../test-result.js';
-import type { BatchAuthority } from './authority.js';
+import { ParallelAuthorityError, type BatchAuthority } from './authority.js';
 import { emitParallelStepProgress } from './progress.js';
 import type {
   ParallelSliceBatchContext,
@@ -40,22 +40,31 @@ export async function executeIsolatedSlice(args: {
   const workspaceDir = sliceWorkspacePath(ctx.cwd, ctx.runId, step.sliceId);
   const executeStep = { ...step, kind: 'slice_execute' as const };
   emitParallelStepProgress(ctx, 'started', executeStep, args.state);
-  const workspace = await ctx.ports.gitSliceIntegration.prepare({
-    runWorktreeDir,
-    sliceWorktreeDir: workspaceDir,
-    sliceId: step.sliceId,
-  });
+  let workspace: Awaited<ReturnType<typeof ctx.ports.gitSliceIntegration.prepare>>;
+  try {
+    workspace = await ctx.ports.gitSliceIntegration.prepare({
+      runWorktreeDir,
+      sliceWorktreeDir: workspaceDir,
+      sliceId: step.sliceId,
+    });
+  } catch (error) {
+    return failed(step.sliceId, 'slice_execute', thrownReason('slice_workspace_threw', error), {});
+  }
   if (workspace.status === 'failed') {
     return failed(step.sliceId, 'slice_execute', 'slice_workspace_failed', {});
   }
 
   const requestPath = sliceExecutionRequestPath(ctx.cwd, ctx.runId, step.sliceId);
-  await mkdir(dirname(requestPath), { recursive: true });
-  await writeFile(
-    requestPath,
-    `${JSON.stringify({ runId: ctx.runId, sliceId: step.sliceId, epicId, action: 'execute_slice', status: 'requested' }, null, 2)}\n`,
-    'utf8',
-  );
+  try {
+    await mkdir(dirname(requestPath), { recursive: true });
+    await writeFile(
+      requestPath,
+      `${JSON.stringify({ runId: ctx.runId, sliceId: step.sliceId, epicId, action: 'execute_slice', status: 'requested' }, null, 2)}\n`,
+      'utf8',
+    );
+  } catch (error) {
+    return failed(step.sliceId, 'slice_execute', thrownReason('slice_artifact_write_failed', error), {});
+  }
   await authority.fire(sliceTransitionId('slice_execute', step.sliceId));
   await authority.appendReport({
     event: 'slice_execution_requested',
@@ -123,32 +132,42 @@ async function runAgentAttempts(args: {
     let streamQueue = Promise.resolve();
     const agentStep = { ...args.step, kind: 'agent_result' as const };
     emitParallelStepProgress(args.ctx, 'started', agentStep, args.state);
-    const result = await args.ctx.ports.agentRunner.run({
-      worktreeDir: args.workspaceDir,
-      requestPath: args.requestPath,
-      resultPath: agentResultPath(args.ctx.cwd, args.ctx.runId, args.sliceId, attempt),
-      runId: args.ctx.runId,
-      epicId: args.epicId,
-      sliceId: args.sliceId,
-      ...(args.ctx.runtime ? { runtime: args.ctx.runtime } : {}),
-      onUpdate: (update) => {
-        const event: AgentStreamEvent = {
-          event: 'agent_stream',
-          runId: args.ctx.runId,
-          epicId: args.epicId,
-          sliceId: args.sliceId,
-          sequence: sequence++,
-          kind: update.kind,
-          message: update.message,
-        };
-        const write = streamQueue.then(() =>
-          appendStream(streamPath, event, () => args.ctx.onAgentUpdate?.(event)),
-        );
-        streamQueue = write.catch(() => undefined);
-        return write;
-      },
-    });
-    await streamQueue;
+    let result: Awaited<ReturnType<typeof args.ctx.ports.agentRunner.run>>;
+    try {
+      result = await args.ctx.ports.agentRunner.run({
+        worktreeDir: args.workspaceDir,
+        requestPath: args.requestPath,
+        resultPath: agentResultPath(args.ctx.cwd, args.ctx.runId, args.sliceId, attempt),
+        runId: args.ctx.runId,
+        epicId: args.epicId,
+        sliceId: args.sliceId,
+        ...(args.ctx.runtime ? { runtime: args.ctx.runtime } : {}),
+        onUpdate: (update) => {
+          const event: AgentStreamEvent = {
+            event: 'agent_stream',
+            runId: args.ctx.runId,
+            epicId: args.epicId,
+            sliceId: args.sliceId,
+            sequence: sequence++,
+            kind: update.kind,
+            message: update.message,
+          };
+          const write = streamQueue.then(() =>
+            appendStream(streamPath, event, () => args.ctx.onAgentUpdate?.(event)),
+          );
+          streamQueue = write.catch(() => undefined);
+          return write;
+        },
+      });
+      await streamQueue;
+    } catch (error) {
+      if (error instanceof ParallelAuthorityError) throw error;
+      return {
+        status: 'failed',
+        reason: thrownReason('agent_run_threw', error),
+        attemptHistory: {},
+      };
+    }
     if (result.status === 'completed') {
       await args.authority.fire(attemptSuccessTransitionId('agent', args.sliceId, attempt));
       await args.authority.appendReport({
@@ -197,23 +216,33 @@ async function runVerifyAttempts(args: {
     let sequence = 0;
     const verifyStep = { ...args.step, kind: 'test_result' as const };
     emitParallelStepProgress(args.ctx, 'started', verifyStep, args.state);
-    const result = await args.ctx.ports.testRunner.run({
-      worktreeDir: args.workspaceDir,
-      ...(args.verifyTarget ? { verifyTarget: args.verifyTarget } : {}),
-      ...(args.ctx.signal ? { signal: args.ctx.signal } : {}),
-      onUpdate: async (update) => {
-        const event: VerifyStreamEvent = {
-          event: 'verify_stream',
-          runId: args.ctx.runId,
-          epicId: args.epicId,
-          sliceId: args.sliceId,
-          sequence: sequence++,
-          kind: update.kind,
-          message: update.message,
-        };
-        await appendStream(streamPath, event, () => args.ctx.onVerifyUpdate?.(event));
-      },
-    });
+    let result: Awaited<ReturnType<typeof args.ctx.ports.testRunner.run>>;
+    try {
+      result = await args.ctx.ports.testRunner.run({
+        worktreeDir: args.workspaceDir,
+        ...(args.verifyTarget ? { verifyTarget: args.verifyTarget } : {}),
+        ...(args.ctx.signal ? { signal: args.ctx.signal } : {}),
+        onUpdate: async (update) => {
+          const event: VerifyStreamEvent = {
+            event: 'verify_stream',
+            runId: args.ctx.runId,
+            epicId: args.epicId,
+            sliceId: args.sliceId,
+            sequence: sequence++,
+            kind: update.kind,
+            message: update.message,
+          };
+          await appendStream(streamPath, event, () => args.ctx.onVerifyUpdate?.(event));
+        },
+      });
+    } catch (error) {
+      if (error instanceof ParallelAuthorityError) throw error;
+      return {
+        status: 'failed',
+        reason: thrownReason('test_run_threw', error),
+        attemptHistory: {},
+      };
+    }
     if (result.status === 'completed') {
       await args.authority.fire(attemptSuccessTransitionId('verify', args.sliceId, attempt));
       await args.authority.appendReport({
@@ -298,4 +327,8 @@ function failed(
   history: SliceAttemptHistory,
 ): SliceEffectFailure {
   return { status: 'failed', sliceId, step, reason, attemptHistory: history };
+}
+
+function thrownReason(kind: string, error: unknown): string {
+  return `${kind}: ${error instanceof Error ? error.message : 'unknown error'}`;
 }

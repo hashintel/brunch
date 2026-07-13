@@ -1,5 +1,5 @@
 import { mkdirSync, renameSync, rmSync } from 'node:fs';
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -25,7 +25,12 @@ import {
   subscribePetriEvents,
   subscribePetriJournalFailures,
 } from '../petri-events.js';
-import { petriMarkingPath, readPetriMarkingSnapshot, writePetriMarkingSnapshot } from '../petri-marking.js';
+import {
+  petriMarkingLifecycleProvenance,
+  petriMarkingPath,
+  readPetriMarkingSnapshot,
+  writePetriMarkingSnapshot,
+} from '../petri-marking.js';
 import { petriPlanSnapshotPath } from '../petri-plan-snapshot.js';
 import { replayPetri, replayTransitionHistory } from '../petri-replay.js';
 import { readPetriRuntimePlan, petriRuntimePlanPathCandidates } from '../petri-runtime-plan.js';
@@ -56,7 +61,7 @@ import {
   type RunMetadata,
 } from '../run.js';
 import { completeSlice } from '../slice-complete.js';
-import { requestSliceExecution } from '../slice-execute.js';
+import { requestSliceExecution, sliceExecutionRequestPath } from '../slice-execute.js';
 import { integrateSlice } from '../slice-integration.js';
 import { startSlice } from '../slice-start.js';
 import { sliceWorkspacePath } from '../slice-workspace.js';
@@ -181,6 +186,32 @@ async function prepareRunAtReports(cwd: string, sliceIds: readonly string[]): Pr
   return (await readRunMetadata(runMetadataPath(cwd, 'run-1')))!;
 }
 
+async function prepareEpicVerificationReadyRun(cwd: string): Promise<{
+  readonly state: RunMetadata;
+  readonly plan: NonNullable<Awaited<ReturnType<typeof readPetriRuntimePlan>>>;
+  readonly runtime: ReturnType<typeof materializeExecutorPetriRuntime>;
+}> {
+  await createRunAtCreatedWithPlan(cwd, {
+    mode: 'greenfield',
+    epics: [
+      {
+        id: 'epic-1',
+        depends_on: [],
+        verification: [{ kind: 'criterion', target: 'provenance only' }],
+      },
+    ],
+    slices: [{ id: 'task-1', epic_id: 'epic-1', definition: 'task', depends_on: [], verification: [] }],
+  });
+  await drive({ cwd, runId: 'run-1', ports: fakePorts() }, petriScheduler, serialFiringPolicy, {
+    maxFirings: 12,
+  });
+  const state = (await readRunMetadata(runMetadataPath(cwd, 'run-1')))!;
+  const plan = (await readPetriRuntimePlan(cwd, state))!;
+  const runtime = materializeExecutorPetriRuntime(state, plan);
+  expect(runtime.readySteps).toEqual([{ kind: 'epic_verify', epicId: 'epic-1' }]);
+  return { state, plan, runtime };
+}
+
 function metadata(status: RunMetadata['status'], extra: Partial<RunMetadata> = {}): RunMetadata {
   return { runId: 'run-1', specId: '42', planPath: 'plan.yaml', status, ...extra };
 }
@@ -267,6 +298,99 @@ async function crankManually(cwd: string, ports: ExecutionPorts): Promise<void> 
 }
 
 describe('drive', () => {
+  it('admits concurrent same-run drives once and shares the owner outcome', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-single-owner-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    let calls = 0;
+    let entered!: () => void;
+    const ownerEntered = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const base = createFakeGitWorktreePort();
+    const ports = fakePorts({
+      gitWorktree: createFakeGitWorktreePort(async (args) => {
+        calls += 1;
+        entered();
+        await released;
+        return base.create(args);
+      }),
+    });
+
+    const owner = drive({ cwd, runId: 'run-1', ports }, petriScheduler, frontierFiringPolicy);
+    const waiter = drive(
+      { cwd: join(cwd, '.'), runId: 'run-1', ports },
+      petriScheduler,
+      frontierFiringPolicy,
+    );
+    await ownerEntered;
+    release();
+
+    const [ownerOutcome, waiterOutcome] = await Promise.all([owner, waiter]);
+    expect(waiterOutcome).toEqual(ownerOutcome);
+    expect(ownerOutcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+    expect(calls).toBe(1);
+  });
+
+  it('allows different run ids to execute external effects concurrently', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-distinct-runs-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    await createRun({ cwd, specId: '42', runId: 'run-2' });
+    const entered = new Set<string>();
+    let bothEntered!: () => void;
+    const overlap = new Promise<void>((resolve) => {
+      bothEntered = resolve;
+    });
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const base = createFakeGitWorktreePort();
+    const ports = fakePorts({
+      gitWorktree: createFakeGitWorktreePort(async (args) => {
+        entered.add(args.worktreeDir);
+        if (entered.size === 2) bothEntered();
+        await released;
+        return base.create(args);
+      }),
+    });
+
+    const first = drive({ cwd, runId: 'run-1', ports });
+    const second = drive({ cwd, runId: 'run-2', ports });
+    await overlap;
+    release();
+
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      { status: 'completed', runStatus: 'promotion_prepared' },
+      { status: 'completed', runStatus: 'promotion_prepared' },
+    ]);
+  });
+
+  it('releases same-run waiters and authority state when the owner rejects', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-owner-rejects-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    let calls = 0;
+    const throwing = fakePorts({
+      gitWorktree: createFakeGitWorktreePort(async () => {
+        calls += 1;
+        throw new Error('worktree exploded');
+      }),
+    });
+
+    const owner = drive({ cwd, runId: 'run-1', ports: throwing });
+    const waiter = drive({ cwd, runId: 'run-1', ports: throwing });
+    await expect(Promise.all([owner, waiter])).rejects.toThrow('worktree exploded');
+    expect(calls).toBe(1);
+
+    await expect(drive({ cwd, runId: 'run-1', ports: fakePorts() })).resolves.toEqual({
+      status: 'completed',
+      runStatus: 'promotion_prepared',
+    });
+  });
+
   it('runs declared epic verification once on the integrated run tree before completing the epic', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-verification-serial-'));
     await createRunAtCreatedWithPlan(cwd, {
@@ -291,12 +415,24 @@ describe('drive', () => {
     });
     const calls: { readonly worktreeDir: string; readonly command?: string }[] = [];
     let promotionWorktree: string | undefined;
+    let claimWasDurableBeforeRunner = false;
     const testRunner: TestRunnerPort = {
       async run(args) {
         calls.push({
           worktreeDir: args.worktreeDir,
           ...(args.verifyTarget ? { command: args.verifyTarget.command } : {}),
         });
+        if (!args.worktreeDir.includes('/slice-workspaces/')) {
+          const events = await readPetriEvents(cwd);
+          const snapshot = await readPetriMarkingSnapshot({ cwd, runId: 'run-1' });
+          const metadata = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+          claimWasDurableBeforeRunner =
+            events.some((event) => event.kind === 'epic_verification_claimed' && event.epicId === 'epic-1') &&
+            snapshot?.epicVerificationClaims?.some(
+              (claim) => claim.epicId === 'epic-1' && claim.phase === 'claimed',
+            ) === true &&
+            !metadata?.verifiedEpicIds?.includes('epic-1');
+        }
         return { status: 'completed', verdict: 'passed', exitCode: 0, target: 'npm run verify' };
       },
     };
@@ -329,6 +465,7 @@ describe('drive', () => {
 
     const run = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
     expect(calls).toHaveLength(2);
+    expect(claimWasDurableBeforeRunner).toBe(true);
     expect(calls[1]).toEqual({ worktreeDir: run?.worktreeDir, command: 'npm' });
     expect(promotionWorktree).toBe(calls[1]?.worktreeDir);
     expect(
@@ -465,6 +602,224 @@ describe('drive', () => {
       },
     });
   });
+
+  it('never reruns epic verification after a durable claim without a result', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-verification-claimed-crash-'));
+    const { state, runtime } = await prepareEpicVerificationReadyRun(cwd);
+    await appendPetriEvent({
+      cwd,
+      runId: 'run-1',
+      event: {
+        kind: 'epic_verification_claimed',
+        runId: 'run-1',
+        runStatus: state.status,
+        epicId: 'epic-1',
+        step: 'epic_verify',
+      },
+    });
+    await writePetriMarkingSnapshot({
+      cwd,
+      runId: 'run-1',
+      snapshot: {
+        currentMarking: runtime.currentMarking,
+        firedTransitionCount: projectExecutorPetriTransitionHistory(
+          state,
+          await readPetriRuntimePlan(cwd, state),
+        )!.transitionIds.length,
+        lifecycleProvenance: petriMarkingLifecycleProvenance(state),
+        epicVerificationClaims: [{ epicId: 'epic-1', phase: 'claimed' }],
+      },
+    });
+    await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toMatchObject({
+      epicVerificationClaims: [{ epicId: 'epic-1', phase: 'claimed' }],
+    });
+    let runnerCalls = 0;
+    const testRunner: TestRunnerPort = {
+      async run() {
+        runnerCalls += 1;
+        return { status: 'completed', verdict: 'passed', exitCode: 0 };
+      },
+    };
+    await expect(
+      executeEpicLifecycleStep({
+        cwd,
+        runId: 'run-1',
+        step: { kind: 'epic_verify', epicId: 'epic-1' },
+        plan: await readPetriRuntimePlan(cwd, state),
+        testRunner,
+        currentMarking: runtime.currentMarking,
+        firedTransitionCount: projectExecutorPetriTransitionHistory(
+          state,
+          await readPetriRuntimePlan(cwd, state),
+        )!.transitionIds.length,
+      }),
+    ).resolves.toMatchObject({ status: 'epic_verification_interrupted' });
+
+    const outcome = await drive({
+      cwd,
+      runId: 'run-1',
+      ports: fakePorts({ testRunner }),
+    });
+    expect(runnerCalls).toBe(0);
+    expect(outcome).toEqual({
+      status: 'halted',
+      step: 'epic_verify',
+      runStatus: 'slice_completed',
+      reason: 'epic_verification_interrupted',
+    });
+    expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.verifiedEpicIds).toBeUndefined();
+  });
+
+  it('catches epic verification summary up from transitioned marking without rerunning', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-verification-summary-lag-'));
+    const { state, plan, runtime } = await prepareEpicVerificationReadyRun(cwd);
+    const transition = runtime.topology.transitions.find(
+      (candidate) => candidate.id === 'epic_verify:epic-1',
+    )!;
+    await appendPetriEvent({
+      cwd,
+      runId: 'run-1',
+      event: {
+        kind: 'epic_verification_claimed',
+        runId: 'run-1',
+        runStatus: state.status,
+        epicId: 'epic-1',
+        step: 'epic_verify',
+      },
+    });
+    await appendFile(
+      reportsPath(cwd, 'run-1'),
+      `${JSON.stringify({ event: 'epic_test_result', runId: 'run-1', epicId: 'epic-1', status: 'passed' })}\n`,
+      'utf8',
+    );
+    await appendPetriEvent({
+      cwd,
+      runId: 'run-1',
+      event: {
+        kind: 'transition_fired',
+        runId: 'run-1',
+        runStatus: state.status,
+        transitionId: transition.id,
+        subnetId: transition.subnetId,
+        epicId: 'epic-1',
+        step: 'epic_verify',
+        contract: transition.contract,
+        consumed: transition.inputArcs.map((arc) => arc.placeId),
+        produced: transition.outputArcs.map((arc) => arc.placeId),
+        fromStatus: state.status,
+        toStatus: state.status,
+      },
+    });
+    const transitioned = replayTransitionHistory(
+      { transitions: [transition], initialMarking: runtime.currentMarking },
+      [transition.id],
+    )!;
+    await writePetriMarkingSnapshot({
+      cwd,
+      runId: 'run-1',
+      snapshot: {
+        currentMarking: transitioned.currentMarking,
+        firedTransitionCount: projectExecutorPetriTransitionHistory(state, plan)!.transitionIds.length + 1,
+        lifecycleProvenance: petriMarkingLifecycleProvenance(state),
+        epicVerificationClaims: [{ epicId: 'epic-1', phase: 'transitioned' }],
+      },
+    });
+    await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toMatchObject({
+      epicVerificationClaims: [{ epicId: 'epic-1', phase: 'transitioned' }],
+    });
+    let runnerCalls = 0;
+
+    await expect(
+      drive({
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts({
+          testRunner: {
+            async run() {
+              runnerCalls += 1;
+              return { status: 'completed', verdict: 'passed', exitCode: 0 };
+            },
+          },
+        }),
+      }),
+    ).resolves.toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+    expect(runnerCalls).toBe(0);
+    expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.verifiedEpicIds).toEqual(['epic-1']);
+    expect(
+      (await readPetriEvents(cwd)).filter(
+        (event) => event.kind === 'transition_fired' && event.transitionId === 'epic_verify:epic-1',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('turns a thrown epic runner into a durable failed report and terminal marking', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-verification-runner-throw-'));
+    await prepareEpicVerificationReadyRun(cwd);
+
+    await expect(
+      drive({
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts({
+          testRunner: {
+            async run() {
+              throw new Error('verify exploded');
+            },
+          },
+        }),
+      }),
+    ).resolves.toEqual({
+      status: 'halted',
+      step: 'epic_verify',
+      runStatus: 'slice_completed',
+      reason: 'epic_test_run_failed',
+    });
+    expect(await readReportEvents(cwd)).toContainEqual(
+      expect.objectContaining({
+        event: 'epic_test_result',
+        epicId: 'epic-1',
+        status: 'failed',
+        reason: 'epic_test_runner_threw',
+        message: 'verify exploded',
+      }),
+    );
+    await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toMatchObject({
+      terminalEventKind: 'net_halted',
+      haltedReason: 'epic_test_run_failed',
+      epicVerificationClaims: [{ epicId: 'epic-1', phase: 'claimed' }],
+    });
+  });
+
+  it.each(['journal', 'marking'] as const)(
+    'starts no epic runner or summary when claim %s persistence fails',
+    async (carrier) => {
+      const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-verification-claim-failure-'));
+      await prepareEpicVerificationReadyRun(cwd);
+      const blockedPath =
+        carrier === 'journal' ? petriEventsPath(cwd, 'run-1') : petriMarkingPath(cwd, 'run-1');
+      const preservedPath = `${blockedPath}.preserved`;
+      renameSync(blockedPath, preservedPath);
+      mkdirSync(blockedPath);
+      let runnerCalls = 0;
+
+      await expect(
+        drive({
+          cwd,
+          runId: 'run-1',
+          ports: fakePorts({
+            testRunner: {
+              async run() {
+                runnerCalls += 1;
+                return { status: 'completed', verdict: 'passed', exitCode: 0 };
+              },
+            },
+          }),
+        }),
+      ).rejects.toThrow();
+      expect(runnerCalls).toBe(0);
+      expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.verifiedEpicIds).toBeUndefined();
+    },
+  );
 
   it('completes an empty-verification epic without invoking an epic test', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-no-verification-'));
@@ -935,6 +1290,76 @@ describe('drive', () => {
     });
     unsubscribe();
   });
+
+  it.each([
+    { fault: 'workspace', step: 'slice_execute', reason: 'slice_workspace_threw' },
+    { fault: 'artifact', step: 'slice_execute', reason: 'slice_artifact_write_failed' },
+    { fault: 'agent', step: 'agent_result', reason: 'agent_run_threw' },
+    { fault: 'verifier', step: 'test_result', reason: 'test_run_threw' },
+  ] as const)(
+    'durably settles a thrown parallel $fault effect while integrating its sibling',
+    async ({ fault, step, reason }) => {
+      const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-parallel-thrown-effect-'));
+      await createRunAtCreated(cwd, ['task-1', 'task-2']);
+      const integrated: string[] = [];
+      const baseIntegration = createFakeGitSliceIntegrationPort();
+      const ports = fakePorts({
+        gitSliceIntegration: createFakeGitSliceIntegrationPort({
+          async prepare(args) {
+            if (fault === 'workspace' && args.sliceId === 'task-1') {
+              throw new Error('workspace exploded');
+            }
+            const prepared = await baseIntegration.prepare(args);
+            if (fault === 'artifact' && args.sliceId === 'task-1') {
+              await mkdir(sliceExecutionRequestPath(cwd, 'run-1', 'task-1'), { recursive: true });
+            }
+            return prepared;
+          },
+          async integrate(args) {
+            integrated.push(args.sliceId);
+            return baseIntegration.integrate(args);
+          },
+        }),
+        agentRunner: {
+          async run(args) {
+            if (fault === 'agent' && args.sliceId === 'task-1') throw new Error('agent exploded');
+            return { status: 'completed' };
+          },
+        },
+        testRunner: {
+          async run(args) {
+            if (fault === 'verifier' && args.worktreeDir.includes('/task-1/')) {
+              throw new Error('verifier exploded');
+            }
+            return { status: 'completed', verdict: 'passed', exitCode: 0 };
+          },
+        },
+      });
+
+      await expect(
+        drive({ cwd, runId: 'run-1', ports }, petriScheduler, frontierFiringPolicy),
+      ).resolves.toMatchObject({ status: 'halted', step, reason: expect.stringContaining(reason) });
+      expect(integrated).toEqual(['task-2']);
+      await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toMatchObject({
+        parallelSliceBatch: {
+          settlements: [
+            {
+              sliceId: 'task-1',
+              status: 'failed',
+              step,
+              reason: expect.stringContaining(reason),
+            },
+            { sliceId: 'task-2', status: 'succeeded' },
+          ],
+        },
+        terminalEventKind: 'net_halted',
+        haltedReason: expect.stringContaining(reason),
+      });
+      await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+        completedSliceIds: ['task-2'],
+      });
+    },
+  );
 
   it('starts no slice effect when a durable claim cannot reach the marking snapshot', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-parallel-claim-marking-failure-'));

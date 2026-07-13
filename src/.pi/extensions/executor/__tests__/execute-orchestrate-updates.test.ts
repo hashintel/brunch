@@ -143,6 +143,58 @@ async function overwriteRunMetadata(
 }
 
 describe('execute_orchestrate intra-drive updates', () => {
+  it('shares one same-run production execution across concurrent tool calls', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-orchestrate-single-owner-'));
+    await createDrivableRun(cwd, ['t1']);
+    let calls = 0;
+    let entered!: () => void;
+    const ownerEntered = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const tool = createExecuteOrchestrateTool(
+      fakePorts({
+        agentRunner: {
+          async run() {
+            calls += 1;
+            entered();
+            await released;
+            return { status: 'completed' };
+          },
+        },
+      }),
+    );
+
+    const owner = tool.execute(
+      'owner',
+      { runId: 'run-1' },
+      undefined as never,
+      undefined as never,
+      {
+        cwd,
+      } as never,
+    );
+    const waiter = tool.execute(
+      'waiter',
+      { runId: 'run-1' },
+      undefined as never,
+      undefined as never,
+      {
+        cwd: join(cwd, '.'),
+      } as never,
+    );
+    await ownerEntered;
+    release();
+
+    const [ownerResult, waiterResult] = await Promise.all([owner, waiter]);
+    expect(ownerResult.details?.outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+    expect(waiterResult.details?.outcome).toEqual(ownerResult.details?.outcome);
+    expect(calls).toBe(1);
+  });
+
   it('overlaps independent slices through the registered production tool with slice-coherent updates', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-orchestrate-production-parallel-'));
     await createDrivableRun(cwd, ['t1', 't2']);

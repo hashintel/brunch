@@ -278,6 +278,13 @@ export type ExecutorNetEvent =
       readonly reason: string;
     }
   | {
+      readonly kind: 'epic_verification_claimed';
+      readonly runId: string;
+      readonly runStatus: import('./run.js').RunMetadata['status'];
+      readonly epicId: string;
+      readonly step: 'epic_verify';
+    }
+  | {
       readonly kind: 'net_completed';
       readonly runId: string;
       readonly runStatus: import('./run.js').RunMetadata['status'];

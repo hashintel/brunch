@@ -20,7 +20,7 @@ import {
   type PetriMarkingSnapshot,
   writePetriMarkingSnapshot,
 } from './petri-marking.js';
-import type { PetriProjection } from './petri-replay.js';
+import { replayTransitionHistory, type PetriProjection } from './petri-replay.js';
 import { readPetriRuntimePlan } from './petri-runtime-plan.js';
 import {
   bindExecutorPetriRuntime,
@@ -30,6 +30,7 @@ import {
 } from './petri-runtime.js';
 import { classifyDriveTerminal } from './petri-terminal.js';
 import { PetriObservationInputError, preparePetriObservation } from './petri.js';
+import { withRunExecutionAuthority } from './run-execution-authority.js';
 import {
   appendSliceAttemptCycle,
   persistRunMetadata,
@@ -158,6 +159,7 @@ async function nextPetriSnapshot(args: {
   readonly lifecycleProvenance: ReturnType<typeof petriMarkingLifecycleProvenance>;
   readonly terminalEventKind?: PetriProjection['terminalEventKind'];
   readonly haltedReason?: string;
+  readonly epicVerificationClaims?: PetriMarkingSnapshot['epicVerificationClaims'];
 }): Promise<PetriMarkingSnapshot> {
   return {
     ...(args.claimedTransitionIds === undefined ? {} : { claimedTransitionIds: args.claimedTransitionIds }),
@@ -166,6 +168,9 @@ async function nextPetriSnapshot(args: {
     lifecycleProvenance: args.lifecycleProvenance,
     ...(args.terminalEventKind === undefined ? {} : { terminalEventKind: args.terminalEventKind }),
     ...(args.haltedReason === undefined ? {} : { haltedReason: args.haltedReason }),
+    ...(args.epicVerificationClaims === undefined
+      ? {}
+      : { epicVerificationClaims: args.epicVerificationClaims }),
   };
 }
 
@@ -326,6 +331,8 @@ interface StepResult {
   readonly status: string;
   readonly runStatus: RunMetadata['status'] | 'not_started';
   readonly advanced?: true;
+  readonly skipTransition?: true;
+  readonly epicVerificationPassed?: string;
 }
 
 /**
@@ -338,6 +345,19 @@ export async function drive(
   scheduler: RunScheduler = linearScheduler,
   firingPolicy: RunFiringPolicy = serialFiringPolicy,
   options: { readonly maxFirings?: number } = {},
+): Promise<DriveOutcome> {
+  return withRunExecutionAuthority({
+    cwd: ctx.cwd,
+    runId: ctx.runId,
+    execute: () => driveOwned(ctx, scheduler, firingPolicy, options),
+  });
+}
+
+async function driveOwned(
+  ctx: DriveContext,
+  scheduler: RunScheduler,
+  firingPolicy: RunFiringPolicy,
+  options: { readonly maxFirings?: number },
 ): Promise<DriveOutcome> {
   const metadataPath = runMetadataPath(ctx.cwd, ctx.runId);
   let firedTransitions = 0;
@@ -405,11 +425,12 @@ export async function drive(
     const parallelRecoveryRequired =
       state.status !== 'abandoned' &&
       (persisted?.parallelSliceBatch !== undefined ||
-        (await parallelSliceBatchRecoveryRequired({
-          cwd: ctx.cwd,
-          runId: ctx.runId,
-          lifecycleFiredTransitionCount: firedTransitionCountForState(state, plan),
-        })));
+        (!persisted?.epicVerificationClaims?.length &&
+          (await parallelSliceBatchRecoveryRequired({
+            cwd: ctx.cwd,
+            runId: ctx.runId,
+            lifecycleFiredTransitionCount: firedTransitionCountForState(state, plan),
+          }))));
     if (parallelRecoveryRequired) {
       const step = readySteps[0]?.kind ?? 'slice_start';
       const terminal = classifyDriveTerminal({
@@ -525,12 +546,28 @@ export async function drive(
         // Observer failures never affect the drive.
       }
 
+      const currentAuthoritySnapshot = await readPetriMarkingSnapshot({ cwd: ctx.cwd, runId: ctx.runId });
       const boundRuntime = bindExecutorPetriRuntime(currentRuntime, {
         ...ctx,
         ...(currentPlan ? { plan: currentPlan } : {}),
+        currentMarking: currentRuntime.currentMarking,
+        firedTransitionCount: firedTransitionCountForState(currentState, currentPlan),
+        ...(currentAuthoritySnapshot ? { markingSnapshot: currentAuthoritySnapshot } : {}),
       });
       const boundTransition = boundRuntime.transitionForReadyStep(next);
       const result = boundTransition ? await boundTransition.execute() : await neverBoundReadyStep(next);
+      if (result.skipTransition && result.runStatus !== 'not_started') {
+        try {
+          ctx.onStepComplete?.(
+            next.kind,
+            result.runStatus,
+            progressForStep('completed', next, currentState, result.runStatus),
+          );
+        } catch {
+          // Observer failures never affect the drive.
+        }
+        continue;
+      }
       if (result.runStatus === currentState.status && result.advanced !== true) {
         if (
           (result.status === 'agent_run_failed' || result.status === 'test_run_failed') &&
@@ -585,6 +622,7 @@ export async function drive(
         if (!emitted.journaled) return journalFailureOutcome(terminal);
         const haltedState = (await readRunMetadata(metadataPath)) ?? currentState;
         const haltedRuntime = materializeExecutorPetriRuntime(haltedState, currentPlan);
+        const authoritySnapshot = await readPetriMarkingSnapshot({ cwd: ctx.cwd, runId: ctx.runId });
         await persistPetriMarkingSnapshot(
           ctx,
           await nextPetriSnapshot({
@@ -593,6 +631,9 @@ export async function drive(
             lifecycleProvenance: petriMarkingLifecycleProvenance(haltedState),
             terminalEventKind: terminal.event.kind,
             ...(terminal.event.kind === 'net_halted' ? { haltedReason: terminal.event.reason } : {}),
+            ...(authoritySnapshot?.epicVerificationClaims
+              ? { epicVerificationClaims: authoritySnapshot.epicVerificationClaims }
+              : {}),
           }),
         );
         return terminal.outcome;
@@ -624,6 +665,48 @@ export async function drive(
               runStatus: result.runStatus,
               reason: 'petri_journal_append_failed',
             };
+          }
+          if (result.epicVerificationPassed) {
+            const transitioned = replayTransitionHistory(
+              { transitions: [transition], initialMarking: currentRuntime.currentMarking },
+              [transition.id],
+            );
+            if (!transitioned) {
+              return {
+                status: 'halted',
+                step: next.kind,
+                runStatus: currentState.status,
+                reason: 'petri_input_unreadable',
+              };
+            }
+            const claimSnapshot = await readPetriMarkingSnapshot({ cwd: ctx.cwd, runId: ctx.runId });
+            try {
+              await writePetriMarkingSnapshot({
+                cwd: ctx.cwd,
+                runId: ctx.runId,
+                snapshot: {
+                  currentMarking: transitioned.currentMarking,
+                  firedTransitionCount: firedTransitionCountForState(currentState, currentPlan) + 1,
+                  lifecycleProvenance: petriMarkingLifecycleProvenance(currentState),
+                  epicVerificationClaims: (claimSnapshot?.epicVerificationClaims ?? []).map((claim) =>
+                    claim.epicId === result.epicVerificationPassed
+                      ? { ...claim, phase: 'transitioned' as const }
+                      : claim,
+                  ),
+                },
+              });
+            } catch {
+              return {
+                status: 'halted',
+                step: next.kind,
+                runStatus: currentState.status,
+                reason: 'petri_marking_persist_failed',
+              };
+            }
+            await persistRunMetadata(metadataPath, {
+              ...currentState,
+              verifiedEpicIds: appendUniqueId(currentState.verifiedEpicIds, result.epicVerificationPassed),
+            });
           }
           const nextState = await readRunMetadata(metadataPath);
           if (nextState) {
@@ -680,6 +763,10 @@ export async function drive(
       }
     }
   }
+}
+
+function appendUniqueId(ids: readonly string[] | undefined, id: string): readonly string[] {
+  return ids?.includes(id) ? ids : [...(ids ?? []), id];
 }
 
 async function applyPendingAttemptReset(

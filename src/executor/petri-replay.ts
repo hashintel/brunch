@@ -40,6 +40,7 @@ export function replayPetri(args: {
         terminalSummary = mergeTerminalSummary(terminalSummary, event);
         break;
       case 'attempt_failed':
+      case 'epic_verification_claimed':
         break;
     }
   }

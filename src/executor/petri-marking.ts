@@ -15,6 +15,12 @@ export interface PetriMarkingLifecycleProvenance {
 export interface PetriMarkingSnapshot extends PetriProjection {
   readonly lifecycleProvenance?: PetriMarkingLifecycleProvenance;
   readonly parallelSliceBatch?: ParallelSliceBatchSnapshot;
+  readonly epicVerificationClaims?: readonly EpicVerificationClaim[];
+}
+
+export interface EpicVerificationClaim {
+  readonly epicId: string;
+  readonly phase: 'claimed' | 'transitioned';
 }
 
 export interface ParallelSliceBatchSnapshot {
@@ -95,12 +101,32 @@ function asPetriMarkingSnapshot(value: unknown): PetriMarkingSnapshot | undefine
   if (value.lifecycleProvenance !== undefined && lifecycleProvenance === undefined) return undefined;
   const parallelSliceBatch = asParallelSliceBatch(value.parallelSliceBatch);
   if (value.parallelSliceBatch !== undefined && parallelSliceBatch === undefined) return undefined;
+  const epicVerificationClaims = asEpicVerificationClaims(value.epicVerificationClaims);
+  if (value.epicVerificationClaims !== undefined && epicVerificationClaims === undefined) return undefined;
 
   return {
     ...projection,
     ...(lifecycleProvenance === undefined ? {} : { lifecycleProvenance }),
     ...(parallelSliceBatch === undefined ? {} : { parallelSliceBatch }),
+    ...(epicVerificationClaims === undefined ? {} : { epicVerificationClaims }),
   };
+}
+
+function asEpicVerificationClaims(value: unknown): readonly EpicVerificationClaim[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) return undefined;
+  const claims: EpicVerificationClaim[] = [];
+  for (const claim of value) {
+    if (
+      !isRecord(claim) ||
+      typeof claim.epicId !== 'string' ||
+      (claim.phase !== 'claimed' && claim.phase !== 'transitioned')
+    ) {
+      return undefined;
+    }
+    claims.push({ epicId: claim.epicId, phase: claim.phase });
+  }
+  return new Set(claims.map((claim) => claim.epicId)).size === claims.length ? claims : undefined;
 }
 
 function asParallelSliceBatch(value: unknown): ParallelSliceBatchSnapshot | undefined {
