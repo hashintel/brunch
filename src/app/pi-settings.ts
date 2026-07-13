@@ -28,6 +28,8 @@ const BRUNCH_THEME_SETTING = `${BRUNCH_LIGHT_THEME_NAME}/${BRUNCH_DARK_THEME_NAM
 const BRUNCH_THEME_DIR = fileURLToPath(new URL('../.pi/themes/', import.meta.url));
 export const BRUNCH_SETTINGS_POLICY = {
   quietStartup: true,
+  defaultProvider: 'anthropic',
+  defaultModel: 'claude-sonnet-4-6',
   defaultProjectTrust: 'never', // TODO: change this?
   packages: [],
   extensions: [],

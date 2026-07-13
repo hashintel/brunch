@@ -99,11 +99,21 @@ describe('Brunch CLI dispatch', () => {
 
       expect(code).toBe(0);
       expect(output).toContain('Usage: brunch');
-      expect(output).toContain('login');
+      expect(output).not.toContain('login');
       expect(output).toContain('--mode');
       expect(output).toContain('--no-webui');
       expect(output).not.toContain('--open-web');
     }
+  });
+
+  it('retires the standalone login positional in favor of Pi native /login', async () => {
+    await expect(
+      runBrunchCli({
+        argv: ['login'],
+        cwd: '/tmp/brunch-project',
+        coordinator: coordinator(),
+      }),
+    ).rejects.toThrow(/Unknown Brunch command: login/u);
   });
 
   it('rejects extra positional arguments instead of silently ignoring CLI typos', async () => {

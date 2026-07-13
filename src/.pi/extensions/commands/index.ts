@@ -292,7 +292,7 @@ function formatContinueOutcome(outcome: KickCompletionOutcome | undefined): {
   if (outcome?.status === 'skipped' && outcome.reason === 'no_model_available') {
     return {
       message:
-        'No allowlisted model is available, so Brunch did not start an assistant turn. Run /login or brunch login, then try /brunch:continue again.',
+        'No provider auth is available, so Brunch did not start an assistant turn. Run /login, then try /brunch:continue again.',
       level: 'info',
     };
   }

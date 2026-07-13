@@ -103,54 +103,6 @@ describe('Brunch TUI boot', () => {
     }
   });
 
-  it('threads boot-time model availability into workspace-dialog preflight', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-'));
-    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agentdir-'));
-    const workspace = readyWorkspace(cwd, 'session-ready');
-    let observedModelAvailable: boolean | undefined;
-    let observedNoAuthGuidance: string | undefined;
-
-    vi.stubEnv('PI_CODING_AGENT_DIR', agentDir);
-    vi.stubEnv('ANTHROPIC_API_KEY', undefined);
-    vi.stubEnv('OPENROUTER_API_KEY', undefined);
-    try {
-      await runBrunchTui({
-        cwd,
-        coordinator: {
-          inspectWorkspace: async () => ({
-            cwd,
-            currentSpec: workspace.spec,
-            currentSessionFile: workspace.session.file,
-            needsNewSpec: false,
-            specs: [],
-            unavailableSessions: [],
-          }),
-          activateWorkspace: async () => workspace,
-          bindCurrentSpecToReplacementSession: async () => workspace,
-        },
-        runWorkspaceDialogPreflight: async (_inventory, preflightOptions) => {
-          observedModelAvailable = preflightOptions?.modelAvailable;
-          observedNoAuthGuidance = preflightOptions?.noAuthGuidance?.lines.join('\n');
-          return {
-            action: 'continue',
-            specId: workspace.spec.id,
-            sessionFile: workspace.session.file,
-          };
-        },
-        webSidecarRunner: async () => null,
-        launchInteractive: async () => {},
-      });
-    } finally {
-      vi.unstubAllEnvs();
-    }
-
-    expect(observedModelAvailable).toBe(false);
-    expect(observedNoAuthGuidance).toContain('brunch login');
-    expect(observedNoAuthGuidance).toContain('/login');
-    expect(observedNoAuthGuidance).not.toContain('allowlist');
-    expect(observedNoAuthGuidance).not.toContain('Claude Sonnet');
-  });
-
   it('threads the resolved Brunch theme into workspace-dialog preflight', async () => {
     for (const scenario of [
       { colorfgbg: '15;0', expectedThemeName: 'brunch-dark' },
@@ -1801,6 +1753,8 @@ describe('Brunch TUI boot', () => {
 
     expect(BRUNCH_SETTINGS_POLICY).toMatchObject({
       quietStartup: true,
+      defaultProvider: 'anthropic',
+      defaultModel: 'claude-sonnet-4-6',
       packages: [],
       extensions: [],
       skills: [],
@@ -1813,6 +1767,8 @@ describe('Brunch TUI boot', () => {
     });
     expect(getterNames.sort()).toEqual([...BRUNCH_SETTINGS_AUDITED_GETTERS].sort());
     expect(launcherSource).not.toContain('SettingsManager.inMemory');
+    expect(launcherSource).not.toContain('createBrunchModelRegistry');
+    expect(launcherSource).not.toContain('scopedModels');
     expect(settingsSource).toContain('BRUNCH_SETTINGS_POLICY');
     expect(settingsSource).toContain('SettingsManager.inMemory');
   });

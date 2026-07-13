@@ -379,11 +379,11 @@ describe('Brunch menu command', () => {
     expect(harness.notifications).toEqual([
       expect.objectContaining({
         level: 'info',
-        message: expect.stringContaining('No allowlisted model is available'),
+        message: expect.stringContaining('No provider auth is available'),
       }),
       expect.objectContaining({
         level: 'info',
-        message: expect.stringContaining('No allowlisted model is available'),
+        message: expect.stringContaining('No provider auth is available'),
       }),
     ]);
   });
@@ -824,7 +824,7 @@ describe('Brunch runtime switch commands', () => {
     );
   });
 
-  it('does not fire a provider turn from shortcut cycling when no allowlisted model is available', async () => {
+  it('does not fire a provider turn from shortcut cycling when no provider auth resolves', async () => {
     const harness = commandHarness({
       orientation: true,
       modelAvailable: false,

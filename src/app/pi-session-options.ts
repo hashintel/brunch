@@ -4,7 +4,7 @@ const BRUNCH_WITHHELD_BUILTIN_TOOL_NAMES = ['bash', 'edit', 'write'] as const;
 
 export interface BrunchPiSessionPolicyInput {
   readonly sessionStartEvent?: CreateAgentSessionFromServicesOptions['sessionStartEvent'];
-  readonly thinkingLevel: NonNullable<CreateAgentSessionFromServicesOptions['thinkingLevel']>;
+  readonly thinkingLevel?: CreateAgentSessionFromServicesOptions['thinkingLevel'];
   readonly model?: CreateAgentSessionFromServicesOptions['model'];
   readonly scopedModels?: CreateAgentSessionFromServicesOptions['scopedModels'];
 }
@@ -21,7 +21,7 @@ export function projectBrunchPiSessionOptions(
     ...(input.sessionStartEvent ? { sessionStartEvent: input.sessionStartEvent } : {}),
     noTools: 'builtin',
     excludeTools: [...BRUNCH_WITHHELD_BUILTIN_TOOL_NAMES],
-    thinkingLevel: input.thinkingLevel,
+    ...(input.thinkingLevel ? { thinkingLevel: input.thinkingLevel } : {}),
     ...(input.model ? { model: input.model } : {}),
     ...(input.scopedModels ? { scopedModels: input.scopedModels } : {}),
   };

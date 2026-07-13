@@ -156,12 +156,11 @@ describe('registerBrunchSessionOrientation', () => {
     },
   );
 
-  it('suppresses J1 and shows login guidance when no allowlisted model is currently available', async () => {
+  it('suppresses J1 without a Brunch warning when no provider auth resolves', async () => {
     const { pi, handlers } = collectPi();
     const sent: SentMessage[] = [];
     registerBrunchSessionOrientation(pi, {
       resolveKickContext: () => fakeKickContext(sent),
-      noAuthNotice: 'No Brunch model auth: Run brunch login, or use /login in this session.',
     });
     const { ctx, entries, notifications, getSelectCount } = buildCtx(labelFor('ingest'), [], {
       availableModels: [],
@@ -172,13 +171,7 @@ describe('registerBrunchSessionOrientation', () => {
     expect(entries).toEqual([]);
     expect(sent).toEqual([]);
     expect(getSelectCount()).toBe(0);
-    expect(notifications).toEqual([
-      {
-        type: 'warning',
-        message: expect.stringContaining('brunch login'),
-      },
-    ]);
-    expect(notifications[0]!.message).toContain('/login');
+    expect(notifications).toEqual([]);
   });
 
   it('live-reads model availability so auth added mid-session re-enables the next juncture', async () => {
@@ -203,7 +196,7 @@ describe('registerBrunchSessionOrientation', () => {
     });
   });
 
-  it('suppresses event junctures without dialog, entry, or kick when no allowlisted model is currently available', async () => {
+  it('suppresses event junctures without dialog, entry, or kick when no provider auth resolves', async () => {
     const { pi, handlers } = collectPi();
     const sent: SentMessage[] = [];
     registerBrunchSessionOrientation(pi, { resolveKickContext: () => fakeKickContext(sent) });
