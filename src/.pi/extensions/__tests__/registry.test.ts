@@ -2967,6 +2967,40 @@ describe('Brunch explicit Pi extension registry', () => {
       .filter((name) => name.startsWith('execute_'))
       .sort((left, right) => left.localeCompare(right));
 
+    expect(PRODUCTION_EXECUTE_TOOL_MUTATIONS).toEqual({
+      execute_agent_result: 'agent_result',
+      execute_host_promotion_apply: 'host_promotion_apply',
+      execute_host_promotion_preflight: null,
+      execute_launch: null,
+      execute_orchestrate: 'drive',
+      execute_petri_export: 'petri_export',
+      execute_plan_check: null,
+      execute_plan_draft: null,
+      execute_plan_draft_artifact: null,
+      execute_plan_file: null,
+      execute_plan_outline: null,
+      execute_plan_outline_artifact: null,
+      execute_plan_preview: null,
+      execute_populate: 'populate',
+      execute_promotion_prepare: 'promotion',
+      execute_replan_abandon_run: 'run_abandon',
+      execute_replan_recommendation: null,
+      execute_replan_regenerate_plan: 'replan_regenerate_plan_tool',
+      execute_replan_retry_current_step: 'replan_retry_current_step',
+      execute_replan_start_new_run: 'run_supersede',
+      execute_report_init: 'report_init',
+      execute_run_complete: 'run_complete',
+      execute_run_create: 'run_create',
+      execute_slice_complete: 'slice_complete',
+      execute_slice_execute: 'slice_execute',
+      execute_slice_start: 'slice_start',
+      execute_snapshot: null,
+      execute_source_copy: 'source_copy',
+      execute_source_policy: 'source_policy',
+      execute_status: null,
+      execute_test_result: 'test_result',
+      execute_worktree_create: 'worktree_create',
+    });
     expect(Object.keys(PRODUCTION_EXECUTE_TOOL_MUTATIONS).sort()).toEqual(registeredExecuteNames);
   });
 

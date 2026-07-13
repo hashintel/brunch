@@ -1068,7 +1068,7 @@ describe('web host', () => {
   });
 
   // Regression oracle for the FE-1190 fail-closed journal contract (Bugbot finding).
-  it('closes an active stream when a durable journal append fails mid-run', async () => {
+  it('closes an active stream when the durable journal becomes unavailable mid-run', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-journal-failure-'));
     await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
     await writeFile(
@@ -1124,14 +1124,14 @@ describe('web host', () => {
         await expect(drive({ cwd, runId: 'run-1', ports })).resolves.toEqual({
           status: 'halted',
           step: 'source_policy',
-          runStatus: 'source_policy_selected',
-          reason: 'petri_journal_append_failed',
+          runStatus: 'worktree_populated',
+          reason: 'petri_input_unreadable',
         });
       } finally {
         unsubscribe();
       }
       const metadata = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
-      expect(metadata?.status).toBe('source_policy_selected');
+      expect(metadata?.status).toBe('worktree_populated');
       expect(wakeUpsAfterBreak).toEqual([]);
 
       for (;;) {

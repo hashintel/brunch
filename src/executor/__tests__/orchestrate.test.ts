@@ -1,5 +1,5 @@
 import { mkdirSync, renameSync, rmSync } from 'node:fs';
-import { access, appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, appendFile, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -176,13 +176,12 @@ async function createRunAtCreatedWithPlan(cwd: string, plan: object): Promise<vo
 
 async function prepareRunAtReports(cwd: string, sliceIds: readonly string[]): Promise<RunMetadata> {
   await createRunAtCreated(cwd, sliceIds);
-  const ports = fakePorts();
-  await preparePetriObservation({ cwd, runId: 'run-1' });
-  await createWorktree({ cwd, runId: 'run-1', gitWorktree: ports.gitWorktree });
-  await populateWorktree({ cwd, runId: 'run-1' });
-  await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
-  await copyHostSource({ cwd, runId: 'run-1' });
-  await initializeReports({ cwd, runId: 'run-1' });
+  await drive(
+    { cwd, runId: 'run-1', ports: fakePorts(), sourcePolicy: 'host_source_deferred' },
+    linearScheduler,
+    serialFiringPolicy,
+    { maxFirings: 5 },
+  );
   return (await readRunMetadata(runMetadataPath(cwd, 'run-1')))!;
 }
 
@@ -534,20 +533,10 @@ describe('drive', () => {
       const cwd = await mkdtemp(join(tmpdir(), `brunch-drive-standalone-${standaloneStep}-`));
       const setupPorts = fakePorts();
       await prepareRunAtReports(cwd, ['task-1']);
-      await startSlice({ cwd, runId: 'run-1' });
-      if (standaloneStep !== 'slice_execute') {
-        await requestSliceExecution({
-          cwd,
-          runId: 'run-1',
-          gitSliceIntegration: setupPorts.gitSliceIntegration,
-        });
-      }
-      if (standaloneStep === 'test_result' || standaloneStep === 'slice_complete') {
-        await ingestAgentResult({ cwd, runId: 'run-1', agentRunner: setupPorts.agentRunner });
-      }
-      if (standaloneStep === 'slice_complete') {
-        await ingestTestResult({ cwd, runId: 'run-1', testRunner: setupPorts.testRunner });
-      }
+      const setupFirings = standaloneStep === 'slice_execute' ? 1 : standaloneStep === 'agent_result' ? 2 : 3;
+      await drive({ cwd, runId: 'run-1', ports: setupPorts }, petriScheduler, serialFiringPolicy, {
+        maxFirings: setupFirings,
+      });
 
       let calls = 0;
       let entered!: () => void;
@@ -994,6 +983,50 @@ describe('drive', () => {
     expect(runnerCalls).toBe(0);
   });
 
+  it.each([
+    { carrier: 'missing', firings: 0, status: 'created', step: 'worktree_create' },
+    { carrier: 'unavailable', firings: 1, status: 'worktree_created', step: 'populate' },
+    { carrier: 'unreadable', firings: 2, status: 'worktree_populated', step: 'source_policy' },
+  ] as const)(
+    'dispatches no $step effect when the prepared journal is $carrier at $status',
+    async ({ carrier, firings, status, step }) => {
+      const cwd = await mkdtemp(join(tmpdir(), `brunch-petri-journal-${carrier}-`));
+      await createRunAtCreated(cwd, ['task-1']);
+      await preparePetriObservation({ cwd, runId: 'run-1' });
+      if (firings > 0) {
+        await expect(
+          drive({ cwd, runId: 'run-1', ports: fakePorts() }, linearScheduler, serialFiringPolicy, {
+            maxFirings: firings,
+          }),
+        ).resolves.toEqual({ status: 'completed', runStatus: status });
+      }
+      const journalPath = petriEventsPath(cwd, 'run-1');
+      if (carrier === 'missing') await rm(journalPath);
+      if (carrier === 'unavailable') {
+        await rm(journalPath);
+        await mkdir(journalPath);
+      }
+      if (carrier === 'unreadable') await appendFile(journalPath, '{', 'utf8');
+      const started: string[] = [];
+
+      await expect(
+        drive({
+          cwd,
+          runId: 'run-1',
+          ports: fakePorts(),
+          onStepStart: (startedStep) => started.push(startedStep),
+        }),
+      ).resolves.toEqual({
+        status: 'halted',
+        step,
+        runStatus: status,
+        reason: 'petri_input_unreadable',
+      });
+      expect(started).toEqual([]);
+      await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({ status });
+    },
+  );
+
   it('does not release an epic dependent when the final valid journal line lacks a newline', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-history-unframed-final-line-'));
     await prepareEpicVerificationReadyRun(cwd);
@@ -1114,6 +1147,62 @@ describe('drive', () => {
     ).toHaveLength(1);
   });
 
+  it('interrupts a transitioned epic marking claim without its durable verify transition', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-transitioned-claim-journal-gap-'));
+    const { state, plan, runtime } = await prepareEpicVerificationReadyRun(cwd);
+    const transition = runtime.topology.transitions.find(
+      (candidate) => candidate.id === 'epic_verify:epic-1',
+    )!;
+    const transitioned = replayTransitionHistory(
+      { transitions: [transition], initialMarking: runtime.currentMarking },
+      [transition.id],
+    )!;
+    await appendFile(
+      reportsPath(cwd, 'run-1'),
+      `${JSON.stringify({ event: 'epic_test_result', runId: 'run-1', epicId: 'epic-1', status: 'passed' })}\n`,
+      'utf8',
+    );
+    await writePetriMarkingSnapshot({
+      cwd,
+      runId: 'run-1',
+      snapshot: {
+        currentMarking: transitioned.currentMarking,
+        firedTransitionCount: projectExecutorPetriTransitionHistory(state, plan)!.transitionIds.length + 1,
+        lifecycleProvenance: petriMarkingLifecycleProvenance(state),
+        epicVerificationClaims: [{ epicId: 'epic-1', phase: 'transitioned' }],
+      },
+    });
+    let runnerCalls = 0;
+
+    await expect(
+      drive({
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts({
+          testRunner: {
+            async run() {
+              runnerCalls += 1;
+              return { status: 'completed', verdict: 'passed', exitCode: 0 };
+            },
+          },
+        }),
+      }),
+    ).resolves.toEqual({
+      status: 'halted',
+      step: 'epic_verify',
+      runStatus: 'slice_completed',
+      reason: 'epic_verification_interrupted',
+    });
+    expect(runnerCalls).toBe(0);
+    await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.not.toMatchObject({
+      verifiedEpicIds: ['epic-1'],
+      completedEpicIds: ['epic-1'],
+    });
+    expect(await readReportEvents(cwd)).not.toContainEqual(
+      expect.objectContaining({ event: 'epic_completed', epicId: 'epic-1' }),
+    );
+  });
+
   it('turns a thrown epic runner into a durable failed report and terminal marking', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-verification-runner-throw-'));
     await prepareEpicVerificationReadyRun(cwd);
@@ -1164,20 +1253,27 @@ describe('drive', () => {
       mkdirSync(blockedPath);
       let runnerCalls = 0;
 
-      await expect(
-        drive({
-          cwd,
-          runId: 'run-1',
-          ports: fakePorts({
-            testRunner: {
-              async run() {
-                runnerCalls += 1;
-                return { status: 'completed', verdict: 'passed', exitCode: 0 };
-              },
+      const driving = drive({
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts({
+          testRunner: {
+            async run() {
+              runnerCalls += 1;
+              return { status: 'completed', verdict: 'passed', exitCode: 0 };
             },
-          }),
+          },
         }),
-      ).rejects.toThrow();
+      });
+      if (carrier === 'journal') {
+        await expect(driving).resolves.toMatchObject({
+          status: 'halted',
+          step: 'epic_verify',
+          reason: 'petri_input_unreadable',
+        });
+      } else {
+        await expect(driving).rejects.toThrow();
+      }
       expect(runnerCalls).toBe(0);
       expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.verifiedEpicIds).toBeUndefined();
     },
@@ -2833,7 +2929,7 @@ describe('drive', () => {
     });
   });
 
-  it('halts without further lifecycle steps when a transition journal append fails', async () => {
+  it('halts without lifecycle dispatch when the transition journal becomes unavailable', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-journal-append-failure-'));
     await createRunAtCreated(cwd, ['task-1']);
     const ports = fakePorts();
@@ -2858,16 +2954,59 @@ describe('drive', () => {
       await expect(drive({ cwd, runId: 'run-1', ports })).resolves.toEqual({
         status: 'halted',
         step: 'source_policy',
-        runStatus: 'source_policy_selected',
-        reason: 'petri_journal_append_failed',
+        runStatus: 'worktree_populated',
+        reason: 'petri_input_unreadable',
       });
     } finally {
       unsubscribe();
     }
-    expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.status).toBe('source_policy_selected');
+    expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.status).toBe('worktree_populated');
     expect(failureWakeUps).toBe(1);
     const snapshot = await readPetriMarkingSnapshot({ cwd, runId: 'run-1' });
     expect(snapshot?.terminalEventKind).toBeUndefined();
+  });
+
+  it('does not repeat an effect when its metadata advanced before the transition append failed', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-journal-gap-restart-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    await preparePetriObservation({ cwd, runId: 'run-1' });
+    const journalPath = petriEventsPath(cwd, 'run-1');
+    const preservedJournalPath = `${journalPath}.preserved`;
+    let worktreeCalls = 0;
+    const ports = fakePorts({
+      gitWorktree: createFakeGitWorktreePort(async ({ worktreeDir, ref }) => {
+        worktreeCalls += 1;
+        await mkdir(worktreeDir, { recursive: true });
+        await writeFile(join(worktreeDir, '.git'), 'gitdir: /tmp/brunch-fake-worktree\n', 'utf8');
+        await rename(journalPath, preservedJournalPath);
+        await mkdir(journalPath);
+        return {
+          status: 'created',
+          worktreeDir,
+          sideEffects: [{ kind: 'git_worktree_add', path: worktreeDir, ref }],
+        };
+      }),
+    });
+
+    await expect(drive({ cwd, runId: 'run-1', ports })).resolves.toEqual({
+      status: 'halted',
+      step: 'worktree_create',
+      runStatus: 'worktree_created',
+      reason: 'petri_journal_append_failed',
+    });
+    await rm(journalPath, { recursive: true });
+    await rename(preservedJournalPath, journalPath);
+
+    await expect(drive({ cwd, runId: 'run-1', ports })).resolves.toEqual({
+      status: 'halted',
+      step: 'populate',
+      runStatus: 'worktree_created',
+      reason: 'petri_journal_gap',
+    });
+    expect(worktreeCalls).toBe(1);
+    await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+      status: 'worktree_created',
+    });
   });
 
   it('halts scheduler exhaustion without persisting a terminal snapshot when the terminal append fails', async () => {
@@ -2886,9 +3025,9 @@ describe('drive', () => {
 
     await expect(drive({ cwd, runId: 'run-1', ports })).resolves.toEqual({
       status: 'halted',
-      step: 'terminal',
+      step: 'promotion',
       runStatus: 'promotion_prepared',
-      reason: 'petri_journal_append_failed',
+      reason: 'petri_input_unreadable',
     });
     expect(await pathExists(petriMarkingPath(cwd, 'run-1'))).toBe(false);
   });

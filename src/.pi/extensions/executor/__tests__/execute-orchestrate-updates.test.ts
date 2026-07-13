@@ -17,16 +17,12 @@ import type {
   TestRunnerPort,
 } from '../../../../executor/execution-ports.js';
 import { readRunDetail } from '../../../../executor/observer-read.js';
+import { drive, petriScheduler, serialFiringPolicy } from '../../../../executor/orchestrate.js';
 import { petriEventsPath } from '../../../../executor/petri-events.js';
 import { petriMarkingPath, writePetriMarkingSnapshot } from '../../../../executor/petri-marking.js';
 import { petriNetPath } from '../../../../executor/petri.js';
 import { planFilePath } from '../../../../executor/plan-file.js';
-import { populateWorktree } from '../../../../executor/populate.js';
-import { initializeReports } from '../../../../executor/report.js';
 import { createRun, runMetadataPath } from '../../../../executor/run.js';
-import { copyHostSource } from '../../../../executor/source-copy.js';
-import { selectSourcePolicy } from '../../../../executor/source-policy.js';
-import { createWorktree } from '../../../../executor/worktree.js';
 import { createProductUpdatePublisher, type ProductUpdate } from '../../../../rpc/product-updates.js';
 import {
   createExecuteOrchestrateTool,
@@ -372,11 +368,12 @@ describe('execute_orchestrate intra-drive updates', () => {
   it('ignores a stale serial claim and uses the complete production Petri frontier', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-orchestrate-resumed-claim-order-'));
     await createDrivableRun(cwd, ['t1', 't2']);
-    await createWorktree({ cwd, runId: 'run-1', gitWorktree: fakePorts().gitWorktree });
-    await populateWorktree({ cwd, runId: 'run-1' });
-    await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
-    await copyHostSource({ cwd, runId: 'run-1' });
-    await initializeReports({ cwd, runId: 'run-1' });
+    await drive(
+      { cwd, runId: 'run-1', ports: fakePorts(), sourcePolicy: 'host_source_deferred' },
+      petriScheduler,
+      serialFiringPolicy,
+      { maxFirings: 5 },
+    );
     await writePetriMarkingSnapshot({
       cwd,
       runId: 'run-1',

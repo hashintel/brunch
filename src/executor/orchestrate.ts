@@ -15,7 +15,11 @@ import {
   type SchedulerPlanMode,
 } from './orchestrate-topology.js';
 import { executeParallelSliceBatch, parallelSliceBatchRecoveryRequired } from './parallel-slice-batch.js';
-import { appendPetriEvent, readDurableEpicTransitionHistory } from './petri-events.js';
+import {
+  appendPetriEvent,
+  inspectPetriTransitionJournal,
+  publishPetriJournalFailure,
+} from './petri-events.js';
 import {
   petriMarkingLifecycleProvenance,
   petriMarkingSnapshotMatchesRunMetadata,
@@ -32,7 +36,7 @@ import {
   type ExecutorPetriRuntime,
 } from './petri-runtime.js';
 import { classifyDriveTerminal } from './petri-terminal.js';
-import { PetriObservationInputError, preparePetriObservation } from './petri.js';
+import { hasPreparedPetriObservation, PetriObservationInputError, preparePetriObservation } from './petri.js';
 import { withRunExecutionAuthority } from './run-execution-authority.js';
 import {
   appendSliceAttemptCycle,
@@ -116,9 +120,6 @@ export const frontierFiringPolicy: RunFiringPolicy = {
 
 // Fail closed (FE-1190): an unjournaled event reaches no hint surface and the
 // drive halts, keeping the journal a truthful prefix of run facts.
-// ceiling: retry after a journal-failure halt resumes from run.json without
-// backfilling the lost event; gate retry on journal-vs-lifecycle counts if
-// gapped journals show up.
 async function emitNetEvent(
   ctx: Pick<DriveContext, 'cwd' | 'runId'>,
   event: ExecutorNetEvent,
@@ -412,32 +413,58 @@ async function driveOwned(
         return terminal.outcome;
       }
     }
+    const authoritySnapshot = await readPetriMarkingSnapshot({ cwd: ctx.cwd, runId: ctx.runId });
+    const journal = await inspectPetriTransitionJournal({ cwd: ctx.cwd, runId: ctx.runId });
+    if (journal.status === 'readable') {
+      const durableEpicHistory = journal.events.flatMap((event) =>
+        event.kind === 'transition_fired' && event.contract.lane === 'epic' ? [event.transitionId] : [],
+      );
+      if (
+        !stringArraysEqual(durableEpicHistory, state.epicTransitionHistory ?? []) &&
+        stringArraysEqual([...durableEpicHistory].sort(), [...(state.epicTransitionHistory ?? [])].sort())
+      ) {
+        const epicSummary = epicSummaryFromHistory(durableEpicHistory);
+        await persistRunMetadata(metadataPath, {
+          ...state,
+          epicTransitionHistory: durableEpicHistory,
+          integratedEpicIds: epicSummary.integratedEpicIds,
+          verifiedEpicIds: epicSummary.verifiedEpicIds,
+          completedEpicIds: epicSummary.completedEpicIds,
+        });
+        continue;
+      }
+    }
+    if (state.status !== 'abandoned' && (await hasPreparedPetriObservation(ctx.cwd, ctx.runId))) {
+      const parityFailure = transitionParityFailure({ state, plan, journal, authoritySnapshot });
+      if (parityFailure) {
+        publishPetriJournalFailure(ctx);
+        return {
+          status: 'halted',
+          step: reconciliationStep(state, plan),
+          runStatus: state.status,
+          reason: parityFailure,
+        };
+      }
+    }
     if (state.activeSliceAttemptReset && state.activeSliceId && plan) {
       const reset = await applyPendingAttemptReset(ctx, state, plan);
       if (!reset.applied) return reset.outcome;
       continue;
     }
-    const durableEpicHistory = await readDurableEpicTransitionHistory({ cwd: ctx.cwd, runId: ctx.runId });
-    if (durableEpicHistory.status === 'unreadable') {
-      return classifyDriveTerminal({
-        kind: 'step_halted',
-        runId: ctx.runId,
-        runStatus: state.status,
-        step: reconciliationStep(state, plan),
-        reason: 'petri_input_unreadable',
-      }).outcome;
-    }
-    if (durableEpicHistory.status === 'readable') {
-      const epicSummary = epicSummaryFromHistory(durableEpicHistory.history);
+    if (journal.status === 'readable') {
+      const durableEpicHistory = journal.events.flatMap((event) =>
+        event.kind === 'transition_fired' && event.contract.lane === 'epic' ? [event.transitionId] : [],
+      );
+      const epicSummary = epicSummaryFromHistory(durableEpicHistory);
       if (
-        !stringArraysEqual(durableEpicHistory.history, state.epicTransitionHistory ?? []) ||
+        !stringArraysEqual(durableEpicHistory, state.epicTransitionHistory ?? []) ||
         !stringArraysEqual(epicSummary.integratedEpicIds, state.integratedEpicIds ?? []) ||
         !stringArraysEqual(epicSummary.verifiedEpicIds, state.verifiedEpicIds ?? []) ||
         !stringArraysEqual(epicSummary.completedEpicIds, state.completedEpicIds ?? [])
       ) {
         await persistRunMetadata(metadataPath, {
           ...state,
-          epicTransitionHistory: durableEpicHistory.history,
+          epicTransitionHistory: durableEpicHistory,
           integratedEpicIds: epicSummary.integratedEpicIds,
           verifiedEpicIds: epicSummary.verifiedEpicIds,
           completedEpicIds: epicSummary.completedEpicIds,
@@ -547,6 +574,9 @@ async function driveOwned(
         currentMarking: runtime.currentMarking,
         firedTransitionCount: firedTransitionCountForState(state, plan),
         lifecycleProvenance: petriMarkingLifecycleProvenance(state),
+        ...(authoritySnapshot?.epicVerificationClaims
+          ? { epicVerificationClaims: authoritySnapshot.epicVerificationClaims }
+          : {}),
       }),
     );
 
@@ -851,6 +881,85 @@ async function driveOwned(
   }
 }
 
+function transitionParityFailure(args: {
+  readonly state: RunMetadata;
+  readonly plan: SchedulerPlan | undefined;
+  readonly journal: Awaited<ReturnType<typeof inspectPetriTransitionJournal>>;
+  readonly authoritySnapshot: PetriMarkingSnapshot | undefined;
+}): 'petri_input_unreadable' | 'petri_journal_gap' | undefined {
+  if (args.journal.status !== 'readable') return 'petri_input_unreadable';
+  const lifecycle = projectExecutorPetriTransitionHistory(args.state, args.plan)?.transitionIds ?? [];
+  const journal = args.journal.transitionIds;
+  if (lifecycle.length === journal.length) {
+    return transitionHistoriesEquivalent(lifecycle, journal, args.plan)
+      ? undefined
+      : 'petri_input_unreadable';
+  }
+  if (lifecycle.length > journal.length) {
+    if (args.authoritySnapshot?.parallelSliceBatch !== undefined) return undefined;
+    return transitionHistoryIsPrefix(journal, lifecycle, args.plan)
+      ? 'petri_journal_gap'
+      : 'petri_input_unreadable';
+  }
+  if (!transitionHistoryIsPrefix(lifecycle, journal, args.plan)) return 'petri_input_unreadable';
+
+  const journalAhead = journal.slice(lifecycle.length);
+  const parallelAuthority =
+    args.authoritySnapshot?.parallelSliceBatch !== undefined ||
+    journalAhead.some((transitionId) => transitionId.startsWith('slice_start:'));
+  const transitionedEpicIds = new Set(
+    (args.authoritySnapshot?.epicVerificationClaims ?? [])
+      .filter((claim) => claim.phase === 'transitioned')
+      .map((claim) => `epic_verify:${claim.epicId}`),
+  );
+  const epicAuthority =
+    journalAhead.length > 0 && journalAhead.every((transitionId) => transitionedEpicIds.has(transitionId));
+  return parallelAuthority || epicAuthority ? undefined : 'petri_input_unreadable';
+}
+
+function transitionHistoriesEquivalent(
+  left: readonly string[],
+  right: readonly string[],
+  plan: SchedulerPlan | undefined,
+): boolean {
+  if (stringArraysEqual(left, right)) return true;
+  return transitionHistoryPartitions(left, plan).every((partition, index) =>
+    stringArraysEqual(partition, transitionHistoryPartitions(right, plan)[index] ?? []),
+  );
+}
+
+function transitionHistoryIsPrefix(
+  prefix: readonly string[],
+  history: readonly string[],
+  plan: SchedulerPlan | undefined,
+): boolean {
+  if (stringArraysEqual(prefix, history.slice(0, prefix.length))) return true;
+  const historyPartitions = transitionHistoryPartitions(history, plan);
+  return transitionHistoryPartitions(prefix, plan).every((partition, index) =>
+    stringArraysEqual(partition, (historyPartitions[index] ?? []).slice(0, partition.length)),
+  );
+}
+
+function transitionHistoryPartitions(
+  history: readonly string[],
+  plan: SchedulerPlan | undefined,
+): readonly (readonly string[])[] {
+  const sliceIds = new Set((plan?.slices ?? []).map((slice) => slice.id));
+  const bySlice = new Map<string, string[]>();
+  const serial: string[] = [];
+  for (const transitionId of history) {
+    const sliceId = transitionId.split(':')[1];
+    if (!sliceId || !sliceIds.has(sliceId)) {
+      serial.push(transitionId);
+      continue;
+    }
+    const transitions = bySlice.get(sliceId) ?? [];
+    transitions.push(transitionId);
+    bySlice.set(sliceId, transitions);
+  }
+  return [serial, ...(plan?.slices ?? []).map((slice) => bySlice.get(slice.id) ?? [])];
+}
+
 function serialThrowKind(step: ReadyStep['kind']): string {
   switch (step) {
     case 'slice_execute':
@@ -868,9 +977,13 @@ function serialThrowKind(step: ReadyStep['kind']): string {
 
 function reconciliationStep(state: RunMetadata, plan: SchedulerPlan | undefined): ReadyStep['kind'] {
   try {
-    return materializeExecutorPetriRuntime(state, plan).readySteps[0]?.kind ?? 'slice_start';
+    return (
+      materializeExecutorPetriRuntime(state, plan).readySteps[0]?.kind ??
+      petriInputRequiredStep(state) ??
+      'slice_start'
+    );
   } catch {
-    return 'slice_start';
+    return petriInputRequiredStep(state) ?? 'slice_start';
   }
 }
 

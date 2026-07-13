@@ -92,7 +92,7 @@ export const PRODUCTION_EXECUTE_TOOL_MUTATIONS = {
   execute_agent_result: 'agent_result',
   execute_host_promotion_apply: 'host_promotion_apply',
   execute_host_promotion_preflight: NOT_A_RUN_MUTATION,
-  execute_launch: 'run_create',
+  execute_launch: NOT_A_RUN_MUTATION,
   execute_orchestrate: 'drive',
   execute_petri_export: 'petri_export',
   execute_plan_check: NOT_A_RUN_MUTATION,

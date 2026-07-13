@@ -315,19 +315,19 @@ execute.replanRegeneratePlan
   access: write (full RPC host only)
   params: {runId, specId, mode?}
   result: regenerated plan artifact or a typed refusal
-  effects: D124-L admits one canonical {cwd, runId} owner before graph projection and plan write; contention returns run_execution_active
+  effects: D128-L admits one canonical {cwd, runId} owner before graph projection and plan write; contention returns run_execution_active
 
 execute.replanStartNewRun
   access: write (full RPC host only)
   params: {previousRunId, specId, runId?, mode?}
   result: linked superseding run or a typed refusal
-  effects: run-supersession core owns D124-L admission for both run identities before creating the new run
+  effects: run-supersession core owns D128-L admission for both run identities before creating the new run
 
 execute.replanAbandonRun
   access: write (full RPC host only)
   params: {runId, reason?}
   result: abandoned run or a typed refusal
-  effects: run-abandon core owns D124-L admission before metadata mutation; durable artifacts are retained
+  effects: run-abandon core owns D128-L admission before metadata mutation; durable artifacts are retained
 ```
 
 ## Product update notifications

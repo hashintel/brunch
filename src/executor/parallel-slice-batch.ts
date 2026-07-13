@@ -18,7 +18,7 @@ import type {
   SliceEffectFailure,
   SliceEffectResult,
 } from './parallel-slice-batch/types.js';
-import { petriEventsPath, readPetriJournal } from './petri-events.js';
+import { inspectPetriTransitionJournal } from './petri-events.js';
 import type { ParallelSliceSettlement } from './petri-marking.js';
 import { projectExecutorPetriTransitionHistory } from './petri-runtime.js';
 import { persistRunMetadata, runMetadataPath, type RunMetadata } from './run.js';
@@ -44,7 +44,7 @@ export async function inspectParallelSliceJournalAuthority(args: {
   | { readonly status: 'unreadable' }
 > {
   try {
-    const journal = await readPetriJournal(petriEventsPath(args.cwd, args.runId));
+    const journal = await inspectPetriTransitionJournal(args);
     if (journal.status === 'missing') return { status: 'none' };
     if (journal.status !== 'readable') return { status: 'unreadable' };
     const journalOnlyTransitions = journal.events

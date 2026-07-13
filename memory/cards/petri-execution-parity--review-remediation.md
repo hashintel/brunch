@@ -49,6 +49,35 @@ Every external executor effect is admitted once per run, durably claimed before 
 
 Skipped-test delta vs parent: 0.
 
+## Slice 9 — Final finding closure
+
+Status: done
+Weight: full
+
+### Target Behavior
+
+Prepared Petri journals and durable transition order gate every drive dispatch; lifecycle gaps, false epic verification authority, and execute-tool classification drift fail closed.
+
+### Acceptance Criteria
+
+- missing, unavailable, and unreadable prepared journals halt before effects across lifecycle statuses.
+- serial durable transition history matches lifecycle count/order; lifecycle-ahead append-failure gaps halt without repeating the effect, while active parallel and journal-backed transitioned epic claims retain bounded authority.
+- transitioned epic marking without a matching durable `epic_verify` transition interrupts without runner, verified summary, completion, or rerun.
+- every registered production execute tool has an asserted semantic mutation mapping and `execute_launch` is read-only.
+- card, PLAN, and executor topology describe the final authority contract.
+
+### Completion Report
+
+| Leaf | Outcome | Evidence |
+| --- | --- | --- |
+| Prepared carrier loss blocks dispatch | met | `orchestrate.test.ts` table covers missing, EISDIR/unavailable, and torn journals at created/worktree-created/worktree-populated statuses with no started step. |
+| Full transition parity and lifecycle gap | met | Shared `inspectPetriTransitionJournal`; serial append-failure restart returns `petri_journal_gap` and invokes the worktree effect once; executor suite 371/371. |
+| Epic transition requires journal authority | met | Transitioned-marking-without-`epic_verify` regression halts `epic_verification_interrupted` with zero runner calls and no verified/completed summary. |
+| Semantic execute-tool mapping | met | Registry test asserts all 32 values, including `execute_launch: null`, plus exact registered keys. |
+| Canonical state reconciled | met | `src/executor/TOPOLOGY.md`, `memory/PLAN.md`, and this card name the final parity and authority behavior. |
+
+Skipped-test delta vs parent: 0.
+
 ## Slice 8 — Remaining review closure
 
 Status: done

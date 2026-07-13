@@ -31,13 +31,7 @@ export async function appendPetriEvent(args: {
     await appendFile(petriEventsPath(args.cwd, args.runId), `${JSON.stringify(args.event)}\n`, 'utf8');
   } catch (error) {
     // Observers must learn the journal broke or they wait on a wake-up that cannot come.
-    for (const listener of failureListenersByRun.get(key) ?? []) {
-      try {
-        listener();
-      } catch {
-        // Observer callbacks never change the durable append result.
-      }
-    }
+    publishPetriJournalFailure(args);
     throw error;
   }
   for (const listener of listenersByRun.get(key) ?? []) {
@@ -45,6 +39,16 @@ export async function appendPetriEvent(args: {
       listener(args.event);
     } catch {
       // Observer callbacks never change the durable append result.
+    }
+  }
+}
+
+export function publishPetriJournalFailure(args: { readonly cwd: string; readonly runId: string }): void {
+  for (const listener of failureListenersByRun.get(listenerKey(args.cwd, args.runId)) ?? []) {
+    try {
+      listener();
+    } catch {
+      // Observer callbacks never change journal authority.
     }
   }
 }
@@ -59,7 +63,7 @@ export async function readDurableEpicTransitionHistory(args: {
 > {
   try {
     const history: string[] = [];
-    const journal = await readPetriJournal(petriEventsPath(args.cwd, args.runId));
+    const journal = await inspectPetriTransitionJournal(args);
     if (journal.status !== 'readable') return journal;
     for (const event of journal.events) {
       if (event.kind === 'transition_fired' && event.contract.lane === 'epic') {
@@ -70,6 +74,28 @@ export async function readDurableEpicTransitionHistory(args: {
   } catch (error) {
     return isNodeError(error) && error.code === 'ENOENT' ? { status: 'missing' } : unavailableJournal(error);
   }
+}
+
+export async function inspectPetriTransitionJournal(args: {
+  readonly cwd: string;
+  readonly runId: string;
+}): Promise<
+  | { readonly status: 'missing' | 'unreadable' }
+  | { readonly status: 'unavailable'; readonly code?: string }
+  | {
+      readonly status: 'readable';
+      readonly events: readonly ExecutorNetEvent[];
+      readonly transitionIds: readonly string[];
+    }
+> {
+  const journal = await readPetriJournal(petriEventsPath(args.cwd, args.runId));
+  if (journal.status !== 'readable') return journal;
+  return {
+    ...journal,
+    transitionIds: journal.events.flatMap((event) =>
+      event.kind === 'transition_fired' ? [event.transitionId] : [],
+    ),
+  };
 }
 
 export async function readPetriJournal(

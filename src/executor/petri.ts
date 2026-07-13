@@ -2,7 +2,7 @@ import { mkdir, open, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import { compileExecutorTopology, projectSchedulerPlan, type SchedulerPlan } from './orchestrate-topology.js';
-import { petriEventsPath } from './petri-events.js';
+import { inspectPetriTransitionJournal, petriEventsPath } from './petri-events.js';
 import { freezePetriPlanSnapshot } from './petri-plan-snapshot.js';
 import { readPetriRuntimePlan } from './petri-runtime-plan.js';
 import { petriTopologyToSdcpnFile } from './petrinaut/sdcpn.js';
@@ -88,10 +88,26 @@ export async function preparePetriObservation(args: {
   } catch {
     throw new PetriObservationInputError(`Invalid Petrinaut topology input: ${args.runId}`);
   }
-  await writePetriArtifacts({ cwd: args.cwd, runId: args.runId, artifacts });
-  const journal = await open(petriEventsPath(args.cwd, args.runId), 'a');
-  await journal.close();
+  const artifactWrites = await writePetriArtifacts({ cwd: args.cwd, runId: args.runId, artifacts });
+  if (artifactWrites.net || artifactWrites.sdcpn) {
+    const journal = await open(petriEventsPath(args.cwd, args.runId), 'a');
+    await journal.close();
+  } else {
+    const journal = await inspectPetriTransitionJournal(args);
+    if (journal.status === 'missing' || journal.status === 'unavailable') {
+      throw new PetriObservationInputError(`Petrinaut journal is ${journal.status}: ${args.runId}`);
+    }
+  }
   return plan;
+}
+
+export async function hasPreparedPetriObservation(cwd: string, runId: string): Promise<boolean> {
+  try {
+    await readFile(petriNetPath(cwd, runId));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function exportPetri(args: {

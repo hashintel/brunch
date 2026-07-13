@@ -2,7 +2,7 @@ import { appendFile } from 'node:fs/promises';
 
 import type { TestRunnerPort } from './execution-ports.js';
 import { compileExecutorTopology, type ReadyStep, type SchedulerPlan } from './orchestrate-topology.js';
-import { appendPetriEvent, petriEventsPath, readPetriJournal } from './petri-events.js';
+import { appendPetriEvent, inspectPetriTransitionJournal } from './petri-events.js';
 import {
   petriMarkingLifecycleProvenance,
   readPetriMarkingSnapshot,
@@ -96,6 +96,9 @@ export async function executeEpicLifecycleStep(args: {
             }
           : undefined);
       if (claim?.phase === 'transitioned') {
+        if (!journal.transitioned) {
+          return { status: 'epic_verification_interrupted', runStatus: metadata.status };
+        }
         const claimedSnapshot =
           snapshot ?? verificationClaimSnapshot(args, metadata, { epicId: epic.id, phase: 'transitioned' });
         const updated = {
@@ -333,7 +336,7 @@ async function readEpicVerificationJournal(
   | { readonly status: 'readable'; readonly claimed: boolean; readonly transitioned: boolean }
 > {
   try {
-    const journal = await readPetriJournal(petriEventsPath(cwd, runId));
+    const journal = await inspectPetriTransitionJournal({ cwd, runId });
     if (journal.status !== 'readable') return journal;
     let claimed = false;
     let transitioned = false;
