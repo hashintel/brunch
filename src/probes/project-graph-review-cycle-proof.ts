@@ -1023,7 +1023,7 @@ Proposal constraints:
 - When referencing existing graph truth, use existingCode strings from read_graph output, never raw ids.
 - Use schemaVersion 1, lens "intent", epistemicStatus "inferred", non-empty grounding.summary, grounding.support, pitch.title, and pitch.narrative.
 - Do not call mutate_graph directly.
-- Do not call request_response; stop after a successful present_review_set so the external Brunch RPC reviewer can approve it.`;
+- Do not call ask; stop after a successful present_review_set so the external Brunch RPC reviewer can approve it.`;
 }
 
 function defaultRunId(): string {

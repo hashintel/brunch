@@ -61,7 +61,7 @@ describe('formatPresentCandidates', () => {
             exchangeId: 'candidate-direction',
             respondsToPresentTool: 'present_candidates',
             status: 'unavailable',
-            message: 'request_response choice requires interactive UI',
+            message: 'ask choice requires interactive UI',
           }),
         ),
       ),
