@@ -15,6 +15,7 @@ import { CODE_SESSION_ORIENTATION_MENU, SESSION_ORIENTATION_MENU } from '../inde
 import type { JunctureContextKick } from '../juncture.js';
 import {
   BRUNCH_CONSULT_COMMAND,
+  NO_PROVIDER_AUTH_NOTICE,
   orientationJunctureGate,
   registerBrunchSessionOrientation,
 } from '../registrar.js';
@@ -156,7 +157,7 @@ describe('registerBrunchSessionOrientation', () => {
     },
   );
 
-  it('suppresses J1 without a Brunch warning when no provider auth resolves', async () => {
+  it('suppresses J1 with a single entry warning naming /login when no provider auth resolves', async () => {
     const { pi, handlers } = collectPi();
     const sent: SentMessage[] = [];
     registerBrunchSessionOrientation(pi, {
@@ -171,7 +172,7 @@ describe('registerBrunchSessionOrientation', () => {
     expect(entries).toEqual([]);
     expect(sent).toEqual([]);
     expect(getSelectCount()).toBe(0);
-    expect(notifications).toEqual([]);
+    expect(notifications).toEqual([{ message: NO_PROVIDER_AUTH_NOTICE, type: 'warning' }]);
   });
 
   it('live-reads model availability so auth added mid-session re-enables the next juncture', async () => {

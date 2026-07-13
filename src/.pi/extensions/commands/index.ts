@@ -60,6 +60,7 @@ import {
 } from '../session-orientation/juncture.js';
 import {
   forceClaimOrientationJuncture,
+  NO_PROVIDER_AUTH_NOTICE,
   orientationJunctureGate,
   releaseOrientationJuncture,
   type BrunchSessionOrientationDeps,
@@ -273,11 +274,7 @@ function formatContinueOutcome(outcome: KickCompletionOutcome | undefined): {
     };
   }
   if (outcome?.status === 'skipped' && outcome.reason === 'no_model_available') {
-    return {
-      message:
-        'No provider auth is available, so Brunch did not start an assistant turn. Run /login, then try /brunch:continue again.',
-      level: 'info',
-    };
+    return { message: NO_PROVIDER_AUTH_NOTICE, level: 'warning' };
   }
   return {
     message: `Nothing to resume. Try ${slashCommand(BRUNCH_CONSULT_COMMAND)} or ${slashCommand(BRUNCH_MODE_COMMAND)}.`,

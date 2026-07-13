@@ -377,11 +377,11 @@ describe('Brunch menu command', () => {
     expect(harness.sent).toEqual([]);
     expect(harness.notifications).toEqual([
       expect.objectContaining({
-        level: 'info',
+        level: 'warning',
         message: expect.stringContaining('No provider auth is available'),
       }),
       expect.objectContaining({
-        level: 'info',
+        level: 'warning',
         message: expect.stringContaining('No provider auth is available'),
       }),
     ]);

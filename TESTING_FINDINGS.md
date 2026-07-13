@@ -197,10 +197,10 @@ Deferred WR9–WR12 (compact tool rendering, `/introspect` legibility, review-se
 #### R1 · chrome / model policy · high · pass
 
 Concern: onboarding
-Evidence: manual TUI walkthrough on branch `ln/fe-1187-walkthrough-remediation-2` (commit 5938981d), workbench launch per `docs/praxis/manual-testing.md`.
+Evidence: manual TUI walkthrough on branch `ln/fe-1187-walkthrough-remediation-2` (commit a15f33b0, pre-restack 5938981d), workbench launch per `docs/praxis/manual-testing.md`.
 Observation: `/model` surfaces Pi's full native picker and `/login` runs Pi-native auth; no Brunch allowlist restriction, no `brunch login` product path, no startup-menu auth warning.
 Expected: D123-L open model/auth surface — Pi's native provider/model/thinking range with the soft recommended default from the sealed profile.
-Disposition: fixed — commit 5938981d (`feat: open Pi model and auth surface`); guarded by `brunch-tui.test.ts` boot-option projection, `workspace-dialog/component.test.ts` no-warning assertions, and the re-keyed I59-L registrar/juncture suppression tests. WR18 O1/O2 promoted failures (provider/model restrictions, `brunch login` path, startup warning) close with it. The no-model `/brunch:continue` + no-carrier observation (O1 promoted unknown) remains open on FE-1187.
+Disposition: fixed — commit a15f33b0 (`feat: open Pi model and auth surface`; pre-restack 5938981d); guarded by `brunch-tui.test.ts` boot-option projection, `workspace-dialog/component.test.ts` no-warning assertions, and the re-keyed I59-L registrar/juncture suppression tests. WR18 O1/O2 promoted failures (provider/model restrictions, `brunch login` path, startup warning) close with it. The no-model `/brunch:continue` + no-carrier observation (O1 promoted unknown) remains open on FE-1187.
 
 #### R2 · debug mirrors · medium · fixed
 
@@ -208,7 +208,15 @@ Concern: debug mirrors
 Evidence: `.fixtures/workbenches/manual-no-auth/.brunch/debug/origination.md` (6 records = 3 originations, each doubled); ln-diagnose pass 2026-07-13.
 Observation: not an accidental double-write — the mirror intentionally records decision-time and outcome-time, but the outcome record re-embedded the entire decision including full `seedEntries` content, so each origination produced two near-identical multi-KB blocks (and seed content appeared three times across `entry-contents.md` + `origination.md`).
 Expected: two-phase records stay (decision-first keeps failed/never-completed kicks observable) but each phase is legible: decision record carries seed-entry summaries, outcome record carries the outcome plus a slim decision summary.
-Disposition: fixed — commit 2ec50505 (`fix(debug): stop outcome record re-embedding decision payload`); regression oracle in `dev-mode-introspection.test.ts` asserts exact record shapes, decision-before-outcome ordering, and no seed content in `origination.md`. Closes the WR18 O3 promoted failure.
+Disposition: fixed — commit f0630a70 (`fix(debug): stop outcome record re-embedding decision payload`; pre-restack 2ec50505); regression oracle in `dev-mode-introspection.test.ts` asserts exact record shapes, decision-before-outcome ordering, and no seed content in `origination.md`. Closes the WR18 O3 promoted failure.
+
+#### R3 · onboarding safety · high · fixed
+
+Concern: onboarding
+Evidence: no-auth boot walkthrough 2026-07-13 (isolated launch: provider env keys stripped + `PI_CODING_AGENT_DIR` pointed at an empty temp dir), workbench `manual-no-auth`; screenshots of the spec picker, the booted session, and the post-`/brunch:continue` state.
+Observation: with no resolvable provider auth, the session correctly suppressed the orientation kick (no fake turn), but gave no unprompted indication of the state or remedy — only the dim `no model` footer chip. The honest guidance message existed only as the `/brunch:continue` outcome, which the user had to already know to run. (The old startup warning was deliberately deleted by the D123-L reversal without a Pi-native replacement surfacing at boot.)
+Expected: on session entry with no resolvable auth, the user gets one warning-level notification naming the state and the Pi-native remedy (`/login`), identical to the `/brunch:continue` outcome message; later junctures stay silent since the footer already shows the state.
+Disposition: fixed — the I59-L suppression gate in `session-orientation/registrar.ts` now emits the shared `NO_PROVIDER_AUTH_NOTICE` as a warning on the J1 entry trigger, and `/brunch:continue`'s no-model outcome reuses the same constant raised from info to warning. Guarded by the reshaped J1 no-auth registrar test (asserts exactly one entry warning) and the continue-outcome level assertions. Verified live: warning appears at boot and again on `/brunch:continue`. Closes the WR18 O1 promoted unknown's guidance half; the no-carrier debug-cache observation rides the same session's B3 check.
 
 Use future entries like:
 
