@@ -1,7 +1,11 @@
 import type { AgentStreamEvent } from './agent-result.js';
 import type { AgentRunnerRuntime, ExecutionPorts } from './execution-ports.js';
 import {
+  attemptExhaustedTransitionId,
+  attemptRetryTransitionId,
+  attemptResetTransitionId,
   compileExecutorTopology,
+  SLICE_ATTEMPT_LIMIT,
   type ExecutorNetEvent,
   type ReadyStep,
   type SchedulerPlan,
@@ -25,7 +29,13 @@ import {
 } from './petri-runtime.js';
 import { classifyDriveTerminal } from './petri-terminal.js';
 import { PetriObservationInputError, preparePetriObservation } from './petri.js';
-import { readRunMetadata, runMetadataPath, type RunMetadata } from './run.js';
+import {
+  appendSliceAttemptCycle,
+  persistRunMetadata,
+  readRunMetadata,
+  runMetadataPath,
+  type RunMetadata,
+} from './run.js';
 import type { SourcePolicyKind } from './source-policy.js';
 import type { VerifyStreamEvent } from './test-result.js';
 
@@ -35,10 +45,6 @@ export type { ExecutorNetEvent, ReadyStep, SchedulerPlan, SchedulerPlanMode };
 // The driver composes the existing `execute_*` lifecycle steps into a single
 // self-advancing run. It owns no side effects of its own: each ReadyStep maps
 // to one step function, and the run.json status IS the loop state (D112-L).
-
-// ceiling: constant retry bound; move to a plan-declared per-slice budget when
-// plans need differentiated attempt policies.
-const SLICE_ATTEMPT_RETRY_LIMIT = 2;
 
 export interface RunScheduler {
   /** Pure: given current run facts, return the ready step frontier (`[]` when done). */
@@ -385,6 +391,11 @@ export async function drive(
         return terminal.outcome;
       }
     }
+    if (state.activeSliceAttemptReset && state.activeSliceId && plan) {
+      const reset = await applyPendingAttemptReset(ctx, state, plan);
+      if (!reset.applied) return reset.outcome;
+      continue;
+    }
     const runtimeResult = await materializeDriveRuntime({ ctx, state, plan });
     if ('outcome' in runtimeResult) {
       return runtimeResult.outcome;
@@ -483,7 +494,7 @@ export async function drive(
             runStatus: currentState.status,
             sliceId: currentState.activeSliceId,
             ...(currentState.activeEpicId === undefined ? {} : { epicId: currentState.activeEpicId }),
-            step: next.kind,
+            step: result.status === 'agent_run_failed' ? 'agent_result' : 'test_result',
             attempt: result.attempts,
             reason: result.status,
           });
@@ -495,7 +506,23 @@ export async function drive(
               reason: 'petri_journal_append_failed',
             };
           }
-          if (result.attempts <= SLICE_ATTEMPT_RETRY_LIMIT) continue;
+          const attemptTransitionJournaled = await emitAttemptMarkingTransition({
+            ctx,
+            runtime: currentRuntime,
+            state: currentState,
+            step: result.status === 'agent_run_failed' ? 'agent_result' : 'test_result',
+            sliceId: currentState.activeSliceId,
+            attempt: result.attempts,
+          });
+          if (!attemptTransitionJournaled) {
+            return {
+              status: 'halted',
+              step: next.kind,
+              runStatus: currentState.status,
+              reason: 'petri_journal_append_failed',
+            };
+          }
+          if (result.attempts < SLICE_ATTEMPT_LIMIT) continue;
         }
         const terminal = classifyDriveTerminal({
           kind: 'step_halted',
@@ -506,12 +533,14 @@ export async function drive(
         });
         const emitted = await emitNetEvent(ctx, terminal.event);
         if (!emitted.journaled) return journalFailureOutcome(terminal);
+        const haltedState = (await readRunMetadata(metadataPath)) ?? currentState;
+        const haltedRuntime = materializeExecutorPetriRuntime(haltedState, currentPlan);
         await persistPetriMarkingSnapshot(
           ctx,
           await nextPetriSnapshot({
-            currentMarking: boundRuntime.runtime.currentMarking,
-            firedTransitionCount: firedTransitionCountForState(currentState, currentPlan),
-            lifecycleProvenance: petriMarkingLifecycleProvenance(currentState),
+            currentMarking: haltedRuntime.currentMarking,
+            firedTransitionCount: firedTransitionCountForState(haltedState, currentPlan),
+            lifecycleProvenance: petriMarkingLifecycleProvenance(haltedState),
             terminalEventKind: terminal.event.kind,
             ...(terminal.event.kind === 'net_halted' ? { haltedReason: terminal.event.reason } : {}),
           }),
@@ -549,6 +578,21 @@ export async function drive(
           const nextState = await readRunMetadata(metadataPath);
           if (nextState) {
             const nextPlan = await readPetriRuntimePlan(ctx.cwd, nextState);
+            const impliedEventsJournaled = await emitNewImpliedTopologyEvents({
+              ctx,
+              before: currentState,
+              after: nextState,
+              plan: nextPlan,
+              topology: currentRuntime.topology,
+            });
+            if (!impliedEventsJournaled) {
+              return {
+                status: 'halted',
+                step: next.kind,
+                runStatus: result.runStatus,
+                reason: 'petri_journal_append_failed',
+              };
+            }
             const nextRuntimeResult = await materializeDriveRuntime({
               ctx,
               state: nextState,
@@ -586,6 +630,133 @@ export async function drive(
       }
     }
   }
+}
+
+async function applyPendingAttemptReset(
+  ctx: DriveContext,
+  state: RunMetadata,
+  plan: SchedulerPlan,
+): Promise<{ readonly applied: true } | { readonly applied: false; readonly outcome: DriveOutcome }> {
+  const stage = state.activeSliceAttemptReset!.stage;
+  const sliceId = state.activeSliceId!;
+  const transitionId = attemptResetTransitionId(stage, sliceId);
+  const transition = compileExecutorTopology(plan).transitions.find(
+    (candidate) => candidate.id === transitionId,
+  );
+  if (!transition) {
+    return {
+      applied: false,
+      outcome: {
+        status: 'halted',
+        step: stage === 'agent' ? 'agent_result' : 'test_result',
+        runStatus: state.status,
+        reason: 'petri_input_unreadable',
+      },
+    };
+  }
+  const step = stage === 'agent' ? 'agent_result' : 'test_result';
+  const emitted = await emitNetEvent(ctx, {
+    kind: 'transition_fired',
+    runId: state.runId,
+    runStatus: state.status,
+    transitionId,
+    subnetId: transition.subnetId,
+    ...(transition.epicId === undefined ? {} : { epicId: transition.epicId }),
+    step,
+    contract: transition.contract,
+    consumed: transition.inputArcs.map((arc) => arc.placeId),
+    produced: transition.outputArcs.map((arc) => arc.placeId),
+    fromStatus: state.status,
+    toStatus: state.status,
+  });
+  if (!emitted.journaled) {
+    return {
+      applied: false,
+      outcome: {
+        status: 'halted',
+        step,
+        runStatus: state.status,
+        reason: 'petri_journal_append_failed',
+      },
+    };
+  }
+  const { activeSliceAttemptReset: _cleared, ...rest } = state;
+  await persistRunMetadata(runMetadataPath(ctx.cwd, ctx.runId), {
+    ...rest,
+    sliceAttemptHistory: appendSliceAttemptCycle(state, sliceId, stage, {
+      outcome: 'reset',
+      attempts: 0,
+    }),
+  });
+  return { applied: true };
+}
+
+async function emitAttemptMarkingTransition(args: {
+  readonly ctx: DriveContext;
+  readonly runtime: ExecutorPetriRuntime;
+  readonly state: RunMetadata;
+  readonly step: 'agent_result' | 'test_result';
+  readonly sliceId: string;
+  readonly attempt: number;
+}): Promise<boolean> {
+  const stage = args.step === 'agent_result' ? 'agent' : 'verify';
+  const transitionId =
+    args.attempt < SLICE_ATTEMPT_LIMIT
+      ? attemptRetryTransitionId(stage, args.sliceId, args.attempt)
+      : attemptExhaustedTransitionId(stage, args.sliceId);
+  const transition = args.runtime.topology.transitions.find((candidate) => candidate.id === transitionId);
+  if (!transition) return false;
+  const emitted = await emitNetEvent(args.ctx, {
+    kind: 'transition_fired',
+    runId: args.state.runId,
+    runStatus: args.state.status,
+    transitionId,
+    subnetId: transition.subnetId,
+    ...(transition.epicId === undefined ? {} : { epicId: transition.epicId }),
+    step: args.step,
+    contract: transition.contract,
+    consumed: transition.inputArcs.map((arc) => arc.placeId),
+    produced: transition.outputArcs.map((arc) => arc.placeId),
+    fromStatus: args.state.status,
+    toStatus: args.state.status,
+  });
+  return emitted.journaled;
+}
+
+async function emitNewImpliedTopologyEvents(args: {
+  readonly ctx: DriveContext;
+  readonly before: RunMetadata;
+  readonly after: RunMetadata;
+  readonly plan: SchedulerPlan | undefined;
+  readonly topology: ExecutorPetriRuntime['topology'];
+}): Promise<boolean> {
+  const beforeIds = projectExecutorPetriTransitionHistory(args.before, args.plan)?.transitionIds ?? [];
+  const afterIds = projectExecutorPetriTransitionHistory(args.after, args.plan)?.transitionIds ?? [];
+  for (const transitionId of afterIds.slice(beforeIds.length)) {
+    const transition = args.topology.transitions.find((candidate) => candidate.id === transitionId);
+    if (!transition || transition.step !== undefined) continue;
+    const step = transitionId.startsWith('epic_integrate:')
+      ? 'epic_integrate'
+      : transitionId.startsWith('epic_verify:')
+        ? 'epic_verify'
+        : 'epic_complete';
+    const emitted = await emitNetEvent(args.ctx, {
+      kind: 'transition_fired',
+      runId: args.after.runId,
+      runStatus: args.after.status,
+      transitionId,
+      subnetId: transition.subnetId,
+      ...(transition.epicId === undefined ? {} : { epicId: transition.epicId }),
+      step,
+      contract: transition.contract,
+      consumed: transition.inputArcs.map((arc) => arc.placeId),
+      produced: transition.outputArcs.map((arc) => arc.placeId),
+      fromStatus: args.before.status,
+      toStatus: args.after.status,
+    });
+    if (!emitted.journaled) return false;
+  }
+  return true;
 }
 
 function readyStepsEqual(left: ReadyStep, right: ReadyStep): boolean {

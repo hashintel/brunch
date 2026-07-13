@@ -7,6 +7,17 @@ import { prepareLaunch, type LaunchCurrentProjection, type LaunchResult } from '
 
 export type WorktreeSubstrateKind = 'git_worktree' | 'empty_dir';
 
+export type SliceAttemptStage = 'agent' | 'verify';
+
+export interface SliceAttemptCycle {
+  readonly outcome: 'succeeded' | 'exhausted' | 'reset';
+  readonly attempts: number;
+}
+
+export type SliceAttemptHistory = Readonly<
+  Record<string, Partial<Record<SliceAttemptStage, readonly SliceAttemptCycle[]>>>
+>;
+
 export interface RunMetadata {
   readonly runId: string;
   readonly specId: string;
@@ -40,6 +51,8 @@ export interface RunMetadata {
   readonly activeSliceId?: string;
   readonly activeEpicId?: string;
   readonly activeSliceAttempts?: number;
+  readonly activeSliceAttemptReset?: { readonly stage: SliceAttemptStage };
+  readonly sliceAttemptHistory?: SliceAttemptHistory;
   readonly sliceExecutionRequestPath?: string;
   readonly agentResultPath?: string;
   readonly completedSliceIds?: readonly string[];
@@ -50,6 +63,23 @@ export interface RunMetadata {
   readonly supersedesRunId?: string;
   readonly abandonedAt?: string;
   readonly abandonReason?: string;
+}
+
+export function appendSliceAttemptCycle(
+  metadata: RunMetadata,
+  sliceId: string,
+  stage: SliceAttemptStage,
+  cycle: SliceAttemptCycle,
+): SliceAttemptHistory {
+  const history = metadata.sliceAttemptHistory ?? {};
+  const sliceHistory = history[sliceId] ?? {};
+  return {
+    ...history,
+    [sliceId]: {
+      ...sliceHistory,
+      [stage]: [...(sliceHistory[stage] ?? []), cycle],
+    },
+  };
 }
 
 export type RunCreateResult =
@@ -161,7 +191,11 @@ export async function resetActiveSliceAttempts(args: {
   const metadata = await readRunMetadata(metadataPath);
   if (!metadata || metadata.activeSliceAttempts === undefined) return undefined;
   const { activeSliceAttempts: _cleared, ...rest } = metadata;
-  return persistRunMetadata(metadataPath, rest);
+  const stage = metadata.status === 'slice_execution_requested' ? 'agent' : 'verify';
+  return persistRunMetadata(metadataPath, {
+    ...rest,
+    activeSliceAttemptReset: { stage },
+  });
 }
 
 export async function persistRunMetadata(

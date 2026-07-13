@@ -38,6 +38,10 @@ export type ReadyStep =
   | { readonly kind: 'petri_export' }
   | { readonly kind: 'promotion' };
 
+// ceiling: constant attempt bound; move this into the frozen plan when slices
+// need differentiated retry policies.
+export const SLICE_ATTEMPT_LIMIT = 3;
+
 export interface BlockedStep {
   readonly kind: 'slice_start';
   readonly sliceId: string;
@@ -178,7 +182,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export interface ExecutorSubnet {
   readonly id: string;
-  readonly kind: 'run_control' | 'slice_control';
+  readonly kind: 'run_control' | 'slice_control' | 'attempt_control' | 'epic_control';
   readonly sliceId?: string;
   readonly epicId?: string;
   readonly definition?: string;
@@ -208,13 +212,14 @@ export interface ExecutorTransition {
   readonly subnetId: string;
   readonly epicId?: string;
   readonly derivedFrom?: readonly string[];
-  readonly step: ReadyStep;
+  /** Omitted for immutable topology gates that have no lifecycle side effect in this slice. */
+  readonly step?: ReadyStep;
   readonly inputArcs: readonly ExecutorArc[];
   readonly outputArcs: readonly ExecutorArc[];
   readonly guard?: ExecutorTransitionGuard;
   readonly contract: {
     readonly kind: 'mechanical' | 'structural';
-    readonly lane: 'run' | 'slice';
+    readonly lane: 'run' | 'slice' | 'attempt' | 'epic';
   };
 }
 
@@ -234,6 +239,8 @@ export interface ExecutorTopology {
   readonly initialMarking: Record<string, number>;
 }
 
+export type ExecutorNetStepKind = ReadyStep['kind'] | 'epic_integrate' | 'epic_verify' | 'epic_complete';
+
 export type ExecutorNetEvent =
   | {
       readonly kind: 'transition_fired';
@@ -243,7 +250,7 @@ export type ExecutorNetEvent =
       readonly subnetId: string;
       readonly epicId?: string;
       readonly derivedFrom?: readonly string[];
-      readonly step: ReadyStep['kind'];
+      readonly step: ExecutorNetStepKind;
       readonly contract: ExecutorTransition['contract'];
       readonly consumed: readonly string[];
       readonly produced: readonly string[];
@@ -270,7 +277,7 @@ export type ExecutorNetEvent =
       readonly kind: 'net_halted';
       readonly runId: string;
       readonly runStatus: import('./run.js').RunMetadata['status'];
-      readonly step?: ReadyStep['kind'];
+      readonly step?: ExecutorNetStepKind;
       readonly reason?: string;
     }
   | {
@@ -304,16 +311,62 @@ function sliceStartedPlace(sliceId: string): string {
   return `slice:${sliceId}:started`;
 }
 
-function sliceExecutionRequestedPlace(sliceId: string): string {
-  return `slice:${sliceId}:execution_requested`;
-}
-
-function sliceAgentResultPlace(sliceId: string): string {
-  return `slice:${sliceId}:agent_result_ingested`;
-}
-
 function sliceTestResultPlace(sliceId: string): string {
   return `slice:${sliceId}:test_result_ingested`;
+}
+
+export type AttemptStage = 'agent' | 'verify';
+
+export function attemptPlaceId(stage: AttemptStage, sliceId: string, attempt: number): string {
+  return `slice:${sliceId}:${stage}_attempt:${attempt}`;
+}
+
+export function attemptRetryTransitionId(stage: AttemptStage, sliceId: string, attempt: number): string {
+  return `${stage}_retry:${sliceId}:${attempt}`;
+}
+
+export function attemptExhaustedTransitionId(stage: AttemptStage, sliceId: string): string {
+  return `${stage}_exhausted:${sliceId}`;
+}
+
+export function attemptResetTransitionId(stage: AttemptStage, sliceId: string): string {
+  return `${stage}_reset:${sliceId}`;
+}
+
+export function attemptSuccessTransitionId(stage: AttemptStage, sliceId: string, attempt: number): string {
+  return `${stage === 'agent' ? 'agent_result' : 'test_result'}:${sliceId}:attempt:${attempt}`;
+}
+
+function sliceClaimPlace(sliceId: string): string {
+  return `slice:${sliceId}:claim`;
+}
+
+function sliceCompletedPlace(sliceId: string): string {
+  return `slice:${sliceId}:completed`;
+}
+
+function sliceDependencyPlace(sliceId: string, dependencyId: string): string {
+  return `slice:${sliceId}:dependency:${dependencyId}`;
+}
+
+function sliceEpicDependencyPlace(sliceId: string, epicId: string): string {
+  return `slice:${sliceId}:epic_dependency:${epicId}`;
+}
+
+function epicMemberPlace(epicId: string, sliceId: string): string {
+  return `epic:${epicId}:member:${sliceId}`;
+}
+
+function epicIntegratedPlace(epicId: string): string {
+  return `epic:${epicId}:integrated`;
+}
+
+function epicVerifiedPlace(epicId: string): string {
+  return `epic:${epicId}:verified`;
+}
+
+function epicCompletedPlace(epicId: string): string {
+  return `epic:${epicId}:completed`;
 }
 
 export function sliceTransitionId(
@@ -331,7 +384,9 @@ export function readyPlanSliceIds(
   return (plan?.slices ?? [])
     .filter(
       (slice) =>
-        !completed.has(slice.id) && planSliceDependsOn(slice).every((sliceId) => completed.has(sliceId)),
+        !completed.has(slice.id) &&
+        planSliceDependsOn(slice).every((sliceId) => completed.has(sliceId)) &&
+        epicDependenciesForSlice(plan, slice).every((epicId) => epicIsComplete(plan, epicId, completed)),
     )
     .map((slice) => slice.id);
 }
@@ -359,9 +414,30 @@ export function planSliceDependsOn(slice: SchedulerPlanSlice): readonly string[]
   return slice.depends_on ?? [];
 }
 
+function epicDependenciesForSlice(
+  plan: SchedulerPlan | undefined,
+  slice: SchedulerPlanSlice,
+): readonly string[] {
+  if (!slice.epic_id) return [];
+  return plan?.epics?.find((epic) => epic.id === slice.epic_id)?.depends_on ?? [];
+}
+
+function epicIsComplete(
+  plan: SchedulerPlan | undefined,
+  epicId: string,
+  completedSliceIds: ReadonlySet<string>,
+): boolean {
+  const members = (plan?.slices ?? []).filter((slice) => slice.epic_id === epicId);
+  return members.every((slice) => completedSliceIds.has(slice.id));
+}
+
 export function compileExecutorTopology(plan: SchedulerPlan | undefined): ExecutorTopology {
+  validateEpics(plan);
   const seenSliceIds = new Set<string>();
   for (const slice of plan?.slices ?? []) {
+    if (slice.epic_id !== undefined && !plan?.epics?.some((epic) => epic.id === slice.epic_id)) {
+      throw new Error(`Unknown slice epic in executor topology: ${slice.id} -> ${slice.epic_id}`);
+    }
     if (seenSliceIds.has(slice.id)) {
       throw new Error(`Duplicate slice id in executor topology: ${slice.id}`);
     }
@@ -419,48 +495,63 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
     id,
     subnetId: 'run',
     step: { kind: id },
-    inputArcs: [
-      {
-        placeId:
-          id === 'worktree_create'
-            ? RUN_CREATED_PLACE
-            : id === 'populate'
-              ? RUN_WORKTREE_CREATED_PLACE
-              : id === 'source_policy'
-                ? RUN_WORKTREE_POPULATED_PLACE
-                : id === 'source_copy'
-                  ? RUN_SOURCE_POLICY_SELECTED_PLACE
-                  : id === 'report_init'
-                    ? RUN_SOURCE_COPIED_PLACE
-                    : id === 'run_complete'
-                      ? RUN_SLICE_FRONTIER_PLACE
-                      : id === 'petri_export'
-                        ? RUN_COMPLETED_PLACE
-                        : RUN_PETRI_EXPORTED_PLACE,
-        weight: 1,
-      },
-    ],
-    outputArcs: [
-      {
-        placeId:
-          id === 'worktree_create'
-            ? RUN_WORKTREE_CREATED_PLACE
-            : id === 'populate'
-              ? RUN_WORKTREE_POPULATED_PLACE
-              : id === 'source_policy'
-                ? RUN_SOURCE_POLICY_SELECTED_PLACE
-                : id === 'source_copy'
-                  ? RUN_SOURCE_COPIED_PLACE
-                  : id === 'report_init'
-                    ? RUN_SLICE_FRONTIER_PLACE
-                    : id === 'run_complete'
-                      ? RUN_COMPLETED_PLACE
-                      : id === 'petri_export'
-                        ? RUN_PETRI_EXPORTED_PLACE
-                        : RUN_PROMOTION_PREPARED_PLACE,
-        weight: 1,
-      },
-    ],
+    inputArcs:
+      id === 'run_complete'
+        ? [
+            ...(compiledEpics ?? []).map((epic) => ({ placeId: epicCompletedPlace(epic.id), weight: 1 })),
+            ...(plan?.slices ?? [])
+              .filter((slice) => slice.epic_id === undefined)
+              .map((slice) => ({ placeId: sliceCompletedPlace(slice.id), weight: 1 })),
+            ...((plan?.slices?.length ?? 0) === 0 && (compiledEpics?.length ?? 0) === 0
+              ? [{ placeId: RUN_SLICE_FRONTIER_PLACE, weight: 1 }]
+              : []),
+          ]
+        : [
+            {
+              placeId:
+                id === 'worktree_create'
+                  ? RUN_CREATED_PLACE
+                  : id === 'populate'
+                    ? RUN_WORKTREE_CREATED_PLACE
+                    : id === 'source_policy'
+                      ? RUN_WORKTREE_POPULATED_PLACE
+                      : id === 'source_copy'
+                        ? RUN_SOURCE_POLICY_SELECTED_PLACE
+                        : id === 'report_init'
+                          ? RUN_SOURCE_COPIED_PLACE
+                          : id === 'petri_export'
+                            ? RUN_COMPLETED_PLACE
+                            : RUN_PETRI_EXPORTED_PLACE,
+              weight: 1,
+            },
+          ],
+    outputArcs:
+      id === 'report_init'
+        ? [
+            ...(plan?.slices ?? []).map((slice) => ({ placeId: sliceClaimPlace(slice.id), weight: 1 })),
+            ...((plan?.slices?.length ?? 0) === 0 && (plan?.epics?.length ?? 0) === 0
+              ? [{ placeId: RUN_SLICE_FRONTIER_PLACE, weight: 1 }]
+              : []),
+          ]
+        : [
+            {
+              placeId:
+                id === 'worktree_create'
+                  ? RUN_WORKTREE_CREATED_PLACE
+                  : id === 'populate'
+                    ? RUN_WORKTREE_POPULATED_PLACE
+                    : id === 'source_policy'
+                      ? RUN_SOURCE_POLICY_SELECTED_PLACE
+                      : id === 'source_copy'
+                        ? RUN_SOURCE_COPIED_PLACE
+                        : id === 'run_complete'
+                          ? RUN_COMPLETED_PLACE
+                          : id === 'petri_export'
+                            ? RUN_PETRI_EXPORTED_PLACE
+                            : RUN_PROMOTION_PREPARED_PLACE,
+              weight: 1,
+            },
+          ],
     ...(id === 'run_complete' ? { guard: { kind: 'no_remaining_slices' } as const } : {}),
     contract: { kind: id === 'source_policy' ? 'structural' : 'mechanical', lane: 'run' },
   }));
@@ -476,30 +567,35 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
     transitionIds: [
       sliceTransitionId('slice_start', slice.id),
       sliceTransitionId('slice_execute', slice.id),
-      sliceTransitionId('agent_result', slice.id),
-      sliceTransitionId('test_result', slice.id),
       sliceTransitionId('slice_complete', slice.id),
     ],
   }));
   const slicePlaces = sliceSubnets.flatMap<ExecutorPlace>((subnet) => {
     const sliceId = subnet.sliceId!;
     return [
+      { id: sliceClaimPlace(sliceId), subnetId: subnet.id, name: 'Slice claim' },
       { id: sliceStartedPlace(sliceId), subnetId: subnet.id, name: 'Slice started' },
-      {
-        id: sliceExecutionRequestedPlace(sliceId),
-        subnetId: subnet.id,
-        name: 'Slice execution requested',
-      },
-      {
-        id: sliceAgentResultPlace(sliceId),
-        subnetId: subnet.id,
-        name: 'Agent result ingested',
-      },
       {
         id: sliceTestResultPlace(sliceId),
         subnetId: subnet.id,
         name: 'Test result ingested',
       },
+      { id: sliceCompletedPlace(sliceId), subnetId: subnet.id, name: 'Slice completed' },
+      ...planSliceDependsOn(plan?.slices?.find((slice) => slice.id === sliceId) ?? { id: sliceId }).map(
+        (dependencyId) => ({
+          id: sliceDependencyPlace(sliceId, dependencyId),
+          subnetId: subnet.id,
+          name: 'Slice dependency',
+        }),
+      ),
+      ...epicDependenciesForSlice(
+        plan,
+        plan?.slices?.find((slice) => slice.id === sliceId) ?? { id: sliceId },
+      ).map((epicId) => ({
+        id: sliceEpicDependencyPlace(sliceId, epicId),
+        subnetId: subnet.id,
+        name: 'Epic dependency',
+      })),
     ];
   });
   const sliceTransitions = sliceSubnets.flatMap<ExecutorTransition>((subnet) => {
@@ -516,7 +612,16 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
           ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
           ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
         },
-        inputArcs: [{ placeId: RUN_SLICE_FRONTIER_PLACE, weight: 1 }],
+        inputArcs: [
+          { placeId: sliceClaimPlace(sliceId), weight: 1 },
+          ...planSliceDependsOn(plan?.slices?.find((slice) => slice.id === sliceId) ?? { id: sliceId }).map(
+            (dependencyId) => ({ placeId: sliceDependencyPlace(sliceId, dependencyId), weight: 1 }),
+          ),
+          ...epicDependenciesForSlice(
+            plan,
+            plan?.slices?.find((slice) => slice.id === sliceId) ?? { id: sliceId },
+          ).map((epicId) => ({ placeId: sliceEpicDependencyPlace(sliceId, epicId), weight: 1 })),
+        ],
         outputArcs: [{ placeId: sliceStartedPlace(sliceId), weight: 1 }],
         guard: {
           kind: 'slice_ready',
@@ -539,39 +644,7 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
           ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
         },
         inputArcs: [{ placeId: sliceStartedPlace(sliceId), weight: 1 }],
-        outputArcs: [{ placeId: sliceExecutionRequestedPlace(sliceId), weight: 1 }],
-        guard: { kind: 'active_slice', sliceId },
-        contract: { kind: 'mechanical', lane: 'slice' },
-      },
-      {
-        id: sliceTransitionId('agent_result', sliceId),
-        subnetId: subnet.id,
-        ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
-        ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
-        step: {
-          kind: 'agent_result',
-          sliceId,
-          ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
-          ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
-        },
-        inputArcs: [{ placeId: sliceExecutionRequestedPlace(sliceId), weight: 1 }],
-        outputArcs: [{ placeId: sliceAgentResultPlace(sliceId), weight: 1 }],
-        guard: { kind: 'active_slice', sliceId },
-        contract: { kind: 'mechanical', lane: 'slice' },
-      },
-      {
-        id: sliceTransitionId('test_result', sliceId),
-        subnetId: subnet.id,
-        ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
-        ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
-        step: {
-          kind: 'test_result',
-          sliceId,
-          ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
-          ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
-        },
-        inputArcs: [{ placeId: sliceAgentResultPlace(sliceId), weight: 1 }],
-        outputArcs: [{ placeId: sliceTestResultPlace(sliceId), weight: 1 }],
+        outputArcs: [{ placeId: attemptPlaceId('agent', sliceId, 1), weight: 1 }],
         guard: { kind: 'active_slice', sliceId },
         contract: { kind: 'mechanical', lane: 'slice' },
       },
@@ -587,18 +660,211 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
           ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
         },
         inputArcs: [{ placeId: sliceTestResultPlace(sliceId), weight: 1 }],
-        outputArcs: [{ placeId: RUN_SLICE_FRONTIER_PLACE, weight: 1 }],
+        outputArcs: [
+          ...(subnet.epicId === undefined
+            ? [{ placeId: sliceCompletedPlace(sliceId), weight: 1 }]
+            : [{ placeId: epicMemberPlace(subnet.epicId, sliceId), weight: 1 }]),
+          ...(plan?.slices ?? [])
+            .filter((slice) => planSliceDependsOn(slice).includes(sliceId))
+            .map((slice) => ({ placeId: sliceDependencyPlace(slice.id, sliceId), weight: 1 })),
+        ],
         guard: { kind: 'active_slice', sliceId },
         contract: { kind: 'structural', lane: 'slice' },
       },
     ];
   });
 
+  const attemptSubnets = (plan?.slices ?? []).flatMap<ExecutorSubnet>((slice) =>
+    (['agent', 'verify'] as const).map((stage) => ({
+      id: `attempt:${slice.id}:${stage}`,
+      kind: 'attempt_control',
+      sliceId: slice.id,
+      ...(slice.epic_id === undefined ? {} : { epicId: slice.epic_id }),
+      ...(slice.derived_from === undefined ? {} : { derivedFrom: slice.derived_from }),
+      transitionIds: [
+        ...Array.from({ length: SLICE_ATTEMPT_LIMIT }, (_, index) =>
+          attemptSuccessTransitionId(stage, slice.id, index + 1),
+        ),
+        ...Array.from({ length: SLICE_ATTEMPT_LIMIT - 1 }, (_, index) =>
+          attemptRetryTransitionId(stage, slice.id, index + 1),
+        ),
+        attemptExhaustedTransitionId(stage, slice.id),
+        attemptResetTransitionId(stage, slice.id),
+      ],
+    })),
+  );
+  const attemptPlaces = attemptSubnets.flatMap<ExecutorPlace>((subnet) => {
+    const stage = subnet.id.endsWith(':agent') ? 'agent' : 'verify';
+    return Array.from({ length: SLICE_ATTEMPT_LIMIT }, (_, index) => index + 1)
+      .map((attempt) => ({
+        id: attemptPlaceId(stage, subnet.sliceId!, attempt),
+        subnetId: subnet.id,
+        name: `${stage} attempt ${attempt}`,
+      }))
+      .concat({
+        id: `slice:${subnet.sliceId}:${stage}_attempts_exhausted`,
+        subnetId: subnet.id,
+        name: `${stage} attempts exhausted`,
+      });
+  });
+  const attemptTransitions = attemptSubnets.flatMap<ExecutorTransition>((subnet) => {
+    const sliceId = subnet.sliceId!;
+    const stage = subnet.id.endsWith(':agent') ? 'agent' : 'verify';
+    return [
+      ...Array.from({ length: SLICE_ATTEMPT_LIMIT }, (_, index) => {
+        const attempt = index + 1;
+        return {
+          id: attemptSuccessTransitionId(stage, sliceId, attempt),
+          subnetId: subnet.id,
+          ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
+          ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
+          step: {
+            kind: stage === 'agent' ? ('agent_result' as const) : ('test_result' as const),
+            sliceId,
+            ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
+            ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
+          },
+          inputArcs: [{ placeId: attemptPlaceId(stage, sliceId, attempt), weight: 1 }],
+          outputArcs: [
+            {
+              placeId:
+                stage === 'agent' ? attemptPlaceId('verify', sliceId, 1) : sliceTestResultPlace(sliceId),
+              weight: 1,
+            },
+          ],
+          guard: { kind: 'active_slice' as const, sliceId },
+          contract: { kind: 'mechanical' as const, lane: 'attempt' as const },
+        };
+      }),
+      ...Array.from({ length: SLICE_ATTEMPT_LIMIT - 1 }, (_, index) => {
+        const attempt = index + 1;
+        return {
+          id: attemptRetryTransitionId(stage, sliceId, attempt),
+          subnetId: subnet.id,
+          inputArcs: [{ placeId: attemptPlaceId(stage, sliceId, attempt), weight: 1 }],
+          outputArcs: [{ placeId: attemptPlaceId(stage, sliceId, attempt + 1), weight: 1 }],
+          contract: { kind: 'structural' as const, lane: 'attempt' as const },
+        };
+      }),
+      {
+        id: attemptExhaustedTransitionId(stage, sliceId),
+        subnetId: subnet.id,
+        inputArcs: [{ placeId: attemptPlaceId(stage, sliceId, SLICE_ATTEMPT_LIMIT), weight: 1 }],
+        outputArcs: [{ placeId: `slice:${sliceId}:${stage}_attempts_exhausted`, weight: 1 }],
+        contract: { kind: 'structural', lane: 'attempt' },
+      },
+      {
+        id: attemptResetTransitionId(stage, sliceId),
+        subnetId: subnet.id,
+        inputArcs: [{ placeId: `slice:${sliceId}:${stage}_attempts_exhausted`, weight: 1 }],
+        outputArcs: [{ placeId: attemptPlaceId(stage, sliceId, 1), weight: 1 }],
+        contract: { kind: 'structural', lane: 'attempt' },
+      },
+    ];
+  });
+
+  const epicSubnets = (compiledEpics ?? []).map<ExecutorSubnet>((epic) => ({
+    id: `epic:${epic.id}`,
+    kind: 'epic_control',
+    epicId: epic.id,
+    ...(epic.verification === undefined ? {} : { verification: epic.verification }),
+    transitionIds: [
+      `epic_integrate:${epic.id}`,
+      ...(epic.verification?.length ? [`epic_verify:${epic.id}`] : []),
+      `epic_complete:${epic.id}`,
+    ],
+  }));
+  const epicPlaces = epicSubnets.flatMap<ExecutorPlace>((subnet) => [
+    ...(compiledEpics?.find((epic) => epic.id === subnet.epicId)?.sliceIds ?? []).map((sliceId) => ({
+      id: epicMemberPlace(subnet.epicId!, sliceId),
+      subnetId: subnet.id,
+      name: 'Epic member joined',
+    })),
+    { id: epicIntegratedPlace(subnet.epicId!), subnetId: subnet.id, name: 'Epic integrated' },
+    ...(subnet.verification?.length
+      ? [{ id: epicVerifiedPlace(subnet.epicId!), subnetId: subnet.id, name: 'Epic verified' }]
+      : []),
+    { id: epicCompletedPlace(subnet.epicId!), subnetId: subnet.id, name: 'Epic completed' },
+  ]);
+  const epicTransitions = epicSubnets.flatMap<ExecutorTransition>((subnet) => {
+    const epic = compiledEpics!.find((candidate) => candidate.id === subnet.epicId)!;
+    const hasVerification = Boolean(epic.verification?.length);
+    return [
+      {
+        id: `epic_integrate:${epic.id}`,
+        subnetId: subnet.id,
+        epicId: epic.id,
+        inputArcs: epic.sliceIds.map((sliceId) => ({
+          placeId: epicMemberPlace(epic.id, sliceId),
+          weight: 1,
+        })),
+        outputArcs: [{ placeId: epicIntegratedPlace(epic.id), weight: 1 }],
+        contract: { kind: 'structural', lane: 'epic' },
+      },
+      ...(hasVerification
+        ? [
+            {
+              id: `epic_verify:${epic.id}`,
+              subnetId: subnet.id,
+              epicId: epic.id,
+              inputArcs: [{ placeId: epicIntegratedPlace(epic.id), weight: 1 }],
+              outputArcs: [{ placeId: epicVerifiedPlace(epic.id), weight: 1 }],
+              contract: { kind: 'mechanical' as const, lane: 'epic' as const },
+            },
+          ]
+        : []),
+      {
+        id: `epic_complete:${epic.id}`,
+        subnetId: subnet.id,
+        epicId: epic.id,
+        inputArcs: [
+          { placeId: hasVerification ? epicVerifiedPlace(epic.id) : epicIntegratedPlace(epic.id), weight: 1 },
+        ],
+        outputArcs: [
+          { placeId: epicCompletedPlace(epic.id), weight: 1 },
+          ...(plan?.slices ?? [])
+            .filter((slice) => epicDependenciesForSlice(plan, slice).includes(epic.id))
+            .map((slice) => ({ placeId: sliceEpicDependencyPlace(slice.id, epic.id), weight: 1 })),
+        ],
+        contract: { kind: 'structural', lane: 'epic' },
+      },
+    ];
+  });
+
   return {
     ...(compiledEpics === undefined ? {} : { epics: compiledEpics }),
-    subnets: [runSubnet, ...sliceSubnets],
-    places: [...runPlaces, ...slicePlaces],
-    transitions: [...runTransitions, ...sliceTransitions],
+    subnets: [runSubnet, ...sliceSubnets, ...attemptSubnets, ...epicSubnets],
+    places: [...runPlaces, ...slicePlaces, ...attemptPlaces, ...epicPlaces],
+    transitions: [...runTransitions, ...sliceTransitions, ...attemptTransitions, ...epicTransitions],
     initialMarking: { [RUN_CREATED_PLACE]: 1 },
   };
+}
+
+function validateEpics(plan: SchedulerPlan | undefined): void {
+  const epics = plan?.epics ?? [];
+  const byId = new Map<string, SchedulerPlanEpic>();
+  for (const epic of epics) {
+    if (byId.has(epic.id)) throw new Error(`Duplicate epic id in executor topology: ${epic.id}`);
+    byId.set(epic.id, epic);
+  }
+  for (const epic of epics) {
+    for (const dependencyId of epic.depends_on ?? []) {
+      if (dependencyId === epic.id)
+        throw new Error(`Epic cannot depend on itself in executor topology: ${epic.id}`);
+      if (!byId.has(dependencyId)) {
+        throw new Error(`Unknown epic dependency in executor topology: ${epic.id} -> ${dependencyId}`);
+      }
+    }
+  }
+  const visited = new Set<string>();
+  const visiting = new Set<string>();
+  const visit = (epicId: string): void => {
+    if (visited.has(epicId)) return;
+    if (visiting.has(epicId)) throw new Error(`Cyclic epic dependency in executor topology: ${epicId}`);
+    visiting.add(epicId);
+    for (const dependencyId of byId.get(epicId)?.depends_on ?? []) visit(dependencyId);
+    visiting.delete(epicId);
+    visited.add(epicId);
+  };
+  for (const epic of epics) visit(epic.id);
 }

@@ -1,7 +1,7 @@
 import { appendFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type { ExecutorNetEvent, ReadyStep } from './orchestrate-topology.js';
+import type { ExecutorNetEvent, ExecutorNetStepKind } from './orchestrate-topology.js';
 import { runDirPath, type RunMetadata } from './run.js';
 
 export type PetriEventListener = (event: ExecutorNetEvent) => void;
@@ -152,13 +152,16 @@ const STEP_KINDS = {
   run_complete: true,
   petri_export: true,
   promotion: true,
-} satisfies Record<ReadyStep['kind'], true>;
+  epic_integrate: true,
+  epic_verify: true,
+  epic_complete: true,
+} satisfies Record<ExecutorNetStepKind, true>;
 
 function isRunStatus(value: unknown): value is RunMetadata['status'] {
   return typeof value === 'string' && value in RUN_STATUSES;
 }
 
-function isStepKind(value: unknown): value is ReadyStep['kind'] {
+function isStepKind(value: unknown): value is ExecutorNetStepKind {
   return typeof value === 'string' && value in STEP_KINDS;
 }
 
@@ -166,7 +169,7 @@ function isTransitionContract(value: unknown): boolean {
   return (
     isRecord(value) &&
     (value.kind === 'mechanical' || value.kind === 'structural') &&
-    (value.lane === 'run' || value.lane === 'slice')
+    (value.lane === 'run' || value.lane === 'slice' || value.lane === 'attempt' || value.lane === 'epic')
   );
 }
 

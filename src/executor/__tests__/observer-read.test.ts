@@ -194,6 +194,7 @@ describe('readRunDetail', () => {
       planPath,
       JSON.stringify({
         mode: 'greenfield',
+        epics: [{ id: 'frontier-1' }, { id: 'frontier-2' }],
         slices: [
           { id: 'task-1', epic_id: 'frontier-1', derived_from: ['REQ1'] },
           { id: 'task-2', epic_id: 'frontier-1', depends_on: ['task-1'], derived_from: ['REQ2'] },
@@ -835,7 +836,7 @@ describe('readRunDetail', () => {
       `${JSON.stringify(
         {
           claimedTransitionIds: ['slice_start:task-1'],
-          currentMarking: { 'run:slice_frontier': 1 },
+          currentMarking: { 'slice:task-1:claim': 1, 'slice:task-2:claim': 1 },
           firedTransitionCount: 5,
           lifecycleProvenance: {
             runStatus: 'reports_initialized',
@@ -852,7 +853,7 @@ describe('readRunDetail', () => {
     expect(detail).toMatchObject({
       petriProjection: {
         claimedTransitionIds: ['slice_start:task-1'],
-        currentMarking: { 'run:slice_frontier': 1 },
+        currentMarking: { 'slice:task-1:claim': 1, 'slice:task-2:claim': 1 },
         firedTransitionCount: 5,
       },
       petriProjectionSource: 'snapshot',
@@ -927,7 +928,7 @@ describe('readRunDetail', () => {
       join(runDir, 'petrinaut', 'marking.json'),
       `${JSON.stringify(
         {
-          currentMarking: { 'run:slice_frontier': 1 },
+          currentMarking: { 'slice:task-1:claim': 1, 'slice:task-2:claim': 1 },
           firedTransitionCount: 5,
           lifecycleProvenance: { runStatus: 'reports_initialized' },
         },
@@ -941,7 +942,7 @@ describe('readRunDetail', () => {
 
     expect(detail).toMatchObject({
       petriProjection: {
-        currentMarking: { 'run:slice_frontier': 1 },
+        currentMarking: { 'slice:task-1:claim': 1, 'slice:task-2:claim': 1 },
         firedTransitionCount: 5,
         terminalEventKind: 'net_halted',
         haltedReason: 'agent_failed',
@@ -973,7 +974,7 @@ describe('readRunDetail', () => {
       join(runDir, 'petrinaut', 'marking.json'),
       `${JSON.stringify(
         {
-          currentMarking: { 'run:slice_frontier': 1 },
+          currentMarking: { 'slice:task-1:claim': 1 },
           firedTransitionCount: 5,
           lifecycleProvenance: { runStatus: 'reports_initialized' },
           terminalEventKind: 'net_completed',
@@ -988,7 +989,7 @@ describe('readRunDetail', () => {
 
     expect(detail).toMatchObject({
       petriProjection: {
-        currentMarking: { 'run:slice_frontier': 1 },
+        currentMarking: { 'slice:task-1:claim': 1 },
         firedTransitionCount: 5,
       },
       petriProjectionSource: 'snapshot',
@@ -1176,8 +1177,8 @@ describe('readRunDetail', () => {
       join(runDir, 'petrinaut', 'marking.json'),
       `${JSON.stringify(
         {
-          claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-2'],
-          currentMarking: { 'run:slice_frontier': 1 },
+          claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-1'],
+          currentMarking: { 'slice:task-1:claim': 1, 'slice:task-2:claim': 1 },
           firedTransitionCount: 5,
           lifecycleProvenance: { runStatus: 'reports_initialized' },
         },
@@ -1191,14 +1192,14 @@ describe('readRunDetail', () => {
 
     expect(detail).toMatchObject({
       petriProjection: {
-        currentMarking: { 'run:slice_frontier': 1 },
+        currentMarking: { 'slice:task-1:claim': 1, 'slice:task-2:claim': 1 },
         firedTransitionCount: 5,
       },
       petriProjectionSource: 'snapshot',
     });
     expect(detail).not.toMatchObject({
       petriProjection: {
-        claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-2'],
+        claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-1'],
       },
     });
   });

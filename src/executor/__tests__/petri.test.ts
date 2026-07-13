@@ -29,7 +29,7 @@ import {
   PETRI_RUN_HALTED_PLACE,
   reducePetrinautReplayExport,
 } from '../petrinaut/replay-export.js';
-import { SDCPN_FILE_FORMAT_VERSION } from '../petrinaut/sdcpn.js';
+import { petriTopologyToSdcpnFile, SDCPN_FILE_FORMAT_VERSION } from '../petrinaut/sdcpn.js';
 import { serializePetrinautSseFrame, serializePetrinautSseFrames } from '../petrinaut/sse.js';
 import { foldPetrinautStreamFrames, projectPetrinautStreamFrames } from '../petrinaut/stream-frames.js';
 import { populatedPlanPath } from '../populate.js';
@@ -394,14 +394,16 @@ describe('exportPetri', () => {
         'report_init',
         'slice_start:task-1',
         'slice_execute:task-1',
-        'agent_result:task-1',
-        'test_result:task-1',
+        'agent_result:task-1:attempt:1',
+        'test_result:task-1:attempt:1',
         'slice_complete:task-1',
         'slice_start:task-2',
         'slice_execute:task-2',
-        'agent_result:task-2',
-        'test_result:task-2',
+        'agent_result:task-2:attempt:1',
+        'test_result:task-2:attempt:1',
         'slice_complete:task-2',
+        'epic_integrate:frontier-1',
+        'epic_complete:frontier-1',
         'run_complete',
         'petri_export',
         'promotion',
@@ -438,7 +440,7 @@ describe('exportPetri', () => {
 
     expect(projection).toEqual({
       currentMarking: { 'run:promotion_prepared': 1 },
-      firedTransitionCount: 18,
+      firedTransitionCount: 20,
       terminalEventKind: 'net_completed',
     });
   });
@@ -710,6 +712,34 @@ describe('replayPetri', () => {
 });
 
 describe('replayTransitionHistory', () => {
+  it('replays connected attempt retry and exhaustion markings without changing topology', () => {
+    const topology = compileExecutorTopology({ slices: [{ id: 'task-1' }] });
+    const prefix = [
+      'worktree_create',
+      'populate',
+      'source_policy',
+      'source_copy',
+      'report_init',
+      'slice_start:task-1',
+      'slice_execute:task-1',
+    ];
+
+    expect(replayTransitionHistory(topology, prefix)?.currentMarking).toEqual({
+      'slice:task-1:agent_attempt:1': 1,
+    });
+    expect(replayTransitionHistory(topology, [...prefix, 'agent_retry:task-1:1'])?.currentMarking).toEqual({
+      'slice:task-1:agent_attempt:2': 1,
+    });
+    expect(
+      replayTransitionHistory(topology, [
+        ...prefix,
+        'agent_retry:task-1:1',
+        'agent_retry:task-1:2',
+        'agent_exhausted:task-1',
+      ])?.currentMarking,
+    ).toEqual({ 'slice:task-1:agent_attempts_exhausted': 1 });
+  });
+
   it('replays transition ids over a compiled executor topology for shared runtime/read-side marking recovery', () => {
     const topology = compileExecutorTopology({
       mode: 'greenfield',
@@ -725,18 +755,143 @@ describe('replayTransitionHistory', () => {
         'report_init',
         'slice_start:task-2',
         'slice_execute:task-2',
-        'agent_result:task-2',
+        'agent_result:task-2:attempt:1',
       ]),
     ).toEqual({
-      currentMarking: { 'slice:task-2:agent_result_ingested': 1 },
+      currentMarking: {
+        'slice:task-1:claim': 1,
+        'slice:task-2:verify_attempt:1': 1,
+      },
       firedTransitionCount: 8,
     });
 
     expect(replayTransitionHistory(topology, ['missing-transition'])).toBeUndefined();
   });
+
+  it('joins epic members through optional verification and blocks dependent epic claims until completion', () => {
+    const topology = compileExecutorTopology({
+      epics: [
+        {
+          id: 'epic-1',
+          verification: [{ kind: 'criterion', target: 'epic one works' }],
+        },
+        { id: 'epic-2', depends_on: ['epic-1'], verification: [] },
+      ],
+      slices: [
+        { id: 'task-1', epic_id: 'epic-1' },
+        { id: 'task-2', epic_id: 'epic-1' },
+        { id: 'task-3', epic_id: 'epic-2' },
+      ],
+    });
+    const beforeCompletion = replayTransitionHistory(topology, [
+      'worktree_create',
+      'populate',
+      'source_policy',
+      'source_copy',
+      'report_init',
+      'slice_start:task-1',
+      'slice_execute:task-1',
+      'agent_result:task-1:attempt:1',
+      'test_result:task-1:attempt:1',
+      'slice_complete:task-1',
+      'slice_start:task-2',
+      'slice_execute:task-2',
+      'agent_result:task-2:attempt:1',
+      'test_result:task-2:attempt:1',
+      'slice_complete:task-2',
+    ]);
+
+    expect(beforeCompletion?.currentMarking).not.toHaveProperty('slice:task-3:epic_dependency:epic-1');
+    expect(
+      replayTransitionHistory(topology, [
+        'worktree_create',
+        'populate',
+        'source_policy',
+        'source_copy',
+        'report_init',
+        'slice_start:task-1',
+        'slice_execute:task-1',
+        'agent_result:task-1:attempt:1',
+        'test_result:task-1:attempt:1',
+        'slice_complete:task-1',
+        'slice_start:task-2',
+        'slice_execute:task-2',
+        'agent_result:task-2:attempt:1',
+        'test_result:task-2:attempt:1',
+        'slice_complete:task-2',
+        'epic_integrate:epic-1',
+        'epic_verify:epic-1',
+        'epic_complete:epic-1',
+      ])?.currentMarking,
+    ).toMatchObject({
+      'slice:task-3:claim': 1,
+      'slice:task-3:epic_dependency:epic-1': 1,
+      'epic:epic-1:completed': 1,
+    });
+    expect(topology.transitions.map((transition) => transition.id)).toEqual(
+      expect.arrayContaining([
+        'epic_integrate:epic-1',
+        'epic_verify:epic-1',
+        'epic_complete:epic-1',
+        'epic_integrate:epic-2',
+        'epic_complete:epic-2',
+      ]),
+    );
+    expect(topology.transitions.map((transition) => transition.id)).not.toContain('epic_verify:epic-2');
+  });
 });
 
 describe('reducePetrinautReplayExport', () => {
+  it('keeps failed-attempt facts and retry markings in truthful projection order', () => {
+    const topology = compileExecutorTopology({ slices: [{ id: 'task-1' }] });
+    const sdcpnFile = petriTopologyToSdcpnFile({ runId: 'run-1', topology });
+    const transitions = new Map(topology.transitions.map((transition) => [transition.id, transition]));
+    const fired = (transitionId: string, step: 'slice_execute' | 'agent_result'): ExecutorNetEvent => {
+      const transition = transitions.get(transitionId)!;
+      return {
+        kind: 'transition_fired',
+        runId: 'run-1',
+        runStatus: 'slice_execution_requested',
+        transitionId,
+        subnetId: transition.subnetId,
+        step,
+        contract: transition.contract,
+        consumed: transition.inputArcs.map((arc) => arc.placeId),
+        produced: transition.outputArcs.map((arc) => arc.placeId),
+        fromStatus: 'slice_execution_requested',
+        toStatus: 'slice_execution_requested',
+      };
+    };
+
+    const payload = reducePetrinautReplayExport({
+      sdcpnFile,
+      events: [
+        fired('slice_execute:task-1', 'slice_execute'),
+        {
+          kind: 'attempt_failed',
+          runId: 'run-1',
+          runStatus: 'slice_execution_requested',
+          sliceId: 'task-1',
+          step: 'agent_result',
+          attempt: 1,
+          reason: 'agent_run_failed',
+        },
+        fired('agent_retry:task-1:1', 'agent_result'),
+        fired('agent_result:task-1:attempt:2', 'agent_result'),
+      ],
+    });
+
+    expect(payload.transitionFirings.map((firing) => firing.transitionId)).toEqual([
+      'slice_execute:task-1',
+      'agent_retry:task-1:1',
+      'agent_result:task-1:attempt:2',
+    ]);
+    expect(payload.transitionFirings[1]).toMatchObject({
+      input: { 'slice:task-1:agent_attempt:1': 1 },
+      output: { 'slice:task-1:agent_attempt:2': 1 },
+    });
+  });
+
   it('projects SDCPN plus journal events into a compact Petrinaut replay payload', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-replay-export-'));
     await createCompletedRun(cwd);

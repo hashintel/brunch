@@ -4,11 +4,16 @@ import { ingestAgentResult } from './agent-result.js';
 import type { AgentStreamEvent } from './agent-result.js';
 import type { AgentRunnerRuntime, ExecutionPorts } from './execution-ports.js';
 import {
+  attemptExhaustedTransitionId,
+  attemptRetryTransitionId,
+  attemptResetTransitionId,
+  attemptSuccessTransitionId,
   blockedPlanSliceSteps,
   compileExecutorTopology,
   normalizeSchedulerPlanMode,
   projectSchedulerPlan,
   readyPlanSliceIds,
+  SLICE_ATTEMPT_LIMIT,
   sliceTransitionId,
   type BlockedStep,
   type ExecutorTopology,
@@ -36,11 +41,13 @@ import { createWorktree } from './worktree.js';
 export interface ExecutorPetriRuntime {
   readonly topology: ExecutorTopology;
   readonly currentMarking: Record<string, number>;
-  readonly enabledTransitions: readonly ExecutorTransition[];
+  readonly enabledTransitions: readonly ExecutableExecutorTransition[];
   readonly readySteps: readonly ReadyStep[];
   readonly blockedSteps: readonly BlockedStep[];
-  transitionForReadyStep(step: ReadyStep): ExecutorTransition | undefined;
+  transitionForReadyStep(step: ReadyStep): ExecutableExecutorTransition | undefined;
 }
+
+type ExecutableExecutorTransition = ExecutorTransition & { readonly step: ReadyStep };
 
 export interface ExecutorPetriTransitionHistoryProjection {
   readonly transitionIds: readonly string[];
@@ -113,7 +120,7 @@ export function projectExecutorPetriTransitionHistory(
 
   const transitionIds = [
     ...baseRunTransitionHistory(state.status),
-    ...completedSliceTransitionHistory(plan, state.completedSliceIds ?? []),
+    ...completedSliceTransitionHistory(state, plan, state.completedSliceIds ?? []),
   ];
   const currentSliceId = inFlightSliceId(state, plan);
   switch (state.status) {
@@ -131,6 +138,7 @@ export function projectExecutorPetriTransitionHistory(
               ...transitionIds,
               sliceTransitionId('slice_start', currentSliceId),
               sliceTransitionId('slice_execute', currentSliceId),
+              ...activeStageTransitionHistory(state, 'agent', currentSliceId),
             ],
             currentSliceId,
           }
@@ -142,7 +150,8 @@ export function projectExecutorPetriTransitionHistory(
               ...transitionIds,
               sliceTransitionId('slice_start', currentSliceId),
               sliceTransitionId('slice_execute', currentSliceId),
-              sliceTransitionId('agent_result', currentSliceId),
+              ...completedStageTransitionHistory(state, 'agent', currentSliceId, true),
+              ...activeStageTransitionHistory(state, 'verify', currentSliceId),
             ],
             currentSliceId,
           }
@@ -154,8 +163,8 @@ export function projectExecutorPetriTransitionHistory(
               ...transitionIds,
               sliceTransitionId('slice_start', currentSliceId),
               sliceTransitionId('slice_execute', currentSliceId),
-              sliceTransitionId('agent_result', currentSliceId),
-              sliceTransitionId('test_result', currentSliceId),
+              ...completedStageTransitionHistory(state, 'agent', currentSliceId, true),
+              ...completedStageTransitionHistory(state, 'verify', currentSliceId, true),
             ],
             currentSliceId,
           }
@@ -183,6 +192,16 @@ function completedSliceHistoryIsValid(
     const slice = slicesById.get(sliceId);
     if (!slice || completed.has(sliceId)) return false;
     if ((slice.depends_on ?? []).some((dependencyId) => !completed.has(dependencyId))) return false;
+    const epic = plan?.epics?.find((candidate) => candidate.id === slice.epic_id);
+    if (
+      epic?.depends_on?.some((dependencyId) =>
+        (plan?.slices ?? [])
+          .filter((candidate) => candidate.epic_id === dependencyId)
+          .some((candidate) => !completed.has(candidate.id)),
+      )
+    ) {
+      return false;
+    }
     completed.add(sliceId);
   }
   return true;
@@ -194,8 +213,9 @@ export function materializeExecutorPetriRuntime(
 ): ExecutorPetriRuntime {
   const topology = compileExecutorTopology(plan);
   const currentMarking = materializeCurrentMarking(topology, state, plan);
-  const enabledTransitions = topology.transitions.filter((transition) =>
-    isPetriTransitionEnabled(transition, currentMarking, state, plan),
+  const enabledTransitions = topology.transitions.filter(
+    (transition): transition is ExecutableExecutorTransition =>
+      transition.step !== undefined && isPetriTransitionEnabled(transition, currentMarking, state, plan),
   );
 
   return {
@@ -203,7 +223,7 @@ export function materializeExecutorPetriRuntime(
     currentMarking,
     enabledTransitions,
     readySteps: enabledTransitions.map((transition) => transition.step),
-    blockedSteps: blockedExecutorSteps(state, plan, currentMarking),
+    blockedSteps: blockedExecutorSteps(state, plan),
     transitionForReadyStep(step) {
       return enabledTransitions.find((transition) => readyStepsEqual(transition.step, step));
     },
@@ -245,6 +265,7 @@ function evaluateTransitionGuard(
 ): boolean {
   switch (guard.kind) {
     case 'slice_ready': {
+      if (inFlightSliceId(state, plan)) return false;
       const readySliceIds = new Set(readyPlanSliceIds(plan, state.completedSliceIds ?? []));
       return readySliceIds.has(guard.sliceId);
     }
@@ -283,9 +304,9 @@ function resolveTransitionIdForReadyStep(
     case 'slice_execute':
       return currentSliceTransitionId('slice_execute', state, plan);
     case 'agent_result':
-      return currentSliceTransitionId('agent_result', state, plan);
+      return currentAttemptSuccessTransitionId('agent', state, plan);
     case 'test_result':
-      return currentSliceTransitionId('test_result', state, plan);
+      return currentAttemptSuccessTransitionId('verify', state, plan);
     case 'slice_complete':
       return currentSliceTransitionId('slice_complete', state, plan);
   }
@@ -307,11 +328,7 @@ function derivedFromForSlice(
   return plan?.slices?.find((slice) => slice.id === sliceId)?.derived_from;
 }
 
-function blockedExecutorSteps(
-  state: RunMetadata,
-  plan: SchedulerPlan | undefined,
-  currentMarking: Record<string, number>,
-): readonly BlockedStep[] {
+function blockedExecutorSteps(state: RunMetadata, plan: SchedulerPlan | undefined): readonly BlockedStep[] {
   const activeSliceId = inFlightSliceId(state, plan);
   if (activeSliceId) {
     return readyPlanSliceIds(plan, state.completedSliceIds ?? [])
@@ -328,7 +345,7 @@ function blockedExecutorSteps(
         };
       });
   }
-  return currentMarking['run:slice_frontier'] === 1
+  return state.status === 'reports_initialized' || state.status === 'slice_completed'
     ? blockedPlanSliceSteps(plan, state.completedSliceIds ?? [])
     : [];
 }
@@ -365,7 +382,7 @@ function baseRunTransitionHistory(status: RunMetadata['status']): readonly strin
 }
 
 function currentSliceTransitionId(
-  kind: 'slice_execute' | 'agent_result' | 'test_result' | 'slice_complete',
+  kind: 'slice_execute' | 'slice_complete',
   state: RunMetadata,
   plan: SchedulerPlan | undefined,
 ): string | undefined {
@@ -373,18 +390,106 @@ function currentSliceTransitionId(
   return sliceId ? sliceTransitionId(kind, sliceId) : undefined;
 }
 
+function currentAttemptSuccessTransitionId(
+  stage: 'agent' | 'verify',
+  state: RunMetadata,
+  plan: SchedulerPlan | undefined,
+): string | undefined {
+  const sliceId = activeOrNextPetriSliceId(state, plan);
+  const attempt = (state.activeSliceAttempts ?? 0) + 1;
+  return sliceId && attempt <= SLICE_ATTEMPT_LIMIT
+    ? attemptSuccessTransitionId(stage, sliceId, attempt)
+    : undefined;
+}
+
+function attemptFailureTransitionHistory(
+  stage: 'agent' | 'verify',
+  sliceId: string,
+  failures: number,
+): readonly string[] {
+  const retries = Array.from({ length: Math.min(failures, SLICE_ATTEMPT_LIMIT - 1) }, (_, index) =>
+    attemptRetryTransitionId(stage, sliceId, index + 1),
+  );
+  return failures >= SLICE_ATTEMPT_LIMIT
+    ? [...retries, attemptExhaustedTransitionId(stage, sliceId)]
+    : retries;
+}
+
+function completedStageTransitionHistory(
+  state: RunMetadata,
+  stage: 'agent' | 'verify',
+  sliceId: string,
+  fallbackToFirstAttempt: boolean,
+): readonly string[] {
+  const cycles = state.sliceAttemptHistory?.[sliceId]?.[stage] ?? [];
+  if (cycles.length === 0) {
+    return fallbackToFirstAttempt ? [attemptSuccessTransitionId(stage, sliceId, 1)] : [];
+  }
+  return cycles.flatMap((cycle) => {
+    if (cycle.outcome === 'reset') return [attemptResetTransitionId(stage, sliceId)];
+    const failures = cycle.outcome === 'succeeded' ? cycle.attempts - 1 : cycle.attempts;
+    const transitions = attemptFailureTransitionHistory(stage, sliceId, failures);
+    return cycle.outcome === 'succeeded'
+      ? [...transitions, attemptSuccessTransitionId(stage, sliceId, cycle.attempts)]
+      : transitions;
+  });
+}
+
+function activeStageTransitionHistory(
+  state: RunMetadata,
+  stage: 'agent' | 'verify',
+  sliceId: string,
+): readonly string[] {
+  const completed = completedStageTransitionHistory(state, stage, sliceId, false);
+  const latest = state.sliceAttemptHistory?.[sliceId]?.[stage]?.at(-1);
+  if (latest?.outcome === 'exhausted' && state.activeSliceAttempts === latest.attempts) return completed;
+  return [...completed, ...attemptFailureTransitionHistory(stage, sliceId, state.activeSliceAttempts ?? 0)];
+}
+
 function completedSliceTransitionHistory(
+  state: RunMetadata,
   plan: SchedulerPlan | undefined,
   completedSliceIds: readonly string[],
 ): readonly string[] {
   if (!plan?.slices?.length) return [];
-  return completedSliceIds.flatMap((sliceId) => [
-    sliceTransitionId('slice_start', sliceId),
-    sliceTransitionId('slice_execute', sliceId),
-    sliceTransitionId('agent_result', sliceId),
-    sliceTransitionId('test_result', sliceId),
-    sliceTransitionId('slice_complete', sliceId),
-  ]);
+  const history: string[] = [];
+  const completedSlices = new Set<string>();
+  const completedEpics = new Set<string>();
+  for (const sliceId of completedSliceIds) {
+    history.push(
+      sliceTransitionId('slice_start', sliceId),
+      sliceTransitionId('slice_execute', sliceId),
+      ...completedStageTransitionHistory(state, 'agent', sliceId, true),
+      ...completedStageTransitionHistory(state, 'verify', sliceId, true),
+      sliceTransitionId('slice_complete', sliceId),
+    );
+    completedSlices.add(sliceId);
+    appendCompletedEpicGates(plan, completedSlices, completedEpics, history);
+  }
+  return history;
+}
+
+function appendCompletedEpicGates(
+  plan: SchedulerPlan,
+  completedSlices: ReadonlySet<string>,
+  completedEpics: Set<string>,
+  history: string[],
+): void {
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const epic of plan.epics ?? []) {
+      if (completedEpics.has(epic.id)) continue;
+      const members = (plan.slices ?? []).filter((slice) => slice.epic_id === epic.id);
+      if (!members.every((slice) => completedSlices.has(slice.id))) continue;
+      if (!(epic.depends_on ?? []).every((epicId) => completedEpics.has(epicId))) continue;
+      history.push(`epic_integrate:${epic.id}`);
+      if (epic.verification?.length) history.push(`epic_verify:${epic.id}`);
+      history.push(`epic_complete:${epic.id}`);
+      completedEpics.add(epic.id);
+      changed = true;
+    }
+  }
 }
 
 function inFlightSliceId(state: RunMetadata, plan: SchedulerPlan | undefined): string | undefined {

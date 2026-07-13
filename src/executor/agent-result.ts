@@ -2,9 +2,11 @@ import { appendFile, mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import type { AgentRunnerPort, AgentRunnerRuntime, AgentRunUpdate } from './execution-ports.js';
+import { SLICE_ATTEMPT_LIMIT } from './orchestrate-topology.js';
 import { reportsPath } from './report.js';
 import {
   assertSafeSliceId,
+  appendSliceAttemptCycle,
   runDirPath,
   runMetadataPath,
   persistRunMetadata,
@@ -153,6 +155,14 @@ export async function ingestAgentResult(args: {
     const metadataEffect = await persistRunMetadata(metadataPath, {
       ...metadata,
       activeSliceAttempts: attempts,
+      ...(attempts === SLICE_ATTEMPT_LIMIT
+        ? {
+            sliceAttemptHistory: appendSliceAttemptCycle(metadata, metadata.activeSliceId, 'agent', {
+              outcome: 'exhausted',
+              attempts,
+            }),
+          }
+        : {}),
     });
     return {
       status: 'agent_run_failed',
@@ -184,6 +194,10 @@ export async function ingestAgentResult(args: {
     ...metadataWithoutAttempts,
     status: 'agent_result_ingested',
     agentResultPath: resultPath,
+    sliceAttemptHistory: appendSliceAttemptCycle(metadata, metadata.activeSliceId, 'agent', {
+      outcome: 'succeeded',
+      attempts: (metadata.activeSliceAttempts ?? 0) + 1,
+    }),
   };
 
   await appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8');

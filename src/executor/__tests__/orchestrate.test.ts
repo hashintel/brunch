@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync } from 'node:fs';
+import { mkdirSync, renameSync, rmSync } from 'node:fs';
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -20,6 +20,7 @@ import {
 import { petriEventsPath, subscribePetriJournalFailures } from '../petri-events.js';
 import { petriMarkingPath, readPetriMarkingSnapshot, writePetriMarkingSnapshot } from '../petri-marking.js';
 import { petriPlanSnapshotPath } from '../petri-plan-snapshot.js';
+import { replayPetri } from '../petri-replay.js';
 import { petriRuntimePlanPathCandidates } from '../petri-runtime-plan.js';
 import {
   bindExecutorPetriRuntime,
@@ -277,10 +278,22 @@ describe('drive', () => {
       }),
       expect.objectContaining({ sliceId: 'task-1', attempt: 2 }),
     ]);
+    expect(
+      events.flatMap((event) => {
+        if (event.kind === 'attempt_failed') return [`failed:${event.attempt}`];
+        if (event.kind === 'transition_fired' && event.transitionId.startsWith('agent_retry:')) {
+          return [event.transitionId];
+        }
+        return [];
+      }),
+    ).toEqual(['failed:1', 'agent_retry:task-1:1', 'failed:2', 'agent_retry:task-1:2']);
     const agentFiring = events.find(
-      (event) => event.kind === 'transition_fired' && event.step === 'agent_result',
+      (event) => event.kind === 'transition_fired' && event.transitionId.startsWith('agent_result:'),
     );
-    expect(agentFiring).toMatchObject({ attempt: 3 });
+    expect(agentFiring).toMatchObject({ transitionId: 'agent_result:task-1:attempt:3', attempt: 3 });
+    expect(
+      (await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.sliceAttemptHistory?.['task-1']?.agent,
+    ).toEqual([{ outcome: 'succeeded', attempts: 3 }]);
     expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.activeSliceAttempts).toBeUndefined();
   });
 
@@ -307,7 +320,43 @@ describe('drive', () => {
       step: 'agent_result',
       reason: 'agent_run_failed',
     });
+    expect(events.at(-2)).toMatchObject({
+      kind: 'transition_fired',
+      transitionId: 'agent_exhausted:task-1',
+      consumed: ['slice:task-1:agent_attempt:3'],
+      produced: ['slice:task-1:agent_attempts_exhausted'],
+    });
     expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.activeSliceAttempts).toBe(3);
+  });
+
+  it('halts fail-closed when the retry transition cannot append after a durable failed-attempt fact', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-attempt-retry-journal-failure-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    const seen: ExecutorNetEvent[] = [];
+    const preservedJournal = `${petriEventsPath(cwd, 'run-1')}.preserved`;
+
+    const outcome = await drive({
+      cwd,
+      runId: 'run-1',
+      ports: fakePorts({ agentRunner: flakyAgentRunner(Number.POSITIVE_INFINITY) }),
+      onNetEvent(event) {
+        seen.push(event);
+        if (event.kind !== 'attempt_failed') return;
+        renameSync(petriEventsPath(cwd, 'run-1'), preservedJournal);
+        mkdirSync(petriEventsPath(cwd, 'run-1'));
+      },
+    });
+
+    expect(outcome).toEqual({
+      status: 'halted',
+      step: 'agent_result',
+      runStatus: 'slice_execution_requested',
+      reason: 'petri_journal_append_failed',
+    });
+    expect(seen.at(-1)).toMatchObject({ kind: 'attempt_failed', attempt: 1 });
+    expect(seen).not.toContainEqual(expect.objectContaining({ transitionId: 'agent_retry:task-1:1' }));
+    expect(await readFile(preservedJournal, 'utf8')).toContain('"kind":"attempt_failed"');
+    expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.activeSliceAttempts).toBe(1);
   });
 
   it('retries a crashed verify attempt in-run and journals every attempt', async () => {
@@ -328,11 +377,60 @@ describe('drive', () => {
       { step: 'test_result', attempt: 1, reason: 'test_run_failed' },
       { step: 'test_result', attempt: 2, reason: 'test_run_failed' },
     ]);
+    expect(
+      events
+        .filter((event) => event.kind === 'transition_fired')
+        .filter((event) => event.transitionId.startsWith('verify_retry:'))
+        .map((event) => event.transitionId),
+    ).toEqual(['verify_retry:task-1:1', 'verify_retry:task-1:2']);
     const verifyFiring = events.find(
-      (event) => event.kind === 'transition_fired' && event.step === 'test_result',
+      (event) => event.kind === 'transition_fired' && event.transitionId.startsWith('test_result:'),
     );
-    expect(verifyFiring).toMatchObject({ attempt: 3 });
+    expect(verifyFiring).toMatchObject({ transitionId: 'test_result:task-1:attempt:3', attempt: 3 });
     expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.activeSliceAttempts).toBeUndefined();
+  });
+
+  it('keeps terminal run.json projection equivalent to journal replay after successful retries', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-attempt-terminal-equivalence-'));
+    await createRunAtCreated(cwd, ['task-1']);
+
+    const outcome = await drive({
+      cwd,
+      runId: 'run-1',
+      ports: fakePorts({ agentRunner: flakyAgentRunner(1), testRunner: flakyTestRunner(1) }),
+    });
+
+    expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+    const state = (await readRunMetadata(runMetadataPath(cwd, 'run-1')))!;
+    expect(state.sliceAttemptHistory?.['task-1']).toEqual({
+      agent: [{ outcome: 'succeeded', attempts: 2 }],
+      verify: [{ outcome: 'succeeded', attempts: 2 }],
+    });
+    const plan = JSON.parse(await readFile(petriPlanSnapshotPath(cwd, 'run-1'), 'utf8'));
+    const projected = projectExecutorPetriTransitionHistory(state, plan)!;
+    const events = await readPetriEvents(cwd);
+    const journalTransitionIds = events.flatMap((event) =>
+      event.kind === 'transition_fired' ? [event.transitionId] : [],
+    );
+    const replayed = replayPetri({
+      net: JSON.parse(await readFile(petriNetPath(cwd, 'run-1'), 'utf8')),
+      events,
+    });
+    const runtime = materializeExecutorPetriRuntime(state, plan);
+
+    expect(projected.transitionIds).toEqual(journalTransitionIds);
+    expect(projected.transitionIds).toEqual(
+      expect.arrayContaining([
+        'agent_retry:task-1:1',
+        'agent_result:task-1:attempt:2',
+        'verify_retry:task-1:1',
+        'test_result:task-1:attempt:2',
+      ]),
+    );
+    expect(replayed).toMatchObject({
+      currentMarking: runtime.currentMarking,
+      firedTransitionCount: projected.transitionIds.length,
+    });
   });
 
   it('gives verify crashes a fresh bound after agent attempts succeeded', async () => {
@@ -373,6 +471,9 @@ describe('drive', () => {
 
     await resetActiveSliceAttempts({ cwd, runId: 'run-1' });
 
+    expect(await readRunMetadata(runMetadataPath(cwd, 'run-1'))).toMatchObject({
+      activeSliceAttemptReset: { stage: 'agent' },
+    });
     expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.activeSliceAttempts).toBeUndefined();
     const retried = await drive({ cwd, runId: 'run-1', ports: fakePorts({ agentRunner }) });
     expect(retried).toMatchObject({ status: 'halted', reason: 'agent_run_failed' });
@@ -382,6 +483,35 @@ describe('drive', () => {
         .filter((event) => event.kind === 'attempt_failed')
         .map((event) => event.attempt),
     ).toEqual([1, 2, 3, 1, 2, 3]);
+    const state = (await readRunMetadata(runMetadataPath(cwd, 'run-1')))!;
+    expect(state.activeSliceAttemptReset).toBeUndefined();
+    expect(state.sliceAttemptHistory?.['task-1']?.agent).toEqual([
+      { outcome: 'exhausted', attempts: 3 },
+      { outcome: 'reset', attempts: 0 },
+      { outcome: 'exhausted', attempts: 3 },
+    ]);
+    const plan = JSON.parse(await readFile(petriPlanSnapshotPath(cwd, 'run-1'), 'utf8'));
+    const events = await readPetriEvents(cwd);
+    const projected = projectExecutorPetriTransitionHistory(state, plan)!;
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        kind: 'transition_fired',
+        transitionId: 'agent_reset:task-1',
+        consumed: ['slice:task-1:agent_attempts_exhausted'],
+        produced: ['slice:task-1:agent_attempt:1'],
+      }),
+    );
+    expect(projected.transitionIds).toEqual(
+      events.flatMap((event) => (event.kind === 'transition_fired' ? [event.transitionId] : [])),
+    );
+    const replayed = replayPetri({
+      net: JSON.parse(await readFile(petriNetPath(cwd, 'run-1'), 'utf8')),
+      events,
+    });
+    expect(replayed).toMatchObject({
+      currentMarking: materializeExecutorPetriRuntime(state, plan).currentMarking,
+      firedTransitionCount: projected.transitionIds.length,
+    });
   });
 
   it('halts without further lifecycle steps when a transition journal append fails', async () => {
@@ -766,7 +896,7 @@ describe('petri runtime helpers', () => {
     ).toBe('slice_start:task-2');
 
     expect(enabledPetriTransitionIds(metadata('agent_result_ingested', {}), plan)).toEqual([
-      'test_result:task-1',
+      'test_result:task-1:attempt:1',
     ]);
     expect(
       resolvePetriTransitionIdForReadyStep(
@@ -774,9 +904,14 @@ describe('petri runtime helpers', () => {
         metadata('agent_result_ingested', {}),
         plan,
       ),
-    ).toBe('test_result:task-1');
+    ).toBe('test_result:task-1:attempt:1');
 
-    expect(enabledPetriTransitionIds(metadata('promotion_prepared'), plan)).toEqual([]);
+    expect(
+      enabledPetriTransitionIds(
+        metadata('promotion_prepared', { completedSliceIds: ['task-1', 'task-2'] }),
+        plan,
+      ),
+    ).toEqual([]);
   });
 
   it('surfaces every dependency-ready slice start in the Petri frontier while serial policy still picks one', () => {
@@ -805,7 +940,10 @@ describe('petri runtime helpers', () => {
         state: metadata('reports_initialized'),
         plan,
       }),
-    ).toEqual([{ kind: 'slice_start', sliceId: 'task-1' }]);
+    ).toEqual([
+      { kind: 'slice_start', sliceId: 'task-1' },
+      { kind: 'slice_start', sliceId: 'task-3' },
+    ]);
   });
 
   it('surfaces blocked slice starts with unmet dependency ids alongside the ready frontier', () => {
@@ -868,6 +1006,30 @@ describe('petri runtime helpers', () => {
     ).toThrow('Cyclic slice dependency in executor topology: task-1');
   });
 
+  it('rejects duplicate, dangling, self-referential, and cyclic epic topology', () => {
+    expect(() =>
+      compileExecutorTopology({ epics: [{ id: 'epic-1' }, { id: 'epic-1' }], slices: [] }),
+    ).toThrow('Duplicate epic id in executor topology: epic-1');
+    expect(() =>
+      compileExecutorTopology({ epics: [{ id: 'epic-1', depends_on: ['missing'] }], slices: [] }),
+    ).toThrow('Unknown epic dependency in executor topology: epic-1 -> missing');
+    expect(() =>
+      compileExecutorTopology({ epics: [{ id: 'epic-1', depends_on: ['epic-1'] }], slices: [] }),
+    ).toThrow('Epic cannot depend on itself in executor topology: epic-1');
+    expect(() =>
+      compileExecutorTopology({
+        epics: [
+          { id: 'epic-1', depends_on: ['epic-2'] },
+          { id: 'epic-2', depends_on: ['epic-1'] },
+        ],
+        slices: [],
+      }),
+    ).toThrow('Cyclic epic dependency in executor topology: epic-1');
+    expect(() =>
+      compileExecutorTopology({ epics: [{ id: 'epic-1' }], slices: [{ id: 'task-1', epic_id: 'missing' }] }),
+    ).toThrow('Unknown slice epic in executor topology: task-1 -> missing');
+  });
+
   it('rejects completed-slice history that is duplicated or violates dependency order', () => {
     const plan = {
       mode: 'greenfield',
@@ -916,20 +1078,55 @@ describe('petri runtime helpers', () => {
       metadata('slice_completed', { completedSliceIds: ['task-1'] }),
       plan,
     );
-    expect(frontierRuntime.currentMarking).toEqual({ 'run:slice_frontier': 1 });
+    expect(frontierRuntime.currentMarking).toEqual({
+      'slice:task-1:completed': 1,
+      'slice:task-2:claim': 1,
+    });
     expect(frontierRuntime.enabledTransitions.map((transition) => transition.id)).toEqual([
       'slice_start:task-2',
     ]);
     expect(frontierRuntime.readySteps).toEqual([{ kind: 'slice_start', sliceId: 'task-2' }]);
 
     const inFlightRuntime = materializeExecutorPetriRuntime(metadata('agent_result_ingested', {}), plan);
-    expect(inFlightRuntime.currentMarking).toEqual({ 'slice:task-1:agent_result_ingested': 1 });
+    expect(inFlightRuntime.currentMarking).toEqual({
+      'slice:task-1:verify_attempt:1': 1,
+      'slice:task-2:claim': 1,
+    });
     expect(inFlightRuntime.enabledTransitions.map((transition) => transition.id)).toEqual([
-      'test_result:task-1',
+      'test_result:task-1:attempt:1',
     ]);
     expect(inFlightRuntime.transitionForReadyStep({ kind: 'test_result', sliceId: 'task-1' })?.id).toBe(
-      'test_result:task-1',
+      'test_result:task-1:attempt:1',
     );
+  });
+
+  it('reconstructs active agent and verify attempt markings from run.json attempt facts', () => {
+    const plan = { slices: [{ id: 'task-1' }] } as const;
+
+    const retriedAgent = materializeExecutorPetriRuntime(
+      metadata('slice_execution_requested', { activeSliceId: 'task-1', activeSliceAttempts: 1 }),
+      plan,
+    );
+    expect(retriedAgent.currentMarking).toEqual({ 'slice:task-1:agent_attempt:2': 1 });
+    expect(retriedAgent.enabledTransitions.map((transition) => transition.id)).toEqual([
+      'agent_result:task-1:attempt:2',
+    ]);
+
+    const retriedVerify = materializeExecutorPetriRuntime(
+      metadata('agent_result_ingested', { activeSliceId: 'task-1', activeSliceAttempts: 1 }),
+      plan,
+    );
+    expect(retriedVerify.currentMarking).toEqual({ 'slice:task-1:verify_attempt:2': 1 });
+    expect(retriedVerify.enabledTransitions.map((transition) => transition.id)).toEqual([
+      'test_result:task-1:attempt:2',
+    ]);
+
+    const exhausted = materializeExecutorPetriRuntime(
+      metadata('slice_execution_requested', { activeSliceId: 'task-1', activeSliceAttempts: 3 }),
+      plan,
+    );
+    expect(exhausted.currentMarking).toEqual({ 'slice:task-1:agent_attempts_exhausted': 1 });
+    expect(exhausted.enabledTransitions).toEqual([]);
   });
 
   it('uses Petri input arcs with executor frontier guards, not raw place fan-out, to pick enabled transitions', () => {
@@ -940,7 +1137,11 @@ describe('petri runtime helpers', () => {
 
     const frontierRuntime = materializeExecutorPetriRuntime(metadata('reports_initialized'), plan);
 
-    expect(frontierRuntime.currentMarking).toEqual({ 'run:slice_frontier': 1 });
+    expect(frontierRuntime.currentMarking).toEqual({
+      'slice:task-1:claim': 1,
+      'slice:task-2:claim': 1,
+      'slice:task-3:claim': 1,
+    });
     expect(frontierRuntime.enabledTransitions.map((transition) => transition.id)).toEqual([
       'slice_start:task-1',
       'slice_start:task-3',
@@ -954,7 +1155,12 @@ describe('petri runtime helpers', () => {
       metadata('slice_completed', { completedSliceIds: ['task-1'] }),
       plan,
     );
-    expect(unblockedRuntime.currentMarking).toEqual({ 'run:slice_frontier': 1 });
+    expect(unblockedRuntime.currentMarking).toEqual({
+      'slice:task-1:completed': 1,
+      'slice:task-2:claim': 1,
+      'slice:task-2:dependency:task-1': 1,
+      'slice:task-3:claim': 1,
+    });
     expect(unblockedRuntime.enabledTransitions.map((transition) => transition.id)).toEqual([
       'slice_start:task-2',
       'slice_start:task-3',
@@ -968,7 +1174,11 @@ describe('petri runtime helpers', () => {
       metadata('slice_completed', { completedSliceIds: ['task-1', 'task-2', 'task-3'] }),
       plan,
     );
-    expect(doneRuntime.currentMarking).toEqual({ 'run:slice_frontier': 1 });
+    expect(doneRuntime.currentMarking).toEqual({
+      'slice:task-1:completed': 1,
+      'slice:task-2:completed': 1,
+      'slice:task-3:completed': 1,
+    });
     expect(doneRuntime.enabledTransitions.map((transition) => transition.id)).toEqual(['run_complete']);
   });
 
@@ -993,12 +1203,12 @@ describe('petri runtime helpers', () => {
         'report_init',
         'slice_start:task-1',
         'slice_execute:task-1',
-        'agent_result:task-1',
-        'test_result:task-1',
+        'agent_result:task-1:attempt:1',
+        'test_result:task-1:attempt:1',
         'slice_complete:task-1',
         'slice_start:task-2',
         'slice_execute:task-2',
-        'agent_result:task-2',
+        'agent_result:task-2:attempt:1',
       ],
     });
 
@@ -1011,7 +1221,10 @@ describe('petri runtime helpers', () => {
       }),
       plan,
     );
-    expect(inFlightRuntime.currentMarking).toEqual({ 'slice:task-2:agent_result_ingested': 1 });
+    expect(inFlightRuntime.currentMarking).toEqual({
+      'slice:task-1:completed': 1,
+      'slice:task-2:verify_attempt:1': 1,
+    });
   });
 
   it('binds materialized Petri transitions to the existing lifecycle step handlers', async () => {
@@ -1156,6 +1369,68 @@ describe('linearScheduler', () => {
 });
 
 describe('compileExecutorTopology', () => {
+  it('gives independent slice starts disjoint claims and compiles the FE-1192 attempt bound statically', () => {
+    const topology = compileExecutorTopology({
+      slices: [{ id: 'task-1' }, { id: 'task-2' }, { id: 'task-3', depends_on: ['task-1'] }],
+    });
+    const starts = topology.transitions.filter((transition) => transition.id.startsWith('slice_start:'));
+
+    expect(starts.map((transition) => transition.inputArcs.map((arc) => arc.placeId))).toEqual([
+      ['slice:task-1:claim'],
+      ['slice:task-2:claim'],
+      ['slice:task-3:claim', 'slice:task-3:dependency:task-1'],
+    ]);
+    expect(topology.transitions.find((transition) => transition.id === 'report_init')?.outputArcs).toEqual(
+      expect.arrayContaining([
+        { placeId: 'slice:task-1:claim', weight: 1 },
+        { placeId: 'slice:task-2:claim', weight: 1 },
+        { placeId: 'slice:task-3:claim', weight: 1 },
+      ]),
+    );
+    expect(topology.places.map((place) => place.id)).toEqual(
+      expect.arrayContaining([
+        'slice:task-1:agent_attempt:1',
+        'slice:task-1:agent_attempt:2',
+        'slice:task-1:agent_attempt:3',
+        'slice:task-1:agent_attempts_exhausted',
+        'slice:task-1:verify_attempt:1',
+        'slice:task-1:verify_attempt:2',
+        'slice:task-1:verify_attempt:3',
+        'slice:task-1:verify_attempts_exhausted',
+      ]),
+    );
+    expect(topology.transitions.map((transition) => transition.id)).toEqual(
+      expect.arrayContaining([
+        'agent_retry:task-1:1',
+        'agent_retry:task-1:2',
+        'agent_exhausted:task-1',
+        'verify_retry:task-1:1',
+        'verify_retry:task-1:2',
+        'verify_exhausted:task-1',
+      ]),
+    );
+    expect(topology.transitions).toContainEqual(
+      expect.objectContaining({
+        id: 'slice_execute:task-1',
+        outputArcs: [{ placeId: 'slice:task-1:agent_attempt:1', weight: 1 }],
+      }),
+    );
+    expect(topology.transitions).toContainEqual(
+      expect.objectContaining({
+        id: 'agent_result:task-1:attempt:1',
+        inputArcs: [{ placeId: 'slice:task-1:agent_attempt:1', weight: 1 }],
+        outputArcs: [{ placeId: 'slice:task-1:verify_attempt:1', weight: 1 }],
+      }),
+    );
+    expect(topology.transitions).toContainEqual(
+      expect.objectContaining({
+        id: 'test_result:task-1:attempt:1',
+        inputArcs: [{ placeId: 'slice:task-1:verify_attempt:1', weight: 1 }],
+        outputArcs: [{ placeId: 'slice:task-1:test_result_ingested', weight: 1 }],
+      }),
+    );
+  });
+
   it('preserves one run subnet and one slice subnet per slice, including the source-policy boundary', () => {
     const topology = compileExecutorTopology({
       mode: 'greenfield',
@@ -1198,7 +1473,9 @@ describe('compileExecutorTopology', () => {
       },
     ]);
 
-    expect(topology.subnets).toEqual([
+    expect(
+      topology.subnets.filter((subnet) => subnet.kind === 'run_control' || subnet.kind === 'slice_control'),
+    ).toEqual([
       {
         id: 'run',
         kind: 'run_control',
@@ -1221,13 +1498,7 @@ describe('compileExecutorTopology', () => {
         definition: 'Implement foundation.',
         verification: [{ kind: 'criterion', criterionId: 'AC1', target: 'Foundation works.' }],
         derivedFrom: ['REQ1'],
-        transitionIds: [
-          'slice_start:task-1',
-          'slice_execute:task-1',
-          'agent_result:task-1',
-          'test_result:task-1',
-          'slice_complete:task-1',
-        ],
+        transitionIds: ['slice_start:task-1', 'slice_execute:task-1', 'slice_complete:task-1'],
       },
       {
         id: 'slice:task-2',
@@ -1237,13 +1508,7 @@ describe('compileExecutorTopology', () => {
         definition: 'Implement feature.',
         verification: [{ kind: 'criterion', criterionId: 'AC2', target: 'Feature works.' }],
         derivedFrom: ['REQ2'],
-        transitionIds: [
-          'slice_start:task-2',
-          'slice_execute:task-2',
-          'agent_result:task-2',
-          'test_result:task-2',
-          'slice_complete:task-2',
-        ],
+        transitionIds: ['slice_start:task-2', 'slice_execute:task-2', 'slice_complete:task-2'],
       },
     ]);
     expect(topology.transitions).toContainEqual(
@@ -1288,7 +1553,7 @@ describe('compileExecutorTopology', () => {
     );
     expect(topology.transitions).toContainEqual(
       expect.objectContaining({
-        id: 'test_result:task-2',
+        id: 'test_result:task-2:attempt:1',
         guard: { kind: 'active_slice', sliceId: 'task-2' },
       }),
     );
@@ -1318,7 +1583,11 @@ describe('petriScheduler', () => {
 
     for (const status of cases) {
       const state =
-        status === 'slice_completed' ? metadata(status, { completedSliceIds: ['task-1'] }) : metadata(status);
+        status === 'slice_completed'
+          ? metadata(status, { completedSliceIds: ['task-1'] })
+          : status === 'run_completed' || status === 'petri_exported' || status === 'promotion_prepared'
+            ? metadata(status, { completedSliceIds: ['task-1', 'task-2'] })
+            : metadata(status);
       expect(
         serialFiringPolicy.select({ readySteps: petriScheduler.ready(state, plan), state, plan }),
       ).toEqual(linearScheduler.ready(state, plan));
@@ -1401,11 +1670,14 @@ describe('petriScheduler', () => {
       'transition_fired',
       'transition_fired',
       'transition_fired',
+      'transition_fired',
+      'transition_fired',
       'net_completed',
     ]);
     expect(
       seen
         .filter((event) => event.kind === 'transition_fired')
+        .filter((event) => event.contract.lane !== 'epic')
         .map((event) => ({
           transitionId: event.transitionId,
           subnetId: event.subnetId,
@@ -1459,7 +1731,7 @@ describe('petriScheduler', () => {
         subnetId: 'run',
         contract: { kind: 'mechanical', lane: 'run' },
         consumed: ['run:source_copied'],
-        produced: ['run:slice_frontier'],
+        produced: ['slice:task-1:claim'],
         fromStatus: 'source_copied',
         toStatus: 'reports_initialized',
       },
@@ -1469,7 +1741,7 @@ describe('petriScheduler', () => {
         epicId: 'frontier-1',
         derivedFrom: ['REQ1'],
         contract: { kind: 'structural', lane: 'slice' },
-        consumed: ['run:slice_frontier'],
+        consumed: ['slice:task-1:claim'],
         produced: ['slice:task-1:started'],
         fromStatus: 'reports_initialized',
         toStatus: 'slice_started',
@@ -1481,28 +1753,28 @@ describe('petriScheduler', () => {
         derivedFrom: ['REQ1'],
         contract: { kind: 'mechanical', lane: 'slice' },
         consumed: ['slice:task-1:started'],
-        produced: ['slice:task-1:execution_requested'],
+        produced: ['slice:task-1:agent_attempt:1'],
         fromStatus: 'slice_started',
         toStatus: 'slice_execution_requested',
       },
       {
-        transitionId: 'agent_result:task-1',
-        subnetId: 'slice:task-1',
+        transitionId: 'agent_result:task-1:attempt:1',
+        subnetId: 'attempt:task-1:agent',
         epicId: 'frontier-1',
         derivedFrom: ['REQ1'],
-        contract: { kind: 'mechanical', lane: 'slice' },
-        consumed: ['slice:task-1:execution_requested'],
-        produced: ['slice:task-1:agent_result_ingested'],
+        contract: { kind: 'mechanical', lane: 'attempt' },
+        consumed: ['slice:task-1:agent_attempt:1'],
+        produced: ['slice:task-1:verify_attempt:1'],
         fromStatus: 'slice_execution_requested',
         toStatus: 'agent_result_ingested',
       },
       {
-        transitionId: 'test_result:task-1',
-        subnetId: 'slice:task-1',
+        transitionId: 'test_result:task-1:attempt:1',
+        subnetId: 'attempt:task-1:verify',
         epicId: 'frontier-1',
         derivedFrom: ['REQ1'],
-        contract: { kind: 'mechanical', lane: 'slice' },
-        consumed: ['slice:task-1:agent_result_ingested'],
+        contract: { kind: 'mechanical', lane: 'attempt' },
+        consumed: ['slice:task-1:verify_attempt:1'],
         produced: ['slice:task-1:test_result_ingested'],
         fromStatus: 'agent_result_ingested',
         toStatus: 'test_result_ingested',
@@ -1514,7 +1786,7 @@ describe('petriScheduler', () => {
         derivedFrom: ['REQ1'],
         contract: { kind: 'structural', lane: 'slice' },
         consumed: ['slice:task-1:test_result_ingested'],
-        produced: ['run:slice_frontier'],
+        produced: ['epic:frontier-1:member:task-1'],
         fromStatus: 'test_result_ingested',
         toStatus: 'slice_completed',
       },
@@ -1522,7 +1794,7 @@ describe('petriScheduler', () => {
         transitionId: 'run_complete',
         subnetId: 'run',
         contract: { kind: 'mechanical', lane: 'run' },
-        consumed: ['run:slice_frontier'],
+        consumed: ['epic:frontier-1:completed'],
         produced: ['run:run_completed'],
         fromStatus: 'slice_completed',
         toStatus: 'run_completed',
@@ -1546,6 +1818,12 @@ describe('petriScheduler', () => {
         toStatus: 'promotion_prepared',
       },
     ]);
+    expect(
+      seen
+        .filter((event) => event.kind === 'transition_fired')
+        .filter((event) => event.contract.lane === 'epic')
+        .map((event) => event.transitionId),
+    ).toEqual(['epic_integrate:frontier-1', 'epic_complete:frontier-1']);
     expect(seen.at(-1)).toEqual({
       kind: 'net_completed',
       runId: 'run-1',
@@ -1563,7 +1841,7 @@ describe('petriScheduler', () => {
     expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
     await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toEqual({
       currentMarking: { 'run:promotion_prepared': 1 },
-      firedTransitionCount: 13,
+      firedTransitionCount: 15,
       lifecycleProvenance: {
         activeSliceId: 'task-1',
         runStatus: 'promotion_prepared',
@@ -1594,8 +1872,8 @@ describe('petriScheduler', () => {
 
     expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
     await expect(claimedSnapshotPromise).resolves.toEqual({
-      claimedTransitionIds: ['slice_start:task-1'],
-      currentMarking: { 'run:slice_frontier': 1 },
+      claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-2'],
+      currentMarking: { 'slice:task-1:claim': 1, 'slice:task-2:claim': 1 },
       firedTransitionCount: 5,
       lifecycleProvenance: {
         runStatus: 'reports_initialized',
@@ -1616,7 +1894,7 @@ describe('petriScheduler', () => {
       runId: 'run-1',
       snapshot: {
         claimedTransitionIds: ['slice_start:task-2'],
-        currentMarking: { 'run:slice_frontier': 1 },
+        currentMarking: { 'slice:task-1:claim': 1, 'slice:task-2:claim': 1 },
         firedTransitionCount: 5,
         lifecycleProvenance: { runStatus: 'reports_initialized' },
       },
@@ -1756,8 +2034,8 @@ describe('petriScheduler', () => {
       cwd,
       runId: 'run-1',
       snapshot: {
-        claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-2'],
-        currentMarking: { 'run:slice_frontier': 1 },
+        claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-1'],
+        currentMarking: { 'slice:task-1:claim': 1, 'slice:task-2:claim': 1 },
         firedTransitionCount: 5,
         lifecycleProvenance: { runStatus: 'reports_initialized' },
       },
@@ -1781,10 +2059,10 @@ describe('petriScheduler', () => {
 
     expect(outcome).toEqual({ status: 'completed', runStatus: 'slice_started' });
     await expect(claimedSnapshotPromise).resolves.toMatchObject({
-      claimedTransitionIds: ['slice_start:task-1'],
+      claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-2'],
     });
     await expect(claimedSnapshotPromise).resolves.not.toMatchObject({
-      claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-2'],
+      claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-1'],
     });
   });
 
@@ -1817,7 +2095,7 @@ describe('petriScheduler', () => {
     expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
     await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toEqual({
       currentMarking: { 'run:promotion_prepared': 1 },
-      firedTransitionCount: 13,
+      firedTransitionCount: 15,
       lifecycleProvenance: {
         activeSliceId: 'task-1',
         runStatus: 'promotion_prepared',
@@ -1862,8 +2140,8 @@ describe('petriScheduler', () => {
       reason: 'test_run_failed',
     });
     await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toEqual({
-      currentMarking: { 'slice:task-1:agent_result_ingested': 1 },
-      firedTransitionCount: 8,
+      currentMarking: { 'slice:task-1:verify_attempts_exhausted': 1 },
+      firedTransitionCount: 11,
       lifecycleProvenance: {
         activeSliceId: 'task-1',
         runStatus: 'agent_result_ingested',

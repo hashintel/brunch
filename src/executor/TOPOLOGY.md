@@ -10,7 +10,7 @@ Pure contracts and orchestration helpers that turn `next` graph facts into execu
 executor/
 ├── TOPOLOGY.md
 ├── agent-result.ts       AgentRunnerPort -> slice result report + normalized worker stream artifact
-├── orchestrate-topology.ts compiled executor topology + shared run/slice subnet identities, explicit places/arcs, initial marking, and executor transition guards
+├── orchestrate-topology.ts compiled executor topology + run/slice/attempt/epic subnet identities, disjoint slice claims, explicit places/arcs, initial marking, and executor transition guards
 ├── orchestrate.ts        run facts + RunScheduler -> drive() over lifecycle steps, delegating Petri runtime/terminal helpers + raw runtime-event journal
 ├── petri-events.ts       bounded `petrinaut/events.jsonl` path + append/parse helpers and process-local observer wake-ups
 ├── petri-plan-snapshot.ts immutable run-local plan snapshot path + atomic first-write helper
@@ -18,7 +18,7 @@ executor/
 ├── petri-runtime-plan.ts shared populated-plan fallback resolution for driver and observer Petri materialization
 ├── petri-marking.ts      bounded `petrinaut/marking.json` snapshot path + tolerant persisted current-marking helper with non-authoritative lifecycle provenance and claimed-firing resume hints
 ├── petri-replay-eligibility.ts raw net presence + journal integrity -> derived replay-eligibility gate
-├── petri-runtime.ts      materialized serial Petri runtime, lifecycle-facts -> replayable transition-history projection, topology-guard enabled-transition selection, and bound executors for today's lifecycle step handlers
+├── petri-runtime.ts      materialized serial Petri runtime, lifecycle-facts -> replayable transition-history projection incl. pure epic gates, topology-guard enabled-transition selection, and bound executors for today's lifecycle step handlers
 ├── petri-terminal.ts     exhausted/halting drive terminal classification -> shared journal event + DriveOutcome meaning
 ├── run-abandon.ts        active run -> abandoned run metadata, preserving artifacts
 ├── plan-file.ts          old cook-compatible DTO preview -> spec-scoped plan.yaml + provenance
@@ -39,7 +39,7 @@ executor/
 ├── run-replan-recommendation.ts run retry eligibility -> human-readable recommendation
 ├── run-retry-eligibility.ts run freshness + lifecycle status -> safe HITL action set
 ├── run-supersession.ts   prior run + fresh launch -> new linked run metadata
-├── run.ts                ready plan.yaml -> metadata-only run creation
+├── run.ts                ready plan.yaml -> metadata-only run creation + serial per-slice/stage attempt-cycle provenance
 ├── slice-execute.ts      active slice -> execution request artifact
 ├── slice-complete.ts     test-ingested slice -> completion marker
 ├── slice-start.ts        reports-ready run -> slice-start marker
@@ -133,6 +133,8 @@ rules:
 `petri-runtime-plan.ts` owns plan resolution shared by `drive()`, export, and observer reads. An explicitly recorded `populatedPlanPath` is the authoritative run-local snapshot and never falls back to the mutable source plan when unreadable; metadata that omits it may still use the known worktree path before the source-plan fallback. Plan reads and topology materialization fail closed: unreadable plans yield no derived Petri projection, while duplicate slice ids, invalid dependency graphs, or lifecycle histories that cannot replay halt `drive()` with a structured outcome instead of escaping as a rejected tool call. Only `promotion_prepared` is successful scheduler exhaustion; a nonterminal empty frontier emits `net_deadlocked`. Live `execute.run` updates send explicit `null` ready/blocked hints when reconstruction fails so caches cannot retain stale actionable frontiers.
 
 `promotion.ts` is the first land/promotion boundary: for a `petri_exported` run with a worktree and latest passing verification evidence it invokes the injected `GitLandPort`, then writes `.brunch/cook/runs/<runId>/promotion/promotion.json` (runId, specId, petriPath, reportsPath, completedSliceIds, run-local commit SHA) and records `status:"promotion_prepared"`. Failed or missing verification, `GitLandPort` failure, or no changes leaves metadata unchanged. This is run-local only: host branch/ref promotion remains out of scope, and actual host land remains pending.
+
+The immutable executor net gives dependency-independent slices disjoint claim places and represents FE-1192's shared three-attempt bound as connected agent/verify paths. `slice_execute` seeds agent attempt 1; each failed invocation journals `attempt_failed` followed by the static retry or exhaustion firing; attempt-specific agent success consumes the current agent token and seeds verify attempt 1; attempt-specific verify success consumes the current verify token. Active `run.json` counters own the current cycle, while `sliceAttemptHistory` retains completed per-slice/per-stage success, exhaustion, and reset cycles so lifecycle-derived transition history remains count- and sequence-equivalent to durable journal replay after retries. Explicit HITL reset records a pending serial reset in `run.json`; the next drive journals the static exhausted-to-attempt-1 transition and records the completed reset cycle before invoking another runner. The journal remains observation/replay truth, not execution authority. The net also joins epic members through integration, optional verification, and completion gates; dependent epic slice starts require predecessor-completion claims. Pure epic gates append to the journal in topology order without advancing `run.json`, so durable replay remains equivalent while lifecycle authority stays serial. `frontierFiringPolicy` can reserve every disjoint claim, but the driver still executes lifecycle effects serially and rematerializes between them. This is not durable parallel side-effect authority, workspace isolation, or git integration; those remain deferred.
 
 `host-promotion.ts` is the host-promotion preflight/apply boundary. Preflight validates that `run.json.promotionCommitSha` agrees with `promotion/promotion.json` and delegates read-only promoted-commit diff inspection to `GitHostPromotionPort`, returning changed files and patch summary with `sideEffects: []`. Apply requires an accepted commit SHA, reruns preflight, and delegates bounded host worktree patch application to the same port; it reports `host_worktree_apply` and still does not commit, create refs, switch branches, or stage the host index.
 
