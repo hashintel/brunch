@@ -154,8 +154,19 @@ describe('exportPetri', () => {
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const owner = withRunExecutionAuthority({ cwd, runId: 'run-1', execute: () => held });
-    await new Promise((resolve) => setImmediate(resolve));
+    let entered!: () => void;
+    const acquired = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const owner = withRunExecutionAuthority({
+      cwd,
+      runId: 'run-1',
+      execute: () => {
+        entered();
+        return held;
+      },
+    });
+    await acquired;
 
     await expect(exportPetri({ cwd, runId: 'run-1' })).resolves.toEqual({
       status: 'run_execution_active',
