@@ -473,7 +473,7 @@ describe('structured exchange ask tools', () => {
       { exchangeId: 'brokered', body: 'Broker?' },
       undefined,
       undefined,
-      { hasUI: false, ui: {} } as never,
+      { hasUI: false, ui: { setStatus } } as never,
     );
     const unavailable = await registeredTools()
       .get(ASK_TOOL)!
@@ -490,13 +490,18 @@ describe('structured exchange ask tools', () => {
 
     expect(cancelled.details).toMatchObject({ tool_meta: { curr: ASK_TOOL }, cancelled: {} });
     expect(cancelled.terminate).toBe(true);
-    expect(setStatus).not.toHaveBeenCalled();
+    expect(setStatus).toHaveBeenCalledWith(
+      'brunch.ask',
+      expect.stringMatching(/\/brunch:consult.*\/brunch:mode/),
+    );
+    expect(setStatus).not.toHaveBeenCalledWith('brunch.ask', expect.stringContaining('/brunch:continue'));
     expect(openAsk).toHaveBeenCalledWith({
       exchangeId: 'brokered',
       mode: 'text',
       question: { body: 'Broker?' },
     });
     expect(brokered.details).toMatchObject({ answered: { text: 'Answer collected by broker.' } });
+    expect(setStatus).toHaveBeenLastCalledWith('brunch.ask', undefined);
     expect(unavailable.details).toMatchObject({ unavailable: { message: 'ask requires interactive UI' } });
     expect(empty.details).toMatchObject({ unavailable: { message: 'ask answer cannot be empty' } });
   });

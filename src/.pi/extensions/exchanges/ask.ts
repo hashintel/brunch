@@ -19,6 +19,7 @@ import { ExchangeAnswerEditorComponent } from '../../components/exchange-answer-
 import { createExchangeDecisionPickerComponent } from '../../components/exchange-decision-picker.js';
 import { operationalModeBorderColor } from '../../components/mode-border-theme.js';
 import { createMultiChoicePickerComponent } from '../../components/multi-choice-picker.js';
+import { BRUNCH_CONSULT_COMMAND, BRUNCH_MODE_COMMAND, slashCommand } from '../commands/names.js';
 import { toolParameters } from '../shared/tool-schema.js';
 import { collectContinuingAsk } from './ask/continuation.js';
 import { requestChoicesViaEditor } from './shared/choices-editor.js';
@@ -36,6 +37,10 @@ import { validationFailureResult } from './shared/validation.js';
 
 export const ASK_TOOL = 'ask' as const;
 export { clearContinueHint, collectAskContinuationResponse } from './ask/continuation.js';
+
+const STANDALONE_ASK_STATUS_KEY = 'brunch.ask';
+const CONSULT_COMMAND_HINT = slashCommand(BRUNCH_CONSULT_COMMAND);
+const MODE_COMMAND_HINT = slashCommand(BRUNCH_MODE_COMMAND);
 
 type AskResultDetails = RequestDetails;
 
@@ -552,6 +557,17 @@ export function collectAskResponse(
   return collectSingleChoice(params, question, ctx, liveAsk);
 }
 
+function reconcileStandaloneAskHint(result: ToolResult, ctx: StructuredExchangeUiContext): void {
+  if ('cancelled' in result.details) {
+    ctx.ui?.setStatus?.(
+      STANDALONE_ASK_STATUS_KEY,
+      `Ask cancelled. Run ${CONSULT_COMMAND_HINT} to choose a next move or ${MODE_COMMAND_HINT} to switch roles.`,
+    );
+  } else if ('answered' in result.details) {
+    ctx.ui?.setStatus?.(STANDALONE_ASK_STATUS_KEY, undefined);
+  }
+}
+
 export function createAskTool(liveAsk?: LiveAskOpener) {
   return defineTool({
     name: ASK_TOOL,
@@ -579,7 +595,9 @@ export function createAskTool(liveAsk?: LiveAskOpener) {
       if (isContinuingAskParams(params)) return collectContinuingAsk(params, uiCtx, liveAsk);
       const standalone = standaloneAskParams(params);
       const question = askQuestionEcho(standalone);
-      return collectAskResponse(standalone, question, uiCtx, liveAsk);
+      const collected = await collectAskResponse(standalone, question, uiCtx, liveAsk);
+      reconcileStandaloneAskHint(collected, uiCtx);
+      return collected;
     },
 
     renderCall() {

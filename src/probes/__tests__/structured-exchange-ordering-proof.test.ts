@@ -25,7 +25,7 @@ describe('structured-exchange ordering proof', () => {
       maxTurns: 1,
     });
     expect(proof.verdict).toEqual({ askUiOpenedBeforeResult: true, jsonlAskPersisted: true });
-    expect(proof.eventOrder).toEqual(['ask:start', 'ui:editor', 'ask:end']);
+    expect(proof.eventOrder).toEqual(['ask:start', 'ui:editor', 'ui:setStatus', 'ask:end']);
     expect(proof.jsonlToolResultOrder).toEqual(['ask']);
     expect(proof.requestDetails).toMatchObject({
       schema: 'brunch.structured_exchange.request',
