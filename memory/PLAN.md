@@ -29,7 +29,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 **Alpha walkthrough lane (2026-07-09/10).** Post-PR-305 outer-loop walkthroughs (TESTING_PLAN.md concern groups; findings in TESTING_FINDINGS.md) ran A and C, then a same-day induct → grill → spec pass settled D118-L (spec posture persistence), D119-L (unified `/continue` + continue/wait lexicon), the D99-L digest-conduct clarification, and A41-L. The 2026-07-10 FE-1180 review/witness pass reopened `walkthrough-remediation-1`: required rows WR1–WR8 were built, but Execute labels diverged from their provider directives and several security/conduct/debug claims lacked discriminating evidence. D120-L/I62-L now settle the Execute workflows. FE-1180 closed by explicit WR18 promotion of remaining failures/unknowns into `walkthrough-remediation-2` / FE-1187. FE-1187 now owns the reshaped auth/model-policy, ask/recovery, debug/prompt, conduct, Execute, and both-theme evidence before later walkthrough beats depend on those surfaces.
 
-**Petri execution lane (2026-07-12/13).** FE-1190's live stream closed review with two Bugbot findings fixed (fail-closed journal appends; terminal-lagging snapshot backfill from replay truth); PR #322 v5 is fully green with the merge deliberately held. The next Petri sequence is admitted behind that merge: `executor-slice-attempt-lifecycle` → `petri-slice-isolation-fan-in` → `petri-epic-integration` → `petri-durable-parallel-authority` (dependency ordering settled 2026-07-11; definitions fleshed from SPEC/topology state at admission 2026-07-13 — validate shape at pickup).
+**Petri execution lane (2026-07-12/13).** FE-1190's live stream merged (#322, 2026-07-13) after two Bugbot findings closed with deterministic oracles (fail-closed journal appends; terminal-lagging snapshot backfill from replay truth). The admitted Petri sequence is now live: `executor-slice-attempt-lifecycle` (FE-1192, picked up 2026-07-13 — shape settled at pickup: attempt facts first, constant retry bound, agent step only) → `petri-slice-isolation-fan-in` → `petri-epic-integration` → `petri-durable-parallel-authority`.
 
 **Topology and evidence discipline.** Directory `TOPOLOGY.md` files under `src/**` own current topology state. `memory/SPEC.md` owns the thin product contract and live decision/invariant index; long-form SPEC history is archived in `docs/archive/SPEC_HISTORY.md`. `memory/PLAN.md` owns only rolling frontier state. Scratch probe artifacts under `.fixtures/scratch/` are not durable evidence until reviewed and promoted to `.fixtures/runs/`.
 
@@ -68,6 +68,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Recently Completed
 
+- 2026-07-13 `petrinaut-live-run-stream` (FE-1190) — merged #322 to `next`; live-from-start Petrinaut observation with frozen run plan, journal-ordered completion, reconnect equivalence, fail-closed journal appends, and terminal-lagging-snapshot backfill (both Bugbot findings closed with deterministic oracles). FE-1183 (`petri-interpreter-port`) closed with it — #320 merged the finite replay/export surface.
 - 2026-07-10 `walkthrough-remediation-1` (FE-1180) — **✓ closed by explicit promotion, not false pass**. WR1–WR8 and WR13–WR17 built; WR18 evidence is recorded in `TESTING_FINDINGS.md`; every remaining failure/unknown moved to `walkthrough-remediation-2` / FE-1187; the exhausted ledger and stale handoff were deleted.
 - 2026-07-10 `default-tool-rendering` (FE-1186) — all 41 fallback-rendered Brunch tools use `defineBrunchTool`; the production registry pins the 41 shared-default / 11 intentional-custom / 4 Pi-owned classification. D122-L/I61-L scope the renderer contract to Pi's live interactive TUI; Pi HTML export remains unsupported under D34-L.
 - 2026-07-10 `main-editor-chrome` execute-card follow-up (#313) — structured, status-first renderers landed for `execute_orchestrate`, `execute_plan_check`, `execute_snapshot`, and `execute_status`; literal snapshots plus lifecycle negative-space tests preserve D111-L/D112-L/I58-L. The scope card was exhausted and deleted; the normal-width manual readability beat remains outer evidence, not unfinished implementation.
@@ -84,10 +85,7 @@ Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_
 
 ### Parallel / Low-Conflict
 
-- **Open PRs:** FE-1190 live-from-start Petrinaut observation is on PR #322 (v5, all checks green including Bugbot; merge deliberately held by the user). FE-1183's replay/export closure merged in #320; its interpreter and plan-alignment predecessors landed through #311/#319.
-- `petri-interpreter-port` (FE-1183) — done; PR #320 merged the final finite replay/export observer surface without live execution authority.
-- `petrinaut-live-run-stream` (FE-1190) — implementation + review complete on PR #322; both 2026-07-12 Bugbot findings closed with deterministic oracles (fail-closed journal appends; terminal-lagging snapshot backfill). Merge pending; it gates the admitted Petri sequence below.
-- `executor-slice-attempt-lifecycle` — **admitted 2026-07-13, blocked by the #322 merge.** First member of the Petri sequence: first-class slice attempts (identity, bounded in-run retry, honest failed-attempt facts). Definition below.
+- `executor-slice-attempt-lifecycle` ([FE-1192](https://linear.app/hash/issue/FE-1192/executor-slice-attempt-lifecycle)) — **active in the KA lane, picked up 2026-07-13** on `ka/fe-1192-executor-slice-attempt-lifecycle`. First member of the Petri sequence: first-class slice attempts (identity, bounded in-run retry, honest failed-attempt facts). Shape settled at pickup: attempt facts first (topology unchanged), constant retry bound with `ceiling:`, agent step only. Definition below.
 - `petri-slice-isolation-fan-in` — admitted 2026-07-13, behind `executor-slice-attempt-lifecycle`: isolated per-slice side effects + explicit fan-in under unchanged serial `run.json` authority. Definition below.
 - `executor-run-environment` (FE-1166 follow-up) — the substrate/verify policy is merged; the real-run failure remains prepared in [`memory/cards/executor-run-environment--actionable-slice-request.md`](cards/executor-run-environment--actionable-slice-request.md). Before build, `ln-plan` must settle whether this remains FE-1166 work or becomes a fresh frontier/branch; do not let the prepared card bypass the tracker/branch boundary.
 - **Standing obligations:** `probes-and-transcripts-evolution` and `topology-readmes-and-boundaries` ride the frontier that triggers them; they are not standalone cleanup buckets.
@@ -318,17 +316,18 @@ Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_
 - **Acceptance sketch:** production lifecycle test connects before the first transition; reconnect receives the same ordered timeline; terminal closes the stream; malformed artifacts fail closed; configured-origin CORS remains enforced; stream observers cannot mutate or claim execution.
 - **Depends on:** FE-1183 / PR #320 finite replay contract. Explicitly excludes durable parallel side-effect authority.
 - **Traceability:** D111-L, D112-L, I58-L; `src/executor/TOPOLOGY.md`, `src/rpc/TOPOLOGY.md`.
-- **Status:** implementation and review hardening complete on PR #322. Run creation freezes one plan and materializes attachable observer artifacts; live delivery uses subscribe-before-snapshot catch-up, journal-ordered completion, metadata-only abandonment wake-ups, single-flight refresh, reconnect equivalence, and host-shutdown cleanup. Two Bugbot findings closed 2026-07-12: (1) fail-closed append semantics — a failed durable append halts the drive (`petri_journal_append_failed`), reaches no hint surface or marking snapshot, and closes active streams via a run-scoped journal-failure wake-up (deterministic EISDIR-injection oracles); (2) a matching marking snapshot that lags the journal terminal no longer masks it — the projection backfills the terminal from replay truth only, so a live refresh racing the marking persist still delivers the terminal frame (deterministic window-state oracles). Final review/merge pending.
+- **Status:** ✓ merged (#322, 2026-07-13); FE-1190 closed. Durable truth: SPEC §Future Direction "Plan execution & Petri-net compatibility" (journal-ordered completion, fail-closed appends, terminal-lagging-snapshot backfill), `src/executor/TOPOLOGY.md`, `src/rpc/TOPOLOGY.md`. Definition retained while the Petri sequence builds on its contracts; archive at next `ln-sync`.
 
 
 ### executor-slice-attempt-lifecycle
 
 - **Name:** Slice attempt lifecycle — first-class attempts in the executor net
-- **Linear:** unassigned (create at pickup, FE team / brunch project)
-- **Branch:** tbd at pickup (off `next`, after PR #322 merges)
+- **Linear:** [FE-1192](https://linear.app/hash/issue/FE-1192/executor-slice-attempt-lifecycle)
+- **Branch:** `ka/fe-1192-executor-slice-attempt-lifecycle` (off `next`)
 - **Kind:** structural — executor lifecycle + Petri topology semantics (new attempt seam).
 - **Certainty:** proving.
-- **Blocked by:** the deliberately held PR #322 merge (`petrinaut-live-run-stream`) — do not branch before it lands.
+- **Shape (settled at pickup 2026-07-13):** attempt facts first — compiled net topology unchanged, attempts are journal facts, drive owns the bounded retry; retry bound is a named constant with a `ceiling:` to plan-declared; first slice covers the agent step only. Petri-native self-loop topology and `test_run_failed` coverage are named follow-ups.
+- **Current execution pointer:** [`memory/cards/executor-slice-attempt-lifecycle--agent-attempt-facts.md`](cards/executor-slice-attempt-lifecycle--agent-attempt-facts.md)
 - **Why now / unlocks:** today a failed slice step halts the whole drive, recovery exists only as the run-scoped HITL `execute_replan_*` family, and a failed attempt is invisible in the compiled net (the transition simply never fires). Attempt identity is the prerequisite for everything downstream in this sequence: isolation/fan-in needs per-attempt workspaces, and epic integration needs to represent partial failure without abandoning the run.
 - **Objective:** make slice execution attempts first-class executor facts — attempt identity and verdict on agent/verify steps, bounded in-run retry expressed as topology (attempt-scoped places/transitions or attempt provenance) rather than driver special-cases, and honest journal/stream representation of failed attempts. `run.json` remains lifecycle authority; `execute_replan_*` remains the escalation path when attempts exhaust.
 - **Lights up:** an in-run attempt loop (failed agent/verify attempt → bounded retry) visible in the journal and the Petrinaut stream.
@@ -395,20 +394,13 @@ frontiers:
     outer_oracle: run D populated-cwd/brownfield beats + run B orientation beats
 
   Parallel / Low-conflict:
-    petri-interpreter-port
-      status: implementation complete; final observer-only replay/export closure on PR #320
-      authority: run.json remains lifecycle truth; Petri artifacts remain projection/evidence/resume hints
-      -[on merge]-> petrinaut-live-run-stream
-      follow_up: durable parallel side-effect authority requires a separate fresh frontier if promoted
-      depends_on: D111-L, D112-L; current executor lifecycle steps stay canonical side-effect boundaries
+    # petri-interpreter-port (FE-1183) and petrinaut-live-run-stream (FE-1190) merged
+    # 2026-07-11/13; run.json remains lifecycle truth, Petri artifacts remain
+    # projection/evidence/resume hints, journal appends are fail-closed.
 
-    petrinaut-live-run-stream
-      status: complete on FE-1190 / PR #322 (v5 green, both Bugbot findings closed); merge held by user
-      excludes: lifecycle authority, parallel side-effect authority
-      -[on merge]-> executor-slice-attempt-lifecycle
-
-    executor-slice-attempt-lifecycle
-      status: admitted 2026-07-13; Linear/branch at pickup
+    executor-slice-attempt-lifecycle (FE-1192)
+      status: active; picked up 2026-07-13 on ka/fe-1192-executor-slice-attempt-lifecycle
+      live_card: memory/cards/executor-slice-attempt-lifecycle--agent-attempt-facts.md
       -[hard]-> petri-slice-isolation-fan-in
       stabilizes: attempt identity for the whole Petri sequence
 
