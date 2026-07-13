@@ -1344,64 +1344,39 @@ describe('drive', () => {
     });
   });
 
-  it('rejects a mismatched epic lane before clearing summary or dispatching verification', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-history-lane-mismatch-'));
-    await prepareEpicVerificationReadyRun(cwd);
-    const events = await readPetriEvents(cwd);
-    await writePetriEvents(
-      cwd,
-      events.map((event) =>
-        event.kind === 'transition_fired' && event.transitionId === 'epic_integrate:epic-1'
-          ? { ...event, contract: { ...event.contract, lane: 'slice' } }
-          : event,
-      ),
-    );
-    let runnerCalls = 0;
-
-    await expect(
-      drive({
-        cwd,
-        runId: 'run-1',
-        ports: fakePorts({
-          testRunner: {
-            async run() {
-              runnerCalls += 1;
-              return { status: 'completed', verdict: 'passed', exitCode: 0 };
-            },
-          },
-        }),
-      }),
-    ).resolves.toMatchObject({ status: 'halted', reason: 'petri_input_unreadable' });
-    expect(runnerCalls).toBe(0);
-    await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
-      epicTransitionHistory: ['epic_integrate:epic-1'],
-      integratedEpicIds: ['epic-1'],
-    });
-  });
-
   it.each([
-    ['run id', { runId: 'run-other' }],
-    ['subnet id', { subnetId: 'epic:other' }],
+    ['epicId', (event) => ({ ...event, epicId: 'epic-other' })],
+    ['derivedFrom', (event) => ({ ...event, derivedFrom: ['REQ-other'] })],
+    ['step', (event) => ({ ...event, step: 'epic_verify' })],
+    ['contract.kind', (event) => ({ ...event, contract: { ...event.contract, kind: 'mechanical' } })],
+    ['contract.lane', (event) => ({ ...event, contract: { ...event.contract, lane: 'slice' } })],
+    ['consumed', (event) => ({ ...event, consumed: [...event.consumed, 'place:other'] })],
+    ['produced', (event) => ({ ...event, produced: [...event.produced, 'place:other'] })],
+    ['runId', (event) => ({ ...event, runId: 'run-other' })],
+    ['subnetId', (event) => ({ ...event, subnetId: 'epic:other' })],
   ] as const)(
-    'rejects a transition with the wrong %s before summary reconciliation or dispatch',
-    async (_, patch) => {
-      const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-history-identity-mismatch-'));
+    'rejects a transition with mismatched %s before summary reconciliation or effects',
+    async (_, mutate) => {
+      const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-history-metadata-mismatch-'));
       await prepareEpicVerificationReadyRun(cwd);
+      const metadataBefore = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
       const events = await readPetriEvents(cwd);
       await writePetriEvents(
         cwd,
         events.map((event) =>
           event.kind === 'transition_fired' && event.transitionId === 'epic_integrate:epic-1'
-            ? { ...event, ...patch }
+            ? mutate(event)
             : event,
         ),
       );
       let runnerCalls = 0;
+      const started: string[] = [];
 
       await expect(
         drive({
           cwd,
           runId: 'run-1',
+          onStepStart: (step) => started.push(step),
           ports: fakePorts({
             testRunner: {
               async run() {
@@ -1411,12 +1386,15 @@ describe('drive', () => {
             },
           }),
         }),
-      ).resolves.toMatchObject({ status: 'halted', reason: 'petri_input_unreadable' });
-      expect(runnerCalls).toBe(0);
-      await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
-        epicTransitionHistory: ['epic_integrate:epic-1'],
-        integratedEpicIds: ['epic-1'],
+      ).resolves.toEqual({
+        status: 'halted',
+        step: 'epic_verify',
+        runStatus: 'slice_completed',
+        reason: 'petri_input_unreadable',
       });
+      expect(started).toEqual([]);
+      expect(runnerCalls).toBe(0);
+      await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toEqual(metadataBefore);
     },
   );
 
