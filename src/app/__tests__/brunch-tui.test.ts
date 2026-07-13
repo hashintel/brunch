@@ -64,7 +64,6 @@ import {
   BRUNCH_MENU_SHORTCUT,
   BRUNCH_MODE_COMMAND,
   BRUNCH_MODE_PICKER_SHORTCUT,
-  BRUNCH_MODE_SHORTCUT,
   chromeStateForWorkspace,
   createBrunchPiExtensions,
   projectBrunchChromeFooterLines,
@@ -993,7 +992,7 @@ describe('Brunch TUI boot', () => {
     expect(commands.has(BRUNCH_CONTINUE_COMMAND)).toBe(true);
     expect(shortcuts.get(BRUNCH_MENU_SHORTCUT)?.description).toBe('Open the Brunch spec/session picker');
     expect(shortcuts.get(BRUNCH_MODE_PICKER_SHORTCUT)?.description).toBe('Open the Brunch mode picker');
-    expect(shortcuts.get(BRUNCH_MODE_SHORTCUT)?.description).toBe('Cycle the Brunch mode');
+    expect(shortcuts.has('shift+tab')).toBe(false);
     expect(shortcuts.has('ctrl+b')).toBe(false);
     // alt+b must stay unregistered: Pi reserves it for cursorWordLeft.
     expect(shortcuts.has('alt+b')).toBe(false);

@@ -15,12 +15,7 @@ import chromeExtension, {
   registerBrunchChrome,
   renderBrunchChrome,
 } from '../chrome/index.js';
-import {
-  BRUNCH_MENU_COMMAND,
-  BRUNCH_MODE_COMMAND,
-  BRUNCH_MODE_PICKER_SHORTCUT,
-  BRUNCH_MODE_SHORTCUT,
-} from '../commands/index.js';
+import { BRUNCH_MENU_COMMAND, BRUNCH_MODE_COMMAND, BRUNCH_MODE_PICKER_SHORTCUT } from '../commands/index.js';
 
 describe('Brunch chrome projection', () => {
   it('uses activated session state instead of fabricating unbound', async () => {
@@ -192,12 +187,9 @@ describe('Brunch chrome projection', () => {
     expect(collapsedLines.join('\n')).toContain('Welcome to Brunch.');
     expect(collapsedLines.join('\n')).toContain('The assistant is about to open');
     expect(collapsedLines.join('\n')).toContain(
-      `/${BRUNCH_MODE_COMMAND} or ${formatChromeShortcutHint(
-        BRUNCH_MODE_PICKER_SHORTCUT,
-      )} opens mode picker; ${formatChromeShortcutHint(BRUNCH_MODE_SHORTCUT)} cycles mode`,
+      `/${BRUNCH_MODE_COMMAND} or ${formatChromeShortcutHint(BRUNCH_MODE_PICKER_SHORTCUT)} opens mode picker`,
     );
     expect(collapsedLines.join('\n')).not.toContain(BRUNCH_MODE_PICKER_SHORTCUT);
-    expect(collapsedLines.join('\n')).not.toContain(BRUNCH_MODE_SHORTCUT);
     expect(collapsedLines.join('\n')).toContain(`/${BRUNCH_MENU_COMMAND} opens spec/session`);
     expect(collapsedLines.join('\n')).toContain('web-ui: http://127.0.0.1:49152/spec/1');
     expect(collapsedLines.join('\n')).not.toContain('Press ctrl+o');

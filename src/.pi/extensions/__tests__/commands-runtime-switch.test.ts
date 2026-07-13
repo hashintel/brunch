@@ -21,7 +21,6 @@ import {
   BRUNCH_MENU_SHORTCUT,
   BRUNCH_MODE_COMMAND,
   BRUNCH_MODE_PICKER_SHORTCUT,
-  BRUNCH_MODE_SHORTCUT,
   registerBrunchCommands,
 } from '../commands/index.js';
 import { CODE_SESSION_ORIENTATION_MENU } from '../session-orientation/index.js';
@@ -692,16 +691,14 @@ describe('Brunch runtime switch commands', () => {
     expect(harness.activeToolNames.at(-1)).toEqual(expect.arrayContaining(['execute_status']));
   });
 
-  it('opens the mode picker from alt+m while shift+tab keeps cycling', async () => {
+  it('opens the mode picker from alt+m', async () => {
     const harness = commandHarness({ customResult: 'execute' });
 
     await harness.shortcuts.get(BRUNCH_MODE_PICKER_SHORTCUT)?.handler(harness.ctx);
-    await harness.shortcuts.get(BRUNCH_MODE_SHORTCUT)?.handler(harness.ctx);
 
     expect(harness.customCalls).toHaveLength(1);
     expect(harness.entries.map((entry) => (entry.data as BrunchAgentStateEntryData).state)).toEqual([
       { ...DEFAULT_BRUNCH_AGENT_STATE, operationalMode: 'execute' },
-      { ...DEFAULT_BRUNCH_AGENT_STATE, operationalMode: 'specify' },
     ]);
   });
 
@@ -757,90 +754,6 @@ describe('Brunch runtime switch commands', () => {
     expect(harness.activeToolNames.at(-1)).toEqual(
       expect.arrayContaining(['ask', 'mutate_graph', 'execute_status']),
     );
-  });
-
-  it('cycles operational mode from the shortcut through the runtime switch path', async () => {
-    const harness = commandHarness();
-
-    await harness.shortcuts.get(BRUNCH_MODE_SHORTCUT)?.handler(harness.ctx);
-    await harness.shortcuts.get(BRUNCH_MODE_SHORTCUT)?.handler(harness.ctx);
-
-    expect(harness.customCalls).toEqual([]);
-    expect(harness.entries.map((entry) => (entry.data as BrunchAgentStateEntryData).state)).toEqual([
-      { ...DEFAULT_BRUNCH_AGENT_STATE, operationalMode: 'execute' },
-      { ...DEFAULT_BRUNCH_AGENT_STATE, operationalMode: 'specify' },
-    ]);
-    expect(projectBrunchAgentState(harness.entries)).toMatchObject({ operationalMode: 'specify' });
-    expect(harness.activeToolNames).toHaveLength(2);
-    expect(harness.chromeRefreshes).toHaveLength(2);
-  });
-
-  it('borrows the command context for shortcut mode cycling so J5 can settle in-flight work', async () => {
-    const harness = commandHarness({
-      orientation: true,
-      customResult: { id: 'prepare_execution' },
-    });
-    const shortcutCtx = { ...harness.ctx };
-    let idle = false;
-    const borrowedCtx = {
-      ...harness.ctx,
-      isIdle: () => idle,
-      abort: () => {
-        idle = true;
-      },
-      waitForIdle: async () => undefined,
-    };
-    registerBrunchCommands(
-      {
-        registerCommand() {},
-        registerShortcut(name: string, shortcut: RegisteredShortcut) {
-          harness.shortcuts.set(name, shortcut);
-        },
-        appendEntry(customType: string, data: BrunchAgentStateEntryData) {
-          harness.entries.push({ type: 'custom', customType, data });
-        },
-        getAllTools: () => [{ name: 'read' }, { name: 'execute_status' }],
-        setActiveTools(names: string[]) {
-          harness.activeToolNames.push(names);
-        },
-        sendMessage(message: unknown, sendOptions?: unknown) {
-          harness.sent.push({ message, options: sendOptions });
-        },
-      } as never,
-      {
-        coordinator: {} as never,
-        sessionOrientation: harness.orientationDeps!,
-        getCommandContext: () => borrowedCtx as never,
-      },
-    );
-
-    await harness.shortcuts.get(BRUNCH_MODE_SHORTCUT)?.handler(shortcutCtx);
-
-    expect(harness.entries).toContainEqual(
-      expect.objectContaining({
-        customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
-        data: { schemaVersion: 1, choice: 'prepare_execution', trigger: 'mode-switch' },
-      }),
-    );
-  });
-
-  it('does not fire a provider turn from shortcut cycling when no provider auth resolves', async () => {
-    const harness = commandHarness({
-      orientation: true,
-      modelAvailable: false,
-    });
-
-    await harness.shortcuts.get(BRUNCH_MODE_SHORTCUT)?.handler(harness.ctx);
-
-    expect(harness.entries).toContainEqual(
-      expect.objectContaining({
-        customType: BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
-        data: expect.objectContaining({
-          state: { ...DEFAULT_BRUNCH_AGENT_STATE, operationalMode: 'execute' },
-        }),
-      }),
-    );
-    expect(harness.sent).toEqual([]);
   });
 
   it('aborts an in-flight turn (claiming the J4 gate) before showing the mode-switch menu', async () => {

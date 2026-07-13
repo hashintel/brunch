@@ -3,11 +3,7 @@ import { type Component, truncateToWidth } from '@earendil-works/pi-tui';
 
 import { formatBrunchProductIdentity, readBrunchAnsiLogo } from './brunch-identity.js';
 import { resolveBrunchVersion } from './brunch-version.js';
-import {
-  BRUNCH_MODE_PICKER_SHORTCUT,
-  BRUNCH_MODE_SHORTCUT,
-  formatChromeShortcutHint,
-} from './chrome-shortcuts.js';
+import { BRUNCH_MODE_PICKER_SHORTCUT, formatChromeShortcutHint } from './chrome-shortcuts.js';
 import { projectRoundedBox } from './rounded-box.js';
 import { supportsTruecolor } from './workspace-dialog/component.js';
 
@@ -89,7 +85,7 @@ export class BrunchStartupHeader implements Component {
       'The assistant is about to open with a grounded question from the seeded workspace context.',
       `Commands: /brunch:menu opens spec/session; /brunch:mode or ${formatChromeShortcutHint(
         BRUNCH_MODE_PICKER_SHORTCUT,
-      )} opens mode picker; ${formatChromeShortcutHint(BRUNCH_MODE_SHORTCUT)} cycles mode.`,
+      )} opens mode picker.`,
     ];
     return projectRoundedBox(inner, { topLabel: 'welcome', labelAlign: 'left' }, contentWidth, (text) =>
       this.theme.fg('accent', text),
