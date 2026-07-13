@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { prepareCaptureSweepAdvance } from '../../projections/session/sweep-watermark.js';
-import { assessSweepDebt, type SweepDebtExpectation } from '../sweep-debt-tripwire.js';
+import { assessSweepDebt, parseSessionJsonl, type SweepDebtExpectation } from '../sweep-debt-tripwire.js';
 
 const marker = {
   type: 'custom',
@@ -131,6 +131,12 @@ describe('sweep-debt tripwire', () => {
       reason: 'no_checkable_closed_interval',
       openConversationalEntryCount: 1,
     });
+  });
+
+  it('fails malformed JSONL loudly with a one-based line number', () => {
+    expect(() => parseSessionJsonl(`${JSON.stringify(message('user', 'valid'))}\n{broken}\n`)).toThrow(
+      'Invalid session JSONL at line 2',
+    );
   });
 
   it.each([
