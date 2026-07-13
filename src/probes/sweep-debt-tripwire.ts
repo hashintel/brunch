@@ -15,9 +15,11 @@ export interface SweepDebtReport {
   readonly expectation: SweepDebtExpectation;
   readonly outcome: SweepDebtOutcome;
   readonly captureEvidence: boolean;
+  readonly openingWatermarkIndex: number | null;
   readonly closingWatermarkIndex: number | null;
   readonly conversationalEntryCount: number;
-  readonly reason?: 'no_checkable_closed_interval' | 'conversational_material_after_latest_watermark';
+  readonly openConversationalEntryCount: number;
+  readonly reason?: 'no_checkable_closed_interval';
 }
 
 export function assessSweepDebt(
@@ -26,13 +28,9 @@ export function assessSweepDebt(
 ): SweepDebtReport {
   const sessionEntries = entries.map(requireEntry);
   const latestWatermarkIndex = findPreviousWatermark(sessionEntries, sessionEntries.length);
-
-  if (
-    latestWatermarkIndex !== null &&
-    sessionEntries.slice(latestWatermarkIndex + 1).some(isSweepConversationalEntry)
-  ) {
-    return uncheckable(expectation, 'conversational_material_after_latest_watermark');
-  }
+  const openConversationalEntryCount = sessionEntries
+    .slice((latestWatermarkIndex ?? -1) + 1)
+    .filter(isSweepConversationalEntry).length;
 
   let closingWatermarkIndex = latestWatermarkIndex;
   while (closingWatermarkIndex !== null) {
@@ -46,14 +44,16 @@ export function assessSweepDebt(
         expectation,
         outcome: captureEvidence === (expectation === 'capture') ? 'pass' : 'fail',
         captureEvidence,
+        openingWatermarkIndex: previousWatermarkIndex,
         closingWatermarkIndex,
         conversationalEntryCount,
+        openConversationalEntryCount,
       };
     }
     closingWatermarkIndex = previousWatermarkIndex;
   }
 
-  return uncheckable(expectation, 'no_checkable_closed_interval');
+  return uncheckable(expectation, 'no_checkable_closed_interval', openConversationalEntryCount);
 }
 
 export function parseSessionJsonl(source: string): readonly TranscriptEntryLike[] {
@@ -102,13 +102,16 @@ function record(value: unknown): Record<string, unknown> | undefined {
 function uncheckable(
   expectation: SweepDebtExpectation,
   reason: NonNullable<SweepDebtReport['reason']>,
+  openConversationalEntryCount: number,
 ): SweepDebtReport {
   return {
     expectation,
     outcome: 'uncheckable',
     captureEvidence: false,
+    openingWatermarkIndex: null,
     closingWatermarkIndex: null,
     conversationalEntryCount: 0,
+    openConversationalEntryCount,
     reason,
   };
 }

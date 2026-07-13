@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { prepareCaptureSweepAdvance } from '../../projections/session/sweep-watermark.js';
 import { assessSweepDebt, type SweepDebtExpectation } from '../sweep-debt-tripwire.js';
 
 const marker = {
@@ -23,6 +24,36 @@ function toolResult(toolName: string, details: unknown) {
 
 function assess(entries: readonly unknown[], expectation: SweepDebtExpectation) {
   return assessSweepDebt(entries, expectation);
+}
+
+function productionMarker(entries: readonly unknown[]) {
+  const advance = prepareCaptureSweepAdvance(entries as Parameters<typeof prepareCaptureSweepAdvance>[0], {
+    now: () => new Date('2026-07-13T12:00:00.000Z'),
+  });
+  if (!advance.marker) throw new Error('expected conversational material to advance');
+  return {
+    type: 'custom',
+    customType: advance.marker.customType,
+    data: advance.marker,
+  };
+}
+
+function productionOrderedInterval(capture: boolean) {
+  const bootstrap = [message('user', 'Bootstrap material.')];
+  const openingMarker = productionMarker(bootstrap);
+  const closedInterval = [
+    message('assistant', 'I will handle the scenario.'),
+    ...(capture ? [toolResult('mutate_graph', { status: 'success' })] : []),
+    message('user', 'Advance once to close this interval.'),
+  ];
+  const closingMarker = productionMarker([...bootstrap, openingMarker, ...closedInterval]);
+  return [
+    ...bootstrap,
+    openingMarker,
+    ...closedInterval,
+    closingMarker,
+    message('assistant', 'New open tail.'),
+  ];
 }
 
 describe('sweep-debt tripwire', () => {
@@ -49,14 +80,26 @@ describe('sweep-debt tripwire', () => {
     });
   });
 
-  it('passes ignore only when successful capture evidence is absent', () => {
-    expect(assess([message('user', 'Ignore this scenario.'), marker], 'ignore').outcome).toBe('pass');
-    expect(
-      assess(
-        [message('user', 'Ignore this scenario.'), toolResult('mutate_graph', { status: 'success' }), marker],
-        'ignore',
-      ).outcome,
-    ).toBe('fail');
+  it('judges the latest closed production interval with a newer assistant tail open', () => {
+    expect(assess(productionOrderedInterval(true), 'capture')).toMatchObject({
+      outcome: 'pass',
+      captureEvidence: true,
+      openingWatermarkIndex: 1,
+      closingWatermarkIndex: 5,
+      conversationalEntryCount: 2,
+      openConversationalEntryCount: 1,
+    });
+  });
+
+  it('passes ignore for production ordering only when successful capture evidence is absent', () => {
+    expect(assess(productionOrderedInterval(false), 'ignore')).toMatchObject({
+      outcome: 'pass',
+      captureEvidence: false,
+      openingWatermarkIndex: 1,
+      closingWatermarkIndex: 4,
+      openConversationalEntryCount: 1,
+    });
+    expect(assess(productionOrderedInterval(true), 'ignore').outcome).toBe('fail');
   });
 
   it('skips empty bootstrap intervals and selects the latest non-empty closed interval', () => {
@@ -73,15 +116,20 @@ describe('sweep-debt tripwire', () => {
     ).toMatchObject({ outcome: 'pass', closingWatermarkIndex: 1 });
   });
 
-  it('fails explicitly when no checkable closed interval exists or conversational material remains unclosed', () => {
-    expect(assess([marker, toolResult('read_graph', { status: 'success' }), marker], 'ignore').outcome).toBe(
-      'uncheckable',
+  it('reserves uncheckable for sessions with no non-empty closed interval', () => {
+    expect(assess([marker, toolResult('read_graph', { status: 'success' }), marker], 'ignore')).toMatchObject(
+      {
+        outcome: 'uncheckable',
+        reason: 'no_checkable_closed_interval',
+        openingWatermarkIndex: null,
+        closingWatermarkIndex: null,
+        openConversationalEntryCount: 0,
+      },
     );
-    expect(
-      assess([message('user', 'Closed.'), marker, message('user', 'Still open.')], 'ignore'),
-    ).toMatchObject({
+    expect(assess([message('user', 'Still open.')], 'ignore')).toMatchObject({
       outcome: 'uncheckable',
-      reason: 'conversational_material_after_latest_watermark',
+      reason: 'no_checkable_closed_interval',
+      openConversationalEntryCount: 1,
     });
   });
 
