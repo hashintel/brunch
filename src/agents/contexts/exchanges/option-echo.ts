@@ -30,10 +30,9 @@ export function formatOptionEcho(params: {
   ]);
 }
 
-/** Labeled cancellation shared across exchanges and read by both people and the agent. */
-export function formatCancelledTerminal(message: string): string {
-  return `**Cancelled** — ${message}`;
-}
+/** Canonical cancellation terminal shared across exchanges and read by both people and the agent. */
+export const CANCELLED_TERMINAL =
+  '**Cancelled** — The user declined to answer. Read this as wanting to change direction or reply in free text.';
 
 /** Unavailable-state response block shared by the request formatters. */
 export function formatResponseTerminal(message: string, heading = 'Response'): string {

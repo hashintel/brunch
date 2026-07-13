@@ -6,6 +6,7 @@ import {
   projectRequestChoices,
   projectRequestReview,
 } from '../../../../exchanges/projections/request-response.js';
+import { CANCELLED_TERMINAL } from '../option-echo.js';
 import { missingRenderedDetailsLeaves } from '../render-honesty.js';
 import {
   formatRequestAnswer,
@@ -19,15 +20,10 @@ import {
 } from '../request-response.js';
 
 describe('request response formatters', () => {
-  it('renders every cancellation as a labeled, self-describing next-turn signal', () => {
-    const requestCancellation =
-      '**Cancelled** — The request was posed, but the user declined to answer. Read this as wanting to change direction or reply in free text.';
-    const reviewCancellation =
-      '**Cancelled** — The user declined to review the proposal. Read this as wanting to change direction or reply in free text.';
-
+  it('renders every cancellation as the canonical self-describing next-turn signal', () => {
     expect(
       formatRequestAnswer(projectRequestAnswer({ exchangeId: 'answer-cancelled', status: 'cancelled' })),
-    ).toBe(requestCancellation);
+    ).toBe(CANCELLED_TERMINAL);
     expect(
       formatRequestChoice(
         projectRequestChoice({
@@ -36,10 +32,10 @@ describe('request response formatters', () => {
           status: 'cancelled',
         }),
       ),
-    ).toBe(requestCancellation);
+    ).toBe(CANCELLED_TERMINAL);
     expect(
       formatRequestChoices(projectRequestChoices({ exchangeId: 'choices-cancelled', status: 'cancelled' })),
-    ).toBe(requestCancellation);
+    ).toBe(CANCELLED_TERMINAL);
     expect(
       formatRequestReview(
         projectRequestReview({
@@ -48,7 +44,7 @@ describe('request response formatters', () => {
           status: 'cancelled',
         }),
       ),
-    ).toBe(reviewCancellation);
+    ).toBe(CANCELLED_TERMINAL);
   });
 
   it('declares every request_answer details leaf as rendered or intentionally elided', () => {

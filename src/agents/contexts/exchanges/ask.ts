@@ -1,5 +1,5 @@
 import type { AskDetails } from '../../../exchanges/schemas/index.js';
-import { formatCancelledTerminal } from './option-echo.js';
+import { CANCELLED_TERMINAL } from './option-echo.js';
 import type { RenderElision } from './render-honesty.js';
 
 function optionLines(details: AskDetails): string[] {
@@ -49,11 +49,7 @@ export function formatAsk(details: AskDetails): string {
     }
   } else if ('cancelled' in details) {
     lines.push('');
-    lines.push(
-      formatCancelledTerminal(
-        'The question was posed, but the user declined to answer. Read this as wanting to change direction or reply in free text.',
-      ),
-    );
+    lines.push(CANCELLED_TERMINAL);
   } else {
     lines.push('');
     lines.push(`_${details.unavailable.message}_`);

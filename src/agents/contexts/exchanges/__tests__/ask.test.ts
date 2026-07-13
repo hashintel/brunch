@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { askQuestionEcho, projectAsk } from '../../../../exchanges/projections/ask.js';
 import { zAskDetails } from '../../../../exchanges/schemas/index.js';
 import { ASK_CONTENT_ELISIONS, formatAsk } from '../ask.js';
+import { CANCELLED_TERMINAL } from '../option-echo.js';
 import { missingRenderedDetailsLeaves } from '../render-honesty.js';
 
 const OPTIONS = [
@@ -108,9 +109,7 @@ describe('ask formatter', () => {
   });
 
   it('renders cancellation as a labeled, self-describing next-turn signal', () => {
-    expect(formatAsk(cancelledDetails)).toContain(
-      '**Cancelled** — The question was posed, but the user declined to answer. Read this as wanting to change direction or reply in free text.',
-    );
+    expect(formatAsk(cancelledDetails).split('\n\n').at(-1)).toBe(CANCELLED_TERMINAL);
     expect(formatAsk(cancelledDetails)).not.toMatch(/\n_[^\n]+_$/u);
   });
 

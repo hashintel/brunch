@@ -53,7 +53,7 @@ _The listed choices did not name the comment framing problem._
 
 Cancel me.
 
-**Cancelled** — The question was posed, but the user declined to answer. Read this as wanting to change direction or reply in free text.
+**Cancelled** — The user declined to answer. Read this as wanting to change direction or reply in free text.
 
 ---
 
