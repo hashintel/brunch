@@ -249,7 +249,8 @@ export function validateCandidatePlan(args: {
   for (const blocked of executionContract.blocked) {
     error(
       'capability_unsupported',
-      blocked.message ?? `Capability ${blocked.id} has no provider; it stays a blocked requirement.`,
+      blocked.message ??
+        `Capability ${blocked.id} has no provider; declare an execute.verify/build/setup recipe line in a settled decision, or drop the id.`,
       blocked.id,
     );
   }

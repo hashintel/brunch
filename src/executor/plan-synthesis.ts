@@ -1,5 +1,5 @@
 import { parseCandidatePlan, type CandidatePlan } from './candidate-plan.js';
-import type { CapabilityProvider } from './capability-providers.js';
+import { capabilityVocabulary, type CapabilityProvider } from './capability-providers.js';
 import {
   orderSlicesByDependencies,
   type ExecutablePlanDraft,
@@ -51,6 +51,7 @@ export async function synthesizePlan(args: {
   for (let round = 0; round <= PLAN_REPAIR_ROUND_LIMIT; round += 1) {
     const synthesis = await args.planner.synthesize({
       projection: args.projection,
+      capabilityVocabulary: capabilityVocabulary(args.providers),
       ...(round > 0 ? { findings, priorCandidate } : {}),
       ...(args.runtime ? { runtime: args.runtime } : {}),
     });

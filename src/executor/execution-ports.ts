@@ -242,6 +242,7 @@ export type PlannerSynthesisResult =
 export interface PlannerPort {
   synthesize(args: {
     readonly projection: unknown;
+    readonly capabilityVocabulary?: readonly string[];
     readonly findings?: readonly { readonly code: string; readonly message: string }[];
     readonly priorCandidate?: unknown;
     readonly runtime?: PlannerRuntime;

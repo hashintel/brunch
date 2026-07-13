@@ -50,12 +50,19 @@ export function createPlannerPort(options: PlannerPortOptions = {}): PlannerPort
 
 function renderPlannerTask(args: {
   readonly projection: unknown;
+  readonly capabilityVocabulary?: readonly string[];
   readonly findings?: readonly { readonly code: string; readonly message: string }[];
   readonly priorCandidate?: unknown;
 }): string {
   return [
     'Planning projection (approved specification truth):',
     JSON.stringify(args.projection, null, 2),
+    '',
+    `Supported capability ids (use ONLY these in requiredCapabilities): ${
+      args.capabilityVocabulary && args.capabilityVocabulary.length > 0
+        ? args.capabilityVocabulary.join(', ')
+        : 'none'
+    }`,
     ...(args.findings && args.findings.length > 0
       ? [
           '',

@@ -24,7 +24,7 @@ describe('parseCandidatePlan', () => {
     };
     expect(parseCandidatePlan(missingGoal)).toMatchObject({
       status: 'malformed_candidate',
-      message: 'slice 0 is malformed',
+      message: 'slice 0: missing non-blank string field: goal',
     });
   });
 

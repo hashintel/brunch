@@ -69,3 +69,7 @@ const NODE_NPM_PROVIDER: CapabilityProvider = {
 export function defaultCapabilityProviders(): readonly CapabilityProvider[] {
   return [NODE_NPM_PROVIDER];
 }
+
+export function capabilityVocabulary(providers: readonly CapabilityProvider[]): readonly string[] {
+  return providers.flatMap((provider) => Object.keys(provider.capabilities)).sort();
+}

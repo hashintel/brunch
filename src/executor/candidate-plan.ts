@@ -71,19 +71,19 @@ export function parseCandidatePlan(input: unknown): ParseCandidatePlanResult {
   const epics: CandidatePlanEpic[] = [];
   for (const [index, value] of record['epics'].entries()) {
     const epic = parseEpic(value);
-    if (!epic) return malformed(`epic ${index} is malformed`);
+    if (typeof epic === 'string') return malformed(`epic ${index}: ${epic}`);
     epics.push(epic);
   }
   const slices: CandidatePlanSlice[] = [];
   for (const [index, value] of record['slices'].entries()) {
     const slice = parseSlice(value);
-    if (!slice) return malformed(`slice ${index} is malformed`);
+    if (typeof slice === 'string') return malformed(`slice ${index}: ${slice}`);
     slices.push(slice);
   }
   const requiredCapabilities: CandidateCapabilityRequirement[] = [];
   for (const [index, value] of record['requiredCapabilities'].entries()) {
     const capability = parseCapability(value);
-    if (!capability) return malformed(`requiredCapabilities ${index} is malformed`);
+    if (typeof capability === 'string') return malformed(`requiredCapabilities ${index}: ${capability}`);
     requiredCapabilities.push(capability);
   }
 
@@ -93,44 +93,55 @@ export function parseCandidatePlan(input: unknown): ParseCandidatePlanResult {
   };
 }
 
-function parseEpic(value: unknown): CandidatePlanEpic | undefined {
-  if (typeof value !== 'object' || value === null) return undefined;
+function parseEpic(value: unknown): CandidatePlanEpic | string {
+  if (typeof value !== 'object' || value === null) return 'not an object';
   const record = value as Record<string, unknown>;
-  if (!isNonBlankString(record['id']) || !isNonBlankString(record['title'])) return undefined;
+  if (!isNonBlankString(record['id'])) return 'missing non-blank string field: id';
+  if (!isNonBlankString(record['title'])) return 'missing non-blank string field: title';
   const dependsOn = stringArray(record['dependsOn']);
+  if (!dependsOn) return 'missing string-array field: dependsOn';
   const verificationCriterionIds = stringArray(record['verificationCriterionIds']);
-  if (!dependsOn || !verificationCriterionIds) return undefined;
+  if (!verificationCriterionIds) return 'missing string-array field: verificationCriterionIds';
   return { id: record['id'], title: record['title'], dependsOn, verificationCriterionIds };
 }
 
-function parseSlice(value: unknown): CandidatePlanSlice | undefined {
-  if (typeof value !== 'object' || value === null) return undefined;
+function parseSlice(value: unknown): CandidatePlanSlice | string {
+  if (typeof value !== 'object' || value === null) return 'not an object';
   const record = value as Record<string, unknown>;
-  if (!isNonBlankString(record['id']) || !isNonBlankString(record['epicId'])) return undefined;
-  if (!isNonBlankString(record['title']) || !isNonBlankString(record['goal'])) return undefined;
-  if (record['scopeId'] !== undefined && !isNonBlankString(record['scopeId'])) return undefined;
-  const doneCriteria = stringArray(record['doneCriteria']);
-  const requirementIds = stringArray(record['requirementIds']);
-  const criterionIds = stringArray(record['criterionIds']);
-  const dependsOn = stringArray(record['dependsOn']);
-  const designItemIds = stringArray(record['designItemIds']);
-  const verificationItemIds = stringArray(record['verificationItemIds']);
-  if (
-    !doneCriteria ||
-    !requirementIds ||
-    !criterionIds ||
-    !dependsOn ||
-    !designItemIds ||
-    !verificationItemIds
-  ) {
-    return undefined;
+  const id = record['id'];
+  const epicId = record['epicId'];
+  const title = record['title'];
+  const goal = record['goal'];
+  if (!isNonBlankString(id)) return 'missing non-blank string field: id';
+  if (!isNonBlankString(epicId)) return 'missing non-blank string field: epicId';
+  if (!isNonBlankString(title)) return 'missing non-blank string field: title';
+  if (!isNonBlankString(goal)) return 'missing non-blank string field: goal';
+  if (record['scopeId'] !== undefined && !isNonBlankString(record['scopeId'])) {
+    return 'scopeId must be a non-blank string when present';
   }
+  const arrays: Record<string, readonly string[] | undefined> = {
+    doneCriteria: stringArray(record['doneCriteria']),
+    requirementIds: stringArray(record['requirementIds']),
+    criterionIds: stringArray(record['criterionIds']),
+    dependsOn: stringArray(record['dependsOn']),
+    designItemIds: stringArray(record['designItemIds']),
+    verificationItemIds: stringArray(record['verificationItemIds']),
+  };
+  for (const [field, parsed] of Object.entries(arrays)) {
+    if (!parsed) return `missing string-array field: ${field}`;
+  }
+  const doneCriteria = arrays['doneCriteria']!;
+  const requirementIds = arrays['requirementIds']!;
+  const criterionIds = arrays['criterionIds']!;
+  const dependsOn = arrays['dependsOn']!;
+  const designItemIds = arrays['designItemIds']!;
+  const verificationItemIds = arrays['verificationItemIds']!;
   return {
-    id: record['id'],
-    epicId: record['epicId'],
+    id,
+    epicId,
     ...(record['scopeId'] !== undefined ? { scopeId: record['scopeId'] as string } : {}),
-    title: record['title'],
-    goal: record['goal'],
+    title,
+    goal,
     doneCriteria,
     requirementIds,
     criterionIds,
@@ -140,10 +151,11 @@ function parseSlice(value: unknown): CandidatePlanSlice | undefined {
   };
 }
 
-function parseCapability(value: unknown): CandidateCapabilityRequirement | undefined {
-  if (typeof value !== 'object' || value === null) return undefined;
+function parseCapability(value: unknown): CandidateCapabilityRequirement | string {
+  if (typeof value !== 'object' || value === null) return 'not an object';
   const record = value as Record<string, unknown>;
-  if (!isNonBlankString(record['id']) || !isNonBlankString(record['sourceItemId'])) return undefined;
+  if (!isNonBlankString(record['id'])) return 'missing non-blank string field: id';
+  if (!isNonBlankString(record['sourceItemId'])) return 'missing non-blank string field: sourceItemId';
   return { id: record['id'], sourceItemId: record['sourceItemId'] };
 }
 
