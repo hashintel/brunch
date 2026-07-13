@@ -306,3 +306,45 @@ describe('projectExecuteGraph', () => {
     ]);
   });
 });
+
+describe('projectExecuteGraph execution contract', () => {
+  const nodes: GraphNode[] = [
+    { ...base, id: 10, plane: 'intent', kind: 'requirement', kindOrdinal: 1, title: 'Build base' },
+  ];
+
+  it('emits an explicit default-provenance greenfield verify action, never an ambient fallback', () => {
+    const projection = projectExecuteGraph({ specId: 7, graphLsn: 9, nodes, edges: [] });
+
+    expect(projection.executionContract.requiredCapabilities).toEqual([
+      { id: 'node.npm-verify', source: { kind: 'default' } },
+    ]);
+    expect(projection.executionContract.resolvedActions.verify).toEqual([
+      {
+        capabilityId: 'node.npm-verify',
+        providerId: 'node-npm',
+        command: 'npm',
+        args: ['run', 'verify'],
+      },
+    ]);
+    expect(projection.planPreview.execution_contract).toEqual(projection.executionContract);
+  });
+
+  it('prefers detected workspace capabilities over the greenfield default', () => {
+    const projection = projectExecuteGraph({
+      specId: 7,
+      graphLsn: 9,
+      nodes,
+      edges: [],
+      mode: 'brownfield',
+      detectedCapabilities: [{ id: 'node.npm-test', source: { kind: 'detected', path: 'package.json' } }],
+    });
+
+    expect(projection.executionContract.requiredCapabilities).toEqual([]);
+    expect(projection.executionContract.detectedCapabilities).toEqual([
+      { id: 'node.npm-test', source: { kind: 'detected', path: 'package.json' } },
+    ]);
+    expect(projection.executionContract.resolvedActions.verify).toEqual([
+      { capabilityId: 'node.npm-test', providerId: 'node-npm', command: 'npm', args: ['test'] },
+    ]);
+  });
+});

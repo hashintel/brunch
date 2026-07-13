@@ -1,4 +1,5 @@
 import { assertExecutablePlanDraftVersion, type ExecutablePlanDraft } from './executable-plan-draft.js';
+import type { ExecutionContract } from './execution-contract.js';
 
 export interface PlanPreviewVerificationTarget {
   readonly kind: 'criterion';
@@ -53,16 +54,21 @@ export interface PlanPreview {
   readonly spec: PlanPreviewSpec;
   readonly epics: readonly PlanPreviewEpic[];
   readonly slices: readonly PlanPreviewSlice[];
+  readonly execution_contract?: ExecutionContract;
   readonly sideEffects: readonly [];
-  // Old cook Plan also accepts `profile` and `harnessNotes`; both remain absent
-  // until alpha has a profile/toolchain detection or harness-prior-art source.
+  // Old cook Plan also accepts `profile` and `harnessNotes`; the plan-owned
+  // execution contract (FE-1197) supersedes the deferred `profile` slot.
 }
 
-export function previewPlan(draft: ExecutablePlanDraft): PlanPreview {
+export function previewPlan(
+  draft: ExecutablePlanDraft,
+  options?: { readonly executionContract?: ExecutionContract },
+): PlanPreview {
   assertExecutablePlanDraftVersion(draft);
   return {
     schemaVersion: 2,
     mode: draft.mode,
+    ...(options?.executionContract ? { execution_contract: options.executionContract } : {}),
     scope_handoff_required: draft.slices.some((slice) => slice.scopeId !== undefined),
     spec: previewSpec(draft),
     epics: draft.epics.map((epic) => ({

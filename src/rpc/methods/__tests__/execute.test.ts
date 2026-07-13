@@ -1237,6 +1237,25 @@ describe('execute replanning methods', () => {
         ],
       },
       epics: [{ id: 'F1', summary: 'Execution handoff', depends_on: [], verification: [] }],
+      execution_contract: {
+        schemaVersion: 1,
+        requiredCapabilities: [{ id: 'node.npm-verify', source: { kind: 'default' } }],
+        detectedCapabilities: [],
+        resolvedActions: {
+          setup: [],
+          build: [],
+          verify: [
+            {
+              capabilityId: 'node.npm-verify',
+              providerId: 'node-npm',
+              command: 'npm',
+              args: ['run', 'verify'],
+            },
+          ],
+        },
+        blocked: [],
+        conflicts: [],
+      },
       scope_handoff_required: true,
       slices: [
         {

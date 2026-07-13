@@ -59,6 +59,32 @@ describe('cook plan file writer', () => {
     expect(payload).not.toHaveProperty('sideEffects');
   });
 
+  it('carries the plan-owned execution contract into the payload verbatim', () => {
+    const executionContract = {
+      schemaVersion: 1 as const,
+      requiredCapabilities: [{ id: 'node.npm-verify', source: { kind: 'default' as const } }],
+      detectedCapabilities: [],
+      resolvedActions: {
+        setup: [],
+        build: [],
+        verify: [
+          {
+            capabilityId: 'node.npm-verify',
+            providerId: 'node-npm',
+            command: 'npm',
+            args: ['run', 'verify'],
+          },
+        ],
+      },
+      blocked: [],
+      conflicts: [],
+    };
+
+    expect(planFilePayload({ ...preview, execution_contract: executionContract }).execution_contract).toEqual(
+      executionContract,
+    );
+  });
+
   it('writes one bounded spec-scoped plan.yaml plus provenance with explicit overwrite semantics', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-plan-file-'));
     const source = { graphLsn: 18, visibility: 'active' as const };
