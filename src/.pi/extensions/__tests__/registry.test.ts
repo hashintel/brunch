@@ -25,6 +25,7 @@ import type {
   TestRunnerPort,
 } from '../../../executor/execution-ports.js';
 import { planFilePath } from '../../../executor/plan-file.js';
+import { PRODUCTION_EXECUTE_TOOL_MUTATIONS } from '../../../executor/run-execution-authority.js';
 import { registerBrunchAlternatives as alternatives } from '../../components/alternatives.js';
 import { registerBrunchOperationalModePolicy as operationalMode } from '../agent-runtime/runtime/index.js';
 import { registerBrunchPrompting as prompting } from '../agent-runtime/system-prompts/index.js';
@@ -2955,6 +2956,18 @@ describe('Brunch explicit Pi extension registry', () => {
       expect(hasToolParametersProvenance(tool.parameters), `${tool.name} adapter provenance`).toBe(true);
       assertProviderLegalToolSchema(tool.parameters);
     }
+  });
+
+  it('classifies every registered production execute tool for run mutation authority', async () => {
+    const registeredTools = await collectProductTools({
+      graph: { specId: 42, lsn: 1, nodes: [], edges: [] },
+    });
+    const registeredExecuteNames = registeredTools
+      .map((tool) => tool.name)
+      .filter((name) => name.startsWith('execute_'))
+      .sort((left, right) => left.localeCompare(right));
+
+    expect(Object.keys(PRODUCTION_EXECUTE_TOOL_MUTATIONS).sort()).toEqual(registeredExecuteNames);
   });
 
   it('keeps present_alternatives on the shared default renderer without changing its message renderer', async () => {

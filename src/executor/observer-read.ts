@@ -10,6 +10,7 @@ import { petriEventsPath, readPetriJournal } from './petri-events.js';
 import {
   petriMarkingSnapshotMatchesRunMetadata,
   readPetriMarkingSnapshot,
+  type EpicVerificationClaim,
   type ParallelSliceBatchSnapshot,
 } from './petri-marking.js';
 import { canProjectPetriReplay } from './petri-replay-eligibility.js';
@@ -260,29 +261,28 @@ export async function readRunDetail(
             petriMarkingSnapshot === undefined ? 'snapshot_missing_or_unreadable' : 'snapshot_stale',
         })
       : undefined);
+  const journalEpicVerificationClaims = petriEvents.readable
+    ? projectJournalEpicVerificationClaims(petriEvents.events, metadata.completedEpicIds ?? [])
+    : [];
+  const epicVerificationClaims = mergeEpicVerificationClaims(
+    hasMatchingPetriMarkingSnapshot ? petriMarkingSnapshot.epicVerificationClaims : undefined,
+    journalEpicVerificationClaims,
+  );
   let observedPetriRuntime = parallelAuthorityUnreadable ? undefined : petriRuntime;
-  if (hasMatchingPetriMarkingSnapshot && petriMarkingSnapshot.parallelSliceBatch) {
-    try {
-      observedPetriRuntime = materializeExecutorPetriRuntime(metadata, petriRuntimePlan, {
-        currentMarking: petriMarkingSnapshot.currentMarking,
-        parallelSliceBatch: petriMarkingSnapshot.parallelSliceBatch,
-        ...(petriMarkingSnapshot.epicVerificationClaims
-          ? { epicVerificationClaims: petriMarkingSnapshot.epicVerificationClaims }
-          : {}),
-      });
-    } catch {
-      observedPetriRuntime = undefined;
-    }
-  }
   if (
-    hasMatchingPetriMarkingSnapshot &&
-    petriMarkingSnapshot.epicVerificationClaims &&
-    !petriMarkingSnapshot.parallelSliceBatch
+    observedPetriRuntime &&
+    ((hasMatchingPetriMarkingSnapshot && petriMarkingSnapshot.parallelSliceBatch) ||
+      epicVerificationClaims.length > 0)
   ) {
     try {
       observedPetriRuntime = materializeExecutorPetriRuntime(metadata, petriRuntimePlan, {
-        currentMarking: petriMarkingSnapshot.currentMarking,
-        epicVerificationClaims: petriMarkingSnapshot.epicVerificationClaims,
+        currentMarking: hasMatchingPetriMarkingSnapshot
+          ? petriMarkingSnapshot.currentMarking
+          : observedPetriRuntime.currentMarking,
+        ...(hasMatchingPetriMarkingSnapshot && petriMarkingSnapshot.parallelSliceBatch
+          ? { parallelSliceBatch: petriMarkingSnapshot.parallelSliceBatch }
+          : {}),
+        ...(epicVerificationClaims.length > 0 ? { epicVerificationClaims } : {}),
       });
     } catch {
       observedPetriRuntime = undefined;
@@ -360,6 +360,40 @@ export async function readRunDetail(
           ...(petrinautLaunchAvailable ? { petrinautLaunchPath: petrinautLaunchPathForRun(runId) } : {}),
         }),
   };
+}
+
+function projectJournalEpicVerificationClaims(
+  events: readonly ExecutorNetEvent[],
+  completedEpicIds: readonly string[],
+): readonly EpicVerificationClaim[] {
+  const completed = new Set(completedEpicIds);
+  const claims = new Map<string, EpicVerificationClaim['phase']>();
+  for (const event of events) {
+    if (event.kind === 'epic_verification_claimed' && !completed.has(event.epicId)) {
+      claims.set(event.epicId, 'claimed');
+    }
+    if (
+      event.kind === 'transition_fired' &&
+      event.step === 'epic_verify' &&
+      event.epicId &&
+      !completed.has(event.epicId)
+    ) {
+      claims.set(event.epicId, 'transitioned');
+    }
+  }
+  return [...claims].map(([epicId, phase]) => ({ epicId, phase }));
+}
+
+function mergeEpicVerificationClaims(
+  markingClaims: readonly EpicVerificationClaim[] | undefined,
+  journalClaims: readonly EpicVerificationClaim[],
+): readonly EpicVerificationClaim[] {
+  const claims = new Map((markingClaims ?? []).map((claim) => [claim.epicId, claim]));
+  for (const claim of journalClaims) {
+    const current = claims.get(claim.epicId);
+    if (!current || claim.phase === 'transitioned') claims.set(claim.epicId, claim);
+  }
+  return [...claims.values()];
 }
 
 export function petrinautStreamPathForRun(runId: string): string {

@@ -292,6 +292,57 @@ describe('readRunDetail', () => {
     });
   });
 
+  it('recovers an epic verification claim appended before its marking write', async () => {
+    const cwd = await fixtureCwd('brunch-observer-epic-claim-crash-');
+    const planPath = join(cwd, 'plan.json');
+    await writeFile(
+      planPath,
+      JSON.stringify({
+        epics: [
+          {
+            id: 'epic-1',
+            depends_on: [],
+            verification: [{ kind: 'criterion', target: 'npm test' }],
+          },
+        ],
+        slices: [{ id: 'task-1', epic_id: 'epic-1' }],
+      }),
+      'utf8',
+    );
+    const runDir = await writeRun(cwd, 'run-epic-claim-crash', {
+      planPath,
+      status: 'slice_completed',
+      completedSliceIds: ['task-1'],
+      integratedEpicIds: ['epic-1'],
+      epicTransitionHistory: ['epic_integrate:epic-1'],
+    });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'events.jsonl'),
+      `${JSON.stringify({
+        kind: 'epic_verification_claimed',
+        runId: 'run-epic-claim-crash',
+        runStatus: 'slice_completed',
+        epicId: 'epic-1',
+        step: 'epic_verify',
+      })}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-epic-claim-crash');
+
+    expect(detail).toMatchObject({
+      petriReadySteps: [],
+      petriBlockedSteps: [
+        {
+          kind: 'epic_verify',
+          epicId: 'epic-1',
+          blockers: [{ kind: 'epic_verification_authority', phase: 'claimed' }],
+        },
+      ],
+    });
+  });
+
   it('keeps run detail readable when duplicate slice ids make the Petri runtime invalid', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-duplicate-slice-id-');
     const planPath = join(cwd, 'plan.yaml');

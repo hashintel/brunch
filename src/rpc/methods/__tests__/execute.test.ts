@@ -16,6 +16,7 @@ import type { ExecutionPorts } from '../../../executor/execution-ports.js';
 import type { ExecutorNetEvent } from '../../../executor/orchestrate-topology.js';
 import { drive, frontierFiringPolicy, petriScheduler } from '../../../executor/orchestrate.js';
 import { planFilePath, planProvenancePath } from '../../../executor/plan-file.js';
+import { PRODUCTION_EXECUTE_RPC_MUTATIONS } from '../../../executor/run-execution-authority.js';
 import { createRun, runDirPath, runMetadataPath, type RunMetadata } from '../../../executor/run.js';
 import type { GraphEdge } from '../../../graph/schema/edges.js';
 import type { GraphNode } from '../../../graph/schema/nodes.js';
@@ -96,6 +97,9 @@ async function writeRun(
     readonly status?: RunMetadata['status'];
     readonly specId?: string;
     readonly activeSliceId?: string;
+    readonly completedSliceIds?: readonly string[];
+    readonly integratedEpicIds?: readonly string[];
+    readonly epicTransitionHistory?: readonly string[];
   } = {},
 ): Promise<void> {
   await mkdir(runDirPath(cwd, runId), { recursive: true });
@@ -107,6 +111,11 @@ async function writeRun(
       planPath: options.planPath ?? '/plan.yaml',
       status: options.status ?? 'created',
       ...(options.activeSliceId === undefined ? {} : { activeSliceId: options.activeSliceId }),
+      ...(options.completedSliceIds === undefined ? {} : { completedSliceIds: options.completedSliceIds }),
+      ...(options.integratedEpicIds === undefined ? {} : { integratedEpicIds: options.integratedEpicIds }),
+      ...(options.epicTransitionHistory === undefined
+        ? {}
+        : { epicTransitionHistory: options.epicTransitionHistory }),
     })}\n`,
     'utf8',
   );
@@ -262,6 +271,19 @@ function executableScopeGraph(lsn = 11): {
   };
 }
 
+describe('execute RPC mutation authority classification', () => {
+  it('classifies every registered execute method and every write as a run mutation', () => {
+    expect(Object.keys(PRODUCTION_EXECUTE_RPC_MUTATIONS).sort()).toEqual(
+      executeRpcMethods.map((definition) => definition.method).sort(),
+    );
+    for (const definition of executeRpcMethods) {
+      expect(PRODUCTION_EXECUTE_RPC_MUTATIONS[definition.method]).toEqual(
+        definition.access === 'write' ? expect.any(String) : null,
+      );
+    }
+  });
+});
+
 describe('execute.runs', () => {
   it('rejects params', async () => {
     const response = await method('execute.runs').handle(
@@ -407,6 +429,67 @@ describe('execute.run', () => {
         petriReadySteps: [],
         petriBlockedSteps: [
           { kind: 'authority_unreadable', blockers: [{ kind: 'parallel_authority_unreadable' }] },
+        ],
+      },
+    });
+    expect(Value.Check(ExecuteRunResultSchema, 'result' in response ? response.result : undefined)).toBe(
+      true,
+    );
+  });
+
+  it('recovers a journal-only epic verification claim over RPC', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-epic-claim-crash-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(
+      planPath,
+      JSON.stringify({
+        epics: [
+          {
+            id: 'epic-1',
+            depends_on: [],
+            verification: [{ kind: 'criterion', target: 'npm test' }],
+          },
+        ],
+        slices: [{ id: 'task-1', epic_id: 'epic-1' }],
+      }),
+      'utf8',
+    );
+    await writeRun(cwd, 'run-1', {
+      planPath,
+      status: 'slice_completed',
+      completedSliceIds: ['task-1'],
+      integratedEpicIds: ['epic-1'],
+      epicTransitionHistory: ['epic_integrate:epic-1'],
+    });
+    const petrinautDir = join(runDirPath(cwd, 'run-1'), 'petrinaut');
+    await mkdir(petrinautDir, { recursive: true });
+    await writeFile(
+      join(petrinautDir, 'events.jsonl'),
+      `${JSON.stringify({
+        kind: 'epic_verification_claimed',
+        runId: 'run-1',
+        runStatus: 'slice_completed',
+        epicId: 'epic-1',
+        step: 'epic_verify',
+      })}\n`,
+      'utf8',
+    );
+
+    const response = await method('execute.run').handle(
+      contextFor(cwd),
+      request('execute.run', { runId: 'run-1' }),
+    );
+
+    expect(response).toMatchObject({
+      result: {
+        petriReadySteps: [],
+        petriBlockedSteps: [
+          {
+            kind: 'epic_verify',
+            epicId: 'epic-1',
+            blockers: [{ kind: 'epic_verification_authority', phase: 'claimed' }],
+          },
         ],
       },
     });

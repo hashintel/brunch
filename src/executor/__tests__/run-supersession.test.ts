@@ -68,7 +68,19 @@ describe('createSupersedingRun', () => {
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const owner = withRunExecutionAuthority({ cwd, runId: 'run-old', execute: () => held });
+    let entered!: () => void;
+    const acquired = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const owner = withRunExecutionAuthority({
+      cwd,
+      runId: 'run-old',
+      execute: () => {
+        entered();
+        return held;
+      },
+    });
+    await acquired;
 
     await expect(
       createSupersedingRun({ cwd, previousRunId: 'run-old', runId: 'run-new', current }),

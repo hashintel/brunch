@@ -16,7 +16,39 @@ export function runExecutionActive(runId: string): RunExecutionActiveResult {
   return { status: 'run_execution_active', runStatus: 'not_started', runId, sideEffects: [] };
 }
 
-/** Canonical inventory: every production run mutation entry declares its authority boundary. */
+export const PRODUCTION_RUN_MUTATION_ENTRIES = [
+  'drive',
+  'worktree_create',
+  'populate',
+  'source_policy',
+  'source_copy',
+  'report_init',
+  'slice_start',
+  'slice_execute',
+  'agent_result',
+  'test_result',
+  'slice_integrate',
+  'slice_complete',
+  'epic_integrate',
+  'epic_verify',
+  'epic_complete',
+  'run_complete',
+  'petri_export',
+  'promotion',
+  'run_create',
+  'run_supersede',
+  'run_abandon',
+  'replan_retry_current_step',
+  'replan_regenerate_plan_tool',
+  'replan_regenerate_plan_rpc',
+  'host_promotion_apply',
+] as const;
+
+export type ProductionRunMutationEntry = (typeof PRODUCTION_RUN_MUTATION_ENTRIES)[number];
+
+type RunMutationAuthorityBoundary = { readonly coreFile: string; readonly standalone: boolean };
+
+/** Canonical inventory: every independently typed production run mutation declares its authority boundary. */
 export const RUN_MUTATION_ENTRY_INVENTORY = {
   drive: { coreFile: 'orchestrate.ts', standalone: true },
   worktree_create: { coreFile: 'worktree.ts', standalone: true },
@@ -49,9 +81,58 @@ export const RUN_MUTATION_ENTRY_INVENTORY = {
   },
   replan_regenerate_plan_rpc: { coreFile: '../rpc/methods/execute.ts', standalone: true },
   host_promotion_apply: { coreFile: 'host-promotion.ts', standalone: true },
-} as const satisfies Record<string, { readonly coreFile: string; readonly standalone: boolean }>;
+} as const satisfies Record<ProductionRunMutationEntry, RunMutationAuthorityBoundary>;
 
-export type RunMutationEntry = keyof typeof RUN_MUTATION_ENTRY_INVENTORY;
+export type RunMutationEntry = ProductionRunMutationEntry;
+
+const NOT_A_RUN_MUTATION = null;
+
+/** Exact classification of the registered production execute-tool surface. */
+export const PRODUCTION_EXECUTE_TOOL_MUTATIONS = {
+  execute_agent_result: 'agent_result',
+  execute_host_promotion_apply: 'host_promotion_apply',
+  execute_host_promotion_preflight: NOT_A_RUN_MUTATION,
+  execute_launch: 'run_create',
+  execute_orchestrate: 'drive',
+  execute_petri_export: 'petri_export',
+  execute_plan_check: NOT_A_RUN_MUTATION,
+  execute_plan_draft: NOT_A_RUN_MUTATION,
+  execute_plan_draft_artifact: NOT_A_RUN_MUTATION,
+  execute_plan_file: NOT_A_RUN_MUTATION,
+  execute_plan_outline: NOT_A_RUN_MUTATION,
+  execute_plan_outline_artifact: NOT_A_RUN_MUTATION,
+  execute_plan_preview: NOT_A_RUN_MUTATION,
+  execute_populate: 'populate',
+  execute_promotion_prepare: 'promotion',
+  execute_replan_abandon_run: 'run_abandon',
+  execute_replan_recommendation: NOT_A_RUN_MUTATION,
+  execute_replan_regenerate_plan: 'replan_regenerate_plan_tool',
+  execute_replan_retry_current_step: 'replan_retry_current_step',
+  execute_replan_start_new_run: 'run_supersede',
+  execute_report_init: 'report_init',
+  execute_run_complete: 'run_complete',
+  execute_run_create: 'run_create',
+  execute_slice_complete: 'slice_complete',
+  execute_slice_execute: 'slice_execute',
+  execute_slice_start: 'slice_start',
+  execute_snapshot: NOT_A_RUN_MUTATION,
+  execute_source_copy: 'source_copy',
+  execute_source_policy: 'source_policy',
+  execute_status: NOT_A_RUN_MUTATION,
+  execute_test_result: 'test_result',
+  execute_worktree_create: 'worktree_create',
+} as const satisfies Record<string, ProductionRunMutationEntry | null>;
+
+/** Exact classification of the registered production execute-RPC surface. */
+export const PRODUCTION_EXECUTE_RPC_MUTATIONS: Readonly<Record<string, ProductionRunMutationEntry | null>> = {
+  'execute.replanAbandonRun': 'run_abandon',
+  'execute.replanRecommendation': NOT_A_RUN_MUTATION,
+  'execute.replanRegeneratePlan': 'replan_regenerate_plan_rpc',
+  'execute.replanStartNewRun': 'run_supersede',
+  'execute.run': NOT_A_RUN_MUTATION,
+  'execute.runTraceIndex': NOT_A_RUN_MUTATION,
+  'execute.runs': NOT_A_RUN_MUTATION,
+};
 
 export async function withRunExecutionAuthority<Result, Contended = Result>(args: {
   readonly cwd: string;

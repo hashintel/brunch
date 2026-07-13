@@ -70,7 +70,7 @@ rpc/
     ├── session-driver.ts              -> live AgentSession driver method
     ├── session-exchange-answer.ts     -> live exchange answer method
     ├── graph.ts                       -> graph.* handlers
-    ├── execute.ts                     -> execute.* run-observer read projections incl. raw Petri artifacts and derived replay view
+    ├── execute.ts                     -> execute.* run observers plus guarded replan recommendation/regeneration/supersession/abandonment
     └── schemas.ts                     -> shared protocol schemas
 ```
 
@@ -90,11 +90,15 @@ full RPC host:
     execute.runs
     execute.run
     execute.runTraceIndex
+    execute.replanRecommendation
   writes:
     workspace.activate
     session.triggerExchange
     session.submitExchangeResponse
     session.submitMessage
+    execute.replanRegeneratePlan
+    execute.replanStartNewRun
+    execute.replanAbandonRun
 
 TUI-started web sidecar without live driver handle:
   reads:
@@ -109,12 +113,16 @@ TUI-started web sidecar without live driver handle:
     execute.runs
     execute.run
     execute.runTraceIndex
+    execute.replanRecommendation
   rejected as method-not-found:
     workspace.activate
     session.triggerExchange
     session.submitExchangeResponse
     session.submitMessage
     session.driveTurn
+    execute.replanRegeneratePlan
+    execute.replanStartNewRun
+    execute.replanAbandonRun
 
 TUI-started web sidecar observer connection (/rpc), even when live driver handles exist:
   reads:
@@ -129,6 +137,7 @@ TUI-started web sidecar observer connection (/rpc), even when live driver handle
     execute.runs
     execute.run
     execute.runTraceIndex
+    execute.replanRecommendation
   rejected as method-not-found:
     workspace.activate
     session.triggerExchange
@@ -136,6 +145,9 @@ TUI-started web sidecar observer connection (/rpc), even when live driver handle
     session.submitMessage
     session.driveTurn
     session.answerExchange
+    execute.replanRegeneratePlan
+    execute.replanStartNewRun
+    execute.replanAbandonRun
 
 TUI-started web sidecar driver connection (/rpc/driver) with live driver handles:
   reads:
@@ -149,6 +161,8 @@ TUI-started web sidecar driver connection (/rpc/driver) with live driver handles
     graph.nodeNeighborhood
     execute.runs
     execute.run
+    execute.runTraceIndex
+    execute.replanRecommendation
   live-session drivers:
     session.driveTurn
     session.answerExchange
@@ -157,6 +171,9 @@ TUI-started web sidecar driver connection (/rpc/driver) with live driver handles
     session.triggerExchange
     session.submitExchangeResponse
     session.submitMessage
+    execute.replanRegeneratePlan
+    execute.replanStartNewRun
+    execute.replanAbandonRun
 ```
 
 ## Method overview
@@ -276,11 +293,41 @@ execute.run
   result: recorded run snapshot, per-requirement status, artifact-presence flags, reports tail, raw Petri runtime-event tail, normalized worker/verify stream tails, optional derived Petri projection, optional raw Petri net, and optional Petrinaut replay export metadata
   source: .brunch/cook/runs/<runId> read projection; raw artifact paths, Pi event payloads, and subprocess handles do not cross the RPC boundary
 
+execute.runs
+  access: read
+  params: none
+  result: run summaries and artifact-presence flags
+  source: .brunch/cook/runs/* metadata projection
+
 execute.runTraceIndex
   access: read
   params: {specId}
   result: graph node code -> run/slice trace entries for requirements and criteria exercised by executor runs
   source: .brunch/cook/runs/* plan/report projections; raw artifact paths do not cross the RPC boundary
+
+execute.replanRecommendation
+  access: read
+  params: {runId, specId, mode?}
+  result: current retry/replan eligibility, recommendation, and allowed actions
+  source: durable run state compared with the current graph projection; no run mutation
+
+execute.replanRegeneratePlan
+  access: write (full RPC host only)
+  params: {runId, specId, mode?}
+  result: regenerated plan artifact or a typed refusal
+  effects: D124-L admits one canonical {cwd, runId} owner before graph projection and plan write; contention returns run_execution_active
+
+execute.replanStartNewRun
+  access: write (full RPC host only)
+  params: {previousRunId, specId, runId?, mode?}
+  result: linked superseding run or a typed refusal
+  effects: run-supersession core owns D124-L admission for both run identities before creating the new run
+
+execute.replanAbandonRun
+  access: write (full RPC host only)
+  params: {runId, reason?}
+  result: abandoned run or a typed refusal
+  effects: run-abandon core owns D124-L admission before metadata mutation; durable artifacts are retained
 ```
 
 ## Product update notifications
@@ -381,7 +428,7 @@ query key families:
 | `execute.replanStartNewRun` | target mutation helper | implemented; create linked superseding run | exact old/new `execute.run(runId)` + `execute.runs` on write, with read-side Petri hints when available |
 | `execute.replanAbandonRun` | target mutation helper | implemented; evidence-preserving abandon | exact `execute.runs` + `execute.run(runId)` on write, with read-side Petri hints when available |
 
-`execute.replanRetryCurrentStep` is deliberately **not** a public web RPC method: retrying a lifecycle step requires `ExecutionPorts` and executor runtime/model context, so it remains on the executor tool surface until a separate host-authority slice deliberately wires those ports into RPC/web-host context.
+`execute.replanRetryCurrentStep` is deliberately **not** a registered RPC method: retrying a lifecycle step requires `ExecutionPorts` and executor runtime/model context, so the exact registered tool name `execute_replan_retry_current_step` remains on the executor tool surface until a separate host-authority slice deliberately wires those ports into RPC/web-host context. The corresponding registered RPC names are exactly `execute.replanRecommendation` and `execute.replanRegeneratePlan`; clients must not shorten them to `execute.replanRecommend` or `execute.regeneratePlan`.
 
 Route/use pattern:
 

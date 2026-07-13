@@ -7,12 +7,17 @@ import { describe, expect, it } from 'vitest';
 
 import { populateWorktree } from '../populate.js';
 import { initializeReports } from '../report.js';
-import { RUN_MUTATION_ENTRY_INVENTORY } from '../run-execution-authority.js';
+import { PRODUCTION_RUN_MUTATION_ENTRIES, RUN_MUTATION_ENTRY_INVENTORY } from '../run-execution-authority.js';
 import { withRunExecutionAuthority } from '../run-execution-authority.js';
 import { copyHostSource } from '../source-copy.js';
 import { selectSourcePolicy } from '../source-policy.js';
 
 describe('standalone run effect authority inventory', () => {
+  it('has one exact inventory row for every independently declared production mutation entry', () => {
+    expect(Object.keys(RUN_MUTATION_ENTRY_INVENTORY).sort()).toEqual(
+      [...PRODUCTION_RUN_MUTATION_ENTRIES].sort(),
+    );
+  });
   it('requires every standalone lifecycle core entry to hold canonical run authority', async () => {
     const executorDir = join(dirname(fileURLToPath(import.meta.url)), '..');
     const files = new Set(

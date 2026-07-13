@@ -133,6 +133,27 @@ describe('startSlice', () => {
     });
   });
 
+  it.each(['created', 'worktree_created'] as const)(
+    'returns reports_not_initialized for %s before reading plan or journal artifacts',
+    async (status) => {
+      const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-early-status-'));
+      await mkdir(runDirPath(cwd, 'run-1'), { recursive: true });
+      await writeFile(
+        runMetadataPath(cwd, 'run-1'),
+        `${JSON.stringify({ runId: 'run-1', specId: '42', planPath: '/missing/plan.json', status })}\n`,
+        'utf8',
+      );
+
+      await expect(startSlice({ cwd, runId: 'run-1' })).resolves.toEqual({
+        status: 'reports_not_initialized',
+        runStatus: status,
+        runId: 'run-1',
+        metadataPath: runMetadataPath(cwd, 'run-1'),
+        sideEffects: [],
+      });
+    },
+  );
+
   it('appends one slice-start marker for the first plan slice without running agents', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-ready-'));
     await createReportReadyRun(cwd);

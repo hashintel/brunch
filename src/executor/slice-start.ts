@@ -116,6 +116,17 @@ async function startSliceOwned(args: {
     };
   }
 
+  // Pre-report runs have no populated plan or Petri authority substrate yet.
+  if (metadata.status !== 'reports_initialized' && metadata.status !== 'slice_completed') {
+    return {
+      status: 'reports_not_initialized',
+      runStatus: metadata.status,
+      runId: args.runId,
+      metadataPath,
+      sideEffects: [],
+    };
+  }
+
   const marking = await readPetriMarkingSnapshot({ cwd: args.cwd, runId: args.runId });
   if (marking?.parallelSliceBatch) {
     return {
@@ -137,18 +148,6 @@ async function startSliceOwned(args: {
   if (journalAuthority.status !== 'none') {
     return {
       status: 'parallel_batch_active',
-      runStatus: metadata.status,
-      runId: args.runId,
-      metadataPath,
-      sideEffects: [],
-    };
-  }
-
-  // A run is ready for a slice once reports are initialized (first slice) or
-  // after a previous slice has completed (subsequent slices).
-  if (metadata.status !== 'reports_initialized' && metadata.status !== 'slice_completed') {
-    return {
-      status: 'reports_not_initialized',
       runStatus: metadata.status,
       runId: args.runId,
       metadataPath,
