@@ -1,4 +1,7 @@
 // Recovered from the two literal parameter objects before commit 90470eeb.
+// Serves as the current-schema golden for the reconciliation tools. The needKind
+// enum was reduced to the three persisted judgment kinds when edge_revalidation
+// was retired to a derived read (reconciliation-derivation frontier).
 export const reconciliationToolSchemaBaseline = {
   sourceCommit: '416d73e9e38904f7eeb4246f1898aaeedbbe7503',
   sourceFile: 'src/.pi/extensions/brunch-data/reconciliation/index.ts',
@@ -19,7 +22,7 @@ export const reconciliationToolSchemaBaseline = {
           description: "One write per call: 'create' records a new impasse; 'resolve' closes one.",
         },
         needKind: {
-          enum: ['edge_revalidation', 'possible_relation', 'possible_duplicate', 'semantic_conflict'],
+          enum: ['possible_relation', 'possible_duplicate', 'semantic_conflict'],
           description: 'create: kind of reconciliation need to record.',
         },
         target: {

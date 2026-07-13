@@ -19,6 +19,7 @@ import {
   specs,
 } from '../../db/schema.js';
 import { CommandExecutor } from '../command-executor.js';
+import type { ReconciliationNeedKind } from '../schema/reconciliation-need.js';
 import { runCreateOnlyMutation } from './support/create-only-mutation.js';
 
 function createTestDb(): BrunchDb {
@@ -704,7 +705,7 @@ describe('CommandExecutor', () => {
       const result = executor.createReconciliationNeed({
         specId,
         target: { kind: 'edge', edgeId },
-        needKind: 'edge_revalidation',
+        needKind: 'semantic_conflict',
         reason: 'upstream assumption changed',
       });
 
@@ -743,7 +744,7 @@ describe('CommandExecutor', () => {
       const result = executor.createReconciliationNeed({
         specId,
         target: { kind: 'edge', edgeId: 999 },
-        needKind: 'edge_revalidation',
+        needKind: 'semantic_conflict',
       });
 
       expect(result.status).toBe('structural_illegal');
@@ -765,6 +766,22 @@ describe('CommandExecutor', () => {
       expect(result.status).toBe('structural_illegal');
       if (result.status !== 'structural_illegal') throw new Error('unreachable');
       expect(result.diagnostics[0]!.field).toBe('target.bId');
+    });
+
+    it('rejects the retired edge_revalidation kind, pinning the accepted set to the three judgment kinds', () => {
+      const n1 = executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'G1' });
+      const n2 = executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'G2' });
+      if (n1.status !== 'success' || n2.status !== 'success') throw new Error('unreachable');
+
+      const result = executor.createReconciliationNeed({
+        specId,
+        target: { kind: 'node_pair', aId: n1.nodeId, bId: n2.nodeId },
+        needKind: 'edge_revalidation' as unknown as ReconciliationNeedKind,
+      });
+
+      expect(result.status).toBe('structural_illegal');
+      if (result.status !== 'structural_illegal') throw new Error('unreachable');
+      expect(result.diagnostics[0]!.field).toBe('needKind');
     });
 
     it('allocates a new LSN for each recon need', () => {
@@ -813,7 +830,7 @@ describe('CommandExecutor', () => {
       const create = executor.createReconciliationNeed({
         specId,
         target: { kind: 'edge', edgeId: batch.createdEdges[0]! },
-        needKind: 'edge_revalidation',
+        needKind: 'semantic_conflict',
       });
       expect(create.status).toBe('success');
       if (create.status !== 'success') throw new Error('unreachable');
@@ -846,7 +863,7 @@ describe('CommandExecutor', () => {
       const create = executor.createReconciliationNeed({
         specId,
         target: { kind: 'edge', edgeId: batch.createdEdges[0]! },
-        needKind: 'edge_revalidation',
+        needKind: 'semantic_conflict',
       });
       expect(create.status).toBe('success');
       if (create.status !== 'success') throw new Error('unreachable');
@@ -881,7 +898,7 @@ describe('CommandExecutor', () => {
       const create = executor.createReconciliationNeed({
         specId,
         target: { kind: 'edge', edgeId: batch.createdEdges[0]! },
-        needKind: 'edge_revalidation',
+        needKind: 'semantic_conflict',
       });
       expect(create.status).toBe('success');
       if (create.status !== 'success') throw new Error('unreachable');

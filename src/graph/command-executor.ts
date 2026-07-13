@@ -58,6 +58,7 @@ import {
   type ReviewSetProposalPayload,
 } from './review-set.js';
 import { type NodePlane } from './schema/nodes.js';
+import { RECONCILIATION_NEED_KINDS } from './schema/reconciliation-need.js';
 
 export type {
   Diagnostic,
@@ -415,6 +416,15 @@ export class CommandExecutor {
       if (!specRow) {
         diagnostics.push({ field: 'specId', message: `spec ${input.specId} does not exist` });
         return { status: 'structural_illegal' as const, diagnostics };
+      }
+
+      // Trust boundary: needKind arrives from agent tool input. Pin it to the
+      // persisted judgment kinds — edge_revalidation is derived, not persisted.
+      if (!(RECONCILIATION_NEED_KINDS as readonly string[]).includes(input.needKind)) {
+        diagnostics.push({
+          field: 'needKind',
+          message: `unknown reconciliation need kind: ${input.needKind} (accepted: ${RECONCILIATION_NEED_KINDS.join(', ')})`,
+        });
       }
 
       if (input.target.kind === 'edge') {

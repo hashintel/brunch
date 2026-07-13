@@ -16,26 +16,20 @@ import {
   formatReconciliationNeeds,
   formatReconciliationUpdateResult,
 } from '../../../../agents/contexts/data-model/graph/reconciliation-needs.js';
-import type {
-  CommandExecutor,
-  CreateReconNeedResult,
-  Diagnostic,
-  ReconciliationNeed,
-  ResolveReconNeedResult,
-  StructuralIllegal,
+import {
+  RECONCILIATION_NEED_KINDS,
+  type CommandExecutor,
+  type CreateReconNeedResult,
+  type Diagnostic,
+  type ReconciliationNeed,
+  type ResolveReconNeedResult,
+  type StructuralIllegal,
 } from '../../../../graph/index.js';
 import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { toolParameters } from '../../shared/tool-schema.js';
 
 export const READ_RECONCILIATION_NEEDS_TOOL = 'read_reconciliation_needs';
 export const UPDATE_RECONCILIATION_NEEDS_TOOL = 'update_reconciliation_needs';
-
-const RECONCILIATION_NEED_KINDS = [
-  'edge_revalidation',
-  'possible_relation',
-  'possible_duplicate',
-  'semantic_conflict',
-] as const;
 
 export interface BrunchReconciliationDeps {
   readonly specId: number;

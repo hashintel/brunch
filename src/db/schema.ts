@@ -150,7 +150,7 @@ export const reconciliationNeed = sqliteTable('reconciliation_need', {
   target_edge_id: integer().references(() => edges.id),
   target_a_id: integer().references(() => nodes.id),
   target_b_id: integer().references(() => nodes.id),
-  kind: text().notNull(), // substantive taxonomy deferred per A8-L
+  kind: text().notNull(), // persisted judgment kinds only (RECONCILIATION_NEED_KINDS); edge_revalidation is derived, not persisted
   status: text({ enum: ['open', 'resolved'] })
     .notNull()
     .default('open'),

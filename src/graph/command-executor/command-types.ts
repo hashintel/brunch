@@ -9,6 +9,7 @@
 
 import type { SpecKind, SpecOrigin } from '../schema/kinds.js';
 import type { NodeBasis, NodePlane, NodeSettlement } from '../schema/nodes.js';
+import type { ReconciliationNeedKind } from '../schema/reconciliation-need.js';
 import type { MutateGraphSuccess, StructuralIllegal } from './graph-mutation-types.js';
 
 // ---------------------------------------------------------------------------
@@ -179,7 +180,7 @@ type ReconNeedTarget = ReconNeedTargetEdge | ReconNeedTargetNodePair;
 export interface CreateReconNeedInput {
   readonly specId: number;
   readonly target: ReconNeedTarget;
-  readonly needKind: string;
+  readonly needKind: ReconciliationNeedKind;
   readonly reason?: string | undefined;
 }
 

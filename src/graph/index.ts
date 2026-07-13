@@ -27,7 +27,12 @@ export {
 export type { ReadinessBand, SpecKind } from './schema/kinds.js';
 
 export type { EdgeCategory, GraphEdge } from './schema/edges.js';
-export type { ReconciliationNeed, ReconciliationNeedTarget } from './schema/reconciliation-need.js';
+export {
+  RECONCILIATION_NEED_KINDS,
+  type ReconciliationNeed,
+  type ReconciliationNeedKind,
+  type ReconciliationNeedTarget,
+} from './schema/reconciliation-need.js';
 
 export type {
   ClaimFormDetail,
