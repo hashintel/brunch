@@ -98,10 +98,12 @@ describe('ingestTestResult', () => {
       worktreeDir: worktreeDirPath(cwd, 'run-1'),
       metadataPath: runMetadataPath(cwd, 'run-1'),
       message: 'verify command not found',
-      sideEffects: [],
+      attempts: 1,
+      sideEffects: [{ kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' }],
     });
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'agent_result_ingested',
+      activeSliceAttempts: 1,
     });
   });
 

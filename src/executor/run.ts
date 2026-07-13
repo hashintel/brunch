@@ -39,6 +39,7 @@ export interface RunMetadata {
   readonly reportsPath?: string;
   readonly activeSliceId?: string;
   readonly activeEpicId?: string;
+  readonly activeSliceAttempts?: number;
   readonly sliceExecutionRequestPath?: string;
   readonly agentResultPath?: string;
   readonly completedSliceIds?: readonly string[];
@@ -150,6 +151,17 @@ export function subscribeRunMetadata(args: {
     listeners.delete(args.listener);
     if (listeners.size === 0) metadataListeners.delete(path);
   };
+}
+
+export async function resetActiveSliceAttempts(args: {
+  readonly cwd: string;
+  readonly runId: string;
+}): Promise<RunMetadataWriteEffect | undefined> {
+  const metadataPath = runMetadataPath(args.cwd, args.runId);
+  const metadata = await readRunMetadata(metadataPath);
+  if (!metadata || metadata.activeSliceAttempts === undefined) return undefined;
+  const { activeSliceAttempts: _cleared, ...rest } = metadata;
+  return persistRunMetadata(metadataPath, rest);
 }
 
 export async function persistRunMetadata(

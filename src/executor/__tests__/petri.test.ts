@@ -9,6 +9,7 @@ import type { ExecutorNetEvent } from '../orchestrate-topology.js';
 import { compileExecutorTopology } from '../orchestrate.js';
 import {
   appendPetriEvent,
+  parsePetriEvent,
   petriEventsPath,
   subscribePetriEvents,
   subscribePetriJournalFailures,
@@ -440,6 +441,76 @@ describe('exportPetri', () => {
       firedTransitionCount: 18,
       terminalEventKind: 'net_completed',
     });
+  });
+});
+
+describe('attempt facts', () => {
+  it('replays an attempt-bearing journal without corrupting eligibility or marking', () => {
+    const net = {
+      initialMarking: { 'run:created': 1 },
+      transitions: [
+        {
+          id: 'worktree_create',
+          inputArcs: [{ placeId: 'run:created', weight: 1 }],
+          outputArcs: [{ placeId: 'run:worktree_created', weight: 1 }],
+        },
+      ],
+    };
+    const fired: ExecutorNetEvent = {
+      kind: 'transition_fired',
+      runId: 'run-1',
+      runStatus: 'worktree_created',
+      transitionId: 'worktree_create',
+      subnetId: 'run',
+      step: 'worktree_create',
+      contract: { kind: 'mechanical', lane: 'run' },
+      consumed: ['run:created'],
+      produced: ['run:worktree_created'],
+      fromStatus: 'created',
+      toStatus: 'worktree_created',
+    };
+    const attempt = parsePetriEvent({
+      kind: 'attempt_failed',
+      runId: 'run-1',
+      runStatus: 'slice_execution_requested',
+      sliceId: 'task-1',
+      step: 'agent_result',
+      attempt: 1,
+      reason: 'agent_run_failed',
+    });
+    expect(attempt).toBeDefined();
+    const terminal: ExecutorNetEvent = {
+      kind: 'net_completed',
+      runId: 'run-1',
+      runStatus: 'promotion_prepared',
+    };
+
+    const withAttempts = replayPetri({ net, events: [fired, attempt!, terminal] });
+    const withoutAttempts = replayPetri({ net, events: [fired, terminal] });
+
+    expect(withAttempts).toEqual(withoutAttempts);
+    expect(withAttempts).toMatchObject({
+      currentMarking: { 'run:worktree_created': 1 },
+      firedTransitionCount: 1,
+      terminalEventKind: 'net_completed',
+    });
+  });
+
+  it('rejects malformed attempt facts at the parse boundary', () => {
+    const base = {
+      kind: 'attempt_failed',
+      runId: 'run-1',
+      runStatus: 'slice_execution_requested',
+      sliceId: 'task-1',
+      step: 'agent_result',
+      attempt: 1,
+      reason: 'agent_run_failed',
+    };
+    expect(parsePetriEvent({ ...base, attempt: 0 })).toBeUndefined();
+    expect(parsePetriEvent({ ...base, attempt: 1.5 })).toBeUndefined();
+    expect(parsePetriEvent({ ...base, step: 'not_a_step' })).toBeUndefined();
+    expect(parsePetriEvent({ ...base, sliceId: undefined })).toBeUndefined();
+    expect(parsePetriEvent({ ...base, reason: 7 })).toBeUndefined();
   });
 });
 

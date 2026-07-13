@@ -1226,6 +1226,72 @@ describe('web host', () => {
     }
   });
 
+  it('streams unchanged Petrinaut frame kinds for a run with failed agent attempts', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-attempts-'));
+    await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
+    await writeFile(
+      planFilePath(cwd, '42'),
+      JSON.stringify({
+        mode: 'greenfield',
+        epics: [{ id: 'frontier-1', summary: 'Build feature', depends_on: [], verification: [] }],
+        slices: [
+          {
+            id: 'task-1',
+            epic_id: 'frontier-1',
+            definition: 'Build task one.',
+            depends_on: [],
+            verification: [],
+          },
+        ],
+      }),
+      'utf8',
+    );
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
+    await preparePetriObservation({ cwd, runId: 'run-1' });
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      const first = await reader.read();
+      expect(first.done).toBe(false);
+      let body = decoder.decode(first.value);
+
+      let agentCalls = 0;
+      const ports: ExecutionPorts = {
+        ...executorPorts(createFakeGitWorktreePort()),
+        agentRunner: {
+          async run() {
+            agentCalls += 1;
+            return agentCalls === 1 ? { status: 'failed', message: 'flaky agent' } : { status: 'completed' };
+          },
+        },
+      };
+      await expect(drive({ cwd, runId: 'run-1', ports })).resolves.toEqual({
+        status: 'completed',
+        runStatus: 'promotion_prepared',
+      });
+      for (;;) {
+        const next = await reader.read();
+        if (next.done) break;
+        body += decoder.decode(next.value);
+      }
+
+      expect(agentCalls).toBe(2);
+      const frameKinds = new Set(parseSse(body).map((frame) => frame.event));
+      expect([...frameKinds].sort()).toEqual([
+        'definition',
+        'initial_state',
+        'status',
+        'terminal',
+        'transition_firing',
+      ]);
+      expect(parseSse(body).at(-1)).toEqual({ event: 'terminal', data: { state: 'completed' } });
+    } finally {
+      await host.close();
+    }
+  });
+
   it('closes active Petrinaut streams during web host shutdown', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-shutdown-'));
     await writePetrinautReplayRun(cwd, 'run-1', { terminal: false });

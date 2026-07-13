@@ -317,10 +317,12 @@ describe('ingestAgentResult', () => {
       worktreeDir: worktreeDirPath(cwd, 'run-1'),
       metadataPath: runMetadataPath(cwd, 'run-1'),
       message: 'worker unavailable',
-      sideEffects: [],
+      attempts: 1,
+      sideEffects: [{ kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' }],
     });
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'slice_execution_requested',
+      activeSliceAttempts: 1,
     });
     const reports = await readFile(reportsPath(cwd, 'run-1'), 'utf8');
     expect(reports).not.toContain('slice_agent_result');

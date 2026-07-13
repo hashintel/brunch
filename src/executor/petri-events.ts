@@ -89,7 +89,20 @@ export function parsePetriEvent(value: unknown): ExecutorNetEvent | undefined {
     if (value.reason !== undefined && typeof value.reason !== 'string') return undefined;
     return value as unknown as ExecutorNetEvent;
   }
+  if (value.kind === 'attempt_failed') {
+    if (
+      typeof value.sliceId !== 'string' ||
+      !isStepKind(value.step) ||
+      !isAttemptNumber(value.attempt) ||
+      typeof value.reason !== 'string' ||
+      (value.epicId !== undefined && typeof value.epicId !== 'string')
+    ) {
+      return undefined;
+    }
+    return value as unknown as ExecutorNetEvent;
+  }
   if (value.kind !== 'transition_fired') return undefined;
+  if (value.attempt !== undefined && !isAttemptNumber(value.attempt)) return undefined;
   if (
     typeof value.transitionId !== 'string' ||
     typeof value.subnetId !== 'string' ||
@@ -155,6 +168,10 @@ function isTransitionContract(value: unknown): boolean {
     (value.kind === 'mechanical' || value.kind === 'structural') &&
     (value.lane === 'run' || value.lane === 'slice')
   );
+}
+
+function isAttemptNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1;
 }
 
 function isStringArray(value: unknown): value is readonly string[] {

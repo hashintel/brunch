@@ -36,7 +36,11 @@ export type TestResultIngestResult =
       readonly worktreeDir: string;
       readonly metadataPath: string;
       readonly message: string;
-      readonly sideEffects: readonly [];
+      readonly attempts: number;
+      readonly sideEffects: readonly (
+        | { readonly kind: 'append_file'; readonly path: string }
+        | { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' }
+      )[];
     }
   | {
       readonly status: 'test_result_ingested';
@@ -126,6 +130,11 @@ export async function ingestTestResult(args: {
     },
   });
   if (runResult.status === 'failed') {
+    const attempts = (metadata.activeSliceAttempts ?? 0) + 1;
+    const metadataEffect = await persistRunMetadata(metadataPath, {
+      ...metadata,
+      activeSliceAttempts: attempts,
+    });
     return {
       status: 'test_run_failed',
       runStatus: 'agent_result_ingested',
@@ -134,7 +143,11 @@ export async function ingestTestResult(args: {
       worktreeDir,
       metadataPath,
       message: runResult.message,
-      sideEffects: [],
+      attempts,
+      sideEffects: [
+        ...(wroteStream ? [{ kind: 'append_file' as const, path: streamPath }] : []),
+        metadataEffect,
+      ],
     };
   }
 
@@ -148,8 +161,9 @@ export async function ingestTestResult(args: {
     exitCode: runResult.exitCode,
     ...(runResult.target ? { target: runResult.target } : {}),
   };
+  const { activeSliceAttempts: _cleared, ...metadataWithoutAttempts } = metadata;
   const updated: RunMetadata = {
-    ...metadata,
+    ...metadataWithoutAttempts,
     status: 'test_result_ingested',
   };
 

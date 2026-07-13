@@ -249,6 +249,17 @@ export type ExecutorNetEvent =
       readonly produced: readonly string[];
       readonly fromStatus: import('./run.js').RunMetadata['status'];
       readonly toStatus: import('./run.js').RunMetadata['status'];
+      readonly attempt?: number;
+    }
+  | {
+      readonly kind: 'attempt_failed';
+      readonly runId: string;
+      readonly runStatus: import('./run.js').RunMetadata['status'];
+      readonly sliceId: string;
+      readonly epicId?: string;
+      readonly step: ReadyStep['kind'];
+      readonly attempt: number;
+      readonly reason: string;
     }
   | {
       readonly kind: 'net_completed';
