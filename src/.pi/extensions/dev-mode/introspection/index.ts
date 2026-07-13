@@ -1,5 +1,6 @@
 import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
 
+import { systemPromptFromProviderPayload } from '../../shared/provider-system-prompt.js';
 import {
   appendToolContentToDebugCache,
   mirrorSystemPromptToDebugCache,
@@ -123,7 +124,14 @@ export function registerBrunchIntrospection(
     handler: async (_args: string, ctx: ExtensionCommandContext) => {
       const report = buildBrunchIntrospectionReport(ctx, store, now());
       store.recordBaseReport(report);
-      ctx.ui.notify(formatBrunchIntrospectionReport(report, options.debugCache !== undefined), 'info');
+      ctx.ui.notify(
+        formatBrunchIntrospectionReport(
+          report,
+          options.debugCache !== undefined &&
+            systemPromptFromProviderPayload(report.latestPassiveCapture?.payload) !== undefined,
+        ),
+        'info',
+      );
     },
   });
 
@@ -148,7 +156,7 @@ export function buildBrunchIntrospectionReport(
 
 function formatBrunchIntrospectionReport(
   report: BrunchIntrospectionBaseReport,
-  hasDebugCache: boolean,
+  hasSystemPromptMirror: boolean,
 ): string {
   const capture = report.latestPassiveCapture;
   return [
@@ -157,7 +165,7 @@ function formatBrunchIntrospectionReport(
     capture
       ? `latestPassiveCapture=${capture.turnId} ${summarizeTopLevelFields(capture.payload)}`
       : 'latestPassiveCapture=none',
-    ...(hasDebugCache ? ['fullSystemPromptMirror=.brunch/debug/system-prompt.md'] : []),
+    ...(hasSystemPromptMirror ? ['fullSystemPromptMirror=.brunch/debug/system-prompt.md'] : []),
   ].join('\n');
 }
 

@@ -291,6 +291,27 @@ describe('Brunch introspection extension', () => {
     expect(notifications[0]).toContain('fullSystemPromptMirror=.brunch/debug/system-prompt.md');
   });
 
+  it.each([
+    { name: 'no passive capture' },
+    { name: 'capture without a system prompt', payload: { messages: [{ role: 'user', content: 'hello' }] } },
+  ])('does not advertise a system-prompt mirror with $name', async ({ payload }) => {
+    const api = createFakeExtensionApi();
+    const notifications: string[] = [];
+
+    registerBrunchIntrospection(api.api as never, {
+      clock: fixedClock,
+      debugCache: { cwd: '/tmp/brunch' },
+    });
+    if (payload) await api.emitBeforeProviderRequest({ payload });
+
+    await api.runCommand(BRUNCH_INTROSPECTION_COMMAND, {
+      ui: { notify: (message) => notifications.push(message) },
+      getSystemPromptOptions: () => ({ cwd: '/tmp/brunch' }),
+    });
+
+    expect(notifications[0]).not.toContain('fullSystemPromptMirror=.brunch/debug/system-prompt.md');
+  });
+
   it('captures the post-mutation payload when registered after a provider mutator', async () => {
     const api = createFakeExtensionApi();
     const store = createInMemoryBrunchIntrospectionStore();
