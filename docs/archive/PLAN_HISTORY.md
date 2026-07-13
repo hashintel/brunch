@@ -1092,7 +1092,7 @@ lanes to `next`). All outer-loop residue from these frontiers was batched into `
 - **Remaining residue (confirm with KA before closing FE-1107):**
   - Confirm with KA whether any executor-lane card state remains open (his six `executor-*` scope files are gone from `memory/cards/`; `executor-run-integrity--plan-projection.md` is retained-unconfirmed pending the same conversation).
   - Decide whether FE-1107 closes as absorbed or narrows to any genuinely-unported `../brunch` cook CLI behavior.
-  - Hold the deferred demo/overview session with KA (`docs/DEMO_STACK_OVERVIEW_2026-07-06.md`, delete after use), then run the owed `ln-plan` pass with his answers — dispose FE-1107, GC-or-confirm retained cards, and sequence the re-braided walkthrough-evidence branch (FE-1134/FE-1137 outer-loop evidence). This carries forward the 2026-07-06 handoff, now retired.
+  - Hold the deferred demo/overview session with KA (the temporary overview was later consolidated into `TESTING_PLAN.md` and deleted), then run the owed `ln-plan` pass with his answers — dispose FE-1107, GC-or-confirm retained cards, and sequence the re-braided walkthrough-evidence branch (FE-1134/FE-1137 outer-loop evidence). This carries forward the 2026-07-06 handoff, now retired.
 - **Traceability:** D39-L, D40-L, D90-L, D91-L, D92-L, D93-L, D98-L / I49-L, D111-L, D112-L, I58-L; `src/executor/TOPOLOGY.md`, `src/.pi/extensions/TOPOLOGY.md`.
 
 ### executor-run-observer (archived 2026-07-08)
@@ -1137,11 +1137,14 @@ lanes to `next`). All outer-loop residue from these frontiers was batched into `
 
 ## Archived 2026-07-13 (quarantine pass)
 
-### walkthrough-remediation-1 (FE-1180) — Recently Completed entry
+<!-- Superseded snapshot: the petri-interpreter-port definition below was archived when PR #311
+     looked like FE-1183's finish line, but upstream PRs #319/#320 continued the frontier and the
+     live (now closed) definition was restored to memory/PLAN.md during the 2026-07-13 restack.
+     Kept as a historical snapshot only — do not treat its status line as current. The FE-1180
+     Recently Completed entry that briefly lived here moved back to memory/PLAN.md in the same
+     restack. -->
 
-- 2026-07-10 `walkthrough-remediation-1` (FE-1180) — **✓ closed by explicit promotion, not false pass**. WR1–WR8 and WR13–WR17 built; WR18 evidence is recorded in `TESTING_FINDINGS.md`; every remaining failure/unknown moved to `walkthrough-remediation-2` / FE-1187; the exhausted ledger and stale handoff were deleted.
-
-### petri-interpreter-port
+### petri-interpreter-port (superseded snapshot)
 
 - **Name:** Execute-mode Petri interpreter port — subnet-preserving scheduler/runtime
 - **Linear:** [FE-1183](https://linear.app/hash/issue/FE-1183/port-petri-interpreter-to-alpha-orchestrator)
@@ -1179,7 +1182,7 @@ lanes to `next`). All outer-loop residue from these frontiers was batched into `
   1. **FE-1134 evidence:** live walkthrough beats for the orientation menu's generative options (propose/project), using the FE-1124 seed variants; menu→conduct routing evidence via session JSONL skill reads.
   2. **FE-1137 evidence:** Execute-mode entry beats on thin vs rich seeds (assessment honesty: Ask on thin, Proceed on rich); capture evidence on the two deferred orientation-choice questions — `continue`/`proceed` semantics and the sticky-posture candidate (a D98-L-sensitive reversal; route through `ln-grill`/`ln-spec` if evidence says revisit).
   3. **FE-1124 remainder:** Card 3 review variants (`memory/cards/walkthrough-batch-2--seed-variants.md`) + the seed-variation worklist; findings continue in `TESTING_FINDINGS.md`.
-  4. **FE-1107/KA residue:** executor-card GC completed in the 2026-07-08 sync; remaining: settle FE-1107 close-or-narrow, hold the demo session (`docs/DEMO_STACK_OVERVIEW_2026-07-06.md`, delete after), then the owed post-KA `ln-plan` pass.
+  4. **FE-1107/KA residue:** executor-card GC completed in the 2026-07-08 sync; remaining: settle FE-1107 close-or-narrow, hold the demo session using the walkthrough checks consolidated into `TESTING_PLAN.md`, then the owed post-KA `ln-plan` pass.
   5. **FE-1164 walkthrough residue (folded from the retired 2026-07-08 handoff — FE-1164 merged without these witnessed):** declared continuations driven live (digest/review/candidates chain); capture sweep after ask answers (highest-value — the outer witness of the `64aad51a` sweep-classifier fix); resume re-render of persisted ask results; web sidecar behavior during an open ask; `dev:components` gallery re-check in both themes. Workbench: `.fixtures/workbenches/workspace-alpha-grounding` (`npm run dev -- --workspace …`; reseed `npm run seed -- --seed workspace-alpha-grounding/base --reset`). Note: the ask surfaces have since been reshaped by FE-1169 (compact result content, hierarchical esc, mode-reactive borders) — witness the current surfaces, not FE-1164's originals.
 - **Annotations:** Retires: the unwitnessed-conduct uncertainty on generative menus and Execute entry (the arc's "one witnessed e2e run per generative flow" obligation). Closes: arc `deterministic-orientation`; the FE-1107 disposition question.
 - **Acceptance sketch:** per-flow walkthrough beats recorded against `TESTING_FINDINGS.md` with session JSONL evidence; the two deferred FE-1137 questions answered or explicitly re-routed; KA residue dispositions recorded in PLAN; arc marked done only when its done-definition holds (incl. topology reconciliation).
