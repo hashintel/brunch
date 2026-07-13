@@ -7,7 +7,7 @@
  * in `./graph-mutation-types.ts`.
  */
 
-import type { SpecKind } from '../schema/kinds.js';
+import type { SpecKind, SpecOrigin } from '../schema/kinds.js';
 import type { NodeBasis, NodePlane, NodeSettlement } from '../schema/nodes.js';
 import type { MutateGraphSuccess, StructuralIllegal } from './graph-mutation-types.js';
 
@@ -63,6 +63,10 @@ export interface SpecRecord {
   readonly name: string;
   readonly slug: string;
   readonly kind: SpecKind;
+  /** Spec posture (D118-L). Null until the establishment step confirms it. */
+  readonly origin: SpecOrigin | null;
+  /** Reference-only relates-to-spec (A41-L) — a plain reference, no claim model. */
+  readonly relatesToSpecId: number | null;
 }
 
 /** Union of all possible command results. */
@@ -109,6 +113,14 @@ export interface CreateSpecInput {
   readonly slug: string;
   /** Spec scope (D89-L); defaults to `product` (broadest ownership) when omitted. */
   readonly kind?: SpecKind;
+  /**
+   * Spec posture origin (D118-L); omitted leaves the spec posture-unestablished
+   * (`origin: null`) — establishment happens once, deterministically, in the
+   * spec creation/resume flow, never as a schema-level default.
+   */
+  readonly origin?: SpecOrigin;
+  /** Reference-only relates-to-spec (A41-L); omitted means no relation. */
+  readonly relatesToSpecId?: number;
 }
 
 /** Input for accepting an exact user-reviewed graph batch. */

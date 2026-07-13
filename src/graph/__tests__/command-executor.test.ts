@@ -630,6 +630,40 @@ describe('CommandExecutor', () => {
         name: 'Spec A',
         slug: 'spec-a',
         kind: 'product',
+        origin: null,
+        relatesToSpecId: null,
+      });
+    });
+
+    it('leaves posture unestablished (origin null) when omitted at creation (D118-L)', () => {
+      const created = executor.createSpec({ name: 'Posture-unestablished', slug: 'posture-unestablished' });
+      if (created.status !== 'success') throw new Error('unreachable');
+
+      expect(executor.getSpec(created.specId)?.origin).toBeNull();
+      expect(executor.getSpec(created.specId)?.relatesToSpecId).toBeNull();
+    });
+
+    it('persists posture — origin, confirmed kind, and an optional relates-to-spec reference (D118-L, A41-L)', () => {
+      const root = executor.createSpec({ name: 'Root spec', slug: 'root-spec', kind: 'product' });
+      if (root.status !== 'success') throw new Error('unreachable');
+
+      const feature = executor.createSpec({
+        name: 'Feature spec',
+        slug: 'feature-spec',
+        kind: 'feature',
+        origin: 'brownfield',
+        relatesToSpecId: root.specId,
+      });
+      expect(feature.status).toBe('success');
+      if (feature.status !== 'success') throw new Error('unreachable');
+
+      expect(executor.getSpec(feature.specId)).toEqual({
+        id: feature.specId,
+        name: 'Feature spec',
+        slug: 'feature-spec',
+        kind: 'feature',
+        origin: 'brownfield',
+        relatesToSpecId: root.specId,
       });
     });
 

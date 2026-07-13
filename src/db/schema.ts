@@ -8,7 +8,14 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  type AnySQLiteColumn,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 
 import {
   EDGE_CATEGORIES,
@@ -17,6 +24,7 @@ import {
   NODE_PLANES,
   NODE_SETTLEMENTS,
   SPEC_KINDS,
+  SPEC_ORIGINS,
 } from '../graph/schema/kinds.js';
 
 // ---------------------------------------------------------------------------
@@ -28,7 +36,15 @@ export const specs = sqliteTable('specs', {
   name: text().notNull(),
   slug: text().notNull(),
   // Spec scope as an ownership relation to the codebase (D89-L), not a node kind.
+  // Confirmed-not-defaulted at establishment (D118-L); the DB-layer default
+  // stays 'product' for non-dialog callers (card RISK mitigation).
   kind: text({ enum: SPEC_KINDS }).notNull().default('product'),
+  // Spec posture (D118-L): null until the product-owned establishment step
+  // confirms it at spec creation/resume. The agent reads this; it never sets it.
+  origin: text({ enum: SPEC_ORIGINS }),
+  // Reference-only relates-to-spec (A41-L bet: no spec-to-spec claim model).
+  // Self-referencing; nullable — most specs relate to nothing.
+  relates_to_spec_id: integer().references((): AnySQLiteColumn => specs.id),
 });
 
 export const nodes = sqliteTable(

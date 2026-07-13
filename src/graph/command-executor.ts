@@ -93,6 +93,8 @@ function specRecordFromRow(row: typeof schema.specs.$inferSelect): SpecRecord {
     name: row.name,
     slug: row.slug,
     kind: row.kind,
+    origin: row.origin,
+    relatesToSpecId: row.relates_to_spec_id,
   };
 }
 
@@ -166,13 +168,19 @@ export class CommandExecutor {
     const name = input.name.trim();
     const slug = input.slug.trim();
     const kind = input.kind ?? 'product';
+    const origin = input.origin ?? null;
+    const relatesToSpecId = input.relatesToSpecId ?? null;
 
     if (!name) diagnostics.push({ field: 'name', message: 'name must be non-empty' });
     if (!slug) diagnostics.push({ field: 'slug', message: 'slug must be non-empty' });
     if (diagnostics.length > 0) return { status: 'structural_illegal', diagnostics };
 
     return this.db.transaction((tx) => {
-      const row = tx.insert(schema.specs).values({ name, slug, kind }).returning().get();
+      const row = tx
+        .insert(schema.specs)
+        .values({ name, slug, kind, origin, relates_to_spec_id: relatesToSpecId })
+        .returning()
+        .get();
 
       const lsn = this.createInitialSpecClock(tx, row!.id);
 
@@ -181,7 +189,7 @@ export class CommandExecutor {
           spec_id: row!.id,
           lsn,
           operation: 'create_spec',
-          payload: JSON.stringify({ specId: row!.id, name, slug, kind }),
+          payload: JSON.stringify({ specId: row!.id, name, slug, kind, origin, relatesToSpecId }),
         })
         .run();
 

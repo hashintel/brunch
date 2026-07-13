@@ -33,6 +33,13 @@ export const SPEC_KINDS = ['product', 'feature', 'function'] as const;
 
 export type SpecKind = (typeof SPEC_KINDS)[number];
 
+/**
+ * Spec posture origin (D118-L) — whether a spec's owning codebase scope was
+ * started fresh or already existed at spec creation. Established once,
+ * deterministically, by the product (never the agent) and read thereafter.
+ */
+export const SPEC_ORIGINS = ['greenfield', 'brownfield'] as const;
+export type SpecOrigin = (typeof SPEC_ORIGINS)[number];
 export const NODE_PLANES = ['intent', 'oracle', 'design', 'plan'] as const;
 
 export const NODE_BASES = ['explicit', 'implicit'] as const;
