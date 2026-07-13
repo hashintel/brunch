@@ -66,8 +66,14 @@ export { edgeLabel } from './projection/labels.js';
 export type { AnchorRole, EdgeLabelInput } from './projection/labels.js';
 export { edgeImpact, relationFromAnchor } from './projection/direction.js';
 export type { AnchoredRelation, EdgeImpact, EdgeRelation } from './projection/direction.js';
+export { deriveEdgeRevalidations, summarizeDerivedRevalidations } from './projection/derived-revalidation.js';
+export type {
+  DerivableImpactKind,
+  DerivedEdgeRevalidation,
+  DerivedRevalidationSummary,
+} from './projection/derived-revalidation.js';
 
-export { queryGraph, getNodes, getOpenReconciliationNeeds } from './queries.js';
+export { queryGraph, getNodes, getOpenReconciliationNeeds, getDerivedEdgeRevalidations } from './queries.js';
 export type {
   EdgeDirection,
   GraphSlice,

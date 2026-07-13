@@ -12,6 +12,7 @@ import { and, eq, inArray, or } from 'drizzle-orm';
 import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
 import type { Lsn } from './atoms.js';
+import { deriveEdgeRevalidations, type DerivedEdgeRevalidation } from './projection/derived-revalidation.js';
 import type { EdgeCategory, GraphEdge } from './schema/edges.js';
 import type { ReadinessBand } from './schema/kinds.js';
 import {
@@ -356,4 +357,16 @@ export function getOpenReconciliationNeeds(db: BrunchDb, specId: number): Reconc
     .where(and(eq(schema.reconciliationNeed.status, 'open'), eq(schema.reconciliationNeed.spec_id, specId)))
     .all();
   return rows.map(rowToReconNeed);
+}
+
+/**
+ * Read-only derived `edge_revalidation` staleness over the active graph slice.
+ *
+ * Computed, never persisted (I16-L): a DISTINCT read from
+ * `getOpenReconciliationNeeds` — the tracer whose noise verdict gates the
+ * per-edge watermark schema. See `projection/derived-revalidation.ts`.
+ */
+export function getDerivedEdgeRevalidations(db: BrunchDb, specId: number): DerivedEdgeRevalidation[] {
+  const slice = queryGraph(db, specId);
+  return deriveEdgeRevalidations(slice.nodes, slice.edges);
 }
