@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -6,6 +6,7 @@ import { fauxAssistantMessage } from '@earendil-works/pi-ai';
 import { DefaultResourceLoader } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
+import { mirrorSystemPromptToDebugCache } from '../../.pi/extensions/dev-mode/introspection/index.js';
 import {
   BRUNCH_INTROSPECT_QUERY_TOOL,
   BRUNCH_SESSION_QUERY_TOOL,
@@ -148,6 +149,10 @@ describe('createBrunchFauxHarness', () => {
         '- prompt resources: code-owned live skill and shared reference lists only; no runtime axis negotiation',
       );
       expect(systemPrompt).toContain('<brunch-skills>');
+      expect(systemPrompt).not.toContain('pi-coding-agent');
+      await mirrorSystemPromptToDebugCache({ cwd }, { systemPrompt });
+      const mirroredPrompt = await readFile(join(cwd, '.brunch/debug/system-prompt.md'), 'utf8');
+      expect(mirroredPrompt).not.toContain('pi-coding-agent');
       expect(activeToolsLine).toContain('read');
       expect(activeToolsLine).toContain('grep');
       expect(activeToolsLine).toContain('find');

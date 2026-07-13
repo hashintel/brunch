@@ -20,6 +20,10 @@ const BRUNCH_LIGHT_THEME_NAME = 'brunch-light';
 const BRUNCH_DARK_THEME_NAME = 'brunch-dark';
 const BRUNCH_THEME_SETTING = `${BRUNCH_LIGHT_THEME_NAME}/${BRUNCH_DARK_THEME_NAME}`;
 
+const BRUNCH_BASE_SYSTEM_PROMPT = `You are a Brunch product agent. Help the user shape and execute a graph-native specification through the Brunch capabilities, policy, and live context appended below.
+
+Be concise. Use only the tools and prompt resources exposed by the active Brunch runtime.`;
+
 /**
  * Theme JSONs live beside the Pi runtime surface in `.pi/themes/` and are
  * mirrored into `dist/.pi/themes/` by `build:pi-assets`, so this relative
@@ -178,6 +182,9 @@ export interface BrunchResourceLoaderOptions {
   // or `<agentDir>/APPEND_SYSTEM.md`. Without this an ambient global append leaks
   // into the Brunch system prompt (the other no* flags do not cover it).
   appendSystemPrompt: string[];
+  // Replace Pi's coding-assistant prompt wholesale through its supported loader
+  // surface; Pi's default includes documentation meant for Pi development.
+  systemPromptOverride: () => string;
   extensionFactories: ExtensionFactory[];
 }
 
@@ -204,6 +211,7 @@ export function brunchResourceLoaderOptions(
     noThemes: true,
     additionalThemePaths: [BRUNCH_THEME_DIR],
     appendSystemPrompt: [],
+    systemPromptOverride: () => BRUNCH_BASE_SYSTEM_PROMPT,
     extensionFactories,
   };
 }

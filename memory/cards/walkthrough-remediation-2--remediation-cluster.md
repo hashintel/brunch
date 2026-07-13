@@ -64,7 +64,7 @@ src/app/__tests__/brunch-tui.test.ts                 ~?
 src/.pi/components/TOPOLOGY.md                       ~?  (if shortcut is named)
 ```
 
-## Card 2 · Remove Pi-documentation references from the provider system prompt — `next`
+## Card 2 · Remove Pi-documentation references from the provider system prompt — `done`
 
 ### Objective
 

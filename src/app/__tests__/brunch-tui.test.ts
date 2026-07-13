@@ -1512,6 +1512,7 @@ describe('Brunch TUI boot', () => {
       additionalThemePaths: [expect.stringMatching(/\.pi[/\\]themes[/\\]$/)],
       // D39-L: ambient APPEND_SYSTEM.md must be sealed (empty pinned source).
       appendSystemPrompt: [],
+      systemPromptOverride: expect.any(Function),
       extensionFactories: [extension],
     });
     expect(env.PI_OFFLINE).toBe('1');
@@ -1612,6 +1613,9 @@ describe('Brunch TUI boot', () => {
       additionalThemePaths: [expect.stringMatching(/\.pi[/\\]themes[/\\]$/)],
       // D39-L: ambient APPEND_SYSTEM.md must be sealed (empty pinned source).
       appendSystemPrompt: [],
+      // Brunch replaces Pi's coding-agent base prompt so Pi-development docs
+      // never enter the provider-facing product prompt.
+      systemPromptOverride: expect.any(Function),
       extensionFactories: [extension],
     });
   });
