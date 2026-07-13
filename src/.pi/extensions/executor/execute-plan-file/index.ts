@@ -1,12 +1,18 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
+import { defaultCapabilityProviders } from '../../../../executor/capability-providers.js';
 import {
   assertExecuteProjectionPlanReady,
   projectExecuteGraph,
 } from '../../../../executor/execute-projection.js';
+import type { PlannerPort } from '../../../../executor/execution-ports.js';
 import { writePlanFile } from '../../../../executor/plan-file.js';
-import type { PlanPreview } from '../../../../executor/plan-preview.js';
+import { previewPlan, type PlanPreview } from '../../../../executor/plan-preview.js';
+import { synthesizePlan, type SynthesisRound } from '../../../../executor/plan-synthesis.js';
+import type { PlanValidationFinding } from '../../../../executor/plan-validation.js';
+import { projectPlanningInput } from '../../../../executor/planning-projection.js';
+import { detectWorkspaceCapabilities } from '../../../../executor/workspace-detection.js';
 import { BRUNCH_EXECUTE_PLAN_FILE_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
 import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
@@ -25,20 +31,30 @@ const ExecutePlanFileParams = Type.Object({
 
 type ExecutePlanFileParams = Static<typeof ExecutePlanFileParams>;
 
-interface ExecutePlanFileDetails {
-  readonly preview: PlanPreview;
-  readonly artifact: {
-    readonly path: string;
-    readonly provenancePath: string;
-    readonly writeMode: 'overwrite';
-  };
-  readonly source: { readonly graphLsn: number; readonly visibility: 'active' };
-  readonly sideEffects: readonly { readonly kind: 'write_file'; readonly path: string }[];
-}
+type ExecutePlanFileDetails =
+  | {
+      readonly preview: PlanPreview;
+      readonly artifact: {
+        readonly path: string;
+        readonly provenancePath: string;
+        readonly writeMode: 'overwrite';
+      };
+      readonly source: { readonly graphLsn: number; readonly visibility: 'active' };
+      readonly synthesis?: { readonly rounds: number };
+      readonly sideEffects: readonly { readonly kind: 'write_file'; readonly path: string }[];
+    }
+  | {
+      readonly blocked: {
+        readonly findings: readonly PlanValidationFinding[];
+        readonly history: readonly SynthesisRound[];
+      };
+      readonly sideEffects: readonly [];
+    };
 
 export interface ExecutePlanFileDeps {
   readonly specId: number;
   readonly reads: Pick<GraphReaders, 'queryGraph'>;
+  readonly planner?: PlannerPort;
 }
 
 export function createExecutePlanFileTool(deps: ExecutePlanFileDeps) {
@@ -62,7 +78,49 @@ export function createExecutePlanFileTool(deps: ExecutePlanFileDeps) {
         edges: graph.edges,
       });
       assertExecuteProjectionPlanReady(projection);
-      const preview = projection.planPreview;
+      let preview = projection.planPreview;
+      let synthesisRounds: number | undefined;
+      let plannerNote: string | undefined;
+      const modelRegistry = (ctx as { modelRegistry?: unknown } | undefined)?.modelRegistry;
+      if (deps.planner && !modelRegistry) {
+        // Explicit, labeled fallback: a planner that cannot run (no model context) is not
+        // an invalid model plan — invalid candidates still block with findings below.
+        plannerNote = 'planner unavailable (no model context); deterministic lowering used';
+      } else if (deps.planner) {
+        const mode = params.mode ?? 'greenfield';
+        const detected = mode === 'brownfield' ? await detectWorkspaceCapabilities(cwd) : [];
+        const synthesis = await synthesizePlan({
+          projection: projectPlanningInput(projection.snapshot),
+          detected,
+          providers: defaultCapabilityProviders(),
+          planner: deps.planner,
+          runtime: {
+            modelRegistry,
+            model: (ctx as { model?: unknown } | undefined)?.model,
+          },
+        });
+        if (synthesis.status === 'blocked') {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: [
+                  'execute_plan_file: plan_synthesis_blocked',
+                  ...synthesis.findings.map((finding) => `- ${finding.code}: ${finding.message}`),
+                  `repair rounds exhausted: ${synthesis.history.length}`,
+                  'No plan was written. Resolve the findings or replan.',
+                ].join('\n'),
+              },
+            ],
+            details: {
+              blocked: { findings: synthesis.findings, history: synthesis.history },
+              sideEffects: [],
+            },
+          };
+        }
+        preview = previewPlan(synthesis.draft, { executionContract: synthesis.executionContract });
+        synthesisRounds = synthesis.history.length;
+      }
       const artifact = await writePlanFile({ cwd, preview, source: projection.source });
       return {
         content: [
@@ -72,6 +130,8 @@ export function createExecutePlanFileTool(deps: ExecutePlanFileDeps) {
               `execute_plan_file: ${artifact.path}`,
               `epics: ${preview.epics.length}`,
               `slices: ${preview.slices.length}`,
+              ...(synthesisRounds === undefined ? [] : [`synthesis rounds: ${synthesisRounds}`]),
+              ...(plannerNote === undefined ? [] : [plannerNote]),
               `graph lsn: ${graph.lsn}`,
               `side effects: ${artifact.sideEffects.map((effect) => effect.kind).join(', ')}`,
             ].join('\n'),
@@ -85,6 +145,7 @@ export function createExecutePlanFileTool(deps: ExecutePlanFileDeps) {
             writeMode: artifact.writeMode,
           },
           source: projection.source,
+          ...(synthesisRounds === undefined ? {} : { synthesis: { rounds: synthesisRounds } }),
           sideEffects: artifact.sideEffects,
         },
       };

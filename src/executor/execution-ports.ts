@@ -249,6 +249,7 @@ export interface PlannerPort {
 }
 
 export interface ExecutionPorts {
+  readonly planner?: PlannerPort;
   readonly gitWorktree: GitWorktreePort;
   readonly gitSliceIntegration: GitSliceIntegrationPort;
   readonly agentRunner: AgentRunnerPort;

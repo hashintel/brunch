@@ -67,6 +67,10 @@ executor/
 ├── execute-projection.ts         graph truth -> shared snapshot/check/outline/draft/contract/preview production projection
 ├── planning-projection.ts        snapshot -> bounded scope-informed planning input incl. constraint/invariant/decision commitments (FE-1197)
 ├── execution-contract.ts         required + detected capabilities -> provider-resolved actions, blocked entries, typed conflicts
+├── candidate-plan.ts             model-authored plan candidate schema (no command surface) + fail-closed parse
+├── plan-validation.ts            candidate x projection -> total typed findings + derived execution contract
+├── plan-synthesis.ts             PlannerPort loop: synthesize -> validate -> bounded repair -> admit draft or block (no fallback)
+├── dependency-cycles.ts          one shared cycle policy for validation and lowering
 ├── capability-providers.ts       product-owned capability vocabulary -> typed setup/build/verify action templates
 ├── workspace-detection.ts        workspace manifests -> detected capability facts with file provenance
 ├── executable-plan-draft.ts     plan outline -> executable-plan draft DTO, incl. slice dependencies and scope/design/verification context
