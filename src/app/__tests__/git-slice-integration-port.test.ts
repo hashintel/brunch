@@ -5,6 +5,23 @@ import { promisify } from 'node:util';
 
 import { describe, expect, it } from 'vitest';
 
+import {
+  createFakeGitHostPromotionPort,
+  createFakeGitLandPort,
+  createFakeGitWorktreePort,
+  createFakeTestRunnerPort,
+} from '../../executor/__tests__/fake-ports.js';
+import type { ExecutionPorts } from '../../executor/execution-ports.js';
+import {
+  drive,
+  frontierFiringPolicy,
+  linearScheduler,
+  petriScheduler,
+  serialFiringPolicy,
+} from '../../executor/orchestrate.js';
+import { planFilePath } from '../../executor/plan-file.js';
+import { createRun } from '../../executor/run.js';
+import { sliceWorkspacePath } from '../../executor/slice-workspace.js';
 import { createGitSliceIntegrationPort } from '../git-slice-integration-port.js';
 
 const execFileAsync = promisify(execFile);
@@ -101,5 +118,56 @@ describe('createGitSliceIntegrationPort', () => {
     await expect(readFile(join(runWorktreeDir, 'shared.txt'), 'utf8')).resolves.toBe('first\n');
     expect(await git(runWorktreeDir, ['rev-parse', 'HEAD'])).toBe(beforeConflictSha);
     expect(await git(runWorktreeDir, ['status', '--porcelain'])).toBe('');
+  });
+
+  it('rejects a foreign repository at the slice path before invoking the agent or mutating it', async () => {
+    await mkdir(testScratchRoot, { recursive: true });
+    const cwd = await mkdtemp(join(testScratchRoot, 'foreign-'));
+    await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
+    await writeFile(
+      planFilePath(cwd, '42'),
+      JSON.stringify({
+        mode: 'greenfield',
+        epics: [{ id: 'epic-1', depends_on: [], verification: [] }],
+        slices: [{ id: 'task-1', epic_id: 'epic-1', definition: 'task', depends_on: [], verification: [] }],
+      }),
+      'utf8',
+    );
+    await createRun({ cwd, specId: '42', runId: 'run-1', substrate: 'empty_dir' });
+    const integration = createGitSliceIntegrationPort();
+    let agentCalls = 0;
+    const ports: ExecutionPorts = {
+      gitWorktree: createFakeGitWorktreePort(),
+      gitSliceIntegration: integration,
+      agentRunner: {
+        async run() {
+          agentCalls += 1;
+          return { status: 'completed' };
+        },
+      },
+      testRunner: createFakeTestRunnerPort(),
+      gitLand: createFakeGitLandPort(),
+      gitHostPromotion: createFakeGitHostPromotionPort({}),
+    };
+    await drive({ cwd, runId: 'run-1', ports }, linearScheduler, serialFiringPolicy, { maxFirings: 5 });
+    const foreignDir = sliceWorkspacePath(cwd, 'run-1', 'task-1');
+    await mkdir(foreignDir, { recursive: true });
+    await git(foreignDir, ['init']);
+    await writeFile(join(foreignDir, 'foreign.txt'), 'do not touch\n', 'utf8');
+    await git(foreignDir, ['add', '.']);
+    await git(foreignDir, [...TEST_GIT_AUTHOR, 'commit', '-m', 'foreign base']);
+    const foreignHead = await git(foreignDir, ['rev-parse', 'HEAD']);
+
+    await expect(
+      drive({ cwd, runId: 'run-1', ports }, petriScheduler, frontierFiringPolicy),
+    ).resolves.toMatchObject({
+      status: 'halted',
+      step: 'slice_execute',
+      reason: 'slice_workspace_failed',
+    });
+    expect(agentCalls).toBe(0);
+    expect(await git(foreignDir, ['rev-parse', 'HEAD'])).toBe(foreignHead);
+    await expect(readFile(join(foreignDir, 'foreign.txt'), 'utf8')).resolves.toBe('do not touch\n');
+    expect(await git(foreignDir, ['status', '--porcelain'])).toBe('');
   });
 });

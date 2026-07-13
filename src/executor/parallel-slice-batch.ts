@@ -15,7 +15,7 @@ import type {
   SliceEffectResult,
 } from './parallel-slice-batch/types.js';
 import { parsePetriEvent, petriEventsPath } from './petri-events.js';
-import type { ParallelSliceBatchSnapshot } from './petri-marking.js';
+import type { ParallelSliceSettlement } from './petri-marking.js';
 import { projectExecutorPetriTransitionHistory } from './petri-runtime.js';
 import { persistRunMetadata, runMetadataPath, type RunMetadata } from './run.js';
 
@@ -25,9 +25,7 @@ export async function parallelSliceBatchRecoveryRequired(args: {
   readonly cwd: string;
   readonly runId: string;
   readonly lifecycleFiredTransitionCount: number;
-  readonly snapshotParallelBatch?: ParallelSliceBatchSnapshot;
 }): Promise<boolean> {
-  if (args.snapshotParallelBatch) return true;
   try {
     const events = (await readFile(petriEventsPath(args.cwd, args.runId), 'utf8'))
       .split('\n')
@@ -38,7 +36,7 @@ export async function parallelSliceBatchRecoveryRequired(args: {
       events.filter((event) => event.kind === 'transition_fired').length > args.lifecycleFiredTransitionCount
     );
   } catch (error) {
-    return !isNodeError(error) || error.code !== 'ENOENT';
+    return !isNodeError(error) || (error.code !== 'ENOENT' && error.code !== 'EISDIR');
   }
 }
 
@@ -51,14 +49,14 @@ export async function executeParallelSliceBatch(
 ): Promise<ParallelSliceBatchResult> {
   const { ctx, plan, runtime } = args;
   const claimedSliceIds = args.steps.map((step) => step.sliceId);
-  const settledSliceIds = new Set<string>();
+  const settlements = new Map<string, ParallelSliceSettlement>();
   const authority = createBatchAuthority({
     ctx,
     state: args.state,
     topology: runtime.topology,
     currentMarking: runtime.currentMarking,
     firedTransitionCount: projectExecutorPetriTransitionHistory(args.state, plan)?.transitionIds.length ?? 0,
-    batch: { claimedSliceIds, settledSliceIds: [] },
+    batch: { claimedSliceIds, settlements: [] },
   });
 
   try {
@@ -78,30 +76,40 @@ export async function executeParallelSliceBatch(
     };
   }
 
-  const settledEffects = await Promise.allSettled(
-    args.steps.map(async (step) => {
+  const effects = args.steps.map(async (step) => {
+    try {
       const result = await executeIsolatedSlice({ ctx, state: args.state, plan, step, authority });
-      settledSliceIds.add(step.sliceId);
+      settlements.set(
+        step.sliceId,
+        result.status === 'succeeded'
+          ? { sliceId: step.sliceId, status: 'succeeded' }
+          : {
+              sliceId: step.sliceId,
+              status: 'failed',
+              step: result.step,
+              reason: result.reason,
+            },
+      );
       await authority.setBatch({
         claimedSliceIds,
-        settledSliceIds: claimedSliceIds.filter((id) => settledSliceIds.has(id)),
+        settlements: claimedSliceIds.flatMap((sliceId) => {
+          const settlement = settlements.get(sliceId);
+          return settlement ? [settlement] : [];
+        }),
       });
-      return result;
-    }),
-  );
-  const rejectedEffect = settledEffects.find(
-    (result): result is PromiseRejectedResult => result.status === 'rejected',
-  );
-  if (rejectedEffect) {
-    return authorityFailure(args.state.status, rejectedEffect.reason);
-  }
-  const effects = settledEffects.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []));
+      return { status: 'settled' as const, result };
+    } catch (error) {
+      return { status: 'rejected' as const, error };
+    }
+  });
 
   let summary = args.state;
   let halt: SliceEffectFailure | undefined;
   try {
-    for (const sliceId of claimedSliceIds) {
-      const result = effects.find((candidate) => candidate.sliceId === sliceId)!;
+    for (const [index, sliceId] of claimedSliceIds.entries()) {
+      const settled = await effects[index]!;
+      if (settled.status === 'rejected') return authorityFailure(summary.status, settled.error);
+      const result = settled.result;
       if (result.status === 'failed') {
         halt ??= result;
         continue;

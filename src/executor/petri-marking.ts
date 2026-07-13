@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import type { ReadyStep } from './orchestrate-topology.js';
 import { petriDirPath } from './petri-events.js';
 import { parsePetriProjection, type PetriProjection } from './petri-projection.js';
 import type { RunMetadata } from './run.js';
@@ -18,8 +19,17 @@ export interface PetriMarkingSnapshot extends PetriProjection {
 
 export interface ParallelSliceBatchSnapshot {
   readonly claimedSliceIds: readonly string[];
-  readonly settledSliceIds: readonly string[];
+  readonly settlements: readonly ParallelSliceSettlement[];
 }
+
+export type ParallelSliceSettlement =
+  | { readonly sliceId: string; readonly status: 'succeeded' }
+  | {
+      readonly sliceId: string;
+      readonly status: 'failed';
+      readonly step: ReadyStep['kind'];
+      readonly reason: string;
+    };
 
 export function petriMarkingPath(cwd: string, runId: string): string {
   return join(petriDirPath(cwd, runId), 'marking.json');
@@ -94,14 +104,61 @@ function asPetriMarkingSnapshot(value: unknown): PetriMarkingSnapshot | undefine
 }
 
 function asParallelSliceBatch(value: unknown): ParallelSliceBatchSnapshot | undefined {
-  if (!isRecord(value) || !isStringArray(value.claimedSliceIds) || !isStringArray(value.settledSliceIds)) {
+  if (!isRecord(value) || !isStringArray(value.claimedSliceIds) || !Array.isArray(value.settlements)) {
     return undefined;
   }
   const claimedSliceIds = value.claimedSliceIds;
-  const settledSliceIds = value.settledSliceIds;
   if (new Set(claimedSliceIds).size !== claimedSliceIds.length) return undefined;
-  if (settledSliceIds.some((sliceId) => !claimedSliceIds.includes(sliceId))) return undefined;
-  return { claimedSliceIds, settledSliceIds };
+  const settlements = value.settlements.map(asParallelSliceSettlement);
+  if (settlements.some((settlement) => settlement === undefined)) return undefined;
+  const validSettlements = settlements as ParallelSliceSettlement[];
+  const settledIds = validSettlements.map((settlement) => settlement.sliceId);
+  if (new Set(settledIds).size !== settledIds.length) return undefined;
+  if (settledIds.some((sliceId) => !claimedSliceIds.includes(sliceId))) return undefined;
+  return { claimedSliceIds, settlements: validSettlements };
+}
+
+function asParallelSliceSettlement(value: unknown): ParallelSliceSettlement | undefined {
+  if (!isRecord(value) || typeof value.sliceId !== 'string') return undefined;
+  if (value.status === 'succeeded') return { sliceId: value.sliceId, status: 'succeeded' };
+  if (
+    value.status !== 'failed' ||
+    !isReadyStepKind(value.step) ||
+    typeof value.reason !== 'string' ||
+    value.reason.length === 0
+  ) {
+    return undefined;
+  }
+  return {
+    sliceId: value.sliceId,
+    status: 'failed',
+    step: value.step,
+    reason: value.reason,
+  };
+}
+
+const READY_STEP_KINDS = {
+  worktree_create: true,
+  populate: true,
+  source_policy: true,
+  source_copy: true,
+  report_init: true,
+  slice_start: true,
+  slice_execute: true,
+  agent_result: true,
+  test_result: true,
+  slice_integrate: true,
+  slice_complete: true,
+  epic_integrate: true,
+  epic_verify: true,
+  epic_complete: true,
+  run_complete: true,
+  petri_export: true,
+  promotion: true,
+} satisfies Record<ReadyStep['kind'], true>;
+
+function isReadyStepKind(value: unknown): value is ReadyStep['kind'] {
+  return typeof value === 'string' && value in READY_STEP_KINDS;
 }
 
 function asLifecycleProvenance(value: unknown): PetriMarkingLifecycleProvenance | undefined {

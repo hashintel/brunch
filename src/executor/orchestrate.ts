@@ -401,6 +401,27 @@ export async function drive(
     }
     const runtime = runtimeResult.runtime;
     const readySteps = scheduler.ready(state, plan, runtime);
+    const persisted = await readPetriMarkingSnapshot({ cwd: ctx.cwd, runId: ctx.runId });
+    const parallelRecoveryRequired =
+      state.status !== 'abandoned' &&
+      (persisted?.parallelSliceBatch !== undefined ||
+        (await parallelSliceBatchRecoveryRequired({
+          cwd: ctx.cwd,
+          runId: ctx.runId,
+          lifecycleFiredTransitionCount: firedTransitionCountForState(state, plan),
+        })));
+    if (parallelRecoveryRequired) {
+      const step = readySteps[0]?.kind ?? 'slice_start';
+      const terminal = classifyDriveTerminal({
+        kind: 'step_halted',
+        runId: ctx.runId,
+        runStatus: state.status,
+        step,
+        reason: 'parallel_slice_replan_required',
+      });
+      const emitted = await emitNetEvent(ctx, terminal.event);
+      return emitted.journaled ? terminal.outcome : journalFailureOutcome(terminal);
+    }
     const selectedSteps =
       (await readClaimedReadySteps(ctx, state, plan, runtime, readySteps)) ??
       firingPolicy.select({
@@ -421,27 +442,6 @@ export async function drive(
       parallelSliceSteps.length > 0 &&
       plan !== undefined &&
       (state.status === 'reports_initialized' || state.status === 'slice_completed');
-    if (parallelSliceFrontier) {
-      const persisted = await readPetriMarkingSnapshot({ cwd: ctx.cwd, runId: ctx.runId });
-      if (
-        await parallelSliceBatchRecoveryRequired({
-          cwd: ctx.cwd,
-          runId: ctx.runId,
-          lifecycleFiredTransitionCount: firedTransitionCountForState(state, plan),
-          ...(persisted?.parallelSliceBatch ? { snapshotParallelBatch: persisted.parallelSliceBatch } : {}),
-        })
-      ) {
-        const terminal = classifyDriveTerminal({
-          kind: 'step_halted',
-          runId: ctx.runId,
-          runStatus: state.status,
-          step: 'slice_start',
-          reason: 'parallel_slice_replan_required',
-        });
-        const emitted = await emitNetEvent(ctx, terminal.event);
-        return emitted.journaled ? terminal.outcome : journalFailureOutcome(terminal);
-      }
-    }
     if (
       parallelSliceFrontier &&
       plan !== undefined &&

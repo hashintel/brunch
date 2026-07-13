@@ -5,7 +5,11 @@ import { BRUNCH_DIR } from '../constants.js';
 import { agentStreamPath, type AgentStreamEvent } from './agent-result.js';
 import type { BlockedStep, ExecutorNetEvent, ReadyStep, SchedulerPlan } from './orchestrate-topology.js';
 import { parsePetriEvent, petriEventsPath } from './petri-events.js';
-import { petriMarkingSnapshotMatchesRunMetadata, readPetriMarkingSnapshot } from './petri-marking.js';
+import {
+  petriMarkingSnapshotMatchesRunMetadata,
+  readPetriMarkingSnapshot,
+  type ParallelSliceBatchSnapshot,
+} from './petri-marking.js';
 import { canProjectPetriReplay } from './petri-replay-eligibility.js';
 import { replayPetri, type PetriProjection } from './petri-replay.js';
 import { readPetriRuntimePlan } from './petri-runtime-plan.js';
@@ -90,6 +94,7 @@ export interface RunDetail extends RunSummary {
   readonly petriProjection?: PetriProjection;
   readonly petriProjectionSource?: PetriProjectionSource;
   readonly petriProjectionReplayReason?: PetriProjectionReplayReason;
+  readonly petriParallelSliceBatch?: ParallelSliceBatchSnapshot;
   readonly agentStreamTail: readonly AgentStreamEvent[];
   readonly agentStreamTotal: number;
   readonly verifyStreamTail: readonly VerifyStreamEvent[];
@@ -252,6 +257,9 @@ export async function readRunDetail(
             ? {}
             : { petriProjectionReplayReason: petriProjectionEntry.replayReason }),
         }),
+    ...(hasMatchingPetriMarkingSnapshot && petriMarkingSnapshot.parallelSliceBatch
+      ? { petriParallelSliceBatch: petriMarkingSnapshot.parallelSliceBatch }
+      : {}),
     agentStreamTail: agentStream.tail,
     agentStreamTotal: agentStream.total,
     verifyStreamTail: verifyStream.tail,

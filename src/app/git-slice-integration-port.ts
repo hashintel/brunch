@@ -24,14 +24,10 @@ export function createGitSliceIntegrationPort(
       if (await pathExists(args.sliceWorktreeDir)) {
         const sliceRootFailure = await exactRootFailure(command, args.sliceWorktreeDir);
         if (sliceRootFailure) return { status: 'failed', message: sliceRootFailure, sideEffects: [] };
-        const existingHead = await command(args.sliceWorktreeDir, ['rev-parse', 'HEAD']);
-        return existingHead.exitCode === 0
-          ? { status: 'prepared', baseSha: existingHead.stdout.trim(), sideEffects: [] }
-          : {
-              status: 'failed',
-              message: message(existingHead, 'cannot resolve slice workspace HEAD'),
-              sideEffects: [],
-            };
+        const identity = await existingWorkspaceIdentity(command, args.runWorktreeDir, args.sliceWorktreeDir);
+        return typeof identity === 'string'
+          ? { status: 'failed', message: identity, sideEffects: [] }
+          : { status: 'prepared', baseSha: identity.baseSha, sideEffects: [] };
       }
       const head = await command(args.runWorktreeDir, ['rev-parse', 'HEAD']);
       if (head.exitCode !== 0) {
@@ -66,6 +62,13 @@ export function createGitSliceIntegrationPort(
       if (runRootFailure) return { status: 'failed', message: runRootFailure, sideEffects: effects };
       const sliceRootFailure = await exactRootFailure(command, args.sliceWorktreeDir);
       if (sliceRootFailure) return { status: 'failed', message: sliceRootFailure, sideEffects: effects };
+      const identityFailure = await integrationIdentityFailure(
+        command,
+        args.runWorktreeDir,
+        args.sliceWorktreeDir,
+        args.baseSha,
+      );
+      if (identityFailure) return { status: 'failed', message: identityFailure, sideEffects: effects };
 
       const status = await command(args.sliceWorktreeDir, ['status', '--porcelain']);
       if (status.exitCode !== 0) return failed(status, 'cannot inspect slice worktree', effects);
@@ -138,6 +141,78 @@ export function createGitSliceIntegrationPort(
       return { status: 'integrated', sliceCommitSha, integrationCommitSha, sideEffects: effects };
     },
   };
+}
+
+async function existingWorkspaceIdentity(
+  command: (cwd: string, args: readonly string[]) => Promise<CommandResult>,
+  runWorktreeDir: string,
+  sliceWorktreeDir: string,
+): Promise<{ readonly baseSha: string } | string> {
+  const identityFailure = await sharedRepositoryFailure(command, runWorktreeDir, sliceWorktreeDir);
+  if (identityFailure) return identityFailure;
+  const [runHead, sliceHead] = await Promise.all([
+    command(runWorktreeDir, ['rev-parse', 'HEAD']),
+    command(sliceWorktreeDir, ['rev-parse', 'HEAD']),
+  ]);
+  if (runHead.exitCode !== 0) return message(runHead, 'cannot resolve run workspace HEAD');
+  if (sliceHead.exitCode !== 0) return message(sliceHead, 'cannot resolve slice workspace HEAD');
+  if (runHead.stdout.trim() !== sliceHead.stdout.trim()) {
+    return 'existing slice workspace does not match the current run base';
+  }
+  return { baseSha: runHead.stdout.trim() };
+}
+
+async function integrationIdentityFailure(
+  command: (cwd: string, args: readonly string[]) => Promise<CommandResult>,
+  runWorktreeDir: string,
+  sliceWorktreeDir: string,
+  baseSha: string,
+): Promise<string | undefined> {
+  const identityFailure = await sharedRepositoryFailure(command, runWorktreeDir, sliceWorktreeDir);
+  if (identityFailure) return identityFailure;
+  const sliceHead = await command(sliceWorktreeDir, ['rev-parse', 'HEAD']);
+  if (sliceHead.exitCode !== 0) return message(sliceHead, 'cannot resolve slice workspace HEAD');
+  const ancestry = await command(sliceWorktreeDir, [
+    'merge-base',
+    '--is-ancestor',
+    baseSha,
+    sliceHead.stdout.trim(),
+  ]);
+  return ancestry.exitCode === 0 ? undefined : 'slice workspace no longer descends from its recorded base';
+}
+
+async function sharedRepositoryFailure(
+  command: (cwd: string, args: readonly string[]) => Promise<CommandResult>,
+  runWorktreeDir: string,
+  sliceWorktreeDir: string,
+): Promise<string | undefined> {
+  const [runCommon, sliceCommon, worktrees] = await Promise.all([
+    command(runWorktreeDir, ['rev-parse', '--git-common-dir']),
+    command(sliceWorktreeDir, ['rev-parse', '--git-common-dir']),
+    command(runWorktreeDir, ['worktree', 'list', '--porcelain']),
+  ]);
+  if (runCommon.exitCode !== 0) return message(runCommon, 'cannot resolve run repository identity');
+  if (sliceCommon.exitCode !== 0) return message(sliceCommon, 'cannot resolve slice repository identity');
+  const [runIdentity, sliceIdentity, expectedSlicePath] = await Promise.all([
+    canonicalGitPath(runWorktreeDir, runCommon.stdout.trim()),
+    canonicalGitPath(sliceWorktreeDir, sliceCommon.stdout.trim()),
+    canonicalPath(sliceWorktreeDir),
+  ]);
+  if (runIdentity !== sliceIdentity) return 'slice workspace belongs to a foreign git repository';
+  if (worktrees.exitCode !== 0) return message(worktrees, 'cannot inspect registered git worktrees');
+  const registeredPaths = await Promise.all(
+    worktrees.stdout
+      .split('\n')
+      .filter((line) => line.startsWith('worktree '))
+      .map((line) => canonicalPath(line.slice('worktree '.length))),
+  );
+  return registeredPaths.includes(expectedSlicePath)
+    ? undefined
+    : 'slice workspace is not registered with the run repository';
+}
+
+function canonicalGitPath(cwd: string, path: string): Promise<string> {
+  return canonicalPath(resolve(cwd, path));
 }
 
 async function pathExists(path: string): Promise<boolean> {

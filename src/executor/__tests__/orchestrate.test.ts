@@ -47,10 +47,12 @@ import { initializeReports, reportsPath } from '../report.js';
 import { completeRun } from '../run-complete.js';
 import {
   createRun,
+  persistRunMetadata,
   readRunMetadata,
   resetActiveSliceAttempts,
   runDirPath,
   runMetadataPath,
+  subscribeRunMetadata,
   type RunMetadata,
 } from '../run.js';
 import { completeSlice } from '../slice-complete.js';
@@ -636,7 +638,7 @@ describe('drive', () => {
       lifecycleProvenance: { runStatus: 'reports_initialized' },
       parallelSliceBatch: {
         claimedSliceIds: ['task-1', 'task-2'],
-        settledSliceIds: [],
+        settlements: [],
       },
     });
     await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
@@ -719,7 +721,15 @@ describe('drive', () => {
       },
       parallelSliceBatch: {
         claimedSliceIds: ['task-1', 'task-2'],
-        settledSliceIds: ['task-1', 'task-2'],
+        settlements: [
+          {
+            sliceId: 'task-1',
+            status: 'failed',
+            step: 'agent_result',
+            reason: 'agent_run_failed',
+          },
+          { sliceId: 'task-2', status: 'succeeded' },
+        ],
       },
       terminalEventKind: 'net_halted',
       haltedReason: 'agent_run_failed',
@@ -769,7 +779,7 @@ describe('drive', () => {
         currentMarking: claimed.currentMarking,
         firedTransitionCount: claimed.firedTransitionCount,
         lifecycleProvenance: { runStatus: 'reports_initialized' },
-        parallelSliceBatch: { claimedSliceIds: ['task-1', 'task-2'], settledSliceIds: [] },
+        parallelSliceBatch: { claimedSliceIds: ['task-1', 'task-2'], settlements: [] },
       },
     });
     let agentCalls = 0;
@@ -798,6 +808,132 @@ describe('drive', () => {
       reason: 'parallel_slice_replan_required',
     });
     expect({ agentCalls, testCalls }).toEqual({ agentCalls: 0, testCalls: 0 });
+  });
+
+  it('halts a final-summary batch crash before the next epic lifecycle step', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-parallel-final-summary-crash-'));
+    const state = await prepareRunAtReports(cwd, ['task-1', 'task-2']);
+    const plan = JSON.parse(planJson(['task-1', 'task-2']));
+    const summary: RunMetadata = {
+      ...state,
+      status: 'slice_completed',
+      completedSliceIds: ['task-1', 'task-2'],
+      integratedSliceCommits: { 'task-1': 'integrated-1', 'task-2': 'integrated-2' },
+      sliceAttemptHistory: {
+        'task-1': {
+          agent: [{ outcome: 'succeeded', attempts: 1 }],
+          verify: [{ outcome: 'succeeded', attempts: 1 }],
+        },
+        'task-2': {
+          agent: [{ outcome: 'succeeded', attempts: 1 }],
+          verify: [{ outcome: 'succeeded', attempts: 1 }],
+        },
+      },
+    };
+    await persistRunMetadata(runMetadataPath(cwd, 'run-1'), summary);
+    const runtime = materializeExecutorPetriRuntime(summary, plan);
+    expect(runtime.readySteps).toEqual([{ kind: 'epic_integrate', epicId: 'frontier-1' }]);
+    await writePetriMarkingSnapshot({
+      cwd,
+      runId: 'run-1',
+      snapshot: {
+        currentMarking: runtime.currentMarking,
+        firedTransitionCount: projectExecutorPetriTransitionHistory(summary, plan)!.transitionIds.length,
+        lifecycleProvenance: {
+          runStatus: 'slice_completed',
+          completedSliceIds: ['task-1', 'task-2'],
+        },
+        parallelSliceBatch: {
+          claimedSliceIds: ['task-1', 'task-2'],
+          settlements: [
+            { sliceId: 'task-1', status: 'succeeded' },
+            { sliceId: 'task-2', status: 'succeeded' },
+          ],
+        },
+      },
+    });
+
+    await expect(
+      drive({ cwd, runId: 'run-1', ports: fakePorts() }, petriScheduler, frontierFiringPolicy),
+    ).resolves.toEqual({
+      status: 'halted',
+      step: 'epic_integrate',
+      runStatus: 'slice_completed',
+      reason: 'parallel_slice_replan_required',
+    });
+    expect(
+      (await readPetriEvents(cwd)).some(
+        (event) => event.kind === 'transition_fired' && event.transitionId === 'epic_integrate:frontier-1',
+      ),
+    ).toBe(false);
+  });
+
+  it('persists failed settlement and integrates an ordered sibling while a later sibling hangs', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-parallel-incremental-settlement-'));
+    await createRunAtCreated(cwd, ['task-1', 'task-2', 'task-3']);
+    let releaseThird!: () => void;
+    const thirdReleased = new Promise<void>((resolve) => {
+      releaseThird = resolve;
+    });
+    let task2Integrated!: () => void;
+    const cleanSiblingIntegrated = new Promise<void>((resolve) => {
+      task2Integrated = resolve;
+    });
+    const unsubscribe = subscribeRunMetadata({
+      cwd,
+      runId: 'run-1',
+      listener(metadata) {
+        if (metadata.completedSliceIds?.includes('task-2')) task2Integrated();
+      },
+    });
+    const baseIntegration = createFakeGitSliceIntegrationPort();
+    const ports = fakePorts({
+      agentRunner: {
+        async run(args) {
+          if (args.sliceId === 'task-1') return { status: 'failed', message: 'task-1 failed' };
+          if (args.sliceId === 'task-3') await thirdReleased;
+          return { status: 'completed' };
+        },
+      },
+      gitSliceIntegration: createFakeGitSliceIntegrationPort({
+        prepare: (args) => baseIntegration.prepare(args),
+        async integrate(args) {
+          return baseIntegration.integrate(args);
+        },
+      }),
+    });
+
+    const driving = drive({ cwd, runId: 'run-1', ports }, petriScheduler, frontierFiringPolicy);
+    await cleanSiblingIntegrated;
+
+    await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toMatchObject({
+      parallelSliceBatch: {
+        settlements: [
+          { sliceId: 'task-1', status: 'failed', reason: 'agent_run_failed' },
+          { sliceId: 'task-2', status: 'succeeded' },
+        ],
+      },
+    });
+    await expect(readRunDetail(cwd, 'run-1')).resolves.toMatchObject({
+      petriParallelSliceBatch: {
+        settlements: [
+          { sliceId: 'task-1', status: 'failed', reason: 'agent_run_failed' },
+          { sliceId: 'task-2', status: 'succeeded' },
+        ],
+      },
+    });
+    await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+      completedSliceIds: ['task-2'],
+      integratedSliceCommits: { 'task-2': 'integrated123' },
+    });
+
+    releaseThird();
+    await expect(driving).resolves.toMatchObject({
+      status: 'halted',
+      step: 'agent_result',
+      reason: 'agent_run_failed',
+    });
+    unsubscribe();
   });
 
   it('starts no slice effect when a durable claim cannot reach the marking snapshot', async () => {
@@ -2772,7 +2908,7 @@ describe('petriScheduler', () => {
       },
       parallelSliceBatch: {
         claimedSliceIds: ['task-1', 'task-2'],
-        settledSliceIds: [],
+        settlements: [],
       },
     });
   });
@@ -3101,7 +3237,6 @@ describe('petriScheduler', () => {
       }),
       'utf8',
     );
-
     const outcome = await drive(
       {
         cwd,
@@ -3392,6 +3527,16 @@ describe('petriScheduler', () => {
       }),
       'utf8',
     );
+    await writePetriMarkingSnapshot({
+      cwd,
+      runId: 'run-1',
+      snapshot: {
+        currentMarking: {},
+        firedTransitionCount: 0,
+        lifecycleProvenance: { runStatus: 'abandoned' },
+        parallelSliceBatch: { claimedSliceIds: ['task-1'], settlements: [] },
+      },
+    });
 
     const outcome = await drive(
       {
