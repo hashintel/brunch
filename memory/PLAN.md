@@ -515,6 +515,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Depends on:** D8-L (needs substrate + spec-local LSN), D51-L (closed edge categories + per-category policy), I16-L (reviewer writes target only the need substrate — a derived view must not break this), A8-L (one substrate absorbs all impasse kinds).
 - **Convergence:** `walkthrough-evidence-batch` (FE-1167) fixture prep — the planned `contradictory` seed variant exercises `semantic_conflict` (the table-backed kind), and an `advisory-pending`/staleness variant would give the derived `edge_revalidation` view a repeatable test state. `src/projections/graph/reconciliation-needs.ts` is still an intentional stub — do not build that projection before this frontier decides derived-vs-persisted shape.
 - **First tracer candidate:** a read-only derived `edge_revalidation` query (projection over `updated_at_lsn` + category metadata, no schema change, no watermark yet) surfaced alongside the persisted needs — proves signal quality and noise level before committing to the watermark schema and any retirement of persisted `edge_revalidation` rows.
+- **Current execution pointer:** [`memory/cards/reconciliation-derivation--derived-staleness-tracer.md`](cards/reconciliation-derivation--derived-staleness-tracer.md) (scoped 2026-07-13; picked up into FE-1196 / `ln/fe-1196-platform-debt` — tracer only, watermark work stays post-verdict)
 
 ### session-branching
 
