@@ -267,6 +267,14 @@ async function reorderPetriTransitions(cwd: string, rank: (transitionId: string)
   );
 }
 
+async function writePetriEvents(cwd: string, events: readonly ExecutorNetEvent[]): Promise<void> {
+  await writeFile(
+    petriEventsPath(cwd, 'run-1'),
+    `${events.map((event) => JSON.stringify(event)).join('\n')}\n`,
+    'utf8',
+  );
+}
+
 // The differential baseline for the parity oracle: crank the same lifecycle steps
 // by hand, exactly as drive() composes them.
 async function crankManually(cwd: string, ports: ExecutionPorts): Promise<void> {
@@ -1336,6 +1344,82 @@ describe('drive', () => {
     });
   });
 
+  it('rejects a mismatched epic lane before clearing summary or dispatching verification', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-history-lane-mismatch-'));
+    await prepareEpicVerificationReadyRun(cwd);
+    const events = await readPetriEvents(cwd);
+    await writePetriEvents(
+      cwd,
+      events.map((event) =>
+        event.kind === 'transition_fired' && event.transitionId === 'epic_integrate:epic-1'
+          ? { ...event, contract: { ...event.contract, lane: 'slice' } }
+          : event,
+      ),
+    );
+    let runnerCalls = 0;
+
+    await expect(
+      drive({
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts({
+          testRunner: {
+            async run() {
+              runnerCalls += 1;
+              return { status: 'completed', verdict: 'passed', exitCode: 0 };
+            },
+          },
+        }),
+      }),
+    ).resolves.toMatchObject({ status: 'halted', reason: 'petri_input_unreadable' });
+    expect(runnerCalls).toBe(0);
+    await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+      epicTransitionHistory: ['epic_integrate:epic-1'],
+      integratedEpicIds: ['epic-1'],
+    });
+  });
+
+  it.each([
+    ['run id', { runId: 'run-other' }],
+    ['subnet id', { subnetId: 'epic:other' }],
+  ] as const)(
+    'rejects a transition with the wrong %s before summary reconciliation or dispatch',
+    async (_, patch) => {
+      const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-history-identity-mismatch-'));
+      await prepareEpicVerificationReadyRun(cwd);
+      const events = await readPetriEvents(cwd);
+      await writePetriEvents(
+        cwd,
+        events.map((event) =>
+          event.kind === 'transition_fired' && event.transitionId === 'epic_integrate:epic-1'
+            ? { ...event, ...patch }
+            : event,
+        ),
+      );
+      let runnerCalls = 0;
+
+      await expect(
+        drive({
+          cwd,
+          runId: 'run-1',
+          ports: fakePorts({
+            testRunner: {
+              async run() {
+                runnerCalls += 1;
+                return { status: 'completed', verdict: 'passed', exitCode: 0 };
+              },
+            },
+          }),
+        }),
+      ).resolves.toMatchObject({ status: 'halted', reason: 'petri_input_unreadable' });
+      expect(runnerCalls).toBe(0);
+      await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+        epicTransitionHistory: ['epic_integrate:epic-1'],
+        integratedEpicIds: ['epic-1'],
+      });
+    },
+  );
+
   it('catches epic verification summary up from transitioned marking without rerunning', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-verification-summary-lag-'));
     const { state, plan, runtime } = await prepareEpicVerificationReadyRun(cwd);
@@ -2270,6 +2354,7 @@ describe('drive', () => {
           transitionId,
           subnetId: transition.subnetId,
           ...(transition.epicId ? { epicId: transition.epicId } : {}),
+          ...(transition.derivedFrom ? { derivedFrom: transition.derivedFrom } : {}),
           step: 'slice_start',
           contract: transition.contract,
           consumed: transition.inputArcs.map((arc) => arc.placeId),
@@ -4804,6 +4889,34 @@ describe('petriScheduler', () => {
     });
   });
 
+  it('refuses standalone start when metadata is ahead of the readable journal', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-standalone-metadata-ahead-'));
+    await createRunAtCreated(cwd, ['task-1', 'task-2']);
+    await expect(
+      drive({ cwd, runId: 'run-1', ports: fakePorts() }, petriScheduler, serialFiringPolicy, {
+        maxFirings: 5,
+      }),
+    ).resolves.toEqual({ status: 'completed', runStatus: 'reports_initialized' });
+    const state = (await readRunMetadata(runMetadataPath(cwd, 'run-1')))!;
+    await persistRunMetadata(runMetadataPath(cwd, 'run-1'), {
+      ...state,
+      status: 'slice_completed',
+      completedSliceIds: ['task-1'],
+    });
+
+    await expect(startSlice({ cwd, runId: 'run-1', sliceId: 'task-2' })).resolves.toEqual({
+      status: 'parallel_batch_active',
+      runStatus: 'slice_completed',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      sideEffects: [],
+    });
+    await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+      status: 'slice_completed',
+      completedSliceIds: ['task-1'],
+    });
+  });
+
   it('retains an interleaved partial fan-in claim after its marking is lost', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-interleaved-journal-claim-'));
     await createRunAtCreated(cwd, ['task-1', 'task-2']);
@@ -4828,6 +4941,7 @@ describe('petriScheduler', () => {
       transitionId: transition.id,
       subnetId: transition.subnetId,
       ...(transition.epicId === undefined ? {} : { epicId: transition.epicId }),
+      ...(transition.derivedFrom === undefined ? {} : { derivedFrom: transition.derivedFrom }),
       step: transition.step!.kind,
       contract: transition.contract,
       consumed: transition.inputArcs.map((arc) => arc.placeId),

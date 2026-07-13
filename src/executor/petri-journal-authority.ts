@@ -1,6 +1,7 @@
 import {
   compileExecutorTopology,
   type ExecutorNetEvent,
+  type ExecutorTransition,
   type SchedulerPlan,
 } from './orchestrate-topology.js';
 import { inspectPetriTransitionJournal } from './petri-events.js';
@@ -35,6 +36,7 @@ export async function inspectPetriJournalAuthority(args: {
 
     const topology = compileExecutorTopology(args.plan);
     if (
+      !journalEventsMatchTopology(journal.events, args.runId, topology.transitions) ||
       !replayTransitionHistory(topology, args.lifecycleTransitionIds) ||
       !replayTransitionHistory(topology, journal.transitionIds)
     ) {
@@ -73,6 +75,72 @@ export async function inspectPetriJournalAuthority(args: {
   } catch {
     return { status: 'unreadable' };
   }
+}
+
+function journalEventsMatchTopology(
+  events: readonly ExecutorNetEvent[],
+  runId: string,
+  transitions: ReturnType<typeof compileExecutorTopology>['transitions'],
+): boolean {
+  const transitionsById = new Map(transitions.map((transition) => [transition.id, transition]));
+  return events.every((event) => {
+    if (event.runId !== runId) return false;
+    if (event.kind !== 'transition_fired') return true;
+
+    const transition = transitionsById.get(event.transitionId);
+    return (
+      transition !== undefined &&
+      event.subnetId === transition.subnetId &&
+      optionalStringEqual(event.epicId, transition.epicId) &&
+      optionalStringArrayEqual(event.derivedFrom, transition.derivedFrom) &&
+      event.step === transitionEventStep(transition) &&
+      event.contract.kind === transition.contract.kind &&
+      event.contract.lane === transition.contract.lane &&
+      stringArrayEqual(
+        event.consumed,
+        transition.inputArcs.map((arc) => arc.placeId),
+      ) &&
+      stringArrayEqual(
+        event.produced,
+        transition.outputArcs.map((arc) => arc.placeId),
+      )
+    );
+  });
+}
+
+function transitionEventStep(
+  transition: ExecutorTransition,
+): Extract<ExecutorNetEvent, { readonly kind: 'transition_fired' }>['step'] | undefined {
+  if (transition.step) return transition.step.kind;
+  if (transition.id.startsWith('epic_integrate:')) return 'epic_integrate';
+  if (transition.id.startsWith('epic_verify:')) return 'epic_verify';
+  if (transition.id.startsWith('epic_complete:')) return 'epic_complete';
+  if (transition.id.startsWith('agent_retry:') || transition.id.startsWith('agent_exhausted:')) {
+    return 'agent_result';
+  }
+  if (transition.id.startsWith('verify_retry:') || transition.id.startsWith('verify_exhausted:')) {
+    return 'test_result';
+  }
+  if (transition.id.startsWith('agent_reset:')) return 'agent_result';
+  if (transition.id.startsWith('verify_reset:')) return 'test_result';
+  return undefined;
+}
+
+function optionalStringEqual(left: string | undefined, right: string | undefined): boolean {
+  return left === right;
+}
+
+function optionalStringArrayEqual(
+  left: readonly string[] | undefined,
+  right: readonly string[] | undefined,
+): boolean {
+  return left === undefined && right === undefined
+    ? true
+    : left !== undefined && right !== undefined && stringArrayEqual(left, right);
+}
+
+function stringArrayEqual(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function transitionMultisetResidual(

@@ -211,7 +211,11 @@ function transitionEvent(
       ? 'epic_integrate'
       : transition.id.startsWith('epic_verify:')
         ? 'epic_verify'
-        : 'epic_complete');
+        : transition.id.startsWith('epic_complete:')
+          ? 'epic_complete'
+          : transition.id.startsWith('agent_')
+            ? 'agent_result'
+            : 'test_result');
   return {
     kind: 'transition_fired',
     runId,

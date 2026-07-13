@@ -148,7 +148,7 @@ async function startSliceOwned(args: {
   if (
     journalAuthority.status === 'unreadable' ||
     (journalAuthority.status === 'missing' && metadata.petriObservationPrepared === true) ||
-    (journalAuthority.status === 'readable' && journalAuthority.sliceStartClaimIds.length > 0)
+    (journalAuthority.status === 'readable' && journalAuthority.relation !== 'equal')
   ) {
     return {
       status: 'parallel_batch_active',
