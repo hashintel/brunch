@@ -36,7 +36,11 @@ import {
   type ExecutorPetriRuntime,
 } from './petri-runtime.js';
 import { classifyDriveTerminal } from './petri-terminal.js';
-import { hasPreparedPetriObservation, PetriObservationInputError, preparePetriObservation } from './petri.js';
+import {
+  PetriObservationInputError,
+  PetriObservationJournalError,
+  preparePetriObservation,
+} from './petri.js';
 import { withRunExecutionAuthority } from './run-execution-authority.js';
 import {
   appendSliceAttemptCycle,
@@ -409,7 +413,8 @@ async function driveOwned(
               ? 'petri_input_unreadable'
               : 'petrinaut_observation_unavailable',
         });
-        await emitNetEvent(ctx, terminal.event);
+        if (error instanceof PetriObservationJournalError) publishPetriJournalFailure(ctx);
+        else await emitNetEvent(ctx, terminal.event);
         return terminal.outcome;
       }
     }
@@ -434,7 +439,7 @@ async function driveOwned(
         continue;
       }
     }
-    if (state.status !== 'abandoned' && (await hasPreparedPetriObservation(ctx.cwd, ctx.runId))) {
+    if (state.status !== 'abandoned') {
       const parityFailure = transitionParityFailure({ state, plan, journal, authoritySnapshot });
       if (parityFailure) {
         publishPetriJournalFailure(ctx);
@@ -888,20 +893,27 @@ function transitionParityFailure(args: {
   readonly authoritySnapshot: PetriMarkingSnapshot | undefined;
 }): 'petri_input_unreadable' | 'petri_journal_gap' | undefined {
   if (args.journal.status !== 'readable') return 'petri_input_unreadable';
-  const lifecycle = projectExecutorPetriTransitionHistory(args.state, args.plan)?.transitionIds ?? [];
+  const lifecycleProjection = projectExecutorPetriTransitionHistory(args.state, args.plan);
+  if (!lifecycleProjection) return 'petri_input_unreadable';
+  const lifecycle = lifecycleProjection.transitionIds;
   const journal = args.journal.transitionIds;
+  let topology: ReturnType<typeof compileExecutorTopology>;
+  try {
+    topology = compileExecutorTopology(args.plan);
+  } catch {
+    return 'petri_input_unreadable';
+  }
+  if (!replayTransitionHistory(topology, lifecycle) || !replayTransitionHistory(topology, journal)) {
+    return 'petri_input_unreadable';
+  }
   if (lifecycle.length === journal.length) {
-    return transitionHistoriesEquivalent(lifecycle, journal, args.plan)
-      ? undefined
-      : 'petri_input_unreadable';
+    return transitionMultisetsEqual(lifecycle, journal) ? undefined : 'petri_input_unreadable';
   }
   if (lifecycle.length > journal.length) {
-    if (args.authoritySnapshot?.parallelSliceBatch !== undefined) return undefined;
-    return transitionHistoryIsPrefix(journal, lifecycle, args.plan)
-      ? 'petri_journal_gap'
-      : 'petri_input_unreadable';
+    if (!transitionMultisetIsSubset(journal, lifecycle)) return 'petri_input_unreadable';
+    return args.authoritySnapshot?.parallelSliceBatch !== undefined ? undefined : 'petri_journal_gap';
   }
-  if (!transitionHistoryIsPrefix(lifecycle, journal, args.plan)) return 'petri_input_unreadable';
+  if (!transitionMultisetIsSubset(lifecycle, journal)) return 'petri_input_unreadable';
 
   const journalAhead = journal.slice(lifecycle.length);
   const parallelAuthority =
@@ -917,47 +929,21 @@ function transitionParityFailure(args: {
   return parallelAuthority || epicAuthority ? undefined : 'petri_input_unreadable';
 }
 
-function transitionHistoriesEquivalent(
-  left: readonly string[],
-  right: readonly string[],
-  plan: SchedulerPlan | undefined,
-): boolean {
-  if (stringArraysEqual(left, right)) return true;
-  return transitionHistoryPartitions(left, plan).every((partition, index) =>
-    stringArraysEqual(partition, transitionHistoryPartitions(right, plan)[index] ?? []),
-  );
+function transitionMultisetsEqual(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && transitionMultisetIsSubset(left, right);
 }
 
-function transitionHistoryIsPrefix(
-  prefix: readonly string[],
-  history: readonly string[],
-  plan: SchedulerPlan | undefined,
-): boolean {
-  if (stringArraysEqual(prefix, history.slice(0, prefix.length))) return true;
-  const historyPartitions = transitionHistoryPartitions(history, plan);
-  return transitionHistoryPartitions(prefix, plan).every((partition, index) =>
-    stringArraysEqual(partition, (historyPartitions[index] ?? []).slice(0, partition.length)),
-  );
-}
-
-function transitionHistoryPartitions(
-  history: readonly string[],
-  plan: SchedulerPlan | undefined,
-): readonly (readonly string[])[] {
-  const sliceIds = new Set((plan?.slices ?? []).map((slice) => slice.id));
-  const bySlice = new Map<string, string[]>();
-  const serial: string[] = [];
-  for (const transitionId of history) {
-    const sliceId = transitionId.split(':')[1];
-    if (!sliceId || !sliceIds.has(sliceId)) {
-      serial.push(transitionId);
-      continue;
-    }
-    const transitions = bySlice.get(sliceId) ?? [];
-    transitions.push(transitionId);
-    bySlice.set(sliceId, transitions);
+function transitionMultisetIsSubset(subset: readonly string[], superset: readonly string[]): boolean {
+  const remaining = new Map<string, number>();
+  for (const transitionId of superset) {
+    remaining.set(transitionId, (remaining.get(transitionId) ?? 0) + 1);
   }
-  return [serial, ...(plan?.slices ?? []).map((slice) => bySlice.get(slice.id) ?? [])];
+  return subset.every((transitionId) => {
+    const count = remaining.get(transitionId) ?? 0;
+    if (count === 0) return false;
+    remaining.set(transitionId, count - 1);
+    return true;
+  });
 }
 
 function serialThrowKind(step: ReadyStep['kind']): string {

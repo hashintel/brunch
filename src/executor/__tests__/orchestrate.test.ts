@@ -243,6 +243,30 @@ async function readPetriEvents(cwd: string): Promise<readonly ExecutorNetEvent[]
     .map((line) => JSON.parse(line) as ExecutorNetEvent);
 }
 
+async function reorderPetriTransitions(cwd: string, rank: (transitionId: string) => number): Promise<void> {
+  const events = await readPetriEvents(cwd);
+  const transitions = events
+    .filter(
+      (event): event is Extract<ExecutorNetEvent, { readonly kind: 'transition_fired' }> =>
+        event.kind === 'transition_fired',
+    )
+    .map((event, index) => ({ event, index }))
+    .sort(
+      (left, right) =>
+        rank(left.event.transitionId) - rank(right.event.transitionId) || left.index - right.index,
+    )
+    .map(({ event }) => event);
+  let transitionIndex = 0;
+  const reordered = events.map((event) =>
+    event.kind === 'transition_fired' ? transitions[transitionIndex++]! : event,
+  );
+  await writeFile(
+    petriEventsPath(cwd, 'run-1'),
+    reordered.map((event) => JSON.stringify(event)).join('\n') + '\n',
+    'utf8',
+  );
+}
+
 // The differential baseline for the parity oracle: crank the same lifecycle steps
 // by hand, exactly as drive() composes them.
 async function crankManually(cwd: string, ports: ExecutionPorts): Promise<void> {
@@ -526,6 +550,135 @@ describe('drive', () => {
       });
     },
   );
+
+  it.each(['missing', 'unavailable'] as const)(
+    'halts before agent dispatch when the journal and net are both $carrier after reports initialize',
+    async (carrier) => {
+      const cwd = await mkdtemp(join(tmpdir(), `brunch-petri-correlated-carrier-loss-${carrier}-`));
+      await prepareRunAtReports(cwd, ['task-1']);
+      await rm(petriEventsPath(cwd, 'run-1'));
+      await rm(petriNetPath(cwd, 'run-1'));
+      if (carrier === 'unavailable') await mkdir(petriNetPath(cwd, 'run-1'));
+      let agentCalls = 0;
+      const started: string[] = [];
+
+      await expect(
+        drive({
+          cwd,
+          runId: 'run-1',
+          ports: fakePorts({
+            agentRunner: {
+              async run() {
+                agentCalls += 1;
+                return { status: 'completed' };
+              },
+            },
+          }),
+          onStepStart: (step) => started.push(step),
+        }),
+      ).resolves.toMatchObject({
+        status: 'halted',
+        runStatus: 'reports_initialized',
+        reason: 'petri_input_unreadable',
+      });
+      expect(agentCalls).toBe(0);
+      expect(started).toEqual([]);
+      await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+        status: 'reports_initialized',
+      });
+    },
+  );
+
+  it.each(['missing', 'unavailable'] as const)(
+    'does not append through a $carrier journal when observation preparation fails',
+    async (carrier) => {
+      const cwd = await mkdtemp(join(tmpdir(), `brunch-petri-preparation-journal-${carrier}-`));
+      await createRunAtCreated(cwd, ['task-1']);
+      await preparePetriObservation({ cwd, runId: 'run-1' });
+      const journalPath = petriEventsPath(cwd, 'run-1');
+      await rm(journalPath);
+      if (carrier === 'unavailable') await mkdir(journalPath);
+      let failureWakeUps = 0;
+      const unsubscribe = subscribePetriJournalFailures({
+        cwd,
+        runId: 'run-1',
+        listener: () => {
+          failureWakeUps += 1;
+        },
+      });
+
+      try {
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          await expect(drive({ cwd, runId: 'run-1', ports: fakePorts() })).resolves.toEqual({
+            status: 'halted',
+            step: 'worktree_create',
+            runStatus: 'created',
+            reason: 'petri_input_unreadable',
+          });
+          if (carrier === 'missing') expect(await pathExists(journalPath)).toBe(false);
+          else await expect(readFile(journalPath, 'utf8')).rejects.toMatchObject({ code: 'EISDIR' });
+        }
+      } finally {
+        unsubscribe();
+      }
+      expect(failureWakeUps).toBe(2);
+      await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+        status: 'created',
+      });
+    },
+  );
+
+  it('rejects a durable transition order that starts a dependent slice before its predecessor', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-dependent-order-'));
+    await createRunAtCreatedWithPlan(cwd, {
+      mode: 'greenfield',
+      epics: [{ id: 'epic-1', depends_on: [], verification: [] }],
+      slices: [
+        { id: 'task-1', epic_id: 'epic-1', depends_on: [], verification: [] },
+        { id: 'task-2', epic_id: 'epic-1', depends_on: ['task-1'], verification: [] },
+      ],
+    });
+    await drive({ cwd, runId: 'run-1', ports: fakePorts() });
+    await reorderPetriTransitions(cwd, (transitionId) => {
+      if (
+        ['worktree_create', 'populate', 'source_policy', 'source_copy', 'report_init'].includes(transitionId)
+      )
+        return 0;
+      if (transitionId.includes(':task-2')) return 1;
+      if (transitionId.includes(':task-1')) return 2;
+      if (transitionId.startsWith('epic_')) return 3;
+      return 4;
+    });
+
+    await expect(drive({ cwd, runId: 'run-1', ports: fakePorts() })).resolves.toMatchObject({
+      status: 'halted',
+      reason: 'petri_input_unreadable',
+    });
+  });
+
+  it('rejects durable epic transitions ordered before their member slice transitions', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-epic-before-members-'));
+    await createRunAtCreatedWithPlan(cwd, {
+      mode: 'greenfield',
+      epics: [{ id: 'epic-1', depends_on: [], verification: [] }],
+      slices: [{ id: 'task-1', epic_id: 'epic-1', depends_on: [], verification: [] }],
+    });
+    await drive({ cwd, runId: 'run-1', ports: fakePorts() });
+    await reorderPetriTransitions(cwd, (transitionId) => {
+      if (
+        ['worktree_create', 'populate', 'source_policy', 'source_copy', 'report_init'].includes(transitionId)
+      )
+        return 0;
+      if (transitionId.startsWith('epic_')) return 1;
+      if (transitionId.includes(':task-1')) return 2;
+      return 3;
+    });
+
+    await expect(drive({ cwd, runId: 'run-1', ports: fakePorts() })).resolves.toMatchObject({
+      status: 'halted',
+      reason: 'petri_input_unreadable',
+    });
+  });
 
   it.each(['slice_execute', 'agent_result', 'test_result', 'slice_complete'] as const)(
     'refuses standalone %s while drive owns the same run without duplicating its effect',
@@ -4525,12 +4678,7 @@ describe('petriScheduler', () => {
 
   it('resumes a matching persisted claim-set before recomputing a fresh frontier selection', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-claim-resume-'));
-    await createRunAtCreated(cwd, ['task-1', 'task-2']);
-    await createWorktree({ cwd, runId: 'run-1', gitWorktree: fakePorts().gitWorktree });
-    await populateWorktree({ cwd, runId: 'run-1' });
-    await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
-    await copyHostSource({ cwd, runId: 'run-1' });
-    await initializeReports({ cwd, runId: 'run-1' });
+    await prepareRunAtReports(cwd, ['task-1', 'task-2']);
     await writePetriMarkingSnapshot({
       cwd,
       runId: 'run-1',
@@ -4581,12 +4729,7 @@ describe('petriScheduler', () => {
     'ignores a persisted claim-set with a stale $label',
     async ({ currentMarking, firedTransitionCount }) => {
       const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-claim-stale-runtime-'));
-      await createRunAtCreated(cwd, ['task-1', 'task-2']);
-      await createWorktree({ cwd, runId: 'run-1', gitWorktree: fakePorts().gitWorktree });
-      await populateWorktree({ cwd, runId: 'run-1' });
-      await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
-      await copyHostSource({ cwd, runId: 'run-1' });
-      await initializeReports({ cwd, runId: 'run-1' });
+      await prepareRunAtReports(cwd, ['task-1', 'task-2']);
       await writePetriMarkingSnapshot({
         cwd,
         runId: 'run-1',
@@ -4611,12 +4754,7 @@ describe('petriScheduler', () => {
 
   it('ignores a resumed claim-set when it falls outside the current scheduler frontier', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-claim-resume-linear-'));
-    await createRunAtCreated(cwd, ['task-1', 'task-2']);
-    await createWorktree({ cwd, runId: 'run-1', gitWorktree: fakePorts().gitWorktree });
-    await populateWorktree({ cwd, runId: 'run-1' });
-    await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
-    await copyHostSource({ cwd, runId: 'run-1' });
-    await initializeReports({ cwd, runId: 'run-1' });
+    await prepareRunAtReports(cwd, ['task-1', 'task-2']);
     await writePetriMarkingSnapshot({
       cwd,
       runId: 'run-1',
@@ -4643,12 +4781,7 @@ describe('petriScheduler', () => {
 
   it('stops after the first fired transition when maxFirings limits a parallel frontier batch', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-max-firings-frontier-'));
-    await createRunAtCreated(cwd, ['task-1', 'task-2']);
-    await createWorktree({ cwd, runId: 'run-1', gitWorktree: fakePorts().gitWorktree });
-    await populateWorktree({ cwd, runId: 'run-1' });
-    await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
-    await copyHostSource({ cwd, runId: 'run-1' });
-    await initializeReports({ cwd, runId: 'run-1' });
+    await prepareRunAtReports(cwd, ['task-1', 'task-2']);
 
     const outcome = await drive(
       { cwd, runId: 'run-1', ports: fakePorts() },
@@ -4666,12 +4799,7 @@ describe('petriScheduler', () => {
 
   it('fails closed when a persisted claim-set overclaims the current marking', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-claim-overclaim-'));
-    await createRunAtCreated(cwd, ['task-1', 'task-2']);
-    await createWorktree({ cwd, runId: 'run-1', gitWorktree: fakePorts().gitWorktree });
-    await populateWorktree({ cwd, runId: 'run-1' });
-    await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
-    await copyHostSource({ cwd, runId: 'run-1' });
-    await initializeReports({ cwd, runId: 'run-1' });
+    await prepareRunAtReports(cwd, ['task-1', 'task-2']);
     await writePetriMarkingSnapshot({
       cwd,
       runId: 'run-1',
@@ -4813,7 +4941,6 @@ describe('petriScheduler', () => {
       petriScheduler,
     );
     const seen = await readPetriEvents(cwd);
-
     expect(outcome).toEqual({
       status: 'halted',
       step: 'test_result',
@@ -4906,7 +5033,6 @@ describe('petriScheduler', () => {
       },
       linearScheduler,
     );
-    const seen = await readPetriEvents(cwd);
 
     expect(outcome).toEqual({
       status: 'halted',
@@ -4914,15 +5040,7 @@ describe('petriScheduler', () => {
       runStatus: 'reports_initialized',
       reason: 'petri_input_unreadable',
     });
-    expect(seen).toEqual([
-      {
-        kind: 'net_halted',
-        runId: 'run-1',
-        runStatus: 'reports_initialized',
-        step: 'slice_start',
-        reason: 'petri_input_unreadable',
-      },
-    ]);
+    expect(await pathExists(petriEventsPath(cwd, 'run-1'))).toBe(false);
   });
 
   it('fails closed on duplicate slice ids before the first lifecycle side effect', async () => {
@@ -5052,8 +5170,6 @@ describe('petriScheduler', () => {
       },
       petriScheduler,
     );
-    const seen = await readPetriEvents(cwd);
-
     expect(outcome).toEqual({
       status: 'halted',
       step: 'petri_export',
@@ -5061,14 +5177,7 @@ describe('petriScheduler', () => {
       reason: 'petri_input_unreadable',
     });
     expect(await pathExists(petriNetPath(cwd, 'run-1'))).toBe(false);
-    expect(seen.some((event) => event.kind === 'net_completed')).toBe(false);
-    expect(seen.at(-1)).toEqual({
-      kind: 'net_halted',
-      runId: 'run-1',
-      runStatus: 'run_completed',
-      step: 'petri_export',
-      reason: 'petri_input_unreadable',
-    });
+    expect(await pathExists(petriEventsPath(cwd, 'run-1'))).toBe(false);
   });
 
   it('halts at petri_export when the compiled plan input parses but is structurally invalid', async () => {
@@ -5104,8 +5213,6 @@ describe('petriScheduler', () => {
       },
       petriScheduler,
     );
-    const seen = await readPetriEvents(cwd);
-
     expect(outcome).toEqual({
       status: 'halted',
       step: 'petri_export',
@@ -5113,14 +5220,7 @@ describe('petriScheduler', () => {
       reason: 'petri_input_unreadable',
     });
     expect(await pathExists(petriNetPath(cwd, 'run-1'))).toBe(false);
-    expect(seen.some((event) => event.kind === 'net_completed')).toBe(false);
-    expect(seen.at(-1)).toEqual({
-      kind: 'net_halted',
-      runId: 'run-1',
-      runStatus: 'run_completed',
-      step: 'petri_export',
-      reason: 'petri_input_unreadable',
-    });
+    expect(await pathExists(petriEventsPath(cwd, 'run-1'))).toBe(false);
   });
 
   it('treats an abandoned run as a halted terminal at both the driver and journal boundary', async () => {

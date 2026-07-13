@@ -7,6 +7,36 @@ Created:  2026-07-13
 
 Posture: proving (inherited from `petri-execution-parity`).
 
+## Slice 10 — Final review causal journal closure
+
+Status: done
+Weight: full
+
+### Target Behavior
+
+Every progressed drive treats the journal as an independent fail-closed authority carrier, and accepts reordered transition histories only when the compiled topology proves their causal validity.
+
+### Acceptance Criteria
+
+- correlated journal + `net.json` loss at the reports-initialized frontier dispatches no agent effect.
+- missing/unavailable preparation journals remain absent/unavailable across repeated drives and publish only local failure wake-ups.
+- durable and lifecycle histories both replay through `compileExecutorTopology`; multiset/subset comparison preserves valid independent interleaving and explicit parallel/transitioned-epic journal-ahead authority.
+- dependent-slice-before-predecessor and epic-before-members histories halt before dispatch.
+- obsolete `hasPreparedPetriObservation` gating is removed; card, PLAN, and executor topology state the independent carrier and causal replay contract.
+
+### Completion Report
+
+| Leaf | Outcome | Evidence |
+| --- | --- | --- |
+| Correlated carrier loss blocks effects | met | `orchestrate.test.ts`: missing and unavailable `net.json` paired with missing journal at `reports_initialized` retain metadata, start zero steps, and invoke zero agent effects. |
+| Preparation failure never recreates journal | met | Missing/unavailable table drives twice, observes two local failure wake-ups, unchanged `created` metadata, and an absent/EISDIR carrier after each drive. |
+| Topology replay replaces lane heuristic | met | `transitionParityFailure` replays both histories through `compileExecutorTopology`, then requires equal/subset transition multisets before explicit authority exceptions. |
+| Impossible causal orders reject | met | Dependent-slice-before-predecessor and epic-before-members durable histories return `petri_input_unreadable`; focused executor suite passes 132/132. |
+| Parallel and epic authority remain explicit | met | Existing claim-frontier, journal-only parallel recovery, and transitioned epic summary-lag tests remain green in the focused executor suite. |
+| Obsolete gate and canonical docs reconciled | met | `hasPreparedPetriObservation` removed; `src/executor/TOPOLOGY.md`, `memory/PLAN.md`, and this card describe journal independence and topology replay. |
+
+Skipped-test delta vs parent: 0.
+
 ## Slice 1 — Unified execution authority
 
 Status: done

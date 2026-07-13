@@ -58,6 +58,7 @@ export function petriSdcpnPath(cwd: string, runId: string): string {
 }
 
 export class PetriObservationInputError extends Error {}
+export class PetriObservationJournalError extends PetriObservationInputError {}
 
 async function readExportPlan(cwd: string, metadata: RunMetadata): Promise<SchedulerPlan | undefined> {
   return readPetriRuntimePlan(cwd, metadata);
@@ -95,19 +96,10 @@ export async function preparePetriObservation(args: {
   } else {
     const journal = await inspectPetriTransitionJournal(args);
     if (journal.status === 'missing' || journal.status === 'unavailable') {
-      throw new PetriObservationInputError(`Petrinaut journal is ${journal.status}: ${args.runId}`);
+      throw new PetriObservationJournalError(`Petrinaut journal is ${journal.status}: ${args.runId}`);
     }
   }
   return plan;
-}
-
-export async function hasPreparedPetriObservation(cwd: string, runId: string): Promise<boolean> {
-  try {
-    await readFile(petriNetPath(cwd, runId));
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 export async function exportPetri(args: {
