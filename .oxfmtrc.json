@@ -9,6 +9,7 @@
     ".agents/**",
     ".github/**",
     ".claude/**",
+    ".pi/**",
     "*.md",
     "package-lock.json",
     "docs/**",

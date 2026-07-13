@@ -1,0 +1,9 @@
+{
+  "$comment": "Vendored subagent extension config (canonical source: ~/.pi/agent/extensions/subagents/). Agent definitions are ambient, not bundled: user-level agents live in ~/.pi/agent/subagents/*.md; this project's agents live in .pi/subagents/*.md. toolExtensions maps a custom (non-builtin) tool name to the extension file that provides it, here the co-located copies in tools/.",
+  "version": 1,
+  "maxConcurrency": 4,
+  "toolExtensions": {
+    "web_search": "tools/web-search.ts",
+    "web_fetch": "tools/web-fetch.ts"
+  }
+}
