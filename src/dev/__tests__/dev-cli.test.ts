@@ -8,12 +8,28 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { BrunchCliOptions } from '../../app/brunch.js';
 import { runDevCli, type DevCliPrompts } from '../dev-cli.js';
 
+const seedFixtureMocks = vi.hoisted(() => ({
+  listTrackedSeedRefs: vi.fn(),
+  actualListTrackedSeedRefs: undefined as
+    | typeof import('../../graph/seed-fixtures.js').listTrackedSeedRefs
+    | undefined,
+}));
+
+vi.mock('../../graph/seed-fixtures.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../graph/seed-fixtures.js')>();
+  seedFixtureMocks.actualListTrackedSeedRefs = actual.listTrackedSeedRefs;
+  seedFixtureMocks.listTrackedSeedRefs.mockImplementation(actual.listTrackedSeedRefs);
+  return { ...actual, listTrackedSeedRefs: seedFixtureMocks.listTrackedSeedRefs };
+});
+
 const REPO_ROOT = process.cwd();
 const WORKBENCH = resolve(REPO_ROOT, '.fixtures/workbenches/workspace-alpha-grounding');
 const temporaryRoots: string[] = [];
 
 afterEach(async () => {
   await Promise.all(temporaryRoots.splice(0).map((path) => rm(path, { recursive: true, force: true })));
+  seedFixtureMocks.listTrackedSeedRefs.mockReset();
+  seedFixtureMocks.listTrackedSeedRefs.mockImplementation(seedFixtureMocks.actualListTrackedSeedRefs!);
 });
 
 async function temporaryWorkbenchesRoot(): Promise<string> {
@@ -104,6 +120,29 @@ describe('runDevCli', () => {
     expect(launches).toEqual([
       expect.objectContaining({ cwd: workspace, argv: ['--mode', 'tui', '--no-webui'] }),
     ]);
+  });
+
+  it('does not require seed fixtures for an interactive temporary workspace', async () => {
+    const workbenchesRoot = await temporaryWorkbenchesRoot();
+    const workspace = join(workbenchesRoot, 'generated-temp');
+    const chooseLaunchSource = vi.fn<DevCliPrompts['chooseLaunchSource']>().mockResolvedValue('temporary');
+    const { stdin, stdout } = interactiveStreams();
+    seedFixtureMocks.listTrackedSeedRefs.mockRejectedValueOnce(new Error('seed directory is absent'));
+
+    const code = await runDevCli({
+      argv: [],
+      cwd: REPO_ROOT,
+      stdin,
+      stdout,
+      workbenchesRoot,
+      prompts: promptStubs({ chooseLaunchSource }),
+      createTempWorkspace: vi.fn().mockResolvedValue(workspace),
+      launchBrunch: async () => 0,
+    });
+
+    expect(code).toBe(0);
+    expect(chooseLaunchSource).toHaveBeenCalledOnce();
+    expect(seedFixtureMocks.listTrackedSeedRefs).not.toHaveBeenCalled();
   });
 
   it('creates and launches a named workbench under the workbenches root', async () => {
@@ -241,7 +280,22 @@ describe('runDevCli', () => {
     });
 
     expect(code).toBe(1);
-    expect(stderr).toContain('--workbench must be a single directory name');
+    expect(stderr).toContain('--workbench must start with a letter or number');
+  });
+
+  it('explains the first-character constraint for invalid workbench names', async () => {
+    let stderr = '';
+
+    const code = await runDevCli({
+      argv: ['--workbench', '.hidden'],
+      cwd: REPO_ROOT,
+      stderr: (chunk) => {
+        stderr += chunk;
+      },
+    });
+
+    expect(code).toBe(1);
+    expect(stderr).toContain('must start with a letter or number');
   });
 
   it('rejects explicit --reset without --seed before entering the prompt flow', async () => {

@@ -106,6 +106,9 @@ interface ExportFlags {
 
 class DevCliUsageError extends Error {}
 
+const SAFE_WORKBENCH_NAME_RULE =
+  'must start with a letter or number and contain only letters, numbers, ., _, or -';
+
 const defaultPrompts: DevCliPrompts = {
   intro: (title) => {
     clackIntro(title);
@@ -134,7 +137,7 @@ const defaultPrompts: DevCliPrompts = {
       placeholder: 'my-workbench',
       validate: (value) => {
         if (!value || !isSafeWorkbenchName(value)) {
-          return 'Use one directory name (letters, numbers, ., _, or -).';
+          return `A workbench name ${SAFE_WORKBENCH_NAME_RULE}.`;
         }
         if (existingNames.includes(value)) return `Workbench ${value} already exists.`;
         return undefined;
@@ -298,7 +301,6 @@ async function promptForLaunchPlan(options: {
 }): Promise<LaunchPromptPlan | null> {
   const { prompts, workbenchesRoot } = options;
   const workbenches = await listExistingWorkbenches(workbenchesRoot);
-  const seedRefs = (await listTrackedSeedRefs()).map((seed) => seed.ref);
 
   prompts.intro('Brunch dev launcher');
   const source = await prompts.chooseLaunchSource(workbenches.length > 0);
@@ -313,7 +315,7 @@ async function promptForLaunchPlan(options: {
     const name = await prompts.enterWorkbenchName(workbenches.map((choice) => choice.label));
     if (isCancel(name)) return cancelLaunch(prompts);
     if (!isSafeWorkbenchName(name)) {
-      throw new DevCliUsageError('A workbench name must be a single directory name.');
+      throw new DevCliUsageError(`A workbench name ${SAFE_WORKBENCH_NAME_RULE}.`);
     }
     if (workbenches.some((choice) => choice.label === name)) {
       throw new DevCliUsageError(`Workbench ${name} already exists.`);
@@ -328,6 +330,7 @@ async function promptForLaunchPlan(options: {
     }
     workspace = selected;
   } else {
+    const seedRefs = (await listTrackedSeedRefs()).map((trackedSeed) => trackedSeed.ref);
     if (seedRefs.length === 0) throw new DevCliUsageError('No tracked seed fixtures are available.');
     const selectedSeed = await prompts.chooseSeed(seedRefs);
     if (isCancel(selectedSeed)) return cancelLaunch(prompts);
@@ -471,7 +474,7 @@ function parseLaunchFlags(args: readonly string[], cwd: string): LaunchFlags {
     throw new DevCliUsageError('Use only one of --workbench, --workspace, or --cwd.');
   }
   if (values.workbench && !isSafeWorkbenchName(values.workbench)) {
-    throw new DevCliUsageError('--workbench must be a single directory name (letters, numbers, ., _, or -).');
+    throw new DevCliUsageError(`--workbench ${SAFE_WORKBENCH_NAME_RULE}.`);
   }
   return {
     workspace,
