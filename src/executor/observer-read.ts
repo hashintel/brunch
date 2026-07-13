@@ -1049,7 +1049,7 @@ async function streamArtifactAttempts(
 ): Promise<readonly number[]> {
   try {
     const entries = await readdir(join(runDirPath(cwd, runId), 'streams', sliceId));
-    const pattern = new RegExp(`^${stage}-attempt-(\\d+)\\.jsonl$`, 'u');
+    const pattern = stage === 'agent' ? /^agent-attempt-(\d+)\.jsonl$/u : /^verify-attempt-(\d+)\.jsonl$/u;
     return entries
       .flatMap((entry) => {
         const match = pattern.exec(entry);
