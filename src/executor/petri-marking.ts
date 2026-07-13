@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { petriDirPath } from './petri-events.js';
@@ -13,6 +13,12 @@ export interface PetriMarkingLifecycleProvenance {
 
 export interface PetriMarkingSnapshot extends PetriProjection {
   readonly lifecycleProvenance?: PetriMarkingLifecycleProvenance;
+  readonly parallelSliceBatch?: ParallelSliceBatchSnapshot;
+}
+
+export interface ParallelSliceBatchSnapshot {
+  readonly claimedSliceIds: readonly string[];
+  readonly settledSliceIds: readonly string[];
 }
 
 export function petriMarkingPath(cwd: string, runId: string): string {
@@ -25,11 +31,15 @@ export async function writePetriMarkingSnapshot(args: {
   readonly snapshot: PetriMarkingSnapshot;
 }): Promise<void> {
   await mkdir(petriDirPath(args.cwd, args.runId), { recursive: true });
-  await writeFile(
-    petriMarkingPath(args.cwd, args.runId),
-    `${JSON.stringify(args.snapshot, null, 2)}\n`,
-    'utf8',
-  );
+  const path = petriMarkingPath(args.cwd, args.runId);
+  const tempPath = `${path}.tmp`;
+  await writeFile(tempPath, `${JSON.stringify(args.snapshot, null, 2)}\n`, 'utf8');
+  try {
+    await rename(tempPath, path);
+  } catch (error) {
+    await rm(tempPath, { force: true });
+    throw error;
+  }
 }
 
 export async function readPetriMarkingSnapshot(args: {
@@ -73,11 +83,25 @@ function asPetriMarkingSnapshot(value: unknown): PetriMarkingSnapshot | undefine
   if (!projection) return undefined;
   const lifecycleProvenance = asLifecycleProvenance(value.lifecycleProvenance);
   if (value.lifecycleProvenance !== undefined && lifecycleProvenance === undefined) return undefined;
+  const parallelSliceBatch = asParallelSliceBatch(value.parallelSliceBatch);
+  if (value.parallelSliceBatch !== undefined && parallelSliceBatch === undefined) return undefined;
 
   return {
     ...projection,
     ...(lifecycleProvenance === undefined ? {} : { lifecycleProvenance }),
+    ...(parallelSliceBatch === undefined ? {} : { parallelSliceBatch }),
   };
+}
+
+function asParallelSliceBatch(value: unknown): ParallelSliceBatchSnapshot | undefined {
+  if (!isRecord(value) || !isStringArray(value.claimedSliceIds) || !isStringArray(value.settledSliceIds)) {
+    return undefined;
+  }
+  const claimedSliceIds = value.claimedSliceIds;
+  const settledSliceIds = value.settledSliceIds;
+  if (new Set(claimedSliceIds).size !== claimedSliceIds.length) return undefined;
+  if (settledSliceIds.some((sliceId) => !claimedSliceIds.includes(sliceId))) return undefined;
+  return { claimedSliceIds, settledSliceIds };
 }
 
 function asLifecycleProvenance(value: unknown): PetriMarkingLifecycleProvenance | undefined {

@@ -210,7 +210,13 @@ export async function readRunDetail(
   const hasMatchingPetriMarkingSnapshot =
     petriMarkingSnapshot !== undefined &&
     petriMarkingSnapshotMatchesRunMetadata(petriMarkingSnapshot, metadata) &&
-    petriMarkingSnapshotMatchesRuntime(petriMarkingSnapshot, metadata, petriRuntimePlan, petriRuntime);
+    petriMarkingSnapshotMatchesRuntime(
+      petriMarkingSnapshot,
+      metadata,
+      petriRuntimePlan,
+      petriRuntime,
+      petriReplayProjection,
+    );
   const petriProjectionEntry =
     (hasMatchingPetriMarkingSnapshot
       ? {
@@ -328,7 +334,14 @@ function petriMarkingSnapshotMatchesRuntime(
   metadata: RunMetadata,
   plan: SchedulerPlan | undefined,
   runtime?: Pick<ExecutorPetriRuntime, 'currentMarking'>,
+  replay?: Pick<PetriProjection, 'currentMarking' | 'firedTransitionCount'>,
 ): boolean {
+  if (
+    replay?.firedTransitionCount === snapshot.firedTransitionCount &&
+    petriMarkingsEqual(replay.currentMarking, snapshot.currentMarking)
+  ) {
+    return true;
+  }
   if (runtime === undefined) return false;
   if (
     projectExecutorPetriTransitionHistory(metadata, plan)?.transitionIds.length !==
@@ -336,11 +349,14 @@ function petriMarkingSnapshotMatchesRuntime(
   ) {
     return false;
   }
-  const runtimeEntries = Object.entries(runtime.currentMarking);
-  const snapshotEntries = Object.entries(snapshot.currentMarking);
+  return petriMarkingsEqual(runtime.currentMarking, snapshot.currentMarking);
+}
+
+function petriMarkingsEqual(left: Record<string, number>, right: Record<string, number>): boolean {
+  const leftEntries = Object.entries(left);
   return (
-    runtimeEntries.length === snapshotEntries.length &&
-    runtimeEntries.every(([placeId, count]) => snapshot.currentMarking[placeId] === count)
+    leftEntries.length === Object.keys(right).length &&
+    leftEntries.every(([placeId, count]) => right[placeId] === count)
   );
 }
 

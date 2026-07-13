@@ -203,7 +203,7 @@ src/app/
 
 ## Slice 3 — Durable parallel slice authority
 
-Status: next
+Status: done
 Weight: full
 
 ### Target Behavior
@@ -265,6 +265,21 @@ Retires the binding serial-authority assumption discovered by Slice 2 and lights
 - D123-L authority applies only to concurrently firing isolated slice effects.
 - `run.json` remains observer summary and serial run-control authority, not concurrent slice truth.
 - No split-process broker or generic event spine.
+
+### Completion Report
+
+| Leaf | Outcome | Evidence |
+| --- | --- | --- |
+| Independent agent effects genuinely overlap | met | `orchestrate.test.ts`: deterministic promise barrier observes both slice ids entered before either is released; entry order is intentionally unconstrained. |
+| Claims and marking are durable before dispatch | met | `orchestrate.test.ts`: each agent entry observes both `slice_start` journal facts and consumed claim places; blocked agents expose both attempt-1 places from the snapshot while `run.json` remains `reports_initialized`. Journal- and marking-write fault tests start zero agent effects. |
+| Per-slice failure cannot rewind a successful sibling | met | `orchestrate.test.ts`: task-1 exhaustion retains task-2 integration/completion report and transition facts; terminal snapshot and journal replay agree on task-1 exhausted plus task-2 epic-member marking. |
+| Claimed unfinished restart halts/replans without duplication | met | `orchestrate.test.ts`: persisted `parallelSliceBatch` returns `parallel_slice_replan_required` with zero agent/test calls; journal-ahead recovery after a failed claim snapshot does the same. |
+| Fan-in is serialized and deterministic; conflict preserves clean prefix | met | `orchestrate.test.ts`: three claimed outputs integrate with maximum concurrency 1 in task-1/task-2 order, stop at task-2 conflict, and retain only task-1 summary. `git-slice-integration-port.test.ts` proves real-git conflict preflight leaves the run tree/index/HEAD unchanged. |
+| Live observer and reconnect Petrinaut views expose overlap and converge | met | `orchestrate.test.ts`: `readRunDetail` exposes both simultaneous agent-attempt places from snapshot authority; process-live events equal the re-read journal exactly, and Petrinaut replay reproduces that firing timeline through terminal. Existing RPC live/reconnect suites remain green. |
+| `run.json` remains summary + serial run-control authority | met | Barrier oracle observes unchanged `reports_initialized` metadata during overlap; only ordered successful integration updates `completedSliceIds`/commit summary. No parallel active-slice fields were added. |
+| Frozen topology and injected effects are preserved | met | No topology compiler/net mutation; batch fires existing frozen transitions and invokes only injected `ExecutionPorts`. `boundaries.test.ts`, Petrinaut definition tests, executor/app/RPC suites are green. |
+
+Skipped-test delta vs parent: 0.
 
 ### Expected touched paths (tentative)
 

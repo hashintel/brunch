@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 import { agentStreamPath, ingestAgentResult } from '../agent-result.js';
 import type { AgentRunnerPort, ExecutionPorts, TestRunnerPort } from '../execution-ports.js';
+import { readRunDetail } from '../observer-read.js';
 import {
   compileExecutorTopology,
   drive,
@@ -17,10 +18,15 @@ import {
   type ReadyStep,
   serialFiringPolicy,
 } from '../orchestrate.js';
-import { petriEventsPath, subscribePetriEvents, subscribePetriJournalFailures } from '../petri-events.js';
+import {
+  appendPetriEvent,
+  petriEventsPath,
+  subscribePetriEvents,
+  subscribePetriJournalFailures,
+} from '../petri-events.js';
 import { petriMarkingPath, readPetriMarkingSnapshot, writePetriMarkingSnapshot } from '../petri-marking.js';
 import { petriPlanSnapshotPath } from '../petri-plan-snapshot.js';
-import { replayPetri } from '../petri-replay.js';
+import { replayPetri, replayTransitionHistory } from '../petri-replay.js';
 import { petriRuntimePlanPathCandidates } from '../petri-runtime-plan.js';
 import {
   bindExecutorPetriRuntime,
@@ -31,7 +37,8 @@ import {
   resolvePetriTransitionIdForReadyStep,
 } from '../petri-runtime.js';
 import { classifyDriveTerminal } from '../petri-terminal.js';
-import { exportPetri, petriNetPath, petriSdcpnPath } from '../petri.js';
+import { exportPetri, petriNetPath, petriSdcpnPath, preparePetriObservation } from '../petri.js';
+import { reducePetrinautReplayExport } from '../petrinaut/replay-export.js';
 import { planFilePath } from '../plan-file.js';
 import { populatedPlanPath as runPopulatedPlanPath, populateWorktree } from '../populate.js';
 import { preparePromotion } from '../promotion.js';
@@ -146,6 +153,18 @@ async function createRunAtCreated(
   await createRun({ cwd, specId: '42', runId: 'run-1' });
 }
 
+async function prepareRunAtReports(cwd: string, sliceIds: readonly string[]): Promise<RunMetadata> {
+  await createRunAtCreated(cwd, sliceIds);
+  const ports = fakePorts();
+  await preparePetriObservation({ cwd, runId: 'run-1' });
+  await createWorktree({ cwd, runId: 'run-1', gitWorktree: ports.gitWorktree });
+  await populateWorktree({ cwd, runId: 'run-1' });
+  await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
+  await copyHostSource({ cwd, runId: 'run-1' });
+  await initializeReports({ cwd, runId: 'run-1' });
+  return (await readRunMetadata(runMetadataPath(cwd, 'run-1')))!;
+}
+
 function metadata(status: RunMetadata['status'], extra: Partial<RunMetadata> = {}): RunMetadata {
   return { runId: 'run-1', specId: '42', planPath: 'plan.yaml', status, ...extra };
 }
@@ -205,6 +224,388 @@ async function crankManually(cwd: string, ports: ExecutionPorts): Promise<void> 
 }
 
 describe('drive', () => {
+  it('overlaps independent slice effects only after each claim is journaled and marked', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-parallel-slices-'));
+    await createRunAtCreated(cwd, ['task-1', 'task-2']);
+    const entered: string[] = [];
+    const entryEvidence: {
+      readonly sliceId: string;
+      readonly transitionIds: readonly string[];
+      readonly marking: Record<string, number> | undefined;
+    }[] = [];
+    const liveEvents: ExecutorNetEvent[] = [];
+    const unsubscribe = subscribePetriEvents({
+      cwd,
+      runId: 'run-1',
+      listener: (event) => liveEvents.push(event),
+    });
+    let releaseAgents!: () => void;
+    const released = new Promise<void>((resolve) => {
+      releaseAgents = resolve;
+    });
+    let bothEntered!: () => void;
+    const overlapping = new Promise<void>((resolve) => {
+      bothEntered = resolve;
+    });
+    const agentRunner: AgentRunnerPort = {
+      async run(args) {
+        const events = await readPetriEvents(cwd);
+        const snapshot = await readPetriMarkingSnapshot({ cwd, runId: 'run-1' });
+        entryEvidence.push({
+          sliceId: args.sliceId,
+          transitionIds: events.flatMap((event) =>
+            event.kind === 'transition_fired' ? [event.transitionId] : [],
+          ),
+          marking: snapshot?.currentMarking,
+        });
+        entered.push(args.sliceId);
+        if (entered.length === 2) bothEntered();
+        await released;
+        return { status: 'completed' };
+      },
+    };
+
+    const driving = drive(
+      { cwd, runId: 'run-1', ports: fakePorts({ agentRunner }) },
+      petriScheduler,
+      frontierFiringPolicy,
+    );
+    await overlapping;
+
+    expect(new Set(entered)).toEqual(new Set(['task-1', 'task-2']));
+    for (const evidence of entryEvidence) {
+      expect(evidence.transitionIds).toEqual(
+        expect.arrayContaining(['slice_start:task-1', 'slice_start:task-2']),
+      );
+      expect(evidence.marking).not.toHaveProperty('slice:task-1:claim');
+      expect(evidence.marking).not.toHaveProperty('slice:task-2:claim');
+    }
+    expect(
+      (await readPetriEvents(cwd))
+        .filter((event) => event.kind === 'transition_fired')
+        .map((event) => event.transitionId),
+    ).toEqual(
+      expect.arrayContaining([
+        'slice_start:task-1',
+        'slice_start:task-2',
+        'slice_execute:task-1',
+        'slice_execute:task-2',
+      ]),
+    );
+    await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toMatchObject({
+      currentMarking: {
+        'slice:task-1:agent_attempt:1': 1,
+        'slice:task-2:agent_attempt:1': 1,
+      },
+      lifecycleProvenance: { runStatus: 'reports_initialized' },
+      parallelSliceBatch: {
+        claimedSliceIds: ['task-1', 'task-2'],
+        settledSliceIds: [],
+      },
+    });
+    await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+      status: 'reports_initialized',
+    });
+    await expect(readRunDetail(cwd, 'run-1')).resolves.toMatchObject({
+      petriProjectionSource: 'snapshot',
+      petriProjection: {
+        currentMarking: {
+          'slice:task-1:agent_attempt:1': 1,
+          'slice:task-2:agent_attempt:1': 1,
+        },
+      },
+    });
+
+    releaseAgents();
+    await expect(driving).resolves.toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+    unsubscribe();
+    const reconnectEvents = await readPetriEvents(cwd);
+    expect(liveEvents).toEqual(reconnectEvents);
+    const replay = reducePetrinautReplayExport({
+      sdcpnFile: JSON.parse(await readFile(petriSdcpnPath(cwd, 'run-1'), 'utf8')),
+      events: reconnectEvents,
+    });
+    expect(replay.transitionFirings.map((firing) => firing.transitionId)).toEqual([
+      ...liveEvents.flatMap((event) => (event.kind === 'transition_fired' ? [event.transitionId] : [])),
+      'run:finish',
+    ]);
+  });
+
+  it('keeps a successful sibling durable when an independent slice exhausts', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-parallel-failure-isolation-'));
+    await createRunAtCreated(cwd, ['task-1', 'task-2']);
+    const integrated: string[] = [];
+    const baseIntegration = createFakeGitSliceIntegrationPort();
+    const ports = fakePorts({
+      agentRunner: {
+        async run(args) {
+          return args.sliceId === 'task-1'
+            ? { status: 'failed', message: 'task-1 failed' }
+            : { status: 'completed' };
+        },
+      },
+      gitSliceIntegration: createFakeGitSliceIntegrationPort({
+        prepare: (args) => baseIntegration.prepare(args),
+        async integrate(args) {
+          integrated.push(args.sliceId);
+          return baseIntegration.integrate(args);
+        },
+      }),
+    });
+
+    await expect(
+      drive({ cwd, runId: 'run-1', ports }, petriScheduler, frontierFiringPolicy),
+    ).resolves.toEqual({
+      status: 'halted',
+      step: 'agent_result',
+      runStatus: 'slice_completed',
+      reason: 'agent_run_failed',
+    });
+
+    expect(integrated).toEqual(['task-2']);
+    const events = await readPetriEvents(cwd);
+    expect(
+      events.flatMap((event) => (event.kind === 'transition_fired' ? [event.transitionId] : [])),
+    ).toEqual(
+      expect.arrayContaining(['agent_exhausted:task-1', 'slice_integrate:task-2', 'slice_complete:task-2']),
+    );
+    expect(await readReportEvents(cwd)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ event: 'slice_integrated', sliceId: 'task-2' }),
+        expect.objectContaining({ event: 'slice_completed', sliceId: 'task-2' }),
+      ]),
+    );
+    const snapshot = await readPetriMarkingSnapshot({ cwd, runId: 'run-1' });
+    expect(snapshot).toMatchObject({
+      currentMarking: {
+        'slice:task-1:agent_attempts_exhausted': 1,
+        'epic:frontier-1:member:task-2': 1,
+      },
+      parallelSliceBatch: {
+        claimedSliceIds: ['task-1', 'task-2'],
+        settledSliceIds: ['task-1', 'task-2'],
+      },
+      terminalEventKind: 'net_halted',
+      haltedReason: 'agent_run_failed',
+    });
+    const replay = replayPetri({
+      net: JSON.parse(await readFile(petriNetPath(cwd, 'run-1'), 'utf8')),
+      events,
+    });
+    expect(replay?.currentMarking).toEqual(snapshot?.currentMarking);
+  });
+
+  it('halts a persisted parallel slice batch on restart without duplicating effects', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-parallel-restart-'));
+    const state = await prepareRunAtReports(cwd, ['task-1', 'task-2']);
+    const plan = JSON.parse(planJson(['task-1', 'task-2']));
+    const runtime = materializeExecutorPetriRuntime(state, plan);
+    const transitionIds = ['slice_start:task-1', 'slice_start:task-2'];
+    const claimed = replayTransitionHistory(runtime.topology, [
+      ...projectExecutorPetriTransitionHistory(state, plan)!.transitionIds,
+      ...transitionIds,
+    ])!;
+    for (const transitionId of transitionIds) {
+      const transition = runtime.topology.transitions.find((candidate) => candidate.id === transitionId)!;
+      await appendPetriEvent({
+        cwd,
+        runId: 'run-1',
+        event: {
+          kind: 'transition_fired',
+          runId: 'run-1',
+          runStatus: state.status,
+          transitionId,
+          subnetId: transition.subnetId,
+          ...(transition.epicId ? { epicId: transition.epicId } : {}),
+          step: 'slice_start',
+          contract: transition.contract,
+          consumed: transition.inputArcs.map((arc) => arc.placeId),
+          produced: transition.outputArcs.map((arc) => arc.placeId),
+          fromStatus: state.status,
+          toStatus: state.status,
+        },
+      });
+    }
+    await writePetriMarkingSnapshot({
+      cwd,
+      runId: 'run-1',
+      snapshot: {
+        currentMarking: claimed.currentMarking,
+        firedTransitionCount: claimed.firedTransitionCount,
+        lifecycleProvenance: { runStatus: 'reports_initialized' },
+        parallelSliceBatch: { claimedSliceIds: ['task-1', 'task-2'], settledSliceIds: [] },
+      },
+    });
+    let agentCalls = 0;
+    let testCalls = 0;
+    const ports = fakePorts({
+      agentRunner: {
+        async run() {
+          agentCalls += 1;
+          return { status: 'completed' };
+        },
+      },
+      testRunner: {
+        async run() {
+          testCalls += 1;
+          return { status: 'completed', verdict: 'passed', exitCode: 0 };
+        },
+      },
+    });
+
+    await expect(
+      drive({ cwd, runId: 'run-1', ports }, petriScheduler, frontierFiringPolicy),
+    ).resolves.toEqual({
+      status: 'halted',
+      step: 'slice_start',
+      runStatus: 'reports_initialized',
+      reason: 'parallel_slice_replan_required',
+    });
+    expect({ agentCalls, testCalls }).toEqual({ agentCalls: 0, testCalls: 0 });
+  });
+
+  it('starts no slice effect when a durable claim cannot reach the marking snapshot', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-parallel-claim-marking-failure-'));
+    await createRunAtCreated(cwd, ['task-1', 'task-2']);
+    const markingPath = petriMarkingPath(cwd, 'run-1');
+    const preservedMarking = `${markingPath}.preserved`;
+    let blocked = false;
+    const unsubscribe = subscribePetriEvents({
+      cwd,
+      runId: 'run-1',
+      listener(event) {
+        if (blocked || event.kind !== 'transition_fired' || event.transitionId !== 'slice_start:task-1')
+          return;
+        blocked = true;
+        renameSync(markingPath, preservedMarking);
+        mkdirSync(markingPath);
+      },
+    });
+    let agentCalls = 0;
+    const ports = fakePorts({
+      agentRunner: {
+        async run() {
+          agentCalls += 1;
+          return { status: 'completed' };
+        },
+      },
+    });
+
+    await expect(
+      drive({ cwd, runId: 'run-1', ports }, petriScheduler, frontierFiringPolicy),
+    ).resolves.toEqual({
+      status: 'halted',
+      step: 'slice_start',
+      runStatus: 'reports_initialized',
+      reason: 'petri_marking_persist_failed',
+    });
+    unsubscribe();
+    expect(agentCalls).toBe(0);
+    rmSync(markingPath, { recursive: true });
+    renameSync(preservedMarking, markingPath);
+
+    await expect(
+      drive({ cwd, runId: 'run-1', ports }, petriScheduler, frontierFiringPolicy),
+    ).resolves.toEqual({
+      status: 'halted',
+      step: 'slice_start',
+      runStatus: 'reports_initialized',
+      reason: 'parallel_slice_replan_required',
+    });
+    expect(agentCalls).toBe(0);
+  });
+
+  it('starts no slice effect when the claim journal append fails', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-parallel-claim-journal-failure-'));
+    await createRunAtCreated(cwd, ['task-1', 'task-2']);
+    const preservedJournal = `${petriEventsPath(cwd, 'run-1')}.preserved`;
+    let blocked = false;
+    const unsubscribe = subscribePetriEvents({
+      cwd,
+      runId: 'run-1',
+      listener(event) {
+        if (blocked || event.kind !== 'transition_fired' || event.transitionId !== 'slice_start:task-1')
+          return;
+        blocked = true;
+        renameSync(petriEventsPath(cwd, 'run-1'), preservedJournal);
+        mkdirSync(petriEventsPath(cwd, 'run-1'));
+      },
+    });
+    let agentCalls = 0;
+    const ports = fakePorts({
+      agentRunner: {
+        async run() {
+          agentCalls += 1;
+          return { status: 'completed' };
+        },
+      },
+    });
+
+    await expect(
+      drive({ cwd, runId: 'run-1', ports }, petriScheduler, frontierFiringPolicy),
+    ).resolves.toEqual({
+      status: 'halted',
+      step: 'slice_start',
+      runStatus: 'reports_initialized',
+      reason: 'petri_journal_append_failed',
+    });
+    unsubscribe();
+    expect(agentCalls).toBe(0);
+    await expect(readFile(preservedJournal, 'utf8')).resolves.toContain(
+      '"transitionId":"slice_start:task-1"',
+    );
+  });
+
+  it('serializes fan-in in claimed order and stops at the first conflict', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-parallel-fan-in-'));
+    await createRunAtCreated(cwd, ['task-1', 'task-2', 'task-3']);
+    const calls: string[] = [];
+    const cleanTree: string[] = [];
+    let activeIntegrations = 0;
+    let maximumActiveIntegrations = 0;
+    const baseIntegration = createFakeGitSliceIntegrationPort();
+    const gitSliceIntegration = createFakeGitSliceIntegrationPort({
+      prepare: (args) => baseIntegration.prepare(args),
+      async integrate(args) {
+        calls.push(args.sliceId);
+        activeIntegrations += 1;
+        maximumActiveIntegrations = Math.max(maximumActiveIntegrations, activeIntegrations);
+        await Promise.resolve();
+        activeIntegrations -= 1;
+        if (args.sliceId === 'task-2') {
+          return { status: 'conflict', message: 'same file', sideEffects: [] };
+        }
+        cleanTree.push(args.sliceId);
+        return {
+          status: 'integrated',
+          sliceCommitSha: `${args.sliceId}-slice`,
+          integrationCommitSha: `${args.sliceId}-integrated`,
+          sideEffects: [],
+        };
+      },
+    });
+
+    await expect(
+      drive(
+        { cwd, runId: 'run-1', ports: fakePorts({ gitSliceIntegration }) },
+        petriScheduler,
+        frontierFiringPolicy,
+      ),
+    ).resolves.toEqual({
+      status: 'halted',
+      step: 'slice_integrate',
+      runStatus: 'slice_completed',
+      reason: 'slice_integration_conflict',
+    });
+    expect(calls).toEqual(['task-1', 'task-2']);
+    expect(maximumActiveIntegrations).toBe(1);
+    expect(cleanTree).toEqual(['task-1']);
+    await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+      completedSliceIds: ['task-1'],
+      integratedSliceCommits: { 'task-1': 'task-1-integrated' },
+    });
+  });
+
   it('prepares Petrinaut observation before invoking the first lifecycle effect', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-petrinaut-before-effect-'));
     await createRunAtCreated(cwd, ['task-1']);

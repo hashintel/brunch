@@ -11,6 +11,7 @@ import {
   type SchedulerPlan,
   type SchedulerPlanMode,
 } from './orchestrate-topology.js';
+import { executeParallelSliceBatch, parallelSliceBatchRecoveryRequired } from './parallel-slice-batch.js';
 import { appendPetriEvent } from './petri-events.js';
 import {
   petriMarkingLifecycleProvenance,
@@ -410,6 +411,54 @@ export async function drive(
         state,
         plan,
       });
+    const parallelSliceSteps = selectedSteps.every(
+      (step): step is Extract<ReadyStep, { readonly kind: 'slice_start' }> => step.kind === 'slice_start',
+    )
+      ? selectedSteps
+      : [];
+    const parallelSliceFrontier =
+      parallelSliceSteps.length > 0 &&
+      plan !== undefined &&
+      (state.status === 'reports_initialized' || state.status === 'slice_completed');
+    if (parallelSliceFrontier) {
+      const persisted = await readPetriMarkingSnapshot({ cwd: ctx.cwd, runId: ctx.runId });
+      if (
+        await parallelSliceBatchRecoveryRequired({
+          cwd: ctx.cwd,
+          runId: ctx.runId,
+          lifecycleFiredTransitionCount: firedTransitionCountForState(state, plan),
+          ...(persisted?.parallelSliceBatch ? { snapshotParallelBatch: persisted.parallelSliceBatch } : {}),
+        })
+      ) {
+        const terminal = classifyDriveTerminal({
+          kind: 'step_halted',
+          runId: ctx.runId,
+          runStatus: state.status,
+          step: 'slice_start',
+          reason: 'parallel_slice_replan_required',
+        });
+        const emitted = await emitNetEvent(ctx, terminal.event);
+        return emitted.journaled ? terminal.outcome : journalFailureOutcome(terminal);
+      }
+    }
+    if (
+      parallelSliceFrontier &&
+      plan !== undefined &&
+      firingPolicy === frontierFiringPolicy &&
+      ctx.onStepStart === undefined &&
+      options.maxFirings === undefined
+    ) {
+      const batch = await executeParallelSliceBatch({
+        ctx,
+        state,
+        plan,
+        runtime,
+        steps: parallelSliceSteps,
+      });
+      if (batch.status === 'halted') return batch;
+      firedTransitions += batch.firings;
+      continue;
+    }
     if (selectedSteps.length === 0) {
       const terminal = classifyDriveTerminal({
         kind: 'scheduler_exhausted',
