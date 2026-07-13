@@ -192,6 +192,16 @@ Ownership disposition: FE-1180 closes by explicit promotion, not by treating pro
 
 Deferred WR9–WR12 (compact tool rendering, `/introspect` legibility, review-set visual redesign, markdown/node-id polish) — owner: FE-1187 (Group 1) folded row `exchange-visual-design` (promoted 2026-07-13 under the owned-deferral rule, `docs/praxis/manual-testing.md` §Findings ledger discipline). The broader review-set/ask visual-revamp impulse (WR11) lives there too, with its trigger and cost note.
 
+### 2026-07-13 FE-1187 auth/model reversal — outer beat
+
+#### R1 · chrome / model policy · high · pass
+
+Concern: onboarding
+Evidence: manual TUI walkthrough on branch `ln/fe-1187-walkthrough-remediation-2` (commit 5938981d), workbench launch per `docs/praxis/manual-testing.md`.
+Observation: `/model` surfaces Pi's full native picker and `/login` runs Pi-native auth; no Brunch allowlist restriction, no `brunch login` product path, no startup-menu auth warning.
+Expected: D123-L open model/auth surface — Pi's native provider/model/thinking range with the soft recommended default from the sealed profile.
+Disposition: fixed — commit 5938981d (`feat: open Pi model and auth surface`); guarded by `brunch-tui.test.ts` boot-option projection, `workspace-dialog/component.test.ts` no-warning assertions, and the re-keyed I59-L registrar/juncture suppression tests. WR18 O1/O2 promoted failures (provider/model restrictions, `brunch login` path, startup warning) close with it. The no-model `/brunch:continue` + no-carrier observation (O1 promoted unknown) remains open on FE-1187.
+
 Use future entries like:
 
 ```md
