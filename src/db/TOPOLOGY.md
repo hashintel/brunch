@@ -1,6 +1,6 @@
 # db/ — Persistence substrate
 
-SPEC decisions: D16-L, D41-L, D45-L, D52-L, D54-L, D62-L, D63-L, D65-L, D75-L, D99-L, I52-L
+SPEC decisions: D16-L, D41-L, D45-L, D52-L, D54-L, D62-L, D63-L, D65-L, D75-L, D99-L, D118-L, I52-L
 
 ## Owns
 
@@ -99,7 +99,13 @@ their boundary.
 
 The current graph and graph-adjacent tables are spec-scoped: `specs` (`id`, `name`, `slug`, and `kind` — the `product | feature | function` scope ownership relation, D89-L; `readiness_band` stays computed, not stored, per D45-L), `nodes`,
 `edges`, `node_kind_counters`, `graph_clock`, `change_log`, and
-`reconciliation_need`. `graph_clock` is keyed by
+`reconciliation_need`. `specs` also carries spec posture (D118-L): a nullable
+`origin` (`greenfield | brownfield`, `null` until the workspace-dialog
+establishment step confirms it) and a nullable self-referencing
+`relates_to_spec_id` — the A41-L reference-only shape, no spec-to-spec claim
+model. `kind` keeps its schema-level `'product'` default for non-dialog
+callers; establishment confirming `kind` is workspace-dialog conduct, not a
+schema constraint. `graph_clock` is keyed by
 `spec_id`; `change_log` carries `spec_id` and is keyed by `(spec_id, lsn)`, so
 a bare LSN is comparable only inside one spec.
 

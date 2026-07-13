@@ -1,6 +1,6 @@
 # session/ — Session domain layer
 
-SPEC decisions: D6-L, D11-L, D12-L, D13-L, D21-L, D40-L, D52-L, D76-L, D77-L, D78-L, D84-L, D101-L, D102-L, I56-L
+SPEC decisions: D6-L, D11-L, D12-L, D13-L, D21-L, D40-L, D52-L, D76-L, D77-L, D78-L, D84-L, D101-L, D102-L, D118-L, I56-L
 
 ## Owns
 
@@ -99,7 +99,22 @@ plus the coordination logic for workspace/spec/session lifecycle.
   and intentionally carries no readiness phase or chat-mode display fields.
   Its private `workspace-session-coordinator/` subtree owns coordinator-shaped
   session-file/probe helpers such as canonical session-file classification;
-  external callers import only the public root module.
+  external callers import only the public root module. `WorkspaceLaunchInventory`
+  additionally carries `workspacePopulated` (cwd content beyond `.brunch/`, via
+  `workspace/cwd-inventory.ts`) — the D118-L establishment branch signal,
+  distinct from the `.brunch/workspace.json` posture stub below.
+
+- **Spec-posture establishment** (`spec-establishment.ts`, D118-L) — the pure
+  deterministic branching over cwd-populated state and current posture shared
+  by spec creation (posture starts unestablished) and spec resume (never
+  re-asked once `origin` is set). Lives here rather than under
+  `.pi/components/workspace-dialog/` (that seam's tentative home) because
+  `src/.pi/components/TOPOLOGY.md`'s dependency direction only allows
+  components to import session/, never the reverse, and both the dialog
+  (create) and the coordinator (resume) need it. Spec posture itself
+  (`kind`/`origin`/`relatesToSpecId`) is spec-row state owned by `db/` and
+  read into `WorkspaceSpecState` via `CommandExecutor.getSpec`; this module
+  decides *whether to ask*, never persists.
 
 - **Session binding** — session↔spec binding entries in JSONL.
 
@@ -160,6 +175,12 @@ Live runtime posture is operational-mode keyed. `session.runtimeState` reports
 mode and derived role, plus mention/world/lifecycle facts. Anything more specific
 belongs to product exchange state or prompt-resource behavior, not transcript
 runtime state.
+
+Distinct from **spec posture** (D118-L: `origin`/confirmed `kind`/
+`relatesToSpecId`) below — spec posture is spec-row state owned by `db/`, not
+runtime/transcript state, and is out of scope for this ledger. It is also
+distinct from the workspace-level posture stub in `.brunch/workspace.json`
+(`WorkspacePostureState`, unchanged), which stays owned by `workspace/`.
 
 | Row                         | Canonical owner                                         | Agent    | RPC      | Web      | Reason for deferred                                                       |
 | --------------------------- | ------------------------------------------------------- | -------- | -------- | -------- | ------------------------------------------------------------------------- |
