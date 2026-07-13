@@ -36,6 +36,10 @@ export type { ExecutorNetEvent, ReadyStep, SchedulerPlan, SchedulerPlanMode };
 // self-advancing run. It owns no side effects of its own: each ReadyStep maps
 // to one step function, and the run.json status IS the loop state (D112-L).
 
+// ceiling: constant retry bound; move to a plan-declared per-slice budget when
+// plans need differentiated attempt policies.
+const SLICE_ATTEMPT_RETRY_LIMIT = 2;
+
 export interface RunScheduler {
   /** Pure: given current run facts, return the ready step frontier (`[]` when done). */
   ready(
@@ -467,6 +471,32 @@ export async function drive(
       const boundTransition = boundRuntime.transitionForReadyStep(next);
       const result = boundTransition ? await boundTransition.execute() : await neverBoundReadyStep(next);
       if (result.runStatus === currentState.status) {
+        if (
+          result.status === 'agent_run_failed' &&
+          'attempts' in result &&
+          typeof result.attempts === 'number' &&
+          currentState.activeSliceId !== undefined
+        ) {
+          const emitted = await emitNetEvent(ctx, {
+            kind: 'attempt_failed',
+            runId: ctx.runId,
+            runStatus: currentState.status,
+            sliceId: currentState.activeSliceId,
+            ...(currentState.activeEpicId === undefined ? {} : { epicId: currentState.activeEpicId }),
+            step: next.kind,
+            attempt: result.attempts,
+            reason: result.status,
+          });
+          if (!emitted.journaled) {
+            return {
+              status: 'halted',
+              step: next.kind,
+              runStatus: currentState.status,
+              reason: 'petri_journal_append_failed',
+            };
+          }
+          if (result.attempts <= SLICE_ATTEMPT_RETRY_LIMIT) continue;
+        }
         const terminal = classifyDriveTerminal({
           kind: 'step_halted',
           runId: ctx.runId,
@@ -506,6 +536,7 @@ export async function drive(
             produced: transition.outputArcs.map((arc) => arc.placeId),
             fromStatus: currentState.status,
             toStatus: result.runStatus,
+            ...(currentState.activeSliceAttempts ? { attempt: currentState.activeSliceAttempts + 1 } : {}),
           });
           if (!emitted.journaled) {
             return {

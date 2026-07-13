@@ -12,6 +12,7 @@ import {
   assessRunRetryEligibility,
   type RunRetryEligibilityResult,
 } from '../../../../executor/run-retry-eligibility.js';
+import { resetActiveSliceAttempts, type RunMetadataWriteEffect } from '../../../../executor/run.js';
 import { BRUNCH_EXECUTE_REPLAN_RETRY_CURRENT_STEP_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
 import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
@@ -41,12 +42,12 @@ type ExecuteReplanRetryCurrentStepResult =
       readonly status: 'retried_current_step';
       readonly eligibility: RunRetryEligibilityResult;
       readonly outcome: DriveOutcome;
-      readonly sideEffects: readonly [];
+      readonly sideEffects: readonly RunMetadataWriteEffect[];
     };
 
 interface ExecuteReplanRetryCurrentStepDetails {
   readonly result: ExecuteReplanRetryCurrentStepResult;
-  readonly sideEffects: readonly [];
+  readonly sideEffects: readonly RunMetadataWriteEffect[];
 }
 
 export interface ExecuteReplanRetryCurrentStepDeps {
@@ -83,30 +84,33 @@ export function createExecuteReplanRetryCurrentStepTool(
         current,
       });
 
-      const result: ExecuteReplanRetryCurrentStepResult =
-        eligibility.status === 'retry_current_run'
-          ? {
-              status: 'retried_current_step',
-              eligibility,
-              outcome: await drive(
-                {
-                  cwd,
-                  runId: params.runId,
-                  ports,
-                  runtime: {
-                    ...(ctx.modelRegistry ? { modelRegistry: ctx.modelRegistry } : {}),
-                    ...(ctx.model ? { model: ctx.model } : {}),
-                    ...(_signal ? { signal: _signal } : {}),
-                  },
-                  ...(_signal ? { signal: _signal } : {}),
-                },
-                linearScheduler,
-                serialFiringPolicy,
-                { maxFirings: 1 },
-              ),
-              sideEffects: [],
-            }
-          : { status: 'retry_not_allowed', eligibility, sideEffects: [] };
+      let result: ExecuteReplanRetryCurrentStepResult;
+      if (eligibility.status === 'retry_current_run') {
+        const attemptResetEffect = await resetActiveSliceAttempts({ cwd, runId: params.runId });
+        result = {
+          status: 'retried_current_step',
+          eligibility,
+          outcome: await drive(
+            {
+              cwd,
+              runId: params.runId,
+              ports,
+              runtime: {
+                ...(ctx.modelRegistry ? { modelRegistry: ctx.modelRegistry } : {}),
+                ...(ctx.model ? { model: ctx.model } : {}),
+                ...(_signal ? { signal: _signal } : {}),
+              },
+              ...(_signal ? { signal: _signal } : {}),
+            },
+            linearScheduler,
+            serialFiringPolicy,
+            { maxFirings: 1 },
+          ),
+          sideEffects: attemptResetEffect === undefined ? [] : [attemptResetEffect],
+        };
+      } else {
+        result = { status: 'retry_not_allowed', eligibility, sideEffects: [] };
+      }
 
       return {
         content: [

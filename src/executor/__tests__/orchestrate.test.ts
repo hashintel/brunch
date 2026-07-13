@@ -36,7 +36,14 @@ import { populatedPlanPath as runPopulatedPlanPath, populateWorktree } from '../
 import { preparePromotion } from '../promotion.js';
 import { initializeReports, reportsPath } from '../report.js';
 import { completeRun } from '../run-complete.js';
-import { createRun, readRunMetadata, runDirPath, runMetadataPath, type RunMetadata } from '../run.js';
+import {
+  createRun,
+  readRunMetadata,
+  resetActiveSliceAttempts,
+  runDirPath,
+  runMetadataPath,
+  type RunMetadata,
+} from '../run.js';
 import { completeSlice } from '../slice-complete.js';
 import { requestSliceExecution } from '../slice-execute.js';
 import { startSlice } from '../slice-start.js';
@@ -56,6 +63,17 @@ const completedAgentRunner: AgentRunnerPort = {
     return { status: 'completed' };
   },
 };
+
+function flakyAgentRunner(failures: number): AgentRunnerPort & { readonly calls: () => number } {
+  let calls = 0;
+  return {
+    calls: () => calls,
+    async run() {
+      calls += 1;
+      return calls <= failures ? { status: 'failed', message: 'flaky agent' } : { status: 'completed' };
+    },
+  };
+}
 
 function fakePorts(overrides: Partial<ExecutionPorts> = {}): ExecutionPorts {
   return {
@@ -222,6 +240,81 @@ describe('drive', () => {
     expect(meta?.status).toBe('promotion_prepared');
     expect(meta?.completedSliceIds).toEqual(['task-1', 'task-2']);
     expect(meta?.promotionCommitSha).toBe('abc123');
+  });
+
+  it('retries a failed agent attempt in-run and journals every attempt', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-attempt-retry-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    const agentRunner = flakyAgentRunner(2);
+
+    const outcome = await drive({ cwd, runId: 'run-1', ports: fakePorts({ agentRunner }) });
+
+    expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+    expect(agentRunner.calls()).toBe(3);
+    const events = await readPetriEvents(cwd);
+    const attempts = events.filter((event) => event.kind === 'attempt_failed');
+    expect(attempts).toEqual([
+      expect.objectContaining({
+        sliceId: 'task-1',
+        epicId: 'frontier-1',
+        step: 'agent_result',
+        attempt: 1,
+        reason: 'agent_run_failed',
+        runStatus: 'slice_execution_requested',
+      }),
+      expect.objectContaining({ sliceId: 'task-1', attempt: 2 }),
+    ]);
+    const agentFiring = events.find(
+      (event) => event.kind === 'transition_fired' && event.step === 'agent_result',
+    );
+    expect(agentFiring).toMatchObject({ attempt: 3 });
+    expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.activeSliceAttempts).toBeUndefined();
+  });
+
+  it('halts through the existing replan flow when agent attempts exhaust', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-attempt-exhaust-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    const agentRunner = flakyAgentRunner(Number.POSITIVE_INFINITY);
+
+    const outcome = await drive({ cwd, runId: 'run-1', ports: fakePorts({ agentRunner }) });
+
+    expect(outcome).toEqual({
+      status: 'halted',
+      step: 'agent_result',
+      runStatus: 'slice_execution_requested',
+      reason: 'agent_run_failed',
+    });
+    expect(agentRunner.calls()).toBe(3);
+    const events = await readPetriEvents(cwd);
+    expect(events.filter((event) => event.kind === 'attempt_failed').map((event) => event.attempt)).toEqual([
+      1, 2, 3,
+    ]);
+    expect(events.at(-1)).toMatchObject({
+      kind: 'net_halted',
+      step: 'agent_result',
+      reason: 'agent_run_failed',
+    });
+    expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.activeSliceAttempts).toBe(3);
+  });
+
+  it('resets the attempt bound on explicit retry so a retried drive gets fresh attempts', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-attempt-reset-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    const agentRunner = flakyAgentRunner(Number.POSITIVE_INFINITY);
+    await drive({ cwd, runId: 'run-1', ports: fakePorts({ agentRunner }) });
+    expect(agentRunner.calls()).toBe(3);
+
+    await resetActiveSliceAttempts({ cwd, runId: 'run-1' });
+
+    expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.activeSliceAttempts).toBeUndefined();
+    const retried = await drive({ cwd, runId: 'run-1', ports: fakePorts({ agentRunner }) });
+    expect(retried).toMatchObject({ status: 'halted', reason: 'agent_run_failed' });
+    expect(agentRunner.calls()).toBe(6);
+    expect(
+      (await readPetriEvents(cwd))
+        .filter((event) => event.kind === 'attempt_failed')
+        .map((event) => event.attempt),
+    ).toEqual([1, 2, 3, 1, 2, 3]);
   });
 
   it('halts without further lifecycle steps when a transition journal append fails', async () => {

@@ -39,6 +39,8 @@ export function replayPetri(args: {
         sawTerminalEvent = true;
         terminalSummary = mergeTerminalSummary(terminalSummary, event);
         break;
+      case 'attempt_failed':
+        break;
     }
   }
 
