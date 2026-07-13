@@ -1,8 +1,10 @@
-import type {
-  PetrinautReplayExport,
-  PetrinautReplayMarking,
-  PetrinautReplayNetDefinition,
-  PetrinautReplayTransitionFiring,
+import {
+  PETRI_RUN_FINISH_TRANSITION,
+  synthesizePetriRunStatusFiring,
+  type PetrinautReplayExport,
+  type PetrinautReplayMarking,
+  type PetrinautReplayNetDefinition,
+  type PetrinautReplayTransitionFiring,
 } from './replay-export.js';
 
 export type PetrinautTerminalState = 'completed' | 'halted' | 'deadlocked';
@@ -19,6 +21,11 @@ export function projectPetrinautStreamFrames(args: {
   readonly replayExport: PetrinautReplayExport;
   readonly terminal?: { readonly state: PetrinautTerminalState; readonly reason?: string };
 }): readonly PetrinautStreamFrame[] {
+  const needsTerminalFiring =
+    args.terminal !== undefined &&
+    !args.replayExport.transitionFirings.some(
+      (firing) => firing.transitionId === PETRI_RUN_FINISH_TRANSITION,
+    );
   return [
     {
       kind: 'status',
@@ -28,6 +35,20 @@ export function projectPetrinautStreamFrames(args: {
     { kind: 'definition', definition: args.replayExport.definition },
     { kind: 'initial_state', initialState: args.replayExport.initialState },
     ...args.replayExport.transitionFirings.map((firing) => ({ kind: 'transition_firing' as const, firing })),
+    ...(needsTerminalFiring
+      ? [
+          {
+            kind: 'transition_firing' as const,
+            firing: synthesizePetriRunStatusFiring(
+              args.terminal!.state === 'completed'
+                ? 'net_completed'
+                : args.terminal!.state === 'halted'
+                  ? 'net_halted'
+                  : 'net_deadlocked',
+            ),
+          },
+        ]
+      : []),
     ...(args.terminal === undefined
       ? []
       : [

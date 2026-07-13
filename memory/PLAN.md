@@ -82,8 +82,9 @@ Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_
 
 ### Parallel / Low-Conflict
 
-- **Open PRs:** FE-1183's final read-only Petrinaut replay/export closure is on PR #320; the interpreter and plan-alignment predecessors landed through #311/#319. The 2026-07-08 second merge wave and FE-1169 chrome batch (#305) are merged.
+- **Open PRs:** FE-1190 live-from-start Petrinaut observation is on draft PR #322. FE-1183's replay/export closure merged in #320; its interpreter and plan-alignment predecessors landed through #311/#319.
 - `petri-interpreter-port` (FE-1183) — implementation complete; PR #320 adds the final finite replay/export observer surface without live execution authority. True live-from-start streaming and durable parallel side-effect authority remain separate fresh-frontier decisions.
+- `petrinaut-live-run-stream` (FE-1190) — implementation complete on draft PR #322; review hardening freezes one run plan, makes observation attachable at run creation, orders terminal delivery through journal/abandonment wake-ups, coalesces refreshes, and proves reconnect equivalence.
 - `executor-run-environment` (FE-1166 follow-up) — the substrate/verify policy is merged; the real-run failure remains prepared in [`memory/cards/executor-run-environment--actionable-slice-request.md`](cards/executor-run-environment--actionable-slice-request.md). Before build, `ln-plan` must settle whether this remains FE-1166 work or becomes a fresh frontier/branch; do not let the prepared card bypass the tracker/branch boundary.
 - **Standing obligations:** `probes-and-transcripts-evolution` and `topology-readmes-and-boundaries` ride the frontier that triggers them; they are not standalone cleanup buckets.
 
@@ -94,7 +95,6 @@ Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_
 - `develop-mode` — third operational mode `develop` / Develop running a new `engineer` agent: a Brunch-aware coding assistant *without* the `execute_*` tool set and with kick/consult mechanisms inert (user-driven turns, not agent-driven). Split out of `main-editor-chrome` at the 2026-07-08 grill. Entry is a SPEC revision, not a feature slice: D98-L ("two modes only" — though Develop is a distinct agent with different grants, not the conduct-bias `Enhance` that grill rejected), req 26, and D40-L placement of `engineer` in the concentric authority matrix (executor-minus-`execute_*`? elicitor-plus-coding?), plus a new per-mode kick/consult-suppression policy axis. Route through `ln-grill`/`ln-spec` at pickup. Groundwork (mode-cycling keybinding, border-by-mode) lands mode-agnostically in `main-editor-chrome`.
 - `headless-ask-discovery` — the A39-L follow-up to D116-L: RPC discovery of open `ask` calls (streamed session events or a pending-interactive-call read method) replacing `session.pendingExchange` transcript scanning, so an agent-as-user driver can generatively build specs against a goal over the headless surface. Not first-release-critical; headless asks resolve `unavailable` until this lands. Broker (`awaitAnswer`/`session.submitExchangeResponse`) is unchanged by design.
 - **Petri follow-up trigger:** durable parallel side-effect authority remains deferred after FE-1183. Route through `ln-plan` after PR #320 merges and admit a fresh frontier only when parallel firing must own recoverable side effects; do not extend FE-1183 merely for broader old-`main` Petrinaut parity.
-- `petrinaut-live-run-stream` (Linear at pickup) — true live-from-start observer streaming: materialize the immutable SDCPN definition and empty journal before the first transition, attach transport before initial marking, and preserve replay/reconnect equivalence. This is not part of PR #320's finite post-export replay surface. Definition below.
 - `reconciliation-derivation` — derive `edge_revalidation` reconciliation needs from LSN comparison instead of persisting them; full definition below (inventory findings from 2026-07-02, worth keeping). **Confirmed behind the gate 2026-07-03 (grill G7):** the ingest throughline's conflict routing rides the existing persisted `reconciliation_need` substrate (`create_reconciliation_need` is live); nothing in the gate needs the LSN-derived generator. Honor the convergence: the `contradictory` seed variant capture now rides `walkthrough-evidence-batch` (FE-1167).
 - `reviewer-agent-mode` — D29-L's async advisory reviewer remains designed but unbuilt: narrow write authority to `reconciliation_need`, batch-acceptance trigger keyed by session/batch entry, A16-L trigger/scope questions still open. Behind the ship gate; no frontier until post-acceptance review becomes POC-blocking or reviewer residues need executable closure.
 - `session-branching` — support session branching (D24-L reversal); needs branch-aware continuity/coherence design (A37-L).
@@ -304,8 +304,8 @@ Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_
 ### petrinaut-live-run-stream
 
 - **Name:** Petrinaut live run stream — pre-execution definition through terminal replay
-- **Linear:** unassigned (create at pickup, FE team / brunch project)
-- **Branch:** tbd at pickup (off `next` after PR #320)
+- **Linear:** [FE-1190](https://linear.app/hash/issue/FE-1190/petrinaut-live-run-stream)
+- **Branch:** `ka/fe-1190-petrinaut-live-run-stream` ([PR #322](https://github.com/hashintel/brunch/pull/322), off `next`)
 - **Kind:** structural observer transport over the executor event journal.
 - **Certainty:** proving.
 - **Lights up:** a Petrinaut connection established before the first executor transition, with late-join replay equivalent to the observed live sequence.
@@ -313,6 +313,7 @@ Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_
 - **Acceptance sketch:** production lifecycle test connects before the first transition; reconnect receives the same ordered timeline; terminal closes the stream; malformed artifacts fail closed; configured-origin CORS remains enforced; stream observers cannot mutate or claim execution.
 - **Depends on:** FE-1183 / PR #320 finite replay contract. Explicitly excludes durable parallel side-effect authority.
 - **Traceability:** D111-L, D112-L, I58-L; `src/executor/TOPOLOGY.md`, `src/rpc/TOPOLOGY.md`.
+- **Status:** implementation and review hardening complete on PR #322. Run creation freezes one plan and materializes attachable observer artifacts; live delivery uses subscribe-before-snapshot catch-up, journal-ordered completion, metadata-only abandonment wake-ups, single-flight refresh, reconnect equivalence, and host-shutdown cleanup. Two Bugbot findings closed 2026-07-12: (1) fail-closed append semantics — a failed durable append halts the drive (`petri_journal_append_failed`), reaches no hint surface or marking snapshot, and closes active streams via a run-scoped journal-failure wake-up (deterministic EISDIR-injection oracles); (2) a matching marking snapshot that lags the journal terminal no longer masks it — the projection backfills the terminal from replay truth only, so a live refresh racing the marking persist still delivers the terminal frame (deterministic window-state oracles). Final review/merge pending.
 
 
 ### reconciliation-derivation
@@ -368,7 +369,7 @@ frontiers:
       depends_on: D111-L, D112-L; current executor lifecycle steps stay canonical side-effect boundaries
 
     petrinaut-live-run-stream
-      status: Horizon; Linear/branch at pickup
+      status: implementation complete on FE-1190 / PR #322; review/merge pending
       excludes: lifecycle authority, parallel side-effect authority
 
   mechanism-trace

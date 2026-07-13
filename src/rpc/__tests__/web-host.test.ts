@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -6,7 +6,20 @@ import { join } from 'node:path';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
-import { runDirPath, runMetadataPath, type RunMetadata } from '../../executor/run.js';
+import {
+  createFakeGitHostPromotionPort,
+  createFakeGitLandPort,
+  createFakeGitWorktreePort,
+  createFakeTestRunnerPort,
+} from '../../executor/__tests__/fake-ports.js';
+import type { ExecutionPorts } from '../../executor/execution-ports.js';
+import { drive, linearScheduler, serialFiringPolicy } from '../../executor/orchestrate.js';
+import { appendPetriEvent, subscribePetriEvents } from '../../executor/petri-events.js';
+import { preparePetriObservation } from '../../executor/petri.js';
+import { planFilePath } from '../../executor/plan-file.js';
+import { abandonRun } from '../../executor/run-abandon.js';
+import { createRun } from '../../executor/run.js';
+import { readRunMetadata, runDirPath, runMetadataPath, type RunMetadata } from '../../executor/run.js';
 import { runCreateOnlyMutation } from '../../graph/__tests__/support/create-only-mutation.js';
 import { openWorkspaceGraphRuntime } from '../../graph/workspace-store.js';
 import { assistantMessage, userMessage } from '../../probes/test-helpers.js';
@@ -99,6 +112,20 @@ function parseSse(body: string): Array<{ event: string; data: unknown }> {
       const data = lines.find((line) => line.startsWith('data: '))?.slice('data: '.length) ?? '';
       return { event, data: data.length === 0 ? undefined : JSON.parse(data) };
     });
+}
+
+function executorPorts(gitWorktree: ExecutionPorts['gitWorktree']): ExecutionPorts {
+  return {
+    gitWorktree,
+    agentRunner: {
+      async run() {
+        return { status: 'completed' };
+      },
+    },
+    testRunner: createFakeTestRunnerPort(),
+    gitLand: createFakeGitLandPort(),
+    gitHostPromotion: createFakeGitHostPromotionPort({}),
+  };
 }
 
 async function writePetrinautReplayRun(
@@ -901,31 +928,405 @@ describe('web host', () => {
     }
   });
 
-  it('serves a finite Petrinaut SSE replay when the journal has no terminal event', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-finite-'));
+  it('keeps a nonterminal Petrinaut replay open and streams a later terminal event', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-live-'));
     await writePetrinautReplayRun(cwd, 'run-1', { terminal: false });
     const host = await startWebHost({ cwd, port: 0 });
     try {
-      const controller = new AbortController();
-      const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`, {
-        signal: controller.signal,
-      });
-      const body = await Promise.race([
-        response.text(),
-        new Promise<'timed_out'>((resolve) => setTimeout(() => resolve('timed_out'), 100)),
-      ]);
-      controller.abort();
+      const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      const first = await reader.read();
+      expect(first.done).toBe(false);
+      let body = decoder.decode(first.value);
 
-      expect(body).not.toBe('timed_out');
-      const frames = parseSse(body as string);
+      await appendPetriEvent({
+        cwd,
+        runId: 'run-1',
+        event: { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+      });
+
+      for (;;) {
+        const next = await reader.read();
+        if (next.done) break;
+        body += decoder.decode(next.value);
+      }
+      const frames = parseSse(body);
 
       expect(frames.map((frame) => frame.event)).toEqual([
         'status',
         'definition',
         'initial_state',
         'transition_firing',
+        'transition_firing',
+        'terminal',
       ]);
       expect(frames[0]?.data).toEqual({ state: 'running' });
+      expect(frames[4]?.data).toMatchObject({ transitionId: 'run:finish', output: { 'run:completed': 1 } });
+      expect(frames[5]?.data).toEqual({ state: 'completed' });
+    } finally {
+      await host.close();
+    }
+  });
+
+  it('delivers a terminal appended while the initial stream snapshot is opening exactly once', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-handoff-'));
+    await writePetrinautReplayRun(cwd, 'run-1', { terminal: false });
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const responsePromise = fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      await appendPetriEvent({
+        cwd,
+        runId: 'run-1',
+        event: { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+      });
+      const response = await responsePromise;
+      const frames = parseSse(await response.text());
+
+      expect(frames.filter((frame) => frame.event === 'terminal')).toHaveLength(1);
+      expect(
+        frames.filter(
+          (frame) =>
+            frame.event === 'transition_firing' &&
+            typeof frame.data === 'object' &&
+            frame.data !== null &&
+            'transitionId' in frame.data &&
+            frame.data.transitionId === 'run:finish',
+        ),
+      ).toHaveLength(1);
+    } finally {
+      await host.close();
+    }
+  });
+
+  it('streams a production executor run connected before its first transition', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-drive-'));
+    await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
+    await writeFile(
+      planFilePath(cwd, '42'),
+      JSON.stringify({
+        mode: 'greenfield',
+        epics: [{ id: 'frontier-1', summary: 'Build feature', depends_on: [], verification: [] }],
+        slices: [
+          {
+            id: 'task-1',
+            epic_id: 'frontier-1',
+            definition: 'Build task one.',
+            depends_on: [],
+            verification: [],
+          },
+        ],
+      }),
+      'utf8',
+    );
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
+    await preparePetriObservation({ cwd, runId: 'run-1' });
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      const first = await reader.read();
+      expect(first.done).toBe(false);
+      let body = decoder.decode(first.value);
+
+      const driven = drive({
+        cwd,
+        runId: 'run-1',
+        ports: executorPorts(createFakeGitWorktreePort()),
+      });
+      await expect(driven).resolves.toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+      for (;;) {
+        const next = await reader.read();
+        if (next.done) break;
+        body += decoder.decode(next.value);
+      }
+      const frames = parseSse(body);
+      const firings = frames.filter((frame) => frame.event === 'transition_firing');
+
+      expect(frames.slice(0, 3).map((frame) => frame.event)).toEqual([
+        'status',
+        'definition',
+        'initial_state',
+      ]);
+      expect(firings[0]?.data).toMatchObject({ transitionId: 'worktree_create' });
+      expect(
+        firings
+          .slice(-2)
+          .map((frame) =>
+            typeof frame.data === 'object' && frame.data !== null && 'transitionId' in frame.data
+              ? frame.data.transitionId
+              : undefined,
+          ),
+      ).toEqual(['promotion', 'run:finish']);
+      expect(frames.at(-1)).toEqual({ event: 'terminal', data: { state: 'completed' } });
+    } finally {
+      await host.close();
+    }
+  });
+
+  // Regression oracle for the FE-1190 fail-closed journal contract (Bugbot finding).
+  it('closes an active stream when a durable journal append fails mid-run', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-journal-failure-'));
+    await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
+    await writeFile(
+      planFilePath(cwd, '42'),
+      JSON.stringify({
+        mode: 'greenfield',
+        epics: [{ id: 'frontier-1', summary: 'Build feature', depends_on: [], verification: [] }],
+        slices: [
+          {
+            id: 'task-1',
+            epic_id: 'frontier-1',
+            definition: 'Build task one.',
+            depends_on: [],
+            verification: [],
+          },
+        ],
+      }),
+      'utf8',
+    );
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
+    await preparePetriObservation({ cwd, runId: 'run-1' });
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      const first = await reader.read();
+      expect(first.done).toBe(false);
+      let body = decoder.decode(first.value);
+
+      const ports = executorPorts(createFakeGitWorktreePort());
+      await expect(
+        drive({ cwd, runId: 'run-1', ports }, linearScheduler, serialFiringPolicy, { maxFirings: 2 }),
+      ).resolves.toEqual({ status: 'completed', runStatus: 'worktree_populated' });
+      while ((body.match(/event: transition_firing/gu) ?? []).length < 2 || !body.endsWith('\n\n')) {
+        const next = await reader.read();
+        expect(next.done).toBe(false);
+        body += decoder.decode(next.value);
+      }
+
+      // Replace the journal file with a directory so every later appendFile fails (EISDIR).
+      const journalPath = join(runDirPath(cwd, 'run-1'), 'petrinaut', 'events.jsonl');
+      await rm(journalPath);
+      await mkdir(journalPath);
+
+      const wakeUpsAfterBreak: string[] = [];
+      const unsubscribe = subscribePetriEvents({
+        cwd,
+        runId: 'run-1',
+        listener: (event) => wakeUpsAfterBreak.push(event.kind),
+      });
+      try {
+        await expect(drive({ cwd, runId: 'run-1', ports })).resolves.toEqual({
+          status: 'halted',
+          step: 'source_policy',
+          runStatus: 'source_policy_selected',
+          reason: 'petri_journal_append_failed',
+        });
+      } finally {
+        unsubscribe();
+      }
+      const metadata = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+      expect(metadata?.status).toBe('source_policy_selected');
+      expect(wakeUpsAfterBreak).toEqual([]);
+
+      for (;;) {
+        const next = await reader.read();
+        if (next.done) break;
+        body += decoder.decode(next.value);
+      }
+
+      const frames = parseSse(body);
+      expect(frames.filter((frame) => frame.event === 'transition_firing')).toHaveLength(2);
+      expect(frames.some((frame) => frame.event === 'terminal')).toBe(false);
+    } finally {
+      await host.close();
+    }
+  });
+
+  // Regression oracle for the terminal-lagging marking snapshot race (FE-1190 Bugbot):
+  // a live refresh between the journal terminal append and the terminal marking persist
+  // must still deliver the terminal from replay truth instead of hanging.
+  it('delivers the journal terminal when the wake-up outruns the marking snapshot', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-terminal-race-'));
+    await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
+    await writeFile(
+      planFilePath(cwd, '42'),
+      JSON.stringify({
+        mode: 'greenfield',
+        epics: [{ id: 'frontier-1', summary: 'Build feature', depends_on: [], verification: [] }],
+        slices: [
+          {
+            id: 'task-1',
+            epic_id: 'frontier-1',
+            definition: 'Build task one.',
+            depends_on: [],
+            verification: [],
+          },
+        ],
+      }),
+      'utf8',
+    );
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
+    await preparePetriObservation({ cwd, runId: 'run-1' });
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      const first = await reader.read();
+      expect(first.done).toBe(false);
+      let body = decoder.decode(first.value);
+
+      // Crank one firing at a time; each drive() call returns before scheduler
+      // exhaustion, so the loop lands exactly in the race window: run.json and the
+      // marking snapshot record promotion_prepared while the journal has no terminal.
+      const ports = executorPorts(createFakeGitWorktreePort());
+      let firedTransitions = 0;
+      for (;;) {
+        await drive({ cwd, runId: 'run-1', ports }, linearScheduler, serialFiringPolicy, {
+          maxFirings: 1,
+        });
+        firedTransitions += 1;
+        const metadata = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+        if (metadata?.status === 'promotion_prepared') break;
+      }
+      while (
+        (body.match(/event: transition_firing/gu) ?? []).length < firedTransitions ||
+        !body.endsWith('\n\n')
+      ) {
+        const next = await reader.read();
+        expect(next.done).toBe(false);
+        body += decoder.decode(next.value);
+      }
+
+      // The next thing drive() would do: append the journal terminal. The wake-up
+      // fires while the marking snapshot still lacks terminalEventKind.
+      await appendPetriEvent({
+        cwd,
+        runId: 'run-1',
+        event: { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+      });
+      for (;;) {
+        const next = await reader.read();
+        if (next.done) break;
+        body += decoder.decode(next.value);
+      }
+
+      const frames = parseSse(body);
+      expect(frames.filter((frame) => frame.event === 'transition_firing')).toHaveLength(
+        firedTransitions + 1,
+      );
+      expect(body).toContain('"transitionId":"run:finish"');
+      expect(frames.at(-1)).toEqual({ event: 'terminal', data: { state: 'completed' } });
+    } finally {
+      await host.close();
+    }
+  });
+
+  it('closes active Petrinaut streams during web host shutdown', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-shutdown-'));
+    await writePetrinautReplayRun(cwd, 'run-1', { terminal: false });
+    const host = await startWebHost({ cwd, port: 0 });
+    const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+    const reader = response.body!.getReader();
+    expect((await reader.read()).done).toBe(false);
+
+    const beforeClose = await Promise.race([
+      reader.read().then((result) => (result.done ? 'closed' : 'frame')),
+      new Promise<'pending'>((resolve) => setTimeout(() => resolve('pending'), 50)),
+    ]);
+    expect(beforeClose).toBe('pending');
+
+    await host.close();
+    await expect(reader.read()).resolves.toMatchObject({ done: true });
+  });
+
+  it('wakes an active Petrinaut stream when the run is abandoned without a journal append', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-abandon-'));
+    await writePetrinautReplayRun(cwd, 'run-1', { terminal: false, status: 'worktree_created' });
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      const first = await reader.read();
+      let body = decoder.decode(first.value);
+
+      await abandonRun({ cwd, runId: 'run-1', reason: 'operator stopped run' });
+      for (;;) {
+        const next = await reader.read();
+        if (next.done) break;
+        body += decoder.decode(next.value);
+      }
+      const frames = parseSse(body);
+
+      expect(frames.at(-2)).toMatchObject({
+        event: 'transition_firing',
+        data: { transitionId: 'run:finish', output: { 'run:halted': 1 } },
+      });
+      expect(frames.at(-1)).toEqual({
+        event: 'terminal',
+        data: { state: 'halted', reason: 'operator stopped run' },
+      });
+    } finally {
+      await host.close();
+    }
+  });
+
+  it('closes an active stream when a terminal refresh becomes unreadable', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-invalid-refresh-'));
+    await writePetrinautReplayRun(cwd, 'run-1', { terminal: false, status: 'worktree_created' });
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const reader = response.body!.getReader();
+      expect((await reader.read()).done).toBe(false);
+      await writeFile(join(runDirPath(cwd, 'run-1'), 'petrinaut', 'net.sdcpn.json'), '{', 'utf8');
+
+      await appendPetriEvent({
+        cwd,
+        runId: 'run-1',
+        event: { kind: 'net_halted', runId: 'run-1', runStatus: 'worktree_created', reason: 'broken' },
+      });
+
+      await expect(reader.read()).resolves.toMatchObject({ done: true });
+    } finally {
+      await host.close();
+    }
+  });
+
+  it('reconnects from artifacts to the same firing and terminal timeline as an uninterrupted observer', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-reconnect-'));
+    await writePetrinautReplayRun(cwd, 'run-1', { terminal: false });
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const continuous = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const continuousReader = continuous.body!.getReader();
+      const decoder = new TextDecoder();
+      const first = await continuousReader.read();
+      let continuousBody = decoder.decode(first.value);
+
+      const interrupted = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      await interrupted.body!.cancel();
+      await appendPetriEvent({
+        cwd,
+        runId: 'run-1',
+        event: { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+      });
+
+      for (;;) {
+        const next = await continuousReader.read();
+        if (next.done) break;
+        continuousBody += decoder.decode(next.value);
+      }
+      const reconnected = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const continuousFrames = parseSse(continuousBody).slice(1);
+      const reconnectedFrames = parseSse(await reconnected.text()).slice(1);
+
+      expect(reconnectedFrames).toEqual(continuousFrames);
     } finally {
       await host.close();
     }

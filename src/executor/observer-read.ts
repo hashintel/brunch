@@ -100,7 +100,7 @@ export interface RunDetail extends RunSummary {
   readonly petriNet?: unknown;
   /** Derived Petrinaut replay payload from net.sdcpn.json + the complete Petri event journal. */
   readonly petrinautReplayExport?: PetrinautReplayExport;
-  /** Relative SSE endpoint for the finite Petrinaut replay export. */
+  /** Relative replay-backed SSE endpoint; active same-process runs continue through terminal state. */
   readonly petrinautStreamPath?: string;
   /** Relative Brunch endpoint that redirects to the configured Petrinaut launcher URL. */
   readonly petrinautLaunchPath?: string;
@@ -356,7 +356,14 @@ function sanitizeTerminalSummary(
   },
 ): Pick<PetriProjection, 'terminalEventKind' | 'haltedReason'> {
   if (snapshot.terminalEventKind === undefined && snapshot.haltedReason === undefined) {
-    return {};
+    // A matching snapshot may lag the journal by the terminal fact (the append
+    // wake-up races the marking persist). Backfill from replay truth only — never
+    // from metadata expectation, so completion stays journal-ordered.
+    if (!replayProjection?.terminalEventKind) return {};
+    return {
+      terminalEventKind: replayProjection.terminalEventKind,
+      ...(replayProjection.haltedReason === undefined ? {} : { haltedReason: replayProjection.haltedReason }),
+    };
   }
   const checkable = replayProjection?.terminalEventKind
     ? replayProjection

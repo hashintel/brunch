@@ -7,10 +7,15 @@ import * as z from 'zod';
 
 import type { ExecutorNetEvent } from '../orchestrate-topology.js';
 import { compileExecutorTopology } from '../orchestrate.js';
-import { petriEventsPath } from '../petri-events.js';
+import {
+  appendPetriEvent,
+  petriEventsPath,
+  subscribePetriEvents,
+  subscribePetriJournalFailures,
+} from '../petri-events.js';
 import { canProjectPetriReplay } from '../petri-replay-eligibility.js';
 import { replayPetri, replayTransitionHistory } from '../petri-replay.js';
-import { exportPetri, petriNetPath, petriSdcpnPath } from '../petri.js';
+import { exportPetri, petriNetPath, petriSdcpnPath, preparePetriObservation } from '../petri.js';
 import {
   composePetrinautLauncherUrl,
   PETRINAUT_URL_INVALID_MESSAGE,
@@ -132,6 +137,46 @@ async function createCompletedRun(cwd: string): Promise<void> {
 }
 
 describe('exportPetri', () => {
+  it('prepares replay-identical observer artifacts before execution without advancing or truncating the run', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-observation-prepare-'));
+    const runDir = runDirPath(cwd, 'run-1');
+    const planPath = join(cwd, 'plan.yaml');
+    await mkdir(runDir, { recursive: true });
+    await writeFile(
+      planPath,
+      JSON.stringify({ mode: 'greenfield', slices: [{ id: 'task-1', depends_on: [] }] }),
+      'utf8',
+    );
+    const createdMetadata = { runId: 'run-1', specId: '42', planPath, status: 'created' } as const;
+    await writeFile(runMetadataPath(cwd, 'run-1'), JSON.stringify(createdMetadata), 'utf8');
+
+    await preparePetriObservation({ cwd, runId: 'run-1' });
+    const preparedNet = await readFile(petriNetPath(cwd, 'run-1'), 'utf8');
+    const preparedSdcpn = await readFile(petriSdcpnPath(cwd, 'run-1'), 'utf8');
+
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toEqual(createdMetadata);
+    expect(await readFile(petriEventsPath(cwd, 'run-1'), 'utf8')).toBe('');
+
+    await writeFile(petriEventsPath(cwd, 'run-1'), 'existing-event\n', 'utf8');
+    await writeFile(
+      planPath,
+      JSON.stringify({ mode: 'greenfield', slices: [{ id: 'changed-task' }] }),
+      'utf8',
+    );
+    await preparePetriObservation({ cwd, runId: 'run-1' });
+    expect(await readFile(petriEventsPath(cwd, 'run-1'), 'utf8')).toBe('existing-event\n');
+    expect(await readFile(petriNetPath(cwd, 'run-1'), 'utf8')).toBe(preparedNet);
+
+    await writeFile(
+      runMetadataPath(cwd, 'run-1'),
+      JSON.stringify({ ...createdMetadata, status: 'run_completed' }),
+      'utf8',
+    );
+    expect((await exportPetri({ cwd, runId: 'run-1' })).status).toBe('petri_exported');
+    expect(await readFile(petriNetPath(cwd, 'run-1'), 'utf8')).toBe(preparedNet);
+    expect(await readFile(petriSdcpnPath(cwd, 'run-1'), 'utf8')).toBe(preparedSdcpn);
+  });
+
   it('does not export Petri before run completion', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-not-ready-'));
     await mkdir(runDirPath(cwd, 'run-1'), { recursive: true });
@@ -395,6 +440,50 @@ describe('exportPetri', () => {
       firedTransitionCount: 18,
       terminalEventKind: 'net_completed',
     });
+  });
+});
+
+describe('appendPetriEvent', () => {
+  it('rejects a failed durable append, keeps success listeners silent, and wakes failure listeners run-scoped', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-append-failure-'));
+    // Occupy the journal path with a directory so appendFile fails (EISDIR).
+    await mkdir(petriEventsPath(cwd, 'run-1'), { recursive: true });
+    const successKinds: string[] = [];
+    let failureWakeUps = 0;
+    let otherRunFailureWakeUps = 0;
+    const unsubscribes = [
+      subscribePetriEvents({ cwd, runId: 'run-1', listener: (event) => successKinds.push(event.kind) }),
+      subscribePetriJournalFailures({
+        cwd,
+        runId: 'run-1',
+        listener: () => {
+          failureWakeUps += 1;
+        },
+      }),
+      subscribePetriJournalFailures({
+        cwd,
+        runId: 'run-2',
+        listener: () => {
+          otherRunFailureWakeUps += 1;
+        },
+      }),
+    ];
+
+    try {
+      await expect(
+        appendPetriEvent({
+          cwd,
+          runId: 'run-1',
+          event: { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+        }),
+      ).rejects.toThrow();
+    } finally {
+      for (const unsubscribe of unsubscribes) unsubscribe();
+    }
+
+    expect(successKinds).toEqual([]);
+    expect(failureWakeUps).toBe(1);
+    expect(otherRunFailureWakeUps).toBe(0);
   });
 });
 
@@ -821,6 +910,14 @@ describe('Petrinaut stream frame projection', () => {
       { kind: 'status', state: 'halted', reason: 'promotion_failed' },
       { kind: 'definition', definition: replayExport.definition },
       { kind: 'initial_state', initialState: {} },
+      {
+        kind: 'transition_firing',
+        firing: {
+          transitionId: PETRI_RUN_FINISH_TRANSITION,
+          input: {},
+          output: { [PETRI_RUN_HALTED_PLACE]: 1 },
+        },
+      },
       { kind: 'terminal', state: 'halted', reason: 'promotion_failed' },
     ]);
   });
@@ -863,6 +960,7 @@ describe('Petrinaut SSE serialization', () => {
       'event: definition',
       'event: initial_state',
       'event: transition_firing',
+      'event: transition_firing',
       'event: terminal',
     ]);
     expect(JSON.parse(chunks[1]!.split('\n')[1]!.slice('data: '.length))).toMatchObject({
@@ -874,7 +972,11 @@ describe('Petrinaut SSE serialization', () => {
       input: { 'run:created': 1 },
       output: { 'run:worktree_created': 1 },
     });
-    expect(JSON.parse(chunks[4]!.split('\n')[1]!.slice('data: '.length))).toEqual({ state: 'completed' });
+    expect(JSON.parse(chunks[4]!.split('\n')[1]!.slice('data: '.length))).toMatchObject({
+      transitionId: PETRI_RUN_FINISH_TRANSITION,
+      output: { [PETRI_RUN_COMPLETED_PLACE]: 1 },
+    });
+    expect(JSON.parse(chunks[5]!.split('\n')[1]!.slice('data: '.length))).toEqual({ state: 'completed' });
   });
 
   it('batch serialization is exactly the concatenation of per-frame chunks', () => {

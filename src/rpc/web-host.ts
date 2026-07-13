@@ -5,17 +5,13 @@ import { fileURLToPath } from 'node:url';
 
 import { readRunDetail, petrinautStreamPathForRun } from '../executor/observer-read.js';
 import { composePetrinautLauncherUrl, resolvePetrinautUrl } from '../executor/petrinaut/launcher-url.js';
-import { serializePetrinautSseFrames } from '../executor/petrinaut/sse.js';
-import {
-  projectPetrinautStreamFrames,
-  type PetrinautTerminalState,
-} from '../executor/petrinaut/stream-frames.js';
 import type { WorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 import { createReadOnlyRpcHandlers, createWebSidecarRpcHandlers } from './handlers.js';
 import type { SessionTurnDriver } from './methods/session-driver.js';
 import type { SessionExchangeAnswerHandle } from './methods/session-exchange-answer.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from './product-updates.js';
 import type { SessionEventRelay } from './session-event-relay.js';
+import { createPetrinautStreamHost, petrinautStreamRunId } from './web-host/petrinaut-stream.js';
 import { attachWebRpcTransport, isWebRpcUpgradeHandled, type WebRpcTransport } from './websocket.js';
 
 export interface WebHostOptions {
@@ -41,6 +37,7 @@ const MISSING_WEB_BUNDLE_MESSAGE =
 export async function startWebHost(options: WebHostOptions): Promise<RunningWebHost> {
   void options.cwd;
   const webAssetRoot = options.webAssetRoot ?? defaultWebAssetRoot();
+  const petrinautStreams = createPetrinautStreamHost(options.cwd);
   const server = createServer((request, response) => {
     if (request.method === 'GET' && isPetrinautLaunchRequest(request.url)) {
       void servePetrinautLaunch(response, options.cwd, request.url, request.headers.host);
@@ -48,7 +45,7 @@ export async function startWebHost(options: WebHostOptions): Promise<RunningWebH
     }
 
     if (request.method === 'GET' && isPetrinautStreamRequest(request.url)) {
-      void servePetrinautStream(response, options.cwd, request.url, request.headers.origin);
+      void petrinautStreams.serve(response, request.url, request.headers.origin);
       return;
     }
 
@@ -143,6 +140,7 @@ export async function startWebHost(options: WebHostOptions): Promise<RunningWebH
     url: `http://${hostname}:${address.port}`,
     async close() {
       await Promise.all(rpcTransports.map((transport) => transport.close()));
+      petrinautStreams.closeAll();
       await close(server);
     },
   };
@@ -202,48 +200,6 @@ function safeLoopbackHostHeader(host: string | undefined): string | undefined {
   }
 }
 
-async function servePetrinautStream(
-  response: ServerResponse,
-  cwd: string,
-  requestUrl: string | undefined,
-  origin: string | undefined,
-): Promise<void> {
-  const runId = petrinautStreamRunId(requestUrl);
-  if (runId === undefined) {
-    response.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' });
-    response.end('Missing runId');
-    return;
-  }
-  const detail = await readRunDetail(cwd, runId).catch(() => undefined);
-  if (detail === undefined || 'unreadable' in detail || detail.petrinautReplayExport === undefined) {
-    response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
-    response.end('Petrinaut stream not available');
-    return;
-  }
-
-  const corsOrigin = allowedPetrinautOrigin(origin);
-  response.writeHead(200, {
-    'content-type': 'text/event-stream',
-    'cache-control': 'no-cache',
-    connection: 'close',
-    vary: 'Origin',
-    ...(corsOrigin === undefined ? {} : { 'access-control-allow-origin': corsOrigin }),
-  });
-  const terminal = petrinautTerminalFromDetail(detail);
-  const initialFrames = projectPetrinautStreamFrames({
-    replayExport: detail.petrinautReplayExport,
-    ...(terminal === undefined ? {} : { terminal }),
-  });
-  response.end(serializePetrinautSseFrames(initialFrames));
-}
-
-function allowedPetrinautOrigin(origin: string | undefined): string | undefined {
-  if (origin === undefined) return undefined;
-  const resolved = resolvePetrinautUrl({ env: process.env });
-  if ('error' in resolved) return undefined;
-  return new URL(resolved.url).origin === origin ? origin : undefined;
-}
-
 function isPetrinautStreamRequest(requestUrl: string | undefined): boolean {
   if (!requestUrl) return false;
   try {
@@ -259,45 +215,6 @@ function isPetrinautLaunchRequest(requestUrl: string | undefined): boolean {
     return new URL(requestUrl, 'http://brunch.local').pathname === '/petrinaut/launch';
   } catch {
     return false;
-  }
-}
-
-function petrinautStreamRunId(requestUrl: string | undefined): string | undefined {
-  if (!requestUrl) return undefined;
-  try {
-    const runId = new URL(requestUrl, 'http://brunch.local').searchParams.get('runId')?.trim();
-    return runId && runId.length > 0 ? runId : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function petrinautTerminalFromDetail(detail: {
-  readonly status?: string;
-  readonly abandonReason?: string;
-  readonly petriProjection?: { readonly terminalEventKind?: string; readonly haltedReason?: string };
-}): { readonly state: PetrinautTerminalState; readonly reason?: string } | undefined {
-  if (detail.status === 'promotion_prepared') return { state: 'completed' };
-  if (detail.status === 'abandoned') {
-    return {
-      state: 'halted',
-      ...(detail.abandonReason === undefined ? {} : { reason: detail.abandonReason }),
-    };
-  }
-  switch (detail.petriProjection?.terminalEventKind) {
-    case 'net_completed':
-      return { state: 'completed' };
-    case 'net_halted':
-      return {
-        state: 'halted',
-        ...(detail.petriProjection.haltedReason === undefined
-          ? {}
-          : { reason: detail.petriProjection.haltedReason }),
-      };
-    case 'net_deadlocked':
-      return { state: 'deadlocked' };
-    default:
-      return undefined;
   }
 }
 

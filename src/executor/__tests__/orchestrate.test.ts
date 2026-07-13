@@ -1,5 +1,5 @@
 import { mkdirSync, rmSync } from 'node:fs';
-import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -17,7 +17,9 @@ import {
   type ReadyStep,
   serialFiringPolicy,
 } from '../orchestrate.js';
+import { petriEventsPath, subscribePetriJournalFailures } from '../petri-events.js';
 import { petriMarkingPath, readPetriMarkingSnapshot, writePetriMarkingSnapshot } from '../petri-marking.js';
+import { petriPlanSnapshotPath } from '../petri-plan-snapshot.js';
 import { petriRuntimePlanPathCandidates } from '../petri-runtime-plan.js';
 import {
   bindExecutorPetriRuntime,
@@ -28,13 +30,13 @@ import {
   resolvePetriTransitionIdForReadyStep,
 } from '../petri-runtime.js';
 import { classifyDriveTerminal } from '../petri-terminal.js';
-import { exportPetri, petriNetPath } from '../petri.js';
+import { exportPetri, petriNetPath, petriSdcpnPath } from '../petri.js';
 import { planFilePath } from '../plan-file.js';
 import { populatedPlanPath as runPopulatedPlanPath, populateWorktree } from '../populate.js';
 import { preparePromotion } from '../promotion.js';
 import { initializeReports, reportsPath } from '../report.js';
 import { completeRun } from '../run-complete.js';
-import { createRun, readRunMetadata, runMetadataPath, type RunMetadata } from '../run.js';
+import { createRun, readRunMetadata, runDirPath, runMetadataPath, type RunMetadata } from '../run.js';
 import { completeSlice } from '../slice-complete.js';
 import { requestSliceExecution } from '../slice-execute.js';
 import { startSlice } from '../slice-start.js';
@@ -155,6 +157,60 @@ async function crankManually(cwd: string, ports: ExecutionPorts): Promise<void> 
 }
 
 describe('drive', () => {
+  it('prepares Petrinaut observation before invoking the first lifecycle effect', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-petrinaut-before-effect-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    let releaseWorktree!: () => void;
+    const worktreeReleased = new Promise<void>((resolve) => {
+      releaseWorktree = resolve;
+    });
+    let worktreeStarted!: () => void;
+    const worktreeStart = new Promise<void>((resolve) => {
+      worktreeStarted = resolve;
+    });
+    const underlying = createFakeGitWorktreePort();
+    const gitWorktree = createFakeGitWorktreePort(async (args) => {
+      worktreeStarted();
+      await worktreeReleased;
+      return underlying.create(args);
+    });
+
+    const driven = drive({ cwd, runId: 'run-1', ports: fakePorts({ gitWorktree }) });
+    await worktreeStart;
+
+    expect(await pathExists(petriNetPath(cwd, 'run-1'))).toBe(true);
+    expect(await pathExists(petriSdcpnPath(cwd, 'run-1'))).toBe(true);
+    expect(await readFile(petriEventsPath(cwd, 'run-1'), 'utf8')).toBe('');
+    expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.status).toBe('created');
+
+    await writeFile(planFilePath(cwd, '42'), planJson(['changed-after-publication']), 'utf8');
+    releaseWorktree();
+    await expect(driven).resolves.toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+    const populatedPlan = JSON.parse(await readFile(runPopulatedPlanPath(cwd, 'run-1'), 'utf8'));
+    expect(populatedPlan.slices.map((slice: { readonly id: string }) => slice.id)).toEqual(['task-1']);
+  });
+
+  it('halts before the first lifecycle effect when Petrinaut observation cannot be prepared', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-petrinaut-prepare-failure-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    await writeFile(join(runDirPath(cwd, 'run-1'), 'petrinaut'), 'not-a-directory', 'utf8');
+    let worktreeCalls = 0;
+    const gitWorktree = createFakeGitWorktreePort(async (args) => {
+      worktreeCalls += 1;
+      return createFakeGitWorktreePort().create(args);
+    });
+
+    const outcome = await drive({ cwd, runId: 'run-1', ports: fakePorts({ gitWorktree }) });
+
+    expect(outcome).toEqual({
+      status: 'halted',
+      step: 'worktree_create',
+      runStatus: 'created',
+      reason: 'petrinaut_observation_unavailable',
+    });
+    expect(worktreeCalls).toBe(0);
+  });
+
   it('drives a created run through to run-local promotion', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-complete-'));
     await createRunAtCreated(cwd, ['task-1', 'task-2']);
@@ -166,6 +222,66 @@ describe('drive', () => {
     expect(meta?.status).toBe('promotion_prepared');
     expect(meta?.completedSliceIds).toEqual(['task-1', 'task-2']);
     expect(meta?.promotionCommitSha).toBe('abc123');
+  });
+
+  it('halts without further lifecycle steps when a transition journal append fails', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-journal-append-failure-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    const ports = fakePorts();
+    await expect(
+      drive({ cwd, runId: 'run-1', ports }, linearScheduler, serialFiringPolicy, { maxFirings: 2 }),
+    ).resolves.toEqual({ status: 'completed', runStatus: 'worktree_populated' });
+
+    // Replace the journal file with a directory so every later appendFile fails (EISDIR).
+    const journalPath = petriEventsPath(cwd, 'run-1');
+    await rm(journalPath);
+    await mkdir(journalPath);
+    let failureWakeUps = 0;
+    const unsubscribe = subscribePetriJournalFailures({
+      cwd,
+      runId: 'run-1',
+      listener: () => {
+        failureWakeUps += 1;
+      },
+    });
+
+    try {
+      await expect(drive({ cwd, runId: 'run-1', ports })).resolves.toEqual({
+        status: 'halted',
+        step: 'source_policy',
+        runStatus: 'source_policy_selected',
+        reason: 'petri_journal_append_failed',
+      });
+    } finally {
+      unsubscribe();
+    }
+    expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.status).toBe('source_policy_selected');
+    expect(failureWakeUps).toBe(1);
+    const snapshot = await readPetriMarkingSnapshot({ cwd, runId: 'run-1' });
+    expect(snapshot?.terminalEventKind).toBeUndefined();
+  });
+
+  it('halts scheduler exhaustion without persisting a terminal snapshot when the terminal append fails', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-terminal-journal-failure-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    const ports = fakePorts();
+    await expect(drive({ cwd, runId: 'run-1', ports })).resolves.toEqual({
+      status: 'completed',
+      runStatus: 'promotion_prepared',
+    });
+
+    await rm(petriMarkingPath(cwd, 'run-1'));
+    const journalPath = petriEventsPath(cwd, 'run-1');
+    await rm(journalPath);
+    await mkdir(journalPath);
+
+    await expect(drive({ cwd, runId: 'run-1', ports })).resolves.toEqual({
+      status: 'halted',
+      step: 'terminal',
+      runStatus: 'promotion_prepared',
+      reason: 'petri_journal_append_failed',
+    });
+    expect(await pathExists(petriMarkingPath(cwd, 'run-1'))).toBe(false);
   });
 
   it('defaults greenfield runs to plan-only source policy without copying host source', async () => {
@@ -625,6 +741,7 @@ describe('petri runtime helpers', () => {
     ] as const) {
       expect(petriRuntimePlanPathCandidates(cwd, metadata(status))).toEqual([
         runPopulatedPlanPath(cwd, 'run-1'),
+        petriPlanSnapshotPath(cwd, 'run-1'),
         'plan.yaml',
       ]);
     }

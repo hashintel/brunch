@@ -131,6 +131,27 @@ export interface RunMetadataWriteEffect {
   readonly ifExists: 'overwrite';
 }
 
+export type RunMetadataListener = (metadata: RunMetadata) => void;
+
+// ceiling: metadata wake-ups are process-local; use a durable watcher when run
+// mutation and observers move into separate processes.
+const metadataListeners = new Map<string, Set<RunMetadataListener>>();
+
+export function subscribeRunMetadata(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly listener: RunMetadataListener;
+}): () => void {
+  const path = runMetadataPath(args.cwd, args.runId);
+  const listeners = metadataListeners.get(path) ?? new Set<RunMetadataListener>();
+  listeners.add(args.listener);
+  metadataListeners.set(path, listeners);
+  return () => {
+    listeners.delete(args.listener);
+    if (listeners.size === 0) metadataListeners.delete(path);
+  };
+}
+
 export async function persistRunMetadata(
   metadataPath: string,
   metadata: RunMetadata,
@@ -144,6 +165,13 @@ export async function persistRunMetadata(
   } catch (error) {
     await rm(tempPath, { force: true });
     throw error;
+  }
+  for (const listener of metadataListeners.get(metadataPath) ?? []) {
+    try {
+      listener(metadata);
+    } catch {
+      // Metadata observers never affect the durable write.
+    }
   }
   return { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' };
 }
