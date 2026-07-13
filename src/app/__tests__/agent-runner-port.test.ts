@@ -66,7 +66,9 @@ describe('createAgentRunnerPort', () => {
       JSON.stringify({
         scopeId: 'SCP1',
         definition: 'write proof',
+        instruction: 'Satisfy the done criteria before returning.',
         criteria: [{ kind: 'criterion', target: 'worker proof exists' }],
+        derivedFrom: ['REQ1'],
         designContext: [{ itemId: 'MOD1', content: 'worker proof module' }],
         verificationContext: [{ itemId: 'CH1', content: 'worker proof check' }],
       }),
@@ -93,9 +95,14 @@ describe('createAgentRunnerPort', () => {
 
     expect(calls).toHaveLength(1);
     expect(calls[0]).toMatchObject({ agent: 'worker', cwd: worktreeDir });
-    expect(calls[0]!.task).toContain('write proof');
-    expect(calls[0]!.task).toContain('SCP1');
-    expect(calls[0]!.task).toContain('worker proof check');
+    expect(calls[0]!.task).toContain('Scope id: SCP1');
+    expect(calls[0]!.task).toContain('Slice goal:\nwrite proof');
+    expect(calls[0]!.task).toContain('Instruction:\nSatisfy the done criteria before returning.');
+    expect(calls[0]!.task).toContain('Done criteria:\n- criterion: worker proof exists');
+    expect(calls[0]!.task).toContain('Derived from requirements:\n- REQ1');
+    expect(calls[0]!.task).toContain('Design context:\n- [MOD1] worker proof module');
+    expect(calls[0]!.task).toContain('Verification context:\n- [CH1] worker proof check');
+    expect(calls[0]!.task).not.toContain('Execution request:');
     expect(result).toEqual({ status: 'completed', summary: 'Wrote worker-proof.txt' });
     await expect(readFile(join(worktreeDir, 'worker-proof.txt'), 'utf8')).resolves.toBe(
       'changed by worker\n',

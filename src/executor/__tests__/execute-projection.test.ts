@@ -120,4 +120,139 @@ describe('projectExecuteGraph', () => {
       expect.objectContaining({ id: 'task-2', derived_from: ['REQ2'], depends_on: ['task-1'] }),
     ]);
   });
+
+  it('lowers one committed scope into multiple scoped slices', () => {
+    const nodes: GraphNode[] = [
+      {
+        ...base,
+        id: 1,
+        plane: 'plan',
+        kind: 'frontier',
+        kindOrdinal: 1,
+        title: 'Execution handoff',
+      },
+      {
+        ...base,
+        id: 2,
+        plane: 'plan',
+        kind: 'scope',
+        kindOrdinal: 1,
+        title: 'Feature delivery scope',
+        body: 'Deliver the feature scope from committed design and verification anchors.',
+      },
+      {
+        ...base,
+        id: 10,
+        plane: 'intent',
+        kind: 'requirement',
+        kindOrdinal: 1,
+        title: 'Wire feature',
+      },
+      {
+        ...base,
+        id: 11,
+        plane: 'intent',
+        kind: 'requirement',
+        kindOrdinal: 2,
+        title: 'Ship keyboard shortcut',
+      },
+      {
+        ...base,
+        id: 12,
+        plane: 'intent',
+        kind: 'requirement',
+        kindOrdinal: 3,
+        title: 'Build foundation',
+      },
+      {
+        ...base,
+        id: 20,
+        plane: 'intent',
+        kind: 'criterion',
+        kindOrdinal: 1,
+        title: 'Feature is visible',
+      },
+      {
+        ...base,
+        id: 21,
+        plane: 'intent',
+        kind: 'criterion',
+        kindOrdinal: 2,
+        title: 'Shortcut opens feature',
+      },
+      {
+        ...base,
+        id: 30,
+        plane: 'design',
+        kind: 'module',
+        kindOrdinal: 1,
+        title: 'Feature module',
+      },
+      {
+        ...base,
+        id: 40,
+        plane: 'oracle',
+        kind: 'check',
+        kindOrdinal: 1,
+        title: 'Feature smoke test',
+      },
+    ];
+    const edges: GraphEdge[] = [
+      { ...base, id: 1, category: 'composition', sourceId: 1, targetId: 2 },
+      { ...base, id: 2, category: 'realization', sourceId: 10, targetId: 2 },
+      { ...base, id: 3, category: 'realization', sourceId: 11, targetId: 2 },
+      { ...base, id: 4, category: 'realization', sourceId: 12, targetId: 2 },
+      { ...base, id: 5, category: 'dependency', sourceId: 12, targetId: 10 },
+      { ...base, id: 6, category: 'dependency', sourceId: 10, targetId: 11 },
+      { ...base, id: 7, category: 'witness', sourceId: 20, targetId: 10, stance: 'for' },
+      { ...base, id: 8, category: 'witness', sourceId: 21, targetId: 11, stance: 'for' },
+      { ...base, id: 9, category: 'composition', sourceId: 2, targetId: 30 },
+      { ...base, id: 10, category: 'dependency', sourceId: 40, targetId: 2 },
+      { ...base, id: 11, category: 'dependency', sourceId: 20, targetId: 2 },
+      { ...base, id: 12, category: 'dependency', sourceId: 21, targetId: 2 },
+    ];
+
+    const projection = projectExecuteGraph({ specId: 7, graphLsn: 9, mode: 'brownfield', nodes, edges });
+
+    expect(projection.outline.frontiers).toEqual([
+      expect.objectContaining({
+        id: 'F1',
+        tasks: [
+          expect.objectContaining({
+            id: 'task-1',
+            scopeId: 'SCP1',
+            requirementId: 'REQ1',
+            dependsOn: ['REQ3'],
+          }),
+          expect.objectContaining({
+            id: 'task-2',
+            scopeId: 'SCP1',
+            requirementId: 'REQ2',
+            dependsOn: ['REQ1'],
+          }),
+          expect.objectContaining({
+            id: 'task-3',
+            scopeId: 'SCP1',
+            requirementId: 'REQ3',
+            dependsOn: [],
+          }),
+        ],
+      }),
+    ]);
+    expect(projection.planPreview.slices).toEqual([
+      expect.objectContaining({ id: 'task-3', scope_id: 'SCP1', derived_from: ['REQ3'], depends_on: [] }),
+      expect.objectContaining({
+        id: 'task-1',
+        scope_id: 'SCP1',
+        derived_from: ['REQ1'],
+        depends_on: ['task-3'],
+      }),
+      expect.objectContaining({
+        id: 'task-2',
+        scope_id: 'SCP1',
+        derived_from: ['REQ2'],
+        depends_on: ['task-1'],
+      }),
+    ]);
+  });
 });

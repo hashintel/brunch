@@ -100,21 +100,6 @@ describe('draftExecutablePlan', () => {
         ...outline,
         frontiers: [
           {
-            id: 'frontier-1',
-            title: 'Implement unscoped requirements',
-            tasks: [
-              {
-                id: 'task-1',
-                title: 'Build feature',
-                requirementId: 'REQ1',
-                summary: 'Build feature',
-                dependsOn: [],
-                acceptanceCriterionIds: [],
-                acceptanceCriteria: [],
-              },
-            ],
-          },
-          {
             id: 'frontier-2',
             title: 'Execution handoff',
             tasks: [
@@ -130,6 +115,21 @@ describe('draftExecutablePlan', () => {
                 acceptanceCriteria: [],
                 designContext: [],
                 verificationContext: [],
+              },
+            ],
+          },
+          {
+            id: 'frontier-1',
+            title: 'Implement unscoped requirements',
+            tasks: [
+              {
+                id: 'task-1',
+                title: 'Build feature',
+                requirementId: 'REQ1',
+                summary: 'Build feature',
+                dependsOn: [],
+                acceptanceCriterionIds: [],
+                acceptanceCriteria: [],
               },
             ],
           },
@@ -254,5 +254,42 @@ describe('draftExecutablePlan', () => {
       expect.objectContaining({ id: 'task-1', dependsOn: [] }),
       expect.objectContaining({ id: 'task-2', dependsOn: [] }),
     ]);
+  });
+
+  it('orders epic slice ids to match dependency-ordered slices', () => {
+    const draft = draftExecutablePlan({
+      ...outline,
+      frontiers: [
+        {
+          id: 'frontier-1',
+          title: 'Execution handoff',
+          tasks: [
+            {
+              id: 'task-2',
+              title: 'Wire feature',
+              requirementId: 'REQ2',
+              requirementIds: ['REQ2'],
+              summary: 'Wire the feature.',
+              dependsOn: ['REQ1'],
+              acceptanceCriterionIds: [],
+              acceptanceCriteria: [],
+            },
+            {
+              id: 'task-1',
+              title: 'Build feature',
+              requirementId: 'REQ1',
+              requirementIds: ['REQ1'],
+              summary: 'Build the feature.',
+              dependsOn: [],
+              acceptanceCriterionIds: [],
+              acceptanceCriteria: [],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(draft.slices.map((slice) => slice.id)).toEqual(['task-1', 'task-2']);
+    expect(draft.epics[0]?.sliceIds).toEqual(['task-1', 'task-2']);
   });
 });

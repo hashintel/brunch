@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -162,6 +162,92 @@ function executableGraph(lsn = 11): {
         createdAtLsn: 1,
         updatedAtLsn: 1,
       },
+    ],
+  };
+}
+
+function executableScopeGraph(lsn = 11): {
+  readonly nodes: readonly GraphNode[];
+  readonly edges: readonly GraphEdge[];
+  readonly lsn: number;
+} {
+  const nodeBase = {
+    specId: 42,
+    basis: 'explicit' as const,
+    settlement: 'settled' as const,
+    createdAtLsn: 1,
+    updatedAtLsn: 1,
+  };
+  const edgeBase = {
+    specId: 42,
+    basis: 'explicit' as const,
+    settlement: 'settled' as const,
+    createdAtLsn: 1,
+    updatedAtLsn: 1,
+  };
+
+  return {
+    lsn,
+    nodes: [
+      { ...nodeBase, id: 1, plane: 'plan', kind: 'frontier', kindOrdinal: 1, title: 'Execution handoff' },
+      {
+        ...nodeBase,
+        id: 2,
+        plane: 'plan',
+        kind: 'scope',
+        kindOrdinal: 1,
+        title: 'Feature delivery scope',
+        body: 'Deliver the feature scope from committed design and verification anchors.',
+      },
+      { ...nodeBase, id: 10, plane: 'intent', kind: 'requirement', kindOrdinal: 1, title: 'Wire feature' },
+      {
+        ...nodeBase,
+        id: 11,
+        plane: 'intent',
+        kind: 'requirement',
+        kindOrdinal: 2,
+        title: 'Ship keyboard shortcut',
+      },
+      {
+        ...nodeBase,
+        id: 12,
+        plane: 'intent',
+        kind: 'requirement',
+        kindOrdinal: 3,
+        title: 'Build foundation',
+      },
+      {
+        ...nodeBase,
+        id: 20,
+        plane: 'intent',
+        kind: 'criterion',
+        kindOrdinal: 1,
+        title: 'Feature is visible',
+      },
+      {
+        ...nodeBase,
+        id: 21,
+        plane: 'intent',
+        kind: 'criterion',
+        kindOrdinal: 2,
+        title: 'Shortcut opens feature',
+      },
+      { ...nodeBase, id: 30, plane: 'design', kind: 'module', kindOrdinal: 1, title: 'Feature module' },
+      { ...nodeBase, id: 40, plane: 'oracle', kind: 'check', kindOrdinal: 1, title: 'Feature smoke test' },
+    ],
+    edges: [
+      { ...edgeBase, id: 1, category: 'composition', sourceId: 1, targetId: 2 },
+      { ...edgeBase, id: 2, category: 'realization', sourceId: 10, targetId: 2 },
+      { ...edgeBase, id: 3, category: 'realization', sourceId: 11, targetId: 2 },
+      { ...edgeBase, id: 4, category: 'realization', sourceId: 12, targetId: 2 },
+      { ...edgeBase, id: 5, category: 'dependency', sourceId: 12, targetId: 10 },
+      { ...edgeBase, id: 6, category: 'dependency', sourceId: 10, targetId: 11 },
+      { ...edgeBase, id: 7, category: 'witness', sourceId: 20, targetId: 10, stance: 'for' },
+      { ...edgeBase, id: 8, category: 'witness', sourceId: 21, targetId: 11, stance: 'for' },
+      { ...edgeBase, id: 9, category: 'composition', sourceId: 2, targetId: 30 },
+      { ...edgeBase, id: 10, category: 'dependency', sourceId: 40, targetId: 2 },
+      { ...edgeBase, id: 11, category: 'dependency', sourceId: 20, targetId: 2 },
+      { ...edgeBase, id: 12, category: 'dependency', sourceId: 21, targetId: 2 },
     ],
   };
 }
@@ -834,6 +920,86 @@ describe('execute replanning methods', () => {
         petriBlockedSteps: [],
       },
     ]);
+  });
+
+  it('writes multi-slice scope handoff data into the regenerated plan artifact', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-scope-handoff-'));
+    await writePlan(cwd, '42', 10);
+    await writeRun(cwd, 'run-1', { planPath: planFilePath(cwd, '42'), status: 'worktree_created' });
+
+    const response = await method('execute.replanRegeneratePlan').handle(
+      contextForSpec(cwd, executableScopeGraph(11)),
+      request('execute.replanRegeneratePlan', { runId: 'run-1', specId: 42, mode: 'brownfield' }),
+    );
+
+    expect(response).toMatchObject({
+      result: {
+        status: 'regenerated_plan',
+        eligibility: { status: 'replan_before_retry' },
+      },
+    });
+
+    expect(JSON.parse(await readFile(planFilePath(cwd, '42'), 'utf8'))).toEqual({
+      mode: 'brownfield',
+      spec: {
+        spec_id: '42',
+        requirements: [
+          { item_id: 'REQ3', content: 'Build foundation' },
+          { item_id: 'REQ1', content: 'Wire feature' },
+          { item_id: 'REQ2', content: 'Ship keyboard shortcut' },
+        ],
+        criteria: [
+          { item_id: 'AC1', content: 'Feature is visible', verifies: ['REQ1'] },
+          { item_id: 'AC2', content: 'Shortcut opens feature', verifies: ['REQ2'] },
+        ],
+      },
+      epics: [{ id: 'F1', summary: 'Execution handoff', depends_on: [], verification: [] }],
+      scope_handoff_required: true,
+      slices: [
+        {
+          id: 'task-3',
+          epic_id: 'F1',
+          scope_id: 'SCP1',
+          definition: 'Build foundation',
+          depends_on: [],
+          verification: [
+            { kind: 'criterion', target: 'Feature is visible' },
+            { kind: 'criterion', target: 'Shortcut opens feature' },
+          ],
+          derived_from: ['REQ3'],
+          design_context: [{ item_id: 'MOD1', content: 'Feature module' }],
+          verification_context: [{ item_id: 'CH1', content: 'Feature smoke test' }],
+        },
+        {
+          id: 'task-1',
+          epic_id: 'F1',
+          scope_id: 'SCP1',
+          definition: 'Wire feature',
+          depends_on: ['task-3'],
+          verification: [
+            { kind: 'criterion', target: 'Feature is visible' },
+            { kind: 'criterion', target: 'Shortcut opens feature' },
+          ],
+          derived_from: ['REQ1'],
+          design_context: [{ item_id: 'MOD1', content: 'Feature module' }],
+          verification_context: [{ item_id: 'CH1', content: 'Feature smoke test' }],
+        },
+        {
+          id: 'task-2',
+          epic_id: 'F1',
+          scope_id: 'SCP1',
+          definition: 'Ship keyboard shortcut',
+          depends_on: ['task-1'],
+          verification: [
+            { kind: 'criterion', target: 'Feature is visible' },
+            { kind: 'criterion', target: 'Shortcut opens feature' },
+          ],
+          derived_from: ['REQ2'],
+          design_context: [{ item_id: 'MOD1', content: 'Feature module' }],
+          verification_context: [{ item_id: 'CH1', content: 'Feature smoke test' }],
+        },
+      ],
+    });
   });
 
   it('refuses to expose retry-current-step through web RPC', () => {

@@ -393,4 +393,72 @@ describe('projectExecutionSpecSnapshot', () => {
     expect(snapshot.requirements.map((item) => item.itemId)).toEqual(['REQ1']);
     expect(snapshot.scopes).toEqual([]);
   });
+
+  it('marks criteria linked directly to the scope so fan-out can preserve them', () => {
+    const frontier = node({
+      id: 1,
+      plane: 'plan',
+      kind: 'frontier',
+      kindOrdinal: 1,
+      title: 'Execution handoff',
+    });
+    const scope = node({
+      id: 2,
+      plane: 'plan',
+      kind: 'scope',
+      kindOrdinal: 1,
+      title: 'Canvas scope',
+    });
+    const requirementA = node({
+      id: 3,
+      plane: 'intent',
+      kind: 'requirement',
+      kindOrdinal: 1,
+      title: 'Render graph canvas',
+    });
+    const requirementB = node({
+      id: 4,
+      plane: 'intent',
+      kind: 'requirement',
+      kindOrdinal: 2,
+      title: 'Wire keyboard shortcut',
+    });
+    const sharedCriterion = node({
+      id: 5,
+      plane: 'intent',
+      kind: 'criterion',
+      kindOrdinal: 1,
+      title: 'Flow is coherent',
+    });
+    const requirementCriterion = node({
+      id: 6,
+      plane: 'intent',
+      kind: 'criterion',
+      kindOrdinal: 2,
+      title: 'Canvas becomes visible',
+    });
+
+    const snapshot = projectExecutionSpecSnapshot({
+      specId: 7,
+      mode: 'brownfield',
+      nodes: [frontier, scope, requirementA, requirementB, sharedCriterion, requirementCriterion],
+      edges: [
+        edge({ id: 1, category: 'composition', sourceId: frontier.id, targetId: scope.id }),
+        edge({ id: 2, category: 'realization', sourceId: requirementA.id, targetId: scope.id }),
+        edge({ id: 3, category: 'realization', sourceId: requirementB.id, targetId: scope.id }),
+        edge({ id: 4, category: 'dependency', sourceId: sharedCriterion.id, targetId: scope.id }),
+        edge({
+          id: 5,
+          category: 'witness',
+          sourceId: requirementCriterion.id,
+          targetId: requirementA.id,
+          stance: 'for',
+        }),
+      ],
+    });
+
+    expect(snapshot.scopes[0]?.criteria).toEqual([
+      expect.objectContaining({ itemId: 'AC1', scopeLinked: true, verifies: [] }),
+    ]);
+  });
 });

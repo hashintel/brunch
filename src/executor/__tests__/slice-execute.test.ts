@@ -59,6 +59,78 @@ async function createSliceStartedRun(cwd: string): Promise<void> {
   await startSlice({ cwd, runId: 'run-1' });
 }
 
+async function createSecondScopeSliceStartedRun(cwd: string): Promise<void> {
+  const planPath = planFilePath(cwd, '42');
+  await mkdir(join(cwd, 'src'), { recursive: true });
+  await writeFile(join(cwd, 'src', 'app.ts'), 'export const app = true;\n', 'utf8');
+  await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
+  await writeFile(
+    planPath,
+    JSON.stringify({
+      mode: 'brownfield',
+      epics: [
+        { id: 'F1', summary: 'Execution handoff', depends_on: [], verification: [] },
+        {
+          id: 'frontier-unscoped-requirements',
+          summary: 'Implement unscoped requirements',
+          depends_on: [],
+          verification: [],
+        },
+      ],
+      slices: [
+        {
+          id: 'task-1',
+          scope_id: 'SCP1',
+          epic_id: 'F1',
+          definition: 'Wire feature',
+          depends_on: ['task-3'],
+          verification: [{ kind: 'criterion', target: 'Feature is visible' }],
+          derived_from: ['REQ1'],
+          design_context: [{ item_id: 'MOD1', content: 'Feature module' }],
+          verification_context: [{ item_id: 'CH1', content: 'Feature smoke test' }],
+        },
+        {
+          id: 'task-2',
+          scope_id: 'SCP1',
+          epic_id: 'F1',
+          definition: 'Ship keyboard shortcut',
+          depends_on: ['task-1'],
+          verification: [{ kind: 'criterion', target: 'Shortcut opens feature' }],
+          derived_from: ['REQ2'],
+          design_context: [{ item_id: 'MOD1', content: 'Feature module' }],
+          verification_context: [{ item_id: 'CH1', content: 'Feature smoke test' }],
+        },
+        {
+          id: 'task-3',
+          epic_id: 'frontier-unscoped-requirements',
+          definition: 'Build foundation',
+          depends_on: [],
+          verification: [],
+          derived_from: ['REQ3'],
+        },
+      ],
+    }),
+    'utf8',
+  );
+  await createRun({ cwd, specId: '42', runId: 'run-1' });
+  await createWorktree({ cwd, runId: 'run-1', gitWorktree: createFakeGitWorktreePort() });
+  await populateWorktree({ cwd, runId: 'run-1' });
+  await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
+  await copyHostSource({ cwd, runId: 'run-1' });
+  await initializeReports({ cwd, runId: 'run-1' });
+  await startSlice({ cwd, runId: 'run-1', sliceId: 'task-1' });
+  await writeFile(
+    runMetadataPath(cwd, 'run-1'),
+    JSON.stringify({
+      ...(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8')) as object),
+      status: 'slice_completed',
+      completedSliceIds: ['task-1'],
+    }),
+    'utf8',
+  );
+  await startSlice({ cwd, runId: 'run-1', sliceId: 'task-2' });
+}
+
 describe('requestSliceExecution', () => {
   it('does not request execution before a slice is active', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-execute-missing-run-'));
@@ -128,6 +200,35 @@ describe('requestSliceExecution', () => {
       false,
     );
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'petrinaut'))).toBe(false);
+  });
+
+  it('writes the next scope-derived slice request with its own lowered requirement brief', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-execute-next-scope-slice-'));
+    await createSecondScopeSliceStartedRun(cwd);
+
+    const result = await requestSliceExecution({ cwd, runId: 'run-1' });
+
+    expect(result).toMatchObject({
+      status: 'slice_execution_requested',
+      runStatus: 'slice_execution_requested',
+      runId: 'run-1',
+      sliceId: 'task-2',
+      epicId: 'F1',
+    });
+    expect(JSON.parse(await readFile(sliceExecutionRequestPath(cwd, 'run-1', 'task-2'), 'utf8'))).toEqual({
+      runId: 'run-1',
+      sliceId: 'task-2',
+      epicId: 'F1',
+      scopeId: 'SCP1',
+      action: 'execute_slice',
+      status: 'requested',
+      definition: 'Ship keyboard shortcut',
+      criteria: [{ kind: 'criterion', target: 'Shortcut opens feature' }],
+      derivedFrom: ['REQ2'],
+      designContext: [{ itemId: 'MOD1', content: 'Feature module' }],
+      verificationContext: [{ itemId: 'CH1', content: 'Feature smoke test' }],
+      instruction: 'Make the minimum change that satisfies every criterion.',
+    });
   });
 
   it('rejects active slice ids that would escape the agent-output directory', async () => {

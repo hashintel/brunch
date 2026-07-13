@@ -13,6 +13,7 @@ export interface ExecutionSpecItemSnapshot {
 
 export interface ExecutionSpecCriterionSnapshot extends ExecutionSpecItemSnapshot {
   readonly verifies: readonly string[];
+  readonly scopeLinked?: boolean;
 }
 
 export interface ExecutionSpecContextSnapshot {
@@ -144,16 +145,21 @@ function scopeSnapshot(args: {
     direction: 'incoming',
     kinds: ['requirement'],
   });
-  const criterionIds = new Set(
+  const directCriterionIds = new Set(
     relatedNodeIds(args.node.id, args.edges, args.nodeById, {
       category: 'dependency',
       direction: 'incoming',
       kinds: ['criterion'],
     }),
   );
+  const criterionIds = new Set(directCriterionIds);
   const criteria = [...criterionIds]
     .sort((a, b) => a - b)
-    .map((nodeId) => args.criteriaById.get(nodeId))
+    .map((nodeId) => {
+      const criterion = args.criteriaById.get(nodeId);
+      if (!criterion) return undefined;
+      return directCriterionIds.has(nodeId) ? { ...criterion, scopeLinked: true } : criterion;
+    })
     .filter((criterion): criterion is ExecutionSpecCriterionSnapshot => criterion !== undefined);
   const design = relatedItems(args.node.id, args.edges, args.nodeById, {
     category: 'composition',

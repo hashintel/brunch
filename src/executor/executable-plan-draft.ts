@@ -53,12 +53,6 @@ export interface ExecutablePlanDraft {
 }
 
 export function draftExecutablePlan(outline: ExecutionPlanOutline): ExecutablePlanDraft {
-  const epics = outline.frontiers.map((frontier) => ({
-    id: frontier.id,
-    title: frontier.title,
-    sliceIds: frontier.tasks.map((task) => task.id),
-    dependsOn: [],
-  }));
   const taskIdByRequirement = new Map<string, string>();
   for (const task of outline.frontiers.flatMap((frontier) => frontier.tasks)) {
     const requirementIds =
@@ -119,12 +113,44 @@ export function draftExecutablePlan(outline: ExecutionPlanOutline): ExecutablePl
     });
   });
 
+  const orderedSlices = orderSlicesByDependencies(slices);
+  const epics = outline.frontiers.map((frontier) => ({
+    id: frontier.id,
+    title: frontier.title,
+    sliceIds: orderedSlices.filter((slice) => slice.epicId === frontier.id).map((slice) => slice.id),
+    dependsOn: [],
+  }));
+
   return {
     schemaVersion: 1,
     specId: outline.specId,
     mode: outline.mode,
     epics,
-    slices,
+    slices: orderedSlices,
     sideEffects: [],
   };
+}
+
+function orderSlicesByDependencies(
+  slices: readonly ExecutablePlanDraftSlice[],
+): readonly ExecutablePlanDraftSlice[] {
+  const sliceIds = new Set(slices.map((slice) => slice.id));
+  const completed = new Set<string>();
+  const remaining = [...slices];
+  const ordered: ExecutablePlanDraftSlice[] = [];
+
+  // ceiling: O(n²) stable topological sort; index dependencies if plans grow beyond a few hundred slices.
+  while (remaining.length > 0) {
+    const nextIndex = remaining.findIndex((slice) =>
+      slice.dependsOn.every((dependencyId) => !sliceIds.has(dependencyId) || completed.has(dependencyId)),
+    );
+    if (nextIndex === -1) return [...ordered, ...remaining];
+
+    const [next] = remaining.splice(nextIndex, 1);
+    if (!next) continue;
+    ordered.push(next);
+    completed.add(next.id);
+  }
+
+  return ordered;
 }

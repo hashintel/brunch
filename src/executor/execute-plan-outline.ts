@@ -97,37 +97,71 @@ function frontiersForScopes(snapshot: ExecutionSpecSnapshot): readonly Execution
   return [...scopesByFrontier.entries()].map(([frontierId, scopes]) => ({
     id: frontierId,
     title: frontierTitleById.get(frontierId) ?? 'Execution handoff',
-    tasks: scopes.map((scope, index) => ({
-      ...(() => {
-        const requirements = scope.requirementIds.flatMap((requirementId) => {
-          const requirement = requirementsById.get(requirementId);
-          return requirement ? [requirement] : [];
-        });
-        return {
-          id: `task-${index + 1}`,
-          title: scope.title,
-          scopeId: scope.itemId,
-          requirementId: requirements[0]?.itemId ?? scope.itemId,
-          ...(scope.requirementIds.length > 0 ? { requirementIds: scope.requirementIds } : {}),
-          ...(requirements.length > 0 ? { requirements } : {}),
-          summary: scope.content,
-          dependsOn: [
-            ...new Set(
-              scope.requirementIds.flatMap((requirementId) =>
-                (requirementsById.get(requirementId)?.dependsOn ?? []).filter(
-                  (dependencyId) => !scope.requirementIds.includes(dependencyId),
-                ),
+    tasks: scopes.flatMap((scope, index) => tasksForScope(scope, requirementsById, index)),
+  }));
+}
+
+function tasksForScope(
+  scope: ExecutionSpecSnapshot['scopes'][number],
+  requirementsById: ReadonlyMap<string, ExecutionSpecItemSnapshot>,
+  scopeIndex: number,
+): readonly ExecutionPlanOutlineTask[] {
+  const requirements = scope.requirementIds.flatMap((requirementId) => {
+    const requirement = requirementsById.get(requirementId);
+    return requirement ? [requirement] : [];
+  });
+  if (requirements.length <= 1) {
+    return [
+      {
+        id: `task-${scopeIndex + 1}`,
+        title: scope.title,
+        scopeId: scope.itemId,
+        requirementId: requirements[0]?.itemId ?? scope.itemId,
+        ...(scope.requirementIds.length > 0 ? { requirementIds: scope.requirementIds } : {}),
+        ...(requirements.length > 0 ? { requirements } : {}),
+        summary: scope.content,
+        dependsOn: [
+          ...new Set(
+            scope.requirementIds.flatMap((requirementId) =>
+              (requirementsById.get(requirementId)?.dependsOn ?? []).filter(
+                (dependencyId) => !scope.requirementIds.includes(dependencyId),
               ),
             ),
-          ],
-          acceptanceCriterionIds: scope.criteria.map((criterion) => criterion.itemId),
-          acceptanceCriteria: scope.criteria.map(outlineCriterion),
-          designContext: scope.design,
-          verificationContext: scope.verification,
-        };
-      })(),
-    })),
-  }));
+          ),
+        ],
+        acceptanceCriterionIds: scope.criteria.map((criterion) => criterion.itemId),
+        acceptanceCriteria: scope.criteria.map(outlineCriterion),
+        designContext: scope.design,
+        verificationContext: scope.verification,
+      },
+    ];
+  }
+
+  return requirements.map((requirement, requirementIndex) => {
+    const acceptanceCriteria = scope.criteria
+      .filter(
+        (criterion) =>
+          criterion.scopeLinked === true ||
+          criterion.verifies === undefined ||
+          criterion.verifies.length === 0 ||
+          criterion.verifies.includes(requirement.itemId),
+      )
+      .map(outlineCriterion);
+    return {
+      id: `task-${scopeIndex + requirementIndex + 1}`,
+      title: requirement.title,
+      scopeId: scope.itemId,
+      requirementId: requirement.itemId,
+      requirementIds: [requirement.itemId],
+      requirements: [requirement],
+      summary: requirement.content,
+      dependsOn: requirement.dependsOn,
+      acceptanceCriterionIds: acceptanceCriteria.map((criterion) => criterion.criterionId),
+      acceptanceCriteria,
+      designContext: scope.design,
+      verificationContext: scope.verification,
+    };
+  });
 }
 
 function frontierForRequirements(
