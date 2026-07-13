@@ -40,6 +40,7 @@ export async function synthesizePlan(args: {
   readonly projection: PlanningProjection;
   readonly detected: readonly CapabilityRequirement[];
   readonly providers: readonly CapabilityProvider[];
+  readonly baseRequired?: readonly CapabilityRequirement[];
   readonly planner: PlannerPort;
   readonly runtime?: PlannerRuntime;
 }): Promise<SynthesizePlanResult> {
@@ -83,6 +84,7 @@ export async function synthesizePlan(args: {
       projection: args.projection,
       detected: args.detected,
       providers: args.providers,
+      ...(args.baseRequired ? { baseRequired: args.baseRequired } : {}),
     });
     findings = validation.findings;
     history.push({ round, findings });

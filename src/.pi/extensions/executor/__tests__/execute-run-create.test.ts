@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -109,5 +109,56 @@ describe('createExecuteRunCreateTool', () => {
     await expect(readFile(runMetadataPath(cwd, 'run-1'), 'utf8')).rejects.toMatchObject({
       code: 'ENOENT',
     });
+  });
+
+  it('writes the spec-recipe verify target for a greenfield run', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-create-recipe-'));
+    const recipeTool = createExecuteRunCreateTool({
+      specId: 7,
+      reads: {
+        queryGraph: () => ({
+          lsn: 9,
+          nodes: [
+            ...nodes,
+            {
+              ...base,
+              id: 30,
+              plane: 'intent',
+              kind: 'decision',
+              kindOrdinal: 1,
+              title: 'Verify with cargo',
+              body: 'execute.verify: cargo test',
+            },
+          ],
+          edges: [],
+        }),
+      } as never,
+    });
+    const projection = projectExecuteGraph({
+      specId: 7,
+      graphLsn: 9,
+      nodes: [
+        ...nodes,
+        {
+          ...base,
+          id: 30,
+          plane: 'intent',
+          kind: 'decision',
+          kindOrdinal: 1,
+          title: 'Verify with cargo',
+          body: 'execute.verify: cargo test',
+        },
+      ] as never,
+      edges: [],
+    });
+    await mkdir(join(cwd, '.brunch', 'cook', 'specs', '7'), { recursive: true });
+    await writePlanFile({ cwd, preview: projection.planPreview, source: projection.source });
+
+    const result = await recipeTool.execute('t1', { runId: 'run-1' }, undefined, undefined, {
+      cwd,
+    } as never);
+
+    expect((result.details as { result: { status: string } }).result.status).toBe('created');
+    expect((await runMetadata(cwd, 'run-1')).verifyTarget).toEqual({ command: 'cargo', args: ['test'] });
   });
 });

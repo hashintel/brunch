@@ -97,4 +97,24 @@ describe('synthesizePlan', () => {
     if (result.status !== 'admitted') return;
     expect(result.history[0]!.findings[0]).toMatchObject({ code: 'malformed_candidate' });
   });
+
+  it('keeps spec-mandated base requirements even when the candidate drops them', async () => {
+    const base = coherentCandidate();
+    const dropped = { ...base, requiredCapabilities: [] };
+    const planner = scriptedPlanner([dropped]);
+
+    const result = await synthesizePlan({
+      projection,
+      detected: [],
+      providers,
+      baseRequired: [{ id: 'python.pytest', source: { kind: 'elicited', itemId: 'DEC1' } }],
+      planner,
+    });
+
+    expect(result.status).toBe('admitted');
+    if (result.status !== 'admitted') return;
+    expect(result.executionContract.resolvedActions.verify.map((action) => action.capabilityId)).toEqual([
+      'python.pytest',
+    ]);
+  });
 });

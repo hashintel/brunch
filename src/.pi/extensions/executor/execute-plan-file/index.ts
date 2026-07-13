@@ -7,6 +7,7 @@ import {
   projectExecuteGraph,
 } from '../../../../executor/execute-projection.js';
 import type { PlannerPort } from '../../../../executor/execution-ports.js';
+import { extractSpecRecipe } from '../../../../executor/execution-recipe.js';
 import { writePlanFile } from '../../../../executor/plan-file.js';
 import { previewPlan, type PlanPreview } from '../../../../executor/plan-preview.js';
 import { synthesizePlan, type SynthesisRound } from '../../../../executor/plan-synthesis.js';
@@ -89,10 +90,41 @@ export function createExecutePlanFileTool(deps: ExecutePlanFileDeps) {
       } else if (deps.planner) {
         const mode = params.mode ?? 'greenfield';
         const detected = mode === 'brownfield' ? await detectWorkspaceCapabilities(cwd) : [];
+        const planningInput = projectPlanningInput(projection.snapshot);
+        const recipe = extractSpecRecipe(planningInput.commitments);
+        if (recipe.issues.length > 0) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: [
+                  'execute_plan_file: plan_synthesis_blocked',
+                  ...recipe.issues.map(
+                    (issue) => `- malformed_recipe: ${issue.itemId}: ${issue.line} — ${issue.reason}`,
+                  ),
+                  'No plan was written. Fix the execute.* recipe lines in the spec.',
+                ].join('\n'),
+              },
+            ],
+            details: {
+              blocked: {
+                findings: recipe.issues.map((issue) => ({
+                  code: 'capability_unsupported' as const,
+                  severity: 'error' as const,
+                  itemId: issue.itemId,
+                  message: `${issue.line} — ${issue.reason}`,
+                })),
+                history: [],
+              },
+              sideEffects: [],
+            },
+          };
+        }
         const synthesis = await synthesizePlan({
-          projection: projectPlanningInput(projection.snapshot),
+          projection: planningInput,
           detected,
-          providers: defaultCapabilityProviders(),
+          providers: [...defaultCapabilityProviders(), ...(recipe.provider ? [recipe.provider] : [])],
+          ...(recipe.required.length > 0 ? { baseRequired: recipe.required } : {}),
           planner: deps.planner,
           runtime: {
             modelRegistry,

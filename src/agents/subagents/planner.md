@@ -20,7 +20,9 @@ Author an executable plan candidate:
   verification ids it realizes; drop nothing the scope packages.
 - Derive required execution capabilities only from the commitments in the projection,
   citing the commitment item id as the source. Never invent capabilities from ambient
-  knowledge, and never emit shell commands — capability ids only.
+  knowledge, and never emit shell commands — capability ids only. Commitments that
+  declare explicit `execute.*` recipe lines are already binding; you do not need to
+  restate them.
 
 Respond with exactly one JSON object (no prose, no code fences) with this shape:
 { "schemaVersion": 1, "specId": string,

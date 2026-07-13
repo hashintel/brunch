@@ -50,6 +50,7 @@ export function validateCandidatePlan(args: {
   readonly projection: PlanningProjection;
   readonly detected: readonly CapabilityRequirement[];
   readonly providers: readonly CapabilityProvider[];
+  readonly baseRequired?: readonly CapabilityRequirement[];
 }): PlanValidationResult {
   const { candidate, projection } = args;
   const findings: PlanValidationFinding[] = [];
@@ -234,18 +235,21 @@ export function validateCandidatePlan(args: {
     }
   }
 
+  const candidateRequired = candidate.requiredCapabilities.map((capability) => ({
+    id: capability.id,
+    source: { kind: 'elicited' as const, itemId: capability.sourceItemId },
+  }));
+  const baseRequired = args.baseRequired ?? [];
+  const baseIds = new Set(baseRequired.map((requirement) => requirement.id));
   const executionContract = deriveExecutionContract({
-    required: candidate.requiredCapabilities.map((capability) => ({
-      id: capability.id,
-      source: { kind: 'elicited', itemId: capability.sourceItemId },
-    })),
+    required: [...baseRequired, ...candidateRequired.filter((requirement) => !baseIds.has(requirement.id))],
     detected: args.detected,
     providers: args.providers,
   });
   for (const blocked of executionContract.blocked) {
     error(
       'capability_unsupported',
-      `Capability ${blocked.id} has no provider; it stays a blocked requirement.`,
+      blocked.message ?? `Capability ${blocked.id} has no provider; it stays a blocked requirement.`,
       blocked.id,
     );
   }

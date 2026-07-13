@@ -1,0 +1,499 @@
+   {
+     "spec": {
+       "slug": "rust-todo-cli",
+       "name": "Rust Todo CLI"
+     },
+     "nodes": [
+       {
+         "local_id": 1,
+         "plane": "intent",
+         "kind": "goal",
+         "title": "Personal productivity CLI tool for developers",
+          "body": "A developer-facing command-line todo app that is as simple as possible. Targets individual developers who want lightweight task tracking without leaving the terminal.",
+         "basis": "explicit",
+         "source": "rust-todo-cli [goal]",
+         "detail": null
+       },
+       {
+         "local_id": 2,
+         "plane": "intent",
+         "kind": "constraint",
+         "title": "Local flat-file storage only (no server, no DB)",
+          "body": "Tasks are stored in a local file (JSON, TOML, or plain text). Zero external dependencies for storage; file must be human-readable and manually editable.",
+         "basis": "explicit",
+         "source": "rust-todo-cli [constraint]",
+         "detail": null
+       },
+       {
+         "local_id": 3,
+         "plane": "intent",
+         "kind": "constraint",
+         "title": "Minimal initial scope — no due dates, no tags, no edit",
+          "body": "V1 is restricted to: add, complete, delete, list/filter, and priority levels. Due dates, tags, and text editing are explicitly out of initial scope.",
+         "basis": "explicit",
+         "source": "rust-todo-cli [constraint]",
+         "detail": null
+       },
+       {
+         "local_id": 4,
+         "plane": "intent",
+         "kind": "requirement",
+         "title": "Add a task from the CLI",
+         "body": null,
+         "basis": "explicit",
+         "source": "rust-todo-cli [requirement]",
+         "detail": { "form": "plain" }
+       },
+       {
+         "local_id": 5,
+         "plane": "intent",
+         "kind": "requirement",
+         "title": "Mark a task complete",
+         "body": null,
+         "basis": "explicit",
+         "source": "rust-todo-cli [requirement]",
+         "detail": { "form": "plain" }
+       },
+       {
+         "local_id": 6,
+         "plane": "intent",
+         "kind": "requirement",
+         "title": "Delete a task",
+         "body": null,
+         "basis": "explicit",
+         "source": "rust-todo-cli [requirement]",
+         "detail": { "form": "plain" }
+       },
+       {
+         "local_id": 7,
+         "plane": "intent",
+         "kind": "requirement",
+         "title": "List and filter tasks",
+         "body": null,
+         "basis": "explicit",
+         "source": "rust-todo-cli [requirement]",
+         "detail": { "form": "plain" }
+       },
+       {
+         "local_id": 8,
+         "plane": "intent",
+         "kind": "requirement",
+         "title": "Assign priority level to a task",
+         "body": null,
+         "basis": "explicit",
+         "source": "rust-todo-cli [requirement]",
+         "detail": { "form": "plain" }
+       },
+       {
+         "local_id": 9,
+         "plane": "intent",
+         "kind": "decision",
+         "title": "Priority model: three levels (high / medium / low)",
+         "body": null,
+         "basis": "explicit",
+         "source": "rust-todo-cli [decision]",
+         "detail": {
+           "chosen_option": "Three named levels: high, medium, low",
+           "rejected": ["Numeric score (1–5 or 1–10)", "Binary starred/normal flag"],
+            "rationale": "Three named levels are simple to type in a CLI, unambiguous when filtering, and match developer mental models without over-engineering."
+         }
+       },
+       {
+         "local_id": 10,
+         "plane": "intent",
+         "kind": "requirement",
+         "title": "Filter tasks by status (pending / done)",
+         "body": null,
+         "basis": "explicit",
+         "source": "rust-todo-cli [requirement]",
+         "detail": { "form": "plain" }
+       },
+       {
+         "local_id": 11,
+         "plane": "intent",
+         "kind": "requirement",
+         "title": "Filter tasks by priority level",
+         "body": null,
+         "basis": "explicit",
+         "source": "rust-todo-cli [requirement]",
+         "detail": { "form": "plain" }
+       },
+       {
+         "local_id": 12,
+         "plane": "intent",
+         "kind": "requirement",
+         "title": "Filter tasks by keyword / text search",
+         "body": null,
+         "basis": "explicit",
+         "source": "rust-todo-cli [requirement]",
+         "detail": { "form": "plain" }
+       },
+       {
+         "local_id": 13,
+         "plane": "intent",
+         "kind": "decision",
+         "title": "Task file format: JSON",
+         "body": null,
+         "basis": "explicit",
+         "source": "rust-todo-cli [decision]",
+         "detail": {
+           "chosen_option": "JSON",
+           "rejected": ["TOML", "Plain text (one task per line)", "YAML"],
+            "rationale": "JSON is universally parseable, has no ambiguity around whitespace, and is well-supported across languages. The reduced hand-editability is an acceptable tradeoff given the CLI handles all mutations."
+         }
+       },
+       {
+         "local_id": 14,
+         "plane": "intent",
+         "kind": "decision",
+         "title": "CLI interface: subcommand style",
+         "body": null,
+         "basis": "explicit",
+         "source": "rust-todo-cli [decision]",
+         "detail": {
+           "chosen_option": "Subcommand style (e.g. todo add, todo done, todo list)",
+           "rejected": ["Flag-driven", "Interactive TUI", "Subcommand + optional TUI"],
+            "rationale": "Subcommand style is idiomatic for CLI task tools, composable in shell scripts, and easy to pipe. Simplest match for a dev-audience minimal tool."
+         }
+       },
+       {
+         "local_id": 15,
+         "plane": "intent",
+         "kind": "decision",
+         "title": "Task ID scheme: sequential integers (renumber on delete)",
+         "body": null,
+         "basis": "explicit",
+         "source": "rust-todo-cli [decision]",
+         "detail": {
+           "chosen_option": "Sequential integers starting from 1, renumbered after deletion",
+           "rejected": ["Stable integers with gaps", "Short alphanumeric IDs"],
+            "rationale": "Sequential integers are the easiest to type and remember. Renumbering on delete is acceptable given the minimal scope and single-user context."
+         }
+       },
+       {
+         "local_id": 16,
+         "plane": "intent",
+         "kind": "decision",
+         "title": "Task file location: ~/.todo.json",
+         "body": null,
+         "basis": "explicit",
+         "source": "rust-todo-cli [decision]",
+         "detail": {
+           "chosen_option": "~/.todo.json — single global dotfile in the home directory",
+           "rejected": ["~/.config/todo/tasks.json", "./todo.json (current directory)", "XDG_DATA_HOME-aware path"],
+            "rationale": "Simplest possible location for a minimal tool. Single global list, no directory creation needed, immediately obvious to the user."
+         }
+       },
+       {
+         "local_id": 17,
+         "plane": "intent",
+         "kind": "decision",
+         "title": "Implementation language: Rust",
+         "body": null,
+         "basis": "explicit",
+         "source": "rust-todo-cli [decision]",
+         "detail": {
+           "chosen_option": "Rust",
+           "rejected": ["TypeScript / Node.js", "Go", "Python"],
+            "rationale": "Static binary with zero runtime dependency, fastest startup, memory safety guarantees. Aligns with developer audience expectations for a high-quality distributable CLI tool. serde_json for JSON, clap for subcommands."
+         }
+       },
+       {
+         "local_id": 18,
+         "plane": "intent",
+         "kind": "decision",
+         "title": "Project structure: flat single-file (main.rs only)",
+         "body": null,
+         "basis": "explicit",
+         "source": "rust-todo-cli [decision]",
+         "detail": {
+           "chosen_option": "Single main.rs — no modules, no workspace",
+           "rejected": ["Modular (main.rs + lib modules)", "Cargo workspace"],
+            "rationale": "Spec is minimal by design. A single file is the simplest match for the scope (~200-300 lines). Refactoring to modules later is mechanical if scope ever grows."
+         }
+       },
+       {
+         "local_id": 19,
+         "plane": "intent",
+         "kind": "decision",
+         "title": "CLI parsing crate: clap (derive API)",
+         "body": null,
+         "basis": "explicit",
+         "source": "rust-todo-cli [decision]",
+         "detail": {
+           "chosen_option": "clap with derive macros",
+           "rejected": ["argh", "std::env::args only"],
+            "rationale": "Industry standard for Rust CLIs. Derive API maps cleanly onto the subcommand model already decided. Built-in help generation and error messages without manual work."
+         }
+       },
+       {
+         "local_id": 20,
+         "plane": "intent",
+         "kind": "decision",
+         "title": "JSON serialization: serde + serde_json",
+         "body": null,
+         "basis": "explicit",
+         "source": "rust-todo-cli [decision]",
+         "detail": {
+           "chosen_option": "serde + serde_json",
+           "rejected": ["manual JSON construction", "json crate"],
+            "rationale": "Standard Rust JSON stack. Derive macros on the Task struct give zero-cost serialization. No viable alternative in the Rust ecosystem for JSON r/w."
+         }
+       },
+       {
+         "local_id": 21,
+         "plane": "intent",
+         "kind": "decision",
+         "title": "Terminal output: colored crate",
+         "body": null,
+         "basis": "explicit",
+         "source": "rust-todo-cli [decision]",
+         "detail": {
+           "chosen_option": "colored crate for terminal color output",
+           "rejected": ["owo-colors", "termcolor", "anstyle/anstream"],
+           "rationale": "Simple ergonomics (.red(), .bold()) with minimal API surface. Best match for a flat single-file tool where terseness matters."
+         }
+       },
+       {
+         "local_id": 22,
+         "plane": "plan",
+         "kind": "milestone",
+         "title": "M1: Project scaffold",
+         "body": "cargo new todo-cli, Cargo.toml with clap/serde/serde_json/colored, empty main.rs compiles clean.",
+         "basis": "explicit",
+         "source": "rust-todo-cli [milestone]",
+         "detail": null
+       },
+       {
+         "local_id": 23,
+         "plane": "plan",
+         "kind": "milestone",
+         "title": "M2: Task model + storage",
+         "body": "Task struct (id, text, done, priority), JSON r/w to ~/.todo.json, load/save functions.",
+         "basis": "explicit",
+         "source": "rust-todo-cli [milestone]",
+         "detail": null
+       },
+       {
+         "local_id": 24,
+         "plane": "plan",
+         "kind": "milestone",
+         "title": "M3: Core commands",
+         "body": "Implement add, done, delete subcommands with clap derive. Sequential ID assignment and renumbering on delete.",
+         "basis": "explicit",
+         "source": "rust-todo-cli [milestone]",
+         "detail": null
+       },
+       {
+         "local_id": 25,
+         "plane": "plan",
+         "kind": "milestone",
+         "title": "M4: List + filter",
+         "body": "list subcommand with --status, --priority, --search flags. Colored output: priority colors, strikethrough or dim for done tasks.",
+         "basis": "explicit",
+         "source": "rust-todo-cli [milestone]",
+         "detail": null
+       },
+       {
+         "local_id": 26,
+         "plane": "plan",
+         "kind": "milestone",
+         "title": "M5: Polish + release",
+         "body": "Error handling (missing file, bad ID, etc.), help text review, release build, README.",
+         "basis": "explicit",
+         "source": "rust-todo-cli [milestone]",
+         "detail": null
+       },
+       {
+         "local_id": 27,
+         "plane": "oracle",
+         "kind": "check",
+         "title": "M1: cargo build --release exits 0 with no warnings",
+         "body": "Given: fresh clone. When: cargo build --release. Then: exit 0, no compiler warnings.",
+         "basis": "explicit",
+         "source": "rust-todo-cli [check]",
+         "detail": null
+       },
+       {
+         "local_id": 28,
+         "plane": "oracle",
+         "kind": "check",
+         "title": "M2: Task round-trips through JSON without data loss",
+         "body": "Given: Task{id,text,done=false,priority=high}. When: saved to ~/.todo.json and loaded back. Then: all fields identical.",
+         "basis": "explicit",
+         "source": "rust-todo-cli [check]",
+         "detail": null
+       },
+       {
+         "local_id": 29,
+         "plane": "oracle",
+         "kind": "check",
+         "title": "M3: add assigns next sequential ID",
+         "body": "Given: tasks 1,2 exist. When: todo add \"buy milk\". Then: new task has id=3, text=buy milk.",
+         "basis": "explicit",
+         "source": "rust-todo-cli [check]",
+         "detail": null
+       },
+       {
+         "local_id": 30,
+         "plane": "oracle",
+         "kind": "check",
+         "title": "M3: done marks complete; delete renumbers",
+         "body": "Given: tasks 1,2,3. When: todo done 2, then todo delete 1. Then: task 2 done=true; remaining renumbered 1,2.",
+         "basis": "explicit",
+         "source": "rust-todo-cli [check]",
+         "detail": null
+       },
+       {
+         "local_id": 31,
+         "plane": "oracle",
+         "kind": "check",
+         "title": "M4: list --status pending shows only incomplete tasks",
+         "body": "Given: mix of done/pending tasks. When: todo list --status pending. Then: only done=false tasks printed.",
+         "basis": "explicit",
+         "source": "rust-todo-cli [check]",
+         "detail": null
+       },
+       {
+         "local_id": 32,
+         "plane": "oracle",
+         "kind": "check",
+         "title": "M4: list --priority high shows only high-priority tasks",
+         "body": "Given: tasks with mixed priorities. When: todo list --priority high. Then: only priority=high tasks printed.",
+         "basis": "explicit",
+         "source": "rust-todo-cli [check]",
+         "detail": null
+       },
+       {
+         "local_id": 33,
+         "plane": "oracle",
+         "kind": "check",
+         "title": "M4: list --search filters case-insensitively",
+         "body": "Given: tasks Buy Milk, write tests, buy bread. When: todo list --search buy. Then: Buy Milk and buy bread printed; write tests excluded.",
+         "basis": "explicit",
+         "source": "rust-todo-cli [check]",
+         "detail": null
+       },
+       {
+         "local_id": 34,
+         "plane": "oracle",
+         "kind": "check",
+         "title": "M5: invalid task ID exits non-zero with clear error",
+         "body": "Given: only tasks 1,2 exist. When: todo done 99. Then: error referencing ID 99 on stderr; exit code non-zero.",
+         "basis": "explicit",
+         "source": "rust-todo-cli [check]",
+         "detail": null
+       },
+       {
+         "local_id": 35,
+         "plane": "oracle",
+         "kind": "vv_method",
+         "title": "Manual CLI smoke test",
+         "body": "Run each subcommand by hand against a local ~/.todo.json and observe stdout/stderr/exit code. No test harness required for V1.",
+         "basis": "explicit",
+         "source": "rust-todo-cli [vv_method]",
+         "detail": null
+       },
+       {
+         "local_id": 36,
+         "plane": "oracle",
+         "kind": "vv_obligation",
+         "title": "Verify M1: build passes clean",
+         "body": "Run cargo build --release on a fresh checkout. Obligation satisfied when CH1 passes.",
+         "basis": "explicit",
+         "source": "rust-todo-cli [vv_obligation]",
+         "detail": null
+       },
+       {
+         "local_id": 37,
+         "plane": "oracle",
+         "kind": "vv_obligation",
+         "title": "Verify M2: storage round-trip",
+         "body": "Manually inspect ~/.todo.json after add; reload and confirm field fidelity. Obligation satisfied when CH2 passes.",
+         "basis": "explicit",
+         "source": "rust-todo-cli [vv_obligation]",
+         "detail": null
+       },
+       {
+         "local_id": 38,
+         "plane": "oracle",
+         "kind": "vv_obligation",
+         "title": "Verify M3: core command behaviour",
+         "body": "Exercise add, done, delete in sequence; inspect file after each. Obligation satisfied when CH3 and CH4 pass.",
+         "basis": "explicit",
+         "source": "rust-todo-cli [vv_obligation]",
+         "detail": null
+       },
+       {
+         "local_id": 39,
+         "plane": "oracle",
+         "kind": "vv_obligation",
+         "title": "Verify M4: list and filter output",
+         "body": "Run list with --status, --priority, --search flags and verify printed output. Obligation satisfied when CH5, CH6, CH7 pass.",
+         "basis": "explicit",
+         "source": "rust-todo-cli [vv_obligation]",
+         "detail": null
+       },
+       {
+         "local_id": 40,
+         "plane": "oracle",
+         "kind": "vv_obligation",
+         "title": "Verify M5: error handling",
+         "body": "Supply invalid IDs and bad args; inspect stderr and exit codes. Obligation satisfied when CH8 passes.",
+         "basis": "explicit",
+         "source": "rust-todo-cli [vv_obligation]",
+         "detail": null
+       }
+     ],
+     "edges": [
+       { "category": "dependency", "source_local_id": 2, "target_local_id": 4, "basis": "explicit" },
+       { "category": "dependency", "source_local_id": 2, "target_local_id": 5, "basis": "explicit" },
+       { "category": "dependency", "source_local_id": 2, "target_local_id": 6, "basis": "explicit" },
+       { "category": "dependency", "source_local_id": 2, "target_local_id": 7, "basis": "explicit" },
+       { "category": "dependency", "source_local_id": 2, "target_local_id": 8, "basis": "explicit" },
+       { "category": "dependency", "source_local_id": 15, "target_local_id": 5, "basis": "explicit" },
+       { "category": "dependency", "source_local_id": 15, "target_local_id": 6, "basis": "explicit" },
+       { "category": "dependency", "source_local_id": 22, "target_local_id": 23, "basis": "explicit" },
+       { "category": "dependency", "source_local_id": 23, "target_local_id": 24, "basis": "explicit" },
+       { "category": "dependency", "source_local_id": 24, "target_local_id": 25, "basis": "explicit" },
+       { "category": "dependency", "source_local_id": 25, "target_local_id": 26, "basis": "explicit" },
+       { "category": "refinement", "source_local_id": 1, "target_local_id": 4, "basis": "explicit" },
+       { "category": "refinement", "source_local_id": 1, "target_local_id": 5, "basis": "explicit" },
+       { "category": "refinement", "source_local_id": 1, "target_local_id": 6, "basis": "explicit" },
+       { "category": "refinement", "source_local_id": 1, "target_local_id": 7, "basis": "explicit" },
+       { "category": "refinement", "source_local_id": 1, "target_local_id": 8, "basis": "explicit" },
+       { "category": "refinement", "source_local_id": 7, "target_local_id": 10, "basis": "explicit" },
+       { "category": "refinement", "source_local_id": 7, "target_local_id": 11, "basis": "explicit" },
+       { "category": "refinement", "source_local_id": 7, "target_local_id": 12, "basis": "explicit" },
+       { "category": "rationale", "source_local_id": 9, "target_local_id": 8, "basis": "explicit", "stance": "for" },
+       { "category": "rationale", "source_local_id": 13, "target_local_id": 2, "basis": "explicit", "stance": "for" },
+       { "category": "rationale", "source_local_id": 14, "target_local_id": 1, "basis": "explicit", "stance": "for" },
+       { "category": "rationale", "source_local_id": 16, "target_local_id": 2, "basis": "explicit", "stance": "for" },
+       { "category": "realization", "source_local_id": 4, "target_local_id": 24, "basis": "explicit" },
+       { "category": "realization", "source_local_id": 5, "target_local_id": 24, "basis": "explicit" },
+       { "category": "realization", "source_local_id": 6, "target_local_id": 24, "basis": "explicit" },
+       { "category": "realization", "source_local_id": 7, "target_local_id": 25, "basis": "explicit" },
+       { "category": "realization", "source_local_id": 8, "target_local_id": 23, "basis": "explicit" },
+       { "category": "realization", "source_local_id": 35, "target_local_id": 36, "basis": "explicit" },
+       { "category": "realization", "source_local_id": 35, "target_local_id": 37, "basis": "explicit" },
+       { "category": "realization", "source_local_id": 35, "target_local_id": 38, "basis": "explicit" },
+       { "category": "realization", "source_local_id": 35, "target_local_id": 39, "basis": "explicit" },
+       { "category": "realization", "source_local_id": 35, "target_local_id": 40, "basis": "explicit" },
+        { "category": "witness", "source_local_id": 27, "target_local_id": 22, "basis": "explicit", "stance": "for" },
+        { "category": "witness", "source_local_id": 28, "target_local_id": 23, "basis": "explicit", "stance": "for" },
+        { "category": "witness", "source_local_id": 29, "target_local_id": 24, "basis": "explicit", "stance": "for" },
+        { "category": "witness", "source_local_id": 30, "target_local_id": 24, "basis": "explicit", "stance": "for" },
+        { "category": "witness", "source_local_id": 31, "target_local_id": 25, "basis": "explicit", "stance": "for" },
+        { "category": "witness", "source_local_id": 32, "target_local_id": 25, "basis": "explicit", "stance": "for" },
+        { "category": "witness", "source_local_id": 33, "target_local_id": 25, "basis": "explicit", "stance": "for" },
+        { "category": "witness", "source_local_id": 34, "target_local_id": 26, "basis": "explicit", "stance": "for" },
+        { "category": "witness", "source_local_id": 36, "target_local_id": 27, "basis": "explicit", "stance": "for" },
+        { "category": "witness", "source_local_id": 37, "target_local_id": 28, "basis": "explicit", "stance": "for" },
+        { "category": "witness", "source_local_id": 38, "target_local_id": 29, "basis": "explicit", "stance": "for" },
+        { "category": "witness", "source_local_id": 38, "target_local_id": 30, "basis": "explicit", "stance": "for" },
+        { "category": "witness", "source_local_id": 39, "target_local_id": 31, "basis": "explicit", "stance": "for" },
+        { "category": "witness", "source_local_id": 39, "target_local_id": 32, "basis": "explicit", "stance": "for" },
+        { "category": "witness", "source_local_id": 39, "target_local_id": 33, "basis": "explicit", "stance": "for" },
+        { "category": "witness", "source_local_id": 40, "target_local_id": 34, "basis": "explicit", "stance": "for" }
+     ]
+   }

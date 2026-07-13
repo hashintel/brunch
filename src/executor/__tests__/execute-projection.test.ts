@@ -347,4 +347,56 @@ describe('projectExecuteGraph execution contract', () => {
       { capabilityId: 'node.npm-test', providerId: 'node-npm', command: 'npm', args: ['test'] },
     ]);
   });
+
+  it('derives the contract from spec-declared execute.* recipe lines instead of the npm default', () => {
+    const projection = projectExecuteGraph({
+      specId: 7,
+      graphLsn: 9,
+      nodes: [
+        ...nodes,
+        {
+          ...base,
+          id: 30,
+          plane: 'intent',
+          kind: 'decision',
+          kindOrdinal: 1,
+          title: 'Verify with cargo',
+          body: 'Verification runs through cargo.\nexecute.verify: cargo test',
+        },
+      ],
+      edges: [],
+    });
+
+    expect(projection.executionContract.requiredCapabilities).toEqual([
+      { id: 'spec.verify', source: { kind: 'elicited', itemId: 'D1' } },
+    ]);
+    expect(projection.executionContract.resolvedActions.verify).toEqual([
+      { capabilityId: 'spec.verify', providerId: 'spec-recipe', command: 'cargo', args: ['test'] },
+    ]);
+  });
+
+  it('blocks the contract on malformed recipe lines instead of guessing', () => {
+    const projection = projectExecuteGraph({
+      specId: 7,
+      graphLsn: 9,
+      nodes: [
+        ...nodes,
+        {
+          ...base,
+          id: 30,
+          plane: 'intent',
+          kind: 'decision',
+          kindOrdinal: 1,
+          title: 'Verify with cargo',
+          body: 'execute.verify: cargo test && echo done',
+        },
+      ],
+      edges: [],
+    });
+
+    expect(projection.executionContract.blocked[0]).toMatchObject({
+      id: 'spec.recipe',
+      reason: 'malformed_recipe',
+    });
+  });
 });

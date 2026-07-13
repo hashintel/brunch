@@ -70,6 +70,7 @@ executor/
 ├── candidate-plan.ts             model-authored plan candidate schema (no command surface) + fail-closed parse
 ├── plan-validation.ts            candidate x projection -> total typed findings + derived execution contract
 ├── plan-synthesis.ts             PlannerPort loop: synthesize -> validate -> bounded repair -> admit draft or block (no fallback)
+├── execution-recipe.ts           spec-declared execute.* lines -> generic recipe provider + spec-mandated requirements
 ├── dependency-cycles.ts          one shared cycle policy for validation and lowering
 ├── capability-providers.ts       product-owned capability vocabulary -> typed setup/build/verify action templates
 ├── workspace-detection.ts        workspace manifests -> detected capability facts with file provenance

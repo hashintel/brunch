@@ -24,7 +24,8 @@ export interface ResolvedContractAction {
 export interface BlockedCapability {
   readonly id: string;
   readonly source: CapabilitySource;
-  readonly reason: 'unsupported_capability';
+  readonly reason: 'unsupported_capability' | 'malformed_recipe';
+  readonly message?: string;
 }
 
 export interface ExecutionContractConflict {

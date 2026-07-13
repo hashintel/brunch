@@ -4,9 +4,11 @@ import { checkExecutionSpecForPlan, type ExecutePlanCheckResult } from './execut
 import { outlineExecutionPlan, type ExecutionPlanOutline } from './execute-plan-outline.js';
 import {
   deriveExecutionContract,
+  type BlockedCapability,
   type CapabilityRequirement,
   type ExecutionContract,
 } from './execution-contract.js';
+import { extractSpecRecipe, type SpecRecipeExtraction } from './execution-recipe.js';
 import {
   projectExecutionSpecSnapshot,
   type ExecutionSpecMode,
@@ -46,13 +48,24 @@ export function projectExecuteGraph(input: ProjectExecuteGraphInput): ExecuteGra
   const outline = outlineExecutionPlan(snapshot);
   const draft = draftExecutablePlan(outline);
   const detected = input.detectedCapabilities ?? [];
-  const providers = defaultCapabilityProviders();
-  // ceiling: deterministic lowering has no elicited-capability source yet; the FE-1197
-  // slice B planner replaces this explicit default-provenance requirement with
-  // capabilities projected from approved commitments.
+  const recipe = extractSpecRecipe({
+    constraints: snapshot.context.constraints,
+    invariants: snapshot.context.invariants,
+    decisions: snapshot.context.decisions,
+  });
+  const providers = [...defaultCapabilityProviders(), ...(recipe.provider ? [recipe.provider] : [])];
+  // ceiling: default-provenance npm requirement as last resort until the FE-1197
+  // planner projects capabilities from non-recipe commitments.
   const required: readonly CapabilityRequirement[] =
-    detected.length === 0 ? [{ id: 'node.npm-verify', source: { kind: 'default' } }] : [];
-  const executionContract = deriveExecutionContract({ required, detected, providers });
+    recipe.required.length > 0
+      ? recipe.required
+      : detected.length === 0
+        ? [{ id: 'node.npm-verify', source: { kind: 'default' } }]
+        : [];
+  const executionContract = withRecipeIssues(
+    deriveExecutionContract({ required, detected, providers }),
+    recipe,
+  );
 
   return {
     source: { graphLsn: input.graphLsn, visibility: 'active' },
@@ -72,4 +85,15 @@ export function assertExecuteProjectionPlanReady(projection: ExecuteGraphProject
   const summary =
     errors.length > 0 ? errors.map((finding) => finding.message).join('; ') : 'unknown plan-input error';
   throw new Error(`Execution plan projection is blocked: ${summary}`);
+}
+
+function withRecipeIssues(contract: ExecutionContract, recipe: SpecRecipeExtraction): ExecutionContract {
+  if (recipe.issues.length === 0) return contract;
+  const blocked: readonly BlockedCapability[] = recipe.issues.map((issue) => ({
+    id: 'spec.recipe',
+    source: { kind: 'elicited', itemId: issue.itemId },
+    reason: 'malformed_recipe',
+    message: `${issue.itemId}: ${issue.line} — ${issue.reason}`,
+  }));
+  return { ...contract, blocked: [...blocked, ...contract.blocked] };
 }
