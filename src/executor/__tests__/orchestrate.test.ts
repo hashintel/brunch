@@ -1344,7 +1344,12 @@ describe('drive', () => {
     });
   });
 
-  it.each([
+  const journalMetadataMutations: readonly [
+    string,
+    (
+      event: Extract<ExecutorNetEvent, { readonly kind: 'transition_fired' }>,
+    ) => Extract<ExecutorNetEvent, { readonly kind: 'transition_fired' }>,
+  ][] = [
     ['epicId', (event) => ({ ...event, epicId: 'epic-other' })],
     ['derivedFrom', (event) => ({ ...event, derivedFrom: ['REQ-other'] })],
     ['step', (event) => ({ ...event, step: 'epic_verify' })],
@@ -1354,7 +1359,9 @@ describe('drive', () => {
     ['produced', (event) => ({ ...event, produced: [...event.produced, 'place:other'] })],
     ['runId', (event) => ({ ...event, runId: 'run-other' })],
     ['subnetId', (event) => ({ ...event, subnetId: 'epic:other' })],
-  ] as const)(
+  ];
+
+  it.each(journalMetadataMutations)(
     'rejects a transition with mismatched %s before summary reconciliation or effects',
     async (_, mutate) => {
       const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-history-metadata-mismatch-'));
