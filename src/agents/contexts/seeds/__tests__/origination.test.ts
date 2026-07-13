@@ -117,4 +117,43 @@ describe('composeContextSeedContent', () => {
     expect(content).toContain('SESSION ORIENTATION');
     expect(content).toContain(`chosen: ${choice}`);
   });
+
+  it('carries a resumed spec’s established posture (D118-L: resume is not a blank restart)', () => {
+    const content = composeContextSeedContent({
+      specId,
+      slice: { nodes: [], edges: [], lsn: 1 },
+      scratchpad: [],
+      workspaceContext: '',
+      posture: { kind: 'feature', origin: 'brownfield', relatesToSpecId: 3 },
+    });
+
+    expect(content).toContain('SPEC POSTURE');
+    expect(content).toContain('kind: feature');
+    expect(content).toContain('origin: brownfield');
+    expect(content).toContain('relates-to-spec: spec 3');
+  });
+
+  it('renders no relates-to-spec claim when there is none (A41-L reference-only shape)', () => {
+    const content = composeContextSeedContent({
+      specId,
+      slice: { nodes: [], edges: [], lsn: 1 },
+      scratchpad: [],
+      workspaceContext: '',
+      posture: { kind: 'product', origin: 'greenfield', relatesToSpecId: null },
+    });
+
+    expect(content).toContain('relates-to-spec: none');
+  });
+
+  it('omits the posture section (not blank) when posture is unestablished', () => {
+    const content = composeContextSeedContent({
+      specId,
+      slice: { nodes: [], edges: [], lsn: 1 },
+      scratchpad: [],
+      workspaceContext: '',
+      posture: { kind: 'product', origin: null, relatesToSpecId: null },
+    });
+
+    expect(content).not.toContain('SPEC POSTURE');
+  });
 });
