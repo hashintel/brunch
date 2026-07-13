@@ -1,3 +1,8 @@
+import { SPEC_KINDS, type SpecKind, type SpecOrigin } from '../../../graph/schema/kinds.js';
+import {
+  decideSpecEstablishmentAsks,
+  inferredOriginFor,
+} from '../../../session/spec-establishment.js';
 import type {
   WorkspaceLaunchInventory,
   WorkspaceLaunchSession,
@@ -9,6 +14,17 @@ export type WorkspaceSelectionStage =
   | {
       stage: 'newSpecTitle';
       title: string;
+    }
+  /** D118-L establishment: populated cwd asks kind before confirming origin. */
+  | {
+      stage: 'newSpecKind';
+      title: string;
+    }
+  /** D118-L establishment: the terminal ask/confirm before the newSpec decision fires. */
+  | {
+      stage: 'newSpecOrigin';
+      title: string;
+      kind?: SpecKind;
     }
   | { stage: 'specList' }
   | {
@@ -33,7 +49,9 @@ interface WorkspaceSelectionOption {
     | 'spec'
     | 'newSession'
     | 'resumeSession'
-    | 'session';
+    | 'session'
+    | 'establishKind'
+    | 'establishOrigin';
   decision?: SpecSessionActivationDecision;
   nextStage?: WorkspaceSelectionStage;
 }
@@ -55,7 +73,34 @@ export type WorkspaceSelectionResult =
     }
   | {
       view: WorkspaceSelectionView;
+      stage: WorkspaceSelectionStage;
     };
+
+/**
+ * The stage after title entry, deterministically branching per D118-L: a
+ * populated cwd asks kind before confirming origin; a bare cwd skips
+ * straight to the origin confirm (nothing else is inferable).
+ */
+export function nextStageAfterTitle(
+  title: string,
+  inventory: WorkspaceLaunchInventory,
+): WorkspaceSelectionStage {
+  const asks = decideSpecEstablishmentAsks({
+    currentOrigin: null,
+    workspacePopulated: inventory.workspacePopulated ?? false,
+  });
+  return asks[0] === 'confirmKind' ? { stage: 'newSpecKind', title } : { stage: 'newSpecOrigin', title };
+}
+
+const SPEC_KIND_LABELS: Record<SpecKind, string> = {
+  product: 'Full product — owns the whole codebase',
+  feature: 'Feature — owns a part of this codebase',
+  function: 'Function — a focused verification area',
+};
+
+function flipOrigin(origin: SpecOrigin): SpecOrigin {
+  return origin === 'greenfield' ? 'brownfield' : 'greenfield';
+}
 
 export function buildWorkspaceSelectionView(
   inventory: WorkspaceLaunchInventory,
@@ -67,6 +112,51 @@ export function buildWorkspaceSelectionView(
       stage: 'newSpecTitle',
       title: 'Create new specification',
       options: [],
+    };
+  }
+
+  if (stage.stage === 'newSpecKind') {
+    return {
+      stage: 'newSpecKind',
+      title: 'What does this specification own?',
+      options: SPEC_KINDS.map((kind) => ({
+        id: `establish-kind:${kind}`,
+        label: SPEC_KIND_LABELS[kind],
+        kind: 'establishKind',
+        nextStage: { stage: 'newSpecOrigin', title: stage.title, kind },
+      })),
+    };
+  }
+
+  if (stage.stage === 'newSpecOrigin') {
+    const inferred = inferredOriginFor({ workspacePopulated: inventory.workspacePopulated ?? false });
+    const flipped = flipOrigin(inferred);
+    const decisionFor = (origin: SpecOrigin): SpecSessionActivationDecision => ({
+      action: 'newSpec',
+      title: stage.title,
+      ...(stage.kind ? { kind: stage.kind } : {}),
+      origin,
+    });
+    return {
+      stage: 'newSpecOrigin',
+      title:
+        inferred === 'brownfield'
+          ? 'Does this build on the existing code here?'
+          : 'Is this a fresh, greenfield specification?',
+      options: [
+        {
+          id: `establish-origin:${inferred}`,
+          label: inferred === 'brownfield' ? 'Yes — this is brownfield' : 'Yes — this is greenfield',
+          kind: 'establishOrigin',
+          decision: decisionFor(inferred),
+        },
+        {
+          id: `establish-origin:${flipped}`,
+          label: flipped === 'brownfield' ? 'No — this is brownfield' : 'No — treat as greenfield',
+          kind: 'establishOrigin',
+          decision: decisionFor(flipped),
+        },
+      ],
     };
   }
 
@@ -141,18 +231,20 @@ export function selectWorkspaceSelectionOption(
   const option = view.options[index];
   if (!option) return { decision: { action: 'cancel' } };
   if (option.decision) return { decision: option.decision };
+  const nextStage = option.nextStage ?? { stage: 'home' };
   if (!inventory) {
-    return { view: stageOnlyView(option.nextStage ?? { stage: 'home' }) };
+    return { view: stageOnlyView(nextStage), stage: nextStage };
   }
   return {
-    view: buildWorkspaceSelectionView(inventory, option.nextStage, options),
+    view: buildWorkspaceSelectionView(inventory, nextStage, options),
+    stage: nextStage,
   };
 }
 
 function stageOnlyView(stage: WorkspaceSelectionStage): WorkspaceSelectionView {
   return {
     stage: stage.stage,
-    title: stage.stage === 'newSpecTitle' ? stage.title : '',
+    title: 'title' in stage ? stage.title : '',
     ...('specId' in stage ? { specId: stage.specId } : {}),
     options: [],
   };

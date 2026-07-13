@@ -211,7 +211,7 @@ describe('spec/session picker', () => {
     ]);
   });
 
-  it('returns new-spec decisions from title entry and cancel on escape', () => {
+  it('returns new-spec decisions (with establishment-confirmed origin) from title entry, and cancel on escape', () => {
     const decisions: unknown[] = [];
     const component = createWorkspaceDialogComponent({
       inventory: inventory(),
@@ -225,13 +225,19 @@ describe('spec/session picker', () => {
       component.handleInput!(char);
     }
     component.handleInput!('\r');
+    // Bare cwd (D118-L): title entry routes straight to the origin confirm —
+    // enter accepts the inferred greenfield default.
+    component.handleInput!('\r');
     const cancelComponent = createWorkspaceDialogComponent({
       inventory: inventory(),
       onDecision: (decision) => decisions.push(decision),
     });
     cancelComponent.handleInput!('\x1B');
 
-    expect(decisions).toEqual([{ action: 'newSpec', title: 'Gamma' }, { action: 'cancel' }]);
+    expect(decisions).toEqual([
+      { action: 'newSpec', title: 'Gamma', origin: 'greenfield' },
+      { action: 'cancel' },
+    ]);
   });
 
   it('accepts chunked title input from terminal automation', () => {
@@ -246,8 +252,49 @@ describe('spec/session picker', () => {
     component.handleInput!('\r');
     component.handleInput!('Gamma');
     component.handleInput!('\r');
+    component.handleInput!('\r');
 
-    expect(decisions).toEqual([{ action: 'newSpec', title: 'Gamma' }]);
+    expect(decisions).toEqual([{ action: 'newSpec', title: 'Gamma', origin: 'greenfield' }]);
+  });
+
+  it('populated cwd: title entry asks kind before confirming brownfield origin (D118-L)', () => {
+    const decisions: unknown[] = [];
+    const component = createWorkspaceDialogComponent({
+      inventory: populatedInventory(),
+      onDecision: (decision) => decisions.push(decision),
+    });
+
+    component.handleInput!('\x1B[B');
+    component.handleInput!('\x1B[B');
+    component.handleInput!('\r');
+    for (const char of 'Gamma') {
+      component.handleInput!(char);
+    }
+    component.handleInput!('\r');
+    expect(component.render(80).join('\n')).toContain('What does this specification own?');
+    component.handleInput!('\r'); // pick the first kind option (product)
+    expect(component.render(80).join('\n')).toContain('Does this build on the existing code here?');
+    component.handleInput!('\r'); // confirm the inferred brownfield default
+
+    expect(decisions).toEqual([{ action: 'newSpec', title: 'Gamma', kind: 'product', origin: 'brownfield' }]);
+  });
+
+  it('backs out of an establishment stage to a preserved title (D118-L)', () => {
+    const component = createWorkspaceDialogComponent({
+      inventory: populatedInventory(),
+      onDecision: () => {},
+    });
+
+    component.handleInput!('\x1B[B');
+    component.handleInput!('\x1B[B');
+    component.handleInput!('\r');
+    for (const char of 'Gamma') {
+      component.handleInput!(char);
+    }
+    component.handleInput!('\r');
+    expect(component.render(80).join('\n')).toContain('What does this specification own?');
+    component.handleInput!('\x1B');
+    expect(component.render(80).join('\n')).toContain('› Gamma');
   });
 
   it('backs out one picker stage on escape and cancels from the home stage', () => {
@@ -473,6 +520,10 @@ class FakeTerminal implements Terminal {
   emit(data: string): void {
     this.#onInput?.(data);
   }
+}
+
+function populatedInventory(): WorkspaceLaunchInventory {
+  return { ...inventory(), workspacePopulated: true };
 }
 
 function emptyInventory(): WorkspaceLaunchInventory {

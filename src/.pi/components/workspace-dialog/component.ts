@@ -11,6 +11,7 @@ import { projectRoundedBox } from '../rounded-box.js';
 import { projectScrollViewport } from '../scroll-viewport.js';
 import {
   buildWorkspaceSelectionView,
+  nextStageAfterTitle,
   selectWorkspaceSelectionOption,
   type WorkspaceSelectionStage,
   type WorkspaceSelectionView,
@@ -150,7 +151,7 @@ class WorkspaceDialogComponent implements Component {
       return;
     }
     this.#history.push(this.#stage);
-    this.#stage = viewToStage(result.view);
+    this.#stage = result.stage;
     this.#selectedIndex = 0;
     if (this.#stage.stage === 'newSpecTitle') this.#title = '';
   }
@@ -167,7 +168,14 @@ class WorkspaceDialogComponent implements Component {
     if (matchesKey(data, Key.enter)) {
       const title = this.#title.trim();
       if (title.length > 0) {
-        this.#onDecision({ action: 'newSpec', title });
+        // D118-L establishment: title entry never emits the decision
+        // directly — it always routes into at least one confirm stage.
+        // Push a stage carrying the live typed title (not `this.#stage`,
+        // which stayed at the empty title this stage was entered with)
+        // so backing out restores it.
+        this.#history.push({ stage: 'newSpecTitle', title });
+        this.#stage = nextStageAfterTitle(title, this.#inventory);
+        this.#selectedIndex = 0;
       }
       return;
     }
@@ -191,16 +199,8 @@ class WorkspaceDialogComponent implements Component {
     }
     this.#stage = previous;
     this.#selectedIndex = 0;
-    this.#title = '';
+    this.#title = previous.stage === 'newSpecTitle' ? previous.title : '';
   }
-}
-
-function viewToStage(view: WorkspaceSelectionView): WorkspaceSelectionStage {
-  if (view.stage === 'newSpecTitle') return { stage: 'newSpecTitle', title: '' };
-  if (view.stage === 'specAction' && view.specId) return { stage: 'specAction', specId: view.specId };
-  if (view.stage === 'sessionList' && view.specId) return { stage: 'sessionList', specId: view.specId };
-  if (view.stage === 'specList') return { stage: 'specList' };
-  return { stage: 'home' };
 }
 
 function renderFrame(
