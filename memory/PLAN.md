@@ -560,7 +560,7 @@ group-1 (Active — walkthrough closure):
 
 group-2 (Next — platform debt):
   spec-posture ✓ | workspace-db-identity ✓ | headless-ask-discovery ✓ (D125-L)
-  | reconciliation-derivation ◐ (tracer ✓; watermark next)
+  | reconciliation-derivation ✓ (frontier closed 2026-07-13)
   | compaction-and-conflict-widening (P3, design-first)
   | session-branching (design-first)
   | transcript-ledger-rendering (P2; blocked on FE-1187 exchange-visual-design)
