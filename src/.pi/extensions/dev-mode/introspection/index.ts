@@ -123,7 +123,7 @@ export function registerBrunchIntrospection(
     handler: async (_args: string, ctx: ExtensionCommandContext) => {
       const report = buildBrunchIntrospectionReport(ctx, store, now());
       store.recordBaseReport(report);
-      ctx.ui.notify(formatBrunchIntrospectionReport(report), 'info');
+      ctx.ui.notify(formatBrunchIntrospectionReport(report, options.debugCache !== undefined), 'info');
     },
   });
 
@@ -146,15 +146,26 @@ export function buildBrunchIntrospectionReport(
   };
 }
 
-function formatBrunchIntrospectionReport(report: BrunchIntrospectionBaseReport): string {
+function formatBrunchIntrospectionReport(
+  report: BrunchIntrospectionBaseReport,
+  hasDebugCache: boolean,
+): string {
   const capture = report.latestPassiveCapture;
   return [
     'Brunch introspection report captured.',
-    `basePromptOptions=${summarizeValue(report.baseSystemPromptOptions)}`,
+    `basePromptOptions=${summarizeTopLevelFields(report.baseSystemPromptOptions)}`,
     capture
-      ? `latestPassiveCapture=${capture.turnId} ${summarizeValue(capture.payload)}`
+      ? `latestPassiveCapture=${capture.turnId} ${summarizeTopLevelFields(capture.payload)}`
       : 'latestPassiveCapture=none',
+    ...(hasDebugCache ? ['fullSystemPromptMirror=.brunch/debug/system-prompt.md'] : []),
   ].join('\n');
+}
+
+function summarizeTopLevelFields(value: unknown): string {
+  if (!isRecord(value)) return summarizeValue(value);
+  return `{${Object.entries(value)
+    .map(([field, fieldValue]) => `${field}:${summarizeValue(fieldValue)}`)
+    .join(', ')}}`;
 }
 
 function summarizeValue(value: unknown): string {

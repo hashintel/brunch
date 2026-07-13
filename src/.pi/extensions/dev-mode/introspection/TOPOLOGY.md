@@ -2,7 +2,7 @@
 
 Owns the dev-only D69-L agent-input introspection tap.
 
-- **Owns:** read-only `before_provider_request` capture of the final provider payload, `tool_result` mirroring for explicit Brunch-owned text results, and the dev `/introspect` command that reports base `getSystemPromptOptions()` inputs plus the latest passive capture.
+- **Owns:** read-only `before_provider_request` capture of the final provider payload, `tool_result` mirroring for explicit Brunch-owned text results, and the dev `/introspect` command that reports field-level summaries of base `getSystemPromptOptions()` inputs plus the latest passive capture. When the debug cache is configured, the command also points operators to the exact `.brunch/debug/system-prompt.md` mirror.
 - **Input:** Pi extension events from the explicit Brunch extension bundle.
 - **Output:** in-memory capture records consumed by `src/dev/introspection-launcher.ts` and written under repo-root `.fixtures/scratch/introspection/<run-id>/`; under `BRUNCH_DEV` real TUI launches, the latest captured final system prompt is also mirrored to `.brunch/debug/system-prompt.md`, explicit Brunch-owned text tool results append to `.brunch/debug/tool-contents.md`, Brunch continuity entries (seed, `worldUpdate`, drains, staleness hints) append to `.brunch/debug/entry-contents.md` via `appendEntryContentToDebugCache`, and origination decision/outcome records append to `.brunch/debug/origination.md` — so seeded-but-unkicked sessions are observable with zero provider calls (the gap that masked the origination-kick defect).
 - **Used by:** developer feedback loops only. Product Brunch sessions omit this extension unless `createBrunchPiExtensions(..., { introspection: { enabled: true } })` is passed explicitly.
