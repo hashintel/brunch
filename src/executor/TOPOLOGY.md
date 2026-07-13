@@ -20,6 +20,7 @@ executor/
 │   ├── progress.ts        per-slice batch progress over existing drive observer callbacks
 │   └── types.ts           private batch/effect contracts
 ├── petri-events.ts       bounded `petrinaut/events.jsonl` path + append/parse helpers and process-local observer wake-ups
+├── petri-journal-authority.ts complete journal + lifecycle history -> topology-validated multiset residual and slice claims
 ├── petri-plan-snapshot.ts immutable run-local plan snapshot path + atomic first-write helper
 ├── petri-projection.ts   shared Petri projection contract + parser/normalizer for snapshot/read/live-update boundaries
 ├── petri-runtime-plan.ts shared populated-plan fallback resolution for driver and observer Petri materialization

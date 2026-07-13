@@ -4804,6 +4804,61 @@ describe('petriScheduler', () => {
     });
   });
 
+  it('retains an interleaved partial fan-in claim after its marking is lost', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-interleaved-journal-claim-'));
+    await createRunAtCreated(cwd, ['task-1', 'task-2']);
+    await expect(
+      drive({ cwd, runId: 'run-1', ports: fakePorts() }, petriScheduler, serialFiringPolicy, {
+        maxFirings: 11,
+      }),
+    ).resolves.toEqual({ status: 'completed', runStatus: 'slice_completed' });
+    const state = (await readRunMetadata(runMetadataPath(cwd, 'run-1')))!;
+    const plan = (await readPetriRuntimePlan(cwd, state))!;
+    const transition = compileExecutorTopology(plan).transitions.find(
+      (candidate) => candidate.id === 'slice_start:task-2',
+    )!;
+    const events = [...(await readPetriEvents(cwd))];
+    const taskOneStartIndex = events.findIndex(
+      (event) => event.kind === 'transition_fired' && event.transitionId === 'slice_start:task-1',
+    );
+    events.splice(taskOneStartIndex, 0, {
+      kind: 'transition_fired',
+      runId: 'run-1',
+      runStatus: 'reports_initialized',
+      transitionId: transition.id,
+      subnetId: transition.subnetId,
+      ...(transition.epicId === undefined ? {} : { epicId: transition.epicId }),
+      step: transition.step!.kind,
+      contract: transition.contract,
+      consumed: transition.inputArcs.map((arc) => arc.placeId),
+      produced: transition.outputArcs.map((arc) => arc.placeId),
+      fromStatus: 'reports_initialized',
+      toStatus: 'reports_initialized',
+    });
+    await writeFile(
+      petriEventsPath(cwd, 'run-1'),
+      `${events.map((event) => JSON.stringify(event)).join('\n')}\n`,
+      'utf8',
+    );
+    await rm(petriMarkingPath(cwd, 'run-1'));
+
+    await expect(readRunDetail(cwd, 'run-1')).resolves.toMatchObject({
+      petriReadySteps: [],
+      petriBlockedSteps: [
+        { kind: 'authority_unreadable', blockers: [{ kind: 'parallel_authority_unreadable' }] },
+        {
+          kind: 'slice_start',
+          sliceId: 'task-2',
+          blockers: [{ kind: 'parallel_authority_unreadable' }],
+        },
+      ],
+    });
+    await expect(startSlice({ cwd, runId: 'run-1', sliceId: 'task-2' })).resolves.toMatchObject({
+      status: 'parallel_batch_active',
+      sideEffects: [],
+    });
+  });
+
   it('resumes a matching persisted claim-set before recomputing a fresh frontier selection', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-claim-resume-'));
     await prepareRunAtReports(cwd, ['task-1', 'task-2']);

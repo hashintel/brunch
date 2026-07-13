@@ -7,7 +7,7 @@ import {
   type BlockedStep,
   type SchedulerPlan,
 } from './orchestrate-topology.js';
-import { inspectParallelSliceJournalAuthority } from './parallel-slice-batch.js';
+import { inspectPetriJournalAuthority } from './petri-journal-authority.js';
 import { readPetriMarkingSnapshot } from './petri-marking.js';
 import { projectExecutorPetriTransitionHistory } from './petri-runtime.js';
 import { populatedPlanPath } from './populate.js';
@@ -139,13 +139,17 @@ async function startSliceOwned(args: {
   }
 
   const plan = await readPlan(metadata.populatedPlanPath ?? populatedPlanPath(args.cwd, args.runId));
-  const journalAuthority = await inspectParallelSliceJournalAuthority({
+  const journalAuthority = await inspectPetriJournalAuthority({
     cwd: args.cwd,
     runId: args.runId,
-    lifecycleFiredTransitionCount:
-      projectExecutorPetriTransitionHistory(metadata, plan)?.transitionIds.length ?? 0,
+    lifecycleTransitionIds: projectExecutorPetriTransitionHistory(metadata, plan)?.transitionIds,
+    plan,
   });
-  if (journalAuthority.status !== 'none') {
+  if (
+    journalAuthority.status === 'unreadable' ||
+    (journalAuthority.status === 'missing' && metadata.petriObservationPrepared === true) ||
+    (journalAuthority.status === 'readable' && journalAuthority.sliceStartClaimIds.length > 0)
+  ) {
     return {
       status: 'parallel_batch_active',
       runStatus: metadata.status,

@@ -14,12 +14,12 @@ import {
   type SchedulerPlan,
   type SchedulerPlanMode,
 } from './orchestrate-topology.js';
-import { executeParallelSliceBatch, parallelSliceBatchRecoveryRequired } from './parallel-slice-batch.js';
+import { executeParallelSliceBatch } from './parallel-slice-batch.js';
+import { appendPetriEvent, publishPetriJournalFailure } from './petri-events.js';
 import {
-  appendPetriEvent,
-  inspectPetriTransitionJournal,
-  publishPetriJournalFailure,
-} from './petri-events.js';
+  inspectPetriJournalAuthority,
+  type PetriJournalAuthorityInspection,
+} from './petri-journal-authority.js';
 import {
   petriMarkingLifecycleProvenance,
   petriMarkingSnapshotMatchesRunMetadata,
@@ -419,8 +419,13 @@ async function driveOwned(
       }
     }
     const authoritySnapshot = await readPetriMarkingSnapshot({ cwd: ctx.cwd, runId: ctx.runId });
-    const journal = await inspectPetriTransitionJournal({ cwd: ctx.cwd, runId: ctx.runId });
-    if (journal.status === 'readable') {
+    const journal = await inspectPetriJournalAuthority({
+      cwd: ctx.cwd,
+      runId: ctx.runId,
+      lifecycleTransitionIds: projectExecutorPetriTransitionHistory(state, plan)?.transitionIds,
+      plan,
+    });
+    if ('events' in journal && journal.events !== undefined) {
       const durableEpicHistory = journal.events.flatMap((event) =>
         event.kind === 'transition_fired' && event.contract.lane === 'epic' ? [event.transitionId] : [],
       );
@@ -440,7 +445,7 @@ async function driveOwned(
       }
     }
     if (state.status !== 'abandoned') {
-      const parityFailure = transitionParityFailure({ state, plan, journal, authoritySnapshot });
+      const parityFailure = transitionParityFailure({ journal, authoritySnapshot });
       if (parityFailure) {
         publishPetriJournalFailure(ctx);
         return {
@@ -488,11 +493,8 @@ async function driveOwned(
       state.status !== 'abandoned' &&
       (persisted?.parallelSliceBatch !== undefined ||
         (!persisted?.epicVerificationClaims?.length &&
-          (await parallelSliceBatchRecoveryRequired({
-            cwd: ctx.cwd,
-            runId: ctx.runId,
-            lifecycleFiredTransitionCount: firedTransitionCountForState(state, plan),
-          }))));
+          journal.status === 'readable' &&
+          journal.sliceStartClaimIds.length > 0));
     if (parallelRecoveryRequired) {
       const step = readySteps[0]?.kind ?? 'slice_start';
       const terminal = classifyDriveTerminal({
@@ -887,35 +889,16 @@ async function driveOwned(
 }
 
 function transitionParityFailure(args: {
-  readonly state: RunMetadata;
-  readonly plan: SchedulerPlan | undefined;
-  readonly journal: Awaited<ReturnType<typeof inspectPetriTransitionJournal>>;
+  readonly journal: PetriJournalAuthorityInspection;
   readonly authoritySnapshot: PetriMarkingSnapshot | undefined;
 }): 'petri_input_unreadable' | 'petri_journal_gap' | undefined {
   if (args.journal.status !== 'readable') return 'petri_input_unreadable';
-  const lifecycleProjection = projectExecutorPetriTransitionHistory(args.state, args.plan);
-  if (!lifecycleProjection) return 'petri_input_unreadable';
-  const lifecycle = lifecycleProjection.transitionIds;
-  const journal = args.journal.transitionIds;
-  let topology: ReturnType<typeof compileExecutorTopology>;
-  try {
-    topology = compileExecutorTopology(args.plan);
-  } catch {
-    return 'petri_input_unreadable';
-  }
-  if (!replayTransitionHistory(topology, lifecycle) || !replayTransitionHistory(topology, journal)) {
-    return 'petri_input_unreadable';
-  }
-  if (lifecycle.length === journal.length) {
-    return transitionMultisetsEqual(lifecycle, journal) ? undefined : 'petri_input_unreadable';
-  }
-  if (lifecycle.length > journal.length) {
-    if (!transitionMultisetIsSubset(journal, lifecycle)) return 'petri_input_unreadable';
+  if (args.journal.relation === 'equal') return undefined;
+  if (args.journal.relation === 'lifecycle_ahead') {
     return args.authoritySnapshot?.parallelSliceBatch !== undefined ? undefined : 'petri_journal_gap';
   }
-  if (!transitionMultisetIsSubset(lifecycle, journal)) return 'petri_input_unreadable';
 
-  const journalAhead = transitionMultisetResidual(journal, lifecycle);
+  const journalAhead = args.journal.residualTransitionIds;
   const parallelAuthority =
     journalAhead.length > 0 && journalAhead.every((transitionId) => transitionId.startsWith('slice_start:'));
   const transitionedEpicIds = new Set(
@@ -926,39 +909,6 @@ function transitionParityFailure(args: {
   const epicAuthority =
     journalAhead.length > 0 && journalAhead.every((transitionId) => transitionedEpicIds.has(transitionId));
   return parallelAuthority || epicAuthority ? undefined : 'petri_input_unreadable';
-}
-
-function transitionMultisetResidual(
-  minuend: readonly string[],
-  subtrahend: readonly string[],
-): readonly string[] {
-  const remaining = new Map<string, number>();
-  for (const transitionId of subtrahend) {
-    remaining.set(transitionId, (remaining.get(transitionId) ?? 0) + 1);
-  }
-  return minuend.filter((transitionId) => {
-    const count = remaining.get(transitionId) ?? 0;
-    if (count === 0) return true;
-    remaining.set(transitionId, count - 1);
-    return false;
-  });
-}
-
-function transitionMultisetsEqual(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && transitionMultisetIsSubset(left, right);
-}
-
-function transitionMultisetIsSubset(subset: readonly string[], superset: readonly string[]): boolean {
-  const remaining = new Map<string, number>();
-  for (const transitionId of superset) {
-    remaining.set(transitionId, (remaining.get(transitionId) ?? 0) + 1);
-  }
-  return subset.every((transitionId) => {
-    const count = remaining.get(transitionId) ?? 0;
-    if (count === 0) return false;
-    remaining.set(transitionId, count - 1);
-    return true;
-  });
 }
 
 function serialThrowKind(step: ReadyStep['kind']): string {

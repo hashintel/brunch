@@ -5,8 +5,8 @@ import { BRUNCH_DIR } from '../constants.js';
 import { agentStreamPath } from './agent-result.js';
 import type { AgentStreamEvent, VerifyStreamEvent } from './isolated-slice-operations.js';
 import type { BlockedStep, ExecutorNetEvent, ReadyStep, SchedulerPlan } from './orchestrate-topology.js';
-import { inspectParallelSliceJournalAuthority } from './parallel-slice-batch.js';
 import { petriEventsPath, readPetriJournal } from './petri-events.js';
+import { inspectPetriJournalAuthority } from './petri-journal-authority.js';
 import {
   petriMarkingSnapshotMatchesRunMetadata,
   readPetriMarkingSnapshot,
@@ -232,19 +232,24 @@ export async function readRunDetail(
       petriRuntime,
       petriReplayProjection,
     );
-  const lifecycleTransitionCount =
-    projectExecutorPetriTransitionHistory(metadata, petriRuntimePlan)?.transitionIds.length ?? 0;
-  const journalAuthority = await inspectParallelSliceJournalAuthority({
+  const lifecycleTransitionIds = projectExecutorPetriTransitionHistory(
+    metadata,
+    petriRuntimePlan,
+  )?.transitionIds;
+  const journalAuthority = await inspectPetriJournalAuthority({
     cwd,
     runId,
-    lifecycleFiredTransitionCount: lifecycleTransitionCount,
+    lifecycleTransitionIds,
+    plan: petriRuntimePlan,
   });
-  const journalClaimedSliceIds = journalAuthority.status === 'claimed' ? journalAuthority.sliceIds : [];
+  const journalClaimedSliceIds =
+    journalAuthority.status === 'readable' ? journalAuthority.sliceStartClaimIds : [];
   const parallelAuthorityUnreadable =
     metadata.status !== 'abandoned' &&
     metadata.status !== 'promotion_prepared' &&
     (journalAuthority.status === 'unreadable' ||
-      (journalAuthority.status === 'claimed' && !hasMatchingPetriMarkingSnapshot));
+      (journalAuthority.status === 'missing' && metadata.petriObservationPrepared === true) ||
+      (journalClaimedSliceIds.length > 0 && !hasMatchingPetriMarkingSnapshot));
   const unreadableAuthoritySliceIds = parallelAuthorityUnreadable
     ? journalClaimedSliceIds.filter((sliceId) => !metadata.completedSliceIds?.includes(sliceId))
     : [];
