@@ -1,8 +1,5 @@
 import { SPEC_KINDS, type SpecKind, type SpecOrigin } from '../../../graph/schema/kinds.js';
-import {
-  decideSpecEstablishmentAsks,
-  inferredOriginFor,
-} from '../../../session/spec-establishment.js';
+import { decideSpecEstablishmentAsks, inferredOriginFor } from '../../../session/spec-establishment.js';
 import type {
   WorkspaceLaunchInventory,
   WorkspaceLaunchSession,
