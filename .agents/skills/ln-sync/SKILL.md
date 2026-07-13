@@ -154,6 +154,7 @@ Scan recent code / commits for:
 - coverage cards whose promised derivation or legality logic cannot be justified from the source-of-truth inputs named in the card
 - sweep ledgers that grew multiple `new` rows mid-flight, signaling that the inventory was not actually closed
 - prepared cards in scope files under `memory/cards/` that should be retired, re-scoped, or reconciled into the next thread's live state
+- walkthrough findings ledgers (`TESTING_FINDINGS.md`) holding `deferred` / design-question dispositions that name no live owner (frontier id, Horizon row with a re-entry trigger, or SPEC decision/assumption id) — force promotion via `ln-plan`/`ln-spec` or explicit retirement; a deferral without an owner is drift, not a disposition
 - stale derivative artifacts that should be deleted after reconciliation
 - cross-cutting subsystems that appear only in glossary/design-doc links but are required by multiple active/next frontiers
 - verification strategy that is present in canonical docs or frontier definitions but absent from `memory/SPEC.md` §Verification Design

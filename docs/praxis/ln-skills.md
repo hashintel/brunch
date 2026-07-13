@@ -165,6 +165,7 @@ When starting a new frontier item, follow `AGENTS.md` and `docs/praxis/graphite-
 | TDD and inner-loop execution | `ln-build` |
 | Coverage audit after implementation | `ln-review` |
 | Evidentiary audit of an existing test suite | `ln-witness` |
+| Walkthrough findings dispositions and deferred outer evidence | recorded with a named owner per `docs/praxis/manual-testing.md` §Findings ledger discipline (`ln-scope`/`ln-build` record; `ln-sync` sweeps) |
 
 Default commands:
 
@@ -180,7 +181,7 @@ The skill system verifies itself, the same way the product code does. This is th
 - a `ln-*` folder name that disagrees with its SKILL.md frontmatter `name`
 - a `ln-*` skill missing from this working guide
 - a dead cross-skill link (`../ln-x/SKILL.md`) inside any `ln-*` SKILL.md
-- a missing required guardrail phrase — currently the topology-stub carve-out in `ln-review` / `ln-judo-review` / `ln-build`, and the verification-harness commitment in `ln-build`
+- a missing required guardrail phrase — currently the topology-stub carve-out in `ln-review` / `ln-judo-review` / `ln-build`, the verification-harness commitment in `ln-build`, and the owned-deferral rules (outer evidence and findings-ledger dispositions must name an owner with a re-entry trigger) in `ln-scope` / `ln-build` / `ln-sync`
 
 Extend the guardrail list when a new Brunch-specific invariant must not silently disappear from a skill. Keep the script dependency-free and read-only.
 

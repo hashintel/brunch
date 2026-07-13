@@ -1,5 +1,6 @@
 import type {
   AgentEndEvent,
+  AgentSettledEvent,
   ExtensionAPI,
   ExtensionContext,
   SessionStartEvent,
@@ -50,6 +51,7 @@ interface Handlers {
   session_start?: (event: SessionStartEvent, ctx: ExtensionContext) => Promise<void>;
   session_tree?: (event: SessionTreeEvent, ctx: ExtensionContext) => Promise<void>;
   agent_end?: (event: AgentEndEvent, ctx: ExtensionContext) => Promise<void>;
+  agent_settled?: (event: AgentSettledEvent, ctx: ExtensionContext) => Promise<void>;
   consult?: (args: string, ctx: ExtensionContext) => Promise<void>;
 }
 
@@ -60,6 +62,7 @@ function collectPi(): { pi: ExtensionAPI; handlers: Handlers } {
       if (event === 'session_start') handlers.session_start = handler as never;
       else if (event === 'session_tree') handlers.session_tree = handler as never;
       else if (event === 'agent_end') handlers.agent_end = handler as never;
+      else if (event === 'agent_settled') handlers.agent_settled = handler as never;
     },
     registerCommand(
       name: string,
@@ -338,11 +341,43 @@ describe('registerBrunchSessionOrientation', () => {
       },
       abortedCtx,
     );
+    expect(aborted).toEqual([]);
+
+    await handlers.agent_settled!({ type: 'agent_settled' }, abortedCtx);
     expect(aborted.at(-1)).toEqual({
       type: 'custom',
       customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
       data: { schemaVersion: 1, choice: 'elicit_examples', trigger: 'abort' },
     });
+
+    await handlers.agent_settled!({ type: 'agent_settled' }, abortedCtx);
+    expect(aborted).toHaveLength(1);
+  });
+
+  it('drops an abort candidate when a later low-level run supersedes it before settlement', async () => {
+    const { pi, handlers } = collectPi();
+    registerBrunchSessionOrientation(pi, { resolveKickContext: () => undefined });
+    const { ctx, entries } = buildCtx(labelFor('ingest'));
+
+    await handlers.agent_end!(
+      {
+        type: 'agent_end',
+        messages: [
+          { role: 'assistant', content: [], stopReason: 'aborted', usage: {}, timestamp: 0 } as never,
+        ],
+      },
+      ctx,
+    );
+    await handlers.agent_end!(
+      {
+        type: 'agent_end',
+        messages: [{ role: 'assistant', content: [], stopReason: 'stop', usage: {}, timestamp: 0 } as never],
+      },
+      ctx,
+    );
+    await handlers.agent_settled!({ type: 'agent_settled' }, ctx);
+
+    expect(entries).toEqual([]);
   });
 
   it('derives the J4 abort menu from Execute runtime state', async () => {
@@ -365,6 +400,7 @@ describe('registerBrunchSessionOrientation', () => {
       },
       ctx,
     );
+    await handlers.agent_settled!({ type: 'agent_settled' }, ctx);
 
     expect(selectOptions.at(-1)).toEqual(CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.label));
     expect(entries.at(-1)).toEqual({
@@ -395,12 +431,14 @@ describe('registerBrunchSessionOrientation', () => {
 
     const { ctx: suppressedCtx, entries: suppressed } = buildCtx(labelFor('ingest'));
     await handlers.agent_end!(abortedEvent, suppressedCtx);
+    await handlers.agent_settled!({ type: 'agent_settled' }, suppressedCtx);
     expect(suppressed).toEqual([]);
     expect(orientationJunctureGate(deps).suppressNextAbortJuncture).toBe(false);
 
     // The claim is one-shot: a later real esc-abort runs the dialog again.
     const { ctx: laterCtx, entries: later } = buildCtx(labelFor('ingest'));
     await handlers.agent_end!(abortedEvent, laterCtx);
+    await handlers.agent_settled!({ type: 'agent_settled' }, laterCtx);
     expect(later.at(-1)).toEqual({
       type: 'custom',
       customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,

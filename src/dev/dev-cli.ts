@@ -1,5 +1,6 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import process from 'node:process';
 import type { Readable, Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
@@ -12,16 +13,12 @@ import {
   isCancel,
   outro as clackOutro,
   select as clackSelect,
+  text as clackText,
 } from '@clack/prompts';
 
 import { runBrunchCli, type BrunchCliOptions } from '../app/brunch.js';
 import { exportSeedFixtureFromWorkspace, formatSeedFixture } from '../graph/export-fixtures.js';
-import {
-  listTrackedSeedRefs,
-  parseSeedRef,
-  runSeedFixturesCli,
-  workbenchPathForSeed,
-} from '../graph/seed-fixtures.js';
+import { listTrackedSeedRefs, parseSeedRef, runSeedFixturesCli } from '../graph/seed-fixtures.js';
 import { createRpcHandlers } from '../rpc/handlers.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 import { applyDevGraphMutation, parseDevMutateGraphParams } from './graph-curation.js';
@@ -32,10 +29,11 @@ const WORKBENCHES_ROOT = resolve(REPO_ROOT, '.fixtures', 'workbenches');
 type TopLevelCommand = 'launch' | 'rpc' | 'mutate' | 'export' | 'help';
 type GraphVisibility = 'all' | 'active';
 
+type LaunchSource = 'temporary' | 'new' | 'existing' | 'seed';
+
 interface WorkbenchChoice {
   readonly label: string;
   readonly workspace: string;
-  readonly seedRefs: readonly string[];
 }
 
 interface LaunchPromptPlan {
@@ -49,8 +47,10 @@ export interface DevCliPrompts {
   intro(title: string): void;
   outro(message: string): void;
   cancel(message: string): void;
-  chooseWorkbench(options: readonly WorkbenchChoice[]): Promise<string | symbol>;
-  chooseSeed(options: readonly string[], workspaceLabel: string): Promise<string | symbol>;
+  chooseLaunchSource(hasExistingWorkbenches: boolean): Promise<LaunchSource | symbol>;
+  enterWorkbenchName(existingNames: readonly string[]): Promise<string | symbol>;
+  chooseExistingWorkbench(options: readonly WorkbenchChoice[]): Promise<string | symbol>;
+  chooseSeed(options: readonly string[]): Promise<string | symbol>;
   confirmSeedReset(seed: string, workspaceLabel: string): Promise<boolean | symbol>;
   confirmOpenWeb(workspaceLabel: string): Promise<boolean | symbol>;
 }
@@ -64,10 +64,14 @@ export interface DevCliOptions {
   readonly prompts?: DevCliPrompts;
   readonly launchBrunch?: (options: BrunchCliOptions) => Promise<number>;
   readonly seedWorkspace?: typeof runSeedFixturesCli;
+  readonly workbenchesRoot?: string;
+  readonly createTempWorkspace?: () => Promise<string>;
 }
 
 interface LaunchFlags {
   readonly workspace: string | undefined;
+  readonly workbench: string | undefined;
+  readonly temporary: boolean;
   readonly seed: string | undefined;
   readonly reset: boolean;
   readonly mode: string;
@@ -102,6 +106,9 @@ interface ExportFlags {
 
 class DevCliUsageError extends Error {}
 
+const SAFE_WORKBENCH_NAME_RULE =
+  'must start with a letter or number and contain only letters, numbers, ., _, or -';
+
 const defaultPrompts: DevCliPrompts = {
   intro: (title) => {
     clackIntro(title);
@@ -112,19 +119,40 @@ const defaultPrompts: DevCliPrompts = {
   cancel: (message) => {
     clackCancel(message);
   },
-  chooseWorkbench: async (options) =>
+  chooseLaunchSource: async (hasExistingWorkbenches) =>
     clackSelect({
-      message: 'Which seed-derived workbench should Brunch use?',
-      options: options.map((option) => ({ value: option.workspace, label: option.label })),
-      maxItems: 8,
-    }),
-  chooseSeed: async (options, workspaceLabel) =>
-    clackSelect({
-      message: `How should ${workspaceLabel} start?`,
+      message: 'How should this dev instance start?',
       options: [
-        { value: '__current__', label: 'Use the current workbench state' },
-        ...options.map((seed) => ({ value: seed, label: `Reset and seed ${seed}` })),
+        { value: 'temporary', label: 'Temporary bare instance' },
+        { value: 'new', label: 'New named workbench' },
+        ...(hasExistingWorkbenches
+          ? [{ value: 'existing' as const, label: 'Existing workbench (no seeding)' }]
+          : []),
+        { value: 'seed', label: 'Create or reset a workbench from a seed fixture' },
       ],
+    }),
+  enterWorkbenchName: async (existingNames) =>
+    clackText({
+      message: 'New workbench name',
+      placeholder: 'my-workbench',
+      validate: (value) => {
+        if (!value || !isSafeWorkbenchName(value)) {
+          return `A workbench name ${SAFE_WORKBENCH_NAME_RULE}.`;
+        }
+        if (existingNames.includes(value)) return `Workbench ${value} already exists.`;
+        return undefined;
+      },
+    }),
+  chooseExistingWorkbench: async (options) =>
+    clackSelect({
+      message: 'Which existing workbench should Brunch use?',
+      options: options.map((option) => ({ value: option.workspace, label: option.label })),
+      maxItems: 10,
+    }),
+  chooseSeed: async (options) =>
+    clackSelect({
+      message: 'Which seed fixture should create or reset its workbench?',
+      options: options.map((seed) => ({ value: seed, label: seed })),
       maxItems: 10,
     }),
   confirmSeedReset: async (seed, workspaceLabel) =>
@@ -194,9 +222,20 @@ async function runLaunchCommand(args: readonly string[], options: DevCliOptions 
     throw new DevCliUsageError('--reset only applies when paired with --seed.');
   }
 
-  const currentWorkbench = currentWorkbenchForCwd(options.cwd);
+  const workbenchesRoot = options.workbenchesRoot ?? WORKBENCHES_ROOT;
+  if (flags.temporary && (flags.workspace || flags.workbench || flags.seed || flags.reset)) {
+    throw new DevCliUsageError(
+      '--temp cannot be combined with --workspace, --workbench, --seed, or --reset.',
+    );
+  }
+
+  const currentWorkbench = currentWorkbenchForCwd(options.cwd, workbenchesRoot);
   const prompts = options.prompts ?? defaultPrompts;
-  let workspace = flags.workspace ?? (seedRef ? workbenchPathForSeed(seedRef) : currentWorkbench);
+  let workspace = flags.temporary
+    ? await (options.createTempWorkspace ?? createTemporaryWorkspace)()
+    : (flags.workspace ??
+      (flags.workbench ? resolve(workbenchesRoot, flags.workbench) : undefined) ??
+      (seedRef ? resolve(workbenchesRoot, seedRef.name) : currentWorkbench));
   let seed = flags.seed;
   let reset = flags.reset;
   let openWeb = flags.openWeb;
@@ -208,7 +247,12 @@ async function runLaunchCommand(args: readonly string[], options: DevCliOptions 
     if (!isInteractiveTerminal(options.stdin, options.stdout)) {
       throw new DevCliUsageError('No workbench was provided and no interactive terminal is available.');
     }
-    const plan = await promptForLaunchPlan(prompts, flags.noWebui ? false : undefined);
+    const plan = await promptForLaunchPlan({
+      prompts,
+      workbenchesRoot,
+      createTempWorkspace: options.createTempWorkspace ?? createTemporaryWorkspace,
+      ...(flags.noWebui ? { openWebOverride: false } : {}),
+    });
     if (!plan) return 0;
     workspace = plan.workspace;
     seed = plan.seed;
@@ -249,53 +293,71 @@ async function runLaunchCommand(args: readonly string[], options: DevCliOptions 
   });
 }
 
-async function promptForLaunchPlan(
-  prompts: DevCliPrompts,
-  openWebOverride?: boolean,
-): Promise<LaunchPromptPlan | null> {
-  const workbenches = await listTrackedWorkbenches();
-  if (workbenches.length === 0) {
-    throw new DevCliUsageError('No tracked seeds are available to derive workbenches from.');
-  }
+async function promptForLaunchPlan(options: {
+  readonly prompts: DevCliPrompts;
+  readonly workbenchesRoot: string;
+  readonly createTempWorkspace: () => Promise<string>;
+  readonly openWebOverride?: boolean;
+}): Promise<LaunchPromptPlan | null> {
+  const { prompts, workbenchesRoot } = options;
+  const workbenches = await listExistingWorkbenches(workbenchesRoot);
 
   prompts.intro('Brunch dev launcher');
-  const workspace =
-    workbenches.length === 1 ? workbenches[0]!.workspace : await prompts.chooseWorkbench(workbenches);
-  if (isCancel(workspace)) {
-    prompts.cancel('Launch cancelled.');
-    return null;
-  }
+  const source = await prompts.chooseLaunchSource(workbenches.length > 0);
+  if (isCancel(source)) return cancelLaunch(prompts);
 
-  const workspaceLabel = labelForWorkspace(workspace);
-  const selectedWorkbench = workbenches.find((choice) => choice.workspace === workspace);
-  if (!selectedWorkbench) {
-    throw new DevCliUsageError(`Unknown tracked workbench selected: ${workspaceLabel}`);
-  }
-
-  const seedChoice = await prompts.chooseSeed(selectedWorkbench.seedRefs, workspaceLabel);
-  if (isCancel(seedChoice)) {
-    prompts.cancel('Launch cancelled.');
-    return null;
-  }
-
+  let workspace: string;
   let seed: string | undefined;
-  if (seedChoice !== '__current__') {
-    const confirmed = await prompts.confirmSeedReset(seedChoice, workspaceLabel);
-    if (isCancel(confirmed) || confirmed !== true) {
-      prompts.cancel('Launch cancelled.');
-      return null;
+
+  if (source === 'temporary') {
+    workspace = await options.createTempWorkspace();
+  } else if (source === 'new') {
+    const name = await prompts.enterWorkbenchName(workbenches.map((choice) => choice.label));
+    if (isCancel(name)) return cancelLaunch(prompts);
+    if (!isSafeWorkbenchName(name)) {
+      throw new DevCliUsageError(`A workbench name ${SAFE_WORKBENCH_NAME_RULE}.`);
     }
-    seed = seedChoice;
+    if (workbenches.some((choice) => choice.label === name)) {
+      throw new DevCliUsageError(`Workbench ${name} already exists.`);
+    }
+    workspace = resolve(workbenchesRoot, name);
+  } else if (source === 'existing') {
+    if (workbenches.length === 0) throw new DevCliUsageError('No existing workbenches are available.');
+    const selected = await prompts.chooseExistingWorkbench(workbenches);
+    if (isCancel(selected)) return cancelLaunch(prompts);
+    if (!workbenches.some((choice) => choice.workspace === selected)) {
+      throw new DevCliUsageError(`Unknown workbench selected: ${selected}`);
+    }
+    workspace = selected;
+  } else {
+    const seedRefs = (await listTrackedSeedRefs()).map((trackedSeed) => trackedSeed.ref);
+    if (seedRefs.length === 0) throw new DevCliUsageError('No tracked seed fixtures are available.');
+    const selectedSeed = await prompts.chooseSeed(seedRefs);
+    if (isCancel(selectedSeed)) return cancelLaunch(prompts);
+    const parsedSeed = parseSeedRef(selectedSeed);
+    if (!parsedSeed || !seedRefs.includes(selectedSeed)) {
+      throw new DevCliUsageError(`Unknown seed fixture selected: ${selectedSeed}`);
+    }
+    workspace = resolve(workbenchesRoot, parsedSeed.name);
+    seed = selectedSeed;
+    const confirmed = await prompts.confirmSeedReset(
+      selectedSeed,
+      labelForWorkbench(workspace, workbenchesRoot),
+    );
+    if (isCancel(confirmed) || confirmed !== true) return cancelLaunch(prompts);
   }
 
-  const openWeb = openWebOverride ?? (await prompts.confirmOpenWeb(workspaceLabel));
-  if (isCancel(openWeb)) {
-    prompts.cancel('Launch cancelled.');
-    return null;
-  }
+  const workspaceLabel = labelForWorkbench(workspace, workbenchesRoot);
+  const openWeb = options.openWebOverride ?? (await prompts.confirmOpenWeb(workspaceLabel));
+  if (isCancel(openWeb)) return cancelLaunch(prompts);
 
   prompts.outro(`Launching ${workspaceLabel}${seed ? ` from ${seed}` : ''}.`);
   return { workspace, ...(seed ? { seed } : {}), reset: seed !== undefined, openWeb };
+}
+
+function cancelLaunch(prompts: DevCliPrompts): null {
+  prompts.cancel('Launch cancelled.');
+  return null;
 }
 
 async function runRpcCommand(args: readonly string[], options: DevCliOptions & { readonly cwd: string }) {
@@ -394,6 +456,8 @@ function parseLaunchFlags(args: readonly string[], cwd: string): LaunchFlags {
     options: {
       workspace: { type: 'string', short: 'w' },
       cwd: { type: 'string' },
+      workbench: { type: 'string' },
+      temp: { type: 'boolean', default: false },
       seed: { type: 'string' },
       reset: { type: 'boolean', default: false },
       mode: { type: 'string', default: 'tui' },
@@ -405,8 +469,17 @@ function parseLaunchFlags(args: readonly string[], cwd: string): LaunchFlags {
   if (positionals.length > 0) {
     throw new DevCliUsageError(`Unexpected launch argument: ${positionals[0]}`);
   }
+  const workspace = resolveWorkspaceOption(values.workspace, values.cwd, cwd);
+  if (values.workbench && workspace) {
+    throw new DevCliUsageError('Use only one of --workbench, --workspace, or --cwd.');
+  }
+  if (values.workbench && !isSafeWorkbenchName(values.workbench)) {
+    throw new DevCliUsageError(`--workbench ${SAFE_WORKBENCH_NAME_RULE}.`);
+  }
   return {
-    workspace: resolveWorkspaceOption(values.workspace, values.cwd, cwd),
+    workspace,
+    workbench: values.workbench,
+    temporary: values.temp,
     seed: values.seed,
     reset: values.reset,
     mode: values.mode,
@@ -537,30 +610,46 @@ function parseJson(text: string, label: string): unknown {
   }
 }
 
-function currentWorkbenchForCwd(cwd: string): string | undefined {
+function currentWorkbenchForCwd(cwd: string, workbenchesRoot: string): string | undefined {
   const resolvedCwd = resolve(cwd);
-  const relativePath = relative(WORKBENCHES_ROOT, resolvedCwd);
+  const relativePath = relative(workbenchesRoot, resolvedCwd);
   if (relativePath === '' || relativePath.startsWith('..') || isAbsolute(relativePath)) return undefined;
   const [workbenchName] = relativePath.split(sep);
-  return workbenchName ? resolve(WORKBENCHES_ROOT, workbenchName) : undefined;
+  return workbenchName ? resolve(workbenchesRoot, workbenchName) : undefined;
 }
 
-async function listTrackedWorkbenches(): Promise<readonly WorkbenchChoice[]> {
-  const grouped = new Map<string, string[]>();
-  for (const seed of await listTrackedSeedRefs()) {
-    const workspace = workbenchPathForSeed(seed);
-    const seedRefs = grouped.get(workspace) ?? [];
-    seedRefs.push(seed.ref);
-    grouped.set(workspace, seedRefs);
+async function listExistingWorkbenches(workbenchesRoot: string): Promise<readonly WorkbenchChoice[]> {
+  let entries;
+  try {
+    entries = await readdir(workbenchesRoot, { withFileTypes: true });
+  } catch (error) {
+    if (isNodeError(error) && error.code === 'ENOENT') return [];
+    throw error;
   }
-
-  return [...grouped.entries()]
-    .map(([workspace, seedRefs]) => ({
-      workspace,
-      label: labelForWorkspace(workspace),
-      seedRefs: seedRefs.sort((left, right) => left.localeCompare(right)),
-    }))
+  return entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => ({ label: entry.name, workspace: resolve(workbenchesRoot, entry.name) }))
     .sort((left, right) => left.label.localeCompare(right.label));
+}
+
+function isSafeWorkbenchName(value: string): boolean {
+  return /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value);
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && 'code' in error;
+}
+
+async function createTemporaryWorkspace(): Promise<string> {
+  return mkdtemp(join(tmpdir(), 'brunch-'));
+}
+
+function labelForWorkbench(workspace: string, workbenchesRoot: string): string {
+  const relativePath = relative(workbenchesRoot, workspace);
+  if (relativePath !== '' && !relativePath.startsWith('..') && !isAbsolute(relativePath)) {
+    return join('.fixtures', 'workbenches', relativePath);
+  }
+  return labelForWorkspace(workspace);
 }
 
 function labelForWorkspace(workspace: string): string {
@@ -619,20 +708,22 @@ function printJson(stdout: Writable | ((chunk: string) => void), value: unknown)
 function devCliUsage(): string {
   return [
     'Usage:',
-    '  npm run dev',
-    '  npm run dev -- --seed <name>/<variant> --reset [--no-webui] [--dev-tools]',
-    '  npm run dev -- --workspace <dir> [--mode tui|print|rpc] [--no-webui] [--dev-tools]',
-    '  npm run dev -- --workspace <dir> --seed <name>/<variant> --reset [--no-webui] [--dev-tools]',
-    '  npm run dev -- rpc <method> [params-json] --workspace <dir>',
-    '  npm run dev -- mutate --workspace <dir> (--params <json> | --params-file <file>)',
-    '  npm run dev -- export --workspace <dir> --spec-id <id> [--out <file>] [--show all|active]',
+    '  npm run dev-cli',
+    '  npm run dev-cli -- --temp [--no-webui] [--dev-tools]',
+    '  npm run dev-cli -- --workbench <name> [--mode tui|print|rpc] [--no-webui] [--dev-tools]',
+    '  npm run dev-cli -- --workspace <dir> [--mode tui|print|rpc] [--no-webui] [--dev-tools]',
+    '  npm run dev-cli -- --seed <name>/<variant> --reset [--no-webui] [--dev-tools]',
+    '  npm run dev-cli -- --workbench <name> --seed <name>/<variant> --reset [--no-webui] [--dev-tools]',
+    '  npm run dev-cli -- rpc <method> [params-json] --workspace <dir>',
+    '  npm run dev-cli -- mutate --workspace <dir> (--params <json> | --params-file <file>)',
+    '  npm run dev-cli -- export --workspace <dir> --spec-id <id> [--out <file>] [--show all|active]',
     '',
     'Notes:',
     '  - Launch-time seeding never happens implicitly; pair --seed with --reset.',
     '  - With --seed and no --workspace, the launcher derives .fixtures/workbenches/<name>/.',
     '  - Source/dev builds mirror debug artifacts automatically into <workspace>/.brunch/debug/.',
     '  - --dev-tools opts into dev query tools; product subagents are not dev-gated.',
-    '  - For direct raw app access, use npm run dev:raw -- ...',
+    '  - For direct app access, use npm run dev -- ...',
   ].join('\n');
 }
 
@@ -640,9 +731,11 @@ function launchUsage(): string {
   return [
     '',
     'Launch examples:',
-    '  npm run dev',
-    '  npm run dev -- --seed workspace-alpha-grounding/base --reset',
-    '  npm run dev -- --workspace .fixtures/workbenches/workspace-alpha-grounding --no-webui',
+    '  npm run dev-cli',
+    '  npm run dev-cli -- --temp',
+    '  npm run dev-cli -- --workbench my-instance',
+    '  npm run dev-cli -- --seed workspace-alpha-grounding/base --reset',
+    '  npm run dev-cli -- --workspace .fixtures/workbenches/workspace-alpha-grounding --no-webui',
   ].join('\n');
 }
 
@@ -650,8 +743,8 @@ function rpcUsage(): string {
   return [
     '',
     'RPC examples:',
-    '  npm run dev -- rpc workspace.selectionState --workspace .fixtures/workbenches/workspace-alpha-grounding',
-    `  npm run dev -- rpc graph.overview '{"specId":1}' --workspace .fixtures/workbenches/workspace-alpha-grounding`,
+    '  npm run dev-cli -- rpc workspace.selectionState --workspace .fixtures/workbenches/workspace-alpha-grounding',
+    `  npm run dev-cli -- rpc graph.overview '{"specId":1}' --workspace .fixtures/workbenches/workspace-alpha-grounding`,
   ].join('\n');
 }
 
@@ -659,8 +752,8 @@ function mutateUsage(): string {
   return [
     '',
     'Mutate examples:',
-    '  npm run dev -- mutate --workspace .fixtures/workbenches/workspace-alpha-grounding --params-file /tmp/mutate.json',
-    '  cat /tmp/mutate.json | npm run dev -- mutate --workspace .fixtures/workbenches/workspace-alpha-grounding',
+    '  npm run dev-cli -- mutate --workspace .fixtures/workbenches/workspace-alpha-grounding --params-file /tmp/mutate.json',
+    '  cat /tmp/mutate.json | npm run dev-cli -- mutate --workspace .fixtures/workbenches/workspace-alpha-grounding',
     '',
     'The mutate payload is the shared local graph-curation params object:',
     '  {"specId":1,"createBasis":"explicit","ops":[...]}',
@@ -671,7 +764,7 @@ function exportUsage(): string {
   return [
     '',
     'Export examples:',
-    '  npm run dev -- export --workspace .fixtures/workbenches/workspace-alpha-grounding --spec-id 1',
-    '  npm run dev -- export --workspace .fixtures/workbenches/workspace-alpha-grounding --spec-id 1 --out .fixtures/seeds/custom/example.json',
+    '  npm run dev-cli -- export --workspace .fixtures/workbenches/workspace-alpha-grounding --spec-id 1',
+    '  npm run dev-cli -- export --workspace .fixtures/workbenches/workspace-alpha-grounding --spec-id 1 --out .fixtures/seeds/custom/example.json',
   ].join('\n');
 }

@@ -13,9 +13,9 @@ with anchors into `pi-coding-agent` internals — cross-cutting enough (spans `e
 `session/`, and a dependency's internals with no home under `src/`) that it doesn't fit any one co-located
 `TOPOLOGY.md`.
 
-**Verified against:** `@earendil-works/pi-coding-agent` v0.80.3 (Brunch's installed dependency,
-`package.json`'s `^0.80.3`; re-verified 2026-07-06 on the 0.79.10 → 0.80.3 bump via the checklist
-below). The internals cited below (`ExtensionMode`, `bindExtensions`,
+**Current dependency:** `@earendil-works/pi-coding-agent` `^0.80.6` in `package.json`.
+**Last full mechanism verification:** v0.80.3, run 2026-07-06 on the 0.79.10 → 0.80.3 bump via the
+checklist below. The internals cited below (`ExtensionMode`, `bindExtensions`,
 `ExtensionRunner.setUIContext`/`hasUI()`, `noOpUIContext`, the RPC mode's `ExtensionUIContext`) are
 **implementation details, not public API** — nothing in `@earendil-works/pi-coding-agent`'s documented
 surface promises they stay this shape. Re-verify this document whenever Brunch's pinned
@@ -198,7 +198,8 @@ open:
 
 ## Re-verification checklist (when `pi-coding-agent` bumps a minor/major)
 
-Last run: 2026-07-06 against v0.80.3 (all pass; drift recorded in the header notes).
+Last run: 2026-07-06 against v0.80.3 (all pass; drift recorded in the header notes). The current
+`^0.80.6` patch bump did not trigger this minor/major checklist.
 
 - [ ] `ExtensionUIContext`'s method list still has the same custom-injection-vs-sealed split
       (`custom`/`setEditorComponent`/`setWidget`/`setFooter`/`setHeader` take a factory;

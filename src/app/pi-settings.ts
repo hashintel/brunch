@@ -138,7 +138,9 @@ export const BRUNCH_SETTINGS_AUDITED_GETTERS = [
   'getCodeBlockIndent',
   'getWarnings',
   // pi 0.80.x additions — defaults acknowledged, no Brunch policy pin:
-  // external editor resolves $VISUAL/$EDITOR, output padding defaults to 1.
+  // cache-miss notices default off, external editor resolves $VISUAL/$EDITOR,
+  // and output padding defaults to 1.
+  'getShowCacheMissNotices',
   'getExternalEditorCommand',
   'getOutputPad',
 ] as const;

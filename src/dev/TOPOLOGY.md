@@ -16,22 +16,24 @@ It does not own published CLI behavior, public RPC contracts, or database import
 
 ## Launcher Surface
 
-`npm run dev` is the front door for local workbenches.
+`npm run dev-cli` is the front door for local workbenches; `npm run dev` directly launches the product CLI from TypeScript source.
 
-- With no args, it prompts for a workbench, whether to start from current state or a reset seed, and whether to open the web sidecar.
+- With no args, the launcher offers a bare temporary instance, a new named workbench, an existing unseeded workbench, or a seed-derived reset.
+- `--temp` creates an auto-named directory under the system temp directory; `--workbench <name>` resolves under `.fixtures/workbenches/`; `--workspace <path>` accepts an arbitrary path.
 - TUI is the default mode.
 - Seeding is always explicit: the launcher only seeds when `--seed <name>/<variant> --reset` is present or chosen in the prompt flow.
 - `rpc`, `mutate`, and `export` are explicit subcommands for scripted reads, graph curation, and fixture export.
-- `npm run dev:raw -- ...` remains the escape hatch to the underlying app entrypoint.
 
 Current subcommands:
 
 ```text
-npm run dev
-npm run dev -- --seed workspace-alpha-grounding/base --reset
-npm run dev -- rpc graph.overview '{"specId":1}' --workspace .fixtures/workbenches/workspace-alpha-grounding
-npm run dev -- mutate --workspace .fixtures/workbenches/workspace-alpha-grounding --params-file /tmp/mutate.json
-npm run dev -- export --workspace .fixtures/workbenches/workspace-alpha-grounding --spec-id 1 --out .fixtures/seeds/custom/example.json
+npm run dev-cli
+npm run dev-cli -- --temp
+npm run dev-cli -- --workbench my-workbench
+npm run dev-cli -- --seed workspace-alpha-grounding/base --reset
+npm run dev-cli -- rpc graph.overview '{"specId":1}' --workspace .fixtures/workbenches/workspace-alpha-grounding
+npm run dev-cli -- mutate --workspace .fixtures/workbenches/workspace-alpha-grounding --params-file /tmp/mutate.json
+npm run dev-cli -- export --workspace .fixtures/workbenches/workspace-alpha-grounding --spec-id 1 --out .fixtures/seeds/custom/example.json
 ```
 
 ## Component Preview Harness
@@ -126,7 +128,7 @@ Source runs and local dev builds automatically mirror debug artifacts into `<wor
 
 - It accepts the former dev-mutate grammar: create/patch/delete node and edge ops, with projected node-code resolution scoped to one spec.
 - It resolves those projected references before entering `CommandExecutor.mutateGraph`, so fixture shaping still uses the product-owned mutation boundary.
-- It is intentionally in-process, not a hidden RPC host flag. External agents should call the explicit `npm run dev -- mutate ...` or `npm run dev -- rpc ...` commands instead of relying on a long-lived write-enabled sidecar.
+- It is intentionally in-process, not a hidden RPC host flag. External agents should call the explicit `npm run dev-cli -- mutate ...` or `npm run dev-cli -- rpc ...` commands instead of relying on a long-lived write-enabled sidecar.
 
 ## Faux And Tier-2 Loops
 

@@ -20,9 +20,9 @@ Baseline inspection commands:
 ```sh
 git rev-parse --short HEAD
 git branch --show-current
-npm run dev -- rpc workspace.state --workspace <workspace>
-npm run dev -- rpc session.runtimeState --workspace <workspace>
-npm run dev -- rpc graph.overview '{"specId":1}' --workspace <workspace>
+npm run dev-cli -- rpc workspace.state --workspace <workspace>
+npm run dev-cli -- rpc session.runtimeState --workspace <workspace>
+npm run dev-cli -- rpc graph.overview '{"specId":1}' --workspace <workspace>
 ```
 
 Useful debug mirrors, when triggered:
@@ -47,15 +47,15 @@ AGENT_DIR=$(mktemp -d /tmp/brunch-agent-auth.XXXXXX)
 WORKSPACE=.fixtures/workbenches/manual-no-auth
 mkdir -p "$WORKSPACE"
 
-# Source/dev launcher form:
+# Source/direct CLI form (the browser opens by default):
 env -u ANTHROPIC_API_KEY -u OPENROUTER_API_KEY \
   PI_CODING_AGENT_DIR="$AGENT_DIR" \
-  npm run dev -- --workspace "$WORKSPACE" --open-web
+  npm run dev -- --cwd "$WORKSPACE"
 
-# Built/package CLI form (`brunch` uses --cwd, not --workspace):
+# Built/package CLI form:
 env -u ANTHROPIC_API_KEY -u OPENROUTER_API_KEY \
   PI_CODING_AGENT_DIR="$AGENT_DIR" \
-  brunch --cwd "$WORKSPACE" --open-web
+  brunch --cwd "$WORKSPACE"
 ```
 
 Check:
@@ -163,7 +163,7 @@ Suggested seeds/workbenches:
 
 ```sh
 npm run seed -- --seed workspace-alpha-grounding/base --reset
-npm run dev -- --workspace .fixtures/workbenches/workspace-alpha-grounding --open-web --dev-tools
+npm run dev-cli -- --workspace .fixtures/workbenches/workspace-alpha-grounding --dev-tools
 ```
 
 Also sample at least one richer or differently-shaped seed if time allows, such as `workspace-alpha-grounding/intent-settled`, `workspace-alpha-grounding/requirements-accepted`, or a realistic project-port seed from `.fixtures/seeds/`.
@@ -310,6 +310,32 @@ Across normal input, dialogs, pickers, ask cancellation/recovery, mode switches,
 - focus returns to the editor
 - multi-line input wraps/grows predictably
 
+### 7F. Structured answering chrome
+
+Exercise each response kind through the live TUI:
+
+- Single-choice and decision pickers render inside the active-mode border role.
+- Multi-select enforces `None` exclusivity and supports an `Other` write-in re-prompt.
+- Free-text answers use the bordered editor and return focus to the main editor afterward.
+- Escape/dismiss is inert: it does not submit a choice or mutate graph state.
+- No flow falls back to an unframed raw Pi select surface.
+
+### 7G. Capture-ingest-throughline
+
+Paste or load a large design note in Specify mode, then exercise the digest review path:
+
+1. Brunch offers a prose digest rather than treating the full source as accepted specification truth.
+2. Request changes and confirm the regenerated digest supersedes the prior proposal.
+3. Approve the digest and confirm the accepted-abstract echo is the sole carrier into capture/sweep behavior.
+4. Inspect the resulting advisory review-set map and graph mutation receipt.
+
+Check:
+
+- Review vocabulary and successor/cancel behavior are legible.
+- Rejected or superseded digest text does not leak into accepted graph state.
+- The mutation receipt reports what was actually approved and applied; it does not imply broader capture.
+- Debug mirrors and session JSONL make the source → digest → review → accepted abstract path auditable.
+
 ## Concern 8 — FE-1167 overlap opportunities
 
 These remain owned by FE-1167 unless witnessed explicitly with evidence today:
@@ -318,7 +344,8 @@ These remain owned by FE-1167 unless witnessed explicitly with evidence today:
 - Capture sweep after ask answers.
 - Resume re-render of persisted ask results.
 - Generative menu evidence: intent/design/oracle/frontier-level plan flows entered through deterministic junctures.
-- Execute thin/rich entry beats and deferred orientation-choice questions.
+- Execute thin/rich entry beats: CODE entry offers proceed, backfill, design-first, oracle-first, and project-plan paths; readiness resolves to Proceed / Negotiate / Ask before execution tooling; deferred orientation-choice questions remain deferred.
+- The handoff from CODE readiness into `execute_plan_check` / `execute_orchestrate` preserves the authority boundary: executor includes elicitor tools, while write-execution tools remain executor-only and host application still requires explicit acceptance.
 
 If a current test naturally covers one, mark it in `TESTING_FINDINGS.md` as `FE-1167 overlap`; do not force the whole FE-1167 batch unless priorities change.
 

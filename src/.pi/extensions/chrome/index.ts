@@ -353,11 +353,13 @@ export function registerBrunchChrome(
     // the ui context stubs it).
     ctx.ui.setWorkingVisible(true);
   });
-  pi.on('turn_end', async (_event, ctx) => {
-    // Restore Pi's default working message after a turn finishes so a
-    // kick-scoped `setWorkingMessage(...)` (F14) does not leak into the next
-    // user-initiated turn. Safe when no custom message was set — restores the
-    // default either way.
+  pi.on('turn_end', async () => {
+    requestFooterRender?.();
+  });
+  pi.on('agent_settled', async (_event, ctx) => {
+    // Restore Pi's default working message only after the full session-level
+    // run settles, so retries, compaction, and queued continuations retain the
+    // kick-scoped message. Safe when no custom message was set.
     ctx.ui.setWorkingMessage(undefined);
     requestFooterRender?.();
   });

@@ -30,11 +30,11 @@ Projection of canonical workspace/session facts into Pi's TUI shell surfaces —
 
 ## Telemetry & refresh
 
-`footerTelemetryFromContext` reads at render time: `sessionName` (overrides the launch-time label after `/name`), live context usage, model, thinking level, and the projected agent state (`projectBrunchAgentState`). The footer surfaces also read `footerData.getExtensionStatuses()` and `getAvailableProviderCount()`. `registerBrunchChrome` re-renders the footer on `model_select`, `thinking_level_select`, and `turn_end`, and exposes a refresh trigger via `bindChromeRefresh`.
+`footerTelemetryFromContext` reads at render time: `sessionName` (overrides the launch-time label after `/name`), live context usage, model, thinking level, and the projected agent state (`projectBrunchAgentState`). The footer surfaces also read `footerData.getExtensionStatuses()` and `getAvailableProviderCount()`. `registerBrunchChrome` re-renders the footer on `model_select`, `thinking_level_select`, `turn_end`, and final `agent_settled`, and exposes a refresh trigger via `bindChromeRefresh`.
 
 ## Status-key policy
 
-Chrome never publishes a `brunch.chrome` status key (test-locked) — it filters that key out (`sanitizeChromeStatuses`) and renders only other extensions' statuses. `ctx.ui.setStatus(key, text)` stays a lateral contribution channel for other extensions and future dynamic Brunch state. The former `brunch.kick` status key was retired 2026-07-03 (F14): kick activity now drives Pi's `ctx.ui.setWorkingMessage(...)` from the origination-decision callback in `app/brunch-tui.ts`, and chrome resets the message to the default in its `turn_end` handler so a kick-scoped message never leaks into a later turn.
+Chrome never publishes a `brunch.chrome` status key (test-locked) — it filters that key out (`sanitizeChromeStatuses`) and renders only other extensions' statuses. `ctx.ui.setStatus(key, text)` stays a lateral contribution channel for other extensions and future dynamic Brunch state. The former `brunch.kick` status key was retired 2026-07-03 (F14): kick activity now drives Pi's `ctx.ui.setWorkingMessage(...)` from the origination-decision callback in `app/brunch-tui.ts`, and chrome resets the message to the default at `agent_settled`, after retries, compaction retries, and queued continuations are exhausted, so a kick-scoped message never disappears mid-run or leaks into a later user-initiated run.
 
 ## RPC visibility
 

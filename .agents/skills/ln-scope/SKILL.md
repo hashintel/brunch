@@ -221,6 +221,8 @@ Name the oracle strategy for this slice.
 - Outer: [oracle family] — [what it proves] (if applicable)
 ```
 
+**Outer verification is owned, never ambient.** "(if applicable)" means the slice has no user-facing or qualitative surface — it does not license deferral. When the slice's motivation includes user-facing behavior (and always when the card defers manual verification), the outer line must either bind to an acceptance leaf of this card or name the owning frontier, Horizon row, or findings-ledger entry (with a re-entry trigger) that carries the deferred evidence — see `docs/praxis/manual-testing.md` §Findings ledger discipline. "Outer beats ride a later lane" without a named owning frontier is a scope defect, not a disposition. The same rule applies to light cards.
+
 ### Cross-cutting obligations
 
 List any shared subsystem, invariant, or verification-layer obligations inherited from the containing frontier that this slice must preserve or advance.

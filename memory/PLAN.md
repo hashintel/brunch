@@ -33,6 +33,10 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 **Topology and evidence discipline.** Directory `TOPOLOGY.md` files under `src/**` own current topology state. `memory/SPEC.md` owns the thin product contract and live decision/invariant index; long-form SPEC history is archived in `docs/archive/SPEC_HISTORY.md`. `memory/PLAN.md` owns only rolling frontier state. Scratch probe artifacts under `.fixtures/scratch/` are not durable evidence until reviewed and promoted to `.fixtures/runs/`.
 
+**Consequential-fact discovery evaluation lane (2026-07-10 oracle design).** Prompt/context quality will be approached in two stages rather than by building a generic eval framework. The proving tracer `consequential-fact-discovery-tracer` uses a bounded Tier-2 real-boot Petri-net scenario to validate the hidden-fact-ledger × transcript-attribution × graph-readback oracle. Full autonomous agent-as-user campaigns remain promotion-gated on both a useful tracer report and Horizon `headless-ask-discovery`; at least one novel/non-inferable scenario must pass before the portfolio supports prompt/context-quality claims.
+
+**Quarantine → re-qualification (2026-07-13).** The LN-stream frontier list was conditionally demoted (quarantined) and same-day re-qualified into thematic groups: **Group 1 · walkthrough closure** (the active block — FE-1187 absorbs FE-1167, the promoted design rows, and the slim sweep-debt tripwire), **Group 2 · platform debt** (API/data-model/transport items whose non-implementation compounds), **Group 3 · agent layer**, **Group 4 · cleanups**, the **KA stream** (Kostandin — executor/orchestrator/Execute mode; untouched by the quarantine and now also owning `planning-process-model`), and **Later** (instrumentation experiments). Ordering: Group 1 completes its auth reversal first; Groups 2–3 then interleave opportunistically, respecting per-item dependencies. Same-day groundwork: the owned-deferral discipline landed in `ln-scope`/`ln-build`/`ln-sync` + `docs/praxis/manual-testing.md` §Findings ledger discipline (guarded by `check:skills`); and FE-1187's spec-first entry direction settled — reverse D113-L–D115-L toward the full Pi provider/model range (Pi-native `/login` and `/model`, soft recommended default via Pi default-model settings, model recommendations as docs, no-auth turn gate re-keyed to "no resolvable auth").
+
 ## Initiatives
 
 <!-- Initiative (arc) = a multi-frontier architectural through-line. This is NOT a tracker/branch
@@ -56,15 +60,19 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Members:**
   - `session-entry-orientation` — ✓ built + merged (#289, 2026-07-08); its outer walkthrough evidence rides `walkthrough-evidence-batch` (FE-1167).
   - `execute-entry-readiness` — ✓ built + merged (#290, 2026-07-08); its outer walkthrough evidence + the two deferred orientation-choice questions ride `walkthrough-evidence-batch` (FE-1167).
-  - `walkthrough-evidence-batch` (FE-1167, definition below) — the arc's remaining member: one witnessed e2e run per generative flow, thin/rich Execute beats, menu→conduct routing evidence. The arc closes when it closes.
+  - `walkthrough-remediation-2` (FE-1187, definition below) — the arc's remaining/closing member since 2026-07-13, when it absorbed `walkthrough-evidence-batch` (FE-1167): one witnessed e2e run per generative flow, menu→conduct routing evidence; the thin/rich Execute beats carve to the KA sub-list but remain part of the arc's done-definition.
 - **Done-definition:** dialog fires on every named UI-capable juncture in TUI and RPC modes (extension-UI sub-protocol relay confirmed); escape/timeout resolves to the inert `dismissed` — entry recorded, no kick, so the menu is never a wall and esc always means "wait for me" (2026-07-06 revision, supersedes the earlier escape→`continue` mapping); no-UI modes leave no orientation trace; orientation entries are excluded from capture sweep (process state, not spec material) and readable by kick assembly; concentricity holds as an executable contract (executor tool + skill grants ⊇ elicitor's, write-execution tooling stays executor-only); **one witnessed e2e run per generative flow — intent, design, oracle, frontier-level plan — each entered through a deterministic juncture** (the ship gate's "all flows proven" obligation lives here); topology homes for `src/.pi/extensions/` and `src/agents/runtime/` reconciled.
 - **Anchors:** D98-L (two modes, 1:1 mode↔agent), D37-L (offer-owns-response grammar — the dialog lives on the product side of it), D40-L (authority matrix), D74-L (capability-readiness), D101-L/D102-L (session seed facts); `src/agents/references/readiness-bands.md` §Agent Use (the Proceed/Negotiate/Ask postures both foreground roles share).
 
 ## Sequencing
 
-### Active
+### Active — Group 1 · walkthrough closure
 
-- **Alpha walkthrough lane** — the post-publish outer-loop audit over the merged surface (`TESTING_PLAN.md` concern groups; findings in `TESTING_FINDINGS.md`). Runs A, C, and WR18 are the source evidence. FE-1187 now owns WR18 residue before later walkthrough beats depend on the reshaped auth/ask/Execute surfaces; run D stays the outer oracle for `spec-posture` after that surface is settled. Not a frontier itself.
+Close the entire first batch of walkthrough-related findings: remediation, the owed evidence, and the design back-catalog that the old (now fixed) findings-capture protocol left stranded. Group 1 completes its auth reversal before Groups 2–3 open.
+
+- `walkthrough-remediation-2` ([FE-1187](https://linear.app/hash/issue/FE-1187/walkthrough-remediation-sweep-2-wr18-follow-up-closure)) — **absorbs `walkthrough-evidence-batch` (FE-1167; close its Linear issue as merged at pickup)**. Entry: the settled D113-L–D115-L reversal, spec-first via `ln-spec`; then the punch-list rows, the absorbed LN evidence beats (Execute beats carve to the KA sub-list), the folded design rows `exchange-visual-design` + `generative-flow-synthesis-shape`, and the slim `sweep-debt-tripwire` row. Closing member of arc `deterministic-orientation`. Definition below.
+- `cli-mode-entry` — direct-mode CLI subcommands (`brunch specify [spec-id]` / `brunch execute <spec-id>`, reserving `develop`); admitted 2026-07-13, stacked on FE-1187's auth-reversal branch. Definition below.
+- **Alpha walkthrough lane** — the post-publish outer-loop audit over the merged surface (`TESTING_PLAN.md` concern groups; findings in `TESTING_FINDINGS.md`). Runs A, C, and WR18 are the source evidence; run D waits on FE-1187's reshaped surfaces. Not a frontier itself.
 
 ### Recently Completed
 
@@ -75,41 +83,55 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md).
 
-### Next
+### Next — Group 2 · platform debt (API / data-model / transport)
 
-- `walkthrough-remediation-2` ([FE-1187](https://linear.app/hash/issue/FE-1187/walkthrough-remediation-sweep-2-wr18-follow-up-closure)) — evidence-gated/proving follow-up for WR18 residue. **Entry is spec-first through `ln-spec` / disambiguation for the D113-L–D115-L reversal**: current auth/model-policy decisions cannot silently coexist with the user's direction to remove provider/model restrictions, retire `brunch login` as the preferred path, and remove the startup warning. Bounded findings inventory: Shift+Tab extension/built-in shortcut conflict; Brunch provider/model restrictions; startup-menu auth warning and `brunch login` guidance/product path; duplicated records in `.brunch/debug/origination.md`; unintended Pi-documentation references in `system-prompt.md`; missing `/continue` / `/consult` / `/mode` hints after ask cancellation; repeated offer content in present→ask continuation; no-model `/brunch:continue` plus no seed/kick carrier observation; extraction breadth after a thin first pass; O7/O8/O9 live D120-L Execute workflows; O10 both-theme component/live-TUI checks. Owns all FE-1180-promoted residue and precedes later walkthrough evidence that depends on reshaped auth/ask/Execute surfaces.
-- `spec-posture` (Linear at pickup) — structural: persisted spec-row posture (D118-L, A41-L) + deterministic establishment flow. Start after FE-1187 resolves reshaped auth/ask surface residue so run D witnesses the corrected surface; its outer oracle is exactly run D's populated-cwd/brownfield beats. Definition below.
-- `walkthrough-evidence-batch` ([FE-1167](https://linear.app/hash/issue/FE-1167/walkthrough-evidence-batch-outer-loop-checks-for-merged-orientation)) — the one batch owning all outer-loop residue from the merged lanes (FE-1134 generative-menu evidence, FE-1137 thin/rich Execute beats + deferred orientation-choice questions, FE-1124 Card 3 + seed worklist, FE-1107 KA-conversation residue, and — folded 2026-07-08 from the retired handoff — the FE-1164 walkthrough items). FE-1164/FE-1169 are merged, but the batch now waits for FE-1187 so its beats witness D120-L-consistent and WR18-remediated ask/consult/Execute surfaces (and note remediation row 5's conduct changes shift what "expected conduct" means for the generative beats). Closes arc `deterministic-orientation`. Definition below.
-- `mechanism-trace` (Linear at pickup) — post-hoc mechanism-provenance trace over session transcripts (carrier classes `wiring` / `nudge` / `conduct`), a static wiring inventory, and the sweep-debt tripwire as a derived scenario-scoped assertion. Best run **before or alongside** `walkthrough-evidence-batch` (FE-1167) — the trace is exactly the instrument those walkthrough beats lack. Definition below. The D117-L constant-anchoring hardening in `sweep-watermark.ts` is a direct fix, not part of this frontier — land it on the next branch that touches the exchanges family or as a standalone commit.
-- `legacy-question-read-path-retirement` (Linear at pickup) — earned deletion frontier for the remaining `present_question`-era read branches and fixtures. The interim pending-exchange scan stays until Horizon `headless-ask-discovery` (A39-L). Definition below.
+Debt that compounds while unimplemented. Opens after Group 1's auth reversal lands; items interleave with Group 3 opportunistically, respecting per-item dependencies. **Entry input:** [`docs/planning/pi-native-integration-opportunities.md`](../docs/planning/pi-native-integration-opportunities.md) (2026-07-13 synthesis over the Pi `0.80.6` upgrade) — its package dispositions are folded into the entries below and into FE-1187 (P4) and Later `agent-tracing` (P5); retire the synthesis doc once all packages are merged into canonical homes.
 
-### Parallel / Low-Conflict
+- `spec-posture` — persisted spec-row posture (D118-L, A41-L) + deterministic establishment flow; a necessary part of the orientation flow. Outer oracle: run D's populated-cwd/brownfield beats. Definition below.
+- `headless-ask-discovery` — **restore full RPC functionality**: discovery of open `ask` calls (streamed session events or a pending-interactive-call read method) replacing `session.pendingExchange` transcript scanning (the A39-L follow-up to D116-L); headless asks resolve `unavailable` until this lands. Broker (`awaitAnswer`/`session.submitExchangeResponse`) unchanged by design. Verification: middle-loop deterministic public-RPC contract + tiny interaction-state model proving discover/answer/cancel/resume behavior, stale/closed-call distinction, idempotent durable effects, no transcript parsing. The full agent-as-user campaign still requires this plus a useful `consequential-fact-discovery-tracer` report (Later) — do not plan past that horizon.
+- `compaction-and-conflict-widening` — reshaped 2026-07-13 (Pi-native P3): a **custom compaction definition** — what to keep, what to drop — over the D76-L/D77-L/D78-L boundary pipeline and the req-15 continuity-anchor contract. Key gap: Brunch enables Pi auto-compaction and has an externalized anchor-preservation contract, but never registers the `session_before_compact` hook that materializes it; Pi `0.80.6` provides corrected token accounting, split-turn summaries, and public compaction-preparation/summary APIs as the supported basis. Design first, then vertical implementation.
+- `session-branching` — **unblock**: the branch-aware continuity/staleness/coherence design pass (A37-L) that lifts the linear-only guards (I10-L, I13-L, I19-L). Definition below.
+- `web-driver-streaming` — entry is an **evaluation, not a build**: is the built topology-A relay battery sufficient for the remaining consumer/UI and non-freeform answer legs, or is a different transport needed? Absorbs the P0 settlement-semantics residual (fold the conditional transport-visibility/relay assertion here rather than a new frontier). Verdict routes back through `ln-plan`.
+- `transcript-ledger-rendering` — Pi-native P2: a bounded product tracer making durable user choices (ledger entries) visible in the transcript without entering model context. Not a generic renderer program; may fold into FE-1187's `exchange-visual-design` row at scope time if the seam coincides.
+- `reconciliation-derivation` — derived `edge_revalidation` staleness surfacing (the first reconciliation signal a user gets without the agent authoring one); first tracer is the read-only derived query. Definition below.
 
+### Next — Group 3 · agent layer
+
+- `develop-mode` — third operational mode `develop` / `engineer` agent, **built flag-gated** (create the mode; enable only behind a flag). **Authority model settled 2026-07-13: not a contract-breaker** — `develop` sits at the same concentric visibility/authority tier as `execute`; `engineer` is simply not constrained by the executor's workflow (no `execute_*` lifecycle obligations), and is initially just a Brunch-aware coding assistant. Entry remains a SPEC revision (D98-L "two modes only", the D40-L matrix row at the execute tier, per-mode kick/consult-suppression axis), but no authority-model redesign is needed. Cost read revised: mechanical ≈ a day + prompt/conduct work. The `develop` CLI subcommand name is already reserved by `cli-mode-entry`.
+- `subagent-skill-access` — **admitted 2026-07-13**: extend the subagents extension so subagents can access named skills; the user has local changes to integrate — inventory them at pickup. Prerequisite for `reviewer-agent-mode`. Definition below.
+- `reviewer-agent-mode` — reshaped 2026-07-13: the D29-L advisory reviewer is a **subagent**, not a primary agent/mode. Narrow write authority to `reconciliation_need` stands (I16-L); A16-L trigger/scope questions resolve at pickup. Depends on `subagent-skill-access` for skill-carried review conduct.
+- `review-commentary-widening` — reshaped 2026-07-13 to the TUI-realistic version: afford `#`-mentioning of review items and attribute comments via mention (req 18 reference-code seam), instead of a widened structured payload + bespoke collection UI. Re-expresses over the D116-L declared-ask/answer payload; needs a SPEC decision at pickup.
+
+### Cleanups — Group 4
+
+- `legacy-question-read-path-retirement` — rides the Group 1 stack as a cleanup slice (together with the D117-L sweep-anchoring one-liner in `sweep-watermark.ts`); no standalone Linear issue or branch. Definition below.
+- `named-inline-extension-identity` — Pi-native P1: adopt Pi's native named-inline-extension type for useful source provenance; small independent hardening, direct housekeeping or a tiny tooling slice.
+
+### KA stream (Kostandin — executor / orchestrator / Execute mode)
+
+Everything executor/orchestrator-shaped or Execute-mode-owned belongs to Kostandin's stream and is **outside the LN quarantine**. Cross-stream touchpoints: FE-1187 rows O7/O8/O9 (live D120-L Execute workflows) — coordinate before building those rows.
+
+- **Carved from FE-1167 (2026-07-13):** the Execute-mode evidence sub-list — Execute entry beats on thin vs rich seeds (assessment honesty: Ask on thin, Proceed on rich), the two deferred orientation-choice questions (`continue`/`proceed` semantics; sticky-posture candidate — D98-L-sensitive, route through `ln-grill`/`ln-spec` if evidence says revisit), and the FE-1107/KA residue (close-or-narrow, demo/walkthrough session via `TESTING_PLAN.md`, post-KA plan pass). Full context in the archived FE-1167 definition (`docs/archive/PLAN_HISTORY.md`).
+- `planning-process-model` — **moved to the KA stream 2026-07-13**: plan-plane semantics (plan-as-projection, epistemic horizon, the `scope`-node question) sit with executor/orchestration concerns (D103-L; D98-L executor may own execution/scope concerns). Definition below.
 - `executor-slice-attempt-lifecycle` ([FE-1192](https://linear.app/hash/issue/FE-1192/executor-slice-attempt-lifecycle)) — **active in the KA lane, picked up 2026-07-13** on `ka/fe-1192-executor-slice-attempt-lifecycle`. First member of the Petri sequence: first-class slice attempts (identity, bounded in-run retry, honest failed-attempt facts). Shape settled at pickup: attempt facts first (topology unchanged), constant retry bound with `ceiling:`, agent step only. Definition below.
 - `petri-slice-isolation-fan-in` — admitted 2026-07-13, behind `executor-slice-attempt-lifecycle`: isolated per-slice side effects + explicit fan-in under unchanged serial `run.json` authority. Definition below.
-- `executor-run-environment` (FE-1166 follow-up) — the substrate/verify policy is merged; the real-run failure remains prepared in [`memory/cards/executor-run-environment--actionable-slice-request.md`](cards/executor-run-environment--actionable-slice-request.md). Before build, `ln-plan` must settle whether this remains FE-1166 work or becomes a fresh frontier/branch; do not let the prepared card bypass the tracker/branch boundary.
+- `executor-run-environment` (FE-1166 follow-up) — the substrate/verify policy is merged; the real-run failure remains prepared in [`memory/cards/executor-run-environment--actionable-slice-request.md`](cards/executor-run-environment--actionable-slice-request.md). Before build, a KA-stream `ln-plan` decision must settle whether this remains FE-1166 work or becomes a fresh frontier/branch; do not let the prepared card bypass the tracker/branch boundary.
 - **Standing obligations:** `probes-and-transcripts-evolution` and `topology-readmes-and-boundaries` ride the frontier that triggers them; they are not standalone cleanup buckets.
 
-### Horizon
+### Later
 
-- `planning-process-model` — **demoted from Next #1 on 2026-07-03 (grill):** exploratory D103-L bet-proving, not ship-blocking. Behind the gate. Guard: the orientation menus' "project a plan" option routes to the existing `project`/`map-plans` seam at frontier-level depth (D103-L boundary) and must **not** pull this frontier forward. Groundwork stays parked on `ln/fe-xxx-plan-plane-redesign`; full definition below.
-- `review-commentary-widening` — GitHub-style per-item review commentary: widen the review answered payload (`comments: [{on: draft|edge|set, body}]`, a SPEC decision) plus the collection UI. Deferred post-gate at FE-1138 scope (2026-07-03): the payload ripples into the review schema that capture-contract rows and the digest terminal consume. Once `exchange-ask-refinement` lands, the widening re-expresses over the D116-L declared-ask/answer payload rather than `request_response` details. Sketch: `src/agents/contexts/exchanges/design-permutations.md` §Review-set evaluation.
-- `develop-mode` — third operational mode `develop` / Develop running a new `engineer` agent: a Brunch-aware coding assistant *without* the `execute_*` tool set and with kick/consult mechanisms inert (user-driven turns, not agent-driven). Split out of `main-editor-chrome` at the 2026-07-08 grill. Entry is a SPEC revision, not a feature slice: D98-L ("two modes only" — though Develop is a distinct agent with different grants, not the conduct-bias `Enhance` that grill rejected), req 26, and D40-L placement of `engineer` in the concentric authority matrix (executor-minus-`execute_*`? elicitor-plus-coding?), plus a new per-mode kick/consult-suppression policy axis. Route through `ln-grill`/`ln-spec` at pickup. Groundwork (mode-cycling keybinding, border-by-mode) lands mode-agnostically in `main-editor-chrome`.
-- `headless-ask-discovery` — the A39-L follow-up to D116-L: RPC discovery of open `ask` calls (streamed session events or a pending-interactive-call read method) replacing `session.pendingExchange` transcript scanning, so an agent-as-user driver can generatively build specs against a goal over the headless surface. Not first-release-critical; headless asks resolve `unavailable` until this lands. Broker (`awaitAnswer`/`session.submitExchangeResponse`) is unchanged by design.
+Instrumentation experiments and far-horizon items. Each re-enters only via re-qualification with a named trigger.
+- `mechanism-trace` — **demoted to Later 2026-07-13**; the slim `sweep-debt-tripwire` row was extracted into FE-1187 (Group 1). The full carrier-classified trace (`wiring`/`nudge`/`conduct`) + static wiring inventory re-enter when instrumentation is prioritized. Definition below.
+- `consequential-fact-discovery-tracer` — **Later (2026-07-13)**: bounded Tier-2 real-provider tracer for the consequential-fact discovery oracle. Re-entry: after Group 1 closes and the ask/prompt surface stabilizes. Full campaign additionally gated on `headless-ask-discovery` (Group 2) + a useful tracer report. Definition below.
+- `agent-tracing` — passive trace instrumentation over Pi lifecycle events for debugging plus conduct/quality evaluation: NDJSON emitter extension (introspection-tap discipline), subagent span joining via SDK `session.subscribe`, and a mechanical-trace × semantic-JSONL join for deterministic conduct checks and judged passes. Entry move is an `ln-spike` (dev-gated `nikiforovall/pi-otel` import: do span trees beat `.brunch/debug/` + JSONL projections?) before any port of `JoshMock/the-agency` observability as the in-product base. Traces are dev/eval artifacts, never product truth (no event-spine backdoor). Design: `docs/design/AGENT_TRACING.md`; sibling idea note `docs/design/RLM_INVESTIGATION_PATTERN.md`. Relation: Later `mechanism-trace` is the transcript-native sibling (carrier classification, no event plane); if both land they may join on a shared trace vocabulary. Absorbs Pi-native P5 (provider/cache observability — latency, cache behavior, whole-run spans), spike-led.
 - `petri-epic-integration` — epics become integration gates, not just identity labels: an epic-complete transition gated on member slices, with epic-level verification/fan-in in the compiled topology (`epicId` identity already flows through subnets and emitted facts). Behind `petri-slice-isolation-fan-in`; shape via `ln-grill`/`ln-scope` at pickup.
-- `petri-durable-parallel-authority` — the repeatedly deferred authority flip (SPEC §Future Direction): durable marking/journal authority for concurrently firing side effects once `run.json`'s single-status ladder cannot represent in-flight parallelism. Final member of the admitted Petri sequence, discharging the former "Petri follow-up trigger" row. Promote to Next only when `petri-slice-isolation-fan-in` evidence shows serial authority is the binding constraint — do not pull it forward for old-`main` Petrinaut parity.
-- `reconciliation-derivation` — derive `edge_revalidation` reconciliation needs from LSN comparison instead of persisting them; full definition below (inventory findings from 2026-07-02, worth keeping). **Confirmed behind the gate 2026-07-03 (grill G7):** the ingest throughline's conflict routing rides the existing persisted `reconciliation_need` substrate (`create_reconciliation_need` is live); nothing in the gate needs the LSN-derived generator. Honor the convergence: the `contradictory` seed variant capture now rides `walkthrough-evidence-batch` (FE-1167).
-- `reviewer-agent-mode` — D29-L's async advisory reviewer remains designed but unbuilt: narrow write authority to `reconciliation_need`, batch-acceptance trigger keyed by session/batch entry, A16-L trigger/scope questions still open. Behind the ship gate; no frontier until post-acceptance review becomes POC-blocking or reviewer residues need executable closure.
-- `session-branching` — support session branching (D24-L reversal); needs branch-aware continuity/coherence design (A37-L).
-- `compaction-and-conflict-widening` — long-horizon continuity through compaction.
-- `agent-tracing` — passive trace instrumentation over Pi lifecycle events for debugging plus conduct/quality evaluation: NDJSON emitter extension (introspection-tap discipline), subagent span joining via SDK `session.subscribe`, and a mechanical-trace × semantic-JSONL join for deterministic conduct checks and judged passes. Entry move is an `ln-spike` (dev-gated `nikiforovall/pi-otel` import: do span trees beat `.brunch/debug/` + JSONL projections?) before any port of `JoshMock/the-agency` observability as the in-product base. Traces are dev/eval artifacts, never product truth (no event-spine backdoor). Design: `docs/design/AGENT_TRACING.md`; sibling idea note `docs/design/RLM_INVESTIGATION_PATTERN.md`. Relation: Next `mechanism-trace` is the transcript-native sibling (carrier classification, no event plane); if both land they may join on a shared trace vocabulary.
-- `web-driver-streaming` — remaining consumer/UI and non-freeform answer legs after the built topology-A relay battery.
+- `petri-durable-parallel-authority` — the repeatedly deferred authority flip (SPEC §Future Direction): durable marking/journal authority for concurrently firing side effects once `run.json`'s single-status ladder cannot represent in-flight parallelism. Final member of the admitted Petri sequence. Promote only when `petri-slice-isolation-fan-in` evidence shows serial authority is the binding constraint — do not pull it forward for old-`main` Petrinaut parity.
 
 ### Retired / Never
 
 - `coherence-first-class` — retired as an independent frontier; future coherence work should be driven only by a concrete triggering frontier that needs it.
 - `flue-pattern-adoption` + `framework-direction-stubs` — removed from Horizon 2026-07-08: both are postures/directions, not work items, and both already live in `memory/SPEC.md` §Future Direction ("Adoption patterns from Flue"; "Framework alignment & deferred subsystems"). Re-enter only via a concrete triggering frontier.
-- `geolog-and-petri-execution` — split 2026-07-08: Petri moved into FE-1183 `petri-interpreter-port`, now review-clean and closing; geolog can re-enter only when it has its own triggering seam instead of sharing a vague exploratory bucket.
+- `geolog-and-petri-execution` — split 2026-07-08: Petri moved into FE-1183 `petri-interpreter-port`, closed 2026-07-13 (#320 replay/export closure, #322 live stream); geolog can re-enter only when it has its own triggering seam instead of sharing a vague exploratory bucket.
 - `fixture-vs-real-audit` — dropped 2026-07-08 (action-or-drop call): its operative content graduated into `ln-review`'s contract-lens catalog (the opaque-companion lens carries the untested-against-real angle); run `ln-induct` on fresh evidence rather than keeping a standing audit bucket.
 - `roving-suite-flake` — dropped 2026-07-08 (action-or-drop call), re-opened and closed by same-day `ln-diagnose`: repeated full-suite runs reproduced the `git-host-promotion-port` timeout while isolation stayed green; phase timestamps showed no `git apply` hang, only cumulative spawned-git slowdown under default Vitest worker load, with the real-TUI harness showing the same scheduling sensitivity. Fix: `npm test` caps Vitest at 4 workers and the promotion real-git fixture removes clone/pull/config churn while preserving the real patch/apply witness. Oracle: default `npm test -- --reporter=dot` passed after the cap (228 files passed / 1 skipped, 1561 tests passed / 3 skipped, ~53s).
 - `blank-carrier-sweep` — folded 2026-07-08 into the FE-1163 ledger as row 13 (`exchanges-blank-carriers`); no longer a standalone Horizon item.
@@ -154,8 +176,8 @@ Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_
 ### legacy-question-read-path-retirement
 
 - **Name:** Retire legacy `present_question` read paths and fixtures
-- **Linear:** unassigned (create at pickup, FE team / brunch project)
-- **Branch:** tbd at pickup (off `next`)
+- **Linear:** none — Group 4 cleanup; rides the Group 1 stack, no standalone issue/branch (re-qualified 2026-07-13)
+- **Status:** cleanup slice on the FE-1187 / `cli-mode-entry` stack, paired with the D117-L sweep-anchoring one-liner
 - **Kind:** earned deletion / vocabulary convergence
 - **Certainty:** earned — D116-L's ask write path is settled; this frontier removes only persisted-read compatibility branches and stale fixtures.
 - **Deletes / retires:** `present_question` branches in pending-exchange scan and recovery skip; `src/.pi/README.md`'s legacy-vocabulary section; old-tuple fixtures in session/RPC/editor/probe tests after checking committed `.fixtures/runs/` for required historical evidence.
@@ -164,52 +186,76 @@ Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_
 
 ### walkthrough-remediation-2
 
-- **Name:** Walkthrough remediation sweep 2 — WR18 follow-up closure
-- **Linear:** [FE-1187](https://linear.app/hash/issue/FE-1187/walkthrough-remediation-sweep-2-wr18-follow-up-closure)
+- **Name:** Walkthrough chapter closure — remediation, evidence, and design follow-through (absorbs FE-1167)
+- **Linear:** [FE-1187](https://linear.app/hash/issue/FE-1187/walkthrough-remediation-sweep-2-wr18-follow-up-closure); close [FE-1167](https://linear.app/hash/issue/FE-1167/walkthrough-evidence-batch-outer-loop-checks-for-merged-orientation) as merged at pickup.
 - **Branch:** tbd at pickup.
-- **Kind:** coverage-shaped remediation sweep over WR18-promoted failures/unknowns.
+- **Kind:** coverage-shaped closure batch: WR18-promoted remediation rows + absorbed LN evidence beats + folded design rows + the tripwire row.
 - **Certainty:** proving.
 - **Classification:** evidence-gated.
-- **Entry:** spec-first through `ln-spec` / disambiguation before implementation. D113-L–D115-L currently encode the alpha allowlist/login/no-auth gate; they must be reconciled with the user's direction to remove provider/model restrictions, stop treating `brunch login` as the preferred path, and remove the startup warning.
-- **Boundary / findings inventory:** Shift+Tab extension/built-in shortcut conflict; provider/model restrictions; startup-menu auth warning and `brunch login` guidance/product path; duplicated `.brunch/debug/origination.md` records; unintended Pi-documentation references in `system-prompt.md`; missing `/continue` / `/consult` / `/mode` hints after ask cancellation; repeated offer content in present→ask continuation; no-model `/brunch:continue` plus no seed/kick carrier observation; extraction breadth after a thin first pass; O7/O8/O9 live D120-L Execute workflows; O10 both-theme component/live-TUI checks.
-- **Dependencies:** owns all WR18 residue promoted out of FE-1180 and precedes `spec-posture`, `walkthrough-evidence-batch`, and later walkthrough evidence that depends on the reshaped auth/ask/Execute surfaces.
+- **Entry:** spec-first through `ln-spec` — **recorded 2026-07-13 as D123-L** (reverses D113-L–D115-L; req 29 revised, req 30 added for `cli-mode-entry`; I59-L re-keyed; A38-L retired): the full Pi provider/model range. Delete the allowlist registry wrapper so Pi's native `/model` picker surfaces; retire `brunch login` in favor of Pi's native `/login`; drop the startup warning; carry a soft recommended default via Pi's `getDefaultProvider`/`getDefaultModel` settings (currently unset in the sealed profile); move model recommendations to docs. Keep I59-L's intent but re-key the no-auth turn gate from "no allowlisted model" to "no resolvable auth" (Pi `getProviderLoginHelp` carries the guidance). Retire/reframe A38-L — its latency evidence survives as a recommendation, not a policy. Implementation surface mapped 2026-07-13: ~16 source files, ~11 tests; only the gate re-key is design work. Folds Pi-native P4 (native provider/model/thinking policy — delete local policy where Pi `0.80.6` owns the behavior; see `docs/planning/pi-native-integration-opportunities.md`).
+- **Boundary / findings inventory:** Shift+Tab extension/built-in shortcut conflict; provider/model restrictions; startup-menu auth warning and `brunch login` guidance/product path; duplicated `.brunch/debug/origination.md` records; unintended Pi-documentation references in `system-prompt.md`; missing `/continue` / `/consult` / `/mode` hints after ask cancellation; repeated offer content in present→ask continuation (design principle: digest/offer pretext must not repeat inside the ask); no-model `/brunch:continue` plus no seed/kick carrier observation; extraction breadth after a thin first pass; O7/O8/O9 live D120-L Execute workflows; O10 both-theme component/live-TUI checks.
+- **Streams:** rows O7/O8/O9 witness KA-stream (Execute / D120-L) surfaces — coordinate with the KA stream before building them; all other rows are LN.
+- **Absorbs (2026-07-13, from FE-1167):** the LN evidence beats — orientation-menu generative beats (propose/project) with menu→conduct routing evidence via session JSONL; FE-1124 Card 3 review variants ([`memory/cards/walkthrough-batch-2--seed-variants.md`](cards/walkthrough-batch-2--seed-variants.md)) + seed worklist; FE-1164 residue (declared continuations driven live, capture sweep after ask answers, resume re-render of persisted ask results, web sidecar during an open ask, both-theme gallery re-check). Execute beats + KA residue carve to the KA sub-list (§KA stream). Full original definition: `docs/archive/PLAN_HISTORY.md`.
+- **Folded design rows (2026-07-13, promoted findings):** `exchange-visual-design` — the WR9–WR12 cluster (compact tool rendering, `/introspect` legibility, review-set/ask visual revamp, markdown/node-id polish) plus border distinctness and nested-ask chrome (findings A6/A9/A10); `generative-flow-synthesis-shape` — design-it-twice + recommendation/synthesis conduct over existing `present_candidates`/review-set seams (finding C3).
+- **Tripwire row (2026-07-13, extracted from Later `mechanism-trace`):** `sweep-debt-tripwire` — scenario-scoped assertion that on expected-capture scenarios the conversational tail preceding a watermark shows capture evidence (`mutate_graph`/scratchpad conduct), and on deliberately-ignored-material scenarios it does not fire; the graph-writes-after-answers witness (A40-L detection half). ~a day; no `before_agent_start` advance change.
+- **Dependencies:** owns all WR18 residue promoted out of FE-1180; closes arc `deterministic-orientation` (jointly with the KA-carved Execute beats); Groups 2–3 open after this frontier's auth reversal lands. `cli-mode-entry` stacks on the auth-reversal branch; `legacy-question-read-path-retirement` + the D117-L one-liner ride the same stack as cleanup slices.
 - **Traceability:** WR18 closure record in `TESTING_FINDINGS.md`; evidence at `testing/walkthroughs/2026-07-10/WR18-manual.md`; D113-L–D115-L reversal/disambiguation; D119-L, D120-L/I62-L, D99-L conduct; TESTING_PLAN concerns 1/3/4/6/7.
+
+### cli-mode-entry
+
+- **Name:** Direct-mode CLI entry — `brunch specify [spec-id]` / `brunch execute <spec-id>`
+- **Linear:** unassigned (create at pickup, FE team / brunch project)
+- **Branch:** stacked on FE-1187's auth-reversal branch (both reshape the entry surface; shared workspace-dialog seam)
+- **Kind:** bounded feature — new CLI entry behavior over existing activation/orientation seams.
+- **Certainty:** proving — the seams exist; the open question is suppressing the boot orientation menu while keeping orientation-entry and kick-composition bookkeeping coherent.
+- **Objective:** subcommands `specify [spec-id]` (spec optional — default is a new spec, which still requires a title prompt), `execute <spec-id>` (spec required), and a reserved `develop` name. Parse via the existing `parseArgs` router (`src/app/brunch.ts`, where `login` routes today); pre-answer the workspace dialog through the injected decision seam (`chooseSpecSessionActivationDecision` overrides + `findSpec` lookup, decision union `newSpec{title}` / `newSession{specId}`); seed `operationalMode` via `appendBrunchAgentRuntimeInit` plus a synthesized orientation entry. Precedent for menu-less boot: no-UI print/json modes synthesize no orientation entry and follow the default kick path.
+- **Distinctions:** `--mode` remains the host-mode axis (`tui`/`print`/`rpc`); operational mode enters only via subcommand. Execute-mode entry semantics stay D98-L-consistent (1:1 mode↔agent) — coordinate the `execute` subcommand's semantics with the KA stream.
+- **Verification:** inner — argv→activation-decision mapping, spec-id validation, orientation-suppression + kick-composition regressions; outer — one manual walkthrough per subcommand.
+- **Why now / unlocks:** shares FE-1187's entry-friction motivation (alpha users must reach a working session with minimum ceremony); reserves the `develop` name ahead of the Horizon mode. Cost read 2026-07-13: ~2–3 focused days.
+- **Traceability:** D98-L, D109-L (juncture family), D101-L/D102-L (seed facts); riskiest seam: boot-menu suppression vs `session-orientation` registrar/kick bookkeeping.
 
 ### spec-posture
 
 - **Name:** Spec posture persistence + deterministic establishment
 - **Linear:** unassigned (create at pickup, FE team / brunch project)
 - **Branch:** tbd at pickup (off `next`; low conflict with remediation rows except the workspace-dialog seam — coordinate if parallel)
+- **Status:** re-qualified 2026-07-13 into Group 2 (platform debt); start after Group 1's auth reversal lands so run D witnesses the corrected surface
 - **Kind:** structural — new spec-row field(s) + a new establishment step in the spec creation/resume flow.
 - **Certainty:** proving — whether deterministic posture questions feel like orientation or like peppering (the 0.x failure mode) is the open question; the schema change itself is small.
 - **Objective:** materialize D118-L: `origin: greenfield|brownfield` on the spec row, confirmed-not-defaulted `spec.kind` (D89-L), and a relates-to-spec reference (A41-L — includes the root-spec-as-plain-reference bet and the `function`-vs-`story` third-term call). Establishment is a product-owned ask/confirm step at spec creation/resume (D109-L juncture family / workspace-dialog seam), branching on workspace-populated vs bare per the TESTING_PLAN Concern 2 matrix; readers: kick assembly, capture conduct (brownfield facts enter as advisory, D99-L), orientation-question skipping. Keep the question sequence minimal — skip anything inferable.
 - **Verification:** schema + establishment-flow tests inner-loop; run D (populated cwd, brownfield confirm) and run B's orientation beats are the outer oracle; the Concern 2 matrix is the behavioral contract.
 - **Traceability:** D118-L, A41-L, D89-L, D99-L, D102-L (amended), D109-L; `docs/design/SPEC_INITIATIVE_MODEL.md` (deferred spec-relationship model — do not pull it forward).
 
-### walkthrough-evidence-batch
+<!-- walkthrough-evidence-batch (FE-1167) merged into walkthrough-remediation-2 (FE-1187) on 2026-07-13 (re-qualification pass); close FE-1167 in Linear as merged at pickup. Full definition (five residue groups, workbench commands) archived to docs/archive/PLAN_HISTORY.md. LN beats absorbed by FE-1187; Execute/KA beats carved to the KA sub-list (see §KA stream). Arc deterministic-orientation now closes via FE-1187. -->
 
-- **Name:** Walkthrough evidence batch — outer-loop checks for the merged orientation and executor lanes
-- **Linear:** [FE-1167](https://linear.app/hash/issue/FE-1167/walkthrough-evidence-batch-outer-loop-checks-for-merged-orientation)
-- **Branch:** tbd at pickup (off `next`; the beats must witness the current ask surfaces, not the retired ones)
-- **Kind:** verification batch / walkthrough evidence + external-residue closure. Arc: `deterministic-orientation` (closing member).
-- **Certainty:** proving — the evidence is the point; conduct quality on the generative flows and Execute-mode assessment is unwitnessed.
-- **Why now / unlocks:** created by the 2026-07-08 hygiene fold — FE-1134, FE-1137, FE-1124, and FE-1107 all merged with the *same* unowned residue ("outer walkthrough evidence on a re-braided branch"), leaving three frontiers permanently un-closable. This batch owns all of it in one place with one trigger.
-- **Objective (five residue groups):**
-  1. **FE-1134 evidence:** live walkthrough beats for the orientation menu's generative options (propose/project), using the FE-1124 seed variants; menu→conduct routing evidence via session JSONL skill reads.
-  2. **FE-1137 evidence:** Execute-mode entry beats on thin vs rich seeds (assessment honesty: Ask on thin, Proceed on rich); capture evidence on the two deferred orientation-choice questions — `continue`/`proceed` semantics and the sticky-posture candidate (a D98-L-sensitive reversal; route through `ln-grill`/`ln-spec` if evidence says revisit).
-  3. **FE-1124 remainder:** Card 3 review variants (`memory/cards/walkthrough-batch-2--seed-variants.md`) + the seed-variation worklist; findings continue in `TESTING_FINDINGS.md`.
-  4. **FE-1107/KA residue:** executor-card GC completed in the 2026-07-08 sync; remaining: settle FE-1107 close-or-narrow, hold the demo session (`docs/DEMO_STACK_OVERVIEW_2026-07-06.md`, delete after), then the owed post-KA `ln-plan` pass.
-  5. **FE-1164 walkthrough residue (folded from the retired 2026-07-08 handoff — FE-1164 merged without these witnessed):** declared continuations driven live (digest/review/candidates chain); capture sweep after ask answers (highest-value — the outer witness of the `64aad51a` sweep-classifier fix); resume re-render of persisted ask results; web sidecar behavior during an open ask; `dev:components` gallery re-check in both themes. Workbench: `.fixtures/workbenches/workspace-alpha-grounding` (`npm run dev -- --workspace …`; reseed `npm run seed -- --seed workspace-alpha-grounding/base --reset`). Note: the ask surfaces have since been reshaped by FE-1169 (compact result content, hierarchical esc, mode-reactive borders) — witness the current surfaces, not FE-1164's originals.
-- **Annotations:** Retires: the unwitnessed-conduct uncertainty on generative menus and Execute entry (the arc's "one witnessed e2e run per generative flow" obligation). Closes: arc `deterministic-orientation`; the FE-1107 disposition question.
-- **Acceptance sketch:** per-flow walkthrough beats recorded against `TESTING_FINDINGS.md` with session JSONL evidence; the two deferred FE-1137 questions answered or explicitly re-routed; KA residue dispositions recorded in PLAN; arc marked done only when its done-definition holds (incl. topology reconciliation).
-- **Verification:** manual outer loop per `docs/praxis/manual-testing.md`, with session JSONL + debug-mirror artifacts as the recorded oracles.
-- **Traceability:** D98-L, D109-L, D40-L, D74-L, D101-L/D102-L; TESTING_PLAN.md goals 6/7; arc `deterministic-orientation` done-definition.
+### consequential-fact-discovery-tracer
+
+- **Name:** Consequential-fact discovery — bounded Tier-2 oracle tracer
+- **Linear:** unassigned (create at pickup, FE team / brunch project)
+- **Branch:** tbd at pickup (off `next`; start after FE-1187 stabilizes the ask/prompt surface)
+- **Kind:** structural verification tracer — establishes a new prompt/context-quality probe and report seam over existing Tier-2, transcript, graph-readback, and fixture contracts.
+- **Status:** Later (2026-07-13); not started. Re-entry: after Group 1 closes and the ask/prompt surface stabilizes.
+- **Certainty:** proving.
+- **Objective:** Prove that consequential-fact discovery is measurable without a generic eval framework: drive a bounded Petri-net editor elicitation through the real Brunch/Pi boot path with a real Brunch provider and controlled user responses; compare four human-authored private invariants against transcript attribution and final graph truth; emit a portable, reviewable JSONL-backed report from `.fixtures/scratch/`.
+- **Why now / unlocks:** The R&D tasks suggest elicitation depth is valuable only when consequential facts become inspectable truth, but Brunch has no discriminating regression oracle for that claim. This tracer validates the oracle before corpus/framework breadth. A useful report unlocks one novel/non-inferable scenario; only that evidence plus A39-L can justify planning the full autonomous agent-as-user campaign.
+- **Lights up:** the bounded Tier-2 real-provider path from public brief + private hidden-fact ledger → controlled ask/answer trajectory → warranted durable graph facts → machine-checkable fitness report.
+- **Stabilizes:** A5-L's oracle/artifact shape and SPEC §Verification Design's boundary between structural gates and behavioral fitness; it does not claim A5-L fully validated.
+- **Acceptance:**
+  - The probe-local scenario declares the public Petri-net brief, four private invariants (bipartite arcs, no dangling arcs, no duplicate pair, directionality), reveal/confirmation policy, required graph predicates, forbidden rivals, and a turn budget; private facts never enter Brunch context before a legitimate reveal.
+  - The base scenario and one controlled metamorphic variant each run three times through Tier-2 real boot with a real provider. Controlled user responses may use existing product-supported harness/broker seams, but the probe must not create a new product transport or make transcript pending-state scanning canonical.
+  - Each report records exact model/prompt/resource stamps and separately reports discovery, warranted basis before commitment, forbidden overclaims, turns-to-discovery, timeout/unavailable/partial outcomes, and cross-run variance. A fact passes only when durable graph truth and prior transcript warrant agree; correct silent inference alone does not pass.
+  - Source `session.jsonl`, report JSON, and graph readback are portable and written under `.fixtures/scratch/<probe-id>/<run-id>/`; promotion to `.fixtures/runs/` is manual after review.
+  - The tracer ends with an explicit usefulness verdict. If useful, route through `ln-plan` for one novel/non-inferable scenario (review-diff class or freshly mined real-project case); do not generalize a corpus, actor framework, or full campaign in this frontier. If not useful, record why and stop.
+- **Verification:** inner — scenario/report schema and transcript-attribution summarizer tests, including private-fact non-leak and every outcome classification; middle — hidden-fact ledger × transcript attribution × graph-readback differential, negative-space rivals, three-run variance, and one metamorphic pair; outer — sampled human adjudication of unmatched semantic graph representations and the final usefulness verdict. See `memory/SPEC.md` §Verification Design.
+- **Cross-cutting obligations:** keep briefs as probe inputs rather than canonical artifacts; preserve sealed-profile/Tier-2 real-boot semantics; start in `.fixtures/scratch/`; deterministic checks dominate semantic judging; one named intervention changes per comparative campaign.
+- **Traceability:** requirement 24; A5-L; D39-L; D99-L; `memory/SPEC.md` §Verification Design; `src/dev/TOPOLOGY.md`; `docs/architecture/probes-and-transcripts.md`.
 
 ### mechanism-trace
 
 - **Name:** Mechanism-provenance trace — carrier-classified transcript timeline + sweep-debt tripwire
 - **Linear:** unassigned (create at pickup, FE team / brunch project)
 - **Branch:** tbd at pickup (off `next`; no stack dependency)
+- **Status:** demoted to Later 2026-07-13; the slim `sweep-debt-tripwire` row was extracted into FE-1187 (Group 1) and carries the detection half of the sweep-reliability blind spot. The full trace + static wiring inventory re-enter via re-qualification when instrumentation is prioritized
 - **Kind:** structural — a new dev/observability projection seam over the transcript substrate. Dev/eval artifact, never product truth (same discipline as Horizon `agent-tracing`: no event-spine backdoor).
 - **Certainty:** proving — whether a carrier-classified timeline actually makes provenance legible during a walkthrough (and whether the tripwire fires cleanly without false positives) is the open question; the classification substrate itself is well-understood.
 - **Why now / unlocks:** the 2026-07-08 capture-sweep grill established that during manual walkthroughs the user cannot tell whether an agent action was product-forced, event-nudged, or freely chosen — and that sweep ingestion has no conduct-level oracle (SPEC blind spot "Sweep ingestion reliability", A40-L). The trace is the instrument; the tripwire is its first paying customer. FE-1167's walkthrough beats become materially cheaper to interpret with it.
@@ -247,6 +293,7 @@ Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_
 - **Linear:** [FE-1166](https://linear.app/hash/issue/FE-1166/greenfield-executor-run-substrate-and-verify-policy)
 - **Branch:** original `ka/fe-1166-greenfield-executor-harness` merged in PR #302; follow-up branch disposition pending `ln-plan`.
 - **Kind:** structural / executor run environment policy
+- **Stream:** KA (Kostandin) — outside the 2026-07-13 LN quarantine.
 - **Status:** original frontier delivered; one real-run failure is prepared in `memory/cards/executor-run-environment--actionable-slice-request.md`. Do not build until `ln-plan` decides whether it remains FE-1166 work or becomes a fresh frontier/branch.
 - **Objective:** Separate run substrate and verify target from source-copy policy so greenfield fixture runs can use an isolated run directory and product-owned verification profile instead of always starting from a host git worktree and hardcoded `npm run verify`.
 - **Traceability:** FE-1114 follow-up live-run evidence; `src/executor/worktree.ts`, `src/executor/test-result.ts`, `src/app/test-runner-port.ts`, `src/.pi/extensions/executor/execute-run-create/index.ts`; follow-up worker-request evidence from run `run-mrbyf8u9` recorded in `memory/cards/executor-run-environment--actionable-slice-request.md`.
@@ -268,6 +315,7 @@ Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_
 - **Linear:** unassigned
 - **Branch:** `ln/fe-xxx-plan-plane-redesign` (plan-plane groundwork already landed here: `slice` removal + D103-L + CueLoop liftout)
 - **Kind:** structural / plan-plane semantics
+- **Stream:** KA (Kostandin) — moved 2026-07-13: plan-plane semantics sit with executor/orchestration concerns.
 - **Status:** proving candidate opened by D103-L; **demoted to Horizon 2026-07-03 (grill)** — exploratory bet-proving, behind the ship gate. The orientation menus' "project a plan" option routes to the existing `project`/`map-plans` seam at frontier-level depth and does not depend on or advance this frontier. Mostly SPEC/skill work at first, low code-conflict.
 - **Certainty:** proving.
 - **Lights up:** plan generation as *projection* from committed graph truth (milestone/frontier) — a `project` (D100-L) plan-plane path, first exercised as a read-only plan projection, optionally exported to an external format (CueLoop, `docs/design/CUELOOP_PATTERN_LIFTOUT.md`) as design pressure.
@@ -350,6 +398,18 @@ Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_
 - **Inherited from FE-1192 (2026-07-13):** Petrinaut-visible attempt topology (static self-loop transitions / retry-budget places compiled into the frozen definition) is owned here — the `attempt_failed` journal vocabulary is settled; this frontier decides whether it graduates into the compiled net. Review residue riding along: extract the mirrored failure-path counter pattern out of `agent-result.ts`/`test-result.ts` when touching the attempt seam (the `attempts`-field presence should become the single retry discriminant in `drive()`), and settle `DriveContext.onNetEvent` — zero production consumers today; become its first real consumer for live hints or delete the hook and correct the executor `TOPOLOGY.md` fan-out claim.
 - **Traceability:** D112-L (set-returning scheduler + `frontierFiringPolicy`), FE-1166 substrate/verify policy, `docs/praxis/worktree-agents.md`; SPEC §Future Direction (durable parallel authority stays excluded).
 
+
+### subagent-skill-access
+
+- **Name:** Subagent named-skill access (subagents extension)
+- **Linear:** unassigned (create at pickup, FE team / brunch project)
+- **Branch:** tbd at pickup
+- **Kind:** bounded feature — extend the subagents extension so spawned subagents can be granted access to named skills from the code-owned manifest.
+- **Certainty:** proving.
+- **Status:** admitted 2026-07-13 (Group 3, agent layer). The user has local changes to integrate — inventory them at pickup before scoping.
+- **Why now / unlocks:** prerequisite for `reviewer-agent-mode` as a skill-carried subagent; generalizes background-agent capability sharing without reviving retired runtime axes.
+- **Traceability:** D90-L (AgentManifest shape), D95-L/registry (code-owned skill manifest), D40-L (subagent grants must stay within the spawning role's authority envelope).
+
 ### reconciliation-derivation
 
 - **Name:** Derive `edge_revalidation` reconciliation needs from LSN comparison; keep the table for judgment-shaped kinds
@@ -384,53 +444,61 @@ Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_
 ## Dependencies
 
 ```text
-frontiers:
-  walkthrough-remediation-2 (FE-1187)
-    -[hard]-> spec-posture
-    -[hard]-> walkthrough-evidence-batch (FE-1167)
-    depends_on: D113-L-D115-L disambiguation, D119-L, D120-L/I62-L, D99-L
+streams:
+  LN — product/elicitation surfaces
+  KA — Kostandin: executor / orchestrator / Execute mode / plan plane
 
-  spec-posture
-    owns: D118-L materialization + A41-L vocabulary/root-spec validation
-    outer_oracle: run D populated-cwd/brownfield beats + run B orientation beats
+group-1 (Active — walkthrough closure):
+  walkthrough-remediation-2 (FE-1187, absorbs FE-1167 — close FE-1167 as merged)
+    entry: settled D113-L–D115-L reversal (ln-spec first; folds Pi-native P4)
+    rows: WR18 punch list + absorbed LN evidence beats + exchange-visual-design
+          + generative-flow-synthesis-shape + sweep-debt-tripwire
+    -[stack]-> cli-mode-entry (reserves `develop` subcommand)
+    -[stack]-> cleanup slices: legacy-question-read-path-retirement + D117-L one-liner
+    cross_stream: O7/O8/O9 + carved Execute beats — coordinate with KA
+    closes_arc: deterministic-orientation (jointly with KA-carved beats)
+    -[gates]-> groups 2–3 (open after the auth reversal lands; then interleave)
 
-  Parallel / Low-conflict:
-    # petri-interpreter-port (FE-1183) and petrinaut-live-run-stream (FE-1190) merged
-    # 2026-07-11/13; run.json remains lifecycle truth, Petri artifacts remain
-    # projection/evidence/resume hints, journal appends are fail-closed.
+group-2 (Next — platform debt):
+  spec-posture | headless-ask-discovery | compaction-and-conflict-widening (P3)
+  | session-branching | web-driver-streaming (evaluation; absorbs P0 residual)
+  | reconciliation-derivation | transcript-ledger-rendering (P2)
+  entry_input: docs/planning/pi-native-integration-opportunities.md (retire after merge)
 
-    executor-slice-attempt-lifecycle (FE-1192)
-      status: active; picked up 2026-07-13 on ka/fe-1192-executor-slice-attempt-lifecycle
-      live_card: memory/cards/executor-slice-attempt-lifecycle--agent-attempt-facts.md
-      -[hard]-> petri-slice-isolation-fan-in
-      stabilizes: attempt identity for the whole Petri sequence
+group-3 (Next — agent layer):
+  develop-mode (flag-gated; execute-tier authority, no contract break)
+  subagent-skill-access -[hard]-> reviewer-agent-mode (subagent reshape)
+  review-commentary-widening (mention-based reshape)
 
-    petri-slice-isolation-fan-in
-      status: admitted 2026-07-13; Linear/branch at pickup
-      -[hard]-> petri-epic-integration (horizon)
-      -[hard]-> petri-durable-parallel-authority (horizon; promote only on serial-authority evidence)
-      excludes: durable parallel side-effect authority
+group-4 (cleanups): rides group-1 stack | named-inline-extension-identity (P1)
 
-  mechanism-trace
-    -[optional instrument]-> walkthrough-evidence-batch (FE-1167)
-    excludes: A40-L turn_end rewiring, D117-L direct hardening
-
-  walkthrough-evidence-batch (FE-1167)
-    closes_arc: deterministic-orientation
-    live_card: memory/cards/walkthrough-batch-2--seed-variants.md (Card 3)
-
-  legacy-question-read-path-retirement
-    status: admitted; Linear/branch at pickup
-    depends_on: D116-L ask cutover
-    preserves: interim pending-exchange scan until A39-L/headless-ask-discovery
-
+KA stream:
+  carved FE-1167 Execute beats + FE-1107 residue
+  planning-process-model (moved 2026-07-13)
+  # petri-interpreter-port (FE-1183) and petrinaut-live-run-stream (FE-1190) merged;
+  # run.json remains lifecycle truth, Petri artifacts remain projection/evidence/resume hints.
+  executor-slice-attempt-lifecycle (FE-1192)
+    status: active; picked up 2026-07-13 on ka/fe-1192-executor-slice-attempt-lifecycle
+    live_card: memory/cards/executor-slice-attempt-lifecycle--agent-attempt-facts.md
+    -[hard]-> petri-slice-isolation-fan-in
+    stabilizes: attempt identity for the whole Petri sequence
+  petri-slice-isolation-fan-in
+    status: admitted 2026-07-13; Linear/branch at pickup
+    -[hard]-> petri-epic-integration (later)
+    -[hard]-> petri-durable-parallel-authority (later; promote only on serial-authority evidence)
+    excludes: durable parallel side-effect authority
   executor-run-environment (FE-1166 follow-up)
-    status: prepared, low-conflict; tracker/branch disposition required before build
+    status: prepared; tracker/branch disposition required before build
     live_card: memory/cards/executor-run-environment--actionable-slice-request.md
+
+later: mechanism-trace (tripwire extracted to FE-1187) |
+  consequential-fact-discovery-tracer | agent-tracing (absorbs P5) |
+  petri-epic-integration | petri-durable-parallel-authority
 
 rules:
   candidates never commit graph truth (I51-L)
   topology files own current subtree state
   scratch evidence is not durable until promoted to .fixtures/runs/
   arcs close only after topology reconciliation and residue discharge
+  deferred/design-question findings must name an owner (docs/praxis/manual-testing.md §Findings ledger discipline)
 ```

@@ -29,8 +29,8 @@
     "tag": "alpha"
   },
   "scripts": {
-    "dev": "nub scripts/dev.ts",
-    "dev:raw": "nub src/app/brunch.ts",
+    "dev": "nub src/app/brunch.ts",
+    "dev-cli": "nub scripts/dev.ts",
     "dev:components": "nub scripts/dev-components.ts",
     "probe:generate-fan-out": "PI_OFFLINE=0 PATH=\"$HOME/.local/share/mise/installs/node/lts/bin:$PATH\" nub src/dev/generate-fan-out-witness.ts",
     "build": "tsc -p tsconfig.build.json && npm run build:info && npm run build:pi-assets && npm run build:web",
@@ -64,9 +64,9 @@
     "verify": "npm run fix && npm run test && npm run build"
   },
   "dependencies": {
-    "@earendil-works/pi-ai": "^0.80.3",
-    "@earendil-works/pi-coding-agent": "^0.80.3",
-    "@earendil-works/pi-tui": "^0.80.3",
+    "@earendil-works/pi-ai": "^0.80.6",
+    "@earendil-works/pi-coding-agent": "^0.80.6",
+    "@earendil-works/pi-tui": "^0.80.6",
     "@fontsource-variable/geist-mono": "^5.2.8",
     "@fontsource-variable/inter": "^5.2.8",
     "@mozilla/readability": "^0.6.0",
