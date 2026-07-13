@@ -102,8 +102,6 @@ describe('sweep-debt tripwire', () => {
       ];
       await writeFile(sessionPath, `${entries.map((entry) => JSON.stringify(entry)).join('\n')}\n`);
 
-      // `npx tsx …` is the documented invocation. The equivalent Node loader
-      // avoids tsx CLI's IPC socket, which is forbidden in the test sandbox.
       const result = spawnSync(
         process.execPath,
         [
@@ -122,4 +120,19 @@ describe('sweep-debt tripwire', () => {
       expect(JSON.parse(result.stdout)).toMatchObject({ expectation, captureEvidence: capture });
     },
   );
+
+  it('advertises the supported source and built operator invocations', () => {
+    const result = spawnSync(process.execPath, ['--import', 'tsx', 'src/probes/sweep-debt-tripwire.ts'], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      'node --import tsx src/probes/sweep-debt-tripwire.ts --session <session.jsonl> --expect capture|ignore',
+    );
+    expect(result.stderr).toContain(
+      'node dist/probes/sweep-debt-tripwire.js --session <session.jsonl> --expect capture|ignore',
+    );
+  });
 });

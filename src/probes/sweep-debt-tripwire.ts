@@ -122,7 +122,13 @@ function parseArguments(argv: readonly string[]): {
   const sessionPath = sessionIndex >= 0 ? argv[sessionIndex + 1] : undefined;
   const expectation = expectationIndex >= 0 ? argv[expectationIndex + 1] : undefined;
   if (!sessionPath || (expectation !== 'capture' && expectation !== 'ignore')) {
-    throw new Error('usage: sweep-debt-tripwire --session <session.jsonl> --expect capture|ignore');
+    throw new Error(
+      [
+        'usage:',
+        '  node --import tsx src/probes/sweep-debt-tripwire.ts --session <session.jsonl> --expect capture|ignore',
+        '  node dist/probes/sweep-debt-tripwire.js --session <session.jsonl> --expect capture|ignore',
+      ].join('\n'),
+    );
   }
   return { sessionPath, expectation };
 }
