@@ -40,6 +40,9 @@ export type ReadyStep =
       readonly epicId?: string;
       readonly derivedFrom?: readonly string[];
     }
+  | { readonly kind: 'epic_integrate'; readonly epicId: string }
+  | { readonly kind: 'epic_verify'; readonly epicId: string }
+  | { readonly kind: 'epic_complete'; readonly epicId: string }
   | { readonly kind: 'run_complete' }
   | { readonly kind: 'petri_export' }
   | { readonly kind: 'promotion' };
@@ -245,7 +248,7 @@ export interface ExecutorTopology {
   readonly initialMarking: Record<string, number>;
 }
 
-export type ExecutorNetStepKind = ReadyStep['kind'] | 'epic_integrate' | 'epic_verify' | 'epic_complete';
+export type ExecutorNetStepKind = ReadyStep['kind'];
 
 export type ExecutorNetEvent =
   | {
@@ -822,6 +825,7 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
         id: `epic_integrate:${epic.id}`,
         subnetId: subnet.id,
         epicId: epic.id,
+        step: { kind: 'epic_integrate', epicId: epic.id },
         inputArcs: epic.sliceIds.map((sliceId) => ({
           placeId: epicMemberPlace(epic.id, sliceId),
           weight: 1,
@@ -835,6 +839,7 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
               id: `epic_verify:${epic.id}`,
               subnetId: subnet.id,
               epicId: epic.id,
+              step: { kind: 'epic_verify' as const, epicId: epic.id },
               inputArcs: [{ placeId: epicIntegratedPlace(epic.id), weight: 1 }],
               outputArcs: [{ placeId: epicVerifiedPlace(epic.id), weight: 1 }],
               contract: { kind: 'mechanical' as const, lane: 'epic' as const },
@@ -845,6 +850,7 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
         id: `epic_complete:${epic.id}`,
         subnetId: subnet.id,
         epicId: epic.id,
+        step: { kind: 'epic_complete', epicId: epic.id },
         inputArcs: [
           { placeId: hasVerification ? epicVerifiedPlace(epic.id) : epicIntegratedPlace(epic.id), weight: 1 },
         ],

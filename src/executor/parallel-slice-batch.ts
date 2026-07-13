@@ -156,8 +156,6 @@ export async function executeParallelSliceBatch(
         sliceId,
         status: 'slice_completed',
       });
-      await authority.fireEnabledTopologyGates();
-
       summary = updateRunSummary(summary, result, integrated.integrationCommitSha);
       await persistRunMetadata(runMetadataPath(ctx.cwd, ctx.runId), summary);
       await authority.setState(summary);

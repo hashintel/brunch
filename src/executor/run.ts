@@ -60,6 +60,9 @@ export interface RunMetadata {
   readonly activeSliceBaseSha?: string;
   readonly integratedSliceCommits?: Readonly<Record<string, string>>;
   readonly completedSliceIds?: readonly string[];
+  readonly integratedEpicIds?: readonly string[];
+  readonly verifiedEpicIds?: readonly string[];
+  readonly completedEpicIds?: readonly string[];
   readonly petriPath?: string;
   readonly promotionPath?: string;
   readonly promotionBaseSha?: string;

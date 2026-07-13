@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { agentStreamPath, ingestAgentResult } from '../agent-result.js';
+import { executeEpicLifecycleStep } from '../epic-lifecycle.js';
 import type { AgentRunnerPort, ExecutionPorts, TestRunnerPort } from '../execution-ports.js';
 import { readRunDetail } from '../observer-read.js';
 import {
@@ -27,7 +28,7 @@ import {
 import { petriMarkingPath, readPetriMarkingSnapshot, writePetriMarkingSnapshot } from '../petri-marking.js';
 import { petriPlanSnapshotPath } from '../petri-plan-snapshot.js';
 import { replayPetri, replayTransitionHistory } from '../petri-replay.js';
-import { petriRuntimePlanPathCandidates } from '../petri-runtime-plan.js';
+import { readPetriRuntimePlan, petriRuntimePlanPathCandidates } from '../petri-runtime-plan.js';
 import {
   bindExecutorPetriRuntime,
   enabledPetriTransitionIds,
@@ -153,6 +154,19 @@ async function createRunAtCreated(
   await createRun({ cwd, specId: '42', runId: 'run-1' });
 }
 
+async function createRunAtCreatedWithPlan(cwd: string, plan: object): Promise<void> {
+  await mkdir(join(cwd, 'src'), { recursive: true });
+  await writeFile(join(cwd, 'src', 'app.ts'), 'export const app = true;\n', 'utf8');
+  await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
+  await writeFile(planFilePath(cwd, '42'), JSON.stringify(plan), 'utf8');
+  await createRun({
+    cwd,
+    specId: '42',
+    runId: 'run-1',
+    verifyTarget: { command: 'npm', args: ['run', 'verify'] },
+  });
+}
+
 async function prepareRunAtReports(cwd: string, sliceIds: readonly string[]): Promise<RunMetadata> {
   await createRunAtCreated(cwd, sliceIds);
   const ports = fakePorts();
@@ -218,12 +232,334 @@ async function crankManually(cwd: string, ports: ExecutionPorts): Promise<void> 
     await integrateSlice({ cwd, runId: 'run-1', gitSliceIntegration: ports.gitSliceIntegration });
     await completeSlice({ cwd, runId: 'run-1' });
   }
+  const metadata = (await readRunMetadata(runMetadataPath(cwd, 'run-1')))!;
+  const plan = await readPetriRuntimePlan(cwd, metadata);
+  for (const epic of plan?.epics ?? []) {
+    await executeEpicLifecycleStep({
+      cwd,
+      runId: 'run-1',
+      step: { kind: 'epic_integrate', epicId: epic.id },
+      plan,
+      testRunner: ports.testRunner,
+    });
+    if (epic.verification?.length) {
+      await executeEpicLifecycleStep({
+        cwd,
+        runId: 'run-1',
+        step: { kind: 'epic_verify', epicId: epic.id },
+        plan,
+        testRunner: ports.testRunner,
+      });
+    }
+    await executeEpicLifecycleStep({
+      cwd,
+      runId: 'run-1',
+      step: { kind: 'epic_complete', epicId: epic.id },
+      plan,
+      testRunner: ports.testRunner,
+    });
+  }
   await completeRun({ cwd, runId: 'run-1' });
   await exportPetri({ cwd, runId: 'run-1' });
   await preparePromotion({ cwd, runId: 'run-1', gitLand: ports.gitLand });
 }
 
 describe('drive', () => {
+  it('runs declared epic verification once on the integrated run tree before completing the epic', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-verification-serial-'));
+    await createRunAtCreatedWithPlan(cwd, {
+      mode: 'greenfield',
+      epics: [
+        {
+          id: 'epic-1',
+          summary: 'Verified epic',
+          depends_on: [],
+          verification: [{ kind: 'criterion', criterionId: 'AC-epic', target: 'provenance only' }],
+        },
+      ],
+      slices: [
+        {
+          id: 'task-1',
+          epic_id: 'epic-1',
+          definition: 'Build it.',
+          depends_on: [],
+          verification: [{ kind: 'criterion', criterionId: 'AC1', target: 'slice works' }],
+        },
+      ],
+    });
+    const calls: { readonly worktreeDir: string; readonly command?: string }[] = [];
+    let promotionWorktree: string | undefined;
+    const testRunner: TestRunnerPort = {
+      async run(args) {
+        calls.push({
+          worktreeDir: args.worktreeDir,
+          ...(args.verifyTarget ? { command: args.verifyTarget.command } : {}),
+        });
+        return { status: 'completed', verdict: 'passed', exitCode: 0, target: 'npm run verify' };
+      },
+    };
+
+    await expect(
+      drive(
+        {
+          cwd,
+          runId: 'run-1',
+          ports: fakePorts({
+            testRunner,
+            gitLand: {
+              async currentHead() {
+                return { status: 'ok', commitSha: 'base123' };
+              },
+              async promote(args) {
+                promotionWorktree = args.worktreeDir;
+                return {
+                  status: 'promoted',
+                  commitSha: 'promoted123',
+                  sideEffects: [{ kind: 'git_commit', path: args.worktreeDir, sha: 'promoted123' }],
+                };
+              },
+            },
+          }),
+        },
+        petriScheduler,
+      ),
+    ).resolves.toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+
+    const run = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+    expect(calls).toHaveLength(2);
+    expect(calls[1]).toEqual({ worktreeDir: run?.worktreeDir, command: 'npm' });
+    expect(promotionWorktree).toBe(calls[1]?.worktreeDir);
+    expect(
+      (await readPetriEvents(cwd)).flatMap((event) =>
+        event.kind === 'transition_fired' && event.contract.lane === 'epic' ? [event.transitionId] : [],
+      ),
+    ).toEqual(['epic_integrate:epic-1', 'epic_verify:epic-1', 'epic_complete:epic-1']);
+    expect(await readReportEvents(cwd)).toContainEqual(
+      expect.objectContaining({ event: 'epic_test_result', epicId: 'epic-1', status: 'passed' }),
+    );
+  });
+
+  it('runs one epic verification after a parallel member batch converges', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-verification-parallel-'));
+    await createRunAtCreatedWithPlan(cwd, {
+      mode: 'greenfield',
+      epics: [
+        {
+          id: 'epic-1',
+          depends_on: [],
+          verification: [{ kind: 'criterion', target: 'provenance only' }],
+        },
+      ],
+      slices: ['task-1', 'task-2'].map((id) => ({
+        id,
+        epic_id: 'epic-1',
+        definition: id,
+        depends_on: [],
+        verification: [],
+      })),
+    });
+    const worktrees: string[] = [];
+    const testRunner: TestRunnerPort = {
+      async run(args) {
+        worktrees.push(args.worktreeDir);
+        return { status: 'completed', verdict: 'passed', exitCode: 0 };
+      },
+    };
+
+    await expect(
+      drive({ cwd, runId: 'run-1', ports: fakePorts({ testRunner }) }, petriScheduler, frontierFiringPolicy),
+    ).resolves.toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+
+    const run = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+    expect(worktrees).toHaveLength(3);
+    expect(worktrees.filter((path) => path === run?.worktreeDir)).toHaveLength(1);
+    expect(run).toMatchObject({
+      integratedEpicIds: ['epic-1'],
+      verifiedEpicIds: ['epic-1'],
+      completedEpicIds: ['epic-1'],
+    });
+  });
+
+  it('halts failed epic verification without verify, completion, dependent release, or promotion', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-verification-failed-'));
+    await createRunAtCreatedWithPlan(cwd, {
+      mode: 'greenfield',
+      epics: [
+        {
+          id: 'epic-1',
+          depends_on: [],
+          verification: [{ kind: 'criterion', target: 'provenance only' }],
+        },
+        { id: 'epic-2', depends_on: ['epic-1'], verification: [] },
+      ],
+      slices: [
+        { id: 'task-1', epic_id: 'epic-1', definition: 'one', depends_on: [], verification: [] },
+        { id: 'task-2', epic_id: 'epic-2', definition: 'two', depends_on: [], verification: [] },
+      ],
+    });
+    const agentSlices: string[] = [];
+    const testRunner: TestRunnerPort = {
+      async run(args) {
+        return args.worktreeDir.includes('/slice-workspaces/')
+          ? { status: 'completed', verdict: 'passed', exitCode: 0 }
+          : { status: 'completed', verdict: 'failed', exitCode: 1 };
+      },
+    };
+
+    await expect(
+      drive(
+        {
+          cwd,
+          runId: 'run-1',
+          ports: fakePorts({
+            testRunner,
+            agentRunner: {
+              async run(args) {
+                agentSlices.push(args.sliceId);
+                return { status: 'completed' };
+              },
+            },
+          }),
+        },
+        petriScheduler,
+        frontierFiringPolicy,
+      ),
+    ).resolves.toEqual({
+      status: 'halted',
+      step: 'epic_verify',
+      runStatus: 'slice_completed',
+      reason: 'epic_verification_failed',
+    });
+
+    expect(agentSlices).toEqual(['task-1']);
+    const events = await readPetriEvents(cwd);
+    const epicTransitions = events.flatMap((event) =>
+      event.kind === 'transition_fired' && event.contract.lane === 'epic' ? [event.transitionId] : [],
+    );
+    expect(epicTransitions).toEqual(['epic_integrate:epic-1']);
+    expect(epicTransitions).not.toContain('epic_verify:epic-1');
+    expect(epicTransitions).not.toContain('epic_complete:epic-1');
+    expect(events.at(-1)).toMatchObject({
+      kind: 'net_halted',
+      step: 'epic_verify',
+      reason: 'epic_verification_failed',
+    });
+    expect(await readReportEvents(cwd)).toContainEqual(
+      expect.objectContaining({ event: 'epic_test_result', epicId: 'epic-1', status: 'failed' }),
+    );
+    expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.promotionPath).toBeUndefined();
+    const replay = replayPetri({
+      net: JSON.parse(await readFile(petriNetPath(cwd, 'run-1'), 'utf8')),
+      events,
+    });
+    expect(replay?.currentMarking).toHaveProperty('epic:epic-1:integrated', 1);
+    expect(replay?.currentMarking).not.toHaveProperty('epic:epic-1:verified');
+    expect(replay?.currentMarking).not.toHaveProperty('epic:epic-1:completed');
+    await expect(readRunDetail(cwd, 'run-1')).resolves.toMatchObject({
+      petriProjection: {
+        currentMarking: { 'epic:epic-1:integrated': 1 },
+        terminalEventKind: 'net_halted',
+        haltedReason: 'epic_verification_failed',
+      },
+    });
+  });
+
+  it('completes an empty-verification epic without invoking an epic test', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-no-verification-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    let calls = 0;
+    const testRunner: TestRunnerPort = {
+      async run() {
+        calls += 1;
+        return { status: 'completed', verdict: 'passed', exitCode: 0 };
+      },
+    };
+
+    await drive({ cwd, runId: 'run-1', ports: fakePorts({ testRunner }) }, petriScheduler);
+
+    expect(calls).toBe(1);
+    expect(
+      (await readPetriEvents(cwd)).flatMap((event) =>
+        event.kind === 'transition_fired' && event.contract.lane === 'epic' ? [event.transitionId] : [],
+      ),
+    ).toEqual(['epic_integrate:frontier-1', 'epic_complete:frontier-1']);
+    expect(await readReportEvents(cwd)).not.toContainEqual(
+      expect.objectContaining({ event: 'epic_test_result' }),
+    );
+  });
+
+  it('starts a dependent epic slice only after predecessor epic completion is durable', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-dependency-release-'));
+    await createRunAtCreatedWithPlan(cwd, {
+      mode: 'greenfield',
+      epics: [
+        { id: 'epic-1', depends_on: [], verification: [] },
+        { id: 'epic-2', depends_on: ['epic-1'], verification: [] },
+      ],
+      slices: [
+        { id: 'task-1', epic_id: 'epic-1', definition: 'one', depends_on: [], verification: [] },
+        { id: 'task-2', epic_id: 'epic-2', definition: 'two', depends_on: [], verification: [] },
+      ],
+    });
+    let predecessorCompleteBeforeDependent = false;
+
+    await drive(
+      {
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts({
+          agentRunner: {
+            async run(args) {
+              if (args.sliceId === 'task-2') {
+                predecessorCompleteBeforeDependent = (await readPetriEvents(cwd)).some(
+                  (event) =>
+                    event.kind === 'transition_fired' && event.transitionId === 'epic_complete:epic-1',
+                );
+              }
+              return { status: 'completed' };
+            },
+          },
+        }),
+      },
+      petriScheduler,
+      frontierFiringPolicy,
+    );
+
+    expect(predecessorCompleteBeforeDependent).toBe(true);
+    expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.completedEpicIds).toEqual([
+      'epic-1',
+      'epic-2',
+    ]);
+  });
+
+  it('binds simultaneously enabled epic steps by epic identity', () => {
+    const plan = {
+      epics: [
+        { id: 'epic-1', depends_on: [], verification: [{ kind: 'criterion' as const, target: 'one' }] },
+        { id: 'epic-2', depends_on: [], verification: [{ kind: 'criterion' as const, target: 'two' }] },
+      ],
+      slices: [
+        { id: 'task-1', epic_id: 'epic-1', depends_on: [] },
+        { id: 'task-2', epic_id: 'epic-2', depends_on: [] },
+      ],
+    };
+    const runtime = materializeExecutorPetriRuntime(
+      metadata('slice_completed', {
+        completedSliceIds: ['task-1', 'task-2'],
+        integratedEpicIds: ['epic-1', 'epic-2'],
+      }),
+      plan,
+    );
+
+    expect(runtime.readySteps).toEqual([
+      { kind: 'epic_verify', epicId: 'epic-1' },
+      { kind: 'epic_verify', epicId: 'epic-2' },
+    ]);
+    expect(runtime.transitionForReadyStep({ kind: 'epic_verify', epicId: 'epic-2' })?.id).toBe(
+      'epic_verify:epic-2',
+    );
+  });
+
   it('overlaps independent slice effects only after each claim is journaled and marked', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-parallel-slices-'));
     await createRunAtCreated(cwd, ['task-1', 'task-2']);

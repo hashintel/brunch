@@ -303,7 +303,7 @@ memory/PLAN.md                    ~
 
 ## Slice 4 — Epic verification and completion
 
-Status: stale — re-scope after Slice 3 authority materializes
+Status: done
 Weight: full
 
 ### Target Behavior
@@ -312,10 +312,11 @@ An epic completes only after all member outputs are integrated and its declared 
 
 ### Cold-start reads
 
-- `memory/SPEC.md` — D111-L, D112-L, I58-L
+- `memory/SPEC.md` — D111-L, D112-L, D123-L, I58-L
 - `memory/PLAN.md` — frontier `petri-execution-parity`
 - `src/executor/TOPOLOGY.md` — test-runner and promotion boundaries
 - `src/executor/orchestrate-topology.ts`, `src/executor/petri-runtime.ts` — epic topology from Slice 1
+- `src/executor/parallel-slice-batch.ts`, `src/executor/parallel-slice-batch/authority.ts` — authoritative parallel completion gates from Slice 3
 - `src/executor/test-result.ts`, `src/executor/run-complete.ts`, `src/executor/report-verdict.ts` — verification truth
 
 ### Boundary Crossings
@@ -352,6 +353,7 @@ Lights up the complete member-slices → integration → epic verification → d
 - Failed verification never promotes — guarded by existing promotion and new epic completion tests.
 - Optional empty epic verification remains explicit rather than synthesized — guarded by contrastive empty/non-empty tests.
 - Promotion verifies the same integrated run tree — guarded by real-git fan-in plus promotion fixture.
+- Epic verification never auto-fires as a pure gate before its declared test runs — guarded by journal/replay negative-space tests.
 
 ### Verification Approach
 
@@ -363,6 +365,21 @@ Lights up the complete member-slices → integration → epic verification → d
 
 - Topology documentation must describe the materialized epic and isolation seams.
 - D123-L's bounded authority split must remain limited to concurrently firing isolated slice effects.
+
+### Completion Report
+
+| Leaf | Outcome | Evidence |
+| --- | --- | --- |
+| Epic integration waits for all member integrations | met | `orchestrate.test.ts` serial and parallel epic tests: member `slice_integrate`/`slice_complete` firings precede executable `epic_integrate`; the parallel batch returns to the same serial epic lane. |
+| Non-empty verification executes exactly once on the integrated run tree | met | `orchestrate.test.ts`: configured `TestRunnerPort` receives the run worktree and run `VerifyTarget` once after slice verification; the captured promotion worktree is identical. Plan criterion targets appear only in `epic_test_result.verification` provenance. |
+| Empty verification is explicit integrate -> complete | met | `orchestrate.test.ts`: empty epic emits `epic_integrate`, no `epic_test_result`/runner call, then `epic_complete`. |
+| Failed verification halts without false gates or release | met | `orchestrate.test.ts`: failed run-tree test appends durable failed `epic_test_result`, then `net_halted`; journal, marking replay, and `readRunDetail` contain integrate but no `epic_verify`, `epic_complete`, dependent agent, run terminal, or promotion. |
+| Dependent epic starts only after predecessor completion | met | `orchestrate.test.ts`: dependent agent observes predecessor `epic_complete` already durable; multi-epic runtime test binds simultaneous epic steps by `epicId`. |
+| Run completion requires completed and verified epics | met | `run-complete.test.ts`: incomplete epic and missing/failed required epic verdicts all refuse `run_completed`; successful serial/parallel drives complete normally. |
+| Observer/Petrinaut replay remains equivalent | met | Focused orchestrator/Petri/observer suites: failed verification negative-space agrees across journal replay, marking snapshot, `readRunDetail`, and terminal reason; RPC live/reconnect suites retain one firing per executable epic transition. |
+| D123-L and promotion invariants remain intact | met | Parallel overlap/restart/failure/fan-in suites remain green; epic lifecycle is serial after batch convergence, and verification/promotion both target the same integrated run worktree. |
+
+Skipped-test delta vs parent: 0.
 
 ### Expected touched paths (tentative)
 

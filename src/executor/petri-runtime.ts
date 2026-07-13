@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 
 import { ingestAgentResult } from './agent-result.js';
 import type { AgentStreamEvent } from './agent-result.js';
+import { executeEpicLifecycleStep } from './epic-lifecycle.js';
 import type { AgentRunnerRuntime, ExecutionPorts } from './execution-ports.js';
 import {
   attemptExhaustedTransitionId,
@@ -64,11 +65,13 @@ export interface ExecutorTransitionBindingContext {
   readonly signal?: AbortSignal;
   readonly onAgentUpdate?: (event: AgentStreamEvent) => void;
   readonly onVerifyUpdate?: (event: VerifyStreamEvent) => void;
+  readonly plan?: SchedulerPlan;
 }
 
 export interface ExecutorStepResult {
   readonly status: string;
   readonly runStatus: RunMetadata['status'] | 'not_started';
+  readonly advanced?: true;
 }
 
 export interface BoundExecutorPetriTransition {
@@ -117,7 +120,7 @@ export function projectExecutorPetriTransitionHistory(
 ): ExecutorPetriTransitionHistoryProjection | undefined {
   if (state.status === 'created') return { transitionIds: [] };
   if (state.status === 'abandoned') return undefined;
-  if (!completedSliceHistoryIsValid(plan, state.completedSliceIds ?? [])) return undefined;
+  if (!completedSliceHistoryIsValid(state, plan, state.completedSliceIds ?? [])) return undefined;
 
   const transitionIds = [
     ...baseRunTransitionHistory(state.status),
@@ -198,6 +201,7 @@ export function projectExecutorPetriTransitionHistory(
 }
 
 function completedSliceHistoryIsValid(
+  state: RunMetadata,
   plan: SchedulerPlan | undefined,
   completedSliceIds: readonly string[],
 ): boolean {
@@ -208,13 +212,7 @@ function completedSliceHistoryIsValid(
     if (!slice || completed.has(sliceId)) return false;
     if ((slice.depends_on ?? []).some((dependencyId) => !completed.has(dependencyId))) return false;
     const epic = plan?.epics?.find((candidate) => candidate.id === slice.epic_id);
-    if (
-      epic?.depends_on?.some((dependencyId) =>
-        (plan?.slices ?? [])
-          .filter((candidate) => candidate.epic_id === dependencyId)
-          .some((candidate) => !completed.has(candidate.id)),
-      )
-    ) {
+    if (epic?.depends_on?.some((dependencyId) => !state.completedEpicIds?.includes(dependencyId))) {
       return false;
     }
     completed.add(sliceId);
@@ -326,12 +324,17 @@ function resolveTransitionIdForReadyStep(
       return currentSliceTransitionId('slice_complete', state, plan);
     case 'slice_integrate':
       return currentSliceTransitionId('slice_integrate', state, plan);
+    case 'epic_integrate':
+    case 'epic_verify':
+    case 'epic_complete':
+      return `${step.kind}:${step.epicId}`;
   }
 }
 
 function readyStepsEqual(left: ReadyStep, right: ReadyStep): boolean {
   if (left.kind !== right.kind) return false;
-  return 'sliceId' in left && 'sliceId' in right ? left.sliceId === right.sliceId : true;
+  if ('sliceId' in left && 'sliceId' in right) return left.sliceId === right.sliceId;
+  return 'epicId' in left && 'epicId' in right ? left.epicId === right.epicId : true;
 }
 
 function epicIdForSlice(plan: SchedulerPlan | undefined, sliceId: string): string | undefined {
@@ -471,6 +474,8 @@ function completedSliceTransitionHistory(
   if (!plan?.slices?.length) return [];
   const history: string[] = [];
   const completedSlices = new Set<string>();
+  const integratedEpics = new Set<string>();
+  const verifiedEpics = new Set<string>();
   const completedEpics = new Set<string>();
   for (const sliceId of completedSliceIds) {
     history.push(
@@ -482,14 +487,25 @@ function completedSliceTransitionHistory(
       sliceTransitionId('slice_complete', sliceId),
     );
     completedSlices.add(sliceId);
-    appendCompletedEpicGates(plan, completedSlices, completedEpics, history);
+    appendRecordedEpicLifecycle(
+      state,
+      plan,
+      completedSlices,
+      integratedEpics,
+      verifiedEpics,
+      completedEpics,
+      history,
+    );
   }
   return history;
 }
 
-function appendCompletedEpicGates(
+function appendRecordedEpicLifecycle(
+  state: RunMetadata,
   plan: SchedulerPlan,
   completedSlices: ReadonlySet<string>,
+  integratedEpics: Set<string>,
+  verifiedEpics: Set<string>,
   completedEpics: Set<string>,
   history: string[],
 ): void {
@@ -497,15 +513,32 @@ function appendCompletedEpicGates(
   while (changed) {
     changed = false;
     for (const epic of plan.epics ?? []) {
-      if (completedEpics.has(epic.id)) continue;
       const members = (plan.slices ?? []).filter((slice) => slice.epic_id === epic.id);
       if (!members.every((slice) => completedSlices.has(slice.id))) continue;
       if (!(epic.depends_on ?? []).every((epicId) => completedEpics.has(epicId))) continue;
-      history.push(`epic_integrate:${epic.id}`);
-      if (epic.verification?.length) history.push(`epic_verify:${epic.id}`);
-      history.push(`epic_complete:${epic.id}`);
-      completedEpics.add(epic.id);
-      changed = true;
+      if (state.integratedEpicIds?.includes(epic.id) && !integratedEpics.has(epic.id)) {
+        history.push(`epic_integrate:${epic.id}`);
+        integratedEpics.add(epic.id);
+        changed = true;
+      }
+      if (
+        integratedEpics.has(epic.id) &&
+        epic.verification?.length &&
+        state.verifiedEpicIds?.includes(epic.id) &&
+        !verifiedEpics.has(epic.id)
+      ) {
+        history.push(`epic_verify:${epic.id}`);
+        verifiedEpics.add(epic.id);
+        changed = true;
+      }
+      const completionReady = epic.verification?.length
+        ? verifiedEpics.has(epic.id)
+        : integratedEpics.has(epic.id);
+      if (completionReady && state.completedEpicIds?.includes(epic.id) && !completedEpics.has(epic.id)) {
+        history.push(`epic_complete:${epic.id}`);
+        completedEpics.add(epic.id);
+        changed = true;
+      }
     }
   }
 }
@@ -572,6 +605,17 @@ export async function executeExecutorReadyStep(
       return completeSlice({ cwd, runId });
     case 'slice_integrate':
       return integrateSlice({ cwd, runId, gitSliceIntegration: ports.gitSliceIntegration });
+    case 'epic_integrate':
+    case 'epic_verify':
+    case 'epic_complete':
+      return executeEpicLifecycleStep({
+        cwd,
+        runId,
+        step,
+        plan: ctx.plan,
+        testRunner: ports.testRunner,
+        ...(ctx.signal ? { signal: ctx.signal } : {}),
+      });
     case 'run_complete':
       return completeRun({ cwd, runId });
     case 'petri_export':

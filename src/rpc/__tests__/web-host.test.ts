@@ -1218,10 +1218,10 @@ describe('web host', () => {
       }
 
       const frames = parseSse(body);
-      // Completing the sole epic emits its integrate/complete gates in the same
-      // drive turn; run:finish is the terminal projection transition.
+      // Epic integrate/complete are now counted as their own drive firings;
+      // run:finish is the sole synthesized terminal projection transition.
       expect(frames.filter((frame) => frame.event === 'transition_firing')).toHaveLength(
-        firedTransitions + 3,
+        firedTransitions + 1,
       );
       expect(body).toContain('"transitionId":"run:finish"');
       expect(frames.at(-1)).toEqual({ event: 'terminal', data: { state: 'completed' } });

@@ -76,9 +76,9 @@ Close the entire first batch of walkthrough-related findings: remediation, the o
 
 ### Recently Completed
 
+- 2026-07-13 `petri-execution-parity` (FE-1195) — implemented on branch: frozen attempt/epic topology, isolated slice workspaces and conflict-safe ordered fan-in, D123-L durable same-process parallel slice authority wired into production, and executable epic integration/optional run-tree verification/completion gates with dependent-epic and run-completion enforcement.
 - 2026-07-13 `executor-slice-attempt-lifecycle` (FE-1192) — merged #324 to `next`; failed agent and verify-runner attempts are durable non-marking facts with bounded in-run retry, per-stage counters, and HITL reset. Petrinaut-visible attempt topology moves into `petri-execution-parity`, where concurrent slice subnets make it load-bearing.
 - 2026-07-13 `petrinaut-live-run-stream` (FE-1190) — merged #322 to `next`; live-from-start Petrinaut observation with frozen run plan, journal-ordered completion, reconnect equivalence, fail-closed journal appends, and terminal-lagging-snapshot backfill (both Bugbot findings closed with deterministic oracles). FE-1183 (`petri-interpreter-port`) closed with it — #320 merged the finite replay/export surface.
-- 2026-07-10 `walkthrough-remediation-1` (FE-1180) — **✓ closed by explicit promotion, not false pass**. WR1–WR8 and WR13–WR17 built; WR18 evidence is recorded in `TESTING_FINDINGS.md`; every remaining failure/unknown moved to `walkthrough-remediation-2` / FE-1187; the exhausted ledger and stale handoff were deleted.
 - 2026-07-10 `main-editor-chrome` execute-card follow-up (#313) — structured, status-first renderers landed for `execute_orchestrate`, `execute_plan_check`, `execute_snapshot`, and `execute_status`; literal snapshots plus lifecycle negative-space tests preserve D111-L/D112-L/I58-L. The scope card was exhausted and deleted; the normal-width manual readability beat remains outer evidence, not unfinished implementation.
 
 Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md).
@@ -95,6 +95,7 @@ Debt that compounds while unimplemented. Opens after Group 1's auth reversal lan
 - `transcript-ledger-rendering` — Pi-native P2: a bounded product tracer making durable user choices (ledger entries) visible in the transcript without entering model context. Not a generic renderer program; may fold into FE-1187's `exchange-visual-design` row at scope time if the seam coincides.
 - `reconciliation-derivation` — derived `edge_revalidation` staleness surfacing (the first reconciliation signal a user gets without the agent authoring one); first tracer is the read-only derived query. Definition below.
 
+<<<<<<< HEAD
 ### Next — Group 3 · agent layer
 
 - `develop-mode` — third operational mode `develop` / `engineer` agent, **built flag-gated** (create the mode; enable only behind a flag). **Authority model settled 2026-07-13: not a contract-breaker** — `develop` sits at the same concentric visibility/authority tier as `execute`; `engineer` is simply not constrained by the executor's workflow (no `execute_*` lifecycle obligations), and is initially just a Brunch-aware coding assistant. Entry remains a SPEC revision (D98-L "two modes only", the D40-L matrix row at the execute tier, per-mode kick/consult-suppression axis), but no authority-model redesign is needed. Cost read revised: mechanical ≈ a day + prompt/conduct work. The `develop` CLI subcommand name is already reserved by `cli-mode-entry`.
@@ -113,7 +114,7 @@ Everything executor/orchestrator-shaped or Execute-mode-owned belongs to Kostand
 
 - **Carved from FE-1167 (2026-07-13):** the Execute-mode evidence sub-list — Execute entry beats on thin vs rich seeds (assessment honesty: Ask on thin, Proceed on rich), the two deferred orientation-choice questions (`continue`/`proceed` semantics; sticky-posture candidate — D98-L-sensitive, route through `ln-grill`/`ln-spec` if evidence says revisit), and the FE-1107/KA residue (close-or-narrow, demo/walkthrough session via `TESTING_PLAN.md`, post-KA plan pass). Full context in the archived FE-1167 definition (`docs/archive/PLAN_HISTORY.md`).
 - `planning-process-model` — **moved to the KA stream 2026-07-13**: plan-plane semantics (plan-as-projection, epistemic horizon, the `scope`-node question) sit with executor/orchestration concerns (D103-L; D98-L executor may own execution/scope concerns). Definition below.
-- `petri-execution-parity` — admitted 2026-07-13 after FE-1192 merged: one frontier/PR for isolated per-slice execution and explicit fan-in, followed by epic-level integration and verification gates, under unchanged serial `run.json` authority. Definition below.
+- `petri-execution-parity` ([FE-1195](https://linear.app/hash/issue/FE-1195/petri-execution-parity-isolated-slice-fan-in-and-epic-integration)) — one frontier/PR for isolated slice execution/fan-in, bounded durable parallel slice authority, and epic integration gates; done on branch 2026-07-13, pending submit/merge. Definition below.
 - `executor-run-environment` (FE-1166 follow-up) — the substrate/verify policy is merged; the real-run failure remains prepared in [`memory/cards/executor-run-environment--actionable-slice-request.md`](cards/executor-run-environment--actionable-slice-request.md). Before build, a KA-stream `ln-plan` decision must settle whether this remains FE-1166 work or becomes a fresh frontier/branch; do not let the prepared card bypass the tracker/branch boundary.
 - **Standing obligations:** `probes-and-transcripts-evolution` and `topology-readmes-and-boundaries` ride the frontier that triggers them; they are not standalone cleanup buckets.
 
@@ -387,6 +388,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Name:** Petri execution parity — isolated slice fan-in and epic integration
 - **Linear:** [FE-1195](https://linear.app/hash/issue/FE-1195/petri-execution-parity-isolated-slice-fan-in-and-epic-integration)
 - **Branch:** `ka/fe-1195-petri-execution-parity` (off `next`; FE-1192 is merged)
+- **Status:** ✓ implemented on branch 2026-07-13; all four scope slices have leaf evidence, pending final gate and submit.
 - **Kind:** structural — per-slice side-effect isolation, explicit integration, and epic lifecycle semantics.
 - **Certainty:** proving.
 - **Depends on:** FE-1192's merged attempt identity and bounded-retry facts; FE-1190's frozen-definition live stream; FE-1166's run-environment substrate policy.
@@ -396,8 +398,8 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Acceptance sketch:** independent slices run without cross-contamination; integration conflicts fail closed into the existing halted/replan outcome; the frozen Petrinaut definition and stream show attempt, slice integration, epic verification, and epic completion honestly; an epic cannot complete before every member slice succeeds and its epic-level verification passes; serial `run.json` ordering and I58-L side-effect honesty survive.
 - **Inherited from FE-1192 (2026-07-13):** decide and implement Petrinaut-visible attempt topology (static self-loop transitions / retry-budget places) now that concurrent subnets make attempts load-bearing; extract the mirrored failure-path counter pattern from `agent-result.ts`/`test-result.ts` with the `attempts`-field presence as `drive()`'s retry discriminant; settle `DriveContext.onNetEvent` by making it a real live-hint consumer or deleting it and correcting the topology claim.
 - **Authority trigger (2026-07-13):** stable per-slice workspaces, attempt-distinct artifacts, real-git conflict-preflight fan-in, explicit `slice_integrate` lifecycle facts, shared attempt-counter helpers, and removal of `DriveContext.onNetEvent` are implemented. Their oracle proved Slice 1's co-firable starts cannot become overlapping effects while serial `run.json` permits one active slice. The user promoted durable parallel authority into this same frontier/PR; D123-L owns the bounded authority split.
-- **Materialized authority (2026-07-13):** D123-L now applies to same-process co-firable slice batches: production `execute_orchestrate` explicitly selects the Petri frontier policy, claims and current marking persist before dispatch, isolated effects overlap with per-slice progress, outcomes remain durable and failure-isolated, restart halts claimed unfinished work, and fan-in stays serialized. `run.json` remains summary + serial run-control authority. Epic verification/completion is still unimplemented and must be re-scoped from the stale fourth card.
-- **Current execution pointer:** [`memory/cards/petri-execution-parity--slice-epic-integration.md`](cards/petri-execution-parity--slice-epic-integration.md) — topology, isolated fan-in, and durable parallel authority are done; epic verification/completion is stale pending re-scope.
+- **Materialized authority (2026-07-13):** D123-L applies to same-process co-firable slice batches: production `execute_orchestrate` explicitly selects the Petri frontier policy, claims and current marking persist before dispatch, isolated effects overlap with per-slice progress, outcomes remain durable and failure-isolated, restart halts claimed unfinished work, and fan-in stays serialized. `run.json` remains summary + serial run-control authority. After serial or parallel member convergence, executable epic integration/verification/completion runs through one serial lane; non-empty verification uses the configured runner against the integrated run tree and gates dependent epics, run completion, and promotion.
+- **Current execution pointer:** [`memory/cards/petri-execution-parity--slice-epic-integration.md`](cards/petri-execution-parity--slice-epic-integration.md) — all four slices are implemented; completion evidence is recorded in the card.
 - **Explicitly out:** split-process delivery; semantic/review lanes beyond epic verification; geolog coupling. Durable parallel slice authority is now in scope under D123-L because this frontier proved serial authority is the binding constraint.
 - **Traceability:** D112-L (set-returning scheduler + `frontierFiringPolicy`), D123-L (bounded durable parallel slice authority), FE-1166 substrate/verify policy, `docs/praxis/worktree-agents.md`, `src/executor/TOPOLOGY.md`.
 
@@ -481,9 +483,9 @@ KA stream:
   # petri-interpreter-port (FE-1183) and petrinaut-live-run-stream (FE-1190) merged;
   # run.json remains lifecycle truth, Petri artifacts remain projection/evidence/resume hints.
   petri-execution-parity (FE-1195)
-    status: active 2026-07-13 on ka/fe-1195-petri-execution-parity
+    status: done on branch 2026-07-13; pending submit/merge
     depends_on: merged FE-1192 attempt identity + FE-1190 live stream
-    owns: D123-L bounded durable parallel slice authority
+    owns: D127-L bounded durable parallel slice authority
     excludes: split-process delivery and generic event-spine authority
   executor-run-environment (FE-1166 follow-up)
     status: prepared; tracker/branch disposition required before build

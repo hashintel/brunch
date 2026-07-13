@@ -325,6 +325,7 @@ export type DriveOutcome =
 interface StepResult {
   readonly status: string;
   readonly runStatus: RunMetadata['status'] | 'not_started';
+  readonly advanced?: true;
 }
 
 /**
@@ -524,10 +525,13 @@ export async function drive(
         // Observer failures never affect the drive.
       }
 
-      const boundRuntime = bindExecutorPetriRuntime(currentRuntime, ctx);
+      const boundRuntime = bindExecutorPetriRuntime(currentRuntime, {
+        ...ctx,
+        ...(currentPlan ? { plan: currentPlan } : {}),
+      });
       const boundTransition = boundRuntime.transitionForReadyStep(next);
       const result = boundTransition ? await boundTransition.execute() : await neverBoundReadyStep(next);
-      if (result.runStatus === currentState.status) {
+      if (result.runStatus === currentState.status && result.advanced !== true) {
         if (
           (result.status === 'agent_run_failed' || result.status === 'test_run_failed') &&
           'attempts' in result &&
@@ -807,7 +811,8 @@ async function emitNewImpliedTopologyEvents(args: {
 
 function readyStepsEqual(left: ReadyStep, right: ReadyStep): boolean {
   if (left.kind !== right.kind) return false;
-  return 'sliceId' in left && 'sliceId' in right ? left.sliceId === right.sliceId : true;
+  if ('sliceId' in left && 'sliceId' in right) return left.sliceId === right.sliceId;
+  return 'epicId' in left && 'epicId' in right ? left.epicId === right.epicId : true;
 }
 
 function progressForStep(
@@ -821,8 +826,16 @@ function progressForStep(
     step,
     fromStatus: state.status,
     runStatus,
-    ...(state.activeEpicId ? { activeEpicId: state.activeEpicId } : {}),
-    ...(state.activeSliceId ? { activeSliceId: state.activeSliceId } : {}),
+    ...('epicId' in step && step.epicId
+      ? { activeEpicId: step.epicId }
+      : state.activeEpicId
+        ? { activeEpicId: state.activeEpicId }
+        : {}),
+    ...('sliceId' in step
+      ? { activeSliceId: step.sliceId }
+      : state.activeSliceId
+        ? { activeSliceId: state.activeSliceId }
+        : {}),
     completedSliceIds: state.completedSliceIds ?? [],
   };
 }

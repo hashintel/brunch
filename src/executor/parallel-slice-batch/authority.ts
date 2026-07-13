@@ -25,7 +25,6 @@ export class ParallelAuthorityError extends Error {
 
 export interface BatchAuthority {
   fire(transitionId: string): Promise<void>;
-  fireEnabledTopologyGates(): Promise<void>;
   attemptFailed(
     sliceId: string,
     epicId: string,
@@ -117,15 +116,6 @@ export function createBatchAuthority(args: {
 
   return {
     fire,
-    async fireEnabledTopologyGates() {
-      for (;;) {
-        const transition = args.topology.transitions.find(
-          (candidate) => candidate.contract.lane === 'epic' && transitionEnabled(candidate, marking),
-        );
-        if (!transition) return;
-        await fire(transition.id);
-      }
-    },
     attemptFailed(sliceId, epicId, step, attempt, reason) {
       return enqueue(async () => {
         try {
@@ -237,8 +227,4 @@ function transitionEvent(
     fromStatus: status,
     toStatus: status,
   };
-}
-
-function transitionEnabled(transition: ExecutorTransition, marking: Record<string, number>): boolean {
-  return transition.inputArcs.every((arc) => (marking[arc.placeId] ?? 0) >= arc.weight);
 }
