@@ -220,6 +220,14 @@ Disposition: fixed — the I59-L suppression gate in `session-orientation/regist
 
 No-carrier half (same session, checked 2026-07-13): pass. Two `/brunch:continue` attempts produced honest `{status: skipped, reason: no_model_available}` outcome records in `origination.md`, and the session JSONL (`2026-07-13T13-50-14-967Z_…`) contains only bootstrap entries — zero `brunch.context_seed` / `brunch.kick` carriers appended. The same records also witness the R2 mirror shape live: decision records carry seed-entry summaries (`contentLength`, no full text), outcome records carry a slim decision summary. WR18 O1 promoted unknown fully closed.
 
+#### R4 · debug mirrors · medium · pass
+
+Concern: prompt/skill/model + debug mirrors
+Evidence: Session B walkthrough 2026-07-13, workbench `workspace-alpha-grounding` debug cache inspected directly while the session stayed open (beats B1/B2).
+Observation: B1 — `system-prompt.md` mirror opens with the Brunch product preamble (`systemPromptOverride`) followed by Brunch capability/policy context; zero `pi-coding-agent` doc paths or Pi-development guidance. B2 — `origination.md` shows the summarized record shapes on a live fired outcome: decision records carry seed-entry summaries (`details`, `contentLength`, no full seed text) and outcome records carry `{status: fired}` plus a slim decision summary (`seedEntryCount`); no doubled multi-KB blocks.
+Expected: Card 2's outer beat (no Pi docs in the provider prompt) and the R2 mirror fix confirmed live on the auth-present fired path (Session A only witnessed skips).
+Disposition: pass — closes the Card 2 outer beat and the fired-path confirmation of R2. Remaining Session B beats: B4 (ask-cancellation, reframed into `memory/cards/walkthrough-remediation-2--cancelled-exchange-legibility.md`) and B5 (extraction breadth).
+
 Use future entries like:
 
 ```md
