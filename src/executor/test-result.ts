@@ -2,13 +2,18 @@ import { appendFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type { TestRunnerPort } from './execution-ports.js';
-import { runIsolatedVerifyAttempt, type VerifyStreamEvent } from './isolated-slice-operations.js';
+import {
+  attachIsolatedAttemptOutcome,
+  mergeAttemptHistory,
+  runIsolatedVerifyAttempt,
+  type VerifyStreamEvent,
+} from './isolated-slice-operations.js';
 import { SLICE_ATTEMPT_LIMIT } from './orchestrate-topology.js';
 import { reportsPath } from './report.js';
+import { withRunExecutionAuthority } from './run-execution-authority.js';
 import {
   assertSafeSliceId,
   activeSliceAttemptNumber,
-  appendSliceAttemptCycle,
   runDirPath,
   runMetadataPath,
   persistRunMetadata,
@@ -19,6 +24,13 @@ import {
 import { worktreeDirPath } from './worktree.js';
 
 export type TestResultIngestResult =
+  | {
+      readonly status: 'run_execution_active';
+      readonly runStatus: RunMetadata['status'] | 'not_started';
+      readonly runId: string;
+      readonly metadataPath: string;
+      readonly sideEffects: readonly [];
+    }
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -75,6 +87,30 @@ export async function ingestTestResult(args: {
   readonly signal?: AbortSignal | undefined;
   readonly onVerifyUpdate?: (event: VerifyStreamEvent) => void;
 }): Promise<TestResultIngestResult> {
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId: args.runId,
+    execute: () => ingestTestResultOwned(args),
+    onContended: async () => {
+      const metadataPath = runMetadataPath(args.cwd, args.runId);
+      return {
+        status: 'run_execution_active',
+        runStatus: (await readRunMetadata(metadataPath))?.status ?? 'not_started',
+        runId: args.runId,
+        metadataPath,
+        sideEffects: [],
+      };
+    },
+  });
+}
+
+async function ingestTestResultOwned(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly testRunner: TestRunnerPort;
+  readonly signal?: AbortSignal | undefined;
+  readonly onVerifyUpdate?: (event: VerifyStreamEvent) => void;
+}): Promise<TestResultIngestResult> {
   const metadataPath = runMetadataPath(args.cwd, args.runId);
   const metadata = await readRunMetadata(metadataPath);
   if (!metadata) {
@@ -112,6 +148,7 @@ export async function ingestTestResult(args: {
     ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
     worktreeDir,
     streamPath,
+    attempt: activeSliceAttemptNumber(metadata),
     testRunner: args.testRunner,
     ...(metadata.verifyTarget ? { verifyTarget: metadata.verifyTarget } : {}),
     ...(args.signal ? { signal: args.signal } : {}),
@@ -127,37 +164,37 @@ export async function ingestTestResult(args: {
       activeSliceAttempts: attempts,
       ...(attempts === SLICE_ATTEMPT_LIMIT
         ? {
-            sliceAttemptHistory: appendSliceAttemptCycle(metadata, metadata.activeSliceId, 'verify', {
-              outcome: 'exhausted',
-              attempts,
-            }),
+            sliceAttemptHistory: mergeAttemptHistory(
+              metadata.sliceAttemptHistory,
+              attemptResult.outcome.history,
+            ),
           }
         : {}),
     });
-    return {
-      status: 'test_run_failed',
-      runStatus: 'agent_result_ingested',
-      runId: args.runId,
-      sliceId: metadata.activeSliceId,
-      worktreeDir,
-      metadataPath,
-      message: runResult.message,
-      attempts,
-      sideEffects: [
-        ...(wroteStream ? [{ kind: 'append_file' as const, path: streamPath }] : []),
-        metadataEffect,
-      ],
-    };
+    return attachIsolatedAttemptOutcome(
+      {
+        status: 'test_run_failed',
+        runStatus: 'agent_result_ingested',
+        runId: args.runId,
+        sliceId: metadata.activeSliceId,
+        worktreeDir,
+        metadataPath,
+        message: runResult.message,
+        attempts,
+        sideEffects: [
+          ...(wroteStream ? [{ kind: 'append_file' as const, path: streamPath }] : []),
+          metadataEffect,
+        ],
+      },
+      attemptResult.outcome,
+    );
   }
 
   const { activeSliceAttempts: _cleared, ...metadataWithoutAttempts } = metadata;
   const updated: RunMetadata = {
     ...metadataWithoutAttempts,
     status: 'test_result_ingested',
-    sliceAttemptHistory: appendSliceAttemptCycle(metadata, metadata.activeSliceId, 'verify', {
-      outcome: 'succeeded',
-      attempts: (metadata.activeSliceAttempts ?? 0) + 1,
-    }),
+    sliceAttemptHistory: mergeAttemptHistory(metadata.sliceAttemptHistory, attemptResult.outcome.history),
   };
 
   const metadataEffect = await persistRunMetadata(metadataPath, updated);

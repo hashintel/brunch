@@ -215,3 +215,33 @@ The authored execution projection has one current version and one production wit
 | Decision register is complete | met | `src/executor/TOPOLOGY.md` header names D124-L and D125-L. |
 
 Skipped-test delta vs parent: 0.
+
+## Slice 6 — Final-review fail-closed authority parity
+
+Status: done
+Weight: full
+
+### Target Behavior
+
+Every production slice effect entry shares one reentrant run authority, durable journals fail closed without hiding prior claims or accepting torn carriers, and serial/parallel attempt observers consume one policy-neutral outcome model.
+
+### Acceptance Criteria
+
+✓ authority races — drive versus request, agent, verifier, and integrate/complete returns `run_execution_active` and invokes each external effect once.
+✓ epic recovery — a claimed verifier with an unavailable journal never reruns.
+✓ stream integrity — torn/invalid journals reject before append; queued siblings proceed after predecessor mirror rejection.
+✓ lifecycle parity — shared operations own attempt fact reason, transition selection, and history outcome; serial/parallel journal facts match.
+✓ projection/topology — provider description names snapshot v2 and executor layout names `slice-stream-events.ts`.
+
+### Completion Report
+
+| Leaf | Outcome | Evidence |
+| --- | --- | --- |
+| Whole-operation standalone authority without drive deadlock | met | `orchestrate.test.ts`: table-driven drive-vs-standalone race covers request/worktree, agent, verifier, and integrate/complete with one external call; executor suite completes, proving reentrant drive calls. |
+| Claimed epic journal read failure fails closed | met | `orchestrate.test.ts`: crash-after-claim journal-unavailable oracle rejects before verifier invocation. |
+| Stream append validates existing authority | met | `slice-stream-events.test.ts`: torn and invalid carriers remain byte-identical after rejection. |
+| Queued writes recover after mirror rejection | met | `slice-stream-events.test.ts`: queued sibling receives run sequence 1 and persists to both journal and healthy mirror. |
+| Attempt semantics and observers are policy-neutral | met | `isolated-slice-operations.ts` owns classification/history; serial/parallel attempt-fact parity compares durable journal events for agent and verifier retries. |
+| Provider and topology surfaces are current | met | `registry.test.ts` pins `ExecutionSpecSnapshot v2`; `src/executor/TOPOLOGY.md` layout includes `slice-stream-events.ts`. |
+
+Skipped-test delta vs parent: 0.

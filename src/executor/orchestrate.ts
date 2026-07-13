@@ -1,12 +1,10 @@
 import type { AgentRunnerRuntime, ExecutionPorts } from './execution-ports.js';
 import {
-  sliceAttemptDisposition,
+  isolatedAttemptOutcomeFor,
   type AgentStreamEvent,
   type VerifyStreamEvent,
 } from './isolated-slice-operations.js';
 import {
-  attemptExhaustedTransitionId,
-  attemptRetryTransitionId,
   attemptResetTransitionId,
   compileExecutorTopology,
   type ExecutorNetEvent,
@@ -599,11 +597,14 @@ async function driveOwned(
         continue;
       }
       if (result.runStatus === currentState.status && result.advanced !== true) {
+        const attemptOutcome = isolatedAttemptOutcomeFor(result);
         if (
           (result.status === 'agent_run_failed' || result.status === 'test_run_failed') &&
           'attempts' in result &&
           typeof result.attempts === 'number' &&
-          currentState.activeSliceId !== undefined
+          currentState.activeSliceId !== undefined &&
+          attemptOutcome !== undefined &&
+          (attemptOutcome.status === 'retry' || attemptOutcome.status === 'exhausted')
         ) {
           const emitted = await emitNetEvent(ctx, {
             kind: 'attempt_failed',
@@ -613,7 +614,7 @@ async function driveOwned(
             ...(currentState.activeEpicId === undefined ? {} : { epicId: currentState.activeEpicId }),
             step: result.status === 'agent_run_failed' ? 'agent_result' : 'test_result',
             attempt: result.attempts,
-            reason: result.status,
+            reason: attemptOutcome.fact.reason,
           });
           if (!emitted.journaled) {
             return {
@@ -630,6 +631,7 @@ async function driveOwned(
             step: result.status === 'agent_run_failed' ? 'agent_result' : 'test_result',
             sliceId: currentState.activeSliceId,
             attempt: result.attempts,
+            transitionId: attemptOutcome.transitionId,
           });
           if (!attemptTransitionJournaled) {
             return {
@@ -639,7 +641,7 @@ async function driveOwned(
               reason: 'petri_journal_append_failed',
             };
           }
-          if (sliceAttemptDisposition(result.attempts) === 'retry') continue;
+          if (attemptOutcome.status === 'retry') continue;
         }
         const terminal = classifyDriveTerminal({
           kind: 'step_halted',
@@ -903,19 +905,17 @@ async function emitAttemptMarkingTransition(args: {
   readonly step: 'agent_result' | 'test_result';
   readonly sliceId: string;
   readonly attempt: number;
+  readonly transitionId: string;
 }): Promise<boolean> {
-  const stage = args.step === 'agent_result' ? 'agent' : 'verify';
-  const transitionId =
-    sliceAttemptDisposition(args.attempt) === 'retry'
-      ? attemptRetryTransitionId(stage, args.sliceId, args.attempt)
-      : attemptExhaustedTransitionId(stage, args.sliceId);
-  const transition = args.runtime.topology.transitions.find((candidate) => candidate.id === transitionId);
+  const transition = args.runtime.topology.transitions.find(
+    (candidate) => candidate.id === args.transitionId,
+  );
   if (!transition) return false;
   const emitted = await emitNetEvent(args.ctx, {
     kind: 'transition_fired',
     runId: args.state.runId,
     runStatus: args.state.status,
-    transitionId,
+    transitionId: args.transitionId,
     subnetId: transition.subnetId,
     ...(transition.epicId === undefined ? {} : { epicId: transition.epicId }),
     step: args.step,

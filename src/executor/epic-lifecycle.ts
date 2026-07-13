@@ -83,14 +83,16 @@ export async function executeEpicLifecycleStep(args: {
       }
       const snapshot =
         args.markingSnapshot ?? (await readPetriMarkingSnapshot({ cwd: args.cwd, runId: args.runId }));
+      const journal = await readEpicVerificationJournal(args.cwd, args.runId, epic.id);
+      if (journal.status !== 'readable') {
+        throw new Error(`epic verification journal is ${journal.status}`);
+      }
       const claim =
         snapshot?.epicVerificationClaims?.find((candidate) => candidate.epicId === epic.id) ??
-        ((await epicVerificationWasClaimed(args.cwd, args.runId, epic.id))
+        (journal.claimed
           ? {
               epicId: epic.id,
-              phase: (await epicVerifyWasJournaled(args.cwd, args.runId, epic.id))
-                ? ('transitioned' as const)
-                : ('claimed' as const),
+              phase: journal.transitioned ? ('transitioned' as const) : ('claimed' as const),
             }
           : undefined);
       if (claim?.phase === 'transitioned') {
@@ -131,7 +133,7 @@ export async function executeEpicLifecycleStep(args: {
         if (verdict.status === 'missing') {
           return { status: 'epic_verification_interrupted', runStatus: metadata.status };
         }
-        if (await epicVerifyWasJournaled(args.cwd, args.runId, epic.id)) {
+        if (journal.transitioned) {
           const transitioned = transitionEpicVerificationMarking(args.plan, epic.id, args.currentMarking);
           await writeTransitionedClaim({
             ...args,
@@ -322,28 +324,40 @@ async function writeTransitionedClaim(args: {
   });
 }
 
-async function epicVerifyWasJournaled(cwd: string, runId: string, epicId: string): Promise<boolean> {
+async function readEpicVerificationJournal(
+  cwd: string,
+  runId: string,
+  epicId: string,
+): Promise<
+  | { readonly status: 'missing' | 'unavailable' | 'unreadable' }
+  | { readonly status: 'readable'; readonly claimed: boolean; readonly transitioned: boolean }
+> {
   try {
-    return (await readFile(petriEventsPath(cwd, runId), 'utf8'))
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => parsePetriEvent(JSON.parse(line)))
-      .some((event) => event?.kind === 'transition_fired' && event.transitionId === `epic_verify:${epicId}`);
-  } catch {
-    return false;
+    const raw = await readFile(petriEventsPath(cwd, runId), 'utf8');
+    if (raw.length > 0 && !raw.endsWith('\n')) return { status: 'unreadable' };
+    let claimed = false;
+    let transitioned = false;
+    for (const line of raw.split('\n').filter(Boolean)) {
+      let event;
+      try {
+        event = parsePetriEvent(JSON.parse(line));
+      } catch {
+        return { status: 'unreadable' };
+      }
+      if (!event) return { status: 'unreadable' };
+      if (event.kind === 'epic_verification_claimed' && event.epicId === epicId) claimed = true;
+      if (event.kind === 'transition_fired' && event.transitionId === `epic_verify:${epicId}`) {
+        transitioned = true;
+      }
+    }
+    return { status: 'readable', claimed, transitioned };
+  } catch (error) {
+    return isNodeError(error) && error.code === 'ENOENT' ? { status: 'missing' } : { status: 'unavailable' };
   }
 }
 
-async function epicVerificationWasClaimed(cwd: string, runId: string, epicId: string): Promise<boolean> {
-  try {
-    return (await readFile(petriEventsPath(cwd, runId), 'utf8'))
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => parsePetriEvent(JSON.parse(line)))
-      .some((event) => event?.kind === 'epic_verification_claimed' && event.epicId === epicId);
-  } catch {
-    return false;
-  }
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && 'code' in error;
 }
 
 function appendId(ids: readonly string[] | undefined, id: string): readonly string[] {

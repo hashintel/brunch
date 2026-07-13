@@ -10,7 +10,14 @@ import type {
   TestRunResult,
   VerifyTarget,
 } from './execution-ports.js';
-import { SLICE_ATTEMPT_LIMIT, type ReadyStep } from './orchestrate-topology.js';
+import {
+  attemptExhaustedTransitionId,
+  attemptRetryTransitionId,
+  attemptSuccessTransitionId,
+  SLICE_ATTEMPT_LIMIT,
+  type ReadyStep,
+} from './orchestrate-topology.js';
+import { appendSliceAttemptCycle, type SliceAttemptHistory } from './run.js';
 import { appendRunOrderedStreamEvent } from './slice-stream-events.js';
 
 export interface AgentStreamEvent {
@@ -41,6 +48,45 @@ export class IsolatedSliceOperationError extends Error {
   constructor(readonly reason: string) {
     super(reason);
   }
+}
+
+export type IsolatedAttemptOutcome =
+  | {
+      readonly status: 'succeeded';
+      readonly transitionId: string;
+      readonly history: SliceAttemptHistory;
+    }
+  | {
+      readonly status: 'verification_failed';
+      readonly reason: 'slice_verification_not_passed';
+      readonly transitionId: string;
+      readonly history: SliceAttemptHistory;
+    }
+  | {
+      readonly status: 'retry' | 'exhausted';
+      readonly reason: 'agent_run_failed' | 'test_run_failed';
+      readonly message: string;
+      readonly transitionId: string;
+      readonly history: SliceAttemptHistory;
+      readonly fact: {
+        readonly step: 'agent_result' | 'test_result';
+        readonly attempt: number;
+        readonly reason: 'agent_run_failed' | 'test_run_failed';
+      };
+    };
+
+const attemptOutcomes = new WeakMap<object, IsolatedAttemptOutcome>();
+
+export function attachIsolatedAttemptOutcome<Result extends object>(
+  result: Result,
+  outcome: IsolatedAttemptOutcome,
+): Result {
+  attemptOutcomes.set(result, outcome);
+  return result;
+}
+
+export function isolatedAttemptOutcomeFor(result: object): IsolatedAttemptOutcome | undefined {
+  return attemptOutcomes.get(result);
 }
 
 export function sliceStartReport(args: {
@@ -123,11 +169,16 @@ export async function runIsolatedAgentAttempt(args: {
   readonly requestPath: string;
   readonly resultPath: string;
   readonly streamPath: string;
+  readonly attempt: number;
   readonly agentRunner: AgentRunnerPort;
   readonly runtime?: AgentRunnerRuntime;
   readonly recordReport: SliceReportRecorder;
   readonly onUpdate?: (event: AgentStreamEvent) => void;
-}): Promise<{ readonly result: AgentRunResult; readonly wroteStream: boolean }> {
+}): Promise<{
+  readonly result: AgentRunResult;
+  readonly outcome: IsolatedAttemptOutcome;
+  readonly wroteStream: boolean;
+}> {
   let sequence = 0;
   let wroteStream = false;
   let streamQueue = Promise.resolve();
@@ -173,7 +224,16 @@ export async function runIsolatedAgentAttempt(args: {
       ...(result.summary ? { summary: result.summary } : {}),
     });
   }
-  return { result, wroteStream };
+  return {
+    result,
+    outcome: classifyIsolatedAttempt({
+      stage: 'agent',
+      sliceId: args.sliceId,
+      attempt: args.attempt,
+      result,
+    }),
+    wroteStream,
+  };
 }
 
 export async function runIsolatedVerifyAttempt(args: {
@@ -182,12 +242,17 @@ export async function runIsolatedVerifyAttempt(args: {
   readonly epicId?: string;
   readonly worktreeDir: string;
   readonly streamPath: string;
+  readonly attempt: number;
   readonly testRunner: TestRunnerPort;
   readonly verifyTarget?: VerifyTarget;
   readonly signal?: AbortSignal;
   readonly recordReport: SliceReportRecorder;
   readonly onUpdate?: (event: VerifyStreamEvent) => void;
-}): Promise<{ readonly result: TestRunResult; readonly wroteStream: boolean }> {
+}): Promise<{
+  readonly result: TestRunResult;
+  readonly outcome: IsolatedAttemptOutcome;
+  readonly wroteStream: boolean;
+}> {
   let sequence = 0;
   let wroteStream = false;
   const result = await args.testRunner.run({
@@ -224,7 +289,16 @@ export async function runIsolatedVerifyAttempt(args: {
       ...(result.target ? { target: result.target } : {}),
     });
   }
-  return { result, wroteStream };
+  return {
+    result,
+    outcome: classifyIsolatedAttempt({
+      stage: 'verify',
+      sliceId: args.sliceId,
+      attempt: args.attempt,
+      result,
+    }),
+    wroteStream,
+  };
 }
 
 export async function integrateIsolatedSlice(args: {
@@ -283,6 +357,71 @@ export function sliceCompletionReport(args: {
 
 export function sliceAttemptDisposition(attempt: number): 'retry' | 'exhausted' {
   return attempt < SLICE_ATTEMPT_LIMIT ? 'retry' : 'exhausted';
+}
+
+function classifyIsolatedAttempt(args: {
+  readonly stage: 'agent' | 'verify';
+  readonly sliceId: string;
+  readonly attempt: number;
+  readonly result: AgentRunResult | TestRunResult;
+}): IsolatedAttemptOutcome {
+  if (args.result.status === 'failed') {
+    const status = sliceAttemptDisposition(args.attempt);
+    const reason = args.stage === 'agent' ? 'agent_run_failed' : 'test_run_failed';
+    return {
+      status,
+      reason,
+      message: args.result.message,
+      transitionId:
+        status === 'retry'
+          ? attemptRetryTransitionId(args.stage, args.sliceId, args.attempt)
+          : attemptExhaustedTransitionId(args.stage, args.sliceId),
+      history:
+        status === 'exhausted' ? attemptHistory(args.sliceId, args.stage, 'exhausted', args.attempt) : {},
+      fact: {
+        step: args.stage === 'agent' ? 'agent_result' : 'test_result',
+        attempt: args.attempt,
+        reason,
+      },
+    };
+  }
+  const transitionId = attemptSuccessTransitionId(args.stage, args.sliceId, args.attempt);
+  const history = attemptHistory(args.sliceId, args.stage, 'succeeded', args.attempt);
+  if (args.stage === 'verify' && 'verdict' in args.result && args.result.verdict !== 'passed') {
+    return { status: 'verification_failed', reason: 'slice_verification_not_passed', transitionId, history };
+  }
+  return { status: 'succeeded', transitionId, history };
+}
+
+function attemptHistory(
+  sliceId: string,
+  stage: 'agent' | 'verify',
+  outcome: 'succeeded' | 'exhausted',
+  attempts: number,
+): SliceAttemptHistory {
+  return appendSliceAttemptCycle(
+    { runId: '', specId: '', planPath: '', status: 'reports_initialized' },
+    sliceId,
+    stage,
+    { outcome, attempts },
+  );
+}
+
+export function mergeAttemptHistory(
+  left: SliceAttemptHistory | undefined,
+  right: SliceAttemptHistory,
+): SliceAttemptHistory {
+  const merged: Record<string, Record<string, readonly unknown[]>> = {};
+  for (const history of [left ?? {}, right]) {
+    for (const [sliceId, stages] of Object.entries(history)) {
+      const target = merged[sliceId] ?? {};
+      for (const [stage, cycles] of Object.entries(stages)) {
+        target[stage] = [...(target[stage] ?? []), ...(cycles ?? [])];
+      }
+      merged[sliceId] = target;
+    }
+  }
+  return merged as SliceAttemptHistory;
 }
 
 export function thrownSliceEffectReason(kind: string, error: unknown): string {

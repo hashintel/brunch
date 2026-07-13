@@ -1,21 +1,14 @@
 import { agentResultPath, agentStreamPath } from '../agent-result.js';
 import {
   IsolatedSliceOperationError,
+  mergeAttemptHistory,
   prepareIsolatedSlice,
   runIsolatedAgentAttempt,
   runIsolatedVerifyAttempt,
-  sliceAttemptDisposition,
   thrownSliceEffectReason,
 } from '../isolated-slice-operations.js';
-import {
-  attemptExhaustedTransitionId,
-  attemptRetryTransitionId,
-  attemptSuccessTransitionId,
-  SLICE_ATTEMPT_LIMIT,
-  sliceTransitionId,
-  type ReadyStep,
-} from '../orchestrate-topology.js';
-import { appendSliceAttemptCycle, type SliceAttemptHistory } from '../run.js';
+import { SLICE_ATTEMPT_LIMIT, sliceTransitionId, type ReadyStep } from '../orchestrate-topology.js';
+import type { SliceAttemptHistory } from '../run.js';
 import { sliceExecutionRequestPath } from '../slice-execute.js';
 import { sliceWorkspacePath } from '../slice-workspace.js';
 import { verifyStreamPath } from '../test-result.js';
@@ -144,6 +137,7 @@ async function runAgentAttempts(args: {
         requestPath: args.requestPath,
         resultPath: agentResultPath(args.ctx.cwd, args.ctx.runId, args.sliceId, attempt),
         streamPath,
+        attempt,
         agentRunner: args.ctx.ports.agentRunner,
         ...(args.ctx.runtime ? { runtime: args.ctx.runtime } : {}),
         recordReport: async (event) => {
@@ -159,28 +153,32 @@ async function runAgentAttempts(args: {
         attemptHistory: {},
       };
     }
-    const result = attemptResult.result;
-    if (result.status === 'completed') {
-      await args.authority.fire(attemptSuccessTransitionId('agent', args.sliceId, attempt));
+    const outcome = attemptResult.outcome;
+    if (outcome.status === 'succeeded') {
+      await args.authority.fire(outcome.transitionId);
       if (report) await args.authority.appendReport(report);
       emitParallelStepProgress(args.ctx, 'completed', agentStep, args.state);
       return {
         status: 'succeeded',
-        attemptHistory: attemptHistory(args.sliceId, 'agent', 'succeeded', attempt),
+        attemptHistory: outcome.history,
       };
     }
-    await args.authority.attemptFailed(args.sliceId, args.epicId, 'agent_result', attempt, result.message);
-    await args.authority.fire(
-      sliceAttemptDisposition(attempt) === 'retry'
-        ? attemptRetryTransitionId('agent', args.sliceId, attempt)
-        : attemptExhaustedTransitionId('agent', args.sliceId),
+    if (outcome.status === 'verification_failed') {
+      throw new Error('agent attempt produced a verification outcome');
+    }
+    await args.authority.attemptFailed(
+      args.sliceId,
+      args.epicId,
+      outcome.fact.step,
+      outcome.fact.attempt,
+      outcome.fact.reason,
     );
+    await args.authority.fire(outcome.transitionId);
+    if (outcome.status === 'exhausted') {
+      return { status: 'failed', reason: outcome.reason, attemptHistory: outcome.history };
+    }
   }
-  return {
-    status: 'failed',
-    reason: 'agent_run_failed',
-    attemptHistory: attemptHistory(args.sliceId, 'agent', 'exhausted', SLICE_ATTEMPT_LIMIT),
-  };
+  throw new Error('agent attempt loop exhausted without an outcome');
 }
 
 async function runVerifyAttempts(args: {
@@ -209,6 +207,7 @@ async function runVerifyAttempts(args: {
         ...(args.epicId === undefined ? {} : { epicId: args.epicId }),
         worktreeDir: args.workspaceDir,
         streamPath,
+        attempt,
         testRunner: args.ctx.ports.testRunner,
         ...(args.verifyTarget ? { verifyTarget: args.verifyTarget } : {}),
         ...(args.ctx.signal ? { signal: args.ctx.signal } : {}),
@@ -225,65 +224,38 @@ async function runVerifyAttempts(args: {
         attemptHistory: {},
       };
     }
-    const result = attemptResult.result;
-    if (result.status === 'completed') {
-      await args.authority.fire(attemptSuccessTransitionId('verify', args.sliceId, attempt));
+    const outcome = attemptResult.outcome;
+    if (outcome.status === 'succeeded' || outcome.status === 'verification_failed') {
+      await args.authority.fire(outcome.transitionId);
       if (report) await args.authority.appendReport(report);
       emitParallelStepProgress(args.ctx, 'completed', verifyStep, args.state);
-      return result.verdict === 'passed'
+      return outcome.status === 'succeeded'
         ? {
             status: 'succeeded',
-            attemptHistory: attemptHistory(args.sliceId, 'verify', 'succeeded', attempt),
+            attemptHistory: outcome.history,
           }
         : {
             status: 'failed',
-            reason: 'slice_verification_not_passed',
-            attemptHistory: attemptHistory(args.sliceId, 'verify', 'succeeded', attempt),
+            reason: outcome.reason,
+            attemptHistory: outcome.history,
           };
     }
-    await args.authority.attemptFailed(args.sliceId, args.epicId, 'test_result', attempt, result.message);
-    await args.authority.fire(
-      sliceAttemptDisposition(attempt) === 'retry'
-        ? attemptRetryTransitionId('verify', args.sliceId, attempt)
-        : attemptExhaustedTransitionId('verify', args.sliceId),
+    await args.authority.attemptFailed(
+      args.sliceId,
+      args.epicId,
+      outcome.fact.step,
+      outcome.fact.attempt,
+      outcome.fact.reason,
     );
-  }
-  return {
-    status: 'failed',
-    reason: 'test_run_failed',
-    attemptHistory: attemptHistory(args.sliceId, 'verify', 'exhausted', SLICE_ATTEMPT_LIMIT),
-  };
-}
-
-function attemptHistory(
-  sliceId: string,
-  stage: 'agent' | 'verify',
-  outcome: 'succeeded' | 'exhausted',
-  attempts: number,
-): SliceAttemptHistory {
-  return appendSliceAttemptCycle(
-    { runId: '', specId: '', planPath: '', status: 'reports_initialized' },
-    sliceId,
-    stage,
-    { outcome, attempts },
-  );
-}
-
-export function mergeAttemptHistory(
-  left: SliceAttemptHistory | undefined,
-  right: SliceAttemptHistory,
-): SliceAttemptHistory {
-  const merged: Record<string, Record<string, readonly unknown[]>> = {};
-  for (const history of [left ?? {}, right]) {
-    for (const [sliceId, stages] of Object.entries(history)) {
-      const target = merged[sliceId] ?? {};
-      for (const [stage, cycles] of Object.entries(stages))
-        target[stage] = [...(target[stage] ?? []), ...(cycles ?? [])];
-      merged[sliceId] = target;
+    await args.authority.fire(outcome.transitionId);
+    if (outcome.status === 'exhausted') {
+      return { status: 'failed', reason: outcome.reason, attemptHistory: outcome.history };
     }
   }
-  return merged as SliceAttemptHistory;
+  throw new Error('verify attempt loop exhausted without an outcome');
 }
+
+export { mergeAttemptHistory };
 
 function failed(
   sliceId: string,

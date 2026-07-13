@@ -71,7 +71,7 @@ export async function startSlice(args: {
   readonly runId: string;
   readonly sliceId?: string;
 }): Promise<SliceStartResult> {
-  return startSliceOwned(args);
+  return startSliceWithExecutionAuthority(args);
 }
 
 export async function startSliceWithExecutionAuthority(args: {

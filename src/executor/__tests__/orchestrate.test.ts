@@ -60,7 +60,7 @@ import {
   subscribeRunMetadata,
   type RunMetadata,
 } from '../run.js';
-import { completeSlice } from '../slice-complete.js';
+import { completeSlice, completeStandaloneSlice } from '../slice-complete.js';
 import { requestSliceExecution, sliceExecutionRequestPath } from '../slice-execute.js';
 import { integrateSlice } from '../slice-integration.js';
 import { startSlice } from '../slice-start.js';
@@ -391,6 +391,100 @@ describe('drive', () => {
     });
   });
 
+  it.each(['slice_execute', 'agent_result', 'test_result', 'slice_complete'] as const)(
+    'refuses standalone %s while drive owns the same run without duplicating its effect',
+    async (standaloneStep) => {
+      const cwd = await mkdtemp(join(tmpdir(), `brunch-drive-standalone-${standaloneStep}-`));
+      const setupPorts = fakePorts();
+      await prepareRunAtReports(cwd, ['task-1']);
+      await startSlice({ cwd, runId: 'run-1' });
+      if (standaloneStep !== 'slice_execute') {
+        await requestSliceExecution({
+          cwd,
+          runId: 'run-1',
+          gitSliceIntegration: setupPorts.gitSliceIntegration,
+        });
+      }
+      if (standaloneStep === 'test_result' || standaloneStep === 'slice_complete') {
+        await ingestAgentResult({ cwd, runId: 'run-1', agentRunner: setupPorts.agentRunner });
+      }
+      if (standaloneStep === 'slice_complete') {
+        await ingestTestResult({ cwd, runId: 'run-1', testRunner: setupPorts.testRunner });
+      }
+
+      let calls = 0;
+      let entered!: () => void;
+      const effectEntered = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      let release!: () => void;
+      const released = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const baseIntegration = createFakeGitSliceIntegrationPort();
+      const ports = fakePorts({
+        gitSliceIntegration: createFakeGitSliceIntegrationPort({
+          async prepare(args) {
+            calls += 1;
+            entered();
+            await released;
+            return baseIntegration.prepare(args);
+          },
+          async integrate(args) {
+            calls += 1;
+            entered();
+            await released;
+            return baseIntegration.integrate(args);
+          },
+        }),
+        agentRunner: {
+          async run() {
+            calls += 1;
+            entered();
+            await released;
+            return { status: 'completed' };
+          },
+        },
+        testRunner: {
+          async run() {
+            calls += 1;
+            entered();
+            await released;
+            return { status: 'completed', verdict: 'passed', exitCode: 0 };
+          },
+        },
+      });
+      const owner = drive({ cwd, runId: 'run-1', ports }, petriScheduler, serialFiringPolicy, {
+        maxFirings: 1,
+      });
+      await effectEntered;
+
+      const contended =
+        standaloneStep === 'slice_execute'
+          ? await requestSliceExecution({
+              cwd,
+              runId: 'run-1',
+              gitSliceIntegration: ports.gitSliceIntegration,
+            })
+          : standaloneStep === 'agent_result'
+            ? await ingestAgentResult({ cwd, runId: 'run-1', agentRunner: ports.agentRunner })
+            : standaloneStep === 'test_result'
+              ? await ingestTestResult({ cwd, runId: 'run-1', testRunner: ports.testRunner })
+              : (
+                  await completeStandaloneSlice({
+                    cwd,
+                    runId: 'run-1',
+                    gitSliceIntegration: ports.gitSliceIntegration,
+                  })
+                ).result;
+      expect(contended).toMatchObject({ status: 'run_execution_active', sideEffects: [] });
+      expect(calls).toBe(1);
+      release();
+      await owner;
+      expect(calls).toBe(1);
+    },
+  );
+
   it('runs declared epic verification once on the integrated run tree before completing the epic', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-verification-serial-'));
     await createRunAtCreatedWithPlan(cwd, {
@@ -678,6 +772,61 @@ describe('drive', () => {
       reason: 'epic_verification_interrupted',
     });
     expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.verifiedEpicIds).toBeUndefined();
+  });
+
+  it('never reruns a claimed epic verifier when its journal becomes unavailable', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-verification-claimed-unavailable-'));
+    const { state, runtime } = await prepareEpicVerificationReadyRun(cwd);
+    await appendPetriEvent({
+      cwd,
+      runId: 'run-1',
+      event: {
+        kind: 'epic_verification_claimed',
+        runId: 'run-1',
+        runStatus: state.status,
+        epicId: 'epic-1',
+        step: 'epic_verify',
+      },
+    });
+    await writePetriMarkingSnapshot({
+      cwd,
+      runId: 'run-1',
+      snapshot: {
+        currentMarking: runtime.currentMarking,
+        firedTransitionCount: projectExecutorPetriTransitionHistory(
+          state,
+          await readPetriRuntimePlan(cwd, state),
+        )!.transitionIds.length,
+        lifecycleProvenance: petriMarkingLifecycleProvenance(state),
+        epicVerificationClaims: [{ epicId: 'epic-1', phase: 'claimed' }],
+      },
+    });
+    const journalPath = petriEventsPath(cwd, 'run-1');
+    await rm(journalPath);
+    await mkdir(journalPath);
+    let runnerCalls = 0;
+    const testRunner: TestRunnerPort = {
+      async run() {
+        runnerCalls += 1;
+        return { status: 'completed', verdict: 'passed', exitCode: 0 };
+      },
+    };
+
+    await expect(
+      executeEpicLifecycleStep({
+        cwd,
+        runId: 'run-1',
+        step: { kind: 'epic_verify', epicId: 'epic-1' },
+        plan: await readPetriRuntimePlan(cwd, state),
+        testRunner,
+        currentMarking: runtime.currentMarking,
+        firedTransitionCount: projectExecutorPetriTransitionHistory(
+          state,
+          await readPetriRuntimePlan(cwd, state),
+        )!.transitionIds.length,
+      }),
+    ).rejects.toThrow('epic verification journal is unavailable');
+    expect(runnerCalls).toBe(0);
   });
 
   it('fails closed when restart reconciliation encounters a torn Petri journal', async () => {
@@ -3650,6 +3799,50 @@ describe('petriScheduler', () => {
     const serialMetadata = await readRunMetadata(runMetadataPath(serial, 'run-1'));
     const parallelMetadata = await readRunMetadata(runMetadataPath(parallel, 'run-1'));
     expect(parallelMetadata?.sliceAttemptHistory).toEqual(serialMetadata?.sliceAttemptHistory);
+  });
+
+  it('emits policy-independent attempt facts for serial and parallel execution', async () => {
+    const serial = await mkdtemp(join(tmpdir(), 'brunch-attempt-fact-parity-serial-'));
+    const parallel = await mkdtemp(join(tmpdir(), 'brunch-attempt-fact-parity-parallel-'));
+    await createRunAtCreated(serial, ['task-1', 'task-2']);
+    await createRunAtCreated(parallel, ['task-1', 'task-2']);
+    const flakyPorts = () => {
+      const agentCalls = new Map<string, number>();
+      const verifyCalls = new Map<string, number>();
+      return fakePorts({
+        agentRunner: {
+          async run(args) {
+            const calls = (agentCalls.get(args.sliceId) ?? 0) + 1;
+            agentCalls.set(args.sliceId, calls);
+            return calls === 1
+              ? { status: 'failed', message: 'policy-independent agent failure' }
+              : { status: 'completed' };
+          },
+        },
+        testRunner: {
+          async run(args) {
+            const sliceId = args.worktreeDir.split('/').at(-2)!;
+            const calls = (verifyCalls.get(sliceId) ?? 0) + 1;
+            verifyCalls.set(sliceId, calls);
+            return calls === 1
+              ? { status: 'failed', message: 'policy-independent verify failure' }
+              : { status: 'completed', verdict: 'passed', exitCode: 0 };
+          },
+        },
+      });
+    };
+
+    await drive({ cwd: serial, runId: 'run-1', ports: flakyPorts() }, petriScheduler, serialFiringPolicy);
+    await drive({ cwd: parallel, runId: 'run-1', ports: flakyPorts() }, petriScheduler, frontierFiringPolicy);
+    const facts = async (cwd: string) =>
+      (await readPetriEvents(cwd))
+        .filter((event) => event.kind === 'attempt_failed')
+        .map(({ kind, sliceId, step, attempt, reason }) => ({ kind, sliceId, step, attempt, reason }))
+        .sort((left, right) =>
+          `${left.sliceId}:${left.step}`.localeCompare(`${right.sliceId}:${right.step}`),
+        );
+
+    expect(await facts(parallel)).toEqual(await facts(serial));
   });
 
   it('passes the full ready frontier through firing policy selection before each drive step', async () => {

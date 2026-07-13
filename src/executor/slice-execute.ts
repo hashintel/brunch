@@ -5,6 +5,7 @@ import type { GitSliceIntegrationPort } from './execution-ports.js';
 import { prepareIsolatedSlice } from './isolated-slice-operations.js';
 import { populatedPlanPath } from './populate.js';
 import { reportsPath } from './report.js';
+import { withRunExecutionAuthority } from './run-execution-authority.js';
 import {
   assertSafeSliceId,
   runDirPath,
@@ -16,6 +17,13 @@ import {
 import { sliceWorkspacePath } from './slice-workspace.js';
 
 export type SliceExecutionRequestResult =
+  | {
+      readonly status: 'run_execution_active';
+      readonly runStatus: RunMetadata['status'] | 'not_started';
+      readonly runId: string;
+      readonly metadataPath: string;
+      readonly sideEffects: readonly [];
+    }
   | {
       readonly status: 'slice_workspace_failed';
       readonly runStatus: 'slice_started';
@@ -70,6 +78,28 @@ export function sliceExecutionRequestPath(cwd: string, runId: string, sliceId: s
 }
 
 export async function requestSliceExecution(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly gitSliceIntegration: GitSliceIntegrationPort;
+}): Promise<SliceExecutionRequestResult> {
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId: args.runId,
+    execute: () => requestSliceExecutionOwned(args),
+    onContended: async () => {
+      const metadataPath = runMetadataPath(args.cwd, args.runId);
+      return {
+        status: 'run_execution_active',
+        runStatus: (await readRunMetadata(metadataPath))?.status ?? 'not_started',
+        runId: args.runId,
+        metadataPath,
+        sideEffects: [],
+      };
+    },
+  });
+}
+
+async function requestSliceExecutionOwned(args: {
   readonly cwd: string;
   readonly runId: string;
   readonly gitSliceIntegration: GitSliceIntegrationPort;

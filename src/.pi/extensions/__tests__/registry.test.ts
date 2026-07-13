@@ -2779,6 +2779,7 @@ describe('Brunch explicit Pi extension registry', () => {
   it('registers execute_snapshot only with selected graph deps and returns a side-effect-free projection', async () => {
     const registeredTools: Array<{
       name: string;
+      description: string;
       execute: (
         toolCallId: string,
         params: unknown,
@@ -2857,6 +2858,8 @@ describe('Brunch explicit Pi extension registry', () => {
 
     const snapshot = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_SNAPSHOT_TOOL);
     expect(snapshot).toBeDefined();
+    expect(snapshot?.description).toContain('ExecutionSpecSnapshot v2');
+    expect(snapshot?.description).not.toContain('ExecutionSpecSnapshot v1');
     const result = await snapshot!.execute('call-1', { mode: 'brownfield' });
 
     expect(result.content[0]?.text).toContain('execute_snapshot: spec 42 (brownfield)');

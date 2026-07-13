@@ -1,10 +1,20 @@
 import { appendFile } from 'node:fs/promises';
 
+import type { GitSliceIntegrationPort } from './execution-ports.js';
 import { sliceCompletionReport } from './isolated-slice-operations.js';
 import { reportsPath } from './report.js';
+import { withRunExecutionAuthority } from './run-execution-authority.js';
 import { runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
+import { integrateSlice, type SliceIntegrationResult } from './slice-integration.js';
 
 export type SliceCompleteResult =
+  | {
+      readonly status: 'run_execution_active';
+      readonly runStatus: RunMetadata['status'] | 'not_started';
+      readonly runId: string;
+      readonly metadataPath: string;
+      readonly sideEffects: readonly [];
+    }
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -33,7 +43,70 @@ export type SliceCompleteResult =
       ];
     };
 
+export interface StandaloneSliceCompleteResult {
+  readonly result: SliceCompleteResult | SliceIntegrationResult;
+  readonly sideEffects: readonly { readonly kind: string }[];
+}
+
+export async function completeStandaloneSlice(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly gitSliceIntegration: GitSliceIntegrationPort;
+}): Promise<StandaloneSliceCompleteResult> {
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId: args.runId,
+    execute: async () => {
+      const integration = await integrateSlice(args);
+      const completion =
+        integration.status === 'slice_integrated' || integration.status === 'slice_not_ready'
+          ? await completeSlice(args)
+          : undefined;
+      return {
+        result: completion ?? integration,
+        sideEffects: completion
+          ? [...integration.sideEffects, ...completion.sideEffects]
+          : integration.sideEffects,
+      };
+    },
+    onContended: async () => {
+      const metadataPath = runMetadataPath(args.cwd, args.runId);
+      return {
+        result: {
+          status: 'run_execution_active',
+          runStatus: (await readRunMetadata(metadataPath))?.status ?? 'not_started',
+          runId: args.runId,
+          metadataPath,
+          sideEffects: [],
+        },
+        sideEffects: [],
+      };
+    },
+  });
+}
+
 export async function completeSlice(args: {
+  readonly cwd: string;
+  readonly runId: string;
+}): Promise<SliceCompleteResult> {
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId: args.runId,
+    execute: () => completeSliceOwned(args),
+    onContended: async () => {
+      const metadataPath = runMetadataPath(args.cwd, args.runId);
+      return {
+        status: 'run_execution_active',
+        runStatus: (await readRunMetadata(metadataPath))?.status ?? 'not_started',
+        runId: args.runId,
+        metadataPath,
+        sideEffects: [],
+      };
+    },
+  });
+}
+
+async function completeSliceOwned(args: {
   readonly cwd: string;
   readonly runId: string;
 }): Promise<SliceCompleteResult> {

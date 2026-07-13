@@ -4,6 +4,7 @@ import type { GitSliceIntegrateEffect, GitSliceIntegrationPort } from './executi
 import { integrateIsolatedSlice } from './isolated-slice-operations.js';
 import { readSliceVerificationVerdict } from './report-verdict.js';
 import { reportsPath } from './report.js';
+import { withRunExecutionAuthority } from './run-execution-authority.js';
 import { persistRunMetadata, readRunMetadata, runMetadataPath, type RunMetadata } from './run.js';
 
 type IntegrationEffect =
@@ -12,6 +13,11 @@ type IntegrationEffect =
   | { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' };
 
 export type SliceIntegrationResult =
+  | {
+      readonly status: 'run_execution_active';
+      readonly runStatus: RunMetadata['status'] | 'not_started';
+      readonly sideEffects: readonly [];
+    }
   | {
       readonly status: 'slice_not_ready';
       readonly runStatus: RunMetadata['status'] | 'not_started';
@@ -35,6 +41,23 @@ export type SliceIntegrationResult =
     };
 
 export async function integrateSlice(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly gitSliceIntegration: GitSliceIntegrationPort;
+}): Promise<SliceIntegrationResult> {
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId: args.runId,
+    execute: () => integrateSliceOwned(args),
+    onContended: async () => ({
+      status: 'run_execution_active',
+      runStatus: (await readRunMetadata(runMetadataPath(args.cwd, args.runId)))?.status ?? 'not_started',
+      sideEffects: [],
+    }),
+  });
+}
+
+async function integrateSliceOwned(args: {
   readonly cwd: string;
   readonly runId: string;
   readonly gitSliceIntegration: GitSliceIntegrationPort;

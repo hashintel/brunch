@@ -1,7 +1,9 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { realpath } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 const executions = new Map<string, Promise<unknown>>();
+const ownedExecutions = new AsyncLocalStorage<ReadonlySet<string>>();
 
 export async function withRunExecutionAuthority<Result>(args: {
   readonly cwd: string;
@@ -10,10 +12,13 @@ export async function withRunExecutionAuthority<Result>(args: {
   readonly onContended?: () => Promise<Result> | Result;
 }): Promise<Result> {
   const key = JSON.stringify([await canonicalPath(args.cwd), args.runId]);
+  if (ownedExecutions.getStore()?.has(key)) return args.execute();
   const active = executions.get(key);
   if (active) return args.onContended ? args.onContended() : (active as Promise<Result>);
 
-  const owned = Promise.resolve().then(args.execute);
+  const owned = ownedExecutions.run(new Set([...(ownedExecutions.getStore() ?? []), key]), () =>
+    Promise.resolve().then(args.execute),
+  );
   executions.set(key, owned);
   try {
     return await owned;

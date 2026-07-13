@@ -2,8 +2,8 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
 import type { GitSliceIntegrationPort } from '../../../../executor/execution-ports.js';
-import { completeSlice, type SliceCompleteResult } from '../../../../executor/slice-complete.js';
-import { integrateSlice, type SliceIntegrationResult } from '../../../../executor/slice-integration.js';
+import { completeStandaloneSlice, type SliceCompleteResult } from '../../../../executor/slice-complete.js';
+import type { SliceIntegrationResult } from '../../../../executor/slice-integration.js';
 import { BRUNCH_EXECUTE_SLICE_COMPLETE_TOOL } from '../../../../session/schema/tool-names.js';
 import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { toolParameters } from '../../shared/tool-schema.js';
@@ -33,19 +33,11 @@ export function createExecuteSliceCompleteTool(gitSliceIntegration: GitSliceInte
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_slice_complete requires an active cwd');
       }
-      const integration = await integrateSlice({
+      const { result, sideEffects } = await completeStandaloneSlice({
         cwd,
         runId: params.runId,
         gitSliceIntegration,
       });
-      const completion =
-        integration.status === 'slice_integrated' || integration.status === 'slice_not_ready'
-          ? await completeSlice({ cwd, runId: params.runId })
-          : undefined;
-      const result = completion ?? integration;
-      const sideEffects = completion
-        ? [...integration.sideEffects, ...completion.sideEffects]
-        : integration.sideEffects;
       return {
         content: [
           {

@@ -42,7 +42,7 @@ export function createExecuteSnapshotTool(
     name: BRUNCH_EXECUTE_SNAPSHOT_TOOL,
     label: 'execute_snapshot',
     description:
-      'Project the selected specification graph into ExecutionSpecSnapshot v1. Side-effect free: reads graph truth only.',
+      'Project the selected specification graph into ExecutionSpecSnapshot v2. Side-effect free: reads graph truth only.',
     parameters: toolParameters(ExecuteSnapshotParams),
     renderResult(result, options, theme, context) {
       return renderExecuteSnapshotResult(result, options, theme as never, context);
