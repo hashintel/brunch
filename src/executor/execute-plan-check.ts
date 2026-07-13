@@ -3,7 +3,16 @@ import type { ExecutionSpecSnapshot } from './execution-spec-snapshot.js';
 export type ExecutePlanCheckFindingCode =
   | 'empty_snapshot'
   | 'requirement_without_criterion'
-  | 'criterion_without_requirement';
+  | 'criterion_without_requirement'
+  | 'scope_without_frontier'
+  | 'scope_with_multiple_frontiers'
+  | 'scope_without_definition'
+  | 'scope_without_requirement'
+  | 'scope_without_criterion'
+  | 'scope_without_design'
+  | 'scope_without_verification'
+  | 'requirement_in_multiple_scopes'
+  | 'scope_dependency_without_scope';
 
 export type ExecutePlanCheckSeverity = 'error' | 'warning';
 
@@ -63,6 +72,98 @@ export function checkExecutionSpecForPlan(snapshot: ExecutionSpecSnapshot): Exec
       itemId: requirement.itemId,
       message: `Requirement ${requirement.itemId} has no verifying criterion in the execution snapshot.`,
     });
+  }
+
+  const scopeByRequirement = new Map<string, string>();
+  const requirementById = new Map(
+    snapshot.requirements.map((requirement) => [requirement.itemId, requirement]),
+  );
+  for (const scope of snapshot.scopes) {
+    if (scope.frontierIds.length === 0) {
+      findings.push({
+        code: 'scope_without_frontier',
+        severity: 'error',
+        itemId: scope.itemId,
+        message: `Scope ${scope.itemId} is not owned by a frontier.`,
+      });
+    } else if (scope.frontierIds.length > 1) {
+      findings.push({
+        code: 'scope_with_multiple_frontiers',
+        severity: 'error',
+        itemId: scope.itemId,
+        message: `Scope ${scope.itemId} has multiple owning frontiers.`,
+      });
+    }
+    if (scope.content.trim().length === 0) {
+      findings.push({
+        code: 'scope_without_definition',
+        severity: 'error',
+        itemId: scope.itemId,
+        message: `Scope ${scope.itemId} has no execution definition.`,
+      });
+    }
+    if (scope.requirementIds.length === 0) {
+      findings.push({
+        code: 'scope_without_requirement',
+        severity: 'error',
+        itemId: scope.itemId,
+        message: `Scope ${scope.itemId} has no requirement anchor.`,
+      });
+    }
+    if (scope.criteria.length === 0) {
+      findings.push({
+        code: 'scope_without_criterion',
+        severity: 'error',
+        itemId: scope.itemId,
+        message: `Scope ${scope.itemId} has no executable acceptance criterion.`,
+      });
+    }
+    if (scope.design.length === 0) {
+      findings.push({
+        code: 'scope_without_design',
+        severity: 'error',
+        itemId: scope.itemId,
+        message: `Scope ${scope.itemId} has no design anchor.`,
+      });
+    }
+    if (scope.verification.length === 0) {
+      findings.push({
+        code: 'scope_without_verification',
+        severity: 'error',
+        itemId: scope.itemId,
+        message: `Scope ${scope.itemId} has no verification machinery anchor.`,
+      });
+    }
+
+    for (const requirementId of scope.requirementIds) {
+      const existingScopeId = scopeByRequirement.get(requirementId);
+      if (existingScopeId && existingScopeId !== scope.itemId) {
+        findings.push({
+          code: 'requirement_in_multiple_scopes',
+          severity: 'error',
+          itemId: requirementId,
+          message: `Requirement ${requirementId} is packaged by both ${existingScopeId} and ${scope.itemId}.`,
+        });
+      } else {
+        scopeByRequirement.set(requirementId, scope.itemId);
+      }
+    }
+  }
+
+  if (snapshot.scopes.length > 0) {
+    for (const scope of snapshot.scopes) {
+      for (const requirementId of scope.requirementIds) {
+        for (const dependencyId of requirementById.get(requirementId)?.dependsOn ?? []) {
+          if (scopeByRequirement.has(dependencyId)) continue;
+          findings.push({
+            code: 'scope_dependency_without_scope',
+            severity: 'error',
+            itemId: dependencyId,
+            message: `Requirement ${requirementId} depends on ${dependencyId}, which is not assigned to an executable scope.`,
+          });
+        }
+      }
+    }
   }
 
   return {

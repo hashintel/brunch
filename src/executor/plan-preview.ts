@@ -48,6 +48,7 @@ export interface PlanPreviewSlice {
 export interface PlanPreview {
   readonly schemaVersion: 1;
   readonly mode: ExecutablePlanDraft['mode'];
+  readonly scope_handoff_required: boolean;
   readonly spec: PlanPreviewSpec;
   readonly epics: readonly PlanPreviewEpic[];
   readonly slices: readonly PlanPreviewSlice[];
@@ -60,6 +61,7 @@ export function previewPlan(draft: ExecutablePlanDraft): PlanPreview {
   return {
     schemaVersion: 1,
     mode: draft.mode,
+    scope_handoff_required: draft.slices.some((slice) => slice.scopeId !== undefined),
     spec: previewSpec(draft),
     epics: draft.epics.map((epic) => ({
       id: epic.id,

@@ -1,0 +1,101 @@
+{
+  "spec": {
+    "slug": "workspace-alpha-grounding",
+    "name": "Alpha Grounding — Scope Handoff Ready"
+  },
+  "nodes": [
+    {
+      "local_id": 1,
+      "plane": "intent",
+      "kind": "goal",
+      "title": "Help a user orient inside one workspace",
+      "body": "The selected workspace and spec should be legible before the session asks for deeper work.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "fixture"
+    },
+    {
+      "local_id": 2,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Show the selected spec before deeper work begins",
+      "body": "On cold start or resume, the session must surface the selected spec identity before proposing downstream work.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "fixture"
+    },
+    {
+      "local_id": 3,
+      "plane": "design",
+      "kind": "module",
+      "title": "Selected spec entry summary renderer",
+      "body": "Render the selected spec identity plus the accepted intent summary before offering the next move.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "fixture"
+    },
+    {
+      "local_id": 4,
+      "plane": "oracle",
+      "kind": "check",
+      "title": "Selected spec entry proof",
+      "body": "Verify the selected spec identity and accepted intent summary appear before downstream prompts.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "fixture"
+    },
+    {
+      "local_id": 5,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "Selected spec appears before downstream work",
+      "body": "The selected spec identity and accepted intent summary are visible before any downstream proposal.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "fixture"
+    }
+  ],
+  "edges": [
+    {
+      "category": "realization",
+      "source_local_id": 1,
+      "target_local_id": 2,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The user-facing requirement is the concrete behavior that establishes the orientation goal."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 2,
+      "target_local_id": 3,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The renderer is the concrete design realization of the accepted requirement."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 4,
+      "target_local_id": 2,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The execution handoff should depend on a proof that the selected-spec entry behavior is present."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 5,
+      "target_local_id": 2,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The criterion states the observable acceptance condition for the selected-spec requirement."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 5,
+      "target_local_id": 4,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The check is the concrete verification machinery for the acceptance criterion."
+    }
+  ]
+}

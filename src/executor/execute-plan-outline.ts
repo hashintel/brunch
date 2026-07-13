@@ -42,16 +42,6 @@ export interface ExecutionPlanOutline {
 
 export function outlineExecutionPlan(snapshot: ExecutionSpecSnapshot): ExecutionPlanOutline {
   const scopeFrontiers = frontiersForScopes(snapshot);
-  const scopedRequirementIds = new Set(
-    scopeFrontiers.flatMap((frontier) =>
-      frontier.tasks.flatMap((task) =>
-        task.requirementIds && task.requirementIds.length > 0 ? task.requirementIds : [task.requirementId],
-      ),
-    ),
-  );
-  const orphanRequirements = snapshot.requirements.filter(
-    (requirement) => !scopedRequirementIds.has(requirement.itemId),
-  );
 
   return {
     schemaVersion: 1,
@@ -59,10 +49,7 @@ export function outlineExecutionPlan(snapshot: ExecutionSpecSnapshot): Execution
     mode: snapshot.mode,
     frontiers: assignTaskIds(
       snapshot.scopes.length > 0
-        ? [
-            ...scopeFrontiers,
-            ...(orphanRequirements.length > 0 ? [frontierForRequirements(snapshot, orphanRequirements)] : []),
-          ]
+        ? scopeFrontiers
         : snapshot.requirements.length === 0
           ? []
           : [frontierForRequirements(snapshot, snapshot.requirements)],
@@ -94,6 +81,7 @@ function frontiersForScopes(snapshot: ExecutionSpecSnapshot): readonly Execution
   const claimedRequirementIds = new Set<string>();
 
   for (const scope of snapshot.scopes) {
+    if (scope.requirementIds.length === 0 || scope.frontierIds.length !== 1) continue;
     const requirementIds = scope.requirementIds.filter((requirementId) => {
       if (claimedRequirementIds.has(requirementId)) return false;
       claimedRequirementIds.add(requirementId);
@@ -101,7 +89,7 @@ function frontiersForScopes(snapshot: ExecutionSpecSnapshot): readonly Execution
     });
 
     if (requirementIds.length === 0) continue;
-    const frontierId = scope.frontierIds[0] ?? snapshot.frontiers[0]?.itemId ?? 'frontier-1';
+    const frontierId = scope.frontierIds[0]!;
     const scopes = scopesByFrontier.get(frontierId) ?? [];
     scopesByFrontier.set(frontierId, [...scopes, { ...scope, requirementIds }]);
   }

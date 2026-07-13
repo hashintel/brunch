@@ -11,8 +11,19 @@ import {
   type BrunchAgentState,
 } from '../.pi/extensions/agent-runtime/runtime/index.js';
 import { createBrunchAgentSessionRuntimeFactory } from '../app/brunch-tui.js';
+import { projectExecuteGraph } from '../executor/execute-projection.js';
+import type { GitWorktreePort } from '../executor/execution-ports.js';
+import { writePlanFile } from '../executor/plan-file.js';
+import { populateWorktree } from '../executor/populate.js';
+import { initializeReports } from '../executor/report.js';
+import { createRun } from '../executor/run.js';
+import { requestSliceExecution } from '../executor/slice-execute.js';
+import { startSlice } from '../executor/slice-start.js';
+import { copyHostSource } from '../executor/source-copy.js';
+import { selectSourcePolicy } from '../executor/source-policy.js';
+import { createWorktree } from '../executor/worktree.js';
 import { openWorkspaceGraphRuntime, type GraphNode, type GraphSlice } from '../graph/index.js';
-import { formatGraphNodeCode } from '../graph/schema/nodes.js';
+import { formatGraphNodeCode, parseGraphNodeCode } from '../graph/schema/nodes.js';
 import { seedFixture, type SeedFixture } from '../graph/seed-fixtures.js';
 import { createRpcHandlers } from '../rpc/handlers.js';
 import { createProductUpdatePublisher, type ProductUpdate } from '../rpc/product-updates.js';
@@ -37,6 +48,7 @@ interface ProjectGraphReviewCycleProofOptions {
   readonly runId?: string;
   readonly prompt?: string;
   readonly agentDir?: string;
+  readonly reviewSetExpectation?: ReviewSetExpectation;
 }
 
 export interface ProjectGraphReviewCycleArtifacts {
@@ -66,6 +78,42 @@ interface ReviewCycleApprovalEvidence {
   readonly createdNodeRefs?: Record<string, unknown>;
   readonly diagnostics?: readonly Record<string, unknown>[];
   readonly error?: string;
+}
+
+type ReviewSetExpectation = 'scope_handoff';
+
+interface ScopeHandoffReviewSetEvidence {
+  readonly observed: boolean;
+  readonly frontierDraftCount: number;
+  readonly scopeDraftCount: number;
+  readonly frontierScopeCompositionCount: number;
+  readonly requirementAnchorCount: number;
+  readonly designAnchorCount: number;
+  readonly verificationAnchorCount: number;
+  readonly committedRequirementAnchorCount: number;
+  readonly committedDesignAnchorCount: number;
+  readonly committedVerificationAnchorCount: number;
+  readonly committedFrontierCount: number;
+  readonly committedScopeCount: number;
+}
+
+interface ScopeHandoffExecutorEvidence {
+  readonly checkStatus: 'ok' | 'blocked';
+  readonly findingCodes: readonly string[];
+  readonly sliceCount: number;
+  readonly scopeSliceCount: number;
+  readonly readyScopeSliceCount: number;
+  readonly criterionTargetCount: number;
+  readonly designContextCount: number;
+  readonly verificationContextCount: number;
+  readonly workerRequestStatus: 'not_attempted' | 'ready' | 'failed';
+  readonly workerRequestError?: string;
+  readonly workerRequest?: {
+    readonly scopeId?: string;
+    readonly criterionCount: number;
+    readonly designContextCount: number;
+    readonly verificationContextCount: number;
+  };
 }
 
 interface ProjectGraphReviewCycleCreatedNode {
@@ -121,6 +169,8 @@ export interface ProjectGraphReviewCycleReport {
   };
   readonly approval: ReviewCycleApprovalEvidence;
   readonly createdNodes: readonly ProjectGraphReviewCycleCreatedNode[];
+  readonly scopeHandoffReviewSet?: ScopeHandoffReviewSetEvidence | undefined;
+  readonly scopeHandoffExecutor?: ScopeHandoffExecutorEvidence | undefined;
   readonly productUpdates: readonly ProductUpdate[];
   readonly friction: readonly string[];
   readonly artifacts?: ProjectGraphReviewCycleArtifacts;
@@ -144,6 +194,9 @@ export interface ProjectGraphReviewCycleSummaryInput {
   readonly approvalResponse?: JsonRpcResponse;
   readonly productUpdates?: readonly ProductUpdate[];
   readonly friction?: readonly string[];
+  readonly reviewSetExpectation?: ReviewSetExpectation;
+  readonly scopeHandoffExecutor?: ScopeHandoffExecutorEvidence;
+  readonly requireWorkerRequest?: boolean;
 }
 
 interface PendingExchangeResult {
@@ -238,6 +291,15 @@ export async function runProjectGraphReviewCycleProof(
 
     const sessionText = await readFile(activated.session.file, 'utf8');
     const finalOverview = graph.forSpec(seedResult.specId).queryGraph();
+    const scopeHandoffExecutor =
+      options.reviewSetExpectation === 'scope_handoff'
+        ? await materializeScopeHandoffWorkerRequest({
+            cwd,
+            runId: `${runId}-executor`,
+            specId: seedResult.specId,
+            overview: finalOverview,
+          })
+        : undefined;
     let report = summarizeProjectGraphReviewCycleProof({
       runId,
       generatedAt,
@@ -256,6 +318,10 @@ export async function runProjectGraphReviewCycleProof(
       ...(approvalResponse !== undefined ? { approvalResponse } : {}),
       productUpdates: observedUpdates,
       friction,
+      ...(options.reviewSetExpectation !== undefined
+        ? { reviewSetExpectation: options.reviewSetExpectation }
+        : {}),
+      ...(scopeHandoffExecutor ? { scopeHandoffExecutor, requireWorkerRequest: true } : {}),
     });
 
     report = {
@@ -303,6 +369,18 @@ export function summarizeProjectGraphReviewCycleProof(
     nodeDelta: input.finalOverview.nodes.length - input.baseOverview.nodes.length,
     edgeDelta: input.finalOverview.edges.length - input.baseOverview.edges.length,
   };
+  const scopeHandoffReviewSet =
+    input.reviewSetExpectation === 'scope_handoff'
+      ? summarizeScopeHandoffReviewSet({
+          sessionText: input.sessionText,
+          createdNodes,
+          finalOverview: input.finalOverview,
+        })
+      : undefined;
+  const scopeHandoffExecutor =
+    input.reviewSetExpectation === 'scope_handoff'
+      ? (input.scopeHandoffExecutor ?? summarizeScopeHandoffExecutor(input.specId, input.finalOverview))
+      : undefined;
   const friction = [...(input.friction ?? [])];
 
   if (toolEvidence.presentReviewSetCount === 0) {
@@ -329,13 +407,96 @@ export function summarizeProjectGraphReviewCycleProof(
     friction.push('No explicit nodes created after the base fixture LSN were present in graph readback.');
   }
 
+  if (scopeHandoffReviewSet) {
+    if (!scopeHandoffReviewSet.observed) {
+      friction.push('No successful scope-handoff review set was recorded in the session transcript.');
+    }
+    if (scopeHandoffReviewSet.frontierDraftCount === 0) {
+      friction.push('Scope-handoff review set did not draft a frontier node.');
+    }
+    if (scopeHandoffReviewSet.scopeDraftCount === 0) {
+      friction.push('Scope-handoff review set did not draft a scope node.');
+    }
+    if (scopeHandoffReviewSet.frontierScopeCompositionCount === 0) {
+      friction.push('Scope-handoff review set did not compose the scope package under a frontier.');
+    }
+    if (scopeHandoffReviewSet.requirementAnchorCount === 0) {
+      friction.push(
+        'Scope-handoff review set did not link the scope package to an existing requirement anchor.',
+      );
+    }
+    if (scopeHandoffReviewSet.designAnchorCount === 0) {
+      friction.push('Scope-handoff review set did not link the scope package to an existing design anchor.');
+    }
+    if (scopeHandoffReviewSet.verificationAnchorCount === 0) {
+      friction.push(
+        'Scope-handoff review set did not link the scope package to an existing verification anchor.',
+      );
+    }
+    if (scopeHandoffReviewSet.committedRequirementAnchorCount === 0) {
+      friction.push(
+        'Graph readback did not preserve a committed requirement anchor on the scope-handoff package.',
+      );
+    }
+    if (scopeHandoffReviewSet.committedDesignAnchorCount === 0) {
+      friction.push(
+        'Graph readback did not preserve a committed design anchor on the scope-handoff package.',
+      );
+    }
+    if (scopeHandoffReviewSet.committedVerificationAnchorCount === 0) {
+      friction.push(
+        'Graph readback did not preserve a committed verification anchor on the scope-handoff package.',
+      );
+    }
+    if (scopeHandoffReviewSet.committedFrontierCount === 0) {
+      friction.push('Graph readback did not include a committed frontier from the scope-handoff review set.');
+    }
+    if (scopeHandoffReviewSet.committedScopeCount === 0) {
+      friction.push('Graph readback did not include a committed scope from the scope-handoff review set.');
+    }
+  }
+  if (scopeHandoffExecutor) {
+    if (scopeHandoffExecutor.checkStatus !== 'ok') {
+      friction.push(
+        `Committed scope handoff is blocked by executor plan checks: ${scopeHandoffExecutor.findingCodes.join(', ')}.`,
+      );
+    }
+    if (
+      scopeHandoffReviewSet &&
+      scopeHandoffExecutor.readyScopeSliceCount !== scopeHandoffReviewSet.committedScopeCount
+    ) {
+      friction.push('Committed scope packages did not all lower into execution-ready scope slices.');
+    }
+    if (input.requireWorkerRequest && !hasCompleteWorkerRequest(scopeHandoffExecutor)) {
+      friction.push(
+        `Committed scope handoff did not reach a worker request: ${scopeHandoffExecutor.workerRequestError ?? scopeHandoffExecutor.workerRequestStatus}.`,
+      );
+    }
+  }
+
   const success =
     toolEvidence.successfulPresentReviewSetCount > 0 &&
     pendingReview.observed &&
     approval.status === 'approved' &&
     graphDelta.lsnAdvanced &&
     graphDelta.nodeDelta > 0 &&
-    createdNodes.length > 0;
+    createdNodes.length > 0 &&
+    (!scopeHandoffReviewSet ||
+      (scopeHandoffReviewSet.observed &&
+        scopeHandoffReviewSet.frontierDraftCount > 0 &&
+        scopeHandoffReviewSet.scopeDraftCount > 0 &&
+        scopeHandoffReviewSet.frontierScopeCompositionCount > 0 &&
+        scopeHandoffReviewSet.requirementAnchorCount > 0 &&
+        scopeHandoffReviewSet.designAnchorCount > 0 &&
+        scopeHandoffReviewSet.verificationAnchorCount > 0 &&
+        scopeHandoffReviewSet.committedRequirementAnchorCount > 0 &&
+        scopeHandoffReviewSet.committedDesignAnchorCount > 0 &&
+        scopeHandoffReviewSet.committedVerificationAnchorCount > 0 &&
+        scopeHandoffReviewSet.committedFrontierCount > 0 &&
+        scopeHandoffReviewSet.committedScopeCount > 0 &&
+        scopeHandoffExecutor?.checkStatus === 'ok' &&
+        scopeHandoffExecutor.readyScopeSliceCount === scopeHandoffReviewSet.committedScopeCount &&
+        (!input.requireWorkerRequest || hasCompleteWorkerRequest(scopeHandoffExecutor))));
 
   return {
     schemaVersion: 1,
@@ -343,9 +504,13 @@ export function summarizeProjectGraphReviewCycleProof(
     runId: input.runId,
     generatedAt: input.generatedAt,
     mission:
-      'Prove the project-graph capability path can present an exact review set and approve it through public RPC.',
+      input.reviewSetExpectation === 'scope_handoff'
+        ? 'Prove live Specify authoring can commit a complete scope package that the executor projects into a plan-ready slice.'
+        : 'Prove the project-graph capability path can present an exact review set and approve it through public RPC.',
     evaluationFocus:
-      'FE-809 real agent proposal → present_review_set → session.submitExchangeResponse approval → explicit graph readback.',
+      input.reviewSetExpectation === 'scope_handoff'
+        ? 'FE-1175 live proposal → review approval → committed graph readback → production executor projection.'
+        : 'FE-809 real agent proposal → present_review_set → session.submitExchangeResponse approval → explicit graph readback.',
     seedName: input.seedName ?? DEFAULT_SEED_NAME,
     seedVariant: input.seedVariant,
     cwd: input.cwd,
@@ -374,9 +539,331 @@ export function summarizeProjectGraphReviewCycleProof(
     pendingReview,
     approval,
     createdNodes,
+    ...(scopeHandoffReviewSet ? { scopeHandoffReviewSet } : {}),
+    ...(scopeHandoffExecutor ? { scopeHandoffExecutor } : {}),
     productUpdates: input.productUpdates ?? [],
     friction,
   };
+}
+
+function summarizeScopeHandoffExecutor(specId: number, overview: GraphSlice): ScopeHandoffExecutorEvidence {
+  const projection = projectExecuteGraph({
+    specId,
+    mode: 'greenfield',
+    graphLsn: overview.lsn,
+    nodes: overview.nodes,
+    edges: overview.edges,
+  });
+  const scopeSlices = projection.planPreview.slices.filter((slice) => slice.scope_id !== undefined);
+  const readyScopeSlices = scopeSlices.filter(
+    (slice) =>
+      slice.verification.length > 0 &&
+      (slice.design_context?.length ?? 0) > 0 &&
+      (slice.verification_context?.length ?? 0) > 0,
+  );
+  return {
+    checkStatus: projection.check.status,
+    findingCodes: projection.check.findings.map((finding) => finding.code),
+    sliceCount: projection.planPreview.slices.length,
+    scopeSliceCount: scopeSlices.length,
+    readyScopeSliceCount: readyScopeSlices.length,
+    criterionTargetCount: scopeSlices.reduce((count, slice) => count + slice.verification.length, 0),
+    designContextCount: scopeSlices.reduce((count, slice) => count + (slice.design_context?.length ?? 0), 0),
+    verificationContextCount: scopeSlices.reduce(
+      (count, slice) => count + (slice.verification_context?.length ?? 0),
+      0,
+    ),
+    workerRequestStatus: 'not_attempted',
+  };
+}
+
+export async function materializeScopeHandoffWorkerRequest(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly specId: number;
+  readonly overview: GraphSlice;
+}): Promise<ScopeHandoffExecutorEvidence> {
+  const projection = projectExecuteGraph({
+    specId: args.specId,
+    mode: 'greenfield',
+    graphLsn: args.overview.lsn,
+    nodes: args.overview.nodes,
+    edges: args.overview.edges,
+  });
+  const evidence = summarizeScopeHandoffExecutor(args.specId, args.overview);
+  if (projection.check.status !== 'ok') return evidence;
+
+  try {
+    await writePlanFile({ cwd: args.cwd, preview: projection.planPreview, source: projection.source });
+    const run = await createRun({
+      cwd: args.cwd,
+      specId: String(args.specId),
+      runId: args.runId,
+      substrate: 'empty_dir',
+    });
+    if (run.status !== 'created') throw new Error(`run creation returned ${run.status}`);
+    const worktree = await createWorktree({
+      cwd: args.cwd,
+      runId: args.runId,
+      gitWorktree: UNUSED_GIT_WORKTREE_PORT,
+    });
+    if (worktree.status !== 'worktree_created')
+      throw new Error(`worktree creation returned ${worktree.status}`);
+    const populated = await populateWorktree({ cwd: args.cwd, runId: args.runId });
+    if (populated.status !== 'worktree_populated') throw new Error(`population returned ${populated.status}`);
+    const policy = await selectSourcePolicy({ cwd: args.cwd, runId: args.runId, policy: 'plan_only' });
+    if (policy.status !== 'source_policy_selected')
+      throw new Error(`source policy returned ${policy.status}`);
+    const copied = await copyHostSource({ cwd: args.cwd, runId: args.runId });
+    if (copied.runStatus !== 'source_copied') throw new Error(`source copy returned ${copied.status}`);
+    const reports = await initializeReports({ cwd: args.cwd, runId: args.runId });
+    if (reports.status !== 'reports_initialized')
+      throw new Error(`report initialization returned ${reports.status}`);
+    const started = await startSlice({ cwd: args.cwd, runId: args.runId });
+    if (started.status !== 'slice_started') throw new Error(`slice start returned ${started.status}`);
+    const requested = await requestSliceExecution({ cwd: args.cwd, runId: args.runId });
+    if (requested.status !== 'slice_execution_requested') {
+      throw new Error(`slice request returned ${requested.status}`);
+    }
+    const request = JSON.parse(await readFile(requested.requestPath, 'utf8')) as {
+      readonly scopeId?: string;
+      readonly criteria?: readonly unknown[];
+      readonly designContext?: readonly unknown[];
+      readonly verificationContext?: readonly unknown[];
+    };
+    const workerRequest = {
+      ...(request.scopeId ? { scopeId: request.scopeId } : {}),
+      criterionCount: request.criteria?.length ?? 0,
+      designContextCount: request.designContext?.length ?? 0,
+      verificationContextCount: request.verificationContext?.length ?? 0,
+    };
+    const result: ScopeHandoffExecutorEvidence = {
+      ...evidence,
+      workerRequestStatus: 'ready',
+      workerRequest,
+    };
+    if (hasCompleteWorkerRequest(result)) return result;
+    return {
+      ...evidence,
+      workerRequestStatus: 'failed',
+      workerRequestError: 'worker request omitted required scope, criterion, design, or verification context',
+      workerRequest,
+    };
+  } catch (error) {
+    return {
+      ...evidence,
+      workerRequestStatus: 'failed',
+      workerRequestError: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+function hasCompleteWorkerRequest(evidence: ScopeHandoffExecutorEvidence): boolean {
+  return (
+    evidence.workerRequestStatus === 'ready' &&
+    evidence.workerRequest?.scopeId !== undefined &&
+    evidence.workerRequest.scopeId.trim().length > 0 &&
+    evidence.workerRequest.criterionCount > 0 &&
+    evidence.workerRequest.designContextCount > 0 &&
+    evidence.workerRequest.verificationContextCount > 0
+  );
+}
+
+const UNUSED_GIT_WORKTREE_PORT: GitWorktreePort = {
+  async create(args) {
+    return {
+      status: 'failed',
+      worktreeDir: args.worktreeDir,
+      message: 'empty_dir proof runs must not call the git-worktree port',
+      sideEffects: [],
+    };
+  },
+};
+
+function summarizeScopeHandoffReviewSet(input: {
+  readonly sessionText: string;
+  readonly createdNodes: readonly ProjectGraphReviewCycleCreatedNode[];
+  readonly finalOverview: GraphSlice;
+}): ScopeHandoffReviewSetEvidence {
+  const details = latestSuccessfulPresentReviewSetDetails(input.sessionText);
+  const createdFrontierCount = input.createdNodes.filter((node) => node.kind === 'frontier').length;
+  const createdScopeCount = input.createdNodes.filter((node) => node.kind === 'scope').length;
+  const createdScopeNodeIds = new Set(
+    input.createdNodes.flatMap((node) => (node.kind === 'scope' ? [node.id] : [])),
+  );
+  if (!details) {
+    return {
+      observed: false,
+      frontierDraftCount: 0,
+      scopeDraftCount: 0,
+      frontierScopeCompositionCount: 0,
+      requirementAnchorCount: 0,
+      designAnchorCount: 0,
+      verificationAnchorCount: 0,
+      committedRequirementAnchorCount: countCommittedScopeAnchor(input.finalOverview, createdScopeNodeIds, {
+        category: 'realization',
+        sourceKinds: ['requirement'],
+        direction: 'incoming',
+      }),
+      committedDesignAnchorCount: countCommittedScopeAnchor(input.finalOverview, createdScopeNodeIds, {
+        category: 'composition',
+        sourceKinds: ['module', 'interface', 'entity', 'sketch'],
+        direction: 'outgoing',
+      }),
+      committedVerificationAnchorCount: countCommittedScopeAnchor(input.finalOverview, createdScopeNodeIds, {
+        category: 'dependency',
+        sourceKinds: ['check', 'vv_method', 'evidence', 'vv_obligation'],
+        direction: 'incoming',
+      }),
+      committedFrontierCount: createdFrontierCount,
+      committedScopeCount: createdScopeCount,
+    };
+  }
+
+  const nodes = Array.isArray(details.nodes) ? details.nodes.filter(isRecord) : [];
+  const edges = Array.isArray(details.edges) ? details.edges.filter(isRecord) : [];
+  const frontierDraftIds = new Set(
+    nodes.flatMap((node) =>
+      node.kind === 'frontier' && typeof node.draft_id === 'string' ? [node.draft_id] : [],
+    ),
+  );
+  const scopeDraftIds = new Set(
+    nodes.flatMap((node) =>
+      node.kind === 'scope' && typeof node.draft_id === 'string' ? [node.draft_id] : [],
+    ),
+  );
+
+  return {
+    observed: true,
+    frontierDraftCount: frontierDraftIds.size,
+    scopeDraftCount: scopeDraftIds.size,
+    frontierScopeCompositionCount: countFrontierScopeComposition(edges, frontierDraftIds, scopeDraftIds),
+    requirementAnchorCount: countScopeAnchor(edges, scopeDraftIds, {
+      category: 'realization',
+      sourceField: 'abstract',
+      targetField: 'concrete',
+      existingKinds: ['requirement'],
+    }),
+    designAnchorCount: countScopeAnchor(edges, scopeDraftIds, {
+      category: 'composition',
+      sourceField: 'part',
+      targetField: 'whole',
+      existingKinds: ['module', 'interface', 'entity', 'sketch'],
+    }),
+    verificationAnchorCount: countScopeAnchor(edges, scopeDraftIds, {
+      category: 'dependency',
+      sourceField: 'dependency',
+      targetField: 'dependent',
+      existingKinds: ['check', 'vv_method', 'evidence', 'vv_obligation'],
+    }),
+    committedRequirementAnchorCount: countCommittedScopeAnchor(input.finalOverview, createdScopeNodeIds, {
+      category: 'realization',
+      sourceKinds: ['requirement'],
+      direction: 'incoming',
+    }),
+    committedDesignAnchorCount: countCommittedScopeAnchor(input.finalOverview, createdScopeNodeIds, {
+      category: 'composition',
+      sourceKinds: ['module', 'interface', 'entity', 'sketch'],
+      direction: 'outgoing',
+    }),
+    committedVerificationAnchorCount: countCommittedScopeAnchor(input.finalOverview, createdScopeNodeIds, {
+      category: 'dependency',
+      sourceKinds: ['check', 'vv_method', 'evidence', 'vv_obligation'],
+      direction: 'incoming',
+    }),
+    committedFrontierCount: createdFrontierCount,
+    committedScopeCount: createdScopeCount,
+  };
+}
+
+function countCommittedScopeAnchor(
+  overview: GraphSlice,
+  scopeNodeIds: ReadonlySet<number>,
+  options: {
+    readonly category: string;
+    readonly sourceKinds: readonly GraphNode['kind'][];
+    readonly direction: 'incoming' | 'outgoing';
+  },
+): number {
+  const nodeById = new Map(overview.nodes.map((node) => [node.id, node]));
+  return overview.edges.filter((edge) => {
+    if (edge.category !== options.category) return false;
+    const relatedSourceId = options.direction === 'incoming' ? edge.sourceId : edge.targetId;
+    const relatedTargetId = options.direction === 'incoming' ? edge.targetId : edge.sourceId;
+    const sourceNode = nodeById.get(relatedSourceId);
+    return (
+      sourceNode !== undefined &&
+      options.sourceKinds.includes(sourceNode.kind) &&
+      scopeNodeIds.has(relatedTargetId)
+    );
+  }).length;
+}
+
+function latestSuccessfulPresentReviewSetDetails(
+  sessionText: string,
+): { readonly nodes?: unknown; readonly edges?: unknown } | undefined {
+  let latest: { readonly nodes?: unknown; readonly edges?: unknown } | undefined;
+  for (const message of toolResultMessages(sessionText)) {
+    if (message.toolName !== 'present_review_set') continue;
+    const details = isRecord(message.details) ? message.details : undefined;
+    if (details?.schema !== 'brunch.structured_exchange.present') continue;
+    const reviewSet = isRecord(details.review_set) ? details.review_set : undefined;
+    if (!reviewSet) continue;
+    latest = reviewSet as { readonly nodes?: unknown; readonly edges?: unknown };
+  }
+  return latest;
+}
+
+function countFrontierScopeComposition(
+  edges: readonly Record<string, unknown>[],
+  frontierDraftIds: ReadonlySet<string>,
+  scopeDraftIds: ReadonlySet<string>,
+): number {
+  return edges.filter((edge) => {
+    if (edge.category !== 'composition') return false;
+    const wholeDraftId = draftId(isRecord(edge.whole) ? edge.whole : undefined);
+    const partDraftId = draftId(isRecord(edge.part) ? edge.part : undefined);
+    return (
+      typeof wholeDraftId === 'string' &&
+      typeof partDraftId === 'string' &&
+      frontierDraftIds.has(wholeDraftId) &&
+      scopeDraftIds.has(partDraftId)
+    );
+  }).length;
+}
+
+function countScopeAnchor(
+  edges: readonly Record<string, unknown>[],
+  scopeDraftIds: ReadonlySet<string>,
+  options: {
+    readonly category: string;
+    readonly sourceField: string;
+    readonly targetField: string;
+    readonly existingKinds: readonly GraphNode['kind'][];
+  },
+): number {
+  return edges.filter((edge) => {
+    if (edge.category !== options.category) return false;
+    const sourceValue = edge[options.sourceField];
+    const targetValue = edge[options.targetField];
+    const sourceCode = existingCode(isRecord(sourceValue) ? sourceValue : undefined);
+    const sourceKind = sourceCode ? parseGraphNodeCode(sourceCode)?.kind : undefined;
+    const targetDraftId = draftId(isRecord(targetValue) ? targetValue : undefined);
+    return (
+      sourceKind !== undefined &&
+      options.existingKinds.includes(sourceKind) &&
+      typeof targetDraftId === 'string' &&
+      scopeDraftIds.has(targetDraftId)
+    );
+  }).length;
+}
+
+function existingCode(value: Record<string, unknown> | undefined): string | undefined {
+  return typeof value?.existing_code === 'string' ? value.existing_code : undefined;
+}
+
+function draftId(value: Record<string, unknown> | undefined): string | undefined {
+  return typeof value?.draft_id === 'string' ? value.draft_id : undefined;
 }
 
 export async function writeProjectGraphReviewCycleArtifacts(options: {
@@ -575,7 +1062,15 @@ function parseCliArgs(argv: readonly string[]): ProjectGraphReviewCycleProofOpti
     ...(options['run-id'] !== undefined ? { runId: options['run-id'] } : {}),
     ...(options.prompt !== undefined ? { prompt: options.prompt } : {}),
     ...(options['agent-dir'] !== undefined ? { agentDir: options['agent-dir'] } : {}),
+    ...(options['review-set-expectation'] !== undefined
+      ? { reviewSetExpectation: parseReviewSetExpectation(options['review-set-expectation']) }
+      : {}),
   };
+}
+
+function parseReviewSetExpectation(value: string): ReviewSetExpectation {
+  if (value === 'scope_handoff') return value;
+  throw new Error(`Unknown review-set expectation: ${value}`);
 }
 
 function requiredValue(argv: readonly string[], index: number, flag: string): string {

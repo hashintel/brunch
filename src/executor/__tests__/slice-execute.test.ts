@@ -5,9 +5,9 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { planFilePath } from '../plan-file.js';
-import { populateWorktree } from '../populate.js';
+import { populatedPlanPath, populateWorktree } from '../populate.js';
 import { initializeReports, reportsPath } from '../report.js';
-import { runDirPath, runMetadataPath, createRun } from '../run.js';
+import { runDirPath, runMetadataPath, createRun, readRunMetadata } from '../run.js';
 import { requestSliceExecution, sliceExecutionRequestPath } from '../slice-execute.js';
 import { startSlice } from '../slice-start.js';
 import { copyHostSource } from '../source-copy.js';
@@ -152,5 +152,122 @@ describe('requestSliceExecution', () => {
 
     await expect(requestSliceExecution({ cwd, runId: 'run-1' })).rejects.toThrow('invalid sliceId');
     expect(await pathExists(join(runDir, '..', 'escape', 'request.json'))).toBe(false);
+  });
+
+  it('leaves run metadata unadvanced when the populated plan cannot supply the active slice brief', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-execute-invalid-plan-'));
+    await createSliceStartedRun(cwd);
+    await writeFile(populatedPlanPath(cwd, 'run-1'), '{"slices":[]}', 'utf8');
+
+    const result = await requestSliceExecution({ cwd, runId: 'run-1' });
+
+    expect(result).toEqual({
+      status: 'plan_slice_invalid',
+      runStatus: 'slice_started',
+      runId: 'run-1',
+      sliceId: 'task-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      message: 'Populated plan does not contain active slice task-1.',
+      sideEffects: [],
+    });
+    expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.status).toBe('slice_started');
+    expect(await pathExists(sliceExecutionRequestPath(cwd, 'run-1', 'task-1'))).toBe(false);
+  });
+
+  it('rejects a scope slice whose worker context is incomplete', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-execute-incomplete-scope-'));
+    await createSliceStartedRun(cwd);
+    await writeFile(
+      populatedPlanPath(cwd, 'run-1'),
+      JSON.stringify({
+        slices: [
+          {
+            id: 'task-1',
+            scope_id: 'SCP1',
+            epic_id: 'frontier-1',
+            definition: 'Build it.',
+            verification: [],
+            derived_from: ['REQ1'],
+            design_context: [],
+            verification_context: [],
+          },
+        ],
+      }),
+      'utf8',
+    );
+
+    const result = await requestSliceExecution({ cwd, runId: 'run-1' });
+
+    expect(result).toMatchObject({
+      status: 'plan_slice_invalid',
+      runStatus: 'slice_started',
+      message: 'Scope slice task-1 is missing valid verification, design_context, verification_context.',
+      sideEffects: [],
+    });
+    expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.status).toBe('slice_started');
+  });
+
+  it('rejects a serialized scope plan whose active slice omits scope identity', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-execute-missing-scope-id-'));
+    await createSliceStartedRun(cwd);
+    await writeFile(
+      populatedPlanPath(cwd, 'run-1'),
+      JSON.stringify({
+        scope_handoff_required: true,
+        slices: [
+          {
+            id: 'task-1',
+            epic_id: 'frontier-1',
+            definition: 'Build it.',
+            verification: [{ kind: 'criterion', target: 'It works.' }],
+            derived_from: ['REQ1'],
+            design_context: [{ item_id: 'MOD1', content: 'Module' }],
+            verification_context: [{ item_id: 'CH1', content: 'Check' }],
+          },
+        ],
+      }),
+      'utf8',
+    );
+
+    const result = await requestSliceExecution({ cwd, runId: 'run-1' });
+
+    expect(result).toMatchObject({
+      status: 'plan_slice_invalid',
+      message: 'Scope slice task-1 is missing valid scope_id.',
+      sideEffects: [],
+    });
+  });
+
+  it('treats blank scope enrichment values as missing', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-execute-blank-scope-'));
+    await createSliceStartedRun(cwd);
+    await writeFile(
+      populatedPlanPath(cwd, 'run-1'),
+      JSON.stringify({
+        scope_handoff_required: true,
+        slices: [
+          {
+            id: 'task-1',
+            scope_id: '   ',
+            epic_id: 'frontier-1',
+            definition: '   ',
+            verification: [{ kind: 'criterion', target: '   ' }],
+            derived_from: ['   '],
+            design_context: [{ item_id: 'MOD1', content: '   ' }],
+            verification_context: [{ item_id: '   ', content: 'Check' }],
+          },
+        ],
+      }),
+      'utf8',
+    );
+
+    const result = await requestSliceExecution({ cwd, runId: 'run-1' });
+
+    expect(result).toMatchObject({
+      status: 'plan_slice_invalid',
+      message:
+        'Scope slice task-1 is missing valid scope_id, definition, verification, derived_from, design_context, verification_context.',
+      sideEffects: [],
+    });
   });
 });

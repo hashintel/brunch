@@ -107,7 +107,7 @@ export const exchangeToolSchemaBaseline = {
             },
             lens: {
               type: 'string',
-              enum: ['intent', 'design', 'oracle'],
+              enum: ['intent', 'design', 'oracle', 'plan'],
             },
             epistemicStatus: {
               type: 'string',

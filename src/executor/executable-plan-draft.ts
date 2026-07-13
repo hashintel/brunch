@@ -59,15 +59,17 @@ export function draftExecutablePlan(outline: ExecutionPlanOutline): ExecutablePl
     sliceIds: frontier.tasks.map((task) => task.id),
     dependsOn: [],
   }));
-  const taskIdByRequirement = new Map(
-    outline.frontiers.flatMap((frontier) =>
-      frontier.tasks.flatMap((task) => {
-        const requirementIds =
-          task.requirementIds && task.requirementIds.length > 0 ? task.requirementIds : [task.requirementId];
-        return requirementIds.map((requirementId) => [requirementId, task.id] as const);
-      }),
-    ),
-  );
+  const taskIdByRequirement = new Map<string, string>();
+  for (const task of outline.frontiers.flatMap((frontier) => frontier.tasks)) {
+    const requirementIds =
+      task.requirementIds && task.requirementIds.length > 0 ? task.requirementIds : [task.requirementId];
+    for (const requirementId of requirementIds) {
+      const existingTaskId = taskIdByRequirement.get(requirementId);
+      // Plan-check owns ambiguous scope membership. Keep this projection total so
+      // callers can inspect the blocked result instead of crashing while building it.
+      if (!existingTaskId) taskIdByRequirement.set(requirementId, task.id);
+    }
+  }
   const slices = outline.frontiers.flatMap((frontier) => {
     return frontier.tasks.map((task) => {
       const requirementIds =

@@ -69,20 +69,24 @@ type ContextKind = (typeof CONTEXT_KINDS)[number];
 export function projectExecutionSpecSnapshot(
   input: ProjectExecutionSpecSnapshotInput,
 ): ExecutionSpecSnapshot {
-  const nodes = [...input.nodes].sort(byKindOrdinalThenId);
+  const nodes = input.nodes.filter((node) => node.settlement !== 'advisory').sort(byKindOrdinalThenId);
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  const edges = input.edges.filter(
+    (edge) => edge.settlement !== 'advisory' && nodeIds.has(edge.sourceId) && nodeIds.has(edge.targetId),
+  );
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   const requirementIds = new Set(nodes.filter((node) => node.kind === 'requirement').map((node) => node.id));
   const requirementItemIds = new Map(
     nodes.filter((node) => node.kind === 'requirement').map((node) => [node.id, itemId(node)]),
   );
-  const requirementDependencies = dependencyItemIdsByRequirement(input.edges, requirementItemIds);
+  const requirementDependencies = dependencyItemIdsByRequirement(edges, requirementItemIds);
   const criteria = nodes.filter((node) => node.kind === 'criterion');
   const criteriaById = new Map(
     criteria.map((criterion) => [
       criterion.id,
       {
         ...itemSnapshot(criterion),
-        verifies: verifiesRequirementItemIds(criterion, input.edges, nodeById, requirementIds),
+        verifies: verifiesRequirementItemIds(criterion, edges, nodeById, requirementIds),
       },
     ]),
   );
@@ -102,7 +106,7 @@ export function projectExecutionSpecSnapshot(
       .map((node) =>
         scopeSnapshot({
           node,
-          edges: input.edges,
+          edges,
           nodeById,
           criteriaById,
           requirementDependencies,
@@ -135,23 +139,18 @@ function scopeSnapshot(args: {
     direction: 'incoming',
     kinds: ['frontier'],
   });
-  const requirementIds = relatedUnionItemIds(args.node.id, args.edges, args.nodeById, [
-    { category: 'realization', direction: 'incoming', kinds: ['requirement'] },
-    // Accept the older tracer shape while the durable handoff model settles.
-    { category: 'realization', direction: 'outgoing', kinds: ['requirement'] },
-  ]);
+  const requirementIds = relatedItemIds(args.node.id, args.edges, args.nodeById, {
+    category: 'realization',
+    direction: 'incoming',
+    kinds: ['requirement'],
+  });
   const criterionIds = new Set(
-    relatedUnionNodeIds(args.node.id, args.edges, args.nodeById, [
-      { category: 'dependency', direction: 'incoming', kinds: ['criterion'] },
-      // Accept the older tracer shape while the durable handoff model settles.
-      { category: 'realization', direction: 'outgoing', kinds: ['criterion'] },
-    ]),
+    relatedNodeIds(args.node.id, args.edges, args.nodeById, {
+      category: 'dependency',
+      direction: 'incoming',
+      kinds: ['criterion'],
+    }),
   );
-  for (const [criterionNodeId, criterion] of args.criteriaById) {
-    if (criterion.verifies.some((requirementId) => requirementIds.includes(requirementId))) {
-      criterionIds.add(criterionNodeId);
-    }
-  }
   const criteria = [...criterionIds]
     .sort((a, b) => a - b)
     .map((nodeId) => args.criteriaById.get(nodeId))
@@ -161,11 +160,11 @@ function scopeSnapshot(args: {
     direction: 'outgoing',
     kinds: DESIGN_KINDS,
   });
-  const verification = relatedUnionItems(args.node.id, args.edges, args.nodeById, [
-    { category: 'dependency', direction: 'incoming', kinds: ORACLE_KINDS },
-    // Accept the older tracer shape while the durable handoff model settles.
-    { category: 'witness', direction: 'incoming', kinds: ORACLE_KINDS },
-  ]);
+  const verification = relatedItems(args.node.id, args.edges, args.nodeById, {
+    category: 'dependency',
+    direction: 'incoming',
+    kinds: ORACLE_KINDS,
+  });
   const dependsOn = new Set<string>();
   for (const requirementId of requirementIds) {
     for (const dependencyId of args.requirementDependencies.get(requirementId) ?? []) {
@@ -175,6 +174,7 @@ function scopeSnapshot(args: {
 
   return {
     ...itemSnapshot(args.node),
+    content: args.node.body ?? '',
     dependsOn: [...dependsOn].sort(),
     frontierIds,
     requirementIds,
@@ -261,54 +261,6 @@ function relatedItems(
     .map((nodeId) => nodeById.get(nodeId))
     .filter((node): node is GraphNode => node !== undefined)
     .map((node) => itemSnapshot(node));
-}
-
-function relatedUnionNodeIds(
-  anchorId: number,
-  edges: readonly GraphEdge[],
-  nodeById: ReadonlyMap<number, GraphNode>,
-  queries: readonly {
-    readonly category: GraphEdge['category'];
-    readonly direction: 'incoming' | 'outgoing';
-    readonly kinds: readonly NodeKind[];
-  }[],
-): readonly number[] {
-  const ids = new Set<number>();
-  for (const query of queries) {
-    for (const nodeId of relatedNodeIds(anchorId, edges, nodeById, query)) {
-      ids.add(nodeId);
-    }
-  }
-  return [...ids].sort((a, b) => a - b);
-}
-
-function relatedUnionItems(
-  anchorId: number,
-  edges: readonly GraphEdge[],
-  nodeById: ReadonlyMap<number, GraphNode>,
-  queries: readonly {
-    readonly category: GraphEdge['category'];
-    readonly direction: 'incoming' | 'outgoing';
-    readonly kinds: readonly NodeKind[];
-  }[],
-): readonly ExecutionSpecItemSnapshot[] {
-  return relatedUnionNodeIds(anchorId, edges, nodeById, queries)
-    .map((nodeId) => nodeById.get(nodeId))
-    .filter((node): node is GraphNode => node !== undefined)
-    .map((node) => itemSnapshot(node));
-}
-
-function relatedUnionItemIds(
-  anchorId: number,
-  edges: readonly GraphEdge[],
-  nodeById: ReadonlyMap<number, GraphNode>,
-  queries: readonly {
-    readonly category: GraphEdge['category'];
-    readonly direction: 'incoming' | 'outgoing';
-    readonly kinds: readonly NodeKind[];
-  }[],
-): readonly string[] {
-  return relatedUnionItems(anchorId, edges, nodeById, queries).map((item) => item.itemId);
 }
 
 function relatedItemIds(

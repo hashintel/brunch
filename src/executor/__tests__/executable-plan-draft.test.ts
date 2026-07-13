@@ -214,4 +214,45 @@ describe('draftExecutablePlan', () => {
       }),
     ]);
   });
+
+  it('keeps blocked duplicate ownership projectable for plan-check inspection', () => {
+    expect(
+      draftExecutablePlan({
+        ...outline,
+        frontiers: [
+          {
+            id: 'frontier-1',
+            title: 'Execution handoff',
+            tasks: [
+              {
+                id: 'task-1',
+                title: 'First scope',
+                scopeId: 'SCP1',
+                requirementId: 'REQ1',
+                requirementIds: ['REQ1'],
+                summary: 'First.',
+                dependsOn: [],
+                acceptanceCriterionIds: [],
+                acceptanceCriteria: [],
+              },
+              {
+                id: 'task-2',
+                title: 'Second scope',
+                scopeId: 'SCP2',
+                requirementId: 'REQ1',
+                requirementIds: ['REQ1'],
+                summary: 'Second.',
+                dependsOn: [],
+                acceptanceCriterionIds: [],
+                acceptanceCriteria: [],
+              },
+            ],
+          },
+        ],
+      }).slices,
+    ).toEqual([
+      expect.objectContaining({ id: 'task-1', dependsOn: [] }),
+      expect.objectContaining({ id: 'task-2', dependsOn: [] }),
+    ]);
+  });
 });

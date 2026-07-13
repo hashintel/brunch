@@ -59,25 +59,17 @@ const snapshot: ExecutionSpecSnapshot = {
 };
 
 describe('outlineExecutionPlan', () => {
-  it('does not emit an overlapping task for a scope without requirements', () => {
+  it('does not repair a scope without requirements into unscoped tasks', () => {
     const scope = snapshot.scopes[0]!;
     const outline = outlineExecutionPlan({
       ...snapshot,
       scopes: [{ ...scope, requirementIds: [] }],
     });
 
-    expect(outline.frontiers).toEqual([
-      expect.objectContaining({
-        id: 'frontier-unscoped-requirements',
-        tasks: [
-          expect.objectContaining({ requirementId: 'REQ1' }),
-          expect.objectContaining({ requirementId: 'REQ2' }),
-        ],
-      }),
-    ]);
+    expect(outline.frontiers).toEqual([]);
   });
 
-  it('lowers a scope once when it names multiple parent frontiers', () => {
+  it('does not guess an owner when a scope names multiple parent frontiers', () => {
     const scope = snapshot.scopes[0]!;
     const outline = outlineExecutionPlan({
       ...snapshot,
@@ -88,13 +80,7 @@ describe('outlineExecutionPlan', () => {
       scopes: [{ ...scope, frontierIds: ['F1', 'F2'] }],
     });
 
-    expect(outline.frontiers).toEqual([
-      expect.objectContaining({
-        id: 'F1',
-        tasks: [expect.objectContaining({ scopeId: 'SCP1' })],
-      }),
-      expect.objectContaining({ id: 'frontier-unscoped-requirements' }),
-    ]);
+    expect(outline.frontiers).toEqual([]);
   });
 
   it('claims shared scope requirements once', () => {
@@ -118,22 +104,18 @@ describe('outlineExecutionPlan', () => {
         id: 'F1',
         tasks: [expect.objectContaining({ scopeId: 'SCP1', requirementIds: ['REQ2'] })],
       }),
-      expect.objectContaining({
-        id: 'frontier-unscoped-requirements',
-        tasks: [expect.objectContaining({ requirementId: 'REQ1' })],
-      }),
     ]);
   });
 
-  it('uses the committed frontier id when a scope has no parent edge', () => {
+  it('does not assign a parentless scope to an unrelated frontier', () => {
     const scope = snapshot.scopes[0]!;
 
     expect(
       outlineExecutionPlan({
         ...snapshot,
         scopes: [{ ...scope, frontierIds: [] }],
-      }).frontiers[0],
-    ).toEqual(expect.objectContaining({ id: 'F1', title: 'Execution handoff' }));
+      }).frontiers,
+    ).toEqual([]);
   });
 
   it('drops dependencies that stay inside the same scope package', () => {
@@ -157,16 +139,15 @@ describe('outlineExecutionPlan', () => {
     ]);
   });
 
-  it('assigns globally unique task ids when scoped and unscoped frontiers coexist', () => {
+  it('assigns task ids across committed scope frontiers', () => {
     const outline = outlineExecutionPlan(snapshot);
 
     expect(outline.frontiers.flatMap((frontier) => frontier.tasks.map((task) => task.id))).toEqual([
       'task-1',
-      'task-2',
     ]);
   });
 
-  it('creates scope tasks and keeps orphan requirements visible', () => {
+  it('creates only committed scope tasks once scopes exist', () => {
     expect(outlineExecutionPlan(snapshot)).toEqual({
       schemaVersion: 1,
       specId: '7',
@@ -217,144 +198,27 @@ describe('outlineExecutionPlan', () => {
             },
           ],
         },
-        {
-          id: 'frontier-unscoped-requirements',
-          title: 'Implement unscoped requirements',
-          tasks: [
-            {
-              id: 'task-2',
-              title: 'Build feature',
-              requirementId: 'REQ1',
-              requirements: [
-                {
-                  itemId: 'REQ1',
-                  nodeId: 1,
-                  title: 'Build feature',
-                  content: 'Build feature',
-                  dependsOn: [],
-                },
-              ],
-              summary: 'Build feature',
-              dependsOn: [],
-              acceptanceCriterionIds: [],
-              acceptanceCriteria: [],
-            },
-          ],
-        },
       ],
       sideEffects: [],
     });
   });
 
-  it('keeps additional requirements that are not packaged into any scope', () => {
-    expect(
-      outlineExecutionPlan({
-        ...snapshot,
-        requirements: [
-          ...snapshot.requirements,
-          {
-            itemId: 'REQ3',
-            nodeId: 6,
-            title: 'Ship keyboard shortcut',
-            content: 'Ship keyboard shortcut',
-            dependsOn: [],
-          },
-        ],
-      }),
-    ).toEqual({
-      schemaVersion: 1,
-      specId: '7',
-      mode: 'brownfield',
-      frontiers: [
+  it('does not infer execution tasks for requirements outside committed scopes', () => {
+    const outline = outlineExecutionPlan({
+      ...snapshot,
+      requirements: [
+        ...snapshot.requirements,
         {
-          id: 'F1',
-          title: 'Execution handoff',
-          tasks: [
-            {
-              id: 'task-1',
-              title: 'Wire feature scope',
-              scopeId: 'SCP1',
-              requirementId: 'REQ2',
-              requirementIds: ['REQ2'],
-              summary: 'Wire the feature from committed design and verification anchors.',
-              dependsOn: ['REQ1'],
-              acceptanceCriterionIds: ['AC1'],
-              acceptanceCriteria: [
-                {
-                  criterionId: 'AC1',
-                  title: 'Feature is visible',
-                  content: 'Feature is visible',
-                  verifies: ['REQ2'],
-                },
-              ],
-              requirements: [
-                {
-                  itemId: 'REQ2',
-                  nodeId: 2,
-                  title: 'Wire feature',
-                  content: 'Wire feature',
-                  dependsOn: ['REQ1'],
-                },
-              ],
-              designContext: [
-                {
-                  itemId: 'MOD1',
-                  nodeId: 4,
-                  title: 'Feature module',
-                  content: 'Feature module',
-                  dependsOn: [],
-                },
-              ],
-              verificationContext: [
-                { itemId: 'CH1', nodeId: 5, title: 'Smoke test', content: 'Smoke test', dependsOn: [] },
-              ],
-            },
-          ],
-        },
-        {
-          id: 'frontier-unscoped-requirements',
-          title: 'Implement unscoped requirements',
-          tasks: [
-            {
-              id: 'task-2',
-              title: 'Build feature',
-              requirementId: 'REQ1',
-              requirements: [
-                {
-                  itemId: 'REQ1',
-                  nodeId: 1,
-                  title: 'Build feature',
-                  content: 'Build feature',
-                  dependsOn: [],
-                },
-              ],
-              summary: 'Build feature',
-              dependsOn: [],
-              acceptanceCriterionIds: [],
-              acceptanceCriteria: [],
-            },
-            {
-              id: 'task-3',
-              title: 'Ship keyboard shortcut',
-              requirementId: 'REQ3',
-              requirements: [
-                {
-                  itemId: 'REQ3',
-                  nodeId: 6,
-                  title: 'Ship keyboard shortcut',
-                  content: 'Ship keyboard shortcut',
-                  dependsOn: [],
-                },
-              ],
-              summary: 'Ship keyboard shortcut',
-              dependsOn: [],
-              acceptanceCriterionIds: [],
-              acceptanceCriteria: [],
-            },
-          ],
+          itemId: 'REQ3',
+          nodeId: 6,
+          title: 'Ship keyboard shortcut',
+          content: 'Ship keyboard shortcut',
+          dependsOn: [],
         },
       ],
-      sideEffects: [],
     });
+
+    expect(outline.frontiers).toHaveLength(1);
+    expect(outline.frontiers[0]?.tasks.map((task) => task.requirementIds)).toEqual([['REQ2']]);
   });
 });

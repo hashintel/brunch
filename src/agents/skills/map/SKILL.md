@@ -116,9 +116,14 @@ tree plan containment:
 ```
 coherence checks (plan)
   frontier -> contains >=1 scope (composition)?
-  scope    -> establishes >=1 requirement and packages design/verification for execution?
+  scope    -> exactly one frontier owner + >=1 requirement + >=1 criterion + >=1 design + >=1 check for execution?
   frontier -> dependencies mirror intent dependencies, not intra-frontier execution order
   milestone-> frontiers map to an invariant bundle to establish
+
+  single handoff package -> one owning frontier + one scope by default;
+                           only widen to several scopes when the accepted package truly contains
+                           several build handoffs; do not add milestone/extra frontier nodes
+                           unless a real phase threshold or distinct tracker boundary is accepted upstream
 ```
 
-Typical edges: `composition` (milestone→frontier→scope), `realization` (requirement→scope, renders "established by"), `dependency` (frontier→frontier).
+Typical edges: `composition` (milestone→frontier→scope and scope→design anchor), `realization` (requirement→scope, renders "established by"), `dependency` (criterion/check→scope and frontier→frontier).

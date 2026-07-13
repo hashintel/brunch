@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 1,
+  "probeId": "project-graph-review-cycle",
+  "runId": "fe-1175-scope-handoff-relaxed-r6",
+  "generatedAt": "2026-07-10T12:23:02.501Z",
+  "mission": "Prove live Specify authoring can commit a complete scope package that the executor projects into a plan-ready slice.",
+  "evaluationFocus": "FE-1175 live proposal → review approval → committed graph readback → production executor projection.",
+  "seedName": "workspace-alpha-grounding",
+  "seedVariant": "scope-handoff-ready",
+  "cwd": "<ephemeral-workspace>",
+  "specId": 1,
+  "sessionId": "019f4bfb-3694-7761-895a-6ec7c876d85d",
+  "prompt": "Brunch FE-1175 relaxed scope-handoff proof. The selected spec already has accepted upstream anchors in intent, design, and oracle. Read the graph overview, then propose one exact plan-lens review set that turns those accepted anchors into a complete execution-facing handoff package. Use present_review_set exactly once, do not mutate the graph directly, and stop after the review set so the external RPC reviewer can handle approval.",
+  "runtimeState": {
+    "operationalMode": "specify"
+  },
+  "model": "claude-sonnet-4-6",
+  "success": true,
+  "baseGraph": {
+    "nodeCount": 5,
+    "edgeCount": 5,
+    "lsn": 2
+  },
+  "finalGraph": {
+    "nodeCount": 7,
+    "edgeCount": 10,
+    "lsn": 3,
+    "explicitNodeCount": 7,
+    "explicitEdgeCount": 10,
+    "implicitNodeCount": 0,
+    "implicitEdgeCount": 0
+  },
+  "graphDelta": {
+    "lsnAdvanced": true,
+    "nodeDelta": 2,
+    "edgeDelta": 5
+  },
+  "toolEvidence": {
+    "presentReviewSetCount": 1,
+    "requestResponseCount": 0,
+    "successfulPresentReviewSetCount": 1,
+    "structuralIllegalPresentReviewSetCount": 0
+  },
+  "pendingReview": {
+    "observed": true,
+    "exchangeId": "rs-fe1175-scope-handoff",
+    "nodeDraftCount": 2,
+    "edgeDraftCount": 5
+  },
+  "approval": {
+    "attempted": true,
+    "status": "approved",
+    "lsn": 3,
+    "createdNodeRefs": {
+      "d-frontier": {
+        "id": 6,
+        "code": "F1"
+      },
+      "d-scope": {
+        "id": 7,
+        "code": "SCP1"
+      }
+    }
+  },
+  "createdNodes": [
+    {
+      "id": 6,
+      "code": "F1",
+      "plane": "plan",
+      "kind": "frontier",
+      "title": "Orient user at workspace entry",
+      "basis": "explicit"
+    },
+    {
+      "id": 7,
+      "code": "SCP1",
+      "plane": "plan",
+      "kind": "scope",
+      "title": "Render selected-spec entry summary",
+      "basis": "explicit"
+    }
+  ],
+  "scopeHandoffReviewSet": {
+    "observed": true,
+    "frontierDraftCount": 1,
+    "scopeDraftCount": 1,
+    "frontierScopeCompositionCount": 1,
+    "requirementAnchorCount": 1,
+    "designAnchorCount": 1,
+    "verificationAnchorCount": 1,
+    "committedRequirementAnchorCount": 1,
+    "committedDesignAnchorCount": 1,
+    "committedVerificationAnchorCount": 1,
+    "committedFrontierCount": 1,
+    "committedScopeCount": 1
+  },
+  "scopeHandoffExecutor": {
+    "checkStatus": "ok",
+    "findingCodes": [],
+    "sliceCount": 1,
+    "scopeSliceCount": 1,
+    "readyScopeSliceCount": 1,
+    "criterionTargetCount": 1,
+    "designContextCount": 1,
+    "verificationContextCount": 1,
+    "workerRequestStatus": "ready",
+    "workerRequest": {
+      "scopeId": "SCP1",
+      "criterionCount": 1,
+      "designContextCount": 1,
+      "verificationContextCount": 1
+    }
+  },
+  "productUpdates": [
+    {
+      "topic": "workspace.state",
+      "specId": 1,
+      "sessionId": "019f4bfb-3694-7761-895a-6ec7c876d85d"
+    },
+    {
+      "topic": "workspace.selectionState",
+      "specId": 1,
+      "sessionId": "019f4bfb-3694-7761-895a-6ec7c876d85d"
+    },
+    {
+      "topic": "session.pendingExchange",
+      "specId": 1,
+      "sessionId": "019f4bfb-3694-7761-895a-6ec7c876d85d"
+    },
+    {
+      "topic": "session.exchanges",
+      "specId": 1,
+      "sessionId": "019f4bfb-3694-7761-895a-6ec7c876d85d"
+    },
+    {
+      "topic": "session.runtimeState",
+      "specId": 1,
+      "sessionId": "019f4bfb-3694-7761-895a-6ec7c876d85d"
+    },
+    {
+      "topic": "graph.overview",
+      "specId": 1,
+      "lsn": 3
+    },
+    {
+      "topic": "graph.nodeNeighborhood",
+      "specId": 1,
+      "lsn": 3
+    }
+  ],
+  "friction": [],
+  "artifacts": {
+    "runDir": "runs/project-graph-review-cycle/fe-1175-scope-handoff-relaxed-r6",
+    "sessionJsonl": "runs/project-graph-review-cycle/fe-1175-scope-handoff-relaxed-r6/session.jsonl",
+    "reportJson": "runs/project-graph-review-cycle/fe-1175-scope-handoff-relaxed-r6/report.json",
+    "graphOverviewJson": "runs/project-graph-review-cycle/fe-1175-scope-handoff-relaxed-r6/graph-overview.json"
+  }
+}

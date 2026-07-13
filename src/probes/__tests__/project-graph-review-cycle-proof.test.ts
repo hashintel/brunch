@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import type { GraphSlice } from '../../graph/queries.js';
 import type { JsonRpcResponse } from '../../rpc/protocol.js';
 import {
+  materializeScopeHandoffWorkerRequest,
   summarizeProjectGraphReviewCycleProof,
   writeProjectGraphReviewCycleArtifacts,
   type ProjectGraphReviewCycleReport,
@@ -64,6 +65,169 @@ const approvedOverview: GraphSlice = {
   ],
 
   lsn: 3,
+};
+
+const scopeBaseOverview: GraphSlice = {
+  nodes: [
+    {
+      id: 1,
+      specId: 9,
+      plane: 'intent',
+      kind: 'requirement',
+      kindOrdinal: 1,
+      title: 'Show the selected spec before deeper work begins',
+      basis: 'explicit',
+      settlement: 'settled',
+      createdAtLsn: 5,
+      updatedAtLsn: 5,
+    },
+    {
+      id: 2,
+      specId: 9,
+      plane: 'design',
+      kind: 'module',
+      kindOrdinal: 1,
+      title: 'Selected spec entry summary renderer',
+      basis: 'explicit',
+      settlement: 'settled',
+      createdAtLsn: 5,
+      updatedAtLsn: 5,
+    },
+    {
+      id: 3,
+      specId: 9,
+      plane: 'oracle',
+      kind: 'check',
+      kindOrdinal: 1,
+      title: 'Selected spec entry proof',
+      basis: 'explicit',
+      settlement: 'settled',
+      createdAtLsn: 5,
+      updatedAtLsn: 5,
+    },
+    {
+      id: 6,
+      specId: 9,
+      plane: 'intent',
+      kind: 'criterion',
+      kindOrdinal: 1,
+      title: 'Selected spec appears before downstream work',
+      basis: 'explicit',
+      settlement: 'settled',
+      createdAtLsn: 5,
+      updatedAtLsn: 5,
+    },
+  ],
+  edges: [
+    {
+      id: 5,
+      specId: 9,
+      sourceId: 6,
+      targetId: 1,
+      category: 'witness',
+      stance: 'for',
+      basis: 'explicit',
+      settlement: 'settled',
+      createdAtLsn: 5,
+      updatedAtLsn: 5,
+    },
+  ],
+  lsn: 5,
+};
+
+const scopeApprovedOverview: GraphSlice = {
+  nodes: [
+    ...scopeBaseOverview.nodes,
+    {
+      id: 4,
+      specId: 9,
+      plane: 'plan',
+      kind: 'frontier',
+      kindOrdinal: 1,
+      title: 'Selected spec handoff frontier',
+      basis: 'explicit',
+      settlement: 'settled',
+      createdAtLsn: 6,
+      updatedAtLsn: 6,
+    },
+    {
+      id: 5,
+      specId: 9,
+      plane: 'plan',
+      kind: 'scope',
+      kindOrdinal: 1,
+      title: 'Selected spec execution handoff',
+      body: 'Render the selected spec identity before downstream work begins.',
+      basis: 'explicit',
+      settlement: 'settled',
+      createdAtLsn: 6,
+      updatedAtLsn: 6,
+    },
+  ],
+  edges: [
+    ...scopeBaseOverview.edges,
+    {
+      id: 1,
+      specId: 9,
+      sourceId: 4,
+      targetId: 5,
+      category: 'composition',
+      basis: 'explicit',
+      settlement: 'settled',
+      createdAtLsn: 6,
+      updatedAtLsn: 6,
+    },
+    {
+      id: 2,
+      specId: 9,
+      sourceId: 1,
+      targetId: 5,
+      category: 'realization',
+      basis: 'explicit',
+      settlement: 'settled',
+      createdAtLsn: 6,
+      updatedAtLsn: 6,
+    },
+    {
+      id: 3,
+      specId: 9,
+      sourceId: 3,
+      targetId: 5,
+      category: 'dependency',
+      basis: 'explicit',
+      settlement: 'settled',
+      createdAtLsn: 6,
+      updatedAtLsn: 6,
+    },
+    {
+      id: 4,
+      specId: 9,
+      sourceId: 5,
+      targetId: 2,
+      category: 'composition',
+      basis: 'explicit',
+      settlement: 'settled',
+      createdAtLsn: 6,
+      updatedAtLsn: 6,
+    },
+    {
+      id: 6,
+      specId: 9,
+      sourceId: 6,
+      targetId: 5,
+      category: 'dependency',
+      basis: 'explicit',
+      settlement: 'settled',
+      createdAtLsn: 6,
+      updatedAtLsn: 6,
+    },
+  ],
+  lsn: 6,
+};
+
+const scopeApprovedOverviewMissingDesignAnchor: GraphSlice = {
+  ...scopeApprovedOverview,
+  edges: scopeApprovedOverview.edges.filter((edge) => edge.id !== 4),
 };
 
 const runtimeState = {
@@ -148,6 +312,118 @@ function approvedResponse(): JsonRpcResponse {
       exchangeId: 'review-1',
       answer: { review: { decision: 'approve', comment: 'Probe approval.' } },
       review: { status: 'approved', lsn: 3, createdNodes: { 'req-resolution-state': { id: 2 } } },
+    },
+  };
+}
+
+function scopePresentReviewSetEntry(
+  includeVerificationLink = true,
+  anchors: { readonly design: string; readonly verification: string } = {
+    design: 'MOD1',
+    verification: 'CH1',
+  },
+): string {
+  return toolResultEntry('present_review_set', {
+    schema: 'brunch.structured_exchange.present',
+    v: 1,
+    exchange_id: 'scope-review-1',
+    tool_meta: { curr: 'present_review_set', next: 'ask' },
+    display: { heading: 'Commit the selected-spec handoff package' },
+    review_set: {
+      nodes: [
+        {
+          draft_id: 'frontier-selected-spec-handoff',
+          proposed_code: 'F1',
+          plane: 'plan',
+          kind: 'frontier',
+          title: 'Selected spec handoff frontier',
+        },
+        {
+          draft_id: 'scope-selected-spec-handoff',
+          proposed_code: 'SCP1',
+          plane: 'plan',
+          kind: 'scope',
+          title: 'Selected spec execution handoff',
+        },
+      ],
+      edges: [
+        {
+          category: 'composition',
+          whole: { draft_id: 'frontier-selected-spec-handoff' },
+          part: { draft_id: 'scope-selected-spec-handoff' },
+        },
+        {
+          category: 'realization',
+          abstract: { existing_code: 'REQ1' },
+          concrete: { draft_id: 'scope-selected-spec-handoff' },
+        },
+        {
+          category: 'composition',
+          whole: { draft_id: 'scope-selected-spec-handoff' },
+          part: { existing_code: anchors.design },
+        },
+        {
+          category: 'dependency',
+          dependency: { existing_code: 'AC1' },
+          dependent: { draft_id: 'scope-selected-spec-handoff' },
+        },
+        ...(includeVerificationLink
+          ? [
+              {
+                category: 'dependency',
+                dependency: { existing_code: anchors.verification },
+                dependent: { draft_id: 'scope-selected-spec-handoff' },
+              },
+            ]
+          : []),
+      ],
+    },
+  });
+}
+
+function scopePendingReviewResponse(): JsonRpcResponse {
+  return {
+    jsonrpc: '2.0',
+    id: 1,
+    result: {
+      status: 'pending',
+      exchange: {
+        exchangeId: 'scope-review-1',
+        mode: 'review',
+        reviewSet: {
+          nodes: [
+            { draft_id: 'frontier-selected-spec-handoff', proposed_code: 'F1' },
+            { draft_id: 'scope-selected-spec-handoff', proposed_code: 'SCP1' },
+          ],
+          edges: [
+            { category: 'composition' },
+            { category: 'realization' },
+            { category: 'composition' },
+            { category: 'dependency' },
+            { category: 'dependency' },
+          ],
+        },
+      },
+    },
+  };
+}
+
+function scopeApprovedResponse(): JsonRpcResponse {
+  return {
+    jsonrpc: '2.0',
+    id: 2,
+    result: {
+      status: 'accepted',
+      exchangeId: 'scope-review-1',
+      answer: { review: { decision: 'approve', comment: 'Scope handoff approved.' } },
+      review: {
+        status: 'approved',
+        lsn: 6,
+        createdNodes: {
+          'frontier-selected-spec-handoff': { id: 4 },
+          'scope-selected-spec-handoff': { id: 5 },
+        },
+      },
     },
   };
 }
@@ -316,5 +592,211 @@ describe('project-graph review-cycle proof report', () => {
     };
     expect(persisted.artifacts).toEqual(expectedRefs);
     expect(JSON.stringify(persisted.artifacts)).not.toContain(fixtureRoot);
+  });
+
+  it('can require a committed scope handoff package in the presented review set', () => {
+    const report = summarizeProjectGraphReviewCycleProof({
+      runId: 'scope-handoff-review-test',
+      generatedAt: '2026-07-09T00:00:00.000Z',
+      cwd: '/tmp/brunch-scope-handoff-review-test',
+      seedVariant: 'scope-handoff-ready',
+      specId: 9,
+      sessionId: 'session-scope-1',
+      prompt: 'Present a scope handoff review set.',
+      runtimeState,
+      sessionText: [scopePresentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
+      baseOverview: scopeBaseOverview,
+      finalOverview: scopeApprovedOverview,
+      pendingResponse: scopePendingReviewResponse(),
+      approvalResponse: scopeApprovedResponse(),
+      reviewSetExpectation: 'scope_handoff',
+    });
+
+    expect(report.success).toBe(true);
+    expect(report.scopeHandoffReviewSet).toMatchObject({
+      observed: true,
+      frontierDraftCount: 1,
+      scopeDraftCount: 1,
+      frontierScopeCompositionCount: 1,
+      requirementAnchorCount: 1,
+      designAnchorCount: 1,
+      verificationAnchorCount: 1,
+      committedRequirementAnchorCount: 1,
+      committedDesignAnchorCount: 1,
+      committedVerificationAnchorCount: 1,
+      committedFrontierCount: 1,
+      committedScopeCount: 1,
+    });
+    expect(report.scopeHandoffExecutor).toEqual({
+      checkStatus: 'ok',
+      findingCodes: [],
+      sliceCount: 1,
+      scopeSliceCount: 1,
+      readyScopeSliceCount: 1,
+      criterionTargetCount: 1,
+      designContextCount: 1,
+      verificationContextCount: 1,
+      workerRequestStatus: 'not_attempted',
+    });
+    expect(report.friction).toEqual([]);
+  });
+
+  it('materializes the committed scope through the production worker-request boundary', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-scope-handoff-worker-request-'));
+
+    const evidence = await materializeScopeHandoffWorkerRequest({
+      cwd,
+      runId: 'scope-handoff-executor-test',
+      specId: 9,
+      overview: scopeApprovedOverview,
+    });
+
+    expect(evidence).toMatchObject({
+      checkStatus: 'ok',
+      readyScopeSliceCount: 1,
+      workerRequestStatus: 'ready',
+      workerRequest: {
+        scopeId: 'SCP1',
+        criterionCount: 1,
+        designContextCount: 1,
+        verificationContextCount: 1,
+      },
+    });
+  });
+
+  it('accepts every supported design and verification anchor kind', () => {
+    const baseOverview: GraphSlice = {
+      ...scopeBaseOverview,
+      nodes: scopeBaseOverview.nodes.map((node) =>
+        node.id === 2
+          ? { ...node, kind: 'interface' }
+          : node.id === 3
+            ? { ...node, kind: 'vv_method' }
+            : node,
+      ),
+    };
+    const finalOverview: GraphSlice = {
+      ...scopeApprovedOverview,
+      nodes: scopeApprovedOverview.nodes.map((node) =>
+        node.id === 2
+          ? { ...node, kind: 'interface' }
+          : node.id === 3
+            ? { ...node, kind: 'vv_method' }
+            : node,
+      ),
+    };
+    const report = summarizeProjectGraphReviewCycleProof({
+      runId: 'scope-handoff-kind-review-test',
+      generatedAt: '2026-07-09T00:00:00.000Z',
+      cwd: '/tmp/brunch-scope-handoff-kind-review-test',
+      seedVariant: 'scope-handoff-ready',
+      specId: 9,
+      sessionId: 'session-scope-kinds',
+      prompt: 'Present a scope handoff review set.',
+      runtimeState,
+      sessionText: [
+        scopePresentReviewSetEntry(true, { design: 'API1', verification: 'VV1' }),
+        requestResponseReviewEntry(),
+      ].join('\n'),
+      baseOverview,
+      finalOverview,
+      pendingResponse: scopePendingReviewResponse(),
+      approvalResponse: scopeApprovedResponse(),
+      reviewSetExpectation: 'scope_handoff',
+    });
+
+    expect(report.success).toBe(true);
+    expect(report.scopeHandoffReviewSet).toMatchObject({
+      designAnchorCount: 1,
+      verificationAnchorCount: 1,
+      committedDesignAnchorCount: 1,
+      committedVerificationAnchorCount: 1,
+    });
+  });
+
+  it('fails closed when the scope handoff review set omits a verification anchor', () => {
+    const report = summarizeProjectGraphReviewCycleProof({
+      runId: 'scope-handoff-review-test',
+      generatedAt: '2026-07-09T00:00:00.000Z',
+      cwd: '/tmp/brunch-scope-handoff-review-test',
+      seedVariant: 'scope-handoff-ready',
+      specId: 9,
+      sessionId: 'session-scope-1',
+      prompt: 'Present a scope handoff review set.',
+      runtimeState,
+      sessionText: [scopePresentReviewSetEntry(false), requestResponseReviewEntry()].join('\n'),
+      baseOverview: scopeBaseOverview,
+      finalOverview: scopeApprovedOverview,
+      pendingResponse: scopePendingReviewResponse(),
+      approvalResponse: scopeApprovedResponse(),
+      reviewSetExpectation: 'scope_handoff',
+    });
+
+    expect(report.success).toBe(false);
+    expect(report.scopeHandoffReviewSet).toMatchObject({
+      observed: true,
+      verificationAnchorCount: 0,
+    });
+    expect(report.friction).toContain(
+      'Scope-handoff review set did not link the scope package to an existing verification anchor.',
+    );
+  });
+
+  it('fails closed when approval drops a committed design anchor from graph readback', () => {
+    const report = summarizeProjectGraphReviewCycleProof({
+      runId: 'scope-handoff-review-test',
+      generatedAt: '2026-07-09T00:00:00.000Z',
+      cwd: '/tmp/brunch-scope-handoff-review-test',
+      seedVariant: 'scope-handoff-ready',
+      specId: 9,
+      sessionId: 'session-scope-1',
+      prompt: 'Present a scope handoff review set.',
+      runtimeState,
+      sessionText: [scopePresentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
+      baseOverview: scopeBaseOverview,
+      finalOverview: scopeApprovedOverviewMissingDesignAnchor,
+      pendingResponse: scopePendingReviewResponse(),
+      approvalResponse: scopeApprovedResponse(),
+      reviewSetExpectation: 'scope_handoff',
+    });
+
+    expect(report.success).toBe(false);
+    expect(report.friction).toContain(
+      'Graph readback did not preserve a committed design anchor on the scope-handoff package.',
+    );
+  });
+
+  it('fails closed when the committed package has no executable criterion', () => {
+    const finalOverview = {
+      ...scopeApprovedOverview,
+      nodes: scopeApprovedOverview.nodes.filter((node) => node.kind !== 'criterion'),
+      edges: scopeApprovedOverview.edges.filter((edge) => edge.id !== 5),
+    };
+    const report = summarizeProjectGraphReviewCycleProof({
+      runId: 'scope-handoff-criterion-test',
+      generatedAt: '2026-07-09T00:00:00.000Z',
+      cwd: '/tmp/brunch-scope-handoff-criterion-test',
+      seedVariant: 'scope-handoff-ready',
+      specId: 9,
+      sessionId: 'session-scope-criterion',
+      prompt: 'Present a scope handoff review set.',
+      runtimeState,
+      sessionText: [scopePresentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
+      baseOverview: scopeBaseOverview,
+      finalOverview,
+      pendingResponse: scopePendingReviewResponse(),
+      approvalResponse: scopeApprovedResponse(),
+      reviewSetExpectation: 'scope_handoff',
+    });
+
+    expect(report.success).toBe(false);
+    expect(report.scopeHandoffExecutor).toMatchObject({
+      checkStatus: 'blocked',
+      readyScopeSliceCount: 0,
+      criterionTargetCount: 0,
+    });
+    expect(report.friction).toContain(
+      'Committed scope handoff is blocked by executor plan checks: requirement_without_criterion, scope_without_criterion.',
+    );
   });
 });
