@@ -66,14 +66,16 @@ export function createLiveAskRegistry(): LiveAskRegistry {
     }
     return new Promise<string | undefined>((resolve) => {
       pending.set(exchangeId, ask ? { resolve, ask } : { resolve });
-    }).finally(() => {
-      pending.delete(exchangeId);
     });
   }
 
   function settle(exchangeId: string, state: 'answered' | 'cancelled', answer: string | undefined): void {
     const entry = pending.get(exchangeId);
     if (!entry) return;
+    // Transition synchronously so a read taken right after submit/cancel already
+    // reflects the terminal state; a client must never see an answered ask still
+    // listed as open.
+    pending.delete(exchangeId);
     terminal.set(exchangeId, state);
     entry.resolve(answer);
   }

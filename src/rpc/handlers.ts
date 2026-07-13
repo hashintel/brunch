@@ -22,6 +22,7 @@ import {
   sessionExchangeAnswerRpcMethods,
   type SessionExchangeAnswerHandle,
 } from './methods/session-exchange-answer.js';
+import { sessionOpenAsksRpcMethods, type SessionOpenAsksHandle } from './methods/session-open-asks.js';
 import { sessionRpcMethods } from './methods/session.js';
 import { workspaceRpcMethods } from './methods/workspace.js';
 import { createProductUpdateNotification, type ProductUpdatePublisher } from './product-updates.js';
@@ -52,11 +53,13 @@ export function createWebSidecarRpcHandlers(options: {
   productUpdates?: ProductUpdatePublisher;
   sessionTurnDriver?: SessionTurnDriver;
   sessionExchangeAnswer?: SessionExchangeAnswerHandle;
+  sessionOpenAsks?: SessionOpenAsksHandle;
 }): RpcHandlers {
   const registry = [
     ...READ_ONLY_RPC_METHOD_REGISTRY,
     ...(options.sessionTurnDriver ? sessionDriverRpcMethods : []),
     ...(options.sessionExchangeAnswer ? sessionExchangeAnswerRpcMethods : []),
+    ...(options.sessionOpenAsks ? sessionOpenAsksRpcMethods : []),
   ];
   return createRpcHandlersForRegistry(options, registry);
 }
@@ -76,6 +79,7 @@ function createRpcHandlersForRegistry(
     productUpdates?: ProductUpdatePublisher;
     sessionTurnDriver?: SessionTurnDriver;
     sessionExchangeAnswer?: SessionExchangeAnswerHandle;
+    sessionOpenAsks?: SessionOpenAsksHandle;
   },
   registryDefinitions: RpcMethodRegistry<RpcMethodContext>,
 ): RpcHandlers {

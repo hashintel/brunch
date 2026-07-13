@@ -33,6 +33,7 @@ import {
 } from '../graph/index.js';
 import type { SessionTurnDriver } from '../rpc/methods/session-driver.js';
 import type { SessionExchangeAnswerHandle } from '../rpc/methods/session-exchange-answer.js';
+import type { SessionOpenAsksHandle } from '../rpc/methods/session-open-asks.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rpc/product-updates.js';
 import { createSessionEventRelay, type SessionEventRelay } from '../rpc/session-event-relay.js';
 import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
@@ -92,6 +93,7 @@ interface BrunchWebSidecarRunnerOptions {
   sessionEvents: SessionEventRelay;
   sessionTurnDriver?: SessionTurnDriver;
   sessionExchangeAnswer?: SessionExchangeAnswerHandle;
+  sessionOpenAsks?: SessionOpenAsksHandle;
   routePath: string;
 }
 
@@ -197,6 +199,7 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
     sessionEvents,
     sessionTurnDriver,
     sessionExchangeAnswer: { answerer: liveExchange.answerer },
+    sessionOpenAsks: { reader: liveExchange.reader },
     routePath,
   });
   const webSidecarUrl = webSidecar ? `${webSidecar.url}${routePath}` : null;
@@ -718,6 +721,7 @@ async function startDefaultWebSidecar({
   sessionEvents,
   sessionTurnDriver,
   sessionExchangeAnswer,
+  sessionOpenAsks,
 }: BrunchWebSidecarRunnerOptions): Promise<BrunchWebSidecar> {
   const host = await startWebHost({
     cwd,
@@ -726,6 +730,7 @@ async function startDefaultWebSidecar({
     sessionEvents,
     ...(sessionTurnDriver ? { sessionTurnDriver } : {}),
     ...(sessionExchangeAnswer ? { sessionExchangeAnswer } : {}),
+    ...(sessionOpenAsks ? { sessionOpenAsks } : {}),
   });
   return host;
 }
