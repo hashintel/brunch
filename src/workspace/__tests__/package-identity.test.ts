@@ -38,7 +38,7 @@ describe('package identity', () => {
   it('exposes exactly one bin command, brunch, with no brunch-cli or brunch-next alias', () => {
     const pkg = readPackageJson();
     expect(Object.keys(pkg.bin)).toEqual(['brunch']);
-    expect(pkg.bin['brunch']).toBe('./bin/brunch.js');
+    expect(pkg.bin['brunch']).toBe('bin/brunch.js');
   });
 
   it('ships an executable bin shim at the declared path', () => {
