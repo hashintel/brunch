@@ -51,6 +51,7 @@ const runDetail: RunDetail = {
   agentStreamTotal: 0,
   verifyStreamTail: [],
   verifyStreamTotal: 0,
+  sliceStreamInventory: [],
   sliceProgress: [{ sliceId: 's1', progress: 'started -> requested' }],
   requirements: [],
 };

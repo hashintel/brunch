@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
 
 import { ingestAgentResult } from './agent-result.js';
-import type { AgentStreamEvent } from './agent-result.js';
 import { executeEpicLifecycleStep } from './epic-lifecycle.js';
 import type { AgentRunnerRuntime, ExecutionPorts } from './execution-ports.js';
+import type { AgentStreamEvent, VerifyStreamEvent } from './isolated-slice-operations.js';
 import {
   attemptExhaustedTransitionId,
   attemptRetryTransitionId,
@@ -24,6 +24,7 @@ import {
   type SchedulerPlan,
 } from './orchestrate-topology.js';
 import type { PetriMarkingSnapshot } from './petri-marking.js';
+import type { ParallelSliceBatchSnapshot } from './petri-marking.js';
 import { replayTransitionHistory } from './petri-replay.js';
 import { exportPetri } from './petri.js';
 import { populatedPlanPath, populateWorktree } from './populate.js';
@@ -38,7 +39,6 @@ import { startSlice } from './slice-start.js';
 import { copyHostSource } from './source-copy.js';
 import { selectSourcePolicy, type SourcePolicyKind } from './source-policy.js';
 import { ingestTestResult } from './test-result.js';
-import type { VerifyStreamEvent } from './test-result.js';
 import { createWorktree } from './worktree.js';
 
 export interface ExecutorPetriRuntime {
@@ -229,20 +229,26 @@ function completedSliceHistoryIsValid(
 export function materializeExecutorPetriRuntime(
   state: RunMetadata,
   plan: SchedulerPlan | undefined,
+  authority?: {
+    readonly currentMarking: Record<string, number>;
+    readonly parallelSliceBatch?: ParallelSliceBatchSnapshot;
+  },
 ): ExecutorPetriRuntime {
   const topology = compileExecutorTopology(plan);
-  const currentMarking = materializeCurrentMarking(topology, state, plan);
-  const enabledTransitions = topology.transitions.filter(
-    (transition): transition is ExecutableExecutorTransition =>
-      transition.step !== undefined && isPetriTransitionEnabled(transition, currentMarking, state, plan),
-  );
+  const currentMarking = authority?.currentMarking ?? materializeCurrentMarking(topology, state, plan);
+  const enabledTransitions = authority?.parallelSliceBatch
+    ? []
+    : topology.transitions.filter(
+        (transition): transition is ExecutableExecutorTransition =>
+          transition.step !== undefined && isPetriTransitionEnabled(transition, currentMarking, state, plan),
+      );
 
   return {
     topology,
     currentMarking,
     enabledTransitions,
     readySteps: enabledTransitions.map((transition) => transition.step),
-    blockedSteps: blockedExecutorSteps(state, plan),
+    blockedSteps: blockedExecutorSteps(state, plan, authority),
     transitionForReadyStep(step) {
       return enabledTransitions.find((transition) => readyStepsEqual(transition.step, step));
     },
@@ -356,7 +362,37 @@ function derivedFromForSlice(
   return plan?.slices?.find((slice) => slice.id === sliceId)?.derived_from;
 }
 
-function blockedExecutorSteps(state: RunMetadata, plan: SchedulerPlan | undefined): readonly BlockedStep[] {
+function blockedExecutorSteps(
+  state: RunMetadata,
+  plan: SchedulerPlan | undefined,
+  authority?: {
+    readonly currentMarking: Record<string, number>;
+    readonly parallelSliceBatch?: ParallelSliceBatchSnapshot;
+  },
+): readonly BlockedStep[] {
+  if (authority?.parallelSliceBatch) {
+    const batch = authority.parallelSliceBatch;
+    return batch.claimedSliceIds.map((sliceId) => {
+      const slice = plan?.slices?.find((candidate) => candidate.id === sliceId);
+      return {
+        kind: 'slice_start',
+        sliceId,
+        ...(slice?.epic_id === undefined ? {} : { epicId: slice.epic_id }),
+        ...(slice?.derived_from === undefined ? {} : { derivedFrom: slice.derived_from }),
+        blockers: [
+          {
+            kind: 'parallel_authority',
+            state: parallelSliceAuthorityState(
+              sliceId,
+              authority.currentMarking,
+              batch,
+              state.completedSliceIds ?? [],
+            ),
+          },
+        ],
+      };
+    });
+  }
   const activeSliceId = inFlightSliceId(state, plan);
   if (activeSliceId) {
     return readyPlanSliceIds(plan, state.completedSliceIds ?? [], state.completedEpicIds ?? [])
@@ -376,6 +412,23 @@ function blockedExecutorSteps(state: RunMetadata, plan: SchedulerPlan | undefine
   return state.status === 'reports_initialized' || state.status === 'slice_completed'
     ? blockedPlanSliceSteps(plan, state.completedSliceIds ?? [], state.completedEpicIds ?? [])
     : [];
+}
+
+function parallelSliceAuthorityState(
+  sliceId: string,
+  marking: Record<string, number>,
+  batch: ParallelSliceBatchSnapshot,
+  completedSliceIds: readonly string[],
+): 'claimed' | 'running' | 'succeeded_unintegrated' | 'failed' | 'integrated' {
+  const settlement = batch.settlements.find((candidate) => candidate.sliceId === sliceId);
+  if (settlement?.status === 'failed') return 'failed';
+  if (completedSliceIds.includes(sliceId)) return 'integrated';
+  if (settlement?.status === 'succeeded') return 'succeeded_unintegrated';
+  const running = Object.entries(marking).some(
+    ([placeId, count]) =>
+      count > 0 && placeId.startsWith(`slice:${sliceId}:`) && placeId.includes('_attempt:'),
+  );
+  return running ? 'running' : 'claimed';
 }
 
 function materializeCurrentMarking(

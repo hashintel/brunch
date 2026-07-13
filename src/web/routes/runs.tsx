@@ -548,7 +548,9 @@ function describeBlockedStep(step: NonNullable<RunDetail['petriBlockedSteps']>[n
         ? blocker.sliceId
         : blocker.kind === 'epic_dependency'
           ? `epic ${blocker.epicId}`
-          : `active slice ${blocker.sliceId}`,
+          : blocker.kind === 'parallel_authority'
+            ? `parallel ${blocker.state}`
+            : `active slice ${blocker.sliceId}`,
     )
     .join(', ')}`;
 }

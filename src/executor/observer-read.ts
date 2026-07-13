@@ -2,7 +2,8 @@ import { access, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { BRUNCH_DIR } from '../constants.js';
-import { agentStreamPath, type AgentStreamEvent } from './agent-result.js';
+import { agentStreamPath } from './agent-result.js';
+import type { AgentStreamEvent, VerifyStreamEvent } from './isolated-slice-operations.js';
 import type { BlockedStep, ExecutorNetEvent, ReadyStep, SchedulerPlan } from './orchestrate-topology.js';
 import { parsePetriEvent, petriEventsPath } from './petri-events.js';
 import {
@@ -22,7 +23,7 @@ import { resolvePetrinautUrl } from './petrinaut/launcher-url.js';
 import { reducePetrinautReplayExport, type PetrinautReplayExport } from './petrinaut/replay-export.js';
 import { parseSdcpnFile, type SdcpnFile } from './petrinaut/sdcpn.js';
 import { readRunMetadata, runDirPath, runMetadataPath, type RunMetadata } from './run.js';
-import { verifyStreamPath, type VerifyStreamEvent } from './test-result.js';
+import { verifyStreamPath } from './test-result.js';
 
 export interface RunPresence {
   readonly worktree: boolean;
@@ -80,6 +81,13 @@ export interface RunSliceProgress {
   readonly progress: string;
 }
 
+export interface RunSliceStreamInventory {
+  readonly sliceId: string;
+  readonly state: 'claimed' | 'running' | 'succeeded_unintegrated' | 'failed' | 'integrated';
+  readonly agentAttempts: readonly number[];
+  readonly verifyAttempts: readonly number[];
+}
+
 export type PetriProjectionSource = 'snapshot' | 'replay';
 export type PetriProjectionReplayReason = 'snapshot_missing_or_unreadable' | 'snapshot_stale';
 
@@ -99,6 +107,7 @@ export interface RunDetail extends RunSummary {
   readonly agentStreamTotal: number;
   readonly verifyStreamTail: readonly VerifyStreamEvent[];
   readonly verifyStreamTotal: number;
+  readonly sliceStreamInventory: readonly RunSliceStreamInventory[];
   readonly sliceProgress: readonly RunSliceProgress[];
   readonly requirements: readonly RunRequirementStatus[];
   /** Raw parsed petrinaut/net.json — deliberately unshaped (frontier: raw view only). */
@@ -187,8 +196,6 @@ export async function readRunDetail(
   const verifyStreamLimit = options?.verifyStreamTailLimit ?? DEFAULT_VERIFY_STREAM_TAIL_LIMIT;
   const reports = await readReportsTail(reportsFilePath(cwd, runId, metadata), limit);
   const petriEvents = await readPetriEvents(petriEventsPath(cwd, runId), petriEventsLimit);
-  const agentStream = await readAgentStreamTail(cwd, runId, metadata, agentStreamLimit);
-  const verifyStream = await readVerifyStreamTail(cwd, runId, metadata, verifyStreamLimit);
   const petriRuntimePlan = await readPetriRuntimePlan(cwd, metadata);
   let petriRuntime: ReturnType<typeof materializeExecutorPetriRuntime> | undefined;
   try {
@@ -235,6 +242,29 @@ export async function readRunDetail(
             petriMarkingSnapshot === undefined ? 'snapshot_missing_or_unreadable' : 'snapshot_stale',
         })
       : undefined);
+  let observedPetriRuntime = petriRuntime;
+  if (hasMatchingPetriMarkingSnapshot && petriMarkingSnapshot.parallelSliceBatch) {
+    try {
+      observedPetriRuntime = materializeExecutorPetriRuntime(metadata, petriRuntimePlan, {
+        currentMarking: petriMarkingSnapshot.currentMarking,
+        parallelSliceBatch: petriMarkingSnapshot.parallelSliceBatch,
+      });
+    } catch {
+      observedPetriRuntime = undefined;
+    }
+  }
+  const authoritySliceIds =
+    hasMatchingPetriMarkingSnapshot && petriMarkingSnapshot.parallelSliceBatch
+      ? petriMarkingSnapshot.parallelSliceBatch.claimedSliceIds
+      : undefined;
+  const agentStream = await readAgentStreamTail(cwd, runId, metadata, agentStreamLimit, authoritySliceIds);
+  const verifyStream = await readVerifyStreamTail(cwd, runId, metadata, verifyStreamLimit, authoritySliceIds);
+  const sliceStreamInventory = await readSliceStreamInventory(
+    cwd,
+    runId,
+    authoritySliceIds ?? [],
+    observedPetriRuntime?.blockedSteps ?? [],
+  );
   return {
     ...summary,
     planPath: metadata.planPath,
@@ -242,11 +272,11 @@ export async function readRunDetail(
     reportsTotal: reports.total,
     petriEventsTail: petriEvents.tail,
     petriEventsTotal: petriEvents.total,
-    ...(petriRuntime === undefined
+    ...(observedPetriRuntime === undefined
       ? {}
       : {
-          petriReadySteps: petriRuntime.readySteps,
-          petriBlockedSteps: petriRuntime.blockedSteps,
+          petriReadySteps: observedPetriRuntime.readySteps,
+          petriBlockedSteps: observedPetriRuntime.blockedSteps,
         }),
     ...(petriProjectionEntry === undefined
       ? {}
@@ -264,6 +294,7 @@ export async function readRunDetail(
     agentStreamTotal: agentStream.total,
     verifyStreamTail: verifyStream.tail,
     verifyStreamTotal: verifyStream.total,
+    sliceStreamInventory,
     sliceProgress: groupSliceProgress(reports.events),
     requirements: await readRequirementStatuses(
       metadata.populatedPlanPath ?? metadata.planPath,
@@ -499,6 +530,7 @@ async function readVerifyStreamTail(
   runId: string,
   metadata: RunMetadata,
   limit: number,
+  sliceIds?: readonly string[],
 ): Promise<{ tail: readonly VerifyStreamEvent[]; total: number }> {
   const events = await readStreamEvents<VerifyStreamEvent>(
     cwd,
@@ -507,6 +539,7 @@ async function readVerifyStreamTail(
     'verify_stream',
     verifyStreamPath,
     'verify',
+    sliceIds,
   );
   return { tail: events.slice(-limit), total: events.length };
 }
@@ -819,8 +852,13 @@ async function readAgentStreamTail(
   runId: string,
   metadata: RunMetadata,
   limit: number,
+  sliceIds?: readonly string[],
 ): Promise<{ tail: readonly AgentStreamEvent[]; total: number }> {
-  if (!metadata.activeSliceId && (!metadata.completedSliceIds || metadata.completedSliceIds.length === 0)) {
+  if (
+    !sliceIds?.length &&
+    !metadata.activeSliceId &&
+    (!metadata.completedSliceIds || metadata.completedSliceIds.length === 0)
+  ) {
     return { tail: [], total: 0 };
   }
   const events = await readStreamEvents<AgentStreamEvent>(
@@ -830,6 +868,7 @@ async function readAgentStreamTail(
     'agent_stream',
     agentStreamPath,
     'agent',
+    sliceIds,
   );
   return { tail: events.slice(-limit), total: events.length };
 }
@@ -841,11 +880,16 @@ async function readStreamEvents<T extends { readonly event: string }>(
   eventName: T['event'],
   pathFor: (cwd: string, runId: string, sliceId: string, attempt?: number) => string,
   stage: 'agent' | 'verify',
+  authoritySliceIds?: readonly string[],
 ): Promise<readonly T[]> {
-  if (!metadata.activeSliceId && (!metadata.completedSliceIds || metadata.completedSliceIds.length === 0)) {
+  if (
+    !authoritySliceIds?.length &&
+    !metadata.activeSliceId &&
+    (!metadata.completedSliceIds || metadata.completedSliceIds.length === 0)
+  ) {
     return [];
   }
-  const sliceIds = [
+  const sliceIds = authoritySliceIds ?? [
     ...(metadata.completedSliceIds ?? []),
     ...(metadata.activeSliceId && !(metadata.completedSliceIds ?? []).includes(metadata.activeSliceId)
       ? [metadata.activeSliceId]
@@ -853,12 +897,55 @@ async function readStreamEvents<T extends { readonly event: string }>(
   ];
   const events: T[] = [];
   for (const sliceId of sliceIds) {
-    const attempts = streamArtifactAttemptCount(metadata, sliceId, stage);
-    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const attempts = authoritySliceIds
+      ? await streamArtifactAttempts(cwd, runId, sliceId, stage)
+      : Array.from({ length: streamArtifactAttemptCount(metadata, sliceId, stage) }, (_, index) => index + 1);
+    for (const attempt of attempts) {
       events.push(...(await readStreamFile<T>(pathFor(cwd, runId, sliceId, attempt), eventName)));
     }
   }
   return events;
+}
+
+async function streamArtifactAttempts(
+  cwd: string,
+  runId: string,
+  sliceId: string,
+  stage: 'agent' | 'verify',
+): Promise<readonly number[]> {
+  try {
+    const entries = await readdir(join(runDirPath(cwd, runId), 'streams', sliceId));
+    const pattern = new RegExp(`^${stage}-attempt-(\\d+)\\.jsonl$`, 'u');
+    return entries
+      .flatMap((entry) => {
+        const match = pattern.exec(entry);
+        return match?.[1] ? [Number(match[1])] : [];
+      })
+      .sort((left, right) => left - right);
+  } catch {
+    return [];
+  }
+}
+
+async function readSliceStreamInventory(
+  cwd: string,
+  runId: string,
+  sliceIds: readonly string[],
+  blockedSteps: readonly BlockedStep[],
+): Promise<readonly RunSliceStreamInventory[]> {
+  return Promise.all(
+    sliceIds.map(async (sliceId) => {
+      const blocker = blockedSteps
+        .find((step) => step.sliceId === sliceId)
+        ?.blockers.find((reason) => reason.kind === 'parallel_authority');
+      return {
+        sliceId,
+        state: blocker?.kind === 'parallel_authority' ? blocker.state : 'claimed',
+        agentAttempts: await streamArtifactAttempts(cwd, runId, sliceId, 'agent'),
+        verifyAttempts: await streamArtifactAttempts(cwd, runId, sliceId, 'verify'),
+      };
+    }),
+  );
 }
 
 function streamArtifactAttemptCount(

@@ -1,5 +1,6 @@
 import { appendFile } from 'node:fs/promises';
 
+import { sliceCompletionReport } from './isolated-slice-operations.js';
 import { reportsPath } from './report.js';
 import { runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
@@ -62,13 +63,11 @@ export async function completeSlice(args: {
   const completedSliceIds = Array.from(
     new Set([...(metadata.completedSliceIds ?? []), metadata.activeSliceId]),
   );
-  const event = {
-    event: 'slice_completed',
+  const event = sliceCompletionReport({
     runId: args.runId,
     ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
     sliceId: metadata.activeSliceId,
-    status: 'slice_completed',
-  };
+  });
   const updated: RunMetadata = { ...metadata, status: 'slice_completed', completedSliceIds };
 
   await appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8');

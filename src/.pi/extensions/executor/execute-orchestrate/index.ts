@@ -1,8 +1,8 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import type { AgentStreamEvent } from '../../../../executor/agent-result.js';
 import type { ExecutionPorts } from '../../../../executor/execution-ports.js';
+import type { AgentStreamEvent, VerifyStreamEvent } from '../../../../executor/isolated-slice-operations.js';
 import { readRunDetail } from '../../../../executor/observer-read.js';
 import {
   drive,
@@ -11,7 +11,6 @@ import {
   type DriveOutcome,
   type DriveStepProgress,
 } from '../../../../executor/orchestrate.js';
-import type { VerifyStreamEvent } from '../../../../executor/test-result.js';
 import {
   executeRunProductUpdateHintsFromDetail,
   executeRunProductUpdates,

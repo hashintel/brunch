@@ -1,7 +1,7 @@
 # Petri execution parity review remediation
 
 Frontier: petri-execution-parity
-Status:   active
+Status:   done
 Mode:     slices
 Created:  2026-07-13
 
@@ -112,7 +112,7 @@ src/executor/
 
 ## Slice 3 — Lifecycle depth and observers
 
-Status: queued
+Status: done
 Weight: full
 
 ### Target Behavior
@@ -130,6 +130,18 @@ Serial and parallel execution share one isolated-slice lifecycle core, and obser
 
 - Inner: lifecycle parity and observer reconnect tests.
 - Gate: `npm run verify` and `npm run check`.
+
+### Completion Report
+
+| Leaf | Outcome | Evidence |
+| --- | --- | --- |
+| Accepted marking owns active-batch readiness | met | Claimed/running/unintegrated/mixed-failed/all-failed barrier tests show `petriReadySteps: []` and per-slice `parallel_authority` blockers; consumed claims never reappear ready. |
+| Batch stream inventory survives reconnect | met | `sliceStreamInventory` enumerates every claimed slice plus actual agent/verify attempt files; observer tests cover claimed, running, succeeded-unintegrated, failed, integrated, and all-failed states. |
+| RPC exposes the same active authority | met | `execute.run` RPC barrier test returns both running slices, authority blockers, stream tails, and attempt inventory while `run.json` remains serial. |
+| Serial and parallel share lifecycle mechanics | met | `isolated-slice-operations.ts` owns start/request, one agent/verify attempt, streams/reports, integration/completion, thrown reasons, and retry disposition; adapters retain metadata/authority sequencing. |
+| Artifact and vocabulary parity | met | Serial-vs-parallel parity test compares request bytes, agent streams, per-slice report sequence, verify artifacts, and attempt histories for two slices. |
+| Fractal boundary remains closed | met | `boundaries.test.ts` scans all `src/**` imports: only `parallel-slice-batch.ts` may import its private subtree; shared operations are a documented public executor module. |
+| Full gate and skip count | met | Executor/app/extension/RPC families and final `npm run verify`/`npm run check` pass; skipped-test delta is 0. |
 
 ### Expected touched paths (tentative)
 

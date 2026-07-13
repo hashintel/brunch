@@ -1,6 +1,7 @@
 import { appendFile } from 'node:fs/promises';
 
 import type { GitSliceIntegrateEffect, GitSliceIntegrationPort } from './execution-ports.js';
+import { integrateIsolatedSlice } from './isolated-slice-operations.js';
 import { readSliceVerificationVerdict } from './report-verdict.js';
 import { reportsPath } from './report.js';
 import { persistRunMetadata, readRunMetadata, runMetadataPath, type RunMetadata } from './run.js';
@@ -65,26 +66,18 @@ export async function integrateSlice(args: {
     };
   }
 
-  const result = await args.gitSliceIntegration.integrate({
+  const result = await integrateIsolatedSlice({
+    runId: args.runId,
+    sliceId: metadata.activeSliceId,
+    ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
     runWorktreeDir: metadata.worktreeDir,
     sliceWorktreeDir: metadata.activeSliceWorkspaceDir,
-    sliceId: metadata.activeSliceId,
     baseSha: metadata.activeSliceBaseSha,
+    gitSliceIntegration: args.gitSliceIntegration,
+    recordReport: (event) => appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8'),
   });
   if (result.status !== 'integrated') {
     const status = result.status === 'conflict' ? 'slice_integration_conflict' : 'slice_integration_failed';
-    await appendFile(
-      reportPath,
-      `${JSON.stringify({
-        event: status,
-        runId: args.runId,
-        epicId: metadata.activeEpicId,
-        sliceId: metadata.activeSliceId,
-        status,
-        message: result.message,
-      })}\n`,
-      'utf8',
-    );
     return {
       status,
       runStatus: 'test_result_ingested',
@@ -93,19 +86,6 @@ export async function integrateSlice(args: {
     };
   }
 
-  await appendFile(
-    reportPath,
-    `${JSON.stringify({
-      event: 'slice_integrated',
-      runId: args.runId,
-      epicId: metadata.activeEpicId,
-      sliceId: metadata.activeSliceId,
-      status: 'slice_integrated',
-      sliceCommitSha: result.sliceCommitSha,
-      integrationCommitSha: result.integrationCommitSha,
-    })}\n`,
-    'utf8',
-  );
   const metadataEffect = await persistRunMetadata(metadataPath, {
     ...metadata,
     status: 'slice_integrated',

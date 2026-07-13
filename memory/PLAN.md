@@ -386,7 +386,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Name:** Petri execution parity — isolated slice fan-in and epic integration
 - **Linear:** [FE-1195](https://linear.app/hash/issue/FE-1195/petri-execution-parity-isolated-slice-fan-in-and-epic-integration)
 - **Branch:** `ka/fe-1195-petri-execution-parity` (off `next`; FE-1192 is merged)
-- **Status:** reopened on PR #325 after `ln-review`; review-remediation scope active.
+- **Status:** ✓ review remediation complete on branch; all three remediation slices have leaf evidence and full gates green.
 - **Kind:** structural — per-slice side-effect isolation, explicit integration, and epic lifecycle semantics.
 - **Certainty:** proving.
 - **Depends on:** FE-1192's merged attempt identity and bounded-retry facts; FE-1190's frozen-definition live stream; FE-1166's run-environment substrate policy.
@@ -400,7 +400,8 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Strict-review closure (2026-07-13):** restart refusal now precedes every lifecycle/epic dispatch (including final-summary-before-batch-clear); parallel authority persists per-slice success/failure settlements incrementally and integrates eligible clean siblings in claimed order without waiting for later blocked effects; reused slice workspaces must be registered linked worktrees of the same run repository with matching base identity before any agent effect.
 - **Unified execution authority (2026-07-13):** D124-L now serializes same-process callers by canonical run identity across the full drive while preserving cross-run overlap; epic verification has durable claim/replay/catch-up ordering; thrown parallel external effects settle durably per slice while carrier failures remain fail-closed. D123-L remains limited to concurrent isolated slice truth.
 - **Canonical execution model (2026-07-13):** D125-L projects authored graph frontiers/dependencies/verification into epics, preserves uncomposed requirements as orphan slices, rejects multiple membership and zero-member epics, gates dependent readiness on persisted epic completion, and reconciles exact epic transition order from journal truth.
-- **Current execution pointer:** [`memory/cards/petri-execution-parity--review-remediation.md`](cards/petri-execution-parity--review-remediation.md) — authority, topology/model, and lifecycle-depth review remediation.
+- **Lifecycle depth and observers (2026-07-13):** serial and parallel adapters share `isolated-slice-operations.ts`; active-batch readiness comes from accepted marking, and per-claimed-slice attempt inventory survives reconnect/RPC across claimed, running, failed, integrated, and unintegrated states. The private batch subtree remains importable only through its root facade.
+- **Current execution pointer:** [`memory/cards/petri-execution-parity--review-remediation.md`](cards/petri-execution-parity--review-remediation.md) — all review-remediation slices complete.
 - **Explicitly out:** split-process delivery; semantic/review lanes beyond epic verification; geolog coupling. Durable parallel slice authority is now in scope under D123-L because this frontier proved serial authority is the binding constraint.
 - **Traceability:** D112-L (set-returning scheduler + `frontierFiringPolicy`), D123-L (bounded durable parallel slice authority), D124-L (same-process run admission + epic effect claims), D125-L (canonical authored execution model + journal order), FE-1166 substrate/verify policy, `docs/praxis/worktree-agents.md`, `src/executor/TOPOLOGY.md`.
 

@@ -1,11 +1,14 @@
-import type { AgentStreamEvent } from './agent-result.js';
 import type { AgentRunnerRuntime, ExecutionPorts } from './execution-ports.js';
+import {
+  sliceAttemptDisposition,
+  type AgentStreamEvent,
+  type VerifyStreamEvent,
+} from './isolated-slice-operations.js';
 import {
   attemptExhaustedTransitionId,
   attemptRetryTransitionId,
   attemptResetTransitionId,
   compileExecutorTopology,
-  SLICE_ATTEMPT_LIMIT,
   type ExecutorNetEvent,
   type ReadyStep,
   type SchedulerPlan,
@@ -39,7 +42,6 @@ import {
   type RunMetadata,
 } from './run.js';
 import type { SourcePolicyKind } from './source-policy.js';
-import type { VerifyStreamEvent } from './test-result.js';
 
 export { compileExecutorTopology };
 export type { ExecutorNetEvent, ReadyStep, SchedulerPlan, SchedulerPlanMode };
@@ -628,7 +630,7 @@ async function driveOwned(
               reason: 'petri_journal_append_failed',
             };
           }
-          if (result.attempts < SLICE_ATTEMPT_LIMIT) continue;
+          if (sliceAttemptDisposition(result.attempts) === 'retry') continue;
         }
         const terminal = classifyDriveTerminal({
           kind: 'step_halted',
@@ -887,7 +889,7 @@ async function emitAttemptMarkingTransition(args: {
 }): Promise<boolean> {
   const stage = args.step === 'agent_result' ? 'agent' : 'verify';
   const transitionId =
-    args.attempt < SLICE_ATTEMPT_LIMIT
+    sliceAttemptDisposition(args.attempt) === 'retry'
       ? attemptRetryTransitionId(stage, args.sliceId, args.attempt)
       : attemptExhaustedTransitionId(stage, args.sliceId);
   const transition = args.runtime.topology.transitions.find((candidate) => candidate.id === transitionId);

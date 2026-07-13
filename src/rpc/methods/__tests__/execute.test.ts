@@ -4,9 +4,18 @@ import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import {
+  createFakeGitHostPromotionPort,
+  createFakeGitLandPort,
+  createFakeGitSliceIntegrationPort,
+  createFakeGitWorktreePort,
+  createFakeTestRunnerPort,
+} from '../../../executor/__tests__/fake-ports.js';
+import type { ExecutionPorts } from '../../../executor/execution-ports.js';
 import type { ExecutorNetEvent } from '../../../executor/orchestrate-topology.js';
+import { drive, frontierFiringPolicy, petriScheduler } from '../../../executor/orchestrate.js';
 import { planFilePath, planProvenancePath } from '../../../executor/plan-file.js';
-import { runDirPath, runMetadataPath, type RunMetadata } from '../../../executor/run.js';
+import { createRun, runDirPath, runMetadataPath, type RunMetadata } from '../../../executor/run.js';
 import type { GraphEdge } from '../../../graph/schema/edges.js';
 import type { GraphNode } from '../../../graph/schema/nodes.js';
 import { createProductUpdatePublisher, type ProductUpdate } from '../../product-updates.js';
@@ -283,6 +292,77 @@ describe('execute.runs', () => {
 });
 
 describe('execute.run', () => {
+  it('returns active parallel authority readiness and stream inventory over RPC', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-parallel-authority-'));
+    await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
+    await writeFile(
+      planFilePath(cwd, '42'),
+      JSON.stringify({
+        mode: 'greenfield',
+        epics: [{ id: 'epic-1', depends_on: [], verification: [] }],
+        slices: ['task-1', 'task-2'].map((id) => ({
+          id,
+          epic_id: 'epic-1',
+          depends_on: [],
+          verification: [],
+        })),
+      }),
+      'utf8',
+    );
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
+    let entered = 0;
+    let bothEntered!: () => void;
+    const overlapping = new Promise<void>((resolve) => {
+      bothEntered = resolve;
+    });
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const ports: ExecutionPorts = {
+      gitWorktree: createFakeGitWorktreePort(),
+      gitSliceIntegration: createFakeGitSliceIntegrationPort(),
+      agentRunner: {
+        async run(args) {
+          await args.onUpdate?.({ kind: 'status', message: `rpc ${args.sliceId}` });
+          entered += 1;
+          if (entered === 2) bothEntered();
+          await released;
+          return { status: 'completed' };
+        },
+      },
+      testRunner: createFakeTestRunnerPort(),
+      gitLand: createFakeGitLandPort(),
+      gitHostPromotion: createFakeGitHostPromotionPort({}),
+    };
+    const driving = drive({ cwd, runId: 'run-1', ports }, petriScheduler, frontierFiringPolicy);
+    await overlapping;
+
+    const response = await method('execute.run').handle(
+      contextFor(cwd),
+      request('execute.run', { runId: 'run-1' }),
+    );
+    expect(response).toMatchObject({
+      result: {
+        petriReadySteps: [],
+        petriBlockedSteps: [
+          { sliceId: 'task-1', blockers: [{ kind: 'parallel_authority', state: 'running' }] },
+          { sliceId: 'task-2', blockers: [{ kind: 'parallel_authority', state: 'running' }] },
+        ],
+        agentStreamTail: [
+          { sliceId: 'task-1', message: 'rpc task-1' },
+          { sliceId: 'task-2', message: 'rpc task-2' },
+        ],
+        sliceStreamInventory: [
+          { sliceId: 'task-1', state: 'running', agentAttempts: [1], verifyAttempts: [] },
+          { sliceId: 'task-2', state: 'running', agentAttempts: [1], verifyAttempts: [] },
+        ],
+      },
+    });
+    release();
+    await driving;
+  });
+
   it('rejects malformed and traversal-shaped params', async () => {
     const definition = method('execute.run');
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-params-'));

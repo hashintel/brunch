@@ -62,6 +62,10 @@ export interface BlockedStep {
 export type BlockedStepReason =
   | { readonly kind: 'dependency'; readonly sliceId: string }
   | { readonly kind: 'epic_dependency'; readonly epicId: string }
+  | {
+      readonly kind: 'parallel_authority';
+      readonly state: 'claimed' | 'running' | 'succeeded_unintegrated' | 'failed' | 'integrated';
+    }
   | { readonly kind: 'active_slice'; readonly sliceId: string };
 
 /** The minimal plan projection the scheduler needs to resolve the slice frontier. */

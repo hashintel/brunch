@@ -1,10 +1,9 @@
-import type { AgentStreamEvent } from '../agent-result.js';
 import type { AgentRunnerRuntime, ExecutionPorts } from '../execution-ports.js';
+import type { AgentStreamEvent, VerifyStreamEvent } from '../isolated-slice-operations.js';
 import type { ReadyStep, SchedulerPlan } from '../orchestrate-topology.js';
 import type { DriveStepProgress } from '../orchestrate.js';
 import type { ExecutorPetriRuntime } from '../petri-runtime.js';
 import type { RunMetadata, SliceAttemptHistory } from '../run.js';
-import type { VerifyStreamEvent } from '../test-result.js';
 
 export interface ParallelSliceBatchContext {
   readonly cwd: string;

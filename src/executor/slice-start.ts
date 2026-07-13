@@ -1,5 +1,6 @@
 import { appendFile, readFile } from 'node:fs/promises';
 
+import { sliceStartReport } from './isolated-slice-operations.js';
 import {
   blockedPlanSliceSteps,
   readyPlanSliceIds,
@@ -113,13 +114,11 @@ export async function startSlice(args: {
   }
   assertSafeSliceId(slice.id);
 
-  const event = {
-    event: 'slice_started',
+  const event = sliceStartReport({
     runId: args.runId,
     ...(slice.epic_id === undefined ? {} : { epicId: slice.epic_id }),
     sliceId: slice.id,
-    status: 'slice_started',
-  };
+  });
   const { activeEpicId: _previousEpicId, ...metadataWithoutEpic } = metadata;
   const updated: RunMetadata = {
     ...metadataWithoutEpic,

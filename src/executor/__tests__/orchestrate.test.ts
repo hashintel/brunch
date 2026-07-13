@@ -1067,6 +1067,7 @@ describe('drive', () => {
     });
     const agentRunner: AgentRunnerPort = {
       async run(args) {
+        await args.onUpdate?.({ kind: 'status', message: `running ${args.sliceId}` });
         const events = await readPetriEvents(cwd);
         const snapshot = await readPetriMarkingSnapshot({ cwd, runId: 'run-1' });
         entryEvidence.push({
@@ -1125,6 +1126,17 @@ describe('drive', () => {
       status: 'reports_initialized',
     });
     await expect(readRunDetail(cwd, 'run-1')).resolves.toMatchObject({
+      petriReadySteps: [],
+      petriBlockedSteps: [
+        {
+          sliceId: 'task-1',
+          blockers: [{ kind: 'parallel_authority', state: 'running' }],
+        },
+        {
+          sliceId: 'task-2',
+          blockers: [{ kind: 'parallel_authority', state: 'running' }],
+        },
+      ],
       petriProjectionSource: 'snapshot',
       petriProjection: {
         currentMarking: {
@@ -1132,6 +1144,14 @@ describe('drive', () => {
           'slice:task-2:agent_attempt:1': 1,
         },
       },
+      agentStreamTail: [
+        expect.objectContaining({ sliceId: 'task-1', message: 'running task-1' }),
+        expect.objectContaining({ sliceId: 'task-2', message: 'running task-2' }),
+      ],
+      sliceStreamInventory: [
+        { sliceId: 'task-1', state: 'running', agentAttempts: [1], verifyAttempts: [] },
+        { sliceId: 'task-2', state: 'running', agentAttempts: [1], verifyAttempts: [] },
+      ],
     });
 
     releaseAgents();
@@ -1147,6 +1167,142 @@ describe('drive', () => {
       ...liveEvents.flatMap((event) => (event.kind === 'transition_fired' ? [event.transitionId] : [])),
       'run:finish',
     ]);
+  });
+
+  it('reports claimed slices as blocked before workspace preparation completes', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-parallel-claimed-observer-'));
+    await createRunAtCreated(cwd, ['task-1', 'task-2']);
+    let entered = 0;
+    let bothEntered!: () => void;
+    const claimed = new Promise<void>((resolve) => {
+      bothEntered = resolve;
+    });
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const base = createFakeGitSliceIntegrationPort();
+    const ports = fakePorts({
+      gitSliceIntegration: createFakeGitSliceIntegrationPort({
+        async prepare(args) {
+          entered += 1;
+          if (entered === 2) bothEntered();
+          await released;
+          return base.prepare(args);
+        },
+        integrate: (args) => base.integrate(args),
+      }),
+    });
+    const driving = drive({ cwd, runId: 'run-1', ports }, petriScheduler, frontierFiringPolicy);
+    await claimed;
+
+    await expect(readRunDetail(cwd, 'run-1')).resolves.toMatchObject({
+      petriReadySteps: [],
+      petriBlockedSteps: [
+        { sliceId: 'task-1', blockers: [{ kind: 'parallel_authority', state: 'claimed' }] },
+        { sliceId: 'task-2', blockers: [{ kind: 'parallel_authority', state: 'claimed' }] },
+      ],
+      sliceStreamInventory: [
+        { sliceId: 'task-1', state: 'claimed', agentAttempts: [], verifyAttempts: [] },
+        { sliceId: 'task-2', state: 'claimed', agentAttempts: [], verifyAttempts: [] },
+      ],
+    });
+    release();
+    await driving;
+  });
+
+  it('keeps succeeded-unintegrated batch streams visible while ordered integration is blocked', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-parallel-unintegrated-observer-'));
+    await createRunAtCreated(cwd, ['task-1', 'task-2']);
+    let integrationEntered!: () => void;
+    const integrating = new Promise<void>((resolve) => {
+      integrationEntered = resolve;
+    });
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const base = createFakeGitSliceIntegrationPort();
+    const ports = fakePorts({
+      agentRunner: {
+        async run(args) {
+          await args.onUpdate?.({ kind: 'status', message: `agent ${args.sliceId}` });
+          return { status: 'completed' };
+        },
+      },
+      testRunner: {
+        async run(args) {
+          await args.onUpdate?.({ kind: 'status', message: 'verify' });
+          return { status: 'completed', verdict: 'passed', exitCode: 0 };
+        },
+      },
+      gitSliceIntegration: createFakeGitSliceIntegrationPort({
+        prepare: (args) => base.prepare(args),
+        async integrate(args) {
+          if (args.sliceId === 'task-1') {
+            integrationEntered();
+            await released;
+          }
+          return base.integrate(args);
+        },
+      }),
+    });
+    const driving = drive({ cwd, runId: 'run-1', ports }, petriScheduler, frontierFiringPolicy);
+    await integrating;
+
+    await expect(readRunDetail(cwd, 'run-1')).resolves.toMatchObject({
+      petriReadySteps: [],
+      petriBlockedSteps: [
+        {
+          sliceId: 'task-1',
+          blockers: [{ kind: 'parallel_authority', state: 'succeeded_unintegrated' }],
+        },
+        {
+          sliceId: 'task-2',
+          blockers: [{ kind: 'parallel_authority', state: 'succeeded_unintegrated' }],
+        },
+      ],
+      sliceStreamInventory: [
+        { sliceId: 'task-1', state: 'succeeded_unintegrated', agentAttempts: [1], verifyAttempts: [1] },
+        { sliceId: 'task-2', state: 'succeeded_unintegrated', agentAttempts: [1], verifyAttempts: [1] },
+      ],
+    });
+    release();
+    await driving;
+  });
+
+  it('keeps every failed batch slice visible after terminal reconnect', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-parallel-all-failed-observer-'));
+    await createRunAtCreated(cwd, ['task-1', 'task-2']);
+    await drive(
+      {
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts({
+          agentRunner: {
+            async run(args) {
+              await args.onUpdate?.({ kind: 'status', message: `failed ${args.sliceId}` });
+              return { status: 'failed', message: 'failed' };
+            },
+          },
+        }),
+      },
+      petriScheduler,
+      frontierFiringPolicy,
+    );
+
+    await expect(readRunDetail(cwd, 'run-1')).resolves.toMatchObject({
+      petriReadySteps: [],
+      petriBlockedSteps: [
+        { sliceId: 'task-1', blockers: [{ kind: 'parallel_authority', state: 'failed' }] },
+        { sliceId: 'task-2', blockers: [{ kind: 'parallel_authority', state: 'failed' }] },
+      ],
+      sliceStreamInventory: [
+        { sliceId: 'task-1', state: 'failed', agentAttempts: [1, 2, 3], verifyAttempts: [] },
+        { sliceId: 'task-2', state: 'failed', agentAttempts: [1, 2, 3], verifyAttempts: [] },
+      ],
+      agentStreamTotal: 6,
+    });
   });
 
   it('keeps a successful sibling durable when an independent slice exhausts', async () => {
@@ -1401,6 +1557,17 @@ describe('drive', () => {
           { sliceId: 'task-2', status: 'succeeded' },
         ],
       },
+      petriReadySteps: [],
+      petriBlockedSteps: [
+        { sliceId: 'task-1', blockers: [{ kind: 'parallel_authority', state: 'failed' }] },
+        { sliceId: 'task-2', blockers: [{ kind: 'parallel_authority', state: 'integrated' }] },
+        { sliceId: 'task-3', blockers: [{ kind: 'parallel_authority', state: 'running' }] },
+      ],
+      sliceStreamInventory: [
+        { sliceId: 'task-1', state: 'failed' },
+        { sliceId: 'task-2', state: 'integrated' },
+        { sliceId: 'task-3', state: 'running' },
+      ],
     });
     await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
       completedSliceIds: ['task-2'],
@@ -3200,6 +3367,60 @@ describe('petriScheduler', () => {
       sourcePolicy: 'plan_only',
       promotionCommitSha: 'abc123',
     });
+  });
+
+  it('keeps serial and parallel isolated-slice artifacts and reports equivalent per slice', async () => {
+    const serial = await mkdtemp(join(tmpdir(), 'brunch-slice-core-parity-serial-'));
+    const parallel = await mkdtemp(join(tmpdir(), 'brunch-slice-core-parity-parallel-'));
+    await createRunAtCreated(serial, ['task-1', 'task-2']);
+    await createRunAtCreated(parallel, ['task-1', 'task-2']);
+    const parityPorts = () =>
+      fakePorts({
+        agentRunner: {
+          async run(args) {
+            await args.onUpdate?.({ kind: 'status', message: `agent ${args.sliceId}` });
+            return { status: 'completed', summary: `built ${args.sliceId}` };
+          },
+        },
+        testRunner: {
+          async run(args) {
+            await args.onUpdate?.({
+              kind: 'status',
+              message: `verify ${args.worktreeDir.split('/').at(-2)}`,
+            });
+            return { status: 'completed', verdict: 'passed', exitCode: 0, target: 'npm test' };
+          },
+        },
+      });
+    await drive({ cwd: serial, runId: 'run-1', ports: parityPorts() }, petriScheduler, serialFiringPolicy);
+    await drive(
+      { cwd: parallel, runId: 'run-1', ports: parityPorts() },
+      petriScheduler,
+      frontierFiringPolicy,
+    );
+
+    const serialReports = await readReportEvents(serial);
+    const parallelReports = await readReportEvents(parallel);
+    for (const sliceId of ['task-1', 'task-2']) {
+      await expect(readFile(sliceExecutionRequestPath(serial, 'run-1', sliceId), 'utf8')).resolves.toBe(
+        await readFile(sliceExecutionRequestPath(parallel, 'run-1', sliceId), 'utf8'),
+      );
+      await expect(readFile(agentStreamPath(serial, 'run-1', sliceId, 1), 'utf8')).resolves.toBe(
+        await readFile(agentStreamPath(parallel, 'run-1', sliceId, 1), 'utf8'),
+      );
+      expect(serialReports.filter((event) => (event as { sliceId?: string }).sliceId === sliceId)).toEqual(
+        parallelReports.filter((event) => (event as { sliceId?: string }).sliceId === sliceId),
+      );
+      expect(await readFile(verifyStreamPath(serial, 'run-1', sliceId, 1), 'utf8')).toContain(
+        '"event":"verify_stream"',
+      );
+      expect(await readFile(verifyStreamPath(parallel, 'run-1', sliceId, 1), 'utf8')).toContain(
+        '"event":"verify_stream"',
+      );
+    }
+    const serialMetadata = await readRunMetadata(runMetadataPath(serial, 'run-1'));
+    const parallelMetadata = await readRunMetadata(runMetadataPath(parallel, 'run-1'));
+    expect(parallelMetadata?.sliceAttemptHistory).toEqual(serialMetadata?.sliceAttemptHistory);
   });
 
   it('passes the full ready frontier through firing policy selection before each drive step', async () => {

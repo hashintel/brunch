@@ -1,7 +1,8 @@
-import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { appendFile, readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import type { GitSliceIntegrationPort } from './execution-ports.js';
+import { prepareIsolatedSlice } from './isolated-slice-operations.js';
 import { populatedPlanPath } from './populate.js';
 import { reportsPath } from './report.js';
 import {
@@ -109,23 +110,7 @@ export async function requestSliceExecution(args: {
     };
   }
   const sliceWorktreeDir = sliceWorkspacePath(args.cwd, args.runId, metadata.activeSliceId);
-  const workspace = await args.gitSliceIntegration.prepare({
-    runWorktreeDir,
-    sliceWorktreeDir,
-    sliceId: metadata.activeSliceId,
-  });
-  if (workspace.status === 'failed') {
-    return {
-      status: 'slice_workspace_failed',
-      runStatus: 'slice_started',
-      runId: args.runId,
-      sliceId: metadata.activeSliceId,
-      message: workspace.message,
-      sideEffects: [],
-    };
-  }
   const requestPath = sliceExecutionRequestPath(args.cwd, args.runId, metadata.activeSliceId);
-  const requestDir = dirname(requestPath);
   const sliceResult = await readPlanSlice({ cwd: args.cwd, metadata, sliceId: metadata.activeSliceId });
   if (sliceResult.status === 'invalid') {
     return {
@@ -139,29 +124,38 @@ export async function requestSliceExecution(args: {
     };
   }
   const slice = sliceResult.slice;
-  const request = {
+  const workspace = await prepareIsolatedSlice({
     runId: args.runId,
     sliceId: metadata.activeSliceId,
     ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
-    ...(slice?.scopeId ? { scopeId: slice.scopeId } : {}),
-    action: 'execute_slice',
-    status: 'requested',
-    ...(slice?.definition ? { definition: slice.definition } : {}),
-    ...(slice?.criteria ? { criteria: slice.criteria } : {}),
-    ...(slice?.derivedFrom ? { derivedFrom: slice.derivedFrom } : {}),
-    ...(slice?.designContext ? { designContext: slice.designContext } : {}),
-    ...(slice?.verificationContext ? { verificationContext: slice.verificationContext } : {}),
-    ...(slice?.criteria && slice.criteria.length > 0
-      ? { instruction: 'Make the minimum change that satisfies every criterion.' }
-      : {}),
-  };
-  const event = {
-    event: 'slice_execution_requested',
-    runId: args.runId,
-    ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
-    sliceId: metadata.activeSliceId,
-    status: 'slice_execution_requested',
-  };
+    runWorktreeDir,
+    sliceWorktreeDir,
+    requestPath,
+    requestContext: {
+      ...(slice?.scopeId ? { scopeId: slice.scopeId } : {}),
+      ...(slice?.definition ? { definition: slice.definition } : {}),
+      ...(slice?.criteria ? { criteria: slice.criteria } : {}),
+      ...(slice?.derivedFrom ? { derivedFrom: slice.derivedFrom } : {}),
+      ...(slice?.designContext ? { designContext: slice.designContext } : {}),
+      ...(slice?.verificationContext ? { verificationContext: slice.verificationContext } : {}),
+      ...(slice?.criteria && slice.criteria.length > 0
+        ? { instruction: 'Make the minimum change that satisfies every criterion.' }
+        : {}),
+    },
+    gitSliceIntegration: args.gitSliceIntegration,
+    recordReport: (event) => appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8'),
+  });
+  if (workspace.status === 'failed') {
+    return {
+      status: 'slice_workspace_failed',
+      runStatus: 'slice_started',
+      runId: args.runId,
+      sliceId: metadata.activeSliceId,
+      message: workspace.message,
+      sideEffects: [],
+    };
+  }
+  const requestDir = dirname(requestPath);
   const updated: RunMetadata = {
     ...metadata,
     status: 'slice_execution_requested',
@@ -170,9 +164,6 @@ export async function requestSliceExecution(args: {
     sliceExecutionRequestPath: requestPath,
   };
 
-  await mkdir(requestDir, { recursive: true });
-  await writeFile(requestPath, `${JSON.stringify(request, null, 2)}\n`, 'utf8');
-  await appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8');
   const metadataEffect = await persistRunMetadata(metadataPath, updated);
 
   return {
