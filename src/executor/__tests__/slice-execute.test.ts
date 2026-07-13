@@ -37,11 +37,14 @@ async function createSliceStartedRun(cwd: string): Promise<void> {
       slices: [
         {
           id: 'task-1',
+          scope_id: 'SCP1',
           epic_id: 'frontier-1',
           definition: 'Build the first task.',
           depends_on: [],
-          verification: [],
+          verification: [{ kind: 'criterion', target: 'Feature passes smoke.' }],
           derived_from: ['REQ1'],
+          design_context: [{ item_id: 'MOD1', content: 'Canvas route module' }],
+          verification_context: [{ item_id: 'CH1', content: 'Canvas smoke test' }],
         },
       ],
     }),
@@ -100,8 +103,15 @@ describe('requestSliceExecution', () => {
       runId: 'run-1',
       sliceId: 'task-1',
       epicId: 'frontier-1',
+      scopeId: 'SCP1',
       action: 'execute_slice',
       status: 'requested',
+      definition: 'Build the first task.',
+      criteria: [{ kind: 'criterion', target: 'Feature passes smoke.' }],
+      derivedFrom: ['REQ1'],
+      designContext: [{ itemId: 'MOD1', content: 'Canvas route module' }],
+      verificationContext: [{ itemId: 'CH1', content: 'Canvas smoke test' }],
+      instruction: 'Make the minimum change that satisfies every criterion.',
     });
     const reports = (await readFile(reportsPath(cwd, 'run-1'), 'utf8'))
       .trim()

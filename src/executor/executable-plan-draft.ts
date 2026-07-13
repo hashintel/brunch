@@ -4,6 +4,13 @@ export interface ExecutablePlanDraftVerificationTarget {
   readonly kind: 'criterion';
   readonly target: string;
   readonly criterionId: string;
+  readonly verifies?: readonly string[];
+}
+
+export interface ExecutablePlanDraftRequirement {
+  readonly itemId: string;
+  readonly title: string;
+  readonly content: string;
 }
 
 export interface ExecutablePlanDraftSlice {
@@ -11,8 +18,21 @@ export interface ExecutablePlanDraftSlice {
   readonly epicId: string;
   readonly title: string;
   readonly definition: string;
+  readonly scopeId?: string;
   readonly requirementId: string;
+  readonly requirementIds: readonly string[];
+  readonly requirements?: readonly ExecutablePlanDraftRequirement[];
   readonly dependsOn: readonly string[];
+  readonly designContext: readonly {
+    readonly itemId: string;
+    readonly title: string;
+    readonly content: string;
+  }[];
+  readonly verificationContext: readonly {
+    readonly itemId: string;
+    readonly title: string;
+    readonly content: string;
+  }[];
   readonly verification: readonly ExecutablePlanDraftVerificationTarget[];
 }
 
@@ -39,23 +59,62 @@ export function draftExecutablePlan(outline: ExecutionPlanOutline): ExecutablePl
     sliceIds: frontier.tasks.map((task) => task.id),
     dependsOn: [],
   }));
+  const taskIdByRequirement = new Map(
+    outline.frontiers.flatMap((frontier) =>
+      frontier.tasks.flatMap((task) => {
+        const requirementIds =
+          task.requirementIds && task.requirementIds.length > 0 ? task.requirementIds : [task.requirementId];
+        return requirementIds.map((requirementId) => [requirementId, task.id] as const);
+      }),
+    ),
+  );
   const slices = outline.frontiers.flatMap((frontier) => {
-    const taskIdByRequirement = new Map(
-      frontier.tasks.map((frontierTask) => [frontierTask.requirementId, frontierTask.id]),
-    );
-    return frontier.tasks.map((task) => ({
-      id: task.id,
-      epicId: frontier.id,
-      title: task.title,
-      definition: task.summary,
-      requirementId: task.requirementId,
-      dependsOn: task.dependsOn.flatMap((requirementId) => taskIdByRequirement.get(requirementId) ?? []),
-      verification: task.acceptanceCriteria.map((criterion) => ({
-        kind: 'criterion' as const,
-        criterionId: criterion.criterionId,
-        target: criterion.content,
-      })),
-    }));
+    return frontier.tasks.map((task) => {
+      const requirementIds =
+        task.requirementIds && task.requirementIds.length > 0 ? task.requirementIds : [task.requirementId];
+      return {
+        id: task.id,
+        epicId: frontier.id,
+        title: task.title,
+        definition: task.summary,
+        ...(task.scopeId ? { scopeId: task.scopeId } : {}),
+        requirementId: task.requirementId,
+        requirementIds,
+        ...(task.requirements && task.requirements.length > 0
+          ? {
+              requirements: task.requirements.map((requirement) => ({
+                itemId: requirement.itemId,
+                title: requirement.title,
+                content: requirement.content,
+              })),
+            }
+          : {}),
+        dependsOn: [
+          ...new Set(
+            task.dependsOn.flatMap((requirementId) => {
+              const dependencyTaskId = taskIdByRequirement.get(requirementId);
+              return dependencyTaskId === undefined || dependencyTaskId === task.id ? [] : [dependencyTaskId];
+            }),
+          ),
+        ],
+        designContext: (task.designContext ?? []).map((item) => ({
+          itemId: item.itemId,
+          title: item.title,
+          content: item.content,
+        })),
+        verificationContext: (task.verificationContext ?? []).map((item) => ({
+          itemId: item.itemId,
+          title: item.title,
+          content: item.content,
+        })),
+        verification: task.acceptanceCriteria.map((criterion) => ({
+          kind: 'criterion' as const,
+          criterionId: criterion.criterionId,
+          target: criterion.content,
+          ...(criterion.verifies && criterion.verifies.length > 0 ? { verifies: criterion.verifies } : {}),
+        })),
+      };
+    });
   });
 
   return {

@@ -49,6 +49,15 @@ describe('renderPlanMarkdownOutput', () => {
         title: 'Spec output',
         source: 'renderer-golden-coverage',
       },
+      {
+        ...base,
+        id: 5,
+        plane: 'plan',
+        kind: 'scope',
+        kindOrdinal: 1,
+        title: 'Scope handoff tracer',
+        body: 'Package reviewed specification truth into one executor handoff unit.',
+      },
     ];
 
     const rendered = renderPlanMarkdownOutput({ title: 'Widget Plan', nodes });

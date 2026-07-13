@@ -38,7 +38,8 @@ export const KIND_SECTION_LABEL: Record<NodeKind, string> = {
   sketch: 'Sketches',
   // plan
   milestone: 'Milestones',
-  frontier: 'Frontier',
+  frontier: 'Frontiers',
+  scope: 'Scopes',
 };
 
 // Section order: intent (editorial flow) → oracle → design → plan.
@@ -66,6 +67,7 @@ const DISPLAY_KIND_ORDER: readonly NodeKind[] = [
   'sketch',
   'milestone',
   'frontier',
+  'scope',
 ];
 
 export interface KindSection {

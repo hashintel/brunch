@@ -48,8 +48,8 @@ executor/
 ├── test-result.ts        run worktree + verify target -> verify subprocess (TestRunnerPort) -> slice test report + normalized verify stream artifact
 ├── worktree.ts           run metadata substrate -> git worktree (GitWorktreePort) or isolated empty dir
 ├── execution-ports.ts    injected capability ports (git worktree, agent runner, test runner, git land, host-promotion preflight)
-├── execution-spec-snapshot.ts   graph facts -> ExecutionSpecSnapshot v1, incl. executable requirement dependencies
-├── executable-plan-draft.ts     plan outline -> executable-plan draft DTO, incl. slice dependencies
+├── execution-spec-snapshot.ts   graph facts -> ExecutionSpecSnapshot v1, incl. executable requirement dependencies and scope handoff packages
+├── executable-plan-draft.ts     plan outline -> executable-plan draft DTO, incl. slice dependencies and scope/design/verification context
 ├── executable-plan-draft-artifact.ts executable-plan draft -> .brunch/execution-reports artifact
 ├── execute-plan-check.ts        ExecutionSpecSnapshot -> read-only plan-input findings
 ├── execute-plan-outline.ts      ExecutionSpecSnapshot -> side-effect-free plan outline
@@ -66,7 +66,7 @@ rules:
   executor/ x> db/, .pi/, app/, rpc/, web/ [no storage, adapter, transport, or UI effects]
 ```
 
-`ExecutionSpecSnapshot` is the durable projection seam between the spec/graph product and the native execute-mode orchestrator. Both `main`-derived imports and `next` graph reads can target this shape while their internal models continue to evolve. Requirement-to-requirement dependency edges are the only graph dependencies lowered into executable slice `depends_on`; dependency edges with non-requirement endpoints remain graph context/hygiene concerns and do not block executable plan production merely because the cook scheduler cannot represent them. Every helper advances run metadata with at most one explicit, declared side effect (I58-L): plan/outline artifact writers touch only `.brunch/execution-reports`; cook helpers write only the declared files under `.brunch/cook` or the run worktree described per module below; agent/test/promotion effects are delegated to injected ports; port failure leaves run metadata unadvanced. The only direct subprocess exception is `empty_dir` run-local git repository initialization in `worktree.ts`, bounded to the run worktree and recorded as the worktree-create side effect. No helper mutates the graph, and host mutation is limited to the accepted-SHA file apply in `host-promotion.ts`.
+`ExecutionSpecSnapshot` is the durable projection seam between the spec/graph product and the native execute-mode orchestrator. Both `main`-derived imports and `next` graph reads can target this shape while their internal models continue to evolve. Requirement-to-requirement dependency edges are the only graph dependencies lowered into executable slice `depends_on`; dependency edges with non-requirement endpoints remain graph context/hygiene concerns and do not block executable plan production merely because the cook scheduler cannot represent them. The current handoff tracer also lowers committed `scope` packages: scope nodes group requirement anchors, design anchors, and verification anchors into one executor-facing package, and the executable draft threads that package into slice request context without restoring durable `slice` graph nodes. Every helper advances run metadata with at most one explicit, declared side effect (I58-L): plan/outline artifact writers touch only `.brunch/execution-reports`; cook helpers write only the declared files under `.brunch/cook` or the run worktree described per module below; agent/test/promotion effects are delegated to injected ports; port failure leaves run metadata unadvanced. The only direct subprocess exception is `empty_dir` run-local git repository initialization in `worktree.ts`, bounded to the run worktree and recorded as the worktree-create side effect. No helper mutates the graph, and host mutation is limited to the accepted-SHA file apply in `host-promotion.ts`.
 
 `run-abandon.ts` is a bounded HITL replanning mutation: it marks an active run `abandoned` while preserving existing evidence paths and files. It refuses missing and already-terminal completed/promoted runs, and it never deletes worktrees, reports, Petri artifacts, promotion artifacts, or graph state.
 
@@ -80,6 +80,7 @@ rules:
 | `spec` | mapped | Derived from draft requirement ids/definitions and criterion verification targets; inert provenance only. |
 | `epics[].id`, `summary`, `depends_on`, `verification` | mapped/defaulted | Draft frontier ids/titles/dependencies map directly; epic verification is currently an empty old-compatible array. |
 | `slices[].id`, `epic_id`, `definition`, `depends_on`, `verification`, `derived_from` | mapped | Draft task ids, requirement ids, dependency placeholders, and criterion targets map directly. |
+| `slices[].scope_id`, `design_context`, `verification_context` | tracer-mapped | The scope handoff tracer preserves committed scope, design, and verification context into `plan.yaml`; old runners ignore these extras unless a later runner slice starts reading them. |
 | `profile`, `harnessNotes` | deferred/absent | Alpha has no profile/toolchain detection or harness-prior-art source yet. |
 | `epics[].probe`, `epics[].reachability` | deferred/absent | Alpha has no truthful boot/probe or host-blind reachability source yet. |
 | `slices[].writes` | deferred/absent | Alpha has no file-layout authoring source yet; do not invent ownership. |
@@ -112,7 +113,7 @@ rules:
 
 `slice-start.ts` appends a `slice_started` marker for one plan slice and records the active slice/epic in `run.json`. It is not agent execution: no tools/tests run and no Petri transitions or promotion artifacts are created.
 
-`slice-execute.ts` creates the first execution request artifact for the active slice under `agent-output/<sliceId>/request.json`, appends `slice_execution_requested`, and records `status:"slice_execution_requested"`. It still does not invoke an agent process, run tests, compile Petri artifacts, promote, or land.
+`slice-execute.ts` creates the first execution request artifact for the active slice under `agent-output/<sliceId>/request.json`, appends `slice_execution_requested`, and records `status:"slice_execution_requested"`. The request now enriches the old id-only payload with the slice definition, verification criteria, and any scope/design/verification context preserved in the populated plan, but it still does not invoke an agent process, run tests, compile Petri artifacts, promote, or land.
 
 `agent-result.ts` runs the injected `AgentRunnerPort` for the active slice's worktree/request/result paths, appends `slice_agent_result`, and records `status:"agent_result_ingested"`. During the long runner call, normalized worker updates are optionally appended to `.brunch/cook/runs/<runId>/streams/<sliceId>/agent.jsonl`; these are Brunch-owned stream events, not raw Pi session payloads. Runner failure returns `agent_run_failed` and leaves metadata unchanged. The app-layer runner launches the sealed `worker` subagent when subagent deps and Pi model context are injected; this core module still does not import the SDK, run tests, compile Petri artifacts, promote, or land.
 

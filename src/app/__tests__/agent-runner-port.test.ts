@@ -61,7 +61,17 @@ describe('createAgentRunnerPort', () => {
     const worktreeDir = await mkdtemp(join(tmpdir(), 'brunch-agent-worktree-'));
     const requestPath = join(worktreeDir, 'request.json');
     const resultPath = join(worktreeDir, 'result.json');
-    await writeFile(requestPath, JSON.stringify({ task: 'write proof' }), 'utf8');
+    await writeFile(
+      requestPath,
+      JSON.stringify({
+        scopeId: 'SCP1',
+        definition: 'write proof',
+        criteria: [{ kind: 'criterion', target: 'worker proof exists' }],
+        designContext: [{ itemId: 'MOD1', content: 'worker proof module' }],
+        verificationContext: [{ itemId: 'CH1', content: 'worker proof check' }],
+      }),
+      'utf8',
+    );
     const calls: Array<{ agent: string; cwd: string; task: string }> = [];
     const port = createAgentRunnerPort({
       subagents: subagentDeps(async ({ definition, ctx, task }): Promise<SubagentResult> => {
@@ -84,6 +94,8 @@ describe('createAgentRunnerPort', () => {
     expect(calls).toHaveLength(1);
     expect(calls[0]).toMatchObject({ agent: 'worker', cwd: worktreeDir });
     expect(calls[0]!.task).toContain('write proof');
+    expect(calls[0]!.task).toContain('SCP1');
+    expect(calls[0]!.task).toContain('worker proof check');
     expect(result).toEqual({ status: 'completed', summary: 'Wrote worker-proof.txt' });
     await expect(readFile(join(worktreeDir, 'worker-proof.txt'), 'utf8')).resolves.toBe(
       'changed by worker\n',

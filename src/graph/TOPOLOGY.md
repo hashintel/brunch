@@ -53,7 +53,10 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
   array survives), and derived intent-kind grouping. Raw domain enum taxonomy
   lives in the zero-import `schema/kinds.ts` leaf so web-facing graph imports
   do not pull in Drizzle. Agent-facing reference prose cites schema-owned
-  vocabulary rather than regenerating a parallel ontology table.
+  vocabulary rather than regenerating a parallel ontology table. The current
+  plan-kind set includes a proving-tracer `scope` node alongside `milestone`
+  and `frontier`; this records the live specification-to-execution handoff
+  experiment before the broader planning-process model is promoted into canon.
 
 - **Policy** (`policy/category-policy.ts`) — the single per-category
   metadata table (`EDGE_CATEGORY_METADATA`): endpoint roles, impact

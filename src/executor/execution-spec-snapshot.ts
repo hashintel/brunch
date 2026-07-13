@@ -24,12 +24,22 @@ export interface ExecutionSpecContextSnapshot {
   readonly oracle: readonly ExecutionSpecItemSnapshot[];
 }
 
+export interface ExecutionSpecScopeSnapshot extends ExecutionSpecItemSnapshot {
+  readonly frontierIds: readonly string[];
+  readonly requirementIds: readonly string[];
+  readonly criteria: readonly ExecutionSpecCriterionSnapshot[];
+  readonly design: readonly ExecutionSpecItemSnapshot[];
+  readonly verification: readonly ExecutionSpecItemSnapshot[];
+}
+
 export interface ExecutionSpecSnapshot {
   readonly schemaVersion: 1;
   readonly specId: string;
   readonly mode: ExecutionSpecMode;
+  readonly frontiers: readonly ExecutionSpecItemSnapshot[];
   readonly requirements: readonly ExecutionSpecItemSnapshot[];
   readonly criteria: readonly ExecutionSpecCriterionSnapshot[];
+  readonly scopes: readonly ExecutionSpecScopeSnapshot[];
   readonly context: ExecutionSpecContextSnapshot;
 }
 
@@ -67,18 +77,37 @@ export function projectExecutionSpecSnapshot(
   );
   const requirementDependencies = dependencyItemIdsByRequirement(input.edges, requirementItemIds);
   const criteria = nodes.filter((node) => node.kind === 'criterion');
+  const criteriaById = new Map(
+    criteria.map((criterion) => [
+      criterion.id,
+      {
+        ...itemSnapshot(criterion),
+        verifies: verifiesRequirementItemIds(criterion, input.edges, nodeById, requirementIds),
+      },
+    ]),
+  );
+  const frontierItems = nodes.filter((node) => node.kind === 'frontier').map((node) => itemSnapshot(node));
 
   return {
     schemaVersion: 1,
     specId: String(input.specId),
     mode: input.mode,
+    frontiers: frontierItems,
     requirements: nodes
       .filter((node) => node.kind === 'requirement')
       .map((node) => itemSnapshot(node, requirementDependencies.get(itemId(node)) ?? [])),
-    criteria: criteria.map((criterion) => ({
-      ...itemSnapshot(criterion),
-      verifies: verifiesRequirementItemIds(criterion, input.edges, nodeById, requirementIds),
-    })),
+    criteria: [...criteriaById.values()],
+    scopes: nodes
+      .filter((node) => node.kind === 'scope')
+      .map((node) =>
+        scopeSnapshot({
+          node,
+          edges: input.edges,
+          nodeById,
+          criteriaById,
+          requirementDependencies,
+        }),
+      ),
     context: {
       constraints: contextItems(nodes, 'constraint'),
       invariants: contextItems(nodes, 'invariant'),
@@ -91,6 +120,67 @@ export function projectExecutionSpecSnapshot(
         .filter((node) => ORACLE_KINDS.includes(node.kind as never))
         .map((node) => itemSnapshot(node)),
     },
+  };
+}
+
+function scopeSnapshot(args: {
+  readonly node: GraphNode;
+  readonly edges: readonly GraphEdge[];
+  readonly nodeById: ReadonlyMap<number, GraphNode>;
+  readonly criteriaById: ReadonlyMap<number, ExecutionSpecCriterionSnapshot>;
+  readonly requirementDependencies: ReadonlyMap<string, readonly string[]>;
+}): ExecutionSpecScopeSnapshot {
+  const frontierIds = relatedItemIds(args.node.id, args.edges, args.nodeById, {
+    category: 'composition',
+    direction: 'incoming',
+    kinds: ['frontier'],
+  });
+  const requirementIds = relatedUnionItemIds(args.node.id, args.edges, args.nodeById, [
+    { category: 'realization', direction: 'incoming', kinds: ['requirement'] },
+    // Accept the older tracer shape while the durable handoff model settles.
+    { category: 'realization', direction: 'outgoing', kinds: ['requirement'] },
+  ]);
+  const criterionIds = new Set(
+    relatedUnionNodeIds(args.node.id, args.edges, args.nodeById, [
+      { category: 'dependency', direction: 'incoming', kinds: ['criterion'] },
+      // Accept the older tracer shape while the durable handoff model settles.
+      { category: 'realization', direction: 'outgoing', kinds: ['criterion'] },
+    ]),
+  );
+  for (const [criterionNodeId, criterion] of args.criteriaById) {
+    if (criterion.verifies.some((requirementId) => requirementIds.includes(requirementId))) {
+      criterionIds.add(criterionNodeId);
+    }
+  }
+  const criteria = [...criterionIds]
+    .sort((a, b) => a - b)
+    .map((nodeId) => args.criteriaById.get(nodeId))
+    .filter((criterion): criterion is ExecutionSpecCriterionSnapshot => criterion !== undefined);
+  const design = relatedItems(args.node.id, args.edges, args.nodeById, {
+    category: 'composition',
+    direction: 'outgoing',
+    kinds: DESIGN_KINDS,
+  });
+  const verification = relatedUnionItems(args.node.id, args.edges, args.nodeById, [
+    { category: 'dependency', direction: 'incoming', kinds: ORACLE_KINDS },
+    // Accept the older tracer shape while the durable handoff model settles.
+    { category: 'witness', direction: 'incoming', kinds: ORACLE_KINDS },
+  ]);
+  const dependsOn = new Set<string>();
+  for (const requirementId of requirementIds) {
+    for (const dependencyId of args.requirementDependencies.get(requirementId) ?? []) {
+      dependsOn.add(dependencyId);
+    }
+  }
+
+  return {
+    ...itemSnapshot(args.node),
+    dependsOn: [...dependsOn].sort(),
+    frontierIds,
+    requirementIds,
+    criteria,
+    design,
+    verification,
   };
 }
 
@@ -131,6 +221,107 @@ function dependencyItemIdsByRequirement(
 
 function contextItems(nodes: readonly GraphNode[], kind: ContextKind): readonly ExecutionSpecItemSnapshot[] {
   return nodes.filter((node) => node.kind === kind).map((node) => itemSnapshot(node));
+}
+
+function relatedNodeIds(
+  anchorId: number,
+  edges: readonly GraphEdge[],
+  nodeById: ReadonlyMap<number, GraphNode>,
+  args: {
+    readonly category: GraphEdge['category'];
+    readonly direction: 'incoming' | 'outgoing';
+    readonly kinds: readonly NodeKind[];
+  },
+): readonly number[] {
+  const ids = new Set<number>();
+  for (const edge of edges) {
+    if (edge.category !== args.category) continue;
+    if (edge.category === 'witness' && edge.stance === 'against') continue;
+    const matches = args.direction === 'incoming' ? edge.targetId === anchorId : edge.sourceId === anchorId;
+    if (!matches) continue;
+    const relatedId = args.direction === 'incoming' ? edge.sourceId : edge.targetId;
+    const node = nodeById.get(relatedId);
+    if (!node || !args.kinds.includes(node.kind)) continue;
+    ids.add(relatedId);
+  }
+  return [...ids].sort((a, b) => a - b);
+}
+
+function relatedItems(
+  anchorId: number,
+  edges: readonly GraphEdge[],
+  nodeById: ReadonlyMap<number, GraphNode>,
+  args: {
+    readonly category: GraphEdge['category'];
+    readonly direction: 'incoming' | 'outgoing';
+    readonly kinds: readonly NodeKind[];
+  },
+): readonly ExecutionSpecItemSnapshot[] {
+  return relatedNodeIds(anchorId, edges, nodeById, args)
+    .map((nodeId) => nodeById.get(nodeId))
+    .filter((node): node is GraphNode => node !== undefined)
+    .map((node) => itemSnapshot(node));
+}
+
+function relatedUnionNodeIds(
+  anchorId: number,
+  edges: readonly GraphEdge[],
+  nodeById: ReadonlyMap<number, GraphNode>,
+  queries: readonly {
+    readonly category: GraphEdge['category'];
+    readonly direction: 'incoming' | 'outgoing';
+    readonly kinds: readonly NodeKind[];
+  }[],
+): readonly number[] {
+  const ids = new Set<number>();
+  for (const query of queries) {
+    for (const nodeId of relatedNodeIds(anchorId, edges, nodeById, query)) {
+      ids.add(nodeId);
+    }
+  }
+  return [...ids].sort((a, b) => a - b);
+}
+
+function relatedUnionItems(
+  anchorId: number,
+  edges: readonly GraphEdge[],
+  nodeById: ReadonlyMap<number, GraphNode>,
+  queries: readonly {
+    readonly category: GraphEdge['category'];
+    readonly direction: 'incoming' | 'outgoing';
+    readonly kinds: readonly NodeKind[];
+  }[],
+): readonly ExecutionSpecItemSnapshot[] {
+  return relatedUnionNodeIds(anchorId, edges, nodeById, queries)
+    .map((nodeId) => nodeById.get(nodeId))
+    .filter((node): node is GraphNode => node !== undefined)
+    .map((node) => itemSnapshot(node));
+}
+
+function relatedUnionItemIds(
+  anchorId: number,
+  edges: readonly GraphEdge[],
+  nodeById: ReadonlyMap<number, GraphNode>,
+  queries: readonly {
+    readonly category: GraphEdge['category'];
+    readonly direction: 'incoming' | 'outgoing';
+    readonly kinds: readonly NodeKind[];
+  }[],
+): readonly string[] {
+  return relatedUnionItems(anchorId, edges, nodeById, queries).map((item) => item.itemId);
+}
+
+function relatedItemIds(
+  anchorId: number,
+  edges: readonly GraphEdge[],
+  nodeById: ReadonlyMap<number, GraphNode>,
+  args: {
+    readonly category: GraphEdge['category'];
+    readonly direction: 'incoming' | 'outgoing';
+    readonly kinds: readonly NodeKind[];
+  },
+): readonly string[] {
+  return relatedItems(anchorId, edges, nodeById, args).map((item) => item.itemId);
 }
 
 function itemSnapshot(node: GraphNode, dependsOn: readonly string[] = []): ExecutionSpecItemSnapshot {
