@@ -915,10 +915,9 @@ function transitionParityFailure(args: {
   }
   if (!transitionMultisetIsSubset(lifecycle, journal)) return 'petri_input_unreadable';
 
-  const journalAhead = journal.slice(lifecycle.length);
+  const journalAhead = transitionMultisetResidual(journal, lifecycle);
   const parallelAuthority =
-    args.authoritySnapshot?.parallelSliceBatch !== undefined ||
-    journalAhead.some((transitionId) => transitionId.startsWith('slice_start:'));
+    journalAhead.length > 0 && journalAhead.every((transitionId) => transitionId.startsWith('slice_start:'));
   const transitionedEpicIds = new Set(
     (args.authoritySnapshot?.epicVerificationClaims ?? [])
       .filter((claim) => claim.phase === 'transitioned')
@@ -927,6 +926,22 @@ function transitionParityFailure(args: {
   const epicAuthority =
     journalAhead.length > 0 && journalAhead.every((transitionId) => transitionedEpicIds.has(transitionId));
   return parallelAuthority || epicAuthority ? undefined : 'petri_input_unreadable';
+}
+
+function transitionMultisetResidual(
+  minuend: readonly string[],
+  subtrahend: readonly string[],
+): readonly string[] {
+  const remaining = new Map<string, number>();
+  for (const transitionId of subtrahend) {
+    remaining.set(transitionId, (remaining.get(transitionId) ?? 0) + 1);
+  }
+  return minuend.filter((transitionId) => {
+    const count = remaining.get(transitionId) ?? 0;
+    if (count === 0) return true;
+    remaining.set(transitionId, count - 1);
+    return false;
+  });
 }
 
 function transitionMultisetsEqual(left: readonly string[], right: readonly string[]): boolean {

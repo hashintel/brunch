@@ -1,4 +1,4 @@
-import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -176,17 +176,26 @@ describe('exportPetri', () => {
     const preparedNet = await readFile(petriNetPath(cwd, 'run-1'), 'utf8');
     const preparedSdcpn = await readFile(petriSdcpnPath(cwd, 'run-1'), 'utf8');
 
-    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toEqual(createdMetadata);
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toEqual({
+      ...createdMetadata,
+      petriObservationPrepared: true,
+    });
     expect(await readFile(petriEventsPath(cwd, 'run-1'), 'utf8')).toBe('');
 
-    await writeFile(petriEventsPath(cwd, 'run-1'), 'existing-event\n', 'utf8');
+    const existingEvent: ExecutorNetEvent = {
+      kind: 'net_halted',
+      runId: 'run-1',
+      runStatus: 'created',
+      reason: 'existing event',
+    };
+    await appendPetriEvent({ cwd, runId: 'run-1', event: existingEvent });
     await writeFile(
       planPath,
       JSON.stringify({ mode: 'greenfield', slices: [{ id: 'changed-task' }] }),
       'utf8',
     );
     await preparePetriObservation({ cwd, runId: 'run-1' });
-    expect(await readFile(petriEventsPath(cwd, 'run-1'), 'utf8')).toBe('existing-event\n');
+    expect(await readFile(petriEventsPath(cwd, 'run-1'), 'utf8')).toBe(`${JSON.stringify(existingEvent)}\n`);
     expect(await readFile(petriNetPath(cwd, 'run-1'), 'utf8')).toBe(preparedNet);
 
     await writeFile(
@@ -197,6 +206,28 @@ describe('exportPetri', () => {
     expect((await exportPetri({ cwd, runId: 'run-1' })).status).toBe('petri_exported');
     expect(await readFile(petriNetPath(cwd, 'run-1'), 'utf8')).toBe(preparedNet);
     expect(await readFile(petriSdcpnPath(cwd, 'run-1'), 'utf8')).toBe(preparedSdcpn);
+  });
+
+  it('does not mark observation prepared when initial journal creation fails', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-observation-marker-failure-'));
+    const runDir = runDirPath(cwd, 'run-1');
+    const planPath = join(cwd, 'plan.yaml');
+    await mkdir(runDir, { recursive: true });
+    await writeFile(
+      planPath,
+      JSON.stringify({ mode: 'greenfield', slices: [{ id: 'task-1', depends_on: [] }] }),
+      'utf8',
+    );
+    const createdMetadata = { runId: 'run-1', specId: '42', planPath, status: 'created' } as const;
+    await writeFile(runMetadataPath(cwd, 'run-1'), JSON.stringify(createdMetadata), 'utf8');
+    await mkdir(petriEventsPath(cwd, 'run-1'), { recursive: true });
+
+    await expect(preparePetriObservation({ cwd, runId: 'run-1' })).rejects.toThrow(
+      'Petrinaut journal is unavailable',
+    );
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toEqual(createdMetadata);
+
+    await rm(petriEventsPath(cwd, 'run-1'), { recursive: true });
   });
 
   it('does not export Petri before run completion', async () => {

@@ -7,6 +7,36 @@ Created:  2026-07-13
 
 Posture: proving (inherited from `petri-execution-parity`).
 
+## Slice 11 — Residual and preparation provenance closure
+
+Status: done
+Weight: full
+
+### Target Behavior
+
+Journal-ahead authority is computed from the true transition multiset residual, and independently persisted preparation provenance prevents correlated observer-carrier loss from being mistaken for first initialization.
+
+### Acceptance Criteria
+
+- reordered causally independent common transitions cannot move an unmatched `epic_verify` outside journal-ahead classification.
+- `run.json` records preparation only after the frozen plan, both definitions, and journal are successfully prepared; the marker is non-authoritative lifecycle provenance.
+- later preparation with a missing, unavailable, or unreadable journal fails before repairing missing `net.json` / `net.sdcpn.json`, does not recreate or rewrite the journal, and repeated drives dispatch zero effects.
+- first initialization remains allowed, and definition-only loss with an intact journal may repair.
+- card, PLAN, and executor topology state the residual and preparation-marker contracts.
+
+### Completion Report
+
+| Leaf | Outcome | Evidence |
+| --- | --- | --- |
+| True multiset residual | met | `orchestrate.test.ts`: reordered independent `epic_integrate` / orphan `slice_start` common suffix plus unmatched `epic_verify` halts as `petri_input_unreadable`. |
+| Marker after complete initialization only | met | `petri.test.ts`: successful preparation persists `petriObservationPrepared`; unavailable initial journal leaves metadata unmarked. |
+| Correlated loss fails before repair | met | `orchestrate.test.ts`: missing/unavailable/unreadable journal paired with one/both missing definitions, driven twice, retains carrier damage and starts zero steps. |
+| Definition-only repair remains | met | `orchestrate.test.ts`: intact prepared journal permits both definitions to rematerialize and the first lifecycle transition to fire. |
+| Canonical state reconciled | met | `src/executor/TOPOLOGY.md`, `memory/PLAN.md`, and this card name the marker's non-authoritative role and exact residual comparison. |
+| Requested verification | met-with-divergence | Focused 173/173, executor 415/415, extensions 412/412, and RPC 176/176 pass. `fix` / `check` / `build` are blocked outside this diff by the branch's Pi API mismatch around removed `AgentSettledEvent` / `agent_settled` types in `session-orientation` and `chrome`. Targeted format, Markdown links, skill consistency, promoted-run paths, and `git diff --check` pass. |
+
+Skipped-test delta vs parent: 0.
+
 ## Slice 10 — Final review causal journal closure
 
 Status: done

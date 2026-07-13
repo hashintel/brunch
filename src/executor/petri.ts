@@ -68,8 +68,10 @@ export async function preparePetriObservation(args: {
   readonly cwd: string;
   readonly runId: string;
 }): Promise<SchedulerPlan> {
-  const metadata = await readRunMetadata(runMetadataPath(args.cwd, args.runId));
+  const metadataPath = runMetadataPath(args.cwd, args.runId);
+  const metadata = await readRunMetadata(metadataPath);
   if (!metadata) throw new Error(`Cannot prepare Petrinaut observation for missing run: ${args.runId}`);
+  if (metadata.petriObservationPrepared) await requireReadablePreparedJournal(args);
   await mkdir(dirname(petriNetPath(args.cwd, args.runId)), { recursive: true });
   const frozenPlan = await freezePetriPlanSnapshot({
     cwd: args.cwd,
@@ -89,17 +91,28 @@ export async function preparePetriObservation(args: {
   } catch {
     throw new PetriObservationInputError(`Invalid Petrinaut topology input: ${args.runId}`);
   }
-  const artifactWrites = await writePetriArtifacts({ cwd: args.cwd, runId: args.runId, artifacts });
-  if (artifactWrites.net || artifactWrites.sdcpn) {
-    const journal = await open(petriEventsPath(args.cwd, args.runId), 'a');
-    await journal.close();
-  } else {
-    const journal = await inspectPetriTransitionJournal(args);
-    if (journal.status === 'missing' || journal.status === 'unavailable') {
-      throw new PetriObservationJournalError(`Petrinaut journal is ${journal.status}: ${args.runId}`);
+  await writePetriArtifacts({ cwd: args.cwd, runId: args.runId, artifacts });
+  if (!metadata.petriObservationPrepared) {
+    try {
+      const journal = await open(petriEventsPath(args.cwd, args.runId), 'a');
+      await journal.close();
+    } catch {
+      throw new PetriObservationJournalError(`Petrinaut journal is unavailable: ${args.runId}`);
     }
+    await requireReadablePreparedJournal(args);
+    await persistRunMetadata(metadataPath, { ...metadata, petriObservationPrepared: true });
   }
   return plan;
+}
+
+async function requireReadablePreparedJournal(args: {
+  readonly cwd: string;
+  readonly runId: string;
+}): Promise<void> {
+  const journal = await inspectPetriTransitionJournal(args);
+  if (journal.status !== 'readable') {
+    throw new PetriObservationJournalError(`Petrinaut journal is ${journal.status}: ${args.runId}`);
+  }
 }
 
 export async function exportPetri(args: {

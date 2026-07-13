@@ -589,6 +589,67 @@ describe('drive', () => {
     },
   );
 
+  it.each([
+    ['missing', 'net.json', [petriNetPath]],
+    ['missing', 'both definitions', [petriNetPath, petriSdcpnPath]],
+    ['unavailable', 'net.sdcpn.json', [petriSdcpnPath]],
+    ['unreadable', 'both definitions', [petriNetPath, petriSdcpnPath]],
+  ] as const)(
+    'does not repair $1 after a prepared created run journal becomes $0',
+    async (carrier, _label, definitionPaths) => {
+      const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-correlated-preparation-loss-'));
+      await createRunAtCreated(cwd, ['task-1']);
+      await preparePetriObservation({ cwd, runId: 'run-1' });
+      const journalPath = petriEventsPath(cwd, 'run-1');
+      await rm(journalPath);
+      if (carrier === 'unavailable') await mkdir(journalPath);
+      if (carrier === 'unreadable') await writeFile(journalPath, '{', 'utf8');
+      for (const definitionPath of definitionPaths) await rm(definitionPath(cwd, 'run-1'));
+      const started: string[] = [];
+
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        await expect(
+          drive({
+            cwd,
+            runId: 'run-1',
+            ports: fakePorts(),
+            onStepStart: (step) => started.push(step),
+          }),
+        ).resolves.toEqual({
+          status: 'halted',
+          step: 'worktree_create',
+          runStatus: 'created',
+          reason: 'petri_input_unreadable',
+        });
+        if (carrier === 'missing') expect(await pathExists(journalPath)).toBe(false);
+        if (carrier === 'unavailable') {
+          await expect(readFile(journalPath, 'utf8')).rejects.toMatchObject({ code: 'EISDIR' });
+        }
+        if (carrier === 'unreadable') expect(await readFile(journalPath, 'utf8')).toBe('{');
+        for (const definitionPath of definitionPaths) {
+          expect(await pathExists(definitionPath(cwd, 'run-1'))).toBe(false);
+        }
+      }
+      expect(started).toEqual([]);
+    },
+  );
+
+  it('repairs lost definitions when the independently prepared journal remains readable', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-definition-only-loss-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    await preparePetriObservation({ cwd, runId: 'run-1' });
+    await rm(petriNetPath(cwd, 'run-1'));
+    await rm(petriSdcpnPath(cwd, 'run-1'));
+
+    await expect(
+      drive({ cwd, runId: 'run-1', ports: fakePorts() }, linearScheduler, serialFiringPolicy, {
+        maxFirings: 1,
+      }),
+    ).resolves.toEqual({ status: 'completed', runStatus: 'worktree_created' });
+    expect(await pathExists(petriNetPath(cwd, 'run-1'))).toBe(true);
+    expect(await pathExists(petriSdcpnPath(cwd, 'run-1'))).toBe(true);
+  });
+
   it.each(['missing', 'unavailable'] as const)(
     'does not append through a $carrier journal when observation preparation fails',
     async (carrier) => {
@@ -676,6 +737,73 @@ describe('drive', () => {
 
     await expect(drive({ cwd, runId: 'run-1', ports: fakePorts() })).resolves.toMatchObject({
       status: 'halted',
+      reason: 'petri_input_unreadable',
+    });
+  });
+
+  it('rejects an unmatched epic verify hidden by a reordered independent common suffix', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-residual-epic-verify-'));
+    await createRunAtCreatedWithPlan(cwd, {
+      mode: 'greenfield',
+      epics: [
+        {
+          id: 'epic-1',
+          depends_on: [],
+          verification: [{ kind: 'criterion', target: 'provenance only' }],
+        },
+      ],
+      slices: [
+        { id: 'task-1', epic_id: 'epic-1', definition: 'one', depends_on: [], verification: [] },
+        { id: 'task-2', definition: 'two', depends_on: [], verification: [] },
+      ],
+    });
+    await drive({ cwd, runId: 'run-1', ports: fakePorts() }, petriScheduler, serialFiringPolicy, {
+      maxFirings: 12,
+    });
+    const state = (await readRunMetadata(runMetadataPath(cwd, 'run-1')))!;
+    expect(state).toMatchObject({ status: 'slice_started', activeSliceId: 'task-2' });
+    const plan = (await readPetriRuntimePlan(cwd, state))!;
+    const topology = compileExecutorTopology(plan);
+    const addedTransitions = ['epic_integrate:epic-1', 'epic_verify:epic-1'].map(
+      (transitionId) => topology.transitions.find((transition) => transition.id === transitionId)!,
+    );
+    const events = [...(await readPetriEvents(cwd))];
+    const taskTwoStartIndex = events.findIndex(
+      (event) => event.kind === 'transition_fired' && event.transitionId === 'slice_start:task-2',
+    );
+    events.splice(
+      taskTwoStartIndex,
+      0,
+      ...addedTransitions.map<ExecutorNetEvent>((transition) => ({
+        kind: 'transition_fired',
+        runId: 'run-1',
+        runStatus: state.status,
+        transitionId: transition.id,
+        subnetId: transition.subnetId,
+        ...(transition.epicId === undefined ? {} : { epicId: transition.epicId }),
+        step: transition.step!.kind,
+        contract: transition.contract,
+        consumed: transition.inputArcs.map((arc) => arc.placeId),
+        produced: transition.outputArcs.map((arc) => arc.placeId),
+        fromStatus: state.status,
+        toStatus: state.status,
+      })),
+    );
+    await writeFile(
+      petriEventsPath(cwd, 'run-1'),
+      `${events.map((event) => JSON.stringify(event)).join('\n')}\n`,
+      'utf8',
+    );
+    await persistRunMetadata(runMetadataPath(cwd, 'run-1'), {
+      ...state,
+      epicTransitionHistory: ['epic_integrate:epic-1'],
+      integratedEpicIds: ['epic-1'],
+    });
+
+    await expect(drive({ cwd, runId: 'run-1', ports: fakePorts() })).resolves.toEqual({
+      status: 'halted',
+      step: 'slice_execute',
+      runStatus: 'slice_started',
       reason: 'petri_input_unreadable',
     });
   });
