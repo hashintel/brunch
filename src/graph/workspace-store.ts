@@ -1,5 +1,8 @@
-import { mkdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { mkdir, rename } from 'node:fs/promises';
 import { join } from 'node:path';
+
+import Database from 'better-sqlite3';
 
 import { BRUNCH_DIR } from '../constants.js';
 import { createDb } from '../db/connection.js';
@@ -43,13 +46,20 @@ export interface WorkspaceGraphRuntime {
   readonly commandExecutor: CommandExecutor;
   /** Bind graph reads to a single spec (D61-L). */
   readonly forSpec: (specId: number) => SpecScopedReaders;
+  /**
+   * Whether a sibling 0.x `.brunch/brunch.db` was detected alongside this
+   * open (I63-L posture evidence; D118-L consumer). The 0.x file itself is
+   * never opened, migrated, or deleted.
+   */
+  readonly legacyZeroXDetected: boolean;
 }
 
 export async function openWorkspaceGraphRuntime(cwd: string): Promise<WorkspaceGraphRuntime> {
-  const db = await openWorkspaceDb(cwd);
+  const [db, legacyZeroXDetected] = await Promise.all([openWorkspaceDb(cwd), detectLegacyZeroXDatabase(cwd)]);
   const commandExecutor = new CommandExecutor(db);
   return {
     commandExecutor,
+    legacyZeroXDetected,
     forSpec(specId: number): SpecScopedReaders {
       return {
         queryGraph: (filter, options) => queryGraph(db, specId, filter, options),
@@ -67,8 +77,125 @@ export async function openWorkspaceCommandExecutor(cwd: string): Promise<Command
   return (await openWorkspaceGraphRuntime(cwd)).commandExecutor;
 }
 
-async function openWorkspaceDb(cwd: string) {
+/**
+ * The current workspace database filename, under the `brunch-v{major}.db`
+ * lineage policy (D124-L): the DB format may change incompatibly only across
+ * major product versions, and the filename is the compatibility contract.
+ * 0.x's `.brunch/brunch.db` is this line's retroactive v0
+ * (`LEGACY_ZERO_X_DB_FILENAME`); this is v1. Bump the major segment only
+ * alongside a deliberate incompatible schema/format change.
+ */
+export const WORKSPACE_DB_FILENAME = 'brunch-v1.db';
+
+/**
+ * The pre-1.0 alpha workspace DB filename. One-shot-recovered by rename into
+ * `WORKSPACE_DB_FILENAME` (plus `-wal`/`-shm` sidecars) on first open when the
+ * current-line file is absent — owed to existing alpha workspaces (D124-L
+ * mechanic 4). Never opened directly; never deleted.
+ */
+export const LEGACY_ALPHA_DB_FILENAME = 'data.db';
+
+/**
+ * The 0.x workspace DB filename — this lineage's retroactive v0. A sibling is
+ * detected as a pure filesystem check and surfaced as populated-cwd/
+ * brownfield posture evidence (D118-L); never opened, migrated, or deleted
+ * (I63-L).
+ */
+export const LEGACY_ZERO_X_DB_FILENAME = 'brunch.db';
+
+/** SQLite `application_id` magic stamped on every `brunch-v1.db` (ASCII "BRV1"). */
+const BRUNCH_APPLICATION_ID = 0x42_52_56_31;
+
+/**
+ * Thrown when a `brunch-v1.db`-named file does not self-identify as the
+ * current Brunch major line (I63-L: fail-safe refusal). Thrown before
+ * `createDb`'s migration runs, so a foreign or incompatible file is never
+ * opened for write, migrated, or deleted.
+ */
+export class WorkspaceDbRefusalError extends Error {
+  constructor(
+    readonly path: string,
+    readonly foundApplicationId: number,
+  ) {
+    super(
+      `Refusing to open ${path}: application_id ${foundApplicationId} does not match the Brunch v1 line ` +
+        `(${BRUNCH_APPLICATION_ID}). This file was not created by this Brunch line and will not be opened, ` +
+        'migrated, or deleted.',
+    );
+    this.name = 'WorkspaceDbRefusalError';
+  }
+}
+
+/**
+ * Detects a sibling 0.x `.brunch/brunch.db` without opening it — a pure
+ * filesystem existence check (I63-L: the 0.x file is never opened, migrated,
+ * or deleted). Feeds populated-cwd/brownfield posture evidence (D118-L) at
+ * the spec-establishment seam (`session/workspace-session-coordinator.ts`).
+ */
+export async function detectLegacyZeroXDatabase(cwd: string): Promise<boolean> {
+  return existsSync(join(cwd, BRUNCH_DIR, LEGACY_ZERO_X_DB_FILENAME));
+}
+
+/**
+ * Opens the workspace's `brunch-v1.db`: recovers a legacy alpha `data.db` by
+ * rename first (D124-L mechanic 4), then enforces the fail-safe
+ * `application_id` open guard (I63-L) before handing off to `createDb`'s
+ * migration.
+ */
+export async function openWorkspaceDb(cwd: string) {
   const brunchDir = join(cwd, BRUNCH_DIR);
   await mkdir(brunchDir, { recursive: true });
-  return createDb(join(brunchDir, 'data.db'));
+  await recoverLegacyAlphaDatabase(brunchDir);
+
+  const dbPath = join(brunchDir, WORKSPACE_DB_FILENAME);
+  const preexisting = existsSync(dbPath);
+  if (preexisting) {
+    checkApplicationIdOrRefuse(dbPath);
+  }
+
+  const db = createDb(dbPath);
+  if (!preexisting) {
+    // A file we just created ourselves: safe to stamp after migration, which
+    // guarantees page 1 exists rather than relying on pragma writes against
+    // a still-empty file.
+    db.$client.pragma(`application_id = ${BRUNCH_APPLICATION_ID}`);
+  }
+  return db;
+}
+
+/**
+ * One-shot recovery (D124-L mechanic 4): when `brunch-v1.db` is absent and a
+ * legacy alpha `data.db` exists, adopt it by rename — main file plus
+ * `-wal`/`-shm` sidecars, before any open. Never runs while `brunch-v1.db`
+ * already exists (that file always wins; the legacy file is left
+ * untouched), and never renames while a connection to the legacy file is
+ * open — this function only renames closed files on disk.
+ */
+async function recoverLegacyAlphaDatabase(brunchDir: string): Promise<void> {
+  const targetPath = join(brunchDir, WORKSPACE_DB_FILENAME);
+  const legacyPath = join(brunchDir, LEGACY_ALPHA_DB_FILENAME);
+  if (existsSync(targetPath) || !existsSync(legacyPath)) return;
+
+  for (const suffix of ['', '-wal', '-shm']) {
+    const from = `${legacyPath}${suffix}`;
+    if (existsSync(from)) await rename(from, `${targetPath}${suffix}`);
+  }
+}
+
+/**
+ * Checks an existing `brunch-v1.db`'s `application_id` before any migration
+ * runs. An unstamped file (`application_id` 0 — e.g. a just-recovered legacy
+ * alpha file) is stamped in place; any other mismatch throws
+ * {@link WorkspaceDbRefusalError} and leaves the file untouched.
+ */
+function checkApplicationIdOrRefuse(dbPath: string): void {
+  const sqlite = new Database(dbPath);
+  try {
+    const current = sqlite.pragma('application_id', { simple: true }) as number;
+    if (current === BRUNCH_APPLICATION_ID) return;
+    if (current !== 0) throw new WorkspaceDbRefusalError(dbPath, current);
+    sqlite.pragma(`application_id = ${BRUNCH_APPLICATION_ID}`);
+  } finally {
+    sqlite.close();
+  }
 }
