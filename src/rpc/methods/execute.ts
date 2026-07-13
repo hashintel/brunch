@@ -5,6 +5,11 @@ import { projectExecuteGraph } from '../../executor/execute-projection.js';
 import { listRuns, readRunDetail, readRunTraceIndex } from '../../executor/observer-read.js';
 import { writePlanFile, type PlanFileWriteResult } from '../../executor/plan-file.js';
 import { abandonRun } from '../../executor/run-abandon.js';
+import {
+  runExecutionActive,
+  withRunExecutionAuthority,
+  type RunExecutionActiveResult,
+} from '../../executor/run-execution-authority.js';
 import { recommendRunReplan } from '../../executor/run-replan-recommendation.js';
 import { type RunRetryEligibilityResult } from '../../executor/run-retry-eligibility.js';
 import { createSupersedingRun } from '../../executor/run-supersession.js';
@@ -473,6 +478,7 @@ const ExecuteReplanRecommendationResultSchema = Type.Object({}, { additionalProp
 const ExecuteReplanMutationResultSchema = Type.Object({}, { additionalProperties: true });
 
 type ExecuteReplanRegeneratePlanResult =
+  | RunExecutionActiveResult
   | {
       readonly status: 'regenerate_not_allowed';
       readonly eligibility: RunRetryEligibilityResult;
@@ -775,6 +781,18 @@ async function currentProjection(
 }
 
 async function regeneratePlan(
+  context: RpcMethodContext,
+  params: ExecuteReplanRegeneratePlanParams,
+): Promise<ExecuteReplanRegeneratePlanResult> {
+  return withRunExecutionAuthority({
+    cwd: context.cwd,
+    runId: params.runId,
+    onContended: () => runExecutionActive(params.runId),
+    execute: () => regeneratePlanOwned(context, params),
+  });
+}
+
+async function regeneratePlanOwned(
   context: RpcMethodContext,
   params: ExecuteReplanRegeneratePlanParams,
 ): Promise<ExecuteReplanRegeneratePlanResult> {

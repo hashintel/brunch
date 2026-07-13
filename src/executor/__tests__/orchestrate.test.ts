@@ -382,7 +382,20 @@ describe('drive', () => {
 
     const owner = drive({ cwd, runId: 'run-1', ports: throwing });
     const waiter = drive({ cwd, runId: 'run-1', ports: throwing });
-    await expect(Promise.all([owner, waiter])).rejects.toThrow('worktree exploded');
+    await expect(Promise.all([owner, waiter])).resolves.toEqual([
+      {
+        status: 'halted',
+        step: 'worktree_create',
+        runStatus: 'created',
+        reason: 'worktree_create_threw: worktree exploded',
+      },
+      {
+        status: 'halted',
+        step: 'worktree_create',
+        runStatus: 'created',
+        reason: 'worktree_create_threw: worktree exploded',
+      },
+    ]);
     expect(calls).toBe(1);
 
     await expect(drive({ cwd, runId: 'run-1', ports: fakePorts() })).resolves.toEqual({
@@ -390,6 +403,130 @@ describe('drive', () => {
       runStatus: 'promotion_prepared',
     });
   });
+
+  it.each([
+    {
+      fault: 'worktree',
+      setupFirings: 0,
+      step: 'worktree_create',
+      runStatus: 'created',
+      reason: 'worktree_create_threw',
+    },
+    {
+      fault: 'workspace',
+      setupFirings: 6,
+      step: 'slice_execute',
+      runStatus: 'slice_started',
+      reason: 'slice_workspace_threw',
+    },
+    {
+      fault: 'agent',
+      setupFirings: 7,
+      step: 'agent_result',
+      runStatus: 'slice_execution_requested',
+      reason: 'agent_run_threw',
+    },
+    {
+      fault: 'verifier',
+      setupFirings: 8,
+      step: 'test_result',
+      runStatus: 'agent_result_ingested',
+      reason: 'test_run_threw',
+    },
+    {
+      fault: 'integration',
+      setupFirings: 9,
+      step: 'slice_integrate',
+      runStatus: 'test_result_ingested',
+      reason: 'slice_integration_threw',
+    },
+    {
+      fault: 'promotion',
+      setupFirings: 0,
+      step: 'promotion',
+      runStatus: 'petri_exported',
+      reason: 'promotion_threw',
+    },
+  ] as const)(
+    'normalizes a thrown serial $fault effect into a durable terminal',
+    async ({ fault, setupFirings, step, runStatus, reason }) => {
+      const cwd = await mkdtemp(join(tmpdir(), `brunch-serial-${fault}-throw-`));
+      await createRunAtCreated(cwd, ['task-1']);
+      if (setupFirings > 0) {
+        await drive({ cwd, runId: 'run-1', ports: fakePorts() }, petriScheduler, serialFiringPolicy, {
+          maxFirings: setupFirings,
+        });
+      }
+      const ports = fakePorts({
+        ...(fault === 'worktree'
+          ? {
+              gitWorktree: createFakeGitWorktreePort(async () => {
+                throw new Error(`${fault} exploded`);
+              }),
+            }
+          : {}),
+        ...(fault === 'workspace'
+          ? {
+              gitSliceIntegration: createFakeGitSliceIntegrationPort({
+                async prepare() {
+                  throw new Error(`${fault} exploded`);
+                },
+              }),
+            }
+          : {}),
+        ...(fault === 'agent'
+          ? {
+              agentRunner: {
+                async run() {
+                  throw new Error(`${fault} exploded`);
+                },
+              },
+            }
+          : {}),
+        ...(fault === 'verifier'
+          ? {
+              testRunner: {
+                async run() {
+                  throw new Error(`${fault} exploded`);
+                },
+              },
+            }
+          : {}),
+        ...(fault === 'integration'
+          ? {
+              gitSliceIntegration: createFakeGitSliceIntegrationPort({
+                async integrate() {
+                  throw new Error(`${fault} exploded`);
+                },
+              }),
+            }
+          : {}),
+        ...(fault === 'promotion'
+          ? {
+              gitLand: {
+                async currentHead() {
+                  throw new Error(`${fault} exploded`);
+                },
+                async promote() {
+                  throw new Error('must not promote');
+                },
+              },
+            }
+          : {}),
+      });
+
+      await expect(drive({ cwd, runId: 'run-1', ports })).resolves.toEqual({
+        status: 'halted',
+        step,
+        runStatus,
+        reason: `${reason}: ${fault} exploded`,
+      });
+      await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toMatchObject({
+        terminalEventKind: 'net_halted',
+        haltedReason: `${reason}: ${fault} exploded`,
+      });
+    },
+  );
 
   it.each(['slice_execute', 'agent_result', 'test_result', 'slice_complete'] as const)(
     'refuses standalone %s while drive owns the same run without duplicating its effect',
@@ -4210,6 +4347,40 @@ describe('petriScheduler', () => {
         claimedSliceIds: ['task-1', 'task-2'],
         settlements: [],
       },
+    });
+  });
+
+  it('refuses standalone start after one parallel claim journals before batch marking', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-single-journal-claim-'));
+    await createRunAtCreated(cwd, ['task-1', 'task-2']);
+    await expect(
+      drive({ cwd, runId: 'run-1', ports: fakePorts() }, petriScheduler, frontierFiringPolicy, {
+        maxFirings: 5,
+      }),
+    ).resolves.toEqual({ status: 'completed', runStatus: 'reports_initialized' });
+    await rm(petriMarkingPath(cwd, 'run-1'));
+    await mkdir(petriMarkingPath(cwd, 'run-1'));
+
+    await expect(
+      drive({ cwd, runId: 'run-1', ports: fakePorts() }, petriScheduler, frontierFiringPolicy),
+    ).resolves.toMatchObject({ status: 'halted', reason: 'petri_marking_persist_failed' });
+    await expect(readRunDetail(cwd, 'run-1')).resolves.toMatchObject({
+      petriReadySteps: [],
+      petriBlockedSteps: [
+        { kind: 'authority_unreadable', blockers: [{ kind: 'parallel_authority_unreadable' }] },
+        {
+          kind: 'slice_start',
+          sliceId: 'task-1',
+          blockers: [{ kind: 'parallel_authority_unreadable' }],
+        },
+      ],
+    });
+    await expect(startSlice({ cwd, runId: 'run-1', sliceId: 'task-2' })).resolves.toMatchObject({
+      status: 'parallel_batch_active',
+      sideEffects: [],
+    });
+    await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+      status: 'reports_initialized',
     });
   });
 

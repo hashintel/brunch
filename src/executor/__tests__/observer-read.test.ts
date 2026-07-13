@@ -534,6 +534,10 @@ describe('readRunDetail', () => {
     expect(detail).toMatchObject({
       petriEventsTotal: 0,
       petriEventsTail: [],
+      petriReadySteps: [],
+      petriBlockedSteps: [
+        { kind: 'authority_unreadable', blockers: [{ kind: 'parallel_authority_unreadable' }] },
+      ],
     });
   });
 

@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 import { populateWorktree } from '../populate.js';
 import { initializeReports } from '../report.js';
-import { RUN_EFFECT_ENTRY_INVENTORY } from '../run-execution-authority.js';
+import { RUN_MUTATION_ENTRY_INVENTORY } from '../run-execution-authority.js';
 import { withRunExecutionAuthority } from '../run-execution-authority.js';
 import { copyHostSource } from '../source-copy.js';
 import { selectSourcePolicy } from '../source-policy.js';
@@ -16,7 +16,7 @@ describe('standalone run effect authority inventory', () => {
   it('requires every standalone lifecycle core entry to hold canonical run authority', async () => {
     const executorDir = join(dirname(fileURLToPath(import.meta.url)), '..');
     const files = new Set(
-      Object.values(RUN_EFFECT_ENTRY_INVENTORY)
+      Object.values(RUN_MUTATION_ENTRY_INVENTORY)
         .filter((entry) => entry.standalone)
         .map((entry) => entry.coreFile),
     );
@@ -33,6 +33,7 @@ describe('standalone run effect authority inventory', () => {
       release = resolve;
     });
     const owner = withRunExecutionAuthority({ cwd, runId: 'run-1', execute: () => held });
+    await new Promise((resolve) => setImmediate(resolve));
 
     await expect(
       Promise.all([

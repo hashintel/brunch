@@ -342,6 +342,34 @@ describe('run detail route', () => {
     expect(screen.getByText(/slice_start:task-2 blocked by active slice task-1/u)).toBeTruthy();
   });
 
+  it('renders authority-unreadable framing without stale ready work', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        run: {
+          ...runDetail,
+          status: 'reports_initialized',
+          petriReadySteps: [],
+          petriBlockedSteps: [
+            { kind: 'authority_unreadable', blockers: [{ kind: 'parallel_authority_unreadable' }] },
+            {
+              kind: 'slice_start',
+              sliceId: 'task-1',
+              blockers: [{ kind: 'parallel_authority_unreadable' }],
+            },
+          ],
+        } as RunDetail,
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('Petri frontier (derived)')).toBeTruthy();
+    expect(screen.getByText(/authority_unreadable blocked by parallel authority unreadable/u)).toBeTruthy();
+    expect(screen.getByText(/slice_start:task-1 blocked by parallel authority unreadable/u)).toBeTruthy();
+    expect(screen.queryByText(/ready:/u)).toBeNull();
+  });
+
   it('renders a stale-snapshot note when replay replaced a mismatched persisted marking snapshot', async () => {
     window.history.pushState(null, '', '/runs/run-1');
     const runtime = createBrunchWebRuntime({

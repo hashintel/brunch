@@ -49,6 +49,43 @@ Every external executor effect is admitted once per run, durably claimed before 
 
 Skipped-test delta vs parent: 0.
 
+## Slice 8 — Remaining review closure
+
+Status: done
+Weight: full
+
+### Target Behavior
+
+Run mutation authority, durable parallel recovery, serial throw settlement, and public schemas fail closed over every production entry and malformed carrier shape.
+
+### Acceptance Criteria
+
+- standalone start refuses any journal-ahead parallel claim, including one claim before batch marking, through canonical journal recovery logic.
+- executor/RPC/web expose only `authority_unreadable` readiness for nonterminal malformed/unavailable journals and one-or-more journal-only claims.
+- ordinary serial bound-effect throws become durable `net_halted` terminal outcomes; journal/marking carrier failures retain their fail-closed semantics.
+- `RUN_MUTATION_ENTRY_INVENTORY` covers scheduler effects and every production run create/supersede/abandon/retry/host-apply mutation entry, with authority guards and a static omission oracle.
+- table-driven `Value.Check` witnesses cover every ready step, blocked step/reason, parallel settlement, stream optional field, inventory, and `authority_unreadable` result arm.
+- executor topology docs, this card, and `memory/PLAN.md` reflect the final closure.
+
+### Verification Approach
+
+- Red/green with focused executor, extension, RPC, and web tests.
+- Middle: executor/app/extensions/RPC/web suites and `npm run fix`.
+- Gate: `npm run check` and `npm run build`.
+
+### Completion Report
+
+| Leaf | Outcome | Evidence |
+| --- | --- | --- |
+| Single journal-only claim blocks standalone start | met | `orchestrate.test.ts`: marking-persist crash after the first `slice_start` leaves `run.json` unchanged; standalone start returns `parallel_batch_active` with no effects. |
+| Malformed/unavailable and one-or-more journal claims suppress readiness | met | `observer-read.test.ts`, `orchestrate.test.ts`, RPC `execute.test.ts`, and `runs-route.test.tsx` cover malformed framing, one readable claim, `authority_unreadable`, and no stale ready work. |
+| Serial throws become durable terminal outcomes | met | Table-driven `orchestrate.test.ts` covers worktree, slice workspace/request, agent, verifier, integration, and promotion throws; each journals `net_halted` and persists terminal marking. Existing epic claim carrier tests still reject before runner/summary mutation. |
+| Canonical mutation inventory and authority guards | met | `RUN_MUTATION_ENTRY_INVENTORY` covers drive/scheduler effects plus create, supersede, abandon, retry, regenerate, and host apply; static owner test and supersession contention test are green. |
+| Public schema union witnesses | met | `execute-run-schema.test.ts` table-drives every `ReadyStep`, `BlockedStep`/reason, settlement, stream optional framing, inventory state, and authority-unreadable result shape through `Value.Check`. |
+| Canonical docs reconciled | met | `src/executor/TOPOLOGY.md`, this card, and `memory/PLAN.md` describe final authority/recovery/throw semantics. |
+
+Skipped-test delta vs parent: 0.
+
 ## Slice 7 — Exhaustive authority and projection closure
 
 Status: done

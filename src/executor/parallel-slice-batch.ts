@@ -30,17 +30,38 @@ export async function parallelSliceBatchRecoveryRequired(args: {
   readonly runId: string;
   readonly lifecycleFiredTransitionCount: number;
 }): Promise<boolean> {
+  const authority = await inspectParallelSliceJournalAuthority(args);
+  return authority.status === 'claimed';
+}
+
+export async function inspectParallelSliceJournalAuthority(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly lifecycleFiredTransitionCount: number;
+}): Promise<
+  | { readonly status: 'none' }
+  | { readonly status: 'claimed'; readonly sliceIds: readonly string[] }
+  | { readonly status: 'unreadable' }
+> {
   try {
     const journal = await readPetriJournal(petriEventsPath(args.cwd, args.runId));
-    if (journal.status !== 'readable') {
-      return journal.status !== 'missing' && !(journal.status === 'unavailable' && journal.code === 'EISDIR');
-    }
-    const events = journal.events;
-    return (
-      events.filter((event) => event.kind === 'transition_fired').length > args.lifecycleFiredTransitionCount
-    );
+    if (journal.status === 'missing') return { status: 'none' };
+    if (journal.status !== 'readable') return { status: 'unreadable' };
+    const journalOnlyTransitions = journal.events
+      .filter((event) => event.kind === 'transition_fired')
+      .slice(args.lifecycleFiredTransitionCount);
+    const sliceIds = [
+      ...new Set(
+        journalOnlyTransitions.flatMap((event) =>
+          event.transitionId.startsWith('slice_start:')
+            ? [event.transitionId.slice('slice_start:'.length)]
+            : [],
+        ),
+      ),
+    ];
+    return sliceIds.length > 0 ? { status: 'claimed', sliceIds } : { status: 'none' };
   } catch {
-    return true;
+    return { status: 'unreadable' };
   }
 }
 

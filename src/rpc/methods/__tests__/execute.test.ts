@@ -386,6 +386,35 @@ describe('execute.run', () => {
     await driving;
   });
 
+  it('suppresses readiness when a nonterminal Petri journal is malformed', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-malformed-authority-'));
+    await writePlan(cwd);
+    await writeRun(cwd, 'run-1', {
+      status: 'created',
+      planPath: planFilePath(cwd, '42'),
+    });
+    const petrinautDir = join(runDirPath(cwd, 'run-1'), 'petrinaut');
+    await mkdir(petrinautDir, { recursive: true });
+    await writeFile(join(petrinautDir, 'events.jsonl'), '{"kind":"transition_fired"', 'utf8');
+
+    const response = await method('execute.run').handle(
+      contextFor(cwd),
+      request('execute.run', { runId: 'run-1' }),
+    );
+
+    expect(response).toMatchObject({
+      result: {
+        petriReadySteps: [],
+        petriBlockedSteps: [
+          { kind: 'authority_unreadable', blockers: [{ kind: 'parallel_authority_unreadable' }] },
+        ],
+      },
+    });
+    expect(Value.Check(ExecuteRunResultSchema, 'result' in response ? response.result : undefined)).toBe(
+      true,
+    );
+  });
+
   it('rejects malformed and traversal-shaped params', async () => {
     const definition = method('execute.run');
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-params-'));

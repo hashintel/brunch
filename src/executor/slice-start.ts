@@ -7,7 +7,9 @@ import {
   type BlockedStep,
   type SchedulerPlan,
 } from './orchestrate-topology.js';
+import { inspectParallelSliceJournalAuthority } from './parallel-slice-batch.js';
 import { readPetriMarkingSnapshot } from './petri-marking.js';
+import { projectExecutorPetriTransitionHistory } from './petri-runtime.js';
 import { populatedPlanPath } from './populate.js';
 import { reportsPath } from './report.js';
 import { withRunExecutionAuthority } from './run-execution-authority.js';
@@ -125,6 +127,23 @@ async function startSliceOwned(args: {
     };
   }
 
+  const plan = await readPlan(metadata.populatedPlanPath ?? populatedPlanPath(args.cwd, args.runId));
+  const journalAuthority = await inspectParallelSliceJournalAuthority({
+    cwd: args.cwd,
+    runId: args.runId,
+    lifecycleFiredTransitionCount:
+      projectExecutorPetriTransitionHistory(metadata, plan)?.transitionIds.length ?? 0,
+  });
+  if (journalAuthority.status !== 'none') {
+    return {
+      status: 'parallel_batch_active',
+      runStatus: metadata.status,
+      runId: args.runId,
+      metadataPath,
+      sideEffects: [],
+    };
+  }
+
   // A run is ready for a slice once reports are initialized (first slice) or
   // after a previous slice has completed (subsequent slices).
   if (metadata.status !== 'reports_initialized' && metadata.status !== 'slice_completed') {
@@ -138,7 +157,6 @@ async function startSliceOwned(args: {
   }
 
   const reportPath = metadata.reportsPath ?? reportsPath(args.cwd, args.runId);
-  const plan = await readPlan(metadata.populatedPlanPath ?? populatedPlanPath(args.cwd, args.runId));
   const readySliceIds = new Set(
     readyPlanSliceIds(plan, metadata.completedSliceIds ?? [], metadata.completedEpicIds ?? []),
   );

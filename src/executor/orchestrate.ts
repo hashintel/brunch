@@ -1,6 +1,8 @@
 import type { AgentRunnerRuntime, ExecutionPorts } from './execution-ports.js';
 import {
+  IsolatedSliceOperationError,
   isolatedAttemptOutcomeFor,
+  thrownSliceEffectReason,
   type AgentStreamEvent,
   type VerifyStreamEvent,
 } from './isolated-slice-operations.js';
@@ -583,7 +585,52 @@ async function driveOwned(
         ...(currentAuthoritySnapshot ? { markingSnapshot: currentAuthoritySnapshot } : {}),
       });
       const boundTransition = boundRuntime.transitionForReadyStep(next);
-      const result = boundTransition ? await boundTransition.execute() : await neverBoundReadyStep(next);
+      let result: StepResult;
+      try {
+        result = boundTransition ? await boundTransition.execute() : await neverBoundReadyStep(next);
+      } catch (error) {
+        if (next.kind === 'epic_integrate' || next.kind === 'epic_verify' || next.kind === 'epic_complete') {
+          throw error;
+        }
+        const reason =
+          error instanceof IsolatedSliceOperationError
+            ? error.reason
+            : thrownSliceEffectReason(serialThrowKind(next.kind), error);
+        const terminal = classifyDriveTerminal({
+          kind: 'step_halted',
+          runId: ctx.runId,
+          runStatus: currentState.status,
+          step: next.kind,
+          reason,
+        });
+        const emitted = await emitNetEvent(ctx, terminal.event);
+        if (!emitted.journaled) return journalFailureOutcome(terminal);
+        const authoritySnapshot = await readPetriMarkingSnapshot({ cwd: ctx.cwd, runId: ctx.runId });
+        try {
+          await writePetriMarkingSnapshot({
+            cwd: ctx.cwd,
+            runId: ctx.runId,
+            snapshot: await nextPetriSnapshot({
+              currentMarking: currentRuntime.currentMarking,
+              firedTransitionCount: firedTransitionCountForState(currentState, currentPlan),
+              lifecycleProvenance: petriMarkingLifecycleProvenance(currentState),
+              terminalEventKind: terminal.event.kind,
+              haltedReason: reason,
+              ...(authoritySnapshot?.epicVerificationClaims
+                ? { epicVerificationClaims: authoritySnapshot.epicVerificationClaims }
+                : {}),
+            }),
+          });
+        } catch {
+          return {
+            status: 'halted',
+            step: next.kind,
+            runStatus: currentState.status,
+            reason: 'petri_marking_persist_failed',
+          };
+        }
+        return terminal.outcome;
+      }
       if (result.skipTransition && result.runStatus !== 'not_started') {
         try {
           ctx.onStepComplete?.(
@@ -801,6 +848,21 @@ async function driveOwned(
         }
       }
     }
+  }
+}
+
+function serialThrowKind(step: ReadyStep['kind']): string {
+  switch (step) {
+    case 'slice_execute':
+      return 'slice_workspace_threw';
+    case 'agent_result':
+      return 'agent_run_threw';
+    case 'test_result':
+      return 'test_run_threw';
+    case 'slice_integrate':
+      return 'slice_integration_threw';
+    default:
+      return `${step}_threw`;
   }
 }
 

@@ -1,9 +1,15 @@
 import { access, mkdir } from 'node:fs/promises';
 
 import { prepareLaunch, type LaunchCurrentProjection, type LaunchResult } from './launch.js';
+import {
+  runExecutionActive,
+  withRunExecutionAuthority,
+  type RunExecutionActiveResult,
+} from './run-execution-authority.js';
 import { persistRunMetadata, readRunMetadata, runDirPath, runMetadataPath, type RunMetadata } from './run.js';
 
 export type RunSupersessionResult =
+  | RunExecutionActiveResult
   | {
       readonly status: 'missing_previous_run';
       readonly runStatus: 'not_started';
@@ -42,6 +48,20 @@ export type RunSupersessionResult =
     };
 
 export async function createSupersedingRun(args: {
+  readonly cwd: string;
+  readonly previousRunId: string;
+  readonly current: LaunchCurrentProjection;
+  readonly runId?: string;
+}): Promise<RunSupersessionResult> {
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId: args.previousRunId,
+    execute: () => createSupersedingRunOwned(args),
+    onContended: () => runExecutionActive(args.previousRunId),
+  });
+}
+
+async function createSupersedingRunOwned(args: {
   readonly cwd: string;
   readonly previousRunId: string;
   readonly current: LaunchCurrentProjection;
@@ -99,8 +119,28 @@ export async function createSupersedingRun(args: {
     ...(previous.verifyTarget ? { verifyTarget: previous.verifyTarget } : {}),
   };
 
-  await mkdir(runDir, { recursive: true });
-  const metadataEffect = await persistRunMetadata(metadataPath, metadata);
+  const created = await withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId,
+    execute: async () => {
+      if (await pathExists(runDir)) return { status: 'exists' as const };
+      await mkdir(runDir, { recursive: true });
+      const metadataEffect = await persistRunMetadata(metadataPath, metadata);
+      return { status: 'created' as const, metadataEffect };
+    },
+    onContended: () => ({ status: 'active' as const }),
+  });
+  if (created.status === 'active') return runExecutionActive(runId);
+  if (created.status === 'exists') {
+    return {
+      status: 'target_run_exists',
+      runStatus: 'not_started',
+      previousRunId: args.previousRunId,
+      runId,
+      metadataPath,
+      sideEffects: [],
+    };
+  }
 
   return {
     status: 'created',
@@ -110,7 +150,7 @@ export async function createSupersedingRun(args: {
     runDir,
     metadataPath,
     planPath: launch.planPath,
-    sideEffects: [{ kind: 'mkdir', path: runDir }, metadataEffect],
+    sideEffects: [{ kind: 'mkdir', path: runDir }, created.metadataEffect],
   };
 }
 

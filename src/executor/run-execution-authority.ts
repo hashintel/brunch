@@ -2,8 +2,6 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { realpath } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-import type { ReadyStep } from './orchestrate-topology.js';
-
 const executions = new Map<string, Promise<unknown>>();
 const ownedExecutions = new AsyncLocalStorage<ReadonlySet<string>>();
 
@@ -18,8 +16,9 @@ export function runExecutionActive(runId: string): RunExecutionActiveResult {
   return { status: 'run_execution_active', runStatus: 'not_started', runId, sideEffects: [] };
 }
 
-/** Exhaustive inventory: adding a lifecycle effect requires an explicit authority classification. */
-export const RUN_EFFECT_ENTRY_INVENTORY = {
+/** Canonical inventory: every production run mutation entry declares its authority boundary. */
+export const RUN_MUTATION_ENTRY_INVENTORY = {
+  drive: { coreFile: 'orchestrate.ts', standalone: true },
   worktree_create: { coreFile: 'worktree.ts', standalone: true },
   populate: { coreFile: 'populate.ts', standalone: true },
   source_policy: { coreFile: 'source-policy.ts', standalone: true },
@@ -37,7 +36,22 @@ export const RUN_EFFECT_ENTRY_INVENTORY = {
   run_complete: { coreFile: 'run-complete.ts', standalone: true },
   petri_export: { coreFile: 'petri.ts', standalone: true },
   promotion: { coreFile: 'promotion.ts', standalone: true },
-} as const satisfies Record<ReadyStep['kind'], { readonly coreFile: string; readonly standalone: boolean }>;
+  run_create: { coreFile: 'run.ts', standalone: true },
+  run_supersede: { coreFile: 'run-supersession.ts', standalone: true },
+  run_abandon: { coreFile: 'run-abandon.ts', standalone: true },
+  replan_retry_current_step: {
+    coreFile: '../.pi/extensions/executor/execute-replan-retry-current-step/index.ts',
+    standalone: true,
+  },
+  replan_regenerate_plan_tool: {
+    coreFile: '../.pi/extensions/executor/execute-replan-regenerate-plan/index.ts',
+    standalone: true,
+  },
+  replan_regenerate_plan_rpc: { coreFile: '../rpc/methods/execute.ts', standalone: true },
+  host_promotion_apply: { coreFile: 'host-promotion.ts', standalone: true },
+} as const satisfies Record<string, { readonly coreFile: string; readonly standalone: boolean }>;
+
+export type RunMutationEntry = keyof typeof RUN_MUTATION_ENTRY_INVENTORY;
 
 export async function withRunExecutionAuthority<Result, Contended = Result>(args: {
   readonly cwd: string;

@@ -5,6 +5,7 @@ import { BRUNCH_DIR } from '../constants.js';
 import { agentStreamPath } from './agent-result.js';
 import type { AgentStreamEvent, VerifyStreamEvent } from './isolated-slice-operations.js';
 import type { BlockedStep, ExecutorNetEvent, ReadyStep, SchedulerPlan } from './orchestrate-topology.js';
+import { inspectParallelSliceJournalAuthority } from './parallel-slice-batch.js';
 import { petriEventsPath, readPetriJournal } from './petri-events.js';
 import {
   petriMarkingSnapshotMatchesRunMetadata,
@@ -232,24 +233,17 @@ export async function readRunDetail(
     );
   const lifecycleTransitionCount =
     projectExecutorPetriTransitionHistory(metadata, petriRuntimePlan)?.transitionIds.length ?? 0;
-  const journalTransitions = petriEvents.events.filter((event) => event.kind === 'transition_fired');
-  const journalAhead = petriEvents.readable && journalTransitions.length > lifecycleTransitionCount;
-  const journalClaimedSliceIds = [
-    ...new Set(
-      journalTransitions
-        .slice(lifecycleTransitionCount)
-        .flatMap((event) =>
-          event.kind === 'transition_fired' && event.transitionId.startsWith('slice_start:')
-            ? [event.transitionId.slice('slice_start:'.length)]
-            : [],
-        ),
-    ),
-  ];
+  const journalAuthority = await inspectParallelSliceJournalAuthority({
+    cwd,
+    runId,
+    lifecycleFiredTransitionCount: lifecycleTransitionCount,
+  });
+  const journalClaimedSliceIds = journalAuthority.status === 'claimed' ? journalAuthority.sliceIds : [];
   const parallelAuthorityUnreadable =
     metadata.status !== 'abandoned' &&
-    journalAhead &&
-    journalClaimedSliceIds.length > 1 &&
-    !hasMatchingPetriMarkingSnapshot;
+    metadata.status !== 'promotion_prepared' &&
+    (journalAuthority.status === 'unreadable' ||
+      (journalAuthority.status === 'claimed' && !hasMatchingPetriMarkingSnapshot));
   const unreadableAuthoritySliceIds = parallelAuthorityUnreadable
     ? journalClaimedSliceIds.filter((sliceId) => !metadata.completedSliceIds?.includes(sliceId))
     : [];
