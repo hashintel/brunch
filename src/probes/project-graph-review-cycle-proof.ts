@@ -60,7 +60,7 @@ export interface ProjectGraphReviewCycleArtifacts {
 
 interface ReviewCycleToolEvidence {
   readonly presentReviewSetCount: number;
-  readonly requestResponseCount: number;
+  readonly askTerminalCount: number;
   readonly successfulPresentReviewSetCount: number;
   readonly structuralIllegalPresentReviewSetCount: number;
 }
@@ -901,7 +901,7 @@ export async function writeProjectGraphReviewCycleArtifacts(options: {
 
 function reviewCycleToolEvidence(sessionText: string): ReviewCycleToolEvidence {
   let presentReviewSetCount = 0;
-  let requestResponseCount = 0;
+  let askTerminalCount = 0;
   let successfulPresentReviewSetCount = 0;
   let structuralIllegalPresentReviewSetCount = 0;
 
@@ -915,14 +915,14 @@ function reviewCycleToolEvidence(sessionText: string): ReviewCycleToolEvidence {
         successfulPresentReviewSetCount += 1;
       }
     }
-    if (message.toolName === 'request_response') {
-      requestResponseCount += 1;
+    if (message.toolName === 'ask') {
+      askTerminalCount += 1;
     }
   }
 
   return {
     presentReviewSetCount,
-    requestResponseCount,
+    askTerminalCount,
     successfulPresentReviewSetCount,
     structuralIllegalPresentReviewSetCount,
   };

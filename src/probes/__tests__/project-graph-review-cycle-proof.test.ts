@@ -275,8 +275,8 @@ function presentReviewSetEntry(): string {
   });
 }
 
-function requestResponseReviewEntry(): string {
-  return toolResultEntry('request_response', {
+function askReviewEntry(): string {
+  return toolResultEntry('ask', {
     schema: 'brunch.structured_exchange.request',
     v: 1,
     exchange_id: 'review-1',
@@ -284,7 +284,15 @@ function requestResponseReviewEntry(): string {
     answered: { decision: 'approve', comment: 'Probe approval.' },
   });
 }
-
+function askReviewEntry(): string {
+  return toolResultEntry('ask', {
+    schema: 'brunch.structured_exchange.request',
+    v: 1,
+    exchange_id: 'review-1',
+    tool_meta: { prev: 'present_review_set', curr: 'request_review' },
+    answered: { decision: 'approve', comment: 'Probe approval.' },
+  });
+}
 function pendingReviewResponse(): JsonRpcResponse {
   return {
     jsonrpc: '2.0',
@@ -440,7 +448,7 @@ describe('project-graph review-cycle proof report', () => {
       prompt: 'Present a review set.',
       runtimeState,
       model: 'test-model',
-      sessionText: [presentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
+      sessionText: [presentReviewSetEntry(), askReviewEntry()].join('\n'),
       baseOverview,
       finalOverview: approvedOverview,
       pendingResponse: pendingReviewResponse(),
@@ -451,7 +459,7 @@ describe('project-graph review-cycle proof report', () => {
     expect(report.success).toBe(true);
     expect(report.toolEvidence).toMatchObject({
       presentReviewSetCount: 1,
-      requestResponseCount: 1,
+      askTerminalCount: 1,
       successfulPresentReviewSetCount: 1,
     });
     expect(report.pendingReview).toMatchObject({
@@ -516,7 +524,7 @@ describe('project-graph review-cycle proof report', () => {
       sessionId: 'session-1',
       prompt: 'Present a review set.',
       runtimeState,
-      sessionText: [presentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
+      sessionText: [presentReviewSetEntry(), askReviewEntry()].join('\n'),
       baseOverview,
       finalOverview: approvedOverview,
       pendingResponse: pendingReviewResponse(),
@@ -526,7 +534,7 @@ describe('project-graph review-cycle proof report', () => {
     const artifacts = await writeProjectGraphReviewCycleArtifacts({
       fixtureRoot,
       runId: report.runId,
-      sessionText: [presentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
+      sessionText: [presentReviewSetEntry(), askReviewEntry()].join('\n'),
       report,
       graphOverview: approvedOverview,
     });
@@ -564,7 +572,7 @@ describe('project-graph review-cycle proof report', () => {
       sessionId: 'session-1',
       prompt: 'Present a review set.',
       runtimeState,
-      sessionText: [presentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
+      sessionText: [presentReviewSetEntry(), askReviewEntry()].join('\n'),
       baseOverview,
       finalOverview: approvedOverview,
       pendingResponse: pendingReviewResponse(),
@@ -574,7 +582,7 @@ describe('project-graph review-cycle proof report', () => {
     const artifacts = await writeProjectGraphReviewCycleArtifacts({
       fixtureRoot,
       runId: report.runId,
-      sessionText: [presentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
+      sessionText: [presentReviewSetEntry(), askReviewEntry()].join('\n'),
       report,
       graphOverview: approvedOverview,
     });

@@ -40,7 +40,7 @@ extensions/
 ├── chrome/                 TUI header/title/footer/sidecar-widget chrome projection
 ├── commands/               /brunch:* commands, shortcut, branch/tree policy
 ├── compaction/             auto-compaction anchor contract and future hook
-├── exchanges/              structured-exchange present_* / request_* Pi tools
+├── exchanges/              structured-exchange present_* + ask Pi tools
 ├── mentions/               #graph mention prompt hint + autocomplete provider
 ├── session-orientation/    session-entry-orientation descriptors, dialog adapter, juncture orchestrator, and gate state
 ├── shared/                 default Brunch tool definition/rendering + provider-facing schema adapter

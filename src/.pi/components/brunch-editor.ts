@@ -11,7 +11,7 @@ import { projectRoundedBox } from './rounded-box.js';
  * Callers assemble these from whatever runtime facts they have (operational
  * mode, spec title, sidecar URL, model/context usage, ...) — this module
  * stays domain-ignorant so `projectBorderedChrome` can be reused for other
- * bordered components later (the `request_*` question-form pickers are the
+ * bordered components later (the `ask` question-form pickers are the
  * next intended reuse; see `memory/PLAN.md`'s `component-dx` frontier).
  */
 export interface BrunchEditorLabels {
