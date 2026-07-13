@@ -58,11 +58,12 @@ function renderPlannerTask(args: {
     'Planning projection (approved specification truth):',
     JSON.stringify(args.projection, null, 2),
     '',
-    `Supported capability ids (use ONLY these in requiredCapabilities): ${
+    `Supported capability ids: ${
       args.capabilityVocabulary && args.capabilityVocabulary.length > 0
         ? args.capabilityVocabulary.join(', ')
         : 'none'
     }`,
+    'Use a supported id only when it genuinely matches the committed stack. If no supported id matches, emit a descriptive id (e.g. rust.cargo-test) — it will surface as an explicit blocked requirement, which is correct. Never map a commitment onto a supported id from a different ecosystem.',
     ...(args.findings && args.findings.length > 0
       ? [
           '',

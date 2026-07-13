@@ -26,7 +26,10 @@ Author an executable plan candidate:
   declare explicit `execute.*` recipe lines are already binding; you do not need to
   restate them.
 
-Your task lists the supported capability ids; requiredCapabilities may use only those.
+Your task lists the supported capability ids. Use one only when it genuinely matches
+the committed stack; if none matches, emit a descriptive id anyway — an unsupported
+capability blocks explicitly, and that block is the correct outcome. Never satisfy a
+commitment with a supported id from a different ecosystem.
 
 Respond with exactly one JSON object (no prose, no code fences). Every field below is
 required — arrays may be empty but must be present:
