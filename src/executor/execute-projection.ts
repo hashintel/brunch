@@ -52,6 +52,7 @@ export function projectExecuteGraph(input: ProjectExecuteGraphInput): ExecuteGra
     constraints: snapshot.context.constraints,
     invariants: snapshot.context.invariants,
     decisions: snapshot.context.decisions,
+    verification: snapshot.context.oracle,
   });
   const providers = [...defaultCapabilityProviders(), ...(recipe.provider ? [recipe.provider] : [])];
   // ceiling: default-provenance npm requirement as last resort until the FE-1197

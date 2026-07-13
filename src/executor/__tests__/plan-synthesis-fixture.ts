@@ -65,6 +65,7 @@ export const projection: PlanningProjection = {
     constraints: [],
     invariants: [],
     decisions: [item('DEC1', 9, 'Implementation and verification run on Python with pytest.')],
+    verification: [],
   },
 };
 

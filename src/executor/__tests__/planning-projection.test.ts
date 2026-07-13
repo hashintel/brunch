@@ -58,15 +58,15 @@ describe('projectPlanningInput', () => {
       constraints: [expect.objectContaining({ itemId: 'CON1' })],
       invariants: [expect.objectContaining({ itemId: 'INV1' })],
       decisions: [expect.objectContaining({ itemId: 'DEC1' })],
+      verification: [expect.objectContaining({ itemId: 'CH9' })],
     });
   });
 
-  it('keeps the projection bounded: no examples, no unlinked design/oracle nodes', () => {
+  it('keeps the projection bounded: no examples, no unlinked design nodes', () => {
     const projection = projectPlanningInput(snapshot) as unknown as Record<string, unknown>;
 
     expect(JSON.stringify(projection)).not.toContain('EX1');
     expect(JSON.stringify(projection)).not.toContain('MOD9');
-    expect(JSON.stringify(projection)).not.toContain('CH9');
     expect(Object.keys(projection).sort()).toEqual([
       'commitments',
       'criteria',

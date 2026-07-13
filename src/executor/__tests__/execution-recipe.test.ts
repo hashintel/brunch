@@ -10,6 +10,7 @@ const commitments = (decisions: { itemId: string; body: string }[]) => ({
     ...item(decision.itemId, 100 + index, decision.body),
     content: decision.body,
   })),
+  verification: [],
 });
 
 describe('extractSpecRecipe', () => {
@@ -64,5 +65,21 @@ describe('extractSpecRecipe', () => {
     );
 
     expect(extraction).toEqual({ provider: undefined, required: [], issues: [] });
+  });
+
+  it('accepts recipe lines declared on verification commitments', () => {
+    const extraction = extractSpecRecipe({
+      constraints: [],
+      invariants: [],
+      decisions: [],
+      verification: [
+        { ...item('VV2', 200, 'Run cargo test before milestones.\nexecute.verify: cargo test') },
+      ],
+    });
+
+    expect(extraction.required).toEqual([{ id: 'spec.verify', source: { kind: 'elicited', itemId: 'VV2' } }]);
+    expect(extraction.provider?.capabilities['spec.verify']?.actions.verify).toEqual([
+      { command: 'cargo', args: ['test'] },
+    ]);
   });
 });

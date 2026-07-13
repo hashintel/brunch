@@ -85,6 +85,7 @@ export function validateCandidatePlan(args: {
       ...projection.commitments.constraints,
       ...projection.commitments.invariants,
       ...projection.commitments.decisions,
+      ...projection.commitments.verification,
     ].map((item) => item.itemId),
   );
 

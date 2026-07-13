@@ -32,7 +32,12 @@ export function extractSpecRecipe(commitments: PlanningCommitments): SpecRecipeE
   };
   const issues: SpecRecipeIssue[] = [];
 
-  const nodes = [...commitments.constraints, ...commitments.invariants, ...commitments.decisions];
+  const nodes = [
+    ...commitments.constraints,
+    ...commitments.invariants,
+    ...commitments.decisions,
+    ...commitments.verification,
+  ];
   for (const node of nodes) {
     for (const rawLine of node.content.split('\n')) {
       const line = rawLine.trim();
