@@ -50,7 +50,7 @@ Concern: `brunch login` and in-session `/login` auth UX.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §brunch login, §in-session `/login` flow.
 Observation: CLI login works but echoed a pasted API key in clear text; provider choices are restricted to the current allowlist; in-session `/login` feels better but model restrictions still produce friction when saved auth does not resolve an allowed default.
 Expected: pasted secrets should be hidden; login should minimize auth/setup friction without exposing internal model-policy choices.
-Disposition: built in WR8/WR15 (FE-1180): `brunch login` API-key entry uses hidden input and labels the prompt as hidden; login/warning copy steers users toward in-session `/login` as the preferred path. WR15 adds the interactive oracle: a real PTY paste capture omits the sentinel key while isolated Pi auth storage receives the exact key, and cancellation exits nonzero without API-key auth. Model/provider restriction remains a model-policy design question. Secret in source note was redacted locally; rotate the real key if it was live.
+Disposition: built in WR8/WR15 (FE-1180): `brunch login` API-key entry uses hidden input and labels the prompt as hidden; login/warning copy steers users toward in-session `/login` as the preferred path. WR15 adds the interactive oracle: a real PTY paste capture omits the sentinel key while isolated Pi auth storage receives the exact key, and cancellation exits nonzero without API-key auth. Model/provider restriction settled 2026-07-13 — owner: FE-1187 (D113-L–D115-L reversal: full Pi provider/model range, Pi-native `/login`/`/model`, soft recommended default, no-auth gate re-keyed to "no resolvable auth"). Secret in source note was redacted locally; rotate the real key if it was live.
 
 #### A3 · chrome / model policy · medium · diagnose
 
@@ -82,7 +82,7 @@ Concern: digest → ask repetition and ask markdown/result fidelity.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §`present_digest` flow, §mapping the digest.
 Observation: digest content is repeated inside the `ask` UI; ask rendering appears markdown-limited or differently formatted; JSON appeared in the TUI after an ask invocation; optional-comment prompts are not preserved with the submitted comment; “Something else” duplicated the built-in Other affordance; nested esc works but help text does not say so; nested states use plain bordered editors rather than the full rounded/mode-reactive box.
 Expected: large present-then-ask flows should keep pretext outside the ask; result rendering should preserve enough prompt framing for comments; custom “Something else” options should be discouraged or normalized against Other; nested ask states should explain esc/back behavior and share the intended chrome.
-Disposition: WR4 built the ask comment-framing echo: `commentPrompt` and Other-elaboration framing now persist into standalone ask details and model-facing formatted text. WR5 built conduct guidance for large-present continuation bodies and Other-equivalent options. WR6 built exchange-tool validation failure rendering so ask invocation failures return human-readable `TOOL_INPUT_INVALID` markdown without raw payload leaks. Remaining A6 facets: nested chrome/help text is outside these rows unless pulled by an owned seam.
+Disposition: WR4 built the ask comment-framing echo: `commentPrompt` and Other-elaboration framing now persist into standalone ask details and model-facing formatted text. WR5 built conduct guidance for large-present continuation bodies and Other-equivalent options. WR6 built exchange-tool validation failure rendering so ask invocation failures return human-readable `TOOL_INPUT_INVALID` markdown without raw payload leaks. Remaining A6 facets: nested chrome/help text — owner: PLAN Horizon `exchange-visual-design` (promoted 2026-07-13). The digest-pretext-must-not-repeat principle rides FE-1187's repeated-offer-content row.
 
 #### A7 · capture logic · high · spec/plan needed
 
@@ -90,7 +90,7 @@ Concern: digest acceptance, mapping, review-set offer, and direct mutation seman
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §mapping the digest, §review-set flow.
 Observation: after accepting a digest the agent asked more questions, then later offered a review set. In the older product logic, an approved digest may have been enough authority to mutate directly. However the review-set structure was more rigorous, and a second pass after user feedback extracted edges that the first pass missed.
 Expected: Brunch needs a clearer contract for when digest approval authorizes direct graph mutation vs when it should produce a review set or multi-pass proposal.
-Disposition: WR5 built the inner conduct contract: accepted digests now default to direct mapping into advisory graph mutations when supported, multi-pass extraction is pinned (entities, relations, narrative obligations), and broad follow-up questions before mapping are discouraged. More structured digest payloads or parallel subagents remain future design questions if later evidence demands them.
+Disposition: WR5 built the inner conduct contract: accepted digests now default to direct mapping into advisory graph mutations when supported, multi-pass extraction is pinned (entities, relations, narrative obligations), and broad follow-up questions before mapping are discouraged. More structured digest payloads or parallel subagents — owner: `memory/SPEC.md` §Future Direction "Subagent acquisition" (pointer recorded 2026-07-13); re-enter via a concrete triggering frontier.
 
 #### A8 · prompt/skill/model · medium · logged
 
@@ -106,7 +106,7 @@ Concern: `/brunch:consult` style/action routing and rendering after graph mutati
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §changing styles with `/consult`.
 Observation: After graph mutations the agent gave an unprompted summary/overview and then `/consult` → example-based reoriented into a question, which is promising. Rendering issues remain: markdown `\n\n` appeared inline in the question, node identifiers need a styling convention such as backticks/`<kbd>`, and the consult/main-menu border role should be visually distinct from editor/ask mode-reactive borders.
 Expected: consult choices should visibly be a surface-identity menu, route cleanly to the selected style/action, and preserve markdown/node-id legibility in the resulting ask.
-Disposition: consult-menu chrome/content built in WR2 (FE-1180). Markdown/node-id polish remains deferred unless a later owned row makes it cheap; routing behavior is promising but needs more evidence in Run B/D.
+Disposition: consult-menu chrome/content built in WR2 (FE-1180). Markdown/node-id polish and border distinctness — owner: PLAN Horizon `exchange-visual-design` (promoted 2026-07-13); routing behavior is promising but needs more evidence in Run B/D.
 
 #### A10 · observability · low · logged
 
@@ -114,7 +114,7 @@ Concern: `/introspect` usefulness.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §`/introspect`.
 Observation: `/introspect` reports only terse object summaries (`basePromptOptions=object(8)`, `latestPassiveCapture=turn-2 object(10)`), leaving the operator unsure what to do next.
 Expected: introspection should either show the actionable summary inline or point directly to the debug files/artifacts that contain the captured prompt/session data.
-Disposition: observability polish candidate; likely lower priority than auth, continue, and exchange rendering.
+Disposition: observability polish — owner: PLAN Horizon `exchange-visual-design` (promoted 2026-07-13, WR10 `/introspect` legibility folded there); lower priority than auth, continue, and exchange rendering.
 
 ### 2026-07-09 run C — developed/resume spec, Execute + design/oracle/commit flows
 
@@ -143,7 +143,7 @@ Concern: Technical/verification design routing from consult.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-C.md` §“technical design” and “verification design” routing.
 Observation: Agent struggled to call `present_candidates`; error output and JSON leaked into the TUI; final choice came without a recommendation even though the expected technical-design shape is closer to “design it twice” plus recommendation/synthesis. After the user answered, the agent followed up with a plain text question instead of using `ask`.
 Expected: design/oracle routing should reliably use the structured exchange tools, avoid raw validation JSON in the transcript, and follow the intended design-comparison shape with a recommendation or explicit synthesis path.
-Disposition: WR6 built the exchange-tool validation failure rendering portion: invalid structured-exchange tool arguments now return themed `TOOL_INPUT_INVALID` markdown instead of raw validation payload leaks. The design/oracle recommendation shape, fallback to plain text instead of `ask`, and broader prompt/skill routing concerns remain diagnostic/planning inputs outside WR6.
+Disposition: WR6 built the exchange-tool validation failure rendering portion: invalid structured-exchange tool arguments now return themed `TOOL_INPUT_INVALID` markdown instead of raw validation payload leaks. The design/oracle recommendation shape — owner: PLAN Horizon `generative-flow-synthesis-shape` (promoted 2026-07-13). Fallback to plain text instead of `ask` and broader prompt/skill routing concerns remain diagnostic inputs to the prompt/skill/model audit.
 
 #### C4 · executor readiness · medium · logged
 
@@ -159,7 +159,7 @@ Concern: Richer graph context overload.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-C.md` §whether richer graph context overloads prompt/skill routing.
 Observation: User was not sure how to evaluate overload from this run.
 Expected: Future runs need a sharper oracle for prompt overload, such as repeated tool-call schema errors, missed required skill reads, failure to summarize graph state, excessive latency, or generic-agent behavior despite specific context.
-Disposition: leave as audit-method gap; fold into prompt/skill/model audit rather than treating as product failure.
+Disposition: audit-method gap — owner: SPEC §Verification Design blind-spot row "prompt-overload oracle", to be added in the FE-1187 `ln-spec` pass (2026-07-13); until then FE-1187 entry work carries it. Fold the overload markers into the prompt/skill/model audit rather than treating as product failure.
 
 ### 2026-07-10 FE-1180 review/witness audit
 
@@ -190,7 +190,7 @@ Ownership disposition: FE-1180 closes by explicit promotion, not by treating pro
 | O9 | promoted unknown | O9 live D120-L Execute workflow not observed; owner: FE-1187. |
 | O10 | promoted unknown | Both-theme component/live-TUI checks not observed; owner: FE-1187. |
 
-Deferred WR9–WR12 remain honest non-DoD scope: compact tool rendering, `/introspect` legibility, review-set visual redesign, and markdown/node-id polish. In particular, FE-1180 does not close the broader review-set/ask visual-revamp impulse; WR11 still requires a dedicated design session/frontier when prioritized.
+Deferred WR9–WR12 (compact tool rendering, `/introspect` legibility, review-set visual redesign, markdown/node-id polish) — owner: PLAN Horizon `exchange-visual-design` (promoted 2026-07-13 under the owned-deferral rule, `docs/praxis/manual-testing.md` §Findings ledger discipline). The broader review-set/ask visual-revamp impulse (WR11) lives there too, with its trigger and cost note.
 
 Use future entries like:
 
