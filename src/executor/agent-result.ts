@@ -52,7 +52,7 @@ export type AgentResultIngestResult =
       readonly runStatus: 'agent_result_ingested';
       readonly runId: string;
       readonly sliceId: string;
-      readonly epicId: string;
+      readonly epicId?: string;
       readonly resultPath: string;
       readonly metadataPath: string;
       readonly reportsPath: string;
@@ -70,7 +70,7 @@ export function agentResultPath(cwd: string, runId: string, sliceId: string, att
 export interface AgentStreamEvent extends AgentRunUpdate {
   readonly event: 'agent_stream';
   readonly runId: string;
-  readonly epicId: string;
+  readonly epicId?: string;
   readonly sliceId: string;
   readonly sequence: number;
 }
@@ -99,7 +99,7 @@ export async function ingestAgentResult(args: {
     };
   }
 
-  if (metadata.status !== 'slice_execution_requested' || !metadata.activeSliceId || !metadata.activeEpicId) {
+  if (metadata.status !== 'slice_execution_requested' || !metadata.activeSliceId) {
     return {
       status: 'slice_not_requested',
       runStatus: metadata.status,
@@ -125,14 +125,14 @@ export async function ingestAgentResult(args: {
     requestPath,
     resultPath,
     runId: args.runId,
-    epicId: metadata.activeEpicId,
+    ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
     sliceId: metadata.activeSliceId,
     ...(args.runtime ? { runtime: args.runtime } : {}),
     onUpdate: (update) => {
       const event: AgentStreamEvent = {
         event: 'agent_stream',
         runId: args.runId,
-        epicId: metadata.activeEpicId!,
+        ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
         sliceId: metadata.activeSliceId!,
         sequence: sequence,
         kind: update.kind,
@@ -188,7 +188,7 @@ export async function ingestAgentResult(args: {
   const event = {
     event: 'slice_agent_result',
     runId: args.runId,
-    epicId: metadata.activeEpicId,
+    ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
     sliceId: metadata.activeSliceId,
     status: runResult.status,
     ...(runResult.summary ? { summary: runResult.summary } : {}),
@@ -212,7 +212,7 @@ export async function ingestAgentResult(args: {
     runStatus: 'agent_result_ingested',
     runId: args.runId,
     sliceId: metadata.activeSliceId,
-    epicId: metadata.activeEpicId,
+    ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
     resultPath,
     metadataPath,
     reportsPath: reportPath,

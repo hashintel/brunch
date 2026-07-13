@@ -12,6 +12,7 @@ const outline: ExecutionPlanOutline = {
   specId: '7',
   mode: 'greenfield',
   frontiers: [],
+  orphanTasks: [],
   sideEffects: [],
 };
 

@@ -48,7 +48,7 @@ export type ParallelSliceBatchResult =
 export interface SliceEffectSuccess {
   readonly status: 'succeeded';
   readonly sliceId: string;
-  readonly epicId: string;
+  readonly epicId?: string;
   readonly workspaceDir: string;
   readonly baseSha: string;
   readonly attemptHistory: SliceAttemptHistory;

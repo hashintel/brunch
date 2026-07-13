@@ -61,6 +61,7 @@ export interface BlockedStep {
 
 export type BlockedStepReason =
   | { readonly kind: 'dependency'; readonly sliceId: string }
+  | { readonly kind: 'epic_dependency'; readonly epicId: string }
   | { readonly kind: 'active_slice'; readonly sliceId: string };
 
 /** The minimal plan projection the scheduler needs to resolve the slice frontier. */
@@ -399,14 +400,16 @@ export function sliceTransitionId(
 export function readyPlanSliceIds(
   plan: SchedulerPlan | undefined,
   completedSliceIds: readonly string[],
+  completedEpicIds: readonly string[],
 ): readonly string[] {
   const completed = new Set(completedSliceIds);
+  const completedEpics = new Set(completedEpicIds);
   return (plan?.slices ?? [])
     .filter(
       (slice) =>
         !completed.has(slice.id) &&
         planSliceDependsOn(slice).every((sliceId) => completed.has(sliceId)) &&
-        epicDependenciesForSlice(plan, slice).every((epicId) => epicIsComplete(plan, epicId, completed)),
+        epicDependenciesForSlice(plan, slice).every((epicId) => completedEpics.has(epicId)),
     )
     .map((slice) => slice.id);
 }
@@ -414,8 +417,10 @@ export function readyPlanSliceIds(
 export function blockedPlanSliceSteps(
   plan: SchedulerPlan | undefined,
   completedSliceIds: readonly string[],
+  completedEpicIds: readonly string[],
 ): readonly BlockedStep[] {
   const completed = new Set(completedSliceIds);
+  const completedEpics = new Set(completedEpicIds);
   return (plan?.slices ?? [])
     .filter((slice) => !completed.has(slice.id))
     .map((slice) => ({
@@ -423,9 +428,14 @@ export function blockedPlanSliceSteps(
       sliceId: slice.id,
       ...(slice.epic_id === undefined ? {} : { epicId: slice.epic_id }),
       ...(slice.derived_from === undefined ? {} : { derivedFrom: slice.derived_from }),
-      blockers: planSliceDependsOn(slice)
-        .filter((sliceId) => !completed.has(sliceId))
-        .map((sliceId) => ({ kind: 'dependency' as const, sliceId })),
+      blockers: [
+        ...planSliceDependsOn(slice)
+          .filter((sliceId) => !completed.has(sliceId))
+          .map((sliceId) => ({ kind: 'dependency' as const, sliceId })),
+        ...epicDependenciesForSlice(plan, slice)
+          .filter((epicId) => !completedEpics.has(epicId))
+          .map((epicId) => ({ kind: 'epic_dependency' as const, epicId })),
+      ],
     }))
     .filter((step) => step.blockers.length > 0);
 }
@@ -442,15 +452,6 @@ function epicDependenciesForSlice(
   return plan?.epics?.find((epic) => epic.id === slice.epic_id)?.depends_on ?? [];
 }
 
-function epicIsComplete(
-  plan: SchedulerPlan | undefined,
-  epicId: string,
-  completedSliceIds: ReadonlySet<string>,
-): boolean {
-  const members = (plan?.slices ?? []).filter((slice) => slice.epic_id === epicId);
-  return members.every((slice) => completedSliceIds.has(slice.id));
-}
-
 export function compileExecutorTopology(plan: SchedulerPlan | undefined): ExecutorTopology {
   validateEpics(plan);
   const seenSliceIds = new Set<string>();
@@ -462,6 +463,11 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
       throw new Error(`Duplicate slice id in executor topology: ${slice.id}`);
     }
     seenSliceIds.add(slice.id);
+  }
+  for (const epic of plan?.epics ?? []) {
+    if (!(plan?.slices ?? []).some((slice) => slice.epic_id === epic.id)) {
+      throw new Error(`Epic has no member slices in executor topology: ${epic.id}`);
+    }
   }
   for (const slice of plan?.slices ?? []) {
     for (const dependencyId of planSliceDependsOn(slice)) {

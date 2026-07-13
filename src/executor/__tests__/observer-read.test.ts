@@ -254,6 +254,44 @@ describe('readRunDetail', () => {
     });
   });
 
+  it('reports persisted epic completion as the blocker for dependent epic slices', async () => {
+    const cwd = await fixtureCwd('brunch-observer-epic-blocker-');
+    const planPath = join(cwd, 'plan.yaml');
+    await writeFile(
+      planPath,
+      JSON.stringify({
+        epics: [
+          { id: 'epic-1', depends_on: [] },
+          { id: 'epic-2', depends_on: ['epic-1'] },
+        ],
+        slices: [
+          { id: 'task-1', epic_id: 'epic-1' },
+          { id: 'task-2', epic_id: 'epic-2' },
+        ],
+      }),
+      'utf8',
+    );
+    await writeRun(cwd, 'run-epic-blocker', {
+      planPath,
+      status: 'slice_completed',
+      completedSliceIds: ['task-1'],
+    });
+
+    const detail = await readRunDetail(cwd, 'run-epic-blocker');
+
+    expect(detail).toMatchObject({
+      petriReadySteps: [{ kind: 'epic_integrate', epicId: 'epic-1' }],
+      petriBlockedSteps: [
+        {
+          kind: 'slice_start',
+          sliceId: 'task-2',
+          epicId: 'epic-2',
+          blockers: [{ kind: 'epic_dependency', epicId: 'epic-1' }],
+        },
+      ],
+    });
+  });
+
   it('keeps run detail readable when duplicate slice ids make the Petri runtime invalid', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-duplicate-slice-id-');
     const planPath = join(cwd, 'plan.yaml');

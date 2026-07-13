@@ -63,6 +63,7 @@ export interface RunMetadata {
   readonly integratedEpicIds?: readonly string[];
   readonly verifiedEpicIds?: readonly string[];
   readonly completedEpicIds?: readonly string[];
+  readonly epicTransitionHistory?: readonly string[];
   readonly petriPath?: string;
   readonly promotionPath?: string;
   readonly promotionBaseSha?: string;

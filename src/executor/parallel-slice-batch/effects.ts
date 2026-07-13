@@ -34,7 +34,7 @@ export async function executeIsolatedSlice(args: {
   const slice = args.plan.slices?.find((candidate) => candidate.id === step.sliceId);
   const epicId = step.epicId ?? slice?.epic_id;
   const runWorktreeDir = args.state.worktreeDir;
-  if (!slice || !epicId || !runWorktreeDir) {
+  if (!slice || !runWorktreeDir) {
     return failed(step.sliceId, 'slice_execute', 'parallel_slice_input_unavailable', {});
   }
   const workspaceDir = sliceWorkspacePath(ctx.cwd, ctx.runId, step.sliceId);
@@ -69,7 +69,7 @@ export async function executeIsolatedSlice(args: {
   await authority.appendReport({
     event: 'slice_execution_requested',
     runId: ctx.runId,
-    epicId,
+    ...(epicId === undefined ? {} : { epicId }),
     sliceId: step.sliceId,
     status: 'slice_execution_requested',
   });
@@ -80,7 +80,7 @@ export async function executeIsolatedSlice(args: {
     ctx,
     authority,
     sliceId: step.sliceId,
-    epicId,
+    ...(epicId === undefined ? {} : { epicId }),
     workspaceDir,
     requestPath,
     state: args.state,
@@ -94,7 +94,7 @@ export async function executeIsolatedSlice(args: {
     authority,
     verifyTarget: args.state.verifyTarget,
     sliceId: step.sliceId,
-    epicId,
+    ...(epicId === undefined ? {} : { epicId }),
     workspaceDir,
     step,
     state: args.state,
@@ -106,7 +106,7 @@ export async function executeIsolatedSlice(args: {
   return {
     status: 'succeeded',
     sliceId: step.sliceId,
-    epicId,
+    ...(epicId === undefined ? {} : { epicId }),
     workspaceDir,
     baseSha: workspace.baseSha,
     attemptHistory,
@@ -117,7 +117,7 @@ async function runAgentAttempts(args: {
   readonly ctx: ParallelSliceBatchContext;
   readonly authority: BatchAuthority;
   readonly sliceId: string;
-  readonly epicId: string;
+  readonly epicId?: string;
   readonly workspaceDir: string;
   readonly requestPath: string;
   readonly state: import('../run.js').RunMetadata;
@@ -139,14 +139,14 @@ async function runAgentAttempts(args: {
         requestPath: args.requestPath,
         resultPath: agentResultPath(args.ctx.cwd, args.ctx.runId, args.sliceId, attempt),
         runId: args.ctx.runId,
-        epicId: args.epicId,
+        ...(args.epicId === undefined ? {} : { epicId: args.epicId }),
         sliceId: args.sliceId,
         ...(args.ctx.runtime ? { runtime: args.ctx.runtime } : {}),
         onUpdate: (update) => {
           const event: AgentStreamEvent = {
             event: 'agent_stream',
             runId: args.ctx.runId,
-            epicId: args.epicId,
+            ...(args.epicId === undefined ? {} : { epicId: args.epicId }),
             sliceId: args.sliceId,
             sequence: sequence++,
             kind: update.kind,
@@ -173,7 +173,7 @@ async function runAgentAttempts(args: {
       await args.authority.appendReport({
         event: 'slice_agent_result',
         runId: args.ctx.runId,
-        epicId: args.epicId,
+        ...(args.epicId === undefined ? {} : { epicId: args.epicId }),
         sliceId: args.sliceId,
         status: 'completed',
         ...(result.summary ? { summary: result.summary } : {}),
@@ -203,7 +203,7 @@ async function runVerifyAttempts(args: {
   readonly authority: BatchAuthority;
   readonly verifyTarget: import('../execution-ports.js').VerifyTarget | undefined;
   readonly sliceId: string;
-  readonly epicId: string;
+  readonly epicId?: string;
   readonly workspaceDir: string;
   readonly step: ParallelSliceStep;
   readonly state: import('../run.js').RunMetadata;
@@ -226,7 +226,7 @@ async function runVerifyAttempts(args: {
           const event: VerifyStreamEvent = {
             event: 'verify_stream',
             runId: args.ctx.runId,
-            epicId: args.epicId,
+            ...(args.epicId === undefined ? {} : { epicId: args.epicId }),
             sliceId: args.sliceId,
             sequence: sequence++,
             kind: update.kind,
@@ -248,7 +248,7 @@ async function runVerifyAttempts(args: {
       await args.authority.appendReport({
         event: 'slice_test_result',
         runId: args.ctx.runId,
-        epicId: args.epicId,
+        ...(args.epicId === undefined ? {} : { epicId: args.epicId }),
         sliceId: args.sliceId,
         status: result.verdict,
         exitCode: result.exitCode,

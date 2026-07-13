@@ -31,7 +31,7 @@ const preview: PlanPreview = {
       epic_id: 'frontier-1',
       definition: 'Build the feature.',
       depends_on: [],
-      verification: [{ kind: 'criterion', target: 'Feature is visible.' }],
+      verification: [{ kind: 'criterion', criterionId: 'AC1', target: 'Feature is visible.' }],
       derived_from: ['REQ1'],
     },
   ],

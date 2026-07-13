@@ -285,7 +285,9 @@ function evaluateTransitionGuard(
   switch (guard.kind) {
     case 'slice_ready': {
       if (inFlightSliceId(state, plan)) return false;
-      const readySliceIds = new Set(readyPlanSliceIds(plan, state.completedSliceIds ?? []));
+      const readySliceIds = new Set(
+        readyPlanSliceIds(plan, state.completedSliceIds ?? [], state.completedEpicIds ?? []),
+      );
       return readySliceIds.has(guard.sliceId);
     }
     case 'no_remaining_slices':
@@ -357,7 +359,7 @@ function derivedFromForSlice(
 function blockedExecutorSteps(state: RunMetadata, plan: SchedulerPlan | undefined): readonly BlockedStep[] {
   const activeSliceId = inFlightSliceId(state, plan);
   if (activeSliceId) {
-    return readyPlanSliceIds(plan, state.completedSliceIds ?? [])
+    return readyPlanSliceIds(plan, state.completedSliceIds ?? [], state.completedEpicIds ?? [])
       .filter((sliceId) => sliceId !== activeSliceId)
       .map<BlockedStep>((sliceId) => {
         const epicId = epicIdForSlice(plan, sliceId);
@@ -372,7 +374,7 @@ function blockedExecutorSteps(state: RunMetadata, plan: SchedulerPlan | undefine
       });
   }
   return state.status === 'reports_initialized' || state.status === 'slice_completed'
-    ? blockedPlanSliceSteps(plan, state.completedSliceIds ?? [])
+    ? blockedPlanSliceSteps(plan, state.completedSliceIds ?? [], state.completedEpicIds ?? [])
     : [];
 }
 
@@ -515,37 +517,35 @@ function appendRecordedEpicLifecycle(
   completedEpics: Set<string>,
   history: string[],
 ): void {
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const epic of plan.epics ?? []) {
+  for (const transitionId of state.epicTransitionHistory ?? []) {
+    const [kind, epicId] = transitionId.split(':');
+    const epic = (plan.epics ?? []).find((candidate) => candidate.id === epicId);
+    if (!epic) return;
+    if (kind === 'epic_integrate') {
+      if (integratedEpics.has(epic.id)) continue;
       const members = (plan.slices ?? []).filter((slice) => slice.epic_id === epic.id);
-      if (!members.every((slice) => completedSlices.has(slice.id))) continue;
-      if (!(epic.depends_on ?? []).every((epicId) => completedEpics.has(epicId))) continue;
-      if (state.integratedEpicIds?.includes(epic.id) && !integratedEpics.has(epic.id)) {
-        history.push(`epic_integrate:${epic.id}`);
-        integratedEpics.add(epic.id);
-        changed = true;
-      }
-      if (
-        integratedEpics.has(epic.id) &&
-        epic.verification?.length &&
-        state.verifiedEpicIds?.includes(epic.id) &&
-        !verifiedEpics.has(epic.id)
-      ) {
-        history.push(`epic_verify:${epic.id}`);
-        verifiedEpics.add(epic.id);
-        changed = true;
-      }
-      const completionReady = epic.verification?.length
-        ? verifiedEpics.has(epic.id)
-        : integratedEpics.has(epic.id);
-      if (completionReady && state.completedEpicIds?.includes(epic.id) && !completedEpics.has(epic.id)) {
-        history.push(`epic_complete:${epic.id}`);
-        completedEpics.add(epic.id);
-        changed = true;
-      }
+      if (!members.every((slice) => completedSlices.has(slice.id))) return;
+      if (!(epic.depends_on ?? []).every((dependencyId) => completedEpics.has(dependencyId))) return;
+      history.push(transitionId);
+      integratedEpics.add(epic.id);
+      continue;
     }
+    if (kind === 'epic_verify') {
+      if (verifiedEpics.has(epic.id)) continue;
+      if (!integratedEpics.has(epic.id) || !epic.verification?.length) return;
+      history.push(transitionId);
+      verifiedEpics.add(epic.id);
+      continue;
+    }
+    if (kind === 'epic_complete') {
+      if (completedEpics.has(epic.id)) continue;
+      const ready = epic.verification?.length ? verifiedEpics.has(epic.id) : integratedEpics.has(epic.id);
+      if (!ready) return;
+      history.push(transitionId);
+      completedEpics.add(epic.id);
+      continue;
+    }
+    return;
   }
 }
 

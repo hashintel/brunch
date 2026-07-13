@@ -212,6 +212,14 @@ describe('startSlice', () => {
       runId: 'run-1',
       metadataPath: runMetadataPath(cwd, 'run-1'),
       reportsPath: reportsPath(cwd, 'run-1'),
+      blockedSteps: [
+        {
+          kind: 'slice_start',
+          sliceId: 'task-2',
+          epicId: 'frontier-1',
+          blockers: [{ kind: 'dependency', sliceId: 'task-1' }],
+        },
+      ],
       sideEffects: [],
     });
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
@@ -256,7 +264,61 @@ describe('startSlice', () => {
       runId: 'run-1',
       metadataPath: runMetadataPath(cwd, 'run-1'),
       reportsPath: reportsPath(cwd, 'run-1'),
+      blockedSteps: [],
       sideEffects: [],
+    });
+  });
+
+  it('requires persisted epic completion before starting a dependent epic slice', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-epic-dependency-'));
+    await createTwoSliceReportReadyRun(cwd);
+    const planPath = planFilePath(cwd, '42');
+    await writeFile(
+      planPath,
+      JSON.stringify({
+        mode: 'greenfield',
+        epics: [
+          { id: 'epic-1', depends_on: [], verification: [] },
+          { id: 'epic-2', depends_on: ['epic-1'], verification: [] },
+        ],
+        slices: [
+          { id: 'task-1', epic_id: 'epic-1', depends_on: [], verification: [] },
+          { id: 'task-2', epic_id: 'epic-2', depends_on: [], verification: [] },
+        ],
+      }),
+      'utf8',
+    );
+    await writeFile(
+      join(cwd, '.brunch', 'cook', 'runs', 'run-1', 'worktree', '.brunch', 'cook', 'plan.yaml'),
+      await readFile(planPath, 'utf8'),
+      'utf8',
+    );
+    const metadata = (await readRunMetadata(runMetadataPath(cwd, 'run-1')))!;
+    await persistRunMetadata(runMetadataPath(cwd, 'run-1'), {
+      ...metadata,
+      status: 'slice_completed',
+      completedSliceIds: ['task-1'],
+    });
+
+    await expect(startSlice({ cwd, runId: 'run-1', sliceId: 'task-2' })).resolves.toMatchObject({
+      status: 'no_slice',
+      blockedSteps: [
+        {
+          sliceId: 'task-2',
+          blockers: [{ kind: 'epic_dependency', epicId: 'epic-1' }],
+        },
+      ],
+    });
+    await persistRunMetadata(runMetadataPath(cwd, 'run-1'), {
+      ...metadata,
+      status: 'slice_completed',
+      completedSliceIds: ['task-1'],
+      completedEpicIds: ['epic-1'],
+    });
+    await expect(startSlice({ cwd, runId: 'run-1', sliceId: 'task-2' })).resolves.toMatchObject({
+      status: 'slice_started',
+      sliceId: 'task-2',
+      epicId: 'epic-2',
     });
   });
 });

@@ -8,7 +8,13 @@ const draft: ExecutablePlanDraft = {
   specId: '7',
   mode: 'brownfield',
   epics: [
-    { id: 'frontier-1', title: 'Implement projected requirements', sliceIds: ['task-1'], dependsOn: [] },
+    {
+      id: 'frontier-1',
+      title: 'Implement projected requirements',
+      sliceIds: ['task-1'],
+      dependsOn: [],
+      verification: [],
+    },
   ],
   slices: [
     {

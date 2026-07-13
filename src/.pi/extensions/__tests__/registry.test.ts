@@ -391,8 +391,8 @@ describe('Brunch explicit Pi extension registry', () => {
           requirements: [{ item_id: 'REQ1', content: 'Feature runs through the alpha executor.' }],
           criteria: [],
         },
-        epics: [expect.objectContaining({ id: 'frontier-1', summary: 'Implement projected requirements' })],
-        slices: [expect.objectContaining({ id: 'task-1', epic_id: 'frontier-1' })],
+        epics: [],
+        slices: [expect.not.objectContaining({ id: 'task-1', epic_id: expect.anything() })],
         sideEffects: [],
       },
     });
@@ -467,8 +467,8 @@ describe('Brunch explicit Pi extension registry', () => {
         schemaVersion: 1,
         specId: '42',
         mode: 'brownfield',
-        epics: [expect.objectContaining({ id: 'frontier-1', sliceIds: ['task-1'] })],
-        slices: [expect.objectContaining({ id: 'task-1', requirementId: 'REQ1' })],
+        epics: [],
+        slices: [expect.not.objectContaining({ id: 'task-1', epicId: expect.anything() })],
         sideEffects: [],
       },
     });
@@ -2503,12 +2503,8 @@ describe('Brunch explicit Pi extension registry', () => {
         schemaVersion: 1,
         specId: '42',
         mode: 'brownfield',
-        frontiers: [
-          expect.objectContaining({
-            id: 'frontier-1',
-            tasks: [expect.objectContaining({ requirementId: 'REQ1' })],
-          }),
-        ],
+        frontiers: [],
+        orphanTasks: [expect.objectContaining({ requirementId: 'REQ1' })],
         sideEffects: [],
       },
     });
@@ -2804,7 +2800,14 @@ describe('Brunch explicit Pi extension registry', () => {
         specId: '42',
         mode: 'brownfield',
         requirements: [expect.objectContaining({ itemId: 'REQ1' })],
-        criteria: [expect.objectContaining({ itemId: 'AC1', verifies: ['REQ1'] })],
+        criteria: [
+          expect.objectContaining({
+            itemId: 'AC1',
+            verifiesRequirements: ['REQ1'],
+            verifiesFrontiers: [],
+          }),
+        ],
+        frontiers: [],
       },
     });
   });

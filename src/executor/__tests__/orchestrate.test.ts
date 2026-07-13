@@ -904,6 +904,7 @@ describe('drive', () => {
       metadata('slice_completed', {
         completedSliceIds: ['task-1', 'task-2'],
         integratedEpicIds: ['epic-1', 'epic-2'],
+        epicTransitionHistory: ['epic_integrate:epic-1', 'epic_integrate:epic-2'],
       }),
       plan,
     );
@@ -915,6 +916,130 @@ describe('drive', () => {
     expect(runtime.transitionForReadyStep({ kind: 'epic_verify', epicId: 'epic-2' })?.id).toBe(
       'epic_verify:epic-2',
     );
+  });
+
+  it('reconciles multiple epic summaries to durable non-plan journal order on restart', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-journal-order-restart-'));
+    await createRunAtCreatedWithPlan(cwd, {
+      mode: 'greenfield',
+      epics: [
+        { id: 'epic-1', depends_on: ['epic-2'], verification: [] },
+        { id: 'epic-2', depends_on: [], verification: [] },
+      ],
+      slices: [
+        { id: 'task-2', epic_id: 'epic-2', depends_on: [], verification: [] },
+        { id: 'task-1', epic_id: 'epic-1', depends_on: [], verification: [] },
+      ],
+    });
+    await drive({ cwd, runId: 'run-1', ports: fakePorts() }, petriScheduler, serialFiringPolicy);
+    const durableOrder = (await readPetriEvents(cwd)).flatMap((event) =>
+      event.kind === 'transition_fired' && event.contract.lane === 'epic' ? [event.transitionId] : [],
+    );
+    expect(durableOrder).toEqual([
+      'epic_integrate:epic-2',
+      'epic_complete:epic-2',
+      'epic_integrate:epic-1',
+      'epic_complete:epic-1',
+    ]);
+    const metadata = (await readRunMetadata(runMetadataPath(cwd, 'run-1')))!;
+    await persistRunMetadata(runMetadataPath(cwd, 'run-1'), {
+      ...metadata,
+      epicTransitionHistory: [
+        'epic_integrate:epic-1',
+        'epic_complete:epic-1',
+        'epic_integrate:epic-2',
+        'epic_complete:epic-2',
+      ],
+      integratedEpicIds: ['epic-1', 'epic-2'],
+      completedEpicIds: ['epic-1', 'epic-2'],
+    });
+    const eventCount = (await readPetriEvents(cwd)).length;
+
+    await expect(drive({ cwd, runId: 'run-1', ports: fakePorts() }, petriScheduler)).resolves.toEqual({
+      status: 'completed',
+      runStatus: 'promotion_prepared',
+    });
+    await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+      epicTransitionHistory: durableOrder,
+      integratedEpicIds: ['epic-2', 'epic-1'],
+      completedEpicIds: ['epic-2', 'epic-1'],
+    });
+    expect((await readPetriEvents(cwd)).length).toBe(eventCount);
+  });
+
+  it('executes orphan slices without synthesizing epic identity in serial and parallel modes', async () => {
+    const serial = await mkdtemp(join(tmpdir(), 'brunch-orphan-slices-serial-'));
+    const parallel = await mkdtemp(join(tmpdir(), 'brunch-orphan-slices-parallel-'));
+    const plan = {
+      mode: 'greenfield',
+      epics: [],
+      slices: ['task-1', 'task-2'].map((id) => ({
+        id,
+        definition: id,
+        depends_on: [],
+        verification: [],
+      })),
+    };
+    await createRunAtCreatedWithPlan(serial, plan);
+    await createRunAtCreatedWithPlan(parallel, plan);
+    const serialCalls: { readonly sliceId: string; readonly epicId?: string }[] = [];
+    const parallelCalls: { readonly sliceId: string; readonly epicId?: string }[] = [];
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let bothEntered!: () => void;
+    const overlap = new Promise<void>((resolve) => {
+      bothEntered = resolve;
+    });
+
+    await drive(
+      {
+        cwd: serial,
+        runId: 'run-1',
+        ports: fakePorts({
+          agentRunner: {
+            async run(args) {
+              serialCalls.push({
+                sliceId: args.sliceId,
+                ...(args.epicId === undefined ? {} : { epicId: args.epicId }),
+              });
+              return { status: 'completed' };
+            },
+          },
+        }),
+      },
+      petriScheduler,
+      serialFiringPolicy,
+    );
+    const parallelDrive = drive(
+      {
+        cwd: parallel,
+        runId: 'run-1',
+        ports: fakePorts({
+          agentRunner: {
+            async run(args) {
+              parallelCalls.push({
+                sliceId: args.sliceId,
+                ...(args.epicId === undefined ? {} : { epicId: args.epicId }),
+              });
+              if (parallelCalls.length === 2) bothEntered();
+              await released;
+              return { status: 'completed' };
+            },
+          },
+        }),
+      },
+      petriScheduler,
+      frontierFiringPolicy,
+    );
+    await overlap;
+    release();
+    await parallelDrive;
+
+    expect(serialCalls).toEqual([{ sliceId: 'task-1' }, { sliceId: 'task-2' }]);
+    expect(new Set(parallelCalls.map((call) => call.sliceId))).toEqual(new Set(['task-1', 'task-2']));
+    expect(parallelCalls.every((call) => call.epicId === undefined)).toBe(true);
   });
 
   it('overlaps independent slice effects only after each claim is journaled and marked', async () => {
@@ -2440,10 +2565,16 @@ describe('petri runtime helpers', () => {
       compileExecutorTopology({ epics: [{ id: 'epic-1' }, { id: 'epic-1' }], slices: [] }),
     ).toThrow('Duplicate epic id in executor topology: epic-1');
     expect(() =>
-      compileExecutorTopology({ epics: [{ id: 'epic-1', depends_on: ['missing'] }], slices: [] }),
+      compileExecutorTopology({
+        epics: [{ id: 'epic-1', depends_on: ['missing'] }],
+        slices: [{ id: 'task-1', epic_id: 'epic-1' }],
+      }),
     ).toThrow('Unknown epic dependency in executor topology: epic-1 -> missing');
     expect(() =>
-      compileExecutorTopology({ epics: [{ id: 'epic-1', depends_on: ['epic-1'] }], slices: [] }),
+      compileExecutorTopology({
+        epics: [{ id: 'epic-1', depends_on: ['epic-1'] }],
+        slices: [{ id: 'task-1', epic_id: 'epic-1' }],
+      }),
     ).toThrow('Epic cannot depend on itself in executor topology: epic-1');
     expect(() =>
       compileExecutorTopology({
@@ -2451,12 +2582,24 @@ describe('petri runtime helpers', () => {
           { id: 'epic-1', depends_on: ['epic-2'] },
           { id: 'epic-2', depends_on: ['epic-1'] },
         ],
-        slices: [],
+        slices: [
+          { id: 'task-1', epic_id: 'epic-1' },
+          { id: 'task-2', epic_id: 'epic-2' },
+        ],
       }),
     ).toThrow('Cyclic epic dependency in executor topology: epic-1');
     expect(() =>
       compileExecutorTopology({ epics: [{ id: 'epic-1' }], slices: [{ id: 'task-1', epic_id: 'missing' }] }),
     ).toThrow('Unknown slice epic in executor topology: task-1 -> missing');
+    expect(() => compileExecutorTopology({ epics: [{ id: 'empty' }], slices: [] })).toThrow(
+      'Epic has no member slices in executor topology: empty',
+    );
+    expect(() =>
+      compileExecutorTopology({
+        epics: [{ id: 'member' }, { id: 'empty', depends_on: ['member'] }],
+        slices: [{ id: 'task-1', epic_id: 'member' }],
+      }),
+    ).toThrow('Epic has no member slices in executor topology: empty');
   });
 
   it('rejects completed-slice history that is duplicated or violates dependency order', () => {

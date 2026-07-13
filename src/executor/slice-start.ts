@@ -1,6 +1,11 @@
 import { appendFile, readFile } from 'node:fs/promises';
 
-import { readyPlanSliceIds, type SchedulerPlan } from './orchestrate-topology.js';
+import {
+  blockedPlanSliceSteps,
+  readyPlanSliceIds,
+  type BlockedStep,
+  type SchedulerPlan,
+} from './orchestrate-topology.js';
 import { populatedPlanPath } from './populate.js';
 import { reportsPath } from './report.js';
 import {
@@ -11,19 +16,7 @@ import {
   type RunMetadata,
 } from './run.js';
 
-interface PlanSlice {
-  readonly id: string;
-  readonly epic_id: string;
-  readonly depends_on?: SchedulerPlan['slices'] extends readonly (infer Slice)[]
-    ? Slice extends { readonly depends_on?: infer DependsOn }
-      ? DependsOn
-      : readonly string[]
-    : readonly string[];
-}
-
-interface PlanPayload {
-  readonly slices?: readonly PlanSlice[];
-}
+type PlanPayload = SchedulerPlan;
 
 export type SliceStartResult =
   | {
@@ -46,6 +39,7 @@ export type SliceStartResult =
       readonly runId: string;
       readonly metadataPath: string;
       readonly reportsPath: string;
+      readonly blockedSteps: readonly BlockedStep[];
       readonly sideEffects: readonly [];
     }
   | {
@@ -53,7 +47,7 @@ export type SliceStartResult =
       readonly runStatus: 'slice_started';
       readonly runId: string;
       readonly sliceId: string;
-      readonly epicId: string;
+      readonly epicId?: string;
       readonly metadataPath: string;
       readonly reportsPath: string;
       readonly sideEffects: readonly [
@@ -93,7 +87,9 @@ export async function startSlice(args: {
 
   const reportPath = metadata.reportsPath ?? reportsPath(args.cwd, args.runId);
   const plan = await readPlan(metadata.populatedPlanPath ?? populatedPlanPath(args.cwd, args.runId));
-  const readySliceIds = new Set(readyPlanSliceIds(plan, metadata.completedSliceIds ?? []));
+  const readySliceIds = new Set(
+    readyPlanSliceIds(plan, metadata.completedSliceIds ?? [], metadata.completedEpicIds ?? []),
+  );
   const slice = args.sliceId
     ? readySliceIds.has(args.sliceId)
       ? plan.slices?.find((candidate) => candidate.id === args.sliceId)
@@ -107,6 +103,11 @@ export async function startSlice(args: {
       runId: args.runId,
       metadataPath,
       reportsPath: reportPath,
+      blockedSteps: blockedPlanSliceSteps(
+        plan,
+        metadata.completedSliceIds ?? [],
+        metadata.completedEpicIds ?? [],
+      ),
       sideEffects: [],
     };
   }
@@ -115,15 +116,16 @@ export async function startSlice(args: {
   const event = {
     event: 'slice_started',
     runId: args.runId,
-    epicId: slice.epic_id,
+    ...(slice.epic_id === undefined ? {} : { epicId: slice.epic_id }),
     sliceId: slice.id,
     status: 'slice_started',
   };
+  const { activeEpicId: _previousEpicId, ...metadataWithoutEpic } = metadata;
   const updated: RunMetadata = {
-    ...metadata,
+    ...metadataWithoutEpic,
     status: 'slice_started',
     activeSliceId: slice.id,
-    activeEpicId: slice.epic_id,
+    ...(slice.epic_id === undefined ? {} : { activeEpicId: slice.epic_id }),
   };
 
   await appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8');
@@ -134,7 +136,7 @@ export async function startSlice(args: {
     runStatus: 'slice_started',
     runId: args.runId,
     sliceId: slice.id,
-    epicId: slice.epic_id,
+    ...(slice.epic_id === undefined ? {} : { epicId: slice.epic_id }),
     metadataPath,
     reportsPath: reportPath,
     sideEffects: [{ kind: 'append_file', path: reportPath }, metadataEffect],

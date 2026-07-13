@@ -23,7 +23,7 @@ export type SliceCompleteResult =
       readonly runStatus: 'slice_completed';
       readonly runId: string;
       readonly sliceId: string;
-      readonly epicId: string;
+      readonly epicId?: string;
       readonly metadataPath: string;
       readonly reportsPath: string;
       readonly sideEffects: readonly [
@@ -48,7 +48,7 @@ export async function completeSlice(args: {
     };
   }
 
-  if (metadata.status !== 'slice_integrated' || !metadata.activeSliceId || !metadata.activeEpicId) {
+  if (metadata.status !== 'slice_integrated' || !metadata.activeSliceId) {
     return {
       status: 'test_result_not_ingested',
       runStatus: metadata.status,
@@ -65,7 +65,7 @@ export async function completeSlice(args: {
   const event = {
     event: 'slice_completed',
     runId: args.runId,
-    epicId: metadata.activeEpicId,
+    ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
     sliceId: metadata.activeSliceId,
     status: 'slice_completed',
   };
@@ -79,7 +79,7 @@ export async function completeSlice(args: {
     runStatus: 'slice_completed',
     runId: args.runId,
     sliceId: metadata.activeSliceId,
-    epicId: metadata.activeEpicId,
+    ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
     metadataPath,
     reportsPath: reportPath,
     sideEffects: [{ kind: 'append_file', path: reportPath }, metadataEffect],

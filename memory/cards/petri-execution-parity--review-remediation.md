@@ -64,7 +64,7 @@ src/executor/
 
 ## Slice 2 — Canonical execution model
 
-Status: queued
+Status: done
 Weight: full
 
 ### Target Behavior
@@ -82,6 +82,19 @@ All admitted plan shapes obey one epic-aware readiness and ordered replay model 
 
 - Inner: graph projection, topology, standalone-tool, replay, and production-plan tests.
 - Middle: executor/app/extension suites plus `npm run fix`.
+
+### Completion Report
+
+| Leaf | Outcome | Evidence |
+| --- | --- | --- |
+| Graph-authored frontiers project end to end | met | `execute-projection.test.ts`: composition maps epic membership, frontier dependency maps `depends_on`, positive criterion witness maps verification with criterion provenance, and artifacts preserve the direct schema. |
+| Orphan requirements remain executable slices | met | Projection emits no synthetic epic/`epic_id`; `orchestrate.test.ts` executes orphan slices serially and concurrently with absent epic identity through ports/events. |
+| Invalid membership and empty epics reject | met | Multiple frontier composition throws during snapshot projection; plan check blocks empty authored frontiers; topology rejects direct and dependent zero-member epics. |
+| Epic dependencies require persisted completion | met | `slice-start.test.ts` refuses completed-member-only state, reports `{kind: epic_dependency}`, then starts after `completedEpicIds`; observer projection exposes the same blocker. |
+| Epic history preserves durable order | met | `orchestrate.test.ts`: epics complete in dependency-driven non-plan order; restart repairs corrupted summary order from journal without adding events/effects. Metadata projection consumes only journal-derived `epicTransitionHistory`. |
+| Frozen authority semantics remain | met | D123 parallel overlap/fan-in/restart and D124 same-run/epic-claim suites remain green; existing topology ids/arcs remain unchanged for valid plans. |
+
+Skipped-test delta vs parent: 0.
 
 ### Expected touched paths (tentative)
 

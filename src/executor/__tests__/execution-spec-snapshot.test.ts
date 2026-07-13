@@ -155,9 +155,10 @@ describe('projectExecutionSpecSnapshot', () => {
       expect.objectContaining({
         itemId: 'AC1',
         content: 'A browser-level check proves the canvas is reachable after toggling.',
-        verifies: ['REQ1', 'REQ2'],
+        verifiesRequirements: ['REQ1', 'REQ2'],
+        verifiesFrontiers: [],
       }),
-      expect.objectContaining({ itemId: 'AC2', verifies: [] }),
+      expect.objectContaining({ itemId: 'AC2', verifiesRequirements: [], verifiesFrontiers: [] }),
     ]);
     expect(snapshot.context.constraints.map((item) => item.itemId)).toEqual(['CON1']);
     expect(snapshot.context.decisions.map((item) => item.itemId)).toEqual(['D1']);

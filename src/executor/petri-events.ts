@@ -1,4 +1,4 @@
-import { appendFile, mkdir } from 'node:fs/promises';
+import { appendFile, mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type { ExecutorNetEvent, ExecutorNetStepKind } from './orchestrate-topology.js';
@@ -46,6 +46,23 @@ export async function appendPetriEvent(args: {
     } catch {
       // Observer callbacks never change the durable append result.
     }
+  }
+}
+
+export async function readDurableEpicTransitionHistory(args: {
+  readonly cwd: string;
+  readonly runId: string;
+}): Promise<readonly string[] | undefined> {
+  try {
+    return (await readFile(petriEventsPath(args.cwd, args.runId), 'utf8'))
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => parsePetriEvent(JSON.parse(line)))
+      .flatMap((event) =>
+        event?.kind === 'transition_fired' && event.contract.lane === 'epic' ? [event.transitionId] : [],
+      );
+  } catch {
+    return undefined;
   }
 }
 

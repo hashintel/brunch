@@ -99,6 +99,7 @@ export async function executeEpicLifecycleStep(args: {
         const updated = {
           ...metadata,
           verifiedEpicIds: appendId(metadata.verifiedEpicIds, epic.id),
+          epicTransitionHistory: appendId(metadata.epicTransitionHistory, `epic_verify:${epic.id}`),
         };
         await persistRunMetadata(metadataPath, updated);
         await writePetriMarkingSnapshot({
@@ -143,6 +144,7 @@ export async function executeEpicLifecycleStep(args: {
           const updated = {
             ...metadata,
             verifiedEpicIds: appendId(metadata.verifiedEpicIds, epic.id),
+            epicTransitionHistory: appendId(metadata.epicTransitionHistory, `epic_verify:${epic.id}`),
           };
           await persistRunMetadata(metadataPath, updated);
           await writePetriMarkingSnapshot({

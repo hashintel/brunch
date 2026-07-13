@@ -11,6 +11,8 @@ const outline: ExecutionPlanOutline = {
     {
       id: 'frontier-1',
       title: 'Implement projected requirements',
+      dependsOn: [],
+      verification: [],
       tasks: [
         {
           id: 'task-1',
@@ -45,6 +47,7 @@ const outline: ExecutionPlanOutline = {
       ],
     },
   ],
+  orphanTasks: [],
   sideEffects: [],
 };
 
@@ -60,6 +63,7 @@ describe('draftExecutablePlan', () => {
           title: 'Implement projected requirements',
           sliceIds: ['task-1', 'task-2'],
           dependsOn: [],
+          verification: [],
         },
       ],
       slices: [

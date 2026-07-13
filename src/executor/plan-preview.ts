@@ -2,6 +2,7 @@ import type { ExecutablePlanDraft } from './executable-plan-draft.js';
 
 export interface PlanPreviewVerificationTarget {
   readonly kind: 'criterion';
+  readonly criterionId: string;
   readonly target: string;
 }
 
@@ -26,14 +27,14 @@ export interface PlanPreviewEpic {
   readonly id: string;
   readonly summary: string;
   readonly depends_on: readonly string[];
-  readonly verification: readonly [];
+  readonly verification: readonly PlanPreviewVerificationTarget[];
   // Old cook Plan also accepts `probe` and `reachability`, but the alpha draft
   // has no truthful boot/probe or host-blind reachability source yet.
 }
 
 export interface PlanPreviewSlice {
   readonly id: string;
-  readonly epic_id: string;
+  readonly epic_id?: string;
   readonly scope_id?: string;
   readonly definition: string;
   readonly depends_on: readonly string[];
@@ -67,15 +68,23 @@ export function previewPlan(draft: ExecutablePlanDraft): PlanPreview {
       id: epic.id,
       summary: epic.title,
       depends_on: epic.dependsOn,
-      verification: [],
+      verification: epic.verification.map((target) => ({
+        kind: target.kind,
+        criterionId: target.criterionId,
+        target: target.target,
+      })),
     })),
     slices: draft.slices.map((slice) => ({
       id: slice.id,
-      epic_id: slice.epicId,
+      ...(slice.epicId === undefined ? {} : { epic_id: slice.epicId }),
       ...(slice.scopeId ? { scope_id: slice.scopeId } : {}),
       definition: slice.definition,
       depends_on: slice.dependsOn,
-      verification: slice.verification.map((target) => ({ kind: target.kind, target: target.target })),
+      verification: slice.verification.map((target) => ({
+        kind: target.kind,
+        criterionId: target.criterionId,
+        target: target.target,
+      })),
       derived_from: slice.requirementIds,
       ...(slice.designContext.length > 0
         ? {
@@ -132,6 +141,17 @@ function previewSpec(draft: ExecutablePlanDraft): PlanPreviewSpec {
           item_id: target.criterionId,
           content: target.target,
           verifies: [...verifies],
+        });
+      }
+    }
+  }
+  for (const epic of draft.epics) {
+    for (const target of epic.verification) {
+      if (!criteria.has(target.criterionId)) {
+        criteria.set(target.criterionId, {
+          item_id: target.criterionId,
+          content: target.target,
+          verifies: [],
         });
       }
     }

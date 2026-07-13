@@ -12,7 +12,7 @@ import {
   type SchedulerPlanMode,
 } from './orchestrate-topology.js';
 import { executeParallelSliceBatch, parallelSliceBatchRecoveryRequired } from './parallel-slice-batch.js';
-import { appendPetriEvent } from './petri-events.js';
+import { appendPetriEvent, readDurableEpicTransitionHistory } from './petri-events.js';
 import {
   petriMarkingLifecycleProvenance,
   petriMarkingSnapshotMatchesRunMetadata,
@@ -415,6 +415,25 @@ async function driveOwned(
       if (!reset.applied) return reset.outcome;
       continue;
     }
+    const durableEpicHistory = await readDurableEpicTransitionHistory({ cwd: ctx.cwd, runId: ctx.runId });
+    if (durableEpicHistory !== undefined) {
+      const epicSummary = epicSummaryFromHistory(durableEpicHistory);
+      if (
+        !stringArraysEqual(durableEpicHistory, state.epicTransitionHistory ?? []) ||
+        !stringArraysEqual(epicSummary.integratedEpicIds, state.integratedEpicIds ?? []) ||
+        !stringArraysEqual(epicSummary.verifiedEpicIds, state.verifiedEpicIds ?? []) ||
+        !stringArraysEqual(epicSummary.completedEpicIds, state.completedEpicIds ?? [])
+      ) {
+        await persistRunMetadata(metadataPath, {
+          ...state,
+          epicTransitionHistory: durableEpicHistory,
+          integratedEpicIds: epicSummary.integratedEpicIds,
+          verifiedEpicIds: epicSummary.verifiedEpicIds,
+          completedEpicIds: epicSummary.completedEpicIds,
+        });
+        continue;
+      }
+    }
     const runtimeResult = await materializeDriveRuntime({ ctx, state, plan });
     if ('outcome' in runtimeResult) {
       return runtimeResult.outcome;
@@ -708,6 +727,13 @@ async function driveOwned(
               verifiedEpicIds: appendUniqueId(currentState.verifiedEpicIds, result.epicVerificationPassed),
             });
           }
+          if (transition.contract.lane === 'epic') {
+            const epicState = (await readRunMetadata(metadataPath)) ?? currentState;
+            await persistRunMetadata(metadataPath, {
+              ...epicState,
+              epicTransitionHistory: appendUniqueId(epicState.epicTransitionHistory, transition.id),
+            });
+          }
           const nextState = await readRunMetadata(metadataPath);
           if (nextState) {
             const nextPlan = await readPetriRuntimePlan(ctx.cwd, nextState);
@@ -767,6 +793,29 @@ async function driveOwned(
 
 function appendUniqueId(ids: readonly string[] | undefined, id: string): readonly string[] {
   return ids?.includes(id) ? ids : [...(ids ?? []), id];
+}
+
+function stringArraysEqual(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function epicSummaryFromHistory(history: readonly string[]): {
+  readonly integratedEpicIds: readonly string[];
+  readonly verifiedEpicIds: readonly string[];
+  readonly completedEpicIds: readonly string[];
+} {
+  return {
+    integratedEpicIds: epicIdsForTransitionKind(history, 'epic_integrate'),
+    verifiedEpicIds: epicIdsForTransitionKind(history, 'epic_verify'),
+    completedEpicIds: epicIdsForTransitionKind(history, 'epic_complete'),
+  };
+}
+
+function epicIdsForTransitionKind(history: readonly string[], kind: string): readonly string[] {
+  return history.flatMap((transitionId) => {
+    const [transitionKind, epicId] = transitionId.split(':');
+    return transitionKind === kind && epicId ? [epicId] : [];
+  });
 }
 
 async function applyPendingAttemptReset(

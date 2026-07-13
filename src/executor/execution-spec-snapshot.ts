@@ -11,9 +11,19 @@ export interface ExecutionSpecItemSnapshot {
   readonly dependsOn: readonly string[];
 }
 
+export interface ExecutionSpecRequirementSnapshot extends ExecutionSpecItemSnapshot {
+  readonly frontierId?: string;
+}
+
 export interface ExecutionSpecCriterionSnapshot extends ExecutionSpecItemSnapshot {
-  readonly verifies: readonly string[];
+  readonly verifiesRequirements: readonly string[];
+  readonly verifiesFrontiers: readonly string[];
   readonly scopeLinked?: boolean;
+}
+
+export interface ExecutionSpecFrontierSnapshot extends ExecutionSpecItemSnapshot {
+  readonly requirementIds: readonly string[];
+  readonly verificationCriterionIds: readonly string[];
 }
 
 export interface ExecutionSpecContextSnapshot {
@@ -37,9 +47,9 @@ export interface ExecutionSpecSnapshot {
   readonly schemaVersion: 1;
   readonly specId: string;
   readonly mode: ExecutionSpecMode;
-  readonly frontiers: readonly ExecutionSpecItemSnapshot[];
-  readonly requirements: readonly ExecutionSpecItemSnapshot[];
+  readonly requirements: readonly ExecutionSpecRequirementSnapshot[];
   readonly criteria: readonly ExecutionSpecCriterionSnapshot[];
+  readonly frontiers: readonly ExecutionSpecFrontierSnapshot[];
   readonly scopes: readonly ExecutionSpecScopeSnapshot[];
   readonly context: ExecutionSpecContextSnapshot;
 }
@@ -82,26 +92,48 @@ export function projectExecutionSpecSnapshot(
   );
   const requirementDependencies = dependencyItemIdsByRequirement(edges, requirementItemIds);
   const criteria = nodes.filter((node) => node.kind === 'criterion');
+  const frontiers = nodes.filter((node) => node.kind === 'frontier');
+  const frontierItemIds = new Map(frontiers.map((node) => [node.id, itemId(node)]));
+  const frontierByRequirement = frontierMembershipByRequirement(
+    input.edges,
+    requirementItemIds,
+    frontierItemIds,
+  );
+  const frontierDependencies = dependencyItemIds(input.edges, frontierItemIds);
+  const criterionItemIds = new Map(criteria.map((node) => [node.id, itemId(node)]));
+  const frontierVerification = witnessItemIdsByTarget(input.edges, criterionItemIds, frontierItemIds);
   const criteriaById = new Map(
     criteria.map((criterion) => [
       criterion.id,
       {
         ...itemSnapshot(criterion),
-        verifies: verifiesRequirementItemIds(criterion, edges, nodeById, requirementIds),
+        verifiesRequirements: verifiesRequirementItemIds(criterion, input.edges, nodeById, requirementIds),
+        verifiesFrontiers: verifiesTargetItemIds(criterion.id, input.edges, frontierItemIds),
       },
     ]),
   );
-  const frontierItems = nodes.filter((node) => node.kind === 'frontier').map((node) => itemSnapshot(node));
 
   return {
     schemaVersion: 1,
     specId: String(input.specId),
     mode: input.mode,
-    frontiers: frontierItems,
     requirements: nodes
       .filter((node) => node.kind === 'requirement')
-      .map((node) => itemSnapshot(node, requirementDependencies.get(itemId(node)) ?? [])),
+      .map((node) => ({
+        ...itemSnapshot(node, requirementDependencies.get(itemId(node)) ?? []),
+        ...(frontierByRequirement.get(itemId(node))
+          ? { frontierId: frontierByRequirement.get(itemId(node))! }
+          : {}),
+      })),
     criteria: [...criteriaById.values()],
+    frontiers: frontiers.map((frontier) => ({
+      ...itemSnapshot(frontier, frontierDependencies.get(itemId(frontier)) ?? []),
+      requirementIds: [...frontierByRequirement.entries()]
+        .filter(([, frontierId]) => frontierId === itemId(frontier))
+        .map(([requirementId]) => requirementId)
+        .sort(),
+      verificationCriterionIds: frontierVerification.get(itemId(frontier)) ?? [],
+    })),
     scopes: nodes
       .filter((node) => node.kind === 'scope')
       .map((node) =>
@@ -188,6 +220,78 @@ function scopeSnapshot(args: {
     design,
     verification,
   };
+}
+
+function frontierMembershipByRequirement(
+  edges: readonly GraphEdge[],
+  requirementItemIds: ReadonlyMap<number, string>,
+  frontierItemIds: ReadonlyMap<number, string>,
+): ReadonlyMap<string, string> {
+  const membership = new Map<string, string>();
+  for (const edge of edges) {
+    if (edge.category !== 'composition') continue;
+    const frontierId = frontierItemIds.get(edge.sourceId);
+    const requirementId = requirementItemIds.get(edge.targetId);
+    if (!frontierId || !requirementId) continue;
+    const existing = membership.get(requirementId);
+    if (existing && existing !== frontierId) {
+      throw new Error(`Requirement ${requirementId} is composed into multiple frontiers`);
+    }
+    membership.set(requirementId, frontierId);
+  }
+  return membership;
+}
+
+function dependencyItemIds(
+  edges: readonly GraphEdge[],
+  itemIds: ReadonlyMap<number, string>,
+): ReadonlyMap<string, readonly string[]> {
+  const byDependent = new Map<string, Set<string>>();
+  for (const edge of edges) {
+    if (edge.category !== 'dependency') continue;
+    const dependency = itemIds.get(edge.sourceId);
+    const dependent = itemIds.get(edge.targetId);
+    if (!dependency || !dependent) continue;
+    const dependencies = byDependent.get(dependent) ?? new Set<string>();
+    dependencies.add(dependency);
+    byDependent.set(dependent, dependencies);
+  }
+  return new Map([...byDependent].map(([id, dependencies]) => [id, [...dependencies].sort()]));
+}
+
+function witnessItemIdsByTarget(
+  edges: readonly GraphEdge[],
+  witnessItemIds: ReadonlyMap<number, string>,
+  targetItemIds: ReadonlyMap<number, string>,
+): ReadonlyMap<string, readonly string[]> {
+  const byTarget = new Map<string, Set<string>>();
+  for (const edge of edges) {
+    if (edge.category !== 'witness' || edge.stance === 'against') continue;
+    const witnessId = witnessItemIds.get(edge.sourceId);
+    const targetId = targetItemIds.get(edge.targetId);
+    if (!witnessId || !targetId) continue;
+    const witnesses = byTarget.get(targetId) ?? new Set<string>();
+    witnesses.add(witnessId);
+    byTarget.set(targetId, witnesses);
+  }
+  return new Map([...byTarget].map(([id, witnesses]) => [id, [...witnesses].sort()]));
+}
+
+function verifiesTargetItemIds(
+  criterionId: number,
+  edges: readonly GraphEdge[],
+  targetItemIds: ReadonlyMap<number, string>,
+): readonly string[] {
+  return edges
+    .filter(
+      (edge) =>
+        edge.category === 'witness' &&
+        edge.stance !== 'against' &&
+        edge.sourceId === criterionId &&
+        targetItemIds.has(edge.targetId),
+    )
+    .map((edge) => targetItemIds.get(edge.targetId)!)
+    .sort();
 }
 
 function verifiesRequirementItemIds(

@@ -116,7 +116,11 @@ export async function executeParallelSliceBatch(
       }
       if (halt?.step === 'slice_integrate') continue;
 
-      const integrateStep = { kind: 'slice_integrate' as const, sliceId, epicId: result.epicId };
+      const integrateStep = {
+        kind: 'slice_integrate' as const,
+        sliceId,
+        ...(result.epicId === undefined ? {} : { epicId: result.epicId }),
+      };
       emitParallelStepProgress(ctx, 'started', integrateStep, summary);
       const integrated = await ctx.ports.gitSliceIntegration.integrate({
         runWorktreeDir: summary.worktreeDir!,
@@ -147,20 +151,24 @@ export async function executeParallelSliceBatch(
       await authority.appendReport({
         event: 'slice_integrated',
         runId: ctx.runId,
-        epicId: result.epicId,
+        ...(result.epicId === undefined ? {} : { epicId: result.epicId }),
         sliceId,
         status: 'slice_integrated',
         sliceCommitSha: integrated.sliceCommitSha,
         integrationCommitSha: integrated.integrationCommitSha,
       });
       emitParallelStepProgress(ctx, 'completed', integrateStep, summary);
-      const completeStep = { kind: 'slice_complete' as const, sliceId, epicId: result.epicId };
+      const completeStep = {
+        kind: 'slice_complete' as const,
+        sliceId,
+        ...(result.epicId === undefined ? {} : { epicId: result.epicId }),
+      };
       emitParallelStepProgress(ctx, 'started', completeStep, summary);
       await authority.fire(sliceTransitionId('slice_complete', sliceId));
       await authority.appendReport({
         event: 'slice_completed',
         runId: ctx.runId,
-        epicId: result.epicId,
+        ...(result.epicId === undefined ? {} : { epicId: result.epicId }),
         sliceId,
         status: 'slice_completed',
       });

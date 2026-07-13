@@ -78,7 +78,7 @@ export interface AgentRunArgs {
   readonly requestPath: string;
   readonly resultPath: string;
   readonly runId: string;
-  readonly epicId: string;
+  readonly epicId?: string;
   readonly sliceId: string;
   readonly runtime?: AgentRunnerRuntime;
   readonly onUpdate?: (update: AgentRunUpdate) => void | Promise<void>;

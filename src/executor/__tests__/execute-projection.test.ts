@@ -13,6 +13,56 @@ const base = {
 } as const;
 
 describe('projectExecuteGraph', () => {
+  it('projects authored frontiers, dependencies, verification provenance, and orphan slices', () => {
+    const nodes: GraphNode[] = [
+      { ...base, id: 1, plane: 'plan', kind: 'frontier', kindOrdinal: 1, title: 'Foundation' },
+      { ...base, id: 2, plane: 'plan', kind: 'frontier', kindOrdinal: 2, title: 'Feature' },
+      { ...base, id: 10, plane: 'intent', kind: 'requirement', kindOrdinal: 1, title: 'Build base' },
+      { ...base, id: 11, plane: 'intent', kind: 'requirement', kindOrdinal: 2, title: 'Build feature' },
+      { ...base, id: 12, plane: 'intent', kind: 'requirement', kindOrdinal: 3, title: 'Orphan task' },
+      { ...base, id: 20, plane: 'intent', kind: 'criterion', kindOrdinal: 1, title: 'Feature verified' },
+    ];
+    const edges: GraphEdge[] = [
+      { ...base, id: 1, category: 'composition', sourceId: 1, targetId: 10 },
+      { ...base, id: 2, category: 'composition', sourceId: 2, targetId: 11 },
+      { ...base, id: 3, category: 'dependency', sourceId: 1, targetId: 2 },
+      { ...base, id: 4, category: 'witness', sourceId: 20, targetId: 2, stance: 'for' },
+    ];
+
+    const projection = projectExecuteGraph({ specId: 7, graphLsn: 9, nodes, edges });
+
+    expect(projection.planPreview.epics).toEqual([
+      { id: 'F1', summary: 'Foundation', depends_on: [], verification: [] },
+      {
+        id: 'F2',
+        summary: 'Feature',
+        depends_on: ['F1'],
+        verification: [{ kind: 'criterion', criterionId: 'AC1', target: 'Feature verified' }],
+      },
+    ]);
+    expect(projection.planPreview.slices).toEqual([
+      expect.objectContaining({ id: 'task-1', epic_id: 'F1', derived_from: ['REQ1'] }),
+      expect.objectContaining({ id: 'task-2', epic_id: 'F2', derived_from: ['REQ2'] }),
+      expect.not.objectContaining({ epic_id: expect.anything() }),
+    ]);
+  });
+
+  it('rejects a requirement composed into multiple frontiers', () => {
+    const nodes: GraphNode[] = [
+      { ...base, id: 1, plane: 'plan', kind: 'frontier', kindOrdinal: 1, title: 'One' },
+      { ...base, id: 2, plane: 'plan', kind: 'frontier', kindOrdinal: 2, title: 'Two' },
+      { ...base, id: 10, plane: 'intent', kind: 'requirement', kindOrdinal: 1, title: 'Shared' },
+    ];
+    const edges: GraphEdge[] = [
+      { ...base, id: 1, category: 'composition', sourceId: 1, targetId: 10 },
+      { ...base, id: 2, category: 'composition', sourceId: 2, targetId: 10 },
+    ];
+
+    expect(() => projectExecuteGraph({ specId: 7, graphLsn: 10, nodes, edges })).toThrow(
+      'Requirement REQ1 is composed into multiple frontiers',
+    );
+  });
+
   it('centralizes graph to snapshot/check/outline/draft/preview projection', () => {
     const nodes: GraphNode[] = [
       {
@@ -47,9 +97,9 @@ describe('projectExecuteGraph', () => {
 
     expect(projection.source).toEqual({ graphLsn: 5, visibility: 'active' });
     expect(projection.snapshot.requirements.map((requirement) => requirement.itemId)).toEqual(['REQ1']);
-    expect(projection.snapshot.criteria[0]?.verifies).toEqual(['REQ1']);
+    expect(projection.snapshot.criteria[0]?.verifiesRequirements).toEqual(['REQ1']);
     expect(projection.check.status).toBe('ok');
-    expect(projection.outline.frontiers[0]?.tasks[0]?.requirementId).toBe('REQ1');
+    expect(projection.outline.orphanTasks[0]?.requirementId).toBe('REQ1');
     expect(projection.draft.slices[0]?.requirementId).toBe('REQ1');
     expect(projection.planPreview.slices[0]?.derived_from).toEqual(['REQ1']);
   });

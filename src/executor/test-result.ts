@@ -51,7 +51,7 @@ export type TestResultIngestResult =
       readonly runStatus: 'test_result_ingested';
       readonly runId: string;
       readonly sliceId: string;
-      readonly epicId: string;
+      readonly epicId?: string;
       readonly verdict: 'passed' | 'failed';
       readonly worktreeDir: string;
       readonly metadataPath: string;
@@ -65,7 +65,7 @@ export type TestResultIngestResult =
 export type VerifyStreamEvent = TestRunUpdate & {
   readonly event: 'verify_stream';
   readonly runId: string;
-  readonly epicId: string;
+  readonly epicId?: string;
   readonly sliceId: string;
   readonly sequence: number;
 };
@@ -94,7 +94,7 @@ export async function ingestTestResult(args: {
     };
   }
 
-  if (metadata.status !== 'agent_result_ingested' || !metadata.activeSliceId || !metadata.activeEpicId) {
+  if (metadata.status !== 'agent_result_ingested' || !metadata.activeSliceId) {
     return {
       status: 'agent_result_not_ingested',
       runStatus: metadata.status,
@@ -122,7 +122,7 @@ export async function ingestTestResult(args: {
       const event: VerifyStreamEvent = {
         event: 'verify_stream',
         runId: args.runId,
-        epicId: metadata.activeEpicId!,
+        ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
         sliceId: metadata.activeSliceId!,
         sequence,
         kind: update.kind,
@@ -173,7 +173,7 @@ export async function ingestTestResult(args: {
   const event = {
     event: 'slice_test_result',
     runId: args.runId,
-    epicId: metadata.activeEpicId,
+    ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
     sliceId: metadata.activeSliceId,
     status: runResult.verdict,
     exitCode: runResult.exitCode,
@@ -197,7 +197,7 @@ export async function ingestTestResult(args: {
     runStatus: 'test_result_ingested',
     runId: args.runId,
     sliceId: metadata.activeSliceId,
-    epicId: metadata.activeEpicId,
+    ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
     verdict: runResult.verdict,
     worktreeDir,
     metadataPath,

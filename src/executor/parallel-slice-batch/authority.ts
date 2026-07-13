@@ -27,7 +27,7 @@ export interface BatchAuthority {
   fire(transitionId: string): Promise<void>;
   attemptFailed(
     sliceId: string,
-    epicId: string,
+    epicId: string | undefined,
     step: 'agent_result' | 'test_result',
     attempt: number,
     reason: string,
@@ -127,7 +127,7 @@ export function createBatchAuthority(args: {
               runId: args.ctx.runId,
               runStatus: state.status,
               sliceId,
-              epicId,
+              ...(epicId === undefined ? {} : { epicId }),
               step,
               attempt,
               reason,

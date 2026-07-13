@@ -51,7 +51,7 @@ export type SliceExecutionRequestResult =
       readonly runStatus: 'slice_execution_requested';
       readonly runId: string;
       readonly sliceId: string;
-      readonly epicId: string;
+      readonly epicId?: string;
       readonly metadataPath: string;
       readonly reportsPath: string;
       readonly requestPath: string;
@@ -85,7 +85,7 @@ export async function requestSliceExecution(args: {
     };
   }
 
-  if (metadata.status !== 'slice_started' || !metadata.activeSliceId || !metadata.activeEpicId) {
+  if (metadata.status !== 'slice_started' || !metadata.activeSliceId) {
     return {
       status: 'slice_not_started',
       runStatus: metadata.status,
@@ -142,7 +142,7 @@ export async function requestSliceExecution(args: {
   const request = {
     runId: args.runId,
     sliceId: metadata.activeSliceId,
-    epicId: metadata.activeEpicId,
+    ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
     ...(slice?.scopeId ? { scopeId: slice.scopeId } : {}),
     action: 'execute_slice',
     status: 'requested',
@@ -158,7 +158,7 @@ export async function requestSliceExecution(args: {
   const event = {
     event: 'slice_execution_requested',
     runId: args.runId,
-    epicId: metadata.activeEpicId,
+    ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
     sliceId: metadata.activeSliceId,
     status: 'slice_execution_requested',
   };
@@ -180,7 +180,7 @@ export async function requestSliceExecution(args: {
     runStatus: 'slice_execution_requested',
     runId: args.runId,
     sliceId: metadata.activeSliceId,
-    epicId: metadata.activeEpicId,
+    ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
     metadataPath,
     reportsPath: reportPath,
     requestPath,
