@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { createDb } from '../../db/connection.js';
 import { specs } from '../../db/schema.js';
 import {
   detectLegacyZeroXDatabase,
@@ -86,6 +87,51 @@ describe('workspace-store — brunch-v1.db identity (D124-L, I63-L)', () => {
     }
   });
 
+  it('refuses a zero-application_id brunch-v1.db that carries non-Brunch content, leaving it untouched', async () => {
+    const foreignPath = join(brunchDir, WORKSPACE_DB_FILENAME);
+    await mkdir(brunchDir, { recursive: true });
+    // application_id 0 is SQLite's own default — an arbitrary non-Brunch
+    // SQLite file placed at this path also has it. Content with no
+    // __drizzle_migrations table (and not empty) is not Brunch lineage.
+    const raw = new Database(foreignPath);
+    raw.exec('CREATE TABLE some_other_apps_table (id INTEGER PRIMARY KEY)');
+    raw.close();
+
+    const before = await readFile(foreignPath);
+
+    await expect(openWorkspaceDb(cwd)).rejects.toThrow(WorkspaceDbRefusalError);
+
+    const after = await readFile(foreignPath);
+    expect(after.equals(before)).toBe(true);
+
+    const inspect = new Database(foreignPath, { readonly: true });
+    const tables = inspect.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as {
+      name: string;
+    }[];
+    const appId = inspect.pragma('application_id', { simple: true });
+    inspect.close();
+    expect(tables.map((row) => row.name)).toEqual(['some_other_apps_table']);
+    expect(appId).toBe(0);
+  });
+
+  it('adopts and stamps a zero-application_id brunch-v1.db that is completely empty', async () => {
+    const emptyPath = join(brunchDir, WORKSPACE_DB_FILENAME);
+    await mkdir(brunchDir, { recursive: true });
+    // A zero-byte/no-tables file at this path is nothing to protect: safe to
+    // adopt in place (e.g. a partially-initialized file from an interrupted
+    // create, or an empty file left by some other tool).
+    new Database(emptyPath).close();
+
+    const db = await openWorkspaceDb(cwd);
+    expect(db.select().from(specs).all()).toEqual([]);
+    db.$client.close();
+
+    const recovered = new Database(emptyPath, { readonly: true });
+    const appId = recovered.pragma('application_id', { simple: true });
+    recovered.close();
+    expect(appId).toBe(1112692273);
+  });
+
   it('detects a sibling 0.x brunch.db without opening it, and never migrates it', async () => {
     await mkdir(brunchDir, { recursive: true });
     const zeroXPath = join(brunchDir, LEGACY_ZERO_X_DB_FILENAME);
@@ -112,11 +158,13 @@ describe('workspace-store — brunch-v1.db identity (D124-L, I63-L)', () => {
     const legacyPath = join(brunchDir, LEGACY_ALPHA_DB_FILENAME);
     await mkdir(brunchDir, { recursive: true });
 
-    const legacy = new Database(legacyPath);
-    legacy.pragma('journal_mode = WAL');
-    legacy.exec('CREATE TABLE marker (id INTEGER PRIMARY KEY)');
-    legacy.prepare('INSERT INTO marker (id) VALUES (1)').run();
-    legacy.close();
+    // A real legacy alpha data.db was always created through this app's own
+    // createDb (which always migrates), so it carries the drizzle migrations
+    // table — that's the Brunch lineage evidence the zero-application_id
+    // adoption path now requires.
+    const legacy = createDb(legacyPath);
+    legacy.insert(specs).values({ name: 'Legacy spec', slug: 'legacy-spec' }).run();
+    legacy.$client.close();
 
     // Simulate stale sidecar files left behind by a prior session.
     await writeFile(`${legacyPath}-wal`, '');
@@ -125,8 +173,9 @@ describe('workspace-store — brunch-v1.db identity (D124-L, I63-L)', () => {
     const db = await openWorkspaceDb(cwd);
     // Drizzle migration authority is unchanged on an adopted file: the
     // current schema exists and is queryable through the normal drizzle
-    // surface, not just "createDb didn't throw".
-    expect(db.select().from(specs).all()).toEqual([]);
+    // surface, not just "createDb didn't throw" — and the legacy row rode
+    // along with the rename.
+    expect(db.select({ slug: specs.slug }).from(specs).all()).toEqual([{ slug: 'legacy-spec' }]);
     db.$client.close();
 
     expect(existsSync(legacyPath)).toBe(false);
@@ -135,10 +184,8 @@ describe('workspace-store — brunch-v1.db identity (D124-L, I63-L)', () => {
     expect(existsSync(join(brunchDir, WORKSPACE_DB_FILENAME))).toBe(true);
 
     const recovered = new Database(join(brunchDir, WORKSPACE_DB_FILENAME));
-    const markerRows = recovered.prepare('SELECT id FROM marker').all();
     const appId = recovered.pragma('application_id', { simple: true });
     recovered.close();
-    expect(markerRows).toEqual([{ id: 1 }]);
     expect(appId).toBe(1112692273);
   });
 

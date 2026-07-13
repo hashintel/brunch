@@ -106,6 +106,9 @@ export const LEGACY_ZERO_X_DB_FILENAME = 'brunch.db';
 /** SQLite `application_id` magic stamped on every `brunch-v1.db` (ASCII "BRV1"). */
 const BRUNCH_APPLICATION_ID = 0x42_52_56_31;
 
+/** The table name drizzle-orm's better-sqlite3 migrator creates (its default; `db/connection.ts` doesn't override it). */
+const DRIZZLE_MIGRATIONS_TABLE = '__drizzle_migrations';
+
 /**
  * Thrown when a `brunch-v1.db`-named file does not self-identify as the
  * current Brunch major line (I63-L: fail-safe refusal). Thrown before
@@ -118,9 +121,14 @@ export class WorkspaceDbRefusalError extends Error {
     readonly foundApplicationId: number,
   ) {
     super(
-      `Refusing to open ${path}: application_id ${foundApplicationId} does not match the Brunch v1 line ` +
-        `(${BRUNCH_APPLICATION_ID}). This file was not created by this Brunch line and will not be opened, ` +
-        'migrated, or deleted.',
+      foundApplicationId === 0
+        ? `Refusing to open ${path}: application_id is unset (0) and the file shows no Brunch lineage ` +
+            `(no ${DRIZZLE_MIGRATIONS_TABLE} table, and it is not empty). Zero is SQLite's own default, not a ` +
+            'Brunch marker, so this file was not created by this Brunch line and will not be opened, migrated, ' +
+            'or deleted.'
+        : `Refusing to open ${path}: application_id ${foundApplicationId} does not match the Brunch v1 line ` +
+            `(${BRUNCH_APPLICATION_ID}). This file was not created by this Brunch line and will not be opened, ` +
+            'migrated, or deleted.',
     );
     this.name = 'WorkspaceDbRefusalError';
   }
@@ -184,8 +192,9 @@ async function recoverLegacyAlphaDatabase(brunchDir: string): Promise<void> {
 
 /**
  * Checks an existing `brunch-v1.db`'s `application_id` before any migration
- * runs. An unstamped file (`application_id` 0 — e.g. a just-recovered legacy
- * alpha file) is stamped in place; any other mismatch throws
+ * runs. An unstamped file (`application_id` 0) is only ours to adopt when it
+ * shows Brunch lineage evidence — see {@link hasBrunchLineageEvidence}; any
+ * other value, or a zero-id file without that evidence, throws
  * {@link WorkspaceDbRefusalError} and leaves the file untouched.
  */
 function checkApplicationIdOrRefuse(dbPath: string): void {
@@ -193,9 +202,28 @@ function checkApplicationIdOrRefuse(dbPath: string): void {
   try {
     const current = sqlite.pragma('application_id', { simple: true }) as number;
     if (current === BRUNCH_APPLICATION_ID) return;
-    if (current !== 0) throw new WorkspaceDbRefusalError(dbPath, current);
+    if (current !== 0 || !hasBrunchLineageEvidence(sqlite)) {
+      throw new WorkspaceDbRefusalError(dbPath, current);
+    }
     sqlite.pragma(`application_id = ${BRUNCH_APPLICATION_ID}`);
   } finally {
     sqlite.close();
   }
+}
+
+/**
+ * Zero is SQLite's universal default `application_id`, not a Brunch marker
+ * — an arbitrary foreign SQLite file placed at `brunch-v1.db` also has it
+ * (I63-L: the runtime opens only databases that self-identify). An unstamped
+ * file is only trustworthy to adopt when it carries independent Brunch
+ * lineage evidence: drizzle's own migrations table (true of every
+ * just-recovered legacy alpha file, since `createDb` always migrates), or no
+ * user tables at all — nothing to protect, safe to adopt.
+ */
+function hasBrunchLineageEvidence(sqlite: Database.Database): boolean {
+  const tables = sqlite
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+    .all() as { name: string }[];
+  if (tables.length === 0) return true;
+  return tables.some((table) => table.name === DRIZZLE_MIGRATIONS_TABLE);
 }
