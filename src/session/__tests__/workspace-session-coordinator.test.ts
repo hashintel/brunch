@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -619,9 +619,7 @@ describe('WorkspaceSessionCoordinator', () => {
 
     const inventory = await coordinator.inspectWorkspace();
     const establishedSpec = inventory.specs.find((entry) => entry.spec.id === established.spec.id)?.spec;
-    const unestablishedSpec = inventory.specs.find(
-      (entry) => entry.spec.id === unestablished.spec.id,
-    )?.spec;
+    const unestablishedSpec = inventory.specs.find((entry) => entry.spec.id === unestablished.spec.id)?.spec;
     if (!establishedSpec || !unestablishedSpec) throw new Error('unreachable');
 
     expect(
@@ -636,6 +634,23 @@ describe('WorkspaceSessionCoordinator', () => {
         workspacePopulated: inventory.workspacePopulated ?? false,
       }),
     ).toEqual(['confirmOrigin']);
+  });
+
+  it('treats a sibling 0.x brunch.db as populated/brownfield posture evidence even in a bare cwd (D124-L, D118-L)', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
+    await mkdir(join(cwd, '.brunch'), { recursive: true });
+    await writeFile(join(cwd, '.brunch', 'brunch.db'), 'not a sqlite database');
+
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const inventory = await coordinator.inspectWorkspace();
+
+    expect(inventory.workspacePopulated).toBe(true);
+    expect(
+      decideSpecEstablishmentAsks({
+        currentOrigin: null,
+        workspacePopulated: inventory.workspacePopulated ?? false,
+      }),
+    ).toEqual(['confirmKind', 'confirmOrigin']);
   });
 
   it('activates cancel without mutating workspace state or session files', async () => {
@@ -678,7 +693,7 @@ describe('WorkspaceSessionCoordinator', () => {
     expect(mismatched.status).toBe('needs_human');
   });
 
-  it('scaffolds workspace.json and data.db when no default spec exists', async () => {
+  it('scaffolds workspace.json and brunch-v1.db when no default spec exists', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
 
     const coordinator = createWorkspaceSessionCoordinator({ cwd });
@@ -687,7 +702,7 @@ describe('WorkspaceSessionCoordinator', () => {
     expect(result.status).toBe('select_spec');
     expect(result.chrome.cwd).toBe(cwd);
     expect(result.chrome.spec).toBeNull();
-    await expect(stat(join(cwd, '.brunch', 'data.db'))).resolves.toMatchObject({});
+    await expect(stat(join(cwd, '.brunch', 'brunch-v1.db'))).resolves.toMatchObject({});
     expect(JSON.parse(await readFile(join(cwd, '.brunch', 'workspace.json'), 'utf8'))).toMatchObject({
       project: expect.objectContaining({ name: expect.any(String), slug: expect.any(String) }),
       defaults: null,

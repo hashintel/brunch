@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 
 import { BRUNCH_DIR, SESSION_DIR } from '../constants.js';
-import { openWorkspaceCommandExecutor, type SpecRecord } from '../graph/index.js';
+import { detectLegacyZeroXDatabase, openWorkspaceCommandExecutor, type SpecRecord } from '../graph/index.js';
 import type { SpecKind, SpecOrigin } from '../graph/schema/kinds.js';
 import { inspectWorkspaceCwdInventory } from '../workspace/cwd-inventory.js';
 import { slugify } from '../workspace/project-identity.js';
@@ -579,12 +579,20 @@ async function inspectWorkspaceInventory(cwd: string): Promise<WorkspaceLaunchIn
  * Whether cwd holds product code beyond `.brunch/` — the D118-L establishment
  * branch signal. Distinct from `.brunch/workspace.json`'s posture stub
  * (unchanged, D118-L): this reads the filesystem, not stored workspace state.
+ *
+ * A sibling 0.x `.brunch/brunch.db` also counts as populated/brownfield
+ * evidence (D124-L mechanic 3, I63-L): a legacy Brunch workspace here is
+ * brownfield even when cwd otherwise looks bare.
  */
 async function isWorkspacePopulated(cwd: string): Promise<boolean> {
-  const inventory = await inspectWorkspaceCwdInventory(cwd);
-  return (inventory.topology.children ?? []).some(
+  const [inventory, legacyZeroXDetected] = await Promise.all([
+    inspectWorkspaceCwdInventory(cwd),
+    detectLegacyZeroXDatabase(cwd),
+  ]);
+  const hasProductCode = (inventory.topology.children ?? []).some(
     (entry) => entry.name !== BRUNCH_DIR && entry.fileCount > 0,
   );
+  return hasProductCode || legacyZeroXDetected;
 }
 
 function getOrCreateLaunchSpec(
