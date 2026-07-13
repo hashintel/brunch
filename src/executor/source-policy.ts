@@ -2,11 +2,17 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { populatedPlanPath } from './populate.js';
+import {
+  runExecutionActive,
+  withRunExecutionAuthority,
+  type RunExecutionActiveResult,
+} from './run-execution-authority.js';
 import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
 export type SourcePolicyKind = 'plan_only' | 'host_source_deferred';
 
 export type SourcePolicyResult =
+  | RunExecutionActiveResult
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -39,6 +45,19 @@ export function sourcePolicyPath(cwd: string, runId: string): string {
 }
 
 export async function selectSourcePolicy(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly policy: SourcePolicyKind;
+}): Promise<SourcePolicyResult> {
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId: args.runId,
+    execute: () => selectSourcePolicyOwned(args),
+    onContended: () => runExecutionActive(args.runId),
+  });
+}
+
+async function selectSourcePolicyOwned(args: {
   readonly cwd: string;
   readonly runId: string;
   readonly policy: SourcePolicyKind;

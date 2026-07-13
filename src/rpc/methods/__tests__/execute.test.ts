@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import { Value } from 'typebox/value';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -20,7 +21,7 @@ import type { GraphEdge } from '../../../graph/schema/edges.js';
 import type { GraphNode } from '../../../graph/schema/nodes.js';
 import { createProductUpdatePublisher, type ProductUpdate } from '../../product-updates.js';
 import type { JsonRpcRequest } from '../../protocol.js';
-import { executeRpcMethods, UNKNOWN_RUN_ID_MESSAGE } from '../execute.js';
+import { ExecuteRunResultSchema, executeRpcMethods, UNKNOWN_RUN_ID_MESSAGE } from '../execute.js';
 import type { RpcMethodContext } from '../registry.js';
 
 function contextFor(cwd: string): RpcMethodContext {
@@ -380,6 +381,7 @@ describe('execute.run', () => {
         ],
       },
     });
+    expect('result' in response && Value.Check(ExecuteRunResultSchema, response.result)).toBe(true);
     release();
     await driving;
   });

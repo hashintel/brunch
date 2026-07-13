@@ -53,6 +53,10 @@ export const SLICE_ATTEMPT_LIMIT = 3;
 
 export type BlockedStep =
   | {
+      readonly kind: 'authority_unreadable';
+      readonly blockers: readonly [{ readonly kind: 'parallel_authority_unreadable' }];
+    }
+  | {
       readonly kind: 'slice_start';
       readonly sliceId: string;
       readonly epicId?: string;
@@ -73,6 +77,7 @@ export type BlockedStepReason =
       readonly state: 'claimed' | 'running' | 'succeeded_unintegrated' | 'failed' | 'integrated';
     }
   | { readonly kind: 'epic_verification_authority'; readonly phase: 'claimed' | 'transitioned' }
+  | { readonly kind: 'parallel_authority_unreadable' }
   | { readonly kind: 'active_slice'; readonly sliceId: string };
 
 /** The minimal plan projection the scheduler needs to resolve the slice frontier. */

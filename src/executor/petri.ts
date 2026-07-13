@@ -6,9 +6,15 @@ import { petriEventsPath } from './petri-events.js';
 import { freezePetriPlanSnapshot } from './petri-plan-snapshot.js';
 import { readPetriRuntimePlan } from './petri-runtime-plan.js';
 import { petriTopologyToSdcpnFile } from './petrinaut/sdcpn.js';
+import {
+  runExecutionActive,
+  withRunExecutionAuthority,
+  type RunExecutionActiveResult,
+} from './run-execution-authority.js';
 import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
 export type PetriExportResult =
+  | RunExecutionActiveResult
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -89,6 +95,18 @@ export async function preparePetriObservation(args: {
 }
 
 export async function exportPetri(args: {
+  readonly cwd: string;
+  readonly runId: string;
+}): Promise<PetriExportResult> {
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId: args.runId,
+    execute: () => exportPetriOwned(args),
+    onContended: () => runExecutionActive(args.runId),
+  });
+}
+
+async function exportPetriOwned(args: {
   readonly cwd: string;
   readonly runId: string;
 }): Promise<PetriExportResult> {

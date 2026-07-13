@@ -34,6 +34,7 @@ import { serializePetrinautSseFrame, serializePetrinautSseFrames } from '../petr
 import { foldPetrinautStreamFrames, projectPetrinautStreamFrames } from '../petrinaut/stream-frames.js';
 import { populatedPlanPath } from '../populate.js';
 import { reportsPath } from '../report.js';
+import { withRunExecutionAuthority } from '../run-execution-authority.js';
 import { runDirPath, runMetadataPath } from '../run.js';
 
 const sdcpnFileSchema = z.object({
@@ -138,6 +139,26 @@ async function createCompletedRun(cwd: string): Promise<void> {
 }
 
 describe('exportPetri', () => {
+  it('refuses standalone export while the run execution owner is active', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-export-contended-'));
+    await createCompletedRun(cwd);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const owner = withRunExecutionAuthority({ cwd, runId: 'run-1', execute: () => held });
+
+    await expect(exportPetri({ cwd, runId: 'run-1' })).resolves.toEqual({
+      status: 'run_execution_active',
+      runStatus: 'not_started',
+      runId: 'run-1',
+      sideEffects: [],
+    });
+    expect(await pathExists(petriNetPath(cwd, 'run-1'))).toBe(false);
+    release();
+    await owner;
+  });
+
   it('prepares replay-identical observer artifacts before execution without advancing or truncating the run', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-observation-prepare-'));
     const runDir = runDirPath(cwd, 'run-1');

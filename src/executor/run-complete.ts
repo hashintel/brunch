@@ -3,6 +3,11 @@ import { appendFile, readFile } from 'node:fs/promises';
 import { populatedPlanPath } from './populate.js';
 import { readEpicVerificationVerdict, readSliceVerificationVerdict } from './report-verdict.js';
 import { reportsPath } from './report.js';
+import {
+  runExecutionActive,
+  withRunExecutionAuthority,
+  type RunExecutionActiveResult,
+} from './run-execution-authority.js';
 import { runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
 interface PlanSlice {
@@ -17,6 +22,7 @@ interface PlanPayload {
 }
 
 export type RunCompleteResult =
+  | RunExecutionActiveResult
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -90,6 +96,18 @@ export type RunCompleteResult =
     };
 
 export async function completeRun(args: {
+  readonly cwd: string;
+  readonly runId: string;
+}): Promise<RunCompleteResult> {
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId: args.runId,
+    execute: () => completeRunOwned(args),
+    onContended: () => runExecutionActive(args.runId),
+  });
+}
+
+async function completeRunOwned(args: {
   readonly cwd: string;
   readonly runId: string;
 }): Promise<RunCompleteResult> {

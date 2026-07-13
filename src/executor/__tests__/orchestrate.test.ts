@@ -857,6 +857,34 @@ describe('drive', () => {
     expect(runnerCalls).toBe(0);
   });
 
+  it('does not release an epic dependent when the final valid journal line lacks a newline', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-history-unframed-final-line-'));
+    await prepareEpicVerificationReadyRun(cwd);
+    const journalPath = petriEventsPath(cwd, 'run-1');
+    const journal = await readFile(journalPath, 'utf8');
+    await writeFile(journalPath, journal.slice(0, -1), 'utf8');
+    let runnerCalls = 0;
+
+    await expect(
+      drive({
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts({
+          testRunner: {
+            async run() {
+              runnerCalls += 1;
+              return { status: 'completed', verdict: 'passed', exitCode: 0 };
+            },
+          },
+        }),
+      }),
+    ).resolves.toMatchObject({ status: 'halted', reason: 'petri_input_unreadable' });
+    expect(runnerCalls).toBe(0);
+    await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.not.toMatchObject({
+      completedEpicIds: ['epic-1'],
+    });
+  });
+
   it('catches epic verification summary up from transitioned marking without rerunning', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-epic-verification-summary-lag-'));
     const { state, plan, runtime } = await prepareEpicVerificationReadyRun(cwd);
@@ -1404,6 +1432,17 @@ describe('drive', () => {
         { sliceId: 'task-2', state: 'claimed', agentAttempts: [], verifyAttempts: [] },
       ],
     });
+    const marking = await readFile(petriMarkingPath(cwd, 'run-1'), 'utf8');
+    await writeFile(petriMarkingPath(cwd, 'run-1'), '{malformed', 'utf8');
+    await expect(readRunDetail(cwd, 'run-1')).resolves.toMatchObject({
+      petriReadySteps: [],
+      petriBlockedSteps: [
+        { kind: 'authority_unreadable', blockers: [{ kind: 'parallel_authority_unreadable' }] },
+        { kind: 'slice_start', sliceId: 'task-1', blockers: [{ kind: 'parallel_authority_unreadable' }] },
+        { kind: 'slice_start', sliceId: 'task-2', blockers: [{ kind: 'parallel_authority_unreadable' }] },
+      ],
+    });
+    await writeFile(petriMarkingPath(cwd, 'run-1'), marking, 'utf8');
     release();
     await driving;
   });
@@ -2164,6 +2203,56 @@ describe('drive', () => {
     await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
       completedSliceIds: ['task-1'],
       integratedSliceCommits: { 'task-1': 'task-1-integrated' },
+    });
+  });
+
+  it('replaces a succeeded effect settlement when integration throws and preserves earlier fan-in', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-parallel-fan-in-throw-'));
+    await createRunAtCreated(cwd, ['task-1', 'task-2']);
+    const base = createFakeGitSliceIntegrationPort();
+    const gitSliceIntegration = createFakeGitSliceIntegrationPort({
+      prepare: (args) => base.prepare(args),
+      async integrate(args) {
+        if (args.sliceId === 'task-2') throw new Error('integration carrier broke');
+        return {
+          status: 'integrated',
+          sliceCommitSha: 'task-1-slice',
+          integrationCommitSha: 'task-1-integrated',
+          sideEffects: [],
+        };
+      },
+    });
+
+    await expect(
+      drive(
+        { cwd, runId: 'run-1', ports: fakePorts({ gitSliceIntegration }) },
+        petriScheduler,
+        frontierFiringPolicy,
+      ),
+    ).resolves.toEqual({
+      status: 'halted',
+      step: 'slice_integrate',
+      runStatus: 'slice_completed',
+      reason: 'slice_integration_threw: integration carrier broke',
+    });
+    await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+      completedSliceIds: ['task-1'],
+      integratedSliceCommits: { 'task-1': 'task-1-integrated' },
+    });
+    await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toMatchObject({
+      terminalEventKind: 'net_halted',
+      haltedReason: 'slice_integration_threw: integration carrier broke',
+      parallelSliceBatch: {
+        settlements: [
+          { sliceId: 'task-1', status: 'succeeded' },
+          {
+            sliceId: 'task-2',
+            status: 'failed',
+            step: 'slice_integrate',
+            reason: 'slice_integration_threw: integration carrier broke',
+          },
+        ],
+      },
     });
   });
 

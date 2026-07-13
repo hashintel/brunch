@@ -53,33 +53,61 @@ export async function readDurableEpicTransitionHistory(args: {
   readonly cwd: string;
   readonly runId: string;
 }): Promise<
-  | { readonly status: 'missing' | 'unavailable' | 'unreadable' }
+  | { readonly status: 'missing' | 'unreadable' }
+  | { readonly status: 'unavailable'; readonly code?: string }
   | { readonly status: 'readable'; readonly history: readonly string[] }
 > {
   try {
     const history: string[] = [];
-    for (const line of (await readFile(petriEventsPath(args.cwd, args.runId), 'utf8'))
-      .split('\n')
-      .filter(Boolean)) {
-      let event: ExecutorNetEvent | undefined;
-      try {
-        event = parsePetriEvent(JSON.parse(line));
-      } catch {
-        return { status: 'unreadable' };
-      }
-      if (!event) return { status: 'unreadable' };
+    const journal = await readPetriJournal(petriEventsPath(args.cwd, args.runId));
+    if (journal.status !== 'readable') return journal;
+    for (const event of journal.events) {
       if (event.kind === 'transition_fired' && event.contract.lane === 'epic') {
         history.push(event.transitionId);
       }
     }
     return { status: 'readable', history };
   } catch (error) {
-    return isNodeError(error) && error.code === 'ENOENT' ? { status: 'missing' } : { status: 'unavailable' };
+    return isNodeError(error) && error.code === 'ENOENT' ? { status: 'missing' } : unavailableJournal(error);
   }
+}
+
+export async function readPetriJournal(
+  path: string,
+): Promise<
+  | { readonly status: 'missing' | 'unreadable' }
+  | { readonly status: 'unavailable'; readonly code?: string }
+  | { readonly status: 'readable'; readonly events: readonly ExecutorNetEvent[] }
+> {
+  let raw: string;
+  try {
+    raw = await readFile(path, 'utf8');
+  } catch (error) {
+    return isNodeError(error) && error.code === 'ENOENT' ? { status: 'missing' } : unavailableJournal(error);
+  }
+  if (raw.length > 0 && !raw.endsWith('\n')) return { status: 'unreadable' };
+  const events: ExecutorNetEvent[] = [];
+  for (const line of raw.length === 0 ? [] : raw.split('\n').slice(0, -1)) {
+    if (line.length === 0) return { status: 'unreadable' };
+    try {
+      const event = parsePetriEvent(JSON.parse(line));
+      if (!event) return { status: 'unreadable' };
+      events.push(event);
+    } catch {
+      return { status: 'unreadable' };
+    }
+  }
+  return { status: 'readable', events };
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && 'code' in error;
+}
+
+function unavailableJournal(error: unknown): { readonly status: 'unavailable'; readonly code?: string } {
+  return isNodeError(error) && typeof error.code === 'string'
+    ? { status: 'unavailable', code: error.code }
+    : { status: 'unavailable' };
 }
 
 export function subscribePetriEvents(args: {

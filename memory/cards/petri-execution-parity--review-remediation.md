@@ -49,6 +49,37 @@ Every external executor effect is admitted once per run, durably claimed before 
 
 Skipped-test delta vs parent: 0.
 
+## Slice 7 — Exhaustive authority and projection closure
+
+Status: done
+Weight: full
+
+### Target Behavior
+
+Every standalone run effect shares canonical reentrant authority, journal framing and active parallel authority fail closed across execution and observation, fan-in throws settle durably, and the RPC schema accepts the real projection.
+
+### Acceptance Criteria
+
+✓ authority inventory/races — every `ReadyStep` arm is exhaustively classified; standalone worktree, populate/source/report, Petri export, promotion, run creation, and existing slice entries refuse contention with zero effects while drive calls remain reentrant.
+✓ observer authority — journal-ahead parallel claims with missing/malformed marking project `authority_unreadable`, no ready steps, per-claimed-slice blockers, and no pending claimed requirements.
+✓ journal framing — all production Petri readers require a newline-terminated, fully parseable journal; a valid final line without newline releases no epic dependent.
+✓ fan-in throw — integration throws replace prior success with durable `slice_integrate` failure, append `net_halted`, persist terminal marking, and preserve earlier clean integrations.
+✓ RPC schema — every ready/blocker arm plus optional epic ids, batch settlements, stream inventory, and run sequence validate against a real active-parallel `execute.run` response.
+
+### Completion Report
+
+| Leaf | Outcome | Evidence |
+| --- | --- | --- |
+| Standalone run effects share D124-L authority | met | `run-effect-authority.test.ts`, `worktree.test.ts`, `petri.test.ts`, and `promotion.test.ts` cover contention; `RUN_EFFECT_ENTRY_INVENTORY satisfies Record<ReadyStep['kind'], …>` is the future-arm guard. |
+| Run creation remains atomic through observer preparation | met | registered `execute_run_create` holds authority across `createRun` and `preparePetriObservation`; nested core admission is reentrant. |
+| Unreadable parallel authority fails closed | met | `orchestrate.test.ts` corrupts active marking and observes only `authority_unreadable`/per-slice blockers with no ready work. |
+| Petri readers agree on framing | met | shared `readPetriJournal`; torn and final-valid-without-newline tests reject the whole journal and invoke no epic runner. |
+| Integration throws settle and halt durably | met | parallel fan-in throw test retains task-1 integration, replaces task-2 settlement, and asserts terminal marking/reason. |
+| RPC schema matches runtime | met | active parallel RPC test runs `Value.Check(ExecuteRunResultSchema, response.result)`; execute method discovery exposes that schema. |
+| Requested suites | met | focused 239; executor/app 482; extensions 409; RPC/web 214. |
+
+Skipped-test delta vs parent: 0.
+
 ### Expected touched paths (tentative)
 
 ```text

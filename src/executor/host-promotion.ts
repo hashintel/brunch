@@ -1,6 +1,11 @@
 import { readFile } from 'node:fs/promises';
 
 import type { GitHostPromotionPort, GitHostPromotionPreflightPort } from './execution-ports.js';
+import {
+  runExecutionActive,
+  withRunExecutionAuthority,
+  type RunExecutionActiveResult,
+} from './run-execution-authority.js';
 import { readRunMetadata, runMetadataPath, type RunMetadata } from './run.js';
 
 export type HostPromotionPreflightResult =
@@ -52,6 +57,7 @@ export type HostPromotionPreflightResult =
     };
 
 export type HostPromotionApplyResult =
+  | RunExecutionActiveResult
   | Exclude<HostPromotionPreflightResult, { readonly status: 'preflight_ready' }>
   | {
       readonly status: 'needs_acceptance';
@@ -173,6 +179,20 @@ export async function preflightHostPromotion(args: {
 }
 
 export async function applyHostPromotion(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly acceptedCommitSha?: string;
+  readonly gitHostPromotion: GitHostPromotionPort;
+}): Promise<HostPromotionApplyResult> {
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId: args.runId,
+    execute: () => applyHostPromotionOwned(args),
+    onContended: () => runExecutionActive(args.runId),
+  });
+}
+
+async function applyHostPromotionOwned(args: {
   readonly cwd: string;
   readonly runId: string;
   readonly acceptedCommitSha?: string;

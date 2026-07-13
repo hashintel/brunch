@@ -6,6 +6,10 @@ import { Type, type Static } from 'typebox';
 import { petriEventsPath } from '../../../../executor/petri-events.js';
 import { petriPlanSnapshotPath } from '../../../../executor/petri-plan-snapshot.js';
 import { petriNetPath, petriSdcpnPath, preparePetriObservation } from '../../../../executor/petri.js';
+import {
+  runExecutionActive,
+  withRunExecutionAuthority,
+} from '../../../../executor/run-execution-authority.js';
 import { createRun, type RunCreateResult } from '../../../../executor/run.js';
 import { BRUNCH_EXECUTE_RUN_CREATE_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
@@ -66,44 +70,55 @@ export function createExecuteRunCreateTool(deps: ExecuteRunCreateDeps) {
         reads: deps.reads,
         mode: params.mode,
       });
-      const result = await createRun({
+      const runId = params.runId ?? `run-${Date.now().toString(36)}`;
+      return withRunExecutionAuthority({
         cwd,
-        specId: String(deps.specId),
-        current,
-        ...(params.runId ? { runId: params.runId } : {}),
-        ...(params.substrate ? { substrate: params.substrate } : {}),
-        ...verifyTargetForProfile(params.verifyProfile),
+        runId,
+        onContended: () => toolResult(runExecutionActive(runId), current.source.graphLsn, []),
+        execute: async () => {
+          const result = await createRun({
+            cwd,
+            specId: String(deps.specId),
+            current,
+            runId,
+            ...(params.substrate ? { substrate: params.substrate } : {}),
+            ...verifyTargetForProfile(params.verifyProfile),
+          });
+          const observerSideEffects =
+            result.status === 'created'
+              ? await preparePetriObservation({ cwd, runId: result.runId }).then(() => [
+                  { kind: 'mkdir', path: dirname(petriNetPath(cwd, result.runId)) },
+                  { kind: 'write_file', path: petriPlanSnapshotPath(cwd, result.runId) },
+                  { kind: 'write_file', path: petriNetPath(cwd, result.runId) },
+                  { kind: 'write_file', path: petriSdcpnPath(cwd, result.runId) },
+                  { kind: 'write_file', path: petriEventsPath(cwd, result.runId) },
+                ])
+              : [];
+          return toolResult(result, current.source.graphLsn, [...result.sideEffects, ...observerSideEffects]);
+        },
       });
-      const observerSideEffects =
-        result.status === 'created'
-          ? await preparePetriObservation({ cwd, runId: result.runId }).then(() => [
-              { kind: 'mkdir', path: dirname(petriNetPath(cwd, result.runId)) },
-              { kind: 'write_file', path: petriPlanSnapshotPath(cwd, result.runId) },
-              { kind: 'write_file', path: petriNetPath(cwd, result.runId) },
-              { kind: 'write_file', path: petriSdcpnPath(cwd, result.runId) },
-              { kind: 'write_file', path: petriEventsPath(cwd, result.runId) },
-            ])
-          : [];
-      const sideEffects = [...result.sideEffects, ...observerSideEffects];
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: [
-              `execute_run_create: ${result.status}`,
-              `run status: ${result.runStatus}`,
-              'planPath' in result ? `plan path: ${result.planPath}` : undefined,
-              `graph lsn: ${current.source.graphLsn}`,
-              `side effects: ${sideEffects.map((effect) => effect.kind).join(', ') || 'none'}`,
-            ]
-              .filter((line): line is string => typeof line === 'string')
-              .join('\n'),
-          },
-        ],
-        details: { result, sideEffects },
-      };
     },
   });
+}
+
+function toolResult(result: RunCreateResult, graphLsn: number, sideEffects: readonly { kind: string }[]) {
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: [
+          `execute_run_create: ${result.status}`,
+          `run status: ${result.runStatus}`,
+          'planPath' in result ? `plan path: ${result.planPath}` : undefined,
+          `graph lsn: ${graphLsn}`,
+          `side effects: ${sideEffects.map((effect) => effect.kind).join(', ') || 'none'}`,
+        ]
+          .filter((line): line is string => typeof line === 'string')
+          .join('\n'),
+      },
+    ],
+    details: { result, sideEffects },
+  };
 }
 
 function verifyTargetForProfile(

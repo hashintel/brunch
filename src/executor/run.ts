@@ -4,6 +4,11 @@ import { join } from 'node:path';
 import { BRUNCH_DIR } from '../constants.js';
 import type { VerifyTarget } from './execution-ports.js';
 import { prepareLaunch, type LaunchCurrentProjection, type LaunchResult } from './launch.js';
+import {
+  runExecutionActive,
+  withRunExecutionAuthority,
+  type RunExecutionActiveResult,
+} from './run-execution-authority.js';
 
 export type WorktreeSubstrateKind = 'git_worktree' | 'empty_dir';
 
@@ -107,6 +112,7 @@ export function sliceArtifactAttemptNumber(
 }
 
 export type RunCreateResult =
+  | RunExecutionActiveResult
   | {
       readonly status: 'missing_plan';
       readonly runStatus: 'not_started';
@@ -255,6 +261,25 @@ export async function createRun(args: {
   readonly verifyTarget?: VerifyTarget;
 }): Promise<RunCreateResult> {
   const runId = args.runId ?? `run-${Date.now().toString(36)}`;
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId,
+    execute: () => createRunOwned(args, runId),
+    onContended: () => runExecutionActive(runId),
+  });
+}
+
+async function createRunOwned(
+  args: {
+    readonly cwd: string;
+    readonly specId: string;
+    readonly current?: LaunchCurrentProjection;
+    readonly runId?: string;
+    readonly substrate?: WorktreeSubstrateKind;
+    readonly verifyTarget?: VerifyTarget;
+  },
+  runId: string,
+): Promise<RunCreateResult> {
   const runDir = runDirPath(args.cwd, runId);
   const metadataPath = runMetadataPath(args.cwd, runId);
   if (await pathExists(runDir)) {

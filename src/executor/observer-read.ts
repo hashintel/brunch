@@ -5,7 +5,7 @@ import { BRUNCH_DIR } from '../constants.js';
 import { agentStreamPath } from './agent-result.js';
 import type { AgentStreamEvent, VerifyStreamEvent } from './isolated-slice-operations.js';
 import type { BlockedStep, ExecutorNetEvent, ReadyStep, SchedulerPlan } from './orchestrate-topology.js';
-import { parsePetriEvent, petriEventsPath } from './petri-events.js';
+import { petriEventsPath, readPetriJournal } from './petri-events.js';
 import {
   petriMarkingSnapshotMatchesRunMetadata,
   readPetriMarkingSnapshot,
@@ -230,6 +230,29 @@ export async function readRunDetail(
       petriRuntime,
       petriReplayProjection,
     );
+  const lifecycleTransitionCount =
+    projectExecutorPetriTransitionHistory(metadata, petriRuntimePlan)?.transitionIds.length ?? 0;
+  const journalTransitions = petriEvents.events.filter((event) => event.kind === 'transition_fired');
+  const journalAhead = petriEvents.readable && journalTransitions.length > lifecycleTransitionCount;
+  const journalClaimedSliceIds = [
+    ...new Set(
+      journalTransitions
+        .slice(lifecycleTransitionCount)
+        .flatMap((event) =>
+          event.kind === 'transition_fired' && event.transitionId.startsWith('slice_start:')
+            ? [event.transitionId.slice('slice_start:'.length)]
+            : [],
+        ),
+    ),
+  ];
+  const parallelAuthorityUnreadable =
+    metadata.status !== 'abandoned' &&
+    journalAhead &&
+    journalClaimedSliceIds.length > 1 &&
+    !hasMatchingPetriMarkingSnapshot;
+  const unreadableAuthoritySliceIds = parallelAuthorityUnreadable
+    ? journalClaimedSliceIds.filter((sliceId) => !metadata.completedSliceIds?.includes(sliceId))
+    : [];
   const petriProjectionEntry =
     (hasMatchingPetriMarkingSnapshot
       ? {
@@ -243,7 +266,7 @@ export async function readRunDetail(
             petriMarkingSnapshot === undefined ? 'snapshot_missing_or_unreadable' : 'snapshot_stale',
         })
       : undefined);
-  let observedPetriRuntime = petriRuntime;
+  let observedPetriRuntime = parallelAuthorityUnreadable ? undefined : petriRuntime;
   if (hasMatchingPetriMarkingSnapshot && petriMarkingSnapshot.parallelSliceBatch) {
     try {
       observedPetriRuntime = materializeExecutorPetriRuntime(metadata, petriRuntimePlan, {
@@ -274,7 +297,9 @@ export async function readRunDetail(
   const authoritySliceIds =
     hasMatchingPetriMarkingSnapshot && petriMarkingSnapshot.parallelSliceBatch
       ? petriMarkingSnapshot.parallelSliceBatch.claimedSliceIds
-      : undefined;
+      : unreadableAuthoritySliceIds.length > 0
+        ? unreadableAuthoritySliceIds
+        : undefined;
   const agentStream = await readAgentStreamTail(cwd, runId, metadata, agentStreamLimit, authoritySliceIds);
   const verifyStream = await readVerifyStreamTail(cwd, runId, metadata, verifyStreamLimit, authoritySliceIds);
   const sliceStreamInventory = await readSliceStreamInventory(
@@ -290,12 +315,24 @@ export async function readRunDetail(
     reportsTotal: reports.total,
     petriEventsTail: petriEvents.tail,
     petriEventsTotal: petriEvents.total,
-    ...(observedPetriRuntime === undefined
-      ? {}
-      : {
-          petriReadySteps: observedPetriRuntime.readySteps,
-          petriBlockedSteps: observedPetriRuntime.blockedSteps,
-        }),
+    ...(parallelAuthorityUnreadable
+      ? {
+          petriReadySteps: [],
+          petriBlockedSteps: [
+            { kind: 'authority_unreadable', blockers: [{ kind: 'parallel_authority_unreadable' }] },
+            ...unreadableAuthoritySliceIds.map((sliceId) => ({
+              kind: 'slice_start' as const,
+              sliceId,
+              blockers: [{ kind: 'parallel_authority_unreadable' as const }],
+            })),
+          ] satisfies readonly BlockedStep[],
+        }
+      : observedPetriRuntime === undefined
+        ? {}
+        : {
+            petriReadySteps: observedPetriRuntime.readySteps,
+            petriBlockedSteps: observedPetriRuntime.blockedSteps,
+          }),
     ...(petriProjectionEntry === undefined
       ? {}
       : {
@@ -633,36 +670,27 @@ async function readPetriEvents(
   tail: readonly ExecutorNetEvent[];
   total: number;
   torn: boolean;
+  readable: boolean;
 }> {
-  let raw: string;
-  try {
-    raw = await readFile(path, 'utf8');
-  } catch {
-    return { exists: false, events: [], tail: [], total: 0, torn: false };
+  const journal = await readPetriJournal(path);
+  if (journal.status !== 'readable') {
+    return {
+      exists: journal.status !== 'missing',
+      events: [],
+      tail: [],
+      total: 0,
+      torn: journal.status === 'unreadable',
+      readable: false,
+    };
   }
-  const events: ExecutorNetEvent[] = [];
-  let torn = false;
-  const lines = raw.split('\n');
-  const lastIndex = lines.length - 1;
-  const hasTrailingNewline = raw.endsWith('\n');
-  for (const [index, line] of lines.entries()) {
-    if (index === lastIndex && line.length === 0) continue;
-    if (line.length === 0) continue;
-    try {
-      const event = parsePetriEvent(JSON.parse(line));
-      if (event === undefined) {
-        torn = true;
-        continue;
-      }
-      events.push(event);
-    } catch {
-      // A torn journal line never blocks the readable event tail.
-      // Accept a complete final line even when the file is missing a trailing newline.
-      torn = true;
-      if (index !== lastIndex || hasTrailingNewline) continue;
-    }
-  }
-  return { exists: true, events, tail: events.slice(-limit), total: events.length, torn };
+  return {
+    exists: true,
+    events: journal.events,
+    tail: journal.events.slice(-limit),
+    total: journal.events.length,
+    torn: false,
+    readable: true,
+  };
 }
 
 async function readReportsTail(
@@ -783,13 +811,18 @@ async function readRequirementStatuses(
 
   const completed = new Set(metadata.completedSliceIds ?? []);
   const latestVerdicts = latestSliceVerdicts(reports);
-  const parallelStates = new Map(
-    blockedSteps.flatMap((step) => {
-      if (step.kind !== 'slice_start') return [];
-      const blocker = step.blockers.find((candidate) => candidate.kind === 'parallel_authority');
-      return blocker?.kind === 'parallel_authority' ? [[step.sliceId, blocker.state] as const] : [];
-    }),
-  );
+  const parallelStates = new Map<
+    string,
+    'claimed' | 'running' | 'succeeded_unintegrated' | 'failed' | 'integrated' | 'authority_unreadable'
+  >();
+  for (const step of blockedSteps) {
+    if (step.kind !== 'slice_start') continue;
+    const blocker = step.blockers.find((candidate) => candidate.kind === 'parallel_authority');
+    if (blocker?.kind === 'parallel_authority') parallelStates.set(step.sliceId, blocker.state);
+    else if (step.blockers.some((candidate) => candidate.kind === 'parallel_authority_unreadable')) {
+      parallelStates.set(step.sliceId, 'authority_unreadable');
+    }
+  }
   const criteriaByRequirement = criteriaCoverage(plan);
   const slices = plan.slices ?? [];
 
@@ -801,7 +834,10 @@ async function readRequirementStatuses(
     });
     const completedSliceIds = sliceIds.filter((sliceId) => completed.has(sliceId));
     const failedSliceIds = sliceIds.filter(
-      (sliceId) => latestVerdicts.get(sliceId) === 'failed' || parallelStates.get(sliceId) === 'failed',
+      (sliceId) =>
+        latestVerdicts.get(sliceId) === 'failed' ||
+        parallelStates.get(sliceId) === 'failed' ||
+        parallelStates.get(sliceId) === 'authority_unreadable',
     );
     const activeSliceIds = sliceIds.filter((sliceId) => {
       const state = parallelStates.get(sliceId);

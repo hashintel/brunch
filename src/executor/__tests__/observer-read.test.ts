@@ -496,7 +496,7 @@ describe('readRunDetail', () => {
     ).toBe('absent');
   });
 
-  it('returns a raw Petri event tail/count when the journal exists and skips torn trailing lines', async () => {
+  it('rejects the whole Petri event journal when a trailing line is torn', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-events-');
     const runDir = await writeRun(cwd, 'run-petri-events', { status: 'agent_result_ingested' });
     await mkdir(join(runDir, 'petrinaut'), { recursive: true });
@@ -532,21 +532,8 @@ describe('readRunDetail', () => {
     const detail = await readRunDetail(cwd, 'run-petri-events');
 
     expect(detail).toMatchObject({
-      petriEventsTotal: 2,
-      petriEventsTail: [
-        {
-          kind: 'transition_fired',
-          runId: 'run-petri-events',
-          transitionId: 'slice_start:task-1',
-          subnetId: 'slice:task-1',
-        },
-        {
-          kind: 'net_halted',
-          runId: 'run-petri-events',
-          step: 'test_result',
-          reason: 'test_run_failed',
-        },
-      ],
+      petriEventsTotal: 0,
+      petriEventsTail: [],
     });
   });
 
@@ -1420,7 +1407,7 @@ describe('readRunDetail', () => {
     });
   });
 
-  it('parses a complete final Petri journal line even without a trailing newline', async () => {
+  it('rejects a final Petri journal line without a trailing newline', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-final-line-');
     const runDir = await writeRun(cwd, 'run-petri-final-line', { status: 'promotion_prepared' });
     await mkdir(join(runDir, 'petrinaut'), { recursive: true });
@@ -1448,10 +1435,8 @@ describe('readRunDetail', () => {
     const detail = await readRunDetail(cwd, 'run-petri-final-line');
 
     expect(detail).toMatchObject({
-      petriEventsTotal: 1,
-      petriEventsTail: [
-        { kind: 'net_completed', runId: 'run-petri-final-line', runStatus: 'promotion_prepared' },
-      ],
+      petriEventsTotal: 0,
+      petriEventsTail: [],
     });
   });
 

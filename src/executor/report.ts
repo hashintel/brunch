@@ -1,9 +1,15 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import {
+  runExecutionActive,
+  withRunExecutionAuthority,
+  type RunExecutionActiveResult,
+} from './run-execution-authority.js';
 import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
 export type ReportInitResult =
+  | RunExecutionActiveResult
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -35,6 +41,18 @@ export function reportsPath(cwd: string, runId: string): string {
 }
 
 export async function initializeReports(args: {
+  readonly cwd: string;
+  readonly runId: string;
+}): Promise<ReportInitResult> {
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId: args.runId,
+    execute: () => initializeReportsOwned(args),
+    onContended: () => runExecutionActive(args.runId),
+  });
+}
+
+async function initializeReportsOwned(args: {
   readonly cwd: string;
   readonly runId: string;
 }): Promise<ReportInitResult> {

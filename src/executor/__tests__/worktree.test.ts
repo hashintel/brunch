@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { planFilePath } from '../plan-file.js';
+import { withRunExecutionAuthority } from '../run-execution-authority.js';
 import { runDirPath, runMetadataPath, createRun } from '../run.js';
 import { worktreeDirPath, createWorktree } from '../worktree.js';
 import { createFakeGitWorktreePort } from './fake-ports.js';
@@ -19,6 +20,39 @@ async function pathExists(path: string): Promise<boolean> {
 }
 
 describe('createWorktree', () => {
+  it('refuses a standalone worktree effect while the run execution owner is active', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-worktree-contended-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const owner = withRunExecutionAuthority({ cwd, runId: 'run-1', execute: () => held });
+    let calls = 0;
+
+    await expect(
+      createWorktree({
+        cwd,
+        runId: 'run-1',
+        gitWorktree: createFakeGitWorktreePort(async () => {
+          calls += 1;
+          throw new Error('must not run');
+        }),
+      }),
+    ).resolves.toEqual({
+      status: 'run_execution_active',
+      runStatus: 'not_started',
+      runId: 'run-1',
+      sideEffects: [],
+    });
+    expect(calls).toBe(0);
+    release();
+    await owner;
+  });
+
   it('does not create a worktree when run metadata is missing', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-worktree-missing-'));
     const result = await createWorktree({

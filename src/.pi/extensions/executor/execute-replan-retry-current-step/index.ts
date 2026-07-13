@@ -8,6 +8,7 @@ import {
   serialFiringPolicy,
   type DriveOutcome,
 } from '../../../../executor/orchestrate.js';
+import { withRunExecutionAuthority } from '../../../../executor/run-execution-authority.js';
 import {
   assessRunRetryEligibility,
   type RunRetryEligibilityResult,
@@ -33,6 +34,7 @@ const ExecuteReplanRetryCurrentStepParams = Type.Object({
 type ExecuteReplanRetryCurrentStepParams = Static<typeof ExecuteReplanRetryCurrentStepParams>;
 
 type ExecuteReplanRetryCurrentStepResult =
+  | { readonly status: 'run_execution_active'; readonly sideEffects: readonly [] }
   | {
       readonly status: 'retry_not_allowed';
       readonly eligibility: RunRetryEligibilityResult;
@@ -70,69 +72,83 @@ export function createExecuteReplanRetryCurrentStepTool(
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_replan_retry_current_step requires an active cwd');
       }
-
-      const { current } = await buildCurrentProjectionForRun({
+      return withRunExecutionAuthority({
         cwd,
         runId: params.runId,
-        fallbackSpecId: deps.specId,
-        reads: deps.reads,
-        mode: params.mode,
-      });
-      const eligibility = await assessRunRetryEligibility({
-        cwd,
-        runId: params.runId,
-        current,
-      });
-
-      let result: ExecuteReplanRetryCurrentStepResult;
-      if (eligibility.status === 'retry_current_run') {
-        const attemptResetEffect = await resetActiveSliceAttempts({ cwd, runId: params.runId });
-        result = {
-          status: 'retried_current_step',
-          eligibility,
-          outcome: await drive(
-            {
-              cwd,
-              runId: params.runId,
-              ports,
-              runtime: {
-                ...(ctx.modelRegistry ? { modelRegistry: ctx.modelRegistry } : {}),
-                ...(ctx.model ? { model: ctx.model } : {}),
-                ...(_signal ? { signal: _signal } : {}),
-              },
-              ...(_signal ? { signal: _signal } : {}),
-            },
-            linearScheduler,
-            serialFiringPolicy,
-            { maxFirings: 1 },
-          ),
-          sideEffects: attemptResetEffect === undefined ? [] : [attemptResetEffect],
-        };
-      } else {
-        result = { status: 'retry_not_allowed', eligibility, sideEffects: [] };
-      }
-
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: [
-              `execute_replan_retry_current_step: ${result.status}`,
-              `eligibility: ${eligibility.status}`,
-              `run status: ${eligibility.runStatus}`,
-              'outcome' in result ? `drive outcome: ${result.outcome.status}` : undefined,
-              'outcome' in result && 'runStatus' in result.outcome
-                ? `outcome run status: ${result.outcome.runStatus}`
-                : undefined,
-              `graph lsn: ${current.source.graphLsn}`,
-              'side effects: delegated to lifecycle step',
-            ]
-              .filter((line): line is string => typeof line === 'string')
-              .join('\n'),
+        onContended: () => ({
+          content: [
+            { type: 'text' as const, text: 'execute_replan_retry_current_step: run_execution_active' },
+          ],
+          details: {
+            result: { status: 'run_execution_active' as const, sideEffects: [] },
+            sideEffects: [],
           },
-        ],
-        details: { result, sideEffects: result.sideEffects },
-      };
+        }),
+        execute: async () => {
+          const { current } = await buildCurrentProjectionForRun({
+            cwd,
+            runId: params.runId,
+            fallbackSpecId: deps.specId,
+            reads: deps.reads,
+            mode: params.mode,
+          });
+          const eligibility = await assessRunRetryEligibility({
+            cwd,
+            runId: params.runId,
+            current,
+          });
+
+          let result: ExecuteReplanRetryCurrentStepResult;
+          if (eligibility.status === 'retry_current_run') {
+            const attemptResetEffect = await resetActiveSliceAttempts({ cwd, runId: params.runId });
+            result = {
+              status: 'retried_current_step',
+              eligibility,
+              outcome: await drive(
+                {
+                  cwd,
+                  runId: params.runId,
+                  ports,
+                  runtime: {
+                    ...(ctx.modelRegistry ? { modelRegistry: ctx.modelRegistry } : {}),
+                    ...(ctx.model ? { model: ctx.model } : {}),
+                    ...(_signal ? { signal: _signal } : {}),
+                  },
+                  ...(_signal ? { signal: _signal } : {}),
+                },
+                linearScheduler,
+                serialFiringPolicy,
+                { maxFirings: 1 },
+              ),
+              sideEffects: attemptResetEffect === undefined ? [] : [attemptResetEffect],
+            };
+          } else {
+            result = { status: 'retry_not_allowed', eligibility, sideEffects: [] };
+          }
+
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: [
+                  `execute_replan_retry_current_step: ${result.status}`,
+                  `eligibility: ${eligibility.status}`,
+                  `run status: ${eligibility.runStatus}`,
+                  'outcome' in result ? `drive outcome: ${result.outcome.status}` : undefined,
+                  'outcome' in result && 'runStatus' in result.outcome
+                    ? `outcome run status: ${result.outcome.runStatus}`
+                    : undefined,
+                  `graph lsn: ${current.source.graphLsn}`,
+                  'side effects: delegated to lifecycle step',
+                ]
+                  .filter((line): line is string => typeof line === 'string')
+                  .join('\n'),
+              },
+            ],
+            details: { result, sideEffects: result.sideEffects },
+          };
+        },
+      });
     },
   });
 }

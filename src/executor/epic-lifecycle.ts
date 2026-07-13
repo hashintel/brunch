@@ -1,8 +1,8 @@
-import { appendFile, readFile } from 'node:fs/promises';
+import { appendFile } from 'node:fs/promises';
 
 import type { TestRunnerPort } from './execution-ports.js';
 import { compileExecutorTopology, type ReadyStep, type SchedulerPlan } from './orchestrate-topology.js';
-import { appendPetriEvent, parsePetriEvent, petriEventsPath } from './petri-events.js';
+import { appendPetriEvent, petriEventsPath, readPetriJournal } from './petri-events.js';
 import {
   petriMarkingLifecycleProvenance,
   readPetriMarkingSnapshot,
@@ -333,31 +333,20 @@ async function readEpicVerificationJournal(
   | { readonly status: 'readable'; readonly claimed: boolean; readonly transitioned: boolean }
 > {
   try {
-    const raw = await readFile(petriEventsPath(cwd, runId), 'utf8');
-    if (raw.length > 0 && !raw.endsWith('\n')) return { status: 'unreadable' };
+    const journal = await readPetriJournal(petriEventsPath(cwd, runId));
+    if (journal.status !== 'readable') return journal;
     let claimed = false;
     let transitioned = false;
-    for (const line of raw.split('\n').filter(Boolean)) {
-      let event;
-      try {
-        event = parsePetriEvent(JSON.parse(line));
-      } catch {
-        return { status: 'unreadable' };
-      }
-      if (!event) return { status: 'unreadable' };
+    for (const event of journal.events) {
       if (event.kind === 'epic_verification_claimed' && event.epicId === epicId) claimed = true;
       if (event.kind === 'transition_fired' && event.transitionId === `epic_verify:${epicId}`) {
         transitioned = true;
       }
     }
     return { status: 'readable', claimed, transitioned };
-  } catch (error) {
-    return isNodeError(error) && error.code === 'ENOENT' ? { status: 'missing' } : { status: 'unavailable' };
+  } catch {
+    return { status: 'unavailable' };
   }
-}
-
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && 'code' in error;
 }
 
 function appendId(ids: readonly string[] | undefined, id: string): readonly string[] {

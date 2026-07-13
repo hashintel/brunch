@@ -1,11 +1,10 @@
-import { readFile } from 'node:fs/promises';
-
 import {
   integrateIsolatedSlice,
   sliceCompletionReport,
   sliceStartReport,
+  thrownSliceEffectReason,
 } from './isolated-slice-operations.js';
-import { sliceTransitionId, type ExecutorNetEvent } from './orchestrate-topology.js';
+import { sliceTransitionId } from './orchestrate-topology.js';
 import {
   authorityFailure,
   createBatchAuthority,
@@ -19,7 +18,7 @@ import type {
   SliceEffectFailure,
   SliceEffectResult,
 } from './parallel-slice-batch/types.js';
-import { parsePetriEvent, petriEventsPath } from './petri-events.js';
+import { petriEventsPath, readPetriJournal } from './petri-events.js';
 import type { ParallelSliceSettlement } from './petri-marking.js';
 import { projectExecutorPetriTransitionHistory } from './petri-runtime.js';
 import { persistRunMetadata, runMetadataPath, type RunMetadata } from './run.js';
@@ -32,16 +31,16 @@ export async function parallelSliceBatchRecoveryRequired(args: {
   readonly lifecycleFiredTransitionCount: number;
 }): Promise<boolean> {
   try {
-    const events = (await readFile(petriEventsPath(args.cwd, args.runId), 'utf8'))
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => parsePetriEvent(JSON.parse(line)))
-      .filter((event): event is ExecutorNetEvent => event !== undefined);
+    const journal = await readPetriJournal(petriEventsPath(args.cwd, args.runId));
+    if (journal.status !== 'readable') {
+      return journal.status !== 'missing' && !(journal.status === 'unavailable' && journal.code === 'EISDIR');
+    }
+    const events = journal.events;
     return (
       events.filter((event) => event.kind === 'transition_fired').length > args.lifecycleFiredTransitionCount
     );
-  } catch (error) {
-    return !isNodeError(error) || (error.code !== 'ENOENT' && error.code !== 'EISDIR');
+  } catch {
+    return true;
   }
 }
 
@@ -135,21 +134,36 @@ export async function executeParallelSliceBatch(
       };
       emitParallelStepProgress(ctx, 'started', integrateStep, summary);
       let integrationReport: Record<string, unknown> | undefined;
-      const integrated = await integrateIsolatedSlice({
-        runId: ctx.runId,
-        sliceId,
-        ...(result.epicId === undefined ? {} : { epicId: result.epicId }),
-        runWorktreeDir: summary.worktreeDir!,
-        sliceWorktreeDir: result.workspaceDir,
-        baseSha: result.baseSha,
-        gitSliceIntegration: ctx.ports.gitSliceIntegration,
-        recordReport: async (event) => {
-          integrationReport = event;
-        },
-      });
+      let integrated: Awaited<ReturnType<typeof integrateIsolatedSlice>>;
+      try {
+        integrated = await integrateIsolatedSlice({
+          runId: ctx.runId,
+          sliceId,
+          ...(result.epicId === undefined ? {} : { epicId: result.epicId }),
+          runWorktreeDir: summary.worktreeDir!,
+          sliceWorktreeDir: result.workspaceDir,
+          baseSha: result.baseSha,
+          gitSliceIntegration: ctx.ports.gitSliceIntegration,
+          recordReport: async (event) => {
+            integrationReport = event;
+          },
+        });
+      } catch (error) {
+        const reason = thrownSliceEffectReason('slice_integration_threw', error);
+        settlements.set(sliceId, { sliceId, status: 'failed', step: 'slice_integrate', reason });
+        await authority.setBatch(batchSnapshot(claimedSliceIds, settlements));
+        halt = {
+          status: 'failed',
+          sliceId,
+          step: 'slice_integrate',
+          reason,
+          attemptHistory: result.attemptHistory,
+        };
+        continue;
+      }
       if (integrated.status !== 'integrated') {
         if (integrationReport) await authority.appendReport(integrationReport);
-        halt = {
+        const failure: SliceEffectFailure = {
           status: 'failed',
           sliceId,
           step: 'slice_integrate',
@@ -157,6 +171,14 @@ export async function executeParallelSliceBatch(
             integrated.status === 'conflict' ? 'slice_integration_conflict' : 'slice_integration_failed',
           attemptHistory: result.attemptHistory,
         };
+        settlements.set(sliceId, {
+          sliceId,
+          status: 'failed',
+          step: failure.step,
+          reason: failure.reason,
+        });
+        await authority.setBatch(batchSnapshot(claimedSliceIds, settlements));
+        halt = failure;
         continue;
       }
 
@@ -203,6 +225,19 @@ export async function executeParallelSliceBatch(
   return { status: 'completed', runStatus: summary.status, firings: authority.firings() };
 }
 
+function batchSnapshot(
+  claimedSliceIds: readonly string[],
+  settlements: ReadonlyMap<string, ParallelSliceSettlement>,
+) {
+  return {
+    claimedSliceIds,
+    settlements: claimedSliceIds.flatMap((sliceId) => {
+      const settlement = settlements.get(sliceId);
+      return settlement ? [settlement] : [];
+    }),
+  };
+}
+
 function updateRunSummary(
   summary: RunMetadata,
   result: Extract<SliceEffectResult, { readonly status: 'succeeded' }>,
@@ -218,8 +253,4 @@ function updateRunSummary(
     },
     sliceAttemptHistory: mergeAttemptHistory(summary.sliceAttemptHistory, result.attemptHistory),
   };
-}
-
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && 'code' in error;
 }
