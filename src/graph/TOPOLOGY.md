@@ -1,6 +1,6 @@
 # graph/ — Graph domain layer
 
-SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D63-L, D65-L, D75-L, D80-L, D81-L, D82-L, D94-L, D99-L, D103-L, D118-L, I52-L
+SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D63-L, D65-L, D75-L, D80-L, D81-L, D82-L, D94-L, D99-L, D103-L, D123-L, I52-L
 
 ## Owns
 
@@ -53,7 +53,7 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
   array survives), and derived intent-kind grouping. Raw domain enum taxonomy
   lives in the zero-import `schema/kinds.ts` leaf so web-facing graph imports
   do not pull in Drizzle. Agent-facing reference prose cites schema-owned
-  vocabulary rather than regenerating a parallel ontology table. Per D118-L,
+  vocabulary rather than regenerating a parallel ontology table. Per D123-L,
   the plan-kind set is `milestone`, `frontier`, and terminal handoff `scope`;
   runtime `slice` remains executor-derived and is not graph vocabulary.
 

@@ -220,7 +220,7 @@ intent grounding is in place.
 
 ### Plan plane — *how it's sequenced*
 `milestone`, `frontier`.
-*Activating concepts:* walking skeleton, tracer-bullet slices, sequencing, risk retirement. The plan plane stops at the reviewed `scope` handoff; buildable slicing is downstream execution state, not a plan node (D103-L/D118-L).
+*Activating concepts:* walking skeleton, tracer-bullet slices, sequencing, risk retirement. The plan plane stops at the reviewed `scope` handoff; buildable slicing is downstream execution state, not a plan node (D103-L/D123-L).
 
 | Kind | Example question forms |
 | --- | --- |

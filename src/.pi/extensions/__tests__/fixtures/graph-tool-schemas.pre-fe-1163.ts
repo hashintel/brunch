@@ -619,6 +619,7 @@ export const graphToolSchemaBaseline = {
                           'sketch',
                           'milestone',
                           'frontier',
+                          'scope',
                         ],
                       },
                     },

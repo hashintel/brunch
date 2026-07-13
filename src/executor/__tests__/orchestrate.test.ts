@@ -1141,7 +1141,7 @@ describe('linearScheduler', () => {
     ).toEqual([{ kind: 'slice_start', sliceId: 'task-2' }]);
   });
 
-  it('fails closed when incomplete slices have unsatisfied or cyclic dependencies', () => {
+  it('rejects cyclic slice dependencies before scheduling', () => {
     const plan = {
       slices: [
         { id: 'task-1', depends_on: ['task-2'] },
@@ -1149,12 +1149,9 @@ describe('linearScheduler', () => {
       ],
     };
 
-    expect(linearScheduler.ready(metadata('reports_initialized'), plan)).toEqual([
-      {
-        kind: 'dependency_blocked',
-        reason: 'No executable slice is ready; unresolved dependencies: task-1 -> task-2, task-2 -> task-1',
-      },
-    ]);
+    expect(() => linearScheduler.ready(metadata('reports_initialized'), plan)).toThrow(
+      'Cyclic slice dependency in executor topology: task-1',
+    );
   });
 });
 
