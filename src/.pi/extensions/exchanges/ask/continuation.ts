@@ -22,6 +22,7 @@ import {
   type RequestDetails,
 } from '../../../../exchanges/schemas/index.js';
 import { projectBrunchAgentState } from '../../../../projections/session/runtime-state.js';
+import type { LiveAskOpener } from '../../../../session/live-ask-registry.js';
 import { createExchangeDecisionPickerComponent } from '../../../components/exchange-decision-picker.js';
 import { operationalModeBorderColor } from '../../../components/mode-border-theme.js';
 import {
@@ -203,6 +204,7 @@ function continuingAskUnavailable(params: ContinuingAskParams, message: string):
 export async function collectContinuingAsk(
   params: ContinuingAskParams,
   ctx: StructuredExchangeUiContext,
+  liveAsk?: LiveAskOpener,
 ): Promise<ToolResult> {
   const branch = ctx.sessionManager?.getBranch();
   if (!branch)
@@ -222,8 +224,9 @@ export async function collectContinuingAsk(
       `Structured exchange ${params.continues} does not declare an ask continuation`,
     );
   const declared = { exchangeId: params.continues, ...present.continuation.params };
-  if (isDeclaredCandidatePresent(present)) return collectContinuingCandidateChoice(declared, present, ctx);
-  if (isDeclaredReviewPresent(present)) return collectContinuingReview(declared, present, ctx);
+  if (isDeclaredCandidatePresent(present))
+    return collectContinuingCandidateChoice(declared, present, ctx, liveAsk);
+  if (isDeclaredReviewPresent(present)) return collectContinuingReview(declared, present, ctx, liveAsk);
   return present satisfies never;
 }
 
@@ -231,8 +234,10 @@ async function collectContinuingCandidateChoice(
   params: ContinuationCollectParams,
   present: PresentCandidatesDetails,
   ctx: StructuredExchangeUiContext,
+  liveAsk?: LiveAskOpener,
 ): Promise<ToolResult> {
   if (!ctx.hasUI || typeof ctx.ui?.custom !== 'function') {
+    if (liveAsk) return collectHeadlessCandidateChoice(params, present, ctx, liveAsk);
     return continuationTerminal(
       params,
       present,
@@ -264,12 +269,88 @@ async function collectContinuingCandidateChoice(
   return { content: [{ type: 'text', text: formatRequestChoice(details) }], details };
 }
 
+// ceiling: headless candidate answers accept only a declared candidate id; the
+// Other/None escapes stay interactive-only, mirroring the standalone ask
+// headless choice path.
+async function collectHeadlessCandidateChoice(
+  params: ContinuationCollectParams,
+  present: PresentCandidatesDetails,
+  ctx: StructuredExchangeUiContext,
+  liveAsk: LiveAskOpener,
+): Promise<ToolResult> {
+  const answer = await liveAsk.openAsk({
+    exchangeId: params.exchangeId,
+    mode: 'single-select',
+    question: askQuestionEcho(params),
+  });
+  if (answer === undefined) {
+    surfaceContinueHint(ctx);
+    return continuationTerminal(params, present, 'cancelled');
+  }
+  const option = params.options.find((choice) => choice.id === answer);
+  if (!option)
+    return continuationTerminal(params, present, 'unavailable', `ask received unknown option id ${answer}`);
+  const details = projectRequestChoice({
+    exchangeId: params.exchangeId,
+    respondsToPresentTool: 'present_candidates',
+    status: 'answered',
+    choice: { id: option.id, label: option.label, kind: 'listed' },
+    options: present.candidates.map((candidate) => ({ id: candidate.id, content: candidate.title })),
+  });
+  clearContinueHint(ctx);
+  return { content: [{ type: 'text', text: formatRequestChoice(details) }], details };
+}
+
+// ceiling: headless review answers carry the decision, optionally suffixed
+// `:comment` (request_changes requires the comment). Richer review payloads
+// stay interactive-only.
+async function collectHeadlessReview(
+  params: ContinuationCollectParams,
+  present: PresentDigestDetails | PresentReviewSetDetails,
+  ctx: StructuredExchangeUiContext,
+  liveAsk: LiveAskOpener,
+): Promise<ToolResult> {
+  const answer = await liveAsk.openAsk({
+    exchangeId: params.exchangeId,
+    mode: 'review',
+    question: askQuestionEcho(params),
+  });
+  if (answer === undefined) {
+    surfaceContinueHint(ctx);
+    return continuationTerminal(params, present, 'cancelled');
+  }
+  const separator = answer.indexOf(':');
+  const decision = (separator >= 0 ? answer.slice(0, separator) : answer).trim();
+  const comment = separator >= 0 ? answer.slice(separator + 1).trim() || undefined : undefined;
+  if (decision !== 'approve' && decision !== 'request_changes' && decision !== 'reject') {
+    return continuationTerminal(
+      params,
+      present,
+      'unavailable',
+      `ask received unknown review decision ${answer}`,
+    );
+  }
+  if (decision === 'request_changes' && comment === undefined) {
+    return continuationTerminal(params, present, 'unavailable', 'Review request_changes requires a comment');
+  }
+  const details = continuationReviewDetails({
+    present,
+    exchangeId: params.exchangeId,
+    review: decision,
+    comment,
+  });
+  clearContinueHint(ctx);
+  return { content: [{ type: 'text', text: formatRequestReview(details) }], details };
+}
+
 async function collectContinuingReview(
   params: ContinuationCollectParams,
   present: PresentDigestDetails | PresentReviewSetDetails,
   ctx: StructuredExchangeUiContext,
+  liveAsk?: LiveAskOpener,
 ): Promise<ToolResult> {
   if (!ctx.hasUI || typeof ctx.ui?.custom !== 'function') {
+    if (liveAsk) return collectHeadlessReview(params, present, ctx, liveAsk);
     return continuationTerminal(
       params,
       present,

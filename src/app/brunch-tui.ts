@@ -36,7 +36,7 @@ import type { SessionExchangeAnswerHandle } from '../rpc/methods/session-exchang
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rpc/product-updates.js';
 import { createSessionEventRelay, type SessionEventRelay } from '../rpc/session-event-relay.js';
 import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
-import { createLiveExchangeBroker, type LiveExchangeBroker } from '../session/live-exchange-broker.js';
+import { createLiveAskRegistry, type LiveAskRegistry } from '../session/live-ask-registry.js';
 import type { KickCompletionOutcome } from '../session/originate-assistant-turn.js';
 import { operationalModeLabel } from '../session/schema/kinds.js';
 import { renderWorkspaceOverviewContext } from '../session/workspace-overview-context.js';
@@ -103,7 +103,7 @@ export interface BrunchTuiLaunchContext {
   productUpdates?: ProductUpdatePublisher;
   sessionEvents?: SessionEventRelay;
   sessionTurnDriver?: SessionTurnDriver;
-  liveExchange?: LiveExchangeBroker;
+  liveExchange?: LiveAskRegistry;
   liveAgentSession?: {
     current: Awaited<ReturnType<typeof createAgentSessionFromServices>>['session'] | null;
   };
@@ -172,7 +172,7 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
       return { driven: true };
     },
   };
-  const liveExchange = createLiveExchangeBroker();
+  const liveExchange = createLiveAskRegistry();
   const inventory = await coordinator.inspectWorkspace();
   const decision = await chooseSpecSessionActivationDecision(inventory, options);
   const workspaceState = await coordinator.activateWorkspace(decision);
@@ -556,7 +556,7 @@ export function createBrunchAgentSessionRuntimeFactory(
             getCommandContext: () => liveAgentSession.current?.createReplacedSessionContext(),
             ...(productUpdates ? { productUpdates } : {}),
             graph: graphDeps,
-            ...(context.liveExchange ? { liveExchange: context.liveExchange.awaiter } : {}),
+            ...(context.liveExchange ? { liveExchange: context.liveExchange.opener } : {}),
             ...(context.introspection ? { introspection: context.introspection } : {}),
             ...(subagents ? { subagents } : {}),
             promptContext: () => {

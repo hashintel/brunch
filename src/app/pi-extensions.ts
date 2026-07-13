@@ -82,7 +82,6 @@ import {
   CAPTURE_SWEEP_WATERMARK_CUSTOM_TYPE,
   prepareCaptureSweepAdvance,
 } from '../projections/session/sweep-watermark.js';
-import type { LiveExchangeAwaiter } from '../session/live-exchange-broker.js';
 import { mentionFactsFromEntries } from '../session/mention-ledger.js';
 import {
   appendPreparedContinuityEntry,
@@ -100,6 +99,10 @@ import { createGitWorktreePort } from './git-worktree-port.js';
 import { registerBrunchKeybindingPolicy } from './pi-keybindings.js';
 import { createPlannerPort } from './planner-port.js';
 import { createTestRunnerPort } from './test-runner-port.js';
+
+import { createGitHostPromotionPort } from './git-host-promotion-port.js';
+import { createGitLandPort } from './git-land-port.js';
+import type { LiveAskOpener } from '../session/live-ask-registry.js';
 
 export function registerBrunchAlternatives(pi: ExtensionAPI): void {
   registerBrunchAlternativesComponent(pi, (schema) => toolParameters(schema) as typeof schema);
@@ -258,7 +261,7 @@ export {
 export interface BrunchPiExtensionsOptions extends BrunchCommandsOptions {
   graphMentionSource?: GraphMentionSource;
   graph?: BrunchGraphDeps;
-  liveExchange?: LiveExchangeAwaiter;
+  liveExchange?: LiveAskOpener;
   promptContext?: BrunchPromptContextProvider;
   introspection?: BrunchPiIntrospectionOptions;
   continuityDrains?: () => readonly ContinuityDrain[];

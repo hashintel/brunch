@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
-import type { LiveExchangeAwaiter } from '../../../session/live-exchange-broker.js';
+import type { LiveAskOpener } from '../../../session/live-ask-registry.js';
 import { ASK_TOOL, askTool, createAskTool } from './ask.js';
 import { PRESENT_CANDIDATES_TOOL, presentCandidatesTool } from './present-candidates.js';
 import { PRESENT_DIGEST_TOOL, presentDigestTool } from './present-digest.js';
@@ -50,7 +50,7 @@ export const STRUCTURED_EXCHANGE_STUB_TOOL_NAMES = [] as const;
 
 export interface StructuredExchangeDeps {
   readonly review?: ReviewSetStructuredExchangeDeps | undefined;
-  readonly liveExchange?: LiveExchangeAwaiter | undefined;
+  readonly liveExchange?: LiveAskOpener | undefined;
 }
 
 export function registerStructuredExchange(pi: ExtensionAPI, deps: StructuredExchangeDeps = {}) {
