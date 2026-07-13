@@ -82,7 +82,7 @@ Concern: digest → ask repetition and ask markdown/result fidelity.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §`present_digest` flow, §mapping the digest.
 Observation: digest content is repeated inside the `ask` UI; ask rendering appears markdown-limited or differently formatted; JSON appeared in the TUI after an ask invocation; optional-comment prompts are not preserved with the submitted comment; “Something else” duplicated the built-in Other affordance; nested esc works but help text does not say so; nested states use plain bordered editors rather than the full rounded/mode-reactive box.
 Expected: large present-then-ask flows should keep pretext outside the ask; result rendering should preserve enough prompt framing for comments; custom “Something else” options should be discouraged or normalized against Other; nested ask states should explain esc/back behavior and share the intended chrome.
-Disposition: WR4 built the ask comment-framing echo: `commentPrompt` and Other-elaboration framing now persist into standalone ask details and model-facing formatted text. WR5 built conduct guidance for large-present continuation bodies and Other-equivalent options. WR6 built exchange-tool validation failure rendering so ask invocation failures return human-readable `TOOL_INPUT_INVALID` markdown without raw payload leaks. Remaining A6 facets: nested chrome/help text — owner: PLAN Horizon `exchange-visual-design` (promoted 2026-07-13). The digest-pretext-must-not-repeat principle rides FE-1187's repeated-offer-content row.
+Disposition: WR4 built the ask comment-framing echo: `commentPrompt` and Other-elaboration framing now persist into standalone ask details and model-facing formatted text. WR5 built conduct guidance for large-present continuation bodies and Other-equivalent options. WR6 built exchange-tool validation failure rendering so ask invocation failures return human-readable `TOOL_INPUT_INVALID` markdown without raw payload leaks. Remaining A6 facets: nested chrome/help text — owner: FE-1187 (Group 1) folded row `exchange-visual-design` (promoted 2026-07-13). The digest-pretext-must-not-repeat principle rides FE-1187's repeated-offer-content row.
 
 #### A7 · capture logic · high · spec/plan needed
 
@@ -106,7 +106,7 @@ Concern: `/brunch:consult` style/action routing and rendering after graph mutati
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §changing styles with `/consult`.
 Observation: After graph mutations the agent gave an unprompted summary/overview and then `/consult` → example-based reoriented into a question, which is promising. Rendering issues remain: markdown `\n\n` appeared inline in the question, node identifiers need a styling convention such as backticks/`<kbd>`, and the consult/main-menu border role should be visually distinct from editor/ask mode-reactive borders.
 Expected: consult choices should visibly be a surface-identity menu, route cleanly to the selected style/action, and preserve markdown/node-id legibility in the resulting ask.
-Disposition: consult-menu chrome/content built in WR2 (FE-1180). Markdown/node-id polish and border distinctness — owner: PLAN Horizon `exchange-visual-design` (promoted 2026-07-13); routing behavior is promising but needs more evidence in Run B/D.
+Disposition: consult-menu chrome/content built in WR2 (FE-1180). Markdown/node-id polish and border distinctness — owner: FE-1187 (Group 1) folded row `exchange-visual-design` (promoted 2026-07-13); routing behavior is promising but needs more evidence in Run B/D.
 
 #### A10 · observability · low · logged
 
@@ -114,7 +114,7 @@ Concern: `/introspect` usefulness.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §`/introspect`.
 Observation: `/introspect` reports only terse object summaries (`basePromptOptions=object(8)`, `latestPassiveCapture=turn-2 object(10)`), leaving the operator unsure what to do next.
 Expected: introspection should either show the actionable summary inline or point directly to the debug files/artifacts that contain the captured prompt/session data.
-Disposition: observability polish — owner: PLAN Horizon `exchange-visual-design` (promoted 2026-07-13, WR10 `/introspect` legibility folded there); lower priority than auth, continue, and exchange rendering.
+Disposition: observability polish — owner: FE-1187 (Group 1) folded row `exchange-visual-design` (promoted 2026-07-13, WR10 `/introspect` legibility folded there); lower priority than auth, continue, and exchange rendering.
 
 ### 2026-07-09 run C — developed/resume spec, Execute + design/oracle/commit flows
 
@@ -143,7 +143,7 @@ Concern: Technical/verification design routing from consult.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-C.md` §“technical design” and “verification design” routing.
 Observation: Agent struggled to call `present_candidates`; error output and JSON leaked into the TUI; final choice came without a recommendation even though the expected technical-design shape is closer to “design it twice” plus recommendation/synthesis. After the user answered, the agent followed up with a plain text question instead of using `ask`.
 Expected: design/oracle routing should reliably use the structured exchange tools, avoid raw validation JSON in the transcript, and follow the intended design-comparison shape with a recommendation or explicit synthesis path.
-Disposition: WR6 built the exchange-tool validation failure rendering portion: invalid structured-exchange tool arguments now return themed `TOOL_INPUT_INVALID` markdown instead of raw validation payload leaks. The design/oracle recommendation shape — owner: PLAN Horizon `generative-flow-synthesis-shape` (promoted 2026-07-13). Fallback to plain text instead of `ask` and broader prompt/skill routing concerns remain diagnostic inputs to the prompt/skill/model audit.
+Disposition: WR6 built the exchange-tool validation failure rendering portion: invalid structured-exchange tool arguments now return themed `TOOL_INPUT_INVALID` markdown instead of raw validation payload leaks. The design/oracle recommendation shape — owner: FE-1187 (Group 1) folded row `generative-flow-synthesis-shape` (promoted 2026-07-13). Fallback to plain text instead of `ask` and broader prompt/skill routing concerns remain diagnostic inputs to the prompt/skill/model audit.
 
 #### C4 · executor readiness · medium · logged
 
@@ -190,7 +190,7 @@ Ownership disposition: FE-1180 closes by explicit promotion, not by treating pro
 | O9 | promoted unknown | O9 live D120-L Execute workflow not observed; owner: FE-1187. |
 | O10 | promoted unknown | Both-theme component/live-TUI checks not observed; owner: FE-1187. |
 
-Deferred WR9–WR12 (compact tool rendering, `/introspect` legibility, review-set visual redesign, markdown/node-id polish) — owner: PLAN Horizon `exchange-visual-design` (promoted 2026-07-13 under the owned-deferral rule, `docs/praxis/manual-testing.md` §Findings ledger discipline). The broader review-set/ask visual-revamp impulse (WR11) lives there too, with its trigger and cost note.
+Deferred WR9–WR12 (compact tool rendering, `/introspect` legibility, review-set visual redesign, markdown/node-id polish) — owner: FE-1187 (Group 1) folded row `exchange-visual-design` (promoted 2026-07-13 under the owned-deferral rule, `docs/praxis/manual-testing.md` §Findings ledger discipline). The broader review-set/ask visual-revamp impulse (WR11) lives there too, with its trigger and cost note.
 
 Use future entries like:
 
