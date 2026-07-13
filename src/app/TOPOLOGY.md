@@ -14,7 +14,7 @@ Current entrypoints:
 
 Current runtime support modules:
 
-- `pi-settings.ts` — the sealed Pi profile, including the soft recommended `anthropic` / `claude-sonnet-4-6` default. The default is not an allowlist; Pi's native `/model` surface may select any supported provider/model/thinking combination.
+- `pi-settings.ts` — the sealed Pi profile, including the soft recommended `anthropic` / `claude-sonnet-4-6` default. The default is not an allowlist; Pi's native `/model` surface may select any supported provider/model/thinking combination. Its `systemPromptOverride` deliberately replaces Pi's coding-assistant base prompt wholesale with a short Brunch preamble; Brunch prompt composition supplies the product context that follows.
 - `pi-session-options.ts` — internal Brunch-to-Pi session option projection for lifecycle forwarding and tool hardening. It does not pin model, scoped-model, or thinking policy.
 - `git-worktree-port.ts`, `agent-runner-port.ts`, `test-runner-port.ts`, `git-land-port.ts`, `git-host-promotion-port.ts` — app-layer execution-port implementations injected into executor Pi tools; executor core owns contracts and state transitions.
 

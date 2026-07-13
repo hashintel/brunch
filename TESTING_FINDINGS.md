@@ -58,7 +58,7 @@ Concern: mode shortcut and thinking-level collision.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §main UI.
 Observation: `shift+tab` still appears entangled with Pi thinking-level behavior/warnings in the observed no-auth/main UI path.
 Expected: Brunch mode switching should not leak Pi thinking-level friction into the alpha UI; plain Pi scoping can keep its own binding.
-Disposition: diagnose whether this is no-auth-only, a missed keybinding suppression path, or a real Pi API limit; fallback candidate is a non-conflicting mode shortcut such as ctrl-M / ctrl-shift-M.
+Disposition: fixed in FE-1187 — commit `cd973beb` retired Brunch's Shift+Tab mode-cycle shortcut and its command path, leaving Pi's thinking-level binding unshadowed; operational-mode switching remains available through `/brunch:mode`.
 
 #### A4 · product behavior · high · scoped
 
