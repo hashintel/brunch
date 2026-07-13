@@ -92,6 +92,7 @@ Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_
 Debt that compounds while unimplemented. Opens after Group 1's auth reversal lands; items interleave with Group 3 opportunistically, respecting per-item dependencies. **Tracker/branch:** the group rides one batch issue [FE-1196](https://linear.app/hash/issue/FE-1196) and one stacked branch `ln/fe-1196-platform-debt` (user decision 2026-07-13); design-first/evaluation items may still spin out via `ln-plan` if their verdicts reshape the frontier. **Entry input:** [`docs/planning/pi-native-integration-opportunities.md`](../docs/planning/pi-native-integration-opportunities.md) (2026-07-13 synthesis over the Pi `0.80.6` upgrade) — its package dispositions are folded into the entries below and into FE-1187 (P4) and Later `agent-tracing` (P5); retire the synthesis doc once all packages are merged into canonical homes.
 
 - `spec-posture` — persisted spec-row posture (D118-L, A41-L) + deterministic establishment flow; a necessary part of the orientation flow. Outer oracle: run D's populated-cwd/brownfield beats. Definition below.
+- `workspace-db-identity` — **admitted 2026-07-13 (D124-L)**: rename `.brunch/data.db` → `.brunch/brunch-v1.db` under the `brunch-v{major}.db` lineage policy; single exported path constant, `application_id` stamp + fail-safe open (I63-L), 0.x `brunch.db` detection feeding D118-L posture evidence, one-shot `data.db` recovery. Small earned slice. Definition below.
 - `headless-ask-discovery` — **restore full RPC functionality**: discovery of open `ask` calls (streamed session events or a pending-interactive-call read method) replacing `session.pendingExchange` transcript scanning (the A39-L follow-up to D116-L); headless asks resolve `unavailable` until this lands. Broker (`awaitAnswer`/`session.submitExchangeResponse`) unchanged by design. Verification: middle-loop deterministic public-RPC contract + tiny interaction-state model proving discover/answer/cancel/resume behavior, stale/closed-call distinction, idempotent durable effects, no transcript parsing. The full agent-as-user campaign still requires this plus a useful `consequential-fact-discovery-tracer` report (Later) — do not plan past that horizon.
 - `compaction-and-conflict-widening` — reshaped 2026-07-13 (Pi-native P3): a **custom compaction definition** — what to keep, what to drop — over the D76-L/D77-L/D78-L boundary pipeline and the req-15 continuity-anchor contract. Key gap: Brunch enables Pi auto-compaction and has an externalized anchor-preservation contract, but never registers the `session_before_compact` hook that materializes it; Pi `0.80.6` provides corrected token accounting, split-turn summaries, and public compaction-preparation/summary APIs as the supported basis. Design first, then vertical implementation.
 - `session-branching` — **unblock**: the branch-aware continuity/staleness/coherence design pass (A37-L) that lifts the linear-only guards (I10-L, I13-L, I19-L). Definition below.
@@ -232,6 +233,23 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Objective:** materialize D118-L: `origin: greenfield|brownfield` on the spec row, confirmed-not-defaulted `spec.kind` (D89-L), and a relates-to-spec reference (A41-L — includes the root-spec-as-plain-reference bet and the `function`-vs-`story` third-term call). Establishment is a product-owned ask/confirm step at spec creation/resume (D109-L juncture family / workspace-dialog seam), branching on workspace-populated vs bare per the TESTING_PLAN Concern 2 matrix; readers: kick assembly, capture conduct (brownfield facts enter as advisory, D99-L), orientation-question skipping. Keep the question sequence minimal — skip anything inferable.
 - **Verification:** schema + establishment-flow tests inner-loop; run D (populated cwd, brownfield confirm) and run B's orientation beats are the outer oracle; the Concern 2 matrix is the behavioral contract.
 - **Traceability:** D118-L, A41-L, D89-L, D99-L, D102-L (amended), D109-L; `docs/design/SPEC_INITIATIVE_MODEL.md` (deferred spec-relationship model — do not pull it forward).
+
+### workspace-db-identity
+
+- **Name:** Workspace database identity — `brunch-v1.db` rename + fail-safe lineage
+- **Linear:** [FE-1196](https://linear.app/hash/issue/FE-1196) (Group 2 batch issue)
+- **Branch:** `ln/fe-1196-platform-debt` (serial after the active spec-posture slice — one writer per worktree; write paths are otherwise disjoint)
+- **Status:** admitted 2026-07-13 — raised during Group 2 pickup when the spec-posture DB migration surfaced the incidental `data.db` naming; D124-L/I63-L recorded same day
+- **Kind:** bounded hardening — persistence-seam identity; no schema or data-model change
+- **Certainty:** earned — every mechanic is settled in D124-L; the work is materialization and deletion of incidental naming
+- **Closes:** the accidental-safety gap between the incompatible 0.x/1.x data models (filename divergence as the only guard)
+- **Materializes:** D124-L into the workspace-store home (path constant + open guard); I63-L's protecting oracle
+- **Canonicalizes:** `.brunch/brunch-v1.db` and the `brunch-v{major}.db` lineage policy (0.x `brunch.db` = retroactive v0)
+- **Deletes/retires:** the seven scattered `data.db` literals (`workspace-store.ts`, `seed-fixtures.ts` ×3, `export-fixtures.ts`, `dev-cli.ts`, `drizzle.config.ts`)
+- **Locks in:** I63-L — open only self-identified same-major files; never open/migrate/delete foreign or 0.x files; surface a detected 0.x db as posture evidence
+- **Objective:** materialize D124-L exactly (mechanics live in the decision, not restated here); the detection→posture-evidence hookup lands against the spec-posture establishment seam — coordinate at scope time if that slice is still in flight
+- **Verification:** inner — unit tests over the open-guard branches (fresh create, stamped match, foreign mismatch refusal, 0.x sibling detection, `data.db` adoption incl. `-wal`/`-shm`); outer — none of its own beyond spec-posture's run beats witnessing the brownfield-evidence surfacing
+- **Traceability:** D124-L, I63-L, D118-L (posture-evidence consumer)
 
 <!-- walkthrough-evidence-batch (FE-1167) merged into walkthrough-remediation-2 (FE-1187) on 2026-07-13 (re-qualification pass); close FE-1167 in Linear as merged at pickup. Full definition (five residue groups, workbench commands) archived to docs/archive/PLAN_HISTORY.md. LN beats absorbed by FE-1187; Execute/KA beats carved to the KA sub-list (see §KA stream). Arc deterministic-orientation now closes via FE-1187. -->
 
@@ -530,7 +548,8 @@ group-1 (Active — walkthrough closure):
     -[gates]-> groups 2–3 (open after the auth reversal lands; then interleave)
 
 group-2 (Next — platform debt):
-  spec-posture | headless-ask-discovery | compaction-and-conflict-widening (P3)
+  spec-posture | workspace-db-identity (D124-L, small) | headless-ask-discovery
+  | compaction-and-conflict-widening (P3)
   | session-branching | web-driver-streaming (evaluation; absorbs P0 residual)
   | reconciliation-derivation | transcript-ledger-rendering (P2)
   entry_input: docs/planning/pi-native-integration-opportunities.md (retire after merge)
