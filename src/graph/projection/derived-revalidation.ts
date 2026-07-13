@@ -8,10 +8,10 @@
  * A derived staleness signal, computed — never persisted. For each edge whose
  * category declares an impact direction (`advisory`/`cascade`), the upstream
  * endpoint is the non-`affected` node; the edge is stale when that upstream node
- * was updated after the edge's own `updatedAtLsn`. Absent the post-verdict
- * per-edge acknowledged-LSN watermark, the edge's `updatedAtLsn` is the
- * acknowledged proxy — the watermark will replace it on the same edge (PLAN
- * correction 3). `none`-impact categories derive nothing.
+ * was updated past the edge's effective acknowledgement — the greater of the
+ * per-edge `acknowledgedLsn` watermark and the edge's own `updatedAtLsn`
+ * (PLAN correction 3). A null watermark falls back to `updatedAtLsn`, matching
+ * the pre-watermark proxy. `none`-impact categories derive nothing.
  *
  * This is the tracer whose noise verdict gates the watermark schema. It writes
  * NOTHING (I16-L stop-the-line): the result is a DISTINCT read shape carrying a
@@ -45,7 +45,7 @@ export interface DerivedEdgeRevalidation {
   readonly downstreamEndpoint: EdgeEndpoint;
   readonly upstreamNodeId: NodeId;
   readonly downstreamNodeId: NodeId;
-  /** `upstreamNode.updatedAtLsn - edge.updatedAtLsn`; always `> 0` for a derived entry. */
+  /** `upstreamNode.updatedAtLsn - effectiveAcknowledgedLsn`; always `> 0` for a derived entry. */
   readonly lsnDelta: number;
 }
 
@@ -78,7 +78,12 @@ export function deriveEdgeRevalidations(
     const upstreamNode = nodeById.get(upstreamNodeId);
     if (!upstreamNode) continue;
 
-    const lsnDelta = upstreamNode.updatedAtLsn - edge.updatedAtLsn;
+    // Effective acknowledgement is the greater of the per-edge watermark and the
+    // edge's own updatedAtLsn — a fuller downstream edit (advancing updatedAtLsn)
+    // clears staleness even without an explicit acknowledgement (correction 3).
+    // A null watermark falls back to updatedAtLsn (the pre-watermark proxy).
+    const effectiveAcknowledgedLsn = Math.max(edge.acknowledgedLsn ?? edge.updatedAtLsn, edge.updatedAtLsn);
+    const lsnDelta = upstreamNode.updatedAtLsn - effectiveAcknowledgedLsn;
     if (lsnDelta <= 0) continue;
 
     derived.push({

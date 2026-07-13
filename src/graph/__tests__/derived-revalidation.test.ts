@@ -6,6 +6,7 @@
  * nothing: no `reconciliation_need` rows and no node/edge byte-state change.
  */
 
+import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { createDb, type BrunchDb } from '../../db/connection.js';
@@ -17,7 +18,7 @@ import {
   specs,
 } from '../../db/schema.js';
 import { CommandExecutor } from '../command-executor.js';
-import { getDerivedEdgeRevalidations, getOpenReconciliationNeeds } from '../queries.js';
+import { getDerivedEdgeRevalidations, getOpenReconciliationNeeds, latestGraphLsn } from '../queries.js';
 import { runCreateOnlyMutation } from './support/create-only-mutation.js';
 
 interface StaleFixture {
@@ -113,5 +114,35 @@ describe('getDerivedEdgeRevalidations', () => {
     getDerivedEdgeRevalidations(db, specId);
     getDerivedEdgeRevalidations(db, specId);
     expect(snapshot(db)).toEqual(before);
+  });
+
+  it('consumes the per-edge acknowledged-LSN watermark: an acknowledged edge derives nothing', () => {
+    const { edgeId } = seedStaleDependency();
+    expect(getDerivedEdgeRevalidations(db, specId)).toHaveLength(1);
+
+    // Acknowledge the edge up to the current spec LSN (watermark ≥ upstream LSN).
+    db.update(edgesTable)
+      .set({ acknowledged_lsn: latestGraphLsn(db, specId) })
+      .where(eq(edgesTable.id, edgeId))
+      .run();
+
+    expect(getDerivedEdgeRevalidations(db, specId)).toEqual([]);
+  });
+
+  it('re-derives after acknowledgement once the upstream churns past the watermark', () => {
+    const { edgeId, upstreamNodeId } = seedStaleDependency();
+    db.update(edgesTable)
+      .set({ acknowledged_lsn: latestGraphLsn(db, specId) })
+      .where(eq(edgesTable.id, edgeId))
+      .run();
+    expect(getDerivedEdgeRevalidations(db, specId)).toEqual([]);
+
+    const rebump = executor.mutateGraph({
+      specId,
+      ops: [{ op: 'patch_node', node: { existing: upstreamNodeId }, patch: { title: 'R1 revised again' } }],
+    });
+    if (rebump.status !== 'success') throw new Error('rebump failed');
+
+    expect(getDerivedEdgeRevalidations(db, specId)).toMatchObject([{ edgeId, kind: 'edge_revalidation' }]);
   });
 });

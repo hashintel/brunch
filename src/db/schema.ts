@@ -94,6 +94,11 @@ export const edges = sqliteTable('edges', {
   rationale: text(),
   created_at_lsn: integer().notNull(),
   updated_at_lsn: integer().notNull(),
+  // Per-edge acknowledged-LSN watermark (reconciliation-derivation frontier,
+  // correction 3). Null until an acknowledgement bumps it; the derived
+  // edge_revalidation staleness read treats the edge as acknowledged up to
+  // max(acknowledged_lsn, updated_at_lsn).
+  acknowledged_lsn: integer(),
 });
 
 export const graphClock = sqliteTable('graph_clock', {

@@ -38,6 +38,7 @@ function edge(
   sourceId: number,
   targetId: number,
   updatedAtLsn: number,
+  acknowledgedLsn?: number,
 ): GraphEdge {
   return {
     id,
@@ -49,6 +50,7 @@ function edge(
     settlement: 'settled',
     createdAtLsn: 1,
     updatedAtLsn,
+    ...(acknowledgedLsn !== undefined ? { acknowledgedLsn } : {}),
   };
 }
 
@@ -107,6 +109,50 @@ describe('deriveEdgeRevalidations', () => {
     const nodes = [node(2, 1)];
     const edges = [edge(14, 'dependency', 1, 2, 1)];
     expect(deriveEdgeRevalidations(nodes, edges)).toEqual([]);
+  });
+
+  it('derives nothing when the acknowledged-LSN watermark is at or past the upstream LSN', () => {
+    // upstream lsn 5, edge updatedAtLsn 2, acknowledged watermark 5 → effective ack 5 ≥ 5.
+    const nodes = [node(1, 5), node(2, 1)];
+    const edges = [edge(15, 'dependency', 1, 2, 2, 5)];
+    expect(deriveEdgeRevalidations(nodes, edges)).toEqual([]);
+  });
+
+  it('re-derives when upstream churns past the acknowledged-LSN watermark', () => {
+    // watermark 5, then upstream moves to 6 → un-acknowledged newer upstream.
+    const nodes = [node(1, 6), node(2, 1)];
+    const edges = [edge(16, 'dependency', 1, 2, 2, 5)];
+    expect(deriveEdgeRevalidations(nodes, edges)).toEqual<DerivedEdgeRevalidation[]>([
+      {
+        derived: true,
+        kind: 'edge_revalidation',
+        edgeId: 16,
+        category: 'dependency',
+        impactKind: 'cascade',
+        downstreamEndpoint: 'target',
+        upstreamNodeId: 1,
+        downstreamNodeId: 2,
+        lsnDelta: 1,
+      },
+    ]);
+  });
+
+  it("clears via the edge's own updatedAtLsn advancing to the upstream LSN (fuller downstream edit, correction 3)", () => {
+    // A fuller downstream edit advances the edge's updatedAtLsn; effective ack is the
+    // greater of the stale watermark (3) and the edge's own updatedAtLsn (5) → 5 ≥ 5.
+    const nodes = [node(1, 5), node(2, 1)];
+    const edges = [edge(17, 'dependency', 1, 2, 5, 3)];
+    expect(deriveEdgeRevalidations(nodes, edges)).toEqual([]);
+  });
+
+  it('with a null watermark behaves exactly as the edge-updatedAtLsn proxy did', () => {
+    // No acknowledgedLsn: effective ack falls back to the edge's own updatedAtLsn (2).
+    const nodes = [node(1, 5), node(2, 1)];
+    const withoutWatermark = deriveEdgeRevalidations(nodes, [edge(18, 'dependency', 1, 2, 2)]);
+    const withNullWatermark = deriveEdgeRevalidations(nodes, [edge(18, 'dependency', 1, 2, 2, undefined)]);
+    expect(withNullWatermark).toEqual(withoutWatermark);
+    expect(withNullWatermark).toHaveLength(1);
+    expect(withNullWatermark[0]!.lsnDelta).toBe(3);
   });
 });
 

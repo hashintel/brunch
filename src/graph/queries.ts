@@ -102,6 +102,7 @@ function rowToEdge(row: typeof schema.edges.$inferSelect): GraphEdge {
     settlement: row.settlement as GraphEdge['settlement'],
     createdAtLsn: row.created_at_lsn,
     updatedAtLsn: row.updated_at_lsn,
+    ...(row.acknowledged_lsn != null ? { acknowledgedLsn: row.acknowledged_lsn } : {}),
   };
   return row.stance != null
     ? row.rationale != null

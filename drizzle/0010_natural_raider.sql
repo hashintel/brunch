@@ -1,0 +1,1 @@
+ALTER TABLE `edges` ADD `acknowledged_lsn` integer;
