@@ -1,9 +1,33 @@
 # Headless ask discovery: live registry + public RPC read method
 
 Frontier: headless-ask-discovery
-Status:   active
+Status:   built (leaves 1-4); leaf 5 reassigned — see completion note
 Mode:     single
 Created:  2026-07-13
+Built:    2026-07-13 (D125-L)
+
+> **Completion note (2026-07-13).** Leaves 1-4 landed on `ln/fe-1196-platform-debt`
+> (commits under FE-1196): `src/session/live-ask-registry.ts` interaction-state model
+> (+ unit suite), all ask modes registering + headless broker-answering in `ask.ts` /
+> `ask/continuation.ts`, the `session.openAsks` public RPC read method (handle-gated on
+> `/rpc/driver`), and a deterministic discover/answer/cancel/resume public-RPC contract.
+> A39-L is **validated** (D125-L): the agent-as-user *driver* discovery seam is now the
+> live registry + `session.openAsks`, with no second event plane and no transcript scan
+> on the driver path. Both stop-the-line conditions held (no new event plane; the two
+> answer paths stay structurally distinct; broker string contract unchanged).
+>
+> **Leaf 5 NOT completed here — reassigned.** "Retire the `session.pendingExchange`
+> transcript scan (no `projectLinearSessionExchangeProjection` import on the pending
+> path)" is blocked by a cross-frontier dependency: that scan still serves the legacy
+> `present_question` pending reconstruction, which `src/rpc/__tests__/handlers.test.ts`
+> (a must-stay-green suite) exercises and which this card explicitly scopes to
+> `legacy-question-read-path-retirement` ("do not absorb it"). Retiring it here would
+> either break that suite or reimplement the legacy read path this card told me not to
+> absorb. Per SPEC ("Horizon headless-ask-discovery *may* retire the transcript scan")
+> the retirement is permissive and now belongs to that sibling frontier; A39-L is
+> validated regardless. `memory/PLAN.md` reflects this (frontier built; retirement
+> frontier's Keeps line updated). Ceilings: headless choice/multi/review answers accept
+> a listed id / delimited ids / decision token; Other/None/comment stay interactive.
 
 Full scope card — structural (new public RPC seam + interaction-state model; A39-L validation vehicle).
 

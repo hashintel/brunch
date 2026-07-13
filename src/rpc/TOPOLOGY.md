@@ -19,7 +19,7 @@ rpc handler surfaces:
     └── /petrinaut/stream: artifact replay followed by same-process live journal wake-ups
 ```
 
-The full CLI/RPC host includes mutation-capable workspace/session methods. The TUI-started web sidecar is an attachment to the TUI-hosted process: ordinary `/rpc` observer connections expose projection/read methods plus `rpc.discover` and reject workspace/session write methods as `Method not found`. The explicitly designated `/rpc/driver` connection adds live driver methods only when their process-local handles are attached (`session.driveTurn` for a live `AgentSession`, `session.answerExchange` for a live exchange broker). Browser clients, CLI probes, TUI adapters, and future relays speak Brunch method names; they do not coordinate raw Pi RPC plus Brunch product RPC themselves.
+The full CLI/RPC host includes mutation-capable workspace/session methods. The TUI-started web sidecar is an attachment to the TUI-hosted process: ordinary `/rpc` observer connections expose projection/read methods plus `rpc.discover` and reject workspace/session write methods as `Method not found`. The explicitly designated `/rpc/driver` connection adds live driver methods only when their process-local handles are attached (`session.driveTurn` for a live `AgentSession`, `session.answerExchange` for a live exchange broker, `session.openAsks` — a read — for the live ask registry). Browser clients, CLI probes, TUI adapters, and future relays speak Brunch method names; they do not coordinate raw Pi RPC plus Brunch product RPC themselves.
 
 `session.submitExchangeResponse` (this directory) and `session.answerExchange` (the `/rpc/driver` leg above) are two structurally distinct paths, not variants of one mechanism — the former never touches Pi's `ctx.ui.*`/tool-execution layer at all; the latter answers a genuinely live tool call through the process-local broker when no local TUI is bound. See [`docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`](../../docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md) for the full mechanism and per-response-kind coverage.
 
@@ -120,6 +120,7 @@ TUI-started web sidecar without live driver handle:
     session.submitExchangeResponse
     session.submitMessage
     session.driveTurn
+    session.openAsks
     execute.replanRegeneratePlan
     execute.replanStartNewRun
     execute.replanAbandonRun
@@ -145,6 +146,7 @@ TUI-started web sidecar observer connection (/rpc), even when live driver handle
     session.submitMessage
     session.driveTurn
     session.answerExchange
+    session.openAsks
     execute.replanRegeneratePlan
     execute.replanStartNewRun
     execute.replanAbandonRun
@@ -166,6 +168,8 @@ TUI-started web sidecar driver connection (/rpc/driver) with live driver handles
   live-session drivers:
     session.driveTurn
     session.answerExchange
+  live-session reads (handle-gated):
+    session.openAsks
   rejected as method-not-found:
     workspace.activate
     session.triggerExchange
@@ -269,6 +273,14 @@ session.answerExchange
   errors: -32601 on ordinary observers or when no broker handle is attached; -32008 when no matching live exchange is pending
   effects: resolves the in-process ask answer promise; Pi then appends the provider-legal tool result and continues the same live turn, whose AgentSessionEvents stream as brunch.sessionEvent frames and reduce to Pi JSONL transcript truth
   boundary: not a transcript append API and not a second exchange store; review-over-RPC and terminal-vs-web answer racing are separate follow-ons
+
+session.openAsks
+  access: read (`/rpc/driver` on the TUI-started web sidecar only, discovered only when a live ask registry reader handle is attached; ordinary `/rpc` observers and the full stdio host never discover it)
+  params: none
+  result: {openAsks: [{exchangeId, mode, question}]} — every currently-open ask with its full D116-L question payload
+  source: the process-local live ask registry (D125-L); no transcript scan
+  errors: -32601 on ordinary observers or the full host; -32010 when no registry handle is attached
+  boundary: live-state discovery for the agent-as-user driver (A39-L), paired with session.answerExchange; the transcript-backed session.pendingExchange stays the file/observer-facing compatibility projection
 
 graph.overview
   access: read

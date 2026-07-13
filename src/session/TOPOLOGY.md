@@ -1,6 +1,6 @@
 # session/ — Session domain layer
 
-SPEC decisions: D6-L, D11-L, D12-L, D13-L, D21-L, D40-L, D52-L, D76-L, D77-L, D78-L, D84-L, D101-L, D102-L, D118-L, I56-L
+SPEC decisions: D6-L, D11-L, D12-L, D13-L, D21-L, D40-L, D52-L, D76-L, D77-L, D78-L, D84-L, D101-L, D102-L, D118-L, D125-L, I56-L
 
 ## Owns
 
@@ -63,12 +63,20 @@ plus the coordination logic for workspace/spec/session lifecycle.
   pending prompt reconstruction from structured transcript tuples, response
   toolResult materialization, and the process-local live answer rendezvous used
   by the TUI sidecar (`live-exchange-broker.ts`). RPC maps these domain results
-  to JSON-RPC status and error codes; transcript mechanics stay here. The broker
-  holds only an in-flight ask answer promise keyed by exchange id (`awaitAnswer`);
-  the answered result still reduces to canonical `request_answer` / `request_choice`
-  / `request_choices` Pi JSONL details. The broker exists only for `answer`
-  (free-text) today — `choice`/`choices`/review have no broker-equivalent yet, a
-  named `web-driver-streaming` Horizon gap, not an oversight here. See
+  to JSON-RPC status and error codes; transcript mechanics stay here. The **live
+  ask registry** (`live-ask-registry.ts`, D125-L) is the single runtime source of
+  open-ask truth: it generalizes the broker's in-flight `pending` map into
+  observable open-ask state that also carries each ask's D116-L question payload
+  keyed by exchange id (`open` → `answered` | `cancelled` | `closed`). Every ask
+  mode registers at open time via the payload-carrying `opener`, so
+  `session.openAsks` discovers any open ask over live state without scanning the
+  transcript; the answer still arrives through the **unchanged**
+  `awaitAnswer`/`submitAnswer` string contract and reduces to canonical
+  `request_answer` / `request_choice` / `request_choices` / `request_review` Pi
+  JSONL details, with per-mode interpretation of the answer string (a listed
+  option id, delimited ids, or a review decision) living in the ask collection
+  path. In-memory and process-local by design: a stale/unknown exchange id reads
+  `closed`, never hangs. See
   [`docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`](../../docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md)
   for why this broker path is structurally distinct from `session.submitExchangeResponse`
   (which never touches this broker or Pi's `ctx.ui.*` at all). **Provider-legality rule
