@@ -459,7 +459,7 @@ describe('projectExecutionSpecSnapshot', () => {
     });
 
     expect(snapshot.scopes[0]?.criteria).toEqual([
-      expect.objectContaining({ itemId: 'AC1', scopeLinked: true, verifies: [] }),
+      expect.objectContaining({ itemId: 'AC1', scopeLinked: true, verifiesRequirements: [] }),
     ]);
   });
 });

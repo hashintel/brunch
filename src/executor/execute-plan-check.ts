@@ -69,8 +69,12 @@ export function checkExecutionSpecForPlan(snapshot: ExecutionSpecSnapshot): Exec
     for (const requirementId of verifies) verifiedRequirementIds.add(requirementId);
   }
 
+  const frontierIdsWithScopes = new Set(snapshot.scopes.flatMap((scope) => scope.frontierIds));
   for (const frontier of snapshot.frontiers) {
     if (frontier.requirementIds.length > 0) continue;
+    // D123-L scope specs compose frontier -> scope, not frontier -> requirement;
+    // scope-owned frontiers get their membership through realization edges.
+    if (frontierIdsWithScopes.has(frontier.itemId)) continue;
     findings.push({
       code: 'frontier_without_requirement',
       severity: 'error',

@@ -220,7 +220,11 @@ describe('requestSliceExecution', () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-execute-next-scope-slice-'));
     await createSecondScopeSliceStartedRun(cwd);
 
-    const result = await requestSliceExecution({ cwd, runId: 'run-1' });
+    const result = await requestSliceExecution({
+      cwd,
+      runId: 'run-1',
+      gitSliceIntegration: createFakeGitSliceIntegrationPort(),
+    });
 
     expect(result).toMatchObject({
       status: 'slice_execution_requested',
@@ -280,7 +284,11 @@ describe('requestSliceExecution', () => {
     await createSliceStartedRun(cwd);
     await writeFile(populatedPlanPath(cwd, 'run-1'), '{"slices":[]}', 'utf8');
 
-    const result = await requestSliceExecution({ cwd, runId: 'run-1' });
+    const result = await requestSliceExecution({
+      cwd,
+      runId: 'run-1',
+      gitSliceIntegration: createFakeGitSliceIntegrationPort(),
+    });
 
     expect(result).toEqual({
       status: 'plan_slice_invalid',
@@ -317,7 +325,11 @@ describe('requestSliceExecution', () => {
       'utf8',
     );
 
-    const result = await requestSliceExecution({ cwd, runId: 'run-1' });
+    const result = await requestSliceExecution({
+      cwd,
+      runId: 'run-1',
+      gitSliceIntegration: createFakeGitSliceIntegrationPort(),
+    });
 
     expect(result).toMatchObject({
       status: 'plan_slice_invalid',
@@ -350,7 +362,11 @@ describe('requestSliceExecution', () => {
       'utf8',
     );
 
-    const result = await requestSliceExecution({ cwd, runId: 'run-1' });
+    const result = await requestSliceExecution({
+      cwd,
+      runId: 'run-1',
+      gitSliceIntegration: createFakeGitSliceIntegrationPort(),
+    });
 
     expect(result).toMatchObject({
       status: 'plan_slice_invalid',
@@ -382,7 +398,11 @@ describe('requestSliceExecution', () => {
       'utf8',
     );
 
-    const result = await requestSliceExecution({ cwd, runId: 'run-1' });
+    const result = await requestSliceExecution({
+      cwd,
+      runId: 'run-1',
+      gitSliceIntegration: createFakeGitSliceIntegrationPort(),
+    });
 
     expect(result).toMatchObject({
       status: 'plan_slice_invalid',

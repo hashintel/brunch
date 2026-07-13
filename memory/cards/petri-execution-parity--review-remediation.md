@@ -18,7 +18,7 @@ Every external executor effect is admitted once per run, durably claimed before 
 
 ### Cold-start reads
 
-- `memory/SPEC.md` — D111-L, D112-L, D123-L, I58-L
+- `memory/SPEC.md` — D111-L, D112-L, D127-L, I58-L
 - `memory/PLAN.md` — frontier `petri-execution-parity`
 - `src/executor/TOPOLOGY.md` — journal/marking/run-summary authority
 
@@ -45,7 +45,7 @@ Every external executor effect is admitted once per run, durably claimed before 
 | Epic ordering and carrier failures | met | Pass journals `epic_verify` and transitioned marking before summary; journal/marking claim failures invoke zero runners and advance no summary. |
 | Thrown epic runner is durable terminal failure | met | Thrown runner appends failed `epic_test_result` with reason/message, then `net_halted` and terminal marking retaining its claim. |
 | Thrown parallel effects settle per slice | met | Workspace, request artifact, agent, and verifier throw cases each persist typed failed settlement step/reason, integrate successful sibling, and end with terminal marking. |
-| D123-L remains bounded | met | Parallel claim/fan-in/restart suites remain green; D124-L owns only process-local run admission and epic effect claims, with no durable process lease. |
+| D127-L remains bounded | met | Parallel claim/fan-in/restart suites remain green; D128-L owns only process-local run admission and epic effect claims, with no durable process lease. |
 
 Skipped-test delta vs parent: 0.
 
@@ -107,7 +107,7 @@ Every standalone run effect shares canonical reentrant authority, journal framin
 
 | Leaf | Outcome | Evidence |
 | --- | --- | --- |
-| Standalone run effects share D124-L authority | met | `run-effect-authority.test.ts`, `worktree.test.ts`, `petri.test.ts`, and `promotion.test.ts` cover contention; `RUN_EFFECT_ENTRY_INVENTORY satisfies Record<ReadyStep['kind'], …>` is the future-arm guard. |
+| Standalone run effects share D128-L authority | met | `run-effect-authority.test.ts`, `worktree.test.ts`, `petri.test.ts`, and `promotion.test.ts` cover contention; `RUN_EFFECT_ENTRY_INVENTORY satisfies Record<ReadyStep['kind'], …>` is the future-arm guard. |
 | Run creation remains atomic through observer preparation | met | registered `execute_run_create` holds authority across `createRun` and `preparePetriObservation`; nested core admission is reentrant. |
 | Unreadable parallel authority fails closed | met | `orchestrate.test.ts` corrupts active marking and observes only `authority_unreadable`/per-slice blockers with no ready work. |
 | Petri readers agree on framing | met | shared `readPetriJournal`; torn and final-valid-without-newline tests reject the whole journal and invoke no epic runner. |
@@ -270,7 +270,7 @@ The authored execution projection has one current version and one production wit
 ✓ artifact tests — outline/draft artifacts persist v2; cook plan provenance remains v1.
 ✓ production consumer test — registered `execute_plan_file` persists multi-frontier authored semantics and an orphan slice.
 ✓ crash-window test — ordered stream carrier persists before the attempt mirror and reconnect still returns the event when the mirror fails.
-✓ topology test — executor decision register includes D124-L and D125-L.
+✓ topology test — executor decision register includes D128-L and D129-L.
 
 ### Completion Report
 
@@ -280,7 +280,7 @@ The authored execution projection has one current version and one production wit
 | Persisted artifacts carry current version | met | outline and draft artifact tests compare exact v2 payloads; plan-file test pins `PlanFileProvenance.schemaVersion: 1`. |
 | Registered production path carries D125 authored semantics | met | `registry.test.ts`: `execute_plan_file` persists F1/F2 memberships, F2 dependency, AC1 epic/slice verification, and orphan task-3. |
 | Stream fault cannot hide a persisted event | met | `slice-stream-events.test.ts`: attempt mirror fails after journal append; `readRunDetail` reconnect returns runSequence 0. |
-| Decision register is complete | met | `src/executor/TOPOLOGY.md` header names D124-L and D125-L. |
+| Decision register is complete | met | `src/executor/TOPOLOGY.md` header names D128-L and D129-L. |
 
 Skipped-test delta vs parent: 0.
 

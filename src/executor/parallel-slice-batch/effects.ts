@@ -3,6 +3,7 @@ import {
   IsolatedSliceOperationError,
   mergeAttemptHistory,
   prepareIsolatedSlice,
+  readSliceRequestContext,
   runIsolatedAgentAttempt,
   runIsolatedVerifyAttempt,
   thrownSliceEffectReason,
@@ -38,6 +39,15 @@ export async function executeIsolatedSlice(args: {
   const workspaceDir = sliceWorkspacePath(ctx.cwd, ctx.runId, step.sliceId);
   const executeStep = { ...step, kind: 'slice_execute' as const };
   emitParallelStepProgress(ctx, 'started', executeStep, args.state);
+  const sliceContext = await readSliceRequestContext({
+    cwd: ctx.cwd,
+    runId: ctx.runId,
+    ...(args.state.populatedPlanPath ? { populatedPlanPath: args.state.populatedPlanPath } : {}),
+    sliceId: step.sliceId,
+  });
+  if (sliceContext.status === 'invalid') {
+    return failed(step.sliceId, 'slice_execute', `plan_slice_invalid: ${sliceContext.message}`, {});
+  }
   let workspace: Awaited<ReturnType<typeof prepareIsolatedSlice>>;
   try {
     workspace = await prepareIsolatedSlice({
@@ -47,6 +57,7 @@ export async function executeIsolatedSlice(args: {
       runWorktreeDir,
       sliceWorktreeDir: workspaceDir,
       requestPath: sliceExecutionRequestPath(ctx.cwd, ctx.runId, step.sliceId),
+      requestContext: sliceContext.requestContext,
       gitSliceIntegration: ctx.ports.gitSliceIntegration,
       recordReport: async (event) => {
         await authority.fire(sliceTransitionId('slice_execute', step.sliceId));

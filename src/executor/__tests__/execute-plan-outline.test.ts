@@ -93,7 +93,15 @@ describe('outlineExecutionPlan', () => {
       ...snapshot,
       frontiers: [
         ...snapshot.frontiers,
-        { itemId: 'F2', nodeId: 11, title: 'Other frontier', content: 'Other frontier', dependsOn: [] },
+        {
+          itemId: 'F2',
+          nodeId: 11,
+          title: 'Other frontier',
+          content: 'Other frontier',
+          dependsOn: [],
+          requirementIds: [],
+          verificationCriterionIds: [],
+        },
       ],
       scopes: [{ ...scope, frontierIds: ['F1', 'F2'] }],
     });
@@ -344,6 +352,7 @@ describe('outlineExecutionPlan', () => {
                   title: 'Wire feature',
                   content: 'Wire feature',
                   dependsOn: ['REQ1'],
+                  frontierId: 'F1',
                 },
               ],
               designContext: [

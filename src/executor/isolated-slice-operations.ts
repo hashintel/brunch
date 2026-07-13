@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
 import type {
@@ -17,6 +17,7 @@ import {
   SLICE_ATTEMPT_LIMIT,
   type ReadyStep,
 } from './orchestrate-topology.js';
+import { populatedPlanPath } from './populate.js';
 import { appendSliceAttemptCycle, type SliceAttemptHistory } from './run.js';
 import { appendRunOrderedStreamEvent } from './slice-stream-events.js';
 
@@ -113,6 +114,99 @@ export interface SliceRequestContext {
   readonly instruction?: string;
 }
 
+interface PlanSliceRequestShape {
+  readonly scope_id?: string;
+  readonly definition?: string;
+  readonly verification?: readonly { readonly kind?: string; readonly target?: string }[];
+  readonly derived_from?: readonly string[];
+  readonly design_context?: readonly { readonly item_id?: string; readonly content?: string }[];
+  readonly verification_context?: readonly { readonly item_id?: string; readonly content?: string }[];
+}
+
+export async function readSliceRequestContext(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly populatedPlanPath?: string;
+  readonly sliceId: string;
+}): Promise<
+  | { readonly status: 'ok'; readonly requestContext: SliceRequestContext }
+  | { readonly status: 'invalid'; readonly message: string }
+> {
+  const planPath = args.populatedPlanPath ?? populatedPlanPath(args.cwd, args.runId);
+  let payload: {
+    readonly scope_handoff_required?: boolean;
+    readonly slices?: readonly ({ readonly id?: string } & PlanSliceRequestShape)[];
+  };
+  try {
+    payload = JSON.parse(await readFile(planPath, 'utf8')) as typeof payload;
+  } catch (error) {
+    return {
+      status: 'invalid',
+      message: `Could not read populated plan for ${args.sliceId}: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+  const slice = payload.slices?.find((candidate) => candidate.id === args.sliceId);
+  if (!slice) {
+    return { status: 'invalid', message: `Populated plan does not contain active slice ${args.sliceId}.` };
+  }
+  const criteria = Array.isArray(slice.verification)
+    ? slice.verification.flatMap((criterion) =>
+        isNonBlank(criterion?.kind) && isNonBlank(criterion?.target)
+          ? [{ kind: criterion.kind, target: criterion.target }]
+          : [],
+      )
+    : [];
+  const derivedFrom = Array.isArray(slice.derived_from) ? slice.derived_from.filter(isNonBlank) : [];
+  const designContext = Array.isArray(slice.design_context)
+    ? slice.design_context.flatMap((item) =>
+        isNonBlank(item?.item_id) && isNonBlank(item?.content)
+          ? [{ itemId: item.item_id, content: item.content }]
+          : [],
+      )
+    : [];
+  const verificationContext = Array.isArray(slice.verification_context)
+    ? slice.verification_context.flatMap((item) =>
+        isNonBlank(item?.item_id) && isNonBlank(item?.content)
+          ? [{ itemId: item.item_id, content: item.content }]
+          : [],
+      )
+    : [];
+  if (payload.scope_handoff_required === true || typeof slice.scope_id === 'string') {
+    const missing = [
+      ...(!isNonBlank(slice.scope_id) ? ['scope_id'] : []),
+      ...(!isNonBlank(slice.definition) ? ['definition'] : []),
+      ...(criteria.length === 0 ? ['verification'] : []),
+      ...(derivedFrom.length === 0 ? ['derived_from'] : []),
+      ...(designContext.length === 0 ? ['design_context'] : []),
+      ...(verificationContext.length === 0 ? ['verification_context'] : []),
+    ];
+    if (missing.length > 0) {
+      return {
+        status: 'invalid',
+        message: `Scope slice ${args.sliceId} is missing valid ${missing.join(', ')}.`,
+      };
+    }
+  }
+  return {
+    status: 'ok',
+    requestContext: {
+      ...(typeof slice.scope_id === 'string' ? { scopeId: slice.scope_id } : {}),
+      ...(isNonBlank(slice.definition) ? { definition: slice.definition } : {}),
+      ...(Array.isArray(slice.verification) ? { criteria } : {}),
+      ...(Array.isArray(slice.derived_from) ? { derivedFrom } : {}),
+      ...(Array.isArray(slice.design_context) ? { designContext } : {}),
+      ...(Array.isArray(slice.verification_context) ? { verificationContext } : {}),
+      ...(criteria.length > 0
+        ? { instruction: 'Make the minimum change that satisfies every criterion.' }
+        : {}),
+    },
+  };
+}
+
+function isNonBlank(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 export async function prepareIsolatedSlice(args: {
   readonly runId: string;
   readonly sliceId: string;
@@ -141,7 +235,7 @@ export async function prepareIsolatedSlice(args: {
           ...(args.epicId === undefined ? {} : { epicId: args.epicId }),
           action: 'execute_slice',
           status: 'requested',
-          ...(args.requestContext ?? {}),
+          ...args.requestContext,
         },
         null,
         2,

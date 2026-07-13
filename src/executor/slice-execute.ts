@@ -1,9 +1,8 @@
-import { appendFile, readFile } from 'node:fs/promises';
+import { appendFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import type { GitSliceIntegrationPort } from './execution-ports.js';
-import { prepareIsolatedSlice } from './isolated-slice-operations.js';
-import { populatedPlanPath } from './populate.js';
+import { prepareIsolatedSlice, readSliceRequestContext } from './isolated-slice-operations.js';
 import { reportsPath } from './report.js';
 import { withRunExecutionAuthority } from './run-execution-authority.js';
 import {
@@ -141,7 +140,12 @@ async function requestSliceExecutionOwned(args: {
   }
   const sliceWorktreeDir = sliceWorkspacePath(args.cwd, args.runId, metadata.activeSliceId);
   const requestPath = sliceExecutionRequestPath(args.cwd, args.runId, metadata.activeSliceId);
-  const sliceResult = await readPlanSlice({ cwd: args.cwd, metadata, sliceId: metadata.activeSliceId });
+  const sliceResult = await readSliceRequestContext({
+    cwd: args.cwd,
+    runId: args.runId,
+    ...(metadata.populatedPlanPath ? { populatedPlanPath: metadata.populatedPlanPath } : {}),
+    sliceId: metadata.activeSliceId,
+  });
   if (sliceResult.status === 'invalid') {
     return {
       status: 'plan_slice_invalid',
@@ -153,7 +157,6 @@ async function requestSliceExecutionOwned(args: {
       sideEffects: [],
     };
   }
-  const slice = sliceResult.slice;
   const workspace = await prepareIsolatedSlice({
     runId: args.runId,
     sliceId: metadata.activeSliceId,
@@ -161,17 +164,7 @@ async function requestSliceExecutionOwned(args: {
     runWorktreeDir,
     sliceWorktreeDir,
     requestPath,
-    requestContext: {
-      ...(slice?.scopeId ? { scopeId: slice.scopeId } : {}),
-      ...(slice?.definition ? { definition: slice.definition } : {}),
-      ...(slice?.criteria ? { criteria: slice.criteria } : {}),
-      ...(slice?.derivedFrom ? { derivedFrom: slice.derivedFrom } : {}),
-      ...(slice?.designContext ? { designContext: slice.designContext } : {}),
-      ...(slice?.verificationContext ? { verificationContext: slice.verificationContext } : {}),
-      ...(slice?.criteria && slice.criteria.length > 0
-        ? { instruction: 'Make the minimum change that satisfies every criterion.' }
-        : {}),
-    },
+    requestContext: sliceResult.requestContext,
     gitSliceIntegration: args.gitSliceIntegration,
     recordReport: (event) => appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8'),
   });
@@ -213,106 +206,4 @@ async function requestSliceExecutionOwned(args: {
       metadataEffect,
     ],
   };
-}
-
-interface PlanSliceRequestShape {
-  readonly scope_id?: string;
-  readonly definition?: string;
-  readonly verification?: readonly { readonly kind?: string; readonly target?: string }[];
-  readonly derived_from?: readonly string[];
-  readonly design_context?: readonly { readonly item_id?: string; readonly content?: string }[];
-  readonly verification_context?: readonly { readonly item_id?: string; readonly content?: string }[];
-}
-
-async function readPlanSlice(args: {
-  readonly cwd: string;
-  readonly metadata: RunMetadata;
-  readonly sliceId: string;
-}): Promise<
-  | {
-      readonly status: 'ok';
-      readonly slice: {
-        readonly scopeId?: string;
-        readonly definition?: string;
-        readonly criteria?: readonly { readonly kind: string; readonly target: string }[];
-        readonly derivedFrom?: readonly string[];
-        readonly designContext?: readonly { readonly itemId: string; readonly content: string }[];
-        readonly verificationContext?: readonly { readonly itemId: string; readonly content: string }[];
-      };
-    }
-  | {
-      readonly status: 'invalid';
-      readonly message: string;
-    }
-> {
-  const planPath = args.metadata.populatedPlanPath ?? populatedPlanPath(args.cwd, args.metadata.runId);
-  let payload: {
-    readonly scope_handoff_required?: boolean;
-    readonly slices?: readonly ({ readonly id?: string } & PlanSliceRequestShape)[];
-  };
-  try {
-    payload = JSON.parse(await readFile(planPath, 'utf8')) as typeof payload;
-  } catch (error) {
-    return {
-      status: 'invalid',
-      message: `Could not read populated plan for ${args.sliceId}: ${error instanceof Error ? error.message : String(error)}`,
-    };
-  }
-  const slice = payload.slices?.find((candidate) => candidate.id === args.sliceId);
-  if (!slice) {
-    return { status: 'invalid', message: `Populated plan does not contain active slice ${args.sliceId}.` };
-  }
-  const criteria = Array.isArray(slice.verification)
-    ? slice.verification.flatMap((criterion) =>
-        isNonBlank(criterion?.kind) && isNonBlank(criterion?.target)
-          ? [{ kind: criterion.kind, target: criterion.target }]
-          : [],
-      )
-    : [];
-  const derivedFrom = Array.isArray(slice.derived_from) ? slice.derived_from.filter(isNonBlank) : [];
-  const designContext = Array.isArray(slice.design_context)
-    ? slice.design_context.flatMap((item) =>
-        isNonBlank(item?.item_id) && isNonBlank(item?.content)
-          ? [{ itemId: item.item_id, content: item.content }]
-          : [],
-      )
-    : [];
-  const verificationContext = Array.isArray(slice.verification_context)
-    ? slice.verification_context.flatMap((item) =>
-        isNonBlank(item?.item_id) && isNonBlank(item?.content)
-          ? [{ itemId: item.item_id, content: item.content }]
-          : [],
-      )
-    : [];
-  if (payload.scope_handoff_required === true || typeof slice.scope_id === 'string') {
-    const missing = [
-      ...(!isNonBlank(slice.scope_id) ? ['scope_id'] : []),
-      ...(!isNonBlank(slice.definition) ? ['definition'] : []),
-      ...(criteria.length === 0 ? ['verification'] : []),
-      ...(derivedFrom.length === 0 ? ['derived_from'] : []),
-      ...(designContext.length === 0 ? ['design_context'] : []),
-      ...(verificationContext.length === 0 ? ['verification_context'] : []),
-    ];
-    if (missing.length > 0) {
-      return {
-        status: 'invalid',
-        message: `Scope slice ${args.sliceId} is missing valid ${missing.join(', ')}.`,
-      };
-    }
-  }
-  return {
-    status: 'ok',
-    slice: {
-      ...(typeof slice.scope_id === 'string' ? { scopeId: slice.scope_id } : {}),
-      ...(typeof slice.definition === 'string' ? { definition: slice.definition } : {}),
-      ...(Array.isArray(slice.verification) ? { criteria } : {}),
-      ...(Array.isArray(slice.derived_from) ? { derivedFrom } : {}),
-      ...(Array.isArray(slice.design_context) ? { designContext } : {}),
-      ...(Array.isArray(slice.verification_context) ? { verificationContext } : {}),
-    },
-  };
-}
-
-function isNonBlank(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
 }

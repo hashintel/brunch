@@ -1096,8 +1096,8 @@ describe('execute replanning methods', () => {
           definition: 'Build foundation',
           depends_on: [],
           verification: [
-            { kind: 'criterion', target: 'Feature is visible' },
-            { kind: 'criterion', target: 'Shortcut opens feature' },
+            { kind: 'criterion', criterionId: 'AC1', target: 'Feature is visible' },
+            { kind: 'criterion', criterionId: 'AC2', target: 'Shortcut opens feature' },
           ],
           derived_from: ['REQ3'],
           design_context: [{ item_id: 'MOD1', content: 'Feature module' }],
@@ -1110,8 +1110,8 @@ describe('execute replanning methods', () => {
           definition: 'Wire feature',
           depends_on: ['task-3'],
           verification: [
-            { kind: 'criterion', target: 'Feature is visible' },
-            { kind: 'criterion', target: 'Shortcut opens feature' },
+            { kind: 'criterion', criterionId: 'AC1', target: 'Feature is visible' },
+            { kind: 'criterion', criterionId: 'AC2', target: 'Shortcut opens feature' },
           ],
           derived_from: ['REQ1'],
           design_context: [{ item_id: 'MOD1', content: 'Feature module' }],
@@ -1124,8 +1124,8 @@ describe('execute replanning methods', () => {
           definition: 'Ship keyboard shortcut',
           depends_on: ['task-1'],
           verification: [
-            { kind: 'criterion', target: 'Feature is visible' },
-            { kind: 'criterion', target: 'Shortcut opens feature' },
+            { kind: 'criterion', criterionId: 'AC1', target: 'Feature is visible' },
+            { kind: 'criterion', criterionId: 'AC2', target: 'Shortcut opens feature' },
           ],
           derived_from: ['REQ2'],
           design_context: [{ item_id: 'MOD1', content: 'Feature module' }],
