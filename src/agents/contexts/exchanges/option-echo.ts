@@ -30,7 +30,12 @@ export function formatOptionEcho(params: {
   ]);
 }
 
-/** Terminal-state response block shared by the request formatters. */
+/** Labeled cancellation shared across exchanges and read by both people and the agent. */
+export function formatCancelledTerminal(message: string): string {
+  return `**Cancelled** — ${message}`;
+}
+
+/** Unavailable-state response block shared by the request formatters. */
 export function formatResponseTerminal(message: string, heading = 'Response'): string {
   return joinMarkdownBlocks(`## ${heading}`, `_${message}_`);
 }

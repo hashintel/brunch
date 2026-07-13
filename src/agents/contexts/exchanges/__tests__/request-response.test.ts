@@ -19,6 +19,38 @@ import {
 } from '../request-response.js';
 
 describe('request response formatters', () => {
+  it('renders every cancellation as a labeled, self-describing next-turn signal', () => {
+    const requestCancellation =
+      '**Cancelled** — The request was posed, but the user declined to answer. Read this as wanting to change direction or reply in free text.';
+    const reviewCancellation =
+      '**Cancelled** — The user declined to review the proposal. Read this as wanting to change direction or reply in free text.';
+
+    expect(
+      formatRequestAnswer(projectRequestAnswer({ exchangeId: 'answer-cancelled', status: 'cancelled' })),
+    ).toBe(requestCancellation);
+    expect(
+      formatRequestChoice(
+        projectRequestChoice({
+          exchangeId: 'choice-cancelled',
+          respondsToPresentTool: 'present_question',
+          status: 'cancelled',
+        }),
+      ),
+    ).toBe(requestCancellation);
+    expect(
+      formatRequestChoices(projectRequestChoices({ exchangeId: 'choices-cancelled', status: 'cancelled' })),
+    ).toBe(requestCancellation);
+    expect(
+      formatRequestReview(
+        projectRequestReview({
+          exchangeId: 'review-cancelled',
+          respondsToPresentTool: 'present_review_set',
+          status: 'cancelled',
+        }),
+      ),
+    ).toBe(reviewCancellation);
+  });
+
   it('declares every request_answer details leaf as rendered or intentionally elided', () => {
     const details = projectRequestAnswer({
       exchangeId: 'answer-honesty',

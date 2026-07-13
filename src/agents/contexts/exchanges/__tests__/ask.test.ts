@@ -107,6 +107,13 @@ describe('ask formatter', () => {
     expect(formatAsk(otherChoiceDetails)).toContain('**Other prompt:** Describe your answer');
   });
 
+  it('renders cancellation as a labeled, self-describing next-turn signal', () => {
+    expect(formatAsk(cancelledDetails)).toContain(
+      '**Cancelled** — The question was posed, but the user declined to answer. Read this as wanting to change direction or reply in free text.',
+    );
+    expect(formatAsk(cancelledDetails)).not.toMatch(/\n_[^\n]+_$/u);
+  });
+
   it('produces schema-valid details for every projected ask outcome branch', () => {
     for (const { details } of branchMatrix) {
       expect(() => zAskDetails.parse(details)).not.toThrow();

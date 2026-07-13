@@ -75,6 +75,4 @@ Other new edges:
     
     > the invariant is the only oracle that catches a silently dropped details leaf.
 
-## Review
-
-_User cancelled the review request._
+**Cancelled** — The user declined to review the proposal. Read this as wanting to change direction or reply in free text.

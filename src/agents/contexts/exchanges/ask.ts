@@ -1,4 +1,5 @@
 import type { AskDetails } from '../../../exchanges/schemas/index.js';
+import { formatCancelledTerminal } from './option-echo.js';
 import type { RenderElision } from './render-honesty.js';
 
 function optionLines(details: AskDetails): string[] {
@@ -48,7 +49,11 @@ export function formatAsk(details: AskDetails): string {
     }
   } else if ('cancelled' in details) {
     lines.push('');
-    lines.push(`_${details.cancelled.message ?? 'User cancelled.'}_`);
+    lines.push(
+      formatCancelledTerminal(
+        'The question was posed, but the user declined to answer. Read this as wanting to change direction or reply in free text.',
+      ),
+    );
   } else {
     lines.push('');
     lines.push(`_${details.unavailable.message}_`);
@@ -62,6 +67,10 @@ export const ASK_CONTENT_ELISIONS: readonly RenderElision[] = [
   { path: 'v', reason: 'transport schema version, not user-facing answer content' },
   { path: 'exchange_id', reason: 'correlation id, not transcript prose' },
   { path: 'tool_meta.*', reason: 'tool-chain routing metadata, not transcript prose' },
+  {
+    path: 'cancelled.message',
+    reason: 'implementation detail replaced by canonical next-turn cancellation guidance',
+  },
   { path: 'question.options.*.id', reason: 'stable option ids are represented by ordered option labels' },
   { path: 'question.multiple', reason: 'selection mode is conveyed by the checked-option rendering' },
   { path: 'answered.choice.id', reason: 'stable option id is represented by the selected option label' },

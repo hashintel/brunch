@@ -2,7 +2,7 @@ import { heading } from 'md-pen';
 
 import type { RequestAnswerDetails } from '../../../../exchanges/projections/request-response.js';
 import { joinMarkdownBlocks } from '../../../shared/markdown.js';
-import { formatResponseTerminal } from '../option-echo.js';
+import { formatCancelledTerminal, formatResponseTerminal } from '../option-echo.js';
 import type { RenderElision } from '../render-honesty.js';
 
 export const REQUEST_ANSWER_CONTENT_ELISIONS: readonly RenderElision[] = [
@@ -13,7 +13,11 @@ export const REQUEST_ANSWER_CONTENT_ELISIONS: readonly RenderElision[] = [
 ];
 
 export function formatRequestAnswer(details: RequestAnswerDetails): string {
-  if ('cancelled' in details) return formatResponseTerminal('User cancelled the request.');
+  if ('cancelled' in details) {
+    return formatCancelledTerminal(
+      'The request was posed, but the user declined to answer. Read this as wanting to change direction or reply in free text.',
+    );
+  }
   if ('unavailable' in details) return formatResponseTerminal(details.unavailable.message);
   // The free-text answer is the user's own voice, not commentary on one — plain
   // text, never a blockquote (blockquote carries the "why" voice in this grammar).

@@ -2,7 +2,7 @@ import { blockquote, heading } from 'md-pen';
 
 import type { RequestReviewDetails } from '../../../../exchanges/projections/request-response.js';
 import { joinMarkdownBlocks } from '../../../shared/markdown.js';
-import { formatResponseTerminal } from '../option-echo.js';
+import { formatCancelledTerminal, formatResponseTerminal } from '../option-echo.js';
 import type { RenderElision } from '../render-honesty.js';
 
 export const REQUEST_REVIEW_CONTENT_ELISIONS: readonly RenderElision[] = [
@@ -13,7 +13,11 @@ export const REQUEST_REVIEW_CONTENT_ELISIONS: readonly RenderElision[] = [
 ];
 
 export function formatRequestReview(details: RequestReviewDetails): string {
-  if ('cancelled' in details) return formatResponseTerminal('User cancelled the review request.', 'Review');
+  if ('cancelled' in details) {
+    return formatCancelledTerminal(
+      'The user declined to review the proposal. Read this as wanting to change direction or reply in free text.',
+    );
+  }
   if ('unavailable' in details) return formatResponseTerminal(details.unavailable.message, 'Review');
 
   const label =
