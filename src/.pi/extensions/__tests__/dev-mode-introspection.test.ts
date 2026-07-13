@@ -143,7 +143,12 @@ describe('debug cache origination record mirror', () => {
     await appendOriginationRecordToDebugCache(
       { cwd },
       {
-        outcome: { status: 'failed', error: new TypeError('provider rejected') },
+        decision: { action: 'idle', reason: 'no_unresolved_debt', seedEntries: [] },
+        outcome: {
+          status: 'failed',
+          origin: 'new_session',
+          error: new TypeError('provider rejected'),
+        },
       },
     );
 
@@ -158,22 +163,63 @@ describe('debug cache origination record mirror', () => {
     await appendOriginationRecordToDebugCache(
       { cwd },
       {
-        decision: { action: 'idle', reason: 'no_unresolved_debt' },
+        decision: {
+          action: 'start',
+          origin: 'new_session',
+          seedEntries: [
+            {
+              type: 'custom_message',
+              customType: 'brunch.context_seed',
+              content: 'full seed content must live only in entry-contents.md',
+              details: { specId: 7, snapshotLsn: 11 },
+            },
+          ],
+        },
       },
     );
     await appendOriginationRecordToDebugCache(
       { cwd },
       {
-        decision: { action: 'idle', reason: 'no_unresolved_debt' },
-        outcome: { status: 'skipped', reason: 'idle_no_unresolved_debt' },
+        decision: {
+          action: 'start',
+          origin: 'new_session',
+          seedEntries: [
+            {
+              type: 'custom_message',
+              customType: 'brunch.context_seed',
+              content: 'full seed content must live only in entry-contents.md',
+              details: { specId: 7, snapshotLsn: 11 },
+            },
+          ],
+        },
+        outcome: { status: 'fired', origin: 'new_session' },
       },
     );
 
     const mirror = await readFile(join(cwd, '.brunch/debug/origination.md'), 'utf8');
-    expect(mirror).toContain('brunch.origination');
-    expect(mirror).toContain('"action": "idle"');
-    expect(mirror).toContain('"reason": "idle_no_unresolved_debt"');
-    expect(mirror.indexOf('"decision"')).toBeLessThan(mirror.indexOf('"outcome"'));
+    const records = [...mirror.matchAll(/```json\n([\s\S]*?)\n```/g)].map((match) => JSON.parse(match[1]!));
+    expect(records).toEqual([
+      {
+        decision: {
+          action: 'start',
+          origin: 'new_session',
+          seedEntries: [
+            {
+              type: 'custom_message',
+              customType: 'brunch.context_seed',
+              details: { specId: 7, snapshotLsn: 11 },
+              contentLength: 53,
+            },
+          ],
+        },
+      },
+      {
+        decision: { action: 'start', origin: 'new_session', seedEntryCount: 1 },
+        outcome: { status: 'fired', origin: 'new_session' },
+      },
+    ]);
+    expect(mirror).not.toContain('full seed content must live only in entry-contents.md');
+    expect(mirror.indexOf('"seedEntries"')).toBeLessThan(mirror.indexOf('"outcome"'));
     expect(mirror).toContain('\n\n---\n\n');
   });
 });
