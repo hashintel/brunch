@@ -234,8 +234,8 @@ async function collectSingleChoice(
 
 // ceiling: headless choice answers accept only a listed option id; the Other /
 // None escapes and comment sub-steps stay interactive-only (they need ctx.ui
-// input steps). Broaden with an answer-envelope shape when a headless driver
-// needs them.
+// input steps). Upgrade trigger: when a headless driver needs those escapes,
+// widen the broker answer from a bare string into an answer-envelope shape.
 async function collectSingleChoiceViaLiveAsk(
   params: CollectableAskWithOptions,
   question: AskQuestionEcho,
@@ -356,7 +356,8 @@ async function collectMultiChoice(
 
 // ceiling: headless multi-select accepts a comma/newline-delimited list of
 // listed option ids; Other/None escapes and the comment step stay
-// interactive-only, mirroring collectSingleChoiceViaLiveAsk.
+// interactive-only. Upgrade trigger: when a headless driver needs those escapes,
+// widen the broker answer into an envelope shape (as collectSingleChoiceViaLiveAsk).
 async function collectMultiChoiceViaLiveAsk(
   params: CollectableAskWithOptions,
   question: AskQuestionEcho,

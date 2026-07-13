@@ -270,8 +270,9 @@ async function collectContinuingCandidateChoice(
 }
 
 // ceiling: headless candidate answers accept only a declared candidate id; the
-// Other/None escapes stay interactive-only, mirroring the standalone ask
-// headless choice path.
+// Other/None escapes stay interactive-only. Upgrade trigger: when a headless
+// driver needs those escapes, widen the broker answer into an envelope shape
+// (as the standalone ask headless choice path).
 async function collectHeadlessCandidateChoice(
   params: ContinuationCollectParams,
   present: PresentCandidatesDetails,
@@ -303,7 +304,8 @@ async function collectHeadlessCandidateChoice(
 
 // ceiling: headless review answers carry the decision, optionally suffixed
 // `:comment` (request_changes requires the comment). Richer review payloads
-// stay interactive-only.
+// stay interactive-only. Upgrade trigger: when a headless driver needs richer
+// review input, widen the broker answer into a structured envelope shape.
 async function collectHeadlessReview(
   params: ContinuationCollectParams,
   present: PresentDigestDetails | PresentReviewSetDetails,
