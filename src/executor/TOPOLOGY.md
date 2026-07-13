@@ -1,6 +1,6 @@
 # executor/ — execute-mode projection contracts
 
-SPEC decisions: D111-L (executor cutover over injected ports), D52-L (layer boundary), D112-L / FE-1125 (run driver), D123-L (scope handoff contract), D127-L (bounded parallel slice authority), D128-L (same-process run admission and epic effect claims), D129-L (canonical authored execution model and journal order), I58-L (bounded execute-mode side effects).
+SPEC decisions: D111-L (executor cutover over injected ports), D52-L (layer boundary), D112-L / FE-1125 (run driver), D123-L (scope handoff contract), D127-L (bounded parallel slice authority), D128-L (same-process run admission and epic effect claims), D129-L (canonical authored execution model and journal order), D130-L (plan-owned execution contract), I58-L (bounded execute-mode side effects).
 
 ## Owns
 
