@@ -58,6 +58,18 @@ Durable evidence follows the harness/probe-first, JSONL-backed model (`docs/arch
 
 Do not hand-author golden JSON or copy rows out of a workbench DB; workbench `.brunch/` state is local runtime, never canonical fixture truth.
 
+## Findings ledger discipline
+
+Walkthrough observations are recorded in `TESTING_FINDINGS.md` (structured entries: concern, file-cited evidence, observation, expected, disposition — the template is pinned at the bottom of that file). The ledger is canonical walkthrough memory, and it is governed: a finding is **dispositioned** only when its `Disposition:` line reaches one of these terminal states:
+
+- **fixed** — names the commit/PR and the oracle that now guards it
+- **promoted** — names the owning frontier or Linear issue that carries it forward
+- **retired** — explicit no-action, with the reason recorded
+
+**`deferred` and design-question dispositions are not terminal.** A deferral must name an owner — a live frontier id, a Horizon row with a re-entry trigger, or a SPEC decision/assumption id — plus a one-line plain-language cost/value estimate so the deferral judgment stays legible to the user. "Needs a dedicated design session when prioritized" with no named owner is an **open finding**, not a disposition; `ln-sync`'s drift check sweeps the ledger for exactly this state and forces promotion or explicit retirement.
+
+Higher-level design questions surfaced during walkthroughs get the same treatment as defects: they enter the ledger as findings and leave it only by promotion (a frontier/Horizon entry via `ln-plan`, or a SPEC decision via `ln-spec`) or explicit retirement. Advisory limbo is the failure mode this section exists to prevent.
+
 ## What to check
 
 Each slice's scope card names its outer-loop verification needs. Common checks:

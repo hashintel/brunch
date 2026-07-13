@@ -69,6 +69,11 @@ const guardrails = [
   ['ln-judo-review', 'intentional topology stubs'],
   ['ln-build', 'intentional topology stubs'],
   ['ln-build', 'verification harness'],
+  // Owned-deferral rules: walkthrough findings and deferred outer evidence must
+  // name an owner with a re-entry trigger, never park as unnamed "later lane" debt.
+  ['ln-scope', 'named owning frontier'],
+  ['ln-build', 'owned item with a re-entry trigger'],
+  ['ln-sync', 'TESTING_FINDINGS.md'],
 ];
 for (const [name, phrase] of guardrails) {
   if (existsSync(skillFile(name)) && !readFileSync(skillFile(name), 'utf8').includes(phrase)) {

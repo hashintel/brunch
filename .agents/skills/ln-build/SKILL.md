@@ -138,7 +138,7 @@ After the build lands and verification passes, ask:
 - Mark the containing frontier done in `memory/PLAN.md` **if the build completed the frontier item**, usually by updating `Sequencing` / frontier status rather than moving definition blocks
 - Update `Recently Completed` if the plan uses it
 - Do **not** add new SPEC/PLAN bookkeeping just because a slice happened
-- If the slice was non-trivial, required manual verification, or leaves residual risk that matters beyond the current session, record it in the containing frontier definition or a terse `Recently Completed` entry only when it affects frontier-level re-entry
+- If the slice was non-trivial, required manual verification, or leaves residual risk that matters beyond the current session, record that debt as an owned item with a re-entry trigger — in the containing frontier definition, a Horizon row, or the walkthrough findings ledger (`TESTING_FINDINGS.md`, per `docs/praxis/manual-testing.md` §Findings ledger discipline) with a named owner — never as an unnamed "later lane". Include a one-line cost/value note so the deferral judgment stays legible
 - If the slice touched a named cross-cutting obligation but did not change it, preserve or refresh that obligation in the touched frontier definition instead of assuming traceability links are enough context
 
 ### If any answer is yes
