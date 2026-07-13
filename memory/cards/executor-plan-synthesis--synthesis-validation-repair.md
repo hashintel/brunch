@@ -20,7 +20,7 @@ Created:  2026-07-13
 
 **Repair loop owner.** (a) planner port loops internally (opaque); (b) **chosen: executor-owned `synthesizePlan` loop** — validate, feed exact findings back to one bounded re-synthesis round set, then admit or block. History (rounds, findings) is part of the result; no trivial-plan fallback exists on any path.
 
-## Card B1 — Candidate contract, total validation, bounded repair (deterministic core)
+## Card B1 — Candidate contract, total validation, bounded repair (deterministic core) [done]
 
 ### Target Behavior
 

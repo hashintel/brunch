@@ -153,7 +153,7 @@ function draftSlice(
   };
 }
 
-function orderSlicesByDependencies(
+export function orderSlicesByDependencies(
   slices: readonly ExecutablePlanDraftSlice[],
 ): readonly ExecutablePlanDraftSlice[] {
   const sliceIds = new Set(slices.map((slice) => slice.id));

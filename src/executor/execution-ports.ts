@@ -226,6 +226,28 @@ export interface GitHostPromotionPort extends GitHostPromotionPreflightPort {
   apply(args: GitHostPromotionApplyArgs): Promise<GitHostPromotionApplyResult>;
 }
 
+export interface PlannerRuntime {
+  readonly modelRegistry?: unknown;
+  readonly model?: unknown;
+  readonly signal?: AbortSignal;
+}
+
+export type PlannerSynthesisResult =
+  | { readonly status: 'synthesized'; readonly candidate: unknown }
+  | { readonly status: 'failed'; readonly message: string };
+
+// The non-deterministic planner behind a sealed port (FE-1197): it receives the bounded
+// planning projection plus exact validation findings on repair rounds, and returns raw
+// candidate material. Parsing, validation, and admission stay deterministic executor code.
+export interface PlannerPort {
+  synthesize(args: {
+    readonly projection: unknown;
+    readonly findings?: readonly { readonly code: string; readonly message: string }[];
+    readonly priorCandidate?: unknown;
+    readonly runtime?: PlannerRuntime;
+  }): Promise<PlannerSynthesisResult>;
+}
+
 export interface ExecutionPorts {
   readonly gitWorktree: GitWorktreePort;
   readonly gitSliceIntegration: GitSliceIntegrationPort;
