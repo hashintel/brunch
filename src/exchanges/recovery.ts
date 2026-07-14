@@ -24,7 +24,7 @@ export function resolveEligibleDigestAcceptance(
     const parsed = zPresentDigestDetails.safeParse(value);
     return parsed.success ? [parsed.data] : [];
   });
-  const alreadyAccepted = details.some((value) => {
+  const digestClosedForAcceptance = details.some((value) => {
     const ask = zAskDetails.safeParse(value);
     if (ask.success && 'accepts_digest' in ask.data && ask.data.accepts_digest === acceptsDigest) return true;
 
@@ -33,12 +33,13 @@ export function resolveEligibleDigestAcceptance(
       legacyReview.success &&
       legacyReview.data.exchange_id === acceptsDigest &&
       legacyReview.data.tool_meta.prev === 'present_digest' &&
-      'answered' in legacyReview.data &&
-      legacyReview.data.answered.decision === 'approve'
+      'answered' in legacyReview.data
     );
   });
   const digest = [...digests].reverse().find((candidate) => candidate.exchange_id === acceptsDigest);
-  return digest && digests.at(-1)?.exchange_id === acceptsDigest && !alreadyAccepted ? digest : undefined;
+  return digest && digests.at(-1)?.exchange_id === acceptsDigest && !digestClosedForAcceptance
+    ? digest
+    : undefined;
 }
 
 export interface EntryLike {

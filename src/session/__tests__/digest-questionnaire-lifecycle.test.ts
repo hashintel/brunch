@@ -55,9 +55,10 @@ describe('production digest questionnaire eligibility', () => {
     expect(resolveEligibleDigestAcceptance([d1, d2, firstCarrier], 'missing')).toBeUndefined();
   });
 
-  it('treats only an approved legacy digest review as an existing acceptance', () => {
-    const present = digest('legacy-digest', 'Persisted legacy abstract');
-    const legacyReview = (review: 'approve' | 'request_changes' | 'reject') => {
+  it.each(['approve', 'request_changes', 'reject'] as const)(
+    'treats an answered legacy digest %s review as closing that digest',
+    (review) => {
+      const present = digest('legacy-digest', 'Persisted legacy abstract');
       const details =
         review === 'approve'
           ? projectRequestReview({
@@ -74,29 +75,31 @@ describe('production digest questionnaire eligibility', () => {
               comment: 'Revise before acceptance.',
               respondsToPresentTool: 'present_digest',
             });
-      return entry(zRequestReviewDetails.parse(details));
-    };
 
-    expect(
-      resolveEligibleDigestAcceptance([present, legacyReview('approve')], 'legacy-digest'),
-    ).toBeUndefined();
-    expect(
-      resolveEligibleDigestAcceptance([present, legacyReview('request_changes')], 'legacy-digest')
-        ?.exchange_id,
-    ).toBe('legacy-digest');
-    expect(
-      resolveEligibleDigestAcceptance([present, legacyReview('reject')], 'legacy-digest')?.exchange_id,
-    ).toBe('legacy-digest');
+      expect(
+        resolveEligibleDigestAcceptance(
+          [present, entry(zRequestReviewDetails.parse(details))],
+          'legacy-digest',
+        ),
+      ).toBeUndefined();
+    },
+  );
 
-    const cancelled = entry(
-      projectRequestReview({
-        exchangeId: 'legacy-digest',
-        status: 'cancelled',
-        respondsToPresentTool: 'present_digest',
-      }),
-    );
-    expect(resolveEligibleDigestAcceptance([present, cancelled], 'legacy-digest')?.exchange_id).toBe(
-      'legacy-digest',
-    );
-  });
+  it.each(['cancelled', 'unavailable'] as const)(
+    'permits legacy digest re-collection after a %s review outcome',
+    (status) => {
+      const present = digest('legacy-digest', 'Persisted legacy abstract');
+      const review = entry(
+        projectRequestReview({
+          exchangeId: 'legacy-digest',
+          status,
+          respondsToPresentTool: 'present_digest',
+        }),
+      );
+
+      expect(resolveEligibleDigestAcceptance([present, review], 'legacy-digest')?.exchange_id).toBe(
+        'legacy-digest',
+      );
+    },
+  );
 });
