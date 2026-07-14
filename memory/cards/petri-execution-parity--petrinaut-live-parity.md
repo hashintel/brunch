@@ -1,7 +1,7 @@
 # Petrinaut live parity closure
 
 Frontier: petri-execution-parity
-Status:   active
+Status:   done
 Mode:     slices
 Created:  2026-07-14
 
@@ -51,7 +51,7 @@ Passed and failed verification follow different Petri transitions and only passi
 
 ## Slice 3 — Legible Petrinaut projection
 
-Status: queued
+Status: done
 
 ### Target Behavior
 
@@ -65,8 +65,27 @@ Petrinaut receives a compact deterministic execution-oriented projection while r
 ✓ raw `net.json`, executor marking, transition IDs, and SSE frame order remain unchanged.
 ✓ replay of `run-mrkj5qqo`-shaped evidence renders all firings, failed branches, and terminal state.
 
+### Evidence
+
+- `src/executor/__tests__/petri.test.ts` proves mechanical zero-degree pruning, connected empty-plan retention, unchanged raw topology, finite deterministic coordinates, reorder-stable sorted bands, attempt containment, contextual identity labels, compact `run-mrkj5qqo`-shaped bounds, and unchanged ordered firing payloads.
+- `src/rpc/methods/__tests__/execute.test.ts` and `src/rpc/__tests__/web-host.test.ts` prove names and coordinates survive replay definition, RPC, and SSE while the established frame/firing order remains unchanged.
+- `src/executor/petrinaut/sdcpn.ts` owns the view-only projection; `net.json`, runtime markings, connected IDs/arcs, and transition firing IDs remain executor truth unchanged.
+
+### Completion Report
+
+| Leaf | Outcome | Evidence |
+| --- | --- | --- |
+| omit zero-degree, initially-unmarked places | met | `projects only connected or initially marked places without changing raw topology` |
+| finite deterministic coordinates + contextual names | met | `retains the connected empty-plan frontier...`; `uses stable semantic columns...` |
+| compact reorder-stable slice/attempt/epic bands | met | `uses stable semantic columns and sorted compact bands regardless of plan array order` |
+| raw net, marking, IDs, and SSE order unchanged | met | raw-topology differential + focused web-host stream suites |
+| replay run-shaped failed branches and terminal | met | `preserves projected coordinates and names while replaying run-mrkj5qqo-shaped failed branches` |
+
+Skipped-test delta versus parent: `0`.
+
 ## Verification
 
 - Focused: executor Petri/replay/orchestrate + web-host live/reconnect + RPC schema suites.
 - Outer: regenerate a Rust fixture run, connect before first transition, export from Petrinaut, and compare definition/initial/firings/terminal with Brunch artifacts.
 - Gate: `npm run verify` and `npm run check`.
+- Manual outer comparison remains owned by KA/user; re-enter before PR tie-off when a Rust fixture run and Petrinaut instance are available.

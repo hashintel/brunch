@@ -982,6 +982,18 @@ describe('execute.run', () => {
     expect(response).toMatchObject({
       result: {
         petrinautReplayExport: {
+          definition: {
+            places: expect.arrayContaining([
+              expect.objectContaining({ id: 'run:created', x: expect.any(Number), y: expect.any(Number) }),
+            ]),
+            transitions: expect.arrayContaining([
+              expect.objectContaining({
+                id: 'worktree_create',
+                x: expect.any(Number),
+                y: expect.any(Number),
+              }),
+            ]),
+          },
           initialState: { 'run:created': 1 },
           transitionFirings: [
             {

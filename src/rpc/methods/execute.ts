@@ -244,6 +244,8 @@ const PetrinautReplayExportSchema = Type.Object(
             {
               id: Type.String(),
               name: Type.String(),
+              x: Type.Optional(Type.Number()),
+              y: Type.Optional(Type.Number()),
             },
             { additionalProperties: false },
           ),
@@ -253,6 +255,8 @@ const PetrinautReplayExportSchema = Type.Object(
             {
               id: Type.String(),
               name: Type.String(),
+              x: Type.Optional(Type.Number()),
+              y: Type.Optional(Type.Number()),
               inputArcs: Type.Array(PetrinautReplayInputArcSchema),
               outputArcs: Type.Array(PetrinautReplayOutputArcSchema),
             },

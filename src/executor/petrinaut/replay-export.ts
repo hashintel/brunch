@@ -7,10 +7,17 @@ export interface PetrinautReplayNetDefinition {
   readonly version: number;
   readonly meta: { readonly generator: string; readonly generatorVersion?: string };
   readonly title: string;
-  readonly places: readonly { readonly id: string; readonly name: string }[];
+  readonly places: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly x?: number;
+    readonly y?: number;
+  }[];
   readonly transitions: readonly {
     readonly id: string;
     readonly name: string;
+    readonly x?: number;
+    readonly y?: number;
     readonly inputArcs: readonly SdcpnInputArc[];
     readonly outputArcs: readonly SdcpnOutputArc[];
   }[];
@@ -65,17 +72,39 @@ export function reducePetrinautReplayExport(args: {
 }
 
 export function projectPetrinautReplayNetDefinition(sdcpnFile: SdcpnFile): PetrinautReplayNetDefinition {
+  const fallbackPositions = new Map(
+    [...sdcpnFile.places, ...sdcpnFile.transitions]
+      .map((node) => node.id)
+      .sort((left, right) => left.localeCompare(right))
+      .map((id, index) => [id, { x: 80 + (index % 20) * 180, y: 80 + Math.floor(index / 20) * 120 }]),
+  );
+  const fallbackPosition = (id: string): { readonly x: number; readonly y: number } => {
+    return fallbackPositions.get(id)!;
+  };
   return {
     version: sdcpnFile.version,
     meta: sdcpnFile.meta,
     title: sdcpnFile.title,
-    places: sdcpnFile.places.map((place) => ({ id: place.id, name: place.name })),
-    transitions: sdcpnFile.transitions.map((transition) => ({
-      id: transition.id,
-      name: transition.name,
-      inputArcs: transition.inputArcs,
-      outputArcs: transition.outputArcs,
-    })),
+    places: sdcpnFile.places.map((place) => {
+      const fallback = fallbackPosition(place.id);
+      return {
+        id: place.id,
+        name: place.name,
+        x: place.x ?? fallback.x,
+        y: place.y ?? fallback.y,
+      };
+    }),
+    transitions: sdcpnFile.transitions.map((transition) => {
+      const fallback = fallbackPosition(transition.id);
+      return {
+        id: transition.id,
+        name: transition.name,
+        x: transition.x ?? fallback.x,
+        y: transition.y ?? fallback.y,
+        inputArcs: transition.inputArcs,
+        outputArcs: transition.outputArcs,
+      };
+    }),
   };
 }
 
@@ -86,14 +115,16 @@ export function augmentPetriDefinitionWithRunStatus(
     ...definition,
     places: [
       ...definition.places,
-      { id: PETRI_RUN_COMPLETED_PLACE, name: 'Run completed' },
-      { id: PETRI_RUN_HALTED_PLACE, name: 'Run halted' },
+      { id: PETRI_RUN_COMPLETED_PLACE, name: 'Run · Completed', x: 4_700, y: 40 },
+      { id: PETRI_RUN_HALTED_PLACE, name: 'Run · Halted', x: 4_700, y: 120 },
     ],
     transitions: [
       ...definition.transitions,
       {
         id: PETRI_RUN_FINISH_TRANSITION,
-        name: 'Run finish',
+        name: 'Run · Finish',
+        x: 4_600,
+        y: 80,
         inputArcs: [],
         outputArcs: [
           { placeId: PETRI_RUN_COMPLETED_PLACE, weight: 1 },

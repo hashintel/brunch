@@ -1083,6 +1083,15 @@ describe('web host', () => {
         'definition',
         'initial_state',
       ]);
+      const definition = frames[1]?.data as {
+        readonly places: readonly { readonly x?: number; readonly y?: number }[];
+        readonly transitions: readonly { readonly x?: number; readonly y?: number }[];
+      };
+      expect(
+        [...definition.places, ...definition.transitions].every(
+          (node) => Number.isFinite(node.x) && Number.isFinite(node.y),
+        ),
+      ).toBe(true);
       expect(firings[0]?.data).toMatchObject({ transitionId: 'worktree_create' });
       expect(
         firings

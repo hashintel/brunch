@@ -28,6 +28,7 @@ import {
   PETRI_RUN_COMPLETED_PLACE,
   PETRI_RUN_FINISH_TRANSITION,
   PETRI_RUN_HALTED_PLACE,
+  projectPetrinautReplayNetDefinition,
   reducePetrinautReplayExport,
 } from '../petrinaut/replay-export.js';
 import { petriTopologyToSdcpnFile, SDCPN_FILE_FORMAT_VERSION } from '../petrinaut/sdcpn.js';
@@ -45,7 +46,9 @@ const sdcpnFileSchema = z.object({
   places: z.array(
     z.object({
       id: z.string().min(1),
-      name: z.string().regex(/^[A-Z][a-zA-Z]*\d*$/),
+      name: z.string().min(1),
+      x: z.number(),
+      y: z.number(),
       colorId: z.null(),
       dynamicsEnabled: z.literal(false),
       differentialEquationId: z.null(),
@@ -55,6 +58,8 @@ const sdcpnFileSchema = z.object({
     z.object({
       id: z.string().min(1),
       name: z.string().min(1),
+      x: z.number(),
+      y: z.number(),
       inputArcs: z.array(
         z.object({
           placeId: z.string().min(1),
@@ -321,8 +326,16 @@ describe('exportPetri', () => {
         },
       ],
     });
+    const projectedPlaceIds = new Set(
+      topology.transitions.flatMap((transition) =>
+        [...transition.inputArcs, ...transition.outputArcs].map((arc) => arc.placeId),
+      ),
+    );
+    for (const [placeId, count] of Object.entries(topology.initialMarking)) {
+      if (count > 0) projectedPlaceIds.add(placeId);
+    }
     expect(sdcpnFile.places.map((place: { readonly id: string }) => place.id).sort()).toEqual(
-      topology.places.map((place) => place.id).sort(),
+      [...projectedPlaceIds].sort(),
     );
     expect(sdcpnFile.transitions.map((transition: { readonly id: string }) => transition.id).sort()).toEqual(
       topology.transitions.map((transition) => transition.id).sort(),
@@ -1029,6 +1042,179 @@ describe('replayTransitionHistory', () => {
 });
 
 describe('reducePetrinautReplayExport', () => {
+  it('projects only connected or initially marked places without changing raw topology', () => {
+    const compiled = compileExecutorTopology({ slices: [{ id: 'S3', definition: 'Build parser' }] });
+    const topology = {
+      ...compiled,
+      places: [
+        ...compiled.places,
+        { id: 'view:isolated', subnetId: 'run', name: 'Isolated' },
+        { id: 'view:marked', subnetId: 'run', name: 'Marked frontier' },
+      ],
+      initialMarking: { ...compiled.initialMarking, 'view:marked': 1 },
+    };
+    const before = structuredClone(topology);
+
+    const sdcpn = petriTopologyToSdcpnFile({ runId: 'run-1', topology });
+    const projectedPlaceIds = new Set(sdcpn.places.map((place) => place.id));
+    const incidentPlaceIds = new Set(
+      sdcpn.transitions.flatMap((transition) =>
+        [...transition.inputArcs, ...transition.outputArcs].map((arc) => arc.placeId),
+      ),
+    );
+
+    expect(topology).toEqual(before);
+    expect(projectedPlaceIds.has('view:isolated')).toBe(false);
+    expect(projectedPlaceIds.has('view:marked')).toBe(true);
+    expect([...incidentPlaceIds].every((placeId) => projectedPlaceIds.has(placeId))).toBe(true);
+    expect(sdcpn.transitions.map(({ id, inputArcs, outputArcs }) => ({ id, inputArcs, outputArcs }))).toEqual(
+      topology.transitions.map(({ id, inputArcs, outputArcs }) => ({
+        id,
+        inputArcs: inputArcs.map((arc) => ({ ...arc, type: 'standard' })),
+        outputArcs,
+      })),
+    );
+  });
+
+  it('retains the connected empty-plan frontier and gives every node deterministic finite coordinates', () => {
+    const topology = compileExecutorTopology({ slices: [] });
+    const first = petriTopologyToSdcpnFile({ runId: 'run-empty', topology });
+    const second = petriTopologyToSdcpnFile({ runId: 'run-empty', topology });
+
+    expect(first.places.map((place) => place.id)).toContain('run:slice_frontier');
+    expect(first).toEqual(second);
+    for (const node of [...first.places, ...first.transitions]) {
+      expect(Number.isFinite(node.x)).toBe(true);
+      expect(Number.isFinite(node.y)).toBe(true);
+    }
+  });
+
+  it('uses stable semantic columns and sorted compact bands regardless of plan array order', () => {
+    const plan = {
+      epics: [
+        { id: 'E2', summary: 'Ship UI', depends_on: ['E1'], verification: [] },
+        { id: 'E1', summary: 'Build core', depends_on: [], verification: [] },
+      ],
+      slices: [
+        { id: 'S5', epic_id: 'E2', definition: 'Ship keyboard flow' },
+        { id: 'S4', epic_id: 'E1', definition: 'Verify parser' },
+        { id: 'S3', epic_id: 'E1', definition: 'Build parser' },
+      ],
+    } as const;
+    const reordered = {
+      epics: [...plan.epics].reverse(),
+      slices: [...plan.slices].reverse(),
+    };
+    const first = petriTopologyToSdcpnFile({
+      runId: 'run-mrkj5qqo',
+      topology: compileExecutorTopology(plan),
+    });
+    const second = petriTopologyToSdcpnFile({
+      runId: 'run-mrkj5qqo',
+      topology: compileExecutorTopology(reordered),
+    });
+    const placement = (file: typeof first) =>
+      Object.fromEntries(
+        [...file.places, ...file.transitions]
+          .map((node) => [node.id, { name: node.name, x: node.x, y: node.y }] as const)
+          .sort(([left], [right]) => left.localeCompare(right)),
+      );
+
+    expect(placement(first)).toEqual(placement(second));
+    expect(first.places.find((place) => place.id === 'slice:S3:agent_attempt:1')?.name).toContain(
+      'S3 · Agent attempt 1',
+    );
+    expect(first.transitions.find((transition) => transition.id === 'epic_integrate:E1')?.name).toContain(
+      'E1 · Integrate epic',
+    );
+
+    for (const sliceId of ['S3', 'S4', 'S5']) {
+      const sliceNodes = [...first.places, ...first.transitions].filter(
+        (node) =>
+          node.id.startsWith(`slice:${sliceId}:`) ||
+          (!node.id.startsWith('epic:') && node.id.includes(`:${sliceId}`)),
+      );
+      const ys = sliceNodes.map((node) => node.y!);
+      expect(Math.max(...ys) - Math.min(...ys)).toBeLessThanOrEqual(240);
+    }
+
+    const nodes = [...first.places, ...first.transitions];
+    const xs = nodes.map((node) => node.x!);
+    const ys = nodes.map((node) => node.y!);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeLessThan(6_000);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeLessThan(3_000);
+  });
+
+  it('preserves projected coordinates and names while replaying run-mrkj5qqo-shaped failed branches', () => {
+    const topology = compileExecutorTopology({ slices: [{ id: 'S3' }, { id: 'S4' }, { id: 'S5' }] });
+    const sdcpnFile = petriTopologyToSdcpnFile({ runId: 'run-mrkj5qqo', topology });
+    const transitions = new Map(topology.transitions.map((transition) => [transition.id, transition]));
+    const ids = [
+      'test_result_ingested:S3:attempt:1',
+      'verify_failed:S3:attempt:1',
+      'test_result_ingested:S4:attempt:1',
+      'verify_failed:S4:attempt:1',
+      'test_result_ingested:S5:attempt:1',
+      'verify_passed:S5:attempt:1',
+      'slice_integrate:S5',
+    ];
+    const events = ids.map((transitionId, index): ExecutorNetEvent => {
+      const transition = transitions.get(transitionId)!;
+      return {
+        kind: 'transition_fired',
+        ts: `2026-07-14T12:00:0${index}.000Z`,
+        runId: 'run-mrkj5qqo',
+        runStatus: 'slice_completed',
+        transitionId,
+        subnetId: transition.subnetId,
+        step: transition.step?.kind ?? 'test_result',
+        contract: transition.contract,
+        consumed: transition.inputArcs.map((arc) => arc.placeId),
+        produced: transition.outputArcs.map((arc) => arc.placeId),
+        fromStatus: 'test_result_ingested',
+        toStatus: 'slice_completed',
+      };
+    });
+    events.push({
+      kind: 'net_halted',
+      ts: '2026-07-14T12:00:07.000Z',
+      runId: 'run-mrkj5qqo',
+      runStatus: 'slice_completed',
+      reason: 'slice_verification_not_passed',
+      failedSliceIds: ['S3', 'S4'],
+    });
+
+    const replay = reducePetrinautReplayExport({ sdcpnFile, events });
+    expect(replay.definition).toEqual(
+      expect.objectContaining({
+        places: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'slice:S3:verification_failed',
+            name: expect.stringContaining('S3'),
+            x: expect.any(Number),
+            y: expect.any(Number),
+          }),
+        ]),
+      }),
+    );
+    expect(replay.transitionFirings.map((firing) => firing.transitionId)).toEqual([
+      ...ids,
+      PETRI_RUN_FINISH_TRANSITION,
+    ]);
+    expect(replay.transitionFirings.slice(0, -1).map((firing) => Object.keys(firing))).toEqual(
+      ids.map(() => ['transitionId', 'input', 'output', 'ts']),
+    );
+  });
+
+  it('preserves optional coordinates when projecting an SDCPN definition', () => {
+    const topology = compileExecutorTopology({ slices: [{ id: 'S3' }] });
+    const sdcpn = petriTopologyToSdcpnFile({ runId: 'run-1', topology });
+    const definition = projectPetrinautReplayNetDefinition(sdcpn);
+
+    expect(definition.places[0]).toMatchObject({ x: expect.any(Number), y: expect.any(Number) });
+    expect(definition.transitions[0]).toMatchObject({ x: expect.any(Number), y: expect.any(Number) });
+  });
+
   it('matches the origin/main firing contract and reuses the terminal event timestamp', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-origin-main-contract-'));
     await createCompletedRun(cwd);
@@ -1179,23 +1365,35 @@ describe('reducePetrinautReplayExport', () => {
     const payload = reducePetrinautReplayExport({ sdcpnFile, events });
 
     expect(payload.initialState).toEqual({ 'run:created': 1 });
-    expect(payload.definition.places).toContainEqual({
-      id: PETRI_RUN_COMPLETED_PLACE,
-      name: 'Run completed',
-    });
-    expect(payload.definition.places).toContainEqual({ id: PETRI_RUN_HALTED_PLACE, name: 'Run halted' });
-    expect(payload.definition.transitions).toContainEqual({
-      id: PETRI_RUN_FINISH_TRANSITION,
-      name: 'Run finish',
-      inputArcs: [],
-      outputArcs: [
-        { placeId: PETRI_RUN_COMPLETED_PLACE, weight: 1 },
-        { placeId: PETRI_RUN_HALTED_PLACE, weight: 1 },
-      ],
-    });
+    expect(payload.definition.places).toContainEqual(
+      expect.objectContaining({
+        id: PETRI_RUN_COMPLETED_PLACE,
+        name: 'Run · Completed',
+        x: 4_700,
+        y: 40,
+      }),
+    );
+    expect(payload.definition.places).toContainEqual(
+      expect.objectContaining({ id: PETRI_RUN_HALTED_PLACE, name: 'Run · Halted', x: 4_700, y: 120 }),
+    );
+    expect(payload.definition.transitions).toContainEqual(
+      expect.objectContaining({
+        id: PETRI_RUN_FINISH_TRANSITION,
+        name: 'Run · Finish',
+        x: 4_600,
+        y: 80,
+        inputArcs: [],
+        outputArcs: [
+          { placeId: PETRI_RUN_COMPLETED_PLACE, weight: 1 },
+          { placeId: PETRI_RUN_HALTED_PLACE, weight: 1 },
+        ],
+      }),
+    );
     expect(payload.definition.transitions[0]).toEqual({
       id: 'worktree_create',
-      name: 'worktree_create',
+      name: 'Run · Worktree create',
+      x: 180,
+      y: 80,
       inputArcs: [{ placeId: 'run:created', weight: 1, type: 'standard' }],
       outputArcs: [{ placeId: 'run:worktree_created', weight: 1 }],
     });
