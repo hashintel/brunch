@@ -310,7 +310,7 @@ Concern: ingest digest review and clarification ordering.
 Evidence: `remediations-3a.md` §3, screenshots `digest-review-as-ask` and `after-review-accepted`; session JSONL `2026-07-14T08-45-39-646Z_…` entries 12–21.
 Observation: `present_digest` did run. Its D110-L declaration mechanically supplied the approve/request-changes/reject continuation; the model's first attempt to override that continuation failed validation, then the declared review was accepted. Only afterward did the assistant ask three clarifying questions that would have been useful before mapping.
 Expected: the assistant presents the digest, asks a simple free-text confirmation such as “does that sound right?”, asks any material clarification questions before mapping, and then maps the confirmed understanding. A heavyweight change-request review protocol should not be imposed when ordinary conversational correction is clearer.
-Disposition: open product-contract change owned by FE-1187. This revises D110-L's review terminal and its D106-L accepted-abstract carrier, so route through `ln-design`/`ln-spec`; do not scope an implementation until the free-text confirmation still has an unambiguous acceptance carrier.
+Disposition: product contract settled 2026-07-14; implementation remains open on FE-1187. D110-L/D106-L now specify conversational free-text digest feedback followed by one digest-referencing bounded questionnaire (or a standalone single-select confirmation ask when no material questions remain). The submitted terminal copies the final persisted abstract and independently keyed answers, preserving an unambiguous capture carrier. Route next through `ln-oracles`, then `ln-scope`.
 
 #### R9 · multi-question collection · medium · open
 
@@ -318,7 +318,7 @@ Concern: several related clarification questions forced into one structured ask.
 Evidence: `remediations-3a.md` §3, screenshot `after-review-accepted`.
 Observation: the assistant compressed several questions into a few permutation options, producing an awkward and incomplete choice surface.
 Expected: related questions can be answered without combinatorial options—either as a short questionnaire-style interaction or as a deliberate sequence of focused asks.
-Disposition: open product-design finding owned by FE-1187. The JSONL confirms one ask compressed three questions into permutation choices. D38-L already names questionnaire support as deferred; choose sequential focused asks versus a questionnaire contract through `ln-design`/`ln-spec` before implementation.
+Disposition: product contract settled 2026-07-14; implementation remains open on FE-1187. D38-L/D116-L now define a bounded questionnaire as one `ask` terminal with fixed ordered, independently keyed questions over the existing answer primitives; it is not a generic forms system. The TUI may present one question at a time with one final submission, while raw Pi RPC uses the schema-tagged JSON-editor adapter. Route next through `ln-oracles`, then `ln-scope`.
 
 #### R10 · large-capture review scale · high · open
 
@@ -326,7 +326,7 @@ Concern: large advisory review-set presentation and persistence.
 Evidence: `remediations-3a.md` §3, screenshots `large review set after two following questions` and `review accepted and persisted`; session JSONL `2026-07-14T08-45-39-646Z_…` entries 22–31.
 Observation: after a long wait, one 17-node/11-edge review set overwhelmed the TUI. After one review acceptance, the assistant deliberately issued two `mutate_graph` calls split by settlement: settled intent at LSN 2, then advisory sketches at LSN 3. This was not one `acceptReviewSet` transaction being internally chunked.
 Expected: large capture does not require the user to inspect an unmanageably long TUI review set; one accepted proposal has honest authority and receipt semantics, and settlement differences are visible before acceptance rather than discovered through post-accept mutation splitting.
-Disposition: open product/visual design owned by FE-1187. Preserve D27-L atomic review-set semantics; route compact large-capture presentation and mixed-settlement proposal shape through `ln-design` before build.
+Disposition: product/visual contract settled 2026-07-14; implementation remains open on FE-1187. D99-L now routes questionnaire-authorized source-derived material directly to advisory settlement; D27-L reserves proposition-shaped review sets for settled commitments only, requires compact default presentation with exact payload inspection on demand, and requires local TUI plus RPC to use one shared atomic response-settlement seam. Route next through `ln-oracles`, then `ln-scope`.
 
 #### R11 · scratchpad disclosure · high · fixed
 
