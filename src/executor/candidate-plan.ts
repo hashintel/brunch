@@ -116,7 +116,14 @@ function parseSlice(value: unknown): CandidatePlanSlice | string {
   if (!isNonBlankString(epicId)) return 'missing non-blank string field: epicId';
   if (!isNonBlankString(title)) return 'missing non-blank string field: title';
   if (!isNonBlankString(goal)) return 'missing non-blank string field: goal';
-  if (record['scopeId'] !== undefined && !isNonBlankString(record['scopeId'])) {
+  const rawScopeId = record['scopeId'];
+  const scopeId =
+    rawScopeId === undefined ||
+    rawScopeId === null ||
+    (typeof rawScopeId === 'string' && rawScopeId.trim() === '')
+      ? undefined
+      : rawScopeId;
+  if (scopeId !== undefined && !isNonBlankString(scopeId)) {
     return 'scopeId must be a non-blank string when present';
   }
   const arrays: Record<string, readonly string[] | undefined> = {
@@ -139,7 +146,7 @@ function parseSlice(value: unknown): CandidatePlanSlice | string {
   return {
     id,
     epicId,
-    ...(record['scopeId'] !== undefined ? { scopeId: record['scopeId'] as string } : {}),
+    ...(scopeId !== undefined ? { scopeId: scopeId as string } : {}),
     title,
     goal,
     doneCriteria,

@@ -111,6 +111,10 @@ function lowerCandidatePlan(candidate: CandidatePlan, projection: PlanningProjec
       [...scope.design, ...scope.verification].map((item) => [item.itemId, item] as const),
     ),
   );
+  const verificationItemById = new Map([
+    ...projection.commitments.verification.map((item) => [item.itemId, item] as const),
+    ...projection.scopes.flatMap((scope) => scope.verification.map((item) => [item.itemId, item] as const)),
+  ]);
 
   const slices: ExecutablePlanDraftSlice[] = candidate.slices.map((slice) => ({
     id: slice.id,
@@ -135,7 +139,7 @@ function lowerCandidatePlan(candidate: CandidatePlan, projection: PlanningProjec
       return item ? [{ itemId: item.itemId, title: item.title, content: item.content }] : [];
     }),
     verificationContext: slice.verificationItemIds.flatMap((itemId) => {
-      const item = scopeItemById.get(itemId);
+      const item = verificationItemById.get(itemId);
       return item ? [{ itemId: item.itemId, title: item.title, content: item.content }] : [];
     }),
     verification: slice.criterionIds.flatMap((criterionId) => {

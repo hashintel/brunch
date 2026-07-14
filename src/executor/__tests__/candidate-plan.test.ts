@@ -38,4 +38,21 @@ describe('parseCandidatePlan', () => {
     expect(parsed.status).toBe('ok');
     expect(JSON.stringify(parsed)).not.toContain('rm');
   });
+
+  it('treats blank or null scopeId as no scope instead of a malformed slice', () => {
+    for (const blank of ['', '   ', null]) {
+      const candidate = coherentCandidate();
+      const input = {
+        ...candidate,
+        slices: candidate.slices.map((slice) => ({ ...slice, scopeId: blank })),
+      };
+
+      const result = parseCandidatePlan(JSON.parse(JSON.stringify(input)));
+
+      expect(result.status).toBe('ok');
+      if (result.status === 'ok') {
+        expect(result.candidate.slices.every((slice) => slice.scopeId === undefined)).toBe(true);
+      }
+    }
+  });
 });

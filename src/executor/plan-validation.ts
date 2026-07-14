@@ -85,9 +85,10 @@ export function validateCandidatePlan(args: {
   const scopeDesignIds = new Set(
     projection.scopes.flatMap((scope) => scope.design.map((item) => item.itemId)),
   );
-  const scopeVerificationIds = new Set(
-    projection.scopes.flatMap((scope) => scope.verification.map((item) => item.itemId)),
-  );
+  const knownVerificationIds = new Set([
+    ...projection.scopes.flatMap((scope) => scope.verification.map((item) => item.itemId)),
+    ...projection.commitments.verification.map((item) => item.itemId),
+  ]);
   const commitmentIds = new Set(
     [
       ...projection.commitments.constraints,
@@ -155,7 +156,7 @@ export function validateCandidatePlan(args: {
       }
     }
     for (const verificationItemId of slice.verificationItemIds) {
-      if (!scopeVerificationIds.has(verificationItemId)) {
+      if (!knownVerificationIds.has(verificationItemId)) {
         error(
           'unknown_verification_item',
           `Slice ${slice.id} cites unknown verification item ${verificationItemId}.`,

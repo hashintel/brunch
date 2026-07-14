@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { CandidatePlan } from '../candidate-plan.js';
 import type { CapabilityProvider } from '../capability-providers.js';
 import { validateCandidatePlan } from '../plan-validation.js';
-import { coherentCandidate, projection, PYTEST_PROVIDER } from './plan-synthesis-fixture.js';
+import { coherentCandidate, item, projection, PYTEST_PROVIDER } from './plan-synthesis-fixture.js';
 
 const NODE_TEST_PROVIDER: CapabilityProvider = {
   id: 'node-test',
@@ -132,5 +132,34 @@ describe('validateCandidatePlan', () => {
         slices: base.slices.map((slice) => ({ ...slice, requirementIds: [] })),
       }),
     ).toEqual(expect.arrayContaining(['slice_without_requirement', 'zero_coverage']));
+  });
+
+  it('accepts verification citations of projection-level V&V commitments without scopes', () => {
+    const scopeless = {
+      ...projection,
+      scopes: [],
+      commitments: {
+        ...projection.commitments,
+        verification: [item('CH9', 30, 'Given fresh clone, cargo build exits 0')],
+      },
+    };
+    const candidate = coherentCandidate();
+    const cited = {
+      ...candidate,
+      slices: candidate.slices.map(({ scopeId: _scopeId, ...slice }) => ({
+        ...slice,
+        designItemIds: [],
+        verificationItemIds: ['CH9'],
+      })),
+    };
+
+    const result = validateCandidatePlan({
+      candidate: cited,
+      projection: scopeless,
+      detected: [],
+      providers: [PYTEST_PROVIDER],
+    });
+
+    expect(result.findings.filter((f) => f.code === 'unknown_verification_item')).toEqual([]);
   });
 });
