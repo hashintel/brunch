@@ -85,10 +85,14 @@ plus the coordination logic for workspace/spec/session lifecycle.
   open-ask truth: it generalizes the broker's in-flight `pending` map into
   observable open-ask state that also carries each ask's D116-L question payload
   keyed by exchange id (`open` → `answered` | `cancelled` | `closed`). Every ask
-  mode registers at open time via the payload-carrying `opener`, so
-  `session.openAsks` discovers any open ask over live state without scanning the
-  transcript; the answer still arrives through the string
-  `awaitAnswer`/`submitAnswer` contract and reduces to canonical `ask` details
+  mode registers at open time via the payload-carrying `opener`, which requires
+  the executing tool's abort signal. An already-aborted signal never exposes an
+  open ask; a later abort synchronously removes it, records `cancelled`, and
+  resolves the collector without an answer. Answer, explicit cancellation, and
+  abort all detach the listener at settlement. `session.openAsks` therefore
+  discovers only live asks without scanning the transcript; the answer still
+  arrives through the string `awaitAnswer`/`submitAnswer` contract and reduces
+  to canonical `ask` details
   (plus preserved choice/review detail variants). Questionnaire mode checks a
   schema-tagged JSON answer envelope against the open ask's fixed questions
   before resolving the rendezvous; other per-mode interpretation remains in the

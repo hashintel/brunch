@@ -507,11 +507,14 @@ describe('structured exchange ask tools', () => {
     expect(notify).toHaveBeenCalledWith(expect.stringMatching(/\/brunch:consult.*\/brunch:mode/), 'info');
     expect(notify).not.toHaveBeenCalledWith(expect.stringContaining('/brunch:continue'), expect.anything());
     expect(setStatus).not.toHaveBeenCalledWith('brunch.ask', expect.anything());
-    expect(openAsk).toHaveBeenCalledWith({
-      exchangeId: 'brokered',
-      mode: 'text',
-      question: { body: 'Broker?' },
-    });
+    expect(openAsk).toHaveBeenCalledWith(
+      {
+        exchangeId: 'brokered',
+        mode: 'text',
+        question: { body: 'Broker?' },
+      },
+      expect.any(AbortSignal),
+    );
     expect(brokered.details).toMatchObject({ answered: { text: 'Answer collected by broker.' } });
     expect(setStatus).not.toHaveBeenCalled();
     expect(unavailable.details).toMatchObject({ unavailable: { message: 'ask requires interactive UI' } });

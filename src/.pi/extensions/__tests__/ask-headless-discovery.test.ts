@@ -17,6 +17,7 @@ const HEADLESS_CTX = { hasUI: false } as unknown as StructuredExchangeUiContext;
 function runHeadlessAsk(
   registry: ReturnType<typeof createLiveAskRegistry>,
   params: Record<string, unknown>,
+  signal: AbortSignal = new AbortController().signal,
 ): Promise<AskToolResult> {
   const tool = createAskTool(registry.opener) as ReturnType<typeof createAskTool> & {
     execute: (
@@ -27,7 +28,7 @@ function runHeadlessAsk(
       ctx: unknown,
     ) => Promise<AskToolResult>;
   };
-  return tool.execute('headless-ask', params, undefined, undefined, HEADLESS_CTX);
+  return tool.execute('headless-ask', params, signal, undefined, HEADLESS_CTX);
 }
 
 async function tick(): Promise<void> {
@@ -139,7 +140,7 @@ describe('headless ask discovery + broker answering', () => {
       const tool = createAskTool(registry.opener) as ReturnType<typeof createAskTool> & {
         execute: (...args: unknown[]) => Promise<AskToolResult>;
       };
-      const done = tool.execute('confirm', params, undefined, undefined, {
+      const done = tool.execute('confirm', params, new AbortController().signal, undefined, {
         hasUI: false,
         sessionManager: {
           getBranch: () => [{ type: 'message', message: { role: 'toolResult', details: digest } }],
@@ -155,6 +156,29 @@ describe('headless ask discovery + broker answering', () => {
     });
     expect(await run('revise')).toMatchObject({ answered: { choice: { id: 'revise' } } });
     expect(await run('revise')).not.toHaveProperty('accepts_digest');
+  });
+
+  it('removes an ask when the registered tool signal aborts and rejects a later answer', async () => {
+    const registry = createLiveAskRegistry();
+    const controller = new AbortController();
+    const done = runHeadlessAsk(
+      registry,
+      { exchangeId: 'tool-abort', body: 'Should this remain open?' },
+      controller.signal,
+    );
+    await tick();
+    expect(registry.reader.stateOf('tool-abort')).toBe('open');
+
+    controller.abort();
+
+    expect(registry.reader.openAsks()).toEqual([]);
+    expect(registry.reader.stateOf('tool-abort')).toBe('cancelled');
+    expect(registry.answerer.submitAnswer({ exchangeId: 'tool-abort', answer: 'too late' })).toEqual({
+      submitted: false,
+      reason: 'no_pending_exchange',
+    });
+    const details = zAskDetails.parse((await done).details);
+    expect(details).toMatchObject({ exchange_id: 'tool-abort', cancelled: {} });
   });
 
   it('reports the ask cancelled when the broker resolves with no answer', async () => {

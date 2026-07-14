@@ -1514,7 +1514,7 @@ describe('JSON-RPC handlers', () => {
         },
       ],
     };
-    const headlessDone = ask.execute('call', params, undefined, undefined, {
+    const headlessDone = ask.execute('call', params, new AbortController().signal, undefined, {
       hasUI: false,
       sessionManager: { getBranch: () => branch },
     });

@@ -200,6 +200,7 @@ function continuingAskUnavailable(params: ContinuingAskParams, message: string):
 export async function collectContinuingAsk(
   params: ContinuingAskParams,
   ctx: StructuredExchangeUiContext,
+  signal: AbortSignal,
   liveAsk?: LiveAskOpener,
   reviewDeps?: ReviewSetStructuredExchangeDeps,
 ): Promise<ToolResult> {
@@ -222,17 +223,18 @@ export async function collectContinuingAsk(
     );
   const declared = { exchangeId: params.continues, ...present.continuation.params };
   if (isDeclaredCandidatePresent(present))
-    return collectContinuingCandidateChoice(declared, present, ctx, liveAsk);
+    return collectContinuingCandidateChoice(declared, present, ctx, signal, liveAsk);
   if (present.tool_meta.curr === 'present_digest')
-    return collectContinuingDigestFeedback(declared, ctx, liveAsk);
+    return collectContinuingDigestFeedback(declared, ctx, signal, liveAsk);
   if (isDeclaredReviewPresent(present))
-    return collectContinuingReview(declared, present, ctx, liveAsk, reviewDeps);
+    return collectContinuingReview(declared, present, ctx, signal, liveAsk, reviewDeps);
   return present satisfies never;
 }
 
 async function collectContinuingDigestFeedback(
   params: ContinuationCollectParams,
   ctx: StructuredExchangeUiContext,
+  signal: AbortSignal,
   liveAsk?: LiveAskOpener,
 ): Promise<ToolResult> {
   const question = askQuestionEcho(params);
@@ -240,7 +242,7 @@ async function collectContinuingDigestFeedback(
   if (ctx.hasUI && typeof ctx.ui?.editor === 'function') {
     answer = await withWorkingIndicatorHidden(ctx, () => ctx.ui!.editor!(params.body));
   } else if (liveAsk) {
-    answer = await liveAsk.openAsk({ exchangeId: params.exchangeId, mode: 'text', question });
+    answer = await liveAsk.openAsk({ exchangeId: params.exchangeId, mode: 'text', question }, signal);
   } else {
     return terminal(params, 'unavailable', 'digest feedback requires interactive UI');
   }
@@ -263,10 +265,11 @@ async function collectContinuingCandidateChoice(
   params: ContinuationCollectParams,
   present: PresentCandidatesDetails,
   ctx: StructuredExchangeUiContext,
+  signal: AbortSignal,
   liveAsk?: LiveAskOpener,
 ): Promise<ToolResult> {
   if (!ctx.hasUI || typeof ctx.ui?.custom !== 'function') {
-    if (liveAsk) return collectHeadlessCandidateChoice(params, present, ctx, liveAsk);
+    if (liveAsk) return collectHeadlessCandidateChoice(params, present, ctx, signal, liveAsk);
     return continuationTerminal(
       params,
       present,
@@ -305,13 +308,17 @@ async function collectHeadlessCandidateChoice(
   params: ContinuationCollectParams,
   present: PresentCandidatesDetails,
   ctx: StructuredExchangeUiContext,
+  signal: AbortSignal,
   liveAsk: LiveAskOpener,
 ): Promise<ToolResult> {
-  const answer = await liveAsk.openAsk({
-    exchangeId: params.exchangeId,
-    mode: 'single-select',
-    question: askQuestionEcho(params),
-  });
+  const answer = await liveAsk.openAsk(
+    {
+      exchangeId: params.exchangeId,
+      mode: 'single-select',
+      question: askQuestionEcho(params),
+    },
+    signal,
+  );
   if (answer === undefined) {
     notifyContinuationCancellation(ctx);
     return continuationTerminal(params, present, 'cancelled');
@@ -337,14 +344,18 @@ async function collectHeadlessReview(
   params: ContinuationCollectParams,
   present: PresentDigestDetails | PresentReviewSetDetails,
   ctx: StructuredExchangeUiContext,
+  signal: AbortSignal,
   liveAsk: LiveAskOpener,
   reviewDeps?: ReviewSetStructuredExchangeDeps,
 ): Promise<ToolResult> {
-  const answer = await liveAsk.openAsk({
-    exchangeId: params.exchangeId,
-    mode: 'review',
-    question: askQuestionEcho(params),
-  });
+  const answer = await liveAsk.openAsk(
+    {
+      exchangeId: params.exchangeId,
+      mode: 'review',
+      question: askQuestionEcho(params),
+    },
+    signal,
+  );
   if (answer === undefined) {
     notifyContinuationCancellation(ctx);
     return continuationTerminal(params, present, 'cancelled');
@@ -395,11 +406,12 @@ async function collectContinuingReview(
   params: ContinuationCollectParams,
   present: PresentDigestDetails | PresentReviewSetDetails,
   ctx: StructuredExchangeUiContext,
+  signal: AbortSignal,
   liveAsk?: LiveAskOpener,
   reviewDeps?: ReviewSetStructuredExchangeDeps,
 ): Promise<ToolResult> {
   if (!ctx.hasUI || typeof ctx.ui?.custom !== 'function') {
-    if (liveAsk) return collectHeadlessReview(params, present, ctx, liveAsk, reviewDeps);
+    if (liveAsk) return collectHeadlessReview(params, present, ctx, signal, liveAsk, reviewDeps);
     return continuationTerminal(
       params,
       present,
@@ -526,5 +538,5 @@ export function collectAskContinuationResponse(
   exchangeId: string,
   ctx: StructuredExchangeUiContext,
 ): Promise<ToolResult> {
-  return collectContinuingAsk({ continues: exchangeId }, ctx);
+  return collectContinuingAsk({ continues: exchangeId }, ctx, new AbortController().signal);
 }

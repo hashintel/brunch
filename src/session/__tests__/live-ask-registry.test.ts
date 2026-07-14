@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { AskQuestionEcho } from '../../exchanges/schemas/index.js';
 import { createLiveAskRegistry, type OpenAsk } from '../live-ask-registry.js';
+
+const liveSignal = (): AbortSignal => new AbortController().signal;
 
 function ask(exchangeId: string, overrides: Partial<OpenAsk> = {}): OpenAsk {
   const question: AskQuestionEcho = { body: `Question for ${exchangeId}` };
@@ -11,7 +13,10 @@ function ask(exchangeId: string, overrides: Partial<OpenAsk> = {}): OpenAsk {
 describe('live ask registry', () => {
   it('lists an open ask with its payload while it awaits an answer', () => {
     const registry = createLiveAskRegistry();
-    void registry.opener.openAsk(ask('grounding', { question: { body: 'Where do we start?' } }));
+    void registry.opener.openAsk(
+      ask('grounding', { question: { body: 'Where do we start?' } }),
+      liveSignal(),
+    );
 
     expect(registry.reader.openAsks()).toEqual([
       { exchangeId: 'grounding', mode: 'text', question: { body: 'Where do we start?' } },
@@ -21,7 +26,7 @@ describe('live ask registry', () => {
 
   it('distinguishes a live exchange id from a stale or unknown one', () => {
     const registry = createLiveAskRegistry();
-    void registry.opener.openAsk(ask('live'));
+    void registry.opener.openAsk(ask('live'), liveSignal());
 
     expect(registry.reader.stateOf('live')).toBe('open');
     expect(registry.reader.stateOf('never-seen')).toBe('closed');
@@ -29,7 +34,7 @@ describe('live ask registry', () => {
 
   it('resolves the awaiting promise and transitions to answered on submit', async () => {
     const registry = createLiveAskRegistry();
-    const answer = registry.opener.openAsk(ask('domain'));
+    const answer = registry.opener.openAsk(ask('domain'), liveSignal());
 
     expect(registry.answerer.submitAnswer({ exchangeId: 'domain', answer: 'billing' })).toEqual({
       submitted: true,
@@ -41,7 +46,7 @@ describe('live ask registry', () => {
 
   it('is idempotent under double-answer: the second submit reports no pending exchange', async () => {
     const registry = createLiveAskRegistry();
-    const answer = registry.opener.openAsk(ask('once'));
+    const answer = registry.opener.openAsk(ask('once'), liveSignal());
 
     expect(registry.answerer.submitAnswer({ exchangeId: 'once', answer: 'first' })).toEqual({
       submitted: true,
@@ -56,7 +61,7 @@ describe('live ask registry', () => {
 
   it('cancels an open ask, resolving undefined and clearing it from discovery', async () => {
     const registry = createLiveAskRegistry();
-    const answer = registry.opener.openAsk(ask('interrupted'));
+    const answer = registry.opener.openAsk(ask('interrupted'), liveSignal());
 
     registry.cancel('interrupted');
     await expect(answer).resolves.toBeUndefined();
@@ -64,10 +69,56 @@ describe('live ask registry', () => {
     expect(registry.reader.stateOf('interrupted')).toBe('cancelled');
   });
 
+  it('cancels an already-aborted ask without exposing it for discovery', async () => {
+    const registry = createLiveAskRegistry();
+    const controller = new AbortController();
+    controller.abort();
+
+    const answer = registry.opener.openAsk(ask('already-aborted'), controller.signal);
+
+    expect(registry.reader.openAsks()).toEqual([]);
+    expect(registry.reader.stateOf('already-aborted')).toBe('cancelled');
+    await expect(answer).resolves.toBeUndefined();
+  });
+
+  it('synchronously cancels on abort and rejects a later answer', async () => {
+    const registry = createLiveAskRegistry();
+    const controller = new AbortController();
+    const answer = registry.opener.openAsk(ask('aborted'), controller.signal);
+
+    controller.abort();
+
+    expect(registry.reader.openAsks()).toEqual([]);
+    expect(registry.reader.stateOf('aborted')).toBe('cancelled');
+    expect(registry.answerer.submitAnswer({ exchangeId: 'aborted', answer: 'too late' })).toEqual({
+      submitted: false,
+      reason: 'no_pending_exchange',
+    });
+    await expect(answer).resolves.toBeUndefined();
+  });
+
+  it('removes the abort listener after answer and explicit cancellation', async () => {
+    const registry = createLiveAskRegistry();
+    const answered = new AbortController();
+    const cancelled = new AbortController();
+    const answeredRemove = vi.spyOn(answered.signal, 'removeEventListener');
+    const cancelledRemove = vi.spyOn(cancelled.signal, 'removeEventListener');
+    const answer = registry.opener.openAsk(ask('answered-cleanup'), answered.signal);
+    const cancellation = registry.opener.openAsk(ask('cancelled-cleanup'), cancelled.signal);
+
+    registry.answerer.submitAnswer({ exchangeId: 'answered-cleanup', answer: 'done' });
+    registry.cancel('cancelled-cleanup');
+
+    await expect(answer).resolves.toBe('done');
+    await expect(cancellation).resolves.toBeUndefined();
+    expect(answeredRemove).toHaveBeenCalledWith('abort', expect.any(Function));
+    expect(cancelledRemove).toHaveBeenCalledWith('abort', expect.any(Function));
+  });
+
   it('clears every open ask on teardown so a resumed process rediscovers nothing', async () => {
     const registry = createLiveAskRegistry();
-    const first = registry.opener.openAsk(ask('a'));
-    const second = registry.opener.openAsk(ask('b'));
+    const first = registry.opener.openAsk(ask('a'), liveSignal());
+    const second = registry.opener.openAsk(ask('b'), liveSignal());
 
     registry.cancelAll();
 
@@ -78,8 +129,8 @@ describe('live ask registry', () => {
 
   it('rejects opening two asks under the same exchange id', () => {
     const registry = createLiveAskRegistry();
-    void registry.opener.openAsk(ask('dup'));
-    expect(() => registry.opener.openAsk(ask('dup'))).toThrow(/already/);
+    void registry.opener.openAsk(ask('dup'), liveSignal());
+    expect(() => registry.opener.openAsk(ask('dup'), liveSignal())).toThrow(/already/);
   });
 
   it('validates questionnaire envelopes without settling invalid submissions', async () => {
@@ -92,6 +143,7 @@ describe('live ask registry', () => {
           questions: [{ id: 'goal', kind: 'free-text', prompt: 'What matters?' }],
         },
       }),
+      liveSignal(),
     );
 
     expect(
@@ -119,8 +171,9 @@ describe('live ask registry', () => {
         mode: 'single-select',
         question: { body: 'Pick one', options: [{ id: 'a', label: 'A' }] },
       }),
+      liveSignal(),
     );
-    const review = registry.opener.openAsk(ask('mode-review', { mode: 'review' }));
+    const review = registry.opener.openAsk(ask('mode-review', { mode: 'review' }), liveSignal());
 
     expect(registry.reader.openAsks().map((entry) => entry.mode)).toEqual(['single-select', 'review']);
     registry.answerer.submitAnswer({ exchangeId: 'mode-choice', answer: 'a' });

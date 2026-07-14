@@ -40,7 +40,7 @@ export interface LiveAskOpener {
    * Resolves to the answer string on submit, or `undefined` when the ask is
    * cancelled (matching the broker's cancellation channel).
    */
-  openAsk(ask: OpenAsk): Promise<string | undefined>;
+  openAsk(ask: OpenAsk, signal: AbortSignal): Promise<string | undefined>;
 }
 
 export interface LiveAskRegistry {
@@ -55,6 +55,7 @@ export interface LiveAskRegistry {
 interface PendingEntry {
   readonly resolve: (answer: string | undefined) => void;
   readonly ask?: OpenAsk;
+  readonly cleanup?: () => void;
 }
 
 export function createLiveAskRegistry(): LiveAskRegistry {
@@ -64,12 +65,26 @@ export function createLiveAskRegistry(): LiveAskRegistry {
   // long-lived headless session should bound this to a rolling window.
   const terminal = new Map<string, Extract<AskLifecycleState, 'answered' | 'cancelled'>>();
 
-  function register(exchangeId: string, ask?: OpenAsk): Promise<string | undefined> {
+  function register(exchangeId: string, ask?: OpenAsk, signal?: AbortSignal): Promise<string | undefined> {
     if (pending.has(exchangeId)) {
       throw new Error(`Live exchange is already pending: ${exchangeId}`);
     }
+    if (signal?.aborted) {
+      terminal.set(exchangeId, 'cancelled');
+      return Promise.resolve(undefined);
+    }
     return new Promise<string | undefined>((resolve) => {
-      pending.set(exchangeId, ask ? { resolve, ask } : { resolve });
+      if (!signal) {
+        pending.set(exchangeId, ask ? { resolve, ask } : { resolve });
+        return;
+      }
+      const onAbort = () => settle(exchangeId, 'cancelled', undefined);
+      signal.addEventListener('abort', onAbort, { once: true });
+      pending.set(exchangeId, {
+        resolve,
+        ...(ask ? { ask } : {}),
+        cleanup: () => signal.removeEventListener('abort', onAbort),
+      });
     });
   }
 
@@ -81,6 +96,7 @@ export function createLiveAskRegistry(): LiveAskRegistry {
     // listed as open.
     pending.delete(exchangeId);
     terminal.set(exchangeId, state);
+    entry.cleanup?.();
     entry.resolve(answer);
   }
 
@@ -110,8 +126,8 @@ export function createLiveAskRegistry(): LiveAskRegistry {
       },
     },
     opener: {
-      openAsk(ask) {
-        return register(ask.exchangeId, ask);
+      openAsk(ask, signal) {
+        return register(ask.exchangeId, ask, signal);
       },
     },
     reader: {

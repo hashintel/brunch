@@ -153,11 +153,12 @@ async function collectFreeText(
   question: AskQuestionEcho,
   ctx: StructuredExchangeUiContext,
   liveAsk: LiveAskOpener | undefined,
+  signal: AbortSignal,
 ): Promise<ToolResult> {
   const collected = await firstAvailableFreeTextCollector([
     () => collectFreeTextViaCustomEditor(params, ctx),
     () => collectFreeTextViaPlainEditor(params, ctx),
-    () => collectFreeTextViaLiveAsk(params, question, liveAsk),
+    () => collectFreeTextViaLiveAsk(params, question, liveAsk, signal),
   ]);
   if (collected === undefined)
     return terminal(params, question, 'unavailable', 'ask requires interactive UI');
@@ -233,9 +234,10 @@ async function collectFreeTextViaLiveAsk(
   params: CollectableAskParams,
   question: AskQuestionEcho,
   liveAsk: LiveAskOpener | undefined,
+  signal: AbortSignal,
 ): Promise<FreeTextCollectionResult> {
   if (!liveAsk) return { status: 'try-next' };
-  const answer = await liveAsk.openAsk({ exchangeId: params.exchangeId, mode: 'text', question });
+  const answer = await liveAsk.openAsk({ exchangeId: params.exchangeId, mode: 'text', question }, signal);
   return answer === undefined ? { status: 'cancelled' } : { status: 'answered', answer };
 }
 
@@ -244,6 +246,7 @@ async function collectSingleChoice(
   question: AskQuestionEcho,
   ctx: StructuredExchangeUiContext,
   liveAsk: LiveAskOpener | undefined,
+  signal: AbortSignal,
 ): Promise<ToolResult> {
   if (!hasOptions(params)) {
     return terminal(params, question, 'unavailable', 'ask choice requires options');
@@ -252,7 +255,7 @@ async function collectSingleChoice(
     return collectSingleChoiceWithBackNavigation(params, question, ctx, ctx.ui.custom);
   }
   if (liveAsk) {
-    return collectSingleChoiceViaLiveAsk(params, question, liveAsk);
+    return collectSingleChoiceViaLiveAsk(params, question, liveAsk, signal);
   }
   return terminal(params, question, 'unavailable', 'ask choice requires interactive UI');
 }
@@ -265,8 +268,12 @@ async function collectSingleChoiceViaLiveAsk(
   params: CollectableAskWithOptions,
   question: AskQuestionEcho,
   liveAsk: LiveAskOpener,
+  signal: AbortSignal,
 ): Promise<ToolResult> {
-  const answer = await liveAsk.openAsk({ exchangeId: params.exchangeId, mode: 'single-select', question });
+  const answer = await liveAsk.openAsk(
+    { exchangeId: params.exchangeId, mode: 'single-select', question },
+    signal,
+  );
   if (answer === undefined) return terminal(params, question, 'cancelled');
   const option = params.options.find((candidate) => candidate.id === answer);
   if (!option) return terminal(params, question, 'unavailable', `ask received unknown option id ${answer}`);
@@ -365,6 +372,7 @@ async function collectMultiChoice(
   question: AskQuestionEcho,
   ctx: StructuredExchangeUiContext,
   liveAsk: LiveAskOpener | undefined,
+  signal: AbortSignal,
 ): Promise<ToolResult> {
   if (!hasOptions(params)) return terminal(params, question, 'unavailable', 'ask choices require options');
   if (ctx.hasUI && typeof ctx.ui?.custom === 'function') {
@@ -374,7 +382,7 @@ async function collectMultiChoice(
     return collectMultiChoiceViaEditor(params, question, ctx);
   }
   if (liveAsk) {
-    return collectMultiChoiceViaLiveAsk(params, question, liveAsk);
+    return collectMultiChoiceViaLiveAsk(params, question, liveAsk, signal);
   }
   return terminal(params, question, 'unavailable', 'ask choices requires interactive UI');
 }
@@ -387,8 +395,12 @@ async function collectMultiChoiceViaLiveAsk(
   params: CollectableAskWithOptions,
   question: AskQuestionEcho,
   liveAsk: LiveAskOpener,
+  signal: AbortSignal,
 ): Promise<ToolResult> {
-  const answer = await liveAsk.openAsk({ exchangeId: params.exchangeId, mode: 'multi-select', question });
+  const answer = await liveAsk.openAsk(
+    { exchangeId: params.exchangeId, mode: 'multi-select', question },
+    signal,
+  );
   if (answer === undefined) return terminal(params, question, 'cancelled');
   const ids = answer
     .split(/[,\n]/)
@@ -560,7 +572,8 @@ function isOrdinaryStandaloneAsk(params: StandaloneAskParams): params is Ordinar
 async function collectDigestQuestionnaire(
   params: QuestionnaireAskParams,
   ctx: StructuredExchangeUiContext,
-  liveAsk?: LiveAskOpener,
+  liveAsk: LiveAskOpener | undefined,
+  signal: AbortSignal,
 ): Promise<ToolResult> {
   const digest = resolveEligibleDigestAcceptance(ctx.sessionManager?.getBranch() ?? [], params.acceptsDigest);
   if (!digest) {
@@ -571,7 +584,7 @@ async function collectDigestQuestionnaire(
       'acceptsDigest must reference the final eligible digest',
     );
   }
-  const answers = await collectQuestionnaireAnswers(params, ctx, liveAsk);
+  const answers = await collectQuestionnaireAnswers(params, ctx, liveAsk, signal);
   if (!answers) return terminal(params, { body: params.body }, 'cancelled');
   const details = projectDigestQuestionnaire({
     exchangeId: params.exchangeId,
@@ -586,7 +599,8 @@ async function collectDigestQuestionnaire(
 async function collectDigestConfirmation(
   params: DigestConfirmationAskParams,
   ctx: StructuredExchangeUiContext,
-  liveAsk?: LiveAskOpener,
+  liveAsk: LiveAskOpener | undefined,
+  signal: AbortSignal,
 ): Promise<ToolResult> {
   const digest = resolveEligibleDigestAcceptance(ctx.sessionManager?.getBranch() ?? [], params.acceptsDigest);
   if (!digest) {
@@ -597,7 +611,7 @@ async function collectDigestConfirmation(
       'acceptsDigest must reference the final eligible digest',
     );
   }
-  const collected = await collectSingleChoice(params, askQuestionEcho(params), ctx, liveAsk);
+  const collected = await collectSingleChoice(params, askQuestionEcho(params), ctx, liveAsk, signal);
   if (!('answered' in collected.details) || !('choice' in collected.details.answered)) return collected;
   if (collected.details.answered.choice.id !== 'confirm') return collected;
   return result(
@@ -616,7 +630,8 @@ async function collectDigestConfirmation(
 async function collectQuestionnaireAnswers(
   params: QuestionnaireAskParams,
   ctx: StructuredExchangeUiContext,
-  liveAsk?: LiveAskOpener,
+  liveAsk: LiveAskOpener | undefined,
+  signal: AbortSignal,
 ): Promise<readonly QuestionnaireAnswer[] | undefined> {
   if (ctx.hasUI && typeof ctx.ui?.custom === 'function') {
     const custom = ctx.ui.custom;
@@ -637,11 +652,14 @@ async function collectQuestionnaireAnswers(
     ctx.hasUI && typeof ctx.ui?.editor === 'function'
       ? await withWorkingIndicatorHidden(ctx, () => ctx.ui!.editor!(envelope))
       : liveAsk
-        ? await liveAsk.openAsk({
-            exchangeId: params.exchangeId,
-            mode: 'questionnaire',
-            question: { body: params.body, questions: params.questions },
-          })
+        ? await liveAsk.openAsk(
+            {
+              exchangeId: params.exchangeId,
+              mode: 'questionnaire',
+              question: { body: params.body, questions: params.questions },
+            },
+            signal,
+          )
         : undefined;
   if (raw === undefined) return undefined;
   try {
@@ -655,11 +673,12 @@ export function collectAskResponse(
   params: CollectableAskParams,
   question: AskQuestionEcho,
   ctx: StructuredExchangeUiContext,
-  liveAsk?: LiveAskOpener,
+  liveAsk: LiveAskOpener | undefined,
+  signal: AbortSignal,
 ): Promise<ToolResult> {
-  if (!params.options) return collectFreeText(params, question, ctx, liveAsk);
-  if (params.multiple) return collectMultiChoice(params, question, ctx, liveAsk);
-  return collectSingleChoice(params, question, ctx, liveAsk);
+  if (!params.options) return collectFreeText(params, question, ctx, liveAsk, signal);
+  if (params.multiple) return collectMultiChoice(params, question, ctx, liveAsk, signal);
+  return collectSingleChoice(params, question, ctx, liveAsk, signal);
 }
 
 function notifyStandaloneAskCancellation(result: ToolResult, ctx: StructuredExchangeUiContext): void {
@@ -689,18 +708,19 @@ export function createAskTool(liveAsk?: LiveAskOpener, reviewDeps?: ReviewSetStr
     parameters: toolParameters(zAskParams),
     executionMode: 'sequential',
 
-    async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
+    async execute(_toolCallId, rawParams, signal, _onUpdate, ctx) {
       const parsed = parseAskParams(rawParams);
       if (!parsed.success) return validationFailureResult(ASK_TOOL, parsed.error);
       const params = parsed.data;
       const uiCtx = ctx as unknown as StructuredExchangeUiContext;
-      if ('continues' in params) return collectContinuingAsk(params, uiCtx, liveAsk, reviewDeps);
+      const liveSignal = signal ?? AbortSignal.abort();
+      if ('continues' in params) return collectContinuingAsk(params, uiCtx, liveSignal, liveAsk, reviewDeps);
       const collected = isQuestionnaireAsk(params)
-        ? await collectDigestQuestionnaire(params, uiCtx, liveAsk)
+        ? await collectDigestQuestionnaire(params, uiCtx, liveAsk, liveSignal)
         : isDigestConfirmationAsk(params)
-          ? await collectDigestConfirmation(params, uiCtx, liveAsk)
+          ? await collectDigestConfirmation(params, uiCtx, liveAsk, liveSignal)
           : isOrdinaryStandaloneAsk(params)
-            ? await collectAskResponse(params, askQuestionEcho(params), uiCtx, liveAsk)
+            ? await collectAskResponse(params, askQuestionEcho(params), uiCtx, liveAsk, liveSignal)
             : (() => {
                 throw new Error('parsed ask parameters do not describe a runtime variant');
               })();

@@ -45,10 +45,16 @@ describe('collectAskResponse export', () => {
     const input = vi.fn(async () => (input.mock.calls.length === 1 ? undefined : ''));
     const custom = customPickSequence([0, 1]);
 
-    const result = await collectAskResponse(params, askQuestionEcho(params), {
-      hasUI: true,
-      ui: { custom, input },
-    } as never);
+    const result = await collectAskResponse(
+      params,
+      askQuestionEcho(params),
+      {
+        hasUI: true,
+        ui: { custom, input },
+      } as never,
+      undefined,
+      new AbortController().signal,
+    );
 
     expect(result.details).toMatchObject({
       exchange_id: 'exported-loop',
