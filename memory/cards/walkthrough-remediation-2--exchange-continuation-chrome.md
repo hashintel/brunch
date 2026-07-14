@@ -16,9 +16,9 @@ Orientation:
 
 Sequence validity: both cards stay inside the settled continuation adapter. Card 2 does not depend on Card 1 findings; the sequence exists because both cards modify `ask/continuation.ts` and must remain serial in the shared worktree.
 
-## Card 1 · Make cancellation guidance transient — `in progress`
+## Card 1 · Make cancellation guidance transient — `done`
 
-Implementation and inner/middle verification are complete. Stop condition: R5 outer re-observation is required before this card can be marked `done` or Card 2 can begin.
+Implemented in commit `daba4cda` and closed by the user-present live TUI walkthrough on 2026-07-14.
 
 ### Objective
 
@@ -54,6 +54,17 @@ Cancelled asks notify the user once without occupying persistent footer status.
 
 None — the actual status keys and missing lifecycle are directly observed in source and JSONL.
 
+### Completion report
+
+| Leaf | Outcome | Evidence |
+| ---- | ------- | -------- |
+| Standalone cancellation uses transient guidance without `/brunch:continue` or footer status | met | Inner: `exchanges-present-request.test.ts` “records cancellation with terminate, broker fallback, unavailable, and empty-answer discipline”; live TUI 2026-07-14 showed an above-editor notification naming `/brunch:consult` and `/brunch:mode`, with no status surviving an ordinary new turn. |
+| Declared-continuation cancellation uses transient guidance with all three recovery commands and no footer status | met | Inner: `exchanges-present-request.test.ts` “notifies transient continuation guidance on cancel without publishing footer status”; live TUI 2026-07-14 showed `/brunch:continue`, `/brunch:consult`, and `/brunch:mode` above the editor. |
+| Cancelled declared continuation remains recoverable and closes once | met | Inner: `exchanges-present-request.test.ts` “keeps a declared continuation resumable after cancelled or unavailable terminals”; middle: structured-exchange recovery/projection suites from implementation commit `daba4cda`; live TUI 2026-07-14 re-presented the picker via `/brunch:continue` and completed the answer. |
+| Repeated cancellations do not persist or accumulate footer chrome | met | Live TUI 2026-07-14 showed no lingering or accumulated footer message after recovery or repeated cancellation. |
+
+Skipped-test-count delta vs parent of implementation commit `daba4cda`: 0.
+
 ### Expected touched paths (tentative)
 
 ```text
@@ -70,7 +81,7 @@ src/probes/__tests__/
 TESTING_FINDINGS.md                              ~
 ```
 
-## Card 2 · Elide repeated offer pretext from the live ask — `queued`
+## Card 2 · Elide repeated offer pretext from the live ask — `next`
 
 ### Target Behavior
 

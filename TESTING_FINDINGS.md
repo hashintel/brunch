@@ -269,13 +269,13 @@ Evidence: [`testing/walkthroughs/2026-07-14/remediations-3a.md`](testing/walkthr
 
 Checkpoint state: paused after Session B beats 1–3. Restack completed 2026-07-14; the five incorporated FE-1196 commits affect posture establishment/seed wiring, not exchanges, chrome, digest/review conduct, or the tripwire. Read-only reconciliation against the two actual session JSONLs below resolved the mechanical questions that did not require another live run.
 
-#### R5 · exchange recovery chrome · high · open
+#### R5 · exchange recovery chrome · high · fixed
 
 Concern: standalone-ask cancellation guidance.
-Evidence: `remediations-3a.md` §1, screenshot `post-ask-cancellation`.
+Evidence: `remediations-3a.md` §1, screenshot `post-ask-cancellation`; implementation commit `daba4cda`; user-confirmed live TUI walkthrough on 2026-07-14.
 Observation: root Escape cancelled the ask, but recovery guidance rendered as footer status rather than an above-editor notification. The status survived a new user turn, and cancelling a later ask appended a second, differently worded notice instead of replacing or clearing the first.
 Expected: completed cancellation guidance uses `ctx.ui.notify`; it is noticeable without becoming persistent chrome, does not survive unrelated turns, and repeated cancellations do not accumulate inconsistent messages.
-Disposition: implementation built on FE-1187 — `memory/cards/walkthrough-remediation-2--exchange-continuation-chrome.md` Card 1 replaces the persistent standalone/continuation status entries with transient notifications while preserving resumability. Outer re-observation remains owned by Card 1: re-enter before Card 2 at the R5 live TUI beat and confirm guidance appears above the editor, does not survive the next user turn, and repeated cancellations do not accumulate.
+Disposition: fixed — commit `daba4cda` replaces persistent standalone/continuation status entries with transient notifications. Inner oracles in `exchanges-present-request.test.ts` prove standalone guidance names `/brunch:consult` and `/brunch:mode` without `/brunch:continue`, declared-continuation guidance names all three recovery commands, neither path publishes footer status, and cancelled continuations remain recoverable; middle structured-exchange recovery/projection suites preserve one-close transcript semantics. In the 2026-07-14 user-present live TUI walkthrough, both notifications appeared above the editor with the expected command sets, no cancellation status survived an ordinary new turn, `/brunch:continue` re-presented and completed the declared continuation, and repeated cancellation produced no lingering or accumulated footer entries.
 
 #### R6 · exchange terminal and error rendering · high · open
 
