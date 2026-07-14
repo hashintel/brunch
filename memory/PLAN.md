@@ -88,11 +88,6 @@ Close the entire first batch of walkthrough-related findings: remediation, the o
 
 Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md).
 
-### Next — standalone web closure
-
-- `multi-session-web-concurrency` — retire A42-L with two simultaneously live targeted sessions, interleaved streams/asks, isolated JSONL/runtime state, and shared graph-command pressure. Blocked on `standalone-web-session-host`.
-- `web-session-presentation-coverage` — wait-gated coverage frontier over the code-owned product-visible transcript family inventory. Begins only after the tracer establishes D128-L's shared semantic projection and proves one `ask` row; definition below.
-
 ### Next — Group 3 · agent layer
 
 - `develop-mode` — third operational mode `develop` / `engineer` agent, **built flag-gated** (create the mode; enable only behind a flag). **Authority model settled 2026-07-13: not a contract-breaker** — `develop` sits at the same concentric visibility/authority tier as `execute`; `engineer` is simply not constrained by the executor's workflow (no `execute_*` lifecycle obligations), and is initially just a Brunch-aware coding assistant. Entry remains a SPEC revision (D98-L "two modes only", the D40-L matrix row at the execute tier, per-mode kick/consult-suppression axis), but no authority-model redesign is needed. Cost read revised: mechanical ≈ a day + prompt/conduct work. The `develop` CLI subcommand name is already reserved by `cli-mode-entry`.
@@ -400,10 +395,10 @@ streams:
   LN — product/elicitation surfaces
   KA — Kostandin: executor / orchestrator / Execute mode / plan plane
 
-standalone-web (Active priority):
-  standalone-web-session-host
-    -[hard]-> multi-session-web-concurrency
-    -[hard]-> web-session-presentation-coverage
+standalone-web (Active arc; tracer complete, follow-ons ready):
+  standalone-web-session-host (✓ completed 2026-07-14)
+    -[hard]-> multi-session-web-concurrency (ready)
+    -[hard]-> web-session-presentation-coverage (ready)
   tracer retires: A43-L one-session path
   concurrency retires: A42-L
   arc closes: I64-L + I65-L breadth and topology reconciliation
