@@ -14,6 +14,7 @@ import {
   createFakeTestRunnerPort,
 } from '../../executor/__tests__/fake-ports.js';
 import type { ExecutionPorts } from '../../executor/execution-ports.js';
+import { readRunDetail } from '../../executor/observer-read.js';
 import {
   drive,
   frontierFiringPolicy,
@@ -27,6 +28,7 @@ import {
   readPetriJournal,
   subscribePetriEvents,
 } from '../../executor/petri-events.js';
+import { readPetriMarkingSnapshot } from '../../executor/petri-marking.js';
 import { preparePetriObservation } from '../../executor/petri.js';
 import { planFilePath } from '../../executor/plan-file.js';
 import { abandonRun } from '../../executor/run-abandon.js';
@@ -1118,12 +1120,15 @@ describe('web host', () => {
       planFilePath(cwd, '42'),
       JSON.stringify({
         mode: 'greenfield',
-        slices: ['S3', 'S4', 'S5'].map((id) => ({
-          id,
-          definition: id,
-          depends_on: [],
-          verification: [],
-        })),
+        slices: [
+          { id: 'S2', definition: 'serial predecessor', depends_on: [], verification: [] },
+          ...['S3', 'S4', 'S5'].map((id) => ({
+            id,
+            definition: id,
+            depends_on: ['S2'],
+            verification: [],
+          })),
+        ],
       }),
       'utf8',
     );
@@ -1142,8 +1147,9 @@ describe('web host', () => {
           async run(args) {
             return {
               status: 'completed',
-              verdict: args.worktreeDir.includes('/S5/') ? 'passed' : 'failed',
-              exitCode: args.worktreeDir.includes('/S5/') ? 0 : 1,
+              verdict:
+                args.worktreeDir.includes('/S2/') || args.worktreeDir.includes('/S5/') ? 'passed' : 'failed',
+              exitCode: args.worktreeDir.includes('/S2/') || args.worktreeDir.includes('/S5/') ? 0 : 1,
             };
           },
         },
@@ -1194,16 +1200,60 @@ describe('web host', () => {
       expect(firings).not.toContain('slice_integrate:S3');
       expect(firings).not.toContain('slice_integrate:S4');
       expect(firings).toContain('slice_integrate:S5');
-      await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+      const run = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+      expect(run).toMatchObject({
         status: 'slice_completed',
         failedSliceIds: ['S3', 'S4'],
-        completedSliceIds: ['S5'],
+        completedSliceIds: ['S2', 'S5'],
         sliceAttemptHistory: {
           S3: { verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'failed' }] },
           S4: { verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'failed' }] },
           S5: { verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'passed' }] },
         },
       });
+      for (const field of [
+        'activeSliceId',
+        'activeEpicId',
+        'activeSliceWorkspaceDir',
+        'activeSliceBaseSha',
+        'sliceExecutionRequestPath',
+        'agentResultPath',
+      ]) {
+        expect(run).not.toHaveProperty(field);
+      }
+      const marking = await readPetriMarkingSnapshot({ cwd, runId: 'run-1' });
+      expect(marking).toMatchObject({
+        currentMarking: {
+          'slice:S3:verification_failed': 1,
+          'slice:S4:verification_failed': 1,
+          'slice:S5:completed': 1,
+        },
+        lifecycleProvenance: {
+          runStatus: 'slice_completed',
+          completedSliceIds: ['S2', 'S5'],
+        },
+        terminalEventKind: 'net_halted',
+        haltedReason: 'slice_verification_not_passed',
+        failedSliceIds: ['S3', 'S4'],
+      });
+      expect(marking?.lifecycleProvenance).not.toHaveProperty('activeSliceId');
+      const detail = await readRunDetail(cwd, 'run-1');
+      expect(detail).toMatchObject({
+        status: 'slice_completed',
+        completedSliceIds: ['S2', 'S5'],
+        failedSliceIds: ['S3', 'S4'],
+        petriProjection: {
+          currentMarking: {
+            'slice:S3:verification_failed': 1,
+            'slice:S4:verification_failed': 1,
+            'slice:S5:completed': 1,
+          },
+          terminalEventKind: 'net_halted',
+          haltedReason: 'slice_verification_not_passed',
+          failedSliceIds: ['S3', 'S4'],
+        },
+      });
+      expect(detail).not.toHaveProperty('activeSliceId');
       expect(frames.filter((frame) => frame.event === 'status').at(-1)?.data).toEqual({
         state: 'halted',
         failedSliceIds: ['S3', 'S4'],
@@ -1214,6 +1264,31 @@ describe('web host', () => {
         failedSliceIds: ['S3', 'S4'],
         reason: 'slice_verification_not_passed',
       });
+
+      const durableBeforeRestart = await readFile(petriEventsPath(cwd, 'run-1'), 'utf8');
+      await expect(
+        drive({ cwd, runId: 'run-1', ports }, petriScheduler, frontierFiringPolicy),
+      ).resolves.toEqual({
+        status: 'halted',
+        step: 'test_result',
+        runStatus: 'slice_completed',
+        reason: 'slice_verification_not_passed',
+      });
+      await expect(readFile(petriEventsPath(cwd, 'run-1'), 'utf8')).resolves.toBe(durableBeforeRestart);
+      await expect(readRunDetail(cwd, 'run-1')).resolves.toEqual(detail);
+      const reconnectFrames = parseSse(await text(await fetch(`${host.url}/petrinaut/stream?runId=run-1`)));
+      expect(reconnectFrames.filter((frame) => frame.event === 'transition_firing')).toEqual(
+        frames.filter((frame) => frame.event === 'transition_firing'),
+      );
+      expect(reconnectFrames[0]).toEqual({
+        event: 'status',
+        data: {
+          state: 'halted',
+          failedSliceIds: ['S3', 'S4'],
+          reason: 'slice_verification_not_passed',
+        },
+      });
+      expect(reconnectFrames.at(-1)).toEqual(frames.at(-1));
     } finally {
       await host.close();
     }

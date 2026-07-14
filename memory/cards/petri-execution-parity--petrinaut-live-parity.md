@@ -83,6 +83,37 @@ Petrinaut receives a compact deterministic execution-oriented projection while r
 
 Skipped-test delta versus parent: `0`.
 
+## Slice 4 — Parallel runtime-state parity
+
+Status: done
+
+### Target Behavior
+
+Parallel admission retires stale serial slice identity before effects, and mixed terminal state remains identical across authoritative artifacts, restart, and reconnect.
+
+### Acceptance Criteria
+
+✓ admission clears serial active slice/epic, workspace/base, request, and result fields before parallel effects.
+✓ summary and marking provenance advance in authority order without clearing failure-place tokens.
+✓ failed slice ids are deduplicated in claim order.
+✓ mixed S3/S4 verification failures plus S5 success agree across `run.json`, marking, `PetriProjection`, live terminal frames, restart, and reconnect.
+
+### Evidence
+
+- `src/rpc/__tests__/web-host.test.ts` drives serial S2 into parallel S3/S4/S5, asserts the exact cleared summary, completed and failed ids, authoritative marking/provenance and failure tokens, then proves restart adds no journal event and reconnect preserves firings plus terminal evidence.
+- Focused executor Petri/orchestrate/observer and RPC execute/web-host suites pass.
+
+### Completion Report
+
+| Leaf | Outcome | Evidence |
+| --- | --- | --- |
+| clear stale serial fields before effects | met | mixed S2 → S3/S4/S5 web-host regression |
+| preserve authority order and failure tokens | met | exact marking/provenance and failure-place assertions |
+| deduplicate failures in claim order | met | exact `['S3', 'S4']` summary, snapshot, projection, and frame assertions |
+| restart/reconnect consistency | met | unchanged journal/detail after restart; reconnect firing/terminal equality |
+
+Skipped-test delta versus parent: `0`.
+
 ## Verification
 
 - Focused: executor Petri/replay/orchestrate + web-host live/reconnect + RPC schema suites.

@@ -34,9 +34,15 @@ export async function executeParallelSliceBatch(
   const { ctx, plan, runtime } = args;
   const claimedSliceIds = args.steps.map((step) => step.sliceId);
   const settlements = new Map<string, ParallelSliceSettlement>();
+  const admittedState = parallelBatchRunSummary(args.state);
+  try {
+    await persistRunMetadata(runMetadataPath(ctx.cwd, ctx.runId), admittedState);
+  } catch (error) {
+    return authorityFailure(args.state.status, error);
+  }
   const authority = createBatchAuthority({
     ctx,
-    state: args.state,
+    state: admittedState,
     topology: runtime.topology,
     currentMarking: runtime.currentMarking,
     firedTransitionCount: projectExecutorPetriTransitionHistory(args.state, plan)?.transitionIds.length ?? 0,
@@ -69,7 +75,7 @@ export async function executeParallelSliceBatch(
 
   const effects = args.steps.map(async (step) => {
     try {
-      const result = await executeIsolatedSlice({ ctx, state: args.state, plan, step, authority });
+      const result = await executeIsolatedSlice({ ctx, state: admittedState, plan, step, authority });
       settlements.set(
         step.sliceId,
         result.status === 'succeeded'
@@ -94,7 +100,7 @@ export async function executeParallelSliceBatch(
     }
   });
 
-  let summary = args.state;
+  let summary = admittedState;
   let halt: SliceEffectFailure | undefined;
   try {
     for (const [index, sliceId] of claimedSliceIds.entries()) {
@@ -244,17 +250,33 @@ function updateRunSummary(
 }
 
 function recordSliceEffectSummary(summary: RunMetadata, result: SliceEffectResult): RunMetadata {
-  return {
+  const withHistory = {
     ...summary,
     sliceAttemptHistory: mergeAttemptHistory(summary.sliceAttemptHistory, result.attemptHistory),
-    ...(result.status === 'failed'
-      ? { failedSliceIds: [...(summary.failedSliceIds ?? []), result.sliceId] }
-      : {}),
   };
+  return result.status === 'failed' ? recordFailedSliceSummary(withHistory, result.sliceId) : withHistory;
 }
 
 function recordFailedSliceSummary(summary: RunMetadata, sliceId: string): RunMetadata {
   return summary.failedSliceIds?.includes(sliceId)
     ? summary
     : { ...summary, failedSliceIds: [...(summary.failedSliceIds ?? []), sliceId] };
+}
+
+function parallelBatchRunSummary(metadata: RunMetadata): RunMetadata {
+  const {
+    activeSliceId: _activeSliceId,
+    activeEpicId: _activeEpicId,
+    activeSliceWorkspaceDir: _activeSliceWorkspaceDir,
+    activeSliceBaseSha: _activeSliceBaseSha,
+    sliceExecutionRequestPath: _sliceExecutionRequestPath,
+    agentResultPath: _agentResultPath,
+    ...summary
+  } = metadata;
+  return {
+    ...summary,
+    ...(summary.failedSliceIds === undefined
+      ? {}
+      : { failedSliceIds: Array.from(new Set(summary.failedSliceIds)) }),
+  };
 }

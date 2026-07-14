@@ -449,6 +449,12 @@ async function driveOwned(
       }
     }
     if (state.status !== 'abandoned') {
+      const persistedParallelTerminal = persistedParallelTerminalOutcome({
+        state,
+        journal,
+        snapshot: authoritySnapshot,
+      });
+      if (persistedParallelTerminal) return persistedParallelTerminal;
       const parityFailure = transitionParityFailure({ journal, authoritySnapshot });
       if (parityFailure) {
         publishPetriJournalFailure(ctx);
@@ -920,6 +926,43 @@ function transitionParityFailure(args: {
   const epicAuthority =
     journalAhead.length > 0 && journalAhead.every((transitionId) => transitionedEpicIds.has(transitionId));
   return parallelAuthority || epicAuthority ? undefined : 'petri_input_unreadable';
+}
+
+function persistedParallelTerminalOutcome(args: {
+  readonly state: RunMetadata;
+  readonly journal: PetriJournalAuthorityInspection;
+  readonly snapshot: PetriMarkingSnapshot | undefined;
+}): DriveOutcome | undefined {
+  const { journal, snapshot, state } = args;
+  if (
+    journal.status !== 'readable' ||
+    snapshot?.parallelSliceBatch === undefined ||
+    snapshot.terminalEventKind !== 'net_halted' ||
+    snapshot.lifecycleProvenance?.runStatus !== state.status ||
+    snapshot.lifecycleProvenance.activeSliceId !== state.activeSliceId ||
+    !stringArraysEqual(snapshot.lifecycleProvenance.completedSliceIds ?? [], state.completedSliceIds ?? [])
+  ) {
+    return undefined;
+  }
+  const terminal = journal.events.flatMap((event) => (event.kind === 'net_halted' ? [event] : [])).at(-1);
+  if (
+    terminal === undefined ||
+    terminal.step === undefined ||
+    terminal.reason === undefined ||
+    terminal.ts !== snapshot.terminalTs ||
+    terminal.reason !== snapshot.haltedReason ||
+    terminal.runStatus !== state.status ||
+    !stringArraysEqual(terminal.failedSliceIds, snapshot.failedSliceIds ?? []) ||
+    !stringArraysEqual(terminal.failedSliceIds, state.failedSliceIds ?? [])
+  ) {
+    return undefined;
+  }
+  return {
+    status: 'halted',
+    step: terminal.step,
+    runStatus: terminal.runStatus,
+    reason: terminal.reason,
+  };
 }
 
 function serialThrowKind(step: ReadyStep['kind']): string {

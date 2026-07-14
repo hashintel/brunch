@@ -184,9 +184,17 @@ export function createBatchAuthority(args: {
     halt(step, reason) {
       return enqueue(async () => {
         try {
-          const failedSliceIds = (batch?.settlements ?? []).flatMap((settlement) =>
-            settlement.status === 'failed' ? [settlement.sliceId] : [],
-          );
+          const claimedSliceIds = batch?.claimedSliceIds ?? [];
+          const failed = new Set([
+            ...(state.failedSliceIds ?? []),
+            ...(batch?.settlements ?? []).flatMap((settlement) =>
+              settlement.status === 'failed' ? [settlement.sliceId] : [],
+            ),
+          ]);
+          const failedSliceIds = [
+            ...new Set((state.failedSliceIds ?? []).filter((sliceId) => !claimedSliceIds.includes(sliceId))),
+            ...claimedSliceIds.filter((sliceId) => failed.has(sliceId)),
+          ];
           const terminal = await appendPetriEvent({
             cwd: args.ctx.cwd,
             runId: args.ctx.runId,
