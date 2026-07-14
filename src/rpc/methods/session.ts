@@ -462,18 +462,29 @@ async function handleTriggerExchange(
     });
   }
 
-  const specReads = (await options.getGraphRuntime()).forSpec(existingTarget.envelope.binding.specId);
+  const runtime = await options.getGraphRuntime();
+  const specId = existingTarget.envelope.binding.specId;
+  const specRecord = runtime.commandExecutor.getSpec(specId);
   const manager = state.session.manager;
   // Kick surface (D49-L revised 2026-06-12): origination seeds context; the
   // product mints no exchange. A pending exchange exists only when the
   // assistant has created one — in transports without a live agent session
   // this legitimately reports idle.
   originateAssistantTurn({
-    specId: existingTarget.envelope.binding.specId,
-    reads: specReads,
+    specId,
+    reads: runtime.forSpec(specId),
     entries: existingTarget.envelope.entries,
     resumeOrigin: 'manual_trigger',
     workspaceContext: await renderWorkspaceOverviewContext(options.cwd),
+    ...(specRecord
+      ? {
+          posture: {
+            kind: specRecord.kind,
+            origin: specRecord.origin,
+            relatesToSpecId: specRecord.relatesToSpecId,
+          },
+        }
+      : {}),
     manager,
   });
   flushSessionManagerToFile(manager, state.session.file);

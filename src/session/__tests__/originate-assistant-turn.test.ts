@@ -148,6 +148,40 @@ describe('originateAssistantTurn', () => {
     expect(String(seed?.content)).toContain('chosen: ingest');
   });
 
+  it('folds established spec posture into the seed content (D118-L kick reader)', () => {
+    const manager = fakeManager();
+    originateAssistantTurn({
+      specId,
+      reads: reads(2),
+      entries: [],
+      resumeOrigin: 'resume_debt',
+      workspaceContext: '',
+      manager,
+      posture: { kind: 'feature', origin: 'brownfield', relatesToSpecId: null },
+    });
+
+    const seed = manager.appended.find((entry) => entry.customType === 'brunch.context_seed');
+    expect(String(seed?.content)).toContain('SPEC POSTURE');
+    expect(String(seed?.content)).toContain('kind: feature');
+    expect(String(seed?.content)).toContain('origin: brownfield');
+  });
+
+  it('renders no posture section when posture is unestablished (origin null)', () => {
+    const manager = fakeManager();
+    originateAssistantTurn({
+      specId,
+      reads: reads(2),
+      entries: [],
+      resumeOrigin: 'resume_debt',
+      workspaceContext: '',
+      manager,
+      posture: { kind: 'product', origin: null, relatesToSpecId: null },
+    });
+
+    const seed = manager.appended.find((entry) => entry.customType === 'brunch.context_seed');
+    expect(String(seed?.content)).not.toContain('SPEC POSTURE');
+  });
+
   it('renders no orientation section for a fresh dismissed choice (inert dismissal)', () => {
     const manager = fakeManager();
     const entries = [

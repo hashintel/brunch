@@ -185,6 +185,26 @@ describe('runOrientationJuncture', () => {
       expect(String(seed.content)).toContain('chosen: ingest');
     });
 
+    it('folds the kick deps posture into the delivered seed (D118-L kick reader wiring)', async () => {
+      const manager = fakeSessionManager();
+      const { deps, sent } = fakeKickDeps({
+        posture: { kind: 'feature', origin: 'brownfield', relatesToSpecId: null },
+      });
+
+      await runOrientationJuncture({
+        hasUI: true,
+        ui: fakeUi(labelFor('ingest')),
+        trigger: 'consult',
+        sessionManager: manager,
+        mode: 'follow-choice',
+        kick: deps,
+      });
+
+      const { seed } = expectSeedThenKick(sent);
+      expect(String(seed.content)).toContain('SPEC POSTURE');
+      expect(String(seed.content)).toContain('origin: brownfield');
+    });
+
     it('skips the kick when the choice is continue', async () => {
       const manager = fakeSessionManager();
       const { deps, sent } = fakeKickDeps();

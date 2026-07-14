@@ -17,7 +17,10 @@
  * seed.
  */
 
-import { composeContextSeedContent } from '../agents/contexts/seeds/origination.js';
+import {
+  composeContextSeedContent,
+  type SpecPostureSeedInput,
+} from '../agents/contexts/seeds/origination.js';
 import type { GraphSlice } from '../graph/index.js';
 import {
   isContextSeedEntry,
@@ -51,6 +54,13 @@ export interface OriginateAssistantTurnInput {
    * seed carries the workspace section (D78-L revised 2026-06-12).
    */
   readonly workspaceContext: string;
+  /**
+   * The spec's posture row (D118-L) for the seed's SPEC POSTURE section.
+   * Callers with a spec read pass it; the section is omitted when absent or
+   * unestablished (`origin: null`), mirroring the seed's omit-rather-than-
+   * blank convention.
+   */
+  readonly posture?: SpecPostureSeedInput;
   readonly manager: OriginationManager;
   /**
    * Bypass the assistant-visible watermark gate on the seed entry. Set for
@@ -220,6 +230,7 @@ export function originateAssistantTurn(input: OriginateAssistantTurnInput): Orig
       scratchpad: latestElicitationScratchpad(input.entries),
       workspaceContext: input.workspaceContext,
       ...(orientation ? { orientation } : {}),
+      ...(input.posture ? { posture: input.posture } : {}),
     }),
   });
 

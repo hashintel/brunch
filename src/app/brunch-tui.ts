@@ -589,14 +589,23 @@ export function createBrunchAgentSessionRuntimeFactory(
                 const session = liveAgentSession.current;
                 if (!session) return undefined;
                 const specId = currentWorkspace.spec.id;
-                const specName = graph.commandExecutor.getSpec(specId)?.name;
+                const specRecord = graph.commandExecutor.getSpec(specId);
                 const kickUi = session.createReplacedSessionContext().ui;
                 const kickSendChain = createKickSendSerialChain();
                 return {
                   specId,
-                  ...(specName ? { specName } : {}),
+                  ...(specRecord?.name ? { specName: specRecord.name } : {}),
                   reads: graph.forSpec(specId),
                   workspaceContext: await renderWorkspaceOverviewContext(cwd),
+                  ...(specRecord
+                    ? {
+                        posture: {
+                          kind: specRecord.kind,
+                          origin: specRecord.origin,
+                          relatesToSpecId: specRecord.relatesToSpecId,
+                        },
+                      }
+                    : {}),
                   // Deferred fire-and-forget — see `scheduleKickSend` for why
                   // awaiting the turn here would park the TUI unsubscribed.
                   sendCustomMessage: (message, sendOptions) =>

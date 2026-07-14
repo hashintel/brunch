@@ -35,6 +35,7 @@ import type {
   SessionManager,
 } from '@earendil-works/pi-coding-agent';
 
+import type { SpecPostureSeedInput } from '../../../agents/contexts/seeds/origination.js';
 import {
   CONTEXT_SEED_CUSTOM_TYPE,
   customEntryType,
@@ -100,6 +101,8 @@ export interface LiveKickDeps {
   readonly specName?: string;
   readonly reads: OriginationReads;
   readonly workspaceContext: string;
+  /** The spec's posture row (D118-L) for the seed's SPEC POSTURE section. */
+  readonly posture?: SpecPostureSeedInput;
   readonly modelAvailable: boolean;
   /** ExtensionAPI/ReplacedSessionContext-style `sendMessage` handle. */
   readonly sendCustomMessage: (
@@ -406,6 +409,7 @@ async function originateAndKick(
     entries,
     resumeOrigin: options.resumeOrigin,
     workspaceContext: kick.workspaceContext,
+    ...(kick.posture ? { posture: kick.posture } : {}),
     manager: sessionManager,
     appendSeed: false,
     ...(options.forceSeed ? { forceSeed: true } : {}),
