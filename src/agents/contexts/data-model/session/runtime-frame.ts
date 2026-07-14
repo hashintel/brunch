@@ -5,7 +5,7 @@ export type SessionRuntimeFrameRenderInput =
   | RuntimeStateProjection
   | {
       status: 'not_ready';
-      reason: 'missing_session_header' | 'missing_binding' | 'non_linear';
+      reason: 'missing_session_header' | 'missing_binding';
       sessionId: string | null;
     };
 

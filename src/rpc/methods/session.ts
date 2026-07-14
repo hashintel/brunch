@@ -901,7 +901,6 @@ async function selectedSessionFile(state: WorkspaceSessionState): Promise<Sessio
   return {
     ok: true,
     envelope: readResult.envelope,
-    nonLinearMessage: 'Selected Brunch session transcript is non-linear',
   };
 }
 
