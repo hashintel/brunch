@@ -6,14 +6,14 @@ import type {
   SpecSessionActivationDecision,
 } from '../../../session/workspace-session-coordinator.js';
 
-/**
- * A resume-shaped decision held while the D118-L establishment stages run for
- * a posture-unestablished spec; fires with the confirmed `establish` payload.
- */
+/** An activation held while the shared D118-L establishment stages run. */
 type ResumableActivationDecision = Extract<
   SpecSessionActivationDecision,
   { action: 'continue' | 'openSession' | 'newSession' }
 >;
+type PendingActivationAction =
+  | Extract<SpecSessionActivationDecision, { action: 'newSpec' }>
+  | ResumableActivationDecision;
 
 export type WorkspaceSelectionStage =
   | { stage: 'home' }
@@ -23,24 +23,13 @@ export type WorkspaceSelectionStage =
     }
   /** D118-L establishment: populated cwd asks kind before confirming origin. */
   | {
-      stage: 'newSpecKind';
-      title: string;
+      stage: 'establishmentKind';
+      pending: PendingActivationAction;
     }
-  /** D118-L establishment: the terminal ask/confirm before the newSpec decision fires. */
+  /** D118-L establishment: the terminal ask/confirm before activation fires. */
   | {
-      stage: 'newSpecOrigin';
-      title: string;
-      kind?: SpecKind;
-    }
-  /** D118-L resume half: kind ask interposed before an unestablished spec resumes. */
-  | {
-      stage: 'resumeSpecKind';
-      resume: ResumableActivationDecision;
-    }
-  /** D118-L resume half: the origin confirm before the held resume decision fires. */
-  | {
-      stage: 'resumeSpecOrigin';
-      resume: ResumableActivationDecision;
+      stage: 'establishmentOrigin';
+      pending: PendingActivationAction;
       kind?: SpecKind;
     }
   | { stage: 'specList' }
@@ -106,7 +95,10 @@ export function nextStageAfterTitle(
     currentOrigin: null,
     workspacePopulated: inventory.workspacePopulated ?? false,
   });
-  return asks[0] === 'confirmKind' ? { stage: 'newSpecKind', title } : { stage: 'newSpecOrigin', title };
+  const pending = { action: 'newSpec', title } as const;
+  return asks[0] === 'confirmKind'
+    ? { stage: 'establishmentKind', pending }
+    : { stage: 'establishmentOrigin', pending };
 }
 
 const SPEC_KIND_LABELS: Record<SpecKind, string> = {
@@ -167,9 +159,20 @@ function resumeRouting(
   return {
     nextStage:
       asks[0] === 'confirmKind'
-        ? { stage: 'resumeSpecKind', resume: decision }
-        : { stage: 'resumeSpecOrigin', resume: decision },
+        ? { stage: 'establishmentKind', pending: decision }
+        : { stage: 'establishmentOrigin', pending: decision },
   };
+}
+
+function establishedDecision(
+  pending: PendingActivationAction,
+  kind: SpecKind | undefined,
+  origin: SpecOrigin,
+): SpecSessionActivationDecision {
+  if (pending.action === 'newSpec') {
+    return { ...pending, ...(kind ? { kind } : {}), origin };
+  }
+  return { ...pending, establish: { origin, ...(kind ? { kind } : {}) } };
 }
 
 export function buildWorkspaceSelectionView(
@@ -185,51 +188,25 @@ export function buildWorkspaceSelectionView(
     };
   }
 
-  if (stage.stage === 'newSpecKind') {
+  if (stage.stage === 'establishmentKind') {
     return {
-      stage: 'newSpecKind',
+      stage: 'establishmentKind',
       title: 'What does this specification own?',
       options: SPEC_KINDS.map((kind) => ({
         id: `establish-kind:${kind}`,
         label: SPEC_KIND_LABELS[kind],
         kind: 'establishKind',
-        nextStage: { stage: 'newSpecOrigin', title: stage.title, kind },
+        nextStage: { stage: 'establishmentOrigin', pending: stage.pending, kind },
       })),
     };
   }
 
-  if (stage.stage === 'newSpecOrigin') {
+  if (stage.stage === 'establishmentOrigin') {
     return {
-      stage: 'newSpecOrigin',
-      ...originConfirmViewParts(inventory, (origin) => ({
-        action: 'newSpec',
-        title: stage.title,
-        ...(stage.kind ? { kind: stage.kind } : {}),
-        origin,
-      })),
-    };
-  }
-
-  if (stage.stage === 'resumeSpecKind') {
-    return {
-      stage: 'resumeSpecKind',
-      title: 'What does this specification own?',
-      options: SPEC_KINDS.map((kind) => ({
-        id: `establish-kind:${kind}`,
-        label: SPEC_KIND_LABELS[kind],
-        kind: 'establishKind',
-        nextStage: { stage: 'resumeSpecOrigin', resume: stage.resume, kind },
-      })),
-    };
-  }
-
-  if (stage.stage === 'resumeSpecOrigin') {
-    return {
-      stage: 'resumeSpecOrigin',
-      ...originConfirmViewParts(inventory, (origin) => ({
-        ...stage.resume,
-        establish: { origin, ...(stage.kind ? { kind: stage.kind } : {}) },
-      })),
+      stage: 'establishmentOrigin',
+      ...originConfirmViewParts(inventory, (origin) =>
+        establishedDecision(stage.pending, stage.kind, origin),
+      ),
     };
   }
 
