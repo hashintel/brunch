@@ -328,13 +328,24 @@ Observation: after a long wait, one 17-node/11-edge review set overwhelmed the T
 Expected: large capture does not require the user to inspect an unmanageably long TUI review set; one accepted proposal has honest authority and receipt semantics, and settlement differences are visible before acceptance rather than discovered through post-accept mutation splitting.
 Disposition: open product/visual design owned by FE-1187. Preserve D27-L atomic review-set semantics; route compact large-capture presentation and mixed-settlement proposal shape through `ln-design` before build.
 
-#### R11 · scratchpad disclosure · high · open
+#### R11 · scratchpad disclosure · high · fixed
 
 Concern: internal narrative obligations exposed in assistant-facing output.
-Evidence: `remediations-3a.md` §3, screenshot `review accepted and persisted`.
+Evidence: `remediations-3a.md` §3, screenshot `review accepted and persisted`; implementation commit `1343a7c4`; user-present authenticated TUI walkthrough on 2026-07-14.
 Observation: after persistence, the assistant listed scratchpad obligations to the user.
-Expected: scratchpad obligations remain internal working notes; if surfaced at all, they appear only in model thinking/debug evidence rather than ordinary user-facing prose.
-Disposition: implementation checkpoint landed on FE-1187 — JSONL shows each scratchpad update returned the full internal ledger and the assistant then summarized it in ordinary prose. The always-on foreground prompt now treats scratchpad obligations as private working state, forbids routine user-facing enumeration, and allows disclosure only on explicit request; the composed live-prompt oracle and existing scratchpad/origination context suites preserve the full provider-visible carrier. R11 remains open pending the card-owned authenticated outer re-observation; owner: FE-1187, re-entry trigger: resume the paused consolidated outer checkpoint and repeat the four-obligation ingest shape.
+Expected: scratchpad obligations remain internal working notes in ordinary user-facing prose while remaining available when the user explicitly asks about them.
+Disposition: fixed — commit `1343a7c4` makes the always-on foreground prompt treat scratchpad obligations as private working state, forbids routine user-facing enumeration, and permits disclosure on explicit request. The composed live-prompt oracle proves that conduct reaches the active foreground agent; the existing scratchpad, origination, and turn-context carrier suites prove the full ledger remains provider-visible without a storage or projection change. In the 2026-07-14 user-present authenticated TUI walkthrough, the assistant carried multiple scratchpad obligations while processing `FOREIGN-SPEC-NOTES.md`, omitted obligation ids and text from its ordinary completion summary, then disclosed/summarized the obligations only after the user explicitly asked what it was carrying.
+
+Completion report:
+
+| Leaf | Outcome | Evidence |
+| ---- | ------- | -------- |
+| Composed foreground prompt keeps obligations private by default and permits explicit-request disclosure | met | Composed live-prompt oracle at implementation commit `1343a7c4`. |
+| Scratchpad remains the provider-visible planning carrier without storage/projection changes | met | Existing scratchpad, origination, and turn-context carrier suites passed at implementation commit `1343a7c4`. |
+| Ordinary completion prose omits obligation ids/text after multiple updates | met | 2026-07-14 authenticated TUI walkthrough while processing `FOREIGN-SPEC-NOTES.md`. |
+| Explicit user request can retrieve an obligation summary | met | Same walkthrough: disclosure occurred only after the user explicitly asked what obligations were being carried. |
+
+Skipped-test-count delta vs parent of implementation commit `1343a7c4`: 0.
 
 #### R12 · model and opening-state chrome · medium · open
 
