@@ -36,9 +36,7 @@ import { withWorkingIndicatorHidden, type StructuredExchangeUiContext } from './
 import { validationFailureResult } from './shared/validation.js';
 
 export const ASK_TOOL = 'ask' as const;
-export { clearContinueHint, collectAskContinuationResponse } from './ask/continuation.js';
-
-const STANDALONE_ASK_STATUS_KEY = 'brunch.ask';
+export { collectAskContinuationResponse } from './ask/continuation.js';
 const CONSULT_COMMAND_HINT = slashCommand(BRUNCH_CONSULT_COMMAND);
 const MODE_COMMAND_HINT = slashCommand(BRUNCH_MODE_COMMAND);
 
@@ -557,15 +555,12 @@ export function collectAskResponse(
   return collectSingleChoice(params, question, ctx, liveAsk);
 }
 
-function reconcileStandaloneAskHint(result: ToolResult, ctx: StructuredExchangeUiContext): void {
-  if ('cancelled' in result.details) {
-    ctx.ui?.setStatus?.(
-      STANDALONE_ASK_STATUS_KEY,
-      `Ask cancelled. Run ${CONSULT_COMMAND_HINT} to choose a next move or ${MODE_COMMAND_HINT} to switch roles.`,
-    );
-  } else if ('answered' in result.details) {
-    ctx.ui?.setStatus?.(STANDALONE_ASK_STATUS_KEY, undefined);
-  }
+function notifyStandaloneAskCancellation(result: ToolResult, ctx: StructuredExchangeUiContext): void {
+  if (!('cancelled' in result.details)) return;
+  ctx.ui?.notify?.(
+    `Ask cancelled. Run ${CONSULT_COMMAND_HINT} to choose a next move or ${MODE_COMMAND_HINT} to switch roles.`,
+    'info',
+  );
 }
 
 export function createAskTool(liveAsk?: LiveAskOpener) {
@@ -596,7 +591,7 @@ export function createAskTool(liveAsk?: LiveAskOpener) {
       const standalone = standaloneAskParams(params);
       const question = askQuestionEcho(standalone);
       const collected = await collectAskResponse(standalone, question, uiCtx, liveAsk);
-      reconcileStandaloneAskHint(collected, uiCtx);
+      notifyStandaloneAskCancellation(collected, uiCtx);
       return collected;
     },
 

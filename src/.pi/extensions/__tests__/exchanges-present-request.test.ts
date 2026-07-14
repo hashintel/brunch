@@ -457,6 +457,7 @@ describe('structured exchange ask tools', () => {
 
   it('records cancellation with terminate, broker fallback, unavailable, and empty-answer discipline', async () => {
     const openAsk = vi.fn(async () => 'Answer collected by broker.');
+    const notify = vi.fn();
     const setStatus = vi.fn();
     const ask = registeredTools({ liveExchange: { openAsk } }).get(ASK_TOOL);
     if (!ask) throw new Error('ask was not registered');
@@ -466,14 +467,14 @@ describe('structured exchange ask tools', () => {
       { exchangeId: 'cancelled', body: 'Cancel?' },
       undefined,
       undefined,
-      { hasUI: true, ui: { custom: customCancel(), setStatus } } as never,
+      { hasUI: true, ui: { custom: customCancel(), notify, setStatus } } as never,
     );
     const brokered = await ask.execute(
       'ask-brokered',
       { exchangeId: 'brokered', body: 'Broker?' },
       undefined,
       undefined,
-      { hasUI: false, ui: { setStatus } } as never,
+      { hasUI: false, ui: { notify, setStatus } } as never,
     );
     const unavailable = await registeredTools()
       .get(ASK_TOOL)!
@@ -490,18 +491,16 @@ describe('structured exchange ask tools', () => {
 
     expect(cancelled.details).toMatchObject({ tool_meta: { curr: ASK_TOOL }, cancelled: {} });
     expect(cancelled.terminate).toBe(true);
-    expect(setStatus).toHaveBeenCalledWith(
-      'brunch.ask',
-      expect.stringMatching(/\/brunch:consult.*\/brunch:mode/),
-    );
-    expect(setStatus).not.toHaveBeenCalledWith('brunch.ask', expect.stringContaining('/brunch:continue'));
+    expect(notify).toHaveBeenCalledWith(expect.stringMatching(/\/brunch:consult.*\/brunch:mode/), 'info');
+    expect(notify).not.toHaveBeenCalledWith(expect.stringContaining('/brunch:continue'), expect.anything());
+    expect(setStatus).not.toHaveBeenCalledWith('brunch.ask', expect.anything());
     expect(openAsk).toHaveBeenCalledWith({
       exchangeId: 'brokered',
       mode: 'text',
       question: { body: 'Broker?' },
     });
     expect(brokered.details).toMatchObject({ answered: { text: 'Answer collected by broker.' } });
-    expect(setStatus).toHaveBeenLastCalledWith('brunch.ask', undefined);
+    expect(setStatus).not.toHaveBeenCalled();
     expect(unavailable.details).toMatchObject({ unavailable: { message: 'ask requires interactive UI' } });
     expect(empty.details).toMatchObject({ unavailable: { message: 'ask answer cannot be empty' } });
   });
@@ -812,7 +811,7 @@ describe('structured exchange ask tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { custom: customCancel(), setStatus: vi.fn() },
+        ui: { custom: customCancel(), notify: vi.fn(), setStatus: vi.fn() },
         sessionManager: { getBranch: () => branchWith(candidates.details) },
       } as never,
     );
@@ -846,12 +845,13 @@ describe('structured exchange ask tools', () => {
     expect(findIncompleteStructuredExchangePresents(branchAfterAnswer)).toHaveLength(0);
   });
 
-  it('surfaces the continue hint on continuation cancel and clears it on a later answer', async () => {
+  it('notifies transient continuation guidance on cancel without publishing footer status', async () => {
     const ask = registeredTools().get(ASK_TOOL);
     if (!ask) throw new Error('ask was not registered');
     const candidates = await presentResult(PRESENT_CANDIDATES_TOOL, candidateParams());
 
-    const cancelStatus = vi.fn();
+    const notify = vi.fn();
+    const setStatus = vi.fn();
     await ask.execute(
       'ask-candidate-cancel-hint',
       { continues: 'candidate-direction' },
@@ -859,13 +859,15 @@ describe('structured exchange ask tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { custom: customCancel(), setStatus: cancelStatus },
+        ui: { custom: customCancel(), notify, setStatus },
         sessionManager: { getBranch: () => branchWith(candidates.details) },
       } as never,
     );
-    expect(cancelStatus).toHaveBeenCalledWith('brunch.continue', expect.stringContaining('/brunch:continue'));
-    expect(cancelStatus).toHaveBeenCalledWith('brunch.continue', expect.stringContaining('/brunch:consult'));
-    expect(cancelStatus).toHaveBeenCalledWith('brunch.continue', expect.stringContaining('/brunch:mode'));
+    expect(notify).toHaveBeenCalledWith(
+      expect.stringMatching(/\/brunch:continue.*\/brunch:consult.*\/brunch:mode/),
+      'info',
+    );
+    expect(setStatus).not.toHaveBeenCalledWith('brunch.continue', expect.anything());
 
     const answerStatus = vi.fn();
     await ask.execute(
@@ -879,7 +881,7 @@ describe('structured exchange ask tools', () => {
         sessionManager: { getBranch: () => branchWith(candidates.details) },
       } as never,
     );
-    expect(answerStatus).toHaveBeenCalledWith('brunch.continue', undefined);
+    expect(answerStatus).not.toHaveBeenCalled();
   });
 
   it('renders present_candidates from validated details and falls back to content for malformed details', async () => {

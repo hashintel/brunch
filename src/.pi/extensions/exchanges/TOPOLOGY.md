@@ -34,18 +34,15 @@ operational-mode color role through the shared component border-color seam;
 workspace/consult surfaces keep their own surface-identity colors. Picker-root
 dismissal is terminal `cancelled`; nested Other/comment input steps share one
 `StepResult`-shaped collector and return to the picker, with multi-choice
-checkbox state restored. Declared-continuation root cancellation contributes a
-`brunch.continue` status hint naming `/brunch:continue`, `/brunch:consult`, and
-`/brunch:mode`; standalone cancellation contributes separate `brunch.ask` user
-guidance naming only `/brunch:consult` and `/brunch:mode`, then clears it on the
-next answered standalone collection. This user guidance is distinct from
-**recovery scan capability**: only declared continuations can be regenerated,
-and only an **answered** terminal completes one in the recovery scan
-(`src/exchanges/recovery.ts`). Cancelled/unavailable continuation results keep
-the offer resumable, so the hint and `ask({ continues })` stay honest after a
-cancel. The continuation collector owns its hint lifecycle — it surfaces the
-hint on cancel and clears it on any answered collection (command-recovered or
-agent-driven).
+checkbox state restored. Declared-continuation root cancellation emits a transient notification naming
+`/brunch:continue`, `/brunch:consult`, and `/brunch:mode`; standalone
+cancellation emits separate transient guidance naming only `/brunch:consult`
+and `/brunch:mode`. Neither path publishes persistent footer status. This user
+guidance is distinct from **recovery scan capability**: only declared
+continuations can be regenerated, and only an **answered** terminal completes
+one in the recovery scan (`src/exchanges/recovery.ts`). Cancelled/unavailable
+continuation results keep the offer resumable, so the notification and
+`ask({ continues })` stay honest after a cancel.
 The command re-presents the newest incomplete declared continuation through the
 same collector. With no interactive UI, asks of every mode (free-text,
 single/multi-select, and the candidate-choice / review declared continuations)

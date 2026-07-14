@@ -514,7 +514,7 @@ describe('Brunch menu command', () => {
     });
   });
 
-  it('re-presents the most recent incomplete structured exchange, records the canonical answer, and clears the continue hint', async () => {
+  it('re-presents the most recent incomplete structured exchange and records the canonical answer without footer status', async () => {
     const harness = commandHarness({
       branch: [
         toolResultEntry({
@@ -543,7 +543,7 @@ describe('Brunch menu command', () => {
     await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
 
     expect(harness.customCalls).toHaveLength(1);
-    expect(harness.statusCalls).toContainEqual({ key: 'brunch.continue', text: undefined });
+    expect(harness.statusCalls).toEqual([]);
     expect(harness.appendedMessages).toEqual([
       expect.objectContaining({
         role: 'assistant',
@@ -564,7 +564,7 @@ describe('Brunch menu command', () => {
     ]);
   });
 
-  it('surfaces a /brunch:continue status hint when ask collection is cancelled', async () => {
+  it('notifies transient recovery guidance when ask collection is cancelled', async () => {
     const harness = commandHarness({
       branch: [
         toolResultEntry({
@@ -592,18 +592,11 @@ describe('Brunch menu command', () => {
 
     await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
 
-    expect(harness.statusCalls).toContainEqual({
-      key: 'brunch.continue',
-      text: expect.stringContaining('/brunch:continue'),
+    expect(harness.notifications).toContainEqual({
+      message: expect.stringMatching(/\/brunch:continue.*\/brunch:consult.*\/brunch:mode/),
+      level: 'info',
     });
-    expect(harness.statusCalls).toContainEqual({
-      key: 'brunch.continue',
-      text: expect.stringContaining('/brunch:consult'),
-    });
-    expect(harness.statusCalls).toContainEqual({
-      key: 'brunch.continue',
-      text: expect.stringContaining('/brunch:mode'),
-    });
+    expect(harness.statusCalls).toEqual([]);
     expect(harness.appendedMessages.at(-1)).toMatchObject({
       role: 'toolResult',
       toolName: 'ask',

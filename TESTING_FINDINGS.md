@@ -267,7 +267,7 @@ Disposition: fixed — resolved 2026-07-14 by user ruling, in the opposite direc
 
 Evidence: [`testing/walkthroughs/2026-07-14/remediations-3a.md`](testing/walkthroughs/2026-07-14/remediations-3a.md) and its referenced screenshots.
 
-Checkpoint state: paused after Session B beats 1–3. The branch stacked beneath this one has newer commits; restack and re-observe affected behavior before diagnosing or scoping corrections. The entries below transcribe the observations without assuming the current branch still reproduces them.
+Checkpoint state: paused after Session B beats 1–3. Restack completed 2026-07-14; the five incorporated FE-1196 commits affect posture establishment/seed wiring, not exchanges, chrome, digest/review conduct, or the tripwire. Read-only reconciliation against the two actual session JSONLs below resolved the mechanical questions that did not require another live run.
 
 #### R5 · exchange recovery chrome · high · open
 
@@ -275,15 +275,15 @@ Concern: standalone-ask cancellation guidance.
 Evidence: `remediations-3a.md` §1, screenshot `post-ask-cancellation`.
 Observation: root Escape cancelled the ask, but recovery guidance rendered as footer status rather than an above-editor notification. The status survived a new user turn, and cancelling a later ask appended a second, differently worded notice instead of replacing or clearing the first.
 Expected: completed cancellation guidance uses `ctx.ui.notify`; it is noticeable without becoming persistent chrome, does not survive unrelated turns, and repeated cancellations do not accumulate inconsistent messages.
-Disposition: open on FE-1187; re-observe after restack, then diagnose the standalone/continuation status-key lifecycle if it remains.
+Disposition: implementation built on FE-1187 — `memory/cards/walkthrough-remediation-2--exchange-continuation-chrome.md` Card 1 replaces the persistent standalone/continuation status entries with transient notifications while preserving resumability. Outer re-observation remains owned by Card 1: re-enter before Card 2 at the R5 live TUI beat and confirm guidance appears above the editor, does not survive the next user turn, and repeated cancellations do not accumulate.
 
 #### R6 · exchange terminal and error rendering · high · open
 
 Concern: cancelled and invalid structured-exchange tool results.
-Evidence: `remediations-3a.md` §§1–2 and screenshots.
-Observation: the cancelled `ask` terminal did not read as an intentionally cancelled exchange, and invalid-input tool-call errors appeared during both the cancellation and offer/ask beats.
-Expected: cancelled, unavailable, answered, and invalid tool results have deliberately distinct, compact `content`/`result` rendering; validation failures are legible without looking like raw or incidental tool errors.
-Disposition: open on FE-1187; after restack, preserve the exact failing tool calls from session JSONL and separate a rendering defect from malformed provider arguments before scoping.
+Evidence: `remediations-3a.md` §§1–2 and screenshots; actual session JSONLs `2026-07-14T08-29-24-216Z_…` and `2026-07-14T08-45-39-646Z_…` under the `workspace-alpha-grounding` workbench.
+Observation: the cancelled `ask` terminal did not read as an intentionally cancelled exchange. The invalid-input errors were diagnosed separately: the model authored reserved option id `other` while enabling `allowOther`, then twice supplied body/options fields that D116-L continuing asks must inherit from the referenced offer. The adapter correctly returned themed `TOOL_INPUT_INVALID` results; this was not raw renderer corruption.
+Expected: cancelled, unavailable, answered, and validation-failed results have deliberately distinct compact rendering; malformed provider arguments remain legible without being mistaken for product failure.
+Disposition: rendering design remains open on FE-1187; the malformed-call cause is diagnosed and needs no schema relaxation. Route the four-state visual treatment through `ln-design` before build.
 
 #### R7 · offer continuation rendering · high · open
 
@@ -291,15 +291,15 @@ Concern: `present_*` → continuing `ask` non-repetition.
 Evidence: `remediations-3a.md` §2, screenshot `present-and-ask-open`.
 Observation: the question and rationale appeared above the main `present_*` options and were then repeated inside the continuing `ask` tool.
 Expected: the presentation remains the pretext; a continuing ask renders only the answer controls needed at that step rather than repeating the question/rationale block.
-Disposition: open on FE-1187; this reproduces WR18 O5 despite the deterministic conduct contract. Re-observe after restack and distinguish provider payload repetition from renderer repetition.
+Disposition: scoped on FE-1187 — JSONL and projection inspection locate the duplication in declared continuation bodies plus the live picker body, not session projection. `memory/cards/walkthrough-remediation-2--exchange-continuation-chrome.md` Card 2 makes the live continuation interaction controls-only while preserving self-contained transcript content.
 
 #### R8 · digest choreography · high · open
 
 Concern: ingest digest review and clarification ordering.
-Evidence: `remediations-3a.md` §3, screenshots `digest-review-as-ask` and `after-review-accepted`.
-Observation: the flow appeared to put digest content directly into `ask` instead of using `present_digest`, then offered approve/request-changes/reject controls. Only after approval did the assistant ask clarifying questions that would have been useful before mapping.
+Evidence: `remediations-3a.md` §3, screenshots `digest-review-as-ask` and `after-review-accepted`; session JSONL `2026-07-14T08-45-39-646Z_…` entries 12–21.
+Observation: `present_digest` did run. Its D110-L declaration mechanically supplied the approve/request-changes/reject continuation; the model's first attempt to override that continuation failed validation, then the declared review was accepted. Only afterward did the assistant ask three clarifying questions that would have been useful before mapping.
 Expected: the assistant presents the digest, asks a simple free-text confirmation such as “does that sound right?”, asks any material clarification questions before mapping, and then maps the confirmed understanding. A heavyweight change-request review protocol should not be imposed when ordinary conversational correction is clearer.
-Disposition: open design/conduct finding owned by FE-1187; re-observe the actual tool sequence in JSONL after restack before deciding whether this is prompt adherence, tool-surface design, or both.
+Disposition: open product-contract change owned by FE-1187. This revises D110-L's review terminal and its D106-L accepted-abstract carrier, so route through `ln-design`/`ln-spec`; do not scope an implementation until the free-text confirmation still has an unambiguous acceptance carrier.
 
 #### R9 · multi-question collection · medium · open
 
@@ -307,15 +307,15 @@ Concern: several related clarification questions forced into one structured ask.
 Evidence: `remediations-3a.md` §3, screenshot `after-review-accepted`.
 Observation: the assistant compressed several questions into a few permutation options, producing an awkward and incomplete choice surface.
 Expected: related questions can be answered without combinatorial options—either as a short questionnaire-style interaction or as a deliberate sequence of focused asks.
-Disposition: open product-design finding owned by FE-1187; it may revise the one-question `ask` contract, so route through SPEC/design after restack if the need survives re-observation.
+Disposition: open product-design finding owned by FE-1187. The JSONL confirms one ask compressed three questions into permutation choices. D38-L already names questionnaire support as deferred; choose sequential focused asks versus a questionnaire contract through `ln-design`/`ln-spec` before implementation.
 
 #### R10 · large-capture review scale · high · open
 
 Concern: large advisory review-set presentation and persistence.
-Evidence: `remediations-3a.md` §3, screenshots `large review set after two following questions` and `review accepted and persisted`.
-Observation: after a long wait, a large review set overwhelmed the TUI. On acceptance, content was persisted in several batches; the walkthrough did not establish whether that batching has meaningful LSN or sweep-interval consequences.
-Expected: large capture does not require the user to inspect an unmanageably long TUI review set; any batch persistence preserves clear authority, receipt, and sweep/LSN semantics.
-Disposition: open on FE-1187. Re-observe rendering after restack; separately inspect the accepted mutation receipt/session JSONL before treating batched LSNs as a defect.
+Evidence: `remediations-3a.md` §3, screenshots `large review set after two following questions` and `review accepted and persisted`; session JSONL `2026-07-14T08-45-39-646Z_…` entries 22–31.
+Observation: after a long wait, one 17-node/11-edge review set overwhelmed the TUI. After one review acceptance, the assistant deliberately issued two `mutate_graph` calls split by settlement: settled intent at LSN 2, then advisory sketches at LSN 3. This was not one `acceptReviewSet` transaction being internally chunked.
+Expected: large capture does not require the user to inspect an unmanageably long TUI review set; one accepted proposal has honest authority and receipt semantics, and settlement differences are visible before acceptance rather than discovered through post-accept mutation splitting.
+Disposition: open product/visual design owned by FE-1187. Preserve D27-L atomic review-set semantics; route compact large-capture presentation and mixed-settlement proposal shape through `ln-design` before build.
 
 #### R11 · scratchpad disclosure · high · open
 
@@ -323,7 +323,7 @@ Concern: internal narrative obligations exposed in assistant-facing output.
 Evidence: `remediations-3a.md` §3, screenshot `review accepted and persisted`.
 Observation: after persistence, the assistant listed scratchpad obligations to the user.
 Expected: scratchpad obligations remain internal working notes; if surfaced at all, they appear only in model thinking/debug evidence rather than ordinary user-facing prose.
-Disposition: open prompt/conduct finding owned by FE-1187; re-observe after restack and inspect the provider prompt/tool result to locate whether the disclosure was invited or freely authored.
+Disposition: scoped on FE-1187 — JSONL shows each scratchpad update returned the full internal ledger and the assistant then summarized it in ordinary prose. `memory/cards/walkthrough-remediation-2--scratchpad-confidentiality.md` tests whether an explicit foreground conduct rule is sufficient without hiding scratchpad state from the model.
 
 #### R12 · model and opening-state chrome · medium · open
 
@@ -331,7 +331,7 @@ Concern: footer model projection and opening-turn working message.
 Evidence: `remediations-3a.md` §8.
 Observation: the footer displayed `no model` throughout a session that produced provider turns. The single persistent phrase “Opening assistant turn…” also began to suggest that startup was stuck or broken during long waits.
 Expected: the footer reflects the resolved active model, and working-state copy communicates continuing progress without falsely suggesting a stalled opening operation.
-Disposition: open diagnostic finding owned by FE-1187; re-observe after restack and compare runtime model state with footer projection before scoping copy or state fixes.
+Disposition: open diagnostic finding owned by FE-1187. Recon identifies split truth sources (`modelRegistry.getAvailable()` gates kicks while chrome renders `ctx.model`) and working copy that survives until `agent_settled`; run `ln-diagnose` with one authenticated provider turn before scoping.
 
 #### R13 · zero-readiness entry and orientation menu · high · open
 
@@ -339,7 +339,7 @@ Concern: new-spec startup sequence, readiness, and menu affordances.
 Evidence: `remediations-3a.md` §8.
 Observation: after the posture questions for a brand-new, empty spec, Specify mode immediately presented the full orientation menu before the assistant reviewed seed/context or performed any orientation of its own. Several options were premature. “Ingest source material” behaved as an imperative to go find material rather than an inert invitation for the user to provide text, files, folders, or links.
 Expected: zero-readiness entry first establishes what is known and asks/offers the limited moves that are actually possible. At this stage the useful choices are approximately work by decision, work by example, and provide information sources. Providing information leaves the system inert with a clear affordance for supplying material; it does not instruct the assistant to search autonomously.
-Disposition: open structural finding owned by FE-1187; restack and re-observe before revising D109-L/readiness or the deterministic-orientation menu contract. If it remains, route through `ln-spec`/`ln-plan` rather than an inline checkpoint fix.
+Disposition: open structural finding owned by FE-1187. The restacked posture work improves the eventual kick seed and resume establishment but leaves the menu-before-kick sequence unchanged. Resolve whether entry should run an assistant orientation before any menu or show a graph-fact-derived reduced menu, and define the inert `provide information` carrier, through `ln-disambiguate`/`ln-spec` before build.
 
 ### 2026-07-14 FE-1196 session-branching Card 3 — active-branch cutover
 

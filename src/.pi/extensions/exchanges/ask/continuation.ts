@@ -34,7 +34,6 @@ import {
 import { collectCommentRequirementStep, isBack, type StepResult } from '../shared/required-input.js';
 import { withWorkingIndicatorHidden, type StructuredExchangeUiContext } from '../shared/ui-context.js';
 
-const CONTINUE_STATUS_KEY = 'brunch.continue';
 const CONTINUE_COMMAND_HINT = slashCommand(BRUNCH_CONTINUE_COMMAND);
 const CONSULT_COMMAND_HINT = slashCommand(BRUNCH_CONSULT_COMMAND);
 const MODE_COMMAND_HINT = slashCommand(BRUNCH_MODE_COMMAND);
@@ -84,15 +83,11 @@ function terminal(
   return result(details, status === 'cancelled');
 }
 
-export function surfaceContinueHint(ctx: StructuredExchangeUiContext): void {
-  ctx.ui?.setStatus?.(
-    CONTINUE_STATUS_KEY,
+function notifyContinuationCancellation(ctx: StructuredExchangeUiContext): void {
+  ctx.ui?.notify?.(
     `Interrupted ask. Run ${CONTINUE_COMMAND_HINT} to resume, ${CONSULT_COMMAND_HINT} to choose a next move, or ${MODE_COMMAND_HINT} to switch roles.`,
+    'info',
   );
-}
-
-export function clearContinueHint(ctx: StructuredExchangeUiContext): void {
-  ctx.ui?.setStatus?.(CONTINUE_STATUS_KEY, undefined);
 }
 
 function askBorderColor(ctx: StructuredExchangeUiContext, theme: Pick<Theme, 'fg'>) {
@@ -247,7 +242,7 @@ async function collectContinuingCandidateChoice(
   }
   const picked = await presentSingleChoicePicker(params, ctx, ctx.ui.custom);
   if (!picked) {
-    surfaceContinueHint(ctx);
+    notifyContinuationCancellation(ctx);
     return continuationTerminal(params, present, 'cancelled');
   }
   const option = params.options.find((choice) => choice.id === picked.id);
@@ -265,7 +260,6 @@ async function collectContinuingCandidateChoice(
     choice: { id: option.id, label: option.label, kind: 'listed' },
     options: present.candidates.map((candidate) => ({ id: candidate.id, content: candidate.title })),
   });
-  clearContinueHint(ctx);
   return { content: [{ type: 'text', text: formatRequestChoice(details) }], details };
 }
 
@@ -285,7 +279,7 @@ async function collectHeadlessCandidateChoice(
     question: askQuestionEcho(params),
   });
   if (answer === undefined) {
-    surfaceContinueHint(ctx);
+    notifyContinuationCancellation(ctx);
     return continuationTerminal(params, present, 'cancelled');
   }
   const option = params.options.find((choice) => choice.id === answer);
@@ -298,7 +292,6 @@ async function collectHeadlessCandidateChoice(
     choice: { id: option.id, label: option.label, kind: 'listed' },
     options: present.candidates.map((candidate) => ({ id: candidate.id, content: candidate.title })),
   });
-  clearContinueHint(ctx);
   return { content: [{ type: 'text', text: formatRequestChoice(details) }], details };
 }
 
@@ -318,7 +311,7 @@ async function collectHeadlessReview(
     question: askQuestionEcho(params),
   });
   if (answer === undefined) {
-    surfaceContinueHint(ctx);
+    notifyContinuationCancellation(ctx);
     return continuationTerminal(params, present, 'cancelled');
   }
   const separator = answer.indexOf(':');
@@ -341,7 +334,6 @@ async function collectHeadlessReview(
     review: decision,
     comment,
   });
-  clearContinueHint(ctx);
   return { content: [{ type: 'text', text: formatRequestReview(details) }], details };
 }
 
@@ -375,7 +367,7 @@ async function collectContinuingReview(
       ),
     );
     if (!selected) {
-      surfaceContinueHint(ctx);
+      notifyContinuationCancellation(ctx);
       return continuationTerminal(params, present, 'cancelled');
     }
     const collected = await collectContinuationReviewComment(params, selected.id, ctx);
@@ -388,7 +380,6 @@ async function collectContinuingReview(
       review: selected.id,
       comment: collected.value.comment,
     });
-    clearContinueHint(ctx);
     return { content: [{ type: 'text', text: formatRequestReview(details) }], details };
   }
 }
