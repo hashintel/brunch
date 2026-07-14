@@ -39,7 +39,7 @@ extensions/
 ├── subagents/              D44-L/D91-L sealed SDK child sessions and `subagent` tool
 ├── chrome/                 TUI header/title/footer/sidecar-widget chrome projection
 ├── commands/               /brunch:* commands, shortcut, branch/tree policy (exception: /brunch:land registers in executor/execute-land/ beside its read-only preflight tool)
-├── compaction/             auto-compaction anchor contract and future hook
+├── compaction/             D43-L anchor contract + session_before_compact/session_compact enforcement (registered 2026-07-14)
 ├── exchanges/              structured-exchange present_* + ask Pi tools
 ├── mentions/               #graph mention prompt hint + autocomplete provider
 ├── session-orientation/    session-entry-orientation descriptors, dialog adapter, juncture orchestrator, and gate state
