@@ -29,7 +29,7 @@ The upgrade produced one completed integration and five credible follow-on packa
 | --- | --- | --- | --- |
 | P0. Settlement semantics | Correct whole-run lifecycle boundary | Landed; small transport closure remains conditional | Treat as completed substrate; fold any relay assertion into `web-driver-streaming` rather than creating a frontier |
 | P1. Named inline extension identity | Native Pi type and useful source provenance | Small independent hardening | Direct housekeeping or a tiny tooling frontier |
-| P2. Transcript-native ledger rendering | Durable user choices remain visible without entering model context | Small product tracer | Add a bounded orientation/chrome member during re-qualification; do not make it a generic renderer program |
+| P2. Transcript-native ledger rendering | Durable user choices remain visible without entering model context | Small product tracer | Assigned to FE-1187 `exchange-visual-design`; land ledger visibility with its visual treatment, not as a generic renderer program |
 | P3. Native compaction continuity | Prevent Brunch continuity facts from disappearing behind Pi compaction | Structural, high-value frontier | Reframe and promote `compaction-and-conflict-widening`; design first, then vertical implementation |
 | P4. Native provider/model/thinking | Delete local policy where Pi owns the behavior | Structural simplification | Fold into FE-1187's D113-L–D115-L reversal |
 | P5. Provider/cache observability | Better diagnosis of provider latency, cache behavior, and whole-run spans | Spike-led instrumentation | Fold into `agent-tracing`; coordinate vocabulary with `mechanism-trace` |
@@ -284,7 +284,7 @@ src/.pi/components/__tests__/
 
 ### Planning disposition
 
-Proposed bounded member of the active `deterministic-orientation` arc during frontier re-qualification. It should not be folded into `exchange-visual-design`: orientation is product chrome and not an exchange terminal. If the planner requires a flat frontier item, use a narrow concern such as `orientation-ledger-rendering` rather than reopening the completed implementation frontier wholesale.
+Assigned by user ruling on 2026-07-14 to FE-1187's `exchange-visual-design` work. The semantic boundary remains narrow—durable user-choice ledger entries become transcript-visible without entering model context—but its component/chrome treatment should land with the surrounding visual design. This does not authorize a generic custom-entry renderer registry.
 
 ## P3 — Native compaction continuity
 
@@ -578,7 +578,7 @@ P3 native compaction continuity
 P2 ledger rendering
   ├─ independent of compaction implementation
   ├─ benefits from P3 because rendered history and model-facing continuity then agree across long sessions
-  └─ belongs to deterministic orientation/chrome, not exchange rendering
+  └─ assigned to FE-1187 exchange-visual-design so ledger visibility and visual treatment land together
 
 P5 observability
   ├─ uses settlement semantics from P0
@@ -596,7 +596,7 @@ P5 observability
 
 ### Candidate bounded additions
 
-4. **Orientation ledger rendering** — admit as a small deterministic-orientation member if transcript legibility is part of the re-qualified arc; otherwise keep as a named opportunity with a concrete walkthrough trigger.
+4. **Transcript ledger rendering** — assigned to FE-1187 `exchange-visual-design`; keep the semantic carrier narrow and land it with the visual treatment.
 5. **Settlement relay consumption** — fold into the first web consumer that needs full-idle state; no standalone frontier.
 
 ### Keep spike-gated

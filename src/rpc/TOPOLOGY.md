@@ -248,7 +248,7 @@ session.submitExchangeResponse
       | request_changes
       | rejected
       | structural_illegal(diagnostics)
-  effects: appends an `ask` toolResult carrying preserved request_* details, publishes selected-session invalidations, and on review-set approval publishes graph.overview / graph.nodeNeighborhood invalidations for the transcript-bound spec. Digest review approval is terminal-only: it closes the exchange by appending `request_review` details with the accepted abstract echo and does not synthesize a graph review outcome.
+  effects: appends an `ask` toolResult carrying preserved request_* details, publishes selected-session invalidations, and on review-set approval invokes the shared session settlement operation before publishing graph.overview / graph.nodeNeighborhood invalidations. Digest capture is no longer review-shaped: a digest-referencing questionnaire/confirmation terminal carries the runtime-copied accepted abstract.
 
 session.submitMessage
   access: write
@@ -271,9 +271,9 @@ session.answerExchange
   params: {exchangeId, answer}
     questionnaire answers use a schema-tagged JSON string envelope checked against the open ask
   result: {status: completed}
-  errors: -32601 on ordinary observers or when no broker handle is attached; -32008 when no matching live exchange is pending; -32602 when an answer does not match the open exchange
+  errors: -32601 on ordinary observers or when no broker handle is attached; -32008 when no matching live exchange is pending; -32602 when a questionnaire envelope fails registry validation. Other mode strings are accepted by the rendezvous and decoded by the ask collector, which may return a validation terminal rather than an RPC error.
   effects: resolves the in-process ask answer promise; Pi then appends the provider-legal tool result and continues the same live turn, whose AgentSessionEvents stream as brunch.sessionEvent frames and reduce to Pi JSONL transcript truth
-  boundary: not a transcript append API and not a second exchange store; review-over-RPC and terminal-vs-web answer racing are separate follow-ons
+  boundary: not a transcript append API and not a second exchange store; review-set approval converges through the same session settlement operation as local TUI, while terminal-vs-web answer racing remains outside the current single-driver contract
 
 session.openAsks
   access: read (`/rpc/driver` on the TUI-started web sidecar only, discovered only when a live ask registry reader handle is attached; ordinary `/rpc` observers and the full stdio host never discover it)
@@ -384,7 +384,7 @@ brunch.sessionEvent:
 
 ## Streaming transport coverage
 
-Code-anchored coverage ledger for the topology-A streaming relay layer (`session-event-relay.ts` plus the `websocket.ts` multiplex). It maps each oracle-battery claim to the relay capability it exercises and the closure oracle that proves it. **Sequencing and status authority is `memory/PLAN.md` §web-driver-streaming**; this ledger is the code-side "what proves this" view, reconciled by `/ln-sync`.
+Code-anchored coverage ledger for the topology-A streaming relay layer (`session-event-relay.ts` plus the `websocket.ts` multiplex). It maps each oracle-battery claim to the relay capability it exercises and the closure oracle that proves it. The required relay battery is closed; only the trigger-gated `agent_settled` ordering row remains in PLAN as `web-driver-streaming-residue`.
 
 Boundary — in layer: the streaming transport relay and its battery. Out of layer: the web render consumer (`src/web/`), the canonical `session.*` projections, and `brunch.updated` invalidation semantics. DoD: every `●` row `built`.
 
@@ -396,11 +396,12 @@ Boundary — in layer: the streaming transport relay and its battery. Out of lay
 | 4 | Domain-projection multiplex (one WS carries `brunch.sessionEvent` + `brunch.updated`) | `built` | ● | same test | deferred-in-order while a request is in flight |
 | 6 | Reconnect/resume idempotence | `built` | ● | `src/dev/__tests__/web-driver-streaming.reconnect.test.ts` | observer-side, replay-less: reconnect refetches `session.*` projections and resumes later live frames |
 | 7 | One-driver / many-observer fan-out | `built` | ● | `src/dev/__tests__/web-driver-streaming.fan-out.test.ts` | observer-side, autonomous; three concurrent observers receive byte-identical streams and read-only sidecar writes reject |
-| 5 | Mid-stream exchange convergence (live `request_answer` answered leg) | `built` | ● | `src/dev/__tests__/web-driver-streaming.exchange-convergence.test.ts` | answer broker resolves the live request_answer promise through `session.answerExchange`; discovery may use the relayed `request_answer` frame when same-turn tool batching has not flushed a transcript-backed pending projection yet; post-answer `session.pendingExchange` is idle and JSONL carries the provider-legal answer |
+| 5 | Mid-stream ask convergence | `built` | ● | `src/dev/__tests__/web-driver-streaming.exchange-convergence.test.ts`, `src/.pi/extensions/__tests__/ask-headless-discovery.test.ts` | every no-UI ask mode registers in D125-L live state; `session.openAsks` discovers the full payload and `session.answerExchange` resolves the broker string, with per-mode decoding in the ask collector; JSONL receives the canonical terminal |
 | — | command-intake slice 1 (web drives a plain turn) | `built` | ● | `src/dev/__tests__/web-driver-streaming.command-intake.test.ts` | narrow `session.driveTurn` sidecar method re-enters the live AgentSession |
+| — | `agent_end` → `agent_settled` consumer ordering | `trigger-gated` | ○ | add to the existing relay battery only when a web consumer gates idle-only actions on full-run settlement | consumer must remain busy until settled; not current product behavior |
 | — | render feel (token / tool / dialog) | `n/a` | ○ | manual walkthrough | outer-loop only; no automated perceptual gate |
 
-Classification: the required topology-A streaming rows are built for the current `request_answer` tracer. The UI-host finding (`ctx.hasUI` is run-mode-bound; not injectable on a bare in-process `AgentSession`) is recorded by D84-L (the validating assumptions are archived); the landed answer broker reframes the answer source as Brunch-owned for the Brunch-authored `ask` tool rather than a Pi UI-host injection.
+Classification: all required topology-A relay rows are built. D125-L's live registry owns ask discovery/answering for every mode; the transcript-backed pending projection is file/observer compatibility, not live-driver discovery. The only remaining relay row is conditional on a future `agent_settled` consumer.
 
 ## RPC methods to web Query hooks
 
@@ -430,7 +431,7 @@ query key families:
 | `session.triggerExchange` | `triggerExchangeMutationOptions(rpc)` | target full-host mutation; sidecar rejects | invalidates pending/exchanges/runtime state |
 | `session.submitExchangeResponse` | `submitExchangeResponseMutationOptions(rpc)` | target full-host mutation; sidecar rejects | invalidates pending/exchanges/runtime state; review-set approval additionally invalidates `graph.overview(specId)` / `graph.nodeNeighborhood(specId)` |
 | `session.driveTurn` | `driveTurnMutationOptions(rpc)` | target; driver-attached sidecar accepted, web UI not wired | live `brunch.sessionEvent` stream; transcript projection refetch via existing session queries if needed |
-| `session.answerExchange` | `answerExchangeMutationOptions(rpc)` | target; broker-attached sidecar accepted for `request_answer`, web UI not wired | live `brunch.sessionEvent` stream; transcript projection refetch via existing session queries if needed |
+| `session.answerExchange` | `answerExchangeMutationOptions(rpc)` | target; registry/broker-attached sidecar accepts every live ask mode, web UI not wired | live `brunch.sessionEvent` stream; transcript projection refetch via existing session queries if needed |
 | `graph.overview` | `graphOverviewQueryOptions(rpc, specId)` | implemented; spec route loader primes it | exact `graph.overview(specId)` when `specId` is present |
 | `graph.nodeNeighborhood` | `graphNodeNeighborhoodQueryOptions(rpc, specId, nodeId, hops?)` | implemented query option; graph panel selection not yet wired | exact/prefix neighborhood invalidation when `nodeId` is present; broad topic fallback otherwise |
 | `execute.runs` | `executeRunsQueryOptions(rpc)` | implemented; run observer list route | exact `execute.runs` |

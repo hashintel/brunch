@@ -3,6 +3,15 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-07-14 Rolling-frontier reduction
+
+Two trigger-gated Later definitions moved out of live PLAN during the FE-1196/FE-1187 sync:
+
+- `mechanism-trace` — a post-hoc, transcript-native timeline classifying product appends as `wiring`, provider-visible injections as `nudge`, and agent actions as `conduct`, plus a static wiring inventory. It is dev/eval evidence, never product truth. The scenario-level sweep-debt tripwire was extracted and built under FE-1187; capture-conditional runtime advance remains A40-L. Re-enter only when instrumentation is prioritized.
+- `consequential-fact-discovery-tracer` — a bounded Tier-2 real-provider probe over a public Petri-net brief, a private four-fact ledger, controlled reveal policy, transcript attribution, and final graph readback. Three-run base/metamorphic evidence must distinguish warranted discovery from silent inference and end with an explicit usefulness verdict before any larger campaign. D125-L supplies live ask discovery; re-enter after FE-1187 stabilizes the ask/prompt surface.
+
+Closed FE-1183/FE-1190 implementation diaries also left live PLAN. Their current contract is the serial Petri runtime + attachable replay stream under unchanged `run.json` authority, owned by `src/executor/TOPOLOGY.md` and SPEC's Petri future-direction entry; the next live frontier is FE-1192.
+
 ## 2026-07-14 Sync archive (`ln-sync`, FE-1196 platform-debt closeout)
 
 ### FE-1196 — platform debt batch

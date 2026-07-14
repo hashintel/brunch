@@ -185,9 +185,9 @@ Ownership disposition: FE-1180 closes by explicit promotion, not by treating pro
 | O4 | pass + promoted failure | Pass evidence: Specify `/brunch:consult` labels/routing are understandable; Escape is inert. Promoted failure: missing `/continue` / `/consult` / `/mode` hints after ask cancellation. Owner: FE-1187. |
 | O5 | pass + promoted failure | Pass evidence: model did not author an Other-equivalent option. Promoted failure: repeated offer content in present→ask continuation. Owner: FE-1187. |
 | O6 | pass + promoted unknown | Pass evidence: digest approval led directly to supported advisory mutation. Promoted unknown: extraction breadth after a thin first pass. Owner: FE-1187. |
-| O7 | promoted unknown | O7 live D120-L Execute workflow not observed; owner: FE-1187. |
-| O8 | promoted unknown | O8 live D120-L Execute workflow not observed; owner: FE-1187. |
-| O9 | promoted unknown | O9 live D120-L Execute workflow not observed; owner: FE-1187. |
+| O7 | promoted unknown | O7 live D120-L Execute workflow not observed; owner: KA stream (FE-1187 coordination only). |
+| O8 | promoted unknown | O8 live D120-L Execute workflow not observed; owner: KA stream (FE-1187 coordination only). |
+| O9 | promoted unknown | O9 live D120-L Execute workflow not observed; owner: KA stream (FE-1187 coordination only). |
 | O10 | promoted unknown | Both-theme component/live-TUI checks not observed; owner: FE-1187. |
 
 Deferred WR9–WR12 (compact tool rendering, `/introspect` legibility, review-set visual redesign, markdown/node-id polish) — owner: FE-1187 (Group 1) folded row `exchange-visual-design` (promoted 2026-07-13 under the owned-deferral rule, `docs/praxis/manual-testing.md` §Findings ledger discipline). The broader review-set/ask visual-revamp impulse (WR11) lives there too, with its trigger and cost note.
