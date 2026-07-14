@@ -10,6 +10,17 @@ plus the coordination logic for workspace/spec/session lifecycle.
 - **Transcript projection** — reading Pi JSONL, projecting Brunch-relevant
   structure (assistant/user rows, custom entries, tool results).
 
+- **Active-session-branch contract** (D24-L, I19-L) — current Brunch product
+  state means Pi's active root-to-leaf branch, not append order. Live callers
+  must use `SessionManager.getBranch()`; file-backed callers must open through
+  Pi's `SessionManager` and then use its branch/header APIs. Full-tree or
+  append-order reads are legal only for explicitly named history/diagnostic
+  surfaces. **Migration active under FE-1196 `session-branching`:**
+  `brunch-session-envelope.ts` still rejects valid Pi tree shapes and several
+  app/extension/RPC consumers still call `getEntries()`; the active scope file
+  enumerates their removal and this paragraph names the target dependency
+  direction without claiming the cutover has shipped.
+
 - **Exchange extraction** — session exchange projection: prompt-side
   span + response-side span, per D13-L.
 
@@ -29,9 +40,11 @@ plus the coordination logic for workspace/spec/session lifecycle.
 - **Elicitation scratchpad carrier** (`elicitation-scratchpad.ts`) — the one
   session-local, non-authoritative asking-agenda substrate (D101-L, I56-L):
   a `brunch.elicitation_scratchpad` custom-entry type plus parse/fold/append
-  helpers, mirroring `runtime-state.ts`'s fold pattern exactly (latest-snapshot-wins,
-  reconstructed from the session branch — branch-correct by construction, never
-  from runtime-state fields or tool-result `details`). Foreground context seeds,
+  helpers, mirroring `runtime-state.ts`'s fold pattern exactly (latest-snapshot-wins
+  over the active session branch, never runtime-state fields or tool-result
+  `details`). The fold is branch-correct only when its caller supplies
+  `SessionManager.getBranch()`; FE-1196 removes remaining `getEntries()` callers.
+  Foreground context seeds,
   the `read_elicitation_scratchpad` / `update_elicitation_scratchpad` tools, and
   subagent world snapshots all read the same fold. It never becomes canonical
   graph truth by projection side effect.
@@ -127,6 +140,9 @@ plus the coordination logic for workspace/spec/session lifecycle.
 - **Session binding** — session↔spec binding entries in JSONL.
 
 - **Session envelope** — canonical session envelope reader (spec/session pair).
+  Current implementation hand-parses JSONL and rejects non-linear trees;
+  FE-1196 replaces that with Pi `SessionManager` header + active-branch reads and
+  accepts valid `parentSession`, `branch_summary`, and sibling branches.
 
 - **Turn-boundary choreography** — write-side seam for the assistant-visible
   watermark, `worldUpdate`, mention staleness, and honest assistant origination.

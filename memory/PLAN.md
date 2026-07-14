@@ -80,11 +80,8 @@ Close the entire first batch of walkthrough-related findings: remediation, the o
 
 ### Recently Completed
 
-<<<<<<< HEAD
 - 2026-07-14 `petri-execution-parity` (FE-1195) — completed the old-`main` live-parity closure and final review hardening: timestamped firing wire with calendar-valid TypeBox boundary checks, structural pass/fail branches with strict list/detail failed-slice evidence, stale serial-state retirement at parallel admission, journal-idempotent restart-stable terminal authority, rejection of every post-terminal fact, causality-gated Petrinaut replay/export, staging-aligned SDCPN parsing that retains legitimate full roots, and a view-only projection with mechanically pruned isolated places, preserved connected IDs/arcs, contextual labels, locale-independent ordering, and collision-free compact/legacy fallback bands. Durable terminal evidence wins over later abandonment metadata; raw executor topology/markings and SSE firing order remain unchanged. Full per-slice attempt identity remains the current projection; standardized subnet grouping/folding should be revisited above roughly 12 slices without claiming color-fold parity. Manual Rust fixture comparison remains pre-PR outer evidence.
-=======
 - 2026-07-13 `reconciliation-derivation` (FE-1196) — **✓ closed by the three-card watermark sequence**. Per-edge `acknowledged_lsn` watermark with the derivation switched to effective acknowledgement (`max(watermark, updatedAtLsn)`; null ≡ prior proxy); the `acknowledgeEdgeRevalidation` CommandExecutor command (the frontier's only write — derivation stayed read-only, I16-L held, no reviewer authority added); and retirement of the persisted `edge_revalidation` kind (the `reconciliation_need` substrate now persists exactly `possible_relation`/`possible_duplicate`/`semantic_conflict`, and the derived read is the sole `edge_revalidation` source). SPEC D8-L/A8-L/Lexicon record the split; the scope file was consumed and deleted.
->>>>>>> f06749ad (FE-1196: Retire the persisted edge_revalidation reconciliation kind)
 - 2026-07-13 `web-driver-streaming` — **✓ evaluation completed, frontier retired** (FE-1196 tranche; read-only evaluation + coordinator adjudication). Verdict: the topology-A relay battery + `session.openAsks`/`session.answerExchange` are sufficient — no new transport for consumer/UI or non-freeform answer legs. The evaluator's one claimed gap (live-broker answering for select/review modes) was already closed same-day by D125-L with declared ceilings. P0 settlement residual: the transport-*visibility* half is already pinned (`exchange-convergence` asserts `answerExchange` undiscoverable without a broker handle); the settlement-*ordering* half survives as the conditional Group 4 rider `web-driver-streaming-residue`.
 - 2026-07-13 `executor-slice-attempt-lifecycle` (FE-1192) — merged #324 to `next`; failed agent and verify-runner attempts are durable non-marking facts with bounded in-run retry, per-stage counters, and HITL reset. Petrinaut-visible attempt topology moves into `petri-execution-parity`, where concurrent slice subnets make it load-bearing.
 - 2026-07-13 `petrinaut-live-run-stream` (FE-1190) — merged #322 to `next`; live-from-start Petrinaut observation with frozen run plan, journal-ordered completion, reconnect equivalence, fail-closed journal appends, and terminal-lagging-snapshot backfill (both Bugbot findings closed with deterministic oracles). FE-1183 (`petri-interpreter-port`) closed with it — #320 merged the finite replay/export surface.
@@ -92,18 +89,14 @@ Close the entire first batch of walkthrough-related findings: remediation, the o
 
 Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md).
 
-### Next — Group 2 · platform debt (API / data-model / transport)
+### Active — Group 2 · platform debt (API / data-model / transport)
 
-Debt that compounds while unimplemented. Opens after Group 1's auth reversal lands; items interleave with Group 3 opportunistically, respecting per-item dependencies. **Tracker/branch:** the group rides one batch issue [FE-1196](https://linear.app/hash/issue/FE-1196) and one stacked branch `ln/fe-1196-platform-debt` (user decision 2026-07-13); design-first/evaluation items may still spin out via `ln-plan` if their verdicts reshape the frontier. **Entry input:** [`docs/planning/pi-native-integration-opportunities.md`](../docs/planning/pi-native-integration-opportunities.md) (2026-07-13 synthesis over the Pi `0.80.6` upgrade) — its package dispositions are folded into the entries below and into FE-1187 (P4) and Later `agent-tracing` (P5); retire the synthesis doc once all packages are merged into canonical homes.
+**Stop-line:** FE-1196 remains open until `session-branching` removes the product trap where native Pi `/tree`/`fork`/`clone` can produce valid sessions that Brunch later rejects or silently projects from an abandoned branch. **Tracker/branch:** [FE-1196](https://linear.app/hash/issue/FE-1196) on `ln/fe-1196-platform-debt`, stacked on FE-1187. Current execution pointer: [`memory/cards/session-branching--active-branch-cutover.md`](cards/session-branching--active-branch-cutover.md).
 
-- `spec-posture` — persisted spec-row posture (D118-L, A41-L) + deterministic establishment flow; a necessary part of the orientation flow. Outer oracle: run D's populated-cwd/brownfield beats. Definition below.
-- `workspace-db-identity` — **built 2026-07-13 (D124-L/I63-L)**: renamed `.brunch/data.db` → `.brunch/brunch-v1.db` under the `brunch-v{major}.db` lineage policy; single exported path constant, `application_id` stamp + fail-safe open (I63-L), no 0.x discovery/compatibility path, and one-shot `data.db` recovery. Run 1D witnessed 2026-07-14. Definition below.
-- `headless-ask-discovery` — **built 2026-07-13 (D125-L; validates A39-L)**: a Brunch-owned live ask registry (`src/session/live-ask-registry.ts`) generalizing the broker's pending map into observable open-ask state; every ask mode registers at open time and answers through the unchanged broker string contract; a new `session.openAsks` public RPC read method projects the live registry on the `/rpc/driver` leg (handle-gated like `session.answerExchange`). A deterministic public-RPC contract proves discover/answer/cancel/resume with stale/closed distinction and idempotent effects (no transcript parsing on the driver path); the tiny interaction-state model is unit-covered. **Deferred:** retiring the `session.pendingExchange` transcript scan itself (leaf 5) is blocked on `legacy-question-read-path-retirement` — that scan still serves the legacy `present_question` pending reconstruction which a must-stay-green suite exercises and which the card scopes to the other frontier; A39-L is validated regardless because the *driver* discovery seam no longer scans. Headless choice/multi/review answers accept a listed id / delimited ids / decision token (Other/None/comment stay interactive — marked ceilings). The full agent-as-user campaign still requires a useful `consequential-fact-discovery-tracer` report (Later) — do not plan past that horizon.
-- `compaction-and-conflict-widening` — reshaped 2026-07-13 (Pi-native P3): a **custom compaction definition** over the D76-L/D77-L/D78-L boundary pipeline and req-15 continuity-anchor contract. **Native custom-result path hardened 2026-07-14**: `registerBrunchCompaction` returns one result containing a deterministic versioned Brunch carrier block plus Pi's public native `compact(...)` narrative and file details; owned failures notify and cancel without default fallthrough. Real faux-provider `AgentSession`/`SessionManager` tests now cover manual, repeated, split-turn, overflow-retry, physical JSONL reload, latest-carrier replacement, immediate retry/rebuilt context, and failure fallback non-consumption; the independent Pi lifecycle baseline remains implementation-free. Remaining evidence-gated residue: refine the conservative `all-unresolved` / `active-leaves` selector predicates only when re-announcement noise reaches the unchanged `ceiling:` in `select-anchors.ts`; do not close the whole frontier before that evidence.
-- `session-branching` — **unblock**: the branch-aware continuity/staleness/coherence design pass (A37-L) that lifts the linear-only guards (I10-L, I13-L, I19-L). Definition below.
-- `web-driver-streaming` — **evaluated 2026-07-13 → retired** (see Recently Completed): no new transport needed for either leg class; consumer/UI legs closed by the topology-A relay battery; non-freeform *answering* landed with D125-L under declared `ceiling:` triggers (Other/None/comment escapes stay interactive until a headless driver needs them). Residue rides Group 4: the conditional P0 `agent_settled`-ordering relay assertion + two post-D125-L doc refreshes.
-- `transcript-ledger-rendering` — Pi-native P2: a bounded product tracer making durable user choices (ledger entries) visible in the transcript without entering model context. Not a generic renderer program; may fold into FE-1187's `exchange-visual-design` row at scope time if the seam coincides.
-- `reconciliation-derivation` — **✓ done 2026-07-13** (see Recently Completed): watermark + derivation switch, clearing command, and persisted-kind retirement all landed; `edge_revalidation` is now a derived-only signal. Definition below.
+- `session-branching` — **active, stop-line architectural correction (D24-L; I10-L/I13-L/I19-L)**: route every Brunch product-semantic session read through Pi's active-branch APIs across SDK/in-process and RPC/file-backed paths; accept valid Pi siblings, branch summaries, and fork/clone parent sessions; reserve full-tree/append-order reads for explicitly named history/diagnostic surfaces. Definition below.
+- **Closed FE-1196 items:** `spec-posture` (built + outer-witnessed), `workspace-db-identity` (built + run-1D witnessed), `headless-ask-discovery` (built, D125-L), `reconciliation-derivation` (closed), and `web-driver-streaming` (evaluated → retired).
+- `compaction-and-conflict-widening` — **✓ closed 2026-07-14**: the native custom-result path and real faux-provider lifecycle battery cover manual, repeated, split-turn, overflow-retry, physical reload, latest-carrier replacement, immediate retry/rebuilt context, and fail-closed cancellation. The conservative selector predicates remain an intentional code-local `ceiling:`; absence of observed re-announcement noise is closure, not evidence-gated PLAN residue. Re-enter only if that named ceiling fires.
+- `transcript-ledger-rendering` — **folded into FE-1187 `exchange-visual-design`** by user ruling 2026-07-14; no separate Group 2 frontier or branch.
 
 ### Next — Group 3 · agent layer
 
@@ -209,7 +202,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Remaining findings inventory:** cancelled-exchange legibility + standalone-cancel guidance; repeated offer content in present→ask continuation (digest/offer pretext must not repeat inside the ask); extraction breadth after a thin first pass; O7/O8/O9 live D120-L Execute workflows; O10 both-theme component/live-TUI checks; folded design rows and the sweep-debt tripwire.
 - **Streams:** rows O7/O8/O9 witness KA-stream (Execute / D120-L) surfaces — coordinate with the KA stream before building them; all other rows are LN.
 - **Absorbs (2026-07-13, from FE-1167):** the LN evidence beats — orientation-menu generative beats (propose/project) with menu→conduct routing evidence via session JSONL; FE-1124 Card 3 review variants ([`memory/cards/walkthrough-batch-2--seed-variants.md`](cards/walkthrough-batch-2--seed-variants.md)) + seed worklist; FE-1164 residue (declared continuations driven live, capture sweep after ask answers, resume re-render of persisted ask results, web sidecar during an open ask, both-theme gallery re-check). Execute beats + KA residue carve to the KA sub-list (§KA stream). Full original definition: `docs/archive/PLAN_HISTORY.md`.
-- **Folded design rows (2026-07-13, promoted findings):** `exchange-visual-design` — the WR9–WR12 cluster (compact tool rendering, `/introspect` legibility, review-set/ask visual revamp, markdown/node-id polish) plus border distinctness and nested-ask chrome (findings A6/A9/A10); `generative-flow-synthesis-shape` — design-it-twice + recommendation/synthesis conduct over existing `present_candidates`/review-set seams (finding C3).
+- **Folded design rows (2026-07-13/14, promoted findings):** `exchange-visual-design` — the WR9–WR12 cluster (compact tool rendering, `/introspect` legibility, review-set/ask visual revamp, markdown/node-id polish) plus border distinctness and nested-ask chrome (findings A6/A9/A10), now also owning Pi-native P2 `transcript-ledger-rendering` (durable user-choice ledger entries visible in the transcript without entering model context; folded by user ruling 2026-07-14); `generative-flow-synthesis-shape` — design-it-twice + recommendation/synthesis conduct over existing `present_candidates`/review-set seams (finding C3).
 - **Tripwire row (2026-07-13, extracted from Later `mechanism-trace`):** `sweep-debt-tripwire` — scenario-scoped assertion that on expected-capture scenarios the conversational tail preceding a watermark shows capture evidence (`mutate_graph`/scratchpad conduct), and on deliberately-ignored-material scenarios it does not fire; the graph-writes-after-answers witness (A40-L detection half). ~a day; no `before_agent_start` advance change.
 - **Dependencies:** owns all WR18 residue promoted out of FE-1180; closes arc `deterministic-orientation` (jointly with the KA-carved Execute beats). The auth reversal has landed in the FE-1187 stack; Groups 2–3 become independently pickup-ready when that stack reaches `next`. `cli-mode-entry` stacks on the auth-reversal branch; `legacy-question-read-path-retirement` + the D117-L one-liner ride the same stack as cleanup slices.
 - **Traceability:** WR18 closure record in `TESTING_FINDINGS.md`; evidence at `testing/walkthroughs/2026-07-10/WR18-manual.md`; D113-L–D115-L reversal/disambiguation; D119-L, D120-L/I62-L, D99-L conduct; TESTING_PLAN concerns 1/3/4/6/7.
@@ -530,15 +523,20 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 
 ### session-branching
 
-- **Name:** Session branching support (branch-aware continuity/coherence)
-- **Linear:** unassigned
-- **Branch:** tbd
-- **Kind:** structural / transcript + continuity seam
-- **Status:** horizon; direction approved (D24-L reversal), design not yet started.
-- **Certainty:** proving.
-- **Objective:** Design and implement branch-aware transcript continuity, staleness, and coherence so Brunch supports session branching, lifting the current linear-only guards (I10-L, I13-L, I19-L) once branch-aware semantics exist.
-- **Depends on:** turn-boundary continuity choreography (D76-L, D77-L, D78-L) and the coherence model.
-- **Traceability:** D24-L; A37-L; req 8; I10-L, I13-L, I19-L.
+- **Name:** Active-branch session correctness across SDK and RPC
+- **Linear:** [FE-1196](https://linear.app/hash/issue/FE-1196) (Group 2 batch issue)
+- **Branch:** `ln/fe-1196-platform-debt`
+- **Kind:** structural correction / session transcript, continuity, and public read seams
+- **Status:** active stop-line. Native Pi tree actions are already user-accessible; current Brunch readers can reject the resulting valid sessions or derive current state from abandoned append-order entries.
+- **Certainty:** proving — Pi's canonical tree APIs are known; the slice must prove every Brunch current-state reader converges on them without losing explicit history/diagnostic use cases.
+- **Objective:** Make Pi-valid `/tree`, `/fork`, and `/clone` sessions ordinary Brunch sessions: accept sibling branches, `branch_summary`, and `parentSession`; project exchanges, runtime state, orientation, scratchpad, binding, continuity, capture, TUI/chrome, and public RPC from Pi's active root-to-leaf branch; prohibit raw JSONL/`getEntries()` as an implicit current-state source.
+- **Lights up:** a real Pi session can branch, continue, reload, and remain usable through TUI plus Brunch SDK/RPC projections.
+- **Stabilizes:** D24-L and I10-L/I13-L/I19-L; one Brunch-owned active-session-branch adapter over Pi's `SessionManager` APIs.
+- **Acceptance:** real Pi `SessionManager` fixtures cover sibling branches, optional branch summaries, fork/clone parent sessions, physical reload, and rival abandoned-branch state; SDK/in-process and public RPC product reads agree on the active branch; every production `getEntries()`/raw JSONL read is either migrated or explicitly classified as all-history diagnostics; obsolete `NonLinearTranscriptError` behavior and tests are deleted.
+- **Verification:** inner — active-branch adapter and projection tests; middle — physical JSONL reload plus SDK/RPC differential over the same branched fixture; architectural inventory test guards the product-semantic reader set; outer — one TUI `/tree` branch/continue/quit/resume walkthrough with exchange/runtime-state readback.
+- **Current execution pointer:** [`memory/cards/session-branching--active-branch-cutover.md`](cards/session-branching--active-branch-cutover.md).
+- **Depends on:** Pi `SessionManager.getBranch()`/`getHeader()` and Pi RPC tree+leaf semantics; preserves D76-L/D77-L/D78-L turn-boundary choreography by making each fold branch-relative.
+- **Traceability:** D24-L; req 8; I10-L, I13-L, I19-L, I25-L.
 
 ## Dependencies
 
@@ -558,15 +556,15 @@ group-1 (Active — walkthrough closure):
     closes_arc: deterministic-orientation (jointly with KA-carved beats)
     -[gates]-> groups 2–3 (open after the auth reversal lands; then interleave)
 
-group-2 (Next — platform debt):
-  spec-posture ✓ (outer-witnessed 2026-07-14) | workspace-db-identity ✓ (1D witnessed)
-  | headless-ask-discovery ✓ (D125-L)
-  | reconciliation-derivation ✓ (frontier closed 2026-07-13)
-  | compaction-and-conflict-widening (P3; native manual/repeated/split/overflow/reload paths hardened; evidence-gated selector ceiling remains)
-  | session-branching (design-first)
-  | transcript-ledger-rendering (P2; blocked on FE-1187 exchange-visual-design)
-  # web-driver-streaming evaluated 2026-07-13 → retired; residue in group-4
-  entry_input: docs/planning/pi-native-integration-opportunities.md (retire after merge)
+group-2 (Active — FE-1196 platform debt):
+  session-branching (stop-line active-branch correctness)
+    stabilizes: D24-L | I10-L | I13-L | I19-L | I25-L
+    live_card: memory/cards/session-branching--active-branch-cutover.md
+  completed: spec-posture | workspace-db-identity | headless-ask-discovery |
+             reconciliation-derivation | compaction-and-conflict-widening
+  retired: web-driver-streaming (residue in group-4)
+  folded: transcript-ledger-rendering -[ownership]-> walkthrough-remediation-2.exchange-visual-design
+  entry_input: docs/planning/pi-native-integration-opportunities.md (retire after remaining package dispositions merge)
 
 group-3 (Next — agent layer):
   develop-mode (flag-gated; execute-tier authority, no contract break)
