@@ -133,7 +133,7 @@ export function createExecutePlanFileTool(deps: ExecutePlanFileDeps) {
           runtime: {
             modelRegistry,
             model: (ctx as { model?: unknown } | undefined)?.model,
-            signal,
+            ...(signal ? { signal } : {}),
           },
         });
         if (synthesis.status === 'blocked') {
