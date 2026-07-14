@@ -11,6 +11,7 @@ import {
   assessRunRetryEligibility,
   type RunRetryEligibilityResult,
 } from '../../../../executor/run-retry-eligibility.js';
+import { readRunMetadata, runMetadataPath } from '../../../../executor/run.js';
 import { BRUNCH_EXECUTE_REPLAN_REGENERATE_PLAN_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
 import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
@@ -75,8 +76,9 @@ export function createExecuteReplanRegeneratePlanTool(deps: ExecuteReplanRegener
       return withRunExecutionAuthority({
         cwd,
         runId: params.runId,
-        onContended: () => {
-          const result = runExecutionActive(params.runId);
+        onContended: async () => {
+          const metadata = await readRunMetadata(runMetadataPath(cwd, params.runId));
+          const result = runExecutionActive(params.runId, metadata?.status ?? 'not_started');
           return {
             content: [
               { type: 'text' as const, text: 'execute_replan_regenerate_plan: run_execution_active' },

@@ -2,18 +2,23 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { realpath } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
+import type { RunMetadata } from './run.js';
+
 const executions = new Map<string, Promise<unknown>>();
 const ownedExecutions = new AsyncLocalStorage<ReadonlySet<string>>();
 
 export interface RunExecutionActiveResult {
   readonly status: 'run_execution_active';
-  readonly runStatus: 'not_started';
+  readonly runStatus: RunMetadata['status'] | 'not_started';
   readonly runId: string;
   readonly sideEffects: readonly [];
 }
 
-export function runExecutionActive(runId: string): RunExecutionActiveResult {
-  return { status: 'run_execution_active', runStatus: 'not_started', runId, sideEffects: [] };
+export function runExecutionActive(
+  runId: string,
+  runStatus: RunExecutionActiveResult['runStatus'] = 'not_started',
+): RunExecutionActiveResult {
+  return { status: 'run_execution_active', runStatus, runId, sideEffects: [] };
 }
 
 export const PRODUCTION_RUN_MUTATION_ENTRIES = [

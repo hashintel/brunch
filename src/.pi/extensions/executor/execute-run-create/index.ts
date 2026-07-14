@@ -10,7 +10,12 @@ import {
   runExecutionActive,
   withRunExecutionAuthority,
 } from '../../../../executor/run-execution-authority.js';
-import { createRun, type RunCreateResult } from '../../../../executor/run.js';
+import {
+  createRun,
+  readRunMetadata,
+  runMetadataPath,
+  type RunCreateResult,
+} from '../../../../executor/run.js';
 import { BRUNCH_EXECUTE_RUN_CREATE_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
 import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
@@ -74,7 +79,14 @@ export function createExecuteRunCreateTool(deps: ExecuteRunCreateDeps) {
       return withRunExecutionAuthority({
         cwd,
         runId,
-        onContended: () => toolResult(runExecutionActive(runId), current.source.graphLsn, []),
+        onContended: async () => {
+          const metadata = await readRunMetadata(runMetadataPath(cwd, runId));
+          return toolResult(
+            runExecutionActive(runId, metadata?.status ?? 'not_started'),
+            current.source.graphLsn,
+            [],
+          );
+        },
         execute: async () => {
           const result = await createRun({
             cwd,
