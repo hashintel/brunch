@@ -81,7 +81,6 @@ export function createPresentReviewSetTool(deps?: ReviewSetStructuredExchangeDep
 
       const dryRun = deps.commandExecutor.dryRunAcceptReviewSet({
         specId: deps.specId,
-        proposalEntryId: params.proposalEntryId,
         payload,
       });
       if (dryRun.status === 'structural_illegal') {

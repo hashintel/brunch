@@ -214,7 +214,7 @@ review_set:
 Rules:
 
 - `review_set` contains only `nodes` and `edges` in transcript details.
-- Proposal audit ids and graph command payloads stay outside `toolResult.details`; later acceptance derives graph commands at the graph adapter/domain boundary.
+- Acceptance carries no transcript/proposal audit identifier. Later acceptance derives the exact reviewed graph command at the graph adapter/domain boundary; the accepted payload, operation, spec-local LSN, and change-log row are the durable audit.
 - Do not add `proposal_entry_id`, `pitch`, `user_rubric`, `meta_rubric`, `graph_drafts`, `entity_drafts`, `edge_drafts`, `command_payload`, per-item `basis`, or raw DB ids to this details shape.
 - Candidate rubrics are candidate-specific; do not copy candidate comparison facets into review-set details.
 

@@ -248,7 +248,7 @@ session.submitExchangeResponse
       | request_changes
       | rejected
       | structural_illegal(diagnostics)
-  effects: appends an `ask` toolResult carrying preserved request_* details, publishes selected-session invalidations, and on review-set approval invokes the shared session settlement operation before publishing graph.overview / graph.nodeNeighborhood invalidations. Digest capture is no longer review-shaped: a digest-referencing questionnaire/confirmation terminal carries the runtime-copied accepted abstract.
+  effects: appends an `ask` toolResult carrying preserved request_* details, publishes selected-session invalidations, and on review-set approval invokes the shared session settlement operation before publishing graph.overview / graph.nodeNeighborhood invalidations. Local and RPC approval produce the same durable acceptance semantics: exact translated mutation payload, `accept_review_set` operation, spec-local LSN, and one change-log row. Digest capture is no longer review-shaped: a digest-referencing questionnaire/confirmation terminal carries the runtime-copied accepted abstract.
 
 session.submitMessage
   access: write

@@ -127,6 +127,15 @@ async function setupWorkspace(prefix: string) {
   return { cwd, coordinator, workspace, runtime };
 }
 
+function durableAcceptanceRecord(row: typeof changeLog.$inferSelect) {
+  return {
+    specId: row.spec_id,
+    lsn: row.lsn,
+    operation: row.operation,
+    payload: JSON.parse(row.payload) as unknown,
+  };
+}
+
 function terminalFromSession(text: string) {
   type SessionLine = {
     type?: string;
@@ -178,10 +187,11 @@ describe('review-set settlement production-adapter convergence', () => {
     expect(acceptReviewSet).toHaveBeenCalledTimes(1);
     expect(localGraph.lsn).toBe(localBefore.lsn + 1);
     expect(localLogs).toHaveLength(localBefore.logs + 1);
-    expect(localLogs.at(-1)).toMatchObject({
-      spec_id: local.workspace.spec.id,
+    expect(durableAcceptanceRecord(localLogs.at(-1)!)).toMatchObject({
+      specId: local.workspace.spec.id,
       lsn: localGraph.lsn,
       operation: 'accept_review_set',
+      payload: { createBasis: 'explicit' },
     });
     expect(localTerminal.details).toMatchObject({
       tool_meta: { prev: 'present_review_set', curr: 'request_review' },
@@ -226,11 +236,7 @@ describe('review-set settlement production-adapter convergence', () => {
     expect(acceptReviewSet).toHaveBeenCalledTimes(2);
     expect(rpcGraph.lsn).toBe(rpcBefore.lsn + 1);
     expect(rpcLogs).toHaveLength(rpcBefore.logs + 1);
-    expect(rpcLogs.at(-1)).toMatchObject({
-      spec_id: rpc.workspace.spec.id,
-      lsn: rpcGraph.lsn,
-      operation: 'accept_review_set',
-    });
+    expect(durableAcceptanceRecord(rpcLogs.at(-1)!)).toEqual(durableAcceptanceRecord(localLogs.at(-1)!));
     expect(rpcTerminal.details).toMatchObject({
       tool_meta: { prev: 'present_review_set', curr: 'request_review' },
       answered: { decision: 'approve' },

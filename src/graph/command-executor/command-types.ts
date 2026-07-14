@@ -163,7 +163,6 @@ export interface EstablishSpecPostureInput {
 /** Input for accepting an exact user-reviewed graph batch. */
 export interface AcceptReviewSetInput {
   readonly specId: number;
-  readonly proposalEntryId?: string | undefined;
   readonly payload: unknown;
 }
 

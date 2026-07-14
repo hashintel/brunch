@@ -608,7 +608,6 @@ async function handleSubmitExchangeResponse(
     acceptedAnswer: accepted.answer,
     persistedPresent,
     specId: target.envelope.binding.specId,
-    proposalEntryId: projectLinearSessionExchangeProjection(target.envelope).openPrompt?.promptEntryIds[0],
     commandExecutor: graph.commandExecutor,
   });
   if (review?.status === 'structural_illegal') {
@@ -679,7 +678,6 @@ function reviewResultForAcceptedResponse(options: {
   readonly acceptedAnswer: Record<string, unknown>;
   readonly persistedPresent: unknown;
   readonly specId: number;
-  readonly proposalEntryId?: string | undefined;
   readonly commandExecutor: WorkspaceGraphRuntime['commandExecutor'];
 }):
   | {
@@ -727,7 +725,6 @@ function reviewResultForAcceptedResponse(options: {
       ? { comment: (review as { comment: string }).comment }
       : {}),
     specId: options.specId,
-    proposalEntryId: options.proposalEntryId,
     commandExecutor: options.commandExecutor,
   });
   if (settlement.status === 'structural_illegal') {

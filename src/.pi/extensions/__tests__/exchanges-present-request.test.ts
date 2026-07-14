@@ -799,7 +799,6 @@ describe('structured exchange ask tools', () => {
     });
     const review = await presentResult(PRESENT_REVIEW_SET_TOOL, {
       exchangeId: 'review-cycle-1',
-      proposalEntryId: 'proposal-entry-1',
       payload: validReviewPayload(),
     });
 
@@ -929,7 +928,6 @@ describe('structured exchange ask tools', () => {
   it('renders present_review_set from validated details and falls back for malformed or structural-illegal details', async () => {
     const review = await presentResult(PRESENT_REVIEW_SET_TOOL, {
       exchangeId: 'review-cycle-1',
-      proposalEntryId: 'proposal-entry-1',
       payload: validReviewPayload(),
     });
     const tool = registeredTools({ review: reviewDeps() }).get(PRESENT_REVIEW_SET_TOOL);
@@ -953,7 +951,6 @@ describe('structured exchange ask tools', () => {
         'review-no-deps',
         {
           exchangeId: 'review-cycle-1',
-          proposalEntryId: 'proposal-entry-1',
           payload: validReviewPayload(),
         },
         undefined,
@@ -978,7 +975,6 @@ describe('structured exchange ask tools', () => {
   it('accepts a plan-lens review set with a scope package', async () => {
     const review = await presentResult(PRESENT_REVIEW_SET_TOOL, {
       exchangeId: 'scope-review-cycle',
-      proposalEntryId: 'proposal-entry-scope',
       payload: validPlanReviewPayload(),
     });
     const tool = registeredTools({ review: reviewDeps() }).get(PRESENT_REVIEW_SET_TOOL);
@@ -1019,7 +1015,6 @@ describe('structured exchange ask tools', () => {
         details: (
           await presentResult(PRESENT_REVIEW_SET_TOOL, {
             exchangeId: 'review-live-chrome',
-            proposalEntryId: 'proposal-live-chrome',
             payload: validReviewPayload(),
           })
         ).details,
@@ -1052,7 +1047,6 @@ describe('structured exchange ask tools', () => {
     const candidates = await presentResult(PRESENT_CANDIDATES_TOOL, candidateParams());
     const review = await presentResult(PRESENT_REVIEW_SET_TOOL, {
       exchangeId: 'review-cycle-1',
-      proposalEntryId: 'proposal-entry-1',
       payload: validReviewPayload(),
     });
     const digest = await presentResult(PRESENT_DIGEST_TOOL, {

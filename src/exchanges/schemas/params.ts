@@ -249,10 +249,6 @@ export const zPresentReviewSetParams = z
       .string()
       .min(1)
       .describe('Stable id tying this review-set proposal to the later ask({ continues }) review.'),
-    proposalEntryId: z
-      .string()
-      .describe('Optional transcript/proposal entry id to carry into later acceptance audit.')
-      .optional(),
     // Boundary teaching only: the nested shape is owned beside the graph-owned
     // validateReviewSetPayloadShape diagnostic validator. The schema rejects
     // non-objects, wrong top-level tool shapes, and malformed nested companions;

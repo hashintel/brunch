@@ -95,10 +95,6 @@ export const exchangeToolSchemaBaseline = {
           minLength: 1,
           description: 'Stable id tying this review-set proposal to the later ask({ continues }) review.',
         },
-        proposalEntryId: {
-          type: 'string',
-          description: 'Optional transcript/proposal entry id to carry into later acceptance audit.',
-        },
         payload: {
           type: 'object',
           properties: {

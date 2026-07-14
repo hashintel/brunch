@@ -29,7 +29,6 @@ export function settleReviewSetResponse(input: {
   readonly decision: ReviewDecision;
   readonly comment?: string | undefined;
   readonly specId: number;
-  readonly proposalEntryId?: string | undefined;
   readonly commandExecutor: Pick<CommandExecutor, 'acceptReviewSet'>;
 }): ReviewSetSettlement {
   const parsed = zPresentReviewSetDetails.safeParse(input.persistedPresent);
@@ -61,7 +60,6 @@ export function settleReviewSetResponse(input: {
 
   const accepted = input.commandExecutor.acceptReviewSet({
     specId: input.specId,
-    proposalEntryId: input.proposalEntryId,
     payload: proposalFromPresent(parsed.data),
   });
   if (accepted.status === 'structural_illegal') {
