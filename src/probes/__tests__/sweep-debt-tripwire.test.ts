@@ -133,10 +133,12 @@ describe('sweep-debt tripwire', () => {
     });
   });
 
-  it('fails malformed JSONL loudly with a one-based line number', () => {
-    expect(() => parseSessionJsonl(`${JSON.stringify(message('user', 'valid'))}\n{broken}\n`)).toThrow(
-      'Invalid session JSONL at line 2',
+  it('fails malformed JSONL loudly with its physical one-based line number', () => {
+    const valid = message('user', 'valid');
+    expect(() => parseSessionJsonl(`${JSON.stringify(valid)}\n  \n{broken}\n`)).toThrow(
+      'Invalid session JSONL at line 3',
     );
+    expect(parseSessionJsonl(`\n${JSON.stringify(valid)}\n`)).toEqual([valid]);
   });
 
   it.each([

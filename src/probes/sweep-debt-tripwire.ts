@@ -60,13 +60,14 @@ export function assessSweepDebt(
 export function parseSessionJsonl(source: string): readonly TranscriptEntryLike[] {
   return source
     .split(/\r?\n/u)
-    .filter((line) => line.trim().length > 0)
-    .map((line, index) => {
+    .map((line, index) => ({ line, sourceLine: index + 1 }))
+    .filter(({ line }) => line.trim().length > 0)
+    .map(({ line, sourceLine }) => {
       try {
         return requireEntry(JSON.parse(line) as unknown);
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
-        throw new Error(`Invalid session JSONL at line ${index + 1}: ${detail}`);
+        throw new Error(`Invalid session JSONL at line ${sourceLine}: ${detail}`);
       }
     });
 }
