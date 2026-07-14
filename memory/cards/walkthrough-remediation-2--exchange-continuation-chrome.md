@@ -81,7 +81,7 @@ src/probes/__tests__/
 TESTING_FINDINGS.md                              ~
 ```
 
-## Card 2 · Elide repeated offer pretext from the live ask — `next`
+## Card 2 · Elide repeated offer pretext from the live ask — `in progress`
 
 ### Target Behavior
 
@@ -122,7 +122,7 @@ Stabilizes the D104-L audience split: the offer remains the visible pretext, the
 - ✓ `src/.pi/extensions/__tests__/exchanges-present-request.test.ts` — a continuing `present_candidates` ask passes no repeated heading/body/rationale into the live picker while preserving all declared choices.
 - ✓ `src/.pi/extensions/__tests__/exchanges-present-request.test.ts` — continuing digest and review-set asks pass only review controls into the live picker while preserving approve/change/reject behavior until D110-L is separately revised.
 - ✓ existing exchange formatter/projection suites — answered and cancelled terminal `content`/`details` remain self-contained and unchanged for model/RPC readers.
-- ✓ `TESTING_FINDINGS.md` R7 outer re-observation — presentation prose appears once and the following ask shows only its controls.
+- ◐ `TESTING_FINDINGS.md` R7 outer re-observation — human-gated: presentation prose appears once and the following ask shows only its controls.
 
 ### Invariants preserved
 
@@ -141,6 +141,12 @@ Stabilizes the D104-L audience split: the offer remains the visible pretext, the
 - Do not revise D110-L digest review vocabulary in this card; R8 owns that unresolved product decision.
 - Do not add a second renderer or continuation payload carrier.
 - Preserve the single canonical cancellation terminal from Card 1.
+
+### Implementation checkpoint
+
+The first red test captured all three live picker render inputs before production edits. It failed on the candidate continuation because the declared body rendered a second time inside the picker, confirming the scoped assumption. The adapter now omits that body only from interactive continuation picker construction; declaration details, durable terminal projections, and RPC/headless question payloads remain unchanged. `npm run verify` passes (250 files passed, 1 skipped; 2024 tests passed, 2 skipped). R7 live candidates + digest re-observation remains human-gated, so this card stays open.
+
+Skipped-test-count delta vs parent: 0.
 
 ### Expected touched paths (tentative)
 

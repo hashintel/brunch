@@ -29,7 +29,10 @@ rejected at the params boundary.
 
 Free text uses the bordered answer editor, then the sealed editor fallback, then
 the live broker when present. Choice/review continuations use Brunch-owned
-`ctx.ui.custom` pickers. Mounted answer/picker borders take the current
+`ctx.ui.custom` pickers. Offer continuation pickers render controls only: the
+preceding `present_*` result owns the visible pretext, while the declared body
+remains intact for durable terminal content and complete RPC/headless question
+payloads. Mounted answer/picker borders take the current
 operational-mode color role through the shared component border-color seam;
 workspace/consult surfaces keep their own surface-identity colors. Picker-root
 dismissal is terminal `cancelled`; nested Other/comment input steps share one

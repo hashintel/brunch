@@ -118,7 +118,6 @@ async function presentSingleChoicePicker(
     custom<PickedSingleChoice | undefined>((_tui, theme, _keybindings, done) =>
       createExchangeDecisionPickerComponent({
         prompt: 'Choose one',
-        body: params.body,
         choices: choicesFromParams(params),
         ...(params.topLabel ? { topLabel: params.topLabel } : {}),
         ...(params.bottomLabel ? { bottomLabel: params.bottomLabel } : {}),
@@ -358,7 +357,6 @@ async function collectContinuingReview(
       custom<{ readonly id: ReviewDecision } | undefined>((_tui, theme, _keybindings, done) =>
         createExchangeDecisionPickerComponent({
           prompt: 'Review',
-          body: params.body,
           choices: choicesFromParams(params),
           theme,
           borderColor: askBorderColor(ctx, theme),

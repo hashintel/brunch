@@ -120,6 +120,19 @@ function customMultiPick(indexes: readonly number[]) {
   });
 }
 
+function customPickWithChromeAssertions(index: number, assertions: (rendered: string) => void) {
+  return vi.fn(async (factory: (...args: unknown[]) => unknown) => {
+    let picked: unknown;
+    const component = factory(null, theme, null, (result: unknown) => {
+      picked = result;
+    }) as TestPickerComponent;
+    assertions(component.render(80).join('\n'));
+    for (let step = 0; step < index; step += 1) component.handleInput('\x1b[B');
+    component.handleInput('\r');
+    return picked;
+  });
+}
+
 function customPickWithRenderedText(index: number, expectedText: string) {
   return vi.fn(async (factory: (...args: unknown[]) => unknown) => {
     let picked: unknown;
@@ -973,6 +986,58 @@ describe('structured exchange ask tools', () => {
     expect(rendered).toContain('SCP1 · scope');
     expect(rendered).toContain('Part of: F1');
     expect(rendered).toContain('Depends on: CH1');
+  });
+
+  it('shows only controls in candidate, digest, and review-set continuation pickers', async () => {
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
+    const offers = [
+      {
+        details: (await presentResult(PRESENT_CANDIDATES_TOOL, candidateParams())).details,
+        exchangeId: 'candidate-direction',
+        repeatedPretext: ['Which direction should we take?', 'Pick one candidate.'],
+        expectedControl: 'Local workbench',
+      },
+      {
+        details: (
+          await presentResult(PRESENT_DIGEST_TOOL, {
+            exchangeId: 'digest-live-chrome',
+            heading: 'Review source digest',
+            body: 'Approve this before graph mapping.',
+            digest: { abstract: 'The source says summarize before graph mapping.' },
+          })
+        ).details,
+        exchangeId: 'digest-live-chrome',
+        repeatedPretext: ['Review source digest', 'Approve this before graph mapping.'],
+        expectedControl: 'Approve',
+      },
+      {
+        details: (
+          await presentResult(PRESENT_REVIEW_SET_TOOL, {
+            exchangeId: 'review-live-chrome',
+            proposalEntryId: 'proposal-live-chrome',
+            payload: validReviewPayload(),
+          })
+        ).details,
+        exchangeId: 'review-live-chrome',
+        repeatedPretext: ['Review cycle wiring', 'Commit review-set approvals'],
+        expectedControl: 'Approve',
+      },
+    ];
+
+    for (const offer of offers) {
+      await ask.execute(`ask-${offer.exchangeId}`, { continues: offer.exchangeId }, undefined, undefined, {
+        hasUI: true,
+        ui: {
+          custom: customPickWithChromeAssertions(0, (rendered) => {
+            expect(rendered).toContain(offer.expectedControl);
+            for (const pretext of offer.repeatedPretext) expect(rendered).not.toContain(pretext);
+          }),
+          input: async () => 'Looks right.',
+        },
+        sessionManager: { getBranch: () => branchWith(offer.details) },
+      } as never);
+    }
   });
 
   it('drives declared candidate, review-set, and digest continuations by reference', async () => {

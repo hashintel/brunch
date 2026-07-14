@@ -291,7 +291,7 @@ Concern: `present_*` → continuing `ask` non-repetition.
 Evidence: `remediations-3a.md` §2, screenshot `present-and-ask-open`.
 Observation: the question and rationale appeared above the main `present_*` options and were then repeated inside the continuing `ask` tool.
 Expected: the presentation remains the pretext; a continuing ask renders only the answer controls needed at that step rather than repeating the question/rationale block.
-Disposition: scoped on FE-1187 — JSONL and projection inspection locate the duplication in declared continuation bodies plus the live picker body, not session projection. `memory/cards/walkthrough-remediation-2--exchange-continuation-chrome.md` Card 2 makes the live continuation interaction controls-only while preserving self-contained transcript content.
+Disposition: Card 2 implementation is green on FE-1187 — the live candidate/digest/review-set continuation pickers now omit the declaration-owned body while durable terminal content/details and RPC/headless question payloads retain it. Human-gated closure remains: owner FE-1187 coordinator; re-entry trigger is one live candidates offer plus one digest offer confirming presentation prose appears once and the following ask is controls-only. Cost/value: two short TUI beats buy direct evidence at the only unautomated rendering layer.
 
 #### R8 · digest choreography · high · open
 
