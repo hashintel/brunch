@@ -82,6 +82,29 @@ describe('createExecutePlanFileTool with a planner', () => {
     expect(plannerSignal).toBe(controller.signal);
   });
 
+  it('propagates planner cancellation without entering repair rounds', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-plan-file-cancel-'));
+    const controller = new AbortController();
+    const reason = new Error('user cancelled plan synthesis');
+    let calls = 0;
+    const planner: PlannerPort = {
+      synthesize: async () => {
+        calls += 1;
+        controller.abort(reason);
+        return { status: 'failed', message: 'planner aborted' };
+      },
+    };
+
+    await expect(
+      tool(planner).execute('t1', {}, controller.signal, undefined, {
+        cwd,
+        modelRegistry: {},
+      } as never),
+    ).rejects.toBe(reason);
+    expect(calls).toBe(1);
+    await expect(readFile(planFilePath(cwd, '7'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('writes the synthesized admitted plan with its execution contract', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-plan-file-synth-'));
     const planner: PlannerPort = {
