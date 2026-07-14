@@ -165,6 +165,27 @@ describe('workspace-store — brunch-v1.db identity (D124-L, I63-L)', () => {
     expect(appId).toBe(1112692273);
   });
 
+  it('refuses a foreign data.db in place — never renamed, bytes untouched, no brunch-v1.db created', async () => {
+    const legacyPath = join(brunchDir, LEGACY_ALPHA_DB_FILENAME);
+    await mkdir(brunchDir, { recursive: true });
+    // A non-Brunch SQLite file at the legacy alpha path: has content, no
+    // drizzle migrations table. Adoption-by-rename must not fire before the
+    // ownership decision (I63-L) — otherwise the foreign file is silently
+    // relocated to brunch-v1.db and only then refused.
+    const raw = new Database(legacyPath);
+    raw.exec('CREATE TABLE some_other_apps_table (id INTEGER PRIMARY KEY)');
+    raw.close();
+
+    const before = await readFile(legacyPath);
+
+    await expect(openWorkspaceDb(cwd)).rejects.toThrow(WorkspaceDbRefusalError);
+
+    expect(existsSync(legacyPath)).toBe(true);
+    expect(existsSync(join(brunchDir, WORKSPACE_DB_FILENAME))).toBe(false);
+    const after = await readFile(legacyPath);
+    expect(after.equals(before)).toBe(true);
+  });
+
   it('leaves a legacy alpha data.db untouched when brunch-v1.db already exists', async () => {
     const first = await openWorkspaceDb(cwd);
     first.insert(specs).values({ name: 'Current', slug: 'current' }).run();
