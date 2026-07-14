@@ -312,40 +312,29 @@ describe('projectExecuteGraph execution contract', () => {
     { ...base, id: 10, plane: 'intent', kind: 'requirement', kindOrdinal: 1, title: 'Build base' },
   ];
 
-  it('emits an explicit default-provenance greenfield verify action, never an ambient fallback', () => {
+  it('does not invent a greenfield verification action without an authored recipe', () => {
     const projection = projectExecuteGraph({ specId: 7, graphLsn: 9, nodes, edges: [] });
 
-    expect(projection.executionContract.requiredCapabilities).toEqual([
-      { id: 'node.npm-verify', source: { kind: 'default' } },
-    ]);
-    expect(projection.executionContract.resolvedActions.verify).toEqual([
-      {
-        capabilityId: 'node.npm-verify',
-        providerId: 'node-npm',
-        command: 'npm',
-        args: ['run', 'verify'],
-      },
-    ]);
+    expect(projection.executionContract.requiredCapabilities).toEqual([]);
+    expect(projection.executionContract.resolvedActions.verify).toEqual([]);
     expect(projection.planPreview.execution_contract).toEqual(projection.executionContract);
   });
 
-  it('prefers detected workspace capabilities over the greenfield default', () => {
+  it('retains detected workspace facts without turning them into command authority', () => {
     const projection = projectExecuteGraph({
       specId: 7,
       graphLsn: 9,
       nodes,
       edges: [],
       mode: 'brownfield',
-      detectedCapabilities: [{ id: 'node.npm-test', source: { kind: 'detected', path: 'package.json' } }],
+      detectedCapabilities: [{ id: 'node.script.test', source: { kind: 'detected', path: 'package.json' } }],
     });
 
     expect(projection.executionContract.requiredCapabilities).toEqual([]);
     expect(projection.executionContract.detectedCapabilities).toEqual([
-      { id: 'node.npm-test', source: { kind: 'detected', path: 'package.json' } },
+      { id: 'node.script.test', source: { kind: 'detected', path: 'package.json' } },
     ]);
-    expect(projection.executionContract.resolvedActions.verify).toEqual([
-      { capabilityId: 'node.npm-test', providerId: 'node-npm', command: 'npm', args: ['test'] },
-    ]);
+    expect(projection.executionContract.resolvedActions.verify).toEqual([]);
   });
 
   it('does not apply the greenfield default when brownfield detection finds no verify command', () => {
@@ -362,7 +351,7 @@ describe('projectExecuteGraph execution contract', () => {
     expect(projection.executionContract.resolvedActions.verify).toEqual([]);
   });
 
-  it('derives the contract from spec-declared execute.* recipe lines instead of the npm default', () => {
+  it('derives the contract from the settled Project execution harness V&V method', () => {
     const projection = projectExecuteGraph({
       specId: 7,
       graphLsn: 9,
@@ -371,10 +360,10 @@ describe('projectExecuteGraph execution contract', () => {
         {
           ...base,
           id: 30,
-          plane: 'intent',
-          kind: 'decision',
+          plane: 'oracle',
+          kind: 'vv_method',
           kindOrdinal: 1,
-          title: 'Verify with cargo',
+          title: 'Project execution harness',
           body: 'Verification runs through cargo.\nexecute.verify: cargo test',
         },
       ],
@@ -382,7 +371,7 @@ describe('projectExecuteGraph execution contract', () => {
     });
 
     expect(projection.executionContract.requiredCapabilities).toEqual([
-      { id: 'spec.verify', source: { kind: 'elicited', itemId: 'D1' } },
+      { id: 'spec.verify', source: { kind: 'elicited', itemId: 'VV1' } },
     ]);
     expect(projection.executionContract.resolvedActions.verify).toEqual([
       { capabilityId: 'spec.verify', providerId: 'spec-recipe', command: 'cargo', args: ['test'] },
@@ -398,10 +387,10 @@ describe('projectExecuteGraph execution contract', () => {
         {
           ...base,
           id: 30,
-          plane: 'intent',
-          kind: 'decision',
+          plane: 'oracle',
+          kind: 'vv_method',
           kindOrdinal: 1,
-          title: 'Verify with cargo',
+          title: 'Project execution harness',
           body: 'execute.verify: cargo test && echo done',
         },
       ],

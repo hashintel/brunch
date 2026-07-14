@@ -62,15 +62,15 @@ describe('cook plan file writer', () => {
   it('carries the plan-owned execution contract into the payload verbatim', () => {
     const executionContract = {
       schemaVersion: 1 as const,
-      requiredCapabilities: [{ id: 'node.npm-verify', source: { kind: 'default' as const } }],
+      requiredCapabilities: [{ id: 'spec.verify', source: { kind: 'elicited' as const, itemId: 'D1' } }],
       detectedCapabilities: [],
       resolvedActions: {
         setup: [],
         build: [],
         verify: [
           {
-            capabilityId: 'node.npm-verify',
-            providerId: 'node-npm',
+            capabilityId: 'spec.verify',
+            providerId: 'spec-recipe',
             command: 'npm',
             args: ['run', 'verify'],
           },

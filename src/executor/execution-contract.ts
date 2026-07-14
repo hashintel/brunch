@@ -6,8 +6,7 @@ import {
 
 export type CapabilitySource =
   | { readonly kind: 'elicited'; readonly itemId: string }
-  | { readonly kind: 'detected'; readonly path: string }
-  | { readonly kind: 'default' };
+  | { readonly kind: 'detected'; readonly path: string };
 
 export interface CapabilityRequirement {
   readonly id: string;
@@ -106,7 +105,8 @@ export function deriveExecutionContract(args: {
   const conflictedDomains = new Set(conflicts.map((conflict) => conflict.domain));
   const contributingIds: string[] = [];
   const seen = new Set<string>();
-  for (const requirement of [...args.required, ...args.detected]) {
+  // Detection is evidence for admission, never authority to execute a command.
+  for (const requirement of args.required) {
     const recognition = recognizeCapability(args.providers, requirement.id);
     if (!recognition || conflictedDomains.has(recognition.domain) || seen.has(requirement.id)) continue;
     seen.add(requirement.id);
@@ -148,7 +148,6 @@ function isCapabilityRequirement(value: unknown): value is CapabilityRequirement
 
 function isCapabilitySource(value: unknown): value is CapabilitySource {
   if (!isRecord(value)) return false;
-  if (value['kind'] === 'default') return true;
   if (value['kind'] === 'elicited') return isNonBlankString(value['itemId']);
   return value['kind'] === 'detected' && isNonBlankString(value['path']);
 }

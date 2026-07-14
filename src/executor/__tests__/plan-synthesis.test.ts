@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { defaultCapabilityProviders } from '../capability-providers.js';
 import type { PlannerPort } from '../execution-ports.js';
 import { planFilePayload } from '../plan-file.js';
 import { previewPlan } from '../plan-preview.js';
 import { synthesizePlan } from '../plan-synthesis.js';
 import { coherentCandidate, projection, PYTEST_PROVIDER } from './plan-synthesis-fixture.js';
 
-const providers = [...defaultCapabilityProviders(), PYTEST_PROVIDER];
+const providers = [PYTEST_PROVIDER];
 
 function scriptedPlanner(responses: readonly unknown[]): PlannerPort & { calls: unknown[] } {
   const calls: unknown[] = [];

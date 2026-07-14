@@ -81,9 +81,9 @@ describe('createExecuteRunCreateTool', () => {
     expect(Object.keys(schema.properties ?? {})).toEqual(['runId', 'substrate', 'mode']);
   });
 
-  it('writes the greenfield default-provenance contract verify target into run metadata', async () => {
+  it('writes the persisted authored verify target into greenfield run metadata', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-create-greenfield-'));
-    await writePlan(cwd);
+    await writePlan(cwd, 'greenfield', [], { command: 'npm', args: ['run', 'verify'] });
 
     const result = await tool().execute('t1', { runId: 'run-1' }, undefined, undefined, { cwd } as never);
 
@@ -104,17 +104,22 @@ describe('createExecuteRunCreateTool', () => {
     expect((await runMetadata(cwd, 'run-1')).verifyTarget).toEqual({ command: 'pytest', args: ['-q'] });
   });
 
-  it('reuses detected brownfield conventions for the run verify target', async () => {
+  it('uses the persisted authored target while retaining brownfield evidence', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-create-brownfield-'));
     await writeFile(
       join(cwd, 'package.json'),
       JSON.stringify({ name: 'host', scripts: { test: 'vitest run' } }),
       'utf8',
     );
-    await writePlan(cwd, 'brownfield', [
-      { id: 'node.npm', source: { kind: 'detected', path: 'package.json' } },
-      { id: 'node.npm-test', source: { kind: 'detected', path: 'package.json' } },
-    ]);
+    await writePlan(
+      cwd,
+      'brownfield',
+      [
+        { id: 'node.package-json', source: { kind: 'detected', path: 'package.json' } },
+        { id: 'node.script.test', source: { kind: 'detected', path: 'package.json' } },
+      ],
+      { command: 'npm', args: ['test'] },
+    );
 
     const result = await tool().execute('t1', { runId: 'run-1', mode: 'brownfield' }, undefined, undefined, {
       cwd,

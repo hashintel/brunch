@@ -103,6 +103,20 @@ describe('composeLiveElicitorPrompt', () => {
     expect(result.prompt).toContain('For a single execution-facing handoff package');
   });
 
+  it('requires an author-approved execution harness before an execution-facing scope', () => {
+    const result = composeLiveElicitorPrompt({
+      sessionState: projectBrunchAgentState([]),
+      spec: { id: 42, name: 'Live Assembly Spec' },
+      workspace,
+    });
+
+    expect(result.prompt).toContain('settled `oracle/vv_method` named `Project execution harness`');
+    expect(result.prompt).toContain('What command should Brunch run to verify the implementation?');
+    expect(result.prompt).toContain('`execute.verify: <command>`');
+    expect(result.prompt).toContain('the user must approve the recipe');
+    expect(result.prompt).toContain('Reject shell composition');
+  });
+
   it('fails loud when called for a non-elicitor foreground state', () => {
     const sessionState = projectBrunchAgentState([
       {

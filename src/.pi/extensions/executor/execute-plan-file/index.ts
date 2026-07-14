@@ -1,7 +1,6 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { defaultCapabilityProviders } from '../../../../executor/capability-providers.js';
 import {
   assertExecuteProjectionPlanReady,
   projectExecuteGraph,
@@ -82,10 +81,14 @@ export function createExecutePlanFileTool(deps: ExecutePlanFileDeps) {
         detectedCapabilities: detected,
       });
       assertExecuteProjectionPlanReady(projection);
+      const modelRegistry = (ctx as { modelRegistry?: unknown } | undefined)?.modelRegistry;
+      if (!deps.planner || !modelRegistry) {
+        const findings = deterministicContractFindings(projection.executionContract);
+        if (findings.length > 0) return blockedPlanResult(findings);
+      }
       let preview = projection.planPreview;
       let synthesisRounds: number | undefined;
       let plannerNote: string | undefined;
-      const modelRegistry = (ctx as { modelRegistry?: unknown } | undefined)?.modelRegistry;
       if (deps.planner && !modelRegistry) {
         // Explicit, labeled fallback: a planner that cannot run (no model context) is not
         // an invalid model plan — invalid candidates still block with findings below.
@@ -124,7 +127,7 @@ export function createExecutePlanFileTool(deps: ExecutePlanFileDeps) {
         const synthesis = await synthesizePlan({
           projection: planningInput,
           detected,
-          providers: [...defaultCapabilityProviders(), ...(recipe.provider ? [recipe.provider] : [])],
+          providers: recipe.provider ? [recipe.provider] : [],
           ...(recipe.required.length > 0 ? { baseRequired: recipe.required } : {}),
           planner: deps.planner,
           runtime: {
@@ -184,6 +187,51 @@ export function createExecutePlanFileTool(deps: ExecutePlanFileDeps) {
       };
     },
   });
+}
+
+function deterministicContractFindings(
+  contract: ReturnType<typeof projectExecuteGraph>['executionContract'],
+): readonly PlanValidationFinding[] {
+  return [
+    ...contract.blocked.map((entry) => ({
+      code: 'capability_unsupported' as const,
+      severity: 'error' as const,
+      ...(entry.source.kind === 'elicited' ? { itemId: entry.source.itemId } : {}),
+      message: entry.message ?? `Capability ${entry.id} is blocked (${entry.reason}).`,
+    })),
+    ...contract.conflicts.map((conflict) => ({
+      code: 'capability_conflict' as const,
+      severity: 'error' as const,
+      itemId: conflict.requiredId,
+      message: conflict.message,
+    })),
+    ...(contract.resolvedActions.verify.length === 0
+      ? [
+          {
+            code: 'no_verification_capability' as const,
+            severity: 'error' as const,
+            message:
+              'No authored execute.verify recipe resolves a verification action; settle an oracle/vv_method named Project execution harness with one plain execute.verify command.',
+          },
+        ]
+      : []),
+  ];
+}
+
+function blockedPlanResult(findings: readonly PlanValidationFinding[]) {
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: [
+          'execute_plan_file: plan_synthesis_blocked',
+          ...findings.map((finding) => `- ${finding.code}: ${finding.message}`),
+          'No plan was written. Add or repair execute.* recipe lines on the settled Project execution harness V&V method.',
+        ].join('\n'),
+      },
+    ],
+    details: { blocked: { findings, history: [] }, sideEffects: [] as const },
+  };
 }
 
 export function registerBrunchExecutePlanFile(pi: ExtensionAPI, deps: ExecutePlanFileDeps): void {

@@ -46,30 +46,6 @@ export function resolveCapabilityActions(
   return undefined;
 }
 
-const NODE_NPM_PROVIDER: CapabilityProvider = {
-  id: 'node-npm',
-  capabilities: {
-    'node.npm': {
-      domain: 'js-package-manager',
-      actions: { setup: [{ command: 'npm', args: ['install'] }], build: [], verify: [] },
-    },
-    'node.npm-test': {
-      domain: 'verify-runner',
-      actions: { setup: [], build: [], verify: [{ command: 'npm', args: ['test'] }] },
-    },
-    'node.npm-verify': {
-      domain: 'verify-runner',
-      actions: { setup: [], build: [], verify: [{ command: 'npm', args: ['run', 'verify'] }] },
-    },
-  },
-};
-
-// ceiling: one built-in provider (node/npm); the provider list becomes composition-injected
-// when a second ecosystem or project-specific harness lands (FE-1197 slice B).
-export function defaultCapabilityProviders(): readonly CapabilityProvider[] {
-  return [NODE_NPM_PROVIDER];
-}
-
 export function capabilityVocabulary(providers: readonly CapabilityProvider[]): readonly string[] {
   return providers.flatMap((provider) => Object.keys(provider.capabilities)).sort();
 }

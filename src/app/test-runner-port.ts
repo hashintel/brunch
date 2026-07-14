@@ -7,8 +7,6 @@ const TEST_RUNNER_MAX_OUTPUT_BYTES = 128 * 1024;
 export function createTestRunnerPort(
   options: {
     readonly run?: CommandRunner;
-    readonly command?: string;
-    readonly args?: readonly string[];
   } = {},
 ): TestRunnerPort {
   const run = options.run ?? runCommand;
@@ -16,15 +14,14 @@ export function createTestRunnerPort(
     async run({ worktreeDir, verifyTarget, signal, onUpdate }) {
       // The run's admitted execution contract is the only verify-command source;
       // an absent target is a typed failure, never an ambient default (FE-1197).
-      const command = verifyTarget?.command ?? options.command;
-      const args = verifyTarget?.args ?? options.args;
+      const command = verifyTarget?.command;
+      const args = verifyTarget?.args;
       if (command === undefined || args === undefined) {
         const message = 'no verify target configured for this run';
         await onUpdate?.({ kind: 'status', message });
         return { status: 'failed', message };
       }
       const target = [command, ...args].join(' ');
-      const execArgs = command === 'npm' ? ['--prefix', worktreeDir, ...args] : args;
       await onUpdate?.({ kind: 'status', message: `${target} started` });
       let outputUpdateChain: Promise<void> = Promise.resolve();
       const queueOutputUpdate = (chunk: { readonly stream: 'stdout' | 'stderr'; readonly text: string }) => {
@@ -32,7 +29,7 @@ export function createTestRunnerPort(
           await onUpdate?.({ kind: chunk.stream, message: chunk.text });
         });
       };
-      const result = await run(command, execArgs, {
+      const result = await run(command, args, {
         cwd: worktreeDir,
         signal,
         timeoutMs: TEST_RUNNER_TIMEOUT_MS,

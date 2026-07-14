@@ -1,4 +1,3 @@
-import { defaultCapabilityProviders } from './capability-providers.js';
 import { draftExecutablePlan, type ExecutablePlanDraft } from './executable-plan-draft.js';
 import { checkExecutionSpecForPlan, type ExecutePlanCheckResult } from './execute-plan-check.js';
 import { outlineExecutionPlan, type ExecutionPlanOutline } from './execute-plan-outline.js';
@@ -54,15 +53,8 @@ export function projectExecuteGraph(input: ProjectExecuteGraphInput): ExecuteGra
     decisions: snapshot.context.decisions,
     verification: snapshot.context.oracle,
   });
-  const providers = [...defaultCapabilityProviders(), ...(recipe.provider ? [recipe.provider] : [])];
-  // ceiling: default-provenance npm requirement as last resort until the FE-1197
-  // planner projects capabilities from non-recipe commitments.
-  const required: readonly CapabilityRequirement[] =
-    recipe.required.length > 0
-      ? recipe.required
-      : snapshot.mode === 'greenfield' && detected.length === 0
-        ? [{ id: 'node.npm-verify', source: { kind: 'default' } }]
-        : [];
+  const providers = recipe.provider ? [recipe.provider] : [];
+  const required: readonly CapabilityRequirement[] = recipe.required;
   const executionContract = withRecipeIssues(
     deriveExecutionContract({ required, detected, providers }),
     recipe,

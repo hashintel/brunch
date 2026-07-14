@@ -5,7 +5,6 @@ import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import type { CandidatePlan } from '../candidate-plan.js';
-import { defaultCapabilityProviders } from '../capability-providers.js';
 import type { AgentRunnerPort, ExecutionPorts, TestRunnerPort } from '../execution-ports.js';
 import { drive, frontierFiringPolicy, petriScheduler } from '../orchestrate.js';
 import { planFilePath, planFilePayload } from '../plan-file.js';
@@ -22,7 +21,7 @@ import {
 } from './fake-ports.js';
 import { projection, PYTEST_PROVIDER } from './plan-synthesis-fixture.js';
 
-const providers = [...defaultCapabilityProviders(), PYTEST_PROVIDER];
+const providers = [PYTEST_PROVIDER];
 
 function independentCandidate(): CandidatePlan {
   return {

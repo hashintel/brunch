@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { detectWorkspaceCapabilities } from '../workspace-detection.js';
 
 describe('detectWorkspaceCapabilities', () => {
-  it('reports npm capabilities with manifest provenance from package.json', async () => {
+  it('reports non-authoritative Node manifest facts with file provenance', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'brunch-detect-'));
     await writeFile(
       join(dir, 'package.json'),
@@ -16,9 +16,9 @@ describe('detectWorkspaceCapabilities', () => {
     );
 
     expect(await detectWorkspaceCapabilities(dir)).toEqual([
-      { id: 'node.npm', source: { kind: 'detected', path: 'package.json' } },
-      { id: 'node.npm-test', source: { kind: 'detected', path: 'package.json' } },
-      { id: 'node.npm-verify', source: { kind: 'detected', path: 'package.json' } },
+      { id: 'node.package-json', source: { kind: 'detected', path: 'package.json' } },
+      { id: 'node.script.test', source: { kind: 'detected', path: 'package.json' } },
+      { id: 'node.script.verify', source: { kind: 'detected', path: 'package.json' } },
     ]);
   });
 

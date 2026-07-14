@@ -1,11 +1,20 @@
 import { describe, expect, it } from 'vitest';
 
 import type { CandidatePlan } from '../candidate-plan.js';
-import { defaultCapabilityProviders } from '../capability-providers.js';
+import type { CapabilityProvider } from '../capability-providers.js';
 import { validateCandidatePlan } from '../plan-validation.js';
 import { coherentCandidate, projection, PYTEST_PROVIDER } from './plan-synthesis-fixture.js';
 
-const providers = [...defaultCapabilityProviders(), PYTEST_PROVIDER];
+const NODE_TEST_PROVIDER: CapabilityProvider = {
+  id: 'node-test',
+  capabilities: {
+    'node.script.test': {
+      domain: 'verify-runner',
+      actions: { setup: [], build: [], verify: [] },
+    },
+  },
+};
+const providers = [PYTEST_PROVIDER, NODE_TEST_PROVIDER];
 
 function validate(candidate: CandidatePlan, detected = [] as never[]) {
   return validateCandidatePlan({ candidate, projection, detected, providers });
@@ -99,7 +108,7 @@ describe('validateCandidatePlan', () => {
       validateCandidatePlan({
         candidate: base,
         projection,
-        detected: [{ id: 'node.npm-test', source: { kind: 'detected', path: 'package.json' } }],
+        detected: [{ id: 'node.script.test', source: { kind: 'detected', path: 'package.json' } }],
         providers,
       }).findings.map((finding) => finding.code),
     ).toContain('capability_conflict');

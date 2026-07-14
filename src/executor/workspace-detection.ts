@@ -3,9 +3,8 @@ import { join } from 'node:path';
 
 import type { CapabilityRequirement } from './execution-contract.js';
 
-// ceiling: manifest-only detection (package.json presence + scripts); workspace layout,
-// lockfile package-manager discrimination, and polyglot manifests arrive with FE-1197
-// slice B/C pressure.
+// Workspace facts are evidence only. They deliberately do not name a package manager or
+// authorize commands; execution authority comes from spec-authored execute.* recipes.
 export async function detectWorkspaceCapabilities(dir: string): Promise<readonly CapabilityRequirement[]> {
   let manifest: { readonly scripts?: Readonly<Record<string, string>> };
   try {
@@ -15,8 +14,8 @@ export async function detectWorkspaceCapabilities(dir: string): Promise<readonly
   }
   const source = { kind: 'detected', path: 'package.json' } as const;
   return [
-    { id: 'node.npm', source },
-    ...(manifest.scripts?.['test'] ? [{ id: 'node.npm-test', source }] : []),
-    ...(manifest.scripts?.['verify'] ? [{ id: 'node.npm-verify', source }] : []),
+    { id: 'node.package-json', source },
+    ...(manifest.scripts?.['test'] ? [{ id: 'node.script.test', source }] : []),
+    ...(manifest.scripts?.['verify'] ? [{ id: 'node.script.verify', source }] : []),
   ];
 }

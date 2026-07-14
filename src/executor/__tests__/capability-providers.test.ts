@@ -1,34 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  defaultCapabilityProviders,
+  capabilityVocabulary,
   recognizeCapability,
   resolveCapabilityActions,
   type CapabilityProvider,
 } from '../capability-providers.js';
 
-describe('defaultCapabilityProviders', () => {
-  it('resolves node npm verify capabilities to typed command actions', () => {
-    const providers = defaultCapabilityProviders();
-
-    expect(recognizeCapability(providers, 'node.npm-verify')).toEqual({
-      providerId: 'node-npm',
-      domain: 'verify-runner',
-    });
-    expect(resolveCapabilityActions(providers, 'node.npm-verify')).toEqual({
-      setup: [],
-      build: [],
-      verify: [{ command: 'npm', args: ['run', 'verify'] }],
-    });
-    expect(resolveCapabilityActions(providers, 'node.npm-test')).toEqual({
-      setup: [],
-      build: [],
-      verify: [{ command: 'npm', args: ['test'] }],
-    });
-  });
-
+describe('capability providers', () => {
   it('does not recognize capabilities outside provider vocabulary', () => {
-    const providers = defaultCapabilityProviders();
+    const providers: readonly CapabilityProvider[] = [];
 
     expect(recognizeCapability(providers, 'python.pytest')).toBeUndefined();
     expect(resolveCapabilityActions(providers, 'python.pytest')).toBeUndefined();
@@ -44,7 +25,7 @@ describe('defaultCapabilityProviders', () => {
         },
       },
     };
-    const providers = [...defaultCapabilityProviders(), pytest];
+    const providers = [pytest];
 
     expect(recognizeCapability(providers, 'python.pytest')).toEqual({
       providerId: 'python-pytest',
@@ -53,5 +34,6 @@ describe('defaultCapabilityProviders', () => {
     expect(resolveCapabilityActions(providers, 'python.pytest')?.verify).toEqual([
       { command: 'pytest', args: [] },
     ]);
+    expect(capabilityVocabulary(providers)).toEqual(['python.pytest']);
   });
 });

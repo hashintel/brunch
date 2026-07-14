@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { defaultCapabilityProviders, type CapabilityProvider } from '../capability-providers.js';
+import type { CapabilityProvider } from '../capability-providers.js';
 import { deriveExecutionContract } from '../execution-contract.js';
 
 const PYTEST_PROVIDER: CapabilityProvider = {
@@ -13,34 +13,37 @@ const PYTEST_PROVIDER: CapabilityProvider = {
   },
 };
 
+const NODE_TEST_PROVIDER: CapabilityProvider = {
+  id: 'node-test',
+  capabilities: {
+    'node.script.test': {
+      domain: 'verify-runner',
+      actions: { setup: [], build: [], verify: [] },
+    },
+  },
+};
+
 describe('deriveExecutionContract', () => {
   it('resolves required capabilities through providers with provenance intact', () => {
     const contract = deriveExecutionContract({
-      required: [{ id: 'node.npm-verify', source: { kind: 'elicited', itemId: 'CON1' } }],
-      detected: [{ id: 'node.npm', source: { kind: 'detected', path: 'package.json' } }],
-      providers: defaultCapabilityProviders(),
+      required: [{ id: 'python.pytest', source: { kind: 'elicited', itemId: 'CON1' } }],
+      detected: [{ id: 'node.package-json', source: { kind: 'detected', path: 'package.json' } }],
+      providers: [PYTEST_PROVIDER],
     });
 
     expect(contract).toEqual({
       schemaVersion: 1,
-      requiredCapabilities: [{ id: 'node.npm-verify', source: { kind: 'elicited', itemId: 'CON1' } }],
-      detectedCapabilities: [{ id: 'node.npm', source: { kind: 'detected', path: 'package.json' } }],
+      requiredCapabilities: [{ id: 'python.pytest', source: { kind: 'elicited', itemId: 'CON1' } }],
+      detectedCapabilities: [{ id: 'node.package-json', source: { kind: 'detected', path: 'package.json' } }],
       resolvedActions: {
-        setup: [
-          {
-            capabilityId: 'node.npm',
-            providerId: 'node-npm',
-            command: 'npm',
-            args: ['install'],
-          },
-        ],
+        setup: [],
         build: [],
         verify: [
           {
-            capabilityId: 'node.npm-verify',
-            providerId: 'node-npm',
-            command: 'npm',
-            args: ['run', 'verify'],
+            capabilityId: 'python.pytest',
+            providerId: 'python-pytest',
+            command: 'pytest',
+            args: [],
           },
         ],
       },
@@ -53,7 +56,7 @@ describe('deriveExecutionContract', () => {
     const contract = deriveExecutionContract({
       required: [{ id: 'ruby.rspec', source: { kind: 'elicited', itemId: 'DEC2' } }],
       detected: [],
-      providers: defaultCapabilityProviders(),
+      providers: [],
     });
 
     expect(contract.blocked).toEqual([
@@ -69,44 +72,42 @@ describe('deriveExecutionContract', () => {
   it('reports a typed conflict when required and detected capabilities disagree in one domain', () => {
     const contract = deriveExecutionContract({
       required: [{ id: 'python.pytest', source: { kind: 'elicited', itemId: 'CON3' } }],
-      detected: [{ id: 'node.npm-test', source: { kind: 'detected', path: 'package.json' } }],
-      providers: [...defaultCapabilityProviders(), PYTEST_PROVIDER],
+      detected: [{ id: 'node.script.test', source: { kind: 'detected', path: 'package.json' } }],
+      providers: [PYTEST_PROVIDER, NODE_TEST_PROVIDER],
     });
 
     expect(contract.conflicts).toEqual([
       {
         domain: 'verify-runner',
         requiredId: 'python.pytest',
-        detectedId: 'node.npm-test',
+        detectedId: 'node.script.test',
         message:
-          'Required capability python.pytest and detected capability node.npm-test disagree in domain verify-runner.',
+          'Required capability python.pytest and detected capability node.script.test disagree in domain verify-runner.',
       },
     ]);
     expect(contract.resolvedActions.verify).toEqual([]);
   });
 
-  it('reuses detected conventions when required capabilities agree or are absent', () => {
+  it('does not turn detected conventions into command authority', () => {
     const contract = deriveExecutionContract({
       required: [],
-      detected: [{ id: 'node.npm-test', source: { kind: 'detected', path: 'package.json' } }],
-      providers: defaultCapabilityProviders(),
+      detected: [{ id: 'node.script.test', source: { kind: 'detected', path: 'package.json' } }],
+      providers: [NODE_TEST_PROVIDER],
     });
 
     expect(contract.conflicts).toEqual([]);
-    expect(contract.resolvedActions.verify).toEqual([
-      { capabilityId: 'node.npm-test', providerId: 'node-npm', command: 'npm', args: ['test'] },
-    ]);
+    expect(contract.resolvedActions.verify).toEqual([]);
   });
 
   it('ignores unrecognized detected capabilities as facts, not blockers', () => {
     const contract = deriveExecutionContract({
-      required: [{ id: 'node.npm-verify', source: { kind: 'default' } }],
+      required: [{ id: 'python.pytest', source: { kind: 'elicited', itemId: 'CON4' } }],
       detected: [{ id: 'rust.cargo', source: { kind: 'detected', path: 'Cargo.toml' } }],
-      providers: defaultCapabilityProviders(),
+      providers: [PYTEST_PROVIDER],
     });
 
     expect(contract.blocked).toEqual([]);
     expect(contract.conflicts).toEqual([]);
-    expect(contract.resolvedActions.verify.map((action) => action.capabilityId)).toEqual(['node.npm-verify']);
+    expect(contract.resolvedActions.verify.map((action) => action.capabilityId)).toEqual(['python.pytest']);
   });
 });

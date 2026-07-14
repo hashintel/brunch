@@ -103,16 +103,16 @@ const extensionDefaults = {
 
 function admittedPlanPayload(mode: 'greenfield' | 'brownfield'): string {
   const brownfield = mode === 'brownfield';
-  const capabilityId = brownfield ? 'node.npm-test' : 'node.npm-verify';
+  const capabilityId = 'spec.verify';
   return JSON.stringify({
     mode,
     epics: [],
     slices: [],
     execution_contract: {
       schemaVersion: 1,
-      requiredCapabilities: brownfield ? [] : [{ id: capabilityId, source: { kind: 'default' } }],
+      requiredCapabilities: [{ id: capabilityId, source: { kind: 'elicited', itemId: 'D1' } }],
       detectedCapabilities: brownfield
-        ? [{ id: capabilityId, source: { kind: 'detected', path: 'package.json' } }]
+        ? [{ id: 'node.script.test', source: { kind: 'detected', path: 'package.json' } }]
         : [],
       resolvedActions: {
         setup: [],
@@ -120,7 +120,7 @@ function admittedPlanPayload(mode: 'greenfield' | 'brownfield'): string {
         verify: [
           {
             capabilityId,
-            providerId: 'node-npm',
+            providerId: 'spec-recipe',
             command: 'npm',
             args: brownfield ? ['test'] : ['run', 'verify'],
           },
@@ -628,6 +628,19 @@ describe('Brunch explicit Pi extension registry', () => {
                   createdAtLsn: 1,
                   updatedAtLsn: 1,
                 },
+                {
+                  id: 2,
+                  specId: 42,
+                  plane: 'oracle',
+                  kind: 'vv_method',
+                  kindOrdinal: 1,
+                  title: 'Verify through the authored harness',
+                  body: 'execute.verify: npm test',
+                  basis: 'explicit',
+                  settlement: 'settled',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
               ],
               edges: [],
             }) as never,
@@ -704,6 +717,15 @@ describe('Brunch explicit Pi extension registry', () => {
             kind: 'criterion',
             kindOrdinal: 1,
             title: 'Feature verified',
+          },
+          {
+            ...base,
+            id: 30,
+            plane: 'oracle',
+            kind: 'vv_method',
+            kindOrdinal: 1,
+            title: 'Verify through the authored harness',
+            body: 'execute.verify: npm test',
           },
         ],
         edges: [

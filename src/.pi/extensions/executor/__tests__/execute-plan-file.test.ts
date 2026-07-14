@@ -17,16 +17,24 @@ const base = {
 } as const;
 
 const nodes = [
-  { ...base, id: 9, plane: 'intent', kind: 'decision', kindOrdinal: 1, title: 'Ship on npm test' },
+  {
+    ...base,
+    id: 9,
+    plane: 'oracle',
+    kind: 'vv_method',
+    kindOrdinal: 1,
+    title: 'Project execution harness',
+    body: 'execute.verify: npm test',
+  },
   { ...base, id: 10, plane: 'intent', kind: 'requirement', kindOrdinal: 1, title: 'Build feature' },
   { ...base, id: 20, plane: 'intent', kind: 'criterion', kindOrdinal: 1, title: 'Feature verified' },
 ];
 const edges = [{ ...base, id: 1, category: 'witness', sourceId: 20, targetId: 10, stance: 'for' }];
 
-function tool(planner?: PlannerPort) {
+function tool(planner?: PlannerPort, graphNodes = nodes) {
   return createExecutePlanFileTool({
     specId: 7,
-    reads: { queryGraph: () => ({ lsn: 9, nodes, edges }) } as never,
+    reads: { queryGraph: () => ({ lsn: 9, nodes: graphNodes, edges }) } as never,
     ...(planner ? { planner } : {}),
   });
 }
@@ -50,7 +58,7 @@ function coherentCandidate() {
         verificationItemIds: [],
       },
     ],
-    requiredCapabilities: [{ id: 'node.npm-test', sourceItemId: 'D1' }],
+    requiredCapabilities: [],
   };
 }
 
@@ -69,10 +77,14 @@ describe('createExecutePlanFileTool with a planner', () => {
     expect((result.content[0] as { text?: string })?.text).toContain('synthesis rounds: 1');
     const payload = JSON.parse(await readFile(planFilePath(cwd, '7'), 'utf8')) as {
       slices: readonly { id: string; definition: string }[];
-      execution_contract?: { resolvedActions: { verify: readonly { command: string }[] } };
+      execution_contract?: {
+        requiredCapabilities: readonly { source: { itemId?: string } }[];
+        resolvedActions: { verify: readonly { command: string }[] };
+      };
     };
     expect(payload.slices.map((slice) => slice.id)).toEqual(['task-1']);
     expect(payload.slices[0]?.definition).toContain('Done when:');
+    expect(payload.execution_contract?.requiredCapabilities[0]?.source.itemId).toBe('VV1');
     expect(payload.execution_contract?.resolvedActions.verify[0]).toMatchObject({ command: 'npm' });
   });
 
@@ -85,12 +97,27 @@ describe('createExecutePlanFileTool with a planner', () => {
       }),
     };
 
-    const result = await tool(planner).execute('t1', {}, undefined, undefined, {
+    const result = await tool(
+      planner,
+      nodes.map((node) => (node.id === 9 ? { ...node, body: undefined } : node)),
+    ).execute('t1', {}, undefined, undefined, {
       cwd,
       modelRegistry: {},
     } as never);
 
     expect((result.content[0] as { text?: string })?.text).toContain('plan_synthesis_blocked');
+    expect((result.content[0] as { text?: string })?.text).toContain('no_verification_capability');
+    await expect(readFile(planFilePath(cwd, '7'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('blocks deterministic lowering without an authored verification recipe', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-plan-file-no-recipe-'));
+    const graphNodes = nodes.map((node) => (node.id === 9 ? { ...node, body: undefined } : node));
+
+    const result = await tool(undefined, graphNodes).execute('t1', {}, undefined, undefined, {
+      cwd,
+    } as never);
+
     expect((result.content[0] as { text?: string })?.text).toContain('no_verification_capability');
     await expect(readFile(planFilePath(cwd, '7'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
   });
@@ -107,7 +134,7 @@ describe('createExecutePlanFileTool with a planner', () => {
     expect(payload.slices.map((slice) => slice.id)).toEqual(['task-1']);
   });
 
-  it('uses brownfield workspace detection in deterministic lowering', async () => {
+  it('retains brownfield workspace evidence without deriving its command from detection', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-plan-file-brownfield-det-'));
     await writeFile(join(cwd, 'package.json'), JSON.stringify({ scripts: { test: 'vitest run' } }), 'utf8');
 
@@ -120,8 +147,8 @@ describe('createExecutePlanFileTool with a planner', () => {
       };
     };
     expect(payload.execution_contract?.detectedCapabilities.map(({ id }) => id)).toEqual([
-      'node.npm',
-      'node.npm-test',
+      'node.package-json',
+      'node.script.test',
     ]);
     expect(payload.execution_contract?.resolvedActions.verify).toEqual([
       expect.objectContaining({ command: 'npm', args: ['test'] }),

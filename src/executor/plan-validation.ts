@@ -259,7 +259,7 @@ export function validateCandidatePlan(args: {
     error(
       'capability_unsupported',
       blocked.message ??
-        `Capability ${blocked.id} has no provider; declare an execute.verify/build/setup recipe line in a settled decision, or drop the id.`,
+        `Capability ${blocked.id} has no provider; declare execute.verify/build/setup on the settled Project execution harness V&V method, or drop the id.`,
       blocked.id,
     );
   }
