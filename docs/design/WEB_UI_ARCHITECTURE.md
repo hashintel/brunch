@@ -1,6 +1,6 @@
 # Web UI and live-session host architecture
 
-Status: active design synthesis; input to `memory/SPEC.md` and `memory/PLAN.md`, not a second product contract or plan.
+Status: accepted design synthesis; input to `memory/SPEC.md` and `memory/PLAN.md`, not a second product contract or plan. The first tracer (FE-1200, `standalone-web-session-host`) shipped 2026-07-14: the one-target standalone host, `LiveSessionHost`, durable session-presentation projection, and live/durable reconciliation for ordinary text plus one `ask` are materialized (D127-L/D128-L; A43-L validated). Multi-session concurrency (A42-L) and the presentation-family sweep (I65-L) remain the open follow-on frontiers. Current state authority is `memory/SPEC.md` plus the co-located `src/**/TOPOLOGY.md` homes; this doc keeps the design rationale for the follow-on work.
 
 This document supersedes the architectural recommendations in:
 
@@ -229,14 +229,16 @@ This later work is a sweep: closure means every required inventory row has a sha
 
 ### 5.5 Standalone host entry and shutdown
 
-`--mode web` currently throws. The standalone entry must:
+Shipped for the tracer (FE-1200): `--mode web` now starts the standalone combined host (`src/app/brunch-web.ts`). The entry:
 
-- initialize workspace/coordinator/graph authority without `InteractiveMode`;
-- start the combined web/session host on loopback;
-- report and optionally open its URL;
-- stop accepting work during shutdown;
-- dispose hosted sessions and flush required settings/transcript boundaries;
-- avoid claiming that in-flight turns survive host-process death.
+- initializes workspace/coordinator/graph authority without `InteractiveMode`;
+- starts the combined web/session host on loopback;
+- reports its URL on CLI stdout;
+- stops accepting work during shutdown;
+- disposes hosted sessions and flushes required settings/transcript boundaries;
+- does not claim that in-flight turns survive host-process death.
+
+Remaining polish (URL auto-open, host status, failed-session recovery ergonomics) is follow-on launch work, not tracer scope.
 
 ## 6. Assumptions to validate
 
@@ -358,23 +360,23 @@ Keep as evidence that headless prompting, event streaming, session switching, an
 
 Do not use as the first Brunch host substrate. Pi's own SDK guidance prefers direct `AgentSession` use for a Node/TypeScript custom UI; Brunch also needs its own product RPC, sealed runtime factories, and graph authority.
 
-## 10. Canonical reconciliation required
+## 10. Canonical reconciliation status
 
-Once this design is accepted:
+The tracer (FE-1200) has landed, so the once-pending reconciliation is now mostly discharged:
 
-1. `ln-spec` must update the Product Contract and active decisions that still call web a read-only TUI sidecar or standalone web merely future work.
-2. `ln-plan` must admit a new web/session-host frontier and sequence the first tracer plus later closure work.
-3. `ln-oracles` should design the middle/outer verification for multi-session concurrency, transcript differentials, renderer parity, and browser feel.
-4. `ln-design` should compare concrete `LiveSessionHost` and session-presentation module interfaces before `ln-scope` fixes the first branch.
-5. Implemented current state must reconcile into `src/app/TOPOLOGY.md`, `src/rpc/TOPOLOGY.md`, `src/session/TOPOLOGY.md`, and `src/web/TOPOLOGY.md`; those files should not describe target state before it lands.
-6. The superseded design notes remain historical evidence or may be archived by `ln-sync`; they must not remain competing active recommendations.
+1. ✓ `ln-spec` updated the Product Contract and decisions: web is a primary presentation mode (req 4/31/32, D127-L/D128-L, A42-L/A43-L, I64-L/I65-L). No read-only-sidecar/future-only wording remains in `memory/SPEC.md`.
+2. ✓ `ln-plan` sequenced the work; the first tracer is complete. As of 2026-07-14 the former three-frontier `standalone-web` arc is collapsed into the single frontier `standalone-web-session-host` (FE-1200) on one branch, with concurrency and presentation-coverage as in-branch slices rather than separate frontiers.
+3. ○ `ln-oracles` middle/outer design for multi-session concurrency, renderer parity, and browser feel is owned by the FE-1200 concurrency and presentation-coverage slices, not this doc.
+4. ✓ `ln-design`-level interface choices for `LiveSessionHost` and the session-presentation projection are materialized in `src/session/live-session-host.ts` and `src/projections/session/`.
+5. ✓ Current state is reconciled into `src/app/TOPOLOGY.md`, `src/rpc/TOPOLOGY.md`, `src/session/TOPOLOGY.md`, and `src/web/TOPOLOGY.md` (standalone combined host + TUI sidecar both described as shipped surfaces).
+6. ○ The superseded comparative notes remain historical evidence (see §References); they are not competing active recommendations.
 
 ## 11. References
 
-- [`memory/SPEC.md`](../../memory/SPEC.md) — current product contract and decisions, pending reconciliation
-- [`memory/PLAN.md`](../../memory/PLAN.md) — current sequencing, pending new frontier admission
-- [`src/rpc/TOPOLOGY.md`](../../src/rpc/TOPOLOGY.md) — current singleton sidecar/driver surface and streaming evidence
-- [`src/web/TOPOLOGY.md`](../../src/web/TOPOLOGY.md) — current React sidecar topology
+- [`memory/SPEC.md`](../../memory/SPEC.md) — current product contract and decisions (reconciled: D127-L/D128-L, req 4/31/32)
+- [`memory/PLAN.md`](../../memory/PLAN.md) — current sequencing (standalone-web arc collapsed into FE-1200; tracer done, concurrency + presentation-coverage slices next)
+- [`src/rpc/TOPOLOGY.md`](../../src/rpc/TOPOLOGY.md) — TUI sidecar + standalone combined-host RPC surface and streaming evidence
+- [`src/web/TOPOLOGY.md`](../../src/web/TOPOLOGY.md) — React client for both the TUI sidecar and standalone `--mode web` host
 - [`src/.pi/extensions/exchanges/TOPOLOGY.md`](../../src/.pi/extensions/exchanges/TOPOLOGY.md) — current structured-exchange and headless-answer behavior
 - [`STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`](STRUCTURED_EXCHANGE_ANSWERING_PATHS.md) — mechanism history; current coverage authority is the exchanges topology
 - Pi SDK documentation (`@earendil-works/pi-coding-agent` 0.80.6, `docs/sdk.md`)

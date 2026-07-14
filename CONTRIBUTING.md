@@ -34,7 +34,7 @@ printf 'ANTHROPIC_API_KEY=sk-ant-...\n' > .env
 npm run dev
 ```
 
-`npm run dev` launches the Brunch CLI in TUI mode. The TUI is the writer/driver; the browser UI is currently a sidecar served by that TUI process, not a standalone `--mode web` product mode.
+`npm run dev` launches the Brunch CLI in TUI mode. The TUI is the writer/driver, and the browser UI is served as a sidecar of that TUI process. A standalone `brunch --mode web` host also exists (FE-1200): it serves the target-addressed React session route directly, without a TUI process.
 
 Useful launch variants:
 
@@ -103,7 +103,7 @@ High-level flow:
 3. The TUI/Pi runtime drives the elicitor agent, structured exchanges, runtime posture, and graph tools.
 4. All durable graph/spec mutations go through `graph/CommandExecutor` and SQLite-backed graph tables.
 5. `rpc/` exposes named Brunch JSON-RPC methods over stdio/WebSocket/in-process handlers.
-6. `web/` is a read-only sidecar client over the Brunch RPC surface; it must not read SQLite, JSONL, Pi RPC, or `.brunch/workspace.json` directly.
+6. `web/` is a React client over the Brunch RPC surface, served by both the TUI sidecar and the standalone `--mode web` host; it must not read SQLite, JSONL, Pi RPC, or `.brunch/workspace.json` directly.
 
 Important boundaries:
 

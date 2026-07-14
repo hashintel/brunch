@@ -27,7 +27,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 **Topology and evidence discipline.** Co-located `src/**/TOPOLOGY.md` files own current topology; SPEC owns product contract and seam decisions; PLAN owns only rolling frontier state. Scratch probe artifacts are not durable evidence until promoted to `.fixtures/runs/`. Older completion history lives only in [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md).
 
-**Standalone web promoted (2026-07-14).** Interactive web is again a priority product surface, not a read-only TUI sidecar. D127-L/D128-L settle one cwd-scoped combined host with a target-addressed inventory of sealed in-process Pi sessions, one driver/many observers per session, JSONL-derived hydration plus live-event overlay, and shared semantic presentation projections with separate TUI/React renderers. The proving frontier `standalone-web-session-host` fires the first real-entry browser-chat tracer over one existing JSONL session; multi-session concurrency and presentation-family closure follow only after that spine lands. Design authority: [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md).
+**Standalone web — arc collapsed into one branch (2026-07-14).** Interactive web is a priority product surface, not a read-only TUI sidecar. D127-L/D128-L settle one cwd-scoped combined host with a target-addressed inventory of sealed in-process Pi sessions, one driver/many observers per session, JSONL-derived hydration plus live-event overlay, and shared semantic presentation projections with separate TUI/React renderers. The one-target tracer landed and was accepted (retiring A43-L). By user decision the former three-frontier `standalone-web` arc is now carried by the single frontier `standalone-web-session-host` (FE-1200) as a slice sequence on `ln/fe-1200-web-session`: tracer (done) → concurrency (retires A42-L) → presentation-coverage sweep (retires I65-L breadth). Design authority: [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md).
 
 ## Initiatives
 
@@ -46,12 +46,10 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **exchange-presentation** — ✓ done 2026-07-06 (`exchange-rendering` + `exchange-answering-chrome`). Durable truth: D104-L/D108-L, `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`, exchange topology homes. Deferred, not owed: per-item review commentary (Horizon). Full closure record: `docs/archive/PLAN_HISTORY.md`.
 - **capture-ingest-throughline** — ✓ done 2026-07-06 (`exchange-capture-contract` + `present-digest`). Durable truth: I57-L, D110-L, ingest/map conduct homes. Full closure record: `docs/archive/PLAN_HISTORY.md`.
 
-### standalone-web — ◐ active
-
-- **Goals:** make web a standalone driver of the same Specify-/Execute-mode sessions as TUI; keep several sessions live concurrently in one cwd-scoped Brunch host; preserve JSONL/graph authority while giving React semantic parity for product-visible session results.
-- **Members:** `standalone-web-session-host` — ✓ completed 2026-07-14; `multi-session-web-concurrency` — ready, not started; `web-session-presentation-coverage` — ready for pickup as the family-coverage sweep, not started.
-- **Done-definition:** standalone web starts without `InteractiveMode`; two sessions can stream/ask independently with explicit durable targets and one driver each; every required product-visible presentation row has a shared semantic projection plus React adapter or explicit `n/a`; live views converge to fresh JSONL-derived projections after settlement/reconnect; `src/app`, `src/session`, `src/rpc`, `src/projections`, and `src/web` topology homes are reconciled; no read-only-sidecar or singleton-current-session target prose remains.
-- **Anchors:** req 4/12/17/31/32; A42-L/A43-L; D127-L/D128-L; I64-L/I65-L.
+<!-- standalone-web arc dissolved 2026-07-14 (user decision): the through-line is now carried by
+     the single frontier standalone-web-session-host (FE-1200) as a tracer→concurrency→presentation
+     slice sequence on one branch. A single-frontier effort does not warrant an arc index; the arc
+     done-definition now lives in that frontier's definition below. -->
 
 ### deterministic-orientation — ◐ active
 
@@ -65,10 +63,11 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ## Sequencing
 
-### Next — standalone web closure
+### Active — standalone web arc (FE-1200)
 
-- `multi-session-web-concurrency` — ready for pickup; do not infer that FE-1200 proved two-session isolation.
-- `web-session-presentation-coverage` — wait gate cleared; ready for its code-enumerated sweep scope, without folding visual polish or family breadth back into FE-1200.
+Build the whole standalone-web through-line on `ln/fe-1200-web-session` as a slice sequence (arc collapsed 2026-07-14). Tracer is done/accepted; remaining slices in order:
+
+- `standalone-web-session-host` (FE-1200) — **concurrency slice scoped next** (retires A42-L), then the **presentation-coverage sweep** (retires I65-L breadth). Active scope: [`memory/cards/standalone-web-session-host--concurrent-session-isolation.md`](cards/standalone-web-session-host--concurrent-session-isolation.md).
 
 ### Active — Group 1 · walkthrough closure
 
@@ -80,13 +79,15 @@ Close the entire first batch of walkthrough-related findings: remediation, the o
 
 ### Recently Completed
 
-- 2026-07-14 `standalone-web-session-host` (FE-1200) — **✓ accepted one-target tracer**. Standalone `--mode web` serves the target-addressed React session route without `InteractiveMode`; deterministic faux-provider tests prove ordinary turns, one structured `ask`, settlement/refetch parity, malformed-detail rejection, and paired web/TUI JSONL semantics. User-witnessed manual acceptance confirmed the corrected `/session/...` route and end-to-end turns/ask; the intentionally minimal UI is accepted inside the tracer boundary. A42-L and presentation-family breadth remain open in the now-unblocked follow-on frontiers.
+<!-- FE-1200 tracer slice (accepted 2026-07-14) is not a completed frontier: FE-1200 is reopened as
+     the standalone-web arc carrier and is Active above. The tracer's done state lives as slice 1 in
+     the frontier definition below. -->
+
 - 2026-07-14 `FE-1196 platform debt` — **✓ closed and outer-witnessed**: spec posture, workspace DB identity, headless ask discovery, reconciliation derivation, native compaction continuity, and active-branch session correctness are materialized; `web-driver-streaming` was evaluated and retired, and transcript-ledger rendering moved to FE-1187. Full closeout: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md#2026-07-14-sync-archive-ln-sync-fe-1196-platform-debt-closeout).
 - 2026-07-14 `petri-execution-parity` (FE-1195) — completed the old-`main` live-parity closure and final review hardening: timestamped firing wire with calendar-valid TypeBox boundary checks, structural pass/fail branches with strict list/detail failed-slice evidence, stale serial-state retirement at parallel admission, journal-idempotent restart-stable terminal authority, rejection of every post-terminal fact, causality-gated Petrinaut replay/export, staging-aligned SDCPN parsing that retains legitimate full roots, and a view-only projection with mechanically pruned isolated places, preserved connected IDs/arcs, contextual labels, locale-independent ordering, and collision-free compact/legacy fallback bands. Durable terminal evidence wins over later abandonment metadata; raw executor topology/markings and SSE firing order remain unchanged. Full per-slice attempt identity remains the current projection; standardized subnet grouping/folding should be revisited above roughly 12 slices without claiming color-fold parity. Manual Rust fixture comparison remains pre-PR outer evidence.
 - 2026-07-13 `petrinaut-live-run-stream` (FE-1190) — merged #322 to `next`; live-from-start observation, reconnect equivalence, fail-closed journal appends, and terminal-lagging-snapshot backfill landed. FE-1183 closed with it.
-- 2026-07-10 `walkthrough-remediation-1` (FE-1180) — closed by explicit promotion: deterministic repairs landed and all remaining failures/unknowns moved to FE-1187.
 
-Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md).
+Older completion history (incl. FE-1180 walkthrough-remediation-1): [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md).
 
 ### Next — Group 3 · agent layer
 
@@ -133,48 +134,20 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 
 ### standalone-web-session-host
 
-- **Name:** Standalone web session-host walking skeleton
-- **Linear:** [FE-1200](https://linear.app/hash/issue/FE-1200/standalone-web-session-host-walking-skeleton) — Frontend (FE) / brunch, no parent
+- **Name:** Standalone web session host — full arc (tracer + concurrency + presentation coverage)
+- **Linear:** [FE-1200](https://linear.app/hash/issue/FE-1200/standalone-web-session-host-tracer-concurrency-and-presentation) — retitled 2026-07-14 as the arc carrier (Frontend / brunch, no parent); already In progress.
 - **Branch:** `ln/fe-1200-web-session`, Graphite parent `ln/fe-1187-remediation-3`
-- **Kind:** structural vertical tracer — new standalone host lifecycle, target-addressed live-session boundary, durable session-presentation read, and browser driver path
-- **Certainty:** proving
-- **Lights up:** `brunch --mode web` → combined cwd-scoped host → one inventory member opened from an existing Brunch/Pi JSONL session → React session chat → target-addressed turn/ask driver → settled JSONL-derived presentation
-- **Stabilizes:** I64-L for one explicit target and I65-L for ordinary text plus one representative structured `ask`; locates A42-L's host boundary without claiming multi-session concurrency is proven
-- **Retires:** A43-L validated 2026-07-14 by the one-session hydration/live/settlement/refetch and paired production web/TUI JSONL differential; the later family sweep still owns breadth
-- **Objective:** prove D127-L/D128-L through the real product entry without building the complete web program. `--mode web` starts without `InteractiveMode`; an internal `LiveSessionHost` map keyed by `(specId, sessionId)` opens one existing JSONL session; the React route hydrates a named product-shaped session projection, drives several deterministic text turns, renders/answers one structured `ask`, waits for `agent_settled`, and refetches a durable view semantically equivalent to the TUI-authored transcript structure.
-- **Boundary:** in — one cwd, one hosted inventory member, explicit target on every lifecycle/driver/event operation, shared semantic presentation projection for text + one `ask`, existing TanStack Router/Query/WebSocket client. Out — two-session breadth, complete renderer inventory, write leases, separate web/API and daemon processes, host-crash survival, cross-project/remote hosting, raw Pi RPC, chat/event mirror stores.
-- **Acceptance:** production web entry starts and serves the chat without TUI construction; no process-global "current live session" is introduced; duplicate writable open/second driver is rejected or unrepresentable; an existing JSONL session hydrates; several deterministic browser-driven turns stream to settled state; one `ask` renders and answers through the live broker; fresh hydration after settlement/reconnect equals the semantic live view; JSONL contains the same Brunch binding/runtime/exchange structures as the equivalent TUI path modulo declared ids/timestamps.
-- **Verification:** accepted 2026-07-14. Automated leaves cover target integrity/duplicate drivers, malformed details, a production-wired deterministic-faux-provider web journey with cache/overlay loss, and paired temporary production web/TUI JSONL semantics under an ids/timestamps-only normalizer with a changed-answer rival. User-witnessed manual acceptance confirmed the corrected `/session/...` route, ordinary turns, and one structured `ask` end-to-end; minimal presentation was explicitly accepted within this tracer's boundary.
-- **Why now / unlocks:** web is a priority product surface; existing `session.driveTurn`, `session.openAsks`, `session.answerExchange`, `brunch.sessionEvent`, and streaming oracles make a buildable tracer cheaper than another substrate study. Landing establishes the aiming seam for concurrent sessions and presentation coverage.
-- **Traceability:** req 4/12/17/31/32; A42-L/A43-L; D5-L/D10-L/D33-L/D39-L/D84-L/D125-L/D127-L/D128-L; I21-L/I32-L/I64-L/I65-L; [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md).
-
-### multi-session-web-concurrency
-
-- **Name:** Concurrent live web sessions
-- **Linear/branch:** create at pickup; distinct frontier because it closes concurrency breadth and shared-authority behavior rather than the first proof-of-life path
-- **Kind:** structural concurrency closure
-- **Certainty:** proving
-- **Depends on:** the materialized `LiveSessionHost` interface from completed `standalone-web-session-host`; ready for pickup, not started
-- **Retires:** A42-L
-- **Stabilizes:** I64-L across two simultaneous durable targets
-- **Objective:** open and drive two sessions concurrently in one cwd-scoped host, preserving per-session event sequence, ask broker, runtime state, JSONL file, and one-driver authority while both may reach the shared graph command layer.
-- **Acceptance:** interleaved text/tool/ask events cannot cross targets; each reconnect/refetch converges independently; duplicate same-session writable opens fail; two different sessions can settle independently; concurrent graph commands return valid atomic/optimistic-concurrency outcomes rather than corrupting shared truth.
-- **Verification:** two-session faux-provider differential with adversarial interleaving, fan-out observers, independent abort/failure, separate JSONL readback, and shared graph-command pressure.
-- **Traceability:** req 31; A42-L; D127-L; I64-L.
-
-### web-session-presentation-coverage
-
-- **Name:** Web session presentation family closure
-- **Linear/branch:** create at pickup; separate coverage frontier because closure is universal over the visible family inventory
-- **Kind:** coverage frontier / sweep
-- **Certainty:** earned; completed `standalone-web-session-host` established the D128-L projection seam
-- **Classification:** buildable at pickup — the former wait gate is cleared; derive the required/deferred inventory from code before building rows
-- **Boundary:** all production Brunch transcript result/custom-entry families intentionally visible in the web session experience; out — internal continuity ledgers, generic Pi platform parity, graph/dashboard views, and terminal-only interaction mechanics.
-- **Inventory authority:** a `Mode: sweep` scope file under `memory/cards/`, derived from the production registered-tool/custom-entry inventories and marked `●` required / `○` explicit `n/a` or deferred; `memory/PLAN.md` retains sequencing authority.
-- **Aggregate DoD:** no required row remains `spec`, `new`, or `partial`; every required family has one canonical semantic projection owner, React adapter, live/persisted metamorphic, and completeness oracle; every excluded family has an explicit disposition.
-- **Promotion/disposal:** a row that escapes row-sized work promotes to its own PLAN frontier and remains open in the ledger until that frontier lands; delete the exhausted scope ledger only after arc-level topology reconciliation.
-- **Why now / unlocks:** starts only after one representative `ask` proves the architecture; then closes the semantic-parity requirement without front-loading completionist UI breadth into the host tracer.
-- **Traceability:** req 32; D128-L; I65-L; SPEC exchange-presentation oracle design.
+- **Kind:** structural — one branch carrying the whole standalone-web through-line as a slice sequence (arc collapsed into this frontier 2026-07-14 by user decision)
+- **Certainty:** mixed — `proving` for the concurrency slice, `earned` / coverage for the presentation sweep; the tracer slice is done.
+- **Slices (execution order on this branch):**
+  1. **tracer** — ✓ done/accepted 2026-07-14. One-target walking skeleton: `--mode web` without `InteractiveMode`, target-addressed `LiveSessionHost` keyed by `(specId, sessionId)`, JSONL-hydrated React session route, several deterministic text turns + one structured `ask`, `agent_settled` settlement/refetch parity, malformed-detail rejection, paired web/TUI JSONL differential. Retired A43-L. Commits `7b20909f`, `752bd873`.
+  2. **concurrency** — *proving*; retires **A42-L**; stabilizes I64-L across two simultaneous targets. Open and drive two sessions concurrently in one cwd-scoped host, preserving per-session event sequence, ask broker, runtime state, JSONL file, and one-driver authority while both may reach the shared graph command layer. Acceptance: interleaved text/tool/ask events cannot cross targets; each reconnect/refetch converges independently; duplicate same-session writable opens fail; two different sessions settle independently; concurrent graph commands return valid atomic/optimistic-concurrency outcomes rather than corrupting shared truth. Verification: two-session faux-provider differential with adversarial interleaving, fan-out observers, independent abort/failure, separate JSONL readback, shared graph-command pressure.
+  3. **presentation-coverage** — *coverage sweep, earned*; retires **I65-L** breadth; the tracer's D128-L projection seam is the base. Inventory authority: a `Mode: sweep` scope file under `memory/cards/` derived from the production registered-tool/custom-entry inventories, marked `●` required / `○` explicit `n/a`/deferred. Boundary: all production Brunch transcript result/custom-entry families intentionally visible in the web session; out — internal continuity ledgers, generic Pi parity, graph/dashboard views, terminal-only mechanics. Aggregate DoD: no required row remains `spec`/`new`/`partial`; every required family has one canonical semantic projection owner, React adapter, live/persisted metamorphic, and completeness oracle; every excluded family has an explicit disposition. A row escaping row-sized work promotes to its own PLAN frontier and keeps the ledger open until it lands.
+- **Current execution pointer:** [`memory/cards/standalone-web-session-host--concurrent-session-isolation.md`](cards/standalone-web-session-host--concurrent-session-isolation.md).
+- **Done-definition (arc, now this frontier's completion test):** standalone web starts without `InteractiveMode`; two sessions stream/ask independently with explicit durable targets and one driver each; every required product-visible presentation row has a shared semantic projection plus React adapter or explicit `n/a`; live views converge to fresh JSONL-derived projections after settlement/reconnect; `src/app`, `src/session`, `src/rpc`, `src/projections`, and `src/web` topology homes reconciled; no read-only-sidecar or singleton-current-session target prose remains.
+- **Retires:** A43-L (tracer, done); A42-L (concurrency slice); I65-L breadth (presentation slice).
+- **Why now / unlocks:** user chose to build the whole standalone-web group on one branch rather than as stacked frontiers; the materialized `LiveSessionHost` seam makes the concurrency proof and the presentation sweep buildable in sequence here.
+- **Traceability:** req 4/12/17/31/32; A42-L/A43-L; D5-L/D10-L/D33-L/D39-L/D84-L/D125-L/D127-L/D128-L; I21-L/I32-L/I64-L/I65-L; [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md); SPEC exchange-presentation oracle design.
 
 ### walkthrough-remediation-2
 
@@ -395,13 +368,13 @@ streams:
   LN — product/elicitation surfaces
   KA — Kostandin: executor / orchestrator / Execute mode / plan plane
 
-standalone-web (Active arc; tracer complete, follow-ons ready):
-  standalone-web-session-host (✓ completed 2026-07-14)
-    -[hard]-> multi-session-web-concurrency (ready)
-    -[hard]-> web-session-presentation-coverage (ready)
-  tracer retires: A43-L one-session path
-  concurrency retires: A42-L
-  arc closes: I64-L + I65-L breadth and topology reconciliation
+standalone-web (Active; arc collapsed into one frontier/branch 2026-07-14):
+  standalone-web-session-host (FE-1200, ln/fe-1200-web-session)
+    slice 1 tracer      (✓ done/accepted 2026-07-14; retired A43-L)
+    slice 2 concurrency (next; retires A42-L) -[hard, in-branch]-> slice 3
+    slice 3 presentation-coverage sweep (retires I65-L breadth)
+  frontier done-definition closes: I64-L + I65-L breadth and topology reconciliation
+  note: slices land on one branch; no separate Linear issues/branches (user decision)
 
 group-1 (Active — walkthrough closure):
   walkthrough-remediation-2 (FE-1187, absorbs closed FE-1167)

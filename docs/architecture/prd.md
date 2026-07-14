@@ -96,13 +96,14 @@ If they can, JSONL remains the transcript authority for the POC. If they cannot,
 
 ### User-facing modes
 
-Brunch is one local product driven by a single `--mode` flag. It currently exposes three presentation modes:
+Brunch is one local product driven by a single `--mode` flag. It exposes four presentation modes:
 
-1. `brunch` (default; `--mode tui`) - TUI over the local agent host. While the TUI runs it also starts a read-only browser **sidecar** over the same host; the sidecar is not a separate mode.
-2. `brunch --mode rpc` - exposes the local host over stdio JSON-RPC for other programs.
-3. `brunch --mode print` - runs one-shot, headless prompts for scripting and pipelines.
+1. `brunch` (default; `--mode tui`) - TUI over the local agent host. While the TUI runs it also starts a browser **sidecar** over the same host; the sidecar is not a separate mode.
+2. `brunch --mode web` - standalone combined host (shipped FE-1200): serves the native React client and drives explicitly targeted hosted sessions directly, without constructing `InteractiveMode`. See [`docs/design/WEB_UI_ARCHITECTURE.md`](../design/WEB_UI_ARCHITECTURE.md).
+3. `brunch --mode rpc` - exposes the local host over stdio JSON-RPC for other programs.
+4. `brunch --mode print` - runs one-shot, headless prompts for scripting and pipelines.
 
-A standalone web mode is a **planned future feature**, not a current `--mode` value: the browser UI is useless without the TUI driving the session, so for now it ships only as the TUI sidecar. `--mode web` currently errors with "not available yet."
+The original POC framing below treated standalone web as a future feature; it has since become a primary presentation mode (D127-L/D128-L). The current-state authority is `memory/SPEC.md` plus the co-located `src/**/TOPOLOGY.md` homes.
 
 These modes are not different products. They are ways of driving one Brunch host.
 
@@ -116,9 +117,9 @@ Brunch should explicitly separate capabilities that can run unattended from capa
 
 ### Mode Capability Matrix
 
-Not every capability is symmetric across modes. The asymmetry follows from the medium, not from a split architecture. The Web column describes the **planned** web surface (a future mode); today the browser appears only as the read-only TUI sidecar.
+Not every capability is symmetric across modes. The asymmetry follows from the medium, not from a split architecture. The Web column now describes the shipped standalone web surface as well as the TUI sidecar.
 
-| Capability                                  | TUI     | Web (planned) | Print          | RPC                        |
+| Capability                                  | TUI     | Web           | Print          | RPC                        |
 | ------------------------------------------- | ------- | ------------- | -------------- | -------------------------- |
 | Read graph state / queries                  | yes     | yes           | yes            | yes                        |
 | Write agent-owned graph fields              | yes     | yes           | yes            | yes                        |
@@ -144,9 +145,9 @@ Brunch should be structured as a local host with shared storage, shared mutation
           |                            |                            |
           v                            v                            v
     +-----------+               +-------------+               +-----------+
-    | TUI mode   |               | web sidecar |               | rpc/print |
-    | pi-driven  |               | (TUI-driven)|               | adapters  |
-    | surface    |               |  planned    |               |           |
+    | TUI mode   |               |  web mode   |               | rpc/print |
+    | pi-driven  |               | sidecar +   |               | adapters  |
+    | surface    |               | standalone  |               |           |
     +-----+------+               +------+------+               +-----+-----+
           |                             |                            |
           +-----------------------------+----------------------------+
