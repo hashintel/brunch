@@ -12,7 +12,7 @@ describe('public Brunch RPC structured-exchange parity proof', () => {
       'Artifact runId must be a portable single path segment',
     );
   });
-  it('drives each deterministic structured-exchange permutation from a fresh cwd', async () => {
+  it('drives one active candidate readback and settlement cycle from a fresh cwd', async () => {
     const report = await runPublicRpcParityProof();
 
     expect(report).toMatchObject({
@@ -21,21 +21,16 @@ describe('public Brunch RPC structured-exchange parity proof', () => {
       runId: expect.any(String),
       generatedAt: expect.any(String),
       mission: expect.stringContaining('public JSON-RPC only'),
-      evaluationFocus: expect.stringContaining('Tuple transcript/projection parity'),
-      maxTurnBudget: 3,
-      completedTurns: 3,
+      evaluationFocus: expect.stringContaining('Candidate pending readback and settlement'),
+      maxTurnBudget: 1,
+      completedTurns: 1,
       friction: [],
       specId: expect.any(Number),
       sessionId: expect.any(String),
     });
     expect(Date.parse(report.generatedAt)).not.toBeNaN();
     expect(report.toolCoverage).toEqual(['ask', 'present_candidates']);
-    expect(report.exchangeIds).toEqual([
-      'deterministic-candidate-1',
-      'deterministic-candidate-2',
-      'deterministic-candidate-3',
-    ]);
-    expect(new Set(report.exchangeIds).size).toBe(3);
+    expect(report.exchangeIds).toEqual(['deterministic-candidate']);
     expect(report.artifacts).toBeUndefined();
   });
 
@@ -75,13 +70,12 @@ describe('public Brunch RPC structured-exchange parity proof', () => {
       runId: report.runId,
       generatedAt: report.generatedAt,
       mission: report.mission,
-      completedTurns: 3,
+      completedTurns: 1,
       exchangeIds: report.exchangeIds,
       artifacts: report.artifacts,
     });
     expect(persistedReport.exchangeIds).toEqual(report.exchangeIds);
-    expect(persistedReport.exchangeIds).toHaveLength(3);
-    expect(new Set(persistedReport.exchangeIds).size).toBe(3);
+    expect(persistedReport.exchangeIds).toHaveLength(1);
     for (const exchangeId of persistedReport.exchangeIds) {
       expect(sessionJsonl).toContain(exchangeId);
     }
