@@ -6,7 +6,7 @@ import {
   type PresentReviewSetDetails,
   type ReviewSetDetailsPayload,
 } from '../exchanges/schemas/index.js';
-import type { CommandExecutor, MutateGraphSuccess } from '../graph/command-executor.js';
+import type { CommandExecutor, Diagnostic, MutateGraphSuccess } from '../graph/command-executor.js';
 import type { ReviewSetProposalPayload } from '../graph/review-set.js';
 
 export type ReviewSetSettlement =
@@ -21,7 +21,7 @@ export type ReviewSetSettlement =
       readonly details: ReturnType<typeof projectRequestReview>;
       readonly content: string;
     }
-  | { readonly status: 'structural_illegal'; readonly diagnostics: readonly Record<string, unknown>[] };
+  | { readonly status: 'structural_illegal'; readonly diagnostics: readonly Diagnostic[] };
 
 /** Shared D27-L authority: validate persisted offer, commit, then mint its terminal. */
 export function settleReviewSetResponse(input: {

@@ -107,17 +107,13 @@ const SPEC_KIND_LABELS: Record<SpecKind, string> = {
   function: 'Function — a focused verification area',
 };
 
-function flipOrigin(origin: SpecOrigin): SpecOrigin {
-  return origin === 'greenfield' ? 'brownfield' : 'greenfield';
-}
-
 /** The shared D118-L origin ask/confirm — one wording for create and resume. */
 function originConfirmViewParts(
   inventory: WorkspaceLaunchInventory,
   decisionFor: (origin: SpecOrigin) => SpecSessionActivationDecision,
 ): Pick<WorkspaceSelectionView, 'title' | 'options'> {
   const inferred = inferredOriginFor({ workspacePopulated: inventory.workspacePopulated });
-  const flipped = flipOrigin(inferred);
+  const flipped: SpecOrigin = inferred === 'greenfield' ? 'brownfield' : 'greenfield';
   return {
     title:
       inferred === 'brownfield'

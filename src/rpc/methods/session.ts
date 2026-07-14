@@ -1,7 +1,8 @@
 import { Type, type Static } from 'typebox';
 import { Value } from 'typebox/value';
 
-import type { MutateGraphSuccess } from '../../graph/command-executor.js';
+import { findIncompleteStructuredExchangePresents } from '../../exchanges/recovery.js';
+import type { Diagnostic, MutateGraphSuccess } from '../../graph/command-executor.js';
 import type { WorkspaceGraphRuntime } from '../../graph/workspace-store.js';
 import { projectSessionRuntimeState } from '../../projections/session/runtime-state.js';
 import {
@@ -12,6 +13,7 @@ import { projectLinearSessionExchangeProjection } from '../../session/exchange-p
 import { flushSessionManagerToFile } from '../../session/flush-session-manager.js';
 import { mentionEntry, resolveMentionFacts } from '../../session/mention-ledger.js';
 import { originateAssistantTurn } from '../../session/originate-assistant-turn.js';
+import { settleReviewSetResponse } from '../../session/review-set-settlement.js';
 import {
   resolveExplicitSessionProjectionTarget,
   type ExplicitSessionProjectionParams,
@@ -52,9 +54,6 @@ import {
   NonNegativeIntegerSchema,
   PositiveIntegerSchema,
 } from './schemas.js';
-
-import { findIncompleteStructuredExchangePresents } from '../../exchanges/recovery.js';
-import { settleReviewSetResponse } from '../../session/review-set-settlement.js';
 
 const SessionProjectionParamsSchema = Type.Object(
   {
@@ -694,7 +693,7 @@ function reviewResultForAcceptedResponse(options: {
       readonly details: Record<string, unknown>;
       readonly content: string;
     }
-  | { readonly status: 'structural_illegal'; readonly diagnostics: Record<string, unknown>[] }
+  | { readonly status: 'structural_illegal'; readonly diagnostics: Diagnostic[] }
   | undefined {
   const review = (options.acceptedAnswer as { review?: unknown }).review;
   if (typeof review !== 'object' || review === null) return undefined;
