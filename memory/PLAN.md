@@ -466,7 +466,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Explicitly out:** squash/graft landing knobs (ceiling-marked), remote/PR targets, durable cross-session acceptance tokens, in-run remediation UX.
 - **Traceability:** D111-L/I58-L (ports + explicit acceptance), D112-L (host landing stays outside the driven chain), FE-1197 oracle 9, FE-1199 residue transfer; prior art `main:src/orchestrator/src/promote-run.ts` (`promoteGreenfieldRun`/`landCookBranch`).
 - **Design docs:** `HANDOFF.md` (volatile, retire after `ln-sync`); the 2026-07-14 `ln-design` four-design comparison (session record).
-- **Current execution pointer:** none — the tracer card is consumed; slice 2 (cutover: `/brunch:land` + `landed` status + patch-path deletion + mode-derived substrate) needs an `ln-scope` pass.
+- **Current execution pointer:** `memory/cards/host-landing--cutover.md` (Mode: slices — landing helper → `/brunch:land` acceptance + patch-path deletion → mode-derived substrate → `GitRunPromotionPort` rename).
 
 ### subagent-skill-access
 
