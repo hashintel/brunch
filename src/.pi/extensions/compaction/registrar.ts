@@ -1,68 +1,81 @@
-import type { CustomMessageEntry, ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { compact, type ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 import { compactionAnchorContract } from './anchor-contract.js';
+import {
+  BRUNCH_COMPACTION_BLOCK_SCHEMA_VERSION,
+  renderBrunchContinuityBlock,
+  stripBrunchContinuityBlock,
+} from './continuity-block.js';
 import { selectCompactionAnchors } from './select-anchors.js';
 
 /**
- * The D43-L compaction hook: Pi's default summary cannot know about Brunch's
- * transcript-native continuity entries, so Brunch owns `session_before_compact`
- * and enforces the anchor contract (I28-L) across the cut.
- *
- * Enforcement is class-split:
- *
- * - `custom` (ledger) anchors need no action — compaction appends a summary
- *   entry and never rewrites the JSONL, and Brunch's ledger projections read
- *   the full entry list, so `session_binding` / `agent_runtime_state` /
- *   `own_mutation`-class anchors survive by construction.
- * - `custom_message` (provider-visible) anchors lose their effect: Pi's
- *   context rebuild drops every pre-cut entry from model context, so the
- *   latest `worldUpdate` / `brunch.context_seed`-class carriers and
- *   unresolved nudges would silently vanish from the model's view while the
- *   file-scoped watermark still says "seen". Those are re-injected after the
- *   compaction entry, byte-stable (same customType/content/display/details,
- *   I28-L), so the model's post-compaction context carries the same
- *   continuity facts and the watermark neither regresses nor falsely
- *   advances (identical LSNs, I45-L).
- *
- * The hook never cancels and never takes over summarization — Pi's summary
- * runs unchanged; Brunch only carries its own entries across the cut. The
- * wider keep/drop compaction definition (what conversational content the
- * summary should retain) remains the design half of PLAN
- * `compaction-and-conflict-widening`.
+ * Compose Brunch's continuity contract with Pi's public native compaction.
+ * Pi retains cut-point, split-turn, narrative, token, and file-operation ownership.
  */
-export function registerBrunchCompactionAnchors(pi: ExtensionAPI): void {
-  // One compaction runs at a time per session; `session_before_compact`
-  // always overwrites, so a cancelled compaction's stale selection can never
-  // leak into a later one.
-  let pendingReinjection: CustomMessageEntry[] = [];
+export function registerBrunchCompaction(pi: ExtensionAPI): void {
+  pi.on('session_before_compact', async (event, ctx) => {
+    try {
+      const { preparation } = event;
+      if (!event.branchEntries.some((entry) => entry.id === preparation.firstKeptEntryId)) {
+        throw new Error('Pi compaction cut boundary was not present on the current branch');
+      }
+      if (!ctx.model) throw new Error('No active model is available for compaction');
 
-  pi.on('session_before_compact', (event) => {
-    const selected = selectCompactionAnchors(
-      event.branchEntries,
-      event.preparation.firstKeptEntryId,
-      compactionAnchorContract,
-    );
-    pendingReinjection = selected
-      .map((anchor) => anchor.entry)
-      .filter((entry): entry is CustomMessageEntry => entry.type === 'custom_message');
-    return undefined;
-  });
+      const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model);
+      if (!auth.ok) throw new Error(`Compaction auth failed: ${auth.error}`);
 
-  pi.on('session_compact', async (event) => {
-    const toReinject = pendingReinjection;
-    pendingReinjection = [];
-    // An extension-provided compaction owns its own preservation semantics.
-    if (event.fromExtension || toReinject.length === 0) return;
-    for (const entry of toReinject) {
-      await pi.sendMessage(
-        {
-          customType: entry.customType,
-          content: entry.content,
-          display: entry.display,
-          ...(entry.details !== undefined ? { details: entry.details } : {}),
-        },
-        { deliverAs: 'nextTurn' },
+      const selected = selectCompactionAnchors(
+        event.branchEntries,
+        preparation.firstKeptEntryId,
+        compactionAnchorContract,
       );
+      const continuityBlock = renderBrunchContinuityBlock(selected);
+      const previousSummary = stripBrunchContinuityBlock(preparation.previousSummary);
+      const native = await compact(
+        { ...preparation, ...(previousSummary === undefined ? {} : { previousSummary }) },
+        ctx.model,
+        auth.apiKey,
+        auth.headers,
+        event.customInstructions,
+        event.signal,
+        pi.getThinkingLevel(),
+        undefined,
+        auth.env,
+      );
+
+      if (!isNativeCompactionDetails(native.details)) {
+        throw new Error('Native compaction details must contain string readFiles and modifiedFiles arrays');
+      }
+
+      return {
+        compaction: {
+          ...native,
+          summary: `${continuityBlock}\n${native.summary}`,
+          details: {
+            ...native.details,
+            brunch: {
+              compactionBlockSchemaVersion: BRUNCH_COMPACTION_BLOCK_SCHEMA_VERSION,
+              anchorContractVersion: compactionAnchorContract.version,
+            },
+          },
+        },
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      ctx.ui.notify(`Brunch compaction failed: ${message}`, 'error');
+      return { cancel: true };
     }
   });
+}
+
+function isNativeCompactionDetails(
+  value: unknown,
+): value is Record<string, unknown> & { readFiles: string[]; modifiedFiles: string[] } {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const details = value as Record<string, unknown>;
+  return isStringArray(details.readFiles) && isStringArray(details.modifiedFiles);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
 }

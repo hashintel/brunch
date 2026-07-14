@@ -1,11 +1,7 @@
-import type { ExtensionAPI, SessionEntry } from '@earendil-works/pi-coding-agent';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
-import {
-  compactionAnchorContract,
-  registerBrunchCompactionAnchors,
-  selectCompactionAnchors,
-} from '../compaction/index.js';
+import { compactionAnchorContract, selectCompactionAnchors } from '../compaction/index.js';
 
 let nextId = 0;
 
@@ -78,87 +74,5 @@ describe('selectCompactionAnchors', () => {
 
     expect(selectCompactionAnchors(entries, kept.id, compactionAnchorContract)).toEqual([]);
     expect(selectCompactionAnchors(entries, 'no-such-id', compactionAnchorContract)).toEqual([]);
-  });
-});
-
-describe('registerBrunchCompactionAnchors', () => {
-  type Handler = (event: unknown, ctx?: unknown) => unknown;
-
-  function harness() {
-    const handlers = new Map<string, Handler>();
-    const sent: Array<{ message: Record<string, unknown>; options: unknown }> = [];
-    const pi = {
-      on: (event: string, handler: Handler) => handlers.set(event, handler),
-      sendMessage: async (message: Record<string, unknown>, options: unknown) => {
-        sent.push({ message, options });
-      },
-    } as unknown as ExtensionAPI;
-    registerBrunchCompactionAnchors(pi);
-    return { handlers, sent };
-  }
-
-  async function runCompaction(
-    harnessState: ReturnType<typeof harness>,
-    entries: SessionEntry[],
-    firstKeptEntryId: string,
-    options: { fromExtension?: boolean } = {},
-  ) {
-    harnessState.handlers.get('session_before_compact')!({
-      type: 'session_before_compact',
-      preparation: { firstKeptEntryId },
-      branchEntries: entries,
-      reason: 'threshold',
-      willRetry: false,
-    });
-    await harnessState.handlers.get('session_compact')!({
-      type: 'session_compact',
-      fromExtension: options.fromExtension ?? false,
-      reason: 'threshold',
-      willRetry: false,
-    });
-  }
-
-  it('re-injects dropped provider-visible anchors byte-stable after compaction', async () => {
-    const state = harness();
-    const world = nudge('worldUpdate', 'graph delta lsn 7', { lsn: 7 });
-    const kept = message('user', 'recent');
-
-    await runCompaction(state, [world, kept], kept.id);
-
-    expect(state.sent).toEqual([
-      {
-        message: {
-          customType: 'worldUpdate',
-          content: 'graph delta lsn 7',
-          display: false,
-          details: { lsn: 7 },
-        },
-        options: { deliverAs: 'nextTurn' },
-      },
-    ]);
-  });
-
-  it('never re-injects ledger anchors — the append-only JSONL already preserves them', async () => {
-    const state = harness();
-    const binding = ledger('brunch.session_binding', { specId: 1 });
-    const runtimeState = ledger('brunch.agent_runtime_state', { mode: 'specify' });
-    const kept = message('user', 'recent');
-
-    await runCompaction(state, [binding, runtimeState, kept], kept.id);
-
-    expect(state.sent).toEqual([]);
-  });
-
-  it('sends nothing for an extension-provided compaction and clears pending selection between runs', async () => {
-    const state = harness();
-    const world = nudge('worldUpdate', 'lsn 3');
-    const kept = message('user', 'recent');
-
-    await runCompaction(state, [world, kept], kept.id, { fromExtension: true });
-    expect(state.sent).toEqual([]);
-
-    // A later compaction with nothing dropped must not replay the stale selection.
-    await runCompaction(state, [kept], kept.id);
-    expect(state.sent).toEqual([]);
   });
 });

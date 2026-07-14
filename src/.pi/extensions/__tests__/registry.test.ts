@@ -264,7 +264,6 @@ describe('Brunch explicit Pi extension registry', () => {
       'agent_settled',
       'session_before_fork',
       'session_before_compact',
-      'session_compact',
       'session_start',
       'before_agent_start',
       'tool_call',

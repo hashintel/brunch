@@ -104,8 +104,6 @@ import { createGitHostPromotionPort } from './git-host-promotion-port.js';
 import { createGitLandPort } from './git-land-port.js';
 import type { LiveAskOpener } from '../session/live-ask-registry.js';
 
-import { registerBrunchCompactionAnchors } from '../.pi/extensions/compaction/index.js';
-
 export function registerBrunchAlternatives(pi: ExtensionAPI): void {
   registerBrunchAlternativesComponent(pi, (schema) => toolParameters(schema) as typeof schema);
 }
@@ -364,7 +362,7 @@ export function createBrunchPiExtensions(
           },
         }),
       registerBrunchBranchPolicyHandlers,
-      registerBrunchCompactionAnchors,
+      registerBrunchCompaction,
       (api) => registerBrunchOperationalModePolicy(api, { devAllowedToolNames }),
       registerBrunchContext,
       registerBrunchWebTools,

@@ -39,7 +39,7 @@ extensions/
 ├── subagents/              D44-L/D91-L sealed SDK child sessions and `subagent` tool
 ├── chrome/                 TUI header/title/footer/sidecar-widget chrome projection
 ├── commands/               /brunch:* commands, shortcut, branch/tree policy (exception: /brunch:land registers in executor/execute-land/ beside its read-only preflight tool)
-├── compaction/             D43-L anchor contract + session_before_compact/session_compact enforcement (registered 2026-07-14)
+├── compaction/             D43-L anchor contract + one session_before_compact native custom result
 ├── exchanges/              structured-exchange present_* + ask Pi tools
 ├── mentions/               #graph mention prompt hint + autocomplete provider
 ├── session-orientation/    session-entry-orientation descriptors, dialog adapter, juncture orchestrator, and gate state
@@ -54,6 +54,8 @@ option nothing ever set) was retired — it never entered the product bundle and
 was inert even under Pi's ambient `.pi/extensions/` directory scan. Its
 `TuiStyleLabComponent` moved to `.pi/components/tui-lab/` as a reference
 component, previewable via `npm run dev:components -- tui-lab`.
+
+`compaction/` registers exactly one `session_before_compact` hook. Its private selector and continuity-block modules choose dropped provider-visible carriers and serialize them deterministically; the registrar calls Pi's public native `compact(...)`, prefixes the block, preserves Pi file-operation details, and adds only a namespaced schema marker. Ledger-only anchors remain in append-only JSONL. Owned boundary, auth, serialization, or narrative failures notify and return `{ cancel: true }`; there is no pending queue, `session_compact` hook, or post-compaction send.
 
 ## Boundary rules
 
