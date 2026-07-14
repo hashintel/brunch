@@ -11,9 +11,9 @@ import {
   type BrunchAgentState,
 } from '../.pi/extensions/agent-runtime/runtime/index.js';
 import { createBrunchAgentSessionRuntimeFactory } from '../app/brunch-tui.js';
+import { createGitSliceIntegrationPort } from '../app/git-slice-integration-port.js';
 import { zPresentReviewSetDetails } from '../exchanges/schemas/present.js';
 import { zRequestReviewDetails } from '../exchanges/schemas/request.js';
-import { createGitSliceIntegrationPort } from '../app/git-slice-integration-port.js';
 import { projectExecuteGraph } from '../executor/execute-projection.js';
 import type { GitWorktreePort } from '../executor/execution-ports.js';
 import { writePlanFile } from '../executor/plan-file.js';
