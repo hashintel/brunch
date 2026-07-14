@@ -7,7 +7,7 @@ import { isExecutionContract } from '../../../../executor/execution-contract.js'
 import { petriEventsPath } from '../../../../executor/petri-events.js';
 import { petriPlanSnapshotPath } from '../../../../executor/petri-plan-snapshot.js';
 import { petriNetPath, petriSdcpnPath, preparePetriObservation } from '../../../../executor/petri.js';
-import { readPlanFilePayload } from '../../../../executor/plan-file.js';
+import { planFilePath, readPlanFilePayload } from '../../../../executor/plan-file.js';
 import {
   runExecutionActive,
   withRunExecutionAuthority,
@@ -75,6 +75,18 @@ export function createExecuteRunCreateTool(deps: ExecuteRunCreateDeps) {
         mode: params.mode,
       });
       const plan = await readPlanFilePayload({ cwd, specId: String(deps.specId) });
+      if (plan === undefined) {
+        return toolResult(
+          {
+            status: 'missing_plan',
+            runStatus: 'not_started',
+            planPath: planFilePath(cwd, String(deps.specId)),
+            sideEffects: [],
+          },
+          current.source.graphLsn,
+          [],
+        );
+      }
       const admission = admitExecutionContract(plan?.execution_contract);
       if (admission.status === 'rejected') {
         return {

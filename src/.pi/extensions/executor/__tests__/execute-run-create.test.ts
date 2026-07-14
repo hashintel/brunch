@@ -81,6 +81,22 @@ describe('createExecuteRunCreateTool', () => {
     expect(Object.keys(schema.properties ?? {})).toEqual(['runId', 'substrate', 'mode']);
   });
 
+  it('reports a missing plan before attempting execution-contract admission', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-create-missing-plan-'));
+
+    const result = await tool().execute('t1', { runId: 'run-1' }, undefined, undefined, { cwd } as never);
+
+    expect(result.details).toEqual({
+      result: {
+        status: 'missing_plan',
+        runStatus: 'not_started',
+        planPath: planFilePath(cwd, '7'),
+        sideEffects: [],
+      },
+      sideEffects: [],
+    });
+  });
+
   it('writes the persisted authored verify target into greenfield run metadata', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-create-greenfield-'));
     await writePlan(cwd, 'greenfield', [], { command: 'npm', args: ['run', 'verify'] });
