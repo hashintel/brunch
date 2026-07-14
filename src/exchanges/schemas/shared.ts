@@ -73,7 +73,7 @@ const zAskContinuationOption = z
 export const zAskContinuationParams = z
   .object({
     body: zNonBlankMarkdown,
-    options: z.array(zAskContinuationOption).min(1),
+    options: z.array(zAskContinuationOption).min(1).optional(),
     multiple: z.boolean().optional(),
     allowOther: z.boolean().optional(),
     allowNone: z.boolean().optional(),

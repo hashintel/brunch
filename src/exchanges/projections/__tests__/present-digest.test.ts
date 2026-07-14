@@ -29,11 +29,7 @@ describe('projectPresentDigest', () => {
       continuation: {
         tool: 'ask',
         params: {
-          options: [
-            { id: 'approve', label: 'Approve' },
-            { id: 'request_changes', label: 'Request changes' },
-            { id: 'reject', label: 'Reject' },
-          ],
+          body: expect.stringMatching(/Review source digest[\s\S]*Does this understanding sound right\?/),
         },
       },
     });

@@ -85,12 +85,12 @@ plus the coordination logic for workspace/spec/session lifecycle.
   keyed by exchange id (`open` → `answered` | `cancelled` | `closed`). Every ask
   mode registers at open time via the payload-carrying `opener`, so
   `session.openAsks` discovers any open ask over live state without scanning the
-  transcript; the answer still arrives through the **unchanged**
-  `awaitAnswer`/`submitAnswer` string contract and reduces to canonical
-  `request_answer` / `request_choice` / `request_choices` / `request_review` Pi
-  JSONL details, with per-mode interpretation of the answer string (a listed
-  option id, delimited ids, or a review decision) living in the ask collection
-  path. In-memory and process-local by design: a stale/unknown exchange id reads
+  transcript; the answer still arrives through the string
+  `awaitAnswer`/`submitAnswer` contract and reduces to canonical `ask` details
+  (plus preserved choice/review detail variants). Questionnaire mode checks a
+  schema-tagged JSON answer envelope against the open ask's fixed questions
+  before resolving the rendezvous; other per-mode interpretation remains in the
+  ask collection path. In-memory and process-local by design: a stale/unknown exchange id reads
   `closed`, never hangs. See
   [`docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`](../../docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md)
   for why this broker path is structurally distinct from `session.submitExchangeResponse`
@@ -106,11 +106,7 @@ plus the coordination logic for workspace/spec/session lifecycle.
   point over a private `structured-exchange-loop/` subtree split by purpose:
   `pending-exchange.ts` (read-path reconstruction + schema), `accepted-response.ts`
   (response toolResult materialization), and `synthetic-tool-call.ts` (the
-  provider-legality toolCall pair); external callers import only the root. The
-  review-mode pending shape distinguishes `present_review_set` from
-  `present_digest`: review-set approval may commit graph drafts, while digest
-  approval mints only the `request_review` terminal with the accepted abstract
-  echo for downstream capture.
+  provider-legality toolCall pair); external callers import only the root. The pending shape distinguishes `present_review_set` review decisions from `present_digest` conversational feedback. Review-set approval may commit graph drafts; digest feedback cannot. A later runtime-resolved digest questionnaire/confirmation mints the sole accepted-abstract carrier for downstream capture.
 
 - **Workspace coordination** — boot flow and spec/session selection over the
   workspace-owned `.brunch/workspace.json` state store. The

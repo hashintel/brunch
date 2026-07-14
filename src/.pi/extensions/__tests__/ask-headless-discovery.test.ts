@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { projectPresentDigest } from '../../../exchanges/projections/present-digest.js';
 import { zAskDetails } from '../../../exchanges/schemas/index.js';
 import { createLiveAskRegistry } from '../../../session/live-ask-registry.js';
 import { createAskTool } from '../exchanges/ask.js';
@@ -116,6 +117,44 @@ describe('headless ask discovery + broker answering', () => {
         ],
       },
     });
+  });
+
+  it('mints a digest carrier only for the canonical confirmation selection', async () => {
+    const digest = projectPresentDigest({
+      exchangeId: 'digest-final',
+      heading: 'Digest',
+      digest: { abstract: 'Runtime abstract.' },
+    }).details;
+    const params = {
+      exchangeId: 'confirm-digest',
+      acceptsDigest: 'digest-final',
+      body: 'Is this complete?',
+      options: [
+        { id: 'confirm', label: 'Confirm' },
+        { id: 'revise', label: 'Revise' },
+      ],
+    };
+    const run = async (answer: 'confirm' | 'revise') => {
+      const registry = createLiveAskRegistry();
+      const tool = createAskTool(registry.opener) as ReturnType<typeof createAskTool> & {
+        execute: (...args: unknown[]) => Promise<AskToolResult>;
+      };
+      const done = tool.execute('confirm', params, undefined, undefined, {
+        hasUI: false,
+        sessionManager: {
+          getBranch: () => [{ type: 'message', message: { role: 'toolResult', details: digest } }],
+        },
+      });
+      await tick();
+      registry.answerer.submitAnswer({ exchangeId: 'confirm-digest', answer });
+      return zAskDetails.parse((await done).details);
+    };
+    expect(await run('confirm')).toMatchObject({
+      accepts_digest: 'digest-final',
+      answered: { choice: { id: 'confirm' }, accepted_abstract: 'Runtime abstract.' },
+    });
+    expect(await run('revise')).toMatchObject({ answered: { choice: { id: 'revise' } } });
+    expect(await run('revise')).not.toHaveProperty('accepts_digest');
   });
 
   it('reports the ask cancelled when the broker resolves with no answer', async () => {

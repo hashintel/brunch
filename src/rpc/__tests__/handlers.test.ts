@@ -3,11 +3,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 
-import { SessionManager } from '@earendil-works/pi-coding-agent';
+import { SessionManager, type ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import type { TSchema } from 'typebox';
 import { Value } from 'typebox/value';
 import { describe, expect, it } from 'vitest';
 
+import { registerStructuredExchange } from '../../.pi/extensions/exchanges/index.js';
+import type { StructuredExchangeUiContext } from '../../.pi/extensions/exchanges/shared/ui-context.js';
 import { projectPresentDigest } from '../../exchanges/projections/present-digest.js';
 import { projectPresentReviewSet } from '../../exchanges/projections/present-review-set.js';
 import { runCreateOnlyMutation } from '../../graph/__tests__/support/create-only-mutation.js';
@@ -15,6 +17,7 @@ import { openWorkspaceGraphRuntime } from '../../graph/workspace-store.js';
 import { mintDeterministicExchangeIntoSessionFile } from '../../probes/deterministic-exchange-script.js';
 import { assistantMessage, userMessage } from '../../probes/test-helpers.js';
 import { flushSessionManagerToFile } from '../../session/flush-session-manager.js';
+import { createLiveAskRegistry } from '../../session/live-ask-registry.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   type BrunchAgentState,
@@ -37,6 +40,7 @@ import {
   runJsonRpcLineServer,
 } from '../handlers.js';
 import { NO_LIVE_AGENT_SESSION_DRIVER_MESSAGE } from '../methods/session-driver.js';
+import { INVALID_LIVE_EXCHANGE_ANSWER_MESSAGE } from '../methods/session-exchange-answer.js';
 import { createProductUpdatePublisher } from '../product-updates.js';
 
 /**
@@ -1287,7 +1291,7 @@ describe('JSON-RPC handlers', () => {
     });
 
     const sessionText = await readFile(workspace.session.file, 'utf8');
-    expect(sessionText).toContain('request_answer');
+    expect(sessionText).toContain('"toolName":"ask"');
     expect(sessionText).toContain('request_choices');
     expect(sessionText).not.toContain('brunch.elicitation_prompt');
     expect(sessionText).not.toContain('brunch.elicitation_response');
@@ -1397,7 +1401,7 @@ describe('JSON-RPC handlers', () => {
     expect(sessionText).toContain('requirement-draft → REQ1');
   });
 
-  it('approves a pending digest through the public submit path and closes the projection', async () => {
+  it('records conversational digest feedback through the public submit path and closes the continuation', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-digest-approve-'));
     const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
     const workspace = await coordinatorInstance.createSetupSession({ specTitle: 'Digest approval spec' });
@@ -1425,7 +1429,7 @@ describe('JSON-RPC handlers', () => {
       method: 'session.submitExchangeResponse',
       params: {
         exchangeId: 'digest-cycle',
-        answer: { review: { decision: 'approve' } },
+        answer: { text: 'The digest sounds right; continue to clarification.' },
       },
     });
 
@@ -1435,7 +1439,7 @@ describe('JSON-RPC handlers', () => {
       result: {
         status: 'accepted',
         exchangeId: 'digest-cycle',
-        answer: { review: { decision: 'approve' } },
+        answer: { text: 'The digest sounds right; continue to clarification.' },
       },
     });
 
@@ -1447,10 +1451,99 @@ describe('JSON-RPC handlers', () => {
     ).resolves.toMatchObject({ result: { status: 'ready', openPrompt: null } });
 
     const sessionText = await readFile(workspace.session.file, 'utf8');
-    expect(sessionText).toContain('request_review');
+    expect(sessionText).toContain('"toolName":"ask"');
     expect(sessionText).toContain('present_digest');
-    expect(sessionText).toContain('accepted_abstract');
-    expect(sessionText).toContain('The source asks for advisory capture before settlement.');
+    expect(sessionText).toContain('The digest sounds right; continue to clarification.');
+    expect(sessionText).not.toContain('accepted_abstract');
+  });
+
+  it('drives the registered no-UI questionnaire through public RPC to the same durable terminal as local UI', async () => {
+    const registry = createLiveAskRegistry();
+    const registered = new Map<string, { execute: (...args: unknown[]) => Promise<{ details: unknown }> }>();
+    registerStructuredExchange(
+      {
+        registerTool: (tool: { name: string }) => registered.set(tool.name, tool as never),
+      } as unknown as ExtensionAPI,
+      { liveExchange: registry.opener },
+    );
+    const ask = registered.get('ask')!;
+    const digestDetails = projectPresentDigest({
+      exchangeId: 'digest-final',
+      heading: 'Digest',
+      digest: { abstract: 'Runtime final abstract.' },
+    }).details;
+    const branch = [{ type: 'message', message: { role: 'toolResult', details: digestDetails } }];
+    const params = {
+      exchangeId: 'digest-questionnaire-rpc',
+      acceptsDigest: 'digest-final',
+      questions: [
+        { id: 'goal', kind: 'free-text', prompt: 'What is the goal?' },
+        {
+          id: 'route',
+          kind: 'single-select',
+          prompt: 'Which route?',
+          options: [{ id: 'safe', label: 'Safe' }],
+        },
+      ],
+    };
+    const headlessDone = ask.execute('call', params, undefined, undefined, {
+      hasUI: false,
+      sessionManager: { getBranch: () => branch },
+    });
+    const handlers = createWebSidecarRpcHandlers({
+      coordinator: coordinator(),
+      cwd: '/tmp/brunch-project',
+      sessionExchangeAnswer: { answerer: registry.answerer },
+    });
+
+    await expect(
+      handlers.handle({
+        jsonrpc: '2.0',
+        id: 282,
+        method: 'session.answerExchange',
+        params: {
+          exchangeId: 'digest-questionnaire-rpc',
+          answer: JSON.stringify({
+            schema: 'brunch.ask.questionnaire-answer',
+            answers: [{ questionId: 'goal', kind: 'free-text', text: 'Capture safely.' }],
+          }),
+        },
+      }),
+    ).resolves.toMatchObject({ error: { code: -32602, message: INVALID_LIVE_EXCHANGE_ANSWER_MESSAGE } });
+    expect(registry.reader.openAsks()).toHaveLength(1);
+
+    const envelope = JSON.stringify({
+      schema: 'brunch.ask.questionnaire-answer',
+      answers: [
+        { questionId: 'goal', kind: 'free-text', text: 'Capture safely.' },
+        { questionId: 'route', kind: 'single-select', optionId: 'safe' },
+      ],
+    });
+    await expect(
+      handlers.handle({
+        jsonrpc: '2.0',
+        id: 283,
+        method: 'session.answerExchange',
+        params: { exchangeId: 'digest-questionnaire-rpc', answer: envelope },
+      }),
+    ).resolves.toEqual({ jsonrpc: '2.0', id: 283, result: { status: 'completed' } });
+    const headless = await headlessDone;
+    const local = await ask.execute('local-call', params, undefined, undefined, {
+      hasUI: true,
+      sessionManager: { getBranch: () => branch },
+      ui: {
+        custom: async () => [
+          { questionId: 'goal', kind: 'free-text', text: 'Capture safely.' },
+          { questionId: 'route', kind: 'single-select', optionId: 'safe' },
+        ],
+      },
+    } as unknown as StructuredExchangeUiContext);
+    expect(headless.details).toEqual(local.details);
+    expect(headless.details).toMatchObject({
+      accepts_digest: 'digest-final',
+      answered: { accepted_abstract: 'Runtime final abstract.' },
+    });
+    expect(registry.reader.openAsks()).toEqual([]);
   });
 
   it('rejects a review approval whose persisted review set is not a valid ReviewSetDetailsPayload', async () => {

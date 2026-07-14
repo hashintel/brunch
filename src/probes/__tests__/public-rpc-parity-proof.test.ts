@@ -29,7 +29,7 @@ describe('public Brunch RPC structured-exchange parity proof', () => {
       sessionId: expect.any(String),
     });
     expect(Date.parse(report.generatedAt)).not.toBeNaN();
-    expect(report.toolCoverage).toEqual(['ask', 'present_question']);
+    expect(report.toolCoverage).toEqual(['ask', 'present_question', 'request_answer']);
     expect(report.exchangeIds).toEqual([
       'deterministic-grounding-choice-1',
       'deterministic-grounding-text-2',

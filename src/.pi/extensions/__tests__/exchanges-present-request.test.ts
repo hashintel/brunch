@@ -802,11 +802,12 @@ describe('structured exchange ask tools', () => {
 
     for (const result of [candidates, digest, review]) {
       expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
-      expect(result.details).toMatchObject({
-        continuation: { tool: ASK_TOOL, params: { options: expect.any(Array) } },
-      });
+      expect(result.details).toMatchObject({ continuation: { tool: ASK_TOOL } });
       expect(result.details.continuation.params.body).toEqual(expect.any(String));
     }
+    expect(candidates.details.continuation.params.options).toEqual(expect.any(Array));
+    expect(review.details.continuation.params.options).toEqual(expect.any(Array));
+    expect(digest.details.continuation.params.options).toBeUndefined();
     const incomplete = findIncompleteStructuredExchangePresents(branchWith(candidates.details));
     expect(incomplete).toHaveLength(1);
     expect(incomplete[0]?.continuationTool).toBe(ASK_TOOL);
@@ -1040,7 +1041,7 @@ describe('structured exchange ask tools', () => {
     }
   });
 
-  it('drives declared candidate, review-set, and digest continuations by reference', async () => {
+  it('drives candidate/review decisions and conversational digest feedback by reference', async () => {
     const ask = registeredTools().get(ASK_TOOL);
     if (!ask) throw new Error('ask was not registered');
     const candidates = await presentResult(PRESENT_CANDIDATES_TOOL, candidateParams());
@@ -1084,7 +1085,7 @@ describe('structured exchange ask tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { custom: customPickByIndex(0), input: async () => 'Looks right.' },
+        ui: { editor: async () => 'Looks right.' },
         sessionManager: { getBranch: () => branchWith(digest.details) },
       } as never,
     );
@@ -1098,12 +1099,8 @@ describe('structured exchange ask tools', () => {
       answered: { decision: 'request_changes', comment: 'Tighten the grounding.' },
     });
     expect(digestAnswer.details).toMatchObject({
-      tool_meta: { prev: PRESENT_DIGEST_TOOL, curr: 'request_review' },
-      answered: {
-        decision: 'approve',
-        accepted_abstract: 'The source says summarize before graph mapping.',
-        comment: 'Looks right.',
-      },
+      tool_meta: { curr: 'ask', next: 'capture_answer' },
+      answered: { text: 'Looks right.' },
     });
   });
 

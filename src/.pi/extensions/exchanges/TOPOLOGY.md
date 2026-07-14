@@ -19,9 +19,7 @@ in `agents/contexts/exchanges/`.
 See [`docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`](../../../../docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md)
 for the underlying mechanism.
 
-`ask` is the only registered interactive terminal. For standalone questions its
-params carry the markdown body and optional options; no options means free text,
-options means single choice, and options + `multiple` means multi-choice. For
+`ask` is the only registered interactive terminal. For standalone questions its params carry the markdown body and optional options; no options means free text, options means single choice, and options + `multiple` means multi-choice. The bounded digest-questionnaire variant carries `acceptsDigest` plus fixed ordered questions; the runtime resolves the final eligible digest through the core recovery recognizer, collects each answer through the same UI/broker paths, and persists one aggregate terminal. Its no-question counterpart is narrowly a single-select `confirm` / `revise` ask: only `confirm` copies the runtime abstract and creates a carrier. For
 offer continuations the model calls `ask({ continues })`; the runtime reads the
 referenced offer's declared continuation and fills the body/options/review
 vocabulary from details. Model-authored payload fields on a continuing ask are
@@ -62,16 +60,17 @@ comment sub-steps stay interactive-only (headless ceilings).
 Surviving offer presents declare their terminal in `details.continuation`:
 
 ```pseudo
-present_candidates/present_digest/present_review_set result details
+present_candidates/present_review_set result details
   -> continuation: { tool: "ask", params: { body, options, ... } }
+present_digest result details
+  -> continuation: { tool: "ask", params: { body } }  # conversational feedback
   -> model calls ask({ continues: exchange_id })
   -> ask collector emits canonical request detail discriminants
 ```
 
 The collecting tool name is `ask`, but offer answers preserve the request-detail
 vocabulary on the wire: `request_choice` for candidates and `request_review` for
-review-set/digest. Digest approval still echoes `answered.accepted_abstract`.
-Those discriminants are capture/sweep semantics, not registration topology.
+review-set/digest. Digest feedback emits a standalone `ask` answer; only the later submitted digest-referencing questionnaire/confirmation echoes `accepted_abstract`. Those discriminants are capture/sweep semantics, not registration topology.
 
 `present_question` and `request_response` are no longer registered and their Pi
 adapter modules are deleted. Legacy transcript discriminants remain only in

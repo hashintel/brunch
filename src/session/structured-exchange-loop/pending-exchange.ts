@@ -117,10 +117,10 @@ function pendingExchangeFromStructuredPresent(
     return {
       exchangeId: details.exchange_id,
       lens: 'intent',
-      mode: 'review',
+      mode: 'text',
       prompt,
       ...(detailsText.length > 0 ? { details: detailsText } : {}),
-      options: pendingOptionsFromContinuation(details),
+      options: [],
       note: { allowed: true },
       digestAbstract: details.digest.abstract,
       respondsToPresentTool: 'present_digest',
@@ -173,7 +173,7 @@ function pendingOptionsFromContinuation(
   details: Extract<PresentDetails, { readonly continuation?: unknown }>,
 ): PendingChoice[] {
   if (details.continuation) {
-    return details.continuation.params.options.map((option) => ({
+    return (details.continuation.params.options ?? []).map((option) => ({
       id: option.id,
       label: option.label,
       content: option.label,

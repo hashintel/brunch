@@ -269,8 +269,9 @@ session.driveTurn
 session.answerExchange
   access: write (`/rpc/driver` on the TUI-started web sidecar only, discovered only when a live-exchange answer broker handle is attached; ordinary `/rpc` observers never discover it)
   params: {exchangeId, answer}
+    questionnaire answers use a schema-tagged JSON string envelope checked against the open ask
   result: {status: completed}
-  errors: -32601 on ordinary observers or when no broker handle is attached; -32008 when no matching live exchange is pending
+  errors: -32601 on ordinary observers or when no broker handle is attached; -32008 when no matching live exchange is pending; -32602 when an answer does not match the open exchange
   effects: resolves the in-process ask answer promise; Pi then appends the provider-legal tool result and continues the same live turn, whose AgentSessionEvents stream as brunch.sessionEvent frames and reduce to Pi JSONL transcript truth
   boundary: not a transcript append API and not a second exchange store; review-over-RPC and terminal-vs-web answer racing are separate follow-ons
 

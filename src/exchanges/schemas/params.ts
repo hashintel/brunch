@@ -2,6 +2,7 @@ import * as z from 'zod';
 
 import { zReviewSetProposalPayloadForBoundary } from '../../graph/review-set.js';
 import { zDigestMaterial, zPresentedCandidate } from './present.js';
+import { zQuestionnaireQuestions } from './questionnaire.js';
 import { zNonBlankMarkdown } from './shared.js';
 
 // 'other' and 'none' are reserved: the runtime injects them as escape choices
@@ -46,11 +47,18 @@ const zAskLabels = z
 export const zStandaloneAskParams = zAskLabels
   .extend({
     exchangeId: z.string().min(1).describe('Stable id for this one-shot ask result.'),
+    acceptsDigest: z
+      .string()
+      .min(1)
+      .describe('Referenced present_digest exchange whose final abstract this questionnaire accepts.')
+      .optional(),
+    questions: zQuestionnaireQuestions.describe('Fixed ordered bounded questionnaire.').optional(),
     body: z
       .string()
       .trim()
       .min(1, 'markdown cannot be empty')
-      .describe('Markdown question body rendered and persisted with the answer.'),
+      .describe('Markdown question body rendered and persisted with the answer.')
+      .optional(),
     options: z
       .array(zAskOptionParam)
       .min(1)
@@ -68,7 +76,37 @@ export const zStandaloneAskParams = zAskLabels
       )
       .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((params, ctx) => {
+    if (!params.body && !params.questions)
+      ctx.addIssue({ code: 'custom', path: ['body'], message: 'standalone ask requires body or questions' });
+    if (params.acceptsDigest && !params.questions) {
+      const ids = params.options?.map((option) => option.id);
+      if (
+        !params.body ||
+        params.multiple ||
+        params.allowOther ||
+        params.allowNone ||
+        params.commentPrompt ||
+        ids?.length !== 2 ||
+        ids[0] !== 'confirm' ||
+        ids[1] !== 'revise'
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['acceptsDigest'],
+          message: 'digest confirmation requires exactly the confirm and revise single-select options',
+        });
+      }
+    }
+    if (params.questions && (params.options || params.multiple || params.allowOther || params.allowNone)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['questions'],
+        message: 'questionnaire cannot use top-level option controls',
+      });
+    }
+  });
 export type StandaloneAskParams = z.infer<typeof zStandaloneAskParams>;
 
 export const zContinuingAskParams = z
@@ -91,6 +129,12 @@ export type ContinuingAskParams = z.infer<typeof zContinuingAskParams>;
 
 export const zAskParams = zAskLabels
   .extend({
+    acceptsDigest: z
+      .string()
+      .min(1)
+      .describe('Referenced present_digest exchange accepted by this questionnaire.')
+      .optional(),
+    questions: zQuestionnaireQuestions.describe('Fixed ordered bounded questionnaire.').optional(),
     exchangeId: z
       .string()
       .min(1)
@@ -145,6 +189,8 @@ export const zAskParams = zAskLabels
         'commentPrompt',
         'topLabel',
         'bottomLabel',
+        'acceptsDigest',
+        'questions',
       ] as const;
       for (const key of modelAuthoredPayloadKeys) {
         if (params[key] !== undefined) {
@@ -160,8 +206,34 @@ export const zAskParams = zAskLabels
     if (!params.exchangeId) {
       ctx.addIssue({ code: 'custom', path: ['exchangeId'], message: 'standalone ask requires exchangeId' });
     }
-    if (!params.body) {
-      ctx.addIssue({ code: 'custom', path: ['body'], message: 'standalone ask requires body' });
+    if (!params.body && !params.questions) {
+      ctx.addIssue({ code: 'custom', path: ['body'], message: 'standalone ask requires body or questions' });
+    }
+    if (params.acceptsDigest && !params.questions) {
+      const ids = params.options?.map((option) => option.id);
+      if (
+        !params.body ||
+        params.multiple ||
+        params.allowOther ||
+        params.allowNone ||
+        params.commentPrompt ||
+        ids?.length !== 2 ||
+        ids[0] !== 'confirm' ||
+        ids[1] !== 'revise'
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['acceptsDigest'],
+          message: 'digest confirmation requires exactly the confirm and revise single-select options',
+        });
+      }
+    }
+    if (params.questions && (params.options || params.multiple || params.allowOther || params.allowNone)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['questions'],
+        message: 'questionnaire cannot use top-level option controls',
+      });
     }
   });
 export type AskParams = StandaloneAskParams | ContinuingAskParams;

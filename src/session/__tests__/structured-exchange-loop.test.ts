@@ -57,7 +57,7 @@ describe('structured exchange loop helpers', () => {
       answer: { text: 'A local product specification workspace.' },
       toolResultMessage: {
         role: 'toolResult',
-        toolName: 'ask',
+        toolName: 'request_answer',
         content: [{ text: '## Answer\n\nA local product specification workspace.' }],
         details: {
           schema: 'brunch.structured_exchange.request',
@@ -310,7 +310,7 @@ describe('structured exchange loop helpers', () => {
     });
   });
 
-  it('reconstructs a review-mode pending exchange from present_digest details', () => {
+  it('reconstructs a conversational feedback exchange from present_digest details', () => {
     const envelope: BrunchSessionEnvelope = {
       header: header as unknown as BrunchSessionEnvelope['header'],
       binding,
@@ -341,11 +341,11 @@ describe('structured exchange loop helpers', () => {
 
     expect(pendingExchangeFromEnvelope(envelope)).toMatchObject({
       exchangeId: 'digest-cycle',
-      mode: 'review',
+      mode: 'text',
       prompt: 'Review source digest',
       respondsToPresentTool: 'present_digest',
       digestAbstract: 'The source asks for advisory capture before settlement.',
-      options: expect.arrayContaining([{ id: 'approve', label: 'Approve', content: 'Approve' }]),
+      options: [],
     });
   });
 

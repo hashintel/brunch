@@ -8,7 +8,7 @@
 
 export type LiveExchangeAnswerOutcome =
   | { readonly submitted: true }
-  | { readonly submitted: false; readonly reason: 'no_pending_exchange' };
+  | { readonly submitted: false; readonly reason: 'no_pending_exchange' | 'invalid_answer' };
 
 export interface LiveExchangeAwaiter {
   awaitAnswer(input: { readonly exchangeId: string }): Promise<string | undefined>;

@@ -25,6 +25,7 @@ const PresentCandidatesDetailsSchema = z.toJSONSchema(zPresentCandidatesDetails)
 schemas/
   TOPOLOGY.md
   shared.ts
+  questionnaire.ts       fixed ordered question/answer vocabulary
   present.ts
   request.ts
   capture.ts
@@ -91,7 +92,7 @@ tool_meta:
   next?: capture_answer | capture_choice | capture_choices | capture_review | capture_candidate
 ```
 
-`ask({ exchangeId, body, options?, multiple? })` emits canonical standalone ask request details carrying the question echo and answer in one result. The question echo includes optional comment and Other-elaboration prompt text when those UI steps exist, preserving the frame for later transcript readers. `ask({ continues })` reads the referenced offer present's `continuation` declaration and emits preserved request details for offers: `request_choice` for `present_candidates`, and `request_review` for a `present_review_set` or `present_digest` decision. Payload fields (`body`, `options`, review vocabulary) are declared by the offer, not re-authored by the continuing call.
+`ask({ exchangeId, body, options?, multiple? })` emits canonical standalone ask request details carrying the question echo and answer in one result. `ask({ exchangeId, acceptsDigest, questions })` is the bounded questionnaire variant: fixed ordered required free-text/single/multi questions, keyed answers, no conditional/layout vocabulary, and one submitted terminal carrying the runtime-resolved final digest abstract. When no material question remains, `acceptsDigest` instead permits only a single-select `confirm` / `revise` pair; only `confirm` carries the runtime abstract, while `revise` remains an ordinary non-carrier answer. The question echo includes optional comment and Other-elaboration prompt text when those UI steps exist, preserving the frame for later transcript readers. `ask({ continues })` reads the referenced offer present's `continuation` declaration and emits preserved request details for offers: `request_choice` for `present_candidates`, and `request_review` for a `present_review_set` or `present_digest` decision. Payload fields (`body`, `options`, review vocabulary) are declared by the offer, not re-authored by the continuing call.
 
 Capture details:
 
@@ -282,7 +283,7 @@ Relationship to D31-L meta-rubric:
 
 ### `present_digest`
 
-`present_digest` carries prose-only large-source review material. It is not a review-set or graph-proposal carrier: `digest.abstract` is required and nonblank (trim-based `zNonBlankMarkdown` in `shared.ts`), `digest.analysis` and `digest.recommendation` are optional markdown, and graph draft / node / edge / command payload fields are rejected at the params/detail boundary. Its terminal is the existing review response vocabulary through `ask({ continues })`; approval echoes the accepted abstract (same nonblank boundary) on request details so sweep reads have one self-contained digest carrier.
+`present_digest` carries prose-only large-source material. It is not a review-set or graph-proposal carrier: `digest.abstract` is required and nonblank, optional analysis/recommendation remain prose, and graph payload fields are rejected. Its declared `ask({ continues })` collects conversational free-text feedback; material correction creates a successor digest. Only a later submitted `ask({ acceptsDigest, questions })` (or lightweight confirmation variant) mints the self-contained accepted carrier.
 
 ## Request layer
 

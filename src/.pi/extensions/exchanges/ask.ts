@@ -2,12 +2,21 @@ import { getSelectListTheme, defineTool, type Theme } from '@earendil-works/pi-c
 import type { EditorTheme } from '@earendil-works/pi-tui';
 
 import { formatAsk } from '../../../agents/contexts/exchanges/ask.js';
-import { askQuestionEcho, projectAsk } from '../../../exchanges/projections/ask.js';
+import {
+  askQuestionEcho,
+  projectAsk,
+  projectDigestConfirmation,
+  projectDigestQuestionnaire,
+} from '../../../exchanges/projections/ask.js';
+import { resolveEligibleDigestAcceptance } from '../../../exchanges/recovery.js';
 import {
   zAskParams,
   type AskContinuationParams,
   type AskQuestionEcho,
   type ContinuingAskParams,
+  type QuestionnaireAnswer,
+  type QuestionnaireQuestion,
+  zQuestionnaireAnswersFor,
   type RequestDetails,
   type SelectedChoice,
   type StandaloneAskParams,
@@ -17,6 +26,7 @@ import { projectBrunchAgentState } from '../../../projections/session/runtime-st
 import type { LiveAskOpener, OpenAskMode } from '../../../session/live-ask-registry.js';
 import { ExchangeAnswerEditorComponent } from '../../components/exchange-answer-editor.js';
 import { createExchangeDecisionPickerComponent } from '../../components/exchange-decision-picker.js';
+import { ExchangeQuestionnaireComponent } from '../../components/exchange-questionnaire.js';
 import { operationalModeBorderColor } from '../../components/mode-border-theme.js';
 import { createMultiChoicePickerComponent } from '../../components/multi-choice-picker.js';
 import { BRUNCH_CONSULT_COMMAND, BRUNCH_MODE_COMMAND, slashCommand } from '../commands/names.js';
@@ -75,7 +85,26 @@ function terminal(
 }
 
 type ContinuationCollectParams = AskContinuationParams & { readonly exchangeId: string };
-export type CollectableAskParams = StandaloneAskParams | ContinuationCollectParams;
+type OrdinaryStandaloneAskParams = StandaloneAskParams & {
+  readonly body: string;
+  readonly questions?: undefined;
+  readonly acceptsDigest?: undefined;
+};
+type QuestionnaireAskParams = StandaloneAskParams & {
+  readonly body: string;
+  readonly acceptsDigest: string;
+  readonly questions: readonly QuestionnaireQuestion[];
+};
+type DigestConfirmationAskParams = StandaloneAskParams & {
+  readonly body: string;
+  readonly acceptsDigest: string;
+  readonly questions?: undefined;
+  readonly options: NonNullable<StandaloneAskParams['options']>;
+};
+export type CollectableAskParams =
+  | OrdinaryStandaloneAskParams
+  | DigestConfirmationAskParams
+  | ContinuationCollectParams;
 export type CollectableAskWithOptions = CollectableAskParams & {
   readonly options: NonNullable<CollectableAskParams['options']>;
 };
@@ -529,11 +558,16 @@ function isContinuingAskParams(params: ParsedAskParams): params is ContinuingAsk
   return typeof params.continues === 'string';
 }
 
-function standaloneAskParams(params: ParsedAskParams): StandaloneAskParams {
-  if (!params.exchangeId || !params.body) throw new Error('validated standalone ask is missing payload');
+function standaloneAskParams(
+  params: ParsedAskParams,
+): OrdinaryStandaloneAskParams | QuestionnaireAskParams | DigestConfirmationAskParams {
+  if (!params.exchangeId || (!params.body && !params.questions))
+    throw new Error('validated standalone ask is missing payload');
   return {
     exchangeId: params.exchangeId,
-    body: params.body,
+    body: params.body ?? 'Questionnaire',
+    ...(params.acceptsDigest !== undefined ? { acceptsDigest: params.acceptsDigest } : {}),
+    ...(params.questions !== undefined ? { questions: params.questions } : {}),
     ...(params.options !== undefined ? { options: params.options } : {}),
     ...(params.multiple !== undefined ? { multiple: params.multiple } : {}),
     ...(params.allowOther !== undefined ? { allowOther: params.allowOther } : {}),
@@ -541,7 +575,103 @@ function standaloneAskParams(params: ParsedAskParams): StandaloneAskParams {
     ...(params.commentPrompt !== undefined ? { commentPrompt: params.commentPrompt } : {}),
     ...(params.topLabel !== undefined ? { topLabel: params.topLabel } : {}),
     ...(params.bottomLabel !== undefined ? { bottomLabel: params.bottomLabel } : {}),
-  };
+  } as OrdinaryStandaloneAskParams | QuestionnaireAskParams | DigestConfirmationAskParams;
+}
+
+async function collectDigestQuestionnaire(
+  params: QuestionnaireAskParams,
+  ctx: StructuredExchangeUiContext,
+  liveAsk?: LiveAskOpener,
+): Promise<ToolResult> {
+  const digest = resolveEligibleDigestAcceptance(ctx.sessionManager?.getBranch() ?? [], params.acceptsDigest);
+  if (!digest) {
+    return terminal(
+      params,
+      { body: params.body },
+      'unavailable',
+      'acceptsDigest must reference the final eligible digest',
+    );
+  }
+  const answers = await collectQuestionnaireAnswers(params, ctx, liveAsk);
+  if (!answers) return terminal(params, { body: params.body }, 'cancelled');
+  const details = projectDigestQuestionnaire({
+    exchangeId: params.exchangeId,
+    acceptsDigest: params.acceptsDigest,
+    acceptedAbstract: digest.digest.abstract,
+    questions: params.questions,
+    answers,
+  });
+  return { content: [{ type: 'text', text: formatAsk(details) }], details };
+}
+
+async function collectDigestConfirmation(
+  params: DigestConfirmationAskParams,
+  ctx: StructuredExchangeUiContext,
+  liveAsk?: LiveAskOpener,
+): Promise<ToolResult> {
+  const digest = resolveEligibleDigestAcceptance(ctx.sessionManager?.getBranch() ?? [], params.acceptsDigest);
+  if (!digest) {
+    return terminal(
+      params,
+      { body: params.body, options: params.options },
+      'unavailable',
+      'acceptsDigest must reference the final eligible digest',
+    );
+  }
+  const collected = await collectSingleChoice(params, askQuestionEcho(params), ctx, liveAsk);
+  if (!('answered' in collected.details) || !('choice' in collected.details.answered)) return collected;
+  if (collected.details.answered.choice.id !== 'confirm') return collected;
+  return result(
+    projectDigestConfirmation({
+      exchangeId: params.exchangeId,
+      acceptsDigest: params.acceptsDigest,
+      acceptedAbstract: digest.digest.abstract,
+      question: askQuestionEcho(params) as AskQuestionEcho & {
+        options: NonNullable<AskQuestionEcho['options']>;
+      },
+      choice: collected.details.answered.choice,
+    }),
+  );
+}
+
+async function collectQuestionnaireAnswers(
+  params: QuestionnaireAskParams,
+  ctx: StructuredExchangeUiContext,
+  liveAsk?: LiveAskOpener,
+): Promise<readonly QuestionnaireAnswer[] | undefined> {
+  if (ctx.hasUI && typeof ctx.ui?.custom === 'function') {
+    const custom = ctx.ui.custom;
+    return withWorkingIndicatorHidden(ctx, () =>
+      custom<readonly QuestionnaireAnswer[]>(
+        (_tui, theme, _keybindings, done) =>
+          new ExchangeQuestionnaireComponent({
+            questions: params.questions,
+            theme,
+            borderColor: askBorderColor(ctx, theme),
+            onDone: done,
+          }),
+      ),
+    );
+  }
+  const envelope = JSON.stringify({ schema: 'brunch.ask.questionnaire-answer', answers: [] }, null, 2);
+  const raw =
+    ctx.hasUI && typeof ctx.ui?.editor === 'function'
+      ? await withWorkingIndicatorHidden(ctx, () => ctx.ui!.editor!(envelope))
+      : liveAsk
+        ? await liveAsk.openAsk({
+            exchangeId: params.exchangeId,
+            mode: 'questionnaire',
+            question: { body: params.body, questions: params.questions },
+          })
+        : undefined;
+  if (raw === undefined) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as { schema?: unknown; answers?: unknown };
+    if (parsed.schema !== 'brunch.ask.questionnaire-answer') return undefined;
+    return zQuestionnaireAnswersFor(params.questions).parse(parsed.answers);
+  } catch {
+    return undefined;
+  }
 }
 
 export function collectAskResponse(
@@ -589,8 +719,17 @@ export function createAskTool(liveAsk?: LiveAskOpener) {
       const uiCtx = ctx as unknown as StructuredExchangeUiContext;
       if (isContinuingAskParams(params)) return collectContinuingAsk(params, uiCtx, liveAsk);
       const standalone = standaloneAskParams(params);
-      const question = askQuestionEcho(standalone);
-      const collected = await collectAskResponse(standalone, question, uiCtx, liveAsk);
+      const collected =
+        standalone.acceptsDigest && standalone.questions
+          ? await collectDigestQuestionnaire(standalone as QuestionnaireAskParams, uiCtx, liveAsk)
+          : standalone.acceptsDigest
+            ? await collectDigestConfirmation(standalone as DigestConfirmationAskParams, uiCtx, liveAsk)
+            : await collectAskResponse(
+                standalone as OrdinaryStandaloneAskParams,
+                askQuestionEcho(standalone),
+                uiCtx,
+                liveAsk,
+              );
       notifyStandaloneAskCancellation(collected, uiCtx);
       return collected;
     },

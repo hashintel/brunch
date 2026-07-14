@@ -2,7 +2,9 @@ import type { AskDetails } from '../../../exchanges/schemas/index.js';
 import { CANCELLED_TERMINAL } from './option-echo.js';
 import type { RenderElision } from './render-honesty.js';
 
-function optionLines(details: AskDetails): string[] {
+type OrdinaryAskDetails = Exclude<AskDetails, { readonly questionnaire: unknown }>;
+
+function optionLines(details: OrdinaryAskDetails): string[] {
   const options = details.question.options ?? [];
   const answered = 'answered' in details ? details.answered : undefined;
   if (!answered || (!('choice' in answered) && !('choices' in answered))) return [];
@@ -23,7 +25,7 @@ function optionLines(details: AskDetails): string[] {
   return [...listedRows, ...writeInRows];
 }
 
-function framingLines(details: AskDetails): string[] {
+function framingLines(details: OrdinaryAskDetails): string[] {
   const lines: string[] = [];
   if (details.question.commentPrompt) lines.push(`**Comment prompt:** ${details.question.commentPrompt}`);
   if (details.question.otherPrompt) lines.push(`**Other prompt:** ${details.question.otherPrompt}`);
@@ -31,14 +33,32 @@ function framingLines(details: AskDetails): string[] {
 }
 
 export function formatAsk(details: AskDetails): string {
-  const lines = [details.question.body];
-  const framing = framingLines(details);
+  if ('questionnaire' in details) {
+    const lines = [`Accepted digest: ${details.answered.accepted_abstract}`];
+    for (const { question, answer } of details.questionnaire) {
+      const labels =
+        'options' in question
+          ? new Map(question.options.map((option) => [option.id, option.label]))
+          : undefined;
+      const rendered =
+        answer.kind === 'free-text'
+          ? answer.text
+          : answer.kind === 'single-select'
+            ? (labels?.get(answer.optionId) ?? answer.optionId)
+            : answer.optionIds.map((id) => labels?.get(id) ?? id).join(', ');
+      lines.push('', `**${question.prompt}**`, rendered);
+    }
+    return lines.join('\n');
+  }
+  const ordinary = details as OrdinaryAskDetails;
+  const lines = [ordinary.question.body];
+  const framing = framingLines(ordinary);
   if (framing.length > 0) lines.push('', ...framing);
-  const options = optionLines(details);
+  const options = optionLines(ordinary);
   if (options.length > 0) lines.push('', ...options);
 
-  if ('answered' in details) {
-    const { answered } = details;
+  if ('answered' in ordinary) {
+    const { answered } = ordinary;
     if ('text' in answered) {
       lines.push('', `**Answer:** ${answered.text}`);
       if (answered.comment) lines.push('', `_${answered.comment}_`);
@@ -47,12 +67,12 @@ export function formatAsk(details: AskDetails): string {
     } else {
       if (answered.comment) lines.push('', `_${answered.comment}_`);
     }
-  } else if ('cancelled' in details) {
+  } else if ('cancelled' in ordinary) {
     lines.push('');
     lines.push(CANCELLED_TERMINAL);
   } else {
     lines.push('');
-    lines.push(`_${details.unavailable.message}_`);
+    lines.push(`_${ordinary.unavailable.message}_`);
   }
 
   return lines.join('\n');

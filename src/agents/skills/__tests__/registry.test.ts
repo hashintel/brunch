@@ -95,8 +95,9 @@ describe('live skill manifest rendering', () => {
       'Default after digest approval: map the accepted_abstract directly into advisory graph mutations',
     );
     expect(ingestBody).toContain('multi-pass extraction: entities, relations, then narrative obligations');
-    expect(ingestBody).toContain(
-      'Do not treat digest approval as a reason to ask a broad follow-up before mapping',
-    );
+    expect(ingestBody).toContain('declared free-text `ask({ continues })`');
+    expect(ingestBody).toContain('ask({ acceptsDigest, questions })');
+    expect(ingestBody).toContain("submitted terminal's runtime-owned `accepted_abstract`");
+    expect(ingestBody).not.toContain('approve/request-changes/reject');
   });
 });

@@ -99,7 +99,7 @@ function choicesFromParams(
   params: ContinuationCollectParams,
 ): readonly { readonly id: string; readonly label: string; readonly description?: string }[] {
   return [
-    ...params.options.map((option) => ({
+    ...(params.options ?? []).map((option) => ({
       id: option.id,
       label: option.label,
       ...(option.description ? { description: option.description } : {}),
@@ -220,8 +220,39 @@ export async function collectContinuingAsk(
   const declared = { exchangeId: params.continues, ...present.continuation.params };
   if (isDeclaredCandidatePresent(present))
     return collectContinuingCandidateChoice(declared, present, ctx, liveAsk);
+  if (present.tool_meta.curr === 'present_digest')
+    return collectContinuingDigestFeedback(declared, ctx, liveAsk);
   if (isDeclaredReviewPresent(present)) return collectContinuingReview(declared, present, ctx, liveAsk);
   return present satisfies never;
+}
+
+async function collectContinuingDigestFeedback(
+  params: ContinuationCollectParams,
+  ctx: StructuredExchangeUiContext,
+  liveAsk?: LiveAskOpener,
+): Promise<ToolResult> {
+  const question = askQuestionEcho(params);
+  let answer: string | undefined;
+  if (ctx.hasUI && typeof ctx.ui?.editor === 'function') {
+    answer = await withWorkingIndicatorHidden(ctx, () => ctx.ui!.editor!(params.body));
+  } else if (liveAsk) {
+    answer = await liveAsk.openAsk({ exchangeId: params.exchangeId, mode: 'text', question });
+  } else {
+    return terminal(params, 'unavailable', 'digest feedback requires interactive UI');
+  }
+  if (answer === undefined) {
+    notifyContinuationCancellation(ctx);
+    return terminal(params, 'cancelled');
+  }
+  const trimmed = answer.trim();
+  if (!trimmed) return terminal(params, 'unavailable', 'digest feedback cannot be empty');
+  const details = projectAsk({
+    exchangeId: params.exchangeId,
+    question,
+    status: 'answered',
+    answer: trimmed,
+  });
+  return result(details);
 }
 
 async function collectContinuingCandidateChoice(
@@ -244,7 +275,7 @@ async function collectContinuingCandidateChoice(
     notifyContinuationCancellation(ctx);
     return continuationTerminal(params, present, 'cancelled');
   }
-  const option = params.options.find((choice) => choice.id === picked.id);
+  const option = params.options?.find((choice) => choice.id === picked.id);
   if (!option)
     return continuationTerminal(
       params,
@@ -281,7 +312,7 @@ async function collectHeadlessCandidateChoice(
     notifyContinuationCancellation(ctx);
     return continuationTerminal(params, present, 'cancelled');
   }
-  const option = params.options.find((choice) => choice.id === answer);
+  const option = params.options?.find((choice) => choice.id === answer);
   if (!option)
     return continuationTerminal(params, present, 'unavailable', `ask received unknown option id ${answer}`);
   const details = projectRequestChoice({

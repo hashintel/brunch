@@ -8,6 +8,7 @@ import { NonBlankStringSchema } from './schemas.js';
 
 export const NO_LIVE_EXCHANGE_ANSWERER_MESSAGE = 'No live exchange answerer is attached';
 export const NO_PENDING_LIVE_EXCHANGE_MESSAGE = 'No matching live exchange is pending';
+export const INVALID_LIVE_EXCHANGE_ANSWER_MESSAGE = 'Answer does not match the open exchange';
 
 const AnswerExchangeParamsSchema = Type.Object(
   {
@@ -57,7 +58,13 @@ export const sessionExchangeAnswerRpcMethods: readonly RpcMethodDefinition<RpcMe
       const params = Value.Parse(AnswerExchangeParamsSchema, request.params) as AnswerExchangeParams;
       const outcome = handle.answerer.submitAnswer(params);
       if (!outcome.submitted) {
-        return createJsonRpcFailure(requestId, -32008, NO_PENDING_LIVE_EXCHANGE_MESSAGE);
+        return createJsonRpcFailure(
+          requestId,
+          outcome.reason === 'invalid_answer' ? -32602 : -32008,
+          outcome.reason === 'invalid_answer'
+            ? INVALID_LIVE_EXCHANGE_ANSWER_MESSAGE
+            : NO_PENDING_LIVE_EXCHANGE_MESSAGE,
+        );
       }
       return createJsonRpcSuccess(requestId, { status: 'completed' });
     },

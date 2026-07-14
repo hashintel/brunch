@@ -1,5 +1,6 @@
 import * as z from 'zod';
 
+import { zQuestionnaireAnswer, zQuestionnaireQuestion } from './questionnaire.js';
 import {
   zMarkdown,
   zNonBlankMarkdown,
@@ -325,7 +326,32 @@ const zAskQuestionEcho = z
   .strict();
 export type AskQuestionEcho = z.infer<typeof zAskQuestionEcho>;
 
+export const zAskQuestionnaireDetails = zRequestDetailsHeader
+  .extend({
+    tool_meta: z.object({ curr: z.literal('ask'), next: z.literal('capture_answer') }).strict(),
+    question: z.object({ body: zNonBlankMarkdown }).strict(),
+    accepts_digest: z.string().min(1),
+    questionnaire: z
+      .array(z.object({ question: zQuestionnaireQuestion, answer: zQuestionnaireAnswer }).strict())
+      .min(1),
+    answered: z.object({ submitted: z.literal(true), accepted_abstract: zNonBlankMarkdown }).strict(),
+  })
+  .strict();
+export type AskQuestionnaireDetails = z.infer<typeof zAskQuestionnaireDetails>;
+
+export const zAskDigestConfirmationDetails = zRequestDetailsHeader
+  .extend({
+    tool_meta: z.object({ curr: z.literal('ask'), next: z.literal('capture_choice') }).strict(),
+    question: zAskQuestionEcho.extend({ options: z.array(zAskQuestionOptionEcho).length(2) }),
+    accepts_digest: z.string().min(1),
+    answered: zRequestChoiceAnswered.extend({ accepted_abstract: zNonBlankMarkdown }),
+  })
+  .strict();
+export type AskDigestConfirmationDetails = z.infer<typeof zAskDigestConfirmationDetails>;
+
 export const zAskDetails = z.union([
+  zAskQuestionnaireDetails,
+  zAskDigestConfirmationDetails,
   zRequestDetailsHeader
     .extend({
       tool_meta: z.object({ curr: z.literal('ask'), next: z.literal('capture_answer').optional() }).strict(),
@@ -400,7 +426,11 @@ type KeysOfUnion<T> = T extends unknown ? keyof T : never;
  */
 export type RequestOutcomeKey = Exclude<
   KeysOfUnion<RequestDetails>,
-  KeysOfUnion<z.infer<typeof zRequestDetailsHeader>> | 'tool_meta' | 'question'
+  | KeysOfUnion<z.infer<typeof zRequestDetailsHeader>>
+  | 'tool_meta'
+  | 'question'
+  | 'accepts_digest'
+  | 'questionnaire'
 >;
 
 // `satisfies Record<RequestOutcomeKey, true>` drift-couples this list to the

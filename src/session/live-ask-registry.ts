@@ -1,4 +1,8 @@
-import type { AskQuestionEcho } from '../exchanges/schemas/index.js';
+import {
+  zQuestionnaireAnswersFor,
+  type AskQuestionEcho,
+  type QuestionnaireQuestion,
+} from '../exchanges/schemas/index.js';
 import type { LiveExchangeAnswerer, LiveExchangeAwaiter } from './live-exchange-broker.js';
 
 /**
@@ -15,12 +19,12 @@ import type { LiveExchangeAnswerer, LiveExchangeAwaiter } from './live-exchange-
  * `closed` rather than hanging.
  */
 
-export type OpenAskMode = 'text' | 'single-select' | 'multi-select' | 'review';
+export type OpenAskMode = 'text' | 'single-select' | 'multi-select' | 'questionnaire' | 'review';
 
 export interface OpenAsk {
   readonly exchangeId: string;
   readonly mode: OpenAskMode;
-  readonly question: AskQuestionEcho;
+  readonly question: AskQuestionEcho & { readonly questions?: readonly QuestionnaireQuestion[] };
 }
 
 export type AskLifecycleState = 'open' | 'answered' | 'cancelled' | 'closed';
@@ -88,7 +92,21 @@ export function createLiveAskRegistry(): LiveAskRegistry {
     },
     answerer: {
       submitAnswer({ exchangeId, answer }) {
-        if (!pending.has(exchangeId)) return { submitted: false, reason: 'no_pending_exchange' };
+        const entry = pending.get(exchangeId);
+        if (!entry) return { submitted: false, reason: 'no_pending_exchange' };
+        if (entry.ask?.mode === 'questionnaire') {
+          try {
+            const envelope = JSON.parse(answer) as { schema?: unknown; answers?: unknown };
+            if (
+              envelope.schema !== 'brunch.ask.questionnaire-answer' ||
+              !entry.ask.question.questions ||
+              !zQuestionnaireAnswersFor(entry.ask.question.questions).safeParse(envelope.answers).success
+            )
+              return { submitted: false, reason: 'invalid_answer' };
+          } catch {
+            return { submitted: false, reason: 'invalid_answer' };
+          }
+        }
         settle(exchangeId, 'answered', answer);
         return { submitted: true };
       },
