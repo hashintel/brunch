@@ -1,10 +1,7 @@
 import { Type, type Static } from 'typebox';
 import { Value } from 'typebox/value';
 
-import { formatMutateGraphResult } from '../../agents/contexts/data-model/graph/commit-result.js';
-import { zReviewSetDetailsPayload, type ReviewSetDetailsPayload } from '../../exchanges/schemas/index.js';
 import type { MutateGraphSuccess } from '../../graph/command-executor.js';
-import type { ReviewSetProposalPayload } from '../../graph/review-set.js';
 import type { WorkspaceGraphRuntime } from '../../graph/workspace-store.js';
 import { projectSessionRuntimeState } from '../../projections/session/runtime-state.js';
 import {
@@ -55,6 +52,9 @@ import {
   NonNegativeIntegerSchema,
   PositiveIntegerSchema,
 } from './schemas.js';
+
+import { findIncompleteStructuredExchangePresents } from '../../exchanges/recovery.js';
+import { settleReviewSetResponse } from '../../session/review-set-settlement.js';
 
 const SessionProjectionParamsSchema = Type.Object(
   {
@@ -601,9 +601,13 @@ async function handleSubmitExchangeResponse(
   }
 
   const graph = await options.getGraphRuntime();
+  const persistedPresent = findIncompleteStructuredExchangePresents(target.envelope.entries).find(
+    (candidate) => candidate.details.exchange_id === pending.exchangeId,
+  )?.details;
   const review = reviewResultForAcceptedResponse({
     pending,
     acceptedAnswer: accepted.answer,
+    persistedPresent,
     specId: target.envelope.binding.specId,
     proposalEntryId: projectLinearSessionExchangeProjection(target.envelope).openPrompt?.promptEntryIds[0],
     commandExecutor: graph.commandExecutor,
@@ -636,9 +640,8 @@ async function handleSubmitExchangeResponse(
 
   if (review?.status === 'approved') {
     const [textContent] = accepted.toolResultMessage.content;
-    if (textContent) {
-      textContent.text = `${textContent.text}\n\n${formatMutateGraphResult(review.accepted)}`;
-    }
+    if (textContent) textContent.text = review.content;
+    (accepted.toolResultMessage as { details: Record<string, unknown> }).details = review.details;
   }
 
   // Call first, then result — the synthetic pair keeps the transcript
@@ -675,11 +678,17 @@ type SessionProjectionParamsParseResult =
 function reviewResultForAcceptedResponse(options: {
   readonly pending: PendingStructuredExchange;
   readonly acceptedAnswer: Record<string, unknown>;
+  readonly persistedPresent: unknown;
   readonly specId: number;
   readonly proposalEntryId?: string | undefined;
   readonly commandExecutor: WorkspaceGraphRuntime['commandExecutor'];
 }):
-  | { readonly status: 'approved'; readonly accepted: MutateGraphSuccess }
+  | {
+      readonly status: 'approved';
+      readonly accepted: MutateGraphSuccess;
+      readonly details: Record<string, unknown>;
+      readonly content: string;
+    }
   | { readonly status: 'request_changes' | 'rejected' }
   | { readonly status: 'structural_illegal'; readonly diagnostics: Record<string, unknown>[] }
   | undefined {
@@ -710,151 +719,32 @@ function reviewResultForAcceptedResponse(options: {
     };
   }
 
-  const parsedReviewSet = zReviewSetDetailsPayload.safeParse(options.pending.reviewSet);
-  if (!parsedReviewSet.success) {
-    return {
-      status: 'structural_illegal',
-      diagnostics: parsedReviewSet.error.issues.map((issue) => ({
-        field: issue.path.length > 0 ? issue.path.join('.') : 'reviewSet',
-        message: issue.message,
-      })),
-    };
-  }
-
-  const accepted = options.commandExecutor.acceptReviewSet({
+  const settlement = settleReviewSetResponse({
+    persistedPresent: options.persistedPresent,
+    decision,
+    ...(typeof (review as { comment?: unknown }).comment === 'string'
+      ? { comment: (review as { comment: string }).comment }
+      : {}),
     specId: options.specId,
     proposalEntryId: options.proposalEntryId,
-    payload: reviewSetProposalPayloadFromDetails({
-      exchangeId: options.pending.exchangeId,
-      heading: options.pending.prompt,
-      body: options.pending.details,
-      reviewSet: parsedReviewSet.data,
-    }),
+    commandExecutor: options.commandExecutor,
   });
-  if (accepted.status === 'structural_illegal') {
+  if (settlement.status === 'structural_illegal') {
+    return { status: 'structural_illegal', diagnostics: [...settlement.diagnostics] };
+  }
+  if (settlement.status !== 'settled') {
     return {
       status: 'structural_illegal',
-      diagnostics: accepted.diagnostics.map((diagnostic) => ({ ...diagnostic })),
+      diagnostics: [{ field: 'review', message: 'approval did not settle' }],
     };
   }
-  return { status: 'approved', accepted };
-}
-
-function reviewSetProposalPayloadFromDetails(input: {
-  readonly exchangeId: string;
-  readonly heading: string;
-  readonly body?: string | undefined;
-  readonly reviewSet: ReviewSetDetailsPayload;
-}): ReviewSetProposalPayload {
-  const narrative = input.body?.trim() || input.heading.trim();
   return {
-    schemaVersion: 1,
-    lens: 'intent',
-    epistemicStatus: 'asserted',
-    grounding: {
-      summary: narrative,
-      support: [`present_review_set:${input.exchangeId}`],
-    },
-    pitch: {
-      title: input.heading.trim(),
-      narrative,
-    },
-    entityDrafts: input.reviewSet.nodes.map((draft) => ({
-      draftId: draft.draft_id,
-      proposedCode: draft.proposed_code,
-      plane: draft.plane,
-      kind: draft.kind,
-      title: draft.title,
-      ...(draft.body !== undefined ? { body: draft.body } : {}),
-      ...(draft.detail !== undefined ? { detail: draft.detail } : {}),
-    })),
-    edgeDrafts: input.reviewSet.edges.map(reviewSetEdgeDraftFromDetails),
+    status: 'approved',
+    accepted: settlement.accepted,
+    details: settlement.details,
+    content: settlement.content,
   };
 }
-
-type ReviewSetDetailsEdgeDraft = ReviewSetDetailsPayload['edges'][number];
-type ReviewSetDetailsEndpointRef = Extract<
-  ReviewSetDetailsEdgeDraft,
-  { category: 'dependency' }
->['dependency'];
-
-function endpointRefFromDetails(value: ReviewSetDetailsEndpointRef) {
-  if ('draft_id' in value) return { draftId: value.draft_id };
-  return { existingCode: value.existing_code };
-}
-
-function reviewSetEdgeDraftFromDetails(
-  draft: ReviewSetDetailsEdgeDraft,
-): ReviewSetProposalPayload['edgeDrafts'][number] {
-  switch (draft.category) {
-    case 'dependency':
-      return {
-        category: draft.category,
-        dependency: endpointRefFromDetails(draft.dependency),
-        dependent: endpointRefFromDetails(draft.dependent),
-        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
-      };
-    case 'witness':
-      return {
-        category: draft.category,
-        oracle: endpointRefFromDetails(draft.oracle),
-        claim: endpointRefFromDetails(draft.claim),
-        stance: draft.stance,
-        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
-      };
-    case 'rationale':
-      return {
-        category: draft.category,
-        support: endpointRefFromDetails(draft.support),
-        claim: endpointRefFromDetails(draft.claim),
-        stance: draft.stance,
-        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
-      };
-    case 'realization':
-      return {
-        category: draft.category,
-        abstract: endpointRefFromDetails(draft.abstract),
-        concrete: endpointRefFromDetails(draft.concrete),
-        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
-      };
-    case 'refinement':
-      return {
-        category: draft.category,
-        abstract: endpointRefFromDetails(draft.abstract),
-        concrete: endpointRefFromDetails(draft.concrete),
-        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
-      };
-    case 'exclusion':
-      return {
-        category: draft.category,
-        boundary: endpointRefFromDetails(draft.boundary),
-        subject: endpointRefFromDetails(draft.subject),
-        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
-      };
-    case 'composition':
-      return {
-        category: draft.category,
-        whole: endpointRefFromDetails(draft.whole),
-        part: endpointRefFromDetails(draft.part),
-        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
-      };
-    case 'cross_reference':
-      return {
-        category: draft.category,
-        a: endpointRefFromDetails(draft.a),
-        b: endpointRefFromDetails(draft.b),
-        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
-      };
-    case 'supersession':
-      return {
-        category: draft.category,
-        successor: endpointRefFromDetails(draft.successor),
-        predecessor: endpointRefFromDetails(draft.predecessor),
-        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
-      };
-  }
-}
-
 function parseSessionProjectionParams(value: unknown): SessionProjectionParamsParseResult {
   if (value === undefined) {
     return { ok: true, value: null };

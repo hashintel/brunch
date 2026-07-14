@@ -68,6 +68,8 @@ present_digest result details
   -> ask collector emits canonical request detail discriminants
 ```
 
+For `present_review_set`, an approved continuation invokes the session-owned shared settlement operation before `ask.execute` returns; therefore Pi can append only a successfully committed, receipt-bearing result. Request-changes/reject remain terminal-only and create no graph effect.
+
 The collecting tool name is `ask`, but offer answers preserve the request-detail
 vocabulary on the wire: `request_choice` for candidates and `request_review` for
 review-set/digest. Digest feedback emits a standalone `ask` answer; only the later submitted digest-referencing questionnaire/confirmation echoes `accepted_abstract`. Those discriminants are capture/sweep semantics, not registration topology.

@@ -74,6 +74,8 @@ plus the coordination logic for workspace/spec/session lifecycle.
   entry/degraded-mode rules, live-kick composition) live in
   `.pi/extensions/session-orientation/`.
 
+- **Review-set settlement** (`review-set-settlement.ts`, D27-L/I15-L) — the shared local/RPC response authority. It revalidates the exact persisted `present_review_set`, commits approval once through `CommandExecutor.acceptReviewSet`, and only then constructs the receipt-bearing terminal; adapters retain only their distinct Pi-owned vs Brunch-owned append mechanics.
+
 - **Structured-exchange loop helpers** — deterministic POC exchange generation,
   pending prompt reconstruction from structured transcript tuples, response
   toolResult materialization, and the process-local live answer rendezvous used

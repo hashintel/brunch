@@ -23,6 +23,7 @@ import {
 } from '../../../../exchanges/schemas/index.js';
 import { projectBrunchAgentState } from '../../../../projections/session/runtime-state.js';
 import type { LiveAskOpener } from '../../../../session/live-ask-registry.js';
+import { settleReviewSetResponse } from '../../../../session/review-set-settlement.js';
 import { createExchangeDecisionPickerComponent } from '../../../components/exchange-decision-picker.js';
 import { operationalModeBorderColor } from '../../../components/mode-border-theme.js';
 import {
@@ -31,6 +32,7 @@ import {
   BRUNCH_MODE_COMMAND,
   slashCommand,
 } from '../../commands/names.js';
+import type { ReviewSetStructuredExchangeDeps } from '../present-review-set.js';
 import { collectCommentRequirementStep, isBack, type StepResult } from '../shared/required-input.js';
 import { withWorkingIndicatorHidden, type StructuredExchangeUiContext } from '../shared/ui-context.js';
 
@@ -199,6 +201,7 @@ export async function collectContinuingAsk(
   params: ContinuingAskParams,
   ctx: StructuredExchangeUiContext,
   liveAsk?: LiveAskOpener,
+  reviewDeps?: ReviewSetStructuredExchangeDeps,
 ): Promise<ToolResult> {
   const branch = ctx.sessionManager?.getBranch();
   if (!branch)
@@ -222,7 +225,8 @@ export async function collectContinuingAsk(
     return collectContinuingCandidateChoice(declared, present, ctx, liveAsk);
   if (present.tool_meta.curr === 'present_digest')
     return collectContinuingDigestFeedback(declared, ctx, liveAsk);
-  if (isDeclaredReviewPresent(present)) return collectContinuingReview(declared, present, ctx, liveAsk);
+  if (isDeclaredReviewPresent(present))
+    return collectContinuingReview(declared, present, ctx, liveAsk, reviewDeps);
   return present satisfies never;
 }
 
@@ -334,6 +338,7 @@ async function collectHeadlessReview(
   present: PresentDigestDetails | PresentReviewSetDetails,
   ctx: StructuredExchangeUiContext,
   liveAsk: LiveAskOpener,
+  reviewDeps?: ReviewSetStructuredExchangeDeps,
 ): Promise<ToolResult> {
   const answer = await liveAsk.openAsk({
     exchangeId: params.exchangeId,
@@ -358,6 +363,34 @@ async function collectHeadlessReview(
   if (decision === 'request_changes' && comment === undefined) {
     return continuationTerminal(params, present, 'unavailable', 'Review request_changes requires a comment');
   }
+  if (present.tool_meta.curr === 'present_review_set') {
+    if (decision !== 'approve') {
+      const details = continuationReviewDetails({
+        present,
+        exchangeId: params.exchangeId,
+        review: decision,
+        comment,
+      });
+      return { content: [{ type: 'text', text: formatRequestReview(details) }], details };
+    }
+    if (!reviewDeps)
+      return continuationTerminal(
+        params,
+        present,
+        'unavailable',
+        'review-set graph dependencies unavailable',
+      );
+    const settlement = settleReviewSetResponse({
+      persistedPresent: present,
+      decision,
+      comment,
+      specId: reviewDeps.specId,
+      commandExecutor: reviewDeps.commandExecutor,
+    });
+    if (settlement.status === 'structural_illegal')
+      return continuationTerminal(params, present, 'unavailable', 'Review-set settlement failed');
+    return { content: [{ type: 'text', text: settlement.content }], details: settlement.details };
+  }
   const details = continuationReviewDetails({
     present,
     exchangeId: params.exchangeId,
@@ -372,9 +405,10 @@ async function collectContinuingReview(
   present: PresentDigestDetails | PresentReviewSetDetails,
   ctx: StructuredExchangeUiContext,
   liveAsk?: LiveAskOpener,
+  reviewDeps?: ReviewSetStructuredExchangeDeps,
 ): Promise<ToolResult> {
   if (!ctx.hasUI || typeof ctx.ui?.custom !== 'function') {
-    if (liveAsk) return collectHeadlessReview(params, present, ctx, liveAsk);
+    if (liveAsk) return collectHeadlessReview(params, present, ctx, liveAsk, reviewDeps);
     return continuationTerminal(
       params,
       present,
@@ -403,6 +437,40 @@ async function collectContinuingReview(
     if (isBack(collected)) continue;
     if (collected.status === 'unavailable')
       return continuationTerminal(params, present, 'unavailable', collected.message);
+    if (present.tool_meta.curr === 'present_review_set') {
+      if (selected.id !== 'approve') {
+        const details = continuationReviewDetails({
+          present,
+          exchangeId: params.exchangeId,
+          review: selected.id,
+          comment: collected.value.comment,
+        });
+        return { content: [{ type: 'text', text: formatRequestReview(details) }], details };
+      }
+      if (!reviewDeps)
+        return continuationTerminal(
+          params,
+          present,
+          'unavailable',
+          'review-set graph dependencies unavailable',
+        );
+      const settlement = settleReviewSetResponse({
+        persistedPresent: present,
+        decision: selected.id,
+        comment: collected.value.comment,
+        specId: reviewDeps.specId,
+        commandExecutor: reviewDeps.commandExecutor,
+      });
+      if (settlement.status === 'structural_illegal') {
+        return continuationTerminal(
+          params,
+          present,
+          'unavailable',
+          `Review-set settlement failed: ${settlement.diagnostics.map((item) => (typeof item.message === 'string' ? item.message : 'structural illegal')).join('; ')}`,
+        );
+      }
+      return { content: [{ type: 'text', text: settlement.content }], details: settlement.details };
+    }
     const details = continuationReviewDetails({
       present,
       exchangeId: params.exchangeId,

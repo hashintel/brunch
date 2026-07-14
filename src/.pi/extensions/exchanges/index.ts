@@ -55,7 +55,7 @@ export interface StructuredExchangeDeps {
 
 export function registerStructuredExchange(pi: ExtensionAPI, deps: StructuredExchangeDeps = {}) {
   for (const tool of [
-    deps.liveExchange ? createAskTool(deps.liveExchange) : askTool,
+    deps.liveExchange || deps.review ? createAskTool(deps.liveExchange, deps.review) : askTool,
     createPresentReviewSetTool(deps.review),
     presentCandidatesTool,
     presentDigestTool,

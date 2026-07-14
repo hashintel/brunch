@@ -122,6 +122,9 @@ notes:
   - #A2/#C2: Path A and Path C are the SAME `ask` tool execution reaching the SAME free-text
     collector — they differ in exactly one runtime fact, whether InteractiveMode is bound, not in
     the tool or its params.
+  - Review-set approval converges below these transport mechanics: paths A/C and B call the same
+    session-owned settlement operation, which revalidates the persisted offer and commits before
+    returning/building the terminal. Pi still owns the A/C append; Brunch owns the B append.
   - #B2: Path B is architecturally distinct from A and C, not a variant of either — it's a Brunch
     RPC handler directly authoring transcript entries, matching D49-L ("Brunch-owned over public
     RPC... rather than raw Pi RPC") and D38-L ("JSON-over-editor is the Pi-RPC compatibility seam,

@@ -15,7 +15,8 @@ chain review-set-drafting
   check edge roles against current map/schema guidance
   present_review_set
   ask({ continues })
-  commit only after exact-batch approval
+  approval commits the exact batch through the product acceptance path
+  never follow approval with mutate_graph for that batch
 ```
 
 A review set is not a hidden mutation. Items become accepted graph truth only after the user approves the exact reviewed batch through the review-set acceptance path.

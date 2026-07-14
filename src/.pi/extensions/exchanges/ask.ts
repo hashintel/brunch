@@ -32,6 +32,7 @@ import { createMultiChoicePickerComponent } from '../../components/multi-choice-
 import { BRUNCH_CONSULT_COMMAND, BRUNCH_MODE_COMMAND, slashCommand } from '../commands/names.js';
 import { toolParameters } from '../shared/tool-schema.js';
 import { collectContinuingAsk } from './ask/continuation.js';
+import type { ReviewSetStructuredExchangeDeps } from './present-review-set.js';
 import { requestChoicesViaEditor } from './shared/choices-editor.js';
 import { renderEmptyStructuredExchangeCall, renderMarkdownResult } from './shared/markdown.js';
 import {
@@ -693,7 +694,7 @@ function notifyStandaloneAskCancellation(result: ToolResult, ctx: StructuredExch
   );
 }
 
-export function createAskTool(liveAsk?: LiveAskOpener) {
+export function createAskTool(liveAsk?: LiveAskOpener, reviewDeps?: ReviewSetStructuredExchangeDeps) {
   return defineTool({
     name: ASK_TOOL,
     label: 'Ask',
@@ -717,7 +718,7 @@ export function createAskTool(liveAsk?: LiveAskOpener) {
       if (!parsed.success) return validationFailureResult(ASK_TOOL, parsed.error);
       const params = parsed.data;
       const uiCtx = ctx as unknown as StructuredExchangeUiContext;
-      if (isContinuingAskParams(params)) return collectContinuingAsk(params, uiCtx, liveAsk);
+      if (isContinuingAskParams(params)) return collectContinuingAsk(params, uiCtx, liveAsk, reviewDeps);
       const standalone = standaloneAskParams(params);
       const collected =
         standalone.acceptsDigest && standalone.questions
