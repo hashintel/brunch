@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import { projectExecuteGraph } from '../../../../executor/execute-projection.js';
 import type { CapabilityRequirement } from '../../../../executor/execution-contract.js';
-import { writePlanFile } from '../../../../executor/plan-file.js';
+import { planFilePath, writePlanFile } from '../../../../executor/plan-file.js';
 import { runMetadataPath } from '../../../../executor/run.js';
 import { createExecuteRunCreateTool } from '../execute-run-create/index.js';
 
@@ -137,6 +137,29 @@ describe('createExecuteRunCreateTool', () => {
       result: {
         status: 'execution_contract_blocked',
         reasons: ['the admitted plan resolves no verification action'],
+      },
+      sideEffects: [],
+    });
+    await expect(readFile(runMetadataPath(cwd, 'run-1'), 'utf8')).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+  });
+
+  it('rejects a malformed persisted execution contract without creating run artifacts', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-create-malformed-contract-'));
+    await mkdir(join(cwd, '.brunch', 'cook', 'specs', '7'), { recursive: true });
+    await writeFile(
+      planFilePath(cwd, '7'),
+      JSON.stringify({ mode: 'greenfield', epics: [], slices: [], execution_contract: {} }),
+      'utf8',
+    );
+
+    const result = await tool().execute('t1', { runId: 'run-1' }, undefined, undefined, { cwd } as never);
+
+    expect(result.details).toEqual({
+      result: {
+        status: 'execution_contract_blocked',
+        reasons: ['the persisted plan execution contract is malformed'],
       },
       sideEffects: [],
     });

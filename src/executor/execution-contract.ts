@@ -48,6 +48,25 @@ export interface ExecutionContract {
   readonly conflicts: readonly ExecutionContractConflict[];
 }
 
+export function isExecutionContract(value: unknown): value is ExecutionContract {
+  if (!isRecord(value) || value['schemaVersion'] !== 1) return false;
+  if (
+    !isArrayOf(value['requiredCapabilities'], isCapabilityRequirement) ||
+    !isArrayOf(value['detectedCapabilities'], isCapabilityRequirement) ||
+    !isArrayOf(value['blocked'], isBlockedCapability) ||
+    !isArrayOf(value['conflicts'], isExecutionContractConflict)
+  ) {
+    return false;
+  }
+  const actions = value['resolvedActions'];
+  return (
+    isRecord(actions) &&
+    isArrayOf(actions['setup'], isResolvedContractAction) &&
+    isArrayOf(actions['build'], isResolvedContractAction) &&
+    isArrayOf(actions['verify'], isResolvedContractAction)
+  );
+}
+
 export function deriveExecutionContract(args: {
   readonly required: readonly CapabilityRequirement[];
   readonly detected: readonly CapabilityRequirement[];
@@ -121,4 +140,58 @@ export function deriveExecutionContract(args: {
     blocked,
     conflicts,
   };
+}
+
+function isCapabilityRequirement(value: unknown): value is CapabilityRequirement {
+  return isRecord(value) && isNonBlankString(value['id']) && isCapabilitySource(value['source']);
+}
+
+function isCapabilitySource(value: unknown): value is CapabilitySource {
+  if (!isRecord(value)) return false;
+  if (value['kind'] === 'default') return true;
+  if (value['kind'] === 'elicited') return isNonBlankString(value['itemId']);
+  return value['kind'] === 'detected' && isNonBlankString(value['path']);
+}
+
+function isResolvedContractAction(value: unknown): value is ResolvedContractAction {
+  return (
+    isRecord(value) &&
+    isNonBlankString(value['capabilityId']) &&
+    isNonBlankString(value['providerId']) &&
+    isNonBlankString(value['command']) &&
+    Array.isArray(value['args']) &&
+    value['args'].every((argument) => typeof argument === 'string')
+  );
+}
+
+function isBlockedCapability(value: unknown): value is BlockedCapability {
+  return (
+    isRecord(value) &&
+    isNonBlankString(value['id']) &&
+    isCapabilitySource(value['source']) &&
+    (value['reason'] === 'unsupported_capability' || value['reason'] === 'malformed_recipe') &&
+    (value['message'] === undefined || typeof value['message'] === 'string')
+  );
+}
+
+function isExecutionContractConflict(value: unknown): value is ExecutionContractConflict {
+  return (
+    isRecord(value) &&
+    isNonBlankString(value['domain']) &&
+    isNonBlankString(value['requiredId']) &&
+    isNonBlankString(value['detectedId']) &&
+    isNonBlankString(value['message'])
+  );
+}
+
+function isArrayOf<T>(value: unknown, predicate: (entry: unknown) => entry is T): value is readonly T[] {
+  return Array.isArray(value) && value.every(predicate);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isNonBlankString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
 }

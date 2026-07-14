@@ -3,7 +3,7 @@ import { dirname } from 'node:path';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import type { ExecutionContract } from '../../../../executor/execution-contract.js';
+import { isExecutionContract } from '../../../../executor/execution-contract.js';
 import { petriEventsPath } from '../../../../executor/petri-events.js';
 import { petriPlanSnapshotPath } from '../../../../executor/petri-plan-snapshot.js';
 import { petriNetPath, petriSdcpnPath, preparePetriObservation } from '../../../../executor/petri.js';
@@ -153,14 +153,20 @@ function toolResult(result: RunCreateResult, graphLsn: number, sideEffects: read
 }
 
 function admitExecutionContract(
-  contract: ExecutionContract | undefined,
+  contract: unknown,
 ):
   | { readonly status: 'admitted'; readonly verifyTarget: { command: string; args: readonly string[] } }
   | { readonly status: 'rejected'; readonly reasons: readonly string[] } {
-  if (!contract) {
+  if (contract === undefined) {
     return {
       status: 'rejected',
       reasons: ['the persisted plan contains no execution contract'],
+    };
+  }
+  if (!isExecutionContract(contract)) {
+    return {
+      status: 'rejected',
+      reasons: ['the persisted plan execution contract is malformed'],
     };
   }
   const reasons = [
