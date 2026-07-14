@@ -103,7 +103,7 @@ Alternatives considered and rejected:
 6. [done] Require an abort signal when opening a live ask, settle the registry entry as cancelled on abort, clean up listeners after every terminal transition, and prove that aborted asks disappear and cannot be answered later.
 7. [done] Make persisted questionnaire completion validate exact question-to-answer correspondence through the shared questionnaire invariant, and distinguish malformed editor submissions from user cancellation.
 8. [done] Reject duplicate headless multi-select identifiers so live and interactive collection produce the same valid selection state.
-9. Derive workspace population from all visible non-Brunch files, add non-Markdown-only and Brunch-only characterization cases, and keep the existing topology projection shape unchanged.
+9. [done] Derive workspace population from all visible non-Brunch files, add non-Markdown-only and Brunch-only characterization cases, and keep the existing topology projection shape unchanged.
 10. Delete the unread proposal audit identifier from the tool boundary, graph acceptance input, and change-log extras; strengthen local/RPC convergence tests to assert the same durable acceptance record, and reconcile the affected topology homes in this commit.
 
 Every commit after the first starts from and ends at a passing full verification gate. The first commit restores that prerequisite.

@@ -10,7 +10,7 @@ Current state:
 
 - `project-identity.ts` discovers the cwd project name/slug from shallow manifest files (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`) with directory basename fallback.
 - `workspace-state-store.ts` reads/writes `.brunch/workspace.json`: project identity, posture fields, and the selected default `{specId, sessionId}`. It does not open graph stores or Pi sessions.
-- `cwd-inventory.ts` inspects pure cwd facts for context tools: top-level entries, markdown files, and `.brunch/sessions/*.jsonl` file sizes without classifying Brunch session bindings.
+- `cwd-inventory.ts` inspects pure cwd facts for context tools: the model-facing topology retains its directory and Markdown-like-file projection, while `hasVisibleProductFiles` separately queries complete gitignore-visible file evidence excluding `.brunch/`, `.git/`, and the `.gitignore` control file.
 - `package-identity.test.ts` protects package-level CLI identity (`brunch`, version floor, executable bin shim).
 
 ## Does not own

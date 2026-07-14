@@ -6,7 +6,7 @@ import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { BRUNCH_DIR, SESSION_DIR } from '../constants.js';
 import { openWorkspaceCommandExecutor, type SpecRecord } from '../graph/index.js';
 import type { SpecKind, SpecOrigin } from '../graph/schema/kinds.js';
-import { inspectWorkspaceCwdInventory } from '../workspace/cwd-inventory.js';
+import { hasVisibleProductFiles } from '../workspace/cwd-inventory.js';
 import { slugify } from '../workspace/project-identity.js';
 import {
   readOrCreateWorkspaceState as readOrCreateWorkspaceStateFile,
@@ -645,10 +645,7 @@ async function inspectWorkspaceInventory(cwd: string): Promise<WorkspaceLaunchIn
  * legacy databases. I63-L's fail-safe open guard is unaffected.
  */
 async function isWorkspacePopulated(cwd: string): Promise<boolean> {
-  const inventory = await inspectWorkspaceCwdInventory(cwd);
-  return (inventory.topology.children ?? []).some(
-    (entry) => entry.name !== BRUNCH_DIR && entry.fileCount > 0,
-  );
+  return hasVisibleProductFiles(cwd);
 }
 
 function getOrCreateLaunchSpec(

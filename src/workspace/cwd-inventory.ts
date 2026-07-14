@@ -43,6 +43,31 @@ export async function inspectWorkspaceCwdInventory(cwd: string): Promise<Workspa
   };
 }
 
+/** Whether cwd contains gitignore-visible product files beyond Brunch and inventory control state. */
+export async function hasVisibleProductFiles(cwd: string): Promise<boolean> {
+  const resolvedCwd = resolve(cwd);
+  const shouldIgnore = await createGitignoreMatcher(resolvedCwd);
+  return (await countVisibleProductFiles(resolvedCwd, shouldIgnore)) > 0;
+}
+
+async function countVisibleProductFiles(
+  cwd: string,
+  shouldIgnore: (relativePath: string, isDirectory: boolean) => boolean,
+): Promise<number> {
+  const entries = await readdir(cwd, { withFileTypes: true });
+  let fileCount = 0;
+
+  for (const entry of entries) {
+    if (entry.name === BRUNCH_DIR || entry.name === '.git' || entry.name === '.gitignore') continue;
+    const path = join(cwd, entry.name);
+    const relativePath = toRelativePath(cwd, path);
+    if (shouldIgnore(relativePath, entry.isDirectory())) continue;
+    fileCount += entry.isDirectory() ? await countVisibleFiles(path, cwd, shouldIgnore) : 1;
+  }
+
+  return fileCount;
+}
+
 async function countVisibleFiles(
   directory: string,
   cwd: string,

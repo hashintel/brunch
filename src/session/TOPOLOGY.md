@@ -126,9 +126,10 @@ plus the coordination logic for workspace/spec/session lifecycle.
   Its private `workspace-session-coordinator/` subtree owns coordinator-shaped
   session-file/probe helpers such as canonical session-file classification;
   external callers import only the public root module. `WorkspaceLaunchInventory`
-  requires `workspacePopulated` (cwd content beyond `.brunch/`, via
-  `workspace/cwd-inventory.ts`) — the D118-L establishment branch signal,
-  distinct from the `.brunch/workspace.json` posture stub below.
+  requires `workspacePopulated` (complete gitignore-visible file evidence beyond
+  `.brunch/`, via `workspace/cwd-inventory.ts`, without widening topology
+  children) — the D118-L establishment branch signal, distinct from the
+  `.brunch/workspace.json` posture stub below.
 
 - **Spec-posture establishment** (`spec-establishment.ts`, D118-L) — the pure
   deterministic branching over cwd-populated state and current posture shared
