@@ -58,7 +58,7 @@ Concern: mode shortcut and thinking-level collision.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §main UI.
 Observation: `shift+tab` still appears entangled with Pi thinking-level behavior/warnings in the observed no-auth/main UI path.
 Expected: Brunch mode switching should not leak Pi thinking-level friction into the alpha UI; plain Pi scoping can keep its own binding.
-Disposition: diagnose whether this is no-auth-only, a missed keybinding suppression path, or a real Pi API limit; fallback candidate is a non-conflicting mode shortcut such as ctrl-M / ctrl-shift-M.
+Disposition: fixed in FE-1187 — commit `cd973beb` retired Brunch's Shift+Tab mode-cycle shortcut and its command path, leaving Pi's thinking-level binding unshadowed; operational-mode switching remains available through `/brunch:mode`.
 
 #### A4 · product behavior · high · scoped
 
@@ -191,6 +191,42 @@ Ownership disposition: FE-1180 closes by explicit promotion, not by treating pro
 | O10 | promoted unknown | Both-theme component/live-TUI checks not observed; owner: FE-1187. |
 
 Deferred WR9–WR12 (compact tool rendering, `/introspect` legibility, review-set visual redesign, markdown/node-id polish) — owner: FE-1187 (Group 1) folded row `exchange-visual-design` (promoted 2026-07-13 under the owned-deferral rule, `docs/praxis/manual-testing.md` §Findings ledger discipline). The broader review-set/ask visual-revamp impulse (WR11) lives there too, with its trigger and cost note.
+
+### 2026-07-13 FE-1187 auth/model reversal — outer beat
+
+#### R1 · chrome / model policy · high · pass
+
+Concern: onboarding
+Evidence: manual TUI walkthrough on branch `ln/fe-1187-walkthrough-remediation-2` (commit a15f33b0, pre-restack 5938981d), workbench launch per `docs/praxis/manual-testing.md`.
+Observation: `/model` surfaces Pi's full native picker and `/login` runs Pi-native auth; no Brunch allowlist restriction, no `brunch login` product path, no startup-menu auth warning.
+Expected: D123-L open model/auth surface — Pi's native provider/model/thinking range with the soft recommended default from the sealed profile.
+Disposition: fixed — commit a15f33b0 (`feat: open Pi model and auth surface`; pre-restack 5938981d); guarded by `brunch-tui.test.ts` boot-option projection, `workspace-dialog/component.test.ts` no-warning assertions, and the re-keyed I59-L registrar/juncture suppression tests. WR18 O1/O2 promoted failures (provider/model restrictions, `brunch login` path, startup warning) close with it. The no-model `/brunch:continue` + no-carrier observation (O1 promoted unknown) remains open on FE-1187.
+
+#### R2 · debug mirrors · medium · fixed
+
+Concern: debug mirrors
+Evidence: `.fixtures/workbenches/manual-no-auth/.brunch/debug/origination.md` (6 records = 3 originations, each doubled); ln-diagnose pass 2026-07-13.
+Observation: not an accidental double-write — the mirror intentionally records decision-time and outcome-time, but the outcome record re-embedded the entire decision including full `seedEntries` content, so each origination produced two near-identical multi-KB blocks (and seed content appeared three times across `entry-contents.md` + `origination.md`).
+Expected: two-phase records stay (decision-first keeps failed/never-completed kicks observable) but each phase is legible: decision record carries seed-entry summaries, outcome record carries the outcome plus a slim decision summary.
+Disposition: fixed — commit f0630a70 (`fix(debug): stop outcome record re-embedding decision payload`; pre-restack 2ec50505); regression oracle in `dev-mode-introspection.test.ts` asserts exact record shapes, decision-before-outcome ordering, and no seed content in `origination.md`. Closes the WR18 O3 promoted failure.
+
+#### R3 · onboarding safety · high · fixed
+
+Concern: onboarding
+Evidence: no-auth boot walkthrough 2026-07-13 (isolated launch: provider env keys stripped + `PI_CODING_AGENT_DIR` pointed at an empty temp dir), workbench `manual-no-auth`; screenshots of the spec picker, the booted session, and the post-`/brunch:continue` state.
+Observation: with no resolvable provider auth, the session correctly suppressed the orientation kick (no fake turn), but gave no unprompted indication of the state or remedy — only the dim `no model` footer chip. The honest guidance message existed only as the `/brunch:continue` outcome, which the user had to already know to run. (The old startup warning was deliberately deleted by the D123-L reversal without a Pi-native replacement surfacing at boot.)
+Expected: on session entry with no resolvable auth, the user gets one warning-level notification naming the state and the Pi-native remedy (`/login`), identical to the `/brunch:continue` outcome message; later junctures stay silent since the footer already shows the state.
+Disposition: fixed — the I59-L suppression gate in `session-orientation/registrar.ts` now emits the shared `NO_PROVIDER_AUTH_NOTICE` as a warning on the J1 entry trigger, and `/brunch:continue`'s no-model outcome reuses the same constant raised from info to warning. Guarded by the reshaped J1 no-auth registrar test (asserts exactly one entry warning) and the continue-outcome level assertions. Verified live: warning appears at boot and again on `/brunch:continue`. Closes the WR18 O1 promoted unknown's guidance half.
+
+No-carrier half (same session, checked 2026-07-13): pass. Two `/brunch:continue` attempts produced honest `{status: skipped, reason: no_model_available}` outcome records in `origination.md`, and the session JSONL (`2026-07-13T13-50-14-967Z_…`) contains only bootstrap entries — zero `brunch.context_seed` / `brunch.kick` carriers appended. The same records also witness the R2 mirror shape live: decision records carry seed-entry summaries (`contentLength`, no full text), outcome records carry a slim decision summary. WR18 O1 promoted unknown fully closed.
+
+#### R4 · debug mirrors · medium · pass
+
+Concern: prompt/skill/model + debug mirrors
+Evidence: Session B walkthrough 2026-07-13, workbench `workspace-alpha-grounding` debug cache inspected directly while the session stayed open (beats B1/B2).
+Observation: B1 — `system-prompt.md` mirror opens with the Brunch product preamble (`systemPromptOverride`) followed by Brunch capability/policy context; zero `pi-coding-agent` doc paths or Pi-development guidance. B2 — `origination.md` shows the summarized record shapes on a live fired outcome: decision records carry seed-entry summaries (`details`, `contentLength`, no full seed text) and outcome records carry `{status: fired}` plus a slim decision summary (`seedEntryCount`); no doubled multi-KB blocks.
+Expected: Card 2's outer beat (no Pi docs in the provider prompt) and the R2 mirror fix confirmed live on the auth-present fired path (Session A only witnessed skips).
+Disposition: pass — closes the Card 2 outer beat and the fired-path confirmation of R2. Remaining Session B beats: B4 (ask-cancellation, reframed into `memory/cards/walkthrough-remediation-2--cancelled-exchange-legibility.md`) and B5 (extraction breadth).
 
 Use future entries like:
 

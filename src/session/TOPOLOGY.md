@@ -125,7 +125,7 @@ plus the coordination logic for workspace/spec/session lifecycle.
   guarded on model availability (unauthenticated launches idle); completion
   returns a classified `KickCompletionOutcome` (`fired`, `skipped`, or `failed`)
   so callers distinguish a provider turn from an attempted origination. The assistant
-  authors the opening live, typically via real `present_*`/`request_*` tool
+  authors the opening live, typically via real `present_*`/`ask` tool
   calls. The RPC `session.triggerExchange` is a kick surface — it seeds and
   reports pending state only for assistant-created exchanges.
 

@@ -220,7 +220,7 @@ export const zPresentReviewSetParams = z
     exchangeId: z
       .string()
       .min(1)
-      .describe('Stable id tying this review-set proposal to the later request_response review.'),
+      .describe('Stable id tying this review-set proposal to the later ask({ continues }) review.'),
     proposalEntryId: z
       .string()
       .describe('Optional transcript/proposal entry id to carry into later acceptance audit.')
@@ -240,7 +240,7 @@ export const zPresentCandidatesParams = z
     exchangeId: z
       .string()
       .min(1)
-      .describe('Stable id tying this candidate presentation to the later request_response call.'),
+      .describe('Stable id tying this candidate presentation to the later ask({ continues }) call.'),
     heading: z.string().trim().min(1).describe('Candidate comparison heading.'),
     body: z.string().describe('Markdown body for context before the candidate list.').optional(),
     candidates: z
@@ -263,7 +263,7 @@ export const zPresentDigestParams = z
     exchangeId: z
       .string()
       .min(1)
-      .describe('Stable id tying this digest presentation to the later request_response review.'),
+      .describe('Stable id tying this digest presentation to the later ask({ continues }) review.'),
     heading: z.string().trim().min(1).describe('Digest heading.'),
     body: z.string().describe('Markdown body for context before the digest.').optional(),
     digest: zDigestMaterial.describe(

@@ -1,6 +1,8 @@
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import type { KickCompletionOutcome } from '../../../../session/originate-assistant-turn.js';
+import type { StartAssistantTurnDecision } from '../../../../session/start-assistant-turn.js';
 import {
   ACTIVE_STRUCTURED_EXCHANGE_TOOL_NAMES,
   LEGACY_STRUCTURED_EXCHANGE_TRANSCRIPT_TOOL_NAMES,
@@ -67,21 +69,48 @@ export async function appendEntryContentToDebugCache(
   await appendSeparatedBlock(join(debugDir, 'entry-contents.md'), block);
 }
 
+export type OriginationDebugRecord =
+  | { readonly decision: StartAssistantTurnDecision }
+  | {
+      readonly decision: StartAssistantTurnDecision;
+      readonly outcome: KickCompletionOutcome;
+    };
+
 export async function appendOriginationRecordToDebugCache(
   options: BrunchDebugCacheOptions,
-  record: unknown,
+  record: OriginationDebugRecord,
 ): Promise<void> {
+  const projectedRecord =
+    'outcome' in record
+      ? { decision: summarizeCompletedDecision(record.decision), outcome: record.outcome }
+      : { decision: summarizeDecision(record.decision) };
   const block = [
     `## brunch.origination (${new Date().toISOString()})`,
     '',
     '```json',
-    debugCacheJson(record),
+    debugCacheJson(projectedRecord),
     '```',
   ].join('\n');
 
   const debugDir = join(options.cwd, '.brunch', 'debug');
   await mkdir(debugDir, { recursive: true });
   await appendSeparatedBlock(join(debugDir, 'origination.md'), block);
+}
+
+function summarizeDecision(decision: StartAssistantTurnDecision): unknown {
+  return {
+    ...decision,
+    seedEntries: decision.seedEntries.map((entry) => ({
+      type: entry.type,
+      customType: entry.customType,
+      ...('details' in entry ? { details: entry.details, contentLength: entry.content.length } : {}),
+    })),
+  };
+}
+
+function summarizeCompletedDecision(decision: StartAssistantTurnDecision): unknown {
+  const { seedEntries, ...summary } = decision;
+  return { ...summary, seedEntryCount: seedEntries.length };
 }
 
 export async function appendToolContentToDebugCache(

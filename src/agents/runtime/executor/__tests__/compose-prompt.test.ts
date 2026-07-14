@@ -8,13 +8,7 @@ function composePrompt(): string {
     sessionState: { schemaVersion: 1, operationalMode: 'execute', agentRole: 'executor' },
     spec: { id: 1, name: 'Spec' },
     workspace: { cwd: '/tmp/brunch' },
-    activeTools: [
-      'read_graph',
-      'present_question',
-      'request_response',
-      'execute_status',
-      'execute_orchestrate',
-    ],
+    activeTools: ['read_graph', 'ask', 'execute_status', 'execute_orchestrate'],
   }).prompt;
 }
 
@@ -48,7 +42,7 @@ describe('composeExecutorPrompt', () => {
       sessionState: { operationalMode: 'specify', agentRole: 'elicitor' },
       spec: { id: 1, name: 'Spec' },
       workspace: { cwd: '/tmp/brunch' },
-      activeTools: ['read_graph', 'present_question', 'request_response'],
+      activeTools: ['read_graph', 'ask'],
     }).prompt;
 
     const sharedReferenceNames = referenceNamesFrom(elicitorPrompt);

@@ -251,7 +251,7 @@ function presentReviewSetEntry(): string {
     schema: 'brunch.structured_exchange.present',
     v: 1,
     exchange_id: 'review-1',
-    tool_meta: { curr: 'present_review_set', next: 'request_response' },
+    tool_meta: { curr: 'present_review_set', next: 'ask' },
     display: { heading: 'Derived macro-view requirement' },
     review_set: {
       nodes: [
@@ -275,8 +275,8 @@ function presentReviewSetEntry(): string {
   });
 }
 
-function requestResponseReviewEntry(): string {
-  return toolResultEntry('request_response', {
+function askReviewEntry(): string {
+  return toolResultEntry('ask', {
     schema: 'brunch.structured_exchange.request',
     v: 1,
     exchange_id: 'review-1',
@@ -284,7 +284,6 @@ function requestResponseReviewEntry(): string {
     answered: { decision: 'approve', comment: 'Probe approval.' },
   });
 }
-
 function pendingReviewResponse(): JsonRpcResponse {
   return {
     jsonrpc: '2.0',
@@ -440,7 +439,7 @@ describe('project-graph review-cycle proof report', () => {
       prompt: 'Present a review set.',
       runtimeState,
       model: 'test-model',
-      sessionText: [presentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
+      sessionText: [presentReviewSetEntry(), askReviewEntry()].join('\n'),
       baseOverview,
       finalOverview: approvedOverview,
       pendingResponse: pendingReviewResponse(),
@@ -451,7 +450,7 @@ describe('project-graph review-cycle proof report', () => {
     expect(report.success).toBe(true);
     expect(report.toolEvidence).toMatchObject({
       presentReviewSetCount: 1,
-      requestResponseCount: 1,
+      askTerminalCount: 1,
       successfulPresentReviewSetCount: 1,
     });
     expect(report.pendingReview).toMatchObject({
@@ -473,6 +472,66 @@ describe('project-graph review-cycle proof report', () => {
       },
     ]);
     expect(report.friction).toEqual([]);
+  });
+
+  it('counts only canonical review asks correlated to a successful review set', () => {
+    const unrelatedAsk = toolResultEntry('ask', {
+      schema: 'brunch.structured_exchange.request',
+      v: 1,
+      exchange_id: 'unrelated-1',
+      tool_meta: { curr: 'ask' },
+      question: { body: 'Unrelated question?' },
+      answered: { text: 'Unrelated answer.' },
+    });
+    const nonReviewAsk = toolResultEntry('ask', {
+      schema: 'brunch.structured_exchange.request',
+      v: 1,
+      exchange_id: 'review-1',
+      tool_meta: { prev: 'present_question', curr: 'request_answer' },
+      answered: { text: 'Not a review.' },
+    });
+    const mismatchedReviewAsk = toolResultEntry('ask', {
+      schema: 'brunch.structured_exchange.request',
+      v: 1,
+      exchange_id: 'review-2',
+      tool_meta: { prev: 'present_review_set', curr: 'request_review' },
+      answered: { decision: 'approve' },
+    });
+    const malformedReviewAsk = toolResultEntry('ask', {
+      schema: 'brunch.structured_exchange.request',
+      v: 1,
+      exchange_id: 'review-1',
+      tool_meta: { prev: 'present_review_set', curr: 'request_review' },
+      answered: { decision: 'not-a-decision' },
+    });
+
+    const report = summarizeProjectGraphReviewCycleProof({
+      runId: 'review-terminal-classification-test',
+      generatedAt: '2026-07-14T00:00:00.000Z',
+      cwd: '/tmp/brunch-review-terminal-classification-test',
+      seedVariant: 'grounded-intent',
+      specId: 7,
+      sessionId: 'session-1',
+      prompt: 'Present a review set.',
+      runtimeState,
+      sessionText: [
+        unrelatedAsk,
+        presentReviewSetEntry(),
+        nonReviewAsk,
+        mismatchedReviewAsk,
+        malformedReviewAsk,
+        askReviewEntry(),
+      ].join('\n'),
+      baseOverview,
+      finalOverview: approvedOverview,
+      pendingResponse: pendingReviewResponse(),
+      approvalResponse: approvedResponse(),
+    });
+
+    expect(report.toolEvidence).toMatchObject({
+      successfulPresentReviewSetCount: 1,
+      askTerminalCount: 1,
+    });
   });
 
   it('fails closed when the agent never leaves a pending review exchange to approve', () => {
@@ -516,7 +575,7 @@ describe('project-graph review-cycle proof report', () => {
       sessionId: 'session-1',
       prompt: 'Present a review set.',
       runtimeState,
-      sessionText: [presentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
+      sessionText: [presentReviewSetEntry(), askReviewEntry()].join('\n'),
       baseOverview,
       finalOverview: approvedOverview,
       pendingResponse: pendingReviewResponse(),
@@ -526,7 +585,7 @@ describe('project-graph review-cycle proof report', () => {
     const artifacts = await writeProjectGraphReviewCycleArtifacts({
       fixtureRoot,
       runId: report.runId,
-      sessionText: [presentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
+      sessionText: [presentReviewSetEntry(), askReviewEntry()].join('\n'),
       report,
       graphOverview: approvedOverview,
     });
@@ -564,7 +623,7 @@ describe('project-graph review-cycle proof report', () => {
       sessionId: 'session-1',
       prompt: 'Present a review set.',
       runtimeState,
-      sessionText: [presentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
+      sessionText: [presentReviewSetEntry(), askReviewEntry()].join('\n'),
       baseOverview,
       finalOverview: approvedOverview,
       pendingResponse: pendingReviewResponse(),
@@ -574,7 +633,7 @@ describe('project-graph review-cycle proof report', () => {
     const artifacts = await writeProjectGraphReviewCycleArtifacts({
       fixtureRoot,
       runId: report.runId,
-      sessionText: [presentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
+      sessionText: [presentReviewSetEntry(), askReviewEntry()].join('\n'),
       report,
       graphOverview: approvedOverview,
     });
@@ -604,7 +663,7 @@ describe('project-graph review-cycle proof report', () => {
       sessionId: 'session-scope-1',
       prompt: 'Present a scope handoff review set.',
       runtimeState,
-      sessionText: [scopePresentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
+      sessionText: [scopePresentReviewSetEntry(), askReviewEntry()].join('\n'),
       baseOverview: scopeBaseOverview,
       finalOverview: scopeApprovedOverview,
       pendingResponse: scopePendingReviewResponse(),
@@ -696,7 +755,7 @@ describe('project-graph review-cycle proof report', () => {
       runtimeState,
       sessionText: [
         scopePresentReviewSetEntry(true, { design: 'API1', verification: 'VV1' }),
-        requestResponseReviewEntry(),
+        askReviewEntry(),
       ].join('\n'),
       baseOverview,
       finalOverview,
@@ -724,7 +783,7 @@ describe('project-graph review-cycle proof report', () => {
       sessionId: 'session-scope-1',
       prompt: 'Present a scope handoff review set.',
       runtimeState,
-      sessionText: [scopePresentReviewSetEntry(false), requestResponseReviewEntry()].join('\n'),
+      sessionText: [scopePresentReviewSetEntry(false), askReviewEntry()].join('\n'),
       baseOverview: scopeBaseOverview,
       finalOverview: scopeApprovedOverview,
       pendingResponse: scopePendingReviewResponse(),
@@ -752,7 +811,7 @@ describe('project-graph review-cycle proof report', () => {
       sessionId: 'session-scope-1',
       prompt: 'Present a scope handoff review set.',
       runtimeState,
-      sessionText: [scopePresentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
+      sessionText: [scopePresentReviewSetEntry(), askReviewEntry()].join('\n'),
       baseOverview: scopeBaseOverview,
       finalOverview: scopeApprovedOverviewMissingDesignAnchor,
       pendingResponse: scopePendingReviewResponse(),
@@ -781,7 +840,7 @@ describe('project-graph review-cycle proof report', () => {
       sessionId: 'session-scope-criterion',
       prompt: 'Present a scope handoff review set.',
       runtimeState,
-      sessionText: [scopePresentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
+      sessionText: [scopePresentReviewSetEntry(), askReviewEntry()].join('\n'),
       baseOverview: scopeBaseOverview,
       finalOverview,
       pendingResponse: scopePendingReviewResponse(),

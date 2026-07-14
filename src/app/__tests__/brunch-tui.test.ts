@@ -64,7 +64,6 @@ import {
   BRUNCH_MENU_SHORTCUT,
   BRUNCH_MODE_COMMAND,
   BRUNCH_MODE_PICKER_SHORTCUT,
-  BRUNCH_MODE_SHORTCUT,
   chromeStateForWorkspace,
   createBrunchPiExtensions,
   projectBrunchChromeFooterLines,
@@ -101,54 +100,6 @@ describe('Brunch TUI boot', () => {
     if (!oracle.ok) {
       expect(oracle.errors).toEqual([]);
     }
-  });
-
-  it('threads boot-time model availability into workspace-dialog preflight', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-'));
-    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agentdir-'));
-    const workspace = readyWorkspace(cwd, 'session-ready');
-    let observedModelAvailable: boolean | undefined;
-    let observedNoAuthGuidance: string | undefined;
-
-    vi.stubEnv('PI_CODING_AGENT_DIR', agentDir);
-    vi.stubEnv('ANTHROPIC_API_KEY', undefined);
-    vi.stubEnv('OPENROUTER_API_KEY', undefined);
-    try {
-      await runBrunchTui({
-        cwd,
-        coordinator: {
-          inspectWorkspace: async () => ({
-            cwd,
-            currentSpec: workspace.spec,
-            currentSessionFile: workspace.session.file,
-            needsNewSpec: false,
-            specs: [],
-            unavailableSessions: [],
-          }),
-          activateWorkspace: async () => workspace,
-          bindCurrentSpecToReplacementSession: async () => workspace,
-        },
-        runWorkspaceDialogPreflight: async (_inventory, preflightOptions) => {
-          observedModelAvailable = preflightOptions?.modelAvailable;
-          observedNoAuthGuidance = preflightOptions?.noAuthGuidance?.lines.join('\n');
-          return {
-            action: 'continue',
-            specId: workspace.spec.id,
-            sessionFile: workspace.session.file,
-          };
-        },
-        webSidecarRunner: async () => null,
-        launchInteractive: async () => {},
-      });
-    } finally {
-      vi.unstubAllEnvs();
-    }
-
-    expect(observedModelAvailable).toBe(false);
-    expect(observedNoAuthGuidance).toContain('brunch login');
-    expect(observedNoAuthGuidance).toContain('/login');
-    expect(observedNoAuthGuidance).not.toContain('allowlist');
-    expect(observedNoAuthGuidance).not.toContain('Claude Sonnet');
   });
 
   it('threads the resolved Brunch theme into workspace-dialog preflight', async () => {
@@ -1041,7 +992,7 @@ describe('Brunch TUI boot', () => {
     expect(commands.has(BRUNCH_CONTINUE_COMMAND)).toBe(true);
     expect(shortcuts.get(BRUNCH_MENU_SHORTCUT)?.description).toBe('Open the Brunch spec/session picker');
     expect(shortcuts.get(BRUNCH_MODE_PICKER_SHORTCUT)?.description).toBe('Open the Brunch mode picker');
-    expect(shortcuts.get(BRUNCH_MODE_SHORTCUT)?.description).toBe('Cycle the Brunch mode');
+    expect(shortcuts.has('shift+tab')).toBe(false);
     expect(shortcuts.has('ctrl+b')).toBe(false);
     // alt+b must stay unregistered: Pi reserves it for cursorWordLeft.
     expect(shortcuts.has('alt+b')).toBe(false);
@@ -1561,6 +1512,7 @@ describe('Brunch TUI boot', () => {
       additionalThemePaths: [expect.stringMatching(/\.pi[/\\]themes[/\\]$/)],
       // D39-L: ambient APPEND_SYSTEM.md must be sealed (empty pinned source).
       appendSystemPrompt: [],
+      systemPromptOverride: expect.any(Function),
       extensionFactories: [extension],
     });
     expect(env.PI_OFFLINE).toBe('1');
@@ -1661,6 +1613,9 @@ describe('Brunch TUI boot', () => {
       additionalThemePaths: [expect.stringMatching(/\.pi[/\\]themes[/\\]$/)],
       // D39-L: ambient APPEND_SYSTEM.md must be sealed (empty pinned source).
       appendSystemPrompt: [],
+      // Brunch replaces Pi's coding-agent base prompt so Pi-development docs
+      // never enter the provider-facing product prompt.
+      systemPromptOverride: expect.any(Function),
       extensionFactories: [extension],
     });
   });
@@ -1801,6 +1756,8 @@ describe('Brunch TUI boot', () => {
 
     expect(BRUNCH_SETTINGS_POLICY).toMatchObject({
       quietStartup: true,
+      defaultProvider: 'anthropic',
+      defaultModel: 'claude-sonnet-4-6',
       packages: [],
       extensions: [],
       skills: [],
@@ -1813,6 +1770,8 @@ describe('Brunch TUI boot', () => {
     });
     expect(getterNames.sort()).toEqual([...BRUNCH_SETTINGS_AUDITED_GETTERS].sort());
     expect(launcherSource).not.toContain('SettingsManager.inMemory');
+    expect(launcherSource).not.toContain('createBrunchModelRegistry');
+    expect(launcherSource).not.toContain('scopedModels');
     expect(settingsSource).toContain('BRUNCH_SETTINGS_POLICY');
     expect(settingsSource).toContain('SettingsManager.inMemory');
   });

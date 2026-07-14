@@ -5,7 +5,7 @@ import type { EntryLike } from '../../../../exchanges/recovery.js';
 
 /**
  * The slice of the Pi tool `ctx` the structured-exchange response collectors
- * use. One shared structural type so request_response casts the runtime ctx
+ * use. One shared structural type so the exchange extension tools cast the runtime ctx
  * once at the boundary and every collector (answer / choice / choices / review)
  * reads the same surface — no per-source ctx interface drift, no `as unknown`
  * double-cast. `sessionManager.getBranch` is the production transcript seam

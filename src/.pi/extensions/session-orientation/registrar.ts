@@ -63,8 +63,15 @@ export interface BrunchSessionOrientationDeps {
     | Promise<JunctureContextKick | undefined>
     | JunctureContextKick
     | undefined;
-  readonly noAuthNotice?: string;
 }
+
+/**
+ * Single copy for the no-resolvable-auth state, shared by the J1 entry
+ * warning here and the `/brunch:continue` outcome in `commands/index.ts`
+ * so both surfaces name the same Pi-native remedy.
+ */
+export const NO_PROVIDER_AUTH_NOTICE =
+  'No provider auth is available, so Brunch did not start an assistant turn. Run /login, then try /brunch:continue again.';
 
 // ceiling: one shared 750ms wall-clock resolution window plus one in-flight
 // ownership claim. Upgrade to a per-session juncture state machine now that the
@@ -190,9 +197,10 @@ async function runJuncture(
   invocation: JunctureInvocation,
 ): Promise<void> {
   if (ctx.hasUI && ctx.modelRegistry.getAvailable().length === 0) {
-    if (invocation.trigger === 'entry' && deps.noAuthNotice) {
-      ctx.ui.notify(deps.noAuthNotice, 'warning');
-    }
+    // I59-L suppression: never originate or kick without a resolvable model.
+    // At boot (J1 entry) the user gets one warning naming the remedy; later
+    // junctures stay silent — the footer already shows the no-model state.
+    if (invocation.trigger === 'entry') ctx.ui.notify(NO_PROVIDER_AUTH_NOTICE, 'warning');
     return;
   }
 

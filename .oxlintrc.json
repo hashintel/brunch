@@ -79,6 +79,7 @@
     ".agents/**",
     ".github/**",
     ".claude/**",
+    ".pi/**",
     "*.md",
     "docs/**",
     "memory/**",

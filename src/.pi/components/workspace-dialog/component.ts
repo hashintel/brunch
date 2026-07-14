@@ -26,18 +26,11 @@ const ASSET_DIR = new URL('./assets/', import.meta.url);
 
 export type WorkspaceDialogTheme = Pick<Theme, 'fg'>;
 
-export interface WorkspaceDialogNoAuthGuidance {
-  readonly title: string;
-  readonly lines: readonly string[];
-}
-
 export interface WorkspaceDialogComponentOptions {
   inventory: WorkspaceLaunchInventory;
   onDecision: (decision: SpecSessionActivationDecision) => void;
   theme?: WorkspaceDialogTheme;
   includeContinue?: boolean;
-  modelAvailable?: boolean;
-  noAuthGuidance?: WorkspaceDialogNoAuthGuidance;
 }
 
 export function createWorkspaceDialogComponent(options: WorkspaceDialogComponentOptions): Component {
@@ -49,8 +42,6 @@ class WorkspaceDialogComponent implements Component {
   #onDecision: (decision: SpecSessionActivationDecision) => void;
   #theme: WorkspaceDialogTheme | undefined;
   #includeContinue: boolean;
-  #modelAvailable: boolean;
-  #noAuthGuidance: WorkspaceDialogNoAuthGuidance | undefined;
   #selectedIndex = 0;
   #stage: WorkspaceSelectionStage = { stage: 'home' };
   #history: WorkspaceSelectionStage[] = [];
@@ -61,8 +52,6 @@ class WorkspaceDialogComponent implements Component {
     this.#onDecision = options.onDecision;
     this.#theme = options.theme;
     this.#includeContinue = options.includeContinue ?? true;
-    this.#modelAvailable = options.modelAvailable ?? true;
-    this.#noAuthGuidance = options.noAuthGuidance;
   }
 
   handleInput(data: string): void {
@@ -122,14 +111,6 @@ class WorkspaceDialogComponent implements Component {
       subtitle,
       '',
     ];
-
-    if (!this.#modelAvailable && this.#noAuthGuidance) {
-      lines.push(
-        style(this.#theme, 'accent', this.#noAuthGuidance.title),
-        ...this.#noAuthGuidance.lines.map((line) => style(this.#theme, 'dim', line)),
-        '',
-      );
-    }
 
     if (this.#stage.stage === 'newSpecTitle') {
       lines.push('New specification title:', `› ${this.#title}`);

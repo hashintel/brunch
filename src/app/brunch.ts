@@ -11,7 +11,6 @@ import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionCoordinator,
 } from '../session/workspace-session-coordinator.js';
-import { formatBrunchLoginUsage, runBrunchLogin } from './brunch-login.js';
 import { runBrunchTui } from './brunch-tui.js';
 import { renderWorkspaceState } from './print-workspace-state.js';
 
@@ -39,13 +38,6 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
     developerTools: developerToolsFlag,
   } = parseCliArgs(argv);
 
-  if (command === 'login') {
-    if (help) {
-      writeStdout(options.stdout, formatBrunchLoginUsage());
-      return 0;
-    }
-    return runBrunchLogin({ stdin: options.stdin, stdout: options.stdout, stderr: options.stderr });
-  }
   if (command) throw new Error(`Unknown Brunch command: ${command}`);
 
   if (help) {
@@ -114,9 +106,6 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
 export function formatBrunchUsage(): string {
   return [
     'Usage: brunch [command] [options]',
-    '',
-    'Commands:',
-    '  login                Configure provider auth for Brunch allowlisted models',
     '',
     'Options:',
     '  --cwd <path>         Workspace directory (default: current directory)',

@@ -51,7 +51,6 @@ From `src/.pi/extensions/exchanges/`:
 Legacy persisted transcript vocabulary (read support only, not active registration):
 
 - `present_question`
-- `request_response`
 
 ### Alternatives card tool
 Registered from `src/.pi/components/alternatives.ts`:

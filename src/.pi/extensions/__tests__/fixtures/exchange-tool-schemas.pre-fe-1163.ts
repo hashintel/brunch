@@ -1,6 +1,7 @@
 // Recovered from the legacy piSchema output at the recorded pre-FE-1163 commit.
 // That adapter delegated to z.toJSONSchema(..., { unrepresentable: 'throw' });
 // the four Zod schema sources are unchanged between this commit and fixture capture.
+// FE-1187 deliberately updates three active-tool descriptions to name ask continuations.
 export const exchangeToolSchemaBaseline = {
   sourceCommit: 'ba24510fbd23fcf261cd393e49d0f0bb9b28df44',
   sourceAdapter: 'src/.pi/extensions/exchanges/pi-schema.ts',
@@ -92,7 +93,7 @@ export const exchangeToolSchemaBaseline = {
         exchangeId: {
           type: 'string',
           minLength: 1,
-          description: 'Stable id tying this review-set proposal to the later request_response review.',
+          description: 'Stable id tying this review-set proposal to the later ask({ continues }) review.',
         },
         proposalEntryId: {
           type: 'string',
@@ -876,7 +877,7 @@ export const exchangeToolSchemaBaseline = {
         exchangeId: {
           type: 'string',
           minLength: 1,
-          description: 'Stable id tying this candidate presentation to the later request_response call.',
+          description: 'Stable id tying this candidate presentation to the later ask({ continues }) call.',
         },
         heading: {
           type: 'string',
@@ -986,7 +987,7 @@ export const exchangeToolSchemaBaseline = {
         exchangeId: {
           type: 'string',
           minLength: 1,
-          description: 'Stable id tying this digest presentation to the later request_response review.',
+          description: 'Stable id tying this digest presentation to the later ask({ continues }) review.',
         },
         heading: {
           type: 'string',

@@ -166,13 +166,13 @@ export async function requestChoicesFromSources(
     );
   }
 
-  return terminalResult(params.exchangeId, 'unavailable', 'request_response choices requires interactive UI');
+  return terminalResult(params.exchangeId, 'unavailable', 'ask requires interactive UI');
 }
 
 /**
  * The full editor exchange for request_choices result details: schema-derived
  * prefill, edited JSON back, schema parse, choice matching, and projection into
- * canonical result details. request_response drives it through `ctx.ui.editor`;
+ * canonical result details. The ask continuation drives it through `ctx.ui.editor`;
  * the RPC proof probe drives it through a raw RPC editor relay.
  */
 export async function requestChoicesViaEditor(

@@ -8,7 +8,6 @@ import {
   createAgentSessionServices,
   getAgentDir,
   InteractiveMode,
-  ModelRegistry,
   type CreateAgentSessionFromServicesOptions,
   type CreateAgentSessionRuntimeFactory,
   type CreateAgentSessionServicesOptions,
@@ -50,13 +49,6 @@ import {
   type SpecSessionActivationCoordinator,
   type SpecSessionActivationDecision,
 } from '../session/workspace-session-coordinator.js';
-import {
-  createBrunchModelRegistry,
-  formatBrunchNoAuthGuidanceNotice,
-  getBrunchNoAuthGuidanceCopy,
-  getBrunchScopedModels,
-  resolveBrunchModelPolicy,
-} from './model-policy.js';
 import { openUrlBestEffort } from './open-url.js';
 import {
   chromeStateForWorkspace,
@@ -149,7 +141,7 @@ export interface BrunchTuiOptions {
   selectSpecTitle?: () => Promise<string | undefined>;
   runWorkspaceDialogPreflight?: (
     inventory: WorkspaceLaunchInventory,
-    options: Pick<WorkspaceDialogPreflightOptions, 'modelAvailable' | 'noAuthGuidance' | 'theme'>,
+    options: Pick<WorkspaceDialogPreflightOptions, 'theme'>,
   ) => Promise<SpecSessionActivationDecision>;
   launchInteractive?: (context: BrunchTuiLaunchContext) => Promise<void>;
   webSidecarRunner?: (options: BrunchWebSidecarRunnerOptions) => Promise<BrunchWebSidecar | null>;
@@ -270,11 +262,7 @@ async function chooseSpecSessionActivationDecision(
     cwd: inventory.cwd,
     agentDir: getAgentDir(),
   });
-  const preflightOptions = {
-    modelAvailable: resolveBootModelAvailable(),
-    noAuthGuidance: getBrunchNoAuthGuidanceCopy(),
-    ...(startupTheme ? { theme: startupTheme } : {}),
-  };
+  const preflightOptions = startupTheme ? { theme: startupTheme } : {};
   if (options.runWorkspaceDialogPreflight) {
     return options.runWorkspaceDialogPreflight(inventory, preflightOptions);
   }
@@ -283,12 +271,6 @@ async function chooseSpecSessionActivationDecision(
     return title ? { action: 'newSpec', title } : { action: 'cancel' };
   }
   return runWorkspaceDialogPreflight(inventory, preflightOptions);
-}
-
-function resolveBootModelAvailable(): boolean {
-  const authStorage = AuthStorage.create(join(getAgentDir(), 'auth.json'));
-  const modelRegistry = createBrunchModelRegistry(ModelRegistry.inMemory(authStorage));
-  return resolveBrunchModelPolicy(modelRegistry).status === 'resolved';
 }
 
 type EdgeCompatibleNodeKinds = readonly NodeKind[];
@@ -591,7 +573,6 @@ export function createBrunchAgentSessionRuntimeFactory(
               };
             },
             sessionOrientation: {
-              noAuthNotice: formatBrunchNoAuthGuidanceNotice(),
               // Option-2 J1: origination + kick now run inside the
               // `session_start` (reason `startup`) handler in the
               // session-orientation extension registrar, which fires from
@@ -656,26 +637,20 @@ export function createBrunchAgentSessionRuntimeFactory(
 
     const authStorage =
       context.agentServices?.authStorage ?? AuthStorage.create(join(runtimeAgentDir, 'auth.json'));
-    const modelRegistry =
-      context.agentServices?.modelRegistry ?? createBrunchModelRegistry(ModelRegistry.inMemory(authStorage));
-    const modelPolicy = context.agentServices?.model ? undefined : resolveBrunchModelPolicy(modelRegistry);
-    const model = modelPolicy?.status === 'resolved' ? modelPolicy.model : context.agentServices?.model;
     const services = await createAgentSessionServices({
       cwd,
       agentDir: runtimeAgentDir,
       settingsManager: profile.settingsManager,
       resourceLoaderOptions: profile.resourceLoaderOptions,
       authStorage,
-      modelRegistry,
+      ...(context.agentServices?.modelRegistry ? { modelRegistry: context.agentServices.modelRegistry } : {}),
     });
     const created = await createAgentSessionFromServices({
       services,
       sessionManager,
       ...projectBrunchPiSessionOptions({
         ...(sessionStartEvent ? { sessionStartEvent } : {}),
-        thinkingLevel: modelPolicy?.status === 'resolved' ? modelPolicy.thinkingLevel : 'medium',
-        ...(model ? { model } : {}),
-        ...(context.agentServices?.model ? {} : { scopedModels: getBrunchScopedModels(modelRegistry) }),
+        ...(context.agentServices?.model ? { model: context.agentServices.model } : {}),
       }),
     });
     liveAgentSession.current = created.session;

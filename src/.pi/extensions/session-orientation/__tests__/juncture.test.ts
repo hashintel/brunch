@@ -445,7 +445,7 @@ describe('runOrientationJuncture', () => {
       expect(sent).toEqual([]);
     });
 
-    it('suppresses the dialog and kick when no allowlisted model is currently available', async () => {
+    it('suppresses the dialog and kick when no provider auth resolves', async () => {
       const manager = fakeSessionManager();
       const { deps, sent } = fakeKickDeps();
       let selected = false;

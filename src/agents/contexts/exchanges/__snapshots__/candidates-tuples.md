@@ -48,4 +48,4 @@ Pick one candidate.
 
 ## Response
 
-_request_response choice requires interactive UI_
+_ask choice requires interactive UI_
