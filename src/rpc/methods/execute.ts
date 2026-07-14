@@ -605,7 +605,7 @@ export const executeRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[]
     method: 'execute.replanRegeneratePlan',
     access: 'write',
     description:
-      'Regenerate plan.yaml and provenance for a stale early executor run when current graph projection is plan-ready. Does not mutate run metadata.',
+      'Regenerate plan.json and provenance for a stale early executor run when current graph projection is plan-ready. Does not mutate run metadata.',
     paramsSchema: ExecuteReplanRegeneratePlanParamsSchema,
     resultSchema: ExecuteReplanMutationResultSchema,
     examples: [

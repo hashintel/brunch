@@ -144,7 +144,13 @@ export interface TestRunnerPort {
 export interface GitLandArgs {
   readonly worktreeDir: string;
   readonly message: string;
+  readonly baseSha: string;
+  readonly reviewBranch: string;
 }
+
+export type GitLandSideEffect =
+  | { readonly kind: 'git_commit'; readonly path: string; readonly sha: string }
+  | { readonly kind: 'git_ref_create'; readonly path: string; readonly ref: string; readonly sha: string };
 
 export type GitHeadResult =
   | {
@@ -156,13 +162,25 @@ export type GitHeadResult =
       readonly message: string;
     };
 
+export type GitRefResult =
+  | {
+      readonly status: 'ok';
+      readonly commitSha: string;
+    }
+  | {
+      readonly status: 'missing';
+    }
+  | {
+      readonly status: 'failed';
+      readonly message: string;
+    };
+
 export type GitLandResult =
   | {
       readonly status: 'promoted';
       readonly commitSha: string;
-      readonly sideEffects: readonly [
-        { readonly kind: 'git_commit'; readonly path: string; readonly sha: string },
-      ];
+      readonly reviewBranch: string;
+      readonly sideEffects: readonly GitLandSideEffect[];
     }
   | {
       readonly status: 'no_changes';
@@ -173,11 +191,12 @@ export type GitLandResult =
   | {
       readonly status: 'failed';
       readonly message: string;
-      readonly sideEffects: readonly [];
+      readonly sideEffects: readonly GitLandSideEffect[];
     };
 
 export interface GitLandPort {
   currentHead(args: { readonly worktreeDir: string }): Promise<GitHeadResult>;
+  resolveRef(args: { readonly worktreeDir: string; readonly ref: string }): Promise<GitRefResult>;
   promote(args: GitLandArgs): Promise<GitLandResult>;
 }
 

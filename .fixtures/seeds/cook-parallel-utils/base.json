@@ -66,8 +66,8 @@
       "local_id": 6,
       "plane": "intent",
       "kind": "context",
-      "title": "Greenfield brunch cook fixture: a plan.yaml of one scaffold slice plus 8 independent leaf slices, run with --policy=parallel to demonstrate…",
-      "body": "Greenfield brunch cook fixture: a plan.yaml of one scaffold slice plus 8 independent leaf slices, run with --policy=parallel to demonstrate pool-bounded concurrent firing.",
+      "title": "Greenfield brunch cook fixture: a plan.json of one scaffold slice plus 8 independent leaf slices, run with --policy=parallel to demonstrate…",
+      "body": "Greenfield brunch cook fixture: a plan.json of one scaffold slice plus 8 independent leaf slices, run with --policy=parallel to demonstrate pool-bounded concurrent firing.",
       "basis": "explicit",
       "source": "cook-port [ctx-roundtrip]",
       "detail": null

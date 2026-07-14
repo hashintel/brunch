@@ -136,7 +136,7 @@ describe('prepareLaunch', () => {
 
   it('rejects an explicit plan path outside the selected spec plan file without probing it', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-launch-bounded-'));
-    const outside = join(await mkdtemp(join(tmpdir(), 'brunch-cook-launch-outside-')), 'plan.yaml');
+    const outside = join(await mkdtemp(join(tmpdir(), 'brunch-cook-launch-outside-')), 'plan.json');
     await writeFile(outside, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
 
     const result = await prepareLaunch({ cwd, specId: '42', planPath: outside, current });

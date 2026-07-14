@@ -1,6 +1,19 @@
+import { execFile } from 'node:child_process';
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { promisify } from 'node:util';
+
 import { describe, expect, it } from 'vitest';
 
 import { createGitLandPort } from '../git-land-port.js';
+
+const execFileAsync = promisify(execFile);
+
+async function git(cwd: string, args: readonly string[]): Promise<string> {
+  const result = await execFileAsync('git', [...args], { cwd });
+  return result.stdout.trim();
+}
 
 describe('createGitLandPort', () => {
   it('reads the current worktree HEAD', async () => {
@@ -21,6 +34,21 @@ describe('createGitLandPort', () => {
     expect(calls).toEqual(['rev-parse --show-toplevel', 'rev-parse HEAD']);
   });
 
+  it('resolves a durable review branch ref', async () => {
+    const port = createGitLandPort({
+      run: async (_command, args) => {
+        if (args.join(' ') === 'rev-parse --show-toplevel')
+          return { exitCode: 0, stdout: '/repo/wt\n', stderr: '' };
+        return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+      },
+    });
+
+    await expect(port.resolveRef({ worktreeDir: '/repo/wt', ref: 'brunch/review/run-1' })).resolves.toEqual({
+      status: 'ok',
+      commitSha: 'abc123',
+    });
+  });
+
   it('commits run-local worktree changes and reports the commit sha', async () => {
     const calls: Array<{ command: string; args: readonly string[]; cwd: string }> = [];
     const port = createGitLandPort({
@@ -28,11 +56,14 @@ describe('createGitLandPort', () => {
         calls.push({ command, args, cwd: options.cwd });
         if (args.join(' ') === 'rev-parse --show-toplevel')
           return { exitCode: 0, stdout: '/repo/.brunch/cook/runs/run-1/worktree\n', stderr: '' };
+        if (args[0] === 'check-ref-format') return { exitCode: 0, stdout: '', stderr: '' };
         if (args[0] === 'status') return { exitCode: 0, stdout: ' M worker-proof.txt\n', stderr: '' };
         if (args[0] === 'add') return { exitCode: 0, stdout: '', stderr: '' };
         if (args.includes('commit'))
           return { exitCode: 0, stdout: '[detached HEAD abc123] promote\n', stderr: '' };
-        if (args[0] === 'rev-parse') return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+        if (args.join(' ') === 'rev-parse HEAD') return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+        if (args.join(' ').startsWith('rev-parse --verify')) return { exitCode: 1, stdout: '', stderr: '' };
+        if (args[0] === 'update-ref') return { exitCode: 0, stdout: '', stderr: '' };
         return { exitCode: 1, stdout: '', stderr: `unexpected ${args.join(' ')}` };
       },
     });
@@ -40,12 +71,19 @@ describe('createGitLandPort', () => {
     const result = await port.promote({
       worktreeDir: '/repo/.brunch/cook/runs/run-1/worktree',
       message: 'promote run-1',
+      baseSha: 'base123',
+      reviewBranch: 'brunch/review/run-1',
     });
 
     expect(calls).toEqual([
       {
         command: 'git',
         args: ['rev-parse', '--show-toplevel'],
+        cwd: '/repo/.brunch/cook/runs/run-1/worktree',
+      },
+      {
+        command: 'git',
+        args: ['check-ref-format', '--branch', 'brunch/review/run-1'],
         cwd: '/repo/.brunch/cook/runs/run-1/worktree',
       },
       { command: 'git', args: ['status', '--porcelain'], cwd: '/repo/.brunch/cook/runs/run-1/worktree' },
@@ -56,11 +94,35 @@ describe('createGitLandPort', () => {
         cwd: '/repo/.brunch/cook/runs/run-1/worktree',
       },
       { command: 'git', args: ['rev-parse', 'HEAD'], cwd: '/repo/.brunch/cook/runs/run-1/worktree' },
+      {
+        command: 'git',
+        args: ['rev-parse', '--verify', '--quiet', 'refs/heads/brunch/review/run-1'],
+        cwd: '/repo/.brunch/cook/runs/run-1/worktree',
+      },
+      {
+        command: 'git',
+        args: [
+          'update-ref',
+          'refs/heads/brunch/review/run-1',
+          'abc123',
+          '0000000000000000000000000000000000000000',
+        ],
+        cwd: '/repo/.brunch/cook/runs/run-1/worktree',
+      },
     ]);
     expect(result).toEqual({
       status: 'promoted',
       commitSha: 'abc123',
-      sideEffects: [{ kind: 'git_commit', path: '/repo/.brunch/cook/runs/run-1/worktree', sha: 'abc123' }],
+      reviewBranch: 'brunch/review/run-1',
+      sideEffects: [
+        { kind: 'git_commit', path: '/repo/.brunch/cook/runs/run-1/worktree', sha: 'abc123' },
+        {
+          kind: 'git_ref_create',
+          path: '/repo/.brunch/cook/runs/run-1/worktree',
+          ref: 'refs/heads/brunch/review/run-1',
+          sha: 'abc123',
+        },
+      ],
     });
   });
 
@@ -71,18 +133,31 @@ describe('createGitLandPort', () => {
         calls.push(args.join(' '));
         if (args.join(' ') === 'rev-parse --show-toplevel')
           return { exitCode: 0, stdout: '/repo/wt\n', stderr: '' };
+        if (args[0] === 'check-ref-format') return { exitCode: 0, stdout: '', stderr: '' };
         if (args[0] === 'rev-parse') return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
         return { exitCode: 0, stdout: '', stderr: '' };
       },
     });
 
-    await expect(port.promote({ worktreeDir: '/repo/wt', message: 'promote' })).resolves.toEqual({
+    await expect(
+      port.promote({
+        worktreeDir: '/repo/wt',
+        message: 'promote',
+        baseSha: 'abc123',
+        reviewBranch: 'brunch/review/run-1',
+      }),
+    ).resolves.toEqual({
       status: 'no_changes',
       message: 'no worktree changes to promote',
       commitSha: 'abc123',
       sideEffects: [],
     });
-    expect(calls).toEqual(['rev-parse --show-toplevel', 'status --porcelain', 'rev-parse HEAD']);
+    expect(calls).toEqual([
+      'rev-parse --show-toplevel',
+      'check-ref-format --branch brunch/review/run-1',
+      'status --porcelain',
+      'rev-parse HEAD',
+    ]);
   });
 
   it('refuses to promote when git resolves to a parent repository', async () => {
@@ -91,7 +166,12 @@ describe('createGitLandPort', () => {
     });
 
     await expect(
-      port.promote({ worktreeDir: '/repo/.brunch/cook/runs/run-1/worktree', message: 'promote' }),
+      port.promote({
+        worktreeDir: '/repo/.brunch/cook/runs/run-1/worktree',
+        message: 'promote',
+        baseSha: 'base123',
+        reviewBranch: 'brunch/review/run-1',
+      }),
     ).resolves.toEqual({
       status: 'failed',
       message: 'refusing to promote from non-isolated worktree: git root is /repo',
@@ -109,10 +189,49 @@ describe('createGitLandPort', () => {
             : { exitCode: 128, stdout: '', stderr: 'fatal: cannot commit' },
     });
 
-    await expect(port.promote({ worktreeDir: '/repo/wt', message: 'promote' })).resolves.toEqual({
+    await expect(
+      port.promote({
+        worktreeDir: '/repo/wt',
+        message: 'promote',
+        baseSha: 'base123',
+        reviewBranch: 'brunch/review/run-1',
+      }),
+    ).resolves.toEqual({
       status: 'failed',
       message: 'fatal: cannot commit',
       sideEffects: [],
     });
+  });
+
+  it('creates a durable review branch while leaving the run worktree detached', async () => {
+    const worktreeDir = await mkdtemp(join(tmpdir(), 'brunch-git-land-review-'));
+    await git(worktreeDir, ['init', '-b', 'main']);
+    await git(worktreeDir, ['config', 'user.name', 'Brunch Test']);
+    await git(worktreeDir, ['config', 'user.email', 'brunch@example.test']);
+    await writeFile(join(worktreeDir, 'base.txt'), 'base\n', 'utf8');
+    await git(worktreeDir, ['add', 'base.txt']);
+    await git(worktreeDir, ['commit', '-m', 'base']);
+    const baseSha = await git(worktreeDir, ['rev-parse', 'HEAD']);
+    await git(worktreeDir, ['checkout', '--detach']);
+    await writeFile(join(worktreeDir, 'result.txt'), 'result\n', 'utf8');
+
+    const result = await createGitLandPort().promote({
+      worktreeDir,
+      message: 'promote run-1',
+      baseSha,
+      reviewBranch: 'brunch/review/run-1',
+    });
+
+    if (result.status !== 'promoted') throw new Error(result.message);
+    expect(result).toMatchObject({
+      status: 'promoted',
+      reviewBranch: 'brunch/review/run-1',
+    });
+    await expect(git(worktreeDir, ['rev-parse', 'refs/heads/brunch/review/run-1'])).resolves.toBe(
+      result.commitSha,
+    );
+    await expect(
+      execFileAsync('git', ['symbolic-ref', '-q', 'HEAD'], { cwd: worktreeDir }),
+    ).rejects.toThrow();
   });
 });

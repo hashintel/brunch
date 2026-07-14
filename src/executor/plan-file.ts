@@ -34,7 +34,7 @@ export interface PlanFileWriteResult {
 }
 
 export function planFilePath(cwd: string, specId: string): string {
-  return join(cwd, BRUNCH_DIR, 'cook', 'specs', specId, 'plan.yaml');
+  return join(cwd, BRUNCH_DIR, 'cook', 'specs', specId, 'plan.json');
 }
 
 export function planProvenancePath(cwd: string, specId: string): string {

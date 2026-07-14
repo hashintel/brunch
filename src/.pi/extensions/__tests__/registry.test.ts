@@ -590,7 +590,7 @@ describe('Brunch explicit Pi extension registry', () => {
     ).resolves.toContain('Run the cooked feature');
   });
 
-  it('registers execute_plan_file only with selected graph deps and writes one bounded plan.yaml', async () => {
+  it('registers execute_plan_file only with selected graph deps and writes one bounded plan.json', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-plan-file-'));
     const registeredTools: Array<{
       name: string;
@@ -668,7 +668,7 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(planFile).toBeDefined();
     const result = await planFile!.execute('call-1', { mode: 'brownfield' }, undefined, undefined, { cwd });
 
-    const path = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const path = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.json');
     const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
     expect(result.content[0]?.text).toContain('execute_plan_file:');
     expect(result.details).toMatchObject({
@@ -856,7 +856,7 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(launch).toBeDefined();
     const missing = await launch!.execute('call-1', {}, undefined, undefined, { cwd });
 
-    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.json');
     expect(missing.content[0]?.text).toContain('execute_launch: missing_plan');
     expect(missing.details).toMatchObject({
       result: { status: 'missing_plan', runStatus: 'not_started', planPath, sideEffects: [] },
@@ -904,7 +904,7 @@ describe('Brunch explicit Pi extension registry', () => {
 
   it('registers execute_run_create with an attachable immutable Petrinaut observation snapshot', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-create-'));
-    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.json');
     const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
     await mkdir(dirname(planPath), { recursive: true });
     await writeFile(planPath, admittedPlanPayload('greenfield'), 'utf8');
@@ -1041,7 +1041,7 @@ describe('Brunch explicit Pi extension registry', () => {
 
   it('registers execute_run_create using persisted brownfield mode when mode is omitted', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-create-brownfield-'));
-    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.json');
     const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
     await mkdir(dirname(planPath), { recursive: true });
     await writeFile(planPath, admittedPlanPayload('brownfield'), 'utf8');
@@ -1089,7 +1089,7 @@ describe('Brunch explicit Pi extension registry', () => {
 
   it('registers execute_replan_recommendation as read-only HITL diagnosis', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-recommendation-'));
-    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.json');
     const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
@@ -1176,7 +1176,7 @@ describe('Brunch explicit Pi extension registry', () => {
 
   it('diagnoses replanning against the requested run spec when selected spec differs', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-recommendation-run-spec-'));
-    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.json');
     const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     await mkdir(dirname(planPath), { recursive: true });
@@ -1234,7 +1234,7 @@ describe('Brunch explicit Pi extension registry', () => {
 
   it('registers execute_replan_start_new_run as explicit supersession creation', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-start-new-run-'));
-    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.json');
     const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
     const oldRunDir = join(cwd, '.brunch', 'cook', 'runs', 'run-old');
     const oldMetadataPath = join(oldRunDir, 'run.json');
@@ -1335,7 +1335,7 @@ describe('Brunch explicit Pi extension registry', () => {
 
   it('registers execute_replan_retry_current_step as guarded one-step retry', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-retry-current-step-'));
-    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.json');
     const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
@@ -1423,7 +1423,7 @@ describe('Brunch explicit Pi extension registry', () => {
 
   it('registers execute_replan_retry_current_step as stale-run refusal', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-retry-current-step-stale-'));
-    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.json');
     const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
@@ -1504,7 +1504,7 @@ describe('Brunch explicit Pi extension registry', () => {
 
   it('registers execute_replan_regenerate_plan as guarded early-run plan refresh', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-regenerate-plan-'));
-    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.json');
     const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
@@ -1592,9 +1592,9 @@ describe('Brunch explicit Pi extension registry', () => {
 
   it('regenerates the requested run spec plan, not the selected session spec plan', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-regenerate-plan-run-spec-'));
-    const runPlanPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const runPlanPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.json');
     const runProvenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
-    const selectedPlanPath = join(cwd, '.brunch', 'cook', 'specs', '7', 'plan.yaml');
+    const selectedPlanPath = join(cwd, '.brunch', 'cook', 'specs', '7', 'plan.json');
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
     await mkdir(dirname(runPlanPath), { recursive: true });
@@ -1656,7 +1656,7 @@ describe('Brunch explicit Pi extension registry', () => {
 
   it('registers execute_replan_regenerate_plan as fresh-run refusal', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-replan-regenerate-plan-fresh-'));
-    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.json');
     const provenancePath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.provenance.json');
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
@@ -1739,7 +1739,7 @@ describe('Brunch explicit Pi extension registry', () => {
       JSON.stringify({
         runId: 'run-1',
         specId: '42',
-        planPath: '/plan.yaml',
+        planPath: '/plan.json',
         status: 'agent_result_ingested',
         worktreeDir: '/worktree',
       }),
@@ -1781,7 +1781,7 @@ describe('Brunch explicit Pi extension registry', () => {
     await mkdir(runDir, { recursive: true });
     await writeFile(
       metadataPath,
-      JSON.stringify({ runId: 'run-1', specId: '42', planPath: '/tmp/plan.yaml', status: 'created' }),
+      JSON.stringify({ runId: 'run-1', specId: '42', planPath: '/tmp/plan.json', status: 'created' }),
       'utf8',
     );
     const registeredTools = await collectProductTools({
@@ -1809,7 +1809,7 @@ describe('Brunch explicit Pi extension registry', () => {
 
   it('registers execute_populate as plan-only worktree population', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-populate-'));
-    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
+    const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.json');
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const worktreeDir = join(runDir, 'worktree');
     const metadataPath = join(runDir, 'run.json');
@@ -1829,7 +1829,7 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(populate).toBeDefined();
     const result = await populate!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
 
-    const populatedPlan = join(worktreeDir, '.brunch', 'cook', 'plan.yaml');
+    const populatedPlan = join(worktreeDir, '.brunch', 'cook', 'plan.json');
     expect(result.content[0]?.text).toContain('execute_populate: worktree_populated');
     expect(result.details).toMatchObject({
       result: {
@@ -1853,7 +1853,7 @@ describe('Brunch explicit Pi extension registry', () => {
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const worktreeDir = join(runDir, 'worktree');
     const metadataPath = join(runDir, 'run.json');
-    const populatedPlan = join(worktreeDir, '.brunch', 'cook', 'plan.yaml');
+    const populatedPlan = join(worktreeDir, '.brunch', 'cook', 'plan.json');
     const policyPath = join(runDir, 'source-policy.json');
     await mkdir(dirname(populatedPlan), { recursive: true });
     await writeFile(populatedPlan, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
@@ -1862,7 +1862,7 @@ describe('Brunch explicit Pi extension registry', () => {
       JSON.stringify({
         runId: 'run-1',
         specId: '42',
-        planPath: '/tmp/plan.yaml',
+        planPath: '/tmp/plan.json',
         status: 'worktree_populated',
         worktreeDir,
         populatedPlanPath: populatedPlan,
@@ -1917,7 +1917,7 @@ describe('Brunch explicit Pi extension registry', () => {
       JSON.stringify({
         runId: 'run-1',
         specId: '42',
-        planPath: '/tmp/plan.yaml',
+        planPath: '/tmp/plan.json',
         status: 'source_policy_selected',
         worktreeDir,
         sourcePolicy: 'host_source_deferred',
@@ -1965,7 +1965,7 @@ describe('Brunch explicit Pi extension registry', () => {
     await mkdir(runDir, { recursive: true });
     await writeFile(
       metadataPath,
-      JSON.stringify({ runId: 'run-1', specId: '42', planPath: '/tmp/plan.yaml', status: 'source_copied' }),
+      JSON.stringify({ runId: 'run-1', specId: '42', planPath: '/tmp/plan.json', status: 'source_copied' }),
       'utf8',
     );
     const registeredTools = await collectProductTools({
@@ -1996,7 +1996,7 @@ describe('Brunch explicit Pi extension registry', () => {
   it('registers execute_slice_start as slice-start marker only', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-slice-start-'));
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
-    const worktreePlan = join(runDir, 'worktree', '.brunch', 'cook', 'plan.yaml');
+    const worktreePlan = join(runDir, 'worktree', '.brunch', 'cook', 'plan.json');
     const metadataPath = join(runDir, 'run.json');
     const reportPath = join(runDir, 'reports.jsonl');
     await mkdir(dirname(worktreePlan), { recursive: true });
@@ -2010,7 +2010,7 @@ describe('Brunch explicit Pi extension registry', () => {
       JSON.stringify({
         runId: 'run-1',
         specId: '42',
-        planPath: '/tmp/plan.yaml',
+        planPath: '/tmp/plan.json',
         populatedPlanPath: worktreePlan,
         status: 'reports_initialized',
         reportsPath: reportPath,
@@ -2066,7 +2066,7 @@ describe('Brunch explicit Pi extension registry', () => {
       JSON.stringify({
         runId: 'run-1',
         specId: '42',
-        planPath: '/tmp/plan.yaml',
+        planPath: '/tmp/plan.json',
         populatedPlanPath,
         status: 'slice_started',
         worktreeDir,
@@ -2127,7 +2127,7 @@ describe('Brunch explicit Pi extension registry', () => {
       JSON.stringify({
         runId: 'run-1',
         specId: '42',
-        planPath: '/tmp/plan.yaml',
+        planPath: '/tmp/plan.json',
         status: 'slice_execution_requested',
         worktreeDir,
         reportsPath: reportPath,
@@ -2199,7 +2199,7 @@ describe('Brunch explicit Pi extension registry', () => {
       JSON.stringify({
         runId: 'run-1',
         specId: '42',
-        planPath: '/tmp/plan.yaml',
+        planPath: '/tmp/plan.json',
         status: 'slice_execution_requested',
         worktreeDir,
         reportsPath: reportPath,
@@ -2249,7 +2249,7 @@ describe('Brunch explicit Pi extension registry', () => {
       JSON.stringify({
         runId: 'run-1',
         specId: '42',
-        planPath: '/tmp/plan.yaml',
+        planPath: '/tmp/plan.json',
         status: 'agent_result_ingested',
         worktreeDir,
         reportsPath: reportPath,
@@ -2298,7 +2298,7 @@ describe('Brunch explicit Pi extension registry', () => {
       JSON.stringify({
         runId: 'run-1',
         specId: '42',
-        planPath: '/tmp/plan.yaml',
+        planPath: '/tmp/plan.json',
         status: 'test_result_ingested',
         worktreeDir,
         reportsPath: reportPath,
@@ -2344,7 +2344,7 @@ describe('Brunch explicit Pi extension registry', () => {
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
     const reportPath = join(runDir, 'reports.jsonl');
-    const planPath = join(cwd, 'plan.yaml');
+    const planPath = join(cwd, 'plan.json');
     await mkdir(runDir, { recursive: true });
     await writeFile(planPath, JSON.stringify({ mode: 'greenfield', slices: [{ id: 'task-1' }] }), 'utf8');
     await writeFile(reportPath, '{"event":"run_completed","runId":"run-1"}\n', 'utf8');
@@ -2416,7 +2416,7 @@ describe('Brunch explicit Pi extension registry', () => {
       JSON.stringify({
         runId: 'run-1',
         specId: '42',
-        planPath: '/tmp/plan.yaml',
+        planPath: '/tmp/plan.json',
         status: 'petri_exported',
         reportsPath: reportPath,
         petriPath,
@@ -2430,7 +2430,16 @@ describe('Brunch explicit Pi extension registry', () => {
       gitLand: createFakeGitLandPort({
         status: 'promoted',
         commitSha: 'def456',
-        sideEffects: [{ kind: 'git_commit', path: worktreeDir, sha: 'def456' }],
+        reviewBranch: 'brunch/review/run-1',
+        sideEffects: [
+          { kind: 'git_commit', path: worktreeDir, sha: 'def456' },
+          {
+            kind: 'git_ref_create',
+            path: worktreeDir,
+            ref: 'refs/heads/brunch/review/run-1',
+            sha: 'def456',
+          },
+        ],
       }),
     });
 
@@ -2440,10 +2449,21 @@ describe('Brunch explicit Pi extension registry', () => {
 
     expect(result.content[0]?.text).toContain('execute_promotion_prepare: promotion_prepared');
     expect(result.details).toMatchObject({
-      result: { status: 'promotion_prepared', runStatus: 'promotion_prepared', promotionPath },
+      result: {
+        status: 'promotion_prepared',
+        runStatus: 'promotion_prepared',
+        promotionPath,
+        promotionBranch: 'brunch/review/run-1',
+      },
       sideEffects: [
         { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
         { kind: 'git_commit', path: worktreeDir, sha: 'def456' },
+        {
+          kind: 'git_ref_create',
+          path: worktreeDir,
+          ref: 'refs/heads/brunch/review/run-1',
+          sha: 'def456',
+        },
         { kind: 'mkdir', path: dirname(promotionPath) },
         { kind: 'write_file', path: promotionPath, ifExists: 'overwrite' },
         { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
@@ -2464,17 +2484,25 @@ describe('Brunch explicit Pi extension registry', () => {
       JSON.stringify({
         runId: 'run-1',
         specId: '42',
-        planPath: '/tmp/plan.yaml',
+        planPath: '/tmp/plan.json',
         status: 'promotion_prepared',
         worktreeDir,
         promotionPath,
         promotionCommitSha: 'def456',
+        promotionBranch: 'brunch/review/run-1',
       }),
       'utf8',
     );
     await writeFile(
       promotionPath,
-      JSON.stringify({ runId: 'run-1', land: { status: 'promoted', commitSha: 'def456' } }),
+      JSON.stringify({
+        runId: 'run-1',
+        land: {
+          status: 'promoted',
+          commitSha: 'def456',
+          reviewBranch: 'brunch/review/run-1',
+        },
+      }),
       'utf8',
     );
     const registeredTools = await collectProductTools({
@@ -2512,17 +2540,25 @@ describe('Brunch explicit Pi extension registry', () => {
       JSON.stringify({
         runId: 'run-1',
         specId: '42',
-        planPath: '/tmp/plan.yaml',
+        planPath: '/tmp/plan.json',
         status: 'promotion_prepared',
         worktreeDir,
         promotionPath,
         promotionCommitSha: 'def456',
+        promotionBranch: 'brunch/review/run-1',
       }),
       'utf8',
     );
     await writeFile(
       promotionPath,
-      JSON.stringify({ runId: 'run-1', land: { status: 'promoted', commitSha: 'def456' } }),
+      JSON.stringify({
+        runId: 'run-1',
+        land: {
+          status: 'promoted',
+          commitSha: 'def456',
+          reviewBranch: 'brunch/review/run-1',
+        },
+      }),
       'utf8',
     );
     const registeredTools = await collectProductTools({

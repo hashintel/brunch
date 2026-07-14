@@ -28,7 +28,7 @@ async function createTestResultRun(cwd: string): Promise<void> {
     JSON.stringify({
       runId: 'run-1',
       specId: '42',
-      planPath: '/tmp/plan.yaml',
+      planPath: '/tmp/plan.json',
       status: 'slice_integrated',
       reportsPath: reportPath,
       activeSliceId: 'task-1',
@@ -60,7 +60,7 @@ describe('completeSlice', () => {
       JSON.stringify({
         runId: 'run-1',
         specId: '42',
-        planPath: '/tmp/plan.yaml',
+        planPath: '/tmp/plan.json',
         status: 'agent_result_ingested',
       }),
       'utf8',

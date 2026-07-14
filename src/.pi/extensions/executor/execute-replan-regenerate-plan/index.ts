@@ -65,7 +65,7 @@ export function createExecuteReplanRegeneratePlanTool(deps: ExecuteReplanRegener
     name: BRUNCH_EXECUTE_REPLAN_REGENERATE_PLAN_TOOL,
     label: 'execute_replan_regenerate_plan',
     description:
-      'Regenerate plan.yaml and provenance for a stale early executor run when current graph projection is plan-ready. Does not mutate run metadata.',
+      'Regenerate plan.json and provenance for a stale early executor run when current graph projection is plan-ready. Does not mutate run metadata.',
     parameters: toolParameters(ExecuteReplanRegeneratePlanParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;

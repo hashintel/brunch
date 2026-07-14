@@ -62,7 +62,7 @@ export function createExecutePlanFileTool(deps: ExecutePlanFileDeps) {
     name: BRUNCH_EXECUTE_PLAN_FILE_TOOL,
     label: 'execute_plan_file',
     description:
-      'Write an old-cook-compatible plan.yaml under .brunch/cook/specs/<specId>. Does not create cook runs or worktrees.',
+      'Write an old-cook-compatible plan.json under .brunch/cook/specs/<specId>. Does not create cook runs or worktrees.',
     parameters: toolParameters(ExecutePlanFileParams),
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;

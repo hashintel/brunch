@@ -160,7 +160,7 @@ async function writePetrinautReplayRun(
     `${JSON.stringify({
       runId,
       specId: '42',
-      planPath: '/plan.yaml',
+      planPath: '/plan.json',
       status: options.status ?? (terminal ? 'promotion_prepared' : 'petri_exported'),
       ...(options.failedSliceIds === undefined ? {} : { failedSliceIds: options.failedSliceIds }),
     })}\n`,

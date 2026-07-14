@@ -38,7 +38,7 @@ async function createPetriExportedRun(
     JSON.stringify({
       runId: 'run-1',
       specId: '42',
-      planPath: '/tmp/plan.yaml',
+      planPath: '/tmp/plan.json',
       status: 'petri_exported',
       reportsPath: reportsPath(cwd, 'run-1'),
       petriPath: petriNetPath(cwd, 'run-1'),
@@ -70,14 +70,29 @@ describe('preparePromotion', () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-promotion-contended-'));
     await createPetriExportedRun(cwd);
     let release!: () => void;
+    let acquired!: () => void;
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const owner = withRunExecutionAuthority({ cwd, runId: 'run-1', execute: () => held });
+    const acquiredAuthority = new Promise<void>((resolve) => {
+      acquired = resolve;
+    });
+    const owner = withRunExecutionAuthority({
+      cwd,
+      runId: 'run-1',
+      execute: async () => {
+        acquired();
+        await held;
+      },
+    });
+    await acquiredAuthority;
     let calls = 0;
     const gitLand = {
       async currentHead() {
         return { status: 'ok' as const, commitSha: 'base123' };
+      },
+      async resolveRef() {
+        throw new Error('must not run');
       },
       async promote() {
         calls += 1;
@@ -116,7 +131,7 @@ describe('preparePromotion', () => {
     await mkdir(runDirPath(cwd, 'run-1'), { recursive: true });
     await writeFile(
       runMetadataPath(cwd, 'run-1'),
-      JSON.stringify({ runId: 'run-1', specId: '42', planPath: '/tmp/plan.yaml', status: 'run_completed' }),
+      JSON.stringify({ runId: 'run-1', specId: '42', planPath: '/tmp/plan.json', status: 'run_completed' }),
       'utf8',
     );
 
@@ -144,9 +159,16 @@ describe('preparePromotion', () => {
       runId: 'run-1',
       metadataPath: runMetadataPath(cwd, 'run-1'),
       promotionPath: promotionReportPath(cwd, 'run-1'),
+      promotionBranch: 'brunch/review/run-1',
       sideEffects: [
         { kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
         { kind: 'git_commit', path: '/worktree', sha: 'abc123' },
+        {
+          kind: 'git_ref_create',
+          path: '/worktree',
+          ref: 'refs/heads/brunch/review/run-1',
+          sha: 'abc123',
+        },
         { kind: 'mkdir', path: join(runDirPath(cwd, 'run-1'), 'promotion') },
         { kind: 'write_file', path: promotionReportPath(cwd, 'run-1'), ifExists: 'overwrite' },
         { kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
@@ -160,15 +182,15 @@ describe('preparePromotion', () => {
       petriPath: petriNetPath(cwd, 'run-1'),
       reportsPath: reportsPath(cwd, 'run-1'),
       completedSliceIds: ['task-1'],
-      land: { status: 'promoted', commitSha: 'abc123' },
+      land: { status: 'promoted', commitSha: 'abc123', reviewBranch: 'brunch/review/run-1' },
     });
-    expect(report).not.toHaveProperty('branch');
 
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'promotion_prepared',
       promotionPath: promotionReportPath(cwd, 'run-1'),
       promotionBaseSha: 'base123',
       promotionCommitSha: 'abc123',
+      promotionBranch: 'brunch/review/run-1',
     });
 
     // No host topology mutation: no host land branch/ref created.
@@ -186,6 +208,9 @@ describe('preparePromotion', () => {
       gitLand: {
         async currentHead() {
           throw new Error('currentHead must not run');
+        },
+        async resolveRef() {
+          throw new Error('resolveRef must not run');
         },
         async promote() {
           promoted = true;
@@ -274,7 +299,7 @@ describe('preparePromotion', () => {
         petriPath: petriNetPath(cwd, 'run-1'),
         reportsPath: reportsPath(cwd, 'run-1'),
         completedSliceIds: ['task-1'],
-        land: { status: 'promoted', commitSha: 'abc123' },
+        land: { status: 'promoted', commitSha: 'abc123', reviewBranch: 'brunch/review/run-1' },
       }),
       'utf8',
     );
@@ -289,6 +314,7 @@ describe('preparePromotion', () => {
           sideEffects: [],
         },
         'abc123',
+        'abc123',
       ),
     });
 
@@ -298,12 +324,14 @@ describe('preparePromotion', () => {
       runId: 'run-1',
       metadataPath: runMetadataPath(cwd, 'run-1'),
       promotionPath: promotionReportPath(cwd, 'run-1'),
+      promotionBranch: 'brunch/review/run-1',
       sideEffects: [{ kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' }],
     });
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'promotion_prepared',
       promotionPath: promotionReportPath(cwd, 'run-1'),
       promotionCommitSha: 'abc123',
+      promotionBranch: 'brunch/review/run-1',
     });
   });
 
@@ -319,7 +347,7 @@ describe('preparePromotion', () => {
         petriPath: petriNetPath(cwd, 'run-1'),
         reportsPath: reportsPath(cwd, 'run-1'),
         completedSliceIds: ['task-1'],
-        land: { status: 'promoted', commitSha: 'stale123' },
+        land: { status: 'promoted', commitSha: 'stale123', reviewBranch: 'brunch/review/run-1' },
       }),
       'utf8',
     );
@@ -358,10 +386,17 @@ describe('preparePromotion', () => {
       cwd,
       runId: 'run-1',
       gitLand: createFakeGitLandPort({
-        status: 'no_changes',
-        message: 'already promoted',
+        status: 'promoted',
         commitSha: 'abc123',
-        sideEffects: [],
+        reviewBranch: 'brunch/review/run-1',
+        sideEffects: [
+          {
+            kind: 'git_ref_create',
+            path: '/worktree',
+            ref: 'refs/heads/brunch/review/run-1',
+            sha: 'abc123',
+          },
+        ],
       }),
     });
 
@@ -371,20 +406,28 @@ describe('preparePromotion', () => {
       runId: 'run-1',
       metadataPath: runMetadataPath(cwd, 'run-1'),
       promotionPath: promotionReportPath(cwd, 'run-1'),
+      promotionBranch: 'brunch/review/run-1',
       sideEffects: [
         { kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
+        {
+          kind: 'git_ref_create',
+          path: '/worktree',
+          ref: 'refs/heads/brunch/review/run-1',
+          sha: 'abc123',
+        },
         { kind: 'mkdir', path: join(runDirPath(cwd, 'run-1'), 'promotion') },
         { kind: 'write_file', path: promotionReportPath(cwd, 'run-1'), ifExists: 'overwrite' },
         { kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
       ],
     });
     expect(JSON.parse(await readFile(promotionReportPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
-      land: { status: 'promoted', commitSha: 'abc123' },
+      land: { status: 'promoted', commitSha: 'abc123', reviewBranch: 'brunch/review/run-1' },
     });
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'promotion_prepared',
       promotionBaseSha: 'base123',
       promotionCommitSha: 'abc123',
+      promotionBranch: 'brunch/review/run-1',
     });
   });
 

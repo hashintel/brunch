@@ -18,7 +18,7 @@ const ExecuteLaunchParams = Type.Object({
   ),
   planPath: Type.Optional(
     Type.String({
-      description: 'Optional explicit plan file path. Defaults to .brunch/cook/specs/<specId>/plan.yaml.',
+      description: 'Optional explicit plan file path. Defaults to .brunch/cook/specs/<specId>/plan.json.',
     }),
   ),
 });

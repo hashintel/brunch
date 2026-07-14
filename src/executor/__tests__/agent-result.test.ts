@@ -54,7 +54,7 @@ async function createRequestedSliceRun(cwd: string): Promise<void> {
     JSON.stringify({
       runId: 'run-1',
       specId: '42',
-      planPath: '/tmp/plan.yaml',
+      planPath: '/tmp/plan.json',
       status: 'slice_execution_requested',
       worktreeDir: join(runDir, 'worktree'),
       reportsPath: reportPath,
@@ -94,7 +94,7 @@ describe('ingestAgentResult', () => {
     await mkdir(runDirPath(cwd, 'run-1'), { recursive: true });
     await writeFile(
       runMetadataPath(cwd, 'run-1'),
-      JSON.stringify({ runId: 'run-1', specId: '42', planPath: '/tmp/plan.yaml', status: 'slice_started' }),
+      JSON.stringify({ runId: 'run-1', specId: '42', planPath: '/tmp/plan.json', status: 'slice_started' }),
       'utf8',
     );
 
@@ -129,7 +129,7 @@ describe('ingestAgentResult', () => {
       JSON.stringify({
         runId: 'run-1',
         specId: '42',
-        planPath: '/tmp/plan.yaml',
+        planPath: '/tmp/plan.json',
         status: 'slice_execution_requested',
         reportsPath: reportPath,
         activeSliceId: '../../escape',

@@ -76,6 +76,7 @@ export interface RunMetadata {
   readonly promotionPath?: string;
   readonly promotionBaseSha?: string;
   readonly promotionCommitSha?: string;
+  readonly promotionBranch?: string;
   readonly supersedesRunId?: string;
   readonly abandonedAt?: string;
   readonly abandonReason?: string;

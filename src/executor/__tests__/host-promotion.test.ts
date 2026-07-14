@@ -34,12 +34,13 @@ async function createPromotedRun(cwd: string, metadata: Partial<RunMetadata> = {
       {
         runId: 'run-1',
         specId: '42',
-        planPath: '/tmp/plan.yaml',
+        planPath: '/tmp/plan.json',
         status: 'promotion_prepared',
         reportsPath: reportsPath(cwd, 'run-1'),
         worktreeDir,
         promotionPath,
         promotionCommitSha: 'commit123',
+        promotionBranch: 'brunch/review/run-1',
         ...metadata,
       },
       null,
@@ -49,7 +50,18 @@ async function createPromotedRun(cwd: string, metadata: Partial<RunMetadata> = {
   );
   await writeFile(
     promotionPath,
-    `${JSON.stringify({ runId: 'run-1', land: { status: 'promoted', commitSha: 'commit123' } }, null, 2)}\n`,
+    `${JSON.stringify(
+      {
+        runId: 'run-1',
+        land: {
+          status: 'promoted',
+          commitSha: 'commit123',
+          reviewBranch: 'brunch/review/run-1',
+        },
+      },
+      null,
+      2,
+    )}\n`,
     'utf8',
   );
 }
@@ -88,7 +100,7 @@ describe('preflightHostPromotion', () => {
     await mkdir(runDirPath(cwd, 'run-1'), { recursive: true });
     await writeFile(
       runMetadataPath(cwd, 'run-1'),
-      JSON.stringify({ runId: 'run-1', specId: '42', planPath: '/tmp/plan.yaml', status: 'petri_exported' }),
+      JSON.stringify({ runId: 'run-1', specId: '42', planPath: '/tmp/plan.json', status: 'petri_exported' }),
       'utf8',
     );
 
