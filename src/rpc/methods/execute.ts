@@ -212,7 +212,7 @@ const PetrinautReplayMarkingSchema = Type.Record(Type.String(), Type.Integer({ m
 const PetrinautReplayInputArcSchema = Type.Object(
   {
     placeId: Type.String(),
-    weight: Type.Number({ exclusiveMinimum: 0 }),
+    weight: Type.Integer({ minimum: 1 }),
     type: Type.Union([Type.Literal('standard'), Type.Literal('inhibitor')]),
   },
   { additionalProperties: false },
@@ -221,7 +221,7 @@ const PetrinautReplayInputArcSchema = Type.Object(
 const PetrinautReplayOutputArcSchema = Type.Object(
   {
     placeId: Type.String(),
-    weight: Type.Number({ exclusiveMinimum: 0 }),
+    weight: Type.Integer({ minimum: 1 }),
   },
   { additionalProperties: false },
 );
@@ -244,8 +244,8 @@ const PetrinautReplayExportSchema = Type.Object(
             {
               id: Type.String(),
               name: Type.String(),
-              x: Type.Optional(Type.Number()),
-              y: Type.Optional(Type.Number()),
+              x: Type.Number(),
+              y: Type.Number(),
             },
             { additionalProperties: false },
           ),
@@ -255,8 +255,8 @@ const PetrinautReplayExportSchema = Type.Object(
             {
               id: Type.String(),
               name: Type.String(),
-              x: Type.Optional(Type.Number()),
-              y: Type.Optional(Type.Number()),
+              x: Type.Number(),
+              y: Type.Number(),
               inputArcs: Type.Array(PetrinautReplayInputArcSchema),
               outputArcs: Type.Array(PetrinautReplayOutputArcSchema),
             },
@@ -273,7 +273,7 @@ const PetrinautReplayExportSchema = Type.Object(
           transitionId: Type.String(),
           input: PetrinautReplayMarkingSchema,
           output: PetrinautReplayMarkingSchema,
-          ts: Type.String(),
+          ts: Type.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$' }),
         },
         { additionalProperties: false },
       ),

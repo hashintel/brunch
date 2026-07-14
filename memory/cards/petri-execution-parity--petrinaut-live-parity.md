@@ -155,3 +155,21 @@ Skipped-test delta versus parent: `0`.
 - Outer: regenerate a Rust fixture run, connect before first transition, export from Petrinaut, and compare definition/initial/firings/terminal with Brunch artifacts.
 - Gate: `npm run verify` and `npm run check`.
 - Manual outer comparison remains owned by KA/user; re-enter before PR tie-off when a Rust fixture run and Petrinaut instance are available.
+
+## Review Closure — Projection contract hardening
+
+Status: done
+
+### Acceptance Criteria
+
+✓ every projected node receives a unique deterministic coordinate without changing raw topology, marking, or event order.
+✓ coordinate bands and fallback positions use locale-independent code-point/natural ID ordering.
+✓ the complete definition stream passes a co-located strict mirror of Petrinaut staging's Brunch schema; root/place/transition unknown keys reject and `x`/`y` are required.
+✓ `execute.run` requires finite coordinates, positive integer arc weights, and fixed millisecond-UTC firing timestamps.
+✓ the identity-projection scale ceiling is explicit: retain full per-slice attempts now; revisit standardized subnet grouping/folding above roughly 12 slices without claiming color-fold parity.
+
+### Evidence
+
+- `src/executor/__tests__/petri.test.ts` covers run-shaped coordinate uniqueness across dependency, verdict, and epic-member nodes; natural-ID bands/fallbacks; and complete streamed-definition staging-schema validation.
+- `src/rpc/__tests__/execute-run-schema.test.ts` table-tests accepted and rejected coordinate, arc-weight, and timestamp shapes.
+- `src/executor/petrinaut/sdcpn.ts` carries the code ceiling; `src/executor/TOPOLOGY.md` owns the durable scale boundary.

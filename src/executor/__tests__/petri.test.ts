@@ -19,6 +19,7 @@ import {
 import { canProjectPetriReplay } from '../petri-replay-eligibility.js';
 import { replayPetri, replayTransitionHistory } from '../petri-replay.js';
 import { exportPetri, petriNetPath, petriSdcpnPath, preparePetriObservation } from '../petri.js';
+import { petrinautBrunchDefinitionSchema } from '../petrinaut/brunch-definition-schema.js';
 import {
   composePetrinautLauncherUrl,
   PETRINAUT_URL_INVALID_MESSAGE,
@@ -1178,6 +1179,62 @@ describe('reducePetrinautReplayExport', () => {
     expect(Math.max(...ys) - Math.min(...ys)).toBeLessThan(3_000);
   });
 
+  it('allocates a unique coordinate to every run-mrkj5qqo-shaped projected node', () => {
+    const topology = compileExecutorTopology({
+      epics: [
+        { id: 'E1', summary: 'Build core', depends_on: [], verification: [] },
+        { id: 'E2', summary: 'Ship UI', depends_on: ['E1'], verification: [] },
+      ],
+      slices: [
+        { id: 'S3', epic_id: 'E1', definition: 'Build parser' },
+        { id: 'S4', epic_id: 'E1', definition: 'Verify parser', depends_on: ['S3'] },
+        { id: 'S5', epic_id: 'E2', definition: 'Ship keyboard flow', depends_on: ['S3', 'S4'] },
+      ],
+    });
+    const file = petriTopologyToSdcpnFile({ runId: 'run-mrkj5qqo', topology });
+    const nodes = [...file.places, ...file.transitions];
+    const ids = nodes.map((node) => node.id);
+
+    expect(ids.some((id) => id.includes(':dependency:'))).toBe(true);
+    expect(ids.some((id) => id.endsWith(':verification_passed'))).toBe(true);
+    expect(ids.some((id) => id.endsWith(':verification_failed'))).toBe(true);
+    expect(ids.some((id) => id.includes(':member:'))).toBe(true);
+    expect(new Set(nodes.map((node) => `${node.x}/${node.y}`))).toHaveLength(nodes.length);
+  });
+
+  it('uses locale-independent natural ID order for semantic bands and fallback coordinates', () => {
+    const topology = compileExecutorTopology({
+      slices: [
+        { id: 'S10', definition: 'Later' },
+        { id: 'S2', definition: 'Earlier' },
+      ],
+    });
+    const file = petriTopologyToSdcpnFile({ runId: 'run-natural-order', topology });
+    const s2 = file.places.find((place) => place.id === 'slice:S2:claim')!;
+    const s10 = file.places.find((place) => place.id === 'slice:S10:claim')!;
+    expect(s2.y).toBeLessThan(s10.y!);
+
+    const legacy = structuredClone(file);
+    const legacyS2 = legacy.places.find((place) => place.id === 'slice:S2:claim') as {
+      x?: number;
+      y?: number;
+    };
+    const legacyS10 = legacy.places.find((place) => place.id === 'slice:S10:claim') as {
+      x?: number;
+      y?: number;
+    };
+    delete legacyS2.x;
+    delete legacyS2.y;
+    delete legacyS10.x;
+    delete legacyS10.y;
+    const definition = projectPetrinautReplayNetDefinition(legacy);
+    const fallbackIndex = (id: string) => {
+      const place = definition.places.find((candidate) => candidate.id === id)!;
+      return place.y * 10_000 + place.x;
+    };
+    expect(fallbackIndex('slice:S2:claim')).toBeLessThan(fallbackIndex('slice:S10:claim'));
+  });
+
   it('preserves projected coordinates and names while replaying run-mrkj5qqo-shaped failed branches', () => {
     const topology = compileExecutorTopology({ slices: [{ id: 'S3' }, { id: 'S4' }, { id: 'S5' }] });
     const sdcpnFile = petriTopologyToSdcpnFile({ runId: 'run-mrkj5qqo', topology });
@@ -1638,6 +1695,27 @@ describe('Petrinaut stream frame projection', () => {
     ]);
     expect(frames[0]).toEqual({ kind: 'status', state: 'running', failedSliceIds: [] });
     expect(foldPetrinautStreamFrames(frames)).toEqual(replayExport);
+    const definitionFrame = frames.find((frame) => frame.kind === 'definition');
+    expect(petrinautBrunchDefinitionSchema.safeParse(definitionFrame?.definition).success).toBe(true);
+  });
+
+  it('mirrors strict staging definition rejection for unknown root, place, and transition keys', () => {
+    const topology = compileExecutorTopology({ slices: [{ id: 'S1' }] });
+    const definition = reducePetrinautReplayExport({
+      sdcpnFile: petriTopologyToSdcpnFile({ runId: 'run-1', topology }),
+      events: [],
+    }).definition;
+    const candidates = [
+      { ...definition, unexpected: true },
+      { ...definition, places: [{ ...definition.places[0]!, unexpected: true }] },
+      { ...definition, transitions: [{ ...definition.transitions[0]!, unexpected: true }] },
+      { ...definition, places: [{ ...definition.places[0]!, x: undefined }] },
+      { ...definition, transitions: [{ ...definition.transitions[0]!, y: undefined }] },
+    ];
+
+    for (const candidate of candidates) {
+      expect(petrinautBrunchDefinitionSchema.safeParse(candidate).success).toBe(false);
+    }
   });
 
   it('adds terminal status and terminal frames when terminal state is supplied', () => {
@@ -1700,7 +1778,7 @@ describe('Petrinaut SSE serialization', () => {
           version: 1,
           meta: { generator: 'brunch' },
           title: 'run',
-          places: [{ id: 'run:created', name: 'RunCreated' }],
+          places: [{ id: 'run:created', name: 'RunCreated', x: 80, y: 80 }],
           transitions: [],
         },
         initialState: { 'run:created': 1 },

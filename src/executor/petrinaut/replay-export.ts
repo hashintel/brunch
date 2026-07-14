@@ -1,4 +1,5 @@
 import type { ExecutorNetEvent } from '../orchestrate-topology.js';
+import { compareNaturalIds } from './id-order.js';
 import type { SdcpnFile, SdcpnInputArc, SdcpnOutputArc } from './sdcpn.js';
 
 export type PetrinautReplayMarking = Record<string, number>;
@@ -10,14 +11,14 @@ export interface PetrinautReplayNetDefinition {
   readonly places: readonly {
     readonly id: string;
     readonly name: string;
-    readonly x?: number;
-    readonly y?: number;
+    readonly x: number;
+    readonly y: number;
   }[];
   readonly transitions: readonly {
     readonly id: string;
     readonly name: string;
-    readonly x?: number;
-    readonly y?: number;
+    readonly x: number;
+    readonly y: number;
     readonly inputArcs: readonly SdcpnInputArc[];
     readonly outputArcs: readonly SdcpnOutputArc[];
   }[];
@@ -75,7 +76,7 @@ export function projectPetrinautReplayNetDefinition(sdcpnFile: SdcpnFile): Petri
   const fallbackPositions = new Map(
     [...sdcpnFile.places, ...sdcpnFile.transitions]
       .map((node) => node.id)
-      .sort((left, right) => left.localeCompare(right))
+      .sort(compareNaturalIds)
       .map((id, index) => [id, { x: 80 + (index % 20) * 180, y: 80 + Math.floor(index / 20) * 120 }]),
   );
   const fallbackPosition = (id: string): { readonly x: number; readonly y: number } => {

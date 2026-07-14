@@ -149,4 +149,62 @@ describe('ExecuteRunResultSchema union witnesses', () => {
       }),
     ).toBe(true);
   });
+
+  const replayExport = {
+    definition: {
+      version: 1,
+      meta: { generator: 'brunch' },
+      title: 'Run',
+      places: [{ id: 'p1', name: 'Place', x: 0, y: 0 }],
+      transitions: [
+        {
+          id: 't1',
+          name: 'Transition',
+          x: 1,
+          y: 1,
+          inputArcs: [{ placeId: 'p1', weight: 1, type: 'standard' }],
+          outputArcs: [{ placeId: 'p1', weight: 1 }],
+        },
+      ],
+    },
+    initialState: { p1: 1 },
+    transitionFirings: [
+      { transitionId: 't1', input: { p1: 1 }, output: { p1: 1 }, ts: '2026-07-14T12:00:00.000Z' },
+    ],
+  };
+
+  it('accepts the strict execute.run Petrinaut replay shape', () => {
+    expect(Value.Check(ExecuteRunResultSchema, { ...base, petrinautReplayExport: replayExport })).toBe(true);
+  });
+
+  it.each([
+    [
+      'missing place x',
+      (value: typeof replayExport) => delete (value.definition.places[0] as { x?: number }).x,
+    ],
+    [
+      'missing transition y',
+      (value: typeof replayExport) => delete (value.definition.transitions[0] as { y?: number }).y,
+    ],
+    [
+      'non-finite coordinate',
+      (value: typeof replayExport) => (value.definition.places[0]!.x = Number.POSITIVE_INFINITY),
+    ],
+    [
+      'zero input weight',
+      (value: typeof replayExport) => (value.definition.transitions[0]!.inputArcs[0]!.weight = 0),
+    ],
+    [
+      'fractional output weight',
+      (value: typeof replayExport) => (value.definition.transitions[0]!.outputArcs[0]!.weight = 1.5),
+    ],
+    [
+      'malformed firing timestamp',
+      (value: typeof replayExport) => (value.transitionFirings[0]!.ts = '2026-07-14 12:00:00Z'),
+    ],
+  ])('rejects Petrinaut replay with %s', (_label, mutate) => {
+    const candidate = structuredClone(replayExport);
+    mutate(candidate);
+    expect(Value.Check(ExecuteRunResultSchema, { ...base, petrinautReplayExport: candidate })).toBe(false);
+  });
 });

@@ -4,6 +4,7 @@ import type {
   ExecutorTopology,
   ExecutorTransition,
 } from '../orchestrate-topology.js';
+import { compareNaturalIds } from './id-order.js';
 
 export const SDCPN_FILE_FORMAT_VERSION = 1;
 
@@ -180,10 +181,10 @@ export function petriTopologyToSdcpnFile(args: {
   const subnets = new Map(args.topology.subnets.map((subnet) => [subnet.id, subnet]));
   const sliceIds = args.topology.subnets
     .flatMap((subnet) => (subnet.kind === 'slice_control' && subnet.sliceId ? [subnet.sliceId] : []))
-    .sort(compareIds);
+    .sort(compareNaturalIds);
   const epicIds = args.topology.subnets
     .flatMap((subnet) => (subnet.kind === 'epic_control' && subnet.epicId ? [subnet.epicId] : []))
-    .sort(compareIds);
+    .sort(compareNaturalIds);
   const layout = { sliceIds, epicIds };
   const incidentPlaceIds = new Set(
     args.topology.transitions.flatMap((transition) =>
@@ -193,6 +194,21 @@ export function petriTopologyToSdcpnFile(args: {
   const projectedPlaces = args.topology.places.filter(
     (place) => incidentPlaceIds.has(place.id) || (args.topology.initialMarking[place.id] ?? 0) > 0,
   );
+  // ceiling: full per-slice attempt identity stays expanded; adopt standardized subnet grouping/folding
+  // above roughly 12 slices rather than claiming color-fold parity.
+  const positions = allocateNodePositions(
+    projectedPlaces.map((place) => ({
+      kind: 'place' as const,
+      id: place.id,
+      subnet: subnets.get(place.subnetId),
+    })),
+    args.topology.transitions.map((transition) => ({
+      kind: 'transition' as const,
+      id: transition.id,
+      subnet: subnets.get(transition.subnetId),
+    })),
+    layout,
+  );
   return {
     version: SDCPN_FILE_FORMAT_VERSION,
     meta: { generator: 'brunch', generatorVersion: 'executor-topology-v1' },
@@ -200,7 +216,7 @@ export function petriTopologyToSdcpnFile(args: {
     places: projectedPlaces.map((place) => ({
       id: place.id,
       name: placeProjectionName(place, subnets.get(place.subnetId)),
-      ...nodePosition(place.id, subnets.get(place.subnetId), layout),
+      ...positions.get(nodePositionKey('place', place.id))!,
       colorId: null,
       dynamicsEnabled: false,
       differentialEquationId: null,
@@ -208,7 +224,7 @@ export function petriTopologyToSdcpnFile(args: {
     transitions: args.topology.transitions.map((transition) => ({
       id: transition.id,
       name: transitionProjectionName(transition, subnets.get(transition.subnetId)),
-      ...nodePosition(transition.id, subnets.get(transition.subnetId), layout),
+      ...positions.get(nodePositionKey('transition', transition.id))!,
       inputArcs: transition.inputArcs.map((arc) => ({
         placeId: arc.placeId,
         weight: arc.weight,
@@ -314,6 +330,61 @@ function nodePosition(
   };
 }
 
+interface PositionCandidate {
+  readonly kind: 'place' | 'transition';
+  readonly id: string;
+  readonly subnet: ExecutorSubnet | undefined;
+}
+
+function allocateNodePositions(
+  places: readonly PositionCandidate[],
+  transitions: readonly PositionCandidate[],
+  layout: ProjectionLayout,
+): ReadonlyMap<string, { readonly x: number; readonly y: number }> {
+  const candidates = [...places, ...transitions]
+    .map((node) => ({ ...node, base: nodePosition(node.id, node.subnet, layout) }))
+    .sort(
+      (left, right) =>
+        left.base.y - right.base.y ||
+        left.base.x - right.base.x ||
+        compareNaturalIds(left.id, right.id) ||
+        compareNaturalIds(left.kind, right.kind),
+    );
+  const positions = new Map<string, { readonly x: number; readonly y: number }>();
+  const occupied = new Set<string>();
+
+  for (const candidate of candidates) {
+    for (let radius = 0; ; radius += 1) {
+      const offsets = compactOffsets(radius);
+      const available = offsets.find(
+        ({ x, y }) => !occupied.has(`${candidate.base.x + x}/${candidate.base.y + y}`),
+      );
+      if (!available) continue;
+      const position = { x: candidate.base.x + available.x, y: candidate.base.y + available.y };
+      occupied.add(`${position.x}/${position.y}`);
+      positions.set(nodePositionKey(candidate.kind, candidate.id), position);
+      break;
+    }
+  }
+
+  return positions;
+}
+
+function compactOffsets(radius: number): readonly { readonly x: number; readonly y: number }[] {
+  if (radius === 0) return [{ x: 0, y: 0 }];
+  const spacing = 8;
+  const offsets: { x: number; y: number }[] = [];
+  for (let x = -radius; x <= radius; x += 1) offsets.push({ x: x * spacing, y: -radius * spacing });
+  for (let y = -radius + 1; y <= radius; y += 1) offsets.push({ x: radius * spacing, y: y * spacing });
+  for (let x = radius - 1; x >= -radius; x -= 1) offsets.push({ x: x * spacing, y: radius * spacing });
+  for (let y = radius - 1; y > -radius; y -= 1) offsets.push({ x: -radius * spacing, y: y * spacing });
+  return offsets;
+}
+
+function nodePositionKey(kind: PositionCandidate['kind'], id: string): string {
+  return `${kind}:${id}`;
+}
+
 function laneRow(subnet: ExecutorSubnet | undefined, layout: ProjectionLayout): number {
   if (subnet?.kind === 'slice_control' && subnet.sliceId) return sliceBandY(subnet.sliceId, layout);
   if (subnet?.kind === 'attempt_control' && subnet.sliceId) {
@@ -391,10 +462,6 @@ function attemptNumber(id: string): number {
 function sentenceCase(source: string): string {
   const words = source.replaceAll('_', ' ');
   return words.charAt(0).toUpperCase() + words.slice(1);
-}
-
-function compareIds(left: string, right: string): number {
-  return left.localeCompare(right);
 }
 
 function isPositiveInteger(value: unknown): value is number {

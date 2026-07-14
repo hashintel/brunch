@@ -216,13 +216,15 @@ describe('run detail route', () => {
               meta: { generator: 'brunch', generatorVersion: 'executor-topology-v1' },
               title: 'Executor run run-1',
               places: [
-                { id: 'run:created', name: 'RunCreated' },
-                { id: 'run:worktree_created', name: 'RunWorktreeCreated' },
+                { id: 'run:created', name: 'RunCreated', x: 80, y: 80 },
+                { id: 'run:worktree_created', name: 'RunWorktreeCreated', x: 280, y: 80 },
               ],
               transitions: [
                 {
                   id: 'worktree_create',
                   name: 'worktree_create',
+                  x: 180,
+                  y: 80,
                   inputArcs: [{ placeId: 'run:created', weight: 1, type: 'standard' }],
                   outputArcs: [{ placeId: 'run:worktree_created', weight: 1 }],
                 },
