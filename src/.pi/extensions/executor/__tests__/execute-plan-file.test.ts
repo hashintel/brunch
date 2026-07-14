@@ -63,6 +63,25 @@ function coherentCandidate() {
 }
 
 describe('createExecutePlanFileTool with a planner', () => {
+  it('propagates the Pi tool abort signal into planner synthesis', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-plan-file-abort-'));
+    const controller = new AbortController();
+    let plannerSignal: AbortSignal | undefined;
+    const planner: PlannerPort = {
+      synthesize: async ({ runtime }) => {
+        plannerSignal = runtime?.signal;
+        return { status: 'synthesized', candidate: coherentCandidate() };
+      },
+    };
+
+    await tool(planner).execute('t1', {}, controller.signal, undefined, {
+      cwd,
+      modelRegistry: {},
+    } as never);
+
+    expect(plannerSignal).toBe(controller.signal);
+  });
+
   it('writes the synthesized admitted plan with its execution contract', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-plan-file-synth-'));
     const planner: PlannerPort = {

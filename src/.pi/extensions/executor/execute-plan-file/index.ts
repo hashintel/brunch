@@ -64,7 +64,7 @@ export function createExecutePlanFileTool(deps: ExecutePlanFileDeps) {
     description:
       'Write an old-cook-compatible plan.yaml under .brunch/cook/specs/<specId>. Does not create cook runs or worktrees.',
     parameters: toolParameters(ExecutePlanFileParams),
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_plan_file requires an active cwd');
@@ -133,6 +133,7 @@ export function createExecutePlanFileTool(deps: ExecutePlanFileDeps) {
           runtime: {
             modelRegistry,
             model: (ctx as { model?: unknown } | undefined)?.model,
+            signal,
           },
         });
         if (synthesis.status === 'blocked') {
