@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { createDb } from '../../db/connection.js';
-import { projectExecutionSpecSnapshot } from '../../executor/execution-spec-snapshot.js';
+import { projectExecuteGraph } from '../../executor/execute-projection.js';
 import { CommandExecutor } from '../../graph/command-executor.js';
 import { queryGraph } from '../../graph/queries.js';
 import { seedFixture, type SeedFixture } from '../../graph/seed-fixtures.js';
@@ -18,12 +18,14 @@ describe('rust todo execution seed', () => {
     const seeded = seedFixture(new CommandExecutor(db), fixture);
     const graph = queryGraph(db, seeded.specId);
 
-    const snapshot = projectExecutionSpecSnapshot({
+    const projection = projectExecuteGraph({
       specId: seeded.specId,
+      graphLsn: graph.lsn,
       mode: 'greenfield',
       nodes: graph.nodes,
       edges: graph.edges,
     });
+    const snapshot = projection.snapshot;
 
     expect(snapshot.frontiers).toEqual([expect.objectContaining({ itemId: 'F1' })]);
     expect(snapshot.scopes).toEqual([
@@ -35,5 +37,28 @@ describe('rust todo execution seed', () => {
         verification: [expect.objectContaining({ itemId: 'CH1' })],
       }),
     ]);
+    expect(projection.executionContract.resolvedActions).toEqual({
+      setup: [
+        expect.objectContaining({
+          capabilityId: 'spec.setup',
+          command: 'cargo',
+          args: ['fetch'],
+        }),
+      ],
+      build: [
+        expect.objectContaining({
+          capabilityId: 'spec.build',
+          command: 'cargo',
+          args: ['build', '--release'],
+        }),
+      ],
+      verify: [
+        expect.objectContaining({
+          capabilityId: 'spec.verify',
+          command: 'cargo',
+          args: ['test'],
+        }),
+      ],
+    });
   });
 });

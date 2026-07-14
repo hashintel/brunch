@@ -189,7 +189,7 @@
          "plane": "intent",
          "kind": "decision",
          "title": "Implementation language: Rust",
-         "body": null,
+         "body": "The execution harness follows the committed Rust stack.\nexecute.setup: cargo fetch\nexecute.build: cargo build --release\nexecute.verify: cargo test",
          "basis": "explicit",
          "source": "rust-todo-cli [decision]",
          "detail": {
