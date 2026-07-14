@@ -11,11 +11,9 @@ import {
 } from '../exchanges/recovery.js';
 import type { PresentDetails, RequestDetails } from '../exchanges/schemas/index.js';
 import {
-  assertLinearBrunchSessionEnvelope,
   loadJsonlTranscriptEntries,
   isSessionEntry,
   isTranscriptEntry,
-  NonLinearTranscriptError,
   readBrunchSessionEnvelope,
   type BrunchSessionEnvelope,
 } from './brunch-session-envelope.js';
@@ -65,7 +63,7 @@ export interface TranscriptDisplayProjection {
   rows: TranscriptDisplayRow[];
 }
 
-export { loadJsonlTranscriptEntries, NonLinearTranscriptError };
+export { loadJsonlTranscriptEntries };
 
 export async function loadLinearSessionExchangeProjection(file: string): Promise<SessionExchangeProjection> {
   return projectLinearSessionExchangeProjection(await loadBrunchSessionEnvelope(file));
@@ -80,14 +78,12 @@ export async function loadLinearTranscriptDisplayProjection(
 export function projectLinearSessionExchangeProjection(
   envelope: BrunchSessionEnvelope,
 ): SessionExchangeProjection {
-  assertLinearBrunchSessionEnvelope(envelope);
   return projectSessionExchanges(envelope.entries);
 }
 
 export function projectLinearTranscriptDisplayProjection(
   envelope: BrunchSessionEnvelope,
 ): TranscriptDisplayProjection {
-  assertLinearBrunchSessionEnvelope(envelope);
   return projectTranscriptDisplay(envelope.entries);
 }
 

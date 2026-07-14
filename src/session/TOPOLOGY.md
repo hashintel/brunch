@@ -15,11 +15,11 @@ plus the coordination logic for workspace/spec/session lifecycle.
   must use `SessionManager.getBranch()`; file-backed callers must open through
   Pi's `SessionManager` and then use its branch/header APIs. Full-tree or
   append-order reads are legal only for explicitly named history/diagnostic
-  surfaces. **Migration active under FE-1196 `session-branching`:**
-  `brunch-session-envelope.ts` still rejects valid Pi tree shapes and several
-  app/extension/RPC consumers still call `getEntries()`; the active scope file
-  enumerates their removal and this paragraph names the target dependency
-  direction without claiming the cutover has shipped.
+  surfaces. `active-session-branch.ts` is the canonical file-backed adapter:
+  it opens through Pi and returns `getHeader()` plus `getBranch()`; the session
+  envelope and exchange/RPC projections now consume that seam. **Migration
+  active under FE-1196 `session-branching`:** several app/extension consumers
+  still call `getEntries()`; the active scope file enumerates their removal.
 
 - **Exchange extraction** — session exchange projection: prompt-side
   span + response-side span, per D13-L.
@@ -140,9 +140,9 @@ plus the coordination logic for workspace/spec/session lifecycle.
 - **Session binding** — session↔spec binding entries in JSONL.
 
 - **Session envelope** — canonical session envelope reader (spec/session pair).
-  Current implementation hand-parses JSONL and rejects non-linear trees;
-  FE-1196 replaces that with Pi `SessionManager` header + active-branch reads and
-  accepts valid `parentSession`, `branch_summary`, and sibling branches.
+  It consumes `active-session-branch.ts`, validates exactly one binding on the
+  active path, and accepts Pi-valid `parentSession`, `branch_summary`, and sibling
+  trees without a second Brunch tree parser.
 
 - **Turn-boundary choreography** — write-side seam for the assistant-visible
   watermark, `worldUpdate`, mention staleness, and honest assistant origination.

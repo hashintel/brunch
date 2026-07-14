@@ -9,7 +9,6 @@ import type { WorkspaceGraphRuntime } from '../../graph/workspace-store.js';
 import { projectSessionRuntimeState } from '../../projections/session/runtime-state.js';
 import {
   readBrunchSessionEnvelope,
-  NonLinearTranscriptError,
   type BrunchSessionEnvelope,
 } from '../../session/brunch-session-envelope.js';
 import { projectLinearSessionExchangeProjection } from '../../session/exchange-projection.js';
@@ -425,14 +424,7 @@ async function handleSessionProjection<T>(
     return createJsonRpcFailure(requestId, target.code, target.message);
   }
 
-  try {
-    return createJsonRpcSuccess(requestId, loadProjection(target.envelope));
-  } catch (error) {
-    if (error instanceof NonLinearTranscriptError) {
-      return createJsonRpcFailure(requestId, -32002, target.nonLinearMessage);
-    }
-    throw error;
-  }
+  return createJsonRpcSuccess(requestId, loadProjection(target.envelope));
 }
 
 async function handleTriggerExchange(
@@ -527,15 +519,7 @@ async function handleSubmitMessage(
     return createJsonRpcFailure(requestId, target.code, target.message);
   }
 
-  let pending: PendingStructuredExchange | null;
-  try {
-    pending = pendingExchangeFromEnvelope(target.envelope);
-  } catch (error) {
-    if (error instanceof NonLinearTranscriptError) {
-      return createJsonRpcFailure(requestId, -32002, target.nonLinearMessage);
-    }
-    throw error;
-  }
+  const pending = pendingExchangeFromEnvelope(target.envelope);
 
   if (pending && params.interruption !== true) {
     return createJsonRpcFailure(
@@ -601,15 +585,7 @@ async function handleSubmitExchangeResponse(
     return createJsonRpcFailure(requestId, target.code, target.message);
   }
 
-  let pending: PendingStructuredExchange | null;
-  try {
-    pending = pendingExchangeFromEnvelope(target.envelope);
-  } catch (error) {
-    if (error instanceof NonLinearTranscriptError) {
-      return createJsonRpcFailure(requestId, -32002, target.nonLinearMessage);
-    }
-    throw error;
-  }
+  const pending = pendingExchangeFromEnvelope(target.envelope);
 
   if (!pending) {
     return createJsonRpcFailure(requestId, -32008, 'No pending structured exchange');

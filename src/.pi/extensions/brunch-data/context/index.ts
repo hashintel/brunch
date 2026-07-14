@@ -9,7 +9,6 @@ import {
   projectSessionRuntimeState,
   type RuntimeStateProjection,
 } from '../../../../projections/session/runtime-state.js';
-import { NonLinearTranscriptError } from '../../../../session/brunch-session-envelope.js';
 import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
 import { toolParameters } from '../../shared/tool-schema.js';
 import { readWorkspaceContext } from './get-cwd.js';
@@ -130,16 +129,9 @@ function projectSessionContext(
     return selected;
   }
 
-  try {
-    return projectSessionRuntimeState({
-      header: selected.header,
-      binding: selected.binding,
-      entries: [...selected.entries],
-    });
-  } catch (error) {
-    if (error instanceof NonLinearTranscriptError) {
-      return { status: 'not_ready', reason: 'non_linear', sessionId: selected.header.id };
-    }
-    throw error;
-  }
+  return projectSessionRuntimeState({
+    header: selected.header,
+    binding: selected.binding,
+    entries: [...selected.entries],
+  });
 }

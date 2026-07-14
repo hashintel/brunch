@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  NonLinearTranscriptError,
-  type BrunchSessionEnvelope,
-} from '../../../session/brunch-session-envelope.js';
+import type { BrunchSessionEnvelope } from '../../../session/brunch-session-envelope.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
@@ -163,24 +160,23 @@ describe('runtime-state projection', () => {
     });
   });
 
-  it('rejects non-linear transcripts instead of flattening runtime state', () => {
-    expect(() =>
-      projectSessionRuntimeState(
-        envelope([
-          {
-            id: 'a',
-            type: 'message',
-            parentId: 'binding-1',
-            message: { role: 'assistant', content: [] },
-          } as never,
-          {
-            id: 'b',
-            type: 'message',
-            parentId: 'binding-1',
-            message: { role: 'assistant', content: [] },
-          } as never,
-        ]),
-      ),
-    ).toThrow(NonLinearTranscriptError);
+  it('projects runtime posture from an active-branch envelope without rejecting Pi tree metadata', () => {
+    const projection = projectSessionRuntimeState(
+      envelope([
+        {
+          id: 'summary-1',
+          type: 'branch_summary',
+          parentId: 'binding-1',
+          fromId: 'abandoned-runtime',
+          summary: 'Abandoned sibling summary',
+        } as never,
+        runtimeEntry('active-runtime', {
+          schemaVersion: 1,
+          operationalMode: 'execute',
+        }),
+      ]),
+    );
+
+    expect(projection.agent).toEqual({ operationalMode: 'execute', role: 'executor' });
   });
 });

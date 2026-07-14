@@ -25,7 +25,13 @@ Cross-cutting obligations:
 
 ## Card 1 — Canonical active-branch read seam
 
-Status: next
+Status: done
+
+Build note (2026-07-14): landed the Pi-owned file adapter, physical sibling/summary and
+branch-derived reload contracts, abandoned-exchange rival, and public RPC differential.
+Retired the linear-only assertion/error compatibility path completely; runtime projection
+and WebSocket transport tests now assert valid active-branch product behavior. Session RPC
+handlers inherit the canonical branch through the envelope seam.
 Weight: full
 
 ### Target Behavior
