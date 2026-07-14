@@ -11,6 +11,8 @@ import {
   type BrunchAgentState,
 } from '../.pi/extensions/agent-runtime/runtime/index.js';
 import { createBrunchAgentSessionRuntimeFactory } from '../app/brunch-tui.js';
+import { zPresentReviewSetDetails } from '../exchanges/schemas/present.js';
+import { zRequestReviewDetails } from '../exchanges/schemas/request.js';
 import { projectExecuteGraph } from '../executor/execute-projection.js';
 import type { GitWorktreePort } from '../executor/execution-ports.js';
 import { writePlanFile } from '../executor/plan-file.js';
@@ -900,30 +902,37 @@ export async function writeProjectGraphReviewCycleArtifacts(options: {
 }
 
 function reviewCycleToolEvidence(sessionText: string): ReviewCycleToolEvidence {
+  const messages = toolResultMessages(sessionText);
+  const successfulReviewExchangeIds = new Set<string>();
   let presentReviewSetCount = 0;
-  let askTerminalCount = 0;
-  let successfulPresentReviewSetCount = 0;
   let structuralIllegalPresentReviewSetCount = 0;
 
-  for (const message of toolResultMessages(sessionText)) {
-    if (message.toolName === 'present_review_set') {
-      presentReviewSetCount += 1;
-      const details = isRecord(message.details) ? message.details : undefined;
-      if (details?.status === 'structural_illegal') {
-        structuralIllegalPresentReviewSetCount += 1;
-      } else if (details?.schema === 'brunch.structured_exchange.present' && 'review_set' in details) {
-        successfulPresentReviewSetCount += 1;
-      }
+  for (const message of messages) {
+    if (message.toolName !== 'present_review_set') continue;
+    presentReviewSetCount += 1;
+    const details = isRecord(message.details) ? message.details : undefined;
+    if (details?.status === 'structural_illegal') {
+      structuralIllegalPresentReviewSetCount += 1;
+      continue;
     }
-    if (message.toolName === 'ask') {
-      askTerminalCount += 1;
-    }
+    const parsed = zPresentReviewSetDetails.safeParse(details);
+    if (parsed.success) successfulReviewExchangeIds.add(parsed.data.exchange_id);
   }
+
+  const askTerminalCount = messages.filter((message) => {
+    if (message.toolName !== 'ask') return false;
+    const parsed = zRequestReviewDetails.safeParse(message.details);
+    return (
+      parsed.success &&
+      parsed.data.tool_meta.prev === 'present_review_set' &&
+      successfulReviewExchangeIds.has(parsed.data.exchange_id)
+    );
+  }).length;
 
   return {
     presentReviewSetCount,
     askTerminalCount,
-    successfulPresentReviewSetCount,
+    successfulPresentReviewSetCount: successfulReviewExchangeIds.size,
     structuralIllegalPresentReviewSetCount,
   };
 }
