@@ -1,6 +1,6 @@
 import { defineConfig } from 'drizzle-kit';
 
-import { WORKSPACE_DB_FILENAME } from './src/graph/workspace-store.js';
+import { WORKSPACE_DB_FILENAME } from './src/constants.js';
 
 export default defineConfig({
   out: './drizzle',

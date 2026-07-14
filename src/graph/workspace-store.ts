@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import Database from 'better-sqlite3';
 
-import { BRUNCH_DIR } from '../constants.js';
+import { BRUNCH_DIR, LEGACY_ALPHA_DB_FILENAME, WORKSPACE_DB_FILENAME } from '../constants.js';
 import { createDb } from '../db/connection.js';
 import { CommandExecutor } from './command-executor.js';
 import {
@@ -70,23 +70,11 @@ export async function openWorkspaceCommandExecutor(cwd: string): Promise<Command
   return (await openWorkspaceGraphRuntime(cwd)).commandExecutor;
 }
 
-/**
- * The current workspace database filename, under the `brunch-v{major}.db`
- * lineage policy (D124-L): the DB format may change incompatibly only across
- * major product versions, and the filename is the compatibility contract.
- * 0.x's `.brunch/brunch.db` is this line's retroactive v0; this is v1.
- * Bump the major segment only alongside a deliberate incompatible
- * schema/format change.
- */
-export const WORKSPACE_DB_FILENAME = 'brunch-v1.db';
-
-/**
- * The pre-1.0 alpha workspace DB filename. One-shot-recovered by rename into
- * `WORKSPACE_DB_FILENAME` (plus `-wal`/`-shm` sidecars) on first open when the
- * current-line file is absent — owed to existing alpha workspaces (D124-L
- * mechanic 4). Never opened directly; never deleted.
- */
-export const LEGACY_ALPHA_DB_FILENAME = 'data.db';
+// The filename constants live in the leaf `constants.ts` module so tooling
+// (drizzle.config.ts) can read them without loading better-sqlite3; this
+// module owns the open/guard/recovery lifecycle and re-exports them as part
+// of its public surface.
+export { LEGACY_ALPHA_DB_FILENAME, WORKSPACE_DB_FILENAME } from '../constants.js';
 
 /** SQLite `application_id` magic stamped on every `brunch-v1.db` (ASCII "BRV1"). */
 const BRUNCH_APPLICATION_ID = 0x42_52_56_31;

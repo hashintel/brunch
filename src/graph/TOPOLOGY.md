@@ -182,7 +182,7 @@ graph/
     row -> domain mapping
 
   workspace-store.ts
-    WORKSPACE_DB_FILENAME ('brunch-v1.db', the brunch-v{major}.db lineage constant)
+    WORKSPACE_DB_FILENAME re-export ('brunch-v1.db'; the brunch-v{major}.db lineage constant lives in src/constants.ts so drizzle.config.ts loads leaf-cheap)
     openWorkspaceDb(cwd) — recovery + application_id stamp/check guard (I63-L)
     WorkspaceDbRefusalError
     openWorkspaceGraphRuntime(cwd)
