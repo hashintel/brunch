@@ -177,14 +177,17 @@ describe('ExecuteRunResultSchema union witnesses', () => {
     expect(Value.Check(ExecuteRunResultSchema, { ...base, petrinautReplayExport: replayExport })).toBe(true);
   });
 
-  it.each(['2026-02-30T12:00:00.000Z', '2026-13-14T12:00:00.000Z', '2026-07-14T25:00:00.000Z'])(
-    'rejects impossible Petrinaut firing date-time %s',
-    (ts) => {
-      const candidate = structuredClone(replayExport);
-      candidate.transitionFirings[0]!.ts = ts;
-      expect(Value.Check(ExecuteRunResultSchema, { ...base, petrinautReplayExport: candidate })).toBe(false);
-    },
-  );
+  it.each([
+    '2026-02-30T12:00:00.000Z',
+    '2026-13-14T12:00:00.000Z',
+    '2026-07-14T25:00:00.000Z',
+    '2026-07-14T12:00:00Z',
+    '2026-07-14T12:00:00.000+01:00',
+  ])('rejects impossible Petrinaut firing date-time %s', (ts) => {
+    const candidate = structuredClone(replayExport);
+    candidate.transitionFirings[0]!.ts = ts;
+    expect(Value.Check(ExecuteRunResultSchema, { ...base, petrinautReplayExport: candidate })).toBe(false);
+  });
 
   it.each([
     [

@@ -146,7 +146,11 @@ function executorPorts(gitWorktree: ExecutionPorts['gitWorktree']): ExecutionPor
 async function writePetrinautReplayRun(
   cwd: string,
   runId: string,
-  options: { readonly terminal?: boolean; readonly status?: RunMetadata['status'] } = {},
+  options: {
+    readonly terminal?: boolean;
+    readonly status?: RunMetadata['status'];
+    readonly failedSliceIds?: readonly string[];
+  } = {},
 ): Promise<void> {
   const terminal = options.terminal ?? true;
   const runDir = runDirPath(cwd, runId);
@@ -158,6 +162,7 @@ async function writePetrinautReplayRun(
       specId: '42',
       planPath: '/plan.yaml',
       status: options.status ?? (terminal ? 'promotion_prepared' : 'petri_exported'),
+      ...(options.failedSliceIds === undefined ? {} : { failedSliceIds: options.failedSliceIds }),
     })}\n`,
     'utf8',
   );
@@ -1554,7 +1559,11 @@ describe('web host', () => {
 
   it('wakes an active Petrinaut stream when the run is abandoned without a journal append', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-abandon-'));
-    await writePetrinautReplayRun(cwd, 'run-1', { terminal: false, status: 'worktree_created' });
+    await writePetrinautReplayRun(cwd, 'run-1', {
+      terminal: false,
+      status: 'worktree_created',
+      failedSliceIds: ['task-2'],
+    });
     const host = await startWebHost({ cwd, port: 0 });
     try {
       const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
@@ -1577,7 +1586,7 @@ describe('web host', () => {
       });
       expect(frames.at(-1)).toEqual({
         event: 'terminal',
-        data: { state: 'halted', failedSliceIds: [], reason: 'operator stopped run' },
+        data: { state: 'halted', failedSliceIds: ['task-2'], reason: 'operator stopped run' },
       });
     } finally {
       await host.close();

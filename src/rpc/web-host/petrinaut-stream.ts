@@ -194,6 +194,7 @@ function petrinautTerminalFromDetail(detail: {
   readonly status?: string;
   readonly abandonedAt?: string;
   readonly abandonReason?: string;
+  readonly failedSliceIds?: readonly string[];
   readonly petriProjection?: {
     readonly terminalEventKind?: string;
     readonly haltedReason?: string;
@@ -231,7 +232,7 @@ function petrinautTerminalFromDetail(detail: {
     return {
       state: 'halted',
       ts: detail.abandonedAt,
-      failedSliceIds: [],
+      failedSliceIds: detail.failedSliceIds ?? [],
       ...(detail.abandonReason === undefined ? {} : { reason: detail.abandonReason }),
     };
   }
