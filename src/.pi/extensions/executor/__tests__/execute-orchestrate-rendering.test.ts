@@ -15,7 +15,7 @@ function fakePorts() {
     agentRunner: {} as never,
     testRunner: {} as never,
     gitLand: {} as never,
-    gitHostPromotion: {} as never,
+    gitHostLand: {} as never,
   };
 }
 

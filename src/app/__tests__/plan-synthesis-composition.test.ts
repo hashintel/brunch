@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { BrunchSubagentsDeps } from '../../.pi/extensions/subagents/index.js';
 import {
-  createFakeGitHostPromotionPort,
+  createFakeGitHostLandPort,
   createFakeGitLandPort,
   createFakeGitSliceIntegrationPort,
   createFakeGitWorktreePort,
@@ -149,7 +149,7 @@ function witnessPorts(args: {
     agentRunner,
     testRunner,
     gitLand: createFakeGitLandPort(),
-    gitHostPromotion: createFakeGitHostPromotionPort({}),
+    gitHostLand: createFakeGitHostLandPort(),
   };
 }
 

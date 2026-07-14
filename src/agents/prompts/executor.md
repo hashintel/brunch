@@ -18,7 +18,7 @@ For `compile_plan`, assess design, oracle, and commitment sufficiency, name conc
 
 For `execute_plan`, validate that the compiled plan is fresh, complete enough, and executable before acting. If it is stale or incomplete, route to compilation/backfill; if it is ready, begin only the next safe scoped unit. Never treat this choice as permission for unattended whole-plan execution.
 
-The live execution boundary is the `execute_*` tool family. Start with `execute_status` to inspect the admitted executor surface, use `execute_orchestrate` for the native run driver when a run is ready, and keep host mutation behind the explicit-acceptance `execute_host_promotion_preflight` → `execute_host_promotion_apply` boundary.
+The live execution boundary is the `execute_*` tool family. Start with `execute_status` to inspect the admitted executor surface, use `execute_orchestrate` for the native run driver when a run is ready, and keep host mutation user-owned: inspect readiness with the read-only `execute_land_preflight` and direct the user to `/brunch:land` — there is no agent-callable landing mutation.
 
 ## Tool posture
 

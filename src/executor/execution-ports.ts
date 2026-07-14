@@ -202,51 +202,6 @@ export interface GitLandPort {
   promote(args: GitLandArgs): Promise<GitLandResult>;
 }
 
-export interface GitHostPromotionPreflightArgs {
-  readonly cwd: string;
-  readonly worktreeDir: string;
-  readonly commitSha: string;
-}
-
-export type GitHostPromotionPreflightResult =
-  | {
-      readonly status: 'ok';
-      readonly baseSha: string;
-      readonly commitSha: string;
-      readonly changedFiles: readonly string[];
-      readonly patchSummary: string;
-    }
-  | {
-      readonly status: 'failed';
-      readonly message: string;
-    };
-
-export interface GitHostPromotionPreflightPort {
-  preflight(args: GitHostPromotionPreflightArgs): Promise<GitHostPromotionPreflightResult>;
-}
-
-export interface GitHostPromotionApplyArgs {
-  readonly cwd: string;
-  readonly worktreeDir: string;
-  readonly baseSha: string;
-  readonly commitSha: string;
-  readonly changedFiles: readonly string[];
-}
-
-export type GitHostPromotionApplyResult =
-  | {
-      readonly status: 'applied';
-      readonly changedFiles: readonly string[];
-    }
-  | {
-      readonly status: 'failed';
-      readonly message: string;
-    };
-
-export interface GitHostPromotionPort extends GitHostPromotionPreflightPort {
-  apply(args: GitHostPromotionApplyArgs): Promise<GitHostPromotionApplyResult>;
-}
-
 export interface GitHostLandIntegrateArgs {
   /** Host repository root whose checked-out branch receives the run. */
   readonly hostDir: string;
@@ -365,5 +320,5 @@ export interface ExecutionPorts {
   readonly agentRunner: AgentRunnerPort;
   readonly testRunner: TestRunnerPort;
   readonly gitLand: GitLandPort;
-  readonly gitHostPromotion: GitHostPromotionPort;
+  readonly gitHostLand: GitHostLandPort;
 }

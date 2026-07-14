@@ -25,7 +25,8 @@ describe('composeExecutorPrompt', () => {
     expect(prompt).toMatch(/`execute_plan`.*begin only the next safe scoped unit/s);
     expect(prompt).toMatch(/Never treat this choice as permission for unattended whole-plan execution/);
     expect(prompt).toMatch(/live execution boundary is the `execute_\*` tool family/);
-    expect(prompt).toContain('explicit-acceptance `execute_host_promotion_preflight`');
+    expect(prompt).toContain('`execute_land_preflight`');
+    expect(prompt).toContain('/brunch:land');
     expect(prompt).toContain(
       '- readiness posture: assess seed reads before acting; bands guide conduct but never gate tool authority',
     );

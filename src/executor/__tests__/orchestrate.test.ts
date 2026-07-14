@@ -70,7 +70,7 @@ import { selectSourcePolicy } from '../source-policy.js';
 import { ingestTestResult, verifyStreamPath } from '../test-result.js';
 import { createWorktree } from '../worktree.js';
 import {
-  createFakeGitHostPromotionPort,
+  createFakeGitHostLandPort,
   createFakeGitLandPort,
   createFakeGitSliceIntegrationPort,
   createFakeGitWorktreePort,
@@ -121,7 +121,7 @@ function fakePorts(overrides: Partial<ExecutionPorts> = {}): ExecutionPorts {
     agentRunner: completedAgentRunner,
     testRunner: createFakeTestRunnerPort(),
     gitLand: createFakeGitLandPort(),
-    gitHostPromotion: createFakeGitHostPromotionPort({}),
+    gitHostLand: createFakeGitHostLandPort(),
     ...overrides,
   };
 }

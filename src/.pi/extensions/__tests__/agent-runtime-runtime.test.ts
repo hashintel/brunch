@@ -217,7 +217,7 @@ describe('Brunch agent runtime-state projection', () => {
     ).toEqual(['read', 'grep', 'find', 'ls', 'execute_status']);
   });
 
-  it('activates host-promotion tools in execute mode when registered', () => {
+  it('activates the landing preflight tool in execute mode when registered', () => {
     const executeState: BrunchAgentState = {
       schemaVersion: 1,
       operationalMode: 'execute',
@@ -227,19 +227,11 @@ describe('Brunch agent runtime-state projection', () => {
       activeToolNamesForBrunchAgentState(
         {
           getAllTools: () =>
-            [
-              'execute_host_promotion_preflight',
-              'execute_host_promotion_apply',
-              'execute_promotion_prepare',
-            ].map((name) => ({ name })),
+            ['execute_land_preflight', 'execute_promotion_prepare'].map((name) => ({ name })),
         } as never,
         projectBrunchAgentState([runtimeEntry(executeState)]),
       ),
-    ).toEqual([
-      'execute_host_promotion_preflight',
-      'execute_host_promotion_apply',
-      'execute_promotion_prepare',
-    ]);
+    ).toEqual(['execute_land_preflight', 'execute_promotion_prepare']);
   });
 
   it('appends init only when the transcript has no valid runtime state', () => {

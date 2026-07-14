@@ -32,7 +32,7 @@ import { BRUNCH_SESSION_QUERY_TOOL, registerBrunchSessionQuery } from '../.pi/ex
 import { registerStructuredExchange } from '../.pi/extensions/exchanges/index.js';
 import { registerBrunchExecuteAgentResult } from '../.pi/extensions/executor/index.js';
 import { registerBrunchExecuteOrchestrate } from '../.pi/extensions/executor/index.js';
-import { registerBrunchExecuteHostPromotion } from '../.pi/extensions/executor/index.js';
+import { registerBrunchExecuteLand } from '../.pi/extensions/executor/index.js';
 import { registerBrunchExecuteLaunch } from '../.pi/extensions/executor/index.js';
 import { registerBrunchExecutePlanFile } from '../.pi/extensions/executor/index.js';
 import { registerBrunchExecutePlanPreview } from '../.pi/extensions/executor/index.js';
@@ -93,7 +93,7 @@ import {
   type PrepareNextTurnResult,
 } from '../session/prepare-next-turn.js';
 import { createAgentRunnerPort } from './agent-runner-port.js';
-import { createGitHostPromotionPort } from './git-host-promotion-port.js';
+import { createGitHostLandPort } from './git-host-land-port.js';
 import { createGitLandPort } from './git-land-port.js';
 import { createGitSliceIntegrationPort } from './git-slice-integration-port.js';
 import { createGitWorktreePort } from './git-worktree-port.js';
@@ -154,11 +154,9 @@ export {
   BRUNCH_EXECUTE_ORCHESTRATE_TOOL,
   createExecuteOrchestrateTool,
   registerBrunchExecuteOrchestrate,
-  BRUNCH_EXECUTE_HOST_PROMOTION_APPLY_TOOL,
-  BRUNCH_EXECUTE_HOST_PROMOTION_PREFLIGHT_TOOL,
-  createExecuteHostPromotionApplyTool,
-  createExecuteHostPromotionPreflightTool,
-  registerBrunchExecuteHostPromotion,
+  BRUNCH_EXECUTE_LAND_PREFLIGHT_TOOL,
+  createExecuteLandPreflightTool,
+  registerBrunchExecuteLand,
   BRUNCH_EXECUTE_LAUNCH_TOOL,
   createExecuteLaunchTool,
   registerBrunchExecuteLaunch,
@@ -342,7 +340,7 @@ export function createBrunchPiExtensions(
           : createAgentRunnerPort()),
       testRunner: options.executionPorts?.testRunner ?? createTestRunnerPort(),
       gitLand: options.executionPorts?.gitLand ?? createGitLandPort(),
-      gitHostPromotion: options.executionPorts?.gitHostPromotion ?? createGitHostPromotionPort(),
+      gitHostLand: options.executionPorts?.gitHostLand ?? createGitHostLandPort(),
     };
     const extensions: BrunchProductExtensionRegistrar[] = [
       registerBrunchKeybindingPolicy,
@@ -391,7 +389,7 @@ export function createBrunchPiExtensions(
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanPreview(api, graph)] : []),
       registerBrunchExecutePetriExport,
       (api) => registerBrunchExecutePromotionPrepare(api, executionPorts.gitLand),
-      (api) => registerBrunchExecuteHostPromotion(api, executionPorts.gitHostPromotion),
+      (api) => registerBrunchExecuteLand(api, executionPorts.gitHostLand),
       registerBrunchExecutePopulate,
       registerBrunchExecuteReportInit,
       registerBrunchExecuteRunComplete,

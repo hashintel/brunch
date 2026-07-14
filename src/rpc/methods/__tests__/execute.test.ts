@@ -6,7 +6,7 @@ import { Value } from 'typebox/value';
 import { describe, expect, it } from 'vitest';
 
 import {
-  createFakeGitHostPromotionPort,
+  createFakeGitHostLandPort,
   createFakeGitLandPort,
   createFakeGitSliceIntegrationPort,
   createFakeGitWorktreePort,
@@ -412,7 +412,7 @@ describe('execute.run', () => {
       },
       testRunner: createFakeTestRunnerPort(),
       gitLand: createFakeGitLandPort(),
-      gitHostPromotion: createFakeGitHostPromotionPort({}),
+      gitHostLand: createFakeGitHostLandPort(),
     };
     const driving = drive({ cwd, runId: 'run-1', ports }, petriScheduler, frontierFiringPolicy);
     await overlapping;

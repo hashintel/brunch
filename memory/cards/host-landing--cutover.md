@@ -100,7 +100,14 @@ src/executor/
 
 ---
 
-## Card 2 — `/brunch:land` acceptance surface + patch-path deletion [pending]
+## Card 2 — `/brunch:land` acceptance surface + patch-path deletion [done]
+
+> Landed 2026-07-14. Divergences: the runtime tool inventory lives in
+> `src/agents/runtime/executor/active-tools.ts` (not just the registries the card
+> named); registry counts updated 32→31 executor tools and 52→51 provider-facing.
+> The land command registers before the commands extension, so it leads the
+> command-order assertion. Claim 3's wiring half is retired by stubbed-ctx tests;
+> the live TUI/RPC confirm beat remains the frontier's owned outer evidence.
 
 ### Target Behavior
 

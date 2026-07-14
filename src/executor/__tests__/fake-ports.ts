@@ -3,7 +3,6 @@ import { join } from 'node:path';
 
 import type {
   GitHostLandPort,
-  GitHostPromotionPort,
   GitLandPort,
   GitLandResult,
   GitSliceIntegrationPort,
@@ -124,28 +123,6 @@ export function createFakeGitHostLandPort(options: Partial<GitHostLandPort> = {}
           ],
         }
       );
-    },
-  };
-}
-
-export function createFakeGitHostPromotionPort(options: {
-  readonly preflight?: GitHostPromotionPort['preflight'];
-  readonly apply?: GitHostPromotionPort['apply'];
-}): GitHostPromotionPort {
-  return {
-    async preflight(args) {
-      return (
-        (await options.preflight?.(args)) ?? {
-          status: 'ok',
-          baseSha: 'base123',
-          commitSha: args.commitSha,
-          changedFiles: ['host-proof.txt'],
-          patchSummary: 'host-proof.txt | 1 +',
-        }
-      );
-    },
-    async apply(args) {
-      return (await options.apply?.(args)) ?? { status: 'applied', changedFiles: args.changedFiles };
     },
   };
 }

@@ -6,7 +6,7 @@ import { promisify } from 'node:util';
 import { describe, expect, it } from 'vitest';
 
 import {
-  createFakeGitHostPromotionPort,
+  createFakeGitHostLandPort,
   createFakeGitLandPort,
   createFakeGitWorktreePort,
   createFakeTestRunnerPort,
@@ -174,7 +174,7 @@ describe('createGitSliceIntegrationPort', () => {
       },
       testRunner: createFakeTestRunnerPort(),
       gitLand: createFakeGitLandPort(),
-      gitHostPromotion: createFakeGitHostPromotionPort({}),
+      gitHostLand: createFakeGitHostLandPort(),
     };
     await drive({ cwd, runId: 'run-1', ports }, linearScheduler, serialFiringPolicy, { maxFirings: 5 });
     const foreignDir = sliceWorkspacePath(cwd, 'run-1', 'task-1');

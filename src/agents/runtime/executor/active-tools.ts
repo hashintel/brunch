@@ -38,8 +38,7 @@ export const EXECUTOR_ALLOWED_TOOL_NAMES = [
   'execute_run_complete',
   'execute_petri_export',
   'execute_promotion_prepare',
-  'execute_host_promotion_preflight',
-  'execute_host_promotion_apply',
+  'execute_land_preflight',
 ] as const;
 
 export function activeToolNamesForExecutor({ registeredToolNames }: ExecutorToolPolicyInput): string[] {

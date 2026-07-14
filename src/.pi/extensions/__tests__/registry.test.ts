@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { EXECUTOR_ALLOWED_TOOL_NAMES } from '../../../agents/runtime/executor/active-tools.js';
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
 import {
-  createFakeGitHostPromotionPort,
+  createFakeGitHostLandPort,
   createFakeGitLandPort,
   createFakeGitSliceIntegrationPort,
   createFakeGitWorktreePort,
@@ -18,7 +18,7 @@ import {
 import type {
   AgentRunArgs,
   AgentRunnerPort,
-  GitHostPromotionPort,
+  GitHostLandPort,
   GitLandPort,
   GitSliceIntegrationPort,
   GitWorktreePort,
@@ -34,6 +34,7 @@ import chrome from '../chrome/index.js';
 import {
   BRUNCH_CONSULT_COMMAND,
   BRUNCH_CONTINUE_COMMAND,
+  BRUNCH_LAND_COMMAND,
   BRUNCH_MENU_COMMAND,
   BRUNCH_MENU_SHORTCUT,
   BRUNCH_MODE_COMMAND,
@@ -48,10 +49,7 @@ import {
   registerStructuredExchange as structuredExchange,
 } from '../exchanges/index.js';
 import { BRUNCH_EXECUTE_AGENT_RESULT_TOOL } from '../executor/execute-agent-result/index.js';
-import {
-  BRUNCH_EXECUTE_HOST_PROMOTION_APPLY_TOOL,
-  BRUNCH_EXECUTE_HOST_PROMOTION_PREFLIGHT_TOOL,
-} from '../executor/execute-host-promotion/index.js';
+import { BRUNCH_EXECUTE_LAND_PREFLIGHT_TOOL } from '../executor/execute-land/index.js';
 import { BRUNCH_EXECUTE_LAUNCH_TOOL } from '../executor/execute-launch/index.js';
 import { BRUNCH_EXECUTE_ORCHESTRATE_TOOL } from '../executor/execute-orchestrate/index.js';
 import { BRUNCH_EXECUTE_PETRI_EXPORT_TOOL } from '../executor/execute-petri-export/index.js';
@@ -222,8 +220,7 @@ describe('Brunch explicit Pi extension registry', () => {
       BRUNCH_EXECUTE_AGENT_RESULT_TOOL,
       BRUNCH_EXECUTE_PETRI_EXPORT_TOOL,
       BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL,
-      BRUNCH_EXECUTE_HOST_PROMOTION_PREFLIGHT_TOOL,
-      BRUNCH_EXECUTE_HOST_PROMOTION_APPLY_TOOL,
+      BRUNCH_EXECUTE_LAND_PREFLIGHT_TOOL,
       BRUNCH_EXECUTE_POPULATE_TOOL,
       BRUNCH_EXECUTE_REPORT_INIT_TOOL,
       BRUNCH_EXECUTE_RUN_COMPLETE_TOOL,
@@ -244,6 +241,7 @@ describe('Brunch explicit Pi extension registry', () => {
       'update_elicitation_scratchpad',
     ]);
     expect(recording.commandNames).toEqual([
+      BRUNCH_LAND_COMMAND,
       BRUNCH_MENU_COMMAND,
       BRUNCH_MODE_COMMAND,
       BRUNCH_CONSULT_COMMAND,
@@ -2472,8 +2470,8 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(readFile(promotionPath, 'utf8')).resolves.toContain('def456');
   });
 
-  it('registers execute_host_promotion_preflight as injected host diff inspection', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-host-promotion-preflight-'));
+  it('registers execute_land_preflight read-only with no agent-callable landing mutation', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-land-preflight-'));
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
     const worktreeDir = join(runDir, 'worktree');
@@ -2487,6 +2485,7 @@ describe('Brunch explicit Pi extension registry', () => {
         planPath: '/tmp/plan.json',
         status: 'promotion_prepared',
         worktreeDir,
+        runBaseSha: 'base123',
         promotionPath,
         promotionCommitSha: 'def456',
         promotionBranch: 'brunch/review/run-1',
@@ -2507,90 +2506,29 @@ describe('Brunch explicit Pi extension registry', () => {
     );
     const registeredTools = await collectProductTools({
       graph: { specId: 42, lsn: 32, nodes: [], edges: [] },
-      gitHostPromotion: createFakeGitHostPromotionPort({}),
+      gitHostLand: createFakeGitHostLandPort(),
     });
 
-    const preflight = registeredTools.find(
-      (tool) => tool.name === BRUNCH_EXECUTE_HOST_PROMOTION_PREFLIGHT_TOOL,
-    );
+    const preflight = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_LAND_PREFLIGHT_TOOL);
     expect(preflight).toBeDefined();
     const result = await preflight!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
 
-    expect(result.content[0]?.text).toContain('execute_host_promotion_preflight: preflight_ready');
+    expect(result.content[0]?.text).toContain('execute_land_preflight: preflight_ready');
+    expect(result.content[0]?.text).toContain('/brunch:land');
     expect(result.details).toMatchObject({
       result: {
         status: 'preflight_ready',
         runStatus: 'promotion_prepared',
         promotionCommitSha: 'def456',
-        changedFiles: ['host-proof.txt'],
+        substrate: 'git_worktree',
       },
       sideEffects: [],
     });
-  });
-
-  it('registers execute_host_promotion_apply with explicit commit acceptance', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-host-promotion-apply-'));
-    const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
-    const metadataPath = join(runDir, 'run.json');
-    const worktreeDir = join(runDir, 'worktree');
-    const promotionPath = join(runDir, 'promotion', 'promotion.json');
-    await mkdir(dirname(promotionPath), { recursive: true });
-    await writeFile(
-      metadataPath,
-      JSON.stringify({
-        runId: 'run-1',
-        specId: '42',
-        planPath: '/tmp/plan.json',
-        status: 'promotion_prepared',
-        worktreeDir,
-        promotionPath,
-        promotionCommitSha: 'def456',
-        promotionBranch: 'brunch/review/run-1',
-      }),
-      'utf8',
-    );
-    await writeFile(
-      promotionPath,
-      JSON.stringify({
-        runId: 'run-1',
-        land: {
-          status: 'promoted',
-          commitSha: 'def456',
-          reviewBranch: 'brunch/review/run-1',
-        },
-      }),
-      'utf8',
-    );
-    const registeredTools = await collectProductTools({
-      graph: { specId: 42, lsn: 33, nodes: [], edges: [] },
-      gitHostPromotion: createFakeGitHostPromotionPort({}),
-    });
-
-    const apply = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_HOST_PROMOTION_APPLY_TOOL);
-    expect(apply).toBeDefined();
-    const needsAcceptance = await apply!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
-    const applied = await apply!.execute(
-      'call-2',
-      { runId: 'run-1', acceptedCommitSha: 'def456' },
-      undefined,
-      undefined,
-      { cwd },
-    );
-
-    expect(needsAcceptance.details).toMatchObject({
-      result: { status: 'needs_acceptance', runId: 'run-1' },
-      sideEffects: [],
-    });
-    expect(applied.content[0]?.text).toContain('execute_host_promotion_apply: applied');
-    expect(applied.details).toMatchObject({
-      result: {
-        status: 'applied',
-        runStatus: 'promotion_prepared',
-        promotionCommitSha: 'def456',
-        changedFiles: ['host-proof.txt'],
-      },
-      sideEffects: [{ kind: 'host_worktree_apply', path: cwd, changedFiles: ['host-proof.txt'] }],
-    });
+    // The landing mutation is command-only: no agent-callable apply exists.
+    const names = registeredTools.map((tool) => tool.name);
+    expect(names).not.toContain('execute_host_promotion_apply');
+    expect(names).not.toContain('execute_host_promotion_preflight');
+    expect(names.filter((name) => name.includes('land'))).toEqual([BRUNCH_EXECUTE_LAND_PREFLIGHT_TOOL]);
   });
 
   it('registers execute_plan_outline only with selected graph deps and returns a side-effect-free outline', async () => {
@@ -3019,15 +2957,14 @@ describe('Brunch explicit Pi extension registry', () => {
         'execute_run_complete',
         'execute_petri_export',
         'execute_promotion_prepare',
-        'execute_host_promotion_preflight',
-        'execute_host_promotion_apply',
+        'execute_land_preflight',
       ],
       pendingTools: [],
       sideEffects: [],
     });
   });
 
-  it('covers the exact 32-tool executor family, including both artifact tools', async () => {
+  it('covers the exact 31-tool executor family, including both artifact tools', async () => {
     const registeredTools = await collectProductTools({
       graph: { specId: 42, lsn: 1, nodes: [], edges: [] },
     });
@@ -3041,7 +2978,7 @@ describe('Brunch explicit Pi extension registry', () => {
     ].sort((left, right) => left.localeCompare(right));
 
     expect(executorTools.map((tool) => tool.name)).toEqual(expectedNames);
-    expect(executorTools).toHaveLength(32);
+    expect(executorTools).toHaveLength(31);
     for (const tool of executorTools) {
       expect(hasToolParametersProvenance(tool.parameters), `${tool.name} adapter provenance`).toBe(true);
       assertProviderLegalToolSchema(tool.parameters);
@@ -3059,8 +2996,7 @@ describe('Brunch explicit Pi extension registry', () => {
 
     expect(PRODUCTION_EXECUTE_TOOL_MUTATIONS).toEqual({
       execute_agent_result: 'agent_result',
-      execute_host_promotion_apply: 'host_promotion_apply',
-      execute_host_promotion_preflight: null,
+      execute_land_preflight: null,
       execute_launch: null,
       execute_orchestrate: 'drive',
       execute_petri_export: 'petri_export',
@@ -3108,7 +3044,7 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(recording.messageRenderers).toEqual(['alternatives-card-set']);
   });
 
-  it('keeps the exact 52-tool provider-facing Brunch inventory legal and adapter-derived', async () => {
+  it('keeps the exact 51-tool provider-facing Brunch inventory legal and adapter-derived', async () => {
     const registeredTools = await collectProductTools({
       graph: { specId: 42, lsn: 1, nodes: [], edges: [] },
       subagents: workerSubagents(
@@ -3161,8 +3097,7 @@ describe('Brunch explicit Pi extension registry', () => {
       'read_reconciliation_needs',
       'update_reconciliation_needs',
       'execute_agent_result',
-      'execute_host_promotion_apply',
-      'execute_host_promotion_preflight',
+      'execute_land_preflight',
       'execute_launch',
       'execute_orchestrate',
       'execute_petri_export',
@@ -3203,7 +3138,7 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(actualTools.map((tool) => tool.name).sort((left, right) => left.localeCompare(right))).toEqual(
       expectedNames,
     );
-    expect(actualTools).toHaveLength(52);
+    expect(actualTools).toHaveLength(51);
     for (const tool of actualTools) {
       expect(tool, 'every inventory member must resolve from a production registrar/catalog').toBeDefined();
       expect(hasToolParametersProvenance(tool!.parameters), `${tool!.name} adapter provenance`).toBe(true);
@@ -3503,7 +3438,7 @@ async function collectProductTools(
     testRunner?: TestRunnerPort;
     agentRunner?: AgentRunnerPort;
     gitLand?: GitLandPort;
-    gitHostPromotion?: GitHostPromotionPort;
+    gitHostLand?: GitHostLandPort;
     subagents?: BrunchSubagentsDeps;
     introspectionQueryTools?: boolean;
   } = {},
@@ -3519,7 +3454,7 @@ async function collectProductTools(
     options.testRunner ||
     options.agentRunner ||
     options.gitLand ||
-    options.gitHostPromotion
+    options.gitHostLand
       ? {
           executionPorts: {
             ...(options.gitWorktree ? { gitWorktree: options.gitWorktree } : {}),
@@ -3527,7 +3462,7 @@ async function collectProductTools(
             ...(options.testRunner ? { testRunner: options.testRunner } : {}),
             ...(options.agentRunner ? { agentRunner: options.agentRunner } : {}),
             ...(options.gitLand ? { gitLand: options.gitLand } : {}),
-            ...(options.gitHostPromotion ? { gitHostPromotion: options.gitHostPromotion } : {}),
+            ...(options.gitHostLand ? { gitHostLand: options.gitHostLand } : {}),
           },
         }
       : {}),
