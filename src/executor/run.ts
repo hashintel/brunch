@@ -44,6 +44,7 @@ export interface RunMetadata {
     | 'run_completed'
     | 'petri_exported'
     | 'promotion_prepared'
+    | 'landed'
     | 'abandoned';
   readonly worktreeDir?: string;
   readonly substrate?: WorktreeSubstrateKind;
@@ -80,6 +81,11 @@ export interface RunMetadata {
   readonly promotionPath?: string;
   readonly promotionCommitSha?: string;
   readonly promotionBranch?: string;
+  /** Host-landing identity, recorded once when applyLanding succeeds (status 'landed'). */
+  readonly landedSha?: string;
+  readonly landedVia?: 'fast_forward' | 'merge' | 'materialized';
+  readonly landedTarget?: string;
+  readonly landedAt?: string;
   readonly supersedesRunId?: string;
   readonly abandonedAt?: string;
   readonly abandonReason?: string;

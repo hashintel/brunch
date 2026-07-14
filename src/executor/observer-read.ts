@@ -255,6 +255,7 @@ export async function readRunDetail(
   const parallelAuthorityUnreadable =
     metadata.status !== 'abandoned' &&
     metadata.status !== 'promotion_prepared' &&
+    metadata.status !== 'landed' &&
     (journalAuthority.status === 'unreadable' ||
       (journalAuthority.status === 'missing' && metadata.petriObservationPrepared === true) ||
       (journalClaimedSliceIds.length > 0 && !hasMatchingPetriMarkingSnapshot));
@@ -539,6 +540,7 @@ function sanitizeTerminalSummary(
     replayProjection?.terminalEventKind === undefined &&
     snapshot.parallelSliceBatch === undefined &&
     metadata.status !== 'promotion_prepared' &&
+    metadata.status !== 'landed' &&
     metadata.status !== 'abandoned'
   ) {
     return {};

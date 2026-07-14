@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type {
+  GitHostLandPort,
   GitHostPromotionPort,
   GitLandPort,
   GitLandResult,
@@ -92,6 +93,37 @@ export function createFakeGitLandPort(
     },
     async promote() {
       return result;
+    },
+  };
+}
+
+export function createFakeGitHostLandPort(options: Partial<GitHostLandPort> = {}): GitHostLandPort {
+  return {
+    async integrate(args) {
+      return (
+        (await options.integrate?.(args)) ?? {
+          status: 'landed',
+          via: 'fast_forward',
+          branch: 'main',
+          landedSha: args.expectedTipSha,
+          sideEffects: [
+            { kind: 'host_branch_advance', path: args.hostDir, branch: 'main', sha: args.expectedTipSha },
+          ],
+        }
+      );
+    },
+    async materialize(args) {
+      return (
+        (await options.materialize?.(args)) ?? {
+          status: 'landed',
+          branch: args.branch,
+          landedSha: 'materialized123',
+          targetDir: args.targetDir,
+          sideEffects: [
+            { kind: 'git_materialize', path: args.targetDir, branch: args.branch, sha: 'materialized123' },
+          ],
+        }
+      );
     },
   };
 }

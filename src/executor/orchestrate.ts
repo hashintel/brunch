@@ -316,6 +316,7 @@ function petriInputRequiredStep(state: RunMetadata): ReadyStep['kind'] | undefin
     case 'petri_exported':
     case 'promotion_prepared':
       return 'promotion';
+    case 'landed':
     case 'abandoned':
       return undefined;
   }

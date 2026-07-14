@@ -23,7 +23,7 @@ export type RunAbandonResult =
     }
   | {
       readonly status: 'terminal_run';
-      readonly runStatus: 'run_completed' | 'petri_exported' | 'promotion_prepared';
+      readonly runStatus: 'run_completed' | 'petri_exported' | 'promotion_prepared' | 'landed';
       readonly runId: string;
       readonly metadataPath: string;
       readonly sideEffects: readonly [];
@@ -42,6 +42,7 @@ const NON_ABANDONABLE_TERMINAL_STATUSES: ReadonlySet<RunMetadata['status']> = ne
   'run_completed',
   'petri_exported',
   'promotion_prepared',
+  'landed',
 ]);
 
 export async function abandonRun(args: {

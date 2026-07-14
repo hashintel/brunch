@@ -201,6 +201,9 @@ export function projectExecutorPetriTransitionHistory(
     case 'petri_exported':
       return { transitionIds: [...transitionIds, 'run_complete', 'petri_export'] };
     case 'promotion_prepared':
+    case 'landed':
+      // Landing happens outside the driven chain; a landed run's net history is
+      // identical to promotion_prepared's.
       return { transitionIds: [...transitionIds, 'run_complete', 'petri_export', 'promotion'] };
     default:
       return { transitionIds };

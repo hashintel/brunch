@@ -9,7 +9,14 @@ Sequence: card 1 → 2 → 3 → 4. Cards are independent of each other's implem
 
 ---
 
-## Card 1 — executor landing helper + `landed` lifecycle [next]
+## Card 1 — executor landing helper + `landed` lifecycle [done]
+
+> Landed 2026-07-14. Divergence noted: the `landed` status fanned out to seven
+> lifecycle consumers beyond the declared paths (run-abandon, run-retry-eligibility,
+> orchestrate.petriInputRequiredStep, petri-runtime, petri-terminal, petri-events
+> status record, observer-read tolerance guards, web runs.tsx status color) — same
+> seam, landed treated like promotion_prepared for net history/terminal purposes
+> and added to every terminal set. run-abandon gained a refusal test for landed runs.
 
 ### Target Behavior
 

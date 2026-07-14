@@ -584,7 +584,8 @@ function runStatusClassName(status: RunSummary['status']): string {
   if (status === 'slice_execution_requested') return 'bg-blue-50 text-blue-700';
   if (status === 'agent_result_ingested') return 'bg-violet-50 text-violet-700';
   if (status === 'abandoned') return 'bg-red-50 text-red-700';
-  if (status === 'run_completed' || status === 'promotion_prepared') return 'bg-emerald-50 text-emerald-700';
+  if (status === 'run_completed' || status === 'promotion_prepared' || status === 'landed')
+    return 'bg-emerald-50 text-emerald-700';
   if (status === 'test_result_ingested' || status === 'slice_completed') return 'bg-amber-50 text-amber-700';
   return 'bg-wash text-sub';
 }

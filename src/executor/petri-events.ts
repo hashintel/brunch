@@ -279,6 +279,7 @@ const RUN_STATUSES = {
   run_completed: true,
   petri_exported: true,
   promotion_prepared: true,
+  landed: true,
   abandoned: true,
 } satisfies Record<RunMetadata['status'], true>;
 

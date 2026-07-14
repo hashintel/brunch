@@ -93,7 +93,7 @@ export function classifyDriveTerminal(
     };
   }
 
-  if (args.runStatus !== 'promotion_prepared') {
+  if (args.runStatus !== 'promotion_prepared' && args.runStatus !== 'landed') {
     return {
       event: {
         kind: 'net_deadlocked',
