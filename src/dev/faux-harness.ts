@@ -40,6 +40,7 @@ export interface BrunchFauxHarnessOptions {
   readonly customTools?: readonly ToolDefinition<any, any>[];
   readonly resourceLoader?: ResourceLoader;
   readonly settingsManager?: SettingsManager;
+  readonly sessionManager?: SessionManager;
 }
 
 export interface ProviderContextSnapshot {
@@ -89,7 +90,7 @@ export async function createBrunchFauxHarness(
     modelRegistry,
     model: registeredModel,
     ...(options.resourceLoader ? { resourceLoader: options.resourceLoader } : {}),
-    sessionManager: SessionManager.inMemory(options.cwd),
+    sessionManager: options.sessionManager ?? SessionManager.inMemory(options.cwd),
     settingsManager: options.settingsManager ?? SettingsManager.inMemory({ quietStartup: true }),
     ...(options.customTools?.length
       ? { tools: options.customTools.map((tool) => tool.name), customTools: [...options.customTools] }
