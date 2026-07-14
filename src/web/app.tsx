@@ -5,6 +5,7 @@ import { Suspense } from 'react';
 import { createBrunchQueryClient } from './query-client.js';
 import { indexRoute, rootRoute, type BrunchWebRouterContext } from './routes/root.js';
 import { runDetailRoute, runsRoute } from './routes/runs.js';
+import { sessionRoute } from './routes/session.js';
 import { specRoute } from './routes/spec.js';
 import type { WebSocketRpcClient } from './rpc-client.js';
 
@@ -17,7 +18,7 @@ export interface BrunchWebRuntime {
   dispose(): void;
 }
 
-const routeTree = rootRoute.addChildren([indexRoute, specRoute, runsRoute, runDetailRoute]);
+const routeTree = rootRoute.addChildren([indexRoute, specRoute, sessionRoute, runsRoute, runDetailRoute]);
 
 export function createBrunchWebRouter(options: BrunchWebRouterContext): BrunchWebRouter {
   return createRouter({

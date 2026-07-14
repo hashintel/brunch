@@ -22,7 +22,7 @@ export function attachWebRpcTransport(options: {
   path: string;
   handlers: RpcHandlers;
   productUpdates?: ProductUpdatePublisher;
-  sessionEvents?: SessionEventRelay;
+  sessionEvents?: Pick<SessionEventRelay, 'subscribe'>;
 }): WebRpcTransport {
   const webSocketServer = new WebSocketServer({ noServer: true });
   let activeRequests = 0;

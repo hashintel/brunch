@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { PassThrough } from 'node:stream';
 
 import { SessionManager } from '@earendil-works/pi-coding-agent';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { runSeedFixturesCli } from '../../graph/seed-fixtures.js';
 import { assistantMessage, userMessage } from '../../probes/test-helpers.js';
@@ -148,14 +148,28 @@ describe('Brunch CLI dispatch', () => {
     expect(stderr).toContain('--dev-tools only applies to --mode tui');
   });
 
-  it('rejects --mode web as a deferred feature (web UI runs only as the TUI sidecar)', async () => {
+  it('reports the standalone web URL without constructing the TUI', async () => {
+    let output = '';
+    const host = { url: 'http://127.0.0.1:4312', close: vi.fn(async () => {}) };
+    const launchWeb = vi.fn(async () => host);
+    const launchTui = vi.fn(async () => {});
     await expect(
       runBrunchCli({
         argv: ['--mode=web'],
         cwd: '/tmp/brunch-project',
         coordinator: coordinator(),
+        stdout: (chunk) => {
+          output += chunk;
+        },
+        launchWeb,
+        launchTui,
       }),
-    ).rejects.toThrow(/web mode is not available yet/u);
+    ).resolves.toBe(0);
+    expect(output).toBe('Brunch web running at http://127.0.0.1:4312\n');
+    expect(launchWeb).toHaveBeenCalledWith(expect.objectContaining({ cwd: '/tmp/brunch-project' }));
+    expect(launchTui).not.toHaveBeenCalled();
+    await host.close();
+    expect(host.close).toHaveBeenCalledOnce();
   });
 
   it('routes empty argv to the TUI launch path', async () => {

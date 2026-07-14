@@ -9,6 +9,7 @@ import type {
 } from '../session/workspace-session-coordinator.js';
 import { executeRpcMethods } from './methods/execute.js';
 import { graphRpcMethods } from './methods/graph.js';
+import { hostedSessionRpcMethods, type HostedSessionRpcBoundary } from './methods/hosted-session.js';
 import {
   discoverRpcMethods,
   registryByMethod,
@@ -54,12 +55,14 @@ export function createWebSidecarRpcHandlers(options: {
   sessionTurnDriver?: SessionTurnDriver;
   sessionExchangeAnswer?: SessionExchangeAnswerHandle;
   sessionOpenAsks?: SessionOpenAsksHandle;
+  hostedSession?: HostedSessionRpcBoundary;
 }): RpcHandlers {
   const registry = [
     ...READ_ONLY_RPC_METHOD_REGISTRY,
     ...(options.sessionTurnDriver ? sessionDriverRpcMethods : []),
     ...(options.sessionExchangeAnswer ? sessionExchangeAnswerRpcMethods : []),
     ...(options.sessionOpenAsks ? sessionOpenAsksRpcMethods : []),
+    ...(options.hostedSession ? hostedSessionRpcMethods : []),
   ];
   return createRpcHandlersForRegistry(options, registry);
 }
@@ -80,6 +83,7 @@ function createRpcHandlersForRegistry(
     sessionTurnDriver?: SessionTurnDriver;
     sessionExchangeAnswer?: SessionExchangeAnswerHandle;
     sessionOpenAsks?: SessionOpenAsksHandle;
+    hostedSession?: HostedSessionRpcBoundary;
   },
   registryDefinitions: RpcMethodRegistry<RpcMethodContext>,
 ): RpcHandlers {

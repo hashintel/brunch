@@ -226,9 +226,13 @@ export function waitForEvent(
   });
 }
 
-export async function waitFor(predicate: () => boolean, timeoutMs: number, what: string): Promise<void> {
+export async function waitFor(
+  predicate: () => boolean | Promise<boolean>,
+  timeoutMs: number,
+  what: string,
+): Promise<void> {
   const deadline = Date.now() + timeoutMs;
-  while (!predicate()) {
+  while (!(await predicate())) {
     if (Date.now() > deadline) throw new Error(`timed out after ${timeoutMs}ms waiting for ${what}`);
     await settle(25);
   }

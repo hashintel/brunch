@@ -79,7 +79,7 @@ plus the coordination logic for workspace/spec/session lifecycle.
 - **Structured-exchange loop helpers** — deterministic POC exchange generation,
   pending prompt reconstruction from structured transcript tuples, response
   toolResult materialization, and the process-local live answer rendezvous used
-  by the TUI sidecar (`live-exchange-broker.ts`). RPC maps these domain results
+  by live TUI-sidecar and standalone-host drivers (`live-exchange-broker.ts`). RPC maps these domain results
   to JSON-RPC status and error codes; transcript mechanics stay here. The **live
   ask registry** (`live-ask-registry.ts`, D125-L) is the single runtime source of
   open-ask truth: it generalizes the broker's in-flight `pending` map into
@@ -143,6 +143,8 @@ plus the coordination logic for workspace/spec/session lifecycle.
   read into required `WorkspaceSpecState` fields via `CommandExecutor.getSpec`
   (`origin` and `relatesToSpecId` remain nullable where the graph domain permits);
   this module decides *whether to ask*, never persists.
+
+- **Targeted live-session hosting** (`live-session-host.ts`) — a cwd-process-local map keyed by durable `(specId, sessionId)`, with one writable runtime and driver owner per target, target-local prompt admission, ask answering, semantic event sequencing, and fail-loud active-turn disposal. `WorkspaceSessionCoordinator.openTargetSession` and target-spec replacement binding open that exact session without reading or mutating workspace defaults; route/connection identities never substitute for the target.
 
 - **Session binding** — session↔spec binding entries in JSONL.
 

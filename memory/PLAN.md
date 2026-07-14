@@ -49,7 +49,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ### standalone-web — ◐ active
 
 - **Goals:** make web a standalone driver of the same Specify-/Execute-mode sessions as TUI; keep several sessions live concurrently in one cwd-scoped Brunch host; preserve JSONL/graph authority while giving React semantic parity for product-visible session results.
-- **Members:** `standalone-web-session-host` — active proving tracer; `multi-session-web-concurrency` — next, blocked on the tracer; `web-session-presentation-coverage` — wait-gated coverage after the tracer establishes the shared projection seam.
+- **Members:** `standalone-web-session-host` — ✓ completed 2026-07-14; `multi-session-web-concurrency` — ready, not started; `web-session-presentation-coverage` — ready for pickup as the family-coverage sweep, not started.
 - **Done-definition:** standalone web starts without `InteractiveMode`; two sessions can stream/ask independently with explicit durable targets and one driver each; every required product-visible presentation row has a shared semantic projection plus React adapter or explicit `n/a`; live views converge to fresh JSONL-derived projections after settlement/reconnect; `src/app`, `src/session`, `src/rpc`, `src/projections`, and `src/web` topology homes are reconciled; no read-only-sidecar or singleton-current-session target prose remains.
 - **Anchors:** req 4/12/17/31/32; A42-L/A43-L; D127-L/D128-L; I64-L/I65-L.
 
@@ -65,9 +65,10 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ## Sequencing
 
-### Active — standalone web priority
+### Next — standalone web closure
 
-- `standalone-web-session-host` ([FE-1200](https://linear.app/hash/issue/FE-1200/standalone-web-session-host-walking-skeleton)) — first real-entry MVP: standalone combined host → one explicitly targeted on-disk JSONL session → React chat hydration/live stream → several text turns → one structured `ask` answered in-browser → settled JSONL parity. Definition below. Next move: create FE issue + Graphite branch, then `ln-design` the `LiveSessionHost` and session-presentation interfaces before `ln-scope`.
+- `multi-session-web-concurrency` — ready for pickup; do not infer that FE-1200 proved two-session isolation.
+- `web-session-presentation-coverage` — wait gate cleared; ready for its code-enumerated sweep scope, without folding visual polish or family breadth back into FE-1200.
 
 ### Active — Group 1 · walkthrough closure
 
@@ -79,6 +80,7 @@ Close the entire first batch of walkthrough-related findings: remediation, the o
 
 ### Recently Completed
 
+- 2026-07-14 `standalone-web-session-host` (FE-1200) — **✓ accepted one-target tracer**. Standalone `--mode web` serves the target-addressed React session route without `InteractiveMode`; deterministic faux-provider tests prove ordinary turns, one structured `ask`, settlement/refetch parity, malformed-detail rejection, and paired web/TUI JSONL semantics. User-witnessed manual acceptance confirmed the corrected `/session/...` route and end-to-end turns/ask; the intentionally minimal UI is accepted inside the tracer boundary. A42-L and presentation-family breadth remain open in the now-unblocked follow-on frontiers.
 - 2026-07-14 `FE-1196 platform debt` — **✓ closed and outer-witnessed**: spec posture, workspace DB identity, headless ask discovery, reconciliation derivation, native compaction continuity, and active-branch session correctness are materialized; `web-driver-streaming` was evaluated and retired, and transcript-ledger rendering moved to FE-1187. Full closeout: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md#2026-07-14-sync-archive-ln-sync-fe-1196-platform-debt-closeout).
 - 2026-07-14 `petri-execution-parity` (FE-1195) — completed the old-`main` live-parity closure and final review hardening: timestamped firing wire with calendar-valid TypeBox boundary checks, structural pass/fail branches with strict list/detail failed-slice evidence, stale serial-state retirement at parallel admission, journal-idempotent restart-stable terminal authority, rejection of every post-terminal fact, causality-gated Petrinaut replay/export, staging-aligned SDCPN parsing that retains legitimate full roots, and a view-only projection with mechanically pruned isolated places, preserved connected IDs/arcs, contextual labels, locale-independent ordering, and collision-free compact/legacy fallback bands. Durable terminal evidence wins over later abandonment metadata; raw executor topology/markings and SSE firing order remain unchanged. Full per-slice attempt identity remains the current projection; standardized subnet grouping/folding should be revisited above roughly 12 slices without claiming color-fold parity. Manual Rust fixture comparison remains pre-PR outer evidence.
 - 2026-07-13 `petrinaut-live-run-stream` (FE-1190) — merged #322 to `next`; live-from-start observation, reconnect equivalence, fail-closed journal appends, and terminal-lagging-snapshot backfill landed. FE-1183 closed with it.
@@ -138,26 +140,26 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 
 - **Name:** Standalone web session-host walking skeleton
 - **Linear:** [FE-1200](https://linear.app/hash/issue/FE-1200/standalone-web-session-host-walking-skeleton) — Frontend (FE) / brunch, no parent
-- **Branch:** `ln/fe-1200-standalone-web-session-host`, Graphite parent `ln/fe-1187-remediation-3`
+- **Branch:** `ln/fe-1200-web-session`, Graphite parent `ln/fe-1187-remediation-3`
 - **Kind:** structural vertical tracer — new standalone host lifecycle, target-addressed live-session boundary, durable session-presentation read, and browser driver path
 - **Certainty:** proving
 - **Lights up:** `brunch --mode web` → combined cwd-scoped host → one inventory member opened from an existing Brunch/Pi JSONL session → React session chat → target-addressed turn/ask driver → settled JSONL-derived presentation
 - **Stabilizes:** I64-L for one explicit target and I65-L for ordinary text plus one representative structured `ask`; locates A42-L's host boundary without claiming multi-session concurrency is proven
-- **Retires:** A43-L for the one-session hydration/live/settlement/reconnect path if the differential oracle passes; the later family sweep owns breadth
+- **Retires:** A43-L validated 2026-07-14 by the one-session hydration/live/settlement/refetch and paired production web/TUI JSONL differential; the later family sweep still owns breadth
 - **Objective:** prove D127-L/D128-L through the real product entry without building the complete web program. `--mode web` starts without `InteractiveMode`; an internal `LiveSessionHost` map keyed by `(specId, sessionId)` opens one existing JSONL session; the React route hydrates a named product-shaped session projection, drives several deterministic text turns, renders/answers one structured `ask`, waits for `agent_settled`, and refetches a durable view semantically equivalent to the TUI-authored transcript structure.
 - **Boundary:** in — one cwd, one hosted inventory member, explicit target on every lifecycle/driver/event operation, shared semantic presentation projection for text + one `ask`, existing TanStack Router/Query/WebSocket client. Out — two-session breadth, complete renderer inventory, write leases, separate web/API and daemon processes, host-crash survival, cross-project/remote hosting, raw Pi RPC, chat/event mirror stores.
 - **Acceptance:** production web entry starts and serves the chat without TUI construction; no process-global "current live session" is introduced; duplicate writable open/second driver is rejected or unrepresentable; an existing JSONL session hydrates; several deterministic browser-driven turns stream to settled state; one `ask` renders and answers through the live broker; fresh hydration after settlement/reconnect equals the semantic live view; JSONL contains the same Brunch binding/runtime/exchange structures as the equivalent TUI path modulo declared ids/timestamps.
-- **Verification:** real-entry faux-provider browser/host witness; web-vs-TUI transcript differential; live→settled→fresh-hydration metamorphic; target-integrity negative space on every driver/event frame; structured-answer provider-legality/parser check; browser-cache deletion/reload proof; manual browser walkthrough for stream, busy/settled, ask, reload, and error feel. Route middle/outer details through `ln-oracles` before build.
+- **Verification:** accepted 2026-07-14. Automated leaves cover target integrity/duplicate drivers, malformed details, a production-wired deterministic-faux-provider web journey with cache/overlay loss, and paired temporary production web/TUI JSONL semantics under an ids/timestamps-only normalizer with a changed-answer rival. User-witnessed manual acceptance confirmed the corrected `/session/...` route, ordinary turns, and one structured `ask` end-to-end; minimal presentation was explicitly accepted within this tracer's boundary.
 - **Why now / unlocks:** web is a priority product surface; existing `session.driveTurn`, `session.openAsks`, `session.answerExchange`, `brunch.sessionEvent`, and streaming oracles make a buildable tracer cheaper than another substrate study. Landing establishes the aiming seam for concurrent sessions and presentation coverage.
 - **Traceability:** req 4/12/17/31/32; A42-L/A43-L; D5-L/D10-L/D33-L/D39-L/D84-L/D125-L/D127-L/D128-L; I21-L/I32-L/I64-L/I65-L; [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md).
 
 ### multi-session-web-concurrency
 
 - **Name:** Concurrent live web sessions
-- **Linear/branch:** create at pickup after `standalone-web-session-host`; distinct frontier because it closes concurrency breadth and shared-authority behavior rather than the first proof-of-life path
+- **Linear/branch:** create at pickup; distinct frontier because it closes concurrency breadth and shared-authority behavior rather than the first proof-of-life path
 - **Kind:** structural concurrency closure
 - **Certainty:** proving
-- **Blocked by:** `standalone-web-session-host` and its chosen `LiveSessionHost` interface
+- **Depends on:** the materialized `LiveSessionHost` interface from completed `standalone-web-session-host`; ready for pickup, not started
 - **Retires:** A42-L
 - **Stabilizes:** I64-L across two simultaneous durable targets
 - **Objective:** open and drive two sessions concurrently in one cwd-scoped host, preserving per-session event sequence, ask broker, runtime state, JSONL file, and one-driver authority while both may reach the shared graph command layer.
@@ -168,10 +170,10 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 ### web-session-presentation-coverage
 
 - **Name:** Web session presentation family closure
-- **Linear/branch:** create at pickup after the tracer; separate coverage frontier because closure is universal over the visible family inventory
+- **Linear/branch:** create at pickup; separate coverage frontier because closure is universal over the visible family inventory
 - **Kind:** coverage frontier / sweep
-- **Certainty:** earned once the D128-L projection seam is established by `standalone-web-session-host`; regress to proving if that tracer does not settle the shape
-- **Classification:** wait-gated — do not scope cold; the required/deferred inventory is code-enumerable, but rows depend on the tracer's shared presentation interface and hydration contract
+- **Certainty:** earned; completed `standalone-web-session-host` established the D128-L projection seam
+- **Classification:** buildable at pickup — the former wait gate is cleared; derive the required/deferred inventory from code before building rows
 - **Boundary:** all production Brunch transcript result/custom-entry families intentionally visible in the web session experience; out — internal continuity ledgers, generic Pi platform parity, graph/dashboard views, and terminal-only interaction mechanics.
 - **Inventory authority:** a `Mode: sweep` scope file under `memory/cards/`, derived from the production registered-tool/custom-entry inventories and marked `●` required / `○` explicit `n/a` or deferred; `memory/PLAN.md` retains sequencing authority.
 - **Aggregate DoD:** no required row remains `spec`, `new`, or `partial`; every required family has one canonical semantic projection owner, React adapter, live/persisted metamorphic, and completeness oracle; every excluded family has an explicit disposition.

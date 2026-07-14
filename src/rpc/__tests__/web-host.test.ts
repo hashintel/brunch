@@ -305,6 +305,26 @@ describe('web host', () => {
     }
   });
 
+  it('serves index.html for a targeted client-side session route without admitting unrelated paths', async () => {
+    const assetRoot = await builtWebAssets();
+    const host = await startWebHost({
+      cwd: '/tmp/brunch-project',
+      port: 0,
+      webAssetRoot: assetRoot,
+    });
+    try {
+      const sessionResponse = await fetch(`${host.url}/session/1/session-abc`);
+      const unrelatedResponse = await fetch(`${host.url}/unrelated/path`);
+
+      expect(sessionResponse.status).toBe(200);
+      expect(sessionResponse.headers.get('content-type')).toContain('text/html');
+      expect(await text(sessionResponse)).toContain('data-built-shell="true"');
+      expect(unrelatedResponse.status).toBe(404);
+    } finally {
+      await host.close();
+    }
+  });
+
   it('serves index.html for client-side runs routes as an SPA fallback', async () => {
     const assetRoot = await builtWebAssets();
     const host = await startWebHost({

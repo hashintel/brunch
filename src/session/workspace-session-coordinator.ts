@@ -212,6 +212,13 @@ export interface WorkspaceSessionBoundaryCoordinator {
   bindCurrentSpecToReplacementSession(manager: SessionManager): Promise<WorkspaceSessionReadyState>;
 }
 
+export interface TargetWorkspaceSessionCoordinator {
+  openTargetSession(target: { specId: number; sessionId: string }): Promise<WorkspaceSessionReadyState>;
+  bindTargetSpecToReplacementSession(
+    target: { specId: number },
+    manager: SessionManager,
+  ): Promise<WorkspaceSessionReadyState>;
+}
 interface WorkspaceDefaultChromeCoordinator {
   deriveDefaultChromeState(): Promise<WorkspaceSessionChromeState>;
 }
@@ -222,6 +229,7 @@ export interface WorkspaceSessionCoordinator
     DefaultWorkspaceCoordinator,
     WorkspaceSetupCoordinator,
     WorkspaceSessionBoundaryCoordinator,
+    TargetWorkspaceSessionCoordinator,
     WorkspaceDefaultChromeCoordinator {}
 
 export function createWorkspaceSessionCoordinator(options?: { cwd?: string }): WorkspaceSessionCoordinator {
@@ -366,6 +374,29 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
     const session = await createBoundSession(this.#cwd, spec);
     await writeWorkspaceDefaults(this.#cwd, spec.id, session.id);
     return readyState(this.#cwd, spec, session, state?.project);
+  }
+
+  async openTargetSession(target: {
+    specId: number;
+    sessionId: string;
+  }): Promise<WorkspaceSessionReadyState> {
+    const inventory = await inspectWorkspaceInventory(this.#cwd);
+    const spec = inventory.specs.find((candidate) => candidate.spec.id === target.specId);
+    const session = spec?.sessions.find((candidate) => candidate.id === target.sessionId);
+    if (!spec || !session) throw new Error('Session target not found');
+
+    const manager = SessionManager.open(session.file, sessionDir(this.#cwd), this.#cwd);
+    return readyState(this.#cwd, spec.spec, bindSessionToSpec(manager, spec.spec), inventory.project);
+  }
+
+  async bindTargetSpecToReplacementSession(
+    target: { specId: number },
+    manager: SessionManager,
+  ): Promise<WorkspaceSessionReadyState> {
+    const state = await readWorkspaceState(this.#cwd);
+    const spec = await getSpecState(this.#cwd, target.specId);
+    if (!spec) throw new Error('Session target spec not found');
+    return readyState(this.#cwd, spec, bindSessionToSpec(manager, spec), state?.project);
   }
 
   async bindCurrentSpecToReplacementSession(manager: SessionManager): Promise<WorkspaceSessionReadyState> {

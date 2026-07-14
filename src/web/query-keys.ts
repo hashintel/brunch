@@ -6,6 +6,8 @@ export const queryKeys = {
   session: {
     runtimeState: (target: { specId: number; sessionId: string }) =>
       ['session.runtimeState', target.specId, target.sessionId] as const,
+    presentation: (target: { specId: number; sessionId: string }) =>
+      ['session.presentation', target.specId, target.sessionId] as const,
   },
   graph: {
     overview: (specId: number) => ['graph.overview', specId] as const,

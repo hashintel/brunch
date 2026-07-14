@@ -7,6 +7,7 @@ import { readRunDetail, petrinautStreamPathForRun } from '../executor/observer-r
 import { composePetrinautLauncherUrl, resolvePetrinautUrl } from '../executor/petrinaut/launcher-url.js';
 import type { WorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 import { createReadOnlyRpcHandlers, createWebSidecarRpcHandlers } from './handlers.js';
+import type { HostedSessionRpcBoundary } from './methods/hosted-session.js';
 import type { SessionTurnDriver } from './methods/session-driver.js';
 import type { SessionExchangeAnswerHandle } from './methods/session-exchange-answer.js';
 import type { SessionOpenAsksHandle } from './methods/session-open-asks.js';
@@ -26,6 +27,8 @@ export interface WebHostOptions {
   sessionTurnDriver?: SessionTurnDriver;
   sessionExchangeAnswer?: SessionExchangeAnswerHandle;
   sessionOpenAsks?: SessionOpenAsksHandle;
+  hostedSession?: HostedSessionRpcBoundary;
+  hostedSessionEvents?: { subscribe(listener: (frame: unknown) => void): () => void };
 }
 
 export interface RunningWebHost {
@@ -94,17 +97,31 @@ export async function startWebHost(options: WebHostOptions): Promise<RunningWebH
       attachWebRpcTransport({
         server,
         path: '/rpc',
-        handlers: createReadOnlyRpcHandlers({
-          coordinator: options.coordinator,
-          cwd: options.cwd,
-          productUpdates,
-        }),
+        handlers: options.hostedSession
+          ? createWebSidecarRpcHandlers({
+              coordinator: options.coordinator,
+              cwd: options.cwd,
+              productUpdates,
+              hostedSession: options.hostedSession,
+            })
+          : createReadOnlyRpcHandlers({
+              coordinator: options.coordinator,
+              cwd: options.cwd,
+              productUpdates,
+            }),
         productUpdates,
-        ...(options.sessionEvents ? { sessionEvents: options.sessionEvents } : {}),
+        ...(options.hostedSessionEvents
+          ? { sessionEvents: options.hostedSessionEvents as SessionEventRelay }
+          : options.sessionEvents
+            ? { sessionEvents: options.sessionEvents }
+            : {}),
       }),
     );
 
-    if (options.sessionTurnDriver || options.sessionExchangeAnswer || options.sessionOpenAsks) {
+    if (
+      !options.hostedSession &&
+      (options.sessionTurnDriver || options.sessionExchangeAnswer || options.sessionOpenAsks)
+    ) {
       rpcTransports.push(
         attachWebRpcTransport({
           server,
@@ -236,7 +253,11 @@ function isSpaFallbackRequest(requestUrl: string | undefined): boolean {
     return false;
   }
   return (
-    pathname === '/' || pathname.startsWith('/spec/') || pathname === '/runs' || pathname.startsWith('/runs/')
+    pathname === '/' ||
+    pathname.startsWith('/spec/') ||
+    pathname.startsWith('/session/') ||
+    pathname === '/runs' ||
+    pathname.startsWith('/runs/')
   );
 }
 
