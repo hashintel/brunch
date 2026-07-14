@@ -29,7 +29,9 @@ export function stripBrunchContinuityBlock(summary: string | undefined): string 
   if (summary === undefined || !summary.startsWith(`${OPEN}\n`)) return summary;
 
   const match = summary.match(
-    /^<!-- brunch:compaction-continuity version=1 -->\n## Brunch continuity anchors\n\n```json\n([^\n]*)\n```\n<!-- \/brunch:compaction-continuity -->(?:\n|$)/,
+    new RegExp(
+      `^${OPEN}\\n## Brunch continuity anchors\\n\\n\`\`\`json\\n([^\\n]*)\\n\`\`\`\\n${CLOSE}(?:\\n|$)`,
+    ),
   );
   if (!match) return summary;
 
