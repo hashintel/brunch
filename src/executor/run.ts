@@ -47,6 +47,8 @@ export interface RunMetadata {
     | 'landed'
     | 'abandoned';
   readonly worktreeDir?: string;
+  /** Execution mode read from the persisted plan at creation; substrate derives from it. */
+  readonly mode?: 'greenfield' | 'brownfield';
   readonly substrate?: WorktreeSubstrateKind;
   /** Durable run-origin base commit, recorded once at worktree creation:
       git_worktree -> the commit the worktree was added at; empty_dir -> the empty base commit.
@@ -270,6 +272,7 @@ export async function createRun(args: {
   readonly specId: string;
   readonly current?: LaunchCurrentProjection;
   readonly runId?: string;
+  readonly mode?: RunMetadata['mode'];
   readonly substrate?: WorktreeSubstrateKind;
   readonly verifyTarget?: VerifyTarget;
 }): Promise<RunCreateResult> {
@@ -288,6 +291,7 @@ async function createRunOwned(
     readonly specId: string;
     readonly current?: LaunchCurrentProjection;
     readonly runId?: string;
+    readonly mode?: RunMetadata['mode'];
     readonly substrate?: WorktreeSubstrateKind;
     readonly verifyTarget?: VerifyTarget;
   },
@@ -334,6 +338,7 @@ async function createRunOwned(
     specId: args.specId,
     planPath: launch.planPath,
     status: 'created',
+    ...(args.mode ? { mode: args.mode } : {}),
     ...(args.substrate ? { substrate: args.substrate } : {}),
     ...(args.verifyTarget ? { verifyTarget: args.verifyTarget } : {}),
   };

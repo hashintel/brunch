@@ -1000,13 +1000,7 @@ describe('Brunch explicit Pi extension registry', () => {
 
     const createRun = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_RUN_CREATE_TOOL);
     expect(createRun).toBeDefined();
-    const result = await createRun!.execute(
-      'call-1',
-      { runId: 'run-1', substrate: 'empty_dir' },
-      undefined,
-      undefined,
-      { cwd },
-    );
+    const result = await createRun!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
 
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
@@ -1030,7 +1024,9 @@ describe('Brunch explicit Pi extension registry', () => {
         { kind: 'write_file', path: join(runDir, 'petrinaut', 'events.jsonl') },
       ],
     });
+    // Mode is the sole authority: the greenfield plan derives the isolated empty_dir substrate.
     await expect(readFile(metadataPath, 'utf8')).resolves.toContain('"substrate": "empty_dir"');
+    await expect(readFile(metadataPath, 'utf8')).resolves.toContain('"mode": "greenfield"');
     await expect(readFile(metadataPath, 'utf8')).resolves.toContain('"command": "npm"');
     await expect(access(join(runDir, 'worktree'))).rejects.toThrow();
     await expect(access(join(runDir, 'reports.jsonl'))).rejects.toThrow();
@@ -1080,9 +1076,16 @@ describe('Brunch explicit Pi extension registry', () => {
     });
 
     expect(result.content[0]?.text).toContain('execute_run_create: created');
-    await expect(
-      readFile(join(cwd, '.brunch', 'cook', 'runs', 'run-brownfield', 'run.json'), 'utf8'),
-    ).resolves.toContain('"status": "created"');
+    const metadata = await readFile(
+      join(cwd, '.brunch', 'cook', 'runs', 'run-brownfield', 'run.json'),
+      'utf8',
+    );
+    expect(metadata).toContain('"status": "created"');
+    // Mode is the sole authority: brownfield derives the host git_worktree substrate.
+    expect(JSON.parse(metadata)).toMatchObject({ mode: 'brownfield', substrate: 'git_worktree' });
+    // The derivation is unrepresentable to contradict: the tool has no substrate/mode inputs.
+    expect(JSON.stringify(createRun!.parameters)).not.toContain('substrate');
+    expect(JSON.stringify(createRun!.parameters)).not.toContain('"mode"');
   });
 
   it('registers execute_replan_recommendation as read-only HITL diagnosis', async () => {

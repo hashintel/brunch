@@ -211,7 +211,13 @@ src/executor/TOPOLOGY.md                      ~   (host-promotion paragraph → 
 
 ---
 
-## Card 3 — mode as sole authority, substrate derived [pending]
+## Card 3 — mode as sole authority, substrate derived [done]
+
+> Landed 2026-07-14. The tool reads the persisted plan's mode before projection,
+> derives the substrate, and persists both on RunMetadata; createRun keeps its
+> internal substrate arg for tests/probes (the unrepresentability lives at the
+> tool boundary, where finding 3's contradiction lived). Two brownfield tool
+> tests dropped their now-nonexistent mode param; the schema test pins ['runId'].
 
 ### Target Behavior
 
