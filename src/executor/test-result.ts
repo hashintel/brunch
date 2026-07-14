@@ -191,10 +191,16 @@ async function ingestTestResultOwned(args: {
   }
 
   const { activeSliceAttempts: _cleared, ...metadataWithoutAttempts } = metadata;
+  const failedSliceIds =
+    runResult.verdict === 'failed'
+      ? [...(metadata.failedSliceIds ?? []), metadata.activeSliceId]
+      : metadata.failedSliceIds;
+  const metadataForVerdict = clearFailedActiveSlice(metadataWithoutAttempts, runResult.verdict);
   const updated: RunMetadata = {
-    ...metadataWithoutAttempts,
+    ...metadataForVerdict,
     status: 'test_result_ingested',
     sliceAttemptHistory: mergeAttemptHistory(metadata.sliceAttemptHistory, attemptResult.outcome.history),
+    ...(failedSliceIds === undefined ? {} : { failedSliceIds }),
   };
 
   const metadataEffect = await persistRunMetadata(metadataPath, updated);
@@ -215,4 +221,16 @@ async function ingestTestResultOwned(args: {
       metadataEffect,
     ],
   };
+}
+
+function clearFailedActiveSlice(metadata: RunMetadata, verdict: 'passed' | 'failed'): RunMetadata {
+  if (verdict === 'passed') return metadata;
+  const {
+    activeSliceId: _activeSliceId,
+    activeEpicId: _activeEpicId,
+    activeSliceWorkspaceDir: _activeSliceWorkspaceDir,
+    activeSliceBaseSha: _activeSliceBaseSha,
+    ...cleared
+  } = metadata;
+  return cleared;
 }

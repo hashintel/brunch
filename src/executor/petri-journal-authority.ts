@@ -121,6 +121,9 @@ function transitionEventStep(
   if (transition.id.startsWith('verify_retry:') || transition.id.startsWith('verify_exhausted:')) {
     return 'test_result';
   }
+  if (transition.id.startsWith('verify_passed:') || transition.id.startsWith('verify_failed:')) {
+    return 'test_result';
+  }
   if (transition.id.startsWith('agent_reset:')) return 'agent_result';
   if (transition.id.startsWith('verify_reset:')) return 'test_result';
   return undefined;

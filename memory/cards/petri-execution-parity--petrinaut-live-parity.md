@@ -30,7 +30,7 @@ Petrinaut receives every firing with the old-main timestamp contract and termina
 
 ## Slice 2 — Structural verification verdicts
 
-Status: queued
+Status: done
 
 ### Target Behavior
 
@@ -42,6 +42,12 @@ Passed and failed verification follow different Petri transitions and only passi
 ✓ failed S3/S4 cannot mark integration-ready places; successful S5 can integrate.
 ✓ restart reconstruction preserves the chosen verdict branch.
 ✓ terminal marking/run summary clear stale active-slice identity and retain complete failed-slice evidence.
+
+### Evidence
+
+- `src/executor/__tests__/petri.test.ts` pins the frozen ingestion/pass/fail topology, removes the legacy transition, and proves a failed verdict cannot replay through integration.
+- `src/executor/__tests__/orchestrate.test.ts` proves verdict-bearing restart reconstruction with no active-slice identity and direct parallel ingestion/verdict firings.
+- `src/rpc/__tests__/web-host.test.ts` drives failed S3/S4 verdicts with passed/integrated S5 and checks complete terminal/run-summary failure evidence plus exact live/journal order.
 
 ## Slice 3 — Legible Petrinaut projection
 

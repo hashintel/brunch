@@ -449,13 +449,15 @@ describe('exportPetri', () => {
         'slice_start:task-1',
         'slice_execute:task-1',
         'agent_result:task-1:attempt:1',
-        'test_result:task-1:attempt:1',
+        'test_result_ingested:task-1:attempt:1',
+        'verify_passed:task-1:attempt:1',
         'slice_integrate:task-1',
         'slice_complete:task-1',
         'slice_start:task-2',
         'slice_execute:task-2',
         'agent_result:task-2:attempt:1',
-        'test_result:task-2:attempt:1',
+        'test_result_ingested:task-2:attempt:1',
+        'verify_passed:task-2:attempt:1',
         'slice_integrate:task-2',
         'slice_complete:task-2',
         'epic_integrate:frontier-1',
@@ -496,7 +498,7 @@ describe('exportPetri', () => {
 
     expect(projection).toEqual({
       currentMarking: { 'run:promotion_prepared': 1 },
-      firedTransitionCount: 22,
+      firedTransitionCount: 24,
       terminalEventKind: 'net_completed',
     });
   });
@@ -841,6 +843,54 @@ describe('replayPetri', () => {
 });
 
 describe('replayTransitionHistory', () => {
+  it('separates verify result ingestion from the explicit pass/fail verdict branches', () => {
+    const topology = compileExecutorTopology({ slices: [{ id: 'S3' }, { id: 'S5' }] });
+    const transitions = new Map(topology.transitions.map((transition) => [transition.id, transition]));
+
+    expect(transitions.has('test_result:S3:attempt:1')).toBe(false);
+    expect(transitions.get('test_result_ingested:S3:attempt:1')).toMatchObject({
+      inputArcs: [{ placeId: 'slice:S3:verify_attempt:1', weight: 1 }],
+      outputArcs: [{ placeId: 'slice:S3:verify_result:1', weight: 1 }],
+    });
+    expect(transitions.get('verify_failed:S3:attempt:1')).toMatchObject({
+      inputArcs: [{ placeId: 'slice:S3:verify_result:1', weight: 1 }],
+      outputArcs: [{ placeId: 'slice:S3:verification_failed', weight: 1 }],
+    });
+    expect(transitions.get('verify_passed:S5:attempt:1')).toMatchObject({
+      inputArcs: [{ placeId: 'slice:S5:verify_result:1', weight: 1 }],
+      outputArcs: [{ placeId: 'slice:S5:verification_passed', weight: 1 }],
+    });
+    expect(transitions.get('slice_integrate:S3')).toMatchObject({
+      inputArcs: [{ placeId: 'slice:S3:verification_passed', weight: 1 }],
+    });
+
+    const prefix = ['worktree_create', 'populate', 'source_policy', 'source_copy', 'report_init'];
+    const failed = replayTransitionHistory(topology, [
+      ...prefix,
+      'slice_start:S3',
+      'slice_execute:S3',
+      'agent_result:S3:attempt:1',
+      'test_result_ingested:S3:attempt:1',
+      'verify_failed:S3:attempt:1',
+    ]);
+    expect(failed?.currentMarking).toMatchObject({
+      'slice:S3:verification_failed': 1,
+      'slice:S5:claim': 1,
+    });
+    expect(failed?.currentMarking).not.toHaveProperty('slice:S3:verification_passed');
+    expect(
+      replayTransitionHistory(topology, [
+        ...prefix,
+        'slice_start:S3',
+        'slice_execute:S3',
+        'agent_result:S3:attempt:1',
+        'test_result_ingested:S3:attempt:1',
+        'verify_failed:S3:attempt:1',
+        'slice_integrate:S3',
+      ]),
+    ).toBeUndefined();
+  });
+
   it('replays connected attempt retry and exhaustion markings without changing topology', () => {
     const topology = compileExecutorTopology({ slices: [{ id: 'task-1' }] });
     const prefix = [
@@ -921,13 +971,15 @@ describe('replayTransitionHistory', () => {
       'slice_start:task-1',
       'slice_execute:task-1',
       'agent_result:task-1:attempt:1',
-      'test_result:task-1:attempt:1',
+      'test_result_ingested:task-1:attempt:1',
+      'verify_passed:task-1:attempt:1',
       'slice_integrate:task-1',
       'slice_complete:task-1',
       'slice_start:task-2',
       'slice_execute:task-2',
       'agent_result:task-2:attempt:1',
-      'test_result:task-2:attempt:1',
+      'test_result_ingested:task-2:attempt:1',
+      'verify_passed:task-2:attempt:1',
       'slice_integrate:task-2',
       'slice_complete:task-2',
     ]);
@@ -943,13 +995,15 @@ describe('replayTransitionHistory', () => {
         'slice_start:task-1',
         'slice_execute:task-1',
         'agent_result:task-1:attempt:1',
-        'test_result:task-1:attempt:1',
+        'test_result_ingested:task-1:attempt:1',
+        'verify_passed:task-1:attempt:1',
         'slice_integrate:task-1',
         'slice_complete:task-1',
         'slice_start:task-2',
         'slice_execute:task-2',
         'agent_result:task-2:attempt:1',
-        'test_result:task-2:attempt:1',
+        'test_result_ingested:task-2:attempt:1',
+        'verify_passed:task-2:attempt:1',
         'slice_integrate:task-2',
         'slice_complete:task-2',
         'epic_integrate:epic-1',

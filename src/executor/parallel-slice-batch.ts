@@ -101,6 +101,9 @@ export async function executeParallelSliceBatch(
       const settled = await effects[index]!;
       if (settled.status === 'rejected') return authorityFailure(summary.status, settled.error);
       const result = settled.result;
+      summary = recordSliceEffectSummary(summary, result);
+      await persistRunMetadata(runMetadataPath(ctx.cwd, ctx.runId), summary);
+      await authority.setState(summary);
       if (result.status === 'failed') {
         halt ??= result;
         continue;
@@ -131,6 +134,9 @@ export async function executeParallelSliceBatch(
       } catch (error) {
         const reason = thrownSliceEffectReason('slice_integration_threw', error);
         settlements.set(sliceId, { sliceId, status: 'failed', step: 'slice_integrate', reason });
+        summary = recordFailedSliceSummary(summary, sliceId);
+        await persistRunMetadata(runMetadataPath(ctx.cwd, ctx.runId), summary);
+        await authority.setState(summary);
         await authority.setBatch(batchSnapshot(claimedSliceIds, settlements));
         halt = {
           status: 'failed',
@@ -157,6 +163,9 @@ export async function executeParallelSliceBatch(
           step: failure.step,
           reason: failure.reason,
         });
+        summary = recordFailedSliceSummary(summary, sliceId);
+        await persistRunMetadata(runMetadataPath(ctx.cwd, ctx.runId), summary);
+        await authority.setState(summary);
         await authority.setBatch(batchSnapshot(claimedSliceIds, settlements));
         halt = failure;
         continue;
@@ -231,6 +240,21 @@ function updateRunSummary(
       ...summary.integratedSliceCommits,
       [result.sliceId]: integrationCommitSha,
     },
-    sliceAttemptHistory: mergeAttemptHistory(summary.sliceAttemptHistory, result.attemptHistory),
   };
+}
+
+function recordSliceEffectSummary(summary: RunMetadata, result: SliceEffectResult): RunMetadata {
+  return {
+    ...summary,
+    sliceAttemptHistory: mergeAttemptHistory(summary.sliceAttemptHistory, result.attemptHistory),
+    ...(result.status === 'failed'
+      ? { failedSliceIds: [...(summary.failedSliceIds ?? []), result.sliceId] }
+      : {}),
+  };
+}
+
+function recordFailedSliceSummary(summary: RunMetadata, sliceId: string): RunMetadata {
+  return summary.failedSliceIds?.includes(sliceId)
+    ? summary
+    : { ...summary, failedSliceIds: [...(summary.failedSliceIds ?? []), sliceId] };
 }

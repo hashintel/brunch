@@ -554,6 +554,7 @@ async function driveOwned(
         kind: 'scheduler_exhausted',
         runId: ctx.runId,
         runStatus: state.status,
+        ...(state.failedSliceIds === undefined ? {} : { failedSliceIds: state.failedSliceIds }),
       });
       const snapshot = await readPetriMarkingSnapshot({ cwd: ctx.cwd, runId: ctx.runId });
       if (snapshotAlreadyCapturesTerminal({ snapshot, state, runtime, plan, terminal })) {
@@ -1076,11 +1077,13 @@ async function emitNewImpliedTopologyEvents(args: {
   for (const transitionId of afterIds.slice(beforeIds.length)) {
     const transition = args.topology.transitions.find((candidate) => candidate.id === transitionId);
     if (!transition || transition.step !== undefined) continue;
-    const step = transitionId.startsWith('epic_integrate:')
-      ? 'epic_integrate'
-      : transitionId.startsWith('epic_verify:')
-        ? 'epic_verify'
-        : 'epic_complete';
+    const step = transitionId.startsWith('verify_')
+      ? 'test_result'
+      : transitionId.startsWith('epic_integrate:')
+        ? 'epic_integrate'
+        : transitionId.startsWith('epic_verify:')
+          ? 'epic_verify'
+          : 'epic_complete';
     const emitted = await emitNetEvent(args.ctx, {
       kind: 'transition_fired',
       runId: args.after.runId,
@@ -1088,6 +1091,7 @@ async function emitNewImpliedTopologyEvents(args: {
       transitionId,
       subnetId: transition.subnetId,
       ...(transition.epicId === undefined ? {} : { epicId: transition.epicId }),
+      ...(transition.derivedFrom === undefined ? {} : { derivedFrom: transition.derivedFrom }),
       step,
       contract: transition.contract,
       consumed: transition.inputArcs.map((arc) => arc.placeId),

@@ -73,6 +73,25 @@ export function classifyDriveTerminal(
     };
   }
 
+  if (args.failedSliceIds?.length) {
+    return {
+      event: {
+        kind: 'net_halted',
+        runId: args.runId,
+        runStatus: args.runStatus,
+        step: 'test_result',
+        reason: 'slice_verification_not_passed',
+        failedSliceIds: args.failedSliceIds,
+      },
+      outcome: {
+        status: 'halted',
+        step: 'test_result',
+        runStatus: args.runStatus,
+        reason: 'slice_verification_not_passed',
+      },
+    };
+  }
+
   if (args.runStatus !== 'promotion_prepared') {
     return {
       event: {

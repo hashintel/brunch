@@ -113,6 +113,19 @@ async function writeRun(
       status: options.status ?? 'created',
       ...(options.activeSliceId === undefined ? {} : { activeSliceId: options.activeSliceId }),
       ...(options.completedSliceIds === undefined ? {} : { completedSliceIds: options.completedSliceIds }),
+      ...(options.completedSliceIds === undefined
+        ? {}
+        : {
+            sliceAttemptHistory: Object.fromEntries(
+              options.completedSliceIds.map((sliceId) => [
+                sliceId,
+                {
+                  agent: [{ outcome: 'succeeded', attempts: 1 }],
+                  verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'passed' }],
+                },
+              ]),
+            ),
+          }),
       ...(options.integratedEpicIds === undefined ? {} : { integratedEpicIds: options.integratedEpicIds }),
       ...(options.epicTransitionHistory === undefined
         ? {}

@@ -238,6 +238,7 @@ async function runVerifyAttempts(args: {
     const outcome = attemptResult.outcome;
     if (outcome.status === 'succeeded' || outcome.status === 'verification_failed') {
       await args.authority.fire(outcome.transitionId);
+      await args.authority.fire(outcome.verdictTransitionId!);
       if (report) await args.authority.appendReport(report);
       emitParallelStepProgress(args.ctx, 'completed', verifyStep, args.state);
       return outcome.status === 'succeeded'

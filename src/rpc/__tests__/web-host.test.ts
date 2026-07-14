@@ -1129,11 +1129,13 @@ describe('web host', () => {
       let body = decoder.decode(first.value);
       const ports: ExecutionPorts = {
         ...executorPorts(createFakeGitWorktreePort()),
-        agentRunner: {
+        testRunner: {
           async run(args) {
-            return args.sliceId === 'S5'
-              ? { status: 'completed' }
-              : { status: 'failed', message: `${args.sliceId} failed` };
+            return {
+              status: 'completed',
+              verdict: args.worktreeDir.includes('/S5/') ? 'passed' : 'failed',
+              exitCode: args.worktreeDir.includes('/S5/') ? 0 : 1,
+            };
           },
         },
       };
@@ -1142,9 +1144,9 @@ describe('web host', () => {
         drive({ cwd, runId: 'run-1', ports }, petriScheduler, frontierFiringPolicy),
       ).resolves.toEqual({
         status: 'halted',
-        step: 'agent_result',
+        step: 'test_result',
         runStatus: 'slice_completed',
-        reason: 'agent_run_failed',
+        reason: 'slice_verification_not_passed',
       });
       for (;;) {
         const next = await reader.read();
@@ -1170,17 +1172,38 @@ describe('web host', () => {
 
       expect(firings).toEqual([...durableFirings, 'run:finish']);
       expect(firings).toEqual(
-        expect.arrayContaining(['agent_exhausted:S3', 'agent_exhausted:S4', 'slice_complete:S5']),
+        expect.arrayContaining([
+          'test_result_ingested:S3:attempt:1',
+          'verify_failed:S3:attempt:1',
+          'test_result_ingested:S4:attempt:1',
+          'verify_failed:S4:attempt:1',
+          'test_result_ingested:S5:attempt:1',
+          'verify_passed:S5:attempt:1',
+          'slice_complete:S5',
+        ]),
       );
+      expect(firings).not.toContain('slice_integrate:S3');
+      expect(firings).not.toContain('slice_integrate:S4');
+      expect(firings).toContain('slice_integrate:S5');
+      await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+        status: 'slice_completed',
+        failedSliceIds: ['S3', 'S4'],
+        completedSliceIds: ['S5'],
+        sliceAttemptHistory: {
+          S3: { verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'failed' }] },
+          S4: { verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'failed' }] },
+          S5: { verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'passed' }] },
+        },
+      });
       expect(frames.filter((frame) => frame.event === 'status').at(-1)?.data).toEqual({
         state: 'halted',
         failedSliceIds: ['S3', 'S4'],
-        reason: 'agent_run_failed',
+        reason: 'slice_verification_not_passed',
       });
       expect(frames.at(-1)?.data).toEqual({
         state: 'halted',
         failedSliceIds: ['S3', 'S4'],
-        reason: 'agent_run_failed',
+        reason: 'slice_verification_not_passed',
       });
     } finally {
       await host.close();
@@ -1343,10 +1366,10 @@ describe('web host', () => {
       }
 
       const frames = parseSse(body);
-      // Epic integrate/complete are now counted as their own drive firings;
-      // run:finish is the sole synthesized terminal projection transition.
+      // Verdict and epic transitions are structural journal firings; run:finish
+      // remains the sole synthesized terminal projection transition.
       expect(frames.filter((frame) => frame.event === 'transition_firing')).toHaveLength(
-        firedTransitions + 1,
+        firedTransitions + 2,
       );
       expect(body).toContain('"transitionId":"run:finish"');
       expect(frames.at(-1)).toEqual({

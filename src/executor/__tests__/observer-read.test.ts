@@ -18,12 +18,20 @@ async function fixtureCwd(prefix: string): Promise<string> {
 async function writeRun(cwd: string, runId: string, metadata: Partial<RunMetadata>): Promise<string> {
   const runDir = runDirPath(cwd, runId);
   await mkdir(runDir, { recursive: true });
+  const sliceAttemptHistory = { ...metadata.sliceAttemptHistory };
+  for (const sliceId of metadata.completedSliceIds ?? []) {
+    sliceAttemptHistory[sliceId] ??= {
+      agent: [{ outcome: 'succeeded', attempts: 1 }],
+      verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'passed' }],
+    };
+  }
   const payload = {
     runId,
     specId: '42',
     planPath: '/plan.yaml',
     status: 'created',
     ...metadata,
+    ...(Object.keys(sliceAttemptHistory).length === 0 ? {} : { sliceAttemptHistory }),
   };
   await writeFile(runMetadataPath(cwd, runId), `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
   return runDir;

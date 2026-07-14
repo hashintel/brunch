@@ -15,6 +15,7 @@ import {
   attemptRetryTransitionId,
   attemptSuccessTransitionId,
   SLICE_ATTEMPT_LIMIT,
+  verifyVerdictTransitionId,
   type ReadyStep,
 } from './orchestrate-topology.js';
 import { populatedPlanPath } from './populate.js';
@@ -55,12 +56,14 @@ export type IsolatedAttemptOutcome =
   | {
       readonly status: 'succeeded';
       readonly transitionId: string;
+      readonly verdictTransitionId?: string;
       readonly history: SliceAttemptHistory;
     }
   | {
       readonly status: 'verification_failed';
       readonly reason: 'slice_verification_not_passed';
       readonly transitionId: string;
+      readonly verdictTransitionId: string;
       readonly history: SliceAttemptHistory;
     }
   | {
@@ -480,11 +483,25 @@ function classifyIsolatedAttempt(args: {
     };
   }
   const transitionId = attemptSuccessTransitionId(args.stage, args.sliceId, args.attempt);
-  const history = attemptHistory(args.sliceId, args.stage, 'succeeded', args.attempt);
+  const verdict = args.stage === 'verify' && 'verdict' in args.result ? args.result.verdict : undefined;
+  const history = attemptHistory(args.sliceId, args.stage, 'succeeded', args.attempt, verdict);
   if (args.stage === 'verify' && 'verdict' in args.result && args.result.verdict !== 'passed') {
-    return { status: 'verification_failed', reason: 'slice_verification_not_passed', transitionId, history };
+    return {
+      status: 'verification_failed',
+      reason: 'slice_verification_not_passed',
+      transitionId,
+      verdictTransitionId: verifyVerdictTransitionId('failed', args.sliceId, args.attempt),
+      history,
+    };
   }
-  return { status: 'succeeded', transitionId, history };
+  return {
+    status: 'succeeded',
+    transitionId,
+    ...(verdict === undefined
+      ? {}
+      : { verdictTransitionId: verifyVerdictTransitionId('passed', args.sliceId, args.attempt) }),
+    history,
+  };
 }
 
 function attemptHistory(
@@ -492,12 +509,13 @@ function attemptHistory(
   stage: 'agent' | 'verify',
   outcome: 'succeeded' | 'exhausted',
   attempts: number,
+  verdict?: 'passed' | 'failed',
 ): SliceAttemptHistory {
   return appendSliceAttemptCycle(
     { runId: '', specId: '', planPath: '', status: 'reports_initialized' },
     sliceId,
     stage,
-    { outcome, attempts },
+    { outcome, attempts, ...(verdict === undefined ? {} : { verdict }) },
   );
 }
 

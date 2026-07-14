@@ -17,6 +17,7 @@ export type SliceAttemptStage = 'agent' | 'verify';
 export interface SliceAttemptCycle {
   readonly outcome: 'succeeded' | 'exhausted' | 'reset';
   readonly attempts: number;
+  readonly verdict?: 'passed' | 'failed';
 }
 
 export type SliceAttemptHistory = Readonly<
@@ -65,6 +66,7 @@ export interface RunMetadata {
   readonly activeSliceBaseSha?: string;
   readonly integratedSliceCommits?: Readonly<Record<string, string>>;
   readonly completedSliceIds?: readonly string[];
+  readonly failedSliceIds?: readonly string[];
   readonly integratedEpicIds?: readonly string[];
   readonly verifiedEpicIds?: readonly string[];
   readonly completedEpicIds?: readonly string[];

@@ -212,7 +212,31 @@ async function prepareEpicVerificationReadyRun(cwd: string): Promise<{
 }
 
 function metadata(status: RunMetadata['status'], extra: Partial<RunMetadata> = {}): RunMetadata {
-  return { runId: 'run-1', specId: '42', planPath: 'plan.yaml', status, ...extra };
+  const activeSliceId =
+    extra.activeSliceId ??
+    (status === 'test_result_ingested' || status === 'slice_integrated' ? 'task-1' : undefined);
+  const verdictSliceIds = [
+    ...(extra.completedSliceIds ?? []),
+    ...(['test_result_ingested', 'slice_integrated'].includes(status) && activeSliceId
+      ? [activeSliceId]
+      : []),
+  ];
+  const sliceAttemptHistory = { ...extra.sliceAttemptHistory };
+  for (const sliceId of verdictSliceIds) {
+    sliceAttemptHistory[sliceId] ??= {
+      agent: [{ outcome: 'succeeded', attempts: 1 }],
+      verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'passed' }],
+    };
+  }
+  return {
+    runId: 'run-1',
+    specId: '42',
+    planPath: 'plan.yaml',
+    status,
+    ...extra,
+    ...(activeSliceId === undefined ? {} : { activeSliceId }),
+    ...(Object.keys(sliceAttemptHistory).length === 0 ? {} : { sliceAttemptHistory }),
+  };
 }
 
 async function pathExists(path: string): Promise<boolean> {
@@ -2408,11 +2432,11 @@ describe('drive', () => {
       sliceAttemptHistory: {
         'task-1': {
           agent: [{ outcome: 'succeeded', attempts: 1 }],
-          verify: [{ outcome: 'succeeded', attempts: 1 }],
+          verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'passed' }],
         },
         'task-2': {
           agent: [{ outcome: 'succeeded', attempts: 1 }],
-          verify: [{ outcome: 'succeeded', attempts: 1 }],
+          verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'passed' }],
         },
       },
     };
@@ -2795,6 +2819,7 @@ describe('drive', () => {
     expect(cleanTree).toEqual(['task-1']);
     await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
       completedSliceIds: ['task-1'],
+      failedSliceIds: ['task-2'],
       integratedSliceCommits: { 'task-1': 'task-1-integrated' },
     });
   });
@@ -3159,9 +3184,9 @@ describe('drive', () => {
         .map((event) => event.transitionId),
     ).toEqual(['verify_retry:task-1:1', 'verify_retry:task-1:2']);
     const verifyFiring = events.find(
-      (event) => event.kind === 'transition_fired' && event.transitionId.startsWith('test_result:'),
+      (event) => event.kind === 'transition_fired' && event.transitionId.startsWith('test_result_ingested:'),
     );
-    expect(verifyFiring).toMatchObject({ transitionId: 'test_result:task-1:attempt:3', attempt: 3 });
+    expect(verifyFiring).toMatchObject({ transitionId: 'test_result_ingested:task-1:attempt:3', attempt: 3 });
     expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.activeSliceAttempts).toBeUndefined();
   });
 
@@ -3179,7 +3204,7 @@ describe('drive', () => {
     const state = (await readRunMetadata(runMetadataPath(cwd, 'run-1')))!;
     expect(state.sliceAttemptHistory?.['task-1']).toEqual({
       agent: [{ outcome: 'succeeded', attempts: 2 }],
-      verify: [{ outcome: 'succeeded', attempts: 2 }],
+      verify: [{ outcome: 'succeeded', attempts: 2, verdict: 'passed' }],
     });
     const plan = JSON.parse(await readFile(petriPlanSnapshotPath(cwd, 'run-1'), 'utf8'));
     const projected = projectExecutorPetriTransitionHistory(state, plan)!;
@@ -3199,7 +3224,8 @@ describe('drive', () => {
         'agent_retry:task-1:1',
         'agent_result:task-1:attempt:2',
         'verify_retry:task-1:1',
-        'test_result:task-1:attempt:2',
+        'test_result_ingested:task-1:attempt:2',
+        'verify_passed:task-1:attempt:2',
       ]),
     );
     expect(replayed).toMatchObject({
@@ -3557,12 +3583,19 @@ describe('drive', () => {
 
     expect(outcome).toEqual({
       status: 'halted',
-      step: 'slice_integrate',
+      step: 'test_result',
       runStatus: 'test_result_ingested',
       reason: 'slice_verification_not_passed',
     });
     const meta = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
-    expect(meta?.status).toBe('test_result_ingested');
+    expect(meta).toMatchObject({
+      status: 'test_result_ingested',
+      failedSliceIds: ['task-1'],
+      sliceAttemptHistory: {
+        'task-1': { verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'failed' }] },
+      },
+    });
+    expect(meta).not.toHaveProperty('activeSliceId');
     expect((await readReportEvents(cwd)).map((event) => (event as { event?: string }).event)).not.toContain(
       'run_completed',
     );
@@ -3717,6 +3750,31 @@ describe('classifyDriveTerminal', () => {
 });
 
 describe('petri runtime helpers', () => {
+  it('reconstructs a failed verification verdict without stale active-slice identity', () => {
+    const plan = { slices: [{ id: 'S3' }] } as const;
+    const state: RunMetadata = {
+      runId: 'run-1',
+      specId: '42',
+      planPath: 'plan.yaml',
+      status: 'test_result_ingested',
+      failedSliceIds: ['S3'],
+      sliceAttemptHistory: {
+        S3: {
+          agent: [{ outcome: 'succeeded', attempts: 1 }],
+          verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'failed' }],
+        },
+      },
+    };
+    const runtime = materializeExecutorPetriRuntime(state, plan);
+
+    expect(projectExecutorPetriTransitionHistory(state, plan)?.transitionIds.slice(-2)).toEqual([
+      'test_result_ingested:S3:attempt:1',
+      'verify_failed:S3:attempt:1',
+    ]);
+    expect(runtime.currentMarking).toEqual({ 'slice:S3:verification_failed': 1 });
+    expect(runtime.readySteps).toEqual([]);
+  });
+
   it('derive enabled transition ids and ready-step transition ids from the same slice-frontier facts', () => {
     const plan = { mode: 'greenfield', slices: [{ id: 'task-1' }, { id: 'task-2' }] } as const;
 
@@ -3732,7 +3790,7 @@ describe('petri runtime helpers', () => {
     ).toBe('slice_start:task-2');
 
     expect(enabledPetriTransitionIds(metadata('agent_result_ingested', {}), plan)).toEqual([
-      'test_result:task-1:attempt:1',
+      'test_result_ingested:task-1:attempt:1',
     ]);
     expect(
       resolvePetriTransitionIdForReadyStep(
@@ -3740,7 +3798,7 @@ describe('petri runtime helpers', () => {
         metadata('agent_result_ingested', {}),
         plan,
       ),
-    ).toBe('test_result:task-1:attempt:1');
+    ).toBe('test_result_ingested:task-1:attempt:1');
 
     expect(
       enabledPetriTransitionIds(
@@ -3947,10 +4005,10 @@ describe('petri runtime helpers', () => {
       'slice:task-2:claim': 1,
     });
     expect(inFlightRuntime.enabledTransitions.map((transition) => transition.id)).toEqual([
-      'test_result:task-1:attempt:1',
+      'test_result_ingested:task-1:attempt:1',
     ]);
     expect(inFlightRuntime.transitionForReadyStep({ kind: 'test_result', sliceId: 'task-1' })?.id).toBe(
-      'test_result:task-1:attempt:1',
+      'test_result_ingested:task-1:attempt:1',
     );
   });
 
@@ -3972,7 +4030,7 @@ describe('petri runtime helpers', () => {
     );
     expect(retriedVerify.currentMarking).toEqual({ 'slice:task-1:verify_attempt:2': 1 });
     expect(retriedVerify.enabledTransitions.map((transition) => transition.id)).toEqual([
-      'test_result:task-1:attempt:2',
+      'test_result_ingested:task-1:attempt:2',
     ]);
 
     const exhausted = materializeExecutorPetriRuntime(
@@ -4058,7 +4116,8 @@ describe('petri runtime helpers', () => {
         'slice_start:task-1',
         'slice_execute:task-1',
         'agent_result:task-1:attempt:1',
-        'test_result:task-1:attempt:1',
+        'test_result_ingested:task-1:attempt:1',
+        'verify_passed:task-1:attempt:1',
         'slice_integrate:task-1',
         'slice_complete:task-1',
         'slice_start:task-2',
@@ -4285,9 +4344,9 @@ describe('compileExecutorTopology', () => {
     );
     expect(topology.transitions).toContainEqual(
       expect.objectContaining({
-        id: 'test_result:task-1:attempt:1',
+        id: 'test_result_ingested:task-1:attempt:1',
         inputArcs: [{ placeId: 'slice:task-1:verify_attempt:1', weight: 1 }],
-        outputArcs: [{ placeId: 'slice:task-1:test_result_ingested', weight: 1 }],
+        outputArcs: [{ placeId: 'slice:task-1:verify_result:1', weight: 1 }],
       }),
     );
   });
@@ -4424,7 +4483,7 @@ describe('compileExecutorTopology', () => {
     );
     expect(topology.transitions).toContainEqual(
       expect.objectContaining({
-        id: 'test_result:task-2:attempt:1',
+        id: 'test_result_ingested:task-2:attempt:1',
         guard: { kind: 'active_slice', sliceId: 'task-2' },
       }),
     );
@@ -4644,6 +4703,7 @@ describe('petriScheduler', () => {
       'transition_fired',
       'transition_fired',
       'transition_fired',
+      'transition_fired',
       'net_completed',
     ]);
     expect(
@@ -4741,13 +4801,24 @@ describe('petriScheduler', () => {
         toStatus: 'agent_result_ingested',
       },
       {
-        transitionId: 'test_result:task-1:attempt:1',
+        transitionId: 'test_result_ingested:task-1:attempt:1',
         subnetId: 'attempt:task-1:verify',
         epicId: 'frontier-1',
         derivedFrom: ['REQ1'],
         contract: { kind: 'mechanical', lane: 'attempt' },
         consumed: ['slice:task-1:verify_attempt:1'],
-        produced: ['slice:task-1:test_result_ingested'],
+        produced: ['slice:task-1:verify_result:1'],
+        fromStatus: 'agent_result_ingested',
+        toStatus: 'test_result_ingested',
+      },
+      {
+        transitionId: 'verify_passed:task-1:attempt:1',
+        subnetId: 'attempt:task-1:verify',
+        epicId: 'frontier-1',
+        derivedFrom: ['REQ1'],
+        contract: { kind: 'structural', lane: 'attempt' },
+        consumed: ['slice:task-1:verify_result:1'],
+        produced: ['slice:task-1:verification_passed'],
         fromStatus: 'agent_result_ingested',
         toStatus: 'test_result_ingested',
       },
@@ -4757,7 +4828,7 @@ describe('petriScheduler', () => {
         epicId: 'frontier-1',
         derivedFrom: ['REQ1'],
         contract: { kind: 'mechanical', lane: 'slice' },
-        consumed: ['slice:task-1:test_result_ingested'],
+        consumed: ['slice:task-1:verification_passed'],
         produced: ['slice:task-1:integrated'],
         fromStatus: 'test_result_ingested',
         toStatus: 'slice_integrated',
@@ -4826,7 +4897,7 @@ describe('petriScheduler', () => {
     expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
     await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toEqual({
       currentMarking: { 'run:promotion_prepared': 1 },
-      firedTransitionCount: 16,
+      firedTransitionCount: 17,
       lifecycleProvenance: {
         activeSliceId: 'task-1',
         runStatus: 'promotion_prepared',
@@ -5182,7 +5253,7 @@ describe('petriScheduler', () => {
     expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
     await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toEqual({
       currentMarking: { 'run:promotion_prepared': 1 },
-      firedTransitionCount: 16,
+      firedTransitionCount: 17,
       lifecycleProvenance: {
         activeSliceId: 'task-1',
         runStatus: 'promotion_prepared',

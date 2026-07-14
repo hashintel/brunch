@@ -386,7 +386,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Name:** Petri execution parity — isolated slice fan-in and epic integration
 - **Linear:** [FE-1195](https://linear.app/hash/issue/FE-1195/petri-execution-parity-isolated-slice-fan-in-and-epic-integration)
 - **Branch:** `ka/fe-1195-petri-execution-parity` (off `next`; FE-1192 is merged)
-- **Status:** Slice 1 complete: timestamped origin/main-compatible firing wire and ordered failed-slice terminal evidence are closed; structural verdict and compact projection slices remain.
+- **Status:** Slices 1-2 complete: timestamped origin/main-compatible firing wire, ordered failed-slice terminal evidence, and structural verification verdicts are closed; compact projection remains.
 - **Kind:** structural — per-slice side-effect isolation, explicit integration, and epic lifecycle semantics.
 - **Certainty:** proving.
 - **Depends on:** FE-1192's merged attempt identity and bounded-retry facts; FE-1190's frozen-definition live stream; FE-1166's run-environment substrate policy.

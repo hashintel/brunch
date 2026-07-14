@@ -16,6 +16,7 @@ import {
   readyPlanSliceIds,
   SLICE_ATTEMPT_LIMIT,
   sliceTransitionId,
+  verifyVerdictTransitionId,
   type BlockedStep,
   type ExecutorTopology,
   type ExecutorTransition,
@@ -529,7 +530,13 @@ function completedStageTransitionHistory(
     const failures = cycle.outcome === 'succeeded' ? cycle.attempts - 1 : cycle.attempts;
     const transitions = attemptFailureTransitionHistory(stage, sliceId, failures);
     return cycle.outcome === 'succeeded'
-      ? [...transitions, attemptSuccessTransitionId(stage, sliceId, cycle.attempts)]
+      ? [
+          ...transitions,
+          attemptSuccessTransitionId(stage, sliceId, cycle.attempts),
+          ...(stage === 'verify' && cycle.verdict
+            ? [verifyVerdictTransitionId(cycle.verdict, sliceId, cycle.attempts)]
+            : []),
+        ]
       : transitions;
   });
 }
@@ -625,12 +632,24 @@ function inFlightSliceId(state: RunMetadata, plan: SchedulerPlan | undefined): s
     case 'slice_started':
     case 'slice_execution_requested':
     case 'agent_result_ingested':
-    case 'test_result_ingested':
     case 'slice_integrated':
       return activeOrNextPetriSliceId(state, plan);
+    case 'test_result_ingested':
+      return state.activeSliceId ?? latestVerificationSliceId(state);
     default:
       return undefined;
   }
+}
+
+function latestVerificationSliceId(state: RunMetadata): string | undefined {
+  const entries = Object.entries(state.sliceAttemptHistory ?? {});
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const [sliceId, stages] = entries[index]!;
+    if (stages.verify?.some((cycle) => cycle.outcome === 'succeeded' && cycle.verdict !== undefined)) {
+      return sliceId;
+    }
+  }
+  return undefined;
 }
 
 export async function executeExecutorReadyStep(
