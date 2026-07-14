@@ -285,13 +285,24 @@ Observation: the cancelled `ask` terminal did not read as an intentionally cance
 Expected: cancelled, unavailable, answered, and validation-failed results have deliberately distinct compact rendering; malformed provider arguments remain legible without being mistaken for product failure.
 Disposition: rendering design remains open on FE-1187; the malformed-call cause is diagnosed and needs no schema relaxation. Route the four-state visual treatment through `ln-design` before build.
 
-#### R7 · offer continuation rendering · high · open
+#### R7 · offer continuation rendering · high · fixed
 
 Concern: `present_*` → continuing `ask` non-repetition.
-Evidence: `remediations-3a.md` §2, screenshot `present-and-ask-open`.
+Evidence: `remediations-3a.md` §2, screenshot `present-and-ask-open`; implementation commit `b882d70f`; user-confirmed live TUI walkthrough on 2026-07-14 after restarting on that commit.
 Observation: the question and rationale appeared above the main `present_*` options and were then repeated inside the continuing `ask` tool.
 Expected: the presentation remains the pretext; a continuing ask renders only the answer controls needed at that step rather than repeating the question/rationale block.
-Disposition: Card 2 implementation is green on FE-1187 — the live candidate/digest/review-set continuation pickers now omit the declaration-owned body while durable terminal content/details and RPC/headless question payloads retain it. Human-gated closure remains: owner FE-1187 coordinator; re-entry trigger is one live candidates offer plus one digest offer confirming presentation prose appears once and the following ask is controls-only. Cost/value: two short TUI beats buy direct evidence at the only unautomated rendering layer.
+Disposition: fixed — commit `b882d70f` omits the declaration-owned body only from live candidate/digest/review-set continuation pickers while preserving declared choices, durable terminal content/details, and RPC/headless question payloads. Inner oracles in `exchanges-present-request.test.ts` inspect controls-only picker inputs for candidate, digest, and review-set continuations while preserving candidate choices and approve/request-changes/reject behavior. Middle registered-exchange, recovery/projection, formatter, and RPC/headless suites preserve declaration compatibility and self-contained model/RPC results. In the 2026-07-14 user-present live TUI walkthrough after restart on `b882d70f`, a `present_candidates` result displayed its heading/rationale once and its continuation picker displayed only picker framing/options; a `present_digest` result displayed digest prose once and its review picker displayed only `Approve`, `Request changes`, and `Reject` controls.
+
+Completion report:
+
+| Leaf | Outcome | Evidence |
+| ---- | ------- | -------- |
+| Candidate continuation omits repeated heading/body/rationale and preserves choices | met | Inner: `exchanges-present-request.test.ts` controls-only candidate picker assertions; outer: 2026-07-14 live `present_candidates` showed heading/rationale once followed only by picker framing/options. |
+| Digest and review-set continuations expose only review controls while preserving D110-L behavior | met | Inner: `exchanges-present-request.test.ts` digest/review-set picker assertions; outer: 2026-07-14 live `present_digest` showed prose once followed only by `Approve`, `Request changes`, and `Reject`. |
+| Answered/cancelled terminal content and details remain self-contained | met | Middle: existing registered-exchange, recovery/projection, formatter, and RPC/headless suites passed for implementation commit `b882d70f`. |
+| Human-gated candidate and digest non-repetition | met | User-confirmed live TUI walkthrough on 2026-07-14 after restart on `b882d70f`. |
+
+Skipped-test-count delta vs parent of implementation commit `b882d70f`: 0.
 
 #### R8 · digest choreography · high · open
 
