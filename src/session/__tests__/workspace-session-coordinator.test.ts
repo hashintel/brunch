@@ -674,7 +674,7 @@ describe('WorkspaceSessionCoordinator', () => {
     ).toEqual(['confirmOrigin']);
   });
 
-  it('treats a sibling 0.x brunch.db as populated/brownfield posture evidence even in a bare cwd (D124-L, D118-L)', async () => {
+  it('ignores a sibling 0.x brunch.db for posture: a cwd with no code stays bare (2026-07-14 D124-L revision)', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
     await mkdir(join(cwd, '.brunch'), { recursive: true });
     await writeFile(join(cwd, '.brunch', 'brunch.db'), 'not a sqlite database');
@@ -682,13 +682,13 @@ describe('WorkspaceSessionCoordinator', () => {
     const coordinator = createWorkspaceSessionCoordinator({ cwd });
     const inventory = await coordinator.inspectWorkspace();
 
-    expect(inventory.workspacePopulated).toBe(true);
+    expect(inventory.workspacePopulated).toBe(false);
     expect(
       decideSpecEstablishmentAsks({
         currentOrigin: null,
         workspacePopulated: inventory.workspacePopulated ?? false,
       }),
-    ).toEqual(['confirmKind', 'confirmOrigin']);
+    ).toEqual(['confirmOrigin']);
   });
 
   it('activates cancel without mutating workspace state or session files', async () => {

@@ -48,8 +48,9 @@ export interface WorkspaceGraphRuntime {
   readonly forSpec: (specId: number) => SpecScopedReaders;
   /**
    * Whether a sibling 0.x `.brunch/brunch.db` was detected alongside this
-   * open (I63-L posture evidence; D118-L consumer). The 0.x file itself is
-   * never opened, migrated, or deleted.
+   * open (I63-L). Informational only — it does not influence posture
+   * (2026-07-14 D124-L revision: prior Brunch state is not product code).
+   * The 0.x file itself is never opened, migrated, or deleted.
    */
   readonly legacyZeroXDetected: boolean;
 }
@@ -97,9 +98,9 @@ export const LEGACY_ALPHA_DB_FILENAME = 'data.db';
 
 /**
  * The 0.x workspace DB filename — this lineage's retroactive v0. A sibling is
- * detected as a pure filesystem check and surfaced as populated-cwd/
- * brownfield posture evidence (D118-L); never opened, migrated, or deleted
- * (I63-L).
+ * detected as a pure filesystem check; never opened, migrated, or deleted
+ * (I63-L). Detection is informational only — no posture influence
+ * (2026-07-14 D124-L revision).
  */
 export const LEGACY_ZERO_X_DB_FILENAME = 'brunch.db';
 
@@ -137,8 +138,9 @@ export class WorkspaceDbRefusalError extends Error {
 /**
  * Detects a sibling 0.x `.brunch/brunch.db` without opening it — a pure
  * filesystem existence check (I63-L: the 0.x file is never opened, migrated,
- * or deleted). Feeds populated-cwd/brownfield posture evidence (D118-L) at
- * the spec-establishment seam (`session/workspace-session-coordinator.ts`).
+ * or deleted). Informational only: the 2026-07-14 D124-L revision removed
+ * the posture feed — prior Brunch state is not product code, so a code-less
+ * cwd stays bare/greenfield regardless of legacy databases.
  */
 export async function detectLegacyZeroXDatabase(cwd: string): Promise<boolean> {
   return existsSync(join(cwd, BRUNCH_DIR, LEGACY_ZERO_X_DB_FILENAME));

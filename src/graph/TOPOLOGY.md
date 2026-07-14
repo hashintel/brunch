@@ -77,10 +77,10 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
   query readers for adapters. Owns the fail-safe `application_id` open guard
   (I63-L: a foreign or 0.x file is never opened, migrated, or deleted),
   one-shot recovery of a legacy alpha `data.db` by rename, and pure-filesystem
-  detection of a sibling 0.x `.brunch/brunch.db` surfaced as
-  populated-cwd/brownfield posture evidence to
-  `session/workspace-session-coordinator.ts`'s establishment seam (D118-L). No
-  legacy-seed repair remains; there is no seeded register to repair.
+  detection of a sibling 0.x `.brunch/brunch.db` — informational only since
+  the 2026-07-14 D124-L revision (prior Brunch state is not product code, so
+  detection no longer feeds the D118-L posture questions). No legacy-seed
+  repair remains; there is no seeded register to repair.
 
 ## Observed read-shape ledger
 
