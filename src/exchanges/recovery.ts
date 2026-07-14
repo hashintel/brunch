@@ -1,5 +1,11 @@
 import type { PresentDetails, RequestDetails } from './schemas/index.js';
-import { zAskDetails, zPresentDetails, zPresentDigestDetails, zRequestDetails } from './schemas/index.js';
+import {
+  zAskDetails,
+  zPresentDetails,
+  zPresentDigestDetails,
+  zRequestDetails,
+  zRequestReviewDetails,
+} from './schemas/index.js';
 
 export function isStructuredExchangePresentDetails(value: unknown): value is PresentDetails {
   return zPresentDetails.safeParse(value).success;
@@ -19,8 +25,17 @@ export function resolveEligibleDigestAcceptance(
     return parsed.success ? [parsed.data] : [];
   });
   const alreadyAccepted = details.some((value) => {
-    const parsed = zAskDetails.safeParse(value);
-    return parsed.success && 'accepts_digest' in parsed.data && parsed.data.accepts_digest === acceptsDigest;
+    const ask = zAskDetails.safeParse(value);
+    if (ask.success && 'accepts_digest' in ask.data && ask.data.accepts_digest === acceptsDigest) return true;
+
+    const legacyReview = zRequestReviewDetails.safeParse(value);
+    return (
+      legacyReview.success &&
+      legacyReview.data.exchange_id === acceptsDigest &&
+      legacyReview.data.tool_meta.prev === 'present_digest' &&
+      'answered' in legacyReview.data &&
+      legacyReview.data.answered.decision === 'approve'
+    );
   });
   const digest = [...digests].reverse().find((candidate) => candidate.exchange_id === acceptsDigest);
   return digest && digests.at(-1)?.exchange_id === acceptsDigest && !alreadyAccepted ? digest : undefined;

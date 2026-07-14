@@ -55,17 +55,48 @@ describe('production digest questionnaire eligibility', () => {
     expect(resolveEligibleDigestAcceptance([d1, d2, firstCarrier], 'missing')).toBeUndefined();
   });
 
-  it('keeps persisted legacy digest approvals readable without making them new questionnaire authority', () => {
-    const legacy = zRequestReviewDetails.parse(
+  it('treats only an approved legacy digest review as an existing acceptance', () => {
+    const present = digest('legacy-digest', 'Persisted legacy abstract');
+    const legacyReview = (review: 'approve' | 'request_changes' | 'reject') => {
+      const details =
+        review === 'approve'
+          ? projectRequestReview({
+              exchangeId: 'legacy-digest',
+              status: 'answered',
+              review,
+              acceptedAbstract: 'Persisted legacy abstract',
+              respondsToPresentTool: 'present_digest',
+            })
+          : projectRequestReview({
+              exchangeId: 'legacy-digest',
+              status: 'answered',
+              review,
+              comment: 'Revise before acceptance.',
+              respondsToPresentTool: 'present_digest',
+            });
+      return entry(zRequestReviewDetails.parse(details));
+    };
+
+    expect(
+      resolveEligibleDigestAcceptance([present, legacyReview('approve')], 'legacy-digest'),
+    ).toBeUndefined();
+    expect(
+      resolveEligibleDigestAcceptance([present, legacyReview('request_changes')], 'legacy-digest')
+        ?.exchange_id,
+    ).toBe('legacy-digest');
+    expect(
+      resolveEligibleDigestAcceptance([present, legacyReview('reject')], 'legacy-digest')?.exchange_id,
+    ).toBe('legacy-digest');
+
+    const cancelled = entry(
       projectRequestReview({
         exchangeId: 'legacy-digest',
-        status: 'answered',
-        review: 'approve',
-        acceptedAbstract: 'Persisted legacy abstract',
+        status: 'cancelled',
         respondsToPresentTool: 'present_digest',
       }),
     );
-    expect(legacy).toMatchObject({ answered: { accepted_abstract: 'Persisted legacy abstract' } });
-    expect(resolveEligibleDigestAcceptance([entry(legacy)], 'legacy-digest')).toBeUndefined();
+    expect(resolveEligibleDigestAcceptance([present, cancelled], 'legacy-digest')?.exchange_id).toBe(
+      'legacy-digest',
+    );
   });
 });
