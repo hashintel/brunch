@@ -518,7 +518,7 @@ export function createBrunchAgentSessionRuntimeFactory(
         sessionManager,
       }),
     );
-    const agentState = projectBrunchAgentState(sessionManager.getEntries());
+    const agentState = projectBrunchAgentState(sessionManager.getBranch());
     const allowProductSubagents = context.allowSubagents !== false;
     const shouldLoadSubagents = allowProductSubagents || agentState.operationalMode === 'execute';
     const subagents = shouldLoadSubagents
@@ -681,7 +681,7 @@ interface SampleResumeFactsInput {
   readonly graph: WorkspaceGraphRuntime;
   readonly specId: number;
   readonly sessionManager: {
-    readonly getEntries: () => readonly { type?: unknown; customType?: unknown; data?: unknown }[];
+    readonly getBranch: () => readonly { type?: unknown; customType?: unknown; data?: unknown }[];
   };
 }
 
@@ -693,7 +693,7 @@ interface SampleResumeFactsInput {
 function sampleResumeFactsForHeader(input: SampleResumeFactsInput): StartupHeaderResumeFacts | undefined {
   if (input.activationDecision?.action !== 'openSession') return undefined;
   const slice = input.graph.forSpec(input.specId).queryGraph(undefined, { visibility: 'all' });
-  const agentState = projectBrunchAgentState(input.sessionManager.getEntries());
+  const agentState = projectBrunchAgentState(input.sessionManager.getBranch());
   return {
     ...(input.specName ? { specTitle: input.specName } : {}),
     nodeCount: slice.nodes.length,

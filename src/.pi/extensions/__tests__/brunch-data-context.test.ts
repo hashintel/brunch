@@ -116,10 +116,10 @@ describe('context tools', () => {
 
     const result = (await tools.get('read_session_context')!.execute('context-1', {}, undefined, undefined, {
       sessionManager: {
-        // The Pi header is reachable only via getHeader(); getEntries() never
+        // The Pi header is reachable only via getHeader(); getBranch() never
         // contains a 'session' entry.
         getHeader: () => ({ type: 'session', id: 'session-1', cwd: '/tmp/brunch' }),
-        getEntries: () => [
+        getBranch: () => [
           {
             id: 'binding-1',
             type: 'custom',
@@ -179,7 +179,7 @@ describe('context tools', () => {
     const result = (await tools.get('read_session_context')!.execute('context-2', {}, undefined, undefined, {
       sessionManager: {
         getHeader: () => ({ type: 'session', id: 'session-1', cwd: '/tmp/brunch' }),
-        getEntries: () => [],
+        getBranch: () => [],
       },
     })) as {
       content: Array<{ type: 'text'; text: string }>;
@@ -202,13 +202,13 @@ describe('context tools', () => {
       },
     } as never);
 
-    // Regression: the header lives behind getHeader(), not in getEntries(). A
-    // present binding in getEntries() with a null header must still be
+    // Regression: the header lives behind getHeader(), not in getBranch(). A
+    // present binding in getBranch() with a null header must still be
     // not_ready / missing_session_header, never ready.
     const result = (await tools.get('read_session_context')!.execute('context-3', {}, undefined, undefined, {
       sessionManager: {
         getHeader: () => null,
-        getEntries: () => [
+        getBranch: () => [
           {
             id: 'binding-1',
             type: 'custom',
@@ -284,7 +284,7 @@ describe('context tools', () => {
       .execute('context-spec', {}, undefined, undefined, {
         sessionManager: {
           getHeader: () => ({ type: 'session', id: 'beta-session', cwd }),
-          getEntries: () => [
+          getBranch: () => [
             {
               id: 'binding-1',
               type: 'custom',
@@ -309,7 +309,7 @@ describe('context tools', () => {
 
   // Authentic oracle: drive the context tools against the faux harness's REAL
   // SessionManager instead of a hand-written fake. The real manager keeps the
-  // Pi header behind getHeader() and excludes it from getEntries(), so this
+  // Pi header behind getHeader() and excludes it from getBranch(), so this
   // would have failed the header-search bugs (read_session_context always
   // not_ready, read_workspace_context resolving cwd to process.cwd()). A lying
   // mock cannot reproduce that split; the real session machinery does.
@@ -323,10 +323,10 @@ describe('context tools', () => {
       const sessionManager = harness.session.sessionManager;
       sessionManager.appendCustomEntry(SESSION_BINDING_TYPE, createSessionBindingData({ specId: 4 }));
 
-      // The real header is reachable only via getHeader(); getEntries() returns
+      // The real header is reachable only via getHeader(); getBranch() returns
       // SessionEntry[], whose `type` provably never includes 'session' (a search
       // for it is now a compile error — the original bug's root cause). The
-      // header below comes from getHeader(); getEntries() holds only the binding.
+      // header below comes from getHeader(); getBranch() holds only the binding.
       const headerId = sessionManager.getHeader()?.id;
       expect(typeof headerId).toBe('string');
 

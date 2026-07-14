@@ -14,7 +14,7 @@ import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from '../
 type BrunchAgentStateEntries = Parameters<typeof projectBrunchAgentState>[0];
 
 interface SessionManagerLike {
-  getEntries(): BrunchAgentStateEntries;
+  getBranch(): BrunchAgentStateEntries;
 }
 
 interface BeforeAgentStartEventLike {
@@ -54,7 +54,7 @@ function supportsPrompting(pi: ExtensionAPI): boolean {
 }
 
 function projectState(ctx: PromptingContextLike | undefined) {
-  return projectBrunchAgentState(ctx?.sessionManager?.getEntries() ?? []);
+  return projectBrunchAgentState(ctx?.sessionManager?.getBranch() ?? []);
 }
 
 export function registerBrunchPrompting(

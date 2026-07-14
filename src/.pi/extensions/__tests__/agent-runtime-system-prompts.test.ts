@@ -35,7 +35,7 @@ class FakeRuntimeStateSessionManager {
     data: BrunchAgentStateEntryData;
   }> = [];
 
-  getEntries() {
+  getBranch() {
     return this.entries;
   }
 
@@ -151,7 +151,7 @@ describe('Brunch prompt-pack topology', () => {
         { systemPrompt: 'base' } as never,
         {
           sessionManager: {
-            getEntries: () => [runtimeEntry(latestState)],
+            getBranch: () => [runtimeEntry(latestState)],
           },
         } as never,
       ),
@@ -279,7 +279,7 @@ describe('Brunch prompt-pack topology', () => {
       const repaired = (await Promise.resolve(
         events.before_provider_request?.[0]?.(
           { payload: testCase.payload } as never,
-          { sessionManager: { getEntries: () => [] } } as never,
+          { sessionManager: { getBranch: () => [] } } as never,
         ),
       )) as typeof testCase.payload | undefined;
 
@@ -306,7 +306,7 @@ describe('Brunch prompt-pack topology', () => {
     const beforeStart = (await Promise.resolve(
       events.before_agent_start?.[0]?.(
         { systemPrompt: 'base prompt' } as never,
-        { sessionManager: { getEntries: () => [] } } as never,
+        { sessionManager: { getBranch: () => [] } } as never,
       ),
     )) as { systemPrompt: string };
     const payload = {
@@ -316,7 +316,7 @@ describe('Brunch prompt-pack topology', () => {
     const repaired = (await Promise.resolve(
       events.before_provider_request?.[0]?.(
         { payload } as never,
-        { sessionManager: { getEntries: () => [] } } as never,
+        { sessionManager: { getBranch: () => [] } } as never,
       ),
     )) as typeof payload;
 
@@ -349,7 +349,7 @@ describe('Brunch prompt-pack topology', () => {
           { systemPrompt: 'base' } as never,
           {
             sessionManager: {
-              getEntries: () => [runtimeEntry(executeState)],
+              getBranch: () => [runtimeEntry(executeState)],
             },
           } as never,
         ),
@@ -363,7 +363,7 @@ describe('Brunch prompt-pack topology', () => {
           { systemPrompt: 'base' } as never,
           {
             sessionManager: {
-              getEntries: () => [runtimeEntry(executeState)],
+              getBranch: () => [runtimeEntry(executeState)],
             },
           } as never,
         ),
@@ -443,7 +443,7 @@ describe('Brunch prompt-pack topology', () => {
     for (const handler of events.before_agent_start ?? []) {
       results.push(
         await Promise.resolve(
-          handler({ systemPrompt: 'base' } as never, { sessionManager: { getEntries: () => [] } } as never),
+          handler({ systemPrompt: 'base' } as never, { sessionManager: { getBranch: () => [] } } as never),
         ),
       );
     }
@@ -575,7 +575,7 @@ describe('Brunch prompt-pack topology', () => {
     await Promise.all(
       (events.before_agent_start ?? []).map((handler) =>
         Promise.resolve(
-          handler({ systemPrompt: 'base' } as never, { sessionManager: { getEntries: () => [] } } as never),
+          handler({ systemPrompt: 'base' } as never, { sessionManager: { getBranch: () => [] } } as never),
         ),
       ),
     );
@@ -620,7 +620,7 @@ describe('Brunch prompt-pack topology', () => {
     await Promise.resolve(
       events.before_agent_start?.(
         { systemPrompt: 'base' } as never,
-        { sessionManager: { getEntries: () => [] } } as never,
+        { sessionManager: { getBranch: () => [] } } as never,
       ),
     );
 
@@ -679,7 +679,7 @@ describe('Brunch prompt-pack topology', () => {
         Promise.resolve(
           handler(
             { systemPrompt: 'base' } as never,
-            { sessionManager: { getEntries: () => [runtimeEntry(switchedState)] } } as never,
+            { sessionManager: { getBranch: () => [runtimeEntry(switchedState)] } } as never,
           ),
         ),
       ),
@@ -726,7 +726,7 @@ describe('Brunch prompt-pack topology', () => {
           Promise.resolve(
             handler(
               { systemPrompt: 'base' } as never,
-              { sessionManager: { getEntries: () => [runtimeEntry(state)] } } as never,
+              { sessionManager: { getBranch: () => [runtimeEntry(state)] } } as never,
             ),
           ),
         ),

@@ -98,7 +98,7 @@ describe('origination-kick-live — the product originates the opening turn on i
       expect(contextText).toContain('Context seeded for spec');
       expect(contextText).toContain('ELICITATION SCRATCHPAD');
 
-      const entries = boot.runtime.session.sessionManager.getEntries();
+      const entries = boot.runtime.session.sessionManager.getBranch();
       // Revised D78-L (2026-06-12): the product fabricates no present_* offer;
       // the assistant authors the opening live from the seeded context.
       expect(presentToolResults(entries)).toHaveLength(0);
@@ -136,7 +136,7 @@ describe('origination-kick-live — the product originates the opening turn on i
     });
     try {
       expect(boot.providerContexts.length).toBeGreaterThan(0);
-      const entries = boot.runtime.session.sessionManager.getEntries();
+      const entries = boot.runtime.session.sessionManager.getBranch();
       expect(presentToolResults(entries)).toHaveLength(0);
       expect(userMessages(entries)).toHaveLength(0);
 
@@ -168,7 +168,7 @@ describe('origination-kick-live — the product originates the opening turn on i
         // settle: any wrongly-fired trigger would capture within this window
         await new Promise((resolve) => setTimeout(resolve, 200));
         expect(boot.providerContexts).toHaveLength(1);
-        const entries = reboot.runtime.session.sessionManager.getEntries();
+        const entries = reboot.runtime.session.sessionManager.getBranch();
         // No fabricated offers on either boot; exactly one kick across both
         // (crash-after-kick reboot rests idle — assistant tail owes nothing).
         expect(presentToolResults(entries)).toHaveLength(0);
@@ -216,7 +216,7 @@ describe('origination-kick-live — the product originates the opening turn on i
       // No auth/provider in this boot — the model-availability guard must keep
       // the trigger silent rather than firing a turn that errors at startup.
       await new Promise((resolve) => setTimeout(resolve, 100));
-      const entries = boot.runtime.session.sessionManager.getEntries();
+      const entries = boot.runtime.session.sessionManager.getBranch();
       expect(customEntries(entries, 'brunch.kick')).toHaveLength(0);
       // The synthetic present_* pair includes a sentinel-provenance assistant
       // toolCall; "no kick turn ran" means no provider-produced assistant message.
@@ -417,7 +417,7 @@ describe('FE-847 Tier-2 real boot harness', () => {
 
       await command?.handler('execute', boot.runtime.session.extensionRunner.createCommandContext());
 
-      const entries = boot.runtime.session.sessionManager.getEntries();
+      const entries = boot.runtime.session.sessionManager.getBranch();
       expect(entries).toEqual(
         expect.arrayContaining([
           expect.objectContaining({

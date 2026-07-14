@@ -17,7 +17,7 @@ import { normalizeToolSchema } from './tool-schema-baseline.js';
 class FakeSessionManager {
   entries: Array<{ type: 'custom'; customType: string; data: unknown }> = [];
 
-  getEntries() {
+  getBranch() {
     return this.entries;
   }
 

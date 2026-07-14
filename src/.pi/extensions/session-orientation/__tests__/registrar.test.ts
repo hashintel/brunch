@@ -93,7 +93,7 @@ function buildCtx(
       entries.push({ type: 'custom_message', customType, content });
       return 'id';
     },
-    getEntries() {
+    getBranch() {
       return entries;
     },
   };

@@ -492,7 +492,7 @@ function createCaptureSweepAdvanceStep(
 ): BrunchSessionBoundaryPipelineStep {
   return ({ phase, sessionManager }) => {
     if (phase !== 'before_agent_start') return;
-    const advance = prepareCaptureSweepAdvance(sessionManager.getEntries());
+    const advance = prepareCaptureSweepAdvance(sessionManager.getBranch());
     if (!advance.marker) return;
     sessionManager.appendCustomEntry(CAPTURE_SWEEP_WATERMARK_CUSTOM_TYPE, advance.marker);
     if (entryDebugCache) {
@@ -529,7 +529,7 @@ function prepareNextTurnForGraph(
   getContinuityDrains: (() => readonly ContinuityDrain[]) | undefined,
 ): PrepareNextTurnResult {
   const snapshot = graph.reads.queryGraph(undefined, { visibility: 'all' });
-  const entries = sessionManager.getEntries();
+  const entries = sessionManager.getBranch();
   return prepareNextTurn({
     specId: graph.specId,
     currentLsn: snapshot.lsn,

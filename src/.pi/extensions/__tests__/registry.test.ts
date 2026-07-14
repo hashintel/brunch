@@ -3225,6 +3225,7 @@ describe('Brunch explicit Pi extension registry', () => {
     const events = new Map<string, Array<(event: any, ctx: any) => Promise<void> | void>>();
     const sessionManager = {
       getEntries: () => appended.slice(),
+      getBranch: () => appended.slice(),
       appendCustomEntry(customType: string, data: unknown) {
         appended.push({ type: 'custom', customType, data });
       },
@@ -3297,6 +3298,7 @@ describe('Brunch explicit Pi extension registry', () => {
     const events = new Map<string, Array<(event: any, ctx: any) => Promise<void> | void>>();
     const sessionManager = {
       getEntries: () => appended.slice(),
+      getBranch: () => appended.slice(),
       appendCustomEntry(customType: string, data: unknown) {
         appended.push({ type: 'custom', customType, data });
       },
@@ -3346,6 +3348,7 @@ describe('Brunch explicit Pi extension registry', () => {
     const events = new Map<string, Array<(event: any, ctx: any) => Promise<void> | void>>();
     const sessionManager = {
       getEntries: () => appended.slice(),
+      getBranch: () => appended.slice(),
       appendCustomEntry(customType: string, data: unknown) {
         appended.push({ type: 'custom', customType, data });
       },

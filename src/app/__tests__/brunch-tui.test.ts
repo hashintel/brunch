@@ -806,7 +806,7 @@ describe('Brunch TUI boot', () => {
 
     for (const handler of sessionStart) {
       await handler({}, {
-        sessionManager: { getEntries: () => [], getSessionName: () => null },
+        sessionManager: { getBranch: () => [], getSessionName: () => null },
         ui,
         getContextUsage: () => undefined,
         model: null,
@@ -1344,7 +1344,7 @@ describe('Brunch TUI boot', () => {
 
     const ctx: FakeExtensionContext = {
       sessionManager: {
-        getEntries: () => [],
+        getBranch: () => [],
         appendCustomEntry: (_customType: string, _data: unknown) => {},
         appendCustomMessageEntry: (
           _customType: string,
@@ -1413,7 +1413,7 @@ describe('Brunch TUI boot', () => {
 
     const ctx: FakeExtensionContext = {
       sessionManager: {
-        getEntries: () => [],
+        getBranch: () => [],
         appendCustomEntry: (_customType: string, _data: unknown) => {},
         appendCustomMessageEntry: (
           _customType: string,

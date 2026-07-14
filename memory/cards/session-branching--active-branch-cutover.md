@@ -106,7 +106,15 @@ src/rpc/
 
 ## Card 2 — Live current-state consumer cutover
 
-Status: queued
+Status: in progress
+
+Build note (2026-07-14): every inventoried live production consumer now requires
+`getBranch()` and the full gate passes; no product fallback to `getEntries()` remains.
+Card 2 is not marked done: the approved manifest's tests prove required branch-capability
+wiring and preserve the existing fold invariants, but do not contain explicit abandoned-
+branch rival fixtures for every named live surface (runtime, scratchpad, orientation,
+binding, continuity/capture, commands/prompts/context, and Chrome/TUI). Re-enter Card 2
+to add those witnesses before Card 3; do not treat the green gate as leaf closure.
 Weight: full
 
 ### Target Behavior

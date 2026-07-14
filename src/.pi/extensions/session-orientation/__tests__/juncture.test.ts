@@ -36,7 +36,7 @@ function fakeSessionManager(seed: readonly CapturedEntry[] = []) {
       entries.push({ type: 'custom_message', customType, content });
       return 'id';
     },
-    getEntries() {
+    getBranch() {
       return entries as unknown as readonly (CapturedEntry & { type?: unknown })[];
     },
   } as const;

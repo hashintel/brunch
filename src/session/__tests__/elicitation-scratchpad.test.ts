@@ -21,7 +21,7 @@ function scratchpadEntry(items: readonly ElicitationScratchpadItem[]) {
 class FakeScratchpadSessionManager {
   entries: Array<{ type: 'custom'; customType: string; data: ElicitationScratchpadEntryData }> = [];
 
-  getEntries() {
+  getBranch() {
     return this.entries;
   }
 
@@ -150,7 +150,7 @@ describe('appendElicitationScratchpadSnapshot', () => {
       { id: 'b', obligation: 'ask about Y', disposition: 'open' },
     ]);
 
-    expect(latestElicitationScratchpad(sessionManager.getEntries())).toEqual([
+    expect(latestElicitationScratchpad(sessionManager.getBranch())).toEqual([
       { id: 'a', obligation: 'ask about X', disposition: 'resolved' },
       { id: 'b', obligation: 'ask about Y', disposition: 'open' },
     ]);

@@ -528,7 +528,7 @@ function bindSessionToSpec(
     throw new Error('Pi SessionManager did not create a persisted session file');
   }
 
-  const existingBindings = manager.getEntries().filter(isSessionBindingEntry);
+  const existingBindings = manager.getBranch().filter(isSessionBindingEntry);
   if (existingBindings.length === 0) {
     manager.appendCustomEntry(
       SESSION_BINDING_TYPE,

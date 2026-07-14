@@ -60,13 +60,13 @@ function shortenPath(path: string): string {
 }
 
 interface SessionManagerLike {
-  getEntries(): readonly CustomEntryLike[];
+  getBranch(): readonly CustomEntryLike[];
 }
 
 function projectBrunchAgentStateFromSessionManager(
   sessionManager: SessionManagerLike | undefined,
 ): ResolvedBrunchAgentState {
-  return projectBrunchAgentState(sessionManager?.getEntries() ?? []);
+  return projectBrunchAgentState(sessionManager?.getBranch() ?? []);
 }
 
 function supportsBrunchAgentStateEntries(

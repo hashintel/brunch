@@ -69,10 +69,10 @@ describe('WorkspaceSessionCoordinator', () => {
     const reloadedFirst = SessionManager.open(first.session.file, undefined, cwd);
     const reloadedSecond = SessionManager.open(second.session.file, undefined, cwd);
     const firstBinding = reloadedFirst
-      .getEntries()
+      .getBranch()
       .find((entry) => isCustomEntry(entry) && entry.customType === SESSION_BINDING_TYPE);
     const secondBinding = reloadedSecond
-      .getEntries()
+      .getBranch()
       .find((entry) => isCustomEntry(entry) && entry.customType === SESSION_BINDING_TYPE);
 
     expect(firstBinding).toMatchObject({
@@ -104,7 +104,7 @@ describe('WorkspaceSessionCoordinator', () => {
     });
     const reloaded = SessionManager.open(result.session.file, undefined, cwd);
     const bindings = reloaded
-      .getEntries()
+      .getBranch()
       .filter((entry) => isCustomEntry(entry) && entry.customType === SESSION_BINDING_TYPE);
 
     expect(bindings).toHaveLength(1);
@@ -155,7 +155,7 @@ describe('WorkspaceSessionCoordinator', () => {
 
     const reloaded = SessionManager.open(result.session.file, undefined, cwd);
     const bindings = reloaded
-      .getEntries()
+      .getBranch()
       .filter((entry) => isCustomEntry(entry) && entry.customType === SESSION_BINDING_TYPE);
 
     expect(bindings).toHaveLength(1);

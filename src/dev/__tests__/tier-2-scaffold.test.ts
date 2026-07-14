@@ -47,7 +47,7 @@ describe('FE-847 coverage-first scaffold — I45-L assistant-visible watermark',
 
       await executeReadGraph(boot.runtime.session, { mode: 'list_by_kind', kinds: ['goal'], show: 'all' });
       await boot.runtime.session.extensionRunner.emitBeforeProviderRequest({});
-      const afterNarrowRead = boot.runtime.session.sessionManager.getEntries();
+      const afterNarrowRead = boot.runtime.session.sessionManager.getBranch();
       expect(customEntries(afterNarrowRead, 'worldUpdate')).toEqual([
         expect.objectContaining({
           data: expect.objectContaining({
@@ -62,10 +62,10 @@ describe('FE-847 coverage-first scaffold — I45-L assistant-visible watermark',
       ]);
 
       await executeReadGraph(boot.runtime.session, { mode: 'overview', show: 'all' });
-      const afterOverview = boot.runtime.session.sessionManager.getEntries();
+      const afterOverview = boot.runtime.session.sessionManager.getBranch();
       expect(projectAssistantVisibleWatermark(afterOverview, { specId })).toEqual({ specId, lsn: first.lsn });
       await boot.runtime.session.extensionRunner.emitBeforeProviderRequest({});
-      expect(customEntries(boot.runtime.session.sessionManager.getEntries(), 'worldUpdate')).toHaveLength(1);
+      expect(customEntries(boot.runtime.session.sessionManager.getBranch(), 'worldUpdate')).toHaveLength(1);
     } finally {
       await boot.runtime.dispose();
       boot.restoreEnv();
@@ -94,7 +94,7 @@ describe('FE-847 coverage-first scaffold — I45-L assistant-visible watermark',
 
       await boot.runtime.session.extensionRunner.emitBeforeProviderRequest({});
 
-      expect(customEntries(boot.runtime.session.sessionManager.getEntries(), 'worldUpdate')).toEqual([
+      expect(customEntries(boot.runtime.session.sessionManager.getBranch(), 'worldUpdate')).toEqual([
         expect.objectContaining({
           data: expect.objectContaining({
             specId,
@@ -108,7 +108,7 @@ describe('FE-847 coverage-first scaffold — I45-L assistant-visible watermark',
       // FE-857 card 1 payoff: the worldUpdate notice is provider-visible — pi's
       // own context builder (the function the provider call path uses) surfaces
       // its rendered text as an LLM-context message, not just a ledger fact.
-      const llmContext = buildSessionContext(boot.runtime.session.sessionManager.getEntries() as never);
+      const llmContext = buildSessionContext(boot.runtime.session.sessionManager.getBranch() as never);
       const contextText = JSON.stringify(llmContext.messages);
       expect(contextText).toContain('Graph updated for spec');
       expect(contextText).toContain('Fresh');
@@ -137,7 +137,7 @@ describe('FE-847 coverage-first scaffold — I45-L assistant-visible watermark',
 
       await boot.runtime.session.extensionRunner.emitBeforeProviderRequest({});
 
-      expect(customEntries(boot.runtime.session.sessionManager.getEntries(), 'worldUpdate')[0]).toEqual(
+      expect(customEntries(boot.runtime.session.sessionManager.getBranch(), 'worldUpdate')[0]).toEqual(
         expect.objectContaining({
           data: expect.objectContaining({ specId, changedSinceLsn: 1, currentLsn: node.lsn }),
         }),
@@ -167,7 +167,7 @@ describe('FE-847 coverage-first scaffold — I45-L assistant-visible watermark',
 
       await boot.runtime.session.extensionRunner.emitBeforeProviderRequest({});
 
-      expect(customEntries(boot.runtime.session.sessionManager.getEntries(), 'worldUpdate')[0]).toEqual(
+      expect(customEntries(boot.runtime.session.sessionManager.getBranch(), 'worldUpdate')[0]).toEqual(
         expect.objectContaining({
           data: expect.objectContaining({
             specId,
@@ -201,7 +201,7 @@ describe('FE-847 coverage-first scaffold — I45-L assistant-visible watermark',
 
       await boot.runtime.session.extensionRunner.emitBeforeProviderRequest({});
 
-      expect(customEntries(boot.runtime.session.sessionManager.getEntries(), 'worldUpdate')[0]).toEqual(
+      expect(customEntries(boot.runtime.session.sessionManager.getBranch(), 'worldUpdate')[0]).toEqual(
         expect.objectContaining({
           data: expect.objectContaining({
             specId,
@@ -224,7 +224,7 @@ describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
     const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
     try {
       const specId = await readSessionContextSpecId(boot.runtime.session);
-      const entries = boot.runtime.session.sessionManager.getEntries();
+      const entries = boot.runtime.session.sessionManager.getBranch();
       expect(customEntries(entries, 'brunch.context_seed')).toEqual([
         expect.objectContaining({ data: { specId, snapshotLsn: expect.any(Number) } }),
       ]);
@@ -236,7 +236,7 @@ describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
         ]),
       );
       await boot.runtime.session.extensionRunner.emitBeforeProviderRequest({});
-      expect(customEntries(boot.runtime.session.sessionManager.getEntries(), 'worldUpdate')).toHaveLength(0);
+      expect(customEntries(boot.runtime.session.sessionManager.getBranch(), 'worldUpdate')).toHaveLength(0);
     } finally {
       await boot.runtime.dispose();
       boot.restoreEnv();
@@ -250,7 +250,7 @@ describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
     try {
       const specId = await readSessionContextSpecId(boot.runtime.session);
 
-      const entries = boot.runtime.session.sessionManager.getEntries();
+      const entries = boot.runtime.session.sessionManager.getBranch();
       const seeds = customEntries(entries, 'brunch.context_seed');
       expect(seeds).toHaveLength(1);
 
@@ -294,7 +294,7 @@ describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
       });
       try {
         await waitForKick(boot.runtime);
-        const entries = boot.runtime.session.sessionManager.getEntries();
+        const entries = boot.runtime.session.sessionManager.getBranch();
         expect(customEntries(entries, 'brunch.kick')).toHaveLength(1);
         expect(userMessages(entries)).toHaveLength(1);
       } finally {
@@ -317,7 +317,7 @@ describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
       try {
         await waitForKick(postExchange.runtime);
         expect(
-          customEntries(postExchange.runtime.session.sessionManager.getEntries(), 'brunch.kick'),
+          customEntries(postExchange.runtime.session.sessionManager.getBranch(), 'brunch.kick'),
         ).toHaveLength(1);
       } finally {
         await postExchange.runtime.dispose();
@@ -375,7 +375,7 @@ describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
       });
       try {
         await waitForKick(boot.runtime);
-        const entries = boot.runtime.session.sessionManager.getEntries();
+        const entries = boot.runtime.session.sessionManager.getBranch();
         expect(customEntries(entries, 'brunch.kick')).toHaveLength(1);
         expect(customEntries(entries, 'brunch.context_seed')).toHaveLength(1);
       } finally {
@@ -413,7 +413,7 @@ describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
       try {
         await waitForKick(maskedDebt.runtime);
         expect(
-          customEntries(maskedDebt.runtime.session.sessionManager.getEntries(), 'brunch.kick'),
+          customEntries(maskedDebt.runtime.session.sessionManager.getBranch(), 'brunch.kick'),
         ).toHaveLength(1);
       } finally {
         await maskedDebt.runtime.dispose();
@@ -427,13 +427,13 @@ describe('FE-847 coverage-first scaffold — I47-L carrier discipline and idempo
   it('no redundant worldUpdate is emitted immediately after a seed naming the current snapshot LSN', async () => {
     const boot = await bootTier2RuntimeFromFixture({ fixtureEntries: () => [] });
     try {
-      const entries = boot.runtime.session.sessionManager.getEntries();
+      const entries = boot.runtime.session.sessionManager.getBranch();
       const seeds = customEntries(entries, 'brunch.context_seed');
       expect(seeds).toHaveLength(1);
       expect(seeds[0]?.data).toMatchObject({ specId: boot.specId, snapshotLsn: expect.any(Number) });
 
       await boot.runtime.session.extensionRunner.emitBeforeProviderRequest({});
-      expect(customEntries(boot.runtime.session.sessionManager.getEntries(), 'worldUpdate')).toHaveLength(0);
+      expect(customEntries(boot.runtime.session.sessionManager.getBranch(), 'worldUpdate')).toHaveLength(0);
     } finally {
       await boot.runtime.dispose();
       boot.restoreEnv();
@@ -467,7 +467,7 @@ describe('FE-847 coverage-first scaffold — I47-L carrier discipline and idempo
     const boot = await bootTier2RuntimeFromFixture({ fixtureEntries: () => [] });
     let rebooted: Awaited<ReturnType<typeof rebootTier2Runtime>> | undefined;
     try {
-      const firstEntries = boot.runtime.session.sessionManager.getEntries();
+      const firstEntries = boot.runtime.session.sessionManager.getBranch();
       expect(customEntries(firstEntries, 'brunch.context_seed')).toHaveLength(1);
       expect(presentToolResults(firstEntries)).toHaveLength(0);
 
@@ -480,11 +480,11 @@ describe('FE-847 coverage-first scaffold — I47-L carrier discipline and idempo
         flushManager,
       });
 
-      const rebootedEntries = rebooted.runtime.session.sessionManager.getEntries();
+      const rebootedEntries = rebooted.runtime.session.sessionManager.getBranch();
       expect(customEntries(rebootedEntries, 'brunch.context_seed')).toHaveLength(1);
       expect(presentToolResults(rebootedEntries)).toHaveLength(0);
       await rebooted.runtime.session.extensionRunner.emitBeforeProviderRequest({});
-      expect(customEntries(rebooted.runtime.session.sessionManager.getEntries(), 'worldUpdate')).toHaveLength(
+      expect(customEntries(rebooted.runtime.session.sessionManager.getBranch(), 'worldUpdate')).toHaveLength(
         0,
       );
     } finally {

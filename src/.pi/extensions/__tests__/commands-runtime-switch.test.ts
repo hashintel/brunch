@@ -62,8 +62,7 @@ interface FakeCommandContext {
     setStatus?(key: string, text: string | undefined): void;
   };
   sessionManager: {
-    getEntries(): readonly RuntimeEntry[];
-    getBranch?: () => readonly EntryLike[];
+    getBranch(): readonly EntryLike[];
     appendCustomEntry(customType: string, data: unknown): void;
     appendMessage?: (message: unknown) => void;
   };
@@ -128,8 +127,8 @@ function commandHarness(
       input: async () => options.inputResult ?? '',
     },
     sessionManager: {
-      getEntries: () => entries,
       getBranch: () => [
+        ...entries,
         ...(options.branch ?? []),
         ...appendedMessages.map((message) => ({
           type: 'message' as const,
