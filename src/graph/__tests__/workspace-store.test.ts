@@ -9,9 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createDb } from '../../db/connection.js';
 import { specs } from '../../db/schema.js';
 import {
-  detectLegacyZeroXDatabase,
   LEGACY_ALPHA_DB_FILENAME,
-  LEGACY_ZERO_X_DB_FILENAME,
   openWorkspaceDb,
   WORKSPACE_DB_FILENAME,
   WorkspaceDbRefusalError,
@@ -130,28 +128,6 @@ describe('workspace-store — brunch-v1.db identity (D124-L, I63-L)', () => {
     const appId = recovered.pragma('application_id', { simple: true });
     recovered.close();
     expect(appId).toBe(1112692273);
-  });
-
-  it('detects a sibling 0.x brunch.db without opening it, and never migrates it', async () => {
-    await mkdir(brunchDir, { recursive: true });
-    const zeroXPath = join(brunchDir, LEGACY_ZERO_X_DB_FILENAME);
-    // Deliberately not a valid SQLite file: if anything ever opened it as a
-    // database this test would throw, proving the detection is a pure
-    // filesystem check.
-    await writeFile(zeroXPath, 'not a sqlite database');
-
-    await expect(detectLegacyZeroXDatabase(cwd)).resolves.toBe(true);
-
-    // Opening the current-line db must succeed independently of the 0.x file.
-    const db = await openWorkspaceDb(cwd);
-    db.$client.close();
-
-    const untouched = await readFile(zeroXPath, 'utf8');
-    expect(untouched).toBe('not a sqlite database');
-  });
-
-  it('reports no 0.x sibling when none exists', async () => {
-    await expect(detectLegacyZeroXDatabase(cwd)).resolves.toBe(false);
   });
 
   it('recovers a legacy alpha data.db by rename when brunch-v1.db is absent, including -wal/-shm sidecars', async () => {

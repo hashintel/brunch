@@ -46,21 +46,13 @@ export interface WorkspaceGraphRuntime {
   readonly commandExecutor: CommandExecutor;
   /** Bind graph reads to a single spec (D61-L). */
   readonly forSpec: (specId: number) => SpecScopedReaders;
-  /**
-   * Whether a sibling 0.x `.brunch/brunch.db` was detected alongside this
-   * open (I63-L). Informational only — it does not influence posture
-   * (2026-07-14 D124-L revision: prior Brunch state is not product code).
-   * The 0.x file itself is never opened, migrated, or deleted.
-   */
-  readonly legacyZeroXDetected: boolean;
 }
 
 export async function openWorkspaceGraphRuntime(cwd: string): Promise<WorkspaceGraphRuntime> {
-  const [db, legacyZeroXDetected] = await Promise.all([openWorkspaceDb(cwd), detectLegacyZeroXDatabase(cwd)]);
+  const db = await openWorkspaceDb(cwd);
   const commandExecutor = new CommandExecutor(db);
   return {
     commandExecutor,
-    legacyZeroXDetected,
     forSpec(specId: number): SpecScopedReaders {
       return {
         queryGraph: (filter, options) => queryGraph(db, specId, filter, options),
@@ -82,9 +74,9 @@ export async function openWorkspaceCommandExecutor(cwd: string): Promise<Command
  * The current workspace database filename, under the `brunch-v{major}.db`
  * lineage policy (D124-L): the DB format may change incompatibly only across
  * major product versions, and the filename is the compatibility contract.
- * 0.x's `.brunch/brunch.db` is this line's retroactive v0
- * (`LEGACY_ZERO_X_DB_FILENAME`); this is v1. Bump the major segment only
- * alongside a deliberate incompatible schema/format change.
+ * 0.x's `.brunch/brunch.db` is this line's retroactive v0; this is v1.
+ * Bump the major segment only alongside a deliberate incompatible
+ * schema/format change.
  */
 export const WORKSPACE_DB_FILENAME = 'brunch-v1.db';
 
@@ -95,14 +87,6 @@ export const WORKSPACE_DB_FILENAME = 'brunch-v1.db';
  * mechanic 4). Never opened directly; never deleted.
  */
 export const LEGACY_ALPHA_DB_FILENAME = 'data.db';
-
-/**
- * The 0.x workspace DB filename — this lineage's retroactive v0. A sibling is
- * detected as a pure filesystem check; never opened, migrated, or deleted
- * (I63-L). Detection is informational only — no posture influence
- * (2026-07-14 D124-L revision).
- */
-export const LEGACY_ZERO_X_DB_FILENAME = 'brunch.db';
 
 /** SQLite `application_id` magic stamped on every `brunch-v1.db` (ASCII "BRV1"). */
 const BRUNCH_APPLICATION_ID = 0x42_52_56_31;
@@ -133,17 +117,6 @@ export class WorkspaceDbRefusalError extends Error {
     );
     this.name = 'WorkspaceDbRefusalError';
   }
-}
-
-/**
- * Detects a sibling 0.x `.brunch/brunch.db` without opening it — a pure
- * filesystem existence check (I63-L: the 0.x file is never opened, migrated,
- * or deleted). Informational only: the 2026-07-14 D124-L revision removed
- * the posture feed — prior Brunch state is not product code, so a code-less
- * cwd stays bare/greenfield regardless of legacy databases.
- */
-export async function detectLegacyZeroXDatabase(cwd: string): Promise<boolean> {
-  return existsSync(join(cwd, BRUNCH_DIR, LEGACY_ZERO_X_DB_FILENAME));
 }
 
 /**

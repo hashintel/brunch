@@ -90,9 +90,7 @@ export type {
 
 export { CommandExecutor } from './command-executor.js';
 export {
-  detectLegacyZeroXDatabase,
   LEGACY_ALPHA_DB_FILENAME,
-  LEGACY_ZERO_X_DB_FILENAME,
   openWorkspaceCommandExecutor,
   openWorkspaceDb,
   openWorkspaceGraphRuntime,
