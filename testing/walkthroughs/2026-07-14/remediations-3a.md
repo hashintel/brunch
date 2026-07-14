@@ -8,7 +8,7 @@
 
 - this is the wrong location for it. It should use `ctx.ui.notify`, and thus appear above the Editor
 - the cancelled `ask` should render differently. design required
-- an error in the tool-call also appeared, and error rendering should also be part of how we define too-result `content` and `result` rendering
+- an error in the tool-call also appeared, and error rendering should also be part of how we define tool-result `content` and `result` rendering
 - the use of `status` for this message is both wrong and incorrectly done
 	- when the user starts a new turn, in that *the status doesn't clear* -- see the screenshots in section 2 below: it's still there
 	- when the user cancels another `ask` tool later, another (different! why?) notice is _appended_ to the status instead of updating it
@@ -32,7 +32,7 @@ I triggered an ingest flow. it doesn't look like the `present_digest` tool was u
 
 after I accepted the review, I got another question which actually should have been the initial question: i.e. the assistant should have presented the digest, and then asked the clarifying questions that it wanted answering, before mapping
 
-Also, the way it presented the ask question in the screnshot above indicates that it should ideally have the ability to present multiple questions (questionnaire style). Here it's trying to jamm them together and only presents a few permutations. this is just awkward and confusing
+Also, the way it presented the ask question in the screenshot above indicates that it should ideally have the ability to present multiple questions (questionnaire style). Here it's trying to jam them together and only presents a few permutations. this is just awkward and confusing
 
 ![large review set after two following questions](<CleanShot 2026-07-14 at 11.14.02@2x.png>)
 
@@ -42,7 +42,7 @@ I almost didn't get to test the extraction breadth here, because it hung for a v
 
 Once accepted the assistant persisted the content in separate batches. I'm not sure what implication this has for LSN numbers?
 
-Also, it *listed out the obligations in teh scratchpad, which it shouldn't do: those are internal notes for itself, not something that should be user-facing. At most they could appear in thinking blocks
+Also, it listed out the obligations in the scratchpad, which it shouldn't do: those are internal notes for itself, not something that should be user-facing. At most they could appear in thinking blocks
 
 ### 8. Other notes
 
@@ -54,5 +54,5 @@ A brand new spec and session is now too bare when it starts, the assistant needs
 - creating a new spec correctly goes through the "posture" questions, in which we identify the scope of the spec and whether its greenfield or brownfield, but when we get in to Specify mode we immediately get the orientation menu before the assistant has done any orientation of its own (reviewing the seeded info, etc.). In such a case, the assistant should obviously post some additional questions since the "readiness" of this spec is zero in such a case, and thus showing the orientation/consult menu immediately here is totally premature
 
 The orientation menu has too many options and we probably need some basic way to deterministically evaluate "readiness" again
-- "ingest source material" should not be one of the options at any time. This is not an explicit action but rather an implicit one. The optio, if it exists at all should read more generially as "provide information" or something similar and should rather lead to an inert state, with an affordance from the system indicating how the user could provide this, i.e. The user could paste content, link to files, link to folders, whatever. At the moment, when the user chooses this, it's interpreated as an imperative: the assistant then goes looking for material to ingest and ingests it, rather than waiting to be given dirction
+- "ingest source material" should not be one of the options at any time. This is not an explicit action but rather an implicit one. The option, if it exists at all should read more generally as "provide information" or something similar and should rather lead to an inert state, with an affordance from the system indicating how the user could provide this, i.e. The user could paste content, link to files, link to folders, whatever. At the moment, when the user chooses this, it's interpreted as an imperative: the assistant then goes looking for material to ingest and ingests it, rather than waiting to be given direction
 - in a brand new spec and session, the orientation/consult menu should not present all of the options that it currently does, as they are clearly not all possible. In practice, only "work by decision", "work by example" and "provide information sources" should be possible at the beginning...

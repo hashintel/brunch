@@ -988,7 +988,10 @@ describe('structured exchange ask tools', () => {
     expect(rendered).toContain('Depends on: CH1');
   });
 
-  it('shows only controls in candidate, digest, and review-set continuation pickers', async () => {
+  // Digest continuations route to the editor (free-text feedback), not a decision picker — that
+  // path is proven in "drives candidate/review decisions and conversational digest feedback by
+  // reference". Only candidate and review-set offers expose picker chrome, so only they belong here.
+  it('shows only controls in candidate and review-set continuation pickers', async () => {
     const ask = registeredTools({ review: reviewDeps() }).get(ASK_TOOL);
     if (!ask) throw new Error('ask was not registered');
     const offers = [
@@ -997,19 +1000,6 @@ describe('structured exchange ask tools', () => {
         exchangeId: 'candidate-direction',
         repeatedPretext: ['Which direction should we take?', 'Pick one candidate.'],
         expectedControl: 'Local workbench',
-      },
-      {
-        details: (
-          await presentResult(PRESENT_DIGEST_TOOL, {
-            exchangeId: 'digest-live-chrome',
-            heading: 'Review source digest',
-            body: 'Approve this before graph mapping.',
-            digest: { abstract: 'The source says summarize before graph mapping.' },
-          })
-        ).details,
-        exchangeId: 'digest-live-chrome',
-        repeatedPretext: ['Review source digest', 'Approve this before graph mapping.'],
-        expectedControl: 'Approve',
       },
       {
         details: (

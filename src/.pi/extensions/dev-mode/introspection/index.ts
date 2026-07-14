@@ -172,6 +172,7 @@ function formatBrunchIntrospectionReport(
 function summarizeTopLevelFields(value: unknown): string {
   if (!isRecord(value)) return summarizeValue(value);
   return `{${Object.entries(value)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([field, fieldValue]) => `${field}:${summarizeValue(fieldValue)}`)
     .join(', ')}}`;
 }
@@ -185,7 +186,7 @@ function summarizeValue(value: unknown): string {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 export default registerBrunchIntrospection;
