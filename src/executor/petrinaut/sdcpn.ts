@@ -58,17 +58,17 @@ export interface SdcpnFile {
   readonly title: string;
   readonly places: readonly SdcpnPlace[];
   readonly transitions: readonly SdcpnTransition[];
-  readonly types: readonly never[];
-  readonly differentialEquations: readonly never[];
-  readonly parameters: readonly never[];
+  readonly types: readonly unknown[];
+  readonly differentialEquations: readonly unknown[];
+  readonly parameters: readonly unknown[];
   readonly scenarios: readonly SdcpnScenario[];
-  readonly metrics: readonly never[];
+  readonly metrics: readonly unknown[];
 }
 
 export function parseSdcpnFile(value: unknown): SdcpnFile | undefined {
-  if (!isRecord(value) || !Number.isInteger(value.version) || typeof value.title !== 'string')
+  if (!isRecord(value) || !isPositiveInteger(value.version) || !isNonEmptyString(value.title))
     return undefined;
-  if (!isRecord(value.meta) || typeof value.meta.generator !== 'string') return undefined;
+  if (!isRecord(value.meta) || !isNonEmptyString(value.meta.generator)) return undefined;
   if (value.meta.generatorVersion !== undefined && typeof value.meta.generatorVersion !== 'string') {
     return undefined;
   }
@@ -83,21 +83,12 @@ export function parseSdcpnFile(value: unknown): SdcpnFile | undefined {
   ) {
     return undefined;
   }
-  if (
-    value.types.length > 0 ||
-    value.differentialEquations.length > 0 ||
-    value.parameters.length > 0 ||
-    value.metrics.length > 0
-  ) {
-    return undefined;
-  }
-
   const placeIds = new Set<string>();
   for (const place of value.places) {
     if (
       !isRecord(place) ||
-      typeof place.id !== 'string' ||
-      typeof place.name !== 'string' ||
+      !isNonEmptyString(place.id) ||
+      !isNonEmptyString(place.name) ||
       !isOptionalFiniteNumber(place.x) ||
       !isOptionalFiniteNumber(place.y) ||
       place.colorId !== null ||
@@ -114,8 +105,8 @@ export function parseSdcpnFile(value: unknown): SdcpnFile | undefined {
   for (const transition of value.transitions) {
     if (
       !isRecord(transition) ||
-      typeof transition.id !== 'string' ||
-      typeof transition.name !== 'string' ||
+      !isNonEmptyString(transition.id) ||
+      !isNonEmptyString(transition.name) ||
       !isOptionalFiniteNumber(transition.x) ||
       !isOptionalFiniteNumber(transition.y) ||
       transitionIds.has(transition.id) ||
@@ -154,8 +145,8 @@ export function parseSdcpnFile(value: unknown): SdcpnFile | undefined {
   for (const scenario of value.scenarios) {
     if (
       !isRecord(scenario) ||
-      typeof scenario.id !== 'string' ||
-      typeof scenario.name !== 'string' ||
+      !isNonEmptyString(scenario.id) ||
+      !isNonEmptyString(scenario.name) ||
       !Array.isArray(scenario.scenarioParameters) ||
       scenario.scenarioParameters.length > 0 ||
       !isStringRecord(scenario.parameterOverrides) ||
@@ -466,6 +457,10 @@ function sentenceCase(source: string): string {
 
 function isPositiveInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0;
 }
 
 function isOptionalFiniteNumber(value: unknown): boolean {

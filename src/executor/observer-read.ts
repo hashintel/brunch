@@ -315,8 +315,12 @@ export async function readRunDetail(
     authoritySliceIds ?? [],
     observedPetriRuntime?.blockedSteps ?? [],
   );
+  const authoritativeFailedSliceIds = petriProjectionEntry?.projection.terminalEventKind
+    ? petriProjectionEntry.projection.failedSliceIds
+    : undefined;
   return {
     ...summary,
+    ...(authoritativeFailedSliceIds === undefined ? {} : { failedSliceIds: authoritativeFailedSliceIds }),
     planPath: metadata.planPath,
     reportsTail: reports.tail,
     reportsTotal: reports.total,

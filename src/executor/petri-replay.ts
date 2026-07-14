@@ -31,10 +31,10 @@ export function replayPetri(args: {
     | null;
 
   for (const event of args.events) {
+    if (sawTerminalEvent) return undefined;
     switch (event.kind) {
       case 'transition_fired':
         transitionIds.push(event.transitionId);
-        if (sawTerminalEvent) terminalSummary = null;
         break;
       case 'net_completed':
       case 'net_halted':

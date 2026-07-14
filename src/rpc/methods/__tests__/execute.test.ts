@@ -22,7 +22,12 @@ import type { GraphEdge } from '../../../graph/schema/edges.js';
 import type { GraphNode } from '../../../graph/schema/nodes.js';
 import { createProductUpdatePublisher, type ProductUpdate } from '../../product-updates.js';
 import type { JsonRpcRequest } from '../../protocol.js';
-import { ExecuteRunResultSchema, executeRpcMethods, UNKNOWN_RUN_ID_MESSAGE } from '../execute.js';
+import {
+  ExecuteRunResultSchema,
+  ExecuteRunsResultSchema,
+  executeRpcMethods,
+  UNKNOWN_RUN_ID_MESSAGE,
+} from '../execute.js';
 import type { RpcMethodContext } from '../registry.js';
 
 function contextFor(cwd: string): RpcMethodContext {
@@ -99,6 +104,7 @@ async function writeRun(
     readonly specId?: string;
     readonly activeSliceId?: string;
     readonly completedSliceIds?: readonly string[];
+    readonly failedSliceIds?: readonly string[];
     readonly integratedEpicIds?: readonly string[];
     readonly epicTransitionHistory?: readonly string[];
   } = {},
@@ -113,6 +119,7 @@ async function writeRun(
       status: options.status ?? 'created',
       ...(options.activeSliceId === undefined ? {} : { activeSliceId: options.activeSliceId }),
       ...(options.completedSliceIds === undefined ? {} : { completedSliceIds: options.completedSliceIds }),
+      ...(options.failedSliceIds === undefined ? {} : { failedSliceIds: options.failedSliceIds }),
       ...(options.completedSliceIds === undefined
         ? {}
         : {
@@ -309,9 +316,10 @@ describe('execute.runs', () => {
 
   it('lists run summaries for the invocation cwd', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-runs-'));
-    await writeRun(cwd, 'run-1');
+    await writeRun(cwd, 'run-1', { failedSliceIds: ['task-1'] });
 
-    const response = await method('execute.runs').handle(contextFor(cwd), request('execute.runs'));
+    const definition = method('execute.runs');
+    const response = await definition.handle(contextFor(cwd), request('execute.runs'));
 
     expect(response).toMatchObject({
       result: {
@@ -320,15 +328,32 @@ describe('execute.runs', () => {
             runId: 'run-1',
             specId: '42',
             status: 'created',
+            failedSliceIds: ['task-1'],
             presence: { worktree: false, reports: false, petri: false, promotion: false },
           },
         ],
       },
     });
+    expect(Value.Check(ExecuteRunsResultSchema, 'result' in response ? response.result : undefined)).toBe(
+      true,
+    );
   });
 });
 
 describe('execute.run', () => {
+  it('returns failed slice ids in a schema-valid run detail response', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-failed-slices-'));
+    await writeRun(cwd, 'run-1', { failedSliceIds: ['task-1'] });
+
+    const definition = method('execute.run');
+    const response = await definition.handle(contextFor(cwd), request('execute.run', { runId: 'run-1' }));
+
+    expect(response).toMatchObject({ result: { failedSliceIds: ['task-1'] } });
+    expect(Value.Check(ExecuteRunResultSchema, 'result' in response ? response.result : undefined)).toBe(
+      true,
+    );
+  });
+
   it('returns active parallel authority readiness and stream inventory over RPC', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-parallel-authority-'));
     await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });

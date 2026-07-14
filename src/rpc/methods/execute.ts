@@ -273,7 +273,7 @@ const PetrinautReplayExportSchema = Type.Object(
           transitionId: Type.String(),
           input: PetrinautReplayMarkingSchema,
           output: PetrinautReplayMarkingSchema,
-          ts: Type.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$' }),
+          ts: Type.String({ format: 'date-time' }),
         },
         { additionalProperties: false },
       ),
@@ -290,6 +290,7 @@ const RunListEntrySchema = Type.Union([
       status: Type.String(),
       activeSliceId: Type.Optional(Type.String()),
       completedSliceIds: Type.Optional(Type.Array(Type.String())),
+      failedSliceIds: Type.Optional(Type.Array(Type.String())),
       supersedesRunId: Type.Optional(Type.String()),
       abandonedAt: Type.Optional(Type.String()),
       abandonReason: Type.Optional(Type.String()),
@@ -300,7 +301,7 @@ const RunListEntrySchema = Type.Union([
   Type.Object({ runId: Type.String(), unreadable: Type.Literal(true) }, { additionalProperties: false }),
 ]);
 
-const ExecuteRunsResultSchema = Type.Object(
+export const ExecuteRunsResultSchema = Type.Object(
   { runs: Type.Array(RunListEntrySchema) },
   { additionalProperties: false },
 );
@@ -313,6 +314,7 @@ export const ExecuteRunResultSchema = Type.Union([
       status: Type.String(),
       activeSliceId: Type.Optional(Type.String()),
       completedSliceIds: Type.Optional(Type.Array(Type.String())),
+      failedSliceIds: Type.Optional(Type.Array(Type.String())),
       supersedesRunId: Type.Optional(Type.String()),
       abandonedAt: Type.Optional(Type.String()),
       abandonReason: Type.Optional(Type.String()),

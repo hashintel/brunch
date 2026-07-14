@@ -435,6 +435,7 @@ describe('readRunDetail', () => {
     const cwd = await fixtureCwd('brunch-observer-replan-detail-');
     await writeRun(cwd, 'run-d', {
       status: 'abandoned',
+      failedSliceIds: ['task-1'],
       supersedesRunId: 'run-old',
       abandonedAt: '2026-07-07T00:00:00.000Z',
       abandonReason: 'User chose a fresh plan',
@@ -443,9 +444,46 @@ describe('readRunDetail', () => {
     await expect(readRunDetail(cwd, 'run-d')).resolves.toMatchObject({
       runId: 'run-d',
       status: 'abandoned',
+      failedSliceIds: ['task-1'],
       supersedesRunId: 'run-old',
       abandonedAt: '2026-07-07T00:00:00.000Z',
       abandonReason: 'User chose a fresh plan',
+    });
+  });
+
+  it('prefers durable terminal failed slice ids over later abandonment metadata', async () => {
+    const cwd = await fixtureCwd('brunch-observer-abandoned-terminal-');
+    const runDir = await writeRun(cwd, 'run-d', {
+      status: 'abandoned',
+      failedSliceIds: ['metadata-only'],
+      abandonedAt: '2026-07-14T12:00:02.000Z',
+    });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'net.json'),
+      JSON.stringify({ initialMarking: {}, transitions: [] }),
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'petrinaut', 'events.jsonl'),
+      `${JSON.stringify({
+        kind: 'net_halted',
+        ts: '2026-07-14T12:00:01.000Z',
+        runId: 'run-d',
+        runStatus: 'slice_completed',
+        reason: 'slice_verification_not_passed',
+        failedSliceIds: ['durable-failure'],
+      })}\n`,
+      'utf8',
+    );
+
+    await expect(readRunDetail(cwd, 'run-d')).resolves.toMatchObject({
+      status: 'abandoned',
+      failedSliceIds: ['durable-failure'],
+      petriProjection: {
+        terminalEventKind: 'net_halted',
+        failedSliceIds: ['durable-failure'],
+      },
     });
   });
 
@@ -682,7 +720,7 @@ describe('readRunDetail', () => {
     });
   });
 
-  it('omits terminal summary from replay when the raw journal contains contradictory terminal events', async () => {
+  it('rejects replay when the raw journal contains contradictory terminal events', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-terminal-conflict-');
     const runDir = await writeRun(cwd, 'run-petri-terminal-conflict', { status: 'promotion_prepared' });
     await mkdir(join(runDir, 'petrinaut'), { recursive: true });
@@ -742,22 +780,8 @@ describe('readRunDetail', () => {
 
     const detail = await readRunDetail(cwd, 'run-petri-terminal-conflict');
 
-    expect(detail).toMatchObject({
-      petriProjection: {
-        currentMarking: { 'run:promotion_prepared': 1 },
-        firedTransitionCount: 1,
-      },
-      petriProjectionSource: 'replay',
-      petriProjectionReplayReason: 'snapshot_missing_or_unreadable',
-    });
-    expect(detail).not.toMatchObject({
-      petriProjection: {
-        terminalEventKind: 'net_completed',
-      },
-    });
-    expect(
-      detail && 'petrinautReplayExport' in detail ? detail.petrinautReplayExport : undefined,
-    ).toBeUndefined();
+    expect(detail).not.toHaveProperty('petriProjection');
+    expect(detail).not.toHaveProperty('petrinautReplayExport');
   });
 
   it('omits Petrinaut replay export when SDCPN arcs reference unknown places', async () => {
@@ -863,7 +887,7 @@ describe('readRunDetail', () => {
     ).toBeUndefined();
   });
 
-  it('omits terminal summary from replay when the raw journal fires after a terminal event', async () => {
+  it('rejects replay when the raw journal fires after a terminal event', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-terminal-order-');
     const runDir = await writeRun(cwd, 'run-petri-terminal-order', { status: 'worktree_populated' });
     await mkdir(join(runDir, 'petrinaut'), { recursive: true });
@@ -933,19 +957,8 @@ describe('readRunDetail', () => {
 
     const detail = await readRunDetail(cwd, 'run-petri-terminal-order');
 
-    expect(detail).toMatchObject({
-      petriProjection: {
-        currentMarking: { 'run:worktree_populated': 1 },
-        firedTransitionCount: 2,
-      },
-      petriProjectionSource: 'replay',
-      petriProjectionReplayReason: 'snapshot_missing_or_unreadable',
-    });
-    expect(detail).not.toMatchObject({
-      petriProjection: {
-        terminalEventKind: 'net_completed',
-      },
-    });
+    expect(detail).not.toHaveProperty('petriProjection');
+    expect(detail).not.toHaveProperty('petrinautReplayExport');
   });
 
   it('prefers the persisted marking snapshot over replay when both are present and its derived facts still match', async () => {

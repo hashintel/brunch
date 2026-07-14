@@ -173,3 +173,22 @@ Status: done
 - `src/executor/__tests__/petri.test.ts` covers run-shaped coordinate uniqueness across dependency, verdict, and epic-member nodes; natural-ID bands/fallbacks; and complete streamed-definition staging-schema validation.
 - `src/rpc/__tests__/execute-run-schema.test.ts` table-tests accepted and rejected coordinate, arc-weight, and timestamp shapes.
 - `src/executor/petrinaut/sdcpn.ts` carries the code ceiling; `src/executor/TOPOLOGY.md` owns the durable scale boundary.
+
+## Final Medium Review Closure
+
+Status: done
+
+### Acceptance Criteria
+
+✓ strict `execute.runs` and `execute.run` schemas and real responses retain `failedSliceIds`.
+✓ metadata-only abandonment retains failed-slice detail, while durable terminal evidence still wins.
+✓ raw and Petrinaut replay reject every event after terminal, including attempt and epic-verification facts.
+✓ legacy coordinate fallback avoids explicit positions and remains globally unique and deterministic.
+✓ SDCPN parsing enforces projected staging basics without rejecting legitimate full root collections.
+✓ firing timestamps use TypeBox's default `date-time` format validator, rejecting impossible calendar values.
+
+### Evidence
+
+- RPC schema and method suites validate real failed-slice list/detail responses and calendar-invalid timestamps.
+- Executor Petri and observer suites cover terminal finality, abandonment precedence, mixed coordinate fallback, and SDCPN root validation.
+- Focused, full, fix, check, and build commands are recorded in the completion report for this review pass.

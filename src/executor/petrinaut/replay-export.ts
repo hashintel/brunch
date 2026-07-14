@@ -51,8 +51,8 @@ export function reducePetrinautReplayExport(args: {
   let terminalFired = false;
 
   for (const event of args.events) {
+    if (terminalFired) throw new Error('Petrinaut event after terminal event');
     if (event.kind === 'transition_fired') {
-      if (terminalFired) throw new Error('Petrinaut transition fired after terminal event');
       const transition = transitions.get(event.transitionId);
       if (!transition) throw new Error(`Unknown Petrinaut transition id: ${event.transitionId}`);
       transitionFirings.push(transitionEventToFiring(event, transition));
@@ -73,21 +73,13 @@ export function reducePetrinautReplayExport(args: {
 }
 
 export function projectPetrinautReplayNetDefinition(sdcpnFile: SdcpnFile): PetrinautReplayNetDefinition {
-  const fallbackPositions = new Map(
-    [...sdcpnFile.places, ...sdcpnFile.transitions]
-      .map((node) => node.id)
-      .sort(compareNaturalIds)
-      .map((id, index) => [id, { x: 80 + (index % 20) * 180, y: 80 + Math.floor(index / 20) * 120 }]),
-  );
-  const fallbackPosition = (id: string): { readonly x: number; readonly y: number } => {
-    return fallbackPositions.get(id)!;
-  };
+  const fallbackPositions = allocateLegacyFallbackPositions(sdcpnFile);
   return {
     version: sdcpnFile.version,
     meta: sdcpnFile.meta,
     title: sdcpnFile.title,
     places: sdcpnFile.places.map((place) => {
-      const fallback = fallbackPosition(place.id);
+      const fallback = fallbackPositions.get(`place:${place.id}`)!;
       return {
         id: place.id,
         name: place.name,
@@ -96,7 +88,7 @@ export function projectPetrinautReplayNetDefinition(sdcpnFile: SdcpnFile): Petri
       };
     }),
     transitions: sdcpnFile.transitions.map((transition) => {
-      const fallback = fallbackPosition(transition.id);
+      const fallback = fallbackPositions.get(`transition:${transition.id}`)!;
       return {
         id: transition.id,
         name: transition.name,
@@ -107,6 +99,36 @@ export function projectPetrinautReplayNetDefinition(sdcpnFile: SdcpnFile): Petri
       };
     }),
   };
+}
+
+function allocateLegacyFallbackPositions(
+  sdcpnFile: SdcpnFile,
+): ReadonlyMap<string, { readonly x: number; readonly y: number }> {
+  const nodes = [
+    ...sdcpnFile.places.map((node) => ({ ...node, kind: 'place' as const })),
+    ...sdcpnFile.transitions.map((node) => ({ ...node, kind: 'transition' as const })),
+  ].sort((left, right) => compareNaturalIds(left.id, right.id) || compareNaturalIds(left.kind, right.kind));
+  const occupied = new Set(
+    nodes.flatMap((node) => (node.x === undefined || node.y === undefined ? [] : [`${node.x}/${node.y}`])),
+  );
+  const positions = new Map<string, { readonly x: number; readonly y: number }>();
+
+  for (const node of nodes) {
+    if (node.x !== undefined && node.y !== undefined) {
+      positions.set(`${node.kind}:${node.id}`, { x: node.x, y: node.y });
+      continue;
+    }
+    for (let index = 0; ; index += 1) {
+      const fallback = { x: 80 + (index % 20) * 180, y: 80 + Math.floor(index / 20) * 120 };
+      const position = { x: node.x ?? fallback.x, y: node.y ?? fallback.y };
+      const key = `${position.x}/${position.y}`;
+      if (occupied.has(key)) continue;
+      occupied.add(key);
+      positions.set(`${node.kind}:${node.id}`, position);
+      break;
+    }
+  }
+  return positions;
 }
 
 export function augmentPetriDefinitionWithRunStatus(

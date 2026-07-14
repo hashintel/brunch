@@ -33,7 +33,7 @@ import {
   projectPetrinautReplayNetDefinition,
   reducePetrinautReplayExport,
 } from '../petrinaut/replay-export.js';
-import { petriTopologyToSdcpnFile, SDCPN_FILE_FORMAT_VERSION } from '../petrinaut/sdcpn.js';
+import { parseSdcpnFile, petriTopologyToSdcpnFile, SDCPN_FILE_FORMAT_VERSION } from '../petrinaut/sdcpn.js';
 import { serializePetrinautSseFrame, serializePetrinautSseFrames } from '../petrinaut/sse.js';
 import { foldPetrinautStreamFrames, projectPetrinautStreamFrames } from '../petrinaut/stream-frames.js';
 import { populatedPlanPath } from '../populate.js';
@@ -750,7 +750,7 @@ describe('canProjectPetriReplay', () => {
 });
 
 describe('replayPetri', () => {
-  it('strips terminal summary when the raw journal contains contradictory terminal events', () => {
+  it('rejects the raw journal when it contains contradictory terminal events', () => {
     const topology = compileExecutorTopology({
       mode: 'greenfield',
       slices: [{ id: 'task-1' }],
@@ -790,13 +790,10 @@ describe('replayPetri', () => {
           },
         ],
       }),
-    ).toEqual({
-      currentMarking: { 'run:worktree_created': 1 },
-      firedTransitionCount: 1,
-    });
+    ).toBeUndefined();
   });
 
-  it('strips terminal summary when the raw journal fires again after a terminal event', () => {
+  it('rejects the raw journal when it fires again after a terminal event', () => {
     const topology = compileExecutorTopology({
       mode: 'greenfield',
       slices: [{ id: 'task-1' }],
@@ -843,10 +840,44 @@ describe('replayPetri', () => {
           },
         ],
       }),
-    ).toEqual({
-      currentMarking: { 'run:worktree_populated': 1 },
-      firedTransitionCount: 2,
-    });
+    ).toBeUndefined();
+  });
+
+  it.each([
+    {
+      kind: 'attempt_failed' as const,
+      ts: '2026-07-14T12:00:02.000Z',
+      runId: 'run-1',
+      runStatus: 'slice_execution_requested' as const,
+      sliceId: 'task-1',
+      step: 'agent_result' as const,
+      attempt: 1,
+      reason: 'agent_run_failed',
+    },
+    {
+      kind: 'epic_verification_claimed' as const,
+      ts: '2026-07-14T12:00:02.000Z',
+      runId: 'run-1',
+      runStatus: 'slice_completed' as const,
+      epicId: 'epic-1',
+      step: 'epic_verify' as const,
+    },
+  ])('rejects $kind after a terminal event', (postTerminalEvent) => {
+    expect(
+      replayPetri({
+        net: { initialMarking: {}, transitions: [] },
+        events: [
+          {
+            kind: 'net_completed',
+            ts: '2026-07-14T12:00:01.000Z',
+            runId: 'run-1',
+            runStatus: 'promotion_prepared',
+            failedSliceIds: [],
+          },
+          postTerminalEvent,
+        ],
+      }),
+    ).toBeUndefined();
   });
 
   it('strips terminal summary when a replayed halt event has no reason', () => {
@@ -1235,6 +1266,56 @@ describe('reducePetrinautReplayExport', () => {
     expect(fallbackIndex('slice:S2:claim')).toBeLessThan(fallbackIndex('slice:S10:claim'));
   });
 
+  it('allocates mixed legacy fallback coordinates around every explicit occupied coordinate', () => {
+    const sdcpn = petriTopologyToSdcpnFile({
+      runId: 'run-legacy-coordinate-collision',
+      topology: compileExecutorTopology({ slices: [] }),
+    });
+    const legacy = structuredClone(sdcpn);
+    for (const node of [...legacy.places, ...legacy.transitions]) {
+      delete (node as { x?: number }).x;
+      delete (node as { y?: number }).y;
+    }
+    const explicit = legacy.places[0] as { x?: number; y?: number };
+    explicit.x = 260;
+    explicit.y = 80;
+
+    const first = projectPetrinautReplayNetDefinition(legacy);
+    const second = projectPetrinautReplayNetDefinition(legacy);
+    const positions = [...first.places, ...first.transitions].map(({ x, y }) => `${x}/${y}`);
+
+    expect(first).toEqual(second);
+    expect(new Set(positions)).toHaveLength(positions.length);
+    expect(positions.filter((position) => position === '260/80')).toHaveLength(1);
+  });
+
+  it('accepts full SDCPN roots while enforcing the projected staging basics', () => {
+    const generated = structuredClone(
+      petriTopologyToSdcpnFile({
+        runId: 'run-parse-contract',
+        topology: compileExecutorTopology({ slices: [] }),
+      }),
+    );
+    const valid = {
+      ...generated,
+      types: [{ id: 'token-type' }],
+      parameters: [{ id: 'rate' }],
+    };
+    expect(parseSdcpnFile(valid)).toBeDefined();
+
+    const invalidCandidates = [
+      { ...valid, version: 0 },
+      { ...valid, title: '' },
+      { ...valid, meta: { ...valid.meta, generator: '' } },
+      { ...valid, places: [{ ...valid.places[0]!, id: '' }, ...valid.places.slice(1)] },
+      { ...valid, places: [{ ...valid.places[0]!, name: '' }, ...valid.places.slice(1)] },
+      { ...valid, transitions: [{ ...valid.transitions[0]!, id: '' }, ...valid.transitions.slice(1)] },
+      { ...valid, transitions: [{ ...valid.transitions[0]!, name: '' }, ...valid.transitions.slice(1)] },
+      { ...valid, places: [{ ...valid.places[0]!, x: Number.NaN }, ...valid.places.slice(1)] },
+    ];
+    for (const candidate of invalidCandidates) expect(parseSdcpnFile(candidate)).toBeUndefined();
+  });
+
   it('preserves projected coordinates and names while replaying run-mrkj5qqo-shaped failed branches', () => {
     const topology = compileExecutorTopology({ slices: [{ id: 'S3' }, { id: 'S4' }, { id: 'S5' }] });
     const sdcpnFile = petriTopologyToSdcpnFile({ runId: 'run-mrkj5qqo', topology });
@@ -1572,6 +1653,47 @@ describe('reducePetrinautReplayExport', () => {
         ts: '2026-07-14T12:00:00.000Z',
       },
     ]);
+  });
+
+  it.each([
+    {
+      kind: 'attempt_failed' as const,
+      ts: '2026-07-14T12:00:01.000Z',
+      runId: 'run-1',
+      runStatus: 'slice_execution_requested' as const,
+      sliceId: 'task-1',
+      step: 'agent_result' as const,
+      attempt: 1,
+      reason: 'agent_run_failed',
+    },
+    {
+      kind: 'epic_verification_claimed' as const,
+      ts: '2026-07-14T12:00:01.000Z',
+      runId: 'run-1',
+      runStatus: 'slice_completed' as const,
+      epicId: 'epic-1',
+      step: 'epic_verify' as const,
+    },
+  ])('fails closed when $kind follows a Petrinaut terminal event', (postTerminalEvent) => {
+    const sdcpnFile = petriTopologyToSdcpnFile({
+      runId: 'run-1',
+      topology: compileExecutorTopology({ slices: [] }),
+    });
+    expect(() =>
+      reducePetrinautReplayExport({
+        sdcpnFile,
+        events: [
+          {
+            kind: 'net_completed',
+            ts: '2026-07-14T12:00:00.000Z',
+            runId: 'run-1',
+            runStatus: 'promotion_prepared',
+            failedSliceIds: [],
+          },
+          postTerminalEvent,
+        ],
+      }),
+    ).toThrow(/after terminal event/);
   });
 
   it('fails closed when a journal transition is absent from the SDCPN definition', async () => {
