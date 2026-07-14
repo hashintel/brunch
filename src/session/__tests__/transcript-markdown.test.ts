@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ProjectedTranscriptContext } from '../../projections/session/transcript-context.js';
-import { renderSessionTranscript } from '../session-transcript.js';
+import { renderAllHistoryDiagnosticTranscript } from '../session-transcript.js';
 import { formatTranscript } from '../transcript-markdown.js';
 
 describe('debug transcript markdown', () => {
@@ -65,9 +65,9 @@ describe('debug transcript markdown', () => {
 
   it('reports malformed JSONL at its physical one-based line after blank separators', () => {
     const valid = { type: 'message', message: { role: 'user', content: 'hello', timestamp: 1 } };
-    expect(() => renderSessionTranscript(`${JSON.stringify(valid)}\n\t\n{broken}\n`)).toThrow(
+    expect(() => renderAllHistoryDiagnosticTranscript(`${JSON.stringify(valid)}\n\t\n{broken}\n`)).toThrow(
       'Invalid JSONL at line 3',
     );
-    expect(renderSessionTranscript(`\n${JSON.stringify(valid)}\n`)).toContain('hello');
+    expect(renderAllHistoryDiagnosticTranscript(`\n${JSON.stringify(valid)}\n`)).toContain('hello');
   });
 });
