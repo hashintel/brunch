@@ -289,6 +289,29 @@ describe('WorkspaceSessionCoordinator', () => {
     await expect(readFile(second.session.file, 'utf8')).resolves.toBe(beforeSecond);
   });
 
+  it('derives branched session inventory metadata from the active physical branch', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const ready = await coordinator.createSetupSession({ specTitle: 'Alpha' });
+    const manager = ready.session.manager;
+    const sharedId = manager.appendMessage(assistantMessage('Shared prompt'));
+    manager.appendSessionInfo('Abandoned name');
+    manager.appendMessage(userMessage('Abandoned answer'));
+    manager.branch(sharedId);
+    manager.appendSessionInfo('Selected name');
+    manager.appendMessage(userMessage('Selected answer'));
+
+    const inventory = await coordinator.inspectWorkspace();
+
+    expect(inventory.specs[0]?.sessions).toEqual([
+      expect.objectContaining({
+        id: ready.session.id,
+        name: 'Selected name',
+        turnCount: 2,
+      }),
+    ]);
+  });
+
   it('inspects an empty workspace without creating session files', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
     const coordinator = createWorkspaceSessionCoordinator({ cwd });
@@ -432,25 +455,31 @@ describe('WorkspaceSessionCoordinator', () => {
     const duplicateBindingFile = join(cwd, '.brunch', 'sessions', 'duplicate-binding.jsonl');
     await writeFile(
       unboundFile,
-      `${JSON.stringify({ type: 'session', id: 'unbound-session', cwd })}\n`,
+      `${JSON.stringify({ type: 'session', version: 3, id: 'unbound-session', cwd })}\n`,
       'utf8',
     );
     const bindingEntry = JSON.stringify({
+      id: 'binding-1',
       type: 'custom',
       customType: SESSION_BINDING_TYPE,
+      parentId: null,
+      timestamp: '2026-07-14T00:00:00.000Z',
       data: {
         schemaVersion: 1,
         specId: ready.spec.id,
       },
     });
+    const secondBindingEntry = bindingEntry
+      .replace('binding-1', 'binding-2')
+      .replace('"parentId":null', '"parentId":"binding-1"');
     await writeFile(
       mismatchedFile,
-      `${JSON.stringify({ type: 'session', id: 'header-session', cwd })}\n${bindingEntry}\n`,
+      `${JSON.stringify({ type: 'session', version: 3, id: 'header-session', cwd })}\n${bindingEntry}\n`,
       'utf8',
     );
     await writeFile(
       duplicateBindingFile,
-      `${JSON.stringify({ type: 'session', id: 'duplicate-binding-session', cwd })}\n${bindingEntry}\n${bindingEntry}\n`,
+      `${JSON.stringify({ type: 'session', version: 3, id: 'duplicate-binding-session', cwd })}\n${bindingEntry}\n${secondBindingEntry}\n`,
       'utf8',
     );
     const beforeUnbound = await readFile(unboundFile, 'utf8');
@@ -479,14 +508,14 @@ describe('WorkspaceSessionCoordinator', () => {
     await expect(readFile(duplicateBindingFile, 'utf8')).resolves.toBe(beforeDuplicateBinding);
   });
 
-  it('reports malformed session files without aborting inventory or store verification', async () => {
+  it('reports malformed session JSONL without aborting inventory or store verification', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
     const coordinator = createWorkspaceSessionCoordinator({ cwd });
     await coordinator.createSetupSession({ specTitle: 'Alpha' });
     const corruptedFile = join(cwd, '.brunch', 'sessions', 'corrupted.jsonl');
     await writeFile(
       corruptedFile,
-      `${JSON.stringify({ type: 'session', id: 'corrupted-session', cwd })}\n{not json}\n`,
+      `${JSON.stringify({ type: 'session', version: 3, id: 'corrupted-session', cwd })}\n{not json}\n`,
       'utf8',
     );
 
@@ -746,7 +775,7 @@ describe('WorkspaceSessionCoordinator', () => {
     const unavailableFile = join(cwd, '.brunch', 'sessions', 'unavailable.jsonl');
     await writeFile(
       unavailableFile,
-      `${JSON.stringify({ type: 'session', id: 'unavailable-session', cwd })}\n`,
+      `${JSON.stringify({ type: 'session', version: 3, id: 'unavailable-session', cwd })}\n`,
       'utf8',
     );
 

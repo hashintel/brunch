@@ -17,10 +17,10 @@ plus the coordination logic for workspace/spec/session lifecycle.
   append-order reads are legal only for explicitly named history/diagnostic
   surfaces. `active-session-branch.ts` is the canonical file-backed adapter:
   it opens through Pi and returns `getHeader()` plus `getBranch()`; the session
-  envelope and exchange/RPC projections now consume that seam. **Migration
-  active under FE-1196 `session-branching`:** app/extension current-state
-  consumers now require `getBranch()` with no append-order fallback; the active
-  scope file retains the outstanding per-surface abandoned-branch witness work.
+  envelope, canonical inventory, default transcript rendering, and exchange/RPC
+  projections consume that seam. Production reader regrowth is guarded by
+  `__tests__/active-branch-reader-inventory.test.ts`, whose exact diagnostic
+  allow-list preserves only purpose-named artifact/history readers.
 
 - **Exchange extraction** — session exchange projection: prompt-side
   span + response-side span, per D13-L.
@@ -44,8 +44,8 @@ plus the coordination logic for workspace/spec/session lifecycle.
   helpers, mirroring `runtime-state.ts`'s fold pattern exactly (latest-snapshot-wins
   over the active session branch, never runtime-state fields or tool-result
   `details`). The fold is branch-correct because its live callers now supply
-  `SessionManager.getBranch()`; FE-1196 still owes explicit abandoned-branch
-  rivals across the complete live-consumer family.
+  `SessionManager.getBranch()`; abandoned-branch rivals cover the live-consumer
+  family.
   Foreground context seeds,
   the `read_elicitation_scratchpad` / `update_elicitation_scratchpad` tools, and
   subagent world snapshots all read the same fold. It never becomes canonical

@@ -7,6 +7,9 @@ compact report a human can review. The source JSONL is the durable evidence; the
 report explains what was proven and where to inspect it. Human-readable
 transcript rendering now belongs in workspace-local `.brunch/debug/transcript.md`
 for Tier-1/Tier-2 faux-harness loops, not as a default committed probe artifact.
+Default file rendering follows Pi's active branch; the string-level
+`renderAllHistoryDiagnosticTranscript` API is explicitly append-order and exists
+only for diagnostic artifact inspection.
 
 This replaces the older over-planned "brief library / fixture strategy" shape.
 Curated briefs may become useful again, but only as inputs to harness/probe runs

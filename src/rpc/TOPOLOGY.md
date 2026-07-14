@@ -216,19 +216,19 @@ session.pendingExchange
   access: read
   params: {sessionId, specId?} or omitted selected session
   result: current unresolved structured exchange, or idle
-  source: Pi active-branch transcript projection through `session/active-session-branch.ts` (D24-L/I19-L; broader FE-1196 consumer migration remains active)
+  source: Pi active-branch transcript projection through `session/active-session-branch.ts` (D24-L/I19-L)
 
 session.exchanges
   access: read
   params: {sessionId, specId?} or omitted selected session
   result: structured exchange history on the active branch; abandoned siblings are history, not current exchange state
-  source: Pi active-branch transcript projection through `session/active-session-branch.ts` (D24-L/I19-L; broader FE-1196 consumer migration remains active)
+  source: Pi active-branch transcript projection through `session/active-session-branch.ts` (D24-L/I19-L)
 
 session.runtimeState
   access: read
   params: {sessionId, specId}
   result: active-branch transcript-backed runtime posture, mention slots, world watermarks (latest graph LSN and git head, no raw detail bags), lifecycle slots
-  source: Pi active-branch transcript projection through `session/active-session-branch.ts` (D24-L/I19-L; broader FE-1196 consumer migration remains active)
+  source: Pi active-branch transcript projection through `session/active-session-branch.ts` (D24-L/I19-L)
 
 session.triggerExchange
   access: write

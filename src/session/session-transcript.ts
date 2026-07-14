@@ -1,17 +1,18 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { FileEntry } from '@earendil-works/pi-coding-agent';
 
 import { projectTranscriptContext } from '../projections/session/transcript-context.js';
+import { openActiveSessionBranch } from './active-session-branch.js';
 import { formatTranscript } from './transcript-markdown.js';
 
 type TranscriptEntry = FileEntry;
 
 export async function renderSessionTranscriptFile(sessionFile: string): Promise<string> {
-  const text = await readFile(sessionFile, 'utf8');
-  return renderSessionTranscript(text, { title: basename(sessionFile) });
+  const { entries } = openActiveSessionBranch(sessionFile);
+  return formatTranscript(projectTranscriptContext(entries), { title: basename(sessionFile) });
 }
 
 export async function writeDebugSessionTranscript(options: {
@@ -25,12 +26,16 @@ export async function writeDebugSessionTranscript(options: {
   return transcript;
 }
 
-export function renderSessionTranscript(jsonl: string, options: { title?: string } = {}): string {
-  const entries = parseJsonl(jsonl);
+/** Renders physical append order for artifact inspection, including abandoned branches. */
+export function renderAllHistoryDiagnosticTranscript(
+  jsonl: string,
+  options: { title?: string } = {},
+): string {
+  const entries = parseAllHistoryDiagnosticJsonl(jsonl);
   return formatTranscript(projectTranscriptContext(entries), options);
 }
 
-function parseJsonl(jsonl: string): FileEntry[] {
+function parseAllHistoryDiagnosticJsonl(jsonl: string): FileEntry[] {
   return jsonl
     .split('\n')
     .map((line) => line.trim())

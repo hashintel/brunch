@@ -145,16 +145,40 @@ async function createSessionFile(): Promise<string> {
   return manager.getSessionFile()!;
 }
 
-async function createBranchedSessionFile(): Promise<string> {
+async function createBranchedSessionFile(): Promise<{
+  sessionFile: string;
+  activeAnswerId: string;
+  abandonedAnswerId: string;
+  sessionId: string;
+  cwd: string;
+}> {
   const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-branch-'));
   const manager = SessionManager.create(cwd, join(cwd, '.brunch/sessions'));
   appendBinding(manager);
   const sharedPromptId = manager.appendMessage(assistantMessage('Shared prompt'));
-  manager.appendMessage(userMessage('Abandoned answer'));
+  const abandonedAnswerId = manager.appendMessage(userMessage('Abandoned answer'));
+  manager.appendCustomEntry(BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE, {
+    schemaVersion: 1,
+    reason: 'switch',
+    state: { schemaVersion: 1, operationalMode: 'execute' },
+    source: 'user',
+  });
   manager.branch(sharedPromptId);
+  manager.appendCustomEntry(BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE, {
+    schemaVersion: 1,
+    reason: 'switch',
+    state: { schemaVersion: 1, operationalMode: 'specify' },
+    source: 'user',
+  });
   manager.appendMessage(assistantMessage('Active prompt'));
-  manager.appendMessage(userMessage('Active answer'));
-  return manager.getSessionFile()!;
+  const activeAnswerId = manager.appendMessage(userMessage('Active answer'));
+  return {
+    sessionFile: manager.getSessionFile()!,
+    activeAnswerId,
+    abandonedAnswerId,
+    sessionId: manager.getSessionId(),
+    cwd,
+  };
 }
 
 async function writeExplicitSessionFixture(cwd: string, entries: readonly unknown[]): Promise<void> {
@@ -1080,20 +1104,41 @@ describe('JSON-RPC handlers', () => {
     });
   });
 
-  it('reads pending state from the active branch of a selected sibling tree', async () => {
-    const sessionFile = await createBranchedSessionFile();
+  it('keeps all selected-session reads on one active sibling branch without non-linear errors', async () => {
+    const { sessionFile, activeAnswerId, abandonedAnswerId, sessionId, cwd } =
+      await createBranchedSessionFile();
     const handlers = createRpcHandlers({
       coordinator: coordinator(readyState(sessionFile)),
-      cwd: '/tmp/brunch-project',
+      cwd,
     });
 
-    await expect(
+    const [pending, exchanges, runtime] = await Promise.all([
       handlers.handle({ jsonrpc: '2.0', id: 52, method: 'session.pendingExchange' }),
-    ).resolves.toMatchObject({
-      jsonrpc: '2.0',
-      id: 52,
-      result: { status: 'idle', exchange: null },
+      handlers.handle({ jsonrpc: '2.0', id: 53, method: 'session.exchanges' }),
+      handlers.handle({
+        jsonrpc: '2.0',
+        id: 54,
+        method: 'session.runtimeState',
+        params: { sessionId, specId: 1 },
+      }),
+    ]);
+
+    expect(pending).toMatchObject({ result: { status: 'idle', exchange: null } });
+    expect(exchanges).toMatchObject({
+      result: {
+        status: 'ready',
+        exchanges: [expect.objectContaining({ responseEntryIds: [activeAnswerId] })],
+      },
     });
+    expect(exchanges).not.toMatchObject({
+      result: { exchanges: [expect.objectContaining({ responseEntryIds: [abandonedAnswerId] })] },
+    });
+    expect(runtime).toMatchObject({
+      result: { status: 'ready', agent: { operationalMode: 'specify', role: 'elicitor' } },
+    });
+    expect([pending, exchanges, runtime]).not.toContainEqual(
+      expect.objectContaining({ error: expect.objectContaining({ code: -32002 }) }),
+    );
   });
 
   it('responds to the deterministic listed-option exchange and closes the projection', async () => {
@@ -1912,7 +1957,7 @@ describe('JSON-RPC handlers', () => {
   });
 
   it('serves exchanges from the active branch of a selected sibling tree', async () => {
-    const sessionFile = await createBranchedSessionFile();
+    const { sessionFile } = await createBranchedSessionFile();
     const handlers = createRpcHandlers({
       coordinator: coordinator(readyState(sessionFile)),
       cwd: '/tmp/brunch-project',

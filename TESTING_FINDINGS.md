@@ -264,6 +264,16 @@ Observation: the detected 0.x database is never named to the user. Print-mode bo
 Expected: TESTING_PLAN 1D asks for a legible message when migration is unsupported; D124-L's detection-as-posture-evidence deserves one user-visible sentence at the establishment ask (or a boot notice) naming the 0.x file and its disposition.
 Disposition: fixed — resolved 2026-07-14 by user ruling, in the opposite direction from the drafted copy fix: a previous Brunch database is not product code, so detection must not influence the posture questions at all. `isWorkspacePopulated` no longer ORs in `detectLegacyZeroXDatabase`; a cwd with no code gets the bare-branch greenfield confirm regardless of legacy databases, which also removes the misleading "existing code here" ask this finding witnessed. D124-L mechanic 3 / I63-L revised in SPEC; detection itself remains (fail-safe open guard unchanged, `legacyZeroXDetected` stays informational). Oracle: the flipped coordinator test ("ignores a sibling 0.x brunch.db for posture"). No user-facing 0.x notice was added — deliberately out, per the ruling's treat-as-new-workspace framing.
 
+### 2026-07-14 FE-1196 session-branching Card 3 — active-branch cutover
+
+#### SB1 · session branching · high · pass
+
+Concern: TUI tree navigation, sibling continuation, restart, and product-shaped RPC readback.
+Evidence: `.fixtures/workbenches/session-branching-card3/.brunch/sessions/2026-07-14T14-28-21-129Z_019f6107-6009-70a8-81c5-313936e64e18.jsonl`; tmux-driven real `npm run dev-cli -- --workspace .fixtures/workbenches/session-branching-card3`; one-shot `session.exchanges` and `session.runtimeState` reads after relaunch.
+Observation: after cancelling the resumed orientation menu, the editor executed Pi `/tree`; selecting the prior assistant turn with two Up keys and choosing “No summary” created a sibling at `09dfec6a`. The active sibling ended at assistant entry `6cdc3a4c`; the earlier answered branch (`725a9f52` then `a0bb517c`) remained in physical append history. Cancelling the new sibling ask returned focus to the editor. `/quit`, relaunch, and resume succeeded. `session.exchanges` returned `open_prompt` with active range `09dfec6a..6cdc3a4c` and no abandoned answered exchange; `session.runtimeState` returned `ready`, `specify`/`elicitor`, graph LSN 3, with no `-32002` error.
+Expected: native Pi tree navigation creates a usable sibling; quit/resume preserves the selected active leaf; Brunch exchange/runtime reads remain product-shaped and branch-correct.
+Disposition: retired — walkthrough passed with no follow-up defect; Card 3 automated branch-rival and reader-inventory oracles carry regression coverage.
+
 Use future entries like:
 
 ```md

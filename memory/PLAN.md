@@ -87,14 +87,16 @@ Close the entire first batch of walkthrough-related findings: remediation, the o
 - 2026-07-13 `petrinaut-live-run-stream` (FE-1190) — merged #322 to `next`; live-from-start Petrinaut observation with frozen run plan, journal-ordered completion, reconnect equivalence, fail-closed journal appends, and terminal-lagging-snapshot backfill (both Bugbot findings closed with deterministic oracles). FE-1183 (`petri-interpreter-port`) closed with it — #320 merged the finite replay/export surface.
 - 2026-07-10 `main-editor-chrome` execute-card follow-up (#313) — structured, status-first renderers landed for `execute_orchestrate`, `execute_plan_check`, `execute_snapshot`, and `execute_status`; literal snapshots plus lifecycle negative-space tests preserve D111-L/D112-L/I58-L. The scope card was exhausted and deleted; the normal-width manual readability beat remains outer evidence, not unfinished implementation.
 
+- 2026-07-14 `session-branching` (FE-1196) — **✓ closed**: Pi-valid sibling/summary/fork/clone sessions now project the active branch across live, file-backed, transcript, inventory, and public RPC reads; exact reader classification preserves explicitly named append-order diagnostics. The physical reload/RPC differential and governed `/tree` → sibling → quit/resume walkthrough passed; the exhausted three-card scope was consumed.
+
 Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md).
 
 ### Active — Group 2 · platform debt (API / data-model / transport)
 
-**Stop-line:** FE-1196 remains open until `session-branching` removes the product trap where native Pi `/tree`/`fork`/`clone` can produce valid sessions that Brunch later rejects or silently projects from an abandoned branch. **Tracker/branch:** [FE-1196](https://linear.app/hash/issue/FE-1196) on `ln/fe-1196-platform-debt`, stacked on FE-1187. Current execution pointer: [`memory/cards/session-branching--active-branch-cutover.md`](cards/session-branching--active-branch-cutover.md).
+**FE-1196 complete:** the final `session-branching` stop-line correction is built and outer-witnessed on `ln/fe-1196-platform-debt`, stacked on FE-1187.
 
-- `session-branching` — **active, stop-line architectural correction (D24-L; I10-L/I13-L/I19-L)**: route every Brunch product-semantic session read through Pi's active-branch APIs across SDK/in-process and RPC/file-backed paths; accept valid Pi siblings, branch summaries, and fork/clone parent sessions; reserve full-tree/append-order reads for explicitly named history/diagnostic surfaces. Definition below.
-- **Closed FE-1196 items:** `spec-posture` (built + outer-witnessed), `workspace-db-identity` (built + run-1D witnessed), `headless-ask-discovery` (built, D125-L), `reconciliation-derivation` (closed), and `web-driver-streaming` (evaluated → retired).
+- `session-branching` — **✓ closed 2026-07-14 (D24-L; I10-L/I13-L/I19-L)**: every Brunch product-semantic session read follows Pi's active branch across SDK/in-process and RPC/file-backed paths; valid Pi siblings, branch summaries, and fork/clone parent sessions remain usable; full-tree/append-order reads are exact-classified history/diagnostic surfaces.
+- **Closed FE-1196 items:** `spec-posture` (built + outer-witnessed), `workspace-db-identity` (built + run-1D witnessed), `headless-ask-discovery` (built, D125-L), `reconciliation-derivation` (closed), `session-branching` (built + outer-witnessed), and `web-driver-streaming` (evaluated → retired).
 - `compaction-and-conflict-widening` — **✓ closed 2026-07-14**: the native custom-result path and real faux-provider lifecycle battery cover manual, repeated, split-turn, overflow-retry, physical reload, latest-carrier replacement, immediate retry/rebuilt context, and fail-closed cancellation. The conservative selector predicates remain an intentional code-local `ceiling:`; absence of observed re-announcement noise is closure, not evidence-gated PLAN residue. Re-enter only if that named ceiling fires.
 - `transcript-ledger-rendering` — **folded into FE-1187 `exchange-visual-design`** by user ruling 2026-07-14; no separate Group 2 frontier or branch.
 
@@ -535,8 +537,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Acceptance:** real Pi `SessionManager` fixtures cover sibling branches, optional branch summaries, fork/clone parent sessions, physical reload, and rival abandoned-branch state; SDK/in-process and public RPC product reads agree on the active branch; every production `getEntries()`/raw JSONL read is either migrated or explicitly classified as all-history diagnostics; obsolete `NonLinearTranscriptError` behavior and tests are deleted.
 - **Verification:** inner — active-branch adapter and projection tests; middle — physical JSONL reload plus SDK/RPC differential over the same branched fixture; architectural inventory test guards the product-semantic reader set; outer — one TUI `/tree` branch/continue/quit/resume walkthrough with exchange/runtime-state readback.
 - **First slice landed (2026-07-14):** `active-session-branch.ts` now opens file-backed sessions through Pi `SessionManager.getHeader()`/`getBranch()`; envelope/exchange/public RPC reads accept real sibling summaries and branch-derived headers, and physical-reload rivals exclude abandoned exchange state.
-- **Card 2 done (2026-07-14):** inventoried live app/extension/session current-state consumers require `getBranch()` with no `getEntries()` fallback; contrastive abandoned-branch rivals now witness runtime/role, scratchpad, orientation, binding/context, commands/prompts/policy, continuity/capture, Chrome, and real-Pi TUI tree composition. Card 3 remains untouched.
-- **Current execution pointer:** [`memory/cards/session-branching--active-branch-cutover.md`](cards/session-branching--active-branch-cutover.md).
+- **Completed (2026-07-14):** live app/extension/session current-state consumers require `getBranch()` with no `getEntries()` fallback; contrastive abandoned-branch rivals witness runtime/role, scratchpad, orientation, binding/context, commands/prompts/policy, continuity/capture, Chrome, real-Pi TUI tree composition, canonical inventory, transcripts, and public RPC reads. The exact production-reader inventory classifies syntax-only validation and purpose-named all-history diagnostics; governed SB1 evidence records the passing `/tree` sibling/quit/resume walkthrough.
 - **Depends on:** Pi `SessionManager.getBranch()`/`getHeader()` and Pi RPC tree+leaf semantics; preserves D76-L/D77-L/D78-L turn-boundary choreography by making each fold branch-relative.
 - **Traceability:** D24-L; req 8; I10-L, I13-L, I19-L, I25-L.
 
@@ -559,11 +560,9 @@ group-1 (Active — walkthrough closure):
     -[gates]-> groups 2–3 (open after the auth reversal lands; then interleave)
 
 group-2 (Active — FE-1196 platform debt):
-  session-branching (stop-line active-branch correctness)
-    stabilizes: D24-L | I10-L | I13-L | I19-L | I25-L
-    live_card: memory/cards/session-branching--active-branch-cutover.md
   completed: spec-posture | workspace-db-identity | headless-ask-discovery |
-             reconciliation-derivation | compaction-and-conflict-widening
+             reconciliation-derivation | compaction-and-conflict-widening |
+             session-branching (D24-L | I10-L | I13-L | I19-L | I25-L)
   retired: web-driver-streaming (residue in group-4)
   folded: transcript-ledger-rendering -[ownership]-> walkthrough-remediation-2.exchange-visual-design
   entry_input: docs/planning/pi-native-integration-opportunities.md (retire after remaining package dispositions merge)
