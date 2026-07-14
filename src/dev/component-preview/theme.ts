@@ -63,14 +63,12 @@ export interface BrunchThemePalette {
   /** Whole-page background from the theme's `export` block (used for OSC 11). */
   readonly pageBg: string | undefined;
   /**
-   * Reference default-foreground — the terminal environment color the
-   * palette is designed against. Deliberately *not* the `text` token:
-   * `text` is `""` (terminal default, pi's canonical value), while pageFg
-   * documents the assumed inherited environment default that live sessions
-   * never paint. Read from `export.pageFg` when present, else the neutral
-   * harness default below — pi's published theme schema does not know
-   * `pageFg`, so schema-aware editors strip it from the JSONs; the harness
-   * must not depend on it surviving.
+   * Reference default-foreground for painting the preview terminal. Shipped
+   * themes define `text` explicitly because Pi's HTML exporter cannot infer
+   * whether a custom theme with terminal-default text is light or dark.
+   * `pageFg` remains a separate optional preview-harness override; Pi's
+   * published theme schema does not know it, so schema-aware editors may strip
+   * it from the JSONs and the harness must not depend on it surviving.
    */
   readonly pageFg: string | undefined;
 }
