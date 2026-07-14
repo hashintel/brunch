@@ -1,3 +1,4 @@
+import { STRUCTURED_EXCHANGE_TERMINAL_NAMES } from '../../exchanges/schemas/index.js';
 import {
   customEntryType,
   isContinuityOnlyNonDebtEntry,
@@ -67,7 +68,10 @@ export function isSweepConversationalEntry(entry: TranscriptEntryLike): boolean 
     // 'ask' is the live terminal tool (D116-L): standalone answers, declared offer
     // continuations, and RPC-minted accepted responses all persist under it. The
     // 'request_' prefix survives only for pre-cutover persisted transcripts.
-    return toolName === 'ask' || toolName.startsWith('request_');
+    return (
+      toolName === STRUCTURED_EXCHANGE_TERMINAL_NAMES.current ||
+      toolName.startsWith(STRUCTURED_EXCHANGE_TERMINAL_NAMES.legacyRequestPrefix)
+    );
   }
   return false;
 }

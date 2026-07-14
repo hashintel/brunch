@@ -21,7 +21,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 **Parallel lanes.** Group 3 agent-layer work is pickup-ready. The KA stream owns executor/orchestrator/Execute-mode work and the live Petri sequence from FE-1192 attempts through isolation/fan-in, epic integration, and durable parallel authority. Far-horizon instrumentation and consequential-fact evaluation remain trigger-gated under Later.
 
-**Current seams.** Brunch ships on the `1.0.0-alpha.x` line. One-shot `ask` is the only interactive structured-exchange terminal; D125-L's live ask registry provides headless discovery/answering, while the transcript-backed pending projection remains a compatibility surface for live offer tools after the legacy `present_question` pending branch retired. Sweep classification remains fail-closed (D117-L); the compile-time terminal-name anchor is still a small cleanup, while the larger capture-conditional watermark question remains A40-L.
+**Current seams.** Brunch ships on the `1.0.0-alpha.x` line. One-shot `ask` is the only interactive structured-exchange terminal; D125-L's live ask registry provides headless discovery/answering, while the transcript-backed pending projection remains a compatibility surface for live offer tools after the legacy `present_question` pending branch retired. Sweep classification remains fail-closed and compile-time anchored to the exchange-schema terminal names (D117-L), while the larger capture-conditional watermark question remains A40-L.
 
 **Host-landing admission (2026-07-14).** An `ln-review` pass over the landing path proved host promotion structurally broken across both modes: a run's result is inherently multi-commit (one integration commit per slice), but `execute_host_promotion_apply` diffs only `promotionCommitSha^..promotionCommitSha` and patches it onto the host — a clean integrated run lands nothing, or only incidental final-commit artifacts. The FE-1199 `empty_dir`/non-git residue was the narrow symptom. A four-design `ln-design` pass (minimal squash / strategy planner / `main` prior-art port / pull-based) settled a synthesis: `host-landing` (FE-1201, definition below) replaces patch apply with mode-aware ref/tree landing behind a `GitHostLandPort`, a durable `runBaseSha`, mode-derived substrate, and `/brunch:land` confirm-gated acceptance.
 
@@ -82,7 +82,6 @@ Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_
 
 ### Cleanups — Group 4
 
-- `legacy-question-read-path-retirement` — rides the Group 1 stack as a cleanup slice (together with the D117-L sweep-anchoring one-liner in `sweep-watermark.ts`); no standalone Linear issue or branch. Definition below.
 - `named-inline-extension-identity` — Pi-native P1: adopt Pi's native named-inline-extension type for useful source provenance; small independent hardening, direct housekeeping or a tiny tooling slice.
 - `web-driver-streaming-residue` — **conditional** `agent_settled`-ordering relay assertion (`agent_end` precedes `agent_settled`; consumer stays busy until settled). Re-enter only when a web consumer gates idle-only actions on full-run settlement; closure oracle: `docs/planning/pi-native-integration-opportunities.md` §P0.
 - `test-tmpdir-hygiene` — vitest `mkdtemp` fixtures are never cleaned up: ~249k `brunch-*` directories had accumulated in the darwin tmpdir by 2026-07-14 and filled the disk mid-gate (found during FE-1201). Add a global teardown or route fixtures through a repo-local scratch root (the `git-slice-integration-port.test.ts` `tmp/` pattern). Tiny tooling slice; re-entry trigger: next disk-pressure incident or the next test-infra touch.
@@ -113,17 +112,6 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 
 <!-- Closed frontier definitions live in docs/archive/PLAN_HISTORY.md. -->
 
-### legacy-question-read-path-retirement
-
-- **Name:** Retire legacy `present_question` read paths and fixtures
-- **Linear:** none — Group 4 cleanup; rides the Group 1 stack, no standalone issue/branch (re-qualified 2026-07-13)
-- **Status:** `present_question` pending/recovery branch retirement done; D117-L sweep-anchoring one-liner remains on the FE-1187 / `cli-mode-entry` stack
-- **Kind:** earned deletion / vocabulary convergence
-- **Certainty:** earned — D116-L's ask write path is settled; this frontier removes only persisted-read compatibility branches and stale fixtures.
-- **Deletes / retires:** `present_question` branches in pending-exchange scan and recovery skip; `src/.pi/README.md`'s legacy-vocabulary section; old-tuple fixtures in session/RPC/editor/probe tests after checking committed `.fixtures/runs/` for required historical evidence.
-- **Keeps:** the pending-exchange scan as the `session.pendingExchange` compatibility projection for live offer tools; current ask/request-detail transcript semantics; legacy transcript schemas/projections, their contract tests, and committed `.fixtures/runs/**` historical evidence.
-- **Traceability:** D116-L, D125-L; 2026-07-09 `ln-induct` finding 4 over PR #304. The write-path half already landed on #305.
-
 ### walkthrough-remediation-2
 
 - **Name:** Walkthrough chapter closure — remediation, evidence, and design follow-through (absorbs FE-1167)
@@ -136,8 +124,8 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Next scope:** compact proposition-first review presentation over the landed terminal/details shape. Show settled authority, commitment proposition, node/relation counts, grouped consequences, exact-payload inspection, and one whole-set control surface; no partial acceptance.
 - **Visual-design coupling:** `exchange-visual-design` now also owns the FE-1196 reassignment `transcript-ledger-rendering`: durable user-choice ledger entries must become visible in the transcript without entering model context, and should land with the same visual treatment rather than as a separate platform-debt slice.
 - **Remaining routes:** R6 four-state result visuals → `ln-design`; R12 no-model behavior → `ln-diagnose`; R13 entry-menu behavior → `ln-disambiguate` then `ln-spec`. O7–O9 are KA-owned D120-L Execute evidence. The [`consolidated outer checkpoint`](cards/walkthrough-remediation-2--consolidated-outer-checkpoint.md) remains paused until these routes and R8–R10 are dispositioned.
-- **Live scope files:** [`walkthrough-batch-2--seed-variants.md`](cards/walkthrough-batch-2--seed-variants.md) Card 3; [`legacy-read-path-retirement.md`](cards/legacy-read-path-retirement.md) (the two Group-4 cleanup slices — `present_question` read-path retirement + D117-L terminal-name anchor); and the paused [`consolidated outer checkpoint`](cards/walkthrough-remediation-2--consolidated-outer-checkpoint.md).
-- **Dependencies:** closes `deterministic-orientation` jointly with KA-carved Execute evidence. `cli-mode-entry` and the `legacy-question-read-path-retirement` + D117-L cleanup slices remain stacked after this frontier.
+- **Live scope files:** [`walkthrough-batch-2--seed-variants.md`](cards/walkthrough-batch-2--seed-variants.md) Card 3 and the paused [`consolidated outer checkpoint`](cards/walkthrough-remediation-2--consolidated-outer-checkpoint.md).
+- **Dependencies:** closes `deterministic-orientation` jointly with KA-carved Execute evidence. `cli-mode-entry` remains stacked after this frontier.
 - **Verification (R8–R10):** one normalized 17-node/11-edge semantic fixture; compact text and live/persisted render equivalence; exact local/RPC settlement effects; 3/3 controlled provider runs; one normal-width human walkthrough judging question materiality, proposition cohesion, inspectability, and fatigue. See SPEC §Verification Design.
 - **Traceability:** WR18 closure record in `TESTING_FINDINGS.md`; evidence at `testing/walkthroughs/2026-07-10/WR18-manual.md`; D113-L–D115-L reversal/disambiguation; D119-L, D120-L/I62-L, D99-L conduct; TESTING_PLAN concerns 1/3/4/6/7.
 
@@ -298,7 +286,6 @@ group-1 (Active — walkthrough closure):
     rows: WR18 punch list + absorbed LN evidence beats + exchange-visual-design
           + generative-flow-synthesis-shape + sweep-debt-tripwire
     -[stack]-> cli-mode-entry (reserves `develop` subcommand)
-    -[stack]-> cleanup slices: legacy-question-read-path-retirement + D117-L one-liner
     cross_stream: O7/O8/O9 + carved Execute beats — coordinate with KA
     closes_arc: deterministic-orientation (jointly with KA-carved beats)
     status: auth reversal landed; Group 2 closed; Group 3 pickup-ready
