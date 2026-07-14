@@ -1,6 +1,6 @@
 # Session host decision candidate
 
-Status: thin decision candidate, not adopted. Companion note: [MULTI_SESSION_DAEMON_ARCHITECTURE.md](MULTI_SESSION_DAEMON_ARCHITECTURE.md).
+Status: superseded by [WEB_UI_ARCHITECTURE.md](WEB_UI_ARCHITECTURE.md). Kept as historical design evidence.
 
 ## Candidate decision
 
