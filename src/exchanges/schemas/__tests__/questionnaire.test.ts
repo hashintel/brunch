@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { zAskParams, zQuestionnaireAnswersFor, zQuestionnaireSubmissionFor } from '../index.js';
+import {
+  QUESTIONNAIRE_SUBMISSION_SCHEMA,
+  zAskParams,
+  zQuestionnaireAnswersFor,
+  zQuestionnaireSubmissionFor,
+} from '../index.js';
 
 const questions = [
   { id: 'goal', kind: 'free-text' as const, prompt: 'What matters?' },
@@ -56,6 +61,7 @@ describe('bounded ask questionnaire', () => {
   );
 
   it('owns the questionnaire submission envelope and validates its answers', () => {
+    expect(QUESTIONNAIRE_SUBMISSION_SCHEMA).toBe('brunch.ask.questionnaire-answer');
     const submission = zQuestionnaireSubmissionFor(questions);
     expect(
       submission.parse({

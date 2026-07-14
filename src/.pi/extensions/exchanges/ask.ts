@@ -11,6 +11,7 @@ import {
 import { resolveEligibleDigestAcceptance } from '../../../exchanges/recovery.js';
 import {
   parseAskParams,
+  QUESTIONNAIRE_SUBMISSION_SCHEMA,
   zAskParams,
   type AskContinuationParams,
   type AskQuestionEcho,
@@ -631,7 +632,7 @@ async function collectQuestionnaireAnswers(
       ),
     );
   }
-  const envelope = JSON.stringify({ schema: 'brunch.ask.questionnaire-answer', answers: [] }, null, 2);
+  const envelope = JSON.stringify({ schema: QUESTIONNAIRE_SUBMISSION_SCHEMA, answers: [] }, null, 2);
   const raw =
     ctx.hasUI && typeof ctx.ui?.editor === 'function'
       ? await withWorkingIndicatorHidden(ctx, () => ctx.ui!.editor!(envelope))

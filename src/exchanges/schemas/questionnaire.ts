@@ -109,10 +109,12 @@ export function zQuestionnaireAnswersFor(questions: readonly QuestionnaireQuesti
   });
 }
 
+export const QUESTIONNAIRE_SUBMISSION_SCHEMA = 'brunch.ask.questionnaire-answer' as const;
+
 export function zQuestionnaireSubmissionFor(questions: readonly QuestionnaireQuestion[]) {
   return z
     .object({
-      schema: z.literal('brunch.ask.questionnaire-answer'),
+      schema: z.literal(QUESTIONNAIRE_SUBMISSION_SCHEMA),
       answers: zQuestionnaireAnswersFor(questions),
     })
     .strict();
