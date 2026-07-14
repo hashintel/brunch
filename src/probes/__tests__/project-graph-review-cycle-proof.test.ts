@@ -284,15 +284,6 @@ function askReviewEntry(): string {
     answered: { decision: 'approve', comment: 'Probe approval.' },
   });
 }
-function askReviewEntry(): string {
-  return toolResultEntry('ask', {
-    schema: 'brunch.structured_exchange.request',
-    v: 1,
-    exchange_id: 'review-1',
-    tool_meta: { prev: 'present_review_set', curr: 'request_review' },
-    answered: { decision: 'approve', comment: 'Probe approval.' },
-  });
-}
 function pendingReviewResponse(): JsonRpcResponse {
   return {
     jsonrpc: '2.0',
@@ -612,7 +603,7 @@ describe('project-graph review-cycle proof report', () => {
       sessionId: 'session-scope-1',
       prompt: 'Present a scope handoff review set.',
       runtimeState,
-      sessionText: [scopePresentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
+      sessionText: [scopePresentReviewSetEntry(), askReviewEntry()].join('\n'),
       baseOverview: scopeBaseOverview,
       finalOverview: scopeApprovedOverview,
       pendingResponse: scopePendingReviewResponse(),
@@ -704,7 +695,7 @@ describe('project-graph review-cycle proof report', () => {
       runtimeState,
       sessionText: [
         scopePresentReviewSetEntry(true, { design: 'API1', verification: 'VV1' }),
-        requestResponseReviewEntry(),
+        askReviewEntry(),
       ].join('\n'),
       baseOverview,
       finalOverview,
@@ -732,7 +723,7 @@ describe('project-graph review-cycle proof report', () => {
       sessionId: 'session-scope-1',
       prompt: 'Present a scope handoff review set.',
       runtimeState,
-      sessionText: [scopePresentReviewSetEntry(false), requestResponseReviewEntry()].join('\n'),
+      sessionText: [scopePresentReviewSetEntry(false), askReviewEntry()].join('\n'),
       baseOverview: scopeBaseOverview,
       finalOverview: scopeApprovedOverview,
       pendingResponse: scopePendingReviewResponse(),
@@ -760,7 +751,7 @@ describe('project-graph review-cycle proof report', () => {
       sessionId: 'session-scope-1',
       prompt: 'Present a scope handoff review set.',
       runtimeState,
-      sessionText: [scopePresentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
+      sessionText: [scopePresentReviewSetEntry(), askReviewEntry()].join('\n'),
       baseOverview: scopeBaseOverview,
       finalOverview: scopeApprovedOverviewMissingDesignAnchor,
       pendingResponse: scopePendingReviewResponse(),
@@ -789,7 +780,7 @@ describe('project-graph review-cycle proof report', () => {
       sessionId: 'session-scope-criterion',
       prompt: 'Present a scope handoff review set.',
       runtimeState,
-      sessionText: [scopePresentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
+      sessionText: [scopePresentReviewSetEntry(), askReviewEntry()].join('\n'),
       baseOverview: scopeBaseOverview,
       finalOverview,
       pendingResponse: scopePendingReviewResponse(),
