@@ -74,12 +74,12 @@ function coordinator(
 function launchInventory(): WorkspaceLaunchInventory {
   return {
     cwd: '/tmp/brunch-project',
-    currentSpec: { id: 1, title: 'Alpha spec' },
+    currentSpec: { id: 1, title: 'Alpha spec', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
     currentSessionFile: '/tmp/brunch-project/.brunch/sessions/session-1.jsonl',
     needsNewSpec: false,
     specs: [
       {
-        spec: { id: 1, title: 'Alpha spec' },
+        spec: { id: 1, title: 'Alpha spec', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
         sessions: [
           {
             id: 'session-1',
@@ -98,6 +98,7 @@ function launchInventory(): WorkspaceLaunchInventory {
         available: false,
       },
     ],
+    workspacePopulated: false,
   };
 }
 
@@ -116,7 +117,7 @@ function readyState(sessionFile: string): WorkspaceSessionReadyState {
   return {
     status: 'ready',
     cwd: '/tmp/brunch-project',
-    spec: { id: 1, title: 'Alpha spec' },
+    spec: { id: 1, title: 'Alpha spec', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
     session: {
       id: 'session-1',
       file: sessionFile,
@@ -608,7 +609,13 @@ describe('JSON-RPC handlers', () => {
         status: 'select_spec',
         requiresSelection: true,
         cwd: '/tmp/brunch-project',
-        currentSpec: { id: 1, title: 'Alpha spec' },
+        currentSpec: {
+          id: 1,
+          title: 'Alpha spec',
+          kind: 'product',
+          origin: 'greenfield',
+          relatesToSpecId: null,
+        },
         currentSessionFile: '/tmp/brunch-project/.brunch/sessions/session-1.jsonl',
         specs: [{ spec: { id: 1 }, sessions: [{ id: 'session-1' }] }],
         unavailableSessions: [{ reason: 'missing_header' }],
@@ -745,7 +752,7 @@ describe('JSON-RPC handlers', () => {
       id: 1,
       result: {
         status: 'ready',
-        spec: { id: 1, title: 'Alpha spec' },
+        spec: { id: 1, title: 'Alpha spec', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
         session: { id: 'session-1' },
       },
     });
@@ -1640,7 +1647,13 @@ describe('JSON-RPC handlers', () => {
     const handlers = createRpcHandlers({
       coordinator: coordinator({
         ...workspace,
-        spec: { id: wrongSpec.specId, title: 'Wrong default spec' },
+        spec: {
+          id: wrongSpec.specId,
+          title: 'Wrong default spec',
+          kind: 'product',
+          origin: 'greenfield',
+          relatesToSpecId: null,
+        },
       }),
       cwd,
       productUpdates,
@@ -1739,7 +1752,13 @@ describe('JSON-RPC handlers', () => {
     const handlers = createRpcHandlers({
       coordinator: coordinator({
         ...workspace,
-        spec: { id: sibling.specId, title: 'Sibling spec' },
+        spec: {
+          id: sibling.specId,
+          title: 'Sibling spec',
+          kind: 'product',
+          origin: 'greenfield',
+          relatesToSpecId: null,
+        },
       }),
       cwd,
       productUpdates,

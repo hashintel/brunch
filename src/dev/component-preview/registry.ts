@@ -48,12 +48,12 @@ export interface ComponentPreviewEntry {
 function sampleWorkspaceInventory(): WorkspaceLaunchInventory {
   return {
     cwd: '/project',
-    currentSpec: { id: 1, title: 'Alpha' },
+    currentSpec: { id: 1, title: 'Alpha', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
     currentSessionFile: '/sessions/alpha-current.jsonl',
     needsNewSpec: false,
     specs: [
       {
-        spec: { id: 1, title: 'Alpha' },
+        spec: { id: 1, title: 'Alpha', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
         sessions: [
           {
             id: 'session-alpha-current',
@@ -65,13 +65,14 @@ function sampleWorkspaceInventory(): WorkspaceLaunchInventory {
         ],
       },
       {
-        spec: { id: 2, title: 'Beta' },
+        spec: { id: 2, title: 'Beta', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
         sessions: [
           { id: 'session-beta', file: '/sessions/beta.jsonl', specId: 2, specTitle: 'Beta', available: true },
         ],
       },
     ],
     unavailableSessions: [],
+    workspacePopulated: false,
   };
 }
 
@@ -96,10 +97,17 @@ function manySpecsWorkspaceInventory(specCount: number): WorkspaceLaunchInventor
     currentSessionFile: null,
     needsNewSpec: false,
     specs: Array.from({ length: specCount }, (_, index) => ({
-      spec: { id: index + 1, title: `Spec ${index}` },
+      spec: {
+        id: index + 1,
+        title: `Spec ${index}`,
+        kind: 'product',
+        origin: 'greenfield',
+        relatesToSpecId: null,
+      },
       sessions: [],
     })),
     unavailableSessions: [],
+    workspacePopulated: false,
   };
 }
 

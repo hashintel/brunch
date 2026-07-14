@@ -215,7 +215,13 @@ describe('spec/session picker', () => {
     const decisions: unknown[] = [];
     const unestablished = inventory();
     unestablished.workspacePopulated = true;
-    unestablished.specs[0]!.spec = { id: 1, title: 'Alpha' };
+    unestablished.specs[0]!.spec = {
+      id: 1,
+      title: 'Alpha',
+      kind: 'product',
+      origin: null,
+      relatesToSpecId: null,
+    };
     const component = createWorkspaceDialogComponent({
       inventory: unestablished,
       onDecision: (decision) => decisions.push(decision),
@@ -240,7 +246,13 @@ describe('spec/session picker', () => {
   it('bare-cwd resume establishment asks only the greenfield confirm (D118-L narrowing)', () => {
     const decisions: unknown[] = [];
     const unestablished = inventory();
-    unestablished.specs[0]!.spec = { id: 1, title: 'Alpha' };
+    unestablished.specs[0]!.spec = {
+      id: 1,
+      title: 'Alpha',
+      kind: 'product',
+      origin: null,
+      relatesToSpecId: null,
+    };
     const component = createWorkspaceDialogComponent({
       inventory: unestablished,
       onDecision: (decision) => decisions.push(decision),
@@ -508,10 +520,11 @@ function manySpecsInventory(specCount: number): WorkspaceLaunchInventory {
     currentSessionFile: null,
     needsNewSpec: false,
     specs: Array.from({ length: specCount }, (_, i) => ({
-      spec: { id: i + 1, title: `Spec ${i}`, origin: 'greenfield' as const },
+      spec: { id: i + 1, title: `Spec ${i}`, kind: 'product', origin: 'greenfield', relatesToSpecId: null },
       sessions: [],
     })),
     unavailableSessions: [],
+    workspacePopulated: false,
   };
 }
 
@@ -579,17 +592,24 @@ function emptyInventory(): WorkspaceLaunchInventory {
     needsNewSpec: true,
     specs: [],
     unavailableSessions: [],
+    workspacePopulated: false,
   };
 }
 
 function emptySessionInventory(): WorkspaceLaunchInventory {
   return {
     cwd: '/project',
-    currentSpec: { id: 3, title: 'Empty' },
+    currentSpec: { id: 3, title: 'Empty', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
     currentSessionFile: null,
     needsNewSpec: false,
-    specs: [{ spec: { id: 3, title: 'Empty', origin: 'greenfield' }, sessions: [] }],
+    specs: [
+      {
+        spec: { id: 3, title: 'Empty', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
+        sessions: [],
+      },
+    ],
     unavailableSessions: [],
+    workspacePopulated: false,
   };
 }
 
@@ -599,12 +619,12 @@ function emptySessionInventory(): WorkspaceLaunchInventory {
 function inventory(): WorkspaceLaunchInventory {
   return {
     cwd: '/project',
-    currentSpec: { id: 1, title: 'Alpha' },
+    currentSpec: { id: 1, title: 'Alpha', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
     currentSessionFile: '/sessions/alpha-current.jsonl',
     needsNewSpec: false,
     specs: [
       {
-        spec: { id: 1, title: 'Alpha', origin: 'greenfield' },
+        spec: { id: 1, title: 'Alpha', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
         sessions: [
           {
             id: 'session-alpha-current',
@@ -623,7 +643,7 @@ function inventory(): WorkspaceLaunchInventory {
         ],
       },
       {
-        spec: { id: 2, title: 'Beta', origin: 'greenfield' },
+        spec: { id: 2, title: 'Beta', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
         sessions: [
           {
             id: 'session-beta',
@@ -636,5 +656,6 @@ function inventory(): WorkspaceLaunchInventory {
       },
     ],
     unavailableSessions: [],
+    workspacePopulated: false,
   };
 }

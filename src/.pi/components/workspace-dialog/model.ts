@@ -93,7 +93,7 @@ export function nextStageAfterTitle(
 ): WorkspaceSelectionStage {
   const asks = decideSpecEstablishmentAsks({
     currentOrigin: null,
-    workspacePopulated: inventory.workspacePopulated ?? false,
+    workspacePopulated: inventory.workspacePopulated,
   });
   const pending = { action: 'newSpec', title } as const;
   return asks[0] === 'confirmKind'
@@ -116,7 +116,7 @@ function originConfirmViewParts(
   inventory: WorkspaceLaunchInventory,
   decisionFor: (origin: SpecOrigin) => SpecSessionActivationDecision,
 ): Pick<WorkspaceSelectionView, 'title' | 'options'> {
-  const inferred = inferredOriginFor({ workspacePopulated: inventory.workspacePopulated ?? false });
+  const inferred = inferredOriginFor({ workspacePopulated: inventory.workspacePopulated });
   const flipped = flipOrigin(inferred);
   return {
     title:
@@ -153,7 +153,7 @@ function resumeRouting(
   const spec = findSpec(inventory, decision.specId);
   const asks = decideSpecEstablishmentAsks({
     currentOrigin: spec?.spec.origin ?? null,
-    workspacePopulated: inventory.workspacePopulated ?? false,
+    workspacePopulated: inventory.workspacePopulated,
   });
   if (asks.length === 0) return { decision };
   return {

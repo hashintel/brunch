@@ -11,12 +11,12 @@ import { runBrunchWorkspaceAction, type BrunchWorkspaceActionContext } from '../
 
 const inventory: WorkspaceLaunchInventory = {
   cwd: '/tmp/project',
-  currentSpec: { id: 1, title: 'Spec One' },
+  currentSpec: { id: 1, title: 'Spec One', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
   currentSessionFile: '/tmp/project/.brunch/sessions/session-one.jsonl',
   needsNewSpec: false,
   specs: [
     {
-      spec: { id: 1, title: 'Spec One' },
+      spec: { id: 1, title: 'Spec One', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
       sessions: [
         {
           id: 'session-one',
@@ -29,12 +29,13 @@ const inventory: WorkspaceLaunchInventory = {
     },
   ],
   unavailableSessions: [],
+  workspacePopulated: false,
 };
 
 const readyWorkspace: WorkspaceSessionReadyState = {
   status: 'ready',
   cwd: inventory.cwd,
-  spec: { id: 1, title: 'Spec One' },
+  spec: { id: 1, title: 'Spec One', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
   session: {
     id: 'session-one',
     file: '/tmp/project/.brunch/sessions/session-one.jsonl',

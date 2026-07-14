@@ -28,26 +28,24 @@ import {
 } from './workspace-session-coordinator/canonical-session-files.js';
 
 interface WorkspaceSpecState {
-  id: number;
-  title: string;
-  /**
-   * Spec posture (D118-L). Optional so existing chrome/display fixtures
-   * unrelated to posture establishment (`{id, title}` only) stay valid —
-   * every coordinator-sourced spec state populates these.
-   */
-  kind?: SpecKind;
-  /** Spec posture origin; `null`/absent means posture is not yet established. */
-  origin?: SpecOrigin | null;
-  /** Reference-only relates-to-spec (A41-L); `null`/absent means no relation. */
-  relatesToSpecId?: number | null;
+  id: SpecRecord['id'];
+  title: SpecRecord['name'];
+  /** Spec kind is present on every persisted spec row. */
+  kind: SpecRecord['kind'];
+  /** Spec posture origin; `null` means posture is not yet established. */
+  origin: SpecRecord['origin'];
+  /** Reference-only relates-to-spec (A41-L); `null` means no relation. */
+  relatesToSpecId: SpecRecord['relatesToSpecId'];
 }
+
+type WorkspaceSpecIdentity = Pick<WorkspaceSpecState, 'id' | 'title'>;
 
 export type { WorkspacePostureState, WorkspaceProjectState } from '../workspace/workspace-state-store.js';
 
 export interface WorkspaceSessionChromeState {
   cwd: string;
   project?: WorkspaceProjectState;
-  spec: WorkspaceSpecState | null;
+  spec: WorkspaceSpecIdentity | null;
 }
 
 export interface WorkspaceSessionReadyState {
@@ -184,12 +182,8 @@ export interface WorkspaceLaunchInventory {
   needsNewSpec: boolean;
   specs: WorkspaceLaunchSpec[];
   unavailableSessions: WorkspaceUnavailableSession[];
-  /**
-   * Whether cwd holds product code beyond `.brunch/` (D118-L establishment
-   * branch). Optional so existing fixtures unrelated to posture establishment
-   * stay valid; coordinator-sourced inventories always populate it.
-   */
-  workspacePopulated?: boolean;
+  /** Whether cwd holds product code beyond `.brunch/` (D118-L establishment branch). */
+  workspacePopulated: boolean;
 }
 
 export interface SpecSessionActivationCoordinator {
@@ -707,8 +701,12 @@ function chromeState(
   return {
     cwd,
     project: project ?? projectStateFromCwd(cwd),
-    spec,
+    spec: specIdentity(spec),
   };
+}
+
+function specIdentity(spec: WorkspaceSpecState | null): WorkspaceSpecIdentity | null {
+  return spec ? { id: spec.id, title: spec.title } : null;
 }
 
 function projectStateFromCwd(cwd: string): WorkspaceProjectState {

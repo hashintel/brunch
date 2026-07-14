@@ -116,12 +116,13 @@ plus the coordination logic for workspace/spec/session lifecycle.
   sessions for Brunch user flows
   and writes collapsed `brunch.session_binding` entries (`{schemaVersion,
   specId}`). Its chrome state is a selection snapshot (`cwd`, optional
-  project discovered by `workspace/project-identity.ts`, selected `spec`)
-  and intentionally carries no readiness phase or chat-mode display fields.
+  project discovered by `workspace/project-identity.ts`, selected spec identity
+  `{id, title}` projected from the complete coordinator spec state) and
+  intentionally carries no posture, readiness-phase, or chat-mode display fields.
   Its private `workspace-session-coordinator/` subtree owns coordinator-shaped
   session-file/probe helpers such as canonical session-file classification;
   external callers import only the public root module. `WorkspaceLaunchInventory`
-  additionally carries `workspacePopulated` (cwd content beyond `.brunch/`, via
+  requires `workspacePopulated` (cwd content beyond `.brunch/`, via
   `workspace/cwd-inventory.ts`) — the D118-L establishment branch signal,
   distinct from the `.brunch/workspace.json` posture stub below.
 
@@ -134,8 +135,9 @@ plus the coordination logic for workspace/spec/session lifecycle.
   components to import session/, never the reverse, and both the dialog
   (create) and the coordinator (resume) need it. Spec posture itself
   (`kind`/`origin`/`relatesToSpecId`) is spec-row state owned by `db/` and
-  read into `WorkspaceSpecState` via `CommandExecutor.getSpec`; this module
-  decides *whether to ask*, never persists.
+  read into required `WorkspaceSpecState` fields via `CommandExecutor.getSpec`
+  (`origin` and `relatesToSpecId` remain nullable where the graph domain permits);
+  this module decides *whether to ask*, never persists.
 
 - **Session binding** — session↔spec binding entries in JSONL.
 

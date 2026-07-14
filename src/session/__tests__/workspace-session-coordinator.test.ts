@@ -553,7 +553,7 @@ describe('WorkspaceSessionCoordinator', () => {
     expect(opened.spec).toEqual(first.spec);
     expect(opened.session.id).toBe(first.session.id);
     expect(opened.session.file).toBe(first.session.file);
-    expect(opened.chrome.spec).toEqual(first.spec);
+    expect(opened.chrome.spec).toEqual({ id: first.spec.id, title: first.spec.title });
 
     const continued = await coordinator.activateWorkspace({
       action: 'continue',
@@ -726,13 +726,13 @@ describe('WorkspaceSessionCoordinator', () => {
     expect(
       decideSpecEstablishmentAsks({
         currentOrigin: establishedSpec.origin ?? null,
-        workspacePopulated: inventory.workspacePopulated ?? false,
+        workspacePopulated: inventory.workspacePopulated,
       }),
     ).toEqual([]);
     expect(
       decideSpecEstablishmentAsks({
         currentOrigin: unestablishedSpec.origin ?? null,
-        workspacePopulated: inventory.workspacePopulated ?? false,
+        workspacePopulated: inventory.workspacePopulated,
       }),
     ).toEqual(['confirmOrigin']);
   });
@@ -749,7 +749,7 @@ describe('WorkspaceSessionCoordinator', () => {
     expect(
       decideSpecEstablishmentAsks({
         currentOrigin: null,
-        workspacePopulated: inventory.workspacePopulated ?? false,
+        workspacePopulated: inventory.workspacePopulated,
       }),
     ).toEqual(['confirmOrigin']);
   });
