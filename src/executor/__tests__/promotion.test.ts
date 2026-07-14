@@ -9,7 +9,7 @@ import { preparePromotion, promotionReportPath } from '../promotion.js';
 import { reportsPath } from '../report.js';
 import { withRunExecutionAuthority } from '../run-execution-authority.js';
 import { runDirPath, runMetadataPath } from '../run.js';
-import { createFakeGitLandPort } from './fake-ports.js';
+import { createFakeGitRunPromotionPort } from './fake-ports.js';
 
 async function pathExists(path: string): Promise<boolean> {
   try {
@@ -88,7 +88,7 @@ describe('preparePromotion', () => {
     });
     await acquiredAuthority;
     let calls = 0;
-    const gitLand = {
+    const gitRunPromotion = {
       async currentHead() {
         return { status: 'ok' as const, commitSha: 'base123' };
       },
@@ -101,7 +101,7 @@ describe('preparePromotion', () => {
       },
     };
 
-    await expect(preparePromotion({ cwd, runId: 'run-1', gitLand })).resolves.toEqual({
+    await expect(preparePromotion({ cwd, runId: 'run-1', gitRunPromotion })).resolves.toEqual({
       status: 'run_execution_active',
       runStatus: 'not_started',
       runId: 'run-1',
@@ -115,7 +115,11 @@ describe('preparePromotion', () => {
   it('does not prepare promotion for a missing run', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-promotion-missing-'));
 
-    const result = await preparePromotion({ cwd, runId: 'run-1', gitLand: createFakeGitLandPort() });
+    const result = await preparePromotion({
+      cwd,
+      runId: 'run-1',
+      gitRunPromotion: createFakeGitRunPromotionPort(),
+    });
 
     expect(result).toEqual({
       status: 'missing_run',
@@ -136,7 +140,11 @@ describe('preparePromotion', () => {
       'utf8',
     );
 
-    const result = await preparePromotion({ cwd, runId: 'run-1', gitLand: createFakeGitLandPort() });
+    const result = await preparePromotion({
+      cwd,
+      runId: 'run-1',
+      gitRunPromotion: createFakeGitRunPromotionPort(),
+    });
 
     expect(result).toEqual({
       status: 'run_not_promotable',
@@ -152,7 +160,11 @@ describe('preparePromotion', () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-promotion-ready-'));
     await createPetriExportedRun(cwd);
 
-    const result = await preparePromotion({ cwd, runId: 'run-1', gitLand: createFakeGitLandPort() });
+    const result = await preparePromotion({
+      cwd,
+      runId: 'run-1',
+      gitRunPromotion: createFakeGitRunPromotionPort(),
+    });
 
     expect(result).toEqual({
       status: 'promotion_prepared',
@@ -205,7 +217,7 @@ describe('preparePromotion', () => {
     const result = await preparePromotion({
       cwd,
       runId: 'run-1',
-      gitLand: {
+      gitRunPromotion: {
         async currentHead() {
           throw new Error('currentHead must not run');
         },
@@ -239,7 +251,11 @@ describe('preparePromotion', () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-promotion-verification-missing-'));
     await createPetriExportedRun(cwd, []);
 
-    const result = await preparePromotion({ cwd, runId: 'run-1', gitLand: createFakeGitLandPort() });
+    const result = await preparePromotion({
+      cwd,
+      runId: 'run-1',
+      gitRunPromotion: createFakeGitRunPromotionPort(),
+    });
 
     expect(result).toEqual({
       status: 'verification_missing',
@@ -263,7 +279,7 @@ describe('preparePromotion', () => {
     const result = await preparePromotion({
       cwd,
       runId: 'run-1',
-      gitLand: createFakeGitLandPort({
+      gitRunPromotion: createFakeGitRunPromotionPort({
         status: 'no_changes',
         message: 'nothing to promote',
         commitSha: 'base123',
@@ -294,7 +310,7 @@ describe('preparePromotion', () => {
     const result = await preparePromotion({
       cwd,
       runId: 'run-1',
-      gitLand: {
+      gitRunPromotion: {
         async currentHead() {
           throw new Error('currentHead must not run without a prior report');
         },
@@ -346,7 +362,7 @@ describe('preparePromotion', () => {
     const result = await preparePromotion({
       cwd,
       runId: 'run-1',
-      gitLand: {
+      gitRunPromotion: {
         async currentHead() {
           return { status: 'ok', commitSha: 'head999' };
         },
@@ -390,7 +406,7 @@ describe('preparePromotion', () => {
     const result = await preparePromotion({
       cwd,
       runId: 'run-1',
-      gitLand: createFakeGitLandPort(
+      gitRunPromotion: createFakeGitRunPromotionPort(
         {
           status: 'no_changes',
           message: 'nothing to promote',
@@ -438,7 +454,7 @@ describe('preparePromotion', () => {
     const result = await preparePromotion({
       cwd,
       runId: 'run-1',
-      gitLand: createFakeGitLandPort(
+      gitRunPromotion: createFakeGitRunPromotionPort(
         {
           status: 'failed',
           message: 'must not trust stale report',
@@ -468,7 +484,7 @@ describe('preparePromotion', () => {
     const result = await preparePromotion({
       cwd,
       runId: 'run-1',
-      gitLand: createFakeGitLandPort({
+      gitRunPromotion: createFakeGitRunPromotionPort({
         status: 'promoted',
         commitSha: 'abc123',
         reviewBranch: 'brunch/review/run-1',
@@ -520,7 +536,11 @@ describe('preparePromotion', () => {
     const result = await preparePromotion({
       cwd,
       runId: 'run-1',
-      gitLand: createFakeGitLandPort({ status: 'failed', message: 'git commit failed', sideEffects: [] }),
+      gitRunPromotion: createFakeGitRunPromotionPort({
+        status: 'failed',
+        message: 'git commit failed',
+        sideEffects: [],
+      }),
     });
 
     expect(result).toMatchObject({

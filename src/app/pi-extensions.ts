@@ -94,7 +94,7 @@ import {
 } from '../session/prepare-next-turn.js';
 import { createAgentRunnerPort } from './agent-runner-port.js';
 import { createGitHostLandPort } from './git-host-land-port.js';
-import { createGitLandPort } from './git-land-port.js';
+import { createGitRunPromotionPort } from './git-run-promotion-port.js';
 import { createGitSliceIntegrationPort } from './git-slice-integration-port.js';
 import { createGitWorktreePort } from './git-worktree-port.js';
 import { registerBrunchKeybindingPolicy } from './pi-keybindings.js';
@@ -339,7 +339,7 @@ export function createBrunchPiExtensions(
           ? createAgentRunnerPort({ subagents: options.subagents })
           : createAgentRunnerPort()),
       testRunner: options.executionPorts?.testRunner ?? createTestRunnerPort(),
-      gitLand: options.executionPorts?.gitLand ?? createGitLandPort(),
+      gitRunPromotion: options.executionPorts?.gitRunPromotion ?? createGitRunPromotionPort(),
       gitHostLand: options.executionPorts?.gitHostLand ?? createGitHostLandPort(),
     };
     const extensions: BrunchProductExtensionRegistrar[] = [
@@ -388,7 +388,7 @@ export function createBrunchPiExtensions(
         : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanPreview(api, graph)] : []),
       registerBrunchExecutePetriExport,
-      (api) => registerBrunchExecutePromotionPrepare(api, executionPorts.gitLand),
+      (api) => registerBrunchExecutePromotionPrepare(api, executionPorts.gitRunPromotion),
       (api) => registerBrunchExecuteLand(api, executionPorts.gitHostLand),
       registerBrunchExecutePopulate,
       registerBrunchExecuteReportInit,

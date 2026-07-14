@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createFakeGitHostLandPort,
-  createFakeGitLandPort,
+  createFakeGitRunPromotionPort,
   createFakeGitSliceIntegrationPort,
   createFakeGitWorktreePort,
   createFakeTestRunnerPort,
@@ -138,7 +138,7 @@ function executorPorts(gitWorktree: ExecutionPorts['gitWorktree']): ExecutionPor
       },
     },
     testRunner: createFakeTestRunnerPort(),
-    gitLand: createFakeGitLandPort(),
+    gitRunPromotion: createFakeGitRunPromotionPort(),
     gitHostLand: createFakeGitHostLandPort(),
   };
 }

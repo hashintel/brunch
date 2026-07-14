@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createFakeGitHostLandPort,
-  createFakeGitLandPort,
+  createFakeGitRunPromotionPort,
   createFakeGitSliceIntegrationPort,
   createFakeGitWorktreePort,
   createFakeTestRunnerPort,
@@ -59,7 +59,7 @@ function fakePorts(
     gitSliceIntegration: createFakeGitSliceIntegrationPort(),
     agentRunner: options.agentRunner ?? completedAgentRunner,
     testRunner: options.testRunner ?? createFakeTestRunnerPort(),
-    gitLand: createFakeGitLandPort(),
+    gitRunPromotion: createFakeGitRunPromotionPort(),
     gitHostLand: createFakeGitHostLandPort(),
   };
 }

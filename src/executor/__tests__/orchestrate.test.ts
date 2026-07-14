@@ -71,7 +71,7 @@ import { ingestTestResult, verifyStreamPath } from '../test-result.js';
 import { createWorktree } from '../worktree.js';
 import {
   createFakeGitHostLandPort,
-  createFakeGitLandPort,
+  createFakeGitRunPromotionPort,
   createFakeGitSliceIntegrationPort,
   createFakeGitWorktreePort,
   createFakeTestRunnerPort,
@@ -120,7 +120,7 @@ function fakePorts(overrides: Partial<ExecutionPorts> = {}): ExecutionPorts {
     gitSliceIntegration: createFakeGitSliceIntegrationPort(),
     agentRunner: completedAgentRunner,
     testRunner: createFakeTestRunnerPort(),
-    gitLand: createFakeGitLandPort(),
+    gitRunPromotion: createFakeGitRunPromotionPort(),
     gitHostLand: createFakeGitHostLandPort(),
     ...overrides,
   };
@@ -349,7 +349,7 @@ async function crankManually(cwd: string, ports: ExecutionPorts): Promise<void> 
   }
   await completeRun({ cwd, runId: 'run-1' });
   await exportPetri({ cwd, runId: 'run-1' });
-  await preparePromotion({ cwd, runId: 'run-1', gitLand: ports.gitLand });
+  await preparePromotion({ cwd, runId: 'run-1', gitRunPromotion: ports.gitRunPromotion });
 }
 
 describe('drive', () => {
@@ -561,7 +561,7 @@ describe('drive', () => {
           : {}),
         ...(fault === 'promotion'
           ? {
-              gitLand: {
+              gitRunPromotion: {
                 async currentHead() {
                   throw new Error('must not read current head');
                 },
@@ -984,7 +984,7 @@ describe('drive', () => {
           runId: 'run-1',
           ports: fakePorts({
             testRunner,
-            gitLand: {
+            gitRunPromotion: {
               async currentHead() {
                 return { status: 'ok', commitSha: 'base123' };
               },
@@ -3625,7 +3625,11 @@ describe('drive', () => {
       cwd,
       runId: 'run-1',
       ports: fakePorts({
-        gitLand: createFakeGitLandPort({ status: 'failed', message: 'land boom', sideEffects: [] }),
+        gitRunPromotion: createFakeGitRunPromotionPort({
+          status: 'failed',
+          message: 'land boom',
+          sideEffects: [],
+        }),
       }),
     });
 
@@ -3647,7 +3651,11 @@ describe('drive', () => {
       cwd,
       runId: 'run-1',
       ports: fakePorts({
-        gitLand: createFakeGitLandPort({ status: 'no_changes', message: 'nothing to land', sideEffects: [] }),
+        gitRunPromotion: createFakeGitRunPromotionPort({
+          status: 'no_changes',
+          message: 'nothing to land',
+          sideEffects: [],
+        }),
       }),
     });
 

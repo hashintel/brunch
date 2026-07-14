@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createFakeGitHostLandPort,
-  createFakeGitLandPort,
+  createFakeGitRunPromotionPort,
   createFakeGitWorktreePort,
   createFakeTestRunnerPort,
 } from '../../executor/__tests__/fake-ports.js';
@@ -173,7 +173,7 @@ describe('createGitSliceIntegrationPort', () => {
         },
       },
       testRunner: createFakeTestRunnerPort(),
-      gitLand: createFakeGitLandPort(),
+      gitRunPromotion: createFakeGitRunPromotionPort(),
       gitHostLand: createFakeGitHostLandPort(),
     };
     await drive({ cwd, runId: 'run-1', ports }, linearScheduler, serialFiringPolicy, { maxFirings: 5 });

@@ -6,7 +6,7 @@ import { promisify } from 'node:util';
 
 import { describe, expect, it } from 'vitest';
 
-import { createGitLandPort } from '../git-land-port.js';
+import { createGitRunPromotionPort } from '../git-run-promotion-port.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -15,10 +15,10 @@ async function git(cwd: string, args: readonly string[]): Promise<string> {
   return result.stdout.trim();
 }
 
-describe('createGitLandPort', () => {
+describe('createGitRunPromotionPort', () => {
   it('reads the current worktree HEAD', async () => {
     const calls: string[] = [];
-    const port = createGitLandPort({
+    const port = createGitRunPromotionPort({
       run: async (_command, args) => {
         calls.push(args.join(' '));
         if (args.join(' ') === 'rev-parse --show-toplevel')
@@ -35,7 +35,7 @@ describe('createGitLandPort', () => {
   });
 
   it('resolves a durable review branch ref', async () => {
-    const port = createGitLandPort({
+    const port = createGitRunPromotionPort({
       run: async (_command, args) => {
         if (args.join(' ') === 'rev-parse --show-toplevel')
           return { exitCode: 0, stdout: '/repo/wt\n', stderr: '' };
@@ -51,7 +51,7 @@ describe('createGitLandPort', () => {
 
   it('commits run-local worktree changes and reports the commit sha', async () => {
     const calls: Array<{ command: string; args: readonly string[]; cwd: string }> = [];
-    const port = createGitLandPort({
+    const port = createGitRunPromotionPort({
       run: async (command, args, options) => {
         calls.push({ command, args, cwd: options.cwd });
         if (args.join(' ') === 'rev-parse --show-toplevel')
@@ -136,7 +136,7 @@ describe('createGitLandPort', () => {
 
   it('creates the review ref without staging or committing when the worktree is clean', async () => {
     const calls: string[] = [];
-    const port = createGitLandPort({
+    const port = createGitRunPromotionPort({
       run: async (_command, args) => {
         calls.push(args.join(' '));
         if (args.join(' ') === 'rev-parse --show-toplevel')
@@ -181,7 +181,7 @@ describe('createGitLandPort', () => {
   });
 
   it('refuses to promote when git resolves to a parent repository', async () => {
-    const port = createGitLandPort({
+    const port = createGitRunPromotionPort({
       run: async () => ({ exitCode: 0, stdout: '/repo\n', stderr: '' }),
     });
 
@@ -200,7 +200,7 @@ describe('createGitLandPort', () => {
   });
 
   it('reports git failures without claiming side effects', async () => {
-    const port = createGitLandPort({
+    const port = createGitRunPromotionPort({
       run: async (_command, args) =>
         args.join(' ') === 'rev-parse --show-toplevel'
           ? { exitCode: 0, stdout: '/repo/wt\n', stderr: '' }
@@ -237,7 +237,7 @@ describe('createGitLandPort', () => {
     await mkdir(join(worktreeDir, '.brunch', 'cook'), { recursive: true });
     await writeFile(join(worktreeDir, '.brunch', 'cook', 'plan.json'), '{"planted":true}\n', 'utf8');
 
-    const result = await createGitLandPort().promote({
+    const result = await createGitRunPromotionPort().promote({
       worktreeDir,
       message: 'promote run-1',
       baseSha,
@@ -268,7 +268,7 @@ describe('createGitLandPort', () => {
     await writeFile(join(worktreeDir, '.brunch', 'cook', 'plan.json'), '{"planted":true}\n', 'utf8');
 
     await expect(
-      createGitLandPort().promote({
+      createGitRunPromotionPort().promote({
         worktreeDir,
         message: 'promote run-1',
         baseSha,
@@ -289,7 +289,7 @@ describe('createGitLandPort', () => {
     await git(worktreeDir, ['checkout', '--detach']);
     await writeFile(join(worktreeDir, 'result.txt'), 'result\n', 'utf8');
 
-    const result = await createGitLandPort().promote({
+    const result = await createGitRunPromotionPort().promote({
       worktreeDir,
       message: 'promote run-1',
       baseSha,

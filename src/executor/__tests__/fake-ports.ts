@@ -3,8 +3,8 @@ import { join } from 'node:path';
 
 import type {
   GitHostLandPort,
-  GitLandPort,
-  GitLandResult,
+  GitRunPromotionPort,
+  GitRunPromotionResult,
   GitSliceIntegrationPort,
   GitWorktreePort,
   TestRunnerPort,
@@ -65,8 +65,8 @@ export function createFakeTestRunnerPort(
   };
 }
 
-export function createFakeGitLandPort(
-  result: GitLandResult = {
+export function createFakeGitRunPromotionPort(
+  result: GitRunPromotionResult = {
     status: 'promoted',
     commitSha: 'abc123',
     reviewBranch: 'brunch/review/run-1',
@@ -82,7 +82,7 @@ export function createFakeGitLandPort(
   },
   currentHeadSha = 'base123',
   resolvedRefSha = result.status === 'promoted' ? result.commitSha : undefined,
-): GitLandPort {
+): GitRunPromotionPort {
   return {
     async currentHead() {
       return { status: 'ok', commitSha: currentHeadSha };

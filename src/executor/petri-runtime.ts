@@ -723,7 +723,7 @@ export async function executeExecutorReadyStep(
     case 'petri_export':
       return exportPetri({ cwd, runId });
     case 'promotion':
-      return preparePromotion({ cwd, runId, gitLand: ports.gitLand });
+      return preparePromotion({ cwd, runId, gitRunPromotion: ports.gitRunPromotion });
   }
 }
 

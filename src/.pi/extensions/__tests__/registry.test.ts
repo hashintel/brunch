@@ -10,7 +10,7 @@ import { EXECUTOR_ALLOWED_TOOL_NAMES } from '../../../agents/runtime/executor/ac
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
 import {
   createFakeGitHostLandPort,
-  createFakeGitLandPort,
+  createFakeGitRunPromotionPort,
   createFakeGitSliceIntegrationPort,
   createFakeGitWorktreePort,
   createFakeTestRunnerPort,
@@ -19,7 +19,7 @@ import type {
   AgentRunArgs,
   AgentRunnerPort,
   GitHostLandPort,
-  GitLandPort,
+  GitRunPromotionPort,
   GitSliceIntegrationPort,
   GitWorktreePort,
   TestRunnerPort,
@@ -2429,7 +2429,7 @@ describe('Brunch explicit Pi extension registry', () => {
     );
     const registeredTools = await collectProductTools({
       graph: { specId: 42, lsn: 31, nodes: [], edges: [] },
-      gitLand: createFakeGitLandPort({
+      gitRunPromotion: createFakeGitRunPromotionPort({
         status: 'promoted',
         commitSha: 'def456',
         reviewBranch: 'brunch/review/run-1',
@@ -3440,7 +3440,7 @@ async function collectProductTools(
     gitSliceIntegration?: GitSliceIntegrationPort;
     testRunner?: TestRunnerPort;
     agentRunner?: AgentRunnerPort;
-    gitLand?: GitLandPort;
+    gitRunPromotion?: GitRunPromotionPort;
     gitHostLand?: GitHostLandPort;
     subagents?: BrunchSubagentsDeps;
     introspectionQueryTools?: boolean;
@@ -3456,7 +3456,7 @@ async function collectProductTools(
     options.gitSliceIntegration ||
     options.testRunner ||
     options.agentRunner ||
-    options.gitLand ||
+    options.gitRunPromotion ||
     options.gitHostLand
       ? {
           executionPorts: {
@@ -3464,7 +3464,7 @@ async function collectProductTools(
             ...(options.gitSliceIntegration ? { gitSliceIntegration: options.gitSliceIntegration } : {}),
             ...(options.testRunner ? { testRunner: options.testRunner } : {}),
             ...(options.agentRunner ? { agentRunner: options.agentRunner } : {}),
-            ...(options.gitLand ? { gitLand: options.gitLand } : {}),
+            ...(options.gitRunPromotion ? { gitRunPromotion: options.gitRunPromotion } : {}),
             ...(options.gitHostLand ? { gitHostLand: options.gitHostLand } : {}),
           },
         }

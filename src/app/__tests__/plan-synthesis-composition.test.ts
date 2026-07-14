@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import type { BrunchSubagentsDeps } from '../../.pi/extensions/subagents/index.js';
 import {
   createFakeGitHostLandPort,
-  createFakeGitLandPort,
+  createFakeGitRunPromotionPort,
   createFakeGitSliceIntegrationPort,
   createFakeGitWorktreePort,
 } from '../../executor/__tests__/fake-ports.js';
@@ -148,7 +148,7 @@ function witnessPorts(args: {
     gitSliceIntegration: createFakeGitSliceIntegrationPort(),
     agentRunner,
     testRunner,
-    gitLand: createFakeGitLandPort(),
+    gitRunPromotion: createFakeGitRunPromotionPort(),
     gitHostLand: createFakeGitHostLandPort(),
   };
 }

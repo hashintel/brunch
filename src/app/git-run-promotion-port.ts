@@ -1,10 +1,12 @@
 import { realpath } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-import type { GitLandPort } from '../executor/execution-ports.js';
+import type { GitRunPromotionPort } from '../executor/execution-ports.js';
 import { runCommand, type CommandRunner } from './command-runner.js';
 
-export function createGitLandPort(options: { readonly run?: CommandRunner } = {}): GitLandPort {
+export function createGitRunPromotionPort(
+  options: { readonly run?: CommandRunner } = {},
+): GitRunPromotionPort {
   const run = options.run ?? runCommand;
   return {
     async currentHead(args) {

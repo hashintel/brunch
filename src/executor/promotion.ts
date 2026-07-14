@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import type { GitLandPort } from './execution-ports.js';
+import type { GitRunPromotionPort } from './execution-ports.js';
 import { readSliceVerificationVerdict } from './report-verdict.js';
 import { reportsPath } from './report.js';
 import {
@@ -90,7 +90,7 @@ export function promotionReviewBranch(runId: string): string {
 export async function preparePromotion(args: {
   readonly cwd: string;
   readonly runId: string;
-  readonly gitLand: GitLandPort;
+  readonly gitRunPromotion: GitRunPromotionPort;
 }): Promise<PromotionPrepareResult> {
   return withRunExecutionAuthority({
     cwd: args.cwd,
@@ -103,7 +103,7 @@ export async function preparePromotion(args: {
 async function preparePromotionOwned(args: {
   readonly cwd: string;
   readonly runId: string;
-  readonly gitLand: GitLandPort;
+  readonly gitRunPromotion: GitRunPromotionPort;
 }): Promise<PromotionPrepareResult> {
   const metadataPath = runMetadataPath(args.cwd, args.runId);
   const metadata = await readRunMetadata(metadataPath);
@@ -154,7 +154,7 @@ async function preparePromotionOwned(args: {
 
   const recovered = await recoverPreparedPromotion({
     cwd: args.cwd,
-    gitLand: args.gitLand,
+    gitRunPromotion: args.gitRunPromotion,
     runId: args.runId,
     metadata,
     metadataPath,
@@ -190,7 +190,7 @@ async function preparePromotionOwned(args: {
   }
   const reviewBranch = promotionReviewBranch(args.runId);
 
-  const land = await args.gitLand.promote({
+  const land = await args.gitRunPromotion.promote({
     worktreeDir,
     message: `promote ${args.runId}`,
     baseSha: runBaseSha,
@@ -275,7 +275,7 @@ function promotedRunMetadata(
 
 async function recoverPreparedPromotion(args: {
   readonly cwd: string;
-  readonly gitLand: GitLandPort;
+  readonly gitRunPromotion: GitRunPromotionPort;
   readonly runId: string;
   readonly metadata: RunMetadata;
   readonly metadataPath: string;
@@ -288,9 +288,12 @@ async function recoverPreparedPromotion(args: {
   if (args.metadata.promotionBranch && args.metadata.promotionBranch !== reviewBranch) return undefined;
   if (!args.metadata.worktreeDir) return undefined;
 
-  const head = await args.gitLand.currentHead({ worktreeDir: args.metadata.worktreeDir });
+  const head = await args.gitRunPromotion.currentHead({ worktreeDir: args.metadata.worktreeDir });
   if (head.status !== 'ok' || head.commitSha !== commitSha) return undefined;
-  const ref = await args.gitLand.resolveRef({ worktreeDir: args.metadata.worktreeDir, ref: reviewBranch });
+  const ref = await args.gitRunPromotion.resolveRef({
+    worktreeDir: args.metadata.worktreeDir,
+    ref: reviewBranch,
+  });
   if (ref.status !== 'ok' || ref.commitSha !== commitSha) return undefined;
 
   const updated: RunMetadata = {

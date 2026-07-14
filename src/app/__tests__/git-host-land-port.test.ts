@@ -7,7 +7,7 @@ import { promisify } from 'node:util';
 import { describe, expect, it } from 'vitest';
 
 import { createGitHostLandPort } from '../git-host-land-port.js';
-import { createGitLandPort } from '../git-land-port.js';
+import { createGitRunPromotionPort } from '../git-run-promotion-port.js';
 
 const execFileAsync = promisify(execFile);
 const BRUNCH_IDENTITY = ['-c', 'user.name=brunch', '-c', 'user.email=cook@brunch'] as const;
@@ -55,7 +55,7 @@ async function createBrownfieldFixture(prefix: string): Promise<{
   await mkdir(join(runWorktreeDir, '.brunch', 'cook'), { recursive: true });
   await writeFile(join(runWorktreeDir, '.brunch', 'cook', 'plan.json'), '{"planted":true}\n', 'utf8');
 
-  const promoted = await createGitLandPort().promote({
+  const promoted = await createGitRunPromotionPort().promote({
     worktreeDir: runWorktreeDir,
     message: 'promote run-1',
     baseSha,
@@ -90,7 +90,7 @@ async function createGreenfieldFixture(prefix: string): Promise<{
   await mkdir(join(runWorktreeDir, '.brunch', 'cook'), { recursive: true });
   await writeFile(join(runWorktreeDir, '.brunch', 'cook', 'plan.json'), '{"planted":true}\n', 'utf8');
 
-  const promoted = await createGitLandPort().promote({
+  const promoted = await createGitRunPromotionPort().promote({
     worktreeDir: runWorktreeDir,
     message: 'promote run-1',
     baseSha,

@@ -143,14 +143,14 @@ export interface TestRunnerPort {
   run(args: TestRunArgs): Promise<TestRunResult>;
 }
 
-export interface GitLandArgs {
+export interface GitRunPromotionArgs {
   readonly worktreeDir: string;
   readonly message: string;
   readonly baseSha: string;
   readonly reviewBranch: string;
 }
 
-export type GitLandSideEffect =
+export type GitRunPromotionSideEffect =
   | { readonly kind: 'git_commit'; readonly path: string; readonly sha: string }
   | { readonly kind: 'git_ref_create'; readonly path: string; readonly ref: string; readonly sha: string };
 
@@ -177,12 +177,12 @@ export type GitRefResult =
       readonly message: string;
     };
 
-export type GitLandResult =
+export type GitRunPromotionResult =
   | {
       readonly status: 'promoted';
       readonly commitSha: string;
       readonly reviewBranch: string;
-      readonly sideEffects: readonly GitLandSideEffect[];
+      readonly sideEffects: readonly GitRunPromotionSideEffect[];
     }
   | {
       readonly status: 'no_changes';
@@ -193,13 +193,13 @@ export type GitLandResult =
   | {
       readonly status: 'failed';
       readonly message: string;
-      readonly sideEffects: readonly GitLandSideEffect[];
+      readonly sideEffects: readonly GitRunPromotionSideEffect[];
     };
 
-export interface GitLandPort {
+export interface GitRunPromotionPort {
   currentHead(args: { readonly worktreeDir: string }): Promise<GitHeadResult>;
   resolveRef(args: { readonly worktreeDir: string; readonly ref: string }): Promise<GitRefResult>;
-  promote(args: GitLandArgs): Promise<GitLandResult>;
+  promote(args: GitRunPromotionArgs): Promise<GitRunPromotionResult>;
 }
 
 export interface GitHostLandIntegrateArgs {
@@ -319,6 +319,6 @@ export interface ExecutionPorts {
   readonly gitSliceIntegration: GitSliceIntegrationPort;
   readonly agentRunner: AgentRunnerPort;
   readonly testRunner: TestRunnerPort;
-  readonly gitLand: GitLandPort;
+  readonly gitRunPromotion: GitRunPromotionPort;
   readonly gitHostLand: GitHostLandPort;
 }

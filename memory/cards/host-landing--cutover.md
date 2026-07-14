@@ -1,7 +1,7 @@
 # Host-landing cutover: helper, /brunch:land acceptance, patch-path deletion
 
 Frontier: host-landing
-Status:   active
+Status:   done
 Mode:     slices
 Created:  2026-07-14
 
@@ -285,7 +285,10 @@ src/.pi/extensions/__tests__/registry.test.ts            ~
 
 ---
 
-## Card 4 — lexicon: `GitLandPort` → `GitRunPromotionPort` [pending]
+## Card 4 — lexicon: `GitLandPort` → `GitRunPromotionPort` [done]
+
+> Landed 2026-07-14. Mechanical total rename incl. the `gitLand` port member →
+> `gitRunPromotion` and both file renames; grep returns zero pre-rename names.
 
 ### Objective (light card)
 
