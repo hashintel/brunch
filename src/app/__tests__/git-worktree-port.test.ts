@@ -23,6 +23,7 @@ describe('createGitWorktreePort', () => {
           timeoutMs: options.timeoutMs,
           maxOutputBytes: options.maxOutputBytes,
         });
+        if (args[0] === 'rev-parse') return { exitCode: 0, stdout: 'headsha123\n', stderr: '' };
         return { exitCode: 0, stdout: 'Preparing worktree', stderr: '' };
       },
     });
@@ -43,13 +44,38 @@ describe('createGitWorktreePort', () => {
         timeoutMs: 30_000,
         maxOutputBytes: 16 * 1024,
       },
+      {
+        command: 'git',
+        args: ['rev-parse', 'HEAD'],
+        cwd: '/repo/.brunch/cook/runs/run-1/worktree',
+        signal: undefined,
+        timeoutMs: 30_000,
+        maxOutputBytes: 16 * 1024,
+      },
     ]);
     expect(result).toEqual({
       status: 'created',
       worktreeDir: '/repo/.brunch/cook/runs/run-1/worktree',
+      createdFromSha: 'headsha123',
       sideEffects: [
         { kind: 'git_worktree_add', path: '/repo/.brunch/cook/runs/run-1/worktree', ref: 'HEAD' },
       ],
+    });
+  });
+
+  it('fails without a side-effect claim when the created worktree HEAD cannot be resolved', async () => {
+    const port = createGitWorktreePort({
+      run: async (_command, args) =>
+        args[0] === 'rev-parse'
+          ? { exitCode: 128, stdout: '', stderr: 'fatal: ambiguous argument' }
+          : { exitCode: 0, stdout: 'Preparing worktree', stderr: '' },
+    });
+
+    await expect(port.create({ cwd: '/repo', worktreeDir: '/repo/wt', ref: 'HEAD' })).resolves.toEqual({
+      status: 'failed',
+      worktreeDir: '/repo/wt',
+      message: 'fatal: ambiguous argument',
+      sideEffects: [],
     });
   });
 

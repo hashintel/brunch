@@ -173,34 +173,19 @@ async function preparePromotionOwned(args: {
     };
   }
 
-  const preparedAttempt = await preparePromotionAttempt({
-    gitLand: args.gitLand,
-    metadata,
-    metadataPath,
-    worktreeDir,
-  });
-  if (preparedAttempt.status === 'failed') {
+  // The durable run-origin base recorded at worktree creation is the only
+  // promotion baseline: the promoted range is runBaseSha..tip, so a clean
+  // fully-integrated run still promotes (no_changes means tip == run base).
+  const runBaseSha = metadata.runBaseSha;
+  if (!runBaseSha) {
     return {
       status: 'promotion_failed',
       runStatus: 'petri_exported',
       runId: args.runId,
       worktreeDir,
       metadataPath,
-      message: preparedAttempt.message,
+      message: 'run is missing runBaseSha',
       sideEffects: [],
-    };
-  }
-  const promotionMetadata = preparedAttempt.metadata;
-  const promotionBaseSha = promotionMetadata.promotionBaseSha;
-  if (!promotionBaseSha) {
-    return {
-      status: 'promotion_failed',
-      runStatus: 'petri_exported',
-      runId: args.runId,
-      worktreeDir,
-      metadataPath,
-      message: 'run is missing promotionBaseSha',
-      sideEffects: preparedAttempt.sideEffects,
     };
   }
   const reviewBranch = promotionReviewBranch(args.runId);
@@ -208,7 +193,7 @@ async function preparePromotionOwned(args: {
   const land = await args.gitLand.promote({
     worktreeDir,
     message: `promote ${args.runId}`,
-    baseSha: promotionBaseSha,
+    baseSha: runBaseSha,
     reviewBranch,
   });
   if (land.status === 'failed') {
@@ -219,7 +204,7 @@ async function preparePromotionOwned(args: {
       worktreeDir,
       metadataPath,
       message: land.message,
-      sideEffects: [...preparedAttempt.sideEffects, ...land.sideEffects],
+      sideEffects: land.sideEffects,
     };
   }
   if (land.status === 'no_changes') {
@@ -230,14 +215,14 @@ async function preparePromotionOwned(args: {
       worktreeDir,
       metadataPath,
       message: land.message,
-      sideEffects: preparedAttempt.sideEffects,
+      sideEffects: [],
     };
   }
 
   const path = promotionReportPath(args.cwd, args.runId);
   const dir = dirname(path);
-  const report = promotionReport(args.runId, promotionMetadata, land.commitSha, land.reviewBranch);
-  const updated = promotedRunMetadata(promotionMetadata, path, land.commitSha, land.reviewBranch);
+  const report = promotionReport(args.runId, metadata, land.commitSha, land.reviewBranch);
+  const updated = promotedRunMetadata(metadata, path, land.commitSha, land.reviewBranch);
   await mkdir(dir, { recursive: true });
   await writeFile(path, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
   const metadataEffect = await persistRunMetadata(metadataPath, updated);
@@ -249,47 +234,12 @@ async function preparePromotionOwned(args: {
     promotionPath: path,
     promotionBranch: land.reviewBranch,
     sideEffects: [
-      ...preparedAttempt.sideEffects,
       ...land.sideEffects,
       { kind: 'mkdir', path: dir },
       { kind: 'write_file', path, ifExists: 'overwrite' },
       metadataEffect,
     ],
   };
-}
-
-type PromotionAttemptPrepareResult =
-  | {
-      readonly status: 'prepared';
-      readonly metadata: RunMetadata;
-      readonly sideEffects: readonly [];
-    }
-  | {
-      readonly status: 'prepared';
-      readonly metadata: RunMetadata;
-      readonly sideEffects: readonly [
-        { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
-      ];
-    }
-  | {
-      readonly status: 'failed';
-      readonly message: string;
-    };
-
-async function preparePromotionAttempt(args: {
-  readonly gitLand: GitLandPort;
-  readonly metadata: RunMetadata;
-  readonly metadataPath: string;
-  readonly worktreeDir: string;
-}): Promise<PromotionAttemptPrepareResult> {
-  if (args.metadata.promotionBaseSha) {
-    return { status: 'prepared', metadata: args.metadata, sideEffects: [] };
-  }
-  const head = await args.gitLand.currentHead({ worktreeDir: args.worktreeDir });
-  if (head.status === 'failed') return { status: 'failed', message: head.message };
-  const metadata = { ...args.metadata, promotionBaseSha: head.commitSha };
-  const metadataEffect = await persistRunMetadata(args.metadataPath, metadata);
-  return { status: 'prepared', metadata, sideEffects: [metadataEffect] };
 }
 
 function promotionReport(

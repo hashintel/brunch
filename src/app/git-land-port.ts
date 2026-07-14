@@ -32,7 +32,12 @@ export function createGitLandPort(options: { readonly run?: CommandRunner } = {}
       });
       if (validBranch.exitCode !== 0)
         return failed(validBranch, `invalid review branch ${args.reviewBranch}`);
-      const status = await run('git', ['status', '--porcelain'], { cwd: args.worktreeDir });
+      // .brunch is run bookkeeping (plan.json, provenance), never promotable
+      // output: exclude it from both the dirty check and the staged commit so
+      // it cannot enter the review ref (and .brunch-only dirt means no_changes).
+      const status = await run('git', ['status', '--porcelain', '--', '.', ':(exclude).brunch'], {
+        cwd: args.worktreeDir,
+      });
       if (status.exitCode !== 0) return failed(status, `git status exited ${status.exitCode}`);
       const sideEffects: Array<
         | { readonly kind: 'git_commit'; readonly path: string; readonly sha: string }
@@ -45,7 +50,9 @@ export function createGitLandPort(options: { readonly run?: CommandRunner } = {}
       > = [];
 
       if (status.stdout.trim().length > 0) {
-        const add = await run('git', ['add', '-A'], { cwd: args.worktreeDir });
+        const add = await run('git', ['add', '-A', '--', '.', ':(exclude).brunch'], {
+          cwd: args.worktreeDir,
+        });
         if (add.exitCode !== 0) return failed(add, `git add exited ${add.exitCode}`, sideEffects);
 
         const commit = await run(

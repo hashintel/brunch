@@ -43,9 +43,28 @@ export function createGitWorktreePort(options: { readonly run?: CommandRunner } 
         };
       }
 
+      const head = await run('git', ['rev-parse', 'HEAD'], {
+        cwd: args.worktreeDir,
+        timeoutMs: GIT_WORKTREE_TIMEOUT_MS,
+        maxOutputBytes: GIT_WORKTREE_MAX_OUTPUT_BYTES,
+      });
+      if (head.exitCode !== 0) {
+        return {
+          status: 'failed',
+          worktreeDir: args.worktreeDir,
+          message:
+            head.stderr.trim() ||
+            head.stdout.trim() ||
+            head.spawnError ||
+            `git rev-parse HEAD exited ${head.exitCode}`,
+          sideEffects: [],
+        };
+      }
+
       return {
         status: 'created',
         worktreeDir: args.worktreeDir,
+        createdFromSha: head.stdout.trim(),
         sideEffects: [{ kind: 'git_worktree_add', path: args.worktreeDir, ref: args.ref }],
       };
     },

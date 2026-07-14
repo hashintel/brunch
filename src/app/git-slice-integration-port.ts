@@ -70,10 +70,18 @@ export function createGitSliceIntegrationPort(
       );
       if (identityFailure) return { status: 'failed', message: identityFailure, sideEffects: effects };
 
-      const status = await command(args.sliceWorktreeDir, ['status', '--porcelain']);
+      // .brunch is run bookkeeping, never slice output: exclude it from the
+      // dirty check and the staged commit so it cannot enter integration history.
+      const status = await command(args.sliceWorktreeDir, [
+        'status',
+        '--porcelain',
+        '--',
+        '.',
+        ':(exclude).brunch',
+      ]);
       if (status.exitCode !== 0) return failed(status, 'cannot inspect slice worktree', effects);
       if (status.stdout.trim()) {
-        const added = await command(args.sliceWorktreeDir, ['add', '-A']);
+        const added = await command(args.sliceWorktreeDir, ['add', '-A', '--', '.', ':(exclude).brunch']);
         if (added.exitCode !== 0) return failed(added, 'cannot stage slice output', effects);
         const committed = await command(args.sliceWorktreeDir, [
           ...GIT_AUTHOR,

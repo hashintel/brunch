@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -86,8 +86,16 @@ describe('createGitLandPort', () => {
         args: ['check-ref-format', '--branch', 'brunch/review/run-1'],
         cwd: '/repo/.brunch/cook/runs/run-1/worktree',
       },
-      { command: 'git', args: ['status', '--porcelain'], cwd: '/repo/.brunch/cook/runs/run-1/worktree' },
-      { command: 'git', args: ['add', '-A'], cwd: '/repo/.brunch/cook/runs/run-1/worktree' },
+      {
+        command: 'git',
+        args: ['status', '--porcelain', '--', '.', ':(exclude).brunch'],
+        cwd: '/repo/.brunch/cook/runs/run-1/worktree',
+      },
+      {
+        command: 'git',
+        args: ['add', '-A', '--', '.', ':(exclude).brunch'],
+        cwd: '/repo/.brunch/cook/runs/run-1/worktree',
+      },
       {
         command: 'git',
         args: ['-c', 'user.name=brunch', '-c', 'user.email=cook@brunch', 'commit', '-m', 'promote run-1'],
@@ -165,7 +173,7 @@ describe('createGitLandPort', () => {
     expect(calls).toEqual([
       'rev-parse --show-toplevel',
       'check-ref-format --branch brunch/review/run-1',
-      'status --porcelain',
+      'status --porcelain -- . :(exclude).brunch',
       'rev-parse HEAD',
       'rev-parse --verify --quiet refs/heads/brunch/review/run-1',
       'update-ref refs/heads/brunch/review/run-1 abc123 0000000000000000000000000000000000000000',
@@ -213,6 +221,60 @@ describe('createGitLandPort', () => {
       message: 'fatal: cannot commit',
       sideEffects: [],
     });
+  });
+
+  it('excludes .brunch bookkeeping from the promotion commit while rescuing sibling files', async () => {
+    const worktreeDir = await mkdtemp(join(tmpdir(), 'brunch-git-land-hygiene-'));
+    await git(worktreeDir, ['init', '-b', 'main']);
+    await git(worktreeDir, ['config', 'user.name', 'Brunch Test']);
+    await git(worktreeDir, ['config', 'user.email', 'brunch@example.test']);
+    await writeFile(join(worktreeDir, 'base.txt'), 'base\n', 'utf8');
+    await git(worktreeDir, ['add', 'base.txt']);
+    await git(worktreeDir, ['commit', '-m', 'base']);
+    const baseSha = await git(worktreeDir, ['rev-parse', 'HEAD']);
+    await git(worktreeDir, ['checkout', '--detach']);
+    await writeFile(join(worktreeDir, 'result.txt'), 'result\n', 'utf8');
+    await mkdir(join(worktreeDir, '.brunch', 'cook'), { recursive: true });
+    await writeFile(join(worktreeDir, '.brunch', 'cook', 'plan.json'), '{"planted":true}\n', 'utf8');
+
+    const result = await createGitLandPort().promote({
+      worktreeDir,
+      message: 'promote run-1',
+      baseSha,
+      reviewBranch: 'brunch/review/run-1',
+    });
+
+    if (result.status !== 'promoted') throw new Error(result.message);
+    const tree = await git(worktreeDir, ['ls-tree', '-r', '--name-only', result.commitSha]);
+    expect(tree).toContain('result.txt');
+    expect(tree).not.toContain('.brunch');
+    // Bookkeeping survives on disk, uncommitted.
+    await expect(readFile(join(worktreeDir, '.brunch', 'cook', 'plan.json'), 'utf8')).resolves.toBe(
+      '{"planted":true}\n',
+    );
+  });
+
+  it('reports no_changes when the only worktree dirt is .brunch bookkeeping', async () => {
+    const worktreeDir = await mkdtemp(join(tmpdir(), 'brunch-git-land-brunch-only-'));
+    await git(worktreeDir, ['init', '-b', 'main']);
+    await git(worktreeDir, ['config', 'user.name', 'Brunch Test']);
+    await git(worktreeDir, ['config', 'user.email', 'brunch@example.test']);
+    await writeFile(join(worktreeDir, 'base.txt'), 'base\n', 'utf8');
+    await git(worktreeDir, ['add', 'base.txt']);
+    await git(worktreeDir, ['commit', '-m', 'base']);
+    const baseSha = await git(worktreeDir, ['rev-parse', 'HEAD']);
+    await git(worktreeDir, ['checkout', '--detach']);
+    await mkdir(join(worktreeDir, '.brunch', 'cook'), { recursive: true });
+    await writeFile(join(worktreeDir, '.brunch', 'cook', 'plan.json'), '{"planted":true}\n', 'utf8');
+
+    await expect(
+      createGitLandPort().promote({
+        worktreeDir,
+        message: 'promote run-1',
+        baseSha,
+        reviewBranch: 'brunch/review/run-1',
+      }),
+    ).resolves.toMatchObject({ status: 'no_changes', commitSha: baseSha, sideEffects: [] });
   });
 
   it('creates a durable review branch while leaving the run worktree detached', async () => {

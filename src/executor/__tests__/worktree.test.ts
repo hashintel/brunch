@@ -1,6 +1,8 @@
+import { execFile } from 'node:child_process';
 import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { promisify } from 'node:util';
 
 import { describe, expect, it } from 'vitest';
 
@@ -9,6 +11,8 @@ import { withRunExecutionAuthority } from '../run-execution-authority.js';
 import { runDirPath, runMetadataPath, createRun } from '../run.js';
 import { worktreeDirPath, createWorktree } from '../worktree.js';
 import { createFakeGitWorktreePort } from './fake-ports.js';
+
+const execFileAsync = promisify(execFile);
 
 async function pathExists(path: string): Promise<boolean> {
   try {
@@ -101,6 +105,7 @@ describe('createWorktree', () => {
         return {
           status: 'created',
           worktreeDir: portArgs.worktreeDir,
+          createdFromSha: 'workbase123',
           sideEffects: [{ kind: 'git_worktree_add', path: portArgs.worktreeDir, ref: portArgs.ref }],
         };
       }),
@@ -166,6 +171,59 @@ describe('createWorktree', () => {
       status: 'worktree_created',
       worktreeDir: worktreeDirPath(cwd, 'run-1'),
     });
+  });
+
+  it('records the created-from SHA as runBaseSha for a git worktree substrate', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-worktree-base-sha-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(planPath, '{"mode":"brownfield","epics":[],"slices":[]}', 'utf8');
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
+
+    const result = await createWorktree({
+      cwd,
+      runId: 'run-1',
+      gitWorktree: createFakeGitWorktreePort(async (portArgs) => {
+        await mkdir(portArgs.worktreeDir, { recursive: true });
+        await writeFile(join(portArgs.worktreeDir, '.git'), 'gitdir: /tmp/worktrees/run-1\n', 'utf8');
+        return {
+          status: 'created',
+          worktreeDir: portArgs.worktreeDir,
+          createdFromSha: 'workbase123',
+          sideEffects: [{ kind: 'git_worktree_add', path: portArgs.worktreeDir, ref: portArgs.ref }],
+        };
+      }),
+    });
+
+    expect(result.status).toBe('worktree_created');
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'worktree_created',
+      runBaseSha: 'workbase123',
+    });
+  });
+
+  it('records the empty base commit as runBaseSha for an empty_dir substrate', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-empty-base-sha-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await createRun({ cwd, specId: '42', runId: 'run-1', substrate: 'empty_dir' });
+
+    const result = await createWorktree({
+      cwd,
+      runId: 'run-1',
+      gitWorktree: createFakeGitWorktreePort(async () => {
+        throw new Error('git should not run for empty_dir');
+      }),
+    });
+
+    expect(result.status).toBe('worktree_created');
+    const worktreeDir = worktreeDirPath(cwd, 'run-1');
+    const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: worktreeDir });
+    const metadata = JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8')) as {
+      runBaseSha?: string;
+    };
+    expect(metadata.runBaseSha).toBe(stdout.trim());
   });
 
   it('clears a stale empty directory substrate target before creating it', async () => {
@@ -403,6 +461,7 @@ describe('createWorktree', () => {
       return {
         status: 'created',
         worktreeDir: portArgs.worktreeDir,
+        createdFromSha: 'workbase123',
         sideEffects: [{ kind: 'git_worktree_add', path: portArgs.worktreeDir, ref: portArgs.ref }],
       };
     });
@@ -430,8 +489,29 @@ describe('createWorktree', () => {
     await mkdir(dirname(planPath), { recursive: true });
     await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
     await createRun({ cwd, specId: '42', runId: 'run-1' });
-    await mkdir(worktreeDirPath(cwd, 'run-1'), { recursive: true });
-    await writeFile(join(worktreeDirPath(cwd, 'run-1'), '.git'), 'gitdir: /tmp/worktrees/run-1\n', 'utf8');
+    // A survivable interruption leaves a real worktree whose HEAD resolves;
+    // repair re-derives runBaseSha from it instead of re-running the port.
+    const worktreeDir = worktreeDirPath(cwd, 'run-1');
+    await mkdir(worktreeDir, { recursive: true });
+    await execFileAsync('git', ['init', '-q', '-b', 'main'], { cwd: worktreeDir });
+    await execFileAsync(
+      'git',
+      [
+        '-c',
+        'user.name=brunch',
+        '-c',
+        'user.email=cook@brunch',
+        'commit',
+        '--allow-empty',
+        '-q',
+        '-m',
+        'base',
+      ],
+      {
+        cwd: worktreeDir,
+      },
+    );
+    const { stdout: headSha } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: worktreeDir });
 
     const result = await createWorktree({
       cwd,
@@ -446,13 +526,36 @@ describe('createWorktree', () => {
       runStatus: 'worktree_created',
       runId: 'run-1',
       runDir: runDirPath(cwd, 'run-1'),
-      worktreeDir: worktreeDirPath(cwd, 'run-1'),
+      worktreeDir,
       metadataPath: runMetadataPath(cwd, 'run-1'),
       sideEffects: [{ kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' }],
     });
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'worktree_created',
-      worktreeDir: worktreeDirPath(cwd, 'run-1'),
+      worktreeDir,
+      runBaseSha: headSha.trim(),
+    });
+  });
+
+  it('recreates rather than repairs a worktree whose marker cannot resolve a HEAD', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-worktree-broken-marker-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
+    await mkdir(worktreeDirPath(cwd, 'run-1'), { recursive: true });
+    await writeFile(join(worktreeDirPath(cwd, 'run-1'), '.git'), 'gitdir: /tmp/worktrees/run-1\n', 'utf8');
+
+    const result = await createWorktree({
+      cwd,
+      runId: 'run-1',
+      gitWorktree: createFakeGitWorktreePort(),
+    });
+
+    expect(result.status).toBe('worktree_created');
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'worktree_created',
+      runBaseSha: 'workbase123',
     });
   });
 
@@ -531,6 +634,7 @@ describe('createWorktree', () => {
         return {
           status: 'created',
           worktreeDir: portArgs.worktreeDir,
+          createdFromSha: 'workbase123',
           sideEffects: [{ kind: 'git_worktree_add', path: portArgs.worktreeDir, ref: portArgs.ref }],
         };
       }),
@@ -572,6 +676,7 @@ describe('createWorktree', () => {
         return {
           status: 'created',
           worktreeDir: portArgs.worktreeDir,
+          createdFromSha: 'workbase123',
           sideEffects: [{ kind: 'git_worktree_add', path: portArgs.worktreeDir, ref: portArgs.ref }],
         };
       }),

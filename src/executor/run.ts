@@ -47,6 +47,10 @@ export interface RunMetadata {
     | 'abandoned';
   readonly worktreeDir?: string;
   readonly substrate?: WorktreeSubstrateKind;
+  /** Durable run-origin base commit, recorded once at worktree creation:
+      git_worktree -> the commit the worktree was added at; empty_dir -> the empty base commit.
+      Every landing/promotion range is runBaseSha..tip — never a single-commit window. */
+  readonly runBaseSha?: string;
   readonly verifyTarget?: VerifyTarget;
   readonly populatedPlanPath?: string;
   readonly populatedPlanProvenancePath?: string;
@@ -74,7 +78,6 @@ export interface RunMetadata {
   readonly petriObservationPrepared?: true;
   readonly petriPath?: string;
   readonly promotionPath?: string;
-  readonly promotionBaseSha?: string;
   readonly promotionCommitSha?: string;
   readonly promotionBranch?: string;
   readonly supersedesRunId?: string;

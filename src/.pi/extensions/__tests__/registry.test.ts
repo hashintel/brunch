@@ -2422,6 +2422,7 @@ describe('Brunch explicit Pi extension registry', () => {
         petriPath,
         worktreeDir,
         completedSliceIds: ['task-1'],
+        runBaseSha: 'base123',
       }),
       'utf8',
     );
@@ -2456,7 +2457,6 @@ describe('Brunch explicit Pi extension registry', () => {
         promotionBranch: 'brunch/review/run-1',
       },
       sideEffects: [
-        { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
         { kind: 'git_commit', path: worktreeDir, sha: 'def456' },
         {
           kind: 'git_ref_create',

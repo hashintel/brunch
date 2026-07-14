@@ -18,6 +18,7 @@ export function createFakeGitWorktreePort(
     return {
       status: 'created',
       worktreeDir,
+      createdFromSha: 'workbase123',
       sideEffects: [{ kind: 'git_worktree_add', path: worktreeDir, ref }],
     };
   },

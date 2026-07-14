@@ -563,13 +563,13 @@ describe('drive', () => {
           ? {
               gitLand: {
                 async currentHead() {
-                  throw new Error(`${fault} exploded`);
+                  throw new Error('must not read current head');
                 },
                 async resolveRef() {
                   throw new Error('must not resolve ref');
                 },
                 async promote() {
-                  throw new Error('must not promote');
+                  throw new Error(`${fault} exploded`);
                 },
               },
             }
@@ -3359,6 +3359,7 @@ describe('drive', () => {
         return {
           status: 'created',
           worktreeDir,
+          createdFromSha: 'workbase123',
           sideEffects: [{ kind: 'git_worktree_add', path: worktreeDir, ref }],
         };
       }),

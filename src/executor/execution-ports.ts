@@ -9,6 +9,8 @@ export type GitWorktreeCreateResult =
   | {
       readonly status: 'created';
       readonly worktreeDir: string;
+      /** Resolved commit the worktree was created at — the run's durable base (runBaseSha). */
+      readonly createdFromSha: string;
       readonly sideEffects: readonly [
         { readonly kind: 'git_worktree_add'; readonly path: string; readonly ref: string },
       ];
@@ -243,6 +245,94 @@ export type GitHostPromotionApplyResult =
 
 export interface GitHostPromotionPort extends GitHostPromotionPreflightPort {
   apply(args: GitHostPromotionApplyArgs): Promise<GitHostPromotionApplyResult>;
+}
+
+export interface GitHostLandIntegrateArgs {
+  /** Host repository root whose checked-out branch receives the run. */
+  readonly hostDir: string;
+  /** Review branch name (e.g. brunch/review/<runId>) — already visible in the
+      host ref store because git_worktree runs share it. */
+  readonly reviewRef: string;
+  /** Acceptance binding: refuse if the review ref no longer points here. */
+  readonly expectedTipSha: string;
+  /** Merge commit subject when a fast-forward is impossible. */
+  readonly message: string;
+}
+
+export type GitHostLandIntegrateResult =
+  | {
+      readonly status: 'landed';
+      readonly via: 'fast_forward' | 'merge';
+      readonly branch: string;
+      readonly landedSha: string;
+      readonly sideEffects: readonly [
+        {
+          readonly kind: 'host_branch_advance';
+          readonly path: string;
+          readonly branch: string;
+          readonly sha: string;
+        },
+      ];
+    }
+  | {
+      readonly status: 'refused';
+      readonly reason: 'detached' | 'dirty' | 'ref_moved' | 'untracked_collision' | 'not_a_repo_root';
+      readonly paths?: readonly string[];
+      readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: 'conflict';
+      readonly conflictedPaths: readonly string[];
+      readonly sideEffects: readonly [];
+    }
+  | { readonly status: 'failed'; readonly message: string; readonly sideEffects: readonly [] };
+
+export interface GitHostLandMaterializeArgs {
+  /** Run repository (worktree) holding the promoted objects. */
+  readonly runWorktreeDir: string;
+  readonly reviewRef: string;
+  readonly expectedTipSha: string;
+  /** Target directory — must be missing or empty. */
+  readonly targetDir: string;
+  /** Initial branch of the materialized repository (normally main). */
+  readonly branch: string;
+  /** Subject of the single clean initial commit. */
+  readonly message: string;
+}
+
+export type GitHostLandMaterializeResult =
+  | {
+      readonly status: 'landed';
+      readonly branch: string;
+      readonly landedSha: string;
+      readonly targetDir: string;
+      readonly sideEffects: readonly [
+        {
+          readonly kind: 'git_materialize';
+          readonly path: string;
+          readonly branch: string;
+          readonly sha: string;
+        },
+      ];
+    }
+  | {
+      readonly status: 'refused';
+      readonly reason: 'occupied_target' | 'target_aliases_run' | 'target_inside_run' | 'ref_moved';
+      readonly sideEffects: readonly [];
+    }
+  | { readonly status: 'failed'; readonly message: string; readonly sideEffects: readonly [] };
+
+/**
+ * Mode-aware landing of a promoted run into the host (FE-1201). Brownfield
+ * `integrate` advances the host's checked-out branch from the shared review
+ * ref (ff when possible, brunch-authored merge otherwise; conflicts abort back
+ * to a pristine host). Greenfield `materialize` turns the promoted tip tree
+ * into a fresh repository with one clean brunch-authored initial commit.
+ * Both transport the complete runBaseSha..tip result — never a diff window.
+ */
+export interface GitHostLandPort {
+  integrate(args: GitHostLandIntegrateArgs): Promise<GitHostLandIntegrateResult>;
+  materialize(args: GitHostLandMaterializeArgs): Promise<GitHostLandMaterializeResult>;
 }
 
 export interface PlannerRuntime {

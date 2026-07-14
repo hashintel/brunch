@@ -134,23 +134,34 @@ async function createWorktreeOwned(args: {
     };
   }
 
+  // Repair runs at status created/worktree_created only, before any slice
+  // integration, so the surviving worktree's HEAD is still the run base. An
+  // unreadable HEAD means the repo is corrupt — fall through to recreation.
   if (
     metadata.substrate !== 'empty_dir' &&
     !metadata.worktreeDir &&
     canRepairWorktreeMetadata(metadata.status) &&
     (await hasGitWorktreeMarker(worktreeDir))
   ) {
-    const updated: RunMetadata = { ...metadata, status: 'worktree_created', worktreeDir };
-    const metadataEffect = await persistRunMetadata(metadataPath, updated);
-    return {
-      status: 'worktree_created',
-      runStatus: 'worktree_created',
-      runId: args.runId,
-      runDir,
-      worktreeDir,
-      metadataPath,
-      sideEffects: [metadataEffect],
-    };
+    const headSha = await runGitOutput(['rev-parse', 'HEAD'], worktreeDir);
+    if (headSha) {
+      const updated: RunMetadata = {
+        ...metadata,
+        status: 'worktree_created',
+        worktreeDir,
+        runBaseSha: headSha,
+      };
+      const metadataEffect = await persistRunMetadata(metadataPath, updated);
+      return {
+        status: 'worktree_created',
+        runStatus: 'worktree_created',
+        runId: args.runId,
+        runDir,
+        worktreeDir,
+        metadataPath,
+        sideEffects: [metadataEffect],
+      };
+    }
   }
 
   if (
@@ -159,17 +170,25 @@ async function createWorktreeOwned(args: {
     canRepairWorktreeMetadata(metadata.status) &&
     (await isExactGitRoot(worktreeDir))
   ) {
-    const updated: RunMetadata = { ...metadata, status: 'worktree_created', worktreeDir };
-    const metadataEffect = await persistRunMetadata(metadataPath, updated);
-    return {
-      status: 'worktree_created',
-      runStatus: 'worktree_created',
-      runId: args.runId,
-      runDir,
-      worktreeDir,
-      metadataPath,
-      sideEffects: [metadataEffect],
-    };
+    const headSha = await runGitOutput(['rev-parse', 'HEAD'], worktreeDir);
+    if (headSha) {
+      const updated: RunMetadata = {
+        ...metadata,
+        status: 'worktree_created',
+        worktreeDir,
+        runBaseSha: headSha,
+      };
+      const metadataEffect = await persistRunMetadata(metadataPath, updated);
+      return {
+        status: 'worktree_created',
+        runStatus: 'worktree_created',
+        runId: args.runId,
+        runDir,
+        worktreeDir,
+        metadataPath,
+        sideEffects: [metadataEffect],
+      };
+    }
   }
 
   const targetWorktreeDir = metadata.worktreeDir ?? worktreeDir;
@@ -203,7 +222,24 @@ async function createWorktreeOwned(args: {
         sideEffects: [],
       };
     }
-    const updated: RunMetadata = { ...metadata, status: 'worktree_created', worktreeDir: targetWorktreeDir };
+    const baseSha = await runGitOutput(['rev-parse', 'HEAD'], targetWorktreeDir);
+    if (!baseSha) {
+      return {
+        status: 'worktree_create_failed',
+        runStatus: metadata.status,
+        runId: args.runId,
+        worktreeDir: targetWorktreeDir,
+        metadataPath,
+        message: 'cannot resolve the empty base commit of the initialized run repository',
+        sideEffects: [],
+      };
+    }
+    const updated: RunMetadata = {
+      ...metadata,
+      status: 'worktree_created',
+      worktreeDir: targetWorktreeDir,
+      runBaseSha: baseSha,
+    };
     const metadataEffect = await persistRunMetadata(metadataPath, updated);
     return {
       status: 'worktree_created',
@@ -242,7 +278,12 @@ async function createWorktreeOwned(args: {
     };
   }
 
-  const updated: RunMetadata = { ...metadata, status: 'worktree_created', worktreeDir: targetWorktreeDir };
+  const updated: RunMetadata = {
+    ...metadata,
+    status: 'worktree_created',
+    worktreeDir: targetWorktreeDir,
+    runBaseSha: worktreeResult.createdFromSha,
+  };
   const metadataEffect = await persistRunMetadata(metadataPath, updated);
 
   return {
