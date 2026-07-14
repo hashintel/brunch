@@ -4,13 +4,14 @@ This directory owns Brunch-only development loops and curation seams. Nothing he
 
 ## Ownership
 
-`src/dev/**` owns five things:
+`src/dev/**` owns six things:
 
 - the human-facing dev launcher (`scripts/dev.ts` → `src/dev/dev-cli.ts`)
 - the explicit graph-curation seam for fixture shaping (`graph-curation.ts`)
 - faux/introspection/tier-2 harnesses used by tests and probes
 - dev-only witnesses such as `generate-fan-out-witness.ts`
 - the standalone component preview harness (`scripts/dev-components.ts` → `src/dev/component-preview.ts`) for previewing `.pi/components` in isolation on a real terminal, with no workspace/session/DB
+- the agent-drivable PTY walkthrough harness (`npm run tui-driver` → `src/dev/tui-driver.ts`): named `expect`-pumped PTY sessions with guarded fifo control, headless-xterm screen rendering, and wait-for-text — the sandboxed-agent fallback for `docs/praxis/manual-testing.md` when cmux is unreachable; sessions live under gitignored `.fixtures/scratch/tui-driver/`
 
 It does not own published CLI behavior, public RPC contracts, or database imports from outside `graph/`.
 

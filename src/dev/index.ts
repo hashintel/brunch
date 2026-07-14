@@ -41,3 +41,20 @@ export {
   runTier2RealBootFauxTurn,
   type Tier2RealBootTurnResult,
 } from './tier-2-harness.js';
+export {
+  isSessionAlive,
+  listSessions,
+  removeSession,
+  renderScreenFromLog,
+  runTuiDriverCli,
+  sendKeys,
+  sendText,
+  sessionStatus,
+  startSession,
+  stopSession,
+  waitForScreenText,
+  type TuiDriverKey,
+  type TuiDriverSessionMeta,
+  type TuiDriverSessionStatus,
+  type WaitForScreenTextResult,
+} from './tui-driver.js';
