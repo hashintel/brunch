@@ -784,6 +784,7 @@ describe('drive', () => {
       0,
       ...addedTransitions.map<ExecutorNetEvent>((transition) => ({
         kind: 'transition_fired',
+        ts: '2026-07-14T12:00:00.000Z',
         runId: 'run-1',
         runStatus: state.status,
         transitionId: transition.id,
@@ -2309,12 +2310,20 @@ describe('drive', () => {
       },
       terminalEventKind: 'net_halted',
       haltedReason: 'agent_run_failed',
+      terminalTs: expect.any(String),
+      failedSliceIds: ['task-1'],
     });
     const replay = replayPetri({
       net: JSON.parse(await readFile(petriNetPath(cwd, 'run-1'), 'utf8')),
       events,
     });
     expect(replay?.currentMarking).toEqual(snapshot?.currentMarking);
+    await expect(readRunDetail(cwd, 'run-1')).resolves.toMatchObject({
+      petriProjection: {
+        terminalEventKind: 'net_halted',
+        failedSliceIds: ['task-1'],
+      },
+    });
   });
 
   it('halts a persisted parallel slice batch on restart without duplicating effects', async () => {
@@ -3634,14 +3643,25 @@ describe('classifyDriveTerminal', () => {
     expect(
       classifyDriveTerminal({ kind: 'scheduler_exhausted', runId: 'run-1', runStatus: 'promotion_prepared' }),
     ).toEqual({
-      event: { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+      event: {
+        kind: 'net_completed',
+        runId: 'run-1',
+        runStatus: 'promotion_prepared',
+        failedSliceIds: [],
+      },
       outcome: { status: 'completed', runStatus: 'promotion_prepared' },
     });
 
     expect(
       classifyDriveTerminal({ kind: 'scheduler_exhausted', runId: 'run-1', runStatus: 'abandoned' }),
     ).toEqual({
-      event: { kind: 'net_halted', runId: 'run-1', runStatus: 'abandoned', reason: 'abandoned' },
+      event: {
+        kind: 'net_halted',
+        runId: 'run-1',
+        runStatus: 'abandoned',
+        reason: 'abandoned',
+        failedSliceIds: [],
+      },
       outcome: { status: 'halted', step: 'abandoned', runStatus: 'abandoned', reason: 'abandoned' },
     });
 
@@ -3652,7 +3672,12 @@ describe('classifyDriveTerminal', () => {
         runStatus: 'reports_initialized',
       }),
     ).toEqual({
-      event: { kind: 'net_deadlocked', runId: 'run-1', runStatus: 'reports_initialized' },
+      event: {
+        kind: 'net_deadlocked',
+        runId: 'run-1',
+        runStatus: 'reports_initialized',
+        failedSliceIds: [],
+      },
       outcome: {
         status: 'halted',
         step: 'deadlocked',
@@ -3670,6 +3695,7 @@ describe('classifyDriveTerminal', () => {
         runStatus: 'agent_result_ingested',
         step: 'test_result',
         reason: 'test_run_failed',
+        failedSliceIds: [],
       }),
     ).toEqual({
       event: {
@@ -3678,6 +3704,7 @@ describe('classifyDriveTerminal', () => {
         runStatus: 'agent_result_ingested',
         step: 'test_result',
         reason: 'test_run_failed',
+        failedSliceIds: [],
       },
       outcome: {
         status: 'halted',
@@ -4780,10 +4807,12 @@ describe('petriScheduler', () => {
         .filter((event) => event.contract.lane === 'epic')
         .map((event) => event.transitionId),
     ).toEqual(['epic_integrate:frontier-1', 'epic_complete:frontier-1']);
-    expect(seen.at(-1)).toEqual({
+    expect(seen.at(-1)).toMatchObject({
       kind: 'net_completed',
       runId: 'run-1',
       runStatus: 'promotion_prepared',
+      failedSliceIds: [],
+      ts: expect.any(String),
     });
     expect(await readPetriEvents(cwd)).toEqual(seen);
   });
@@ -4804,6 +4833,8 @@ describe('petriScheduler', () => {
         completedSliceIds: ['task-1'],
       },
       terminalEventKind: 'net_completed',
+      terminalTs: expect.any(String),
+      failedSliceIds: [],
     });
   });
 
@@ -4921,6 +4952,7 @@ describe('petriScheduler', () => {
     );
     events.splice(taskOneStartIndex, 0, {
       kind: 'transition_fired',
+      ts: '2026-07-14T12:00:00.000Z',
       runId: 'run-1',
       runStatus: 'reports_initialized',
       transitionId: transition.id,
@@ -5157,6 +5189,8 @@ describe('petriScheduler', () => {
         completedSliceIds: ['task-1'],
       },
       terminalEventKind: 'net_completed',
+      terminalTs: expect.any(String),
+      failedSliceIds: [],
     });
   });
 
@@ -5206,6 +5240,8 @@ describe('petriScheduler', () => {
       },
       haltedReason: 'test_run_failed',
       terminalEventKind: 'net_halted',
+      terminalTs: expect.any(String),
+      failedSliceIds: [],
     });
   });
 
@@ -5230,12 +5266,14 @@ describe('petriScheduler', () => {
       reason: 'test_run_failed',
     });
     expect(seen.some((event) => event.kind === 'net_completed')).toBe(false);
-    expect(seen.at(-1)).toEqual({
+    expect(seen.at(-1)).toMatchObject({
       kind: 'net_halted',
       runId: 'run-1',
       runStatus: 'agent_result_ingested',
       step: 'test_result',
       reason: 'test_run_failed',
+      failedSliceIds: [],
+      ts: expect.any(String),
     });
     expect(await readPetriEvents(cwd)).toEqual(seen);
   });
@@ -5272,13 +5310,15 @@ describe('petriScheduler', () => {
       runStatus: 'reports_initialized',
       reason: 'scheduler_plan_unreadable',
     });
-    expect(seen).toEqual([
+    expect(seen).toMatchObject([
       {
         kind: 'net_halted',
         runId: 'run-1',
         runStatus: 'reports_initialized',
         step: 'slice_start',
         reason: 'scheduler_plan_unreadable',
+        failedSliceIds: [],
+        ts: expect.any(String),
       },
     ]);
   });
@@ -5546,12 +5586,14 @@ describe('petriScheduler', () => {
       runStatus: 'abandoned',
       reason: 'abandoned',
     });
-    expect(seen).toEqual([
+    expect(seen).toMatchObject([
       {
         kind: 'net_halted',
         runId: 'run-1',
         runStatus: 'abandoned',
         reason: 'abandoned',
+        failedSliceIds: [],
+        ts: expect.any(String),
       },
     ]);
   });

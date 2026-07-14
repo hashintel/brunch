@@ -11,15 +11,30 @@ export type PetrinautTerminalState = 'completed' | 'halted' | 'deadlocked';
 export type PetrinautRunState = 'running' | PetrinautTerminalState;
 
 export type PetrinautStreamFrame =
-  | { readonly kind: 'status'; readonly state: PetrinautRunState; readonly reason?: string }
+  | {
+      readonly kind: 'status';
+      readonly state: PetrinautRunState;
+      readonly reason?: string;
+      readonly failedSliceIds: readonly string[];
+    }
   | { readonly kind: 'definition'; readonly definition: PetrinautReplayNetDefinition }
   | { readonly kind: 'initial_state'; readonly initialState: PetrinautReplayMarking }
   | { readonly kind: 'transition_firing'; readonly firing: PetrinautReplayTransitionFiring }
-  | { readonly kind: 'terminal'; readonly state: PetrinautTerminalState; readonly reason?: string };
+  | {
+      readonly kind: 'terminal';
+      readonly state: PetrinautTerminalState;
+      readonly reason?: string;
+      readonly failedSliceIds: readonly string[];
+    };
 
 export function projectPetrinautStreamFrames(args: {
   readonly replayExport: PetrinautReplayExport;
-  readonly terminal?: { readonly state: PetrinautTerminalState; readonly reason?: string };
+  readonly terminal?: {
+    readonly state: PetrinautTerminalState;
+    readonly reason?: string;
+    readonly ts: string;
+    readonly failedSliceIds: readonly string[];
+  };
 }): readonly PetrinautStreamFrame[] {
   const needsTerminalFiring =
     args.terminal !== undefined &&
@@ -30,6 +45,7 @@ export function projectPetrinautStreamFrames(args: {
     {
       kind: 'status',
       state: args.terminal?.state ?? 'running',
+      failedSliceIds: args.terminal?.failedSliceIds ?? [],
       ...(args.terminal?.reason === undefined ? {} : { reason: args.terminal.reason }),
     },
     { kind: 'definition', definition: args.replayExport.definition },
@@ -45,6 +61,7 @@ export function projectPetrinautStreamFrames(args: {
                 : args.terminal!.state === 'halted'
                   ? 'net_halted'
                   : 'net_deadlocked',
+              args.terminal!.ts,
             ),
           },
         ]
@@ -55,6 +72,7 @@ export function projectPetrinautStreamFrames(args: {
           {
             kind: 'terminal' as const,
             state: args.terminal.state,
+            failedSliceIds: args.terminal.failedSliceIds,
             ...(args.terminal.reason === undefined ? {} : { reason: args.terminal.reason }),
           },
         ]),

@@ -12,7 +12,11 @@ function frameData(frame: PetrinautStreamFrame): unknown {
   switch (frame.kind) {
     case 'status':
     case 'terminal':
-      return { state: frame.state, ...(frame.reason === undefined ? {} : { reason: frame.reason }) };
+      return {
+        state: frame.state,
+        failedSliceIds: frame.failedSliceIds,
+        ...(frame.reason === undefined ? {} : { reason: frame.reason }),
+      };
     case 'definition':
       return frame.definition;
     case 'initial_state':

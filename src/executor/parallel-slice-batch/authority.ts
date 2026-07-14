@@ -2,6 +2,7 @@ import { appendFile } from 'node:fs/promises';
 
 import type {
   ExecutorNetEvent,
+  ExecutorNetEventPayload,
   ExecutorTopology,
   ExecutorTransition,
   ReadyStep,
@@ -58,7 +59,7 @@ export function createBatchAuthority(args: {
   let failure: unknown;
   const transitions = new Map(args.topology.transitions.map((transition) => [transition.id, transition]));
 
-  const persist = async (terminal?: { readonly kind: 'net_halted'; readonly reason: string }) => {
+  const persist = async (terminal?: Extract<ExecutorNetEvent, { readonly kind: 'net_halted' }>) => {
     try {
       await writePetriMarkingSnapshot({
         cwd: args.ctx.cwd,
@@ -68,7 +69,14 @@ export function createBatchAuthority(args: {
           firedTransitionCount: count,
           lifecycleProvenance: petriMarkingLifecycleProvenance(state),
           ...(batch ? { parallelSliceBatch: batch } : {}),
-          ...(terminal ? { terminalEventKind: terminal.kind, haltedReason: terminal.reason } : {}),
+          ...(terminal
+            ? {
+                terminalEventKind: terminal.kind,
+                haltedReason: terminal.reason,
+                terminalTs: terminal.ts,
+                failedSliceIds: terminal.failedSliceIds,
+              }
+            : {}),
         },
       });
     } catch {
@@ -176,15 +184,25 @@ export function createBatchAuthority(args: {
     halt(step, reason) {
       return enqueue(async () => {
         try {
-          await appendPetriEvent({
+          const failedSliceIds = (batch?.settlements ?? []).flatMap((settlement) =>
+            settlement.status === 'failed' ? [settlement.sliceId] : [],
+          );
+          const terminal = await appendPetriEvent({
             cwd: args.ctx.cwd,
             runId: args.ctx.runId,
-            event: { kind: 'net_halted', runId: args.ctx.runId, runStatus: state.status, step, reason },
+            event: {
+              kind: 'net_halted',
+              runId: args.ctx.runId,
+              runStatus: state.status,
+              step,
+              reason,
+              failedSliceIds,
+            },
           });
+          await persist(terminal);
         } catch {
           throw new ParallelAuthorityError('petri_journal_append_failed');
         }
-        await persist({ kind: 'net_halted', reason });
       });
     },
     firings: () => firings,
@@ -204,7 +222,7 @@ function transitionEvent(
   runId: string,
   status: RunMetadata['status'],
   transition: ExecutorTransition,
-): ExecutorNetEvent {
+): ExecutorNetEventPayload {
   const step =
     transition.step?.kind ??
     (transition.id.startsWith('epic_integrate:')

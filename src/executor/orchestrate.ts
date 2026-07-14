@@ -10,6 +10,7 @@ import {
   attemptResetTransitionId,
   compileExecutorTopology,
   type ExecutorNetEvent,
+  type ExecutorNetEventPayload,
   type ReadyStep,
   type SchedulerPlan,
   type SchedulerPlanMode,
@@ -126,14 +127,13 @@ export const frontierFiringPolicy: RunFiringPolicy = {
 // drive halts, keeping the journal a truthful prefix of run facts.
 async function emitNetEvent(
   ctx: Pick<DriveContext, 'cwd' | 'runId'>,
-  event: ExecutorNetEvent,
-): Promise<{ readonly journaled: boolean }> {
+  event: ExecutorNetEventPayload,
+): Promise<{ readonly journaled: boolean; readonly event?: ExecutorNetEvent }> {
   try {
-    await appendPetriEvent({ cwd: ctx.cwd, runId: ctx.runId, event });
+    return { journaled: true, event: await appendPetriEvent({ cwd: ctx.cwd, runId: ctx.runId, event }) };
   } catch {
     return { journaled: false };
   }
-  return { journaled: true };
 }
 
 // An unjournaled terminal must not read as completed; an already-halted
@@ -166,6 +166,8 @@ async function nextPetriSnapshot(args: {
   readonly lifecycleProvenance: ReturnType<typeof petriMarkingLifecycleProvenance>;
   readonly terminalEventKind?: PetriProjection['terminalEventKind'];
   readonly haltedReason?: string;
+  readonly terminalTs?: string;
+  readonly failedSliceIds?: readonly string[];
   readonly epicVerificationClaims?: PetriMarkingSnapshot['epicVerificationClaims'];
 }): Promise<PetriMarkingSnapshot> {
   return {
@@ -175,6 +177,8 @@ async function nextPetriSnapshot(args: {
     lifecycleProvenance: args.lifecycleProvenance,
     ...(args.terminalEventKind === undefined ? {} : { terminalEventKind: args.terminalEventKind }),
     ...(args.haltedReason === undefined ? {} : { haltedReason: args.haltedReason }),
+    ...(args.terminalTs === undefined ? {} : { terminalTs: args.terminalTs }),
+    ...(args.failedSliceIds === undefined ? {} : { failedSliceIds: args.failedSliceIds }),
     ...(args.epicVerificationClaims === undefined
       ? {}
       : { epicVerificationClaims: args.epicVerificationClaims }),
@@ -565,6 +569,8 @@ async function driveOwned(
           lifecycleProvenance: petriMarkingLifecycleProvenance(state),
           terminalEventKind: terminal.event.kind,
           ...(terminal.event.kind === 'net_halted' ? { haltedReason: terminal.event.reason } : {}),
+          terminalTs: emitted.event!.ts,
+          failedSliceIds: terminal.event.failedSliceIds,
         }),
       );
       return terminal.outcome;
@@ -653,6 +659,8 @@ async function driveOwned(
               lifecycleProvenance: petriMarkingLifecycleProvenance(currentState),
               terminalEventKind: terminal.event.kind,
               haltedReason: reason,
+              terminalTs: emitted.event!.ts,
+              failedSliceIds: terminal.event.failedSliceIds,
               ...(authoritySnapshot?.epicVerificationClaims
                 ? { epicVerificationClaims: authoritySnapshot.epicVerificationClaims }
                 : {}),
@@ -747,6 +755,8 @@ async function driveOwned(
             lifecycleProvenance: petriMarkingLifecycleProvenance(haltedState),
             terminalEventKind: terminal.event.kind,
             ...(terminal.event.kind === 'net_halted' ? { haltedReason: terminal.event.reason } : {}),
+            terminalTs: emitted.event!.ts,
+            failedSliceIds: terminal.event.failedSliceIds,
             ...(authoritySnapshot?.epicVerificationClaims
               ? { epicVerificationClaims: authoritySnapshot.epicVerificationClaims }
               : {}),

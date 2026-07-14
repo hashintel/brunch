@@ -1,16 +1,16 @@
-import type { ExecutorNetEvent, ReadyStep } from './orchestrate-topology.js';
+import type { ExecutorNetEventPayload, ReadyStep } from './orchestrate-topology.js';
 import type { RunMetadata } from './run.js';
 
 export type DriveTerminalClassification =
   | {
-      readonly event: Extract<ExecutorNetEvent, { readonly kind: 'net_completed' }>;
+      readonly event: Extract<ExecutorNetEventPayload, { readonly kind: 'net_completed' }>;
       readonly outcome: {
         readonly status: 'completed';
         readonly runStatus: RunMetadata['status'];
       };
     }
   | {
-      readonly event: Extract<ExecutorNetEvent, { readonly kind: 'net_halted' | 'net_deadlocked' }>;
+      readonly event: Extract<ExecutorNetEventPayload, { readonly kind: 'net_halted' | 'net_deadlocked' }>;
       readonly outcome: {
         readonly status: 'halted';
         readonly step: ReadyStep['kind'] | 'abandoned' | 'deadlocked';
@@ -25,6 +25,7 @@ export function classifyDriveTerminal(
         readonly kind: 'scheduler_exhausted';
         readonly runId: string;
         readonly runStatus: RunMetadata['status'];
+        readonly failedSliceIds?: readonly string[];
       }
     | {
         readonly kind: 'step_halted';
@@ -32,6 +33,7 @@ export function classifyDriveTerminal(
         readonly runStatus: RunMetadata['status'];
         readonly step: ReadyStep['kind'];
         readonly reason: string;
+        readonly failedSliceIds?: readonly string[];
       },
 ): DriveTerminalClassification {
   if (args.kind === 'step_halted') {
@@ -42,6 +44,7 @@ export function classifyDriveTerminal(
         runStatus: args.runStatus,
         step: args.step,
         reason: args.reason,
+        failedSliceIds: args.failedSliceIds ?? [],
       },
       outcome: {
         status: 'halted',
@@ -59,6 +62,7 @@ export function classifyDriveTerminal(
         runId: args.runId,
         runStatus: args.runStatus,
         reason: 'abandoned',
+        failedSliceIds: args.failedSliceIds ?? [],
       },
       outcome: {
         status: 'halted',
@@ -75,6 +79,7 @@ export function classifyDriveTerminal(
         kind: 'net_deadlocked',
         runId: args.runId,
         runStatus: args.runStatus,
+        failedSliceIds: args.failedSliceIds ?? [],
       },
       outcome: {
         status: 'halted',
@@ -90,6 +95,7 @@ export function classifyDriveTerminal(
       kind: 'net_completed',
       runId: args.runId,
       runStatus: args.runStatus,
+      failedSliceIds: args.failedSliceIds ?? [],
     },
     outcome: {
       status: 'completed',

@@ -114,7 +114,7 @@ async function servePetrinautStream(args: {
           dispose(true);
           return;
         }
-        const terminal = petrinautTerminalFromDetail(detail, false);
+        const terminal = petrinautTerminalFromDetail(detail);
         const frames = projectPetrinautStreamFrames({
           replayExport: detail.petrinautReplayExport,
           ...(terminal === undefined ? {} : { terminal }),
@@ -145,7 +145,7 @@ async function servePetrinautStream(args: {
     return;
   }
 
-  const terminal = petrinautTerminalFromDetail(detail, true);
+  const terminal = petrinautTerminalFromDetail(detail);
   const initialFrames = projectPetrinautStreamFrames({
     replayExport: detail.petrinautReplayExport,
     ...(terminal === undefined ? {} : { terminal }),
@@ -178,7 +178,9 @@ function newPetrinautFrames(
   let seenFirings = 0;
   const next: PetrinautStreamFrame[] = [];
   for (const frame of frames) {
-    if (frame.kind === 'transition_firing') {
+    if (frame.kind === 'status') {
+      if (frame.state !== 'running' && !terminalSent) next.push(frame);
+    } else if (frame.kind === 'transition_firing') {
       if (seenFirings >= sentFiringCount) next.push(frame);
       seenFirings += 1;
     } else if (frame.kind === 'terminal' && !terminalSent) {
@@ -188,33 +190,50 @@ function newPetrinautFrames(
   return next;
 }
 
-function petrinautTerminalFromDetail(
-  detail: {
-    readonly status?: string;
-    readonly abandonReason?: string;
-    readonly petriProjection?: { readonly terminalEventKind?: string; readonly haltedReason?: string };
-  },
-  allowCompletedMetadata: boolean,
-): { readonly state: PetrinautTerminalState; readonly reason?: string } | undefined {
-  if (allowCompletedMetadata && detail.status === 'promotion_prepared') return { state: 'completed' };
+function petrinautTerminalFromDetail(detail: {
+  readonly status?: string;
+  readonly abandonedAt?: string;
+  readonly abandonReason?: string;
+  readonly petriProjection?: {
+    readonly terminalEventKind?: string;
+    readonly haltedReason?: string;
+    readonly terminalTs?: string;
+    readonly failedSliceIds?: readonly string[];
+  };
+}):
+  | {
+      readonly state: PetrinautTerminalState;
+      readonly reason?: string;
+      readonly ts: string;
+      readonly failedSliceIds: readonly string[];
+    }
+  | undefined {
   if (detail.status === 'abandoned') {
+    if (detail.abandonedAt === undefined) return undefined;
     return {
       state: 'halted',
+      ts: detail.abandonedAt,
+      failedSliceIds: [],
       ...(detail.abandonReason === undefined ? {} : { reason: detail.abandonReason }),
     };
   }
+  const terminalTs = detail.petriProjection?.terminalTs;
+  const failedSliceIds = detail.petriProjection?.failedSliceIds;
+  if (terminalTs === undefined || failedSliceIds === undefined) return undefined;
   switch (detail.petriProjection?.terminalEventKind) {
     case 'net_completed':
-      return { state: 'completed' };
+      return { state: 'completed', ts: terminalTs, failedSliceIds };
     case 'net_halted':
       return {
         state: 'halted',
+        ts: terminalTs,
+        failedSliceIds,
         ...(detail.petriProjection.haltedReason === undefined
           ? {}
           : { reason: detail.petriProjection.haltedReason }),
       };
     case 'net_deadlocked':
-      return { state: 'deadlocked' };
+      return { state: 'deadlocked', ts: terminalTs, failedSliceIds };
     default:
       return undefined;
   }

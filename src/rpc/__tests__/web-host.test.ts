@@ -14,8 +14,19 @@ import {
   createFakeTestRunnerPort,
 } from '../../executor/__tests__/fake-ports.js';
 import type { ExecutionPorts } from '../../executor/execution-ports.js';
-import { drive, linearScheduler, serialFiringPolicy } from '../../executor/orchestrate.js';
-import { appendPetriEvent, subscribePetriEvents } from '../../executor/petri-events.js';
+import {
+  drive,
+  frontierFiringPolicy,
+  linearScheduler,
+  petriScheduler,
+  serialFiringPolicy,
+} from '../../executor/orchestrate.js';
+import {
+  appendPetriEvent,
+  petriEventsPath,
+  readPetriJournal,
+  subscribePetriEvents,
+} from '../../executor/petri-events.js';
 import { preparePetriObservation } from '../../executor/petri.js';
 import { planFilePath } from '../../executor/plan-file.js';
 import { abandonRun } from '../../executor/run-abandon.js';
@@ -217,6 +228,7 @@ async function writePetrinautReplayRun(
     [
       JSON.stringify({
         kind: 'transition_fired',
+        ts: '2026-07-14T12:00:00.000Z',
         runId,
         runStatus: 'worktree_created',
         transitionId: 'worktree_create',
@@ -229,7 +241,15 @@ async function writePetrinautReplayRun(
         toStatus: 'worktree_created',
       }),
       ...(terminal
-        ? [JSON.stringify({ kind: 'net_completed', runId, runStatus: 'promotion_prepared' })]
+        ? [
+            JSON.stringify({
+              kind: 'net_completed',
+              ts: '2026-07-14T12:00:01.000Z',
+              runId,
+              runStatus: 'promotion_prepared',
+              failedSliceIds: [],
+            }),
+          ]
         : []),
       '',
     ].join('\n'),
@@ -917,14 +937,14 @@ describe('web host', () => {
         'transition_firing',
         'terminal',
       ]);
-      expect(frames[0]?.data).toEqual({ state: 'completed' });
+      expect(frames[0]?.data).toEqual({ state: 'completed', failedSliceIds: [] });
       expect(frames[2]?.data).toEqual({ 'run:created': 1 });
       expect(frames[3]?.data).toMatchObject({
         transitionId: 'worktree_create',
         input: { 'run:created': 1 },
         output: { 'run:worktree_created': 1 },
       });
-      expect(frames[5]?.data).toEqual({ state: 'completed' });
+      expect(frames[5]?.data).toEqual({ state: 'completed', failedSliceIds: [] });
     } finally {
       await host.close();
     }
@@ -945,7 +965,12 @@ describe('web host', () => {
       await appendPetriEvent({
         cwd,
         runId: 'run-1',
-        event: { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+        event: {
+          kind: 'net_completed',
+          runId: 'run-1',
+          runStatus: 'promotion_prepared',
+          failedSliceIds: [],
+        },
       });
 
       for (;;) {
@@ -960,12 +985,14 @@ describe('web host', () => {
         'definition',
         'initial_state',
         'transition_firing',
+        'status',
         'transition_firing',
         'terminal',
       ]);
-      expect(frames[0]?.data).toEqual({ state: 'running' });
-      expect(frames[4]?.data).toMatchObject({ transitionId: 'run:finish', output: { 'run:completed': 1 } });
-      expect(frames[5]?.data).toEqual({ state: 'completed' });
+      expect(frames[0]?.data).toEqual({ state: 'running', failedSliceIds: [] });
+      expect(frames[4]?.data).toEqual({ state: 'completed', failedSliceIds: [] });
+      expect(frames[5]?.data).toMatchObject({ transitionId: 'run:finish', output: { 'run:completed': 1 } });
+      expect(frames[6]?.data).toEqual({ state: 'completed', failedSliceIds: [] });
     } finally {
       await host.close();
     }
@@ -980,7 +1007,12 @@ describe('web host', () => {
       await appendPetriEvent({
         cwd,
         runId: 'run-1',
-        event: { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+        event: {
+          kind: 'net_completed',
+          runId: 'run-1',
+          runStatus: 'promotion_prepared',
+          failedSliceIds: [],
+        },
       });
       const response = await responsePromise;
       const frames = parseSse(await response.text());
@@ -1061,7 +1093,95 @@ describe('web host', () => {
               : undefined,
           ),
       ).toEqual(['promotion', 'run:finish']);
-      expect(frames.at(-1)).toEqual({ event: 'terminal', data: { state: 'completed' } });
+      expect(frames.at(-1)).toEqual({
+        event: 'terminal',
+        data: { state: 'completed', failedSliceIds: [] },
+      });
+    } finally {
+      await host.close();
+    }
+  });
+
+  it('retains mixed S3/S4 failures and the S5 success while exposing every failed slice id', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-mixed-failure-'));
+    await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
+    await writeFile(
+      planFilePath(cwd, '42'),
+      JSON.stringify({
+        mode: 'greenfield',
+        slices: ['S3', 'S4', 'S5'].map((id) => ({
+          id,
+          definition: id,
+          depends_on: [],
+          verification: [],
+        })),
+      }),
+      'utf8',
+    );
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
+    await preparePetriObservation({ cwd, runId: 'run-1' });
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      const first = await reader.read();
+      let body = decoder.decode(first.value);
+      const ports: ExecutionPorts = {
+        ...executorPorts(createFakeGitWorktreePort()),
+        agentRunner: {
+          async run(args) {
+            return args.sliceId === 'S5'
+              ? { status: 'completed' }
+              : { status: 'failed', message: `${args.sliceId} failed` };
+          },
+        },
+      };
+
+      await expect(
+        drive({ cwd, runId: 'run-1', ports }, petriScheduler, frontierFiringPolicy),
+      ).resolves.toEqual({
+        status: 'halted',
+        step: 'agent_result',
+        runStatus: 'slice_completed',
+        reason: 'agent_run_failed',
+      });
+      for (;;) {
+        const next = await reader.read();
+        if (next.done) break;
+        body += decoder.decode(next.value);
+      }
+
+      const frames = parseSse(body);
+      const firings = frames.flatMap((frame) =>
+        frame.event === 'transition_firing' &&
+        typeof frame.data === 'object' &&
+        frame.data !== null &&
+        'transitionId' in frame.data
+          ? [frame.data.transitionId]
+          : [],
+      );
+      const journal = await readPetriJournal(petriEventsPath(cwd, 'run-1'));
+      expect(journal.status).toBe('readable');
+      const durableFirings =
+        journal.status === 'readable'
+          ? journal.events.flatMap((event) => (event.kind === 'transition_fired' ? [event.transitionId] : []))
+          : [];
+
+      expect(firings).toEqual([...durableFirings, 'run:finish']);
+      expect(firings).toEqual(
+        expect.arrayContaining(['agent_exhausted:S3', 'agent_exhausted:S4', 'slice_complete:S5']),
+      );
+      expect(frames.filter((frame) => frame.event === 'status').at(-1)?.data).toEqual({
+        state: 'halted',
+        failedSliceIds: ['S3', 'S4'],
+        reason: 'agent_run_failed',
+      });
+      expect(frames.at(-1)?.data).toEqual({
+        state: 'halted',
+        failedSliceIds: ['S3', 'S4'],
+        reason: 'agent_run_failed',
+      });
     } finally {
       await host.close();
     }
@@ -1209,7 +1329,12 @@ describe('web host', () => {
       await appendPetriEvent({
         cwd,
         runId: 'run-1',
-        event: { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+        event: {
+          kind: 'net_completed',
+          runId: 'run-1',
+          runStatus: 'promotion_prepared',
+          failedSliceIds: [],
+        },
       });
       for (;;) {
         const next = await reader.read();
@@ -1224,7 +1349,10 @@ describe('web host', () => {
         firedTransitions + 1,
       );
       expect(body).toContain('"transitionId":"run:finish"');
-      expect(frames.at(-1)).toEqual({ event: 'terminal', data: { state: 'completed' } });
+      expect(frames.at(-1)).toEqual({
+        event: 'terminal',
+        data: { state: 'completed', failedSliceIds: [] },
+      });
     } finally {
       await host.close();
     }
@@ -1290,7 +1418,10 @@ describe('web host', () => {
         'terminal',
         'transition_firing',
       ]);
-      expect(parseSse(body).at(-1)).toEqual({ event: 'terminal', data: { state: 'completed' } });
+      expect(parseSse(body).at(-1)).toEqual({
+        event: 'terminal',
+        data: { state: 'completed', failedSliceIds: [] },
+      });
     } finally {
       await host.close();
     }
@@ -1339,7 +1470,7 @@ describe('web host', () => {
       });
       expect(frames.at(-1)).toEqual({
         event: 'terminal',
-        data: { state: 'halted', reason: 'operator stopped run' },
+        data: { state: 'halted', failedSliceIds: [], reason: 'operator stopped run' },
       });
     } finally {
       await host.close();
@@ -1359,7 +1490,13 @@ describe('web host', () => {
       await appendPetriEvent({
         cwd,
         runId: 'run-1',
-        event: { kind: 'net_halted', runId: 'run-1', runStatus: 'worktree_created', reason: 'broken' },
+        event: {
+          kind: 'net_halted',
+          runId: 'run-1',
+          runStatus: 'worktree_created',
+          reason: 'broken',
+          failedSliceIds: [],
+        },
       });
 
       await expect(reader.read()).resolves.toMatchObject({ done: true });
@@ -1384,7 +1521,12 @@ describe('web host', () => {
       await appendPetriEvent({
         cwd,
         runId: 'run-1',
-        event: { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+        event: {
+          kind: 'net_completed',
+          runId: 'run-1',
+          runStatus: 'promotion_prepared',
+          failedSliceIds: [],
+        },
       });
 
       for (;;) {
@@ -1393,8 +1535,10 @@ describe('web host', () => {
         continuousBody += decoder.decode(next.value);
       }
       const reconnected = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
-      const continuousFrames = parseSse(continuousBody).slice(1);
-      const reconnectedFrames = parseSse(await reconnected.text()).slice(1);
+      const continuousFrames = parseSse(continuousBody).filter((frame) => frame.event !== 'status');
+      const reconnectedFrames = parseSse(await reconnected.text()).filter(
+        (frame) => frame.event !== 'status',
+      );
 
       expect(reconnectedFrames).toEqual(continuousFrames);
     } finally {
@@ -1402,16 +1546,19 @@ describe('web host', () => {
     }
   });
 
-  it('uses authoritative run metadata when a completed run is missing its terminal journal event', async () => {
+  it('does not synthesize completion from metadata when the terminal journal event is missing', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-authority-'));
     await writePetrinautReplayRun(cwd, 'run-1', { terminal: false, status: 'promotion_prepared' });
     const host = await startWebHost({ cwd, port: 0 });
     try {
       const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
-      const frames = parseSse(await response.text());
+      const reader = response.body!.getReader();
+      const first = await reader.read();
+      const frames = parseSse(new TextDecoder().decode(first.value));
 
-      expect(frames[0]).toEqual({ event: 'status', data: { state: 'completed' } });
-      expect(frames.at(-1)).toEqual({ event: 'terminal', data: { state: 'completed' } });
+      expect(frames[0]).toEqual({ event: 'status', data: { state: 'running', failedSliceIds: [] } });
+      expect(frames.some((frame) => frame.event === 'terminal')).toBe(false);
+      await reader.cancel();
     } finally {
       await host.close();
     }

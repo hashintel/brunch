@@ -20,6 +20,7 @@ export interface PetrinautReplayTransitionFiring {
   readonly transitionId: string;
   readonly input: PetrinautReplayMarking;
   readonly output: PetrinautReplayMarking;
+  readonly ts: string;
 }
 
 export interface PetrinautReplayExport {
@@ -52,7 +53,7 @@ export function reducePetrinautReplayExport(args: {
     if (isTerminalEvent(event)) {
       if (terminalFired) throw new Error('Conflicting Petrinaut terminal events');
       terminalFired = true;
-      transitionFirings.push(synthesizePetriRunStatusFiring(event.kind));
+      transitionFirings.push(synthesizePetriRunStatusFiring(event.kind, event.ts));
     }
   }
 
@@ -105,11 +106,13 @@ export function augmentPetriDefinitionWithRunStatus(
 
 export function synthesizePetriRunStatusFiring(
   terminalKind: 'net_completed' | 'net_halted' | 'net_deadlocked',
+  ts: string,
 ): PetrinautReplayTransitionFiring {
   return {
     transitionId: PETRI_RUN_FINISH_TRANSITION,
     input: {},
     output: { [terminalKind === 'net_completed' ? PETRI_RUN_COMPLETED_PLACE : PETRI_RUN_HALTED_PLACE]: 1 },
+    ts,
   };
 }
 
@@ -121,6 +124,7 @@ function transitionEventToFiring(
     transitionId: event.transitionId,
     input: reduceArcs(transition.inputArcs.filter((arc) => event.consumed.includes(arc.placeId))),
     output: reduceArcs(transition.outputArcs.filter((arc) => event.produced.includes(arc.placeId))),
+    ts: event.ts,
   };
 }
 

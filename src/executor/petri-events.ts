@@ -1,7 +1,11 @@
 import { appendFile, mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type { ExecutorNetEvent, ExecutorNetStepKind } from './orchestrate-topology.js';
+import type {
+  ExecutorNetEvent,
+  ExecutorNetEventPayload,
+  ExecutorNetStepKind,
+} from './orchestrate-topology.js';
 import { runDirPath, type RunMetadata } from './run.js';
 
 export type PetriEventListener = (event: ExecutorNetEvent) => void;
@@ -20,15 +24,16 @@ export function petriEventsPath(cwd: string, runId: string): string {
   return join(petriDirPath(cwd, runId), 'events.jsonl');
 }
 
-export async function appendPetriEvent(args: {
+export async function appendPetriEvent<Event extends ExecutorNetEventPayload>(args: {
   readonly cwd: string;
   readonly runId: string;
-  readonly event: ExecutorNetEvent;
-}): Promise<void> {
+  readonly event: Event;
+}): Promise<Event & { readonly ts: string }> {
   const key = listenerKey(args.cwd, args.runId);
+  const event: Event & { readonly ts: string } = { ...args.event, ts: new Date().toISOString() };
   try {
     await mkdir(petriDirPath(args.cwd, args.runId), { recursive: true });
-    await appendFile(petriEventsPath(args.cwd, args.runId), `${JSON.stringify(args.event)}\n`, 'utf8');
+    await appendFile(petriEventsPath(args.cwd, args.runId), `${JSON.stringify(event)}\n`, 'utf8');
   } catch (error) {
     // Observers must learn the journal broke or they wait on a wake-up that cannot come.
     publishPetriJournalFailure(args);
@@ -36,11 +41,12 @@ export async function appendPetriEvent(args: {
   }
   for (const listener of listenersByRun.get(key) ?? []) {
     try {
-      listener(args.event);
+      listener(event);
     } catch {
       // Observer callbacks never change the durable append result.
     }
   }
+  return event;
 }
 
 export function publishPetriJournalFailure(args: { readonly cwd: string; readonly runId: string }): void {
@@ -167,13 +173,22 @@ function subscribeListener<Listener>(
 }
 
 export function parsePetriEvent(value: unknown): ExecutorNetEvent | undefined {
-  if (!isRecord(value) || typeof value.runId !== 'string' || !isRunStatus(value.runStatus)) return undefined;
+  if (
+    !isRecord(value) ||
+    typeof value.runId !== 'string' ||
+    !isRunStatus(value.runStatus) ||
+    !isIsoTimestamp(value.ts)
+  ) {
+    return undefined;
+  }
   if (value.kind === 'net_completed' || value.kind === 'net_deadlocked') {
+    if (!isStringArray(value.failedSliceIds)) return undefined;
     return value as unknown as ExecutorNetEvent;
   }
   if (value.kind === 'net_halted') {
     if (value.step !== undefined && !isStepKind(value.step)) return undefined;
     if (value.reason !== undefined && typeof value.reason !== 'string') return undefined;
+    if (!isStringArray(value.failedSliceIds)) return undefined;
     return value as unknown as ExecutorNetEvent;
   }
   if (value.kind === 'attempt_failed') {
@@ -272,6 +287,12 @@ function isAttemptNumber(value: unknown): value is number {
 
 function isStringArray(value: unknown): value is readonly string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
+}
+
+function isIsoTimestamp(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const parsed = new Date(value);
+  return !Number.isNaN(parsed.valueOf()) && parsed.toISOString() === value;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

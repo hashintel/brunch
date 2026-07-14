@@ -115,6 +115,7 @@ async function writeReplayablePetriArtifacts(cwd: string, runId: string): Promis
     petriEventsPath(cwd, runId),
     `${JSON.stringify({
       kind: 'transition_fired',
+      ts: '2026-07-14T12:00:00.000Z',
       runId,
       runStatus: 'promotion_prepared',
       transitionId: 'worktree_create',
@@ -424,6 +425,8 @@ describe('execute_orchestrate intra-drive updates', () => {
         firedTransitionCount: 99,
         lifecycleProvenance: { runStatus: 'run_completed' },
         terminalEventKind: 'net_completed',
+        terminalTs: '2026-07-14T12:00:01.000Z',
+        failedSliceIds: [],
       })}\n`,
       'utf8',
     );

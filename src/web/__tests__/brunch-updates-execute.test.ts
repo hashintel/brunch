@@ -127,6 +127,8 @@ describe('brunch.updated execute topic invalidation', () => {
             currentMarking: { 'run:promotion_prepared': 1 },
             firedTransitionCount: 18,
             terminalEventKind: 'net_completed',
+            terminalTs: '2026-07-14T12:00:00.000Z',
+            failedSliceIds: [],
           },
           petriProjectionSource: 'replay',
           petriProjectionReplayReason: 'snapshot_missing_or_unreadable',

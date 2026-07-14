@@ -25,7 +25,10 @@ export function replayPetri(args: {
 
   const transitionIds: string[] = [];
   let sawTerminalEvent = false;
-  let terminalSummary: Pick<PetriProjection, 'terminalEventKind' | 'haltedReason'> | undefined | null;
+  let terminalSummary:
+    | Pick<PetriProjection, 'terminalEventKind' | 'haltedReason' | 'terminalTs' | 'failedSliceIds'>
+    | undefined
+    | null;
 
   for (const event of args.events) {
     switch (event.kind) {
@@ -56,21 +59,47 @@ export function replayPetri(args: {
 }
 
 function mergeTerminalSummary(
-  current: Pick<PetriProjection, 'terminalEventKind' | 'haltedReason'> | undefined | null,
+  current:
+    | Pick<PetriProjection, 'terminalEventKind' | 'haltedReason' | 'terminalTs' | 'failedSliceIds'>
+    | undefined
+    | null,
   event: Extract<ExecutorNetEvent, { readonly kind: 'net_completed' | 'net_halted' | 'net_deadlocked' }>,
-): Pick<PetriProjection, 'terminalEventKind' | 'haltedReason'> | undefined | null {
+):
+  | Pick<PetriProjection, 'terminalEventKind' | 'haltedReason' | 'terminalTs' | 'failedSliceIds'>
+  | undefined
+  | null {
   const next =
     event.kind === 'net_halted'
       ? typeof event.reason === 'string'
-        ? { terminalEventKind: 'net_halted' as const, haltedReason: event.reason }
+        ? {
+            terminalEventKind: 'net_halted' as const,
+            haltedReason: event.reason,
+            terminalTs: event.ts,
+            failedSliceIds: event.failedSliceIds,
+          }
         : undefined
-      : { terminalEventKind: event.kind };
+      : {
+          terminalEventKind: event.kind,
+          terminalTs: event.ts,
+          failedSliceIds: event.failedSliceIds,
+        };
   if (current === null) return null;
   if (next === undefined) return null;
   if (current === undefined) return next;
-  return current.terminalEventKind === next.terminalEventKind && current.haltedReason === next.haltedReason
+  return current.terminalEventKind === next.terminalEventKind &&
+    current.haltedReason === next.haltedReason &&
+    current.terminalTs === next.terminalTs &&
+    stringArraysEqual(current.failedSliceIds, next.failedSliceIds)
     ? current
     : null;
+}
+
+function stringArraysEqual(
+  left: readonly string[] | undefined,
+  right: readonly string[] | undefined,
+): boolean {
+  if (left === undefined || right === undefined) return left === right;
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 export function replayTransitionHistory(

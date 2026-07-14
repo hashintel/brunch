@@ -75,6 +75,7 @@ function transitionEvent(
 ): Extract<ExecutorNetEvent, { readonly kind: 'transition_fired' }> {
   return {
     kind: 'transition_fired',
+    ts: '2026-07-14T12:00:00.000Z',
     runId: 'run-1',
     runStatus: 'worktree_created',
     transitionId: 'worktree_create',
@@ -468,6 +469,7 @@ describe('execute.run', () => {
       join(petrinautDir, 'events.jsonl'),
       `${JSON.stringify({
         kind: 'epic_verification_claimed',
+        ts: '2026-07-14T12:00:00.000Z',
         runId: 'run-1',
         runStatus: 'slice_completed',
         epicId: 'epic-1',
@@ -871,7 +873,7 @@ describe('execute.run', () => {
           produced: ['run:promotion_prepared'],
           toStatus: 'promotion_prepared',
         }),
-      )}\n${JSON.stringify({ kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' })}\n`,
+      )}\n${JSON.stringify({ kind: 'net_completed', ts: '2026-07-14T12:00:01.000Z', runId: 'run-1', runStatus: 'promotion_prepared', failedSliceIds: [] })}\n`,
       'utf8',
     );
 
@@ -973,6 +975,7 @@ describe('execute.run', () => {
               transitionId: 'worktree_create',
               input: { 'run:created': 1 },
               output: { 'run:worktree_created': 1 },
+              ts: '2026-07-14T12:00:00.000Z',
             },
           ],
         },

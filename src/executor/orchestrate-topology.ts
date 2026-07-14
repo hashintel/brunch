@@ -267,7 +267,7 @@ export interface ExecutorTopology {
 
 export type ExecutorNetStepKind = ReadyStep['kind'];
 
-export type ExecutorNetEvent =
+export type ExecutorNetEventPayload =
   | {
       readonly kind: 'transition_fired';
       readonly runId: string;
@@ -305,6 +305,7 @@ export type ExecutorNetEvent =
       readonly kind: 'net_completed';
       readonly runId: string;
       readonly runStatus: import('./run.js').RunMetadata['status'];
+      readonly failedSliceIds: readonly string[];
     }
   | {
       readonly kind: 'net_halted';
@@ -312,12 +313,16 @@ export type ExecutorNetEvent =
       readonly runStatus: import('./run.js').RunMetadata['status'];
       readonly step?: ExecutorNetStepKind;
       readonly reason?: string;
+      readonly failedSliceIds: readonly string[];
     }
   | {
       readonly kind: 'net_deadlocked';
       readonly runId: string;
       readonly runStatus: import('./run.js').RunMetadata['status'];
+      readonly failedSliceIds: readonly string[];
     };
+
+export type ExecutorNetEvent = ExecutorNetEventPayload & { readonly ts: string };
 
 const RUN_CONTROL_TRANSITIONS = [
   'worktree_create',

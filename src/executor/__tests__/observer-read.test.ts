@@ -82,6 +82,7 @@ function transitionEvent(
 ): Extract<ExecutorNetEvent, { readonly kind: 'transition_fired' }> {
   return {
     kind: 'transition_fired',
+    ts: '2026-07-14T12:00:00.000Z',
     runId: 'run-1',
     runStatus: 'worktree_created',
     transitionId: 'worktree_create',
@@ -321,6 +322,7 @@ describe('readRunDetail', () => {
       join(runDir, 'petrinaut', 'events.jsonl'),
       `${JSON.stringify({
         kind: 'epic_verification_claimed',
+        ts: '2026-07-14T12:00:00.000Z',
         runId: 'run-epic-claim-crash',
         runStatus: 'slice_completed',
         epicId: 'epic-1',
@@ -570,10 +572,12 @@ describe('readRunDetail', () => {
         ),
         JSON.stringify({
           kind: 'net_halted',
+          ts: '2026-07-14T12:00:01.000Z',
           runId: 'run-petri-events',
           runStatus: 'agent_result_ingested',
           step: 'test_result',
           reason: 'test_run_failed',
+          failedSliceIds: ['task-1'],
         }),
         '{"kind":"transition_fired"',
       ].join('\n'),
@@ -632,8 +636,10 @@ describe('readRunDetail', () => {
         ),
         JSON.stringify({
           kind: 'net_completed',
+          ts: '2026-07-14T12:00:01.000Z',
           runId: 'run-petri-projection',
           runStatus: 'promotion_prepared',
+          failedSliceIds: [],
         }),
         '',
       ].join('\n'),
@@ -693,13 +699,17 @@ describe('readRunDetail', () => {
         ),
         JSON.stringify({
           kind: 'net_completed',
+          ts: '2026-07-14T12:00:01.000Z',
           runId: 'run-petri-terminal-conflict',
           runStatus: 'promotion_prepared',
+          failedSliceIds: [],
         }),
         JSON.stringify({
           kind: 'net_deadlocked',
+          ts: '2026-07-14T12:00:02.000Z',
           runId: 'run-petri-terminal-conflict',
           runStatus: 'promotion_prepared',
+          failedSliceIds: [],
         }),
         '',
       ].join('\n'),
@@ -819,8 +829,10 @@ describe('readRunDetail', () => {
         ),
         JSON.stringify({
           kind: 'net_completed',
+          ts: '2026-07-14T12:00:01.000Z',
           runId: 'run-petri-terminal-order',
           runStatus: 'worktree_created',
+          failedSliceIds: [],
         }),
         JSON.stringify(
           transitionEvent({
@@ -996,9 +1008,11 @@ describe('readRunDetail', () => {
         ),
         JSON.stringify({
           kind: 'net_halted',
+          ts: '2026-07-14T12:00:01.000Z',
           runId: 'run-petri-marking-terminal-lag',
           runStatus: 'reports_initialized',
           reason: 'agent_failed',
+          failedSliceIds: ['task-1'],
         }),
         '',
       ].join('\n'),
@@ -1026,6 +1040,8 @@ describe('readRunDetail', () => {
         firedTransitionCount: 5,
         terminalEventKind: 'net_halted',
         haltedReason: 'agent_failed',
+        terminalTs: '2026-07-14T12:00:01.000Z',
+        failedSliceIds: ['task-1'],
       },
       petriProjectionSource: 'snapshot',
     });
@@ -1058,6 +1074,8 @@ describe('readRunDetail', () => {
           firedTransitionCount: 5,
           lifecycleProvenance: { runStatus: 'reports_initialized' },
           terminalEventKind: 'net_completed',
+          terminalTs: '2026-07-14T12:00:00.000Z',
+          failedSliceIds: [],
         },
         null,
         2,
@@ -1099,6 +1117,8 @@ describe('readRunDetail', () => {
             completedSliceIds: ['task-1'],
           },
           terminalEventKind: 'net_completed',
+          terminalTs: '2026-07-14T12:00:01.000Z',
+          failedSliceIds: [],
         },
         null,
         2,
@@ -1151,7 +1171,7 @@ describe('readRunDetail', () => {
           produced: ['run:promotion_prepared'],
           toStatus: 'promotion_prepared',
         }),
-      )}\n${JSON.stringify({ kind: 'net_completed', runId: 'run-petri-marking-terminal-malformed', runStatus: 'promotion_prepared' })}\n`,
+      )}\n${JSON.stringify({ kind: 'net_completed', ts: '2026-07-14T12:00:01.000Z', runId: 'run-petri-marking-terminal-malformed', runStatus: 'promotion_prepared', failedSliceIds: [] })}\n`,
       'utf8',
     );
     await writeFile(
@@ -1394,7 +1414,7 @@ describe('readRunDetail', () => {
           produced: ['run:promotion_prepared'],
           toStatus: 'promotion_prepared',
         }),
-      )}\n${JSON.stringify({ kind: 'net_completed', runId: 'run-petri-marking-stale', runStatus: 'promotion_prepared' })}\n`,
+      )}\n${JSON.stringify({ kind: 'net_completed', ts: '2026-07-14T12:00:01.000Z', runId: 'run-petri-marking-stale', runStatus: 'promotion_prepared', failedSliceIds: [] })}\n`,
       'utf8',
     );
     await writeFile(
@@ -1407,6 +1427,8 @@ describe('readRunDetail', () => {
             runStatus: 'run_completed',
           },
           terminalEventKind: 'net_completed',
+          terminalTs: '2026-07-14T12:00:01.000Z',
+          failedSliceIds: [],
         },
         null,
         2,

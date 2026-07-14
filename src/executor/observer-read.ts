@@ -420,10 +420,16 @@ function toPetriProjection(
     readonly firedTransitionCount: number;
     readonly terminalEventKind?: PetriProjection['terminalEventKind'];
     readonly haltedReason?: string;
+    readonly terminalTs?: string;
+    readonly failedSliceIds?: readonly string[];
+    readonly parallelSliceBatch?: ParallelSliceBatchSnapshot;
   },
   metadata: RunMetadata,
   runtime?: Pick<ExecutorPetriRuntime, 'currentMarking' | 'enabledTransitions'>,
-  replayProjection?: Pick<PetriProjection, 'terminalEventKind' | 'haltedReason'>,
+  replayProjection?: Pick<
+    PetriProjection,
+    'terminalEventKind' | 'haltedReason' | 'terminalTs' | 'failedSliceIds'
+  >,
 ): PetriProjection {
   const claimedTransitionIds = sanitizeClaimedTransitionIds(snapshot.claimedTransitionIds, runtime);
   const terminalSummary = sanitizeTerminalSummary(snapshot, metadata, replayProjection);
@@ -492,52 +498,66 @@ function sanitizeTerminalSummary(
   snapshot: {
     readonly terminalEventKind?: PetriProjection['terminalEventKind'] | undefined;
     readonly haltedReason?: string | undefined;
+    readonly terminalTs?: string | undefined;
+    readonly failedSliceIds?: readonly string[] | undefined;
+    readonly parallelSliceBatch?: ParallelSliceBatchSnapshot;
   },
   metadata: RunMetadata,
   replayProjection?: {
     readonly terminalEventKind?: PetriProjection['terminalEventKind'] | undefined;
     readonly haltedReason?: string | undefined;
+    readonly terminalTs?: string | undefined;
+    readonly failedSliceIds?: readonly string[] | undefined;
   },
-): Pick<PetriProjection, 'terminalEventKind' | 'haltedReason'> {
+): Pick<PetriProjection, 'terminalEventKind' | 'haltedReason' | 'terminalTs' | 'failedSliceIds'> {
   if (snapshot.terminalEventKind === undefined && snapshot.haltedReason === undefined) {
     // A matching snapshot may lag the journal by the terminal fact (the append
     // wake-up races the marking persist). Backfill from replay truth only — never
     // from metadata expectation, so completion stays journal-ordered.
     if (!replayProjection?.terminalEventKind) return {};
+    if (replayProjection.terminalTs === undefined || replayProjection.failedSliceIds === undefined) return {};
     return {
       terminalEventKind: replayProjection.terminalEventKind,
       ...(replayProjection.haltedReason === undefined ? {} : { haltedReason: replayProjection.haltedReason }),
+      terminalTs: replayProjection.terminalTs,
+      failedSliceIds: replayProjection.failedSliceIds,
     };
   }
-  const checkable = replayProjection?.terminalEventKind
-    ? replayProjection
-    : expectedTerminalSummary(metadata);
+  if (
+    replayProjection?.terminalEventKind === undefined &&
+    snapshot.parallelSliceBatch === undefined &&
+    metadata.status !== 'promotion_prepared' &&
+    metadata.status !== 'abandoned'
+  ) {
+    return {};
+  }
+  const checkable = replayProjection?.terminalEventKind ? replayProjection : snapshot;
   if (!checkable?.terminalEventKind) {
     return {};
   }
+  if (checkable.terminalTs === undefined || checkable.failedSliceIds === undefined) return {};
   if (snapshot.terminalEventKind !== checkable.terminalEventKind) {
     return {};
   }
   if (snapshot.haltedReason !== checkable.haltedReason) {
     return {};
   }
+  if (snapshot.terminalTs !== checkable.terminalTs) return {};
+  if (!stringArraysEqual(snapshot.failedSliceIds, checkable.failedSliceIds)) return {};
   return {
     terminalEventKind: checkable.terminalEventKind,
     ...(checkable.haltedReason === undefined ? {} : { haltedReason: checkable.haltedReason }),
+    terminalTs: checkable.terminalTs,
+    failedSliceIds: checkable.failedSliceIds,
   };
 }
 
-function expectedTerminalSummary(
-  metadata: RunMetadata,
-): Pick<PetriProjection, 'terminalEventKind' | 'haltedReason'> | undefined {
-  switch (metadata.status) {
-    case 'promotion_prepared':
-      return { terminalEventKind: 'net_completed' };
-    case 'abandoned':
-      return { terminalEventKind: 'net_halted', haltedReason: 'abandoned' };
-    default:
-      return undefined;
-  }
+function stringArraysEqual(
+  left: readonly string[] | undefined,
+  right: readonly string[] | undefined,
+): boolean {
+  if (left === undefined || right === undefined) return left === right;
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function toProjectionEntry(

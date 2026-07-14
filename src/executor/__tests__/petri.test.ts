@@ -11,6 +11,7 @@ import {
   appendPetriEvent,
   parsePetriEvent,
   petriEventsPath,
+  readPetriJournal,
   subscribePetriEvents,
   subscribePetriJournalFailures,
 } from '../petri-events.js';
@@ -182,20 +183,21 @@ describe('exportPetri', () => {
     });
     expect(await readFile(petriEventsPath(cwd, 'run-1'), 'utf8')).toBe('');
 
-    const existingEvent: ExecutorNetEvent = {
+    const existingEvent = {
       kind: 'net_halted',
       runId: 'run-1',
       runStatus: 'created',
       reason: 'existing event',
-    };
-    await appendPetriEvent({ cwd, runId: 'run-1', event: existingEvent });
+      failedSliceIds: [],
+    } as const;
+    const appended = await appendPetriEvent({ cwd, runId: 'run-1', event: existingEvent });
     await writeFile(
       planPath,
       JSON.stringify({ mode: 'greenfield', slices: [{ id: 'changed-task' }] }),
       'utf8',
     );
     await preparePetriObservation({ cwd, runId: 'run-1' });
-    expect(await readFile(petriEventsPath(cwd, 'run-1'), 'utf8')).toBe(`${JSON.stringify(existingEvent)}\n`);
+    expect(await readFile(petriEventsPath(cwd, 'run-1'), 'utf8')).toBe(`${JSON.stringify(appended)}\n`);
     expect(await readFile(petriNetPath(cwd, 'run-1'), 'utf8')).toBe(preparedNet);
 
     await writeFile(
@@ -514,6 +516,7 @@ describe('attempt facts', () => {
     };
     const fired: ExecutorNetEvent = {
       kind: 'transition_fired',
+      ts: '2026-07-14T12:00:00.000Z',
       runId: 'run-1',
       runStatus: 'worktree_created',
       transitionId: 'worktree_create',
@@ -527,6 +530,7 @@ describe('attempt facts', () => {
     };
     const attempt = parsePetriEvent({
       kind: 'attempt_failed',
+      ts: '2026-07-14T12:00:01.000Z',
       runId: 'run-1',
       runStatus: 'slice_execution_requested',
       sliceId: 'task-1',
@@ -537,8 +541,10 @@ describe('attempt facts', () => {
     expect(attempt).toBeDefined();
     const terminal: ExecutorNetEvent = {
       kind: 'net_completed',
+      ts: '2026-07-14T12:00:02.000Z',
       runId: 'run-1',
       runStatus: 'promotion_prepared',
+      failedSliceIds: [],
     };
 
     const withAttempts = replayPetri({ net, events: [fired, attempt!, terminal] });
@@ -571,6 +577,42 @@ describe('attempt facts', () => {
 });
 
 describe('appendPetriEvent', () => {
+  it('stamps one durable ISO timestamp and publishes the same event object after append', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-append-timestamp-'));
+    const seen: ExecutorNetEvent[] = [];
+    const unsubscribe = subscribePetriEvents({ cwd, runId: 'run-1', listener: (event) => seen.push(event) });
+
+    const appended = await appendPetriEvent({
+      cwd,
+      runId: 'run-1',
+      event: {
+        kind: 'net_completed',
+        runId: 'run-1',
+        runStatus: 'promotion_prepared',
+        failedSliceIds: [],
+      },
+    });
+    unsubscribe();
+
+    const journal = await readPetriJournal(petriEventsPath(cwd, 'run-1'));
+    expect(journal).toEqual({ status: 'readable', events: [appended] });
+    expect(seen).toEqual([appended]);
+    expect(seen[0]).toBe(appended);
+    expect(new Date(appended.ts).toISOString()).toBe(appended.ts);
+  });
+
+  it('rejects timestamp-less and invalidly timestamped durable events', () => {
+    const terminal = {
+      kind: 'net_completed',
+      runId: 'run-1',
+      runStatus: 'promotion_prepared',
+      failedSliceIds: [],
+    };
+    expect(parsePetriEvent(terminal)).toBeUndefined();
+    expect(parsePetriEvent({ ...terminal, ts: 'not-a-date' })).toBeUndefined();
+    expect(parsePetriEvent({ ...terminal, ts: '2026-07-14T12:00:00.000Z' })).toBeDefined();
+  });
+
   it('rejects a failed durable append, keeps success listeners silent, and wakes failure listeners run-scoped', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-append-failure-'));
     // Occupy the journal path with a directory so appendFile fails (EISDIR).
@@ -601,7 +643,12 @@ describe('appendPetriEvent', () => {
         appendPetriEvent({
           cwd,
           runId: 'run-1',
-          event: { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+          event: {
+            kind: 'net_completed',
+            runId: 'run-1',
+            runStatus: 'promotion_prepared',
+            failedSliceIds: [],
+          },
         }),
       ).rejects.toThrow();
     } finally {
@@ -666,6 +713,7 @@ describe('replayPetri', () => {
         events: [
           {
             kind: 'transition_fired',
+            ts: '2026-07-14T12:00:00.000Z',
             runId: 'run-1',
             runStatus: 'promotion_prepared',
             transitionId: 'worktree_create',
@@ -677,8 +725,20 @@ describe('replayPetri', () => {
             fromStatus: 'created',
             toStatus: 'worktree_created',
           },
-          { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
-          { kind: 'net_deadlocked', runId: 'run-1', runStatus: 'promotion_prepared' },
+          {
+            kind: 'net_completed',
+            ts: '2026-07-14T12:00:01.000Z',
+            runId: 'run-1',
+            runStatus: 'promotion_prepared',
+            failedSliceIds: [],
+          },
+          {
+            kind: 'net_deadlocked',
+            ts: '2026-07-14T12:00:02.000Z',
+            runId: 'run-1',
+            runStatus: 'promotion_prepared',
+            failedSliceIds: [],
+          },
         ],
       }),
     ).toEqual({
@@ -699,6 +759,7 @@ describe('replayPetri', () => {
         events: [
           {
             kind: 'transition_fired',
+            ts: '2026-07-14T12:00:00.000Z',
             runId: 'run-1',
             runStatus: 'worktree_created',
             transitionId: 'worktree_create',
@@ -710,9 +771,16 @@ describe('replayPetri', () => {
             fromStatus: 'created',
             toStatus: 'worktree_created',
           },
-          { kind: 'net_completed', runId: 'run-1', runStatus: 'worktree_created' },
+          {
+            kind: 'net_completed',
+            ts: '2026-07-14T12:00:01.000Z',
+            runId: 'run-1',
+            runStatus: 'worktree_created',
+            failedSliceIds: [],
+          },
           {
             kind: 'transition_fired',
+            ts: '2026-07-14T12:00:02.000Z',
             runId: 'run-1',
             runStatus: 'reports_initialized',
             transitionId: 'populate',
@@ -744,6 +812,7 @@ describe('replayPetri', () => {
         events: [
           {
             kind: 'transition_fired',
+            ts: '2026-07-14T12:00:00.000Z',
             runId: 'run-1',
             runStatus: 'worktree_created',
             transitionId: 'worktree_create',
@@ -755,7 +824,13 @@ describe('replayPetri', () => {
             fromStatus: 'created',
             toStatus: 'worktree_created',
           },
-          { kind: 'net_halted', runId: 'run-1', runStatus: 'worktree_created' },
+          {
+            kind: 'net_halted',
+            ts: '2026-07-14T12:00:01.000Z',
+            runId: 'run-1',
+            runStatus: 'worktree_created',
+            failedSliceIds: [],
+          },
         ],
       }),
     ).toEqual({
@@ -900,6 +975,58 @@ describe('replayTransitionHistory', () => {
 });
 
 describe('reducePetrinautReplayExport', () => {
+  it('matches the origin/main firing contract and reuses the terminal event timestamp', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-origin-main-contract-'));
+    await createCompletedRun(cwd);
+    await exportPetri({ cwd, runId: 'run-1' });
+    const sdcpnFile = JSON.parse(await readFile(petriSdcpnPath(cwd, 'run-1'), 'utf8'));
+    const transitionTs = '2026-07-14T12:00:00.000Z';
+    const terminalTs = '2026-07-14T12:00:01.000Z';
+
+    const payload = reducePetrinautReplayExport({
+      sdcpnFile,
+      events: [
+        {
+          kind: 'transition_fired',
+          ts: transitionTs,
+          runId: 'run-1',
+          runStatus: 'worktree_created',
+          transitionId: 'worktree_create',
+          subnetId: 'run',
+          step: 'worktree_create',
+          contract: { kind: 'mechanical', lane: 'run' },
+          consumed: ['run:created'],
+          produced: ['run:worktree_created'],
+          fromStatus: 'created',
+          toStatus: 'worktree_created',
+        },
+        {
+          kind: 'net_completed',
+          ts: terminalTs,
+          runId: 'run-1',
+          runStatus: 'promotion_prepared',
+          failedSliceIds: [],
+        },
+      ],
+    });
+
+    expect(payload.transitionFirings).toEqual([
+      {
+        transitionId: 'worktree_create',
+        input: { 'run:created': 1 },
+        output: { 'run:worktree_created': 1 },
+        ts: transitionTs,
+      },
+      {
+        transitionId: PETRI_RUN_FINISH_TRANSITION,
+        input: {},
+        output: { [PETRI_RUN_COMPLETED_PLACE]: 1 },
+        ts: terminalTs,
+      },
+    ]);
+    expect(Object.keys(payload.transitionFirings[0]!)).toEqual(['transitionId', 'input', 'output', 'ts']);
+  });
+
   it('keeps failed-attempt facts and retry markings in truthful projection order', () => {
     const topology = compileExecutorTopology({ slices: [{ id: 'task-1' }] });
     const sdcpnFile = petriTopologyToSdcpnFile({ runId: 'run-1', topology });
@@ -908,6 +1035,7 @@ describe('reducePetrinautReplayExport', () => {
       const transition = transitions.get(transitionId)!;
       return {
         kind: 'transition_fired',
+        ts: '2026-07-14T12:00:00.000Z',
         runId: 'run-1',
         runStatus: 'slice_execution_requested',
         transitionId,
@@ -927,6 +1055,7 @@ describe('reducePetrinautReplayExport', () => {
         fired('slice_execute:task-1', 'slice_execute'),
         {
           kind: 'attempt_failed',
+          ts: '2026-07-14T12:00:00.500Z',
           runId: 'run-1',
           runStatus: 'slice_execution_requested',
           sliceId: 'task-1',
@@ -958,6 +1087,7 @@ describe('reducePetrinautReplayExport', () => {
     const events: ExecutorNetEvent[] = [
       {
         kind: 'transition_fired',
+        ts: '2026-07-14T12:00:00.000Z',
         runId: 'run-1',
         runStatus: 'worktree_created',
         transitionId: 'worktree_create',
@@ -971,6 +1101,7 @@ describe('reducePetrinautReplayExport', () => {
       },
       {
         kind: 'transition_fired',
+        ts: '2026-07-14T12:00:01.000Z',
         runId: 'run-1',
         runStatus: 'worktree_populated',
         transitionId: 'populate',
@@ -982,7 +1113,13 @@ describe('reducePetrinautReplayExport', () => {
         fromStatus: 'worktree_created',
         toStatus: 'worktree_populated',
       },
-      { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+      {
+        kind: 'net_completed',
+        ts: '2026-07-14T12:00:02.000Z',
+        runId: 'run-1',
+        runStatus: 'promotion_prepared',
+        failedSliceIds: [],
+      },
     ];
 
     const payload = reducePetrinautReplayExport({ sdcpnFile, events });
@@ -1013,16 +1150,19 @@ describe('reducePetrinautReplayExport', () => {
         transitionId: 'worktree_create',
         input: { 'run:created': 1 },
         output: { 'run:worktree_created': 1 },
+        ts: '2026-07-14T12:00:00.000Z',
       },
       {
         transitionId: 'populate',
         input: { 'run:worktree_created': 1 },
         output: { 'run:worktree_populated': 1 },
+        ts: '2026-07-14T12:00:01.000Z',
       },
       {
         transitionId: PETRI_RUN_FINISH_TRANSITION,
         input: {},
         output: { [PETRI_RUN_COMPLETED_PLACE]: 1 },
+        ts: '2026-07-14T12:00:02.000Z',
       },
     ]);
   });
@@ -1036,18 +1176,45 @@ describe('reducePetrinautReplayExport', () => {
     expect(
       reducePetrinautReplayExport({
         sdcpnFile,
-        events: [{ kind: 'net_halted', runId: 'run-1', runStatus: 'worktree_created', reason: 'boom' }],
+        events: [
+          {
+            kind: 'net_halted',
+            ts: '2026-07-14T12:00:00.000Z',
+            runId: 'run-1',
+            runStatus: 'worktree_created',
+            reason: 'boom',
+            failedSliceIds: ['task-1'],
+          },
+        ],
       }).transitionFirings,
     ).toEqual([
-      { transitionId: PETRI_RUN_FINISH_TRANSITION, input: {}, output: { [PETRI_RUN_HALTED_PLACE]: 1 } },
+      {
+        transitionId: PETRI_RUN_FINISH_TRANSITION,
+        input: {},
+        output: { [PETRI_RUN_HALTED_PLACE]: 1 },
+        ts: '2026-07-14T12:00:00.000Z',
+      },
     ]);
     expect(
       reducePetrinautReplayExport({
         sdcpnFile,
-        events: [{ kind: 'net_deadlocked', runId: 'run-1', runStatus: 'worktree_created' }],
+        events: [
+          {
+            kind: 'net_deadlocked',
+            ts: '2026-07-14T12:00:00.000Z',
+            runId: 'run-1',
+            runStatus: 'worktree_created',
+            failedSliceIds: [],
+          },
+        ],
       }).transitionFirings,
     ).toEqual([
-      { transitionId: PETRI_RUN_FINISH_TRANSITION, input: {}, output: { [PETRI_RUN_HALTED_PLACE]: 1 } },
+      {
+        transitionId: PETRI_RUN_FINISH_TRANSITION,
+        input: {},
+        output: { [PETRI_RUN_HALTED_PLACE]: 1 },
+        ts: '2026-07-14T12:00:00.000Z',
+      },
     ]);
   });
 
@@ -1063,6 +1230,7 @@ describe('reducePetrinautReplayExport', () => {
         events: [
           {
             kind: 'transition_fired',
+            ts: '2026-07-14T12:00:00.000Z',
             runId: 'run-1',
             runStatus: 'worktree_created',
             transitionId: 'missing-transition',
@@ -1146,6 +1314,7 @@ describe('Petrinaut stream frame projection', () => {
       events: [
         {
           kind: 'transition_fired',
+          ts: '2026-07-14T12:00:00.000Z',
           runId: 'run-1',
           runStatus: 'worktree_created',
           transitionId: 'worktree_create',
@@ -1168,7 +1337,7 @@ describe('Petrinaut stream frame projection', () => {
       'initial_state',
       'transition_firing',
     ]);
-    expect(frames[0]).toEqual({ kind: 'status', state: 'running' });
+    expect(frames[0]).toEqual({ kind: 'status', state: 'running', failedSliceIds: [] });
     expect(foldPetrinautStreamFrames(frames)).toEqual(replayExport);
   });
 
@@ -1187,11 +1356,16 @@ describe('Petrinaut stream frame projection', () => {
 
     const frames = projectPetrinautStreamFrames({
       replayExport,
-      terminal: { state: 'halted', reason: 'promotion_failed' },
+      terminal: {
+        state: 'halted',
+        reason: 'promotion_failed',
+        ts: '2026-07-14T12:00:00.000Z',
+        failedSliceIds: ['S3'],
+      },
     });
 
     expect(frames).toEqual([
-      { kind: 'status', state: 'halted', reason: 'promotion_failed' },
+      { kind: 'status', state: 'halted', reason: 'promotion_failed', failedSliceIds: ['S3'] },
       { kind: 'definition', definition: replayExport.definition },
       { kind: 'initial_state', initialState: {} },
       {
@@ -1200,18 +1374,24 @@ describe('Petrinaut stream frame projection', () => {
           transitionId: PETRI_RUN_FINISH_TRANSITION,
           input: {},
           output: { [PETRI_RUN_HALTED_PLACE]: 1 },
+          ts: '2026-07-14T12:00:00.000Z',
         },
       },
-      { kind: 'terminal', state: 'halted', reason: 'promotion_failed' },
+      { kind: 'terminal', state: 'halted', reason: 'promotion_failed', failedSliceIds: ['S3'] },
     ]);
   });
 });
 
 describe('Petrinaut SSE serialization', () => {
   it('serializes one frame as a named SSE event with one JSON data line and a blank terminator', () => {
-    expect(serializePetrinautSseFrame({ kind: 'status', state: 'halted', reason: 'promotion_failed' })).toBe(
-      'event: status\ndata: {"state":"halted","reason":"promotion_failed"}\n\n',
-    );
+    expect(
+      serializePetrinautSseFrame({
+        kind: 'status',
+        state: 'halted',
+        reason: 'promotion_failed',
+        failedSliceIds: ['S3'],
+      }),
+    ).toBe('event: status\ndata: {"state":"halted","failedSliceIds":["S3"],"reason":"promotion_failed"}\n\n');
   });
 
   it('serializes each frame kind with the expected event name and JSON payload', () => {
@@ -1230,10 +1410,11 @@ describe('Petrinaut SSE serialization', () => {
             transitionId: 'worktree_create',
             input: { 'run:created': 1 },
             output: { 'run:worktree_created': 1 },
+            ts: '2026-07-14T12:00:00.000Z',
           },
         ],
       },
-      terminal: { state: 'completed' },
+      terminal: { state: 'completed', ts: '2026-07-14T12:00:01.000Z', failedSliceIds: [] },
     });
     const chunks = serializePetrinautSseFrames(frames)
       .split('\n\n')
@@ -1255,17 +1436,21 @@ describe('Petrinaut SSE serialization', () => {
       transitionId: 'worktree_create',
       input: { 'run:created': 1 },
       output: { 'run:worktree_created': 1 },
+      ts: '2026-07-14T12:00:00.000Z',
     });
     expect(JSON.parse(chunks[4]!.split('\n')[1]!.slice('data: '.length))).toMatchObject({
       transitionId: PETRI_RUN_FINISH_TRANSITION,
       output: { [PETRI_RUN_COMPLETED_PLACE]: 1 },
     });
-    expect(JSON.parse(chunks[5]!.split('\n')[1]!.slice('data: '.length))).toEqual({ state: 'completed' });
+    expect(JSON.parse(chunks[5]!.split('\n')[1]!.slice('data: '.length))).toEqual({
+      state: 'completed',
+      failedSliceIds: [],
+    });
   });
 
   it('batch serialization is exactly the concatenation of per-frame chunks', () => {
     const frames = [
-      { kind: 'status' as const, state: 'running' as const },
+      { kind: 'status' as const, state: 'running' as const, failedSliceIds: [] },
       { kind: 'initial_state' as const, initialState: { p1: 2 } },
     ];
 
