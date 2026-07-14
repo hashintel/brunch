@@ -324,12 +324,19 @@ describe('Brunch prompt-pack topology', () => {
     expect(countOccurrences(repaired.messages[0]?.content ?? '', '# Elicitor')).toBe(1);
   });
 
-  it('composes the execute-mode executor prompt without calling the elicitor composer', async () => {
+  it('composes the execute-mode executor prompt from the branch despite a stale append-order rival', async () => {
     const executeState: BrunchAgentState = {
       schemaVersion: 1,
       operationalMode: 'execute',
     };
     const events: Record<string, (event: never, ctx?: never) => unknown> = {};
+    const sessionManager = {
+      getBranch: () => [runtimeEntry(executeState)],
+      getEntries: () => [
+        runtimeEntry(executeState),
+        runtimeEntry({ schemaVersion: 1, operationalMode: 'specify' }),
+      ],
+    };
 
     registerBrunchPrompting(
       {
@@ -343,32 +350,13 @@ describe('Brunch prompt-pack topology', () => {
       promptContext,
     );
 
-    await expect(
-      Promise.resolve(
-        events.before_agent_start?.(
-          { systemPrompt: 'base' } as never,
-          {
-            sessionManager: {
-              getBranch: () => [runtimeEntry(executeState)],
-            },
-          } as never,
-        ),
-      ),
-    ).resolves.toMatchObject({
+    const result = await Promise.resolve(
+      events.before_agent_start?.({ systemPrompt: 'base' } as never, { sessionManager } as never),
+    );
+    expect(result).toMatchObject({
       systemPrompt: expect.stringContaining('# Executor'),
     });
-    await expect(
-      Promise.resolve(
-        events.before_agent_start?.(
-          { systemPrompt: 'base' } as never,
-          {
-            sessionManager: {
-              getBranch: () => [runtimeEntry(executeState)],
-            },
-          } as never,
-        ),
-      ),
-    ).resolves.toMatchObject({
+    expect(result).toMatchObject({
       systemPrompt: expect.stringContaining('[Brunch shared references]'),
     });
   });

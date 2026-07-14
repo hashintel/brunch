@@ -63,6 +63,7 @@ interface FakeCommandContext {
   };
   sessionManager: {
     getBranch(): readonly EntryLike[];
+    getEntries(): readonly EntryLike[];
     appendCustomEntry(customType: string, data: unknown): void;
     appendMessage?: (message: unknown) => void;
   };
@@ -85,6 +86,7 @@ function commandHarness(
     persistSentMessages?: boolean;
     getCommandContext?: () => FakeCommandContext;
     branch?: readonly EntryLike[];
+    appendOrderRivals?: readonly EntryLike[];
     inputResult?: string;
   } = {},
 ) {
@@ -135,6 +137,7 @@ function commandHarness(
           message: message as EntryLike['message'],
         })),
       ],
+      getEntries: () => [...entries, ...(options.branch ?? []), ...(options.appendOrderRivals ?? [])],
       appendCustomEntry(customType, data) {
         entries.push({ type: 'custom', customType, data });
       },
@@ -722,8 +725,22 @@ describe('Brunch runtime switch commands', () => {
     expect(harness.entries).toEqual([]);
   });
 
-  it('falls back to current-mode reporting when no-arg mode command has no custom TUI surface', async () => {
-    const harness = commandHarness({ customResult: undefined });
+  it('reports active-branch current mode despite a newer append-order rival', async () => {
+    const harness = commandHarness({
+      customResult: undefined,
+      appendOrderRivals: [
+        {
+          type: 'custom',
+          customType: BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
+          data: {
+            schemaVersion: 1,
+            reason: 'switch',
+            source: 'user',
+            state: { schemaVersion: 1, operationalMode: 'execute' },
+          },
+        } as never,
+      ],
+    });
     delete harness.ctx.ui.custom;
 
     await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('', harness.ctx);

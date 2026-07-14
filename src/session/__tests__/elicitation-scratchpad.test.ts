@@ -20,9 +20,14 @@ function scratchpadEntry(items: readonly ElicitationScratchpadItem[]) {
 
 class FakeScratchpadSessionManager {
   entries: Array<{ type: 'custom'; customType: string; data: ElicitationScratchpadEntryData }> = [];
+  abandoned: Array<{ type: 'custom'; customType: string; data: ElicitationScratchpadEntryData }> = [];
 
   getBranch() {
     return this.entries;
+  }
+
+  getEntries() {
+    return [...this.entries, ...this.abandoned];
   }
 
   appendCustomEntry(customType: string, data: ElicitationScratchpadEntryData) {
@@ -150,9 +155,18 @@ describe('appendElicitationScratchpadSnapshot', () => {
       { id: 'b', obligation: 'ask about Y', disposition: 'open' },
     ]);
 
+    sessionManager.abandoned.push(
+      scratchpadEntry([
+        { id: 'rival', obligation: 'abandoned latest snapshot', disposition: 'open' },
+      ]) as never,
+    );
+
     expect(latestElicitationScratchpad(sessionManager.getBranch())).toEqual([
       { id: 'a', obligation: 'ask about X', disposition: 'resolved' },
       { id: 'b', obligation: 'ask about Y', disposition: 'open' },
     ]);
+    expect(latestElicitationScratchpad(sessionManager.getEntries())).toEqual(
+      sessionManager.abandoned[0]!.data.items,
+    );
   });
 });

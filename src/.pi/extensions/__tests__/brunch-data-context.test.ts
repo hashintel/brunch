@@ -265,7 +265,7 @@ describe('context tools', () => {
     expect(result.details.sessions.map((session) => session.turnCount)).toEqual([1, 2]);
   });
 
-  it('read_specification_context returns the selected spec render through the registered tool', async () => {
+  it('read_specification_context returns the active binding despite an abandoned append-order rival', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-specification-tool-'));
     const executor = await openWorkspaceCommandExecutor(cwd);
     const alpha = seedFixture(executor, await loadFixture('workspace-alpha-grounding'));
@@ -284,6 +284,15 @@ describe('context tools', () => {
       .execute('context-spec', {}, undefined, undefined, {
         sessionManager: {
           getHeader: () => ({ type: 'session', id: 'beta-session', cwd }),
+          getEntries: () => [
+            {
+              id: 'abandoned-binding',
+              type: 'custom',
+              parentId: null,
+              customType: 'brunch.session_binding',
+              data: createSessionBindingData({ specId: alpha.specId }),
+            },
+          ],
           getBranch: () => [
             {
               id: 'binding-1',

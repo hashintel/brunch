@@ -96,6 +96,17 @@ function buildCtx(
     getBranch() {
       return entries;
     },
+    getEntries() {
+      return [
+        ...entries,
+        {
+          type: 'custom' as const,
+          customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
+          data: { schemaVersion: 1, choice: 'dismissed', trigger: 'tree' },
+        },
+        { type: 'custom_message' as const, customType: BRUNCH_KICK_CUSTOM_TYPE, content: 'abandoned kick' },
+      ];
+    },
   };
   const ctx = {
     hasUI: true,

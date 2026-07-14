@@ -152,6 +152,10 @@ describe('Brunch agent runtime-state projection', () => {
         {
           sessionManager: {
             getBranch: () => [runtimeEntry(latestState)],
+            getEntries: () => [
+              runtimeEntry(latestState),
+              runtimeEntry({ schemaVersion: 1, operationalMode: 'execute' }),
+            ],
           },
         } as never,
       ),

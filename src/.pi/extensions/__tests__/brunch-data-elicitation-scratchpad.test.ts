@@ -16,9 +16,14 @@ import { normalizeToolSchema } from './tool-schema-baseline.js';
 
 class FakeSessionManager {
   entries: Array<{ type: 'custom'; customType: string; data: unknown }> = [];
+  abandoned: Array<{ type: 'custom'; customType: string; data: unknown }> = [];
 
   getBranch() {
     return this.entries;
+  }
+
+  getEntries() {
+    return [...this.entries, ...this.abandoned];
   }
 
   appendCustomEntry(customType: string, data: ElicitationScratchpadEntryData) {
@@ -111,6 +116,14 @@ describe('read_elicitation_scratchpad', () => {
       { id: 'a', obligation: 'ask about budget', disposition: 'open' },
     ]);
 
+    sessionManager.abandoned.push({
+      type: 'custom',
+      customType: BRUNCH_ELICITATION_SCRATCHPAD_CUSTOM_TYPE,
+      data: {
+        schemaVersion: 1,
+        items: [{ id: 'rival', obligation: 'abandoned obligation', disposition: 'open' }],
+      },
+    });
     const result = (await executeTool(READ_ELICITATION_SCRATCHPAD_TOOL, {}, sessionManager)) as {
       details: { items: readonly ElicitationScratchpadItem[] };
     };

@@ -106,15 +106,13 @@ src/rpc/
 
 ## Card 2 — Live current-state consumer cutover
 
-Status: in progress
+Status: done
 
-Build note (2026-07-14): every inventoried live production consumer now requires
-`getBranch()` and the full gate passes; no product fallback to `getEntries()` remains.
-Card 2 is not marked done: the approved manifest's tests prove required branch-capability
-wiring and preserve the existing fold invariants, but do not contain explicit abandoned-
-branch rival fixtures for every named live surface (runtime, scratchpad, orientation,
-binding, continuity/capture, commands/prompts/context, and Chrome/TUI). Re-enter Card 2
-to add those witnesses before Card 3; do not treat the green gate as leaf closure.
+Build note (2026-07-14): every inventoried live production consumer requires `getBranch()`
+with no product fallback to `getEntries()`. Contrastive rivals now pin real Pi runtime/TUI
+trees, scratchpad and orientation folds, command/prompt/tool/context/chrome composition,
+exactly-one root binding, and continuity/capture watermark, mention, and seed behavior.
+Each rival carries a different append-order result, so regressions to `getEntries()` fail.
 Weight: full
 
 ### Target Behavior
