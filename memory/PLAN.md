@@ -232,7 +232,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Name:** Spec posture persistence + deterministic establishment
 - **Linear:** [FE-1196](https://linear.app/hash/issue/FE-1196) (batch issue for Group 2; this item is its first slice)
 - **Branch:** `ln/fe-1196-platform-debt` — one stacked branch carries the Group 2 batch (user decision 2026-07-13, overriding one-branch-per-item for this group); stacked on `ln/fe-1187-walkthrough-remediation-2`, low conflict with remediation rows except the workspace-dialog seam — coordinate if parallel
-- **Status:** inner/middle build complete (2026-07-13) — schema, `CommandExecutor`, deterministic establishment branching, coordinator wiring, workspace-dialog ask/confirm, kick-assembly seed, and the A41-L probe all landed and green. **Outer manual walkthrough still owed** before this frontier item closes: run D (populated cwd, brownfield confirm) and run B's orientation beats (TESTING_PLAN Concern 2) — owned by FE-1196, may not ride a later lane. The scope card (`memory/cards/spec-posture--establishment-tracer.md`) is retired; all its cards are done.
+- **Status:** ✓ built + outer-witnessed (2026-07-14). The owed run D (populated cwd: kind ask + brownfield confirm, posture persisted pre-agent-turn) and run B orientation beats (resume never re-asks; bare cwd confirms greenfield only; esc-inert menu) were witnessed live via PTY-driven TUI walkthroughs (`TESTING_FINDINGS.md` §2026-07-14 runs B/D/1D). The walkthrough caught two build gaps in the landed scope — the kick seed was posture-blind (T1) and resume-side establishment was unwired (T2) — both fixed and re-witnessed same-day (commits 1a2eaa58, 66093e86; new `CommandExecutor.establishSpecPosture`). Residual: T3 (0.x detection illegible at the dialog) logged, owner pending. The scope card (`memory/cards/spec-posture--establishment-tracer.md`) is retired; all its cards are done.
 - **Kind:** structural — new spec-row field(s) + a new establishment step in the spec creation/resume flow.
 - **Certainty:** proving — inner/middle proves the mechanism; whether the deterministic posture questions feel like orientation or like peppering (the 0.x failure mode) is still an outer-walkthrough verdict.
 - **Objective:** materialize D118-L: `origin: greenfield|brownfield` on the spec row (nullable, `db/schema.ts`), confirmed-not-defaulted `spec.kind` (D89-L; confirmed at establishment, not schema-level), and a relates-to-spec reference (A41-L validated — reference-only, no claim model; `function` confirmed as the third term). Establishment is a product-owned ask/confirm step at spec creation/resume (D109-L juncture family / workspace-dialog seam), branching on workspace-populated vs bare: populated cwd asks kind + brownfield confirm, bare cwd confirms greenfield only (the matrix's relates-to-spec ask is deferred — not yet asked interactively). Readers: kick assembly (`agents/contexts/seeds/origination.ts`), orientation-question skipping (`session/spec-establishment.ts`'s `decideSpecEstablishmentAsks`, shared by resume and create). Capture conduct (brownfield facts entering as advisory per D99-L) stays out of scope, as named in the card's cross-cutting obligations.
@@ -244,7 +244,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Name:** Workspace database identity — `brunch-v1.db` rename + fail-safe lineage
 - **Linear:** [FE-1196](https://linear.app/hash/issue/FE-1196) (Group 2 batch issue)
 - **Branch:** `ln/fe-1196-platform-debt` (serial after the active spec-posture slice — one writer per worktree; write paths are otherwise disjoint)
-- **Status:** built 2026-07-13 — D124-L/I63-L materialized; outer TESTING_PLAN run 1D witnessing still owed to FE-1196's tie-off beats (not a separate lane)
+- **Status:** ✓ built + outer-witnessed (2026-07-14) — D124-L/I63-L materialized; TESTING_PLAN run 1D witnessed against a disposable 0.x `.brunch` copy: fresh stamped `brunch-v1.db` created, 0.x bytes checksum-identical across print-mode boot and a full interactive session, detection fed the populated-cwd establishment path (`TESTING_FINDINGS.md` §2026-07-14 runs B/D/1D). Residual: T3 legibility gap (no user-visible naming of the detected 0.x db) logged, owner pending
 - **Kind:** bounded hardening — persistence-seam identity; no schema or data-model change
 - **Certainty:** earned — every mechanic is settled in D124-L; the work is materialization and deletion of incidental naming
 - **Closes:** the accidental-safety gap between the incompatible 0.x/1.x data models (filename divergence as the only guard)
@@ -559,7 +559,8 @@ group-1 (Active — walkthrough closure):
     -[gates]-> groups 2–3 (open after the auth reversal lands; then interleave)
 
 group-2 (Next — platform debt):
-  spec-posture ✓ | workspace-db-identity ✓ | headless-ask-discovery ✓ (D125-L)
+  spec-posture ✓ (outer-witnessed 2026-07-14) | workspace-db-identity ✓ (1D witnessed)
+  | headless-ask-discovery ✓ (D125-L)
   | reconciliation-derivation ✓ (frontier closed 2026-07-13)
   | compaction-and-conflict-widening (P3, design-first)
   | session-branching (design-first)
