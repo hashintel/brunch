@@ -228,6 +228,42 @@ Observation: B1 — `system-prompt.md` mirror opens with the Brunch product prea
 Expected: Card 2's outer beat (no Pi docs in the provider prompt) and the R2 mirror fix confirmed live on the auth-present fired path (Session A only witnessed skips).
 Disposition: pass — closes the Card 2 outer beat and the fired-path confirmation of R2. Remaining Session B beats: B4 (ask-cancellation, reframed into `memory/cards/walkthrough-remediation-2--cancelled-exchange-legibility.md`) and B5 (extraction breadth).
 
+### 2026-07-14 runs B/D/1D — FE-1196 tie-off walkthroughs (spec-posture + workspace-db-identity)
+
+Agent-driven TUI walkthroughs on branch `ln/fe-1196-platform-debt` (commit e72e0302) via a PTY harness (`expect` driver; cmux/agent-tui unavailable in-sandbox). Workbenches: `run-d-populated` (fake `recipe-box` project, no `.brunch/`), `run-b-bare` (empty cwd), `run-1d-legacy` (disposable copy of `~/Code/lunelson/fable/.brunch` — 0.x `brunch.db` 4K + 1.6M wal, copied 2026-07-14), and re-seeded `workspace-alpha-grounding/base`.
+
+Passes (no individual entries):
+
+- **Run D populated-cwd establishment**: new-spec flow asked kind ("What does this specification own?" — product/feature/function per D89-L/A41-L) then brownfield confirm ("Does this build on the existing code here?"), both before any agent turn; `specs` row persisted `kind=feature, origin=brownfield`; relates-to correctly not asked (D118-L narrowing). Concern 2 matrix populated branches witnessed.
+- **Resume of an established spec**: relaunch → continue went straight to the orientation menu; kind/origin never re-asked (posture read from the DB row).
+- **Bare-cwd establishment**: only the greenfield confirm fired ("Is this a fresh, greenfield specification?"), no kind ask; row persisted `product/greenfield`. D118-L bare branch witnessed.
+- **Esc-inert orientation menu**: esc at the entry menu recorded `brunch.session_orientation {choice: dismissed, trigger: entry}` with no kick fired, context at 0%; editor usable. D109-L esc-inert revision witnessed live.
+- **Run 1D fail-safe (I63-L)**: boot against the 0.x workspace created a fresh stamped `brunch-v1.db` (`application_id` 1112692273) + `workspace.json` and left `brunch.db`/`-wal`/`-shm` byte-identical (shasum before/after, across print-mode boot **and** a full interactive session incl. spec creation). No migration attempted, no destructive writes. 0.x detection fed the populated-cwd establishment path (kind + brownfield asks fired in a cwd whose only content is `.brunch/`).
+
+#### T1 · posture/capture · high · scoped
+
+Concern: posture/capture
+Evidence: `run-d-populated/.brunch/debug/entry-contents.md` after a live "Work by decision" kick (session `2026-07-14T08-11-10-802Z…`); `src/session/originate-assistant-turn.ts:216`; `src/agents/contexts/seeds/origination.ts:61,88`.
+Observation: the kick's context seed carries workspace identity, topology tree, graph facts, and the orientation directive — but no spec posture. `composeContextSeedContent` supports a `posture` input (rendered by `formatSpecPostureSeed`, unit-tested), yet the product origination path never passes it, so the seed section is dead wiring live. First agent turn opened domain-blind ("is this about a grocery store's aisles… a warehouse picker…") despite confirmed `feature/brownfield` and a README answering the question.
+Expected: PLAN spec-posture names kick assembly (`agents/contexts/seeds/origination.ts`) as a posture reader; the seed should carry confirmed kind/origin so brownfield conduct can ground itself.
+Disposition: fixed — commit 1a2eaa58 (`FE-1196: Wire spec posture into the kick seed`): posture plumbed through `OriginateAssistantTurnInput` and `LiveKickDeps` from both product callers (TUI kick context, `session.triggerExchange`). Oracles: seed-content assertions in `originate-assistant-turn.test.ts` + the juncture-level delivered-seed wiring test. Re-witnessed live 2026-07-14: post-establishment kick on `workspace-alpha-grounding` mirrors `SPEC POSTURE / kind: product / origin: brownfield` in `entry-contents.md`.
+
+#### T2 · posture/capture · high · scoped
+
+Concern: posture/capture
+Evidence: seeded `workspace-alpha-grounding` (spec created by `seed-fixtures`, `origin=NULL`); live resume flow "Continue another existing specification → Alpha Grounding → Create new session"; `src/.pi/components/workspace-dialog/model.ts:85` (only caller of `decideSpecEstablishmentAsks` is `nextStageAfterTitle`, a create-path helper); `src/session/workspace-session-coordinator.ts:111-113`.
+Observation: resuming a posture-unestablished spec fired no establishment asks — straight to the orientation menu; `origin` stayed NULL after the session. The coordinator's doc comment and `spec-establishment.ts` both document "establishment step at next resume", and TESTING_PLAN Concern 2 marks this ✅, but no resume-path dialog stage invokes the decision function; it is inner-tested only.
+Expected: a spec created outside the dialog (seed/RPC) gets the establishment step once at next resume (D118-L covers creation *and* resume).
+Disposition: fixed — commit 66093e86 (`FE-1196: Fire the establishment step on resume of an unestablished spec`): the dialog's three resume emits route through establishment stages when the target spec is unestablished, the held decision fires with an `establish` payload, and the new establish-once `CommandExecutor.establishSpecPosture` applies it before binding (already-established specs refuse — never re-asked, never clobbered). Oracles: command-executor establish-once tests, coordinator establish-payload tests, dialog-model routing tests; Concern 2 annotation corrected in `TESTING_PLAN.md`. Re-witnessed live 2026-07-14: re-seeded `Alpha Grounding` (origin NULL) got kind + origin asks at resume and persisted `product/brownfield`.
+
+#### T3 · onboarding · medium · logged
+
+Concern: onboarding
+Evidence: run-1d-legacy walkthrough 2026-07-14; print-mode boot output and the establishment dialog wording.
+Observation: the detected 0.x database is never named to the user. Print-mode boot surfaced nothing; the interactive path silently flips the workspace to "populated" and asks the generic "Does this build on the existing code here?" — in a cwd containing no code at all, only the legacy db. Fail-safe behavior is correct (see run 1D pass above) but illegible: nothing tells the user a 0.x database was found, won't be opened, and won't be migrated.
+Expected: TESTING_PLAN 1D asks for a legible message when migration is unsupported; D124-L's detection-as-posture-evidence deserves one user-visible sentence at the establishment ask (or a boot notice) naming the 0.x file and its disposition.
+Disposition: logged — owner: FE-1196 tie-off (this branch) if a one-line dialog-copy surfacing is accepted as in-scope; otherwise promote to a Group 4 cleanup row. Cost: small (copy + one dialog-model input); value: prevents silent-confusion for every 0.x upgrader.
+
 Use future entries like:
 
 ```md
