@@ -410,9 +410,14 @@ async function collectMultiChoiceViaLiveAsk(
     return terminal(params, question, 'unavailable', 'ask choices requires at least one selection');
   }
   const choices: SelectedChoice[] = [];
+  const selectedIds = new Set<string>();
   for (const id of ids) {
     const option = params.options.find((candidate) => candidate.id === id);
     if (!option) return terminal(params, question, 'unavailable', `ask received unknown option id ${id}`);
+    if (selectedIds.has(id)) {
+      return terminal(params, question, 'unavailable', `ask received duplicate option id ${id}`);
+    }
+    selectedIds.add(id);
     choices.push({ id: option.id, label: option.label, kind: 'listed' });
   }
   return result(

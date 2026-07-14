@@ -120,6 +120,27 @@ describe('headless ask discovery + broker answering', () => {
     });
   });
 
+  it('rejects duplicate headless multi-select option ids as unavailable', async () => {
+    const registry = createLiveAskRegistry();
+    const done = runHeadlessAsk(registry, {
+      exchangeId: 'duplicate-multi',
+      body: 'Pick all that apply',
+      multiple: true,
+      options: [
+        { id: 'a', label: 'Alpha' },
+        { id: 'b', label: 'Beta' },
+      ],
+    });
+    await tick();
+
+    registry.answerer.submitAnswer({ exchangeId: 'duplicate-multi', answer: 'a,a' });
+
+    expect(zAskDetails.parse((await done).details)).toMatchObject({
+      exchange_id: 'duplicate-multi',
+      unavailable: { message: expect.stringContaining('duplicate option id a') },
+    });
+  });
+
   it('mints a digest carrier only for the canonical confirmation selection', async () => {
     const digest = projectPresentDigest({
       exchangeId: 'digest-final',
