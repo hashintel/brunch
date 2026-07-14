@@ -120,26 +120,6 @@ describe('structured exchange loop helpers', () => {
     expect(JSON.stringify(accepted)).not.toContain('present_question');
   });
 
-  it('rejects non-candidate single-select answers instead of minting retired present vocabulary', () => {
-    const pending = {
-      ...nextDeterministicStructuredExchange(0),
-      respondsToPresentTool: 'present_question',
-    } satisfies PendingStructuredExchange;
-
-    const accepted = acceptedResponseFromParams(pending, {
-      exchangeId: pending.exchangeId,
-      answer: { optionId: 'new-from-scratch' },
-      note: 'This legacy question should not be relabeled.',
-    });
-
-    expect(accepted).toEqual({
-      ok: false,
-      message:
-        'Single-select answers are only supported for present_candidates or standalone ask; got present_question',
-    });
-    expect(JSON.stringify(accepted)).not.toContain('request_choice');
-  });
-
   it('rejects single-select Other or None without a comment', () => {
     const pending = {
       ...nextDeterministicStructuredExchange(0),
@@ -491,70 +471,6 @@ describe('structured exchange loop helpers', () => {
           },
         },
       },
-    });
-  });
-
-  it('reconstructs pending options from canonical structured present details', () => {
-    const envelope: BrunchSessionEnvelope = {
-      header: header as unknown as BrunchSessionEnvelope['header'],
-      binding,
-      entries: [
-        header,
-        bindingEntry,
-        {
-          id: 'present-options-1',
-          type: 'message',
-          parentId: 'binding-1',
-          timestamp: 0,
-          message: {
-            role: 'toolResult',
-            toolCallId: 'present-call-1',
-            toolName: 'present_question',
-            content: [
-              {
-                type: 'text',
-                text: [
-                  '# Choose proof quality',
-                  '',
-                  '## 1. Transcript fidelity',
-                  '',
-                  '**Rationale:** Pi JSONL keeps truth recoverable.',
-                ].join('\n'),
-              },
-            ],
-            details: {
-              schema: 'brunch.structured_exchange.present',
-              v: 1,
-              exchange_id: 'quality',
-              tool_meta: { curr: 'present_question', next: 'request_response' },
-              response_kind: 'choice',
-              display: { heading: 'Choose proof quality' },
-              options: [
-                {
-                  id: 'transcript',
-                  content: 'Transcript fidelity',
-                  rationale: 'Pi JSONL keeps truth recoverable.',
-                },
-              ],
-            },
-            isError: false,
-          },
-        },
-      ] as unknown as BrunchSessionEnvelope['entries'],
-    };
-
-    expect(pendingExchangeFromEnvelope(envelope)).toMatchObject({
-      exchangeId: 'quality',
-      mode: 'single-select',
-      prompt: 'Choose proof quality',
-      options: [
-        {
-          id: 'transcript',
-          label: 'Transcript fidelity',
-          content: 'Transcript fidelity',
-          rationale: 'Pi JSONL keeps truth recoverable.',
-        },
-      ],
     });
   });
 

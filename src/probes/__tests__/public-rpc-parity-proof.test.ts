@@ -29,11 +29,11 @@ describe('public Brunch RPC structured-exchange parity proof', () => {
       sessionId: expect.any(String),
     });
     expect(Date.parse(report.generatedAt)).not.toBeNaN();
-    expect(report.toolCoverage).toEqual(['ask', 'present_question', 'request_answer']);
+    expect(report.toolCoverage).toEqual(['ask', 'present_candidates']);
     expect(report.exchangeIds).toEqual([
-      'deterministic-grounding-choice-1',
-      'deterministic-grounding-text-2',
-      'deterministic-grounding-multi-3',
+      'deterministic-candidate-1',
+      'deterministic-candidate-2',
+      'deterministic-candidate-3',
     ]);
     expect(new Set(report.exchangeIds).size).toBe(3);
     expect(report.artifacts).toBeUndefined();
@@ -67,6 +67,7 @@ describe('public Brunch RPC structured-exchange parity proof', () => {
     expect(JSON.stringify(persistedReport.artifacts)).not.toContain(fixtureRoot);
     expect(persistedReport.cwd).toBe('<ephemeral-workspace>');
 
+    expect(sessionJsonl).toContain('"toolName":"present_candidates"');
     expect(sessionJsonl).toContain('"toolName":"ask"');
     expect(persistedReport).toMatchObject({
       schemaVersion: 1,

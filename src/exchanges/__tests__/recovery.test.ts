@@ -54,6 +54,11 @@ describe('findIncompleteStructuredExchangePresents', () => {
       ]),
     ).toEqual([
       {
+        entry: danglingQuestion,
+        details: danglingQuestion.message?.details,
+        continuationTool: 'ask',
+      },
+      {
         entry: danglingDigest,
         details: danglingDigest.message?.details,
         continuationTool: 'ask',

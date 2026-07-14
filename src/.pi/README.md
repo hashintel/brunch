@@ -48,10 +48,6 @@ From `src/.pi/extensions/exchanges/`:
 - `present_digest`
 - `present_review_set`
 
-Legacy persisted transcript vocabulary (read support only, not active registration):
-
-- `present_question`
-
 ### Alternatives card tool
 Registered from `src/.pi/components/alternatives.ts`:
 

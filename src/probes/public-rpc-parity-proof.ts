@@ -2,12 +2,75 @@ import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
+import { SessionManager } from '@earendil-works/pi-coding-agent';
+
+import { formatPresentCandidates } from '../agents/contexts/exchanges/present-candidates.js';
+import { projectPresentCandidates } from '../exchanges/projections/present-candidates.js';
 import { createRpcHandlers } from '../rpc/handlers.js';
+import { flushSessionManagerToFile } from '../session/flush-session-manager.js';
+import { syntheticExchangeToolCallMessage } from '../session/structured-exchange-loop.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
-import { mintDeterministicExchangeIntoSessionFile } from './deterministic-exchange-script.js';
 import { assertPortableRunId, portableCwd } from './portable-report.js';
 
 const PUBLIC_RPC_PARITY_PERMUTATION_COUNT = 3;
+
+function mintActiveCandidateExchange(sessionFile: string, completedCount: number): PendingExchange {
+  const turnNumber = completedCount + 1;
+  const exchangeId = `deterministic-candidate-${turnNumber}`;
+  const projection = projectPresentCandidates({
+    exchangeId,
+    heading: `Choose parity candidate ${turnNumber}`,
+    body: 'Exercise the active present_candidates → ask grammar through public RPC.',
+    candidates: [
+      {
+        id: `candidate-${turnNumber}`,
+        title: `Parity candidate ${turnNumber}`,
+        user_rubric: {
+          core_bet: 'Drive the active candidate settlement path.',
+          best_fit: 'Public RPC parity verification.',
+          cost_complexity: 'One deterministic transcript exchange.',
+          covers_well: 'Present readback and ask settlement.',
+          main_risks: 'Does not cover retired question vocabulary.',
+          lock_in_constraints: 'Uses the active exchange grammar.',
+          recommendation: 'Select this deterministic candidate.',
+        },
+        meta_rubric: {
+          legibility_cost_of_knowing: 'Easy to inspect.',
+          failure_modes: 'Schema drift fails transcript readback.',
+          coverage_range: 'Public RPC exchange parity.',
+          commitment: 'Fixture state only.',
+        },
+        graph_refs: [],
+      },
+    ],
+  });
+  const call = syntheticExchangeToolCallMessage(exchangeId, 'present_candidates');
+  const manager = SessionManager.open(sessionFile);
+  manager.appendMessage(call as never);
+  manager.appendMessage({
+    role: 'toolResult',
+    toolCallId: call.content[0].id,
+    toolName: 'present_candidates',
+    content: [{ type: 'text', text: formatPresentCandidates(projection) }],
+    details: projection.details,
+    isError: false,
+    timestamp: 0,
+  } as never);
+  flushSessionManagerToFile(manager, sessionFile);
+  return {
+    exchangeId,
+    mode: 'single-select',
+    prompt: projection.heading,
+    options: [
+      {
+        id: `candidate-${turnNumber}`,
+        label: `Parity candidate ${turnNumber}`,
+        content: `Parity candidate ${turnNumber}`,
+        rationale: 'Select this deterministic candidate.',
+      },
+    ],
+  };
+}
 
 interface JsonRpcSuccess<T> {
   jsonrpc: '2.0';
@@ -219,7 +282,7 @@ export async function runPublicRpcParityProof(
     // exchange — the probe stands in for the assistant-authored offer by
     // minting the permutation's present pair directly into the transcript,
     // then drives readback + response through the public RPC surface only.
-    const minted = mintDeterministicExchangeIntoSessionFile(workspace.session.file, turn);
+    const minted = mintActiveCandidateExchange(workspace.session.file, turn);
     const started = success<PendingResult>(
       await handlers.handle({
         jsonrpc: '2.0',

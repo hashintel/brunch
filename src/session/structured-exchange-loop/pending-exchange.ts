@@ -31,9 +31,7 @@ export const zPendingStructuredExchange = z
     // cannot be inferred from mode alone. Candidate lists and prompt option
     // lists both answer via request_choice; review-set and digest both answer
     // via request_review.
-    respondsToPresentTool: z
-      .enum(['present_question', 'present_candidates', 'present_review_set', 'present_digest'])
-      .optional(),
+    respondsToPresentTool: z.enum(['present_candidates', 'present_review_set', 'present_digest']).optional(),
   })
   .strict();
 export const PendingStructuredExchangeSchema = z.toJSONSchema(zPendingStructuredExchange, {
@@ -77,7 +75,8 @@ export function pendingExchangeFromEnvelope(
     const details = structuredExchangePresentDetails(entry);
     if (!details) continue;
     const text = textContent((entry as { message: { content?: unknown } }).message.content);
-    return pendingExchangeFromStructuredPresent(details, text);
+    const pending = pendingExchangeFromStructuredPresent(details, text);
+    if (pending) return pending;
   }
 
   return null;
@@ -96,7 +95,7 @@ export function projectPendingStructuredExchange(
 function pendingExchangeFromStructuredPresent(
   details: PresentDetails,
   markdown: string,
-): PendingStructuredExchange {
+): PendingStructuredExchange | undefined {
   const prompt = details.display.heading;
   const detailsText = presentDetailsText(details, markdown);
   if ('review_set' in details) {
@@ -140,25 +139,7 @@ function pendingExchangeFromStructuredPresent(
     };
   }
 
-  const mode = promptMode(details);
-
-  return {
-    exchangeId: details.exchange_id,
-    lens: 'intent',
-    mode,
-    prompt,
-    ...(detailsText.length > 0 ? { details: detailsText } : {}),
-    options: pendingOptionsFromDetails(details, markdown),
-    note: { allowed: true },
-  };
-}
-
-function promptMode(details: PresentDetails): PendingStructuredExchange['mode'] {
-  if (details.tool_meta.curr !== 'present_question') return 'single-select';
-  const responseKind = (details as { response_kind: 'answer' | 'choice' | 'choices' }).response_kind;
-  if (responseKind === 'answer') return 'text';
-  if (responseKind === 'choices') return 'multi-select';
-  return 'single-select';
+  return undefined;
 }
 
 function presentDetailsText(details: PresentDetails, markdown: string): string {
@@ -182,36 +163,6 @@ function pendingOptionsFromContinuation(
   }
   if ('candidates' in details) return parsePendingCandidates(details.candidates);
   return [];
-}
-
-function pendingOptionsFromDetails(details: PresentDetails, markdown: string): PendingChoice[] {
-  if ('options' in details) return parsePendingOptions(details.options, markdown);
-  if ('candidates' in details) return parsePendingCandidates(details.candidates, markdown);
-  return parsePendingOptions(undefined, markdown);
-}
-
-function parsePendingOptions(value: unknown, markdown: string = ''): PendingChoice[] {
-  if (!Array.isArray(value)) return parseMarkdownPendingOptions(markdown);
-  const options = value.flatMap((option) => {
-    if (typeof option !== 'object' || option === null) return [];
-    const id = (option as { id?: unknown }).id;
-    const label = (option as { label?: unknown }).label;
-    const content = (option as { content?: unknown }).content;
-    const rationale = (option as { rationale?: unknown }).rationale;
-    if (typeof id !== 'string') return [];
-    const optionContent =
-      typeof content === 'string' ? content : typeof label === 'string' ? label : undefined;
-    if (optionContent === undefined) return [];
-    return [
-      {
-        id,
-        label: typeof label === 'string' ? label : optionContent,
-        content: optionContent,
-        ...(typeof rationale === 'string' ? { rationale } : {}),
-      },
-    ];
-  });
-  return options.length > 0 ? options : parseMarkdownPendingOptions(markdown);
 }
 
 function parsePendingCandidates(value: unknown, markdown: string = ''): PendingChoice[] {
