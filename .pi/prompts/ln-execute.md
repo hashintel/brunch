@@ -3,7 +3,7 @@ description: Coordinate scoped work for a plan frontier or current concern throu
 argument-hint: "[frontier-id | scope-file-path | concern]"
 ---
 
-Act as the coordinator, scoper, and reviewer for execution focus: ${1:-infer from the current concern}
+Act as the coordinator, scoper, and reviewer for execution focus: ${@:-infer from the current concern}
 
 A focus may be:
 
