@@ -281,10 +281,14 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
 
     // Resume-side establishment (D118-L): apply the dialog's confirmed
     // posture before binding, only while the spec is still unestablished.
-    const specState =
-      decision.establish && spec.spec.origin === null
-        ? await establishSpecPostureState(this.#cwd, spec.spec.id, decision.establish)
-        : spec.spec;
+    let specState = spec.spec;
+    if (decision.establish && spec.spec.origin === null) {
+      const establishment = await establishSpecPostureState(this.#cwd, spec.spec.id, decision.establish);
+      if (establishment.status === 'structural_illegal') {
+        return needsHumanState(this.#cwd, spec.spec, establishment.reason, inventory.project);
+      }
+      specState = establishment.spec;
+    }
 
     if (decision.action === 'newSession') {
       const session = await createBoundSession(this.#cwd, specState);
@@ -412,29 +416,42 @@ async function createSpec(
   return specStateFromRecord(spec);
 }
 
-/**
- * Apply a resume-side establishment payload (D118-L) and return the fresh
- * spec state. A concurrent establishment between inventory read and this
- * write loses harmlessly: the command refuses, and the read-back reflects
- * whichever posture landed first.
- */
+/** Apply a resume-side establishment payload (D118-L), stopping on rejection. */
 async function establishSpecPostureState(
   cwd: string,
   specId: number,
   establish: SpecPostureEstablishPayload,
-): Promise<WorkspaceSpecState> {
+): Promise<
+  { status: 'success'; spec: WorkspaceSpecState } | { status: 'structural_illegal'; reason: string }
+> {
   const executor = await openWorkspaceCommandExecutor(cwd);
-  executor.establishSpecPosture({
+  const result = executor.establishSpecPosture({
     specId,
     origin: establish.origin,
     ...(establish.kind !== undefined ? { kind: establish.kind } : {}),
     ...(establish.relatesToSpecId !== undefined ? { relatesToSpecId: establish.relatesToSpecId } : {}),
   });
-  const spec = executor.getSpec(specId);
-  if (!spec) {
-    throw new Error('Unable to read back the spec after posture establishment');
+
+  switch (result.status) {
+    case 'structural_illegal':
+      return {
+        status: result.status,
+        reason: `Posture establishment was rejected: ${result.diagnostics.map((diagnostic) => diagnostic.message).join(', ')}`,
+      };
+    case 'success': {
+      const spec = executor.getSpec(specId);
+      if (!spec) {
+        throw new Error('Unable to read back the spec after posture establishment');
+      }
+      return { status: result.status, spec: specStateFromRecord(spec) };
+    }
+    default:
+      return assertNeverEstablishSpecPostureResult(result);
   }
-  return specStateFromRecord(spec);
+}
+
+function assertNeverEstablishSpecPostureResult(result: never): never {
+  throw new Error(`Unhandled posture establishment result: ${JSON.stringify(result)}`);
 }
 
 async function getSpecState(cwd: string, specId: number): Promise<WorkspaceSpecState | null> {

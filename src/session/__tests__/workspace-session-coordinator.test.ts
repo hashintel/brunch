@@ -3,9 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { SessionManager, type SessionEntry } from '@earendil-works/pi-coding-agent';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { openWorkspaceCommandExecutor } from '../../graph/index.js';
+import { CommandExecutor, openWorkspaceCommandExecutor } from '../../graph/index.js';
 import { assistantMessage, userMessage, isCustomEntry } from '../../probes/test-helpers.js';
 import { projectSessionExchanges } from '../exchange-projection.js';
 import { SESSION_BINDING_TYPE } from '../session-binding.js';
@@ -369,6 +369,40 @@ describe('WorkspaceSessionCoordinator', () => {
     if (activated.status !== 'ready') return;
     expect(activated.spec).toMatchObject({ kind: 'feature', origin: 'brownfield' });
     expect(executor.getSpec(seeded.specId)).toMatchObject({ kind: 'feature', origin: 'brownfield' });
+  });
+
+  it('stops activation when resume-side posture establishment is rejected', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
+    const executor = await openWorkspaceCommandExecutor(cwd);
+    const seeded = executor.createSpec({ name: 'Seeded', slug: 'seeded' });
+    expect(seeded.status).toBe('success');
+    if (seeded.status !== 'success') return;
+
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const before = await coordinator.inspectWorkspace();
+    const beforeDefaults = await readFile(join(cwd, '.brunch', 'workspace.json'), 'utf8');
+    const rejection = vi.spyOn(CommandExecutor.prototype, 'establishSpecPosture').mockReturnValue({
+      status: 'structural_illegal',
+      diagnostics: [{ field: 'origin', message: 'posture changed concurrently' }],
+    });
+
+    try {
+      const activated = await coordinator.activateWorkspace({
+        action: 'newSession',
+        specId: seeded.specId,
+        establish: { kind: 'feature', origin: 'brownfield' },
+      });
+
+      expect(activated).toMatchObject({
+        status: 'needs_human',
+        reason: expect.stringMatching(/posture establishment.*posture changed concurrently/iu),
+      });
+      expect(executor.getSpec(seeded.specId)).toMatchObject({ kind: 'product', origin: null });
+      expect((await coordinator.inspectWorkspace()).specs).toEqual(before.specs);
+      await expect(readFile(join(cwd, '.brunch', 'workspace.json'), 'utf8')).resolves.toBe(beforeDefaults);
+    } finally {
+      rejection.mockRestore();
+    }
   });
 
   it('ignores an establish payload on an already-established spec (never re-asked, never clobbered)', async () => {
