@@ -10,10 +10,10 @@ import {
 } from '../../../exchanges/projections/ask.js';
 import { resolveEligibleDigestAcceptance } from '../../../exchanges/recovery.js';
 import {
+  parseAskParams,
   zAskParams,
   type AskContinuationParams,
   type AskQuestionEcho,
-  type ContinuingAskParams,
   type QuestionnaireAnswer,
   type QuestionnaireQuestion,
   zQuestionnaireAnswersFor,
@@ -23,7 +23,7 @@ import {
 } from '../../../exchanges/schemas/index.js';
 import { normalizeOptionalUnknownText } from '../../../exchanges/text.js';
 import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
-import type { LiveAskOpener, OpenAskMode } from '../../../session/live-ask-registry.js';
+import type { LiveAskOpener } from '../../../session/live-ask-registry.js';
 import { ExchangeAnswerEditorComponent } from '../../components/exchange-answer-editor.js';
 import { createExchangeDecisionPickerComponent } from '../../components/exchange-decision-picker.js';
 import { ExchangeQuestionnaireComponent } from '../../components/exchange-questionnaire.js';
@@ -234,17 +234,8 @@ async function collectFreeTextViaLiveAsk(
   liveAsk: LiveAskOpener | undefined,
 ): Promise<FreeTextCollectionResult> {
   if (!liveAsk) return { status: 'try-next' };
-  const answer = await openLiveAsk(params, question, 'text', liveAsk);
+  const answer = await liveAsk.openAsk({ exchangeId: params.exchangeId, mode: 'text', question });
   return answer === undefined ? { status: 'cancelled' } : { status: 'answered', answer };
-}
-
-function openLiveAsk(
-  params: CollectableAskParams,
-  question: AskQuestionEcho,
-  mode: OpenAskMode,
-  liveAsk: LiveAskOpener,
-): Promise<string | undefined> {
-  return liveAsk.openAsk({ exchangeId: params.exchangeId, mode, question });
 }
 
 async function collectSingleChoice(
@@ -274,7 +265,7 @@ async function collectSingleChoiceViaLiveAsk(
   question: AskQuestionEcho,
   liveAsk: LiveAskOpener,
 ): Promise<ToolResult> {
-  const answer = await openLiveAsk(params, question, 'single-select', liveAsk);
+  const answer = await liveAsk.openAsk({ exchangeId: params.exchangeId, mode: 'single-select', question });
   if (answer === undefined) return terminal(params, question, 'cancelled');
   const option = params.options.find((candidate) => candidate.id === answer);
   if (!option) return terminal(params, question, 'unavailable', `ask received unknown option id ${answer}`);
@@ -396,7 +387,7 @@ async function collectMultiChoiceViaLiveAsk(
   question: AskQuestionEcho,
   liveAsk: LiveAskOpener,
 ): Promise<ToolResult> {
-  const answer = await openLiveAsk(params, question, 'multi-select', liveAsk);
+  const answer = await liveAsk.openAsk({ exchangeId: params.exchangeId, mode: 'multi-select', question });
   if (answer === undefined) return terminal(params, question, 'cancelled');
   const ids = answer
     .split(/[,\n]/)
@@ -553,30 +544,16 @@ async function collectMultiChoiceViaEditor(
   return terminal(params, question, 'unavailable', details.unavailable.message);
 }
 
-type ParsedAskParams = ReturnType<typeof zAskParams.parse>;
-
-function isContinuingAskParams(params: ParsedAskParams): params is ContinuingAskParams {
-  return typeof params.continues === 'string';
+function isQuestionnaireAsk(params: StandaloneAskParams): params is QuestionnaireAskParams {
+  return params.acceptsDigest !== undefined && params.questions !== undefined;
 }
 
-function standaloneAskParams(
-  params: ParsedAskParams,
-): OrdinaryStandaloneAskParams | QuestionnaireAskParams | DigestConfirmationAskParams {
-  if (!params.exchangeId || (!params.body && !params.questions))
-    throw new Error('validated standalone ask is missing payload');
-  return {
-    exchangeId: params.exchangeId,
-    body: params.body ?? 'Questionnaire',
-    ...(params.acceptsDigest !== undefined ? { acceptsDigest: params.acceptsDigest } : {}),
-    ...(params.questions !== undefined ? { questions: params.questions } : {}),
-    ...(params.options !== undefined ? { options: params.options } : {}),
-    ...(params.multiple !== undefined ? { multiple: params.multiple } : {}),
-    ...(params.allowOther !== undefined ? { allowOther: params.allowOther } : {}),
-    ...(params.allowNone !== undefined ? { allowNone: params.allowNone } : {}),
-    ...(params.commentPrompt !== undefined ? { commentPrompt: params.commentPrompt } : {}),
-    ...(params.topLabel !== undefined ? { topLabel: params.topLabel } : {}),
-    ...(params.bottomLabel !== undefined ? { bottomLabel: params.bottomLabel } : {}),
-  } as OrdinaryStandaloneAskParams | QuestionnaireAskParams | DigestConfirmationAskParams;
+function isDigestConfirmationAsk(params: StandaloneAskParams): params is DigestConfirmationAskParams {
+  return params.acceptsDigest !== undefined && params.questions === undefined && params.options !== undefined;
+}
+
+function isOrdinaryStandaloneAsk(params: StandaloneAskParams): params is OrdinaryStandaloneAskParams {
+  return params.acceptsDigest === undefined && params.questions === undefined;
 }
 
 async function collectDigestQuestionnaire(
@@ -714,23 +691,20 @@ export function createAskTool(liveAsk?: LiveAskOpener, reviewDeps?: ReviewSetStr
     executionMode: 'sequential',
 
     async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
-      const parsed = zAskParams.safeParse(rawParams);
+      const parsed = parseAskParams(rawParams);
       if (!parsed.success) return validationFailureResult(ASK_TOOL, parsed.error);
       const params = parsed.data;
       const uiCtx = ctx as unknown as StructuredExchangeUiContext;
-      if (isContinuingAskParams(params)) return collectContinuingAsk(params, uiCtx, liveAsk, reviewDeps);
-      const standalone = standaloneAskParams(params);
-      const collected =
-        standalone.acceptsDigest && standalone.questions
-          ? await collectDigestQuestionnaire(standalone as QuestionnaireAskParams, uiCtx, liveAsk)
-          : standalone.acceptsDigest
-            ? await collectDigestConfirmation(standalone as DigestConfirmationAskParams, uiCtx, liveAsk)
-            : await collectAskResponse(
-                standalone as OrdinaryStandaloneAskParams,
-                askQuestionEcho(standalone),
-                uiCtx,
-                liveAsk,
-              );
+      if ('continues' in params) return collectContinuingAsk(params, uiCtx, liveAsk, reviewDeps);
+      const collected = isQuestionnaireAsk(params)
+        ? await collectDigestQuestionnaire(params, uiCtx, liveAsk)
+        : isDigestConfirmationAsk(params)
+          ? await collectDigestConfirmation(params, uiCtx, liveAsk)
+          : isOrdinaryStandaloneAsk(params)
+            ? await collectAskResponse(params, askQuestionEcho(params), uiCtx, liveAsk)
+            : (() => {
+                throw new Error('parsed ask parameters do not describe a runtime variant');
+              })();
       notifyStandaloneAskCancellation(collected, uiCtx);
       return collected;
     },

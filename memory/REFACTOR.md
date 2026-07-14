@@ -96,7 +96,7 @@ Alternatives considered and rejected:
 ## Commits
 
 1. [done] Restore the green baseline by moving the physical-line transcript assertion to the active all-history diagnostic renderer and run the full verification gate.
-2. Collapse duplicated ask parameter fields and validation into one provider-legal object-schema definition, add a typed runtime parser that returns the real standalone or continuation variants, remove the assertions, and inline the forwarding-only live-ask helper.
+2. [done] Collapse duplicated ask parameter fields and validation into one provider-legal object-schema definition, add a typed runtime parser that returns the real standalone or continuation variants, remove the assertions, and inline the forwarding-only live-ask helper.
 3. Introduce one schema-owned questionnaire submission envelope and route both editor and registry parsing through it without changing terminal behavior.
 4. Make coordinator-produced spec posture and workspace-population facts required, split the narrow chrome identity from complete spec state, and update fixtures and previews to derive from the complete contract.
 5. Carry the graph-owned diagnostic type through shared settlement and RPC results, then inline the sole-use origin-flip expression.

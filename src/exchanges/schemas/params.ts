@@ -44,9 +44,13 @@ const zAskLabels = z
   })
   .strict();
 
-export const zStandaloneAskParams = zAskLabels
+const zAskParamObject = zAskLabels
   .extend({
-    exchangeId: z.string().min(1).describe('Stable id for this one-shot ask result.'),
+    exchangeId: z
+      .string()
+      .min(1)
+      .describe('Stable id for this one-shot ask result. Omit when continuing an offer by reference.')
+      .optional(),
     acceptsDigest: z
       .string()
       .min(1)
@@ -75,71 +79,6 @@ export const zStandaloneAskParams = zAskLabels
         'Prompt for an optional trailing comment; omit to skip the optional-comment step. Comments the response schema requires (Other/None selections) are always collected.',
       )
       .optional(),
-  })
-  .strict()
-  .superRefine((params, ctx) => {
-    if (!params.body && !params.questions)
-      ctx.addIssue({ code: 'custom', path: ['body'], message: 'standalone ask requires body or questions' });
-    if (params.acceptsDigest && !params.questions) {
-      const ids = params.options?.map((option) => option.id);
-      if (
-        !params.body ||
-        params.multiple ||
-        params.allowOther ||
-        params.allowNone ||
-        params.commentPrompt ||
-        ids?.length !== 2 ||
-        ids[0] !== 'confirm' ||
-        ids[1] !== 'revise'
-      ) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['acceptsDigest'],
-          message: 'digest confirmation requires exactly the confirm and revise single-select options',
-        });
-      }
-    }
-    if (params.questions && (params.options || params.multiple || params.allowOther || params.allowNone)) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['questions'],
-        message: 'questionnaire cannot use top-level option controls',
-      });
-    }
-  });
-export type StandaloneAskParams = z.infer<typeof zStandaloneAskParams>;
-
-export const zContinuingAskParams = z
-  .object({
-    continues: z
-      .string()
-      .min(1)
-      .describe('Exchange id of an offer whose details declare the ask payload to collect.'),
-    preface: z
-      .string()
-      .trim()
-      .min(1, 'markdown cannot be empty')
-      .describe(
-        'Optional model-authored preface for a reference-based continuation; not part of the payload.',
-      )
-      .optional(),
-  })
-  .strict();
-export type ContinuingAskParams = z.infer<typeof zContinuingAskParams>;
-
-export const zAskParams = zAskLabels
-  .extend({
-    acceptsDigest: z
-      .string()
-      .min(1)
-      .describe('Referenced present_digest exchange accepted by this questionnaire.')
-      .optional(),
-    questions: zQuestionnaireQuestions.describe('Fixed ordered bounded questionnaire.').optional(),
-    exchangeId: z
-      .string()
-      .min(1)
-      .describe('Stable id for this one-shot ask result. Omit when continuing an offer by reference.')
-      .optional(),
     continues: z
       .string()
       .min(1)
@@ -153,90 +92,107 @@ export const zAskParams = zAskLabels
         'Optional model-authored preface for a reference-based continuation; not part of the payload.',
       )
       .optional(),
-    body: z
-      .string()
-      .trim()
-      .min(1, 'markdown cannot be empty')
-      .describe('Markdown question body rendered and persisted with the answer.')
-      .optional(),
-    options: z
-      .array(zAskOptionParam)
-      .min(1)
-      .describe('Finite response options. Omit for a free-text answer.')
-      .optional(),
-    multiple: z.boolean().describe('When options are present, allow one-or-more selections.').optional(),
-    allowOther: z.boolean().describe('Whether the user may choose Other for option responses.').optional(),
-    allowNone: z.boolean().describe('Whether the user may choose None for option responses.').optional(),
-    commentPrompt: z
-      .string()
-      .trim()
-      .min(1, 'markdown cannot be empty')
-      .describe(
-        'Prompt for an optional trailing comment; omit to skip the optional-comment step. Comments the response schema requires (Other/None selections) are always collected.',
-      )
-      .optional(),
   })
-  .strict()
-  .superRefine((params, ctx) => {
-    if (params.continues) {
-      const modelAuthoredPayloadKeys = [
-        'exchangeId',
-        'body',
-        'options',
-        'multiple',
-        'allowOther',
-        'allowNone',
-        'commentPrompt',
-        'topLabel',
-        'bottomLabel',
-        'acceptsDigest',
-        'questions',
-      ] as const;
-      for (const key of modelAuthoredPayloadKeys) {
-        if (params[key] !== undefined) {
-          ctx.addIssue({
-            code: 'custom',
-            path: [key],
-            message: 'continuing ask payload is declared by the referenced offer',
-          });
-        }
-      }
-      return;
+  .strict();
+
+const zStandaloneAskObject = zAskParamObject
+  .omit({ continues: true, preface: true })
+  .extend({ exchangeId: zAskParamObject.shape.exchangeId.unwrap() });
+
+function validateStandaloneAsk(
+  params: z.infer<typeof zStandaloneAskObject>,
+  ctx: {
+    addIssue(issue: { code: 'custom'; path: PropertyKey[]; message: string }): void;
+  },
+): void {
+  if (!params.body && !params.questions)
+    ctx.addIssue({ code: 'custom', path: ['body'], message: 'standalone ask requires body or questions' });
+  if (params.questions && !params.acceptsDigest) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['questions'],
+      message: 'questionnaire ask requires acceptsDigest',
+    });
+  }
+  if (params.acceptsDigest && !params.questions) {
+    const ids = params.options?.map((option) => option.id);
+    if (
+      !params.body ||
+      params.multiple ||
+      params.allowOther ||
+      params.allowNone ||
+      params.commentPrompt ||
+      ids?.length !== 2 ||
+      ids[0] !== 'confirm' ||
+      ids[1] !== 'revise'
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['acceptsDigest'],
+        message: 'digest confirmation requires exactly the confirm and revise single-select options',
+      });
     }
-    if (!params.exchangeId) {
-      ctx.addIssue({ code: 'custom', path: ['exchangeId'], message: 'standalone ask requires exchangeId' });
-    }
-    if (!params.body && !params.questions) {
-      ctx.addIssue({ code: 'custom', path: ['body'], message: 'standalone ask requires body or questions' });
-    }
-    if (params.acceptsDigest && !params.questions) {
-      const ids = params.options?.map((option) => option.id);
-      if (
-        !params.body ||
-        params.multiple ||
-        params.allowOther ||
-        params.allowNone ||
-        params.commentPrompt ||
-        ids?.length !== 2 ||
-        ids[0] !== 'confirm' ||
-        ids[1] !== 'revise'
-      ) {
+  }
+  if (params.questions && (params.options || params.multiple || params.allowOther || params.allowNone)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['questions'],
+      message: 'questionnaire cannot use top-level option controls',
+    });
+  }
+}
+
+export const zStandaloneAskParams = zStandaloneAskObject
+  .superRefine(validateStandaloneAsk)
+  .transform((params) => ({ ...params, body: params.body ?? 'Questionnaire' }));
+export type StandaloneAskParams = z.infer<typeof zStandaloneAskParams>;
+
+export const zContinuingAskParams = zAskParamObject
+  .pick({ continues: true, preface: true })
+  .extend({ continues: zAskParamObject.shape.continues.unwrap() });
+export type ContinuingAskParams = z.infer<typeof zContinuingAskParams>;
+
+export const zAskParams = zAskParamObject.superRefine((params, ctx) => {
+  if (params.continues) {
+    const modelAuthoredPayloadKeys = [
+      'exchangeId',
+      'body',
+      'options',
+      'multiple',
+      'allowOther',
+      'allowNone',
+      'commentPrompt',
+      'topLabel',
+      'bottomLabel',
+      'acceptsDigest',
+      'questions',
+    ] as const;
+    for (const key of modelAuthoredPayloadKeys) {
+      if (params[key] !== undefined) {
         ctx.addIssue({
           code: 'custom',
-          path: ['acceptsDigest'],
-          message: 'digest confirmation requires exactly the confirm and revise single-select options',
+          path: [key],
+          message: 'continuing ask payload is declared by the referenced offer',
         });
       }
     }
-    if (params.questions && (params.options || params.multiple || params.allowOther || params.allowNone)) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['questions'],
-        message: 'questionnaire cannot use top-level option controls',
-      });
-    }
-  });
+    return;
+  }
+  if (!params.exchangeId) {
+    ctx.addIssue({ code: 'custom', path: ['exchangeId'], message: 'standalone ask requires exchangeId' });
+    return;
+  }
+  validateStandaloneAsk({ ...params, exchangeId: params.exchangeId }, ctx);
+});
 export type AskParams = StandaloneAskParams | ContinuingAskParams;
+
+export function parseAskParams(input: unknown) {
+  const providerParams = zAskParams.safeParse(input);
+  if (!providerParams.success) return providerParams;
+  return providerParams.data.continues
+    ? zContinuingAskParams.safeParse(input)
+    : zStandaloneAskParams.safeParse(input);
+}
 
 const zPresentedOptionParam = z
   .object({
