@@ -194,7 +194,7 @@ describe('preparePromotion', () => {
       petriPath: petriNetPath(cwd, 'run-1'),
       reportsPath: reportsPath(cwd, 'run-1'),
       completedSliceIds: ['task-1'],
-      land: { status: 'promoted', commitSha: 'abc123', reviewBranch: 'brunch/review/run-1' },
+      promotion: { status: 'promoted', commitSha: 'abc123', reviewBranch: 'brunch/review/run-1' },
     });
 
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
@@ -398,7 +398,7 @@ describe('preparePromotion', () => {
         petriPath: petriNetPath(cwd, 'run-1'),
         reportsPath: reportsPath(cwd, 'run-1'),
         completedSliceIds: ['task-1'],
-        land: { status: 'promoted', commitSha: 'abc123', reviewBranch: 'brunch/review/run-1' },
+        promotion: { status: 'promoted', commitSha: 'abc123', reviewBranch: 'brunch/review/run-1' },
       }),
       'utf8',
     );
@@ -446,7 +446,7 @@ describe('preparePromotion', () => {
         petriPath: petriNetPath(cwd, 'run-1'),
         reportsPath: reportsPath(cwd, 'run-1'),
         completedSliceIds: ['task-1'],
-        land: { status: 'promoted', commitSha: 'stale123', reviewBranch: 'brunch/review/run-1' },
+        promotion: { status: 'promoted', commitSha: 'stale123', reviewBranch: 'brunch/review/run-1' },
       }),
       'utf8',
     );
@@ -519,7 +519,7 @@ describe('preparePromotion', () => {
       ],
     });
     expect(JSON.parse(await readFile(promotionReportPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
-      land: { status: 'promoted', commitSha: 'abc123', reviewBranch: 'brunch/review/run-1' },
+      promotion: { status: 'promoted', commitSha: 'abc123', reviewBranch: 'brunch/review/run-1' },
     });
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'promotion_prepared',

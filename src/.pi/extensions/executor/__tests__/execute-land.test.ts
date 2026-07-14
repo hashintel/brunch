@@ -40,7 +40,7 @@ async function createPromotionPreparedRun(
     JSON.stringify({
       runId,
       specId: '42',
-      land: { status: 'promoted', commitSha: TIP, reviewBranch: `brunch/review/${runId}` },
+      promotion: { status: 'promoted', commitSha: TIP, reviewBranch: `brunch/review/${runId}` },
     }),
     'utf8',
   );
@@ -107,6 +107,20 @@ describe('runBrunchLandCommand', () => {
     expect(integrateCalls).toHaveLength(1);
     await expect(runStatus(cwd)).resolves.toBe('landed');
     expect(ui.notifications.join('\n')).toContain('Landed run-1');
+  });
+
+  it('notifies preflight refusals in command copy without the tool label', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-land-cmd-copy-'));
+    await createPromotionPreparedRun(cwd, 'run-1', { status: 'petri_exported' });
+    const ui = makeUi();
+
+    await runBrunchLandCommand('run-1', stubCtx(cwd, ui), { gitHostLand: createFakeGitHostLandPort() });
+
+    expect(ui.confirms).toHaveLength(0);
+    const text = ui.notifications.join('\n');
+    expect(text).not.toContain('execute_land_preflight');
+    expect(text).toContain('run-1');
+    expect(text).toContain('petri_exported');
   });
 
   it('performs zero mutation when the user declines', async () => {

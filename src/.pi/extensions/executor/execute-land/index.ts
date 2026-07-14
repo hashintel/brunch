@@ -74,7 +74,10 @@ export async function runBrunchLandCommand(
 
   const preflight = await preflightLanding({ cwd: ctx.cwd, runId });
   if (preflight.status !== 'preflight_ready') {
-    ctx.ui.notify(renderPreflight(preflight), preflight.status === 'already_landed' ? 'info' : 'warning');
+    ctx.ui.notify(
+      renderPreflightNotice(preflight),
+      preflight.status === 'already_landed' ? 'info' : 'warning',
+    );
     return;
   }
 
@@ -142,6 +145,22 @@ async function resolveSolePromotedRun(ctx: LandCommandContext): Promise<string |
     'warning',
   );
   return undefined;
+}
+
+/** Command notices speak to the user; the tool-labeled render stays agent-only. */
+function renderPreflightNotice(
+  result: Exclude<LandingPreflightResult, { readonly status: 'preflight_ready' }>,
+): string {
+  switch (result.status) {
+    case 'missing_run':
+      return `Run ${result.runId} was not found.`;
+    case 'run_not_promoted':
+      return `Run ${result.runId} is not ready to land: its status is ${result.runStatus}, not promotion_prepared.`;
+    case 'promotion_not_found':
+      return `Run ${result.runId} has no usable promotion: ${result.message}.`;
+    case 'already_landed':
+      return `Run ${result.runId} already landed at ${result.landedSha ?? 'unknown'} into ${result.landedTarget ?? 'unknown'}.`;
+  }
 }
 
 function renderPreflight(result: LandingPreflightResult): string {

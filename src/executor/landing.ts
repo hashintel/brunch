@@ -7,7 +7,13 @@ import {
   withRunExecutionAuthority,
   type RunExecutionActiveResult,
 } from './run-execution-authority.js';
-import { readRunMetadata, runMetadataPath, persistRunMetadata, type RunMetadata } from './run.js';
+import {
+  readRunMetadata,
+  runMetadataPath,
+  persistRunMetadata,
+  type RunMetadata,
+  type WorktreeSubstrateKind,
+} from './run.js';
 
 /**
  * Host-mutation authority (FE-1201): constructed only by the product-owned
@@ -17,8 +23,6 @@ import { readRunMetadata, runMetadataPath, persistRunMetadata, type RunMetadata 
 export interface LandAcceptance {
   readonly promotedCommitSha: string;
 }
-
-export type LandingSubstrate = 'git_worktree' | 'empty_dir';
 
 export type LandingPreflightResult =
   | {
@@ -61,7 +65,7 @@ export type LandingPreflightResult =
       readonly metadataPath: string;
       readonly promotionPath: string;
       readonly worktreeDir: string;
-      readonly substrate: LandingSubstrate;
+      readonly substrate: WorktreeSubstrateKind;
       readonly runBaseSha: string;
       readonly promotionCommitSha: string;
       readonly reviewBranch: string;
@@ -182,8 +186,9 @@ export async function preflightLanding(args: {
   });
 
   const report = await readPromotionReport(promotionPath);
-  const reportCommitSha = report?.land?.status === 'promoted' ? report.land.commitSha : undefined;
-  const reportReviewBranch = report?.land?.status === 'promoted' ? report.land.reviewBranch : undefined;
+  const reportCommitSha = report?.promotion?.status === 'promoted' ? report.promotion.commitSha : undefined;
+  const reportReviewBranch =
+    report?.promotion?.status === 'promoted' ? report.promotion.reviewBranch : undefined;
   if (!reportCommitSha) return notFound('promotion report is missing promoted land commitSha');
   if (reportCommitSha !== metadata.promotionCommitSha) {
     return notFound('run metadata promotionCommitSha does not match promotion report land commitSha');
@@ -378,7 +383,7 @@ async function recordLanding(args: {
 }
 
 interface PromotionReportPayload {
-  readonly land?: {
+  readonly promotion?: {
     readonly status?: string;
     readonly commitSha?: string;
     readonly reviewBranch?: string;

@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { agentStreamPath, ingestAgentResult } from '../agent-result.js';
 import { executeEpicLifecycleStep } from '../epic-lifecycle.js';
 import type { AgentRunnerPort, ExecutionPorts, TestRunnerPort } from '../execution-ports.js';
+import { applyLanding } from '../landing.js';
 import { readRunDetail } from '../observer-read.js';
 import {
   compileExecutorTopology,
@@ -2957,6 +2958,32 @@ describe('drive', () => {
     expect(meta?.status).toBe('promotion_prepared');
     expect(meta?.completedSliceIds).toEqual(['task-1', 'task-2']);
     expect(meta?.promotionCommitSha).toBe('abc123');
+  });
+
+  it('classifies a landed run as successful exhaustion with a readable detail', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-landed-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    await drive({ cwd, runId: 'run-1', ports: fakePorts() });
+    const landed = await applyLanding({
+      cwd,
+      runId: 'run-1',
+      acceptance: { promotedCommitSha: 'abc123' },
+      gitHostLand: createFakeGitHostLandPort(),
+    });
+    expect(landed.status).toBe('landed');
+
+    // The landed lifecycle is a completed run, never petri_deadlocked.
+    await expect(drive({ cwd, runId: 'run-1', ports: fakePorts() })).resolves.toEqual({
+      status: 'completed',
+      runStatus: 'landed',
+    });
+
+    const detail = await readRunDetail(cwd, 'run-1');
+    if (!detail || 'unreadable' in detail) throw new Error('expected a readable run detail');
+    expect(detail.status).toBe('landed');
+    expect(detail.petriBlockedSteps ?? []).not.toContainEqual(
+      expect.objectContaining({ kind: 'authority_unreadable' }),
+    );
   });
 
   it('runs dependent slices in stable isolated workspaces and integrates them in dependency order', async () => {

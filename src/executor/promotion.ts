@@ -190,39 +190,39 @@ async function preparePromotionOwned(args: {
   }
   const reviewBranch = promotionReviewBranch(args.runId);
 
-  const land = await args.gitRunPromotion.promote({
+  const promoted = await args.gitRunPromotion.promote({
     worktreeDir,
     message: `promote ${args.runId}`,
     baseSha: runBaseSha,
     reviewBranch,
   });
-  if (land.status === 'failed') {
+  if (promoted.status === 'failed') {
     return {
       status: 'promotion_failed',
       runStatus: 'petri_exported',
       runId: args.runId,
       worktreeDir,
       metadataPath,
-      message: land.message,
-      sideEffects: land.sideEffects,
+      message: promoted.message,
+      sideEffects: promoted.sideEffects,
     };
   }
-  if (land.status === 'no_changes') {
+  if (promoted.status === 'no_changes') {
     return {
       status: 'promotion_no_changes',
       runStatus: 'petri_exported',
       runId: args.runId,
       worktreeDir,
       metadataPath,
-      message: land.message,
+      message: promoted.message,
       sideEffects: [],
     };
   }
 
   const path = promotionReportPath(args.cwd, args.runId);
   const dir = dirname(path);
-  const report = promotionReport(args.runId, metadata, land.commitSha, land.reviewBranch);
-  const updated = promotedRunMetadata(metadata, path, land.commitSha, land.reviewBranch);
+  const report = promotionReport(args.runId, metadata, promoted.commitSha, promoted.reviewBranch);
+  const updated = promotedRunMetadata(metadata, path, promoted.commitSha, promoted.reviewBranch);
   await mkdir(dir, { recursive: true });
   await writeFile(path, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
   const metadataEffect = await persistRunMetadata(metadataPath, updated);
@@ -232,9 +232,9 @@ async function preparePromotionOwned(args: {
     runId: args.runId,
     metadataPath,
     promotionPath: path,
-    promotionBranch: land.reviewBranch,
+    promotionBranch: promoted.reviewBranch,
     sideEffects: [
-      ...land.sideEffects,
+      ...promoted.sideEffects,
       { kind: 'mkdir', path: dir },
       { kind: 'write_file', path, ifExists: 'overwrite' },
       metadataEffect,
@@ -254,7 +254,7 @@ function promotionReport(
     petriPath: metadata.petriPath ?? null,
     reportsPath: metadata.reportsPath ?? null,
     completedSliceIds: metadata.completedSliceIds ?? [],
-    land: { status: 'promoted', commitSha, reviewBranch },
+    promotion: { status: 'promoted', commitSha, reviewBranch },
   };
 }
 
@@ -282,8 +282,8 @@ async function recoverPreparedPromotion(args: {
 }): Promise<PromotionPrepareResult | undefined> {
   const path = promotionReportPath(args.cwd, args.runId);
   const report = await readPromotionReport(path);
-  const commitSha = report?.land?.status === 'promoted' ? report.land.commitSha : undefined;
-  const reviewBranch = report?.land?.status === 'promoted' ? report.land.reviewBranch : undefined;
+  const commitSha = report?.promotion?.status === 'promoted' ? report.promotion.commitSha : undefined;
+  const reviewBranch = report?.promotion?.status === 'promoted' ? report.promotion.reviewBranch : undefined;
   if (!commitSha || reviewBranch !== promotionReviewBranch(args.runId)) return undefined;
   if (args.metadata.promotionBranch && args.metadata.promotionBranch !== reviewBranch) return undefined;
   if (!args.metadata.worktreeDir) return undefined;
@@ -316,7 +316,7 @@ async function recoverPreparedPromotion(args: {
 }
 
 interface PromotionReportPayload {
-  readonly land?: {
+  readonly promotion?: {
     readonly status?: string;
     readonly commitSha?: string;
     readonly reviewBranch?: string;

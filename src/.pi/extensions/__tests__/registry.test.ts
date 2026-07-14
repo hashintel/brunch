@@ -2499,7 +2499,7 @@ describe('Brunch explicit Pi extension registry', () => {
       promotionPath,
       JSON.stringify({
         runId: 'run-1',
-        land: {
+        promotion: {
           status: 'promoted',
           commitSha: 'def456',
           reviewBranch: 'brunch/review/run-1',

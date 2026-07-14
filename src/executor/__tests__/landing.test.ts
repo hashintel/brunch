@@ -43,7 +43,7 @@ async function createPromotionPreparedRun(
     JSON.stringify({
       runId: 'run-1',
       specId: '42',
-      land: { status: 'promoted', commitSha: TIP, reviewBranch: REVIEW_BRANCH },
+      promotion: { status: 'promoted', commitSha: TIP, reviewBranch: REVIEW_BRANCH },
     }),
     'utf8',
   );

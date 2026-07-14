@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -226,6 +226,36 @@ describe('createGitHostLandPort', () => {
       ).resolves.toEqual({ status: 'refused', reason: 'ref_moved', sideEffects: [] });
     });
 
+    it('classifies a non-repo host as failed with the git message', async () => {
+      const { tipSha } = await createBrownfieldFixture('brunch-host-land-nonrepo-');
+      const nonRepoHost = await mkdtemp(join(tmpdir(), 'brunch-host-land-nonrepo-host-'));
+
+      const result = await createGitHostLandPort().integrate({
+        hostDir: nonRepoHost,
+        reviewRef: REVIEW_REF,
+        expectedTipSha: tipSha,
+        message: 'brunch: land run-1',
+      });
+
+      if (result.status !== 'failed') throw new Error(`expected failed, got ${JSON.stringify(result)}`);
+      expect(result.message).toContain('not a git repository');
+    });
+
+    it('refuses a host dir nested inside a repository', async () => {
+      const { hostDir, tipSha } = await createBrownfieldFixture('brunch-host-land-nested-');
+      const nestedDir = join(hostDir, 'nested');
+      await mkdir(nestedDir, { recursive: true });
+
+      await expect(
+        createGitHostLandPort().integrate({
+          hostDir: nestedDir,
+          reviewRef: REVIEW_REF,
+          expectedTipSha: tipSha,
+          message: 'brunch: land run-1',
+        }),
+      ).resolves.toEqual({ status: 'refused', reason: 'not_a_repo_root', sideEffects: [] });
+    });
+
     it('lands over an unrelated untracked host file and leaves it intact', async () => {
       const { hostDir, tipSha } = await createBrownfieldFixture('brunch-host-land-untracked-');
       await writeFile(join(hostDir, 'notes.md'), 'my scratch notes\n', 'utf8');
@@ -287,6 +317,30 @@ describe('createGitHostLandPort', () => {
         }),
       ).resolves.toEqual({ status: 'refused', reason: 'occupied_target', sideEffects: [] });
       await expect(readFile(join(targetDir, 'precious.txt'), 'utf8')).resolves.toBe('keep me\n');
+    });
+
+    it('leaves a failed materialization target as found so a retry can land', async () => {
+      const { root, runWorktreeDir, tipSha } = await createGreenfieldFixture('brunch-host-land-retry-');
+      const targetDir = join(root, 'new-project');
+      const port = createGitHostLandPort();
+      const shared = {
+        reviewRef: REVIEW_REF,
+        expectedTipSha: tipSha,
+        branch: 'main',
+        message: 'brunch: land run-1',
+      };
+
+      const failed = await port.materialize({
+        ...shared,
+        runWorktreeDir: join(root, 'missing-run'),
+        targetDir,
+      });
+      expect(failed.status).toBe('failed');
+      // The failure restores the previously-empty target: no orphan .git remains.
+      await expect(readdir(targetDir)).resolves.toEqual([]);
+
+      const retried = await port.materialize({ ...shared, runWorktreeDir, targetDir });
+      expect(retried).toMatchObject({ status: 'landed', branch: 'main', targetDir });
     });
 
     it('refuses a target that aliases or nests inside the run repository', async () => {

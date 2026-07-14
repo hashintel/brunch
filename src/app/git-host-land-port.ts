@@ -1,5 +1,5 @@
-import { mkdir, readdir, realpath } from 'node:fs/promises';
-import { isAbsolute, relative, resolve } from 'node:path';
+import { mkdir, readdir, realpath, rm } from 'node:fs/promises';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 
 import type {
   GitHostLandIntegrateResult,
@@ -19,8 +19,9 @@ export function createGitHostLandPort(options: { readonly run?: CommandRunner } 
 
   return {
     async integrate(args) {
-      const rootFailure = await exactRootFailure(command, args.hostDir);
-      if (rootFailure) {
+      const rootCheck = await checkExactRoot(command, args.hostDir);
+      if (rootCheck.kind === 'failed') return failedIntegrate(rootCheck.result, 'cannot resolve git root');
+      if (rootCheck.kind === 'not_root') {
         return { status: 'refused', reason: 'not_a_repo_root', sideEffects: [] };
       }
 
@@ -131,59 +132,87 @@ export function createGitHostLandPort(options: { readonly run?: CommandRunner } 
       const entries = await readdir(args.targetDir);
       if (entries.length > 0) return { status: 'refused', reason: 'occupied_target', sideEffects: [] };
 
-      const init = await command(args.targetDir, ['init', '-q', '-b', args.branch]);
-      if (init.exitCode !== 0) return failedMaterialize(init, 'cannot initialize the target repository');
-
-      const fetch = await command(args.targetDir, ['fetch', '--quiet', args.runWorktreeDir, args.reviewRef]);
-      if (fetch.exitCode !== 0) {
-        return failedMaterialize(fetch, 'cannot fetch the review ref from the run repository');
-      }
-      const fetched = await command(args.targetDir, ['rev-parse', 'FETCH_HEAD']);
-      if (fetched.exitCode !== 0) return failedMaterialize(fetched, 'cannot resolve the fetched review ref');
-      if (fetched.stdout.trim() !== args.expectedTipSha) {
-        return { status: 'refused', reason: 'ref_moved', sideEffects: [] };
-      }
-
-      // One clean brunch-authored initial commit carrying the promoted tip tree;
-      // run history stays in the run repository as provenance.
-      const commit = await command(args.targetDir, [
-        ...GIT_IDENTITY,
-        'commit-tree',
-        `${args.expectedTipSha}^{tree}`,
-        '-m',
-        args.message,
-      ]);
-      if (commit.exitCode !== 0) return failedMaterialize(commit, 'cannot create the initial commit');
-      const landedSha = commit.stdout.trim();
-
-      const ref = await command(args.targetDir, ['update-ref', `refs/heads/${args.branch}`, landedSha]);
-      if (ref.exitCode !== 0) return failedMaterialize(ref, 'cannot point the initial branch');
-      const checkout = await command(args.targetDir, ['reset', '--hard', '--quiet']);
-      if (checkout.exitCode !== 0) return failedMaterialize(checkout, 'cannot materialize the working tree');
-
-      return {
-        status: 'landed',
-        branch: args.branch,
-        landedSha,
-        targetDir: args.targetDir,
-        sideEffects: [{ kind: 'git_materialize', path: args.targetDir, branch: args.branch, sha: landedSha }],
-      };
+      // The target was verified empty, so a non-landed outcome restores it to
+      // empty — no orphan .git may block the retry after the failure is fixed.
+      const result = await materializeIntoEmptyTarget(command, args);
+      if (result.status !== 'landed') await restoreEmptyTarget(args.targetDir);
+      return result;
     },
   };
+}
+
+async function materializeIntoEmptyTarget(
+  command: (cwd: string, args: readonly string[]) => Promise<CommandResult>,
+  args: {
+    readonly runWorktreeDir: string;
+    readonly reviewRef: string;
+    readonly expectedTipSha: string;
+    readonly targetDir: string;
+    readonly branch: string;
+    readonly message: string;
+  },
+): Promise<GitHostLandMaterializeResult> {
+  const init = await command(args.targetDir, ['init', '-q', '-b', args.branch]);
+  if (init.exitCode !== 0) return failedMaterialize(init, 'cannot initialize the target repository');
+
+  const fetch = await command(args.targetDir, ['fetch', '--quiet', args.runWorktreeDir, args.reviewRef]);
+  if (fetch.exitCode !== 0) {
+    return failedMaterialize(fetch, 'cannot fetch the review ref from the run repository');
+  }
+  const fetched = await command(args.targetDir, ['rev-parse', 'FETCH_HEAD']);
+  if (fetched.exitCode !== 0) return failedMaterialize(fetched, 'cannot resolve the fetched review ref');
+  if (fetched.stdout.trim() !== args.expectedTipSha) {
+    return { status: 'refused', reason: 'ref_moved', sideEffects: [] };
+  }
+
+  // One clean brunch-authored initial commit carrying the promoted tip tree;
+  // run history stays in the run repository as provenance.
+  const commit = await command(args.targetDir, [
+    ...GIT_IDENTITY,
+    'commit-tree',
+    `${args.expectedTipSha}^{tree}`,
+    '-m',
+    args.message,
+  ]);
+  if (commit.exitCode !== 0) return failedMaterialize(commit, 'cannot create the initial commit');
+  const landedSha = commit.stdout.trim();
+
+  const ref = await command(args.targetDir, ['update-ref', `refs/heads/${args.branch}`, landedSha]);
+  if (ref.exitCode !== 0) return failedMaterialize(ref, 'cannot point the initial branch');
+  const checkout = await command(args.targetDir, ['reset', '--hard', '--quiet']);
+  if (checkout.exitCode !== 0) return failedMaterialize(checkout, 'cannot materialize the working tree');
+
+  return {
+    status: 'landed',
+    branch: args.branch,
+    landedSha,
+    targetDir: args.targetDir,
+    sideEffects: [{ kind: 'git_materialize', path: args.targetDir, branch: args.branch, sha: landedSha }],
+  };
+}
+
+async function restoreEmptyTarget(targetDir: string): Promise<void> {
+  const entries = await readdir(targetDir);
+  await Promise.all(entries.map((entry) => rm(join(targetDir, entry), { recursive: true, force: true })));
 }
 
 function mentionsUntrackedOverwrite(result: CommandResult): boolean {
   return `${result.stderr}\n${result.stdout}`.includes('untracked working tree files would be overwritten');
 }
 
-async function exactRootFailure(
+type ExactRootCheck =
+  | { readonly kind: 'root' }
+  | { readonly kind: 'not_root' }
+  | { readonly kind: 'failed'; readonly result: CommandResult };
+
+async function checkExactRoot(
   command: (cwd: string, args: readonly string[]) => Promise<CommandResult>,
   dir: string,
-): Promise<string | undefined> {
+): Promise<ExactRootCheck> {
   const root = await command(dir, ['rev-parse', '--show-toplevel']);
-  if (root.exitCode !== 0) return message(root, 'cannot resolve git root');
+  if (root.exitCode !== 0) return { kind: 'failed', result: root };
   const [actual, expected] = await Promise.all([canonicalPath(root.stdout.trim()), canonicalPath(dir)]);
-  return actual === expected ? undefined : `git root is ${root.stdout.trim()}`;
+  return actual === expected ? { kind: 'root' } : { kind: 'not_root' };
 }
 
 async function canonicalPath(path: string): Promise<string> {
