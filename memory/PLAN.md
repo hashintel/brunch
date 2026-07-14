@@ -529,7 +529,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Linear:** [FE-1196](https://linear.app/hash/issue/FE-1196) (Group 2 batch issue)
 - **Branch:** `ln/fe-1196-platform-debt`
 - **Kind:** structural correction / session transcript, continuity, and public read seams
-- **Status:** active stop-line. Native Pi tree actions are already user-accessible; current Brunch readers can reject the resulting valid sessions or derive current state from abandoned append-order entries.
+- **Status:** ✓ closed 2026-07-14 — built and outer-witnessed; the landed acceptance and verification evidence is recorded below.
 - **Certainty:** proving — Pi's canonical tree APIs are known; the slice must prove every Brunch current-state reader converges on them without losing explicit history/diagnostic use cases.
 - **Objective:** Make Pi-valid `/tree`, `/fork`, and `/clone` sessions ordinary Brunch sessions: accept sibling branches, `branch_summary`, and `parentSession`; project exchanges, runtime state, orientation, scratchpad, binding, continuity, capture, TUI/chrome, and public RPC from Pi's active root-to-leaf branch; prohibit raw JSONL/`getEntries()` as an implicit current-state source.
 - **Lights up:** a real Pi session can branch, continue, reload, and remain usable through TUI plus Brunch SDK/RPC projections.
