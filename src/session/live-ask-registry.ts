@@ -1,5 +1,5 @@
 import {
-  zQuestionnaireAnswersFor,
+  zQuestionnaireSubmissionFor,
   type AskQuestionEcho,
   type QuestionnaireQuestion,
 } from '../exchanges/schemas/index.js';
@@ -96,11 +96,9 @@ export function createLiveAskRegistry(): LiveAskRegistry {
         if (!entry) return { submitted: false, reason: 'no_pending_exchange' };
         if (entry.ask?.mode === 'questionnaire') {
           try {
-            const envelope = JSON.parse(answer) as { schema?: unknown; answers?: unknown };
             if (
-              envelope.schema !== 'brunch.ask.questionnaire-answer' ||
               !entry.ask.question.questions ||
-              !zQuestionnaireAnswersFor(entry.ask.question.questions).safeParse(envelope.answers).success
+              !zQuestionnaireSubmissionFor(entry.ask.question.questions).safeParse(JSON.parse(answer)).success
             )
               return { submitted: false, reason: 'invalid_answer' };
           } catch {

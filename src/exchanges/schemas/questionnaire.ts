@@ -108,3 +108,12 @@ export function zQuestionnaireAnswersFor(questions: readonly QuestionnaireQuesti
     });
   });
 }
+
+export function zQuestionnaireSubmissionFor(questions: readonly QuestionnaireQuestion[]) {
+  return z
+    .object({
+      schema: z.literal('brunch.ask.questionnaire-answer'),
+      answers: zQuestionnaireAnswersFor(questions),
+    })
+    .strict();
+}

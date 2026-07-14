@@ -16,7 +16,7 @@ import {
   type AskQuestionEcho,
   type QuestionnaireAnswer,
   type QuestionnaireQuestion,
-  zQuestionnaireAnswersFor,
+  zQuestionnaireSubmissionFor,
   type RequestDetails,
   type SelectedChoice,
   type StandaloneAskParams,
@@ -644,9 +644,7 @@ async function collectQuestionnaireAnswers(
         : undefined;
   if (raw === undefined) return undefined;
   try {
-    const parsed = JSON.parse(raw) as { schema?: unknown; answers?: unknown };
-    if (parsed.schema !== 'brunch.ask.questionnaire-answer') return undefined;
-    return zQuestionnaireAnswersFor(params.questions).parse(parsed.answers);
+    return zQuestionnaireSubmissionFor(params.questions).parse(JSON.parse(raw)).answers;
   } catch {
     return undefined;
   }

@@ -82,6 +82,36 @@ describe('live ask registry', () => {
     expect(() => registry.opener.openAsk(ask('dup'))).toThrow(/already/);
   });
 
+  it('validates questionnaire envelopes without settling invalid submissions', async () => {
+    const registry = createLiveAskRegistry();
+    const answer = registry.opener.openAsk(
+      ask('questionnaire', {
+        mode: 'questionnaire',
+        question: {
+          body: 'What matters?',
+          questions: [{ id: 'goal', kind: 'free-text', prompt: 'What matters?' }],
+        },
+      }),
+    );
+
+    expect(
+      registry.answerer.submitAnswer({
+        exchangeId: 'questionnaire',
+        answer: JSON.stringify({ schema: 'wrong', answers: [] }),
+      }),
+    ).toEqual({ submitted: false, reason: 'invalid_answer' });
+    expect(registry.reader.stateOf('questionnaire')).toBe('open');
+
+    const envelope = JSON.stringify({
+      schema: 'brunch.ask.questionnaire-answer',
+      answers: [{ questionId: 'goal', kind: 'free-text', text: 'Clarity' }],
+    });
+    expect(registry.answerer.submitAnswer({ exchangeId: 'questionnaire', answer: envelope })).toEqual({
+      submitted: true,
+    });
+    await expect(answer).resolves.toBe(envelope);
+  });
+
   it('answers choice and review modes through the same string broker contract', async () => {
     const registry = createLiveAskRegistry();
     const choice = registry.opener.openAsk(

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { zAskParams, zQuestionnaireAnswersFor } from '../index.js';
+import { zAskParams, zQuestionnaireAnswersFor, zQuestionnaireSubmissionFor } from '../index.js';
 
 const questions = [
   { id: 'goal', kind: 'free-text' as const, prompt: 'What matters?' },
@@ -54,6 +54,21 @@ describe('bounded ask questionnaire', () => {
   ])('rejects duplicate ids and generic forms vocabulary', (value) =>
     expect(zAskParams.safeParse(value).success).toBe(false),
   );
+
+  it('owns the questionnaire submission envelope and validates its answers', () => {
+    const submission = zQuestionnaireSubmissionFor(questions);
+    expect(
+      submission.parse({
+        schema: 'brunch.ask.questionnaire-answer',
+        answers: [
+          { questionId: 'goal', kind: 'free-text', text: 'Fast feedback' },
+          { questionId: 'shape', kind: 'single-select', optionId: 'a' },
+          { questionId: 'risks', kind: 'multi-select', optionIds: ['x'] },
+        ],
+      }),
+    ).toMatchObject({ schema: 'brunch.ask.questionnaire-answer' });
+    expect(submission.safeParse({ schema: 'wrong', answers: [] }).success).toBe(false);
+  });
 
   it('rejects unknown, duplicate, missing, and invalid option answers', () => {
     const schema = zQuestionnaireAnswersFor(questions);
