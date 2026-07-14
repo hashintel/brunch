@@ -1,9 +1,6 @@
 /**
  * RPC-based subagents extension (file-based config).
  *
- * Vendored copy — canonical source: ~/.pi/agent/extensions/subagents/index.ts.
- * Sync direction is user-level → project; edit the canonical file and re-copy.
- *
  * Directory layout:
  *
  *   subagents/
@@ -116,7 +113,7 @@ function parseAllowed(value: string | undefined): Set<string> | undefined {
 
 // ── Concurrency primitive ──────────────────────────────────────────────
 
-class Semaphore {
+export class Semaphore {
   private active = 0;
   private readonly max: number;
   private readonly queue: Array<() => void> = [];
@@ -128,13 +125,18 @@ class Semaphore {
   async run<T>(fn: () => Promise<T>): Promise<T> {
     if (this.active >= this.max) {
       await new Promise<void>((resolve) => this.queue.push(resolve));
+    } else {
+      this.active += 1;
     }
-    this.active += 1;
     try {
       return await fn();
     } finally {
-      this.active -= 1;
-      this.queue.shift()?.();
+      const next = this.queue.shift();
+      if (next) {
+        next();
+      } else {
+        this.active -= 1;
+      }
     }
   }
 }
