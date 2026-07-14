@@ -139,6 +139,9 @@ export class VirtualTerminal implements PiTerminal {
   }
 
   /** Return the visible viewport lines, stripped of trailing whitespace. */
+  // ceiling: near-duplicate of TuiScreen.viewport()
+  // (src/dev/tui-driver/screen.ts) — extract a shared headless-xterm
+  // viewport reader when a third consumer appears.
   getViewport(): string[] {
     const lines: string[] = [];
     const buffer = this.#term.buffer.active;

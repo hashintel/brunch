@@ -15,7 +15,7 @@ import {
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { encodeControlLine, isTuiDriverKey, type TuiDriverKey } from './keys.js';
+import { encodeControlLine, isTuiDriverKey } from './keys.js';
 
 /**
  * Session store for the tui-driver PTY harness. One directory per named
@@ -186,7 +186,7 @@ export function sendControlLines(name: string, lines: readonly string[]): void {
 export function sendKeys(name: string, keys: readonly string[]): void {
   const lines = keys.map((key) => {
     if (!isTuiDriverKey(key)) throw new Error(`Unknown key "${key}"`);
-    return encodeControlLine({ type: 'key', key: key as TuiDriverKey });
+    return encodeControlLine({ type: 'key', key });
   });
   sendControlLines(name, lines);
 }

@@ -1,12 +1,14 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   TUI_DRIVER_KEYS,
+  encodeControlLine,
   isTuiDriverKey,
   listSessions,
   removeSession,
@@ -18,7 +20,6 @@ import {
   stopSession,
   waitForScreenText,
 } from '../tui-driver.js';
-import { encodeControlLine } from '../tui-driver/keys.js';
 
 describe('tui-driver control protocol', () => {
   it('encodes key and text control lines', () => {
@@ -33,6 +34,19 @@ describe('tui-driver control protocol', () => {
   it('validates key names against the driver.exp table', () => {
     for (const key of TUI_DRIVER_KEYS) expect(isTuiDriverKey(key)).toBe(true);
     expect(isTuiDriverKey('Meta-x')).toBe(false);
+  });
+
+  it('every TUI_DRIVER_KEYS entry has a sendkey case in driver.exp', () => {
+    // TUI_DRIVER_KEYS and the Tcl `sendkey` switch are the same table in two
+    // languages; the pump silently drops unknown names, so drift is invisible
+    // at runtime. This pins the sync with keys.ts as the checked owner.
+    const driverExp = readFileSync(
+      fileURLToPath(new URL('../tui-driver/driver.exp', import.meta.url)),
+      'utf8',
+    );
+    for (const key of TUI_DRIVER_KEYS) {
+      expect(driverExp).toMatch(new RegExp(`^\\s*${key}\\s+\\{ send `, 'm'));
+    }
   });
 });
 

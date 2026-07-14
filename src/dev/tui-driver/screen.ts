@@ -8,9 +8,7 @@ import xtermHeadless from '@xterm/headless';
 // module.exports object does. (vitest's transform papers over this, which is
 // why test-only consumers like the VirtualTerminal support module can use the
 // named form.)
-const { Terminal: XtermTerminal } = xtermHeadless as unknown as {
-  Terminal: typeof XtermTerminalType;
-};
+const { Terminal: XtermTerminal } = xtermHeadless;
 
 /**
  * Screen rendering over the driver's raw PTY log: feed the byte stream into a
@@ -52,6 +50,9 @@ export class TuiScreen {
   }
 
   /** Visible viewport lines, trailing whitespace stripped, trailing blank lines dropped. */
+  // ceiling: near-duplicate of VirtualTerminal.getViewport()
+  // (src/.pi/__tests__/support/virtual-terminal.ts) — extract a shared
+  // headless-xterm viewport reader when a third consumer appears.
   viewport(): string[] {
     const buffer = this.#term.buffer.active;
     const lines: string[] = [];

@@ -37,7 +37,7 @@ import {
   stopSession,
 } from './tui-driver/session.js';
 
-export { TUI_DRIVER_KEYS, isTuiDriverKey, type TuiDriverKey } from './tui-driver/keys.js';
+export { TUI_DRIVER_KEYS, encodeControlLine, isTuiDriverKey, type TuiDriverKey } from './tui-driver/keys.js';
 export {
   TuiScreen,
   renderScreenFromLog,
