@@ -584,14 +584,17 @@ async function collectDigestQuestionnaire(
       'acceptsDigest must reference the final eligible digest',
     );
   }
-  const answers = await collectQuestionnaireAnswers(params, ctx, liveAsk, signal);
-  if (!answers) return terminal(params, { body: params.body }, 'cancelled');
+  const collected = await collectQuestionnaireAnswers(params, ctx, liveAsk, signal);
+  if (collected.status === 'cancelled') return terminal(params, { body: params.body }, 'cancelled');
+  if (collected.status === 'invalid') {
+    return terminal(params, { body: params.body }, 'unavailable', 'Invalid questionnaire submission.');
+  }
   const details = projectDigestQuestionnaire({
     exchangeId: params.exchangeId,
     acceptsDigest: params.acceptsDigest,
     acceptedAbstract: digest.digest.abstract,
     questions: params.questions,
-    answers,
+    answers: collected.answers,
   });
   return { content: [{ type: 'text', text: formatAsk(details) }], details };
 }
@@ -632,10 +635,14 @@ async function collectQuestionnaireAnswers(
   ctx: StructuredExchangeUiContext,
   liveAsk: LiveAskOpener | undefined,
   signal: AbortSignal,
-): Promise<readonly QuestionnaireAnswer[] | undefined> {
+): Promise<
+  | { readonly status: 'answered'; readonly answers: readonly QuestionnaireAnswer[] }
+  | { readonly status: 'cancelled' }
+  | { readonly status: 'invalid' }
+> {
   if (ctx.hasUI && typeof ctx.ui?.custom === 'function') {
     const custom = ctx.ui.custom;
-    return withWorkingIndicatorHidden(ctx, () =>
+    const answers = await withWorkingIndicatorHidden(ctx, () =>
       custom<readonly QuestionnaireAnswer[]>(
         (_tui, theme, _keybindings, done) =>
           new ExchangeQuestionnaireComponent({
@@ -646,6 +653,7 @@ async function collectQuestionnaireAnswers(
           }),
       ),
     );
+    return answers === undefined ? { status: 'cancelled' } : { status: 'answered', answers };
   }
   const envelope = JSON.stringify({ schema: QUESTIONNAIRE_SUBMISSION_SCHEMA, answers: [] }, null, 2);
   const raw =
@@ -661,11 +669,14 @@ async function collectQuestionnaireAnswers(
             signal,
           )
         : undefined;
-  if (raw === undefined) return undefined;
+  if (raw === undefined) return { status: 'cancelled' };
   try {
-    return zQuestionnaireSubmissionFor(params.questions).parse(JSON.parse(raw)).answers;
+    return {
+      status: 'answered',
+      answers: zQuestionnaireSubmissionFor(params.questions).parse(JSON.parse(raw)).answers,
+    };
   } catch {
-    return undefined;
+    return { status: 'invalid' };
   }
 }
 

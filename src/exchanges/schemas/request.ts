@@ -1,6 +1,11 @@
 import * as z from 'zod';
 
-import { zQuestionnaireAnswer, zQuestionnaireQuestion } from './questionnaire.js';
+import {
+  zQuestionnaireAnswer,
+  zQuestionnaireAnswersFor,
+  zQuestionnaireQuestion,
+  zQuestionnaireQuestions,
+} from './questionnaire.js';
 import {
   zMarkdown,
   zNonBlankMarkdown,
@@ -336,7 +341,26 @@ export const zAskQuestionnaireDetails = zRequestDetailsHeader
       .min(1),
     answered: z.object({ submitted: z.literal(true), accepted_abstract: zNonBlankMarkdown }).strict(),
   })
-  .strict();
+  .strict()
+  .superRefine((details, ctx) => {
+    const questions = details.questionnaire.map(({ question }) => question);
+    const answers = details.questionnaire.map(({ answer }) => answer);
+    if (!zQuestionnaireQuestions.safeParse(questions).success) {
+      ctx.addIssue({ code: 'custom', path: ['questionnaire'], message: 'invalid questionnaire questions' });
+    }
+    if (!zQuestionnaireAnswersFor(questions).safeParse(answers).success) {
+      ctx.addIssue({ code: 'custom', path: ['questionnaire'], message: 'answers do not match questions' });
+    }
+    details.questionnaire.forEach(({ question, answer }, index) => {
+      if (question.id !== answer.questionId) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['questionnaire', index, 'answer', 'questionId'],
+          message: 'answer does not correspond to paired question',
+        });
+      }
+    });
+  });
 export type AskQuestionnaireDetails = z.infer<typeof zAskQuestionnaireDetails>;
 
 export const zAskDigestConfirmationDetails = zRequestDetailsHeader

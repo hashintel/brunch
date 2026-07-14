@@ -101,7 +101,7 @@ Alternatives considered and rejected:
 4. [done] Make coordinator-produced spec posture and workspace-population facts required, split the narrow chrome identity from complete spec state, and update fixtures and previews to derive from the complete contract.
 5. [done] Carry the graph-owned diagnostic type through shared settlement and RPC results, then inline the sole-use origin-flip expression.
 6. [done] Require an abort signal when opening a live ask, settle the registry entry as cancelled on abort, clean up listeners after every terminal transition, and prove that aborted asks disappear and cannot be answered later.
-7. Make persisted questionnaire completion validate exact question-to-answer correspondence through the shared questionnaire invariant, and distinguish malformed editor submissions from user cancellation.
+7. [done] Make persisted questionnaire completion validate exact question-to-answer correspondence through the shared questionnaire invariant, and distinguish malformed editor submissions from user cancellation.
 8. Reject duplicate headless multi-select identifiers so live and interactive collection produce the same valid selection state.
 9. Derive workspace population from all visible non-Brunch files, add non-Markdown-only and Brunch-only characterization cases, and keep the existing topology projection shape unchanged.
 10. Delete the unread proposal audit identifier from the tool boundary, graph acceptance input, and change-log extras; strengthen local/RPC convergence tests to assert the same durable acceptance record, and reconcile the affected topology homes in this commit.

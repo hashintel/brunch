@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   QUESTIONNAIRE_SUBMISSION_SCHEMA,
+  zAskDetails,
   zAskParams,
   zQuestionnaireAnswersFor,
   zQuestionnaireSubmissionFor,
@@ -74,6 +75,73 @@ describe('bounded ask questionnaire', () => {
       }),
     ).toMatchObject({ schema: 'brunch.ask.questionnaire-answer' });
     expect(submission.safeParse({ schema: 'wrong', answers: [] }).success).toBe(false);
+  });
+
+  it.each([
+    {
+      label: 'missing answer',
+      questionnaire: [
+        { question: questions[0], answer: { questionId: 'goal', kind: 'free-text', text: 'Clear' } },
+        { question: questions[1], answer: { questionId: 'shape', kind: 'single-select', optionId: 'a' } },
+        { question: questions[2] },
+      ],
+    },
+    {
+      label: 'duplicate answer id',
+      questionnaire: [
+        { question: questions[0], answer: { questionId: 'goal', kind: 'free-text', text: 'Clear' } },
+        { question: questions[1], answer: { questionId: 'goal', kind: 'free-text', text: 'Again' } },
+        { question: questions[2], answer: { questionId: 'risks', kind: 'multi-select', optionIds: ['x'] } },
+      ],
+    },
+    {
+      label: 'mismatched answer kind',
+      questionnaire: [
+        { question: questions[0], answer: { questionId: 'goal', kind: 'single-select', optionId: 'a' } },
+        { question: questions[1], answer: { questionId: 'shape', kind: 'single-select', optionId: 'a' } },
+        { question: questions[2], answer: { questionId: 'risks', kind: 'multi-select', optionIds: ['x'] } },
+      ],
+    },
+    {
+      label: 'answer for a different question',
+      questionnaire: [
+        { question: questions[0], answer: { questionId: 'shape', kind: 'single-select', optionId: 'a' } },
+        { question: questions[1], answer: { questionId: 'goal', kind: 'free-text', text: 'Clear' } },
+        { question: questions[2], answer: { questionId: 'risks', kind: 'multi-select', optionIds: ['x'] } },
+      ],
+    },
+    {
+      label: 'unknown option',
+      questionnaire: [
+        { question: questions[0], answer: { questionId: 'goal', kind: 'free-text', text: 'Clear' } },
+        { question: questions[1], answer: { questionId: 'shape', kind: 'single-select', optionId: 'bad' } },
+        { question: questions[2], answer: { questionId: 'risks', kind: 'multi-select', optionIds: ['x'] } },
+      ],
+    },
+    {
+      label: 'duplicate multi-select option',
+      questionnaire: [
+        { question: questions[0], answer: { questionId: 'goal', kind: 'free-text', text: 'Clear' } },
+        { question: questions[1], answer: { questionId: 'shape', kind: 'single-select', optionId: 'a' } },
+        {
+          question: questions[2],
+          answer: { questionId: 'risks', kind: 'multi-select', optionIds: ['x', 'x'] },
+        },
+      ],
+    },
+  ])('rejects persisted questionnaire completion with $label', ({ questionnaire }) => {
+    expect(
+      zAskDetails.safeParse({
+        schema: 'brunch.structured_exchange.request',
+        v: 1,
+        exchange_id: 'persisted',
+        tool_meta: { curr: 'ask', next: 'capture_answer' },
+        question: { body: 'Digest questionnaire' },
+        accepts_digest: 'digest-final',
+        questionnaire,
+        answered: { submitted: true, accepted_abstract: 'Final abstract' },
+      }).success,
+    ).toBe(false);
   });
 
   it('rejects unknown, duplicate, missing, and invalid option answers', () => {

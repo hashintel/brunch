@@ -55,6 +55,7 @@ chain active Pi tool / session trigger / RPC editor relay
 - Session pending exchange recovery projects from canonical present/request details; it does not author a TypeBox semantic schema.
 - The RPC/editor relay is an intentional current product fallback and must still emit canonical details through projectors.
 - Details schemas remain the read-side recognizer for persisted transcript `toolResult.details`; write-side projection constructors rely on typed branch construction after boundary validation.
+- Persisted questionnaire completion replays the shared questionnaire question/answer invariant, so paired IDs and kinds, option membership, uniqueness, and answer completeness cannot diverge from the submitted contract.
 - The proof-era `brunch.structured_exchange.result` details model is retired.
 
 ## Global details header
@@ -107,7 +108,7 @@ Do not add `present_tool`, `kind`, `expected_request`, `prev_required`, `next_re
 ## `comment` and `message`
 
 - `comment` is user-authored supplementary text: option-selection explanation, required Other/None explanation, review change-request rationale, or rejection reason when supplied.
-- `message` is system/tool/runtime-authored explanatory text: cancellation text, unavailable UI text, invalid JSON in editor fallback, or unknown choice diagnostics.
+- `message` is system/tool/runtime-authored explanatory text: cancellation text, unavailable UI text, invalid JSON in editor fallback, or unknown choice diagnostics. An undefined editor result is user cancellation; malformed questionnaire JSON, envelopes, or answers are unavailable validation terminals, never cancellation.
 - Do not use `note` in the new schema model.
 
 ## Present layer

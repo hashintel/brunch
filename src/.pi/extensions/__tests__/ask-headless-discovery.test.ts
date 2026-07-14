@@ -158,6 +158,60 @@ describe('headless ask discovery + broker answering', () => {
     expect(await run('revise')).not.toHaveProperty('accepts_digest');
   });
 
+  it.each([
+    ['malformed JSON', '{'],
+    ['wrong envelope', JSON.stringify({ schema: 'wrong', answers: [] })],
+    [
+      'invalid answers',
+      JSON.stringify({
+        schema: 'brunch.ask.questionnaire-answer',
+        answers: [{ questionId: 'goal', kind: 'free-text', text: 'Only one answer' }],
+      }),
+    ],
+  ])(
+    'reports malformed editor questionnaire %s as unavailable rather than cancelled',
+    async (_label, raw) => {
+      const digest = projectPresentDigest({
+        exchangeId: 'digest-final',
+        heading: 'Digest',
+        digest: { abstract: 'Runtime abstract.' },
+      }).details;
+      const tool = createAskTool() as ReturnType<typeof createAskTool> & {
+        execute: (...args: unknown[]) => Promise<AskToolResult>;
+      };
+      const result = await tool.execute(
+        'questionnaire',
+        {
+          exchangeId: 'questionnaire',
+          acceptsDigest: 'digest-final',
+          questions: [
+            { id: 'goal', kind: 'free-text', prompt: 'Goal?' },
+            {
+              id: 'shape',
+              kind: 'single-select',
+              prompt: 'Shape?',
+              options: [{ id: 'safe', label: 'Safe' }],
+            },
+          ],
+        },
+        new AbortController().signal,
+        undefined,
+        {
+          hasUI: true,
+          ui: { editor: async () => raw },
+          sessionManager: {
+            getBranch: () => [{ type: 'message', message: { role: 'toolResult', details: digest } }],
+          },
+        },
+      );
+
+      expect(zAskDetails.parse(result.details)).toMatchObject({
+        exchange_id: 'questionnaire',
+        unavailable: { message: expect.stringContaining('Invalid questionnaire submission') },
+      });
+    },
+  );
+
   it('removes an ask when the registered tool signal aborts and rejects a later answer', async () => {
     const registry = createLiveAskRegistry();
     const controller = new AbortController();
