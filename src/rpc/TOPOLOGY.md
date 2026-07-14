@@ -280,7 +280,7 @@ session.openAsks
   result: {openAsks: [{exchangeId, mode, question}]} — every currently-open ask with its full D116-L question payload
   source: the process-local live ask registry (D125-L); no transcript scan
   errors: -32601 on ordinary observers or the full host; -32010 when no registry handle is attached
-  boundary: live-state discovery for the agent-as-user driver (A39-L), paired with session.answerExchange; the transcript-backed session.pendingExchange stays the file/observer-facing compatibility projection
+  boundary: live-state discovery for the agent-as-user driver (D125-L), paired with session.answerExchange; the transcript-backed session.pendingExchange stays the file/observer-facing compatibility projection
 
 graph.overview
   access: read

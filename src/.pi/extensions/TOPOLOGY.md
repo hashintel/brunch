@@ -1,6 +1,6 @@
 # .pi/extensions/ — Pi adapter registrars
 
-SPEC decisions: D34-L, D35-L, D37-L, D39-L, D40-L, D44-L, D52-L, D69-L, D71-L, D90-L, D91-L, D93-L, D98-L, D109-L, D119-L, D120-L, D121-L, D122-L, D123-L
+SPEC decisions: D24-L, D34-L, D35-L, D37-L, D39-L, D40-L, D43-L, D44-L, D52-L, D69-L, D71-L, D90-L, D91-L, D93-L, D98-L, D109-L, D119-L, D120-L, D121-L, D122-L, D123-L, I19-L, I28-L
 
 ## Owns
 

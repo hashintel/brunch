@@ -102,7 +102,7 @@ The current graph and graph-adjacent tables are spec-scoped: `specs` (`id`, `nam
 `reconciliation_need`. `specs` also carries spec posture (D118-L): a nullable
 `origin` (`greenfield | brownfield`, `null` until the workspace-dialog
 establishment step confirms it) and a nullable self-referencing
-`relates_to_spec_id` — the A41-L reference-only shape, no spec-to-spec claim
+`relates_to_spec_id` — D118-L's reference-only shape, no spec-to-spec claim
 model. `kind` keeps its schema-level `'product'` default for non-dialog
 callers; establishment confirming `kind` is workspace-dialog conduct, not a
 schema constraint. `graph_clock` is keyed by

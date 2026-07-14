@@ -3,6 +3,22 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-07-14 Sync archive (`ln-sync`, FE-1196 platform-debt closeout)
+
+### FE-1196 — platform debt batch
+
+Closed on `ln/fe-1196-platform-debt` after the final active-branch cutover and governed outer witness. The batch delivered:
+
+- `spec-posture` — persisted `kind`/`origin`/`relatesToSpecId`, deterministic create/resume establishment, and posture-aware kick seeds (D118-L).
+- `workspace-db-identity` — `.brunch/brunch-v1.db`, self-identifying fail-safe opens, and one-shot alpha `data.db` adoption without touching 0.x state (D124-L/I63-L).
+- `headless-ask-discovery` — handle-gated live ask registry plus `session.openAsks`; no transcript scan or second event plane (D125-L).
+- `reconciliation-derivation` — per-edge acknowledgement watermark, derived-only `edge_revalidation`, and exactly three persisted judgment kinds (D8-L/A8-L).
+- `compaction-and-conflict-widening` — one native `session_before_compact` result preserving deterministic Brunch anchors around Pi's native narrative, with repeated/split-turn/retry/reload/fail-closed lifecycle evidence (D43-L/I28-L).
+- `session-branching` — all product-semantic session reads follow Pi's active branch; siblings, summaries, fork/clone parents, physical reload, RPC differential, exact diagnostic exceptions, and a real `/tree` → sibling → quit/resume walkthrough passed (D24-L; I10-L/I13-L/I19-L).
+- `web-driver-streaming` — evaluated and retired: the existing relay battery plus `session.openAsks`/`session.answerExchange` are sufficient; conditional settlement-ordering residue remains in Group 4.
+
+Consumed FE-1196 scope files were deleted during build. The full card-by-card execution record remains in git history and `TESTING_FINDINGS.md` runs B/D/1D + SB1; canonical current state lives in the topology files cited by the decisions above.
+
 ## 2026-07-10 Sync archive (`ln-sync`, FE-1180 closeout + rolling-frontier repair)
 
 ### walkthrough-remediation-1 (FE-1180) — retired frontier definition
