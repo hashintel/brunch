@@ -107,7 +107,7 @@ messages:
                                                   handleSubmitExchangeResponse)          #B2
   session.submitExchangeResponse <- rpc_client:  { status: "accepted", ... }            #B3
 
-# Path C — live web-driver broker (FE-873; answer/free-text ONLY today)
+# Path C — live web-driver broker (answer/free-text and review today)
 # The tool genuinely executes live, but no InteractiveMode is bound (a headless
 # AgentSession), so ctx.hasUI is false and the collector falls through to the broker.
 messages:
@@ -133,7 +133,7 @@ notes:
     live broker handle is attached (src/rpc/TOPOLOGY.md) — it is not a general-purpose method.
 
 open:
-  - Path C currently exists only for `answer` (free-text). choice/choices/review have no
+  - Path C currently exists for `answer` (free-text) and review continuations. Choice/choices have no
     broker-equivalent; see the coverage matrix below.
 ```
 
@@ -147,7 +147,7 @@ kind     | local-TUI (A)                                   | RPC direct-submit (
 answer   | ask free-text: ctx.ui.custom (ExchangeAnswerEditorComponent), ctx.ui.editor fallback | works (uniform, see notes)    | broker (built, FE-873)
 choice   | ask single-choice: ctx.ui.custom (ExchangeDecisionPickerComponent) + ctx.ui.input | works (uniform, see notes) | x> unavailable, no broker
 choices  | ask multi-choice: ctx.ui.custom (MultiChoicePickerComponent), falls back to ctx.ui.editor JSON envelope | works (uniform, see notes) | x> unavailable — no broker, and the JSON-envelope fallback also needs ctx.ui, absent here too
-review   | ask continuation review: ctx.ui.custom (ExchangeDecisionPickerComponent) + ctx.ui.input | works (uniform, see notes) | x> unavailable, no broker
+review   | ask continuation review: ctx.ui.custom (ExchangeDecisionPickerComponent) + ctx.ui.input | works (uniform, see notes) | broker decision envelope (`decision[:comment]`); richer review payloads remain a declared ceiling
 
 notes:
   - Column B is genuinely uniform across all four kinds: `session.submitExchangeResponse`
@@ -166,16 +166,16 @@ notes:
     to the picker. Multi-choice re-presents with checked state restored and discards only the
     in-progress write-in text. The sealed `ctx.ui.editor` JSON-envelope fallback stays flat
     because it returns one submitted string or `undefined`, not nested key-level navigation.
-  - Column C's gap (choice/choices/review) is a pre-existing, independently tracked gap —
-    docs/archive/PLAN_HISTORY.md's FE-873 entry ("Remaining web-driver legs stay in the
-    web-driver-streaming Horizon frontier") and PLAN.md's `web-driver-streaming` Horizon bullet
-    ("remaining consumer/UI and non-freeform answer legs"). It is orthogonal to column A.
+  - Column C's remaining gap (choice/choices) is independently tracked — docs/archive/PLAN_HISTORY.md's
+    FE-873 entry ("Remaining web-driver legs stay in the web-driver-streaming Horizon frontier") and
+    PLAN.md's `web-driver-streaming` Horizon bullet ("remaining consumer/UI and non-freeform answer
+    legs"). Review now uses the broker with the declared decision/comment envelope ceiling.
 
 open:
   - The column A choice/review picker mechanism now uses `ctx.ui.custom`, matching what choices
     already did. Column B did not change (still bypasses ctx.ui) and column C did not change
-    (still needs a broker that doesn't exist for these kinds regardless of what column A renders
-    with). This column-A UI swap is safe with respect to both B and C.
+    (choice/choices still need broker support; review now uses the bounded broker envelope regardless
+    of what column A renders with). This column-A UI swap is safe with respect to both B and C.
 ```
 
 ## Implications for component-dx / request_* picker work
@@ -194,7 +194,7 @@ open:
   `ctx.ui.custom` first, `ctx.ui.editor` JSON-envelope fallback for the rare case custom UI is
   unavailable. Extending `choice`/`review` and then `answer` to custom chrome was additive, not a new
   architecture.
-- **If Brunch ever wants to close the column-C gap for choice/choices/review**, that is a separate,
+- **If Brunch ever wants to close the remaining column-C gap for choice/choices**, that is a separate,
   already-named Horizon-frontier concern (`web-driver-streaming`) — building a
   `LiveChoiceBroker`-equivalent to `LiveExchangeBroker`. It is not blocked by, or a prerequisite
   for, any column-A restyling work.

@@ -638,7 +638,7 @@ async function handleSubmitExchangeResponse(
     ...(params.note === undefined ? {} : { note: params.note }),
   };
 
-  if (review?.status === 'approved') {
+  if (review) {
     const [textContent] = accepted.toolResultMessage.content;
     if (textContent) textContent.text = review.content;
     (accepted.toolResultMessage as { details: Record<string, unknown> }).details = review.details;
@@ -689,7 +689,11 @@ function reviewResultForAcceptedResponse(options: {
       readonly details: Record<string, unknown>;
       readonly content: string;
     }
-  | { readonly status: 'request_changes' | 'rejected' }
+  | {
+      readonly status: 'request_changes' | 'rejected';
+      readonly details: Record<string, unknown>;
+      readonly content: string;
+    }
   | { readonly status: 'structural_illegal'; readonly diagnostics: Record<string, unknown>[] }
   | undefined {
   const review = (options.acceptedAnswer as { review?: unknown }).review;
@@ -710,9 +714,7 @@ function reviewResultForAcceptedResponse(options: {
   }
 
   const decision = (review as { decision?: unknown }).decision;
-  if (decision === 'request_changes') return { status: 'request_changes' };
-  if (decision === 'reject') return { status: 'rejected' };
-  if (decision !== 'approve') {
+  if (decision !== 'approve' && decision !== 'request_changes' && decision !== 'reject') {
     return {
       status: 'structural_illegal',
       diagnostics: [{ field: 'review.decision', message: 'invalid review decision' }],
@@ -732,10 +734,11 @@ function reviewResultForAcceptedResponse(options: {
   if (settlement.status === 'structural_illegal') {
     return { status: 'structural_illegal', diagnostics: [...settlement.diagnostics] };
   }
-  if (settlement.status !== 'settled') {
+  if (settlement.status === 'terminal') {
     return {
-      status: 'structural_illegal',
-      diagnostics: [{ field: 'review', message: 'approval did not settle' }],
+      status: decision === 'request_changes' ? 'request_changes' : 'rejected',
+      details: settlement.details,
+      content: settlement.content,
     };
   }
   return {

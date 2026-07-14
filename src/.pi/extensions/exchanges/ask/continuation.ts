@@ -364,15 +364,6 @@ async function collectHeadlessReview(
     return continuationTerminal(params, present, 'unavailable', 'Review request_changes requires a comment');
   }
   if (present.tool_meta.curr === 'present_review_set') {
-    if (decision !== 'approve') {
-      const details = continuationReviewDetails({
-        present,
-        exchangeId: params.exchangeId,
-        review: decision,
-        comment,
-      });
-      return { content: [{ type: 'text', text: formatRequestReview(details) }], details };
-    }
     if (!reviewDeps)
       return continuationTerminal(
         params,
@@ -438,15 +429,6 @@ async function collectContinuingReview(
     if (collected.status === 'unavailable')
       return continuationTerminal(params, present, 'unavailable', collected.message);
     if (present.tool_meta.curr === 'present_review_set') {
-      if (selected.id !== 'approve') {
-        const details = continuationReviewDetails({
-          present,
-          exchangeId: params.exchangeId,
-          review: selected.id,
-          comment: collected.value.comment,
-        });
-        return { content: [{ type: 'text', text: formatRequestReview(details) }], details };
-      }
       if (!reviewDeps)
         return continuationTerminal(
           params,

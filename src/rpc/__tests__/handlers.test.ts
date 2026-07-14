@@ -1399,6 +1399,27 @@ describe('JSON-RPC handlers', () => {
     const sessionText = await readFile(workspace.session.file, 'utf8');
     expect(sessionText).toContain('request_review');
     expect(sessionText).toContain('requirement-draft → REQ1');
+
+    const retry = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 278,
+      method: 'session.submitExchangeResponse',
+      params: {
+        exchangeId: 'review-cycle',
+        answer: { review: { decision: 'approve', comment: 'Looks correct.' } },
+      },
+    });
+    expect(retry).toMatchObject({ error: { code: -32008 } });
+    const afterRetryOverview = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 2781,
+      method: 'graph.overview',
+      params: { specId: workspace.spec.id },
+    });
+    expect(afterRetryOverview).toMatchObject('result' in overview ? { result: overview.result } : {});
+    const afterRetry = await readFile(workspace.session.file, 'utf8');
+    expect(afterRetry).toBe(sessionText);
+    expect(afterRetry.match(/"curr":"request_review"/g)).toHaveLength(1);
   });
 
   it('records conversational digest feedback through the public submit path and closes the continuation', async () => {

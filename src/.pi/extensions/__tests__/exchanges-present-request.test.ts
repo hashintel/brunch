@@ -990,7 +990,7 @@ describe('structured exchange ask tools', () => {
   });
 
   it('shows only controls in candidate, digest, and review-set continuation pickers', async () => {
-    const ask = registeredTools().get(ASK_TOOL);
+    const ask = registeredTools({ review: reviewDeps() }).get(ASK_TOOL);
     if (!ask) throw new Error('ask was not registered');
     const offers = [
       {
@@ -1042,7 +1042,9 @@ describe('structured exchange ask tools', () => {
   });
 
   it('drives candidate/review decisions and conversational digest feedback by reference', async () => {
-    const ask = registeredTools().get(ASK_TOOL);
+    const deps = reviewDeps();
+    const acceptReviewSet = vi.spyOn(deps.commandExecutor, 'acceptReviewSet');
+    const ask = registeredTools({ review: deps }).get(ASK_TOOL);
     if (!ask) throw new Error('ask was not registered');
     const candidates = await presentResult(PRESENT_CANDIDATES_TOOL, candidateParams());
     const review = await presentResult(PRESENT_REVIEW_SET_TOOL, {
@@ -1098,6 +1100,7 @@ describe('structured exchange ask tools', () => {
       tool_meta: { prev: PRESENT_REVIEW_SET_TOOL, curr: 'request_review' },
       answered: { decision: 'request_changes', comment: 'Tighten the grounding.' },
     });
+    expect(acceptReviewSet).not.toHaveBeenCalled();
     expect(digestAnswer.details).toMatchObject({
       tool_meta: { curr: 'ask', next: 'capture_answer' },
       answered: { text: 'Looks right.' },
