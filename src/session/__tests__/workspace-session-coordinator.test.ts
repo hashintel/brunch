@@ -351,6 +351,44 @@ describe('WorkspaceSessionCoordinator', () => {
     });
   });
 
+  it('applies a resume-side establish payload before binding (D118-L resume establishment)', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
+    const executor = await openWorkspaceCommandExecutor(cwd);
+    const seeded = executor.createSpec({ name: 'Seeded', slug: 'seeded' });
+    expect(seeded.status).toBe('success');
+    if (seeded.status !== 'success') return;
+
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const activated = await coordinator.activateWorkspace({
+      action: 'newSession',
+      specId: seeded.specId,
+      establish: { kind: 'feature', origin: 'brownfield' },
+    });
+
+    expect(activated.status).toBe('ready');
+    if (activated.status !== 'ready') return;
+    expect(activated.spec).toMatchObject({ kind: 'feature', origin: 'brownfield' });
+    expect(executor.getSpec(seeded.specId)).toMatchObject({ kind: 'feature', origin: 'brownfield' });
+  });
+
+  it('ignores an establish payload on an already-established spec (never re-asked, never clobbered)', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
+    const executor = await openWorkspaceCommandExecutor(cwd);
+    const established = executor.createSpec({ name: 'Done', slug: 'done', origin: 'greenfield' });
+    expect(established.status).toBe('success');
+    if (established.status !== 'success') return;
+
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const activated = await coordinator.activateWorkspace({
+      action: 'newSession',
+      specId: established.specId,
+      establish: { kind: 'feature', origin: 'brownfield' },
+    });
+
+    expect(activated.status).toBe('ready');
+    expect(executor.getSpec(established.specId)).toMatchObject({ kind: 'product', origin: 'greenfield' });
+  });
+
   it('marks unbound or incompatible sessions unavailable during inventory', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
     const coordinator = createWorkspaceSessionCoordinator({ cwd });

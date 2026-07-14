@@ -669,6 +669,68 @@ describe('CommandExecutor', () => {
       });
     });
 
+    it('establishes posture once on an unestablished spec (D118-L resume establishment)', () => {
+      const created = executor.createSpec({ name: 'Seeded spec', slug: 'seeded-spec' });
+      if (created.status !== 'success') throw new Error('unreachable');
+
+      const result = executor.establishSpecPosture({
+        specId: created.specId,
+        kind: 'feature',
+        origin: 'brownfield',
+      });
+
+      expect(result.status).toBe('success');
+      if (result.status !== 'success') throw new Error('unreachable');
+      expect(result.lsn).toBe(2);
+      expect(executor.getSpec(created.specId)).toMatchObject({
+        kind: 'feature',
+        origin: 'brownfield',
+      });
+      expect(
+        db
+          .select({ operation: changeLog.operation, lsn: changeLog.lsn })
+          .from(changeLog)
+          .where(eq(changeLog.spec_id, created.specId))
+          .all(),
+      ).toEqual([
+        { operation: 'create_spec', lsn: 1 },
+        { operation: 'establish_spec_posture', lsn: 2 },
+      ]);
+    });
+
+    it('keeps the stored kind when establishment confirms origin only', () => {
+      const created = executor.createSpec({ name: 'Kinded spec', slug: 'kinded-spec', kind: 'function' });
+      if (created.status !== 'success') throw new Error('unreachable');
+
+      const result = executor.establishSpecPosture({ specId: created.specId, origin: 'greenfield' });
+
+      expect(result.status).toBe('success');
+      expect(executor.getSpec(created.specId)).toMatchObject({ kind: 'function', origin: 'greenfield' });
+    });
+
+    it('refuses to re-establish posture on an already-established spec (establish-once)', () => {
+      const created = executor.createSpec({
+        name: 'Established spec',
+        slug: 'established-spec',
+        origin: 'greenfield',
+      });
+      if (created.status !== 'success') throw new Error('unreachable');
+
+      const result = executor.establishSpecPosture({
+        specId: created.specId,
+        kind: 'feature',
+        origin: 'brownfield',
+      });
+
+      expect(result.status).toBe('structural_illegal');
+      expect(executor.getSpec(created.specId)).toMatchObject({ kind: 'product', origin: 'greenfield' });
+    });
+
+    it('refuses to establish posture on a missing spec', () => {
+      const result = executor.establishSpecPosture({ specId: 999, origin: 'greenfield' });
+      expect(result.status).toBe('structural_illegal');
+    });
+
     it('fails loud when an existing spec is missing its graph clock row', () => {
       const created = executor.createSpec({ name: 'Corrupt Spec', slug: 'corrupt-spec' });
       if (created.status !== 'success') throw new Error('unreachable');

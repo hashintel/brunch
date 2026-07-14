@@ -106,6 +106,15 @@ export type AcknowledgeEdgeRevalidationResult = AcknowledgeEdgeRevalidationSucce
 /** Result of a createSpec command. */
 export type CreateSpecResult = CreateSpecSuccess | StructuralIllegal;
 
+/** Successful one-time posture establishment on an existing spec. */
+interface EstablishSpecPostureSuccess {
+  readonly status: 'success';
+  readonly lsn: number;
+}
+
+/** Result of an establishSpecPosture command. */
+export type EstablishSpecPostureResult = EstablishSpecPostureSuccess | StructuralIllegal;
+
 /** Successful accepted review-set graph batch execution. */
 interface AcceptReviewSetSuccess extends MutateGraphSuccess {}
 
@@ -131,6 +140,22 @@ export interface CreateSpecInput {
    * spec creation/resume flow, never as a schema-level default.
    */
   readonly origin?: SpecOrigin;
+  /** Reference-only relates-to-spec (A41-L); omitted means no relation. */
+  readonly relatesToSpecId?: number;
+}
+
+/**
+ * Input for the one-time posture establishment on an existing spec (D118-L
+ * covers creation *and* resume: specs created outside the dialog — seeds,
+ * RPC — stay `origin: null` until the establishment step confirms posture at
+ * next resume). Establish-once: the command refuses already-established specs.
+ */
+export interface EstablishSpecPostureInput {
+  readonly specId: number;
+  /** Confirmed kind (D89-L); omitted keeps the stored kind. */
+  readonly kind?: SpecKind;
+  /** Confirmed origin — the establishment act itself. */
+  readonly origin: SpecOrigin;
   /** Reference-only relates-to-spec (A41-L); omitted means no relation. */
   readonly relatesToSpecId?: number;
 }

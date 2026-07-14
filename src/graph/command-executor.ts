@@ -33,6 +33,8 @@ import type {
   CreateReconNeedResult,
   CreateSpecInput,
   CreateSpecResult,
+  EstablishSpecPostureInput,
+  EstablishSpecPostureResult,
   ResolveReconNeedInput,
   ResolveReconNeedResult,
   SpecRecord,
@@ -87,6 +89,8 @@ export type {
   CreateReconNeedResult,
   CreateSpecInput,
   CreateSpecResult,
+  EstablishSpecPostureInput,
+  EstablishSpecPostureResult,
   ResolveReconNeedInput,
   ResolveReconNeedResult,
   SpecRecord,
@@ -199,6 +203,67 @@ export class CommandExecutor {
         .run();
 
       return { status: 'success' as const, specId: row!.id, lsn };
+    });
+  }
+
+  /**
+   * One-time posture establishment on an existing spec (D118-L resume half):
+   * confirms origin (and optionally kind / relates-to) on a spec whose
+   * posture is still unestablished (`origin: null`). Establish-once — an
+   * already-established spec is refused, mirroring the dialog's never-re-ask
+   * rule at the command boundary.
+   */
+  establishSpecPosture(input: EstablishSpecPostureInput): EstablishSpecPostureResult {
+    return this.db.transaction((tx) => {
+      const spec = tx
+        .select({ id: schema.specs.id, origin: schema.specs.origin })
+        .from(schema.specs)
+        .where(eq(schema.specs.id, input.specId))
+        .get();
+      if (!spec) {
+        return {
+          status: 'structural_illegal' as const,
+          diagnostics: [{ field: 'specId', message: `spec ${input.specId} does not exist` }],
+        };
+      }
+      if (spec.origin !== null) {
+        return {
+          status: 'structural_illegal' as const,
+          diagnostics: [
+            {
+              field: 'origin',
+              message: `spec ${input.specId} posture is already established (origin: ${spec.origin})`,
+            },
+          ],
+        };
+      }
+
+      const lsn = this.bumpExistingSpecLsn(tx, input.specId);
+
+      tx.update(schema.specs)
+        .set({
+          origin: input.origin,
+          ...(input.kind !== undefined ? { kind: input.kind } : {}),
+          ...(input.relatesToSpecId !== undefined ? { relates_to_spec_id: input.relatesToSpecId } : {}),
+        })
+        .where(eq(schema.specs.id, input.specId))
+        .run();
+
+      tx.insert(schema.changeLog)
+        .values({
+          spec_id: input.specId,
+          lsn,
+          operation: 'establish_spec_posture',
+          payload: JSON.stringify({
+            specId: input.specId,
+            origin: input.origin,
+            kind: input.kind ?? null,
+            relatesToSpecId: input.relatesToSpecId ?? null,
+          }),
+        })
+        .run();
+
+      return { status: 'success' as const, lsn };
     });
   }
 

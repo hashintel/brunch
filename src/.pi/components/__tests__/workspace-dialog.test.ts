@@ -211,6 +211,51 @@ describe('spec/session picker', () => {
     ]);
   });
 
+  it('routes an unestablished spec resume through establishment before emitting (D118-L resume half)', () => {
+    const decisions: unknown[] = [];
+    const unestablished = inventory();
+    unestablished.workspacePopulated = true;
+    unestablished.specs[0]!.spec = { id: 1, title: 'Alpha' };
+    const component = createWorkspaceDialogComponent({
+      inventory: unestablished,
+      onDecision: (decision) => decisions.push(decision),
+    });
+
+    component.handleInput!('\r'); // continue latest → establishment interposes
+    expect(decisions).toEqual([]);
+    component.handleInput!('\x1B[B'); // kind: feature
+    component.handleInput!('\r');
+    component.handleInput!('\r'); // origin: yes — brownfield (populated cwd inference)
+
+    expect(decisions).toEqual([
+      {
+        action: 'continue',
+        specId: 1,
+        sessionFile: '/sessions/alpha-current.jsonl',
+        establish: { kind: 'feature', origin: 'brownfield' },
+      },
+    ]);
+  });
+
+  it('bare-cwd resume establishment asks only the greenfield confirm (D118-L narrowing)', () => {
+    const decisions: unknown[] = [];
+    const unestablished = inventory();
+    unestablished.specs[0]!.spec = { id: 1, title: 'Alpha' };
+    const component = createWorkspaceDialogComponent({
+      inventory: unestablished,
+      onDecision: (decision) => decisions.push(decision),
+    });
+
+    component.handleInput!('\x1B[B'); // continue another existing spec
+    component.handleInput!('\r');
+    component.handleInput!('\r'); // Alpha → specAction
+    component.handleInput!('\r'); // create new session → establishment interposes
+    expect(decisions).toEqual([]);
+    component.handleInput!('\r'); // yes — greenfield
+
+    expect(decisions).toEqual([{ action: 'newSession', specId: 1, establish: { origin: 'greenfield' } }]);
+  });
+
   it('returns new-spec decisions (with establishment-confirmed origin) from title entry, and cancel on escape', () => {
     const decisions: unknown[] = [];
     const component = createWorkspaceDialogComponent({
@@ -463,7 +508,7 @@ function manySpecsInventory(specCount: number): WorkspaceLaunchInventory {
     currentSessionFile: null,
     needsNewSpec: false,
     specs: Array.from({ length: specCount }, (_, i) => ({
-      spec: { id: i + 1, title: `Spec ${i}` },
+      spec: { id: i + 1, title: `Spec ${i}`, origin: 'greenfield' as const },
       sessions: [],
     })),
     unavailableSessions: [],
@@ -543,11 +588,14 @@ function emptySessionInventory(): WorkspaceLaunchInventory {
     currentSpec: { id: 3, title: 'Empty' },
     currentSessionFile: null,
     needsNewSpec: false,
-    specs: [{ spec: { id: 3, title: 'Empty' }, sessions: [] }],
+    specs: [{ spec: { id: 3, title: 'Empty', origin: 'greenfield' }, sessions: [] }],
     unavailableSessions: [],
   };
 }
 
+// Fixture specs are posture-established (origin set): the navigation tests
+// exercise the picker, not the D118-L establishment interposition. The
+// resume-establishment tests build their own unestablished variant.
 function inventory(): WorkspaceLaunchInventory {
   return {
     cwd: '/project',
@@ -556,7 +604,7 @@ function inventory(): WorkspaceLaunchInventory {
     needsNewSpec: false,
     specs: [
       {
-        spec: { id: 1, title: 'Alpha' },
+        spec: { id: 1, title: 'Alpha', origin: 'greenfield' },
         sessions: [
           {
             id: 'session-alpha-current',
@@ -575,7 +623,7 @@ function inventory(): WorkspaceLaunchInventory {
         ],
       },
       {
-        spec: { id: 2, title: 'Beta' },
+        spec: { id: 2, title: 'Beta', origin: 'greenfield' },
         sessions: [
           {
             id: 'session-beta',

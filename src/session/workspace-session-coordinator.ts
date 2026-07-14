@@ -87,21 +87,37 @@ export type WorkspaceSessionState =
   | WorkspaceSessionSelectSpecState
   | WorkspaceSessionNeedsHumanState;
 
+/**
+ * Resume-side posture establishment payload (D118-L resume half). Present
+ * only when the dialog just ran the establishment step for a spec whose
+ * posture was unestablished (`origin: null` — e.g. created by a seed or via
+ * RPC). Applied establish-once before binding; an already-established spec
+ * ignores it (the never-re-asked rule holds at the command boundary too).
+ */
+export interface SpecPostureEstablishPayload {
+  kind?: SpecKind;
+  origin: SpecOrigin;
+  relatesToSpecId?: number;
+}
+
 interface WorkspaceContinueDecision {
   action: 'continue';
   specId: number;
   sessionFile: string;
+  establish?: SpecPostureEstablishPayload;
 }
 
 interface WorkspaceOpenSessionDecision {
   action: 'openSession';
   specId: number;
   sessionFile: string;
+  establish?: SpecPostureEstablishPayload;
 }
 
 interface WorkspaceNewSessionDecision {
   action: 'newSession';
   specId: number;
+  establish?: SpecPostureEstablishPayload;
 }
 
 interface WorkspaceNewSpecDecision {
@@ -263,10 +279,17 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
       );
     }
 
+    // Resume-side establishment (D118-L): apply the dialog's confirmed
+    // posture before binding, only while the spec is still unestablished.
+    const specState =
+      decision.establish && spec.spec.origin === null
+        ? await establishSpecPostureState(this.#cwd, spec.spec.id, decision.establish)
+        : spec.spec;
+
     if (decision.action === 'newSession') {
-      const session = await createBoundSession(this.#cwd, spec.spec);
-      await writeWorkspaceDefaults(this.#cwd, spec.spec.id, session.id);
-      return readyState(this.#cwd, spec.spec, session, inventory.project);
+      const session = await createBoundSession(this.#cwd, specState);
+      await writeWorkspaceDefaults(this.#cwd, specState.id, session.id);
+      return readyState(this.#cwd, specState, session, inventory.project);
     }
 
     const session = spec.sessions.find((candidate) => candidate.file === decision.sessionFile);
@@ -280,9 +303,9 @@ class FileWorkspaceSessionCoordinator implements WorkspaceSessionCoordinator {
     }
 
     const manager = SessionManager.open(session.file, sessionDir(this.#cwd), this.#cwd);
-    const opened = bindSessionToSpec(manager, spec.spec);
-    await writeWorkspaceDefaults(this.#cwd, spec.spec.id, opened.id);
-    return readyState(this.#cwd, spec.spec, opened, inventory.project);
+    const opened = bindSessionToSpec(manager, specState);
+    await writeWorkspaceDefaults(this.#cwd, specState.id, opened.id);
+    return readyState(this.#cwd, specState, opened, inventory.project);
   }
 
   async openDefaultWorkspace(): Promise<WorkspaceSessionState> {
@@ -385,6 +408,31 @@ async function createSpec(
   const spec = executor.getSpec(result.specId);
   if (!spec) {
     throw new Error('Unable to read back the spec just created');
+  }
+  return specStateFromRecord(spec);
+}
+
+/**
+ * Apply a resume-side establishment payload (D118-L) and return the fresh
+ * spec state. A concurrent establishment between inventory read and this
+ * write loses harmlessly: the command refuses, and the read-back reflects
+ * whichever posture landed first.
+ */
+async function establishSpecPostureState(
+  cwd: string,
+  specId: number,
+  establish: SpecPostureEstablishPayload,
+): Promise<WorkspaceSpecState> {
+  const executor = await openWorkspaceCommandExecutor(cwd);
+  executor.establishSpecPosture({
+    specId,
+    origin: establish.origin,
+    ...(establish.kind !== undefined ? { kind: establish.kind } : {}),
+    ...(establish.relatesToSpecId !== undefined ? { relatesToSpecId: establish.relatesToSpecId } : {}),
+  });
+  const spec = executor.getSpec(specId);
+  if (!spec) {
+    throw new Error('Unable to read back the spec after posture establishment');
   }
   return specStateFromRecord(spec);
 }

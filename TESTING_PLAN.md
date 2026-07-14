@@ -160,7 +160,10 @@ Check for each path sampled:
   FE-1196 residue); still open.
 - ✅ Does resuming a spec preserve prior orientation instead of restarting as
   blank? — established posture is read (never re-asked); a spec created outside
-  the dialog gets the establishment step once at next resume.
+  the dialog gets the establishment step once at next resume. (The resume half
+  was inner-tested but unwired until the 2026-07-14 run-B walkthrough caught it —
+  finding T2; now wired through the dialog's resume routing +
+  `CommandExecutor.establishSpecPosture`, establish-once at the command boundary.)
 - If posture is only prompt-carried today, is that legible in debug mirrors and
   session JSONL? — moot: posture is DB-row state, not prompt-carried.
 

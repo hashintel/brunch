@@ -6,6 +6,15 @@ import type {
   SpecSessionActivationDecision,
 } from '../../../session/workspace-session-coordinator.js';
 
+/**
+ * A resume-shaped decision held while the D118-L establishment stages run for
+ * a posture-unestablished spec; fires with the confirmed `establish` payload.
+ */
+type ResumableActivationDecision = Extract<
+  SpecSessionActivationDecision,
+  { action: 'continue' | 'openSession' | 'newSession' }
+>;
+
 export type WorkspaceSelectionStage =
   | { stage: 'home' }
   | {
@@ -21,6 +30,17 @@ export type WorkspaceSelectionStage =
   | {
       stage: 'newSpecOrigin';
       title: string;
+      kind?: SpecKind;
+    }
+  /** D118-L resume half: kind ask interposed before an unestablished spec resumes. */
+  | {
+      stage: 'resumeSpecKind';
+      resume: ResumableActivationDecision;
+    }
+  /** D118-L resume half: the origin confirm before the held resume decision fires. */
+  | {
+      stage: 'resumeSpecOrigin';
+      resume: ResumableActivationDecision;
       kind?: SpecKind;
     }
   | { stage: 'specList' }
@@ -99,6 +119,59 @@ function flipOrigin(origin: SpecOrigin): SpecOrigin {
   return origin === 'greenfield' ? 'brownfield' : 'greenfield';
 }
 
+/** The shared D118-L origin ask/confirm — one wording for create and resume. */
+function originConfirmViewParts(
+  inventory: WorkspaceLaunchInventory,
+  decisionFor: (origin: SpecOrigin) => SpecSessionActivationDecision,
+): Pick<WorkspaceSelectionView, 'title' | 'options'> {
+  const inferred = inferredOriginFor({ workspacePopulated: inventory.workspacePopulated ?? false });
+  const flipped = flipOrigin(inferred);
+  return {
+    title:
+      inferred === 'brownfield'
+        ? 'Does this build on the existing code here?'
+        : 'Is this a fresh, greenfield specification?',
+    options: [
+      {
+        id: `establish-origin:${inferred}`,
+        label: inferred === 'brownfield' ? 'Yes — this is brownfield' : 'Yes — this is greenfield',
+        kind: 'establishOrigin',
+        decision: decisionFor(inferred),
+      },
+      {
+        id: `establish-origin:${flipped}`,
+        label: flipped === 'brownfield' ? 'No — this is brownfield' : 'No — treat as greenfield',
+        kind: 'establishOrigin',
+        decision: decisionFor(flipped),
+      },
+    ],
+  };
+}
+
+/**
+ * Route a resume-shaped decision: fire directly when the target spec's
+ * posture is established; interpose the D118-L establishment stages when it
+ * is not (a spec created outside the dialog — seed, RPC — gets the
+ * establishment step once at next resume).
+ */
+function resumeRouting(
+  inventory: WorkspaceLaunchInventory,
+  decision: ResumableActivationDecision,
+): Pick<WorkspaceSelectionOption, 'decision' | 'nextStage'> {
+  const spec = findSpec(inventory, decision.specId);
+  const asks = decideSpecEstablishmentAsks({
+    currentOrigin: spec?.spec.origin ?? null,
+    workspacePopulated: inventory.workspacePopulated ?? false,
+  });
+  if (asks.length === 0) return { decision };
+  return {
+    nextStage:
+      asks[0] === 'confirmKind'
+        ? { stage: 'resumeSpecKind', resume: decision }
+        : { stage: 'resumeSpecOrigin', resume: decision },
+  };
+}
+
 export function buildWorkspaceSelectionView(
   inventory: WorkspaceLaunchInventory,
   stage: WorkspaceSelectionStage = { stage: 'home' },
@@ -126,34 +199,37 @@ export function buildWorkspaceSelectionView(
   }
 
   if (stage.stage === 'newSpecOrigin') {
-    const inferred = inferredOriginFor({ workspacePopulated: inventory.workspacePopulated ?? false });
-    const flipped = flipOrigin(inferred);
-    const decisionFor = (origin: SpecOrigin): SpecSessionActivationDecision => ({
-      action: 'newSpec',
-      title: stage.title,
-      ...(stage.kind ? { kind: stage.kind } : {}),
-      origin,
-    });
     return {
       stage: 'newSpecOrigin',
-      title:
-        inferred === 'brownfield'
-          ? 'Does this build on the existing code here?'
-          : 'Is this a fresh, greenfield specification?',
-      options: [
-        {
-          id: `establish-origin:${inferred}`,
-          label: inferred === 'brownfield' ? 'Yes — this is brownfield' : 'Yes — this is greenfield',
-          kind: 'establishOrigin',
-          decision: decisionFor(inferred),
-        },
-        {
-          id: `establish-origin:${flipped}`,
-          label: flipped === 'brownfield' ? 'No — this is brownfield' : 'No — treat as greenfield',
-          kind: 'establishOrigin',
-          decision: decisionFor(flipped),
-        },
-      ],
+      ...originConfirmViewParts(inventory, (origin) => ({
+        action: 'newSpec',
+        title: stage.title,
+        ...(stage.kind ? { kind: stage.kind } : {}),
+        origin,
+      })),
+    };
+  }
+
+  if (stage.stage === 'resumeSpecKind') {
+    return {
+      stage: 'resumeSpecKind',
+      title: 'What does this specification own?',
+      options: SPEC_KINDS.map((kind) => ({
+        id: `establish-kind:${kind}`,
+        label: SPEC_KIND_LABELS[kind],
+        kind: 'establishKind',
+        nextStage: { stage: 'resumeSpecOrigin', resume: stage.resume, kind },
+      })),
+    };
+  }
+
+  if (stage.stage === 'resumeSpecOrigin') {
+    return {
+      stage: 'resumeSpecOrigin',
+      ...originConfirmViewParts(inventory, (origin) => ({
+        ...stage.resume,
+        establish: { origin, ...(stage.kind ? { kind: stage.kind } : {}) },
+      })),
     };
   }
 
@@ -177,7 +253,7 @@ export function buildWorkspaceSelectionView(
         id: `new-session:${stage.specId}`,
         label: 'Create new session',
         kind: 'newSession',
-        decision: { action: 'newSession', specId: stage.specId },
+        ...resumeRouting(inventory, { action: 'newSession', specId: stage.specId }),
       },
     ];
     if ((spec?.sessions.length ?? 0) > 0) {
@@ -207,11 +283,11 @@ export function buildWorkspaceSelectionView(
         label: session.name ?? session.id,
         ...(session.name ? { detail: session.id } : {}),
         kind: 'session',
-        decision: {
+        ...resumeRouting(inventory, {
           action: 'openSession',
           specId: stage.specId,
           sessionFile: session.file,
-        },
+        }),
       })),
     };
   }
@@ -260,11 +336,11 @@ function buildHomeSelectionView(
       label: 'Continue your latest spec and session',
       detail: `${inventory.currentSpec.title} · ${currentSession.id}`,
       kind: 'continue',
-      decision: {
+      ...resumeRouting(inventory, {
         action: 'continue',
         specId: inventory.currentSpec.id,
         sessionFile: currentSession.file,
-      },
+      }),
     });
   }
 

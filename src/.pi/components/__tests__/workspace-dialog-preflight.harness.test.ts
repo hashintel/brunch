@@ -40,7 +40,7 @@ function inventory(): WorkspaceLaunchInventory {
     needsNewSpec: false,
     specs: [
       {
-        spec: { id: 1, title: 'Alpha' },
+        spec: { id: 1, title: 'Alpha', origin: 'greenfield' },
         sessions: [
           {
             id: 'session-alpha-current',
@@ -59,7 +59,7 @@ function inventory(): WorkspaceLaunchInventory {
         ],
       },
       {
-        spec: { id: 2, title: 'Beta' },
+        spec: { id: 2, title: 'Beta', origin: 'greenfield' },
         sessions: [
           {
             id: 'session-beta',
