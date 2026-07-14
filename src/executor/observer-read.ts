@@ -212,11 +212,18 @@ export async function readRunDetail(
   }
   const petriNet = await readPetriNet(petriFilePath(cwd, runId, metadata));
   const petriSdcpnFile = await readPetriSdcpnFile(petriSdcpnFilePath(cwd, runId));
+  const petriTopologyReplay =
+    petriNet !== undefined && petriEvents.readable
+      ? replayPetri({ net: petriNet, events: petriEvents.events })
+      : undefined;
   const petriReplayProjection = canProjectPetriReplay({ petriNet, petriEvents })
-    ? replayPetri({ net: petriNet, events: petriEvents.events })
+    ? petriTopologyReplay
     : undefined;
   const petrinautReplayExport =
-    petriSdcpnFile !== undefined && petriEvents.exists && !petriEvents.torn
+    petriTopologyReplay !== undefined &&
+    petriSdcpnFile !== undefined &&
+    petriEvents.exists &&
+    !petriEvents.torn
       ? readPetrinautReplayExport(petriSdcpnFile, petriEvents.events)
       : undefined;
   const petrinautStreamPath = petrinautStreamPathForRun(runId);

@@ -10,6 +10,20 @@ import { runDirPath, type RunMetadata } from './run.js';
 
 export type PetriEventListener = (event: ExecutorNetEvent) => void;
 export type PetriJournalFailureListener = () => void;
+export type PetriTerminalEvent = Extract<
+  ExecutorNetEvent,
+  { readonly kind: 'net_completed' | 'net_halted' | 'net_deadlocked' }
+>;
+export type PetriTerminalEventPayload = Extract<
+  ExecutorNetEventPayload,
+  { readonly kind: 'net_completed' | 'net_halted' | 'net_deadlocked' }
+>;
+
+export class PetriTerminalJournalError extends Error {
+  constructor(readonly reason: 'petri_terminal_conflict' | 'petri_input_unreadable') {
+    super(reason);
+  }
+}
 
 // ceiling: both buses are process-local hints; replace with file watching or a
 // durable broker when executor and web host no longer share one process.
@@ -47,6 +61,29 @@ export async function appendPetriEvent<Event extends ExecutorNetEventPayload>(ar
     }
   }
   return event;
+}
+
+export async function appendPetriTerminalOnce(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly event: PetriTerminalEventPayload;
+}): Promise<PetriTerminalEvent> {
+  const journal = await readPetriJournal(petriEventsPath(args.cwd, args.runId));
+  if (journal.status === 'unreadable' || journal.status === 'unavailable') {
+    throw new PetriTerminalJournalError('petri_input_unreadable');
+  }
+  const terminals =
+    journal.status === 'readable'
+      ? journal.events.filter((event): event is PetriTerminalEvent => isTerminalEvent(event))
+      : [];
+  if (terminals.length > 1) throw new PetriTerminalJournalError('petri_terminal_conflict');
+  if (terminals[0]) {
+    if (!terminalMatchesPayload(terminals[0], args.event)) {
+      throw new PetriTerminalJournalError('petri_terminal_conflict');
+    }
+    return terminals[0];
+  }
+  return appendPetriEvent(args);
 }
 
 export function publishPetriJournalFailure(args: { readonly cwd: string; readonly runId: string }): void {
@@ -297,6 +334,23 @@ function isIsoTimestamp(value: unknown): value is string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function isTerminalEvent(event: ExecutorNetEvent): event is PetriTerminalEvent {
+  return event.kind === 'net_completed' || event.kind === 'net_halted' || event.kind === 'net_deadlocked';
+}
+
+function terminalMatchesPayload(existing: PetriTerminalEvent, proposed: PetriTerminalEventPayload): boolean {
+  return (
+    existing.kind === proposed.kind &&
+    (existing.kind !== 'net_halted' ||
+      (proposed.kind === 'net_halted' && existing.reason === proposed.reason)) &&
+    stringArraysEqual(existing.failedSliceIds, proposed.failedSliceIds)
+  );
+}
+
+function stringArraysEqual(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function listenerKey(cwd: string, runId: string): string {

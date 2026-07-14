@@ -1584,6 +1584,53 @@ describe('web host', () => {
     }
   });
 
+  it('keeps a failed journal terminal authoritative after abandonment for live and reconnect streams', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-failed-abandon-'));
+    await writePetrinautReplayRun(cwd, 'run-1', { terminal: false, status: 'worktree_created' });
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const live = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const liveReader = live.body!.getReader();
+      const decoder = new TextDecoder();
+      let liveBody = decoder.decode((await liveReader.read()).value);
+
+      await appendPetriEvent({
+        cwd,
+        runId: 'run-1',
+        event: {
+          kind: 'net_halted',
+          runId: 'run-1',
+          runStatus: 'worktree_created',
+          step: 'test_result',
+          reason: 'slice_verification_not_passed',
+          failedSliceIds: ['S3', 'S4'],
+        },
+      });
+      for (;;) {
+        const next = await liveReader.read();
+        if (next.done) break;
+        liveBody += decoder.decode(next.value);
+      }
+
+      await abandonRun({ cwd, runId: 'run-1', reason: 'operator chose a new plan' });
+      const reconnect = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const liveFrames = parseSse(liveBody).filter((frame) => frame.event !== 'status');
+      const reconnectFrames = parseSse(await reconnect.text()).filter((frame) => frame.event !== 'status');
+
+      expect(liveFrames.at(-1)).toEqual({
+        event: 'terminal',
+        data: {
+          state: 'halted',
+          failedSliceIds: ['S3', 'S4'],
+          reason: 'slice_verification_not_passed',
+        },
+      });
+      expect(reconnectFrames).toEqual(liveFrames);
+    } finally {
+      await host.close();
+    }
+  });
+
   it('closes an active stream when a terminal refresh becomes unreadable', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-invalid-refresh-'));
     await writePetrinautReplayRun(cwd, 'run-1', { terminal: false, status: 'worktree_created' });

@@ -6,7 +6,8 @@ import { describe, expect, it } from 'vitest';
 
 import { agentStreamPath } from '../agent-result.js';
 import { listRuns, readRunDetail } from '../observer-read.js';
-import type { ExecutorNetEvent } from '../orchestrate-topology.js';
+import { compileExecutorTopology, type ExecutorNetEvent } from '../orchestrate-topology.js';
+import { petriTopologyToSdcpnFile } from '../petrinaut/sdcpn.js';
 import { populatedPlanPath } from '../populate.js';
 import { runDirPath, runMetadataPath, type RunMetadata } from '../run.js';
 import { verifyStreamPath } from '../test-result.js';
@@ -482,6 +483,20 @@ describe('readRunDetail', () => {
     const cwd = await fixtureCwd('brunch-observer-petrinaut-live-');
     const runDir = await writeRun(cwd, 'run-petri-live', { status: 'worktree_created' });
     await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'net.json'),
+      JSON.stringify({
+        initialMarking: { 'run:created': 1 },
+        transitions: [
+          {
+            id: 'worktree_create',
+            inputArcs: [{ placeId: 'run:created', weight: 1 }],
+            outputArcs: [{ placeId: 'run:worktree_created', weight: 1 }],
+          },
+        ],
+      }),
+      'utf8',
+    );
     await writeFile(join(runDir, 'petrinaut', 'net.sdcpn.json'), JSON.stringify(minimalSdcpnFile()), 'utf8');
     await writeFile(
       join(runDir, 'petrinaut', 'events.jsonl'),
@@ -774,6 +789,63 @@ describe('readRunDetail', () => {
     expect(
       detail && 'petrinautReplayExport' in detail ? detail.petrinautReplayExport : undefined,
     ).toBeUndefined();
+  });
+
+  it('omits replay projection and Petrinaut export for a causally impossible verdict-fail then integrate journal', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petrinaut-impossible-verdict-');
+    const runId = 'run-petrinaut-impossible-verdict';
+    const runDir = await writeRun(cwd, runId, { status: 'test_result_ingested' });
+    const topology = compileExecutorTopology({ slices: [{ id: 'S3' }] });
+    const transitions = new Map(topology.transitions.map((transition) => [transition.id, transition]));
+    const transitionIds = [
+      'worktree_create',
+      'populate',
+      'source_policy',
+      'source_copy',
+      'report_init',
+      'slice_start:S3',
+      'slice_execute:S3',
+      'agent_result:S3:attempt:1',
+      'test_result_ingested:S3:attempt:1',
+      'verify_failed:S3:attempt:1',
+      'slice_integrate:S3',
+    ];
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(join(runDir, 'petrinaut', 'net.json'), JSON.stringify(topology), 'utf8');
+    await writeFile(
+      join(runDir, 'petrinaut', 'net.sdcpn.json'),
+      JSON.stringify(petriTopologyToSdcpnFile({ runId, topology })),
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'petrinaut', 'events.jsonl'),
+      `${transitionIds
+        .map((transitionId, index) => {
+          const transition = transitions.get(transitionId)!;
+          return JSON.stringify({
+            kind: 'transition_fired',
+            ts: `2026-07-14T12:00:${String(index).padStart(2, '0')}.000Z`,
+            runId,
+            runStatus: 'test_result_ingested',
+            transitionId,
+            subnetId: transition.subnetId,
+            step: transition.step?.kind ?? 'test_result',
+            contract: transition.contract,
+            consumed: transition.inputArcs.map((arc) => arc.placeId),
+            produced: transition.outputArcs.map((arc) => arc.placeId),
+            fromStatus: 'created',
+            toStatus: 'test_result_ingested',
+          });
+        })
+        .join('\n')}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, runId);
+
+    expect(detail).not.toHaveProperty('petriProjection');
+    expect(detail).not.toHaveProperty('petrinautReplayExport');
+    expect(detail).not.toHaveProperty('petrinautStreamPath');
   });
 
   it('omits malformed Petri journal events instead of projecting them as terminal facts', async () => {

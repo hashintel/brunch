@@ -1,4 +1,5 @@
 import type { ExecutorNetEventPayload, ReadyStep } from './orchestrate-topology.js';
+import type { PetriTerminalEvent } from './petri-events.js';
 import type { RunMetadata } from './run.js';
 
 export type DriveTerminalClassification =
@@ -120,5 +121,23 @@ export function classifyDriveTerminal(
       status: 'completed',
       runStatus: args.runStatus,
     },
+  };
+}
+
+export function driveOutcomeFromTerminal(event: PetriTerminalEvent): DriveTerminalClassification['outcome'] {
+  if (event.kind === 'net_completed') return { status: 'completed', runStatus: event.runStatus };
+  if (event.kind === 'net_deadlocked') {
+    return {
+      status: 'halted',
+      step: 'deadlocked',
+      runStatus: event.runStatus,
+      reason: 'petri_deadlocked',
+    };
+  }
+  return {
+    status: 'halted',
+    step: event.step ?? (event.reason === 'abandoned' ? 'abandoned' : 'deadlocked'),
+    runStatus: event.runStatus,
+    reason: event.reason ?? 'petri_deadlocked',
   };
 }

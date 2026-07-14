@@ -114,6 +114,41 @@ Parallel admission retires stale serial slice identity before effects, and mixed
 
 Skipped-test delta versus parent: `0`.
 
+## Slice 5 — Strict-review terminal and replay closure
+
+Status: done
+
+### Target Behavior
+
+One durable journal terminal remains final across crash recovery and later metadata abandonment, while Petrinaut export exists only for causally replayable topology history.
+
+### Acceptance Criteria
+
+✓ every terminal caller inspects the complete journal through one append-once authority before appending.
+✓ restart after journal append but before terminal snapshot persistence reuses the exact durable event and timestamp, catches up the snapshot, and appends nothing.
+✓ multiple durable terminals fail closed; later abandonment cannot replace a prior terminal's firing, status, reason, timestamp, or failed-slice ids.
+✓ Petrinaut export/stream requires successful raw-topology replay; verdict-fail followed by integration yields neither.
+✓ run-shaped projection evidence uses a complete causally valid firing prefix and keeps the old-main firing wire unchanged.
+
+### Evidence
+
+- `src/executor/__tests__/orchestrate.test.ts` covers journal-ahead terminal recovery, snapshot catch-up, duplicate prevention, conflict closure, and durable-terminal finality.
+- `src/executor/__tests__/observer-read.test.ts` rejects the impossible verdict-fail/integrate sequence before Petrinaut export.
+- `src/rpc/__tests__/web-host.test.ts` proves failed-terminal live/reconnect equivalence after later abandonment, including original `failedSliceIds` and reason.
+- `src/executor/__tests__/petri.test.ts` now drives the run-shaped viewer fixture from a complete causal prefix and retains `{transitionId,input,output,ts}`.
+
+### Completion Report
+
+| Leaf | Outcome | Evidence |
+| --- | --- | --- |
+| append terminal once from complete journal | met | journal-ahead restart and multiple-terminal orchestrator regressions |
+| preserve exact terminal and catch up snapshot | met | terminal timestamp equality plus unchanged event journal |
+| durable terminal beats abandonment | met | failed-run-then-abandon live/reconnect SSE regression |
+| gate export on topology causality | met | impossible verdict-fail/integrate observer regression |
+| preserve old-main wire with valid fixture | met | complete run-shaped prefix and origin/main contract tests |
+
+Skipped-test delta versus parent: `0`.
+
 ## Verification
 
 - Focused: executor Petri/replay/orchestrate + web-host live/reconnect + RPC schema suites.

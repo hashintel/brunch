@@ -208,8 +208,26 @@ function petrinautTerminalFromDetail(detail: {
       readonly failedSliceIds: readonly string[];
     }
   | undefined {
-  if (detail.status === 'abandoned') {
-    if (detail.abandonedAt === undefined) return undefined;
+  const terminalTs = detail.petriProjection?.terminalTs;
+  const failedSliceIds = detail.petriProjection?.failedSliceIds;
+  if (terminalTs !== undefined && failedSliceIds !== undefined) {
+    switch (detail.petriProjection?.terminalEventKind) {
+      case 'net_completed':
+        return { state: 'completed', ts: terminalTs, failedSliceIds };
+      case 'net_halted':
+        return {
+          state: 'halted',
+          ts: terminalTs,
+          failedSliceIds,
+          ...(detail.petriProjection.haltedReason === undefined
+            ? {}
+            : { reason: detail.petriProjection.haltedReason }),
+        };
+      case 'net_deadlocked':
+        return { state: 'deadlocked', ts: terminalTs, failedSliceIds };
+    }
+  }
+  if (detail.status === 'abandoned' && detail.abandonedAt !== undefined) {
     return {
       state: 'halted',
       ts: detail.abandonedAt,
@@ -217,26 +235,7 @@ function petrinautTerminalFromDetail(detail: {
       ...(detail.abandonReason === undefined ? {} : { reason: detail.abandonReason }),
     };
   }
-  const terminalTs = detail.petriProjection?.terminalTs;
-  const failedSliceIds = detail.petriProjection?.failedSliceIds;
-  if (terminalTs === undefined || failedSliceIds === undefined) return undefined;
-  switch (detail.petriProjection?.terminalEventKind) {
-    case 'net_completed':
-      return { state: 'completed', ts: terminalTs, failedSliceIds };
-    case 'net_halted':
-      return {
-        state: 'halted',
-        ts: terminalTs,
-        failedSliceIds,
-        ...(detail.petriProjection.haltedReason === undefined
-          ? {}
-          : { reason: detail.petriProjection.haltedReason }),
-      };
-    case 'net_deadlocked':
-      return { state: 'deadlocked', ts: terminalTs, failedSliceIds };
-    default:
-      return undefined;
-  }
+  return undefined;
 }
 
 function allowedPetrinautOrigin(origin: string | undefined): string | undefined {

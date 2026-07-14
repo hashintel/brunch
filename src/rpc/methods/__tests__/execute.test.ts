@@ -916,6 +916,20 @@ describe('execute.run', () => {
     await writeRun(cwd, 'run-1', { status: 'worktree_created' });
     await mkdir(join(runDirPath(cwd, 'run-1'), 'petrinaut'), { recursive: true });
     await writeFile(
+      join(runDirPath(cwd, 'run-1'), 'petrinaut', 'net.json'),
+      `${JSON.stringify({
+        initialMarking: { 'run:created': 1 },
+        transitions: [
+          {
+            id: 'worktree_create',
+            inputArcs: [{ placeId: 'run:created', weight: 1 }],
+            outputArcs: [{ placeId: 'run:worktree_created', weight: 1 }],
+          },
+        ],
+      })}\n`,
+      'utf8',
+    );
+    await writeFile(
       join(runDirPath(cwd, 'run-1'), 'petrinaut', 'net.sdcpn.json'),
       `${JSON.stringify({
         version: 1,

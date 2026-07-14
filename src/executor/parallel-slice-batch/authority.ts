@@ -1,13 +1,12 @@
 import { appendFile } from 'node:fs/promises';
 
 import type {
-  ExecutorNetEvent,
   ExecutorNetEventPayload,
   ExecutorTopology,
   ExecutorTransition,
   ReadyStep,
 } from '../orchestrate-topology.js';
-import { appendPetriEvent } from '../petri-events.js';
+import { appendPetriEvent, appendPetriTerminalOnce, type PetriTerminalEvent } from '../petri-events.js';
 import {
   petriMarkingLifecycleProvenance,
   writePetriMarkingSnapshot,
@@ -59,7 +58,7 @@ export function createBatchAuthority(args: {
   let failure: unknown;
   const transitions = new Map(args.topology.transitions.map((transition) => [transition.id, transition]));
 
-  const persist = async (terminal?: Extract<ExecutorNetEvent, { readonly kind: 'net_halted' }>) => {
+  const persist = async (terminal?: PetriTerminalEvent) => {
     try {
       await writePetriMarkingSnapshot({
         cwd: args.ctx.cwd,
@@ -72,7 +71,9 @@ export function createBatchAuthority(args: {
           ...(terminal
             ? {
                 terminalEventKind: terminal.kind,
-                haltedReason: terminal.reason,
+                ...(terminal.kind === 'net_halted' && terminal.reason !== undefined
+                  ? { haltedReason: terminal.reason }
+                  : {}),
                 terminalTs: terminal.ts,
                 failedSliceIds: terminal.failedSliceIds,
               }
@@ -195,7 +196,7 @@ export function createBatchAuthority(args: {
             ...new Set((state.failedSliceIds ?? []).filter((sliceId) => !claimedSliceIds.includes(sliceId))),
             ...claimedSliceIds.filter((sliceId) => failed.has(sliceId)),
           ];
-          const terminal = await appendPetriEvent({
+          const terminal = await appendPetriTerminalOnce({
             cwd: args.ctx.cwd,
             runId: args.ctx.runId,
             event: {

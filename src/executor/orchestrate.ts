@@ -16,7 +16,13 @@ import {
   type SchedulerPlanMode,
 } from './orchestrate-topology.js';
 import { executeParallelSliceBatch } from './parallel-slice-batch.js';
-import { appendPetriEvent, publishPetriJournalFailure } from './petri-events.js';
+import {
+  appendPetriEvent,
+  appendPetriTerminalOnce,
+  PetriTerminalJournalError,
+  publishPetriJournalFailure,
+  type PetriTerminalEvent,
+} from './petri-events.js';
 import {
   inspectPetriJournalAuthority,
   type PetriJournalAuthorityInspection,
@@ -36,7 +42,7 @@ import {
   projectExecutorPetriTransitionHistory,
   type ExecutorPetriRuntime,
 } from './petri-runtime.js';
-import { classifyDriveTerminal } from './petri-terminal.js';
+import { classifyDriveTerminal, driveOutcomeFromTerminal } from './petri-terminal.js';
 import {
   PetriObservationInputError,
   PetriObservationJournalError,
@@ -128,11 +134,22 @@ export const frontierFiringPolicy: RunFiringPolicy = {
 async function emitNetEvent(
   ctx: Pick<DriveContext, 'cwd' | 'runId'>,
   event: ExecutorNetEventPayload,
-): Promise<{ readonly journaled: boolean; readonly event?: ExecutorNetEvent }> {
+): Promise<{
+  readonly journaled: boolean;
+  readonly event?: ExecutorNetEvent;
+  readonly failureReason?: 'petri_terminal_conflict' | 'petri_input_unreadable';
+}> {
   try {
-    return { journaled: true, event: await appendPetriEvent({ cwd: ctx.cwd, runId: ctx.runId, event }) };
-  } catch {
-    return { journaled: false };
+    const appended =
+      event.kind === 'net_completed' || event.kind === 'net_halted' || event.kind === 'net_deadlocked'
+        ? await appendPetriTerminalOnce({ cwd: ctx.cwd, runId: ctx.runId, event })
+        : await appendPetriEvent({ cwd: ctx.cwd, runId: ctx.runId, event });
+    return { journaled: true, event: appended };
+  } catch (error) {
+    return {
+      journaled: false,
+      ...(error instanceof PetriTerminalJournalError ? { failureReason: error.reason } : {}),
+    };
   }
 }
 
@@ -145,6 +162,31 @@ function journalFailureOutcome(terminal: ReturnType<typeof classifyDriveTerminal
     step: 'terminal',
     runStatus: terminal.outcome.runStatus,
     reason: 'petri_journal_append_failed',
+  };
+}
+
+async function settleDriveTerminal(
+  ctx: Pick<DriveContext, 'cwd' | 'runId'>,
+  terminal: ReturnType<typeof classifyDriveTerminal>,
+): Promise<{ readonly outcome: DriveOutcome; readonly event?: PetriTerminalEvent }> {
+  const emitted = await emitNetEvent(ctx, terminal.event);
+  if (!emitted.journaled) {
+    return {
+      outcome:
+        emitted.failureReason === 'petri_terminal_conflict'
+          ? {
+              status: 'halted',
+              step: 'terminal',
+              runStatus: terminal.outcome.runStatus,
+              reason: emitted.failureReason,
+            }
+          : journalFailureOutcome(terminal),
+    };
+  }
+  const event = emitted.event as PetriTerminalEvent;
+  return {
+    event,
+    outcome: driveOutcomeFromTerminal(event),
   };
 }
 
@@ -295,8 +337,7 @@ async function materializeDriveRuntime(args: {
           runId: args.ctx.runId,
           runStatus: args.state.status,
         });
-        await emitNetEvent(args.ctx, terminal.event);
-        return { outcome: terminal.outcome };
+        return { outcome: (await settleDriveTerminal(args.ctx, terminal)).outcome };
       }
       throw new Error(`unexpected Petri materialization failure for run status ${args.state.status}`);
     }
@@ -307,8 +348,7 @@ async function materializeDriveRuntime(args: {
       step,
       reason: 'petri_input_unreadable',
     });
-    await emitNetEvent(args.ctx, terminal.event);
-    return { outcome: terminal.outcome };
+    return { outcome: (await settleDriveTerminal(args.ctx, terminal)).outcome };
   }
 }
 
@@ -399,8 +439,7 @@ async function driveOwned(
         step: requiredPlanStep,
         reason: 'scheduler_plan_unreadable',
       });
-      await emitNetEvent(ctx, terminal.event);
-      return terminal.outcome;
+      return (await settleDriveTerminal(ctx, terminal)).outcome;
     }
     if (!observationPreparationAttempted && plan !== undefined && observationPreparationStep !== undefined) {
       observationPreparationAttempted = true;
@@ -417,9 +456,11 @@ async function driveOwned(
               ? 'petri_input_unreadable'
               : 'petrinaut_observation_unavailable',
         });
-        if (error instanceof PetriObservationJournalError) publishPetriJournalFailure(ctx);
-        else await emitNetEvent(ctx, terminal.event);
-        return terminal.outcome;
+        if (error instanceof PetriObservationJournalError) {
+          publishPetriJournalFailure(ctx);
+          return terminal.outcome;
+        }
+        return (await settleDriveTerminal(ctx, terminal)).outcome;
       }
     }
     const authoritySnapshot = await readPetriMarkingSnapshot({ cwd: ctx.cwd, runId: ctx.runId });
@@ -429,6 +470,44 @@ async function driveOwned(
       lifecycleTransitionIds: projectExecutorPetriTransitionHistory(state, plan)?.transitionIds,
       plan,
     });
+    if (journal.status === 'readable') {
+      const terminals = journal.events.filter(
+        (event): event is PetriTerminalEvent =>
+          event.kind === 'net_completed' || event.kind === 'net_halted' || event.kind === 'net_deadlocked',
+      );
+      if (terminals.length > 1) {
+        return {
+          status: 'halted',
+          step: 'terminal',
+          runStatus: state.status,
+          reason: 'petri_terminal_conflict',
+        };
+      }
+      const durableTerminal = terminals[0];
+      if (durableTerminal) {
+        try {
+          const terminalRuntime = authoritySnapshot
+            ? undefined
+            : materializeExecutorPetriRuntime(state, plan);
+          await persistPetriMarkingSnapshot(ctx, {
+            ...(authoritySnapshot ?? {
+              currentMarking: terminalRuntime!.currentMarking,
+              firedTransitionCount: firedTransitionCountForState(state, plan),
+              lifecycleProvenance: petriMarkingLifecycleProvenance(state),
+            }),
+            terminalEventKind: durableTerminal.kind,
+            ...(durableTerminal.kind === 'net_halted' && durableTerminal.reason !== undefined
+              ? { haltedReason: durableTerminal.reason }
+              : {}),
+            terminalTs: durableTerminal.ts,
+            failedSliceIds: durableTerminal.failedSliceIds,
+          });
+        } catch {
+          // Durable terminal truth still wins when stale metadata cannot rematerialize its marking.
+        }
+        return driveOutcomeFromTerminal(durableTerminal);
+      }
+    }
     if ('events' in journal && journal.events !== undefined) {
       const durableEpicHistory = journal.events.flatMap((event) =>
         event.kind === 'transition_fired' && event.contract.lane === 'epic' ? [event.transitionId] : [],
@@ -514,8 +593,7 @@ async function driveOwned(
         step,
         reason: 'parallel_slice_replan_required',
       });
-      const emitted = await emitNetEvent(ctx, terminal.event);
-      return emitted.journaled ? terminal.outcome : journalFailureOutcome(terminal);
+      return (await settleDriveTerminal(ctx, terminal)).outcome;
     }
     const selectedSteps =
       (await readClaimedReadySteps(ctx, state, plan, runtime, readySteps)) ??
@@ -566,21 +644,24 @@ async function driveOwned(
       if (snapshotAlreadyCapturesTerminal({ snapshot, state, runtime, plan, terminal })) {
         return terminal.outcome;
       }
-      const emitted = await emitNetEvent(ctx, terminal.event);
-      if (!emitted.journaled) return journalFailureOutcome(terminal);
+      const settled = await settleDriveTerminal(ctx, terminal);
+      if (!settled.event) return settled.outcome;
+      const durableTerminal = settled.event;
       await persistPetriMarkingSnapshot(
         ctx,
         await nextPetriSnapshot({
           currentMarking: runtime.currentMarking,
           firedTransitionCount: firedTransitionCountForState(state, plan),
           lifecycleProvenance: petriMarkingLifecycleProvenance(state),
-          terminalEventKind: terminal.event.kind,
-          ...(terminal.event.kind === 'net_halted' ? { haltedReason: terminal.event.reason } : {}),
-          terminalTs: emitted.event!.ts,
-          failedSliceIds: terminal.event.failedSliceIds,
+          terminalEventKind: durableTerminal.kind,
+          ...(durableTerminal.kind === 'net_halted' && durableTerminal.reason !== undefined
+            ? { haltedReason: durableTerminal.reason }
+            : {}),
+          terminalTs: durableTerminal.ts,
+          failedSliceIds: durableTerminal.failedSliceIds,
         }),
       );
-      return terminal.outcome;
+      return settled.outcome;
     }
 
     const claimedTransitionIds = selectedSteps.flatMap((step) => {
@@ -653,8 +734,9 @@ async function driveOwned(
           step: next.kind,
           reason,
         });
-        const emitted = await emitNetEvent(ctx, terminal.event);
-        if (!emitted.journaled) return journalFailureOutcome(terminal);
+        const settled = await settleDriveTerminal(ctx, terminal);
+        if (!settled.event) return settled.outcome;
+        const durableTerminal = settled.event;
         const authoritySnapshot = await readPetriMarkingSnapshot({ cwd: ctx.cwd, runId: ctx.runId });
         try {
           await writePetriMarkingSnapshot({
@@ -664,10 +746,12 @@ async function driveOwned(
               currentMarking: currentRuntime.currentMarking,
               firedTransitionCount: firedTransitionCountForState(currentState, currentPlan),
               lifecycleProvenance: petriMarkingLifecycleProvenance(currentState),
-              terminalEventKind: terminal.event.kind,
-              haltedReason: reason,
-              terminalTs: emitted.event!.ts,
-              failedSliceIds: terminal.event.failedSliceIds,
+              terminalEventKind: durableTerminal.kind,
+              ...(durableTerminal.kind === 'net_halted' && durableTerminal.reason !== undefined
+                ? { haltedReason: durableTerminal.reason }
+                : {}),
+              terminalTs: durableTerminal.ts,
+              failedSliceIds: durableTerminal.failedSliceIds,
               ...(authoritySnapshot?.epicVerificationClaims
                 ? { epicVerificationClaims: authoritySnapshot.epicVerificationClaims }
                 : {}),
@@ -681,7 +765,7 @@ async function driveOwned(
             reason: 'petri_marking_persist_failed',
           };
         }
-        return terminal.outcome;
+        return settled.outcome;
       }
       if (result.skipTransition && result.runStatus !== 'not_started') {
         try {
@@ -749,8 +833,9 @@ async function driveOwned(
           step: next.kind,
           reason: result.status,
         });
-        const emitted = await emitNetEvent(ctx, terminal.event);
-        if (!emitted.journaled) return journalFailureOutcome(terminal);
+        const settled = await settleDriveTerminal(ctx, terminal);
+        if (!settled.event) return settled.outcome;
+        const durableTerminal = settled.event;
         const haltedState = (await readRunMetadata(metadataPath)) ?? currentState;
         const haltedRuntime = materializeExecutorPetriRuntime(haltedState, currentPlan);
         const authoritySnapshot = await readPetriMarkingSnapshot({ cwd: ctx.cwd, runId: ctx.runId });
@@ -760,16 +845,18 @@ async function driveOwned(
             currentMarking: haltedRuntime.currentMarking,
             firedTransitionCount: firedTransitionCountForState(haltedState, currentPlan),
             lifecycleProvenance: petriMarkingLifecycleProvenance(haltedState),
-            terminalEventKind: terminal.event.kind,
-            ...(terminal.event.kind === 'net_halted' ? { haltedReason: terminal.event.reason } : {}),
-            terminalTs: emitted.event!.ts,
-            failedSliceIds: terminal.event.failedSliceIds,
+            terminalEventKind: durableTerminal.kind,
+            ...(durableTerminal.kind === 'net_halted' && durableTerminal.reason !== undefined
+              ? { haltedReason: durableTerminal.reason }
+              : {}),
+            terminalTs: durableTerminal.ts,
+            failedSliceIds: durableTerminal.failedSliceIds,
             ...(authoritySnapshot?.epicVerificationClaims
               ? { epicVerificationClaims: authoritySnapshot.epicVerificationClaims }
               : {}),
           }),
         );
-        return terminal.outcome;
+        return settled.outcome;
       }
       if (result.runStatus !== 'not_started') {
         const transition = boundTransition?.transition;

@@ -424,7 +424,7 @@ describe('drive', () => {
     ]);
   });
 
-  it('releases same-run waiters and authority state when the owner rejects', async () => {
+  it('releases same-run waiters and authority state while preserving the durable halt', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-owner-rejects-'));
     await createRunAtCreated(cwd, ['task-1']);
     let calls = 0;
@@ -454,9 +454,12 @@ describe('drive', () => {
     expect(calls).toBe(1);
 
     await expect(drive({ cwd, runId: 'run-1', ports: fakePorts() })).resolves.toEqual({
-      status: 'completed',
-      runStatus: 'promotion_prepared',
+      status: 'halted',
+      step: 'worktree_create',
+      runStatus: 'created',
+      reason: 'worktree_create_threw: worktree exploded',
     });
+    expect(calls).toBe(1);
   });
 
   it.each([
@@ -3263,11 +3266,12 @@ describe('drive', () => {
     ]);
   });
 
-  it('resets the attempt bound on explicit retry so a retried drive gets fresh attempts', async () => {
+  it('keeps a durable exhausted-attempt terminal authoritative over later retry metadata', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-attempt-reset-'));
     await createRunAtCreated(cwd, ['task-1']);
     const agentRunner = flakyAgentRunner(Number.POSITIVE_INFINITY);
-    await drive({ cwd, runId: 'run-1', ports: fakePorts({ agentRunner }) });
+    const first = await drive({ cwd, runId: 'run-1', ports: fakePorts({ agentRunner }) });
+    const firstEvents = await readPetriEvents(cwd);
     expect(agentRunner.calls()).toBe(3);
 
     await resetActiveSliceAttempts({ cwd, runId: 'run-1' });
@@ -3277,41 +3281,12 @@ describe('drive', () => {
     });
     expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.activeSliceAttempts).toBeUndefined();
     const retried = await drive({ cwd, runId: 'run-1', ports: fakePorts({ agentRunner }) });
-    expect(retried).toMatchObject({ status: 'halted', reason: 'agent_run_failed' });
-    expect(agentRunner.calls()).toBe(6);
-    expect(
-      (await readPetriEvents(cwd))
-        .filter((event) => event.kind === 'attempt_failed')
-        .map((event) => event.attempt),
-    ).toEqual([1, 2, 3, 1, 2, 3]);
-    const state = (await readRunMetadata(runMetadataPath(cwd, 'run-1')))!;
-    expect(state.activeSliceAttemptReset).toBeUndefined();
-    expect(state.sliceAttemptHistory?.['task-1']?.agent).toEqual([
-      { outcome: 'exhausted', attempts: 3 },
-      { outcome: 'reset', attempts: 0 },
-      { outcome: 'exhausted', attempts: 3 },
-    ]);
-    const plan = JSON.parse(await readFile(petriPlanSnapshotPath(cwd, 'run-1'), 'utf8'));
-    const events = await readPetriEvents(cwd);
-    const projected = projectExecutorPetriTransitionHistory(state, plan)!;
-    expect(events).toContainEqual(
-      expect.objectContaining({
-        kind: 'transition_fired',
-        transitionId: 'agent_reset:task-1',
-        consumed: ['slice:task-1:agent_attempts_exhausted'],
-        produced: ['slice:task-1:agent_attempt:1'],
-      }),
-    );
-    expect(projected.transitionIds).toEqual(
-      events.flatMap((event) => (event.kind === 'transition_fired' ? [event.transitionId] : [])),
-    );
-    const replayed = replayPetri({
-      net: JSON.parse(await readFile(petriNetPath(cwd, 'run-1'), 'utf8')),
-      events,
-    });
-    expect(replayed).toMatchObject({
-      currentMarking: materializeExecutorPetriRuntime(state, plan).currentMarking,
-      firedTransitionCount: projected.transitionIds.length,
+    expect(retried).toEqual(first);
+    expect(agentRunner.calls()).toBe(3);
+    expect(await readPetriEvents(cwd)).toEqual(firstEvents);
+    expect(await readRunMetadata(runMetadataPath(cwd, 'run-1'))).toMatchObject({
+      activeSliceAttemptReset: { stage: 'agent' },
+      sliceAttemptHistory: { 'task-1': { agent: [{ outcome: 'exhausted', attempts: 3 }] } },
     });
   });
 
@@ -5701,5 +5676,52 @@ describe('petriScheduler', () => {
     expect(secondOutcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
     expect(secondPass).toEqual(firstPass);
     expect(secondPass.filter((event) => event.kind === 'net_completed')).toHaveLength(1);
+  });
+
+  it('reuses a journal-ahead terminal and catches up the missing terminal snapshot on restart', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-terminal-journal-ahead-'));
+    await createRunAtCreated(cwd, ['task-1']);
+
+    await drive({ cwd, runId: 'run-1', ports: fakePorts() }, petriScheduler);
+    const firstPass = await readPetriEvents(cwd);
+    const terminal = firstPass.find((event) => event.kind === 'net_completed');
+    expect(terminal).toBeDefined();
+    await rm(petriMarkingPath(cwd, 'run-1'));
+
+    await expect(drive({ cwd, runId: 'run-1', ports: fakePorts() }, petriScheduler)).resolves.toEqual({
+      status: 'completed',
+      runStatus: 'promotion_prepared',
+    });
+
+    expect(await readPetriEvents(cwd)).toEqual(firstPass);
+    await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toMatchObject({
+      terminalEventKind: 'net_completed',
+      terminalTs: terminal!.ts,
+      failedSliceIds: [],
+    });
+  });
+
+  it('fails closed when restart finds multiple durable terminal events', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-terminal-conflict-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    await drive({ cwd, runId: 'run-1', ports: fakePorts() }, petriScheduler);
+    await appendPetriEvent({
+      cwd,
+      runId: 'run-1',
+      event: {
+        kind: 'net_deadlocked',
+        runId: 'run-1',
+        runStatus: 'promotion_prepared',
+        failedSliceIds: [],
+      },
+    });
+    await rm(petriMarkingPath(cwd, 'run-1'));
+
+    await expect(drive({ cwd, runId: 'run-1', ports: fakePorts() }, petriScheduler)).resolves.toEqual({
+      status: 'halted',
+      step: 'terminal',
+      runStatus: 'promotion_prepared',
+      reason: 'petri_terminal_conflict',
+    });
   });
 });

@@ -9,6 +9,7 @@ import type { ExecutorNetEvent } from '../orchestrate-topology.js';
 import { compileExecutorTopology } from '../orchestrate.js';
 import {
   appendPetriEvent,
+  appendPetriTerminalOnce,
   parsePetriEvent,
   petriEventsPath,
   readPetriJournal,
@@ -628,6 +629,38 @@ describe('appendPetriEvent', () => {
     expect(parsePetriEvent({ ...terminal, ts: '2026-07-14T12:00:00.000Z' })).toBeDefined();
   });
 
+  it('fails closed when append-once proposes a terminal conflicting with durable truth', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-terminal-conflict-'));
+    const durable = await appendPetriTerminalOnce({
+      cwd,
+      runId: 'run-1',
+      event: {
+        kind: 'net_halted',
+        runId: 'run-1',
+        runStatus: 'test_result_ingested',
+        reason: 'slice_verification_not_passed',
+        failedSliceIds: ['S3'],
+      },
+    });
+
+    await expect(
+      appendPetriTerminalOnce({
+        cwd,
+        runId: 'run-1',
+        event: {
+          kind: 'net_completed',
+          runId: 'run-1',
+          runStatus: 'promotion_prepared',
+          failedSliceIds: [],
+        },
+      }),
+    ).rejects.toThrow('petri_terminal_conflict');
+    await expect(readPetriJournal(petriEventsPath(cwd, 'run-1'))).resolves.toEqual({
+      status: 'readable',
+      events: [durable],
+    });
+  });
+
   it('rejects a failed durable append, keeps success listeners silent, and wakes failure listeners run-scoped', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-append-failure-'));
     // Occupy the journal path with a directory so appendFile fails (EISDIR).
@@ -1150,10 +1183,24 @@ describe('reducePetrinautReplayExport', () => {
     const sdcpnFile = petriTopologyToSdcpnFile({ runId: 'run-mrkj5qqo', topology });
     const transitions = new Map(topology.transitions.map((transition) => [transition.id, transition]));
     const ids = [
+      'worktree_create',
+      'populate',
+      'source_policy',
+      'source_copy',
+      'report_init',
+      'slice_start:S3',
+      'slice_start:S4',
+      'slice_start:S5',
+      'slice_execute:S3',
+      'agent_result:S3:attempt:1',
       'test_result_ingested:S3:attempt:1',
       'verify_failed:S3:attempt:1',
+      'slice_execute:S4',
+      'agent_result:S4:attempt:1',
       'test_result_ingested:S4:attempt:1',
       'verify_failed:S4:attempt:1',
+      'slice_execute:S5',
+      'agent_result:S5:attempt:1',
       'test_result_ingested:S5:attempt:1',
       'verify_passed:S5:attempt:1',
       'slice_integrate:S5',
@@ -1162,7 +1209,7 @@ describe('reducePetrinautReplayExport', () => {
       const transition = transitions.get(transitionId)!;
       return {
         kind: 'transition_fired',
-        ts: `2026-07-14T12:00:0${index}.000Z`,
+        ts: `2026-07-14T12:00:${String(index).padStart(2, '0')}.000Z`,
         runId: 'run-mrkj5qqo',
         runStatus: 'slice_completed',
         transitionId,
@@ -1177,7 +1224,7 @@ describe('reducePetrinautReplayExport', () => {
     });
     events.push({
       kind: 'net_halted',
-      ts: '2026-07-14T12:00:07.000Z',
+      ts: '2026-07-14T12:00:21.000Z',
       runId: 'run-mrkj5qqo',
       runStatus: 'slice_completed',
       reason: 'slice_verification_not_passed',
