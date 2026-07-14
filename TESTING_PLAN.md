@@ -188,7 +188,7 @@ npm run seed -- --seed workspace-alpha-grounding/base --reset
 npm run dev-cli -- --workspace .fixtures/workbenches/workspace-alpha-grounding --dev-tools
 ```
 
-Also sample at least one richer or differently-shaped seed if time allows, such as `workspace-alpha-grounding/intent-settled`, `workspace-alpha-grounding/requirements-accepted`, or a realistic project-port seed from `.fixtures/seeds/`.
+Also sample at least one richer or differently-shaped seed if time allows, such as `workspace-alpha-grounding/intent-settled`, `workspace-alpha-grounding/requirements-accepted`, `workspace-alpha-grounding/advisory-pending`, `workspace-alpha-grounding/contradictory`, or a realistic project-port seed from `.fixtures/seeds/`.
 
 Inspect:
 
@@ -217,6 +217,14 @@ For each sampled session, inspect after a provider request:
 - `system-prompt.md` for foreground role prompt, skill manifest, model/thinking policy, and stale instructions.
 - `tool-contents.md` for tool result legibility.
 - session JSONL for skill `read` calls and tool choices.
+
+Fixture fit for discriminating routing probes:
+
+| Probe | Seed variant | Fit today | Discriminating state |
+| --- | --- | --- | --- |
+| `propose` | `workspace-alpha-grounding/intent-settled` | ✓ | Settled intent with a thin requirements target and empty downstream planes. |
+| `project` | `workspace-alpha-grounding/requirements-accepted` | ✓ | Accepted requirements with empty design/oracle targets. |
+| `review` | `workspace-alpha-grounding/advisory-pending` or `workspace-alpha-grounding/contradictory` | ✓ | A visible settled/advisory mix, or two edge-free settled commitments that cannot both hold. |
 
 Questions to answer:
 
