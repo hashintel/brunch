@@ -3,6 +3,7 @@ import { Text } from '@earendil-works/pi-tui';
 import type { TSchema } from 'typebox';
 
 import { withLateralPadding } from '../../components/lateral-padding.js';
+import { resolveBrunchToolActivityLabel } from './tool-activity-labels.js';
 
 const BRUNCH_DEFAULT_RENDERER = Symbol('brunch.defaultToolRenderer');
 
@@ -19,7 +20,7 @@ type BrunchToolDefinition<TParams extends TSchema, TDetails> = Omit<
 export function defineBrunchTool<TParams extends TSchema, TDetails = unknown>(
   tool: BrunchToolDefinition<TParams, TDetails>,
 ): ToolDefinition<TParams, TDetails> {
-  const title = tool.label || tool.name;
+  const title = resolveBrunchToolActivityLabel(tool.name, tool.label || tool.name);
 
   const definition = defineTool<TParams, TDetails, BrunchToolRendererState>({
     ...tool,

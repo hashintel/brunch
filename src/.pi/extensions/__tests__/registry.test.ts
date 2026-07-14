@@ -84,6 +84,7 @@ import { BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL } from '../executor/execute-worktre
 import { registerBrunchMentionAutocomplete as mentionAutocomplete } from '../mentions/index.js';
 import { registerBrunchSessionBoundary as sessionLifecycle } from '../session-hooks/session/lifecycle.js';
 import { hasBrunchDefaultRenderer } from '../shared/define-brunch-tool.js';
+import { BRUNCH_TOOL_ACTIVITY_LABELS } from '../shared/tool-activity-labels.js';
 import { assertProviderLegalToolSchema, hasToolParametersProvenance } from '../shared/tool-schema.js';
 import { parseSubagentMarkdown, type BrunchSubagentsDeps, type SubagentResult } from '../subagents/index.js';
 import { createSubagentToolCatalog } from '../subagents/session.js';
@@ -3180,6 +3181,10 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(defaultRenderedNames).toEqual(
       expectedNames.filter((name) => !intentionalCustomRendererNames.includes(name)),
     );
+    expect(Object.keys(BRUNCH_TOOL_ACTIVITY_LABELS).sort((left, right) => left.localeCompare(right))).toEqual(
+      defaultRenderedNames,
+    );
+    expect(Object.values(BRUNCH_TOOL_ACTIVITY_LABELS)).not.toContainEqual(expect.stringMatching(/_/));
 
     const customRenderedTools = actualTools.filter((tool) =>
       intentionalCustomRendererNames.includes(tool.name),
