@@ -323,7 +323,7 @@ Concern: internal narrative obligations exposed in assistant-facing output.
 Evidence: `remediations-3a.md` §3, screenshot `review accepted and persisted`.
 Observation: after persistence, the assistant listed scratchpad obligations to the user.
 Expected: scratchpad obligations remain internal working notes; if surfaced at all, they appear only in model thinking/debug evidence rather than ordinary user-facing prose.
-Disposition: scoped on FE-1187 — JSONL shows each scratchpad update returned the full internal ledger and the assistant then summarized it in ordinary prose. `memory/cards/walkthrough-remediation-2--scratchpad-confidentiality.md` tests whether an explicit foreground conduct rule is sufficient without hiding scratchpad state from the model.
+Disposition: implementation checkpoint landed on FE-1187 — JSONL shows each scratchpad update returned the full internal ledger and the assistant then summarized it in ordinary prose. The always-on foreground prompt now treats scratchpad obligations as private working state, forbids routine user-facing enumeration, and allows disclosure only on explicit request; the composed live-prompt oracle and existing scratchpad/origination context suites preserve the full provider-visible carrier. R11 remains open pending the card-owned authenticated outer re-observation; owner: FE-1187, re-entry trigger: resume the paused consolidated outer checkpoint and repeat the four-obligation ingest shape.
 
 #### R12 · model and opening-state chrome · medium · open
 
