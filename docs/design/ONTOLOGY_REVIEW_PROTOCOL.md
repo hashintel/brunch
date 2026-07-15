@@ -23,14 +23,14 @@ the *current* ontology as it stands in code (`src/graph/schema/`,
     line below as superseded.
   - **§0 baseline is stale by construction:** it lists the *pre*-FE-1052 kind
     set. The live kind set is `src/graph/schema/kinds.ts`.
-  - **2026-07-15 soft semantic amendment:** SPEC D127-L keeps that physical
+  - **2026-07-15 soft semantic amendment:** SPEC D131-L keeps that physical
     kind/plane schema for database compatibility but narrows live conduct.
     `evidence` now means an already-obtained, deliberately promoted observation
     and is capture-only, never projected future material; `vv_obligation`
     remains readable as legacy/reserved vocabulary but agents do not create new
     instances. Criteria and general methods are operationalized by concrete
     checks; observed results may later become evidence that witnesses or
-    falsifies claims. D127-L also owns the user-facing review concern groups,
+    falsifies claims. D131-L also owns the user-facing review concern groups,
     which are independent of the physical planes and readiness bands.
 - **Motivating goal.** The main elicitation flow — general capture of software
   specifications — is the present necessity this ontology serves. Additional
