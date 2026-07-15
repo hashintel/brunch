@@ -27,10 +27,10 @@ describe('consequential-fact production campaign entry', () => {
     const collected: string[] = [];
     let screenIndex = 0;
     const screens = [
-      'Choose a specification\n                    › Start a new specification',
+      'Choose a specification\n                    │ › Start a new specification                                                  │',
       'New specification title',
       'Is this a fresh, greenfield specification?\n› Yes',
-      'Choose how Specify mode should continue\n                    › Work by decision\n                      Work by example',
+      'Choose how Specify mode should continue\n                    │ › Work by decision                                                        │\n                    │   Work by example                                                         │',
       'What compliance or audit constraints are missing?',
       'Review set: retain the source regulator clause identifier verbatim. [ Approve ]',
       '## Review: accepted',
