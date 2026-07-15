@@ -1,4 +1,6 @@
+import { LIVE_SESSION_EVENT_METHOD, liveSessionEventSchema } from '../rpc/live-session-contract.js';
 import type { JsonRpcFailure, JsonRpcId, JsonRpcRequest, JsonRpcResponse } from '../rpc/protocol.js';
+import type { LiveSessionEvent, SessionTarget } from '../session/live-session-host.js';
 
 type WebSocketEventListener = (event: { data?: unknown }) => void;
 
@@ -11,6 +13,11 @@ type WebSocketConstructor = new (url: string) => WebSocketLike;
 export interface WebSocketRpcClient {
   request<T>(method: string, params?: unknown): Promise<T>;
   subscribe(listener: WebSocketRpcNotificationListener): () => void;
+  subscribeSessionEvents(
+    target: SessionTarget,
+    handler: (event: LiveSessionEvent) => void,
+    options?: { onProtocolError?: (error: Error) => void },
+  ): () => void;
   close(): void;
 }
 
@@ -166,6 +173,22 @@ export function createWebSocketRpcClient(options: {
       return () => {
         notificationListeners.delete(listener);
       };
+    },
+
+    subscribeSessionEvents(target, handler, subscriptionOptions) {
+      const listener: WebSocketRpcNotificationListener = (notification) => {
+        if (notification.method !== LIVE_SESSION_EVENT_METHOD) return;
+        const parsed = liveSessionEventSchema.safeParse(notification.params);
+        if (!parsed.success) {
+          subscriptionOptions?.onProtocolError?.(new Error('Invalid Brunch live-session event frame'));
+          return;
+        }
+        const event = parsed.data;
+        if (event.target.specId !== target.specId || event.target.sessionId !== target.sessionId) return;
+        handler(event);
+      };
+      notificationListeners.add(listener);
+      return () => notificationListeners.delete(listener);
     },
 
     close() {

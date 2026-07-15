@@ -390,10 +390,11 @@ Petrinaut HTTP surfaces are sidecar routes, not JSON-RPC methods. `/petrinaut/st
 Live session-stream frames are process-local observer notifications, not request methods or persisted transcript truth. The TUI sidecar retains its raw Pi relay for existing observer tooling. The standalone host instead exposes only a semantic browser contract:
 
 ```pseudo
-brunch.sessionEvent:
+brunch.liveSessionEvent:
+  owner: live-session-contract.ts validates the semantic wire shape
   params:
     target: {specId, sessionId}
-    seq: target-local monotonic sequence
+    seq: target-local monotonic sequence within one open epoch; restarts on reopen
     delta: assistant_text_delta | ask_opened | agent_settled
 ```
 
@@ -410,7 +411,7 @@ Boundary — in layer: the streaming transport relay and its battery. Out of lay
 | 1 | Topology-A walking skeleton through the real host entry | `built` | ● | `src/dev/__tests__/web-driver-streaming.relay.test.ts` | I22-L: attaches via product factory, not the test |
 | 2 | Stream↔transcript differential (assembled `message_update` deltas == flushed JSONL) | `built` | ● | same test | D19-L linchpin |
 | 3 | Ordered incremental delivery (monotonic `seq`, no gaps/dupes) | `built` | ● | same test | |
-| 4 | Domain-projection multiplex (one WS carries `brunch.sessionEvent` + `brunch.updated`) | `built` | ● | same test | deferred-in-order while a request is in flight |
+| 4 | Domain-projection multiplex (one WS carries raw-sidecar `brunch.sessionEvent` or standalone `brunch.liveSessionEvent` alongside `brunch.updated`) | `built` | ● | same test plus `src/dev/__tests__/standalone-web-session-host.real-entry.test.ts` | deferred-in-order while a request is in flight; standalone frames use host-level fan-out |
 | 6 | Reconnect/resume idempotence | `built` | ● | `src/dev/__tests__/web-driver-streaming.reconnect.test.ts` | observer-side, replay-less: reconnect refetches `session.*` projections and resumes later live frames |
 | 7 | One-driver / many-observer fan-out | `built` | ● | `src/dev/__tests__/web-driver-streaming.fan-out.test.ts` | observer-side, autonomous; three concurrent observers receive byte-identical streams and read-only sidecar writes reject |
 | 5 | Mid-stream ask convergence | `built` | ● | `src/dev/__tests__/web-driver-streaming.exchange-convergence.test.ts`, `src/.pi/extensions/__tests__/ask-headless-discovery.test.ts` | every no-UI ask mode registers in D125-L live state; `session.openAsks` discovers the full payload and `session.answerExchange` resolves the broker string, with per-mode decoding in the ask collector; JSONL receives the canonical terminal |
@@ -450,8 +451,8 @@ query key families:
 | `session.submitExchangeResponse` | `submitExchangeResponseMutationOptions(rpc)` | target full-host mutation; sidecar rejects | invalidates pending/exchanges/runtime state; review-set approval additionally invalidates `graph.overview(specId)` / `graph.nodeNeighborhood(specId)` |
 | `session.presentation` | `sessionPresentationQueryOptions(rpc, target)` | standalone session route hydrates canonical JSONL semantics | `agent_settled` or reconnect/remount refetch |
 | `session.openAsks` | direct target-addressed hosted-session query | standalone session route renders live controls for free text and listed single/multi choices; bounded-questionnaire payloads remain discoverable and answerable headlessly through the schema-tagged string/JSON envelope, with no dedicated React questionnaire form | live ask changes; settlement refetch |
-| `session.driveTurn` | direct hosted-session mutation | standalone session route wired with target + browser driver id; TUI sidecar remains handle-gated | live semantic `brunch.sessionEvent`; settlement refetch |
-| `session.answerExchange` | direct hosted-session mutation | standalone session route answers the supported ask family with target + browser driver id; TUI sidecar remains handle-gated | live semantic `brunch.sessionEvent`; settlement refetch |
+| `session.driveTurn` | direct hosted-session mutation | standalone session route wired with target + browser driver id; TUI sidecar remains handle-gated | live semantic `brunch.liveSessionEvent`; settlement refetch |
+| `session.answerExchange` | direct hosted-session mutation | standalone session route answers the supported ask family with target + browser driver id; TUI sidecar remains handle-gated | live semantic `brunch.liveSessionEvent`; settlement refetch |
 | `graph.overview` | `graphOverviewQueryOptions(rpc, specId)` | implemented; spec route loader primes it | exact `graph.overview(specId)` when `specId` is present |
 | `graph.nodeNeighborhood` | `graphNodeNeighborhoodQueryOptions(rpc, specId, nodeId, hops?)` | implemented query option; graph panel selection not yet wired | exact/prefix neighborhood invalidation when `nodeId` is present; broad topic fallback otherwise |
 | `execute.runs` | `executeRunsQueryOptions(rpc)` | implemented; run observer list route | exact `execute.runs` |

@@ -462,6 +462,7 @@ describe('run detail route', () => {
         listeners.add(listener);
         return () => listeners.delete(listener);
       },
+      subscribeSessionEvents: vi.fn(() => () => {}),
       close: vi.fn(),
     } as WebSocketRpcClient;
     const runtime = createBrunchWebRuntime({ rpcClient: client });
@@ -560,6 +561,7 @@ describe('run detail route', () => {
         listeners.add(listener);
         return () => listeners.delete(listener);
       },
+      subscribeSessionEvents: vi.fn(() => () => {}),
       close: vi.fn(),
     } as WebSocketRpcClient;
     const runtime = createBrunchWebRuntime({ rpcClient: client });
@@ -646,6 +648,7 @@ describe('run detail route', () => {
         listeners.add(listener);
         return () => listeners.delete(listener);
       },
+      subscribeSessionEvents: vi.fn(() => () => {}),
       close: vi.fn(),
     } as WebSocketRpcClient;
     const runtime = createBrunchWebRuntime({ rpcClient: client });

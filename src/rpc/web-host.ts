@@ -7,6 +7,7 @@ import { readRunDetail, petrinautStreamPathForRun } from '../executor/observer-r
 import { composePetrinautLauncherUrl, resolvePetrinautUrl } from '../executor/petrinaut/launcher-url.js';
 import type { WorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 import { createReadOnlyRpcHandlers, createWebSidecarRpcHandlers } from './handlers.js';
+import type { LiveSessionEventFrame } from './live-session-contract.js';
 import type { HostedSessionRpcBoundary } from './methods/hosted-session.js';
 import type { SessionTurnDriver } from './methods/session-driver.js';
 import type { SessionExchangeAnswerHandle } from './methods/session-exchange-answer.js';
@@ -28,7 +29,7 @@ export interface WebHostOptions {
   sessionExchangeAnswer?: SessionExchangeAnswerHandle;
   sessionOpenAsks?: SessionOpenAsksHandle;
   hostedSession?: HostedSessionRpcBoundary;
-  hostedSessionEvents?: { subscribe(listener: (frame: unknown) => void): () => void };
+  hostedSessionEvents?: { subscribe(listener: (frame: LiveSessionEventFrame) => void): () => void };
 }
 
 export interface RunningWebHost {
@@ -111,7 +112,7 @@ export async function startWebHost(options: WebHostOptions): Promise<RunningWebH
             }),
         productUpdates,
         ...(options.hostedSessionEvents
-          ? { sessionEvents: options.hostedSessionEvents as SessionEventRelay }
+          ? { sessionEvents: options.hostedSessionEvents }
           : options.sessionEvents
             ? { sessionEvents: options.sessionEvents }
             : {}),

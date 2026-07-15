@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { LiveSessionHost } from '../../session/live-session-host.js';
+import type { LiveSessionEvent, LiveSessionHost } from '../../session/live-session-host.js';
 import { createWebSidecarRpcHandlers } from '../handlers.js';
+import { createLiveSessionEventFrame, liveSessionEventSchema } from '../live-session-contract.js';
 import type { HostedSessionRpcBoundary } from '../methods/hosted-session.js';
 
 const target = { specId: 1, sessionId: 'session-1' };
@@ -13,7 +14,7 @@ function boundary(): HostedSessionRpcBoundary {
     driveTurn: vi.fn(async () => ({ status: 'completed' as const })),
     openAsks: vi.fn(() => []),
     answerExchange: vi.fn(() => ({ status: 'completed' as const })),
-    subscribe: vi.fn(() => () => {}),
+    subscribeAll: vi.fn(() => () => {}),
     dispose: vi.fn(async () => {}),
   } satisfies LiveSessionHost;
   return {
@@ -34,6 +35,40 @@ function coordinator() {
 }
 
 describe('standalone hosted-session RPC contract', () => {
+  it('round-trips every semantic delta, including both exact question alternatives', () => {
+    const events: LiveSessionEvent[] = [
+      { target, seq: 0, delta: { type: 'assistant_text_delta' as const, runId: 'run-1', text: 'Hello' } },
+      {
+        target,
+        seq: 1,
+        delta: {
+          type: 'ask_opened' as const,
+          ask: { exchangeId: 'ask-text', mode: 'text' as const, question: { body: 'Continue?' } },
+        },
+      },
+      {
+        target,
+        seq: 2,
+        delta: {
+          type: 'ask_opened' as const,
+          ask: {
+            exchangeId: 'ask-questionnaire',
+            mode: 'questionnaire' as const,
+            question: {
+              body: 'Complete the questionnaire.',
+              questions: [{ id: 'q1', kind: 'free-text' as const, prompt: 'Why?' }],
+            },
+          },
+        },
+      },
+      { target, seq: 3, delta: { type: 'agent_settled' as const } },
+    ];
+
+    for (const event of events) {
+      expect(liveSessionEventSchema.parse(createLiveSessionEventFrame(event).params)).toEqual(event);
+    }
+  });
+
   it('rejects targetless lifecycle, driver, ask, answer, and presentation requests', async () => {
     const handlers = createWebSidecarRpcHandlers({
       coordinator: coordinator(),

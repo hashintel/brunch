@@ -335,7 +335,7 @@ const zAskQuestionOptionEcho = z
   .strict();
 export type AskQuestionOptionEcho = z.infer<typeof zAskQuestionOptionEcho>;
 
-const zAskQuestionEcho = z
+export const zAskQuestionEcho = z
   .object({
     body: zNonBlankMarkdown,
     options: z.array(zAskQuestionOptionEcho).min(1).optional(),

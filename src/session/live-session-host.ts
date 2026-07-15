@@ -39,14 +39,13 @@ export interface LiveSessionHost {
     exchangeId: string,
     answer: string,
   ): LiveSessionHostResult;
-  subscribe(target: SessionTarget, listener: (event: LiveSessionEvent) => void): () => void;
+  subscribeAll(listener: (event: LiveSessionEvent) => void): () => void;
   dispose(): Promise<void>;
 }
 
 interface RuntimeCell {
   readonly target: SessionTarget;
   readonly runtime: LiveSessionRuntime;
-  readonly listeners: Set<(event: LiveSessionEvent) => void>;
   detach: () => void;
   seq: number;
   driving: boolean;
@@ -73,6 +72,7 @@ export function createLiveSessionHost(options: {
 }): LiveSessionHost {
   const cells = new Map<string, RuntimeCell>();
   const opening = new Map<string, Promise<LiveSessionHostResult>>();
+  const listeners = new Set<(event: LiveSessionEvent) => void>();
 
   async function open(target: SessionTarget): Promise<LiveSessionHostResult> {
     const key = sessionTargetKey(target);
@@ -83,7 +83,6 @@ export function createLiveSessionHost(options: {
       const cell: RuntimeCell = {
         target,
         runtime,
-        listeners: new Set(),
         seq: 0,
         driving: false,
         driverId: null,
@@ -91,7 +90,7 @@ export function createLiveSessionHost(options: {
       };
       cell.detach = runtime.subscribe((delta) => {
         const event = { target, seq: cell.seq++, delta } satisfies LiveSessionEvent;
-        for (const listener of cell.listeners) listener(event);
+        for (const listener of listeners) listener(event);
       });
       cells.set(key, cell);
       return { status: 'opened' as const };
@@ -146,11 +145,14 @@ export function createLiveSessionHost(options: {
         ? { status: 'completed' }
         : { status: 'ask_closed' };
     },
-    subscribe(target, listener) {
-      const cell = cellFor(target);
-      if (!cell) return () => {};
-      cell.listeners.add(listener);
-      return () => cell.listeners.delete(listener);
+    subscribeAll(listener) {
+      listeners.add(listener);
+      let subscribed = true;
+      return () => {
+        if (!subscribed) return;
+        subscribed = false;
+        listeners.delete(listener);
+      };
     },
     async dispose() {
       const activeTargets = [...cells.values()].filter((cell) => cell.driving).map((cell) => cell.target);

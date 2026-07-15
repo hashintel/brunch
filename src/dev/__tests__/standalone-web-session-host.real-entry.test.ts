@@ -4,9 +4,11 @@ import { join } from 'node:path';
 
 import { fauxAssistantMessage, fauxToolCall } from '@earendil-works/pi-ai';
 import { afterAll, describe, expect, it } from 'vitest';
+import WebSocket from 'ws';
 
 import { runBrunchWeb } from '../../app/brunch-web.js';
 import type { SessionPresentationResult } from '../../projections/session/session-presentation.js';
+import { LIVE_SESSION_EVENT_METHOD, liveSessionEventSchema } from '../../rpc/live-session-contract.js';
 import { createWorkspaceSessionCoordinator } from '../../session/workspace-session-coordinator.js';
 import { registerKeptFauxProvider, RpcSocket, waitFor } from './web-driver-streaming-support.js';
 
@@ -27,8 +29,20 @@ describe('standalone web session host production entry', () => {
     const target = { specId: workspace.spec.id, sessionId: workspace.session.id };
     const host = await runBrunchWeb({ cwd, coordinator, agentServices: faux.agentServices });
     cleanups.push(() => host.close());
-    const rpc = await RpcSocket.open(`${host.url.replace(/^http/u, 'ws')}/rpc`);
+    const rpcUrl = `${host.url.replace(/^http/u, 'ws')}/rpc`;
+    const rpc = await RpcSocket.open(rpcUrl);
     cleanups.push(() => rpc.close());
+    const observer = new WebSocket(rpcUrl);
+    await new Promise<void>((resolve, reject) => {
+      observer.once('open', resolve);
+      observer.once('error', reject);
+    });
+    cleanups.push(() => observer.close());
+    const liveFrames: unknown[] = [];
+    observer.on('message', (data) => {
+      const frame = JSON.parse(data.toString()) as { method?: string; params?: unknown };
+      if (frame.method === LIVE_SESSION_EVENT_METHOD) liveFrames.push(frame.params);
+    });
 
     await expect(rpc.request('session.open', target)).resolves.toMatchObject({ status: 'opened' });
     await waitFor(() => faux.provider.getPendingResponseCount() === 0, 8000, 'startup turn');
@@ -125,6 +139,36 @@ describe('standalone web session host production entry', () => {
           text: 'Durable candidate answer complete.',
         }),
       ]),
+    );
+
+    expect(liveFrames.length).toBeGreaterThan(0);
+    expect(liveFrames.map((frame) => liveSessionEventSchema.parse(frame))).toEqual(
+      expect.arrayContaining([expect.objectContaining({ target, seq: 0 })]),
+    );
+
+    await expect(reconnected.request('session.close', target)).resolves.toMatchObject({ status: 'closed' });
+    await expect(reconnected.request('session.open', target)).resolves.toMatchObject({ status: 'opened' });
+    await waitFor(() => faux.provider.getPendingResponseCount() === 0, 8000, 'reopen startup turn');
+    faux.provider.appendResponses([() => fauxAssistantMessage('Second open epoch complete.')]);
+    await expect(
+      reconnected.request('session.driveTurn', {
+        ...target,
+        driverId: 'browser-reopen-proof',
+        prompt: 'Prove the reopened stream.',
+      }),
+    ).resolves.toMatchObject({ status: 'completed' });
+    await waitFor(
+      () =>
+        liveFrames.map((frame) => liveSessionEventSchema.parse(frame)).filter((event) => event.seq === 0)
+          .length >= 2,
+      8000,
+      'reopened semantic frame',
+    );
+    const parsedFrames = liveFrames.map((frame) => liveSessionEventSchema.parse(frame));
+    let reopenedStart = parsedFrames.length - 1;
+    while (reopenedStart > 0 && parsedFrames[reopenedStart]!.seq !== 0) reopenedStart -= 1;
+    expect(parsedFrames.slice(reopenedStart).map((event) => event.seq)).toEqual(
+      parsedFrames.slice(reopenedStart).map((_, index) => index),
     );
   });
 

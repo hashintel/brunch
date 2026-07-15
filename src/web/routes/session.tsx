@@ -8,7 +8,6 @@ import type { LiveSessionEvent } from '../../session/live-session-host.js';
 import { reduceLiveSessionOverlay } from '../features/session/live-overlay.js';
 import { sessionPresentationQueryOptions } from '../queries/session-presentation.js';
 import { queryKeys } from '../query-keys.js';
-import type { WebSocketRpcNotification } from '../rpc-client.js';
 import { rootRoute } from './root.js';
 
 export const sessionRoute = createRoute({
@@ -37,20 +36,25 @@ function SessionPage() {
 
   useEffect(
     () =>
-      rpcClient.subscribe((notification: WebSocketRpcNotification) => {
-        if (notification.method !== 'brunch.sessionEvent') return;
-        const event = notification.params as LiveSessionEvent;
-        const delta = event.delta;
-        if (event.target.specId !== target.specId || event.target.sessionId !== target.sessionId) return;
-        if (delta.type === 'assistant_text_delta' || delta.type === 'ask_opened') {
-          setOverlay((entries) => [...reduceLiveSessionOverlay(entries, event)]);
-        }
-        if (delta.type === 'agent_settled') {
-          setBusy(false);
-          setOverlay([]);
-          void queryClient.invalidateQueries({ queryKey: queryKeys.session.presentation(target) });
-        }
-      }),
+      rpcClient.subscribeSessionEvents(
+        target,
+        (event: LiveSessionEvent) => {
+          const delta = event.delta;
+          if (delta.type === 'assistant_text_delta' || delta.type === 'ask_opened') {
+            setOverlay((entries) => [...reduceLiveSessionOverlay(entries, event)]);
+          }
+          if (delta.type === 'agent_settled') {
+            setBusy(false);
+            setOverlay([]);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.session.presentation(target) });
+          }
+        },
+        {
+          onProtocolError(error: Error) {
+            console.error('Brunch live-session protocol error', error);
+          },
+        },
+      ),
     [queryClient, rpcClient, target],
   );
 

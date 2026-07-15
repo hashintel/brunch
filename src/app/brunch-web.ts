@@ -2,11 +2,11 @@ import { createAgentSessionRuntime, getAgentDir } from '@earendil-works/pi-codin
 
 import { createLiveSessionEventProjection } from '../projections/session/live-session-events.js';
 import { projectSessionPresentationFile } from '../projections/session/session-presentation.js';
+import { createLiveSessionEventFrame } from '../rpc/live-session-contract.js';
 import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
 import { createLiveAskRegistry } from '../session/live-ask-registry.js';
 import {
   createLiveSessionHost,
-  type LiveSessionEvent,
   type LiveSessionRuntime,
   type SessionTarget,
 } from '../session/live-session-host.js';
@@ -31,24 +31,6 @@ export async function runBrunchWeb(options: BrunchWebOptions): Promise<RunningWe
       ((target) =>
         createStandaloneSessionRuntime(options.cwd, options.coordinator, target, options.agentServices)),
   });
-  const listeners = new Set<(frame: unknown) => void>();
-  const subscriptions = new Map<string, () => void>();
-  const originalOpen = liveSessions.open.bind(liveSessions);
-  liveSessions.open = async (target) => {
-    const result = await originalOpen(target);
-    const key = `${target.specId}\0${target.sessionId}`;
-    if (!subscriptions.has(key)) {
-      subscriptions.set(
-        key,
-        liveSessions.subscribe(target, (event: LiveSessionEvent) => {
-          const frame = { jsonrpc: '2.0', method: 'brunch.sessionEvent', params: event };
-          for (const listener of listeners) listener(frame);
-        }),
-      );
-    }
-    return result;
-  };
-
   const host = await (options.startHost ?? startWebHost)({
     cwd: options.cwd,
     coordinator: options.coordinator,
@@ -65,8 +47,7 @@ export async function runBrunchWeb(options: BrunchWebOptions): Promise<RunningWe
     },
     hostedSessionEvents: {
       subscribe(listener) {
-        listeners.add(listener);
-        return () => listeners.delete(listener);
+        return liveSessions.subscribeAll((event) => listener(createLiveSessionEventFrame(event)));
       },
     },
   });
@@ -74,7 +55,6 @@ export async function runBrunchWeb(options: BrunchWebOptions): Promise<RunningWe
   const running = {
     url: host.url,
     async close() {
-      for (const unsubscribe of subscriptions.values()) unsubscribe();
       // Stop admitting HTTP/RPC work before disposing runtime cells. If a cell
       // reports an active turn, the public host is still guaranteed closed and
       // the classified disposal error remains visible to the caller.
@@ -113,11 +93,7 @@ async function createStandaloneSessionRuntime(
     { cwd, agentDir: getAgentDir(), sessionManager: workspace.session.manager },
   );
   await runtime.session.bindExtensions({});
-  const listeners = new Set<
-    (
-      delta: Parameters<LiveSessionRuntime['subscribe']>[0] extends (value: infer D) => void ? D : never,
-    ) => void
-  >();
+  const listeners = new Set<Parameters<LiveSessionRuntime['subscribe']>[0]>();
   const unsubscribeAsk = liveExchange.subscribe((ask) => {
     for (const listener of listeners) listener({ type: 'ask_opened', ask });
   });

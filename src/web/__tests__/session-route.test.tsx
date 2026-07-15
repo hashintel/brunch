@@ -7,6 +7,7 @@ import type {
   SessionPresentationEntry,
   SessionPresentationResult,
 } from '../../projections/session/session-presentation.js';
+import { liveSessionEventSchema } from '../../rpc/live-session-contract.js';
 import type { LiveSessionEvent } from '../../session/live-session-host.js';
 import { BrunchWebApp, createBrunchWebRuntime } from '../app.js';
 import type { WebSocketRpcClient, WebSocketRpcNotificationListener } from '../rpc-client.js';
@@ -66,16 +67,66 @@ function fixture(terminalEntries: readonly SessionPresentationEntry[] = []) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
+    subscribeSessionEvents(
+      target: { specId: number; sessionId: string },
+      handler: (event: LiveSessionEvent) => void,
+      options?: { onProtocolError?: (error: Error) => void },
+    ) {
+      const listener: WebSocketRpcNotificationListener = (notification) => {
+        if (notification.method !== 'brunch.liveSessionEvent') return;
+        const parsed = liveSessionEventSchema.safeParse(notification.params);
+        if (!parsed.success) {
+          options?.onProtocolError?.(new Error('Invalid live session event'));
+          return;
+        }
+        const event = parsed.data;
+        if (event.target.specId === target.specId && event.target.sessionId === target.sessionId)
+          handler(event);
+      };
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
     close: vi.fn(),
   } as unknown as WebSocketRpcClient;
   const emit = (event: LiveSessionEvent) => {
     for (const listener of listeners)
-      listener({ jsonrpc: '2.0', method: 'brunch.sessionEvent', params: event });
+      listener({ jsonrpc: '2.0', method: 'brunch.liveSessionEvent', params: event });
   };
-  return { client, calls, emit, reads: () => reads };
+  const emitNotification = (method: string, params: unknown) => {
+    for (const listener of listeners) listener({ jsonrpc: '2.0', method, params });
+  };
+  return { client, calls, emit, emitNotification, reads: () => reads };
 }
 
 describe('session route', () => {
+  it('uses the semantic subscription surface and ignores wrong, malformed, and cross-target frames', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture();
+    const protocolError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    expect(await screen.findByText(/History/u)).toBeTruthy();
+
+    await act(async () => {
+      f.emitNotification('brunch.sessionEvent', {
+        target: { specId: 1, sessionId: 's1' },
+        seq: 0,
+        delta: { type: 'assistant_text_delta', runId: 'wrong-method', text: 'Wrong method' },
+      });
+      f.emitNotification('brunch.liveSessionEvent', { target: 'malformed' });
+      f.emitNotification('brunch.liveSessionEvent', {
+        target: { specId: 2, sessionId: 'other' },
+        seq: 0,
+        delta: { type: 'assistant_text_delta', runId: 'wrong-target', text: 'Wrong target' },
+      });
+    });
+
+    expect(protocolError).toHaveBeenCalledWith('Brunch live-session protocol error', expect.any(Error));
+    protocolError.mockRestore();
+    expect(screen.queryByText(/Wrong method/u)).toBeNull();
+    expect(screen.queryByText(/Wrong target/u)).toBeNull();
+    expect(screen.getByText(/History/u)).toBeTruthy();
+  });
+
   it('renders every projected free-text ask terminal without decoding details', async () => {
     window.history.pushState(null, '', '/session/1/s1');
     const ask = (

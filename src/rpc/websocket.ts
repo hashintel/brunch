@@ -17,12 +17,16 @@ export function isWebRpcUpgradeHandled(request: IncomingMessage): boolean {
   return handledUpgradeRequests.has(request);
 }
 
-export function attachWebRpcTransport(options: {
+export function attachWebRpcTransport<TSessionFrame = never>(options: {
   server: HttpServer;
   path: string;
   handlers: RpcHandlers;
   productUpdates?: ProductUpdatePublisher;
-  sessionEvents?: Pick<SessionEventRelay, 'subscribe'>;
+  sessionEvents?:
+    | Pick<SessionEventRelay, 'subscribe'>
+    | {
+        subscribe(listener: (frame: TSessionFrame) => void): () => void;
+      };
 }): WebRpcTransport {
   const webSocketServer = new WebSocketServer({ noServer: true });
   let activeRequests = 0;
