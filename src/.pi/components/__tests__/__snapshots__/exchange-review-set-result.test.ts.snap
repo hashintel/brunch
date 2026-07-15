@@ -1,0 +1,90 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ExchangeReviewSetResultComponent > renders the borderless Impact Ledger at narrow, normal, and wide widths > narrow 1`] = `
+"Terms
+
+term         T1    A compact view of    
+                   proposed graph       
+                   consequences.
+
+Intent
+
+goal         G2    Launch safely with   
+                   a deliberately long  
+                   description that     
+                   wraps at narrow      
+                   widths               
+                   refs: VVO2           
+             G3    Keep review          
+                   consequences clear
+
+Implementation
+
+requirement  REQ5  Rollback is          
+                   required             
+                   refs: G2
+
+Assurance
+
+obligation   VVO2  Observe the          
+                   rollback path
+
+Planning
+
+frontier     F4    Close launch         
+                   readiness
+"
+`;
+
+exports[`ExchangeReviewSetResultComponent > renders the borderless Impact Ledger at narrow, normal, and wide widths > normal 1`] = `
+"Terms
+
+term         T1    A compact view of proposed graph consequences.
+
+Intent
+
+goal         G2    Launch safely with a deliberately long description   
+                   that wraps at narrow widths                          
+                   refs: VVO2                                           
+             G3    Keep review consequences clear
+
+Implementation
+
+requirement  REQ5  Rollback is required                                 
+                   refs: G2
+
+Assurance
+
+obligation   VVO2  Observe the rollback path
+
+Planning
+
+frontier     F4    Close launch readiness
+"
+`;
+
+exports[`ExchangeReviewSetResultComponent > renders the borderless Impact Ledger at narrow, normal, and wide widths > wide 1`] = `
+"Terms
+
+term         T1    A compact view of proposed graph consequences.
+
+Intent
+
+goal         G2    Launch safely with a deliberately long description that wraps at narrow widths   
+                   refs: VVO2                                                                       
+             G3    Keep review consequences clear
+
+Implementation
+
+requirement  REQ5  Rollback is required                                                             
+                   refs: G2
+
+Assurance
+
+obligation   VVO2  Observe the rollback path
+
+Planning
+
+frontier     F4    Close launch readiness
+"
+`;

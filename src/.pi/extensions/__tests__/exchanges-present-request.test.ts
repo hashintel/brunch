@@ -960,9 +960,10 @@ describe('structured exchange ask tools', () => {
     if (!structuralIllegal) throw new Error('present_review_set returned no structural-illegal result');
     const structuralIllegalRendered = tool.renderResult(structuralIllegal, {}, theme).render?.(80).join('\n');
 
-    expect(richRendered).toContain('Status: Review-set proposal');
-    expect(richRendered).toContain('G1 · goal');
-    expect(richRendered).toContain('Depends on: REQ1');
+    expect(richRendered).toContain('Terms');
+    expect(richRendered).toContain('Intent');
+    expect(richRendered).toContain('goal         G1    Review graph proposals');
+    expect(richRendered).toContain('refs: G1');
     expect(richRendered).not.toContain('accepted');
     expect(richRendered).not.toContain('committed');
     expect(richRendered).not.toContain('applied');
@@ -982,10 +983,11 @@ describe('structured exchange ask tools', () => {
 
     const rendered = tool.renderResult(review, {}, theme).render?.(80).join('\n');
 
-    expect(rendered).toContain('Status: Review-set proposal');
-    expect(rendered).toContain('SCP1 · scope');
-    expect(rendered).toContain('Part of: F1');
-    expect(rendered).toContain('Depends on: CH1');
+    expect(rendered).toContain('Assurance');
+    expect(rendered).toContain('Planning');
+    expect(rendered).toContain('check     CH1   Scope handoff proof');
+    expect(rendered).toContain('scope     SCP1  Executor handoff package');
+    expect(rendered).toContain('refs: SCP1');
   });
 
   // Digest continuations route to the editor (free-text feedback), not a decision picker — that

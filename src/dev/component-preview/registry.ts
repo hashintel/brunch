@@ -33,7 +33,6 @@ import {
   requestTerminalFixture,
   structuralIllegalFixture,
 } from './exchange-fixtures.js';
-import { ReviewSetPrototypeComponent } from './review-set-prototype.js';
 import { captureMessageRenderer, previewStaticComponent, sampleCustomMessage } from './static-preview.js';
 import { ThemeTestbedComponent } from './theme-testbed.js';
 import { createComponentPreviewEditorTheme } from './theme.js';
@@ -120,19 +119,6 @@ function manySpecsWorkspaceInventory(specCount: number): WorkspaceLaunchInventor
  * matters.
  */
 export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
-  {
-    id: 'review-set-prototype',
-    label: 'Review-set comparison prototype (FE-1187 R10)',
-    presentedLike:
-      'prototype-only inline comparison — current ExchangeReviewSetResultComponent card wall plus four information-hierarchy bets, including a grouped impact table, over one projected 17-node/11-edge present_review_set; no production settlement mechanics',
-    open: (tui, theme, keybindings) =>
-      showComponentPreview(
-        tui,
-        theme,
-        keybindings,
-        (_tui, previewTheme, _kb, done) => new ReviewSetPrototypeComponent(previewTheme, done),
-      ),
-  },
   {
     id: 'theme-testbed',
     label: 'Theme testbed (text, borders, markdown, syntax highlighting, contrast strip)',
