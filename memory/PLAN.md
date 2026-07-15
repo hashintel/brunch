@@ -20,6 +20,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 **Current closure lane.** FE-1187 is the sole remaining ship-gate frontier. The digest-questionnaire carrier and atomic local/RPC review settlement are built; next is compact proposition-first review presentation, including the reassigned `transcript-ledger-rendering` work so durable user choices and their visual treatment land together. The consolidated outer checkpoint remains paused until R6/R8–R10/R12/R13 have owned dispositions. Execute evidence O7–O9 belongs to the KA stream; FE-1187 coordinates but does not own it.
 
 **Parallel lanes.** Group 3 agent-layer work is pickup-ready. `interactive-tui-driver` is an independent tooling tracer that can run in a separate worktree: it will settle one canonical agent-driven TUI testing workflow without entering product runtime. `graph-assurance-conduct` is a separate earned-posture closure frontier for the D131-L prompt/skill semantic sweep; FE-1187 retains only the concern-grouped review renderer. The KA stream owns executor/orchestrator/Execute-mode work and the live Petri sequence from FE-1192 attempts through isolation/fan-in, epic integration, and durable parallel authority. Far-horizon instrumentation and consequential-fact evaluation remain trigger-gated under Later.
+**Parallel lanes.** Group 3 agent-layer work is pickup-ready. The completed `interactive-tui-driver` now unlocks active parallel frontier `consequential-fact-discovery-tracer` (FE-1208): one real-TUI trace → eval → score → regression flywheel, deliberately bounded before broad tracing or competitor campaigns. The KA stream owns executor/orchestrator/Execute-mode work and the live Petri sequence from FE-1192 attempts through isolation/fan-in, epic integration, and durable parallel authority. Broader instrumentation remains trigger-gated under Later.
 
 **Current seams.** Brunch ships on the `1.0.0-alpha.x` line. One-shot `ask` is the only interactive structured-exchange terminal; D125-L's live ask registry provides headless discovery/answering, while the transcript-backed pending projection remains a compatibility surface for live offer tools after the legacy `present_question` pending branch retired. Sweep classification remains fail-closed and compile-time anchored to the exchange-schema terminal names (D117-L), while the larger capture-conditional watermark question remains A40-L.
 
@@ -98,6 +99,7 @@ Older completion history (incl. FE-1190 petrinaut-live-run-stream and FE-1180 wa
 ### Parallel / Low-conflict
 
 - `graph-assurance-conduct` — not started; separate D131-L closure frontier canonicalizing capture/map/project/propose/review semantics without a database migration. FE-1187 owns the renderer, not this prompt/skill sweep. Definition below.
+- `consequential-fact-discovery-tracer` ([FE-1208](https://linear.app/hash/issue/FE-1208/trace-and-evaluate-warranted-agent-commitments)) — **active, proving:** use the completed TUI driver to produce promoted, discriminating 3×/arm warranted-commitment A/B evidence; definition below.
 
 ### Cleanups — Group 4
 
@@ -121,7 +123,6 @@ Everything executor/orchestrator-shaped or Execute-mode-owned belongs to Kostand
 
 Instrumentation experiments and far-horizon items. Each re-enters only via re-qualification with a named trigger.
 - `mechanism-trace` — **Later**: post-hoc `wiring` / `nudge` / `conduct` transcript timeline plus static wiring inventory. Re-enter when instrumentation is prioritized; FE-1187 already owns the extracted sweep-debt tripwire. Archived snapshot: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md#2026-07-14-rolling-frontier-reduction).
-- `consequential-fact-discovery-tracer` — **Later**: bounded Tier-2 real-provider hidden-fact-ledger × transcript-attribution × graph-readback tracer. Re-enter after Group 1 closes and the ask/prompt surface stabilizes; D125-L has closed discovery, while a useful report remains the campaign gate. Archived snapshot: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md#2026-07-14-rolling-frontier-reduction).
 - `agent-tracing` — passive trace instrumentation over Pi lifecycle events for debugging plus conduct/quality evaluation: NDJSON emitter extension (introspection-tap discipline), subagent span joining via SDK `session.subscribe`, and a mechanical-trace × semantic-JSONL join for deterministic conduct checks and judged passes. Entry move is an `ln-spike` (dev-gated `nikiforovall/pi-otel` import: do span trees beat `.brunch/debug/` + JSONL projections?) before any port of `JoshMock/the-agency` observability as the in-product base. Traces are dev/eval artifacts, never product truth (no event-spine backdoor). Design: `docs/design/AGENT_TRACING.md`; sibling idea note `docs/design/RLM_INVESTIGATION_PATTERN.md`. Relation: Later `mechanism-trace` is the transcript-native sibling (carrier classification, no event plane); if both land they may join on a shared trace vocabulary. Absorbs Pi-native P5 (provider/cache observability — latency, cache behavior, whole-run spans), spike-led.
 - `petri-epic-integration` — epics become integration gates, not just identity labels: an epic-complete transition gated on member slices, with epic-level verification/fan-in in the compiled topology (`epicId` identity already flows through subnets and emitted facts). Behind `petri-slice-isolation-fan-in`; shape via `ln-grill`/`ln-scope` at pickup.
 - `petri-durable-parallel-authority` — the repeatedly deferred authority flip (SPEC §Future Direction): durable marking/journal authority for concurrently firing side effects once `run.json`'s single-status ladder cannot represent in-flight parallelism. Final member of the admitted Petri sequence. Promote only when `petri-slice-isolation-fan-in` evidence shows serial authority is the binding constraint — do not pull it forward for old-`main` Petrinaut parity.
@@ -239,6 +240,24 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Verification:** `npm run check:skills`; prompt/resource composition tests and snapshots; focused tests that reject forbidden future-evidence/obligation guidance while preserving generic “evidence” and scratchpad-obligation language; one controlled project/propose transcript showing criteria/method/check output without speculative E/O nodes; full `npm run verify` before submission.
 - **Boundary:** FE-1187 owns the concern-grouped review prototype/production renderer, vocabulary-change signal, and legacy-obligation display fallback. The web graph browser keeps its own ordering unless a concrete consumer requirement independently justifies reuse.
 - **Traceability:** D131-L (soft semantics and review groups), D87-L (physical ontology event), D94-L (latest-expected-band model), D99-L (advisory capture), D70-L (artifact promotion); drift inventory captured in the FE-1187 handoff.
+### consequential-fact-discovery-tracer
+
+- **Name:** Trace and evaluate warranted agent commitments
+- **Linear:** [FE-1208](https://linear.app/hash/issue/FE-1208/trace-and-evaluate-warranted-agent-commitments)
+- **Branch:** `ln/fe-1208-trace-and-evaluate-warranted-agent-commitments`, stacked on the completed `interactive-tui-driver` frontier.
+- **Kind:** structural verification tooling + bounded behavioral-evaluation tracer; not product runtime.
+- **Certainty:** proving.
+- **Status:** active; oracle design settled, scope not yet authored.
+- **Objective:** establish one complete trace → eval → score → regression flywheel. A real TUI-driven controlled A/B must show whether a task-specific evaluator can distinguish current warrant-before-commit conduct from a single-directive ablation on one realistic non-inferable consequential-fact scenario.
+- **Why now / unlocks:** FE-1206 closed the interaction/control gap. The remaining uncertainty is whether existing Pi lifecycle events, provider-payload introspection, JSONL, TUI observations, and graph readback can form a legible joined report and support a discriminating quality oracle without first adopting OTel. Landing this makes later real-failure corpora and outcome-level Claude Code/Cursor comparison credible.
+- **Lights up:** real TUI/product path → controlled user actor → joined directive/trajectory report → hidden-fact/transcript/graph evaluator → promoted A/B evidence.
+- **Stabilizes:** a product-neutral scenario/run/report envelope; directive identity and advertised/read/provider-visible distinctions; the scratch→review→promotion evidence lifecycle required by req 24/A5-L.
+- **Acceptance:** one human-authored non-inferable scenario defines hidden facts, forbidden rivals, and reveal policy; an eval/dev override removes only the warrant-before-commit directive at the real prompt-composition seam; three real-provider runs per arm hold model, thinking, seed, actor policy, turn budget, and flow fixed; promoted reports pair consequential-fact completeness with item-level groundedness, settlement correctness, private-leakage/forbidden-rival negative space, atomic reasons, and replayable joined trajectories; the evidence discriminates the full directive from the ablated rival. Then mine one real walkthrough failure into the same artifact model before making practical-quality claims.
+- **Verification:** inner — boundary schemas, stable directive ids/hashes, event correlation/completeness, scorer edge cases, deterministic reprojection, artifact hygiene; middle — 3×/arm TUI-driven real-provider campaign over hidden-fact ledger × transcript attribution × graph readback; outer — small human-labeled calibration/audit set. The report is instrumentation; promoted discriminating evidence is the completion claim.
+- **Cross-cutting obligations:** traces remain dev/eval artifacts, never product truth; use the real composition root so the harness cannot supply missing wiring; deterministic checks own structural facts and human-calibrated judging owns residual semantics; the common envelope stays black-box/product-neutral while Brunch-only trajectory enrichment remains diagnostic. `mechanism-trace` contributes vocabulary only, not a prerequisite or second artifact system.
+- **Recorded tradeoffs / re-entry triggers (do not silently retire):** the synthetic ablation proves evaluator discrimination, not broad quality or competitor superiority; directive presence/precedence is attribution, not causality outside the controlled intervention. The controlled actor, small calibration set, foreground-only trace, and single model/provider are accepted ceilings; revisit on actor-sensitive outcomes, material judge disagreement/new rubric domains, a claim requiring subagent ancestry, or repeated supported-provider divergence. Trigger the existing `agent-tracing` OTel-vs-NDJSON spike only when the joined report cannot answer a named question. Competitor execution remains a later matched-budget five-run campaign with blinded human adjudication; opaque competitor internals never count against them. Canonical detail: SPEC §Acknowledged Blind Spots.
+- **Traceability:** req 24; A5-L; D68-L–D70-L; I55-L; SPEC §Verification Design (combined assessment, loop-tier oracles, flywheel design note, acknowledged blind spots).
+- **Design docs:** [`docs/design/AGENT_TRACING.md`](../docs/design/AGENT_TRACING.md) is conditional tracing context, not the first implementation prescription.
 
 ### cli-mode-entry
 
@@ -414,6 +433,7 @@ group-3 (Next — agent layer):
   review-commentary-widening (mention-based reshape)
 
 parallel:
+parallel evaluation:
   interactive-tui-driver
     status: done 2026-07-15; project-local pi-interactive-shell host default | existing tui-driver sandbox fallback
     evidence: component playground + seeded Brunch TUI + human takeover/return + deterministic cleanup
@@ -422,6 +442,10 @@ parallel:
     status: not started; earned closure frontier after D131-L documentation commit
     canonicalizes: capture/map/project/propose/review assurance semantics
     excludes: schema migration | review renderer | automatic evidence-promotion pipeline
+    -[hard]-> consequential-fact-discovery-tracer (FE-1208)
+      status: active; oracle design settled; scope next
+      lights_up: TUI-driven joined trajectory + warranted-commitment A/B evidence
+      excludes: OTel-first platform, competitor campaign, product event spine
 
 group-4 (cleanups): rides group-1 stack | named-inline-extension-identity (P1)
 
@@ -458,8 +482,8 @@ KA stream:
     excludes: squash/graft knobs; remote/PR targets; durable acceptance tokens;
       source-copy one-authority fix (named follow-up)
 
-later: mechanism-trace (tripwire extracted to FE-1187) |
-  consequential-fact-discovery-tracer | agent-tracing (absorbs P5) |
+later: mechanism-trace (vocabulary may feed FE-1208; no parallel artifact system) |
+  agent-tracing (conditional on a named FE-1208 observability gap; absorbs P5) |
   petri-epic-integration | petri-durable-parallel-authority
 
 rules:
