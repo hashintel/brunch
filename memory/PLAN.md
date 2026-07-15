@@ -19,7 +19,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 **Current closure lane.** FE-1187 is the sole remaining ship-gate frontier. The digest-questionnaire carrier and atomic local/RPC review settlement are built; next is compact proposition-first review presentation, including the reassigned `transcript-ledger-rendering` work so durable user choices and their visual treatment land together. The consolidated outer checkpoint remains paused until R6/R8–R10/R12/R13 have owned dispositions. Execute evidence O7–O9 belongs to the KA stream; FE-1187 coordinates but does not own it.
 
-**Parallel lanes.** Group 3 agent-layer work is pickup-ready. The KA stream owns executor/orchestrator/Execute-mode work and the live Petri sequence from FE-1192 attempts through isolation/fan-in, epic integration, and durable parallel authority. Far-horizon instrumentation and consequential-fact evaluation remain trigger-gated under Later.
+**Parallel lanes.** Group 3 agent-layer work is pickup-ready. `interactive-tui-driver` is an independent tooling tracer that can run in a separate worktree: it will settle one canonical agent-driven TUI testing workflow without entering product runtime. The KA stream owns executor/orchestrator/Execute-mode work and the live Petri sequence from FE-1192 attempts through isolation/fan-in, epic integration, and durable parallel authority. Far-horizon instrumentation and consequential-fact evaluation remain trigger-gated under Later.
 
 **Current seams.** Brunch ships on the `1.0.0-alpha.x` line. One-shot `ask` is the only interactive structured-exchange terminal; D125-L's live ask registry provides headless discovery/answering, while the transcript-backed pending projection remains a compatibility surface for live offer tools after the legacy `present_question` pending branch retired. Sweep classification remains fail-closed and compile-time anchored to the exchange-schema terminal names (D117-L), while the larger capture-conditional watermark question remains A40-L.
 
@@ -80,6 +80,10 @@ Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_
 - `reviewer-agent-mode` — reshaped 2026-07-13: the D29-L advisory reviewer is a **subagent**, not a primary agent/mode. Narrow write authority to `reconciliation_need` stands (I16-L); A16-L trigger/scope questions resolve at pickup. Depends on `subagent-skill-access` for skill-carried review conduct.
 - `review-commentary-widening` — reshaped 2026-07-13 to the TUI-realistic version: afford `#`-mentioning of review items and attribute comments via mention (req 18 reference-code seam), instead of a widened structured payload + bespoke collection UI. Re-expresses over the D116-L declared-ask/answer payload; needs a SPEC decision at pickup.
 
+### Parallel / Low-conflict
+
+- `interactive-tui-driver` — not started; separate-worktree tooling tracer comparing the proven in-repo Expect/xterm driver with `pi-interactive-shell` over `zigpty`, then locking one canonical agent workflow and fallback order. Definition below.
+
 ### Cleanups — Group 4
 
 - `named-inline-extension-identity` — Pi-native P1: adopt Pi's native named-inline-extension type for useful source provenance; small independent hardening, direct housekeeping or a tiny tooling slice.
@@ -128,6 +132,30 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Dependencies:** closes `deterministic-orientation` jointly with KA-carved Execute evidence. `cli-mode-entry` remains stacked after this frontier.
 - **Verification (R8–R10):** one normalized 17-node/11-edge semantic fixture; compact text and live/persisted render equivalence; exact local/RPC settlement effects; 3/3 controlled provider runs; one normal-width human walkthrough judging question materiality, proposition cohesion, inspectability, and fatigue. See SPEC §Verification Design.
 - **Traceability:** WR18 closure record in `TESTING_FINDINGS.md`; evidence at `testing/walkthroughs/2026-07-10/WR18-manual.md`; D113-L–D115-L reversal/disambiguation; D119-L, D120-L/I62-L, D99-L conduct; TESTING_PLAN concerns 1/3/4/6/7.
+
+### interactive-tui-driver
+
+- **Name:** Canonical interactive TUI driver for agents and human takeover
+- **Linear:** unassigned (create at pickup, FE team / brunch project)
+- **Branch:** tbd at pickup; independent separate worktree/branch off the current stack base
+- **Kind:** structural tooling — development feedback-loop control and evidence capture, not product runtime.
+- **Certainty:** proving.
+- **Status:** not started.
+- **Objective:** settle and materialize one canonical way for agents to launch, observe, drive, resize, and stop Brunch TUIs while a human can inspect or take over when the host permits it. Compare the proven in-repo `src/dev/tui-driver.ts` (Expect/FIFO PTY + `@xterm/headless`) with `pi-interactive-shell`'s Pi overlay over `zigpty`; adopt, augment, or retain based on real tracer evidence rather than replacing the working fallback speculatively.
+- **Why now / unlocks:** FE-1187's review-set prototype exposed recurring runner confusion: external daemon-backed tools can fail under sandbox socket policy, while the component playground is the canonical visual-review surface but agents lack one obvious interaction path. A settled driver workflow unlocks repeatable component-playground reviews, real Brunch TUI walkthroughs, and future outer-loop evidence without re-deriving the tool choice each session.
+- **Lights up:** one end-to-end agent-controlled path through both `npm run dev:components -- tui-lab` and a seeded `npm run dev-cli` session, with terminal-state observation and deterministic teardown.
+- **Stabilizes:** `docs/praxis/manual-testing.md`'s TUI-driving priority order and `src/dev/TOPOLOGY.md`'s feedback-loop seam; no agent should guess among cmux, agent-tui, shellwright, and the repo driver after this frontier closes.
+- **Acceptance:**
+  - The active scope file carries a temporary capability matrix evaluating the existing driver and `pi-interactive-shell` on real PTY fidelity, xterm/VT screen reconstruction, text and named-key input, bracketed/multiline paste, wait/assert, resize, output bounds, cancellation/cleanup, human observation/takeover, sandbox viability, and artifact hygiene. It records measured evidence, not README claims; closure distills the chosen/default/fallback result into the existing manual-testing and dev docs, then deletes the temporary matrix with the exhausted scope file.
+  - One tracer drives a stable component-preview entry through launch → screen assertion → variant/input action → resize → clean exit. A second tracer drives a seeded Brunch TUI through launch → visible-state assertion → key/text interaction → cancellation → teardown. Both use the same candidate workflow where capabilities permit.
+  - `pi-interactive-shell` is validated against Brunch's Pi `0.80.x` line and the team's actual macOS architecture, including its `zigpty` prebuild. Its current dependency on `zigpty ^0.1.6` is checked against the current `zigpty 0.2.x` API/release line; version lag or platform limits are recorded before adoption.
+  - The existing Expect/xterm driver remains the sandbox/headless fallback until the candidate proves equivalent screen interpretation, deterministic input, liveness, and teardown. Direct `zigpty` integration is considered only if the extension cannot meet the project workflow; do not create a second custom PTY stack for optionality.
+  - The chosen workflow supports bounded model-visible output and keeps raw PTY logs under gitignored `.fixtures/scratch/`; secrets or pasted credentials never enter committed evidence or automatic model summaries.
+  - `docs/praxis/manual-testing.md`, `src/dev/README.md`, and `src/dev/TOPOLOGY.md` name one explicit priority order, installation/health checks, exact commands, fallback trigger, cleanup procedure, and user-takeover behavior. Superseded runner guidance is removed rather than left as competing advice.
+  - No PTY package or Pi extension enters Brunch's shipped product runtime dependency surface solely for test tooling. Any project-local package/config addition is dev-scoped and removable.
+- **Verification:** inner — existing `tui-driver` protocol/screen/liveness tests remain green plus adapter/config tests for any new project-owned code; middle — scripted component-preview and seeded-Brunch tracer matrix with captured textual viewports, resize/input assertions, exit status, and cleanup; outer — one user-observed Pi overlay session proving watch/takeover/return-to-agent behavior, plus one sandbox run proving the documented fallback when socket-backed tools cannot bind.
+- **Cross-cutting obligations:** preserve the manual-testing findings-ledger discipline and scratch-artifact rules; do not make an external extension part of Brunch's product extension bundle; retain the current fallback until the replacement decision is witnessed; document platform ceilings explicitly rather than claiming cross-platform support from upstream marketing.
+- **Traceability:** `docs/praxis/manual-testing.md` §Setup / sandbox fallback; `src/dev/TOPOLOGY.md` and `src/dev/tui-driver.ts`; FE-1187 R8–R10 component-playground review pressure. External candidates: [`pi-interactive-shell`](https://github.com/nicobailon/pi-interactive-shell), [`zigpty`](https://github.com/pithings/zigpty).
 
 ### cli-mode-entry
 
@@ -297,6 +325,12 @@ group-3 (Next — agent layer):
   develop-mode (flag-gated; execute-tier authority, no contract break)
   subagent-skill-access -[hard]-> reviewer-agent-mode (subagent reshape)
   review-commentary-widening (mention-based reshape)
+
+parallel tooling:
+  interactive-tui-driver
+    status: not started; independent separate-worktree tracer
+    lights_up: component playground + seeded Brunch TUI under one agent-control workflow
+    decision: pi-interactive-shell candidate | existing tui-driver fallback | direct zigpty only on demonstrated gap
 
 group-4 (cleanups): rides group-1 stack | named-inline-extension-identity (P1)
 
