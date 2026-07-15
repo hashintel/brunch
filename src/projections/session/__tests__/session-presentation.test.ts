@@ -179,6 +179,59 @@ describe('session presentation', () => {
     });
   });
 
+  it('preserves multi-select mode, choices, option echo, and Other comment without loss', () => {
+    const options = [
+      { id: 'fast', label: 'Fast path', description: 'Optimize for speed.' },
+      { id: 'safe', label: 'Safe path' },
+    ];
+    const answered = {
+      choices: [
+        { id: 'fast', label: 'Fast path', kind: 'listed' as const },
+        { id: 'other', label: 'A measured path', kind: 'other' as const },
+      ],
+      options: [
+        { id: 'fast', content: 'Fast path', rationale: 'Optimize for speed.' },
+        { id: 'safe', content: 'Safe path' },
+      ],
+      comment: 'Pair speed with a bounded experiment.',
+    };
+
+    const result = projectSessionPresentation(target, [
+      entry('choices', {
+        role: 'toolResult',
+        toolName: 'ask',
+        details: {
+          schema: request.schema,
+          v: request.v,
+          exchange_id: 'choices',
+          tool_meta: { curr: 'ask', next: 'capture_choices' },
+          question: { body: 'Pick every route', options, multiple: true },
+          answered,
+        },
+      }),
+    ]);
+
+    expect(result).toEqual({
+      status: 'ready',
+      presentation: {
+        target,
+        cursor: '0:choices',
+        entries: [
+          {
+            id: 'choices',
+            cursor: '0:choices',
+            kind: 'ask',
+            exchangeId: 'choices',
+            question: 'Pick every route',
+            mode: 'multi-select',
+            options,
+            terminal: { status: 'answered', value: answered },
+          },
+        ],
+      },
+    });
+  });
+
   it('classifies malformed Brunch ask details instead of leaking them', () => {
     expect(
       projectSessionPresentation(target, [

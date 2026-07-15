@@ -22,6 +22,7 @@ export type SessionPresentationEntry =
       readonly kind: 'ask';
       readonly exchangeId: string;
       readonly question: string;
+      readonly mode?: 'multi-select';
       readonly options?: NonNullable<AskQuestionEcho['options']>;
       readonly terminal?: AskTerminal;
     };
@@ -35,6 +36,11 @@ type AskTerminal =
             readonly choice: SelectedChoice;
             readonly options: readonly AnsweredOptionEcho[];
             readonly comment?: string | undefined;
+          }
+        | {
+            readonly choices: readonly SelectedChoice[];
+            readonly options: readonly AnsweredOptionEcho[];
+            readonly comment?: string | undefined;
           };
     }
   | { readonly status: 'cancelled'; readonly value: { readonly message?: string | undefined } }
@@ -43,7 +49,7 @@ type AskTerminal =
 function projectAskTerminal(details: AskDetails): AskTerminal | undefined {
   if ('answered' in details && 'text' in details.answered)
     return { status: 'answered', value: details.answered };
-  if ('answered' in details && 'choice' in details.answered)
+  if ('answered' in details && ('choice' in details.answered || 'choices' in details.answered))
     return { status: 'answered', value: details.answered };
   if ('cancelled' in details) return { status: 'cancelled', value: details.cancelled };
   if ('unavailable' in details) return { status: 'unavailable', value: details.unavailable };
@@ -98,6 +104,9 @@ export function projectSessionPresentation(
       kind: 'ask',
       exchangeId: details.exchange_id,
       question: details.question.body,
+      ...('multiple' in details.question && details.question.multiple === true
+        ? { mode: 'multi-select' as const }
+        : {}),
       ...('options' in details.question && details.question.options
         ? { options: details.question.options }
         : {}),

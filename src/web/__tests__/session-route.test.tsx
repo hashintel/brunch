@@ -184,6 +184,68 @@ describe('session route', () => {
     });
   });
 
+  it('renders durable multi-choice selections and submits a live checkbox selection list', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const options = [
+      { id: 'fast', label: 'Fast path', description: 'Optimize for speed.' },
+      { id: 'safe', label: 'Safe path' },
+    ];
+    const f = fixture([
+      {
+        id: 'choices',
+        cursor: 'durable:choices',
+        kind: 'ask',
+        exchangeId: 'choices',
+        question: 'Prior routes',
+        mode: 'multi-select',
+        options,
+        terminal: {
+          status: 'answered',
+          value: {
+            choices: [
+              { id: 'fast', label: 'Fast path', kind: 'listed' },
+              { id: 'other', label: 'A measured path', kind: 'other' },
+            ],
+            options: [
+              { id: 'fast', content: 'Fast path', rationale: 'Optimize for speed.' },
+              { id: 'safe', content: 'Safe path' },
+            ],
+            comment: 'Pair speed with a bounded experiment.',
+          },
+        },
+      },
+    ]);
+
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+    expect(await screen.findByText('Selected: Fast path')).toBeTruthy();
+    expect(screen.getByText('Selected Other: A measured path')).toBeTruthy();
+    expect(screen.getByText('Comment: Pair speed with a bounded experiment.')).toBeTruthy();
+
+    await act(async () => {
+      f.emit({
+        target: { specId: 1, sessionId: 's1' },
+        seq: 0,
+        delta: {
+          type: 'ask_opened',
+          ask: {
+            exchangeId: 'live-choices',
+            mode: 'multi-select',
+            question: { body: 'Pick every route', options, multiple: true },
+          },
+        },
+      });
+    });
+    fireEvent.click(screen.getByRole('checkbox', { name: /Fast path/u }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Safe path/u }));
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+
+    expect(f.calls).toContainEqual({
+      method: 'session.answerExchange',
+      params: expect.objectContaining({ exchangeId: 'live-choices', answer: 'fast,safe' }),
+    });
+  });
+
   it('hydrates, drives, reduces targeted live state, answers, settles, and recovers durably', async () => {
     window.history.pushState(null, '', '/session/1/s1');
     const f = fixture();

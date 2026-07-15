@@ -119,6 +119,7 @@ function Ask({
   answer(value: string): Promise<unknown>;
 }) {
   const [value, setValue] = useState('');
+  const [values, setValues] = useState<string[]>([]);
   if (entry.terminal) {
     const terminal = entry.terminal;
     return (
@@ -128,6 +129,12 @@ function Ask({
           <>
             {'text' in terminal.value ? (
               <p>Answered: {terminal.value.text}</p>
+            ) : 'choices' in terminal.value ? (
+              terminal.value.choices.map((choice) => (
+                <p key={`${choice.kind}:${choice.id}`}>
+                  {choice.kind === 'other' ? 'Selected Other' : 'Selected'}: {choice.label}
+                </p>
+              ))
             ) : (
               <p>
                 {terminal.value.choice.kind === 'other' ? 'Selected Other' : 'Selected'}:{' '}
@@ -150,7 +157,8 @@ function Ask({
       aria-label={entry.question}
       onSubmit={(event) => {
         event.preventDefault();
-        if (value.trim()) void answer(value);
+        const answerValue = entry.mode === 'multi-select' ? values.join(',') : value;
+        if (answerValue.trim()) void answer(answerValue);
       }}
     >
       {entry.options ? (
@@ -159,11 +167,21 @@ function Ask({
           {entry.options.map((option) => (
             <label key={option.id}>
               <input
-                type="radio"
+                type={entry.mode === 'multi-select' ? 'checkbox' : 'radio'}
                 name={entry.exchangeId}
                 value={option.id}
-                checked={value === option.id}
-                onChange={(event) => setValue(event.target.value)}
+                checked={entry.mode === 'multi-select' ? values.includes(option.id) : value === option.id}
+                onChange={(event) => {
+                  if (entry.mode !== 'multi-select') {
+                    setValue(event.target.value);
+                    return;
+                  }
+                  setValues((selected) =>
+                    event.target.checked
+                      ? [...selected, option.id]
+                      : selected.filter((id) => id !== option.id),
+                  );
+                }}
               />
               {option.label}
               {option.description ? ` — ${option.description}` : ''}
@@ -176,7 +194,7 @@ function Ask({
           <input value={value} onChange={(event) => setValue(event.target.value)} />
         </label>
       )}
-      <button disabled={!value.trim()}>Answer</button>
+      <button disabled={entry.mode === 'multi-select' ? values.length === 0 : !value.trim()}>Answer</button>
     </form>
   );
 }
