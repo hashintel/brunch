@@ -90,10 +90,29 @@ export async function runBrunchLandCommand(
     }
   }
 
-  const summary =
-    preflight.substrate === 'empty_dir'
-      ? `Materialize the promoted run into ${targetDir ?? ''} as a fresh repository (branch main)?`
-      : `Merge ${preflight.reviewBranch} (${preflight.promotionCommitSha.slice(0, 12)}) into the checked-out branch of ${ctx.cwd}?`;
+  const inspection = await deps.gitHostLand.inspect({
+    strategy: preflight.substrate === 'empty_dir' ? 'materialize' : 'integrate',
+    runWorktreeDir: preflight.worktreeDir,
+    reviewRef: preflight.reviewBranch,
+    runBaseSha: preflight.runBaseSha,
+    expectedTipSha: preflight.promotionCommitSha,
+    targetDir: targetDir ?? ctx.cwd,
+  });
+  if (inspection.status !== 'inspected') {
+    ctx.ui.notify(
+      inspection.status === 'failed'
+        ? `Landing inspection failed: ${inspection.message}.`
+        : `Landing inspection refused: ${inspection.reason}.`,
+      'warning',
+    );
+    return;
+  }
+  if (!inspection.admissible) {
+    ctx.ui.notify(renderInspectionBlocker(inspection), 'warning');
+    return;
+  }
+
+  const summary = renderInspectionConfirmation(inspection);
   const confirmed = await ctx.ui.confirm(`Land run ${runId}`, summary);
   if (!confirmed) {
     ctx.ui.notify(`Landing of ${runId} declined; nothing changed.`, 'info');
@@ -171,7 +190,7 @@ function renderPreflight(result: LandingPreflightResult): string {
       `run base: ${result.runBaseSha}`,
       `promoted commit: ${result.promotionCommitSha}`,
       `review branch: ${result.reviewBranch}`,
-      'Landing is user-confirmed: run /brunch:land to review and land this run.',
+      'Landing is user-confirmed: /brunch:land inspects the complete range, target, and conflict rehearsal before offering confirmation.',
     );
   }
   if (result.status === 'already_landed') {
@@ -180,6 +199,58 @@ function renderPreflight(result: LandingPreflightResult): string {
   if ('message' in result) lines.push(`message: ${result.message}`);
   lines.push(`side effects: ${result.sideEffects.length === 0 ? 'none' : 'unexpected'}`);
   return lines.join('\n');
+}
+
+function renderInspectionConfirmation(
+  inspection: Extract<Awaited<ReturnType<GitHostLandPort['inspect']>>, { readonly status: 'inspected' }>,
+): string {
+  const target =
+    inspection.target.kind === 'repository'
+      ? `Target: repository ${inspection.target.branch ?? '(detached)'} at ${inspection.target.path}`
+      : inspection.target.kind === 'missing'
+        ? `Target: missing directory ${inspection.target.path} (will create a fresh repository on main)`
+        : inspection.target.kind === 'empty_directory'
+          ? `Target: empty directory ${inspection.target.path} (will create a fresh repository on main)`
+          : `Target: occupied directory ${inspection.target.path}`;
+  const rehearsal =
+    inspection.conflictRehearsal.status === 'clean'
+      ? 'Conflict rehearsal: clean'
+      : inspection.conflictRehearsal.status === 'conflicts'
+        ? `Conflict rehearsal: conflicts in ${inspection.conflictRehearsal.paths.join(', ')}`
+        : 'Conflict rehearsal: not applicable to fresh-repository materialization';
+  return [
+    `${inspection.commits.length} commits across the complete ${inspection.runBaseSha}..${inspection.reviewTipSha} range:`,
+    ...inspection.commits.map((commit) => `- ${commit.sha.slice(0, 12)} ${commit.subject}`),
+    `Changed paths (${inspection.changedPaths.length}):`,
+    ...inspection.changedPaths.map((changed) => `- ${changed.status} ${changed.path}`),
+    target,
+    inspection.target.kind === 'repository' && inspection.target.untrackedPaths.length > 0
+      ? `Untracked target paths: ${inspection.target.untrackedPaths.join(', ')}`
+      : undefined,
+    rehearsal,
+    'Proceed with this host mutation?',
+  ]
+    .filter((line): line is string => line !== undefined)
+    .join('\n');
+}
+
+function renderInspectionBlocker(
+  inspection: Extract<Awaited<ReturnType<GitHostLandPort['inspect']>>, { readonly status: 'inspected' }>,
+): string {
+  if (inspection.conflictRehearsal.status === 'conflicts') {
+    return `Landing inspection predicts conflicts in ${inspection.conflictRehearsal.paths.join(', ')}. Nothing changed.`;
+  }
+  if (inspection.target.kind === 'occupied_directory') {
+    return `Landing target ${inspection.target.path} is occupied (${inspection.target.entries.join(', ')}). Choose a missing or empty target. Nothing changed.`;
+  }
+  if (inspection.target.kind === 'repository') {
+    if (!inspection.target.branch) return 'Landing target has a detached HEAD. Nothing changed.';
+    if (inspection.target.trackedDirtyPaths.length > 0) {
+      return `Landing target has tracked changes in ${inspection.target.trackedDirtyPaths.join(', ')}. Nothing changed.`;
+    }
+    return 'Landing target has untracked paths that collide with the promoted tree. Nothing changed.';
+  }
+  return 'Landing inspection did not admit this target. Nothing changed.';
 }
 
 function renderApply(runId: string, result: LandingApplyResult): string {

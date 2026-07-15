@@ -68,6 +68,7 @@ async function createBrownfieldFixture(prefix: string): Promise<{
 async function createGreenfieldFixture(prefix: string): Promise<{
   root: string;
   runWorktreeDir: string;
+  baseSha: string;
   tipSha: string;
 }> {
   const root = await mkdtemp(join(tmpdir(), prefix));
@@ -97,10 +98,111 @@ async function createGreenfieldFixture(prefix: string): Promise<{
     reviewBranch: REVIEW_REF,
   });
   if (promoted.status !== 'promoted') throw new Error(`fixture promotion failed: ${promoted.status}`);
-  return { root, runWorktreeDir, tipSha: promoted.commitSha };
+  return { root, runWorktreeDir, baseSha, tipSha: promoted.commitSha };
 }
 
 describe('createGitHostLandPort', () => {
+  describe('inspect', () => {
+    it('reports complete brownfield range, target, and clean rehearsal without mutation', async () => {
+      const { hostDir, runWorktreeDir, baseSha, tipSha } =
+        await createBrownfieldFixture('brunch-host-land-inspect-');
+      await commitFile(hostDir, 'host-note.txt', 'note\n', 'host advanced');
+      const headBefore = await git(hostDir, ['rev-parse', 'HEAD']);
+      const statusBefore = await git(hostDir, ['status', '--porcelain']);
+      const objectsBefore = await git(hostDir, ['count-objects', '-v']);
+
+      const result = await createGitHostLandPort().inspect({
+        strategy: 'integrate',
+        runWorktreeDir,
+        reviewRef: REVIEW_REF,
+        runBaseSha: baseSha,
+        expectedTipSha: tipSha,
+        targetDir: hostDir,
+      });
+
+      expect(result).toMatchObject({
+        status: 'inspected',
+        runBaseSha: baseSha,
+        reviewTipSha: tipSha,
+        commits: [
+          { subject: 'brunch: integrate slice a' },
+          { subject: 'brunch: integrate slice b' },
+          { subject: 'promote run-1' },
+        ],
+        changedPaths: [
+          { status: 'A', path: 'src/a.ts' },
+          { status: 'A', path: 'src/b.ts' },
+          { status: 'A', path: 'src/c.ts' },
+        ],
+        target: {
+          kind: 'repository',
+          path: hostDir,
+          branch: 'main',
+          trackedDirtyPaths: [],
+          untrackedPaths: [],
+        },
+        conflictRehearsal: { status: 'clean' },
+        admissible: true,
+        sideEffects: [],
+      });
+      expect(await git(hostDir, ['rev-parse', 'HEAD'])).toBe(headBefore);
+      expect(await git(hostDir, ['status', '--porcelain'])).toBe(statusBefore);
+      expect(await git(hostDir, ['count-objects', '-v'])).toBe(objectsBefore);
+    });
+
+    it('predicts brownfield conflict paths without starting a merge', async () => {
+      const { hostDir, runWorktreeDir, baseSha, tipSha } = await createBrownfieldFixture(
+        'brunch-host-land-inspect-conflict-',
+      );
+      await mkdir(join(hostDir, 'src'), { recursive: true });
+      await commitFile(hostDir, join('src', 'a.ts'), 'export const a = 999;\n', 'host conflicting a');
+      const headBefore = await git(hostDir, ['rev-parse', 'HEAD']);
+
+      const result = await createGitHostLandPort().inspect({
+        strategy: 'integrate',
+        runWorktreeDir,
+        reviewRef: REVIEW_REF,
+        runBaseSha: baseSha,
+        expectedTipSha: tipSha,
+        targetDir: hostDir,
+      });
+
+      expect(result).toMatchObject({
+        status: 'inspected',
+        conflictRehearsal: { status: 'conflicts', paths: ['src/a.ts'] },
+        admissible: false,
+        sideEffects: [],
+      });
+      expect(await git(hostDir, ['rev-parse', 'HEAD'])).toBe(headBefore);
+      expect(await git(hostDir, ['status', '--porcelain'])).toBe('');
+    });
+
+    it('classifies a missing greenfield target as admissible', async () => {
+      const { root, runWorktreeDir, baseSha, tipSha } = await createGreenfieldFixture(
+        'brunch-host-land-inspect-greenfield-',
+      );
+      const targetDir = join(root, 'new-project');
+
+      await expect(
+        createGitHostLandPort().inspect({
+          strategy: 'materialize',
+          runWorktreeDir,
+          reviewRef: REVIEW_REF,
+          runBaseSha: baseSha,
+          expectedTipSha: tipSha,
+          targetDir,
+        }),
+      ).resolves.toMatchObject({
+        status: 'inspected',
+        target: { kind: 'missing', path: targetDir },
+        conflictRehearsal: { status: 'not_applicable' },
+        admissible: true,
+        sideEffects: [],
+      });
+      await expect(access(targetDir)).rejects.toMatchObject({ code: 'ENOENT' });
+    });
+  });
+
   describe('integrate (brownfield)', () => {
     it('fast-forwards the complete multi-commit run onto an unmoved host branch', async () => {
       const { hostDir, tipSha } = await createBrownfieldFixture('brunch-host-land-ff-');

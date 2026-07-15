@@ -109,6 +109,99 @@ describe('runBrunchLandCommand', () => {
     expect(ui.notifications.join('\n')).toContain('Landed run-1');
   });
 
+  it('shows full-range inspection evidence before asking for host-mutation confirmation', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-land-cmd-inspection-'));
+    await createPromotionPreparedRun(cwd);
+    const ui = makeUi({ confirmAnswer: false });
+    const inspectCalls: unknown[] = [];
+    const gitHostLand = createFakeGitHostLandPort({
+      async inspect(args) {
+        inspectCalls.push(args);
+        return {
+          status: 'inspected',
+          runBaseSha: 'base123',
+          reviewTipSha: TIP,
+          commits: [
+            { sha: 'slice-a', subject: 'brunch: integrate slice a' },
+            { sha: 'slice-b', subject: 'brunch: integrate slice b' },
+            { sha: TIP, subject: 'promote run-1' },
+          ],
+          changedPaths: [
+            { status: 'A', path: 'src/a.ts' },
+            { status: 'A', path: 'src/b.ts' },
+          ],
+          target: {
+            kind: 'repository',
+            path: cwd,
+            branch: 'main',
+            trackedDirtyPaths: [],
+            untrackedPaths: [],
+          },
+          conflictRehearsal: { status: 'clean' },
+          admissible: true,
+          sideEffects: [],
+        };
+      },
+    });
+
+    await runBrunchLandCommand('run-1', stubCtx(cwd, ui), { gitHostLand });
+
+    expect(inspectCalls).toEqual([
+      {
+        strategy: 'integrate',
+        runWorktreeDir: join(runDirPath(cwd, 'run-1'), 'worktree'),
+        reviewRef: 'brunch/review/run-1',
+        runBaseSha: 'base123',
+        expectedTipSha: TIP,
+        targetDir: cwd,
+      },
+    ]);
+    expect(ui.confirms).toHaveLength(1);
+    expect(ui.confirms[0]).toContain('3 commits across the complete base123..tip456 range');
+    expect(ui.confirms[0]).toContain('src/a.ts');
+    expect(ui.confirms[0]).toContain('Target: repository main');
+    expect(ui.confirms[0]).toContain('Conflict rehearsal: clean');
+  });
+
+  it('does not offer confirmation when inspection predicts a merge conflict', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-land-cmd-conflict-inspection-'));
+    await createPromotionPreparedRun(cwd);
+    const ui = makeUi();
+    const integrateCalls: unknown[] = [];
+    const gitHostLand = createFakeGitHostLandPort({
+      async inspect() {
+        return {
+          status: 'inspected',
+          runBaseSha: 'base123',
+          reviewTipSha: TIP,
+          commits: [{ sha: TIP, subject: 'promote run-1' }],
+          changedPaths: [{ status: 'M', path: 'src/a.ts' }],
+          target: {
+            kind: 'repository',
+            path: cwd,
+            branch: 'main',
+            trackedDirtyPaths: [],
+            untrackedPaths: [],
+          },
+          conflictRehearsal: { status: 'conflicts', paths: ['src/a.ts'] },
+          admissible: false,
+          sideEffects: [],
+        };
+      },
+      async integrate(args) {
+        integrateCalls.push(args);
+        return { status: 'failed', message: 'must not run', sideEffects: [] };
+      },
+    });
+
+    await runBrunchLandCommand('run-1', stubCtx(cwd, ui), { gitHostLand });
+
+    expect(ui.confirms).toHaveLength(0);
+    expect(integrateCalls).toHaveLength(0);
+    expect(ui.notifications.join('\n')).toContain('src/a.ts');
+    await expect(runStatus(cwd)).resolves.toBe('promotion_prepared');
+  });
+
   it('notifies preflight refusals in command copy without the tool label', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-land-cmd-copy-'));
     await createPromotionPreparedRun(cwd, 'run-1', { status: 'petri_exported' });

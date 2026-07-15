@@ -98,6 +98,31 @@ export function createFakeGitRunPromotionPort(
 
 export function createFakeGitHostLandPort(options: Partial<GitHostLandPort> = {}): GitHostLandPort {
   return {
+    async inspect(args) {
+      return (
+        (await options.inspect?.(args)) ?? {
+          status: 'inspected',
+          runBaseSha: args.runBaseSha,
+          reviewTipSha: args.expectedTipSha,
+          commits: [{ sha: args.expectedTipSha, subject: 'promote run' }],
+          changedPaths: [],
+          target:
+            args.strategy === 'integrate'
+              ? {
+                  kind: 'repository',
+                  path: args.targetDir,
+                  branch: 'main',
+                  trackedDirtyPaths: [],
+                  untrackedPaths: [],
+                }
+              : { kind: 'missing', path: args.targetDir },
+          conflictRehearsal:
+            args.strategy === 'integrate' ? { status: 'clean' } : { status: 'not_applicable' },
+          admissible: true,
+          sideEffects: [],
+        }
+      );
+    },
     async integrate(args) {
       return (
         (await options.integrate?.(args)) ?? {

@@ -242,6 +242,49 @@ export type GitHostLandIntegrateResult =
     }
   | { readonly status: 'failed'; readonly message: string; readonly sideEffects: readonly [] };
 
+export interface GitHostLandInspectArgs {
+  readonly strategy: 'integrate' | 'materialize';
+  readonly runWorktreeDir: string;
+  readonly reviewRef: string;
+  readonly runBaseSha: string;
+  readonly expectedTipSha: string;
+  readonly targetDir: string;
+}
+
+export type GitHostLandTargetClassification =
+  | {
+      readonly kind: 'repository';
+      readonly path: string;
+      readonly branch: string | undefined;
+      readonly trackedDirtyPaths: readonly string[];
+      readonly untrackedPaths: readonly string[];
+    }
+  | { readonly kind: 'missing'; readonly path: string }
+  | { readonly kind: 'empty_directory'; readonly path: string }
+  | { readonly kind: 'occupied_directory'; readonly path: string; readonly entries: readonly string[] };
+
+export type GitHostLandInspectResult =
+  | {
+      readonly status: 'inspected';
+      readonly runBaseSha: string;
+      readonly reviewTipSha: string;
+      readonly commits: readonly { readonly sha: string; readonly subject: string }[];
+      readonly changedPaths: readonly { readonly status: string; readonly path: string }[];
+      readonly target: GitHostLandTargetClassification;
+      readonly conflictRehearsal:
+        | { readonly status: 'clean' }
+        | { readonly status: 'conflicts'; readonly paths: readonly string[] }
+        | { readonly status: 'not_applicable' };
+      readonly admissible: boolean;
+      readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: 'refused';
+      readonly reason: 'ref_moved' | 'target_aliases_run' | 'target_inside_run';
+      readonly sideEffects: readonly [];
+    }
+  | { readonly status: 'failed'; readonly message: string; readonly sideEffects: readonly [] };
+
 export interface GitHostLandMaterializeArgs {
   /** Run repository (worktree) holding the promoted objects. */
   readonly runWorktreeDir: string;
@@ -281,6 +324,7 @@ export type GitHostLandMaterializeResult =
 
 /**
  * Mode-aware landing of a promoted run into the host (FE-1201). Brownfield
+ * `inspect` produces read-only full-range, target, and conflict evidence.
  * `integrate` advances the host's checked-out branch from the shared review
  * ref (ff when possible, brunch-authored merge otherwise; conflicts abort back
  * to a pristine host). Greenfield `materialize` turns the promoted tip tree
@@ -288,6 +332,7 @@ export type GitHostLandMaterializeResult =
  * Both transport the complete runBaseSha..tip result — never a diff window.
  */
 export interface GitHostLandPort {
+  inspect(args: GitHostLandInspectArgs): Promise<GitHostLandInspectResult>;
   integrate(args: GitHostLandIntegrateArgs): Promise<GitHostLandIntegrateResult>;
   materialize(args: GitHostLandMaterializeArgs): Promise<GitHostLandMaterializeResult>;
 }

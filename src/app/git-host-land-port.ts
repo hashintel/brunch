@@ -1,8 +1,9 @@
-import { mkdir, readdir, realpath, rm } from 'node:fs/promises';
+import { lstat, mkdir, readdir, realpath, rm } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 
 import type {
   GitHostLandIntegrateResult,
+  GitHostLandInspectResult,
   GitHostLandMaterializeResult,
   GitHostLandPort,
 } from '../executor/execution-ports.js';
@@ -18,6 +19,127 @@ export function createGitHostLandPort(options: { readonly run?: CommandRunner } 
     run('git', args, { cwd, timeoutMs: GIT_TIMEOUT_MS, maxOutputBytes: GIT_MAX_OUTPUT_BYTES });
 
   return {
+    async inspect(args) {
+      const [target, runRepo] = await Promise.all([
+        canonicalPath(args.targetDir),
+        canonicalPath(args.runWorktreeDir),
+      ]);
+      if (target === runRepo) return { status: 'refused', reason: 'target_aliases_run', sideEffects: [] };
+      if (args.strategy === 'materialize' && isPathInside(target, runRepo)) {
+        return { status: 'refused', reason: 'target_inside_run', sideEffects: [] };
+      }
+
+      const tip = await command(args.runWorktreeDir, [
+        'rev-parse',
+        '--verify',
+        '--quiet',
+        `refs/heads/${args.reviewRef}`,
+      ]);
+      if (tip.exitCode !== 0) return failedInspect(tip, `cannot resolve review ref ${args.reviewRef}`);
+      const reviewTipSha = tip.stdout.trim();
+      if (reviewTipSha !== args.expectedTipSha) {
+        return { status: 'refused', reason: 'ref_moved', sideEffects: [] };
+      }
+
+      const ancestor = await command(args.runWorktreeDir, [
+        'merge-base',
+        '--is-ancestor',
+        args.runBaseSha,
+        reviewTipSha,
+      ]);
+      if (ancestor.exitCode !== 0) {
+        return failedInspect(ancestor, 'run base is not an ancestor of the promoted review tip');
+      }
+      const [log, diff] = await Promise.all([
+        command(args.runWorktreeDir, [
+          'log',
+          '--reverse',
+          '--format=%H%x09%s',
+          `${args.runBaseSha}..${reviewTipSha}`,
+        ]),
+        command(args.runWorktreeDir, ['diff', '--name-status', args.runBaseSha, reviewTipSha]),
+      ]);
+      if (log.exitCode !== 0 || log.outputTruncated) {
+        return failedInspect(log, 'cannot inspect the complete landing commit range');
+      }
+      if (diff.exitCode !== 0 || diff.outputTruncated) {
+        return failedInspect(diff, 'cannot inspect the complete landing tree range');
+      }
+      const commits = parseCommitRange(log.stdout);
+      const changedPaths = parseChangedPaths(diff.stdout);
+
+      if (args.strategy === 'materialize') {
+        let targetClassification: Awaited<ReturnType<typeof classifyMaterializeTarget>>;
+        try {
+          targetClassification = await classifyMaterializeTarget(args.targetDir);
+        } catch (error) {
+          return {
+            status: 'failed',
+            message: error instanceof Error ? error.message : 'cannot classify materialization target',
+            sideEffects: [],
+          };
+        }
+        return {
+          status: 'inspected',
+          runBaseSha: args.runBaseSha,
+          reviewTipSha,
+          commits,
+          changedPaths,
+          target: targetClassification,
+          conflictRehearsal: { status: 'not_applicable' },
+          admissible:
+            targetClassification.kind === 'missing' || targetClassification.kind === 'empty_directory',
+          sideEffects: [],
+        };
+      }
+
+      const rootCheck = await checkExactRoot(command, args.targetDir);
+      if (rootCheck.kind === 'failed')
+        return failedInspect(rootCheck.result, 'cannot resolve target git root');
+      if (rootCheck.kind === 'not_root') {
+        return {
+          status: 'failed',
+          message: 'landing target is not an exact repository root',
+          sideEffects: [],
+        };
+      }
+      const [branch, status] = await Promise.all([
+        command(args.targetDir, ['symbolic-ref', '--quiet', '--short', 'HEAD']),
+        command(args.targetDir, ['status', '--porcelain']),
+      ]);
+      if (status.exitCode !== 0 || status.outputTruncated) {
+        return failedInspect(status, 'cannot inspect the complete target worktree status');
+      }
+      const worktree = parseWorktreeStatus(status.stdout);
+      const rehearsal = await rehearseMerge(command, args.targetDir, reviewTipSha);
+      if (rehearsal.status === 'failed') return rehearsal;
+      const untrackedCollision = worktree.untrackedPaths.some((path) =>
+        changedPaths.some((changed) => changed.path === path),
+      );
+      const targetClassification = {
+        kind: 'repository' as const,
+        path: args.targetDir,
+        branch: branch.exitCode === 0 ? branch.stdout.trim() : undefined,
+        trackedDirtyPaths: worktree.trackedDirtyPaths,
+        untrackedPaths: worktree.untrackedPaths,
+      };
+      return {
+        status: 'inspected',
+        runBaseSha: args.runBaseSha,
+        reviewTipSha,
+        commits,
+        changedPaths,
+        target: targetClassification,
+        conflictRehearsal: rehearsal.result,
+        admissible:
+          targetClassification.branch !== undefined &&
+          targetClassification.trackedDirtyPaths.length === 0 &&
+          rehearsal.result.status === 'clean' &&
+          !untrackedCollision,
+        sideEffects: [],
+      };
+    },
+
     async integrate(args) {
       const rootCheck = await checkExactRoot(command, args.hostDir);
       if (rootCheck.kind === 'failed') return failedIntegrate(rootCheck.result, 'cannot resolve git root');
@@ -127,8 +249,8 @@ export function createGitHostLandPort(options: { readonly run?: CommandRunner } 
       }
       await mkdir(args.targetDir, { recursive: true });
 
-      // ceiling: only missing/empty targets land in the tracer; fresh `git init`
-      // targets and existing repos (brunch/run/<runId> branch) ride slice 2.
+      // ceiling: greenfield materialization accepts only missing/empty targets;
+      // add an explicit existing-repository landing mode if product evidence requires it.
       const entries = await readdir(args.targetDir);
       if (entries.length > 0) {
         const replay = await replayMaterializedTarget(command, args);
@@ -142,6 +264,97 @@ export function createGitHostLandPort(options: { readonly run?: CommandRunner } 
       return result;
     },
   };
+}
+
+function parseCommitRange(output: string): readonly { readonly sha: string; readonly subject: string }[] {
+  return output
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => {
+      const [sha = '', ...subject] = line.split('\t');
+      return { sha, subject: subject.join('\t') };
+    });
+}
+
+function parseChangedPaths(output: string): readonly { readonly status: string; readonly path: string }[] {
+  return output
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => {
+      const [status = '', ...paths] = line.split('\t');
+      return { status, path: paths.join(' -> ') };
+    });
+}
+
+async function classifyMaterializeTarget(
+  targetDir: string,
+): Promise<
+  | { readonly kind: 'missing'; readonly path: string }
+  | { readonly kind: 'empty_directory'; readonly path: string }
+  | { readonly kind: 'occupied_directory'; readonly path: string; readonly entries: readonly string[] }
+> {
+  try {
+    const target = await lstat(targetDir);
+    if (!target.isDirectory()) {
+      return { kind: 'occupied_directory', path: targetDir, entries: [basename(targetDir)] };
+    }
+    const entries = await readdir(targetDir);
+    return entries.length === 0
+      ? { kind: 'empty_directory', path: targetDir }
+      : { kind: 'occupied_directory', path: targetDir, entries: entries.sort() };
+  } catch (error) {
+    if (isErrno(error, 'ENOENT')) return { kind: 'missing', path: targetDir };
+    throw error;
+  }
+}
+
+function parseWorktreeStatus(output: string): {
+  readonly trackedDirtyPaths: readonly string[];
+  readonly untrackedPaths: readonly string[];
+} {
+  const lines = output.split('\n').filter(Boolean);
+  return {
+    trackedDirtyPaths: lines.filter((line) => !line.startsWith('??')).map((line) => line.slice(3).trim()),
+    untrackedPaths: lines.filter((line) => line.startsWith('??')).map((line) => line.slice(3).trim()),
+  };
+}
+
+async function rehearseMerge(
+  command: (cwd: string, args: readonly string[]) => Promise<CommandResult>,
+  targetDir: string,
+  reviewTipSha: string,
+): Promise<
+  | { readonly status: 'ready'; readonly result: { readonly status: 'clean' } }
+  | {
+      readonly status: 'ready';
+      readonly result: { readonly status: 'conflicts'; readonly paths: readonly string[] };
+    }
+  | Extract<GitHostLandInspectResult, { status: 'failed' }>
+> {
+  const ancestor = await command(targetDir, ['merge-base', '--is-ancestor', 'HEAD', reviewTipSha]);
+  if (ancestor.exitCode === 0) return { status: 'ready', result: { status: 'clean' } };
+
+  const mergeBase = await command(targetDir, ['merge-base', 'HEAD', reviewTipSha]);
+  if (mergeBase.exitCode !== 0) return failedInspect(mergeBase, 'cannot find a target/review merge base');
+  const rehearsal = await command(targetDir, ['merge-tree', mergeBase.stdout.trim(), 'HEAD', reviewTipSha]);
+  if (rehearsal.exitCode !== 0 || rehearsal.outputTruncated) {
+    return failedInspect(rehearsal, 'cannot rehearse the complete target merge');
+  }
+  const paths = parseMergeTreeConflictPaths(rehearsal.stdout);
+  return paths.length === 0
+    ? { status: 'ready', result: { status: 'clean' } }
+    : { status: 'ready', result: { status: 'conflicts', paths } };
+}
+
+function parseMergeTreeConflictPaths(output: string): readonly string[] {
+  const conflicts = new Set<string>();
+  let path: string | undefined;
+  for (const line of output.split('\n')) {
+    const entry = /^\s+(?:base|our)\s+\d+\s+[0-9a-f]+\s+(.+)$/u.exec(line);
+    if (entry?.[1]) path = entry[1];
+    if (/^\+?<<<<<<< \.our/u.test(line) && path) conflicts.add(path);
+  }
+  return [...conflicts].sort();
 }
 
 async function replayMaterializedTarget(
@@ -281,6 +494,17 @@ function isPathInside(child: string, parent: string): boolean {
 
 function message(result: CommandResult, fallback: string): string {
   return result.stderr.trim() || result.stdout.trim() || result.spawnError || fallback;
+}
+
+function isErrno(error: unknown, code: string): error is NodeJS.ErrnoException {
+  return error instanceof Error && 'code' in error && error.code === code;
+}
+
+function failedInspect(
+  result: CommandResult,
+  fallback: string,
+): Extract<GitHostLandInspectResult, { status: 'failed' }> {
+  return { status: 'failed', message: message(result, fallback), sideEffects: [] };
 }
 
 function failedIntegrate(result: CommandResult, fallback: string): GitHostLandIntegrateResult {
