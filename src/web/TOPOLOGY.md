@@ -1,6 +1,6 @@
 # web/ — Brunch React client
 
-Canonical references: `docs/architecture/prd.md` §Browser / web client, `src/rpc/TOPOLOGY.md`; SPEC D127-L/D128-L and I64-L/I65-L
+Canonical references: `docs/architecture/prd.md` §Browser / web client, `src/rpc/TOPOLOGY.md`; SPEC D132-L/D133-L and I64-L/I65-L
 
 This directory owns the browser client served by both the TUI sidecar and the standalone `--mode web` combined host. The browser is a thin remote head over the Brunch host: one React app, one WebSocket-backed Brunch JSON-RPC client, TanStack Router for route/data preloading, and TanStack Query for cache ownership and update scheduling. Standalone session routes drive explicitly targeted existing JSONL sessions without constructing `InteractiveMode`.
 

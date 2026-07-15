@@ -27,7 +27,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 **Topology and evidence discipline.** Co-located `src/**/TOPOLOGY.md` files own current topology; SPEC owns product contract and seam decisions; PLAN owns only rolling frontier state. Scratch probe artifacts are not durable evidence until promoted to `.fixtures/runs/`. Older completion history lives only in [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md).
 
-**Standalone web — completed 2026-07-15 (FE-1200).** Interactive web is a priority product surface, not a read-only TUI sidecar. D127-L/D128-L materialize one cwd-scoped combined host with target-addressed sealed Pi sessions, one driver/many observers, JSONL hydration plus live overlay, and full required-family semantic presentation coverage with React adapters. Durable evidence lives in I64-L/I65-L, the named topology homes, and [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md); detailed frontier history is archived.
+**Standalone web — completed 2026-07-15 (FE-1200).** Interactive web is a priority product surface, not a read-only TUI sidecar. D132-L/D133-L materialize one cwd-scoped combined host with target-addressed sealed Pi sessions, one driver/many observers, JSONL hydration plus live overlay, and full required-family semantic presentation coverage with React adapters. Durable evidence lives in I64-L/I65-L, the named topology homes, and [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md); detailed frontier history is archived.
 
 ## Initiatives
 

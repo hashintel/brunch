@@ -103,7 +103,7 @@ Brunch is one local product driven by a single `--mode` flag. It exposes four pr
 3. `brunch --mode rpc` - exposes the local host over stdio JSON-RPC for other programs.
 4. `brunch --mode print` - runs one-shot, headless prompts for scripting and pipelines.
 
-The original POC framing below treated standalone web as a future feature; it has since become a primary presentation mode (D127-L/D128-L). The current-state authority is `memory/SPEC.md` plus the co-located `src/**/TOPOLOGY.md` homes.
+The original POC framing below treated standalone web as a future feature; it has since become a primary presentation mode (D132-L/D133-L). The current-state authority is `memory/SPEC.md` plus the co-located `src/**/TOPOLOGY.md` homes.
 
 These modes are not different products. They are ways of driving one Brunch host.
 

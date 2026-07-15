@@ -1,6 +1,6 @@
 # session/ — Session domain layer
 
-SPEC decisions: D6-L, D11-L, D12-L, D13-L, D21-L, D40-L, D52-L, D76-L, D77-L, D78-L, D84-L, D101-L, D102-L, D118-L, D125-L, D127-L, D128-L, I56-L, I64-L, I65-L
+SPEC decisions: D6-L, D11-L, D12-L, D13-L, D21-L, D40-L, D52-L, D76-L, D77-L, D78-L, D84-L, D101-L, D102-L, D118-L, D125-L, D132-L, D133-L, I56-L, I64-L, I65-L
 
 ## Owns
 
@@ -76,7 +76,7 @@ plus the coordination logic for workspace/spec/session lifecycle.
 
 - **Review-set settlement** (`review-set-settlement.ts`, D27-L/I15-L) — the shared local/RPC response authority. It revalidates the exact persisted `present_review_set`, translates that reviewed payload into one mutation, and commits approval once through `CommandExecutor.acceptReviewSet`; the operation, spec-local LSN, and single change-log row are the durable acceptance record. Only then does it pass the exact successful `MutateGraphSuccess` into the request projector and construct the validated receipt-bearing terminal; adapters retain only their distinct Pi-owned vs Brunch-owned append mechanics.
 
-- **Live-session host fan-out** (`live-session-host.ts`, D127-L/I64-L) — owns target-addressed runtime cells and one host-lifetime `subscribeAll` observer set. Every cell dispatches semantic deltas through that set, including cells opened after subscription and reopened targets; sequence numbers remain contiguous within an open epoch and restart at zero after close/reopen. RPC owns wire validation and method naming.
+- **Live-session host fan-out** (`live-session-host.ts`, D132-L/I64-L) — owns target-addressed runtime cells and one host-lifetime `subscribeAll` observer set. Every cell dispatches semantic deltas through that set, including cells opened after subscription and reopened targets; sequence numbers remain contiguous within an open epoch and restart at zero after close/reopen. RPC owns wire validation and method naming.
 
 - **Structured-exchange loop helpers** — deterministic POC exchange generation,
   pending prompt reconstruction from structured transcript tuples, response

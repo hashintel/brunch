@@ -364,7 +364,7 @@ Do not use as the first Brunch host substrate. Pi's own SDK guidance prefers dir
 
 FE-1200 is complete; the once-pending reconciliation is discharged:
 
-1. ✓ `ln-spec` updated the Product Contract and decisions: web is a primary presentation mode (req 4/31/32, D127-L/D128-L, A42-L/A43-L, I64-L/I65-L). No read-only-sidecar/future-only wording remains in `memory/SPEC.md`.
+1. ✓ `ln-spec` updated the Product Contract and decisions: web is a primary presentation mode (req 4/31/32, D132-L/D133-L, A43-L/A44-L, I64-L/I65-L). No read-only-sidecar/future-only wording remains in `memory/SPEC.md`.
 2. ✓ `ln-plan` closed and archived the single `standalone-web-session-host` (FE-1200) frontier after its tracer, concurrency, and presentation-coverage slices.
 3. ✓ I65-L required-family coverage is complete: projection no-loss/malformed tests cover every required persisted ask terminal shape, including questionnaire read-back; React render/answer tests cover free text and listed single/multi choices; headless bounded-questionnaire answering remains available through the schema-tagged string/JSON envelope, without a dedicated React questionnaire form; distinct candidate/review-set/digest production settlement/reconnect witnesses, concurrency/target isolation, and receipt-bearing review settlement complete the oracle.
 4. ✓ `ln-design`-level interface choices for `LiveSessionHost` and the session-presentation projection are materialized in `src/session/live-session-host.ts` and `src/projections/session/`.
@@ -373,7 +373,7 @@ FE-1200 is complete; the once-pending reconciliation is discharged:
 
 ## 11. References
 
-- [`memory/SPEC.md`](../../memory/SPEC.md) — current product contract and decisions (reconciled: D127-L/D128-L, req 4/31/32)
+- [`memory/SPEC.md`](../../memory/SPEC.md) — current product contract and decisions (reconciled: D132-L/D133-L, req 4/31/32)
 - [`memory/PLAN.md`](../../memory/PLAN.md) — current sequencing (FE-1200 is closed; detailed history is archived)
 - [`src/rpc/TOPOLOGY.md`](../../src/rpc/TOPOLOGY.md) — TUI sidecar + standalone combined-host RPC surface and streaming evidence
 - [`src/web/TOPOLOGY.md`](../../src/web/TOPOLOGY.md) — React client for both the TUI sidecar and standalone `--mode web` host

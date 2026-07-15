@@ -1,6 +1,6 @@
 # projections/ — reusable DTO boundaries
 
-SPEC decisions: D52-L, D75-L, D104-L, D128-L, I65-L
+SPEC decisions: D52-L, D75-L, D104-L, D133-L, I65-L
 
 ## Owns
 
