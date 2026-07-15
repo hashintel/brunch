@@ -1,3 +1,4 @@
+import type { MutateGraphSuccess } from '../../../graph/command-executor.js';
 import type { RequestReviewDetails } from '../../schemas/index.js';
 import { STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA, zRequestReviewDetails } from '../../schemas/index.js';
 
@@ -10,6 +11,7 @@ type RequestReviewProjectionInput =
       readonly exchangeId: string;
       readonly status: 'answered';
       readonly review: 'approve';
+      readonly receipt: MutateGraphSuccess;
       readonly comment?: string | undefined;
       readonly respondsToPresentTool: 'present_review_set';
     }
@@ -83,13 +85,16 @@ function projectRequestReviewWithBase(
           }
         : {
             decision: 'approve' as const,
+            receipt: input.receipt,
             ...(input.comment !== undefined ? { comment: input.comment } : {}),
           };
-    return zRequestReviewDetails.parse({
+    const details = {
       ...base,
       tool_meta: { ...base.tool_meta, next: 'capture_review' as const },
       answered,
-    });
+    };
+    // D105-L: this constructor receives typed input; validation happens at transcript boundaries.
+    return details as RequestReviewDetails;
   }
   if (input.status === 'answered') {
     return zRequestReviewDetails.parse({

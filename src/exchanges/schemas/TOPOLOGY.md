@@ -314,7 +314,7 @@ Rules:
 - `request_choice` follows `present_question` option prompts or `present_candidates`; after candidates it may lead to `capture_candidate`.
 - `request_choices` follows `present_question` multi-option prompts and may lead to `capture_choices`.
 - `request_review` follows `present_review_set` or `present_digest` and may lead to `capture_review`.
-- `request_review` supports `approve`, `request_changes`, and `reject`; `comment` is required for `request_changes`. Digest approvals also carry `accepted_abstract` as the sweep-visible digest echo.
+- `request_review` supports `approve`, `request_changes`, and `reject`; `comment` is required for `request_changes`. Review-set approvals require `receipt`, runtime-validated against the graph-owned `MutateGraphSuccess` boundary type; every other review-set outcome and every digest branch strictly rejects receipts. Digest approvals instead carry `accepted_abstract` as the sweep-visible digest echo.
 - `other` and `none` choices require a user `comment`.
 - Standalone `ask` request details preserve `question.commentPrompt` and `question.otherPrompt` when those UI steps existed, so the comment/write-in answer is self-contained.
 - `request_choice` and `request_choices` answered payloads carry `answered.options`: the full listed option echo from the pending present (`id`, `content`, optional `rationale`). Selected write-ins stay in `choice(s)` as `kind: other | none`; they are not appended to `options`.

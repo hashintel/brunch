@@ -281,7 +281,20 @@ function askReviewEntry(): string {
     v: 1,
     exchange_id: 'review-1',
     tool_meta: { prev: 'present_review_set', curr: 'request_review' },
-    answered: { decision: 'approve', comment: 'Probe approval.' },
+    answered: {
+      decision: 'approve',
+      receipt: {
+        status: 'success',
+        lsn: 3,
+        createdNodes: { 'req-resolution-state': { id: 2, code: 'REQ1' } },
+        createdEdges: [],
+        updatedNodes: [],
+        updatedEdges: [],
+        deletedNodes: [],
+        deletedEdges: [],
+      },
+      comment: 'Probe approval.',
+    },
   });
 }
 function pendingReviewResponse(): JsonRpcResponse {

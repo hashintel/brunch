@@ -524,12 +524,7 @@ function continuationReviewDetailsInput(input: {
         ...(input.comment ? { comment: input.comment } : {}),
       };
     }
-    return {
-      ...base,
-      respondsToPresentTool: 'present_review_set',
-      review: input.review,
-      ...(input.comment ? { comment: input.comment } : {}),
-    };
+    throw new Error('Review-set approval must route through shared settlement');
   }
   return { ...base, review: input.review, ...(input.comment ? { comment: input.comment } : {}) };
 }

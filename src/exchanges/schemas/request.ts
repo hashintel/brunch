@@ -1,5 +1,6 @@
 import * as z from 'zod';
 
+import type { MutateGraphSuccess } from '../../graph/command-executor.js';
 import {
   zQuestionnaireAnswer,
   zQuestionnaireAnswersFor,
@@ -215,10 +216,24 @@ export const ReviewDecisionSchema = z.toJSONSchema(zReviewDecision, {
   unrepresentable: 'throw',
 });
 
+export const zMutateGraphSuccess: z.ZodType<MutateGraphSuccess> = z
+  .object({
+    status: z.literal('success'),
+    lsn: z.number().int(),
+    createdNodes: z.record(z.string(), z.object({ id: z.number().int(), code: z.string().min(1) }).strict()),
+    createdEdges: z.array(z.number().int()),
+    updatedNodes: z.array(z.number().int()),
+    updatedEdges: z.array(z.number().int()),
+    deletedNodes: z.array(z.number().int()),
+    deletedEdges: z.array(z.number().int()),
+  })
+  .strict();
+
 const zReviewAnsweredPayload = z.union([
   z
     .object({
       decision: z.literal('approve'),
+      receipt: zMutateGraphSuccess,
       comment: zMarkdown.optional(),
     })
     .strict(),

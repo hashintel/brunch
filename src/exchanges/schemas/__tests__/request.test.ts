@@ -340,6 +340,54 @@ describe('structured exchange request schemas', () => {
     ).toThrow(/none cannot be combined/);
   });
 
+  it('requires the canonical graph receipt only for approved review-set terminals', () => {
+    const base = {
+      schema: 'brunch.structured_exchange.request',
+      v: 1,
+      exchange_id: 'review-set-17',
+      tool_meta: {
+        prev: 'present_review_set',
+        curr: 'request_review',
+        next: 'capture_review',
+      },
+    };
+    const receipt = {
+      status: 'success',
+      lsn: 2,
+      createdNodes: { 'req-1': { id: 1, code: 'REQ1' } },
+      createdEdges: [4],
+      updatedNodes: [2],
+      updatedEdges: [5],
+      deletedNodes: [3],
+      deletedEdges: [6],
+    };
+
+    expect(
+      zRequestReviewDetails.parse({ ...base, answered: { decision: 'approve', receipt } }),
+    ).toMatchObject({
+      answered: { decision: 'approve', receipt },
+    });
+    expect(() => zRequestReviewDetails.parse({ ...base, answered: { decision: 'approve' } })).toThrow();
+    expect(() =>
+      zRequestReviewDetails.parse({
+        ...base,
+        answered: { decision: 'approve', receipt: { ...receipt, lsn: '2' } },
+      }),
+    ).toThrow();
+    for (const details of [
+      { ...base, answered: { decision: 'request_changes', comment: 'Revise.', receipt } },
+      { ...base, answered: { decision: 'reject', receipt } },
+      { ...base, cancelled: { message: 'Cancelled.' }, receipt },
+      {
+        ...base,
+        tool_meta: { prev: 'present_digest', curr: 'request_review', next: 'capture_review' },
+        answered: { decision: 'approve', accepted_abstract: 'Accepted.', receipt },
+      },
+    ]) {
+      expect(() => zRequestReviewDetails.parse(details)).toThrow();
+    }
+  });
+
   it('requires a comment for request_changes review decisions', () => {
     expect(
       zRequestReviewDetails.parse({
@@ -353,6 +401,16 @@ describe('structured exchange request schemas', () => {
         },
         answered: {
           decision: 'approve',
+          receipt: {
+            status: 'success',
+            lsn: 2,
+            createdNodes: {},
+            createdEdges: [],
+            updatedNodes: [],
+            updatedEdges: [],
+            deletedNodes: [],
+            deletedEdges: [],
+          },
           comment: 'This is ready to commit.',
         },
       }),
