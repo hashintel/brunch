@@ -100,6 +100,7 @@ async function createWorktreeOwned(args: {
   const worktreeDir = worktreeDirPath(args.cwd, args.runId);
 
   if (
+    metadata.runBaseSha &&
     metadata.substrate === 'empty_dir' &&
     metadata.worktreeDir &&
     (await isExactGitRoot(metadata.worktreeDir))
@@ -119,6 +120,7 @@ async function createWorktreeOwned(args: {
   // `git worktree add` (it fails when the directory already exists). The
   // previous mkdir-based path could be safely retried; preserve that.
   if (
+    metadata.runBaseSha &&
     metadata.substrate !== 'empty_dir' &&
     metadata.worktreeDir &&
     (await hasGitWorktreeMarker(metadata.worktreeDir))
@@ -132,6 +134,44 @@ async function createWorktreeOwned(args: {
       metadataPath,
       sideEffects: [],
     };
+  }
+
+  if (metadata.worktreeDir && !metadata.runBaseSha) {
+    const recordedWorktreeExists =
+      metadata.substrate === 'empty_dir'
+        ? await isExactGitRoot(metadata.worktreeDir)
+        : await hasGitWorktreeMarker(metadata.worktreeDir);
+    if (recordedWorktreeExists) {
+      if (!canRepairWorktreeMetadata(metadata.status)) {
+        return {
+          status: 'worktree_create_failed',
+          runStatus: metadata.status,
+          runId: args.runId,
+          worktreeDir: metadata.worktreeDir,
+          metadataPath,
+          message: `run already advanced to ${metadata.status}; refusing to infer missing runBaseSha from a changed worktree`,
+          sideEffects: [],
+        };
+      }
+      const headSha = await runGitOutput(['rev-parse', 'HEAD'], metadata.worktreeDir);
+      if (headSha) {
+        const updated: RunMetadata = {
+          ...metadata,
+          status: 'worktree_created',
+          runBaseSha: headSha,
+        };
+        const metadataEffect = await persistRunMetadata(metadataPath, updated);
+        return {
+          status: 'worktree_created',
+          runStatus: 'worktree_created',
+          runId: args.runId,
+          runDir,
+          worktreeDir: metadata.worktreeDir,
+          metadataPath,
+          sideEffects: [metadataEffect],
+        };
+      }
+    }
   }
 
   // Repair runs at status created/worktree_created only, before any slice
