@@ -19,7 +19,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 **Current closure lane.** FE-1187 is the sole remaining ship-gate frontier. The digest-questionnaire carrier and atomic local/RPC review settlement are built; next is compact proposition-first review presentation, including the reassigned `transcript-ledger-rendering` work so durable user choices and their visual treatment land together. The consolidated outer checkpoint remains paused until R6/R8–R10/R12/R13 have owned dispositions. Execute evidence O7–O9 belongs to the KA stream; FE-1187 coordinates but does not own it.
 
-**Parallel lanes.** Group 3 agent-layer work is pickup-ready. `interactive-tui-driver` is an independent tooling tracer that can run in a separate worktree: it will settle one canonical agent-driven TUI testing workflow without entering product runtime. The KA stream owns executor/orchestrator/Execute-mode work and the live Petri sequence from FE-1192 attempts through isolation/fan-in, epic integration, and durable parallel authority. Far-horizon instrumentation and consequential-fact evaluation remain trigger-gated under Later.
+**Parallel lanes.** Group 3 agent-layer work is pickup-ready. `interactive-tui-driver` is an independent tooling tracer that can run in a separate worktree: it will settle one canonical agent-driven TUI testing workflow without entering product runtime. `graph-assurance-conduct` is a separate earned-posture closure frontier for the D127-L prompt/skill semantic sweep; FE-1187 retains only the concern-grouped review renderer. The KA stream owns executor/orchestrator/Execute-mode work and the live Petri sequence from FE-1192 attempts through isolation/fan-in, epic integration, and durable parallel authority. Far-horizon instrumentation and consequential-fact evaluation remain trigger-gated under Later.
 
 **Current seams.** Brunch ships on the `1.0.0-alpha.x` line. One-shot `ask` is the only interactive structured-exchange terminal; D125-L's live ask registry provides headless discovery/answering, while the transcript-backed pending projection remains a compatibility surface for live offer tools after the legacy `present_question` pending branch retired. Sweep classification remains fail-closed and compile-time anchored to the exchange-schema terminal names (D117-L), while the larger capture-conditional watermark question remains A40-L.
 
@@ -83,6 +83,7 @@ Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_
 ### Parallel / Low-conflict
 
 - `interactive-tui-driver` — not started; separate-worktree tooling tracer comparing the proven in-repo Expect/xterm driver with `pi-interactive-shell` over `zigpty`, then locking one canonical agent workflow and fallback order. Definition below.
+- `graph-assurance-conduct` — not started; separate D127-L closure frontier canonicalizing capture/map/project/propose/review semantics without a database migration. May proceed after the D127-L documentation commit; FE-1187 owns the renderer, not this prompt/skill sweep. Definition below.
 
 ### Cleanups — Group 4
 
@@ -125,8 +126,10 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Certainty:** proving.
 - **Classification:** evidence-gated.
 - **Built:** D123-L model/auth reversal; deterministic remediation rows; sweep-debt tripwire; digest feedback → bounded questionnaire/confirmation carrier; shared atomic local-TUI/RPC review settlement; and discriminating seed variants for propose/project/review routing plus settlement visibility. The exact review payload remains durable and approval produces one receipt-bearing terminal, one LSN, and one change-log entry.
-- **Next scope:** compact proposition-first review presentation over the landed terminal/details shape. Show settled authority, commitment proposition, node/relation counts, grouped consequences, exact-payload inspection, and one whole-set control surface; no partial acceptance.
+- **Next scope:** absorb the human-selected borderless Impact Ledger over the landed terminal/details shape. Render Terms first, then Intent / Implementation / Assurance / Planning in explicit kind order; share aligned `kind | code | description` widths across sections; elide repeated adjacent kinds; render each connected item’s references on a separate dim `refs: CODE, CODE` row; preserve exact-payload inspection and one whole-set control surface with no partial acceptance. `table@6.9.0` earned production use for ANSI-aware borderless alignment.
+- **D127-L renderer boundary:** FE-1187 owns only the review presentation half of D127-L: materialize the selected borderless Impact Ledger, preserve exact term definitions and the readable `obligation` compatibility fallback, and audit the separate web graph display rather than silently imposing review ordering. The cross-cutting prompt/skill semantic sweep is the separate `graph-assurance-conduct` frontier.
 - **Visual-design coupling:** `exchange-visual-design` now also owns the FE-1196 reassignment `transcript-ledger-rendering`: durable user-choice ledger entries must become visible in the transcript without entering model context, and should land with the same visual treatment rather than as a separate platform-debt slice.
+- **Theme closure gate:** Brunch's owned theme colors must be deliberately locked before this frontier closes — settle the light/dark palette and semantic color-role assignments through the component playground, then reconcile the canonical theme files and affected Brunch surfaces. Exact color choices remain user design input; do not close FE-1187 while this is unresolved.
 - **Remaining routes:** R6 four-state result visuals → `ln-design`; R12 no-model behavior → `ln-diagnose`; R13 entry-menu behavior → `ln-disambiguate` then `ln-spec`. O7–O9 are KA-owned D120-L Execute evidence. The [`consolidated outer checkpoint`](cards/walkthrough-remediation-2--consolidated-outer-checkpoint.md) remains paused until these routes and R8–R10 are dispositioned.
 - **Live scope files:** the paused [`consolidated outer checkpoint`](cards/walkthrough-remediation-2--consolidated-outer-checkpoint.md).
 - **Dependencies:** closes `deterministic-orientation` jointly with KA-carved Execute evidence. `cli-mode-entry` remains stacked after this frontier.
@@ -156,6 +159,30 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Verification:** inner — existing `tui-driver` protocol/screen/liveness tests remain green plus adapter/config tests for any new project-owned code; middle — scripted component-preview and seeded-Brunch tracer matrix with captured textual viewports, resize/input assertions, exit status, and cleanup; outer — one user-observed Pi overlay session proving watch/takeover/return-to-agent behavior, plus one sandbox run proving the documented fallback when socket-backed tools cannot bind.
 - **Cross-cutting obligations:** preserve the manual-testing findings-ledger discipline and scratch-artifact rules; do not make an external extension part of Brunch's product extension bundle; retain the current fallback until the replacement decision is witnessed; document platform ceilings explicitly rather than claiming cross-platform support from upstream marketing.
 - **Traceability:** `docs/praxis/manual-testing.md` §Setup / sandbox fallback; `src/dev/TOPOLOGY.md` and `src/dev/tui-driver.ts`; FE-1187 R8–R10 component-playground review pressure. External candidates: [`pi-interactive-shell`](https://github.com/nicobailon/pi-interactive-shell), [`zigpty`](https://github.com/pithings/zigpty).
+
+### graph-assurance-conduct
+
+- **Name:** Canonical graph assurance capture and projection conduct
+- **Linear:** unassigned (create at pickup, FE team / brunch project)
+- **Branch:** tbd at pickup; separate frontier stacked after the commit that records D127-L
+- **Kind:** cross-cutting agent-control closure — prompt/resource semantics and their contract checks, not a graph-schema migration or review-renderer feature.
+- **Certainty:** earned.
+- **Status:** not started.
+- **Objective:** materialize D127-L across the Brunch-owned agent control plane so one canonical assurance chain remains: requirements are judged by criteria; criteria and general methods are operationalized by concrete checks; only already-obtained observations deliberately promoted from execution, research, or spikes become evidence that witnesses or falsifies claims. Existing `evidence` and `vv_obligation` rows remain readable through the unchanged schema, while future evidence and new obligations stop being projected.
+- **Why now / unlocks:** review-set design exposed a control-plane contradiction: canonical semantics now reject planned evidence and generated obligations, while current map/project/propose/ingest/review resources still invite both. Closing the drift prevents agents from producing semantically obsolete review payloads and lets FE-1187's renderer treat `vv_obligation` strictly as compatibility fallback rather than normal output.
+- **Canonicalizes:** D127-L assurance conduct across `src/agents/references/`, the map/project/propose/ingest/review skills, and prompt/skill contract tests.
+- **Deletes / retires:** directives that project “evidence plans,” generate `vv_obligation`, use an unexecuted check as proof, or treat routine run output as durable graph evidence.
+- **Locks in:** no live agent resource proposes future evidence or a new verification obligation; capture guidance requires an identified prior observation/artifact; criterion/method→check uses `realization`; promoted evidence or declarative criteria/examples use `witness`; historical fixtures and persisted rows remain readable.
+- **Acceptance:**
+  - `src/agents/references/data-model.md` and `readiness-bands.md` distinguish physical compatibility taxonomy from D127-L conduct. Evidence is capture-only and is not an expected projection deliverable; `vv_obligation` is marked legacy/reserved without deleting its schema entry.
+  - Map guidance routes requirements, criteria, methods, checks, promoted evidence, and examples without overlap: checks operationalize criteria/methods, while observations/criteria/examples may witness claims. It offers no ordinary route that creates a new `vv_obligation`.
+  - Project/propose guidance produces criteria, methods, checks, fixture/probe commitments, and blind-spot prose—but never speculative evidence nodes or “evidence obligations.” Ingest may capture evidence only when the reviewed source names a concrete observation/artifact already obtained.
+  - Review guidance diagnoses missing observation or verification machinery without asking agents to manufacture evidence/obligation nodes. Prompt wording that uses ordinary-language “evidence” or scratchpad “obligation” remains allowed when it does not name the graph kinds.
+  - Existing seed fixtures and historical runs containing `evidence`/`vv_obligation` remain unchanged unless a fixture is specifically a live conduct oracle. No schema enum, database migration, compatibility shim, or mass fixture regeneration lands.
+  - The frontier audits `latestExpectedBand` and execution snapshots for semantic contradiction, but changes non-database code only when required to stop live agent behavior from violating D127-L. Dedicated automatic evidence promotion remains out of scope; generic reviewed graph mutation is the current manual capture path.
+- **Verification:** `npm run check:skills`; prompt/resource composition tests and snapshots; focused tests that reject forbidden future-evidence/obligation guidance while preserving generic “evidence” and scratchpad-obligation language; one controlled project/propose transcript showing criteria/method/check output without speculative E/O nodes; full `npm run verify` before submission.
+- **Boundary:** FE-1187 owns the concern-grouped review prototype/production renderer, vocabulary-change signal, and legacy-obligation display fallback. The web graph browser keeps its own ordering unless a concrete consumer requirement independently justifies reuse.
+- **Traceability:** D127-L (soft semantics and review groups), D87-L (physical ontology event), D94-L (latest-expected-band model), D99-L (advisory capture), D70-L (artifact promotion); drift inventory captured in the FE-1187 handoff.
 
 ### cli-mode-entry
 
@@ -326,11 +353,15 @@ group-3 (Next — agent layer):
   subagent-skill-access -[hard]-> reviewer-agent-mode (subagent reshape)
   review-commentary-widening (mention-based reshape)
 
-parallel tooling:
+parallel:
   interactive-tui-driver
     status: not started; independent separate-worktree tracer
     lights_up: component playground + seeded Brunch TUI under one agent-control workflow
     decision: pi-interactive-shell candidate | existing tui-driver fallback | direct zigpty only on demonstrated gap
+  graph-assurance-conduct
+    status: not started; earned closure frontier after D127-L documentation commit
+    canonicalizes: capture/map/project/propose/review assurance semantics
+    excludes: schema migration | review renderer | automatic evidence-promotion pipeline
 
 group-4 (cleanups): rides group-1 stack | named-inline-extension-identity (P1)
 
