@@ -261,14 +261,16 @@ export type GitHostLandMaterializeResult =
       readonly branch: string;
       readonly landedSha: string;
       readonly targetDir: string;
-      readonly sideEffects: readonly [
-        {
-          readonly kind: 'git_materialize';
-          readonly path: string;
-          readonly branch: string;
-          readonly sha: string;
-        },
-      ];
+      readonly sideEffects:
+        | readonly []
+        | readonly [
+            {
+              readonly kind: 'git_materialize';
+              readonly path: string;
+              readonly branch: string;
+              readonly sha: string;
+            },
+          ];
     }
   | {
       readonly status: 'refused';

@@ -1,5 +1,5 @@
 import { mkdir, readdir, realpath, rm } from 'node:fs/promises';
-import { isAbsolute, join, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 
 import type {
   GitHostLandIntegrateResult,
@@ -117,7 +117,6 @@ export function createGitHostLandPort(options: { readonly run?: CommandRunner } 
     },
 
     async materialize(args) {
-      await mkdir(args.targetDir, { recursive: true });
       const [target, runRepo] = await Promise.all([
         canonicalPath(args.targetDir),
         canonicalPath(args.runWorktreeDir),
@@ -126,11 +125,15 @@ export function createGitHostLandPort(options: { readonly run?: CommandRunner } 
       if (isPathInside(target, runRepo)) {
         return { status: 'refused', reason: 'target_inside_run', sideEffects: [] };
       }
+      await mkdir(args.targetDir, { recursive: true });
 
       // ceiling: only missing/empty targets land in the tracer; fresh `git init`
       // targets and existing repos (brunch/run/<runId> branch) ride slice 2.
       const entries = await readdir(args.targetDir);
-      if (entries.length > 0) return { status: 'refused', reason: 'occupied_target', sideEffects: [] };
+      if (entries.length > 0) {
+        const replay = await replayMaterializedTarget(command, args);
+        return replay ?? { status: 'refused', reason: 'occupied_target', sideEffects: [] };
+      }
 
       // The target was verified empty, so a non-landed outcome restores it to
       // empty — no orphan .git may block the retry after the failure is fixed.
@@ -138,6 +141,52 @@ export function createGitHostLandPort(options: { readonly run?: CommandRunner } 
       if (result.status !== 'landed') await restoreEmptyTarget(args.targetDir);
       return result;
     },
+  };
+}
+
+async function replayMaterializedTarget(
+  command: (cwd: string, args: readonly string[]) => Promise<CommandResult>,
+  args: {
+    readonly runWorktreeDir: string;
+    readonly expectedTipSha: string;
+    readonly targetDir: string;
+    readonly branch: string;
+    readonly message: string;
+  },
+): Promise<Extract<GitHostLandMaterializeResult, { status: 'landed' }> | undefined> {
+  const root = await checkExactRoot(command, args.targetDir);
+  if (root.kind !== 'root') return undefined;
+
+  const [branch, status, rootCommit, head, headTree, expectedTree, identity] = await Promise.all([
+    command(args.targetDir, ['symbolic-ref', '--quiet', '--short', 'HEAD']),
+    command(args.targetDir, ['status', '--porcelain']),
+    command(args.targetDir, ['rev-list', '--parents', '-n', '1', 'HEAD']),
+    command(args.targetDir, ['rev-parse', 'HEAD']),
+    command(args.targetDir, ['rev-parse', 'HEAD^{tree}']),
+    command(args.targetDir, ['rev-parse', `${args.expectedTipSha}^{tree}`]),
+    command(args.targetDir, ['log', '-1', '--format=%an%n%ae%n%s']),
+  ]);
+  if (
+    [branch, status, rootCommit, head, headTree, expectedTree, identity].some(
+      (result) => result.exitCode !== 0,
+    )
+  ) {
+    return undefined;
+  }
+  const isBrunchMaterialization =
+    branch.stdout.trim() === args.branch &&
+    status.stdout.trim() === '' &&
+    rootCommit.stdout.trim().split(/\s+/u).length === 1 &&
+    headTree.stdout.trim() === expectedTree.stdout.trim() &&
+    identity.stdout.trim() === `brunch\ncook@brunch\n${args.message}`;
+  if (!isBrunchMaterialization) return undefined;
+
+  return {
+    status: 'landed',
+    branch: args.branch,
+    landedSha: head.stdout.trim(),
+    targetDir: args.targetDir,
+    sideEffects: [],
   };
 }
 
@@ -219,7 +268,9 @@ async function canonicalPath(path: string): Promise<string> {
   try {
     return await realpath(path);
   } catch {
-    return resolve(path);
+    const resolved = resolve(path);
+    const parent = dirname(resolved);
+    return parent === resolved ? resolved : join(await canonicalPath(parent), basename(resolved));
   }
 }
 

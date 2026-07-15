@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -300,6 +300,33 @@ describe('createGitHostLandPort', () => {
       expect(await git(targetDir, ['status', '--porcelain'])).toBe('');
     });
 
+    it('replays an already-materialized target so metadata persistence can retry', async () => {
+      const { root, runWorktreeDir, tipSha } = await createGreenfieldFixture(
+        'brunch-host-land-materialized-retry-',
+      );
+      const targetDir = join(root, 'new-project');
+      const port = createGitHostLandPort();
+      const args = {
+        runWorktreeDir,
+        reviewRef: REVIEW_REF,
+        expectedTipSha: tipSha,
+        targetDir,
+        branch: 'main',
+        message: 'brunch: land run-1',
+      };
+
+      const first = await port.materialize(args);
+      if (first.status !== 'landed') throw new Error(`materialize failed: ${JSON.stringify(first)}`);
+
+      await expect(port.materialize(args)).resolves.toEqual({
+        status: 'landed',
+        branch: 'main',
+        landedSha: first.landedSha,
+        targetDir,
+        sideEffects: [],
+      });
+    });
+
     it('refuses an occupied non-git target without mutating it', async () => {
       const { root, runWorktreeDir, tipSha } = await createGreenfieldFixture('brunch-host-land-occupied-');
       const targetDir = join(root, 'occupied');
@@ -346,6 +373,7 @@ describe('createGitHostLandPort', () => {
     it('refuses a target that aliases or nests inside the run repository', async () => {
       const { runWorktreeDir, tipSha } = await createGreenfieldFixture('brunch-host-land-alias-');
       const port = createGitHostLandPort();
+      const nestedTarget = join(runWorktreeDir, 'nested');
       const shared = {
         runWorktreeDir,
         reviewRef: REVIEW_REF,
@@ -359,9 +387,12 @@ describe('createGitHostLandPort', () => {
         reason: 'target_aliases_run',
         sideEffects: [],
       });
-      await expect(
-        port.materialize({ ...shared, targetDir: join(runWorktreeDir, 'nested') }),
-      ).resolves.toEqual({ status: 'refused', reason: 'target_inside_run', sideEffects: [] });
+      await expect(port.materialize({ ...shared, targetDir: nestedTarget })).resolves.toEqual({
+        status: 'refused',
+        reason: 'target_inside_run',
+        sideEffects: [],
+      });
+      await expect(access(nestedTarget)).rejects.toMatchObject({ code: 'ENOENT' });
     });
   });
 });
