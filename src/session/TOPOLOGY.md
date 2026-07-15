@@ -144,7 +144,7 @@ plus the coordination logic for workspace/spec/session lifecycle.
   (`origin` and `relatesToSpecId` remain nullable where the graph domain permits);
   this module decides *whether to ask*, never persists.
 
-- **Targeted live-session hosting** (`live-session-host.ts`) — a cwd-process-local map keyed by durable `(specId, sessionId)`, with one writable runtime and driver owner per target, target-local prompt admission, ask answering, semantic event sequencing, and fail-loud active-turn disposal. `WorkspaceSessionCoordinator.openTargetSession` and target-spec replacement binding open that exact session without reading or mutating workspace defaults; route/connection identities never substitute for the target.
+- **Targeted live-session hosting** (`live-session-host.ts`) — a cwd-process-local map keyed by durable `(specId, sessionId)`, with one writable runtime and driver owner per target, target-local prompt admission, ask answering, semantic event sequencing, and fail-loud active-turn disposal. `WorkspaceSessionCoordinator.openTargetSession` and target-spec replacement binding open that exact session without reading or mutating workspace defaults; route/connection identities never substitute for the target. `src/dev/__tests__/standalone-web-session-host.concurrency.test.ts` validates two simultaneous production-wired targets: overlapping asks/graph writes, target-local events and driver rivals, isolated failure/recovery, reconnect, separate JSONL, and shared graph changes delivered only through `worldUpdate`.
 
 - **Session binding** — session↔spec binding entries in JSONL.
 

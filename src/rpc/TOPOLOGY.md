@@ -397,7 +397,7 @@ brunch.sessionEvent:
     delta: assistant_text_delta | ask_opened | agent_settled
 ```
 
-Only Pi's real `agent_settled` is a convergence boundary; `agent_end` is not. Standalone clients refetch `session.presentation` from canonical JSONL and discard ephemeral overlay state at settlement or after remount/reconnect.
+Only Pi's real `agent_settled` is a convergence boundary; `agent_end` is not. Standalone clients refetch `session.presentation` from canonical JSONL and discard ephemeral overlay state at settlement or after remount/reconnect. The production-host concurrency oracle (`src/dev/__tests__/standalone-web-session-host.concurrency.test.ts`) proves these frames remain target-local and independently sequenced across two overlapping hosted sessions, while reconnect reads each target's separate canonical JSONL presentation.
 
 ## Streaming transport coverage
 
