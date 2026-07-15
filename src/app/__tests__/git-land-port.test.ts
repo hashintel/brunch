@@ -126,7 +126,7 @@ describe('createGitLandPort', () => {
     });
   });
 
-  it('reports no_changes with current HEAD without staging or committing when the worktree is clean', async () => {
+  it('creates the review ref without staging or committing when the worktree is clean', async () => {
     const calls: string[] = [];
     const port = createGitLandPort({
       run: async (_command, args) => {
@@ -134,7 +134,10 @@ describe('createGitLandPort', () => {
         if (args.join(' ') === 'rev-parse --show-toplevel')
           return { exitCode: 0, stdout: '/repo/wt\n', stderr: '' };
         if (args[0] === 'check-ref-format') return { exitCode: 0, stdout: '', stderr: '' };
-        if (args[0] === 'rev-parse') return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+        if (args.join(' ') === 'rev-parse HEAD') return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+        if (args.join(' ').startsWith('rev-parse --verify')) {
+          return { exitCode: 1, stdout: '', stderr: '' };
+        }
         return { exitCode: 0, stdout: '', stderr: '' };
       },
     });
@@ -147,16 +150,25 @@ describe('createGitLandPort', () => {
         reviewBranch: 'brunch/review/run-1',
       }),
     ).resolves.toEqual({
-      status: 'no_changes',
-      message: 'no worktree changes to promote',
+      status: 'promoted',
       commitSha: 'abc123',
-      sideEffects: [],
+      reviewBranch: 'brunch/review/run-1',
+      sideEffects: [
+        {
+          kind: 'git_ref_create',
+          path: '/repo/wt',
+          ref: 'refs/heads/brunch/review/run-1',
+          sha: 'abc123',
+        },
+      ],
     });
     expect(calls).toEqual([
       'rev-parse --show-toplevel',
       'check-ref-format --branch brunch/review/run-1',
       'status --porcelain',
       'rev-parse HEAD',
+      'rev-parse --verify --quiet refs/heads/brunch/review/run-1',
+      'update-ref refs/heads/brunch/review/run-1 abc123 0000000000000000000000000000000000000000',
     ]);
   });
 

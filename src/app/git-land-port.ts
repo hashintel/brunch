@@ -63,13 +63,6 @@ export function createGitLandPort(options: { readonly run?: CommandRunner } = {}
       const commitSha = revParse.stdout.trim();
       if (status.stdout.trim().length > 0) {
         sideEffects.push({ kind: 'git_commit', path: args.worktreeDir, sha: commitSha });
-      } else if (commitSha === args.baseSha) {
-        return {
-          status: 'no_changes',
-          message: 'no worktree changes to promote',
-          commitSha,
-          sideEffects: [],
-        };
       }
 
       const ref = branchRef(args.reviewBranch);
