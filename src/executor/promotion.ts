@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import type { GitLandPort } from './execution-ports.js';
+import type { GitRunPromotionPort } from './execution-ports.js';
 import { readSliceVerificationVerdict } from './report-verdict.js';
 import { reportsPath } from './report.js';
 import {
@@ -90,7 +90,7 @@ export function promotionReviewBranch(runId: string): string {
 export async function preparePromotion(args: {
   readonly cwd: string;
   readonly runId: string;
-  readonly gitLand: GitLandPort;
+  readonly gitRunPromotion: GitRunPromotionPort;
 }): Promise<PromotionPrepareResult> {
   return withRunExecutionAuthority({
     cwd: args.cwd,
@@ -103,7 +103,7 @@ export async function preparePromotion(args: {
 async function preparePromotionOwned(args: {
   readonly cwd: string;
   readonly runId: string;
-  readonly gitLand: GitLandPort;
+  readonly gitRunPromotion: GitRunPromotionPort;
 }): Promise<PromotionPrepareResult> {
   const metadataPath = runMetadataPath(args.cwd, args.runId);
   const metadata = await readRunMetadata(metadataPath);
@@ -154,7 +154,7 @@ async function preparePromotionOwned(args: {
 
   const recovered = await recoverPreparedPromotion({
     cwd: args.cwd,
-    gitLand: args.gitLand,
+    gitRunPromotion: args.gitRunPromotion,
     runId: args.runId,
     metadata,
     metadataPath,
@@ -173,71 +173,56 @@ async function preparePromotionOwned(args: {
     };
   }
 
-  const preparedAttempt = await preparePromotionAttempt({
-    gitLand: args.gitLand,
-    metadata,
-    metadataPath,
-    worktreeDir,
-  });
-  if (preparedAttempt.status === 'failed') {
+  // The durable run-origin base recorded at worktree creation is the only
+  // promotion baseline: the promoted range is runBaseSha..tip, so a clean
+  // fully-integrated run still promotes (no_changes means tip == run base).
+  const runBaseSha = metadata.runBaseSha;
+  if (!runBaseSha) {
     return {
       status: 'promotion_failed',
       runStatus: 'petri_exported',
       runId: args.runId,
       worktreeDir,
       metadataPath,
-      message: preparedAttempt.message,
+      message: 'run is missing runBaseSha',
       sideEffects: [],
-    };
-  }
-  const promotionMetadata = preparedAttempt.metadata;
-  const promotionBaseSha = promotionMetadata.promotionBaseSha;
-  if (!promotionBaseSha) {
-    return {
-      status: 'promotion_failed',
-      runStatus: 'petri_exported',
-      runId: args.runId,
-      worktreeDir,
-      metadataPath,
-      message: 'run is missing promotionBaseSha',
-      sideEffects: preparedAttempt.sideEffects,
     };
   }
   const reviewBranch = promotionReviewBranch(args.runId);
 
-  const land = await args.gitLand.promote({
+  const promoted = await args.gitRunPromotion.promote({
     worktreeDir,
     message: `promote ${args.runId}`,
-    baseSha: promotionBaseSha,
+    baseSha: runBaseSha,
     reviewBranch,
   });
-  if (land.status === 'failed') {
+  if (promoted.status === 'failed') {
     return {
       status: 'promotion_failed',
       runStatus: 'petri_exported',
       runId: args.runId,
       worktreeDir,
       metadataPath,
-      message: land.message,
-      sideEffects: [...preparedAttempt.sideEffects, ...land.sideEffects],
+      message: promoted.message,
+      sideEffects: promoted.sideEffects,
     };
   }
-  if (land.status === 'no_changes') {
+  if (promoted.status === 'no_changes') {
     return {
       status: 'promotion_no_changes',
       runStatus: 'petri_exported',
       runId: args.runId,
       worktreeDir,
       metadataPath,
-      message: land.message,
-      sideEffects: preparedAttempt.sideEffects,
+      message: promoted.message,
+      sideEffects: [],
     };
   }
 
   const path = promotionReportPath(args.cwd, args.runId);
   const dir = dirname(path);
-  const report = promotionReport(args.runId, promotionMetadata, land.commitSha, land.reviewBranch);
-  const updated = promotedRunMetadata(promotionMetadata, path, land.commitSha, land.reviewBranch);
+  const report = promotionReport(args.runId, metadata, promoted.commitSha, promoted.reviewBranch);
+  const updated = promotedRunMetadata(metadata, path, promoted.commitSha, promoted.reviewBranch);
   await mkdir(dir, { recursive: true });
   await writeFile(path, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
   const metadataEffect = await persistRunMetadata(metadataPath, updated);
@@ -247,49 +232,14 @@ async function preparePromotionOwned(args: {
     runId: args.runId,
     metadataPath,
     promotionPath: path,
-    promotionBranch: land.reviewBranch,
+    promotionBranch: promoted.reviewBranch,
     sideEffects: [
-      ...preparedAttempt.sideEffects,
-      ...land.sideEffects,
+      ...promoted.sideEffects,
       { kind: 'mkdir', path: dir },
       { kind: 'write_file', path, ifExists: 'overwrite' },
       metadataEffect,
     ],
   };
-}
-
-type PromotionAttemptPrepareResult =
-  | {
-      readonly status: 'prepared';
-      readonly metadata: RunMetadata;
-      readonly sideEffects: readonly [];
-    }
-  | {
-      readonly status: 'prepared';
-      readonly metadata: RunMetadata;
-      readonly sideEffects: readonly [
-        { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
-      ];
-    }
-  | {
-      readonly status: 'failed';
-      readonly message: string;
-    };
-
-async function preparePromotionAttempt(args: {
-  readonly gitLand: GitLandPort;
-  readonly metadata: RunMetadata;
-  readonly metadataPath: string;
-  readonly worktreeDir: string;
-}): Promise<PromotionAttemptPrepareResult> {
-  if (args.metadata.promotionBaseSha) {
-    return { status: 'prepared', metadata: args.metadata, sideEffects: [] };
-  }
-  const head = await args.gitLand.currentHead({ worktreeDir: args.worktreeDir });
-  if (head.status === 'failed') return { status: 'failed', message: head.message };
-  const metadata = { ...args.metadata, promotionBaseSha: head.commitSha };
-  const metadataEffect = await persistRunMetadata(args.metadataPath, metadata);
-  return { status: 'prepared', metadata, sideEffects: [metadataEffect] };
 }
 
 function promotionReport(
@@ -304,7 +254,7 @@ function promotionReport(
     petriPath: metadata.petriPath ?? null,
     reportsPath: metadata.reportsPath ?? null,
     completedSliceIds: metadata.completedSliceIds ?? [],
-    land: { status: 'promoted', commitSha, reviewBranch },
+    promotion: { status: 'promoted', commitSha, reviewBranch },
   };
 }
 
@@ -325,22 +275,25 @@ function promotedRunMetadata(
 
 async function recoverPreparedPromotion(args: {
   readonly cwd: string;
-  readonly gitLand: GitLandPort;
+  readonly gitRunPromotion: GitRunPromotionPort;
   readonly runId: string;
   readonly metadata: RunMetadata;
   readonly metadataPath: string;
 }): Promise<PromotionPrepareResult | undefined> {
   const path = promotionReportPath(args.cwd, args.runId);
   const report = await readPromotionReport(path);
-  const commitSha = report?.land?.status === 'promoted' ? report.land.commitSha : undefined;
-  const reviewBranch = report?.land?.status === 'promoted' ? report.land.reviewBranch : undefined;
+  const commitSha = report?.promotion?.status === 'promoted' ? report.promotion.commitSha : undefined;
+  const reviewBranch = report?.promotion?.status === 'promoted' ? report.promotion.reviewBranch : undefined;
   if (!commitSha || reviewBranch !== promotionReviewBranch(args.runId)) return undefined;
   if (args.metadata.promotionBranch && args.metadata.promotionBranch !== reviewBranch) return undefined;
   if (!args.metadata.worktreeDir) return undefined;
 
-  const head = await args.gitLand.currentHead({ worktreeDir: args.metadata.worktreeDir });
+  const head = await args.gitRunPromotion.currentHead({ worktreeDir: args.metadata.worktreeDir });
   if (head.status !== 'ok' || head.commitSha !== commitSha) return undefined;
-  const ref = await args.gitLand.resolveRef({ worktreeDir: args.metadata.worktreeDir, ref: reviewBranch });
+  const ref = await args.gitRunPromotion.resolveRef({
+    worktreeDir: args.metadata.worktreeDir,
+    ref: reviewBranch,
+  });
   if (ref.status !== 'ok' || ref.commitSha !== commitSha) return undefined;
 
   const updated: RunMetadata = {
@@ -363,7 +316,7 @@ async function recoverPreparedPromotion(args: {
 }
 
 interface PromotionReportPayload {
-  readonly land?: {
+  readonly promotion?: {
     readonly status?: string;
     readonly commitSha?: string;
     readonly reviewBranch?: string;

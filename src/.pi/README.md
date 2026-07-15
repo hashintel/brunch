@@ -92,8 +92,7 @@ From `src/.pi/extensions/executor/` and `src/session/schema/tool-names.ts`:
 - `execute_run_complete`
 - `execute_petri_export`
 - `execute_promotion_prepare`
-- `execute_host_promotion_preflight`
-- `execute_host_promotion_apply`
+- `execute_land_preflight`
 
 Note: `execute_plan_outline_artifact` and `execute_plan_draft_artifact` are registered graph-dependent tools, but excluded from the executor active-tool list per `src/agents/runtime/executor/active-tools.ts`.
 

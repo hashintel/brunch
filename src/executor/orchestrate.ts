@@ -316,6 +316,7 @@ function petriInputRequiredStep(state: RunMetadata): ReadyStep['kind'] | undefin
     case 'petri_exported':
     case 'promotion_prepared':
       return 'promotion';
+    case 'landed':
     case 'abandoned':
       return undefined;
   }
@@ -505,7 +506,11 @@ async function driveOwned(
         } catch {
           // Durable terminal truth still wins when stale metadata cannot rematerialize its marking.
         }
-        return driveOutcomeFromTerminal(durableTerminal);
+        const outcome = driveOutcomeFromTerminal(durableTerminal);
+        // Landing advances run metadata after the net's terminal event without
+        // touching the net, so a landed run reports its current status rather
+        // than the promotion_prepared frozen into the journal terminal.
+        return state.status === 'landed' ? { ...outcome, runStatus: state.status } : outcome;
       }
     }
     if ('events' in journal && journal.events !== undefined) {

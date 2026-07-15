@@ -2,9 +2,9 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type {
-  GitHostPromotionPort,
-  GitLandPort,
-  GitLandResult,
+  GitHostLandPort,
+  GitRunPromotionPort,
+  GitRunPromotionResult,
   GitSliceIntegrationPort,
   GitWorktreePort,
   TestRunnerPort,
@@ -18,6 +18,7 @@ export function createFakeGitWorktreePort(
     return {
       status: 'created',
       worktreeDir,
+      createdFromSha: 'workbase123',
       sideEffects: [{ kind: 'git_worktree_add', path: worktreeDir, ref }],
     };
   },
@@ -64,8 +65,8 @@ export function createFakeTestRunnerPort(
   };
 }
 
-export function createFakeGitLandPort(
-  result: GitLandResult = {
+export function createFakeGitRunPromotionPort(
+  result: GitRunPromotionResult = {
     status: 'promoted',
     commitSha: 'abc123',
     reviewBranch: 'brunch/review/run-1',
@@ -81,7 +82,7 @@ export function createFakeGitLandPort(
   },
   currentHeadSha = 'base123',
   resolvedRefSha = result.status === 'promoted' ? result.commitSha : undefined,
-): GitLandPort {
+): GitRunPromotionPort {
   return {
     async currentHead() {
       return { status: 'ok', commitSha: currentHeadSha };
@@ -95,24 +96,58 @@ export function createFakeGitLandPort(
   };
 }
 
-export function createFakeGitHostPromotionPort(options: {
-  readonly preflight?: GitHostPromotionPort['preflight'];
-  readonly apply?: GitHostPromotionPort['apply'];
-}): GitHostPromotionPort {
+export function createFakeGitHostLandPort(options: Partial<GitHostLandPort> = {}): GitHostLandPort {
   return {
-    async preflight(args) {
+    async inspect(args) {
       return (
-        (await options.preflight?.(args)) ?? {
-          status: 'ok',
-          baseSha: 'base123',
-          commitSha: args.commitSha,
-          changedFiles: ['host-proof.txt'],
-          patchSummary: 'host-proof.txt | 1 +',
+        (await options.inspect?.(args)) ?? {
+          status: 'inspected',
+          runBaseSha: args.runBaseSha,
+          reviewTipSha: args.expectedTipSha,
+          commits: [{ sha: args.expectedTipSha, subject: 'promote run' }],
+          changedPaths: [],
+          target:
+            args.strategy === 'integrate'
+              ? {
+                  kind: 'repository',
+                  path: args.targetDir,
+                  branch: 'main',
+                  trackedDirtyPaths: [],
+                  untrackedPaths: [],
+                }
+              : { kind: 'missing', path: args.targetDir },
+          conflictRehearsal:
+            args.strategy === 'integrate' ? { status: 'clean' } : { status: 'not_applicable' },
+          admissible: true,
+          sideEffects: [],
         }
       );
     },
-    async apply(args) {
-      return (await options.apply?.(args)) ?? { status: 'applied', changedFiles: args.changedFiles };
+    async integrate(args) {
+      return (
+        (await options.integrate?.(args)) ?? {
+          status: 'landed',
+          via: 'fast_forward',
+          branch: 'main',
+          landedSha: args.expectedTipSha,
+          sideEffects: [
+            { kind: 'host_branch_advance', path: args.hostDir, branch: 'main', sha: args.expectedTipSha },
+          ],
+        }
+      );
+    },
+    async materialize(args) {
+      return (
+        (await options.materialize?.(args)) ?? {
+          status: 'landed',
+          branch: args.branch,
+          landedSha: 'materialized123',
+          targetDir: args.targetDir,
+          sideEffects: [
+            { kind: 'git_materialize', path: args.targetDir, branch: args.branch, sha: 'materialized123' },
+          ],
+        }
+      );
     },
   };
 }

@@ -78,7 +78,7 @@ describe('createExecuteRunCreateTool', () => {
   it('exposes no verification-profile choice in the tool schema', () => {
     const schema = tool().parameters as { properties?: Record<string, unknown> };
 
-    expect(Object.keys(schema.properties ?? {})).toEqual(['runId', 'substrate', 'mode']);
+    expect(Object.keys(schema.properties ?? {})).toEqual(['runId']);
   });
 
   it('reports a missing plan before attempting execution-contract admission', async () => {
@@ -137,7 +137,7 @@ describe('createExecuteRunCreateTool', () => {
       { command: 'npm', args: ['test'] },
     );
 
-    const result = await tool().execute('t1', { runId: 'run-1', mode: 'brownfield' }, undefined, undefined, {
+    const result = await tool().execute('t1', { runId: 'run-1' }, undefined, undefined, {
       cwd,
     } as never);
 
@@ -150,7 +150,7 @@ describe('createExecuteRunCreateTool', () => {
     await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'host', scripts: {} }), 'utf8');
     await writePlan(cwd, 'brownfield', [], null);
 
-    const result = await tool().execute('t1', { runId: 'run-1', mode: 'brownfield' }, undefined, undefined, {
+    const result = await tool().execute('t1', { runId: 'run-1' }, undefined, undefined, {
       cwd,
     } as never);
 

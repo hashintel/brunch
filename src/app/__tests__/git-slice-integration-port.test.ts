@@ -6,8 +6,8 @@ import { promisify } from 'node:util';
 import { describe, expect, it } from 'vitest';
 
 import {
-  createFakeGitHostPromotionPort,
-  createFakeGitLandPort,
+  createFakeGitHostLandPort,
+  createFakeGitRunPromotionPort,
   createFakeGitWorktreePort,
   createFakeTestRunnerPort,
 } from '../../executor/__tests__/fake-ports.js';
@@ -83,6 +83,33 @@ describe('createGitSliceIntegrationPort', () => {
     );
   });
 
+  it('never commits .brunch run bookkeeping while committing sibling slice output', async () => {
+    const { root, runWorktreeDir } = await createRunWorkspace('brunch-hygiene-');
+    const port = createGitSliceIntegrationPort();
+    const sliceDir = join(root, 'slices', 'first');
+    const prepared = await port.prepare({ runWorktreeDir, sliceWorktreeDir: sliceDir, sliceId: 'first' });
+    if (prepared.status !== 'prepared') throw new Error('workspace setup failed');
+
+    await writeFile(join(sliceDir, 'first.txt'), 'first\n', 'utf8');
+    await mkdir(join(sliceDir, '.brunch', 'cook'), { recursive: true });
+    await writeFile(join(sliceDir, '.brunch', 'cook', 'plan.json'), '{"planted":true}\n', 'utf8');
+
+    const integration = await port.integrate({
+      runWorktreeDir,
+      sliceWorktreeDir: sliceDir,
+      sliceId: 'first',
+      baseSha: prepared.baseSha,
+    });
+
+    expect(integration.status).toBe('integrated');
+    await expect(readFile(join(runWorktreeDir, 'first.txt'), 'utf8')).resolves.toBe('first\n');
+    expect(await git(runWorktreeDir, ['ls-tree', '-r', '--name-only', 'HEAD'])).not.toContain('.brunch');
+    // The bookkeeping stays on disk in the slice workspace; it just never enters a commit.
+    await expect(readFile(join(sliceDir, '.brunch', 'cook', 'plan.json'), 'utf8')).resolves.toBe(
+      '{"planted":true}\n',
+    );
+  });
+
   it('preflights conflicting slice output without partially mutating the run workspace', async () => {
     const { root, runWorktreeDir } = await createRunWorkspace('conflict-');
     const port = createGitSliceIntegrationPort();
@@ -146,8 +173,8 @@ describe('createGitSliceIntegrationPort', () => {
         },
       },
       testRunner: createFakeTestRunnerPort(),
-      gitLand: createFakeGitLandPort(),
-      gitHostPromotion: createFakeGitHostPromotionPort({}),
+      gitRunPromotion: createFakeGitRunPromotionPort(),
+      gitHostLand: createFakeGitHostLandPort(),
     };
     await drive({ cwd, runId: 'run-1', ports }, linearScheduler, serialFiringPolicy, { maxFirings: 5 });
     const foreignDir = sliceWorkspacePath(cwd, 'run-1', 'task-1');

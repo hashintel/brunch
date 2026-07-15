@@ -46,7 +46,7 @@ export const PRODUCTION_RUN_MUTATION_ENTRIES = [
   'replan_retry_current_step',
   'replan_regenerate_plan_tool',
   'replan_regenerate_plan_rpc',
-  'host_promotion_apply',
+  'landing_apply',
 ] as const;
 
 export type ProductionRunMutationEntry = (typeof PRODUCTION_RUN_MUTATION_ENTRIES)[number];
@@ -85,7 +85,7 @@ export const RUN_MUTATION_ENTRY_INVENTORY = {
     standalone: true,
   },
   replan_regenerate_plan_rpc: { coreFile: '../rpc/methods/execute.ts', standalone: true },
-  host_promotion_apply: { coreFile: 'host-promotion.ts', standalone: true },
+  landing_apply: { coreFile: 'landing.ts', standalone: true },
 } as const satisfies Record<ProductionRunMutationEntry, RunMutationAuthorityBoundary>;
 
 export type RunMutationEntry = ProductionRunMutationEntry;
@@ -95,8 +95,7 @@ const NOT_A_RUN_MUTATION = null;
 /** Exact classification of the registered production execute-tool surface. */
 export const PRODUCTION_EXECUTE_TOOL_MUTATIONS = {
   execute_agent_result: 'agent_result',
-  execute_host_promotion_apply: 'host_promotion_apply',
-  execute_host_promotion_preflight: NOT_A_RUN_MUTATION,
+  execute_land_preflight: NOT_A_RUN_MUTATION,
   execute_launch: NOT_A_RUN_MUTATION,
   execute_orchestrate: 'drive',
   execute_petri_export: 'petri_export',

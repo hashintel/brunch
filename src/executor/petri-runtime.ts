@@ -201,6 +201,9 @@ export function projectExecutorPetriTransitionHistory(
     case 'petri_exported':
       return { transitionIds: [...transitionIds, 'run_complete', 'petri_export'] };
     case 'promotion_prepared':
+    case 'landed':
+      // Landing happens outside the driven chain; a landed run's net history is
+      // identical to promotion_prepared's.
       return { transitionIds: [...transitionIds, 'run_complete', 'petri_export', 'promotion'] };
     default:
       return { transitionIds };
@@ -720,7 +723,7 @@ export async function executeExecutorReadyStep(
     case 'petri_export':
       return exportPetri({ cwd, runId });
     case 'promotion':
-      return preparePromotion({ cwd, runId, gitLand: ports.gitLand });
+      return preparePromotion({ cwd, runId, gitRunPromotion: ports.gitRunPromotion });
   }
 }
 

@@ -30,16 +30,6 @@ const ExecuteRunCreateParams = Type.Object({
   runId: Type.Optional(
     Type.String({ description: 'Optional deterministic run id. Defaults to a generated id.' }),
   ),
-  substrate: Type.Optional(
-    Type.Union([Type.Literal('git_worktree'), Type.Literal('empty_dir')], {
-      description: 'Run workspace substrate. Defaults to git_worktree for current compatibility.',
-    }),
-  ),
-  mode: Type.Optional(
-    Type.Union([Type.Literal('greenfield'), Type.Literal('brownfield')], {
-      description: 'Execution mode expected for the selected plan file. Defaults to greenfield.',
-    }),
-  ),
 });
 
 type ExecuteRunCreateParams = Static<typeof ExecuteRunCreateParams>;
@@ -68,13 +58,16 @@ export function createExecuteRunCreateTool(deps: ExecuteRunCreateDeps) {
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_run_create requires an active cwd');
       }
+      // The persisted plan is the sole mode authority (D130-L); the workspace
+      // substrate derives from it, so contradictory combinations are unrepresentable.
+      const plan = await readPlanFilePayload({ cwd, specId: String(deps.specId) });
+      const mode = plan?.mode;
       const { current } = await buildCurrentProjectionForSpec({
         cwd,
         specId: deps.specId,
         reads: deps.reads,
-        mode: params.mode,
+        mode,
       });
-      const plan = await readPlanFilePayload({ cwd, specId: String(deps.specId) });
       if (plan === undefined) {
         return toolResult(
           {
@@ -124,7 +117,8 @@ export function createExecuteRunCreateTool(deps: ExecuteRunCreateDeps) {
             specId: String(deps.specId),
             current,
             runId,
-            ...(params.substrate ? { substrate: params.substrate } : {}),
+            ...(mode ? { mode } : {}),
+            substrate: mode === 'greenfield' ? 'empty_dir' : 'git_worktree',
             verifyTarget: admission.verifyTarget,
           });
           const observerSideEffects =

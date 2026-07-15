@@ -47,6 +47,28 @@ describe('abandonRun', () => {
     await expect(readFile(runMetadataPath(cwd, 'run-1'), 'utf8')).resolves.toContain('promotion_prepared');
   });
 
+  it('refuses landed terminal runs', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-abandon-landed-'));
+    await writeRun(cwd, {
+      runId: 'run-1',
+      specId: '42',
+      planPath: '/plan.json',
+      status: 'landed',
+      landedSha: 'tip456',
+      landedVia: 'fast_forward',
+      landedTarget: cwd,
+    });
+
+    await expect(abandonRun({ cwd, runId: 'run-1' })).resolves.toEqual({
+      status: 'terminal_run',
+      runStatus: 'landed',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      sideEffects: [],
+    });
+    await expect(readFile(runMetadataPath(cwd, 'run-1'), 'utf8')).resolves.toContain('landed');
+  });
+
   it('is idempotent for already abandoned runs', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-abandon-idempotent-'));
     await writeRun(cwd, {

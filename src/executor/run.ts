@@ -44,9 +44,16 @@ export interface RunMetadata {
     | 'run_completed'
     | 'petri_exported'
     | 'promotion_prepared'
+    | 'landed'
     | 'abandoned';
   readonly worktreeDir?: string;
+  /** Execution mode read from the persisted plan at creation; substrate derives from it. */
+  readonly mode?: 'greenfield' | 'brownfield';
   readonly substrate?: WorktreeSubstrateKind;
+  /** Durable run-origin base commit, recorded once at worktree creation:
+      git_worktree -> the commit the worktree was added at; empty_dir -> the empty base commit.
+      Every landing/promotion range is runBaseSha..tip — never a single-commit window. */
+  readonly runBaseSha?: string;
   readonly verifyTarget?: VerifyTarget;
   readonly populatedPlanPath?: string;
   readonly populatedPlanProvenancePath?: string;
@@ -74,9 +81,13 @@ export interface RunMetadata {
   readonly petriObservationPrepared?: true;
   readonly petriPath?: string;
   readonly promotionPath?: string;
-  readonly promotionBaseSha?: string;
   readonly promotionCommitSha?: string;
   readonly promotionBranch?: string;
+  /** Host-landing identity, recorded once when applyLanding succeeds (status 'landed'). */
+  readonly landedSha?: string;
+  readonly landedVia?: 'fast_forward' | 'merge' | 'materialized';
+  readonly landedTarget?: string;
+  readonly landedAt?: string;
   readonly supersedesRunId?: string;
   readonly abandonedAt?: string;
   readonly abandonReason?: string;
@@ -261,6 +272,7 @@ export async function createRun(args: {
   readonly specId: string;
   readonly current?: LaunchCurrentProjection;
   readonly runId?: string;
+  readonly mode?: RunMetadata['mode'];
   readonly substrate?: WorktreeSubstrateKind;
   readonly verifyTarget?: VerifyTarget;
 }): Promise<RunCreateResult> {
@@ -279,6 +291,7 @@ async function createRunOwned(
     readonly specId: string;
     readonly current?: LaunchCurrentProjection;
     readonly runId?: string;
+    readonly mode?: RunMetadata['mode'];
     readonly substrate?: WorktreeSubstrateKind;
     readonly verifyTarget?: VerifyTarget;
   },
@@ -325,6 +338,7 @@ async function createRunOwned(
     specId: args.specId,
     planPath: launch.planPath,
     status: 'created',
+    ...(args.mode ? { mode: args.mode } : {}),
     ...(args.substrate ? { substrate: args.substrate } : {}),
     ...(args.verifyTarget ? { verifyTarget: args.verifyTarget } : {}),
   };

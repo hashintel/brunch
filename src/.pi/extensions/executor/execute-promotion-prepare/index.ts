@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import type { GitLandPort } from '../../../../executor/execution-ports.js';
+import type { GitRunPromotionPort } from '../../../../executor/execution-ports.js';
 import { preparePromotion, type PromotionPrepareResult } from '../../../../executor/promotion.js';
 import { BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL } from '../../../../session/schema/tool-names.js';
 import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
@@ -16,7 +16,7 @@ interface ExecutePromotionPrepareDetails {
   readonly sideEffects: PromotionPrepareResult['sideEffects'];
 }
 
-export function createExecutePromotionPrepareTool(gitLand: GitLandPort) {
+export function createExecutePromotionPrepareTool(gitRunPromotion: GitRunPromotionPort) {
   return defineBrunchTool<typeof ExecutePromotionPrepareParams, ExecutePromotionPrepareDetails>({
     name: BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL,
     label: 'execute_promotion_prepare',
@@ -27,7 +27,7 @@ export function createExecutePromotionPrepareTool(gitLand: GitLandPort) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0)
         throw new Error('execute_promotion_prepare requires an active cwd');
-      const result = await preparePromotion({ cwd, runId: params.runId, gitLand });
+      const result = await preparePromotion({ cwd, runId: params.runId, gitRunPromotion });
       return {
         content: [
           {
@@ -46,7 +46,10 @@ export function createExecutePromotionPrepareTool(gitLand: GitLandPort) {
   });
 }
 
-export function registerBrunchExecutePromotionPrepare(pi: ExtensionAPI, gitLand: GitLandPort): void {
-  pi.registerTool(createExecutePromotionPrepareTool(gitLand) as never);
+export function registerBrunchExecutePromotionPrepare(
+  pi: ExtensionAPI,
+  gitRunPromotion: GitRunPromotionPort,
+): void {
+  pi.registerTool(createExecutePromotionPrepareTool(gitRunPromotion) as never);
 }
 export default registerBrunchExecutePromotionPrepare;

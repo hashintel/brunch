@@ -38,7 +38,7 @@ extensions/
 │   └── web/
 ├── subagents/              D44-L/D91-L sealed SDK child sessions and `subagent` tool
 ├── chrome/                 TUI header/title/footer/sidecar-widget chrome projection
-├── commands/               /brunch:* commands, shortcut, branch/tree policy
+├── commands/               /brunch:* commands, shortcut, branch/tree policy (exception: /brunch:land registers in executor/execute-land/ beside its read-only preflight tool)
 ├── compaction/             auto-compaction anchor contract and future hook
 ├── exchanges/              structured-exchange present_* + ask Pi tools
 ├── mentions/               #graph mention prompt hint + autocomplete provider

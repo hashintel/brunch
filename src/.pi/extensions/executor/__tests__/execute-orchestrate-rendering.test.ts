@@ -14,8 +14,8 @@ function fakePorts() {
     gitSliceIntegration: {} as never,
     agentRunner: {} as never,
     testRunner: {} as never,
-    gitLand: {} as never,
-    gitHostPromotion: {} as never,
+    gitRunPromotion: {} as never,
+    gitHostLand: {} as never,
   };
 }
 

@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { agentStreamPath, ingestAgentResult } from '../agent-result.js';
 import { executeEpicLifecycleStep } from '../epic-lifecycle.js';
 import type { AgentRunnerPort, ExecutionPorts, TestRunnerPort } from '../execution-ports.js';
+import { applyLanding } from '../landing.js';
 import { readRunDetail } from '../observer-read.js';
 import {
   compileExecutorTopology,
@@ -70,8 +71,8 @@ import { selectSourcePolicy } from '../source-policy.js';
 import { ingestTestResult, verifyStreamPath } from '../test-result.js';
 import { createWorktree } from '../worktree.js';
 import {
-  createFakeGitHostPromotionPort,
-  createFakeGitLandPort,
+  createFakeGitHostLandPort,
+  createFakeGitRunPromotionPort,
   createFakeGitSliceIntegrationPort,
   createFakeGitWorktreePort,
   createFakeTestRunnerPort,
@@ -120,8 +121,8 @@ function fakePorts(overrides: Partial<ExecutionPorts> = {}): ExecutionPorts {
     gitSliceIntegration: createFakeGitSliceIntegrationPort(),
     agentRunner: completedAgentRunner,
     testRunner: createFakeTestRunnerPort(),
-    gitLand: createFakeGitLandPort(),
-    gitHostPromotion: createFakeGitHostPromotionPort({}),
+    gitRunPromotion: createFakeGitRunPromotionPort(),
+    gitHostLand: createFakeGitHostLandPort(),
     ...overrides,
   };
 }
@@ -349,7 +350,7 @@ async function crankManually(cwd: string, ports: ExecutionPorts): Promise<void> 
   }
   await completeRun({ cwd, runId: 'run-1' });
   await exportPetri({ cwd, runId: 'run-1' });
-  await preparePromotion({ cwd, runId: 'run-1', gitLand: ports.gitLand });
+  await preparePromotion({ cwd, runId: 'run-1', gitRunPromotion: ports.gitRunPromotion });
 }
 
 describe('drive', () => {
@@ -561,15 +562,15 @@ describe('drive', () => {
           : {}),
         ...(fault === 'promotion'
           ? {
-              gitLand: {
+              gitRunPromotion: {
                 async currentHead() {
-                  throw new Error(`${fault} exploded`);
+                  throw new Error('must not read current head');
                 },
                 async resolveRef() {
                   throw new Error('must not resolve ref');
                 },
                 async promote() {
-                  throw new Error('must not promote');
+                  throw new Error(`${fault} exploded`);
                 },
               },
             }
@@ -984,7 +985,7 @@ describe('drive', () => {
           runId: 'run-1',
           ports: fakePorts({
             testRunner,
-            gitLand: {
+            gitRunPromotion: {
               async currentHead() {
                 return { status: 'ok', commitSha: 'base123' };
               },
@@ -2959,6 +2960,32 @@ describe('drive', () => {
     expect(meta?.promotionCommitSha).toBe('abc123');
   });
 
+  it('classifies a landed run as successful exhaustion with a readable detail', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-landed-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    await drive({ cwd, runId: 'run-1', ports: fakePorts() });
+    const landed = await applyLanding({
+      cwd,
+      runId: 'run-1',
+      acceptance: { promotedCommitSha: 'abc123' },
+      gitHostLand: createFakeGitHostLandPort(),
+    });
+    expect(landed.status).toBe('landed');
+
+    // The landed lifecycle is a completed run, never petri_deadlocked.
+    await expect(drive({ cwd, runId: 'run-1', ports: fakePorts() })).resolves.toEqual({
+      status: 'completed',
+      runStatus: 'landed',
+    });
+
+    const detail = await readRunDetail(cwd, 'run-1');
+    if (!detail || 'unreadable' in detail) throw new Error('expected a readable run detail');
+    expect(detail.status).toBe('landed');
+    expect(detail.petriBlockedSteps ?? []).not.toContainEqual(
+      expect.objectContaining({ kind: 'authority_unreadable' }),
+    );
+  });
+
   it('runs dependent slices in stable isolated workspaces and integrates them in dependency order', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-slice-workspaces-'));
     await createRunAtCreated(cwd, ['task-1', { id: 'task-2', dependsOn: ['task-1'] }]);
@@ -3359,6 +3386,7 @@ describe('drive', () => {
         return {
           status: 'created',
           worktreeDir,
+          createdFromSha: 'workbase123',
           sideEffects: [{ kind: 'git_worktree_add', path: worktreeDir, ref }],
         };
       }),
@@ -3624,7 +3652,11 @@ describe('drive', () => {
       cwd,
       runId: 'run-1',
       ports: fakePorts({
-        gitLand: createFakeGitLandPort({ status: 'failed', message: 'land boom', sideEffects: [] }),
+        gitRunPromotion: createFakeGitRunPromotionPort({
+          status: 'failed',
+          message: 'land boom',
+          sideEffects: [],
+        }),
       }),
     });
 
@@ -3646,7 +3678,11 @@ describe('drive', () => {
       cwd,
       runId: 'run-1',
       ports: fakePorts({
-        gitLand: createFakeGitLandPort({ status: 'no_changes', message: 'nothing to land', sideEffects: [] }),
+        gitRunPromotion: createFakeGitRunPromotionPort({
+          status: 'no_changes',
+          message: 'nothing to land',
+          sideEffects: [],
+        }),
       }),
     });
 

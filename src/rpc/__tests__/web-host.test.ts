@@ -7,8 +7,8 @@ import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
 import {
-  createFakeGitHostPromotionPort,
-  createFakeGitLandPort,
+  createFakeGitHostLandPort,
+  createFakeGitRunPromotionPort,
   createFakeGitSliceIntegrationPort,
   createFakeGitWorktreePort,
   createFakeTestRunnerPort,
@@ -138,8 +138,8 @@ function executorPorts(gitWorktree: ExecutionPorts['gitWorktree']): ExecutionPor
       },
     },
     testRunner: createFakeTestRunnerPort(),
-    gitLand: createFakeGitLandPort(),
-    gitHostPromotion: createFakeGitHostPromotionPort({}),
+    gitRunPromotion: createFakeGitRunPromotionPort(),
+    gitHostLand: createFakeGitHostLandPort(),
   };
 }
 
