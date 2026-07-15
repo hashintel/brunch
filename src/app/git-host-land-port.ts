@@ -67,7 +67,8 @@ export function createGitHostLandPort(options: { readonly run?: CommandRunner } 
         return failedInspect(diff, 'cannot inspect the complete landing tree range');
       }
       const commits = parseCommitRange(log.stdout);
-      const changedPaths = parseChangedPaths(diff.stdout);
+      const parsedChangedPaths = parseChangedPaths(diff.stdout);
+      const changedPaths = parsedChangedPaths.map(({ status, path }) => ({ status, path }));
 
       if (args.strategy === 'materialize') {
         let targetClassification: Awaited<ReturnType<typeof classifyMaterializeTarget>>;
@@ -129,7 +130,7 @@ export function createGitHostLandPort(options: { readonly run?: CommandRunner } 
       const rehearsal = await rehearseMerge(command, args.targetDir, reviewTipSha);
       if (rehearsal.status === 'failed') return rehearsal;
       const untrackedCollision = worktree.untrackedPaths.some((path) =>
-        changedPaths.some((changed) => changed.path === path),
+        parsedChangedPaths.some((changed) => changed.collisionPaths.includes(path)),
       );
       const targetClassification = {
         kind: 'repository' as const,
@@ -291,13 +292,17 @@ function parseCommitRange(output: string): readonly { readonly sha: string; read
     });
 }
 
-function parseChangedPaths(output: string): readonly { readonly status: string; readonly path: string }[] {
+function parseChangedPaths(output: string): readonly {
+  readonly status: string;
+  readonly path: string;
+  readonly collisionPaths: readonly string[];
+}[] {
   return output
     .split('\n')
     .filter(Boolean)
     .map((line) => {
       const [status = '', ...paths] = line.split('\t');
-      return { status, path: paths.join(' -> ') };
+      return { status, path: paths.join(' -> '), collisionPaths: paths };
     });
 }
 

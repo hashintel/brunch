@@ -177,6 +177,40 @@ describe('createGitHostLandPort', () => {
       expect(await git(hostDir, ['status', '--porcelain'])).toBe('');
     });
 
+    it('rejects an untracked collision with a renamed destination', async () => {
+      const root = await mkdtemp(join(tmpdir(), 'brunch-host-land-inspect-rename-'));
+      const hostDir = join(root, 'host');
+      await mkdir(join(hostDir, 'src'), { recursive: true });
+      await git(hostDir, ['init', '-q', '-b', 'main']);
+      await commitFile(hostDir, join('src', 'original.ts'), 'export const value = 1;\n', 'host base');
+      const baseSha = await git(hostDir, ['rev-parse', 'HEAD']);
+      const runWorktreeDir = join(root, 'run-worktree');
+      await git(hostDir, ['worktree', 'add', '--detach', runWorktreeDir, baseSha]);
+      await git(runWorktreeDir, ['mv', 'src/original.ts', 'src/renamed.ts']);
+      await git(runWorktreeDir, [...BRUNCH_IDENTITY, 'commit', '-q', '-m', 'rename source']);
+      const tipSha = await git(runWorktreeDir, ['rev-parse', 'HEAD']);
+      await git(runWorktreeDir, ['update-ref', `refs/heads/${REVIEW_REF}`, tipSha]);
+      await writeFile(join(hostDir, 'src', 'renamed.ts'), 'local untracked value\n', 'utf8');
+
+      await expect(
+        createGitHostLandPort().inspect({
+          strategy: 'integrate',
+          runWorktreeDir,
+          reviewRef: REVIEW_REF,
+          runBaseSha: baseSha,
+          expectedTipSha: tipSha,
+          targetDir: hostDir,
+        }),
+      ).resolves.toMatchObject({
+        status: 'inspected',
+        changedPaths: [{ status: 'R100', path: 'src/original.ts -> src/renamed.ts' }],
+        target: { kind: 'repository', untrackedPaths: ['src/renamed.ts'] },
+        conflictRehearsal: { status: 'clean' },
+        admissible: false,
+        sideEffects: [],
+      });
+    });
+
     it('classifies a missing greenfield target as admissible', async () => {
       const { root, runWorktreeDir, baseSha, tipSha } = await createGreenfieldFixture(
         'brunch-host-land-inspect-greenfield-',
