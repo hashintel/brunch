@@ -195,11 +195,11 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 ### interactive-tui-driver
 
 - **Name:** Canonical interactive TUI driver for agents and human takeover
-- **Linear:** unassigned (create at pickup, FE team / brunch project)
-- **Branch:** tbd at pickup; independent separate worktree/branch off the current stack base
+- **Linear:** [FE-1206](https://linear.app/hash/issue/FE-1206/canonical-interactive-tui-driver-for-agents-and-human-takeover).
+- **Branch:** `ln/fe-1206-interactive-tui-driver`, independently stacked on `ln/fe-1187-remediation-3` in the dedicated `brunch-next-iota` worktree.
 - **Kind:** structural tooling — development feedback-loop control and evidence capture, not product runtime.
 - **Certainty:** proving.
-- **Status:** not started.
+- **Status:** scoped 2026-07-15; active scope: [`memory/cards/interactive-tui-driver--canonical-workflow.md`](cards/interactive-tui-driver--canonical-workflow.md).
 - **Objective:** settle and materialize one canonical way for agents to launch, observe, drive, resize, and stop Brunch TUIs while a human can inspect or take over when the host permits it. Compare the proven in-repo `src/dev/tui-driver.ts` (Expect/FIFO PTY + `@xterm/headless`) with `pi-interactive-shell`'s Pi overlay over `zigpty`; adopt, augment, or retain based on real tracer evidence rather than replacing the working fallback speculatively.
 - **Why now / unlocks:** FE-1187's review-set prototype exposed recurring runner confusion: external daemon-backed tools can fail under sandbox socket policy, while the component playground is the canonical visual-review surface but agents lack one obvious interaction path. A settled driver workflow unlocks repeatable component-playground reviews, real Brunch TUI walkthroughs, and future outer-loop evidence without re-deriving the tool choice each session.
 - **Lights up:** one end-to-end agent-controlled path through both `npm run dev:components -- tui-lab` and a seeded `npm run dev-cli` session, with terminal-state observation and deterministic teardown.
