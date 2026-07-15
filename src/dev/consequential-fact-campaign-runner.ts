@@ -166,7 +166,7 @@ async function waitForSelectedOrientation(
   while (Date.now() < deadline) {
     const screen = await port.screen(logPath, manifest.tui.cols, manifest.tui.rows);
     if (screen.includes(title)) {
-      if (!/^\s*│\s*› Work by decision(?:\s|$)/mu.test(screen))
+      if (!/^\s*│\s*›\s*1\. Work by decision(?:\s|$)/mu.test(screen))
         throw new Error('mechanically invalid: Work by decision is not the selected orientation');
       return screen;
     }

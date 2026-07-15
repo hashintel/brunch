@@ -30,7 +30,7 @@ describe('consequential-fact production campaign entry', () => {
       'Choose a specification\n                    │ › Start a new specification                                                  │',
       'New specification title',
       'Is this a fresh, greenfield specification?\n› Yes',
-      'Choose how Specify mode should continue\n                    │ › Work by decision                                                        │\n                    │   Work by example                                                         │',
+      'Choose how Specify mode should continue\n│  › 1. Work by decision                                                                                               ▐\n│    2. Work by example                                                                                                ▐',
       'What compliance or audit constraints are missing?',
       'Review set: retain the source regulator clause identifier verbatim. [ Approve ]',
       '## Review: accepted',
