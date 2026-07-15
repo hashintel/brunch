@@ -1,3 +1,5 @@
+import type { z } from 'zod';
+
 import {
   zPresentCandidatesDetails,
   zPresentDigestDetails,
@@ -23,7 +25,6 @@ import type {
   RequestDigestReviewDetails,
   SelectedChoice,
 } from '../../exchanges/schemas/request.js';
-import type { MutateGraphSuccess } from '../../graph/command-executor.js';
 import { loadJsonlTranscriptEntries } from '../../session/brunch-session-envelope.js';
 import type { SessionTarget } from '../../session/live-session-host.js';
 
@@ -83,9 +84,8 @@ export type SessionPresentationEntry =
     };
 
 type DigestReviewAnswered = Extract<RequestDigestReviewDetails, { answered: unknown }>['answered'];
-type ReviewSetAnswered =
-  | { readonly decision: 'approve'; readonly receipt: MutateGraphSuccess; readonly comment?: string }
-  | { readonly decision: 'request_changes' | 'reject'; readonly comment?: string };
+type RequestReviewSetDetails = z.infer<typeof zRequestReviewSetDetails>;
+type ReviewSetAnswered = Extract<RequestReviewSetDetails, { answered: unknown }>['answered'];
 
 type AskTerminal =
   | {
@@ -119,11 +119,7 @@ type AskTerminal =
             readonly comment?: string | undefined;
             readonly acceptedAbstract?: string | undefined;
           }
-        | {
-            readonly decision: ReviewSetAnswered['decision'];
-            readonly comment?: string | undefined;
-            readonly receipt?: Extract<ReviewSetAnswered, { decision: 'approve' }>['receipt'];
-          };
+        | ReviewSetAnswered;
     }
   | { readonly status: 'cancelled'; readonly value: { readonly message?: string | undefined } }
   | { readonly status: 'unavailable'; readonly value: { readonly message: string } };
