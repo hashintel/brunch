@@ -247,7 +247,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Branch:** `ln/fe-1208-traces-and-evals-1`, stacked on the completed `interactive-tui-driver` frontier.
 - **Kind:** structural verification tooling + bounded behavioral-evaluation tracer; not product runtime.
 - **Certainty:** proving.
-- **Status:** active; joined real-TUI trajectory tracer built and witnessed; scorer/A-B campaign scope remains.
+- **Status:** active; joined real-TUI trajectory tracer and deterministic review-diff scorer built; controlled A/B campaign scope remains.
 - **Objective:** establish one complete trace → eval → score → regression flywheel. A real TUI-driven controlled A/B must show whether a task-specific evaluator can distinguish current warrant-before-commit conduct from a single-directive ablation on one realistic non-inferable consequential-fact scenario.
 - **Why now / unlocks:** FE-1206 closed the interaction/control gap. The remaining uncertainty is whether existing Pi lifecycle events, provider-payload introspection, JSONL, TUI observations, and graph readback can form a legible joined report and support a discriminating quality oracle without first adopting OTel. Landing this makes later real-failure corpora and outcome-level Claude Code/Cursor comparison credible.
 - **Lights up:** real TUI/product path → controlled user actor → joined directive/trajectory report → hidden-fact/transcript/graph evaluator → promoted A/B evidence.
@@ -258,7 +258,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Recorded tradeoffs / re-entry triggers (do not silently retire):** the synthetic ablation proves evaluator discrimination, not broad quality or competitor superiority; directive presence/precedence is attribution, not causality outside the controlled intervention. The controlled actor, small calibration set, foreground-only trace, and single model/provider are accepted ceilings; revisit on actor-sensitive outcomes, material judge disagreement/new rubric domains, a claim requiring subagent ancestry, or repeated supported-provider divergence. Trigger the existing `agent-tracing` OTel-vs-NDJSON spike only when the joined report cannot answer a named question. Competitor execution remains a later matched-budget five-run campaign with blinded human adjudication; opaque competitor internals never count against them. Canonical detail: SPEC §Acknowledged Blind Spots.
 - **Traceability:** req 24; A5-L; D68-L–D70-L; I55-L; SPEC §Verification Design (combined assessment, loop-tier oracles, flywheel design note, acknowledged blind spots).
 - **Design docs:** [`docs/design/AGENT_TRACING.md`](../docs/design/AGENT_TRACING.md) is conditional tracing context, not the first implementation prescription.
-- **Current execution pointer:** none; next scope must cover the scorer/A-B work without reopening the joined-trajectory seam.
+- **Current execution pointer:** none; next scope may cover the controlled ablation campaign over the scorer's landed atomic evidence contract.
 
 ### cli-mode-entry
 
@@ -444,7 +444,7 @@ parallel evaluation:
     canonicalizes: capture/map/project/propose/review assurance semantics
     excludes: schema migration | review renderer | automatic evidence-promotion pipeline
     -[hard]-> consequential-fact-discovery-tracer (FE-1208)
-      status: active; joined trajectory witnessed; scorer/A-B scope next
+      status: active; joined trajectory witnessed; deterministic scorer built; controlled A/B scope next
       lights_up: TUI-driven joined trajectory + warranted-commitment A/B evidence
       excludes: OTel-first platform, competitor campaign, product event spine
 

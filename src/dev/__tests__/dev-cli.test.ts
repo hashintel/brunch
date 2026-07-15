@@ -1,11 +1,14 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { PassThrough } from 'node:stream';
 
+import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { BrunchCliOptions } from '../../app/brunch.js';
+import { openWorkspaceGraphRuntime } from '../../graph/workspace-store.js';
+import { flushSessionManagerToFile } from '../../session/flush-session-manager.js';
 import { runDevCli, type DevCliPrompts } from '../dev-cli.js';
 
 const seedFixtureMocks = vi.hoisted(() => ({
@@ -441,6 +444,76 @@ describe('runDevCli', () => {
     });
     expect(viewportCode).toBe(1);
     expect(stderr).toContain('viewport must belong to the workspace');
+  });
+
+  it('evaluates a real Pi active branch and spec-scoped graph without mutating either store', async () => {
+    const workspace = await mkdtemp(join(tmpdir(), 'brunch-evaluate-cli-'));
+    temporaryRoots.push(workspace);
+    const runtime = await openWorkspaceGraphRuntime(workspace);
+    const created = runtime.commandExecutor.createSpec({ name: 'Review Diff', slug: 'review-diff' });
+    if (created.status !== 'success') throw new Error('expected spec creation');
+    const mutation = runtime.commandExecutor.mutateGraph({
+      specId: created.specId,
+      createBasis: 'explicit',
+      ops: [
+        {
+          op: 'create_node',
+          ref: 'constraint',
+          plane: 'intent',
+          kind: 'constraint',
+          title: 'Retain source regulator clause identifier',
+          body: 'Every accepted policy rewrite must retain its source regulator clause identifier verbatim.',
+        },
+      ],
+    });
+    if (mutation.status !== 'success') throw new Error('expected graph fixture mutation');
+    const manager = SessionManager.create(workspace, join(workspace, '.brunch/sessions'));
+    manager.appendMessage({
+      role: 'user',
+      content: 'COMPLIANCE_REVEAL: retain the source regulator clause identifier verbatim',
+      timestamp: 1,
+    });
+    manager.appendMessage({ role: 'user', content: 'APPROVE_EXACT_REVIEW_SET', timestamp: 2 });
+    const sessionFile = manager.getSessionFile()!;
+    flushSessionManagerToFile(manager, sessionFile);
+    const beforeSession = await readFile(sessionFile, 'utf8');
+    const readers = runtime.forSpec(created.specId);
+    const beforeGraph = JSON.stringify(readers.queryGraph());
+    const beforeLsn = readers.latestLsn();
+    const runId = `cli-eval-${process.pid}`;
+
+    let stdout = '';
+    const code = await runDevCli({
+      argv: [
+        'evaluate-consequential-fact',
+        '--workspace',
+        workspace,
+        '--session',
+        sessionFile,
+        '--spec-id',
+        String(created.specId),
+        '--scenario',
+        resolve(REPO_ROOT, 'src/dev/__tests__/fixtures/consequential-fact-review-diff.json'),
+        '--run-id',
+        runId,
+      ],
+      cwd: REPO_ROOT,
+      stdout: (chunk) => {
+        stdout += chunk;
+      },
+    });
+
+    expect(code).toBe(0);
+    expect(stdout).toContain(resolve(REPO_ROOT, '.fixtures/scratch/evaluations', runId));
+    expect(
+      JSON.parse(
+        await readFile(resolve(REPO_ROOT, '.fixtures/scratch/evaluations', runId, 'verdict.json'), 'utf8'),
+      ).judgments.every((item: { verdict: string }) => item.verdict === 'pass'),
+    ).toBe(true);
+    expect(await readFile(sessionFile, 'utf8')).toBe(beforeSession);
+    expect(JSON.stringify(readers.queryGraph())).toBe(beforeGraph);
+    expect(readers.latestLsn()).toBe(beforeLsn);
+    await rm(resolve(REPO_ROOT, '.fixtures/scratch/evaluations', runId), { recursive: true, force: true });
   });
 
   it('rejects non-positive export spec ids loudly', async () => {

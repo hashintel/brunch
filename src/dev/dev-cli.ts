@@ -22,13 +22,21 @@ import { listTrackedSeedRefs, parseSeedRef, runSeedFixturesCli } from '../graph/
 import { WORKSPACE_DB_FILENAME } from '../graph/workspace-store.js';
 import { createRpcHandlers } from '../rpc/handlers.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
+import { writeConsequentialFactEvaluation } from './consequential-fact-evaluator.js';
 import { applyDevGraphMutation, parseDevMutateGraphParams } from './graph-curation.js';
 import { writeTrajectoryReport } from './trajectory-report.js';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const WORKBENCHES_ROOT = resolve(REPO_ROOT, '.fixtures', 'workbenches');
 
-type TopLevelCommand = 'launch' | 'rpc' | 'mutate' | 'export' | 'trajectory' | 'help';
+type TopLevelCommand =
+  | 'launch'
+  | 'rpc'
+  | 'mutate'
+  | 'export'
+  | 'trajectory'
+  | 'evaluate-consequential-fact'
+  | 'help';
 type GraphVisibility = 'all' | 'active';
 
 type LaunchSource = 'temporary' | 'new' | 'existing' | 'seed';
@@ -194,6 +202,8 @@ export async function runDevCli(options: DevCliOptions = {}): Promise<number> {
         return await runExportCommand(commandArgs, { ...options, cwd });
       case 'trajectory':
         return await runTrajectoryCommand(commandArgs, { ...options, cwd });
+      case 'evaluate-consequential-fact':
+        return await runConsequentialFactCommand(commandArgs, { ...options, cwd });
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -211,7 +221,8 @@ function splitCommand(argv: readonly string[]): readonly [TopLevelCommand, reado
     first === 'rpc' ||
     first === 'mutate' ||
     first === 'export' ||
-    first === 'trajectory'
+    first === 'trajectory' ||
+    first === 'evaluate-consequential-fact'
   ) {
     return [first, rest];
   }
@@ -489,6 +500,41 @@ async function runTrajectoryCommand(
   return 0;
 }
 
+async function runConsequentialFactCommand(
+  args: readonly string[],
+  options: DevCliOptions & { readonly cwd: string },
+): Promise<number> {
+  const { values, positionals } = parseArgs({
+    args,
+    allowPositionals: true,
+    options: {
+      workspace: { type: 'string', short: 'w' },
+      session: { type: 'string' },
+      'spec-id': { type: 'string' },
+      scenario: { type: 'string' },
+      'run-id': { type: 'string' },
+    },
+  });
+  if (positionals.length > 0) {
+    throw new DevCliUsageError(`Unexpected evaluate-consequential-fact argument: ${positionals[0]}`);
+  }
+  if (!values.workspace || !values.session || !values['spec-id'] || !values.scenario || !values['run-id']) {
+    throw new DevCliUsageError(
+      'The evaluate-consequential-fact command requires --workspace, --session, --spec-id, --scenario, and --run-id.',
+    );
+  }
+  const output = await writeConsequentialFactEvaluation({
+    repoRoot: REPO_ROOT,
+    workspace: resolve(options.cwd, values.workspace),
+    sessionFile: resolve(options.cwd, values.session),
+    specId: parsePositiveInteger(values['spec-id'], '--spec-id'),
+    scenarioFile: resolve(options.cwd, values.scenario),
+    runId: values['run-id'],
+  });
+  writeStdout(options.stdout ?? process.stdout, `wrote ${output}\n`);
+  return 0;
+}
+
 function parseLaunchFlags(args: readonly string[], cwd: string): LaunchFlags {
   const { values, positionals } = parseArgs({
     args,
@@ -758,6 +804,7 @@ function devCliUsage(): string {
     '  npm run dev-cli -- mutate --workspace <dir> (--params <json> | --params-file <file>)',
     '  npm run dev-cli -- export --workspace <dir> --spec-id <id> [--out <file>] [--show all|active]',
     '  npm run dev-cli -- trajectory --workspace <dir> --session <file> --run-id <portable-id> [--viewport <file>]',
+    '  npm run dev-cli -- evaluate-consequential-fact --workspace <dir> --session <file> --spec-id <id> --scenario <file> --run-id <portable-id>',
     '',
     'Notes:',
     '  - Launch-time seeding never happens implicitly; pair --seed with --reset.',
