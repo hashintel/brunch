@@ -3,6 +3,11 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-07-15 Sync archive (`ln-sync`)
+
+- **executor-run-environment (FE-1166)** frontier definition retired from live PLAN. The original greenfield run-substrate/verify-policy frontier delivered on `ka/fe-1166-greenfield-executor-harness` (PR #302). Its live remainder — separating run substrate and verify target from source-copy policy (isolated run directory + product-owned verification profile instead of a host git worktree and hardcoded `npm run verify`) — was folded into `executor-plan-synthesis` (FE-1197), which now owns the foreground `verifyProfile` removal and admitted-plan verify contract (D130-L). The prepared `memory/cards/executor-run-environment--actionable-slice-request.md` (run `run-mrbyf8u9` worker-request evidence) was consumed and deleted. Durable truth: D111-L/D112-L/D130-L, `src/executor/TOPOLOGY.md`; original code touchpoints `src/executor/worktree.ts`, `src/executor/test-result.ts`, `src/app/test-runner-port.ts`, `src/.pi/extensions/executor/execute-run-create/index.ts`.
+- **FE-1200 HANDOFF** retired: the standalone-web branch-publication reminder resolved (`ln/fe-1200-web-session` up to date with `origin`); all FE-1200 product/planning state already durable in SPEC, topology, and the FE-1200 closeout below.
+
 ## 2026-07-15 FE-1200 standalone web session host closeout
 
 FE-1200 closed after its tracer, concurrency proof, and presentation-family coverage sweep. The aggregate review confirmed A1–A5 and B1–B3 are `have`/`built`, every excluded family has an explicit disposition, and the exhausted ledger was deleted. Durable coverage is I64-L/I65-L plus the app/session/rpc/projections/web topology homes; `web-driver-streaming-residue` closed when the answering-path matrix and promoted `agent_settled` oracle became current.

@@ -74,9 +74,7 @@ Close the entire first batch of walkthrough-related findings: remediation, the o
 - 2026-07-15 `standalone-web-session-host` (FE-1200) — **✓ closed**: standalone target-addressed hosting, two-session isolation, and the complete required web presentation-family sweep landed; I64-L/I65-L and all five topology homes are reconciled. Full closeout: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md#2026-07-15-fe-1200-standalone-web-session-host-closeout).
 - 2026-07-14 `FE-1196 platform debt` — **✓ closed and outer-witnessed**: spec posture, workspace DB identity, headless ask discovery, reconciliation derivation, native compaction continuity, and active-branch session correctness are materialized; `web-driver-streaming` was evaluated and retired, and transcript-ledger rendering moved to FE-1187. Full closeout: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md#2026-07-14-sync-archive-ln-sync-fe-1196-platform-debt-closeout).
 - 2026-07-14 `petri-execution-parity` (FE-1195) — completed the old-`main` live-parity closure and final review hardening: timestamped firing wire with calendar-valid TypeBox boundary checks, structural pass/fail branches with strict list/detail failed-slice evidence, stale serial-state retirement at parallel admission, journal-idempotent restart-stable terminal authority, rejection of every post-terminal fact, causality-gated Petrinaut replay/export, staging-aligned SDCPN parsing that retains legitimate full roots, and a view-only projection with mechanically pruned isolated places, preserved connected IDs/arcs, contextual labels, locale-independent ordering, and collision-free compact/legacy fallback bands. Durable terminal evidence wins over later abandonment metadata; raw executor topology/markings and SSE firing order remain unchanged. Full per-slice attempt identity remains the current projection; standardized subnet grouping/folding should be revisited above roughly 12 slices without claiming color-fold parity. Manual Rust fixture comparison remains pre-PR outer evidence.
-- 2026-07-13 `petrinaut-live-run-stream` (FE-1190) — merged #322 to `next`; live-from-start observation, reconnect equivalence, fail-closed journal appends, and terminal-lagging-snapshot backfill landed. FE-1183 closed with it.
-
-Older completion history (incl. FE-1180 walkthrough-remediation-1): [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md).
+Older completion history (incl. FE-1190 petrinaut-live-run-stream and FE-1180 walkthrough-remediation-1): [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md).
 
 ### Next — Group 3 · agent layer
 
@@ -206,16 +204,10 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Why now / unlocks:** shares FE-1187's entry-friction motivation (alpha users must reach a working session with minimum ceremony); reserves the `develop` name ahead of the Horizon mode. Cost read 2026-07-13: ~2–3 focused days.
 - **Traceability:** D98-L, D109-L (juncture family), D101-L/D102-L (seed facts); riskiest seam: boot-menu suppression vs `session-orientation` registrar/kick bookkeeping.
 
-### executor-run-environment
-
-- **Name:** Greenfield executor run substrate and verify policy
-- **Linear:** [FE-1166](https://linear.app/hash/issue/FE-1166/greenfield-executor-run-substrate-and-verify-policy)
-- **Branch:** original `ka/fe-1166-greenfield-executor-harness` merged in PR #302; follow-up branch disposition pending `ln-plan`.
-- **Kind:** structural / executor run environment policy
-- **Stream:** KA (Kostandin) — outside the 2026-07-13 LN quarantine.
-- **Status:** original frontier delivered; one real-run failure is prepared in `memory/cards/executor-run-environment--actionable-slice-request.md`. Do not build until `ln-plan` decides whether it remains FE-1166 work or becomes a fresh frontier/branch.
-- **Objective:** Separate run substrate and verify target from source-copy policy so greenfield fixture runs can use an isolated run directory and product-owned verification profile instead of always starting from a host git worktree and hardcoded `npm run verify`.
-- **Traceability:** FE-1114 follow-up live-run evidence; `src/executor/worktree.ts`, `src/executor/test-result.ts`, `src/app/test-runner-port.ts`, `src/.pi/extensions/executor/execute-run-create/index.ts`; follow-up worker-request evidence from run `run-mrbyf8u9` recorded in `memory/cards/executor-run-environment--actionable-slice-request.md`.
+<!-- executor-run-environment (FE-1166) definition archived to docs/archive/PLAN_HISTORY.md (2026-07-15 ln-sync);
+     original frontier delivered (PR #302), live remainder folded into executor-plan-synthesis (FE-1197),
+     and the actionable-slice-request card consumed/deleted. Durable truth: D111-L/D112-L/D130-L,
+     src/executor/TOPOLOGY.md; run-substrate/verify-policy residue now rides FE-1197. -->
 
 <!-- elicitation-gap-guidance (FE-1116) full definition archived to docs/archive/PLAN_HISTORY.md (2026-07-03 ln-sync);
      durable truth: D99-L, D101-L, D102-L, I52-L, I56-L, closure oracle
@@ -323,7 +315,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Cross-cutting obligations:** discharged 2026-07-15 — I58-L host-mutation wording and D111-L port list amended, `src/executor/TOPOLOGY.md` reconciled at the cutover, ln-design claims recorded (A42-L + embedded claims 1–2), `HANDOFF.md` retired. Follow-up (not this frontier): source-copy one-authority fix — commit copied host source at `source_copied` so slices and the landing range share one baseline (2026-07-14 review finding 4's remainder; also listed in FE-1199's open residue as integration-worktree contamination).
 - **Explicitly out:** materialization into an existing repository, squash/graft landing knobs (ceiling-marked), remote/PR targets, durable cross-session acceptance tokens, in-run remediation UX.
 - **Traceability:** D111-L/I58-L (ports + explicit acceptance), D112-L (host landing stays outside the driven chain), FE-1197 oracle 9, FE-1199 residue transfer; prior art `main:src/orchestrator/src/promote-run.ts` (`promoteGreenfieldRun`/`landCookBranch`).
-- **Design docs:** `HANDOFF.md` (volatile, retire after `ln-sync`); the 2026-07-14 `ln-design` four-design comparison (session record).
+- **Design docs:** the 2026-07-14 `ln-design` four-design comparison (session record); the prior volatile `HANDOFF.md` was retired 2026-07-15 (`ln-sync`).
 - **Current execution pointer:** none — both scope files consumed. Remaining work is the owned outer walkthrough beat and `ln-sync` reconciliation named in Status.
 
 ### subagent-skill-access
