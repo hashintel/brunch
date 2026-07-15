@@ -304,6 +304,81 @@ describe('session route', () => {
     });
   });
 
+  it('renders digest prose and feedback terminals while the existing ask owns continuation answers', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture([
+      {
+        id: 'digest',
+        cursor: 'durable:digest',
+        kind: 'present_digest',
+        exchangeId: 'digest-final',
+        heading: 'Review source digest',
+        body: 'Confirm before capture.',
+        digest: {
+          abstract: 'One shared semantic projection.',
+          analysis: 'Independent decoding would drift.',
+          recommendation: 'Render the projection.',
+        },
+        continuation: { tool: 'ask', params: { body: 'Does this understanding sound right?' } },
+      },
+      {
+        id: 'confirmation',
+        cursor: 'durable:confirmation',
+        kind: 'ask',
+        exchangeId: 'digest-confirmation',
+        question: 'Does this understanding sound right?',
+        terminal: {
+          status: 'answered',
+          value: {
+            choice: { id: 'yes', label: 'Yes', kind: 'listed' },
+            options: [
+              { id: 'yes', content: 'Yes' },
+              { id: 'changes', content: 'Needs changes' },
+            ],
+            acceptsDigest: 'digest-final',
+            acceptedAbstract: 'One shared semantic projection.',
+          },
+        },
+      },
+      {
+        id: 'review',
+        cursor: 'durable:review',
+        kind: 'ask',
+        exchangeId: 'digest-final',
+        question: 'Digest review',
+        terminal: {
+          status: 'answered',
+          value: { decision: 'request_changes', comment: 'Keep it advisory.' },
+        },
+      },
+      {
+        id: 'feedback',
+        cursor: 'durable:feedback',
+        kind: 'ask',
+        exchangeId: 'digest-final',
+        question: 'Add corrections',
+      },
+    ]);
+
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+    expect(await screen.findByRole('region', { name: 'Review source digest' })).toBeTruthy();
+    expect(screen.getByText('One shared semantic projection.')).toBeTruthy();
+    expect(screen.getByText('Independent decoding would drift.')).toBeTruthy();
+    expect(screen.getByText('Render the projection.')).toBeTruthy();
+    expect(screen.getByText('Accepted abstract: One shared semantic projection.')).toBeTruthy();
+    expect(screen.getByText('Decision: Request changes')).toBeTruthy();
+    expect(screen.getByText('Comment: Keep it advisory.')).toBeTruthy();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Add corrections' }), {
+      target: { value: 'Clarify the source.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+    expect(f.calls).toContainEqual({
+      method: 'session.answerExchange',
+      params: expect.objectContaining({ exchangeId: 'digest-final', answer: 'Clarify the source.' }),
+    });
+  });
+
   it('renders an ordered questionnaire read-back from the shared semantic projection', async () => {
     window.history.pushState(null, '', '/session/1/s1');
     const f = fixture([
@@ -343,6 +418,7 @@ describe('session route', () => {
                 answer: { questionId: 'checks', kind: 'multi-select', optionIds: ['types', 'tests'] },
               },
             ],
+            acceptsDigest: 'digest-final',
             acceptedAbstract: 'The accepted digest abstract.',
           },
         },

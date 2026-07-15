@@ -68,6 +68,8 @@ function SessionPage() {
               </p>
             ) : entry.kind === 'present_candidates' ? (
               <CandidateOffer entry={entry} />
+            ) : entry.kind === 'present_digest' ? (
+              <DigestOffer entry={entry} />
             ) : (
               <Ask
                 entry={entry}
@@ -176,12 +178,40 @@ function CandidateOffer({
   );
 }
 
+function digestDecisionLabel(decision: 'approve' | 'request_changes' | 'reject'): string {
+  const label = decision.replace('_', ' ');
+  return label[0]!.toUpperCase() + label.slice(1);
+}
+
+function DigestOffer({ entry }: { entry: Extract<SessionPresentationEntry, { kind: 'present_digest' }> }) {
+  return (
+    <section aria-label={entry.heading}>
+      <h2>{entry.heading}</h2>
+      {entry.body ? <p>{entry.body}</p> : null}
+      <h3>Abstract</h3>
+      <p>{entry.digest.abstract}</p>
+      {entry.digest.analysis ? (
+        <>
+          <h3>Analysis</h3>
+          <p>{entry.digest.analysis}</p>
+        </>
+      ) : null}
+      {entry.digest.recommendation ? (
+        <>
+          <h3>Recommendation</h3>
+          <p>{entry.digest.recommendation}</p>
+        </>
+      ) : null}
+    </section>
+  );
+}
+
 function Ask({
   entry,
   answer,
 }: {
   entry: Extract<SessionPresentationEntry, { kind: 'ask' }>;
-  answer(value: string): Promise<unknown>;
+  answer: (value: string) => Promise<unknown>;
 }) {
   const [value, setValue] = useState('');
   const [values, setValues] = useState<string[]>([]);
@@ -204,6 +234,13 @@ function Ask({
                 </dl>
                 <p>Accepted abstract: {terminal.value.acceptedAbstract}</p>
               </>
+            ) : 'decision' in terminal.value ? (
+              <>
+                <p>Decision: {digestDecisionLabel(terminal.value.decision)}</p>
+                {terminal.value.acceptedAbstract ? (
+                  <p>Accepted abstract: {terminal.value.acceptedAbstract}</p>
+                ) : null}
+              </>
             ) : 'text' in terminal.value ? (
               <p>Answered: {terminal.value.text}</p>
             ) : 'choices' in terminal.value ? (
@@ -218,6 +255,11 @@ function Ask({
                 {terminal.value.choice.label}
               </p>
             )}
+            {'acceptedAbstract' in terminal.value &&
+            !('questionnaire' in terminal.value) &&
+            !('decision' in terminal.value) ? (
+              <p>Accepted abstract: {terminal.value.acceptedAbstract}</p>
+            ) : null}
             {'comment' in terminal.value && terminal.value.comment ? (
               <p>Comment: {terminal.value.comment}</p>
             ) : null}

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { projectDigestQuestionnaire } from '../../../exchanges/projections/ask.js';
+import { projectDigestConfirmation, projectDigestQuestionnaire } from '../../../exchanges/projections/ask.js';
 import { projectPresentCandidates } from '../../../exchanges/projections/present-candidates.js';
+import { projectPresentDigest } from '../../../exchanges/projections/present-digest.js';
+import { projectRequestReview } from '../../../exchanges/projections/request-response/review.js';
 import { projectSessionPresentation } from '../session-presentation.js';
 
 const target = { specId: 1, sessionId: 'session-1' };
@@ -287,6 +289,7 @@ describe('session presentation', () => {
               status: 'answered',
               value: {
                 questionnaire: details.questionnaire,
+                acceptsDigest: 'digest-final',
                 acceptedAbstract: 'The accepted digest abstract.',
               },
             },
@@ -368,6 +371,119 @@ describe('session presentation', () => {
         ],
       },
     });
+  });
+
+  it('preserves digest prose, continuation, and confirmation/questionnaire/review terminals without loss', () => {
+    const digest = projectPresentDigest({
+      exchangeId: 'digest-final',
+      heading: 'Review source digest',
+      body: 'Confirm before capture.',
+      digest: {
+        abstract: 'The source requires a single semantic projection.',
+        analysis: 'Independent browser decoding would drift.',
+        recommendation: 'Render the projection.',
+      },
+    }).details;
+    const confirmation = projectDigestConfirmation({
+      exchangeId: 'digest-confirmation',
+      acceptsDigest: 'digest-final',
+      acceptedAbstract: digest.digest.abstract,
+      question: {
+        body: 'Does this understanding sound right?',
+        options: [
+          { id: 'yes', label: 'Yes' },
+          { id: 'changes', label: 'Needs changes' },
+        ],
+      },
+      choice: { id: 'yes', label: 'Yes', kind: 'listed' },
+    });
+    const questionnaire = projectDigestQuestionnaire({
+      exchangeId: 'digest-questionnaire',
+      acceptsDigest: 'digest-final',
+      acceptedAbstract: digest.digest.abstract,
+      questions: [{ id: 'risk', kind: 'free-text', prompt: 'What risk remains?' }],
+      answers: [{ questionId: 'risk', kind: 'free-text', text: 'Adapter drift.' }],
+    });
+    const review = projectRequestReview({
+      exchangeId: 'digest-final',
+      status: 'answered',
+      review: 'request_changes',
+      comment: 'Keep the recommendation advisory.',
+      respondsToPresentTool: 'present_digest',
+    });
+
+    const result = projectSessionPresentation(target, [
+      entry('digest', { role: 'toolResult', toolName: 'present_digest', details: digest }),
+      entry('confirmation', { role: 'toolResult', toolName: 'ask', details: confirmation }),
+      entry('questionnaire', { role: 'toolResult', toolName: 'ask', details: questionnaire }),
+      entry('review', { role: 'toolResult', toolName: 'ask', details: review }),
+    ]);
+
+    expect(result).toEqual({
+      status: 'ready',
+      presentation: {
+        target,
+        cursor: '3:review',
+        entries: [
+          {
+            id: 'digest',
+            cursor: '0:digest',
+            kind: 'present_digest',
+            exchangeId: 'digest-final',
+            heading: 'Review source digest',
+            body: 'Confirm before capture.',
+            digest: digest.digest,
+            continuation: digest.continuation,
+          },
+          expect.objectContaining({
+            kind: 'ask',
+            exchangeId: 'digest-confirmation',
+            terminal: {
+              status: 'answered',
+              value: expect.objectContaining({
+                choice: { id: 'yes', label: 'Yes', kind: 'listed' },
+                acceptsDigest: 'digest-final',
+                acceptedAbstract: digest.digest.abstract,
+              }),
+            },
+          }),
+          expect.objectContaining({
+            kind: 'ask',
+            exchangeId: 'digest-questionnaire',
+            terminal: {
+              status: 'answered',
+              value: expect.objectContaining({
+                acceptsDigest: 'digest-final',
+                acceptedAbstract: digest.digest.abstract,
+              }),
+            },
+          }),
+          {
+            id: 'review',
+            cursor: '3:review',
+            kind: 'ask',
+            exchangeId: 'digest-final',
+            question: 'Digest review',
+            terminal: {
+              status: 'answered',
+              value: { decision: 'request_changes', comment: 'Keep the recommendation advisory.' },
+            },
+          },
+        ],
+      },
+    });
+  });
+
+  it('classifies malformed digest details instead of leaking them', () => {
+    expect(
+      projectSessionPresentation(target, [
+        entry('bad-digest', {
+          role: 'toolResult',
+          toolName: 'present_digest',
+          details: { digest: { abstract: '' } },
+        }),
+      ]),
+    ).toEqual({ status: 'malformed_detail', entryId: 'bad-digest', family: 'present_digest' });
   });
 
   it('classifies malformed candidate details instead of leaking them', () => {

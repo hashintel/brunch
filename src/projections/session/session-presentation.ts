@@ -1,11 +1,17 @@
-import { zPresentCandidatesDetails } from '../../exchanges/schemas/present.js';
-import type { PresentCandidatesDetails } from '../../exchanges/schemas/present.js';
-import { zAskDetails, zRequestChoiceDetails } from '../../exchanges/schemas/request.js';
+import { zPresentCandidatesDetails, zPresentDigestDetails } from '../../exchanges/schemas/present.js';
+import type { PresentCandidatesDetails, PresentDigestDetails } from '../../exchanges/schemas/present.js';
+import {
+  zAskDetails,
+  zRequestChoiceDetails,
+  zRequestDigestReviewDetails,
+} from '../../exchanges/schemas/request.js';
 import type {
   AnsweredOptionEcho,
   AskDetails,
+  AskDigestConfirmationDetails,
   AskQuestionEcho,
   AskQuestionnaireDetails,
+  RequestDigestReviewDetails,
   SelectedChoice,
 } from '../../exchanges/schemas/request.js';
 import { loadJsonlTranscriptEntries } from '../../session/brunch-session-envelope.js';
@@ -38,6 +44,16 @@ export type SessionPresentationEntry =
   | {
       readonly id: string;
       readonly cursor: string;
+      readonly kind: 'present_digest';
+      readonly exchangeId: string;
+      readonly heading: string;
+      readonly body?: string | undefined;
+      readonly digest: PresentDigestDetails['digest'];
+      readonly continuation?: NonNullable<PresentDigestDetails['continuation']>;
+    }
+  | {
+      readonly id: string;
+      readonly cursor: string;
       readonly kind: 'ask';
       readonly exchangeId: string;
       readonly question: string;
@@ -45,6 +61,8 @@ export type SessionPresentationEntry =
       readonly options?: NonNullable<AskQuestionEcho['options']>;
       readonly terminal?: AskTerminal;
     };
+
+type DigestReviewAnswered = Extract<RequestDigestReviewDetails, { answered: unknown }>['answered'];
 
 type AskTerminal =
   | {
@@ -63,7 +81,20 @@ type AskTerminal =
           }
         | {
             readonly questionnaire: AskQuestionnaireDetails['questionnaire'];
+            readonly acceptsDigest: AskQuestionnaireDetails['accepts_digest'];
             readonly acceptedAbstract: string;
+          }
+        | {
+            readonly choice: AskDigestConfirmationDetails['answered']['choice'];
+            readonly options: AskDigestConfirmationDetails['answered']['options'];
+            readonly comment?: string | undefined;
+            readonly acceptsDigest: AskDigestConfirmationDetails['accepts_digest'];
+            readonly acceptedAbstract: string;
+          }
+        | {
+            readonly decision: DigestReviewAnswered['decision'];
+            readonly comment?: string | undefined;
+            readonly acceptedAbstract?: string | undefined;
           };
     }
   | { readonly status: 'cancelled'; readonly value: { readonly message?: string | undefined } }
@@ -75,6 +106,18 @@ function projectAskTerminal(details: AskDetails): AskTerminal | undefined {
       status: 'answered',
       value: {
         questionnaire: details.questionnaire,
+        acceptsDigest: details.accepts_digest,
+        acceptedAbstract: details.answered.accepted_abstract,
+      },
+    };
+  if ('accepts_digest' in details)
+    return {
+      status: 'answered',
+      value: {
+        choice: details.answered.choice,
+        options: details.answered.options,
+        ...(details.answered.comment ? { comment: details.answered.comment } : {}),
+        acceptsDigest: details.accepts_digest,
         acceptedAbstract: details.answered.accepted_abstract,
       },
     };
@@ -98,7 +141,7 @@ export type SessionPresentationResult =
   | {
       readonly status: 'malformed_detail';
       readonly entryId: string;
-      readonly family: 'ask' | 'present_candidates';
+      readonly family: 'ask' | 'present_candidates' | 'present_digest';
     };
 
 export async function projectSessionPresentationFile(input: {
@@ -129,6 +172,22 @@ export function projectSessionPresentation(
       continue;
     }
     if (message.role !== 'toolResult') continue;
+    if (message.toolName === 'present_digest') {
+      const parsed = zPresentDigestDetails.safeParse(message.details);
+      if (!parsed.success) return { status: 'malformed_detail', entryId: entry.id, family: 'present_digest' };
+      const details = parsed.data;
+      projected.push({
+        id: entry.id,
+        cursor,
+        kind: 'present_digest',
+        exchangeId: details.exchange_id,
+        heading: details.display.heading,
+        ...(details.display.body ? { body: details.display.body } : {}),
+        digest: details.digest,
+        ...(details.continuation ? { continuation: details.continuation } : {}),
+      });
+      continue;
+    }
     if (message.toolName === 'present_candidates') {
       const parsed = zPresentCandidatesDetails.safeParse(message.details);
       if (!parsed.success)
@@ -161,6 +220,36 @@ export function projectSessionPresentation(
     if (message.toolName !== 'ask') continue;
     const parsed = zAskDetails.safeParse(message.details);
     if (!parsed.success) {
+      const digestReview = zRequestDigestReviewDetails.safeParse(message.details);
+      if (digestReview.success) {
+        const details = digestReview.data;
+        const terminal: AskTerminal =
+          'answered' in details
+            ? {
+                status: 'answered',
+                value: {
+                  decision: details.answered.decision,
+                  ...('comment' in details.answered && details.answered.comment
+                    ? { comment: details.answered.comment }
+                    : {}),
+                  ...('accepted_abstract' in details.answered
+                    ? { acceptedAbstract: details.answered.accepted_abstract }
+                    : {}),
+                },
+              }
+            : 'cancelled' in details
+              ? { status: 'cancelled', value: details.cancelled }
+              : { status: 'unavailable', value: details.unavailable };
+        projected.push({
+          id: entry.id,
+          cursor,
+          kind: 'ask',
+          exchangeId: details.exchange_id,
+          question: 'Digest review',
+          terminal,
+        });
+        continue;
+      }
       const choice = zRequestChoiceDetails.safeParse(message.details);
       if (!choice.success || choice.data.tool_meta.prev !== 'present_candidates')
         return { status: 'malformed_detail', entryId: entry.id, family: 'ask' };

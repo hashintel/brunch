@@ -62,11 +62,13 @@ function presentationText(result: ReadyPresentation): string {
         ? entry.text
         : entry.kind === 'present_candidates'
           ? `${entry.heading}\n${entry.candidates.map((candidate) => candidate.title).join('\n')}`
-          : `${entry.question}\n${
-              entry.terminal?.status === 'answered' && 'text' in entry.terminal.value
-                ? entry.terminal.value.text
-                : ''
-            }`,
+          : entry.kind === 'present_digest'
+            ? `${entry.heading}\n${entry.digest.abstract}`
+            : `${entry.question}\n${
+                entry.terminal?.status === 'answered' && 'text' in entry.terminal.value
+                  ? entry.terminal.value.text
+                  : ''
+              }`,
     )
     .join('\n');
 }

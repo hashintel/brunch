@@ -37,32 +37,19 @@ describe('standalone web session host production entry', () => {
         fauxAssistantMessage(
           [
             fauxToolCall(
-              'present_candidates',
+              'present_digest',
               {
-                exchangeId: 'web-ask',
+                exchangeId: 'web-digest',
                 heading: question,
-                body: 'Compare the proposals.',
-                candidates: [
-                  {
-                    id: 'semantic-projection',
-                    title: 'Shared semantic projection',
-                    user_rubric: {
-                      core_bet: 'Decode once before rendering.',
-                      best_fit: 'Web and TUI parity.',
-                      cost_complexity: 'One shared projection.',
-                      covers_well: 'Durable presentation semantics.',
-                      main_risks: 'Adapter drift.',
-                      lock_in_constraints: 'Transport-neutral entries.',
-                      recommendation: 'Use the shared projection.',
-                    },
-                    meta_rubric: { commitment: 'Preserve D128-L.' },
-                    graph_refs: [],
-                  },
-                ],
+                body: 'Confirm before capture.',
+                digest: {
+                  abstract: 'The browser and reconnect share one semantic digest.',
+                  recommendation: 'Keep settlement authoritative.',
+                },
               },
-              { id: 'web-candidates-call' },
+              { id: 'web-digest-call' },
             ),
-            fauxToolCall('ask', { continues: 'web-ask' }, { id: 'web-ask-call' }),
+            fauxToolCall('ask', { continues: 'web-digest' }, { id: 'web-ask-call' }),
           ],
           { stopReason: 'toolUse' },
         ),
@@ -83,8 +70,8 @@ describe('standalone web session host production entry', () => {
       rpc.request('session.answerExchange', {
         ...target,
         driverId: 'browser-proof',
-        exchangeId: 'web-ask',
-        answer: 'semantic-projection',
+        exchangeId: 'web-digest',
+        answer: 'Clarify the source boundary.',
       }),
     ).resolves.toMatchObject({ status: 'completed' });
     await expect(turn).resolves.toMatchObject({ status: 'completed' });
@@ -101,19 +88,20 @@ describe('standalone web session host production entry', () => {
     expect(projected.presentation.entries).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          kind: 'present_candidates',
-          exchangeId: 'web-ask',
-          candidates: [expect.objectContaining({ id: 'semantic-projection' })],
-          continuation: expect.objectContaining({ request: 'request_choice', exchangeId: 'web-ask' }),
+          kind: 'present_digest',
+          exchangeId: 'web-digest',
+          digest: expect.objectContaining({
+            abstract: 'The browser and reconnect share one semantic digest.',
+            recommendation: 'Keep settlement authoritative.',
+          }),
+          continuation: expect.objectContaining({ tool: 'ask' }),
         }),
         expect.objectContaining({
           kind: 'ask',
-          exchangeId: 'web-ask',
+          exchangeId: 'web-digest',
           terminal: {
             status: 'answered',
-            value: expect.objectContaining({
-              choice: { id: 'semantic-projection', label: 'Shared semantic projection', kind: 'listed' },
-            }),
+            value: expect.objectContaining({ text: 'Clarify the source boundary.' }),
           },
         }),
         expect.objectContaining({ kind: 'message', role: 'assistant', text: 'Durable answer complete.' }),
