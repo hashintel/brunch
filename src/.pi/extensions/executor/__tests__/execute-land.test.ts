@@ -163,6 +163,27 @@ describe('runBrunchLandCommand', () => {
     expect(ui.confirms[0]).toContain('Conflict rehearsal: clean');
   });
 
+  it('refuses a target argument for brownfield landing before inspection or confirmation', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-land-cmd-brownfield-target-'));
+    await createPromotionPreparedRun(cwd);
+    const ui = makeUi();
+    const inspectCalls: unknown[] = [];
+    const gitHostLand = createFakeGitHostLandPort({
+      async inspect(args) {
+        inspectCalls.push(args);
+        return { status: 'failed', message: 'must not inspect', sideEffects: [] };
+      },
+    });
+
+    await runBrunchLandCommand('run-1 /tmp/other-repository', stubCtx(cwd, ui), { gitHostLand });
+
+    expect(inspectCalls).toHaveLength(0);
+    expect(ui.confirms).toHaveLength(0);
+    expect(ui.notifications.join('\n')).toContain('only accepts a target directory for greenfield runs');
+    expect(ui.notifications.join('\n')).toContain(cwd);
+    await expect(runStatus(cwd)).resolves.toBe('promotion_prepared');
+  });
+
   it('does not offer confirmation when inspection predicts a merge conflict', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-land-cmd-conflict-inspection-'));
     await createPromotionPreparedRun(cwd);

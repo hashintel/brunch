@@ -80,6 +80,13 @@ export async function runBrunchLandCommand(
     );
     return;
   }
+  if (preflight.substrate !== 'empty_dir' && targetArg) {
+    ctx.ui.notify(
+      `/brunch:land only accepts a target directory for greenfield runs; this brownfield run lands into the active repository ${ctx.cwd}.`,
+      'warning',
+    );
+    return;
+  }
 
   let targetDir: string | undefined = targetArg;
   if (preflight.substrate === 'empty_dir' && !targetDir) {
