@@ -14,8 +14,8 @@ const manifest = {
   actorVersion: 'review-diff-actor/v1',
   rubricVersion: 'consequential-fact/v1',
   provider: 'anthropic',
-  model: 'claude-sonnet-4-20250514',
-  thinking: 'low',
+  model: 'claude-sonnet-4-6',
+  thinking: 'medium',
   providerSeed: 'unsupported',
   workspaceSeed: 'consequential-fact-review-diff/v1',
   setupRecipe:
@@ -52,6 +52,7 @@ describe('consequential-fact campaign', () => {
     ]);
     expect(reprojectCampaignManifest(parsed)).toBe(reprojectCampaignManifest(parsed));
     expect(() => parseCampaignManifest({ ...manifest, turnBudget: 9 })).toThrow('fixed campaign');
+    expect(() => parseCampaignManifest({ ...manifest, thinking: 'low' })).toThrow('fixed campaign');
   });
 
   it('uses one frozen reveal and approval actor and fails unknown states mechanically', () => {
@@ -78,6 +79,20 @@ describe('consequential-fact campaign', () => {
     ).toMatchObject({
       classification: 'non_qualifying',
       action: { kind: 'type_text', text: expect.not.stringContaining('source regulator') },
+    });
+    expect(
+      campaignActorStep({
+        state: 'post_reveal_question',
+        visibleText: 'Which exact wording should the review preserve?',
+        turnsUsed: 2,
+      }),
+    ).toEqual({
+      classification: 'post_reveal_question',
+      action: {
+        kind: 'type_text',
+        text: 'The set must retain each source regulator clause identifier verbatim.',
+        submit: true,
+      },
     });
     expect(
       campaignActorStep({

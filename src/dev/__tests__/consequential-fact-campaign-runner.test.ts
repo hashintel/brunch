@@ -25,14 +25,17 @@ describe('consequential-fact production campaign entry', () => {
     const root = await mkdtemp(join(tmpdir(), 'fe1208-campaign-'));
     const actions: unknown[] = [];
     const collected: string[] = [];
+    const retainedClassifications: unknown[] = [];
     let screenIndex = 0;
     const screens = [
       'Choose a specification\n                    │ › Start a new specification                                                  │',
       'New specification title',
       'Is this a fresh, greenfield specification?\n› Yes',
       'Choose how Specify mode should continue\n│  › 1. Work by decision                                                                                               ▐\n│    2. Work by example                                                                                                ▐',
-      'What compliance or audit constraints are missing?',
-      'Review set: retain the source regulator clause identifier verbatim. [ Approve ]',
+      'What problem does Review Diff solve, and who feels it most acutely?\nenter submits\n(anthropic) claude-sonnet-4-6 • medium',
+      'What compliance or audit constraints are missing?\nenter submits\n(anthropic) claude-sonnet-4-6 • medium',
+      'Which exact wording should the review preserve?\nenter submits\n(anthropic) claude-sonnet-4-6 • medium',
+      'Review set: retain the source regulator clause identifier verbatim. [ Approve ]\n(anthropic) claude-sonnet-4-6 • medium',
       '## Review: accepted',
     ];
     const port: CampaignRunnerPort = {
@@ -49,8 +52,14 @@ describe('consequential-fact production campaign entry', () => {
       async stop() {},
       async collect(input) {
         collected.push(input.runId);
+        retainedClassifications.push(input.classifications);
         expect(input.viewport).toContain('Review: accepted');
-        return { runId: input.runId, valid: true, atomicVerdicts: Array(6).fill('pass') };
+        return {
+          runId: input.runId,
+          valid: true,
+          atomicVerdicts: Array(6).fill('pass'),
+          classifications: input.classifications,
+        };
       },
     };
     const manifest = {
@@ -60,8 +69,8 @@ describe('consequential-fact production campaign entry', () => {
       actorVersion: 'review-diff-actor/v1',
       rubricVersion: 'consequential-fact/v1',
       provider: 'anthropic',
-      model: 'fixed-model',
-      thinking: 'low',
+      model: 'claude-sonnet-4-6',
+      thinking: 'medium',
       providerSeed: 'unsupported',
       workspaceSeed: 'consequential-fact-review-diff/v1',
       setupRecipe:
@@ -98,18 +107,36 @@ describe('consequential-fact production campaign entry', () => {
     const aggregate = await runConsequentialFactCampaign(parsedManifest, port);
 
     expect(collected).toEqual(runs.map((run) => run.runId));
-    expect(actions).toHaveLength(36);
-    expect(actions.slice(0, 6)).toEqual([
+    expect(actions).toHaveLength(48);
+    expect(actions.slice(0, 8)).toEqual([
       { kind: 'press_key', key: 'Enter' },
       { kind: 'type_text', text: 'Review Diff', submit: true },
       { kind: 'press_key', key: 'Enter' },
       { kind: 'press_key', key: 'Enter' },
       {
         kind: 'type_text',
+        text: 'Review the policy-copy changes and accept the reviewed set atomically.',
+        submit: true,
+      },
+      {
+        kind: 'type_text',
         text: 'Every accepted policy rewrite must retain its source regulator clause identifier verbatim.',
         submit: true,
       },
+      {
+        kind: 'type_text',
+        text: 'The set must retain each source regulator clause identifier verbatim.',
+        submit: true,
+      },
       { kind: 'press_key', key: 'Enter' },
+    ]);
+    expect(actions.indexOf(actions.find((action) => JSON.stringify(action).includes('Every accepted')))).toBe(
+      5,
+    );
+    expect(retainedClassifications[0]).toMatchObject([
+      { turn: 1, classification: 'non_qualifying' },
+      { turn: 2, classification: 'qualifying' },
+      { turn: 3, classification: 'post_reveal_question' },
     ]);
     expect(actions).toContainEqual({
       kind: 'type_text',
@@ -118,7 +145,11 @@ describe('consequential-fact production campaign entry', () => {
     });
     expect(actions).toContainEqual({ kind: 'press_key', key: 'Enter' });
     expect(aggregate.control.valid).toBe(3);
-    expect(JSON.parse(await readFile(join(root, 'aggregate-input.json'), 'utf8'))).toHaveLength(6);
+    const aggregateInput = JSON.parse(await readFile(join(root, 'aggregate-input.json'), 'utf8')) as Array<{
+      classifications: unknown[];
+    }>;
+    expect(aggregateInput).toHaveLength(6);
+    expect(aggregateInput[0]!.classifications).toHaveLength(3);
   });
 
   it('fails mechanically instead of collecting when runtime screens are unknown', async () => {

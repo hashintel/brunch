@@ -35,7 +35,7 @@ export interface CampaignManifest {
   readonly boundedClaim: string;
 }
 
-type ActorState = 'awaiting_question' | 'awaiting_review';
+type ActorState = 'awaiting_question' | 'post_reveal_question' | 'awaiting_review';
 export interface ActorStepInput {
   readonly state: ActorState;
   readonly visibleText: string;
@@ -45,7 +45,12 @@ export type CampaignActorAction =
   | { readonly kind: 'type_text'; readonly text: string; readonly submit: true }
   | { readonly kind: 'press_key'; readonly key: 'Enter' };
 export interface ActorStepResult {
-  readonly classification: 'qualifying' | 'non_qualifying' | 'review_exact' | 'review_invalid';
+  readonly classification:
+    | 'qualifying'
+    | 'non_qualifying'
+    | 'post_reveal_question'
+    | 'review_exact'
+    | 'review_invalid';
   readonly action: CampaignActorAction;
 }
 
@@ -73,6 +78,16 @@ export function campaignActorStep(input: ActorStepInput): ActorStepResult {
             submit: true,
           },
         };
+  }
+  if (input.state === 'post_reveal_question') {
+    return {
+      classification: 'post_reveal_question',
+      action: {
+        kind: 'type_text',
+        text: 'The set must retain each source regulator clause identifier verbatim.',
+        submit: true,
+      },
+    };
   }
   if (input.state === 'awaiting_review') {
     const exact =
@@ -121,9 +136,9 @@ export function parseCampaignManifest(value: unknown): CampaignManifest {
     !positive(value.tui.rows) ||
     !Array.isArray(value.validityRules) ||
     value.validityRules.length === 0 ||
-    !nonempty(value.provider) ||
-    !nonempty(value.model) ||
-    !nonempty(value.thinking) ||
+    value.provider !== 'anthropic' ||
+    value.model !== 'claude-sonnet-4-6' ||
+    value.thinking !== 'medium' ||
     !nonempty(value.providerSeed) ||
     !nonempty(value.campaignId) ||
     !nonempty(value.setupRecipe) ||
@@ -139,10 +154,16 @@ export function reprojectCampaignManifest(manifest: CampaignManifest): string {
   return `${JSON.stringify(parseCampaignManifest(manifest), null, 2)}\n`;
 }
 
+export interface CampaignClassificationRecord {
+  readonly turn: number;
+  readonly question: string;
+  readonly classification: 'qualifying' | 'non_qualifying' | 'post_reveal_question';
+}
 export interface CampaignRunResult {
   readonly runId: string;
   readonly valid: boolean;
   readonly atomicVerdicts: readonly ('pass' | 'fail')[];
+  readonly classifications?: readonly CampaignClassificationRecord[];
 }
 export function aggregateCampaign(manifestValue: unknown, results: readonly CampaignRunResult[]) {
   const manifest = parseCampaignManifest(manifestValue);

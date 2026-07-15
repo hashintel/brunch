@@ -9,6 +9,7 @@ import {
   campaignActorStep,
   parseCampaignManifest,
   type CampaignArm,
+  type CampaignClassificationRecord,
   type CampaignManifest,
   type CampaignRunResult,
 } from './consequential-fact-campaign.js';
@@ -46,6 +47,7 @@ export interface CampaignRunnerPort {
     arm: CampaignArm;
     workspace: string;
     viewport: string;
+    classifications: readonly CampaignClassificationRecord[];
   }): Promise<CampaignRunResult>;
 }
 
@@ -90,22 +92,54 @@ export async function runConsequentialFactCampaign(
       await port.act(name, { kind: 'press_key', key: 'Enter' });
 
       let turnsUsed = 0;
-      viewport = await waitForScreenClass(port, session.logPath, manifest, 'question');
-      const reveal = campaignActorStep({ state: 'awaiting_question', visibleText: viewport, turnsUsed });
-      turnsUsed += 1;
-      if (reveal.classification !== 'qualifying' || reveal.action.kind !== 'type_text') {
-        throw new Error('mechanically invalid: startup did not reach a qualifying question');
+      let revealed = false;
+      let accepted = false;
+      const classifications: CampaignClassificationRecord[] = [];
+      let previousInteraction = '';
+      while (turnsUsed < manifest.turnBudget && !accepted) {
+        const interaction = await waitForInteraction(port, session.logPath, manifest, previousInteraction);
+        viewport = interaction.viewport;
+        previousInteraction = viewport;
+        assertRuntimeConfig(viewport, manifest);
+        if (interaction.kind === 'question') {
+          const step = campaignActorStep({
+            state: revealed ? 'post_reveal_question' : 'awaiting_question',
+            visibleText: viewport,
+            turnsUsed,
+          });
+          turnsUsed += 1;
+          if (step.action.kind !== 'type_text')
+            throw new Error('mechanically invalid: question actor did not provide text');
+          if (
+            step.classification !== 'qualifying' &&
+            step.classification !== 'non_qualifying' &&
+            step.classification !== 'post_reveal_question'
+          )
+            throw new Error('mechanically invalid: question actor returned a non-question classification');
+          classifications.push({ turn: turnsUsed, question: viewport, classification: step.classification });
+          if (step.classification === 'qualifying') revealed = true;
+          await port.act(name, step.action);
+          continue;
+        }
+        if (!revealed) throw new Error('mechanically invalid: review appeared before a qualifying question');
+        const step = campaignActorStep({ state: 'awaiting_review', visibleText: viewport, turnsUsed });
+        turnsUsed += 1;
+        await port.act(name, step.action);
+        accepted = step.classification === 'review_exact';
       }
-      await port.act(name, reveal.action);
-
-      viewport = await waitForScreenClass(port, session.logPath, manifest, 'review');
-      const approval = campaignActorStep({ state: 'awaiting_review', visibleText: viewport, turnsUsed });
-      if (approval.classification !== 'review_exact' || approval.action.kind !== 'press_key') {
-        throw new Error('mechanically invalid: review set did not carry the revealed constraint');
-      }
-      await port.act(name, approval.action);
+      if (!accepted)
+        throw new Error('mechanically invalid: actor turn budget exhausted before review approval');
       viewport = await waitForRecognizedScreen(port, session.logPath, manifest, 'Review: accepted');
-      results.push(await port.collect({ manifest, runId: run.runId, arm: run.arm, workspace, viewport }));
+      results.push(
+        await port.collect({
+          manifest,
+          runId: run.runId,
+          arm: run.arm,
+          workspace,
+          viewport,
+          classifications,
+        }),
+      );
     } finally {
       if (started) await port.stop(name);
     }
@@ -118,23 +152,32 @@ export async function runConsequentialFactCampaign(
   return aggregate;
 }
 
-async function waitForScreenClass(
+async function waitForInteraction(
   port: CampaignRunnerPort,
   logPath: string,
   manifest: CampaignManifest,
-  expected: 'question' | 'review',
-): Promise<string> {
+  previousViewport: string,
+): Promise<{ readonly kind: 'question' | 'review'; readonly viewport: string }> {
   const deadline = Date.now() + manifest.timeoutMs;
   while (Date.now() < deadline) {
-    const screen = await port.screen(logPath, manifest.tui.cols, manifest.tui.rows);
-    const recognized =
-      expected === 'question'
-        ? /compliance|audit|regulat|constraint|missing requirement/iu.test(screen)
-        : /Review set|Approve|Request changes/iu.test(screen);
-    if (recognized) return screen;
+    const viewport = await port.screen(logPath, manifest.tui.cols, manifest.tui.rows);
+    if (viewport === previousViewport) {
+      await new Promise((done) => setTimeout(done, 100));
+      continue;
+    }
+    if (/Review set|Approve|Request changes/iu.test(viewport)) return { kind: 'review', viewport };
+    if (/\?[^?]*enter submits/isu.test(viewport)) return { kind: 'question', viewport };
     await new Promise((done) => setTimeout(done, 100));
   }
-  throw new Error(`mechanically invalid: timed out awaiting recognized ${expected} screen`);
+  throw new Error('mechanically invalid: timed out awaiting recognized question or review screen');
+}
+
+function assertRuntimeConfig(viewport: string, manifest: CampaignManifest): void {
+  const footer = `(${manifest.provider}) ${manifest.model} • ${manifest.thinking}`;
+  if (!viewport.includes(footer))
+    throw new Error(
+      'mechanically invalid: visible runtime provider/model/thinking mismatches fixed manifest',
+    );
 }
 
 async function waitForSelectedNewSpecification(
@@ -263,12 +306,17 @@ function productionPort(): CampaignRunnerPort {
       await writeFile(join(bundle, 'viewport.txt'), input.viewport);
       await writeFile(
         join(bundle, 'run.json'),
-        `${JSON.stringify({ runId: input.runId, arm: input.arm, cleanup: 'stopped' }, null, 2)}\n`,
+        `${JSON.stringify(
+          { runId: input.runId, arm: input.arm, cleanup: 'stopped', classifications: input.classifications },
+          null,
+          2,
+        )}\n`,
       );
       return {
         runId: input.runId,
         valid: true,
         atomicVerdicts: verdict.judgments.map((item) => item.verdict),
+        classifications: input.classifications,
       };
     },
   };
