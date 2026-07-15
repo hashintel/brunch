@@ -19,7 +19,7 @@ const manifest = {
   providerSeed: 'unsupported',
   workspaceSeed: 'consequential-fact-review-diff/v1',
   setupRecipe:
-    'fresh workspace; create one empty Review Diff spec; accept greenfield default; accept selected Work by decision orientation',
+    'fresh workspace; accept selected Start a new specification; create one empty Review Diff spec; accept greenfield default; accept selected Work by decision orientation',
   turnBudget: 8,
   timeoutMs: 180000,
   tui: { cols: 120, rows: 40 },

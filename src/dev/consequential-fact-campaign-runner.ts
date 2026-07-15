@@ -75,6 +75,8 @@ export async function runConsequentialFactCampaign(
         rows: manifest.tui.rows,
       });
       started = true;
+      viewport = await waitForSelectedNewSpecification(port, session.logPath, manifest);
+      await port.act(name, { kind: 'press_key', key: 'Enter' });
       viewport = await waitForRecognizedScreen(port, session.logPath, manifest, 'New specification title');
       await port.act(name, { kind: 'type_text', text: 'Review Diff', submit: true });
       viewport = await waitForRecognizedScreen(
@@ -133,6 +135,25 @@ async function waitForScreenClass(
     await new Promise((done) => setTimeout(done, 100));
   }
   throw new Error(`mechanically invalid: timed out awaiting recognized ${expected} screen`);
+}
+
+async function waitForSelectedNewSpecification(
+  port: CampaignRunnerPort,
+  logPath: string,
+  manifest: CampaignManifest,
+): Promise<string> {
+  const title = 'Choose a specification';
+  const deadline = Date.now() + manifest.timeoutMs;
+  while (Date.now() < deadline) {
+    const screen = await port.screen(logPath, manifest.tui.cols, manifest.tui.rows);
+    if (screen.includes(title)) {
+      if (!/^› Start a new specification(?:\s|$)/mu.test(screen))
+        throw new Error('mechanically invalid: Start a new specification is not selected');
+      return screen;
+    }
+    await new Promise((done) => setTimeout(done, 100));
+  }
+  throw new Error(`mechanically invalid: timed out awaiting ${title}`);
 }
 
 async function waitForSelectedOrientation(

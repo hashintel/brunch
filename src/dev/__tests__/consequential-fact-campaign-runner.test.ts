@@ -27,6 +27,7 @@ describe('consequential-fact production campaign entry', () => {
     const collected: string[] = [];
     let screenIndex = 0;
     const screens = [
+      'Choose a specification\n› Start a new specification',
       'New specification title',
       'Is this a fresh, greenfield specification?\n› Yes',
       'Choose how Specify mode should continue\n› Work by decision\n  Work by example',
@@ -64,7 +65,7 @@ describe('consequential-fact production campaign entry', () => {
       providerSeed: 'unsupported',
       workspaceSeed: 'consequential-fact-review-diff/v1',
       setupRecipe:
-        'fresh workspace; create one empty Review Diff spec; accept greenfield default; accept selected Work by decision orientation',
+        'fresh workspace; accept selected Start a new specification; create one empty Review Diff spec; accept greenfield default; accept selected Work by decision orientation',
       turnBudget: 8,
       timeoutMs: 1000,
       tui: { cols: 120, rows: 40 },
@@ -97,8 +98,9 @@ describe('consequential-fact production campaign entry', () => {
     const aggregate = await runConsequentialFactCampaign(parsedManifest, port);
 
     expect(collected).toEqual(runs.map((run) => run.runId));
-    expect(actions).toHaveLength(30);
-    expect(actions.slice(0, 5)).toEqual([
+    expect(actions).toHaveLength(36);
+    expect(actions.slice(0, 6)).toEqual([
+      { kind: 'press_key', key: 'Enter' },
       { kind: 'type_text', text: 'Review Diff', submit: true },
       { kind: 'press_key', key: 'Enter' },
       { kind: 'press_key', key: 'Enter' },

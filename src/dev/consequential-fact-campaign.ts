@@ -1,6 +1,6 @@
 const ATOMIC_COUNT = 6;
 const FIXED_SETUP_RECIPE =
-  'fresh workspace; create one empty Review Diff spec; accept greenfield default; accept selected Work by decision orientation';
+  'fresh workspace; accept selected Start a new specification; create one empty Review Diff spec; accept greenfield default; accept selected Work by decision orientation';
 const FIXED_RUNS = [
   ['control-1', 'control'],
   ['ablated-1', 'ablated'],
