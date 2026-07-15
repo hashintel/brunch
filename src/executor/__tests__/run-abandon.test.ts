@@ -31,7 +31,7 @@ describe('abandonRun', () => {
     await writeRun(cwd, {
       runId: 'run-1',
       specId: '42',
-      planPath: '/plan.yaml',
+      planPath: '/plan.json',
       status: 'promotion_prepared',
     });
 
@@ -52,7 +52,7 @@ describe('abandonRun', () => {
     await writeRun(cwd, {
       runId: 'run-1',
       specId: '42',
-      planPath: '/plan.yaml',
+      planPath: '/plan.json',
       status: 'abandoned',
       abandonedAt: '2026-07-07T00:00:00.000Z',
     });
@@ -71,7 +71,7 @@ describe('abandonRun', () => {
     await writeRun(cwd, {
       runId: 'run-1',
       specId: '42',
-      planPath: '/plan.yaml',
+      planPath: '/plan.json',
       status: 'agent_result_ingested',
       worktreeDir: '/worktree',
       reportsPath: '/reports.jsonl',

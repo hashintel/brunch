@@ -260,7 +260,7 @@ describe('requestSliceExecution', () => {
       JSON.stringify({
         runId: 'run-1',
         specId: '42',
-        planPath: '/tmp/plan.yaml',
+        planPath: '/tmp/plan.json',
         status: 'slice_started',
         reportsPath: reportPath,
         activeSliceId: '../../escape',

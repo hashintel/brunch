@@ -41,7 +41,7 @@ const base = {
   specId: '42',
   status: 'reports_initialized',
   presence: { worktree: true, reports: true, petri: true, promotion: false },
-  planPath: '/tmp/plan.yaml',
+  planPath: '/tmp/plan.json',
   reportsTail: [],
   reportsTotal: 0,
   petriEventsTail: [],

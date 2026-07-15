@@ -121,6 +121,11 @@ describe('parseBrunchThemePalette', () => {
     }
   });
 
+  it('gives HTML exports an explicit default foreground for both themes', () => {
+    expect(createComponentPreviewTheme('dark').getFgAnsi('text')).toBe(hexToTruecolorFg('#e2ddd7'));
+    expect(createComponentPreviewTheme('light').getFgAnsi('text')).toBe(hexToTruecolorFg('#3B3734'));
+  });
+
   it('defines one mode border color role per operational mode in both shipped themes', () => {
     const requiredRoles = OPERATIONAL_MODE_IDS.map((mode) => OPERATIONAL_MODE_BORDER_COLOR_ROLES[mode]);
 

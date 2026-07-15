@@ -105,7 +105,7 @@ async function pathExists(path: string): Promise<boolean> {
 async function createCompletedRun(cwd: string): Promise<void> {
   const runDir = runDirPath(cwd, 'run-1');
   const reportPath = reportsPath(cwd, 'run-1');
-  const planPath = join(cwd, 'plan.yaml');
+  const planPath = join(cwd, 'plan.json');
   await mkdir(runDir, { recursive: true });
   await writeFile(
     planPath,
@@ -182,7 +182,7 @@ describe('exportPetri', () => {
   it('prepares replay-identical observer artifacts before execution without advancing or truncating the run', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-observation-prepare-'));
     const runDir = runDirPath(cwd, 'run-1');
-    const planPath = join(cwd, 'plan.yaml');
+    const planPath = join(cwd, 'plan.json');
     await mkdir(runDir, { recursive: true });
     await writeFile(
       planPath,
@@ -232,7 +232,7 @@ describe('exportPetri', () => {
   it('does not mark observation prepared when initial journal creation fails', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-observation-marker-failure-'));
     const runDir = runDirPath(cwd, 'run-1');
-    const planPath = join(cwd, 'plan.yaml');
+    const planPath = join(cwd, 'plan.json');
     await mkdir(runDir, { recursive: true });
     await writeFile(
       planPath,
@@ -256,7 +256,7 @@ describe('exportPetri', () => {
     await mkdir(runDirPath(cwd, 'run-1'), { recursive: true });
     await writeFile(
       runMetadataPath(cwd, 'run-1'),
-      JSON.stringify({ runId: 'run-1', specId: '42', planPath: '/tmp/plan.yaml', status: 'slice_completed' }),
+      JSON.stringify({ runId: 'run-1', specId: '42', planPath: '/tmp/plan.json', status: 'slice_completed' }),
       'utf8',
     );
 
@@ -371,7 +371,7 @@ describe('exportPetri', () => {
       'utf8',
     );
     await writeFile(
-      join(cwd, 'plan.yaml'),
+      join(cwd, 'plan.json'),
       JSON.stringify({
         mode: 'greenfield',
         slices: [{ id: 'source-task' }],
@@ -392,7 +392,7 @@ describe('exportPetri', () => {
   it('refuses to export when the compiled plan input is unreadable', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-unreadable-plan-'));
     await createCompletedRun(cwd);
-    await writeFile(join(cwd, 'plan.yaml'), '{"mode":', 'utf8');
+    await writeFile(join(cwd, 'plan.json'), '{"mode":', 'utf8');
 
     const result = await exportPetri({ cwd, runId: 'run-1' });
 
@@ -413,7 +413,7 @@ describe('exportPetri', () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-invalid-plan-shape-'));
     await createCompletedRun(cwd);
     await writeFile(
-      join(cwd, 'plan.yaml'),
+      join(cwd, 'plan.json'),
       JSON.stringify({
         mode: 'greenfield',
         slices: [{ epic_id: 'frontier-1' }],
@@ -440,7 +440,7 @@ describe('exportPetri', () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-duplicate-slice-id-'));
     await createCompletedRun(cwd);
     await writeFile(
-      join(cwd, 'plan.yaml'),
+      join(cwd, 'plan.json'),
       JSON.stringify({
         mode: 'greenfield',
         slices: [{ id: 'task-1' }, { id: 'task-1' }],

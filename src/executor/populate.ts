@@ -42,7 +42,7 @@ export type PopulateResult =
     };
 
 export function populatedPlanPath(cwd: string, runId: string): string {
-  return join(worktreeDirPath(cwd, runId), '.brunch', 'cook', 'plan.yaml');
+  return join(worktreeDirPath(cwd, runId), '.brunch', 'cook', 'plan.json');
 }
 
 export function populatedPlanProvenancePath(cwd: string, runId: string): string {

@@ -27,7 +27,7 @@ async function writeIntegrationReadyRun(cwd: string): Promise<void> {
     JSON.stringify({
       runId: 'run-1',
       specId: '42',
-      planPath: '/tmp/plan.yaml',
+      planPath: '/tmp/plan.json',
       status: 'test_result_ingested',
       worktreeDir: join(runDir, 'worktree'),
       reportsPath: reportsPath(cwd, 'run-1'),

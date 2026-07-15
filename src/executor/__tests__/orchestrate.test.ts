@@ -231,7 +231,7 @@ function metadata(status: RunMetadata['status'], extra: Partial<RunMetadata> = {
   return {
     runId: 'run-1',
     specId: '42',
-    planPath: 'plan.yaml',
+    planPath: 'plan.json',
     status,
     ...extra,
     ...(activeSliceId === undefined ? {} : { activeSliceId }),
@@ -564,6 +564,9 @@ describe('drive', () => {
               gitLand: {
                 async currentHead() {
                   throw new Error(`${fault} exploded`);
+                },
+                async resolveRef() {
+                  throw new Error('must not resolve ref');
                 },
                 async promote() {
                   throw new Error('must not promote');
@@ -985,12 +988,24 @@ describe('drive', () => {
               async currentHead() {
                 return { status: 'ok', commitSha: 'base123' };
               },
+              async resolveRef() {
+                return { status: 'ok', commitSha: 'promoted123' };
+              },
               async promote(args) {
                 promotionWorktree = args.worktreeDir;
                 return {
                   status: 'promoted',
                   commitSha: 'promoted123',
-                  sideEffects: [{ kind: 'git_commit', path: args.worktreeDir, sha: 'promoted123' }],
+                  reviewBranch: args.reviewBranch,
+                  sideEffects: [
+                    { kind: 'git_commit', path: args.worktreeDir, sha: 'promoted123' },
+                    {
+                      kind: 'git_ref_create',
+                      path: args.worktreeDir,
+                      ref: `refs/heads/${args.reviewBranch}`,
+                      sha: 'promoted123',
+                    },
+                  ],
                 };
               },
             },
@@ -3953,7 +3968,7 @@ describe('petri runtime helpers', () => {
       expect(petriRuntimePlanPathCandidates(cwd, metadata(status))).toEqual([
         runPopulatedPlanPath(cwd, 'run-1'),
         petriPlanSnapshotPath(cwd, 'run-1'),
-        'plan.yaml',
+        'plan.json',
       ]);
     }
   });
@@ -5599,7 +5614,7 @@ describe('petriScheduler', () => {
       JSON.stringify({
         runId: 'run-1',
         specId: '42',
-        planPath: '/plan.yaml',
+        planPath: '/plan.json',
         status: 'abandoned',
         abandonedAt: '2026-07-09T00:00:00.000Z',
       }),

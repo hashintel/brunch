@@ -369,7 +369,7 @@ describe('startSlice', () => {
       'utf8',
     );
     await writeFile(
-      join(cwd, '.brunch', 'cook', 'runs', 'run-1', 'worktree', '.brunch', 'cook', 'plan.yaml'),
+      join(cwd, '.brunch', 'cook', 'runs', 'run-1', 'worktree', '.brunch', 'cook', 'plan.json'),
       await readFile(planPath, 'utf8'),
       'utf8',
     );

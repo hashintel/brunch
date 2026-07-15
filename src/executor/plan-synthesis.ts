@@ -49,12 +49,14 @@ export async function synthesizePlan(args: {
   let priorCandidate: unknown;
 
   for (let round = 0; round <= PLAN_REPAIR_ROUND_LIMIT; round += 1) {
+    args.runtime?.signal?.throwIfAborted();
     const synthesis = await args.planner.synthesize({
       projection: args.projection,
       capabilityVocabulary: capabilityVocabulary(args.providers),
       ...(round > 0 ? { findings, priorCandidate } : {}),
       ...(args.runtime ? { runtime: args.runtime } : {}),
     });
+    args.runtime?.signal?.throwIfAborted();
     if (synthesis.status === 'failed') {
       findings = [
         {

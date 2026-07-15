@@ -123,7 +123,7 @@ describe('createRun', () => {
     await mkdir(runDirPath(cwd, 'run-1'), { recursive: true });
     await writeFile(
       runMetadataPath(cwd, 'run-1'),
-      `${JSON.stringify({ runId: 'run-1', specId: '42', planPath: '/old-plan.yaml', status: 'abandoned' })}\n`,
+      `${JSON.stringify({ runId: 'run-1', specId: '42', planPath: '/old-plan.json', status: 'abandoned' })}\n`,
       'utf8',
     );
 
@@ -145,7 +145,7 @@ describe('persistRunMetadata', () => {
   const metadata = (status: RunMetadata['status']): RunMetadata => ({
     runId: 'run-1',
     specId: '42',
-    planPath: '/plan.yaml',
+    planPath: '/plan.json',
     status,
   });
 

@@ -85,7 +85,7 @@ describe('cook plan file writer', () => {
     );
   });
 
-  it('writes one bounded spec-scoped plan.yaml plus provenance with explicit overwrite semantics', async () => {
+  it('writes one bounded spec-scoped plan.json plus provenance with explicit overwrite semantics', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-plan-file-'));
     const source = { graphLsn: 18, visibility: 'active' as const };
     const result = await writePlanFile({ cwd, preview, source });

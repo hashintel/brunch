@@ -3,6 +3,7 @@ import { Type } from 'typebox';
 import { describe, expect, it } from 'vitest';
 
 import { defineBrunchTool, hasBrunchDefaultRenderer } from './define-brunch-tool.js';
+import { resolveBrunchToolActivityLabel } from './tool-activity-labels.js';
 
 const theme = {
   fg: (color: string, text: string) => `<${color}>${text}</${color}>`,
@@ -142,6 +143,13 @@ describe('defineBrunchTool', () => {
     const call = tool.renderCall!({ value: 'hello' }, theme as never, renderContext({}) as never);
 
     expect(render(call)).toContain('Brunch: example_tool');
+  });
+
+  it('uses the canonical activity label before definition metadata', () => {
+    expect(resolveBrunchToolActivityLabel('execute_launch', 'execute_launch')).toBe(
+      'Checking launch readiness',
+    );
+    expect(resolveBrunchToolActivityLabel('unknown_tool', 'Unknown tool')).toBe('Unknown tool');
   });
 
   it('preserves parameter and result-detail inference from Pi defineTool', async () => {

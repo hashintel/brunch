@@ -59,7 +59,7 @@ async function createSliceCompletedRun(
     JSON.stringify({
       runId: 'run-1',
       specId: '42',
-      planPath: '/tmp/plan.yaml',
+      planPath: '/tmp/plan.json',
       populatedPlanPath: planPath,
       reportsPath: reportPath,
       status: 'slice_completed',
@@ -81,7 +81,7 @@ async function createEmptyPlanRun(cwd: string): Promise<void> {
     JSON.stringify({
       runId: 'run-1',
       specId: '42',
-      planPath: '/tmp/plan.yaml',
+      planPath: '/tmp/plan.json',
       populatedPlanPath: planPath,
       reportsPath: reportPath,
       status: 'reports_initialized',

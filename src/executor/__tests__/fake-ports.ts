@@ -68,13 +68,26 @@ export function createFakeGitLandPort(
   result: GitLandResult = {
     status: 'promoted',
     commitSha: 'abc123',
-    sideEffects: [{ kind: 'git_commit', path: '/worktree', sha: 'abc123' }],
+    reviewBranch: 'brunch/review/run-1',
+    sideEffects: [
+      { kind: 'git_commit', path: '/worktree', sha: 'abc123' },
+      {
+        kind: 'git_ref_create',
+        path: '/worktree',
+        ref: 'refs/heads/brunch/review/run-1',
+        sha: 'abc123',
+      },
+    ],
   },
   currentHeadSha = 'base123',
+  resolvedRefSha = result.status === 'promoted' ? result.commitSha : undefined,
 ): GitLandPort {
   return {
     async currentHead() {
       return { status: 'ok', commitSha: currentHeadSha };
+    },
+    async resolveRef() {
+      return resolvedRefSha ? { status: 'ok', commitSha: resolvedRefSha } : { status: 'missing' };
     },
     async promote() {
       return result;

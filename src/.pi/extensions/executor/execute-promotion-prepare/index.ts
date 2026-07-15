@@ -21,7 +21,7 @@ export function createExecutePromotionPrepareTool(gitLand: GitLandPort) {
     name: BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL,
     label: 'execute_promotion_prepare',
     description:
-      'Prepare a descriptive promotion report for a Petri-exported cook run. Does not create a git branch, promotion ref, or worktree mutation; does not land.',
+      'Commit a verified Petri-exported run, create its durable brunch/review/<runId> ref, and prepare the promotion report. Does not apply, switch, stage, or commit the host worktree.',
     parameters: toolParameters(ExecutePromotionPrepareParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;

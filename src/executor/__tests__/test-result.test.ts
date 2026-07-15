@@ -28,7 +28,7 @@ async function createAgentResultRun(
     JSON.stringify({
       runId: 'run-1',
       specId: '42',
-      planPath: '/tmp/plan.yaml',
+      planPath: '/tmp/plan.json',
       status: 'agent_result_ingested',
       worktreeDir: worktreeDirPath(cwd, 'run-1'),
       reportsPath: reportPath,
@@ -63,7 +63,7 @@ describe('ingestTestResult', () => {
       JSON.stringify({
         runId: 'run-1',
         specId: '42',
-        planPath: '/tmp/plan.yaml',
+        planPath: '/tmp/plan.json',
         status: 'slice_execution_requested',
       }),
       'utf8',

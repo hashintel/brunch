@@ -38,7 +38,7 @@ const runDetail: RunDetail = {
   status: 'slice_execution_requested',
   activeSliceId: 's1',
   presence: { worktree: true, reports: true, petri: false, promotion: false },
-  planPath: '/plan.yaml',
+  planPath: '/plan.json',
   reportsTail: [
     { event: 'run_ready' },
     { event: 'slice_started', sliceId: 's1' },
@@ -170,7 +170,7 @@ describe('run detail route', () => {
       specId: '1',
       status: 'worktree_created',
       presence: { worktree: true, reports: false, petri: false, promotion: false },
-      planPath: '/plan.yaml',
+      planPath: '/plan.json',
     } as RunDetail;
     const runtime = createBrunchWebRuntime({ rpcClient: rpcClient({ run: sparseRun }) });
 

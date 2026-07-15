@@ -29,7 +29,7 @@ async function writeRun(cwd: string, runId: string, metadata: Partial<RunMetadat
   const payload = {
     runId,
     specId: '42',
-    planPath: '/plan.yaml',
+    planPath: '/plan.json',
     status: 'created',
     ...metadata,
     ...(Object.keys(sliceAttemptHistory).length === 0 ? {} : { sliceAttemptHistory }),
@@ -199,7 +199,7 @@ describe('readRunDetail', () => {
 
   it('surfaces the current Petri ready frontier from run lifecycle facts and plan dependencies', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-ready-steps-');
-    const planPath = join(cwd, 'plan.yaml');
+    const planPath = join(cwd, 'plan.json');
     await writeFile(
       planPath,
       JSON.stringify({
@@ -239,7 +239,7 @@ describe('readRunDetail', () => {
 
   it('surfaces active-slice blockers when another dependency-ready slice cannot start yet', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-active-blocker-');
-    const planPath = join(cwd, 'plan.yaml');
+    const planPath = join(cwd, 'plan.json');
     await writeFile(
       planPath,
       JSON.stringify({ mode: 'greenfield', slices: [{ id: 'task-1' }, { id: 'task-2' }] }),
@@ -266,7 +266,7 @@ describe('readRunDetail', () => {
 
   it('reports persisted epic completion as the blocker for dependent epic slices', async () => {
     const cwd = await fixtureCwd('brunch-observer-epic-blocker-');
-    const planPath = join(cwd, 'plan.yaml');
+    const planPath = join(cwd, 'plan.json');
     await writeFile(
       planPath,
       JSON.stringify({
@@ -356,7 +356,7 @@ describe('readRunDetail', () => {
 
   it('keeps run detail readable when duplicate slice ids make the Petri runtime invalid', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-duplicate-slice-id-');
-    const planPath = join(cwd, 'plan.yaml');
+    const planPath = join(cwd, 'plan.json');
     await writeFile(
       planPath,
       JSON.stringify({ mode: 'greenfield', slices: [{ id: 'task-1' }, { id: 'task-1' }] }),
@@ -419,7 +419,7 @@ describe('readRunDetail', () => {
 
     expect(detail).toMatchObject({
       runId: 'run-d',
-      planPath: '/plan.yaml',
+      planPath: '/plan.json',
       reportsTotal: 3,
       sliceProgress: [{ sliceId: 's1', progress: 'started -> requested' }],
       presence: { worktree: false, reports: true, petri: false, promotion: false },
@@ -1660,7 +1660,7 @@ describe('readRunDetail', () => {
       completedSliceIds: ['task-1'],
     });
     const stalePlanPath = join(runDir, 'stale-plan.json');
-    const populatedPlanPath = join(runDir, 'worktree', '.brunch', 'cook', 'plan.yaml');
+    const populatedPlanPath = join(runDir, 'worktree', '.brunch', 'cook', 'plan.json');
     await mkdir(join(runDir, 'worktree', '.brunch', 'cook'), { recursive: true });
     await writeFile(
       stalePlanPath,

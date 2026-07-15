@@ -176,7 +176,7 @@ const parallelUtils: SourceSpec = {
       key: 'ctx-roundtrip',
       kind: 'context',
       content:
-        'Greenfield brunch cook fixture: a plan.yaml of one scaffold slice plus 8 independent leaf slices, run with --policy=parallel to demonstrate pool-bounded concurrent firing.',
+        'Greenfield brunch cook fixture: a plan.json of one scaffold slice plus 8 independent leaf slices, run with --policy=parallel to demonstrate pool-bounded concurrent firing.',
     },
     {
       key: 'con-zerodep',

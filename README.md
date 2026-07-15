@@ -16,7 +16,7 @@ Brunch requires Node 24. Launch the alpha from the project directory you want Br
 npx @hashintel/brunch@alpha
 ```
 
-Brunch creates or reuses a local `.brunch/` workspace under the current directory. That workspace holds project-scoped Brunch state, including the selected spec/session, graph persistence, and Pi JSONL-backed transcript data. No `.env` file is required for a local/offline launch.
+Brunch creates or reuses a local `.brunch/` workspace under the current directory. That workspace holds project-scoped Brunch state, including the selected spec/session, graph persistence, and Pi JSONL-backed transcript data. No `.env` file is required. Live agent turns require Pi provider auth configured explicitly through `/login` in the TUI or `brunch login` before launch.
 
 Useful launch variants:
 
@@ -32,13 +32,13 @@ Prefer `npx` during the alpha line. Global installs are easy to leave stale whil
 
 ## Environment Variables
 
-Brunch does not own a provider/model/port configuration surface. Provider auth and model selection belong to the embedded Pi runtime, and live model calls use whatever Pi auth is configured on the machine. The model selection forwarded by Brunch agents is `default` ("inherit the parent's current model"), so there is no `ANTHROPIC_MODEL`/`OBSERVER_MODEL` override path. The web sidecar always binds an ephemeral port and prints its URL; there is no `BRUNCH_PORT`.
+Brunch does not own a provider/model/port configuration surface. Provider auth and model selection belong to the embedded Pi runtime, and live model calls use whatever Pi auth the user configured through `/login` or `brunch login`. The model selection forwarded by Brunch agents is `default` ("inherit the parent's current model"), so there is no `ANTHROPIC_MODEL`/`OBSERVER_MODEL` override path. The web sidecar always binds an ephemeral port and prints its URL; there is no `BRUNCH_PORT`.
 
 Brunch's own environment surface is operational (offline/dev/source flags), not product config:
 
 | Variable                       | Default             | Description                                                                                                                                                                                                                                    |
 | ------------------------------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PI_OFFLINE`                   | `1`                 | Brunch defaults this to `1` (offline) around the interactive run. Set `0` only when deliberately exercising live provider calls through configured Pi auth.                                                                                    |
+| `PI_OFFLINE`                   | `1`                 | Brunch scopes Pi's offline startup mode around the interactive run to suppress update activity. This does not disable authenticated provider inference.                                                                                      |
 | `PI_SKIP_VERSION_CHECK`        | `1`                 | Defaulted to `1` by Brunch to skip Pi's runtime version check.                                                                                                                                                                                 |
 | `BRUNCH_DEV`                   | —                   | Set `1` to expose the dev-only `dev.graph.mutateGraph` method in the JSON-RPC dev surface. Absent from discovery otherwise.                                                                                                                    |
 | `BRUNCH_DB`                    | `./.brunch/data.db` | SQLite path used by `drizzle-kit` tooling only (`db:generate`, `db:studio`). Does not affect the runtime workspace DB, which is resolved per-cwd.                                                                                              |

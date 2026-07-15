@@ -115,7 +115,7 @@ async function writeRun(
     `${JSON.stringify({
       runId,
       specId: options.specId ?? '42',
-      planPath: options.planPath ?? '/plan.yaml',
+      planPath: options.planPath ?? '/plan.json',
       status: options.status ?? 'created',
       ...(options.activeSliceId === undefined ? {} : { activeSliceId: options.activeSliceId }),
       ...(options.completedSliceIds === undefined ? {} : { completedSliceIds: options.completedSliceIds }),
@@ -569,7 +569,7 @@ describe('execute.run', () => {
     expect(response).toMatchObject({
       result: {
         runId: 'run-1',
-        planPath: '/plan.yaml',
+        planPath: '/plan.json',
         reportsTotal: 1,
         reportsTail: [{ event: 'run_ready' }],
         agentStreamTotal: 0,
@@ -583,7 +583,7 @@ describe('execute.run', () => {
 
   it('returns the current Petri ready frontier when lifecycle facts admit multiple dependency-ready starts', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-ready-frontier-'));
-    const planPath = join(cwd, 'plan.yaml');
+    const planPath = join(cwd, 'plan.json');
     await writeFile(
       planPath,
       `${JSON.stringify({
@@ -625,7 +625,7 @@ describe('execute.run', () => {
 
   it('returns active-slice blockers when another dependency-ready slice cannot start yet', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-active-blocker-'));
-    const planPath = join(cwd, 'plan.yaml');
+    const planPath = join(cwd, 'plan.json');
     await writeFile(
       planPath,
       `${JSON.stringify({ mode: 'greenfield', slices: [{ id: 'task-1' }, { id: 'task-2' }] })}\n`,
@@ -656,7 +656,7 @@ describe('execute.run', () => {
       `${JSON.stringify({
         runId: 'run-1',
         specId: '42',
-        planPath: '/plan.yaml',
+        planPath: '/plan.json',
         status: 'slice_execution_requested',
         activeSliceId: 'task-1',
         activeEpicId: 'frontier-1',
@@ -704,7 +704,7 @@ describe('execute.run', () => {
 
   it('returns per-requirement status from plan mapping and run verification', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-requirements-'));
-    const planPath = join(cwd, 'plan.yaml');
+    const planPath = join(cwd, 'plan.json');
     await writeFile(
       planPath,
       `${JSON.stringify({
@@ -785,7 +785,7 @@ describe('execute.run', () => {
       `${JSON.stringify({
         runId: 'run-1',
         specId: '42',
-        planPath: '/plan.yaml',
+        planPath: '/plan.json',
         status: 'agent_result_ingested',
         activeSliceId: 'task-1',
         activeEpicId: 'frontier-1',
@@ -1062,7 +1062,7 @@ describe('execute.runTraceIndex', () => {
 
   it('maps requirement and criterion graph codes to run slices without artifact paths', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-trace-'));
-    const planPath = join(cwd, 'plan.yaml');
+    const planPath = join(cwd, 'plan.json');
     await writeFile(
       planPath,
       `${JSON.stringify({

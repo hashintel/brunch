@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 
 import type { GitHostPromotionPort, GitHostPromotionPreflightPort } from './execution-ports.js';
+import { promotionReviewBranch } from './promotion.js';
 import {
   runExecutionActive,
   withRunExecutionAuthority,
@@ -125,6 +126,7 @@ export async function preflightHostPromotion(args: {
   const promotionPath = metadata.promotionPath;
   const report = await readPromotionReport(promotionPath);
   const reportCommitSha = report?.land?.status === 'promoted' ? report.land.commitSha : undefined;
+  const reportReviewBranch = report?.land?.status === 'promoted' ? report.land.reviewBranch : undefined;
   if (!reportCommitSha) {
     return promotionNotFound(
       args.runId,
@@ -139,6 +141,18 @@ export async function preflightHostPromotion(args: {
       metadataPath,
       promotionPath,
       'run metadata promotionCommitSha does not match promotion report land commitSha',
+    );
+  }
+  if (
+    !metadata.promotionBranch ||
+    metadata.promotionBranch !== promotionReviewBranch(args.runId) ||
+    reportReviewBranch !== metadata.promotionBranch
+  ) {
+    return promotionNotFound(
+      args.runId,
+      metadataPath,
+      promotionPath,
+      'run metadata promotionBranch does not match the promotion report reviewBranch',
     );
   }
   if (!metadata.worktreeDir) {
@@ -265,7 +279,11 @@ function promotionNotFound(
 }
 
 interface PromotionReportPayload {
-  readonly land?: { readonly status?: string; readonly commitSha?: string };
+  readonly land?: {
+    readonly status?: string;
+    readonly commitSha?: string;
+    readonly reviewBranch?: string;
+  };
 }
 
 async function readPromotionReport(path: string): Promise<PromotionReportPayload | undefined> {

@@ -141,7 +141,7 @@ describe('Brunch Pi runtime', () => {
       `${JSON.stringify({
         runId,
         specId: String(workspace.spec.id),
-        planPath: join(cwd, '.brunch', 'cook', 'specs', String(workspace.spec.id), 'plan.yaml'),
+        planPath: join(cwd, '.brunch', 'cook', 'specs', String(workspace.spec.id), 'plan.json'),
         status: 'slice_execution_requested',
         worktreeDir,
         reportsPath: join(runDir, 'reports.jsonl'),

@@ -4,22 +4,24 @@ import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import type { CandidatePlan } from '../candidate-plan.js';
-import type { AgentRunnerPort, ExecutionPorts, TestRunnerPort } from '../execution-ports.js';
-import { drive, frontierFiringPolicy, petriScheduler } from '../orchestrate.js';
-import { planFilePath, planFilePayload } from '../plan-file.js';
-import { previewPlan } from '../plan-preview.js';
-import { synthesizePlan } from '../plan-synthesis.js';
-import { reportsPath } from '../report.js';
-import { createRun, readRunMetadata, runMetadataPath } from '../run.js';
-import { sliceExecutionRequestPath } from '../slice-execute.js';
+import type { BrunchSubagentsDeps } from '../../.pi/extensions/subagents/index.js';
 import {
   createFakeGitHostPromotionPort,
   createFakeGitLandPort,
   createFakeGitSliceIntegrationPort,
   createFakeGitWorktreePort,
-} from './fake-ports.js';
-import { projection, PYTEST_PROVIDER } from './plan-synthesis-fixture.js';
+} from '../../executor/__tests__/fake-ports.js';
+import { projection, PYTEST_PROVIDER } from '../../executor/__tests__/plan-synthesis-fixture.js';
+import type { CandidatePlan } from '../../executor/candidate-plan.js';
+import type { AgentRunnerPort, ExecutionPorts, TestRunnerPort } from '../../executor/execution-ports.js';
+import { drive, frontierFiringPolicy, petriScheduler } from '../../executor/orchestrate.js';
+import { planFilePath, planFilePayload } from '../../executor/plan-file.js';
+import { previewPlan } from '../../executor/plan-preview.js';
+import { synthesizePlan } from '../../executor/plan-synthesis.js';
+import { reportsPath } from '../../executor/report.js';
+import { createRun, readRunMetadata, runMetadataPath } from '../../executor/run.js';
+import { sliceExecutionRequestPath } from '../../executor/slice-execute.js';
+import { createPlannerPort } from '../planner-port.js';
 
 const providers = [PYTEST_PROVIDER];
 
@@ -60,14 +62,26 @@ function independentCandidate(): CandidatePlan {
   };
 }
 
-async function writeSynthesizedRun(
-  cwd: string,
-): Promise<{ verifyTarget: { command: string; args: readonly string[] } }> {
+async function writeSynthesizedRun(cwd: string): Promise<{
+  verifyTarget: { command: string; args: readonly string[] };
+  plannerTask: string;
+}> {
+  const plannerCall: { task?: string; modelRegistry?: unknown } = {};
+  const modelRegistry = { source: 'composition-witness' };
+  const subagents = {
+    definitions: new Map([['planner', { name: 'planner', description: 'sealed planner', tools: ['read'] }]]),
+    runSubagent: async (args: { task: string; ctx: { modelRegistry?: unknown } }) => {
+      plannerCall.task = args.task;
+      plannerCall.modelRegistry = args.ctx.modelRegistry;
+      return { status: 'ok', text: JSON.stringify(independentCandidate()) };
+    },
+  } as unknown as BrunchSubagentsDeps;
   const synthesis = await synthesizePlan({
     projection: { ...projection, specId: '42' },
     detected: [],
     providers,
-    planner: { synthesize: async () => ({ status: 'synthesized', candidate: independentCandidate() }) },
+    planner: createPlannerPort({ cwd, subagents }),
+    runtime: { modelRegistry: modelRegistry as never, model: {} as never },
   });
   expect(synthesis.status).toBe('admitted');
   if (synthesis.status !== 'admitted') throw new Error('unreachable');
@@ -79,7 +93,8 @@ async function writeSynthesizedRun(
   const action = synthesis.executionContract.resolvedActions.verify[0]!;
   const verifyTarget = { command: action.command, args: action.args };
   await createRun({ cwd, specId: '42', runId: 'run-1', verifyTarget });
-  return { verifyTarget };
+  expect(plannerCall.modelRegistry).toBe(modelRegistry);
+  return { verifyTarget, plannerTask: plannerCall.task ?? '' };
 }
 
 function witnessPorts(args: {
@@ -141,8 +156,10 @@ function witnessPorts(args: {
 describe('synthesized plan through the frozen Petri topology (oracle 8)', () => {
   it('executes overlapping independent slices, ordered fan-in, and contract-only verification to promotion', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-synth-composition-'));
-    const { verifyTarget } = await writeSynthesizedRun(cwd);
+    const { verifyTarget, plannerTask } = await writeSynthesizedRun(cwd);
     expect(verifyTarget).toEqual({ command: 'pytest', args: [] });
+    expect(plannerTask).toContain('Planning projection (approved specification truth):');
+    expect(plannerTask).toContain('python.pytest');
     const verifyCommands: { command: string; args: readonly string[]; dir: string }[] = [];
     const overlap = { bothInFlight: false };
 
