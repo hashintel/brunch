@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { missingRenderedDetailsLeaves } from '../../../agents/contexts/exchanges/render-honesty.js';
+import type { RenderElision } from '../../../agents/contexts/exchanges/render-honesty.js';
 import { projectPresentReviewSet } from '../../../exchanges/projections/present-review-set.js';
 import type { ReviewSetProposalPayload } from '../../../graph/review-set.js';
 import { ExchangeReviewSetResultComponent } from '../exchange-review-set-result.js';
@@ -77,6 +79,23 @@ const payload = {
 
 const details = projectPresentReviewSet({ exchangeId: 'impact-ledger-test', payload }).details;
 
+const IMPACT_LEDGER_DETAILS_ELISIONS: readonly RenderElision[] = [
+  { path: 'schema', reason: 'structural details schema tag' },
+  { path: 'v', reason: 'structural details schema version' },
+  { path: 'exchange_id', reason: 'structural exchange correlation id' },
+  { path: 'tool_meta.*', reason: 'machine-facing tool-chain marker' },
+  { path: 'display.*', reason: 'Impact Ledger replaces generic display framing' },
+  { path: 'continuation.tool', reason: 'machine-facing response wiring' },
+  { path: 'continuation.params.*', reason: 'machine-facing response wiring' },
+  { path: 'continuation.params.options.*.*', reason: 'machine-facing response wiring' },
+  { path: 'review_set.nodes.*.draft_id', reason: 'local ids are represented by proposed codes' },
+  { path: 'review_set.nodes.*.plane', reason: 'concern groups replace storage planes' },
+  { path: 'review_set.nodes.0.title', reason: 'term definition replaces its title' },
+  { path: 'review_set.edges.*.category', reason: 'connections are represented as refs rows' },
+  { path: 'review_set.edges.*.stance', reason: 'connection semantics are collapsed into refs rows' },
+  { path: 'review_set.edges.*.*.*', reason: 'edge endpoints are represented by graph codes in refs rows' },
+];
+
 describe('ExchangeReviewSetResultComponent', () => {
   it('renders the borderless Impact Ledger at narrow, normal, and wide widths', () => {
     const component = new ExchangeReviewSetResultComponent(details, plainTheme);
@@ -84,6 +103,19 @@ describe('ExchangeReviewSetResultComponent', () => {
     expect(component.render(40).join('\n')).toMatchSnapshot('narrow');
     expect(component.render(72).join('\n')).toMatchSnapshot('normal');
     expect(component.render(100).join('\n')).toMatchSnapshot('wide');
+  });
+
+  it('accounts for every populated leaf in long Impact Ledger output', () => {
+    const rendered = new ExchangeReviewSetResultComponent(details, plainTheme).render(40).join('\n');
+
+    expect(
+      missingRenderedDetailsLeaves(details, rendered, {
+        elisions: IMPACT_LEDGER_DETAILS_ELISIONS,
+        representations: {
+          'review_set.nodes.4.kind': ['obligation'],
+        },
+      }),
+    ).toEqual([]);
   });
 
   it('styles headings, kinds, codes, content, and reference rows by semantic role', () => {

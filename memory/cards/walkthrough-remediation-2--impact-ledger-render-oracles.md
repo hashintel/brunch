@@ -107,7 +107,7 @@ Skipped-test-count delta vs parent: **0** (2 skipped tests; 1 skipped file befor
 
 Card 1's golden structural oracle is green. The stronger independent wrap-honesty and differential oracles remain explicitly queued as Cards 2–3; the Card 1-only delegation stops here.
 
-## Card 2 · Word-wrap-tolerant render-honesty — `next`
+## Card 2 · Word-wrap-tolerant render-honesty — `done`
 
 ### Objective
 
@@ -156,6 +156,20 @@ src/agents/contexts/exchanges/
 ### Promotion checklist
 
 All no — bounded extension of an existing helper inside a settled seam, no requirement/decision/invariant change.
+
+### Completion evidence
+
+| Leaf | Outcome | Evidence |
+| ---- | ------- | -------- |
+| Long logical value split across 2+ table-wrapped physical lines is recognized as rendered | met | `src/agents/contexts/exchanges/__tests__/render-honesty.test.ts` — `recognizes a logical value split across word-wrapped physical lines` |
+| Wrap tolerance still rejects missing, reordered, partial, and concatenated words | met | `src/agents/contexts/exchanges/__tests__/render-honesty.test.ts` — four-case negative matrix; matching preserves whitespace boundaries rather than deleting whitespace |
+| Every populated leaf in a long-content Impact Ledger fixture is rendered or declared elided | met-with-divergence | Direct TUI seam used instead of the tentative model-formatter test: `src/.pi/components/__tests__/exchange-review-set-result.test.ts` — `accounts for every populated leaf in long Impact Ledger output` at width 40 |
+| Declared-elision-list philosophy remains intact | met | The TUI honesty test supplies reason-bearing `RenderElision` entries and an explicit `vv_obligation` → `obligation` representation; no permissive elision or skipped oracle added |
+| Card 1 behavior and family-completeness oracle remain green | met | Focused run: 3 files, 11 tests passed, including snapshots and `exchange-renderer-inventory.test.ts`; `npm run verify` also green |
+| Full verification gate | met | `npm run verify` — 265 files passed, 1 skipped; 2110 tests passed, 2 skipped; build passed |
+| Canonical reconciliation | met | No-op: this implements the already-approved SPEC/PLAN oracle design without changing a seam, decision, assumption, invariant, topology, or frontier status |
+
+Skipped-test-count delta vs parent: **0** (2 skipped tests; 1 skipped file before and after).
 
 ## Card 3 · Differential reference-extractor test — `next`
 
