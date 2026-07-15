@@ -244,7 +244,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 
 - **Name:** Trace and evaluate warranted agent commitments
 - **Linear:** [FE-1208](https://linear.app/hash/issue/FE-1208/trace-and-evaluate-warranted-agent-commitments)
-- **Branch:** `ln/fe-1208-trace-and-evaluate-warranted-agent-commitments`, stacked on the completed `interactive-tui-driver` frontier.
+- **Branch:** `ln/fe-1208-traces-and-evals-1`, stacked on the completed `interactive-tui-driver` frontier.
 - **Kind:** structural verification tooling + bounded behavioral-evaluation tracer; not product runtime.
 - **Certainty:** proving.
 - **Status:** active; oracle design settled, scope not yet authored.
@@ -258,6 +258,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Recorded tradeoffs / re-entry triggers (do not silently retire):** the synthetic ablation proves evaluator discrimination, not broad quality or competitor superiority; directive presence/precedence is attribution, not causality outside the controlled intervention. The controlled actor, small calibration set, foreground-only trace, and single model/provider are accepted ceilings; revisit on actor-sensitive outcomes, material judge disagreement/new rubric domains, a claim requiring subagent ancestry, or repeated supported-provider divergence. Trigger the existing `agent-tracing` OTel-vs-NDJSON spike only when the joined report cannot answer a named question. Competitor execution remains a later matched-budget five-run campaign with blinded human adjudication; opaque competitor internals never count against them. Canonical detail: SPEC §Acknowledged Blind Spots.
 - **Traceability:** req 24; A5-L; D68-L–D70-L; I55-L; SPEC §Verification Design (combined assessment, loop-tier oracles, flywheel design note, acknowledged blind spots).
 - **Design docs:** [`docs/design/AGENT_TRACING.md`](../docs/design/AGENT_TRACING.md) is conditional tracing context, not the first implementation prescription.
+- **Current execution pointer:** [`memory/cards/consequential-fact-discovery-tracer--joined-trajectory.md`](cards/consequential-fact-discovery-tracer--joined-trajectory.md)
 
 ### cli-mode-entry
 
