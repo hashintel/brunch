@@ -4,31 +4,19 @@ Outer-loop verification for slices that touch the user-facing boundary. Manual t
 
 ## Setup
 
-1. **Interactive TUI control**: prefer Pi with `pi-interactive-shell` loaded temporarily when the host permits overlays. It gives the agent a real PTY and bounded terminal queries while a human watches, takes over by typing, and presses `Ctrl+G` to return a hands-free session to the agent. Do not install it into Brunch's sealed profile or package manifest.
+1. **Interactive TUI control**: prefer the project-local `pi-interactive-shell` package when the host permits overlays. It gives the agent a real PTY and bounded terminal queries while a human watches, takes over by typing, and presses `Ctrl+G` to return a hands-free session to the agent. Root `.pi/settings.json` declares this permanent developer extension; it remains outside Brunch's shipped package manifest, sealed `src/.pi` profile, and runtime dependency graph.
 2. **TUI + web sidecar**: `/cli-cmux` remains useful for a dedicated terminal pane. The web UI is served as a sidecar of the running TUI process.
    - **Standalone web** (`brunch --mode web`): also supported since FE-1200. It starts a combined cwd-scoped host without `InteractiveMode`, prints its loopback URL on stdout, and serves the target-addressed React session route (`/session/$specId/$sessionId`) directly. Use this when driving a browser chat without a TUI process.
 3. **Browser**: use `agent-browser` (`/cli-agent-browser`) as the primary observer — daemon-backed Chrome with AX-tree snapshots, clicks, and screenshots. CDP tools (`/cli-cdp`) remain useful for console/network detail.
 
-For an isolated candidate launch, retain the temporary Pi home path, create its session directory, expose existing user auth by symlink (never copy credentials into the repo or scratch), disable resource discovery and project trust, explicitly load only the candidate extension, allow only its `interactive_shell` tool, and make the ephemeral-session intent and session directory explicit:
+Install or reconcile the pinned project package from the repository root, then confirm Pi reports it under `Project packages`:
 
 ```bash
-AGENT_DIR="$(mktemp -d)"
-mkdir -p "$AGENT_DIR/sessions"
-ln -s "$HOME/.pi/agent/auth.json" "$AGENT_DIR/auth.json"
-PI_CODING_AGENT_DIR="$AGENT_DIR" pi \
-  --no-extensions \
-  --no-skills \
-  --no-prompt-templates \
-  --no-themes \
-  --no-context-files \
-  --no-approve \
-  --tools interactive_shell \
-  --no-session \
-  --session-dir "$AGENT_DIR/sessions" \
-  -e npm:pi-interactive-shell@0.13.0
+pi install -l npm:pi-interactive-shell@0.13.0
+pi list
 ```
 
-If the selected provider supports API-key environment authentication, exporting that key instead of creating the auth symlink is also acceptable. The pinned npm candidate remains process-local and is not a Brunch dependency, but its first launch may fetch package contents from the network.
+Pi packages execute with full system access: review and trust this repository before enabling the extension. After project trust is granted, Pi automatically installs a missing declared package on startup; this can fetch package contents from the network into ignored `.pi/npm/` cache state. The declaration and cache-ignore rule are committed, but installed cache contents are not. Do not install the extension into Brunch's root `package.json`, `src/.pi`, or runtime graph.
 
 ### Shared-host transition evidence
 
@@ -44,7 +32,7 @@ The current TUI sidecar and standalone web host are separate runtime composition
 
 Record the current/desired path and exact deletion evidence in the frontier's walkthrough artifact. The cutover is not witnessed while `SessionEventRelay`, `brunch.sessionEvent`, or `/rpc/driver` remains load-bearing. See [`docs/design/WEB_UI_ARCHITECTURE.md`](../design/WEB_UI_ARCHITECTURE.md).
 
-Before relying on it, confirm the extension loads, starts a trivial command, accepts input, resizes, reports final status, and leaves no background session. Then ask the agent to run these in hands-free mode:
+Before relying on it, use `interactive_shell` to start a trivial command, accept input, resize, report a final status, and prove no background session remains. Repeat this health check after any pinned package, Pi, Node, OS, architecture, or resolved-`zigpty` change. Then ask the agent to run these in hands-free mode:
 
 ```text
 npm run dev:components -- tui-lab
@@ -52,11 +40,11 @@ npm run seed -- --seed workspace-alpha-grounding/base --reset
 npm run dev-cli -- --workspace .fixtures/workbenches/workspace-alpha-grounding --no-webui
 ```
 
-Use structured `input`, `inputKeys`, `inputPaste`, status, and kill operations rather than embedding terminal escapes. Candidate 0.13.0 was witnessed on Pi 0.80.x, Node v24.18.0, and macOS 26.5.2 arm64 with its resolved `zigpty` 0.1.6 `darwin-arm64` prebuild. It declares `zigpty ^0.1.6` while upstream was on 0.2.1; re-run the health check after candidate, Pi, Node, OS, architecture, or resolved-`zigpty` changes. macOS is the witnessed platform; Linux remains unproven here.
+Use structured `input`, `inputKeys`, `inputPaste`, status, and kill operations rather than embedding terminal escapes. Keep model-visible queries bounded; use status to capture the final exit result. Version 0.13.0 was witnessed on Pi 0.80.x, Node v24.18.0, and macOS 26.5.2 arm64 with its resolved `zigpty` 0.1.6 `darwin-arm64` prebuild. It declares `zigpty ^0.1.6` while upstream was on 0.2.1. macOS is the witnessed platform; Linux remains unproven here.
 
 ### Sandboxed/headless fallback: tui-driver
 
-If overlays or socket-backed tooling cannot bind (for example `listen EPERM .../*.pipe`), use `npm run tui-driver` (`src/dev/tui-driver.ts`). It is an `expect`-pumped PTY per named session, with true screen rendering through a headless xterm and wait-for-text instead of sleep-and-hope. Sessions live under gitignored `.fixtures/scratch/tui-driver/<name>/`. It does not provide human overlay takeover, runtime resize, or bracketed/multiline paste; switch back to the temporary extension when those are acceptance requirements and the host permits it.
+If overlays or socket-backed tooling cannot bind (for example `listen EPERM .../*.pipe`), use `npm run tui-driver` (`src/dev/tui-driver.ts`). It is an `expect`-pumped PTY per named session, with true screen rendering through a headless xterm and wait-for-text instead of sleep-and-hope. Sessions live under gitignored `.fixtures/scratch/tui-driver/<name>/`. It does not provide human overlay takeover, runtime resize, or bracketed/multiline paste; switch back to the project-local extension when those are acceptance requirements and the host permits it.
 
 ```bash
 # Launch the TUI under a named driver session.
@@ -76,12 +64,7 @@ npm run tui-driver -- rm --name walk
 npm run tui-driver -- list
 ```
 
-For the temporary extension, query the session to a final status, kill it if still running, dismiss its background record, and verify its background-session list is empty. After Pi exits, remove the auth symlink and temporary home using the retained variable:
-
-```bash
-rm "$AGENT_DIR/auth.json"
-rm -rf "$AGENT_DIR"
-```
+For the project-local extension, query every session to a final status, kill any session still running, dismiss completed background records, and verify its background-session list is empty. Cleanup applies to sessions, not the committed package declaration or ignored package cache.
 
 Keys: `Enter Esc Up Down Right Left Tab Space Backspace C-c C-d`. `send` fails fast with a named error when the driver is gone (no silent fifo blocking); `list` shows every session with liveness. The raw PTY byte stream is in each session's `output.log` (`log` subcommand) when the rendered screen isn't enough.
 
