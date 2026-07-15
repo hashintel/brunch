@@ -81,6 +81,7 @@ Close the entire first batch of walkthrough-related findings: remediation, the o
 ### Recently Completed
 
 - 2026-07-15 `standalone-web-session-host` (FE-1200) — **✓ closed**: standalone target-addressed hosting, two-session isolation, and the complete required web presentation-family sweep landed; I64-L/I65-L and all five topology homes are reconciled. Full closeout: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md#2026-07-15-fe-1200-standalone-web-session-host-closeout).
+- 2026-07-15 `interactive-tui-driver` (FE-1206) — **✓ closed and outer-witnessed**: temporary `pi-interactive-shell` is the overlay-capable host default for shared agent/human control; the project-owned Expect/headless-xterm driver remains the sandbox/headless fallback. Both component-preview and seeded-Brunch tracers, resize/takeover/return, bounded evidence, and deterministic cleanup were witnessed without widening Brunch's package graph or sealed Pi profile.
 - 2026-07-14 `FE-1196 platform debt` — **✓ closed and outer-witnessed**: spec posture, workspace DB identity, headless ask discovery, reconciliation derivation, native compaction continuity, and active-branch session correctness are materialized; `web-driver-streaming` was evaluated and retired, and transcript-ledger rendering moved to FE-1187. Full closeout: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md#2026-07-14-sync-archive-ln-sync-fe-1196-platform-debt-closeout).
 - 2026-07-14 `petri-execution-parity` (FE-1195) — completed the old-`main` live-parity closure and final review hardening: timestamped firing wire with calendar-valid TypeBox boundary checks, structural pass/fail branches with strict list/detail failed-slice evidence, stale serial-state retirement at parallel admission, journal-idempotent restart-stable terminal authority, rejection of every post-terminal fact, causality-gated Petrinaut replay/export, staging-aligned SDCPN parsing that retains legitimate full roots, and a view-only projection with mechanically pruned isolated places, preserved connected IDs/arcs, contextual labels, locale-independent ordering, and collision-free compact/legacy fallback bands. Durable terminal evidence wins over later abandonment metadata; raw executor topology/markings and SSE firing order remain unchanged. Full per-slice attempt identity remains the current projection; standardized subnet grouping/folding should be revisited above roughly 12 slices without claiming color-fold parity. Manual Rust fixture comparison remains pre-PR outer evidence.
 Older completion history (incl. FE-1190 petrinaut-live-run-stream and FE-1180 walkthrough-remediation-1): [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md).
@@ -96,8 +97,7 @@ Older completion history (incl. FE-1190 petrinaut-live-run-stream and FE-1180 wa
 
 ### Parallel / Low-conflict
 
-- `interactive-tui-driver` — not started; separate-worktree tooling tracer comparing the proven in-repo Expect/xterm driver with `pi-interactive-shell` over `zigpty`, then locking one canonical agent workflow and fallback order. Definition below.
-- `graph-assurance-conduct` — not started; separate D131-L closure frontier canonicalizing capture/map/project/propose/review semantics without a database migration. May proceed after the D131-L documentation commit; FE-1187 owns the renderer, not this prompt/skill sweep. Definition below.
+- `graph-assurance-conduct` — not started; separate D131-L closure frontier canonicalizing capture/map/project/propose/review semantics without a database migration. FE-1187 owns the renderer, not this prompt/skill sweep. Definition below.
 
 ### Cleanups — Group 4
 
@@ -199,7 +199,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Branch:** `ln/fe-1206-interactive-tui-driver`, independently stacked on `ln/fe-1187-remediation-3` in the dedicated `brunch-next-iota` worktree.
 - **Kind:** structural tooling — development feedback-loop control and evidence capture, not product runtime.
 - **Certainty:** proving.
-- **Status:** scoped 2026-07-15; active scope: [`memory/cards/interactive-tui-driver--canonical-workflow.md`](cards/interactive-tui-driver--canonical-workflow.md).
+- **Status:** ✓ closed 2026-07-15. Host-capable default: temporary isolated-profile `pi-interactive-shell`; sandbox/headless fallback: project-owned Expect/headless-xterm `npm run tui-driver`. No project dependency or sealed-profile addition.
 - **Objective:** settle and materialize one canonical way for agents to launch, observe, drive, resize, and stop Brunch TUIs while a human can inspect or take over when the host permits it. Compare the proven in-repo `src/dev/tui-driver.ts` (Expect/FIFO PTY + `@xterm/headless`) with `pi-interactive-shell`'s Pi overlay over `zigpty`; adopt, augment, or retain based on real tracer evidence rather than replacing the working fallback speculatively.
 - **Why now / unlocks:** FE-1187's review-set prototype exposed recurring runner confusion: external daemon-backed tools can fail under sandbox socket policy, while the component playground is the canonical visual-review surface but agents lack one obvious interaction path. A settled driver workflow unlocks repeatable component-playground reviews, real Brunch TUI walkthroughs, and future outer-loop evidence without re-deriving the tool choice each session.
 - **Lights up:** one end-to-end agent-controlled path through both `npm run dev:components -- tui-lab` and a seeded `npm run dev-cli` session, with terminal-state observation and deterministic teardown.
@@ -415,9 +415,9 @@ group-3 (Next — agent layer):
 
 parallel:
   interactive-tui-driver
-    status: not started; independent separate-worktree tracer
-    lights_up: component playground + seeded Brunch TUI under one agent-control workflow
-    decision: pi-interactive-shell candidate | existing tui-driver fallback | direct zigpty only on demonstrated gap
+    status: done 2026-07-15; temporary pi-interactive-shell host default | existing tui-driver sandbox fallback
+    evidence: component playground + seeded Brunch TUI + human takeover/return + deterministic cleanup
+    excludes: project dependency, sealed-profile extension, direct zigpty integration
   graph-assurance-conduct
     status: not started; earned closure frontier after D131-L documentation commit
     canonicalizes: capture/map/project/propose/review assurance semantics
