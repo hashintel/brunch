@@ -28,6 +28,8 @@ describe('consequential-fact production campaign entry', () => {
     let screenIndex = 0;
     const screens = [
       'New specification title',
+      'Is this a fresh, greenfield specification?\n› Yes',
+      'Choose how Specify mode should continue\n› Work by decision\n  Work by example',
       'What compliance or audit constraints are missing?',
       'Review set: retain the source regulator clause identifier verbatim. [ Approve ]',
       '## Review: accepted',
@@ -61,7 +63,8 @@ describe('consequential-fact production campaign entry', () => {
       thinking: 'low',
       providerSeed: 'unsupported',
       workspaceSeed: 'consequential-fact-review-diff/v1',
-      setupRecipe: 'fresh workspace; create one empty Review Diff spec',
+      setupRecipe:
+        'fresh workspace; create one empty Review Diff spec; accept greenfield default; accept selected Work by decision orientation',
       turnBudget: 8,
       timeoutMs: 1000,
       tui: { cols: 120, rows: 40 },
@@ -94,7 +97,18 @@ describe('consequential-fact production campaign entry', () => {
     const aggregate = await runConsequentialFactCampaign(parsedManifest, port);
 
     expect(collected).toEqual(runs.map((run) => run.runId));
-    expect(actions).toHaveLength(18);
+    expect(actions).toHaveLength(30);
+    expect(actions.slice(0, 5)).toEqual([
+      { kind: 'type_text', text: 'Review Diff', submit: true },
+      { kind: 'press_key', key: 'Enter' },
+      { kind: 'press_key', key: 'Enter' },
+      {
+        kind: 'type_text',
+        text: 'Every accepted policy rewrite must retain its source regulator clause identifier verbatim.',
+        submit: true,
+      },
+      { kind: 'press_key', key: 'Enter' },
+    ]);
     expect(actions).toContainEqual({
       kind: 'type_text',
       text: 'Every accepted policy rewrite must retain its source regulator clause identifier verbatim.',

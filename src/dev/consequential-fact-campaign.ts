@@ -1,4 +1,6 @@
 const ATOMIC_COUNT = 6;
+const FIXED_SETUP_RECIPE =
+  'fresh workspace; create one empty Review Diff spec; accept greenfield default; accept selected Work by decision orientation';
 const FIXED_RUNS = [
   ['control-1', 'control'],
   ['ablated-1', 'ablated'],
@@ -104,6 +106,7 @@ export function parseCampaignManifest(value: unknown): CampaignManifest {
     value.actorVersion !== 'review-diff-actor/v1' ||
     value.rubricVersion !== 'consequential-fact/v1' ||
     value.workspaceSeed !== 'consequential-fact-review-diff/v1' ||
+    value.setupRecipe !== FIXED_SETUP_RECIPE ||
     value.turnBudget !== 8 ||
     !record(value.directive) ||
     value.directive.id !== 'warrant-before-commit' ||

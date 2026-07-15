@@ -77,6 +77,15 @@ export async function runConsequentialFactCampaign(
       started = true;
       viewport = await waitForRecognizedScreen(port, session.logPath, manifest, 'New specification title');
       await port.act(name, { kind: 'type_text', text: 'Review Diff', submit: true });
+      viewport = await waitForRecognizedScreen(
+        port,
+        session.logPath,
+        manifest,
+        'Is this a fresh, greenfield specification?',
+      );
+      await port.act(name, { kind: 'press_key', key: 'Enter' });
+      viewport = await waitForSelectedOrientation(port, session.logPath, manifest);
+      await port.act(name, { kind: 'press_key', key: 'Enter' });
 
       let turnsUsed = 0;
       viewport = await waitForScreenClass(port, session.logPath, manifest, 'question');
@@ -124,6 +133,25 @@ async function waitForScreenClass(
     await new Promise((done) => setTimeout(done, 100));
   }
   throw new Error(`mechanically invalid: timed out awaiting recognized ${expected} screen`);
+}
+
+async function waitForSelectedOrientation(
+  port: CampaignRunnerPort,
+  logPath: string,
+  manifest: CampaignManifest,
+): Promise<string> {
+  const title = 'Choose how Specify mode should continue';
+  const deadline = Date.now() + manifest.timeoutMs;
+  while (Date.now() < deadline) {
+    const screen = await port.screen(logPath, manifest.tui.cols, manifest.tui.rows);
+    if (screen.includes(title)) {
+      if (!/^› Work by decision(?:\s|$)/mu.test(screen))
+        throw new Error('mechanically invalid: Work by decision is not the selected orientation');
+      return screen;
+    }
+    await new Promise((done) => setTimeout(done, 100));
+  }
+  throw new Error(`mechanically invalid: timed out awaiting ${title}`);
 }
 
 async function waitForRecognizedScreen(
