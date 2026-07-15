@@ -165,8 +165,10 @@ async function waitForInteraction(
       await new Promise((done) => setTimeout(done, 100));
       continue;
     }
-    if (/Review set|Approve|Request changes/iu.test(viewport)) return { kind: 'review', viewport };
+    // The viewport retains prior transcript text, so classify the currently open ask editor
+    // before scanning older copy for review vocabulary.
     if (/\?[^?]*enter submits/isu.test(viewport)) return { kind: 'question', viewport };
+    if (/Review set|Approve|Request changes/iu.test(viewport)) return { kind: 'review', viewport };
     await new Promise((done) => setTimeout(done, 100));
   }
   throw new Error('mechanically invalid: timed out awaiting recognized question or review screen');
