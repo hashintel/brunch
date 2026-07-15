@@ -59,7 +59,7 @@ nodes — plan · commitment (4)
 | code | id | title |
 | - | - | - |
 | M1 | 22 | Cross-cut render feedback loop |
-| F1 | 23 | Preview harness slice |
+| F1 | 23 | Preview harness frontier |
 | F2 | 24 | Lock one neighborhood preview |
 | SCP1 | 25 | Neighborhood preview handoff |
 

@@ -98,5 +98,5 @@ chain ingest-band-walk:
 ### Commit
 
 - Routing question: "What is binding now, how will we judge it, and how is the work sequenced?"
-- Ingest rule: commitment-band material (`criterion`, `milestone`, `frontier`, `slice`) captured early is early outer-band signal unless it has survived review against the inner concerns.
+- Ingest rule: commitment-band material (`criterion`, `milestone`, `frontier`, `scope`) captured early is early outer-band signal unless it has survived review against the inner concerns.
 - Completion signal: commitments are promoted, rewritten, superseded, or reconciled. They are not auto-settled merely because they appeared in a source document.

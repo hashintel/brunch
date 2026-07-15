@@ -34,7 +34,7 @@ Do not use `stage`, `phase`, `readiness grade`, or `maturity level` as live cont
 
 Capture is opportunistic; settlement is band-aware.
 
-If the user or a reviewed source supplies later-band material early, capture it honestly with the right node kind, basis, and source. Do not demote a `slice` into vague context or ignore a concrete `module` because the conversation is still thin.
+If the user or a reviewed source supplies later-band material early, capture it honestly with the right node kind, basis, and source. Do not demote a `scope` into vague context or ignore a concrete `module` because the conversation is still thin.
 
 Early outer-band material is **not self-settling**. It must be carried forward for one of:
 
@@ -101,7 +101,7 @@ This table is guidance for elicitor orientation and capability-readiness. Closed
 | `criterion`     | AC   | commitment           |
 | `milestone`     | M    | commitment           |
 | `frontier`      | F    | commitment           |
-| `slice`         | S    | commitment           |
+| `scope`         | SCP  | commitment           |
 
 Band-less kinds are not unimportant. They are capturable wherever they surface:
 

@@ -46,7 +46,7 @@ The same edge reads differently from each endpoint. Labels are projections of `(
 | `supersession`              | supersedes                | superseded by                |
 | `cross_reference`           | related to                | related to                   |
 
-Kind-sharpened `realization` verbs: requirement/interface → module render "implemented by / implements"; requirement → slice render "established by / establishes"; invariant → requirement render "expressed by / expresses".
+Kind-sharpened `realization` verbs: requirement/interface → module render "implemented by / implements"; requirement → scope render "established by / establishes"; invariant → requirement render "expressed by / expresses".
 
 ## Direction is metadata, not verb
 
