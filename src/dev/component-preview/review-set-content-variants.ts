@@ -3,7 +3,7 @@ import { type Component, Key, matchesKey, type TUI } from '@earendil-works/pi-tu
 
 import { ExchangeReviewSetResultComponent } from '../../.pi/components/exchange-review-set-result.js';
 import type { PresentReviewSetDetails } from '../../exchanges/schemas/index.js';
-import { presentReviewSetFixture } from './exchange-fixtures.js';
+import { witnessedReviewSetFixture } from './review-set-fixtures.js';
 
 export interface ReviewSetContentVariant {
   readonly id: string;
@@ -23,7 +23,7 @@ function withContent(
   label: string,
   contentAt: (index: number) => string,
 ): ReviewSetContentVariant {
-  const details = presentReviewSetFixture.projection.details;
+  const details = witnessedReviewSetFixture.projection.details;
   return {
     id,
     label,
@@ -37,7 +37,7 @@ function withContent(
   };
 }
 
-const baseDetails = presentReviewSetFixture.projection.details;
+const baseDetails = witnessedReviewSetFixture.projection.details;
 
 export const REVIEW_SET_CONTENT_VARIANTS: readonly ReviewSetContentVariant[] = [
   withContent('all-short', 'All short', (index) => SHORT[index] ?? 'Short entry.'),

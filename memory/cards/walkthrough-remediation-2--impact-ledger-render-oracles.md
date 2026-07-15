@@ -182,13 +182,13 @@ A deliberately naive reference extractor (flat node/edge/term inventory, no styl
 ```text
 - memory/SPEC.md — "FE-1187 Impact Ledger render oracle design" Design Note
 - memory/PLAN.md — frontier: walkthrough-remediation-2; Verification (Impact Ledger render, D127-L) line
-- src/dev/component-preview/exchange-fixtures.ts — presentReviewSetFixture, the existing witnessed 17-node/11-edge fixture
+- `git show b8330fa0^:src/dev/component-preview/review-set-prototype.ts` — the deleted prototype's locked 17-node/11-edge `REVIEW_SET_PAYLOAD` (now materialized as `witnessedReviewSetFixture` in `src/dev/component-preview/review-set-fixtures.ts`)
 ```
 
 ### Acceptance Criteria
 
 ```text
-✓ new differential test file — naive extractor's node/edge/refs inventory over presentReviewSetFixture equals the Impact Ledger's own inventory (same codes, same connection counts)
+✓ new differential test file — naive extractor's node/edge/refs inventory over the locked `witnessedReviewSetFixture` equals the Impact Ledger's own inventory (same codes, same connection counts), with an oracle pinning exactly 17 nodes and 11 edges
 ✓ same test — hand-authored edge fixtures (empty group, single-node group, term-only group, max-refs group) each pass the same differential check
 ```
 
@@ -214,7 +214,7 @@ A deliberately naive reference extractor (flat node/edge/term inventory, no styl
 src/.pi/components/__tests__/
 └── exchange-review-set-result-differential.test.ts +
 src/dev/component-preview/
-└── exchange-fixtures.ts ~?  (only if edge-case fixtures are added here rather than inlined in the new test)
+└── review-set-fixtures.ts +  (named reusable copy of the prototype's locked witnessed fixture)
 ```
 
 ### Promotion checklist
@@ -225,7 +225,8 @@ All no.
 
 | Leaf | Outcome | Evidence |
 | ---- | ------- | -------- |
-| Naive structured-details extractor matches rendered codes and per-code connection counts for `presentReviewSetFixture` | met | `src/.pi/components/__tests__/exchange-review-set-result-differential.test.ts` — `matches the witnessed review-set fixture` |
+| Naive structured-details extractor matches rendered codes and per-code connection counts for the locked witnessed fixture | met | `src/.pi/components/__tests__/exchange-review-set-result-differential.test.ts` — `matches the witnessed review-set fixture`, using `witnessedReviewSetFixture` recovered from `b8330fa0^` |
+| Witnessed fixture cannot silently shrink below the claimed comparison surface | met | The primary differential oracle pins `entityDrafts` at exactly 17 and `edgeDrafts` at exactly 11 |
 | Empty-group, single-node-group, term-only-group, and max-refs-group fixtures pass the same differential check | met | `src/.pi/components/__tests__/exchange-review-set-result-differential.test.ts` — four-row `it.each` matrix |
 | Reference extractor remains independent of renderer grouping and connection helpers | met | Test-local `referenceInventory` performs one flat edge-category traversal and imports only the public component; rendered inventory is parsed from `render(2_000)` output |
 | Same codes and connection counts are proved without pinning spacing/aesthetics | met | `renderedInventory` observes only graph-code tokens and `refs:` cardinality; snapshots remain the separate visual oracle |
@@ -238,7 +239,7 @@ Skipped-test-count delta vs parent: **0** (2 skipped tests; 1 skipped file befor
 
 ### Objective
 
-A dev-only `src/dev/component-preview/` registry entry cycles through deterministic content-length permutations of the witnessed review-set fixture (all-short, all-long, alternating, one long outlier among short entries, term-heavy vs. connection-heavy) rendered through the real Impact Ledger component at real terminal height, giving the FE-1187 outer-loop walkthrough a repeatable stress surface — no `fast-check`, no new dependency.
+A dev-only `src/dev/component-preview/` registry entry cycles through deterministic content-length permutations of the locked 17-node/11-edge `witnessedReviewSetFixture` (all-short, all-long, alternating, one long outlier among short entries, term-heavy vs. connection-heavy) rendered through the real Impact Ledger component at real terminal height, giving the FE-1187 outer-loop walkthrough a repeatable stress surface — no `fast-check`, no new dependency.
 
 ### Light-card cold-start reads
 
@@ -288,13 +289,27 @@ All no.
 
 | Leaf | Outcome | Evidence |
 | ---- | ------- | -------- |
-| Named deterministic variants cover all-short, all-long, alternating long/short, one long outlier, term-heavy, and connection-heavy content | met | `REVIEW_SET_CONTENT_VARIANTS` in `src/dev/component-preview/review-set-content-variants.ts`; exact id list pinned by `review-set-content-variants.test.ts` |
+| Named deterministic variants cover all-short, all-long, alternating long/short, one long outlier, term-heavy, and connection-heavy content | met | `REVIEW_SET_CONTENT_VARIANTS` derives all six variants from the 17-node/11-edge `witnessedReviewSetFixture`; exact id list, base counts, and 17-node variant size are pinned by `review-set-content-variants.test.ts` |
 | Gallery renders through the real Impact Ledger at terminal width and preserves every line without claiming unavailable height control | met-with-divergence | `ReviewSetContentVariantGallery.render(width)` delegates to `ExchangeReviewSetResultComponent.render(width)`; code comment and registry description explicitly name the preview seam's absent viewport-height input |
 | Active variant is visible and next/previous cycling follows ComponentGalleryComponent conventions | met | Header shows label, ordinal, and reproducible id; `↑/↓` and `j/k` wrap in both directions; cycling smoke test exercises arrow bytes and `k` |
 | Registry entry is reachable from `npm run dev:components` | met | `present-review-set-content-variants` entry in `src/dev/component-preview/registry.ts` |
-| Every named variant renders without throwing; cycling is reachable/reproducible | met | `npx vitest run src/dev/component-preview/__tests__/review-set-content-variants.test.ts` — 2 tests passed |
+| Every named variant renders without throwing; cycling is reachable/reproducible | met | `npx vitest run src/.pi/components/__tests__/exchange-review-set-result-differential.test.ts src/dev/component-preview/__tests__/review-set-content-variants.test.ts` — 2 files, 7 tests passed |
 | No automated readability assertion, randomness, `fast-check`, or new dependency introduced | met | Smoke assertions cover identity/render reachability only; package manifests unchanged |
 | Full verification gate | met | `npm run verify` — 267 files passed, 1 skipped; 2117 tests passed, 2 skipped; build passed |
 | Canonical reconciliation | met | No-op: this implements the protected coordinator-authored SPEC/PLAN oracle design without changing production behavior, seam, decision, assumption, invariant, or topology |
 
 Skipped-test-count delta vs parent: **0** (2 skipped tests; 1 skipped file before and after).
+
+### Cards 3–4 review remediation (2026-07-15)
+
+| Leaf | Outcome | Evidence |
+| ---- | ------- | -------- |
+| Recover the exact locked prototype payload without recreating the prototype | met | `src/dev/component-preview/review-set-fixtures.ts` exports `WITNESSED_REVIEW_SET_PAYLOAD`, recovered from `git show b8330fa0^:src/dev/component-preview/review-set-prototype.ts`, and its projected `witnessedReviewSetFixture` |
+| Pin the witnessed fixture at exactly 17 nodes and 11 edges | met | Primary differential test and content-variant smoke test both assert exact payload counts: 17 `entityDrafts`, 11 `edgeDrafts` |
+| Card 3 uses the witnessed fixture and retains four edge cases | met | `exchange-review-set-result-differential.test.ts`: witnessed primary case plus empty-group, single-node-group, term-only-group, and max-refs-group matrix |
+| Card 4 derives all six named variants from the witnessed fixture and retains cycling/smoke behavior | met | `review-set-content-variants.ts` imports `witnessedReviewSetFixture`; targeted suite passes all 7 tests across both files |
+| Inner and targeted verification | met | `npm run fix`; `npx vitest run src/.pi/components/__tests__/exchange-review-set-result-differential.test.ts src/dev/component-preview/__tests__/review-set-content-variants.test.ts` — 2 files, 7 tests passed |
+| Full verification gate | met | `npm run verify` — 267 files passed, 1 skipped; 2117 tests passed, 2 skipped; build passed |
+| Canonical reconciliation | met | No-op: correction restores the fixture named by the already-approved SPEC/PLAN oracle design; no seam, decision, assumption, invariant, frontier status, or topology changed |
+
+Remediation skipped-test-count delta vs `e2cf4714`: **0** (2 skipped tests; 1 skipped file before and after).

@@ -4,6 +4,7 @@ import {
   REVIEW_SET_CONTENT_VARIANTS,
   ReviewSetContentVariantGallery,
 } from '../review-set-content-variants.js';
+import { witnessedReviewSetFixture } from '../review-set-fixtures.js';
 import { createComponentPreviewTheme } from '../theme.js';
 
 const EXPECTED_VARIANTS = [
@@ -17,6 +18,8 @@ const EXPECTED_VARIANTS = [
 
 describe('ReviewSetContentVariantGallery', () => {
   it('renders every deterministic named variant through the gallery without throwing', () => {
+    expect(witnessedReviewSetFixture.payload.entityDrafts).toHaveLength(17);
+    expect(witnessedReviewSetFixture.payload.edgeDrafts).toHaveLength(11);
     expect(REVIEW_SET_CONTENT_VARIANTS.map((variant) => variant.id)).toEqual(EXPECTED_VARIANTS);
 
     for (const [index, variant] of REVIEW_SET_CONTENT_VARIANTS.entries()) {
@@ -27,7 +30,8 @@ describe('ReviewSetContentVariantGallery', () => {
       );
       const output = gallery.render(52).join('\n');
       expect(output).toContain(`${variant.label} (${index + 1}/${REVIEW_SET_CONTENT_VARIANTS.length})`);
-      expect(output).toContain('G2');
+      expect(output).toContain('G1');
+      expect(variant.details.review_set.nodes).toHaveLength(17);
     }
   });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { presentReviewSetFixture } from '../../../dev/component-preview/exchange-fixtures.js';
+import { witnessedReviewSetFixture } from '../../../dev/component-preview/review-set-fixtures.js';
 import { projectPresentReviewSet } from '../../../exchanges/projections/present-review-set.js';
 import type { PresentReviewSetDetails } from '../../../exchanges/schemas/index.js';
 import type { ReviewSetProposalPayload } from '../../../graph/review-set.js';
@@ -123,7 +123,9 @@ function expectDifferentialMatch(details: PresentReviewSetDetails) {
 
 describe('Impact Ledger differential reference inventory', () => {
   it('matches the witnessed review-set fixture', () => {
-    expectDifferentialMatch(presentReviewSetFixture.projection.details);
+    expect(witnessedReviewSetFixture.payload.entityDrafts).toHaveLength(17);
+    expect(witnessedReviewSetFixture.payload.edgeDrafts).toHaveLength(11);
+    expectDifferentialMatch(witnessedReviewSetFixture.projection.details);
   });
 
   it.each([
