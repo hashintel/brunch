@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { PROJECT_EXECUTION_HARNESS_TITLE } from '../../../../graph/schema/nodes.js';
 import {
   DEFAULT_BRUNCH_AGENT_STATE,
   projectBrunchAgentState,
@@ -108,9 +109,12 @@ describe('composeLiveElicitorPrompt', () => {
       sessionState: projectBrunchAgentState([]),
       spec: { id: 42, name: 'Live Assembly Spec' },
       workspace,
+      agentBody: '# Agent: elicitor\n\nFixed body without execution policy.',
     });
 
-    expect(result.prompt).toContain('settled `oracle/vv_method` named `Project execution harness`');
+    expect(result.prompt).toContain(
+      `settled \`oracle/vv_method\` named \`${PROJECT_EXECUTION_HARNESS_TITLE}\``,
+    );
     expect(result.prompt).toContain('What command should Brunch run to verify the implementation?');
     expect(result.prompt).toContain('`execute.verify: <command>`');
     expect(result.prompt).toContain('the user must approve the recipe');

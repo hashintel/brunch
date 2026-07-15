@@ -53,6 +53,28 @@ export interface ExecutablePlanDraft {
   readonly sideEffects: readonly [];
 }
 
+export interface AssembleExecutablePlanDraftInput {
+  readonly specId: string;
+  readonly mode: ExecutionPlanOutline['mode'];
+  readonly epics: readonly Omit<ExecutablePlanDraftEpic, 'sliceIds'>[];
+  readonly slices: readonly ExecutablePlanDraftSlice[];
+}
+
+export function assembleExecutablePlanDraft(input: AssembleExecutablePlanDraftInput): ExecutablePlanDraft {
+  const slices = orderSlicesByDependencies(input.slices);
+  return {
+    schemaVersion: 2,
+    specId: input.specId,
+    mode: input.mode,
+    epics: input.epics.map((epic) => ({
+      ...epic,
+      sliceIds: slices.filter((slice) => slice.epicId === epic.id).map((slice) => slice.id),
+    })),
+    slices,
+    sideEffects: [],
+  };
+}
+
 export function draftExecutablePlan(outline: ExecutionPlanOutline): ExecutablePlanDraft {
   assertExecutionPlanOutlineVersion(outline);
   const allTasks = [...outline.frontiers.flatMap((frontier) => frontier.tasks), ...outline.orphanTasks];
@@ -67,7 +89,7 @@ export function draftExecutablePlan(outline: ExecutionPlanOutline): ExecutablePl
       if (!existingTaskId) taskIdByRequirement.set(requirementId, task.id);
     }
   }
-  const orderedSlices = orderSlicesByDependencies([
+  const slices = [
     ...outline.frontiers.flatMap((frontier) =>
       frontier.tasks.map((task) => ({
         ...draftSlice(task, taskIdByRequirement),
@@ -75,11 +97,10 @@ export function draftExecutablePlan(outline: ExecutionPlanOutline): ExecutablePl
       })),
     ),
     ...outline.orphanTasks.map((task) => draftSlice(task, taskIdByRequirement)),
-  ]);
+  ];
   const epics = outline.frontiers.map((frontier) => ({
     id: frontier.id,
     title: frontier.title,
-    sliceIds: orderedSlices.filter((slice) => slice.epicId === frontier.id).map((slice) => slice.id),
     dependsOn: frontier.dependsOn,
     verification: frontier.verification.map((criterion) => ({
       kind: 'criterion' as const,
@@ -88,14 +109,12 @@ export function draftExecutablePlan(outline: ExecutionPlanOutline): ExecutablePl
     })),
   }));
 
-  return {
-    schemaVersion: 2,
+  return assembleExecutablePlanDraft({
     specId: outline.specId,
     mode: outline.mode,
     epics,
-    slices: orderedSlices,
-    sideEffects: [],
-  };
+    slices,
+  });
 }
 
 export function assertExecutablePlanDraftVersion(draft: Pick<ExecutablePlanDraft, 'schemaVersion'>): void {

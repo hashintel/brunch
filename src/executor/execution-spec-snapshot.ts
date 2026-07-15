@@ -1,8 +1,12 @@
 import type { GraphEdge } from '../graph/schema/edges.js';
-import { formatGraphNodeCode, type GraphNode, type NodeKind } from '../graph/schema/nodes.js';
+import {
+  formatGraphNodeCode,
+  PROJECT_EXECUTION_HARNESS_TITLE,
+  type GraphNode,
+  type NodeKind,
+} from '../graph/schema/nodes.js';
 
 export type ExecutionSpecMode = 'greenfield' | 'brownfield';
-export const PROJECT_EXECUTION_HARNESS_TITLE = 'Project execution harness';
 
 export interface ExecutionSpecItemSnapshot {
   readonly itemId: string;

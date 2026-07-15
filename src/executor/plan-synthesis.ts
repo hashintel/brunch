@@ -1,7 +1,7 @@
 import { parseCandidatePlan, type CandidatePlan } from './candidate-plan.js';
 import { capabilityVocabulary, type CapabilityProvider } from './capability-providers.js';
 import {
-  orderSlicesByDependencies,
+  assembleExecutablePlanDraft,
   type ExecutablePlanDraft,
   type ExecutablePlanDraftSlice,
 } from './executable-plan-draft.js';
@@ -158,16 +158,12 @@ function lowerCandidatePlan(candidate: CandidatePlan, projection: PlanningProjec
         : [];
     }),
   }));
-  const orderedSlices = orderSlicesByDependencies(slices);
-
-  return {
-    schemaVersion: 2,
+  return assembleExecutablePlanDraft({
     specId: candidate.specId,
     mode: projection.mode,
     epics: candidate.epics.map((epic) => ({
       id: epic.id,
       title: epic.title,
-      sliceIds: orderedSlices.filter((slice) => slice.epicId === epic.id).map((slice) => slice.id),
       dependsOn: epic.dependsOn,
       verification: epic.verificationCriterionIds.flatMap((criterionId) => {
         const criterion = criterionById.get(criterionId);
@@ -176,7 +172,6 @@ function lowerCandidatePlan(candidate: CandidatePlan, projection: PlanningProjec
           : [];
       }),
     })),
-    slices: orderedSlices,
-    sideEffects: [],
-  };
+    slices,
+  });
 }
