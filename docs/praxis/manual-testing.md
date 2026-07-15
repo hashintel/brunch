@@ -9,7 +9,7 @@ Outer-loop verification for slices that touch the user-facing boundary. Manual t
    - **Standalone web** (`brunch --mode web`): also supported since FE-1200. It starts a combined cwd-scoped host without `InteractiveMode`, prints its loopback URL on stdout, and serves the target-addressed React session route (`/session/$specId/$sessionId`) directly. Use this when driving a browser chat without a TUI process.
 3. **Browser**: use `agent-browser` (`/cli-agent-browser`) as the primary observer — daemon-backed Chrome with AX-tree snapshots, clicks, and screenshots. CDP tools (`/cli-cdp`) remain useful for console/network detail.
 
-For an isolated candidate launch, retain the temporary Pi home path, create its session directory, expose existing user auth by symlink (never copy credentials into the repo or scratch), disable resource discovery and project trust, and explicitly load only the candidate extension:
+For an isolated candidate launch, retain the temporary Pi home path, create its session directory, expose existing user auth by symlink (never copy credentials into the repo or scratch), disable resource discovery and project trust, explicitly load only the candidate extension, allow only its `interactive_shell` tool, and make the ephemeral-session intent and session directory explicit:
 
 ```bash
 AGENT_DIR="$(mktemp -d)"
@@ -22,6 +22,9 @@ PI_CODING_AGENT_DIR="$AGENT_DIR" pi \
   --no-themes \
   --no-context-files \
   --no-approve \
+  --tools interactive_shell \
+  --no-session \
+  --session-dir "$AGENT_DIR/sessions" \
   -e npm:pi-interactive-shell@0.13.0
 ```
 
