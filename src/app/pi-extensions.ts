@@ -18,6 +18,7 @@ import { registerBrunchChrome } from '../.pi/extensions/chrome/index.js';
 import { type BrunchChromeState } from '../.pi/extensions/chrome/index.js';
 import { registerBrunchCommands, type BrunchCommandsOptions } from '../.pi/extensions/commands/index.js';
 import { registerBrunchBranchPolicyHandlers } from '../.pi/extensions/commands/policy.js';
+import { registerBrunchCompaction } from '../.pi/extensions/compaction/index.js';
 import {
   BRUNCH_INTROSPECT_QUERY_TOOL,
   registerBrunchIntrospectQuery,
@@ -82,6 +83,7 @@ import {
   CAPTURE_SWEEP_WATERMARK_CUSTOM_TYPE,
   prepareCaptureSweepAdvance,
 } from '../projections/session/sweep-watermark.js';
+import type { LiveAskOpener } from '../session/live-ask-registry.js';
 import { mentionFactsFromEntries } from '../session/mention-ledger.js';
 import {
   appendPreparedContinuityEntry,
@@ -99,10 +101,6 @@ import { createGitWorktreePort } from './git-worktree-port.js';
 import { registerBrunchKeybindingPolicy } from './pi-keybindings.js';
 import { createPlannerPort } from './planner-port.js';
 import { createTestRunnerPort } from './test-runner-port.js';
-
-import { createGitHostPromotionPort } from './git-host-promotion-port.js';
-import { createGitLandPort } from './git-land-port.js';
-import type { LiveAskOpener } from '../session/live-ask-registry.js';
 
 export function registerBrunchAlternatives(pi: ExtensionAPI): void {
   registerBrunchAlternativesComponent(pi, (schema) => toolParameters(schema) as typeof schema);
