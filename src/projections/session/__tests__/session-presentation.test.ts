@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { projectDigestQuestionnaire } from '../../../exchanges/projections/ask.js';
+import { projectPresentCandidates } from '../../../exchanges/projections/present-candidates.js';
 import { projectSessionPresentation } from '../session-presentation.js';
 
 const target = { specId: 1, sessionId: 'session-1' };
@@ -293,6 +294,92 @@ describe('session presentation', () => {
         ],
       },
     });
+  });
+
+  it('preserves ordered candidate proposal cards and their declared request_choice continuation', () => {
+    const details = projectPresentCandidates({
+      exchangeId: 'candidate-direction',
+      heading: 'Choose a direction',
+      body: 'Compare the proposals.',
+      candidates: [
+        {
+          id: 'local',
+          title: 'Local workbench',
+          user_rubric: {
+            core_bet: 'Make local graph work the thesis.',
+            best_fit: 'Focused POC.',
+            cost_complexity: 'Own local state.',
+            covers_well: 'Transcript and graph coherence.',
+            main_risks: 'No cloud collaboration.',
+            lock_in_constraints: 'Local-first semantics.',
+            recommendation: 'Choose for the POC.',
+          },
+          meta_rubric: {
+            legibility_cost_of_knowing: 'Easy to inspect.',
+            failure_modes: 'May under-test teams.',
+            coverage_range: 'Current assumptions.',
+            commitment: 'Defers cloud.',
+          },
+          graph_refs: [{ node_id: 'node-1' }],
+        },
+        {
+          id: 'hosted',
+          title: 'Hosted workspace',
+          user_rubric: {
+            core_bet: 'Lead with collaboration.',
+            best_fit: 'Distributed teams.',
+            cost_complexity: 'Requires hosted infrastructure.',
+            covers_well: 'Multi-user workflows.',
+            main_risks: 'Widens the POC.',
+            lock_in_constraints: 'Cloud operations.',
+          },
+          meta_rubric: {},
+          graph_refs: [],
+        },
+      ],
+    }).details;
+
+    const result = projectSessionPresentation(target, [
+      entry('candidates', { role: 'toolResult', toolName: 'present_candidates', details }),
+    ]);
+
+    expect(result).toEqual({
+      status: 'ready',
+      presentation: {
+        target,
+        cursor: '0:candidates',
+        entries: [
+          {
+            id: 'candidates',
+            cursor: '0:candidates',
+            kind: 'present_candidates',
+            exchangeId: 'candidate-direction',
+            heading: 'Choose a direction',
+            body: 'Compare the proposals.',
+            candidates: details.candidates,
+            continuation: {
+              tool: 'ask',
+              request: 'request_choice',
+              exchangeId: 'candidate-direction',
+              question: details.continuation?.params.body,
+              options: details.continuation?.params.options,
+            },
+          },
+        ],
+      },
+    });
+  });
+
+  it('classifies malformed candidate details instead of leaking them', () => {
+    expect(
+      projectSessionPresentation(target, [
+        entry('bad-candidates', {
+          role: 'toolResult',
+          toolName: 'present_candidates',
+          details: { candidates: 'raw pi' },
+        }),
+      ]),
+    ).toEqual({ status: 'malformed_detail', entryId: 'bad-candidates', family: 'present_candidates' });
   });
 
   it('classifies malformed Brunch ask details instead of leaking them', () => {

@@ -66,6 +66,8 @@ function SessionPage() {
               <p>
                 <strong>{entry.role}</strong>: {entry.text}
               </p>
+            ) : entry.kind === 'present_candidates' ? (
+              <CandidateOffer entry={entry} />
             ) : (
               <Ask
                 entry={entry}
@@ -122,6 +124,56 @@ function questionnaireAnswerText(question: QuestionnaireQuestion, answer: Questi
     if (option) selectedLabels.push(option.label);
   }
   return selectedLabels.join(', ');
+}
+
+function CandidateOffer({
+  entry,
+}: {
+  entry: Extract<SessionPresentationEntry, { kind: 'present_candidates' }>;
+}) {
+  return (
+    <section aria-label={entry.heading}>
+      <h2>{entry.heading}</h2>
+      {entry.body ? <p>{entry.body}</p> : null}
+      {entry.candidates.map((candidate) => (
+        <article key={candidate.id} aria-label={candidate.title}>
+          <h3>{candidate.title}</h3>
+          <dl>
+            <dt>Core bet</dt>
+            <dd>{candidate.user_rubric.core_bet}</dd>
+            <dt>Best fit</dt>
+            <dd>{candidate.user_rubric.best_fit}</dd>
+            <dt>Cost and complexity</dt>
+            <dd>{candidate.user_rubric.cost_complexity}</dd>
+            <dt>Covers well</dt>
+            <dd>{candidate.user_rubric.covers_well}</dd>
+            <dt>Main risks</dt>
+            <dd>{candidate.user_rubric.main_risks}</dd>
+            <dt>Lock-in and constraints</dt>
+            <dd>{candidate.user_rubric.lock_in_constraints}</dd>
+            {candidate.user_rubric.recommendation ? (
+              <>
+                <dt>Recommendation</dt>
+                <dd>{candidate.user_rubric.recommendation}</dd>
+              </>
+            ) : null}
+            {Object.entries(candidate.meta_rubric).map(([facet, text]) => (
+              <div key={facet}>
+                <dt>{facet.replaceAll('_', ' ')}</dt>
+                <dd>{text}</dd>
+              </div>
+            ))}
+            {candidate.graph_refs.map((reference) => (
+              <div key={reference.node_id}>
+                <dt>Graph reference</dt>
+                <dd>{reference.node_id}</dd>
+              </div>
+            ))}
+          </dl>
+        </article>
+      ))}
+    </section>
+  );
 }
 
 function Ask({

@@ -1,4 +1,6 @@
-import { zAskDetails } from '../../exchanges/schemas/request.js';
+import { zPresentCandidatesDetails } from '../../exchanges/schemas/present.js';
+import type { PresentCandidatesDetails } from '../../exchanges/schemas/present.js';
+import { zAskDetails, zRequestChoiceDetails } from '../../exchanges/schemas/request.js';
 import type {
   AnsweredOptionEcho,
   AskDetails,
@@ -16,6 +18,22 @@ export type SessionPresentationEntry =
       readonly kind: 'message';
       readonly role: 'user' | 'assistant';
       readonly text: string;
+    }
+  | {
+      readonly id: string;
+      readonly cursor: string;
+      readonly kind: 'present_candidates';
+      readonly exchangeId: string;
+      readonly heading: string;
+      readonly body?: string | undefined;
+      readonly candidates: PresentCandidatesDetails['candidates'];
+      readonly continuation?: {
+        readonly tool: 'ask';
+        readonly request: 'request_choice';
+        readonly exchangeId: string;
+        readonly question: string;
+        readonly options?: NonNullable<PresentCandidatesDetails['continuation']>['params']['options'];
+      };
     }
   | {
       readonly id: string;
@@ -77,7 +95,11 @@ export interface SessionPresentation {
 
 export type SessionPresentationResult =
   | { readonly status: 'ready'; readonly presentation: SessionPresentation }
-  | { readonly status: 'malformed_detail'; readonly entryId: string; readonly family: 'ask' };
+  | {
+      readonly status: 'malformed_detail';
+      readonly entryId: string;
+      readonly family: 'ask' | 'present_candidates';
+    };
 
 export async function projectSessionPresentationFile(input: {
   readonly target: SessionTarget;
@@ -106,9 +128,68 @@ export function projectSessionPresentation(
       if (text !== null) projected.push({ id: entry.id, cursor, kind: 'message', role: message.role, text });
       continue;
     }
-    if (message.role !== 'toolResult' || message.toolName !== 'ask') continue;
+    if (message.role !== 'toolResult') continue;
+    if (message.toolName === 'present_candidates') {
+      const parsed = zPresentCandidatesDetails.safeParse(message.details);
+      if (!parsed.success)
+        return { status: 'malformed_detail', entryId: entry.id, family: 'present_candidates' };
+      const details = parsed.data;
+      projected.push({
+        id: entry.id,
+        cursor,
+        kind: 'present_candidates',
+        exchangeId: details.exchange_id,
+        heading: details.display.heading,
+        ...(details.display.body ? { body: details.display.body } : {}),
+        candidates: details.candidates,
+        ...(details.continuation
+          ? {
+              continuation: {
+                tool: 'ask' as const,
+                request: 'request_choice' as const,
+                exchangeId: details.exchange_id,
+                question: details.continuation.params.body,
+                ...(details.continuation.params.options
+                  ? { options: details.continuation.params.options }
+                  : {}),
+              },
+            }
+          : {}),
+      });
+      continue;
+    }
+    if (message.toolName !== 'ask') continue;
     const parsed = zAskDetails.safeParse(message.details);
-    if (!parsed.success) return { status: 'malformed_detail', entryId: entry.id, family: 'ask' };
+    if (!parsed.success) {
+      const choice = zRequestChoiceDetails.safeParse(message.details);
+      if (!choice.success || choice.data.tool_meta.prev !== 'present_candidates')
+        return { status: 'malformed_detail', entryId: entry.id, family: 'ask' };
+      const details = choice.data;
+      const terminal: AskTerminal =
+        'answered' in details
+          ? { status: 'answered', value: details.answered }
+          : 'cancelled' in details
+            ? { status: 'cancelled', value: details.cancelled }
+            : { status: 'unavailable', value: details.unavailable };
+      projected.push({
+        id: entry.id,
+        cursor,
+        kind: 'ask',
+        exchangeId: details.exchange_id,
+        question: 'Candidate choice',
+        ...('answered' in details
+          ? {
+              options: details.answered.options.map((option) => ({
+                id: option.id,
+                label: option.content,
+                ...(option.rationale ? { description: option.rationale } : {}),
+              })),
+            }
+          : {}),
+        terminal,
+      });
+      continue;
+    }
     const details = parsed.data;
     const terminal = projectAskTerminal(details);
     projected.push({

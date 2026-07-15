@@ -246,6 +246,64 @@ describe('session route', () => {
     });
   });
 
+  it('renders candidate proposal cards while the existing ask owns the choice continuation', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture([
+      {
+        id: 'offer',
+        cursor: 'durable:offer',
+        kind: 'present_candidates',
+        exchangeId: 'candidate-direction',
+        heading: 'Choose a direction',
+        body: 'Compare the proposals.',
+        candidates: [
+          {
+            id: 'local',
+            title: 'Local workbench',
+            user_rubric: {
+              core_bet: 'Make local graph work the thesis.',
+              best_fit: 'Focused POC.',
+              cost_complexity: 'Own local state.',
+              covers_well: 'Transcript and graph coherence.',
+              main_risks: 'No cloud collaboration.',
+              lock_in_constraints: 'Local-first semantics.',
+              recommendation: 'Choose for the POC.',
+            },
+            meta_rubric: { commitment: 'Defers cloud.' },
+            graph_refs: [{ node_id: 'node-1' }],
+          },
+        ],
+        continuation: {
+          tool: 'ask',
+          request: 'request_choice',
+          exchangeId: 'candidate-direction',
+          question: 'Choose a direction',
+          options: [{ id: 'local', label: 'Local workbench', description: 'Choose for the POC.' }],
+        },
+      },
+      {
+        id: 'choice',
+        cursor: 'durable:choice',
+        kind: 'ask',
+        exchangeId: 'candidate-direction',
+        question: 'Choose a direction',
+        options: [{ id: 'local', label: 'Local workbench', description: 'Choose for the POC.' }],
+      },
+    ]);
+
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+    expect(await screen.findByRole('heading', { name: 'Choose a direction' })).toBeTruthy();
+    expect(screen.getByRole('article', { name: 'Local workbench' })).toBeTruthy();
+    expect(screen.getByText('Make local graph work the thesis.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('radio', { name: /Local workbench/u }));
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+    expect(f.calls).toContainEqual({
+      method: 'session.answerExchange',
+      params: expect.objectContaining({ exchangeId: 'candidate-direction', answer: 'local' }),
+    });
+  });
+
   it('renders an ordered questionnaire read-back from the shared semantic projection', async () => {
     window.history.pushState(null, '', '/session/1/s1');
     const f = fixture([

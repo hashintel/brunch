@@ -58,13 +58,15 @@ async function presentation(rpc: RpcSocket, target: SessionTarget): Promise<Read
 function presentationText(result: ReadyPresentation): string {
   return result.presentation.entries
     .map((entry) =>
-      'text' in entry
+      entry.kind === 'message'
         ? entry.text
-        : `${entry.question}\n${
-            entry.terminal?.status === 'answered' && 'text' in entry.terminal.value
-              ? entry.terminal.value.text
-              : ''
-          }`,
+        : entry.kind === 'present_candidates'
+          ? `${entry.heading}\n${entry.candidates.map((candidate) => candidate.title).join('\n')}`
+          : `${entry.question}\n${
+              entry.terminal?.status === 'answered' && 'text' in entry.terminal.value
+                ? entry.terminal.value.text
+                : ''
+            }`,
     )
     .join('\n');
 }

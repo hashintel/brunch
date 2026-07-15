@@ -35,7 +35,35 @@ describe('standalone web session host production entry', () => {
     faux.provider.appendResponses([
       () =>
         fauxAssistantMessage(
-          [fauxToolCall('ask', { exchangeId: 'web-ask', body: question }, { id: 'web-ask-call' })],
+          [
+            fauxToolCall(
+              'present_candidates',
+              {
+                exchangeId: 'web-ask',
+                heading: question,
+                body: 'Compare the proposals.',
+                candidates: [
+                  {
+                    id: 'semantic-projection',
+                    title: 'Shared semantic projection',
+                    user_rubric: {
+                      core_bet: 'Decode once before rendering.',
+                      best_fit: 'Web and TUI parity.',
+                      cost_complexity: 'One shared projection.',
+                      covers_well: 'Durable presentation semantics.',
+                      main_risks: 'Adapter drift.',
+                      lock_in_constraints: 'Transport-neutral entries.',
+                      recommendation: 'Use the shared projection.',
+                    },
+                    meta_rubric: { commitment: 'Preserve D128-L.' },
+                    graph_refs: [],
+                  },
+                ],
+              },
+              { id: 'web-candidates-call' },
+            ),
+            fauxToolCall('ask', { continues: 'web-ask' }, { id: 'web-ask-call' }),
+          ],
           { stopReason: 'toolUse' },
         ),
       () => fauxAssistantMessage('Durable answer complete.'),
@@ -56,22 +84,36 @@ describe('standalone web session host production entry', () => {
         ...target,
         driverId: 'browser-proof',
         exchangeId: 'web-ask',
-        answer: 'The target-addressed broker.',
+        answer: 'semantic-projection',
       }),
     ).resolves.toMatchObject({ status: 'completed' });
     await expect(turn).resolves.toMatchObject({ status: 'completed' });
 
-    const projected = (await rpc.request('session.presentation', target)) as SessionPresentationResult;
+    rpc.close();
+    const reconnected = await RpcSocket.open(`${host.url.replace(/^http/u, 'ws')}/rpc`);
+    cleanups.push(() => reconnected.close());
+    const projected = (await reconnected.request(
+      'session.presentation',
+      target,
+    )) as SessionPresentationResult;
     expect(projected).toMatchObject({ status: 'ready' });
     if (projected.status !== 'ready') return;
     expect(projected.presentation.entries).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
+          kind: 'present_candidates',
+          exchangeId: 'web-ask',
+          candidates: [expect.objectContaining({ id: 'semantic-projection' })],
+          continuation: expect.objectContaining({ request: 'request_choice', exchangeId: 'web-ask' }),
+        }),
+        expect.objectContaining({
           kind: 'ask',
           exchangeId: 'web-ask',
           terminal: {
             status: 'answered',
-            value: { text: 'The target-addressed broker.' },
+            value: expect.objectContaining({
+              choice: { id: 'semantic-projection', label: 'Shared semantic projection', kind: 'listed' },
+            }),
           },
         }),
         expect.objectContaining({ kind: 'message', role: 'assistant', text: 'Durable answer complete.' }),
