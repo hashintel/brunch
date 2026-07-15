@@ -664,14 +664,17 @@ For agent-as-user evaluation, the primary behavioral claim is **consequential-fa
 
 The verification harness is established (oxlint + oxfmt + vitest). Commands follow `AGENTS.md` conventions:
 
-| Step | Check                                   | Command                                 |
-| ---- | --------------------------------------- | --------------------------------------- |
-| 1    | Lint:fix + format (inner loop, writes)  | `npm run fix`                           |
-| 2    | Lint + format check (no writes; CI use) | `npm run check`                         |
-| 3    | Unit tests                              | `npm run test`                          |
-| 4    | Build                                   | `npm run build`                         |
-| all  | Full gate (writes via `fix`)            | `npm run verify` (= fix + test + build) |
-| —    | Release-pack smoke (pre-publish only)   | `npm run check:release-pack`            |
+| Step | Check                                                   | Command                                      |
+| ---- | ------------------------------------------------------- | -------------------------------------------- |
+| 1    | Lint:fix + format (inner loop, writes)                  | `npm run fix`                                |
+| 2    | Lint + format check (no writes; CI use)                 | `npm run check`                              |
+| 3    | Fast tests (excludes subprocess-heavy real-git group)   | `npm run test:fast`                          |
+| 4    | Real-git witnesses                                      | `npm run test:real-git`                      |
+| 5    | All tests                                               | `npm run test`                               |
+| 6    | Build                                                   | `npm run build`                              |
+| fast | Development checkpoint (writes via `fix`)               | `npm run verify:fast` (= fix + fast + build) |
+| all  | Full gate (writes via `fix`)                            | `npm run verify` (= fix + all tests + build) |
+| —    | Release-pack smoke (pre-publish only)                   | `npm run check:release-pack`                 |
 
 `fix` and `check` share the same lint-then-format order; `fix` writes, `check` does not. There is no separate `typecheck` script — type-checking runs inside oxlint via tsgolint (`.oxlintrc.json` sets `typeAware: true` and `typeCheck: true`).
 
@@ -679,8 +682,9 @@ The release-pack smoke is deliberately outside `verify` (it packs, asserts runti
 
 ### Verification Policy
 
-- **Inner loop:** run `npm run fix` after every meaningful edit. Tooling: oxlint (lint + type-aware + type-check via tsgolint), oxfmt (format), vitest (test). See AGENTS.md.
-- **Gate before commit:** `npm run verify`. The gate auto-applies inner-loop fixes; remaining failures must be fixed before proceeding. No override.
+- **Inner loop:** run `npm run fix` after every meaningful edit and focused tests with `npm test -- <test-path>` while iterating. Tooling: oxlint (lint + type-aware + type-check via tsgolint), oxfmt (format), vitest (test). See AGENTS.md.
+- **Fast checkpoint:** `npm run verify:fast` runs every test except the subprocess-heavy real-git witness group, then builds. It shortens development feedback without weakening the final gate. Changes to host landing, slice integration, run promotion, or worktree behavior must also run `npm run test:real-git` before the full gate.
+- **Gate before commit:** run `npm run verify` once. The gate auto-applies inner-loop fixes and includes both fast and real-git tests; remaining failures must be fixed before proceeding. No override.
 - **Failure protocol:** stop on first failure; the failure becomes the must-fix task; re-run the stack from step 1; only proceed when all checks pass.
 - **Frontier completion:** manual smoke can prove presentation life, but any durable product claim must also have an artifact/query oracle, property/round-trip test, contract test, or fixture assertion tied to the canonical store or projection handler that owns the fact.
 - **Harness/probe JSONL architecture:** the POC uses Tier-1/Tier-2 faux harnesses plus JSONL-backed probe runs as the current verification artifact model. Committed probe evidence lives under `.fixtures/runs/<probe-id>/<run-id>/` with colocated `session.jsonl` and `report.json`; human-readable transcript rendering is a workspace-local `.brunch/debug/transcript.md` affordance for faux-harness/debug runs, not a default committed probe artifact. Brief-based golden fixtures are deferred; if they return, briefs are harness/probe inputs and the resulting JSONL-backed run is canonical. The debug transcript renderer uses Pi's canonical context construction, then keeps only user messages, assistant messages, and Brunch-owned custom tool results.

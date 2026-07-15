@@ -94,9 +94,11 @@ Frontier-item traceability, scope-card inheritance, and the verification-ownersh
 
 ## verification
 
-**Inner loop** (run after every meaningful edit): `npm run fix` — lint:fix then format.
+**Inner loop** (run after every meaningful edit): `npm run fix` — lint:fix then format. Run focused tests with `npm test -- <test-path>` while iterating.
 
-**Gate** (run before committing): `npm run verify` — fix → test → build. The gate auto-applies inner-loop fixes; if anything else fails, stop and fix it.
+**Fast checkpoint**: `npm run verify:fast` — fix → fast tests → build. The fast suite excludes the subprocess-heavy real-git witnesses; it is for development checkpoints, not the final gate.
+
+**Gate** (run once before committing): `npm run verify` — fix → all tests → build. The gate auto-applies inner-loop fixes; if anything else fails, stop and fix it. Run `npm run test:real-git` when working directly on host landing, slice integration, run promotion, or worktree behavior.
 
 **CI / read-only check**: `npm run check` — lint then fmt:check then check:markdown-links then check:skills then check:promoted-run-paths, no writes. Use this where the gate must not mutate the worktree.
 
@@ -107,10 +109,13 @@ Frontier-item traceability, scope-card inheritance, and the verification-ownersh
 | Script | Steps | Writes? |
 | --- | --- | --- |
 | `npm run fix` | lint:fix → fmt | yes |
+| `npm run test:fast` | all Vitest tests except the real-git witness group | no |
+| `npm run test:real-git` | host landing, slice integration, run promotion, and worktree witnesses | no |
+| `npm run verify:fast` | fix → test:fast → build | yes (via fix) |
 | `npm run check` | lint → fmt:check → check:markdown-links → check:skills → check:promoted-run-paths | no |
 | `npm run check:markdown-links` | remark-validate-links over Markdown files | no |
 | `npm run check:skills` | ln-* skill consistency | no |
-| `npm run verify` | fix → test → build | yes (via fix) |
+| `npm run verify` | fix → all tests → build | yes (via fix) |
 
 Ordering rationale: `fix` must run lint:fix before fmt because lint fixes can rewrite code that then needs reformatting. `check` mirrors that order (lint before fmt:check) so both scripts read as the same recipe in different modes.
 
