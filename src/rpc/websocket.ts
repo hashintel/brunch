@@ -3,9 +3,10 @@ import type { IncomingMessage, Server as HttpServer } from 'node:http';
 import { WebSocket, WebSocketServer, type RawData } from 'ws';
 
 import type { RpcHandlers } from './handlers.js';
+import type { LiveSessionEventFrame } from './live-session-contract.js';
 import { createProductUpdateNotification, type ProductUpdatePublisher } from './product-updates.js';
 import { dispatchJsonRpcMessage } from './protocol.js';
-import type { SessionEventRelay } from './session-event-relay.js';
+import type { SessionEventRelayFrame } from './session-event-relay.js';
 
 export interface WebRpcTransport {
   close(): Promise<void>;
@@ -17,16 +18,18 @@ export function isWebRpcUpgradeHandled(request: IncomingMessage): boolean {
   return handledUpgradeRequests.has(request);
 }
 
-export function attachWebRpcTransport<TSessionFrame = never>(options: {
+export type WebSessionEventFrame = SessionEventRelayFrame | LiveSessionEventFrame;
+
+export interface WebSessionEventSource {
+  subscribe(listener: (frame: WebSessionEventFrame) => void): () => void;
+}
+
+export function attachWebRpcTransport(options: {
   server: HttpServer;
   path: string;
   handlers: RpcHandlers;
   productUpdates?: ProductUpdatePublisher;
-  sessionEvents?:
-    | Pick<SessionEventRelay, 'subscribe'>
-    | {
-        subscribe(listener: (frame: TSessionFrame) => void): () => void;
-      };
+  sessionEvents?: WebSessionEventSource;
 }): WebRpcTransport {
   const webSocketServer = new WebSocketServer({ noServer: true });
   let activeRequests = 0;

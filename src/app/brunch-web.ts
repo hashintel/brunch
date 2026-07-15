@@ -45,7 +45,7 @@ export async function runBrunchWeb(options: BrunchWebOptions): Promise<RunningWe
         return projectSessionPresentationFile({ target, sessionFile: session.file });
       },
     },
-    hostedSessionEvents: {
+    sessionEvents: {
       subscribe(listener) {
         return liveSessions.subscribeAll((event) => listener(createLiveSessionEventFrame(event)));
       },

@@ -146,6 +146,7 @@ describe('standalone web session host production entry', () => {
       expect.arrayContaining([expect.objectContaining({ target, seq: 0 })]),
     );
 
+    const reopenedFrameBoundary = liveFrames.length;
     await expect(reconnected.request('session.close', target)).resolves.toMatchObject({ status: 'closed' });
     await expect(reconnected.request('session.open', target)).resolves.toMatchObject({ status: 'opened' });
     await waitFor(() => faux.provider.getPendingResponseCount() === 0, 8000, 'reopen startup turn');
@@ -157,19 +158,10 @@ describe('standalone web session host production entry', () => {
         prompt: 'Prove the reopened stream.',
       }),
     ).resolves.toMatchObject({ status: 'completed' });
-    await waitFor(
-      () =>
-        liveFrames.map((frame) => liveSessionEventSchema.parse(frame)).filter((event) => event.seq === 0)
-          .length >= 2,
-      8000,
-      'reopened semantic frame',
-    );
+    await waitFor(() => liveFrames.slice(reopenedFrameBoundary).length > 0, 8000, 'reopened semantic frame');
     const parsedFrames = liveFrames.map((frame) => liveSessionEventSchema.parse(frame));
-    let reopenedStart = parsedFrames.length - 1;
-    while (reopenedStart > 0 && parsedFrames[reopenedStart]!.seq !== 0) reopenedStart -= 1;
-    expect(parsedFrames.slice(reopenedStart).map((event) => event.seq)).toEqual(
-      parsedFrames.slice(reopenedStart).map((_, index) => index),
-    );
+    const reopenedFrames = parsedFrames.slice(reopenedFrameBoundary);
+    expect(reopenedFrames.map((event) => event.seq)).toEqual(reopenedFrames.map((_, index) => index));
   });
 
   it('approves one review set, commits once, settles, and rehydrates its receipt after reconnect', async () => {
