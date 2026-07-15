@@ -147,7 +147,7 @@ async function waitForSelectedNewSpecification(
   while (Date.now() < deadline) {
     const screen = await port.screen(logPath, manifest.tui.cols, manifest.tui.rows);
     if (screen.includes(title)) {
-      if (!/^› Start a new specification(?:\s|$)/mu.test(screen))
+      if (!/^\s*› Start a new specification(?:\s|$)/mu.test(screen))
         throw new Error('mechanically invalid: Start a new specification is not selected');
       return screen;
     }
@@ -166,7 +166,7 @@ async function waitForSelectedOrientation(
   while (Date.now() < deadline) {
     const screen = await port.screen(logPath, manifest.tui.cols, manifest.tui.rows);
     if (screen.includes(title)) {
-      if (!/^› Work by decision(?:\s|$)/mu.test(screen))
+      if (!/^\s*› Work by decision(?:\s|$)/mu.test(screen))
         throw new Error('mechanically invalid: Work by decision is not the selected orientation');
       return screen;
     }
