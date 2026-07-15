@@ -27,7 +27,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 **Topology and evidence discipline.** Co-located `src/**/TOPOLOGY.md` files own current topology; SPEC owns product contract and seam decisions; PLAN owns only rolling frontier state. Scratch probe artifacts are not durable evidence until promoted to `.fixtures/runs/`. Older completion history lives only in [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md).
 
-**Standalone web — arc collapsed into one branch (2026-07-14).** Interactive web is a priority product surface, not a read-only TUI sidecar. D127-L/D128-L settle one cwd-scoped combined host with a target-addressed inventory of sealed in-process Pi sessions, one driver/many observers per session, JSONL-derived hydration plus live-event overlay, and shared semantic presentation projections with separate TUI/React renderers. The one-target tracer landed and was accepted (retiring A43-L), and the production-host two-session differential validated concurrent isolation (retiring A42-L). By user decision the former three-frontier `standalone-web` arc is now carried by the single frontier `standalone-web-session-host` (FE-1200) as a slice sequence on `ln/fe-1200-web-session`: tracer (done) → concurrency (done) → presentation-coverage sweep (next; retires I65-L breadth). Design authority: [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md).
+**Standalone web — completed 2026-07-15 (FE-1200).** Interactive web is a priority product surface, not a read-only TUI sidecar. D127-L/D128-L materialize one cwd-scoped combined host with target-addressed sealed Pi sessions, one driver/many observers, JSONL hydration plus live overlay, and full required-family semantic presentation coverage with React adapters. Durable evidence lives in I64-L/I65-L, the named topology homes, and [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md); detailed frontier history is archived.
 
 ## Initiatives
 
@@ -46,10 +46,8 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **exchange-presentation** — ✓ done 2026-07-06 (`exchange-rendering` + `exchange-answering-chrome`). Durable truth: D104-L/D108-L, `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`, exchange topology homes. Deferred, not owed: per-item review commentary (Horizon). Full closure record: `docs/archive/PLAN_HISTORY.md`.
 - **capture-ingest-throughline** — ✓ done 2026-07-06 (`exchange-capture-contract` + `present-digest`). Durable truth: I57-L, D110-L, ingest/map conduct homes. Full closure record: `docs/archive/PLAN_HISTORY.md`.
 
-<!-- standalone-web arc dissolved 2026-07-14 (user decision): the through-line is now carried by
-     the single frontier standalone-web-session-host (FE-1200) as a tracer→concurrency→presentation
-     slice sequence on one branch. A single-frontier effort does not warrant an arc index; the arc
-     done-definition now lives in that frontier's definition below. -->
+<!-- standalone-web arc dissolved 2026-07-14 (user decision) into the single FE-1200 frontier;
+     that frontier completed 2026-07-15 and its definition now lives in PLAN_HISTORY.md. -->
 
 ### deterministic-orientation — ◐ active
 
@@ -63,12 +61,6 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ## Sequencing
 
-### Active — standalone web arc (FE-1200)
-
-Build the whole standalone-web through-line on `ln/fe-1200-web-session` as a slice sequence (arc collapsed 2026-07-14). Tracer and concurrent-session isolation are done; one slice remains:
-
-- `standalone-web-session-host` (FE-1200) — **presentation-coverage sweep awaiting coordinator aggregate review** (retires I65-L breadth only after review). Ledger: [`memory/cards/standalone-web-session-host--presentation-coverage.md`](cards/standalone-web-session-host--presentation-coverage.md). A2–A5 and B1–B3 are built; the parent sweep ledger and frontier remain open for coordinator-led reconciliation.
-
 ### Active — Group 1 · walkthrough closure
 
 Close the entire first batch of walkthrough-related findings: remediation, the owed evidence, and the design back-catalog that the old (now fixed) findings-capture protocol left stranded. The auth reversal has landed; Group 3 is pickup-ready while FE-1187 continues its closure sweep.
@@ -79,10 +71,7 @@ Close the entire first batch of walkthrough-related findings: remediation, the o
 
 ### Recently Completed
 
-<!-- FE-1200 tracer slice (accepted 2026-07-14) is not a completed frontier: FE-1200 is reopened as
-     the standalone-web arc carrier and is Active above. The tracer's done state lives as slice 1 in
-     the frontier definition below. -->
-
+- 2026-07-15 `standalone-web-session-host` (FE-1200) — **✓ closed**: standalone target-addressed hosting, two-session isolation, and the complete required web presentation-family sweep landed; I64-L/I65-L and all five topology homes are reconciled. Full closeout: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md#2026-07-15-fe-1200-standalone-web-session-host-closeout).
 - 2026-07-14 `FE-1196 platform debt` — **✓ closed and outer-witnessed**: spec posture, workspace DB identity, headless ask discovery, reconciliation derivation, native compaction continuity, and active-branch session correctness are materialized; `web-driver-streaming` was evaluated and retired, and transcript-ledger rendering moved to FE-1187. Full closeout: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md#2026-07-14-sync-archive-ln-sync-fe-1196-platform-debt-closeout).
 - 2026-07-14 `petri-execution-parity` (FE-1195) — completed the old-`main` live-parity closure and final review hardening: timestamped firing wire with calendar-valid TypeBox boundary checks, structural pass/fail branches with strict list/detail failed-slice evidence, stale serial-state retirement at parallel admission, journal-idempotent restart-stable terminal authority, rejection of every post-terminal fact, causality-gated Petrinaut replay/export, staging-aligned SDCPN parsing that retains legitimate full roots, and a view-only projection with mechanically pruned isolated places, preserved connected IDs/arcs, contextual labels, locale-independent ordering, and collision-free compact/legacy fallback bands. Durable terminal evidence wins over later abandonment metadata; raw executor topology/markings and SSE firing order remain unchanged. Full per-slice attempt identity remains the current projection; standardized subnet grouping/folding should be revisited above roughly 12 slices without claiming color-fold parity. Manual Rust fixture comparison remains pre-PR outer evidence.
 - 2026-07-13 `petrinaut-live-run-stream` (FE-1190) — merged #322 to `next`; live-from-start observation, reconnect equivalence, fail-closed journal appends, and terminal-lagging-snapshot backfill landed. FE-1183 closed with it.
@@ -104,8 +93,12 @@ Older completion history (incl. FE-1180 walkthrough-remediation-1): [`docs/archi
 ### Cleanups — Group 4
 
 - `named-inline-extension-identity` — Pi-native P1: adopt Pi's native named-inline-extension type for useful source provenance; small independent hardening, direct housekeeping or a tiny tooling slice.
+<<<<<<< HEAD
 - `web-driver-streaming-residue` — from the retired evaluation (2026-07-13): the `agent_settled`-ordering trigger has fired and that assertion is promoted into `standalone-web-session-host`; remaining `ln-sync` residue is documentation only: `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md` answering matrix is stale post-D125-L (discovery mode-complete; answering landed with ceilings), and `src/rpc/TOPOLOGY.md`'s streaming ledger should point to the promoted assertion rather than retain a conditional ○ row.
 - `test-tmpdir-hygiene` — vitest `mkdtemp` fixtures are never cleaned up: ~249k `brunch-*` directories had accumulated in the darwin tmpdir by 2026-07-14 and filled the disk mid-gate (found during FE-1201). Add a global teardown or route fixtures through a repo-local scratch root (the `git-slice-integration-port.slow.test.ts` `tmp/` pattern). Tiny tooling slice; re-entry trigger: next disk-pressure incident or the next test-infra touch.
+=======
+- `test-tmpdir-hygiene` — vitest `mkdtemp` fixtures are never cleaned up: ~249k `brunch-*` directories had accumulated in the darwin tmpdir by 2026-07-14 and filled the disk mid-gate (found during FE-1201). Add a global teardown or route fixtures through a repo-local scratch root (the `git-slice-integration-port.test.ts` `tmp/` pattern). Tiny tooling slice; re-entry trigger: next disk-pressure incident or the next test-infra touch.
+>>>>>>> d3873936 (FE-1200: Reconcile standalone web coverage)
 
 ### KA stream (Kostandin — executor / orchestrator / Execute mode)
 
@@ -131,23 +124,6 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 ## Frontier Definitions
 
 <!-- Closed frontier definitions live in docs/archive/PLAN_HISTORY.md. -->
-
-### standalone-web-session-host
-
-- **Name:** Standalone web session host — full arc (tracer + concurrency + presentation coverage)
-- **Linear:** [FE-1200](https://linear.app/hash/issue/FE-1200/standalone-web-session-host-tracer-concurrency-and-presentation) — retitled 2026-07-14 as the arc carrier (Frontend / brunch, no parent); already In progress.
-- **Branch:** `ln/fe-1200-web-session`, Graphite parent `ln/fe-1187-remediation-3`
-- **Kind:** structural — one branch carrying the whole standalone-web through-line as a slice sequence (arc collapsed into this frontier 2026-07-14 by user decision)
-- **Certainty:** earned / coverage for the remaining presentation sweep; the tracer and proving concurrency slices are done.
-- **Slices (execution order on this branch):**
-  1. **tracer** — ✓ done/accepted 2026-07-14. One-target walking skeleton: `--mode web` without `InteractiveMode`, target-addressed `LiveSessionHost` keyed by `(specId, sessionId)`, JSONL-hydrated React session route, several deterministic text turns + one structured `ask`, `agent_settled` settlement/refetch parity, malformed-detail rejection, paired web/TUI JSONL differential. Retired A43-L. Commits `7b20909f`, `752bd873`.
-  2. **concurrency** — ✓ done 2026-07-14; retired **A42-L** and stabilized I64-L across two simultaneous targets. One production `runBrunchWeb` host drove two coordinator-created sessions through overlapping graph mutations, distinct live asks/answers, target-local contiguous events, cross-target/driver rivals, isolated failure/recovery, reconnect/fresh presentation, and separate JSONL readback. Shared graph changes crossed sessions only through canonical `worldUpdate` continuity. Oracle: `src/dev/__tests__/standalone-web-session-host.concurrency.test.ts`.
-  3. **presentation-coverage** — *coverage sweep, earned*; retires **I65-L** breadth; the tracer's D128-L projection seam is the base. Inventory authority: a `Mode: sweep` scope file under `memory/cards/` derived from the production registered-tool/custom-entry inventories, marked `●` required / `○` explicit `n/a`/deferred. Boundary: all production Brunch transcript result/custom-entry families intentionally visible in the web session; out — internal continuity ledgers, generic Pi parity, graph/dashboard views, terminal-only mechanics. Aggregate DoD: no required row remains `spec`/`new`/`partial`; every required family has one canonical semantic projection owner, React adapter, live/persisted metamorphic, and completeness oracle; every excluded family has an explicit disposition. A row escaping row-sized work normally promotes to its own PLAN frontier; for B2, the user explicitly chose on 2026-07-15 to keep the D27-L/I15-L receipt-contract correction and presentation closure as serial FE-1200 slices.
-- **Current execution pointer:** B2 is built; the presentation sweep ledger remains open for coordinator-led aggregate review and final reconciliation. Do not declare I65-L or FE-1200 complete before that review.
-- **Done-definition (arc, now this frontier's completion test):** standalone web starts without `InteractiveMode`; two sessions stream/ask independently with explicit durable targets and one driver each; every required product-visible presentation row has a shared semantic projection plus React adapter or explicit `n/a`; live views converge to fresh JSONL-derived projections after settlement/reconnect; `src/app`, `src/session`, `src/rpc`, `src/projections`, and `src/web` topology homes reconciled; no read-only-sidecar or singleton-current-session target prose remains.
-- **Retires:** A43-L (tracer, done); A42-L (concurrency, done); I65-L breadth (presentation slice, next).
-- **Why now / unlocks:** user chose to build the whole standalone-web group on one branch rather than as stacked frontiers; the materialized `LiveSessionHost` seam makes the concurrency proof and the presentation sweep buildable in sequence here.
-- **Traceability:** req 4/12/17/31/32; A42-L/A43-L; D5-L/D10-L/D33-L/D39-L/D84-L/D125-L/D127-L/D128-L; I21-L/I32-L/I64-L/I65-L; [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md); SPEC exchange-presentation oracle design.
 
 ### walkthrough-remediation-2
 
@@ -367,14 +343,6 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 streams:
   LN — product/elicitation surfaces
   KA — Kostandin: executor / orchestrator / Execute mode / plan plane
-
-standalone-web (Active; arc collapsed into one frontier/branch 2026-07-14):
-  standalone-web-session-host (FE-1200, ln/fe-1200-web-session)
-    slice 1 tracer      (✓ done/accepted 2026-07-14; retired A43-L)
-    slice 2 concurrency (✓ done 2026-07-14; retired A42-L) -[hard, in-branch]-> slice 3
-    slice 3 presentation-coverage sweep (next; retires I65-L breadth)
-  frontier done-definition closes: I64-L + I65-L breadth and topology reconciliation
-  note: slices land on one branch; no separate Linear issues/branches (user decision)
 
 group-1 (Active — walkthrough closure):
   walkthrough-remediation-2 (FE-1187, absorbs closed FE-1167)

@@ -401,7 +401,7 @@ Only Pi's real `agent_settled` is a convergence boundary; `agent_end` is not. St
 
 ## Streaming transport coverage
 
-Code-anchored coverage ledger for the topology-A streaming relay layer (`session-event-relay.ts` plus the `websocket.ts` multiplex). It maps each oracle-battery claim to the relay capability it exercises and the closure oracle that proves it. The required relay battery is closed; only the trigger-gated `agent_settled` ordering row remains in PLAN as `web-driver-streaming-residue`.
+Code-anchored coverage ledger for the topology-A streaming relay layer (`session-event-relay.ts` plus the `websocket.ts` multiplex). It maps each oracle-battery claim to the relay capability it exercises and the closure oracle that proves it. The required relay battery is closed. FE-1200 promoted and proved the `agent_settled` consumer ordering claim on the standalone semantic stream; no conditional PLAN residue remains.
 
 Boundary — in layer: the streaming transport relay and its battery. Out of layer: the web render consumer (`src/web/`), the canonical `session.*` projections, and `brunch.updated` invalidation semantics. DoD: every `●` row `built`.
 
@@ -415,10 +415,10 @@ Boundary — in layer: the streaming transport relay and its battery. Out of lay
 | 7 | One-driver / many-observer fan-out | `built` | ● | `src/dev/__tests__/web-driver-streaming.fan-out.test.ts` | observer-side, autonomous; three concurrent observers receive byte-identical streams and read-only sidecar writes reject |
 | 5 | Mid-stream ask convergence | `built` | ● | `src/dev/__tests__/web-driver-streaming.exchange-convergence.test.ts`, `src/.pi/extensions/__tests__/ask-headless-discovery.test.ts` | every no-UI ask mode registers in D125-L live state; `session.openAsks` discovers the full payload and `session.answerExchange` resolves the broker string, with per-mode decoding in the ask collector; JSONL receives the canonical terminal |
 | — | command-intake slice 1 (web drives a plain turn) | `built` | ● | `src/dev/__tests__/web-driver-streaming.command-intake.test.ts` | narrow `session.driveTurn` sidecar method re-enters the live AgentSession |
-| — | `agent_end` → `agent_settled` consumer ordering | `trigger-gated` | ○ | add to the existing relay battery only when a web consumer gates idle-only actions on full-run settlement | consumer must remain busy until settled; not current product behavior |
+| — | `agent_end` → `agent_settled` consumer ordering | `built` | ● | `src/dev/__tests__/standalone-web-session-host.real-entry.test.ts` plus the candidate/review-set/digest settlement witnesses | React remains busy through intermediate events, refetches only on real `agent_settled`, and reconnects from canonical JSONL |
 | — | render feel (token / tool / dialog) | `n/a` | ○ | manual walkthrough | outer-loop only; no automated perceptual gate |
 
-Classification: all required topology-A relay rows are built. D125-L's live registry owns ask discovery/answering for every mode; the transcript-backed pending projection is file/observer compatibility, not live-driver discovery. The only remaining relay row is conditional on a future `agent_settled` consumer.
+Classification: all required topology-A relay rows are built. D125-L's live registry owns ask discovery/answering for every mode; the transcript-backed pending projection is file/observer compatibility, not live-driver discovery. The promoted FE-1200 consumer oracle closes settlement ordering: `agent_end` is not idle, and only `agent_settled` clears the overlay and triggers canonical refetch.
 
 ## RPC methods to web Query hooks
 
@@ -449,9 +449,9 @@ query key families:
 | `session.triggerExchange` | `triggerExchangeMutationOptions(rpc)` | target full-host mutation; sidecar rejects | invalidates pending/exchanges/runtime state |
 | `session.submitExchangeResponse` | `submitExchangeResponseMutationOptions(rpc)` | target full-host mutation; sidecar rejects | invalidates pending/exchanges/runtime state; review-set approval additionally invalidates `graph.overview(specId)` / `graph.nodeNeighborhood(specId)` |
 | `session.presentation` | `sessionPresentationQueryOptions(rpc, target)` | standalone session route hydrates canonical JSONL semantics | `agent_settled` or reconnect/remount refetch |
-| `session.openAsks` | direct target-addressed hosted-session query | standalone session route renders the current `ask` tracer | live ask changes; settlement refetch |
+| `session.openAsks` | direct target-addressed hosted-session query | standalone session route renders free-text, single-select, multi-select, and bounded-questionnaire asks | live ask changes; settlement refetch |
 | `session.driveTurn` | direct hosted-session mutation | standalone session route wired with target + browser driver id; TUI sidecar remains handle-gated | live semantic `brunch.sessionEvent`; settlement refetch |
-| `session.answerExchange` | direct hosted-session mutation | standalone session route wired for `ask` with target + browser driver id; TUI sidecar remains handle-gated | live semantic `brunch.sessionEvent`; settlement refetch |
+| `session.answerExchange` | direct hosted-session mutation | standalone session route answers the supported ask family with target + browser driver id; TUI sidecar remains handle-gated | live semantic `brunch.sessionEvent`; settlement refetch |
 | `graph.overview` | `graphOverviewQueryOptions(rpc, specId)` | implemented; spec route loader primes it | exact `graph.overview(specId)` when `specId` is present |
 | `graph.nodeNeighborhood` | `graphNodeNeighborhoodQueryOptions(rpc, specId, nodeId, hops?)` | implemented query option; graph panel selection not yet wired | exact/prefix neighborhood invalidation when `nodeId` is present; broad topic fallback otherwise |
 | `execute.runs` | `executeRunsQueryOptions(rpc)` | implemented; run observer list route | exact `execute.runs` |

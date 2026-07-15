@@ -1,6 +1,6 @@
 # web/ — Brunch React client
 
-Canonical references: `docs/architecture/prd.md` §Browser / web client, `src/rpc/TOPOLOGY.md`
+Canonical references: `docs/architecture/prd.md` §Browser / web client, `src/rpc/TOPOLOGY.md`; SPEC D127-L/D128-L and I64-L/I65-L
 
 This directory owns the browser client served by both the TUI sidecar and the standalone `--mode web` combined host. The browser is a thin remote head over the Brunch host: one React app, one WebSocket-backed Brunch JSON-RPC client, TanStack Router for route/data preloading, and TanStack Query for cache ownership and update scheduling. Standalone session routes drive explicitly targeted existing JSONL sessions without constructing `InteractiveMode`.
 
@@ -69,7 +69,7 @@ web/
       `/spec/$specId` loader primes workspace.state + graph.overview
       renders the knowledge-graph structured list
     session.tsx
-      `/session/$specId/$sessionId` opens and hydrates an exact target, submits text and ask answers with a reload-stable browser driver id, renders ask plus candidate/digest/review-set semantic entries without decoding raw details, reduces target-filtered cumulative semantic deltas, and discards its live overlay for a durable refetch on `agent_settled`
+      `/session/$specId/$sessionId` opens and hydrates an exact target, submits text and ask answers with a reload-stable browser driver id, renders free-text/single-select/multi-select/questionnaire asks plus candidate/digest/review-set semantic entries without decoding raw details, preserves receipt-bearing review settlement, reduces target-filtered cumulative semantic deltas, and discards its live overlay for a durable refetch on `agent_settled`
     runs.tsx
       `/runs` loader primes execute.runs; run list with presence flags
       `/runs/$runId` loader primes execute.run; crank status, honest
@@ -462,6 +462,8 @@ rpc-client.test.ts
   notifications independent from requests
 
 app / route tests
+  full required-family semantic presentation and ask answering from the shared projection
+  candidate/review-set/digest settlement + reconnect, including review receipt
   one runtime-owned QueryClient and router
   loaders call expected queryOptions
   no optional session query when no session is selected

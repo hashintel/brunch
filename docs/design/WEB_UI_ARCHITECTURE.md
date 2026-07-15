@@ -1,6 +1,6 @@
 # Web UI and live-session host architecture
 
-Status: accepted design synthesis; input to `memory/SPEC.md` and `memory/PLAN.md`, not a second product contract or plan. FE-1200 materialized the standalone host, `LiveSessionHost`, durable session-presentation projection, and live/durable reconciliation for ordinary text plus one `ask` (D127-L/D128-L; A43-L validated), then proved concurrent target isolation in one production host (A42-L validated). The presentation-family sweep (I65-L) is the only remaining FE-1200 slice. Current state authority is `memory/SPEC.md` plus the co-located `src/**/TOPOLOGY.md` homes; this doc keeps the design rationale for the remaining work.
+Status: accepted and materialized design synthesis; input to `memory/SPEC.md`, not a second product contract or plan. FE-1200 completed the standalone host, concurrent target isolation, and I65-L's full required presentation-family sweep: ordinary messages; all supported ask modes; candidate, review-set, and digest offers/continuations; and receipt-bearing review settlement. Current state authority is `memory/SPEC.md` plus the co-located `src/**/TOPOLOGY.md` homes; this doc keeps the design rationale.
 
 This document supersedes the architectural recommendations in:
 
@@ -247,7 +247,7 @@ Remaining polish (URL auto-open, host status, failed-session recovery ergonomics
 | Several sealed Pi `AgentSession`s can run concurrently in one Node process without shared mutable runtime leakage | This is the basis of the multi-session host | ✓ Validated by `standalone-web-session-host.concurrency.test.ts`: overlapping events/asks, separate JSONL, target-local failure/recovery, and reconnect |
 | Brunch extension factories and runtime services are instance-safe | Module-global or singleton extension state could cross-contaminate sessions | ✓ Validated at the exercised production boundary by the same two-session differential; extend only when a newly introduced mutable runtime service escapes that inventory |
 | One coordinator and command authority can safely serve graph mutations from concurrent hosted sessions | Session isolation does not isolate shared graph truth | ✓ Validated by concurrent production-session `mutate_graph` results plus shared graph readback and monotonic spec-local LSN |
-| A product-shaped session presentation union can cover TUI/web meaning without exposing raw Pi as the browser contract | Otherwise the client either leaks Pi or duplicates interpretation | `ln-design` alternatives plus transcript fixtures spanning ordinary text, tools, offers, asks, and malformed details |
+| A product-shaped session presentation union can cover TUI/web meaning without exposing raw Pi as the browser contract | Otherwise the client either leaks Pi or duplicates interpretation | ✓ Validated by shared projection no-loss/malformed tests, React adapter tests, all ask modes, and distinct candidate/review-set/digest production settlement/reconnect witnesses |
 | Durable hydration plus live overlay can converge without a canonical event store | Required by the no-mirror-store discipline | Differential oracle: after settlement/reconnect, rendered semantic records equal a fresh JSONL-derived projection |
 | One browser driver by construction is sufficient for the first proof | Avoids premature lease machinery | Real host test rejects a second driver attachment or otherwise proves unambiguous ownership |
 
@@ -362,11 +362,11 @@ Do not use as the first Brunch host substrate. Pi's own SDK guidance prefers dir
 
 ## 10. Canonical reconciliation status
 
-The tracer (FE-1200) has landed, so the once-pending reconciliation is now mostly discharged:
+FE-1200 is complete; the once-pending reconciliation is discharged:
 
 1. ✓ `ln-spec` updated the Product Contract and decisions: web is a primary presentation mode (req 4/31/32, D127-L/D128-L, A42-L/A43-L, I64-L/I65-L). No read-only-sidecar/future-only wording remains in `memory/SPEC.md`.
-2. ✓ `ln-plan` sequenced the work; the first tracer is complete. As of 2026-07-14 the former three-frontier `standalone-web` arc is collapsed into the single frontier `standalone-web-session-host` (FE-1200) on one branch, with concurrency and presentation-coverage as in-branch slices rather than separate frontiers.
-3. ◐ The FE-1200 concurrency slice's middle-loop oracle is complete; renderer parity and browser feel remain owned by the presentation-coverage slice, not this doc.
+2. ✓ `ln-plan` closed and archived the single `standalone-web-session-host` (FE-1200) frontier after its tracer, concurrency, and presentation-coverage slices.
+3. ✓ I65-L required-family coverage is complete: projection no-loss/malformed tests, React adapter tests, all ask modes, distinct candidate/review-set/digest production settlement/reconnect witnesses, concurrency/target isolation, and receipt-bearing review settlement.
 4. ✓ `ln-design`-level interface choices for `LiveSessionHost` and the session-presentation projection are materialized in `src/session/live-session-host.ts` and `src/projections/session/`.
 5. ✓ Current state is reconciled into `src/app/TOPOLOGY.md`, `src/rpc/TOPOLOGY.md`, `src/session/TOPOLOGY.md`, and `src/web/TOPOLOGY.md` (standalone combined host + TUI sidecar both described as shipped surfaces).
 6. ○ The superseded comparative notes remain historical evidence (see §References); they are not competing active recommendations.
@@ -374,7 +374,7 @@ The tracer (FE-1200) has landed, so the once-pending reconciliation is now mostl
 ## 11. References
 
 - [`memory/SPEC.md`](../../memory/SPEC.md) — current product contract and decisions (reconciled: D127-L/D128-L, req 4/31/32)
-- [`memory/PLAN.md`](../../memory/PLAN.md) — current sequencing (FE-1200 tracer + concurrency complete; presentation sweep next on the same branch)
+- [`memory/PLAN.md`](../../memory/PLAN.md) — current sequencing (FE-1200 is closed; detailed history is archived)
 - [`src/rpc/TOPOLOGY.md`](../../src/rpc/TOPOLOGY.md) — TUI sidecar + standalone combined-host RPC surface and streaming evidence
 - [`src/web/TOPOLOGY.md`](../../src/web/TOPOLOGY.md) — React client for both the TUI sidecar and standalone `--mode web` host
 - [`src/.pi/extensions/exchanges/TOPOLOGY.md`](../../src/.pi/extensions/exchanges/TOPOLOGY.md) — current structured-exchange and headless-answer behavior
