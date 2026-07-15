@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { fauxAssistantMessage, fauxToolCall } from '@earendil-works/pi-ai';
 import { afterAll, describe, expect, it } from 'vitest';
-import WebSocket from 'ws';
+import WebSocket, { type RawData } from 'ws';
 
 import { runBrunchWeb } from '../../app/brunch-web.js';
 import type { SessionPresentationResult } from '../../projections/session/session-presentation.js';
@@ -13,6 +13,16 @@ import { createWorkspaceSessionCoordinator } from '../../session/workspace-sessi
 import { registerKeptFauxProvider, RpcSocket, waitFor } from './web-driver-streaming-support.js';
 
 const question = 'What proves the browser answer path?';
+
+function websocketMessageToString(data: RawData): string {
+  if (Array.isArray(data)) {
+    return Buffer.concat(data).toString('utf8');
+  }
+  if (data instanceof ArrayBuffer) {
+    return Buffer.from(new Uint8Array(data)).toString('utf8');
+  }
+  return Buffer.from(data).toString('utf8');
+}
 
 describe('standalone web session host production entry', () => {
   const cleanups: Array<() => Promise<void> | void> = [];
@@ -40,7 +50,10 @@ describe('standalone web session host production entry', () => {
     cleanups.push(() => observer.close());
     const liveFrames: unknown[] = [];
     observer.on('message', (data) => {
-      const frame = JSON.parse(data.toString()) as { method?: string; params?: unknown };
+      const frame = JSON.parse(websocketMessageToString(data)) as {
+        method?: string;
+        params?: unknown;
+      };
       if (frame.method === LIVE_SESSION_EVENT_METHOD) liveFrames.push(frame.params);
     });
 
