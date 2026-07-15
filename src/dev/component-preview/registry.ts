@@ -33,6 +33,7 @@ import {
   requestTerminalFixture,
   structuralIllegalFixture,
 } from './exchange-fixtures.js';
+import { previewReviewSetContentVariants } from './review-set-content-variants.js';
 import { captureMessageRenderer, previewStaticComponent, sampleCustomMessage } from './static-preview.js';
 import { ThemeTestbedComponent } from './theme-testbed.js';
 import { createComponentPreviewEditorTheme } from './theme.js';
@@ -519,6 +520,14 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
       'legacy transcript compatibility formatter — src/exchanges/projections/present-question.ts (Markdown pass-through of preserved content, D104-L)',
     open: (tui, theme) =>
       previewStaticComponent(tui, renderMarkdownResult(presentQuestionOptionsFixture.result, theme)),
+  },
+  {
+    id: 'present-review-set-content-variants',
+    label: 'Impact Ledger content-length variants (↑/↓ or j/k cycles)',
+    presentedLike:
+      'dev-only outer-loop stress surface — real ExchangeReviewSetResultComponent at terminal width; ' +
+      'preserves all rendered lines because this preview seam has no viewport-height input',
+    open: (tui, theme) => previewReviewSetContentVariants(tui, theme),
   },
   {
     id: 'present-review-set',

@@ -234,7 +234,7 @@ All no.
 
 Skipped-test-count delta vs parent: **0** (2 skipped tests; 1 skipped file before and after).
 
-## Card 4 · Content-length variant gallery — `next`
+## Card 4 · Content-length variant gallery — `done`
 
 ### Objective
 
@@ -283,3 +283,18 @@ src/dev/component-preview/
 ### Promotion checklist
 
 All no.
+
+### Completion evidence
+
+| Leaf | Outcome | Evidence |
+| ---- | ------- | -------- |
+| Named deterministic variants cover all-short, all-long, alternating long/short, one long outlier, term-heavy, and connection-heavy content | met | `REVIEW_SET_CONTENT_VARIANTS` in `src/dev/component-preview/review-set-content-variants.ts`; exact id list pinned by `review-set-content-variants.test.ts` |
+| Gallery renders through the real Impact Ledger at terminal width and preserves every line without claiming unavailable height control | met-with-divergence | `ReviewSetContentVariantGallery.render(width)` delegates to `ExchangeReviewSetResultComponent.render(width)`; code comment and registry description explicitly name the preview seam's absent viewport-height input |
+| Active variant is visible and next/previous cycling follows ComponentGalleryComponent conventions | met | Header shows label, ordinal, and reproducible id; `↑/↓` and `j/k` wrap in both directions; cycling smoke test exercises arrow bytes and `k` |
+| Registry entry is reachable from `npm run dev:components` | met | `present-review-set-content-variants` entry in `src/dev/component-preview/registry.ts` |
+| Every named variant renders without throwing; cycling is reachable/reproducible | met | `npx vitest run src/dev/component-preview/__tests__/review-set-content-variants.test.ts` — 2 tests passed |
+| No automated readability assertion, randomness, `fast-check`, or new dependency introduced | met | Smoke assertions cover identity/render reachability only; package manifests unchanged |
+| Full verification gate | met | `npm run verify` — 267 files passed, 1 skipped; 2117 tests passed, 2 skipped; build passed |
+| Canonical reconciliation | met | No-op: this implements the protected coordinator-authored SPEC/PLAN oracle design without changing production behavior, seam, decision, assumption, invariant, or topology |
+
+Skipped-test-count delta vs parent: **0** (2 skipped tests; 1 skipped file before and after).
