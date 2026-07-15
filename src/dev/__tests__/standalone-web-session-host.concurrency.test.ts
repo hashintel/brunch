@@ -57,7 +57,11 @@ async function presentation(rpc: RpcSocket, target: SessionTarget): Promise<Read
 
 function presentationText(result: ReadyPresentation): string {
   return result.presentation.entries
-    .map((entry) => ('text' in entry ? entry.text : `${entry.question}\n${entry.answer ?? ''}`))
+    .map((entry) =>
+      'text' in entry
+        ? entry.text
+        : `${entry.question}\n${entry.terminal?.status === 'answered' ? entry.terminal.value.text : ''}`,
+    )
     .join('\n');
 }
 

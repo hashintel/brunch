@@ -42,7 +42,78 @@ describe('session presentation', () => {
             kind: 'ask',
             exchangeId: 'ask-1',
             question: 'What is canonical?',
-            answer: 'Canonical JSONL.',
+            terminal: { status: 'answered', value: { text: 'Canonical JSONL.' } },
+          },
+        ],
+      },
+    });
+  });
+
+  it('preserves every free-text ask terminal state without loss', () => {
+    const terminals = [
+      { answered: { text: 'Canonical JSONL.', comment: 'Keep the source visible.' } },
+      { cancelled: { message: 'No longer needed.' } },
+      { unavailable: { message: 'The source is unavailable.' } },
+      { cancelled: {} },
+    ] as const;
+    const result = projectSessionPresentation(
+      target,
+      terminals.map((terminal, index) =>
+        entry(`r${index}`, {
+          role: 'toolResult',
+          toolName: 'ask',
+          details: {
+            schema: request.schema,
+            v: request.v,
+            exchange_id: request.exchange_id,
+            question: request.question,
+            tool_meta: { curr: 'ask' },
+            ...terminal,
+          },
+        }),
+      ),
+    );
+
+    expect(result).toEqual({
+      status: 'ready',
+      presentation: {
+        target,
+        cursor: '3:r3',
+        entries: [
+          {
+            id: 'r0',
+            cursor: '0:r0',
+            kind: 'ask',
+            exchangeId: 'ask-1',
+            question: 'What is canonical?',
+            terminal: {
+              status: 'answered',
+              value: { text: 'Canonical JSONL.', comment: 'Keep the source visible.' },
+            },
+          },
+          {
+            id: 'r1',
+            cursor: '1:r1',
+            kind: 'ask',
+            exchangeId: 'ask-1',
+            question: 'What is canonical?',
+            terminal: { status: 'cancelled', value: { message: 'No longer needed.' } },
+          },
+          {
+            id: 'r2',
+            cursor: '2:r2',
+            kind: 'ask',
+            exchangeId: 'ask-1',
+            question: 'What is canonical?',
+            terminal: { status: 'unavailable', value: { message: 'The source is unavailable.' } },
+          },
+          {
+            id: 'r3',
+            cursor: '3:r3',
+            kind: 'ask',
+            exchangeId: 'ask-1',
+            question: 'What is canonical?',
+            terminal: { status: 'cancelled', value: {} },
           },
         ],
       },

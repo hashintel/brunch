@@ -1,4 +1,5 @@
 import { zAskDetails } from '../../exchanges/schemas/request.js';
+import type { AskDetails } from '../../exchanges/schemas/request.js';
 import { loadJsonlTranscriptEntries } from '../../session/brunch-session-envelope.js';
 import type { SessionTarget } from '../../session/live-session-host.js';
 
@@ -16,8 +17,18 @@ export type SessionPresentationEntry =
       readonly kind: 'ask';
       readonly exchangeId: string;
       readonly question: string;
-      readonly answer?: string;
+      readonly terminal?: AskTerminal;
     };
+
+type AskTerminal = ReturnType<typeof projectAskTerminal>;
+
+function projectAskTerminal(details: AskDetails) {
+  if ('answered' in details && 'text' in details.answered)
+    return { status: 'answered' as const, value: details.answered };
+  if ('cancelled' in details) return { status: 'cancelled' as const, value: details.cancelled };
+  if ('unavailable' in details) return { status: 'unavailable' as const, value: details.unavailable };
+  return undefined;
+}
 
 export interface SessionPresentation {
   readonly target: SessionTarget;
@@ -60,13 +71,14 @@ export function projectSessionPresentation(
     const parsed = zAskDetails.safeParse(message.details);
     if (!parsed.success) return { status: 'malformed_detail', entryId: entry.id, family: 'ask' };
     const details = parsed.data;
+    const terminal = projectAskTerminal(details);
     projected.push({
       id: entry.id,
       cursor,
       kind: 'ask',
       exchangeId: details.exchange_id,
       question: details.question.body,
-      ...('answered' in details && 'text' in details.answered ? { answer: details.answered.text } : {}),
+      ...(terminal ? { terminal } : {}),
     });
   }
   return {

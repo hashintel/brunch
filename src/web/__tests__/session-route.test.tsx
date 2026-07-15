@@ -3,7 +3,10 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { SessionPresentationResult } from '../../projections/session/session-presentation.js';
+import type {
+  SessionPresentationEntry,
+  SessionPresentationResult,
+} from '../../projections/session/session-presentation.js';
 import type { LiveSessionEvent } from '../../session/live-session-host.js';
 import { BrunchWebApp, createBrunchWebRuntime } from '../app.js';
 import type { WebSocketRpcClient, WebSocketRpcNotificationListener } from '../rpc-client.js';
@@ -13,7 +16,7 @@ afterEach(() => {
   sessionStorage.clear();
 });
 
-function fixture() {
+function fixture(terminalEntries: readonly SessionPresentationEntry[] = []) {
   const listeners = new Set<WebSocketRpcNotificationListener>();
   const calls: Array<{ method: string; params?: unknown }> = [];
   let reads = 0;
@@ -41,6 +44,7 @@ function fixture() {
             cursor: reads > 1 ? 'durable:assistant' : 'durable:user',
             entries: [
               { id: 'u1', cursor: 'durable:user', kind: 'message', role: 'user', text: 'History' },
+              ...terminalEntries,
               ...(reads > 1
                 ? [
                     {
@@ -72,6 +76,39 @@ function fixture() {
 }
 
 describe('session route', () => {
+  it('renders every projected free-text ask terminal without decoding details', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const ask = (
+      id: string,
+      terminal: Extract<SessionPresentationEntry, { kind: 'ask' }>['terminal'],
+    ): SessionPresentationEntry => ({
+      id,
+      cursor: `durable:${id}`,
+      kind: 'ask',
+      exchangeId: id,
+      question: `Question ${id}`,
+      terminal,
+    });
+    const f = fixture([
+      ask('answered', {
+        status: 'answered',
+        value: { text: 'Canonical JSONL.', comment: 'Keep the source visible.' },
+      }),
+      ask('cancelled-message', { status: 'cancelled', value: { message: 'No longer needed.' } }),
+      ask('cancelled', { status: 'cancelled', value: {} }),
+      ask('unavailable', { status: 'unavailable', value: { message: 'Source unavailable.' } }),
+    ]);
+
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+    expect(await screen.findByText('Answered: Canonical JSONL.')).toBeTruthy();
+    expect(screen.getByText('Comment: Keep the source visible.')).toBeTruthy();
+    expect(screen.getByText('Cancelled: No longer needed.')).toBeTruthy();
+    expect(screen.getByText('Cancelled')).toBeTruthy();
+    expect(screen.getByText('Unavailable: Source unavailable.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Answer' })).toBeNull();
+  });
+
   it('hydrates, drives, reduces targeted live state, answers, settles, and recovers durably', async () => {
     window.history.pushState(null, '', '/session/1/s1');
     const f = fixture();

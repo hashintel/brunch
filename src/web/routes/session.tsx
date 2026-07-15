@@ -119,6 +119,25 @@ function Ask({
   answer(value: string): Promise<unknown>;
 }) {
   const [value, setValue] = useState('');
+  if (entry.terminal) {
+    const terminal = entry.terminal;
+    return (
+      <section aria-label={entry.question}>
+        <p>{entry.question}</p>
+        {terminal.status === 'answered' ? (
+          <>
+            <p>Answered: {terminal.value.text}</p>
+            {terminal.value.comment ? <p>Comment: {terminal.value.comment}</p> : null}
+          </>
+        ) : (
+          <p>
+            {terminal.status === 'cancelled' ? 'Cancelled' : 'Unavailable'}
+            {terminal.value.message ? `: ${terminal.value.message}` : ''}
+          </p>
+        )}
+      </section>
+    );
+  }
   return (
     <form
       aria-label={entry.question}

@@ -69,7 +69,10 @@ describe('standalone web session host production entry', () => {
         expect.objectContaining({
           kind: 'ask',
           exchangeId: 'web-ask',
-          answer: 'The target-addressed broker.',
+          terminal: {
+            status: 'answered',
+            value: { text: 'The target-addressed broker.' },
+          },
         }),
         expect.objectContaining({ kind: 'message', role: 'assistant', text: 'Durable answer complete.' }),
       ]),
