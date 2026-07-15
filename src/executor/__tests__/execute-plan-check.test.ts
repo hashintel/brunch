@@ -24,7 +24,15 @@ const baseSnapshot: ExecutionSpecSnapshot = {
     },
   ],
   scopes: [],
-  context: { constraints: [], invariants: [], decisions: [], examples: [], design: [], oracle: [] },
+  context: {
+    constraints: [],
+    invariants: [],
+    decisions: [],
+    examples: [],
+    design: [],
+    oracle: [],
+    executionHarnesses: [],
+  },
 };
 
 describe('checkExecutionSpecForPlan', () => {

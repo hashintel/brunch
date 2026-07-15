@@ -378,6 +378,56 @@ describe('projectExecuteGraph execution contract', () => {
     ]);
   });
 
+  it.each([
+    {
+      source: 'a decision with the canonical title',
+      node: {
+        ...base,
+        id: 30,
+        plane: 'intent',
+        kind: 'decision',
+        kindOrdinal: 1,
+        title: 'Project execution harness',
+        body: 'execute.verify: decision-command',
+      } satisfies GraphNode,
+    },
+    {
+      source: 'a differently titled V&V method',
+      node: {
+        ...base,
+        id: 30,
+        plane: 'oracle',
+        kind: 'vv_method',
+        kindOrdinal: 1,
+        title: 'Release verification',
+        body: 'execute.verify: wrong-title-command',
+      } satisfies GraphNode,
+    },
+    {
+      source: 'an advisory canonical V&V method',
+      node: {
+        ...base,
+        settlement: 'advisory',
+        id: 30,
+        plane: 'oracle',
+        kind: 'vv_method',
+        kindOrdinal: 1,
+        title: 'Project execution harness',
+        body: 'execute.verify: advisory-command',
+      } satisfies GraphNode,
+    },
+  ])('does not grant command authority to $source', ({ node }) => {
+    const projection = projectExecuteGraph({
+      specId: 7,
+      graphLsn: 9,
+      nodes: [...nodes, node],
+      edges: [],
+    });
+
+    expect(projection.executionContract.requiredCapabilities).toEqual([]);
+    expect(projection.executionContract.resolvedActions.verify).toEqual([]);
+  });
+
   it('blocks the contract on malformed recipe lines instead of guessing', () => {
     const projection = projectExecuteGraph({
       specId: 7,

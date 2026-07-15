@@ -52,6 +52,7 @@ export function projectExecuteGraph(input: ProjectExecuteGraphInput): ExecuteGra
     invariants: snapshot.context.invariants,
     decisions: snapshot.context.decisions,
     verification: snapshot.context.oracle,
+    executionHarnesses: snapshot.context.executionHarnesses,
   });
   const providers = recipe.provider ? [recipe.provider] : [];
   const required: readonly CapabilityRequirement[] = recipe.required;

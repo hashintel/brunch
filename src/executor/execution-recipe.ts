@@ -32,13 +32,19 @@ export function extractSpecRecipe(commitments: PlanningCommitments): SpecRecipeE
   };
   const issues: SpecRecipeIssue[] = [];
 
-  const nodes = [
-    ...commitments.constraints,
-    ...commitments.invariants,
-    ...commitments.decisions,
-    ...commitments.verification,
-  ];
-  for (const node of nodes) {
+  if (commitments.executionHarnesses.length > 1) {
+    return {
+      provider: undefined,
+      required: [],
+      issues: commitments.executionHarnesses.map((node) => ({
+        itemId: node.itemId,
+        line: node.title,
+        reason: 'multiple settled Project execution harness V&V methods declare command authority',
+      })),
+    };
+  }
+
+  for (const node of commitments.executionHarnesses) {
     for (const rawLine of node.content.split('\n')) {
       const line = rawLine.trim();
       const match = RECIPE_LINE.exec(line);

@@ -14,6 +14,7 @@ export interface PlanningCommitments {
   readonly invariants: readonly ExecutionSpecItemSnapshot[];
   readonly decisions: readonly ExecutionSpecItemSnapshot[];
   readonly verification: readonly ExecutionSpecItemSnapshot[];
+  readonly executionHarnesses: readonly ExecutionSpecItemSnapshot[];
 }
 
 // The bounded scope-informed planning input (FE-1197): committed scopes plus the
@@ -45,6 +46,7 @@ export function projectPlanningInput(snapshot: ExecutionSpecSnapshot): PlanningP
       invariants: snapshot.context.invariants,
       decisions: snapshot.context.decisions,
       verification: snapshot.context.oracle,
+      executionHarnesses: snapshot.context.executionHarnesses,
     },
   };
 }

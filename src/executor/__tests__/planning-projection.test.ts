@@ -41,6 +41,7 @@ const snapshot: ExecutionSpecSnapshot = {
     examples: [item('EX1', 10, 'Example transcript')],
     design: [item('MOD9', 11, 'Unlinked module sketch')],
     oracle: [item('CH9', 12, 'Unlinked oracle node')],
+    executionHarnesses: [],
   },
 };
 
@@ -59,6 +60,7 @@ describe('projectPlanningInput', () => {
       invariants: [expect.objectContaining({ itemId: 'INV1' })],
       decisions: [expect.objectContaining({ itemId: 'DEC1' })],
       verification: [expect.objectContaining({ itemId: 'CH9' })],
+      executionHarnesses: [],
     });
   });
 
