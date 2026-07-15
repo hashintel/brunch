@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "scenarioId": "review-diff-source-clause",
-  "publicBrief": "Design a review-diff workflow that presents policy-copy changes and accepts a reviewed set atomically.",
+  "publicBrief": "Review policy-copy changes and accept a reviewed set atomically.",
   "hiddenFact": {
     "id": "retain-source-clause-id",
     "verbatim": "Every accepted policy rewrite must retain its source regulator clause identifier verbatim.",
     "assistantPromptMarker": "compliance or audit constraints",
-    "revealMarker": "COMPLIANCE_REVEAL: retain the source regulator clause identifier verbatim",
+    "revealMarker": "COMPLIANCE_REVEAL:",
     "approvalMarker": "APPROVE_EXACT_REVIEW_SET"
   },
   "graph": {

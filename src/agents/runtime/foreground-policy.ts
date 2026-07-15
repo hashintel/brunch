@@ -13,6 +13,7 @@ export interface ForegroundRuntimePromptInput {
   readonly context?: LiveElicitorPushedContext;
   readonly activeTools?: readonly string[];
   readonly agentBody?: string;
+  readonly directiveAblation?: 'warrant-before-commit';
 }
 
 export interface ForegroundRuntimePromptResult {

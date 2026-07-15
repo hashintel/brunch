@@ -26,6 +26,7 @@ It does not own published CLI behavior, public RPC contracts, database imports f
 - `rpc`, `mutate`, and `export` are explicit subcommands for scripted reads, graph curation, and fixture export.
 - `trajectory` joins one workspace's normalized debug events to Pi's canonical active session branch and an optional bounded viewport. It requires explicit workspace/session/run inputs and writes deterministic JSON + Markdown only under repo-root `.fixtures/scratch/trajectory/<run-id>/`; the report is diagnostic attribution, not product truth or a causality claim.
 - `evaluate-consequential-fact` applies the fixed review-diff rubric to Pi's canonical active branch, a runtime-validated joined `trajectory.json` with matching run identity, and a spec-scoped graph read. It writes atomic evidence-linked verdicts plus the joined report's real directive/transcript diagnostic references only under repo-root `.fixtures/scratch/evaluations/<run-id>/`, never mutates either store, and supports deterministic scorer calibration rather than campaign or causal claims.
+- `consequential-fact-campaign.ts` owns the fixed six-run warrant-ablation manifest, deterministic reveal/approval actor, mechanical-invalid boundary, and predeclared 2/3-versus-1/3 aggregation. Its scenario lives beside the evaluator implementation; campaign output remains scratch until human calibration and deliberate promotion.
 
 Current subcommands:
 

@@ -4,7 +4,7 @@ import {
   parseConsequentialFactScenario,
   scoreConsequentialFactRun,
 } from '../consequential-fact-evaluator.js';
-import fixture from './fixtures/consequential-fact-review-diff.json' with { type: 'json' };
+import fixture from '../consequential-fact-evaluator/review-diff-scenario.json' with { type: 'json' };
 
 const warranted = {
   runId: 'review-diff-warranted-1',

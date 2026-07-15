@@ -19,8 +19,8 @@ export interface TrajectoryReport {
   readonly runId: string;
   readonly directives: readonly {
     id: string;
-    category?: 'skill' | 'reference' | 'agent_body' | 'runtime_control' | 'unclassified';
-    state: readonly ('advertised' | 'read' | 'provider_visible' | 'unknown')[];
+    category?: 'skill' | 'reference' | 'agent_body' | 'runtime_control' | 'unclassified' | 'prompt_directive';
+    state: readonly ('advertised' | 'read' | 'provider_visible' | 'absent' | 'unknown')[];
     resource?: string;
   }[];
   readonly transcriptEffects: readonly { role: string; text: string }[];
@@ -91,6 +91,21 @@ export async function projectTrajectoryReport(
         ...(read?.resource ? { resource: read.resource } : {}),
       };
     });
+  const promptDirectiveEvidence = providers.flatMap((event) => event.promptDirectives);
+  for (const id of [...new Set(promptDirectiveEvidence.map((item) => item.id))].sort()) {
+    const evidence = promptDirectiveEvidence.filter((item) => item.id === id);
+    const identities = new Set(evidence.map((item) => item.hash));
+    const states = new Set(evidence.map((item) => item.present));
+    if (identities.size !== 1 || states.size !== 1) {
+      throw new Error(`trajectory directive evidence is inconsistent for ${id}`);
+    }
+    directives.push({
+      id,
+      category: 'prompt_directive',
+      state: [evidence[0]!.present ? 'provider_visible' : 'absent'],
+      resource: evidence[0]!.hash,
+    });
+  }
   const stableCategories = [
     ['agent_body', providers.flatMap((event) => event.agentBodyHashes)],
     ['runtime_control', providers.flatMap((event) => event.controlHashes)],
@@ -184,7 +199,9 @@ function parseEvent(value: unknown, line: number): BrunchTrajectoryEvent {
       !stringArray(value.contentHashes) ||
       !stringArray(value.agentBodyHashes) ||
       !stringArray(value.controlHashes) ||
-      !stringArray(value.unknownPromptHashes)
+      !stringArray(value.unknownPromptHashes) ||
+      !Array.isArray(value.promptDirectives) ||
+      !value.promptDirectives.every(promptDirective)
     )
       throw new Error(`trajectory source line ${line}: invalid provider_request fields`);
   } else if (value.kind === 'resource_read') {
@@ -203,16 +220,26 @@ function directive(value: unknown): boolean {
     isAbsolute(value.location)
   );
 }
+function promptDirective(value: unknown): boolean {
+  return (
+    record(value) &&
+    value.id === 'warrant-before-commit' &&
+    typeof value.hash === 'string' &&
+    typeof value.present === 'boolean'
+  );
+}
 function validReportDirective(value: unknown): boolean {
   return (
     record(value) &&
     typeof value.id === 'string' &&
     (value.category === undefined ||
       (typeof value.category === 'string' &&
-        ['skill', 'reference', 'agent_body', 'runtime_control', 'unclassified'].includes(value.category))) &&
+        ['skill', 'reference', 'agent_body', 'runtime_control', 'unclassified', 'prompt_directive'].includes(
+          value.category,
+        ))) &&
     Array.isArray(value.state) &&
     value.state.every((state) =>
-      ['advertised', 'read', 'provider_visible', 'unknown'].includes(String(state)),
+      ['advertised', 'read', 'provider_visible', 'absent', 'unknown'].includes(String(state)),
     ) &&
     (value.resource === undefined || typeof value.resource === 'string')
   );

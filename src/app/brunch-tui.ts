@@ -153,6 +153,8 @@ export interface BrunchTuiOptions {
   developerTools?: boolean;
   /** Override the automatic source/dev-build debug-cache default. */
   debugMirror?: boolean;
+  /** Programmatic dev/eval-only intervention; normal product launch has no selector. */
+  evaluationDirectiveAblation?: 'warrant-before-commit';
   openBrowser?: (url: string) => Promise<void>;
   advertiseWebSidecar?: (url: string) => void;
 }
@@ -180,8 +182,13 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
   const workspaceState = await coordinator.activateWorkspace(decision);
   const developerTools = options.developerTools === true;
   const introspection = createBrunchTuiIntrospection(cwd, {
-    debugMirror: options.debugMirror ?? isBrunchDevelopmentRuntime(),
+    debugMirror:
+      options.debugMirror ??
+      (isBrunchDevelopmentRuntime() || options.evaluationDirectiveAblation !== undefined),
     queryTools: developerTools,
+    ...(options.evaluationDirectiveAblation
+      ? { directiveAblation: options.evaluationDirectiveAblation }
+      : {}),
   });
 
   if (workspaceState.status === 'cancelled') {
@@ -233,13 +240,18 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
 
 function createBrunchTuiIntrospection(
   cwd: string,
-  options: { readonly debugMirror: boolean; readonly queryTools: boolean },
+  options: {
+    readonly debugMirror: boolean;
+    readonly queryTools: boolean;
+    readonly directiveAblation?: 'warrant-before-commit';
+  },
 ): BrunchTuiIntrospectionOptions | undefined {
   if (!options.debugMirror && !options.queryTools) return undefined;
   return {
     store: createInMemoryBrunchIntrospectionStore(),
     queryTools: options.queryTools,
     ...(options.debugMirror ? { debugCache: { cwd } } : {}),
+    ...(options.directiveAblation ? { directiveAblation: options.directiveAblation } : {}),
   };
 }
 

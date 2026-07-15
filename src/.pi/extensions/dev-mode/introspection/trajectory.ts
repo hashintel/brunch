@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { LIVE_ELICITOR_DIRECTIVES } from '../../../../agents/runtime/elicitor/compose-live-prompt.js';
 import { systemPromptFromProviderPayload } from '../../shared/provider-system-prompt.js';
 
 export interface AdvertisedDirective {
@@ -20,6 +21,11 @@ export type BrunchTrajectoryEvent =
       readonly agentBodyHashes: readonly string[];
       readonly controlHashes: readonly string[];
       readonly unknownPromptHashes: readonly string[];
+      readonly promptDirectives: readonly {
+        id: 'warrant-before-commit';
+        hash: string;
+        present: boolean;
+      }[];
       readonly gaps: readonly string[];
     }
   | {
@@ -85,6 +91,15 @@ export function createBrunchTrajectoryRecorder(cwd: string): BrunchTrajectoryRec
         // ceiling: 1,024 content identities per request; move to a streaming set if provider payloads exceed this bound.
         contentHashes: unique(strings.map(hash)).slice(0, 1_024),
         ...identities,
+        promptDirectives: [
+          {
+            id: 'warrant-before-commit',
+            hash: LIVE_ELICITOR_DIRECTIVES['warrant-before-commit'].hash,
+            present:
+              prompt?.includes(LIVE_ELICITOR_DIRECTIVES['warrant-before-commit'].providerVisibleText) ??
+              false,
+          },
+        ],
         gaps: turnIndex === undefined ? ['missing_turn_index'] : [],
       });
     },

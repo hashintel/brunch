@@ -72,6 +72,7 @@ describe('joined trajectory report', () => {
         agentBodyHashes: [hash('fixed agent body')],
         controlHashes: [hash('runtime control')],
         unknownPromptHashes: [hash('unclassified context')],
+        promptDirectives: [{ id: 'warrant-before-commit', hash: 'sha256:warrant', present: true }],
         gaps: [],
       },
       {
@@ -92,6 +93,7 @@ describe('joined trajectory report', () => {
         agentBodyHashes: [hash('fixed agent body')],
         controlHashes: [hash('runtime control')],
         unknownPromptHashes: [],
+        promptDirectives: [{ id: 'warrant-before-commit', hash: 'sha256:warrant', present: true }],
         gaps: [],
       },
       { ordinal: 4, kind: 'assistant_message', turnIndex: 0, textHash: hash('done'), gaps: [] },
@@ -131,6 +133,7 @@ describe('joined trajectory report', () => {
             agentBodyHashes: [],
             controlHashes: [],
             unknownPromptHashes: [],
+            promptDirectives: [{ id: 'warrant-before-commit', hash: 'sha256:warrant', present: true }],
             gaps: [],
           },
         ],

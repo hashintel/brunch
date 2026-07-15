@@ -8,7 +8,10 @@ import {
   DEFAULT_BRUNCH_AGENT_STATE,
   projectBrunchAgentState,
 } from '../../../../projections/session/runtime-state.js';
-import { composeLiveElicitorPrompt } from '../compose-live-prompt.js';
+import { composeLiveElicitorPrompt, LIVE_ELICITOR_DIRECTIVES } from '../compose-live-prompt.js';
+
+// Manifest skill locations are absolute paths (see src/agents/skills/registry.ts); normalize the
+// machine root before snapshotting so the committed golden carries no workstation-specific path.
 
 // Manifest skill locations are absolute paths (see src/agents/skills/registry.ts); normalize the
 // machine root before snapshotting so the committed golden carries no workstation-specific path.
@@ -131,6 +134,26 @@ describe('composeLiveElicitorPrompt', () => {
     expect(result.prompt).toContain('`execute.verify: <command>`');
     expect(result.prompt).toContain('the user must approve the recipe');
     expect(result.prompt).toContain('Reject shell composition');
+  });
+
+  it('ablates only the stable warrant directive without exposing source delimiters', () => {
+    const input = {
+      sessionState: projectBrunchAgentState([]),
+      spec: { id: 42, name: 'Live Assembly Spec' },
+      workspace,
+      agentBody:
+        'before\n<!-- brunch-directive:warrant-before-commit:start -->\nWhen a commitment is ready, ask.\n<!-- brunch-directive:warrant-before-commit:end -->\nafter',
+    };
+    const control = composeLiveElicitorPrompt(input).prompt;
+    const ablated = composeLiveElicitorPrompt({
+      ...input,
+      directiveAblation: 'warrant-before-commit',
+    }).prompt;
+    expect(control).toContain('When a commitment is ready, ask.');
+    expect(ablated).toBe(control.replace('When a commitment is ready, ask.', ''));
+    expect(control).not.toContain('brunch-directive:');
+    expect(ablated).not.toContain('brunch-directive:');
+    expect(LIVE_ELICITOR_DIRECTIVES['warrant-before-commit'].hash).toMatch(/^sha256:[a-f0-9]{64}$/u);
   });
 
   it('fails loud when called for a non-elicitor foreground state', () => {

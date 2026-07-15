@@ -24,6 +24,8 @@ export interface BrunchCliOptions {
   stderr?: Writable | ((chunk: string) => void);
   developerTools?: boolean;
   debugMirror?: boolean;
+  /** Programmatic dev/eval-only intervention; never parsed from product CLI argv. */
+  evaluationDirectiveAblation?: 'warrant-before-commit';
   launchTui?: typeof runBrunchTui;
   launchWeb?: (
     options: Omit<BrunchWebOptions, 'createRuntime'>,
@@ -97,6 +99,9 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
       openWeb,
       developerTools,
       ...(options.debugMirror === undefined ? {} : { debugMirror: options.debugMirror }),
+      ...(options.evaluationDirectiveAblation
+        ? { evaluationDirectiveAblation: options.evaluationDirectiveAblation }
+        : {}),
     });
     return 0;
   }

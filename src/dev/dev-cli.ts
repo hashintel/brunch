@@ -89,6 +89,7 @@ interface LaunchFlags {
   readonly openWeb: boolean;
   readonly noWebui: boolean;
   readonly developerTools: boolean;
+  readonly evaluationArm: 'control' | 'ablated' | undefined;
   readonly help: boolean;
 }
 
@@ -312,6 +313,9 @@ async function runLaunchCommand(args: readonly string[], options: DevCliOptions 
     ...(options.stdin ? { stdin: options.stdin } : {}),
     ...(options.stdout ? { stdout: options.stdout } : {}),
     developerTools: flags.developerTools,
+    ...(flags.evaluationArm === 'ablated'
+      ? { evaluationDirectiveAblation: 'warrant-before-commit' as const }
+      : {}),
   });
 }
 
@@ -558,6 +562,7 @@ function parseLaunchFlags(args: readonly string[], cwd: string): LaunchFlags {
       mode: { type: 'string', default: 'tui' },
       'no-webui': { type: 'boolean', default: false },
       'dev-tools': { type: 'boolean', default: false },
+      'evaluation-arm': { type: 'string' },
       help: { type: 'boolean', short: 'h', default: false },
     },
   });
@@ -571,6 +576,13 @@ function parseLaunchFlags(args: readonly string[], cwd: string): LaunchFlags {
   if (values.workbench && !isSafeWorkbenchName(values.workbench)) {
     throw new DevCliUsageError(`--workbench ${SAFE_WORKBENCH_NAME_RULE}.`);
   }
+  if (
+    values['evaluation-arm'] !== undefined &&
+    values['evaluation-arm'] !== 'control' &&
+    values['evaluation-arm'] !== 'ablated'
+  ) {
+    throw new DevCliUsageError('--evaluation-arm must be control or ablated.');
+  }
   return {
     workspace,
     workbench: values.workbench,
@@ -581,6 +593,7 @@ function parseLaunchFlags(args: readonly string[], cwd: string): LaunchFlags {
     openWeb: !values['no-webui'],
     noWebui: values['no-webui'],
     developerTools: values['dev-tools'],
+    evaluationArm: values['evaluation-arm'],
     help: values.help,
   };
 }

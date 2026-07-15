@@ -282,6 +282,8 @@ export interface BrunchPiExtensionsOptions extends BrunchCommandsOptions {
 
 export interface BrunchPiIntrospectionOptions extends BrunchIntrospectionOptions {
   readonly queryTools?: boolean;
+  /** Dev/eval-only prompt intervention; absent from normal product launches. */
+  readonly directiveAblation?: 'warrant-before-commit';
 }
 
 type BrunchProductExtensionRegistrar = (pi: ExtensionAPI) => void | Promise<void>;
@@ -423,7 +425,15 @@ export function createBrunchPiExtensions(
       // before mention autocomplete when prompt context is provided; its
       // position in this list is the registration order, not a splice index.
       ...(promptContext
-        ? [(api: ExtensionAPI) => registerBrunchPrompting(api, promptContext, { devAllowedToolNames })]
+        ? [
+            (api: ExtensionAPI) =>
+              registerBrunchPrompting(api, promptContext, {
+                devAllowedToolNames,
+                ...(introspectionOptions?.directiveAblation
+                  ? { directiveAblation: introspectionOptions.directiveAblation }
+                  : {}),
+              }),
+          ]
         : []),
       (api) => registerBrunchMentionAutocomplete(api, graphMentionSource),
       registerBrunchAlternatives,
