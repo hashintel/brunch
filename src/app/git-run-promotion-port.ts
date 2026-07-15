@@ -72,6 +72,13 @@ export function createGitRunPromotionPort(
       const commitSha = revParse.stdout.trim();
       if (status.stdout.trim().length > 0) {
         sideEffects.push({ kind: 'git_commit', path: args.worktreeDir, sha: commitSha });
+      } else if (commitSha === args.baseSha) {
+        return {
+          status: 'no_changes',
+          message: 'no promotable worktree changes since the run base',
+          commitSha,
+          sideEffects: [],
+        };
       }
 
       const ref = branchRef(args.reviewBranch);

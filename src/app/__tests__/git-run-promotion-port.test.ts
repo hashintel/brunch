@@ -154,7 +154,7 @@ describe('createGitRunPromotionPort', () => {
       port.promote({
         worktreeDir: '/repo/wt',
         message: 'promote',
-        baseSha: 'abc123',
+        baseSha: 'base123',
         reviewBranch: 'brunch/review/run-1',
       }),
     ).resolves.toEqual({
