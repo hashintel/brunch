@@ -171,7 +171,7 @@ All no — bounded extension of an existing helper inside a settled seam, no req
 
 Skipped-test-count delta vs parent: **0** (2 skipped tests; 1 skipped file before and after).
 
-## Card 3 · Differential reference-extractor test — `next`
+## Card 3 · Differential reference-extractor test — `done`
 
 ### Objective
 
@@ -220,6 +220,19 @@ src/dev/component-preview/
 ### Promotion checklist
 
 All no.
+
+### Completion evidence
+
+| Leaf | Outcome | Evidence |
+| ---- | ------- | -------- |
+| Naive structured-details extractor matches rendered codes and per-code connection counts for `presentReviewSetFixture` | met | `src/.pi/components/__tests__/exchange-review-set-result-differential.test.ts` — `matches the witnessed review-set fixture` |
+| Empty-group, single-node-group, term-only-group, and max-refs-group fixtures pass the same differential check | met | `src/.pi/components/__tests__/exchange-review-set-result-differential.test.ts` — four-row `it.each` matrix |
+| Reference extractor remains independent of renderer grouping and connection helpers | met | Test-local `referenceInventory` performs one flat edge-category traversal and imports only the public component; rendered inventory is parsed from `render(2_000)` output |
+| Same codes and connection counts are proved without pinning spacing/aesthetics | met | `renderedInventory` observes only graph-code tokens and `refs:` cardinality; snapshots remain the separate visual oracle |
+| Full verification gate | met | `npm run verify` — 266 files passed, 1 skipped; 2115 tests passed, 2 skipped; build passed |
+| Canonical reconciliation | met | No-op: Card 3 implements the already-recorded SPEC/PLAN differential-oracle commitment without changing production behavior, API, topology, seam, or frontier status |
+
+Skipped-test-count delta vs parent: **0** (2 skipped tests; 1 skipped file before and after).
 
 ## Card 4 · Content-length variant gallery — `next`
 
