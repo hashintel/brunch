@@ -1,7 +1,7 @@
 # Canonical interactive TUI driver tracer
 
 Frontier: interactive-tui-driver
-Status:   active
+Status:   done
 Mode:     single
 Created:  2026-07-15
 
@@ -77,21 +77,21 @@ Update every cell with measured evidence during the build. `claim` means upstrea
 
 | Capability | Existing Expect/xterm driver | `pi-interactive-shell` over `zigpty` | Evidence / verdict |
 | --- | --- | --- | --- |
-| Real PTY fidelity | unmeasured in this frontier | unmeasured | |
-| xterm/VT screen reconstruction | existing tests only | unmeasured | |
-| Text input | existing tests only | unmeasured | |
-| Named-key input | existing tests only | unmeasured | |
-| Bracketed/multiline paste | unsupported by current line protocol | upstream claim only | |
-| Wait/assert | existing substring wait | unmeasured | |
-| Resize | no current CLI operation | unmeasured | |
-| Bounded model-visible output | screen viewport / bounded log tail | upstream claim only | |
-| Cancellation and cleanup | existing tests only | unmeasured | |
-| Human observation/takeover/return | no overlay takeover | upstream claim only | |
-| Sandbox viability | design claim from prior use | unmeasured | |
-| Scratch/artifact hygiene | gitignored named-session directory | unmeasured | |
-| Pi 0.80.x compatibility | not applicable | unmeasured | |
-| `darwin-arm64` prebuild/import/spawn | system Expect dependency | unmeasured | |
-| `zigpty ^0.1.6` vs current 0.2.x consequence | not applicable | unmeasured | |
+| Real PTY fidelity | Expect PTY drove both real TUIs | zigpty PTY drove both real TUIs | both met; candidate preferred on capable host |
+| xterm/VT screen reconstruction | coherent captured viewports + 8/8 tests | coherent user-observed overlay viewports | both met |
+| Text input | synthetic Brunch input accepted | user reports text accepted | both met |
+| Named-key input | named key accepted in both tracers | user reports named keys accepted | both met |
+| Bracketed/multiline paste | unsupported by line protocol | user procedure confirmed operation | candidate-only capability |
+| Wait/assert | measured substring wait + timeout tests | bounded status/viewport query observed | both applicable; fallback has explicit wait |
+| Resize | unsupported by current CLI | both viewports remained coherent through resize | candidate required when resize is owed |
+| Bounded model-visible output | measured viewport / bounded log tail | bounded query result observed | both met |
+| Cancellation and cleanup | cancellation, stopped→removed, empty list; 8/8 tests | killed/queried final; no residual child/session | both met |
+| Human observation/takeover/return | unsupported | user took over with ordinary key and returned via `Ctrl+G` | candidate-only capability |
+| Sandbox viability | drove both tracers despite sandbox | blocked before execution by `tsx` IPC `listen EPERM` | fallback wins in constrained sandbox |
+| Scratch/artifact hygiene | gitignored named-session evidence | isolated temporary Pi profile; no committed logs | both met |
+| Pi 0.80.x compatibility | not applicable | user-witnessed with Pi 0.80.x | candidate met |
+| `darwin-arm64` prebuild/import/spawn | system Expect dependency | 0.1.6 prebuild present; user-witnessed import/spawn | candidate met on measured host |
+| `zigpty ^0.1.6` vs current 0.2.x consequence | not applicable | declared `^0.1.6`, resolved `0.1.6`; upstream `0.2.1` | health-check version changes; no direct integration |
 
 ## Acceptance Criteria
 
@@ -111,6 +111,26 @@ Update every cell with measured evidence during the build. `claim` means upstrea
 - The existing Expect/xterm driver remains usable until equivalence is proven — guarded by: `src/dev/__tests__/tui-driver.test.ts` plus the sandbox fallback witness.
 - Workbench state and raw PTY logs remain ephemeral, gitignored evidence — guarded by: `.gitignore`, scratch-path assertions/inspection, and `docs/praxis/manual-testing.md`.
 - No secrets or credentials enter automatic summaries or committed evidence — guarded by: synthetic tracer inputs and human review before any evidence promotion.
+
+## Completion Evidence
+
+| Leaf | Outcome | Evidence |
+| ---- | ------- | -------- |
+| candidate health report | met | `.fixtures/scratch/tui-driver-comparison/2026-07-15T1308/summary.md` |
+| capability matrix + viewports | met-with-divergence | matrix above; candidate detail is explicitly user-reported because sandbox execution was blocked, not fabricated machine output |
+| component-preview tracer | met | fallback viewport artifact + user-reported candidate launch/input/resize/cleanup |
+| seeded-Brunch tracer | met | fallback launch/interacted/list artifacts + user-reported candidate launch/input/resize/cleanup |
+| existing fallback suite | met | coordinator rerun: `npm run test -- src/dev/__tests__/tui-driver.test.ts`, 8/8 passed |
+| runtime boundary | met | no package/profile code changed; `npm run build` in final gate |
+| manual overlay witness | met | user-reported isolated Pi 0.80.x witness: takeover, `Ctrl+G` return, coherent resize, final status, no residue, no finding |
+| sandbox fallback witness | met | fallback scratch artifacts; candidate blocked at `tsx` IPC socket; empty driver list after cleanup |
+| documentation consistency | met | `docs/praxis/manual-testing.md`, `src/dev/README.md`, `src/dev/TOPOLOGY.md`; final link check/gate |
+| dev-only runtime invariant | met | temporary `-e npm:` workflow; no manifest or sealed-profile addition |
+| fallback remains usable | met | 8/8 tests and both sandbox tracers |
+| ephemeral artifact invariant | met | evidence remains under gitignored `.fixtures/scratch/` |
+| no-secret invariant | met | synthetic input only; summary contains bounded facts and labels the human report |
+
+Skipped-test-count delta vs parent: 0 (no tests changed or skipped).
 
 ## Verification Approach
 

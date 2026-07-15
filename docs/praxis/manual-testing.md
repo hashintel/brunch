@@ -4,11 +4,17 @@ Outer-loop verification for slices that touch the user-facing boundary. Manual t
 
 ## Setup
 
-1. **TUI + web sidecar**: use `/cli-cmux` to open a terminal pane and launch Brunch there (see workflow below). The web UI is served as a sidecar of the running TUI process.
+1. **Interactive TUI control**: prefer Pi with `pi-interactive-shell` loaded temporarily when the host permits overlays. It gives the agent a real PTY and bounded terminal queries while a human watches, takes over by typing, and presses `Ctrl+G` to return a hands-free session to the agent. Do not install it into Brunch's sealed profile or package manifest.
+2. **TUI + web sidecar**: `/cli-cmux` remains useful for a dedicated terminal pane. The web UI is served as a sidecar of the running TUI process.
    - **Standalone web** (`brunch --mode web`): also supported since FE-1200. It starts a combined cwd-scoped host without `InteractiveMode`, prints its loopback URL on stdout, and serves the target-addressed React session route (`/session/$specId/$sessionId`) directly. Use this when driving a browser chat without a TUI process.
-2. **Browser**: use `agent-browser` (`/cli-agent-browser`) as the primary observer — daemon-backed Chrome with AX-tree snapshots, clicks, and screenshots. CDP tools (`/cli-cdp`) remain useful for console/network detail.
+3. **Browser**: use `agent-browser` (`/cli-agent-browser`) as the primary observer — daemon-backed Chrome with AX-tree snapshots, clicks, and screenshots. CDP tools (`/cli-cdp`) remain useful for console/network detail.
 
-This keeps the dev process and browser observable without leaving the agent session.
+For an isolated candidate launch, create a temporary Pi home and load only the package for that process:
+
+```bash
+AGENT_DIR="$(mktemp -d)"
+PI_CODING_AGENT_DIR="$AGENT_DIR" pi -e npm:pi-interactive-shell
+```
 
 ### Shared-host transition evidence
 
@@ -24,9 +30,19 @@ The current TUI sidecar and standalone web host are separate runtime composition
 
 Record the current/desired path and exact deletion evidence in the frontier's walkthrough artifact. The cutover is not witnessed while `SessionEventRelay`, `brunch.sessionEvent`, or `/rpc/driver` remains load-bearing. See [`docs/design/WEB_UI_ARCHITECTURE.md`](../design/WEB_UI_ARCHITECTURE.md).
 
-### Sandboxed-agent fallback: tui-driver
+Before relying on it, confirm the extension loads, starts a trivial command, accepts input, resizes, reports final status, and leaves no background session. Then ask the agent to run these in hands-free mode:
 
-Agent sandboxes that deny socket binds break every daemon-backed terminal tool (cmux, agent-tui, shellwright). The in-repo fallback is `npm run tui-driver` (`src/dev/tui-driver.ts`): an `expect`-pumped PTY per named session, with true screen rendering through a headless xterm and wait-for-text instead of sleep-and-hope. Sessions live under gitignored `.fixtures/scratch/tui-driver/<name>/`.
+```text
+npm run dev:components -- tui-lab
+npm run seed -- --seed workspace-alpha-grounding/base --reset
+npm run dev-cli -- --workspace .fixtures/workbenches/workspace-alpha-grounding --no-webui
+```
+
+Use structured `input`, `inputKeys`, `inputPaste`, status, and kill operations rather than embedding terminal escapes. Candidate 0.13.0 was witnessed on Pi 0.80.x, Node v24.18.0, and macOS 26.5.2 arm64 with its resolved `zigpty` 0.1.6 `darwin-arm64` prebuild. It declares `zigpty ^0.1.6` while upstream was on 0.2.1; re-run the health check after candidate, Pi, Node, OS, architecture, or resolved-`zigpty` changes. macOS is the witnessed platform; Linux remains unproven here.
+
+### Sandboxed/headless fallback: tui-driver
+
+If overlays or socket-backed tooling cannot bind (for example `listen EPERM .../*.pipe`), use `npm run tui-driver` (`src/dev/tui-driver.ts`). It is an `expect`-pumped PTY per named session, with true screen rendering through a headless xterm and wait-for-text instead of sleep-and-hope. Sessions live under gitignored `.fixtures/scratch/tui-driver/<name>/`. It does not provide human overlay takeover, runtime resize, or bracketed/multiline paste; switch back to the temporary extension when those are acceptance requirements and the host permits it.
 
 ```bash
 # Launch the TUI under a named driver session.
@@ -40,10 +56,13 @@ npm run tui-driver -- send --name walk --key Down --key Enter
 npm run tui-driver -- send --name walk --type "My spec title" --key Enter
 npm run tui-driver -- screen --name walk
 
-# Tear down when the beat is witnessed.
+# Tear down when the beat is witnessed, remove its scratch session, and prove no residue.
 npm run tui-driver -- stop --name walk
 npm run tui-driver -- rm --name walk
+npm run tui-driver -- list
 ```
+
+For the temporary extension, query the session to a final status, kill it if still running, dismiss its background record, and verify its background-session list is empty before deleting `$AGENT_DIR`.
 
 Keys: `Enter Esc Up Down Right Left Tab Space Backspace C-c C-d`. `send` fails fast with a named error when the driver is gone (no silent fifo blocking); `list` shows every session with liveness. The raw PTY byte stream is in each session's `output.log` (`log` subcommand) when the rendered screen isn't enough.
 
