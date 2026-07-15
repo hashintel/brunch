@@ -1,8 +1,18 @@
 import { appendFile, readFile } from 'node:fs/promises';
 
-import { readyPlanSliceIds, type SchedulerPlan } from './orchestrate-topology.js';
+import { sliceStartReport } from './isolated-slice-operations.js';
+import {
+  blockedPlanSliceSteps,
+  readyPlanSliceIds,
+  type BlockedStep,
+  type SchedulerPlan,
+} from './orchestrate-topology.js';
+import { inspectPetriJournalAuthority } from './petri-journal-authority.js';
+import { readPetriMarkingSnapshot } from './petri-marking.js';
+import { projectExecutorPetriTransitionHistory } from './petri-runtime.js';
 import { populatedPlanPath } from './populate.js';
 import { reportsPath } from './report.js';
+import { withRunExecutionAuthority } from './run-execution-authority.js';
 import {
   assertSafeSliceId,
   runMetadataPath,
@@ -11,24 +21,19 @@ import {
   type RunMetadata,
 } from './run.js';
 
-interface PlanSlice {
-  readonly id: string;
-  readonly epic_id: string;
-  readonly depends_on?: SchedulerPlan['slices'] extends readonly (infer Slice)[]
-    ? Slice extends { readonly depends_on?: infer DependsOn }
-      ? DependsOn
-      : readonly string[]
-    : readonly string[];
-}
-
-interface PlanPayload {
-  readonly slices?: readonly PlanSlice[];
-}
+type PlanPayload = SchedulerPlan;
 
 export type SliceStartResult =
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
+      readonly runId: string;
+      readonly metadataPath: string;
+      readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: 'run_execution_active' | 'parallel_batch_active';
+      readonly runStatus: RunMetadata['status'] | 'not_started';
       readonly runId: string;
       readonly metadataPath: string;
       readonly sideEffects: readonly [];
@@ -46,6 +51,7 @@ export type SliceStartResult =
       readonly runId: string;
       readonly metadataPath: string;
       readonly reportsPath: string;
+      readonly blockedSteps: readonly BlockedStep[];
       readonly sideEffects: readonly [];
     }
   | {
@@ -53,7 +59,7 @@ export type SliceStartResult =
       readonly runStatus: 'slice_started';
       readonly runId: string;
       readonly sliceId: string;
-      readonly epicId: string;
+      readonly epicId?: string;
       readonly metadataPath: string;
       readonly reportsPath: string;
       readonly sideEffects: readonly [
@@ -63,6 +69,37 @@ export type SliceStartResult =
     };
 
 export async function startSlice(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly sliceId?: string;
+}): Promise<SliceStartResult> {
+  return startSliceWithExecutionAuthority(args);
+}
+
+export async function startSliceWithExecutionAuthority(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly sliceId?: string;
+}): Promise<SliceStartResult> {
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId: args.runId,
+    execute: () => startSliceOwned(args),
+    onContended: async () => {
+      const metadataPath = runMetadataPath(args.cwd, args.runId);
+      const metadata = await readRunMetadata(metadataPath);
+      return {
+        status: 'run_execution_active',
+        runStatus: metadata?.status ?? 'not_started',
+        runId: args.runId,
+        metadataPath,
+        sideEffects: [],
+      };
+    },
+  });
+}
+
+async function startSliceOwned(args: {
   readonly cwd: string;
   readonly runId: string;
   readonly sliceId?: string;
@@ -79,8 +116,7 @@ export async function startSlice(args: {
     };
   }
 
-  // A run is ready for a slice once reports are initialized (first slice) or
-  // after a previous slice has completed (subsequent slices).
+  // Pre-report runs have no populated plan or Petri authority substrate yet.
   if (metadata.status !== 'reports_initialized' && metadata.status !== 'slice_completed') {
     return {
       status: 'reports_not_initialized',
@@ -91,9 +127,42 @@ export async function startSlice(args: {
     };
   }
 
-  const reportPath = metadata.reportsPath ?? reportsPath(args.cwd, args.runId);
+  const marking = await readPetriMarkingSnapshot({ cwd: args.cwd, runId: args.runId });
+  if (marking?.parallelSliceBatch) {
+    return {
+      status: 'parallel_batch_active',
+      runStatus: metadata.status,
+      runId: args.runId,
+      metadataPath,
+      sideEffects: [],
+    };
+  }
+
   const plan = await readPlan(metadata.populatedPlanPath ?? populatedPlanPath(args.cwd, args.runId));
-  const readySliceIds = new Set(readyPlanSliceIds(plan, metadata.completedSliceIds ?? []));
+  const journalAuthority = await inspectPetriJournalAuthority({
+    cwd: args.cwd,
+    runId: args.runId,
+    lifecycleTransitionIds: projectExecutorPetriTransitionHistory(metadata, plan)?.transitionIds,
+    plan,
+  });
+  if (
+    journalAuthority.status === 'unreadable' ||
+    (journalAuthority.status === 'missing' && metadata.petriObservationPrepared === true) ||
+    (journalAuthority.status === 'readable' && journalAuthority.relation !== 'equal')
+  ) {
+    return {
+      status: 'parallel_batch_active',
+      runStatus: metadata.status,
+      runId: args.runId,
+      metadataPath,
+      sideEffects: [],
+    };
+  }
+
+  const reportPath = metadata.reportsPath ?? reportsPath(args.cwd, args.runId);
+  const readySliceIds = new Set(
+    readyPlanSliceIds(plan, metadata.completedSliceIds ?? [], metadata.completedEpicIds ?? []),
+  );
   const slice = args.sliceId
     ? readySliceIds.has(args.sliceId)
       ? plan.slices?.find((candidate) => candidate.id === args.sliceId)
@@ -107,23 +176,27 @@ export async function startSlice(args: {
       runId: args.runId,
       metadataPath,
       reportsPath: reportPath,
+      blockedSteps: blockedPlanSliceSteps(
+        plan,
+        metadata.completedSliceIds ?? [],
+        metadata.completedEpicIds ?? [],
+      ),
       sideEffects: [],
     };
   }
   assertSafeSliceId(slice.id);
 
-  const event = {
-    event: 'slice_started',
+  const event = sliceStartReport({
     runId: args.runId,
-    epicId: slice.epic_id,
+    ...(slice.epic_id === undefined ? {} : { epicId: slice.epic_id }),
     sliceId: slice.id,
-    status: 'slice_started',
-  };
+  });
+  const { activeEpicId: _previousEpicId, ...metadataWithoutEpic } = metadata;
   const updated: RunMetadata = {
-    ...metadata,
+    ...metadataWithoutEpic,
     status: 'slice_started',
     activeSliceId: slice.id,
-    activeEpicId: slice.epic_id,
+    ...(slice.epic_id === undefined ? {} : { activeEpicId: slice.epic_id }),
   };
 
   await appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8');
@@ -134,7 +207,7 @@ export async function startSlice(args: {
     runStatus: 'slice_started',
     runId: args.runId,
     sliceId: slice.id,
-    epicId: slice.epic_id,
+    ...(slice.epic_id === undefined ? {} : { epicId: slice.epic_id }),
     metadataPath,
     reportsPath: reportPath,
     sideEffects: [{ kind: 'append_file', path: reportPath }, metadataEffect],

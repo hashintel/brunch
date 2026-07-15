@@ -3,10 +3,16 @@ import { dirname, join } from 'node:path';
 
 import { petriPlanSnapshotPath } from './petri-plan-snapshot.js';
 import { planProvenancePath } from './plan-file.js';
+import {
+  runExecutionActive,
+  withRunExecutionAuthority,
+  type RunExecutionActiveResult,
+} from './run-execution-authority.js';
 import { runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 import { worktreeDirPath } from './worktree.js';
 
 export type PopulateResult =
+  | RunExecutionActiveResult
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -44,6 +50,18 @@ export function populatedPlanProvenancePath(cwd: string, runId: string): string 
 }
 
 export async function populateWorktree(args: {
+  readonly cwd: string;
+  readonly runId: string;
+}): Promise<PopulateResult> {
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId: args.runId,
+    execute: () => populateWorktreeOwned(args),
+    onContended: () => runExecutionActive(args.runId),
+  });
+}
+
+async function populateWorktreeOwned(args: {
   readonly cwd: string;
   readonly runId: string;
 }): Promise<PopulateResult> {

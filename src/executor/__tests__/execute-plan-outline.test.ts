@@ -4,20 +4,25 @@ import { outlineExecutionPlan } from '../execute-plan-outline.js';
 import type { ExecutionSpecSnapshot } from '../execution-spec-snapshot.js';
 
 const snapshot: ExecutionSpecSnapshot = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   specId: '7',
   mode: 'brownfield',
-  frontiers: [
-    { itemId: 'F1', nodeId: 9, title: 'Execution handoff', content: 'Execution handoff', dependsOn: [] },
-  ],
   requirements: [
-    { itemId: 'REQ1', nodeId: 1, title: 'Build feature', content: 'Build feature', dependsOn: [] },
+    {
+      itemId: 'REQ1',
+      nodeId: 1,
+      title: 'Build feature',
+      content: 'Build feature',
+      dependsOn: [],
+      frontierId: 'F1',
+    },
     {
       itemId: 'REQ2',
       nodeId: 2,
       title: 'Wire feature',
       content: 'Wire feature',
       dependsOn: ['REQ1'],
+      frontierId: 'F1',
     },
   ],
   criteria: [
@@ -27,7 +32,19 @@ const snapshot: ExecutionSpecSnapshot = {
       title: 'Feature is visible',
       content: 'Feature is visible',
       dependsOn: [],
-      verifies: ['REQ2'],
+      verifiesRequirements: ['REQ2'],
+      verifiesFrontiers: [],
+    },
+  ],
+  frontiers: [
+    {
+      itemId: 'F1',
+      nodeId: 9,
+      title: 'Execution handoff',
+      content: 'Execution handoff',
+      dependsOn: [],
+      requirementIds: ['REQ1', 'REQ2'],
+      verificationCriterionIds: [],
     },
   ],
   context: { constraints: [], invariants: [], decisions: [], examples: [], design: [], oracle: [] },
@@ -47,7 +64,8 @@ const snapshot: ExecutionSpecSnapshot = {
           title: 'Feature is visible',
           content: 'Feature is visible',
           dependsOn: [],
-          verifies: ['REQ2'],
+          verifiesRequirements: ['REQ2'],
+          verifiesFrontiers: [],
         },
       ],
       design: [
@@ -75,7 +93,15 @@ describe('outlineExecutionPlan', () => {
       ...snapshot,
       frontiers: [
         ...snapshot.frontiers,
-        { itemId: 'F2', nodeId: 11, title: 'Other frontier', content: 'Other frontier', dependsOn: [] },
+        {
+          itemId: 'F2',
+          nodeId: 11,
+          title: 'Other frontier',
+          content: 'Other frontier',
+          dependsOn: [],
+          requirementIds: [],
+          verificationCriterionIds: [],
+        },
       ],
       scopes: [{ ...scope, frontierIds: ['F1', 'F2'] }],
     });
@@ -141,7 +167,8 @@ describe('outlineExecutionPlan', () => {
             title: 'Shortcut opens feature',
             content: 'Shortcut opens feature',
             dependsOn: [],
-            verifies: ['REQ3'],
+            verifiesRequirements: ['REQ3'],
+            verifiesFrontiers: [],
           },
         ],
         scopes: [
@@ -157,7 +184,8 @@ describe('outlineExecutionPlan', () => {
                 title: 'Shortcut opens feature',
                 content: 'Shortcut opens feature',
                 dependsOn: [],
-                verifies: ['REQ3'],
+                verifiesRequirements: ['REQ3'],
+                verifiesFrontiers: [],
               },
             ],
           },
@@ -167,6 +195,8 @@ describe('outlineExecutionPlan', () => {
       {
         id: 'F1',
         title: 'Execution handoff',
+        dependsOn: [],
+        verification: [],
         tasks: [
           expect.objectContaining({
             id: 'task-1',
@@ -248,7 +278,8 @@ describe('outlineExecutionPlan', () => {
                 title: 'Flow remains coherent',
                 content: 'The feature flow remains coherent across both requirements.',
                 dependsOn: [],
-                verifies: [],
+                verifiesRequirements: [],
+                verifiesFrontiers: [],
                 scopeLinked: true,
               },
               scope.criteria[0]!,
@@ -258,7 +289,8 @@ describe('outlineExecutionPlan', () => {
                 title: 'Shortcut opens feature',
                 content: 'Shortcut opens feature',
                 dependsOn: [],
-                verifies: ['REQ3'],
+                verifiesRequirements: ['REQ3'],
+                verifiesFrontiers: [],
               },
             ],
           },
@@ -286,13 +318,15 @@ describe('outlineExecutionPlan', () => {
 
   it('creates only committed scope tasks once scopes exist', () => {
     expect(outlineExecutionPlan(snapshot)).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
       specId: '7',
       mode: 'brownfield',
       frontiers: [
         {
           id: 'F1',
           title: 'Execution handoff',
+          dependsOn: [],
+          verification: [],
           tasks: [
             {
               id: 'task-1',
@@ -318,6 +352,7 @@ describe('outlineExecutionPlan', () => {
                   title: 'Wire feature',
                   content: 'Wire feature',
                   dependsOn: ['REQ1'],
+                  frontierId: 'F1',
                 },
               ],
               designContext: [
@@ -336,6 +371,7 @@ describe('outlineExecutionPlan', () => {
           ],
         },
       ],
+      orphanTasks: [],
       sideEffects: [],
     });
   });
@@ -357,5 +393,11 @@ describe('outlineExecutionPlan', () => {
 
     expect(outline.frontiers).toHaveLength(1);
     expect(outline.frontiers[0]?.tasks.map((task) => task.requirementIds)).toEqual([['REQ2']]);
+  });
+
+  it('rejects a v1 execution snapshot instead of interpreting the incompatible shape', () => {
+    expect(() =>
+      outlineExecutionPlan({ ...snapshot, schemaVersion: 1 } as unknown as ExecutionSpecSnapshot),
+    ).toThrow('Unsupported execution spec snapshot schema version: 1');
   });
 });

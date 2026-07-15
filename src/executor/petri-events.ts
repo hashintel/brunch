@@ -1,11 +1,29 @@
-import { appendFile, mkdir } from 'node:fs/promises';
+import { appendFile, mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type { ExecutorNetEvent, ReadyStep } from './orchestrate-topology.js';
+import type {
+  ExecutorNetEvent,
+  ExecutorNetEventPayload,
+  ExecutorNetStepKind,
+} from './orchestrate-topology.js';
 import { runDirPath, type RunMetadata } from './run.js';
 
 export type PetriEventListener = (event: ExecutorNetEvent) => void;
 export type PetriJournalFailureListener = () => void;
+export type PetriTerminalEvent = Extract<
+  ExecutorNetEvent,
+  { readonly kind: 'net_completed' | 'net_halted' | 'net_deadlocked' }
+>;
+export type PetriTerminalEventPayload = Extract<
+  ExecutorNetEventPayload,
+  { readonly kind: 'net_completed' | 'net_halted' | 'net_deadlocked' }
+>;
+
+export class PetriTerminalJournalError extends Error {
+  constructor(readonly reason: 'petri_terminal_conflict' | 'petri_input_unreadable') {
+    super(reason);
+  }
+}
 
 // ceiling: both buses are process-local hints; replace with file watching or a
 // durable broker when executor and web host no longer share one process.
@@ -20,33 +38,145 @@ export function petriEventsPath(cwd: string, runId: string): string {
   return join(petriDirPath(cwd, runId), 'events.jsonl');
 }
 
-export async function appendPetriEvent(args: {
+export async function appendPetriEvent<Event extends ExecutorNetEventPayload>(args: {
   readonly cwd: string;
   readonly runId: string;
-  readonly event: ExecutorNetEvent;
-}): Promise<void> {
+  readonly event: Event;
+}): Promise<Event & { readonly ts: string }> {
   const key = listenerKey(args.cwd, args.runId);
+  const event: Event & { readonly ts: string } = { ...args.event, ts: new Date().toISOString() };
   try {
     await mkdir(petriDirPath(args.cwd, args.runId), { recursive: true });
-    await appendFile(petriEventsPath(args.cwd, args.runId), `${JSON.stringify(args.event)}\n`, 'utf8');
+    await appendFile(petriEventsPath(args.cwd, args.runId), `${JSON.stringify(event)}\n`, 'utf8');
   } catch (error) {
     // Observers must learn the journal broke or they wait on a wake-up that cannot come.
-    for (const listener of failureListenersByRun.get(key) ?? []) {
-      try {
-        listener();
-      } catch {
-        // Observer callbacks never change the durable append result.
-      }
-    }
+    publishPetriJournalFailure(args);
     throw error;
   }
   for (const listener of listenersByRun.get(key) ?? []) {
     try {
-      listener(args.event);
+      listener(event);
     } catch {
       // Observer callbacks never change the durable append result.
     }
   }
+  return event;
+}
+
+export async function appendPetriTerminalOnce(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly event: PetriTerminalEventPayload;
+}): Promise<PetriTerminalEvent> {
+  const journal = await readPetriJournal(petriEventsPath(args.cwd, args.runId));
+  if (journal.status === 'unreadable' || journal.status === 'unavailable') {
+    throw new PetriTerminalJournalError('petri_input_unreadable');
+  }
+  const terminals =
+    journal.status === 'readable'
+      ? journal.events.filter((event): event is PetriTerminalEvent => isTerminalEvent(event))
+      : [];
+  if (terminals.length > 1) throw new PetriTerminalJournalError('petri_terminal_conflict');
+  if (terminals[0]) {
+    if (!terminalMatchesPayload(terminals[0], args.event)) {
+      throw new PetriTerminalJournalError('petri_terminal_conflict');
+    }
+    return terminals[0];
+  }
+  return appendPetriEvent(args);
+}
+
+export function publishPetriJournalFailure(args: { readonly cwd: string; readonly runId: string }): void {
+  for (const listener of failureListenersByRun.get(listenerKey(args.cwd, args.runId)) ?? []) {
+    try {
+      listener();
+    } catch {
+      // Observer callbacks never change journal authority.
+    }
+  }
+}
+
+export async function readDurableEpicTransitionHistory(args: {
+  readonly cwd: string;
+  readonly runId: string;
+}): Promise<
+  | { readonly status: 'missing' | 'unreadable' }
+  | { readonly status: 'unavailable'; readonly code?: string }
+  | { readonly status: 'readable'; readonly history: readonly string[] }
+> {
+  try {
+    const history: string[] = [];
+    const journal = await inspectPetriTransitionJournal(args);
+    if (journal.status !== 'readable') return journal;
+    for (const event of journal.events) {
+      if (event.kind === 'transition_fired' && event.contract.lane === 'epic') {
+        history.push(event.transitionId);
+      }
+    }
+    return { status: 'readable', history };
+  } catch (error) {
+    return isNodeError(error) && error.code === 'ENOENT' ? { status: 'missing' } : unavailableJournal(error);
+  }
+}
+
+export async function inspectPetriTransitionJournal(args: {
+  readonly cwd: string;
+  readonly runId: string;
+}): Promise<
+  | { readonly status: 'missing' | 'unreadable' }
+  | { readonly status: 'unavailable'; readonly code?: string }
+  | {
+      readonly status: 'readable';
+      readonly events: readonly ExecutorNetEvent[];
+      readonly transitionIds: readonly string[];
+    }
+> {
+  const journal = await readPetriJournal(petriEventsPath(args.cwd, args.runId));
+  if (journal.status !== 'readable') return journal;
+  return {
+    ...journal,
+    transitionIds: journal.events.flatMap((event) =>
+      event.kind === 'transition_fired' ? [event.transitionId] : [],
+    ),
+  };
+}
+
+export async function readPetriJournal(
+  path: string,
+): Promise<
+  | { readonly status: 'missing' | 'unreadable' }
+  | { readonly status: 'unavailable'; readonly code?: string }
+  | { readonly status: 'readable'; readonly events: readonly ExecutorNetEvent[] }
+> {
+  let raw: string;
+  try {
+    raw = await readFile(path, 'utf8');
+  } catch (error) {
+    return isNodeError(error) && error.code === 'ENOENT' ? { status: 'missing' } : unavailableJournal(error);
+  }
+  if (raw.length > 0 && !raw.endsWith('\n')) return { status: 'unreadable' };
+  const events: ExecutorNetEvent[] = [];
+  for (const line of raw.length === 0 ? [] : raw.split('\n').slice(0, -1)) {
+    if (line.length === 0) return { status: 'unreadable' };
+    try {
+      const event = parsePetriEvent(JSON.parse(line));
+      if (!event) return { status: 'unreadable' };
+      events.push(event);
+    } catch {
+      return { status: 'unreadable' };
+    }
+  }
+  return { status: 'readable', events };
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && 'code' in error;
+}
+
+function unavailableJournal(error: unknown): { readonly status: 'unavailable'; readonly code?: string } {
+  return isNodeError(error) && typeof error.code === 'string'
+    ? { status: 'unavailable', code: error.code }
+    : { status: 'unavailable' };
 }
 
 export function subscribePetriEvents(args: {
@@ -80,13 +210,22 @@ function subscribeListener<Listener>(
 }
 
 export function parsePetriEvent(value: unknown): ExecutorNetEvent | undefined {
-  if (!isRecord(value) || typeof value.runId !== 'string' || !isRunStatus(value.runStatus)) return undefined;
+  if (
+    !isRecord(value) ||
+    typeof value.runId !== 'string' ||
+    !isRunStatus(value.runStatus) ||
+    !isIsoTimestamp(value.ts)
+  ) {
+    return undefined;
+  }
   if (value.kind === 'net_completed' || value.kind === 'net_deadlocked') {
+    if (!isStringArray(value.failedSliceIds)) return undefined;
     return value as unknown as ExecutorNetEvent;
   }
   if (value.kind === 'net_halted') {
     if (value.step !== undefined && !isStepKind(value.step)) return undefined;
     if (value.reason !== undefined && typeof value.reason !== 'string') return undefined;
+    if (!isStringArray(value.failedSliceIds)) return undefined;
     return value as unknown as ExecutorNetEvent;
   }
   if (value.kind === 'attempt_failed') {
@@ -99,6 +238,10 @@ export function parsePetriEvent(value: unknown): ExecutorNetEvent | undefined {
     ) {
       return undefined;
     }
+    return value as unknown as ExecutorNetEvent;
+  }
+  if (value.kind === 'epic_verification_claimed') {
+    if (typeof value.epicId !== 'string' || value.step !== 'epic_verify') return undefined;
     return value as unknown as ExecutorNetEvent;
   }
   if (value.kind !== 'transition_fired') return undefined;
@@ -131,6 +274,7 @@ const RUN_STATUSES = {
   slice_execution_requested: true,
   agent_result_ingested: true,
   test_result_ingested: true,
+  slice_integrated: true,
   slice_completed: true,
   run_completed: true,
   petri_exported: true,
@@ -148,17 +292,21 @@ const STEP_KINDS = {
   slice_execute: true,
   agent_result: true,
   test_result: true,
+  slice_integrate: true,
   slice_complete: true,
   run_complete: true,
   petri_export: true,
   promotion: true,
-} satisfies Record<ReadyStep['kind'], true>;
+  epic_integrate: true,
+  epic_verify: true,
+  epic_complete: true,
+} satisfies Record<ExecutorNetStepKind, true>;
 
 function isRunStatus(value: unknown): value is RunMetadata['status'] {
   return typeof value === 'string' && value in RUN_STATUSES;
 }
 
-function isStepKind(value: unknown): value is ReadyStep['kind'] {
+function isStepKind(value: unknown): value is ExecutorNetStepKind {
   return typeof value === 'string' && value in STEP_KINDS;
 }
 
@@ -166,7 +314,7 @@ function isTransitionContract(value: unknown): boolean {
   return (
     isRecord(value) &&
     (value.kind === 'mechanical' || value.kind === 'structural') &&
-    (value.lane === 'run' || value.lane === 'slice')
+    (value.lane === 'run' || value.lane === 'slice' || value.lane === 'attempt' || value.lane === 'epic')
   );
 }
 
@@ -178,8 +326,31 @@ function isStringArray(value: unknown): value is readonly string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
 }
 
+function isIsoTimestamp(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const parsed = new Date(value);
+  return !Number.isNaN(parsed.valueOf()) && parsed.toISOString() === value;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function isTerminalEvent(event: ExecutorNetEvent): event is PetriTerminalEvent {
+  return event.kind === 'net_completed' || event.kind === 'net_halted' || event.kind === 'net_deadlocked';
+}
+
+function terminalMatchesPayload(existing: PetriTerminalEvent, proposed: PetriTerminalEventPayload): boolean {
+  return (
+    existing.kind === proposed.kind &&
+    (existing.kind !== 'net_halted' ||
+      (proposed.kind === 'net_halted' && existing.reason === proposed.reason)) &&
+    stringArraysEqual(existing.failedSliceIds, proposed.failedSliceIds)
+  );
+}
+
+function stringArraysEqual(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function listenerKey(cwd: string, runId: string): string {

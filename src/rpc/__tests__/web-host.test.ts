@@ -9,12 +9,26 @@ import { describe, expect, it } from 'vitest';
 import {
   createFakeGitHostPromotionPort,
   createFakeGitLandPort,
+  createFakeGitSliceIntegrationPort,
   createFakeGitWorktreePort,
   createFakeTestRunnerPort,
 } from '../../executor/__tests__/fake-ports.js';
 import type { ExecutionPorts } from '../../executor/execution-ports.js';
-import { drive, linearScheduler, serialFiringPolicy } from '../../executor/orchestrate.js';
-import { appendPetriEvent, subscribePetriEvents } from '../../executor/petri-events.js';
+import { readRunDetail } from '../../executor/observer-read.js';
+import {
+  drive,
+  frontierFiringPolicy,
+  linearScheduler,
+  petriScheduler,
+  serialFiringPolicy,
+} from '../../executor/orchestrate.js';
+import {
+  appendPetriEvent,
+  petriEventsPath,
+  readPetriJournal,
+  subscribePetriEvents,
+} from '../../executor/petri-events.js';
+import { readPetriMarkingSnapshot } from '../../executor/petri-marking.js';
 import { preparePetriObservation } from '../../executor/petri.js';
 import { planFilePath } from '../../executor/plan-file.js';
 import { abandonRun } from '../../executor/run-abandon.js';
@@ -117,6 +131,7 @@ function parseSse(body: string): Array<{ event: string; data: unknown }> {
 function executorPorts(gitWorktree: ExecutionPorts['gitWorktree']): ExecutionPorts {
   return {
     gitWorktree,
+    gitSliceIntegration: createFakeGitSliceIntegrationPort(),
     agentRunner: {
       async run() {
         return { status: 'completed' };
@@ -131,7 +146,11 @@ function executorPorts(gitWorktree: ExecutionPorts['gitWorktree']): ExecutionPor
 async function writePetrinautReplayRun(
   cwd: string,
   runId: string,
-  options: { readonly terminal?: boolean; readonly status?: RunMetadata['status'] } = {},
+  options: {
+    readonly terminal?: boolean;
+    readonly status?: RunMetadata['status'];
+    readonly failedSliceIds?: readonly string[];
+  } = {},
 ): Promise<void> {
   const terminal = options.terminal ?? true;
   const runDir = runDirPath(cwd, runId);
@@ -143,6 +162,7 @@ async function writePetrinautReplayRun(
       specId: '42',
       planPath: '/plan.yaml',
       status: options.status ?? (terminal ? 'promotion_prepared' : 'petri_exported'),
+      ...(options.failedSliceIds === undefined ? {} : { failedSliceIds: options.failedSliceIds }),
     })}\n`,
     'utf8',
   );
@@ -215,6 +235,7 @@ async function writePetrinautReplayRun(
     [
       JSON.stringify({
         kind: 'transition_fired',
+        ts: '2026-07-14T12:00:00.000Z',
         runId,
         runStatus: 'worktree_created',
         transitionId: 'worktree_create',
@@ -227,7 +248,15 @@ async function writePetrinautReplayRun(
         toStatus: 'worktree_created',
       }),
       ...(terminal
-        ? [JSON.stringify({ kind: 'net_completed', runId, runStatus: 'promotion_prepared' })]
+        ? [
+            JSON.stringify({
+              kind: 'net_completed',
+              ts: '2026-07-14T12:00:01.000Z',
+              runId,
+              runStatus: 'promotion_prepared',
+              failedSliceIds: [],
+            }),
+          ]
         : []),
       '',
     ].join('\n'),
@@ -915,14 +944,14 @@ describe('web host', () => {
         'transition_firing',
         'terminal',
       ]);
-      expect(frames[0]?.data).toEqual({ state: 'completed' });
+      expect(frames[0]?.data).toEqual({ state: 'completed', failedSliceIds: [] });
       expect(frames[2]?.data).toEqual({ 'run:created': 1 });
       expect(frames[3]?.data).toMatchObject({
         transitionId: 'worktree_create',
         input: { 'run:created': 1 },
         output: { 'run:worktree_created': 1 },
       });
-      expect(frames[5]?.data).toEqual({ state: 'completed' });
+      expect(frames[5]?.data).toEqual({ state: 'completed', failedSliceIds: [] });
     } finally {
       await host.close();
     }
@@ -943,7 +972,12 @@ describe('web host', () => {
       await appendPetriEvent({
         cwd,
         runId: 'run-1',
-        event: { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+        event: {
+          kind: 'net_completed',
+          runId: 'run-1',
+          runStatus: 'promotion_prepared',
+          failedSliceIds: [],
+        },
       });
 
       for (;;) {
@@ -958,12 +992,14 @@ describe('web host', () => {
         'definition',
         'initial_state',
         'transition_firing',
+        'status',
         'transition_firing',
         'terminal',
       ]);
-      expect(frames[0]?.data).toEqual({ state: 'running' });
-      expect(frames[4]?.data).toMatchObject({ transitionId: 'run:finish', output: { 'run:completed': 1 } });
-      expect(frames[5]?.data).toEqual({ state: 'completed' });
+      expect(frames[0]?.data).toEqual({ state: 'running', failedSliceIds: [] });
+      expect(frames[4]?.data).toEqual({ state: 'completed', failedSliceIds: [] });
+      expect(frames[5]?.data).toMatchObject({ transitionId: 'run:finish', output: { 'run:completed': 1 } });
+      expect(frames[6]?.data).toEqual({ state: 'completed', failedSliceIds: [] });
     } finally {
       await host.close();
     }
@@ -978,7 +1014,12 @@ describe('web host', () => {
       await appendPetriEvent({
         cwd,
         runId: 'run-1',
-        event: { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+        event: {
+          kind: 'net_completed',
+          runId: 'run-1',
+          runStatus: 'promotion_prepared',
+          failedSliceIds: [],
+        },
       });
       const response = await responsePromise;
       const frames = parseSse(await response.text());
@@ -1049,6 +1090,15 @@ describe('web host', () => {
         'definition',
         'initial_state',
       ]);
+      const definition = frames[1]?.data as {
+        readonly places: readonly { readonly x?: number; readonly y?: number }[];
+        readonly transitions: readonly { readonly x?: number; readonly y?: number }[];
+      };
+      expect(
+        [...definition.places, ...definition.transitions].every(
+          (node) => Number.isFinite(node.x) && Number.isFinite(node.y),
+        ),
+      ).toBe(true);
       expect(firings[0]?.data).toMatchObject({ transitionId: 'worktree_create' });
       expect(
         firings
@@ -1059,14 +1109,198 @@ describe('web host', () => {
               : undefined,
           ),
       ).toEqual(['promotion', 'run:finish']);
-      expect(frames.at(-1)).toEqual({ event: 'terminal', data: { state: 'completed' } });
+      expect(frames.at(-1)).toEqual({
+        event: 'terminal',
+        data: { state: 'completed', failedSliceIds: [] },
+      });
+    } finally {
+      await host.close();
+    }
+  });
+
+  it('retains mixed S3/S4 failures and the S5 success while exposing every failed slice id', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-mixed-failure-'));
+    await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
+    await writeFile(
+      planFilePath(cwd, '42'),
+      JSON.stringify({
+        mode: 'greenfield',
+        slices: [
+          { id: 'S2', definition: 'serial predecessor', depends_on: [], verification: [] },
+          ...['S3', 'S4', 'S5'].map((id) => ({
+            id,
+            definition: id,
+            depends_on: ['S2'],
+            verification: [],
+          })),
+        ],
+      }),
+      'utf8',
+    );
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
+    await preparePetriObservation({ cwd, runId: 'run-1' });
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      const first = await reader.read();
+      let body = decoder.decode(first.value);
+      const ports: ExecutionPorts = {
+        ...executorPorts(createFakeGitWorktreePort()),
+        testRunner: {
+          async run(args) {
+            return {
+              status: 'completed',
+              verdict:
+                args.worktreeDir.includes('/S2/') || args.worktreeDir.includes('/S5/') ? 'passed' : 'failed',
+              exitCode: args.worktreeDir.includes('/S2/') || args.worktreeDir.includes('/S5/') ? 0 : 1,
+            };
+          },
+        },
+      };
+
+      await expect(
+        drive({ cwd, runId: 'run-1', ports }, petriScheduler, frontierFiringPolicy),
+      ).resolves.toEqual({
+        status: 'halted',
+        step: 'test_result',
+        runStatus: 'slice_completed',
+        reason: 'slice_verification_not_passed',
+      });
+      for (;;) {
+        const next = await reader.read();
+        if (next.done) break;
+        body += decoder.decode(next.value);
+      }
+
+      const frames = parseSse(body);
+      const firings = frames.flatMap((frame) =>
+        frame.event === 'transition_firing' &&
+        typeof frame.data === 'object' &&
+        frame.data !== null &&
+        'transitionId' in frame.data
+          ? [frame.data.transitionId]
+          : [],
+      );
+      const journal = await readPetriJournal(petriEventsPath(cwd, 'run-1'));
+      expect(journal.status).toBe('readable');
+      const durableFirings =
+        journal.status === 'readable'
+          ? journal.events.flatMap((event) => (event.kind === 'transition_fired' ? [event.transitionId] : []))
+          : [];
+
+      expect(firings).toEqual([...durableFirings, 'run:finish']);
+      expect(firings).toEqual(
+        expect.arrayContaining([
+          'test_result_ingested:S3:attempt:1',
+          'verify_failed:S3:attempt:1',
+          'test_result_ingested:S4:attempt:1',
+          'verify_failed:S4:attempt:1',
+          'test_result_ingested:S5:attempt:1',
+          'verify_passed:S5:attempt:1',
+          'slice_complete:S5',
+        ]),
+      );
+      expect(firings).not.toContain('slice_integrate:S3');
+      expect(firings).not.toContain('slice_integrate:S4');
+      expect(firings).toContain('slice_integrate:S5');
+      const run = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+      expect(run).toMatchObject({
+        status: 'slice_completed',
+        failedSliceIds: ['S3', 'S4'],
+        completedSliceIds: ['S2', 'S5'],
+        sliceAttemptHistory: {
+          S3: { verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'failed' }] },
+          S4: { verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'failed' }] },
+          S5: { verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'passed' }] },
+        },
+      });
+      for (const field of [
+        'activeSliceId',
+        'activeEpicId',
+        'activeSliceWorkspaceDir',
+        'activeSliceBaseSha',
+        'sliceExecutionRequestPath',
+        'agentResultPath',
+      ]) {
+        expect(run).not.toHaveProperty(field);
+      }
+      const marking = await readPetriMarkingSnapshot({ cwd, runId: 'run-1' });
+      expect(marking).toMatchObject({
+        currentMarking: {
+          'slice:S3:verification_failed': 1,
+          'slice:S4:verification_failed': 1,
+          'slice:S5:completed': 1,
+        },
+        lifecycleProvenance: {
+          runStatus: 'slice_completed',
+          completedSliceIds: ['S2', 'S5'],
+        },
+        terminalEventKind: 'net_halted',
+        haltedReason: 'slice_verification_not_passed',
+        failedSliceIds: ['S3', 'S4'],
+      });
+      expect(marking?.lifecycleProvenance).not.toHaveProperty('activeSliceId');
+      const detail = await readRunDetail(cwd, 'run-1');
+      expect(detail).toMatchObject({
+        status: 'slice_completed',
+        completedSliceIds: ['S2', 'S5'],
+        failedSliceIds: ['S3', 'S4'],
+        petriProjection: {
+          currentMarking: {
+            'slice:S3:verification_failed': 1,
+            'slice:S4:verification_failed': 1,
+            'slice:S5:completed': 1,
+          },
+          terminalEventKind: 'net_halted',
+          haltedReason: 'slice_verification_not_passed',
+          failedSliceIds: ['S3', 'S4'],
+        },
+      });
+      expect(detail).not.toHaveProperty('activeSliceId');
+      expect(frames.filter((frame) => frame.event === 'status').at(-1)?.data).toEqual({
+        state: 'halted',
+        failedSliceIds: ['S3', 'S4'],
+        reason: 'slice_verification_not_passed',
+      });
+      expect(frames.at(-1)?.data).toEqual({
+        state: 'halted',
+        failedSliceIds: ['S3', 'S4'],
+        reason: 'slice_verification_not_passed',
+      });
+
+      const durableBeforeRestart = await readFile(petriEventsPath(cwd, 'run-1'), 'utf8');
+      await expect(
+        drive({ cwd, runId: 'run-1', ports }, petriScheduler, frontierFiringPolicy),
+      ).resolves.toEqual({
+        status: 'halted',
+        step: 'test_result',
+        runStatus: 'slice_completed',
+        reason: 'slice_verification_not_passed',
+      });
+      await expect(readFile(petriEventsPath(cwd, 'run-1'), 'utf8')).resolves.toBe(durableBeforeRestart);
+      await expect(readRunDetail(cwd, 'run-1')).resolves.toEqual(detail);
+      const reconnectFrames = parseSse(await text(await fetch(`${host.url}/petrinaut/stream?runId=run-1`)));
+      expect(reconnectFrames.filter((frame) => frame.event === 'transition_firing')).toEqual(
+        frames.filter((frame) => frame.event === 'transition_firing'),
+      );
+      expect(reconnectFrames[0]).toEqual({
+        event: 'status',
+        data: {
+          state: 'halted',
+          failedSliceIds: ['S3', 'S4'],
+          reason: 'slice_verification_not_passed',
+        },
+      });
+      expect(reconnectFrames.at(-1)).toEqual(frames.at(-1));
     } finally {
       await host.close();
     }
   });
 
   // Regression oracle for the FE-1190 fail-closed journal contract (Bugbot finding).
-  it('closes an active stream when a durable journal append fails mid-run', async () => {
+  it('closes an active stream when the durable journal becomes unavailable mid-run', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-journal-failure-'));
     await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
     await writeFile(
@@ -1122,14 +1356,14 @@ describe('web host', () => {
         await expect(drive({ cwd, runId: 'run-1', ports })).resolves.toEqual({
           status: 'halted',
           step: 'source_policy',
-          runStatus: 'source_policy_selected',
-          reason: 'petri_journal_append_failed',
+          runStatus: 'worktree_populated',
+          reason: 'petri_input_unreadable',
         });
       } finally {
         unsubscribe();
       }
       const metadata = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
-      expect(metadata?.status).toBe('source_policy_selected');
+      expect(metadata?.status).toBe('worktree_populated');
       expect(wakeUpsAfterBreak).toEqual([]);
 
       for (;;) {
@@ -1207,7 +1441,12 @@ describe('web host', () => {
       await appendPetriEvent({
         cwd,
         runId: 'run-1',
-        event: { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+        event: {
+          kind: 'net_completed',
+          runId: 'run-1',
+          runStatus: 'promotion_prepared',
+          failedSliceIds: [],
+        },
       });
       for (;;) {
         const next = await reader.read();
@@ -1216,11 +1455,16 @@ describe('web host', () => {
       }
 
       const frames = parseSse(body);
+      // Verdict and epic transitions are structural journal firings; run:finish
+      // remains the sole synthesized terminal projection transition.
       expect(frames.filter((frame) => frame.event === 'transition_firing')).toHaveLength(
-        firedTransitions + 1,
+        firedTransitions + 2,
       );
       expect(body).toContain('"transitionId":"run:finish"');
-      expect(frames.at(-1)).toEqual({ event: 'terminal', data: { state: 'completed' } });
+      expect(frames.at(-1)).toEqual({
+        event: 'terminal',
+        data: { state: 'completed', failedSliceIds: [] },
+      });
     } finally {
       await host.close();
     }
@@ -1286,7 +1530,10 @@ describe('web host', () => {
         'terminal',
         'transition_firing',
       ]);
-      expect(parseSse(body).at(-1)).toEqual({ event: 'terminal', data: { state: 'completed' } });
+      expect(parseSse(body).at(-1)).toEqual({
+        event: 'terminal',
+        data: { state: 'completed', failedSliceIds: [] },
+      });
     } finally {
       await host.close();
     }
@@ -1312,7 +1559,11 @@ describe('web host', () => {
 
   it('wakes an active Petrinaut stream when the run is abandoned without a journal append', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-abandon-'));
-    await writePetrinautReplayRun(cwd, 'run-1', { terminal: false, status: 'worktree_created' });
+    await writePetrinautReplayRun(cwd, 'run-1', {
+      terminal: false,
+      status: 'worktree_created',
+      failedSliceIds: ['task-2'],
+    });
     const host = await startWebHost({ cwd, port: 0 });
     try {
       const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
@@ -1335,8 +1586,55 @@ describe('web host', () => {
       });
       expect(frames.at(-1)).toEqual({
         event: 'terminal',
-        data: { state: 'halted', reason: 'operator stopped run' },
+        data: { state: 'halted', failedSliceIds: ['task-2'], reason: 'operator stopped run' },
       });
+    } finally {
+      await host.close();
+    }
+  });
+
+  it('keeps a failed journal terminal authoritative after abandonment for live and reconnect streams', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-failed-abandon-'));
+    await writePetrinautReplayRun(cwd, 'run-1', { terminal: false, status: 'worktree_created' });
+    const host = await startWebHost({ cwd, port: 0 });
+    try {
+      const live = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const liveReader = live.body!.getReader();
+      const decoder = new TextDecoder();
+      let liveBody = decoder.decode((await liveReader.read()).value);
+
+      await appendPetriEvent({
+        cwd,
+        runId: 'run-1',
+        event: {
+          kind: 'net_halted',
+          runId: 'run-1',
+          runStatus: 'worktree_created',
+          step: 'test_result',
+          reason: 'slice_verification_not_passed',
+          failedSliceIds: ['S3', 'S4'],
+        },
+      });
+      for (;;) {
+        const next = await liveReader.read();
+        if (next.done) break;
+        liveBody += decoder.decode(next.value);
+      }
+
+      await abandonRun({ cwd, runId: 'run-1', reason: 'operator chose a new plan' });
+      const reconnect = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
+      const liveFrames = parseSse(liveBody).filter((frame) => frame.event !== 'status');
+      const reconnectFrames = parseSse(await reconnect.text()).filter((frame) => frame.event !== 'status');
+
+      expect(liveFrames.at(-1)).toEqual({
+        event: 'terminal',
+        data: {
+          state: 'halted',
+          failedSliceIds: ['S3', 'S4'],
+          reason: 'slice_verification_not_passed',
+        },
+      });
+      expect(reconnectFrames).toEqual(liveFrames);
     } finally {
       await host.close();
     }
@@ -1355,7 +1653,13 @@ describe('web host', () => {
       await appendPetriEvent({
         cwd,
         runId: 'run-1',
-        event: { kind: 'net_halted', runId: 'run-1', runStatus: 'worktree_created', reason: 'broken' },
+        event: {
+          kind: 'net_halted',
+          runId: 'run-1',
+          runStatus: 'worktree_created',
+          reason: 'broken',
+          failedSliceIds: [],
+        },
       });
 
       await expect(reader.read()).resolves.toMatchObject({ done: true });
@@ -1380,7 +1684,12 @@ describe('web host', () => {
       await appendPetriEvent({
         cwd,
         runId: 'run-1',
-        event: { kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' },
+        event: {
+          kind: 'net_completed',
+          runId: 'run-1',
+          runStatus: 'promotion_prepared',
+          failedSliceIds: [],
+        },
       });
 
       for (;;) {
@@ -1389,8 +1698,10 @@ describe('web host', () => {
         continuousBody += decoder.decode(next.value);
       }
       const reconnected = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
-      const continuousFrames = parseSse(continuousBody).slice(1);
-      const reconnectedFrames = parseSse(await reconnected.text()).slice(1);
+      const continuousFrames = parseSse(continuousBody).filter((frame) => frame.event !== 'status');
+      const reconnectedFrames = parseSse(await reconnected.text()).filter(
+        (frame) => frame.event !== 'status',
+      );
 
       expect(reconnectedFrames).toEqual(continuousFrames);
     } finally {
@@ -1398,16 +1709,19 @@ describe('web host', () => {
     }
   });
 
-  it('uses authoritative run metadata when a completed run is missing its terminal journal event', async () => {
+  it('does not synthesize completion from metadata when the terminal journal event is missing', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-petrinaut-stream-authority-'));
     await writePetrinautReplayRun(cwd, 'run-1', { terminal: false, status: 'promotion_prepared' });
     const host = await startWebHost({ cwd, port: 0 });
     try {
       const response = await fetch(`${host.url}/petrinaut/stream?runId=run-1`);
-      const frames = parseSse(await response.text());
+      const reader = response.body!.getReader();
+      const first = await reader.read();
+      const frames = parseSse(new TextDecoder().decode(first.value));
 
-      expect(frames[0]).toEqual({ event: 'status', data: { state: 'completed' } });
-      expect(frames.at(-1)).toEqual({ event: 'terminal', data: { state: 'completed' } });
+      expect(frames[0]).toEqual({ event: 'status', data: { state: 'running', failedSliceIds: [] } });
+      expect(frames.some((frame) => frame.event === 'terminal')).toBe(false);
+      await reader.cancel();
     } finally {
       await host.close();
     }

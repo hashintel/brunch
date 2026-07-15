@@ -2,10 +2,17 @@ import { access, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { BRUNCH_DIR } from '../constants.js';
-import { agentStreamPath, type AgentStreamEvent } from './agent-result.js';
+import { agentStreamPath } from './agent-result.js';
+import type { AgentStreamEvent, VerifyStreamEvent } from './isolated-slice-operations.js';
 import type { BlockedStep, ExecutorNetEvent, ReadyStep, SchedulerPlan } from './orchestrate-topology.js';
-import { parsePetriEvent, petriEventsPath } from './petri-events.js';
-import { petriMarkingSnapshotMatchesRunMetadata, readPetriMarkingSnapshot } from './petri-marking.js';
+import { petriEventsPath, readPetriJournal } from './petri-events.js';
+import { inspectPetriJournalAuthority } from './petri-journal-authority.js';
+import {
+  petriMarkingSnapshotMatchesRunMetadata,
+  readPetriMarkingSnapshot,
+  type EpicVerificationClaim,
+  type ParallelSliceBatchSnapshot,
+} from './petri-marking.js';
 import { canProjectPetriReplay } from './petri-replay-eligibility.js';
 import { replayPetri, type PetriProjection } from './petri-replay.js';
 import { readPetriRuntimePlan } from './petri-runtime-plan.js';
@@ -18,7 +25,8 @@ import { resolvePetrinautUrl } from './petrinaut/launcher-url.js';
 import { reducePetrinautReplayExport, type PetrinautReplayExport } from './petrinaut/replay-export.js';
 import { parseSdcpnFile, type SdcpnFile } from './petrinaut/sdcpn.js';
 import { readRunMetadata, runDirPath, runMetadataPath, type RunMetadata } from './run.js';
-import { verifyStreamPath, type VerifyStreamEvent } from './test-result.js';
+import { runStreamEventsPath } from './slice-stream-events.js';
+import { verifyStreamPath } from './test-result.js';
 
 export interface RunPresence {
   readonly worktree: boolean;
@@ -33,6 +41,7 @@ export interface RunSummary {
   readonly status: RunMetadata['status'];
   readonly activeSliceId?: string;
   readonly completedSliceIds?: readonly string[];
+  readonly failedSliceIds?: readonly string[];
   readonly supersedesRunId?: string;
   readonly abandonedAt?: string;
   readonly abandonReason?: string;
@@ -76,6 +85,13 @@ export interface RunSliceProgress {
   readonly progress: string;
 }
 
+export interface RunSliceStreamInventory {
+  readonly sliceId: string;
+  readonly state: 'claimed' | 'running' | 'succeeded_unintegrated' | 'failed' | 'integrated';
+  readonly agentAttempts: readonly number[];
+  readonly verifyAttempts: readonly number[];
+}
+
 export type PetriProjectionSource = 'snapshot' | 'replay';
 export type PetriProjectionReplayReason = 'snapshot_missing_or_unreadable' | 'snapshot_stale';
 
@@ -90,10 +106,12 @@ export interface RunDetail extends RunSummary {
   readonly petriProjection?: PetriProjection;
   readonly petriProjectionSource?: PetriProjectionSource;
   readonly petriProjectionReplayReason?: PetriProjectionReplayReason;
+  readonly petriParallelSliceBatch?: ParallelSliceBatchSnapshot;
   readonly agentStreamTail: readonly AgentStreamEvent[];
   readonly agentStreamTotal: number;
   readonly verifyStreamTail: readonly VerifyStreamEvent[];
   readonly verifyStreamTotal: number;
+  readonly sliceStreamInventory: readonly RunSliceStreamInventory[];
   readonly sliceProgress: readonly RunSliceProgress[];
   readonly requirements: readonly RunRequirementStatus[];
   /** Raw parsed petrinaut/net.json — deliberately unshaped (frontier: raw view only). */
@@ -182,8 +200,6 @@ export async function readRunDetail(
   const verifyStreamLimit = options?.verifyStreamTailLimit ?? DEFAULT_VERIFY_STREAM_TAIL_LIMIT;
   const reports = await readReportsTail(reportsFilePath(cwd, runId, metadata), limit);
   const petriEvents = await readPetriEvents(petriEventsPath(cwd, runId), petriEventsLimit);
-  const agentStream = await readAgentStreamTail(cwd, runId, metadata, agentStreamLimit);
-  const verifyStream = await readVerifyStreamTail(cwd, runId, metadata, verifyStreamLimit);
   const petriRuntimePlan = await readPetriRuntimePlan(cwd, metadata);
   let petriRuntime: ReturnType<typeof materializeExecutorPetriRuntime> | undefined;
   try {
@@ -196,11 +212,18 @@ export async function readRunDetail(
   }
   const petriNet = await readPetriNet(petriFilePath(cwd, runId, metadata));
   const petriSdcpnFile = await readPetriSdcpnFile(petriSdcpnFilePath(cwd, runId));
+  const petriTopologyReplay =
+    petriNet !== undefined && petriEvents.readable
+      ? replayPetri({ net: petriNet, events: petriEvents.events })
+      : undefined;
   const petriReplayProjection = canProjectPetriReplay({ petriNet, petriEvents })
-    ? replayPetri({ net: petriNet, events: petriEvents.events })
+    ? petriTopologyReplay
     : undefined;
   const petrinautReplayExport =
-    petriSdcpnFile !== undefined && petriEvents.exists && !petriEvents.torn
+    petriTopologyReplay !== undefined &&
+    petriSdcpnFile !== undefined &&
+    petriEvents.exists &&
+    !petriEvents.torn
       ? readPetrinautReplayExport(petriSdcpnFile, petriEvents.events)
       : undefined;
   const petrinautStreamPath = petrinautStreamPathForRun(runId);
@@ -210,7 +233,34 @@ export async function readRunDetail(
   const hasMatchingPetriMarkingSnapshot =
     petriMarkingSnapshot !== undefined &&
     petriMarkingSnapshotMatchesRunMetadata(petriMarkingSnapshot, metadata) &&
-    petriMarkingSnapshotMatchesRuntime(petriMarkingSnapshot, metadata, petriRuntimePlan, petriRuntime);
+    petriMarkingSnapshotMatchesRuntime(
+      petriMarkingSnapshot,
+      metadata,
+      petriRuntimePlan,
+      petriRuntime,
+      petriReplayProjection,
+    );
+  const lifecycleTransitionIds = projectExecutorPetriTransitionHistory(
+    metadata,
+    petriRuntimePlan,
+  )?.transitionIds;
+  const journalAuthority = await inspectPetriJournalAuthority({
+    cwd,
+    runId,
+    lifecycleTransitionIds,
+    plan: petriRuntimePlan,
+  });
+  const journalClaimedSliceIds =
+    journalAuthority.status === 'readable' ? journalAuthority.sliceStartClaimIds : [];
+  const parallelAuthorityUnreadable =
+    metadata.status !== 'abandoned' &&
+    metadata.status !== 'promotion_prepared' &&
+    (journalAuthority.status === 'unreadable' ||
+      (journalAuthority.status === 'missing' && metadata.petriObservationPrepared === true) ||
+      (journalClaimedSliceIds.length > 0 && !hasMatchingPetriMarkingSnapshot));
+  const unreadableAuthoritySliceIds = parallelAuthorityUnreadable
+    ? journalClaimedSliceIds.filter((sliceId) => !metadata.completedSliceIds?.includes(sliceId))
+    : [];
   const petriProjectionEntry =
     (hasMatchingPetriMarkingSnapshot
       ? {
@@ -224,19 +274,76 @@ export async function readRunDetail(
             petriMarkingSnapshot === undefined ? 'snapshot_missing_or_unreadable' : 'snapshot_stale',
         })
       : undefined);
+  const journalEpicVerificationClaims = petriEvents.readable
+    ? projectJournalEpicVerificationClaims(petriEvents.events, metadata.completedEpicIds ?? [])
+    : [];
+  const epicVerificationClaims = mergeEpicVerificationClaims(
+    hasMatchingPetriMarkingSnapshot ? petriMarkingSnapshot.epicVerificationClaims : undefined,
+    journalEpicVerificationClaims,
+  );
+  let observedPetriRuntime = parallelAuthorityUnreadable ? undefined : petriRuntime;
+  if (
+    observedPetriRuntime &&
+    ((hasMatchingPetriMarkingSnapshot && petriMarkingSnapshot.parallelSliceBatch) ||
+      epicVerificationClaims.length > 0)
+  ) {
+    try {
+      observedPetriRuntime = materializeExecutorPetriRuntime(metadata, petriRuntimePlan, {
+        currentMarking: hasMatchingPetriMarkingSnapshot
+          ? petriMarkingSnapshot.currentMarking
+          : observedPetriRuntime.currentMarking,
+        ...(hasMatchingPetriMarkingSnapshot && petriMarkingSnapshot.parallelSliceBatch
+          ? { parallelSliceBatch: petriMarkingSnapshot.parallelSliceBatch }
+          : {}),
+        ...(epicVerificationClaims.length > 0 ? { epicVerificationClaims } : {}),
+      });
+    } catch {
+      observedPetriRuntime = undefined;
+    }
+  }
+  const authoritySliceIds =
+    hasMatchingPetriMarkingSnapshot && petriMarkingSnapshot.parallelSliceBatch
+      ? petriMarkingSnapshot.parallelSliceBatch.claimedSliceIds
+      : unreadableAuthoritySliceIds.length > 0
+        ? unreadableAuthoritySliceIds
+        : undefined;
+  const agentStream = await readAgentStreamTail(cwd, runId, metadata, agentStreamLimit, authoritySliceIds);
+  const verifyStream = await readVerifyStreamTail(cwd, runId, metadata, verifyStreamLimit, authoritySliceIds);
+  const sliceStreamInventory = await readSliceStreamInventory(
+    cwd,
+    runId,
+    authoritySliceIds ?? [],
+    observedPetriRuntime?.blockedSteps ?? [],
+  );
+  const authoritativeFailedSliceIds = petriProjectionEntry?.projection.terminalEventKind
+    ? petriProjectionEntry.projection.failedSliceIds
+    : undefined;
   return {
     ...summary,
+    ...(authoritativeFailedSliceIds === undefined ? {} : { failedSliceIds: authoritativeFailedSliceIds }),
     planPath: metadata.planPath,
     reportsTail: reports.tail,
     reportsTotal: reports.total,
     petriEventsTail: petriEvents.tail,
     petriEventsTotal: petriEvents.total,
-    ...(petriRuntime === undefined
-      ? {}
-      : {
-          petriReadySteps: petriRuntime.readySteps,
-          petriBlockedSteps: petriRuntime.blockedSteps,
-        }),
+    ...(parallelAuthorityUnreadable
+      ? {
+          petriReadySteps: [],
+          petriBlockedSteps: [
+            { kind: 'authority_unreadable', blockers: [{ kind: 'parallel_authority_unreadable' }] },
+            ...unreadableAuthoritySliceIds.map((sliceId) => ({
+              kind: 'slice_start' as const,
+              sliceId,
+              blockers: [{ kind: 'parallel_authority_unreadable' as const }],
+            })),
+          ] satisfies readonly BlockedStep[],
+        }
+      : observedPetriRuntime === undefined
+        ? {}
+        : {
+            petriReadySteps: observedPetriRuntime.readySteps,
+            petriBlockedSteps: observedPetriRuntime.blockedSteps,
+          }),
     ...(petriProjectionEntry === undefined
       ? {}
       : {
@@ -246,15 +353,20 @@ export async function readRunDetail(
             ? {}
             : { petriProjectionReplayReason: petriProjectionEntry.replayReason }),
         }),
+    ...(hasMatchingPetriMarkingSnapshot && petriMarkingSnapshot.parallelSliceBatch
+      ? { petriParallelSliceBatch: petriMarkingSnapshot.parallelSliceBatch }
+      : {}),
     agentStreamTail: agentStream.tail,
     agentStreamTotal: agentStream.total,
     verifyStreamTail: verifyStream.tail,
     verifyStreamTotal: verifyStream.total,
+    sliceStreamInventory,
     sliceProgress: groupSliceProgress(reports.events),
     requirements: await readRequirementStatuses(
       metadata.populatedPlanPath ?? metadata.planPath,
       metadata,
       reports.events,
+      observedPetriRuntime?.blockedSteps ?? [],
     ),
     ...(petriNet === undefined ? {} : { petriNet }),
     ...(petrinautReplayExport === undefined
@@ -265,6 +377,40 @@ export async function readRunDetail(
           ...(petrinautLaunchAvailable ? { petrinautLaunchPath: petrinautLaunchPathForRun(runId) } : {}),
         }),
   };
+}
+
+function projectJournalEpicVerificationClaims(
+  events: readonly ExecutorNetEvent[],
+  completedEpicIds: readonly string[],
+): readonly EpicVerificationClaim[] {
+  const completed = new Set(completedEpicIds);
+  const claims = new Map<string, EpicVerificationClaim['phase']>();
+  for (const event of events) {
+    if (event.kind === 'epic_verification_claimed' && !completed.has(event.epicId)) {
+      claims.set(event.epicId, 'claimed');
+    }
+    if (
+      event.kind === 'transition_fired' &&
+      event.step === 'epic_verify' &&
+      event.epicId &&
+      !completed.has(event.epicId)
+    ) {
+      claims.set(event.epicId, 'transitioned');
+    }
+  }
+  return [...claims].map(([epicId, phase]) => ({ epicId, phase }));
+}
+
+function mergeEpicVerificationClaims(
+  markingClaims: readonly EpicVerificationClaim[] | undefined,
+  journalClaims: readonly EpicVerificationClaim[],
+): readonly EpicVerificationClaim[] {
+  const claims = new Map((markingClaims ?? []).map((claim) => [claim.epicId, claim]));
+  for (const claim of journalClaims) {
+    const current = claims.get(claim.epicId);
+    if (!current || claim.phase === 'transitioned') claims.set(claim.epicId, claim);
+  }
+  return [...claims.values()];
 }
 
 export function petrinautStreamPathForRun(runId: string): string {
@@ -286,10 +432,16 @@ function toPetriProjection(
     readonly firedTransitionCount: number;
     readonly terminalEventKind?: PetriProjection['terminalEventKind'];
     readonly haltedReason?: string;
+    readonly terminalTs?: string;
+    readonly failedSliceIds?: readonly string[];
+    readonly parallelSliceBatch?: ParallelSliceBatchSnapshot;
   },
   metadata: RunMetadata,
   runtime?: Pick<ExecutorPetriRuntime, 'currentMarking' | 'enabledTransitions'>,
-  replayProjection?: Pick<PetriProjection, 'terminalEventKind' | 'haltedReason'>,
+  replayProjection?: Pick<
+    PetriProjection,
+    'terminalEventKind' | 'haltedReason' | 'terminalTs' | 'failedSliceIds'
+  >,
 ): PetriProjection {
   const claimedTransitionIds = sanitizeClaimedTransitionIds(snapshot.claimedTransitionIds, runtime);
   const terminalSummary = sanitizeTerminalSummary(snapshot, metadata, replayProjection);
@@ -328,7 +480,14 @@ function petriMarkingSnapshotMatchesRuntime(
   metadata: RunMetadata,
   plan: SchedulerPlan | undefined,
   runtime?: Pick<ExecutorPetriRuntime, 'currentMarking'>,
+  replay?: Pick<PetriProjection, 'currentMarking' | 'firedTransitionCount'>,
 ): boolean {
+  if (
+    replay?.firedTransitionCount === snapshot.firedTransitionCount &&
+    petriMarkingsEqual(replay.currentMarking, snapshot.currentMarking)
+  ) {
+    return true;
+  }
   if (runtime === undefined) return false;
   if (
     projectExecutorPetriTransitionHistory(metadata, plan)?.transitionIds.length !==
@@ -336,11 +495,14 @@ function petriMarkingSnapshotMatchesRuntime(
   ) {
     return false;
   }
-  const runtimeEntries = Object.entries(runtime.currentMarking);
-  const snapshotEntries = Object.entries(snapshot.currentMarking);
+  return petriMarkingsEqual(runtime.currentMarking, snapshot.currentMarking);
+}
+
+function petriMarkingsEqual(left: Record<string, number>, right: Record<string, number>): boolean {
+  const leftEntries = Object.entries(left);
   return (
-    runtimeEntries.length === snapshotEntries.length &&
-    runtimeEntries.every(([placeId, count]) => snapshot.currentMarking[placeId] === count)
+    leftEntries.length === Object.keys(right).length &&
+    leftEntries.every(([placeId, count]) => right[placeId] === count)
   );
 }
 
@@ -348,52 +510,66 @@ function sanitizeTerminalSummary(
   snapshot: {
     readonly terminalEventKind?: PetriProjection['terminalEventKind'] | undefined;
     readonly haltedReason?: string | undefined;
+    readonly terminalTs?: string | undefined;
+    readonly failedSliceIds?: readonly string[] | undefined;
+    readonly parallelSliceBatch?: ParallelSliceBatchSnapshot;
   },
   metadata: RunMetadata,
   replayProjection?: {
     readonly terminalEventKind?: PetriProjection['terminalEventKind'] | undefined;
     readonly haltedReason?: string | undefined;
+    readonly terminalTs?: string | undefined;
+    readonly failedSliceIds?: readonly string[] | undefined;
   },
-): Pick<PetriProjection, 'terminalEventKind' | 'haltedReason'> {
+): Pick<PetriProjection, 'terminalEventKind' | 'haltedReason' | 'terminalTs' | 'failedSliceIds'> {
   if (snapshot.terminalEventKind === undefined && snapshot.haltedReason === undefined) {
     // A matching snapshot may lag the journal by the terminal fact (the append
     // wake-up races the marking persist). Backfill from replay truth only — never
     // from metadata expectation, so completion stays journal-ordered.
     if (!replayProjection?.terminalEventKind) return {};
+    if (replayProjection.terminalTs === undefined || replayProjection.failedSliceIds === undefined) return {};
     return {
       terminalEventKind: replayProjection.terminalEventKind,
       ...(replayProjection.haltedReason === undefined ? {} : { haltedReason: replayProjection.haltedReason }),
+      terminalTs: replayProjection.terminalTs,
+      failedSliceIds: replayProjection.failedSliceIds,
     };
   }
-  const checkable = replayProjection?.terminalEventKind
-    ? replayProjection
-    : expectedTerminalSummary(metadata);
+  if (
+    replayProjection?.terminalEventKind === undefined &&
+    snapshot.parallelSliceBatch === undefined &&
+    metadata.status !== 'promotion_prepared' &&
+    metadata.status !== 'abandoned'
+  ) {
+    return {};
+  }
+  const checkable = replayProjection?.terminalEventKind ? replayProjection : snapshot;
   if (!checkable?.terminalEventKind) {
     return {};
   }
+  if (checkable.terminalTs === undefined || checkable.failedSliceIds === undefined) return {};
   if (snapshot.terminalEventKind !== checkable.terminalEventKind) {
     return {};
   }
   if (snapshot.haltedReason !== checkable.haltedReason) {
     return {};
   }
+  if (snapshot.terminalTs !== checkable.terminalTs) return {};
+  if (!stringArraysEqual(snapshot.failedSliceIds, checkable.failedSliceIds)) return {};
   return {
     terminalEventKind: checkable.terminalEventKind,
     ...(checkable.haltedReason === undefined ? {} : { haltedReason: checkable.haltedReason }),
+    terminalTs: checkable.terminalTs,
+    failedSliceIds: checkable.failedSliceIds,
   };
 }
 
-function expectedTerminalSummary(
-  metadata: RunMetadata,
-): Pick<PetriProjection, 'terminalEventKind' | 'haltedReason'> | undefined {
-  switch (metadata.status) {
-    case 'promotion_prepared':
-      return { terminalEventKind: 'net_completed' };
-    case 'abandoned':
-      return { terminalEventKind: 'net_halted', haltedReason: 'abandoned' };
-    default:
-      return undefined;
-  }
+function stringArraysEqual(
+  left: readonly string[] | undefined,
+  right: readonly string[] | undefined,
+): boolean {
+  if (left === undefined || right === undefined) return left === right;
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function toProjectionEntry(
@@ -475,6 +651,7 @@ async function readVerifyStreamTail(
   runId: string,
   metadata: RunMetadata,
   limit: number,
+  sliceIds?: readonly string[],
 ): Promise<{ tail: readonly VerifyStreamEvent[]; total: number }> {
   const events = await readStreamEvents<VerifyStreamEvent>(
     cwd,
@@ -482,6 +659,8 @@ async function readVerifyStreamTail(
     metadata,
     'verify_stream',
     verifyStreamPath,
+    'verify',
+    sliceIds,
   );
   return { tail: events.slice(-limit), total: events.length };
 }
@@ -501,6 +680,7 @@ async function summarizeRun(cwd: string, runId: string, metadata: RunMetadata): 
     status: metadata.status,
     ...(metadata.activeSliceId === undefined ? {} : { activeSliceId: metadata.activeSliceId }),
     ...(metadata.completedSliceIds === undefined ? {} : { completedSliceIds: metadata.completedSliceIds }),
+    ...(metadata.failedSliceIds === undefined ? {} : { failedSliceIds: metadata.failedSliceIds }),
     ...(metadata.supersedesRunId === undefined ? {} : { supersedesRunId: metadata.supersedesRunId }),
     ...(metadata.abandonedAt === undefined ? {} : { abandonedAt: metadata.abandonedAt }),
     ...(metadata.abandonReason === undefined ? {} : { abandonReason: metadata.abandonReason }),
@@ -556,36 +736,27 @@ async function readPetriEvents(
   tail: readonly ExecutorNetEvent[];
   total: number;
   torn: boolean;
+  readable: boolean;
 }> {
-  let raw: string;
-  try {
-    raw = await readFile(path, 'utf8');
-  } catch {
-    return { exists: false, events: [], tail: [], total: 0, torn: false };
+  const journal = await readPetriJournal(path);
+  if (journal.status !== 'readable') {
+    return {
+      exists: journal.status !== 'missing',
+      events: [],
+      tail: [],
+      total: 0,
+      torn: journal.status === 'unreadable',
+      readable: false,
+    };
   }
-  const events: ExecutorNetEvent[] = [];
-  let torn = false;
-  const lines = raw.split('\n');
-  const lastIndex = lines.length - 1;
-  const hasTrailingNewline = raw.endsWith('\n');
-  for (const [index, line] of lines.entries()) {
-    if (index === lastIndex && line.length === 0) continue;
-    if (line.length === 0) continue;
-    try {
-      const event = parsePetriEvent(JSON.parse(line));
-      if (event === undefined) {
-        torn = true;
-        continue;
-      }
-      events.push(event);
-    } catch {
-      // A torn journal line never blocks the readable event tail.
-      // Accept a complete final line even when the file is missing a trailing newline.
-      torn = true;
-      if (index !== lastIndex || hasTrailingNewline) continue;
-    }
-  }
-  return { exists: true, events, tail: events.slice(-limit), total: events.length, torn };
+  return {
+    exists: true,
+    events: journal.events,
+    tail: journal.events.slice(-limit),
+    total: journal.events.length,
+    torn: false,
+    readable: true,
+  };
 }
 
 async function readReportsTail(
@@ -695,6 +866,7 @@ async function readRequirementStatuses(
   planPath: string,
   metadata: RunMetadata,
   reports: readonly RunReportEvent[],
+  blockedSteps: readonly BlockedStep[],
 ): Promise<readonly RunRequirementStatus[]> {
   let plan: ExecutedPlanPayload;
   try {
@@ -705,6 +877,18 @@ async function readRequirementStatuses(
 
   const completed = new Set(metadata.completedSliceIds ?? []);
   const latestVerdicts = latestSliceVerdicts(reports);
+  const parallelStates = new Map<
+    string,
+    'claimed' | 'running' | 'succeeded_unintegrated' | 'failed' | 'integrated' | 'authority_unreadable'
+  >();
+  for (const step of blockedSteps) {
+    if (step.kind !== 'slice_start') continue;
+    const blocker = step.blockers.find((candidate) => candidate.kind === 'parallel_authority');
+    if (blocker?.kind === 'parallel_authority') parallelStates.set(step.sliceId, blocker.state);
+    else if (step.blockers.some((candidate) => candidate.kind === 'parallel_authority_unreadable')) {
+      parallelStates.set(step.sliceId, 'authority_unreadable');
+    }
+  }
   const criteriaByRequirement = criteriaCoverage(plan);
   const slices = plan.slices ?? [];
 
@@ -715,7 +899,16 @@ async function readRequirementStatuses(
       return slice.derived_from.includes(requirement.item_id) ? [slice.id] : [];
     });
     const completedSliceIds = sliceIds.filter((sliceId) => completed.has(sliceId));
-    const failedSliceIds = sliceIds.filter((sliceId) => latestVerdicts.get(sliceId) === 'failed');
+    const failedSliceIds = sliceIds.filter(
+      (sliceId) =>
+        latestVerdicts.get(sliceId) === 'failed' ||
+        parallelStates.get(sliceId) === 'failed' ||
+        parallelStates.get(sliceId) === 'authority_unreadable',
+    );
+    const activeSliceIds = sliceIds.filter((sliceId) => {
+      const state = parallelStates.get(sliceId);
+      return state === 'claimed' || state === 'running' || state === 'succeeded_unintegrated';
+    });
     const missingVerificationSliceIds = completedSliceIds.filter((sliceId) => !latestVerdicts.has(sliceId));
     const criterionIds = criteriaByRequirement.get(requirement.item_id) ?? [];
 
@@ -726,6 +919,7 @@ async function readRequirementStatuses(
         status: requirementStatus({
           sliceIds,
           ...(metadata.activeSliceId === undefined ? {} : { activeSliceId: metadata.activeSliceId }),
+          activeSliceIds,
           completedSliceIds,
           failedSliceIds,
           missingVerificationSliceIds,
@@ -769,6 +963,7 @@ function criteriaCoverage(plan: ExecutedPlanPayload): Map<string, readonly strin
 function requirementStatus(args: {
   readonly sliceIds: readonly string[];
   readonly activeSliceId?: string;
+  readonly activeSliceIds: readonly string[];
   readonly completedSliceIds: readonly string[];
   readonly failedSliceIds: readonly string[];
   readonly missingVerificationSliceIds: readonly string[];
@@ -776,6 +971,7 @@ function requirementStatus(args: {
 }): RunRequirementStatusKind {
   if (args.sliceIds.length === 0) return 'unmapped';
   if (args.failedSliceIds.length > 0) return 'failed';
+  if (args.activeSliceIds.length > 0) return 'running';
   if (
     args.activeSliceId !== undefined &&
     args.sliceIds.includes(args.activeSliceId) &&
@@ -794,8 +990,13 @@ async function readAgentStreamTail(
   runId: string,
   metadata: RunMetadata,
   limit: number,
+  sliceIds?: readonly string[],
 ): Promise<{ tail: readonly AgentStreamEvent[]; total: number }> {
-  if (!metadata.activeSliceId && (!metadata.completedSliceIds || metadata.completedSliceIds.length === 0)) {
+  if (
+    !sliceIds?.length &&
+    !metadata.activeSliceId &&
+    (!metadata.completedSliceIds || metadata.completedSliceIds.length === 0)
+  ) {
     return { tail: [], total: 0 };
   }
   const events = await readStreamEvents<AgentStreamEvent>(
@@ -804,6 +1005,8 @@ async function readAgentStreamTail(
     metadata,
     'agent_stream',
     agentStreamPath,
+    'agent',
+    sliceIds,
   );
   return { tail: events.slice(-limit), total: events.length };
 }
@@ -813,22 +1016,125 @@ async function readStreamEvents<T extends { readonly event: string }>(
   runId: string,
   metadata: RunMetadata,
   eventName: T['event'],
-  pathFor: (cwd: string, runId: string, sliceId: string) => string,
+  pathFor: (cwd: string, runId: string, sliceId: string, attempt?: number) => string,
+  stage: 'agent' | 'verify',
+  authoritySliceIds?: readonly string[],
 ): Promise<readonly T[]> {
-  if (!metadata.activeSliceId && (!metadata.completedSliceIds || metadata.completedSliceIds.length === 0)) {
+  if (
+    !authoritySliceIds?.length &&
+    !metadata.activeSliceId &&
+    (!metadata.completedSliceIds || metadata.completedSliceIds.length === 0)
+  ) {
     return [];
   }
-  const sliceIds = [
+  const sliceIds = authoritySliceIds ?? [
     ...(metadata.completedSliceIds ?? []),
     ...(metadata.activeSliceId && !(metadata.completedSliceIds ?? []).includes(metadata.activeSliceId)
       ? [metadata.activeSliceId]
       : []),
   ];
+  const runOrdered = await readRunOrderedStreamEvents<T>(
+    runStreamEventsPath(agentStreamPath(cwd, runId, '_stream_index_')),
+    eventName,
+    new Set(sliceIds),
+  );
+  if (runOrdered !== undefined) return runOrdered;
   const events: T[] = [];
   for (const sliceId of sliceIds) {
-    events.push(...(await readStreamFile<T>(pathFor(cwd, runId, sliceId), eventName)));
+    const attempts = authoritySliceIds
+      ? await streamArtifactAttempts(cwd, runId, sliceId, stage)
+      : Array.from({ length: streamArtifactAttemptCount(metadata, sliceId, stage) }, (_, index) => index + 1);
+    for (const attempt of attempts) {
+      events.push(...(await readStreamFile<T>(pathFor(cwd, runId, sliceId, attempt), eventName)));
+    }
   }
   return events;
+}
+
+async function readRunOrderedStreamEvents<T extends { readonly event: string }>(
+  path: string,
+  eventName: T['event'],
+  sliceIds: ReadonlySet<string>,
+): Promise<readonly T[] | undefined> {
+  let raw: string;
+  try {
+    raw = await readFile(path, 'utf8');
+  } catch {
+    return undefined;
+  }
+  const events: (T & { readonly runSequence?: number; readonly sliceId?: string })[] = [];
+  for (const line of raw.split('\n').slice(0, -1)) {
+    try {
+      const event = JSON.parse(line) as T & { readonly runSequence?: number; readonly sliceId?: string };
+      if (event.event === eventName && event.sliceId && sliceIds.has(event.sliceId)) events.push(event);
+    } catch {
+      // A torn index line does not hide prior durable stream events.
+    }
+  }
+  return events.sort((left, right) => (left.runSequence ?? 0) - (right.runSequence ?? 0));
+}
+
+async function streamArtifactAttempts(
+  cwd: string,
+  runId: string,
+  sliceId: string,
+  stage: 'agent' | 'verify',
+): Promise<readonly number[]> {
+  try {
+    const entries = await readdir(join(runDirPath(cwd, runId), 'streams', sliceId));
+    const pattern = stage === 'agent' ? /^agent-attempt-(\d+)\.jsonl$/u : /^verify-attempt-(\d+)\.jsonl$/u;
+    return entries
+      .flatMap((entry) => {
+        const match = pattern.exec(entry);
+        return match?.[1] ? [Number(match[1])] : [];
+      })
+      .sort((left, right) => left - right);
+  } catch {
+    return [];
+  }
+}
+
+async function readSliceStreamInventory(
+  cwd: string,
+  runId: string,
+  sliceIds: readonly string[],
+  blockedSteps: readonly BlockedStep[],
+): Promise<readonly RunSliceStreamInventory[]> {
+  return Promise.all(
+    sliceIds.map(async (sliceId) => {
+      const blocker = blockedSteps
+        .find((step) => step.kind === 'slice_start' && step.sliceId === sliceId)
+        ?.blockers.find((reason) => reason.kind === 'parallel_authority');
+      return {
+        sliceId,
+        state: blocker?.kind === 'parallel_authority' ? blocker.state : 'claimed',
+        agentAttempts: await streamArtifactAttempts(cwd, runId, sliceId, 'agent'),
+        verifyAttempts: await streamArtifactAttempts(cwd, runId, sliceId, 'verify'),
+      };
+    }),
+  );
+}
+
+function streamArtifactAttemptCount(
+  metadata: RunMetadata,
+  sliceId: string,
+  stage: 'agent' | 'verify',
+): number {
+  const cycles = metadata.sliceAttemptHistory?.[sliceId]?.[stage] ?? [];
+  const completedAttempts = cycles.reduce(
+    (total, cycle) => total + (cycle.outcome === 'reset' ? 0 : cycle.attempts),
+    0,
+  );
+  const isActiveStage =
+    metadata.activeSliceId === sliceId &&
+    ((stage === 'agent' && metadata.status === 'slice_execution_requested') ||
+      (stage === 'verify' && metadata.status === 'agent_result_ingested'));
+  const latest = cycles.at(-1);
+  const exhausted = latest?.outcome === 'exhausted' && metadata.activeSliceAttempts === latest.attempts;
+  return Math.max(
+    1,
+    completedAttempts + (isActiveStage && !exhausted ? (metadata.activeSliceAttempts ?? 0) + 1 : 0),
+  );
 }
 
 async function readStreamFile<T extends { readonly event: string }>(

@@ -4,7 +4,7 @@ import { checkExecutionSpecForPlan } from '../execute-plan-check.js';
 import type { ExecutionSpecSnapshot } from '../execution-spec-snapshot.js';
 
 const baseSnapshot: ExecutionSpecSnapshot = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   specId: '7',
   mode: 'greenfield',
   frontiers: [],
@@ -19,7 +19,8 @@ const baseSnapshot: ExecutionSpecSnapshot = {
       title: 'Feature is visible',
       content: 'Feature is visible',
       dependsOn: [],
-      verifies: ['REQ1'],
+      verifiesRequirements: ['REQ1'],
+      verifiesFrontiers: [],
     },
   ],
   scopes: [],
@@ -27,12 +28,24 @@ const baseSnapshot: ExecutionSpecSnapshot = {
 };
 
 describe('checkExecutionSpecForPlan', () => {
+  it('rejects a v1 execution snapshot', () => {
+    expect(() =>
+      checkExecutionSpecForPlan({ ...baseSnapshot, schemaVersion: 1 } as unknown as ExecutionSpecSnapshot),
+    ).toThrow('Unsupported execution spec snapshot schema version: 1');
+  });
+
   it('summarizes plan-input coverage and returns warnings without side effects', () => {
     const result = checkExecutionSpecForPlan(baseSnapshot);
 
     expect(result).toEqual({
       status: 'ok',
-      counts: { requirements: 2, criteria: 1, verifiedRequirements: 1, criteriaWithRequirement: 1 },
+      counts: {
+        requirements: 2,
+        criteria: 1,
+        verifiedRequirements: 1,
+        criteriaWithRequirement: 1,
+        frontiers: 0,
+      },
       findings: [
         {
           code: 'requirement_without_criterion',
@@ -121,7 +134,7 @@ describe('checkExecutionSpecForPlan', () => {
       dependsOn: [],
       frontierIds: ['F1'],
       requirementIds: ['REQ2'],
-      criteria: [{ ...baseSnapshot.criteria[0]!, verifies: ['REQ2'] }],
+      criteria: [{ ...baseSnapshot.criteria[0]!, verifiesRequirements: ['REQ2'] }],
       design: [{ itemId: 'MOD1', nodeId: 11, title: 'Module', content: 'Module', dependsOn: [] }],
       verification: [{ itemId: 'CH1', nodeId: 12, title: 'Check', content: 'Check', dependsOn: [] }],
     } as const;
@@ -136,5 +149,30 @@ describe('checkExecutionSpecForPlan', () => {
     expect(result.findings).toContainEqual(
       expect.objectContaining({ code: 'scope_dependency_without_scope', itemId: 'REQ1' }),
     );
+  });
+
+  it('blocks a declared frontier without composed requirements', () => {
+    const result = checkExecutionSpecForPlan({
+      ...baseSnapshot,
+      frontiers: [
+        {
+          itemId: 'F1',
+          nodeId: 9,
+          title: 'Empty',
+          content: 'Empty',
+          dependsOn: [],
+          requirementIds: [],
+          verificationCriterionIds: [],
+        },
+      ],
+    });
+
+    expect(result.status).toBe('blocked');
+    expect(result.findings).toContainEqual({
+      code: 'frontier_without_requirement',
+      severity: 'error',
+      itemId: 'F1',
+      message: 'Frontier F1 has no composed requirements.',
+    });
   });
 });

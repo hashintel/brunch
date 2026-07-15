@@ -11,6 +11,7 @@ const theme = {
 function fakePorts() {
   return {
     gitWorktree: {} as never,
+    gitSliceIntegration: {} as never,
     agentRunner: {} as never,
     testRunner: {} as never,
     gitLand: {} as never,

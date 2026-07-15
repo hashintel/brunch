@@ -4,6 +4,11 @@ import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
 import type { GitWorktreePort } from './execution-ports.js';
+import {
+  runExecutionActive,
+  withRunExecutionAuthority,
+  type RunExecutionActiveResult,
+} from './run-execution-authority.js';
 import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
 const execFileAsync = promisify(execFile);
@@ -15,6 +20,7 @@ const COMMIT_ENV = {
 };
 
 export type WorktreeCreateResult =
+  | RunExecutionActiveResult
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -59,6 +65,20 @@ export function worktreeDirPath(cwd: string, runId: string): string {
 }
 
 export async function createWorktree(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly gitWorktree: GitWorktreePort;
+  readonly signal?: AbortSignal | undefined;
+}): Promise<WorktreeCreateResult> {
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId: args.runId,
+    execute: () => createWorktreeOwned(args),
+    onContended: () => runExecutionActive(args.runId),
+  });
+}
+
+async function createWorktreeOwned(args: {
   readonly cwd: string;
   readonly runId: string;
   readonly gitWorktree: GitWorktreePort;

@@ -51,6 +51,7 @@ const runDetail: RunDetail = {
   agentStreamTotal: 0,
   verifyStreamTail: [],
   verifyStreamTotal: 0,
+  sliceStreamInventory: [],
   sliceProgress: [{ sliceId: 's1', progress: 'started -> requested' }],
   requirements: [],
 };
@@ -215,13 +216,15 @@ describe('run detail route', () => {
               meta: { generator: 'brunch', generatorVersion: 'executor-topology-v1' },
               title: 'Executor run run-1',
               places: [
-                { id: 'run:created', name: 'RunCreated' },
-                { id: 'run:worktree_created', name: 'RunWorktreeCreated' },
+                { id: 'run:created', name: 'RunCreated', x: 80, y: 80 },
+                { id: 'run:worktree_created', name: 'RunWorktreeCreated', x: 280, y: 80 },
               ],
               transitions: [
                 {
                   id: 'worktree_create',
                   name: 'worktree_create',
+                  x: 180,
+                  y: 80,
                   inputArcs: [{ placeId: 'run:created', weight: 1, type: 'standard' }],
                   outputArcs: [{ placeId: 'run:worktree_created', weight: 1 }],
                 },
@@ -233,6 +236,7 @@ describe('run detail route', () => {
                 transitionId: 'worktree_create',
                 input: { 'run:created': 1 },
                 output: { 'run:worktree_created': 1 },
+                ts: '2026-07-14T12:00:00.000Z',
               },
             ],
           },
@@ -339,6 +343,34 @@ describe('run detail route', () => {
     expect(await screen.findByText('Petri frontier (derived)')).toBeTruthy();
     expect(screen.getByText(/slice_execute:task-1 ← REQ1/u)).toBeTruthy();
     expect(screen.getByText(/slice_start:task-2 blocked by active slice task-1/u)).toBeTruthy();
+  });
+
+  it('renders authority-unreadable framing without stale ready work', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        run: {
+          ...runDetail,
+          status: 'reports_initialized',
+          petriReadySteps: [],
+          petriBlockedSteps: [
+            { kind: 'authority_unreadable', blockers: [{ kind: 'parallel_authority_unreadable' }] },
+            {
+              kind: 'slice_start',
+              sliceId: 'task-1',
+              blockers: [{ kind: 'parallel_authority_unreadable' }],
+            },
+          ],
+        } as RunDetail,
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('Petri frontier (derived)')).toBeTruthy();
+    expect(screen.getByText(/authority_unreadable blocked by parallel authority unreadable/u)).toBeTruthy();
+    expect(screen.getByText(/slice_start:task-1 blocked by parallel authority unreadable/u)).toBeTruthy();
+    expect(screen.queryByText(/ready:/u)).toBeNull();
   });
 
   it('renders a stale-snapshot note when replay replaced a mismatched persisted marking snapshot', async () => {
@@ -455,6 +487,8 @@ describe('run detail route', () => {
                   currentMarking: { 'run:promotion_prepared': 1 },
                   firedTransitionCount: 18,
                   terminalEventKind: 'net_completed',
+                  terminalTs: '2026-07-14T12:00:00.000Z',
+                  failedSliceIds: [],
                 },
                 petriProjectionSource: 'replay',
                 petriProjectionReplayReason: 'snapshot_stale',
@@ -790,6 +824,16 @@ describe('run detail route', () => {
               missingVerificationSliceIds: [],
               criterionIds: [],
             },
+            {
+              requirementId: 'REQ3',
+              content: 'Build the active parallel member.',
+              status: 'running',
+              sliceIds: ['task-3'],
+              completedSliceIds: [],
+              failedSliceIds: [],
+              missingVerificationSliceIds: [],
+              criterionIds: ['AC3'],
+            },
           ],
         },
       }),
@@ -800,6 +844,7 @@ describe('run detail route', () => {
     expect(await screen.findByText('REQ1')).toBeTruthy();
     expect(screen.getByText('passed')).toBeTruthy();
     expect(screen.getByText('unverified')).toBeTruthy();
+    expect(screen.getByText('running')).toBeTruthy();
     expect(screen.getByText('no criterion witness')).toBeTruthy();
     expect(screen.getAllByRole('link', { name: 'view in graph' })[0]?.getAttribute('href')).toBe('/spec/1');
     expect(screen.getAllByRole('link', { name: 'view slice log' })[0]?.getAttribute('href')).toBe(

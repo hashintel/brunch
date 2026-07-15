@@ -5,6 +5,11 @@ import { projectExecuteGraph } from '../../executor/execute-projection.js';
 import { listRuns, readRunDetail, readRunTraceIndex } from '../../executor/observer-read.js';
 import { writePlanFile, type PlanFileWriteResult } from '../../executor/plan-file.js';
 import { abandonRun } from '../../executor/run-abandon.js';
+import {
+  runExecutionActive,
+  withRunExecutionAuthority,
+  type RunExecutionActiveResult,
+} from '../../executor/run-execution-authority.js';
 import { recommendRunReplan } from '../../executor/run-replan-recommendation.js';
 import { type RunRetryEligibilityResult } from '../../executor/run-retry-eligibility.js';
 import { createSupersedingRun } from '../../executor/run-supersession.js';
@@ -88,6 +93,15 @@ const ReadyStepSchema = Type.Union([
   ),
   Type.Object(
     {
+      kind: Type.Literal('slice_integrate'),
+      sliceId: Type.String(),
+      epicId: Type.Optional(Type.String()),
+      derivedFrom: Type.Optional(Type.Array(Type.String())),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
       kind: Type.Literal('slice_execute'),
       sliceId: Type.String(),
       epicId: Type.Optional(Type.String()),
@@ -125,33 +139,80 @@ const ReadyStepSchema = Type.Union([
   Type.Object({ kind: Type.Literal('run_complete') }, { additionalProperties: false }),
   Type.Object({ kind: Type.Literal('petri_export') }, { additionalProperties: false }),
   Type.Object({ kind: Type.Literal('promotion') }, { additionalProperties: false }),
+  Type.Object(
+    { kind: Type.Literal('epic_integrate'), epicId: Type.String() },
+    { additionalProperties: false },
+  ),
+  Type.Object({ kind: Type.Literal('epic_verify'), epicId: Type.String() }, { additionalProperties: false }),
+  Type.Object(
+    { kind: Type.Literal('epic_complete'), epicId: Type.String() },
+    { additionalProperties: false },
+  ),
 ]);
 
-const BlockedStepReasonSchema = Type.Object(
-  {
-    kind: Type.Union([Type.Literal('dependency'), Type.Literal('active_slice')]),
-    sliceId: Type.String(),
-  },
-  { additionalProperties: false },
-);
+const BlockedStepReasonSchema = Type.Union([
+  Type.Object(
+    { kind: Type.Union([Type.Literal('dependency'), Type.Literal('active_slice')]), sliceId: Type.String() },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    { kind: Type.Literal('epic_dependency'), epicId: Type.String() },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      kind: Type.Literal('parallel_authority'),
+      state: Type.Union([
+        Type.Literal('claimed'),
+        Type.Literal('running'),
+        Type.Literal('succeeded_unintegrated'),
+        Type.Literal('failed'),
+        Type.Literal('integrated'),
+      ]),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      kind: Type.Literal('epic_verification_authority'),
+      phase: Type.Union([Type.Literal('claimed'), Type.Literal('transitioned')]),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object({ kind: Type.Literal('parallel_authority_unreadable') }, { additionalProperties: false }),
+]);
 
-const BlockedStepSchema = Type.Object(
-  {
-    kind: Type.Literal('slice_start'),
-    sliceId: Type.String(),
-    epicId: Type.Optional(Type.String()),
-    derivedFrom: Type.Optional(Type.Array(Type.String())),
-    blockers: Type.Array(BlockedStepReasonSchema),
-  },
-  { additionalProperties: false },
-);
+const BlockedStepSchema = Type.Union([
+  Type.Object(
+    {
+      kind: Type.Literal('slice_start'),
+      sliceId: Type.String(),
+      epicId: Type.Optional(Type.String()),
+      derivedFrom: Type.Optional(Type.Array(Type.String())),
+      blockers: Type.Array(BlockedStepReasonSchema),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      kind: Type.Literal('epic_verify'),
+      epicId: Type.String(),
+      blockers: Type.Array(BlockedStepReasonSchema),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    { kind: Type.Literal('authority_unreadable'), blockers: Type.Array(BlockedStepReasonSchema) },
+    { additionalProperties: false },
+  ),
+]);
 
 const PetrinautReplayMarkingSchema = Type.Record(Type.String(), Type.Integer({ minimum: 0 }));
 
 const PetrinautReplayInputArcSchema = Type.Object(
   {
     placeId: Type.String(),
-    weight: Type.Number({ exclusiveMinimum: 0 }),
+    weight: Type.Integer({ minimum: 1 }),
     type: Type.Union([Type.Literal('standard'), Type.Literal('inhibitor')]),
   },
   { additionalProperties: false },
@@ -160,7 +221,7 @@ const PetrinautReplayInputArcSchema = Type.Object(
 const PetrinautReplayOutputArcSchema = Type.Object(
   {
     placeId: Type.String(),
-    weight: Type.Number({ exclusiveMinimum: 0 }),
+    weight: Type.Integer({ minimum: 1 }),
   },
   { additionalProperties: false },
 );
@@ -183,6 +244,8 @@ const PetrinautReplayExportSchema = Type.Object(
             {
               id: Type.String(),
               name: Type.String(),
+              x: Type.Number(),
+              y: Type.Number(),
             },
             { additionalProperties: false },
           ),
@@ -192,6 +255,8 @@ const PetrinautReplayExportSchema = Type.Object(
             {
               id: Type.String(),
               name: Type.String(),
+              x: Type.Number(),
+              y: Type.Number(),
               inputArcs: Type.Array(PetrinautReplayInputArcSchema),
               outputArcs: Type.Array(PetrinautReplayOutputArcSchema),
             },
@@ -208,6 +273,10 @@ const PetrinautReplayExportSchema = Type.Object(
           transitionId: Type.String(),
           input: PetrinautReplayMarkingSchema,
           output: PetrinautReplayMarkingSchema,
+          ts: Type.String({
+            format: 'date-time',
+            pattern: '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$',
+          }),
         },
         { additionalProperties: false },
       ),
@@ -224,6 +293,7 @@ const RunListEntrySchema = Type.Union([
       status: Type.String(),
       activeSliceId: Type.Optional(Type.String()),
       completedSliceIds: Type.Optional(Type.Array(Type.String())),
+      failedSliceIds: Type.Optional(Type.Array(Type.String())),
       supersedesRunId: Type.Optional(Type.String()),
       abandonedAt: Type.Optional(Type.String()),
       abandonReason: Type.Optional(Type.String()),
@@ -234,12 +304,12 @@ const RunListEntrySchema = Type.Union([
   Type.Object({ runId: Type.String(), unreadable: Type.Literal(true) }, { additionalProperties: false }),
 ]);
 
-const ExecuteRunsResultSchema = Type.Object(
+export const ExecuteRunsResultSchema = Type.Object(
   { runs: Type.Array(RunListEntrySchema) },
   { additionalProperties: false },
 );
 
-const ExecuteRunResultSchema = Type.Union([
+export const ExecuteRunResultSchema = Type.Union([
   Type.Object(
     {
       runId: Type.String(),
@@ -247,6 +317,7 @@ const ExecuteRunResultSchema = Type.Union([
       status: Type.String(),
       activeSliceId: Type.Optional(Type.String()),
       completedSliceIds: Type.Optional(Type.Array(Type.String())),
+      failedSliceIds: Type.Optional(Type.Array(Type.String())),
       supersedesRunId: Type.Optional(Type.String()),
       abandonedAt: Type.Optional(Type.String()),
       abandonReason: Type.Optional(Type.String()),
@@ -272,6 +343,8 @@ const ExecuteRunResultSchema = Type.Union([
               ]),
             ),
             haltedReason: Type.Optional(Type.String()),
+            terminalTs: Type.Optional(Type.String()),
+            failedSliceIds: Type.Optional(Type.Array(Type.String())),
           },
           { additionalProperties: false },
         ),
@@ -280,16 +353,42 @@ const ExecuteRunResultSchema = Type.Union([
       petriProjectionReplayReason: Type.Optional(
         Type.Union([Type.Literal('snapshot_missing_or_unreadable'), Type.Literal('snapshot_stale')]),
       ),
+      petriParallelSliceBatch: Type.Optional(
+        Type.Object(
+          {
+            claimedSliceIds: Type.Array(Type.String()),
+            settlements: Type.Array(
+              Type.Union([
+                Type.Object(
+                  { sliceId: Type.String(), status: Type.Literal('succeeded') },
+                  { additionalProperties: false },
+                ),
+                Type.Object(
+                  {
+                    sliceId: Type.String(),
+                    status: Type.Literal('failed'),
+                    step: Type.String(),
+                    reason: Type.String(),
+                  },
+                  { additionalProperties: false },
+                ),
+              ]),
+            ),
+          },
+          { additionalProperties: false },
+        ),
+      ),
       agentStreamTail: Type.Array(
         Type.Object(
           {
             event: Type.Literal('agent_stream'),
             runId: Type.String(),
-            epicId: Type.String(),
+            epicId: Type.Optional(Type.String()),
             sliceId: Type.String(),
             sequence: Type.Integer({ minimum: 0 }),
             kind: Type.Union([Type.Literal('status'), Type.Literal('message'), Type.Literal('tool')]),
             message: Type.String(),
+            runSequence: Type.Optional(Type.Integer({ minimum: 0 })),
           },
           { additionalProperties: false },
         ),
@@ -300,16 +399,34 @@ const ExecuteRunResultSchema = Type.Union([
           {
             event: Type.Literal('verify_stream'),
             runId: Type.String(),
-            epicId: Type.String(),
+            epicId: Type.Optional(Type.String()),
             sliceId: Type.String(),
             sequence: Type.Integer({ minimum: 0 }),
             kind: Type.Union([Type.Literal('status'), Type.Literal('stdout'), Type.Literal('stderr')]),
             message: Type.String(),
+            runSequence: Type.Optional(Type.Integer({ minimum: 0 })),
           },
           { additionalProperties: false },
         ),
       ),
       verifyStreamTotal: Type.Integer({ minimum: 0 }),
+      sliceStreamInventory: Type.Array(
+        Type.Object(
+          {
+            sliceId: Type.String(),
+            state: Type.Union([
+              Type.Literal('claimed'),
+              Type.Literal('running'),
+              Type.Literal('succeeded_unintegrated'),
+              Type.Literal('failed'),
+              Type.Literal('integrated'),
+            ]),
+            agentAttempts: Type.Array(Type.Integer({ minimum: 1 })),
+            verifyAttempts: Type.Array(Type.Integer({ minimum: 1 })),
+          },
+          { additionalProperties: false },
+        ),
+      ),
       sliceProgress: Type.Array(
         Type.Object(
           {
@@ -373,6 +490,7 @@ const ExecuteReplanRecommendationResultSchema = Type.Object({}, { additionalProp
 const ExecuteReplanMutationResultSchema = Type.Object({}, { additionalProperties: true });
 
 type ExecuteReplanRegeneratePlanResult =
+  | RunExecutionActiveResult
   | {
       readonly status: 'regenerate_not_allowed';
       readonly eligibility: RunRetryEligibilityResult;
@@ -675,6 +793,18 @@ async function currentProjection(
 }
 
 async function regeneratePlan(
+  context: RpcMethodContext,
+  params: ExecuteReplanRegeneratePlanParams,
+): Promise<ExecuteReplanRegeneratePlanResult> {
+  return withRunExecutionAuthority({
+    cwd: context.cwd,
+    runId: params.runId,
+    onContended: () => runExecutionActive(params.runId),
+    execute: () => regeneratePlanOwned(context, params),
+  });
+}
+
+async function regeneratePlanOwned(
   context: RpcMethodContext,
   params: ExecuteReplanRegeneratePlanParams,
 ): Promise<ExecuteReplanRegeneratePlanResult> {

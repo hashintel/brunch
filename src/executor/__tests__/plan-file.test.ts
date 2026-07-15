@@ -14,7 +14,7 @@ import {
 import type { PlanPreview } from '../plan-preview.js';
 
 const preview: PlanPreview = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   mode: 'brownfield',
   scope_handoff_required: false,
   spec: {
@@ -31,7 +31,7 @@ const preview: PlanPreview = {
       epic_id: 'frontier-1',
       definition: 'Build the feature.',
       depends_on: [],
-      verification: [{ kind: 'criterion', target: 'Feature is visible.' }],
+      verification: [{ kind: 'criterion', criterionId: 'AC1', target: 'Feature is visible.' }],
       derived_from: ['REQ1'],
     },
   ],
@@ -39,6 +39,12 @@ const preview: PlanPreview = {
 };
 
 describe('cook plan file writer', () => {
+  it('rejects a v1 preview while keeping plan provenance independently at v1', () => {
+    expect(() => planFilePayload({ ...preview, schemaVersion: 1 } as unknown as PlanPreview)).toThrow(
+      'Unsupported plan preview schema version: 1',
+    );
+  });
+
   it('converts a preview into an old-cook Plan payload without preview-only fields', () => {
     const payload = planFilePayload(preview);
 

@@ -50,4 +50,20 @@ describe('executor core purity', () => {
     }
     expect(violations).toEqual([]);
   });
+
+  it('keeps the parallel batch subtree private to its public root', () => {
+    const violations: string[] = [];
+    for (const file of sourceFilesUnder('src')) {
+      if (file === 'src/executor/parallel-slice-batch.ts') continue;
+      if (file.startsWith('src/executor/parallel-slice-batch/')) continue;
+      const directory = file.slice(0, file.lastIndexOf('/'));
+      for (const specifier of importSpecifiers(file)) {
+        const resolved = `/${join(directory, specifier)}`;
+        if (resolved.includes('/executor/parallel-slice-batch/')) {
+          violations.push(`${file} -> ${specifier}`);
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
 });

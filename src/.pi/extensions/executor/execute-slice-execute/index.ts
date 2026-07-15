@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
+import type { GitSliceIntegrationPort } from '../../../../executor/execution-ports.js';
 import {
   requestSliceExecution,
   type SliceExecutionRequestResult,
@@ -22,7 +23,7 @@ interface ExecuteSliceExecuteDetails {
   readonly sideEffects: SliceExecutionRequestResult['sideEffects'];
 }
 
-export function createExecuteSliceExecuteTool() {
+export function createExecuteSliceExecuteTool(gitSliceIntegration: GitSliceIntegrationPort) {
   return defineBrunchTool<typeof ExecuteSliceExecuteParams, ExecuteSliceExecuteDetails>({
     name: BRUNCH_EXECUTE_SLICE_EXECUTE_TOOL,
     label: 'execute_slice_execute',
@@ -34,7 +35,11 @@ export function createExecuteSliceExecuteTool() {
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_slice_execute requires an active cwd');
       }
-      const result = await requestSliceExecution({ cwd, runId: params.runId });
+      const result = await requestSliceExecution({
+        cwd,
+        runId: params.runId,
+        gitSliceIntegration,
+      });
       return {
         content: [
           {
@@ -53,8 +58,11 @@ export function createExecuteSliceExecuteTool() {
   });
 }
 
-export function registerBrunchExecuteSliceExecute(pi: ExtensionAPI): void {
-  pi.registerTool(createExecuteSliceExecuteTool() as never);
+export function registerBrunchExecuteSliceExecute(
+  pi: ExtensionAPI,
+  gitSliceIntegration: GitSliceIntegrationPort,
+): void {
+  pi.registerTool(createExecuteSliceExecuteTool(gitSliceIntegration) as never);
 }
 
 export default registerBrunchExecuteSliceExecute;

@@ -137,7 +137,7 @@ describe('projectExecutionSpecSnapshot', () => {
       ],
     });
 
-    expect(snapshot.schemaVersion).toBe(1);
+    expect(snapshot.schemaVersion).toBe(2);
     expect(snapshot.specId).toBe('7');
     expect(snapshot.mode).toBe('brownfield');
     expect(snapshot.requirements.map((item) => item.itemId)).toEqual(['REQ1', 'REQ2']);
@@ -155,9 +155,10 @@ describe('projectExecutionSpecSnapshot', () => {
       expect.objectContaining({
         itemId: 'AC1',
         content: 'A browser-level check proves the canvas is reachable after toggling.',
-        verifies: ['REQ1', 'REQ2'],
+        verifiesRequirements: ['REQ1', 'REQ2'],
+        verifiesFrontiers: [],
       }),
-      expect.objectContaining({ itemId: 'AC2', verifies: [] }),
+      expect.objectContaining({ itemId: 'AC2', verifiesRequirements: [], verifiesFrontiers: [] }),
     ]);
     expect(snapshot.context.constraints.map((item) => item.itemId)).toEqual(['CON1']);
     expect(snapshot.context.decisions.map((item) => item.itemId)).toEqual(['D1']);
@@ -458,7 +459,7 @@ describe('projectExecutionSpecSnapshot', () => {
     });
 
     expect(snapshot.scopes[0]?.criteria).toEqual([
-      expect.objectContaining({ itemId: 'AC1', scopeLinked: true, verifies: [] }),
+      expect.objectContaining({ itemId: 'AC1', scopeLinked: true, verifiesRequirements: [] }),
     ]);
   });
 });

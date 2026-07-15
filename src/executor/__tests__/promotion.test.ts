@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { petriNetPath } from '../petri.js';
 import { preparePromotion, promotionReportPath } from '../promotion.js';
 import { reportsPath } from '../report.js';
+import { withRunExecutionAuthority } from '../run-execution-authority.js';
 import { runDirPath, runMetadataPath } from '../run.js';
 import { createFakeGitLandPort } from './fake-ports.js';
 
@@ -65,6 +66,36 @@ async function createPetriExportedRun(
 }
 
 describe('preparePromotion', () => {
+  it('refuses standalone promotion while the run execution owner is active', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-promotion-contended-'));
+    await createPetriExportedRun(cwd);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const owner = withRunExecutionAuthority({ cwd, runId: 'run-1', execute: () => held });
+    let calls = 0;
+    const gitLand = {
+      async currentHead() {
+        return { status: 'ok' as const, commitSha: 'base123' };
+      },
+      async promote() {
+        calls += 1;
+        throw new Error('must not run');
+      },
+    };
+
+    await expect(preparePromotion({ cwd, runId: 'run-1', gitLand })).resolves.toEqual({
+      status: 'run_execution_active',
+      runStatus: 'not_started',
+      runId: 'run-1',
+      sideEffects: [],
+    });
+    expect(calls).toBe(0);
+    release();
+    await owner;
+  });
+
   it('does not prepare promotion for a missing run', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-promotion-missing-'));
 

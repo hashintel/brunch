@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import { BRUNCH_DIR } from '../constants.js';
-import type { ExecutionPlanOutline } from './execute-plan-outline.js';
+import { assertExecutionPlanOutlineVersion, type ExecutionPlanOutline } from './execute-plan-outline.js';
 
 export interface PlanOutlineArtifactWriteResult {
   readonly path: string;
@@ -20,6 +20,7 @@ export async function writePlanOutlineArtifact(args: {
   readonly cwd: string;
   readonly outline: ExecutionPlanOutline;
 }): Promise<PlanOutlineArtifactWriteResult> {
+  assertExecutionPlanOutlineVersion(args.outline);
   const path = planOutlineArtifactPath(args.cwd, args.outline.specId);
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(args.outline, null, 2)}\n`, 'utf8');

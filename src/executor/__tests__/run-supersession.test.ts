@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { LaunchCurrentProjection } from '../launch.js';
 import { planFilePath, planProvenancePath } from '../plan-file.js';
+import { withRunExecutionAuthority } from '../run-execution-authority.js';
 import { createSupersedingRun } from '../run-supersession.js';
 import { runDirPath, runMetadataPath, type RunMetadata } from '../run.js';
 
@@ -59,6 +60,41 @@ async function writeRun(
 }
 
 describe('createSupersedingRun', () => {
+  it('refuses while the previous run mutation authority is active', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-supersede-contended-'));
+    await writePlan(cwd);
+    await writeRun(cwd, 'run-old');
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let entered!: () => void;
+    const acquired = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const owner = withRunExecutionAuthority({
+      cwd,
+      runId: 'run-old',
+      execute: () => {
+        entered();
+        return held;
+      },
+    });
+    await acquired;
+
+    await expect(
+      createSupersedingRun({ cwd, previousRunId: 'run-old', runId: 'run-new', current }),
+    ).resolves.toEqual({
+      status: 'run_execution_active',
+      runStatus: 'not_started',
+      runId: 'run-old',
+      sideEffects: [],
+    });
+    expect(await pathExists(runDirPath(cwd, 'run-new'))).toBe(false);
+    release();
+    await owner;
+  });
+
   it('refuses when the previous run is missing', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-supersede-missing-'));
 

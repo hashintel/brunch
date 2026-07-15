@@ -4,11 +4,13 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { writePetriMarkingSnapshot } from '../petri-marking.js';
 import { planFilePath } from '../plan-file.js';
 import { populateWorktree } from '../populate.js';
 import { initializeReports, reportsPath } from '../report.js';
+import { withRunExecutionAuthority } from '../run-execution-authority.js';
 import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, createRun } from '../run.js';
-import { startSlice } from '../slice-start.js';
+import { startSlice, startSliceWithExecutionAuthority } from '../slice-start.js';
 import { copyHostSource } from '../source-copy.js';
 import { selectSourcePolicy } from '../source-policy.js';
 import { createWorktree } from '../worktree.js';
@@ -131,6 +133,27 @@ describe('startSlice', () => {
     });
   });
 
+  it.each(['created', 'worktree_created'] as const)(
+    'returns reports_not_initialized for %s before reading plan or journal artifacts',
+    async (status) => {
+      const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-early-status-'));
+      await mkdir(runDirPath(cwd, 'run-1'), { recursive: true });
+      await writeFile(
+        runMetadataPath(cwd, 'run-1'),
+        `${JSON.stringify({ runId: 'run-1', specId: '42', planPath: '/missing/plan.json', status })}\n`,
+        'utf8',
+      );
+
+      await expect(startSlice({ cwd, runId: 'run-1' })).resolves.toEqual({
+        status: 'reports_not_initialized',
+        runStatus: status,
+        runId: 'run-1',
+        metadataPath: runMetadataPath(cwd, 'run-1'),
+        sideEffects: [],
+      });
+    },
+  );
+
   it('appends one slice-start marker for the first plan slice without running agents', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-ready-'));
     await createReportReadyRun(cwd);
@@ -212,6 +235,14 @@ describe('startSlice', () => {
       runId: 'run-1',
       metadataPath: runMetadataPath(cwd, 'run-1'),
       reportsPath: reportsPath(cwd, 'run-1'),
+      blockedSteps: [
+        {
+          kind: 'slice_start',
+          sliceId: 'task-2',
+          epicId: 'frontier-1',
+          blockers: [{ kind: 'dependency', sliceId: 'task-1' }],
+        },
+      ],
       sideEffects: [],
     });
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
@@ -237,6 +268,63 @@ describe('startSlice', () => {
     });
   });
 
+  it('refuses a standalone start while the run execution owner is active', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-run-authority-'));
+    await createReportReadyRun(cwd);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let entered!: () => void;
+    const acquired = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const owner = withRunExecutionAuthority({
+      cwd,
+      runId: 'run-1',
+      async execute() {
+        entered();
+        await held;
+        return 'owner';
+      },
+    });
+    await acquired;
+
+    await expect(startSliceWithExecutionAuthority({ cwd, runId: 'run-1' })).resolves.toEqual({
+      status: 'run_execution_active',
+      runStatus: 'reports_initialized',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      sideEffects: [],
+    });
+    expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.activeSliceId).toBeUndefined();
+    release();
+    await owner;
+  });
+
+  it('refuses a standalone start when durable parallel batch authority is active', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-parallel-authority-'));
+    await createTwoSliceReportReadyRun(cwd);
+    await writePetriMarkingSnapshot({
+      cwd,
+      runId: 'run-1',
+      snapshot: {
+        currentMarking: { 'slice:task-1:started': 1, 'slice:task-2:started': 1 },
+        firedTransitionCount: 7,
+        lifecycleProvenance: { runStatus: 'reports_initialized' },
+        parallelSliceBatch: { claimedSliceIds: ['task-1', 'task-2'], settlements: [] },
+      },
+    });
+
+    await expect(startSliceWithExecutionAuthority({ cwd, runId: 'run-1' })).resolves.toEqual({
+      status: 'parallel_batch_active',
+      runStatus: 'reports_initialized',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      sideEffects: [],
+    });
+  });
+
   it('reports no remaining slice once every slice has completed', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-exhausted-'));
     await createTwoSliceReportReadyRun(cwd);
@@ -256,7 +344,61 @@ describe('startSlice', () => {
       runId: 'run-1',
       metadataPath: runMetadataPath(cwd, 'run-1'),
       reportsPath: reportsPath(cwd, 'run-1'),
+      blockedSteps: [],
       sideEffects: [],
+    });
+  });
+
+  it('requires persisted epic completion before starting a dependent epic slice', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-epic-dependency-'));
+    await createTwoSliceReportReadyRun(cwd);
+    const planPath = planFilePath(cwd, '42');
+    await writeFile(
+      planPath,
+      JSON.stringify({
+        mode: 'greenfield',
+        epics: [
+          { id: 'epic-1', depends_on: [], verification: [] },
+          { id: 'epic-2', depends_on: ['epic-1'], verification: [] },
+        ],
+        slices: [
+          { id: 'task-1', epic_id: 'epic-1', depends_on: [], verification: [] },
+          { id: 'task-2', epic_id: 'epic-2', depends_on: [], verification: [] },
+        ],
+      }),
+      'utf8',
+    );
+    await writeFile(
+      join(cwd, '.brunch', 'cook', 'runs', 'run-1', 'worktree', '.brunch', 'cook', 'plan.yaml'),
+      await readFile(planPath, 'utf8'),
+      'utf8',
+    );
+    const metadata = (await readRunMetadata(runMetadataPath(cwd, 'run-1')))!;
+    await persistRunMetadata(runMetadataPath(cwd, 'run-1'), {
+      ...metadata,
+      status: 'slice_completed',
+      completedSliceIds: ['task-1'],
+    });
+
+    await expect(startSlice({ cwd, runId: 'run-1', sliceId: 'task-2' })).resolves.toMatchObject({
+      status: 'no_slice',
+      blockedSteps: [
+        {
+          sliceId: 'task-2',
+          blockers: [{ kind: 'epic_dependency', epicId: 'epic-1' }],
+        },
+      ],
+    });
+    await persistRunMetadata(runMetadataPath(cwd, 'run-1'), {
+      ...metadata,
+      status: 'slice_completed',
+      completedSliceIds: ['task-1'],
+      completedEpicIds: ['epic-1'],
+    });
+    await expect(startSlice({ cwd, runId: 'run-1', sliceId: 'task-2' })).resolves.toMatchObject({
+      status: 'slice_started',
+      sliceId: 'task-2',
+      epicId: 'epic-2',
     });
   });
 });

@@ -6,7 +6,8 @@ import { describe, expect, it } from 'vitest';
 
 import { agentStreamPath } from '../agent-result.js';
 import { listRuns, readRunDetail } from '../observer-read.js';
-import type { ExecutorNetEvent } from '../orchestrate-topology.js';
+import { compileExecutorTopology, type ExecutorNetEvent } from '../orchestrate-topology.js';
+import { petriTopologyToSdcpnFile } from '../petrinaut/sdcpn.js';
 import { populatedPlanPath } from '../populate.js';
 import { runDirPath, runMetadataPath, type RunMetadata } from '../run.js';
 import { verifyStreamPath } from '../test-result.js';
@@ -18,12 +19,20 @@ async function fixtureCwd(prefix: string): Promise<string> {
 async function writeRun(cwd: string, runId: string, metadata: Partial<RunMetadata>): Promise<string> {
   const runDir = runDirPath(cwd, runId);
   await mkdir(runDir, { recursive: true });
+  const sliceAttemptHistory = { ...metadata.sliceAttemptHistory };
+  for (const sliceId of metadata.completedSliceIds ?? []) {
+    sliceAttemptHistory[sliceId] ??= {
+      agent: [{ outcome: 'succeeded', attempts: 1 }],
+      verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'passed' }],
+    };
+  }
   const payload = {
     runId,
     specId: '42',
     planPath: '/plan.yaml',
     status: 'created',
     ...metadata,
+    ...(Object.keys(sliceAttemptHistory).length === 0 ? {} : { sliceAttemptHistory }),
   };
   await writeFile(runMetadataPath(cwd, runId), `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
   return runDir;
@@ -82,6 +91,7 @@ function transitionEvent(
 ): Extract<ExecutorNetEvent, { readonly kind: 'transition_fired' }> {
   return {
     kind: 'transition_fired',
+    ts: '2026-07-14T12:00:00.000Z',
     runId: 'run-1',
     runStatus: 'worktree_created',
     transitionId: 'worktree_create',
@@ -194,6 +204,7 @@ describe('readRunDetail', () => {
       planPath,
       JSON.stringify({
         mode: 'greenfield',
+        epics: [{ id: 'frontier-1' }, { id: 'frontier-2' }],
         slices: [
           { id: 'task-1', epic_id: 'frontier-1', derived_from: ['REQ1'] },
           { id: 'task-2', epic_id: 'frontier-1', depends_on: ['task-1'], derived_from: ['REQ2'] },
@@ -248,6 +259,96 @@ describe('readRunDetail', () => {
           kind: 'slice_start',
           sliceId: 'task-2',
           blockers: [{ kind: 'active_slice', sliceId: 'task-1' }],
+        },
+      ],
+    });
+  });
+
+  it('reports persisted epic completion as the blocker for dependent epic slices', async () => {
+    const cwd = await fixtureCwd('brunch-observer-epic-blocker-');
+    const planPath = join(cwd, 'plan.yaml');
+    await writeFile(
+      planPath,
+      JSON.stringify({
+        epics: [
+          { id: 'epic-1', depends_on: [] },
+          { id: 'epic-2', depends_on: ['epic-1'] },
+        ],
+        slices: [
+          { id: 'task-1', epic_id: 'epic-1' },
+          { id: 'task-2', epic_id: 'epic-2' },
+        ],
+      }),
+      'utf8',
+    );
+    await writeRun(cwd, 'run-epic-blocker', {
+      planPath,
+      status: 'slice_completed',
+      completedSliceIds: ['task-1'],
+    });
+
+    const detail = await readRunDetail(cwd, 'run-epic-blocker');
+
+    expect(detail).toMatchObject({
+      petriReadySteps: [{ kind: 'epic_integrate', epicId: 'epic-1' }],
+      petriBlockedSteps: [
+        {
+          kind: 'slice_start',
+          sliceId: 'task-2',
+          epicId: 'epic-2',
+          blockers: [{ kind: 'epic_dependency', epicId: 'epic-1' }],
+        },
+      ],
+    });
+  });
+
+  it('recovers an epic verification claim appended before its marking write', async () => {
+    const cwd = await fixtureCwd('brunch-observer-epic-claim-crash-');
+    const planPath = join(cwd, 'plan.json');
+    await writeFile(
+      planPath,
+      JSON.stringify({
+        epics: [
+          {
+            id: 'epic-1',
+            depends_on: [],
+            verification: [{ kind: 'criterion', target: 'npm test' }],
+          },
+        ],
+        slices: [{ id: 'task-1', epic_id: 'epic-1' }],
+      }),
+      'utf8',
+    );
+    const runDir = await writeRun(cwd, 'run-epic-claim-crash', {
+      planPath,
+      status: 'slice_completed',
+      completedSliceIds: ['task-1'],
+      integratedEpicIds: ['epic-1'],
+      epicTransitionHistory: ['epic_integrate:epic-1'],
+    });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'events.jsonl'),
+      `${JSON.stringify({
+        kind: 'epic_verification_claimed',
+        ts: '2026-07-14T12:00:00.000Z',
+        runId: 'run-epic-claim-crash',
+        runStatus: 'slice_completed',
+        epicId: 'epic-1',
+        step: 'epic_verify',
+      })}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-epic-claim-crash');
+
+    expect(detail).toMatchObject({
+      petriReadySteps: [],
+      petriBlockedSteps: [
+        {
+          kind: 'epic_verify',
+          epicId: 'epic-1',
+          blockers: [{ kind: 'epic_verification_authority', phase: 'claimed' }],
         },
       ],
     });
@@ -334,6 +435,7 @@ describe('readRunDetail', () => {
     const cwd = await fixtureCwd('brunch-observer-replan-detail-');
     await writeRun(cwd, 'run-d', {
       status: 'abandoned',
+      failedSliceIds: ['task-1'],
       supersedesRunId: 'run-old',
       abandonedAt: '2026-07-07T00:00:00.000Z',
       abandonReason: 'User chose a fresh plan',
@@ -342,9 +444,46 @@ describe('readRunDetail', () => {
     await expect(readRunDetail(cwd, 'run-d')).resolves.toMatchObject({
       runId: 'run-d',
       status: 'abandoned',
+      failedSliceIds: ['task-1'],
       supersedesRunId: 'run-old',
       abandonedAt: '2026-07-07T00:00:00.000Z',
       abandonReason: 'User chose a fresh plan',
+    });
+  });
+
+  it('prefers durable terminal failed slice ids over later abandonment metadata', async () => {
+    const cwd = await fixtureCwd('brunch-observer-abandoned-terminal-');
+    const runDir = await writeRun(cwd, 'run-d', {
+      status: 'abandoned',
+      failedSliceIds: ['metadata-only'],
+      abandonedAt: '2026-07-14T12:00:02.000Z',
+    });
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'net.json'),
+      JSON.stringify({ initialMarking: {}, transitions: [] }),
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'petrinaut', 'events.jsonl'),
+      `${JSON.stringify({
+        kind: 'net_halted',
+        ts: '2026-07-14T12:00:01.000Z',
+        runId: 'run-d',
+        runStatus: 'slice_completed',
+        reason: 'slice_verification_not_passed',
+        failedSliceIds: ['durable-failure'],
+      })}\n`,
+      'utf8',
+    );
+
+    await expect(readRunDetail(cwd, 'run-d')).resolves.toMatchObject({
+      status: 'abandoned',
+      failedSliceIds: ['durable-failure'],
+      petriProjection: {
+        terminalEventKind: 'net_halted',
+        failedSliceIds: ['durable-failure'],
+      },
     });
   });
 
@@ -382,6 +521,20 @@ describe('readRunDetail', () => {
     const cwd = await fixtureCwd('brunch-observer-petrinaut-live-');
     const runDir = await writeRun(cwd, 'run-petri-live', { status: 'worktree_created' });
     await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDir, 'petrinaut', 'net.json'),
+      JSON.stringify({
+        initialMarking: { 'run:created': 1 },
+        transitions: [
+          {
+            id: 'worktree_create',
+            inputArcs: [{ placeId: 'run:created', weight: 1 }],
+            outputArcs: [{ placeId: 'run:worktree_created', weight: 1 }],
+          },
+        ],
+      }),
+      'utf8',
+    );
     await writeFile(join(runDir, 'petrinaut', 'net.sdcpn.json'), JSON.stringify(minimalSdcpnFile()), 'utf8');
     await writeFile(
       join(runDir, 'petrinaut', 'events.jsonl'),
@@ -457,7 +610,7 @@ describe('readRunDetail', () => {
     ).toBe('absent');
   });
 
-  it('returns a raw Petri event tail/count when the journal exists and skips torn trailing lines', async () => {
+  it('rejects the whole Petri event journal when a trailing line is torn', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-events-');
     const runDir = await writeRun(cwd, 'run-petri-events', { status: 'agent_result_ingested' });
     await mkdir(join(runDir, 'petrinaut'), { recursive: true });
@@ -480,10 +633,12 @@ describe('readRunDetail', () => {
         ),
         JSON.stringify({
           kind: 'net_halted',
+          ts: '2026-07-14T12:00:01.000Z',
           runId: 'run-petri-events',
           runStatus: 'agent_result_ingested',
           step: 'test_result',
           reason: 'test_run_failed',
+          failedSliceIds: ['task-1'],
         }),
         '{"kind":"transition_fired"',
       ].join('\n'),
@@ -493,20 +648,11 @@ describe('readRunDetail', () => {
     const detail = await readRunDetail(cwd, 'run-petri-events');
 
     expect(detail).toMatchObject({
-      petriEventsTotal: 2,
-      petriEventsTail: [
-        {
-          kind: 'transition_fired',
-          runId: 'run-petri-events',
-          transitionId: 'slice_start:task-1',
-          subnetId: 'slice:task-1',
-        },
-        {
-          kind: 'net_halted',
-          runId: 'run-petri-events',
-          step: 'test_result',
-          reason: 'test_run_failed',
-        },
+      petriEventsTotal: 0,
+      petriEventsTail: [],
+      petriReadySteps: [],
+      petriBlockedSteps: [
+        { kind: 'authority_unreadable', blockers: [{ kind: 'parallel_authority_unreadable' }] },
       ],
     });
   });
@@ -551,8 +697,10 @@ describe('readRunDetail', () => {
         ),
         JSON.stringify({
           kind: 'net_completed',
+          ts: '2026-07-14T12:00:01.000Z',
           runId: 'run-petri-projection',
           runStatus: 'promotion_prepared',
+          failedSliceIds: [],
         }),
         '',
       ].join('\n'),
@@ -572,7 +720,7 @@ describe('readRunDetail', () => {
     });
   });
 
-  it('omits terminal summary from replay when the raw journal contains contradictory terminal events', async () => {
+  it('rejects replay when the raw journal contains contradictory terminal events', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-terminal-conflict-');
     const runDir = await writeRun(cwd, 'run-petri-terminal-conflict', { status: 'promotion_prepared' });
     await mkdir(join(runDir, 'petrinaut'), { recursive: true });
@@ -612,13 +760,17 @@ describe('readRunDetail', () => {
         ),
         JSON.stringify({
           kind: 'net_completed',
+          ts: '2026-07-14T12:00:01.000Z',
           runId: 'run-petri-terminal-conflict',
           runStatus: 'promotion_prepared',
+          failedSliceIds: [],
         }),
         JSON.stringify({
           kind: 'net_deadlocked',
+          ts: '2026-07-14T12:00:02.000Z',
           runId: 'run-petri-terminal-conflict',
           runStatus: 'promotion_prepared',
+          failedSliceIds: [],
         }),
         '',
       ].join('\n'),
@@ -628,22 +780,8 @@ describe('readRunDetail', () => {
 
     const detail = await readRunDetail(cwd, 'run-petri-terminal-conflict');
 
-    expect(detail).toMatchObject({
-      petriProjection: {
-        currentMarking: { 'run:promotion_prepared': 1 },
-        firedTransitionCount: 1,
-      },
-      petriProjectionSource: 'replay',
-      petriProjectionReplayReason: 'snapshot_missing_or_unreadable',
-    });
-    expect(detail).not.toMatchObject({
-      petriProjection: {
-        terminalEventKind: 'net_completed',
-      },
-    });
-    expect(
-      detail && 'petrinautReplayExport' in detail ? detail.petrinautReplayExport : undefined,
-    ).toBeUndefined();
+    expect(detail).not.toHaveProperty('petriProjection');
+    expect(detail).not.toHaveProperty('petrinautReplayExport');
   });
 
   it('omits Petrinaut replay export when SDCPN arcs reference unknown places', async () => {
@@ -677,6 +815,63 @@ describe('readRunDetail', () => {
     ).toBeUndefined();
   });
 
+  it('omits replay projection and Petrinaut export for a causally impossible verdict-fail then integrate journal', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petrinaut-impossible-verdict-');
+    const runId = 'run-petrinaut-impossible-verdict';
+    const runDir = await writeRun(cwd, runId, { status: 'test_result_ingested' });
+    const topology = compileExecutorTopology({ slices: [{ id: 'S3' }] });
+    const transitions = new Map(topology.transitions.map((transition) => [transition.id, transition]));
+    const transitionIds = [
+      'worktree_create',
+      'populate',
+      'source_policy',
+      'source_copy',
+      'report_init',
+      'slice_start:S3',
+      'slice_execute:S3',
+      'agent_result:S3:attempt:1',
+      'test_result_ingested:S3:attempt:1',
+      'verify_failed:S3:attempt:1',
+      'slice_integrate:S3',
+    ];
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(join(runDir, 'petrinaut', 'net.json'), JSON.stringify(topology), 'utf8');
+    await writeFile(
+      join(runDir, 'petrinaut', 'net.sdcpn.json'),
+      JSON.stringify(petriTopologyToSdcpnFile({ runId, topology })),
+      'utf8',
+    );
+    await writeFile(
+      join(runDir, 'petrinaut', 'events.jsonl'),
+      `${transitionIds
+        .map((transitionId, index) => {
+          const transition = transitions.get(transitionId)!;
+          return JSON.stringify({
+            kind: 'transition_fired',
+            ts: `2026-07-14T12:00:${String(index).padStart(2, '0')}.000Z`,
+            runId,
+            runStatus: 'test_result_ingested',
+            transitionId,
+            subnetId: transition.subnetId,
+            step: transition.step?.kind ?? 'test_result',
+            contract: transition.contract,
+            consumed: transition.inputArcs.map((arc) => arc.placeId),
+            produced: transition.outputArcs.map((arc) => arc.placeId),
+            fromStatus: 'created',
+            toStatus: 'test_result_ingested',
+          });
+        })
+        .join('\n')}\n`,
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, runId);
+
+    expect(detail).not.toHaveProperty('petriProjection');
+    expect(detail).not.toHaveProperty('petrinautReplayExport');
+    expect(detail).not.toHaveProperty('petrinautStreamPath');
+  });
+
   it('omits malformed Petri journal events instead of projecting them as terminal facts', async () => {
     const cwd = await fixtureCwd('brunch-observer-petrinaut-invalid-event-');
     const runDir = await writeRun(cwd, 'run-petrinaut-invalid-event', { status: 'promotion_prepared' });
@@ -692,7 +887,7 @@ describe('readRunDetail', () => {
     ).toBeUndefined();
   });
 
-  it('omits terminal summary from replay when the raw journal fires after a terminal event', async () => {
+  it('rejects replay when the raw journal fires after a terminal event', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-terminal-order-');
     const runDir = await writeRun(cwd, 'run-petri-terminal-order', { status: 'worktree_populated' });
     await mkdir(join(runDir, 'petrinaut'), { recursive: true });
@@ -738,8 +933,10 @@ describe('readRunDetail', () => {
         ),
         JSON.stringify({
           kind: 'net_completed',
+          ts: '2026-07-14T12:00:01.000Z',
           runId: 'run-petri-terminal-order',
           runStatus: 'worktree_created',
+          failedSliceIds: [],
         }),
         JSON.stringify(
           transitionEvent({
@@ -760,19 +957,8 @@ describe('readRunDetail', () => {
 
     const detail = await readRunDetail(cwd, 'run-petri-terminal-order');
 
-    expect(detail).toMatchObject({
-      petriProjection: {
-        currentMarking: { 'run:worktree_populated': 1 },
-        firedTransitionCount: 2,
-      },
-      petriProjectionSource: 'replay',
-      petriProjectionReplayReason: 'snapshot_missing_or_unreadable',
-    });
-    expect(detail).not.toMatchObject({
-      petriProjection: {
-        terminalEventKind: 'net_completed',
-      },
-    });
+    expect(detail).not.toHaveProperty('petriProjection');
+    expect(detail).not.toHaveProperty('petrinautReplayExport');
   });
 
   it('prefers the persisted marking snapshot over replay when both are present and its derived facts still match', async () => {
@@ -835,7 +1021,7 @@ describe('readRunDetail', () => {
       `${JSON.stringify(
         {
           claimedTransitionIds: ['slice_start:task-1'],
-          currentMarking: { 'run:slice_frontier': 1 },
+          currentMarking: { 'slice:task-1:claim': 1, 'slice:task-2:claim': 1 },
           firedTransitionCount: 5,
           lifecycleProvenance: {
             runStatus: 'reports_initialized',
@@ -852,7 +1038,7 @@ describe('readRunDetail', () => {
     expect(detail).toMatchObject({
       petriProjection: {
         claimedTransitionIds: ['slice_start:task-1'],
-        currentMarking: { 'run:slice_frontier': 1 },
+        currentMarking: { 'slice:task-1:claim': 1, 'slice:task-2:claim': 1 },
         firedTransitionCount: 5,
       },
       petriProjectionSource: 'snapshot',
@@ -915,9 +1101,11 @@ describe('readRunDetail', () => {
         ),
         JSON.stringify({
           kind: 'net_halted',
+          ts: '2026-07-14T12:00:01.000Z',
           runId: 'run-petri-marking-terminal-lag',
           runStatus: 'reports_initialized',
           reason: 'agent_failed',
+          failedSliceIds: ['task-1'],
         }),
         '',
       ].join('\n'),
@@ -927,7 +1115,7 @@ describe('readRunDetail', () => {
       join(runDir, 'petrinaut', 'marking.json'),
       `${JSON.stringify(
         {
-          currentMarking: { 'run:slice_frontier': 1 },
+          currentMarking: { 'slice:task-1:claim': 1, 'slice:task-2:claim': 1 },
           firedTransitionCount: 5,
           lifecycleProvenance: { runStatus: 'reports_initialized' },
         },
@@ -941,10 +1129,12 @@ describe('readRunDetail', () => {
 
     expect(detail).toMatchObject({
       petriProjection: {
-        currentMarking: { 'run:slice_frontier': 1 },
+        currentMarking: { 'slice:task-1:claim': 1, 'slice:task-2:claim': 1 },
         firedTransitionCount: 5,
         terminalEventKind: 'net_halted',
         haltedReason: 'agent_failed',
+        terminalTs: '2026-07-14T12:00:01.000Z',
+        failedSliceIds: ['task-1'],
       },
       petriProjectionSource: 'snapshot',
     });
@@ -973,10 +1163,12 @@ describe('readRunDetail', () => {
       join(runDir, 'petrinaut', 'marking.json'),
       `${JSON.stringify(
         {
-          currentMarking: { 'run:slice_frontier': 1 },
+          currentMarking: { 'slice:task-1:claim': 1 },
           firedTransitionCount: 5,
           lifecycleProvenance: { runStatus: 'reports_initialized' },
           terminalEventKind: 'net_completed',
+          terminalTs: '2026-07-14T12:00:00.000Z',
+          failedSliceIds: [],
         },
         null,
         2,
@@ -988,7 +1180,7 @@ describe('readRunDetail', () => {
 
     expect(detail).toMatchObject({
       petriProjection: {
-        currentMarking: { 'run:slice_frontier': 1 },
+        currentMarking: { 'slice:task-1:claim': 1 },
         firedTransitionCount: 5,
       },
       petriProjectionSource: 'snapshot',
@@ -1018,6 +1210,8 @@ describe('readRunDetail', () => {
             completedSliceIds: ['task-1'],
           },
           terminalEventKind: 'net_completed',
+          terminalTs: '2026-07-14T12:00:01.000Z',
+          failedSliceIds: [],
         },
         null,
         2,
@@ -1070,7 +1264,7 @@ describe('readRunDetail', () => {
           produced: ['run:promotion_prepared'],
           toStatus: 'promotion_prepared',
         }),
-      )}\n${JSON.stringify({ kind: 'net_completed', runId: 'run-petri-marking-terminal-malformed', runStatus: 'promotion_prepared' })}\n`,
+      )}\n${JSON.stringify({ kind: 'net_completed', ts: '2026-07-14T12:00:01.000Z', runId: 'run-petri-marking-terminal-malformed', runStatus: 'promotion_prepared', failedSliceIds: [] })}\n`,
       'utf8',
     );
     await writeFile(
@@ -1176,8 +1370,8 @@ describe('readRunDetail', () => {
       join(runDir, 'petrinaut', 'marking.json'),
       `${JSON.stringify(
         {
-          claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-2'],
-          currentMarking: { 'run:slice_frontier': 1 },
+          claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-1'],
+          currentMarking: { 'slice:task-1:claim': 1, 'slice:task-2:claim': 1 },
           firedTransitionCount: 5,
           lifecycleProvenance: { runStatus: 'reports_initialized' },
         },
@@ -1191,14 +1385,14 @@ describe('readRunDetail', () => {
 
     expect(detail).toMatchObject({
       petriProjection: {
-        currentMarking: { 'run:slice_frontier': 1 },
+        currentMarking: { 'slice:task-1:claim': 1, 'slice:task-2:claim': 1 },
         firedTransitionCount: 5,
       },
       petriProjectionSource: 'snapshot',
     });
     expect(detail).not.toMatchObject({
       petriProjection: {
-        claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-2'],
+        claimedTransitionIds: ['slice_start:task-1', 'slice_start:task-1'],
       },
     });
   });
@@ -1313,7 +1507,7 @@ describe('readRunDetail', () => {
           produced: ['run:promotion_prepared'],
           toStatus: 'promotion_prepared',
         }),
-      )}\n${JSON.stringify({ kind: 'net_completed', runId: 'run-petri-marking-stale', runStatus: 'promotion_prepared' })}\n`,
+      )}\n${JSON.stringify({ kind: 'net_completed', ts: '2026-07-14T12:00:01.000Z', runId: 'run-petri-marking-stale', runStatus: 'promotion_prepared', failedSliceIds: [] })}\n`,
       'utf8',
     );
     await writeFile(
@@ -1326,6 +1520,8 @@ describe('readRunDetail', () => {
             runStatus: 'run_completed',
           },
           terminalEventKind: 'net_completed',
+          terminalTs: '2026-07-14T12:00:01.000Z',
+          failedSliceIds: [],
         },
         null,
         2,
@@ -1381,7 +1577,7 @@ describe('readRunDetail', () => {
     });
   });
 
-  it('parses a complete final Petri journal line even without a trailing newline', async () => {
+  it('rejects a final Petri journal line without a trailing newline', async () => {
     const cwd = await fixtureCwd('brunch-observer-petri-final-line-');
     const runDir = await writeRun(cwd, 'run-petri-final-line', { status: 'promotion_prepared' });
     await mkdir(join(runDir, 'petrinaut'), { recursive: true });
@@ -1409,10 +1605,8 @@ describe('readRunDetail', () => {
     const detail = await readRunDetail(cwd, 'run-petri-final-line');
 
     expect(detail).toMatchObject({
-      petriEventsTotal: 1,
-      petriEventsTail: [
-        { kind: 'net_completed', runId: 'run-petri-final-line', runStatus: 'promotion_prepared' },
-      ],
+      petriEventsTotal: 0,
+      petriEventsTail: [],
     });
   });
 
@@ -1526,6 +1720,9 @@ describe('readRunDetail', () => {
     await writeRun(cwd, 'run-stream', {
       status: 'agent_result_ingested',
       activeSliceId: 'task-1',
+      sliceAttemptHistory: {
+        'task-1': { agent: [{ outcome: 'succeeded', attempts: 2 }] },
+      },
     });
     await mkdir(join(runDirPath(cwd, 'run-stream'), 'streams', 'task-1'), { recursive: true });
     await writeFile(
@@ -1536,6 +1733,11 @@ describe('readRunDetail', () => {
         JSON.stringify({ event: 'agent_stream', stream: 'stderr', text: 'second' }),
         '',
       ].join('\n'),
+      'utf8',
+    );
+    await writeFile(
+      agentStreamPath(cwd, 'run-stream', 'task-1', 2),
+      `${JSON.stringify({ event: 'agent_stream', stream: 'stdout', text: 'retry' })}\n`,
       'utf8',
     );
     await writeFile(
@@ -1551,6 +1753,7 @@ describe('readRunDetail', () => {
     expect(detail && 'agentStreamTail' in detail ? detail.agentStreamTail : []).toEqual([
       { event: 'agent_stream', stream: 'stdout', text: 'first' },
       { event: 'agent_stream', stream: 'stderr', text: 'second' },
+      { event: 'agent_stream', stream: 'stdout', text: 'retry' },
     ]);
     expect(detail && 'verifyStreamTail' in detail ? detail.verifyStreamTail : []).toEqual([
       { event: 'verify_stream', stream: 'stdout', text: 'verify' },

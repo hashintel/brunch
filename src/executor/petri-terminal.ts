@@ -1,16 +1,17 @@
-import type { ExecutorNetEvent, ReadyStep } from './orchestrate-topology.js';
+import type { ExecutorNetEventPayload, ReadyStep } from './orchestrate-topology.js';
+import type { PetriTerminalEvent } from './petri-events.js';
 import type { RunMetadata } from './run.js';
 
 export type DriveTerminalClassification =
   | {
-      readonly event: Extract<ExecutorNetEvent, { readonly kind: 'net_completed' }>;
+      readonly event: Extract<ExecutorNetEventPayload, { readonly kind: 'net_completed' }>;
       readonly outcome: {
         readonly status: 'completed';
         readonly runStatus: RunMetadata['status'];
       };
     }
   | {
-      readonly event: Extract<ExecutorNetEvent, { readonly kind: 'net_halted' | 'net_deadlocked' }>;
+      readonly event: Extract<ExecutorNetEventPayload, { readonly kind: 'net_halted' | 'net_deadlocked' }>;
       readonly outcome: {
         readonly status: 'halted';
         readonly step: ReadyStep['kind'] | 'abandoned' | 'deadlocked';
@@ -25,6 +26,7 @@ export function classifyDriveTerminal(
         readonly kind: 'scheduler_exhausted';
         readonly runId: string;
         readonly runStatus: RunMetadata['status'];
+        readonly failedSliceIds?: readonly string[];
       }
     | {
         readonly kind: 'step_halted';
@@ -32,6 +34,7 @@ export function classifyDriveTerminal(
         readonly runStatus: RunMetadata['status'];
         readonly step: ReadyStep['kind'];
         readonly reason: string;
+        readonly failedSliceIds?: readonly string[];
       },
 ): DriveTerminalClassification {
   if (args.kind === 'step_halted') {
@@ -42,6 +45,7 @@ export function classifyDriveTerminal(
         runStatus: args.runStatus,
         step: args.step,
         reason: args.reason,
+        failedSliceIds: args.failedSliceIds ?? [],
       },
       outcome: {
         status: 'halted',
@@ -59,6 +63,7 @@ export function classifyDriveTerminal(
         runId: args.runId,
         runStatus: args.runStatus,
         reason: 'abandoned',
+        failedSliceIds: args.failedSliceIds ?? [],
       },
       outcome: {
         status: 'halted',
@@ -69,12 +74,32 @@ export function classifyDriveTerminal(
     };
   }
 
+  if (args.failedSliceIds?.length) {
+    return {
+      event: {
+        kind: 'net_halted',
+        runId: args.runId,
+        runStatus: args.runStatus,
+        step: 'test_result',
+        reason: 'slice_verification_not_passed',
+        failedSliceIds: args.failedSliceIds,
+      },
+      outcome: {
+        status: 'halted',
+        step: 'test_result',
+        runStatus: args.runStatus,
+        reason: 'slice_verification_not_passed',
+      },
+    };
+  }
+
   if (args.runStatus !== 'promotion_prepared') {
     return {
       event: {
         kind: 'net_deadlocked',
         runId: args.runId,
         runStatus: args.runStatus,
+        failedSliceIds: args.failedSliceIds ?? [],
       },
       outcome: {
         status: 'halted',
@@ -90,10 +115,29 @@ export function classifyDriveTerminal(
       kind: 'net_completed',
       runId: args.runId,
       runStatus: args.runStatus,
+      failedSliceIds: args.failedSliceIds ?? [],
     },
     outcome: {
       status: 'completed',
       runStatus: args.runStatus,
     },
+  };
+}
+
+export function driveOutcomeFromTerminal(event: PetriTerminalEvent): DriveTerminalClassification['outcome'] {
+  if (event.kind === 'net_completed') return { status: 'completed', runStatus: event.runStatus };
+  if (event.kind === 'net_deadlocked') {
+    return {
+      status: 'halted',
+      step: 'deadlocked',
+      runStatus: event.runStatus,
+      reason: 'petri_deadlocked',
+    };
+  }
+  return {
+    status: 'halted',
+    step: event.step ?? (event.reason === 'abandoned' ? 'abandoned' : 'deadlocked'),
+    runStatus: event.runStatus,
+    reason: event.reason ?? 'petri_deadlocked',
   };
 }

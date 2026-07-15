@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import { BRUNCH_DIR } from '../constants.js';
-import type { PlanPreview } from './plan-preview.js';
+import { assertPlanPreviewVersion, type PlanPreview } from './plan-preview.js';
 
 export interface PlanFilePayload {
   readonly mode: PlanPreview['mode'];
@@ -41,6 +41,7 @@ export function planProvenancePath(cwd: string, specId: string): string {
 }
 
 export function planFilePayload(preview: PlanPreview): PlanFilePayload {
+  assertPlanPreviewVersion(preview);
   return {
     mode: preview.mode,
     scope_handoff_required: preview.scope_handoff_required,
@@ -54,6 +55,7 @@ export function planFileProvenance(args: {
   readonly preview: PlanPreview;
   readonly source: PlanFileProvenance['source'];
 }): PlanFileProvenance {
+  assertPlanPreviewVersion(args.preview);
   return {
     schemaVersion: 1,
     specId: args.preview.spec.spec_id,

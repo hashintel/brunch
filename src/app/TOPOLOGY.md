@@ -1,6 +1,6 @@
 # app/
 
-SPEC decisions: D52-L, D123-L
+SPEC decisions: D52-L, D111-L, D123-L, I58-L
 
 ## Owns
 
@@ -16,7 +16,7 @@ Current runtime support modules:
 
 - `pi-settings.ts` — the sealed Pi profile, including the soft recommended `anthropic` / `claude-sonnet-4-6` default. The default is not an allowlist; Pi's native `/model` surface may select any supported provider/model/thinking combination. Its `systemPromptOverride` deliberately replaces Pi's coding-assistant base prompt wholesale with a short Brunch preamble; Brunch prompt composition supplies the product context that follows.
 - `pi-session-options.ts` — internal Brunch-to-Pi session option projection for lifecycle forwarding and tool hardening. It does not pin model, scoped-model, or thinking policy.
-- `git-worktree-port.ts`, `agent-runner-port.ts`, `test-runner-port.ts`, `git-land-port.ts`, `git-host-promotion-port.ts` — app-layer execution-port implementations injected into executor Pi tools; executor core owns contracts and state transitions.
+- `git-worktree-port.ts`, `git-slice-integration-port.ts`, `agent-runner-port.ts`, `test-runner-port.ts`, `git-land-port.ts`, `git-host-promotion-port.ts` — app-layer execution-port implementations injected into executor Pi tools; executor core owns contracts and state transitions. `agent-runner-port.ts` bridges executor run metadata to the sealed subagent worker substrate and fails closed when subagent deps or Pi model context are absent. `git-host-promotion-port.ts` performs promoted-commit diff inspection in the run worktree and accepted host patch application via `git apply`; it must not create commits, refs, branch switches, or staged index state. `git-slice-integration-port.ts` provisions one detached worktree per slice, commits slice output, preflights fan-in with `git merge-tree --write-tree`, and advances the run workspace only after conflict-free certainty.
 
 Model recommendations and latency evidence live in [`docs/model-recommendations.md`](../../docs/model-recommendations.md).
 

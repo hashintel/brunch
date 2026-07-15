@@ -4,6 +4,11 @@ import { dirname, join } from 'node:path';
 import type { GitLandPort } from './execution-ports.js';
 import { readSliceVerificationVerdict } from './report-verdict.js';
 import { reportsPath } from './report.js';
+import {
+  runExecutionActive,
+  withRunExecutionAuthority,
+  type RunExecutionActiveResult,
+} from './run-execution-authority.js';
 import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
 type PromotionSideEffect =
@@ -12,6 +17,7 @@ type PromotionSideEffect =
   | { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' };
 
 export type PromotionPrepareResult =
+  | RunExecutionActiveResult
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -76,6 +82,19 @@ export function promotionReportPath(cwd: string, runId: string): string {
 }
 
 export async function preparePromotion(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly gitLand: GitLandPort;
+}): Promise<PromotionPrepareResult> {
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId: args.runId,
+    execute: () => preparePromotionOwned(args),
+    onContended: () => runExecutionActive(args.runId),
+  });
+}
+
+async function preparePromotionOwned(args: {
   readonly cwd: string;
   readonly runId: string;
   readonly gitLand: GitLandPort;

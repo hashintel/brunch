@@ -1,7 +1,8 @@
-import type { ExecutablePlanDraft } from './executable-plan-draft.js';
+import { assertExecutablePlanDraftVersion, type ExecutablePlanDraft } from './executable-plan-draft.js';
 
 export interface PlanPreviewVerificationTarget {
   readonly kind: 'criterion';
+  readonly criterionId: string;
   readonly target: string;
 }
 
@@ -26,14 +27,14 @@ export interface PlanPreviewEpic {
   readonly id: string;
   readonly summary: string;
   readonly depends_on: readonly string[];
-  readonly verification: readonly [];
+  readonly verification: readonly PlanPreviewVerificationTarget[];
   // Old cook Plan also accepts `probe` and `reachability`, but the alpha draft
   // has no truthful boot/probe or host-blind reachability source yet.
 }
 
 export interface PlanPreviewSlice {
   readonly id: string;
-  readonly epic_id: string;
+  readonly epic_id?: string;
   readonly scope_id?: string;
   readonly definition: string;
   readonly depends_on: readonly string[];
@@ -46,7 +47,7 @@ export interface PlanPreviewSlice {
 }
 
 export interface PlanPreview {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
   readonly mode: ExecutablePlanDraft['mode'];
   readonly scope_handoff_required: boolean;
   readonly spec: PlanPreviewSpec;
@@ -58,8 +59,9 @@ export interface PlanPreview {
 }
 
 export function previewPlan(draft: ExecutablePlanDraft): PlanPreview {
+  assertExecutablePlanDraftVersion(draft);
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     mode: draft.mode,
     scope_handoff_required: draft.slices.some((slice) => slice.scopeId !== undefined),
     spec: previewSpec(draft),
@@ -67,15 +69,23 @@ export function previewPlan(draft: ExecutablePlanDraft): PlanPreview {
       id: epic.id,
       summary: epic.title,
       depends_on: epic.dependsOn,
-      verification: [],
+      verification: epic.verification.map((target) => ({
+        kind: target.kind,
+        criterionId: target.criterionId,
+        target: target.target,
+      })),
     })),
     slices: draft.slices.map((slice) => ({
       id: slice.id,
-      epic_id: slice.epicId,
+      ...(slice.epicId === undefined ? {} : { epic_id: slice.epicId }),
       ...(slice.scopeId ? { scope_id: slice.scopeId } : {}),
       definition: slice.definition,
       depends_on: slice.dependsOn,
-      verification: slice.verification.map((target) => ({ kind: target.kind, target: target.target })),
+      verification: slice.verification.map((target) => ({
+        kind: target.kind,
+        criterionId: target.criterionId,
+        target: target.target,
+      })),
       derived_from: slice.requirementIds,
       ...(slice.designContext.length > 0
         ? {
@@ -96,6 +106,12 @@ export function previewPlan(draft: ExecutablePlanDraft): PlanPreview {
     })),
     sideEffects: [],
   };
+}
+
+export function assertPlanPreviewVersion(preview: Pick<PlanPreview, 'schemaVersion'>): void {
+  if (preview.schemaVersion !== 2) {
+    throw new Error(`Unsupported plan preview schema version: ${String(preview.schemaVersion)}`);
+  }
 }
 
 function previewSpec(draft: ExecutablePlanDraft): PlanPreviewSpec {
@@ -132,6 +148,17 @@ function previewSpec(draft: ExecutablePlanDraft): PlanPreviewSpec {
           item_id: target.criterionId,
           content: target.target,
           verifies: [...verifies],
+        });
+      }
+    }
+  }
+  for (const epic of draft.epics) {
+    for (const target of epic.verification) {
+      if (!criteria.has(target.criterionId)) {
+        criteria.set(target.criterionId, {
+          item_id: target.criterionId,
+          content: target.target,
+          verifies: [],
         });
       }
     }

@@ -1,4 +1,4 @@
-import type { ExecutionPlanOutline } from './execute-plan-outline.js';
+import { assertExecutionPlanOutlineVersion, type ExecutionPlanOutline } from './execute-plan-outline.js';
 
 export interface ExecutablePlanDraftVerificationTarget {
   readonly kind: 'criterion';
@@ -15,7 +15,7 @@ export interface ExecutablePlanDraftRequirement {
 
 export interface ExecutablePlanDraftSlice {
   readonly id: string;
-  readonly epicId: string;
+  readonly epicId?: string;
   readonly title: string;
   readonly definition: string;
   readonly scopeId?: string;
@@ -41,10 +41,11 @@ export interface ExecutablePlanDraftEpic {
   readonly title: string;
   readonly sliceIds: readonly string[];
   readonly dependsOn: readonly string[];
+  readonly verification: readonly ExecutablePlanDraftVerificationTarget[];
 }
 
 export interface ExecutablePlanDraft {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
   readonly specId: string;
   readonly mode: ExecutionPlanOutline['mode'];
   readonly epics: readonly ExecutablePlanDraftEpic[];
@@ -53,8 +54,10 @@ export interface ExecutablePlanDraft {
 }
 
 export function draftExecutablePlan(outline: ExecutionPlanOutline): ExecutablePlanDraft {
+  assertExecutionPlanOutlineVersion(outline);
+  const allTasks = [...outline.frontiers.flatMap((frontier) => frontier.tasks), ...outline.orphanTasks];
   const taskIdByRequirement = new Map<string, string>();
-  for (const task of outline.frontiers.flatMap((frontier) => frontier.tasks)) {
+  for (const task of allTasks) {
     const requirementIds =
       task.requirementIds && task.requirementIds.length > 0 ? task.requirementIds : [task.requirementId];
     for (const requirementId of requirementIds) {
@@ -64,70 +67,89 @@ export function draftExecutablePlan(outline: ExecutionPlanOutline): ExecutablePl
       if (!existingTaskId) taskIdByRequirement.set(requirementId, task.id);
     }
   }
-  const slices = outline.frontiers.flatMap((frontier) => {
-    return frontier.tasks.map((task) => {
-      const requirementIds =
-        task.requirementIds && task.requirementIds.length > 0 ? task.requirementIds : [task.requirementId];
-      return {
-        id: task.id,
+  const orderedSlices = orderSlicesByDependencies([
+    ...outline.frontiers.flatMap((frontier) =>
+      frontier.tasks.map((task) => ({
+        ...draftSlice(task, taskIdByRequirement),
         epicId: frontier.id,
-        title: task.title,
-        definition: task.summary,
-        ...(task.scopeId ? { scopeId: task.scopeId } : {}),
-        requirementId: task.requirementId,
-        requirementIds,
-        ...(task.requirements && task.requirements.length > 0
-          ? {
-              requirements: task.requirements.map((requirement) => ({
-                itemId: requirement.itemId,
-                title: requirement.title,
-                content: requirement.content,
-              })),
-            }
-          : {}),
-        dependsOn: [
-          ...new Set(
-            task.dependsOn.flatMap((requirementId) => {
-              const dependencyTaskId = taskIdByRequirement.get(requirementId);
-              return dependencyTaskId === undefined || dependencyTaskId === task.id ? [] : [dependencyTaskId];
-            }),
-          ),
-        ],
-        designContext: (task.designContext ?? []).map((item) => ({
-          itemId: item.itemId,
-          title: item.title,
-          content: item.content,
-        })),
-        verificationContext: (task.verificationContext ?? []).map((item) => ({
-          itemId: item.itemId,
-          title: item.title,
-          content: item.content,
-        })),
-        verification: task.acceptanceCriteria.map((criterion) => ({
-          kind: 'criterion' as const,
-          criterionId: criterion.criterionId,
-          target: criterion.content,
-          ...(criterion.verifies && criterion.verifies.length > 0 ? { verifies: criterion.verifies } : {}),
-        })),
-      };
-    });
-  });
-
-  const orderedSlices = orderSlicesByDependencies(slices);
+      })),
+    ),
+    ...outline.orphanTasks.map((task) => draftSlice(task, taskIdByRequirement)),
+  ]);
   const epics = outline.frontiers.map((frontier) => ({
     id: frontier.id,
     title: frontier.title,
     sliceIds: orderedSlices.filter((slice) => slice.epicId === frontier.id).map((slice) => slice.id),
-    dependsOn: [],
+    dependsOn: frontier.dependsOn,
+    verification: frontier.verification.map((criterion) => ({
+      kind: 'criterion' as const,
+      criterionId: criterion.criterionId,
+      target: criterion.content,
+    })),
   }));
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     specId: outline.specId,
     mode: outline.mode,
     epics,
     slices: orderedSlices,
     sideEffects: [],
+  };
+}
+
+export function assertExecutablePlanDraftVersion(draft: Pick<ExecutablePlanDraft, 'schemaVersion'>): void {
+  if (draft.schemaVersion !== 2) {
+    throw new Error(`Unsupported executable plan draft schema version: ${String(draft.schemaVersion)}`);
+  }
+}
+
+function draftSlice(
+  task: ExecutionPlanOutline['orphanTasks'][number],
+  taskIdByRequirement: ReadonlyMap<string, string>,
+): ExecutablePlanDraftSlice {
+  const requirementIds =
+    task.requirementIds && task.requirementIds.length > 0 ? task.requirementIds : [task.requirementId];
+  return {
+    id: task.id,
+    title: task.title,
+    definition: task.summary,
+    ...(task.scopeId ? { scopeId: task.scopeId } : {}),
+    requirementId: task.requirementId,
+    requirementIds,
+    ...(task.requirements && task.requirements.length > 0
+      ? {
+          requirements: task.requirements.map((requirement) => ({
+            itemId: requirement.itemId,
+            title: requirement.title,
+            content: requirement.content,
+          })),
+        }
+      : {}),
+    dependsOn: [
+      ...new Set(
+        task.dependsOn.flatMap((requirementId) => {
+          const dependencyTaskId = taskIdByRequirement.get(requirementId);
+          return dependencyTaskId === undefined || dependencyTaskId === task.id ? [] : [dependencyTaskId];
+        }),
+      ),
+    ],
+    designContext: (task.designContext ?? []).map((item) => ({
+      itemId: item.itemId,
+      title: item.title,
+      content: item.content,
+    })),
+    verificationContext: (task.verificationContext ?? []).map((item) => ({
+      itemId: item.itemId,
+      title: item.title,
+      content: item.content,
+    })),
+    verification: task.acceptanceCriteria.map((criterion) => ({
+      kind: 'criterion' as const,
+      criterionId: criterion.criterionId,
+      target: criterion.content,
+      ...(criterion.verifies && criterion.verifies.length > 0 ? { verifies: criterion.verifies } : {}),
+    })),
   };
 }
 

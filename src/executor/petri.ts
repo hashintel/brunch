@@ -2,13 +2,19 @@ import { mkdir, open, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import { compileExecutorTopology, projectSchedulerPlan, type SchedulerPlan } from './orchestrate-topology.js';
-import { petriEventsPath } from './petri-events.js';
+import { inspectPetriTransitionJournal, petriEventsPath } from './petri-events.js';
 import { freezePetriPlanSnapshot } from './petri-plan-snapshot.js';
 import { readPetriRuntimePlan } from './petri-runtime-plan.js';
 import { petriTopologyToSdcpnFile } from './petrinaut/sdcpn.js';
+import {
+  runExecutionActive,
+  withRunExecutionAuthority,
+  type RunExecutionActiveResult,
+} from './run-execution-authority.js';
 import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
 export type PetriExportResult =
+  | RunExecutionActiveResult
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -52,6 +58,7 @@ export function petriSdcpnPath(cwd: string, runId: string): string {
 }
 
 export class PetriObservationInputError extends Error {}
+export class PetriObservationJournalError extends PetriObservationInputError {}
 
 async function readExportPlan(cwd: string, metadata: RunMetadata): Promise<SchedulerPlan | undefined> {
   return readPetriRuntimePlan(cwd, metadata);
@@ -61,8 +68,10 @@ export async function preparePetriObservation(args: {
   readonly cwd: string;
   readonly runId: string;
 }): Promise<SchedulerPlan> {
-  const metadata = await readRunMetadata(runMetadataPath(args.cwd, args.runId));
+  const metadataPath = runMetadataPath(args.cwd, args.runId);
+  const metadata = await readRunMetadata(metadataPath);
   if (!metadata) throw new Error(`Cannot prepare Petrinaut observation for missing run: ${args.runId}`);
+  if (metadata.petriObservationPrepared) await requireReadablePreparedJournal(args);
   await mkdir(dirname(petriNetPath(args.cwd, args.runId)), { recursive: true });
   const frozenPlan = await freezePetriPlanSnapshot({
     cwd: args.cwd,
@@ -83,12 +92,42 @@ export async function preparePetriObservation(args: {
     throw new PetriObservationInputError(`Invalid Petrinaut topology input: ${args.runId}`);
   }
   await writePetriArtifacts({ cwd: args.cwd, runId: args.runId, artifacts });
-  const journal = await open(petriEventsPath(args.cwd, args.runId), 'a');
-  await journal.close();
+  if (!metadata.petriObservationPrepared) {
+    try {
+      const journal = await open(petriEventsPath(args.cwd, args.runId), 'a');
+      await journal.close();
+    } catch {
+      throw new PetriObservationJournalError(`Petrinaut journal is unavailable: ${args.runId}`);
+    }
+    await requireReadablePreparedJournal(args);
+    await persistRunMetadata(metadataPath, { ...metadata, petriObservationPrepared: true });
+  }
   return plan;
 }
 
+async function requireReadablePreparedJournal(args: {
+  readonly cwd: string;
+  readonly runId: string;
+}): Promise<void> {
+  const journal = await inspectPetriTransitionJournal(args);
+  if (journal.status !== 'readable') {
+    throw new PetriObservationJournalError(`Petrinaut journal is ${journal.status}: ${args.runId}`);
+  }
+}
+
 export async function exportPetri(args: {
+  readonly cwd: string;
+  readonly runId: string;
+}): Promise<PetriExportResult> {
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId: args.runId,
+    execute: () => exportPetriOwned(args),
+    onContended: () => runExecutionActive(args.runId),
+  });
+}
+
+async function exportPetriOwned(args: {
   readonly cwd: string;
   readonly runId: string;
 }): Promise<PetriExportResult> {

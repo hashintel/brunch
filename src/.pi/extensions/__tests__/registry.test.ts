@@ -11,6 +11,7 @@ import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
 import {
   createFakeGitHostPromotionPort,
   createFakeGitLandPort,
+  createFakeGitSliceIntegrationPort,
   createFakeGitWorktreePort,
   createFakeTestRunnerPort,
 } from '../../../executor/__tests__/fake-ports.js';
@@ -19,9 +20,12 @@ import type {
   AgentRunnerPort,
   GitHostPromotionPort,
   GitLandPort,
+  GitSliceIntegrationPort,
   GitWorktreePort,
   TestRunnerPort,
 } from '../../../executor/execution-ports.js';
+import { planFilePath } from '../../../executor/plan-file.js';
+import { PRODUCTION_EXECUTE_TOOL_MUTATIONS } from '../../../executor/run-execution-authority.js';
 import { registerBrunchAlternatives as alternatives } from '../../components/alternatives.js';
 import { registerBrunchOperationalModePolicy as operationalMode } from '../agent-runtime/runtime/index.js';
 import { registerBrunchPrompting as prompting } from '../agent-runtime/system-prompts/index.js';
@@ -382,15 +386,15 @@ describe('Brunch explicit Pi extension registry', () => {
       source: { graphLsn: 17, visibility: 'active' },
       sideEffects: [],
       preview: {
-        schemaVersion: 1,
+        schemaVersion: 2,
         mode: 'brownfield',
         spec: {
           spec_id: '42',
           requirements: [{ item_id: 'REQ1', content: 'Feature runs through the alpha executor.' }],
           criteria: [],
         },
-        epics: [expect.objectContaining({ id: 'frontier-1', summary: 'Implement projected requirements' })],
-        slices: [expect.objectContaining({ id: 'task-1', epic_id: 'frontier-1' })],
+        epics: [],
+        slices: [expect.not.objectContaining({ id: 'task-1', epic_id: expect.anything() })],
         sideEffects: [],
       },
     });
@@ -462,11 +466,11 @@ describe('Brunch explicit Pi extension registry', () => {
       source: { graphLsn: 15, visibility: 'active' },
       sideEffects: [],
       draft: {
-        schemaVersion: 1,
+        schemaVersion: 2,
         specId: '42',
         mode: 'brownfield',
-        epics: [expect.objectContaining({ id: 'frontier-1', sliceIds: ['task-1'] })],
-        slices: [expect.objectContaining({ id: 'task-1', requirementId: 'REQ1' })],
+        epics: [],
+        slices: [expect.not.objectContaining({ id: 'task-1', epicId: expect.anything() })],
         sideEffects: [],
       },
     });
@@ -641,6 +645,73 @@ describe('Brunch explicit Pi extension registry', () => {
       mode: 'brownfield',
       source: { graphLsn: 18, visibility: 'active' },
     });
+  });
+
+  it('persists authored frontier semantics through the registered execute_plan_file production path', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-plan-file-authored-'));
+    const base = {
+      specId: 42,
+      basis: 'explicit',
+      settlement: 'settled',
+      createdAtLsn: 1,
+      updatedAtLsn: 1,
+    } as const;
+    const registeredTools = await collectProductTools({
+      graph: {
+        specId: 42,
+        lsn: 19,
+        nodes: [
+          { ...base, id: 1, plane: 'plan', kind: 'frontier', kindOrdinal: 1, title: 'Foundation' },
+          { ...base, id: 2, plane: 'plan', kind: 'frontier', kindOrdinal: 2, title: 'Feature' },
+          { ...base, id: 10, plane: 'intent', kind: 'requirement', kindOrdinal: 1, title: 'Build base' },
+          { ...base, id: 11, plane: 'intent', kind: 'requirement', kindOrdinal: 2, title: 'Build feature' },
+          { ...base, id: 12, plane: 'intent', kind: 'requirement', kindOrdinal: 3, title: 'Orphan task' },
+          {
+            ...base,
+            id: 20,
+            plane: 'intent',
+            kind: 'criterion',
+            kindOrdinal: 1,
+            title: 'Feature verified',
+          },
+        ],
+        edges: [
+          { ...base, id: 1, category: 'composition', sourceId: 1, targetId: 10 },
+          { ...base, id: 2, category: 'composition', sourceId: 2, targetId: 11 },
+          { ...base, id: 3, category: 'dependency', sourceId: 1, targetId: 2 },
+          { ...base, id: 4, category: 'witness', sourceId: 20, targetId: 2, stance: 'for' },
+          { ...base, id: 5, category: 'witness', sourceId: 20, targetId: 11, stance: 'for' },
+        ],
+      },
+    });
+    const planFile = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_PLAN_FILE_TOOL)!;
+
+    await planFile.execute('call-1', { mode: 'greenfield' }, undefined, undefined, { cwd });
+
+    const payload = JSON.parse(await readFile(planFilePath(cwd, '42'), 'utf8')) as {
+      readonly epics: readonly unknown[];
+      readonly slices: readonly unknown[];
+    };
+    expect(payload.epics).toEqual([
+      { id: 'F1', summary: 'Foundation', depends_on: [], verification: [] },
+      {
+        id: 'F2',
+        summary: 'Feature',
+        depends_on: ['F1'],
+        verification: [{ kind: 'criterion', criterionId: 'AC1', target: 'Feature verified' }],
+      },
+    ]);
+    expect(payload.slices).toEqual([
+      expect.objectContaining({ id: 'task-1', epic_id: 'F1', derived_from: ['REQ1'] }),
+      expect.objectContaining({
+        id: 'task-2',
+        epic_id: 'F2',
+        derived_from: ['REQ2'],
+        verification: [{ kind: 'criterion', criterionId: 'AC1', target: 'Feature verified' }],
+      }),
+      expect.not.objectContaining({ id: 'task-3', epic_id: expect.anything() }),
+    ]);
+    expect(payload.slices[2]).toMatchObject({ id: 'task-3', derived_from: ['REQ3'] });
   });
 
   it('registers execute_launch as a selected-spec non-running readiness boundary', async () => {
@@ -1919,6 +1990,7 @@ describe('Brunch explicit Pi extension registry', () => {
     const metadataPath = join(runDir, 'run.json');
     const reportPath = join(runDir, 'reports.jsonl');
     const populatedPlanPath = join(runDir, 'populated-plan.json');
+    const worktreeDir = join(runDir, 'worktree');
     await mkdir(runDir, { recursive: true });
     await writeFile(
       populatedPlanPath,
@@ -1943,6 +2015,7 @@ describe('Brunch explicit Pi extension registry', () => {
         planPath: '/tmp/plan.yaml',
         populatedPlanPath,
         status: 'slice_started',
+        worktreeDir,
         reportsPath: reportPath,
         activeSliceId: 'task-1',
         activeEpicId: 'frontier-1',
@@ -1952,6 +2025,7 @@ describe('Brunch explicit Pi extension registry', () => {
     await writeFile(reportPath, '{"event":"run_ready"}\n', 'utf8');
     const registeredTools = await collectProductTools({
       graph: { specId: 42, lsn: 27, nodes: [], edges: [] },
+      gitSliceIntegration: createFakeGitSliceIntegrationPort(),
     });
 
     const sliceExecute = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_SLICE_EXECUTE_TOOL);
@@ -1968,6 +2042,11 @@ describe('Brunch explicit Pi extension registry', () => {
         requestPath,
       },
       sideEffects: [
+        {
+          kind: 'git_worktree_add',
+          path: join(runDir, 'slice-workspaces', 'task-1', 'worktree'),
+          ref: 'base123',
+        },
         { kind: 'mkdir', path: dirname(requestPath) },
         { kind: 'write_file', path: requestPath, ifExists: 'overwrite' },
         { kind: 'append_file', path: reportPath },
@@ -1985,7 +2064,7 @@ describe('Brunch explicit Pi extension registry', () => {
     const reportPath = join(runDir, 'reports.jsonl');
     const worktreeDir = join(runDir, 'worktree');
     const requestPath = join(runDir, 'agent-output', 'task-1', 'request.json');
-    const resultPath = join(runDir, 'agent-output', 'task-1', 'result.json');
+    const resultPath = join(runDir, 'agent-output', 'task-1', 'attempt-1', 'result.json');
     await mkdir(dirname(requestPath), { recursive: true });
     await mkdir(worktreeDir, { recursive: true });
     await writeFile(requestPath, JSON.stringify({ task: 'execute_slice' }), 'utf8');
@@ -2057,7 +2136,7 @@ describe('Brunch explicit Pi extension registry', () => {
     const reportPath = join(runDir, 'reports.jsonl');
     const worktreeDir = join(runDir, 'worktree');
     const requestPath = join(runDir, 'agent-output', 'task-1', 'request.json');
-    const resultPath = join(runDir, 'agent-output', 'task-1', 'result.json');
+    const resultPath = join(runDir, 'agent-output', 'task-1', 'attempt-1', 'result.json');
     await mkdir(dirname(requestPath), { recursive: true });
     await mkdir(worktreeDir, { recursive: true });
     await writeFile(requestPath, JSON.stringify({ task: 'write proof' }), 'utf8');
@@ -2152,11 +2231,13 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(access(join(runDir, 'petrinaut'))).rejects.toThrow();
   });
 
-  it('registers execute_slice_complete as completion marker only', async () => {
+  it('registers execute_slice_complete as explicit integration then completion', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-slice-complete-'));
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
     const reportPath = join(runDir, 'reports.jsonl');
+    const worktreeDir = join(runDir, 'worktree');
+    const sliceWorktreeDir = join(runDir, 'slice-workspaces', 'task-1', 'worktree');
     await mkdir(runDir, { recursive: true });
     await writeFile(
       metadataPath,
@@ -2165,9 +2246,12 @@ describe('Brunch explicit Pi extension registry', () => {
         specId: '42',
         planPath: '/tmp/plan.yaml',
         status: 'test_result_ingested',
+        worktreeDir,
         reportsPath: reportPath,
         activeSliceId: 'task-1',
         activeEpicId: 'frontier-1',
+        activeSliceWorkspaceDir: sliceWorktreeDir,
+        activeSliceBaseSha: 'base123',
       }),
       'utf8',
     );
@@ -2178,6 +2262,7 @@ describe('Brunch explicit Pi extension registry', () => {
     );
     const registeredTools = await collectProductTools({
       graph: { specId: 42, lsn: 30, nodes: [], edges: [] },
+      gitSliceIntegration: createFakeGitSliceIntegrationPort(),
     });
 
     const complete = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_SLICE_COMPLETE_TOOL);
@@ -2188,6 +2273,10 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(result.details).toMatchObject({
       result: { status: 'slice_completed', runStatus: 'slice_completed', sliceId: 'task-1' },
       sideEffects: [
+        { kind: 'git_commit', path: sliceWorktreeDir, sha: 'slice123' },
+        { kind: 'git_integrate', path: worktreeDir, sha: 'integrated123' },
+        { kind: 'append_file', path: reportPath },
+        { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
         { kind: 'append_file', path: reportPath },
         { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
       ],
@@ -2480,15 +2569,11 @@ describe('Brunch explicit Pi extension registry', () => {
       source: { graphLsn: 13, visibility: 'active' },
       sideEffects: [],
       outline: {
-        schemaVersion: 1,
+        schemaVersion: 2,
         specId: '42',
         mode: 'brownfield',
-        frontiers: [
-          expect.objectContaining({
-            id: 'frontier-1',
-            tasks: [expect.objectContaining({ requirementId: 'REQ1' })],
-          }),
-        ],
+        frontiers: [],
+        orphanTasks: [expect.objectContaining({ requirementId: 'REQ1' })],
         sideEffects: [],
       },
     });
@@ -2695,6 +2780,7 @@ describe('Brunch explicit Pi extension registry', () => {
   it('registers execute_snapshot only with selected graph deps and returns a side-effect-free projection', async () => {
     const registeredTools: Array<{
       name: string;
+      description: string;
       execute: (
         toolCallId: string,
         params: unknown,
@@ -2773,6 +2859,8 @@ describe('Brunch explicit Pi extension registry', () => {
 
     const snapshot = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_SNAPSHOT_TOOL);
     expect(snapshot).toBeDefined();
+    expect(snapshot?.description).toContain('ExecutionSpecSnapshot v2');
+    expect(snapshot?.description).not.toContain('ExecutionSpecSnapshot v1');
     const result = await snapshot!.execute('call-1', { mode: 'brownfield' });
 
     expect(result.content[0]?.text).toContain('execute_snapshot: spec 42 (brownfield)');
@@ -2780,11 +2868,18 @@ describe('Brunch explicit Pi extension registry', () => {
       source: { graphLsn: 11, visibility: 'active' },
       sideEffects: [],
       snapshot: {
-        schemaVersion: 1,
+        schemaVersion: 2,
         specId: '42',
         mode: 'brownfield',
         requirements: [expect.objectContaining({ itemId: 'REQ1' })],
-        criteria: [expect.objectContaining({ itemId: 'AC1', verifies: ['REQ1'] })],
+        criteria: [
+          expect.objectContaining({
+            itemId: 'AC1',
+            verifiesRequirements: ['REQ1'],
+            verifiesFrontiers: [],
+          }),
+        ],
+        frontiers: [],
       },
     });
   });
@@ -2861,6 +2956,52 @@ describe('Brunch explicit Pi extension registry', () => {
       expect(hasToolParametersProvenance(tool.parameters), `${tool.name} adapter provenance`).toBe(true);
       assertProviderLegalToolSchema(tool.parameters);
     }
+  });
+
+  it('classifies every registered production execute tool for run mutation authority', async () => {
+    const registeredTools = await collectProductTools({
+      graph: { specId: 42, lsn: 1, nodes: [], edges: [] },
+    });
+    const registeredExecuteNames = registeredTools
+      .map((tool) => tool.name)
+      .filter((name) => name.startsWith('execute_'))
+      .sort((left, right) => left.localeCompare(right));
+
+    expect(PRODUCTION_EXECUTE_TOOL_MUTATIONS).toEqual({
+      execute_agent_result: 'agent_result',
+      execute_host_promotion_apply: 'host_promotion_apply',
+      execute_host_promotion_preflight: null,
+      execute_launch: null,
+      execute_orchestrate: 'drive',
+      execute_petri_export: 'petri_export',
+      execute_plan_check: null,
+      execute_plan_draft: null,
+      execute_plan_draft_artifact: null,
+      execute_plan_file: null,
+      execute_plan_outline: null,
+      execute_plan_outline_artifact: null,
+      execute_plan_preview: null,
+      execute_populate: 'populate',
+      execute_promotion_prepare: 'promotion',
+      execute_replan_abandon_run: 'run_abandon',
+      execute_replan_recommendation: null,
+      execute_replan_regenerate_plan: 'replan_regenerate_plan_tool',
+      execute_replan_retry_current_step: 'replan_retry_current_step',
+      execute_replan_start_new_run: 'run_supersede',
+      execute_report_init: 'report_init',
+      execute_run_complete: 'run_complete',
+      execute_run_create: 'run_create',
+      execute_slice_complete: 'slice_complete',
+      execute_slice_execute: 'slice_execute',
+      execute_slice_start: 'slice_start',
+      execute_snapshot: null,
+      execute_source_copy: 'source_copy',
+      execute_source_policy: 'source_policy',
+      execute_status: null,
+      execute_test_result: 'test_result',
+      execute_worktree_create: 'worktree_create',
+    });
+    expect(Object.keys(PRODUCTION_EXECUTE_TOOL_MUTATIONS).sort()).toEqual(registeredExecuteNames);
   });
 
   it('keeps present_alternatives on the shared default renderer without changing its message renderer', async () => {
@@ -3264,6 +3405,7 @@ async function collectProductTools(
     graph?: TestGraphSlice;
     graphsBySpec?: Readonly<Record<number, TestGraphSlice>>;
     gitWorktree?: GitWorktreePort;
+    gitSliceIntegration?: GitSliceIntegrationPort;
     testRunner?: TestRunnerPort;
     agentRunner?: AgentRunnerPort;
     gitLand?: GitLandPort;
@@ -3279,6 +3421,7 @@ async function collectProductTools(
     ...(options.subagents ? { subagents: options.subagents } : {}),
     ...(options.introspectionQueryTools ? { introspection: { queryTools: true } } : {}),
     ...(options.gitWorktree ||
+    options.gitSliceIntegration ||
     options.testRunner ||
     options.agentRunner ||
     options.gitLand ||
@@ -3286,6 +3429,7 @@ async function collectProductTools(
       ? {
           executionPorts: {
             ...(options.gitWorktree ? { gitWorktree: options.gitWorktree } : {}),
+            ...(options.gitSliceIntegration ? { gitSliceIntegration: options.gitSliceIntegration } : {}),
             ...(options.testRunner ? { testRunner: options.testRunner } : {}),
             ...(options.agentRunner ? { agentRunner: options.agentRunner } : {}),
             ...(options.gitLand ? { gitLand: options.gitLand } : {}),

@@ -90,6 +90,43 @@ async function createEmptyPlanRun(cwd: string): Promise<void> {
   );
 }
 
+async function addRequiredEpic(
+  cwd: string,
+  options: { readonly completed?: boolean; readonly verdict?: 'passed' | 'failed' } = {},
+): Promise<void> {
+  const planPath = populatedPlanPath(cwd, 'run-1');
+  const plan = JSON.parse(await readFile(planPath, 'utf8'));
+  await writeFile(
+    planPath,
+    JSON.stringify({
+      ...plan,
+      epics: [{ id: 'frontier-1', verification: [{ kind: 'criterion', target: 'provenance' }] }],
+    }),
+    'utf8',
+  );
+  const metadataPath = runMetadataPath(cwd, 'run-1');
+  const metadata = JSON.parse(await readFile(metadataPath, 'utf8'));
+  await writeFile(
+    metadataPath,
+    JSON.stringify({
+      ...metadata,
+      ...(options.completed ? { completedEpicIds: ['frontier-1'] } : {}),
+    }),
+    'utf8',
+  );
+  if (options.verdict) {
+    await writeFile(
+      reportsPath(cwd, 'run-1'),
+      `${await readFile(reportsPath(cwd, 'run-1'), 'utf8')}${JSON.stringify({
+        event: 'epic_test_result',
+        epicId: 'frontier-1',
+        status: options.verdict,
+      })}\n`,
+      'utf8',
+    );
+  }
+}
+
 describe('completeRun', () => {
   it('does not complete before all plan slices are complete', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-complete-incomplete-'));
@@ -190,6 +227,47 @@ describe('completeRun', () => {
       sideEffects: [],
     });
     expect(await readFile(reportsPath(cwd, 'run-1'), 'utf8')).toBe(reportBeforeSecondCompletion);
+  });
+
+  it('does not complete before every epic lifecycle reaches completion', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-complete-epic-incomplete-'));
+    await createSliceCompletedRun(
+      cwd,
+      ['task-1', 'task-2'],
+      [
+        { sliceId: 'task-1', status: 'passed' },
+        { sliceId: 'task-2', status: 'passed' },
+      ],
+    );
+    await addRequiredEpic(cwd, { verdict: 'passed' });
+
+    await expect(completeRun({ cwd, runId: 'run-1' })).resolves.toMatchObject({
+      status: 'epics_incomplete',
+      completedEpicIds: [],
+      expectedEpicIds: ['frontier-1'],
+    });
+  });
+
+  it.each([
+    { label: 'missing', verdict: undefined, expected: 'epic_verification_missing' },
+    { label: 'failed', verdict: 'failed' as const, expected: 'epic_verification_failed' },
+  ])('does not complete when required epic verification is $label', async ({ verdict, expected }) => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-complete-epic-verdict-'));
+    await createSliceCompletedRun(
+      cwd,
+      ['task-1', 'task-2'],
+      [
+        { sliceId: 'task-1', status: 'passed' },
+        { sliceId: 'task-2', status: 'passed' },
+      ],
+    );
+    await addRequiredEpic(cwd, { completed: true, ...(verdict ? { verdict } : {}) });
+
+    await expect(completeRun({ cwd, runId: 'run-1' })).resolves.toMatchObject({
+      status: expected,
+      epicIds: ['frontier-1'],
+    });
+    expect(await readFile(reportsPath(cwd, 'run-1'), 'utf8')).not.toContain('run_completed');
   });
 
   it('does not complete when a completed slice has failed verification', async () => {

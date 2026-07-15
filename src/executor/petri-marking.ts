@@ -1,6 +1,7 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import type { ReadyStep } from './orchestrate-topology.js';
 import { petriDirPath } from './petri-events.js';
 import { parsePetriProjection, type PetriProjection } from './petri-projection.js';
 import type { RunMetadata } from './run.js';
@@ -13,7 +14,28 @@ export interface PetriMarkingLifecycleProvenance {
 
 export interface PetriMarkingSnapshot extends PetriProjection {
   readonly lifecycleProvenance?: PetriMarkingLifecycleProvenance;
+  readonly parallelSliceBatch?: ParallelSliceBatchSnapshot;
+  readonly epicVerificationClaims?: readonly EpicVerificationClaim[];
 }
+
+export interface EpicVerificationClaim {
+  readonly epicId: string;
+  readonly phase: 'claimed' | 'transitioned';
+}
+
+export interface ParallelSliceBatchSnapshot {
+  readonly claimedSliceIds: readonly string[];
+  readonly settlements: readonly ParallelSliceSettlement[];
+}
+
+export type ParallelSliceSettlement =
+  | { readonly sliceId: string; readonly status: 'succeeded' }
+  | {
+      readonly sliceId: string;
+      readonly status: 'failed';
+      readonly step: ReadyStep['kind'];
+      readonly reason: string;
+    };
 
 export function petriMarkingPath(cwd: string, runId: string): string {
   return join(petriDirPath(cwd, runId), 'marking.json');
@@ -25,11 +47,15 @@ export async function writePetriMarkingSnapshot(args: {
   readonly snapshot: PetriMarkingSnapshot;
 }): Promise<void> {
   await mkdir(petriDirPath(args.cwd, args.runId), { recursive: true });
-  await writeFile(
-    petriMarkingPath(args.cwd, args.runId),
-    `${JSON.stringify(args.snapshot, null, 2)}\n`,
-    'utf8',
-  );
+  const path = petriMarkingPath(args.cwd, args.runId);
+  const tempPath = `${path}.tmp`;
+  await writeFile(tempPath, `${JSON.stringify(args.snapshot, null, 2)}\n`, 'utf8');
+  try {
+    await rename(tempPath, path);
+  } catch (error) {
+    await rm(tempPath, { force: true });
+    throw error;
+  }
 }
 
 export async function readPetriMarkingSnapshot(args: {
@@ -57,10 +83,13 @@ export function petriMarkingSnapshotMatchesRunMetadata(
 ): boolean {
   const provenance = snapshot.lifecycleProvenance;
   if (!provenance) return false;
-  if (provenance.runStatus !== metadata.status) return false;
-  if (provenance.activeSliceId !== metadata.activeSliceId) return false;
   const snapshotCompleted = provenance.completedSliceIds ?? [];
   const metadataCompleted = metadata.completedSliceIds ?? [];
+  if (snapshot.parallelSliceBatch) {
+    return snapshotCompleted.every((sliceId) => metadataCompleted.includes(sliceId));
+  }
+  if (provenance.runStatus !== metadata.status) return false;
+  if (provenance.activeSliceId !== metadata.activeSliceId) return false;
   return (
     snapshotCompleted.length === metadataCompleted.length &&
     snapshotCompleted.every((sliceId, index) => sliceId === metadataCompleted[index])
@@ -73,11 +102,92 @@ function asPetriMarkingSnapshot(value: unknown): PetriMarkingSnapshot | undefine
   if (!projection) return undefined;
   const lifecycleProvenance = asLifecycleProvenance(value.lifecycleProvenance);
   if (value.lifecycleProvenance !== undefined && lifecycleProvenance === undefined) return undefined;
+  const parallelSliceBatch = asParallelSliceBatch(value.parallelSliceBatch);
+  if (value.parallelSliceBatch !== undefined && parallelSliceBatch === undefined) return undefined;
+  const epicVerificationClaims = asEpicVerificationClaims(value.epicVerificationClaims);
+  if (value.epicVerificationClaims !== undefined && epicVerificationClaims === undefined) return undefined;
 
   return {
     ...projection,
     ...(lifecycleProvenance === undefined ? {} : { lifecycleProvenance }),
+    ...(parallelSliceBatch === undefined ? {} : { parallelSliceBatch }),
+    ...(epicVerificationClaims === undefined ? {} : { epicVerificationClaims }),
   };
+}
+
+function asEpicVerificationClaims(value: unknown): readonly EpicVerificationClaim[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) return undefined;
+  const claims: EpicVerificationClaim[] = [];
+  for (const claim of value) {
+    if (
+      !isRecord(claim) ||
+      typeof claim.epicId !== 'string' ||
+      (claim.phase !== 'claimed' && claim.phase !== 'transitioned')
+    ) {
+      return undefined;
+    }
+    claims.push({ epicId: claim.epicId, phase: claim.phase });
+  }
+  return new Set(claims.map((claim) => claim.epicId)).size === claims.length ? claims : undefined;
+}
+
+function asParallelSliceBatch(value: unknown): ParallelSliceBatchSnapshot | undefined {
+  if (!isRecord(value) || !isStringArray(value.claimedSliceIds) || !Array.isArray(value.settlements)) {
+    return undefined;
+  }
+  const claimedSliceIds = value.claimedSliceIds;
+  if (new Set(claimedSliceIds).size !== claimedSliceIds.length) return undefined;
+  const settlements = value.settlements.map(asParallelSliceSettlement);
+  if (settlements.some((settlement) => settlement === undefined)) return undefined;
+  const validSettlements = settlements as ParallelSliceSettlement[];
+  const settledIds = validSettlements.map((settlement) => settlement.sliceId);
+  if (new Set(settledIds).size !== settledIds.length) return undefined;
+  if (settledIds.some((sliceId) => !claimedSliceIds.includes(sliceId))) return undefined;
+  return { claimedSliceIds, settlements: validSettlements };
+}
+
+function asParallelSliceSettlement(value: unknown): ParallelSliceSettlement | undefined {
+  if (!isRecord(value) || typeof value.sliceId !== 'string') return undefined;
+  if (value.status === 'succeeded') return { sliceId: value.sliceId, status: 'succeeded' };
+  if (
+    value.status !== 'failed' ||
+    !isReadyStepKind(value.step) ||
+    typeof value.reason !== 'string' ||
+    value.reason.length === 0
+  ) {
+    return undefined;
+  }
+  return {
+    sliceId: value.sliceId,
+    status: 'failed',
+    step: value.step,
+    reason: value.reason,
+  };
+}
+
+const READY_STEP_KINDS = {
+  worktree_create: true,
+  populate: true,
+  source_policy: true,
+  source_copy: true,
+  report_init: true,
+  slice_start: true,
+  slice_execute: true,
+  agent_result: true,
+  test_result: true,
+  slice_integrate: true,
+  slice_complete: true,
+  epic_integrate: true,
+  epic_verify: true,
+  epic_complete: true,
+  run_complete: true,
+  petri_export: true,
+  promotion: true,
+} satisfies Record<ReadyStep['kind'], true>;
+
+function isReadyStepKind(value: unknown): value is ReadyStep['kind'] {
+  return typeof value === 'string' && value in READY_STEP_KINDS;
 }
 
 function asLifecycleProvenance(value: unknown): PetriMarkingLifecycleProvenance | undefined {

@@ -3,9 +3,15 @@ import { Type, type Static } from 'typebox';
 
 import { writePlanFile, type PlanFileWriteResult } from '../../../../executor/plan-file.js';
 import {
+  runExecutionActive,
+  withRunExecutionAuthority,
+  type RunExecutionActiveResult,
+} from '../../../../executor/run-execution-authority.js';
+import {
   assessRunRetryEligibility,
   type RunRetryEligibilityResult,
 } from '../../../../executor/run-retry-eligibility.js';
+import { readRunMetadata, runMetadataPath } from '../../../../executor/run.js';
 import { BRUNCH_EXECUTE_REPLAN_REGENERATE_PLAN_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
 import { defineBrunchTool } from '../../shared/define-brunch-tool.js';
@@ -26,6 +32,7 @@ const ExecuteReplanRegeneratePlanParams = Type.Object({
 type ExecuteReplanRegeneratePlanParams = Static<typeof ExecuteReplanRegeneratePlanParams>;
 
 type ExecuteReplanRegeneratePlanResult =
+  | RunExecutionActiveResult
   | {
       readonly status: 'regenerate_not_allowed';
       readonly eligibility: RunRetryEligibilityResult;
@@ -66,54 +73,70 @@ export function createExecuteReplanRegeneratePlanTool(deps: ExecuteReplanRegener
         throw new Error('execute_replan_regenerate_plan requires an active cwd');
       }
 
-      const { current, projection } = await buildCurrentProjectionForRun({
+      return withRunExecutionAuthority({
         cwd,
         runId: params.runId,
-        fallbackSpecId: deps.specId,
-        reads: deps.reads,
-        mode: params.mode,
+        onContended: async () => {
+          const metadata = await readRunMetadata(runMetadataPath(cwd, params.runId));
+          const result = runExecutionActive(params.runId, metadata?.status ?? 'not_started');
+          return {
+            content: [
+              { type: 'text' as const, text: 'execute_replan_regenerate_plan: run_execution_active' },
+            ],
+            details: { result, sideEffects: result.sideEffects },
+          };
+        },
+        execute: async () => {
+          const { current, projection } = await buildCurrentProjectionForRun({
+            cwd,
+            runId: params.runId,
+            fallbackSpecId: deps.specId,
+            reads: deps.reads,
+            mode: params.mode,
+          });
+          const eligibility = await assessRunRetryEligibility({ cwd, runId: params.runId, current });
+
+          let finalResult: ExecuteReplanRegeneratePlanResult;
+          if (eligibility.status !== 'replan_before_retry') {
+            finalResult = { status: 'regenerate_not_allowed', eligibility, sideEffects: [] };
+          } else if (projection.check.status !== 'ok') {
+            finalResult = { status: 'projection_blocked', eligibility, sideEffects: [] };
+          } else {
+            const artifact = await writePlanFile({
+              cwd,
+              preview: projection.planPreview,
+              source: projection.source,
+            });
+            finalResult = {
+              status: 'regenerated_plan',
+              eligibility,
+              artifact,
+              sideEffects: artifact.sideEffects,
+            };
+          }
+
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: [
+                  `execute_replan_regenerate_plan: ${finalResult.status}`,
+                  `eligibility: ${eligibility.status}`,
+                  `run status: ${eligibility.runStatus}`,
+                  finalResult.status === 'regenerated_plan'
+                    ? `plan path: ${finalResult.artifact.path}`
+                    : undefined,
+                  `graph lsn: ${current.source.graphLsn}`,
+                  `side effects: ${finalResult.sideEffects.map((effect) => effect.kind).join(', ') || 'none'}`,
+                ]
+                  .filter((line): line is string => typeof line === 'string')
+                  .join('\n'),
+              },
+            ],
+            details: { result: finalResult, sideEffects: finalResult.sideEffects },
+          };
+        },
       });
-      const eligibility = await assessRunRetryEligibility({ cwd, runId: params.runId, current });
-
-      let finalResult: ExecuteReplanRegeneratePlanResult;
-      if (eligibility.status !== 'replan_before_retry') {
-        finalResult = { status: 'regenerate_not_allowed', eligibility, sideEffects: [] };
-      } else if (projection.check.status !== 'ok') {
-        finalResult = { status: 'projection_blocked', eligibility, sideEffects: [] };
-      } else {
-        const artifact = await writePlanFile({
-          cwd,
-          preview: projection.planPreview,
-          source: projection.source,
-        });
-        finalResult = {
-          status: 'regenerated_plan',
-          eligibility,
-          artifact,
-          sideEffects: artifact.sideEffects,
-        };
-      }
-
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: [
-              `execute_replan_regenerate_plan: ${finalResult.status}`,
-              `eligibility: ${eligibility.status}`,
-              `run status: ${eligibility.runStatus}`,
-              finalResult.status === 'regenerated_plan'
-                ? `plan path: ${finalResult.artifact.path}`
-                : undefined,
-              `graph lsn: ${current.source.graphLsn}`,
-              `side effects: ${finalResult.sideEffects.map((effect) => effect.kind).join(', ') || 'none'}`,
-            ]
-              .filter((line): line is string => typeof line === 'string')
-              .join('\n'),
-          },
-        ],
-        details: { result: finalResult, sideEffects: finalResult.sideEffects },
-      };
     },
   });
 }

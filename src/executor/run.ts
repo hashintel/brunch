@@ -4,8 +4,25 @@ import { join } from 'node:path';
 import { BRUNCH_DIR } from '../constants.js';
 import type { VerifyTarget } from './execution-ports.js';
 import { prepareLaunch, type LaunchCurrentProjection, type LaunchResult } from './launch.js';
+import {
+  runExecutionActive,
+  withRunExecutionAuthority,
+  type RunExecutionActiveResult,
+} from './run-execution-authority.js';
 
 export type WorktreeSubstrateKind = 'git_worktree' | 'empty_dir';
+
+export type SliceAttemptStage = 'agent' | 'verify';
+
+export interface SliceAttemptCycle {
+  readonly outcome: 'succeeded' | 'exhausted' | 'reset';
+  readonly attempts: number;
+  readonly verdict?: 'passed' | 'failed';
+}
+
+export type SliceAttemptHistory = Readonly<
+  Record<string, Partial<Record<SliceAttemptStage, readonly SliceAttemptCycle[]>>>
+>;
 
 export interface RunMetadata {
   readonly runId: string;
@@ -22,6 +39,7 @@ export interface RunMetadata {
     | 'slice_execution_requested'
     | 'agent_result_ingested'
     | 'test_result_ingested'
+    | 'slice_integrated'
     | 'slice_completed'
     | 'run_completed'
     | 'petri_exported'
@@ -40,9 +58,20 @@ export interface RunMetadata {
   readonly activeSliceId?: string;
   readonly activeEpicId?: string;
   readonly activeSliceAttempts?: number;
+  readonly activeSliceAttemptReset?: { readonly stage: SliceAttemptStage };
+  readonly sliceAttemptHistory?: SliceAttemptHistory;
   readonly sliceExecutionRequestPath?: string;
   readonly agentResultPath?: string;
+  readonly activeSliceWorkspaceDir?: string;
+  readonly activeSliceBaseSha?: string;
+  readonly integratedSliceCommits?: Readonly<Record<string, string>>;
   readonly completedSliceIds?: readonly string[];
+  readonly failedSliceIds?: readonly string[];
+  readonly integratedEpicIds?: readonly string[];
+  readonly verifiedEpicIds?: readonly string[];
+  readonly completedEpicIds?: readonly string[];
+  readonly epicTransitionHistory?: readonly string[];
+  readonly petriObservationPrepared?: true;
   readonly petriPath?: string;
   readonly promotionPath?: string;
   readonly promotionBaseSha?: string;
@@ -52,7 +81,41 @@ export interface RunMetadata {
   readonly abandonReason?: string;
 }
 
+export function appendSliceAttemptCycle(
+  metadata: RunMetadata,
+  sliceId: string,
+  stage: SliceAttemptStage,
+  cycle: SliceAttemptCycle,
+): SliceAttemptHistory {
+  const history = metadata.sliceAttemptHistory ?? {};
+  const sliceHistory = history[sliceId] ?? {};
+  return {
+    ...history,
+    [sliceId]: {
+      ...sliceHistory,
+      [stage]: [...(sliceHistory[stage] ?? []), cycle],
+    },
+  };
+}
+
+export function activeSliceAttemptNumber(metadata: RunMetadata): number {
+  return (metadata.activeSliceAttempts ?? 0) + 1;
+}
+
+export function sliceArtifactAttemptNumber(
+  metadata: RunMetadata,
+  sliceId: string,
+  stage: SliceAttemptStage,
+): number {
+  const completedAttempts = (metadata.sliceAttemptHistory?.[sliceId]?.[stage] ?? []).reduce(
+    (total, cycle) => total + (cycle.outcome === 'reset' ? 0 : cycle.attempts),
+    0,
+  );
+  return completedAttempts + activeSliceAttemptNumber(metadata);
+}
+
 export type RunCreateResult =
+  | RunExecutionActiveResult
   | {
       readonly status: 'missing_plan';
       readonly runStatus: 'not_started';
@@ -161,7 +224,11 @@ export async function resetActiveSliceAttempts(args: {
   const metadata = await readRunMetadata(metadataPath);
   if (!metadata || metadata.activeSliceAttempts === undefined) return undefined;
   const { activeSliceAttempts: _cleared, ...rest } = metadata;
-  return persistRunMetadata(metadataPath, rest);
+  const stage = metadata.status === 'slice_execution_requested' ? 'agent' : 'verify';
+  return persistRunMetadata(metadataPath, {
+    ...rest,
+    activeSliceAttemptReset: { stage },
+  });
 }
 
 export async function persistRunMetadata(
@@ -197,6 +264,25 @@ export async function createRun(args: {
   readonly verifyTarget?: VerifyTarget;
 }): Promise<RunCreateResult> {
   const runId = args.runId ?? `run-${Date.now().toString(36)}`;
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId,
+    execute: () => createRunOwned(args, runId),
+    onContended: () => runExecutionActive(runId),
+  });
+}
+
+async function createRunOwned(
+  args: {
+    readonly cwd: string;
+    readonly specId: string;
+    readonly current?: LaunchCurrentProjection;
+    readonly runId?: string;
+    readonly substrate?: WorktreeSubstrateKind;
+    readonly verifyTarget?: VerifyTarget;
+  },
+  runId: string,
+): Promise<RunCreateResult> {
   const runDir = runDirPath(args.cwd, runId);
   const metadataPath = runMetadataPath(args.cwd, runId);
   if (await pathExists(runDir)) {

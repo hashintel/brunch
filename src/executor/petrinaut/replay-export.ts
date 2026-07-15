@@ -1,4 +1,5 @@
 import type { ExecutorNetEvent } from '../orchestrate-topology.js';
+import { compareNaturalIds } from './id-order.js';
 import type { SdcpnFile, SdcpnInputArc, SdcpnOutputArc } from './sdcpn.js';
 
 export type PetrinautReplayMarking = Record<string, number>;
@@ -7,10 +8,17 @@ export interface PetrinautReplayNetDefinition {
   readonly version: number;
   readonly meta: { readonly generator: string; readonly generatorVersion?: string };
   readonly title: string;
-  readonly places: readonly { readonly id: string; readonly name: string }[];
+  readonly places: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly x: number;
+    readonly y: number;
+  }[];
   readonly transitions: readonly {
     readonly id: string;
     readonly name: string;
+    readonly x: number;
+    readonly y: number;
     readonly inputArcs: readonly SdcpnInputArc[];
     readonly outputArcs: readonly SdcpnOutputArc[];
   }[];
@@ -20,6 +28,7 @@ export interface PetrinautReplayTransitionFiring {
   readonly transitionId: string;
   readonly input: PetrinautReplayMarking;
   readonly output: PetrinautReplayMarking;
+  readonly ts: string;
 }
 
 export interface PetrinautReplayExport {
@@ -42,8 +51,8 @@ export function reducePetrinautReplayExport(args: {
   let terminalFired = false;
 
   for (const event of args.events) {
+    if (terminalFired) throw new Error('Petrinaut event after terminal event');
     if (event.kind === 'transition_fired') {
-      if (terminalFired) throw new Error('Petrinaut transition fired after terminal event');
       const transition = transitions.get(event.transitionId);
       if (!transition) throw new Error(`Unknown Petrinaut transition id: ${event.transitionId}`);
       transitionFirings.push(transitionEventToFiring(event, transition));
@@ -52,7 +61,7 @@ export function reducePetrinautReplayExport(args: {
     if (isTerminalEvent(event)) {
       if (terminalFired) throw new Error('Conflicting Petrinaut terminal events');
       terminalFired = true;
-      transitionFirings.push(synthesizePetriRunStatusFiring(event.kind));
+      transitionFirings.push(synthesizePetriRunStatusFiring(event.kind, event.ts));
     }
   }
 
@@ -64,18 +73,62 @@ export function reducePetrinautReplayExport(args: {
 }
 
 export function projectPetrinautReplayNetDefinition(sdcpnFile: SdcpnFile): PetrinautReplayNetDefinition {
+  const fallbackPositions = allocateLegacyFallbackPositions(sdcpnFile);
   return {
     version: sdcpnFile.version,
     meta: sdcpnFile.meta,
     title: sdcpnFile.title,
-    places: sdcpnFile.places.map((place) => ({ id: place.id, name: place.name })),
-    transitions: sdcpnFile.transitions.map((transition) => ({
-      id: transition.id,
-      name: transition.name,
-      inputArcs: transition.inputArcs,
-      outputArcs: transition.outputArcs,
-    })),
+    places: sdcpnFile.places.map((place) => {
+      const fallback = fallbackPositions.get(`place:${place.id}`)!;
+      return {
+        id: place.id,
+        name: place.name,
+        x: place.x ?? fallback.x,
+        y: place.y ?? fallback.y,
+      };
+    }),
+    transitions: sdcpnFile.transitions.map((transition) => {
+      const fallback = fallbackPositions.get(`transition:${transition.id}`)!;
+      return {
+        id: transition.id,
+        name: transition.name,
+        x: transition.x ?? fallback.x,
+        y: transition.y ?? fallback.y,
+        inputArcs: transition.inputArcs,
+        outputArcs: transition.outputArcs,
+      };
+    }),
   };
+}
+
+function allocateLegacyFallbackPositions(
+  sdcpnFile: SdcpnFile,
+): ReadonlyMap<string, { readonly x: number; readonly y: number }> {
+  const nodes = [
+    ...sdcpnFile.places.map((node) => ({ ...node, kind: 'place' as const })),
+    ...sdcpnFile.transitions.map((node) => ({ ...node, kind: 'transition' as const })),
+  ].sort((left, right) => compareNaturalIds(left.id, right.id) || compareNaturalIds(left.kind, right.kind));
+  const occupied = new Set(
+    nodes.flatMap((node) => (node.x === undefined || node.y === undefined ? [] : [`${node.x}/${node.y}`])),
+  );
+  const positions = new Map<string, { readonly x: number; readonly y: number }>();
+
+  for (const node of nodes) {
+    if (node.x !== undefined && node.y !== undefined) {
+      positions.set(`${node.kind}:${node.id}`, { x: node.x, y: node.y });
+      continue;
+    }
+    for (let index = 0; ; index += 1) {
+      const fallback = { x: 80 + (index % 20) * 180, y: 80 + Math.floor(index / 20) * 120 };
+      const position = { x: node.x ?? fallback.x, y: node.y ?? fallback.y };
+      const key = `${position.x}/${position.y}`;
+      if (occupied.has(key)) continue;
+      occupied.add(key);
+      positions.set(`${node.kind}:${node.id}`, position);
+      break;
+    }
+  }
+  return positions;
 }
 
 export function augmentPetriDefinitionWithRunStatus(
@@ -85,14 +138,16 @@ export function augmentPetriDefinitionWithRunStatus(
     ...definition,
     places: [
       ...definition.places,
-      { id: PETRI_RUN_COMPLETED_PLACE, name: 'Run completed' },
-      { id: PETRI_RUN_HALTED_PLACE, name: 'Run halted' },
+      { id: PETRI_RUN_COMPLETED_PLACE, name: 'Run · Completed', x: 4_700, y: 40 },
+      { id: PETRI_RUN_HALTED_PLACE, name: 'Run · Halted', x: 4_700, y: 120 },
     ],
     transitions: [
       ...definition.transitions,
       {
         id: PETRI_RUN_FINISH_TRANSITION,
-        name: 'Run finish',
+        name: 'Run · Finish',
+        x: 4_600,
+        y: 80,
         inputArcs: [],
         outputArcs: [
           { placeId: PETRI_RUN_COMPLETED_PLACE, weight: 1 },
@@ -105,11 +160,13 @@ export function augmentPetriDefinitionWithRunStatus(
 
 export function synthesizePetriRunStatusFiring(
   terminalKind: 'net_completed' | 'net_halted' | 'net_deadlocked',
+  ts: string,
 ): PetrinautReplayTransitionFiring {
   return {
     transitionId: PETRI_RUN_FINISH_TRANSITION,
     input: {},
     output: { [terminalKind === 'net_completed' ? PETRI_RUN_COMPLETED_PLACE : PETRI_RUN_HALTED_PLACE]: 1 },
+    ts,
   };
 }
 
@@ -121,6 +178,7 @@ function transitionEventToFiring(
     transitionId: event.transitionId,
     input: reduceArcs(transition.inputArcs.filter((arc) => event.consumed.includes(arc.placeId))),
     output: reduceArcs(transition.outputArcs.filter((arc) => event.produced.includes(arc.placeId))),
+    ts: event.ts,
   };
 }
 

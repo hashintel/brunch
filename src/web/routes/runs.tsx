@@ -522,7 +522,11 @@ function PetriProjectionBlock({
           <p className="text-sub text-xs">Blocked now</p>
           <ul className="text-sub flex flex-col gap-1 font-mono text-xs">
             {blockedSteps.map((step) => (
-              <li key={`${step.kind}-${step.sliceId}`}>{describeBlockedStep(step)}</li>
+              <li
+                key={`${step.kind}-${step.kind === 'slice_start' ? step.sliceId : step.kind === 'epic_verify' ? step.epicId : 'run'}`}
+              >
+                {describeBlockedStep(step)}
+              </li>
             ))}
           </ul>
         </div>
@@ -542,8 +546,21 @@ function describeReadyStep(step: NonNullable<RunDetail['petriReadySteps']>[numbe
 }
 
 function describeBlockedStep(step: NonNullable<RunDetail['petriBlockedSteps']>[number]): string {
-  return `${describeReadyStep(step)} blocked by ${step.blockers
-    .map((blocker) => (blocker.kind === 'dependency' ? blocker.sliceId : `active slice ${blocker.sliceId}`))
+  const subject = step.kind === 'authority_unreadable' ? step.kind : describeReadyStep(step);
+  return `${subject} blocked by ${step.blockers
+    .map((blocker) =>
+      blocker.kind === 'dependency'
+        ? blocker.sliceId
+        : blocker.kind === 'epic_dependency'
+          ? `epic ${blocker.epicId}`
+          : blocker.kind === 'parallel_authority'
+            ? `parallel ${blocker.state}`
+            : blocker.kind === 'epic_verification_authority'
+              ? `epic verification ${blocker.phase}`
+              : blocker.kind === 'parallel_authority_unreadable'
+                ? 'parallel authority unreadable'
+                : `active slice ${blocker.sliceId}`,
+    )
     .join(', ')}`;
 }
 

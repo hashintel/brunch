@@ -2,16 +2,32 @@ import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import { Value } from 'typebox/value';
 import { describe, expect, it } from 'vitest';
 
+import {
+  createFakeGitHostPromotionPort,
+  createFakeGitLandPort,
+  createFakeGitSliceIntegrationPort,
+  createFakeGitWorktreePort,
+  createFakeTestRunnerPort,
+} from '../../../executor/__tests__/fake-ports.js';
+import type { ExecutionPorts } from '../../../executor/execution-ports.js';
 import type { ExecutorNetEvent } from '../../../executor/orchestrate-topology.js';
+import { drive, frontierFiringPolicy, petriScheduler } from '../../../executor/orchestrate.js';
 import { planFilePath, planProvenancePath } from '../../../executor/plan-file.js';
-import { runDirPath, runMetadataPath, type RunMetadata } from '../../../executor/run.js';
+import { PRODUCTION_EXECUTE_RPC_MUTATIONS } from '../../../executor/run-execution-authority.js';
+import { createRun, runDirPath, runMetadataPath, type RunMetadata } from '../../../executor/run.js';
 import type { GraphEdge } from '../../../graph/schema/edges.js';
 import type { GraphNode } from '../../../graph/schema/nodes.js';
 import { createProductUpdatePublisher, type ProductUpdate } from '../../product-updates.js';
 import type { JsonRpcRequest } from '../../protocol.js';
-import { executeRpcMethods, UNKNOWN_RUN_ID_MESSAGE } from '../execute.js';
+import {
+  ExecuteRunResultSchema,
+  ExecuteRunsResultSchema,
+  executeRpcMethods,
+  UNKNOWN_RUN_ID_MESSAGE,
+} from '../execute.js';
 import type { RpcMethodContext } from '../registry.js';
 
 function contextFor(cwd: string): RpcMethodContext {
@@ -64,6 +80,7 @@ function transitionEvent(
 ): Extract<ExecutorNetEvent, { readonly kind: 'transition_fired' }> {
   return {
     kind: 'transition_fired',
+    ts: '2026-07-14T12:00:00.000Z',
     runId: 'run-1',
     runStatus: 'worktree_created',
     transitionId: 'worktree_create',
@@ -86,6 +103,10 @@ async function writeRun(
     readonly status?: RunMetadata['status'];
     readonly specId?: string;
     readonly activeSliceId?: string;
+    readonly completedSliceIds?: readonly string[];
+    readonly failedSliceIds?: readonly string[];
+    readonly integratedEpicIds?: readonly string[];
+    readonly epicTransitionHistory?: readonly string[];
   } = {},
 ): Promise<void> {
   await mkdir(runDirPath(cwd, runId), { recursive: true });
@@ -97,6 +118,25 @@ async function writeRun(
       planPath: options.planPath ?? '/plan.yaml',
       status: options.status ?? 'created',
       ...(options.activeSliceId === undefined ? {} : { activeSliceId: options.activeSliceId }),
+      ...(options.completedSliceIds === undefined ? {} : { completedSliceIds: options.completedSliceIds }),
+      ...(options.failedSliceIds === undefined ? {} : { failedSliceIds: options.failedSliceIds }),
+      ...(options.completedSliceIds === undefined
+        ? {}
+        : {
+            sliceAttemptHistory: Object.fromEntries(
+              options.completedSliceIds.map((sliceId) => [
+                sliceId,
+                {
+                  agent: [{ outcome: 'succeeded', attempts: 1 }],
+                  verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'passed' }],
+                },
+              ]),
+            ),
+          }),
+      ...(options.integratedEpicIds === undefined ? {} : { integratedEpicIds: options.integratedEpicIds }),
+      ...(options.epicTransitionHistory === undefined
+        ? {}
+        : { epicTransitionHistory: options.epicTransitionHistory }),
     })}\n`,
     'utf8',
   );
@@ -252,6 +292,19 @@ function executableScopeGraph(lsn = 11): {
   };
 }
 
+describe('execute RPC mutation authority classification', () => {
+  it('classifies every registered execute method and every write as a run mutation', () => {
+    expect(Object.keys(PRODUCTION_EXECUTE_RPC_MUTATIONS).sort()).toEqual(
+      executeRpcMethods.map((definition) => definition.method).sort(),
+    );
+    for (const definition of executeRpcMethods) {
+      expect(PRODUCTION_EXECUTE_RPC_MUTATIONS[definition.method]).toEqual(
+        definition.access === 'write' ? expect.any(String) : null,
+      );
+    }
+  });
+});
+
 describe('execute.runs', () => {
   it('rejects params', async () => {
     const response = await method('execute.runs').handle(
@@ -263,9 +316,10 @@ describe('execute.runs', () => {
 
   it('lists run summaries for the invocation cwd', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-runs-'));
-    await writeRun(cwd, 'run-1');
+    await writeRun(cwd, 'run-1', { failedSliceIds: ['task-1'] });
 
-    const response = await method('execute.runs').handle(contextFor(cwd), request('execute.runs'));
+    const definition = method('execute.runs');
+    const response = await definition.handle(contextFor(cwd), request('execute.runs'));
 
     expect(response).toMatchObject({
       result: {
@@ -274,15 +328,216 @@ describe('execute.runs', () => {
             runId: 'run-1',
             specId: '42',
             status: 'created',
+            failedSliceIds: ['task-1'],
             presence: { worktree: false, reports: false, petri: false, promotion: false },
           },
         ],
       },
     });
+    expect(Value.Check(ExecuteRunsResultSchema, 'result' in response ? response.result : undefined)).toBe(
+      true,
+    );
   });
 });
 
 describe('execute.run', () => {
+  it('returns failed slice ids in a schema-valid run detail response', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-failed-slices-'));
+    await writeRun(cwd, 'run-1', { failedSliceIds: ['task-1'] });
+
+    const definition = method('execute.run');
+    const response = await definition.handle(contextFor(cwd), request('execute.run', { runId: 'run-1' }));
+
+    expect(response).toMatchObject({ result: { failedSliceIds: ['task-1'] } });
+    expect(Value.Check(ExecuteRunResultSchema, 'result' in response ? response.result : undefined)).toBe(
+      true,
+    );
+  });
+
+  it('returns active parallel authority readiness and stream inventory over RPC', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-parallel-authority-'));
+    await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
+    await writeFile(
+      planFilePath(cwd, '42'),
+      JSON.stringify({
+        mode: 'greenfield',
+        spec: {
+          requirements: [
+            { item_id: 'REQ1', content: 'First parallel slice.' },
+            { item_id: 'REQ2', content: 'Second parallel slice.' },
+          ],
+          criteria: [
+            { item_id: 'AC1', verifies: ['REQ1'] },
+            { item_id: 'AC2', verifies: ['REQ2'] },
+          ],
+        },
+        epics: [{ id: 'epic-1', depends_on: [], verification: [] }],
+        slices: ['task-1', 'task-2'].map((id, index) => ({
+          id,
+          epic_id: 'epic-1',
+          depends_on: [],
+          verification: [],
+          derived_from: [index === 0 ? 'REQ1' : 'REQ2'],
+        })),
+      }),
+      'utf8',
+    );
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
+    let entered = 0;
+    let bothEntered!: () => void;
+    const overlapping = new Promise<void>((resolve) => {
+      bothEntered = resolve;
+    });
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let firstUpdateWritten!: () => void;
+    const firstUpdate = new Promise<void>((resolve) => {
+      firstUpdateWritten = resolve;
+    });
+    const ports: ExecutionPorts = {
+      gitWorktree: createFakeGitWorktreePort(),
+      gitSliceIntegration: createFakeGitSliceIntegrationPort(),
+      agentRunner: {
+        async run(args) {
+          if (args.sliceId === 'task-2') await firstUpdate;
+          await args.onUpdate?.({ kind: 'status', message: `rpc ${args.sliceId}` });
+          if (args.sliceId === 'task-1') firstUpdateWritten();
+          entered += 1;
+          if (entered === 2) bothEntered();
+          await released;
+          return { status: 'completed' };
+        },
+      },
+      testRunner: createFakeTestRunnerPort(),
+      gitLand: createFakeGitLandPort(),
+      gitHostPromotion: createFakeGitHostPromotionPort({}),
+    };
+    const driving = drive({ cwd, runId: 'run-1', ports }, petriScheduler, frontierFiringPolicy);
+    await overlapping;
+
+    const response = await method('execute.run').handle(
+      contextFor(cwd),
+      request('execute.run', { runId: 'run-1' }),
+    );
+    expect(response).toMatchObject({
+      result: {
+        petriReadySteps: [],
+        petriBlockedSteps: [
+          { sliceId: 'task-1', blockers: [{ kind: 'parallel_authority', state: 'running' }] },
+          { sliceId: 'task-2', blockers: [{ kind: 'parallel_authority', state: 'running' }] },
+        ],
+        agentStreamTail: [
+          { sliceId: 'task-1', message: 'rpc task-1' },
+          { sliceId: 'task-2', message: 'rpc task-2' },
+        ],
+        sliceStreamInventory: [
+          { sliceId: 'task-1', state: 'running', agentAttempts: [1], verifyAttempts: [] },
+          { sliceId: 'task-2', state: 'running', agentAttempts: [1], verifyAttempts: [] },
+        ],
+        requirements: [
+          expect.objectContaining({ requirementId: 'REQ1', status: 'running' }),
+          expect.objectContaining({ requirementId: 'REQ2', status: 'running' }),
+        ],
+      },
+    });
+    expect('result' in response && Value.Check(ExecuteRunResultSchema, response.result)).toBe(true);
+    release();
+    await driving;
+  });
+
+  it('suppresses readiness when a nonterminal Petri journal is malformed', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-malformed-authority-'));
+    await writePlan(cwd);
+    await writeRun(cwd, 'run-1', {
+      status: 'created',
+      planPath: planFilePath(cwd, '42'),
+    });
+    const petrinautDir = join(runDirPath(cwd, 'run-1'), 'petrinaut');
+    await mkdir(petrinautDir, { recursive: true });
+    await writeFile(join(petrinautDir, 'events.jsonl'), '{"kind":"transition_fired"', 'utf8');
+
+    const response = await method('execute.run').handle(
+      contextFor(cwd),
+      request('execute.run', { runId: 'run-1' }),
+    );
+
+    expect(response).toMatchObject({
+      result: {
+        petriReadySteps: [],
+        petriBlockedSteps: [
+          { kind: 'authority_unreadable', blockers: [{ kind: 'parallel_authority_unreadable' }] },
+        ],
+      },
+    });
+    expect(Value.Check(ExecuteRunResultSchema, 'result' in response ? response.result : undefined)).toBe(
+      true,
+    );
+  });
+
+  it('recovers a journal-only epic verification claim over RPC', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-epic-claim-crash-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(
+      planPath,
+      JSON.stringify({
+        epics: [
+          {
+            id: 'epic-1',
+            depends_on: [],
+            verification: [{ kind: 'criterion', target: 'npm test' }],
+          },
+        ],
+        slices: [{ id: 'task-1', epic_id: 'epic-1' }],
+      }),
+      'utf8',
+    );
+    await writeRun(cwd, 'run-1', {
+      planPath,
+      status: 'slice_completed',
+      completedSliceIds: ['task-1'],
+      integratedEpicIds: ['epic-1'],
+      epicTransitionHistory: ['epic_integrate:epic-1'],
+    });
+    const petrinautDir = join(runDirPath(cwd, 'run-1'), 'petrinaut');
+    await mkdir(petrinautDir, { recursive: true });
+    await writeFile(
+      join(petrinautDir, 'events.jsonl'),
+      `${JSON.stringify({
+        kind: 'epic_verification_claimed',
+        ts: '2026-07-14T12:00:00.000Z',
+        runId: 'run-1',
+        runStatus: 'slice_completed',
+        epicId: 'epic-1',
+        step: 'epic_verify',
+      })}\n`,
+      'utf8',
+    );
+
+    const response = await method('execute.run').handle(
+      contextFor(cwd),
+      request('execute.run', { runId: 'run-1' }),
+    );
+
+    expect(response).toMatchObject({
+      result: {
+        petriReadySteps: [],
+        petriBlockedSteps: [
+          {
+            kind: 'epic_verify',
+            epicId: 'epic-1',
+            blockers: [{ kind: 'epic_verification_authority', phase: 'claimed' }],
+          },
+        ],
+      },
+    });
+    expect(Value.Check(ExecuteRunResultSchema, 'result' in response ? response.result : undefined)).toBe(
+      true,
+    );
+  });
+
   it('rejects malformed and traversal-shaped params', async () => {
     const definition = method('execute.run');
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-params-'));
@@ -333,6 +588,7 @@ describe('execute.run', () => {
       planPath,
       `${JSON.stringify({
         mode: 'greenfield',
+        epics: [{ id: 'frontier-1' }, { id: 'frontier-2' }],
         slices: [
           { id: 'task-1', epic_id: 'frontier-1', derived_from: ['REQ1'] },
           { id: 'task-2', epic_id: 'frontier-1', depends_on: ['task-1'], derived_from: ['REQ2'] },
@@ -409,7 +665,7 @@ describe('execute.run', () => {
     );
     await mkdir(join(runDirPath(cwd, 'run-1'), 'streams', 'task-1'), { recursive: true });
     await writeFile(
-      join(runDirPath(cwd, 'run-1'), 'streams', 'task-1', 'agent.jsonl'),
+      join(runDirPath(cwd, 'run-1'), 'streams', 'task-1', 'agent-attempt-1.jsonl'),
       `${JSON.stringify({
         event: 'agent_stream',
         runId: 'run-1',
@@ -538,7 +794,7 @@ describe('execute.run', () => {
     );
     await mkdir(join(runDirPath(cwd, 'run-1'), 'streams', 'task-1'), { recursive: true });
     await writeFile(
-      join(runDirPath(cwd, 'run-1'), 'streams', 'task-1', 'verify.jsonl'),
+      join(runDirPath(cwd, 'run-1'), 'streams', 'task-1', 'verify-attempt-1.jsonl'),
       `${JSON.stringify({
         event: 'verify_stream',
         runId: 'run-1',
@@ -655,7 +911,7 @@ describe('execute.run', () => {
           produced: ['run:promotion_prepared'],
           toStatus: 'promotion_prepared',
         }),
-      )}\n${JSON.stringify({ kind: 'net_completed', runId: 'run-1', runStatus: 'promotion_prepared' })}\n`,
+      )}\n${JSON.stringify({ kind: 'net_completed', ts: '2026-07-14T12:00:01.000Z', runId: 'run-1', runStatus: 'promotion_prepared', failedSliceIds: [] })}\n`,
       'utf8',
     );
 
@@ -684,6 +940,20 @@ describe('execute.run', () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-petrinaut-live-'));
     await writeRun(cwd, 'run-1', { status: 'worktree_created' });
     await mkdir(join(runDirPath(cwd, 'run-1'), 'petrinaut'), { recursive: true });
+    await writeFile(
+      join(runDirPath(cwd, 'run-1'), 'petrinaut', 'net.json'),
+      `${JSON.stringify({
+        initialMarking: { 'run:created': 1 },
+        transitions: [
+          {
+            id: 'worktree_create',
+            inputArcs: [{ placeId: 'run:created', weight: 1 }],
+            outputArcs: [{ placeId: 'run:worktree_created', weight: 1 }],
+          },
+        ],
+      })}\n`,
+      'utf8',
+    );
     await writeFile(
       join(runDirPath(cwd, 'run-1'), 'petrinaut', 'net.sdcpn.json'),
       `${JSON.stringify({
@@ -751,12 +1021,25 @@ describe('execute.run', () => {
     expect(response).toMatchObject({
       result: {
         petrinautReplayExport: {
+          definition: {
+            places: expect.arrayContaining([
+              expect.objectContaining({ id: 'run:created', x: expect.any(Number), y: expect.any(Number) }),
+            ]),
+            transitions: expect.arrayContaining([
+              expect.objectContaining({
+                id: 'worktree_create',
+                x: expect.any(Number),
+                y: expect.any(Number),
+              }),
+            ]),
+          },
           initialState: { 'run:created': 1 },
           transitionFirings: [
             {
               transitionId: 'worktree_create',
               input: { 'run:created': 1 },
               output: { 'run:worktree_created': 1 },
+              ts: '2026-07-14T12:00:00.000Z',
             },
           ],
         },
@@ -963,8 +1246,8 @@ describe('execute replanning methods', () => {
           definition: 'Build foundation',
           depends_on: [],
           verification: [
-            { kind: 'criterion', target: 'Feature is visible' },
-            { kind: 'criterion', target: 'Shortcut opens feature' },
+            { kind: 'criterion', criterionId: 'AC1', target: 'Feature is visible' },
+            { kind: 'criterion', criterionId: 'AC2', target: 'Shortcut opens feature' },
           ],
           derived_from: ['REQ3'],
           design_context: [{ item_id: 'MOD1', content: 'Feature module' }],
@@ -977,8 +1260,8 @@ describe('execute replanning methods', () => {
           definition: 'Wire feature',
           depends_on: ['task-3'],
           verification: [
-            { kind: 'criterion', target: 'Feature is visible' },
-            { kind: 'criterion', target: 'Shortcut opens feature' },
+            { kind: 'criterion', criterionId: 'AC1', target: 'Feature is visible' },
+            { kind: 'criterion', criterionId: 'AC2', target: 'Shortcut opens feature' },
           ],
           derived_from: ['REQ1'],
           design_context: [{ item_id: 'MOD1', content: 'Feature module' }],
@@ -991,8 +1274,8 @@ describe('execute replanning methods', () => {
           definition: 'Ship keyboard shortcut',
           depends_on: ['task-1'],
           verification: [
-            { kind: 'criterion', target: 'Feature is visible' },
-            { kind: 'criterion', target: 'Shortcut opens feature' },
+            { kind: 'criterion', criterionId: 'AC1', target: 'Feature is visible' },
+            { kind: 'criterion', criterionId: 'AC2', target: 'Shortcut opens feature' },
           ],
           derived_from: ['REQ2'],
           design_context: [{ item_id: 'MOD1', content: 'Feature module' }],

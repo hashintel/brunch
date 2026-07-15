@@ -4,6 +4,8 @@ export interface PetriProjection {
   readonly firedTransitionCount: number;
   readonly terminalEventKind?: 'net_completed' | 'net_halted' | 'net_deadlocked';
   readonly haltedReason?: string;
+  readonly terminalTs?: string;
+  readonly failedSliceIds?: readonly string[];
 }
 
 export function parsePetriProjection(value: unknown): PetriProjection | undefined {
@@ -37,6 +39,14 @@ export function parsePetriProjection(value: unknown): PetriProjection | undefine
   if (value.haltedReason !== undefined && haltedReason === undefined) return undefined;
   if (terminalEventKind === 'net_halted' && haltedReason === undefined) return undefined;
   if (terminalEventKind !== 'net_halted' && haltedReason !== undefined) return undefined;
+  const terminalTs = typeof value.terminalTs === 'string' ? value.terminalTs : undefined;
+  if (value.terminalTs !== undefined && !isIsoTimestamp(terminalTs)) return undefined;
+  const failedSliceIds = value.failedSliceIds;
+  if (failedSliceIds !== undefined && !isStringArray(failedSliceIds)) return undefined;
+  if (terminalEventKind === undefined && (terminalTs !== undefined || failedSliceIds !== undefined))
+    return undefined;
+  if (terminalEventKind !== undefined && (terminalTs === undefined || failedSliceIds === undefined))
+    return undefined;
 
   return {
     ...(claimedTransitionIds === undefined ? {} : { claimedTransitionIds }),
@@ -44,6 +54,8 @@ export function parsePetriProjection(value: unknown): PetriProjection | undefine
     firedTransitionCount: value.firedTransitionCount,
     ...(terminalEventKind === undefined ? {} : { terminalEventKind }),
     ...(haltedReason === undefined ? {} : { haltedReason }),
+    ...(terminalTs === undefined ? {} : { terminalTs }),
+    ...(failedSliceIds === undefined ? {} : { failedSliceIds }),
   };
 }
 
@@ -53,4 +65,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isStringArray(value: unknown): value is readonly string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
+}
+
+function isIsoTimestamp(value: string | undefined): value is string {
+  if (value === undefined) return false;
+  const parsed = new Date(value);
+  return !Number.isNaN(parsed.valueOf()) && parsed.toISOString() === value;
 }

@@ -11,6 +11,7 @@ import {
   type BrunchAgentState,
 } from '../.pi/extensions/agent-runtime/runtime/index.js';
 import { createBrunchAgentSessionRuntimeFactory } from '../app/brunch-tui.js';
+import { createGitSliceIntegrationPort } from '../app/git-slice-integration-port.js';
 import { zPresentReviewSetDetails } from '../exchanges/schemas/present.js';
 import { zRequestReviewDetails } from '../exchanges/schemas/request.js';
 import { projectExecuteGraph } from '../executor/execute-projection.js';
@@ -623,7 +624,11 @@ export async function materializeScopeHandoffWorkerRequest(args: {
       throw new Error(`report initialization returned ${reports.status}`);
     const started = await startSlice({ cwd: args.cwd, runId: args.runId });
     if (started.status !== 'slice_started') throw new Error(`slice start returned ${started.status}`);
-    const requested = await requestSliceExecution({ cwd: args.cwd, runId: args.runId });
+    const requested = await requestSliceExecution({
+      cwd: args.cwd,
+      runId: args.runId,
+      gitSliceIntegration: createGitSliceIntegrationPort(),
+    });
     if (requested.status !== 'slice_execution_requested') {
       throw new Error(`slice request returned ${requested.status}`);
     }

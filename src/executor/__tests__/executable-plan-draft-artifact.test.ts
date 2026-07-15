@@ -11,7 +11,7 @@ import {
 import type { ExecutablePlanDraft } from '../executable-plan-draft.js';
 
 const draft: ExecutablePlanDraft = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   specId: '7',
   mode: 'greenfield',
   epics: [],
@@ -28,5 +28,15 @@ describe('writeExecutablePlanDraftArtifact', () => {
     expect(result.writeMode).toBe('overwrite');
     expect(result.sideEffects).toEqual([{ kind: 'write_file', path: result.path, ifExists: 'overwrite' }]);
     await expect(readFile(result.path, 'utf8')).resolves.toBe(`${JSON.stringify(draft, null, 2)}\n`);
+  });
+
+  it('rejects a v1 draft artifact instead of persisting an incompatible shape', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-executable-plan-draft-v1-'));
+    await expect(
+      writeExecutablePlanDraftArtifact({
+        cwd,
+        draft: { ...draft, schemaVersion: 1 } as unknown as ExecutablePlanDraft,
+      }),
+    ).rejects.toThrow('Unsupported executable plan draft schema version: 1');
   });
 });

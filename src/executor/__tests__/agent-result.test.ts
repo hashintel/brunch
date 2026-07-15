@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { agentStreamPath, ingestAgentResult } from '../agent-result.js';
+import { agentResultPath, agentStreamPath, ingestAgentResult } from '../agent-result.js';
 import type { AgentRunArgs } from '../execution-ports.js';
 import { reportsPath } from '../report.js';
 import { runDirPath, runMetadataPath } from '../run.js';
@@ -154,7 +154,7 @@ describe('ingestAgentResult', () => {
   it('runs the agent runner in the run worktree and ingests its result', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-agent-result-runner-'));
     await createRequestedSliceRun(cwd);
-    const resultPath = join(runDirPath(cwd, 'run-1'), 'agent-output', 'task-1', 'result.json');
+    const resultPath = agentResultPath(cwd, 'run-1', 'task-1');
     const calls: AgentRunArgs[] = [];
 
     const result = await ingestAgentResult({
@@ -243,6 +243,7 @@ describe('ingestAgentResult', () => {
         epicId: 'frontier-1',
         sliceId: 'task-1',
         sequence: 0,
+        runSequence: 0,
         kind: 'status',
         message: 'worker started',
       },
@@ -252,6 +253,7 @@ describe('ingestAgentResult', () => {
         epicId: 'frontier-1',
         sliceId: 'task-1',
         sequence: 1,
+        runSequence: 1,
         kind: 'message',
         message: 'edited src/types.ts',
       },

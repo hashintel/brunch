@@ -1,6 +1,11 @@
 import { cp, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import {
+  runExecutionActive,
+  withRunExecutionAuthority,
+  type RunExecutionActiveResult,
+} from './run-execution-authority.js';
 import { runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 import { sourcePolicyPath, type SourcePolicyKind } from './source-policy.js';
 import { worktreeDirPath } from './worktree.js';
@@ -11,6 +16,7 @@ type CopyEntryEffect = { readonly kind: 'copy_entry'; readonly from: string; rea
 type WriteFileEffect = { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' };
 
 export type SourceCopyResult =
+  | RunExecutionActiveResult
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -45,6 +51,18 @@ export type SourceCopyResult =
     };
 
 export async function copyHostSource(args: {
+  readonly cwd: string;
+  readonly runId: string;
+}): Promise<SourceCopyResult> {
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId: args.runId,
+    execute: () => copyHostSourceOwned(args),
+    onContended: () => runExecutionActive(args.runId),
+  });
+}
+
+async function copyHostSourceOwned(args: {
   readonly cwd: string;
   readonly runId: string;
 }): Promise<SourceCopyResult> {

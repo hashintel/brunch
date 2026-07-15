@@ -1,7 +1,8 @@
-import type { ExecutionSpecSnapshot } from './execution-spec-snapshot.js';
+import { assertExecutionSpecSnapshotVersion, type ExecutionSpecSnapshot } from './execution-spec-snapshot.js';
 
 export type ExecutePlanCheckFindingCode =
   | 'empty_snapshot'
+  | 'frontier_without_requirement'
   | 'requirement_without_criterion'
   | 'criterion_without_requirement'
   | 'scope_without_frontier'
@@ -30,12 +31,14 @@ export interface ExecutePlanCheckResult {
     readonly criteria: number;
     readonly verifiedRequirements: number;
     readonly criteriaWithRequirement: number;
+    readonly frontiers: number;
   };
   readonly findings: readonly ExecutePlanCheckFinding[];
   readonly sideEffects: readonly [];
 }
 
 export function checkExecutionSpecForPlan(snapshot: ExecutionSpecSnapshot): ExecutePlanCheckResult {
+  assertExecutionSpecSnapshotVersion(snapshot);
   const findings: ExecutePlanCheckFinding[] = [];
   const requirementIds = new Set(snapshot.requirements.map((requirement) => requirement.itemId));
   const verifiedRequirementIds = new Set<string>();
@@ -50,7 +53,9 @@ export function checkExecutionSpecForPlan(snapshot: ExecutionSpecSnapshot): Exec
   }
 
   for (const criterion of snapshot.criteria) {
-    const verifies = criterion.verifies.filter((requirementId) => requirementIds.has(requirementId));
+    const verifies = criterion.verifiesRequirements.filter((requirementId) =>
+      requirementIds.has(requirementId),
+    );
     if (verifies.length === 0) {
       findings.push({
         code: 'criterion_without_requirement',
@@ -62,6 +67,20 @@ export function checkExecutionSpecForPlan(snapshot: ExecutionSpecSnapshot): Exec
     }
     criteriaWithRequirement += 1;
     for (const requirementId of verifies) verifiedRequirementIds.add(requirementId);
+  }
+
+  const frontierIdsWithScopes = new Set(snapshot.scopes.flatMap((scope) => scope.frontierIds));
+  for (const frontier of snapshot.frontiers) {
+    if (frontier.requirementIds.length > 0) continue;
+    // D123-L scope specs compose frontier -> scope, not frontier -> requirement;
+    // scope-owned frontiers get their membership through realization edges.
+    if (frontierIdsWithScopes.has(frontier.itemId)) continue;
+    findings.push({
+      code: 'frontier_without_requirement',
+      severity: 'error',
+      itemId: frontier.itemId,
+      message: `Frontier ${frontier.itemId} has no composed requirements.`,
+    });
   }
 
   for (const requirement of snapshot.requirements) {
@@ -173,6 +192,7 @@ export function checkExecutionSpecForPlan(snapshot: ExecutionSpecSnapshot): Exec
       criteria: snapshot.criteria.length,
       verifiedRequirements: verifiedRequirementIds.size,
       criteriaWithRequirement,
+      frontiers: snapshot.frontiers.length,
     },
     findings,
     sideEffects: [],

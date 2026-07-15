@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createFakeGitHostPromotionPort,
   createFakeGitLandPort,
+  createFakeGitSliceIntegrationPort,
   createFakeGitWorktreePort,
   createFakeTestRunnerPort,
 } from '../../../../executor/__tests__/fake-ports.js';
@@ -16,18 +17,17 @@ import type {
   TestRunnerPort,
 } from '../../../../executor/execution-ports.js';
 import { readRunDetail } from '../../../../executor/observer-read.js';
+import { drive, petriScheduler, serialFiringPolicy } from '../../../../executor/orchestrate.js';
 import { petriEventsPath } from '../../../../executor/petri-events.js';
 import { petriMarkingPath, writePetriMarkingSnapshot } from '../../../../executor/petri-marking.js';
 import { petriNetPath } from '../../../../executor/petri.js';
 import { planFilePath } from '../../../../executor/plan-file.js';
-import { populateWorktree } from '../../../../executor/populate.js';
-import { initializeReports } from '../../../../executor/report.js';
 import { createRun, runMetadataPath } from '../../../../executor/run.js';
-import { copyHostSource } from '../../../../executor/source-copy.js';
-import { selectSourcePolicy } from '../../../../executor/source-policy.js';
-import { createWorktree } from '../../../../executor/worktree.js';
 import { createProductUpdatePublisher, type ProductUpdate } from '../../../../rpc/product-updates.js';
-import { createExecuteOrchestrateTool } from '../execute-orchestrate/index.js';
+import {
+  createExecuteOrchestrateTool,
+  registerBrunchExecuteOrchestrate,
+} from '../execute-orchestrate/index.js';
 
 const completedAgentRunner: AgentRunnerPort = {
   async run() {
@@ -56,6 +56,7 @@ function fakePorts(
 ): ExecutionPorts {
   return {
     gitWorktree: createFakeGitWorktreePort(),
+    gitSliceIntegration: createFakeGitSliceIntegrationPort(),
     agentRunner: options.agentRunner ?? completedAgentRunner,
     testRunner: options.testRunner ?? createFakeTestRunnerPort(),
     gitLand: createFakeGitLandPort(),
@@ -114,6 +115,7 @@ async function writeReplayablePetriArtifacts(cwd: string, runId: string): Promis
     petriEventsPath(cwd, runId),
     `${JSON.stringify({
       kind: 'transition_fired',
+      ts: '2026-07-14T12:00:00.000Z',
       runId,
       runStatus: 'promotion_prepared',
       transitionId: 'worktree_create',
@@ -138,6 +140,120 @@ async function overwriteRunMetadata(
 }
 
 describe('execute_orchestrate intra-drive updates', () => {
+  it('shares one same-run production execution across concurrent tool calls', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-orchestrate-single-owner-'));
+    await createDrivableRun(cwd, ['t1']);
+    let calls = 0;
+    let entered!: () => void;
+    const ownerEntered = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const tool = createExecuteOrchestrateTool(
+      fakePorts({
+        agentRunner: {
+          async run() {
+            calls += 1;
+            entered();
+            await released;
+            return { status: 'completed' };
+          },
+        },
+      }),
+    );
+
+    const owner = tool.execute(
+      'owner',
+      { runId: 'run-1' },
+      undefined as never,
+      undefined as never,
+      {
+        cwd,
+      } as never,
+    );
+    const waiter = tool.execute(
+      'waiter',
+      { runId: 'run-1' },
+      undefined as never,
+      undefined as never,
+      {
+        cwd: join(cwd, '.'),
+      } as never,
+    );
+    await ownerEntered;
+    release();
+
+    const [ownerResult, waiterResult] = await Promise.all([owner, waiter]);
+    expect(ownerResult.details?.outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+    expect(waiterResult.details?.outcome).toEqual(ownerResult.details?.outcome);
+    expect(calls).toBe(1);
+  });
+
+  it('overlaps independent slices through the registered production tool with slice-coherent updates', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-orchestrate-production-parallel-'));
+    await createDrivableRun(cwd, ['t1', 't2']);
+    const entered: string[] = [];
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let bothEntered!: () => void;
+    const overlap = new Promise<void>((resolve) => {
+      bothEntered = resolve;
+    });
+    const agentRunner: AgentRunnerPort = {
+      async run(args) {
+        entered.push(args.sliceId);
+        await args.onUpdate?.({ kind: 'status', message: `working ${args.sliceId}` });
+        if (entered.length === 2) bothEntered();
+        await released;
+        return { status: 'completed' };
+      },
+    };
+    let registered: ReturnType<typeof createExecuteOrchestrateTool> | undefined;
+    registerBrunchExecuteOrchestrate(
+      {
+        registerTool: (tool: ReturnType<typeof createExecuteOrchestrateTool>) => {
+          registered = tool;
+        },
+      } as never,
+      fakePorts({ agentRunner }),
+    );
+    const details: unknown[] = [];
+    const execution = registered!.execute(
+      'call-1',
+      { runId: 'run-1' },
+      undefined as never,
+      ((update: { readonly details?: unknown }) => details.push(update.details)) as never,
+      { cwd } as never,
+    );
+
+    await overlap;
+    release();
+    const result = await execution;
+
+    expect(new Set(entered)).toEqual(new Set(['t1', 't2']));
+    expect(result.details?.outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+    const workerDetails = details.filter(
+      (
+        detail,
+      ): detail is {
+        readonly progress: { readonly activeSliceId?: string; readonly step: string };
+        readonly agentStream: { readonly sliceId: string };
+      } => detail !== null && typeof detail === 'object' && 'progress' in detail && 'agentStream' in detail,
+    );
+    expect(new Set(workerDetails.map((detail) => detail.agentStream.sliceId))).toEqual(new Set(['t1', 't2']));
+    for (const detail of workerDetails) {
+      expect(detail.progress).toMatchObject({
+        step: 'agent_result',
+        activeSliceId: detail.agentStream.sliceId,
+      });
+    }
+  });
+
   it('publishes run-scoped updates for every step advance during a drive', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-orchestrate-updates-'));
     await createDrivableRun(cwd);
@@ -250,14 +366,15 @@ describe('execute_orchestrate intra-drive updates', () => {
     ).toBe(true);
   });
 
-  it('ignores a resumed claimed firing order when it falls outside the default scheduler frontier', async () => {
+  it('ignores a stale serial claim and uses the complete production Petri frontier', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-orchestrate-resumed-claim-order-'));
     await createDrivableRun(cwd, ['t1', 't2']);
-    await createWorktree({ cwd, runId: 'run-1', gitWorktree: fakePorts().gitWorktree });
-    await populateWorktree({ cwd, runId: 'run-1' });
-    await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
-    await copyHostSource({ cwd, runId: 'run-1' });
-    await initializeReports({ cwd, runId: 'run-1' });
+    await drive(
+      { cwd, runId: 'run-1', ports: fakePorts(), sourcePolicy: 'host_source_deferred' },
+      petriScheduler,
+      serialFiringPolicy,
+      { maxFirings: 5 },
+    );
     await writePetriMarkingSnapshot({
       cwd,
       runId: 'run-1',
@@ -283,13 +400,11 @@ describe('execute_orchestrate intra-drive updates', () => {
     );
 
     expect(result.details?.outcome?.status).toBe('completed');
-    expect(
-      updates.some(
-        (update) =>
-          update.startsWith('execute_orchestrate: slice_execute started from slice_started') &&
-          update.includes('slice: t1'),
-      ),
-    ).toBe(true);
+    const parallelStarts = updates.filter((update) =>
+      update.startsWith('execute_orchestrate: slice_execute started from reports_initialized'),
+    );
+    expect(parallelStarts.some((update) => update.includes('slice: t1'))).toBe(true);
+    expect(parallelStarts.some((update) => update.includes('slice: t2'))).toBe(true);
   });
 
   it('publishes replay stale-snapshot hints after a halted drive when the persisted marking snapshot cannot be refreshed', async () => {
@@ -310,6 +425,8 @@ describe('execute_orchestrate intra-drive updates', () => {
         firedTransitionCount: 99,
         lifecycleProvenance: { runStatus: 'run_completed' },
         terminalEventKind: 'net_completed',
+        terminalTs: '2026-07-14T12:00:01.000Z',
+        failedSliceIds: [],
       })}\n`,
       'utf8',
     );
@@ -456,8 +573,14 @@ describe('execute_orchestrate intra-drive updates', () => {
       'execute_orchestrate: agent_result -> agent_result_ingested',
       'execute_orchestrate: test_result started from agent_result_ingested',
       'execute_orchestrate: test_result -> test_result_ingested',
-      'execute_orchestrate: slice_complete started from test_result_ingested',
+      'execute_orchestrate: slice_integrate started from test_result_ingested',
+      'execute_orchestrate: slice_integrate -> slice_integrated',
+      'execute_orchestrate: slice_complete started from slice_integrated',
       'execute_orchestrate: slice_complete -> slice_completed',
+      'execute_orchestrate: epic_integrate started from slice_completed',
+      'execute_orchestrate: epic_integrate -> slice_completed',
+      'execute_orchestrate: epic_complete started from slice_completed',
+      'execute_orchestrate: epic_complete -> slice_completed',
       'execute_orchestrate: run_complete started from slice_completed',
       'execute_orchestrate: run_complete -> run_completed',
       'execute_orchestrate: petri_export started from run_completed',

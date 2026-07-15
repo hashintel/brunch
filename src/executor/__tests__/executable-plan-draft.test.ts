@@ -4,13 +4,15 @@ import { draftExecutablePlan } from '../executable-plan-draft.js';
 import type { ExecutionPlanOutline } from '../execute-plan-outline.js';
 
 const outline: ExecutionPlanOutline = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   specId: '7',
   mode: 'greenfield',
   frontiers: [
     {
       id: 'frontier-1',
       title: 'Implement projected requirements',
+      dependsOn: [],
+      verification: [],
       tasks: [
         {
           id: 'task-1',
@@ -45,13 +47,14 @@ const outline: ExecutionPlanOutline = {
       ],
     },
   ],
+  orphanTasks: [],
   sideEffects: [],
 };
 
 describe('draftExecutablePlan', () => {
   it('projects a review outline into an executable-plan draft shape without side effects', () => {
     expect(draftExecutablePlan(outline)).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
       specId: '7',
       mode: 'greenfield',
       epics: [
@@ -60,6 +63,7 @@ describe('draftExecutablePlan', () => {
           title: 'Implement projected requirements',
           sliceIds: ['task-1', 'task-2'],
           dependsOn: [],
+          verification: [],
         },
       ],
       slices: [
@@ -102,6 +106,8 @@ describe('draftExecutablePlan', () => {
           {
             id: 'frontier-2',
             title: 'Execution handoff',
+            dependsOn: [],
+            verification: [],
             tasks: [
               {
                 id: 'task-2',
@@ -121,6 +127,8 @@ describe('draftExecutablePlan', () => {
           {
             id: 'frontier-1',
             title: 'Implement unscoped requirements',
+            dependsOn: [],
+            verification: [],
             tasks: [
               {
                 id: 'task-1',
@@ -149,6 +157,8 @@ describe('draftExecutablePlan', () => {
           {
             id: 'frontier-1',
             title: 'Execution handoff',
+            dependsOn: [],
+            verification: [],
             tasks: [
               {
                 id: 'task-1',
@@ -190,6 +200,8 @@ describe('draftExecutablePlan', () => {
           {
             id: 'frontier-1',
             title: 'Execution handoff',
+            dependsOn: [],
+            verification: [],
             tasks: [
               {
                 id: 'task-1',
@@ -223,6 +235,8 @@ describe('draftExecutablePlan', () => {
           {
             id: 'frontier-1',
             title: 'Execution handoff',
+            dependsOn: [],
+            verification: [],
             tasks: [
               {
                 id: 'task-1',
@@ -263,6 +277,8 @@ describe('draftExecutablePlan', () => {
         {
           id: 'frontier-1',
           title: 'Execution handoff',
+          dependsOn: [],
+          verification: [],
           tasks: [
             {
               id: 'task-2',
@@ -291,5 +307,11 @@ describe('draftExecutablePlan', () => {
 
     expect(draft.slices.map((slice) => slice.id)).toEqual(['task-1', 'task-2']);
     expect(draft.epics[0]?.sliceIds).toEqual(['task-1', 'task-2']);
+  });
+
+  it('rejects a v1 plan outline instead of drafting from an incompatible shape', () => {
+    expect(() =>
+      draftExecutablePlan({ ...outline, schemaVersion: 1 } as unknown as ExecutionPlanOutline),
+    ).toThrow('Unsupported execution plan outline schema version: 1');
   });
 });

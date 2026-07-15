@@ -1,6 +1,12 @@
+import {
+  runExecutionActive,
+  withRunExecutionAuthority,
+  type RunExecutionActiveResult,
+} from './run-execution-authority.js';
 import { persistRunMetadata, readRunMetadata, runMetadataPath, type RunMetadata } from './run.js';
 
 export type RunAbandonResult =
+  | RunExecutionActiveResult
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -39,6 +45,20 @@ const NON_ABANDONABLE_TERMINAL_STATUSES: ReadonlySet<RunMetadata['status']> = ne
 ]);
 
 export async function abandonRun(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly reason?: string;
+  readonly abandonedAt?: string;
+}): Promise<RunAbandonResult> {
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId: args.runId,
+    execute: () => abandonRunOwned(args),
+    onContended: () => runExecutionActive(args.runId),
+  });
+}
+
+async function abandonRunOwned(args: {
   readonly cwd: string;
   readonly runId: string;
   readonly reason?: string;

@@ -1,8 +1,13 @@
 import { appendFile, readFile } from 'node:fs/promises';
 
 import { populatedPlanPath } from './populate.js';
-import { readSliceVerificationVerdict } from './report-verdict.js';
+import { readEpicVerificationVerdict, readSliceVerificationVerdict } from './report-verdict.js';
 import { reportsPath } from './report.js';
+import {
+  runExecutionActive,
+  withRunExecutionAuthority,
+  type RunExecutionActiveResult,
+} from './run-execution-authority.js';
 import { runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
 interface PlanSlice {
@@ -10,9 +15,14 @@ interface PlanSlice {
 }
 interface PlanPayload {
   readonly slices?: readonly PlanSlice[];
+  readonly epics?: readonly {
+    readonly id: string;
+    readonly verification?: readonly unknown[];
+  }[];
 }
 
 export type RunCompleteResult =
+  | RunExecutionActiveResult
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -48,6 +58,24 @@ export type RunCompleteResult =
       readonly sideEffects: readonly [];
     }
   | {
+      readonly status: 'epics_incomplete';
+      readonly runStatus: RunMetadata['status'];
+      readonly runId: string;
+      readonly metadataPath: string;
+      readonly completedEpicIds: readonly string[];
+      readonly expectedEpicIds: readonly string[];
+      readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: 'epic_verification_failed' | 'epic_verification_missing';
+      readonly runStatus: RunMetadata['status'];
+      readonly runId: string;
+      readonly metadataPath: string;
+      readonly reportsPath: string;
+      readonly epicIds: readonly string[];
+      readonly sideEffects: readonly [];
+    }
+  | {
       readonly status: 'already_completed';
       readonly runStatus: 'run_completed';
       readonly runId: string;
@@ -68,6 +96,18 @@ export type RunCompleteResult =
     };
 
 export async function completeRun(args: {
+  readonly cwd: string;
+  readonly runId: string;
+}): Promise<RunCompleteResult> {
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId: args.runId,
+    execute: () => completeRunOwned(args),
+    onContended: () => runExecutionActive(args.runId),
+  });
+}
+
+async function completeRunOwned(args: {
   readonly cwd: string;
   readonly runId: string;
 }): Promise<RunCompleteResult> {
@@ -131,6 +171,41 @@ export async function completeRun(args: {
       metadataPath,
       reportsPath: reportPath,
       missingSliceIds: verification.missingSliceIds,
+      sideEffects: [],
+    };
+  }
+
+  const expectedEpicIds = (plan.epics ?? []).map((epic) => epic.id);
+  const completedEpicIds = metadata.completedEpicIds ?? [];
+  if (!expectedEpicIds.every((epicId) => completedEpicIds.includes(epicId))) {
+    return {
+      status: 'epics_incomplete',
+      runStatus: metadata.status,
+      runId: args.runId,
+      metadataPath,
+      completedEpicIds,
+      expectedEpicIds,
+      sideEffects: [],
+    };
+  }
+  const requiredEpicIds = (plan.epics ?? [])
+    .filter((epic) => epic.verification?.length)
+    .map((epic) => epic.id);
+  const epicVerification = await readEpicVerificationVerdict({
+    reportsPath: reportPath,
+    expectedEpicIds: requiredEpicIds,
+  });
+  if (epicVerification.status !== 'passed') {
+    return {
+      status: epicVerification.status === 'failed' ? 'epic_verification_failed' : 'epic_verification_missing',
+      runStatus: metadata.status,
+      runId: args.runId,
+      metadataPath,
+      reportsPath: reportPath,
+      epicIds:
+        epicVerification.status === 'failed'
+          ? epicVerification.failedEpicIds
+          : epicVerification.missingEpicIds,
       sideEffects: [],
     };
   }

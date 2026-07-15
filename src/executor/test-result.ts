@@ -1,19 +1,36 @@
-import { appendFile, mkdir } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { appendFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
-import type { TestRunnerPort, TestRunUpdate } from './execution-ports.js';
+import type { TestRunnerPort } from './execution-ports.js';
+import {
+  attachIsolatedAttemptOutcome,
+  mergeAttemptHistory,
+  runIsolatedVerifyAttempt,
+  type VerifyStreamEvent,
+} from './isolated-slice-operations.js';
+import { SLICE_ATTEMPT_LIMIT } from './orchestrate-topology.js';
 import { reportsPath } from './report.js';
+import { withRunExecutionAuthority } from './run-execution-authority.js';
 import {
   assertSafeSliceId,
+  activeSliceAttemptNumber,
   runDirPath,
   runMetadataPath,
   persistRunMetadata,
   readRunMetadata,
+  sliceArtifactAttemptNumber,
   type RunMetadata,
 } from './run.js';
 import { worktreeDirPath } from './worktree.js';
 
 export type TestResultIngestResult =
+  | {
+      readonly status: 'run_execution_active';
+      readonly runStatus: RunMetadata['status'] | 'not_started';
+      readonly runId: string;
+      readonly metadataPath: string;
+      readonly sideEffects: readonly [];
+    }
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -47,7 +64,7 @@ export type TestResultIngestResult =
       readonly runStatus: 'test_result_ingested';
       readonly runId: string;
       readonly sliceId: string;
-      readonly epicId: string;
+      readonly epicId?: string;
       readonly verdict: 'passed' | 'failed';
       readonly worktreeDir: string;
       readonly metadataPath: string;
@@ -58,20 +75,36 @@ export type TestResultIngestResult =
       )[];
     };
 
-export type VerifyStreamEvent = TestRunUpdate & {
-  readonly event: 'verify_stream';
-  readonly runId: string;
-  readonly epicId: string;
-  readonly sliceId: string;
-  readonly sequence: number;
-};
-
-export function verifyStreamPath(cwd: string, runId: string, sliceId: string): string {
+export function verifyStreamPath(cwd: string, runId: string, sliceId: string, attempt = 1): string {
   assertSafeSliceId(sliceId);
-  return join(runDirPath(cwd, runId), 'streams', sliceId, 'verify.jsonl');
+  return join(runDirPath(cwd, runId), 'streams', sliceId, `verify-attempt-${attempt}.jsonl`);
 }
 
 export async function ingestTestResult(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly testRunner: TestRunnerPort;
+  readonly signal?: AbortSignal | undefined;
+  readonly onVerifyUpdate?: (event: VerifyStreamEvent) => void;
+}): Promise<TestResultIngestResult> {
+  return withRunExecutionAuthority({
+    cwd: args.cwd,
+    runId: args.runId,
+    execute: () => ingestTestResultOwned(args),
+    onContended: async () => {
+      const metadataPath = runMetadataPath(args.cwd, args.runId);
+      return {
+        status: 'run_execution_active',
+        runStatus: (await readRunMetadata(metadataPath))?.status ?? 'not_started',
+        runId: args.runId,
+        metadataPath,
+        sideEffects: [],
+      };
+    },
+  });
+}
+
+async function ingestTestResultOwned(args: {
   readonly cwd: string;
   readonly runId: string;
   readonly testRunner: TestRunnerPort;
@@ -90,7 +123,7 @@ export async function ingestTestResult(args: {
     };
   }
 
-  if (metadata.status !== 'agent_result_ingested' || !metadata.activeSliceId || !metadata.activeEpicId) {
+  if (metadata.status !== 'agent_result_ingested' || !metadata.activeSliceId) {
     return {
       status: 'agent_result_not_ingested',
       runStatus: metadata.status,
@@ -100,74 +133,76 @@ export async function ingestTestResult(args: {
     };
   }
 
-  const worktreeDir = metadata.worktreeDir ?? worktreeDirPath(args.cwd, args.runId);
-  const streamPath = verifyStreamPath(args.cwd, args.runId, metadata.activeSliceId);
-  let sequence = 0;
-  let wroteStream = false;
-  const runResult = await args.testRunner.run({
+  const worktreeDir =
+    metadata.activeSliceWorkspaceDir ?? metadata.worktreeDir ?? worktreeDirPath(args.cwd, args.runId);
+  const streamPath = verifyStreamPath(
+    args.cwd,
+    args.runId,
+    metadata.activeSliceId,
+    sliceArtifactAttemptNumber(metadata, metadata.activeSliceId, 'verify'),
+  );
+  const reportPath = metadata.reportsPath ?? reportsPath(args.cwd, args.runId);
+  const attemptResult = await runIsolatedVerifyAttempt({
+    runId: args.runId,
+    sliceId: metadata.activeSliceId,
+    ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
     worktreeDir,
+    streamPath,
+    attempt: activeSliceAttemptNumber(metadata),
+    testRunner: args.testRunner,
     ...(metadata.verifyTarget ? { verifyTarget: metadata.verifyTarget } : {}),
-    signal: args.signal,
-    onUpdate: async (update) => {
-      const event: VerifyStreamEvent = {
-        event: 'verify_stream',
-        runId: args.runId,
-        epicId: metadata.activeEpicId!,
-        sliceId: metadata.activeSliceId!,
-        sequence,
-        kind: update.kind,
-        message: update.message,
-      };
-      sequence += 1;
-      await mkdir(dirname(streamPath), { recursive: true });
-      await appendFile(streamPath, `${JSON.stringify(event)}\n`, 'utf8');
-      wroteStream = true;
-      try {
-        args.onVerifyUpdate?.(event);
-      } catch {
-        // Observer failures never affect verification execution.
-      }
-    },
+    ...(args.signal ? { signal: args.signal } : {}),
+    recordReport: (event) => appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8'),
+    ...(args.onVerifyUpdate ? { onUpdate: args.onVerifyUpdate } : {}),
   });
+  const runResult = attemptResult.result;
+  const wroteStream = attemptResult.wroteStream;
   if (runResult.status === 'failed') {
-    const attempts = (metadata.activeSliceAttempts ?? 0) + 1;
+    const attempts = activeSliceAttemptNumber(metadata);
     const metadataEffect = await persistRunMetadata(metadataPath, {
       ...metadata,
       activeSliceAttempts: attempts,
+      ...(attempts === SLICE_ATTEMPT_LIMIT
+        ? {
+            sliceAttemptHistory: mergeAttemptHistory(
+              metadata.sliceAttemptHistory,
+              attemptResult.outcome.history,
+            ),
+          }
+        : {}),
     });
-    return {
-      status: 'test_run_failed',
-      runStatus: 'agent_result_ingested',
-      runId: args.runId,
-      sliceId: metadata.activeSliceId,
-      worktreeDir,
-      metadataPath,
-      message: runResult.message,
-      attempts,
-      sideEffects: [
-        ...(wroteStream ? [{ kind: 'append_file' as const, path: streamPath }] : []),
-        metadataEffect,
-      ],
-    };
+    return attachIsolatedAttemptOutcome(
+      {
+        status: 'test_run_failed',
+        runStatus: 'agent_result_ingested',
+        runId: args.runId,
+        sliceId: metadata.activeSliceId,
+        worktreeDir,
+        metadataPath,
+        message: runResult.message,
+        attempts,
+        sideEffects: [
+          ...(wroteStream ? [{ kind: 'append_file' as const, path: streamPath }] : []),
+          metadataEffect,
+        ],
+      },
+      attemptResult.outcome,
+    );
   }
 
-  const reportPath = metadata.reportsPath ?? reportsPath(args.cwd, args.runId);
-  const event = {
-    event: 'slice_test_result',
-    runId: args.runId,
-    epicId: metadata.activeEpicId,
-    sliceId: metadata.activeSliceId,
-    status: runResult.verdict,
-    exitCode: runResult.exitCode,
-    ...(runResult.target ? { target: runResult.target } : {}),
-  };
   const { activeSliceAttempts: _cleared, ...metadataWithoutAttempts } = metadata;
+  const failedSliceIds =
+    runResult.verdict === 'failed'
+      ? [...(metadata.failedSliceIds ?? []), metadata.activeSliceId]
+      : metadata.failedSliceIds;
+  const metadataForVerdict = clearFailedActiveSlice(metadataWithoutAttempts, runResult.verdict);
   const updated: RunMetadata = {
-    ...metadataWithoutAttempts,
+    ...metadataForVerdict,
     status: 'test_result_ingested',
+    sliceAttemptHistory: mergeAttemptHistory(metadata.sliceAttemptHistory, attemptResult.outcome.history),
+    ...(failedSliceIds === undefined ? {} : { failedSliceIds }),
   };
 
-  await appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8');
   const metadataEffect = await persistRunMetadata(metadataPath, updated);
 
   return {
@@ -175,7 +210,7 @@ export async function ingestTestResult(args: {
     runStatus: 'test_result_ingested',
     runId: args.runId,
     sliceId: metadata.activeSliceId,
-    epicId: metadata.activeEpicId,
+    ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
     verdict: runResult.verdict,
     worktreeDir,
     metadataPath,
@@ -186,4 +221,16 @@ export async function ingestTestResult(args: {
       metadataEffect,
     ],
   };
+}
+
+function clearFailedActiveSlice(metadata: RunMetadata, verdict: 'passed' | 'failed'): RunMetadata {
+  if (verdict === 'passed') return metadata;
+  const {
+    activeSliceId: _activeSliceId,
+    activeEpicId: _activeEpicId,
+    activeSliceWorkspaceDir: _activeSliceWorkspaceDir,
+    activeSliceBaseSha: _activeSliceBaseSha,
+    ...cleared
+  } = metadata;
+  return cleared;
 }

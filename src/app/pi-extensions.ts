@@ -95,6 +95,7 @@ import {
 import { createAgentRunnerPort } from './agent-runner-port.js';
 import { createGitHostPromotionPort } from './git-host-promotion-port.js';
 import { createGitLandPort } from './git-land-port.js';
+import { createGitSliceIntegrationPort } from './git-slice-integration-port.js';
 import { createGitWorktreePort } from './git-worktree-port.js';
 import { registerBrunchKeybindingPolicy } from './pi-keybindings.js';
 import { createTestRunnerPort } from './test-runner-port.js';
@@ -327,6 +328,7 @@ export function createBrunchPiExtensions(
     const graph = options.graph;
     const executionPorts: ExecutionPorts = {
       gitWorktree: options.executionPorts?.gitWorktree ?? createGitWorktreePort(),
+      gitSliceIntegration: options.executionPorts?.gitSliceIntegration ?? createGitSliceIntegrationPort(),
       agentRunner:
         options.executionPorts?.agentRunner ??
         (options.subagents
@@ -389,8 +391,8 @@ export function createBrunchPiExtensions(
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteReplanStartNewRun(api, graph)] : []),
       registerBrunchExecuteSourcePolicy,
       registerBrunchExecuteSourceCopy,
-      registerBrunchExecuteSliceComplete,
-      registerBrunchExecuteSliceExecute,
+      (api) => registerBrunchExecuteSliceComplete(api, executionPorts.gitSliceIntegration),
+      (api) => registerBrunchExecuteSliceExecute(api, executionPorts.gitSliceIntegration),
       registerBrunchExecuteSliceStart,
       (api) => registerBrunchExecuteTestResult(api, executionPorts.testRunner),
       (api) => registerBrunchExecuteWorktreeCreate(api, executionPorts.gitWorktree),
