@@ -27,6 +27,24 @@ export interface TrajectoryReport {
   readonly viewport?: string;
 }
 
+export function parseTrajectoryReport(value: unknown): TrajectoryReport {
+  if (!record(value) || value.schemaVersion !== 1 || !portableRunId(value.runId)) {
+    throw new Error('invalid trajectory report identity');
+  }
+  if (
+    !Array.isArray(value.directives) ||
+    !value.directives.every(validReportDirective) ||
+    !Array.isArray(value.transcriptEffects) ||
+    !value.transcriptEffects.every(
+      (item) => record(item) && typeof item.role === 'string' && typeof item.text === 'string',
+    ) ||
+    (value.viewport !== undefined && typeof value.viewport !== 'string')
+  ) {
+    throw new Error('malformed trajectory report');
+  }
+  return value as unknown as TrajectoryReport;
+}
+
 export async function writeTrajectoryReport(input: TrajectoryReportInput): Promise<string> {
   validateInput(input);
   const events = await readEvents(resolve(input.workspace, '.brunch/debug/trajectory.ndjson'));
@@ -111,8 +129,7 @@ export async function projectTrajectoryReport(
 }
 
 function validateInput(input: TrajectoryReportInput): void {
-  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/u.test(input.runId))
-    throw new Error('trajectory run id must be portable');
+  if (!portableRunId(input.runId)) throw new Error('trajectory run id must be portable');
   const workspace = resolve(input.workspace);
   const sessionsRoot = resolve(workspace, '.brunch', 'sessions');
   const session = resolve(input.sessionFile);
@@ -185,6 +202,23 @@ function directive(value: unknown): boolean {
     typeof value.location === 'string' &&
     isAbsolute(value.location)
   );
+}
+function validReportDirective(value: unknown): boolean {
+  return (
+    record(value) &&
+    typeof value.id === 'string' &&
+    (value.category === undefined ||
+      (typeof value.category === 'string' &&
+        ['skill', 'reference', 'agent_body', 'runtime_control', 'unclassified'].includes(value.category))) &&
+    Array.isArray(value.state) &&
+    value.state.every((state) =>
+      ['advertised', 'read', 'provider_visible', 'unknown'].includes(String(state)),
+    ) &&
+    (value.resource === undefined || typeof value.resource === 'string')
+  );
+}
+function portableRunId(value: unknown): value is string {
+  return typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/u.test(value);
 }
 function optionalString(value: unknown): boolean {
   return value === undefined || typeof value === 'string';

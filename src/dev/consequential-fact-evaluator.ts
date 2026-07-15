@@ -3,6 +3,7 @@ import { isAbsolute, relative, resolve } from 'node:path';
 
 import { openWorkspaceGraphRuntime } from '../graph/workspace-store.js';
 import { openActiveSessionBranch } from '../session/active-session-branch.js';
+import { parseTrajectoryReport } from './trajectory-report.js';
 
 const RUBRIC_IDS = [
   'consequential_fact_completeness',
@@ -23,6 +24,7 @@ export interface ConsequentialFactScenario {
   readonly hiddenFact: {
     readonly id: string;
     readonly verbatim: string;
+    readonly assistantPromptMarker: string;
     readonly revealMarker: string;
     readonly approvalMarker: string;
   };
@@ -72,6 +74,7 @@ export interface ConsequentialFactReport {
   readonly scenarioId: string;
   readonly runId: string;
   readonly boundedClaim: string;
+  readonly joinedTrajectoryEvidence: readonly EvidenceText[];
   readonly judgments: readonly Judgment[];
 }
 
@@ -81,6 +84,7 @@ export interface ConsequentialFactEvaluationInput {
   readonly sessionFile: string;
   readonly specId: number;
   readonly scenarioFile: string;
+  readonly trajectoryFile: string;
   readonly runId: string;
 }
 
@@ -96,6 +100,12 @@ export async function writeConsequentialFactEvaluation(
     JSON.parse(await readFile(resolve(input.scenarioFile), 'utf8')) as unknown,
   );
   const branch = openActiveSessionBranch(sessionFile).entries;
+  const trajectory = parseTrajectoryReport(
+    JSON.parse(await readFile(resolve(input.trajectoryFile), 'utf8')) as unknown,
+  );
+  if (trajectory.runId !== input.runId) {
+    throw new Error('trajectory run identity does not match evaluation run');
+  }
   const runtime = await openWorkspaceGraphRuntime(workspace);
   const readers = runtime.forSpec(input.specId);
   const slice = readers.queryGraph();
@@ -110,7 +120,15 @@ export async function writeConsequentialFactEvaluation(
         : [];
     }),
     trajectory: [
-      { ref: `trajectory:graph-lsn:${slice.lsn}`, text: `spec-scoped graph read at LSN ${slice.lsn}` },
+      ...trajectory.directives.map((item, index) => ({
+        ref: `trajectory:directive:${index + 1}`,
+        text: `${item.category ?? 'uncategorized'}:${item.id} ${item.state.join(' -> ')}${item.resource ? ` ${item.resource}` : ''}`,
+      })),
+      ...trajectory.transcriptEffects.map((item, index) => ({
+        ref: `trajectory:transcript-effect:${index + 1}`,
+        role: item.role,
+        text: item.text,
+      })),
     ],
     graph: slice.nodes.map((node) => ({
       ref: `graph:${node.kind}:${node.kindOrdinal}`,
@@ -129,7 +147,7 @@ export async function writeConsequentialFactEvaluation(
   await writeFile(resolve(output, 'verdict.json'), `${JSON.stringify(report, null, 2)}\n`, 'utf8');
   await writeFile(
     resolve(output, 'report.md'),
-    `# Consequential-fact evaluation ${report.runId}\n\n> ${report.boundedClaim}\n\n${report.judgments.map((item) => `- **${item.rubricId}: ${item.verdict}** — ${item.reasons.map((reason) => `${reason.text} (${reason.evidence.join(', ')})`).join('; ')}`).join('\n')}\n`,
+    `# Consequential-fact evaluation ${report.runId}\n\n> ${report.boundedClaim}\n\n## Joined trajectory diagnostics\n\n${report.joinedTrajectoryEvidence.map((item) => `- \`${item.ref}\`: ${item.text}`).join('\n')}\n\n## Judgments\n\n${report.judgments.map((item) => `- **${item.rubricId}: ${item.verdict}** — ${item.reasons.map((reason) => `${reason.text} (${reason.evidence.join(', ')})`).join('; ')}`).join('\n')}\n`,
     'utf8',
   );
   return output;
@@ -145,7 +163,13 @@ export function parseConsequentialFactScenario(value: unknown): ConsequentialFac
   const hidden = value.hiddenFact;
   const graph = value.graph;
   if (
-    ![hidden.id, hidden.verbatim, hidden.revealMarker, hidden.approvalMarker].every(nonempty) ||
+    ![
+      hidden.id,
+      hidden.verbatim,
+      hidden.assistantPromptMarker,
+      hidden.revealMarker,
+      hidden.approvalMarker,
+    ].every(nonempty) ||
     !record(graph.required) ||
     !record(graph.forbidden) ||
     ![
@@ -176,8 +200,13 @@ export function scoreConsequentialFactRun(
   validateRun(runValue);
   const all = [...runValue.transcript, ...runValue.trajectory, ...runValue.graph];
   const fallback = runValue.trajectory[0]?.ref ?? runValue.transcript[0]?.ref ?? runValue.graph[0]!.ref;
-  const revealIndex = runValue.transcript.findIndex((item) =>
-    item.text.includes(scenario.hiddenFact.revealMarker),
+  const promptIndex = runValue.transcript.findIndex(
+    (item) => item.role === 'assistant' && item.text.includes(scenario.hiddenFact.assistantPromptMarker),
+  );
+  const revealIndex = runValue.transcript.findIndex(
+    (item) =>
+      item.text.includes(scenario.hiddenFact.revealMarker) &&
+      item.text.includes(scenario.hiddenFact.verbatim),
   );
   const approvalIndex = runValue.transcript.findIndex((item) =>
     item.text.includes(scenario.hiddenFact.approvalMarker),
@@ -206,21 +235,33 @@ export function scoreConsequentialFactRun(
     ),
     judgment(
       'item_groundedness',
-      revealIndex >= 0 && approvalIndex > revealIndex,
-      revealIndex >= 0 && approvalIndex > revealIndex
-        ? 'reveal_precedes_approval'
-        : 'missing_warrant_before_commit',
-      revealIndex >= 0 && approvalIndex >= 0
-        ? [runValue.transcript[revealIndex]!.ref, runValue.transcript[approvalIndex]!.ref]
+      promptIndex >= 0 && revealIndex > promptIndex && approvalIndex > revealIndex,
+      promptIndex >= 0 && revealIndex > promptIndex && approvalIndex > revealIndex
+        ? 'qualifying_prompt_reveal_approval_ordered'
+        : 'missing_qualifying_prompt_before_reveal_and_approval',
+      promptIndex >= 0 && revealIndex >= 0 && approvalIndex >= 0
+        ? [
+            runValue.transcript[promptIndex]!.ref,
+            runValue.transcript[revealIndex]!.ref,
+            runValue.transcript[approvalIndex]!.ref,
+          ]
         : [fallback],
     ),
     judgment(
       'settlement_correctness',
-      required.length === 1 && required[0]!.settlement === 'settled',
-      required.length === 1 && required[0]!.settlement === 'settled'
-        ? 'single_settled_constraint'
-        : 'settled_constraint_missing',
-      required.length ? required.map((item) => item.ref) : [fallback],
+      approvalIndex > revealIndex &&
+        revealIndex > promptIndex &&
+        required.length === 1 &&
+        required[0]!.settlement === 'settled',
+      approvalIndex > revealIndex &&
+        revealIndex > promptIndex &&
+        required.length === 1 &&
+        required[0]!.settlement === 'settled'
+        ? 'ordered_approval_and_single_settled_required_fact'
+        : 'ordered_approval_or_single_settled_required_fact_missing',
+      approvalIndex >= 0 && required.length
+        ? [runValue.transcript[approvalIndex]!.ref, ...required.map((item) => item.ref)]
+        : [fallback],
     ),
     judgment(
       'forbidden_rival_absence',
@@ -253,6 +294,7 @@ export function scoreConsequentialFactRun(
     runId: runValue.runId,
     boundedClaim:
       'This report supports deterministic diagnostic discrimination only; joined evidence is not standalone causality or campaign evidence.',
+    joinedTrajectoryEvidence: runValue.trajectory,
     judgments,
   };
 }

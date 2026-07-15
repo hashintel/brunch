@@ -17,7 +17,7 @@ const warranted = {
     {
       ref: 'transcript:u1',
       role: 'user',
-      text: 'COMPLIANCE_REVEAL: retain the source regulator clause identifier verbatim',
+      text: 'COMPLIANCE_REVEAL: retain the source regulator clause identifier verbatim — Every accepted policy rewrite must retain its source regulator clause identifier verbatim.',
     },
     { ref: 'transcript:u2', role: 'user', text: 'APPROVE_EXACT_REVIEW_SET' },
   ],
@@ -78,6 +78,34 @@ describe('review-diff consequential-fact evaluator', () => {
       expect(judgment.reasons.every((reason) => reason.evidence.length > 0)).toBe(true);
     }
     expect(report.boundedClaim).toContain('diagnostic discrimination');
+  });
+
+  it('rejects reveal and approval without the qualifying assistant prompt', () => {
+    const report = scoreConsequentialFactRun(fixture, {
+      ...warranted,
+      transcript: warranted.transcript.slice(1),
+    });
+    expect(report.judgments.find((item) => item.rubricId === 'item_groundedness')?.verdict).toBe('fail');
+  });
+
+  it('requires the exact hidden fact in reveal evidence', () => {
+    const report = scoreConsequentialFactRun(fixture, {
+      ...warranted,
+      transcript: warranted.transcript.map((item) =>
+        item.ref === 'transcript:u1' ? { ...item, text: 'COMPLIANCE_REVEAL: unrelated detail' } : item,
+      ),
+    });
+    expect(
+      report.judgments.find((item) => item.rubricId === 'consequential_fact_completeness')?.verdict,
+    ).toBe('fail');
+  });
+
+  it('rejects a settled required node without ordered approval', () => {
+    const report = scoreConsequentialFactRun(fixture, {
+      ...warranted,
+      transcript: warranted.transcript.slice(0, 2),
+    });
+    expect(report.judgments.find((item) => item.rubricId === 'settlement_correctness')?.verdict).toBe('fail');
   });
 
   it('rejects the premature rival for named warrant and forbidden-rival evidence', () => {

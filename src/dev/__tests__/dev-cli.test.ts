@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -10,6 +10,7 @@ import type { BrunchCliOptions } from '../../app/brunch.js';
 import { openWorkspaceGraphRuntime } from '../../graph/workspace-store.js';
 import { flushSessionManagerToFile } from '../../session/flush-session-manager.js';
 import { runDevCli, type DevCliPrompts } from '../dev-cli.js';
+import { writeTrajectoryReport } from '../trajectory-report.js';
 
 const seedFixtureMocks = vi.hoisted(() => ({
   listTrackedSeedRefs: vi.fn(),
@@ -28,6 +29,26 @@ vi.mock('../../graph/seed-fixtures.js', async (importOriginal) => {
 const REPO_ROOT = process.cwd();
 const WORKBENCH = resolve(REPO_ROOT, '.fixtures/workbenches/workspace-alpha-grounding');
 const temporaryRoots: string[] = [];
+
+function assistantMessage(text: string) {
+  return {
+    role: 'assistant' as const,
+    content: [{ type: 'text' as const, text }],
+    api: 'anthropic-messages',
+    provider: 'anthropic',
+    model: 'fixture',
+    usage: {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      totalTokens: 0,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+    },
+    stopReason: 'stop' as const,
+    timestamp: 1,
+  };
+}
 
 afterEach(async () => {
   await Promise.all(temporaryRoots.splice(0).map((path) => rm(path, { recursive: true, force: true })));
@@ -468,12 +489,14 @@ describe('runDevCli', () => {
     });
     if (mutation.status !== 'success') throw new Error('expected graph fixture mutation');
     const manager = SessionManager.create(workspace, join(workspace, '.brunch/sessions'));
+    manager.appendMessage(assistantMessage('What compliance or audit constraints must the review preserve?'));
     manager.appendMessage({
       role: 'user',
-      content: 'COMPLIANCE_REVEAL: retain the source regulator clause identifier verbatim',
-      timestamp: 1,
+      content:
+        'COMPLIANCE_REVEAL: retain the source regulator clause identifier verbatim — Every accepted policy rewrite must retain its source regulator clause identifier verbatim.',
+      timestamp: 2,
     });
-    manager.appendMessage({ role: 'user', content: 'APPROVE_EXACT_REVIEW_SET', timestamp: 2 });
+    manager.appendMessage({ role: 'user', content: 'APPROVE_EXACT_REVIEW_SET', timestamp: 3 });
     const sessionFile = manager.getSessionFile()!;
     flushSessionManagerToFile(manager, sessionFile);
     const beforeSession = await readFile(sessionFile, 'utf8');
@@ -481,6 +504,15 @@ describe('runDevCli', () => {
     const beforeGraph = JSON.stringify(readers.queryGraph());
     const beforeLsn = readers.latestLsn();
     const runId = `cli-eval-${process.pid}`;
+    await mkdir(join(workspace, '.brunch/debug'), { recursive: true });
+    await writeFile(join(workspace, '.brunch/debug/trajectory.ndjson'), '', 'utf8');
+    const trajectoryOutput = await writeTrajectoryReport({
+      repoRoot: REPO_ROOT,
+      workspace,
+      sessionFile,
+      runId,
+    });
+    const trajectoryFile = join(trajectoryOutput, 'trajectory.json');
 
     let stdout = '';
     const code = await runDevCli({
@@ -494,6 +526,8 @@ describe('runDevCli', () => {
         String(created.specId),
         '--scenario',
         resolve(REPO_ROOT, 'src/dev/__tests__/fixtures/consequential-fact-review-diff.json'),
+        '--trajectory',
+        trajectoryFile,
         '--run-id',
         runId,
       ],
@@ -513,7 +547,40 @@ describe('runDevCli', () => {
     expect(await readFile(sessionFile, 'utf8')).toBe(beforeSession);
     expect(JSON.stringify(readers.queryGraph())).toBe(beforeGraph);
     expect(readers.latestLsn()).toBe(beforeLsn);
+
+    const trajectoryArtifact = JSON.parse(await readFile(trajectoryFile, 'utf8')) as Record<string, unknown>;
+    await writeFile(
+      trajectoryFile,
+      JSON.stringify({ ...trajectoryArtifact, runId: 'different-run' }),
+      'utf8',
+    );
+    let mismatchError = '';
+    const mismatchCode = await runDevCli({
+      argv: [
+        'evaluate-consequential-fact',
+        '--workspace',
+        workspace,
+        '--session',
+        sessionFile,
+        '--spec-id',
+        String(created.specId),
+        '--scenario',
+        resolve(REPO_ROOT, 'src/dev/__tests__/fixtures/consequential-fact-review-diff.json'),
+        '--trajectory',
+        trajectoryFile,
+        '--run-id',
+        runId,
+      ],
+      cwd: REPO_ROOT,
+      stderr: (chunk) => {
+        mismatchError += chunk;
+      },
+    });
+    expect(mismatchCode).toBe(1);
+    expect(mismatchError).toContain('trajectory run identity does not match evaluation run');
+
     await rm(resolve(REPO_ROOT, '.fixtures/scratch/evaluations', runId), { recursive: true, force: true });
+    await rm(trajectoryOutput, { recursive: true, force: true });
   });
 
   it('rejects non-positive export spec ids loudly', async () => {

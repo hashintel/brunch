@@ -8,7 +8,12 @@ import { describe, expect, it } from 'vitest';
 
 import type { BrunchTrajectoryEvent } from '../../.pi/extensions/dev-mode/introspection/trajectory.js';
 import { renderBrunchSkills } from '../../agents/skills/registry.js';
-import { projectTrajectoryReport, readEvents, writeTrajectoryReport } from '../trajectory-report.js';
+import {
+  parseTrajectoryReport,
+  projectTrajectoryReport,
+  readEvents,
+  writeTrajectoryReport,
+} from '../trajectory-report.js';
 
 function assistant(text: string) {
   return {
@@ -31,6 +36,20 @@ function assistant(text: string) {
 }
 
 describe('joined trajectory report', () => {
+  it('runtime-validates landed report artifacts', () => {
+    expect(() =>
+      parseTrajectoryReport({ schemaVersion: 1, runId: 'run-1', directives: [], transcriptEffects: [] }),
+    ).not.toThrow();
+    expect(() =>
+      parseTrajectoryReport({
+        schemaVersion: 1,
+        runId: 'run-1',
+        directives: [{ id: 'x', state: ['invented'] }],
+        transcriptEffects: [],
+      }),
+    ).toThrow('malformed trajectory report');
+  });
+
   it('projects directive states and transcript effects from only the active Pi branch', async () => {
     const workspace = await mkdtemp(join(tmpdir(), 'brunch-trajectory-'));
     const manager = SessionManager.create(workspace, join(workspace, '.brunch/sessions'));

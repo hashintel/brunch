@@ -5,6 +5,7 @@
   "hiddenFact": {
     "id": "retain-source-clause-id",
     "verbatim": "Every accepted policy rewrite must retain its source regulator clause identifier verbatim.",
+    "assistantPromptMarker": "compliance or audit constraints",
     "revealMarker": "COMPLIANCE_REVEAL: retain the source regulator clause identifier verbatim",
     "approvalMarker": "APPROVE_EXACT_REVIEW_SET"
   },

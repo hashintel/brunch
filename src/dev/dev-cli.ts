@@ -512,15 +512,23 @@ async function runConsequentialFactCommand(
       session: { type: 'string' },
       'spec-id': { type: 'string' },
       scenario: { type: 'string' },
+      trajectory: { type: 'string' },
       'run-id': { type: 'string' },
     },
   });
   if (positionals.length > 0) {
     throw new DevCliUsageError(`Unexpected evaluate-consequential-fact argument: ${positionals[0]}`);
   }
-  if (!values.workspace || !values.session || !values['spec-id'] || !values.scenario || !values['run-id']) {
+  if (
+    !values.workspace ||
+    !values.session ||
+    !values['spec-id'] ||
+    !values.scenario ||
+    !values.trajectory ||
+    !values['run-id']
+  ) {
     throw new DevCliUsageError(
-      'The evaluate-consequential-fact command requires --workspace, --session, --spec-id, --scenario, and --run-id.',
+      'The evaluate-consequential-fact command requires --workspace, --session, --spec-id, --scenario, --trajectory, and --run-id.',
     );
   }
   const output = await writeConsequentialFactEvaluation({
@@ -529,6 +537,7 @@ async function runConsequentialFactCommand(
     sessionFile: resolve(options.cwd, values.session),
     specId: parsePositiveInteger(values['spec-id'], '--spec-id'),
     scenarioFile: resolve(options.cwd, values.scenario),
+    trajectoryFile: resolve(options.cwd, values.trajectory),
     runId: values['run-id'],
   });
   writeStdout(options.stdout ?? process.stdout, `wrote ${output}\n`);
@@ -804,7 +813,7 @@ function devCliUsage(): string {
     '  npm run dev-cli -- mutate --workspace <dir> (--params <json> | --params-file <file>)',
     '  npm run dev-cli -- export --workspace <dir> --spec-id <id> [--out <file>] [--show all|active]',
     '  npm run dev-cli -- trajectory --workspace <dir> --session <file> --run-id <portable-id> [--viewport <file>]',
-    '  npm run dev-cli -- evaluate-consequential-fact --workspace <dir> --session <file> --spec-id <id> --scenario <file> --run-id <portable-id>',
+    '  npm run dev-cli -- evaluate-consequential-fact --workspace <dir> --session <file> --spec-id <id> --scenario <file> --trajectory <trajectory.json> --run-id <portable-id>',
     '',
     'Notes:',
     '  - Launch-time seeding never happens implicitly; pair --seed with --reset.',
