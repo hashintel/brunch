@@ -9,12 +9,23 @@ Outer-loop verification for slices that touch the user-facing boundary. Manual t
    - **Standalone web** (`brunch --mode web`): also supported since FE-1200. It starts a combined cwd-scoped host without `InteractiveMode`, prints its loopback URL on stdout, and serves the target-addressed React session route (`/session/$specId/$sessionId`) directly. Use this when driving a browser chat without a TUI process.
 3. **Browser**: use `agent-browser` (`/cli-agent-browser`) as the primary observer — daemon-backed Chrome with AX-tree snapshots, clicks, and screenshots. CDP tools (`/cli-cdp`) remain useful for console/network detail.
 
-For an isolated candidate launch, create a temporary Pi home and load only the package for that process:
+For an isolated candidate launch, retain the temporary Pi home path, create its session directory, expose existing user auth by symlink (never copy credentials into the repo or scratch), disable resource discovery and project trust, and explicitly load only the candidate extension:
 
 ```bash
 AGENT_DIR="$(mktemp -d)"
-PI_CODING_AGENT_DIR="$AGENT_DIR" pi -e npm:pi-interactive-shell
+mkdir -p "$AGENT_DIR/sessions"
+ln -s "$HOME/.pi/agent/auth.json" "$AGENT_DIR/auth.json"
+PI_CODING_AGENT_DIR="$AGENT_DIR" pi \
+  --no-extensions \
+  --no-skills \
+  --no-prompt-templates \
+  --no-themes \
+  --no-context-files \
+  --no-approve \
+  -e npm:pi-interactive-shell@0.13.0
 ```
+
+If the selected provider supports API-key environment authentication, exporting that key instead of creating the auth symlink is also acceptable. The pinned npm candidate remains process-local and is not a Brunch dependency, but its first launch may fetch package contents from the network.
 
 ### Shared-host transition evidence
 
@@ -62,7 +73,12 @@ npm run tui-driver -- rm --name walk
 npm run tui-driver -- list
 ```
 
-For the temporary extension, query the session to a final status, kill it if still running, dismiss its background record, and verify its background-session list is empty before deleting `$AGENT_DIR`.
+For the temporary extension, query the session to a final status, kill it if still running, dismiss its background record, and verify its background-session list is empty. After Pi exits, remove the auth symlink and temporary home using the retained variable:
+
+```bash
+rm "$AGENT_DIR/auth.json"
+rm -rf "$AGENT_DIR"
+```
 
 Keys: `Enter Esc Up Down Right Left Tab Space Backspace C-c C-d`. `send` fails fast with a named error when the driver is gone (no silent fifo blocking); `list` shows every session with liveness. The raw PTY byte stream is in each session's `output.log` (`log` subcommand) when the rendered screen isn't enough.
 
