@@ -80,7 +80,9 @@ describe('validateCandidatePlan', () => {
     };
 
     const findings = validate(cyclic).findings.filter((finding) => finding.code === 'dependency_cycle');
-    expect(findings.map((finding) => finding.itemId).sort()).toEqual(['task-1', 'task-2']);
+    expect(
+      findings.map((finding) => finding.itemId).sort((left = '', right = '') => left.localeCompare(right)),
+    ).toEqual(['task-1', 'task-2']);
   });
 
   it('flags dropped scope obligations: uncovered requirement, dropped criterion/design/verification', () => {
