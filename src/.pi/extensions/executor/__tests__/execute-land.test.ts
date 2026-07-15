@@ -321,6 +321,49 @@ describe('runBrunchLandCommand', () => {
     await expect(runStatus(cwd)).resolves.toBe('landed');
   });
 
+  it('preserves spaces in an explicit greenfield target through inspection and apply', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-land-cmd-greenfield-spaces-'));
+    await createPromotionPreparedRun(cwd, 'run-1', { substrate: 'empty_dir' });
+    const targetDir = join(cwd, 'new project');
+    const ui = makeUi();
+    const inspectTargets: string[] = [];
+    const materializeTargets: string[] = [];
+    const gitHostLand = createFakeGitHostLandPort({
+      async inspect(args) {
+        inspectTargets.push(args.targetDir);
+        return {
+          status: 'inspected',
+          runBaseSha: args.runBaseSha,
+          reviewTipSha: args.expectedTipSha,
+          commits: [{ sha: args.expectedTipSha, subject: 'promote run-1' }],
+          changedPaths: [],
+          target: { kind: 'missing', path: args.targetDir },
+          conflictRehearsal: { status: 'not_applicable' },
+          admissible: true,
+          sideEffects: [],
+        };
+      },
+      async materialize(args) {
+        materializeTargets.push(args.targetDir);
+        return {
+          status: 'landed',
+          branch: args.branch,
+          landedSha: 'green789',
+          targetDir: args.targetDir,
+          sideEffects: [
+            { kind: 'git_materialize', path: args.targetDir, branch: args.branch, sha: 'green789' },
+          ],
+        };
+      },
+    });
+
+    await runBrunchLandCommand(`run-1 ${targetDir}`, stubCtx(cwd, ui), { gitHostLand });
+
+    expect(inspectTargets).toEqual([targetDir]);
+    expect(materializeTargets).toEqual([targetDir]);
+    await expect(runStatus(cwd)).resolves.toBe('landed');
+  });
+
   it('offers confirmation for a verified prior greenfield materialization', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-land-cmd-greenfield-replay-'));
     await createPromotionPreparedRun(cwd, 'run-1', { substrate: 'empty_dir' });

@@ -69,7 +69,7 @@ export async function runBrunchLandCommand(
     ctx.ui.notify('/brunch:land requires an interactive session to confirm the landing.', 'error');
     return;
   }
-  const [runIdArg, targetArg] = args.trim().split(/\s+/).filter(Boolean);
+  const [runIdArg, targetArg] = splitLandCommandArgs(args);
   const runId = runIdArg ?? (await resolveSolePromotedRun(ctx));
   if (!runId) return;
 
@@ -149,6 +149,15 @@ export async function runBrunchLandCommand(
     gitHostLand: deps.gitHostLand,
   });
   ctx.ui.notify(renderApply(runId, result), result.status === 'landed' ? 'info' : 'warning');
+}
+
+function splitLandCommandArgs(args: string): readonly [string | undefined, string | undefined] {
+  const trimmed = args.trim();
+  if (!trimmed) return [undefined, undefined];
+  const boundary = trimmed.search(/\s/u);
+  if (boundary === -1) return [trimmed, undefined];
+  const target = trimmed.slice(boundary).trim();
+  return [trimmed.slice(0, boundary), target || undefined];
 }
 
 export function registerBrunchExecuteLand(pi: ExtensionAPI, gitHostLand: GitHostLandPort): void {
