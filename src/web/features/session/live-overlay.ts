@@ -30,6 +30,9 @@ export function reduceLiveSessionOverlay(
         kind: 'ask',
         exchangeId: delta.ask.exchangeId,
         question: delta.ask.question.body,
+        ...(delta.ask.mode === 'single-select' && delta.ask.question.options
+          ? { options: delta.ask.question.options }
+          : {}),
       },
     ];
   }

@@ -120,6 +120,65 @@ describe('session presentation', () => {
     });
   });
 
+  it('preserves a single-select ask, its selected choice, option echo, and Other comment without loss', () => {
+    const options = [
+      { id: 'fast', label: 'Fast path', description: 'Optimize for speed.' },
+      { id: 'safe', label: 'Safe path' },
+    ];
+    const terminals = [
+      {
+        choice: { id: 'safe', label: 'Safe path', kind: 'listed' },
+        options: [
+          { id: 'fast', content: 'Fast path', rationale: 'Optimize for speed.' },
+          { id: 'safe', content: 'Safe path' },
+        ],
+      },
+      {
+        choice: { id: 'other', label: 'A measured path', kind: 'other' },
+        options: [
+          { id: 'fast', content: 'Fast path', rationale: 'Optimize for speed.' },
+          { id: 'safe', content: 'Safe path' },
+        ],
+        comment: 'Blend safety with a bounded experiment.',
+      },
+    ] as const;
+
+    const result = projectSessionPresentation(
+      target,
+      terminals.map((answered, index) =>
+        entry(`choice-${index}`, {
+          role: 'toolResult',
+          toolName: 'ask',
+          details: {
+            schema: request.schema,
+            v: request.v,
+            exchange_id: `choice-${index}`,
+            tool_meta: { curr: 'ask', next: 'capture_choice' },
+            question: { body: 'Pick the route', options },
+            answered,
+          },
+        }),
+      ),
+    );
+
+    expect(result).toEqual({
+      status: 'ready',
+      presentation: {
+        target,
+        cursor: '1:choice-1',
+        entries: terminals.map((answered, index) => ({
+          id: `choice-${index}`,
+          cursor: `${index}:choice-${index}`,
+          kind: 'ask',
+          exchangeId: `choice-${index}`,
+          question: 'Pick the route',
+          options,
+          terminal: { status: 'answered', value: answered },
+        })),
+      },
+    });
+  });
+
   it('classifies malformed Brunch ask details instead of leaking them', () => {
     expect(
       projectSessionPresentation(target, [

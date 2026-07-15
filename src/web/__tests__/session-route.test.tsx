@@ -87,7 +87,7 @@ describe('session route', () => {
       kind: 'ask',
       exchangeId: id,
       question: `Question ${id}`,
-      terminal,
+      ...(terminal ? { terminal } : {}),
     });
     const f = fixture([
       ask('answered', {
@@ -107,6 +107,81 @@ describe('session route', () => {
     expect(screen.getByText('Cancelled')).toBeTruthy();
     expect(screen.getByText('Unavailable: Source unavailable.')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Answer' })).toBeNull();
+  });
+
+  it('renders durable single-choice selections and answers a live choice through the session contract', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const options = [
+      { id: 'fast', label: 'Fast path', description: 'Optimize for speed.' },
+      { id: 'safe', label: 'Safe path' },
+    ];
+    const f = fixture([
+      {
+        id: 'choice-listed',
+        cursor: 'durable:choice-listed',
+        kind: 'ask',
+        exchangeId: 'choice-listed',
+        question: 'Prior route',
+        options,
+        terminal: {
+          status: 'answered',
+          value: {
+            choice: { id: 'safe', label: 'Safe path', kind: 'listed' },
+            options: [
+              { id: 'fast', content: 'Fast path', rationale: 'Optimize for speed.' },
+              { id: 'safe', content: 'Safe path' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'choice-other',
+        cursor: 'durable:choice-other',
+        kind: 'ask',
+        exchangeId: 'choice-other',
+        question: 'Alternative route',
+        options,
+        terminal: {
+          status: 'answered',
+          value: {
+            choice: { id: 'other', label: 'A measured path', kind: 'other' },
+            options: [
+              { id: 'fast', content: 'Fast path', rationale: 'Optimize for speed.' },
+              { id: 'safe', content: 'Safe path' },
+            ],
+            comment: 'Blend safety with a bounded experiment.',
+          },
+        },
+      },
+    ]);
+
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+    expect(await screen.findByText('Selected: Safe path')).toBeTruthy();
+    expect(screen.getByText('Selected Other: A measured path')).toBeTruthy();
+    expect(screen.getByText('Comment: Blend safety with a bounded experiment.')).toBeTruthy();
+
+    await act(async () => {
+      f.emit({
+        target: { specId: 1, sessionId: 's1' },
+        seq: 0,
+        delta: {
+          type: 'ask_opened',
+          ask: {
+            exchangeId: 'live-choice',
+            mode: 'single-select',
+            question: { body: 'Pick the route', options },
+          },
+        },
+      });
+    });
+    fireEvent.click(screen.getByRole('radio', { name: /Safe path/u }));
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+
+    expect(f.calls).toContainEqual({
+      method: 'session.answerExchange',
+      params: expect.objectContaining({ exchangeId: 'live-choice', answer: 'safe' }),
+    });
   });
 
   it('hydrates, drives, reduces targeted live state, answers, settles, and recovers durably', async () => {

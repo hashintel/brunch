@@ -126,7 +126,14 @@ function Ask({
         <p>{entry.question}</p>
         {terminal.status === 'answered' ? (
           <>
-            <p>Answered: {terminal.value.text}</p>
+            {'text' in terminal.value ? (
+              <p>Answered: {terminal.value.text}</p>
+            ) : (
+              <p>
+                {terminal.value.choice.kind === 'other' ? 'Selected Other' : 'Selected'}:{' '}
+                {terminal.value.choice.label}
+              </p>
+            )}
             {terminal.value.comment ? <p>Comment: {terminal.value.comment}</p> : null}
           </>
         ) : (
@@ -146,11 +153,30 @@ function Ask({
         if (value.trim()) void answer(value);
       }}
     >
-      <label>
-        {entry.question}
-        <input value={value} onChange={(event) => setValue(event.target.value)} />
-      </label>
-      <button>Answer</button>
+      {entry.options ? (
+        <fieldset>
+          <legend>{entry.question}</legend>
+          {entry.options.map((option) => (
+            <label key={option.id}>
+              <input
+                type="radio"
+                name={entry.exchangeId}
+                value={option.id}
+                checked={value === option.id}
+                onChange={(event) => setValue(event.target.value)}
+              />
+              {option.label}
+              {option.description ? ` — ${option.description}` : ''}
+            </label>
+          ))}
+        </fieldset>
+      ) : (
+        <label>
+          {entry.question}
+          <input value={value} onChange={(event) => setValue(event.target.value)} />
+        </label>
+      )}
+      <button disabled={!value.trim()}>Answer</button>
     </form>
   );
 }

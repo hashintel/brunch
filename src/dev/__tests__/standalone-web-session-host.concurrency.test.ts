@@ -60,7 +60,11 @@ function presentationText(result: ReadyPresentation): string {
     .map((entry) =>
       'text' in entry
         ? entry.text
-        : `${entry.question}\n${entry.terminal?.status === 'answered' ? entry.terminal.value.text : ''}`,
+        : `${entry.question}\n${
+            entry.terminal?.status === 'answered' && 'text' in entry.terminal.value
+              ? entry.terminal.value.text
+              : ''
+          }`,
     )
     .join('\n');
 }

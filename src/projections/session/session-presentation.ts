@@ -1,5 +1,10 @@
 import { zAskDetails } from '../../exchanges/schemas/request.js';
-import type { AskDetails } from '../../exchanges/schemas/request.js';
+import type {
+  AnsweredOptionEcho,
+  AskDetails,
+  AskQuestionEcho,
+  SelectedChoice,
+} from '../../exchanges/schemas/request.js';
 import { loadJsonlTranscriptEntries } from '../../session/brunch-session-envelope.js';
 import type { SessionTarget } from '../../session/live-session-host.js';
 
@@ -17,16 +22,31 @@ export type SessionPresentationEntry =
       readonly kind: 'ask';
       readonly exchangeId: string;
       readonly question: string;
+      readonly options?: NonNullable<AskQuestionEcho['options']>;
       readonly terminal?: AskTerminal;
     };
 
-type AskTerminal = ReturnType<typeof projectAskTerminal>;
+type AskTerminal =
+  | {
+      readonly status: 'answered';
+      readonly value:
+        | { readonly text: string; readonly comment?: string | undefined }
+        | {
+            readonly choice: SelectedChoice;
+            readonly options: readonly AnsweredOptionEcho[];
+            readonly comment?: string | undefined;
+          };
+    }
+  | { readonly status: 'cancelled'; readonly value: { readonly message?: string | undefined } }
+  | { readonly status: 'unavailable'; readonly value: { readonly message: string } };
 
-function projectAskTerminal(details: AskDetails) {
+function projectAskTerminal(details: AskDetails): AskTerminal | undefined {
   if ('answered' in details && 'text' in details.answered)
-    return { status: 'answered' as const, value: details.answered };
-  if ('cancelled' in details) return { status: 'cancelled' as const, value: details.cancelled };
-  if ('unavailable' in details) return { status: 'unavailable' as const, value: details.unavailable };
+    return { status: 'answered', value: details.answered };
+  if ('answered' in details && 'choice' in details.answered)
+    return { status: 'answered', value: details.answered };
+  if ('cancelled' in details) return { status: 'cancelled', value: details.cancelled };
+  if ('unavailable' in details) return { status: 'unavailable', value: details.unavailable };
   return undefined;
 }
 
@@ -78,6 +98,9 @@ export function projectSessionPresentation(
       kind: 'ask',
       exchangeId: details.exchange_id,
       question: details.question.body,
+      ...('options' in details.question && details.question.options
+        ? { options: details.question.options }
+        : {}),
       ...(terminal ? { terminal } : {}),
     });
   }
