@@ -234,6 +234,10 @@ export async function applyLanding(args: {
   });
 }
 
+export function landingCommitMessage(runId: string): string {
+  return `brunch: land ${runId}`;
+}
+
 async function applyLandingOwned(args: {
   readonly cwd: string;
   readonly runId: string;
@@ -253,7 +257,7 @@ async function applyLandingOwned(args: {
     };
   }
 
-  const message = `brunch: land ${args.runId}`;
+  const message = landingCommitMessage(args.runId);
   if (preflight.substrate === 'empty_dir') {
     if (!args.targetDir) {
       return {

@@ -320,6 +320,53 @@ describe('runBrunchLandCommand', () => {
     expect(materializeCalls).toEqual([{ targetDir }]);
     await expect(runStatus(cwd)).resolves.toBe('landed');
   });
+
+  it('offers confirmation for a verified prior greenfield materialization', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-land-cmd-greenfield-replay-'));
+    await createPromotionPreparedRun(cwd, 'run-1', { substrate: 'empty_dir' });
+    const targetDir = join(cwd, 'new-project');
+    const ui = makeUi({ confirmAnswer: false });
+    const inspectCalls: unknown[] = [];
+    const gitHostLand = createFakeGitHostLandPort({
+      async inspect(args) {
+        inspectCalls.push(args);
+        return {
+          status: 'inspected',
+          runBaseSha: 'base123',
+          reviewTipSha: TIP,
+          commits: [{ sha: TIP, subject: 'promote run-1' }],
+          changedPaths: [{ status: 'A', path: 'src/a.ts' }],
+          target: {
+            kind: 'materialized_repository',
+            path: targetDir,
+            branch: 'main',
+            landedSha: 'landed789',
+          },
+          conflictRehearsal: { status: 'not_applicable' },
+          admissible: true,
+          sideEffects: [],
+        };
+      },
+    });
+
+    await runBrunchLandCommand(`run-1 ${targetDir}`, stubCtx(cwd, ui), { gitHostLand });
+
+    expect(inspectCalls).toEqual([
+      {
+        strategy: 'materialize',
+        runWorktreeDir: join(runDirPath(cwd, 'run-1'), 'worktree'),
+        reviewRef: 'brunch/review/run-1',
+        runBaseSha: 'base123',
+        expectedTipSha: TIP,
+        targetDir,
+        branch: 'main',
+        message: 'brunch: land run-1',
+      },
+    ]);
+    expect(ui.confirms).toHaveLength(1);
+    expect(ui.confirms[0]).toContain('verified prior Brunch materialization');
+    await expect(runStatus(cwd)).resolves.toBe('promotion_prepared');
+  });
 });
 
 describe('createExecuteLandPreflightTool', () => {

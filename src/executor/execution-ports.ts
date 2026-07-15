@@ -242,14 +242,21 @@ export type GitHostLandIntegrateResult =
     }
   | { readonly status: 'failed'; readonly message: string; readonly sideEffects: readonly [] };
 
-export interface GitHostLandInspectArgs {
-  readonly strategy: 'integrate' | 'materialize';
+interface GitHostLandInspectBaseArgs {
   readonly runWorktreeDir: string;
   readonly reviewRef: string;
   readonly runBaseSha: string;
   readonly expectedTipSha: string;
   readonly targetDir: string;
 }
+
+export type GitHostLandInspectArgs =
+  | (GitHostLandInspectBaseArgs & { readonly strategy: 'integrate' })
+  | (GitHostLandInspectBaseArgs & {
+      readonly strategy: 'materialize';
+      readonly branch: string;
+      readonly message: string;
+    });
 
 export type GitHostLandTargetClassification =
   | {
@@ -261,6 +268,12 @@ export type GitHostLandTargetClassification =
     }
   | { readonly kind: 'missing'; readonly path: string }
   | { readonly kind: 'empty_directory'; readonly path: string }
+  | {
+      readonly kind: 'materialized_repository';
+      readonly path: string;
+      readonly branch: string;
+      readonly landedSha: string;
+    }
   | { readonly kind: 'occupied_directory'; readonly path: string; readonly entries: readonly string[] };
 
 export type GitHostLandInspectResult =

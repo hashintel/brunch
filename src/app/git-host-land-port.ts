@@ -6,6 +6,7 @@ import type {
   GitHostLandInspectResult,
   GitHostLandMaterializeResult,
   GitHostLandPort,
+  GitHostLandTargetClassification,
 } from '../executor/execution-ports.js';
 import { runCommand, type CommandResult, type CommandRunner } from './command-runner.js';
 
@@ -79,16 +80,30 @@ export function createGitHostLandPort(options: { readonly run?: CommandRunner } 
             sideEffects: [],
           };
         }
+        const replay =
+          targetClassification.kind === 'occupied_directory'
+            ? await replayMaterializedTarget(command, args)
+            : undefined;
+        const inspectionTarget: GitHostLandTargetClassification = replay
+          ? {
+              kind: 'materialized_repository',
+              path: replay.targetDir,
+              branch: replay.branch,
+              landedSha: replay.landedSha,
+            }
+          : targetClassification;
         return {
           status: 'inspected',
           runBaseSha: args.runBaseSha,
           reviewTipSha,
           commits,
           changedPaths,
-          target: targetClassification,
+          target: inspectionTarget,
           conflictRehearsal: { status: 'not_applicable' },
           admissible:
-            targetClassification.kind === 'missing' || targetClassification.kind === 'empty_directory',
+            inspectionTarget.kind === 'missing' ||
+            inspectionTarget.kind === 'empty_directory' ||
+            inspectionTarget.kind === 'materialized_repository',
           sideEffects: [],
         };
       }

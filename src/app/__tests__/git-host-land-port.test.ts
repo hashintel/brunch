@@ -191,6 +191,8 @@ describe('createGitHostLandPort', () => {
           runBaseSha: baseSha,
           expectedTipSha: tipSha,
           targetDir,
+          branch: 'main',
+          message: 'brunch: land run-1',
         }),
       ).resolves.toMatchObject({
         status: 'inspected',
@@ -200,6 +202,50 @@ describe('createGitHostLandPort', () => {
         sideEffects: [],
       });
       await expect(access(targetDir)).rejects.toMatchObject({ code: 'ENOENT' });
+    });
+
+    it('admits an exact prior materialization so metadata persistence can retry', async () => {
+      const { root, runWorktreeDir, baseSha, tipSha } = await createGreenfieldFixture(
+        'brunch-host-land-inspect-materialized-retry-',
+      );
+      const targetDir = join(root, 'new-project');
+      const port = createGitHostLandPort();
+      const materialized = await port.materialize({
+        runWorktreeDir,
+        reviewRef: REVIEW_REF,
+        expectedTipSha: tipSha,
+        targetDir,
+        branch: 'main',
+        message: 'brunch: land run-1',
+      });
+      if (materialized.status !== 'landed') {
+        throw new Error(`materialize failed: ${JSON.stringify(materialized)}`);
+      }
+
+      await expect(
+        port.inspect({
+          strategy: 'materialize',
+          runWorktreeDir,
+          reviewRef: REVIEW_REF,
+          runBaseSha: baseSha,
+          expectedTipSha: tipSha,
+          targetDir,
+          branch: 'main',
+          message: 'brunch: land run-1',
+        }),
+      ).resolves.toMatchObject({
+        status: 'inspected',
+        target: {
+          kind: 'materialized_repository',
+          path: targetDir,
+          branch: 'main',
+          landedSha: materialized.landedSha,
+        },
+        conflictRehearsal: { status: 'not_applicable' },
+        admissible: true,
+        sideEffects: [],
+      });
+      expect(await git(targetDir, ['status', '--porcelain'])).toBe('');
     });
   });
 

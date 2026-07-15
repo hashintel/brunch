@@ -7,6 +7,7 @@ import { Type, type Static } from 'typebox';
 import type { GitHostLandPort } from '../../../../executor/execution-ports.js';
 import {
   applyLanding,
+  landingCommitMessage,
   preflightLanding,
   type LandingApplyResult,
   type LandingPreflightResult,
@@ -97,14 +98,26 @@ export async function runBrunchLandCommand(
     }
   }
 
-  const inspection = await deps.gitHostLand.inspect({
-    strategy: preflight.substrate === 'empty_dir' ? 'materialize' : 'integrate',
+  const inspectionBase = {
     runWorktreeDir: preflight.worktreeDir,
     reviewRef: preflight.reviewBranch,
     runBaseSha: preflight.runBaseSha,
     expectedTipSha: preflight.promotionCommitSha,
-    targetDir: targetDir ?? ctx.cwd,
-  });
+  };
+  const inspection =
+    preflight.substrate === 'empty_dir'
+      ? await deps.gitHostLand.inspect({
+          ...inspectionBase,
+          strategy: 'materialize',
+          targetDir: targetDir ?? ctx.cwd,
+          branch: 'main',
+          message: landingCommitMessage(runId),
+        })
+      : await deps.gitHostLand.inspect({
+          ...inspectionBase,
+          strategy: 'integrate',
+          targetDir: ctx.cwd,
+        });
   if (inspection.status !== 'inspected') {
     ctx.ui.notify(
       inspection.status === 'failed'
@@ -214,11 +227,13 @@ function renderInspectionConfirmation(
   const target =
     inspection.target.kind === 'repository'
       ? `Target: repository ${inspection.target.branch ?? '(detached)'} at ${inspection.target.path}`
-      : inspection.target.kind === 'missing'
-        ? `Target: missing directory ${inspection.target.path} (will create a fresh repository on main)`
-        : inspection.target.kind === 'empty_directory'
-          ? `Target: empty directory ${inspection.target.path} (will create a fresh repository on main)`
-          : `Target: occupied directory ${inspection.target.path}`;
+      : inspection.target.kind === 'materialized_repository'
+        ? `Target: verified prior Brunch materialization ${inspection.target.landedSha} on ${inspection.target.branch} at ${inspection.target.path}`
+        : inspection.target.kind === 'missing'
+          ? `Target: missing directory ${inspection.target.path} (will create a fresh repository on main)`
+          : inspection.target.kind === 'empty_directory'
+            ? `Target: empty directory ${inspection.target.path} (will create a fresh repository on main)`
+            : `Target: occupied directory ${inspection.target.path}`;
   const rehearsal =
     inspection.conflictRehearsal.status === 'clean'
       ? 'Conflict rehearsal: clean'
