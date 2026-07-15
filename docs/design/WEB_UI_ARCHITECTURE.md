@@ -1,6 +1,6 @@
 # Web UI and live-session host architecture
 
-Status: accepted and materialized design synthesis; input to `memory/SPEC.md`, not a second product contract or plan. FE-1200 completed the standalone host, concurrent target isolation, and I65-L's full required presentation-family sweep: ordinary messages; all supported ask modes; candidate, review-set, and digest offers/continuations; and receipt-bearing review settlement. Current state authority is `memory/SPEC.md` plus the co-located `src/**/TOPOLOGY.md` homes; this doc keeps the design rationale.
+Status: accepted design synthesis and transition guide; input to `memory/SPEC.md`, not a second product contract or plan. FE-1200 materialized the standalone host, concurrent target isolation, and I65-L's full required presentation-family sweep: ordinary messages; all supported ask modes; candidate, review-set, and digest offers/continuations; and receipt-bearing review settlement. It did **not** complete the architecture replacement: the TUI still owns a separate live Pi runtime plus the raw `SessionEventRelay`/`/rpc/driver` sidecar path. The planned `shared-session-host-convergence` arc must prove a real TUI against one independent host, then retire that duplicate path. Current state authority is `memory/SPEC.md` plus the co-located `src/**/TOPOLOGY.md` homes; this doc keeps the rationale, colleague entry path, and intended transition.
 
 This document supersedes the architectural recommendations in:
 
@@ -24,13 +24,92 @@ Brunch needs a standalone browser experience that presents the same Specify- and
 
 This is not a second chat product. It is a new presentation and driver head over the same Brunch session model.
 
+## Colleague entry: run it and find the seams
+
+### Current runnable modes
+
+From a published alpha package:
+
+```bash
+# TUI + transitional TUI-owned browser sidecar
+npx @hashintel/brunch@alpha
+
+# Standalone target-addressed web host (no InteractiveMode)
+npx @hashintel/brunch@alpha --mode web
+```
+
+From this repository, build the browser bundle before launching the source host:
+
+```bash
+npm install
+npm run build:web
+
+# Current TUI-owned runtime + sidecar
+npm run dev -- --cwd <workspace>
+
+# FE-1200 standalone combined host
+npm run dev -- --cwd <workspace> --mode web
+```
+
+Both commands print a loopback URL. The standalone root route lists specs and runs, but it does not yet expose a session picker. To exercise the session UI, open `/session/<specId>/<sessionId>`; the selected ids are recorded in `<workspace>/.brunch/workspace.json` under `defaults`. Do **not** run the current TUI and standalone web mode as independent writers over the same session: FE-1200 rejects duplicate hosted opens inside one host, but the cross-process single-authority transition is precisely the work still open.
+
+Provider auth lives in Pi's native auth store. Configure it with `/login` in the TUI (or Pi itself) before expecting standalone web turns to reach a provider; there is no `brunch login` command.
+
+### Current code journey
+
+```pseudo
+standalone web request
+  src/app/brunch.ts
+    -> src/app/brunch-web.ts
+      -> src/session/live-session-host.ts
+        -> sealed Pi AgentSession + live ask registry
+      -> src/rpc/web-host.ts
+        -> src/rpc/methods/hosted-session.ts
+        -> brunch.liveSessionEvent
+      -> src/web/routes/session.tsx
+        -> JSONL session.presentation + ephemeral live overlay
+
+transitional TUI + sidecar
+  src/app/brunch-tui.ts
+    -> separately-created Pi AgentSession + InteractiveMode
+    -> src/rpc/session-event-relay.ts          # raw Pi event relay
+    -> src/rpc/web-host.ts /rpc/driver         # handle-gated sidecar driver
+```
+
+Start with the standalone path when changing session hosting or React presentation. Read the TUI path when changing the transition: it is current product behavior, but its session host/relay shape is the architecture to absorb and delete—not a second pattern to extend.
+
+### Current versus intended topology
+
+```pseudo
+current:
+  TUI process
+    owns Pi runtime A
+    owns raw SessionEventRelay
+    serves /rpc + /rpc/driver sidecar
+
+  standalone web process
+    owns LiveSessionHost
+      owns Pi runtime B...
+    serves target-addressed /rpc + semantic events
+
+intended:
+  one independent cwd-scoped Brunch session host
+    owns sealed Pi runtimes + JSONL writers
+    owns graph command authority
+    owns driver lease/handoff + semantic events
+      <- TUI client/adapter
+      <- React client
+```
+
+FE-1200 proved the lower standalone half: host inventory, explicit targets, concurrent isolation, semantic projection, and browser coverage. It did not prove the Pi TUI attachment. `shared-session-host-tracer` owns that load-bearing proof (A47-L); `shared-session-host-cutover` then closes the enumerated migration and deletes `SessionEventRelay`, `brunch.sessionEvent`, `/rpc/driver`, and TUI-owned parallel host wiring.
+
 ## 2. Decisions reached
 
 ### 2.1 Standalone web is a primary presentation mode
 
 The target is not a read-only attachment to a running TUI. A user can launch Brunch in web mode without constructing `InteractiveMode` or opening a terminal UI. The web client can drive hosted sessions directly.
 
-The current TUI sidecar remains useful implementation evidence, but its TUI-owned singleton lifetime is no longer the target architecture.
+The current TUI sidecar remains useful implementation evidence and current alpha behavior, but its TUI-owned singleton lifetime is transitional—not a second architecture Brunch intends to support indefinitely. The target is one independent session host used by both TUI and React presentations; the TUI remains a first-class product surface rather than being removed or reduced to a token client.
 
 ### 2.2 One cwd-scoped host owns many live sessions
 
@@ -44,9 +123,9 @@ Each live session is an in-process, sealed Pi `AgentSession` created through Bru
 
 Pi's RPC mode remains relevant prior art and a possible process-isolation mechanism, but it is not the substrate for this Node/TypeScript custom UI. Using it now would add a Pi-RPC-to-Brunch-RPC translation layer while weakening direct access to Brunch's typed runtime, extensions, coordinator, and command authority.
 
-### 2.4 HTTP/WebSocket and live sessions share one process initially
+### 2.4 FE-1200 shares HTTP/WebSocket and live sessions in one process; convergence separates clients from host authority
 
-The first architecture is one foreground Brunch process that:
+The materialized FE-1200 architecture is one foreground Brunch process that:
 
 - serves the built React application;
 - exposes Brunch JSON-RPC over WebSocket;
@@ -61,7 +140,9 @@ Browser disconnects and reloads do not end sessions. A host-process restart does
 // or crash isolation becomes a demonstrated product requirement.
 ```
 
-This differs deliberately from jmfederico/pi-web's three-process deployment. Brunch borrows its long-lived session-host concept, not every process boundary.
+This first step differs deliberately from jmfederico/pi-web's three-process deployment. FE-1200 borrowed its long-lived session-host concept without yet taking the process boundary. The user-set target now takes the next part of that pattern: one independent cwd-scoped host owns runtime authority while TUI and React attach as presentations. Brunch still rejects pi-web's Pi-shaped REST/raw-event contract, machine federation, and remote-auth expansion.
+
+The load-bearing unknown is the TUI adapter. Pi exports `InteractiveMode` over an in-process `AgentSessionRuntime`; it does not export a ready-made remote TUI client. The transition therefore starts with a production-cover tracer, not a paper daemon abstraction. The winning shape may keep `InteractiveMode` colocated with the host process or introduce a Brunch-owned client adapter, but it must preserve the real TUI experience, one writer, and Brunch semantic browser boundary. It must not solve the diagram by constructing a second Pi runtime or retaining a permanent second relay.
 
 ### 2.5 One driver per session, many observers
 
@@ -125,7 +206,9 @@ The host must not send ANSI/TUI output or server-rendered HTML to the browser. T
 
 A completeness oracle should inventory every Brunch-specific presentation family and prove that each required audience has an adapter. Some internal/custom entries intentionally have no human renderer; absence must be declared rather than accidental.
 
-## 3. Target topology
+## 3. FE-1200 materialized topology and convergence target
+
+FE-1200 materialized this standalone topology:
 
 ```text
 brunch --mode web (one cwd)
@@ -155,32 +238,55 @@ browser
   └─ React renderers over shared presentation models
 ```
 
-The architecture supports several independently streaming sessions. FE-1200 first proved one inventory member, then validated two production-wired targets under overlapping asks, graph writes, failure/recovery, reconnect, and separate JSONL readback.
+This architecture supports several independently streaming sessions. FE-1200 first proved one inventory member, then validated two production-wired targets under overlapping asks, graph writes, failure/recovery, reconnect, and separate JSONL readback.
+
+The replacement target moves that authority out of any one presentation lifecycle:
+
+```text
+brunch host / session daemon (one cwd)
+  ├─ WorkspaceSessionCoordinator
+  ├─ CommandExecutor / graph authority
+  ├─ Brunch product RPC + semantic subscriptions
+  └─ LiveSessionHost
+       ├─ target A -> one sealed Pi runtime / JSONL writer / driver lease
+       └─ target B -> one sealed Pi runtime / JSONL writer / driver lease
+
+presentations
+  ├─ Pi TUI client/adapter -> host target A
+  └─ React client         -> host target A or B
+```
+
+The host is the writer and lifetime authority; TUI and React are presentations. Whether Pi's `InteractiveMode` can be cleanly colocated with that host or needs a Brunch-owned remote adapter is A47-L, not a settled implementation detail. The tracer must answer it with production cover before the current TUI path is removed.
 
 ## 4. Existing pieces
 
 The repository already contains most single-session mechanics.
 
-| Existing piece | Current value | Required evolution |
+| Existing piece | FE-1200 current value | Shared-host transition |
 | --- | --- | --- |
-| `src/app/brunch-tui.ts` and Brunch runtime factory | Creates a sealed Brunch Pi runtime with coordinator/tool/extension wiring | Extract hostable runtime creation from TUI ownership; instantiate once per target session |
-| `src/session/workspace-session-coordinator.ts` | Durable workspace/spec/session selection and binding | Supply explicit targets to the host; do not become live-runtime inventory |
-| `src/rpc/web-host.ts` | Serves React assets and `/rpc`/`/rpc/driver` WebSockets | Become the standalone combined host; use one multi-session handler surface rather than a singleton sidecar handle |
-| `src/rpc/session-event-relay.ts` | Proven live Pi event relay with reconnect/fan-out tests | Replace single attached source with session-indexed streams and target-bearing frames |
-| `session.driveTurn` | Proven browser/headless prompt path into one live session | Require explicit target and route through `LiveSessionHost` |
-| `session.openAsks` / `session.answerExchange` | Proven headless discovery and answering for every current `ask` mode, within declared Other/comment ceilings | Require explicit target and route to that runtime's registry/broker |
+| `src/app/brunch-tui.ts` and Brunch runtime factory | Creates a separate sealed Pi runtime and `InteractiveMode`; still owns the sidecar relay/driver handles | Prove and adopt a TUI adapter over the one host-owned runtime; remove TUI-owned session-host composition |
+| `src/app/brunch-web.ts` | Creates `LiveSessionHost`, sealed target runtimes, semantic event projection, and the combined HTTP/RPC host | Move/compose this authority into the independent cwd-scoped host used by both presentations |
+| `src/session/workspace-session-coordinator.ts` | Supplies explicit target opens without changing workspace defaults | Keep as durable workspace/spec/session coordination; do not turn it into runtime inventory |
+| `src/session/live-session-host.ts` | Target-addressed in-process runtime inventory, prompt admission, ask answering, driver ownership, and semantic fan-out | Deepen or adapt behind the shared host process; remain the canonical live-session module rather than growing a sibling host |
+| `src/rpc/web-host.ts` | Serves React; chooses either standalone hosted-session `/rpc` or TUI-sidecar `/rpc` + `/rpc/driver` | Collapse to one host-facing Brunch RPC surface; delete the sidecar selection and `/rpc/driver` |
+| `src/rpc/session-event-relay.ts` | Raw, singleton TUI-sidecar Pi event relay | Delete after every required consumer uses target-addressed semantic events |
+| `session.driveTurn` / `session.openAsks` / `session.answerExchange` | Standalone forms require explicit target (and driver where mutating); sidecar forms use process-local handles | Keep only the host-owned target-addressed contract plus explicit lease/handoff semantics |
 | `brunch.updated` | Product-shaped invalidation hints | Keep; invalidate named durable projections rather than patching raw event truth |
-| `src/web/rpc-client.ts` | One generic WebSocket JSON-RPC client | Keep transport-only; multiplex session-addressed events |
-| TanStack Router + Query web runtime | Route/data ownership and product cache | Add session routes, hydration query, live overlay, and driver mutations |
-| `src/.pi/extensions/exchanges/` and `src/exchanges/` | Canonical structured-exchange details, formatters, TUI renderers, and answer mechanics | Extract/extend shared semantic presentation projections; add React adapters |
-| Pi JSONL session files | Canonical transcript and Brunch continuity entries | Remain truth; add a named web-facing session presentation projection, not a mirror store |
-| Web-driver streaming oracle battery | Proves event/transcript differential, ordering, fan-out, reconnect, turn driving, and exchange convergence through the real host | Rebase from singleton TUI sidecar to explicit hosted-session target |
+| `src/web/rpc-client.ts` | Generic WebSocket RPC plus validated/target-filtered `brunch.liveSessionEvent` subscription | Keep transport-only; do not regain raw `brunch.sessionEvent` knowledge |
+| TanStack Router + Query web runtime | Session route, hydration query, live overlay, and driver mutations are built | Add session inventory/lifecycle UI only if the cutover's real client workflow requires it; do not make it a hidden prerequisite |
+| `src/.pi/extensions/exchanges/` and `src/exchanges/` | Canonical details/answer mechanics feed shared semantic projections plus TUI/React adapters | Preserve one semantic model; the host transition must not merge platform components or duplicate decoders |
+| Pi JSONL session files | Canonical transcript and Brunch continuity truth behind `session.presentation` | Remain truth; one host owns each writer and clients refetch after settlement/reconnect |
+| Sidecar + standalone oracle batteries | Prove both current paths independently | Rebase required proofs onto one host, then delete sidecar-only harnesses rather than keeping parity tests forever |
 
-## 5. Missing pieces
+## 5. Materialized modules and remaining cutover responsibility
+
+Sections 5.1–5.5 were the FE-1200 build map. They now describe shipped modules; each status line distinguishes current evidence from shared-host transition work.
 
 ### 5.1 `LiveSessionHost`
 
-A deep internal module must hide:
+**Materialized:** `src/session/live-session-host.ts` is the standalone runtime inventory. **Transition:** prove the TUI adapter, then make this module or its traced successor the sole host inventory.
+
+The deep internal module hides:
 
 - the map from durable Brunch session target to live runtime;
 - idempotent open/attach behavior;
@@ -194,6 +300,8 @@ A deep internal module must hide:
 Its public interface should be small and target-addressed. It must not own graph truth, transcript interpretation, executor runs, client UI state, or cross-project discovery.
 
 ### 5.2 Durable session presentation projection
+
+**Materialized:** `src/projections/session/session-presentation.ts` reconstructs the visible active branch for hydration, refresh, and reconnect. The cutover preserves it as the durable presentation truth for both clients where the TUI uses shared semantics; it must not create a daemon-side mirror store.
 
 The browser needs a named projection that can reconstruct the visible active branch of an on-disk session after initial load, refresh, or reconnect.
 
@@ -210,6 +318,8 @@ The exact projection API and union shape need `ln-design` before implementation.
 
 ### 5.3 Live/durable reconciliation in the web client
 
+**Materialized:** `src/web/routes/session.tsx` hydrates from the durable projection, reduces target-filtered semantic deltas, and discards the overlay/refetches on `agent_settled`. The cutover rebases its transport attachment onto the independent host without changing this truth model.
+
 The client must:
 
 - hydrate from the durable projection;
@@ -223,13 +333,17 @@ Canonical truth is refetched rather than reconstructed indefinitely from raw eve
 
 ### 5.4 Web renderer family
 
-The first tracer needs ordinary text plus one representative structured `ask`. Later coverage must enumerate all current Brunch-specific visible families, including offer results such as candidates, digest, and review set, as well as any product-visible runtime/tool results outside exchanges.
+**Materialized:** FE-1200's I65-L sweep closed the required persisted family inventory. The shared-host cutover treats renderer semantics as protected behavior, not migration work, unless the host move reveals a real missing consumer.
+
+The first tracer needed ordinary text plus one representative structured `ask`. Later FE-1200 coverage enumerated all current Brunch-specific visible families, including offer results such as candidates, digest, and review set, as well as product-visible runtime/tool results outside exchanges.
 
 This later work is a sweep: closure means every required inventory row has a shared semantic projection, React renderer, and oracle, or an explicit `n/a` disposition.
 
 ### 5.5 Standalone host entry and shutdown
 
-Shipped for the tracer (FE-1200): `--mode web` now starts the standalone combined host (`src/app/brunch-web.ts`). The entry:
+**Materialized:** `--mode web` starts the standalone combined host (`src/app/brunch-web.ts`). **Transition:** host lifecycle must become independent of either presentation while preserving honest restart degradation.
+
+The current entry:
 
 - initializes workspace/coordinator/graph authority without `InteractiveMode`;
 - starts the combined web/session host on loopback;
@@ -251,7 +365,7 @@ Remaining polish (URL auto-open, host status, failed-session recovery ergonomics
 | Durable hydration plus live overlay can converge without a canonical event store | Required by the no-mirror-store discipline | Differential oracle: after settlement/reconnect, rendered semantic records equal a fresh JSONL-derived projection |
 | One browser driver by construction is sufficient for the first proof | Avoids premature lease machinery | Real host test rejects a second driver attachment or otherwise proves unambiguous ownership |
 
-## 7. First branch: minimal end-to-end proof
+## 7. Historical FE-1200 first branch: minimal end-to-end proof
 
 ### Claim
 
@@ -309,16 +423,32 @@ brunch --mode web
 6. **No second truth plane:** the test succeeds after deleting browser cache and rehydrating solely from canonical stores.
 7. **Manual feel check:** streaming text, busy/settled state, ask interaction, reload, and error leg are usable in the browser. Visual quality is not proven by DOM assertions alone.
 
-## 8. Work after the tracer
+## 8. Transition after FE-1200
 
-These are candidate closure packages, not yet PLAN frontier definitions.
+FE-1200 completed the original tracer's concurrency and renderer-coverage packages. The remaining work is no longer “more standalone web”; it is replacement of the dual host architecture. `memory/PLAN.md` owns two frontiers under the `shared-session-host-convergence` arc.
 
-1. **Multi-session concurrency closure** — open and drive two sessions concurrently; prove isolated events, asks, transcript writes, and shared graph-command behavior.
-2. **Web renderer coverage sweep** — close the enumerated presentation-family inventory.
-3. **Driver ownership and reconnect** — explicit attachment ownership, stale-driver rejection, and handoff semantics; introduce a write lease only when actual contention exists.
-4. **Session inventory and lifecycle UI** — open/create/close/reopen tabs across specs without confusing durable session existence with live-host status.
-5. **Launch and recovery polish** — URL opening, host status, failed-session recovery, graceful shutdown, and honest restart behavior.
-6. **Optional process split** — only if independent web/API restart or host crash isolation becomes a demonstrated requirement.
+### 8.1 Prove the TUI attachment (`shared-session-host-tracer`)
+
+One independently-lived cwd-scoped host owns one writable target runtime. Attach a real TUI presentation and React to that same target; exercise an ordinary turn, structured ask, TUI-only product interaction, detach/reconnect, driver conflict, and fresh JSONL convergence. This retires A47-L and selects the TUI adapter/process shape. The proof must preserve the actual TUI value—editor, chrome, commands, extension UI—not substitute a line-oriented demo client.
+
+### 8.2 Close the inventory and delete the bridge (`shared-session-host-cutover`)
+
+After the tracer, derive a closed sweep ledger from the production TUI composition, RPC registries, web routes, and existing tests. Migrate every required lifecycle/UI/exchange/read/update/shutdown capability to the one host. Then delete the old architecture:
+
+```pseudo
+- src/rpc/session-event-relay.ts
+- brunch.sessionEvent
+- /rpc/driver
+- handle-gated sidecar registry variants
+- brunch-tui.ts -> raw relay/driver/broker -> startWebHost wiring
+- sidecar-only tests/support/docs
+```
+
+The cutover is not complete while both paths still pass. Its completion signal is one host authority, two useful presentations, one semantic browser contract, and absence of the deletion inventory from production/test topology.
+
+### 8.3 Deferred beyond convergence
+
+Cross-machine federation, remote auth, generic terminals/git/files, cloud hosting, and survival of an in-flight turn across host-process crash remain outside the POC. Session inventory UI and launch polish enter only when required by the actual shared-host client workflow; they are not excuses to delay relay retirement.
 
 ## 9. Prior-art synthesis
 
@@ -364,12 +494,13 @@ Do not use as the first Brunch host substrate. Pi's own SDK guidance prefers dir
 
 FE-1200 is complete; the once-pending reconciliation is discharged:
 
-1. ✓ `ln-spec` updated the Product Contract and decisions: web is a primary presentation mode (req 4/31/32, D132-L/D133-L, A43-L/A44-L, I64-L/I65-L). No read-only-sidecar/future-only wording remains in `memory/SPEC.md`.
+1. ✓ `ln-spec` updated the Product Contract and decisions: standalone web is a primary presentation mode (req 4/31/32, D132-L/D133-L, A43-L/A44-L, I64-L/I65-L). The remaining TUI-sidecar wording is now explicitly transitional: A47-L plus the `shared-session-host-convergence` arc own proof and retirement rather than pretending FE-1200 already replaced it.
 2. ✓ `ln-plan` closed and archived the single `standalone-web-session-host` (FE-1200) frontier after its tracer, concurrency, and presentation-coverage slices.
 3. ✓ I65-L required-family coverage is complete: projection no-loss/malformed tests cover every required persisted ask terminal shape, including questionnaire read-back; React render/answer tests cover free text and listed single/multi choices; headless bounded-questionnaire answering remains available through the schema-tagged string/JSON envelope, without a dedicated React questionnaire form; distinct candidate/review-set/digest production settlement/reconnect witnesses, concurrency/target isolation, and receipt-bearing review settlement complete the oracle.
 4. ✓ `ln-design`-level interface choices for `LiveSessionHost` and the session-presentation projection are materialized in `src/session/live-session-host.ts` and `src/projections/session/`.
 5. ✓ Current state is reconciled into `src/app/TOPOLOGY.md`, `src/rpc/TOPOLOGY.md`, `src/session/TOPOLOGY.md`, and `src/web/TOPOLOGY.md` (standalone combined host + TUI sidecar both described as shipped surfaces).
-6. ○ The superseded comparative notes remain historical evidence (see §References); they are not competing active recommendations.
+6. ○ The superseded comparative notes remain historical evidence (see §References); they are not competing active recommendations. Their pi-web process-shape recommendation is carried forward here and in A47-L/PLAN, while their stale current-state descriptions remain archived evidence only.
+7. ◐ Full architecture replacement is open: `shared-session-host-tracer` must prove the TUI attachment seam, then `shared-session-host-cutover` must retire D84-L and delete the raw sidecar relay/driver path.
 
 ## 11. References
 

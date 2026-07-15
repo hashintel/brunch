@@ -10,6 +10,20 @@ Outer-loop verification for slices that touch the user-facing boundary. Manual t
 
 This keeps the dev process and browser observable without leaving the agent session.
 
+### Shared-host transition evidence
+
+The current TUI sidecar and standalone web host are separate runtime compositions. Do not mistake running each successfully for proof that the new architecture replaced the old one. Work under PLAN arc `shared-session-host-convergence` must capture one compound outer witness against the **same durable target and sole writable runtime**:
+
+1. start the independent host and record its process/runtime target identity;
+2. attach the real TUI presentation and React client;
+3. drive an ordinary turn plus one structured ask from the active driver;
+4. observe the same target-addressed semantic stream and fresh JSONL settlement in React;
+5. detach/restart one client without terminating or duplicating the hosted runtime;
+6. exercise driver conflict or explicit handoff; and
+7. confirm the TUI's editor, chrome, command/extension UI, and transcript remain useful.
+
+Record the current/desired path and exact deletion evidence in the frontier's walkthrough artifact. The cutover is not witnessed while `SessionEventRelay`, `brunch.sessionEvent`, or `/rpc/driver` remains load-bearing. See [`docs/design/WEB_UI_ARCHITECTURE.md`](../design/WEB_UI_ARCHITECTURE.md).
+
 ### Sandboxed-agent fallback: tui-driver
 
 Agent sandboxes that deny socket binds break every daemon-backed terminal tool (cmux, agent-tui, shellwright). The in-repo fallback is `npm run tui-driver` (`src/dev/tui-driver.ts`): an `expect`-pumped PTY per named session, with true screen rendering through a headless xterm and wait-for-text instead of sleep-and-hope. Sessions live under gitignored `.fixtures/scratch/tui-driver/<name>/`.

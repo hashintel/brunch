@@ -13,6 +13,10 @@ Current entrypoints:
 - `print-workspace-state.ts` — terse human/product print-mode rendering for `brunch --mode print`.
 - `brunch-tui.ts` — TUI launch path, embedded Pi session runtime wiring, and the web sidecar. It passes Pi's native model registry directly into session creation and leaves model and thinking selection to Pi. Its boot-kick `sendCustomMessage` adapter resolves at scheduling time and serializes seed and kick sends.
 
+## Live migration: shared session host convergence
+
+FE-1200 materialized `brunch-web.ts` as a target-addressed host, but `brunch-tui.ts` still composes a separate writable Pi runtime plus raw sidecar relay/driver handles. This is transitional topology, not two permanent composition roots. PLAN arc `shared-session-host-convergence` first proves the `InteractiveMode` attachment to one independent cwd-scoped host (A47-L), then removes the TUI-owned runtime/relay handoff to `startWebHost`. Until that tracer lands, preserve current TUI behavior but do not add new capability exclusively to the sidecar path. Target rationale and colleague entry: [`docs/design/WEB_UI_ARCHITECTURE.md`](../../docs/design/WEB_UI_ARCHITECTURE.md).
+
 Current runtime support modules:
 
 - `pi-settings.ts` — the sealed Pi profile, including the soft recommended `anthropic` / `claude-sonnet-4-6` default. The default is not an allowlist; Pi's native `/model` surface may select any supported provider/model/thinking combination. Its `systemPromptOverride` deliberately replaces Pi's coding-assistant base prompt wholesale with a short Brunch preamble; Brunch prompt composition supplies the product context that follows.
