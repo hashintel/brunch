@@ -1237,6 +1237,18 @@ describe('execute replanning methods', () => {
         ],
       },
       epics: [{ id: 'F1', summary: 'Execution handoff', depends_on: [], verification: [] }],
+      execution_contract: {
+        schemaVersion: 1,
+        requiredCapabilities: [],
+        detectedCapabilities: [],
+        resolvedActions: {
+          setup: [],
+          build: [],
+          verify: [],
+        },
+        blocked: [],
+        conflicts: [],
+      },
       scope_handoff_required: true,
       slices: [
         {

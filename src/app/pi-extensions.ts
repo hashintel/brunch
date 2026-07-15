@@ -98,6 +98,7 @@ import { createGitLandPort } from './git-land-port.js';
 import { createGitSliceIntegrationPort } from './git-slice-integration-port.js';
 import { createGitWorktreePort } from './git-worktree-port.js';
 import { registerBrunchKeybindingPolicy } from './pi-keybindings.js';
+import { createPlannerPort } from './planner-port.js';
 import { createTestRunnerPort } from './test-runner-port.js';
 
 export function registerBrunchAlternatives(pi: ExtensionAPI): void {
@@ -327,6 +328,11 @@ export function createBrunchPiExtensions(
     const chromeRefresh: { current: (() => void) | null } = { current: null };
     const graph = options.graph;
     const executionPorts: ExecutionPorts = {
+      ...(options.executionPorts?.planner
+        ? { planner: options.executionPorts.planner }
+        : options.subagents
+          ? { planner: createPlannerPort({ subagents: options.subagents }) }
+          : {}),
       gitWorktree: options.executionPorts?.gitWorktree ?? createGitWorktreePort(),
       gitSliceIntegration: options.executionPorts?.gitSliceIntegration ?? createGitSliceIntegrationPort(),
       agentRunner:
@@ -373,7 +379,15 @@ export function createBrunchPiExtensions(
         ),
       (api) => registerBrunchExecuteAgentResult(api, executionPorts.agentRunner),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteLaunch(api, graph)] : []),
-      ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanFile(api, graph)] : []),
+      ...(graph
+        ? [
+            (api: ExtensionAPI) =>
+              registerBrunchExecutePlanFile(api, {
+                ...graph,
+                ...(executionPorts.planner ? { planner: executionPorts.planner } : {}),
+              }),
+          ]
+        : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanPreview(api, graph)] : []),
       registerBrunchExecutePetriExport,
       (api) => registerBrunchExecutePromotionPrepare(api, executionPorts.gitLand),

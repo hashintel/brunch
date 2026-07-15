@@ -47,7 +47,15 @@ const snapshot: ExecutionSpecSnapshot = {
       verificationCriterionIds: [],
     },
   ],
-  context: { constraints: [], invariants: [], decisions: [], examples: [], design: [], oracle: [] },
+  context: {
+    constraints: [],
+    invariants: [],
+    decisions: [],
+    examples: [],
+    design: [],
+    oracle: [],
+    executionHarnesses: [],
+  },
   scopes: [
     {
       itemId: 'SCP1',

@@ -77,6 +77,9 @@ type PlanKind = (typeof PLAN_KINDS)[number];
 /** Union of every node kind across all planes. */
 export type NodeKind = IntentKind | OracleKind | DesignKind | PlanKind;
 
+/** Canonical title that gives one settled V&V method execution-command authority (D130-L). */
+export const PROJECT_EXECUTION_HARNESS_TITLE = 'Project execution harness';
+
 export interface NodeKindMetadata {
   readonly label: string;
 }

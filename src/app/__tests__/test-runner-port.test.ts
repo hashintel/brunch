@@ -31,13 +31,14 @@ describe('createTestRunnerPort', () => {
 
     const result = await port.run({
       worktreeDir: '/repo/.brunch/cook/runs/run-1/worktree',
+      verifyTarget: { command: 'npm', args: ['run', 'verify'] },
       signal: controller.signal,
     });
 
     expect(calls).toEqual([
       {
         command: 'npm',
-        args: ['--prefix', '/repo/.brunch/cook/runs/run-1/worktree', 'run', 'verify'],
+        args: ['run', 'verify'],
         cwd: '/repo/.brunch/cook/runs/run-1/worktree',
         signal: controller.signal,
         timeoutMs: 10 * 60_000,
@@ -58,7 +59,9 @@ describe('createTestRunnerPort', () => {
       run: async () => ({ exitCode: 1, stdout: '', stderr: '2 tests failed' }),
     });
 
-    await expect(port.run({ worktreeDir: '/repo/wt' })).resolves.toEqual({
+    await expect(
+      port.run({ worktreeDir: '/repo/wt', verifyTarget: { command: 'npm', args: ['run', 'verify'] } }),
+    ).resolves.toEqual({
       status: 'completed',
       verdict: 'failed',
       exitCode: 1,
@@ -71,7 +74,9 @@ describe('createTestRunnerPort', () => {
       run: async () => ({ exitCode: 1, stdout: '', stderr: '', spawnError: 'spawn npm ENOENT' }),
     });
 
-    await expect(port.run({ worktreeDir: '/repo/wt' })).resolves.toEqual({
+    await expect(
+      port.run({ worktreeDir: '/repo/wt', verifyTarget: { command: 'npm', args: ['run', 'verify'] } }),
+    ).resolves.toEqual({
       status: 'failed',
       message: 'spawn npm ENOENT',
     });
@@ -82,7 +87,9 @@ describe('createTestRunnerPort', () => {
       run: async () => ({ exitCode: 1, stdout: '', stderr: '', aborted: true }),
     });
 
-    await expect(port.run({ worktreeDir: '/repo/wt' })).resolves.toEqual({
+    await expect(
+      port.run({ worktreeDir: '/repo/wt', verifyTarget: { command: 'npm', args: ['run', 'verify'] } }),
+    ).resolves.toEqual({
       status: 'failed',
       message: 'npm run verify aborted',
     });
@@ -93,30 +100,15 @@ describe('createTestRunnerPort', () => {
       run: async () => ({ exitCode: 1, stdout: '', stderr: '', timedOut: true }),
     });
 
-    await expect(port.run({ worktreeDir: '/repo/wt' })).resolves.toEqual({
+    await expect(
+      port.run({ worktreeDir: '/repo/wt', verifyTarget: { command: 'npm', args: ['run', 'verify'] } }),
+    ).resolves.toEqual({
       status: 'failed',
       message: 'npm run verify timed out after 600000ms',
     });
   });
 
-  it('honors a custom verify command and args', async () => {
-    const calls: Array<{ command: string; args: readonly string[] }> = [];
-    const port = createTestRunnerPort({
-      command: 'pnpm',
-      args: ['test'],
-      run: async (command, args) => {
-        calls.push({ command, args });
-        return { exitCode: 0, stdout: '', stderr: '' };
-      },
-    });
-
-    const result = await port.run({ worktreeDir: '/repo/wt' });
-
-    expect(calls).toEqual([{ command: 'pnpm', args: ['test'] }]);
-    expect(result).toMatchObject({ status: 'completed', verdict: 'passed', target: 'pnpm test' });
-  });
-
-  it('lets a run-level verify target override the port default', async () => {
+  it('runs a non-npm target without command-specific argument rewriting', async () => {
     const calls: Array<{ command: string; args: readonly string[] }> = [];
     const port = createTestRunnerPort({
       run: async (command, args) => {
@@ -127,11 +119,11 @@ describe('createTestRunnerPort', () => {
 
     const result = await port.run({
       worktreeDir: '/repo/wt',
-      verifyTarget: { command: 'npm', args: ['test'] },
+      verifyTarget: { command: 'pnpm', args: ['test'] },
     });
 
-    expect(calls).toEqual([{ command: 'npm', args: ['--prefix', '/repo/wt', 'test'] }]);
-    expect(result).toMatchObject({ status: 'completed', verdict: 'passed', target: 'npm test' });
+    expect(calls).toEqual([{ command: 'pnpm', args: ['test'] }]);
+    expect(result).toMatchObject({ status: 'completed', verdict: 'passed', target: 'pnpm test' });
   });
 
   it('emits status and subprocess output updates', async () => {
@@ -145,6 +137,7 @@ describe('createTestRunnerPort', () => {
 
     const result = await port.run({
       worktreeDir: '/repo/wt',
+      verifyTarget: { command: 'npm', args: ['run', 'verify'] },
       onUpdate: (update) => {
         updates.push(update);
       },
@@ -175,6 +168,7 @@ describe('createTestRunnerPort', () => {
     const run = port
       .run({
         worktreeDir: '/repo/wt',
+        verifyTarget: { command: 'npm', args: ['run', 'verify'] },
         onUpdate: async (update) => {
           updates.push(update);
           if (update.kind === 'stdout') await stdoutPersisted;
@@ -201,5 +195,21 @@ describe('createTestRunnerPort', () => {
       { kind: 'stdout', message: 'chunk' },
       { kind: 'status', message: 'npm run verify exited 0' },
     ]);
+  });
+
+  it('fails typed when no verify target is configured instead of running an ambient default', async () => {
+    let invoked = false;
+    const port = createTestRunnerPort({
+      run: async () => {
+        invoked = true;
+        return { exitCode: 0, stdout: '', stderr: '' };
+      },
+    });
+
+    await expect(port.run({ worktreeDir: '/repo/wt' })).resolves.toEqual({
+      status: 'failed',
+      message: 'no verify target configured for this run',
+    });
+    expect(invoked).toBe(false);
   });
 });

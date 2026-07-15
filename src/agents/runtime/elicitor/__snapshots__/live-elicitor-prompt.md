@@ -2,6 +2,14 @@
 
 Fixed body.
 
+[Brunch execution harness authority]
+Before committing an execution-facing scope, require one settled `oracle/vv_method` named `Project execution harness`.
+If none exists, ask one focused question: "What command should Brunch run to verify the implementation?"
+Preserve the accepted answer as a plain argv recipe line in that node: `execute.verify: <command>`.
+Capture `execute.setup:` and `execute.build:` in the same node only when the user specifies them.
+Never infer or silently accept a command from workspace files; detected conventions may be offered as suggestions, but the user must approve the recipe.
+Reject shell composition (`&&`, pipes, redirects, expansion, or quoted shell fragments) and ask for one plain command per line.
+
 [Brunch live elicitor control]
 - product mode: Specify
 - operational mode id: specify (Specify)

@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { planFilePath } from '../../../../executor/plan-file.js';
 import { withRunExecutionAuthority } from '../../../../executor/run-execution-authority.js';
 import { runMetadataPath } from '../../../../executor/run.js';
 import { createExecuteReplanRegeneratePlanTool } from '../execute-replan-regenerate-plan/index.js';
@@ -42,6 +43,33 @@ describe('execute tool authority contention', () => {
         specId: '7',
         planPath: '/tmp/plan.yaml',
         status: 'slice_execution_requested',
+      }),
+      'utf8',
+    );
+    const persistedPlanPath = planFilePath(cwd, '7');
+    await mkdir(dirname(persistedPlanPath), { recursive: true });
+    await writeFile(
+      persistedPlanPath,
+      JSON.stringify({
+        execution_contract: {
+          schemaVersion: 1,
+          requiredCapabilities: [],
+          detectedCapabilities: [],
+          resolvedActions: {
+            setup: [],
+            build: [],
+            verify: [
+              {
+                capabilityId: 'spec.verify',
+                providerId: 'spec-recipe',
+                command: 'npm',
+                args: ['test'],
+              },
+            ],
+          },
+          blocked: [],
+          conflicts: [],
+        },
       }),
       'utf8',
     );

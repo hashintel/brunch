@@ -1,0 +1,119 @@
+import { describe, expect, it } from 'vitest';
+
+import type { PlannerPort } from '../execution-ports.js';
+import { planFilePayload } from '../plan-file.js';
+import { previewPlan } from '../plan-preview.js';
+import { synthesizePlan } from '../plan-synthesis.js';
+import { coherentCandidate, projection, PYTEST_PROVIDER } from './plan-synthesis-fixture.js';
+
+const providers = [PYTEST_PROVIDER];
+
+function scriptedPlanner(responses: readonly unknown[]): PlannerPort & { calls: unknown[] } {
+  const calls: unknown[] = [];
+  return {
+    calls,
+    async synthesize(args) {
+      calls.push(args);
+      const candidate = responses[Math.min(calls.length - 1, responses.length - 1)];
+      return { status: 'synthesized', candidate };
+    },
+  };
+}
+
+describe('synthesizePlan', () => {
+  it('admits a coherent candidate and lowers it onto the executable plan chain', async () => {
+    const planner = scriptedPlanner([coherentCandidate()]);
+
+    const result = await synthesizePlan({ projection, detected: [], providers, planner });
+
+    expect(result.status).toBe('admitted');
+    if (result.status !== 'admitted') return;
+    expect(result.history).toEqual([{ round: 0, findings: [] }]);
+    expect(result.draft.epics[0]).toMatchObject({
+      id: 'F1',
+      sliceIds: ['task-1', 'task-2'],
+      verification: [{ kind: 'criterion', criterionId: 'AC2', target: 'Feature wired end to end' }],
+    });
+    expect(result.draft.slices[0]).toMatchObject({
+      id: 'task-1',
+      scopeId: 'SCP1',
+      definition: 'Build the feature core.\n\nDone when:\n- Feature core compiles and is importable.',
+      designContext: [{ itemId: 'MOD1', title: 'Feature module', content: 'Feature module' }],
+      verificationContext: [{ itemId: 'CH1', title: 'Smoke test', content: 'Smoke test' }],
+    });
+    const payload = planFilePayload(
+      previewPlan(result.draft, { executionContract: result.executionContract }),
+    );
+    expect(payload.execution_contract?.resolvedActions.verify[0]).toMatchObject({ command: 'pytest' });
+    expect(payload.slices.map((slice) => slice.id)).toEqual(['task-1', 'task-2']);
+  });
+
+  it('repairs an invalid candidate with exact findings and admits on a later round (oracle 7)', async () => {
+    const base = coherentCandidate();
+    const cyclic = {
+      ...base,
+      slices: [
+        { ...base.slices[0]!, dependsOn: ['task-2'] },
+        { ...base.slices[1]!, dependsOn: ['task-1'] },
+      ],
+    };
+    const planner = scriptedPlanner([cyclic, coherentCandidate()]);
+
+    const result = await synthesizePlan({ projection, detected: [], providers, planner });
+
+    expect(result.status).toBe('admitted');
+    if (result.status !== 'admitted') return;
+    expect(result.history).toHaveLength(2);
+    expect(result.history[0]!.findings.map((finding) => finding.code)).toContain('dependency_cycle');
+    const repairCall = planner.calls[1] as {
+      findings?: readonly { code: string }[];
+      priorCandidate?: unknown;
+    };
+    expect(repairCall.findings?.map((finding) => finding.code)).toContain('dependency_cycle');
+    expect(repairCall.priorCandidate).toEqual(cyclic);
+  });
+
+  it('blocks after the bounded repair rounds with no fallback plan on any path', async () => {
+    const base = coherentCandidate();
+    const invalid = { ...base, requiredCapabilities: [] };
+    const planner = scriptedPlanner([invalid]);
+
+    const result = await synthesizePlan({ projection, detected: [], providers, planner });
+
+    expect(result.status).toBe('blocked');
+    if (result.status !== 'blocked') return;
+    expect(result.findings.map((finding) => finding.code)).toContain('no_verification_capability');
+    expect(result.history).toHaveLength(3);
+    expect(result).not.toHaveProperty('draft');
+  });
+
+  it('treats malformed planner output as a findings round, feedable to repair', async () => {
+    const planner = scriptedPlanner(['{ not json', coherentCandidate()]);
+
+    const result = await synthesizePlan({ projection, detected: [], providers, planner });
+
+    expect(result.status).toBe('admitted');
+    if (result.status !== 'admitted') return;
+    expect(result.history[0]!.findings[0]).toMatchObject({ code: 'malformed_candidate' });
+  });
+
+  it('keeps spec-mandated base requirements even when the candidate drops them', async () => {
+    const base = coherentCandidate();
+    const dropped = { ...base, requiredCapabilities: [] };
+    const planner = scriptedPlanner([dropped]);
+
+    const result = await synthesizePlan({
+      projection,
+      detected: [],
+      providers,
+      baseRequired: [{ id: 'python.pytest', source: { kind: 'elicited', itemId: 'DEC1' } }],
+      planner,
+    });
+
+    expect(result.status).toBe('admitted');
+    if (result.status !== 'admitted') return;
+    expect(result.executionContract.resolvedActions.verify.map((action) => action.capabilityId)).toEqual([
+      'python.pytest',
+    ]);
+  });
+});

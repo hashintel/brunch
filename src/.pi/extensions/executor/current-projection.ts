@@ -2,6 +2,7 @@ import { projectExecuteGraph } from '../../../executor/execute-projection.js';
 import type { LaunchCurrentProjection } from '../../../executor/launch.js';
 import { readPlanFileProvenance, type PlanFileProvenance } from '../../../executor/plan-file.js';
 import { readRunMetadata, runMetadataPath } from '../../../executor/run.js';
+import { detectWorkspaceCapabilities } from '../../../executor/workspace-detection.js';
 import type { GraphReaders } from '../brunch-data/graph/index.js';
 
 type ExecutionMode = PlanFileProvenance['mode'];
@@ -18,12 +19,16 @@ export async function buildCurrentProjectionForSpec(args: {
 }> {
   const mode = await resolveMode({ cwd: args.cwd, specId: String(args.specId), mode: args.mode });
   const graph = queryGraphForSpec(args.reads, args.specId);
+  // Host-workspace facts inform only brownfield planning; greenfield runs build in an
+  // isolated substrate where the host manifest is not a capability signal.
+  const detectedCapabilities = mode === 'brownfield' ? await detectWorkspaceCapabilities(args.cwd) : [];
   const projection = projectExecuteGraph({
     specId: args.specId,
     mode,
     graphLsn: graph.lsn,
     nodes: graph.nodes as ExecuteGraphInput['nodes'],
     edges: graph.edges as ExecuteGraphInput['edges'],
+    detectedCapabilities,
   });
   return {
     projection,

@@ -10,6 +10,7 @@ export interface PlanFilePayload {
   readonly spec: PlanPreview['spec'];
   readonly epics: PlanPreview['epics'];
   readonly slices: PlanPreview['slices'];
+  readonly execution_contract?: PlanPreview['execution_contract'];
 }
 
 export interface PlanFileProvenance {
@@ -48,7 +49,22 @@ export function planFilePayload(preview: PlanPreview): PlanFilePayload {
     spec: preview.spec,
     epics: preview.epics,
     slices: preview.slices,
+    ...(preview.execution_contract ? { execution_contract: preview.execution_contract } : {}),
   };
+}
+
+export async function readPlanFilePayload(args: {
+  readonly cwd: string;
+  readonly specId: string;
+}): Promise<PlanFilePayload | undefined> {
+  try {
+    return JSON.parse(await readFile(planFilePath(args.cwd, args.specId), 'utf8')) as PlanFilePayload;
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      return undefined;
+    }
+    throw error;
+  }
 }
 
 export function planFileProvenance(args: {

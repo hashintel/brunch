@@ -1,5 +1,10 @@
 import type { GraphEdge } from '../graph/schema/edges.js';
-import { formatGraphNodeCode, type GraphNode, type NodeKind } from '../graph/schema/nodes.js';
+import {
+  formatGraphNodeCode,
+  PROJECT_EXECUTION_HARNESS_TITLE,
+  type GraphNode,
+  type NodeKind,
+} from '../graph/schema/nodes.js';
 
 export type ExecutionSpecMode = 'greenfield' | 'brownfield';
 
@@ -33,6 +38,7 @@ export interface ExecutionSpecContextSnapshot {
   readonly examples: readonly ExecutionSpecItemSnapshot[];
   readonly design: readonly ExecutionSpecItemSnapshot[];
   readonly oracle: readonly ExecutionSpecItemSnapshot[];
+  readonly executionHarnesses: readonly ExecutionSpecItemSnapshot[];
 }
 
 export interface ExecutionSpecScopeSnapshot extends ExecutionSpecItemSnapshot {
@@ -155,6 +161,14 @@ export function projectExecutionSpecSnapshot(
         .map((node) => itemSnapshot(node)),
       oracle: nodes
         .filter((node) => ORACLE_KINDS.includes(node.kind as never))
+        .map((node) => itemSnapshot(node)),
+      executionHarnesses: nodes
+        .filter(
+          (node) =>
+            node.kind === 'vv_method' &&
+            node.settlement === 'settled' &&
+            node.title === PROJECT_EXECUTION_HARNESS_TITLE,
+        )
         .map((node) => itemSnapshot(node)),
     },
   };

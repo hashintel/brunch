@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { draftExecutablePlan } from '../executable-plan-draft.js';
+import {
+  assembleExecutablePlanDraft,
+  draftExecutablePlan,
+  type ExecutablePlanDraftSlice,
+} from '../executable-plan-draft.js';
 import type { ExecutionPlanOutline } from '../execute-plan-outline.js';
 
 const outline: ExecutionPlanOutline = {
@@ -52,6 +56,39 @@ const outline: ExecutionPlanOutline = {
 };
 
 describe('draftExecutablePlan', () => {
+  it('assembles dependency-ordered slices and derives matching epic membership once', () => {
+    const slice = (args: {
+      id: string;
+      epicId?: string;
+      dependsOn: readonly string[];
+    }): ExecutablePlanDraftSlice => ({
+      id: args.id,
+      ...(args.epicId ? { epicId: args.epicId } : {}),
+      title: args.id,
+      definition: args.id,
+      requirementId: args.id,
+      requirementIds: [args.id],
+      dependsOn: args.dependsOn,
+      designContext: [],
+      verificationContext: [],
+      verification: [],
+    });
+
+    const draft = assembleExecutablePlanDraft({
+      specId: '7',
+      mode: 'greenfield',
+      epics: [{ id: 'F1', title: 'Feature', dependsOn: [], verification: [] }],
+      slices: [
+        slice({ id: 'task-2', epicId: 'F1', dependsOn: ['task-1'] }),
+        slice({ id: 'orphan', dependsOn: [] }),
+        slice({ id: 'task-1', epicId: 'F1', dependsOn: [] }),
+      ],
+    });
+
+    expect(draft.slices.map(({ id }) => id)).toEqual(['orphan', 'task-1', 'task-2']);
+    expect(draft.epics[0]?.sliceIds).toEqual(['task-1', 'task-2']);
+  });
+
   it('projects a review outline into an executable-plan draft shape without side effects', () => {
     expect(draftExecutablePlan(outline)).toEqual({
       schemaVersion: 2,
