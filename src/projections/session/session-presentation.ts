@@ -3,6 +3,7 @@ import type {
   AnsweredOptionEcho,
   AskDetails,
   AskQuestionEcho,
+  AskQuestionnaireDetails,
   SelectedChoice,
 } from '../../exchanges/schemas/request.js';
 import { loadJsonlTranscriptEntries } from '../../session/brunch-session-envelope.js';
@@ -41,12 +42,24 @@ type AskTerminal =
             readonly choices: readonly SelectedChoice[];
             readonly options: readonly AnsweredOptionEcho[];
             readonly comment?: string | undefined;
+          }
+        | {
+            readonly questionnaire: AskQuestionnaireDetails['questionnaire'];
+            readonly acceptedAbstract: string;
           };
     }
   | { readonly status: 'cancelled'; readonly value: { readonly message?: string | undefined } }
   | { readonly status: 'unavailable'; readonly value: { readonly message: string } };
 
 function projectAskTerminal(details: AskDetails): AskTerminal | undefined {
+  if ('questionnaire' in details)
+    return {
+      status: 'answered',
+      value: {
+        questionnaire: details.questionnaire,
+        acceptedAbstract: details.answered.accepted_abstract,
+      },
+    };
   if ('answered' in details && 'text' in details.answered)
     return { status: 'answered', value: details.answered };
   if ('answered' in details && ('choice' in details.answered || 'choices' in details.answered))

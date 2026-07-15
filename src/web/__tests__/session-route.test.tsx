@@ -246,6 +246,61 @@ describe('session route', () => {
     });
   });
 
+  it('renders an ordered questionnaire read-back from the shared semantic projection', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture([
+      {
+        id: 'questionnaire',
+        cursor: 'durable:questionnaire',
+        kind: 'ask',
+        exchangeId: 'questionnaire',
+        question: 'Digest questionnaire',
+        terminal: {
+          status: 'answered',
+          value: {
+            questionnaire: [
+              {
+                question: { id: 'goal', kind: 'free-text', prompt: 'What matters?' },
+                answer: { questionId: 'goal', kind: 'free-text', text: 'Clarity' },
+              },
+              {
+                question: {
+                  id: 'route',
+                  kind: 'single-select',
+                  prompt: 'Which route?',
+                  options: [{ id: 'safe', label: 'Safe path' }],
+                },
+                answer: { questionId: 'route', kind: 'single-select', optionId: 'safe' },
+              },
+              {
+                question: {
+                  id: 'checks',
+                  kind: 'multi-select',
+                  prompt: 'Which checks?',
+                  options: [
+                    { id: 'tests', label: 'Tests' },
+                    { id: 'types', label: 'Types' },
+                  ],
+                },
+                answer: { questionId: 'checks', kind: 'multi-select', optionIds: ['types', 'tests'] },
+              },
+            ],
+            acceptedAbstract: 'The accepted digest abstract.',
+          },
+        },
+      },
+    ]);
+
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+    const answers = await screen.findAllByRole('listitem');
+    expect(answers.map((answer) => answer.textContent)).toEqual([
+      'user: History',
+      'Digest questionnaireWhat matters?ClarityWhich route?Safe pathWhich checks?Types, TestsAccepted abstract: The accepted digest abstract.',
+    ]);
+    expect(screen.queryByRole('button', { name: 'Answer' })).toBeNull();
+  });
+
   it('hydrates, drives, reduces targeted live state, answers, settles, and recovers durably', async () => {
     window.history.pushState(null, '', '/session/1/s1');
     const f = fixture();

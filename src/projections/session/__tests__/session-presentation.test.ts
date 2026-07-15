@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { projectDigestQuestionnaire } from '../../../exchanges/projections/ask.js';
 import { projectSessionPresentation } from '../session-presentation.js';
 
 const target = { specId: 1, sessionId: 'session-1' };
@@ -226,6 +227,68 @@ describe('session presentation', () => {
             mode: 'multi-select',
             options,
             terminal: { status: 'answered', value: answered },
+          },
+        ],
+      },
+    });
+  });
+
+  it('preserves an ordered questionnaire with every keyed answer kind and accepted abstract', () => {
+    const details = projectDigestQuestionnaire({
+      exchangeId: 'questionnaire',
+      acceptsDigest: 'digest-final',
+      acceptedAbstract: 'The accepted digest abstract.',
+      questions: [
+        { id: 'goal', kind: 'free-text', prompt: 'What matters?' },
+        {
+          id: 'route',
+          kind: 'single-select',
+          prompt: 'Which route?',
+          options: [
+            { id: 'safe', label: 'Safe path' },
+            { id: 'fast', label: 'Fast path' },
+          ],
+        },
+        {
+          id: 'checks',
+          kind: 'multi-select',
+          prompt: 'Which checks?',
+          options: [
+            { id: 'tests', label: 'Tests' },
+            { id: 'types', label: 'Types' },
+          ],
+        },
+      ],
+      answers: [
+        { questionId: 'checks', kind: 'multi-select', optionIds: ['types', 'tests'] },
+        { questionId: 'goal', kind: 'free-text', text: 'Clarity' },
+        { questionId: 'route', kind: 'single-select', optionId: 'safe' },
+      ],
+    });
+
+    const result = projectSessionPresentation(target, [
+      entry('questionnaire', { role: 'toolResult', toolName: 'ask', details }),
+    ]);
+
+    expect(result).toEqual({
+      status: 'ready',
+      presentation: {
+        target,
+        cursor: '0:questionnaire',
+        entries: [
+          {
+            id: 'questionnaire',
+            cursor: '0:questionnaire',
+            kind: 'ask',
+            exchangeId: 'questionnaire',
+            question: 'Digest questionnaire',
+            terminal: {
+              status: 'answered',
+              value: {
+                questionnaire: details.questionnaire,
+                acceptedAbstract: 'The accepted digest abstract.',
+              },
+            },
           },
         ],
       },

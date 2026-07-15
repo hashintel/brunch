@@ -2,6 +2,7 @@ import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { createRoute } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
 
+import type { QuestionnaireAnswer, QuestionnaireQuestion } from '../../exchanges/schemas/questionnaire.js';
 import type { SessionPresentationEntry } from '../../projections/session/session-presentation.js';
 import type { LiveSessionEvent } from '../../session/live-session-host.js';
 import { reduceLiveSessionOverlay } from '../features/session/live-overlay.js';
@@ -111,6 +112,18 @@ function browserDriverId(): string {
   return created;
 }
 
+function questionnaireAnswerText(question: QuestionnaireQuestion, answer: QuestionnaireAnswer): string {
+  if (answer.kind === 'free-text') return answer.text;
+  const optionIds = answer.kind === 'single-select' ? [answer.optionId] : answer.optionIds;
+  if (!('options' in question)) return '';
+  const selectedLabels: string[] = [];
+  for (const id of optionIds) {
+    const option = question.options.find((candidate) => candidate.id === id);
+    if (option) selectedLabels.push(option.label);
+  }
+  return selectedLabels.join(', ');
+}
+
 function Ask({
   entry,
   answer,
@@ -127,7 +140,19 @@ function Ask({
         <p>{entry.question}</p>
         {terminal.status === 'answered' ? (
           <>
-            {'text' in terminal.value ? (
+            {'questionnaire' in terminal.value ? (
+              <>
+                <dl>
+                  {terminal.value.questionnaire.map(({ question, answer }) => (
+                    <div key={question.id}>
+                      <dt>{question.prompt}</dt>
+                      <dd>{questionnaireAnswerText(question, answer)}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <p>Accepted abstract: {terminal.value.acceptedAbstract}</p>
+              </>
+            ) : 'text' in terminal.value ? (
               <p>Answered: {terminal.value.text}</p>
             ) : 'choices' in terminal.value ? (
               terminal.value.choices.map((choice) => (
@@ -141,7 +166,9 @@ function Ask({
                 {terminal.value.choice.label}
               </p>
             )}
-            {terminal.value.comment ? <p>Comment: {terminal.value.comment}</p> : null}
+            {'comment' in terminal.value && terminal.value.comment ? (
+              <p>Comment: {terminal.value.comment}</p>
+            ) : null}
           </>
         ) : (
           <p>
