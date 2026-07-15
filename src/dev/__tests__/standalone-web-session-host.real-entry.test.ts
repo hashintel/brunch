@@ -18,8 +18,118 @@ describe('standalone web session host production entry', () => {
     for (const cleanup of cleanups.reverse()) await cleanup();
   });
 
-  it('opens an existing target, drives text plus ask, and rehydrates durable settled presentation', async () => {
-    const faux = registerKeptFauxProvider('standalone-web', 'Standalone opening turn.');
+  it('rehydrates a settled candidate offer and request-choice continuation after reconnect', async () => {
+    const faux = registerKeptFauxProvider('standalone-web-candidates', 'Standalone opening turn.');
+    cleanups.push(() => faux.provider.unregister());
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-standalone-web-'));
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const workspace = await coordinator.createSetupSession({ specTitle: 'Standalone web proof' });
+    const target = { specId: workspace.spec.id, sessionId: workspace.session.id };
+    const host = await runBrunchWeb({ cwd, coordinator, agentServices: faux.agentServices });
+    cleanups.push(() => host.close());
+    const rpc = await RpcSocket.open(`${host.url.replace(/^http/u, 'ws')}/rpc`);
+    cleanups.push(() => rpc.close());
+
+    await expect(rpc.request('session.open', target)).resolves.toMatchObject({ status: 'opened' });
+    await waitFor(() => faux.provider.getPendingResponseCount() === 0, 8000, 'startup turn');
+    faux.provider.appendResponses([
+      () =>
+        fauxAssistantMessage(
+          [
+            fauxToolCall(
+              'present_candidates',
+              {
+                exchangeId: 'web-candidates',
+                heading: question,
+                body: 'Compare the proposals.',
+                candidates: [
+                  {
+                    id: 'semantic-projection',
+                    title: 'Shared semantic projection',
+                    user_rubric: {
+                      core_bet: 'Decode once before rendering.',
+                      best_fit: 'Web and TUI parity.',
+                      cost_complexity: 'One shared projection.',
+                      covers_well: 'Durable presentation semantics.',
+                      main_risks: 'Adapter drift.',
+                      lock_in_constraints: 'Transport-neutral entries.',
+                      recommendation: 'Use the shared projection.',
+                    },
+                    meta_rubric: { commitment: 'Preserve D128-L.' },
+                    graph_refs: [],
+                  },
+                ],
+              },
+              { id: 'web-candidates-call' },
+            ),
+            fauxToolCall('ask', { continues: 'web-candidates' }, { id: 'web-candidates-ask-call' }),
+          ],
+          { stopReason: 'toolUse' },
+        ),
+      () => fauxAssistantMessage('Durable candidate answer complete.'),
+    ]);
+
+    const turn = rpc.request('session.driveTurn', {
+      ...target,
+      driverId: 'browser-candidates-proof',
+      prompt: 'Run the deterministic candidate choice.',
+    });
+    await waitFor(asyncOpenAsk, 8000, 'open candidate ask');
+    async function asyncOpenAsk(): Promise<boolean> {
+      const result = (await rpc.request('session.openAsks', target)) as { asks: unknown[] };
+      return result.asks.length === 1;
+    }
+    await expect(
+      rpc.request('session.answerExchange', {
+        ...target,
+        driverId: 'browser-candidates-proof',
+        exchangeId: 'web-candidates',
+        answer: 'semantic-projection',
+      }),
+    ).resolves.toMatchObject({ status: 'completed' });
+    await expect(turn).resolves.toMatchObject({ status: 'completed' });
+
+    rpc.close();
+    const reconnected = await RpcSocket.open(`${host.url.replace(/^http/u, 'ws')}/rpc`);
+    cleanups.push(() => reconnected.close());
+    const projected = (await reconnected.request(
+      'session.presentation',
+      target,
+    )) as SessionPresentationResult;
+    expect(projected).toMatchObject({ status: 'ready' });
+    if (projected.status !== 'ready') return;
+    expect(projected.presentation.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'present_candidates',
+          exchangeId: 'web-candidates',
+          candidates: [expect.objectContaining({ id: 'semantic-projection' })],
+          continuation: expect.objectContaining({
+            request: 'request_choice',
+            exchangeId: 'web-candidates',
+          }),
+        }),
+        expect.objectContaining({
+          kind: 'ask',
+          exchangeId: 'web-candidates',
+          terminal: {
+            status: 'answered',
+            value: expect.objectContaining({
+              choice: { id: 'semantic-projection', label: 'Shared semantic projection', kind: 'listed' },
+            }),
+          },
+        }),
+        expect.objectContaining({
+          kind: 'message',
+          role: 'assistant',
+          text: 'Durable candidate answer complete.',
+        }),
+      ]),
+    );
+  });
+
+  it('rehydrates a settled digest offer and feedback continuation after reconnect', async () => {
+    const faux = registerKeptFauxProvider('standalone-web-digest', 'Standalone opening turn.');
     cleanups.push(() => faux.provider.unregister());
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-standalone-web-'));
     const coordinator = createWorkspaceSessionCoordinator({ cwd });
