@@ -304,6 +304,84 @@ describe('session route', () => {
     });
   });
 
+  it('renders a proposition-first review set and exact approved receipt without acceptance controls', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture([
+      {
+        id: 'review-offer',
+        cursor: 'durable:review-offer',
+        kind: 'present_review_set',
+        exchangeId: 'review-set',
+        heading: 'Approve graph changes',
+        body: 'One cohesive set.',
+        reviewSet: {
+          nodes: [
+            { draft_id: 'goal', proposed_code: 'G1', plane: 'intent', kind: 'goal', title: 'Clear outcome' },
+            {
+              draft_id: 'req',
+              proposed_code: 'REQ1',
+              plane: 'intent',
+              kind: 'requirement',
+              title: 'Atomic approval',
+              body: 'Commit once.',
+              detail: { priority: 'high' },
+            },
+          ],
+          edges: [
+            {
+              category: 'dependency',
+              dependency: { draft_id: 'goal' },
+              dependent: { draft_id: 'req' },
+              rationale: 'Requirement serves goal.',
+            },
+          ],
+        },
+        continuation: {
+          tool: 'ask',
+          params: { body: 'Approve graph changes', options: [{ id: 'approve', label: 'Approve' }] },
+        },
+      },
+      {
+        id: 'review-terminal',
+        cursor: 'durable:review-terminal',
+        kind: 'ask',
+        exchangeId: 'review-set',
+        question: 'Review decision',
+        terminal: {
+          status: 'answered',
+          value: {
+            decision: 'approve',
+            receipt: {
+              status: 'success',
+              lsn: 7,
+              createdNodes: { req: { id: 2, code: 'REQ1' } },
+              createdEdges: [3],
+              updatedNodes: [4],
+              updatedEdges: [5],
+              deletedNodes: [6],
+              deletedEdges: [7],
+            },
+          },
+        },
+      },
+    ]);
+
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+    expect(await screen.findByRole('region', { name: 'Approve graph changes' })).toBeTruthy();
+    expect(screen.getAllByRole('article').map((article) => article.getAttribute('aria-label'))).toEqual([
+      'G1 Clear outcome',
+      'REQ1 Atomic approval',
+    ]);
+    expect(screen.getByRole('region', { name: 'Proposed consequences' }).textContent).toContain(
+      'dependency — Requirement serves goal.',
+    );
+    expect(screen.getByText('Decision: Approve')).toBeTruthy();
+    expect(screen.getByLabelText('Graph commit receipt').textContent).toContain('LSN7');
+    expect(screen.getByLabelText('Graph commit receipt').textContent).toContain('REQ1');
+    expect(screen.queryByRole('button', { name: /approve|accept|reject/u })).toBeNull();
+  });
+
   it('renders digest prose and feedback terminals while the existing ask owns continuation answers', async () => {
     window.history.pushState(null, '', '/session/1/s1');
     const f = fixture([

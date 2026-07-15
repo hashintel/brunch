@@ -69,7 +69,7 @@ web/
       `/spec/$specId` loader primes workspace.state + graph.overview
       renders the knowledge-graph structured list
     session.tsx
-      `/session/$specId/$sessionId` opens and hydrates an exact target, submits text and ask answers with a reload-stable browser driver id, reduces target-filtered cumulative semantic deltas, and discards its live overlay for a durable refetch on `agent_settled`
+      `/session/$specId/$sessionId` opens and hydrates an exact target, submits text and ask answers with a reload-stable browser driver id, renders ask plus candidate/digest/review-set semantic entries without decoding raw details, reduces target-filtered cumulative semantic deltas, and discards its live overlay for a durable refetch on `agent_settled`
     runs.tsx
       `/runs` loader primes execute.runs; run list with presence flags
       `/runs/$runId` loader primes execute.run; crank status, honest

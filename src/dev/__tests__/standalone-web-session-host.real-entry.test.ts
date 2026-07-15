@@ -128,6 +128,125 @@ describe('standalone web session host production entry', () => {
     );
   });
 
+  it('approves one review set, commits once, settles, and rehydrates its receipt after reconnect', async () => {
+    const faux = registerKeptFauxProvider('standalone-web-review-set', 'Standalone opening turn.');
+    cleanups.push(() => faux.provider.unregister());
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-standalone-web-'));
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const workspace = await coordinator.createSetupSession({ specTitle: 'Standalone web proof' });
+    const target = { specId: workspace.spec.id, sessionId: workspace.session.id };
+    const host = await runBrunchWeb({ cwd, coordinator, agentServices: faux.agentServices });
+    cleanups.push(() => host.close());
+    const rpc = await RpcSocket.open(`${host.url.replace(/^http/u, 'ws')}/rpc`);
+    cleanups.push(() => rpc.close());
+
+    await expect(rpc.request('session.open', target)).resolves.toMatchObject({ status: 'opened' });
+    await waitFor(() => faux.provider.getPendingResponseCount() === 0, 8000, 'startup turn');
+    faux.provider.appendResponses([
+      () =>
+        fauxAssistantMessage(
+          [
+            fauxToolCall(
+              'present_review_set',
+              {
+                exchangeId: 'web-review-set',
+                payload: {
+                  schemaVersion: 1,
+                  lens: 'intent',
+                  epistemicStatus: 'asserted',
+                  grounding: { summary: 'Approve one cohesive requirement.', support: ['User request'] },
+                  pitch: { title: 'Approve reviewed requirement', narrative: 'Commit this exact set once.' },
+                  entityDrafts: [
+                    { draftId: 'goal-draft', plane: 'intent', kind: 'goal', title: 'Reliable approval' },
+                    {
+                      draftId: 'requirement-draft',
+                      plane: 'intent',
+                      kind: 'requirement',
+                      title: 'Atomic approval',
+                      body: 'The reviewed set commits once.',
+                    },
+                  ],
+                  edgeDrafts: [
+                    {
+                      category: 'rationale',
+                      stance: 'for',
+                      support: { draftId: 'requirement-draft' },
+                      claim: { draftId: 'goal-draft' },
+                      rationale: 'The requirement supports the selected-spec goal.',
+                    },
+                  ],
+                },
+              },
+              { id: 'web-review-set-call' },
+            ),
+            fauxToolCall('ask', { continues: 'web-review-set' }, { id: 'web-review-set-ask-call' }),
+          ],
+          { stopReason: 'toolUse' },
+        ),
+      () => fauxAssistantMessage('Durable review approval complete.'),
+    ]);
+
+    const turn = rpc.request('session.driveTurn', {
+      ...target,
+      driverId: 'browser-review-proof',
+      prompt: 'Run the deterministic review.',
+    });
+    await waitFor(
+      async () => ((await rpc.request('session.openAsks', target)) as { asks: unknown[] }).asks.length === 1,
+      8000,
+      'open review ask',
+    );
+    await expect(
+      rpc.request('session.answerExchange', {
+        ...target,
+        driverId: 'browser-review-proof',
+        exchangeId: 'web-review-set',
+        answer: 'approve',
+      }),
+    ).resolves.toMatchObject({ status: 'completed' });
+    await expect(turn).resolves.toMatchObject({ status: 'completed' });
+
+    rpc.close();
+    const reconnected = await RpcSocket.open(`${host.url.replace(/^http/u, 'ws')}/rpc`);
+    cleanups.push(() => reconnected.close());
+    const projected = (await reconnected.request(
+      'session.presentation',
+      target,
+    )) as SessionPresentationResult;
+    expect(projected).toMatchObject({ status: 'ready' });
+    if (projected.status !== 'ready') return;
+    const offer = projected.presentation.entries.find((entry) => entry.kind === 'present_review_set');
+    const terminal = projected.presentation.entries.find(
+      (entry) => entry.kind === 'ask' && entry.exchangeId === 'web-review-set',
+    );
+    expect(offer).toMatchObject({
+      kind: 'present_review_set',
+      exchangeId: 'web-review-set',
+      reviewSet: {
+        nodes: [
+          { draft_id: 'goal-draft', proposed_code: 'G1', title: 'Reliable approval' },
+          { draft_id: 'requirement-draft', proposed_code: 'REQ1', title: 'Atomic approval' },
+        ],
+        edges: [expect.objectContaining({ category: 'rationale' })],
+      },
+      continuation: { tool: 'ask' },
+    });
+    expect(terminal).toMatchObject({
+      kind: 'ask',
+      terminal: {
+        status: 'answered',
+        value: {
+          decision: 'approve',
+          receipt: {
+            status: 'success',
+            lsn: expect.any(Number),
+            createdNodes: { 'requirement-draft': { code: 'REQ1' } },
+          },
+        },
+      },
+    });
+  });
+
   it('rehydrates a settled digest offer and feedback continuation after reconnect', async () => {
     const faux = registerKeptFauxProvider('standalone-web-digest', 'Standalone opening turn.');
     cleanups.push(() => faux.provider.unregister());

@@ -68,6 +68,8 @@ function SessionPage() {
               </p>
             ) : entry.kind === 'present_candidates' ? (
               <CandidateOffer entry={entry} />
+            ) : entry.kind === 'present_review_set' ? (
+              <ReviewSetOffer entry={entry} />
             ) : entry.kind === 'present_digest' ? (
               <DigestOffer entry={entry} />
             ) : (
@@ -178,6 +180,105 @@ function CandidateOffer({
   );
 }
 
+function ReviewSetOffer({
+  entry,
+}: {
+  entry: Extract<SessionPresentationEntry, { kind: 'present_review_set' }>;
+}) {
+  return (
+    <section aria-label={entry.heading}>
+      <h2>{entry.heading}</h2>
+      {entry.body ? <p>{entry.body}</p> : null}
+      {entry.reviewSet.nodes.map((node) => (
+        <article key={node.draft_id} aria-label={`${node.proposed_code} ${node.title}`}>
+          <h3>{node.title}</h3>
+          <dl>
+            <dt>Proposed code</dt>
+            <dd>{node.proposed_code}</dd>
+            <dt>Plane</dt>
+            <dd>{node.plane}</dd>
+            <dt>Kind</dt>
+            <dd>{node.kind}</dd>
+            {node.body ? (
+              <>
+                <dt>Body</dt>
+                <dd>{node.body}</dd>
+              </>
+            ) : null}
+            {node.detail ? (
+              <>
+                <dt>Detail</dt>
+                <dd>{JSON.stringify(node.detail)}</dd>
+              </>
+            ) : null}
+          </dl>
+          <ReviewSetConsequences draftId={node.draft_id} entry={entry} />
+        </article>
+      ))}
+      {entry.reviewSet.edges.filter((edge) => !edgeHostDraftId(edge)).length > 0 ? (
+        <section aria-label="Other proposed consequences">
+          <h3>Other proposed consequences</h3>
+          <ul>
+            {entry.reviewSet.edges
+              .filter((edge) => !edgeHostDraftId(edge))
+              .map((edge, index) => (
+                <li key={index}>{reviewEdgeText(edge)}</li>
+              ))}
+          </ul>
+        </section>
+      ) : null}
+    </section>
+  );
+}
+
+function ReviewSetConsequences({
+  draftId,
+  entry,
+}: {
+  draftId: string;
+  entry: Extract<SessionPresentationEntry, { kind: 'present_review_set' }>;
+}) {
+  const edges = entry.reviewSet.edges.filter((edge) => edgeHostDraftId(edge) === draftId);
+  return edges.length > 0 ? (
+    <section aria-label="Proposed consequences">
+      <h4>Proposed consequences</h4>
+      <ul>
+        {edges.map((edge, index) => (
+          <li key={index}>{reviewEdgeText(edge)}</li>
+        ))}
+      </ul>
+    </section>
+  ) : null;
+}
+
+function edgeHostDraftId(
+  edge: Extract<SessionPresentationEntry, { kind: 'present_review_set' }>['reviewSet']['edges'][number],
+): string | undefined {
+  const endpoint =
+    edge.category === 'dependency'
+      ? edge.dependent
+      : edge.category === 'witness'
+        ? edge.oracle
+        : edge.category === 'rationale'
+          ? edge.support
+          : edge.category === 'realization' || edge.category === 'refinement'
+            ? edge.concrete
+            : edge.category === 'exclusion'
+              ? edge.boundary
+              : edge.category === 'composition'
+                ? edge.part
+                : edge.category === 'cross_reference'
+                  ? edge.a
+                  : edge.successor;
+  return 'draft_id' in endpoint ? endpoint.draft_id : undefined;
+}
+
+function reviewEdgeText(
+  edge: Extract<SessionPresentationEntry, { kind: 'present_review_set' }>['reviewSet']['edges'][number],
+): string {
+  return `${edge.category.replaceAll('_', ' ')}${edge.rationale ? ` — ${edge.rationale}` : ''}`;
+}
+
 function digestDecisionLabel(decision: 'approve' | 'request_changes' | 'reject'): string {
   const label = decision.replace('_', ' ');
   return label[0]!.toUpperCase() + label.slice(1);
@@ -237,8 +338,30 @@ function Ask({
             ) : 'decision' in terminal.value ? (
               <>
                 <p>Decision: {digestDecisionLabel(terminal.value.decision)}</p>
-                {terminal.value.acceptedAbstract ? (
+                {'acceptedAbstract' in terminal.value && terminal.value.acceptedAbstract ? (
                   <p>Accepted abstract: {terminal.value.acceptedAbstract}</p>
+                ) : null}
+                {'receipt' in terminal.value && terminal.value.receipt ? (
+                  <dl aria-label="Graph commit receipt">
+                    <dt>LSN</dt>
+                    <dd>{terminal.value.receipt.lsn}</dd>
+                    <dt>Created nodes</dt>
+                    <dd>
+                      {Object.values<{ id: number; code: string }>(terminal.value.receipt.createdNodes)
+                        .map((node) => node.code)
+                        .join(', ') || 'None'}
+                    </dd>
+                    <dt>Created edges</dt>
+                    <dd>{terminal.value.receipt.createdEdges.join(', ') || 'None'}</dd>
+                    <dt>Updated nodes</dt>
+                    <dd>{terminal.value.receipt.updatedNodes.join(', ') || 'None'}</dd>
+                    <dt>Updated edges</dt>
+                    <dd>{terminal.value.receipt.updatedEdges.join(', ') || 'None'}</dd>
+                    <dt>Deleted nodes</dt>
+                    <dd>{terminal.value.receipt.deletedNodes.join(', ') || 'None'}</dd>
+                    <dt>Deleted edges</dt>
+                    <dd>{terminal.value.receipt.deletedEdges.join(', ') || 'None'}</dd>
+                  </dl>
                 ) : null}
               </>
             ) : 'text' in terminal.value ? (

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { projectDigestConfirmation, projectDigestQuestionnaire } from '../../../exchanges/projections/ask.js';
 import { projectPresentCandidates } from '../../../exchanges/projections/present-candidates.js';
 import { projectPresentDigest } from '../../../exchanges/projections/present-digest.js';
+import { projectPresentReviewSet } from '../../../exchanges/projections/present-review-set.js';
 import { projectRequestReview } from '../../../exchanges/projections/request-response/review.js';
 import { projectSessionPresentation } from '../session-presentation.js';
 
@@ -371,6 +372,140 @@ describe('session presentation', () => {
         ],
       },
     });
+  });
+
+  it('preserves an ordered review set, declared continuation, and every terminal outcome without loss', () => {
+    const offer = projectPresentReviewSet({
+      exchangeId: 'review-set',
+      payload: {
+        schemaVersion: 1,
+        lens: 'intent',
+        epistemicStatus: 'asserted',
+        grounding: { summary: 'User-approved proposal.', support: [] },
+        pitch: { title: 'Approve graph changes', narrative: 'One cohesive set.' },
+        entityDrafts: [
+          { draftId: 'goal', proposedCode: 'G1', plane: 'intent', kind: 'goal', title: 'Clear outcome' },
+          {
+            draftId: 'req',
+            proposedCode: 'REQ1',
+            plane: 'intent',
+            kind: 'requirement',
+            title: 'Atomic approval',
+            body: 'Commit once.',
+            detail: { priority: 'high' },
+          },
+        ],
+        edgeDrafts: [
+          {
+            category: 'dependency',
+            dependency: { draftId: 'goal' },
+            dependent: { draftId: 'req' },
+            rationale: 'Requirement serves goal.',
+          },
+        ],
+      },
+    }).details;
+    const receipt = {
+      status: 'success' as const,
+      lsn: 7,
+      createdNodes: { req: { id: 2, code: 'REQ1' } },
+      createdEdges: [3],
+      updatedNodes: [],
+      updatedEdges: [],
+      deletedNodes: [],
+      deletedEdges: [],
+    };
+    const terminals = [
+      projectRequestReview({
+        exchangeId: 'review-set',
+        status: 'answered',
+        review: 'approve',
+        respondsToPresentTool: 'present_review_set',
+        receipt,
+      }),
+      projectRequestReview({
+        exchangeId: 'review-set',
+        status: 'answered',
+        review: 'request_changes',
+        comment: 'Clarify the boundary.',
+        respondsToPresentTool: 'present_review_set',
+      }),
+      projectRequestReview({
+        exchangeId: 'review-set',
+        status: 'answered',
+        review: 'reject',
+        comment: 'Wrong set.',
+        respondsToPresentTool: 'present_review_set',
+      }),
+      projectRequestReview({
+        exchangeId: 'review-set',
+        status: 'cancelled',
+        respondsToPresentTool: 'present_review_set',
+      }),
+      projectRequestReview({
+        exchangeId: 'review-set',
+        status: 'unavailable',
+        message: 'No reviewer.',
+        respondsToPresentTool: 'present_review_set',
+      }),
+    ];
+    const result = projectSessionPresentation(target, [
+      entry('offer', { role: 'toolResult', toolName: 'present_review_set', details: offer }),
+      ...terminals.map((details, index) =>
+        entry(`terminal-${index}`, { role: 'toolResult', toolName: 'ask', details }),
+      ),
+    ]);
+
+    expect(result).toMatchObject({ status: 'ready' });
+    if (result.status !== 'ready') return;
+    expect(result.presentation.entries[0]).toEqual({
+      id: 'offer',
+      cursor: '0:offer',
+      kind: 'present_review_set',
+      exchangeId: 'review-set',
+      heading: 'Approve graph changes',
+      body: 'One cohesive set.',
+      reviewSet: offer.review_set,
+      continuation: offer.continuation,
+    });
+    expect(
+      result.presentation.entries
+        .slice(1)
+        .map((value) => (value.kind === 'ask' ? value.terminal : undefined)),
+    ).toEqual([
+      { status: 'answered', value: { decision: 'approve', receipt } },
+      { status: 'answered', value: { decision: 'request_changes', comment: 'Clarify the boundary.' } },
+      { status: 'answered', value: { decision: 'reject', comment: 'Wrong set.' } },
+      { status: 'cancelled', value: {} },
+      { status: 'unavailable', value: { message: 'No reviewer.' } },
+    ]);
+  });
+
+  it('classifies malformed review-set offers and terminals instead of leaking them', () => {
+    expect(
+      projectSessionPresentation(target, [
+        entry('bad-offer', {
+          role: 'toolResult',
+          toolName: 'present_review_set',
+          details: { review_set: 'raw' },
+        }),
+      ]),
+    ).toEqual({ status: 'malformed_detail', entryId: 'bad-offer', family: 'present_review_set' });
+    expect(
+      projectSessionPresentation(target, [
+        entry('bad-terminal', {
+          role: 'toolResult',
+          toolName: 'ask',
+          details: {
+            schema: request.schema,
+            v: 1,
+            exchange_id: 'review-set',
+            tool_meta: { prev: 'present_review_set', curr: 'request_review' },
+            answered: { decision: 'approve' },
+          },
+        }),
+      ]),
+    ).toEqual({ status: 'malformed_detail', entryId: 'bad-terminal', family: 'ask' });
   });
 
   it('preserves digest prose, continuation, and confirmation/questionnaire/review terminals without loss', () => {

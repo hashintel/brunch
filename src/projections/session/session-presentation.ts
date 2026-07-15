@@ -1,9 +1,18 @@
-import { zPresentCandidatesDetails, zPresentDigestDetails } from '../../exchanges/schemas/present.js';
-import type { PresentCandidatesDetails, PresentDigestDetails } from '../../exchanges/schemas/present.js';
+import {
+  zPresentCandidatesDetails,
+  zPresentDigestDetails,
+  zPresentReviewSetDetails,
+} from '../../exchanges/schemas/present.js';
+import type {
+  PresentCandidatesDetails,
+  PresentDigestDetails,
+  PresentReviewSetDetails,
+} from '../../exchanges/schemas/present.js';
 import {
   zAskDetails,
   zRequestChoiceDetails,
   zRequestDigestReviewDetails,
+  zRequestReviewSetDetails,
 } from '../../exchanges/schemas/request.js';
 import type {
   AnsweredOptionEcho,
@@ -14,6 +23,7 @@ import type {
   RequestDigestReviewDetails,
   SelectedChoice,
 } from '../../exchanges/schemas/request.js';
+import type { MutateGraphSuccess } from '../../graph/command-executor.js';
 import { loadJsonlTranscriptEntries } from '../../session/brunch-session-envelope.js';
 import type { SessionTarget } from '../../session/live-session-host.js';
 
@@ -44,6 +54,16 @@ export type SessionPresentationEntry =
   | {
       readonly id: string;
       readonly cursor: string;
+      readonly kind: 'present_review_set';
+      readonly exchangeId: string;
+      readonly heading: string;
+      readonly body?: string | undefined;
+      readonly reviewSet: PresentReviewSetDetails['review_set'];
+      readonly continuation?: NonNullable<PresentReviewSetDetails['continuation']>;
+    }
+  | {
+      readonly id: string;
+      readonly cursor: string;
       readonly kind: 'present_digest';
       readonly exchangeId: string;
       readonly heading: string;
@@ -63,6 +83,9 @@ export type SessionPresentationEntry =
     };
 
 type DigestReviewAnswered = Extract<RequestDigestReviewDetails, { answered: unknown }>['answered'];
+type ReviewSetAnswered =
+  | { readonly decision: 'approve'; readonly receipt: MutateGraphSuccess; readonly comment?: string }
+  | { readonly decision: 'request_changes' | 'reject'; readonly comment?: string };
 
 type AskTerminal =
   | {
@@ -95,6 +118,11 @@ type AskTerminal =
             readonly decision: DigestReviewAnswered['decision'];
             readonly comment?: string | undefined;
             readonly acceptedAbstract?: string | undefined;
+          }
+        | {
+            readonly decision: ReviewSetAnswered['decision'];
+            readonly comment?: string | undefined;
+            readonly receipt?: Extract<ReviewSetAnswered, { decision: 'approve' }>['receipt'];
           };
     }
   | { readonly status: 'cancelled'; readonly value: { readonly message?: string | undefined } }
@@ -141,7 +169,7 @@ export type SessionPresentationResult =
   | {
       readonly status: 'malformed_detail';
       readonly entryId: string;
-      readonly family: 'ask' | 'present_candidates' | 'present_digest';
+      readonly family: 'ask' | 'present_candidates' | 'present_digest' | 'present_review_set';
     };
 
 export async function projectSessionPresentationFile(input: {
@@ -172,6 +200,23 @@ export function projectSessionPresentation(
       continue;
     }
     if (message.role !== 'toolResult') continue;
+    if (message.toolName === 'present_review_set') {
+      const parsed = zPresentReviewSetDetails.safeParse(message.details);
+      if (!parsed.success)
+        return { status: 'malformed_detail', entryId: entry.id, family: 'present_review_set' };
+      const details = parsed.data;
+      projected.push({
+        id: entry.id,
+        cursor,
+        kind: 'present_review_set',
+        exchangeId: details.exchange_id,
+        heading: details.display.heading,
+        ...(details.display.body ? { body: details.display.body } : {}),
+        reviewSet: details.review_set,
+        ...(details.continuation ? { continuation: details.continuation } : {}),
+      });
+      continue;
+    }
     if (message.toolName === 'present_digest') {
       const parsed = zPresentDigestDetails.safeParse(message.details);
       if (!parsed.success) return { status: 'malformed_detail', entryId: entry.id, family: 'present_digest' };
@@ -220,6 +265,32 @@ export function projectSessionPresentation(
     if (message.toolName !== 'ask') continue;
     const parsed = zAskDetails.safeParse(message.details);
     if (!parsed.success) {
+      const reviewSet = zRequestReviewSetDetails.safeParse(message.details);
+      if (reviewSet.success) {
+        const details = reviewSet.data;
+        const terminal: AskTerminal =
+          'answered' in details
+            ? {
+                status: 'answered',
+                value: {
+                  decision: details.answered.decision,
+                  ...(details.answered.comment ? { comment: details.answered.comment } : {}),
+                  ...(details.answered.decision === 'approve' ? { receipt: details.answered.receipt } : {}),
+                },
+              }
+            : 'cancelled' in details
+              ? { status: 'cancelled', value: details.cancelled }
+              : { status: 'unavailable', value: details.unavailable };
+        projected.push({
+          id: entry.id,
+          cursor,
+          kind: 'ask',
+          exchangeId: details.exchange_id,
+          question: 'Review decision',
+          terminal,
+        });
+        continue;
+      }
       const digestReview = zRequestDigestReviewDetails.safeParse(message.details);
       if (digestReview.success) {
         const details = digestReview.data;
