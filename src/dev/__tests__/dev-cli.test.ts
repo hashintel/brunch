@@ -492,11 +492,17 @@ describe('runDevCli', () => {
     manager.appendMessage(assistantMessage('What compliance or audit constraints must the review preserve?'));
     manager.appendMessage({
       role: 'user',
-      content:
-        'COMPLIANCE_REVEAL: retain the source regulator clause identifier verbatim — Every accepted policy rewrite must retain its source regulator clause identifier verbatim.',
+      content: 'Every accepted policy rewrite must retain its source regulator clause identifier verbatim.',
       timestamp: 2,
     });
-    manager.appendMessage({ role: 'user', content: 'APPROVE_EXACT_REVIEW_SET', timestamp: 3 });
+    manager.appendMessage({
+      role: 'toolResult',
+      toolCallId: 'review-1',
+      toolName: 'present_review_set',
+      content: [{ type: 'text', text: '## Review: accepted\n\nAccepted 1 reviewed item atomically.' }],
+      isError: false,
+      timestamp: 3,
+    });
     const sessionFile = manager.getSessionFile()!;
     flushSessionManagerToFile(manager, sessionFile);
     const beforeSession = await readFile(sessionFile, 'utf8');

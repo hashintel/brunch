@@ -17,9 +17,13 @@ const warranted = {
     {
       ref: 'transcript:u1',
       role: 'user',
-      text: 'COMPLIANCE_REVEAL: retain the source regulator clause identifier verbatim — Every accepted policy rewrite must retain its source regulator clause identifier verbatim.',
+      text: 'Every accepted policy rewrite must retain its source regulator clause identifier verbatim.',
     },
-    { ref: 'transcript:u2', role: 'user', text: 'APPROVE_EXACT_REVIEW_SET' },
+    {
+      ref: 'transcript:t1',
+      role: 'toolResult',
+      text: '## Review: accepted\n\nAccepted 1 reviewed item atomically.',
+    },
   ],
   trajectory: [{ ref: 'trajectory:g1', text: 'accept_review_set at graph LSN 3' }],
   graph: [
@@ -92,7 +96,7 @@ describe('review-diff consequential-fact evaluator', () => {
     const report = scoreConsequentialFactRun(fixture, {
       ...warranted,
       transcript: warranted.transcript.map((item) =>
-        item.ref === 'transcript:u1' ? { ...item, text: 'COMPLIANCE_REVEAL: unrelated detail' } : item,
+        item.ref === 'transcript:u1' ? { ...item, text: 'Unrelated detail' } : item,
       ),
     });
     expect(

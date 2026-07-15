@@ -60,7 +60,14 @@ describe('consequential-fact campaign', () => {
         visibleText: 'What compliance and audit constraints are missing?',
         turnsUsed: 1,
       }),
-    ).toMatchObject({ classification: 'qualifying', response: expect.stringContaining('COMPLIANCE_REVEAL') });
+    ).toMatchObject({
+      classification: 'qualifying',
+      action: {
+        kind: 'type_text',
+        text: expect.stringContaining('Every accepted policy rewrite'),
+        submit: true,
+      },
+    });
     expect(
       campaignActorStep({
         state: 'awaiting_question',
@@ -69,7 +76,7 @@ describe('consequential-fact campaign', () => {
       }),
     ).toMatchObject({
       classification: 'non_qualifying',
-      response: expect.not.stringContaining('source regulator'),
+      action: { kind: 'type_text', text: expect.not.stringContaining('source regulator') },
     });
     expect(
       campaignActorStep({
@@ -77,7 +84,14 @@ describe('consequential-fact campaign', () => {
         visibleText: 'Review set: semantic-equivalent text may omit identifiers',
         turnsUsed: 3,
       }),
-    ).toMatchObject({ response: expect.stringContaining('REQUEST_CORRECTION') });
+    ).toMatchObject({ action: { kind: 'type_text', text: expect.stringContaining('must retain') } });
+    expect(
+      campaignActorStep({
+        state: 'awaiting_review',
+        visibleText: 'Review set: retain the source regulator clause identifier verbatim. Approve',
+        turnsUsed: 3,
+      }),
+    ).toEqual({ classification: 'review_exact', action: { kind: 'press_key', key: 'Enter' } });
     expect(() => campaignActorStep({ state: 'unknown' as never, visibleText: '', turnsUsed: 1 })).toThrow(
       'mechanically invalid',
     );

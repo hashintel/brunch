@@ -6,8 +6,8 @@
     "id": "retain-source-clause-id",
     "verbatim": "Every accepted policy rewrite must retain its source regulator clause identifier verbatim.",
     "assistantPromptMarker": "compliance or audit constraints",
-    "revealMarker": "COMPLIANCE_REVEAL:",
-    "approvalMarker": "APPROVE_EXACT_REVIEW_SET"
+    "revealMarker": "Every accepted policy rewrite must retain its source regulator clause identifier verbatim.",
+    "approvalMarker": "## Review: accepted"
   },
   "graph": {
     "required": {

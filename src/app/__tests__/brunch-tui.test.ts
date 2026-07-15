@@ -530,6 +530,22 @@ describe('Brunch TUI boot', () => {
     ]);
   });
 
+  it('keeps normal app composition non-ablated and threads only an explicit evaluation ablation', async () => {
+    const observed: Array<string | undefined> = [];
+    for (const evaluationDirectiveAblation of [undefined, 'warrant-before-commit' as const]) {
+      await runBrunchCli({
+        argv: [],
+        cwd: '/tmp/project',
+        coordinator: noOpWorkspaceCoordinator('/tmp/project') as never,
+        ...(evaluationDirectiveAblation ? { evaluationDirectiveAblation } : {}),
+        launchTui: async (options) => {
+          observed.push(options?.evaluationDirectiveAblation);
+        },
+      });
+    }
+    expect(observed).toEqual([undefined, 'warrant-before-commit']);
+  });
+
   it('lets programmatic callers enable developer tools when argv omits the flag', async () => {
     let observedDeveloperTools: boolean | undefined;
 

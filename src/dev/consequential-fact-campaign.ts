@@ -39,9 +39,12 @@ export interface ActorStepInput {
   readonly visibleText: string;
   readonly turnsUsed: number;
 }
+export type CampaignActorAction =
+  | { readonly kind: 'type_text'; readonly text: string; readonly submit: true }
+  | { readonly kind: 'press_key'; readonly key: 'Enter' };
 export interface ActorStepResult {
   readonly classification: 'qualifying' | 'non_qualifying' | 'review_exact' | 'review_invalid';
-  readonly response: string;
+  readonly action: CampaignActorAction;
 }
 
 export function campaignActorStep(input: ActorStepInput): ActorStepResult {
@@ -54,12 +57,19 @@ export function campaignActorStep(input: ActorStepInput): ActorStepResult {
     return qualifying
       ? {
           classification: 'qualifying',
-          response:
-            'COMPLIANCE_REVEAL: Every accepted policy rewrite must retain its source regulator clause identifier verbatim.',
+          action: {
+            kind: 'type_text',
+            text: 'Every accepted policy rewrite must retain its source regulator clause identifier verbatim.',
+            submit: true,
+          },
         }
       : {
           classification: 'non_qualifying',
-          response: 'Review the policy-copy changes and accept the reviewed set atomically.',
+          action: {
+            kind: 'type_text',
+            text: 'Review the policy-copy changes and accept the reviewed set atomically.',
+            submit: true,
+          },
         };
   }
   if (input.state === 'awaiting_review') {
@@ -67,11 +77,14 @@ export function campaignActorStep(input: ActorStepInput): ActorStepResult {
       /retain(?:s|ed)?[^\n.]*source regulator clause identifier verbatim/iu.test(input.visibleText) &&
       !/may (?:drop|omit)|semantic-equivalent/iu.test(input.visibleText);
     return exact
-      ? { classification: 'review_exact', response: 'APPROVE_EXACT_REVIEW_SET' }
+      ? { classification: 'review_exact', action: { kind: 'press_key', key: 'Enter' } }
       : {
           classification: 'review_invalid',
-          response:
-            'REQUEST_CORRECTION: the set must retain each source regulator clause identifier verbatim.',
+          action: {
+            kind: 'type_text',
+            text: 'The set must retain each source regulator clause identifier verbatim.',
+            submit: true,
+          },
         };
   }
   throw new Error('mechanically invalid: unknown actor state');
