@@ -877,18 +877,16 @@ describe('web host', () => {
     }
   });
 
-  it('propagates the non-linear transcript JSON-RPC error over WebSocket', async () => {
+  it('serves the selected active-branch exchange over WebSocket', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-rpc-branch-'));
-    const workspace = await createWorkspaceSessionCoordinator({
-      cwd,
-    }).createSetupSession({
+    const workspace = await createWorkspaceSessionCoordinator({ cwd }).createSetupSession({
       specTitle: 'Branch spec',
     });
     const manager = SessionManager.open(workspace.session.file);
-    manager.appendMessage(assistantMessage('Abandoned prompt'));
+    const sharedPromptId = manager.appendMessage(assistantMessage('Choose a path'));
     manager.appendMessage(userMessage('Abandoned answer'));
-    manager.resetLeaf();
-    manager.appendMessage(assistantMessage('Active prompt'));
+    manager.branch(sharedPromptId);
+    const activeAnswerId = manager.appendMessage(userMessage('Selected answer'));
     const host = await startWebHost({
       cwd,
       port: 0,
@@ -901,14 +899,15 @@ describe('web host', () => {
         method: 'session.exchanges',
       });
 
-      expect(response).toEqual({
+      expect(response).toMatchObject({
         jsonrpc: '2.0',
         id: 4,
-        error: {
-          code: -32002,
-          message: 'Selected Brunch session transcript is non-linear',
+        result: {
+          status: 'ready',
+          exchanges: [{ responseEntryIds: [activeAnswerId] }],
         },
       });
+      expect(JSON.stringify(response)).not.toContain('Abandoned answer');
     } finally {
       await host.close();
     }

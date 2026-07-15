@@ -39,7 +39,7 @@ class FakeRuntimeStateSessionManager {
     data: BrunchAgentStateEntryData;
   }> = [];
 
-  getEntries() {
+  getBranch() {
     return this.entries;
   }
 
@@ -151,7 +151,11 @@ describe('Brunch agent runtime-state projection', () => {
         { systemPrompt: 'base' } as never,
         {
           sessionManager: {
-            getEntries: () => [runtimeEntry(latestState)],
+            getBranch: () => [runtimeEntry(latestState)],
+            getEntries: () => [
+              runtimeEntry(latestState),
+              runtimeEntry({ schemaVersion: 1, operationalMode: 'execute' }),
+            ],
           },
         } as never,
       ),
@@ -265,7 +269,7 @@ describe('Brunch agent runtime-state projection', () => {
       previous: DEFAULT_BRUNCH_AGENT_STATE,
       source: 'user',
     });
-    expect(projectBrunchAgentState(manager.getEntries())).toMatchObject(latestState);
+    expect(projectBrunchAgentState(manager.getBranch())).toMatchObject(latestState);
   });
 
   it('rejects invalid runtime switch combinations before appending', () => {
@@ -395,6 +399,6 @@ describe('Brunch agent runtime-state projection', () => {
 
     const reloaded = SessionManager.open(manager.getSessionFile()!, sessionDir);
 
-    expect(projectBrunchAgentState(reloaded.getEntries())).toMatchObject(latestState);
+    expect(projectBrunchAgentState(reloaded.getBranch())).toMatchObject(latestState);
   });
 });

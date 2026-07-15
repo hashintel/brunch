@@ -36,7 +36,7 @@ function fakeSessionManager(seed: readonly CapturedEntry[] = []) {
       entries.push({ type: 'custom_message', customType, content });
       return 'id';
     },
-    getEntries() {
+    getBranch() {
       return entries as unknown as readonly (CapturedEntry & { type?: unknown })[];
     },
   } as const;
@@ -183,6 +183,26 @@ describe('runOrientationJuncture', () => {
 
       // A forced seed was delivered live (LSN did not advance yet the seed still lands).
       expect(String(seed.content)).toContain('chosen: ingest');
+    });
+
+    it('folds the kick deps posture into the delivered seed (D118-L kick reader wiring)', async () => {
+      const manager = fakeSessionManager();
+      const { deps, sent } = fakeKickDeps({
+        posture: { kind: 'feature', origin: 'brownfield', relatesToSpecId: null },
+      });
+
+      await runOrientationJuncture({
+        hasUI: true,
+        ui: fakeUi(labelFor('ingest')),
+        trigger: 'consult',
+        sessionManager: manager,
+        mode: 'follow-choice',
+        kick: deps,
+      });
+
+      const { seed } = expectSeedThenKick(sent);
+      expect(String(seed.content)).toContain('SPEC POSTURE');
+      expect(String(seed.content)).toContain('origin: brownfield');
     });
 
     it('skips the kick when the choice is continue', async () => {

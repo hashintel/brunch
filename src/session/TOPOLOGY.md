@@ -1,6 +1,6 @@
 # session/ — Session domain layer
 
-SPEC decisions: D6-L, D11-L, D12-L, D13-L, D21-L, D40-L, D52-L, D76-L, D77-L, D78-L, D84-L, D101-L, D102-L, I56-L
+SPEC decisions: D6-L, D11-L, D12-L, D13-L, D21-L, D40-L, D52-L, D76-L, D77-L, D78-L, D84-L, D101-L, D102-L, D118-L, D125-L, I56-L
 
 ## Owns
 
@@ -9,6 +9,18 @@ plus the coordination logic for workspace/spec/session lifecycle.
 
 - **Transcript projection** — reading Pi JSONL, projecting Brunch-relevant
   structure (assistant/user rows, custom entries, tool results).
+
+- **Active-session-branch contract** (D24-L, I19-L) — current Brunch product
+  state means Pi's active root-to-leaf branch, not append order. Live callers
+  must use `SessionManager.getBranch()`; file-backed callers must open through
+  Pi's `SessionManager` and then use its branch/header APIs. Full-tree or
+  append-order reads are legal only for explicitly named history/diagnostic
+  surfaces. `active-session-branch.ts` is the canonical file-backed adapter:
+  it opens through Pi and returns `getHeader()` plus `getBranch()`; the session
+  envelope, canonical inventory, default transcript rendering, and exchange/RPC
+  projections consume that seam. Production reader regrowth is guarded by
+  `__tests__/active-branch-reader-inventory.test.ts`, whose exact diagnostic
+  allow-list preserves only purpose-named artifact/history readers.
 
 - **Exchange extraction** — session exchange projection: prompt-side
   span + response-side span, per D13-L.
@@ -29,9 +41,12 @@ plus the coordination logic for workspace/spec/session lifecycle.
 - **Elicitation scratchpad carrier** (`elicitation-scratchpad.ts`) — the one
   session-local, non-authoritative asking-agenda substrate (D101-L, I56-L):
   a `brunch.elicitation_scratchpad` custom-entry type plus parse/fold/append
-  helpers, mirroring `runtime-state.ts`'s fold pattern exactly (latest-snapshot-wins,
-  reconstructed from the session branch — branch-correct by construction, never
-  from runtime-state fields or tool-result `details`). Foreground context seeds,
+  helpers, mirroring `runtime-state.ts`'s fold pattern exactly (latest-snapshot-wins
+  over the active session branch, never runtime-state fields or tool-result
+  `details`). The fold is branch-correct because its live callers now supply
+  `SessionManager.getBranch()`; abandoned-branch rivals cover the live-consumer
+  family.
+  Foreground context seeds,
   the `read_elicitation_scratchpad` / `update_elicitation_scratchpad` tools, and
   subagent world snapshots all read the same fold. It never becomes canonical
   graph truth by projection side effect.
@@ -63,12 +78,20 @@ plus the coordination logic for workspace/spec/session lifecycle.
   pending prompt reconstruction from structured transcript tuples, response
   toolResult materialization, and the process-local live answer rendezvous used
   by the TUI sidecar (`live-exchange-broker.ts`). RPC maps these domain results
-  to JSON-RPC status and error codes; transcript mechanics stay here. The broker
-  holds only an in-flight ask answer promise keyed by exchange id (`awaitAnswer`);
-  the answered result still reduces to canonical `request_answer` / `request_choice`
-  / `request_choices` Pi JSONL details. The broker exists only for `answer`
-  (free-text) today — `choice`/`choices`/review have no broker-equivalent yet, a
-  named `web-driver-streaming` Horizon gap, not an oversight here. See
+  to JSON-RPC status and error codes; transcript mechanics stay here. The **live
+  ask registry** (`live-ask-registry.ts`, D125-L) is the single runtime source of
+  open-ask truth: it generalizes the broker's in-flight `pending` map into
+  observable open-ask state that also carries each ask's D116-L question payload
+  keyed by exchange id (`open` → `answered` | `cancelled` | `closed`). Every ask
+  mode registers at open time via the payload-carrying `opener`, so
+  `session.openAsks` discovers any open ask over live state without scanning the
+  transcript; the answer still arrives through the **unchanged**
+  `awaitAnswer`/`submitAnswer` string contract and reduces to canonical
+  `request_answer` / `request_choice` / `request_choices` / `request_review` Pi
+  JSONL details, with per-mode interpretation of the answer string (a listed
+  option id, delimited ids, or a review decision) living in the ask collection
+  path. In-memory and process-local by design: a stale/unknown exchange id reads
+  `closed`, never hangs. See
   [`docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`](../../docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md)
   for why this broker path is structurally distinct from `session.submitExchangeResponse`
   (which never touches this broker or Pi's `ctx.ui.*` at all). **Provider-legality rule
@@ -99,11 +122,29 @@ plus the coordination logic for workspace/spec/session lifecycle.
   and intentionally carries no readiness phase or chat-mode display fields.
   Its private `workspace-session-coordinator/` subtree owns coordinator-shaped
   session-file/probe helpers such as canonical session-file classification;
-  external callers import only the public root module.
+  external callers import only the public root module. `WorkspaceLaunchInventory`
+  additionally carries `workspacePopulated` (cwd content beyond `.brunch/`, via
+  `workspace/cwd-inventory.ts`) — the D118-L establishment branch signal,
+  distinct from the `.brunch/workspace.json` posture stub below.
+
+- **Spec-posture establishment** (`spec-establishment.ts`, D118-L) — the pure
+  deterministic branching over cwd-populated state and current posture shared
+  by spec creation (posture starts unestablished) and spec resume (never
+  re-asked once `origin` is set). Lives here rather than under
+  `.pi/components/workspace-dialog/` (that seam's tentative home) because
+  `src/.pi/components/TOPOLOGY.md`'s dependency direction only allows
+  components to import session/, never the reverse, and both the dialog
+  (create) and the coordinator (resume) need it. Spec posture itself
+  (`kind`/`origin`/`relatesToSpecId`) is spec-row state owned by `db/` and
+  read into `WorkspaceSpecState` via `CommandExecutor.getSpec`; this module
+  decides *whether to ask*, never persists.
 
 - **Session binding** — session↔spec binding entries in JSONL.
 
 - **Session envelope** — canonical session envelope reader (spec/session pair).
+  It consumes `active-session-branch.ts`, validates exactly one binding on the
+  active path, and accepts Pi-valid `parentSession`, `branch_summary`, and sibling
+  trees without a second Brunch tree parser.
 
 - **Turn-boundary choreography** — write-side seam for the assistant-visible
   watermark, `worldUpdate`, mention staleness, and honest assistant origination.
@@ -160,6 +201,12 @@ Live runtime posture is operational-mode keyed. `session.runtimeState` reports
 mode and derived role, plus mention/world/lifecycle facts. Anything more specific
 belongs to product exchange state or prompt-resource behavior, not transcript
 runtime state.
+
+Distinct from **spec posture** (D118-L: `origin`/confirmed `kind`/
+`relatesToSpecId`) below — spec posture is spec-row state owned by `db/`, not
+runtime/transcript state, and is out of scope for this ledger. It is also
+distinct from the workspace-level posture stub in `.brunch/workspace.json`
+(`WorkspacePostureState`, unchanged), which stays owned by `workspace/`.
 
 | Row                         | Canonical owner                                         | Agent    | RPC      | Web      | Reason for deferred                                                       |
 | --------------------------- | ------------------------------------------------------- | -------- | -------- | -------- | ------------------------------------------------------------------------- |

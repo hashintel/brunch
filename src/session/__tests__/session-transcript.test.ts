@@ -1,6 +1,12 @@
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
-import { renderSessionTranscript } from '../session-transcript.js';
+import { assistantMessage, userMessage } from '../../probes/test-helpers.js';
+import { renderAllHistoryDiagnosticTranscript, renderSessionTranscriptFile } from '../session-transcript.js';
 
 function line(value: unknown): string {
   return JSON.stringify(value);
@@ -129,7 +135,7 @@ describe('session transcript renderer', () => {
       }),
     ].join('\n');
 
-    const transcript = renderSessionTranscript(jsonl, {
+    const transcript = renderAllHistoryDiagnosticTranscript(jsonl, {
       title: 'session.jsonl',
     });
 
@@ -163,5 +169,20 @@ describe('session transcript renderer', () => {
       I will inspect the workspace.
       "
     `);
+  });
+
+  it('renders the active branch by default and excludes an abandoned sibling', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-transcript-'));
+    const manager = SessionManager.create(cwd, join(cwd, '.brunch', 'sessions'));
+    const sharedId = manager.appendMessage(assistantMessage('Shared question'));
+    manager.appendMessage(userMessage('Abandoned answer'));
+    manager.branch(sharedId);
+    manager.appendMessage(userMessage('Selected answer'));
+
+    const transcript = await renderSessionTranscriptFile(manager.getSessionFile()!);
+
+    expect(transcript).toContain('Shared question');
+    expect(transcript).toContain('Selected answer');
+    expect(transcript).not.toContain('Abandoned answer');
   });
 });

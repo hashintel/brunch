@@ -35,6 +35,7 @@ import type {
   SessionManager,
 } from '@earendil-works/pi-coding-agent';
 
+import type { SpecPostureSeedInput } from '../../../agents/contexts/seeds/origination.js';
 import {
   CONTEXT_SEED_CUSTOM_TYPE,
   customEntryType,
@@ -68,7 +69,7 @@ import {
 
 export type JunctureSessionManager = SessionOrientationEntrySessionManager &
   OriginationManager & {
-    getEntries(): readonly TranscriptEntryLike[];
+    getBranch(): readonly TranscriptEntryLike[];
   };
 
 export type OrientationJunctureMode = 'follow-choice' | 'boot';
@@ -100,6 +101,8 @@ export interface LiveKickDeps {
   readonly specName?: string;
   readonly reads: OriginationReads;
   readonly workspaceContext: string;
+  /** The spec's posture row (D118-L) for the seed's SPEC POSTURE section. */
+  readonly posture?: SpecPostureSeedInput;
   readonly modelAvailable: boolean;
   /** ExtensionAPI/ReplacedSessionContext-style `sendMessage` handle. */
   readonly sendCustomMessage: (
@@ -194,7 +197,7 @@ export async function runJunctureForContext(
   if (!sessionManagerCanAppend(sessionManager)) {
     input.onAppendError(
       new Error(
-        'Session-orientation juncture requires a mutable Pi session manager with appendCustomEntry/getEntries.',
+        'Session-orientation juncture requires a mutable Pi session manager with appendCustomEntry/getBranch.',
       ),
     );
     return { ran: false, kickFired: false };
@@ -223,7 +226,7 @@ export async function runManualTriggerKickForContext(input: {
   if (!sessionManagerCanAppend(sessionManager)) {
     input.onAppendError(
       new Error(
-        'Manual Brunch resume requires a mutable Pi session manager with appendCustomEntry/getEntries.',
+        'Manual Brunch resume requires a mutable Pi session manager with appendCustomEntry/getBranch.',
       ),
     );
     return { kickFired: false };
@@ -240,7 +243,7 @@ export async function runManualTriggerKickForContext(input: {
       // A failed kick can leave its provider-visible seed in the transcript.
       // Reuse that seed on retry; otherwise explicit continuation still forces
       // fresh grounding before the next kick.
-      forceSeed: !hasSeedAwaitingKick(sessionManager.getEntries()),
+      forceSeed: !hasSeedAwaitingKick(sessionManager.getBranch()),
       forceStartOrigin: 'manual_trigger',
       deliverSeedWithoutModel: false,
     },
@@ -318,7 +321,7 @@ function hasSeedAwaitingKick(entries: readonly TranscriptEntryLike[]): boolean {
 
 function sessionManagerCanAppend(sessionManager: unknown): sessionManager is JunctureSessionManager {
   const candidate = sessionManager as Partial<SessionManager> | undefined;
-  return typeof candidate?.appendCustomEntry === 'function' && typeof candidate.getEntries === 'function';
+  return typeof candidate?.appendCustomEntry === 'function' && typeof candidate.getBranch === 'function';
 }
 
 export async function runOrientationJuncture(
@@ -398,7 +401,7 @@ async function originateAndKick(
   kick: LiveKickDeps,
   options: OriginateAndKickOptions,
 ): Promise<KickCompletionOutcome> {
-  const entries = sessionManager.getEntries();
+  const entries = sessionManager.getBranch();
   const origination = originateAssistantTurn({
     specId: kick.specId,
     ...(kick.specName ? { specName: kick.specName } : {}),
@@ -406,6 +409,7 @@ async function originateAndKick(
     entries,
     resumeOrigin: options.resumeOrigin,
     workspaceContext: kick.workspaceContext,
+    ...(kick.posture ? { posture: kick.posture } : {}),
     manager: sessionManager,
     appendSeed: false,
     ...(options.forceSeed ? { forceSeed: true } : {}),

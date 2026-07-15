@@ -1,3 +1,11 @@
+/**
+ * Live exchange broker contract — the process-local ask-answer rendezvous types.
+ * The concrete implementation is the live ask registry (`live-ask-registry.ts`,
+ * D125-L), which owns the pending rendezvous plus observable open-ask state; this
+ * module keeps the narrow `awaitAnswer` / `submitAnswer` string contract that the
+ * `session.answerExchange` RPC handle and the registry both speak.
+ */
+
 export type LiveExchangeAnswerOutcome =
   | { readonly submitted: true }
   | { readonly submitted: false; readonly reason: 'no_pending_exchange' };
@@ -8,40 +16,4 @@ export interface LiveExchangeAwaiter {
 
 export interface LiveExchangeAnswerer {
   submitAnswer(input: { readonly exchangeId: string; readonly answer: string }): LiveExchangeAnswerOutcome;
-}
-
-export interface LiveExchangeBroker {
-  readonly awaiter: LiveExchangeAwaiter;
-  readonly answerer: LiveExchangeAnswerer;
-}
-
-interface PendingAnswer {
-  readonly resolve: (answer: string | undefined) => void;
-}
-
-export function createLiveExchangeBroker(): LiveExchangeBroker {
-  const pending = new Map<string, PendingAnswer>();
-
-  return {
-    awaiter: {
-      awaitAnswer({ exchangeId }) {
-        if (pending.has(exchangeId)) {
-          throw new Error(`Live exchange is already pending: ${exchangeId}`);
-        }
-        return new Promise<string | undefined>((resolve) => {
-          pending.set(exchangeId, { resolve });
-        }).finally(() => {
-          pending.delete(exchangeId);
-        });
-      },
-    },
-    answerer: {
-      submitAnswer({ exchangeId, answer }) {
-        const match = pending.get(exchangeId);
-        if (!match) return { submitted: false, reason: 'no_pending_exchange' };
-        match.resolve(answer);
-        return { submitted: true };
-      },
-    },
-  };
 }

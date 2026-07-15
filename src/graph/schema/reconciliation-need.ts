@@ -20,16 +20,23 @@
 import type { EdgeId, Lsn, NodeId } from '../atoms.js';
 
 /**
- * What sort of impasse this need records.
+ * Persisted reconciliation-need kinds — the judgment-shaped impasses with no
+ * LSN-derivable staleness signal (canonical vocabulary home).
  *
- * Open extension — new kinds may be added as concrete needs surface.
- * Most needs are `edge_revalidation`.
+ * `edge_revalidation` was retired from this substrate (reconciliation-derivation
+ * frontier): edge staleness is now a derived LSN read
+ * (`../projection/derived-revalidation.ts`), cleared by the per-edge
+ * `acknowledgedLsn` watermark — never a persisted row. These three remain
+ * agent-authored via `create_reconciliation_need`.
  */
-type ReconciliationNeedKind =
-  | 'edge_revalidation'
-  | 'possible_relation'
-  | 'possible_duplicate'
-  | 'semantic_conflict';
+export const RECONCILIATION_NEED_KINDS = [
+  'possible_relation',
+  'possible_duplicate',
+  'semantic_conflict',
+] as const;
+
+/** What sort of impasse a persisted need records. */
+export type ReconciliationNeedKind = (typeof RECONCILIATION_NEED_KINDS)[number];
 
 /**
  * What this need is about.

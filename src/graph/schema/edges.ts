@@ -69,8 +69,9 @@ type EdgeSettlement = (typeof NODE_SETTLEMENTS)[number];
  *  - Structural validators in the CommandExecutor enforce this.
  *
  * No `status` field: accepted graph edges are present-or-absent.
- * Stale edges surface as `ReconciliationNeed` records pointing at
- * the edge (see `src/graph/schema/reconciliation-need.ts`).
+ * Stale edges surface as a derived `edge_revalidation` staleness signal
+ * (see `src/graph/projection/derived-revalidation.ts`), cleared per-edge by
+ * the `acknowledgedLsn` watermark below.
  */
 export interface GraphEdge {
   readonly id: EdgeId;
@@ -84,4 +85,12 @@ export interface GraphEdge {
   readonly rationale?: string;
   readonly createdAtLsn: Lsn;
   readonly updatedAtLsn: Lsn;
+  /**
+   * Per-edge acknowledged-LSN watermark (reconciliation-derivation frontier,
+   * correction 3). Null until an acknowledgement bumps it. The derived
+   * `edge_revalidation` staleness test treats the edge as acknowledged up to
+   * `max(acknowledgedLsn, updatedAtLsn)`, so a null watermark is equivalent to
+   * the edge's own `updatedAtLsn` (the pre-watermark proxy).
+   */
+  readonly acknowledgedLsn?: Lsn;
 }

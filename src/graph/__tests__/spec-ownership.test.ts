@@ -172,7 +172,7 @@ describe('graph items are owned by spec', () => {
     const ok = executor.createReconciliationNeed({
       specId: specA,
       target: { kind: 'edge', edgeId: aEdgeId },
-      needKind: 'staleness',
+      needKind: 'semantic_conflict',
     });
     expect(ok.status).toBe('success');
 
@@ -180,7 +180,7 @@ describe('graph items are owned by spec', () => {
     const crossPair = executor.createReconciliationNeed({
       specId: specA,
       target: { kind: 'node_pair', aId: aNodeId, bId: bNodeId },
-      needKind: 'contradiction',
+      needKind: 'possible_duplicate',
     });
     expect(crossPair.status).toBe('structural_illegal');
 

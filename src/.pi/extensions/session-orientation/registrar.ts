@@ -186,7 +186,7 @@ interface JunctureInvocation {
 }
 
 function menuForContext(ctx: ExtensionContext): SessionOrientationMenuDescriptor {
-  const state = projectBrunchAgentState(ctx.sessionManager.getEntries());
+  const state = projectBrunchAgentState(ctx.sessionManager.getBranch());
   return state.operationalMode === 'execute' ? CODE_SESSION_ORIENTATION_MENU : SESSION_ORIENTATION_MENU;
 }
 

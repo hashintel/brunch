@@ -300,9 +300,9 @@ compaction: {
 }
 ```
 
-Brunch also declares an anchor-preservation contract in [`src/.pi/extensions/compaction/index.ts`](../../src/.pi/extensions/compaction/index.ts), but the directory topology still describes the actual hook as future. No production registrar currently handles `session_before_compact`.
+**Disposition (2026-07-14): shipped and closed by FE-1196.** Brunch now registers one production `session_before_compact` hook through `registerBrunchCompaction`. The adapter prefixes a deterministic versioned continuity block to Pi's native `compact(...)` narrative, preserves Pi file-operation details, keeps ledger anchors in append-only JSONL, and cancels visibly on owned failure. Current state is canonical in [`src/.pi/extensions/TOPOLOGY.md`](../../src/.pi/extensions/TOPOLOGY.md) and SPEC D43-L/I28-L.
 
-This means default Pi compaction can move older Brunch continuity entries behind `firstKeptEntryId` without first materializing their required facts into the compaction summary. JSONL persistence remains intact, but the model-facing active context and projections built over compacted context may lose the facts Brunch expects to survive.
+The sections below retain the accepted package shape as evaluation history; they are not open implementation instructions.
 
 Pi `0.80.6` improves the basis for implementing the intended seam:
 
@@ -379,12 +379,11 @@ Pi's default summaries track read/modified files cumulatively. A custom result s
 - Render one byte-stable, versioned continuity block.
 - Prove order independence where the contract permits it and branch-order dependence where selection requires it.
 
-#### Slice B — Native compaction tracer
+#### Slice B — Native compaction tracer · shipped
 
-- Register `session_before_compact` in the production Brunch extension bundle.
-- Use Pi's public preparation and `generateSummary()` APIs.
-- Compact one representative session containing runtime state, binding, context seed, graph watermark carrier, and one unresolved carrier.
-- Reload through the real `SessionManager` and prove projections retain their facts.
+- Registered `session_before_compact` in the production Brunch extension bundle.
+- Uses Pi's public preparation and native `compact(...)` API.
+- The faux-provider lifecycle battery covers representative carriers and physical reload through Pi's `SessionManager`.
 
 #### Slice C — Repeated and split-turn hardening
 
@@ -423,9 +422,7 @@ src/dev/ or src/probes/ compaction witness
 
 ### Planning disposition
 
-Reframe `compaction-and-conflict-widening` around the concrete Pi-native continuity gap and consider promoting it during re-qualification. If conflict widening is not required for the same closure target, split it out rather than retaining a broad compound frontier name. Suggested focused frontier name: `pi-compaction-continuity`.
-
-This package requires an `ln-design` pass before `ln-scope` because selector ownership and repeated-summary information hiding determine the module shape.
+Closed by FE-1196 `compaction-and-conflict-widening` on 2026-07-14. The native custom-result path and lifecycle battery cover manual, repeated, split-turn, overflow-retry, reload, latest-carrier replacement, immediate retry/rebuilt context, and fail-closed cancellation. Re-enter only if the selector's code-local `ceiling:` fires.
 
 ## P4 — Native provider, model, and thinking policy
 
@@ -617,10 +614,7 @@ When the separate frontier-reorganization thread accepts or rejects these packag
 
 1. Update `memory/PLAN.md` sequencing and frontier definitions.
 2. Record any changed product commitments in `memory/SPEC.md` as event decisions with pointers to the owning topology files.
-3. Reconcile the compaction inconsistency:
-   - current topology calls `compaction/` a contract and future hook;
-   - SPEC language often speaks as though the hook is already materialized;
-   - the SPEC lexicon references `src/.pi/extensions/auto-compaction.ts`, which does not exist.
+3. Compaction reconciliation completed 2026-07-14: topology, SPEC D43-L/I28-L, and the `compaction/` implementation all describe the materialized native hook.
 4. Update the relevant `src/**/TOPOLOGY.md` only when implementation changes current materialized state.
 5. Convert admitted packages into `memory/cards/` scope files only after their plan-level tracker/branch boundaries are settled.
 6. Delete this synthesis after its accepted content has canonical homes.

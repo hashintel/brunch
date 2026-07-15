@@ -1,10 +1,10 @@
 # .pi/extensions/ — Pi adapter registrars
 
-SPEC decisions: D34-L, D35-L, D37-L, D39-L, D40-L, D44-L, D52-L, D69-L, D71-L, D90-L, D91-L, D93-L, D98-L, D109-L, D119-L, D120-L, D121-L, D122-L, D123-L
+SPEC decisions: D24-L, D34-L, D35-L, D37-L, D39-L, D40-L, D43-L, D44-L, D52-L, D69-L, D71-L, D90-L, D91-L, D93-L, D98-L, D109-L, D119-L, D120-L, D121-L, D122-L, D123-L, I19-L, I28-L
 
 ## Owns
 
-Pi-facing registration and adaptation only: lifecycle hooks, agent tool definitions, command/shortcut handlers, TUI chrome affordances, autocomplete wrappers, per-turn system-prompt append hooks, dev-gated read-only introspection taps, payload/session-log query tools, workspace dialogs, and Pi-specific tool result renderers.
+Pi-facing registration and adaptation only: lifecycle hooks, agent tool definitions, command/shortcut handlers, TUI chrome affordances, autocomplete wrappers, per-turn system-prompt append hooks, dev-gated read-only introspection taps, payload/session-log query tools, workspace dialogs, and Pi-specific tool result renderers. Current-state adapters require Pi's `SessionManager.getBranch()`; they do not fall back to append-order `getEntries()` (D24-L, I19-L).
 
 ## Does NOT own
 
@@ -39,7 +39,7 @@ extensions/
 ├── subagents/              D44-L/D91-L sealed SDK child sessions and `subagent` tool
 ├── chrome/                 TUI header/title/footer/sidecar-widget chrome projection
 ├── commands/               /brunch:* commands, shortcut, branch/tree policy (exception: /brunch:land registers in executor/execute-land/ beside its read-only preflight tool)
-├── compaction/             auto-compaction anchor contract and future hook
+├── compaction/             D43-L anchor contract + one session_before_compact native custom result
 ├── exchanges/              structured-exchange present_* + ask Pi tools
 ├── mentions/               #graph mention prompt hint + autocomplete provider
 ├── session-orientation/    session-entry-orientation descriptors, dialog adapter, juncture orchestrator, and gate state
@@ -54,6 +54,8 @@ option nothing ever set) was retired — it never entered the product bundle and
 was inert even under Pi's ambient `.pi/extensions/` directory scan. Its
 `TuiStyleLabComponent` moved to `.pi/components/tui-lab/` as a reference
 component, previewable via `npm run dev:components -- tui-lab`.
+
+`compaction/` registers exactly one `session_before_compact` hook. Its private selector and continuity-block modules choose dropped provider-visible carriers and serialize them deterministically; the registrar calls Pi's public native `compact(...)`, prefixes the block, preserves Pi file-operation details, and adds only a namespaced schema marker. Ledger-only anchors remain in append-only JSONL. Owned boundary, auth, serialization, or narrative failures notify and return `{ cancel: true }`; there is no pending queue, `session_compact` hook, or post-compaction send.
 
 ## Boundary rules
 

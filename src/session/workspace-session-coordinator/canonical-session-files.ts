@@ -1,9 +1,8 @@
-import { readdir, readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type { SessionHeader } from '@earendil-works/pi-coding-agent';
-
 import { BRUNCH_DIR, SESSION_DIR } from '../../constants.js';
+import { openActiveSessionBranch } from '../active-session-branch.js';
 import { isSessionBindingEntry, SESSION_BINDING_TYPE, type SessionBindingData } from '../session-binding.js';
 import type {
   WorkspaceLaunchSession,
@@ -73,20 +72,15 @@ export async function verifyCanonicalSessionStore(options: {
 }
 
 async function inspectCanonicalSessionFile(file: string): Promise<CanonicalSessionFile> {
-  let entries: unknown[];
+  let branch: ReturnType<typeof openActiveSessionBranch>;
   try {
-    entries = await readJsonl(file);
-  } catch (error) {
-    if (isJsonParseError(error)) {
-      return { file, reason: 'unreadable', available: false };
-    }
-    throw error;
+    await validateSessionJsonlSyntax(file);
+    branch = openActiveSessionBranch(file);
+  } catch {
+    return { file, reason: 'unreadable', available: false };
   }
 
-  const header = entries.find(isSessionHeader);
-  if (!header) {
-    return { file, reason: 'missing_header', available: false };
-  }
+  const { header, entries } = branch;
 
   const bindings = entries.filter(isSessionBindingEntry);
   if (bindings.length === 0) {
@@ -112,6 +106,14 @@ async function inspectCanonicalSessionFile(file: string): Promise<CanonicalSessi
   };
 }
 
+/** Syntax-only trust-boundary check; product semantics remain owned by Pi's SessionManager. */
+async function validateSessionJsonlSyntax(file: string): Promise<void> {
+  const content = await readFile(file, 'utf8');
+  for (const line of content.split('\n')) {
+    if (line.trim().length > 0) JSON.parse(line);
+  }
+}
+
 async function listSessionFiles(cwd: string): Promise<string[]> {
   try {
     const entries = await readdir(join(cwd, BRUNCH_DIR, SESSION_DIR), { withFileTypes: true });
@@ -125,14 +127,6 @@ async function listSessionFiles(cwd: string): Promise<string[]> {
     }
     throw error;
   }
-}
-
-async function readJsonl(file: string): Promise<unknown[]> {
-  const content = await readFile(file, 'utf8');
-  return content
-    .split('\n')
-    .filter((line) => line.trim().length > 0)
-    .map((line) => JSON.parse(line) as unknown);
 }
 
 function countTurnEntries(entries: readonly unknown[]): number {
@@ -164,14 +158,6 @@ function formatUnavailableSessionError(session: UnavailableSessionFile): string 
     case 'unreadable':
       return `${session.file} is unreadable`;
   }
-}
-
-function isJsonParseError(error: unknown): error is SyntaxError {
-  return error instanceof SyntaxError;
-}
-
-function isSessionHeader(value: unknown): value is SessionHeader {
-  return isRecord(value) && value.type === 'session' && typeof value.id === 'string';
 }
 
 function isSessionInfoEntry(value: unknown): value is { type: 'session_info'; name?: unknown } {

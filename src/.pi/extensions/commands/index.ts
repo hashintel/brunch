@@ -128,7 +128,7 @@ interface RuntimeSwitchContext {
 
 type ContinueCommandContext = ExtensionCommandContext & {
   readonly sessionManager: ExtensionCommandContext['sessionManager'] & {
-    readonly getBranch?: () => readonly EntryLike[];
+    readonly getBranch: () => readonly EntryLike[];
     readonly appendMessage?: (message: unknown) => unknown;
   };
 };
@@ -156,7 +156,7 @@ async function openModePicker(
   ctx: RuntimeSwitchContext,
   options: ModeSwitchOptions,
 ): Promise<void> {
-  const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
+  const current = projectBrunchAgentState(ctx.sessionManager.getBranch());
   // hasUI first: since pi 0.80.x, headless/no-op UI contexts carry stub
   // `custom` functions that resolve undefined, so shape alone can't gate.
   if (!ctx.hasUI || typeof ctx.ui.custom !== 'function') {
@@ -296,7 +296,7 @@ function applyModeSwitch(
 
   appendBrunchAgentRuntimeSwitch(
     {
-      getEntries: () => ctx.sessionManager.getEntries(),
+      getBranch: () => ctx.sessionManager.getBranch(),
       appendCustomEntry: (customType, data) => {
         pi.appendEntry(customType, data);
       },
@@ -306,7 +306,7 @@ function applyModeSwitch(
   );
 
   pi.setActiveTools(
-    activeToolNamesForBrunchAgentState(pi, projectBrunchAgentState(ctx.sessionManager.getEntries())),
+    activeToolNamesForBrunchAgentState(pi, projectBrunchAgentState(ctx.sessionManager.getBranch())),
   );
   options.requestChromeRefresh?.();
   ctx.ui.notify(`Brunch mode set to ${operationalModeLabel(nextMode)}.`, 'info');
@@ -322,7 +322,7 @@ function registerRuntimeSwitchCommands(pi: ExtensionAPI, options: ModeSwitchOpti
       })),
     handler: async (args, ctx) => {
       const selection = normalizeAxisArg(args);
-      const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
+      const current = projectBrunchAgentState(ctx.sessionManager.getBranch());
       if (!selection) {
         await openModePicker(pi, ctx, options);
         return;
@@ -351,7 +351,7 @@ function registerRuntimeSwitchCommands(pi: ExtensionAPI, options: ModeSwitchOpti
 function menuForCurrentOperationalMode(ctx: {
   readonly sessionManager: RuntimeSwitchContext['sessionManager'];
 }): SessionOrientationMenuDescriptor {
-  const state = projectBrunchAgentState(ctx.sessionManager.getEntries());
+  const state = projectBrunchAgentState(ctx.sessionManager.getBranch());
   return state.operationalMode === 'execute' ? CODE_SESSION_ORIENTATION_MENU : SESSION_ORIENTATION_MENU;
 }
 
@@ -394,7 +394,7 @@ function registerConsultCommand(
 }
 
 function currentBranchEntries(ctx: ContinueCommandContext): readonly EntryLike[] {
-  return ctx.sessionManager.getBranch?.() ?? (ctx.sessionManager.getEntries() as readonly EntryLike[]);
+  return ctx.sessionManager.getBranch() as readonly EntryLike[];
 }
 
 function latestDeclaredAskContinuation(ctx: ContinueCommandContext) {

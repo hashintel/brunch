@@ -9,6 +9,7 @@ import type { WorkspaceSessionCoordinator } from '../session/workspace-session-c
 import { createReadOnlyRpcHandlers, createWebSidecarRpcHandlers } from './handlers.js';
 import type { SessionTurnDriver } from './methods/session-driver.js';
 import type { SessionExchangeAnswerHandle } from './methods/session-exchange-answer.js';
+import type { SessionOpenAsksHandle } from './methods/session-open-asks.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from './product-updates.js';
 import type { SessionEventRelay } from './session-event-relay.js';
 import { createPetrinautStreamHost, petrinautStreamRunId } from './web-host/petrinaut-stream.js';
@@ -24,6 +25,7 @@ export interface WebHostOptions {
   sessionEvents?: SessionEventRelay;
   sessionTurnDriver?: SessionTurnDriver;
   sessionExchangeAnswer?: SessionExchangeAnswerHandle;
+  sessionOpenAsks?: SessionOpenAsksHandle;
 }
 
 export interface RunningWebHost {
@@ -102,7 +104,7 @@ export async function startWebHost(options: WebHostOptions): Promise<RunningWebH
       }),
     );
 
-    if (options.sessionTurnDriver || options.sessionExchangeAnswer) {
+    if (options.sessionTurnDriver || options.sessionExchangeAnswer || options.sessionOpenAsks) {
       rpcTransports.push(
         attachWebRpcTransport({
           server,
@@ -115,6 +117,7 @@ export async function startWebHost(options: WebHostOptions): Promise<RunningWebH
             ...(options.sessionExchangeAnswer
               ? { sessionExchangeAnswer: options.sessionExchangeAnswer }
               : {}),
+            ...(options.sessionOpenAsks ? { sessionOpenAsks: options.sessionOpenAsks } : {}),
           }),
           productUpdates,
           ...(options.sessionEvents ? { sessionEvents: options.sessionEvents } : {}),

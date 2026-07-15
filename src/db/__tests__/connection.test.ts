@@ -12,7 +12,7 @@ import { changeLog, edges, graphClock, nodeKindCounters, nodes, specs } from '..
 describe('createDb', () => {
   it('creates a missing database file and can reopen it idempotently', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'brunch-db-'));
-    const dbPath = join(dir, 'data.db');
+    const dbPath = join(dir, 'test.db');
 
     try {
       const db = createDb(dbPath);

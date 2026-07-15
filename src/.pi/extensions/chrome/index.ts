@@ -388,7 +388,7 @@ function footerTelemetryFromContext(ctx: ExtensionContext, pi: ExtensionAPI): Br
         }
       : null,
     thinkingLevel: pi.getThinkingLevel(),
-    agentState: projectBrunchAgentState(ctx.sessionManager.getEntries()),
+    agentState: projectBrunchAgentState(ctx.sessionManager.getBranch()),
   };
 }
 

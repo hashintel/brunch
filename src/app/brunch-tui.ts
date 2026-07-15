@@ -33,10 +33,11 @@ import {
 } from '../graph/index.js';
 import type { SessionTurnDriver } from '../rpc/methods/session-driver.js';
 import type { SessionExchangeAnswerHandle } from '../rpc/methods/session-exchange-answer.js';
+import type { SessionOpenAsksHandle } from '../rpc/methods/session-open-asks.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rpc/product-updates.js';
 import { createSessionEventRelay, type SessionEventRelay } from '../rpc/session-event-relay.js';
 import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
-import { createLiveExchangeBroker, type LiveExchangeBroker } from '../session/live-exchange-broker.js';
+import { createLiveAskRegistry, type LiveAskRegistry } from '../session/live-ask-registry.js';
 import type { KickCompletionOutcome } from '../session/originate-assistant-turn.js';
 import { operationalModeLabel } from '../session/schema/kinds.js';
 import { renderWorkspaceOverviewContext } from '../session/workspace-overview-context.js';
@@ -92,6 +93,7 @@ interface BrunchWebSidecarRunnerOptions {
   sessionEvents: SessionEventRelay;
   sessionTurnDriver?: SessionTurnDriver;
   sessionExchangeAnswer?: SessionExchangeAnswerHandle;
+  sessionOpenAsks?: SessionOpenAsksHandle;
   routePath: string;
 }
 
@@ -103,7 +105,7 @@ export interface BrunchTuiLaunchContext {
   productUpdates?: ProductUpdatePublisher;
   sessionEvents?: SessionEventRelay;
   sessionTurnDriver?: SessionTurnDriver;
-  liveExchange?: LiveExchangeBroker;
+  liveExchange?: LiveAskRegistry;
   liveAgentSession?: {
     current: Awaited<ReturnType<typeof createAgentSessionFromServices>>['session'] | null;
   };
@@ -172,7 +174,7 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
       return { driven: true };
     },
   };
-  const liveExchange = createLiveExchangeBroker();
+  const liveExchange = createLiveAskRegistry();
   const inventory = await coordinator.inspectWorkspace();
   const decision = await chooseSpecSessionActivationDecision(inventory, options);
   const workspaceState = await coordinator.activateWorkspace(decision);
@@ -197,6 +199,7 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
     sessionEvents,
     sessionTurnDriver,
     sessionExchangeAnswer: { answerer: liveExchange.answerer },
+    sessionOpenAsks: { reader: liveExchange.reader },
     routePath,
   });
   const webSidecarUrl = webSidecar ? `${webSidecar.url}${routePath}` : null;
@@ -515,7 +518,7 @@ export function createBrunchAgentSessionRuntimeFactory(
         sessionManager,
       }),
     );
-    const agentState = projectBrunchAgentState(sessionManager.getEntries());
+    const agentState = projectBrunchAgentState(sessionManager.getBranch());
     const allowProductSubagents = context.allowSubagents !== false;
     const shouldLoadSubagents = allowProductSubagents || agentState.operationalMode === 'execute';
     const subagents = shouldLoadSubagents
@@ -556,7 +559,7 @@ export function createBrunchAgentSessionRuntimeFactory(
             getCommandContext: () => liveAgentSession.current?.createReplacedSessionContext(),
             ...(productUpdates ? { productUpdates } : {}),
             graph: graphDeps,
-            ...(context.liveExchange ? { liveExchange: context.liveExchange.awaiter } : {}),
+            ...(context.liveExchange ? { liveExchange: context.liveExchange.opener } : {}),
             ...(context.introspection ? { introspection: context.introspection } : {}),
             ...(subagents ? { subagents } : {}),
             promptContext: () => {
@@ -586,14 +589,23 @@ export function createBrunchAgentSessionRuntimeFactory(
                 const session = liveAgentSession.current;
                 if (!session) return undefined;
                 const specId = currentWorkspace.spec.id;
-                const specName = graph.commandExecutor.getSpec(specId)?.name;
+                const specRecord = graph.commandExecutor.getSpec(specId);
                 const kickUi = session.createReplacedSessionContext().ui;
                 const kickSendChain = createKickSendSerialChain();
                 return {
                   specId,
-                  ...(specName ? { specName } : {}),
+                  ...(specRecord?.name ? { specName: specRecord.name } : {}),
                   reads: graph.forSpec(specId),
                   workspaceContext: await renderWorkspaceOverviewContext(cwd),
+                  ...(specRecord
+                    ? {
+                        posture: {
+                          kind: specRecord.kind,
+                          origin: specRecord.origin,
+                          relatesToSpecId: specRecord.relatesToSpecId,
+                        },
+                      }
+                    : {}),
                   // Deferred fire-and-forget — see `scheduleKickSend` for why
                   // awaiting the turn here would park the TUI unsubscribed.
                   sendCustomMessage: (message, sendOptions) =>
@@ -669,7 +681,7 @@ interface SampleResumeFactsInput {
   readonly graph: WorkspaceGraphRuntime;
   readonly specId: number;
   readonly sessionManager: {
-    readonly getEntries: () => readonly { type?: unknown; customType?: unknown; data?: unknown }[];
+    readonly getBranch: () => readonly { type?: unknown; customType?: unknown; data?: unknown }[];
   };
 }
 
@@ -681,7 +693,7 @@ interface SampleResumeFactsInput {
 function sampleResumeFactsForHeader(input: SampleResumeFactsInput): StartupHeaderResumeFacts | undefined {
   if (input.activationDecision?.action !== 'openSession') return undefined;
   const slice = input.graph.forSpec(input.specId).queryGraph(undefined, { visibility: 'all' });
-  const agentState = projectBrunchAgentState(input.sessionManager.getEntries());
+  const agentState = projectBrunchAgentState(input.sessionManager.getBranch());
   return {
     ...(input.specName ? { specTitle: input.specName } : {}),
     nodeCount: slice.nodes.length,
@@ -718,6 +730,7 @@ async function startDefaultWebSidecar({
   sessionEvents,
   sessionTurnDriver,
   sessionExchangeAnswer,
+  sessionOpenAsks,
 }: BrunchWebSidecarRunnerOptions): Promise<BrunchWebSidecar> {
   const host = await startWebHost({
     cwd,
@@ -726,6 +739,7 @@ async function startDefaultWebSidecar({
     sessionEvents,
     ...(sessionTurnDriver ? { sessionTurnDriver } : {}),
     ...(sessionExchangeAnswer ? { sessionExchangeAnswer } : {}),
+    ...(sessionOpenAsks ? { sessionOpenAsks } : {}),
   });
   return host;
 }

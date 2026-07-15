@@ -12,7 +12,6 @@ export type SessionProjectionTarget =
   | {
       ok: true;
       envelope: BrunchSessionEnvelope;
-      nonLinearMessage: string;
     }
   | {
       ok: false;
@@ -45,7 +44,6 @@ export async function resolveExplicitSessionProjectionTarget(
     return {
       ok: true,
       envelope: readResult.envelope,
-      nonLinearMessage: 'Brunch session transcript is non-linear',
     };
   }
 

@@ -101,7 +101,7 @@ export function latestElicitationScratchpad(
 }
 
 export interface ElicitationScratchpadEntrySessionManager {
-  getEntries(): readonly CustomEntryLike[];
+  getBranch(): readonly CustomEntryLike[];
   appendCustomEntry(customType: string, data: ElicitationScratchpadEntryData): void;
 }
 

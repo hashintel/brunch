@@ -10,6 +10,8 @@ export interface BrunchFauxModelOptions {
   readonly api: string;
   readonly modelId: string;
   readonly modelName: string;
+  readonly contextWindow: number;
+  readonly maxTokens: number;
 }
 
 export interface BrunchFauxModelContainer {
@@ -33,8 +35,8 @@ export function brunchFauxProviderConfig(
         reasoning: false,
         input: ['text'],
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: 128000,
-        maxTokens: 16384,
+        contextWindow: model.contextWindow,
+        maxTokens: model.maxTokens,
       },
     ],
   };
@@ -58,5 +60,7 @@ export function defaultBrunchFauxModel(options: BrunchFauxModelContainer = {}): 
     api: options.model?.api ?? 'brunch-faux-api',
     modelId: options.model?.modelId ?? 'brunch-faux-model',
     modelName: options.model?.modelName ?? 'Brunch faux model',
+    contextWindow: options.model?.contextWindow ?? 128000,
+    maxTokens: options.model?.maxTokens ?? 16384,
   };
 }

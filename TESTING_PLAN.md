@@ -149,11 +149,33 @@ some specs exist
 
 Check for each path sampled:
 
-- What, if anything, records `spec.posture` or equivalent posture/state?
-- Does the agent ask posture-establishing questions before domain-detail questions?
-- Does capture distinguish user-confirmed posture from inferred or speculative posture?
-- Does resuming a spec preserve prior orientation instead of restarting as blank?
-- If posture is only prompt-carried today, is that legible in debug mirrors and session JSONL?
+- ✅ What, if anything, records `spec.posture` or equivalent posture/state? — the
+  `specs` DB row (`origin`, confirmed `kind`, `relatesToSpecId`; D118-L, spec-posture
+  frontier). Not prompt-carried.
+- ✅ Does the agent ask posture-establishing questions before domain-detail
+  questions? — the workspace dialog asks kind+origin at spec creation, before any
+  session/agent turn exists.
+- Does capture distinguish user-confirmed posture from inferred or speculative
+  posture? — out of scope for spec-posture (capture-conduct posture reader,
+  FE-1196 residue); still open.
+- ✅ Does resuming a spec preserve prior orientation instead of restarting as
+  blank? — established posture is read (never re-asked); a spec created outside
+  the dialog gets the establishment step once at next resume. (The resume half
+  was inner-tested but unwired until the 2026-07-14 run-B walkthrough caught it —
+  finding T2; now wired through the dialog's resume routing +
+  `CommandExecutor.establishSpecPosture`, establish-once at the command boundary.)
+- If posture is only prompt-carried today, is that legible in debug mirrors and
+  session JSONL? — moot: posture is DB-row state, not prompt-carried.
+
+Landed narrowing (spec-posture, D118-L): the interactive establishment step asks
+only kind + origin (populated cwd: combined kind ask + brownfield confirm; bare
+cwd: greenfield confirm only), never the matrix's "does it relate to another
+spec?" question — D118-L's minimal-question mandate treats a relates-to ask as
+deferred richness, not inferable-skippable. `relatesToSpecId` is settable
+structurally (schema + `CommandExecutor.createSpec` + the coordinator's `newSpec`
+decision) and exercised by the A41-L probe, but only reachable today through a
+non-dialog caller (e.g. RPC) — the dialog does not yet prompt for it. Do not fork
+a second posture matrix; this note narrows the existing one.
 
 ## Concern 3 — Seeding conditions and initial agent orientation
 
@@ -182,7 +204,9 @@ Check:
 - The agent distinguishes graph facts, advisory material, scratchpad obligations, and user-confirmed intent.
 - It is possible to steer “how to think” through the intended style/action menu or prompt resources rather than ad hoc user coercion.
 
-Open question to capture: is this actually establishing `spec.posture`, or only simulating posture through prompt context?
+✅ Resolved (spec-posture, D118-L): `spec.posture` is a real `specs` DB row
+(`origin`/`kind`/`relatesToSpecId`), established once at the workspace dialog,
+never simulated through prompt context.
 
 ## Concern 4 — Prompt, skill, and model routing audit
 

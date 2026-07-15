@@ -145,16 +145,40 @@ async function createSessionFile(): Promise<string> {
   return manager.getSessionFile()!;
 }
 
-async function createBranchedSessionFile(): Promise<string> {
+async function createBranchedSessionFile(): Promise<{
+  sessionFile: string;
+  activeAnswerId: string;
+  abandonedAnswerId: string;
+  sessionId: string;
+  cwd: string;
+}> {
   const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-branch-'));
   const manager = SessionManager.create(cwd, join(cwd, '.brunch/sessions'));
   appendBinding(manager);
-  manager.appendMessage(assistantMessage('Abandoned prompt'));
-  manager.appendMessage(userMessage('Abandoned answer'));
-  manager.resetLeaf();
+  const sharedPromptId = manager.appendMessage(assistantMessage('Shared prompt'));
+  const abandonedAnswerId = manager.appendMessage(userMessage('Abandoned answer'));
+  manager.appendCustomEntry(BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE, {
+    schemaVersion: 1,
+    reason: 'switch',
+    state: { schemaVersion: 1, operationalMode: 'execute' },
+    source: 'user',
+  });
+  manager.branch(sharedPromptId);
+  manager.appendCustomEntry(BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE, {
+    schemaVersion: 1,
+    reason: 'switch',
+    state: { schemaVersion: 1, operationalMode: 'specify' },
+    source: 'user',
+  });
   manager.appendMessage(assistantMessage('Active prompt'));
-  manager.appendMessage(userMessage('Active answer'));
-  return manager.getSessionFile()!;
+  const activeAnswerId = manager.appendMessage(userMessage('Active answer'));
+  return {
+    sessionFile: manager.getSessionFile()!,
+    activeAnswerId,
+    abandonedAnswerId,
+    sessionId: manager.getSessionId(),
+    cwd,
+  };
 }
 
 async function writeExplicitSessionFixture(cwd: string, entries: readonly unknown[]): Promise<void> {
@@ -926,8 +950,8 @@ describe('JSON-RPC handlers', () => {
         status: 'ready',
         exchanges: [
           {
-            promptEntryIds: ['present-question-1'],
-            responseEntryIds: ['request-answer-1'],
+            promptEntryIds: [expect.any(String)],
+            responseEntryIds: [expect.any(String)],
           },
         ],
       },
@@ -1080,27 +1104,41 @@ describe('JSON-RPC handlers', () => {
     });
   });
 
-  it('returns product-shaped non-linear errors when reading pending exchanges', async () => {
-    const sessionFile = await createBranchedSessionFile();
+  it('keeps all selected-session reads on one active sibling branch without non-linear errors', async () => {
+    const { sessionFile, activeAnswerId, abandonedAnswerId, sessionId, cwd } =
+      await createBranchedSessionFile();
     const handlers = createRpcHandlers({
       coordinator: coordinator(readyState(sessionFile)),
-      cwd: '/tmp/brunch-project',
+      cwd,
     });
 
-    await expect(
+    const [pending, exchanges, runtime] = await Promise.all([
+      handlers.handle({ jsonrpc: '2.0', id: 52, method: 'session.pendingExchange' }),
+      handlers.handle({ jsonrpc: '2.0', id: 53, method: 'session.exchanges' }),
       handlers.handle({
         jsonrpc: '2.0',
-        id: 52,
-        method: 'session.pendingExchange',
+        id: 54,
+        method: 'session.runtimeState',
+        params: { sessionId, specId: 1 },
       }),
-    ).resolves.toMatchObject({
-      jsonrpc: '2.0',
-      id: 52,
-      error: {
-        code: -32002,
-        message: 'Selected Brunch session transcript is non-linear',
+    ]);
+
+    expect(pending).toMatchObject({ result: { status: 'idle', exchange: null } });
+    expect(exchanges).toMatchObject({
+      result: {
+        status: 'ready',
+        exchanges: [expect.objectContaining({ responseEntryIds: [activeAnswerId] })],
       },
     });
+    expect(exchanges).not.toMatchObject({
+      result: { exchanges: [expect.objectContaining({ responseEntryIds: [abandonedAnswerId] })] },
+    });
+    expect(runtime).toMatchObject({
+      result: { status: 'ready', agent: { operationalMode: 'specify', role: 'elicitor' } },
+    });
+    expect([pending, exchanges, runtime]).not.toContainEqual(
+      expect.objectContaining({ error: expect.objectContaining({ code: -32002 }) }),
+    );
   });
 
   it('responds to the deterministic listed-option exchange and closes the projection', async () => {
@@ -1918,26 +1956,19 @@ describe('JSON-RPC handlers', () => {
     });
   });
 
-  it('returns a product-shaped error for non-linear selected sessions', async () => {
-    const sessionFile = await createBranchedSessionFile();
+  it('serves exchanges from the active branch of a selected sibling tree', async () => {
+    const { sessionFile } = await createBranchedSessionFile();
     const handlers = createRpcHandlers({
       coordinator: coordinator(readyState(sessionFile)),
       cwd: '/tmp/brunch-project',
     });
 
     await expect(
-      handlers.handle({
-        jsonrpc: '2.0',
-        id: 8,
-        method: 'session.exchanges',
-      }),
+      handlers.handle({ jsonrpc: '2.0', id: 8, method: 'session.exchanges' }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
       id: 8,
-      error: {
-        code: -32002,
-        message: 'Selected Brunch session transcript is non-linear',
-      },
+      result: { status: 'ready', exchanges: [expect.any(Object)] },
     });
   });
 
@@ -2145,34 +2176,7 @@ describe('JSON-RPC handlers', () => {
     });
   });
 
-  it('returns a product-shaped error for explicit sessions without exactly one Pi header', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-invalid-header-'));
-    await writeExplicitSessionFixture(cwd, [
-      { type: 'session', id: 'session-1', cwd },
-      { type: 'session', id: 'session-1', cwd },
-      sessionBindingEntry(),
-    ]);
-    const handlers = createRpcHandlers({
-      coordinator: coordinator(),
-      cwd,
-    });
-
-    await expect(
-      handlers.handle({
-        jsonrpc: '2.0',
-        id: 17,
-        method: 'session.exchanges',
-        params: { sessionId: 'session-1' },
-      }),
-    ).resolves.toMatchObject({
-      jsonrpc: '2.0',
-      id: 17,
-      error: {
-        code: -32005,
-        message: 'Brunch session self-description is invalid',
-      },
-    });
-
+  it('returns a product-shaped not-found error for a headerless explicit session file', async () => {
     const headerlessCwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-missing-header-'));
     await writeExplicitSessionFixture(headerlessCwd, [sessionBindingEntry()]);
     const headerlessHandlers = createRpcHandlers({
@@ -2250,21 +2254,18 @@ describe('JSON-RPC handlers', () => {
     });
   });
 
-  it('returns a product-shaped error for non-linear explicit sessions', async () => {
+  it('serves active-branch exchanges for an explicit sibling session', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-explicit-branch-'));
     const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
-    const workspace = await coordinatorInstance.createSetupSession({
-      specTitle: 'Explicit branch spec',
-    });
+    const workspace = await coordinatorInstance.createSetupSession({ specTitle: 'Explicit branch spec' });
     const manager = SessionManager.open(workspace.session.file);
-    manager.appendMessage(assistantMessage('Abandoned prompt'));
+    const sharedPromptId = manager.appendMessage(assistantMessage('Shared prompt'));
     manager.appendMessage(userMessage('Abandoned answer'));
-    manager.resetLeaf();
-    manager.appendMessage(assistantMessage('Active prompt'));
-    const handlers = createRpcHandlers({
-      coordinator: coordinatorInstance,
-      cwd,
-    });
+    manager.branch(sharedPromptId);
+    const activeAnswerId = manager.appendMessage(userMessage('Active answer'));
+    const reopened = SessionManager.open(workspace.session.file);
+    expect(reopened.getBranch().at(-1)?.id).toBe(activeAnswerId);
+    const handlers = createRpcHandlers({ coordinator: coordinatorInstance, cwd });
 
     await expect(
       handlers.handle({
@@ -2276,10 +2277,7 @@ describe('JSON-RPC handlers', () => {
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
       id: 12,
-      error: {
-        code: -32002,
-        message: 'Brunch session transcript is non-linear',
-      },
+      result: { status: 'ready', exchanges: [{ responseEntryIds: [activeAnswerId] }] },
     });
   });
 

@@ -13,7 +13,7 @@ Current concern groups:
 - `.brunch/debug/` mirror and trigger legibility
 - `/brunch:consult` style/action menu options for elicitor and executor
 - merged chrome/rendering carryover: wheel, mode switch, gallery, continue/recovery, persistent editor
-- FE-1167 overlap opportunities when naturally witnessed
+- FE-1187 walkthrough-closure overlap opportunities when naturally witnessed (Execute O7–O9 route to the KA stream)
 
 ### Cross-check against historical findings and new concerns
 
@@ -24,13 +24,13 @@ Current concern groups:
 | F9 single-select vs multi-select conduct | Fold into prompt/skill routing and `/brunch:consult` style/action audit if it recurs. |
 | F10 Other-label/comment duplication | Old request-response-path finding. Re-observe only through current `ask` Other/comment behavior if encountered. |
 | F12 registry event-order failure | Fixed historical builder issue; no manual action. |
-| F13–F17 welcome placement, kick salience, resume orientation, deterministic menu | Now map to onboarding, initial orientation, posture/capture logic, and consult-menu checks. FE-1167 owns the remaining deterministic-orientation evidence unless checked off explicitly. |
+| F13–F17 welcome placement, kick salience, resume orientation, deterministic menu | Now map to onboarding, initial orientation, posture/capture logic, and consult-menu checks. FE-1187 owns the remaining LN deterministic-orientation evidence; Execute O7–O9 route to the KA stream. |
 | F18–F20 FE-1164 ask free-text/comment defects | Fixed inline on FE-1164; current session should only catch regressions in the reshaped `ask` surface. |
 | Cross-check: stale prompt text about ranked gaps | Actively check during prompt/debug audit; route as prompt/context if still present. |
 | New: no-auth and login onboarding | Partly witnessed in FE-1159, but re-run in a scratch `PI_CODING_AGENT_DIR` because this is alpha-user critical. |
 | New: bare/populated/legacy workspace entry | Not covered by the historical log; record as onboarding-safety findings. |
 | New: durable `spec.posture` semantics | Treat as an open product/spec question unless code/session evidence proves a real carrier exists. |
-| New: dynamic model selection | Evidence-gathering only; implementation would require SPEC/PLAN work. |
+| New: dynamic model selection | D123-L settled the alpha surface as Pi-native `/model` with a soft default. Role-tiered recommendations remain SPEC Future Direction and re-enter only when foreground/subagent evidence shows one default is inadequate. |
 
 ### 2026-07-09 run A — bare entrypoint, no auth → first digest/review flow
 
@@ -98,7 +98,7 @@ Concern: proposal quality, latency, and instruction following.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-A.md` §review-set flow.
 Observation: the first review proposal missed thesis/story nodes and edges; explicitly telling the agent fixed some of this in a second proposal; inference took a long time.
 Expected: prompt/skill routing should make expected extraction breadth explicit before user correction; model/thinking policy should balance latency and quality.
-Disposition: WR5 added digest extraction-breadth guidance for accepted digests. Remaining latency/model-policy observations stay in the prompt/skill/model audit; do not implement dynamic models from this single run.
+Disposition: WR5 added digest extraction-breadth guidance for accepted digests. D123-L later settled the alpha model surface; remaining latency/quality observations are fitness evidence only. Owner: SPEC Future Direction “Role-tiered model picks”; re-entry trigger: repeated foreground/subagent evidence that one soft default is inadequate.
 
 #### A9 · consult menu + exchange rendering · medium · scoped
 
@@ -151,7 +151,7 @@ Concern: Execute “plan and execute” behavior on a relatively developed spec.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-C.md` §whether Execute asks for missing design/oracle/commitment before pretending it can execute.
 Observation: Going straight to “plan and execute” from Execute entry did not backfill design/oracle/commitment; the executor reasoned the plan was relatively ready and projected a plan. The user did not continue far enough to judge execution quality, and noted this area belongs partly to a colleague.
 Expected: Execute should be honest about readiness: proceed only when enough design/oracle/commitment exists, otherwise route to prep work without mode ping-pong.
-Disposition: logged as partial FE-1167 Execute-entry evidence; not enough alone to scope a fix.
+Disposition: retained as partial Execute-entry evidence owned by the KA stream's carved walkthrough sub-list (O7–O9); not enough alone to scope a fix.
 
 #### C5 · prompt/skill/model · low · logged
 
@@ -226,14 +226,60 @@ Concern: prompt/skill/model + debug mirrors
 Evidence: Session B walkthrough 2026-07-13, workbench `workspace-alpha-grounding` debug cache inspected directly while the session stayed open (beats B1/B2).
 Observation: B1 — `system-prompt.md` mirror opens with the Brunch product preamble (`systemPromptOverride`) followed by Brunch capability/policy context; zero `pi-coding-agent` doc paths or Pi-development guidance. B2 — `origination.md` shows the summarized record shapes on a live fired outcome: decision records carry seed-entry summaries (`details`, `contentLength`, no full seed text) and outcome records carry `{status: fired}` plus a slim decision summary (`seedEntryCount`); no doubled multi-KB blocks.
 Expected: Card 2's outer beat (no Pi docs in the provider prompt) and the R2 mirror fix confirmed live on the auth-present fired path (Session A only witnessed skips).
-Disposition: pass — closes the Card 2 outer beat and the fired-path confirmation of R2. Remaining Session B beats: B4 (ask-cancellation, reframed into `memory/cards/walkthrough-remediation-2--cancelled-exchange-legibility.md`) and B5 (extraction breadth).
+Disposition: pass — closes the Card 2 outer beat and the fired-path confirmation of R2. B4 ask-cancellation legibility was subsequently built and its scope consumed on FE-1187; B5 extraction breadth remains owned by FE-1187.
+
+### 2026-07-14 runs B/D/1D — FE-1196 tie-off walkthroughs (spec-posture + workspace-db-identity)
+
+Agent-driven TUI walkthroughs on branch `ln/fe-1196-platform-debt` (commit e72e0302) via a PTY harness (`expect` driver; cmux/agent-tui unavailable in-sandbox). Workbenches: `run-d-populated` (fake `recipe-box` project, no `.brunch/`), `run-b-bare` (empty cwd), `run-1d-legacy` (disposable copy of `~/Code/lunelson/fable/.brunch` — 0.x `brunch.db` 4K + 1.6M wal, copied 2026-07-14), and re-seeded `workspace-alpha-grounding/base`.
+
+Passes (no individual entries):
+
+- **Run D populated-cwd establishment**: new-spec flow asked kind ("What does this specification own?" — product/feature/function per D89-L/D118-L) then brownfield confirm ("Does this build on the existing code here?"), both before any agent turn; `specs` row persisted `kind=feature, origin=brownfield`; relates-to correctly not asked (D118-L narrowing). Concern 2 matrix populated branches witnessed.
+- **Resume of an established spec**: relaunch → continue went straight to the orientation menu; kind/origin never re-asked (posture read from the DB row).
+- **Bare-cwd establishment**: only the greenfield confirm fired ("Is this a fresh, greenfield specification?"), no kind ask; row persisted `product/greenfield`. D118-L bare branch witnessed.
+- **Esc-inert orientation menu**: esc at the entry menu recorded `brunch.session_orientation {choice: dismissed, trigger: entry}` with no kick fired, context at 0%; editor usable. D109-L esc-inert revision witnessed live.
+- **Run 1D fail-safe (I63-L)**: boot against the 0.x workspace created a fresh stamped `brunch-v1.db` (`application_id` 1112692273) + `workspace.json` and left `brunch.db`/`-wal`/`-shm` byte-identical (shasum before/after, across print-mode boot **and** a full interactive session incl. spec creation). No migration attempted, no destructive writes. The initial run exposed that 0.x detection incorrectly fed the populated-cwd posture path; T3 records the ruling and fix that decoupled prior Brunch state from code-population inference.
+
+#### T1 · posture/capture · high · scoped
+
+Concern: posture/capture
+Evidence: `run-d-populated/.brunch/debug/entry-contents.md` after a live "Work by decision" kick (session `2026-07-14T08-11-10-802Z…`); `src/session/originate-assistant-turn.ts:216`; `src/agents/contexts/seeds/origination.ts:61,88`.
+Observation: the kick's context seed carries workspace identity, topology tree, graph facts, and the orientation directive — but no spec posture. `composeContextSeedContent` supports a `posture` input (rendered by `formatSpecPostureSeed`, unit-tested), yet the product origination path never passes it, so the seed section is dead wiring live. First agent turn opened domain-blind ("is this about a grocery store's aisles… a warehouse picker…") despite confirmed `feature/brownfield` and a README answering the question.
+Expected: PLAN spec-posture names kick assembly (`agents/contexts/seeds/origination.ts`) as a posture reader; the seed should carry confirmed kind/origin so brownfield conduct can ground itself.
+Disposition: fixed — commit 1a2eaa58 (`FE-1196: Wire spec posture into the kick seed`): posture plumbed through `OriginateAssistantTurnInput` and `LiveKickDeps` from both product callers (TUI kick context, `session.triggerExchange`). Oracles: seed-content assertions in `originate-assistant-turn.test.ts` + the juncture-level delivered-seed wiring test. Re-witnessed live 2026-07-14: post-establishment kick on `workspace-alpha-grounding` mirrors `SPEC POSTURE / kind: product / origin: brownfield` in `entry-contents.md`.
+
+#### T2 · posture/capture · high · scoped
+
+Concern: posture/capture
+Evidence: seeded `workspace-alpha-grounding` (spec created by `seed-fixtures`, `origin=NULL`); live resume flow "Continue another existing specification → Alpha Grounding → Create new session"; `src/.pi/components/workspace-dialog/model.ts:85` (only caller of `decideSpecEstablishmentAsks` is `nextStageAfterTitle`, a create-path helper); `src/session/workspace-session-coordinator.ts:111-113`.
+Observation: resuming a posture-unestablished spec fired no establishment asks — straight to the orientation menu; `origin` stayed NULL after the session. The coordinator's doc comment and `spec-establishment.ts` both document "establishment step at next resume", and TESTING_PLAN Concern 2 marks this ✅, but no resume-path dialog stage invokes the decision function; it is inner-tested only.
+Expected: a spec created outside the dialog (seed/RPC) gets the establishment step once at next resume (D118-L covers creation *and* resume).
+Disposition: fixed — commit 66093e86 (`FE-1196: Fire the establishment step on resume of an unestablished spec`): the dialog's three resume emits route through establishment stages when the target spec is unestablished, the held decision fires with an `establish` payload, and the new establish-once `CommandExecutor.establishSpecPosture` applies it before binding (already-established specs refuse — never re-asked, never clobbered). Oracles: command-executor establish-once tests, coordinator establish-payload tests, dialog-model routing tests; Concern 2 annotation corrected in `TESTING_PLAN.md`. Re-witnessed live 2026-07-14: re-seeded `Alpha Grounding` (origin NULL) got kind + origin asks at resume and persisted `product/brownfield`.
+
+#### T3 · onboarding · medium · logged
+
+Concern: onboarding
+Evidence: run-1d-legacy walkthrough 2026-07-14; print-mode boot output and the establishment dialog wording.
+Observation: the detected 0.x database is never named to the user. Print-mode boot surfaced nothing; the interactive path silently flips the workspace to "populated" and asks the generic "Does this build on the existing code here?" — in a cwd containing no code at all, only the legacy db. Fail-safe behavior is correct (see run 1D pass above) but illegible: nothing tells the user a 0.x database was found, won't be opened, and won't be migrated.
+Expected: TESTING_PLAN 1D asks for a legible message when migration is unsupported; D124-L's detection-as-posture-evidence deserves one user-visible sentence at the establishment ask (or a boot notice) naming the 0.x file and its disposition.
+Disposition: fixed — resolved 2026-07-14 by user ruling, in the opposite direction from the drafted copy fix: a previous Brunch database is not product code, so detection must not influence the posture questions at all. `isWorkspacePopulated` no longer ORs in `detectLegacyZeroXDatabase`; a cwd with no code gets the bare-branch greenfield confirm regardless of legacy databases, which also removes the misleading "existing code here" ask this finding witnessed. D124-L mechanic 3 / I63-L revised in SPEC; detection itself remains (fail-safe open guard unchanged, `legacyZeroXDetected` stays informational). Oracle: the flipped coordinator test ("ignores a sibling 0.x brunch.db for posture"). No user-facing 0.x notice was added — deliberately out, per the ruling's treat-as-new-workspace framing.
+
+### 2026-07-14 FE-1196 session-branching Card 3 — active-branch cutover
+
+#### SB1 · session branching · high · pass
+
+Concern: TUI tree navigation, sibling continuation, restart, and product-shaped RPC readback.
+Evidence: `.fixtures/workbenches/session-branching-card3/.brunch/sessions/2026-07-14T14-28-21-129Z_019f6107-6009-70a8-81c5-313936e64e18.jsonl`; tmux-driven real `npm run dev-cli -- --workspace .fixtures/workbenches/session-branching-card3`; one-shot `session.exchanges` and `session.runtimeState` reads after relaunch.
+Observation: after cancelling the resumed orientation menu, the editor executed Pi `/tree`; selecting the prior assistant turn with two Up keys and choosing “No summary” created a sibling at `09dfec6a`. The active sibling ended at assistant entry `6cdc3a4c`; the earlier answered branch (`725a9f52` then `a0bb517c`) remained in physical append history. Cancelling the new sibling ask returned focus to the editor. `/quit`, relaunch, and resume succeeded. `session.exchanges` returned `open_prompt` with active range `09dfec6a..6cdc3a4c` and no abandoned answered exchange; `session.runtimeState` returned `ready`, `specify`/`elicitor`, graph LSN 3, with no `-32002` error.
+Expected: native Pi tree navigation creates a usable sibling; quit/resume preserves the selected active leaf; Brunch exchange/runtime reads remain product-shaped and branch-correct.
+Disposition: retired — walkthrough passed with no follow-up defect; Card 3 automated branch-rival and reader-inventory oracles carry regression coverage.
 
 Use future entries like:
 
 ```md
 #### FX · kind · severity · status
 
-Concern: [onboarding | posture/capture | seeding/orientation | prompt/skill/model | debug mirrors | consult menu | chrome carryover | FE-1167 overlap]
+Concern: [onboarding | posture/capture | seeding/orientation | prompt/skill/model | debug mirrors | consult menu | chrome carryover | FE-1187/KA overlap]
 Evidence: [workspace/auth dir/terminal/theme/session/debug file/RPC read]
 Observation: ...
 Expected: ...

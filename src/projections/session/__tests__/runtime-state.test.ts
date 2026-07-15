@@ -1,9 +1,12 @@
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
-import {
-  NonLinearTranscriptError,
-  type BrunchSessionEnvelope,
-} from '../../../session/brunch-session-envelope.js';
+import { assistantMessage } from '../../../probes/test-helpers.js';
+import type { BrunchSessionEnvelope } from '../../../session/brunch-session-envelope.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
@@ -163,24 +166,47 @@ describe('runtime-state projection', () => {
     });
   });
 
-  it('rejects non-linear transcripts instead of flattening runtime state', () => {
-    expect(() =>
-      projectSessionRuntimeState(
-        envelope([
-          {
-            id: 'a',
-            type: 'message',
-            parentId: 'binding-1',
-            message: { role: 'assistant', content: [] },
-          } as never,
-          {
-            id: 'b',
-            type: 'message',
-            parentId: 'binding-1',
-            message: { role: 'assistant', content: [] },
-          } as never,
-        ]),
-      ),
-    ).toThrow(NonLinearTranscriptError);
+  it('projects mode and derived role from the selected Pi branch, not the newer abandoned sibling', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-runtime-branch-'));
+    const manager = SessionManager.create(cwd, join(cwd, '.brunch/sessions'));
+    manager.appendCustomEntry('brunch.session_binding', createSessionBindingData({ specId: 1 }));
+    const forkId = manager.appendMessage(assistantMessage('Choose runtime'));
+    const activeRuntimeId = manager.appendCustomEntry(BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE, {
+      schemaVersion: 1,
+      reason: 'switch',
+      state: { schemaVersion: 1, operationalMode: 'specify' },
+      source: 'user',
+    });
+    manager.branch(forkId);
+    const abandonedRuntimeId = manager.appendCustomEntry(BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE, {
+      schemaVersion: 1,
+      reason: 'switch',
+      state: { schemaVersion: 1, operationalMode: 'execute' },
+      source: 'user',
+    });
+    manager.branch(activeRuntimeId);
+
+    expect(manager.getEntries().at(-1)).toMatchObject({
+      data: { state: { operationalMode: 'execute' } },
+    });
+    const projection = projectSessionRuntimeState({
+      header: manager.getHeader()!,
+      binding: createSessionBindingData({ specId: 1 }),
+      entries: manager.getBranch(),
+    });
+
+    expect(projection.agent).toEqual({ operationalMode: 'specify', role: 'elicitor' });
+    expect(JSON.stringify(manager.getTree())).toContain(activeRuntimeId);
+    expect(JSON.stringify(manager.getTree())).toContain(abandonedRuntimeId);
+    expect(
+      manager
+        .getBranch()
+        .filter((entry) => entry.type === 'custom' && entry.customType === 'brunch.session_binding'),
+    ).toHaveLength(1);
+    expect(
+      manager
+        .getEntries()
+        .filter((entry) => entry.type === 'custom' && entry.customType === 'brunch.session_binding'),
+    ).toHaveLength(1);
   });
 });

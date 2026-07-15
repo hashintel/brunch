@@ -44,8 +44,15 @@ resumable, so the hint and `ask({ continues })` stay honest after a cancel. The
 continuation collector owns the hint lifecycle — it surfaces the hint on cancel
 and clears it on any answered collection (command-recovered or agent-driven).
 The command re-presents the newest incomplete declared continuation through the
-same collector. No-UI option asks return `unavailable` until A39-L / headless
-ask discovery lands.
+same collector. With no interactive UI, asks of every mode (free-text,
+single/multi-select, and the candidate-choice / review declared continuations)
+register in the live ask registry (`session/live-ask-registry.ts`, D125-L) and
+answer through the broker: `session.openAsks` discovers them and
+`session.answerExchange` resolves them over the unchanged string contract, with
+per-mode interpretation of the answer string here in the collection path (a
+listed option id, delimited ids, or a review decision). Only when no broker is
+attached does a no-UI ask fall back to `unavailable`. The Other/None escapes and
+comment sub-steps stay interactive-only (headless ceilings).
 
 ## Declared continuations
 

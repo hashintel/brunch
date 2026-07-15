@@ -95,7 +95,7 @@ describe('seed fixture CLI', () => {
 
     expect(code).toBe(1);
     expect(stderr).toContain('Usage: npm run seed -- (--seed <name>/<variant>');
-    expect(existsSync(join(cwd, '.brunch', 'data.db'))).toBe(false);
+    expect(existsSync(join(cwd, '.brunch', 'brunch-v1.db'))).toBe(false);
   });
 
   it('rejects --reset without the required flags and documents it in usage', async () => {
@@ -112,7 +112,7 @@ describe('seed fixture CLI', () => {
 
     expect(code).toBe(1);
     expect(stderr).toContain('--reset');
-    expect(existsSync(join(cwd, '.brunch', 'data.db'))).toBe(false);
+    expect(existsSync(join(cwd, '.brunch', 'brunch-v1.db'))).toBe(false);
   });
 
   it('rejects ambiguous single-seed and all-seeds requests', async () => {
@@ -129,7 +129,7 @@ describe('seed fixture CLI', () => {
 
     expect(code).toBe(1);
     expect(stderr).toContain('Usage: npm run seed -- (--seed <name>/<variant>');
-    expect(existsSync(join(cwd, '.brunch', 'data.db'))).toBe(false);
+    expect(existsSync(join(cwd, '.brunch', 'brunch-v1.db'))).toBe(false);
   });
 
   it('requires --workspace for --all-seeds', async () => {
@@ -146,7 +146,7 @@ describe('seed fixture CLI', () => {
 
     expect(code).toBe(1);
     expect(stderr).toContain('--all-seeds');
-    expect(existsSync(join(cwd, '.brunch', 'data.db'))).toBe(false);
+    expect(existsSync(join(cwd, '.brunch', 'brunch-v1.db'))).toBe(false);
   });
 
   it('--reset on a fresh workspace with no DB is a no-op and seeds cleanly', async () => {
@@ -162,7 +162,7 @@ describe('seed fixture CLI', () => {
 
     expect(code).toBe(0);
     expect(stdout).toContain('seeded workspace-alpha-grounding/base → spec');
-    expect(existsSync(join(targetWorkspace, '.brunch', 'data.db'))).toBe(true);
+    expect(existsSync(join(targetWorkspace, '.brunch', 'brunch-v1.db'))).toBe(true);
   });
 
   it('--reset wipes workspace runtime state (DB, sessions, selection state, debug cache) so a relaunch starts fresh', async () => {
@@ -226,8 +226,8 @@ describe('seed fixture CLI', () => {
 
     expect(code).toBe(0);
     expect(stdout).toContain('seeded workspace-alpha-grounding/base → spec');
-    expect(existsSync(join(shellCwd, '.brunch', 'data.db'))).toBe(false);
-    expect(existsSync(join(targetWorkspace, '.brunch', 'data.db'))).toBe(true);
+    expect(existsSync(join(shellCwd, '.brunch', 'brunch-v1.db'))).toBe(false);
+    expect(existsSync(join(targetWorkspace, '.brunch', 'brunch-v1.db'))).toBe(true);
   });
 
   it('accepts equals-form --all-seeds and seeds every tracked fixture into the named workspace', async () => {
@@ -246,8 +246,8 @@ describe('seed fixture CLI', () => {
     const expectedRefs = trackedSeedRefs();
     expect(code).toBe(0);
     expect(stdout).toContain(`seeded ${expectedRefs.length} tracked seeds`);
-    expect(existsSync(join(shellCwd, '.brunch', 'data.db'))).toBe(false);
-    expect(existsSync(join(targetWorkspace, '.brunch', 'data.db'))).toBe(true);
+    expect(existsSync(join(shellCwd, '.brunch', 'brunch-v1.db'))).toBe(false);
+    expect(existsSync(join(targetWorkspace, '.brunch', 'brunch-v1.db'))).toBe(true);
 
     const executor = await openWorkspaceCommandExecutor(targetWorkspace);
     expect(
@@ -289,15 +289,15 @@ describe('seed fixture CLI', () => {
 
     expect(code).toBe(0);
     expect(stdout).toContain('seeded workspace-alpha-grounding/base → spec');
-    expect(stdout).toContain(`Destination: ${join(targetWorkspace, '.brunch', 'data.db')}`);
-    expect(existsSync(join(shellCwd, '.brunch', 'data.db'))).toBe(false);
-    expect(existsSync(join(targetWorkspace, '.brunch', 'data.db'))).toBe(true);
+    expect(stdout).toContain(`Destination: ${join(targetWorkspace, '.brunch', 'brunch-v1.db')}`);
+    expect(existsSync(join(shellCwd, '.brunch', 'brunch-v1.db'))).toBe(false);
+    expect(existsSync(join(targetWorkspace, '.brunch', 'brunch-v1.db'))).toBe(true);
 
     const executor = await openWorkspaceCommandExecutor(targetWorkspace);
     const specRows = executor.listSpecs();
     expect(specRows.map((spec) => spec.slug)).toEqual(['workspace-alpha-grounding']);
     const alpha = specRows[0]!;
-    const db = createDb(join(targetWorkspace, '.brunch', 'data.db'));
+    const db = createDb(join(targetWorkspace, '.brunch', 'brunch-v1.db'));
     expect(db.select().from(nodes).where(eq(nodes.spec_id, alpha.id)).all()).toHaveLength(
       loadFixture('workspace-alpha-grounding').nodes.length,
     );

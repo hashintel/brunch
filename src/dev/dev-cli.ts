@@ -19,6 +19,7 @@ import {
 import { runBrunchCli, type BrunchCliOptions } from '../app/brunch.js';
 import { exportSeedFixtureFromWorkspace, formatSeedFixture } from '../graph/export-fixtures.js';
 import { listTrackedSeedRefs, parseSeedRef, runSeedFixturesCli } from '../graph/seed-fixtures.js';
+import { WORKSPACE_DB_FILENAME } from '../graph/workspace-store.js';
 import { createRpcHandlers } from '../rpc/handlers.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 import { applyDevGraphMutation, parseDevMutateGraphParams } from './graph-curation.js';
@@ -158,8 +159,8 @@ const defaultPrompts: DevCliPrompts = {
   confirmSeedReset: async (seed, workspaceLabel) =>
     clackConfirm({
       message:
-        `Reset ${workspaceLabel}/.brunch/{data.db,data.db-wal,data.db-shm,sessions,debug,workspace.json} ` +
-        `and seed ${seed}?`,
+        `Reset ${workspaceLabel}/.brunch/{${WORKSPACE_DB_FILENAME},${WORKSPACE_DB_FILENAME}-wal,` +
+        `${WORKSPACE_DB_FILENAME}-shm,sessions,debug,workspace.json} and seed ${seed}?`,
       initialValue: true,
     }),
   confirmOpenWeb: async (workspaceLabel) =>
@@ -431,7 +432,7 @@ async function runExportCommand(args: readonly string[], options: DevCliOptions 
   }
 
   const workspace = flags.workspace ?? options.cwd;
-  const fixture = exportSeedFixtureFromWorkspace(workspace, {
+  const fixture = await exportSeedFixtureFromWorkspace(workspace, {
     specId: flags.specId,
     ...(flags.show ? { show: flags.show } : {}),
   });

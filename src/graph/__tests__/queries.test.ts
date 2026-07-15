@@ -132,7 +132,7 @@ describe('getOpenReconciliationNeeds', () => {
     const create = executor.createReconciliationNeed({
       specId,
       target: { kind: 'edge', edgeId: batch.createdEdges[0]! },
-      needKind: 'edge_revalidation',
+      needKind: 'semantic_conflict',
       reason: 'upstream changed',
     });
     expect(create.status).toBe('success');
@@ -140,7 +140,7 @@ describe('getOpenReconciliationNeeds', () => {
 
     expect(getOpenReconciliationNeeds(db, specId)).toMatchObject([
       {
-        kind: 'edge_revalidation',
+        kind: 'semantic_conflict',
         target: { kind: 'edge', edgeId: batch.createdEdges[0]! },
         rationale: 'upstream changed',
       },

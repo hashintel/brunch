@@ -7,8 +7,9 @@
  * in `./graph-mutation-types.ts`.
  */
 
-import type { SpecKind } from '../schema/kinds.js';
+import type { SpecKind, SpecOrigin } from '../schema/kinds.js';
 import type { NodeBasis, NodePlane, NodeSettlement } from '../schema/nodes.js';
+import type { ReconciliationNeedKind } from '../schema/reconciliation-need.js';
 import type { MutateGraphSuccess, StructuralIllegal } from './graph-mutation-types.js';
 
 // ---------------------------------------------------------------------------
@@ -50,6 +51,13 @@ interface ReconNeedResolveSuccess {
   readonly lsn: number;
 }
 
+/** Successful edge-revalidation acknowledgement. */
+interface AcknowledgeEdgeRevalidationSuccess {
+  readonly status: 'success';
+  /** The spec LSN written as the edge's acknowledged-LSN watermark. */
+  readonly lsn: number;
+}
+
 /** Successful spec creation. */
 interface CreateSpecSuccess {
   readonly status: 'success';
@@ -63,6 +71,10 @@ export interface SpecRecord {
   readonly name: string;
   readonly slug: string;
   readonly kind: SpecKind;
+  /** Spec posture (D118-L). Null until the establishment step confirms it. */
+  readonly origin: SpecOrigin | null;
+  /** Reference-only relates-to-spec (A41-L) — a plain reference, no claim model. */
+  readonly relatesToSpecId: number | null;
 }
 
 /** Union of all possible command results. */
@@ -72,6 +84,7 @@ export type CommandResult =
   | AcceptReviewSetSuccess
   | ReconNeedSuccess
   | ReconNeedResolveSuccess
+  | AcknowledgeEdgeRevalidationSuccess
   | CreateSpecSuccess
   | StructuralIllegal
   | NeedsHuman
@@ -87,8 +100,20 @@ export type CreateReconNeedResult = ReconNeedSuccess | StructuralIllegal;
 /** Result of a resolveReconciliationNeed command. */
 export type ResolveReconNeedResult = ReconNeedResolveSuccess | StructuralIllegal;
 
+/** Result of an acknowledgeEdgeRevalidation command. */
+export type AcknowledgeEdgeRevalidationResult = AcknowledgeEdgeRevalidationSuccess | StructuralIllegal;
+
 /** Result of a createSpec command. */
 export type CreateSpecResult = CreateSpecSuccess | StructuralIllegal;
+
+/** Successful one-time posture establishment on an existing spec. */
+interface EstablishSpecPostureSuccess {
+  readonly status: 'success';
+  readonly lsn: number;
+}
+
+/** Result of an establishSpecPosture command. */
+export type EstablishSpecPostureResult = EstablishSpecPostureSuccess | StructuralIllegal;
 
 /** Successful accepted review-set graph batch execution. */
 interface AcceptReviewSetSuccess extends MutateGraphSuccess {}
@@ -109,6 +134,30 @@ export interface CreateSpecInput {
   readonly slug: string;
   /** Spec scope (D89-L); defaults to `product` (broadest ownership) when omitted. */
   readonly kind?: SpecKind;
+  /**
+   * Spec posture origin (D118-L); omitted leaves the spec posture-unestablished
+   * (`origin: null`) — establishment happens once, deterministically, in the
+   * spec creation/resume flow, never as a schema-level default.
+   */
+  readonly origin?: SpecOrigin;
+  /** Reference-only relates-to-spec (A41-L); omitted means no relation. */
+  readonly relatesToSpecId?: number;
+}
+
+/**
+ * Input for the one-time posture establishment on an existing spec (D118-L
+ * covers creation *and* resume: specs created outside the dialog — seeds,
+ * RPC — stay `origin: null` until the establishment step confirms posture at
+ * next resume). Establish-once: the command refuses already-established specs.
+ */
+export interface EstablishSpecPostureInput {
+  readonly specId: number;
+  /** Confirmed kind (D89-L); omitted keeps the stored kind. */
+  readonly kind?: SpecKind;
+  /** Confirmed origin — the establishment act itself. */
+  readonly origin: SpecOrigin;
+  /** Reference-only relates-to-spec (A41-L); omitted means no relation. */
+  readonly relatesToSpecId?: number;
 }
 
 /** Input for accepting an exact user-reviewed graph batch. */
@@ -156,7 +205,7 @@ type ReconNeedTarget = ReconNeedTargetEdge | ReconNeedTargetNodePair;
 export interface CreateReconNeedInput {
   readonly specId: number;
   readonly target: ReconNeedTarget;
-  readonly needKind: string;
+  readonly needKind: ReconciliationNeedKind;
   readonly reason?: string | undefined;
 }
 
@@ -164,4 +213,10 @@ export interface CreateReconNeedInput {
 export interface ResolveReconNeedInput {
   readonly specId: number;
   readonly id: number;
+}
+
+/** Input for acknowledging a derived `edge_revalidation` staleness signal. */
+export interface AcknowledgeEdgeRevalidationInput {
+  readonly specId: number;
+  readonly edgeId: number;
 }

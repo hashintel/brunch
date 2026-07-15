@@ -1,6 +1,6 @@
 ---
 name: scout
-description: Fast codebase recon agent — explores files, finds patterns, maps architecture; NOT an analyst or architect
+description: Fast codebase recon agent — explores files, finds patterns, maps architecture; DO NOT USE for analysis
 tools: read, grep, find, ls
 model: openai-codex/gpt-5.6-luna
 thinking: low

@@ -10,7 +10,6 @@ import {
   loadJsonlTranscriptEntries,
   loadLinearSessionExchangeProjection,
   loadLinearTranscriptDisplayProjection,
-  NonLinearTranscriptError,
   projectSessionExchanges,
   projectTranscriptDisplay,
 } from '../exchange-projection.js';
@@ -725,35 +724,28 @@ describe('session exchange projection', () => {
     expect(projection.rows).toEqual([{ id: 'prompt-1', role: 'prompt', text: 'Describe the user.' }]);
   });
 
-  it('preserves the non-linear error discriminant through the product helper', async () => {
+  it('projects only the active sibling exchange and excludes abandoned asks', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-pi-helper-branch-'));
     const manager = SessionManager.create(cwd, join(cwd, '.brunch/sessions'));
     appendBinding(manager);
-    manager.appendMessage(assistantMessage('Abandoned prompt'));
+    const sharedPromptId = manager.appendMessage(assistantMessage('Choose a path'));
     manager.appendMessage(userMessage('Abandoned answer'));
-    manager.resetLeaf();
-    manager.appendMessage(assistantMessage('Active prompt'));
+    manager.appendMessage(assistantMessage('Abandoned follow-up ask'));
+    manager.branch(sharedPromptId);
+    manager.appendMessage(userMessage('Selected answer'));
 
-    await expect(loadLinearSessionExchangeProjection(manager.getSessionFile()!)).rejects.toThrow(
-      NonLinearTranscriptError,
-    );
+    const projection = await loadLinearSessionExchangeProjection(manager.getSessionFile()!);
+
+    expect(projection).toMatchObject({
+      status: 'ready',
+      exchanges: [{ responseEntryIds: [expect.any(String)] }],
+    });
+    const activeEntries = await loadJsonlTranscriptEntries(manager.getSessionFile()!);
+    expect(JSON.stringify(activeEntries)).not.toContain('Abandoned answer');
+    expect(JSON.stringify(activeEntries)).not.toContain('Abandoned follow-up ask');
   });
 
-  it('rejects a Pi JSONL file with multiple children from one parent', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-pi-branch-'));
-    const manager = SessionManager.create(cwd, join(cwd, '.brunch/sessions'));
-    manager.appendMessage(assistantMessage('Abandoned prompt'));
-    manager.appendMessage(userMessage('Abandoned answer'));
-    manager.resetLeaf();
-    manager.appendMessage(assistantMessage('Active prompt'));
-    manager.appendMessage(userMessage('Active answer'));
-
-    await expect(loadJsonlTranscriptEntries(manager.getSessionFile()!)).rejects.toThrow(
-      NonLinearTranscriptError,
-    );
-  });
-
-  it('rejects a Pi JSONL file with branched sibling responses', async () => {
+  it('loads the selected sibling path from a Pi JSONL tree', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-pi-branch-'));
     const manager = SessionManager.create(cwd, join(cwd, '.brunch/sessions'));
     const sharedPromptId = manager.appendMessage(assistantMessage('Choose a path'));
@@ -761,78 +753,19 @@ describe('session exchange projection', () => {
     manager.branch(sharedPromptId);
     manager.appendMessage(userMessage('Selected path'));
 
-    await expect(loadJsonlTranscriptEntries(manager.getSessionFile()!)).rejects.toThrow(
-      'non-linear Pi transcript branches',
-    );
+    const entries = await loadJsonlTranscriptEntries(manager.getSessionFile()!);
+    expect(JSON.stringify(entries)).toContain('Selected path');
+    expect(JSON.stringify(entries)).not.toContain('Old path');
   });
 
-  it('rejects branch-derived sessions and branch summaries before projection', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'brunch-jsonl-branch-derived-'));
-    const branchDerivedFile = join(dir, 'branch-derived.jsonl');
-    const branchSummaryFile = join(dir, 'branch-summary.jsonl');
-    await writeFile(
-      branchDerivedFile,
-      `${JSON.stringify({
-        type: 'session',
-        version: 3,
-        id: 'session-1',
-        timestamp: '2026-05-21T00:00:00.000Z',
-        cwd: dir,
-        parentSession: '/tmp/parent.jsonl',
-      })}\n`,
-    );
-    await writeFile(
-      branchSummaryFile,
-      `${JSON.stringify({ type: 'session', id: 'session-1', cwd: dir })}\n${JSON.stringify({
-        id: 'b1',
-        type: 'branch_summary',
-        parentId: null,
-        timestamp: '2026-05-21T00:00:00.000Z',
-        fromId: 'a1',
-        summary: 'Branch summary',
-      })}\n`,
-    );
-
-    await expect(loadJsonlTranscriptEntries(branchDerivedFile)).rejects.toThrow('branch-derived Pi sessions');
-    await expect(loadJsonlTranscriptEntries(branchSummaryFile)).rejects.toThrow(
-      'branch-summary transcript entries',
-    );
-  });
-
-  it('rejects file-backed transcripts without exactly one Pi session header', async () => {
+  it('delegates invalid header rejection to Pi SessionManager', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'brunch-jsonl-header-'));
     const headerlessFile = join(dir, 'headerless.jsonl');
-    const duplicateHeaderFile = join(dir, 'duplicate-header.jsonl');
-    const header = { type: 'session', id: 'session-1', cwd: dir };
     await writeFile(headerlessFile, `${JSON.stringify(assistant)}\n${JSON.stringify(user)}\n`);
-    await writeFile(
-      duplicateHeaderFile,
-      `${JSON.stringify(header)}\n${JSON.stringify(header)}\n${JSON.stringify({
-        ...assistant,
-        parentId: null,
-      })}\n`,
-    );
 
-    await expect(loadJsonlTranscriptEntries(headerlessFile)).rejects.toThrow('exactly one Pi session header');
-    await expect(loadJsonlTranscriptEntries(duplicateHeaderFile)).rejects.toThrow(
-      'exactly one Pi session header',
+    await expect(loadJsonlTranscriptEntries(headerlessFile)).rejects.toThrow(
+      'Session file is not a valid pi session',
     );
-  });
-
-  it('rejects malformed non-header Pi JSONL entries before projection', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'brunch-jsonl-shape-'));
-    const file = join(dir, 'malformed.jsonl');
-    const header = { type: 'session', id: 'session-1', cwd: dir };
-    await writeFile(
-      file,
-      `${JSON.stringify(header)}\n${JSON.stringify({ ...assistant, parentId: null })}\n${JSON.stringify({
-        id: 'u1',
-        type: 'message',
-        message: userMessage('A'),
-      })}\n`,
-    );
-
-    await expect(loadJsonlTranscriptEntries(file)).rejects.toThrow('string-or-null parentId');
   });
 
   it('loads newline-delimited Pi transcript entries from disk', async () => {

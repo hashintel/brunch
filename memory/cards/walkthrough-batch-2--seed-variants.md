@@ -1,6 +1,6 @@
 # Seed variants for skill-routing and generative probes
 
-Frontier: walkthrough-batch-2
+Frontier: walkthrough-remediation-2
 Status:   active
 Mode:     slices
 Created:  2026-07-02
@@ -8,7 +8,7 @@ Created:  2026-07-02
 ## Orientation
 
 - **Containing seam:** the tracked-seed contract (`src/graph/seed-fixtures.ts` → `CommandExecutor`) and its export inverse (`src/graph/export-fixtures.ts`); fixture files under `.fixtures/seeds/workspace-alpha-grounding/`.
-- **Frontier:** `walkthrough-batch-2` (FE-1124) — fixture/seed preparation is in its declared remit. Consumers: TESTING_PLAN.md scenario 2 routing probes (propose/project/review rows currently ✗/◔ "no seed"), goal 6 generative discoverability, and `session-entry-orientation`'s generative menu-option verification (PLAN §Dependencies edge).
+- **Frontier:** `walkthrough-remediation-2` (FE-1187), which absorbed FE-1124's remaining Card 3 fixture/evidence work. Consumers: TESTING_PLAN.md scenario 2 routing probes, goal 6 generative discoverability, and the deterministic-orientation arc's generative menu-option witness.
 - **Posture:** earned (inherited from walkthrough-batch-2 fixture-prep remit) — settled seams throughout; each card closes a named seed gap from the scenario-2 matrix. Card 1 additionally **materializes** D99-L's settlement dimension into the fixture contract.
 - **Main open risk:** authored variants may not be *discriminating enough* — a seed can satisfy its structural description yet still leave the target skill's trigger ambiguous in live conduct. Mitigation is in each variant's acceptance (state assertions phrased as the matrix's discriminating conditions), with live probe beats as the outer check.
 - **Deliberately not scoped:** the mid-size alpha (~30 nodes) seed for the `analyze` probe. It stays an open `?` in the scenario-2 matrix; the drive-live-then-export flow (`npm run dev -- export`) is the prep path if/when that probe becomes pressing. Hand-authoring 30 coherent nodes is not cheaper than driving a session there.
@@ -131,7 +131,7 @@ Two further variants exercise the review path: a settled+advisory settlement mix
 
 ```
 - memory/SPEC.md   — D99-L/I52-L (settlement), D81-L (capture commitment gradient — what makes content plausibly advisory)
-- memory/PLAN.md    — frontier: walkthrough-batch-2; reconciliation-derivation §Convergence (contradictory feeds semantic_conflict testing; advisory/staleness state feeds the future derived edge_revalidation view)
+- memory/PLAN.md    — frontier: walkthrough-remediation-2; reconciliation derivation is closed, while `contradictory` still feeds the review-routing/semantic-conflict witness
 - TESTING_PLAN.md   — scenario 2 matrix (review row) + scenario 4 (settlement visibility)
 ```
 

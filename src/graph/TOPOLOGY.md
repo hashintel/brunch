@@ -1,6 +1,6 @@
 # graph/ — Graph domain layer
 
-SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D63-L, D65-L, D75-L, D80-L, D81-L, D82-L, D94-L, D99-L, D103-L, D123-L, D130-L, I52-L
+SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D63-L, D65-L, D75-L, D80-L, D81-L, D82-L, D94-L, D99-L, D103-L, D126-L, D130-L, I52-L
 
 ## Owns
 
@@ -37,8 +37,10 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
   product-side extraction pass or a gap register.
 - **Readers / query functions** (`queries.ts`) — graph reads at multiple
   detail levels: active-context and graph-truth overview, node
-  neighborhood, selected-spec graph-code lookup, and open reconciliation
-  needs. `GraphFilter` supports a `settlement` filter so callers can request
+  neighborhood, selected-spec graph-code lookup, open reconciliation
+  needs, and read-only derived `edge_revalidation` staleness
+  (`getDerivedEdgeRevalidations`, computed — never persisted; I16-L).
+  `GraphFilter` supports a `settlement` filter so callers can request
   settled-only reads (I52-L) on both nodes and edges. These return typed
   domain objects or internal ids, not Drizzle rows. Row order is unspecified
   (queries carry no `ORDER BY`); consumers that render or serialize must sort
@@ -53,7 +55,7 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
   array survives), and derived intent-kind grouping. Raw domain enum taxonomy
   lives in the zero-import `schema/kinds.ts` leaf so web-facing graph imports
   do not pull in Drizzle. Agent-facing reference prose cites schema-owned
-  vocabulary rather than regenerating a parallel ontology table. Per D123-L,
+  vocabulary rather than regenerating a parallel ontology table. Per D126-L,
   the plan-kind set is `milestone`, `frontier`, and terminal handoff `scope`;
   runtime `slice` remains executor-derived and is not graph vocabulary.
 
@@ -62,15 +64,22 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
   direction/strength (cascade vs advisory), criteria-help signal, and
   projection effects.
 
-- **Projection** (`projection/`) — anchor-relative derivations over the
-  policy table: `labels.ts` (direction-aware semantic phrasing) and
-  `direction.ts` (upstream/downstream/lateral for the reconciliation
-  flow). Pure functions; no DB access.
+- **Projection** (`projection/`) — derivations over the policy table:
+  `labels.ts` (direction-aware semantic phrasing), `direction.ts`
+  (upstream/downstream/lateral for the reconciliation flow), and
+  `derived-revalidation.ts` (read-only derived `edge_revalidation`
+  staleness over `updated_at_lsn` + the impact axis — the
+  reconciliation-derivation tracer). Pure functions; no DB access.
 
-- **Workspace graph runtime** (`workspace-store.ts`) — opens `.brunch/data.db`
+- **Workspace graph runtime** (`workspace-store.ts`) — opens
+  `.brunch/brunch-v1.db` (D124-L: the `brunch-v{major}.db` lineage policy)
   through `db/connection.ts` and returns the `CommandExecutor` plus bound
-  query readers for adapters. No legacy-seed repair remains; there is no
-  seeded register to repair.
+  query readers for adapters. Owns the fail-safe `application_id` open guard
+  (I63-L: a foreign or incompatible current-name file is never opened,
+  migrated, or deleted) and one-shot recovery of a legacy alpha `data.db` by
+  rename. The runtime has no 0.x discovery or compatibility path; cwd inventory
+  independently excludes `.brunch` from D118-L posture inference. No
+  legacy-seed repair remains; there is no seeded register to repair.
 
 ## Observed read-shape ledger
 
@@ -168,10 +177,14 @@ graph/
     getNodeNeighborhood
     resolveGraphNodeCode
     getOpenReconciliationNeeds
+    getDerivedEdgeRevalidations (read-only derived edge_revalidation; delegates to projection/derived-revalidation.ts)
     queryGraph / getNodes (GraphFilter, including settled-only settlement filter)
     row -> domain mapping
 
   workspace-store.ts
+    WORKSPACE_DB_FILENAME re-export ('brunch-v1.db'; the brunch-v{major}.db lineage constant lives in src/constants.ts so drizzle.config.ts loads leaf-cheap)
+    openWorkspaceDb(cwd) — recovery + application_id stamp/check guard (I63-L)
+    WorkspaceDbRefusalError
     openWorkspaceGraphRuntime(cwd)
     bound queryGraph/getNodes readers
     openWorkspaceCommandExecutor(cwd)
@@ -200,6 +213,7 @@ graph/
   projection/
     labels.ts
     direction.ts
+    derived-revalidation.ts
 ```
 
 ## Boundary flow

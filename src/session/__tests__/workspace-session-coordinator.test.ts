@@ -1,14 +1,15 @@
-import { mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { SessionManager, type SessionEntry } from '@earendil-works/pi-coding-agent';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { openWorkspaceCommandExecutor } from '../../graph/index.js';
+import { CommandExecutor, openWorkspaceCommandExecutor } from '../../graph/index.js';
 import { assistantMessage, userMessage, isCustomEntry } from '../../probes/test-helpers.js';
 import { projectSessionExchanges } from '../exchange-projection.js';
 import { SESSION_BINDING_TYPE } from '../session-binding.js';
+import { decideSpecEstablishmentAsks } from '../spec-establishment.js';
 import {
   createWorkspaceSessionCoordinator,
   verifyWorkspaceSessionStores,
@@ -68,10 +69,10 @@ describe('WorkspaceSessionCoordinator', () => {
     const reloadedFirst = SessionManager.open(first.session.file, undefined, cwd);
     const reloadedSecond = SessionManager.open(second.session.file, undefined, cwd);
     const firstBinding = reloadedFirst
-      .getEntries()
+      .getBranch()
       .find((entry) => isCustomEntry(entry) && entry.customType === SESSION_BINDING_TYPE);
     const secondBinding = reloadedSecond
-      .getEntries()
+      .getBranch()
       .find((entry) => isCustomEntry(entry) && entry.customType === SESSION_BINDING_TYPE);
 
     expect(firstBinding).toMatchObject({
@@ -103,7 +104,7 @@ describe('WorkspaceSessionCoordinator', () => {
     });
     const reloaded = SessionManager.open(result.session.file, undefined, cwd);
     const bindings = reloaded
-      .getEntries()
+      .getBranch()
       .filter((entry) => isCustomEntry(entry) && entry.customType === SESSION_BINDING_TYPE);
 
     expect(bindings).toHaveLength(1);
@@ -154,7 +155,7 @@ describe('WorkspaceSessionCoordinator', () => {
 
     const reloaded = SessionManager.open(result.session.file, undefined, cwd);
     const bindings = reloaded
-      .getEntries()
+      .getBranch()
       .filter((entry) => isCustomEntry(entry) && entry.customType === SESSION_BINDING_TYPE);
 
     expect(bindings).toHaveLength(1);
@@ -288,6 +289,29 @@ describe('WorkspaceSessionCoordinator', () => {
     await expect(readFile(second.session.file, 'utf8')).resolves.toBe(beforeSecond);
   });
 
+  it('derives branched session inventory metadata from the active physical branch', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const ready = await coordinator.createSetupSession({ specTitle: 'Alpha' });
+    const manager = ready.session.manager;
+    const sharedId = manager.appendMessage(assistantMessage('Shared prompt'));
+    manager.appendSessionInfo('Abandoned name');
+    manager.appendMessage(userMessage('Abandoned answer'));
+    manager.branch(sharedId);
+    manager.appendSessionInfo('Selected name');
+    manager.appendMessage(userMessage('Selected answer'));
+
+    const inventory = await coordinator.inspectWorkspace();
+
+    expect(inventory.specs[0]?.sessions).toEqual([
+      expect.objectContaining({
+        id: ready.session.id,
+        name: 'Selected name',
+        turnCount: 2,
+      }),
+    ]);
+  });
+
   it('inspects an empty workspace without creating session files', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
     const coordinator = createWorkspaceSessionCoordinator({ cwd });
@@ -327,15 +351,99 @@ describe('WorkspaceSessionCoordinator', () => {
       unavailableSessions: [],
     });
     expect(inventory.specs).toEqual([
-      { spec: { id: alpha.specId, title: 'Alpha' }, sessions: [] },
-      { spec: { id: beta.specId, title: 'Beta' }, sessions: [] },
+      {
+        spec: { id: alpha.specId, title: 'Alpha', kind: 'product', origin: null, relatesToSpecId: null },
+        sessions: [],
+      },
+      {
+        spec: { id: beta.specId, title: 'Beta', kind: 'product', origin: null, relatesToSpecId: null },
+        sessions: [],
+      },
     ]);
 
     const activated = await coordinator.activateWorkspace({ action: 'newSession', specId: beta.specId });
 
     expect(activated.status).toBe('ready');
     if (activated.status !== 'ready') return;
-    expect(activated.spec).toEqual({ id: beta.specId, title: 'Beta' });
+    expect(activated.spec).toEqual({
+      id: beta.specId,
+      title: 'Beta',
+      kind: 'product',
+      origin: null,
+      relatesToSpecId: null,
+    });
+  });
+
+  it('applies a resume-side establish payload before binding (D118-L resume establishment)', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
+    const executor = await openWorkspaceCommandExecutor(cwd);
+    const seeded = executor.createSpec({ name: 'Seeded', slug: 'seeded' });
+    expect(seeded.status).toBe('success');
+    if (seeded.status !== 'success') return;
+
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const activated = await coordinator.activateWorkspace({
+      action: 'newSession',
+      specId: seeded.specId,
+      establish: { kind: 'feature', origin: 'brownfield' },
+    });
+
+    expect(activated.status).toBe('ready');
+    if (activated.status !== 'ready') return;
+    expect(activated.spec).toMatchObject({ kind: 'feature', origin: 'brownfield' });
+    expect(executor.getSpec(seeded.specId)).toMatchObject({ kind: 'feature', origin: 'brownfield' });
+  });
+
+  it('stops activation when resume-side posture establishment is rejected', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
+    const executor = await openWorkspaceCommandExecutor(cwd);
+    const seeded = executor.createSpec({ name: 'Seeded', slug: 'seeded' });
+    expect(seeded.status).toBe('success');
+    if (seeded.status !== 'success') return;
+
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const before = await coordinator.inspectWorkspace();
+    const beforeDefaults = await readFile(join(cwd, '.brunch', 'workspace.json'), 'utf8');
+    const rejection = vi.spyOn(CommandExecutor.prototype, 'establishSpecPosture').mockReturnValue({
+      status: 'structural_illegal',
+      diagnostics: [{ field: 'origin', message: 'posture changed concurrently' }],
+    });
+
+    try {
+      const activated = await coordinator.activateWorkspace({
+        action: 'newSession',
+        specId: seeded.specId,
+        establish: { kind: 'feature', origin: 'brownfield' },
+      });
+
+      expect(activated).toMatchObject({
+        status: 'needs_human',
+        reason: expect.stringMatching(/posture establishment.*posture changed concurrently/iu),
+      });
+      expect(executor.getSpec(seeded.specId)).toMatchObject({ kind: 'product', origin: null });
+      expect((await coordinator.inspectWorkspace()).specs).toEqual(before.specs);
+      await expect(readFile(join(cwd, '.brunch', 'workspace.json'), 'utf8')).resolves.toBe(beforeDefaults);
+    } finally {
+      rejection.mockRestore();
+    }
+  });
+
+  it('ignores an establish payload on an already-established spec (never re-asked, never clobbered)', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
+    const executor = await openWorkspaceCommandExecutor(cwd);
+    const established = executor.createSpec({ name: 'Done', slug: 'done', origin: 'greenfield' });
+    expect(established.status).toBe('success');
+    if (established.status !== 'success') return;
+
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const activated = await coordinator.activateWorkspace({
+      action: 'newSession',
+      specId: established.specId,
+      establish: { kind: 'feature', origin: 'brownfield' },
+    });
+
+    expect(activated.status).toBe('ready');
+    expect(executor.getSpec(established.specId)).toMatchObject({ kind: 'product', origin: 'greenfield' });
   });
 
   it('marks unbound or incompatible sessions unavailable during inventory', async () => {
@@ -347,25 +455,31 @@ describe('WorkspaceSessionCoordinator', () => {
     const duplicateBindingFile = join(cwd, '.brunch', 'sessions', 'duplicate-binding.jsonl');
     await writeFile(
       unboundFile,
-      `${JSON.stringify({ type: 'session', id: 'unbound-session', cwd })}\n`,
+      `${JSON.stringify({ type: 'session', version: 3, id: 'unbound-session', cwd })}\n`,
       'utf8',
     );
     const bindingEntry = JSON.stringify({
+      id: 'binding-1',
       type: 'custom',
       customType: SESSION_BINDING_TYPE,
+      parentId: null,
+      timestamp: '2026-07-14T00:00:00.000Z',
       data: {
         schemaVersion: 1,
         specId: ready.spec.id,
       },
     });
+    const secondBindingEntry = bindingEntry
+      .replace('binding-1', 'binding-2')
+      .replace('"parentId":null', '"parentId":"binding-1"');
     await writeFile(
       mismatchedFile,
-      `${JSON.stringify({ type: 'session', id: 'header-session', cwd })}\n${bindingEntry}\n`,
+      `${JSON.stringify({ type: 'session', version: 3, id: 'header-session', cwd })}\n${bindingEntry}\n`,
       'utf8',
     );
     await writeFile(
       duplicateBindingFile,
-      `${JSON.stringify({ type: 'session', id: 'duplicate-binding-session', cwd })}\n${bindingEntry}\n${bindingEntry}\n`,
+      `${JSON.stringify({ type: 'session', version: 3, id: 'duplicate-binding-session', cwd })}\n${bindingEntry}\n${secondBindingEntry}\n`,
       'utf8',
     );
     const beforeUnbound = await readFile(unboundFile, 'utf8');
@@ -394,14 +508,14 @@ describe('WorkspaceSessionCoordinator', () => {
     await expect(readFile(duplicateBindingFile, 'utf8')).resolves.toBe(beforeDuplicateBinding);
   });
 
-  it('reports malformed session files without aborting inventory or store verification', async () => {
+  it('reports malformed session JSONL without aborting inventory or store verification', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
     const coordinator = createWorkspaceSessionCoordinator({ cwd });
     await coordinator.createSetupSession({ specTitle: 'Alpha' });
     const corruptedFile = join(cwd, '.brunch', 'sessions', 'corrupted.jsonl');
     await writeFile(
       corruptedFile,
-      `${JSON.stringify({ type: 'session', id: 'corrupted-session', cwd })}\n{not json}\n`,
+      `${JSON.stringify({ type: 'session', version: 3, id: 'corrupted-session', cwd })}\n{not json}\n`,
       'utf8',
     );
 
@@ -509,6 +623,137 @@ describe('WorkspaceSessionCoordinator', () => {
     expect(oracle.ok).toBe(true);
   });
 
+  it('activates a new spec decision carrying establishment-confirmed posture (D118-L, A41-L)', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+
+    const root = await coordinator.activateWorkspace({ action: 'newSpec', title: 'Root spec' });
+    if (root.status !== 'ready') throw new Error('unreachable');
+
+    const created = await coordinator.activateWorkspace({
+      action: 'newSpec',
+      title: 'Feature spec',
+      kind: 'feature',
+      origin: 'brownfield',
+      relatesToSpecId: root.spec.id,
+    });
+
+    expect(created.status).toBe('ready');
+    if (created.status !== 'ready') throw new Error('unreachable');
+    expect(created.spec).toEqual({
+      id: created.spec.id,
+      title: 'Feature spec',
+      kind: 'feature',
+      origin: 'brownfield',
+      relatesToSpecId: root.spec.id,
+    });
+  });
+
+  it('A41-L probe: a real multi-spec workspace fixture round-trips the reference-only relates-to shape', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+
+    // A root spec plus two others relating back to it (and to each other) —
+    // no spec-to-spec claim model (supersedes/informed_by/depends_on/claims),
+    // just a plain integer reference per spec (A41-L bet).
+    const root = await coordinator.activateWorkspace({
+      action: 'newSpec',
+      title: 'Root product spec',
+      kind: 'product',
+      origin: 'greenfield',
+    });
+    if (root.status !== 'ready') throw new Error('unreachable');
+
+    const feature = await coordinator.activateWorkspace({
+      action: 'newSpec',
+      title: 'Feature spec',
+      kind: 'feature',
+      origin: 'brownfield',
+      relatesToSpecId: root.spec.id,
+    });
+    if (feature.status !== 'ready') throw new Error('unreachable');
+
+    const focusedFunction = await coordinator.activateWorkspace({
+      action: 'newSpec',
+      title: 'Focused function spec',
+      kind: 'function',
+      origin: 'brownfield',
+      relatesToSpecId: feature.spec.id,
+    });
+    if (focusedFunction.status !== 'ready') throw new Error('unreachable');
+
+    const inventory = await coordinator.inspectWorkspace();
+    const byId = new Map(inventory.specs.map((entry) => [entry.spec.id, entry.spec]));
+
+    expect(byId.get(root.spec.id)?.relatesToSpecId).toBeNull();
+    expect(byId.get(feature.spec.id)?.relatesToSpecId).toBe(root.spec.id);
+    expect(byId.get(focusedFunction.spec.id)?.relatesToSpecId).toBe(feature.spec.id);
+
+    // Reference-only shape: the spec record surface carries no claim-model
+    // vocabulary (supersedes/informed_by/parallel_to/depends_on/claims,
+    // docs/design/SPEC_INITIATIVE_MODEL.md's deferred model) — just id/title/
+    // kind/origin/relatesToSpecId.
+    const featureSpec = byId.get(feature.spec.id);
+    expect(featureSpec && Object.keys(featureSpec).sort()).toEqual(
+      ['id', 'kind', 'origin', 'relatesToSpecId', 'title'].sort(),
+    );
+  });
+
+  it('never re-asks establishment for a spec with stored posture; asks once for a posture-unestablished spec (D118-L)', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+
+    // Established via the dialog's posture-carrying decision.
+    const established = await coordinator.activateWorkspace({
+      action: 'newSpec',
+      title: 'Established spec',
+      origin: 'greenfield',
+    });
+    if (established.status !== 'ready') throw new Error('unreachable');
+
+    // Created outside the dialog (e.g. RPC) — posture-unestablished.
+    const unestablished = await coordinator.activateWorkspace({
+      action: 'newSpec',
+      title: 'Unestablished spec',
+    });
+    if (unestablished.status !== 'ready') throw new Error('unreachable');
+
+    const inventory = await coordinator.inspectWorkspace();
+    const establishedSpec = inventory.specs.find((entry) => entry.spec.id === established.spec.id)?.spec;
+    const unestablishedSpec = inventory.specs.find((entry) => entry.spec.id === unestablished.spec.id)?.spec;
+    if (!establishedSpec || !unestablishedSpec) throw new Error('unreachable');
+
+    expect(
+      decideSpecEstablishmentAsks({
+        currentOrigin: establishedSpec.origin ?? null,
+        workspacePopulated: inventory.workspacePopulated ?? false,
+      }),
+    ).toEqual([]);
+    expect(
+      decideSpecEstablishmentAsks({
+        currentOrigin: unestablishedSpec.origin ?? null,
+        workspacePopulated: inventory.workspacePopulated ?? false,
+      }),
+    ).toEqual(['confirmOrigin']);
+  });
+
+  it('ignores a sibling 0.x brunch.db for posture: a cwd with no code stays bare (2026-07-14 D124-L revision)', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
+    await mkdir(join(cwd, '.brunch'), { recursive: true });
+    await writeFile(join(cwd, '.brunch', 'brunch.db'), 'not a sqlite database');
+
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const inventory = await coordinator.inspectWorkspace();
+
+    expect(inventory.workspacePopulated).toBe(false);
+    expect(
+      decideSpecEstablishmentAsks({
+        currentOrigin: null,
+        workspacePopulated: inventory.workspacePopulated ?? false,
+      }),
+    ).toEqual(['confirmOrigin']);
+  });
+
   it('activates cancel without mutating workspace state or session files', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
     const coordinator = createWorkspaceSessionCoordinator({ cwd });
@@ -530,7 +775,7 @@ describe('WorkspaceSessionCoordinator', () => {
     const unavailableFile = join(cwd, '.brunch', 'sessions', 'unavailable.jsonl');
     await writeFile(
       unavailableFile,
-      `${JSON.stringify({ type: 'session', id: 'unavailable-session', cwd })}\n`,
+      `${JSON.stringify({ type: 'session', version: 3, id: 'unavailable-session', cwd })}\n`,
       'utf8',
     );
 
@@ -549,7 +794,7 @@ describe('WorkspaceSessionCoordinator', () => {
     expect(mismatched.status).toBe('needs_human');
   });
 
-  it('scaffolds workspace.json and data.db when no default spec exists', async () => {
+  it('scaffolds workspace.json and brunch-v1.db when no default spec exists', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
 
     const coordinator = createWorkspaceSessionCoordinator({ cwd });
@@ -558,7 +803,7 @@ describe('WorkspaceSessionCoordinator', () => {
     expect(result.status).toBe('select_spec');
     expect(result.chrome.cwd).toBe(cwd);
     expect(result.chrome.spec).toBeNull();
-    await expect(stat(join(cwd, '.brunch', 'data.db'))).resolves.toMatchObject({});
+    await expect(stat(join(cwd, '.brunch', 'brunch-v1.db'))).resolves.toMatchObject({});
     expect(JSON.parse(await readFile(join(cwd, '.brunch', 'workspace.json'), 'utf8'))).toMatchObject({
       project: expect.objectContaining({ name: expect.any(String), slug: expect.any(String) }),
       defaults: null,

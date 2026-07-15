@@ -18,11 +18,19 @@
 
 import { formatGraphOverview } from '../../../agents/contexts/data-model/graph/graph-slice.js';
 import type { GraphSlice } from '../../../graph/index.js';
+import type { SpecKind, SpecOrigin } from '../../../graph/schema/kinds.js';
 import type { ElicitationScratchpadItem } from '../../../session/elicitation-scratchpad.js';
 import type { SessionOrientationDirectiveChoice } from '../../../session/session-orientation.js';
 import { formatElicitationScratchpad } from '../data-model/elicitation-scratchpad.js';
 import { formatSessionOrientationSeed } from '../data-model/session-orientation.js';
 import { deriveGraphFactSeed, renderGraphFactSeed } from './graph-fact-seed.js';
+
+/** A spec's posture (D118-L) as read by kick assembly — never established here. */
+export interface SpecPostureSeedInput {
+  readonly kind: SpecKind;
+  readonly origin: SpecOrigin | null;
+  readonly relatesToSpecId: number | null;
+}
 
 export interface ComposeContextSeedInput {
   readonly specId: number;
@@ -42,6 +50,15 @@ export interface ComposeContextSeedInput {
    * blank/default section (decision-flow chart §Choice schema).
    */
   readonly orientation?: SessionOrientationDirectiveChoice;
+  /**
+   * The spec's posture (D118-L) — confirmed kind, origin, and an optional
+   * relates-to-spec reference (A41-L). Read-only here: the agent never
+   * establishes posture. Omitted (not rendered blank) when posture is
+   * unestablished (`origin: null`), mirroring the orientation section's
+   * omit-rather-than-blank convention — a resumed spec with confirmed
+   * posture is not a blank restart.
+   */
+  readonly posture?: SpecPostureSeedInput;
 }
 
 export function composeContextSeedContent(input: ComposeContextSeedInput): string {
@@ -67,5 +84,19 @@ export function composeContextSeedContent(input: ComposeContextSeedInput): strin
     lines.push('', formatSessionOrientationSeed(input.orientation));
   }
 
+  if (input.posture && input.posture.origin !== null) {
+    lines.push('', formatSpecPostureSeed(input.posture));
+  }
+
   return lines.join('\n');
+}
+
+function formatSpecPostureSeed(posture: SpecPostureSeedInput): string {
+  const relatesTo = posture.relatesToSpecId === null ? 'none' : `spec ${posture.relatesToSpecId}`;
+  return [
+    'SPEC POSTURE',
+    `- kind: ${posture.kind}`,
+    `- origin: ${posture.origin}`,
+    `- relates-to-spec: ${relatesTo}`,
+  ].join('\n');
 }

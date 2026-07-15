@@ -36,7 +36,7 @@ interface CustomEntryLike {
 }
 
 interface SessionManagerLike {
-  getEntries(): readonly CustomEntryLike[];
+  getBranch(): readonly CustomEntryLike[];
 }
 
 function supportsScratchpadEntries(
@@ -52,7 +52,7 @@ function supportsScratchpadEntries(
 function currentScratchpad(
   sessionManager: SessionManagerLike | undefined,
 ): readonly ElicitationScratchpadItem[] {
-  return latestElicitationScratchpad(sessionManager?.getEntries() ?? []);
+  return latestElicitationScratchpad(sessionManager?.getBranch() ?? []);
 }
 
 const ReadElicitationScratchpadParamsSchema = Type.Object(

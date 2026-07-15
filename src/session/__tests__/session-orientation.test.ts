@@ -27,6 +27,15 @@ function kickEntry() {
 
 class FakeOrientationSessionManager {
   entries: Array<{ type: 'custom'; customType: string; data: SessionOrientationEntryData }> = [];
+  abandoned: unknown[] = [];
+
+  getBranch() {
+    return this.entries;
+  }
+
+  getEntries() {
+    return [...this.entries, ...this.abandoned];
+  }
 
   appendCustomEntry(customType: string, data: SessionOrientationEntryData) {
     this.entries.push({ type: 'custom', customType, data });
@@ -141,10 +150,18 @@ describe('appendSessionOrientationEntry', () => {
     appendSessionOrientationEntry(sessionManager, { choice: 'continue', trigger: 'entry' });
     appendSessionOrientationEntry(sessionManager, { choice: 'elicit_decisions', trigger: 'tree' });
 
-    expect(latestSessionOrientation(sessionManager.entries)?.data).toEqual({
+    sessionManager.abandoned.push(orientationEntry('ingest', 'consult'), kickEntry());
+
+    expect(latestSessionOrientation(sessionManager.getBranch())?.data).toEqual({
       schemaVersion: 1,
       choice: 'elicit_decisions',
       trigger: 'tree',
     });
+    expect(freshSessionOrientationChoice(sessionManager.getBranch(), KICK_CUSTOM_TYPE)).toBe(
+      'elicit_decisions',
+    );
+    expect(
+      freshSessionOrientationChoice(sessionManager.getEntries() as never, KICK_CUSTOM_TYPE),
+    ).toBeUndefined();
   });
 });

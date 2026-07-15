@@ -1,9 +1,6 @@
 import type { FileEntry } from '@earendil-works/pi-coding-agent';
 
-import {
-  assertLinearBrunchSessionEnvelope,
-  type BrunchSessionEnvelope,
-} from '../../session/brunch-session-envelope.js';
+import type { BrunchSessionEnvelope } from '../../session/brunch-session-envelope.js';
 import {
   DEFAULT_BRUNCH_AGENT_STATE,
   latestValidBrunchAgentStateEntryData,
@@ -87,7 +84,6 @@ export function projectBrunchAgentState(
 }
 
 export function projectSessionRuntimeState(envelope: BrunchSessionEnvelope): RuntimeStateProjection {
-  assertLinearBrunchSessionEnvelope(envelope);
   const agentState = projectBrunchAgentState(envelope.entries);
 
   return {

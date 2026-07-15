@@ -14,7 +14,7 @@ import {
 } from '../../../exchanges/schemas/index.js';
 import { normalizeOptionalUnknownText } from '../../../exchanges/text.js';
 import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
-import type { LiveExchangeAwaiter } from '../../../session/live-exchange-broker.js';
+import type { LiveAskOpener, OpenAskMode } from '../../../session/live-ask-registry.js';
 import { ExchangeAnswerEditorComponent } from '../../components/exchange-answer-editor.js';
 import { createExchangeDecisionPickerComponent } from '../../components/exchange-decision-picker.js';
 import { operationalModeBorderColor } from '../../components/mode-border-theme.js';
@@ -118,12 +118,12 @@ async function collectFreeText(
   params: CollectableAskParams,
   question: AskQuestionEcho,
   ctx: StructuredExchangeUiContext,
-  answerBroker: LiveExchangeAwaiter | undefined,
+  liveAsk: LiveAskOpener | undefined,
 ): Promise<ToolResult> {
   const collected = await firstAvailableFreeTextCollector([
     () => collectFreeTextViaCustomEditor(params, ctx),
     () => collectFreeTextViaPlainEditor(params, ctx),
-    () => collectFreeTextViaAnswerBroker(params, answerBroker),
+    () => collectFreeTextViaLiveAsk(params, question, liveAsk),
   ]);
   if (collected === undefined)
     return terminal(params, question, 'unavailable', 'ask requires interactive UI');
@@ -195,24 +195,65 @@ async function collectFreeTextViaPlainEditor(
   return answer === undefined ? { status: 'cancelled' } : { status: 'answered', answer };
 }
 
-async function collectFreeTextViaAnswerBroker(
+async function collectFreeTextViaLiveAsk(
   params: CollectableAskParams,
-  answerBroker: LiveExchangeAwaiter | undefined,
+  question: AskQuestionEcho,
+  liveAsk: LiveAskOpener | undefined,
 ): Promise<FreeTextCollectionResult> {
-  if (!answerBroker) return { status: 'try-next' };
-  const answer = await answerBroker.awaitAnswer({ exchangeId: params.exchangeId });
+  if (!liveAsk) return { status: 'try-next' };
+  const answer = await openLiveAsk(params, question, 'text', liveAsk);
   return answer === undefined ? { status: 'cancelled' } : { status: 'answered', answer };
+}
+
+function openLiveAsk(
+  params: CollectableAskParams,
+  question: AskQuestionEcho,
+  mode: OpenAskMode,
+  liveAsk: LiveAskOpener,
+): Promise<string | undefined> {
+  return liveAsk.openAsk({ exchangeId: params.exchangeId, mode, question });
 }
 
 async function collectSingleChoice(
   params: CollectableAskParams,
   question: AskQuestionEcho,
   ctx: StructuredExchangeUiContext,
+  liveAsk: LiveAskOpener | undefined,
 ): Promise<ToolResult> {
-  if (!ctx.hasUI || typeof ctx.ui?.custom !== 'function' || !hasOptions(params)) {
-    return terminal(params, question, 'unavailable', 'ask choice requires interactive UI');
+  if (!hasOptions(params)) {
+    return terminal(params, question, 'unavailable', 'ask choice requires options');
   }
-  return collectSingleChoiceWithBackNavigation(params, question, ctx, ctx.ui.custom);
+  if (ctx.hasUI && typeof ctx.ui?.custom === 'function') {
+    return collectSingleChoiceWithBackNavigation(params, question, ctx, ctx.ui.custom);
+  }
+  if (liveAsk) {
+    return collectSingleChoiceViaLiveAsk(params, question, liveAsk);
+  }
+  return terminal(params, question, 'unavailable', 'ask choice requires interactive UI');
+}
+
+// ceiling: headless choice answers accept only a listed option id; the Other /
+// None escapes and comment sub-steps stay interactive-only (they need ctx.ui
+// input steps). Upgrade trigger: when a headless driver needs those escapes,
+// widen the broker answer from a bare string into an answer-envelope shape.
+async function collectSingleChoiceViaLiveAsk(
+  params: CollectableAskWithOptions,
+  question: AskQuestionEcho,
+  liveAsk: LiveAskOpener,
+): Promise<ToolResult> {
+  const answer = await openLiveAsk(params, question, 'single-select', liveAsk);
+  if (answer === undefined) return terminal(params, question, 'cancelled');
+  const option = params.options.find((candidate) => candidate.id === answer);
+  if (!option) return terminal(params, question, 'unavailable', `ask received unknown option id ${answer}`);
+  return result(
+    projectAsk({
+      exchangeId: params.exchangeId,
+      question,
+      status: 'answered',
+      choice: { id: option.id, label: option.label, kind: 'listed' },
+      options: params.options,
+    }),
+  );
 }
 
 async function collectSingleChoiceWithBackNavigation(
@@ -298,14 +339,54 @@ async function collectMultiChoice(
   params: CollectableAskParams,
   question: AskQuestionEcho,
   ctx: StructuredExchangeUiContext,
+  liveAsk: LiveAskOpener | undefined,
 ): Promise<ToolResult> {
   if (!hasOptions(params)) return terminal(params, question, 'unavailable', 'ask choices require options');
-  if (!ctx.hasUI) return terminal(params, question, 'unavailable', 'ask choices requires interactive UI');
-  if (typeof ctx.ui?.custom !== 'function') {
-    if (typeof ctx.ui?.editor === 'function') return collectMultiChoiceViaEditor(params, question, ctx);
-    return terminal(params, question, 'unavailable', 'ask choices requires interactive UI');
+  if (ctx.hasUI && typeof ctx.ui?.custom === 'function') {
+    return collectMultiChoiceWithBackNavigation(params, question, ctx, ctx.ui.custom);
   }
-  return collectMultiChoiceWithBackNavigation(params, question, ctx, ctx.ui.custom);
+  if (ctx.hasUI && typeof ctx.ui?.editor === 'function') {
+    return collectMultiChoiceViaEditor(params, question, ctx);
+  }
+  if (liveAsk) {
+    return collectMultiChoiceViaLiveAsk(params, question, liveAsk);
+  }
+  return terminal(params, question, 'unavailable', 'ask choices requires interactive UI');
+}
+
+// ceiling: headless multi-select accepts a comma/newline-delimited list of
+// listed option ids; Other/None escapes and the comment step stay
+// interactive-only. Upgrade trigger: when a headless driver needs those escapes,
+// widen the broker answer into an envelope shape (as collectSingleChoiceViaLiveAsk).
+async function collectMultiChoiceViaLiveAsk(
+  params: CollectableAskWithOptions,
+  question: AskQuestionEcho,
+  liveAsk: LiveAskOpener,
+): Promise<ToolResult> {
+  const answer = await openLiveAsk(params, question, 'multi-select', liveAsk);
+  if (answer === undefined) return terminal(params, question, 'cancelled');
+  const ids = answer
+    .split(/[,\n]/)
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+  if (ids.length === 0) {
+    return terminal(params, question, 'unavailable', 'ask choices requires at least one selection');
+  }
+  const choices: SelectedChoice[] = [];
+  for (const id of ids) {
+    const option = params.options.find((candidate) => candidate.id === id);
+    if (!option) return terminal(params, question, 'unavailable', `ask received unknown option id ${id}`);
+    choices.push({ id: option.id, label: option.label, kind: 'listed' });
+  }
+  return result(
+    projectAsk({
+      exchangeId: params.exchangeId,
+      question,
+      status: 'answered',
+      choices,
+      options: params.options,
+    }),
+  );
 }
 
 async function collectMultiChoiceWithBackNavigation(
@@ -464,14 +545,14 @@ export function collectAskResponse(
   params: CollectableAskParams,
   question: AskQuestionEcho,
   ctx: StructuredExchangeUiContext,
-  answerBroker?: LiveExchangeAwaiter,
+  liveAsk?: LiveAskOpener,
 ): Promise<ToolResult> {
-  if (!params.options) return collectFreeText(params, question, ctx, answerBroker);
-  if (params.multiple) return collectMultiChoice(params, question, ctx);
-  return collectSingleChoice(params, question, ctx);
+  if (!params.options) return collectFreeText(params, question, ctx, liveAsk);
+  if (params.multiple) return collectMultiChoice(params, question, ctx, liveAsk);
+  return collectSingleChoice(params, question, ctx, liveAsk);
 }
 
-export function createAskTool(answerBroker?: LiveExchangeAwaiter) {
+export function createAskTool(liveAsk?: LiveAskOpener) {
   return defineTool({
     name: ASK_TOOL,
     label: 'Ask',
@@ -495,10 +576,10 @@ export function createAskTool(answerBroker?: LiveExchangeAwaiter) {
       if (!parsed.success) return validationFailureResult(ASK_TOOL, parsed.error);
       const params = parsed.data;
       const uiCtx = ctx as unknown as StructuredExchangeUiContext;
-      if (isContinuingAskParams(params)) return collectContinuingAsk(params, uiCtx);
+      if (isContinuingAskParams(params)) return collectContinuingAsk(params, uiCtx, liveAsk);
       const standalone = standaloneAskParams(params);
       const question = askQuestionEcho(standalone);
-      return collectAskResponse(standalone, question, uiCtx, answerBroker);
+      return collectAskResponse(standalone, question, uiCtx, liveAsk);
     },
 
     renderCall() {

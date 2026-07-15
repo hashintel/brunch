@@ -11,6 +11,7 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { createDb, type BrunchDb } from '../../db/connection.js';
 import {
   changeLog,
+  edges,
   graphClock,
   nodeKindCounters,
   nodes,
@@ -18,6 +19,7 @@ import {
   specs,
 } from '../../db/schema.js';
 import { CommandExecutor } from '../command-executor.js';
+import type { ReconciliationNeedKind } from '../schema/reconciliation-need.js';
 import { runCreateOnlyMutation } from './support/create-only-mutation.js';
 
 function createTestDb(): BrunchDb {
@@ -526,129 +528,6 @@ describe('CommandExecutor', () => {
     expect(result.status).toBe('success');
   });
 
-  // ==========================================================================
-  // specs
-  // ==========================================================================
-
-  describe('specs', () => {
-    it('creates a spec row and returns an integer id', () => {
-      const result = executor.createSpec({
-        name: 'Brunch POC',
-        slug: 'brunch-poc',
-      });
-
-      expect(result.status).toBe('success');
-      if (result.status !== 'success') throw new Error('unreachable');
-      expect(result.specId).toBeTypeOf('number');
-      expect(result.lsn).toBe(1);
-
-      const row = db.select().from(specs).where(eq(specs.id, result.specId)).get()!;
-      expect(row.id).toBe(result.specId);
-      expect(row.name).toBe('Brunch POC');
-      expect(row.slug).toBe('brunch-poc');
-    });
-
-    it('defaults spec kind to product when omitted (D89-L)', () => {
-      const result = executor.createSpec({ name: 'Default Scope', slug: 'default-scope' });
-      expect(result.status).toBe('success');
-      if (result.status !== 'success') throw new Error('unreachable');
-
-      expect(executor.getSpec(result.specId)?.kind).toBe('product');
-    });
-
-    it('persists and reads an explicit spec kind (D89-L)', () => {
-      const created = executor.createSpec({ name: 'Focused Lib', slug: 'focused-lib', kind: 'function' });
-      expect(created.status).toBe('success');
-      if (created.status !== 'success') throw new Error('unreachable');
-
-      const row = db.select().from(specs).where(eq(specs.id, created.specId)).get()!;
-      expect(row.kind).toBe('function');
-      expect(executor.getSpec(created.specId)?.kind).toBe('function');
-    });
-
-    it('creates exactly one graph clock row for a new spec at LSN 1', () => {
-      const result = executor.createSpec({ name: 'Clocked Spec', slug: 'clocked-spec' });
-
-      expect(result.status).toBe('success');
-      if (result.status !== 'success') throw new Error('unreachable');
-      expect(
-        db
-          .select({ specId: graphClock.spec_id, lsn: graphClock.lsn })
-          .from(graphClock)
-          .where(eq(graphClock.spec_id, result.specId))
-          .all(),
-      ).toEqual([{ specId: result.specId, lsn: 1 }]);
-    });
-
-    it('scopes create_spec audit LSNs to the newly created spec', () => {
-      const specA = executor.createSpec({ name: 'Spec A', slug: 'spec-a' });
-      const specB = executor.createSpec({ name: 'Spec B', slug: 'spec-b' });
-      if (specA.status !== 'success' || specB.status !== 'success') throw new Error('unreachable');
-
-      expect(specA.lsn).toBe(1);
-      expect(specB.lsn).toBe(1);
-      expect(graphClockLsn(db, specA.specId)).toBe(1);
-      expect(graphClockLsn(db, specB.specId)).toBe(1);
-      expect(
-        db
-          .select({ specId: changeLog.spec_id, lsn: changeLog.lsn, operation: changeLog.operation })
-          .from(changeLog)
-          .all(),
-      ).toEqual([
-        { specId: specA.specId, lsn: 1, operation: 'create_spec' },
-        { specId: specB.specId, lsn: 1, operation: 'create_spec' },
-      ]);
-    });
-
-    it('mutating one spec does not advance sibling spec clocks', () => {
-      const specA = executor.createSpec({ name: 'Spec A', slug: 'spec-a' });
-      const specB = executor.createSpec({ name: 'Spec B', slug: 'spec-b' });
-      if (specA.status !== 'success' || specB.status !== 'success') throw new Error('unreachable');
-
-      const result = executor.createNode({
-        specId: specA.specId,
-        plane: 'intent',
-        kind: 'goal',
-        title: 'Spec A goal',
-      });
-
-      expect(result.status).toBe('success');
-      if (result.status !== 'success') throw new Error('unreachable');
-      expect(result.lsn).toBe(2);
-      expect(graphClockLsn(db, specA.specId)).toBe(2);
-      expect(graphClockLsn(db, specB.specId)).toBe(1);
-    });
-
-    it('reads a spec row by integer id', () => {
-      const created = executor.createSpec({ name: 'Spec A', slug: 'spec-a' });
-      if (created.status !== 'success') throw new Error('unreachable');
-
-      const spec = executor.getSpec(created.specId);
-
-      expect(spec).toEqual({
-        id: created.specId,
-        name: 'Spec A',
-        slug: 'spec-a',
-        kind: 'product',
-      });
-    });
-
-    it('fails loud when an existing spec is missing its graph clock row', () => {
-      const created = executor.createSpec({ name: 'Corrupt Spec', slug: 'corrupt-spec' });
-      if (created.status !== 'success') throw new Error('unreachable');
-      db.delete(graphClock).where(eq(graphClock.spec_id, created.specId)).run();
-
-      expect(() =>
-        executor.createNode({
-          specId: created.specId,
-          plane: 'intent',
-          kind: 'goal',
-          title: 'This mutation should not repair storage',
-        }),
-      ).toThrow(/graph_clock invariant failed/);
-    });
-  });
-
   // --- createReconciliationNeed ---
 
   describe('createReconciliationNeed', () => {
@@ -669,7 +548,7 @@ describe('CommandExecutor', () => {
       const result = executor.createReconciliationNeed({
         specId,
         target: { kind: 'edge', edgeId },
-        needKind: 'edge_revalidation',
+        needKind: 'semantic_conflict',
         reason: 'upstream assumption changed',
       });
 
@@ -708,7 +587,7 @@ describe('CommandExecutor', () => {
       const result = executor.createReconciliationNeed({
         specId,
         target: { kind: 'edge', edgeId: 999 },
-        needKind: 'edge_revalidation',
+        needKind: 'semantic_conflict',
       });
 
       expect(result.status).toBe('structural_illegal');
@@ -730,6 +609,22 @@ describe('CommandExecutor', () => {
       expect(result.status).toBe('structural_illegal');
       if (result.status !== 'structural_illegal') throw new Error('unreachable');
       expect(result.diagnostics[0]!.field).toBe('target.bId');
+    });
+
+    it('rejects the retired edge_revalidation kind, pinning the accepted set to the three judgment kinds', () => {
+      const n1 = executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'G1' });
+      const n2 = executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'G2' });
+      if (n1.status !== 'success' || n2.status !== 'success') throw new Error('unreachable');
+
+      const result = executor.createReconciliationNeed({
+        specId,
+        target: { kind: 'node_pair', aId: n1.nodeId, bId: n2.nodeId },
+        needKind: 'edge_revalidation' as unknown as ReconciliationNeedKind,
+      });
+
+      expect(result.status).toBe('structural_illegal');
+      if (result.status !== 'structural_illegal') throw new Error('unreachable');
+      expect(result.diagnostics[0]!.field).toBe('needKind');
     });
 
     it('allocates a new LSN for each recon need', () => {
@@ -778,7 +673,7 @@ describe('CommandExecutor', () => {
       const create = executor.createReconciliationNeed({
         specId,
         target: { kind: 'edge', edgeId: batch.createdEdges[0]! },
-        needKind: 'edge_revalidation',
+        needKind: 'semantic_conflict',
       });
       expect(create.status).toBe('success');
       if (create.status !== 'success') throw new Error('unreachable');
@@ -811,7 +706,7 @@ describe('CommandExecutor', () => {
       const create = executor.createReconciliationNeed({
         specId,
         target: { kind: 'edge', edgeId: batch.createdEdges[0]! },
-        needKind: 'edge_revalidation',
+        needKind: 'semantic_conflict',
       });
       expect(create.status).toBe('success');
       if (create.status !== 'success') throw new Error('unreachable');
@@ -846,7 +741,7 @@ describe('CommandExecutor', () => {
       const create = executor.createReconciliationNeed({
         specId,
         target: { kind: 'edge', edgeId: batch.createdEdges[0]! },
-        needKind: 'edge_revalidation',
+        needKind: 'semantic_conflict',
       });
       expect(create.status).toBe('success');
       if (create.status !== 'success') throw new Error('unreachable');
@@ -858,6 +753,69 @@ describe('CommandExecutor', () => {
       expect(resolve2.status).toBe('structural_illegal');
       if (resolve2.status !== 'structural_illegal') throw new Error('unreachable');
       expect(resolve2.diagnostics[0]!.message).toContain('already resolved');
+    });
+  });
+
+  describe('acknowledgeEdgeRevalidation', () => {
+    function seedEdge(): number {
+      const batch = runCreateOnlyMutation(executor, {
+        specId,
+        nodes: [
+          { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'R1' },
+          { ref: 'a1', plane: 'intent', kind: 'assumption', title: 'A1' },
+        ],
+        edges: [{ category: 'dependency', source: 'r1', target: 'a1' }],
+      });
+      if (batch.status !== 'success') throw new Error('unreachable');
+      return batch.createdEdges[0]!;
+    }
+
+    function acknowledgedLsn(edgeId: number): number | null {
+      return db.select({ lsn: edges.acknowledged_lsn }).from(edges).where(eq(edges.id, edgeId)).get()!.lsn;
+    }
+
+    it("bumps the edge's acknowledged_lsn to the freshly allocated spec LSN", () => {
+      const edgeId = seedEdge();
+      const result = executor.acknowledgeEdgeRevalidation({ specId, edgeId });
+
+      expect(result.status).toBe('success');
+      if (result.status !== 'success') throw new Error('unreachable');
+      expect(result.lsn).toBe(graphClockLsn(db, specId));
+      expect(acknowledgedLsn(edgeId)).toBe(result.lsn);
+    });
+
+    it('is idempotent: re-acknowledging succeeds and advances the watermark monotonically', () => {
+      const edgeId = seedEdge();
+      const first = executor.acknowledgeEdgeRevalidation({ specId, edgeId });
+      const second = executor.acknowledgeEdgeRevalidation({ specId, edgeId });
+
+      expect(first.status).toBe('success');
+      expect(second.status).toBe('success');
+      if (first.status !== 'success' || second.status !== 'success') throw new Error('unreachable');
+      expect(second.lsn).toBeGreaterThan(first.lsn);
+      expect(acknowledgedLsn(edgeId)).toBe(second.lsn);
+    });
+
+    it('rejects an unknown edge id with a structured diagnostic consistent with sibling commands', () => {
+      const result = executor.acknowledgeEdgeRevalidation({ specId, edgeId: 9999 });
+
+      expect(result.status).toBe('structural_illegal');
+      if (result.status !== 'structural_illegal') throw new Error('unreachable');
+      expect(result.diagnostics[0]!.field).toBe('edgeId');
+      expect(result.diagnostics[0]!.message).toContain('9999');
+    });
+
+    it('appends an acknowledge_edge_revalidation change_log row', () => {
+      const edgeId = seedEdge();
+      const result = executor.acknowledgeEdgeRevalidation({ specId, edgeId });
+      if (result.status !== 'success') throw new Error('unreachable');
+
+      const logged = db
+        .select({ operation: changeLog.operation, lsn: changeLog.lsn })
+        .from(changeLog)
+        .where(eq(changeLog.spec_id, specId))
+        .all();
+      expect(logged).toContainEqual({ operation: 'acknowledge_edge_revalidation', lsn: result.lsn });
     });
   });
 });

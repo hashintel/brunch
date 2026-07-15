@@ -64,6 +64,20 @@
       "when": 1782910614939,
       "tag": "0008_sharp_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1783947680989,
+      "tag": "0009_sturdy_rachel_grey",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1783967227785,
+      "tag": "0010_natural_raider",
+      "breakpoints": true
     }
   ]
 }

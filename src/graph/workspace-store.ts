@@ -1,7 +1,10 @@
-import { mkdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { mkdir, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { BRUNCH_DIR } from '../constants.js';
+import Database from 'better-sqlite3';
+
+import { BRUNCH_DIR, LEGACY_ALPHA_DB_FILENAME, WORKSPACE_DB_FILENAME } from '../constants.js';
 import { createDb } from '../db/connection.js';
 import { CommandExecutor } from './command-executor.js';
 import {
@@ -67,8 +70,171 @@ export async function openWorkspaceCommandExecutor(cwd: string): Promise<Command
   return (await openWorkspaceGraphRuntime(cwd)).commandExecutor;
 }
 
-async function openWorkspaceDb(cwd: string) {
+// The filename constants live in the leaf `constants.ts` module so tooling
+// (drizzle.config.ts) can read them without loading better-sqlite3; this
+// module owns the open/guard/recovery lifecycle and re-exports them as part
+// of its public surface.
+export { LEGACY_ALPHA_DB_FILENAME, WORKSPACE_DB_FILENAME } from '../constants.js';
+
+/** SQLite `application_id` magic stamped on every `brunch-v1.db` (ASCII "BRV1"). */
+const BRUNCH_APPLICATION_ID = 0x42_52_56_31;
+
+/** The table name drizzle-orm's better-sqlite3 migrator creates (its default; `db/connection.ts` doesn't override it). */
+const DRIZZLE_MIGRATIONS_TABLE = '__drizzle_migrations';
+
+/**
+ * Thrown when a `brunch-v1.db`-named file — or a legacy alpha `data.db`
+ * candidate for recovery — does not self-identify as the current Brunch major
+ * line (I63-L: fail-safe refusal). Thrown before any rename and before
+ * `createDb`'s migration runs, so a foreign or incompatible file is never
+ * opened for write, migrated, renamed, or deleted.
+ */
+export class WorkspaceDbRefusalError extends Error {
+  constructor(
+    readonly path: string,
+    readonly foundApplicationId: number,
+  ) {
+    super(
+      foundApplicationId === 0
+        ? `Refusing to open ${path}: application_id is unset (0) and the file shows no Brunch lineage ` +
+            `(no ${DRIZZLE_MIGRATIONS_TABLE} table, and it is not empty). Zero is SQLite's own default, not a ` +
+            'Brunch marker, so this file was not created by this Brunch line and will not be opened, migrated, ' +
+            'or deleted.'
+        : `Refusing to open ${path}: application_id ${foundApplicationId} does not match the Brunch v1 line ` +
+            `(${BRUNCH_APPLICATION_ID}). This file was not created by this Brunch line and will not be opened, ` +
+            'migrated, or deleted.',
+    );
+    this.name = 'WorkspaceDbRefusalError';
+  }
+}
+
+/**
+ * Opens the workspace's `brunch-v1.db`: recovers a legacy alpha `data.db` by
+ * rename first (D124-L mechanic 4), then enforces the fail-safe
+ * `application_id` open guard (I63-L) before handing off to `createDb`'s
+ * migration.
+ */
+export async function openWorkspaceDb(cwd: string) {
   const brunchDir = join(cwd, BRUNCH_DIR);
   await mkdir(brunchDir, { recursive: true });
-  return createDb(join(brunchDir, 'data.db'));
+  await recoverLegacyAlphaDatabase(brunchDir);
+
+  const dbPath = join(brunchDir, WORKSPACE_DB_FILENAME);
+  const preexisting = existsSync(dbPath);
+  if (preexisting) {
+    checkApplicationIdOrRefuse(dbPath);
+  }
+
+  const db = createDb(dbPath);
+  if (!preexisting) {
+    // A file we just created ourselves: safe to stamp after migration, which
+    // guarantees page 1 exists rather than relying on pragma writes against
+    // a still-empty file.
+    db.$client.pragma(`application_id = ${BRUNCH_APPLICATION_ID}`);
+  }
+  return db;
+}
+
+/**
+ * One-shot recovery (D124-L mechanic 4): when `brunch-v1.db` is absent and a
+ * legacy alpha `data.db` exists, adopt it by rename — main file plus
+ * `-wal`/`-shm` sidecars. The ownership decision precedes the rename (I63-L):
+ * the legacy file is inspected read-only first, and a foreign file is refused
+ * in place — never relocated. Never runs while `brunch-v1.db` already exists
+ * (that file always wins; the legacy file is left untouched), and never
+ * renames while a connection to the legacy file is open — this function only
+ * renames closed files on disk.
+ */
+async function recoverLegacyAlphaDatabase(brunchDir: string): Promise<void> {
+  const targetPath = join(brunchDir, WORKSPACE_DB_FILENAME);
+  const legacyPath = join(brunchDir, LEGACY_ALPHA_DB_FILENAME);
+  if (existsSync(targetPath) || !existsSync(legacyPath)) return;
+
+  const { ownership, applicationId } = inspectDatabaseOwnership(legacyPath);
+  if (ownership === 'foreign') {
+    throw new WorkspaceDbRefusalError(legacyPath, applicationId);
+  }
+
+  for (const suffix of ['', '-wal', '-shm']) {
+    const from = `${legacyPath}${suffix}`;
+    if (existsSync(from)) await rename(from, `${targetPath}${suffix}`);
+  }
+}
+
+/**
+ * Checks an existing `brunch-v1.db`'s `application_id` before any migration
+ * runs, via a read-only inspection (I63-L: a refused file is never opened for
+ * write). An unstamped file (`application_id` 0) is only ours to adopt when
+ * it shows Brunch lineage evidence — see {@link hasBrunchLineageEvidence};
+ * any other value, or a zero-id file without that evidence, throws
+ * {@link WorkspaceDbRefusalError} and leaves the file untouched. Only the
+ * adopt case reopens the file writable, narrowly, to stamp the id.
+ */
+function checkApplicationIdOrRefuse(dbPath: string): void {
+  const { ownership, applicationId } = inspectDatabaseOwnership(dbPath);
+  switch (ownership) {
+    case 'current_line':
+      return;
+    case 'adoptable':
+      stampApplicationId(dbPath);
+      return;
+    case 'foreign':
+      throw new WorkspaceDbRefusalError(dbPath, applicationId);
+    default:
+      ownership satisfies never;
+  }
+}
+
+type DatabaseOwnership = 'current_line' | 'adoptable' | 'foreign';
+
+/**
+ * Read-only ownership inspection of a possibly-foreign SQLite file (I63-L).
+ * Opened with `readonly` + `fileMustExist` so the inspection itself can never
+ * create the file, take write locks, or spawn `-wal`/`-shm` sidecars — the
+ * file is bytes-untouched regardless of verdict. A non-SQLite file makes
+ * better-sqlite3 throw on the pragma read, which is still a loud pre-write
+ * refusal.
+ */
+function inspectDatabaseOwnership(dbPath: string): {
+  ownership: DatabaseOwnership;
+  applicationId: number;
+} {
+  const sqlite = new Database(dbPath, { readonly: true, fileMustExist: true });
+  try {
+    const applicationId = sqlite.pragma('application_id', { simple: true }) as number;
+    if (applicationId === BRUNCH_APPLICATION_ID) return { ownership: 'current_line', applicationId };
+    if (applicationId === 0 && hasBrunchLineageEvidence(sqlite)) {
+      return { ownership: 'adoptable', applicationId };
+    }
+    return { ownership: 'foreign', applicationId };
+  } finally {
+    sqlite.close();
+  }
+}
+
+/** The narrow write reopen for a file the inspection already adopted. */
+function stampApplicationId(dbPath: string): void {
+  const sqlite = new Database(dbPath);
+  try {
+    sqlite.pragma(`application_id = ${BRUNCH_APPLICATION_ID}`);
+  } finally {
+    sqlite.close();
+  }
+}
+
+/**
+ * Zero is SQLite's universal default `application_id`, not a Brunch marker
+ * — an arbitrary foreign SQLite file placed at `brunch-v1.db` also has it
+ * (I63-L: the runtime opens only databases that self-identify). An unstamped
+ * file is only trustworthy to adopt when it carries independent Brunch
+ * lineage evidence: drizzle's own migrations table (true of every
+ * just-recovered legacy alpha file, since `createDb` always migrates), or no
+ * user tables at all — nothing to protect, safe to adopt.
+ */
+function hasBrunchLineageEvidence(sqlite: Database.Database): boolean {
+  const tables = sqlite
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+    .all() as { name: string }[];
+  if (tables.length === 0) return true;
+  return tables.some((table) => table.name === DRIZZLE_MIGRATIONS_TABLE);
 }

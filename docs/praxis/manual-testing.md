@@ -9,6 +9,29 @@ Outer-loop verification for slices that touch the user-facing boundary. Manual t
 
 This keeps the dev process and browser observable without leaving the agent session.
 
+### Sandboxed-agent fallback: tui-driver
+
+Agent sandboxes that deny socket binds break every daemon-backed terminal tool (cmux, agent-tui, shellwright). The in-repo fallback is `npm run tui-driver` (`src/dev/tui-driver.ts`): an `expect`-pumped PTY per named session, with true screen rendering through a headless xterm and wait-for-text instead of sleep-and-hope. Sessions live under gitignored `.fixtures/scratch/tui-driver/<name>/`.
+
+```bash
+# Launch the TUI under a named driver session.
+npm run tui-driver -- start --name walk --cols 120 --rows 40 -- \
+  npm run dev-cli -- --workspace .fixtures/workbenches/<workbench>
+
+# Observe → interact → observe. wait blocks until the text renders (exit 1 on timeout,
+# printing the last screen); screen prints the current viewport.
+npm run tui-driver -- wait --name walk --text "Choose a specification"
+npm run tui-driver -- send --name walk --key Down --key Enter
+npm run tui-driver -- send --name walk --type "My spec title" --key Enter
+npm run tui-driver -- screen --name walk
+
+# Tear down when the beat is witnessed.
+npm run tui-driver -- stop --name walk
+npm run tui-driver -- rm --name walk
+```
+
+Keys: `Enter Esc Up Down Right Left Tab Space Backspace C-c C-d`. `send` fails fast with a named error when the driver is gone (no silent fifo blocking); `list` shows every session with liveness. The raw PTY byte stream is in each session's `output.log` (`log` subcommand) when the rendered screen isn't enough.
+
 ## Seeded walkthrough workflow
 
 Manual testing happens in a **workbench** — a launchable cwd under `.fixtures/workbenches/` whose `.brunch/` is gitignored local runtime state (see `.fixtures/README.md` for the four-role tree). Never use the repo root as the test workspace, and never rely on implicit seeding: `npm run dev-cli` only seeds when the seed/reset path is chosen explicitly.

@@ -7,6 +7,7 @@ import type { ProductUpdatePublisher } from '../product-updates.js';
 import type { JsonRpcRequest, JsonRpcResponse } from '../protocol.js';
 import type { SessionTurnDriver } from './session-driver.js';
 import type { SessionExchangeAnswerHandle } from './session-exchange-answer.js';
+import type { SessionOpenAsksHandle } from './session-open-asks.js';
 
 type RpcMethodAccess = 'read' | 'write';
 
@@ -26,6 +27,7 @@ export interface RpcMethodContext {
   readonly productUpdates?: ProductUpdatePublisher;
   readonly sessionTurnDriver?: SessionTurnDriver;
   readonly sessionExchangeAnswer?: SessionExchangeAnswerHandle;
+  readonly sessionOpenAsks?: SessionOpenAsksHandle;
   readonly getGraphRuntime: () => Promise<WorkspaceGraphRuntime>;
   readonly discoveryRegistry: readonly RpcMethodDefinition<RpcMethodContext>[];
 }

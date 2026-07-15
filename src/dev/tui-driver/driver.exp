@@ -1,0 +1,85 @@
+#!/usr/bin/expect -f
+# driver.exp <session-dir> <cols> <rows> <command...>
+#
+# The PTY pump for the Brunch tui-driver dev tool (src/dev/tui-driver.ts).
+# expect is the one PTY primitive available inside agent sandboxes that deny
+# socket binds (cmux/agent-tui/shellwright all need a daemon socket), so the
+# driver keeps the protocol deliberately dumb; all intelligence (screen
+# rendering, wait-for-text, liveness) lives on the TypeScript side.
+#
+# Contract with session.ts:
+# - all PTY output appends to <session-dir>/output.log
+# - control lines are read from <session-dir>/control.fifo:
+#     type:<text>   send literal text
+#     key:<name>    send a named key (see sendkey below)
+#     quit          close the PTY and exit
+# - <session-dir>/heartbeat is touched every pump iteration (~1s liveness)
+# - <session-dir>/exited is created when the pump stops (child eof or quit)
+
+set dir [lindex $argv 0]
+set cols [lindex $argv 1]
+set rows [lindex $argv 2]
+set cmd [lrange $argv 3 end]
+
+set logfile "$dir/output.log"
+set fifopath "$dir/control.fifo"
+set heartbeat "$dir/heartbeat"
+set exited "$dir/exited"
+
+log_user 0
+# -a: log despite log_user 0 (log_file alone records only displayed output).
+log_file -a -noappend $logfile
+
+set stty_init "rows $rows columns $cols"
+spawn {*}$cmd
+
+# RDWR keeps the fifo open without a writer so reads never block or see EOF.
+set fifo [open $fifopath {RDWR NONBLOCK}]
+fconfigure $fifo -blocking 0 -buffering line
+
+proc sendkey {name} {
+    switch -- $name {
+        Enter     { send "\r" }
+        Esc       { send "\x1b" }
+        Up        { send "\x1b\[A" }
+        Down      { send "\x1b\[B" }
+        Right     { send "\x1b\[C" }
+        Left      { send "\x1b\[D" }
+        Tab       { send "\t" }
+        Space     { send " " }
+        Backspace { send "\x7f" }
+        C-c       { send "\x03" }
+        C-d       { send "\x04" }
+        default   { }
+    }
+}
+
+proc touchfile {path} {
+    set f [open $path w]
+    close $f
+}
+
+set running 1
+while {$running} {
+    touchfile $heartbeat
+    expect {
+        -timeout 1
+        -re {.+} {}
+        timeout {}
+        eof { set running 0 }
+    }
+    while {[gets $fifo line] >= 0} {
+        if {$line eq "quit"} {
+            set running 0
+        } elseif {[string match "type:*" $line]} {
+            send -- [string range $line 5 end]
+        } elseif {[string match "key:*" $line]} {
+            sendkey [string range $line 4 end]
+        }
+    }
+}
+
+catch { close -i $spawn_id }
+catch { wait -nowait }
+touchfile $exited
+exit 0

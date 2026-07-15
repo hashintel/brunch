@@ -27,7 +27,12 @@ export {
 export type { ReadinessBand, SpecKind } from './schema/kinds.js';
 
 export type { EdgeCategory, GraphEdge } from './schema/edges.js';
-export type { ReconciliationNeed, ReconciliationNeedTarget } from './schema/reconciliation-need.js';
+export {
+  RECONCILIATION_NEED_KINDS,
+  type ReconciliationNeed,
+  type ReconciliationNeedKind,
+  type ReconciliationNeedTarget,
+} from './schema/reconciliation-need.js';
 
 export type {
   ClaimFormDetail,
@@ -66,8 +71,14 @@ export { edgeLabel } from './projection/labels.js';
 export type { AnchorRole, EdgeLabelInput } from './projection/labels.js';
 export { edgeImpact, relationFromAnchor } from './projection/direction.js';
 export type { AnchoredRelation, EdgeImpact, EdgeRelation } from './projection/direction.js';
+export { deriveEdgeRevalidations, summarizeDerivedRevalidations } from './projection/derived-revalidation.js';
+export type {
+  DerivableImpactKind,
+  DerivedEdgeRevalidation,
+  DerivedRevalidationSummary,
+} from './projection/derived-revalidation.js';
 
-export { queryGraph, getNodes, getOpenReconciliationNeeds } from './queries.js';
+export { queryGraph, getNodes, getOpenReconciliationNeeds, getDerivedEdgeRevalidations } from './queries.js';
 export type {
   EdgeDirection,
   GraphSlice,
@@ -78,7 +89,14 @@ export type {
 } from './queries.js';
 
 export { CommandExecutor } from './command-executor.js';
-export { openWorkspaceCommandExecutor, openWorkspaceGraphRuntime } from './workspace-store.js';
+export {
+  LEGACY_ALPHA_DB_FILENAME,
+  openWorkspaceCommandExecutor,
+  openWorkspaceDb,
+  openWorkspaceGraphRuntime,
+  WORKSPACE_DB_FILENAME,
+  WorkspaceDbRefusalError,
+} from './workspace-store.js';
 export type { WorkspaceGraphRuntime } from './workspace-store.js';
 export type {
   CreateReconNeedResult,

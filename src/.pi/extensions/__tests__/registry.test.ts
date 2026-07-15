@@ -263,6 +263,7 @@ describe('Brunch explicit Pi extension registry', () => {
       'turn_end',
       'agent_settled',
       'session_before_fork',
+      'session_before_compact',
       'session_start',
       'before_agent_start',
       'tool_call',
@@ -3218,12 +3219,16 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(recording.toolNames.filter((name) => name === 'read_reconciliation_needs')).toHaveLength(1);
   });
 
-  it('wires prepareNextTurn into the live session boundary and leaves provider-request as guard-only', async () => {
+  it('wires prepareNextTurn from the active branch despite an abandoned world watermark', async () => {
     let graphLsn = 3;
     const appended: Array<Record<string, unknown>> = [];
     const events = new Map<string, Array<(event: any, ctx: any) => Promise<void> | void>>();
     const sessionManager = {
-      getEntries: () => appended.slice(),
+      getEntries: () => [
+        ...appended,
+        { type: 'custom_message', customType: 'worldUpdate', details: { specId: 1, currentLsn: 99 } },
+      ],
+      getBranch: () => appended.slice(),
       appendCustomEntry(customType: string, data: unknown) {
         appended.push({ type: 'custom', customType, data });
       },
@@ -3288,14 +3293,22 @@ describe('Brunch explicit Pi extension registry', () => {
     ]);
   });
 
-  it('advances the capture sweep watermark from the live before_agent_start boundary', async () => {
+  it('advances capture from the active branch despite an abandoned later sweep watermark', async () => {
     const appended: Array<Record<string, unknown>> = [
       { type: 'message', message: { role: 'user', content: 'The web observer must be read-only.' } },
       { type: 'message', message: { role: 'toolResult', toolName: 'bash', details: { ok: true } } },
     ];
     const events = new Map<string, Array<(event: any, ctx: any) => Promise<void> | void>>();
     const sessionManager = {
-      getEntries: () => appended.slice(),
+      getEntries: () => [
+        ...appended,
+        {
+          type: 'custom',
+          customType: 'brunch.capture_sweep_watermark',
+          data: { customType: 'brunch.capture_sweep_watermark', sweptAt: 999 },
+        },
+      ],
+      getBranch: () => appended.slice(),
       appendCustomEntry(customType: string, data: unknown) {
         appended.push({ type: 'custom', customType, data });
       },
@@ -3337,14 +3350,19 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(appended).toHaveLength(3);
   });
 
-  it('threads transcript mentions and continuity drains into the live prepareNextTurn adapter', async () => {
+  it('threads active mentions and seed state despite abandoned append-order rivals', async () => {
     const appended: Array<Record<string, unknown>> = [
       { type: 'custom', customType: 'brunch.context_seed', data: { specId: 1, snapshotLsn: 1 } },
       { type: 'custom', customType: 'brunch.mention', data: { entityId: '10', handle: 'G1', seenLsn: 1 } },
     ];
     const events = new Map<string, Array<(event: any, ctx: any) => Promise<void> | void>>();
     const sessionManager = {
-      getEntries: () => appended.slice(),
+      getEntries: () => [
+        ...appended,
+        { type: 'custom', customType: 'brunch.mention', data: { entityId: '10', handle: 'G1', seenLsn: 2 } },
+        { type: 'custom', customType: 'brunch.context_seed', data: { specId: 1, snapshotLsn: 2 } },
+      ],
+      getBranch: () => appended.slice(),
       appendCustomEntry(customType: string, data: unknown) {
         appended.push({ type: 'custom', customType, data });
       },

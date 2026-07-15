@@ -247,7 +247,7 @@ describe('Brunch chrome projection', () => {
       {
         ui: fakeChromeUi(calls, { withEditorSwap: true }),
         sessionManager: {
-          getEntries: () => entries,
+          getBranch: () => entries,
           getSessionName: () => 'Interview #1',
           appendCustomEntry: (customType, data) => entries.push({ type: 'custom', customType, data }),
         },
@@ -275,7 +275,7 @@ describe('Brunch chrome projection', () => {
     const handlers = new Map<string, Array<(event: unknown, ctx: FakeChromeContext) => unknown>>();
     const entries: Array<{ type?: unknown; customType?: unknown; data?: unknown }> = [];
     const sessionManager = {
-      getEntries: () => entries,
+      getBranch: () => entries,
       getSessionName: () => null,
       appendCustomEntry: (customType: string, data: unknown) => {
         entries.push({ type: 'custom', customType, data });
@@ -343,7 +343,7 @@ describe('Brunch chrome projection', () => {
         {},
         {
           ui: fakeChromeUi(calls),
-          sessionManager: { getEntries: () => [], getSessionName: () => null },
+          sessionManager: { getBranch: () => [], getSessionName: () => null },
           getContextUsage: () => undefined,
           model: null,
         },
@@ -379,7 +379,7 @@ describe('Brunch chrome projection', () => {
     const handlers = new Map<string, Array<(event: unknown, ctx: FakeChromeContext) => unknown>>();
     const ctx: FakeChromeContext = {
       ui: fakeChromeUi(calls),
-      sessionManager: { getEntries: () => [], getSessionName: () => null },
+      sessionManager: { getBranch: () => [], getSessionName: () => null },
       getContextUsage: () => undefined,
       model: null,
     };
@@ -646,7 +646,7 @@ type FakeExtensionUi = Pick<
 type FakeChromeContext = {
   readonly ui: FakeExtensionUi;
   readonly sessionManager: {
-    getEntries: () => readonly unknown[];
+    getBranch: () => readonly unknown[];
     getSessionName: () => string | null;
     appendCustomEntry?: (customType: string, data: unknown) => void;
   };

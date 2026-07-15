@@ -4,11 +4,16 @@
  * Canonical reference: memory/SPEC.md D51-L; src/graph/policy/category-policy.ts (upstream/downstream/lateral derive from the impact columns)
  *
  * Reads the reconciliation-impact axis from per-category metadata. "Downstream"
- * is the endpoint that needs reconciliation when the other endpoint changes;
- * the reconciliation flow logs downstream impacts when a node is edited. This
- * axis does NOT track source→target storage geometry: impact direction is the
- * category metadata's `affected` endpoint, not whichever node was stored as
+ * is the endpoint that needs reconciliation when the other endpoint changes.
+ * This axis does NOT track source→target storage geometry: impact direction is
+ * the category metadata's `affected` endpoint, not whichever node was stored as
  * `source`.
+ *
+ * This axis now feeds a real derived staleness read: `deriveEdgeRevalidations`
+ * (`projection/derived-revalidation.ts`) compares the upstream endpoint's
+ * `updatedAtLsn` against the edge's own to surface stale `edge_revalidation`
+ * needs — the read-only tracer that replaces the never-built "log downstream
+ * impacts on edit" write-side intent (reconciliation-derivation frontier).
  */
 
 import {

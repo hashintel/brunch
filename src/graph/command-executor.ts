@@ -25,12 +25,16 @@ import type {
   AcceptReviewSetDryRunResult,
   AcceptReviewSetInput,
   AcceptReviewSetResult,
+  AcknowledgeEdgeRevalidationInput,
+  AcknowledgeEdgeRevalidationResult,
   CreateNodeInput,
   CreateNodeResult,
   CreateReconNeedInput,
   CreateReconNeedResult,
   CreateSpecInput,
   CreateSpecResult,
+  EstablishSpecPostureInput,
+  EstablishSpecPostureResult,
   ResolveReconNeedInput,
   ResolveReconNeedResult,
   SpecRecord,
@@ -56,6 +60,7 @@ import {
   type ReviewSetProposalPayload,
 } from './review-set.js';
 import { type NodePlane } from './schema/nodes.js';
+import { RECONCILIATION_NEED_KINDS } from './schema/reconciliation-need.js';
 
 export type {
   Diagnostic,
@@ -75,6 +80,8 @@ export type {
   AcceptReviewSetDryRunResult,
   AcceptReviewSetInput,
   AcceptReviewSetResult,
+  AcknowledgeEdgeRevalidationInput,
+  AcknowledgeEdgeRevalidationResult,
   CommandResult,
   CreateNodeInput,
   CreateNodeResult,
@@ -82,6 +89,8 @@ export type {
   CreateReconNeedResult,
   CreateSpecInput,
   CreateSpecResult,
+  EstablishSpecPostureInput,
+  EstablishSpecPostureResult,
   ResolveReconNeedInput,
   ResolveReconNeedResult,
   SpecRecord,
@@ -93,6 +102,8 @@ function specRecordFromRow(row: typeof schema.specs.$inferSelect): SpecRecord {
     name: row.name,
     slug: row.slug,
     kind: row.kind,
+    origin: row.origin,
+    relatesToSpecId: row.relates_to_spec_id,
   };
 }
 
@@ -166,13 +177,19 @@ export class CommandExecutor {
     const name = input.name.trim();
     const slug = input.slug.trim();
     const kind = input.kind ?? 'product';
+    const origin = input.origin ?? null;
+    const relatesToSpecId = input.relatesToSpecId ?? null;
 
     if (!name) diagnostics.push({ field: 'name', message: 'name must be non-empty' });
     if (!slug) diagnostics.push({ field: 'slug', message: 'slug must be non-empty' });
     if (diagnostics.length > 0) return { status: 'structural_illegal', diagnostics };
 
     return this.db.transaction((tx) => {
-      const row = tx.insert(schema.specs).values({ name, slug, kind }).returning().get();
+      const row = tx
+        .insert(schema.specs)
+        .values({ name, slug, kind, origin, relates_to_spec_id: relatesToSpecId })
+        .returning()
+        .get();
 
       const lsn = this.createInitialSpecClock(tx, row!.id);
 
@@ -181,11 +198,72 @@ export class CommandExecutor {
           spec_id: row!.id,
           lsn,
           operation: 'create_spec',
-          payload: JSON.stringify({ specId: row!.id, name, slug, kind }),
+          payload: JSON.stringify({ specId: row!.id, name, slug, kind, origin, relatesToSpecId }),
         })
         .run();
 
       return { status: 'success' as const, specId: row!.id, lsn };
+    });
+  }
+
+  /**
+   * One-time posture establishment on an existing spec (D118-L resume half):
+   * confirms origin (and optionally kind / relates-to) on a spec whose
+   * posture is still unestablished (`origin: null`). Establish-once — an
+   * already-established spec is refused, mirroring the dialog's never-re-ask
+   * rule at the command boundary.
+   */
+  establishSpecPosture(input: EstablishSpecPostureInput): EstablishSpecPostureResult {
+    return this.db.transaction((tx) => {
+      const spec = tx
+        .select({ id: schema.specs.id, origin: schema.specs.origin })
+        .from(schema.specs)
+        .where(eq(schema.specs.id, input.specId))
+        .get();
+      if (!spec) {
+        return {
+          status: 'structural_illegal' as const,
+          diagnostics: [{ field: 'specId', message: `spec ${input.specId} does not exist` }],
+        };
+      }
+      if (spec.origin !== null) {
+        return {
+          status: 'structural_illegal' as const,
+          diagnostics: [
+            {
+              field: 'origin',
+              message: `spec ${input.specId} posture is already established (origin: ${spec.origin})`,
+            },
+          ],
+        };
+      }
+
+      const lsn = this.bumpExistingSpecLsn(tx, input.specId);
+
+      tx.update(schema.specs)
+        .set({
+          origin: input.origin,
+          ...(input.kind !== undefined ? { kind: input.kind } : {}),
+          ...(input.relatesToSpecId !== undefined ? { relates_to_spec_id: input.relatesToSpecId } : {}),
+        })
+        .where(eq(schema.specs.id, input.specId))
+        .run();
+
+      tx.insert(schema.changeLog)
+        .values({
+          spec_id: input.specId,
+          lsn,
+          operation: 'establish_spec_posture',
+          payload: JSON.stringify({
+            specId: input.specId,
+            origin: input.origin,
+            kind: input.kind ?? null,
+            relatesToSpecId: input.relatesToSpecId ?? null,
+          }),
+        })
+        .run();
+
+      return { status: 'success' as const, lsn };
     });
   }
 
@@ -405,6 +483,15 @@ export class CommandExecutor {
         return { status: 'structural_illegal' as const, diagnostics };
       }
 
+      // Trust boundary: needKind arrives from agent tool input. Pin it to the
+      // persisted judgment kinds — edge_revalidation is derived, not persisted.
+      if (!(RECONCILIATION_NEED_KINDS as readonly string[]).includes(input.needKind)) {
+        diagnostics.push({
+          field: 'needKind',
+          message: `unknown reconciliation need kind: ${input.needKind} (accepted: ${RECONCILIATION_NEED_KINDS.join(', ')})`,
+        });
+      }
+
       if (input.target.kind === 'edge') {
         const row = tx
           .select({ id: schema.edges.id, spec_id: schema.edges.spec_id })
@@ -548,6 +635,58 @@ export class CommandExecutor {
           lsn,
           operation: 'resolve_reconciliation_need',
           payload: JSON.stringify({ id: input.id, specId: input.specId }),
+        })
+        .run();
+
+      return { status: 'success' as const, lsn };
+    });
+  }
+
+  /**
+   * Acknowledge a derived `edge_revalidation` staleness signal.
+   *
+   * Bumps the target edge's `acknowledged_lsn` watermark to a freshly allocated
+   * spec LSN — the first and only write in the reconciliation-derivation
+   * frontier, structurally separate from the read-only derivation. Idempotent:
+   * re-acknowledging advances the watermark to a fresh, higher LSN and leaves the
+   * edge cleared. A general graph command like `resolveReconciliationNeed`; it
+   * carries no reviewer-agent authority (I16-L stays as-is).
+   */
+  acknowledgeEdgeRevalidation(input: AcknowledgeEdgeRevalidationInput): AcknowledgeEdgeRevalidationResult {
+    return this.db.transaction((tx) => {
+      const edge = tx
+        .select({ id: schema.edges.id, spec_id: schema.edges.spec_id })
+        .from(schema.edges)
+        .where(eq(schema.edges.id, input.edgeId))
+        .get();
+      if (!edge) {
+        return {
+          status: 'structural_illegal' as const,
+          diagnostics: [{ field: 'edgeId', message: `edge ${input.edgeId} does not exist` }],
+        };
+      }
+      if (edge.spec_id !== input.specId) {
+        return {
+          status: 'structural_illegal' as const,
+          diagnostics: [
+            {
+              field: 'edgeId',
+              message: `edge ${input.edgeId} belongs to a different spec (command spec ${input.specId})`,
+            },
+          ],
+        };
+      }
+
+      const lsn = this.bumpExistingSpecLsn(tx, input.specId);
+
+      tx.update(schema.edges).set({ acknowledged_lsn: lsn }).where(eq(schema.edges.id, input.edgeId)).run();
+
+      tx.insert(schema.changeLog)
+        .values({
+          spec_id: input.specId,
+          lsn,
+          operation: 'acknowledge_edge_revalidation',
+          payload: JSON.stringify({ edgeId: input.edgeId, specId: input.specId }),
         })
         .run();
 

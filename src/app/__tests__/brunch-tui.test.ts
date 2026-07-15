@@ -778,6 +778,69 @@ describe('Brunch TUI boot', () => {
     expect(await readFile(launchedSessionFile!, 'utf8')).not.toContain('stale transcript');
   });
 
+  it('composes TUI runtime chrome from the active Pi branch while retaining both tree siblings', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-branch-'));
+    const manager = SessionManager.create(cwd, join(cwd, '.brunch/sessions'));
+    const forkId = manager.appendMessage(userMessage('choose mode'));
+    const activeId = manager.appendCustomEntry('brunch.agent_runtime_state', {
+      schemaVersion: 1,
+      reason: 'switch',
+      state: { schemaVersion: 1, operationalMode: 'specify' },
+      source: 'user',
+    });
+    manager.branch(forkId);
+    const abandonedId = manager.appendCustomEntry('brunch.agent_runtime_state', {
+      schemaVersion: 1,
+      reason: 'switch',
+      state: { schemaVersion: 1, operationalMode: 'execute' },
+      source: 'user',
+    });
+    manager.branch(activeId);
+
+    const calls: string[] = [];
+    const sessionStart: Array<(event: unknown, ctx: FakeExtensionContext) => Promise<void>> = [];
+    let editorFactory: ((...args: never[]) => unknown) | undefined;
+    await createBrunchPiExtensions(
+      chromeStateForWorkspace(readyWorkspace(cwd, manager.getSessionId())),
+      undefined,
+      { coordinator: noOpWorkspaceCoordinator(cwd) },
+    )({
+      on: (event: string, handler: never) => {
+        if (event === 'session_start') sessionStart.push(handler);
+      },
+      registerCommand: () => {},
+      registerShortcut: () => {},
+      registerTool: () => {},
+      registerMessageRenderer: () => {},
+      sendMessage: () => {},
+      getAllTools: () => [],
+      setActiveTools: () => {},
+      getThinkingLevel: () => 'low',
+    } as never);
+    const ui = {
+      ...fakeUi((method) => calls.push(method)),
+      setEditorComponent: (factory: typeof editorFactory) => {
+        editorFactory = factory;
+      },
+    };
+    for (const handler of sessionStart) {
+      await handler({}, {
+        sessionManager: manager,
+        ui,
+        getContextUsage: () => undefined,
+        model: null,
+      } as never);
+    }
+
+    const editor = editorFactory?.(undefined as never, {} as never, undefined as never) as
+      | { getLabels(): { topRight?: string } }
+      | undefined;
+    expect(editor?.getLabels().topRight).toBe('[ Specify ]');
+    expect(manager.getEntries().at(-1)).toMatchObject({ data: { state: { operationalMode: 'execute' } } });
+    expect(JSON.stringify(manager.getTree())).toContain(activeId);
+    expect(JSON.stringify(manager.getTree())).toContain(abandonedId);
+  });
+
   it('wires the persistent editor mount through the normal Brunch extension bundle', async () => {
     const calls: string[] = [];
     const sessionStart: Array<(event: unknown, ctx: FakeExtensionContext) => Promise<void>> = [];
@@ -806,7 +869,7 @@ describe('Brunch TUI boot', () => {
 
     for (const handler of sessionStart) {
       await handler({}, {
-        sessionManager: { getEntries: () => [], getSessionName: () => null },
+        sessionManager: { getBranch: () => [], getSessionName: () => null },
         ui,
         getContextUsage: () => undefined,
         model: null,
@@ -1344,7 +1407,7 @@ describe('Brunch TUI boot', () => {
 
     const ctx: FakeExtensionContext = {
       sessionManager: {
-        getEntries: () => [],
+        getBranch: () => [],
         appendCustomEntry: (_customType: string, _data: unknown) => {},
         appendCustomMessageEntry: (
           _customType: string,
@@ -1413,7 +1476,7 @@ describe('Brunch TUI boot', () => {
 
     const ctx: FakeExtensionContext = {
       sessionManager: {
-        getEntries: () => [],
+        getBranch: () => [],
         appendCustomEntry: (_customType: string, _data: unknown) => {},
         appendCustomMessageEntry: (
           _customType: string,

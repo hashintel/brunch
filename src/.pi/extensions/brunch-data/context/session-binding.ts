@@ -4,7 +4,7 @@ import { isSessionBindingEntry, type SessionBindingData } from '../../../../sess
 
 export interface SessionManagerLike {
   getHeader(): SessionHeader | null;
-  getEntries(): readonly SessionEntry[];
+  getBranch(): readonly SessionEntry[];
 }
 
 export type SelectedSpecBindingResolution =
@@ -31,7 +31,7 @@ export function resolveSelectedSpecBinding(
     return { status: 'not_ready', reason: 'missing_session_header', sessionId: null };
   }
 
-  const entries = sessionManager.getEntries();
+  const entries = sessionManager.getBranch();
   const binding = entries.find(isSessionBindingEntry);
   if (!binding) {
     return { status: 'not_ready', reason: 'missing_binding', sessionId: header.id };

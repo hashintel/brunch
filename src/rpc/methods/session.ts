@@ -9,7 +9,6 @@ import type { WorkspaceGraphRuntime } from '../../graph/workspace-store.js';
 import { projectSessionRuntimeState } from '../../projections/session/runtime-state.js';
 import {
   readBrunchSessionEnvelope,
-  NonLinearTranscriptError,
   type BrunchSessionEnvelope,
 } from '../../session/brunch-session-envelope.js';
 import { projectLinearSessionExchangeProjection } from '../../session/exchange-projection.js';
@@ -425,14 +424,7 @@ async function handleSessionProjection<T>(
     return createJsonRpcFailure(requestId, target.code, target.message);
   }
 
-  try {
-    return createJsonRpcSuccess(requestId, loadProjection(target.envelope));
-  } catch (error) {
-    if (error instanceof NonLinearTranscriptError) {
-      return createJsonRpcFailure(requestId, -32002, target.nonLinearMessage);
-    }
-    throw error;
-  }
+  return createJsonRpcSuccess(requestId, loadProjection(target.envelope));
 }
 
 async function handleTriggerExchange(
@@ -462,18 +454,29 @@ async function handleTriggerExchange(
     });
   }
 
-  const specReads = (await options.getGraphRuntime()).forSpec(existingTarget.envelope.binding.specId);
+  const runtime = await options.getGraphRuntime();
+  const specId = existingTarget.envelope.binding.specId;
+  const specRecord = runtime.commandExecutor.getSpec(specId);
   const manager = state.session.manager;
   // Kick surface (D49-L revised 2026-06-12): origination seeds context; the
   // product mints no exchange. A pending exchange exists only when the
   // assistant has created one — in transports without a live agent session
   // this legitimately reports idle.
   originateAssistantTurn({
-    specId: existingTarget.envelope.binding.specId,
-    reads: specReads,
+    specId,
+    reads: runtime.forSpec(specId),
     entries: existingTarget.envelope.entries,
     resumeOrigin: 'manual_trigger',
     workspaceContext: await renderWorkspaceOverviewContext(options.cwd),
+    ...(specRecord
+      ? {
+          posture: {
+            kind: specRecord.kind,
+            origin: specRecord.origin,
+            relatesToSpecId: specRecord.relatesToSpecId,
+          },
+        }
+      : {}),
     manager,
   });
   flushSessionManagerToFile(manager, state.session.file);
@@ -516,15 +519,7 @@ async function handleSubmitMessage(
     return createJsonRpcFailure(requestId, target.code, target.message);
   }
 
-  let pending: PendingStructuredExchange | null;
-  try {
-    pending = pendingExchangeFromEnvelope(target.envelope);
-  } catch (error) {
-    if (error instanceof NonLinearTranscriptError) {
-      return createJsonRpcFailure(requestId, -32002, target.nonLinearMessage);
-    }
-    throw error;
-  }
+  const pending = pendingExchangeFromEnvelope(target.envelope);
 
   if (pending && params.interruption !== true) {
     return createJsonRpcFailure(
@@ -590,15 +585,7 @@ async function handleSubmitExchangeResponse(
     return createJsonRpcFailure(requestId, target.code, target.message);
   }
 
-  let pending: PendingStructuredExchange | null;
-  try {
-    pending = pendingExchangeFromEnvelope(target.envelope);
-  } catch (error) {
-    if (error instanceof NonLinearTranscriptError) {
-      return createJsonRpcFailure(requestId, -32002, target.nonLinearMessage);
-    }
-    throw error;
-  }
+  const pending = pendingExchangeFromEnvelope(target.envelope);
 
   if (!pending) {
     return createJsonRpcFailure(requestId, -32008, 'No pending structured exchange');
@@ -914,7 +901,6 @@ async function selectedSessionFile(state: WorkspaceSessionState): Promise<Sessio
   return {
     ok: true,
     envelope: readResult.envelope,
-    nonLinearMessage: 'Selected Brunch session transcript is non-linear',
   };
 }
 
