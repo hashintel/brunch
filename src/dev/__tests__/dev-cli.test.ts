@@ -334,6 +334,115 @@ describe('runDevCli', () => {
     expect(stdout).not.toContain('dev:raw');
   });
 
+  it('requires explicit safe trajectory inputs', async () => {
+    let stderr = '';
+    const missingCode = await runDevCli({
+      argv: ['trajectory'],
+      cwd: REPO_ROOT,
+      stderr: (chunk) => {
+        stderr += chunk;
+      },
+    });
+    expect(missingCode).toBe(1);
+    expect(stderr).toContain('requires --workspace, --session, and --run-id');
+
+    stderr = '';
+    const unsafeCode = await runDevCli({
+      argv: [
+        'trajectory',
+        '--workspace',
+        WORKBENCH,
+        '--session',
+        join(WORKBENCH, '.brunch/sessions/session.jsonl'),
+        '--run-id',
+        '../escape',
+      ],
+      cwd: REPO_ROOT,
+      stderr: (chunk) => {
+        stderr += chunk;
+      },
+    });
+    expect(unsafeCode).toBe(1);
+    expect(stderr).toContain('run id must be portable');
+  });
+
+  it('passes resolved trajectory inputs to the report writer and emits success output', async () => {
+    let stdout = '';
+    let received: unknown;
+    const code = await runDevCli({
+      argv: [
+        'trajectory',
+        '--workspace',
+        WORKBENCH,
+        '--session',
+        join(WORKBENCH, '.brunch/sessions/session.jsonl'),
+        '--run-id',
+        'safe-run',
+        '--viewport',
+        join(WORKBENCH, 'viewport.txt'),
+      ],
+      cwd: REPO_ROOT,
+      trajectoryReportWriter: async (input) => {
+        received = input;
+        return '/tmp/trajectory-output';
+      },
+      stdout: (chunk) => {
+        stdout += chunk;
+      },
+    });
+    expect(code).toBe(0);
+    expect(received).toEqual({
+      repoRoot: REPO_ROOT,
+      workspace: WORKBENCH,
+      sessionFile: join(WORKBENCH, '.brunch/sessions/session.jsonl'),
+      runId: 'safe-run',
+      viewport: join(WORKBENCH, 'viewport.txt'),
+    });
+    expect(stdout).toBe('wrote /tmp/trajectory-output\n');
+  });
+
+  it('rejects trajectory session and viewport sources outside the workspace', async () => {
+    let stderr = '';
+    const code = await runDevCli({
+      argv: [
+        'trajectory',
+        '--workspace',
+        WORKBENCH,
+        '--session',
+        '/tmp/foreign/.brunch/sessions/session.jsonl',
+        '--run-id',
+        'safe-run',
+      ],
+      cwd: REPO_ROOT,
+      stderr: (chunk) => {
+        stderr += chunk;
+      },
+    });
+    expect(code).toBe(1);
+    expect(stderr).toContain('session file must belong to the workspace');
+
+    stderr = '';
+    const viewportCode = await runDevCli({
+      argv: [
+        'trajectory',
+        '--workspace',
+        WORKBENCH,
+        '--session',
+        join(WORKBENCH, '.brunch/sessions/session.jsonl'),
+        '--run-id',
+        'safe-run',
+        '--viewport',
+        '/tmp/foreign/viewport.txt',
+      ],
+      cwd: REPO_ROOT,
+      stderr: (chunk) => {
+        stderr += chunk;
+      },
+    });
+    expect(viewportCode).toBe(1);
+    expect(stderr).toContain('viewport must belong to the workspace');
+  });
+
   it('rejects non-positive export spec ids loudly', async () => {
     let stderr = '';
 

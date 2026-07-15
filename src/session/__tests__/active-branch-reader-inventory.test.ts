@@ -66,7 +66,12 @@ const SYNTAX_VALIDATORS: Record<string, ReaderClassification> = {
   },
 };
 
-const NON_SESSION_JSON_PARSERS: Record<string, ReaderClassification> = {};
+const NON_SESSION_JSON_PARSERS: Record<string, ReaderClassification> = {
+  'src/dev/trajectory-report.ts': {
+    rationale: 'parses the dev-only normalized trajectory NDJSON artifact, never Pi session JSONL',
+    requiredOwner: 'readEvents',
+  },
+};
 
 const ALL_CLASSIFICATIONS: Record<string, ReaderClassification> = {
   ...ACTIVE_BRANCH_DIAGNOSTIC_READER_ALLOW_LIST,

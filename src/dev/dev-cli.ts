@@ -23,11 +23,12 @@ import { WORKSPACE_DB_FILENAME } from '../graph/workspace-store.js';
 import { createRpcHandlers } from '../rpc/handlers.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 import { applyDevGraphMutation, parseDevMutateGraphParams } from './graph-curation.js';
+import { writeTrajectoryReport } from './trajectory-report.js';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const WORKBENCHES_ROOT = resolve(REPO_ROOT, '.fixtures', 'workbenches');
 
-type TopLevelCommand = 'launch' | 'rpc' | 'mutate' | 'export' | 'help';
+type TopLevelCommand = 'launch' | 'rpc' | 'mutate' | 'export' | 'trajectory' | 'help';
 type GraphVisibility = 'all' | 'active';
 
 type LaunchSource = 'temporary' | 'new' | 'existing' | 'seed';
@@ -67,6 +68,7 @@ export interface DevCliOptions {
   readonly seedWorkspace?: typeof runSeedFixturesCli;
   readonly workbenchesRoot?: string;
   readonly createTempWorkspace?: () => Promise<string>;
+  readonly trajectoryReportWriter?: typeof writeTrajectoryReport;
 }
 
 interface LaunchFlags {
@@ -190,6 +192,8 @@ export async function runDevCli(options: DevCliOptions = {}): Promise<number> {
         return await runMutateCommand(commandArgs, { ...options, cwd });
       case 'export':
         return await runExportCommand(commandArgs, { ...options, cwd });
+      case 'trajectory':
+        return await runTrajectoryCommand(commandArgs, { ...options, cwd });
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -202,7 +206,13 @@ function splitCommand(argv: readonly string[]): readonly [TopLevelCommand, reado
   const [first, ...rest] = argv;
   if (first === undefined) return ['launch', argv];
   if (first === '--help' || first === '-h' || first === 'help') return ['help', rest];
-  if (first === 'launch' || first === 'rpc' || first === 'mutate' || first === 'export') {
+  if (
+    first === 'launch' ||
+    first === 'rpc' ||
+    first === 'mutate' ||
+    first === 'export' ||
+    first === 'trajectory'
+  ) {
     return [first, rest];
   }
   return ['launch', argv];
@@ -447,6 +457,35 @@ async function runExportCommand(args: readonly string[], options: DevCliOptions 
   }
 
   writeStdout(options.stdout ?? process.stdout, rendered);
+  return 0;
+}
+
+async function runTrajectoryCommand(
+  args: readonly string[],
+  options: DevCliOptions & { readonly cwd: string },
+): Promise<number> {
+  const { values, positionals } = parseArgs({
+    args,
+    allowPositionals: true,
+    options: {
+      workspace: { type: 'string', short: 'w' },
+      session: { type: 'string' },
+      'run-id': { type: 'string' },
+      viewport: { type: 'string' },
+    },
+  });
+  if (positionals.length > 0) throw new DevCliUsageError(`Unexpected trajectory argument: ${positionals[0]}`);
+  if (!values.workspace || !values.session || !values['run-id']) {
+    throw new DevCliUsageError('The trajectory command requires --workspace, --session, and --run-id.');
+  }
+  const output = await (options.trajectoryReportWriter ?? writeTrajectoryReport)({
+    repoRoot: REPO_ROOT,
+    workspace: resolve(options.cwd, values.workspace),
+    sessionFile: resolve(options.cwd, values.session),
+    runId: values['run-id'],
+    ...(values.viewport ? { viewport: resolve(options.cwd, values.viewport) } : {}),
+  });
+  writeStdout(options.stdout ?? process.stdout, `wrote ${output}\n`);
   return 0;
 }
 
@@ -718,6 +757,7 @@ function devCliUsage(): string {
     '  npm run dev-cli -- rpc <method> [params-json] --workspace <dir>',
     '  npm run dev-cli -- mutate --workspace <dir> (--params <json> | --params-file <file>)',
     '  npm run dev-cli -- export --workspace <dir> --spec-id <id> [--out <file>] [--show all|active]',
+    '  npm run dev-cli -- trajectory --workspace <dir> --session <file> --run-id <portable-id> [--viewport <file>]',
     '',
     'Notes:',
     '  - Launch-time seeding never happens implicitly; pair --seed with --reset.',
