@@ -79,12 +79,13 @@ export function createLiveAskRegistry(): LiveAskRegistry {
         return;
       }
       const onAbort = () => settle(exchangeId, 'cancelled', undefined);
-      signal.addEventListener('abort', onAbort, { once: true });
       pending.set(exchangeId, {
         resolve,
         ...(ask ? { ask } : {}),
         cleanup: () => signal.removeEventListener('abort', onAbort),
       });
+      signal.addEventListener('abort', onAbort, { once: true });
+      if (signal.aborted) settle(exchangeId, 'cancelled', undefined);
     });
   }
 

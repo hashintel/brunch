@@ -81,6 +81,26 @@ describe('live ask registry', () => {
     await expect(answer).resolves.toBeUndefined();
   });
 
+  it('does not lose an abort delivered while its listener is being installed', async () => {
+    const registry = createLiveAskRegistry();
+    const controller = new AbortController();
+    const installListener = controller.signal.addEventListener.bind(controller.signal);
+    vi.spyOn(controller.signal, 'addEventListener').mockImplementation((...args) => {
+      installListener(...args);
+      controller.abort();
+    });
+
+    const answer = registry.opener.openAsk(ask('installation-race'), controller.signal);
+
+    expect(registry.reader.openAsks()).toEqual([]);
+    expect(registry.reader.stateOf('installation-race')).toBe('cancelled');
+    expect(registry.answerer.submitAnswer({ exchangeId: 'installation-race', answer: 'too late' })).toEqual({
+      submitted: false,
+      reason: 'no_pending_exchange',
+    });
+    await expect(answer).resolves.toBeUndefined();
+  });
+
   it('synchronously cancels on abort and rejects a later answer', async () => {
     const registry = createLiveAskRegistry();
     const controller = new AbortController();
