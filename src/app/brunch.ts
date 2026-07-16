@@ -12,6 +12,7 @@ import {
   type WorkspaceSessionCoordinator,
 } from '../session/workspace-session-coordinator.js';
 import { runBrunchTui } from './brunch-tui.js';
+import { runBrunchWeb, type BrunchWebOptions } from './brunch-web.js';
 import { renderWorkspaceState } from './print-workspace-state.js';
 
 export interface BrunchCliOptions {
@@ -24,6 +25,9 @@ export interface BrunchCliOptions {
   developerTools?: boolean;
   debugMirror?: boolean;
   launchTui?: typeof runBrunchTui;
+  launchWeb?: (
+    options: Omit<BrunchWebOptions, 'createRuntime'>,
+  ) => Promise<Awaited<ReturnType<typeof runBrunchWeb>>>;
 }
 
 export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<number> {
@@ -81,12 +85,9 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
   }
 
   if (mode === 'web') {
-    // Standalone web mode is deferred: the web UI is useless without the TUI
-    // driving it, so the browser client is served only as the TUI sidecar
-    // (see runBrunchTui). A dedicated headless web host is a future feature.
-    throw new Error(
-      'Brunch web mode is not available yet. The web UI is served as a sidecar when you launch the TUI — run `brunch` (or `brunch --mode tui`) instead.',
-    );
+    const host = await (options.launchWeb ?? runBrunchWeb)({ cwd, coordinator });
+    writeStdout(options.stdout, `Brunch web running at ${host.url}\n`);
+    return 0;
   }
 
   if (mode === 'tui') {
@@ -109,7 +110,7 @@ export function formatBrunchUsage(): string {
     '',
     'Options:',
     '  --cwd <path>         Workspace directory (default: current directory)',
-    '  --mode <mode>        tui (default) | print | rpc',
+    '  --mode <mode>        tui (default) | web | print | rpc',
     '  --no-webui           Do not open the web sidecar in a browser (tui mode only)',
     '  --dev-tools          Enable developer tools (tui mode only)',
     '  -h, --help           Show this usage',

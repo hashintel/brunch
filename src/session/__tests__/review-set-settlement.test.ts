@@ -55,7 +55,10 @@ describe('review-set settlement core contract', () => {
     );
     if (result.status === 'settled') {
       expect(result.content).toContain('LSN 2');
-      expect(result.details).toMatchObject({ answered: { decision: 'approve' } });
+      expect(result.details).toMatchObject({ answered: { decision: 'approve', receipt: result.accepted } });
+      if ('answered' in result.details && 'receipt' in result.details.answered) {
+        expect(result.details.answered.receipt).toBe(result.accepted);
+      }
     }
   });
 
@@ -84,6 +87,8 @@ describe('review-set settlement core contract', () => {
     });
     expect(changes.status).toBe('terminal');
     expect(rejected.status).toBe('terminal');
+    if (changes.status === 'terminal') expect(changes.details).not.toHaveProperty('answered.receipt');
+    if (rejected.status === 'terminal') expect(rejected.details).not.toHaveProperty('answered.receipt');
     expect(acceptReviewSet).not.toHaveBeenCalled();
   });
 });

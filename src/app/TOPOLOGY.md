@@ -1,6 +1,6 @@
 # app/
 
-SPEC decisions: D52-L, D111-L, D123-L, I58-L
+SPEC decisions: D52-L, D111-L, D123-L, D132-L, D133-L, I58-L
 
 ## Owns
 
@@ -8,9 +8,14 @@ Product host entrypoints and wiring for Brunch runtime modes.
 
 Current entrypoints:
 
-- `brunch.ts` — CLI dispatch. With no positional subcommand it launches the TUI, RPC, or print mode. Provider authentication is configured inside the TUI through Pi's native `/login`; there is no standalone Brunch login command. `--mode web` is reserved but deferred: the browser client is served only as the TUI sidecar.
+- `brunch.ts` — CLI dispatch. With no positional subcommand it launches the TUI, standalone web, RPC, or print mode; standalone web reports its loopback URL on CLI stdout. Provider authentication is configured inside the TUI through Pi's native `/login`; there is no standalone Brunch login command.
+- `brunch-web.ts` — standalone combined HTTP/RPC host composition. It opens an exact durable target without changing workspace defaults, creates one sealed headless Pi runtime per hosted target, binds extensions without `InteractiveMode`, and projects semantic live events plus fresh JSONL presentation reads. FE-1200's production-host witnesses cover concurrent target isolation and distinct candidate, review-set (receipt-bearing), and digest settlement/reconnect paths.
 - `print-workspace-state.ts` — terse human/product print-mode rendering for `brunch --mode print`.
 - `brunch-tui.ts` — TUI launch path, embedded Pi session runtime wiring, and the web sidecar. It passes Pi's native model registry directly into session creation and leaves model and thinking selection to Pi. Its boot-kick `sendCustomMessage` adapter resolves at scheduling time and serializes seed and kick sends.
+
+## Live migration: shared session host convergence
+
+FE-1200 materialized `brunch-web.ts` as a target-addressed host, but `brunch-tui.ts` still composes a separate writable Pi runtime plus raw sidecar relay/driver handles. This is transitional topology, not two permanent composition roots. PLAN arc `shared-session-host-convergence` first proves the `InteractiveMode` attachment to one independent cwd-scoped host (A47-L), then removes the TUI-owned runtime/relay handoff to `startWebHost`. Until that tracer lands, preserve current TUI behavior but do not add new capability exclusively to the sidecar path. Target rationale and colleague entry: [`docs/design/WEB_UI_ARCHITECTURE.md`](../../docs/design/WEB_UI_ARCHITECTURE.md).
 
 Current runtime support modules:
 

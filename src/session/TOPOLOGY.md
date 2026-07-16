@@ -1,6 +1,6 @@
 # session/ — Session domain layer
 
-SPEC decisions: D6-L, D11-L, D12-L, D13-L, D21-L, D40-L, D52-L, D76-L, D77-L, D78-L, D84-L, D101-L, D102-L, D118-L, D125-L, I56-L
+SPEC decisions: D6-L, D11-L, D12-L, D13-L, D21-L, D40-L, D52-L, D76-L, D77-L, D78-L, D84-L, D101-L, D102-L, D118-L, D125-L, D132-L, D133-L, I56-L, I64-L, I65-L
 
 ## Owns
 
@@ -74,12 +74,14 @@ plus the coordination logic for workspace/spec/session lifecycle.
   entry/degraded-mode rules, live-kick composition) live in
   `.pi/extensions/session-orientation/`.
 
-- **Review-set settlement** (`review-set-settlement.ts`, D27-L/I15-L) — the shared local/RPC response authority. It revalidates the exact persisted `present_review_set`, translates that reviewed payload into one mutation, and commits approval once through `CommandExecutor.acceptReviewSet`; the operation, spec-local LSN, and single change-log row are the durable acceptance record. Only then does it construct the receipt-bearing terminal; adapters retain only their distinct Pi-owned vs Brunch-owned append mechanics.
+- **Review-set settlement** (`review-set-settlement.ts`, D27-L/I15-L) — the shared local/RPC response authority. It revalidates the exact persisted `present_review_set`, translates that reviewed payload into one mutation, and commits approval once through `CommandExecutor.acceptReviewSet`; the operation, spec-local LSN, and single change-log row are the durable acceptance record. Only then does it pass the exact successful `MutateGraphSuccess` into the request projector and construct the validated receipt-bearing terminal; adapters retain only their distinct Pi-owned vs Brunch-owned append mechanics.
+
+- **Live-session host fan-out** (`live-session-host.ts`, D132-L/I64-L) — owns target-addressed runtime cells and one host-lifetime `subscribeAll` observer set. Every cell dispatches semantic deltas through that set, including cells opened after subscription and reopened targets; sequence numbers remain contiguous within an open epoch and restart at zero after close/reopen. RPC owns wire validation and method naming. FE-1200 currently composes this host only from standalone web; PLAN arc `shared-session-host-convergence` must prove a real `InteractiveMode` TUI adapter over the same host authority (A47-L), then make this module or its traced successor the sole runtime inventory and retire the separate raw TUI relay. No second host abstraction should grow beside it during the transition.
 
 - **Structured-exchange loop helpers** — deterministic POC exchange generation,
   pending prompt reconstruction from structured transcript tuples, response
   toolResult materialization, and the process-local live answer rendezvous used
-  by the TUI sidecar (`live-exchange-broker.ts`). RPC maps these domain results
+  by live TUI-sidecar and standalone-host drivers (`live-exchange-broker.ts`). RPC maps these domain results
   to JSON-RPC status and error codes; transcript mechanics stay here. The **live
   ask registry** (`live-ask-registry.ts`, D125-L) is the single runtime source of
   open-ask truth: it generalizes the broker's in-flight `pending` map into
@@ -143,6 +145,8 @@ plus the coordination logic for workspace/spec/session lifecycle.
   read into required `WorkspaceSpecState` fields via `CommandExecutor.getSpec`
   (`origin` and `relatesToSpecId` remain nullable where the graph domain permits);
   this module decides *whether to ask*, never persists.
+
+- **Targeted live-session hosting** (`live-session-host.ts`) — a cwd-process-local map keyed by durable `(specId, sessionId)`, with one writable runtime and driver owner per target, target-local prompt admission, ask answering, semantic event sequencing, and fail-loud active-turn disposal. Host disposal first settles every in-flight open; a runtime that resolves after disposal begins is disposed immediately rather than registered, so disposal leaves no orphaned cells. `WorkspaceSessionCoordinator.openTargetSession` and target-spec replacement binding open that exact session without reading or mutating workspace defaults; route/connection identities never substitute for the target. `src/dev/__tests__/standalone-web-session-host.concurrency.test.ts` validates two simultaneous production-wired targets: overlapping asks/graph writes, target-local events and driver rivals, isolated failure/recovery, reconnect, separate JSONL, and shared graph changes delivered only through `worldUpdate`. Distinct production candidate/review-set/digest witnesses in `standalone-web-session-host.real-entry.test.ts` prove settlement/reconnect convergence, including the exact receipt-bearing review terminal.
 
 - **Session binding** — session↔spec binding entries in JSONL.
 

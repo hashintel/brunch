@@ -5,6 +5,7 @@ import type {
 } from '../../session/workspace-session-coordinator.js';
 import type { ProductUpdatePublisher } from '../product-updates.js';
 import type { JsonRpcRequest, JsonRpcResponse } from '../protocol.js';
+import type { HostedSessionRpcBoundary } from './hosted-session.js';
 import type { SessionTurnDriver } from './session-driver.js';
 import type { SessionExchangeAnswerHandle } from './session-exchange-answer.js';
 import type { SessionOpenAsksHandle } from './session-open-asks.js';
@@ -28,6 +29,7 @@ export interface RpcMethodContext {
   readonly sessionTurnDriver?: SessionTurnDriver;
   readonly sessionExchangeAnswer?: SessionExchangeAnswerHandle;
   readonly sessionOpenAsks?: SessionOpenAsksHandle;
+  readonly hostedSession?: HostedSessionRpcBoundary;
   readonly getGraphRuntime: () => Promise<WorkspaceGraphRuntime>;
   readonly discoveryRegistry: readonly RpcMethodDefinition<RpcMethodContext>[];
 }

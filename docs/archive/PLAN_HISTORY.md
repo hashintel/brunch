@@ -3,6 +3,33 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-07-15 Sync archive (`ln-sync`)
+
+- **executor-run-environment (FE-1166)** frontier definition retired from live PLAN. The original greenfield run-substrate/verify-policy frontier delivered on `ka/fe-1166-greenfield-executor-harness` (PR #302). Its live remainder — separating run substrate and verify target from source-copy policy (isolated run directory + product-owned verification profile instead of a host git worktree and hardcoded `npm run verify`) — was folded into `executor-plan-synthesis` (FE-1197), which now owns the foreground `verifyProfile` removal and admitted-plan verify contract (D130-L). The prepared `memory/cards/executor-run-environment--actionable-slice-request.md` (run `run-mrbyf8u9` worker-request evidence) was consumed and deleted. Durable truth: D111-L/D112-L/D130-L, `src/executor/TOPOLOGY.md`; original code touchpoints `src/executor/worktree.ts`, `src/executor/test-result.ts`, `src/app/test-runner-port.ts`, `src/.pi/extensions/executor/execute-run-create/index.ts`.
+- **FE-1200 HANDOFF** retired: the standalone-web branch-publication reminder resolved (`ln/fe-1200-web-session` up to date with `origin`); all FE-1200 product/planning state already durable in SPEC, topology, and the FE-1200 closeout below.
+
+## 2026-07-15 FE-1200 standalone web session host closeout
+
+FE-1200 closed after its tracer, concurrency proof, and presentation-family coverage sweep. The aggregate review confirmed A1–A5 and B1–B3 are `have`/`built`, every excluded family has an explicit disposition, and the exhausted ledger was deleted. Durable coverage is I64-L/I65-L plus the app/session/rpc/projections/web topology homes; `web-driver-streaming-residue` closed when the answering-path matrix and promoted `agent_settled` oracle became current.
+
+### standalone-web-session-host
+
+- **Name:** Standalone web session host — full arc (tracer + concurrency + presentation coverage)
+- **Linear:** [FE-1200](https://linear.app/hash/issue/FE-1200/standalone-web-session-host-tracer-concurrency-and-presentation) — retitled 2026-07-14 as the arc carrier (Frontend / brunch, no parent); already In progress.
+- **Branch:** `ln/fe-1200-web-session`, Graphite parent `ln/fe-1187-remediation-3`
+- **Kind:** structural — one branch carrying the whole standalone-web through-line as a slice sequence (arc collapsed into this frontier 2026-07-14 by user decision)
+- **Certainty:** earned / coverage for the remaining presentation sweep; the tracer and proving concurrency slices are done.
+- **Slices (execution order on this branch):**
+  1. **tracer** — ✓ done/accepted 2026-07-14. One-target walking skeleton: `--mode web` without `InteractiveMode`, target-addressed `LiveSessionHost` keyed by `(specId, sessionId)`, JSONL-hydrated React session route, several deterministic text turns + one structured `ask`, `agent_settled` settlement/refetch parity, malformed-detail rejection, paired web/TUI JSONL differential. Retired A44-L. Commits `7b20909f`, `752bd873`.
+  2. **concurrency** — ✓ done 2026-07-14; retired **A43-L** and stabilized I64-L across two simultaneous targets. One production `runBrunchWeb` host drove two coordinator-created sessions through overlapping graph mutations, distinct live asks/answers, target-local contiguous events, cross-target/driver rivals, isolated failure/recovery, reconnect/fresh presentation, and separate JSONL readback. Shared graph changes crossed sessions only through canonical `worldUpdate` continuity. Oracle: `src/dev/__tests__/standalone-web-session-host.concurrency.test.ts`.
+  3. **presentation-coverage** — *coverage sweep, earned*; retires **I65-L** breadth; the tracer's D133-L projection seam is the base. Inventory authority: a `Mode: sweep` scope file under `memory/cards/` derived from the production registered-tool/custom-entry inventories, marked `●` required / `○` explicit `n/a`/deferred. Boundary: all production Brunch transcript result/custom-entry families intentionally visible in the web session; out — internal continuity ledgers, generic Pi parity, graph/dashboard views, terminal-only mechanics. Aggregate DoD: no required row remains `spec`/`new`/`partial`; every required family has one canonical semantic projection owner, React adapter, live/persisted metamorphic, and completeness oracle; every excluded family has an explicit disposition. A row escaping row-sized work normally promotes to its own PLAN frontier; for B2, the user explicitly chose on 2026-07-15 to keep the D27-L/I15-L receipt-contract correction and presentation closure as serial FE-1200 slices.
+- **Completion:** ✓ closed 2026-07-15 after aggregate sweep reconciliation; I65-L breadth and all topology/doc residue discharged.
+- **Done-definition (arc, now this frontier's completion test):** standalone web starts without `InteractiveMode`; two sessions stream/ask independently with explicit durable targets and one driver each; every required product-visible presentation row has a shared semantic projection plus React adapter or explicit `n/a`; live views converge to fresh JSONL-derived projections after settlement/reconnect; `src/app`, `src/session`, `src/rpc`, `src/projections`, and `src/web` topology homes reconciled; no read-only-sidecar or singleton-current-session target prose remains.
+- **Retires:** A44-L (tracer, done); A43-L (concurrency, done); I65-L breadth (presentation slice, done).
+- **Why now / unlocks:** user chose to build the whole standalone-web group on one branch rather than as stacked frontiers; the materialized `LiveSessionHost` seam makes the concurrency proof and the presentation sweep buildable in sequence here.
+- **Traceability:** req 4/12/17/31/32; A43-L/A44-L; D5-L/D10-L/D33-L/D39-L/D84-L/D125-L/D132-L/D133-L; I21-L/I32-L/I64-L/I65-L; [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md); SPEC exchange-presentation oracle design.
+
+
 ## 2026-07-14 Rolling-frontier reduction
 
 Two trigger-gated Later definitions moved out of live PLAN during the FE-1196/FE-1187 sync:

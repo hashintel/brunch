@@ -9,6 +9,7 @@ import type {
 } from '../session/workspace-session-coordinator.js';
 import { executeRpcMethods } from './methods/execute.js';
 import { graphRpcMethods } from './methods/graph.js';
+import { hostedSessionRpcMethods, type HostedSessionRpcBoundary } from './methods/hosted-session.js';
 import {
   discoverRpcMethods,
   registryByMethod,
@@ -47,19 +48,53 @@ export function createReadOnlyRpcHandlers(options: {
   return createRpcHandlersForRegistry(options, READ_ONLY_RPC_METHOD_REGISTRY);
 }
 
-export function createWebSidecarRpcHandlers(options: {
-  coordinator: DefaultWorkspaceCoordinator & SpecSessionActivationCoordinator;
-  cwd: string;
-  productUpdates?: ProductUpdatePublisher;
+type SidecarDriverOptions = {
+  hostedSession?: never;
   sessionTurnDriver?: SessionTurnDriver;
   sessionExchangeAnswer?: SessionExchangeAnswerHandle;
   sessionOpenAsks?: SessionOpenAsksHandle;
-}): RpcHandlers {
+};
+
+type HostedSessionOptions = {
+  hostedSession: HostedSessionRpcBoundary;
+  sessionTurnDriver?: never;
+  sessionExchangeAnswer?: never;
+  sessionOpenAsks?: never;
+};
+
+export type WebHostAuthorityOptions = SidecarDriverOptions | HostedSessionOptions;
+
+export type WebSidecarRpcHandlersOptions = {
+  coordinator: DefaultWorkspaceCoordinator & SpecSessionActivationCoordinator;
+  cwd: string;
+  productUpdates?: ProductUpdatePublisher;
+} & WebHostAuthorityOptions;
+
+const EXCLUSIVE_WEB_HOST_OPTIONS_MESSAGE =
+  'hostedSession cannot be combined with sidecar session driver handles';
+
+export function assertExclusiveWebHostOptions(options: {
+  hostedSession?: HostedSessionRpcBoundary;
+  sessionTurnDriver?: SessionTurnDriver;
+  sessionExchangeAnswer?: SessionExchangeAnswerHandle;
+  sessionOpenAsks?: SessionOpenAsksHandle;
+}): void {
+  if (
+    options.hostedSession &&
+    (options.sessionTurnDriver || options.sessionExchangeAnswer || options.sessionOpenAsks)
+  ) {
+    throw new Error(EXCLUSIVE_WEB_HOST_OPTIONS_MESSAGE);
+  }
+}
+
+export function createWebSidecarRpcHandlers(options: WebSidecarRpcHandlersOptions): RpcHandlers {
+  assertExclusiveWebHostOptions(options);
   const registry = [
     ...READ_ONLY_RPC_METHOD_REGISTRY,
     ...(options.sessionTurnDriver ? sessionDriverRpcMethods : []),
     ...(options.sessionExchangeAnswer ? sessionExchangeAnswerRpcMethods : []),
     ...(options.sessionOpenAsks ? sessionOpenAsksRpcMethods : []),
+    ...(options.hostedSession ? hostedSessionRpcMethods : []),
   ];
   return createRpcHandlersForRegistry(options, registry);
 }
@@ -80,6 +115,7 @@ function createRpcHandlersForRegistry(
     sessionTurnDriver?: SessionTurnDriver;
     sessionExchangeAnswer?: SessionExchangeAnswerHandle;
     sessionOpenAsks?: SessionOpenAsksHandle;
+    hostedSession?: HostedSessionRpcBoundary;
   },
   registryDefinitions: RpcMethodRegistry<RpcMethodContext>,
 ): RpcHandlers {

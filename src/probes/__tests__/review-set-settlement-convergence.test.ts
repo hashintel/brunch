@@ -195,7 +195,7 @@ describe('review-set settlement production-adapter convergence', () => {
     });
     expect(localTerminal.details).toMatchObject({
       tool_meta: { prev: 'present_review_set', curr: 'request_review' },
-      answered: { decision: 'approve' },
+      answered: { decision: 'approve', receipt: acceptReviewSet.mock.results[0]!.value },
     });
     expect(localTerminal.content[0].text).toContain(`Graph mutated successfully (LSN ${localGraph.lsn}).`);
 
@@ -239,7 +239,7 @@ describe('review-set settlement production-adapter convergence', () => {
     expect(durableAcceptanceRecord(rpcLogs.at(-1)!)).toEqual(durableAcceptanceRecord(localLogs.at(-1)!));
     expect(rpcTerminal.details).toMatchObject({
       tool_meta: { prev: 'present_review_set', curr: 'request_review' },
-      answered: { decision: 'approve' },
+      answered: { decision: 'approve', receipt: acceptReviewSet.mock.results[1]!.value },
     });
     expect(rpcTerminal.content[0].text).toContain(`Graph mutated successfully (LSN ${rpcGraph.lsn}).`);
 

@@ -153,16 +153,34 @@ export function acceptedResponseFromParams(
     ) {
       return { ok: false, message: 'Review request_changes requires a comment' };
     }
+    const answer = {
+      review: {
+        decision: review.decision,
+        ...(comment !== undefined ? { comment } : {}),
+      },
+    };
+    if (
+      (pending.respondsToPresentTool ?? 'present_review_set') === 'present_review_set' &&
+      review.decision === 'approve'
+    ) {
+      // The RPC adapter replaces this transient shell with settlement details only after commit succeeds.
+      return {
+        ok: true,
+        answer,
+        toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'ask'),
+        toolResultMessage: syntheticExchangeToolResultMessage(
+          pending.exchangeId,
+          'ask',
+          [{ type: 'text', text: '' }],
+          {},
+        ),
+      };
+    }
     const details = projectAcceptedReviewDetails(pending, review.decision, comment);
     if (!details.ok) return details;
     return {
       ok: true,
-      answer: {
-        review: {
-          decision: review.decision,
-          ...(comment !== undefined ? { comment } : {}),
-        },
-      },
+      answer,
       toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'ask'),
       toolResultMessage: syntheticExchangeToolResultMessage(
         pending.exchangeId,
@@ -294,6 +312,9 @@ function projectAcceptedReviewDetails(
         ...(comment !== undefined ? { comment } : {}),
       }),
     };
+  }
+  if (review === 'approve') {
+    return { ok: false as const, message: 'Review-set approval requires shared settlement' };
   }
   if (review === 'request_changes') {
     if (comment === undefined || comment.length === 0) {

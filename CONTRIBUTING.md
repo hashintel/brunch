@@ -27,14 +27,15 @@ Use a Node version compatible with [`package.json`](./package.json), then:
 ```bash
 npm install
 
-# real-provider runs need an Anthropic key
-printf 'ANTHROPIC_API_KEY=sk-ant-...\n' > .env
-
 # launch Brunch from this repo as the target workspace
 npm run dev
 ```
 
-`npm run dev` launches the Brunch CLI in TUI mode. The TUI is the writer/driver; the browser UI is currently a sidecar served by that TUI process, not a standalone `--mode web` product mode.
+`npm run dev` launches the Brunch CLI in TUI mode. The TUI is currently the writer/driver, and the browser UI is served through its transitional process-local sidecar. The FE-1200 standalone `brunch --mode web` host serves and drives target-addressed React sessions directly without a TUI process.
+
+These are current parallel host shapes, not the intended steady state. The [`shared-session-host-convergence`](./memory/PLAN.md#shared-session-host-convergence--planned) arc will prove how Pi's `InteractiveMode` attaches to one independent cwd-scoped host, then retire the raw TUI relay and `/rpc/driver` while preserving both useful presentations. Read [`docs/design/WEB_UI_ARCHITECTURE.md`](./docs/design/WEB_UI_ARCHITECTURE.md) before changing `brunch-tui.ts`, `brunch-web.ts`, `live-session-host.ts`, or the web transport.
+
+Real-provider runs use Pi's native auth store. Configure auth through `/login` in the TUI (or Pi itself); do not add project `.env` keys or revive the retired `brunch login` command.
 
 Useful launch variants:
 
@@ -42,8 +43,12 @@ Useful launch variants:
 # launch against another workspace directory
 npm run dev -- --cwd .fixtures/workbenches/live-graph-observer
 
-# suppress automatic browser opening while keeping the sidecar host running
+# suppress automatic browser opening while keeping the transitional sidecar host running
 npm run dev -- --no-webui
+
+# build and run the standalone target-addressed web host
+npm run build:web
+npm run dev -- --cwd .fixtures/workbenches/live-graph-observer --mode web
 
 # run the JSON-RPC line server
 npm run dev -- --mode rpc
@@ -98,12 +103,12 @@ src/
 
 High-level flow:
 
-1. `src/app/brunch.ts` dispatches TUI, RPC, or print mode.
+1. `src/app/brunch.ts` dispatches TUI, standalone web, RPC, or print mode.
 2. `WorkspaceSessionCoordinator` selects/creates a workspace spec and a Pi JSONL-backed Brunch session.
 3. The TUI/Pi runtime drives the elicitor agent, structured exchanges, runtime posture, and graph tools.
 4. All durable graph/spec mutations go through `graph/CommandExecutor` and SQLite-backed graph tables.
 5. `rpc/` exposes named Brunch JSON-RPC methods over stdio/WebSocket/in-process handlers.
-6. `web/` is a read-only sidecar client over the Brunch RPC surface; it must not read SQLite, JSONL, Pi RPC, or `.brunch/workspace.json` directly.
+6. `web/` is a React client over the Brunch RPC surface, currently served by both the transitional TUI sidecar and standalone `--mode web` host; it must not read SQLite, JSONL, Pi RPC, or `.brunch/workspace.json` directly. New session-host work targets the standalone semantic contract and the planned shared host—not the raw sidecar relay.
 
 Important boundaries:
 

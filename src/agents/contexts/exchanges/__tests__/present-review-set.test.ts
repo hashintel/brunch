@@ -118,13 +118,31 @@ function renderTuple(
             respondsToPresentTool: 'present_review_set',
             comment: comment ?? 'Regenerate this proposal.',
           })
-        : projectRequestReview({
-            exchangeId,
-            status: 'answered',
-            review,
-            respondsToPresentTool: 'present_review_set',
-            ...(comment !== undefined ? { comment } : {}),
-          });
+        : review === 'approve'
+          ? projectRequestReview({
+              exchangeId,
+              status: 'answered',
+              review,
+              respondsToPresentTool: 'present_review_set',
+              receipt: {
+                status: 'success',
+                lsn: 2,
+                createdNodes: {},
+                createdEdges: [],
+                updatedNodes: [],
+                updatedEdges: [],
+                deletedNodes: [],
+                deletedEdges: [],
+              },
+              ...(comment !== undefined ? { comment } : {}),
+            })
+          : projectRequestReview({
+              exchangeId,
+              status: 'answered',
+              review,
+              respondsToPresentTool: 'present_review_set',
+              ...(comment !== undefined ? { comment } : {}),
+            });
   return [
     formatPresentReviewSet(projectPresentReviewSet({ exchangeId, payload })),
     formatRequestReview(response),

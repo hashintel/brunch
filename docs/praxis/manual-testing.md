@@ -4,10 +4,25 @@ Outer-loop verification for slices that touch the user-facing boundary. Manual t
 
 ## Setup
 
-1. **TUI + web sidecar**: use `/cli-cmux` to open a terminal pane and launch Brunch there (see workflow below). The web UI is served as a sidecar of the TUI; standalone `--mode web` is not supported.
+1. **TUI + web sidecar**: use `/cli-cmux` to open a terminal pane and launch Brunch there (see workflow below). The web UI is served as a sidecar of the running TUI process.
+   - **Standalone web** (`brunch --mode web`): also supported since FE-1200. It starts a combined cwd-scoped host without `InteractiveMode`, prints its loopback URL on stdout, and serves the target-addressed React session route (`/session/$specId/$sessionId`) directly. Use this when driving a browser chat without a TUI process.
 2. **Browser**: use `agent-browser` (`/cli-agent-browser`) as the primary observer — daemon-backed Chrome with AX-tree snapshots, clicks, and screenshots. CDP tools (`/cli-cdp`) remain useful for console/network detail.
 
 This keeps the dev process and browser observable without leaving the agent session.
+
+### Shared-host transition evidence
+
+The current TUI sidecar and standalone web host are separate runtime compositions. Do not mistake running each successfully for proof that the new architecture replaced the old one. Work under PLAN arc `shared-session-host-convergence` must capture one compound outer witness against the **same durable target and sole writable runtime**:
+
+1. start the independent host and record its process/runtime target identity;
+2. attach the real TUI presentation and React client;
+3. drive an ordinary turn plus one structured ask from the active driver;
+4. observe the same target-addressed semantic stream and fresh JSONL settlement in React;
+5. detach/restart one client without terminating or duplicating the hosted runtime;
+6. exercise driver conflict or explicit handoff; and
+7. confirm the TUI's editor, chrome, command/extension UI, and transcript remain useful.
+
+Record the current/desired path and exact deletion evidence in the frontier's walkthrough artifact. The cutover is not witnessed while `SessionEventRelay`, `brunch.sessionEvent`, or `/rpc/driver` remains load-bearing. See [`docs/design/WEB_UI_ARCHITECTURE.md`](../design/WEB_UI_ARCHITECTURE.md).
 
 ### Sandboxed-agent fallback: tui-driver
 

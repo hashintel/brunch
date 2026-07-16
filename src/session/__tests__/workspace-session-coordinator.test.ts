@@ -50,6 +50,40 @@ describe('WorkspaceSessionCoordinator', () => {
     expect(oracle.sessions[0]?.binding.specId).toBe(result.spec.id);
   });
 
+  it('opens an exact target without changing workspace defaults', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const first = await coordinator.createSetupSession({ specTitle: 'Scratch spec' });
+    const second = await coordinator.createSetupSessionForCurrentSpec();
+    expect(second.status).toBe('ready');
+    if (second.status !== 'ready') return;
+
+    const opened = await coordinator.openTargetSession({
+      specId: first.spec.id,
+      sessionId: first.session.id,
+    });
+
+    expect(opened.session.id).toBe(first.session.id);
+    expect(opened.spec.id).toBe(first.spec.id);
+    const inventory = await coordinator.inspectWorkspace();
+    expect(inventory.currentSpec?.id).toBe(second.spec.id);
+    expect(inventory.currentSessionFile).toBe(second.session.file);
+  });
+
+  it('rejects a session id paired with the wrong spec without changing defaults', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const first = await coordinator.createSetupSession({ specTitle: 'First spec' });
+    const second = await coordinator.createSetupSession({ specTitle: 'Second spec', createNewSpec: true });
+
+    await expect(
+      coordinator.openTargetSession({ specId: second.spec.id, sessionId: first.session.id }),
+    ).rejects.toThrow('Session target not found');
+    const inventory = await coordinator.inspectWorkspace();
+    expect(inventory.currentSpec?.id).toBe(second.spec.id);
+    expect(inventory.currentSessionFile).toBe(second.session.file);
+  });
+
   it('jsonl coordinator new session reloads same spec', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
     const coordinator = createWorkspaceSessionCoordinator({ cwd });

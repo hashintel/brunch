@@ -96,13 +96,14 @@ If they can, JSONL remains the transcript authority for the POC. If they cannot,
 
 ### User-facing modes
 
-Brunch is one local product driven by a single `--mode` flag. It currently exposes three presentation modes:
+Brunch is one local product driven by a single `--mode` flag. It exposes four presentation modes:
 
-1. `brunch` (default; `--mode tui`) - TUI over the local agent host. While the TUI runs it also starts a read-only browser **sidecar** over the same host; the sidecar is not a separate mode.
-2. `brunch --mode rpc` - exposes the local host over stdio JSON-RPC for other programs.
-3. `brunch --mode print` - runs one-shot, headless prompts for scripting and pipelines.
+1. `brunch` (default; `--mode tui`) - TUI over the local agent host. While the TUI runs it also starts a browser **sidecar** over the same host; the sidecar is not a separate mode.
+2. `brunch --mode web` - standalone combined host (shipped FE-1200): serves the native React client and drives explicitly targeted hosted sessions directly, without constructing `InteractiveMode`. See [`docs/design/WEB_UI_ARCHITECTURE.md`](../design/WEB_UI_ARCHITECTURE.md).
+3. `brunch --mode rpc` - exposes the local host over stdio JSON-RPC for other programs.
+4. `brunch --mode print` - runs one-shot, headless prompts for scripting and pipelines.
 
-A standalone web mode is a **planned future feature**, not a current `--mode` value: the browser UI is useless without the TUI driving the session, so for now it ships only as the TUI sidecar. `--mode web` currently errors with "not available yet."
+The original POC framing below treated standalone web as a future feature; it has since become a primary presentation mode (D132-L/D133-L). FE-1200 proved the standalone host but did not yet replace the TUI-owned sidecar runtime/relay. The planned `shared-session-host-convergence` arc preserves both presentations while moving their writable runtime authority to one independent cwd-scoped host, then retires the old raw relay and `/rpc/driver`. The current-state authority is `memory/SPEC.md` plus the co-located `src/**/TOPOLOGY.md` homes; transition rationale is [`docs/design/WEB_UI_ARCHITECTURE.md`](../design/WEB_UI_ARCHITECTURE.md).
 
 These modes are not different products. They are ways of driving one Brunch host.
 
@@ -116,9 +117,9 @@ Brunch should explicitly separate capabilities that can run unattended from capa
 
 ### Mode Capability Matrix
 
-Not every capability is symmetric across modes. The asymmetry follows from the medium, not from a split architecture. The Web column describes the **planned** web surface (a future mode); today the browser appears only as the read-only TUI sidecar.
+Not every capability is symmetric across modes. The asymmetry follows from the medium, not from a split architecture. The Web column now describes the shipped standalone web surface as well as the TUI sidecar.
 
-| Capability                                  | TUI     | Web (planned) | Print          | RPC                        |
+| Capability                                  | TUI     | Web           | Print          | RPC                        |
 | ------------------------------------------- | ------- | ------------- | -------------- | -------------------------- |
 | Read graph state / queries                  | yes     | yes           | yes            | yes                        |
 | Write agent-owned graph fields              | yes     | yes           | yes            | yes                        |
@@ -144,9 +145,9 @@ Brunch should be structured as a local host with shared storage, shared mutation
           |                            |                            |
           v                            v                            v
     +-----------+               +-------------+               +-----------+
-    | TUI mode   |               | web sidecar |               | rpc/print |
-    | pi-driven  |               | (TUI-driven)|               | adapters  |
-    | surface    |               |  planned    |               |           |
+    | TUI mode   |               |  web mode   |               | rpc/print |
+    | pi-driven  |               | sidecar +   |               | adapters  |
+    | surface    |               | standalone  |               |           |
     +-----+------+               +------+------+               +-----+-----+
           |                             |                            |
           +-----------------------------+----------------------------+
@@ -535,13 +536,15 @@ Prove whether pi JSONL sessions are sufficient as the transcript authority for t
 - required Brunch-specific turn data can be represented through existing entry shapes or well-scoped conventions around them
 - if JSONL is insufficient, the missing capabilities are sharply documented and the fallback path is explicit
 
-### M3 — Web shell over the same host
+### M3 — Web shell and shared-host evolution
 
-Prove the browser can be a thin remote head over the same Brunch host.
+The original milestone proved a thin read-only browser sidecar. FE-1200 subsequently shipped standalone target-addressed web hosting, concurrent session isolation, semantic live events, and required-family React presentation. The remaining architecture replacement is tracked by `shared-session-host-convergence`:
 
-- the browser is served as a read-only **TUI sidecar** (standalone `--mode web` is deferred to a future milestone)
-- the app uses TanStack Router and TanStack Query over one WebSocket RPC client
-- no second backend API is invented
+- one independent cwd-scoped host owns each writable Pi runtime and canonical event fan-out
+- TUI and React remain useful presentations over that authority
+- the app uses TanStack Router and TanStack Query over Brunch product RPC/projections
+- no second backend API, raw Pi browser contract, or permanent second relay is invented
+- the TUI-owned `SessionEventRelay` and `/rpc/driver` retire after the TUI attachment tracer and closed cutover inventory pass
 
 ### M4 — Graph data plane (intent-first, workspace-graph-ready)
 
@@ -596,7 +599,7 @@ Prove that long-running sessions remain grounded.
 
 1. A user starts `brunch` in a project directory, creates the first graph items with the agent, quits, and resumes later with all state preserved under `.brunch/`.
 2. Raw assistant and user turn payloads, plus Brunch-specific turn data, survive reload through pi JSONL sessions or a clearly justified fallback.
-3. A user runs the TUI and opens the read-only web sidecar against the same workspace; edits made via the TUI/agent appear live in the sidecar through subscriptions. (Editing from the browser is a future web-mode capability.)
+3. A user runs the TUI and React presentation against one host-owned session: the active driver mutates one writable runtime, observers receive target-addressed semantic updates, and an explicit host-owned handoff permits browser driving without opening a second runtime. The current TUI sidecar/standalone split is transitional evidence toward this scenario, not the done state.
 4. A second session or direct edit changes an item relevant to the first session; the next agent turn receives a `worldUpdate` and reacts coherently.
 5. A change introduces a semantic graph violation; the UI shows coherence as degraded and the agent is informed on the next turn.
 6. The agent attempts a human-gated change in print or RPC mode and receives a structured `needs_human` or version-conflict response instead of silently mutating state.

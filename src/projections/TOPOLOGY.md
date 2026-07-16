@@ -1,6 +1,6 @@
 # projections/ — reusable DTO boundaries
 
-SPEC decisions: D52-L, D75-L, D104-L
+SPEC decisions: D52-L, D75-L, D104-L, D133-L, I65-L
 
 ## Owns
 
@@ -25,6 +25,7 @@ Disposition: `✓` resolved (direct lock or accepted transitive proof) · `●` 
 | `graph/overview`                      | —         | ○           | `export {}` topology stub (Input/Output/Used-by named); no implementation to lock.                                                                                                                                                                      |
 | `graph/commit-result`                 | —         | ○           | `export {}` topology stub.                                                                                                                                                                                                                              |
 | `graph/reconciliation-needs`          | —         | ○           | `export {}` topology stub.                                                                                                                                                                                                                              |
+| `session/session-presentation`       | 2         | ✓           | `session-presentation.test.ts` — stable semantic ordinary-message, full ask-family, and candidate/digest/review-set offer identities from canonical JSONL; present and terminal details validate once, malformed details classify honestly, and approved review terminals preserve the exact graph receipt. `live-session-events.ts` projects cumulative Pi updates and only real `agent_settled` as the convergence boundary. |
 | `session/transcript-context`          | 2         | ✓           | `transcript-context.test.ts` — no non-empty markdown-bearing message disappears across the Pi `buildSessionContext()` + `convertToLlm()` seam; non-renderable entries drop at the projection boundary.                                                  |
 | `session/runtime-state`               | 13        | ✓           | `runtime-state.test.ts` — direct flattened-shape invariant for defaults, last-writer-wins operational mode, mentions/world/lifecycle slots, and non-linear transcript rejection.                                                                        |
 | `session/assistant-visible-watermark` | 2         | ✓           | Carrier projection over the authoritative `continuity-entry-classifier` watermark set. Unit tests guard seed/overview/own-mutation/`worldUpdate` carriers, narrow-read exclusion, and cross-spec failure.                                               |

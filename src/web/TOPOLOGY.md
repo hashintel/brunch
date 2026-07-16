@@ -1,8 +1,10 @@
 # web/ — Brunch React client
 
-Canonical references: `docs/architecture/prd.md` §Browser / web client, `src/rpc/TOPOLOGY.md`
+Canonical references: `docs/architecture/prd.md` §Browser / web client, `src/rpc/TOPOLOGY.md`; SPEC D132-L/D133-L and I64-L/I65-L
 
-This directory owns the browser client served as the **TUI web sidecar**: when you launch the TUI (`brunch`, i.e. `--mode tui`), `runBrunchTui` starts a local web host and opens the browser to it. The browser is a thin remote head over the Brunch host: one React app, one WebSocket-backed Brunch JSON-RPC client, TanStack Router for route/data preloading, and TanStack Query for cache ownership and update scheduling. A standalone web-only mode (`--mode web`) is deferred — the web UI is not useful without the TUI driving the session — so it currently errors with a "not available yet" message.
+This directory owns the browser client currently served by both the transitional TUI sidecar and the standalone `--mode web` combined host. The browser is a thin remote head over the Brunch host: one React app, one WebSocket-backed Brunch JSON-RPC client, TanStack Router for route/data preloading, and TanStack Query for cache ownership and update scheduling. Standalone session routes drive explicitly targeted existing JSONL sessions without constructing `InteractiveMode`.
+
+**Migration state:** the client already consumes the target-addressed `brunch.liveSessionEvent` contract and deliberately ignores raw `brunch.sessionEvent`; that semantic contract is the canonical direction for PLAN arc `shared-session-host-convergence`. The arc must preserve both useful TUI and React presentations while moving them to one independent host, then remove the TUI-sidecar transport rather than teaching this client two session-event dialects. New browser session work should target `session.presentation`, hosted `session.*` methods, and `subscribeSessionEvents`, not `/rpc/driver` or raw Pi events. See [`docs/design/WEB_UI_ARCHITECTURE.md`](../../docs/design/WEB_UI_ARCHITECTURE.md).
 
 The web client must not read SQLite, Pi RPC, local JSONL, or `.brunch/workspace.json` directly. It speaks Brunch public RPC method names and renders product projections. Its current graph observer subset is `graph.overview` + `graph.nodeNeighborhood`; `src/graph/TOPOLOGY.md` owns the observed-shape ledger and keeps additional graph-owned shapes deliberate rather than accidental bleed-through from agent/RPC needs.
 
@@ -19,7 +21,8 @@ web/
   rpc-client.ts
     one WebSocket JSON-RPC client
     request(method, params) -> Promise<result>
-    subscribe(listener) for server notifications
+    subscribe(listener) for generic server notifications
+    subscribeSessionEvents(target, handler) validates brunch.liveSessionEvent at the wire boundary, reports malformed frames, and filters by durable target
     close()
 
   app.tsx
@@ -68,6 +71,8 @@ web/
     spec.tsx
       `/spec/$specId` loader primes workspace.state + graph.overview
       renders the knowledge-graph structured list
+    session.tsx
+      `/session/$specId/$sessionId` opens and hydrates an exact target, best-effort closes it on post-open loader failure and route exit, submits text and ask answers with a reload-stable browser driver id, renders free-text/single-select/multi-select/questionnaire asks plus candidate/digest/review-set semantic entries without decoding raw details, preserves receipt-bearing review settlement, consumes only rpc-client.ts's validated target-filtered semantic subscription, reduces cumulative semantic deltas, and discards its live overlay for a durable refetch on `agent_settled`
     runs.tsx
       `/runs` loader primes execute.runs; run list with presence flags
       `/runs/$runId` loader primes execute.run; crank status, honest
@@ -292,7 +297,7 @@ Avoid:
 
 ## RPC methods to web hooks
 
-Method names follow `src/rpc/TOPOLOGY.md`. The TUI-started web sidecar is read-only today: current web code should use query options only. Mutation hook names below describe the expected TanStack Query shape for a future write-capable web/client surface; the current sidecar rejects those RPC methods.
+Method names follow `src/rpc/TOPOLOGY.md`. Existing graph/workspace routes remain query-oriented, while the standalone session route uses the hosted-session registry for target-addressed open, drive, ask-answer, and close operations. The TUI-started sidecar retains its separate observer/driver access rules.
 
 ```pseudo
 current implemented hooks:
@@ -460,6 +465,8 @@ rpc-client.test.ts
   notifications independent from requests
 
 app / route tests
+  full required-family semantic presentation and ask answering from the shared projection
+  candidate/review-set/digest settlement + reconnect, including review receipt
   one runtime-owned QueryClient and router
   loaders call expected queryOptions
   no optional session query when no session is selected

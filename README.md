@@ -6,7 +6,9 @@
 
 Brunch Alpha is a re-foundation of `brunch` on top of the Pi coding-agent harness. It is an opinionated local product for co-authoring a specification with an agent: Brunch owns the spec workspace, graph model, structured exchanges, and public RPC surface while using Pi for the agent loop, transcript substrate, TUI shell, and extension seams.
 
-The current alpha is TUI-first. Running `brunch` opens an interactive terminal UI that drives the local agent session and also serves a read-only browser sidecar for richer visual projections over the same host. RPC and print modes exist for probes, automation, and scripted inspection; a standalone web-only mode is planned but not currently a product mode.
+The current alpha has two interactive entry paths. Running `brunch` opens the Pi-backed TUI and also serves its transitional browser sidecar. Running `brunch --mode web` starts the shipped standalone React host, which can open and drive explicitly targeted Brunch sessions without constructing the TUI. FE-1200 proved the standalone target-addressed session host, concurrent session isolation, JSONL hydration/live convergence, and the required structured-exchange presentation family.
+
+The architecture is still mid-transition: TUI mode currently owns a separate Pi runtime and raw sidecar relay, while standalone web owns the newer `LiveSessionHost` and semantic event contract. The planned [`shared-session-host-convergence`](./memory/PLAN.md#shared-session-host-convergence--planned) work will preserve both useful presentations while moving them onto one independent cwd-scoped host, then delete the old relay and `/rpc/driver`. Contributors working in this area should start with [`docs/design/WEB_UI_ARCHITECTURE.md`](./docs/design/WEB_UI_ARCHITECTURE.md).
 
 ## Run Brunch
 
@@ -16,7 +18,7 @@ Brunch requires Node 24. Launch the alpha from the project directory you want Br
 npx @hashintel/brunch@alpha
 ```
 
-Brunch creates or reuses a local `.brunch/` workspace under the current directory. That workspace holds project-scoped Brunch state, including the selected spec/session, graph persistence, and Pi JSONL-backed transcript data. No `.env` file is required. Live agent turns require Pi provider auth configured explicitly through `/login` in the TUI or `brunch login` before launch.
+Brunch creates or reuses a local `.brunch/` workspace under the current directory. That workspace holds project-scoped Brunch state, including the selected spec/session, graph persistence, and Pi JSONL-backed transcript data. No `.env` file is required. Live agent turns require provider auth in Pi's native auth store; configure it through `/login` in the TUI (or Pi itself). There is no standalone `brunch login` command.
 
 Useful launch variants:
 
@@ -24,15 +26,18 @@ Useful launch variants:
 # interactive TUI + browser sidecar (default)
 npx @hashintel/brunch@alpha
 
-# suppress automatic browser opening while keeping the sidecar host available
+# suppress automatic browser opening while keeping the transitional TUI sidecar available
 npx @hashintel/brunch@alpha --no-webui
+
+# standalone React host with target-addressed session driving (no TUI process)
+npx @hashintel/brunch@alpha --mode web
 ```
 
 Prefer `npx` during the alpha line. Global installs are easy to leave stale while the CLI, local workspace shape, and Pi integration are still moving.
 
 ## Environment Variables
 
-Brunch does not own a provider/model/port configuration surface. Provider auth and model selection belong to the embedded Pi runtime, and live model calls use whatever Pi auth the user configured through `/login` or `brunch login`. The model selection forwarded by Brunch agents is `default` ("inherit the parent's current model"), so there is no `ANTHROPIC_MODEL`/`OBSERVER_MODEL` override path. The web sidecar always binds an ephemeral port and prints its URL; there is no `BRUNCH_PORT`.
+Brunch does not own a provider/model/port configuration surface. Provider auth and model selection belong to the embedded Pi runtime, and live model calls use whatever Pi auth the user configured through Pi's native `/login`. The model selection forwarded by Brunch agents is `default` ("inherit the parent's current model"), so there is no `ANTHROPIC_MODEL`/`OBSERVER_MODEL` override path. Both current web hosts bind an ephemeral loopback port and print their URL; there is no `BRUNCH_PORT`.
 
 Brunch's own environment surface is operational (offline/dev/source flags), not product config:
 
@@ -47,12 +52,15 @@ Brunch's own environment surface is operational (offline/dev/source flags), not 
 
 ## Product Shape
 
-Brunch Alpha is one local host with several presentation surfaces:
+Brunch Alpha is one local product with several presentation surfaces:
 
-- The TUI is the default writer/driver. It embeds the Pi coding-agent runtime, Brunch prompt policy, structured exchange tools, graph tools, workspace/session selection, and TUI chrome.
-- The browser sidecar is served by the TUI process. It is a Brunch React app over Brunch JSON-RPC, currently oriented around read-only graph/session projections.
+- The TUI is the default interactive presentation. It currently embeds the Pi coding-agent runtime, Brunch prompt policy, structured exchange tools, graph tools, workspace/session selection, and TUI chrome.
+- Standalone web (`--mode web`) is a first-class interactive presentation. Its cwd-scoped combined host owns target-addressed sealed Pi sessions and serves the React app over Brunch JSON-RPC plus semantic live-session events.
+- The TUI-started browser sidecar remains current alpha behavior for graph/run observation, but its singleton raw relay and `/rpc/driver` host shape are transitional and must not be extended as a second architecture.
 - The JSON-RPC surface exposes Brunch product methods for probes, integrations, and automation. Clients speak Brunch method names rather than raw Pi commands.
 - The print surface is a headless one-shot path for scripting and inspecting workspace state.
+
+Current and target host diagrams, launch instructions, code paths, and cutover ownership live in [`docs/design/WEB_UI_ARCHITECTURE.md`](./docs/design/WEB_UI_ARCHITECTURE.md).
 
 The durable product model is graph-native: the intent graph is canonical specification meaning, with oracle, design, and plan graph planes as accountable downstream work. Mutations go through Brunch-owned command/session seams; the browser and probes read named projections instead of reading SQLite, JSONL, or Pi internals directly.
 
@@ -65,11 +73,21 @@ npm install
 npm run dev
 ```
 
+Build the React bundle once before running standalone web from source:
+
+```bash
+npm run build:web
+npm run dev -- --cwd <workspace> --mode web
+```
+
+The standalone root route lists specs and runs. Until session-inventory UI lands, open a session directly at `/session/<specId>/<sessionId>`; the selected ids are in `<workspace>/.brunch/workspace.json` under `defaults`. Do not run TUI and standalone web as independent writers over the same session while the shared-host transition remains open.
+
 Common development commands:
 
-| Command          | Purpose                                                   |
-| ---------------- | --------------------------------------------------------- |
-| `npm run dev`    | Run the Brunch CLI directly from source. Defaults to TUI. |
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Run the Brunch CLI directly from source. Defaults to TUI + transitional sidecar. |
+| `npm run dev -- --mode web` | Run the standalone target-addressed web host (requires a built web bundle). |
 | `npm run dev-cli` | Select/create temporary, named, or seeded dev instances. |
 | `npm run test`   | Run Vitest once.                                          |
 | `npm run fix`    | Apply lint fixes, then format.                            |
@@ -89,11 +107,15 @@ Seed a chosen graph into a workbench, then launch from the repo root:
 # Seed one tracked fixture into a named workbench (--reset wipes prior runtime state first)
 npm run seed -- --workspace .fixtures/workbenches/live-graph-observer --seed workspace-spread/alpha-grounding --reset
 
-# Interactive TUI writer + read-only web sidecar against that workbench; opens the browser by default
+# Interactive TUI + transitional browser sidecar against that workbench
 npm run dev -- --cwd .fixtures/workbenches/live-graph-observer
 
-# Keep the sidecar host running without automatically opening a browser
+# Keep the transitional sidecar running without automatically opening a browser
 npm run dev -- --cwd .fixtures/workbenches/live-graph-observer --no-webui
+
+# Or run the standalone target-addressed React host
+npm run build:web
+npm run dev -- --cwd .fixtures/workbenches/live-graph-observer --mode web
 ```
 
 Seed selection is `<set>/<slug>` from `.fixtures/seeds/` (see [`.fixtures/seeds/README.md`](./.fixtures/seeds/README.md) for the disposition catalog). Use `--all-seeds` instead of `--seed` only when you deliberately want every tracked fixture loaded as its own spec; a bare `npm run seed` fails with usage rather than seeding the shell cwd.
@@ -104,7 +126,7 @@ Live provider runs require `PI_OFFLINE=0` plus configured Pi auth; otherwise the
 
 ## Source Overview
 
-The `src/` topology follows the current architecture decision in [`memory/SPEC.md`](./memory/SPEC.md). Directory-level `README.md` files under `src/**/` are canonical for the boundaries they describe.
+The `src/` topology follows the current architecture decision in [`memory/SPEC.md`](./memory/SPEC.md). Directory-level `TOPOLOGY.md` files under `src/**/` are canonical for the boundaries they describe.
 
 ```text
 src/
@@ -122,7 +144,7 @@ src/
 ├── rpc/         # Brunch JSON-RPC protocol, handlers, registry, and web host
 ├── session/     # Pi JSONL transcript projection, exchanges, runtime state, transcript text
 ├── utils/       # small shared utilities
-├── web/         # React browser sidecar over Brunch RPC
+├── web/         # React client for standalone web and the transitional TUI sidecar
 ├── workspace/   # cwd/package identity and .brunch workspace state helpers
 └── constants.ts # shared package/product constants
 ```
@@ -145,6 +167,7 @@ Start here when changing the alpha architecture:
 - [`docs/architecture/pi-seam-extensions.md`](./docs/architecture/pi-seam-extensions.md) — mixed-status Pi-seam rationale; use it for background on structured exchanges, side tasks, and staleness, but defer to `memory/SPEC.md` and `src/**/TOPOLOGY.md` for current runtime truth.
 - [`docs/architecture/probes-and-transcripts.md`](./docs/architecture/probes-and-transcripts.md) — probe artifacts, transcript evidence, and report shape.
 - [`src/README.md`](./src/README.md) — current source topology and dependency direction.
+- [`docs/design/WEB_UI_ARCHITECTURE.md`](./docs/design/WEB_UI_ARCHITECTURE.md) — current standalone host, colleague code journey, pi-web-derived shared-host target, and sidecar-retirement plan.
 
 ## Help
 

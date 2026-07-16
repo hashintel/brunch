@@ -70,6 +70,7 @@ export function settleReviewSetResponse(input: {
     respondsToPresentTool: 'present_review_set',
     status: 'answered',
     review: 'approve',
+    receipt: accepted,
     ...(input.comment?.trim() ? { comment: input.comment.trim() } : {}),
   });
   return {

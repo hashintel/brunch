@@ -2,6 +2,8 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import type { TSchema } from 'typebox';
+import { Value } from 'typebox/value';
 import { describe, expect, it } from 'vitest';
 
 import { createLiveAskRegistry } from '../../session/live-ask-registry.js';
@@ -16,6 +18,12 @@ async function coordinatorInTmp() {
 function discoveredMethods(response: unknown): string[] {
   const methods = (response as { result?: { methods?: Array<{ method: string }> } }).result?.methods ?? [];
   return methods.map((entry) => entry.method);
+}
+
+function discoveredResultSchema(response: unknown, method: string): unknown {
+  const methods = (response as { result?: { methods?: Array<{ method: string; resultSchema: unknown }> } })
+    .result?.methods;
+  return methods?.find((entry) => entry.method === method)?.resultSchema;
 }
 
 describe('session.openAsks public RPC read method', () => {
@@ -39,6 +47,51 @@ describe('session.openAsks public RPC read method', () => {
 
     const discovery = await handlers.handle({ jsonrpc: '2.0', id: 1, method: 'rpc.discover' });
     expect(discoveredMethods(discovery)).toContain('session.openAsks');
+    const resultSchema = discoveredResultSchema(discovery, 'session.openAsks') as TSchema;
+    expect(
+      Value.Check(resultSchema, {
+        openAsks: [
+          {
+            exchangeId: 'digest-questionnaire',
+            mode: 'questionnaire',
+            question: {
+              body: 'Complete the questionnaire.',
+              questions: [
+                { id: 'goal', kind: 'free-text', prompt: 'What is the goal?' },
+                {
+                  id: 'route',
+                  kind: 'single-select',
+                  prompt: 'Which route?',
+                  options: [{ id: 'safe', label: 'Safe route' }],
+                },
+                {
+                  id: 'signals',
+                  kind: 'multi-select',
+                  prompt: 'Which signals?',
+                  options: [{ id: 'tests', label: 'Tests' }],
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    ).toBe(true);
+    expect(
+      Value.Check(resultSchema, {
+        openAsks: [{ exchangeId: 'grounding', mode: 'text', question: { body: 'Where do we start?' } }],
+      }),
+    ).toBe(true);
+    expect(
+      Value.Check(resultSchema, {
+        openAsks: [
+          {
+            exchangeId: 'grounding',
+            mode: 'text',
+            question: { body: 'Where do we start?', unexpected: true },
+          },
+        ],
+      }),
+    ).toBe(false);
 
     await expect(handlers.handle({ jsonrpc: '2.0', id: 2, method: 'session.openAsks' })).resolves.toEqual({
       jsonrpc: '2.0',

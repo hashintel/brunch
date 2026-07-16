@@ -41,6 +41,8 @@ import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionCoordinator,
 } from '../../session/workspace-session-coordinator.js';
+import type { HostedSessionRpcBoundary } from '../methods/hosted-session.js';
+import type { SessionOpenAsksHandle } from '../methods/session-open-asks.js';
 import { createProductUpdatePublisher } from '../product-updates.js';
 import { startWebHost } from '../web-host.js';
 
@@ -265,6 +267,21 @@ async function writePetrinautReplayRun(
 }
 
 describe('web host', () => {
+  it('rejects combined host authority before listening', async () => {
+    const hostedSession = {} as HostedSessionRpcBoundary;
+    const sessionOpenAsks = {} as SessionOpenAsksHandle;
+    // @ts-expect-error standalone hosted-session authority excludes every sidecar handle
+    const invalidOptions: Parameters<typeof startWebHost>[0] = {
+      cwd: '/tmp/brunch-project',
+      hostedSession,
+      sessionOpenAsks,
+    };
+
+    await expect(startWebHost(invalidOptions as never)).rejects.toThrow(
+      'hostedSession cannot be combined with sidecar session driver handles',
+    );
+  });
+
   it('serves built Vite index.html as the native Brunch HTML shell', async () => {
     const assetRoot = await builtWebAssets();
     const host = await startWebHost({
@@ -300,6 +317,26 @@ describe('web host', () => {
       expect(response.status).toBe(200);
       expect(response.headers.get('content-type')).toContain('text/html');
       expect(html).toContain('data-built-shell="true"');
+    } finally {
+      await host.close();
+    }
+  });
+
+  it('serves index.html for a targeted client-side session route without admitting unrelated paths', async () => {
+    const assetRoot = await builtWebAssets();
+    const host = await startWebHost({
+      cwd: '/tmp/brunch-project',
+      port: 0,
+      webAssetRoot: assetRoot,
+    });
+    try {
+      const sessionResponse = await fetch(`${host.url}/session/1/session-abc`);
+      const unrelatedResponse = await fetch(`${host.url}/unrelated/path`);
+
+      expect(sessionResponse.status).toBe(200);
+      expect(sessionResponse.headers.get('content-type')).toContain('text/html');
+      expect(await text(sessionResponse)).toContain('data-built-shell="true"');
+      expect(unrelatedResponse.status).toBe(404);
     } finally {
       await host.close();
     }

@@ -19,7 +19,9 @@ import type { LiveExchangeAnswerer, LiveExchangeAwaiter } from './live-exchange-
  * `closed` rather than hanging.
  */
 
-export type OpenAskMode = 'text' | 'single-select' | 'multi-select' | 'questionnaire' | 'review';
+export const OPEN_ASK_MODES = ['text', 'single-select', 'multi-select', 'questionnaire', 'review'] as const;
+
+export type OpenAskMode = (typeof OPEN_ASK_MODES)[number];
 
 export interface OpenAsk {
   readonly exchangeId: string;
@@ -48,6 +50,7 @@ export interface LiveAskRegistry {
   readonly answerer: LiveExchangeAnswerer;
   readonly opener: LiveAskOpener;
   readonly reader: LiveAskReader;
+  subscribe(listener: (ask: OpenAsk) => void): () => void;
   cancel(exchangeId: string): void;
   cancelAll(): void;
 }
@@ -60,6 +63,7 @@ interface PendingEntry {
 
 export function createLiveAskRegistry(): LiveAskRegistry {
   const pending = new Map<string, PendingEntry>();
+  const listeners = new Set<(ask: OpenAsk) => void>();
   // ceiling: terminal states retained unbounded for the process lifetime so a
   // just-answered/cancelled id stays distinguishable from an unknown one; a
   // long-lived headless session should bound this to a rolling window.
@@ -128,8 +132,14 @@ export function createLiveAskRegistry(): LiveAskRegistry {
     },
     opener: {
       openAsk(ask, signal) {
-        return register(ask.exchangeId, ask, signal);
+        const pendingAnswer = register(ask.exchangeId, ask, signal);
+        for (const listener of listeners) listener(ask);
+        return pendingAnswer;
       },
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
     reader: {
       openAsks() {
