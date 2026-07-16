@@ -29,7 +29,7 @@ function runHeadlessAsk(registry: LiveAskRegistry, params: Record<string, unknow
       ctx: unknown,
     ) => Promise<AskToolResult>;
   };
-  return tool.execute('drive', params, undefined, undefined, HEADLESS_CTX);
+  return tool.execute('drive', params, new AbortController().signal, undefined, HEADLESS_CTX);
 }
 
 async function handlersOverRegistry(registry: LiveAskRegistry): Promise<RpcHandlers> {

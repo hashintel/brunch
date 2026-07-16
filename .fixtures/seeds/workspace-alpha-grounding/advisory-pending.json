@@ -1,0 +1,165 @@
+{
+  "spec": {
+    "slug": "workspace-alpha-grounding",
+    "name": "Alpha Grounding — Advisory Pending"
+  },
+  "nodes": [
+    {
+      "local_id": 1,
+      "plane": "intent",
+      "kind": "goal",
+      "title": "Help a user orient inside one workspace",
+      "body": "A Brunch session should make the selected workspace and spec feel legible before asking the user to commit new graph truth.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "fixture"
+    },
+    {
+      "local_id": 2,
+      "plane": "intent",
+      "kind": "thesis",
+      "title": "Orientation should follow the selected spec, not the entire workspace",
+      "body": "The useful starting frame is the chosen spec's graph state: what is known, what is missing, and which move is now reasonable.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "fixture"
+    },
+    {
+      "local_id": 3,
+      "plane": "intent",
+      "kind": "context",
+      "title": "A workspace may hold multiple specs",
+      "body": "The same filesystem workspace can contain several Brunch specs with separate sessions and graph truth.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "fixture"
+    },
+    {
+      "local_id": 4,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Selection must stay scoped to the chosen spec",
+      "body": "No prompt, projection, or follow-up should blend facts from sibling specs unless the user explicitly asks to switch or compare.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "fixture"
+    },
+    {
+      "local_id": 5,
+      "plane": "intent",
+      "kind": "term",
+      "title": "Selected spec",
+      "body": "The product-facing target of the current session.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "fixture",
+      "detail": {
+        "definition": "The one spec whose graph and sessions a current interaction targets.",
+        "aliases": ["active spec", "current spec"]
+      }
+    },
+    {
+      "local_id": 6,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Show the selected spec before deeper work begins",
+      "body": "The user must be able to see which spec the session is operating on before graph-changing work proceeds.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "fixture"
+    },
+    {
+      "local_id": 7,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Teams keep running onboarding notes in a shared doc",
+      "body": "Captured from onboarding-notes.md during bulk ingest as outer-band signal. Reviewed and plausible, but not yet harmonized against the selected-spec scope — advisory until the review path confirms or reworks it.",
+      "basis": "explicit",
+      "settlement": "advisory",
+      "source": "acquired:onboarding-notes.md"
+    },
+    {
+      "local_id": 8,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Surface the latest shared onboarding note on session entry",
+      "body": "Source-derived from onboarding-notes.md: the notes ask for the newest team note to appear at entry. Advisory — it is in tension with keeping orientation scoped to one spec, so it must be harmonized (promote, rewrite, or supersede) rather than read as a settled commitment.",
+      "basis": "explicit",
+      "settlement": "advisory",
+      "source": "acquired:onboarding-notes.md"
+    },
+    {
+      "local_id": 9,
+      "plane": "intent",
+      "kind": "assumption",
+      "title": "Users skim orientation top-to-bottom and stop at the first actionable item",
+      "body": "Captured from ux-research-summary.md as a reviewed observation. Advisory: it informs how orientation might be ordered but has not been harmonized into a settled constraint.",
+      "basis": "explicit",
+      "settlement": "advisory",
+      "source": "acquired:ux-research-summary.md"
+    },
+    {
+      "local_id": 10,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Rank orientation items by recency",
+      "body": "Source-derived from ux-research-summary.md. Advisory signal about presentation order, still pending harmonization against the settled selected-spec framing.",
+      "basis": "explicit",
+      "settlement": "advisory",
+      "source": "acquired:ux-research-summary.md"
+    }
+  ],
+  "edges": [
+    {
+      "category": "rationale",
+      "source_local_id": 3,
+      "target_local_id": 1,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Multiple specs make orientation necessary before acting."
+    },
+    {
+      "category": "exclusion",
+      "source_local_id": 4,
+      "target_local_id": 1,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Workspace-level blending would undermine selected-spec orientation."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 1,
+      "target_local_id": 6,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The settled requirement expresses the goal as product behavior."
+    },
+    {
+      "category": "cross_reference",
+      "source_local_id": 5,
+      "target_local_id": 2,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The thesis depends on the selected-spec vocabulary."
+    },
+    {
+      "category": "rationale",
+      "source_local_id": 7,
+      "target_local_id": 8,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "advisory",
+      "rationale": "Source-derived: the onboarding-note context motivates surfacing the latest note. Advisory link, pending harmonization."
+    },
+    {
+      "category": "rationale",
+      "source_local_id": 9,
+      "target_local_id": 10,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "advisory",
+      "rationale": "The skim-behavior observation motivates recency ranking. Advisory until harmonized."
+    }
+  ]
+}

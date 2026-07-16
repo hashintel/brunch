@@ -62,7 +62,6 @@ describe('CommandExecutor.acceptReviewSet', () => {
   it('writes all reviewed nodes and edges with explicit basis', () => {
     const result = executor.acceptReviewSet({
       specId,
-      proposalEntryId: 'entry-review-1',
       payload: validPayload(),
     });
 
@@ -83,10 +82,9 @@ describe('CommandExecutor.acceptReviewSet', () => {
     ).toEqual(['explicit']);
   });
 
-  it('uses one LSN and one accept_review_set change-log row with proposalEntryId audit metadata', () => {
+  it('uses one LSN and one accept_review_set change-log row for the exact translated mutation', () => {
     const result = executor.acceptReviewSet({
       specId,
-      proposalEntryId: 'tool-result-42',
       payload: validPayload(),
     });
 
@@ -100,7 +98,6 @@ describe('CommandExecutor.acceptReviewSet', () => {
     expect(logs[0]).toMatchObject({ spec_id: specId, lsn: 1, operation: 'accept_review_set' });
     expect(JSON.parse(logs[0]!.payload)).toMatchObject({
       specId,
-      proposalEntryId: 'tool-result-42',
       createBasis: 'explicit',
       createdNodes: {
         'goal-launch': expect.any(Number),
@@ -113,7 +110,6 @@ describe('CommandExecutor.acceptReviewSet', () => {
   it('honors proposed codes and fails loudly when a counter has diverged', () => {
     const result = executor.acceptReviewSet({
       specId,
-      proposalEntryId: 'proposal-codes',
       payload: validPayload(),
     });
     expect(result).toMatchObject({
@@ -126,7 +122,6 @@ describe('CommandExecutor.acceptReviewSet', () => {
 
     const stale = executor.acceptReviewSet({
       specId,
-      proposalEntryId: 'proposal-stale',
       payload: validPayload({
         entityDrafts: [
           { draftId: 'goal-next', proposedCode: 'G1', plane: 'intent', kind: 'goal', title: 'Next goal' },
@@ -157,7 +152,6 @@ describe('CommandExecutor.acceptReviewSet', () => {
 
     const result = executor.acceptReviewSet({
       specId,
-      proposalEntryId: 'bad-entry',
       payload: validPayload({
         edgeDrafts: [
           {
@@ -184,7 +178,7 @@ describe('CommandExecutor.acceptReviewSet', () => {
         edgeDrafts: [{ ...validPayload().edgeDrafts[0]!, basis: 'accepted_review_set' } as never],
       }),
     ]) {
-      const result = executor.acceptReviewSet({ specId, proposalEntryId: 'bad-basis', payload });
+      const result = executor.acceptReviewSet({ specId, payload });
       expect(result.status).toBe('structural_illegal');
     }
 
@@ -198,7 +192,6 @@ describe('CommandExecutor.acceptReviewSet', () => {
   it('can commit a scope package that links frontier, requirement, criterion, design, and verification anchors', () => {
     const result = executor.acceptReviewSet({
       specId,
-      proposalEntryId: 'scope-package',
       payload: {
         schemaVersion: 1,
         lens: 'design',

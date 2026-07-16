@@ -1056,9 +1056,22 @@ describe('run detail route', () => {
       rpcClient: rpcClient({ runError: new Error('Unknown runId') }),
     });
 
+    // React logs boundary-caught errors to console.error; this test intentionally
+    // routes an error through the error boundary, so scope the suppression here
+    // and assert the expected error still surfaced rather than blanket-muting.
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
     render(<BrunchWebApp runtime={runtime} />);
 
     expect(await screen.findByText(/could not be loaded/iu)).toBeTruthy();
     expect(screen.getByText(/Unknown runId/u)).toBeTruthy();
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ message: 'Unknown runId' }),
+      expect.stringContaining('The above error occurred'),
+      expect.stringContaining('error boundary'),
+    );
+
+    consoleError.mockRestore();
   });
 });

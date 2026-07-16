@@ -91,7 +91,13 @@ describe('createBrunchFauxHarness', () => {
             {
               status: 'ready',
               cwd,
-              spec: { id: 1, title: 'Tier-1 faux spec' },
+              spec: {
+                id: 1,
+                title: 'Tier-1 faux spec',
+                kind: 'product',
+                origin: 'greenfield',
+                relatesToSpecId: null,
+              },
               session: { id: 'session-1', file: join(cwd, 'session.jsonl'), manager: {} as never },
               chrome: {
                 cwd,

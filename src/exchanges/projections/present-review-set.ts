@@ -1,7 +1,7 @@
 import { roleNamedEdgeDraftEndpoints } from '../../graph/command-executor/role-named-edge-draft.js';
 import type { ReviewSetProposalPayload } from '../../graph/review-set.js';
 import type {
-  AskContinuationDeclaration,
+  OptionRequiredAskContinuationDeclaration,
   PresentReviewSetDetails,
   ReviewSetDetailsPayload,
 } from '../schemas/index.js';
@@ -41,7 +41,7 @@ export function projectPresentReviewSet(input: {
 function reviewSetContinuation(input: {
   readonly heading: string;
   readonly body: string;
-}): AskContinuationDeclaration {
+}): OptionRequiredAskContinuationDeclaration {
   return {
     tool: 'ask',
     params: {

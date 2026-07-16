@@ -107,21 +107,25 @@ messages:
                                                   handleSubmitExchangeResponse)          #B2
   session.submitExchangeResponse <- rpc_client:  { status: "accepted", ... }            #B3
 
-# Path C — live web-driver broker (FE-873; answer/free-text ONLY today)
-# The tool genuinely executes live, but no InteractiveMode is bound (a headless
-# AgentSession), so ctx.hasUI is false and the collector falls through to the broker.
+# Path C — live headless driver (all ask modes)
+# The tool genuinely executes live, but no InteractiveMode is bound. Every collector
+# registers its full payload in the D125-L live ask registry and awaits the broker string.
 messages:
-  llm               -> ask:             free-text ask call                              #C1
-  ask               -> broker.awaiter:  awaitAnswer(exchangeId)                         #C2   [blocks]
-  rpc_client        -> session.answerExchange:  { exchangeId, answer }                  #C3
-  session.answerExchange -> broker.answerer:  submitAnswer(...)                         #C4
-  broker.answerer   ~> broker.awaiter:  resolves the pending promise                    #C5
-  ask               <- llm:  tool result appended normally, same shape as A              #C6
+  llm               -> ask:             any ask call                                    #C1
+  ask               -> live registry:   openAsk({ exchangeId, mode, question })         #C2   [blocks]
+  rpc_client        -> session.openAsks: discover full open payload                     #C3
+  rpc_client        -> session.answerExchange:  { exchangeId, answer }                  #C4
+  session.answerExchange -> live registry: submitAnswer(...)                            #C5
+  live registry     ~> ask:             resolves and decodes per mode                    #C6
+  ask               <- llm:             canonical tool result appended by Pi             #C7
 
 notes:
   - #A2/#C2: Path A and Path C are the SAME `ask` tool execution reaching the SAME free-text
     collector — they differ in exactly one runtime fact, whether InteractiveMode is bound, not in
     the tool or its params.
+  - Review-set approval converges below these transport mechanics: paths A/C and B call the same
+    session-owned settlement operation, which revalidates the persisted offer and commits before
+    returning/building the terminal. Pi still owns the A/C append; Brunch owns the B append.
   - #B2: Path B is architecturally distinct from A and C, not a variant of either — it's a Brunch
     RPC handler directly authoring transcript entries, matching D49-L ("Brunch-owned over public
     RPC... rather than raw Pi RPC") and D38-L ("JSON-over-editor is the Pi-RPC compatibility seam,
@@ -129,9 +133,10 @@ notes:
   - #C4/#C5: `session.answerExchange` is only discoverable on the `/rpc/driver` connection when a
     live broker handle is attached (src/rpc/TOPOLOGY.md) — it is not a general-purpose method.
 
-open:
-  - Path C currently exists only for `answer` (free-text). choice/choices/review have no
-    broker-equivalent; see the coverage matrix below.
+ceiling:
+  - The broker remains a string contract. Ask collectors own mode-specific decoding: option id,
+    delimited ids, questionnaire JSON envelope, or `decision[:comment]`. Other/None write-ins and
+    nested comment prompts remain interactive-only.
 ```
 
 ## Coverage, per response kind
@@ -139,40 +144,35 @@ open:
 ```
 policy: current-state coverage, not a design rule
 
-kind     | local-TUI (A)                                   | RPC direct-submit (B)         | live-driver headless (C)
----------|--------------------------------------------------|--------------------------------|---------------------------
-answer   | ask free-text: ctx.ui.custom (ExchangeAnswerEditorComponent), ctx.ui.editor fallback | works (uniform, see notes)    | broker (built, FE-873)
-choice   | ask single-choice: ctx.ui.custom (ExchangeDecisionPickerComponent) + ctx.ui.input | works (uniform, see notes) | x> unavailable, no broker
-choices  | ask multi-choice: ctx.ui.custom (MultiChoicePickerComponent), falls back to ctx.ui.editor JSON envelope | works (uniform, see notes) | x> unavailable — no broker, and the JSON-envelope fallback also needs ctx.ui, absent here too
-review   | ask continuation review: ctx.ui.custom (ExchangeDecisionPickerComponent) + ctx.ui.input | works (uniform, see notes) | x> unavailable, no broker
+kind          | local-TUI (A)                                   | RPC direct-submit (B)         | live-driver headless (C)
+--------------|--------------------------------------------------|--------------------------------|---------------------------
+answer        | ask free-text: custom editor, sealed editor fallback | works (uniform, see notes) | live registry: text
+choice        | ask single-choice picker + optional input steps | works (uniform, see notes) | live registry: listed option id
+choices       | ask multi-choice picker, editor JSON fallback | works (uniform, see notes) | live registry: delimited listed ids
+questionnaire | one-question-at-a-time component, editor JSON fallback | works (uniform, see notes) | live registry: validated questionnaire JSON envelope
+review        | ask continuation decision picker + optional comment | works (uniform, see notes) | live registry: `decision[:comment]`; richer review payloads remain a declared ceiling
 
 notes:
   - Column B is genuinely uniform across all four kinds: `session.submitExchangeResponse`
     (src/rpc/methods/session.ts) never routes through ctx.ui for any kind, so it is UNAFFECTED
     by whatever mechanism column A uses for a given kind.
-  - The `review` kind serves two pending-present sources: `present_review_set` and
-    `present_digest` (FE-1136, D110-L). Column B reconstructs both as review-mode pending
-    exchanges via a required `respondsToPresentTool` discriminator; review-set approval may
-    commit graph drafts, while digest approval is terminal-only (mints `request_review` with
-    the accepted abstract echo, no graph review outcome). A new `present_*` kind that answers
-    through an existing response kind must be taught to the column-B pending/accepted
-    reconstruction (src/session/structured-exchange-loop/) or it is silently unanswerable
-    outside the local TUI — the exact gap FE-1136's repair slice closed.
+  - `review` now serves `present_review_set` only. Digest continuation is conversational free text;
+    accepted digest capture comes later through a digest-referencing questionnaire or confirmation.
+    A new `present_*` kind must still be taught to column-B pending/accepted reconstruction or it is
+    silently unanswerable outside the local TUI.
   - Column A treats escape hierarchically on optioned ask surfaces: Esc/q at the picker root
     resolves the ask as terminal `cancelled`, while Esc inside nested Other/comment inputs returns
     to the picker. Multi-choice re-presents with checked state restored and discards only the
     in-progress write-in text. The sealed `ctx.ui.editor` JSON-envelope fallback stays flat
     because it returns one submitted string or `undefined`, not nested key-level navigation.
-  - Column C's gap (choice/choices/review) is a pre-existing, independently tracked gap —
-    docs/archive/PLAN_HISTORY.md's FE-873 entry ("Remaining web-driver legs stay in the
-    web-driver-streaming Horizon frontier") and PLAN.md's `web-driver-streaming` Horizon bullet
-    ("remaining consumer/UI and non-freeform answer legs"). It is orthogonal to column A.
+  - Column C is mode-complete through the live ask registry. Its remaining limits are deliberate
+    string-envelope ceilings (Other/None write-ins, nested comments, richer review payloads), not
+    missing discovery or broker wiring.
 
-open:
-  - The column A choice/review picker mechanism now uses `ctx.ui.custom`, matching what choices
-    already did. Column B did not change (still bypasses ctx.ui) and column C did not change
-    (still needs a broker that doesn't exist for these kinds regardless of what column A renders
-    with). This column-A UI swap is safe with respect to both B and C.
+closed:
+  - D125-L removed the former choice/choices discovery gap without changing column A or B. Column A
+    remains custom-UI-first; column B still bypasses `ctx.ui`; column C now discovers and answers
+    every ask mode through the shared live registry.
 ```
 
 ## Implications for component-dx / request_* picker work
@@ -181,9 +181,8 @@ open:
   column A.** The choice/review half is now landed through a custom decision picker. It does not put
   Brunch's tested RPC-driven structured-exchange proof (SPEC requirement 24) at risk, because that
   proof exercises column B, which never reaches `ctx.ui` at all.
-- **It does not create or worsen the column-C gap.** That gap already exists today for
-  choice/choices/review regardless of which column-A mechanism is used; a UI swap is orthogonal to
-  it, not a regression against it.
+- **Column-C mode coverage is independent of column-A styling.** D125-L's registry makes every ask
+  mode discoverable/answerable headlessly; local component changes do not alter that broker path.
 - **`answer` now uses the same column-A custom-first pattern**: `ctx.ui.custom` hosts
   `ExchangeAnswerEditorComponent` and falls back to pi's sealed `ctx.ui.editor` when custom UI is
   unavailable; the broker remains the headless column-C path.
@@ -191,10 +190,8 @@ open:
   `ctx.ui.custom` first, `ctx.ui.editor` JSON-envelope fallback for the rare case custom UI is
   unavailable. Extending `choice`/`review` and then `answer` to custom chrome was additive, not a new
   architecture.
-- **If Brunch ever wants to close the column-C gap for choice/choices/review**, that is a separate,
-  already-named Horizon-frontier concern (`web-driver-streaming`) — building a
-  `LiveChoiceBroker`-equivalent to `LiveExchangeBroker`. It is not blocked by, or a prerequisite
-  for, any column-A restyling work.
+- **Do not introduce per-mode brokers.** The one live ask registry plus mode-specific decoding in
+  `ask` is the canonical headless seam. Widen only a concrete string-envelope ceiling.
 
 ## Re-verification checklist (when `pi-coding-agent` bumps a minor/major)
 

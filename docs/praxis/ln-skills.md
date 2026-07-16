@@ -170,7 +170,7 @@ When starting a new frontier item, follow `AGENTS.md` and `docs/praxis/graphite-
 Default commands:
 
 - Inner loop after meaningful edits: `npm run fix`
-- Gate before commit: `npm run verify`
+- Local checkpoint before commit (fast default): `npm run verify`; the authoritative full gate (`test:full` + `check` + `build`) runs in CI, and `npm run verify:full` runs it locally
 
 ## Self-governance
 

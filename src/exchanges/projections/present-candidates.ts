@@ -1,5 +1,5 @@
 import type {
-  AskContinuationDeclaration,
+  OptionRequiredAskContinuationDeclaration,
   PresentCandidatesDetails,
   PresentCandidatesParams,
 } from '../schemas/index.js';
@@ -40,7 +40,7 @@ function candidatesContinuation(input: {
   readonly heading: string;
   readonly body: string | undefined;
   readonly candidates: PresentCandidatesParams['candidates'];
-}): AskContinuationDeclaration {
+}): OptionRequiredAskContinuationDeclaration {
   return {
     tool: 'ask',
     params: {

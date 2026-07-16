@@ -2,7 +2,7 @@ import { blockquote, heading } from 'md-pen';
 
 import type { RequestChoiceDetails } from '../../../../exchanges/projections/request-response.js';
 import { joinMarkdownBlocks } from '../../../shared/markdown.js';
-import { formatOptionEcho, formatResponseTerminal } from '../option-echo.js';
+import { CANCELLED_TERMINAL, formatOptionEcho, formatResponseTerminal } from '../option-echo.js';
 import type { RenderElision } from '../render-honesty.js';
 
 export const REQUEST_CHOICE_CONTENT_ELISIONS: readonly RenderElision[] = [
@@ -17,7 +17,9 @@ export const REQUEST_CHOICE_CONTENT_ELISIONS: readonly RenderElision[] = [
 ];
 
 export function formatRequestChoice(details: RequestChoiceDetails): string {
-  if ('cancelled' in details) return formatResponseTerminal('User cancelled the request.');
+  if ('cancelled' in details) {
+    return CANCELLED_TERMINAL;
+  }
   if ('unavailable' in details) return formatResponseTerminal(details.unavailable.message);
   return joinMarkdownBlocks(
     heading('Answer', 2),

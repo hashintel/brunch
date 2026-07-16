@@ -265,6 +265,84 @@ describe('Brunch introspection extension', () => {
       latestPassiveCapture: store.latestPassiveCapture(),
     });
     expect(notifications[0]).toContain('Brunch introspection report captured.');
+    expect(notifications[0]).toContain('basePromptOptions={cwd:string, selectedTools:array(1)}');
+    expect(notifications[0]).toContain('latestPassiveCapture=turn-1 {messages:array(1)}');
+    expect(notifications[0]).not.toContain('.brunch/debug/system-prompt.md');
+  });
+
+  it('points to the exact system-prompt mirror when the debug cache is configured', async () => {
+    const api = createFakeExtensionApi();
+    const notifications: string[] = [];
+
+    registerBrunchIntrospection(api.api as never, {
+      clock: fixedClock,
+      debugCache: { cwd: '/tmp/brunch' },
+    });
+    await api.emitBeforeProviderRequest({
+      payload: { system: 'final prompt', tools: [{ name: 'read' }] },
+    });
+
+    await api.runCommand(BRUNCH_INTROSPECTION_COMMAND, {
+      ui: { notify: (message) => notifications.push(message) },
+      getSystemPromptOptions: () => ({ cwd: '/tmp/brunch' }),
+    });
+
+    expect(notifications[0]).toContain('latestPassiveCapture=turn-1 {system:string, tools:array(1)}');
+    expect(notifications[0]).toContain('fullSystemPromptMirror=.brunch/debug/system-prompt.md');
+  });
+
+  it('summarizes top-level fields in a deterministic sorted order', async () => {
+    const api = createFakeExtensionApi();
+    const notifications: string[] = [];
+
+    registerBrunchIntrospection(api.api as never, { clock: fixedClock });
+    await api.emitBeforeProviderRequest({ payload: { zebra: 'z', alpha: 1, mid: [1, 2] } });
+
+    await api.runCommand(BRUNCH_INTROSPECTION_COMMAND, {
+      ui: { notify: (message) => notifications.push(message) },
+      getSystemPromptOptions: () => ({}),
+    });
+
+    expect(notifications[0]).toContain(
+      'latestPassiveCapture=turn-1 {alpha:number, mid:array(2), zebra:string}',
+    );
+  });
+
+  it('summarizes an array top-level value as an array, not a numeric-index record', async () => {
+    const api = createFakeExtensionApi();
+    const notifications: string[] = [];
+
+    registerBrunchIntrospection(api.api as never, { clock: fixedClock });
+    await api.emitBeforeProviderRequest({ payload: ['first', 'second'] });
+
+    await api.runCommand(BRUNCH_INTROSPECTION_COMMAND, {
+      ui: { notify: (message) => notifications.push(message) },
+      getSystemPromptOptions: () => ['x', 'y', 'z'],
+    });
+
+    expect(notifications[0]).toContain('basePromptOptions=array(3)');
+    expect(notifications[0]).toContain('latestPassiveCapture=turn-1 array(2)');
+  });
+
+  it.each([
+    { name: 'no passive capture' },
+    { name: 'capture without a system prompt', payload: { messages: [{ role: 'user', content: 'hello' }] } },
+  ])('does not advertise a system-prompt mirror with $name', async ({ payload }) => {
+    const api = createFakeExtensionApi();
+    const notifications: string[] = [];
+
+    registerBrunchIntrospection(api.api as never, {
+      clock: fixedClock,
+      debugCache: { cwd: '/tmp/brunch' },
+    });
+    if (payload) await api.emitBeforeProviderRequest({ payload });
+
+    await api.runCommand(BRUNCH_INTROSPECTION_COMMAND, {
+      ui: { notify: (message) => notifications.push(message) },
+      getSystemPromptOptions: () => ({ cwd: '/tmp/brunch' }),
+    });
+
+    expect(notifications[0]).not.toContain('fullSystemPromptMirror=.brunch/debug/system-prompt.md');
   });
 
   it('captures the post-mutation payload when registered after a provider mutator', async () => {

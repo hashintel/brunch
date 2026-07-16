@@ -53,7 +53,7 @@ _The listed choices did not name the comment framing problem._
 
 Cancel me.
 
-_User pressed escape._
+**Cancelled** — The user declined to answer. Read this as wanting to change direction or reply in free text.
 
 ---
 

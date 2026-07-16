@@ -568,7 +568,13 @@ describe('Brunch chrome projection', () => {
 });
 
 function readyWorkspace(cwd: string, sessionId: string, sessionName?: string): WorkspaceSessionReadyState {
-  const spec = { id: 1, title: 'Spec One' };
+  const spec = {
+    id: 1,
+    title: 'Spec One',
+    kind: 'product',
+    origin: 'greenfield',
+    relatesToSpecId: null,
+  } as const;
   return {
     status: 'ready',
     cwd,

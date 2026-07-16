@@ -295,9 +295,6 @@ function formatKickDiagnostic(outcome: KickCompletionOutcome): string | undefine
     const message = outcome.error instanceof Error ? outcome.error.message : String(outcome.error);
     return `Assistant-originated opening turn failed (${outcome.origin}): ${message}`;
   }
-  if (outcome.reason === 'no_model_available') {
-    return 'Assistant-originated opening turn skipped: no model available.';
-  }
   return undefined;
 }
 

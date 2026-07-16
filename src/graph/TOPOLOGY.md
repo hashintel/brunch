@@ -1,6 +1,6 @@
 # graph/ — Graph domain layer
 
-SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D63-L, D65-L, D75-L, D80-L, D81-L, D82-L, D94-L, D99-L, D103-L, D126-L, D130-L, I52-L
+SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D63-L, D65-L, D75-L, D80-L, D81-L, D82-L, D94-L, D99-L, D103-L, D126-L, D131-L, D130-L, I52-L
 
 ## Owns
 
@@ -26,8 +26,9 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
   schema for the nested proposal payload, resolves projected existing-node
   codes inside the selected spec, and translates them to explicit-basis
   `mutateGraph` batches. `CommandExecutor.acceptReviewSet` is the only graph
-  mutation entrypoint for accepted review sets and records
-  `operation: "accept_review_set"`.
+  mutation entrypoint for accepted review sets and records one spec-local LSN and
+  one change-log row with `operation: "accept_review_set"`; its payload records
+  the translated mutation without transcript/proposal identifiers.
 
 - **Capture** — the submit-time `capture/` structured-response translator was
   deleted 2026-06-19 (D80-L fossil retirement). Capture is now elicitor
@@ -57,7 +58,11 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
   do not pull in Drizzle. Agent-facing reference prose cites schema-owned
   vocabulary rather than regenerating a parallel ontology table. Per D126-L,
   the plan-kind set is `milestone`, `frontier`, and terminal handoff `scope`;
-  runtime `slice` remains executor-derived and is not graph vocabulary.
+  runtime `slice` remains executor-derived and is not graph vocabulary. D131-L
+  deliberately leaves the physical plane/kind schema intact while narrowing
+  live semantics: `evidence` is capture-only promoted observation,
+  `vv_obligation` is readable legacy/reserved vocabulary, and user-facing
+  review grouping is independent of both planes and readiness bands.
 
 - **Policy** (`policy/category-policy.ts`) — the single per-category
   metadata table (`EDGE_CATEGORY_METADATA`): endpoint roles, impact

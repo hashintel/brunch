@@ -1,5 +1,11 @@
 import type { PresentDetails, RequestDetails } from './schemas/index.js';
-import { zPresentDetails, zRequestDetails } from './schemas/index.js';
+import {
+  zAskDetails,
+  zPresentDetails,
+  zPresentDigestDetails,
+  zRequestDetails,
+  zRequestReviewDetails,
+} from './schemas/index.js';
 
 export function isStructuredExchangePresentDetails(value: unknown): value is PresentDetails {
   return zPresentDetails.safeParse(value).success;
@@ -7,6 +13,33 @@ export function isStructuredExchangePresentDetails(value: unknown): value is Pre
 
 export function isStructuredExchangeRequestDetails(value: unknown): value is RequestDetails {
   return zRequestDetails.safeParse(value).success;
+}
+
+export function resolveEligibleDigestAcceptance(
+  entries: readonly EntryLike[],
+  acceptsDigest: string,
+): ReturnType<typeof zPresentDigestDetails.parse> | undefined {
+  const details = entries.map(toolResultDetails).filter((value) => value !== undefined);
+  const digests = details.flatMap((value) => {
+    const parsed = zPresentDigestDetails.safeParse(value);
+    return parsed.success ? [parsed.data] : [];
+  });
+  const digestClosedForAcceptance = details.some((value) => {
+    const ask = zAskDetails.safeParse(value);
+    if (ask.success && 'accepts_digest' in ask.data && ask.data.accepts_digest === acceptsDigest) return true;
+
+    const legacyReview = zRequestReviewDetails.safeParse(value);
+    return (
+      legacyReview.success &&
+      legacyReview.data.exchange_id === acceptsDigest &&
+      legacyReview.data.tool_meta.prev === 'present_digest' &&
+      'answered' in legacyReview.data
+    );
+  });
+  const digest = [...digests].reverse().find((candidate) => candidate.exchange_id === acceptsDigest);
+  return digest && digests.at(-1)?.exchange_id === acceptsDigest && !digestClosedForAcceptance
+    ? digest
+    : undefined;
 }
 
 export interface EntryLike {
@@ -36,7 +69,6 @@ export function findIncompleteStructuredExchangePresents(
   for (const entry of entries) {
     const details = toolResultDetails(entry);
     if (isStructuredExchangePresentDetails(details)) {
-      if (details.tool_meta.curr === 'present_question') continue;
       presents.set(details.exchange_id, {
         entry,
         details,

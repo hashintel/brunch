@@ -1,6 +1,6 @@
 # Multi-session daemon architecture — design note
 
-Status: captured design reference, not scheduled. Source review: Brunch runtime topology + local inspection of `@earendil-works/pi-orchestrator`, 2026-07-13.
+Status: superseded by [WEB_UI_ARCHITECTURE.md](WEB_UI_ARCHITECTURE.md). Kept as historical design evidence. Source review: Brunch runtime topology + local inspection of `@earendil-works/pi-orchestrator`, 2026-07-13.
 
 ## Purpose
 

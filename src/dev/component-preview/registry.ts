@@ -33,6 +33,7 @@ import {
   requestTerminalFixture,
   structuralIllegalFixture,
 } from './exchange-fixtures.js';
+import { previewReviewSetContentVariants } from './review-set-content-variants.js';
 import { captureMessageRenderer, previewStaticComponent, sampleCustomMessage } from './static-preview.js';
 import { ThemeTestbedComponent } from './theme-testbed.js';
 import { createComponentPreviewEditorTheme } from './theme.js';
@@ -48,12 +49,12 @@ export interface ComponentPreviewEntry {
 function sampleWorkspaceInventory(): WorkspaceLaunchInventory {
   return {
     cwd: '/project',
-    currentSpec: { id: 1, title: 'Alpha' },
+    currentSpec: { id: 1, title: 'Alpha', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
     currentSessionFile: '/sessions/alpha-current.jsonl',
     needsNewSpec: false,
     specs: [
       {
-        spec: { id: 1, title: 'Alpha' },
+        spec: { id: 1, title: 'Alpha', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
         sessions: [
           {
             id: 'session-alpha-current',
@@ -65,13 +66,14 @@ function sampleWorkspaceInventory(): WorkspaceLaunchInventory {
         ],
       },
       {
-        spec: { id: 2, title: 'Beta' },
+        spec: { id: 2, title: 'Beta', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
         sessions: [
           { id: 'session-beta', file: '/sessions/beta.jsonl', specId: 2, specTitle: 'Beta', available: true },
         ],
       },
     ],
     unavailableSessions: [],
+    workspacePopulated: false,
   };
 }
 
@@ -96,10 +98,17 @@ function manySpecsWorkspaceInventory(specCount: number): WorkspaceLaunchInventor
     currentSessionFile: null,
     needsNewSpec: false,
     specs: Array.from({ length: specCount }, (_, index) => ({
-      spec: { id: index + 1, title: `Spec ${index}` },
+      spec: {
+        id: index + 1,
+        title: `Spec ${index}`,
+        kind: 'product',
+        origin: 'greenfield',
+        relatesToSpecId: null,
+      },
       sessions: [],
     })),
     unavailableSessions: [],
+    workspacePopulated: false,
   };
 }
 
@@ -511,6 +520,14 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
       'legacy transcript compatibility formatter — src/exchanges/projections/present-question.ts (Markdown pass-through of preserved content, D104-L)',
     open: (tui, theme) =>
       previewStaticComponent(tui, renderMarkdownResult(presentQuestionOptionsFixture.result, theme)),
+  },
+  {
+    id: 'present-review-set-content-variants',
+    label: 'Impact Ledger content-length variants (↑/↓ or j/k cycles)',
+    presentedLike:
+      'dev-only outer-loop stress surface — real ExchangeReviewSetResultComponent at terminal width; ' +
+      'preserves all rendered lines because this preview seam has no viewport-height input',
+    open: (tui, theme) => previewReviewSetContentVariants(tui, theme),
   },
   {
     id: 'present-review-set',

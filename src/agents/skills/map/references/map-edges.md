@@ -94,7 +94,7 @@ create_edge rationale:     support: G2      claim: REQ1     stance: for
 create_edge realization:   abstract: REQ1   concrete: MOD1
 create_edge refinement:    abstract: REQ1   concrete: REQ2
 create_edge exclusion:     boundary: CON2   subject: EX3
-create_edge composition:   whole: F1        part: S1
+create_edge composition:   whole: F1        part: SCP1
 create_edge supersession:  successor: REQ2  predecessor: REQ1
 create_edge cross_reference: peer: REQ1     peer: G1
 ```

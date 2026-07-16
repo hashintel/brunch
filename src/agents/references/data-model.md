@@ -66,7 +66,9 @@ Twenty-four kinds across four planes, in canonical plane order. Codes are schema
 | ----------- | ---- | --------------------------------------------------- |
 | `milestone` | M    | A bounded phase                                     |
 | `frontier`  | F    | The plan / tracker / branch unit                    |
-| `slice`     | S    | The buildable implementation unit inside a frontier |
+| `scope`     | SCP  | A committed execution handoff inside one frontier   |
+
+Runtime `slice`s are executor-derived buildable units lowered from a committed scope. They are not graph nodes and have no graph-node code.
 
 ## Edge Categories, Impact Directions and Policies
 

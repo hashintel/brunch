@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { projectPresentDigest } from '../../../exchanges/projections/present-digest.js';
 import type { EntryLike } from '../../../exchanges/recovery.js';
-import {
-  STRUCTURED_EXCHANGE_DETAILS_VERSION,
-  STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
-} from '../../../exchanges/schemas/index.js';
 import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
 import { BRUNCH_KICK_CUSTOM_TYPE } from '../../../session/originate-assistant-turn.js';
 import {
@@ -58,6 +55,7 @@ interface FakeCommandContext {
     notify(message: string, level?: 'info' | 'warning' | 'error'): void;
     select(title: string, options: string[]): Promise<string | undefined>;
     custom?<T>(factory: (...args: unknown[]) => unknown, options: unknown): Promise<T | undefined>;
+    editor?(prompt: string): Promise<string | undefined>;
     input?(prompt: string, placeholder?: string): Promise<string | undefined>;
     setStatus?(key: string, text: string | undefined): void;
   };
@@ -98,6 +96,7 @@ function commandHarness(
   const shortcuts = new Map<string, RegisteredShortcut>();
   const activeToolNames: string[][] = [];
   const customCalls: Array<{ factory: (...args: unknown[]) => unknown; options: unknown }> = [];
+  const editorCalls: string[] = [];
   const selectCalls: Array<{ title: string; options: string[] }> = [];
   const statusCalls: Array<{ key: string; text: string | undefined }> = [];
   const chromeRefreshes: number[] = [];
@@ -125,6 +124,11 @@ function commandHarness(
       select: async (title, choices) => {
         selectCalls.push({ title, options: choices });
         return options.selectResult ?? choices[0];
+      },
+      editor: async (prompt) => {
+        editorCalls.push(prompt);
+        const result = options.customResult as { status?: string; answer?: string } | undefined;
+        return result?.status === 'answered' ? result.answer : undefined;
       },
       input: async () => options.inputResult ?? '',
     },
@@ -237,6 +241,7 @@ function commandHarness(
     appendedMessages,
     activeToolNames,
     customCalls,
+    editorCalls,
     selectCalls,
     statusCalls,
     chromeRefreshes,
@@ -514,36 +519,24 @@ describe('Brunch menu command', () => {
     });
   });
 
-  it('re-presents the most recent incomplete structured exchange, records the canonical answer, and clears the continue hint', async () => {
+  it('re-presents the most recent incomplete structured exchange and records the canonical answer without footer status', async () => {
     const harness = commandHarness({
       branch: [
-        toolResultEntry({
-          schema: STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
-          v: STRUCTURED_EXCHANGE_DETAILS_VERSION,
-          exchange_id: 'digest-review',
-          tool_meta: { curr: 'present_digest', next: 'ask' },
-          display: { heading: 'Review digest' },
-          digest: { abstract: 'The source supports building the slice.' },
-          continuation: {
-            tool: 'ask',
-            params: {
-              body: 'Review digest',
-              options: [
-                { id: 'approve', label: 'Approve' },
-                { id: 'request_changes', label: 'Request changes' },
-                { id: 'reject', label: 'Reject' },
-              ],
-            },
-          },
-        }),
+        toolResultEntry(
+          projectPresentDigest({
+            exchangeId: 'digest-review',
+            heading: 'Review digest',
+            digest: { abstract: 'The source supports building the slice.' },
+          }).details,
+        ),
       ],
-      customResult: { id: 'approve' },
+      customResult: { status: 'answered', answer: 'Yes; proceed to clarification.' },
     });
 
     await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
 
-    expect(harness.customCalls).toHaveLength(1);
-    expect(harness.statusCalls).toContainEqual({ key: 'brunch.continue', text: undefined });
+    expect(harness.editorCalls).toHaveLength(1);
+    expect(harness.statusCalls).toEqual([]);
     expect(harness.appendedMessages).toEqual([
       expect.objectContaining({
         role: 'assistant',
@@ -554,56 +547,34 @@ describe('Brunch menu command', () => {
         toolName: 'ask',
         details: expect.objectContaining({
           exchange_id: 'digest-review',
-          tool_meta: { prev: 'present_digest', curr: 'request_review', next: 'capture_review' },
-          answered: expect.objectContaining({
-            decision: 'approve',
-            accepted_abstract: 'The source supports building the slice.',
-          }),
+          tool_meta: { curr: 'ask', next: 'capture_answer' },
+          answered: { text: 'Yes; proceed to clarification.' },
         }),
       }),
     ]);
   });
 
-  it('surfaces a /brunch:continue status hint when ask collection is cancelled', async () => {
+  it('notifies transient recovery guidance when ask collection is cancelled', async () => {
     const harness = commandHarness({
       branch: [
-        toolResultEntry({
-          schema: STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
-          v: STRUCTURED_EXCHANGE_DETAILS_VERSION,
-          exchange_id: 'digest-review',
-          tool_meta: { curr: 'present_digest', next: 'ask' },
-          display: { heading: 'Review digest' },
-          digest: { abstract: 'The source supports building the slice.' },
-          continuation: {
-            tool: 'ask',
-            params: {
-              body: 'Review digest',
-              options: [
-                { id: 'approve', label: 'Approve' },
-                { id: 'request_changes', label: 'Request changes' },
-                { id: 'reject', label: 'Reject' },
-              ],
-            },
-          },
-        }),
+        toolResultEntry(
+          projectPresentDigest({
+            exchangeId: 'digest-review',
+            heading: 'Review digest',
+            digest: { abstract: 'The source supports building the slice.' },
+          }).details,
+        ),
       ],
       customResult: undefined,
     });
 
     await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
 
-    expect(harness.statusCalls).toContainEqual({
-      key: 'brunch.continue',
-      text: expect.stringContaining('/brunch:continue'),
+    expect(harness.notifications).toContainEqual({
+      message: expect.stringMatching(/\/brunch:continue.*\/brunch:consult.*\/brunch:mode/),
+      level: 'info',
     });
-    expect(harness.statusCalls).toContainEqual({
-      key: 'brunch.continue',
-      text: expect.stringContaining('/brunch:consult'),
-    });
-    expect(harness.statusCalls).toContainEqual({
-      key: 'brunch.continue',
-      text: expect.stringContaining('/brunch:mode'),
-    });
+    expect(harness.statusCalls).toEqual([]);
     expect(harness.appendedMessages.at(-1)).toMatchObject({
       role: 'toolResult',
       toolName: 'ask',
@@ -614,25 +585,13 @@ describe('Brunch menu command', () => {
   it('keeps the exchange resumable after a cancelled continue attempt', async () => {
     const harness = commandHarness({
       branch: [
-        toolResultEntry({
-          schema: STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
-          v: STRUCTURED_EXCHANGE_DETAILS_VERSION,
-          exchange_id: 'digest-review',
-          tool_meta: { curr: 'present_digest', next: 'ask' },
-          display: { heading: 'Review digest' },
-          digest: { abstract: 'The source supports building the slice.' },
-          continuation: {
-            tool: 'ask',
-            params: {
-              body: 'Review digest',
-              options: [
-                { id: 'approve', label: 'Approve' },
-                { id: 'request_changes', label: 'Request changes' },
-                { id: 'reject', label: 'Reject' },
-              ],
-            },
-          },
-        }),
+        toolResultEntry(
+          projectPresentDigest({
+            exchangeId: 'digest-review',
+            heading: 'Review digest',
+            digest: { abstract: 'The source supports building the slice.' },
+          }).details,
+        ),
       ],
       customResult: undefined,
     });
@@ -640,7 +599,7 @@ describe('Brunch menu command', () => {
     await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
     await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
 
-    expect(harness.customCalls).toHaveLength(2);
+    expect(harness.editorCalls).toHaveLength(2);
     expect(harness.notifications).not.toContainEqual(
       expect.objectContaining({ message: 'Nothing to continue.' }),
     );

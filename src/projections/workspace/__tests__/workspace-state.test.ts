@@ -10,7 +10,13 @@ function readyState(): WorkspaceSessionState {
   return {
     status: 'ready',
     cwd,
-    spec: { id: 1, title: 'Alpha spec' },
+    spec: {
+      id: 1,
+      title: 'Alpha spec',
+      kind: 'product',
+      origin: 'greenfield',
+      relatesToSpecId: null,
+    },
     session: {
       id: 'session-1',
       file: '/tmp/brunch-project/.brunch/sessions/session-1.jsonl',
@@ -30,7 +36,13 @@ describe('workspace-state projection', () => {
     expect(projectWorkspaceState(readyState())).toEqual({
       status: 'ready',
       cwd,
-      spec: { id: 1, title: 'Alpha spec' },
+      spec: {
+        id: 1,
+        title: 'Alpha spec',
+        kind: 'product',
+        origin: 'greenfield',
+        relatesToSpecId: null,
+      },
       session: {
         id: 'session-1',
         file: '/tmp/brunch-project/.brunch/sessions/session-1.jsonl',

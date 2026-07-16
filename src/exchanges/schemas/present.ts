@@ -1,7 +1,8 @@
 import * as z from 'zod';
 
 import {
-  zAskContinuationDeclaration,
+  zFreeTextAskContinuationDeclaration,
+  zOptionRequiredAskContinuationDeclaration,
   zDisplayBase,
   zGraphNodeRef,
   zMarkdown,
@@ -170,7 +171,7 @@ export const zPresentReviewSetDetails = zPresentDetailsHeader
     tool_meta: zPresentReviewSetToolMeta,
     display: zDisplayBase,
     review_set: zReviewSetDetailsPayload,
-    continuation: zAskContinuationDeclaration.optional(),
+    continuation: zOptionRequiredAskContinuationDeclaration.optional(),
   })
   .strict();
 export type PresentReviewSetDetails = z.infer<typeof zPresentReviewSetDetails>;
@@ -223,7 +224,7 @@ export const zPresentCandidatesDetails = zPresentDetailsHeader
     tool_meta: zPresentCandidatesToolMeta,
     display: zDisplayBase,
     candidates: z.array(zPresentedCandidate).min(1),
-    continuation: zAskContinuationDeclaration.optional(),
+    continuation: zOptionRequiredAskContinuationDeclaration.optional(),
   })
   .strict();
 export type PresentCandidatesDetails = z.infer<typeof zPresentCandidatesDetails>;
@@ -246,7 +247,7 @@ export const zPresentDigestDetails = zPresentDetailsHeader
     tool_meta: zPresentDigestToolMeta,
     display: zDisplayBase,
     digest: zDigestMaterial,
-    continuation: zAskContinuationDeclaration.optional(),
+    continuation: zFreeTextAskContinuationDeclaration.optional(),
   })
   .strict();
 export type PresentDigestDetails = z.infer<typeof zPresentDigestDetails>;

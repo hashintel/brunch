@@ -19,7 +19,7 @@ chain ingest:
 ```
 
 1. **Identify source.** Name the source in ordinary language. Done when the source and its provenance phrasing are explicit.
-2. **Digest if raw/large.** For a referenced document or brownfield area, read with legal read tools and present an assistant-authored digest through `present_digest` for review. The digest separates direct claims from interpretation and names open uncertainties; raw tool output stays background. Done when the user has accepted, requested changes to, rejected, or cancelled the bounded digest instead of leaving the sweep to consume unbounded raw bulk. (Skip for a direct human answer; optional for a small paste.)
+2. **Digest if raw/large.** For a referenced document or brownfield area, read with legal read tools and present an assistant-authored digest through `present_digest`. Use its declared free-text `ask({ continues })` for conversational correction; material correction creates a successor digest. Once stable, submit one standalone `ask({ acceptsDigest, questions })` questionnaire, or, when no material questions remain, the bounded single-select confirmation with exactly `confirm` and `revise` options (only `confirm` accepts the digest). The runtime-resolved final digest plus keyed answers is the only accepted carrier; raw tool output and superseded digests stay background. (Skip for a direct human answer; optional for a small paste.)
 3. **Map graph-worthy spans.** Use map references to classify spans to the sharpest supported kind and author only confident relations. For accepted digests, use multi-pass extraction: entities, relations, then narrative obligations, so candidate nodes do not crowd out edges or open questions. Done when every useful span is either mapped, deliberately abstained, or named as missing support.
 4. **Route by confidence/conflict/settlement.** Use [`../map/references/routing.md`](../map/references/routing.md) to send mapped material to settled graph truth, advisory graph signal, a session scratchpad obligation, or `reconciliation_need`. Default after digest approval: map the accepted_abstract directly into advisory graph mutations when the source supports graph-shaped material; use a review set only for judgment-heavy candidate material. Done when nothing low-confidence is committed and no contradiction was written as truth.
 5. **Ask from the updated world.** Compose the next question over the updated graph + scratchpad, not the pre-capture state.
@@ -38,7 +38,7 @@ chain ingest:
 - **reference**: use only legal read tools; `web_fetch` for a known URL, `web_search` only when external context would change the next move; do not expand one reference into open-ended research unless asked.
 - **brownfield**: smallest useful reconnaissance bounded by the user's area and the current gap; read nearby topology/README notes first when present; do not crawl for completeness.
 
-A digest should include: source/scope, high-confidence facts, interpretation separated from direct claims, uncertainties or contradictions, and the suggested next question/gap/graph area. Present it with `present_digest`, then call `ask({ continues })` for the declared review terminal without repeating the digest body in the ask. Capture from the accepted `accepted_abstract` plus conversation, not unbounded raw tool output. Do not treat digest approval as a reason to ask a broad follow-up before mapping; ask next only after the accepted material has been routed.
+A digest should include: source/scope, high-confidence facts, interpretation separated from direct claims, uncertainties or contradictions, and the suggested next question/gap/graph area. Present it with `present_digest`, then call `ask({ continues })` for the declared free-text feedback terminal without repeating the digest body. Material correction/addition requires a successor digest. When stable, ask the bounded clarification questionnaire (or lightweight confirmation) referencing that final digest. Capture only from the submitted terminal's runtime-owned `accepted_abstract` and keyed answers, then route directly; do not issue a second broad review or preserve superseded digest payloads.
 
 ### Sweep
 
@@ -58,10 +58,10 @@ Structured exchange outcome rules:
 - Answered choice requests route only selected `choice`/`choices` and required `comment` text as response material. Non-selected `answered.options` entries are option echo for rendering; do not treat them as accepted facts or graph payload.
 - Cancelled ordinary requests carry no answer, choice, option, or offer payload. If the unanswered prompt still matters, record an `open` scratchpad obligation to re-ask or verify it; do not extend the scratchpad disposition vocabulary.
 - Unavailable ordinary requests carry no response payload. Do not read unavailability as user refusal or accepted content; re-ask or add an `open` scratchpad obligation only when the missing response still matters.
-- Review `request_changes` captures the comment as direct user material and treats the next generated review set or digest as the next offer. Do not capture the prior proposal payload or write graph truth from it.
+- Review `request_changes` applies to review sets: capture the comment as direct user material and treat the next generated review set as the next offer. Digest correction is conversational free text and must produce a successor digest before acceptance.
 - Review `reject` kills the offer. Do not demote the rejected proposal or digest into a scratchpad obligation or preserve it as live graph material.
 - Cancelled proposal-chain reviews carry no offer payload. Only unresolved intent may become an `open` scratchpad obligation; never keep the cancelled proposal nodes, edges, candidates, or digest abstract as capture material.
-- Superseded prior proposal entries stay transcript history only. For a proposal chain, capture/projection consumes only the accepted terminal payload; do not read earlier offers as active graph material. For `present_digest`, the accepted terminal payload is `accepted_abstract`; request-changes regeneration produces a new `present_digest` offer rather than a second conduct carrier.
+- Superseded prior proposal entries stay transcript history only. For a proposal chain, capture/projection consumes only the accepted terminal payload; do not read earlier offers as active graph material. For `present_digest`, only a submitted digest-referencing questionnaire/confirmation carries `accepted_abstract`; conversational correction produces a successor `present_digest`, never a second accepted carrier.
 
 ## Method
 
@@ -98,5 +98,5 @@ chain ingest-band-walk:
 ### Commit
 
 - Routing question: "What is binding now, how will we judge it, and how is the work sequenced?"
-- Ingest rule: commitment-band material (`criterion`, `milestone`, `frontier`, `slice`) captured early is early outer-band signal unless it has survived review against the inner concerns.
+- Ingest rule: commitment-band material (`criterion`, `milestone`, `frontier`, `scope`) captured early is early outer-band signal unless it has survived review against the inner concerns.
 - Completion signal: commitments are promoted, rewritten, superseded, or reconciled. They are not auto-settled merely because they appeared in a source document.

@@ -45,6 +45,7 @@ components/
 │                                rounded cards while model-facing content stays
 │                                owned by agents/contexts/exchanges
 ├── exchange-decision-picker.ts bordered single-decision exchange response picker
+├── exchange-questionnaire.ts   one-terminal ordered questionnaire with Back/Next/final Submit
 ├── exchange-review-set-result.ts details-backed `present_review_set` transcript
 │                                renderer; presents proposed node/edge drafts and
 │                                proposed graph codes as non-committal proposal cards

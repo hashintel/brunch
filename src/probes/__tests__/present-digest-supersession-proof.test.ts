@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { projectDigestQuestionnaire } from '../../exchanges/projections/ask.js';
 import { projectPresentDigest } from '../../exchanges/projections/present-digest.js';
 import { projectRequestReview } from '../../exchanges/projections/request-response/review.js';
 import type { TranscriptEntryLike } from '../../projections/session/continuity-entry-classifier.js';
@@ -38,8 +39,7 @@ function digestPayloads(entries: readonly TranscriptEntryLike[]): readonly strin
     if (!isRecord(details)) return [];
     const answered = details.answered;
     if (!isRecord(answered)) return [];
-    const acceptedAbstract = answered.accepted_abstract;
-    return typeof acceptedAbstract === 'string' ? [acceptedAbstract] : [];
+    return typeof answered.accepted_abstract === 'string' ? [answered.accepted_abstract] : [];
   });
 }
 
@@ -119,6 +119,47 @@ describe('present_digest supersession proof', () => {
 
     expect(toolNames(tail)).toEqual(['ask']);
     expect(digestPayloads(tail)).toEqual(['Product-minted accepted abstract for sweep capture.']);
+  });
+
+  it('normalizes the witnessed large-source correction into one final questionnaire carrier', () => {
+    const finalAbstract = 'The 17-node/11-edge source separates settled intent from advisory sketches.';
+    const entries = [
+      presentDigest('witness-draft', 'Initial source digest.'),
+      toolResult('ask', {
+        schema: 'brunch.structured_exchange.request',
+        v: 1,
+        exchange_id: 'feedback',
+        tool_meta: { curr: 'ask', next: 'capture_answer' },
+        question: { body: 'Does this sound right?' },
+        answered: { text: 'Separate observation from recommendation.' },
+      }),
+      presentDigest('witness-final', finalAbstract),
+      toolResult(
+        'ask',
+        projectDigestQuestionnaire({
+          exchangeId: 'witness-questionnaire',
+          acceptsDigest: 'witness-final',
+          acceptedAbstract: finalAbstract,
+          questions: [
+            { id: 'scope', kind: 'free-text', prompt: 'What scope should map?' },
+            {
+              id: 'settlement',
+              kind: 'single-select',
+              prompt: 'How should sketches route?',
+              options: [{ id: 'advisory', label: 'Advisory' }],
+            },
+          ],
+          answers: [
+            { questionId: 'scope', kind: 'free-text', text: 'Map the complete source.' },
+            { questionId: 'settlement', kind: 'single-select', optionId: 'advisory' },
+          ],
+        }),
+      ),
+    ];
+
+    const tail = projectCaptureSweepWindow(entries).conversationalTail;
+    expect(toolNames(tail)).toEqual(['ask', 'ask']);
+    expect(digestPayloads(tail)).toEqual([finalAbstract]);
   });
 
   it('does not feed cancelled digest offer payloads into the capture sweep', () => {

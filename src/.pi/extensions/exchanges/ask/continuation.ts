@@ -23,6 +23,7 @@ import {
 } from '../../../../exchanges/schemas/index.js';
 import { projectBrunchAgentState } from '../../../../projections/session/runtime-state.js';
 import type { LiveAskOpener } from '../../../../session/live-ask-registry.js';
+import { settleReviewSetResponse } from '../../../../session/review-set-settlement.js';
 import { createExchangeDecisionPickerComponent } from '../../../components/exchange-decision-picker.js';
 import { operationalModeBorderColor } from '../../../components/mode-border-theme.js';
 import {
@@ -31,10 +32,10 @@ import {
   BRUNCH_MODE_COMMAND,
   slashCommand,
 } from '../../commands/names.js';
+import type { ReviewSetStructuredExchangeDeps } from '../present-review-set.js';
 import { collectCommentRequirementStep, isBack, type StepResult } from '../shared/required-input.js';
 import { withWorkingIndicatorHidden, type StructuredExchangeUiContext } from '../shared/ui-context.js';
 
-const CONTINUE_STATUS_KEY = 'brunch.continue';
 const CONTINUE_COMMAND_HINT = slashCommand(BRUNCH_CONTINUE_COMMAND);
 const CONSULT_COMMAND_HINT = slashCommand(BRUNCH_CONSULT_COMMAND);
 const MODE_COMMAND_HINT = slashCommand(BRUNCH_MODE_COMMAND);
@@ -84,15 +85,11 @@ function terminal(
   return result(details, status === 'cancelled');
 }
 
-export function surfaceContinueHint(ctx: StructuredExchangeUiContext): void {
-  ctx.ui?.setStatus?.(
-    CONTINUE_STATUS_KEY,
+function notifyContinuationCancellation(ctx: StructuredExchangeUiContext): void {
+  ctx.ui?.notify?.(
     `Interrupted ask. Run ${CONTINUE_COMMAND_HINT} to resume, ${CONSULT_COMMAND_HINT} to choose a next move, or ${MODE_COMMAND_HINT} to switch roles.`,
+    'info',
   );
-}
-
-export function clearContinueHint(ctx: StructuredExchangeUiContext): void {
-  ctx.ui?.setStatus?.(CONTINUE_STATUS_KEY, undefined);
 }
 
 function askBorderColor(ctx: StructuredExchangeUiContext, theme: Pick<Theme, 'fg'>) {
@@ -104,7 +101,7 @@ function choicesFromParams(
   params: ContinuationCollectParams,
 ): readonly { readonly id: string; readonly label: string; readonly description?: string }[] {
   return [
-    ...params.options.map((option) => ({
+    ...(params.options ?? []).map((option) => ({
       id: option.id,
       label: option.label,
       ...(option.description ? { description: option.description } : {}),
@@ -123,7 +120,6 @@ async function presentSingleChoicePicker(
     custom<PickedSingleChoice | undefined>((_tui, theme, _keybindings, done) =>
       createExchangeDecisionPickerComponent({
         prompt: 'Choose one',
-        body: params.body,
         choices: choicesFromParams(params),
         ...(params.topLabel ? { topLabel: params.topLabel } : {}),
         ...(params.bottomLabel ? { bottomLabel: params.bottomLabel } : {}),
@@ -204,7 +200,9 @@ function continuingAskUnavailable(params: ContinuingAskParams, message: string):
 export async function collectContinuingAsk(
   params: ContinuingAskParams,
   ctx: StructuredExchangeUiContext,
+  signal: AbortSignal,
   liveAsk?: LiveAskOpener,
+  reviewDeps?: ReviewSetStructuredExchangeDeps,
 ): Promise<ToolResult> {
   const branch = ctx.sessionManager?.getBranch();
   if (!branch)
@@ -225,19 +223,53 @@ export async function collectContinuingAsk(
     );
   const declared = { exchangeId: params.continues, ...present.continuation.params };
   if (isDeclaredCandidatePresent(present))
-    return collectContinuingCandidateChoice(declared, present, ctx, liveAsk);
-  if (isDeclaredReviewPresent(present)) return collectContinuingReview(declared, present, ctx, liveAsk);
+    return collectContinuingCandidateChoice(declared, present, ctx, signal, liveAsk);
+  if (present.tool_meta.curr === 'present_digest')
+    return collectContinuingDigestFeedback(declared, ctx, signal, liveAsk);
+  if (isDeclaredReviewPresent(present))
+    return collectContinuingReview(declared, present, ctx, signal, liveAsk, reviewDeps);
   return present satisfies never;
+}
+
+async function collectContinuingDigestFeedback(
+  params: ContinuationCollectParams,
+  ctx: StructuredExchangeUiContext,
+  signal: AbortSignal,
+  liveAsk?: LiveAskOpener,
+): Promise<ToolResult> {
+  const question = askQuestionEcho(params);
+  let answer: string | undefined;
+  if (ctx.hasUI && typeof ctx.ui?.editor === 'function') {
+    answer = await withWorkingIndicatorHidden(ctx, () => ctx.ui!.editor!(params.body));
+  } else if (liveAsk) {
+    answer = await liveAsk.openAsk({ exchangeId: params.exchangeId, mode: 'text', question }, signal);
+  } else {
+    return terminal(params, 'unavailable', 'digest feedback requires interactive UI');
+  }
+  if (answer === undefined) {
+    notifyContinuationCancellation(ctx);
+    return terminal(params, 'cancelled');
+  }
+  const trimmed = answer.trim();
+  if (!trimmed) return terminal(params, 'unavailable', 'digest feedback cannot be empty');
+  const details = projectAsk({
+    exchangeId: params.exchangeId,
+    question,
+    status: 'answered',
+    answer: trimmed,
+  });
+  return result(details);
 }
 
 async function collectContinuingCandidateChoice(
   params: ContinuationCollectParams,
   present: PresentCandidatesDetails,
   ctx: StructuredExchangeUiContext,
+  signal: AbortSignal,
   liveAsk?: LiveAskOpener,
 ): Promise<ToolResult> {
   if (!ctx.hasUI || typeof ctx.ui?.custom !== 'function') {
-    if (liveAsk) return collectHeadlessCandidateChoice(params, present, ctx, liveAsk);
+    if (liveAsk) return collectHeadlessCandidateChoice(params, present, ctx, signal, liveAsk);
     return continuationTerminal(
       params,
       present,
@@ -247,10 +279,10 @@ async function collectContinuingCandidateChoice(
   }
   const picked = await presentSingleChoicePicker(params, ctx, ctx.ui.custom);
   if (!picked) {
-    surfaceContinueHint(ctx);
+    notifyContinuationCancellation(ctx);
     return continuationTerminal(params, present, 'cancelled');
   }
-  const option = params.options.find((choice) => choice.id === picked.id);
+  const option = params.options?.find((choice) => choice.id === picked.id);
   if (!option)
     return continuationTerminal(
       params,
@@ -265,7 +297,6 @@ async function collectContinuingCandidateChoice(
     choice: { id: option.id, label: option.label, kind: 'listed' },
     options: present.candidates.map((candidate) => ({ id: candidate.id, content: candidate.title })),
   });
-  clearContinueHint(ctx);
   return { content: [{ type: 'text', text: formatRequestChoice(details) }], details };
 }
 
@@ -277,18 +308,22 @@ async function collectHeadlessCandidateChoice(
   params: ContinuationCollectParams,
   present: PresentCandidatesDetails,
   ctx: StructuredExchangeUiContext,
+  signal: AbortSignal,
   liveAsk: LiveAskOpener,
 ): Promise<ToolResult> {
-  const answer = await liveAsk.openAsk({
-    exchangeId: params.exchangeId,
-    mode: 'single-select',
-    question: askQuestionEcho(params),
-  });
+  const answer = await liveAsk.openAsk(
+    {
+      exchangeId: params.exchangeId,
+      mode: 'single-select',
+      question: askQuestionEcho(params),
+    },
+    signal,
+  );
   if (answer === undefined) {
-    surfaceContinueHint(ctx);
+    notifyContinuationCancellation(ctx);
     return continuationTerminal(params, present, 'cancelled');
   }
-  const option = params.options.find((choice) => choice.id === answer);
+  const option = params.options?.find((choice) => choice.id === answer);
   if (!option)
     return continuationTerminal(params, present, 'unavailable', `ask received unknown option id ${answer}`);
   const details = projectRequestChoice({
@@ -298,7 +333,6 @@ async function collectHeadlessCandidateChoice(
     choice: { id: option.id, label: option.label, kind: 'listed' },
     options: present.candidates.map((candidate) => ({ id: candidate.id, content: candidate.title })),
   });
-  clearContinueHint(ctx);
   return { content: [{ type: 'text', text: formatRequestChoice(details) }], details };
 }
 
@@ -310,15 +344,20 @@ async function collectHeadlessReview(
   params: ContinuationCollectParams,
   present: PresentDigestDetails | PresentReviewSetDetails,
   ctx: StructuredExchangeUiContext,
+  signal: AbortSignal,
   liveAsk: LiveAskOpener,
+  reviewDeps?: ReviewSetStructuredExchangeDeps,
 ): Promise<ToolResult> {
-  const answer = await liveAsk.openAsk({
-    exchangeId: params.exchangeId,
-    mode: 'review',
-    question: askQuestionEcho(params),
-  });
+  const answer = await liveAsk.openAsk(
+    {
+      exchangeId: params.exchangeId,
+      mode: 'review',
+      question: askQuestionEcho(params),
+    },
+    signal,
+  );
   if (answer === undefined) {
-    surfaceContinueHint(ctx);
+    notifyContinuationCancellation(ctx);
     return continuationTerminal(params, present, 'cancelled');
   }
   const separator = answer.indexOf(':');
@@ -335,13 +374,31 @@ async function collectHeadlessReview(
   if (decision === 'request_changes' && comment === undefined) {
     return continuationTerminal(params, present, 'unavailable', 'Review request_changes requires a comment');
   }
+  if (present.tool_meta.curr === 'present_review_set') {
+    if (!reviewDeps)
+      return continuationTerminal(
+        params,
+        present,
+        'unavailable',
+        'review-set graph dependencies unavailable',
+      );
+    const settlement = settleReviewSetResponse({
+      persistedPresent: present,
+      decision,
+      comment,
+      specId: reviewDeps.specId,
+      commandExecutor: reviewDeps.commandExecutor,
+    });
+    if (settlement.status === 'structural_illegal')
+      return continuationTerminal(params, present, 'unavailable', 'Review-set settlement failed');
+    return { content: [{ type: 'text', text: settlement.content }], details: settlement.details };
+  }
   const details = continuationReviewDetails({
     present,
     exchangeId: params.exchangeId,
     review: decision,
     comment,
   });
-  clearContinueHint(ctx);
   return { content: [{ type: 'text', text: formatRequestReview(details) }], details };
 }
 
@@ -349,10 +406,12 @@ async function collectContinuingReview(
   params: ContinuationCollectParams,
   present: PresentDigestDetails | PresentReviewSetDetails,
   ctx: StructuredExchangeUiContext,
+  signal: AbortSignal,
   liveAsk?: LiveAskOpener,
+  reviewDeps?: ReviewSetStructuredExchangeDeps,
 ): Promise<ToolResult> {
   if (!ctx.hasUI || typeof ctx.ui?.custom !== 'function') {
-    if (liveAsk) return collectHeadlessReview(params, present, ctx, liveAsk);
+    if (liveAsk) return collectHeadlessReview(params, present, ctx, signal, liveAsk, reviewDeps);
     return continuationTerminal(
       params,
       present,
@@ -366,7 +425,6 @@ async function collectContinuingReview(
       custom<{ readonly id: ReviewDecision } | undefined>((_tui, theme, _keybindings, done) =>
         createExchangeDecisionPickerComponent({
           prompt: 'Review',
-          body: params.body,
           choices: choicesFromParams(params),
           theme,
           borderColor: askBorderColor(ctx, theme),
@@ -375,20 +433,44 @@ async function collectContinuingReview(
       ),
     );
     if (!selected) {
-      surfaceContinueHint(ctx);
+      notifyContinuationCancellation(ctx);
       return continuationTerminal(params, present, 'cancelled');
     }
     const collected = await collectContinuationReviewComment(params, selected.id, ctx);
     if (isBack(collected)) continue;
     if (collected.status === 'unavailable')
       return continuationTerminal(params, present, 'unavailable', collected.message);
+    if (present.tool_meta.curr === 'present_review_set') {
+      if (!reviewDeps)
+        return continuationTerminal(
+          params,
+          present,
+          'unavailable',
+          'review-set graph dependencies unavailable',
+        );
+      const settlement = settleReviewSetResponse({
+        persistedPresent: present,
+        decision: selected.id,
+        comment: collected.value.comment,
+        specId: reviewDeps.specId,
+        commandExecutor: reviewDeps.commandExecutor,
+      });
+      if (settlement.status === 'structural_illegal') {
+        return continuationTerminal(
+          params,
+          present,
+          'unavailable',
+          `Review-set settlement failed: ${settlement.diagnostics.map((item) => (typeof item.message === 'string' ? item.message : 'structural illegal')).join('; ')}`,
+        );
+      }
+      return { content: [{ type: 'text', text: settlement.content }], details: settlement.details };
+    }
     const details = continuationReviewDetails({
       present,
       exchangeId: params.exchangeId,
       review: selected.id,
       comment: collected.value.comment,
     });
-    clearContinueHint(ctx);
     return { content: [{ type: 'text', text: formatRequestReview(details) }], details };
   }
 }
@@ -456,5 +538,5 @@ export function collectAskContinuationResponse(
   exchangeId: string,
   ctx: StructuredExchangeUiContext,
 ): Promise<ToolResult> {
-  return collectContinuingAsk({ continues: exchangeId }, ctx);
+  return collectContinuingAsk({ continues: exchangeId }, ctx, new AbortController().signal);
 }

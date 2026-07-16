@@ -26,7 +26,7 @@
     { "local_id": 23, "plane": "design", "kind": "entity", "title": "Preview fixture record", "basis": "explicit", "source": "fixture" },
     { "local_id": 24, "plane": "design", "kind": "sketch", "title": "Renderer output sketch", "basis": "explicit", "source": "fixture" },
     { "local_id": 18, "plane": "plan", "kind": "milestone", "title": "Cross-cut render feedback loop", "basis": "explicit", "source": "fixture" },
-    { "local_id": 19, "plane": "plan", "kind": "frontier", "title": "Preview harness slice", "basis": "explicit", "source": "fixture" },
+    { "local_id": 19, "plane": "plan", "kind": "frontier", "title": "Preview harness frontier", "basis": "explicit", "source": "fixture" },
     { "local_id": 20, "plane": "plan", "kind": "frontier", "title": "Lock one neighborhood preview", "basis": "explicit", "source": "fixture" },
     { "local_id": 25, "plane": "plan", "kind": "scope", "title": "Neighborhood preview handoff", "basis": "explicit", "source": "fixture" }
   ],

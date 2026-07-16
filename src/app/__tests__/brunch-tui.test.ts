@@ -124,6 +124,7 @@ describe('Brunch TUI boot', () => {
               needsNewSpec: false,
               specs: [],
               unavailableSessions: [],
+              workspacePopulated: false,
             }),
             activateWorkspace: async () => workspace,
             bindCurrentSpecToReplacementSession: async () => workspace,
@@ -164,6 +165,7 @@ describe('Brunch TUI boot', () => {
             needsNewSpec: false,
             specs: [],
             unavailableSessions: [],
+            workspacePopulated: false,
           };
         },
         activateWorkspace: async (decision) => {
@@ -413,6 +415,7 @@ describe('Brunch TUI boot', () => {
             needsNewSpec: false,
             specs: [],
             unavailableSessions: [],
+            workspacePopulated: false,
           };
         },
         activateWorkspace: async (decision) => {
@@ -475,6 +478,7 @@ describe('Brunch TUI boot', () => {
           needsNewSpec: false,
           specs: [],
           unavailableSessions: [],
+          workspacePopulated: false,
         }),
         activateWorkspace: async () => workspace,
         bindCurrentSpecToReplacementSession: async () => workspace,
@@ -503,6 +507,7 @@ describe('Brunch TUI boot', () => {
           needsNewSpec: false,
           specs: [],
           unavailableSessions: [],
+          workspacePopulated: false,
         }),
         activateWorkspace: async () => workspace,
         bindCurrentSpecToReplacementSession: async () => workspace,
@@ -626,6 +631,7 @@ describe('Brunch TUI boot', () => {
           needsNewSpec: false,
           specs: [],
           unavailableSessions: [],
+          workspacePopulated: false,
         }),
         activateWorkspace: async () => workspace,
         bindCurrentSpecToReplacementSession: async () => workspace,
@@ -673,6 +679,7 @@ describe('Brunch TUI boot', () => {
           needsNewSpec: false,
           specs: [],
           unavailableSessions: [],
+          workspacePopulated: false,
         }),
         activateWorkspace: async () => workspace,
         bindCurrentSpecToReplacementSession: async () => workspace,
@@ -726,6 +733,7 @@ describe('Brunch TUI boot', () => {
             needsNewSpec: false,
             specs: [],
             unavailableSessions: [],
+            workspacePopulated: false,
           };
         },
         activateWorkspace: async () => {
@@ -1911,7 +1919,13 @@ async function writeHostilePiSettings(cwd: string, agentDir: string): Promise<vo
 }
 
 function readyWorkspace(cwd: string, sessionId: string): WorkspaceSessionReadyState {
-  const spec = { id: 1, title: 'Spec One' };
+  const spec = {
+    id: 1,
+    title: 'Spec One',
+    kind: 'product',
+    origin: 'greenfield',
+    relatesToSpecId: null,
+  } as const;
   return {
     status: 'ready',
     cwd,
@@ -1936,6 +1950,7 @@ function emptyInventory(cwd: string): WorkspaceLaunchInventory {
     needsNewSpec: true,
     specs: [],
     unavailableSessions: [],
+    workspacePopulated: false,
   };
 }
 
@@ -1960,6 +1975,7 @@ function inventoryWithWorkspace(workspace: WorkspaceSessionReadyState): Workspac
       },
     ],
     unavailableSessions: [],
+    workspacePopulated: false,
   };
 }
 

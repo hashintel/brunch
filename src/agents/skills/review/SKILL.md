@@ -25,7 +25,7 @@ chain review
 - Checking whether current selected-spec material is coherent enough to trust.
 - Surfacing unresolved gaps, conflicts, weak support, or verification debt.
 - Helping the user judge whether to proceed, revise, gather more information, or reject a proposal.
-- Stressing a local requirement, design seam, oracle story, or plan slice for weak spots.
+- Stressing a local requirement, design seam, oracle story, or plan scope for weak spots.
 
 ## Do Not Use It For
 
@@ -42,7 +42,7 @@ chain review
 | intent | goals with no requirements; requirements with no examples/criteria; high-fanout assumptions; decisions without rejected alternatives or rationale; conflicting boundaries; weak category support masquerading as certainty | ask one clarifier, propose a reviewable repair, or route accepted conflicts to reconciliation |
 | design | unclear ownership; leaky interfaces; unbacked realization edges; dependency direction contradicting the module boundary; design claims with no accepted intent anchor; two modules owning the same fact; implementation preference posing as requirement | ask for boundary intent, mutation/projection owner, or hidden information; propose design alternatives; or route a graph repair through review-set drafting |
 | oracle | claims without observation; criteria without target behavior; obligations without evidence; fixtures/probes with no replay commitment; blind spots hidden by one oracle family; metrics with no claim they validate | ask what observation discriminates success from failure, propose oracle ensembles, ask for evidence, or route verification debt to graph/scratchpad handling |
-| plan | slices detached from claims/design/oracles; dependency order hiding risk; done definitions with no witness; handoff/recovery gaps | revise plan material or ask for the smallest missing proof |
+| plan | scopes detached from claims/design/oracles; dependency order hiding risk; done definitions with no witness; handoff/recovery gaps | revise plan material or ask for the smallest missing proof |
 
 ## Finding classes
 

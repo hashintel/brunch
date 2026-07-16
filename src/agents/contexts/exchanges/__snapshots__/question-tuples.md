@@ -47,9 +47,7 @@ Make it clear.
 
 > Answer in the vocabulary of the current Brunch session.
 
-## Response
-
-_User cancelled the request._
+**Cancelled** — The user declined to answer. Read this as wanting to change direction or reply in free text.
 
 # unavailable single-choice
 

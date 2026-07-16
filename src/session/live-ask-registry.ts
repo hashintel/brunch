@@ -1,4 +1,8 @@
-import type { AskQuestionEcho } from '../exchanges/schemas/index.js';
+import {
+  zQuestionnaireSubmissionFor,
+  type AskQuestionEcho,
+  type QuestionnaireQuestion,
+} from '../exchanges/schemas/index.js';
 import type { LiveExchangeAnswerer, LiveExchangeAwaiter } from './live-exchange-broker.js';
 
 /**
@@ -15,12 +19,12 @@ import type { LiveExchangeAnswerer, LiveExchangeAwaiter } from './live-exchange-
  * `closed` rather than hanging.
  */
 
-export type OpenAskMode = 'text' | 'single-select' | 'multi-select' | 'review';
+export type OpenAskMode = 'text' | 'single-select' | 'multi-select' | 'questionnaire' | 'review';
 
 export interface OpenAsk {
   readonly exchangeId: string;
   readonly mode: OpenAskMode;
-  readonly question: AskQuestionEcho;
+  readonly question: AskQuestionEcho & { readonly questions?: readonly QuestionnaireQuestion[] };
 }
 
 export type AskLifecycleState = 'open' | 'answered' | 'cancelled' | 'closed';
@@ -36,7 +40,7 @@ export interface LiveAskOpener {
    * Resolves to the answer string on submit, or `undefined` when the ask is
    * cancelled (matching the broker's cancellation channel).
    */
-  openAsk(ask: OpenAsk): Promise<string | undefined>;
+  openAsk(ask: OpenAsk, signal: AbortSignal): Promise<string | undefined>;
 }
 
 export interface LiveAskRegistry {
@@ -51,6 +55,7 @@ export interface LiveAskRegistry {
 interface PendingEntry {
   readonly resolve: (answer: string | undefined) => void;
   readonly ask?: OpenAsk;
+  readonly cleanup?: () => void;
 }
 
 export function createLiveAskRegistry(): LiveAskRegistry {
@@ -60,12 +65,27 @@ export function createLiveAskRegistry(): LiveAskRegistry {
   // long-lived headless session should bound this to a rolling window.
   const terminal = new Map<string, Extract<AskLifecycleState, 'answered' | 'cancelled'>>();
 
-  function register(exchangeId: string, ask?: OpenAsk): Promise<string | undefined> {
+  function register(exchangeId: string, ask?: OpenAsk, signal?: AbortSignal): Promise<string | undefined> {
     if (pending.has(exchangeId)) {
       throw new Error(`Live exchange is already pending: ${exchangeId}`);
     }
+    if (signal?.aborted) {
+      terminal.set(exchangeId, 'cancelled');
+      return Promise.resolve(undefined);
+    }
     return new Promise<string | undefined>((resolve) => {
-      pending.set(exchangeId, ask ? { resolve, ask } : { resolve });
+      if (!signal) {
+        pending.set(exchangeId, ask ? { resolve, ask } : { resolve });
+        return;
+      }
+      const onAbort = () => settle(exchangeId, 'cancelled', undefined);
+      pending.set(exchangeId, {
+        resolve,
+        ...(ask ? { ask } : {}),
+        cleanup: () => signal.removeEventListener('abort', onAbort),
+      });
+      signal.addEventListener('abort', onAbort, { once: true });
+      if (signal.aborted) settle(exchangeId, 'cancelled', undefined);
     });
   }
 
@@ -77,6 +97,7 @@ export function createLiveAskRegistry(): LiveAskRegistry {
     // listed as open.
     pending.delete(exchangeId);
     terminal.set(exchangeId, state);
+    entry.cleanup?.();
     entry.resolve(answer);
   }
 
@@ -88,14 +109,26 @@ export function createLiveAskRegistry(): LiveAskRegistry {
     },
     answerer: {
       submitAnswer({ exchangeId, answer }) {
-        if (!pending.has(exchangeId)) return { submitted: false, reason: 'no_pending_exchange' };
+        const entry = pending.get(exchangeId);
+        if (!entry) return { submitted: false, reason: 'no_pending_exchange' };
+        if (entry.ask?.mode === 'questionnaire') {
+          try {
+            if (
+              !entry.ask.question.questions ||
+              !zQuestionnaireSubmissionFor(entry.ask.question.questions).safeParse(JSON.parse(answer)).success
+            )
+              return { submitted: false, reason: 'invalid_answer' };
+          } catch {
+            return { submitted: false, reason: 'invalid_answer' };
+          }
+        }
         settle(exchangeId, 'answered', answer);
         return { submitted: true };
       },
     },
     opener: {
-      openAsk(ask) {
-        return register(ask.exchangeId, ask);
+      openAsk(ask, signal) {
+        return register(ask.exchangeId, ask, signal);
       },
     },
     reader: {

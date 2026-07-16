@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { askQuestionEcho, projectAsk } from '../../../../exchanges/projections/ask.js';
 import { zAskDetails } from '../../../../exchanges/schemas/index.js';
 import { ASK_CONTENT_ELISIONS, formatAsk } from '../ask.js';
+import { CANCELLED_TERMINAL } from '../option-echo.js';
 import { missingRenderedDetailsLeaves } from '../render-honesty.js';
 
 const OPTIONS = [
@@ -105,6 +106,11 @@ describe('ask formatter', () => {
       '**Comment prompt:** Anything else the record should remember?',
     );
     expect(formatAsk(otherChoiceDetails)).toContain('**Other prompt:** Describe your answer');
+  });
+
+  it('renders cancellation as a labeled, self-describing next-turn signal', () => {
+    expect(formatAsk(cancelledDetails).split('\n\n').at(-1)).toBe(CANCELLED_TERMINAL);
+    expect(formatAsk(cancelledDetails)).not.toMatch(/\n_[^\n]+_$/u);
   });
 
   it('produces schema-valid details for every projected ask outcome branch', () => {

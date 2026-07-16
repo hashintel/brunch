@@ -14,8 +14,8 @@ function message(role: string, content: string): TranscriptEntryLike {
   return { type: 'message', message: { role, content } };
 }
 
-function toolResult(toolName: string): TranscriptEntryLike {
-  return { type: 'message', message: { role: 'toolResult', toolName, details: { ok: true } } };
+function toolResult(toolName: string, details: unknown = { ok: true }): TranscriptEntryLike {
+  return { type: 'message', message: { role: 'toolResult', toolName, details } };
 }
 
 function custom(customType: string, data: Record<string, unknown> = {}): TranscriptEntryLike {
@@ -98,6 +98,42 @@ describe('capture sweep watermark projection', () => {
     ];
 
     expect(projectCaptureSweepWindow(entries).conversationalTail).toEqual([entries[2], entries[3]]);
+  });
+
+  it('keeps digest carrier negative space free of feedback, superseded, cancelled, incomplete, stale, and duplicate payloads', () => {
+    const terminal = (exchange_id: string, outcome: Record<string, unknown>) =>
+      toolResult('ask', {
+        schema: 'brunch.structured_exchange.request',
+        v: 1,
+        exchange_id,
+        tool_meta: { curr: 'ask' },
+        question: { body: 'Digest questionnaire' },
+        ...outcome,
+      });
+    const accepted = terminal('questionnaire-final', {
+      tool_meta: { curr: 'ask', next: 'capture_answer' },
+      accepts_digest: 'digest-final',
+      questionnaire: [],
+      answered: { submitted: true, accepted_abstract: 'Only this final abstract is capture-authoritative.' },
+    });
+    const entries = [
+      marker(),
+      terminal('feedback', { answered: { text: 'Correct the draft.' } }),
+      toolResult('present_digest', { exchange_id: 'digest-superseded', digest: { abstract: 'Superseded.' } }),
+      terminal('cancelled', { cancelled: {} }),
+      terminal('incomplete', { unavailable: { message: 'missing answer' } }),
+      terminal('stale', { accepts_digest: 'digest-superseded', cancelled: {} }),
+      accepted,
+    ];
+    const tail = projectCaptureSweepWindow(entries).conversationalTail;
+    const payloads = tail.flatMap((entry) => {
+      const details = (entry.message as { details?: Record<string, unknown> } | undefined)?.details;
+      const answered = details?.answered as { submitted?: unknown; accepted_abstract?: unknown } | undefined;
+      return answered?.submitted === true && typeof answered.accepted_abstract === 'string'
+        ? [answered.accepted_abstract]
+        : [];
+    });
+    expect(payloads).toEqual(['Only this final abstract is capture-authoritative.']);
   });
 
   it('advances with a sweep marker so the conversational tail is empty while background may remain behind it', () => {

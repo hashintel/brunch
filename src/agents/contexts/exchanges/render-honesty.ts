@@ -45,11 +45,29 @@ export function missingRenderedDetailsLeaves(
  */
 function valueAppearsRendered(value: string, renderedText: string): boolean {
   if (renderedText.includes(value)) return true;
+  if (appearsWithWhitespacePreserved(value, renderedText)) return true;
   const lines = value
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
   return lines.length > 1 && linesAppearInOwnedSpan(lines, renderedText);
+}
+
+/**
+ * A table may replace spaces inside one logical cell with a newline plus column
+ * indentation. Match those whitespace runs without deleting them: every
+ * non-whitespace character must remain present and ordered, so missing,
+ * reordered, partial, or concatenated words still fail honesty.
+ */
+function appearsWithWhitespacePreserved(value: string, renderedText: string): boolean {
+  const runs = value.split(/\s+/).filter(Boolean);
+  if (runs.length < 2) return false;
+  const pattern = runs.map(escapeRegExp).join('\\s+');
+  return new RegExp(pattern, 'u').test(renderedText);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function linesAppearInOwnedSpan(lines: readonly string[], renderedText: string): boolean {

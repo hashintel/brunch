@@ -65,7 +65,7 @@ REQ17: Each phase exposes explicit kickoff/frontier/recovery/handoff affordances
     depends on A4: users will tolerate visible phase state
   dependents:
     implemented by MOD5: phase affordance renderer
-    establishes S13: open-phase artifact slice
+    establishes SCP13: open-phase artifact scope
   evidence:
     witnessed by AC13: open phases bottom-load one visible artifact
     challenged by EX4: cancelled interview with no handoff artifact

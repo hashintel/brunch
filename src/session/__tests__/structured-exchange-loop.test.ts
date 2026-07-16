@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { askQuestionEcho, projectAsk } from '../../exchanges/projections/ask.js';
 import { projectPresentDigest } from '../../exchanges/projections/present-digest.js';
 import { nextDeterministicStructuredExchange } from '../../probes/deterministic-exchange-script.js';
 import type { BrunchSessionEnvelope } from '../brunch-session-envelope.js';
@@ -44,7 +45,7 @@ describe('structured exchange loop helpers', () => {
     ).toEqual({ ok: false, message: 'Elicitation response requires answer text' });
   });
 
-  it('materializes accepted text responses as ask tool results', () => {
+  it('uses registered ask identity for accepted text tuples while preserving request details', () => {
     const pending = nextDeterministicStructuredExchange(1);
 
     const accepted = acceptedResponseFromParams(pending, {
@@ -55,8 +56,12 @@ describe('structured exchange loop helpers', () => {
     expect(accepted).toMatchObject({
       ok: true,
       answer: { text: 'A local product specification workspace.' },
+      toolCallMessage: {
+        content: [{ id: `${pending.exchangeId}__ask`, name: 'ask' }],
+      },
       toolResultMessage: {
         role: 'toolResult',
+        toolCallId: `${pending.exchangeId}__ask`,
         toolName: 'ask',
         content: [{ text: '## Answer\n\nA local product specification workspace.' }],
         details: {
@@ -118,26 +123,6 @@ describe('structured exchange loop helpers', () => {
       },
     });
     expect(JSON.stringify(accepted)).not.toContain('present_question');
-  });
-
-  it('rejects non-candidate single-select answers instead of minting retired present vocabulary', () => {
-    const pending = {
-      ...nextDeterministicStructuredExchange(0),
-      respondsToPresentTool: 'present_question',
-    } satisfies PendingStructuredExchange;
-
-    const accepted = acceptedResponseFromParams(pending, {
-      exchangeId: pending.exchangeId,
-      answer: { optionId: 'new-from-scratch' },
-      note: 'This legacy question should not be relabeled.',
-    });
-
-    expect(accepted).toEqual({
-      ok: false,
-      message:
-        'Single-select answers are only supported for present_candidates or standalone ask; got present_question',
-    });
-    expect(JSON.stringify(accepted)).not.toContain('request_choice');
   });
 
   it('rejects single-select Other or None without a comment', () => {
@@ -310,7 +295,16 @@ describe('structured exchange loop helpers', () => {
     });
   });
 
-  it('reconstructs a review-mode pending exchange from present_digest details', () => {
+  it('preserves local-versus-RPC digest terminal question parity', () => {
+    const present = projectPresentDigest({
+      exchangeId: 'digest-cycle',
+      heading: 'Review source digest',
+      body: 'Approve before mapping.',
+      digest: {
+        abstract: 'The source asks for advisory capture before settlement.',
+        analysis: 'The feedback question must retain this context.',
+      },
+    });
     const envelope: BrunchSessionEnvelope = {
       header: header as unknown as BrunchSessionEnvelope['header'],
       binding,
@@ -327,26 +321,44 @@ describe('structured exchange loop helpers', () => {
             toolCallId: 'present-digest-call-1',
             toolName: 'present_digest',
             content: [{ type: 'text', text: '# Review source digest\n\nApprove before mapping.' }],
-            details: projectPresentDigest({
-              exchangeId: 'digest-cycle',
-              heading: 'Review source digest',
-              body: 'Approve before mapping.',
-              digest: { abstract: 'The source asks for advisory capture before settlement.' },
-            }).details,
+            details: present.details,
             isError: false,
           },
         },
       ] as unknown as BrunchSessionEnvelope['entries'],
     };
 
-    expect(pendingExchangeFromEnvelope(envelope)).toMatchObject({
+    const pending = pendingExchangeFromEnvelope(envelope);
+    expect(pending).toMatchObject({
       exchangeId: 'digest-cycle',
-      mode: 'review',
-      prompt: 'Review source digest',
+      mode: 'text',
       respondsToPresentTool: 'present_digest',
       digestAbstract: 'The source asks for advisory capture before settlement.',
-      options: expect.arrayContaining([{ id: 'approve', label: 'Approve', content: 'Approve' }]),
+      options: [],
     });
+
+    const rpcTerminal = acceptedResponseFromParams(pending!, {
+      exchangeId: 'digest-cycle',
+      answer: { text: 'The digest is accurate.' },
+    });
+    const continuation = present.details.continuation;
+    if (!continuation) throw new Error('projected digest must declare its ask continuation');
+    const localTerminal = projectAsk({
+      exchangeId: 'digest-cycle',
+      question: askQuestionEcho({ body: continuation.params.body }),
+      status: 'answered',
+      answer: 'The digest is accurate.',
+    });
+
+    expect(rpcTerminal).toMatchObject({
+      ok: true,
+      toolResultMessage: {
+        details: { question: localTerminal.question },
+      },
+    });
+    expect(JSON.stringify(localTerminal.question)).toContain(
+      'The feedback question must retain this context.',
+    );
   });
 
   it('does not reconstruct a pending digest exchange from a blank abstract carrier', () => {
@@ -491,70 +503,6 @@ describe('structured exchange loop helpers', () => {
           },
         },
       },
-    });
-  });
-
-  it('reconstructs pending options from canonical structured present details', () => {
-    const envelope: BrunchSessionEnvelope = {
-      header: header as unknown as BrunchSessionEnvelope['header'],
-      binding,
-      entries: [
-        header,
-        bindingEntry,
-        {
-          id: 'present-options-1',
-          type: 'message',
-          parentId: 'binding-1',
-          timestamp: 0,
-          message: {
-            role: 'toolResult',
-            toolCallId: 'present-call-1',
-            toolName: 'present_question',
-            content: [
-              {
-                type: 'text',
-                text: [
-                  '# Choose proof quality',
-                  '',
-                  '## 1. Transcript fidelity',
-                  '',
-                  '**Rationale:** Pi JSONL keeps truth recoverable.',
-                ].join('\n'),
-              },
-            ],
-            details: {
-              schema: 'brunch.structured_exchange.present',
-              v: 1,
-              exchange_id: 'quality',
-              tool_meta: { curr: 'present_question', next: 'request_response' },
-              response_kind: 'choice',
-              display: { heading: 'Choose proof quality' },
-              options: [
-                {
-                  id: 'transcript',
-                  content: 'Transcript fidelity',
-                  rationale: 'Pi JSONL keeps truth recoverable.',
-                },
-              ],
-            },
-            isError: false,
-          },
-        },
-      ] as unknown as BrunchSessionEnvelope['entries'],
-    };
-
-    expect(pendingExchangeFromEnvelope(envelope)).toMatchObject({
-      exchangeId: 'quality',
-      mode: 'single-select',
-      prompt: 'Choose proof quality',
-      options: [
-        {
-          id: 'transcript',
-          label: 'Transcript fidelity',
-          content: 'Transcript fidelity',
-          rationale: 'Pi JSONL keeps truth recoverable.',
-        },
-      ],
     });
   });
 

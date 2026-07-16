@@ -93,7 +93,7 @@ export function nextStageAfterTitle(
 ): WorkspaceSelectionStage {
   const asks = decideSpecEstablishmentAsks({
     currentOrigin: null,
-    workspacePopulated: inventory.workspacePopulated ?? false,
+    workspacePopulated: inventory.workspacePopulated,
   });
   const pending = { action: 'newSpec', title } as const;
   return asks[0] === 'confirmKind'
@@ -107,17 +107,13 @@ const SPEC_KIND_LABELS: Record<SpecKind, string> = {
   function: 'Function — a focused verification area',
 };
 
-function flipOrigin(origin: SpecOrigin): SpecOrigin {
-  return origin === 'greenfield' ? 'brownfield' : 'greenfield';
-}
-
 /** The shared D118-L origin ask/confirm — one wording for create and resume. */
 function originConfirmViewParts(
   inventory: WorkspaceLaunchInventory,
   decisionFor: (origin: SpecOrigin) => SpecSessionActivationDecision,
 ): Pick<WorkspaceSelectionView, 'title' | 'options'> {
-  const inferred = inferredOriginFor({ workspacePopulated: inventory.workspacePopulated ?? false });
-  const flipped = flipOrigin(inferred);
+  const inferred = inferredOriginFor({ workspacePopulated: inventory.workspacePopulated });
+  const flipped: SpecOrigin = inferred === 'greenfield' ? 'brownfield' : 'greenfield';
   return {
     title:
       inferred === 'brownfield'
@@ -153,7 +149,7 @@ function resumeRouting(
   const spec = findSpec(inventory, decision.specId);
   const asks = decideSpecEstablishmentAsks({
     currentOrigin: spec?.spec.origin ?? null,
-    workspacePopulated: inventory.workspacePopulated ?? false,
+    workspacePopulated: inventory.workspacePopulated,
   });
   if (asks.length === 0) return { decision };
   return {

@@ -70,6 +70,4 @@ The digest preserves the distinction between source-derived material and committ
 ## Recommendation
 Approve once the source constraints are accurately represented.
 
-## Review
-
-_User cancelled the review request._
+**Cancelled** — The user declined to answer. Read this as wanting to change direction or reply in free text.

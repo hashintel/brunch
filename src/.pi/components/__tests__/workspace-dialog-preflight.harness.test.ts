@@ -35,12 +35,12 @@ describe('workspace dialog preflight harness', () => {
 function inventory(): WorkspaceLaunchInventory {
   return {
     cwd: '/project',
-    currentSpec: { id: 1, title: 'Alpha' },
+    currentSpec: { id: 1, title: 'Alpha', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
     currentSessionFile: '/sessions/alpha-current.jsonl',
     needsNewSpec: false,
     specs: [
       {
-        spec: { id: 1, title: 'Alpha', origin: 'greenfield' },
+        spec: { id: 1, title: 'Alpha', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
         sessions: [
           {
             id: 'session-alpha-current',
@@ -59,7 +59,7 @@ function inventory(): WorkspaceLaunchInventory {
         ],
       },
       {
-        spec: { id: 2, title: 'Beta', origin: 'greenfield' },
+        spec: { id: 2, title: 'Beta', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
         sessions: [
           {
             id: 'session-beta',
@@ -72,5 +72,6 @@ function inventory(): WorkspaceLaunchInventory {
       },
     ],
     unavailableSessions: [],
+    workspacePopulated: false,
   };
 }

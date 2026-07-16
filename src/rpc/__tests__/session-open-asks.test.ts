@@ -22,11 +22,14 @@ describe('session.openAsks public RPC read method', () => {
   it('discovers open asks with their full question payload when the registry handle is attached', async () => {
     const { cwd, coordinator } = await coordinatorInTmp();
     const registry = createLiveAskRegistry();
-    void registry.opener.openAsk({
-      exchangeId: 'grounding',
-      mode: 'single-select',
-      question: { body: 'Where do we start?', options: [{ id: 'scratch', label: 'From scratch' }] },
-    });
+    void registry.opener.openAsk(
+      {
+        exchangeId: 'grounding',
+        mode: 'single-select',
+        question: { body: 'Where do we start?', options: [{ id: 'scratch', label: 'From scratch' }] },
+      },
+      new AbortController().signal,
+    );
 
     const handlers = createWebSidecarRpcHandlers({
       coordinator,
@@ -55,7 +58,10 @@ describe('session.openAsks public RPC read method', () => {
   it('rejects params and reflects answered asks dropping out of discovery', async () => {
     const { cwd, coordinator } = await coordinatorInTmp();
     const registry = createLiveAskRegistry();
-    void registry.opener.openAsk({ exchangeId: 'q1', mode: 'text', question: { body: 'One?' } });
+    void registry.opener.openAsk(
+      { exchangeId: 'q1', mode: 'text', question: { body: 'One?' } },
+      new AbortController().signal,
+    );
     const handlers = createWebSidecarRpcHandlers({
       coordinator,
       cwd,

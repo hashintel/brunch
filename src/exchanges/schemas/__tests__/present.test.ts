@@ -137,7 +137,7 @@ describe('structured exchange present schemas', () => {
         exchange_id: 'digest-large-source',
         tool_meta: { curr: 'present_digest', next: 'ask' },
         display: { heading: 'Review source digest' },
-        continuation: askReviewContinuation('Review source digest'),
+        continuation: { tool: 'ask', params: { body: 'Review source digest' } },
         digest: {
           abstract: 'The source says summarize before graph mapping.',
           analysis: 'The digest is source-derived review input, not graph truth.',
@@ -148,6 +148,50 @@ describe('structured exchange present schemas', () => {
     expect(zPresentDetails.parse(candidateDetails)).toMatchObject({
       tool_meta: { curr: 'present_candidates' },
     });
+  });
+
+  it('requires options for candidate and review-set continuations while allowing free-text digest feedback', () => {
+    const optionlessContinuation = { tool: 'ask' as const, params: { body: 'Respond to this offer.' } };
+
+    expect(
+      zPresentDigestDetails.safeParse({
+        schema: 'brunch.structured_exchange.present',
+        v: 1,
+        exchange_id: 'digest-feedback',
+        tool_meta: { curr: 'present_digest', next: 'ask' },
+        display: { heading: 'Review source digest' },
+        continuation: optionlessContinuation,
+        digest: { abstract: 'A source-derived summary.' },
+      }).success,
+    ).toBe(true);
+    expect(
+      zPresentCandidatesDetails.safeParse({
+        ...candidateDetails,
+        continuation: optionlessContinuation,
+      }).success,
+    ).toBe(false);
+    expect(
+      zPresentReviewSetDetails.safeParse({
+        schema: 'brunch.structured_exchange.present',
+        v: 1,
+        exchange_id: 'review-set-optionless',
+        tool_meta: { curr: 'present_review_set', next: 'ask' },
+        display: { heading: 'Review proposed requirements' },
+        continuation: optionlessContinuation,
+        review_set: {
+          nodes: [
+            {
+              draft_id: 'req-approval',
+              proposed_code: 'REQ1',
+              plane: 'intent',
+              kind: 'requirement',
+              title: 'Approval is atomic',
+            },
+          ],
+          edges: [],
+        },
+      }).success,
+    ).toBe(false);
   });
 
   it('rejects blank digest abstracts at the present boundary', () => {

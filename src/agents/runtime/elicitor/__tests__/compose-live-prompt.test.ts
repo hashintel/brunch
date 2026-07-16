@@ -55,6 +55,18 @@ describe('composeLiveElicitorPrompt', () => {
     expect(result.prompt).toContain('Use multi-select when options are not mutually exclusive');
   });
 
+  it('keeps scratchpad obligations private in ordinary user-facing prose', () => {
+    const result = composeLiveElicitorPrompt({
+      sessionState: projectBrunchAgentState([]),
+      spec: { id: 42, name: 'Live Assembly Spec' },
+      workspace,
+    });
+
+    expect(result.prompt).toContain('private working state');
+    expect(result.prompt).toContain('Do not routinely enumerate');
+    expect(result.prompt).toContain('unless the user explicitly asks');
+  });
+
   it('carries ingest and map routing resources in the active foreground manifest', () => {
     const result = composeLiveElicitorPrompt({
       sessionState: projectBrunchAgentState([]),

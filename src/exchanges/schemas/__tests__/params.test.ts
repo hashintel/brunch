@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as z from 'zod';
 
 import {
+  parseAskParams,
   zPresentCandidatesParams,
   zPresentDigestParams,
   zAskParams,
@@ -166,6 +167,28 @@ describe('structured exchange present params', () => {
 });
 
 describe('structured exchange ask params', () => {
+  it('keeps the provider schema object-rooted without top-level union keywords', () => {
+    const schema = z.toJSONSchema(zAskParams, { unrepresentable: 'throw' }) as Record<string, unknown>;
+
+    expect(schema.type).toBe('object');
+    expect(schema).not.toHaveProperty('oneOf');
+    expect(schema).not.toHaveProperty('anyOf');
+    expect(schema).not.toHaveProperty('allOf');
+  });
+
+  it('parses provider parameters into semantic standalone and continuation variants', () => {
+    const standalone = parseAskParams({ exchangeId: 'direction', body: 'Choose.' });
+    const continuation = parseAskParams({ continues: 'offer-1', preface: 'Following up.' });
+
+    expect(standalone.success && standalone.data).toEqual({ exchangeId: 'direction', body: 'Choose.' });
+    if (!continuation.success) throw new Error(continuation.error.message);
+    expect(continuation.data).toEqual({
+      continues: 'offer-1',
+      preface: 'Following up.',
+    });
+    expect(parseAskParams({ continues: 'offer-1', body: 'Do not override.' }).success).toBe(false);
+  });
+
   it('parses one-shot ask body/options and rejects blank body plus reserved option ids', () => {
     expect(
       zAskParams.parse({

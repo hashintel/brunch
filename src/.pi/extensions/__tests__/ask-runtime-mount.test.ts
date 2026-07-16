@@ -2,6 +2,7 @@ import { type KeybindingsManager, type Theme } from '@earendil-works/pi-coding-a
 import { type Component, TUI } from '@earendil-works/pi-tui';
 import { describe, expect, it, vi } from 'vitest';
 
+import { projectPresentDigest } from '../../../exchanges/projections/present-digest.js';
 import { zAskDetails } from '../../../exchanges/schemas/index.js';
 import { appendBrunchAgentRuntimeSwitch } from '../../../session/runtime-state.js';
 import { createTestLabTheme } from '../../__tests__/support/tui-theme.js';
@@ -262,6 +263,222 @@ describe('ask runtime mount contract', () => {
     expect(input).toHaveBeenCalledExactlyOnceWith('Required comment', undefined);
     expect(custom).toHaveBeenCalledOnce();
     expectBracketedWorkingIndicator(setWorkingVisible);
+  });
+
+  it('collects a digest questionnaire in one mounted terminal with Back, Next, and final Submit', async () => {
+    const setWorkingVisible = vi.fn();
+    const digest = projectPresentDigest({
+      exchangeId: 'digest-final',
+      heading: 'Digest',
+      digest: { abstract: 'Runtime-owned final abstract.' },
+    });
+    const entries = [
+      {
+        type: 'message',
+        message: { role: 'toolResult', toolName: 'present_digest', details: digest.details },
+      },
+    ];
+    const custom = mountedCustom({
+      assertViewport: (viewport) => {
+        expect(viewport).toContain('Question 1 of 2');
+        expect(viewport).toContain('Next');
+      },
+      script: async (terminal) => {
+        terminal.sendInput('First answer');
+        terminal.sendInput('\r');
+        await terminal.waitForRender();
+        expect(terminal.getViewport().join('\n')).toContain('Back (←) · Submit');
+        terminal.sendInput('\x1b[D');
+        await terminal.waitForRender();
+        expect(terminal.getViewport().join('\n')).toContain('First answer');
+        terminal.sendInput('\r');
+        terminal.sendInput('\x1b[B');
+        terminal.sendInput('\r');
+      },
+    });
+
+    const result = await executeAsk(
+      {
+        exchangeId: 'digest-questionnaire',
+        acceptsDigest: 'digest-final',
+        questions: [
+          { id: 'why', kind: 'free-text', prompt: 'Why now?' },
+          {
+            id: 'route',
+            kind: 'single-select',
+            prompt: 'Which route?',
+            options: [
+              { id: 'safe', label: 'Safe' },
+              { id: 'fast', label: 'Fast' },
+            ],
+          },
+        ],
+      },
+      { hasUI: true, ui: { custom, setWorkingVisible }, sessionManager: { getBranch: () => entries } },
+    );
+
+    expect(zAskDetails.parse(result.details)).toMatchObject({
+      accepts_digest: 'digest-final',
+      answered: { submitted: true, accepted_abstract: 'Runtime-owned final abstract.' },
+      questionnaire: [
+        { answer: { questionId: 'why', text: 'First answer' } },
+        { answer: { questionId: 'route', optionId: 'fast' } },
+      ],
+    });
+    expect(custom).toHaveBeenCalledOnce();
+    expectBracketedWorkingIndicator(setWorkingVisible);
+  });
+
+  it('serializes multi-select questionnaire answers in declared option order regardless of toggle order', async () => {
+    const digest = projectPresentDigest({
+      exchangeId: 'ordered-digest',
+      heading: 'Digest',
+      digest: { abstract: 'Ordering test digest.' },
+    });
+    const params = {
+      exchangeId: 'ordered-questionnaire',
+      acceptsDigest: 'ordered-digest',
+      questions: [
+        {
+          id: 'priorities',
+          kind: 'multi-select',
+          prompt: 'Which priorities apply?',
+          options: [
+            { id: 'clarity', label: 'Clarity' },
+            { id: 'speed', label: 'Speed' },
+            { id: 'safety', label: 'Safety' },
+          ],
+        },
+      ],
+    };
+    const runWithInputs = async (inputs: readonly string[]) => {
+      const custom = mountedCustom({
+        assertViewport: (viewport) => expect(viewport).toContain('Which priorities apply?'),
+        script: (terminal) => inputs.forEach((input) => terminal.sendInput(input)),
+      });
+      const result = await executeAsk(params, {
+        hasUI: true,
+        ui: { custom },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: { role: 'toolResult', toolName: 'present_digest', details: digest.details },
+            },
+          ],
+        },
+      });
+      const details = zAskDetails.parse(result.details);
+      if (!('questionnaire' in details)) throw new Error('Expected questionnaire details');
+      return details.questionnaire[0]?.answer;
+    };
+
+    const declarationOrder = await runWithInputs([' ', '\x1b[B', '\x1b[B', ' ', '\r']);
+    const reverseInteractionOrder = await runWithInputs([
+      '\x1b[B',
+      '\x1b[B',
+      ' ',
+      '\x1b[A',
+      '\x1b[A',
+      ' ',
+      '\r',
+    ]);
+
+    expect(declarationOrder).toMatchObject({ optionIds: ['clarity', 'safety'] });
+    expect(reverseInteractionOrder).toEqual(declarationOrder);
+  });
+
+  it('rejects a second questionnaire id once the final digest already has a submitted carrier', async () => {
+    const digest = projectPresentDigest({
+      exchangeId: 'digest-final',
+      heading: 'Digest',
+      digest: { abstract: 'Runtime-owned final abstract.' },
+    });
+    const submitted = {
+      schema: 'brunch.structured_exchange.request',
+      v: 1,
+      exchange_id: 'questionnaire-first',
+      tool_meta: { curr: 'ask', next: 'capture_answer' },
+      question: { body: 'Digest questionnaire' },
+      accepts_digest: 'digest-final',
+      questionnaire: [
+        {
+          question: {
+            id: 'confirm',
+            kind: 'single-select',
+            prompt: 'Proceed?',
+            options: [{ id: 'yes', label: 'Yes' }],
+          },
+          answer: { questionId: 'confirm', kind: 'single-select', optionId: 'yes' },
+        },
+      ],
+      answered: { submitted: true, accepted_abstract: 'Runtime-owned final abstract.' },
+    };
+    const custom = vi.fn();
+    const result = await executeAsk(
+      {
+        exchangeId: 'questionnaire-second',
+        acceptsDigest: 'digest-final',
+        questions: [
+          {
+            id: 'confirm',
+            kind: 'single-select',
+            prompt: 'Proceed?',
+            options: [{ id: 'yes', label: 'Yes' }],
+          },
+        ],
+      },
+      {
+        hasUI: true,
+        ui: { custom },
+        sessionManager: {
+          getBranch: () => [
+            { type: 'message', message: { role: 'toolResult', details: digest.details } },
+            { type: 'message', message: { role: 'toolResult', details: submitted } },
+          ],
+        },
+      },
+    );
+
+    expect(result.details).toMatchObject({
+      unavailable: { message: expect.stringContaining('final eligible') },
+    });
+    expect(custom).not.toHaveBeenCalled();
+  });
+
+  it('cancels a mounted digest questionnaire without a submitted carrier', async () => {
+    const digest = projectPresentDigest({
+      exchangeId: 'digest-cancel',
+      heading: 'Digest',
+      digest: { abstract: 'Not accepted.' },
+    });
+    const custom = mountedCustom({
+      assertViewport: (viewport) => expect(viewport).toContain('Question 1 of 1'),
+      script: (terminal) => terminal.sendInput('\x1b'),
+    });
+    const result = await executeAsk(
+      {
+        exchangeId: 'questionnaire-cancel',
+        acceptsDigest: 'digest-cancel',
+        questions: [
+          {
+            id: 'confirm',
+            kind: 'single-select',
+            prompt: 'Proceed?',
+            options: [{ id: 'yes', label: 'Yes' }],
+          },
+        ],
+      },
+      {
+        hasUI: true,
+        ui: { custom },
+        sessionManager: {
+          getBranch: () => [{ type: 'message', message: { role: 'toolResult', details: digest.details } }],
+        },
+      },
+    );
+    expect(zAskDetails.parse(result.details)).toMatchObject({ cancelled: {} });
+    expect(result.terminate).toBe(true);
   });
 
   it('resolves escape as the cancelled terminal on every mounted ask surface', async () => {

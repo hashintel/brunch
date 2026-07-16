@@ -1,5 +1,5 @@
 import type {
-  AskContinuationDeclaration,
+  FreeTextAskContinuationDeclaration,
   PresentDigestDetails,
   PresentDigestParams,
 } from '../schemas/index.js';
@@ -42,7 +42,7 @@ function digestContinuation(input: {
   readonly heading: string;
   readonly body: string | undefined;
   readonly digest: PresentDigestParams['digest'];
-}): AskContinuationDeclaration {
+}): FreeTextAskContinuationDeclaration {
   const digestBody = [
     input.heading,
     input.body,
@@ -59,15 +59,7 @@ function digestContinuation(input: {
   return {
     tool: 'ask',
     params: {
-      body: digestBody,
-      options: REVIEW_OPTIONS,
-      commentPrompt: 'Required change request',
+      body: `${digestBody}\n\nDoes this understanding sound right? Add corrections or clarifications before capture.`,
     },
   };
 }
-
-const REVIEW_OPTIONS = [
-  { id: 'approve', label: 'Approve' },
-  { id: 'request_changes', label: 'Request changes' },
-  { id: 'reject', label: 'Reject' },
-];

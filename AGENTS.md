@@ -94,9 +94,13 @@ Frontier-item traceability, scope-card inheritance, and the verification-ownersh
 
 ## verification
 
-**Inner loop** (run after every meaningful edit): `npm run fix` — lint:fix then format.
+**Defaults are fast; the real full gate is CI.** `npm run test` and `npm run verify` deliberately exclude `*.slow.test.ts` so the everyday loop stays quick. A test earns the `.slow` marker only when its execution cost warrants exclusion from routine local verification — never merely because it is inconvenient or flaky. The `.github/workflows/test.yml` **Test** workflow runs the *full* suite (`test:full`, including slow tests) plus `check` and `build` on every PR and merge-queue entry — that is the authoritative gate, not the local pre-commit run. Run the `:full` variant locally only when you have a reason to (below).
 
-**Gate** (run before committing): `npm run verify` — fix → test → build. The gate auto-applies inner-loop fixes; if anything else fails, stop and fix it.
+**Inner loop** (run after every meaningful edit): `npm run fix` — lint:fix then format. Run focused tests with `npm test -- <test-path>` while iterating.
+
+**Checkpoint / pre-commit** (fast, the default): `npm run verify` — fix → default tests → build. The default suite excludes `*.slow.test.ts`. This is the routine local gate.
+
+**Full gate** (locally optional; CI always runs it): `npm run verify:full` — fix → all tests (incl. slow tests) → build. Run it locally when you have changed a slow test or the production seam it witnesses — currently host landing, slice integration, run promotion, or worktree behavior — otherwise let CI run it. `npm run test:slow` runs just the slow group when that is all you need.
 
 **CI / read-only check**: `npm run check` — lint then fmt:check then check:markdown-links then check:skills then check:promoted-run-paths, no writes. Use this where the gate must not mutate the worktree.
 
@@ -107,10 +111,14 @@ Frontier-item traceability, scope-card inheritance, and the verification-ownersh
 | Script | Steps | Writes? |
 | --- | --- | --- |
 | `npm run fix` | lint:fix → fmt | yes |
+| `npm run test` | all Vitest tests except `*.slow.test.ts` | no |
+| `npm run test:full` | all Vitest tests incl. slow tests | no |
+| `npm run test:slow` | just `*.slow.test.ts` | no |
+| `npm run verify` | fix → test → build (fast default) | yes (via fix) |
+| `npm run verify:full` | fix → test:full → build (full gate; CI runs this) | yes (via fix) |
 | `npm run check` | lint → fmt:check → check:markdown-links → check:skills → check:promoted-run-paths | no |
 | `npm run check:markdown-links` | remark-validate-links over Markdown files | no |
 | `npm run check:skills` | ln-* skill consistency | no |
-| `npm run verify` | fix → test → build | yes (via fix) |
 
 Ordering rationale: `fix` must run lint:fix before fmt because lint fixes can rewrite code that then needs reformatting. `check` mirrors that order (lint before fmt:check) so both scripts read as the same recipe in different modes.
 

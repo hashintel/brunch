@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { projectPresentDigest } from '../../../exchanges/projections/present-digest.js';
 import { zAskDetails } from '../../../exchanges/schemas/index.js';
 import { createLiveAskRegistry } from '../../../session/live-ask-registry.js';
 import { createAskTool } from '../exchanges/ask.js';
@@ -16,6 +17,7 @@ const HEADLESS_CTX = { hasUI: false } as unknown as StructuredExchangeUiContext;
 function runHeadlessAsk(
   registry: ReturnType<typeof createLiveAskRegistry>,
   params: Record<string, unknown>,
+  signal: AbortSignal = new AbortController().signal,
 ): Promise<AskToolResult> {
   const tool = createAskTool(registry.opener) as ReturnType<typeof createAskTool> & {
     execute: (
@@ -26,7 +28,7 @@ function runHeadlessAsk(
       ctx: unknown,
     ) => Promise<AskToolResult>;
   };
-  return tool.execute('headless-ask', params, undefined, undefined, HEADLESS_CTX);
+  return tool.execute('headless-ask', params, signal, undefined, HEADLESS_CTX);
 }
 
 async function tick(): Promise<void> {
@@ -116,6 +118,142 @@ describe('headless ask discovery + broker answering', () => {
         ],
       },
     });
+  });
+
+  it('rejects duplicate headless multi-select option ids as unavailable', async () => {
+    const registry = createLiveAskRegistry();
+    const done = runHeadlessAsk(registry, {
+      exchangeId: 'duplicate-multi',
+      body: 'Pick all that apply',
+      multiple: true,
+      options: [
+        { id: 'a', label: 'Alpha' },
+        { id: 'b', label: 'Beta' },
+      ],
+    });
+    await tick();
+
+    registry.answerer.submitAnswer({ exchangeId: 'duplicate-multi', answer: 'a,a' });
+
+    expect(zAskDetails.parse((await done).details)).toMatchObject({
+      exchange_id: 'duplicate-multi',
+      unavailable: { message: expect.stringContaining('duplicate option id a') },
+    });
+  });
+
+  it('mints a digest carrier only for the canonical confirmation selection', async () => {
+    const digest = projectPresentDigest({
+      exchangeId: 'digest-final',
+      heading: 'Digest',
+      digest: { abstract: 'Runtime abstract.' },
+    }).details;
+    const params = {
+      exchangeId: 'confirm-digest',
+      acceptsDigest: 'digest-final',
+      body: 'Is this complete?',
+      options: [
+        { id: 'confirm', label: 'Confirm' },
+        { id: 'revise', label: 'Revise' },
+      ],
+    };
+    const run = async (answer: 'confirm' | 'revise') => {
+      const registry = createLiveAskRegistry();
+      const tool = createAskTool(registry.opener) as ReturnType<typeof createAskTool> & {
+        execute: (...args: unknown[]) => Promise<AskToolResult>;
+      };
+      const done = tool.execute('confirm', params, new AbortController().signal, undefined, {
+        hasUI: false,
+        sessionManager: {
+          getBranch: () => [{ type: 'message', message: { role: 'toolResult', details: digest } }],
+        },
+      });
+      await tick();
+      registry.answerer.submitAnswer({ exchangeId: 'confirm-digest', answer });
+      return zAskDetails.parse((await done).details);
+    };
+    expect(await run('confirm')).toMatchObject({
+      accepts_digest: 'digest-final',
+      answered: { choice: { id: 'confirm' }, accepted_abstract: 'Runtime abstract.' },
+    });
+    expect(await run('revise')).toMatchObject({ answered: { choice: { id: 'revise' } } });
+    expect(await run('revise')).not.toHaveProperty('accepts_digest');
+  });
+
+  it.each([
+    ['malformed JSON', '{'],
+    ['wrong envelope', JSON.stringify({ schema: 'wrong', answers: [] })],
+    [
+      'invalid answers',
+      JSON.stringify({
+        schema: 'brunch.ask.questionnaire-answer',
+        answers: [{ questionId: 'goal', kind: 'free-text', text: 'Only one answer' }],
+      }),
+    ],
+  ])(
+    'reports malformed editor questionnaire %s as unavailable rather than cancelled',
+    async (_label, raw) => {
+      const digest = projectPresentDigest({
+        exchangeId: 'digest-final',
+        heading: 'Digest',
+        digest: { abstract: 'Runtime abstract.' },
+      }).details;
+      const tool = createAskTool() as ReturnType<typeof createAskTool> & {
+        execute: (...args: unknown[]) => Promise<AskToolResult>;
+      };
+      const result = await tool.execute(
+        'questionnaire',
+        {
+          exchangeId: 'questionnaire',
+          acceptsDigest: 'digest-final',
+          questions: [
+            { id: 'goal', kind: 'free-text', prompt: 'Goal?' },
+            {
+              id: 'shape',
+              kind: 'single-select',
+              prompt: 'Shape?',
+              options: [{ id: 'safe', label: 'Safe' }],
+            },
+          ],
+        },
+        new AbortController().signal,
+        undefined,
+        {
+          hasUI: true,
+          ui: { editor: async () => raw },
+          sessionManager: {
+            getBranch: () => [{ type: 'message', message: { role: 'toolResult', details: digest } }],
+          },
+        },
+      );
+
+      expect(zAskDetails.parse(result.details)).toMatchObject({
+        exchange_id: 'questionnaire',
+        unavailable: { message: expect.stringContaining('Invalid questionnaire submission') },
+      });
+    },
+  );
+
+  it('removes an ask when the registered tool signal aborts and rejects a later answer', async () => {
+    const registry = createLiveAskRegistry();
+    const controller = new AbortController();
+    const done = runHeadlessAsk(
+      registry,
+      { exchangeId: 'tool-abort', body: 'Should this remain open?' },
+      controller.signal,
+    );
+    await tick();
+    expect(registry.reader.stateOf('tool-abort')).toBe('open');
+
+    controller.abort();
+
+    expect(registry.reader.openAsks()).toEqual([]);
+    expect(registry.reader.stateOf('tool-abort')).toBe('cancelled');
+    expect(registry.answerer.submitAnswer({ exchangeId: 'tool-abort', answer: 'too late' })).toEqual({
+      submitted: false,
+      reason: 'no_pending_exchange',
+    });
+    const details = zAskDetails.parse((await done).details);
+    expect(details).toMatchObject({ exchange_id: 'tool-abort', cancelled: {} });
   });
 
   it('reports the ask cancelled when the broker resolves with no answer', async () => {

@@ -91,14 +91,23 @@ describe('structured exchange renderers', () => {
     }
   });
 
-  it('preserves the pre-FE-1163 provider-facing schema semantics', () => {
+  it('preserves pre-FE-1163 tools while extending ask with bounded questionnaire fields', () => {
     const tools = registerTools();
     const currentSchemas = Object.fromEntries(
       [...tools].map(([name, tool]) => [name, normalizeToolSchema(tool.parameters)]),
     );
+    const baseline = normalizeToolSchema(exchangeToolSchemaBaseline.schemas) as Record<string, unknown>;
 
     expect([...tools.keys()]).toEqual(Object.keys(exchangeToolSchemaBaseline.schemas));
-    expect(currentSchemas).toEqual(normalizeToolSchema(exchangeToolSchemaBaseline.schemas));
+    expect(Object.fromEntries(Object.entries(currentSchemas).filter(([name]) => name !== 'ask'))).toEqual(
+      Object.fromEntries(Object.entries(baseline).filter(([name]) => name !== 'ask')),
+    );
+    expect(currentSchemas.ask).toMatchObject({
+      properties: {
+        acceptsDigest: { type: 'string' },
+        questions: { type: 'array', minItems: 1 },
+      },
+    });
   });
 
   it('renders present_candidates from tool result markdown content', async () => {

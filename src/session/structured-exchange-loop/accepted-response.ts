@@ -70,32 +70,21 @@ export function acceptedResponseFromParams(
     if (pending.mode !== 'text') return invalidResponseMode();
     const answerText = params.answer.text.trim();
     if (answerText.length === 0) return { ok: false, message: 'Elicitation response requires answer text' };
-    return {
-      ok: true,
-      answer: { text: answerText },
-      toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'ask'),
-      toolResultMessage: syntheticExchangeToolResultMessage(
-        pending.exchangeId,
-        'ask',
-        [
-          {
-            type: 'text',
-            text: formatRequestAnswer(
-              projectRequestAnswer({
-                exchangeId: pending.exchangeId,
-                status: 'answered',
-                answer: answerText,
-              }),
-            ),
-          },
-        ],
-        projectRequestAnswer({
-          exchangeId: pending.exchangeId,
-          status: 'answered',
-          answer: answerText,
-        }),
-      ),
-    };
+    if (pending.respondsToPresentTool === 'present_digest') {
+      const details = projectAsk({
+        exchangeId: pending.exchangeId,
+        question: askQuestionEcho({ body: pending.prompt }),
+        status: 'answered',
+        answer: answerText,
+      });
+      return acceptedTextResponse(pending.exchangeId, answerText, formatAsk(details), details);
+    }
+    const details = projectRequestAnswer({
+      exchangeId: pending.exchangeId,
+      status: 'answered',
+      answer: answerText,
+    });
+    return acceptedTextResponse(pending.exchangeId, answerText, formatRequestAnswer(details), details);
   }
 
   if ('optionId' in params.answer) {
@@ -330,6 +319,25 @@ function projectAcceptedReviewDetails(
       respondsToPresentTool: 'present_review_set',
       ...(comment !== undefined ? { comment } : {}),
     }),
+  };
+}
+
+function acceptedTextResponse(
+  exchangeId: string,
+  answer: string,
+  text: string,
+  details: Record<string, unknown>,
+): AcceptedStructuredExchangeResponse {
+  return {
+    ok: true,
+    answer: { text: answer },
+    toolCallMessage: syntheticExchangeToolCallMessage(exchangeId, 'ask'),
+    toolResultMessage: syntheticExchangeToolResultMessage(
+      exchangeId,
+      'ask',
+      [{ type: 'text', text }],
+      details,
+    ),
   };
 }
 

@@ -10,7 +10,7 @@
     { "local_id": 4, "plane": "intent", "kind": "constraint", "title": "No cloud dependencies constraint", "basis": "explicit", "source": "fixture" },
     { "local_id": 5, "plane": "intent", "kind": "decision", "title": "Two-stage split decision", "basis": "explicit", "source": "fixture", "detail": { "chosen_option": "Split fan-in into Stage 1 extraction and Stage 2 solving", "rejected": ["Keep a single fan-in stage"], "rationale": "A hard schema boundary keeps solver outputs out of Stage 1." } },
     { "local_id": 6, "plane": "design", "kind": "module", "title": "SQLite configuration store module", "basis": "explicit", "source": "fixture" },
-    { "local_id": 7, "plane": "plan", "kind": "frontier", "title": "Persist configuration spaces slice", "basis": "explicit", "source": "fixture" },
+    { "local_id": 7, "plane": "plan", "kind": "scope", "title": "Persist configuration spaces scope", "basis": "explicit", "source": "fixture" },
     { "local_id": 8, "plane": "intent", "kind": "criterion", "title": "Airplane-mode acceptance criterion", "basis": "explicit", "source": "fixture" },
     { "local_id": 9, "plane": "intent", "kind": "example", "title": "Network-outage counterexample", "basis": "explicit", "source": "fixture" },
     { "local_id": 10, "plane": "intent", "kind": "context", "title": "Stakeholder offline-first preference", "basis": "explicit", "source": "fixture" },

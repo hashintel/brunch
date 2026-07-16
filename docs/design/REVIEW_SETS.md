@@ -121,32 +121,23 @@ The filter is by `supersedes` chain: when proposal A is superseded by B, only B 
 
 ## Batch acceptance
 
-Acceptance is one `CommandExecutor` call carrying the entire accepted batch:
+Local and RPC approval share one response-settlement operation. Settlement revalidates the exact persisted `present_review_set` details, reconstructs the accepted review payload from those details, and invokes the executor once:
 
 ```text
 commandExecutor.acceptReviewSet({
-  session_id,
-  proposal_entry_id,
-  acceptance_attribution: { user_id, ... }
+  specId,
+  payload
 })
 ```
 
-The executor:
-
-1. Resolves the proposal entry's `entity_drafts` and `edge_drafts`
-2. Allocates one LSN
-3. Validates the batch structurally and against policy (largely pre-validated at proposal time)
-4. Writes all entities and edges in one transaction
-5. Appends one change-log entry attributed to the user via `acceptance_attribution`
-6. Triggers coherence updates
-7. Enqueues the reviewer job
+That command validates and commits the entire accepted payload with one spec-local LSN, one transaction, and one `accept_review_set` change-log row. Settlement mints the receipt-bearing accepted terminal only after the command succeeds; a failed commit cannot leave an accepted terminal behind.
 
 Properties:
 
 - **One LSN per acceptance** (preserves I1-L)
 - **Atomic** — partial acceptance is not representable (I15-L)
-- **One change-log entry** — audit trail clean
-- **Reviewer enqueued, not invoked synchronously** — latency posture matches observer
+- **One `accept_review_set` change-log row** — the durable audit record describes the committed mutation
+- **One shared local/RPC settlement path** — both adapters commit the exact persisted reviewed payload before recording success
 
 ### Sub-batch granularity is sacrificed
 

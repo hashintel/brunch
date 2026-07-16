@@ -553,7 +553,7 @@ describe('WorkspaceSessionCoordinator', () => {
     expect(opened.spec).toEqual(first.spec);
     expect(opened.session.id).toBe(first.session.id);
     expect(opened.session.file).toBe(first.session.file);
-    expect(opened.chrome.spec).toEqual(first.spec);
+    expect(opened.chrome.spec).toEqual({ id: first.spec.id, title: first.spec.title });
 
     const continued = await coordinator.activateWorkspace({
       action: 'continue',
@@ -726,32 +726,56 @@ describe('WorkspaceSessionCoordinator', () => {
     expect(
       decideSpecEstablishmentAsks({
         currentOrigin: establishedSpec.origin ?? null,
-        workspacePopulated: inventory.workspacePopulated ?? false,
+        workspacePopulated: inventory.workspacePopulated,
       }),
     ).toEqual([]);
     expect(
       decideSpecEstablishmentAsks({
         currentOrigin: unestablishedSpec.origin ?? null,
-        workspacePopulated: inventory.workspacePopulated ?? false,
+        workspacePopulated: inventory.workspacePopulated,
       }),
     ).toEqual(['confirmOrigin']);
   });
 
-  it('ignores a sibling 0.x brunch.db for posture: a cwd with no code stays bare (2026-07-14 D124-L revision)', async () => {
+  it.each([
+    {
+      name: 'a non-Markdown root file',
+      arrange: async (cwd: string) => writeFile(join(cwd, 'package.json'), '{}'),
+      populated: true,
+    },
+    {
+      name: 'a nested source file',
+      arrange: async (cwd: string) => {
+        await mkdir(join(cwd, 'src', 'nested'), { recursive: true });
+        await writeFile(join(cwd, 'src', 'nested', 'index.ts'), 'export {}');
+      },
+      populated: true,
+    },
+    {
+      name: 'Brunch-owned files only',
+      arrange: async (cwd: string) => {
+        await mkdir(join(cwd, '.brunch'), { recursive: true });
+        await writeFile(join(cwd, '.brunch', 'brunch.db'), 'not a sqlite database');
+      },
+      populated: false,
+    },
+    {
+      name: 'gitignored generated content',
+      arrange: async (cwd: string) => {
+        await mkdir(join(cwd, 'dist'), { recursive: true });
+        await writeFile(join(cwd, '.gitignore'), 'dist/\n');
+        await writeFile(join(cwd, 'dist', 'index.js'), 'generated');
+      },
+      populated: false,
+    },
+  ])('classifies workspace population from $name', async ({ arrange, populated }) => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-ws-'));
-    await mkdir(join(cwd, '.brunch'), { recursive: true });
-    await writeFile(join(cwd, '.brunch', 'brunch.db'), 'not a sqlite database');
+    await arrange(cwd);
 
-    const coordinator = createWorkspaceSessionCoordinator({ cwd });
-    const inventory = await coordinator.inspectWorkspace();
+    const inventory = await createWorkspaceSessionCoordinator({ cwd }).inspectWorkspace();
 
-    expect(inventory.workspacePopulated).toBe(false);
-    expect(
-      decideSpecEstablishmentAsks({
-        currentOrigin: null,
-        workspacePopulated: inventory.workspacePopulated ?? false,
-      }),
-    ).toEqual(['confirmOrigin']);
+    // `.gitignore` is an inventory control file, not product code by itself.
+    expect(inventory.workspacePopulated).toBe(populated);
   });
 
   it('activates cancel without mutating workspace state or session files', async () => {

@@ -23,7 +23,10 @@ export const PRESENT_REVIEW_SET_TOOL = 'present_review_set' as const;
 
 export interface ReviewSetStructuredExchangeDeps {
   readonly specId: number;
-  readonly commandExecutor: Pick<CommandExecutor, 'assignProposedReviewSetCodes' | 'dryRunAcceptReviewSet'>;
+  readonly commandExecutor: Pick<
+    CommandExecutor,
+    'assignProposedReviewSetCodes' | 'dryRunAcceptReviewSet' | 'acceptReviewSet'
+  >;
 }
 
 type PresentReviewSetToolDetails =
@@ -78,7 +81,6 @@ export function createPresentReviewSetTool(deps?: ReviewSetStructuredExchangeDep
 
       const dryRun = deps.commandExecutor.dryRunAcceptReviewSet({
         specId: deps.specId,
-        proposalEntryId: params.proposalEntryId,
         payload,
       });
       if (dryRun.status === 'structural_illegal') {

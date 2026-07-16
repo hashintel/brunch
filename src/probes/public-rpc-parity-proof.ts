@@ -2,12 +2,74 @@ import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
+import { SessionManager } from '@earendil-works/pi-coding-agent';
+
+import { formatPresentCandidates } from '../agents/contexts/exchanges/present-candidates.js';
+import { projectPresentCandidates } from '../exchanges/projections/present-candidates.js';
 import { createRpcHandlers } from '../rpc/handlers.js';
+import { flushSessionManagerToFile } from '../session/flush-session-manager.js';
+import { syntheticExchangeToolCallMessage } from '../session/structured-exchange-loop.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
-import { mintDeterministicExchangeIntoSessionFile } from './deterministic-exchange-script.js';
 import { assertPortableRunId, portableCwd } from './portable-report.js';
 
-const PUBLIC_RPC_PARITY_PERMUTATION_COUNT = 3;
+const PUBLIC_RPC_PARITY_CYCLE_COUNT = 1;
+
+function mintActiveCandidateExchange(sessionFile: string): PendingExchange {
+  const exchangeId = 'deterministic-candidate';
+  const projection = projectPresentCandidates({
+    exchangeId,
+    heading: 'Choose parity candidate',
+    body: 'Exercise the active present_candidates → ask grammar through public RPC.',
+    candidates: [
+      {
+        id: 'candidate',
+        title: 'Parity candidate',
+        user_rubric: {
+          core_bet: 'Drive the active candidate settlement path.',
+          best_fit: 'Public RPC parity verification.',
+          cost_complexity: 'One deterministic transcript exchange.',
+          covers_well: 'Present readback and ask settlement.',
+          main_risks: 'Does not cover retired question vocabulary.',
+          lock_in_constraints: 'Uses the active exchange grammar.',
+          recommendation: 'Select this deterministic candidate.',
+        },
+        meta_rubric: {
+          legibility_cost_of_knowing: 'Easy to inspect.',
+          failure_modes: 'Schema drift fails transcript readback.',
+          coverage_range: 'Public RPC exchange parity.',
+          commitment: 'Fixture state only.',
+        },
+        graph_refs: [],
+      },
+    ],
+  });
+  const call = syntheticExchangeToolCallMessage(exchangeId, 'present_candidates');
+  const manager = SessionManager.open(sessionFile);
+  manager.appendMessage(call as never);
+  manager.appendMessage({
+    role: 'toolResult',
+    toolCallId: call.content[0].id,
+    toolName: 'present_candidates',
+    content: [{ type: 'text', text: formatPresentCandidates(projection) }],
+    details: projection.details,
+    isError: false,
+    timestamp: 0,
+  } as never);
+  flushSessionManagerToFile(manager, sessionFile);
+  return {
+    exchangeId,
+    mode: 'single-select',
+    prompt: projection.heading,
+    options: [
+      {
+        id: 'candidate',
+        label: 'Parity candidate',
+        content: 'Parity candidate',
+        rationale: 'Select this deterministic candidate.',
+      },
+    ],
+  };
+}
 
 interface JsonRpcSuccess<T> {
   jsonrpc: '2.0';
@@ -148,17 +210,8 @@ interface ProofResponse {
 }
 
 function responseFor(exchange: PendingExchange): ProofResponse {
-  if (exchange.mode === 'text') {
-    return { answer: { text: `Answer for ${exchange.exchangeId}` } };
-  }
-  if (exchange.mode === 'multi-select') {
-    return {
-      answer: { optionIds: ['transcript', 'other'] },
-      note: 'Other: keep a compact blocker/friction report.',
-    };
-  }
   return {
-    answer: { optionId: exchange.options[0]?.id ?? 'new-from-scratch' },
+    answer: { optionId: exchange.options[0]?.id ?? 'candidate' },
     note: 'Chosen by deterministic public-RPC proof.',
   };
 }
@@ -214,53 +267,41 @@ export async function runPublicRpcParityProof(
   }
 
   const exchangeIds: string[] = [];
-  for (let turn = 0; turn < PUBLIC_RPC_PARITY_PERMUTATION_COUNT; turn += 1) {
-    // D78-L/D49-L revised 2026-06-12: the product mints no deterministic
-    // exchange — the probe stands in for the assistant-authored offer by
-    // minting the permutation's present pair directly into the transcript,
-    // then drives readback + response through the public RPC surface only.
-    const minted = mintDeterministicExchangeIntoSessionFile(workspace.session.file, turn);
-    const started = success<PendingResult>(
-      await handlers.handle({
-        jsonrpc: '2.0',
-        id: 10 + turn * 3,
-        method: 'session.triggerExchange',
-      }),
-    );
-    const pending = success<PendingResult>(
-      await handlers.handle({
-        jsonrpc: '2.0',
-        id: 11 + turn * 3,
-        method: 'session.pendingExchange',
-      }),
-    );
-    if (started.exchange.exchangeId !== minted.exchangeId) {
-      friction.push(`Turn ${turn + 1}: triggerExchange did not surface the minted exchange.`);
-    }
-    if (pending.exchange.exchangeId !== started.exchange.exchangeId) {
-      friction.push(`Turn ${turn + 1}: pendingExchange differed from triggerExchange.`);
-    }
-    if (started.exchange.mode !== 'text') {
-      const richOption = started.exchange.options.find(
-        (option) => option.content !== undefined && option.rationale !== undefined,
-      );
-      if (!richOption) {
-        throw new Error(`Turn ${turn + 1}: pending options dropped content/rationale`);
-      }
-    }
-    exchangeIds.push(started.exchange.exchangeId);
-    const response = responseFor(started.exchange);
-    await handlers.handle({
-      jsonrpc: '2.0',
-      id: 12 + turn * 3,
-      method: 'session.submitExchangeResponse',
-      params: {
-        exchangeId: started.exchange.exchangeId,
-        answer: response.answer,
-        ...(response.note === undefined ? {} : { note: response.note }),
-      },
-    });
+  // D78-L/D49-L revised 2026-06-12: the product mints no deterministic
+  // exchange — the probe stands in for the assistant-authored offer by
+  // minting one active candidate present directly into the transcript, then
+  // drives readback + response through the public RPC surface only.
+  const minted = mintActiveCandidateExchange(workspace.session.file);
+  const started = success<PendingResult>(
+    await handlers.handle({ jsonrpc: '2.0', id: 10, method: 'session.triggerExchange' }),
+  );
+  const pending = success<PendingResult>(
+    await handlers.handle({ jsonrpc: '2.0', id: 11, method: 'session.pendingExchange' }),
+  );
+  if (started.exchange.exchangeId !== minted.exchangeId) {
+    friction.push('triggerExchange did not surface the minted candidate exchange.');
   }
+  if (pending.exchange.exchangeId !== started.exchange.exchangeId) {
+    friction.push('pendingExchange differed from triggerExchange.');
+  }
+  const richOption = started.exchange.options.find(
+    (option) => option.content !== undefined && option.rationale !== undefined,
+  );
+  if (!richOption) {
+    throw new Error('Pending candidate options dropped content/rationale');
+  }
+  exchangeIds.push(started.exchange.exchangeId);
+  const response = responseFor(started.exchange);
+  await handlers.handle({
+    jsonrpc: '2.0',
+    id: 12,
+    method: 'session.submitExchangeResponse',
+    params: {
+      exchangeId: started.exchange.exchangeId,
+      answer: response.answer,
+      ...(response.note === undefined ? {} : { note: response.note }),
+    },
+  });
 
   const exchanges = success<RpcExchangeProjection>(
     await handlers.handle({
@@ -269,9 +310,9 @@ export async function runPublicRpcParityProof(
       method: 'session.exchanges',
     }),
   );
-  if (exchanges.exchanges.length !== PUBLIC_RPC_PARITY_PERMUTATION_COUNT) {
+  if (exchanges.exchanges.length !== PUBLIC_RPC_PARITY_CYCLE_COUNT) {
     throw new Error(
-      `Expected ${PUBLIC_RPC_PARITY_PERMUTATION_COUNT} completed exchanges, got ${exchanges.exchanges.length}`,
+      `Expected ${PUBLIC_RPC_PARITY_CYCLE_COUNT} completed candidate exchange, got ${exchanges.exchanges.length}`,
     );
   }
 
@@ -351,10 +392,10 @@ export async function runPublicRpcParityProof(
     probeId: 'public-rpc-parity',
     runId,
     generatedAt,
-    mission: 'Drive deterministic Brunch structured-exchange permutations through public JSON-RPC only.',
+    mission: 'Drive one active Brunch candidate exchange through public JSON-RPC only.',
     evaluationFocus:
-      'Tuple transcript/projection parity for current structured-exchange modes without raw Pi RPC or legacy prompt/response entries.',
-    maxTurnBudget: PUBLIC_RPC_PARITY_PERMUTATION_COUNT,
+      'Candidate pending readback and settlement without raw Pi RPC or legacy prompt/response entries.',
+    maxTurnBudget: PUBLIC_RPC_PARITY_CYCLE_COUNT,
     completedTurns: exchanges.exchanges.length,
     friction,
     cwd,

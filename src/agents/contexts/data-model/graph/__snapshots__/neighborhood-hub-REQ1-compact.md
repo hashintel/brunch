@@ -9,12 +9,12 @@ upstream nodes (3) — review anchor if these change
 downstream nodes (9) — reconcile these if anchor changes
 - required by: D1 {hard}
 - implemented by: MOD1
-- realized by: F1
+- realized by: SCP1
 - witnessed by: AC1
 - challenged by: EX1
 - motivated by: CTX1
 - opposed by: CTX2
-- part of: F2
+- part of: F1
 - superseded by: REQ2
 
 lateral nodes (1) — cross-check with anchor if either changes

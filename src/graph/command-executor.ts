@@ -454,7 +454,6 @@ export class CommandExecutor {
         input: translated.command,
         plan: planned.plan,
         operation: 'accept_review_set',
-        payloadExtras: { proposalEntryId: input.proposalEntryId },
         bumpExistingSpecLsn: (writerTx, specId) => this.bumpExistingSpecLsn(writerTx, specId),
         allocateNodeKindOrdinal: (writerTx, specId, plane, kind) =>
           this.allocateNodeKindOrdinal(writerTx, specId, plane as NodePlane, kind),

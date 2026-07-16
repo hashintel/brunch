@@ -120,6 +120,19 @@ function customMultiPick(indexes: readonly number[]) {
   });
 }
 
+function customPickWithChromeAssertions(index: number, assertions: (rendered: string) => void) {
+  return vi.fn(async (factory: (...args: unknown[]) => unknown) => {
+    let picked: unknown;
+    const component = factory(null, theme, null, (result: unknown) => {
+      picked = result;
+    }) as TestPickerComponent;
+    assertions(component.render(80).join('\n'));
+    for (let step = 0; step < index; step += 1) component.handleInput('\x1b[B');
+    component.handleInput('\r');
+    return picked;
+  });
+}
+
 function customPickWithRenderedText(index: number, expectedText: string) {
   return vi.fn(async (factory: (...args: unknown[]) => unknown) => {
     let picked: unknown;
@@ -457,6 +470,7 @@ describe('structured exchange ask tools', () => {
 
   it('records cancellation with terminate, broker fallback, unavailable, and empty-answer discipline', async () => {
     const openAsk = vi.fn(async () => 'Answer collected by broker.');
+    const notify = vi.fn();
     const setStatus = vi.fn();
     const ask = registeredTools({ liveExchange: { openAsk } }).get(ASK_TOOL);
     if (!ask) throw new Error('ask was not registered');
@@ -466,14 +480,14 @@ describe('structured exchange ask tools', () => {
       { exchangeId: 'cancelled', body: 'Cancel?' },
       undefined,
       undefined,
-      { hasUI: true, ui: { custom: customCancel(), setStatus } } as never,
+      { hasUI: true, ui: { custom: customCancel(), notify, setStatus } } as never,
     );
     const brokered = await ask.execute(
       'ask-brokered',
       { exchangeId: 'brokered', body: 'Broker?' },
       undefined,
       undefined,
-      { hasUI: false, ui: {} } as never,
+      { hasUI: false, ui: { notify, setStatus } } as never,
     );
     const unavailable = await registeredTools()
       .get(ASK_TOOL)!
@@ -490,13 +504,19 @@ describe('structured exchange ask tools', () => {
 
     expect(cancelled.details).toMatchObject({ tool_meta: { curr: ASK_TOOL }, cancelled: {} });
     expect(cancelled.terminate).toBe(true);
-    expect(setStatus).not.toHaveBeenCalled();
-    expect(openAsk).toHaveBeenCalledWith({
-      exchangeId: 'brokered',
-      mode: 'text',
-      question: { body: 'Broker?' },
-    });
+    expect(notify).toHaveBeenCalledWith(expect.stringMatching(/\/brunch:consult.*\/brunch:mode/), 'info');
+    expect(notify).not.toHaveBeenCalledWith(expect.stringContaining('/brunch:continue'), expect.anything());
+    expect(setStatus).not.toHaveBeenCalledWith('brunch.ask', expect.anything());
+    expect(openAsk).toHaveBeenCalledWith(
+      {
+        exchangeId: 'brokered',
+        mode: 'text',
+        question: { body: 'Broker?' },
+      },
+      expect.any(AbortSignal),
+    );
     expect(brokered.details).toMatchObject({ answered: { text: 'Answer collected by broker.' } });
+    expect(setStatus).not.toHaveBeenCalled();
     expect(unavailable.details).toMatchObject({ unavailable: { message: 'ask requires interactive UI' } });
     expect(empty.details).toMatchObject({ unavailable: { message: 'ask answer cannot be empty' } });
   });
@@ -779,17 +799,17 @@ describe('structured exchange ask tools', () => {
     });
     const review = await presentResult(PRESENT_REVIEW_SET_TOOL, {
       exchangeId: 'review-cycle-1',
-      proposalEntryId: 'proposal-entry-1',
       payload: validReviewPayload(),
     });
 
     for (const result of [candidates, digest, review]) {
       expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
-      expect(result.details).toMatchObject({
-        continuation: { tool: ASK_TOOL, params: { options: expect.any(Array) } },
-      });
+      expect(result.details).toMatchObject({ continuation: { tool: ASK_TOOL } });
       expect(result.details.continuation.params.body).toEqual(expect.any(String));
     }
+    expect(candidates.details.continuation.params.options).toEqual(expect.any(Array));
+    expect(review.details.continuation.params.options).toEqual(expect.any(Array));
+    expect(digest.details.continuation.params.options).toBeUndefined();
     const incomplete = findIncompleteStructuredExchangePresents(branchWith(candidates.details));
     expect(incomplete).toHaveLength(1);
     expect(incomplete[0]?.continuationTool).toBe(ASK_TOOL);
@@ -807,7 +827,7 @@ describe('structured exchange ask tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { custom: customCancel(), setStatus: vi.fn() },
+        ui: { custom: customCancel(), notify: vi.fn(), setStatus: vi.fn() },
         sessionManager: { getBranch: () => branchWith(candidates.details) },
       } as never,
     );
@@ -841,12 +861,13 @@ describe('structured exchange ask tools', () => {
     expect(findIncompleteStructuredExchangePresents(branchAfterAnswer)).toHaveLength(0);
   });
 
-  it('surfaces the continue hint on continuation cancel and clears it on a later answer', async () => {
+  it('notifies transient continuation guidance on cancel without publishing footer status', async () => {
     const ask = registeredTools().get(ASK_TOOL);
     if (!ask) throw new Error('ask was not registered');
     const candidates = await presentResult(PRESENT_CANDIDATES_TOOL, candidateParams());
 
-    const cancelStatus = vi.fn();
+    const notify = vi.fn();
+    const setStatus = vi.fn();
     await ask.execute(
       'ask-candidate-cancel-hint',
       { continues: 'candidate-direction' },
@@ -854,13 +875,15 @@ describe('structured exchange ask tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { custom: customCancel(), setStatus: cancelStatus },
+        ui: { custom: customCancel(), notify, setStatus },
         sessionManager: { getBranch: () => branchWith(candidates.details) },
       } as never,
     );
-    expect(cancelStatus).toHaveBeenCalledWith('brunch.continue', expect.stringContaining('/brunch:continue'));
-    expect(cancelStatus).toHaveBeenCalledWith('brunch.continue', expect.stringContaining('/brunch:consult'));
-    expect(cancelStatus).toHaveBeenCalledWith('brunch.continue', expect.stringContaining('/brunch:mode'));
+    expect(notify).toHaveBeenCalledWith(
+      expect.stringMatching(/\/brunch:continue.*\/brunch:consult.*\/brunch:mode/),
+      'info',
+    );
+    expect(setStatus).not.toHaveBeenCalledWith('brunch.continue', expect.anything());
 
     const answerStatus = vi.fn();
     await ask.execute(
@@ -874,7 +897,7 @@ describe('structured exchange ask tools', () => {
         sessionManager: { getBranch: () => branchWith(candidates.details) },
       } as never,
     );
-    expect(answerStatus).toHaveBeenCalledWith('brunch.continue', undefined);
+    expect(answerStatus).not.toHaveBeenCalled();
   });
 
   it('renders present_candidates from validated details and falls back to content for malformed details', async () => {
@@ -905,7 +928,6 @@ describe('structured exchange ask tools', () => {
   it('renders present_review_set from validated details and falls back for malformed or structural-illegal details', async () => {
     const review = await presentResult(PRESENT_REVIEW_SET_TOOL, {
       exchangeId: 'review-cycle-1',
-      proposalEntryId: 'proposal-entry-1',
       payload: validReviewPayload(),
     });
     const tool = registeredTools({ review: reviewDeps() }).get(PRESENT_REVIEW_SET_TOOL);
@@ -929,7 +951,6 @@ describe('structured exchange ask tools', () => {
         'review-no-deps',
         {
           exchangeId: 'review-cycle-1',
-          proposalEntryId: 'proposal-entry-1',
           payload: validReviewPayload(),
         },
         undefined,
@@ -939,9 +960,10 @@ describe('structured exchange ask tools', () => {
     if (!structuralIllegal) throw new Error('present_review_set returned no structural-illegal result');
     const structuralIllegalRendered = tool.renderResult(structuralIllegal, {}, theme).render?.(80).join('\n');
 
-    expect(richRendered).toContain('Status: Review-set proposal');
-    expect(richRendered).toContain('G1 · goal');
-    expect(richRendered).toContain('Depends on: REQ1');
+    expect(richRendered).toContain('Terms');
+    expect(richRendered).toContain('Intent');
+    expect(richRendered).toContain('goal         G1    Review graph proposals');
+    expect(richRendered).toContain('refs: G1');
     expect(richRendered).not.toContain('accepted');
     expect(richRendered).not.toContain('committed');
     expect(richRendered).not.toContain('applied');
@@ -954,7 +976,6 @@ describe('structured exchange ask tools', () => {
   it('accepts a plan-lens review set with a scope package', async () => {
     const review = await presentResult(PRESENT_REVIEW_SET_TOOL, {
       exchangeId: 'scope-review-cycle',
-      proposalEntryId: 'proposal-entry-scope',
       payload: validPlanReviewPayload(),
     });
     const tool = registeredTools({ review: reviewDeps() }).get(PRESENT_REVIEW_SET_TOOL);
@@ -962,19 +983,62 @@ describe('structured exchange ask tools', () => {
 
     const rendered = tool.renderResult(review, {}, theme).render?.(80).join('\n');
 
-    expect(rendered).toContain('Status: Review-set proposal');
-    expect(rendered).toContain('SCP1 · scope');
-    expect(rendered).toContain('Part of: F1');
-    expect(rendered).toContain('Depends on: CH1');
+    expect(rendered).toContain('Assurance');
+    expect(rendered).toContain('Planning');
+    expect(rendered).toContain('check     CH1   Scope handoff proof');
+    expect(rendered).toContain('scope     SCP1  Executor handoff package');
+    expect(rendered).toContain('refs: SCP1');
   });
 
-  it('drives declared candidate, review-set, and digest continuations by reference', async () => {
-    const ask = registeredTools().get(ASK_TOOL);
+  // Digest continuations route to the editor (free-text feedback), not a decision picker — that
+  // path is proven in "drives candidate/review decisions and conversational digest feedback by
+  // reference". Only candidate and review-set offers expose picker chrome, so only they belong here.
+  it('shows only controls in candidate and review-set continuation pickers', async () => {
+    const ask = registeredTools({ review: reviewDeps() }).get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
+    const offers = [
+      {
+        details: (await presentResult(PRESENT_CANDIDATES_TOOL, candidateParams())).details,
+        exchangeId: 'candidate-direction',
+        repeatedPretext: ['Which direction should we take?', 'Pick one candidate.'],
+        expectedControl: 'Local workbench',
+      },
+      {
+        details: (
+          await presentResult(PRESENT_REVIEW_SET_TOOL, {
+            exchangeId: 'review-live-chrome',
+            payload: validReviewPayload(),
+          })
+        ).details,
+        exchangeId: 'review-live-chrome',
+        repeatedPretext: ['Review cycle wiring', 'Commit review-set approvals'],
+        expectedControl: 'Approve',
+      },
+    ];
+
+    for (const offer of offers) {
+      await ask.execute(`ask-${offer.exchangeId}`, { continues: offer.exchangeId }, undefined, undefined, {
+        hasUI: true,
+        ui: {
+          custom: customPickWithChromeAssertions(0, (rendered) => {
+            expect(rendered).toContain(offer.expectedControl);
+            for (const pretext of offer.repeatedPretext) expect(rendered).not.toContain(pretext);
+          }),
+          input: async () => 'Looks right.',
+        },
+        sessionManager: { getBranch: () => branchWith(offer.details) },
+      } as never);
+    }
+  });
+
+  it('drives candidate/review decisions and conversational digest feedback by reference', async () => {
+    const deps = reviewDeps();
+    const acceptReviewSet = vi.spyOn(deps.commandExecutor, 'acceptReviewSet');
+    const ask = registeredTools({ review: deps }).get(ASK_TOOL);
     if (!ask) throw new Error('ask was not registered');
     const candidates = await presentResult(PRESENT_CANDIDATES_TOOL, candidateParams());
     const review = await presentResult(PRESENT_REVIEW_SET_TOOL, {
       exchangeId: 'review-cycle-1',
-      proposalEntryId: 'proposal-entry-1',
       payload: validReviewPayload(),
     });
     const digest = await presentResult(PRESENT_DIGEST_TOOL, {
@@ -1012,7 +1076,7 @@ describe('structured exchange ask tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { custom: customPickByIndex(0), input: async () => 'Looks right.' },
+        ui: { editor: async () => 'Looks right.' },
         sessionManager: { getBranch: () => branchWith(digest.details) },
       } as never,
     );
@@ -1025,13 +1089,10 @@ describe('structured exchange ask tools', () => {
       tool_meta: { prev: PRESENT_REVIEW_SET_TOOL, curr: 'request_review' },
       answered: { decision: 'request_changes', comment: 'Tighten the grounding.' },
     });
+    expect(acceptReviewSet).not.toHaveBeenCalled();
     expect(digestAnswer.details).toMatchObject({
-      tool_meta: { prev: PRESENT_DIGEST_TOOL, curr: 'request_review' },
-      answered: {
-        decision: 'approve',
-        accepted_abstract: 'The source says summarize before graph mapping.',
-        comment: 'Looks right.',
-      },
+      tool_meta: { curr: 'ask', next: 'capture_answer' },
+      answered: { text: 'Looks right.' },
     });
   });
 

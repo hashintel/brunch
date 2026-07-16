@@ -42,7 +42,9 @@
     "seed": "nub src/graph/seed-fixtures.ts",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
-    "test": "vitest --run --maxWorkers=4",
+    "test": "vitest --run --maxWorkers=4 --exclude='**/*.slow.test.ts'",
+    "test:full": "vitest --run --maxWorkers=4",
+    "test:slow": "vitest --run --maxWorkers=4 .slow.test.ts",
     "test:watch": "vitest",
     "test:context-surfaces": "vitest --run src/agents/contexts src/app/__tests__/print-workspace-state.test.ts src/session/__tests__/transcript-markdown.test.ts",
     "test:context-surfaces:watch": "vitest src/agents/contexts src/app/__tests__/print-workspace-state.test.ts src/session/__tests__/transcript-markdown.test.ts",
@@ -62,7 +64,8 @@
     "check:promoted-run-paths": "node scripts/check-promoted-run-paths.mjs",
     "check:release-pack": "node scripts/check-release-pack.mjs",
     "release": "release-it",
-    "verify": "npm run fix && npm run test && npm run build"
+    "verify": "npm run fix && npm run test && npm run build",
+    "verify:full": "npm run fix && npm run test:full && npm run build"
   },
   "dependencies": {
     "@earendil-works/pi-ai": "^0.80.6",
@@ -112,6 +115,7 @@
     "release-it": "^20.2.0",
     "remark-cli": "^12.0.1",
     "remark-validate-links": "^13.1.0",
+    "table": "^6.9.0",
     "tailwindcss": "^4.3.2",
     "tsx": "^4.23.0",
     "typescript": "^6.0.3",

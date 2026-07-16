@@ -6,6 +6,7 @@ import {
   projectRequestChoices,
   projectRequestReview,
 } from '../../../../exchanges/projections/request-response.js';
+import { CANCELLED_TERMINAL } from '../option-echo.js';
 import { missingRenderedDetailsLeaves } from '../render-honesty.js';
 import {
   formatRequestAnswer,
@@ -19,6 +20,33 @@ import {
 } from '../request-response.js';
 
 describe('request response formatters', () => {
+  it('renders every cancellation as the canonical self-describing next-turn signal', () => {
+    expect(
+      formatRequestAnswer(projectRequestAnswer({ exchangeId: 'answer-cancelled', status: 'cancelled' })),
+    ).toBe(CANCELLED_TERMINAL);
+    expect(
+      formatRequestChoice(
+        projectRequestChoice({
+          exchangeId: 'choice-cancelled',
+          respondsToPresentTool: 'present_question',
+          status: 'cancelled',
+        }),
+      ),
+    ).toBe(CANCELLED_TERMINAL);
+    expect(
+      formatRequestChoices(projectRequestChoices({ exchangeId: 'choices-cancelled', status: 'cancelled' })),
+    ).toBe(CANCELLED_TERMINAL);
+    expect(
+      formatRequestReview(
+        projectRequestReview({
+          exchangeId: 'review-cancelled',
+          respondsToPresentTool: 'present_review_set',
+          status: 'cancelled',
+        }),
+      ),
+    ).toBe(CANCELLED_TERMINAL);
+  });
+
   it('declares every request_answer details leaf as rendered or intentionally elided', () => {
     const details = projectRequestAnswer({
       exchangeId: 'answer-honesty',

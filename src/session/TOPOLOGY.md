@@ -74,6 +74,8 @@ plus the coordination logic for workspace/spec/session lifecycle.
   entry/degraded-mode rules, live-kick composition) live in
   `.pi/extensions/session-orientation/`.
 
+- **Review-set settlement** (`review-set-settlement.ts`, D27-L/I15-L) — the shared local/RPC response authority. It revalidates the exact persisted `present_review_set`, translates that reviewed payload into one mutation, and commits approval once through `CommandExecutor.acceptReviewSet`; the operation, spec-local LSN, and single change-log row are the durable acceptance record. Only then does it construct the receipt-bearing terminal; adapters retain only their distinct Pi-owned vs Brunch-owned append mechanics.
+
 - **Structured-exchange loop helpers** — deterministic POC exchange generation,
   pending prompt reconstruction from structured transcript tuples, response
   toolResult materialization, and the process-local live answer rendezvous used
@@ -83,14 +85,18 @@ plus the coordination logic for workspace/spec/session lifecycle.
   open-ask truth: it generalizes the broker's in-flight `pending` map into
   observable open-ask state that also carries each ask's D116-L question payload
   keyed by exchange id (`open` → `answered` | `cancelled` | `closed`). Every ask
-  mode registers at open time via the payload-carrying `opener`, so
-  `session.openAsks` discovers any open ask over live state without scanning the
-  transcript; the answer still arrives through the **unchanged**
-  `awaitAnswer`/`submitAnswer` string contract and reduces to canonical
-  `request_answer` / `request_choice` / `request_choices` / `request_review` Pi
-  JSONL details, with per-mode interpretation of the answer string (a listed
-  option id, delimited ids, or a review decision) living in the ask collection
-  path. In-memory and process-local by design: a stale/unknown exchange id reads
+  mode registers at open time via the payload-carrying `opener`, which requires
+  the executing tool's abort signal. An already-aborted signal never exposes an
+  open ask; a later abort synchronously removes it, records `cancelled`, and
+  resolves the collector without an answer. Answer, explicit cancellation, and
+  abort all detach the listener at settlement. `session.openAsks` therefore
+  discovers only live asks without scanning the transcript; the answer still
+  arrives through the string `awaitAnswer`/`submitAnswer` contract and reduces
+  to canonical `ask` details
+  (plus preserved choice/review detail variants). Questionnaire mode checks a
+  schema-tagged JSON answer envelope against the open ask's fixed questions
+  before resolving the rendezvous; other per-mode interpretation remains in the
+  ask collection path. In-memory and process-local by design: a stale/unknown exchange id reads
   `closed`, never hangs. See
   [`docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`](../../docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md)
   for why this broker path is structurally distinct from `session.submitExchangeResponse`
@@ -106,11 +112,7 @@ plus the coordination logic for workspace/spec/session lifecycle.
   point over a private `structured-exchange-loop/` subtree split by purpose:
   `pending-exchange.ts` (read-path reconstruction + schema), `accepted-response.ts`
   (response toolResult materialization), and `synthetic-tool-call.ts` (the
-  provider-legality toolCall pair); external callers import only the root. The
-  review-mode pending shape distinguishes `present_review_set` from
-  `present_digest`: review-set approval may commit graph drafts, while digest
-  approval mints only the `request_review` terminal with the accepted abstract
-  echo for downstream capture.
+  provider-legality toolCall pair); external callers import only the root. The pending shape distinguishes `present_review_set` review decisions from `present_digest` conversational feedback. Review-set approval may commit graph drafts; digest feedback cannot. A later runtime-resolved digest questionnaire/confirmation mints the sole accepted-abstract carrier for downstream capture.
 
 - **Workspace coordination** — boot flow and spec/session selection over the
   workspace-owned `.brunch/workspace.json` state store. The
@@ -118,14 +120,16 @@ plus the coordination logic for workspace/spec/session lifecycle.
   sessions for Brunch user flows
   and writes collapsed `brunch.session_binding` entries (`{schemaVersion,
   specId}`). Its chrome state is a selection snapshot (`cwd`, optional
-  project discovered by `workspace/project-identity.ts`, selected `spec`)
-  and intentionally carries no readiness phase or chat-mode display fields.
+  project discovered by `workspace/project-identity.ts`, selected spec identity
+  `{id, title}` projected from the complete coordinator spec state) and
+  intentionally carries no posture, readiness-phase, or chat-mode display fields.
   Its private `workspace-session-coordinator/` subtree owns coordinator-shaped
   session-file/probe helpers such as canonical session-file classification;
   external callers import only the public root module. `WorkspaceLaunchInventory`
-  additionally carries `workspacePopulated` (cwd content beyond `.brunch/`, via
-  `workspace/cwd-inventory.ts`) — the D118-L establishment branch signal,
-  distinct from the `.brunch/workspace.json` posture stub below.
+  requires `workspacePopulated` (complete gitignore-visible file evidence beyond
+  `.brunch/`, via `workspace/cwd-inventory.ts`, without widening topology
+  children) — the D118-L establishment branch signal, distinct from the
+  `.brunch/workspace.json` posture stub below.
 
 - **Spec-posture establishment** (`spec-establishment.ts`, D118-L) — the pure
   deterministic branching over cwd-populated state and current posture shared
@@ -136,8 +140,9 @@ plus the coordination logic for workspace/spec/session lifecycle.
   components to import session/, never the reverse, and both the dialog
   (create) and the coordinator (resume) need it. Spec posture itself
   (`kind`/`origin`/`relatesToSpecId`) is spec-row state owned by `db/` and
-  read into `WorkspaceSpecState` via `CommandExecutor.getSpec`; this module
-  decides *whether to ask*, never persists.
+  read into required `WorkspaceSpecState` fields via `CommandExecutor.getSpec`
+  (`origin` and `relatesToSpecId` remain nullable where the graph domain permits);
+  this module decides *whether to ask*, never persists.
 
 - **Session binding** — session↔spec binding entries in JSONL.
 

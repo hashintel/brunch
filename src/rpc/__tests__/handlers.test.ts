@@ -3,23 +3,28 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 
-import { SessionManager } from '@earendil-works/pi-coding-agent';
+import { SessionManager, type ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import type { TSchema } from 'typebox';
 import { Value } from 'typebox/value';
 import { describe, expect, it } from 'vitest';
 
+import { registerStructuredExchange } from '../../.pi/extensions/exchanges/index.js';
+import type { StructuredExchangeUiContext } from '../../.pi/extensions/exchanges/shared/ui-context.js';
+import { formatPresentCandidates } from '../../agents/contexts/exchanges/present-candidates.js';
+import { projectPresentCandidates } from '../../exchanges/projections/present-candidates.js';
 import { projectPresentDigest } from '../../exchanges/projections/present-digest.js';
 import { projectPresentReviewSet } from '../../exchanges/projections/present-review-set.js';
 import { runCreateOnlyMutation } from '../../graph/__tests__/support/create-only-mutation.js';
 import { openWorkspaceGraphRuntime } from '../../graph/workspace-store.js';
-import { mintDeterministicExchangeIntoSessionFile } from '../../probes/deterministic-exchange-script.js';
 import { assistantMessage, userMessage } from '../../probes/test-helpers.js';
 import { flushSessionManagerToFile } from '../../session/flush-session-manager.js';
+import { createLiveAskRegistry } from '../../session/live-ask-registry.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   type BrunchAgentState,
 } from '../../session/runtime-state.js';
 import { createSessionBindingData } from '../../session/session-binding.js';
+import { syntheticExchangeToolCallMessage } from '../../session/structured-exchange-loop.js';
 import { createWorkspaceSessionCoordinator } from '../../session/workspace-session-coordinator.js';
 import type {
   DefaultWorkspaceCoordinator,
@@ -37,6 +42,7 @@ import {
   runJsonRpcLineServer,
 } from '../handlers.js';
 import { NO_LIVE_AGENT_SESSION_DRIVER_MESSAGE } from '../methods/session-driver.js';
+import { INVALID_LIVE_EXCHANGE_ANSWER_MESSAGE } from '../methods/session-exchange-answer.js';
 import { createProductUpdatePublisher } from '../product-updates.js';
 
 /**
@@ -46,7 +52,56 @@ import { createProductUpdatePublisher } from '../product-updates.js';
  * 2026-06-12).
  */
 function mintExchangeIntoWorkspace(workspace: { session: { file: string } }, completedCount = 0) {
-  return mintDeterministicExchangeIntoSessionFile(workspace.session.file, completedCount);
+  const turnNumber = completedCount + 1;
+  const exchangeId = `deterministic-grounding-choice-${turnNumber}`;
+  const projection = projectPresentCandidates({
+    exchangeId,
+    heading: `Choose grounding direction ${turnNumber}`,
+    body: 'Choose the active candidate that best grounds this specification.',
+    candidates: [
+      {
+        id: 'new-from-scratch',
+        title: 'Start a new spec workspace from a blank slate.',
+        user_rubric: {
+          core_bet: 'Ground the specification from first principles.',
+          best_fit: 'A fresh product specification.',
+          cost_complexity: 'Requires initial grounding.',
+          covers_well: 'Covers the public RPC candidate path.',
+          main_risks: 'Does not exercise every offer family.',
+          lock_in_constraints: 'Keeps the fixture deterministic.',
+          recommendation: 'Choose this for deterministic RPC coverage.',
+        },
+        meta_rubric: {
+          legibility_cost_of_knowing: 'Easy to inspect.',
+          failure_modes: 'A malformed candidate fails transcript validation.',
+          coverage_range: 'Public RPC candidate settlement.',
+          commitment: 'Commits only fixture state.',
+        },
+        graph_refs: [],
+      },
+    ],
+  });
+  const call = syntheticExchangeToolCallMessage(exchangeId, 'present_candidates');
+  const manager = SessionManager.open(workspace.session.file);
+  manager.appendMessage(call as never);
+  manager.appendMessage({
+    role: 'toolResult',
+    toolCallId: call.content[0].id,
+    toolName: 'present_candidates',
+    content: [{ type: 'text', text: formatPresentCandidates(projection) }],
+    details: projection.details,
+    isError: false,
+    timestamp: 0,
+  } as never);
+  flushSessionManagerToFile(manager, workspace.session.file);
+  return {
+    exchangeId,
+    lens: 'intent' as const,
+    mode: 'single-select' as const,
+    prompt: projection.heading,
+    options: [{ id: 'new-from-scratch', label: 'Start a new spec workspace from a blank slate.' }],
+    note: { allowed: true },
+  };
 }
 
 function coordinator(
@@ -70,12 +125,12 @@ function coordinator(
 function launchInventory(): WorkspaceLaunchInventory {
   return {
     cwd: '/tmp/brunch-project',
-    currentSpec: { id: 1, title: 'Alpha spec' },
+    currentSpec: { id: 1, title: 'Alpha spec', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
     currentSessionFile: '/tmp/brunch-project/.brunch/sessions/session-1.jsonl',
     needsNewSpec: false,
     specs: [
       {
-        spec: { id: 1, title: 'Alpha spec' },
+        spec: { id: 1, title: 'Alpha spec', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
         sessions: [
           {
             id: 'session-1',
@@ -94,6 +149,7 @@ function launchInventory(): WorkspaceLaunchInventory {
         available: false,
       },
     ],
+    workspacePopulated: false,
   };
 }
 
@@ -112,7 +168,7 @@ function readyState(sessionFile: string): WorkspaceSessionReadyState {
   return {
     status: 'ready',
     cwd: '/tmp/brunch-project',
-    spec: { id: 1, title: 'Alpha spec' },
+    spec: { id: 1, title: 'Alpha spec', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
     session: {
       id: 'session-1',
       file: sessionFile,
@@ -241,6 +297,49 @@ async function createGraphRpcFixture(): Promise<{
     specBNodeId: commitB.createdNodes.goal!.id,
     specALsn: commitA.lsn,
     specBLsn: commitB.lsn,
+  };
+}
+
+function activeCandidateEntry() {
+  const projection = projectPresentCandidates({
+    exchangeId: 'domain',
+    heading: 'Domain?',
+    body: 'What are we specifying?',
+    candidates: [
+      {
+        id: 'developer-tooling',
+        title: 'Developer tooling',
+        user_rubric: {
+          core_bet: 'Build tools for developers.',
+          best_fit: 'Developer workflows.',
+          cost_complexity: 'Bounded fixture complexity.',
+          covers_well: 'Active candidate reconstruction.',
+          main_risks: 'Fixture-only coverage.',
+          lock_in_constraints: 'Uses the active ask continuation.',
+          recommendation: 'Select this candidate.',
+        },
+        meta_rubric: {
+          legibility_cost_of_knowing: 'Easy to inspect.',
+          failure_modes: 'Schema validation rejects drift.',
+          coverage_range: 'Pending RPC readback.',
+          commitment: 'Fixture state only.',
+        },
+        graph_refs: [],
+      },
+    ],
+  });
+  return {
+    id: 'present-candidates-1',
+    type: 'message',
+    parentId: 'binding-session-1-spec-1',
+    message: {
+      role: 'toolResult',
+      toolCallId: 'present-call-1',
+      toolName: 'present_candidates',
+      content: [{ type: 'text', text: formatPresentCandidates(projection) }],
+      details: projection.details,
+      isError: false,
+    },
   };
 }
 
@@ -604,7 +703,13 @@ describe('JSON-RPC handlers', () => {
         status: 'select_spec',
         requiresSelection: true,
         cwd: '/tmp/brunch-project',
-        currentSpec: { id: 1, title: 'Alpha spec' },
+        currentSpec: {
+          id: 1,
+          title: 'Alpha spec',
+          kind: 'product',
+          origin: 'greenfield',
+          relatesToSpecId: null,
+        },
         currentSessionFile: '/tmp/brunch-project/.brunch/sessions/session-1.jsonl',
         specs: [{ spec: { id: 1 }, sessions: [{ id: 'session-1' }] }],
         unavailableSessions: [{ reason: 'missing_header' }],
@@ -741,7 +846,7 @@ describe('JSON-RPC handlers', () => {
       id: 1,
       result: {
         status: 'ready',
-        spec: { id: 1, title: 'Alpha spec' },
+        spec: { id: 1, title: 'Alpha spec', kind: 'product', origin: 'greenfield', relatesToSpecId: null },
         session: { id: 'session-1' },
       },
     });
@@ -839,13 +944,13 @@ describe('JSON-RPC handlers', () => {
         status: 'pending',
         exchange: {
           exchangeId: minted.exchangeId,
-          prompt: expect.stringContaining('new product or feature'),
+          prompt: 'Choose grounding direction 1',
           lens: 'intent',
           options: expect.arrayContaining([
             expect.objectContaining({
               id: 'new-from-scratch',
               content: 'Start a new spec workspace from a blank slate.',
-              rationale: 'This keeps the parity run focused on initial grounding.',
+              rationale: 'Choose this for deterministic RPC coverage.',
             }),
           ]),
           note: { allowed: true },
@@ -889,12 +994,12 @@ describe('JSON-RPC handlers', () => {
     });
   });
 
-  it('reads an explicit tuple-shaped pending exchange without a sidecar prompt store', async () => {
+  it('reads an explicit active candidate exchange without a sidecar prompt store', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-tuple-pending-'));
     await writeExplicitSessionFixture(cwd, [
       { type: 'session', id: 'session-1', cwd },
       sessionBindingEntry(),
-      presentQuestionEntry(),
+      activeCandidateEntry(),
     ]);
     const handlers = createRpcHandlers({
       coordinator: coordinator(selectSpecState()),
@@ -915,7 +1020,7 @@ describe('JSON-RPC handlers', () => {
         status: 'pending',
         exchange: {
           exchangeId: 'domain',
-          mode: 'text',
+          mode: 'single-select',
           prompt: 'Domain?',
           details: expect.stringContaining('What are we specifying?'),
         },
@@ -1216,81 +1321,11 @@ describe('JSON-RPC handlers', () => {
 
     const sessionText = await readFile(workspace.session.file, 'utf8');
     expect(sessionText).toContain('brunch.structured_exchange.request');
-    expect(sessionText).toContain('"tool_meta":{"curr":"ask","next":"capture_choice"}');
+    expect(sessionText).toContain(
+      '"tool_meta":{"prev":"present_candidates","curr":"request_choice","next":"capture_candidate"}',
+    );
     expect(sessionText).not.toContain('"prev":"present_question","curr":"request_choice"');
     expect(sessionText).toContain('This is a greenfield product.');
-  });
-
-  it('responds to deterministic text and multi-choice tuple exchanges', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-respond-modes-'));
-    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
-    const workspace = await coordinatorInstance.createSetupSession({
-      specTitle: 'Respond modes spec',
-    });
-    const handlers = createRpcHandlers({
-      coordinator: coordinatorInstance,
-      cwd,
-    });
-
-    const firstExchangeId = mintExchangeIntoWorkspace(workspace, 0).exchangeId;
-    await handlers.handle({
-      jsonrpc: '2.0',
-      id: 251,
-      method: 'session.submitExchangeResponse',
-      params: {
-        exchangeId: firstExchangeId,
-        answer: { optionId: 'new-from-scratch' },
-      },
-    });
-
-    const textExchange = mintExchangeIntoWorkspace(workspace, 1);
-    expect(textExchange).toMatchObject({ mode: 'text', exchangeId: 'deterministic-grounding-text-2' });
-    const textExchangeId = textExchange.exchangeId;
-    await expect(
-      handlers.handle({
-        jsonrpc: '2.0',
-        id: 253,
-        method: 'session.submitExchangeResponse',
-        params: {
-          exchangeId: textExchangeId,
-          answer: { text: 'A local product specification workspace.' },
-        },
-      }),
-    ).resolves.toMatchObject({
-      result: {
-        status: 'accepted',
-        answer: { text: 'A local product specification workspace.' },
-      },
-    });
-
-    const multiExchange = mintExchangeIntoWorkspace(workspace, 2);
-    expect(multiExchange).toMatchObject({
-      mode: 'multi-select',
-      exchangeId: 'deterministic-grounding-multi-3',
-    });
-    await expect(
-      handlers.handle({
-        jsonrpc: '2.0',
-        id: 255,
-        method: 'session.submitExchangeResponse',
-        params: {
-          exchangeId: 'deterministic-grounding-multi-3',
-          answer: { optionIds: ['transcript', 'other'] },
-          note: 'Also verify friction reporting.',
-        },
-      }),
-    ).resolves.toMatchObject({
-      result: {
-        status: 'accepted',
-        answer: { optionIds: ['transcript', 'other'] },
-      },
-    });
-
-    const sessionText = await readFile(workspace.session.file, 'utf8');
-    expect(sessionText).toContain('request_answer');
-    expect(sessionText).toContain('request_choices');
-    expect(sessionText).not.toContain('brunch.elicitation_prompt');
-    expect(sessionText).not.toContain('brunch.elicitation_response');
   });
 
   it('approves a pending review exchange into the selected spec graph and publishes graph invalidations', async () => {
@@ -1395,9 +1430,30 @@ describe('JSON-RPC handlers', () => {
     const sessionText = await readFile(workspace.session.file, 'utf8');
     expect(sessionText).toContain('request_review');
     expect(sessionText).toContain('requirement-draft → REQ1');
+
+    const retry = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 278,
+      method: 'session.submitExchangeResponse',
+      params: {
+        exchangeId: 'review-cycle',
+        answer: { review: { decision: 'approve', comment: 'Looks correct.' } },
+      },
+    });
+    expect(retry).toMatchObject({ error: { code: -32008 } });
+    const afterRetryOverview = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 2781,
+      method: 'graph.overview',
+      params: { specId: workspace.spec.id },
+    });
+    expect(afterRetryOverview).toMatchObject('result' in overview ? { result: overview.result } : {});
+    const afterRetry = await readFile(workspace.session.file, 'utf8');
+    expect(afterRetry).toBe(sessionText);
+    expect(afterRetry.match(/"curr":"request_review"/g)).toHaveLength(1);
   });
 
-  it('approves a pending digest through the public submit path and closes the projection', async () => {
+  it('records conversational digest feedback through the public submit path and closes the continuation', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-digest-approve-'));
     const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
     const workspace = await coordinatorInstance.createSetupSession({ specTitle: 'Digest approval spec' });
@@ -1425,7 +1481,7 @@ describe('JSON-RPC handlers', () => {
       method: 'session.submitExchangeResponse',
       params: {
         exchangeId: 'digest-cycle',
-        answer: { review: { decision: 'approve' } },
+        answer: { text: 'The digest sounds right; continue to clarification.' },
       },
     });
 
@@ -1435,7 +1491,7 @@ describe('JSON-RPC handlers', () => {
       result: {
         status: 'accepted',
         exchangeId: 'digest-cycle',
-        answer: { review: { decision: 'approve' } },
+        answer: { text: 'The digest sounds right; continue to clarification.' },
       },
     });
 
@@ -1447,10 +1503,99 @@ describe('JSON-RPC handlers', () => {
     ).resolves.toMatchObject({ result: { status: 'ready', openPrompt: null } });
 
     const sessionText = await readFile(workspace.session.file, 'utf8');
-    expect(sessionText).toContain('request_review');
+    expect(sessionText).toContain('"toolName":"ask"');
     expect(sessionText).toContain('present_digest');
-    expect(sessionText).toContain('accepted_abstract');
-    expect(sessionText).toContain('The source asks for advisory capture before settlement.');
+    expect(sessionText).toContain('The digest sounds right; continue to clarification.');
+    expect(sessionText).not.toContain('accepted_abstract');
+  });
+
+  it('drives the registered no-UI questionnaire through public RPC to the same durable terminal as local UI', async () => {
+    const registry = createLiveAskRegistry();
+    const registered = new Map<string, { execute: (...args: unknown[]) => Promise<{ details: unknown }> }>();
+    registerStructuredExchange(
+      {
+        registerTool: (tool: { name: string }) => registered.set(tool.name, tool as never),
+      } as unknown as ExtensionAPI,
+      { liveExchange: registry.opener },
+    );
+    const ask = registered.get('ask')!;
+    const digestDetails = projectPresentDigest({
+      exchangeId: 'digest-final',
+      heading: 'Digest',
+      digest: { abstract: 'Runtime final abstract.' },
+    }).details;
+    const branch = [{ type: 'message', message: { role: 'toolResult', details: digestDetails } }];
+    const params = {
+      exchangeId: 'digest-questionnaire-rpc',
+      acceptsDigest: 'digest-final',
+      questions: [
+        { id: 'goal', kind: 'free-text', prompt: 'What is the goal?' },
+        {
+          id: 'route',
+          kind: 'single-select',
+          prompt: 'Which route?',
+          options: [{ id: 'safe', label: 'Safe' }],
+        },
+      ],
+    };
+    const headlessDone = ask.execute('call', params, new AbortController().signal, undefined, {
+      hasUI: false,
+      sessionManager: { getBranch: () => branch },
+    });
+    const handlers = createWebSidecarRpcHandlers({
+      coordinator: coordinator(),
+      cwd: '/tmp/brunch-project',
+      sessionExchangeAnswer: { answerer: registry.answerer },
+    });
+
+    await expect(
+      handlers.handle({
+        jsonrpc: '2.0',
+        id: 282,
+        method: 'session.answerExchange',
+        params: {
+          exchangeId: 'digest-questionnaire-rpc',
+          answer: JSON.stringify({
+            schema: 'brunch.ask.questionnaire-answer',
+            answers: [{ questionId: 'goal', kind: 'free-text', text: 'Capture safely.' }],
+          }),
+        },
+      }),
+    ).resolves.toMatchObject({ error: { code: -32602, message: INVALID_LIVE_EXCHANGE_ANSWER_MESSAGE } });
+    expect(registry.reader.openAsks()).toHaveLength(1);
+
+    const envelope = JSON.stringify({
+      schema: 'brunch.ask.questionnaire-answer',
+      answers: [
+        { questionId: 'goal', kind: 'free-text', text: 'Capture safely.' },
+        { questionId: 'route', kind: 'single-select', optionId: 'safe' },
+      ],
+    });
+    await expect(
+      handlers.handle({
+        jsonrpc: '2.0',
+        id: 283,
+        method: 'session.answerExchange',
+        params: { exchangeId: 'digest-questionnaire-rpc', answer: envelope },
+      }),
+    ).resolves.toEqual({ jsonrpc: '2.0', id: 283, result: { status: 'completed' } });
+    const headless = await headlessDone;
+    const local = await ask.execute('local-call', params, undefined, undefined, {
+      hasUI: true,
+      sessionManager: { getBranch: () => branch },
+      ui: {
+        custom: async () => [
+          { questionId: 'goal', kind: 'free-text', text: 'Capture safely.' },
+          { questionId: 'route', kind: 'single-select', optionId: 'safe' },
+        ],
+      },
+    } as unknown as StructuredExchangeUiContext);
+    expect(headless.details).toEqual(local.details);
+    expect(headless.details).toMatchObject({
+      accepts_digest: 'digest-final',
+      answered: { accepted_abstract: 'Runtime final abstract.' },
+    });
+    expect(registry.reader.openAsks()).toEqual([]);
   });
 
   it('rejects a review approval whose persisted review set is not a valid ReviewSetDetailsPayload', async () => {
@@ -1511,7 +1656,7 @@ describe('JSON-RPC handlers', () => {
     });
   });
 
-  it('accepts labeled text answers without submit-time capture or graph invalidations', async () => {
+  it('accepts active candidate answers without submit-time capture or graph invalidations', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-response-capture-'));
     const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
     const workspace = await coordinatorInstance.createSetupSession({
@@ -1526,7 +1671,13 @@ describe('JSON-RPC handlers', () => {
     const handlers = createRpcHandlers({
       coordinator: coordinator({
         ...workspace,
-        spec: { id: wrongSpec.specId, title: 'Wrong default spec' },
+        spec: {
+          id: wrongSpec.specId,
+          title: 'Wrong default spec',
+          kind: 'product',
+          origin: 'greenfield',
+          relatesToSpecId: null,
+        },
       }),
       cwd,
       productUpdates,
@@ -1539,22 +1690,15 @@ describe('JSON-RPC handlers', () => {
       method: 'session.submitExchangeResponse',
       params: { exchangeId: firstExchangeId, answer: { optionId: 'new-from-scratch' } },
     });
-    mintExchangeIntoWorkspace(workspace, 1);
+    const secondExchange = mintExchangeIntoWorkspace(workspace, 1);
 
     const response = await handlers.handle({
       jsonrpc: '2.0',
       id: 273,
       method: 'session.submitExchangeResponse',
       params: {
-        exchangeId: 'deterministic-grounding-text-2',
-        answer: {
-          text: [
-            'Goal: Help product teams turn elicitation answers into graph truth.',
-            'Context: Designers will observe the graph from a web UI.',
-            'Constraint: Use the selected session binding, not workspace defaults.',
-            'Criterion: The selected spec overview shows projected graph codes.',
-          ].join('\n'),
-        },
+        exchangeId: secondExchange.exchangeId,
+        answer: { optionId: 'new-from-scratch' },
       },
     });
 
@@ -1563,10 +1707,8 @@ describe('JSON-RPC handlers', () => {
       id: 273,
       result: {
         status: 'accepted',
-        exchangeId: 'deterministic-grounding-text-2',
-        answer: {
-          text: expect.stringContaining('Goal: Help product teams'),
-        },
+        exchangeId: secondExchange.exchangeId,
+        answer: { optionId: 'new-from-scratch' },
       },
     });
     if (!('result' in response)) throw new Error('expected response');
@@ -1625,7 +1767,13 @@ describe('JSON-RPC handlers', () => {
     const handlers = createRpcHandlers({
       coordinator: coordinator({
         ...workspace,
-        spec: { id: sibling.specId, title: 'Sibling spec' },
+        spec: {
+          id: sibling.specId,
+          title: 'Sibling spec',
+          kind: 'product',
+          origin: 'greenfield',
+          relatesToSpecId: null,
+        },
       }),
       cwd,
       productUpdates,
@@ -1876,7 +2024,7 @@ describe('JSON-RPC handlers', () => {
       jsonrpc: '2.0',
       id: 63,
       method: 'session.submitExchangeResponse',
-      params: { exchangeId, answer: { optionId: 'existing-codebase' } },
+      params: { exchangeId, answer: { optionId: 'new-from-scratch' } },
     });
     const before = await readFile(workspace.session.file, 'utf8');
 
@@ -1885,7 +2033,7 @@ describe('JSON-RPC handlers', () => {
         jsonrpc: '2.0',
         id: 64,
         method: 'session.submitExchangeResponse',
-        params: { exchangeId, answer: { optionId: 'existing-codebase' } },
+        params: { exchangeId, answer: { optionId: 'new-from-scratch' } },
       }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',

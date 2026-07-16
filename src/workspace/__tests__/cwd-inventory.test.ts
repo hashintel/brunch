@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { inspectWorkspaceCwdInventory } from '../cwd-inventory.js';
+import { hasVisibleProductFiles, inspectWorkspaceCwdInventory } from '../cwd-inventory.js';
 
 describe('inspectWorkspaceCwdInventory', () => {
   it('returns a gitignore-aware topology inventory', async () => {
@@ -52,6 +52,16 @@ describe('inspectWorkspaceCwdInventory', () => {
         },
       ],
     });
+  });
+
+  it('counts non-Markdown product files without widening topology children', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-workspace-context-'));
+    await writeFile(join(cwd, 'package.json'), '{}');
+
+    const inventory = await inspectWorkspaceCwdInventory(cwd);
+
+    expect(await hasVisibleProductFiles(cwd)).toBe(true);
+    expect(inventory.topology).toEqual({ name: '.', kind: 'directory', fileCount: 1, children: [] });
   });
 
   it('returns a coherent fresh-workspace inventory when .brunch is absent', async () => {

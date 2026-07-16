@@ -10,6 +10,7 @@ const inventory: WorkspaceLaunchInventory = {
   needsNewSpec: true,
   specs: [],
   unavailableSessions: [],
+  workspacePopulated: false,
 };
 
 describe('WorkspaceDialogComponent', () => {

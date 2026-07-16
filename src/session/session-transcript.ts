@@ -38,13 +38,13 @@ export function renderAllHistoryDiagnosticTranscript(
 function parseAllHistoryDiagnosticJsonl(jsonl: string): FileEntry[] {
   return jsonl
     .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .map((line, index) => {
+    .map((line, index) => ({ line: line.trim(), sourceLine: index + 1 }))
+    .filter(({ line }) => line.length > 0)
+    .map(({ line, sourceLine }) => {
       try {
         return JSON.parse(line) as TranscriptEntry;
       } catch (error) {
-        throw new Error(`Invalid JSONL at line ${index + 1}: ${(error as Error).message}`);
+        throw new Error(`Invalid JSONL at line ${sourceLine}: ${(error as Error).message}`);
       }
     });
 }
