@@ -161,7 +161,19 @@ describe('standalone web concurrent session isolation', () => {
       Promise.all([rpc.request('session.open', targetA), rpc.request('session.open', targetB)]),
     ).resolves.toEqual([{ status: 'opened' }, { status: 'opened' }]);
     await expect(rpc.request('session.open', targetA)).resolves.toEqual({ status: 'attached' });
-    await waitFor(() => faux.provider.state.callCount >= 2, 8000, 'both startup turns');
+    await waitFor(
+      async () => {
+        const [openingA, openingB] = await Promise.all([
+          presentation(rpc, targetA),
+          presentation(rpc, targetB),
+        ]);
+        return [openingA, openingB].every((opening) =>
+          presentationText(opening).includes('Concurrent opening '),
+        );
+      },
+      8000,
+      'both startup turns to settle',
+    );
 
     const graphBarrier = twoPartyBarrier();
     faux.provider.appendResponses([
