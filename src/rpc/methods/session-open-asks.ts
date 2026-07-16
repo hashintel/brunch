@@ -1,6 +1,6 @@
 import { Type } from 'typebox';
 
-import type { LiveAskReader } from '../../session/live-ask-registry.js';
+import { OPEN_ASK_MODES, type LiveAskReader } from '../../session/live-ask-registry.js';
 import { createJsonRpcFailure, createJsonRpcSuccess, jsonRpcRequestId } from '../protocol.js';
 import type { RpcMethodContext, RpcMethodDefinition } from './registry.js';
 import { NoParamsSchema, NonBlankStringSchema } from './schemas.js';
@@ -36,12 +36,7 @@ const AskQuestionEchoSchema = Type.Object(
 const OpenAskSchema = Type.Object(
   {
     exchangeId: NonBlankStringSchema,
-    mode: Type.Union([
-      Type.Literal('text'),
-      Type.Literal('single-select'),
-      Type.Literal('multi-select'),
-      Type.Literal('review'),
-    ]),
+    mode: Type.Union(OPEN_ASK_MODES.map((mode) => Type.Literal(mode))),
     question: AskQuestionEchoSchema,
   },
   { additionalProperties: false },

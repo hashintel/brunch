@@ -18,6 +18,12 @@ function discoveredMethods(response: unknown): string[] {
   return methods.map((entry) => entry.method);
 }
 
+function discoveredResultSchema(response: unknown, method: string): unknown {
+  const methods = (response as { result?: { methods?: Array<{ method: string; resultSchema: unknown }> } })
+    .result?.methods;
+  return methods?.find((entry) => entry.method === method)?.resultSchema;
+}
+
 describe('session.openAsks public RPC read method', () => {
   it('discovers open asks with their full question payload when the registry handle is attached', async () => {
     const { cwd, coordinator } = await coordinatorInTmp();
@@ -39,6 +45,7 @@ describe('session.openAsks public RPC read method', () => {
 
     const discovery = await handlers.handle({ jsonrpc: '2.0', id: 1, method: 'rpc.discover' });
     expect(discoveredMethods(discovery)).toContain('session.openAsks');
+    expect(JSON.stringify(discoveredResultSchema(discovery, 'session.openAsks'))).toContain('questionnaire');
 
     await expect(handlers.handle({ jsonrpc: '2.0', id: 2, method: 'session.openAsks' })).resolves.toEqual({
       jsonrpc: '2.0',

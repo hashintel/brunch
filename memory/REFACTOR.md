@@ -67,7 +67,7 @@ Ordered by safety; each leaves the codebase working (`npm run verify`).
 2. [done] Derive the zod ask-mode enum from `OPEN_ASK_MODES` in the live-session
    contract, and pin the open-asks result schema to the owned `OpenAsk` via a
    `satisfies` binding so container-shape drift fails at compile time.
-3. Derive the TypeBox sidecar ask-mode union from `OPEN_ASK_MODES`. This fixes
+3. [done] Derive the TypeBox sidecar ask-mode union from `OPEN_ASK_MODES`. This fixes
    the drifted discovery schema (adds the missing `questionnaire` mode).
 4. Give the standalone hosted `session.openAsks` a precise result schema equal to
    the sidecar's, replacing the opaque any-result so both hosts advertise one
