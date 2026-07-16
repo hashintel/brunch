@@ -117,6 +117,12 @@ export function createLiveSessionHost(options: {
     return cells.get(sessionTargetKey(target));
   }
 
+  async function teardownCell(key: string, cell: RuntimeCell): Promise<void> {
+    cells.delete(key);
+    cell.detach();
+    await cell.runtime.dispose();
+  }
+
   return {
     open,
     async close(target) {
@@ -124,9 +130,7 @@ export function createLiveSessionHost(options: {
       const cell = cells.get(key);
       if (!cell) return { status: 'not_open' };
       if (cell.driving) return { status: 'busy' };
-      cells.delete(key);
-      cell.detach();
-      await cell.runtime.dispose();
+      await teardownCell(key, cell);
       return { status: 'closed' };
     },
     async driveTurn(target, driverId, prompt) {
@@ -171,9 +175,7 @@ export function createLiveSessionHost(options: {
         [...cells.keys()].map(async (key) => {
           const cell = cells.get(key);
           if (!cell) return;
-          cells.delete(key);
-          cell.detach();
-          await cell.runtime.dispose();
+          await teardownCell(key, cell);
         }),
       );
     },
