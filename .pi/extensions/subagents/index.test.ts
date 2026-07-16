@@ -1,6 +1,65 @@
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
-import { Semaphore } from './index.js';
+import subagents, { Semaphore } from './index.js';
+
+describe('vendored subagent registration', () => {
+  it('refreshes the tool description from the real project trust context', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'subagents-description-'));
+    const agentHome = path.join(root, 'agent-home');
+    const projectRoot = path.join(root, 'project');
+    await mkdir(path.join(agentHome, 'subagents'), { recursive: true });
+    await mkdir(path.join(projectRoot, '.pi', 'subagents'), { recursive: true });
+    await writeFile(
+      path.join(agentHome, 'subagents', 'worker.md'),
+      '---\nname: worker\ndescription: User worker\n---\n',
+    );
+    await writeFile(
+      path.join(projectRoot, '.pi', 'subagents', 'analyst.md'),
+      '---\nname: analyst\ndescription: Project analyst\n---\n',
+    );
+
+    const previousAgentDir = process.env['PI_CODING_AGENT_DIR'];
+    process.env['PI_CODING_AGENT_DIR'] = agentHome;
+    const registered: Array<{ description: string }> = [];
+    let sessionStart:
+      | ((event: unknown, ctx: { cwd: string; isProjectTrusted(): boolean }) => void)
+      | undefined;
+
+    try {
+      subagents({
+        registerTool(tool: { description: string }) {
+          registered.push(tool);
+        },
+        on(event: string, handler: typeof sessionStart) {
+          if (event === 'session_start') sessionStart = handler;
+        },
+      } as never);
+
+      expect(registered.at(-1)?.description).toContain('resolved when the session starts');
+      expect(sessionStart).toBeDefined();
+
+      sessionStart?.({}, { cwd: projectRoot, isProjectTrusted: () => false });
+      const untrustedDescription = registered.at(-1)?.description ?? '';
+      expect(untrustedDescription).toContain('Available user-level agents');
+      expect(untrustedDescription).toContain('worker (User worker)');
+      expect(untrustedDescription).not.toContain('analyst (Project analyst)');
+
+      sessionStart?.({}, { cwd: projectRoot, isProjectTrusted: () => true });
+      const trustedDescription = registered.at(-1)?.description ?? '';
+      expect(trustedDescription).toContain('Available agents for this trusted project');
+      expect(trustedDescription).toContain('analyst (Project analyst)');
+      expect(trustedDescription).toContain('worker (User worker)');
+    } finally {
+      if (previousAgentDir === undefined) delete process.env['PI_CODING_AGENT_DIR'];
+      else process.env['PI_CODING_AGENT_DIR'] = previousAgentDir;
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
 
 describe('vendored subagent Semaphore', () => {
   it('admits up to the configured limit and drains every waiter', async () => {
