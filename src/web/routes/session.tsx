@@ -445,6 +445,19 @@ function Ask({
       </section>
     );
   }
+  if (entry.questions) {
+    return (
+      <section aria-label={entry.question}>
+        <p>{entry.question}</p>
+        <ol aria-label="Questionnaire questions">
+          {entry.questions.map((question) => (
+            <li key={question.id}>{question.prompt}</li>
+          ))}
+        </ol>
+        <p role="status">Questionnaire answering is not available in the web interface.</p>
+      </section>
+    );
+  }
   return (
     <form
       aria-label={entry.question}

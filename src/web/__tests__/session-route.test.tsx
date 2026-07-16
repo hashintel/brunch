@@ -636,6 +636,80 @@ describe('session route', () => {
     expect(screen.queryByRole('button', { name: 'Answer' })).toBeNull();
   });
 
+  it('hydrates an ordered questionnaire as an accessible non-submittable state', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const questions = [
+      { id: 'goal', kind: 'free-text' as const, prompt: 'What matters?' },
+      {
+        id: 'route',
+        kind: 'single-select' as const,
+        prompt: 'Which route?',
+        options: [{ id: 'safe', label: 'Safe path' }],
+      },
+      {
+        id: 'checks',
+        kind: 'multi-select' as const,
+        prompt: 'Which checks?',
+        options: [{ id: 'tests', label: 'Tests' }],
+      },
+    ];
+    const f = fixture(
+      [],
+      [
+        {
+          exchangeId: 'pending-questionnaire',
+          mode: 'questionnaire',
+          question: { body: 'Plan review', questions },
+        },
+      ],
+    );
+
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+    expect((await screen.findByRole('status')).textContent).toMatch(/questionnaire.*not.*available/i);
+    expect(screen.getByRole('list', { name: 'Questionnaire questions' }).textContent).toBe(
+      'What matters?Which route?Which checks?',
+    );
+    expect(screen.queryByRole('button', { name: 'Answer' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'What matters?' })).toBeNull();
+    expect(f.calls.filter(({ method }) => method === 'session.answerExchange')).toEqual([]);
+  });
+
+  it('renders a live questionnaire through the same visible non-submittable path', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture();
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    expect(await screen.findByText(/History/u)).toBeTruthy();
+
+    await act(async () => {
+      f.emit({
+        target: { specId: 1, sessionId: 's1' },
+        seq: 0,
+        delta: {
+          type: 'ask_opened',
+          ask: {
+            exchangeId: 'live-questionnaire',
+            mode: 'questionnaire',
+            question: {
+              body: 'Live plan review',
+              questions: [
+                { id: 'first', kind: 'free-text', prompt: 'First prompt' },
+                { id: 'second', kind: 'free-text', prompt: 'Second prompt' },
+              ],
+            },
+          },
+        },
+      });
+    });
+
+    expect(screen.getByRole('status').textContent).toMatch(/questionnaire.*not.*available/i);
+    expect(screen.getByRole('list', { name: 'Questionnaire questions' }).textContent).toBe(
+      'First promptSecond prompt',
+    );
+    expect(screen.queryByRole('button', { name: 'Answer' })).toBeNull();
+    expect(f.calls.filter(({ method }) => method === 'session.answerExchange')).toEqual([]);
+  });
+
   it('hydrates an already-open ask on load so a reconnecting client can answer it', async () => {
     window.history.pushState(null, '', '/session/1/s1');
     const options = [

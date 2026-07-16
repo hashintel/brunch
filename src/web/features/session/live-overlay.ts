@@ -34,6 +34,7 @@ export function reduceLiveSessionOverlay(
       delta.ask.question.options
         ? { options: delta.ask.question.options }
         : {}),
+      ...(delta.ask.mode === 'questionnaire' ? { questions: delta.ask.question.questions } : {}),
     };
     const existing = entries.findIndex((entry) => entry.id === id);
     return existing < 0

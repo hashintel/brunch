@@ -10,6 +10,7 @@ import type {
   PresentDigestDetails,
   PresentReviewSetDetails,
 } from '../../exchanges/schemas/present.js';
+import type { QuestionnaireQuestion } from '../../exchanges/schemas/questionnaire.js';
 import {
   zAskDetails,
   zRequestChoiceDetails,
@@ -80,6 +81,7 @@ export type SessionPresentationEntry =
       readonly question: string;
       readonly mode?: 'multi-select';
       readonly options?: NonNullable<AskQuestionEcho['options']>;
+      readonly questions?: readonly QuestionnaireQuestion[];
       readonly terminal?: AskTerminal;
     };
 
