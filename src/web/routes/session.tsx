@@ -23,15 +23,30 @@ export const sessionRoute = createRoute({
       sessionPresentationQueryOptions(context.rpcClient, target),
     );
     await context.rpcClient.request('session.open', target);
-    // Hydrate asks already open before this attachment: their ask_opened events
-    // fired before load, so only the live registry — not the transcript or the
-    // live stream — can surface them to a reconnecting client.
-    const openAsks = openAsksResultSchema.safeParse(
-      await context.rpcClient.request('session.openAsks', target),
-    );
-    await presentation;
-    if (!openAsks.success) return { error: 'Session protocol load failed.' } as const;
-    return { target, openAsks: openAsks.data.openAsks } as const;
+    const close = async () => {
+      try {
+        await context.rpcClient.request('session.close', target);
+      } catch {
+        // Best-effort release must not mask the load failure.
+      }
+    };
+    try {
+      // Hydrate asks already open before this attachment: their ask_opened events
+      // fired before load, so only the live registry — not the transcript or the
+      // live stream — can surface them to a reconnecting client.
+      const openAsks = openAsksResultSchema.safeParse(
+        await context.rpcClient.request('session.openAsks', target),
+      );
+      await presentation;
+      if (!openAsks.success) {
+        await close();
+        return { error: 'Session protocol load failed.' } as const;
+      }
+      return { target, openAsks: openAsks.data.openAsks } as const;
+    } catch (error) {
+      await close();
+      throw error;
+    }
   },
   component: SessionPage,
 });

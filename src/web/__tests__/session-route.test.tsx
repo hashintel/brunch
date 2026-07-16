@@ -119,6 +119,18 @@ describe('session route', () => {
     expect(f.calls.filter(({ method }) => method.startsWith('session.'))).toEqual([]);
   });
 
+  it('closes an opened target when open-ask hydration fails to parse', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture([], [{ invalid: true }]);
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/protocol load failed/i);
+    expect(f.calls).toContainEqual({
+      method: 'session.close',
+      params: { specId: 1, sessionId: 's1' },
+    });
+  });
+
   it('reports malformed open-ask hydration instead of treating it as empty', async () => {
     window.history.pushState(null, '', '/session/1/s1');
     const f = fixture([], [{ exchangeId: '', mode: 'text', question: { body: 'Broken' } }]);
