@@ -9,7 +9,7 @@ Created:  2026-07-16
 
 - **Containing seam:** the Brunch-owned Pi TUI/session boundary, from active-branch conduct state through menu/chrome/Ask adapters into provider-visible prompting and transcript read-back.
 - **Frontier:** `walkthrough-remediation-2` / FE-1187 on `ln/fe-1187-remediation-4`; every card remains on this plan-level issue and branch.
-- **Volatile execution state:** Cards 1 and 2 are committed and done; Card 3 is next and Card 4 is queued. PLAN and this file bind semantic/model preflight to A48-L.
+- **Volatile execution state:** Cards 1–3 are committed and done; Card 4 is next. PLAN and this file bind semantic/model preflight to A48-L.
 - **Main risk:** Card 3 must enrich deterministic rendering and caller-supplied availability without coupling the optional model preflight, weakening the fallback, or changing the settled carrier/menu semantics that Cards 1 and 2 materialized.
 
 **Posture: proving (inherited from `walkthrough-remediation-2`).**
@@ -369,7 +369,9 @@ src/dev/component-preview/
 
 ---
 
-## Card 3 · Deterministic orientation rendering and availability — `next`
+## Card 3 · Deterministic orientation rendering and availability — `done`
+
+Build note (2026-07-16): deterministic mode-specific menu construction now keeps all Specify styles visible, marks/preselects the active style, reveals only caller-supplied process moves over the conservative fallback, and drives four preview fixtures through the shared blue shell. No evaluator/model, cache, persisted grade, transcript fact, graph gate, or authority gate was introduced.
 
 ### Objective
 
@@ -450,7 +452,7 @@ src/.pi/extensions/TOPOLOGY.md                           ~
 
 ---
 
-## Card 4 · Deterministic full Ask matrix — `queued`
+## Card 4 · Deterministic full Ask matrix — `next`
 
 ### Target Behavior
 

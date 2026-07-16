@@ -32,11 +32,13 @@ export interface SessionOrientationMenuItem {
   readonly id: SessionOrientationChoice;
   readonly label: string;
   readonly description?: string;
+  readonly current?: boolean;
 }
 export interface SessionOrientationMenuDescriptor {
   readonly title: string;
   readonly topLabel?: string;
   readonly bottomLabel?: string;
+  readonly initialSelectedId?: SessionOrientationChoice;
   readonly items: readonly SessionOrientationMenuItem[];
 }
 
@@ -62,17 +64,73 @@ export const SESSION_ORIENTATION_MENU = {
   ],
 } as const satisfies SessionOrientationMenuDescriptor;
 
+const MOVE_MENU_ITEMS = {
+  move_to_execution: {
+    id: 'move_to_execution',
+    label: 'Move to execution',
+    description: 'Switch to Execute when the specification is ready for implementation.',
+  },
+  prepare_execution: {
+    id: 'prepare_execution',
+    label: 'Prepare execution',
+    description: 'Close design, verification, and commitment gaps.',
+  },
+  compile_plan: {
+    id: 'compile_plan',
+    label: 'Compile a plan',
+    description: 'Turn ready committed scope into an executable plan.',
+  },
+  execute_plan: {
+    id: 'execute_plan',
+    label: 'Execute the plan',
+    description: 'Validate the current plan and begin only the next safe scoped unit.',
+  },
+} as const satisfies Record<ProcessMove, SessionOrientationMenuItem>;
+
 export const CODE_SESSION_ORIENTATION_MENU = {
   title: 'Choose how Execute mode should continue',
   topLabel: '[ Execute ]',
-  items: [
-    {
-      id: 'prepare_execution',
-      label: 'Prepare execution',
-      description: 'Close design, verification, and commitment gaps.',
-    },
-  ],
+  items: [MOVE_MENU_ITEMS.prepare_execution],
 } as const satisfies SessionOrientationMenuDescriptor;
+
+export function buildSessionOrientationMenu(input: {
+  readonly mode: OperationalModeId;
+  readonly currentStyle?: ElicitationStyle;
+  readonly availability?: unknown;
+}): SessionOrientationMenuDescriptor {
+  const supplied = availabilityFrom(input.availability);
+  const availability = supplied ?? DETERMINISTIC_PROCESS_MOVE_AVAILABILITY[input.mode];
+  if (input.mode === 'execute') {
+    return {
+      ...CODE_SESSION_ORIENTATION_MENU,
+      items: [
+        MOVE_MENU_ITEMS.prepare_execution,
+        ...(availability.compile_plan ? [MOVE_MENU_ITEMS.compile_plan] : []),
+        ...(availability.execute_plan ? [MOVE_MENU_ITEMS.execute_plan] : []),
+      ],
+    };
+  }
+
+  const styleItems = SESSION_ORIENTATION_MENU.items.map((item) =>
+    item.id === input.currentStyle ? { ...item, current: true as const } : item,
+  );
+  return {
+    ...SESSION_ORIENTATION_MENU,
+    ...(input.currentStyle ? { initialSelectedId: input.currentStyle } : {}),
+    items: [...styleItems, ...(availability.move_to_execution ? [MOVE_MENU_ITEMS.move_to_execution] : [])],
+  };
+}
+
+function availabilityFrom(value: unknown): Partial<ProcessMoveAvailability> | undefined {
+  if (!value || typeof value !== 'object' || value instanceof Error) return undefined;
+  const candidate = value as Record<string, unknown>;
+  return {
+    move_to_execution: candidate.move_to_execution === true,
+    prepare_execution: candidate.prepare_execution === true,
+    compile_plan: candidate.compile_plan === true,
+    execute_plan: candidate.execute_plan === true,
+  };
+}
 
 export interface SessionOrientationDialogUi {
   select(title: string, options: string[]): Promise<string | undefined>;

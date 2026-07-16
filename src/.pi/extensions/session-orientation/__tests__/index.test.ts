@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildSessionOrientationMenu,
   CODE_SESSION_ORIENTATION_MENU,
   DETERMINISTIC_PROCESS_MOVE_AVAILABILITY,
   runAndRecordSessionOrientation,
@@ -30,6 +31,52 @@ describe('session orientation boundary', () => {
     ]);
     expect(CODE_SESSION_ORIENTATION_MENU.items.map(({ id }) => id)).toEqual(['prepare_execution']);
   });
+
+  it('builds exact mode-appropriate menus from fallback or explicit availability', () => {
+    expect(buildSessionOrientationMenu({ mode: 'specify', currentStyle: 'disambiguate' })).toMatchObject({
+      initialSelectedId: 'disambiguate',
+      items: [
+        { id: 'interrogate', label: 'Work via intent' },
+        { id: 'disambiguate', label: 'Work via examples', current: true },
+        { id: 'propose', label: 'Work via proposals' },
+      ],
+    });
+    expect(
+      buildSessionOrientationMenu({
+        mode: 'specify',
+        availability: { move_to_execution: true },
+      }).items.map(({ id, label }) => ({ id, label })),
+    ).toEqual([
+      { id: 'interrogate', label: 'Work via intent' },
+      { id: 'disambiguate', label: 'Work via examples' },
+      { id: 'propose', label: 'Work via proposals' },
+      { id: 'move_to_execution', label: 'Move to execution' },
+    ]);
+    expect(buildSessionOrientationMenu({ mode: 'execute' }).items.map(({ id }) => id)).toEqual([
+      'prepare_execution',
+    ]);
+    expect(
+      buildSessionOrientationMenu({
+        mode: 'execute',
+        availability: { compile_plan: true, execute_plan: true, move_to_execution: true },
+      }).items.map(({ id, label }) => ({ id, label })),
+    ).toEqual([
+      { id: 'prepare_execution', label: 'Prepare execution' },
+      { id: 'compile_plan', label: 'Compile a plan' },
+      { id: 'execute_plan', label: 'Execute the plan' },
+    ]);
+  });
+
+  it.each([undefined, null, new Error('failed'), { compile_plan: true }])(
+    'uses conservative fallback for absent or failure-shaped availability',
+    (availability) => {
+      expect(
+        buildSessionOrientationMenu({ mode: 'specify', availability: availability as never }).items.map(
+          ({ id }) => id,
+        ),
+      ).toEqual(['interrogate', 'disambiguate', 'propose']);
+    },
+  );
 
   it('dismissal and same-style selection write nothing', async () => {
     for (const picked of [undefined, 'Work via examples']) {

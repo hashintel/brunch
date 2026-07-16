@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { buildSessionOrientationMenu } from '../index.js';
 import { runOrientationJuncture, type LiveKickDeps } from '../juncture.js';
 
 function harness(response: string | undefined, failAppend = false) {
@@ -67,6 +68,30 @@ describe('orientation juncture', () => {
       expect(h.events).toEqual([]);
     },
   );
+
+  it('availability evaluation is read-only until an available move is selected', async () => {
+    const h = harness(undefined);
+    const menu = buildSessionOrientationMenu({
+      mode: 'execute',
+      availability: { compile_plan: true },
+    });
+    await runOrientationJuncture({
+      hasUI: true,
+      ui: { select: async () => undefined, customMenu: async () => ({ id: 'compile_plan' }) },
+      trigger: 'consult',
+      sessionManager: h.manager as never,
+      menu,
+      kick: h.kick,
+    });
+    expect(h.events).toEqual(['append:brunch.process_move', 'seed:brunch.context_seed', 'kick']);
+    expect(h.manager.getBranch()).toEqual([
+      {
+        type: 'custom',
+        customType: 'brunch.process_move',
+        data: { schemaVersion: 1, move: 'compile_plan' },
+      },
+    ]);
+  });
 
   it('append failure starts no seed or kick', async () => {
     const h = harness('Work via proposals', true);

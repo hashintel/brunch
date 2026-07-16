@@ -18,6 +18,7 @@ import {
   WORKSPACE_DIALOG_WIDTH,
 } from '../../.pi/components/workspace-dialog/index.js';
 import { renderMarkdownResult } from '../../.pi/extensions/exchanges/shared/markdown.js';
+import { buildSessionOrientationMenu } from '../../.pi/extensions/session-orientation/index.js';
 import type { WorkspaceLaunchInventory } from '../../session/workspace-session-coordinator.js';
 import { showComponentPreview } from './custom-ui.js';
 import {
@@ -145,42 +146,57 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
         createRuntimeModePickerComponent({ current: 'specify', theme: previewTheme, onDone: done }),
       ),
   },
-  {
-    id: 'consult-menu',
-    label: 'Consult menu',
-    presentedLike: 'inline swap — /brunch:consult orientation dialog (commands/index.ts)',
-    open: (tui, theme, keybindings) =>
-      showComponentPreview(
-        tui,
-        theme,
-        keybindings,
-        (_tui, previewTheme, _kb, done) =>
-          new ConsultMenuComponent({
-            title: 'Choose how Specify mode should continue',
-            topLabel: '[ Specify ]',
-            bottomLabel: '"Alpha"',
-            choices: [
-              {
-                id: 'elicit_decisions',
-                label: 'Work by decision',
-                description: 'Use grill-style pressure to resolve choices.',
-              },
-              {
-                id: 'propose_oracle',
-                label: 'Prep verification for execution',
-                description: 'Project test and evidence strategies for this frontier.',
-              },
-              {
-                id: 'continue',
-                label: 'Wait for me',
-                description: 'Stay inert until your next instruction.',
-              },
-            ],
-            theme: previewTheme,
-            onDone: done,
-          }),
-      ),
-  },
+  ...[
+    {
+      id: 'orientation-specify-current',
+      label: 'Orientation — Specify with current style',
+      menu: buildSessionOrientationMenu({ mode: 'specify', currentStyle: 'disambiguate' }),
+    },
+    {
+      id: 'orientation-specify-move',
+      label: 'Orientation — Specify with Move to execution available',
+      menu: buildSessionOrientationMenu({
+        mode: 'specify',
+        currentStyle: 'interrogate',
+        availability: { move_to_execution: true },
+      }),
+    },
+    {
+      id: 'orientation-execute-fallback',
+      label: 'Orientation — Execute fallback',
+      menu: buildSessionOrientationMenu({ mode: 'execute' }),
+    },
+    {
+      id: 'orientation-execute-full',
+      label: 'Orientation — Execute fully available',
+      menu: buildSessionOrientationMenu({
+        mode: 'execute',
+        availability: { compile_plan: true, execute_plan: true },
+      }),
+    },
+  ].map(
+    ({ id, label, menu }): ComponentPreviewEntry => ({
+      id,
+      label,
+      presentedLike: 'inline swap — /brunch:consult orientation dialog (commands/index.ts)',
+      open: (tui, theme, keybindings) =>
+        showComponentPreview(
+          tui,
+          theme,
+          keybindings,
+          (_tui, previewTheme, _kb, done) =>
+            new ConsultMenuComponent({
+              title: menu.title,
+              ...(menu.topLabel ? { topLabel: menu.topLabel } : {}),
+              bottomLabel: '"Alpha"',
+              choices: menu.items,
+              ...(menu.initialSelectedId ? { initialSelectedId: menu.initialSelectedId } : {}),
+              theme: previewTheme,
+              onDone: done,
+            }),
+        ),
+    }),
+  ),
   {
     id: 'consult-menu-scroll',
     label: 'Consult menu (scroll)',

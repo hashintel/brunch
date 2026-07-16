@@ -267,6 +267,7 @@ export function adaptOrientationUi(ctx: {
             ...(menu.topLabel ? { topLabel: menu.topLabel } : {}),
             ...(menu.bottomLabel ? { bottomLabel: menu.bottomLabel } : {}),
             choices: menu.items,
+            ...(menu.initialSelectedId ? { initialSelectedId: menu.initialSelectedId } : {}),
             theme,
             onDone: done,
           }),
@@ -329,7 +330,17 @@ export async function runOrientationJuncture(
   input: RunOrientationJunctureInput,
 ): Promise<RunOrientationJunctureResult> {
   const mode = input.mode ?? 'follow-choice';
-  const menu = input.menu ?? SESSION_ORIENTATION_MENU;
+  const currentStyle = latestElicitationStyle(input.sessionManager.getBranch());
+  const baseMenu = input.menu ?? SESSION_ORIENTATION_MENU;
+  const menu = currentStyle
+    ? {
+        ...baseMenu,
+        initialSelectedId: currentStyle,
+        items: baseMenu.items.map((item) =>
+          item.id === currentStyle ? { ...item, current: true as const } : item,
+        ),
+      }
+    : baseMenu;
 
   const orientation = input.hasUI
     ? await runAndRecordSessionOrientation({
@@ -338,9 +349,7 @@ export async function runOrientationJuncture(
         trigger: input.trigger,
         manager: input.sessionManager,
         menu,
-        ...(latestElicitationStyle(input.sessionManager.getBranch())
-          ? { currentStyle: latestElicitationStyle(input.sessionManager.getBranch())! }
-          : {}),
+        ...(currentStyle ? { currentStyle } : {}),
         ...(input.onAppendError ? { onAppendError: input.onAppendError } : {}),
       })
     : undefined;
