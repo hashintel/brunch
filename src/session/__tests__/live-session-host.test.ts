@@ -68,6 +68,26 @@ describe('LiveSessionHost target integrity', () => {
     expect(createRuntime).toHaveBeenCalledTimes(1);
   });
 
+  it('disposes a runtime that finishes opening while host disposal is in progress', async () => {
+    let resolveRuntime!: (runtime: LiveSessionRuntime) => void;
+    const pendingRuntime = new Promise<LiveSessionRuntime>((resolve) => {
+      resolveRuntime = resolve;
+    });
+    const created = runtime();
+    created.subscribe = vi.fn(() => () => {});
+    const host = createLiveSessionHost({ createRuntime: () => pendingRuntime });
+
+    const opening = host.open(target);
+    const disposing = host.dispose();
+    resolveRuntime(created);
+
+    await expect(opening).resolves.toEqual({ status: 'opened' });
+    await disposing;
+    expect(created.dispose).toHaveBeenCalledOnce();
+    expect(created.subscribe).not.toHaveBeenCalled();
+    await expect(host.close(target)).resolves.toEqual({ status: 'not_open' });
+  });
+
   it('rejects unaddressed/mismatched work and a second prompt while allowing a live answer', async () => {
     let release!: () => void;
     const pending = new Promise<void>((resolve) => {

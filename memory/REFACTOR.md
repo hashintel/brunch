@@ -50,7 +50,7 @@ Ordered by safety: one preparatory extraction, then host-internal behavior (self
 
 1. [done] **Extract a single cell-teardown helper.** `close()` and `dispose()` duplicate the delete → detach → await-runtime-dispose sequence. Extract one internal teardown routine both call. Pure refactor; no behavior change; existing host tests stay green. Makes commits 2 and 3 land in one place.
 
-2. **Make host disposal total over in-flight opens (F1).** Add a disposed guard so a late-resolving `open()` disposes its runtime instead of registering it, and make `dispose()` await the `opening` map to settle before tearing down. New host tests witness the open-during-dispose race (no orphaned runtime, late runtime disposed). Updates `src/session/TOPOLOGY.md` disposal contract in the same commit.
+2. [done] **Make host disposal total over in-flight opens (F1).** Add a disposed guard so a late-resolving `open()` disposes its runtime instead of registering it, and make `dispose()` await the `opening` map to settle before tearing down. New host tests witness the open-during-dispose race (no orphaned runtime, late runtime disposed). Updates `src/session/TOPOLOGY.md` disposal contract in the same commit.
 
 3. **Release the driver claim on teardown (F4).** Reset the driver owner when a cell is torn down (close + dispose). Scope is **release-on-teardown only** — a completed turn keeps the claim sticky for the cell's life; the richer completed-turn/idle handoff policy is deliberately *not* invented here. New host test: a second driver can claim the target after it is closed and reopened. Same-commit `src/session/TOPOLOGY.md` update to the driver-owner sentence.
 

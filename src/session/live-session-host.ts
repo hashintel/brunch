@@ -83,13 +83,18 @@ export function createLiveSessionHost(options: {
   const cells = new Map<string, RuntimeCell>();
   const opening = new Map<string, Promise<LiveSessionHostResult>>();
   const listeners = new Set<(event: LiveSessionEvent) => void>();
+  let disposed = false;
 
   async function open(target: SessionTarget): Promise<LiveSessionHostResult> {
     const key = sessionTargetKey(target);
     if (cells.has(key)) return { status: 'attached' };
     const pending = opening.get(key);
     if (pending) return pending.then(() => ({ status: 'attached' }));
-    const operation = options.createRuntime(target).then((runtime) => {
+    const operation = options.createRuntime(target).then(async (runtime) => {
+      if (disposed) {
+        await runtime.dispose();
+        return { status: 'opened' as const };
+      }
       const cell: RuntimeCell = {
         target,
         runtime,
@@ -169,6 +174,8 @@ export function createLiveSessionHost(options: {
       };
     },
     async dispose() {
+      disposed = true;
+      await Promise.allSettled(opening.values());
       const activeTargets = [...cells.values()].filter((cell) => cell.driving).map((cell) => cell.target);
       if (activeTargets.length > 0) throw new ActiveLiveSessionError(activeTargets);
       await Promise.all(
