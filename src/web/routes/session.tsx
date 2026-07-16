@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import type { QuestionnaireAnswer, QuestionnaireQuestion } from '../../exchanges/schemas/questionnaire.js';
 import type { SessionPresentationEntry } from '../../projections/session/session-presentation.js';
-import { openAsksResultSchema, type OpenAsksResult } from '../../rpc/live-session-contract.js';
+import { openAsksResultSchema } from '../../rpc/live-session-contract.js';
 import type { LiveSessionEvent } from '../../session/live-session-host.js';
 import { reduceLiveSessionOverlay } from '../features/session/live-overlay.js';
 import { sessionPresentationQueryOptions } from '../queries/session-presentation.js';
@@ -37,7 +37,7 @@ function SessionPage() {
   const { rpcClient } = sessionRoute.useRouteContext();
   const queryClient = useQueryClient();
   const target = useMemo(() => ({ specId: Number(specId), sessionId }), [specId, sessionId]);
-  const { openAsks } = sessionRoute.useLoaderData() as OpenAsksResult;
+  const { openAsks } = sessionRoute.useLoaderData();
   const { data: result } = useSuspenseQuery(sessionPresentationQueryOptions(rpcClient, target));
   const [overlay, setOverlay] = useState<SessionPresentationEntry[]>(() =>
     openAsks.reduce<SessionPresentationEntry[]>(
