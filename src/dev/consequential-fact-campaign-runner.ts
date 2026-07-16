@@ -278,7 +278,6 @@ function productionPort(): CampaignRunnerPort {
       await mkdir(dirname(viewportFile), { recursive: true });
       await writeFile(viewportFile, input.viewport);
       const trajectoryDir = await writeTrajectoryReport({
-        repoRoot: REPO_ROOT,
         workspace: input.workspace,
         sessionFile: inventory.currentSessionFile,
         runId: input.runId,

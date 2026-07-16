@@ -8,7 +8,6 @@ import type {
 import { openActiveSessionBranch } from '../session/active-session-branch.js';
 
 export interface TrajectoryReportInput {
-  readonly repoRoot: string;
   readonly workspace: string;
   readonly sessionFile: string;
   readonly runId: string;
@@ -49,10 +48,10 @@ export async function writeTrajectoryReport(input: TrajectoryReportInput): Promi
   validateInput(input);
   const events = await readEvents(resolve(input.workspace, '.brunch/debug/trajectory.ndjson'));
   const report = await projectTrajectoryReport(input, events);
-  const output = resolve(input.repoRoot, '.fixtures/scratch/trajectory', input.runId);
+  const output = resolve(input.workspace, '.brunch/debug');
   await mkdir(output, { recursive: true });
   await writeFile(resolve(output, 'trajectory.json'), `${JSON.stringify(report, null, 2)}\n`);
-  await writeFile(resolve(output, 'report.md'), markdown(report));
+  await writeFile(resolve(output, 'trajectory-report.md'), markdown(report));
   return output;
 }
 

@@ -487,7 +487,6 @@ async function runTrajectoryCommand(
     throw new DevCliUsageError('The trajectory command requires --workspace, --session, and --run-id.');
   }
   const output = await (options.trajectoryReportWriter ?? writeTrajectoryReport)({
-    repoRoot: REPO_ROOT,
     workspace: resolve(options.cwd, values.workspace),
     sessionFile: resolve(options.cwd, values.session),
     runId: values['run-id'],

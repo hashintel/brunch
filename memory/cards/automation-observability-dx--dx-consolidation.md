@@ -138,7 +138,7 @@ memory/SPEC.md                                         ~   (D69-L narrowing; ret
 
 ## Card 2 — Trajectory report joins the `.brunch/debug/` convention
 
-Status: pending
+Status: done
 Weight: light
 
 ### Objective

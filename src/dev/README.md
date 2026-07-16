@@ -74,9 +74,12 @@ Source/dev TUI launches mirror observability artifacts into the active workspace
 <workspace>/.brunch/debug/
 ├── entry-contents.md    # Brunch custom entries/custom messages appended at source seams
 ├── origination.md       # assistant-kick decision/outcome records
-├── system-prompt.md     # latest final provider system prompt after provider request
-├── tool-contents.md     # selected Brunch-owned text tool results
-└── transcript.md        # harness-generated transcript rendering, not ordinary TUI default
+├── system-prompt.md       # latest final provider system prompt after provider request
+├── tool-contents.md       # selected Brunch-owned text tool results
+├── trajectory.ndjson      # bounded normalized events used by the joiner
+├── trajectory.json        # latest joined trajectory report data
+├── trajectory-report.md   # latest joined trajectory report for reading
+└── transcript.md          # harness-generated transcript rendering, not ordinary TUI default
 ```
 
 Important trigger details:

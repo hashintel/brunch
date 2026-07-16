@@ -416,7 +416,6 @@ describe('runDevCli', () => {
     });
     expect(code).toBe(0);
     expect(received).toEqual({
-      repoRoot: REPO_ROOT,
       workspace: WORKBENCH,
       sessionFile: join(WORKBENCH, '.brunch/sessions/session.jsonl'),
       runId: 'safe-run',
@@ -513,7 +512,6 @@ describe('runDevCli', () => {
     await mkdir(join(workspace, '.brunch/debug'), { recursive: true });
     await writeFile(join(workspace, '.brunch/debug/trajectory.ndjson'), '', 'utf8');
     const trajectoryOutput = await writeTrajectoryReport({
-      repoRoot: REPO_ROOT,
       workspace,
       sessionFile,
       runId,

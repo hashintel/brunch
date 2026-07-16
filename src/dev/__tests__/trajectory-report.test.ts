@@ -99,10 +99,7 @@ describe('joined trajectory report', () => {
       { ordinal: 4, kind: 'assistant_message', turnIndex: 0, textHash: hash('done'), gaps: [] },
     ];
 
-    const report = await projectTrajectoryReport(
-      { repoRoot: process.cwd(), workspace, sessionFile, runId: 'run-1' },
-      events,
-    );
+    const report = await projectTrajectoryReport({ workspace, sessionFile, runId: 'run-1' }, events);
 
     expect(report.directives).toEqual(
       expect.arrayContaining([
@@ -121,23 +118,20 @@ describe('joined trajectory report', () => {
     const manager = SessionManager.create(workspace, join(workspace, '.brunch/sessions'));
     manager.appendMessage(assistant('effect'));
     await expect(
-      projectTrajectoryReport(
-        { repoRoot: process.cwd(), workspace, sessionFile: manager.getSessionFile()!, runId: 'run-2' },
-        [
-          {
-            ordinal: 2,
-            kind: 'provider_request',
-            turnIndex: 0,
-            advertised: [],
-            contentHashes: [],
-            agentBodyHashes: [],
-            controlHashes: [],
-            unknownPromptHashes: [],
-            promptDirectives: [{ id: 'warrant-before-commit', hash: 'sha256:warrant', present: true }],
-            gaps: [],
-          },
-        ],
-      ),
+      projectTrajectoryReport({ workspace, sessionFile: manager.getSessionFile()!, runId: 'run-2' }, [
+        {
+          ordinal: 2,
+          kind: 'provider_request',
+          turnIndex: 0,
+          advertised: [],
+          contentHashes: [],
+          agentBodyHashes: [],
+          controlHashes: [],
+          unknownPromptHashes: [],
+          promptDirectives: [{ id: 'warrant-before-commit', hash: 'sha256:warrant', present: true }],
+          gaps: [],
+        },
+      ]),
     ).rejects.toThrow('event ordinals are missing or ambiguous');
   });
 
@@ -149,7 +143,6 @@ describe('joined trajectory report', () => {
     await import('node:fs/promises').then(({ writeFile }) => writeFile(viewport, 'x'.repeat(40_000)));
     const report = await projectTrajectoryReport(
       {
-        repoRoot: process.cwd(),
         workspace,
         sessionFile: manager.getSessionFile()!,
         runId: 'run-3',
@@ -170,22 +163,33 @@ describe('joined trajectory report', () => {
     await writeFile(viewport, 'before\n```text\nembedded\n```\nafter');
     await mkdir(join(workspace, '.brunch/debug'), { recursive: true });
     await writeFile(join(workspace, '.brunch/debug/trajectory.ndjson'), '');
-    const repoRoot = await mkdtemp(join(tmpdir(), 'brunch-trajectory-output-'));
     const output = await writeTrajectoryReport({
-      repoRoot,
       workspace,
       sessionFile: manager.getSessionFile()!,
       runId: 'bounded',
       viewport,
     });
+    expect(output).toBe(join(workspace, '.brunch/debug'));
     const report = JSON.parse(await readFile(join(output, 'trajectory.json'), 'utf8'));
     expect(report.transcriptEffects.length).toBeLessThanOrEqual(128);
     expect(
       report.transcriptEffects.reduce((total: number, item: { text: string }) => total + item.text.length, 0),
     ).toBeLessThanOrEqual(65_536);
-    const markdown = await readFile(join(output, 'report.md'), 'utf8');
+    const markdown = await readFile(join(output, 'trajectory-report.md'), 'utf8');
     expect(markdown).toContain('````text\nbefore\n```text');
     expect(markdown).toContain('\n````\n');
+
+    manager.appendMessage(assistant('latest run effect'));
+    await writeTrajectoryReport({
+      workspace,
+      sessionFile: manager.getSessionFile()!,
+      runId: 'latest',
+    });
+    const latest = JSON.parse(await readFile(join(output, 'trajectory.json'), 'utf8'));
+    expect(latest.runId).toBe('latest');
+    await expect(readFile(join(output, 'trajectory-report.md'), 'utf8')).resolves.toContain(
+      '# Trajectory latest',
+    );
   });
 
   it('validates NDJSON at the source line boundary', async () => {
@@ -199,10 +203,9 @@ describe('joined trajectory report', () => {
     const manager = SessionManager.create(workspace, join(workspace, '.brunch/sessions'));
     manager.appendMessage(assistant('effect'));
     await expect(
-      projectTrajectoryReport(
-        { repoRoot: process.cwd(), workspace, sessionFile: manager.getSessionFile()!, runId: 'run-gap' },
-        [{ ordinal: 1, kind: 'assistant_message', gaps: ['missing_turn_index', 'missing_message_text'] }],
-      ),
+      projectTrajectoryReport({ workspace, sessionFile: manager.getSessionFile()!, runId: 'run-gap' }, [
+        { ordinal: 1, kind: 'assistant_message', gaps: ['missing_turn_index', 'missing_message_text'] },
+      ]),
     ).rejects.toThrow('trajectory correlation unresolved: assistant_message#1:missing_turn_index');
   });
 });
