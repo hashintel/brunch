@@ -65,8 +65,7 @@ rpc/
 ├── handlers.ts
 │   ├── createRpcHandlers(...)            -> default full registry
 │   ├── createReadOnlyRpcHandlers(...)    -> read-only registry
-│   ├── createWebSidecarRpcHandlers(...)  -> TUI-sidecar driver registry; live methods only with handles
-│   ├── createHostedSessionRpcHandlers(...) -> standalone target-addressed session registry
+│   ├── createWebSidecarRpcHandlers(...)  -> TUI-sidecar driver registry + standalone hosted-session methods; each folded in only when its handle/boundary is supplied
 │   └── rpc.discover                      -> discovery over active registry
 └── methods/
     ├── registry.ts                    -> method definition + discovery shape
@@ -74,6 +73,8 @@ rpc/
     ├── session.ts                     -> session.* handlers
     ├── session-driver.ts              -> live AgentSession driver method
     ├── session-exchange-answer.ts     -> live exchange answer method
+    ├── session-open-asks.ts           -> TUI-sidecar live ask registry reader
+    ├── hosted-session.ts              -> standalone target-addressed session.* methods
     ├── graph.ts                       -> graph.* handlers
     ├── execute.ts                     -> execute.* run observers plus guarded replan recommendation/regeneration/supersession/abandonment
     └── schemas.ts                     -> shared protocol schemas

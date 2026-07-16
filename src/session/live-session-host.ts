@@ -26,7 +26,7 @@ export interface LiveSessionRuntime {
 
 export type LiveSessionHostResult =
   | { readonly status: 'opened' | 'attached' | 'completed' | 'closed' }
-  | { readonly status: 'busy' | 'not_open' | 'target_mismatch' | 'ask_closed' | 'driver_conflict' };
+  | { readonly status: 'busy' | 'not_open' | 'ask_closed' | 'driver_conflict' };
 
 export interface LiveSessionHost {
   open(target: SessionTarget): Promise<LiveSessionHostResult>;

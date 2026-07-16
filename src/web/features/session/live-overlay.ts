@@ -22,21 +22,23 @@ export function reduceLiveSessionOverlay(
       : entries.map((entry, index) => (index === existing ? next : entry));
   }
   if (delta.type === 'ask_opened') {
-    return [
-      ...entries,
-      {
-        id: `live:ask:${delta.ask.exchangeId}`,
-        cursor: `live:ask:${delta.ask.exchangeId}`,
-        kind: 'ask',
-        exchangeId: delta.ask.exchangeId,
-        question: delta.ask.question.body,
-        ...(delta.ask.mode === 'multi-select' ? { mode: 'multi-select' as const } : {}),
-        ...((delta.ask.mode === 'single-select' || delta.ask.mode === 'multi-select') &&
-        delta.ask.question.options
-          ? { options: delta.ask.question.options }
-          : {}),
-      },
-    ];
+    const id = `live:ask:${delta.ask.exchangeId}`;
+    const next: SessionPresentationEntry = {
+      id,
+      cursor: id,
+      kind: 'ask',
+      exchangeId: delta.ask.exchangeId,
+      question: delta.ask.question.body,
+      ...(delta.ask.mode === 'multi-select' ? { mode: 'multi-select' as const } : {}),
+      ...((delta.ask.mode === 'single-select' || delta.ask.mode === 'multi-select') &&
+      delta.ask.question.options
+        ? { options: delta.ask.question.options }
+        : {}),
+    };
+    const existing = entries.findIndex((entry) => entry.id === id);
+    return existing < 0
+      ? [...entries, next]
+      : entries.map((entry, index) => (index === existing ? next : entry));
   }
   return entries;
 }

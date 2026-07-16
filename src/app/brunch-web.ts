@@ -114,7 +114,7 @@ async function createStandaloneSessionRuntime(
     async dispose() {
       unsubscribe();
       unsubscribeAsk();
-      runtime.session.dispose();
+      await runtime.dispose();
     },
   };
 }
