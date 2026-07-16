@@ -1,7 +1,7 @@
 # FE-1210 round-one comparison tracer
 
 Frontier: agent-as-user-comparison
-Status:   active
+Status:   complete
 Mode:     slices
 Created:  2026-07-16
 
@@ -298,7 +298,7 @@ docs/praxis/comparison-runs/
 
 ## Card 4 — Worked Brunch-versus-Claude tracer witness
 
-Status: next — **outer/manual witness only; execute in an overlay-capable coordinator session or by a human operator, not by a normal builder subagent**. Held 2026-07-16 at session wrap-up: the frozen mission is not yet chosen (the packet's fictional library-lockers example is the recommended round-one candidate; its controller reveal key is not yet instantiated).
+Status: done 2026-07-16 — campaign `lockers-r1-20260716` complete. Both required lanes ready: Brunch (`brunch-b2`, document via frozen `document-export` seam, ~12.5/20 min) and Claude Code (`claude-c5`, target-authored write, ~11/20 min); failed attempts retained (`brunch-b1` actor-error exhaustion; `claude-c1`–`c4` launch/auth environment failures, declared by addenda). Cursor lane skipped with evidence (broken CLI install). Split judgment executed per the predeclared pack — masked outcome draft + unblinded process draft retained verbatim from fresh single-packet judge contexts; `dora-adjudication.md` awaits Dora. Reviewed bundle promoted to `.fixtures/runs/agent-as-user-comparison/lockers-r1-20260716/` (paths normalized; reveal key never promoted). Frozen mission: `fictional-library-lockers-v1`; controller reveal key instantiated at delegation.
 
 ### Target Behavior
 
