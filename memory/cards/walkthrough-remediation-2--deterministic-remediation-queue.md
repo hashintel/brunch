@@ -9,8 +9,8 @@ Created:  2026-07-16
 
 - **Containing seam:** the Brunch-owned Pi TUI/session boundary, from active-branch conduct state through menu/chrome/Ask adapters into provider-visible prompting and transcript read-back.
 - **Frontier:** `walkthrough-remediation-2` / FE-1187 on `ln/fe-1187-remediation-4`; every card remains on this plan-level issue and branch.
-- **Volatile handoff state:** D98-L/D109-L/D119-L/D120-L are canonical but not materialized; the mixed `brunch.session_orientation`, old shell/menu copy, and incomplete deterministic Ask proof remain live.
-- **Main risk:** the production write paths for carrier cutover, shell/menu treatment, orientation rendering, and Ask inputs overlap heavily under `src/.pi/`; they are one sequential execution context, not parallel delegations.
+- **Volatile execution state:** Cards 1 and 2 are committed and done; Card 3 is next and Card 4 is queued. PLAN and this file bind semantic/model preflight to A48-L.
+- **Main risk:** Card 3 must enrich deterministic rendering and caller-supplied availability without coupling the optional model preflight, weakening the fallback, or changing the settled carrier/menu semantics that Cards 1 and 2 materialized.
 
 **Posture: proving (inherited from `walkthrough-remediation-2`).**
 
@@ -27,7 +27,7 @@ Frontier-level obligations carried by every card:
 - Chart every decision path and endpoint before implementation; FE-1187 remains the closing member of `deterministic-orientation`.
 - Preserve active-root-to-leaf branch semantics, provider-auth kick gating, seed-before-kick delivery, D37-L exchange boundaries, and the two-mode/concentric-authority contract.
 - Deterministic inner/middle proof is acceptance. User-dependent live-provider, manual, qualitative, and both-theme evidence remains owned by `walkthrough-remediation-2` / FE-1187 and re-enters only at the triggers named below.
-- R6, R12, Impact Ledger/web walkthroughs, A43-L semantic quality/latency evidence, KA-owned O7–O9, and the paused consolidated outer checkpoint are not implementation license in this file.
+- R6, R12, Impact Ledger/web walkthroughs, A48-L semantic quality/latency evidence, KA-owned O7–O9, and the paused consolidated outer checkpoint are not implementation license in this file.
 
 ---
 
@@ -41,9 +41,8 @@ Every Specify elicitor turn follows the active branch’s last selected elicitat
 
 ### Cold-start reads
 
-- `memory/SPEC.md` — D24-L, D37-L, D40-L, D78-L, D98-L, D109-L, D119-L, D120-L; A43-L; I59-L, I62-L, I64-L
+- `memory/SPEC.md` — D24-L, D37-L, D40-L, D78-L, D98-L, D109-L, D119-L, D120-L; A48-L; I59-L, I62-L, I64-L
 - `memory/PLAN.md` — frontier `walkthrough-remediation-2`, arc `deterministic-orientation`
-- `HANDOFF.md` — direct-cutover negative space and A43-L separation
 - `src/session/TOPOLOGY.md` — active-branch contract, current mixed carrier, origination choreography
 - `src/.pi/extensions/TOPOLOGY.md` — menu/juncture ownership, auth gate, seed-before-kick, explicit command paths
 - `src/agents/runtime/TOPOLOGY.md` and `src/agents/runtime/elicitor/TOPOLOGY.md` — Pi-independent prompt-policy boundary
@@ -105,7 +104,7 @@ execute:
   execute_plan: unavailable
 ```
 
-The fallback is deliberately conservative. A caller may later supply a richer availability result, but carrier, authority, prompt, and no-write behavior may not depend on A43-L’s optional model-backed path.
+The fallback is deliberately conservative. A caller may later supply a richer availability result, but carrier, authority, prompt, and no-write behavior may not depend on A48-L’s optional model-backed path.
 
 ### Risks and Assumptions
 
@@ -118,7 +117,7 @@ The fallback is deliberately conservative. A caller may later supply a richer av
 - **RISK:** latest-entry reconstruction makes a process move accidentally persistent.
   **MITIGATION:** only `brunch.process_move` uses kick-relative freshness; style deliberately ignores kick freshness.
 - **RISK:** the existing menu descriptors tempt the cutover to make availability resolution part of carrier or prompt ownership.
-  **MITIGATION:** accept only a pure caller-supplied availability value at the menu boundary and prove the fallback above with no evaluator import; if that boundary cannot remain pure, stop rather than making A43-L load-bearing.
+  **MITIGATION:** accept only a pure caller-supplied availability value at the menu boundary and prove the fallback above with no evaluator import; if that boundary cannot remain pure, stop rather than making A48-L load-bearing.
 
 ### Posture check
 
@@ -126,7 +125,7 @@ The fallback is deliberately conservative. A caller may later supply a richer av
 - **Retires:** uncertainty that persistent style and consumed moves can share origination choreography without sharing a carrier.
 - **Lights up:** style selection → branch reconstruction → later Specify prompt.
 
-If deterministic availability cannot stay independent from semantic preflight, stop and return to `ln-plan`; do not absorb A43-L into this card.
+If deterministic availability cannot stay independent from semantic preflight, stop and return to `ln-plan`; do not absorb A48-L into this card.
 
 ### Acceptance Criteria
 
@@ -160,7 +159,7 @@ If deterministic availability cannot stay independent from semantic preflight, s
 - Retire generic strategy/lens/method runtime state, persisted lens selection, Enhance mode, `continue`/`dismissed` pseudo-choices, and legacy `proceed`/`backfill` ids rather than aliasing them.
 - Keep menu evaluation read-only and non-authoritative; only the user’s selected carrier append may write.
 - Reconcile `src/session/TOPOLOGY.md`, `src/.pi/extensions/TOPOLOGY.md`, and `src/agents/runtime/TOPOLOGY.md` in this cutover. Route canonical SPEC/PLAN reconciliation through `ln-sync`; the existing PLAN pointer already names this execution file.
-- Do not implement A43-L’s model call, terminal shell styling, the complete Ask proof, or any outer checkpoint here.
+- Do not implement A48-L’s model call, terminal shell styling, the complete Ask proof, or any outer checkpoint here.
 
 ### Expected touched paths (tentative)
 
@@ -223,7 +222,6 @@ The live TUI presents one terminal-adaptive Brunch shell whose operational input
 
 - `memory/SPEC.md` — D22-L, D35-L, D39-L, D40-L, D52-L, D104-L, D116-L, D119-L; I59-L
 - `memory/PLAN.md` — `walkthrough-remediation-2` terminal-adaptive shell and editor/footer/intro/spec-menu rows
-- `HANDOFF.md` — exact shell identity and deferred outer-evidence boundary
 - `src/.pi/components/TOPOLOGY.md` — reusable Pi TUI component ownership and direct/harness test tiers
 - `src/.pi/extensions/chrome/TOPOLOGY.md` and `src/.pi/extensions/TOPOLOGY.md` — shell installation and command ownership
 - `src/.pi/extensions/exchanges/TOPOLOGY.md` — Ask input collectors and border contracts
@@ -379,9 +377,9 @@ Orientation menus render the current style and only the caller-supplied mode-app
 
 ### Cold-start reads
 
-- `memory/SPEC.md` — D74-L, D98-L, D109-L, D119-L, D120-L; A43-L; I50-L, I62-L, I64-L
-- `memory/PLAN.md` — `walkthrough-remediation-2` orientation semantics/menu and readiness-tracer boundary
-- `HANDOFF.md` — fixed fallback constraints and optional-preflight separation
+- `memory/SPEC.md` — D74-L, D98-L, D109-L, D119-L, D120-L; A48-L; I50-L, I62-L, I66-L
+- `memory/PLAN.md` — `walkthrough-remediation-2` orientation semantics/menu and A48-L readiness-tracer boundary
+- `src/session/TOPOLOGY.md` — active-branch style/process-move carriers and retired mixed-carrier negative space
 - `src/.pi/components/TOPOLOGY.md` — shared menu-shell presentation contract after Card 2
 - `src/.pi/extensions/TOPOLOGY.md` — orientation ownership after Card 1
 - `src/agents/references/readiness-bands.md` — graph-fact/readiness semantics and non-authority rule
@@ -421,13 +419,14 @@ render
 
 ### Cross-cutting obligations
 
-- A43-L remains optional and unbuilt. This card accepts the deterministic fallback and the input boundary, not semantic quality or ≤3-second live-provider performance.
+- A48-L remains optional and unbuilt. This card accepts the deterministic fallback and the input boundary, not semantic quality or ≤3-second live-provider performance.
 - Menu availability is advisory/read-only, never a stored grade, transcript fact, graph gate, or authority gate.
+- Preserve Card 1's direct cutover: no `brunch.session_orientation` parser/write/alias and no persisted `continue` / `dismissed` / `proceed` / `backfill` pseudo-choice.
 - Preserve one semantic identity per Execute move; KA retains outer conduct evidence O7–O9.
 
 ### Assumption dependency
 
-`None` — correctness is fully determined by settled menu vocabulary, caller-supplied availability, and the mandatory fallback. A43-L is explicitly not required.
+`None` — correctness is fully determined by settled menu vocabulary, caller-supplied availability, and the mandatory fallback. A48-L is explicitly not required.
 
 ### Expected touched paths (tentative)
 
@@ -582,4 +581,4 @@ src/session/__tests__/
 - **Continue lexical closure** remains owned by `walkthrough-remediation-2` / FE-1187, but is not a fifth pre-scoped card. Its exact current-surface inventory and touched-path manifest depend on the production vocabulary left by Cards 1–4, so pre-scoping it would fail the hard anti-speculation gate.
 - **Re-entry trigger:** after Card 4 is green, inventory current UI/control copy, ids/directives, prompts, tests, and current docs/topology; then run `ln-scope` for the bounded D119-L closure before the consolidated outer checkpoint.
 - Archives, historical evidence, promoted transcripts, fixture prose, dependencies, the TypeScript `continue` keyword, workspace resume copy, and `/brunch:continue`’s actual resume semantics remain explicit negative space.
-- **A43-L semantic/model preflight** is also unscoped. Re-enter only through a separate proving scope that can bind deterministic latency and quality acceptance; no card in this queue depends on it.
+- **A48-L semantic/model preflight** is also unscoped. Re-enter only through a separate proving scope that can bind deterministic latency and quality acceptance; no card in this queue depends on it.
