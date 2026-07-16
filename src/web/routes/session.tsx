@@ -31,7 +31,7 @@ export const sessionRoute = createRoute({
     );
     await presentation;
     if (!openAsks.success) return { error: 'Session protocol load failed.' } as const;
-    return { openAsks: openAsks.data.openAsks } as const;
+    return { target, openAsks: openAsks.data.openAsks } as const;
   },
   component: SessionPage,
 });
@@ -39,18 +39,18 @@ export const sessionRoute = createRoute({
 function SessionPage() {
   const loaderData = sessionRoute.useLoaderData();
   if ('error' in loaderData) return <main role="alert">{loaderData.error}</main>;
-  return <ReadySessionPage openAsks={loaderData.openAsks} />;
+  return <ReadySessionPage target={loaderData.target} openAsks={loaderData.openAsks} />;
 }
 
 function ReadySessionPage({
+  target,
   openAsks,
 }: {
+  target: { specId: number; sessionId: string };
   openAsks: ReturnType<typeof openAsksResultSchema.parse>['openAsks'];
 }) {
-  const { specId, sessionId } = sessionRoute.useParams();
   const { rpcClient } = sessionRoute.useRouteContext();
   const queryClient = useQueryClient();
-  const target = useMemo(() => ({ specId: parseSpecId(specId)!, sessionId }), [specId, sessionId]);
   const { data: result } = useSuspenseQuery(sessionPresentationQueryOptions(rpcClient, target));
   const [overlay, setOverlay] = useState<SessionPresentationEntry[]>(() =>
     openAsks.reduce<SessionPresentationEntry[]>(
@@ -93,7 +93,7 @@ function ReadySessionPage({
   const entries = [...result.presentation.entries, ...overlay];
   return (
     <main className="session-page" aria-busy={busy}>
-      <h1>Session {sessionId}</h1>
+      <h1>Session {target.sessionId}</h1>
       <ol aria-label="Session transcript">
         {entries.map((entry) => (
           <li key={entry.cursor}>
