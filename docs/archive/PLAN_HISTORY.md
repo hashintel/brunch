@@ -3,6 +3,10 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-07-16 FE-1208 reshape (`ln-plan`, `consequential-fact-discovery-tracer` → `automation-observability-dx`)
+
+The FE-1208 frontier (branch `ln/fe-1208-traces-and-evals-1`) was reshaped in place after the warrant-ablation campaign stalled: the v1 deterministic actor could not drive a real structured single-select surface, so all eight retained attempts are mechanical pilots, never campaign evidence. What the original frontier *built and keeps*: the joined real-TUI trajectory tracer (`trajectory.ndjson` → joined report), the deterministic review-diff scorer/evaluator with its proof-boundary corrections, and the campaign runner/replay seam — all preserved and compiling, de-wired from documented DX. The six-run control/ablation campaign itself parked to Later as `warrant-ablation-campaign`, resuming only on general-actor evidence from `agent-as-user-comparison` plus rich scenarios; the approved actor-v2 contract is recorded in the parked card `memory/cards/consequential-fact-discovery-tracer--warrant-ablation-campaign.md`. The successor frontier `automation-observability-dx` (same issue/branch, earned posture) owns the consolidation: kill `--dev-tools` + query tools, remove `cli-cmux`, relocate the trajectory report to `.brunch/debug/`, and land the dev-/PM-facing documentation split between seed-based intra-product testing and mission-driven agent-as-user cross-product comparison. Original definition text: git history of `memory/PLAN.md` at `1020e2f1` and the parked card.
+
 ## 2026-07-15 Sync archive (`ln-sync`)
 
 - **executor-run-environment (FE-1166)** frontier definition retired from live PLAN. The original greenfield run-substrate/verify-policy frontier delivered on `ka/fe-1166-greenfield-executor-harness` (PR #302). Its live remainder — separating run substrate and verify target from source-copy policy (isolated run directory + product-owned verification profile instead of a host git worktree and hardcoded `npm run verify`) — was folded into `executor-plan-synthesis` (FE-1197), which now owns the foreground `verifyProfile` removal and admitted-plan verify contract (D130-L). The prepared `memory/cards/executor-run-environment--actionable-slice-request.md` (run `run-mrbyf8u9` worker-request evidence) was consumed and deleted. Durable truth: D111-L/D112-L/D130-L, `src/executor/TOPOLOGY.md`; original code touchpoints `src/executor/worktree.ts`, `src/executor/test-result.ts`, `src/app/test-runner-port.ts`, `src/.pi/extensions/executor/execute-run-create/index.ts`.
@@ -28,7 +32,6 @@ FE-1200 closed after its tracer, concurrency proof, and presentation-family cove
 - **Retires:** A44-L (tracer, done); A43-L (concurrency, done); I65-L breadth (presentation slice, done).
 - **Why now / unlocks:** user chose to build the whole standalone-web group on one branch rather than as stacked frontiers; the materialized `LiveSessionHost` seam makes the concurrency proof and the presentation sweep buildable in sequence here.
 - **Traceability:** req 4/12/17/31/32; A43-L/A44-L; D5-L/D10-L/D33-L/D39-L/D84-L/D125-L/D132-L/D133-L; I21-L/I32-L/I64-L/I65-L; [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md); SPEC exchange-presentation oracle design.
-
 
 ## 2026-07-14 Rolling-frontier reduction
 

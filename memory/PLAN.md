@@ -19,12 +19,9 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 **Current closure lane.** FE-1187 is the sole remaining ship-gate frontier. The digest-questionnaire carrier and atomic local/RPC review settlement are built; next is compact proposition-first review presentation, including the reassigned `transcript-ledger-rendering` work so durable user choices and their visual treatment land together. The consolidated outer checkpoint remains paused until R6/R8–R10/R12/R13 have owned dispositions. Execute evidence O7–O9 belongs to the KA stream; FE-1187 coordinates but does not own it.
 
-**Parallel lanes.** Group 3 agent-layer work is pickup-ready. `interactive-tui-driver` is an independent tooling tracer that can run in a separate worktree: it will settle one canonical agent-driven TUI testing workflow without entering product runtime. `graph-assurance-conduct` is a separate earned-posture closure frontier for the D131-L prompt/skill semantic sweep; FE-1187 retains only the concern-grouped review renderer. The KA stream owns executor/orchestrator/Execute-mode work and the live Petri sequence from FE-1192 attempts through isolation/fan-in, epic integration, and durable parallel authority. Far-horizon instrumentation and consequential-fact evaluation remain trigger-gated under Later.
-**Parallel lanes.** Group 3 agent-layer work is pickup-ready. The completed `interactive-tui-driver` now unlocks active parallel frontier `consequential-fact-discovery-tracer` (FE-1208): one real-TUI trace → eval → score → regression flywheel, deliberately bounded before broad tracing or competitor campaigns. The KA stream owns executor/orchestrator/Execute-mode work and the live Petri sequence from FE-1192 attempts through isolation/fan-in, epic integration, and durable parallel authority. Broader instrumentation remains trigger-gated under Later.
+**Parallel lanes.** Group 3 agent-layer work is pickup-ready. `graph-assurance-conduct` is a separate earned-posture closure frontier for the D131-L prompt/skill semantic sweep; FE-1187 retains only the concern-grouped review renderer. The parallel evaluation lane was refocused 2026-07-16: FE-1208's warrant-ablation campaign is **parked** (every v1 attempt was a mechanical pilot, not evidence), and the frontier — reshaped as `automation-observability-dx` on the same issue/branch — consolidates and documents the automation/observability surfaces as one clear door per audience (PM, dev, agent). Two use cases stay deliberately distinct: **seed-based intra-product testing** (Brunch on its own terms — seeds encode Brunch graph/spec state only Brunch understands) and **mission-driven agent-as-user cross-product comparison** (`agent-as-user-comparison`, admitted behind the DX frontier — competitor CLIs share no Brunch state, so the comparable artifact is the "ready" spec/plan document a mission produces). The KA stream owns executor/orchestrator/Execute-mode work and the live Petri sequence from FE-1192 attempts through isolation/fan-in, epic integration, and durable parallel authority. Broader instrumentation remains trigger-gated under Later.
 
 **Current seams.** Brunch ships on the `1.0.0-alpha.x` line. One-shot `ask` is the only interactive structured-exchange terminal; D125-L's live ask registry provides headless discovery/answering, while the transcript-backed pending projection remains a compatibility surface for live offer tools after the legacy `present_question` pending branch retired. Sweep classification remains fail-closed and compile-time anchored to the exchange-schema terminal names (D117-L), while the larger capture-conditional watermark question remains A40-L.
-
-**Host-landing admission (2026-07-14).** An `ln-review` pass over the landing path proved host promotion structurally broken across both modes: a run's result is inherently multi-commit (one integration commit per slice), but `execute_host_promotion_apply` diffs only `promotionCommitSha^..promotionCommitSha` and patches it onto the host — a clean integrated run lands nothing, or only incidental final-commit artifacts. The FE-1199 `empty_dir`/non-git residue was the narrow symptom. A four-design `ln-design` pass (minimal squash / strategy planner / `main` prior-art port / pull-based) settled a synthesis: `host-landing` (FE-1201, definition below) replaces patch apply with mode-aware ref/tree landing behind a `GitHostLandPort`, a durable `runBaseSha`, mode-derived substrate, and `/brunch:land` confirm-gated acceptance.
 
 **Topology and evidence discipline.** Co-located `src/**/TOPOLOGY.md` files own current topology; SPEC owns product contract and seam decisions; PLAN owns only rolling frontier state. Scratch probe artifacts are not durable evidence until promoted to `.fixtures/runs/`. Older completion history lives only in [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md).
 
@@ -99,7 +96,8 @@ Older completion history (incl. FE-1190 petrinaut-live-run-stream and FE-1180 wa
 ### Parallel / Low-conflict
 
 - `graph-assurance-conduct` — not started; separate D131-L closure frontier canonicalizing capture/map/project/propose/review semantics without a database migration. FE-1187 owns the renderer, not this prompt/skill sweep. Definition below.
-- `consequential-fact-discovery-tracer` ([FE-1208](https://linear.app/hash/issue/FE-1208/trace-and-evaluate-warranted-agent-commitments)) — **active, proving:** use the completed TUI driver to produce promoted, discriminating 3×/arm warranted-commitment A/B evidence; definition below.
+- `automation-observability-dx` ([FE-1208](https://linear.app/hash/issue/FE-1208/trace-and-evaluate-warranted-agent-commitments)) — **active, earned; reshaped 2026-07-16 from `consequential-fact-discovery-tracer`** (same Linear issue and branch): consolidate the automation/observability surfaces into one door per audience — kill `--dev-tools` and its never-used query tools, remove the superseded `cli-cmux` skill, move the trajectory report into the `.brunch/debug/` convention, park the scorer/evaluator (code preserved), and land dev-/PM-facing documentation covering both the seed-based intra-product path and the agent-as-user comparison approach. Definition below.
+- `agent-as-user-comparison` — **admitted 2026-07-16, behind `automation-observability-dx`:** mission-driven cross-product comparison (Brunch vs `claude` vs `agent`) via a general agent-as-user actor and a "ready" spec/plan stop condition. Explicitly not seed-based. Absorbs the parked warrant-campaign's actor-generality re-entry trigger. Definition below.
 
 ### Cleanups — Group 4
 
@@ -113,15 +111,16 @@ Everything executor/orchestrator-shaped or Execute-mode-owned belongs to Kostand
 
 - **Carved from FE-1167 (2026-07-13):** the Execute-mode evidence sub-list — Execute entry beats on thin vs rich seeds (assessment honesty: Ask on thin, Proceed on rich), the two deferred orientation-choice questions (`continue`/`proceed` semantics; sticky-posture candidate — D98-L-sensitive, route through `ln-grill`/`ln-spec` if evidence says revisit), and the FE-1107/KA residue (close-or-narrow, demo/walkthrough session via `TESTING_PLAN.md`, post-KA plan pass). Full context in the archived FE-1167 definition (`docs/archive/PLAN_HISTORY.md`).
 - `planning-process-model` — **moved to the KA stream 2026-07-13; reshaped by D126-L**: the durable scope handoff is settled, so this item now owns only plan projection and epistemic-horizon questions beyond committed scopes. Definition below.
-- `petri-execution-parity` ([FE-1195](https://linear.app/hash/issue/FE-1195/complete-petri-execution-parity)) — ✓ built + review-hardened 2026-07-14; the local structural gate passed for timestamped firing compatibility, structural verification verdict/failure identity, journal-idempotent terminal replay, collision-free locale-independent viewer layout, strict staging definition parity, and the tightened `execute.run` replay contract without changing raw executor topology, marking authority, or firing order. FE-1195 still owns the external Rust fixture/Petrinaut loader comparison, timed after PR #329 restacks.
-- `executor-plan-synthesis` ([FE-1197](https://linear.app/hash/issue/FE-1197/build-execution-plans-from-committed-scopes)) — LLM-backed scope-informed Execution Planner: bounded planning projection over committed scopes plus decisions/constraints, typed candidate/admitted plan with a plan-owned execution contract, deterministic validation with bounded repair, run creation consuming admitted plan truth only, witnessed end-to-end through PR #325 execution. Stacked on `petri-execution-parity` (PR #325). Absorbs the `executor-run-environment` (FE-1166) live remainder. Definition below.
-- `executor-runtime-fixes` ([FE-1199](https://linear.app/hash/issue/FE-1199/executor-and-pi-integration-fixes)) — umbrella branch `ka/fe-1199-fixes` stacked on FE-1197 for small independent executor/Pi integration fixes; no separate frontier definition by design. Landed: plan-synthesis abort propagation, persisted-contract validation at run creation, author-owned recipes (npm built-in and greenfield default removed), tool activity labels, HTML-export foregrounds. Open (2026-07-14 live-witness residue): `execute_replan_retry_current_step` after `slice_integration_conflict` wedges the journal (`petri_input_unreadable`); one-off `petri_marking_persist_failed`; integration-worktree contamination by untracked source/`result.json`; worker brief names a result path outside the file-tool boundary. The `empty_dir` host-promotion residue transferred to `host-landing` (FE-1201) 2026-07-14 — the review proved it the narrow symptom of the cross-mode final-commit-only landing defect.
-- `host-landing` ([FE-1201](https://linear.app/hash/issue/FE-1201/mode-aware-host-landing-of-promoted-runs)) — **admitted 2026-07-14** from the `ln-design` synthesis: mode-aware landing of promoted runs replaces patch-apply host promotion; branch `ka/fe-1201-host-landing` stacked on `ka/fe-1199-fixes`. Tracer + full cutover landed same day: durable `runBaseSha`, mode-aware `GitHostLandPort` landing, inspection-informed `/brunch:land` confirmation, patch-path deletion, mode-derived substrate, `GitRunPromotionPort` rename. Branch-complete pending the live walkthrough beat (SPEC reconciled 2026-07-15). Unblocks FE-1197 oracle 9's conforming-promotion witness. Definition below.
+- `executor-slice-attempt-lifecycle` ([FE-1192](https://linear.app/hash/issue/FE-1192/executor-slice-attempt-lifecycle)) — **active in the KA lane, picked up 2026-07-13** on `ka/fe-1192-executor-slice-attempt-lifecycle`. First member of the Petri sequence: first-class slice attempts (identity, bounded in-run retry, honest failed-attempt facts). Shape settled at pickup: attempt facts first (topology unchanged), constant retry bound with `ceiling:`, agent step only. Definition below.
+- `petri-slice-isolation-fan-in` — admitted 2026-07-13, behind `executor-slice-attempt-lifecycle`: isolated per-slice side effects + explicit fan-in under unchanged serial `run.json` authority. Definition below.
+- `executor-run-environment` (FE-1166 follow-up) — the substrate/verify policy is merged; the real-run failure remains prepared in [`memory/cards/executor-run-environment--actionable-slice-request.md`](cards/executor-run-environment--actionable-slice-request.md). Before build, a KA-stream `ln-plan` decision must settle whether this remains FE-1166 work or becomes a fresh frontier/branch; do not let the prepared card bypass the tracker/branch boundary.
 - **Standing obligations:** `probes-and-transcripts-evolution` and `topology-readmes-and-boundaries` ride the frontier that triggers them; they are not standalone cleanup buckets.
 
 ### Later
 
 Instrumentation experiments and far-horizon items. Each re-enters only via re-qualification with a named trigger.
+- `warrant-ablation-campaign` — **parked 2026-07-16** (was the active FE-1208 scope). The joined trajectory tracer and deterministic review-diff scorer are built and stay green; the six-run control/ablation campaign never produced a valid sample (all v1 attempts were mechanical pilots — a fixed actor cannot drive real structured asks). Code preserved and compiling (`src/dev/consequential-fact-*.ts`, `evaluate-consequential-fact`, campaign runner, `--evaluation-arm` seam), de-wired from documented DX by `automation-observability-dx`. **Re-entry trigger:** `agent-as-user-comparison` has proven a general actor *and* rich/challenging scenarios exist; resume from the approved actor-v2 contract recorded in the parked card, without post-hoc scorer/threshold tuning. Card: [`memory/cards/consequential-fact-discovery-tracer--warrant-ablation-campaign.md`](cards/consequential-fact-discovery-tracer--warrant-ablation-campaign.md).
+- `tier-2-regression-probes` — **Later, trigger-gated**: runnable probes over the tier-2 real-boot faux-provider harness that track improvement/regression of Brunch's own conduct on rich seed scenarios (the intra-product lane's mechanical oracle). Re-enter when the seed/fixture library demonstrates rich, relevant, challenging scenarios worth pinning; artifacts follow the normal probe contract (`docs/architecture/probes-and-transcripts.md`).
 - `mechanism-trace` — **Later**: post-hoc `wiring` / `nudge` / `conduct` transcript timeline plus static wiring inventory. Re-enter when instrumentation is prioritized; FE-1187 already owns the extracted sweep-debt tripwire. Archived snapshot: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md#2026-07-14-rolling-frontier-reduction).
 - `agent-tracing` — passive trace instrumentation over Pi lifecycle events for debugging plus conduct/quality evaluation: NDJSON emitter extension (introspection-tap discipline), subagent span joining via SDK `session.subscribe`, and a mechanical-trace × semantic-JSONL join for deterministic conduct checks and judged passes. Entry move is an `ln-spike` (dev-gated `nikiforovall/pi-otel` import: do span trees beat `.brunch/debug/` + JSONL projections?) before any port of `JoshMock/the-agency` observability as the in-product base. Traces are dev/eval artifacts, never product truth (no event-spine backdoor). Design: `docs/design/AGENT_TRACING.md`; sibling idea note `docs/design/RLM_INVESTIGATION_PATTERN.md`. Relation: Later `mechanism-trace` is the transcript-native sibling (carrier classification, no event plane); if both land they may join on a shared trace vocabulary. Absorbs Pi-native P5 (provider/cache observability — latency, cache behavior, whole-run spans), spike-led.
 - `petri-epic-integration` — epics become integration gates, not just identity labels: an epic-complete transition gated on member slices, with epic-level verification/fan-in in the compiled topology (`epicId` identity already flows through subnets and emitted facts). Behind `petri-slice-isolation-fan-in`; shape via `ln-grill`/`ln-scope` at pickup.
@@ -139,16 +138,13 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Kind:** coverage-shaped closure batch: WR18-promoted remediation rows + absorbed LN evidence beats + folded design rows + the tripwire row.
 - **Certainty:** proving.
 - **Classification:** evidence-gated.
-- **Built:** D123-L model/auth reversal; deterministic remediation rows; sweep-debt tripwire; digest feedback → bounded questionnaire/confirmation carrier; shared atomic local-TUI/RPC review settlement; discriminating seed variants for propose/project/review routing plus settlement visibility; and the human-selected borderless Impact Ledger with narrow/normal/wide goldens, word-wrap-tolerant render honesty, a naive differential inventory oracle, and a deterministic 17-node/11-edge content-length variant gallery. The exact review payload remains durable and approval produces one receipt-bearing terminal, one LSN, and one change-log entry.
-- **Next action:** run the human readability walkthrough across the Impact Ledger content-length variants and audit the separate web graph display without imposing the review-only ordering. Theme-color closure and the remaining R6/R12/R13 routes still gate frontier closure.
-- **D131-L renderer boundary:** FE-1187 owns only the review presentation half of D131-L: materialize the selected borderless Impact Ledger, preserve exact term definitions and the readable `obligation` compatibility fallback, and audit the separate web graph display rather than silently imposing review ordering. The cross-cutting prompt/skill semantic sweep is the separate `graph-assurance-conduct` frontier.
+- **Built:** D123-L model/auth reversal; deterministic remediation rows; sweep-debt tripwire; digest feedback → bounded questionnaire/confirmation carrier; shared atomic local-TUI/RPC review settlement; and discriminating seed variants for propose/project/review routing plus settlement visibility. The exact review payload remains durable and approval produces one receipt-bearing terminal, one LSN, and one change-log entry.
+- **Next scope:** compact proposition-first review presentation over the landed terminal/details shape. Show settled authority, commitment proposition, node/relation counts, grouped consequences, exact-payload inspection, and one whole-set control surface; no partial acceptance.
 - **Visual-design coupling:** `exchange-visual-design` now also owns the FE-1196 reassignment `transcript-ledger-rendering`: durable user-choice ledger entries must become visible in the transcript without entering model context, and should land with the same visual treatment rather than as a separate platform-debt slice.
-- **Theme closure gate:** Brunch's owned theme colors must be deliberately locked before this frontier closes — settle the light/dark palette and semantic color-role assignments through the component playground, then reconcile the canonical theme files and affected Brunch surfaces. Exact color choices remain user design input; do not close FE-1187 while this is unresolved.
 - **Remaining routes:** R6 four-state result visuals → `ln-design`; R12 no-model behavior → `ln-diagnose`; R13 entry-menu behavior → `ln-disambiguate` then `ln-spec`. O7–O9 are KA-owned D120-L Execute evidence. The [`consolidated outer checkpoint`](cards/walkthrough-remediation-2--consolidated-outer-checkpoint.md) remains paused until these routes and R8–R10 are dispositioned.
 - **Live scope files:** the paused [`consolidated outer checkpoint`](cards/walkthrough-remediation-2--consolidated-outer-checkpoint.md).
 - **Dependencies:** closes `deterministic-orientation` jointly with KA-carved Execute evidence. `cli-mode-entry` remains stacked after this frontier.
 - **Verification (R8–R10):** one normalized 17-node/11-edge semantic fixture; compact text and live/persisted render equivalence; exact local/RPC settlement effects; 3/3 controlled provider runs; one normal-width human walkthrough judging question materiality, proposition cohesion, inspectability, and fatigue. See SPEC §Verification Design.
-- **Verification (Impact Ledger render, D131-L):** golden snapshots at narrow/normal/wide widths + word-wrap-tolerant `missingRenderedDetailsLeaves` extension + a naive differential reference extractor (inner/middle, deterministic, no LLM); one human walkthrough cycles a dev-only content-length variant gallery (outer, no `fast-check` — legibility stays human-judged). See SPEC §Verification Design ("FE-1187 Impact Ledger render oracle design").
 - **Traceability:** WR18 closure record in `TESTING_FINDINGS.md`; evidence at `testing/walkthroughs/2026-07-10/WR18-manual.md`; D113-L–D115-L reversal/disambiguation; D119-L, D120-L/I62-L, D99-L conduct; TESTING_PLAN concerns 1/3/4/6/7.
 
 ### shared-session-host-tracer
@@ -259,6 +255,48 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Traceability:** req 24; A5-L; D68-L–D70-L; I55-L; SPEC §Verification Design (combined assessment, loop-tier oracles, flywheel design note, acknowledged blind spots).
 - **Design docs:** [`docs/design/AGENT_TRACING.md`](../docs/design/AGENT_TRACING.md) is conditional tracing context, not the first implementation prescription.
 - **Current execution pointer:** none; next scope may cover the controlled ablation campaign over the scorer's landed atomic evidence contract.
+
+### automation-observability-dx
+
+- **Name:** Automation & observability DX — one door per audience (reshaped 2026-07-16 from `consequential-fact-discovery-tracer`)
+- **Linear:** [FE-1208](https://linear.app/hash/issue/FE-1208/trace-and-evaluate-warranted-agent-commitments) (same issue; the reshape stays on the frontier's tracker/branch unit)
+- **Branch:** `ln/fe-1208-traces-and-evals-1`, stacked on the completed `interactive-tui-driver` frontier.
+- **Kind:** hardening + closure batch over development tooling and docs; not product runtime behavior (except deleting the dead `--dev-tools` product-CLI surface).
+- **Certainty:** earned — the surfaces exist and are witnessed (FE-1206, debug mirrors, trajectory join); what remains is consolidation, deletion, and documentation, not discovery. The v1 campaign attempts supplied the recognition signal: the frontier was circling on an actor it could not yet generalize.
+- **Status:** active. The warrant-ablation campaign is parked (see Later); all v1 attempts under `.fixtures/scratch/consequential-fact-ablation/**` remain mechanical pilots, never campaign evidence.
+- **Objective:** collapse the automation/observability tool sprawl into one documented door per audience, and preserve — without advertising — the parked evaluator machinery. Concretely: (1) kill `--dev-tools` and the never-used `brunch_session_query`/`brunch_introspect_query` tools plus the whole `devAllowedToolNames` opt-in channel; (2) remove the superseded `cli-cmux` skill and the "remains useful" hedge so the FE-1206 priority order reads settled; (3) relocate the trajectory report to the `.brunch/debug/` convention beside `trajectory.ndjson`; (4) de-wire the consequential-fact scorer/evaluator from the documented DX surface (code and tests preserved, compiling); (5) write the dev-/PM-facing documentation that names both use cases and their doors.
+- **Two use cases (do not conflate):** *seed-based intra-product testing* — `npm run dev-cli` → seed → TUI + web sidecar + `rpc`/`print` reads; seeds are the content because they encode Brunch-only graph/spec state; future home of tier-2-faux-provider regression probes. *Mission-driven cross-product comparison* — agent-as-user with a mission/concept, driving each harness to a "ready" spec/plan document; product-neutral, no seeds possible; this frontier documents the approach, `agent-as-user-comparison` builds the capability.
+- **Closes:** the "which TUI/browser driving tool" ambiguity FE-1206 settled but the docs still hedge; the dual observability story (`--dev-tools` query tools vs passive debug mirrors); the false-active status of the warrant campaign.
+- **Canonicalizes:** one door per audience — PM (`npm run dev-cli` menu → seed → sidecar), dev (same + `rpc`/`print`/`mutate` cheatsheet), agent (`pi-interactive-shell` on hosts / `npm run tui-driver` in sandboxes, + trajectory join for evidence); `.brunch/debug/` as the single passive-observability home.
+- **Deletes / retires:** `--dev-tools` flag (product CLI + dev-cli), `brunch_session_query` + `brunch_introspect_query` extensions and tests, the `devAllowedToolNames` channel through agent-runtime/foreground policy, `.agents/skills/cli-cmux/`, the `.fixtures/scratch/trajectory/` output location, stale doc references (living docs only — dated walkthroughs and archives untouched).
+- **Locks in:** passive `.brunch/debug/*` mirrors as the only ambient dev observability (nothing prompt-affecting is dev-gated anymore); the FE-1206 driving order as unhedged canon; `zigpty` reached only indirectly through the pinned `pi-interactive-shell` package (no direct integration); the parked evaluator stays functional-but-undocumented rather than half-deleted.
+- **Acceptance:**
+  - `npm run verify` green after the `--dev-tools`/query-tool/`devAllowedToolNames` removal; no orphaned imports, tests, or doc references in living docs (`src/dev/README.md`, `src/dev/TOPOLOGY.md`, `src/.pi/README.md`, extension topology files, `docs/praxis/seeded-dev-rpc.md`, `TESTING_PLAN.md`, SPEC's D69-L query-tool mention).
+  - `writeTrajectoryReport` emits under `<workspace>/.brunch/debug/` (latest-wins, matching the mirror convention); the parked campaign runner call site still compiles; README/TOPOLOGY debug-mirror lists include the trajectory artifacts.
+  - `cli-cmux` removed; `docs/praxis/manual-testing.md` names exactly one priority order with no competing advice (user ports the skill to their global collection — removal here is sanctioned).
+  - Scorer/evaluator code and tests remain green; `evaluate-consequential-fact` and the campaign runner disappear from README/TOPOLOGY DX documentation but stay functional.
+  - **Documentation is part of the definition of done:** a dev-/PM-facing doc (e.g. `docs/praxis/comparison-runs.md` or equivalent home) that (a) walks the PM through the seed-based door end to end, (b) gives devs the deterministic read cheatsheet, (c) gives agents the driving + trajectory-evidence recipe, and (d) describes the agent-as-user comparison approach honestly — including that the general actor + "ready" stop condition is the unbuilt piece owned by `agent-as-user-comparison`. Cross-linked from `src/dev/README.md` and `docs/praxis/manual-testing.md`.
+- **Verification:** inner — full `npm run verify` (the deletion's regression net) plus updated trajectory-report tests; outer — one PM-shaped dry run of the documented seed door (launch → observe → read), witnessed against the new doc rather than tribal knowledge.
+- **Cross-cutting obligations:** do not touch the `--mode web` seam (built on a parallel branch); preserve the `--evaluation-arm`/directive-ablation seam (it belongs to the parked evaluator, not to `--dev-tools`); traces remain dev/eval artifacts, never product truth; protect untracked `galarza.md`.
+- **Traceability:** FE-1206 closure (driving order), D69-L (introspection tap — narrows to passive-only), D70-L/D71-L (dev-artifact routing; `BRUNCH_DEV` remains the ambient switch), req 24/A5-L (evidence lifecycle, unchanged); supersedes the six-run campaign card as the frontier's execution pointer.
+- **Current execution pointer:** none — the four-card consolidation sequence is consumed. The parked [`warrant-ablation campaign card`](cards/consequential-fact-discovery-tracer--warrant-ablation-campaign.md) remains historical context, not active scope.
+
+### agent-as-user-comparison
+
+- **Name:** Mission-driven agent-as-user cross-product comparison (Brunch vs Claude Code vs Cursor)
+- **Linear:** unassigned (create at pickup, FE team / brunch project)
+- **Branch:** tbd at pickup (behind `automation-observability-dx`)
+- **Kind:** structural evaluation tooling — a general agent-as-user actor + mission catalog + document-level judgment; not product runtime.
+- **Certainty:** proving.
+- **Status:** admitted 2026-07-16; blocked until `automation-observability-dx` lands the documented doors it builds on.
+- **Objective:** answer the PM's actual question — does Brunch produce a more comprehensive, more detailed spec/plan than `claude` (Claude Code) or `agent` (Cursor) — via the only viable shape: an agent-as-user actor holds a mission/concept, drives the target harness through real interaction under a matched effort budget, and stops when it holds a spec/plan document that reads as "ready." The comparison artifact is that final document, judged on comprehensiveness/detail; competitor internals are opaque and never count against them.
+- **Explicitly not seed-based:** competitor CLIs have no Brunch graph/spec concept, so there is no shared seedable starting state. Content is a product-neutral mission/concept catalog. Seed fixtures belong to the intra-product lane only.
+- **Retires:** the assumption (inherited from the parked warrant campaign's actor-generality ceiling) that a deterministic scripted actor suffices — the v1 pilots showed real structured asks defeat fixed policies; this frontier owns discovering what a *general* agent-as-user actor and a "ready" stop condition actually require across heterogeneous harnesses.
+- **Lights up:** one mission driven end-to-end through all three harnesses (Brunch via `pi-interactive-shell`/`tui-driver`; competitors via `/spawn claude` / `/spawn cursor` or plain terminal) producing three comparable "ready" documents for human side-by-side judgment.
+- **Stabilizes:** the mission-catalog shape and the matched-budget run protocol that any later blinded, multi-run campaign would reuse.
+- **Acceptance sketch (validate at pickup):** ≥1 human-authored mission; a written actor policy (or human-in-the-loop protocol for round one) with an explicit "ready" stop condition; one run per harness under matched budget; three documents plus run notes captured under the normal scratch→promotion lifecycle; PM performs the judgment — the deliverable is her being *able to see*, not an automated verdict.
+- **Re-entry triggers absorbed:** the parked warrant campaign resumes only when this frontier's general actor exists *and* rich, challenging fixtures/missions exist — actor generality is proven here first, where it pays for itself.
+- **Traceability:** req 24/A5-L (evidence lifecycle); SPEC §Acknowledged Blind Spots (competitor comparison was always a later matched-budget campaign — this is its deliberately thin first form); FE-1206 driving order.
 
 ### cli-mode-entry
 
@@ -433,20 +471,25 @@ group-3 (Next — agent layer):
   subagent-skill-access -[hard]-> reviewer-agent-mode (subagent reshape)
   review-commentary-widening (mention-based reshape)
 
-parallel:
 parallel evaluation:
-  interactive-tui-driver
-    status: done 2026-07-15; project-local pi-interactive-shell host default | existing tui-driver sandbox fallback
-    evidence: component playground + seeded Brunch TUI + human takeover/return + deterministic cleanup
-    excludes: shipped package/runtime dependency, sealed src/.pi extension, direct zigpty integration
   graph-assurance-conduct
     status: not started; earned closure frontier after D131-L documentation commit
     canonicalizes: capture/map/project/propose/review assurance semantics
     excludes: schema migration | review renderer | automatic evidence-promotion pipeline
-    -[hard]-> consequential-fact-discovery-tracer (FE-1208)
-      status: active; joined trajectory witnessed; deterministic scorer built; controlled A/B scope next
-      lights_up: TUI-driven joined trajectory + warranted-commitment A/B evidence
-      excludes: OTel-first platform, competitor campaign, product event spine
+    -[hard]-> automation-observability-dx (FE-1208, reshaped 2026-07-16)
+  interactive-tui-driver
+    status: done 2026-07-15; project-local pi-interactive-shell host default | existing tui-driver sandbox fallback
+    evidence: component playground + seeded Brunch TUI + human takeover/return + deterministic cleanup
+    excludes: shipped package/runtime dependency, sealed src/.pi extension, direct zigpty integration
+    -[hard]-> automation-observability-dx (FE-1208, reshaped 2026-07-16)
+      status: active, earned; consolidation + deletion + docs (one door per audience)
+      deletes: --dev-tools + query tools + devAllowedToolNames channel | cli-cmux skill | scratch trajectory location
+      locks_in: .brunch/debug/* as sole passive observability; docs are part of DoD
+      excludes: --mode web seam (parallel branch), evaluator deletion (parked, preserved)
+      -[hard]-> agent-as-user-comparison
+        status: admitted 2026-07-16; mission-driven, not seed-based; general actor + "ready" stop condition
+        lights_up: three comparable "ready" documents (brunch | claude | cursor) for PM judgment
+        -[on promotion]-> warrant-ablation-campaign (later; resumes from parked actor-v2 contract)
 
 group-4 (cleanups): rides group-1 stack | named-inline-extension-identity (P1)
 
@@ -455,36 +498,24 @@ KA stream:
   planning-process-model (moved 2026-07-13)
   # petri-interpreter-port (FE-1183) and petrinaut-live-run-stream (FE-1190) merged;
   # run.json remains lifecycle truth, Petri artifacts remain projection/evidence/resume hints.
-  petri-execution-parity (FE-1195)
-    status: done on branch 2026-07-13; pending submit/merge
-    depends_on: merged FE-1192 attempt identity + FE-1190 live stream
-    owns: D127-L bounded durable parallel slice authority
-    excludes: split-process delivery and generic event-spine authority
-  executor-plan-synthesis (FE-1197)
-    status: admitted 2026-07-13 on ka/fe-1197-executor-plan-synthesis
-    stacked_on: petri-execution-parity (FE-1195, PR #325 semantics)
-    consumes: D126-L committed scopes via FE-1173/1175/1179 lowering + worker briefs
-    owns: bounded planning projection; typed candidate/admitted plan contract;
-      plan-owned execution contract (capabilities/actions); deterministic
-      admission verdict; bounded repair; foreground verifyProfile removal
-    folds: executor-run-environment live remainder (FE-1166; card deleted)
-    excludes: split-process authority; semantic drift detection; promotion UX;
-      re-owning PR #325 execution semantics
-  executor-runtime-fixes (FE-1199)
-    umbrella branch ka/fe-1199-fixes stacked on FE-1197; empty_dir promotion
-    residue transferred to host-landing 2026-07-14
-  host-landing (FE-1201)
-    status: branch-complete 2026-07-14, review-hardened + SPEC-reconciled 2026-07-15;
-      open: live /brunch:land walkthrough beat; stacks on ka/fe-1199-fixes
-    owns: GitHostLandPort (inspect/integrate/materialize); durable runBaseSha;
-      mode-derived substrate; /brunch:land confirm acceptance; deletion of
-      patch-apply host promotion + acceptedCommitSha
-    -[unblocks]-> executor-plan-synthesis oracle-9 conforming-promotion witness
-    excludes: squash/graft knobs; remote/PR targets; durable acceptance tokens;
-      source-copy one-authority fix (named follow-up)
+  executor-slice-attempt-lifecycle (FE-1192)
+    status: implementation complete; review/submit pending on ka/fe-1192-executor-slice-attempt-lifecycle
+    consumed_card: agent-attempt-facts scope deleted on completion
+    -[hard]-> petri-slice-isolation-fan-in
+    stabilizes: attempt identity for the whole Petri sequence
+  petri-slice-isolation-fan-in
+    status: admitted 2026-07-13; Linear/branch at pickup
+    -[hard]-> petri-epic-integration (later)
+    -[hard]-> petri-durable-parallel-authority (later; promote only on serial-authority evidence)
+    excludes: durable parallel side-effect authority
+  executor-run-environment (FE-1166 follow-up)
+    status: prepared; tracker/branch disposition required before build
+    live_card: memory/cards/executor-run-environment--actionable-slice-request.md
 
-later: mechanism-trace (vocabulary may feed FE-1208; no parallel artifact system) |
-  agent-tracing (conditional on a named FE-1208 observability gap; absorbs P5) |
+later: warrant-ablation-campaign (parked; re-enters via agent-as-user-comparison actor evidence) |
+  tier-2-regression-probes (trigger: rich seed/fixture scenarios worth pinning) |
+  mechanism-trace (vocabulary may feed FE-1208-lineage tracing; no parallel artifact system) |
+  agent-tracing (conditional on a named joined-report observability gap; absorbs P5) |
   petri-epic-integration | petri-durable-parallel-authority
 
 rules:
