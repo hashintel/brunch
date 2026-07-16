@@ -48,7 +48,7 @@ Then create or track the corresponding Graphite branch. If another tool creates 
 gt create {prefix}/fe-XXX-keywords  # new branch for one PLAN.md frontier item
 # ... implement one or more scoped slices on this branch ...
 git add <files> && git commit    # plain git for commits
-npm run verify                   # gate before submit
+npm run verify                   # fast local checkpoint before submit (CI runs the full gate)
 gt submit                        # push + create/update PR
 ```
 

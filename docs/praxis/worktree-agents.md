@@ -25,7 +25,7 @@ Use `isolation: "worktree"` to run parallel agent builds in isolated copies of t
 1. Review each agent's output independently.
 2. Merge into the target branch (plain git — resolve conflicts manually).
 3. Check for merge gaps: files modified by both agents where one is missing the other's changes.
-4. Run `npm run verify` after merging.
+4. Run `npm run verify` after merging (use `npm run verify:full` if the merge touched a slow test or the production seam it witnesses — currently host landing, slice integration, run promotion, or worktree behavior; CI runs the full gate regardless).
 5. Graphite reintegration happens in the control worktree only (see `graphite-workflow.md`).
 
 ## When not to use worktree agents

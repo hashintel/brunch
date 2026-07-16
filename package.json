@@ -42,9 +42,9 @@
     "seed": "nub src/graph/seed-fixtures.ts",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
-    "test": "vitest --run --maxWorkers=4",
-    "test:fast": "vitest --run --maxWorkers=4 --exclude='{src/app/__tests__/{git-host-land-port,git-slice-integration-port,git-run-promotion-port},src/executor/__tests__/worktree}.test.ts'",
-    "test:real-git": "vitest --run --maxWorkers=4 src/app/__tests__/git-host-land-port.test.ts src/app/__tests__/git-slice-integration-port.test.ts src/app/__tests__/git-run-promotion-port.test.ts src/executor/__tests__/worktree.test.ts",
+    "test": "vitest --run --maxWorkers=4 --exclude='**/*.slow.test.ts'",
+    "test:full": "vitest --run --maxWorkers=4",
+    "test:slow": "vitest --run --maxWorkers=4 .slow.test.ts",
     "test:watch": "vitest",
     "test:context-surfaces": "vitest --run src/agents/contexts src/app/__tests__/print-workspace-state.test.ts src/session/__tests__/transcript-markdown.test.ts",
     "test:context-surfaces:watch": "vitest src/agents/contexts src/app/__tests__/print-workspace-state.test.ts src/session/__tests__/transcript-markdown.test.ts",
@@ -65,7 +65,7 @@
     "check:release-pack": "node scripts/check-release-pack.mjs",
     "release": "release-it",
     "verify": "npm run fix && npm run test && npm run build",
-    "verify:fast": "npm run fix && npm run test:fast && npm run build"
+    "verify:full": "npm run fix && npm run test:full && npm run build"
   },
   "dependencies": {
     "@earendil-works/pi-ai": "^0.80.6",
