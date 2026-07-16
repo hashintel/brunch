@@ -23,7 +23,7 @@ describe('findIncompleteStructuredExchangePresents', () => {
       exchange_id: 'completed-digest',
       tool_meta: { curr: 'present_digest', next: 'ask' },
       display: { heading: 'Choose the already answered path' },
-      continuation: reviewContinuation('Choose the already answered path'),
+      continuation: freeTextContinuation('Choose the already answered path'),
       digest: { abstract: 'Keep the completed exchange closed.' },
     });
     const completedAsk = toolResultEntry({
@@ -39,7 +39,7 @@ describe('findIncompleteStructuredExchangePresents', () => {
       exchange_id: 'dangling-digest',
       tool_meta: { curr: 'present_digest', next: 'ask' },
       display: { heading: 'Review source digest' },
-      continuation: reviewContinuation('Review source digest'),
+      continuation: freeTextContinuation('Review source digest'),
       digest: { abstract: 'Digest before graph mapping.' },
     });
     const unrelatedEntry = toolResultEntry({ note: 'not structured exchange details' });
@@ -67,18 +67,8 @@ describe('findIncompleteStructuredExchangePresents', () => {
   });
 });
 
-function reviewContinuation(body: string) {
-  return {
-    tool: 'ask' as const,
-    params: {
-      body,
-      options: [
-        { id: 'approve', label: 'Approve' },
-        { id: 'request_changes', label: 'Request changes' },
-        { id: 'reject', label: 'Reject' },
-      ],
-    },
-  };
+function freeTextContinuation(body: string) {
+  return { tool: 'ask' as const, params: { body } };
 }
 
 function toolResultEntry(details: unknown): EntryLike {

@@ -1,5 +1,5 @@
 import type {
-  AskContinuationDeclaration,
+  FreeTextAskContinuationDeclaration,
   PresentDigestDetails,
   PresentDigestParams,
 } from '../schemas/index.js';
@@ -42,7 +42,7 @@ function digestContinuation(input: {
   readonly heading: string;
   readonly body: string | undefined;
   readonly digest: PresentDigestParams['digest'];
-}): AskContinuationDeclaration {
+}): FreeTextAskContinuationDeclaration {
   const digestBody = [
     input.heading,
     input.body,

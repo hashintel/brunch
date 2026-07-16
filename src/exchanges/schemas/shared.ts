@@ -74,10 +74,10 @@ const zAskContinuationOption = z
   })
   .strict();
 
-export const zAskContinuationParams = z
+const zOptionRequiredAskContinuationParams = z
   .object({
     body: zNonBlankMarkdown,
-    options: z.array(zAskContinuationOption).min(1).optional(),
+    options: z.array(zAskContinuationOption).min(1),
     multiple: z.boolean().optional(),
     allowOther: z.boolean().optional(),
     allowNone: z.boolean().optional(),
@@ -86,15 +86,45 @@ export const zAskContinuationParams = z
     bottomLabel: zNonBlankMarkdown.optional(),
   })
   .strict();
-export type AskContinuationParams = z.infer<typeof zAskContinuationParams>;
 
-export const zAskContinuationDeclaration = z
+const zFreeTextAskContinuationParams = z
   .object({
-    tool: z.literal(STRUCTURED_EXCHANGE_TERMINAL_NAMES.current),
-    params: zAskContinuationParams,
+    body: zNonBlankMarkdown,
+    options: z.never().optional(),
+    multiple: z.never().optional(),
+    allowOther: z.never().optional(),
+    allowNone: z.never().optional(),
+    commentPrompt: z.never().optional(),
+    topLabel: z.never().optional(),
+    bottomLabel: z.never().optional(),
   })
   .strict();
+
+function askContinuationDeclaration<T extends z.ZodType>(params: T) {
+  return z
+    .object({
+      tool: z.literal(STRUCTURED_EXCHANGE_TERMINAL_NAMES.current),
+      params,
+    })
+    .strict();
+}
+
+export const zFreeTextAskContinuationDeclaration = askContinuationDeclaration(zFreeTextAskContinuationParams);
+export type FreeTextAskContinuationDeclaration = z.infer<typeof zFreeTextAskContinuationDeclaration>;
+
+export const zOptionRequiredAskContinuationDeclaration = askContinuationDeclaration(
+  zOptionRequiredAskContinuationParams,
+);
+export type OptionRequiredAskContinuationDeclaration = z.infer<
+  typeof zOptionRequiredAskContinuationDeclaration
+>;
+
+export const zAskContinuationDeclaration = z.union([
+  zFreeTextAskContinuationDeclaration,
+  zOptionRequiredAskContinuationDeclaration,
+]);
 export type AskContinuationDeclaration = z.infer<typeof zAskContinuationDeclaration>;
+export type AskContinuationParams = AskContinuationDeclaration['params'];
 
 export const zPresentQuestionToolMeta = z
   .object({ curr: z.literal('present_question'), next: z.literal('request_response') })
