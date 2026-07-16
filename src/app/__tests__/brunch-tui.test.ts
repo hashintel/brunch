@@ -205,17 +205,13 @@ describe('Brunch TUI boot', () => {
     expect(lines.join('\n')).not.toContain('unknown');
   });
 
-  it('requests startup header chrome for every activated launch decision', () => {
+  it('requests the welcome header only for new specs and sessions', () => {
     expect(
       startupHeaderForActivation({ action: 'continue', specId: 1, sessionFile: '/s/one.jsonl' }),
-    ).toEqual({
-      decision: 'continue',
-    });
+    ).toBeUndefined();
     expect(
       startupHeaderForActivation({ action: 'openSession', specId: 1, sessionFile: '/s/two.jsonl' }),
-    ).toEqual({
-      decision: 'openSession',
-    });
+    ).toBeUndefined();
     expect(startupHeaderForActivation({ action: 'newSession', specId: 1 })).toEqual({
       decision: 'newSession',
     });
@@ -1065,7 +1061,7 @@ describe('Brunch TUI boot', () => {
     expect(shortcuts.has('alt+b')).toBe(false);
 
     // The menu shortcut borrows the command-capable context and completes a
-    // real cross-session switch, exactly like /brunch:menu.
+    // real cross-session switch, exactly like /brunch:spec-menu.
     const shortcut = shortcuts.get(BRUNCH_MENU_SHORTCUT);
     expect(shortcut).toBeDefined();
     const shortcutHandler = shortcut!.handler as (ctx: unknown) => Promise<void> | void;

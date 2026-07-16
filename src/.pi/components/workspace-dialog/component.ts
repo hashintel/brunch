@@ -7,7 +7,7 @@ import type {
 } from '../../../session/workspace-session-coordinator.js';
 import { formatBrunchProductIdentity, readBrunchAnsiLogo } from '../brunch-identity.js';
 import { resolveBrunchVersion } from '../brunch-version.js';
-import { projectRoundedBox } from '../rounded-box.js';
+import { projectMenuShell } from '../menu-shell.js';
 import { projectScrollViewport } from '../scroll-viewport.js';
 import {
   buildWorkspaceSelectionView,
@@ -209,9 +209,7 @@ function renderFrame(
   theme: WorkspaceDialogTheme | undefined,
   thumbRows: ReadonlySet<number>,
 ): string[] {
-  return projectRoundedBox(content, { padding: { top: 1, bottom: 1 }, thumbRows }, width, (text) =>
-    style(theme, 'borderMuted', text),
-  );
+  return projectMenuShell(content, width, theme, { padding: { top: 1, bottom: 1 }, thumbRows });
 }
 
 function readLogo(): string[] {

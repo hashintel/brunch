@@ -54,9 +54,7 @@ describe('Brunch chrome projection', () => {
     };
 
     expect(projectBrunchChromeFooterLines(state)).toEqual([
-      '/brunch:menu [ctrl-shift-b]: Spec One / Interview #1  ui: http://127.0.0.1:49152/spec/1',
-      'mode [alt-m]: not reported | role [opt-r]: not reported',
-      'no model  ctx ──────────── ?% ?/0',
+      'ui: http://127.0.0.1:49152/spec/1 | model no model | thinking off | context ?%',
       '',
     ]);
   });
@@ -74,17 +72,17 @@ describe('Brunch chrome projection', () => {
       },
     };
 
-    const footerLine = projectBrunchChromeFooterLines(state, {
+    const footer = projectBrunchChromeFooterLines(state, {
       agentState: {
         schemaVersion: 1,
         operationalMode: 'specify',
         agentRole: 'elicitor',
       },
-    })[1];
+    }).join('\n');
 
-    expect(footerLine).toBe('mode [alt-m]: Specify | role [opt-r]: elicitor');
-    expect(footerLine).not.toContain('strategy: auto');
-    expect(footerLine).not.toContain('lens');
+    expect(footer).toBe('model no model | thinking off | context ?%\n');
+    expect(footer).not.toContain('mode [');
+    expect(footer).not.toContain('role');
   });
 
   it('formats rich optional runtime and context metadata without fabricating missing fields', () => {
@@ -105,9 +103,7 @@ describe('Brunch chrome projection', () => {
     };
 
     expect(projectBrunchChromeFooterLines(state)).toEqual([
-      '/brunch:menu [ctrl-shift-b]: Spec One / Interview #1',
-      'mode [alt-m]: not reported | role [opt-r]: elicitor',
-      'claude-sonnet • medium  ctx ━━━━━━────── 50% 1.0k/2.0k',
+      'model claude-sonnet | thinking medium | context 50%',
       '',
     ]);
   });
@@ -135,12 +131,8 @@ describe('Brunch chrome projection', () => {
       200,
     ).join('\n');
 
-    expect(footer).toContain('Spec One');
-    expect(footer).toContain('claude-sonnet');
-    expect(footer).toContain('medium');
-    expect(footer).toContain('ctx ━━━━━━────── 50% 1.0k/2.0k');
-    expect(footer).toContain('mode [alt-m]: not reported | role [opt-r]: elicitor');
-    expect(footer).toContain('reviewer queued');
+    expect(footer).toBe('model claude-sonnet | thinking medium | context 50%\n');
+    expect(footer).not.toContain('reviewer queued');
     expect(footer).not.toContain('should not echo');
   });
 
@@ -173,24 +165,31 @@ describe('Brunch chrome projection', () => {
     });
 
     const headerFactory = calls.find((call) => call.method === 'setHeader')?.args[0];
+    const welcomeFactory = calls.find((call) => call.method === 'setWidget')?.args[1];
     expect(headerFactory).toEqual(expect.any(Function));
+    expect(welcomeFactory).toEqual(expect.any(Function));
 
     const component = (headerFactory as (tui: unknown, theme: FakeTheme) => BrunchStartupHeader)(
       undefined,
       fakeTheme,
     );
+    const welcome = (
+      welcomeFactory as (tui: unknown, theme: FakeTheme) => { render(width: number): string[] }
+    )(undefined, fakeTheme);
     const collapsedLines = component.render(120);
+    const welcomeLines = welcome.render(120);
     expect(collapsedLines.slice(0, 6)).toEqual(['', '', '', '', '', '']);
     expect(collapsedLines.join('\n')).toMatch(/brunch v1\.0\.0-alpha\.\d+/);
     expect(collapsedLines.join('\n')).toContain('built on Pi v');
     expect(collapsedLines.join('\n')).not.toContain('escape interrupt');
-    expect(collapsedLines.join('\n')).toContain('Welcome to Brunch.');
-    expect(collapsedLines.join('\n')).toContain('The assistant is about to open');
-    expect(collapsedLines.join('\n')).toContain(
-      `/${BRUNCH_MODE_COMMAND} or ${formatChromeShortcutHint(BRUNCH_MODE_PICKER_SHORTCUT)} opens mode picker`,
+    expect(collapsedLines.join('\n')).not.toContain('Welcome to Brunch.');
+    expect(welcomeLines.join('\n')).toContain('Welcome to Brunch.');
+    expect(welcomeLines.join('\n')).toContain('assistant will open with a grounded question');
+    expect(welcomeLines.join('\n')).toContain(
+      `/${BRUNCH_MODE_COMMAND} or ${formatChromeShortcutHint(BRUNCH_MODE_PICKER_SHORTCUT)} changes Specify / Execute`,
     );
-    expect(collapsedLines.join('\n')).not.toContain(BRUNCH_MODE_PICKER_SHORTCUT);
-    expect(collapsedLines.join('\n')).toContain(`/${BRUNCH_MENU_COMMAND} opens spec/session`);
+    expect(welcomeLines.join('\n')).not.toContain(BRUNCH_MODE_PICKER_SHORTCUT);
+    expect(welcomeLines.join('\n')).toContain(`/${BRUNCH_MENU_COMMAND} or alt-s opens`);
     expect(collapsedLines.join('\n')).toContain('web-ui: http://127.0.0.1:49152/spec/1');
     expect(collapsedLines.join('\n')).not.toContain('Press ctrl+o');
     expect(collapsedLines.join('\n')).not.toContain('Spec One — session 1');
@@ -461,59 +460,15 @@ describe('Brunch chrome projection', () => {
     expect(calls).toContainEqual({ method: 'setWorkingVisible', args: [true] });
   });
 
-  it('renders the F16a resume state/status block for openSession activations', () => {
-    const component = new BrunchStartupHeader(
-      {
-        project: 'Project One',
-        spec: 'Spec One',
-        session: 'Session One',
-        decision: 'openSession',
-        resumeFacts: {
-          specTitle: 'Alpha Grounding',
-          nodeCount: 5,
-          edgeCount: 0,
-          modeLabel: 'Specify',
-        },
-      },
-      fakeTheme,
-    );
-
-    const text = component.render(80).join('\n');
-    expect(text).toContain('Resumed spec: Alpha Grounding');
-    expect(text).toContain('mode Specify');
-    expect(text).toContain('5 nodes');
-    expect(text).toContain('0 edges');
-    expect(text).not.toContain('Welcome to Brunch.');
-  });
-
-  it('omits the resume block when no resume facts are supplied on openSession', () => {
+  it('renders no welcome or resume card for resumed sessions', () => {
     const component = new BrunchStartupHeader(
       { project: 'Project One', spec: 'Spec One', session: 'Session One', decision: 'openSession' },
       fakeTheme,
     );
 
     const text = component.render(80).join('\n');
-    expect(text).toContain('Resumed spec: Spec One');
-    expect(text).toContain('graph facts not yet sampled');
-  });
-
-  it('renders the welcome block as its own bordered element (F13)', () => {
-    const component = new BrunchStartupHeader(
-      {
-        project: 'Project One',
-        spec: 'Spec One',
-        session: 'Session One',
-        decision: 'newSession',
-      },
-      fakeTheme,
-    );
-
-    const lines = component.render(80);
-    const welcomeLineIndex = lines.findIndex((line) => line.includes('Welcome to Brunch.'));
-    expect(welcomeLineIndex).toBeGreaterThan(0);
-    const borderChars = ['╭', '╮', '╰', '╯', '│'];
-    const hasBorder = lines.some((line) => borderChars.some((char) => line.includes(char)));
-    expect(hasBorder).toBe(true);
+    expect(text).not.toContain('Welcome to Brunch.');
+    expect(text).not.toContain('Resumed spec:');
   });
 
   it('installs dev fallback header through the src/.pi extension entrypoint', async () => {

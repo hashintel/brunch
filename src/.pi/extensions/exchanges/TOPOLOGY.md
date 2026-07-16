@@ -33,9 +33,9 @@ remains intact for durable terminal content and complete RPC/headless question
 payloads. Mounted answer/picker borders take the current
 operational-mode color role through the shared component border-color seam;
 workspace/consult surfaces keep their own surface-identity colors. Picker-root
-dismissal is terminal `cancelled`; nested Other/comment input steps share one
-`StepResult`-shaped collector and return to the picker, with multi-choice
-checkbox state restored. Declared-continuation root cancellation emits a transient notification naming
+dismissal is terminal `cancelled`; nested Other/comment input steps share the
+Brunch-owned mode-bordered `ModeInputComponent` through one `StepResult`-shaped
+collector and return Back/Escape to the picker, with multi-choice checkbox state restored. Declared-continuation root cancellation emits a transient notification naming
 `/brunch:continue`, `/brunch:consult`, and `/brunch:mode`; standalone
 cancellation emits separate transient guidance naming only `/brunch:consult`
 and `/brunch:mode`. Neither path publishes persistent footer status. This user

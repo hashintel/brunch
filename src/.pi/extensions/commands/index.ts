@@ -6,18 +6,18 @@
  * first whitespace (see `_tryExecuteExtensionCommand` in
  * `@earendil-works/pi-coding-agent/dist/core/agent-session.js`). Colons in
  * command names are passed through verbatim, so registering a command with the
- * literal name `brunch:menu` makes it invocable as `/brunch:menu`. This is
+ * literal name `brunch:spec-menu` makes it invocable as `/brunch:spec-menu`. This is
  * the same trick the built-in `/skill:<name>` registry uses.
  *
  * Active commands:
- *  - `/brunch:menu`     — open the spec/session picker (delegates to
+ *  - `/brunch:spec-menu` — open the spec/session picker (delegates to
  *                         workspace-dialog.ts).
  *  - `/brunch:continue` — recover/restart from an interrupted structured
  *                         exchange continuation.
  *  - `/brunch:mode`     — change the transcript-backed operational mode.
  *
  * Keyboard shortcuts (match the bracketed key hints in the footer chrome):
- *  - `ctrl+shift+b` — spec/session picker (borrows a command-capable context
+ *  - `alt+s`        — spec/session picker (borrows a command-capable context
  *                     from the composition root for the actual session switch;
  *                     alt+b is reserved by Pi's editor for cursorWordLeft)
  *  - `alt+m` — mode picker

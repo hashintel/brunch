@@ -1,12 +1,8 @@
 import { type Component, Key, matchesKey } from '@earendil-works/pi-tui';
 
 import { accumulateChoiceLines, describedChoiceLines } from './choice-row.js';
-import {
-  projectRoundedBox,
-  roundedBoxInnerWidth,
-  stackSections,
-  type RoundedBoxPadding,
-} from './rounded-box.js';
+import { projectMenuShell } from './menu-shell.js';
+import { roundedBoxInnerWidth, stackSections, type RoundedBoxPadding } from './rounded-box.js';
 import { projectScrollViewport } from './scroll-viewport.js';
 import { safeLines, type LabTheme } from './tui-lab/index.js';
 
@@ -54,17 +50,12 @@ export class ConsultMenuComponent implements Component {
       choiceWindow.isThumbRow.flatMap((isThumb, index) => (isThumb ? [choiceStart + index] : [])),
     );
 
-    const box = projectRoundedBox(
-      content,
-      {
-        padding: BOX_PADDING,
-        thumbRows,
-        ...(this.options.topLabel ? { topLabel: this.options.topLabel } : {}),
-        ...(this.options.bottomLabel ? { bottomLabel: this.options.bottomLabel } : {}),
-      },
-      safeWidth,
-      (text) => this.options.theme.fg(CONSULT_MENU_SURFACE_IDENTITY_BORDER_ROLE, text),
-    );
+    const box = projectMenuShell(content, safeWidth, this.options.theme, {
+      padding: BOX_PADDING,
+      thumbRows,
+      ...(this.options.topLabel ? { topLabel: this.options.topLabel } : {}),
+      ...(this.options.bottomLabel ? { bottomLabel: this.options.bottomLabel } : {}),
+    });
     box.push('');
     return box;
   }

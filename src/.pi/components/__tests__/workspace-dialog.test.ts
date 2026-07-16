@@ -394,7 +394,7 @@ describe('spec/session picker', () => {
     const lines = component.render(80);
 
     expect(lines[0]).toContain('╭');
-    expect(lines[1]).toMatch(/^\[borderMuted\]│\[\/borderMuted\]\s+\[borderMuted\]│\[\/borderMuted\]$/);
+    expect(lines[1]).toMatch(/^\[borderAccent\]│\[\/borderAccent\]\s+\[borderAccent\]│\[\/borderAccent\]$/);
     expect(lines.some((line) => line.includes('Choose a specification'))).toBe(true);
     expect(lines.some((line) => /brunch v1\.0\.0-alpha\.\d+/.test(line))).toBe(true);
     expect(lines.some((line) => line.includes('brunch v0.0.0'))).toBe(false);

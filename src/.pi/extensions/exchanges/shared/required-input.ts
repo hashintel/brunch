@@ -4,6 +4,9 @@ import {
   type ChoiceKind,
 } from '../../../../exchanges/schemas/index.js';
 import { normalizeOptionalUnknownText } from '../../../../exchanges/text.js';
+import { projectBrunchAgentState } from '../../../../projections/session/runtime-state.js';
+import { operationalModeBorderColor } from '../../../components/mode-border-theme.js';
+import { ModeInputComponent } from '../../../components/mode-input.js';
 import type { StructuredExchangeUiContext } from './ui-context.js';
 
 /**
@@ -24,6 +27,17 @@ export async function collectRequiredInput(
   prompt: string,
   placeholder?: string,
 ): Promise<RequiredInputResult> {
+  const custom = ctx.ui?.custom;
+  if (typeof custom === 'function') {
+    const value = await custom<string | undefined>((tui, theme, _keybindings, done) => {
+      const borderColor = operationalModeBorderColor(
+        theme,
+        projectBrunchAgentState(ctx.sessionManager?.getBranch() ?? []).operationalMode,
+      );
+      return new ModeInputComponent({ prompt, theme, borderColor, onDone: done });
+    });
+    return value === undefined ? { status: 'back' } : { status: 'answered', value: value.trim() };
+  }
   if (typeof ctx.ui?.input !== 'function') return { status: 'unavailable' };
   let attemptPrompt = prompt;
   for (;;) {
@@ -73,6 +87,24 @@ export async function collectCommentStep(input: {
     if (required.status === 'back') return back();
     if (required.status === 'unavailable') return unavailable(input.unavailableMessage);
     return { status: 'answered', value: { comment: required.value } };
+  }
+  if (typeof input.ctx.ui?.custom === 'function') {
+    const value = await input.ctx.ui.custom<string | undefined>((tui, theme, _keybindings, done) => {
+      const borderColor = operationalModeBorderColor(
+        theme,
+        projectBrunchAgentState(input.ctx.sessionManager?.getBranch() ?? []).operationalMode,
+      );
+      return new ModeInputComponent({
+        prompt: input.prompt,
+        theme,
+        borderColor,
+        allowEmpty: true,
+        onDone: done,
+      });
+    });
+    if (value === undefined) return back();
+    const comment = normalizeOptionalUnknownText(value);
+    return { status: 'answered', value: comment ? { comment } : {} };
   }
   if (typeof input.ctx.ui?.input !== 'function') return { status: 'answered', value: {} };
   const value = await input.ctx.ui.input(input.prompt);

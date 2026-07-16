@@ -254,7 +254,7 @@ function commandHarness(
 }
 
 describe('Brunch menu command', () => {
-  it('registers /brunch:menu without keeping the retired command as an alias', () => {
+  it('registers /brunch:spec-menu without keeping the retired command as an alias', () => {
     const harness = commandHarness();
     const retiredCommand = ['brunch', 'switch'].join(':');
 
@@ -267,7 +267,7 @@ describe('Brunch menu command', () => {
     expect(harness.commands.has(retiredCommand)).toBe(false);
   });
 
-  it('runs the workspace action from /brunch:menu', async () => {
+  it('runs the workspace action from /brunch:spec-menu', async () => {
     const decision = { kind: 'newSession' };
     const harness = commandHarness({ customResult: decision });
 
@@ -280,7 +280,7 @@ describe('Brunch menu command', () => {
     ]);
   });
 
-  it('keeps ctrl+shift+b wired to the workspace action through a command-capable context fallback', async () => {
+  it('wires alt+s to the workspace action through a command-capable context fallback', async () => {
     const decision = { kind: 'openSession' };
     const borrowedWaits: number[] = [];
     const harness = commandHarness({

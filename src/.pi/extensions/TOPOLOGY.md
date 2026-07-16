@@ -35,8 +35,8 @@ extensions/
 ├── web-tools/              web_fetch/web_search read tools for referenced-document acquisition
 │   └── web/
 ├── subagents/              D44-L/D91-L sealed SDK child sessions and `subagent` tool
-├── chrome/                 TUI header/title/footer/sidecar-widget chrome projection
-├── commands/               /brunch:* commands, shortcut, branch/tree policy (exception: /brunch:land registers in executor/execute-land/ beside its read-only preflight tool)
+├── chrome/                 identity header/title, one-time welcome widget, stable telemetry footer, editor shell
+├── commands/               /brunch:* commands (`spec-menu` workspace picker), alt+s/mode shortcuts, branch/tree policy (exception: /brunch:land registers in executor/execute-land/ beside its read-only preflight tool)
 ├── compaction/             D43-L anchor contract + one session_before_compact native custom result
 ├── exchanges/              structured-exchange present_* + ask Pi tools
 ├── mentions/               #graph mention prompt hint + autocomplete provider
@@ -70,7 +70,7 @@ rules:
 
 ## TUI launch chrome
 
-`chrome/` is the only product extension that should install Brunch's persistent TUI shell chrome. It receives launch facts from `src/app/brunch-tui.ts` through `BrunchChromeState`; it does not read web host, workspace, or activation state itself.
+`chrome/` is the only product extension that should install Brunch's persistent TUI shell chrome. It receives launch facts from `src/app/brunch-tui.ts` through `BrunchChromeState`; it does not read web host, workspace, or activation state itself. New spec/session facts install one borderless non-transcript welcome widget once; the persistent editor carries mode/spec identity and the stable footer carries only optional web URL plus model/thinking/context telemetry.
 
 ## Provider-facing tool schemas
 

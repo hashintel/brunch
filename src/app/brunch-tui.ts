@@ -253,13 +253,10 @@ export type StartupHeaderChromeState = BrunchChromeStartupHeaderState;
 
 export function startupHeaderForActivation(
   decision: SpecSessionActivationDecision | undefined,
-  resumeFacts?: StartupHeaderResumeFacts,
+  _resumeFacts?: StartupHeaderResumeFacts,
 ): StartupHeaderChromeState | undefined {
-  if (!decision || decision.action === 'cancel') return undefined;
-  return {
-    decision: decision.action,
-    ...(decision.action === 'openSession' && resumeFacts ? { resumeFacts } : {}),
-  };
+  if (!decision || (decision.action !== 'newSpec' && decision.action !== 'newSession')) return undefined;
+  return { decision: decision.action };
 }
 
 async function chooseSpecSessionActivationDecision(

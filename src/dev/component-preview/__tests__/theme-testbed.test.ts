@@ -88,7 +88,7 @@ describe('ThemeTestbedComponent', () => {
     theme.toggle();
     testbed.invalidate();
     const lightHeading = theme.getFgAnsi('mdHeading');
-    expect(lightHeading).not.toBe(darkHeading);
+    expect(lightHeading).toBe(darkHeading);
     expect(testbed.render(100).join('\n')).toContain(lightHeading);
   });
 

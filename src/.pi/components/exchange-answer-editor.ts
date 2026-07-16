@@ -16,6 +16,7 @@ export interface ExchangeAnswerEditorOptions {
   readonly body: string;
   readonly theme: LabTheme;
   readonly borderColor?: (text: string) => string;
+  readonly allowEmpty?: boolean;
   readonly onDone: (result?: string) => void;
 }
 
@@ -48,7 +49,7 @@ export class ExchangeAnswerEditorComponent implements Component {
       // Trimmed on submit so TUI answers match the RPC path, which trims in
       // acceptedResponseFromParams before projecting.
       const answer = text.trim();
-      if (answer.length === 0) {
+      if (answer.length === 0 && !this.options.allowEmpty) {
         this.#warning = EMPTY_WARNING;
         return;
       }

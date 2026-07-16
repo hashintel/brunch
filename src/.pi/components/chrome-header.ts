@@ -3,8 +3,6 @@ import { type Component, truncateToWidth } from '@earendil-works/pi-tui';
 
 import { formatBrunchProductIdentity, readBrunchAnsiLogo } from './brunch-identity.js';
 import { resolveBrunchVersion } from './brunch-version.js';
-import { BRUNCH_MODE_PICKER_SHORTCUT, formatChromeShortcutHint } from './chrome-shortcuts.js';
-import { projectRoundedBox } from './rounded-box.js';
 import { supportsTruecolor } from './workspace-dialog/component.js';
 
 export interface BrunchStartupHeaderResumeFacts {
@@ -48,21 +46,13 @@ export class BrunchStartupHeader implements Component {
     const safeWidth = Math.max(MIN_WIDTH, width);
     const contentWidth = safeWidth - HEADER_PADDING_X * 2;
     const leftMargin = ' '.repeat(HEADER_PADDING_X);
-    return this.collapsedLines(contentWidth).map((line) =>
+    return this.collapsedLines().map((line) =>
       line.length > 0 ? leftMargin + truncateToWidth(line, contentWidth, '...') : line,
     );
   }
 
-  private collapsedLines(contentWidth: number): string[] {
-    return [
-      ...this.topPaddingLines(),
-      ...this.identityLines(),
-      '',
-      ...this.welcomeBlockLines(contentWidth),
-      ...this.resumeBlockLines(contentWidth),
-      '',
-      this.webOrExpandHelpLine(),
-    ];
+  private collapsedLines(): string[] {
+    return [...this.topPaddingLines(), ...this.identityLines(), '', this.webOrExpandHelpLine()];
   }
 
   private topPaddingLines(): string[] {
@@ -75,43 +65,6 @@ export class BrunchStartupHeader implements Component {
       version: resolveBrunchVersion(),
       theme: this.theme,
     });
-  }
-
-  private welcomeBlockLines(contentWidth: number): string[] {
-    if (this.facts.decision !== 'newSpec' && this.facts.decision !== 'newSession') return [];
-    const inner = [
-      this.theme.bold('Welcome to Brunch.'),
-      'Brunch helps you and the agent co-author this specification as a local graph.',
-      'The assistant is about to open with a grounded question from the seeded workspace context.',
-      `Commands: /brunch:menu opens spec/session; /brunch:mode or ${formatChromeShortcutHint(
-        BRUNCH_MODE_PICKER_SHORTCUT,
-      )} opens mode picker.`,
-    ];
-    return projectRoundedBox(inner, { topLabel: 'welcome', labelAlign: 'left' }, contentWidth, (text) =>
-      this.theme.fg('accent', text),
-    );
-  }
-
-  private resumeBlockLines(contentWidth: number): string[] {
-    if (this.facts.decision !== 'openSession') return [];
-    const resume = this.facts.resumeFacts;
-    const specLabel = resume?.specTitle ?? this.facts.spec;
-    const inner = [
-      this.theme.bold(`Resumed spec: ${specLabel}`),
-      this.formatResumeStats(resume),
-      'Use /brunch:consult to reopen orientation; /brunch:menu opens spec/session.',
-    ];
-    return projectRoundedBox(inner, { topLabel: 'resumed', labelAlign: 'left' }, contentWidth, (text) =>
-      this.theme.fg('accent', text),
-    );
-  }
-
-  private formatResumeStats(resume: BrunchStartupHeaderResumeFacts | undefined): string {
-    const parts: string[] = [];
-    if (resume?.modeLabel) parts.push(`mode ${resume.modeLabel}`);
-    if (resume?.nodeCount !== undefined) parts.push(`${resume.nodeCount} nodes`);
-    if (resume?.edgeCount !== undefined) parts.push(`${resume.edgeCount} edges`);
-    return parts.length > 0 ? parts.join(' · ') : this.theme.fg('dim', 'graph facts not yet sampled');
   }
 
   private webOrExpandHelpLine(): string {

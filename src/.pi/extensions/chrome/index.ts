@@ -7,7 +7,7 @@ import type {
   Theme,
   ThemeColor,
 } from '@earendil-works/pi-coding-agent';
-import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
+import { truncateToWidth } from '@earendil-works/pi-tui';
 
 import {
   projectBrunchAgentState,
@@ -25,12 +25,8 @@ import {
   type BrunchStartupHeaderFacts,
   type BrunchStartupHeaderResumeFacts,
 } from '../../components/chrome-header.js';
-import {
-  BRUNCH_MENU_SHORTCUT,
-  BRUNCH_MODE_PICKER_SHORTCUT,
-  formatChromeShortcutHint,
-} from '../../components/chrome-shortcuts.js';
 import { operationalModeBorderColor } from '../../components/mode-border-theme.js';
+import { BrunchWelcomeCard } from '../../components/welcome-card.js';
 
 export type { BrunchStartupHeaderResumeFacts } from '../../components/chrome-header.js';
 
@@ -113,14 +109,10 @@ export interface BrunchChromeState extends WorkspaceSessionChromeState {
   coherence?: BrunchChromeCoherenceVerdict;
 }
 
-export type BrunchChromeUi = Pick<ExtensionUIContext, 'setFooter' | 'setHeader' | 'setTitle'>;
+export type BrunchChromeUi = Pick<ExtensionUIContext, 'setFooter' | 'setHeader' | 'setTitle' | 'setWidget'>;
 type BrunchEditorUi = Pick<ExtensionUIContext, 'setEditorComponent'>;
 
 type BrunchChromeTheme = Pick<Theme, 'fg'>;
-
-const CONTEXT_GAUGE_WIDTH = 12;
-const BAR_FILLED = '━';
-const BAR_EMPTY = '─';
 
 export function projectBrunchChromeFooterLines(
   chrome: BrunchChromeState,
@@ -129,40 +121,14 @@ export function projectBrunchChromeFooterLines(
   theme?: BrunchChromeTheme,
 ): string[] {
   const available = width ?? Number.POSITIVE_INFINITY;
-  const statuses = sanitizeChromeStatuses(telemetry?.statuses);
-
-  const sessionLabel = telemetry?.sessionName ?? chrome.session.label ?? chrome.session.id;
-  const specSessionPart = keyedStatusPart(
-    theme,
-    '/brunch:menu',
-    formatChromeShortcutHint(BRUNCH_MENU_SHORTCUT),
-    `${formatSpec(chrome)} / ${sessionLabel}`,
-  );
-  const specSessionLine = chrome.webSidecarUrl
-    ? alignChromeColumns(specSessionPart, formatWebUiPart(chrome.webSidecarUrl, theme), available)
-    : truncateChromeLine(specSessionPart, available, theme);
-  const modelLine = alignChromeColumns(
-    style(theme, 'dim', formatModel(chrome, telemetry)),
-    renderContextGauge(chrome, telemetry, theme),
-    available,
-  );
-
-  const lines = [
-    specSessionLine,
-    truncateChromeLine(renderBrunchStatusLine(chrome, telemetry, theme), available, theme),
-    modelLine,
-  ];
-  if (statuses.length > 0) {
-    lines.push(truncateChromeLine(statuses.join(' '), available, theme));
-  }
-  lines.push('');
-  return lines;
-}
-
-function sanitizeChromeStatuses(statuses: ReadonlyMap<string, string> | undefined): string[] {
-  return [...(statuses ?? new Map())]
-    .filter(([key, value]) => key !== 'brunch.chrome' && value.trim().length > 0)
-    .map(([, value]) => sanitizeStatusText(value));
+  const modelInfo = formatModel(chrome, telemetry);
+  const thinking = telemetry?.thinkingLevel ?? chrome.runtime?.thinking ?? 'off';
+  const contextPercentage = formatContextPercentage(chrome, telemetry);
+  const stableFields = `model ${modelInfo} | thinking ${thinking} | context ${contextPercentage}`;
+  const line = chrome.webSidecarUrl
+    ? `${formatWebUiPart(chrome.webSidecarUrl, theme)} | ${stableFields}`
+    : stableFields;
+  return [truncateChromeLine(style(theme, 'dim', line), available, theme), ''];
 }
 
 function sanitizeStatusText(text: string): string {
@@ -174,24 +140,6 @@ function sanitizeStatusText(text: string): string {
 
 function formatWebUiPart(url: string, theme: BrunchChromeTheme | undefined): string {
   return style(theme, 'dim', `ui: ${sanitizeStatusText(url)}`);
-}
-
-function alignChromeColumns(left: string, right: string, width: number): string {
-  if (!Number.isFinite(width)) return `${left}  ${right}`;
-
-  const leftWidth = visibleWidth(left);
-  const rightWidth = visibleWidth(right);
-  const minPadding = 2;
-  if (leftWidth + minPadding + rightWidth <= width) {
-    return left + ' '.repeat(width - leftWidth - rightWidth) + right;
-  }
-
-  const availableForRight = width - leftWidth - minPadding;
-  if (availableForRight <= 0) return truncateToWidth(left, width);
-  const truncatedRight = truncateToWidth(right, availableForRight, '');
-  return (
-    left + ' '.repeat(Math.max(minPadding, width - leftWidth - visibleWidth(truncatedRight))) + truncatedRight
-  );
 }
 
 function truncateChromeLine(text: string, width: number, theme: BrunchChromeTheme | undefined): string {
@@ -254,6 +202,9 @@ export function renderBrunchChrome(
           theme,
         ),
     );
+    if (startupHeader.decision === 'newSpec' || startupHeader.decision === 'newSession') {
+      ui.setWidget('brunch.welcome', (_tui, theme) => new BrunchWelcomeCard(theme));
+    }
   }
   ui.setTitle(formatChromeTitle(chrome));
 }
@@ -405,78 +356,26 @@ function formatSpec(chrome: BrunchChromeState): string {
   return chrome.spec?.title ?? 'no spec selected';
 }
 
-function renderBrunchStatusLine(
-  chrome: BrunchChromeState,
-  telemetry: BrunchChromeFooterTelemetry | undefined,
-  theme: BrunchChromeTheme | undefined,
-): string {
-  const runtime = telemetry?.agentState;
-  const parts = [
-    keyedStatusPart(
-      theme,
-      'mode',
-      formatChromeShortcutHint(BRUNCH_MODE_PICKER_SHORTCUT),
-      runtime
-        ? operationalModeLabel(runtime.operationalMode)
-        : chrome.runtime?.mode
-          ? operationalModeLabel(chrome.runtime.mode)
-          : 'not reported',
-    ),
-    keyedStatusPart(theme, 'role', 'opt-r', runtime?.agentRole ?? chrome.runtime?.role ?? 'not reported'),
-  ];
-  return parts.join(style(theme, 'dim', ' | '));
-}
-
-function keyedStatusPart(
-  theme: BrunchChromeTheme | undefined,
-  label: string,
-  key: string,
-  value: string,
-): string {
-  return `${style(theme, 'accent', label)} ${style(theme, 'dim', `[${key}]:`)} ${style(theme, 'success', value)}`;
-}
-
 function formatModel(chrome: BrunchChromeState, telemetry: BrunchChromeFooterTelemetry | undefined): string {
   const model = telemetry?.model;
   const hasRealTelemetryModel = !!model && model.id !== 'unknown' && model.provider !== 'unknown';
   const modelName = hasRealTelemetryModel ? model.id : (chrome.runtime?.model ?? 'no model');
-  const thinking = hasRealTelemetryModel
-    ? (telemetry?.thinkingLevel ?? chrome.runtime?.thinking)
-    : chrome.runtime?.thinking;
-  let label = modelName;
-  if (thinking && (model?.reasoning !== false || chrome.runtime?.thinking)) {
-    label = thinking === 'off' ? `${modelName} • thinking off` : `${modelName} • ${thinking}`;
-  }
   if ((telemetry?.availableProviderCount ?? 0) > 1 && hasRealTelemetryModel && model.provider) {
-    return `(${model.provider}) ${label}`;
+    return `(${model.provider}) ${modelName}`;
   }
-  return label;
+  return modelName;
 }
 
-function renderContextGauge(
+function formatContextPercentage(
   chrome: BrunchChromeState,
   telemetry: BrunchChromeFooterTelemetry | undefined,
-  theme: BrunchChromeTheme | undefined,
 ): string {
   const live = telemetry?.liveContextUsage;
   const usage = telemetry?.contextUsage ?? chrome.contextUsage;
-  const modelWindow = telemetry?.model?.contextWindow ?? 0;
-  const contextWindow = live?.contextWindow ?? usage?.maxTokens ?? modelWindow;
+  const contextWindow = live?.contextWindow ?? usage?.maxTokens ?? telemetry?.model?.contextWindow ?? 0;
   const tokens = live?.tokens ?? usage?.usedTokens ?? null;
   const percent = live?.percent ?? percentageFromUsage(tokens, contextWindow);
-
-  const clamped = Math.max(0, Math.min(100, percent ?? 0));
-  const filled = percent === null ? 0 : Math.round((clamped / 100) * CONTEXT_GAUGE_WIDTH);
-  const empty = CONTEXT_GAUGE_WIDTH - filled;
-  const color = clamped >= 90 ? 'error' : clamped >= 70 ? 'warning' : 'accent';
-  const bar = style(theme, color, BAR_FILLED.repeat(filled)) + style(theme, 'dim', BAR_EMPTY.repeat(empty));
-  const percentText = percent === null ? '?%' : `${Math.round(clamped)}%`;
-  const counts =
-    tokens === null
-      ? `?/${formatTokens(contextWindow)}`
-      : `${formatTokens(tokens)}/${formatTokens(contextWindow)}`;
-
-  return `${style(theme, 'dim', 'ctx ')}${bar} ${style(theme, 'dim', `${percentText} ${counts}`)}`;
+  return percent === null ? '?%' : `${Math.round(Math.max(0, Math.min(100, percent)))}%`;
 }
 
 function percentageFromUsage(
@@ -485,15 +384,6 @@ function percentageFromUsage(
 ): number | null {
   if (tokens === null || tokens === undefined || !contextWindow || contextWindow <= 0) return null;
   return (tokens / contextWindow) * 100;
-}
-
-function formatTokens(count: number | null | undefined): string {
-  const safeCount = Math.max(0, count ?? 0);
-  if (safeCount < 1000) return safeCount.toString();
-  if (safeCount < 10000) return `${(safeCount / 1000).toFixed(1)}k`;
-  if (safeCount < 1000000) return `${Math.round(safeCount / 1000)}k`;
-  if (safeCount < 10000000) return `${(safeCount / 1000000).toFixed(1)}M`;
-  return `${Math.round(safeCount / 1000000)}M`;
 }
 
 function style(theme: BrunchChromeTheme | undefined, color: ThemeColor, text: string): string {

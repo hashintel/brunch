@@ -213,7 +213,7 @@ src/app/brunch-tui.ts                                    ?
 
 ---
 
-## Card 2 · Terminal-adaptive chrome and reusable menu shell — `next`
+## Card 2 · Terminal-adaptive chrome and reusable menu shell — `done`
 
 ### Target Behavior
 
@@ -371,7 +371,7 @@ src/dev/component-preview/
 
 ---
 
-## Card 3 · Deterministic orientation rendering and availability — `queued`
+## Card 3 · Deterministic orientation rendering and availability — `next`
 
 ### Objective
 

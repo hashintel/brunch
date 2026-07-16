@@ -4,7 +4,7 @@ SPEC decisions: D35-L (chrome is a Brunch projection wrapper over Pi UI primitiv
 
 ## Owns
 
-Projection of canonical workspace/session facts into Pi's TUI shell surfaces — footer, terminal title, startup header, and the persistent input editor — through Brunch-owned chrome installers (`renderBrunchChrome` plus `registerBrunchChrome`'s editor factory). The projection is stateless: it holds no mutable chrome state and derives every surface from the `BrunchChromeState` value it is handed plus render-time telemetry.
+Projection of canonical workspace/session facts into Pi's TUI shell surfaces — stable telemetry footer, terminal title, startup identity header, one-time welcome widget, and the persistent input editor — through Brunch-owned chrome installers (`renderBrunchChrome` plus `registerBrunchChrome`'s editor factory). The projection is stateless: it holds no mutable chrome state and derives every surface from the `BrunchChromeState` value it is handed plus render-time telemetry.
 
 ## Does NOT own
 
@@ -24,9 +24,9 @@ Projection of canonical workspace/session facts into Pi's TUI shell surfaces —
 ## Render surfaces
 
 - **Input editor**: `registerBrunchChrome` installs `BrunchEditorComponent` through `ctx.ui.setEditorComponent` on `session_start` when present. Its labels and border color are sampled fresh on every render: top-right operational mode and mode-keyed border role from `projectBrunchAgentState(ctx.sessionManager.getBranch())`, bottom-right spec title from `BrunchChromeState`, and a below-line sidecar URL when available.
-- **Footer** (`projectBrunchChromeFooterLines`): (1) `spec / session` keyed part, with an `ui: <sidecarUrl>` right column when a sidecar URL is present; (2) the Brunch status line — live `mode` from the projected agent state (telemetry) or `chrome.runtime` fallback; legacy `strategy` / `lens` values may render only when supplied by quarantined compatibility projections and are not a live D98 runtime contract; (3) model label + a context-usage gauge; (4) other extensions' statuses, then a trailing blank line.
+- **Footer** (`projectBrunchChromeFooterLines`): one dim stable line containing optional `ui: <sidecarUrl> |` followed by `model … | thinking … | context …`, then a trailing blank line. Extension statuses and working messages remain outside these stable fields; supplied telemetry is rendered without changing model-resolution ownership.
 - **Title** (`formatChromeTitle`): `brunch — <project>` or `brunch — <project> · <spec>`.
-- **Startup header**: rendered via `BrunchStartupHeader` only when `startupHeader` is set; installed for every non-cancel launch activation so the shell never falls back to Pi's quiet empty header. The header composes an identity block plus, conditional on decision, a rounded-box welcome element (F13: `newSpec`/`newSession`) or a rounded-box resume state/status element (F16a: `openSession`).
+- **Startup identity + welcome**: `BrunchStartupHeader` owns identity/sidecar chrome only. New spec/session activation additionally installs one borderless `BrunchWelcomeCard` widget; resumed, switched, and reloaded sessions install neither welcome widget nor transcript entry.
 
 ## Telemetry & refresh
 

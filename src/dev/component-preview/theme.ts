@@ -46,7 +46,7 @@ type ThemeBgToken = (typeof BG_TOKENS)[number];
 interface BrunchThemeJson {
   name: string;
   vars?: Record<string, string>;
-  colors: Record<string, string>;
+  colors: Record<string, string | number>;
   export?: { pageBg?: string; pageFg?: string };
 }
 
@@ -81,6 +81,44 @@ const REFERENCE_PAGE_FG: Record<ComponentPreviewThemeVariant, string> = {
 };
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+const ANSI_REFERENCE_COLORS: Record<ComponentPreviewThemeVariant, Record<string, string>> = {
+  dark: {
+    black: '#000000',
+    red: '#800000',
+    green: '#008000',
+    yellow: '#808000',
+    blue: '#000080',
+    magenta: '#800080',
+    cyan: '#008080',
+    white: '#c0c0c0',
+    brightBlack: '#808080',
+    brightRed: '#ff0000',
+    brightGreen: '#00ff00',
+    brightYellow: '#ffff00',
+    brightBlue: '#0000ff',
+    brightMagenta: '#ff00ff',
+    brightCyan: '#00ffff',
+    brightWhite: '#ffffff',
+  },
+  light: {
+    black: '#000000',
+    red: '#800000',
+    green: '#008000',
+    yellow: '#808000',
+    blue: '#000080',
+    magenta: '#800080',
+    cyan: '#008080',
+    white: '#c0c0c0',
+    brightBlack: '#808080',
+    brightRed: '#ff0000',
+    brightGreen: '#00ff00',
+    brightYellow: '#ffff00',
+    brightBlue: '#0000ff',
+    brightMagenta: '#ff00ff',
+    brightCyan: '#00ffff',
+    brightWhite: '#ffffff',
+  },
+};
 const TERMINAL_DEFAULT_FG_TOKENS = ['text'] as const;
 
 function allowsTerminalDefaultToken(token: string): boolean {
@@ -104,9 +142,17 @@ export function parseBrunchThemePalette(
 ): BrunchThemePalette {
   const parsed = JSON.parse(raw) as BrunchThemeJson;
   const vars = parsed.vars ?? {};
-  const resolve = (token: string, value: string, allowEmpty: boolean): string => {
+  const resolve = (token: string, value: string | number, allowEmpty: boolean): string => {
+    if (typeof value === 'number') {
+      const ansiNames = Object.keys(ANSI_REFERENCE_COLORS[variant]);
+      const reference = ANSI_REFERENCE_COLORS[variant][ansiNames[value] ?? ''];
+      if (reference) return reference;
+      throw new Error(`theme ${parsed.name}: "${token}" resolves to ANSI ${value}, expected 0–15`);
+    }
     const resolved = vars[value] ?? value;
     if (allowEmpty && resolved === '') return resolved;
+    const ansiReference = ANSI_REFERENCE_COLORS[variant][resolved];
+    if (ansiReference) return ansiReference;
     if (!HEX_COLOR.test(resolved)) {
       throw new Error(`theme ${parsed.name}: "${token}" resolves to "${resolved}", expected #RRGGBB`);
     }

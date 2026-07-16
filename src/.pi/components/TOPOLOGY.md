@@ -7,7 +7,7 @@ This directory owns reusable components rendered inside the embedded Pi coding-a
 ## Owns
 
 - Pi TUI components consumed by `.pi/extensions/` (e.g. workspace dialogs, runtime axis pickers, chrome header).
-- Shared visual primitives for those components: the `LabTheme`/`makeSolidBadge`/`renderSegmentTrack` substrate under `tui-lab/`, plus tiny layout wrappers such as `lateral-padding.ts` and focused response pickers such as `multi-choice-picker.ts`.
+- Shared visual primitives for those components: the `LabTheme`/`makeSolidBadge`/`renderSegmentTrack` substrate under `tui-lab/`, plus tiny layout wrappers, the blue `menu-shell.ts` presentation shell, mode-bordered nested `mode-input.ts`, and focused response pickers.
 - Render-only component contracts whose props may use domain/session input types or DTOs needed to present Pi UI.
 
 ## Does NOT own
@@ -54,6 +54,8 @@ components/
 ├── lateral-padding.ts          transparent horizontal padding wrapper
 ├── mode-border-theme.ts        Brunch-owned operational-mode border color roles shared by chrome
 │                                and ask surfaces
+├── menu-shell.ts               reusable blue bordered menu presentation/key-handling shell
+├── mode-input.ts               mode-bordered nested text/comment collector preserving Back/Escape
 ├── multi-choice-picker.ts      bordered checkbox-style exchange response picker; supports
 │                                restored checked state when an owning flow re-presents it
 ├── mouse-wheel.ts              parseWheelEvent() — SGR wheel-event decoder used by the dev
@@ -71,6 +73,7 @@ components/
 │   ├── segment-track.ts
 │   ├── style-palette.ts
 │   └── style-lab-component.ts   reference-only demo Component (previewable via npm run dev:components -- tui-lab; no production call site)
+├── welcome-card.ts              borderless new-session/spec introduction installed as a non-transcript widget
 ├── workspace-dialog.ts          public entry re-exporting the folder below
 └── workspace-dialog/            fractal sub-tree for the workspace/session picker
     ├── assets/                  logo assets colocated with the dialog
