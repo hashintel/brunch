@@ -20,6 +20,10 @@ afterEach(() => {
 function fixture(
   terminalEntries: readonly SessionPresentationEntry[] = [],
   openAsks: readonly unknown[] = [],
+  outcomes: {
+    driveTurn?: unknown;
+    answerExchange?: unknown;
+  } = {},
 ) {
   const listeners = new Set<WebSocketRpcNotificationListener>();
   const calls: Array<{ method: string; params?: unknown }> = [];
@@ -38,8 +42,11 @@ function fixture(
         } as T;
       }
       if (method === 'session.open') return { status: 'opened' } as T;
-      if (method === 'session.driveTurn' || method === 'session.answerExchange')
-        return { status: 'completed' } as T;
+      if (method === 'session.driveTurn' || method === 'session.answerExchange') {
+        const outcome = outcomes[method === 'session.driveTurn' ? 'driveTurn' : 'answerExchange'];
+        if (outcome instanceof Error) throw outcome;
+        return (outcome ?? { status: 'completed' }) as T;
+      }
       if (method === 'session.presentation') {
         reads += 1;
         return {
@@ -103,6 +110,62 @@ function fixture(
 }
 
 describe('session route', () => {
+  it.each(['0', '01', 'not-a-number'])('rejects invalid spec token %s before session RPC', async (token) => {
+    window.history.pushState(null, '', `/session/${token}/s1`);
+    const f = fixture();
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/invalid spec/i);
+    expect(f.calls.filter(({ method }) => method.startsWith('session.'))).toEqual([]);
+  });
+
+  it('reports malformed open-ask hydration instead of treating it as empty', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture([], [{ exchangeId: '', mode: 'text', question: { body: 'Broken' } }]);
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/protocol|load/i);
+    expect(screen.queryByLabelText('Session transcript')).toBeNull();
+  });
+
+  it.each([
+    ['refusal', { status: 'driver_conflict' }],
+    ['rejection', new Error('offline')],
+  ])('clears turn busy and permits retry after %s', async (_case, outcome) => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture([], [], { driveTurn: outcome });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    await screen.findByText(/History/u);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Message' }), { target: { value: 'Go' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/could not|failed|conflict/i);
+    expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('false');
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Send' }).disabled).toBe(false);
+  });
+
+  it.each([
+    ['refusal', { status: 'ask_closed' }],
+    ['rejection', new Error('offline')],
+  ])('keeps ask failure local and permits retry after %s', async (_case, outcome) => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }], {
+      answerExchange: outcome,
+    });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    const input = await screen.findByRole('textbox', { name: 'Proceed?' });
+    fireEvent.change(input, { target: { value: 'Yes' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/could not|failed|closed/i);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Answer' }).disabled).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+    await waitFor(() =>
+      expect(f.calls.filter(({ method }) => method === 'session.answerExchange')).toHaveLength(2),
+    );
+  });
+
   it('uses the semantic subscription surface and ignores wrong, malformed, and cross-target frames', async () => {
     window.history.pushState(null, '', '/session/1/s1');
     const f = fixture();

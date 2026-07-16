@@ -5,17 +5,20 @@ import { useEffect, useMemo, useState } from 'react';
 import type { QuestionnaireAnswer, QuestionnaireQuestion } from '../../exchanges/schemas/questionnaire.js';
 import type { SessionPresentationEntry } from '../../projections/session/session-presentation.js';
 import { openAsksResultSchema } from '../../rpc/live-session-contract.js';
-import type { LiveSessionEvent } from '../../session/live-session-host.js';
+import type { LiveSessionEvent, LiveSessionHostResult } from '../../session/live-session-host.js';
 import { reduceLiveSessionOverlay } from '../features/session/live-overlay.js';
 import { sessionPresentationQueryOptions } from '../queries/session-presentation.js';
 import { queryKeys } from '../query-keys.js';
+import { parseSpecId } from '../spec-id.js';
 import { rootRoute } from './root.js';
 
 export const sessionRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/session/$specId/$sessionId',
   loader: async ({ context, params }) => {
-    const target = { specId: Number(params.specId), sessionId: params.sessionId };
+    const specId = parseSpecId(params.specId);
+    if (specId === undefined) return { error: 'Invalid spec id.' } as const;
+    const target = { specId, sessionId: params.sessionId };
     const presentation = context.queryClient.ensureQueryData(
       sessionPresentationQueryOptions(context.rpcClient, target),
     );
@@ -27,17 +30,27 @@ export const sessionRoute = createRoute({
       await context.rpcClient.request('session.openAsks', target),
     );
     await presentation;
-    return { openAsks: openAsks.success ? openAsks.data.openAsks : [] };
+    if (!openAsks.success) return { error: 'Session protocol load failed.' } as const;
+    return { openAsks: openAsks.data.openAsks } as const;
   },
   component: SessionPage,
 });
 
 function SessionPage() {
+  const loaderData = sessionRoute.useLoaderData();
+  if ('error' in loaderData) return <main role="alert">{loaderData.error}</main>;
+  return <ReadySessionPage openAsks={loaderData.openAsks} />;
+}
+
+function ReadySessionPage({
+  openAsks,
+}: {
+  openAsks: ReturnType<typeof openAsksResultSchema.parse>['openAsks'];
+}) {
   const { specId, sessionId } = sessionRoute.useParams();
   const { rpcClient } = sessionRoute.useRouteContext();
   const queryClient = useQueryClient();
-  const target = useMemo(() => ({ specId: Number(specId), sessionId }), [specId, sessionId]);
-  const { openAsks } = sessionRoute.useLoaderData();
+  const target = useMemo(() => ({ specId: parseSpecId(specId)!, sessionId }), [specId, sessionId]);
   const { data: result } = useSuspenseQuery(sessionPresentationQueryOptions(rpcClient, target));
   const [overlay, setOverlay] = useState<SessionPresentationEntry[]>(() =>
     openAsks.reduce<SessionPresentationEntry[]>(
@@ -49,6 +62,7 @@ function SessionPage() {
   );
   const [prompt, setPrompt] = useState('');
   const [busy, setBusy] = useState(false);
+  const [turnError, setTurnError] = useState<string>();
   const driverId = useMemo(browserDriverId, []);
 
   useEffect(
@@ -97,7 +111,7 @@ function SessionPage() {
               <Ask
                 entry={entry}
                 answer={(answer) =>
-                  rpcClient.request('session.answerExchange', {
+                  rpcClient.request<LiveSessionHostResult>('session.answerExchange', {
                     ...target,
                     driverId,
                     exchangeId: entry.exchangeId,
@@ -114,12 +128,22 @@ function SessionPage() {
           event.preventDefault();
           if (!prompt.trim() || busy) return;
           setBusy(true);
+          setTurnError(undefined);
           void rpcClient
-            .request('session.driveTurn', { ...target, driverId, prompt })
-            .catch(() => setBusy(false));
-          setPrompt('');
+            .request<LiveSessionHostResult>('session.driveTurn', { ...target, driverId, prompt })
+            .then((outcome) => {
+              if (outcome.status !== 'completed') {
+                setBusy(false);
+                setTurnError(`Turn could not start (${outcome.status.replaceAll('_', ' ')}).`);
+              }
+            })
+            .catch(() => {
+              setBusy(false);
+              setTurnError('Turn failed. Please retry.');
+            });
         }}
       >
+        {turnError ? <p role="alert">{turnError}</p> : null}
         <label>
           Message <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} />
         </label>
@@ -333,10 +357,12 @@ function Ask({
   answer,
 }: {
   entry: Extract<SessionPresentationEntry, { kind: 'ask' }>;
-  answer: (value: string) => Promise<unknown>;
+  answer: (value: string) => Promise<LiveSessionHostResult>;
 }) {
   const [value, setValue] = useState('');
   const [values, setValues] = useState<string[]>([]);
+  const [error, setError] = useState<string>();
+  const [submitting, setSubmitting] = useState(false);
   if (entry.terminal) {
     const terminal = entry.terminal;
     return (
@@ -423,7 +449,17 @@ function Ask({
       onSubmit={(event) => {
         event.preventDefault();
         const answerValue = entry.mode === 'multi-select' ? values.join(',') : value;
-        if (answerValue.trim()) void answer(answerValue);
+        if (!answerValue.trim() || submitting) return;
+        setSubmitting(true);
+        setError(undefined);
+        void answer(answerValue)
+          .then((outcome) => {
+            if (outcome.status !== 'completed') {
+              setError(`Answer could not be submitted (${outcome.status.replaceAll('_', ' ')}).`);
+            }
+          })
+          .catch(() => setError('Answer failed. Please retry.'))
+          .finally(() => setSubmitting(false));
       }}
     >
       {entry.options ? (
@@ -459,7 +495,10 @@ function Ask({
           <input value={value} onChange={(event) => setValue(event.target.value)} />
         </label>
       )}
-      <button disabled={entry.mode === 'multi-select' ? values.length === 0 : !value.trim()}>Answer</button>
+      {error ? <p role="alert">{error}</p> : null}
+      <button disabled={submitting || (entry.mode === 'multi-select' ? values.length === 0 : !value.trim())}>
+        Answer
+      </button>
     </form>
   );
 }
