@@ -102,12 +102,8 @@ Older completion history (incl. FE-1190 petrinaut-live-run-stream and FE-1180 wa
 ### Cleanups — Group 4
 
 - `named-inline-extension-identity` — Pi-native P1: adopt Pi's native named-inline-extension type for useful source provenance; small independent hardening, direct housekeeping or a tiny tooling slice.
-<<<<<<< HEAD
 - `web-driver-streaming-residue` — from the retired evaluation (2026-07-13): the `agent_settled`-ordering trigger has fired and that assertion is promoted into `standalone-web-session-host`; remaining `ln-sync` residue is documentation only: `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md` answering matrix is stale post-D125-L (discovery mode-complete; answering landed with ceilings), and `src/rpc/TOPOLOGY.md`'s streaming ledger should point to the promoted assertion rather than retain a conditional ○ row.
 - `test-tmpdir-hygiene` — vitest `mkdtemp` fixtures are never cleaned up: ~249k `brunch-*` directories had accumulated in the darwin tmpdir by 2026-07-14 and filled the disk mid-gate (found during FE-1201). Add a global teardown or route fixtures through a repo-local scratch root (the `git-slice-integration-port.slow.test.ts` `tmp/` pattern). Tiny tooling slice; re-entry trigger: next disk-pressure incident or the next test-infra touch.
-=======
-- `test-tmpdir-hygiene` — vitest `mkdtemp` fixtures are never cleaned up: ~249k `brunch-*` directories had accumulated in the darwin tmpdir by 2026-07-14 and filled the disk mid-gate (found during FE-1201). Add a global teardown or route fixtures through a repo-local scratch root (the `git-slice-integration-port.test.ts` `tmp/` pattern). Tiny tooling slice; re-entry trigger: next disk-pressure incident or the next test-infra touch.
->>>>>>> d3873936 (FE-1200: Reconcile standalone web coverage)
 
 ### KA stream (Kostandin — executor / orchestrator / Execute mode)
 
