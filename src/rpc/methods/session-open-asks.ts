@@ -1,4 +1,4 @@
-import { Type } from 'typebox';
+import { Type, type TSchema } from 'typebox';
 
 import type { QuestionnaireQuestion } from '../../exchanges/schemas/index.js';
 import { OPEN_ASK_MODES, type LiveAskReader } from '../../session/live-ask-registry.js';
@@ -38,32 +38,35 @@ const QuestionOptionSchema = Type.Object(
   { id: QuestionIdSchema, label: NonBlankStringSchema },
   { additionalProperties: false },
 );
-const QUESTIONNAIRE_QUESTION_KINDS = [
-  'free-text',
-  'single-select',
-  'multi-select',
-] as const satisfies readonly QuestionnaireQuestion['kind'][];
-const QuestionnaireQuestionSchema = Type.Union([
-  Type.Object(
+const QuestionnaireQuestionSchemas = {
+  'free-text': Type.Object(
     {
       id: QuestionIdSchema,
-      kind: Type.Literal(QUESTIONNAIRE_QUESTION_KINDS[0]),
+      kind: Type.Literal('free-text'),
       prompt: NonBlankStringSchema,
     },
     { additionalProperties: false },
   ),
-  ...QUESTIONNAIRE_QUESTION_KINDS.slice(1).map((kind) =>
-    Type.Object(
-      {
-        id: QuestionIdSchema,
-        kind: Type.Literal(kind),
-        prompt: NonBlankStringSchema,
-        options: Type.Array(QuestionOptionSchema, { minItems: 1 }),
-      },
-      { additionalProperties: false },
-    ),
+  'single-select': Type.Object(
+    {
+      id: QuestionIdSchema,
+      kind: Type.Literal('single-select'),
+      prompt: NonBlankStringSchema,
+      options: Type.Array(QuestionOptionSchema, { minItems: 1 }),
+    },
+    { additionalProperties: false },
   ),
-]);
+  'multi-select': Type.Object(
+    {
+      id: QuestionIdSchema,
+      kind: Type.Literal('multi-select'),
+      prompt: NonBlankStringSchema,
+      options: Type.Array(QuestionOptionSchema, { minItems: 1 }),
+    },
+    { additionalProperties: false },
+  ),
+} satisfies Record<QuestionnaireQuestion['kind'], TSchema>;
+const QuestionnaireQuestionSchema = Type.Union(Object.values(QuestionnaireQuestionSchemas));
 const QuestionnaireAskQuestionSchema = Type.Object(
   {
     ...AskQuestionEchoProperties,
