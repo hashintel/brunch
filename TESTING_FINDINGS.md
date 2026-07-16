@@ -363,6 +363,16 @@ Observation: after the posture questions for a brand-new, empty spec, Specify mo
 Expected: zero-readiness entry first establishes what is known and asks/offers the limited moves that are actually possible. At this stage the useful choices are approximately work by decision, work by example, and provide information sources. Providing information leaves the system inert with a clear affordance for supplying material; it does not instruct the assistant to search autonomously.
 Disposition: open structural finding owned by FE-1187. The restacked posture work improves the eventual kick seed and resume establishment but leaves the menu-before-kick sequence unchanged. Resolve whether entry should run an assistant orientation before any menu or show a graph-fact-derived reduced menu, and define the inert `provide information` carrier, through `ln-disambiguate`/`ln-spec` before build.
 
+### 2026-07-16 FE-1208 automation-observability-dx — PM-door dry run
+
+#### DX1 · observability/DX documentation · high · pass
+
+Concern: the seed-based PM door documented in `docs/praxis/comparison-runs.md` §PM door, followed as written with no tribal knowledge.
+Evidence: user-driven live run 2026-07-16 from the repo root — `npm run dev-cli` → seed-derived instance → tracked seed → reset confirm → Brunch TUI + web observer sidecar.
+Observation: the entire documented flow worked as described; no friction, mismatched menu wording, or unclear next actions were reported.
+Expected: launch → observe → read succeeds against the doc alone, witnessing the frontier's outer verification leaf.
+Disposition: pass — closes the `automation-observability-dx` outer verification leaf (`memory/PLAN.md` §automation-observability-dx, Verification: outer). No follow-up defect; the doc stands as the canonical PM entry point.
+
 ### 2026-07-14 FE-1196 session-branching Card 3 — active-branch cutover
 
 #### SB1 · session branching · high · pass
