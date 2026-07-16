@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 import { PROJECT_EXECUTION_HARNESS_TITLE } from '../../../graph/schema/nodes.js';
+import type { ElicitationStyle } from '../../../session/elicitation-style.js';
 import { operationalModeLabel, type OperationalModeId } from '../../../session/schema/kinds.js';
 import type {
   AgentPromptSpecContext,
@@ -15,6 +16,7 @@ import { renderLiveElicitorContext, type LiveElicitorPushedContext } from './con
 export interface LiveElicitorSessionState {
   readonly operationalMode: OperationalModeId;
   readonly agentRole: string;
+  readonly elicitationStyle?: ElicitationStyle;
 }
 
 export interface ComposeLiveElicitorPromptInput {
@@ -118,6 +120,8 @@ function renderLiveElicitorControl(input: ComposeLiveElicitorPromptInput): strin
     '- product mode: Specify',
     `- operational mode id: ${input.sessionState.operationalMode} (${operationalModeLabel(input.sessionState.operationalMode)})`,
     `- foreground role: ${input.sessionState.agentRole}`,
+    `- elicitation style: ${input.sessionState.elicitationStyle ?? 'interrogate'}`,
+    '- apply this elicitation style to the process of every turn; it never changes role, capability, authority, or target graph plane',
     `- active tools: ${tools}`,
     '- prompt resources: code-owned live skill and shared reference lists only; no runtime axis negotiation',
   ].join('\n');

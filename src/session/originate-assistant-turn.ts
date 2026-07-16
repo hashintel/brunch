@@ -28,7 +28,7 @@ import {
 } from '../projections/session/continuity-entry-classifier.js';
 import { latestElicitationScratchpad } from './elicitation-scratchpad.js';
 import { appendPreparedContinuityEntry, type ContinuityEntryAppender } from './prepare-next-turn.js';
-import { freshSessionOrientationChoice } from './session-orientation.js';
+import { freshProcessMove } from './process-move.js';
 import { startAssistantTurn, type StartAssistantTurnDecision } from './start-assistant-turn.js';
 
 export interface OriginationReads {
@@ -203,9 +203,7 @@ function kickTurnContent(origin: 'new_session' | 'resume_debt' | 'manual_trigger
 
 export function originateAssistantTurn(input: OriginateAssistantTurnInput): OriginateAssistantTurnResult {
   const slice = input.reads.queryGraph();
-  const freshChoice = freshSessionOrientationChoice(input.entries, BRUNCH_KICK_CUSTOM_TYPE);
-  // A dismissed menu is inert: it never routes an opening turn.
-  const orientation = freshChoice === 'dismissed' ? undefined : freshChoice;
+  const processMove = freshProcessMove(input.entries, BRUNCH_KICK_CUSTOM_TYPE);
   // Origin is derived from projected transcript state, not counts or flags
   // (I46/I47): a transcript with no conversational message entries is a new
   // session; anything else takes the caller-named resume decision, which
@@ -229,7 +227,7 @@ export function originateAssistantTurn(input: OriginateAssistantTurnInput): Orig
       slice,
       scratchpad: latestElicitationScratchpad(input.entries),
       workspaceContext: input.workspaceContext,
-      ...(orientation ? { orientation } : {}),
+      ...(processMove ? { processMove } : {}),
       ...(input.posture ? { posture: input.posture } : {}),
     }),
   });

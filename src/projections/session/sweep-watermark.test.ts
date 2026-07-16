@@ -169,13 +169,14 @@ describe('capture sweep watermark projection', () => {
     expect(projectAssistantVisibleWatermark(advanced, { specId: 7 })).toEqual({ specId: 7, lsn: 5 });
   });
 
-  it('excludes brunch.session_orientation from the sweep tail (session-entry-orientation C1 probe)', () => {
+  it('excludes elicitation-style and process-move carriers from the sweep tail', () => {
     const entries = [
       message('user', 'Ask something worth capturing.'),
-      custom('brunch.session_orientation', { schemaVersion: 1, choice: 'ingest', trigger: 'entry' }),
+      custom('brunch.elicitation_style', { schemaVersion: 1, style: 'interrogate' }),
+      custom('brunch.process_move', { schemaVersion: 1, move: 'prepare_execution' }),
       message('assistant', 'Understood.'),
     ];
 
-    expect(projectCaptureSweepWindow(entries).conversationalTail).toEqual([entries[0], entries[2]]);
+    expect(projectCaptureSweepWindow(entries).conversationalTail).toEqual([entries[0], entries[3]]);
   });
 });

@@ -3,13 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { projectPresentDigest } from '../../../exchanges/projections/present-digest.js';
 import type { EntryLike } from '../../../exchanges/recovery.js';
 import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
+import { BRUNCH_ELICITATION_STYLE_CUSTOM_TYPE } from '../../../session/elicitation-style.js';
 import { BRUNCH_KICK_CUSTOM_TYPE } from '../../../session/originate-assistant-turn.js';
+import { BRUNCH_PROCESS_MOVE_CUSTOM_TYPE } from '../../../session/process-move.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
   type BrunchAgentStateEntryData,
 } from '../../../session/runtime-state.js';
-import { BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE } from '../../../session/session-orientation.js';
 import { createTestLabTheme } from '../../__tests__/support/tui-theme.js';
 import {
   BRUNCH_CONSULT_COMMAND,
@@ -305,7 +306,7 @@ describe('Brunch menu command', () => {
   });
 
   it('registers /brunch:consult and forces the orientation dialog through custom UI', async () => {
-    const harness = commandHarness({ orientation: true, customResult: { id: 'propose_design' } });
+    const harness = commandHarness({ orientation: true, customResult: { id: 'propose' } });
 
     await harness.commands.get(BRUNCH_CONSULT_COMMAND)?.handler('', harness.ctx);
 
@@ -323,8 +324,8 @@ describe('Brunch menu command', () => {
     expect(rendered).not.toContain('[ Consult ]');
     expect(harness.entries).toContainEqual(
       expect.objectContaining({
-        customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
-        data: { schemaVersion: 1, choice: 'propose_design', trigger: 'consult' },
+        customType: BRUNCH_ELICITATION_STYLE_CUSTOM_TYPE,
+        data: { schemaVersion: 1, style: 'propose' },
       }),
     );
   });
@@ -333,7 +334,8 @@ describe('Brunch menu command', () => {
     const harness = commandHarness({
       orientation: true,
       customAvailable: false,
-      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'execute_plan')!.label,
+      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'prepare_execution')!
+        .label,
     });
     harness.ctx.hasUI = true;
     harness.entries.push({
@@ -357,8 +359,8 @@ describe('Brunch menu command', () => {
     ]);
     expect(harness.entries).toContainEqual(
       expect.objectContaining({
-        customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
-        data: { schemaVersion: 1, choice: 'execute_plan', trigger: 'consult' },
+        customType: BRUNCH_PROCESS_MOVE_CUSTOM_TYPE,
+        data: { schemaVersion: 1, move: 'prepare_execution' },
       }),
     );
   });
@@ -498,7 +500,7 @@ describe('Brunch menu command', () => {
     harness.entries.push(
       {
         type: 'custom',
-        customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
+        customType: BRUNCH_ELICITATION_STYLE_CUSTOM_TYPE,
         data: { schemaVersion: 1, choice: 'dismissed', trigger: 'consult' },
       },
       {
@@ -761,8 +763,8 @@ describe('Brunch runtime switch commands', () => {
     expect(orientationJunctureGate(harness.orientationDeps!).suppressNextAbortJuncture).toBe(true);
     expect(harness.entries).toContainEqual(
       expect.objectContaining({
-        customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
-        data: { schemaVersion: 1, choice: 'prepare_execution', trigger: 'mode-switch' },
+        customType: BRUNCH_PROCESS_MOVE_CUSTOM_TYPE,
+        data: { schemaVersion: 1, move: 'prepare_execution' },
       }),
     );
   });
@@ -816,8 +818,8 @@ describe('Brunch runtime switch commands', () => {
     expect(harness.entries).toContainEqual(
       expect.objectContaining({
         type: 'custom',
-        customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
-        data: { schemaVersion: 1, choice: 'prepare_execution', trigger: 'mode-switch' },
+        customType: BRUNCH_PROCESS_MOVE_CUSTOM_TYPE,
+        data: { schemaVersion: 1, move: 'prepare_execution' },
       }),
     );
     expect(harness.sent).toHaveLength(2);

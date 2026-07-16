@@ -1,6 +1,6 @@
 # session/ — Session domain layer
 
-SPEC decisions: D6-L, D11-L, D12-L, D13-L, D21-L, D40-L, D52-L, D76-L, D77-L, D78-L, D84-L, D101-L, D102-L, D118-L, D125-L, D132-L, D133-L, I56-L, I64-L, I65-L
+SPEC decisions: D6-L, D11-L, D12-L, D13-L, D21-L, D40-L, D52-L, D76-L, D77-L, D78-L, D84-L, D98-L, D101-L, D102-L, D109-L, D118-L, D125-L, D132-L, D133-L, I56-L, I64-L, I65-L, I66-L
 
 ## Owns
 
@@ -51,28 +51,7 @@ plus the coordination logic for workspace/spec/session lifecycle.
   subagent world snapshots all read the same fold. It never becomes canonical
   graph truth by projection side effect.
 
-- **Session orientation carrier** (`session-orientation.ts`) — the deterministic,
-  product-owned choice dialog that routes an assistant-originated kick without
-  spending a model turn asking (session-entry-orientation frontier, D37-L: not
-  an exchange). A `brunch.session_orientation` custom-entry type is an
-  append-only log (one entry per juncture resolution, unlike the scratchpad's
-  replace-in-place snapshot); `latestSessionOrientation` reconstructs the most
-  recent resolution, and `freshSessionOrientationChoice` additionally checks it
-  against the last-fired `brunch.kick` entry so a choice recorded before an
-  earlier kick never re-routes a later one. The choice union covers both the
-  SPEC-side menu ids and the Execute D120-L workflow ids (`prepare_execution`,
-  `compile_plan`, `execute_plan`; `proceed`/`backfill` remain parseable legacy ids
-  but are no longer offered by the Execute menu) on the same carrier — no
-  parallel entry type — plus the inert `dismissed` (escape/timeout resolution:
-  entry recorded, no kick, no opening-turn directive). Directed choices require the orientation entry to persist before a live kick fires; degraded no-UI boot may still proceed without an orientation entry. `originate-assistant-turn.ts` folds the fresh choice into
-  `composeContextSeedContent`'s orientation section
-  (`agents/contexts/data-model/session-orientation.ts` owns the render text)
-  and accepts a `forceSeed` option so mid-session dialog-triggered kicks
-  (J3/J4/J6 and CODE-side J5) can lay down a fresh seed even when the graph LSN
-  has not moved. The Pi-facing dialog function, menu descriptors, juncture
-  orchestrator, and event/command registrar (`ctx.ui.select` adapter,
-  entry/degraded-mode rules, live-kick composition) live in
-  `.pi/extensions/session-orientation/`.
+- **Elicitation style and process-move carriers** (`elicitation-style.ts`, `process-move.ts`) — D98-L/D109-L use two disjoint active-branch custom entries. `brunch.elicitation_style` is last-valid-entry-wins across kicks and accepts only `interrogate | disambiguate | propose`; every Specify prompt projects it without changing role, authority, capability, or target plane. `brunch.process_move` accepts only `move_to_execution | prepare_execution | compile_plan | execute_plan` and is fresh only after the latest `brunch.kick`, so the next kick consumes it. Escape/timeout has no carrier. `originate-assistant-turn.ts` renders only a fresh process move into the seed; persistent style belongs to foreground prompt composition. The retired mixed carrier has no parser or compatibility path. Pi-facing menu and juncture choreography remains in `.pi/extensions/session-orientation/`.
 
 - **Review-set settlement** (`review-set-settlement.ts`, D27-L/I15-L) — the shared local/RPC response authority. It revalidates the exact persisted `present_review_set`, translates that reviewed payload into one mutation, and commits approval once through `CommandExecutor.acceptReviewSet`; the operation, spec-local LSN, and single change-log row are the durable acceptance record. Only then does it pass the exact successful `MutateGraphSuccess` into the request projector and construct the validated receipt-bearing terminal; adapters retain only their distinct Pi-owned vs Brunch-owned append mechanics.
 

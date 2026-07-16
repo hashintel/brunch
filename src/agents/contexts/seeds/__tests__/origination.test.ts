@@ -1,17 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ElicitationScratchpadItem } from '../../../../session/elicitation-scratchpad.js';
-import {
-  SESSION_ORIENTATION_CHOICES,
-  type SessionOrientationDirectiveChoice,
-} from '../../../../session/session-orientation.js';
+import { PROCESS_MOVES } from '../../../../session/process-move.js';
 import { composeContextSeedContent } from '../origination.js';
 
-// The inert `dismissed` never renders a directive section; only directive
-// choices participate in seed composition.
-const DIRECTIVE_CHOICES = SESSION_ORIENTATION_CHOICES.filter(
-  (choice): choice is SessionOrientationDirectiveChoice => choice !== 'dismissed',
-);
+const DIRECTIVE_CHOICES = PROCESS_MOVES;
 
 const specId = 7;
 
@@ -94,7 +87,7 @@ describe('composeContextSeedContent', () => {
     expect(content).not.toContain('undefined');
   });
 
-  it('omits the orientation section when no fresh choice exists', () => {
+  it('omits the process-move section when no fresh move exists', () => {
     const content = composeContextSeedContent({
       specId,
       slice: { nodes: [], edges: [], lsn: 1 },
@@ -102,19 +95,19 @@ describe('composeContextSeedContent', () => {
       workspaceContext: '',
     });
 
-    expect(content).not.toContain('SESSION ORIENTATION');
+    expect(content).not.toContain('PROCESS MOVE');
   });
 
-  it.each(DIRECTIVE_CHOICES)('emits a distinct orientation section for choice %s', (choice) => {
+  it.each(DIRECTIVE_CHOICES)('emits a distinct process-move section for choice %s', (choice) => {
     const content = composeContextSeedContent({
       specId,
       slice: { nodes: [], edges: [], lsn: 1 },
       scratchpad: [],
       workspaceContext: '',
-      orientation: choice,
+      processMove: choice,
     });
 
-    expect(content).toContain('SESSION ORIENTATION');
+    expect(content).toContain('PROCESS MOVE');
     expect(content).toContain(`chosen: ${choice}`);
   });
 

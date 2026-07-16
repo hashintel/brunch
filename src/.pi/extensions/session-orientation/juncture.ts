@@ -41,6 +41,7 @@ import {
   customEntryType,
   type TranscriptEntryLike,
 } from '../../../projections/session/continuity-entry-classifier.js';
+import { latestElicitationStyle } from '../../../session/elicitation-style.js';
 import {
   BRUNCH_KICK_CUSTOM_TYPE,
   completeAssistantKick,
@@ -53,13 +54,13 @@ import {
   appendPreparedContinuityEntry,
   type PreparedContinuityEntry,
 } from '../../../session/prepare-next-turn.js';
-import {
-  type SessionOrientationChoice,
-  type SessionOrientationEntrySessionManager,
-  type SessionOrientationTrigger,
-} from '../../../session/session-orientation.js';
 import type { StartAssistantTurnDecision } from '../../../session/start-assistant-turn.js';
 import { createConsultMenuComponent } from '../../components/consult-menu.js';
+import type {
+  SessionOrientationChoice,
+  SessionOrientationEntryManager,
+  SessionOrientationTrigger,
+} from './index.js';
 import {
   runAndRecordSessionOrientation,
   SESSION_ORIENTATION_MENU,
@@ -67,7 +68,7 @@ import {
   type SessionOrientationMenuDescriptor,
 } from './index.js';
 
-export type JunctureSessionManager = SessionOrientationEntrySessionManager &
+export type JunctureSessionManager = SessionOrientationEntryManager &
   OriginationManager & {
     getBranch(): readonly TranscriptEntryLike[];
   };
@@ -337,17 +338,16 @@ export async function runOrientationJuncture(
         trigger: input.trigger,
         manager: input.sessionManager,
         menu,
+        ...(latestElicitationStyle(input.sessionManager.getBranch())
+          ? { currentStyle: latestElicitationStyle(input.sessionManager.getBranch())! }
+          : {}),
         ...(input.onAppendError ? { onAppendError: input.onAppendError } : {}),
       })
     : undefined;
 
   const choice = orientation?.choice;
   const dialogRan = orientation !== undefined;
-  const directedChoiceFailedToPersist =
-    orientation !== undefined &&
-    !orientation.recorded &&
-    choice !== 'dismissed' &&
-    choice !== menu.noKickChoice;
+  const directedChoiceFailedToPersist = orientation?.appendFailed === true;
 
   if (mode === 'follow-choice') {
     if (
@@ -355,7 +355,6 @@ export async function runOrientationJuncture(
       directedChoiceFailedToPersist ||
       choice === undefined ||
       choice === 'dismissed' ||
-      choice === menu.noKickChoice ||
       !input.kick
     ) {
       return { ran: dialogRan, ...(choice !== undefined ? { choice } : {}), kickFired: false };
@@ -374,7 +373,7 @@ export async function runOrientationJuncture(
   if (!input.kick || directedChoiceFailedToPersist || choice === 'dismissed') {
     return { ran: dialogRan, ...(choice !== undefined ? { choice } : {}), kickFired: false };
   }
-  const forceSeed = choice !== undefined && choice !== menu.noKickChoice;
+  const forceSeed = choice !== undefined;
   const kickOutcome = await originateAndKick(input.sessionManager, input.kick, {
     resumeOrigin: 'resume_debt',
     forceSeed,
