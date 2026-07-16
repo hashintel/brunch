@@ -1,6 +1,6 @@
 # Manual Testing Protocol
 
-Outer-loop verification for slices that touch the user-facing boundary. Manual testing is irreplaceable for qualitative judgment — UX feel, content quality, flow coherence.
+Outer-loop verification for slices that touch the user-facing boundary. Manual testing is irreplaceable for qualitative judgment — UX feel, content quality, flow coherence. For audience-specific seed walkthroughs, deterministic reads, trajectory evidence, and the separate cross-product approach, see [Comparison Runs](comparison-runs.md).
 
 ## Setup
 

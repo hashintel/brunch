@@ -6,7 +6,7 @@
 npm run dev-cli
 ```
 
-That command runs `scripts/dev.ts`, which calls `runDevCli()` in `src/dev/dev-cli.ts`. `npm run dev` directly runs the product CLI from TypeScript source and accepts its ordinary flags.
+That command runs `scripts/dev.ts`, which calls `runDevCli()` in `src/dev/dev-cli.ts`. `npm run dev` directly runs the product CLI from TypeScript source and accepts its ordinary flags. See [`../../docs/praxis/comparison-runs.md`](../../docs/praxis/comparison-runs.md) for the PM seed walkthrough, deterministic-read cheatsheet, agent evidence recipe, and the distinct cross-product comparison approach.
 
 ## What lives here
 
@@ -59,6 +59,8 @@ npm run dev-cli -- mutate --workspace .fixtures/workbenches/workspace-alpha-grou
 # Export a workbench spec as a seed candidate.
 npm run dev-cli -- export --workspace .fixtures/workbenches/workspace-alpha-grounding --spec-id 1 --out .fixtures/seeds/custom/example.json
 ```
+
+The consequential-fact evaluator and campaign remain functional but are parked and intentionally not part of the active DX; see [`memory/PLAN.md` §Later](../../memory/PLAN.md#later), `warrant-ablation-campaign`.
 
 Rules:
 

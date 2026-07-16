@@ -238,7 +238,7 @@ docs/praxis/manual-testing.md      ~
 
 ## Card 4 — One door per audience: docs, evaluator de-wire, handoff retirement
 
-Status: pending
+Status: done
 Weight: light
 
 ### Objective
