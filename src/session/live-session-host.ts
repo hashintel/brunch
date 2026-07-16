@@ -24,9 +24,17 @@ export interface LiveSessionRuntime {
   dispose(): Promise<void>;
 }
 
-export type LiveSessionHostResult =
-  | { readonly status: 'opened' | 'attached' | 'completed' | 'closed' }
-  | { readonly status: 'busy' | 'not_open' | 'ask_closed' | 'driver_conflict' };
+export type LiveSessionHostResult = {
+  readonly status:
+    | 'opened'
+    | 'attached'
+    | 'completed'
+    | 'closed'
+    | 'busy'
+    | 'not_open'
+    | 'ask_closed'
+    | 'driver_conflict';
+};
 
 export interface LiveSessionHost {
   open(target: SessionTarget): Promise<LiveSessionHostResult>;

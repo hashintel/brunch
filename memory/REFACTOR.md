@@ -72,7 +72,7 @@ Ordered by safety; each leaves the codebase working (`npm run verify`).
 4. [done] Give the standalone hosted `session.openAsks` a precise result schema equal to
    the sidecar's, replacing the opaque any-result so both hosts advertise one
    shape.
-5. Collapse the host-result type from the cosmetic two-member union into one
+5. [done] Collapse the host-result type from the cosmetic two-member union into one
    honest result (single object over the full status union).
 6. Register the concrete router type in place of `AnyRouter`, restoring route
    param/loader/context inference; remove the now-redundant open-asks cast and
