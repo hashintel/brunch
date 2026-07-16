@@ -10,10 +10,6 @@ import type {
 import { createJsonRpcFailure, createJsonRpcSuccess, jsonRpcRequestId } from '../protocol.js';
 import type { RpcMethodContext, RpcMethodDefinition } from './registry.js';
 import { NonBlankStringSchema } from './schemas.js';
-import {
-  INVALID_LIVE_EXCHANGE_ANSWER_MESSAGE,
-  NO_PENDING_LIVE_EXCHANGE_MESSAGE,
-} from './session-exchange-answer.js';
 import { OpenAsksResultSchema } from './session-open-asks.js';
 
 const TargetSchema = Type.Object(
@@ -40,6 +36,22 @@ const AnswerSchema = Type.Object(
   { additionalProperties: false },
 );
 const AnyResultSchema = Type.Object({}, { additionalProperties: true });
+const LiveSessionHostResultSchema = Type.Object(
+  {
+    status: Type.Union([
+      Type.Literal('opened'),
+      Type.Literal('attached'),
+      Type.Literal('completed'),
+      Type.Literal('closed'),
+      Type.Literal('busy'),
+      Type.Literal('not_open'),
+      Type.Literal('ask_closed'),
+      Type.Literal('invalid_answer'),
+      Type.Literal('driver_conflict'),
+    ]),
+  },
+  { additionalProperties: false },
+);
 
 type TargetParams = Static<typeof TargetSchema>;
 type PromptParams = Static<typeof PromptSchema>;
@@ -61,7 +73,6 @@ function method<P extends TargetParams, R extends object = object>(definition: {
   resultSchema?: TSchema;
   example: P;
   run(boundary: HostedSessionRpcBoundary, params: P): Promise<R> | R;
-  refusal?(result: R): { readonly code: number; readonly message: string } | undefined;
 }): RpcMethodDefinition<RpcMethodContext> {
   return {
     method: definition.name,
@@ -77,8 +88,6 @@ function method<P extends TargetParams, R extends object = object>(definition: {
       }
       try {
         const result = await definition.run(context.hostedSession, request.params as P);
-        const refusal = definition.refusal?.(result);
-        if (refusal) return createJsonRpcFailure(requestId, refusal.code, refusal.message);
         return createJsonRpcSuccess(requestId, result);
       } catch (error) {
         return createJsonRpcFailure(
@@ -98,6 +107,7 @@ export const hostedSessionRpcMethods: readonly RpcMethodDefinition<RpcMethodCont
     name: 'session.open',
     access: 'write',
     schema: TargetSchema,
+    resultSchema: LiveSessionHostResultSchema,
     example: exampleTarget,
     run: (boundary, params) => boundary.liveSessions.open(target(params)),
   }),
@@ -105,6 +115,7 @@ export const hostedSessionRpcMethods: readonly RpcMethodDefinition<RpcMethodCont
     name: 'session.close',
     access: 'write',
     schema: TargetSchema,
+    resultSchema: LiveSessionHostResultSchema,
     example: exampleTarget,
     run: (boundary, params) => boundary.liveSessions.close(target(params)),
   }),
@@ -127,6 +138,7 @@ export const hostedSessionRpcMethods: readonly RpcMethodDefinition<RpcMethodCont
     name: 'session.driveTurn',
     access: 'write',
     schema: PromptSchema,
+    resultSchema: LiveSessionHostResultSchema,
     example: { ...exampleTarget, driverId: 'browser', prompt: 'Continue.' },
     run: (boundary, params) =>
       boundary.liveSessions.driveTurn(target(params), params.driverId, params.prompt),
@@ -135,15 +147,9 @@ export const hostedSessionRpcMethods: readonly RpcMethodDefinition<RpcMethodCont
     name: 'session.answerExchange',
     access: 'write',
     schema: AnswerSchema,
+    resultSchema: LiveSessionHostResultSchema,
     example: { ...exampleTarget, driverId: 'browser', exchangeId: 'ask-1', answer: 'Yes.' },
     run: (boundary, params) =>
       boundary.liveSessions.answerExchange(target(params), params.driverId, params.exchangeId, params.answer),
-    refusal(result) {
-      if (result.status === 'ask_closed') return { code: -32008, message: NO_PENDING_LIVE_EXCHANGE_MESSAGE };
-      if (result.status === 'invalid_answer') {
-        return { code: -32602, message: INVALID_LIVE_EXCHANGE_ANSWER_MESSAGE };
-      }
-      return undefined;
-    },
   }),
 ];

@@ -140,47 +140,70 @@ describe('session route', () => {
     expect(screen.queryByLabelText('Session transcript')).toBeNull();
   });
 
+  it.each(['driver_conflict', 'busy', 'not_open'] as const)(
+    'clears turn busy and permits retry after %s status',
+    async (status) => {
+      const outcome = { status };
+      window.history.pushState(null, '', '/session/1/s1');
+      const f = fixture([], [], { driveTurn: outcome });
+      render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+      await screen.findByText(/History/u);
+
+      fireEvent.change(screen.getByRole('textbox', { name: 'Message' }), { target: { value: 'Go' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+      expect((await screen.findByRole('alert')).textContent).toContain(status.replaceAll('_', ' '));
+      expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('false');
+      expect(screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Message' }).value).toBe('Go');
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Send' }).disabled).toBe(false);
+      fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+      await waitFor(() =>
+        expect(f.calls.filter(({ method }) => method === 'session.driveTurn')).toHaveLength(2),
+      );
+    },
+  );
+
+  it.each(['driver_conflict', 'busy', 'not_open', 'ask_closed', 'invalid_answer'] as const)(
+    'keeps ask failure local and permits retry after %s status',
+    async (status) => {
+      const outcome = { status };
+      window.history.pushState(null, '', '/session/1/s1');
+      const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }], {
+        answerExchange: outcome,
+      });
+      render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+      const input = await screen.findByRole('textbox', { name: 'Proceed?' });
+      fireEvent.change(input, { target: { value: 'Yes' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+
+      expect((await screen.findByRole('alert')).textContent).toContain(status.replaceAll('_', ' '));
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Answer' }).disabled).toBe(false);
+      fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+      await waitFor(() =>
+        expect(f.calls.filter(({ method }) => method === 'session.answerExchange')).toHaveLength(2),
+      );
+    },
+  );
+
   it.each([
-    ['refusal', { status: 'driver_conflict' }],
-    ['rejection', new Error('offline')],
-  ])('clears turn busy and permits retry after %s', async (_case, outcome) => {
+    ['session.driveTurn', 'Send', 'Turn failed. Please retry.'],
+    ['session.answerExchange', 'Answer', 'Answer failed. Please retry.'],
+  ] as const)('keeps %s transport failures on the catch path', async (method, button, message) => {
     window.history.pushState(null, '', '/session/1/s1');
-    const f = fixture([], [], { driveTurn: outcome });
+    const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }], {
+      [method === 'session.driveTurn' ? 'driveTurn' : 'answerExchange']: new Error('offline'),
+    });
     render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
     await screen.findByText(/History/u);
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'Message' }), { target: { value: 'Go' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    const input =
+      method === 'session.driveTurn'
+        ? screen.getByRole('textbox', { name: 'Message' })
+        : screen.getByRole('textbox', { name: 'Proceed?' });
+    fireEvent.change(input, { target: { value: 'Retry me' } });
+    fireEvent.click(screen.getByRole('button', { name: button }));
 
-    expect((await screen.findByRole('alert')).textContent).toMatch(/could not|failed|conflict/i);
-    expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('false');
-    expect(screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Message' }).value).toBe('Go');
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Send' }).disabled).toBe(false);
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-    await waitFor(() =>
-      expect(f.calls.filter(({ method }) => method === 'session.driveTurn')).toHaveLength(2),
-    );
-  });
-
-  it.each([
-    ['refusal', { status: 'ask_closed' }],
-    ['rejection', new Error('offline')],
-  ])('keeps ask failure local and permits retry after %s', async (_case, outcome) => {
-    window.history.pushState(null, '', '/session/1/s1');
-    const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }], {
-      answerExchange: outcome,
-    });
-    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
-    const input = await screen.findByRole('textbox', { name: 'Proceed?' });
-    fireEvent.change(input, { target: { value: 'Yes' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
-
-    expect((await screen.findByRole('alert')).textContent).toMatch(/could not|failed|closed/i);
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Answer' }).disabled).toBe(false);
-    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
-    await waitFor(() =>
-      expect(f.calls.filter(({ method }) => method === 'session.answerExchange')).toHaveLength(2),
-    );
+    expect((await screen.findByRole('alert')).textContent).toBe(message);
   });
 
   it('uses the semantic subscription surface and ignores wrong, malformed, and cross-target frames', async () => {

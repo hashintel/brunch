@@ -1,13 +1,14 @@
+import { Value } from 'typebox/value';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { LiveSessionEvent, LiveSessionHost } from '../../session/live-session-host.js';
+import type {
+  LiveSessionEvent,
+  LiveSessionHost,
+  LiveSessionHostResult,
+} from '../../session/live-session-host.js';
 import { createWebSidecarRpcHandlers } from '../handlers.js';
 import { createLiveSessionEventFrame, liveSessionEventSchema } from '../live-session-contract.js';
 import type { HostedSessionRpcBoundary } from '../methods/hosted-session.js';
-import {
-  INVALID_LIVE_EXCHANGE_ANSWER_MESSAGE,
-  NO_PENDING_LIVE_EXCHANGE_MESSAGE,
-} from '../methods/session-exchange-answer.js';
 
 const target = { specId: 1, sessionId: 'session-1' };
 
@@ -122,28 +123,78 @@ describe('standalone hosted-session RPC contract', () => {
     }
   });
 
-  it('maps hosted answer outcomes to the public sidecar contract and permits retry', async () => {
+  it('returns every hosted mutation outcome as a success payload and permits invalid-answer retry', async () => {
     const hostedSession = boundary();
-    vi.mocked(hostedSession.liveSessions.answerExchange)
-      .mockReturnValueOnce({ status: 'completed' })
-      .mockReturnValueOnce({ status: 'ask_closed' })
-      .mockReturnValueOnce({ status: 'invalid_answer' })
-      .mockReturnValueOnce({ status: 'completed' });
-    const handlers = createWebSidecarRpcHandlers({ coordinator: coordinator(), cwd: '/tmp', hostedSession });
-    const params = { ...target, driverId: 'browser-a', exchangeId: 'ask-1', answer: 'Yes' };
+    const cases: Array<{
+      method: 'session.close' | 'session.driveTurn' | 'session.answerExchange';
+      status: LiveSessionHostResult['status'];
+      params: object;
+    }> = [
+      { method: 'session.close', status: 'busy', params: target },
+      { method: 'session.close', status: 'not_open', params: target },
+      {
+        method: 'session.driveTurn',
+        status: 'driver_conflict',
+        params: { ...target, driverId: 'browser-a', prompt: 'Go' },
+      },
+      {
+        method: 'session.answerExchange',
+        status: 'ask_closed',
+        params: { ...target, driverId: 'browser-a', exchangeId: 'ask-1', answer: 'Yes' },
+      },
+      {
+        method: 'session.answerExchange',
+        status: 'invalid_answer',
+        params: { ...target, driverId: 'browser-a', exchangeId: 'ask-1', answer: 'Nope' },
+      },
+      {
+        method: 'session.answerExchange',
+        status: 'completed',
+        params: { ...target, driverId: 'browser-a', exchangeId: 'ask-1', answer: 'Yes' },
+      },
+    ];
 
-    await expect(
-      handlers.handle({ jsonrpc: '2.0', id: 1, method: 'session.answerExchange', params }),
-    ).resolves.toMatchObject({ result: { status: 'completed' } });
-    await expect(
-      handlers.handle({ jsonrpc: '2.0', id: 2, method: 'session.answerExchange', params }),
-    ).resolves.toMatchObject({ error: { code: -32008, message: NO_PENDING_LIVE_EXCHANGE_MESSAGE } });
-    await expect(
-      handlers.handle({ jsonrpc: '2.0', id: 3, method: 'session.answerExchange', params }),
-    ).resolves.toMatchObject({ error: { code: -32602, message: INVALID_LIVE_EXCHANGE_ANSWER_MESSAGE } });
-    await expect(
-      handlers.handle({ jsonrpc: '2.0', id: 4, method: 'session.answerExchange', params }),
-    ).resolves.toMatchObject({ result: { status: 'completed' } });
+    for (const [index, testCase] of cases.entries()) {
+      const hostMethod = testCase.method.split('.').at(-1) as 'close' | 'driveTurn' | 'answerExchange';
+      vi.mocked(hostedSession.liveSessions[hostMethod]).mockResolvedValueOnce({ status: testCase.status });
+      const handlers = createWebSidecarRpcHandlers({
+        coordinator: coordinator(),
+        cwd: '/tmp',
+        hostedSession,
+      });
+      await expect(
+        handlers.handle({ jsonrpc: '2.0', id: index, method: testCase.method, params: testCase.params }),
+      ).resolves.toEqual({ jsonrpc: '2.0', id: index, result: { status: testCase.status } });
+    }
+  });
+
+  it('advertises the hosted mutation status union through rpc.discover', async () => {
+    const handlers = createWebSidecarRpcHandlers({
+      coordinator: coordinator(),
+      cwd: '/tmp',
+      hostedSession: boundary(),
+    });
+    const discovery = await handlers.handle({ jsonrpc: '2.0', id: 1, method: 'rpc.discover' });
+    const methods = (discovery as { result: { methods: Array<{ method: string; resultSchema: object }> } })
+      .result.methods;
+    const statuses: LiveSessionHostResult['status'][] = [
+      'opened',
+      'attached',
+      'completed',
+      'closed',
+      'busy',
+      'not_open',
+      'ask_closed',
+      'invalid_answer',
+      'driver_conflict',
+    ];
+
+    for (const method of ['session.open', 'session.close', 'session.driveTurn', 'session.answerExchange']) {
+      const schema = methods.find((entry) => entry.method === method)?.resultSchema;
+      expect(schema).toBeDefined();
+      for (const status of statuses) expect(Value.Check(schema!, { status })).toBe(true);
+      expect(Value.Check(schema!, { status: 'unknown' })).toBe(false);
+    }
   });
 
   it('preserves the explicit target and driver through every command/query', async () => {

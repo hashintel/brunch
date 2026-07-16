@@ -7,7 +7,6 @@ import { afterAll, describe, expect, it } from 'vitest';
 
 import { runBrunchWeb } from '../../app/brunch-web.js';
 import type { SessionPresentationResult } from '../../projections/session/session-presentation.js';
-import { NO_PENDING_LIVE_EXCHANGE_MESSAGE } from '../../rpc/methods/session-exchange-answer.js';
 import type { LiveSessionEvent, SessionTarget } from '../../session/live-session-host.js';
 import { createWorkspaceSessionCoordinator } from '../../session/workspace-session-coordinator.js';
 import {
@@ -251,7 +250,7 @@ describe('standalone web concurrent session isolation', () => {
         exchangeId: 'concurrent-ask-b',
         answer: 'wrong target',
       }),
-    ).rejects.toMatchObject({ code: -32008, message: NO_PENDING_LIVE_EXCHANGE_MESSAGE });
+    ).resolves.toEqual({ status: 'ask_closed' });
 
     await expect(
       Promise.all([

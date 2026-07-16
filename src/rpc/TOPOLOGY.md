@@ -197,7 +197,7 @@ standalone web combined host (/rpc):
     session.answerExchange
 ```
 
-The standalone surface requires `(specId, sessionId)` on every method; driver operations additionally require `driverId`. It has no selected/current-session fallback and does not reuse the TUI sidecar's `/rpc/driver` handle contract.
+The standalone surface requires `(specId, sessionId)` on every method; driver operations additionally require `driverId`. It has no selected/current-session fallback and does not reuse the TUI sidecar's `/rpc/driver` handle contract. All four mutating hosted-session methods (`open`, `close`, `driveTurn`, `answerExchange`) advertise and return the full `LiveSessionHostResult` discriminated `{status}` union as JSON-RPC success payloads; schema-invalid params remain `-32602`, and thrown host failures remain `-32020`.
 
 ## Method overview
 
@@ -280,8 +280,8 @@ session.submitMessage
 session.driveTurn
   access: write (TUI sidecar `/rpc/driver` when a driver handle is attached; standalone `/rpc` through the hosted-session registry)
   params: TUI sidecar `{prompt}`; standalone `{specId, sessionId, driverId, prompt}`
-  result: {status: completed}
-  errors: -32601 on ordinary observers or when no driver handle is attached; -32010 when an attached handle reports no current live session
+  result: sidecar `{status: completed}`; standalone `LiveSessionHostResult` discriminated `{status}` union, including refusals as success payloads
+  errors: -32601 on ordinary observers or when no driver handle is attached; -32010 when an attached sidecar handle reports no current live session; standalone errors only for invalid params or thrown host failures
   effects: re-enters the live in-process AgentSession with one plain prompt; resulting AgentSessionEvents stream as brunch.sessionEvent frames and reduce to Pi JSONL transcript truth
   boundary: not a generic transcript write API; no workspace activation, no submitMessage, no concurrency arbiter
 
@@ -289,8 +289,8 @@ session.answerExchange
   access: write (TUI sidecar `/rpc/driver` when a broker is attached; standalone `/rpc` through the hosted-session registry)
   params: TUI sidecar `{exchangeId, answer}`; standalone `{specId, sessionId, driverId, exchangeId, answer}`
     questionnaire answers use a schema-tagged JSON string envelope checked against the open ask
-  result: {status: completed}
-  errors: -32601 on ordinary observers or when no broker handle is attached; -32008 when no matching live exchange is pending; -32602 when a questionnaire envelope fails registry validation. Other mode strings are accepted by the rendezvous and decoded by the ask collector, which may return a validation terminal rather than an RPC error.
+  result: sidecar `{status: completed}`; standalone `LiveSessionHostResult` discriminated `{status}` union, including `ask_closed` and `invalid_answer` as success payloads
+  errors: sidecar -32601 when unavailable, -32008 for no matching exchange, and -32602 for an invalid questionnaire envelope; standalone errors only for schema-invalid params or thrown host failures.
   effects: resolves the in-process ask answer promise; Pi then appends the provider-legal tool result and continues the same live turn, whose AgentSessionEvents stream as brunch.sessionEvent frames and reduce to Pi JSONL transcript truth
   boundary: not a transcript append API and not a second exchange store; review-set approval converges through the same session settlement operation as local TUI, while terminal-vs-web answer racing remains outside the current single-driver contract
 
