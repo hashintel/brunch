@@ -192,7 +192,7 @@ src/.pi/extensions/dev-mode/introspection/TOPOLOGY.md  ?
 
 ## Card 3 — Remove `cli-cmux`; settle the TUI-driving priority order
 
-Status: pending
+Status: done
 Weight: light
 
 ### Objective

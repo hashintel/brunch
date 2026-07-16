@@ -4,10 +4,10 @@ Outer-loop verification for slices that touch the user-facing boundary. Manual t
 
 ## Setup
 
-1. **Interactive TUI control**: prefer the project-local `pi-interactive-shell` package when the host permits overlays. It gives the agent a real PTY and bounded terminal queries while a human watches, takes over by typing, and presses `Ctrl+G` to return a hands-free session to the agent. Root `.pi/settings.json` declares this permanent developer extension; it remains outside Brunch's shipped package manifest, sealed `src/.pi` profile, and runtime dependency graph.
-2. **TUI + web sidecar**: `/cli-cmux` remains useful for a dedicated terminal pane. The web UI is served as a sidecar of the running TUI process.
+1. **Interactive TUI control**: use the project-local `pi-interactive-shell` package when the host permits overlays. It gives the agent a real PTY and bounded terminal queries while a human watches, takes over by typing, and presses `Ctrl+G` to return a hands-free session to the agent. Root `.pi/settings.json` declares this permanent developer extension; it remains outside Brunch's shipped package manifest, sealed `src/.pi` profile, and runtime dependency graph.
+2. **Sandboxed/headless TUI control**: when host-capable overlay execution is unavailable, use the project-owned `npm run tui-driver` fallback described below. The web UI is served as a sidecar of the running TUI process.
    - **Standalone web** (`brunch --mode web`): also supported since FE-1200. It starts a combined cwd-scoped host without `InteractiveMode`, prints its loopback URL on stdout, and serves the target-addressed React session route (`/session/$specId/$sessionId`) directly. Use this when driving a browser chat without a TUI process.
-3. **Browser**: use `agent-browser` (`/cli-agent-browser`) as the primary observer — daemon-backed Chrome with AX-tree snapshots, clicks, and screenshots. CDP tools (`/cli-cdp`) remain useful for console/network detail.
+3. **Browser observation**: use `agent-browser` (`/cli-agent-browser`) as the primary observer — daemon-backed Chrome with AX-tree snapshots, clicks, and screenshots. Use CDP tools (`/cli-cdp`) for console and network detail.
 
 Install or reconcile the pinned project package from the repository root, then confirm Pi reports it under `Project packages`:
 
@@ -16,7 +16,7 @@ pi install -l npm:pi-interactive-shell@0.13.0
 pi list
 ```
 
-Pi packages execute with full system access: review and trust this repository before enabling the extension. After project trust is granted, Pi automatically installs a missing declared package on startup; this can fetch package contents from the network into ignored `.pi/npm/` cache state. The declaration and cache-ignore rule are committed, but installed cache contents are not. Do not install the extension into Brunch's root `package.json`, `src/.pi`, or runtime graph.
+Pi packages execute with full system access: review and trust this repository before enabling the extension. After project trust is granted, Pi automatically installs a missing declared package on startup; this can fetch package contents from the network into ignored `.pi/npm/` cache state. The declaration and cache-ignore rule are committed, but installed cache contents are not. Do not install the extension into Brunch's root `package.json`, `src/.pi`, or runtime graph. Brunch reaches `zigpty` only indirectly through the pinned `pi-interactive-shell` package; it has no direct integration.
 
 ### Shared-host transition evidence
 
