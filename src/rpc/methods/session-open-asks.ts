@@ -42,7 +42,7 @@ const OpenAskSchema = Type.Object(
   { additionalProperties: false },
 );
 
-const OpenAsksResultSchema = Type.Object(
+export const OpenAsksResultSchema = Type.Object(
   { openAsks: Type.Array(OpenAskSchema) },
   { additionalProperties: false },
 );

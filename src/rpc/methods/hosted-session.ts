@@ -6,6 +6,7 @@ import type { LiveSessionHost, SessionTarget } from '../../session/live-session-
 import { createJsonRpcFailure, createJsonRpcSuccess, jsonRpcRequestId } from '../protocol.js';
 import type { RpcMethodContext, RpcMethodDefinition } from './registry.js';
 import { NonBlankStringSchema } from './schemas.js';
+import { OpenAsksResultSchema } from './session-open-asks.js';
 
 const TargetSchema = Type.Object(
   { specId: Type.Integer({ minimum: 1 }), sessionId: NonBlankStringSchema },
@@ -49,6 +50,7 @@ function method<P extends TargetParams>(definition: {
   name: string;
   access: 'read' | 'write';
   schema: TSchema;
+  resultSchema?: TSchema;
   example: P;
   run(boundary: HostedSessionRpcBoundary, params: P): Promise<unknown> | object;
 }): RpcMethodDefinition<RpcMethodContext> {
@@ -57,7 +59,7 @@ function method<P extends TargetParams>(definition: {
     access: definition.access,
     description: `Target-addressed hosted session ${definition.name.split('.').at(-1)}.`,
     paramsSchema: definition.schema,
-    resultSchema: AnyResultSchema,
+    resultSchema: definition.resultSchema ?? AnyResultSchema,
     examples: [{ jsonrpc: '2.0', id: 1, method: definition.name, params: definition.example }],
     async handle(context, request) {
       const requestId = jsonRpcRequestId(request);
@@ -108,6 +110,7 @@ export const hostedSessionRpcMethods: readonly RpcMethodDefinition<RpcMethodCont
     name: 'session.openAsks',
     access: 'read',
     schema: TargetSchema,
+    resultSchema: OpenAsksResultSchema,
     example: exampleTarget,
     run: (boundary, params) => ({ openAsks: boundary.liveSessions.openAsks(target(params)) ?? [] }),
   }),

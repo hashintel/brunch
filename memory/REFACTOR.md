@@ -69,7 +69,7 @@ Ordered by safety; each leaves the codebase working (`npm run verify`).
    `satisfies` binding so container-shape drift fails at compile time.
 3. [done] Derive the TypeBox sidecar ask-mode union from `OPEN_ASK_MODES`. This fixes
    the drifted discovery schema (adds the missing `questionnaire` mode).
-4. Give the standalone hosted `session.openAsks` a precise result schema equal to
+4. [done] Give the standalone hosted `session.openAsks` a precise result schema equal to
    the sidecar's, replacing the opaque any-result so both hosts advertise one
    shape.
 5. Collapse the host-result type from the cosmetic two-member union into one

@@ -35,6 +35,36 @@ function coordinator() {
 }
 
 describe('standalone hosted-session RPC contract', () => {
+  it('advertises the same precise session.openAsks result as the sidecar', async () => {
+    const standalone = createWebSidecarRpcHandlers({
+      coordinator: coordinator(),
+      cwd: '/tmp',
+      hostedSession: boundary(),
+    });
+    const sidecar = createWebSidecarRpcHandlers({
+      coordinator: coordinator(),
+      cwd: '/tmp',
+      sessionOpenAsks: { reader: { openAsks: () => [], stateOf: () => 'cancelled' } },
+    });
+
+    async function advertisedOpenAsksResult(handlers: typeof standalone): Promise<unknown> {
+      const discovery = await handlers.handle({ jsonrpc: '2.0', id: 1, method: 'rpc.discover' });
+      const methods = (discovery as { result?: { methods?: { method: string; resultSchema: unknown }[] } })
+        .result?.methods;
+      return methods?.find(({ method }) => method === 'session.openAsks')?.resultSchema;
+    }
+
+    const standaloneResult = await advertisedOpenAsksResult(standalone);
+    const sidecarResult = await advertisedOpenAsksResult(sidecar);
+    expect(standaloneResult).toEqual(sidecarResult);
+    expect(standaloneResult).toMatchObject({
+      additionalProperties: false,
+      properties: { openAsks: { type: 'array' } },
+      required: ['openAsks'],
+      type: 'object',
+    });
+  });
+
   it('round-trips every semantic delta, including both exact question alternatives', () => {
     const events: LiveSessionEvent[] = [
       { target, seq: 0, delta: { type: 'assistant_text_delta' as const, runId: 'run-1', text: 'Hello' } },
