@@ -5,7 +5,7 @@
  *
  *   subagents/
  *   ├── index.ts        # this file — the RPC supervisor + agent discovery
- *   ├── config.json     # { version, maxConcurrency, toolExtensions? }
+ *   ├── config.json     # { version, maxConcurrency, subagentTimeoutMs?, toolExtensions? }
  *   └── tools/          # (optional) co-located tool extensions for subagents,
  *                       #   referenced by relative path in config.toolExtensions
  *
@@ -75,6 +75,8 @@ export interface AgentConfig {
 interface ExtConfig {
   version?: number;
   maxConcurrency?: number;
+  /** Per-subagent idle timeout in milliseconds (default 10 minutes). */
+  subagentTimeoutMs?: number;
   /** name → path (absolute, or relative to this extension dir) of a tool extension. */
   toolExtensions?: Record<string, string>;
 }
@@ -93,7 +95,7 @@ export function userAgentsDir(): string {
 /** Hard ceiling on nesting depth (root prompt = depth 0). */
 const MAX_DEPTH = 4;
 const DEFAULT_MAX_CONCURRENCY = 4;
-const SUBAGENT_TIMEOUT_MS = 10 * 60 * 1000;
+const DEFAULT_SUBAGENT_TIMEOUT_MS = 10 * 60 * 1000;
 const MAX_RECENT_TOOLS = 8;
 const PROGRESS_THROTTLE_MS = 150;
 
@@ -146,6 +148,7 @@ export class Semaphore {
 let agents: AgentConfig[] = [];
 let customToolExtensions: Record<string, string> = {};
 let semaphore = new Semaphore(DEFAULT_MAX_CONCURRENCY);
+let subagentTimeoutMs = DEFAULT_SUBAGENT_TIMEOUT_MS;
 
 // ── Agent discovery & registration ─────────────────────────────────────
 
@@ -470,7 +473,7 @@ async function runSubagent(
     });
 
     await activeClient.prompt(`Task: ${task}`);
-    await activeClient.waitForIdle(SUBAGENT_TIMEOUT_MS);
+    await activeClient.waitForIdle(subagentTimeoutMs);
     unsubscribe();
 
     const text = await activeClient.getLastAssistantText();
@@ -699,6 +702,7 @@ export default function subagents(pi: ExtensionAPI): void {
 
   const config = loadConfig();
   semaphore = new Semaphore(config.maxConcurrency ?? DEFAULT_MAX_CONCURRENCY);
+  subagentTimeoutMs = config.subagentTimeoutMs ?? DEFAULT_SUBAGENT_TIMEOUT_MS;
   customToolExtensions = resolveToolExtensions(config);
 
   // Roster shown in the tool description: dynamic + user-level agents known at
