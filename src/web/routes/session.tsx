@@ -80,29 +80,35 @@ function ReadySessionPage({
   const [turnError, setTurnError] = useState<string>();
   const driverId = useMemo(browserDriverId, []);
 
-  useEffect(
-    () =>
-      rpcClient.subscribeSessionEvents(
-        target,
-        (event: LiveSessionEvent) => {
-          const delta = event.delta;
-          if (delta.type === 'assistant_text_delta' || delta.type === 'ask_opened') {
-            setOverlay((entries) => [...reduceLiveSessionOverlay(entries, event)]);
-          }
-          if (delta.type === 'agent_settled') {
-            setBusy(false);
-            setOverlay([]);
-            void queryClient.invalidateQueries({ queryKey: queryKeys.session.presentation(target) });
-          }
+  useEffect(() => {
+    const unsubscribe = rpcClient.subscribeSessionEvents(
+      target,
+      (event: LiveSessionEvent) => {
+        const delta = event.delta;
+        if (delta.type === 'assistant_text_delta' || delta.type === 'ask_opened') {
+          setOverlay((entries) => [...reduceLiveSessionOverlay(entries, event)]);
+        }
+        if (delta.type === 'agent_settled') {
+          setBusy(false);
+          setOverlay([]);
+          void queryClient.invalidateQueries({ queryKey: queryKeys.session.presentation(target) });
+        }
+      },
+      {
+        onProtocolError(error: Error) {
+          console.error('Brunch live-session protocol error', error);
         },
-        {
-          onProtocolError(error: Error) {
-            console.error('Brunch live-session protocol error', error);
-          },
-        },
-      ),
-    [queryClient, rpcClient, target],
-  );
+      },
+    );
+    return () => {
+      unsubscribe();
+      try {
+        void rpcClient.request('session.close', target).catch(() => {});
+      } catch {
+        // Best-effort release must not block route cleanup.
+      }
+    };
+  }, [queryClient, rpcClient, target]);
 
   if (result.status !== 'ready') return <main role="alert">Session transcript cannot be displayed.</main>;
   const entries = [...result.presentation.entries, ...overlay];

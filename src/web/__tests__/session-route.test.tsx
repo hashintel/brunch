@@ -799,6 +799,10 @@ describe('session route', () => {
     expect(screen.getByText(/Hello/u)).toBeTruthy();
 
     rendered.unmount();
+    expect(f.calls).toContainEqual({
+      method: 'session.close',
+      params: { specId: 1, sessionId: 's1' },
+    });
     render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
     expect(await screen.findByText(/Hello/u)).toBeTruthy();
   });
