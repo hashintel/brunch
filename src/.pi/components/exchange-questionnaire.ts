@@ -97,7 +97,11 @@ export class ExchangeQuestionnaireComponent implements Component {
         optionId: question.options[this.#activeOption]!.id,
       };
     if (question.kind === 'multi-select' && this.#multi.size)
-      answer = { questionId: question.id, kind: 'multi-select', optionIds: [...this.#multi] };
+      answer = {
+        questionId: question.id,
+        kind: 'multi-select',
+        optionIds: question.options.filter((option) => this.#multi.has(option.id)).map((option) => option.id),
+      };
     if (!answer) return;
     this.#answers.set(question.id, answer);
     if (this.#index === this.options.questions.length - 1) {

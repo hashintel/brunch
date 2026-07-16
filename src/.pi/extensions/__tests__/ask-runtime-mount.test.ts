@@ -329,6 +329,65 @@ describe('ask runtime mount contract', () => {
     expectBracketedWorkingIndicator(setWorkingVisible);
   });
 
+  it('serializes multi-select questionnaire answers in declared option order regardless of toggle order', async () => {
+    const digest = projectPresentDigest({
+      exchangeId: 'ordered-digest',
+      heading: 'Digest',
+      digest: { abstract: 'Ordering test digest.' },
+    });
+    const params = {
+      exchangeId: 'ordered-questionnaire',
+      acceptsDigest: 'ordered-digest',
+      questions: [
+        {
+          id: 'priorities',
+          kind: 'multi-select',
+          prompt: 'Which priorities apply?',
+          options: [
+            { id: 'clarity', label: 'Clarity' },
+            { id: 'speed', label: 'Speed' },
+            { id: 'safety', label: 'Safety' },
+          ],
+        },
+      ],
+    };
+    const runWithInputs = async (inputs: readonly string[]) => {
+      const custom = mountedCustom({
+        assertViewport: (viewport) => expect(viewport).toContain('Which priorities apply?'),
+        script: (terminal) => inputs.forEach((input) => terminal.sendInput(input)),
+      });
+      const result = await executeAsk(params, {
+        hasUI: true,
+        ui: { custom },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: { role: 'toolResult', toolName: 'present_digest', details: digest.details },
+            },
+          ],
+        },
+      });
+      const details = zAskDetails.parse(result.details);
+      if (!('questionnaire' in details)) throw new Error('Expected questionnaire details');
+      return details.questionnaire[0]?.answer;
+    };
+
+    const declarationOrder = await runWithInputs([' ', '\x1b[B', '\x1b[B', ' ', '\r']);
+    const reverseInteractionOrder = await runWithInputs([
+      '\x1b[B',
+      '\x1b[B',
+      ' ',
+      '\x1b[A',
+      '\x1b[A',
+      ' ',
+      '\r',
+    ]);
+
+    expect(declarationOrder).toMatchObject({ optionIds: ['clarity', 'safety'] });
+    expect(reverseInteractionOrder).toEqual(declarationOrder);
+  });
+
   it('rejects a second questionnaire id once the final digest already has a submitted carrier', async () => {
     const digest = projectPresentDigest({
       exchangeId: 'digest-final',
