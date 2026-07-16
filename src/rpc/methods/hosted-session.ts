@@ -2,7 +2,11 @@ import { Type, type Static, type TSchema } from 'typebox';
 import { Value } from 'typebox/value';
 
 import type { SessionPresentationResult } from '../../projections/session/session-presentation.js';
-import type { LiveSessionHost, SessionTarget } from '../../session/live-session-host.js';
+import type {
+  LiveSessionHost,
+  LiveSessionHostResult,
+  SessionTarget,
+} from '../../session/live-session-host.js';
 import { createJsonRpcFailure, createJsonRpcSuccess, jsonRpcRequestId } from '../protocol.js';
 import type { RpcMethodContext, RpcMethodDefinition } from './registry.js';
 import { NonBlankStringSchema } from './schemas.js';
@@ -50,14 +54,14 @@ function target(params: TargetParams): SessionTarget {
   return { specId: params.specId, sessionId: params.sessionId };
 }
 
-function method<P extends TargetParams>(definition: {
+function method<P extends TargetParams, R extends object = object>(definition: {
   name: string;
   access: 'read' | 'write';
   schema: TSchema;
   resultSchema?: TSchema;
   example: P;
-  run(boundary: HostedSessionRpcBoundary, params: P): Promise<unknown> | object;
-  refusal?(result: unknown): { readonly code: number; readonly message: string } | undefined;
+  run(boundary: HostedSessionRpcBoundary, params: P): Promise<R> | R;
+  refusal?(result: R): { readonly code: number; readonly message: string } | undefined;
 }): RpcMethodDefinition<RpcMethodContext> {
   return {
     method: definition.name,
@@ -127,7 +131,7 @@ export const hostedSessionRpcMethods: readonly RpcMethodDefinition<RpcMethodCont
     run: (boundary, params) =>
       boundary.liveSessions.driveTurn(target(params), params.driverId, params.prompt),
   }),
-  method<AnswerParams>({
+  method<AnswerParams, LiveSessionHostResult>({
     name: 'session.answerExchange',
     access: 'write',
     schema: AnswerSchema,
@@ -135,7 +139,6 @@ export const hostedSessionRpcMethods: readonly RpcMethodDefinition<RpcMethodCont
     run: (boundary, params) =>
       boundary.liveSessions.answerExchange(target(params), params.driverId, params.exchangeId, params.answer),
     refusal(result) {
-      if (typeof result !== 'object' || result === null || !('status' in result)) return undefined;
       if (result.status === 'ask_closed') return { code: -32008, message: NO_PENDING_LIVE_EXCHANGE_MESSAGE };
       if (result.status === 'invalid_answer') {
         return { code: -32602, message: INVALID_LIVE_EXCHANGE_ANSWER_MESSAGE };
