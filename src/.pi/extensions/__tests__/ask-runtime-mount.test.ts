@@ -152,18 +152,26 @@ describe('ask runtime mount contract', () => {
   });
 
   it('mounts free-text ask in a real TUI, resolves schema-valid details, and collects a comment rung', async () => {
-    const custom = mountedCustom({
-      assertViewport: (viewport) => {
-        expect(viewport).toContain('What should Brunch remember?');
+    const custom = mountedCustomSequence([
+      {
+        assertViewport: (viewport) => {
+          expect(viewport).toContain('What should Brunch remember?');
+        },
+        script: async (terminal) => {
+          terminal.sendInput('Use the real mounted editor.');
+          await terminal.waitForRender();
+          expect(terminal.getViewport().join('\n')).toContain('Use the real mounted editor.');
+          terminal.sendInput('\r');
+        },
       },
-      script: async (terminal) => {
-        terminal.sendInput('Use the real mounted editor.');
-        await terminal.waitForRender();
-        expect(terminal.getViewport().join('\n')).toContain('Use the real mounted editor.');
-        terminal.sendInput('\r');
+      {
+        assertViewport: (viewport) => expect(viewport).toContain('Any note?'),
+        script: (terminal) => {
+          terminal.sendInput('Keep the comment too.');
+          terminal.sendInput('\r');
+        },
       },
-    });
-    const input = vi.fn(async () => 'Keep the comment too.');
+    ]);
     const setWorkingVisible = vi.fn();
 
     const result = await executeAsk(
@@ -172,7 +180,7 @@ describe('ask runtime mount contract', () => {
         body: 'What should Brunch remember?',
         commentPrompt: 'Any note?',
       },
-      { hasUI: true, ui: { custom, input, setWorkingVisible } },
+      { hasUI: true, ui: { custom, setWorkingVisible } },
     );
 
     const details = zAskDetails.parse(result.details);
@@ -182,8 +190,7 @@ describe('ask runtime mount contract', () => {
       answered: { text: 'Use the real mounted editor.', comment: 'Keep the comment too.' },
     });
     expect(result.content[0]?.text).toContain('Keep the comment too.');
-    expect(input).toHaveBeenCalledExactlyOnceWith('Any note?');
-    expect(custom).toHaveBeenCalledOnce();
+    expect(custom).toHaveBeenCalledTimes(2);
     expectBracketedWorkingIndicator(setWorkingVisible);
   });
 

@@ -22,7 +22,6 @@ import {
   type SelectedChoice,
   type StandaloneAskParams,
 } from '../../../exchanges/schemas/index.js';
-import { normalizeOptionalUnknownText } from '../../../exchanges/text.js';
 import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
 import type { LiveAskOpener } from '../../../session/live-ask-registry.js';
 import { ExchangeAnswerEditorComponent } from '../../components/exchange-answer-editor.js';
@@ -39,6 +38,7 @@ import { renderEmptyStructuredExchangeCall, renderMarkdownResult } from './share
 import {
   back,
   collectCommentRequirementStep,
+  collectCommentStep,
   collectRequiredInput,
   isBack,
   unavailable,
@@ -166,8 +166,14 @@ async function collectFreeText(
   const trimmed = collected.answer.trim();
   if (trimmed.length === 0) return terminal(params, question, 'unavailable', 'ask answer cannot be empty');
   let comment: string | undefined;
-  if (params.commentPrompt && typeof ctx.ui?.input === 'function') {
-    comment = normalizeOptionalUnknownText(await ctx.ui.input(params.commentPrompt));
+  if (params.commentPrompt) {
+    const collectedComment = await collectCommentStep({
+      requirement: 'optional',
+      prompt: params.commentPrompt,
+      ctx,
+      unavailableMessage: 'ask comment unavailable',
+    });
+    if (collectedComment.status === 'answered') comment = collectedComment.value.comment;
   }
   return result(
     projectAsk({

@@ -9,8 +9,8 @@ Created:  2026-07-16
 
 - **Containing seam:** the Brunch-owned Pi TUI/session boundary, from active-branch conduct state through menu/chrome/Ask adapters into provider-visible prompting and transcript read-back.
 - **Frontier:** `walkthrough-remediation-2` / FE-1187 on `ln/fe-1187-remediation-4`; every card remains on this plan-level issue and branch.
-- **Volatile execution state:** Cards 1–3 are committed and done; Card 4 is next. PLAN and this file bind semantic/model preflight to A48-L.
-- **Main risk:** Card 3 must enrich deterministic rendering and caller-supplied availability without coupling the optional model preflight, weakening the fallback, or changing the settled carrier/menu semantics that Cards 1 and 2 materialized.
+- **Volatile execution state:** Cards 1–4 are complete and done. Continue lexical closure remains intentionally unscoped and re-enters `ln-scope` from the trigger below; PLAN and this file bind semantic/model preflight to A48-L.
+- **Main risk:** follow-through must inventory the production vocabulary left by Cards 1–4 without widening Ask's settled schema/protocol or confusing `/brunch:continue` resume semantics with lexical cleanup.
 
 **Posture: proving (inherited from `walkthrough-remediation-2`).**
 
@@ -452,7 +452,9 @@ src/.pi/extensions/TOPOLOGY.md                           ~
 
 ---
 
-## Card 4 · Deterministic full Ask matrix — `next`
+## Card 4 · Deterministic full Ask matrix — `done`
+
+Build note (2026-07-16): the mounted production matrix exposed one remaining collector asymmetry: free-text Ask comments bypassed the Brunch-owned mode-bordered nested collector via sealed `ctx.ui.input`. The minimum fix routes that optional comment through the existing shared `collectCommentStep`; the full focused matrix, schema/read-back, continuation recovery, and lifecycle suites remain green without schema/protocol widening.
 
 ### Target Behavior
 
