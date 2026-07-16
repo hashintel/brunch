@@ -19,7 +19,9 @@ import type { LiveExchangeAnswerer, LiveExchangeAwaiter } from './live-exchange-
  * `closed` rather than hanging.
  */
 
-export type OpenAskMode = 'text' | 'single-select' | 'multi-select' | 'questionnaire' | 'review';
+export const OPEN_ASK_MODES = ['text', 'single-select', 'multi-select', 'questionnaire', 'review'] as const;
+
+export type OpenAskMode = (typeof OPEN_ASK_MODES)[number];
 
 export interface OpenAsk {
   readonly exchangeId: string;
