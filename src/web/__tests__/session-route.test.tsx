@@ -142,7 +142,12 @@ describe('session route', () => {
 
     expect((await screen.findByRole('alert')).textContent).toMatch(/could not|failed|conflict/i);
     expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('false');
+    expect(screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Message' }).value).toBe('Go');
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Send' }).disabled).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() =>
+      expect(f.calls.filter(({ method }) => method === 'session.driveTurn')).toHaveLength(2),
+    );
   });
 
   it.each([
@@ -662,11 +667,12 @@ describe('session route', () => {
     const rendered = render(<BrunchWebApp runtime={runtime} />);
 
     expect(await screen.findByText(/History/u)).toBeTruthy();
-    const textarea = screen.getByRole('textbox', { name: 'Message' });
+    const textarea = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Message' });
     fireEvent.change(textarea, { target: { value: 'Go' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('true');
     expect(f.calls.some((call) => call.method === 'session.driveTurn')).toBe(true);
+    await waitFor(() => expect(textarea.value).toBe(''));
 
     await act(async () => {
       f.emit({

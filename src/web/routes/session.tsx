@@ -132,10 +132,12 @@ function ReadySessionPage({
           void rpcClient
             .request<LiveSessionHostResult>('session.driveTurn', { ...target, driverId, prompt })
             .then((outcome) => {
-              if (outcome.status !== 'completed') {
-                setBusy(false);
-                setTurnError(`Turn could not start (${outcome.status.replaceAll('_', ' ')}).`);
+              if (outcome.status === 'completed') {
+                setPrompt('');
+                return;
               }
+              setBusy(false);
+              setTurnError(`Turn could not start (${outcome.status.replaceAll('_', ' ')}).`);
             })
             .catch(() => {
               setBusy(false);
