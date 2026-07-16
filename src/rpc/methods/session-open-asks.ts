@@ -1,5 +1,6 @@
 import { Type } from 'typebox';
 
+import type { QuestionnaireQuestion } from '../../exchanges/schemas/index.js';
 import { OPEN_ASK_MODES, type LiveAskReader } from '../../session/live-ask-registry.js';
 import { createJsonRpcFailure, createJsonRpcSuccess, jsonRpcRequestId } from '../protocol.js';
 import type { RpcMethodContext, RpcMethodDefinition } from './registry.js';
@@ -10,25 +11,63 @@ export const NO_LIVE_ASK_REGISTRY_MESSAGE = 'No live ask registry is attached';
 // Mirrors the AskQuestionEcho / OpenAsk shapes owned by
 // `exchanges/schemas` and `session/live-ask-registry`; hand-authored here only
 // as the JSON-RPC discovery/boundary schema, the repo idiom for result shapes.
-const AskQuestionEchoSchema = Type.Object(
-  {
-    body: NonBlankStringSchema,
-    options: Type.Optional(
-      Type.Array(
-        Type.Object(
-          {
-            id: NonBlankStringSchema,
-            label: NonBlankStringSchema,
-            description: Type.Optional(NonBlankStringSchema),
-          },
-          { additionalProperties: false },
-        ),
-        { minItems: 1 },
+const AskQuestionEchoProperties = {
+  body: NonBlankStringSchema,
+  options: Type.Optional(
+    Type.Array(
+      Type.Object(
+        {
+          id: NonBlankStringSchema,
+          label: NonBlankStringSchema,
+          description: Type.Optional(NonBlankStringSchema),
+        },
+        { additionalProperties: false },
       ),
+      { minItems: 1 },
     ),
-    multiple: Type.Optional(Type.Boolean()),
-    commentPrompt: Type.Optional(NonBlankStringSchema),
-    otherPrompt: Type.Optional(NonBlankStringSchema),
+  ),
+  multiple: Type.Optional(Type.Boolean()),
+  commentPrompt: Type.Optional(NonBlankStringSchema),
+  otherPrompt: Type.Optional(NonBlankStringSchema),
+};
+
+const AskQuestionEchoSchema = Type.Object(AskQuestionEchoProperties, { additionalProperties: false });
+
+const QuestionIdSchema = Type.String({ minLength: 1, pattern: '^[A-Za-z0-9_-]+$' });
+const QuestionOptionSchema = Type.Object(
+  { id: QuestionIdSchema, label: NonBlankStringSchema },
+  { additionalProperties: false },
+);
+const QUESTIONNAIRE_QUESTION_KINDS = [
+  'free-text',
+  'single-select',
+  'multi-select',
+] as const satisfies readonly QuestionnaireQuestion['kind'][];
+const QuestionnaireQuestionSchema = Type.Union([
+  Type.Object(
+    {
+      id: QuestionIdSchema,
+      kind: Type.Literal(QUESTIONNAIRE_QUESTION_KINDS[0]),
+      prompt: NonBlankStringSchema,
+    },
+    { additionalProperties: false },
+  ),
+  ...QUESTIONNAIRE_QUESTION_KINDS.slice(1).map((kind) =>
+    Type.Object(
+      {
+        id: QuestionIdSchema,
+        kind: Type.Literal(kind),
+        prompt: NonBlankStringSchema,
+        options: Type.Array(QuestionOptionSchema, { minItems: 1 }),
+      },
+      { additionalProperties: false },
+    ),
+  ),
+]);
+const QuestionnaireAskQuestionSchema = Type.Object(
+  {
+    ...AskQuestionEchoProperties,
+    questions: Type.Array(QuestionnaireQuestionSchema, { minItems: 1 }),
   },
   { additionalProperties: false },
 );
@@ -37,7 +76,7 @@ const OpenAskSchema = Type.Object(
   {
     exchangeId: NonBlankStringSchema,
     mode: Type.Union(OPEN_ASK_MODES.map((mode) => Type.Literal(mode))),
-    question: AskQuestionEchoSchema,
+    question: Type.Union([QuestionnaireAskQuestionSchema, AskQuestionEchoSchema]),
   },
   { additionalProperties: false },
 );
