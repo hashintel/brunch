@@ -77,20 +77,14 @@ export function acceptedResponseFromParams(
         status: 'answered',
         answer: answerText,
       });
-      return acceptedTextResponse(pending.exchangeId, answerText, 'ask', formatAsk(details), details);
+      return acceptedTextResponse(pending.exchangeId, answerText, formatAsk(details), details);
     }
     const details = projectRequestAnswer({
       exchangeId: pending.exchangeId,
       status: 'answered',
       answer: answerText,
     });
-    return acceptedTextResponse(
-      pending.exchangeId,
-      answerText,
-      'request_answer',
-      formatRequestAnswer(details),
-      details,
-    );
+    return acceptedTextResponse(pending.exchangeId, answerText, formatRequestAnswer(details), details);
   }
 
   if ('optionId' in params.answer) {
@@ -331,17 +325,16 @@ function projectAcceptedReviewDetails(
 function acceptedTextResponse(
   exchangeId: string,
   answer: string,
-  toolName: 'ask' | 'request_answer',
   text: string,
   details: Record<string, unknown>,
 ): AcceptedStructuredExchangeResponse {
   return {
     ok: true,
     answer: { text: answer },
-    toolCallMessage: syntheticExchangeToolCallMessage(exchangeId, toolName),
+    toolCallMessage: syntheticExchangeToolCallMessage(exchangeId, 'ask'),
     toolResultMessage: syntheticExchangeToolResultMessage(
       exchangeId,
-      toolName,
+      'ask',
       [{ type: 'text', text }],
       details,
     ),

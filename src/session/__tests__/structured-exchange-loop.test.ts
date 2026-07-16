@@ -45,7 +45,7 @@ describe('structured exchange loop helpers', () => {
     ).toEqual({ ok: false, message: 'Elicitation response requires answer text' });
   });
 
-  it('materializes accepted text responses as ask tool results', () => {
+  it('uses registered ask identity for accepted text tuples while preserving request details', () => {
     const pending = nextDeterministicStructuredExchange(1);
 
     const accepted = acceptedResponseFromParams(pending, {
@@ -56,9 +56,13 @@ describe('structured exchange loop helpers', () => {
     expect(accepted).toMatchObject({
       ok: true,
       answer: { text: 'A local product specification workspace.' },
+      toolCallMessage: {
+        content: [{ id: `${pending.exchangeId}__ask`, name: 'ask' }],
+      },
       toolResultMessage: {
         role: 'toolResult',
-        toolName: 'request_answer',
+        toolCallId: `${pending.exchangeId}__ask`,
+        toolName: 'ask',
         content: [{ text: '## Answer\n\nA local product specification workspace.' }],
         details: {
           schema: 'brunch.structured_exchange.request',
