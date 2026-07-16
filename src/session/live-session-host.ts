@@ -1,4 +1,5 @@
 import type { OpenAsk } from './live-ask-registry.js';
+import type { LiveExchangeAnswerOutcome } from './live-exchange-broker.js';
 
 export interface SessionTarget {
   readonly specId: number;
@@ -19,7 +20,7 @@ export interface LiveSessionEvent {
 export interface LiveSessionRuntime {
   prompt(text: string): Promise<void>;
   openAsks(): readonly OpenAsk[];
-  answerExchange(exchangeId: string, answer: string): boolean;
+  answerExchange(exchangeId: string, answer: string): LiveExchangeAnswerOutcome;
   subscribe(listener: (delta: SessionPresentationDelta) => void): () => void;
   dispose(): Promise<void>;
 }
@@ -33,6 +34,7 @@ export type LiveSessionHostResult = {
     | 'busy'
     | 'not_open'
     | 'ask_closed'
+    | 'invalid_answer'
     | 'driver_conflict';
 };
 
@@ -149,9 +151,9 @@ export function createLiveSessionHost(options: {
       if (!cell) return { status: 'not_open' };
       if (cell.driverId !== null && cell.driverId !== driverId) return { status: 'driver_conflict' };
       cell.driverId = driverId;
-      return cell.runtime.answerExchange(exchangeId, answer)
-        ? { status: 'completed' }
-        : { status: 'ask_closed' };
+      const outcome = cell.runtime.answerExchange(exchangeId, answer);
+      if (outcome.submitted) return { status: 'completed' };
+      return { status: outcome.reason === 'invalid_answer' ? 'invalid_answer' : 'ask_closed' };
     },
     subscribeAll(listener) {
       listeners.add(listener);

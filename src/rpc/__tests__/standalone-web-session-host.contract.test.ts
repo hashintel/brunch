@@ -4,6 +4,10 @@ import type { LiveSessionEvent, LiveSessionHost } from '../../session/live-sessi
 import { createWebSidecarRpcHandlers } from '../handlers.js';
 import { createLiveSessionEventFrame, liveSessionEventSchema } from '../live-session-contract.js';
 import type { HostedSessionRpcBoundary } from '../methods/hosted-session.js';
+import {
+  INVALID_LIVE_EXCHANGE_ANSWER_MESSAGE,
+  NO_PENDING_LIVE_EXCHANGE_MESSAGE,
+} from '../methods/session-exchange-answer.js';
 
 const target = { specId: 1, sessionId: 'session-1' };
 
@@ -116,6 +120,30 @@ describe('standalone hosted-session RPC contract', () => {
       const response = await handlers.handle({ jsonrpc: '2.0', id: method, method, params: {} });
       expect(response).toMatchObject({ error: { code: -32602 } });
     }
+  });
+
+  it('maps hosted answer outcomes to the public sidecar contract and permits retry', async () => {
+    const hostedSession = boundary();
+    vi.mocked(hostedSession.liveSessions.answerExchange)
+      .mockReturnValueOnce({ status: 'completed' })
+      .mockReturnValueOnce({ status: 'ask_closed' })
+      .mockReturnValueOnce({ status: 'invalid_answer' })
+      .mockReturnValueOnce({ status: 'completed' });
+    const handlers = createWebSidecarRpcHandlers({ coordinator: coordinator(), cwd: '/tmp', hostedSession });
+    const params = { ...target, driverId: 'browser-a', exchangeId: 'ask-1', answer: 'Yes' };
+
+    await expect(
+      handlers.handle({ jsonrpc: '2.0', id: 1, method: 'session.answerExchange', params }),
+    ).resolves.toMatchObject({ result: { status: 'completed' } });
+    await expect(
+      handlers.handle({ jsonrpc: '2.0', id: 2, method: 'session.answerExchange', params }),
+    ).resolves.toMatchObject({ error: { code: -32008, message: NO_PENDING_LIVE_EXCHANGE_MESSAGE } });
+    await expect(
+      handlers.handle({ jsonrpc: '2.0', id: 3, method: 'session.answerExchange', params }),
+    ).resolves.toMatchObject({ error: { code: -32602, message: INVALID_LIVE_EXCHANGE_ANSWER_MESSAGE } });
+    await expect(
+      handlers.handle({ jsonrpc: '2.0', id: 4, method: 'session.answerExchange', params }),
+    ).resolves.toMatchObject({ result: { status: 'completed' } });
   });
 
   it('preserves the explicit target and driver through every command/query', async () => {

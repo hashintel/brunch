@@ -6,6 +6,10 @@ import type { LiveSessionHost, SessionTarget } from '../../session/live-session-
 import { createJsonRpcFailure, createJsonRpcSuccess, jsonRpcRequestId } from '../protocol.js';
 import type { RpcMethodContext, RpcMethodDefinition } from './registry.js';
 import { NonBlankStringSchema } from './schemas.js';
+import {
+  INVALID_LIVE_EXCHANGE_ANSWER_MESSAGE,
+  NO_PENDING_LIVE_EXCHANGE_MESSAGE,
+} from './session-exchange-answer.js';
 import { OpenAsksResultSchema } from './session-open-asks.js';
 
 const TargetSchema = Type.Object(
@@ -53,6 +57,7 @@ function method<P extends TargetParams>(definition: {
   resultSchema?: TSchema;
   example: P;
   run(boundary: HostedSessionRpcBoundary, params: P): Promise<unknown> | object;
+  refusal?(result: unknown): { readonly code: number; readonly message: string } | undefined;
 }): RpcMethodDefinition<RpcMethodContext> {
   return {
     method: definition.name,
@@ -67,10 +72,10 @@ function method<P extends TargetParams>(definition: {
         return createJsonRpcFailure(requestId, -32602, 'Invalid params');
       }
       try {
-        return createJsonRpcSuccess(
-          requestId,
-          await definition.run(context.hostedSession, request.params as P),
-        );
+        const result = await definition.run(context.hostedSession, request.params as P);
+        const refusal = definition.refusal?.(result);
+        if (refusal) return createJsonRpcFailure(requestId, refusal.code, refusal.message);
+        return createJsonRpcSuccess(requestId, result);
       } catch (error) {
         return createJsonRpcFailure(
           requestId,
@@ -129,5 +134,13 @@ export const hostedSessionRpcMethods: readonly RpcMethodDefinition<RpcMethodCont
     example: { ...exampleTarget, driverId: 'browser', exchangeId: 'ask-1', answer: 'Yes.' },
     run: (boundary, params) =>
       boundary.liveSessions.answerExchange(target(params), params.driverId, params.exchangeId, params.answer),
+    refusal(result) {
+      if (typeof result !== 'object' || result === null || !('status' in result)) return undefined;
+      if (result.status === 'ask_closed') return { code: -32008, message: NO_PENDING_LIVE_EXCHANGE_MESSAGE };
+      if (result.status === 'invalid_answer') {
+        return { code: -32602, message: INVALID_LIVE_EXCHANGE_ANSWER_MESSAGE };
+      }
+      return undefined;
+    },
   }),
 ];

@@ -105,8 +105,7 @@ async function createStandaloneSessionRuntime(
   return {
     prompt: (text) => runtime.session.prompt(text, { expandPromptTemplates: false, source: 'rpc' }),
     openAsks: () => liveExchange.reader.openAsks(),
-    answerExchange: (exchangeId, answer) =>
-      liveExchange.answerer.submitAnswer({ exchangeId, answer }).submitted,
+    answerExchange: (exchangeId, answer) => liveExchange.answerer.submitAnswer({ exchangeId, answer }),
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);

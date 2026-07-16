@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import type { LiveExchangeAnswerOutcome } from '../live-exchange-broker.js';
 import {
   ActiveLiveSessionError,
   createLiveSessionHost,
@@ -13,7 +14,10 @@ function runtime(): LiveSessionRuntime {
   return {
     prompt: vi.fn(async () => {}),
     openAsks: () => [],
-    answerExchange: () => false,
+    answerExchange: (): LiveExchangeAnswerOutcome => ({
+      submitted: false,
+      reason: 'no_pending_exchange',
+    }),
     subscribe: () => () => {},
     dispose: vi.fn(async () => {}),
   };
@@ -72,7 +76,12 @@ describe('LiveSessionHost target integrity', () => {
     const created = runtime();
     created.prompt = vi.fn(() => pending);
     created.openAsks = () => [{ exchangeId: 'ask-1', mode: 'text', question: { body: 'Answer?' } }];
-    created.answerExchange = (exchangeId, answer) => exchangeId === 'ask-1' && answer === 'yes';
+    created.answerExchange = (exchangeId, answer) =>
+      exchangeId !== 'ask-1'
+        ? { submitted: false, reason: 'no_pending_exchange' }
+        : answer === 'yes'
+          ? { submitted: true }
+          : { submitted: false, reason: 'invalid_answer' };
     const host = createLiveSessionHost({ createRuntime: async () => created });
     await host.open(target);
 
@@ -86,6 +95,9 @@ describe('LiveSessionHost target integrity', () => {
     expect(host.openAsks({ specId: 7, sessionId: 'wrong' })).toBeUndefined();
     expect(host.answerExchange(target, 'browser-b', 'ask-1', 'yes')).toEqual({
       status: 'driver_conflict',
+    });
+    expect(host.answerExchange(target, 'browser-a', 'ask-1', 'invalid')).toEqual({
+      status: 'invalid_answer',
     });
     expect(host.answerExchange(target, 'browser-a', 'ask-1', 'yes')).toEqual({ status: 'completed' });
     expect(host.answerExchange(target, 'browser-a', 'stale', 'yes')).toEqual({ status: 'ask_closed' });
