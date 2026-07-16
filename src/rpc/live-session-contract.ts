@@ -5,7 +5,9 @@ import type { LiveSessionEvent } from '../session/live-session-host.js';
 
 export const LIVE_SESSION_EVENT_METHOD = 'brunch.liveSessionEvent';
 
-const zSessionTarget = z.object({ specId: z.number().int(), sessionId: z.string().min(1) }).strict();
+// specId min 1 mirrors the server's inbound TypeBox target (Type.Integer minimum 1);
+// the client rejects any echoed target below it as a malformed frame.
+const zSessionTarget = z.object({ specId: z.number().int().min(1), sessionId: z.string().min(1) }).strict();
 const zOpenAsk = z
   .object({
     exchangeId: z.string().min(1),
