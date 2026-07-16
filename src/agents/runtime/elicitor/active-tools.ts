@@ -2,7 +2,6 @@ import { withoutBrunchBlockedToolNames } from '../shared/blocked-tools.js';
 
 export interface LiveElicitorToolPolicyInput {
   readonly registeredToolNames: readonly string[];
-  readonly devAllowedToolNames?: readonly string[] | undefined;
 }
 
 export const LIVE_ELICITOR_ALLOWED_TOOL_NAMES = [
@@ -30,11 +29,7 @@ export const LIVE_ELICITOR_ALLOWED_TOOL_NAMES = [
 
 export function activeToolNamesForLiveElicitor({
   registeredToolNames,
-  devAllowedToolNames = [],
 }: LiveElicitorToolPolicyInput): string[] {
   const allowed = new Set<string>(LIVE_ELICITOR_ALLOWED_TOOL_NAMES);
-  for (const toolName of devAllowedToolNames) {
-    allowed.add(toolName);
-  }
   return withoutBrunchBlockedToolNames(registeredToolNames.filter((toolName) => allowed.has(toolName)));
 }

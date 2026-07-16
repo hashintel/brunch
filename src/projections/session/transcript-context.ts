@@ -22,8 +22,6 @@ export interface ProjectedTranscriptContext {
 }
 
 const BRUNCH_TRANSCRIPT_TOOL_NAMES = new Set([
-  'brunch_introspect_query',
-  'brunch_session_query',
   'mutate_graph',
   'present_alternatives',
   'present_candidates',

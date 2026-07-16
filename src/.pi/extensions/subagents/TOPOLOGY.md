@@ -163,7 +163,7 @@ spawnability.
 
 Do not load subagents as an ambient extension independent of product state. The
 gate is product context: selected spec/session plus non-empty code-owned
-spawnability, not the dev-tools switch.
+spawnability, not a developer-only switch.
 
 ## Conceptual reference (preserved from the design discussion)
 

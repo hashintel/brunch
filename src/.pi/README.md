@@ -92,12 +92,6 @@ From `src/.pi/extensions/executor/` and `src/session/schema/tool-names.ts`:
 
 Note: `execute_plan_outline_artifact` and `execute_plan_draft_artifact` are registered graph-dependent tools, but excluded from the executor active-tool list per `src/agents/runtime/executor/active-tools.ts`.
 
-### Dev-gated introspection/query tools
-Only registered when dev introspection query tools are enabled:
-
-- `brunch_session_query`
-- `brunch_introspect_query`
-
 ## Active allowlists
 
 ### Specify / elicitor mode allows

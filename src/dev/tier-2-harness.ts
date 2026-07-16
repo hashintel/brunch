@@ -150,7 +150,6 @@ export async function bootTier2RuntimeThroughRunBrunchTui(options: {
     await runBrunchTui({
       cwd,
       debugMirror: options.dev,
-      developerTools: options.dev,
       runWorkspaceDialogPreflight: async () => ({ action: 'newSpec', title: 'Boot seam smoke' }),
       webSidecarRunner: async () => null,
       launchInteractive: async (context) => {
@@ -236,7 +235,6 @@ export async function bootTier2RuntimeFromFixture(options: {
     await runBrunchTui({
       cwd,
       debugMirror: options.dev === true,
-      developerTools: options.dev === true,
       coordinator,
       runWorkspaceDialogPreflight: async () => ({
         action: 'openSession',

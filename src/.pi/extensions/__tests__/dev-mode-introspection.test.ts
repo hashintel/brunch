@@ -7,7 +7,6 @@ import { describe, expect, it } from 'vitest';
 import { renderBrunchReferences } from '../../../agents/references/registry.js';
 import { renderBrunchSkills } from '../../../agents/skills/registry.js';
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
-import { BRUNCH_INTROSPECT_QUERY_TOOL } from '../dev-mode/introspect-query/index.js';
 import {
   appendEntryContentToDebugCache,
   appendOriginationRecordToDebugCache,
@@ -17,7 +16,6 @@ import {
   registerBrunchIntrospection,
 } from '../dev-mode/introspection/index.js';
 import { createBrunchTrajectoryRecorder } from '../dev-mode/introspection/trajectory.js';
-import { BRUNCH_SESSION_QUERY_TOOL } from '../dev-mode/session-query/index.js';
 
 interface FakeCommandContext {
   readonly ui: { notify(message: string, type?: 'info' | 'warning' | 'error'): void };
@@ -515,41 +513,17 @@ describe('Brunch introspection extension', () => {
     );
 
     expect(productApi.commandNames).not.toContain(BRUNCH_INTROSPECTION_COMMAND);
-    expect(productApi.toolNames).not.toContain(BRUNCH_SESSION_QUERY_TOOL);
-    expect(productApi.toolNames).not.toContain(BRUNCH_INTROSPECT_QUERY_TOOL);
     expect(productApi.eventNames).not.toContain('before_provider_request');
 
     const devApi = createFakeExtensionApi();
     await createBrunchPiExtensions(brunchChromeFixture, undefined, {
       coordinator: {} as never,
-      introspection: { queryTools: true, store: createInMemoryBrunchIntrospectionStore() },
+      introspection: { store: createInMemoryBrunchIntrospectionStore() },
     })(devApi.api as never);
 
     expect(devApi.commandNames.at(-1)).toBe(BRUNCH_INTROSPECTION_COMMAND);
-    expect(devApi.toolNames.slice(-2)).toEqual([BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL]);
     expect(devApi.eventNames).toEqual(
       expect.arrayContaining(['before_agent_start', 'before_provider_request', 'tool_result', 'message_end']),
-    );
-  });
-
-  it('advertises registered dev query tools only when introspection is enabled', async () => {
-    const productApi = createFakeExtensionApi();
-    await createBrunchPiExtensions(brunchChromeFixture, undefined, { coordinator: {} as never })(
-      productApi.api as never,
-    );
-    await productApi.emitBeforeAgentStart({ systemPrompt: 'base' });
-
-    const devApi = createFakeExtensionApi();
-    await createBrunchPiExtensions(brunchChromeFixture, undefined, {
-      coordinator: {} as never,
-      introspection: { queryTools: true, store: createInMemoryBrunchIntrospectionStore() },
-    })(devApi.api as never);
-    await devApi.emitBeforeAgentStart({ systemPrompt: 'base' });
-
-    expect(productApi.activeToolSets.at(-1)).not.toContain(BRUNCH_SESSION_QUERY_TOOL);
-    expect(productApi.activeToolSets.at(-1)).not.toContain(BRUNCH_INTROSPECT_QUERY_TOOL);
-    expect(devApi.activeToolSets.at(-1)).toEqual(
-      expect.arrayContaining([BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL]),
     );
   });
 });

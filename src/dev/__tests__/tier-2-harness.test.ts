@@ -361,7 +361,7 @@ describe('origination-kick-live — the product originates the opening turn on i
 });
 
 describe('FE-847 Tier-2 real boot harness', () => {
-  it('owns real runtime boot proof for ready context and developerTools-gated query tools', async () => {
+  it('owns real runtime boot proof for ready context and product subagents', async () => {
     const productBoot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
     try {
       expect(productBoot.runtime.session.sessionManager.getHeader()).toMatchObject({
@@ -375,12 +375,6 @@ describe('FE-847 Tier-2 real boot harness', () => {
       });
       await expect(readWorkspaceContextMarkdownFiles(productBoot.runtime.session)).resolves.toContain(
         'boot-seam.md',
-      );
-      expect(productBoot.runtime.session.getAllTools().map((tool) => tool.name)).not.toEqual(
-        expect.arrayContaining(['brunch_session_query', 'brunch_introspect_query']),
-      );
-      expect(productBoot.runtime.session.getActiveToolNames()).not.toEqual(
-        expect.arrayContaining(['brunch_session_query', 'brunch_introspect_query']),
       );
       expect(productBoot.runtime.session.getAllTools().map((tool) => tool.name)).toEqual(
         expect.arrayContaining(['subagent']),
@@ -397,12 +391,6 @@ describe('FE-847 Tier-2 real boot harness', () => {
       await expect(readSessionContextDetails(devBoot.runtime.session)).resolves.toMatchObject({
         status: 'ready',
       });
-      expect(devBoot.runtime.session.getAllTools().map((tool) => tool.name)).toEqual(
-        expect.arrayContaining(['brunch_session_query', 'brunch_introspect_query']),
-      );
-      expect(devBoot.runtime.session.getActiveToolNames()).toEqual(
-        expect.arrayContaining(['brunch_session_query', 'brunch_introspect_query']),
-      );
     } finally {
       await devBoot.runtime.dispose();
       devBoot.restoreEnv();

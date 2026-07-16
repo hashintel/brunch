@@ -53,7 +53,7 @@ describe('createAgentRunnerPort', () => {
     ).resolves.toEqual({
       status: 'failed',
       message:
-        'AgentRunnerPort has no subagent deps injected in this launch, so the sealed worker cannot run. Compose subagents (execute mode or --dev-tools).',
+        'AgentRunnerPort has no subagent deps injected in this launch, so the sealed worker cannot run. Compose execute-mode subagents.',
     });
   });
 

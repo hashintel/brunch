@@ -120,14 +120,13 @@ components are render-only with injectable `theme`/props.
   rather than through `showComponentPreview` or `previewStaticComponent`, since they need real focus and
   input routing that a static preview doesn't exercise.
 
-## Debug Mirrors And Dev Tools
+## Debug Mirrors
 
 Source runs and local dev builds automatically mirror debug artifacts into `<workspace>/.brunch/debug/`.
 
-- This automatic mirror is for passive observability only: system prompt captures, Brunch-owned tool content, origination records, and debug transcript rendering.
-- Prompt-affecting dev surfaces stay explicit. `--dev-tools` is the opt-in for dev query tools only; product subagents are not dev-gated.
+- This automatic mirror is passive observability only: system prompt captures, Brunch-owned tool content, origination records, trajectory events, and debug transcript rendering.
 - `trajectory.ndjson` is a bounded, secret-filtered diagnostic input. `trajectory-report.ts` reads it alongside `openActiveSessionBranch`; it never reparses append-order Pi JSONL or feeds product behavior.
-- TUI boots therefore have three states: product-default (including product subagents when registered), debug-mirror-only, and debug-mirror plus dev query tools.
+- Product subagents remain governed by the operational-mode policy; no prompt-affecting developer tool channel exists.
 
 ## Graph Curation
 

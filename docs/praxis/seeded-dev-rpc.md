@@ -39,7 +39,7 @@ Notes:
 
 - TUI is the default mode.
 - Source/dev builds automatically mirror debug artifacts into `$DEV_WORKSPACE/.brunch/debug/`.
-- Prompt-affecting dev surfaces stay explicit; add `--dev-tools` only when you want query tools or subagent affordances.
+- Source/dev launches expose passive debug mirrors; product subagents remain governed by the active operational mode.
 
 ## 3. Inspect the workspace over public RPC
 

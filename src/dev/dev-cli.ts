@@ -88,7 +88,6 @@ interface LaunchFlags {
   readonly mode: string;
   readonly openWeb: boolean;
   readonly noWebui: boolean;
-  readonly developerTools: boolean;
   readonly evaluationArm: 'control' | 'ablated' | undefined;
   readonly help: boolean;
 }
@@ -303,16 +302,10 @@ async function runLaunchCommand(args: readonly string[], options: DevCliOptions 
   await mkdir(workspace, { recursive: true });
 
   return await (options.launchBrunch ?? runBrunchCli)({
-    argv: [
-      '--mode',
-      flags.mode,
-      ...(!openWeb ? ['--no-webui'] : []),
-      ...(flags.developerTools ? ['--dev-tools'] : []),
-    ],
+    argv: ['--mode', flags.mode, ...(!openWeb ? ['--no-webui'] : [])],
     cwd: workspace,
     ...(options.stdin ? { stdin: options.stdin } : {}),
     ...(options.stdout ? { stdout: options.stdout } : {}),
-    developerTools: flags.developerTools,
     ...(flags.evaluationArm === 'ablated'
       ? { evaluationDirectiveAblation: 'warrant-before-commit' as const }
       : {}),
@@ -561,7 +554,6 @@ function parseLaunchFlags(args: readonly string[], cwd: string): LaunchFlags {
       reset: { type: 'boolean', default: false },
       mode: { type: 'string', default: 'tui' },
       'no-webui': { type: 'boolean', default: false },
-      'dev-tools': { type: 'boolean', default: false },
       'evaluation-arm': { type: 'string' },
       help: { type: 'boolean', short: 'h', default: false },
     },
@@ -592,7 +584,6 @@ function parseLaunchFlags(args: readonly string[], cwd: string): LaunchFlags {
     mode: values.mode,
     openWeb: !values['no-webui'],
     noWebui: values['no-webui'],
-    developerTools: values['dev-tools'],
     evaluationArm: values['evaluation-arm'],
     help: values.help,
   };
@@ -817,11 +808,11 @@ function devCliUsage(): string {
   return [
     'Usage:',
     '  npm run dev-cli',
-    '  npm run dev-cli -- --temp [--no-webui] [--dev-tools]',
-    '  npm run dev-cli -- --workbench <name> [--mode tui|print|rpc] [--no-webui] [--dev-tools]',
-    '  npm run dev-cli -- --workspace <dir> [--mode tui|print|rpc] [--no-webui] [--dev-tools]',
-    '  npm run dev-cli -- --seed <name>/<variant> --reset [--no-webui] [--dev-tools]',
-    '  npm run dev-cli -- --workbench <name> --seed <name>/<variant> --reset [--no-webui] [--dev-tools]',
+    '  npm run dev-cli -- --temp [--no-webui]',
+    '  npm run dev-cli -- --workbench <name> [--mode tui|print|rpc] [--no-webui]',
+    '  npm run dev-cli -- --workspace <dir> [--mode tui|print|rpc] [--no-webui]',
+    '  npm run dev-cli -- --seed <name>/<variant> --reset [--no-webui]',
+    '  npm run dev-cli -- --workbench <name> --seed <name>/<variant> --reset [--no-webui]',
     '  npm run dev-cli -- rpc <method> [params-json] --workspace <dir>',
     '  npm run dev-cli -- mutate --workspace <dir> (--params <json> | --params-file <file>)',
     '  npm run dev-cli -- export --workspace <dir> --spec-id <id> [--out <file>] [--show all|active]',
@@ -832,7 +823,6 @@ function devCliUsage(): string {
     '  - Launch-time seeding never happens implicitly; pair --seed with --reset.',
     '  - With --seed and no --workspace, the launcher derives .fixtures/workbenches/<name>/.',
     '  - Source/dev builds mirror debug artifacts automatically into <workspace>/.brunch/debug/.',
-    '  - --dev-tools opts into dev query tools; product subagents are not dev-gated.',
     '  - For direct app access, use npm run dev -- ...',
   ].join('\n');
 }

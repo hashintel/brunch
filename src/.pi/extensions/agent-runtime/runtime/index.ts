@@ -81,21 +81,15 @@ function supportsBrunchAgentStateEntries(
 export function activeToolNamesForBrunchAgentState(
   pi: ExtensionAPI,
   state: ResolvedBrunchAgentState,
-  devAllowedToolNames?: readonly string[],
 ): string[] {
   return activeToolNamesForForegroundState({
     sessionState: state,
     registeredToolNames: pi.getAllTools().map((tool) => tool.name),
-    devAllowedToolNames,
   });
 }
 
-function applyBrunchToolPolicy(
-  pi: ExtensionAPI,
-  state: ResolvedBrunchAgentState,
-  devAllowedToolNames?: readonly string[],
-): void {
-  pi.setActiveTools(activeToolNamesForBrunchAgentState(pi, state, devAllowedToolNames));
+function applyBrunchToolPolicy(pi: ExtensionAPI, state: ResolvedBrunchAgentState): void {
+  pi.setActiveTools(activeToolNamesForBrunchAgentState(pi, state));
 }
 
 interface TextLikeContent {
@@ -158,10 +152,7 @@ function supportsOperationalModePolicy(pi: ExtensionAPI): boolean {
   );
 }
 
-export function registerBrunchOperationalModePolicy(
-  pi: ExtensionAPI,
-  options: { devAllowedToolNames?: readonly string[] | undefined } = {},
-) {
+export function registerBrunchOperationalModePolicy(pi: ExtensionAPI) {
   if (!supportsOperationalModePolicy(pi)) {
     return;
   }
@@ -268,12 +259,12 @@ export function registerBrunchOperationalModePolicy(
       appendBrunchAgentRuntimeInit(ctx.sessionManager as BrunchAgentStateEntrySessionManager);
     }
     const state = projectBrunchAgentStateFromSessionManager(ctx?.sessionManager);
-    applyBrunchToolPolicy(pi, state, options.devAllowedToolNames);
+    applyBrunchToolPolicy(pi, state);
   });
 
   pi.on('before_agent_start', async (_event, ctx) => {
     const state = projectBrunchAgentStateFromSessionManager(ctx?.sessionManager);
-    applyBrunchToolPolicy(pi, state, options.devAllowedToolNames);
+    applyBrunchToolPolicy(pi, state);
   });
 
   pi.on('tool_call', async (event, ctx) => {

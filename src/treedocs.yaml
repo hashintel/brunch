@@ -82,17 +82,9 @@ tree:
         index.ts: "Exports the public module surface."
       dev-mode:
         index.ts: "Exports the public module surface."
-        introspect-query:
-          TOPOLOGY.md: "Documents this source subtree."
-          index.test.ts: "Tests index behavior."
-          index.ts: "Exports the public module surface."
         introspection:
           TOPOLOGY.md: "Documents this source subtree."
           debug-cache.ts: "Implements debug cache."
-          index.ts: "Exports the public module surface."
-        session-query:
-          TOPOLOGY.md: "Documents this source subtree."
-          index.test.ts: "Tests index behavior."
           index.ts: "Exports the public module surface."
       exchanges:
         TOPOLOGY.md: "Documents this source subtree."

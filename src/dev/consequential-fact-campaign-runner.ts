@@ -252,7 +252,6 @@ function productionPort(): CampaignRunnerPort {
           '--workspace',
           input.workspace,
           '--no-webui',
-          '--dev-tools',
           '--evaluation-arm',
           input.arm,
         ],
