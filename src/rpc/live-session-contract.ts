@@ -26,6 +26,9 @@ export const liveSessionEventSchema = z
   .object({ target: zSessionTarget, seq: z.number().int().nonnegative(), delta: zSessionPresentationDelta })
   .strict() satisfies z.ZodType<LiveSessionEvent>;
 
+export const openAsksResultSchema = z.object({ openAsks: z.array(zOpenAsk) }).strict();
+export type OpenAsksResult = z.infer<typeof openAsksResultSchema>;
+
 export interface LiveSessionEventFrame {
   readonly jsonrpc: '2.0';
   readonly method: typeof LIVE_SESSION_EVENT_METHOD;

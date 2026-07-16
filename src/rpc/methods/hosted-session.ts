@@ -109,7 +109,7 @@ export const hostedSessionRpcMethods: readonly RpcMethodDefinition<RpcMethodCont
     access: 'read',
     schema: TargetSchema,
     example: exampleTarget,
-    run: (boundary, params) => ({ asks: boundary.liveSessions.openAsks(target(params)) ?? [] }),
+    run: (boundary, params) => ({ openAsks: boundary.liveSessions.openAsks(target(params)) ?? [] }),
   }),
   method<PromptParams>({
     name: 'session.driveTurn',

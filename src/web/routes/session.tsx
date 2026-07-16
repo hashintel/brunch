@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import type { QuestionnaireAnswer, QuestionnaireQuestion } from '../../exchanges/schemas/questionnaire.js';
 import type { SessionPresentationEntry } from '../../projections/session/session-presentation.js';
+import { openAsksResultSchema, type OpenAsksResult } from '../../rpc/live-session-contract.js';
 import type { LiveSessionEvent } from '../../session/live-session-host.js';
 import { reduceLiveSessionOverlay } from '../features/session/live-overlay.js';
 import { sessionPresentationQueryOptions } from '../queries/session-presentation.js';
@@ -13,12 +14,20 @@ import { rootRoute } from './root.js';
 export const sessionRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/session/$specId/$sessionId',
-  loader: ({ context, params }) => {
+  loader: async ({ context, params }) => {
     const target = { specId: Number(params.specId), sessionId: params.sessionId };
-    return Promise.all([
-      context.rpcClient.request('session.open', target),
-      context.queryClient.ensureQueryData(sessionPresentationQueryOptions(context.rpcClient, target)),
-    ]);
+    const presentation = context.queryClient.ensureQueryData(
+      sessionPresentationQueryOptions(context.rpcClient, target),
+    );
+    await context.rpcClient.request('session.open', target);
+    // Hydrate asks already open before this attachment: their ask_opened events
+    // fired before load, so only the live registry — not the transcript or the
+    // live stream — can surface them to a reconnecting client.
+    const openAsks = openAsksResultSchema.safeParse(
+      await context.rpcClient.request('session.openAsks', target),
+    );
+    await presentation;
+    return { openAsks: openAsks.success ? openAsks.data.openAsks : [] };
   },
   component: SessionPage,
 });
@@ -28,8 +37,16 @@ function SessionPage() {
   const { rpcClient } = sessionRoute.useRouteContext();
   const queryClient = useQueryClient();
   const target = useMemo(() => ({ specId: Number(specId), sessionId }), [specId, sessionId]);
+  const { openAsks } = sessionRoute.useLoaderData() as OpenAsksResult;
   const { data: result } = useSuspenseQuery(sessionPresentationQueryOptions(rpcClient, target));
-  const [overlay, setOverlay] = useState<SessionPresentationEntry[]>([]);
+  const [overlay, setOverlay] = useState<SessionPresentationEntry[]>(() =>
+    openAsks.reduce<SessionPresentationEntry[]>(
+      (entries, ask) => [
+        ...reduceLiveSessionOverlay(entries, { target, seq: 0, delta: { type: 'ask_opened', ask } }),
+      ],
+      [],
+    ),
+  );
   const [prompt, setPrompt] = useState('');
   const [busy, setBusy] = useState(false);
   const driverId = useMemo(browserDriverId, []);

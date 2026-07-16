@@ -103,8 +103,8 @@ describe('standalone web session host production entry', () => {
     });
     await waitFor(asyncOpenAsk, 8000, 'open candidate ask');
     async function asyncOpenAsk(): Promise<boolean> {
-      const result = (await rpc.request('session.openAsks', target)) as { asks: unknown[] };
-      return result.asks.length === 1;
+      const result = (await rpc.request('session.openAsks', target)) as { openAsks: unknown[] };
+      return result.openAsks.length === 1;
     }
     await expect(
       rpc.request('session.answerExchange', {
@@ -241,7 +241,8 @@ describe('standalone web session host production entry', () => {
       prompt: 'Run the deterministic review.',
     });
     await waitFor(
-      async () => ((await rpc.request('session.openAsks', target)) as { asks: unknown[] }).asks.length === 1,
+      async () =>
+        ((await rpc.request('session.openAsks', target)) as { openAsks: unknown[] }).openAsks.length === 1,
       8000,
       'open review ask',
     );
@@ -341,8 +342,8 @@ describe('standalone web session host production entry', () => {
     });
     await waitFor(asyncOpenAsk, 8000, 'open ask');
     async function asyncOpenAsk(): Promise<boolean> {
-      const result = (await rpc.request('session.openAsks', target)) as { asks: unknown[] };
-      return result.asks.length === 1;
+      const result = (await rpc.request('session.openAsks', target)) as { openAsks: unknown[] };
+      return result.openAsks.length === 1;
     }
     await expect(
       rpc.request('session.answerExchange', {

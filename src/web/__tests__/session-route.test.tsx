@@ -17,13 +17,17 @@ afterEach(() => {
   sessionStorage.clear();
 });
 
-function fixture(terminalEntries: readonly SessionPresentationEntry[] = []) {
+function fixture(
+  terminalEntries: readonly SessionPresentationEntry[] = [],
+  openAsks: readonly unknown[] = [],
+) {
   const listeners = new Set<WebSocketRpcNotificationListener>();
   const calls: Array<{ method: string; params?: unknown }> = [];
   let reads = 0;
   const client = {
     async request<T>(method: string, params?: unknown): Promise<T> {
       calls.push({ method, params });
+      if (method === 'session.openAsks') return { openAsks } as T;
       if (method === 'workspace.state') {
         return {
           status: 'ready',
@@ -562,6 +566,30 @@ describe('session route', () => {
       'Digest questionnaireWhat matters?ClarityWhich route?Safe pathWhich checks?Types, TestsAccepted abstract: The accepted digest abstract.',
     ]);
     expect(screen.queryByRole('button', { name: 'Answer' })).toBeNull();
+  });
+
+  it('hydrates an already-open ask on load so a reconnecting client can answer it', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const options = [
+      { id: 'yes', label: 'Yes' },
+      { id: 'no', label: 'No' },
+    ];
+    const f = fixture(
+      [],
+      [{ exchangeId: 'pending-ask', mode: 'single-select', question: { body: 'Still pending?', options } }],
+    );
+
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+    // No live event is emitted: the ask must surface purely from the load-time
+    // session.openAsks hydration.
+    expect(await screen.findByRole('radio', { name: /Yes/u })).toBeTruthy();
+    fireEvent.click(screen.getByRole('radio', { name: /Yes/u }));
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+    expect(f.calls).toContainEqual({
+      method: 'session.answerExchange',
+      params: expect.objectContaining({ exchangeId: 'pending-ask', answer: 'yes' }),
+    });
   });
 
   it('hydrates, drives, reduces targeted live state, answers, settles, and recovers durably', async () => {

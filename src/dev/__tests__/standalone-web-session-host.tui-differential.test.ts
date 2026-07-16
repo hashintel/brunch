@@ -108,7 +108,8 @@ async function driveWeb(): Promise<string> {
       prompt: prompts[2],
     });
     await waitFor(
-      async () => ((await rpc.request('session.openAsks', target)) as { asks: unknown[] }).asks.length === 1,
+      async () =>
+        ((await rpc.request('session.openAsks', target)) as { openAsks: unknown[] }).openAsks.length === 1,
       8000,
       'web ask',
     );

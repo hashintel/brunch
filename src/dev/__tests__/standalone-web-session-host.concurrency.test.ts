@@ -228,8 +228,8 @@ describe('standalone web concurrent session isolation', () => {
         const [asksA, asksB] = (await Promise.all([
           rpc.request('session.openAsks', targetA),
           rpc.request('session.openAsks', targetB),
-        ])) as [{ asks: unknown[] }, { asks: unknown[] }];
-        return asksA.asks.length === 1 && asksB.asks.length === 1;
+        ])) as [{ openAsks: unknown[] }, { openAsks: unknown[] }];
+        return asksA.openAsks.length === 1 && asksB.openAsks.length === 1;
       },
       8000,
       'both target-local asks',
