@@ -41,6 +41,8 @@ import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionCoordinator,
 } from '../../session/workspace-session-coordinator.js';
+import type { HostedSessionRpcBoundary } from '../methods/hosted-session.js';
+import type { SessionOpenAsksHandle } from '../methods/session-open-asks.js';
 import { createProductUpdatePublisher } from '../product-updates.js';
 import { startWebHost } from '../web-host.js';
 
@@ -265,6 +267,21 @@ async function writePetrinautReplayRun(
 }
 
 describe('web host', () => {
+  it('rejects combined host authority before listening', async () => {
+    const hostedSession = {} as HostedSessionRpcBoundary;
+    const sessionOpenAsks = {} as SessionOpenAsksHandle;
+    // @ts-expect-error standalone hosted-session authority excludes every sidecar handle
+    const invalidOptions: Parameters<typeof startWebHost>[0] = {
+      cwd: '/tmp/brunch-project',
+      hostedSession,
+      sessionOpenAsks,
+    };
+
+    await expect(startWebHost(invalidOptions as never)).rejects.toThrow(
+      'hostedSession cannot be combined with sidecar session driver handles',
+    );
+  });
+
   it('serves built Vite index.html as the native Brunch HTML shell', async () => {
     const assetRoot = await builtWebAssets();
     const host = await startWebHost({

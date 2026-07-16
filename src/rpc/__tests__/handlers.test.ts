@@ -41,6 +41,7 @@ import {
   createWebSidecarRpcHandlers,
   runJsonRpcLineServer,
 } from '../handlers.js';
+import type { HostedSessionRpcBoundary } from '../methods/hosted-session.js';
 import { NO_LIVE_AGENT_SESSION_DRIVER_MESSAGE } from '../methods/session-driver.js';
 import { INVALID_LIVE_EXCHANGE_ANSWER_MESSAGE } from '../methods/session-exchange-answer.js';
 import { createProductUpdatePublisher } from '../product-updates.js';
@@ -401,6 +402,25 @@ function sessionBindingEntry(sessionId = 'session-1', specId = 1) {
 }
 
 describe('JSON-RPC handlers', () => {
+  it('rejects combined standalone-host and sidecar-driver authority', () => {
+    const hostedSession = {} as HostedSessionRpcBoundary;
+    // @ts-expect-error hosted-session authority and sidecar handles are mutually exclusive
+    const invalidOptions: Parameters<typeof createWebSidecarRpcHandlers>[0] = {
+      coordinator: coordinator(),
+      cwd: '/tmp/brunch-project',
+      hostedSession,
+      sessionTurnDriver: {
+        async prompt() {
+          return { driven: true };
+        },
+      },
+    };
+
+    expect(() => createWebSidecarRpcHandlers(invalidOptions as never)).toThrow(
+      'hostedSession cannot be combined with sidecar session driver handles',
+    );
+  });
+
   it('discovers the current public Brunch JSON-RPC surface', async () => {
     const handlers = createRpcHandlers({
       coordinator: coordinator(),

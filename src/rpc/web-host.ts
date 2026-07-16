@@ -6,17 +6,18 @@ import { fileURLToPath } from 'node:url';
 import { readRunDetail, petrinautStreamPathForRun } from '../executor/observer-read.js';
 import { composePetrinautLauncherUrl, resolvePetrinautUrl } from '../executor/petrinaut/launcher-url.js';
 import type { WorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
-import { createReadOnlyRpcHandlers, createWebSidecarRpcHandlers } from './handlers.js';
-import type { HostedSessionRpcBoundary } from './methods/hosted-session.js';
-import type { SessionTurnDriver } from './methods/session-driver.js';
-import type { SessionExchangeAnswerHandle } from './methods/session-exchange-answer.js';
-import type { SessionOpenAsksHandle } from './methods/session-open-asks.js';
+import {
+  assertExclusiveWebHostOptions,
+  createReadOnlyRpcHandlers,
+  createWebSidecarRpcHandlers,
+  type WebHostAuthorityOptions,
+} from './handlers.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from './product-updates.js';
 import { createPetrinautStreamHost, petrinautStreamRunId } from './web-host/petrinaut-stream.js';
 import type { WebSessionEventSource } from './websocket.js';
 import { attachWebRpcTransport, isWebRpcUpgradeHandled, type WebRpcTransport } from './websocket.js';
 
-export interface WebHostOptions {
+type WebHostBaseOptions = {
   cwd: string;
   port?: number;
   hostname?: string;
@@ -24,11 +25,9 @@ export interface WebHostOptions {
   webAssetRoot?: string;
   productUpdates?: ProductUpdatePublisher;
   sessionEvents?: WebSessionEventSource;
-  sessionTurnDriver?: SessionTurnDriver;
-  sessionExchangeAnswer?: SessionExchangeAnswerHandle;
-  sessionOpenAsks?: SessionOpenAsksHandle;
-  hostedSession?: HostedSessionRpcBoundary;
-}
+};
+
+export type WebHostOptions = WebHostBaseOptions & WebHostAuthorityOptions;
 
 export interface RunningWebHost {
   url: string;
@@ -39,6 +38,7 @@ const MISSING_WEB_BUNDLE_MESSAGE =
   'Brunch web bundle is missing. Run npm run build:web before starting the web sidecar.';
 
 export async function startWebHost(options: WebHostOptions): Promise<RunningWebHost> {
+  assertExclusiveWebHostOptions(options);
   void options.cwd;
   const webAssetRoot = options.webAssetRoot ?? defaultWebAssetRoot();
   const petrinautStreams = createPetrinautStreamHost(options.cwd);
