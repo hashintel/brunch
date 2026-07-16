@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { askQuestionEcho, projectAsk } from '../../exchanges/projections/ask.js';
 import { projectPresentDigest } from '../../exchanges/projections/present-digest.js';
 import { nextDeterministicStructuredExchange } from '../../probes/deterministic-exchange-script.js';
 import type { BrunchSessionEnvelope } from '../brunch-session-envelope.js';
@@ -290,7 +291,16 @@ describe('structured exchange loop helpers', () => {
     });
   });
 
-  it('reconstructs a conversational feedback exchange from present_digest details', () => {
+  it('preserves local-versus-RPC digest terminal question parity', () => {
+    const present = projectPresentDigest({
+      exchangeId: 'digest-cycle',
+      heading: 'Review source digest',
+      body: 'Approve before mapping.',
+      digest: {
+        abstract: 'The source asks for advisory capture before settlement.',
+        analysis: 'The feedback question must retain this context.',
+      },
+    });
     const envelope: BrunchSessionEnvelope = {
       header: header as unknown as BrunchSessionEnvelope['header'],
       binding,
@@ -307,26 +317,44 @@ describe('structured exchange loop helpers', () => {
             toolCallId: 'present-digest-call-1',
             toolName: 'present_digest',
             content: [{ type: 'text', text: '# Review source digest\n\nApprove before mapping.' }],
-            details: projectPresentDigest({
-              exchangeId: 'digest-cycle',
-              heading: 'Review source digest',
-              body: 'Approve before mapping.',
-              digest: { abstract: 'The source asks for advisory capture before settlement.' },
-            }).details,
+            details: present.details,
             isError: false,
           },
         },
       ] as unknown as BrunchSessionEnvelope['entries'],
     };
 
-    expect(pendingExchangeFromEnvelope(envelope)).toMatchObject({
+    const pending = pendingExchangeFromEnvelope(envelope);
+    expect(pending).toMatchObject({
       exchangeId: 'digest-cycle',
       mode: 'text',
-      prompt: 'Review source digest',
       respondsToPresentTool: 'present_digest',
       digestAbstract: 'The source asks for advisory capture before settlement.',
       options: [],
     });
+
+    const rpcTerminal = acceptedResponseFromParams(pending!, {
+      exchangeId: 'digest-cycle',
+      answer: { text: 'The digest is accurate.' },
+    });
+    const continuation = present.details.continuation;
+    if (!continuation) throw new Error('projected digest must declare its ask continuation');
+    const localTerminal = projectAsk({
+      exchangeId: 'digest-cycle',
+      question: askQuestionEcho({ body: continuation.params.body }),
+      status: 'answered',
+      answer: 'The digest is accurate.',
+    });
+
+    expect(rpcTerminal).toMatchObject({
+      ok: true,
+      toolResultMessage: {
+        details: { question: localTerminal.question },
+      },
+    });
+    expect(JSON.stringify(localTerminal.question)).toContain(
+      'The feedback question must retain this context.',
+    );
   });
 
   it('does not reconstruct a pending digest exchange from a blank abstract carrier', () => {

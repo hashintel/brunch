@@ -52,7 +52,7 @@ edges:
 ## Commits
 
 1. [done] Split declared continuations into free-text and option-required boundary variants, retain the existing wire shape, and add negative schema coverage proving candidate and review offers cannot validate without options.
-2. Make pending digest reconstruction preserve the declared continuation question and add a local-versus-RPC terminal parity witness proving the durable question echo remains self-describing.
+2. [done] Make pending digest reconstruction preserve the declared continuation question and add a local-versus-RPC terminal parity witness proving the durable question echo remains self-describing.
 3. Canonicalize every product-synthesized terminal tuple on the registered `ask` outer identity while preserving the existing request-detail discriminants, then strengthen the provider-legality test around that separation.
 4. Serialize multi-select questionnaire answers in the question's declared option order and add a contrastive interaction-order test.
 5. Make live-ask registration race-safe against abort delivery and add a forced-interleaving regression test that proves no aborted ask remains open or answerable.

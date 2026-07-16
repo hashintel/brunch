@@ -113,11 +113,12 @@ function pendingExchangeFromStructuredPresent(
   }
 
   if ('digest' in details) {
+    if (!details.continuation) return undefined;
     return {
       exchangeId: details.exchange_id,
       lens: 'intent',
       mode: 'text',
-      prompt,
+      prompt: details.continuation.params.body,
       ...(detailsText.length > 0 ? { details: detailsText } : {}),
       options: [],
       note: { allowed: true },
