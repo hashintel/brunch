@@ -1,6 +1,4 @@
 export const BRUNCH_TOOL_ACTIVITY_LABELS: Readonly<Record<string, string>> = {
-  brunch_introspect_query: 'Querying provider introspection',
-  brunch_session_query: 'Querying session history',
   execute_agent_result: 'Running slice agent',
   execute_land_preflight: 'Checking landing readiness',
   execute_launch: 'Checking launch readiness',

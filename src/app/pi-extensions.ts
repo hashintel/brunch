@@ -19,8 +19,7 @@ import { type BrunchChromeState } from '../.pi/extensions/chrome/index.js';
 import { registerBrunchCommands, type BrunchCommandsOptions } from '../.pi/extensions/commands/index.js';
 import { registerBrunchBranchPolicyHandlers } from '../.pi/extensions/commands/policy.js';
 import { registerBrunchCompaction } from '../.pi/extensions/compaction/index.js';
-import {
-} from '../.pi/extensions/dev-mode/index.js';
+import {} from '../.pi/extensions/dev-mode/index.js';
 import {
   appendEntryContentToDebugCache,
   registerBrunchIntrospection,
@@ -98,9 +97,6 @@ import { createGitWorktreePort } from './git-worktree-port.js';
 import { registerBrunchKeybindingPolicy } from './pi-keybindings.js';
 import { createPlannerPort } from './planner-port.js';
 import { createTestRunnerPort } from './test-runner-port.js';
-
-import { createGitHostPromotionPort } from './git-host-promotion-port.js';
-import { createGitLandPort } from './git-land-port.js';
 
 export function registerBrunchAlternatives(pi: ExtensionAPI): void {
   registerBrunchAlternativesComponent(pi, (schema) => toolParameters(schema) as typeof schema);

@@ -12,9 +12,6 @@ import { composeLiveElicitorPrompt, LIVE_ELICITOR_DIRECTIVES } from '../compose-
 
 // Manifest skill locations are absolute paths (see src/agents/skills/registry.ts); normalize the
 // machine root before snapshotting so the committed golden carries no workstation-specific path.
-
-// Manifest skill locations are absolute paths (see src/agents/skills/registry.ts); normalize the
-// machine root before snapshotting so the committed golden carries no workstation-specific path.
 const packageRoot = fileURLToPath(new URL('../../../../..', import.meta.url)).replace(/\/$/u, '');
 
 const workspace = {

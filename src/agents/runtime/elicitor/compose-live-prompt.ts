@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 import { PROJECT_EXECUTION_HARNESS_TITLE } from '../../../graph/schema/nodes.js';
@@ -10,8 +11,6 @@ import { bundledAgentBodyLocation } from '../../prompts/registry.js';
 import { renderBrunchReferences } from '../../references/registry.js';
 import { renderBrunchSkills } from '../../skills/registry.js';
 import { renderLiveElicitorContext, type LiveElicitorPushedContext } from './context.js';
-
-import { createHash } from 'node:crypto';
 
 export interface LiveElicitorSessionState {
   readonly operationalMode: OperationalModeId;
