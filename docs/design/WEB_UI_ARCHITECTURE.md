@@ -103,6 +103,25 @@ intended:
 
 FE-1200 proved the lower standalone half: host inventory, explicit targets, concurrent isolation, semantic projection, and browser coverage. It did not prove the Pi TUI attachment. `shared-session-host-tracer` owns that load-bearing proof (A47-L); `shared-session-host-cutover` then closes the enumerated migration and deletes `SessionEventRelay`, `brunch.sessionEvent`, `/rpc/driver`, and TUI-owned parallel host wiring.
 
+### Regression net: what guards this while it's dormant
+
+`--mode web` is a shipped-but-not-yet-daily-driven surface. The point of this section is that a change to *core Brunch* (the Pi runtime/service factories, `WorkspaceSessionCoordinator`, `CommandExecutor`/graph authority, session projections, or the RPC registry) that silently breaks the standalone web path will still fail the suite, because these guards exercise the real production wiring and all run in the **default** `npm run test` (none are `*.slow.test.ts`):
+
+| Guard | Path it protects | What breaks it |
+| --- | --- | --- |
+| `src/dev/__tests__/standalone-web-session-host.real-entry.test.ts` | Production entry: launches `runBrunchWeb` with a faux provider; open → drive → structured `ask` → settle → reconnect | Any regression in the real `--mode web` startup, host wiring, or RPC surface |
+| `src/rpc/__tests__/standalone-web-session-host.contract.test.ts` | Target-addressed hosted-session RPC contract + refusal messages | Method-shape / target-addressing / disposition drift in `hosted-session.ts` |
+| `src/dev/__tests__/standalone-web-session-host.tui-differential.test.ts` | Web-driven vs TUI-driven JSONL semantic equivalence | Divergence between the two host paths' transcript output |
+| `src/dev/__tests__/standalone-web-session-host.concurrency.test.ts` | Two-session isolation: overlapping asks, separate JSONL, target-local failure/recovery, reconnect | Shared mutable runtime leakage across concurrent sealed Pi sessions |
+| `src/session/__tests__/live-session-host.test.ts` | `LiveSessionHost` open/attach/close, driver ownership, ask registry, disposal | Unit-level lifecycle regressions (the seam the concurrent refactor touches) |
+| `src/projections/session/__tests__/live-session-events.test.ts` | `brunch.liveSessionEvent` projection + schema | Live-event contract drift |
+| `src/web/__tests__/session-route.test.tsx` | React session route: JSONL hydration + live overlay + driver mutations | Client-side truth-model regressions |
+| `src/app/__tests__/brunch.test.ts` | `--mode web` argv routing | Entry-point wiring regressions |
+
+The transitional TUI-sidecar path (the architecture the cutover deletes) is separately guarded by `src/dev/__tests__/web-driver-streaming.*.test.ts` (command-intake, exchange-convergence, relay, reconnect, fan-out). Once `shared-session-host-cutover` retires `SessionEventRelay` / `/rpc/driver`, those guards retire with it.
+
+**Caveat for the colleague:** the heavy real-entry and concurrency guards each spin several in-process Pi `AgentSession`s plus web hosts. They pass in isolation and single-worker, but have been observed to time out under high parallel load (e.g. `--maxWorkers=4`, hitting the 8000ms `waitFor` bounds with `Agent is already processing`). Treat a failure in these two files under a loaded run as *possible load flake, not a confirmed regression* — re-run the file in isolation or single-worker to disambiguate before attributing breakage. This is a test-robustness property of the harness, not a known product defect.
+
 ## 2. Decisions reached
 
 ### 2.1 Standalone web is a primary presentation mode
