@@ -64,7 +64,7 @@ Ordered by safety; each leaves the codebase working (`npm run verify`).
 1. [done] Introduce an owned `OPEN_ASK_MODES` const tuple in the live-ask registry and
    derive `OpenAskMode` from it. No behavior or type change — the union is
    identical, now single-sourced.
-2. Derive the zod ask-mode enum from `OPEN_ASK_MODES` in the live-session
+2. [done] Derive the zod ask-mode enum from `OPEN_ASK_MODES` in the live-session
    contract, and pin the open-asks result schema to the owned `OpenAsk` via a
    `satisfies` binding so container-shape drift fails at compile time.
 3. Derive the TypeBox sidecar ask-mode union from `OPEN_ASK_MODES`. This fixes

@@ -1,6 +1,7 @@
 import * as z from 'zod';
 
 import { zAskQuestionEcho, zQuestionnaireQuestion } from '../exchanges/schemas/index.js';
+import { OPEN_ASK_MODES, type OpenAsk } from '../session/live-ask-registry.js';
 import type { LiveSessionEvent } from '../session/live-session-host.js';
 
 export const LIVE_SESSION_EVENT_METHOD = 'brunch.liveSessionEvent';
@@ -11,7 +12,7 @@ const zSessionTarget = z.object({ specId: z.number().int().min(1), sessionId: z.
 const zOpenAsk = z
   .object({
     exchangeId: z.string().min(1),
-    mode: z.enum(['text', 'single-select', 'multi-select', 'questionnaire', 'review']),
+    mode: z.enum(OPEN_ASK_MODES),
     question: z.union([
       zAskQuestionEcho.extend({ questions: z.array(zQuestionnaireQuestion).min(1) }),
       zAskQuestionEcho,
@@ -28,7 +29,9 @@ export const liveSessionEventSchema = z
   .object({ target: zSessionTarget, seq: z.number().int().nonnegative(), delta: zSessionPresentationDelta })
   .strict() satisfies z.ZodType<LiveSessionEvent>;
 
-export const openAsksResultSchema = z.object({ openAsks: z.array(zOpenAsk) }).strict();
+export const openAsksResultSchema = z.object({ openAsks: z.array(zOpenAsk) }).strict() satisfies z.ZodType<{
+  openAsks: OpenAsk[];
+}>;
 export type OpenAsksResult = z.infer<typeof openAsksResultSchema>;
 
 export interface LiveSessionEventFrame {
