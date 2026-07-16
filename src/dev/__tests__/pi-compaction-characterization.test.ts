@@ -89,9 +89,11 @@ describe('Pi native compaction lifecycle', () => {
   });
 
   it('compacts at the configured threshold and settles without a conversational retry', async () => {
+    // The faux provider derives usage from serialized prompt text and tool schemas;
+    // keep the threshold below this explicit prompt so platform tool availability cannot decide the result.
     const fixture = await createFixture({
       model: { contextWindow: 40_000, maxTokens: 20 },
-      reserveTokens: 15_000,
+      reserveTokens: 39_900,
       responses: [usageMessage('threshold response', 185), fauxAssistantMessage(SUMMARY_MARKER)],
     });
     const events: string[] = [];

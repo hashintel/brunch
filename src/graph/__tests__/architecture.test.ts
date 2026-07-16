@@ -10,65 +10,57 @@
  * SPEC: D52-L, I26-L
  */
 
-import { execSync } from 'node:child_process';
+import { globSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url));
+const sourceRoot = join(repositoryRoot, 'src');
+
+function readSource(relativePath: string): string {
+  return readFileSync(join(sourceRoot, relativePath), 'utf8');
+}
+
+function sourceFiles(subtree = ''): string[] {
+  return globSync('**/*.ts', { cwd: join(sourceRoot, subtree) })
+    .map((file) => (subtree ? `${subtree}/${file}` : file))
+    .sort();
+}
+
 describe('I26-L architectural boundary', () => {
   it('graph schema kinds is a zero-import taxonomy leaf', () => {
-    const result = execSync(`rg "^import\\s" src/graph/schema/kinds.ts || true`, {
-      cwd: process.cwd(),
-      encoding: 'utf-8',
-    });
+    const kindsSource = readSource('graph/schema/kinds.ts');
 
-    expect(result.trim()).toBe('');
+    expect(kindsSource).not.toMatch(/^import\s/mu);
   });
 
   it('db imports from graph only through graph/schema/kinds.ts', () => {
-    const result = execSync(
-      `rg --files-with-matches "from ['\\"]\\.\\./graph/" src/db/ --glob '*.ts' || true`,
-      { cwd: process.cwd(), encoding: 'utf-8' },
-    );
-
-    const forbiddenImports = result
-      .trim()
+    const graphImport = /from ['"]\.\.\/graph\//u;
+    const graphImportingFiles = sourceFiles('db').filter((file) => graphImport.test(readSource(file)));
+    const forbiddenImports = graphImportingFiles.filter((file) => file !== 'db/schema.ts');
+    const schemaImports = readSource('db/schema.ts')
       .split('\n')
-      .filter(Boolean)
-      .filter((file) => file !== 'src/db/schema.ts');
-
-    const schemaImports = execSync(`rg "from ['\\"]\\.\\./graph/" src/db/schema.ts || true`, {
-      cwd: process.cwd(),
-      encoding: 'utf-8',
-    })
-      .trim()
-      .split('\n')
-      .filter(Boolean);
+      .filter((line) => graphImport.test(line));
 
     expect(forbiddenImports).toEqual([]);
     expect(schemaImports).toEqual([expect.stringContaining('../graph/schema/kinds.js')]);
   });
 
   it('db/schema.ts does not own domain enum const arrays', () => {
-    const result = execSync(
-      `rg "export const (INTENT_KINDS|ORACLE_KINDS|DESIGN_KINDS|PLAN_KINDS|NODE_PLANES|NODE_BASES|EDGE_CATEGORIES|EDGE_STANCES|READINESS_BANDS|LENS_AFFINITIES|GAP_DISPOSITIONS|GAP_PREDICATE_KINDS)" src/db/schema.ts || true`,
-      { cwd: process.cwd(), encoding: 'utf-8' },
-    );
+    const enumConst =
+      /export const (INTENT_KINDS|ORACLE_KINDS|DESIGN_KINDS|PLAN_KINDS|NODE_PLANES|NODE_BASES|EDGE_CATEGORIES|EDGE_STANCES|READINESS_BANDS|LENS_AFFINITIES|GAP_DISPOSITIONS|GAP_PREDICATE_KINDS)/u;
 
-    expect(result.trim()).toBe('');
+    expect(readSource('db/schema.ts')).not.toMatch(enumConst);
   });
 
   it('spec writes live only in CommandExecutor', () => {
-    const result = execSync(
-      `rg --files-with-matches "\\.(insert|update|delete)\\(schema\\.specs\\)|\\.(insert|update|delete)\\(specs\\)" src/ --glob '*.ts' --glob '!*.test.*' || true`,
-      { cwd: process.cwd(), encoding: 'utf-8' },
+    const specWrite = /\.(insert|update|delete)\(schema\.specs\)|\.(insert|update|delete)\(specs\)/u;
+    const writingFiles = sourceFiles().filter(
+      (file) => !file.includes('.test.') && specWrite.test(readSource(file)),
     );
 
-    const writingFiles = result
-      .trim()
-      .split('\n')
-      .filter(Boolean)
-      .filter((f) => f !== 'src/graph/command-executor.ts');
-
-    expect(writingFiles).toEqual([]);
+    expect(writingFiles).toEqual(['graph/command-executor.ts']);
   });
 });

@@ -14,6 +14,27 @@ import { registerKeptFauxProvider, RpcSocket, waitFor } from './web-driver-strea
 
 const question = 'What proves the browser answer path?';
 
+async function waitForPresentationText(
+  rpc: RpcSocket,
+  target: { readonly specId: number; readonly sessionId: string },
+  text: string,
+  label: string,
+): Promise<void> {
+  await waitFor(
+    async () => {
+      const result = (await rpc.request('session.presentation', target)) as SessionPresentationResult;
+      return (
+        result.status === 'ready' &&
+        result.presentation.entries.some(
+          (entry) => entry.kind === 'message' && entry.role === 'assistant' && entry.text.includes(text),
+        )
+      );
+    },
+    8000,
+    label,
+  );
+}
+
 function websocketMessageToString(data: RawData): string {
   if (Array.isArray(data)) {
     return Buffer.concat(data).toString('utf8');
@@ -58,7 +79,7 @@ describe('standalone web session host production entry', () => {
     });
 
     await expect(rpc.request('session.open', target)).resolves.toMatchObject({ status: 'opened' });
-    await waitFor(() => faux.provider.getPendingResponseCount() === 0, 8000, 'startup turn');
+    await waitForPresentationText(rpc, target, 'Standalone opening turn.', 'startup turn to settle');
     faux.provider.appendResponses([
       () =>
         fauxAssistantMessage(
@@ -162,7 +183,6 @@ describe('standalone web session host production entry', () => {
     const reopenedFrameBoundary = liveFrames.length;
     await expect(reconnected.request('session.close', target)).resolves.toMatchObject({ status: 'closed' });
     await expect(reconnected.request('session.open', target)).resolves.toMatchObject({ status: 'opened' });
-    await waitFor(() => faux.provider.getPendingResponseCount() === 0, 8000, 'reopen startup turn');
     faux.provider.appendResponses([() => fauxAssistantMessage('Second open epoch complete.')]);
     await expect(
       reconnected.request('session.driveTurn', {
@@ -190,7 +210,7 @@ describe('standalone web session host production entry', () => {
     cleanups.push(() => rpc.close());
 
     await expect(rpc.request('session.open', target)).resolves.toMatchObject({ status: 'opened' });
-    await waitFor(() => faux.provider.getPendingResponseCount() === 0, 8000, 'startup turn');
+    await waitForPresentationText(rpc, target, 'Standalone opening turn.', 'startup turn to settle');
     faux.provider.appendResponses([
       () =>
         fauxAssistantMessage(
@@ -310,7 +330,7 @@ describe('standalone web session host production entry', () => {
     cleanups.push(() => rpc.close());
 
     await expect(rpc.request('session.open', target)).resolves.toMatchObject({ status: 'opened' });
-    await waitFor(() => faux.provider.getPendingResponseCount() === 0, 8000, 'startup turn');
+    await waitForPresentationText(rpc, target, 'Standalone opening turn.', 'startup turn to settle');
     faux.provider.appendResponses([
       () =>
         fauxAssistantMessage(

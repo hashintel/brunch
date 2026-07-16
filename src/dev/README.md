@@ -19,6 +19,15 @@ That command runs `scripts/dev.ts`, which calls `runDevCli()` in `src/dev/dev-cl
 
 This directory does not own product runtime behavior, public RPC contracts, graph truth, or the sealed Pi profile. It may exercise those seams; it should not silently widen them.
 
+## Interactive TUI driving
+
+The canonical priority order is:
+
+1. On an overlay-capable host, use the permanent project-local `pi-interactive-shell` package declared under root `.pi`; follow the install/health and cleanup protocol in [`../../docs/praxis/manual-testing.md`](../../docs/praxis/manual-testing.md). Use hands-free sessions so the agent can query bounded output and send text/named keys while a human watches, types to take over, and presses `Ctrl+G` to return control. Health-check import/spawn, resize, status, kill, and empty cleanup after any Pi/package/Node/OS/architecture change.
+2. In a sandbox or headless environment where socket-backed execution fails, use the project-owned `npm run tui-driver` Expect/headless-xterm workflow in that same protocol. Always `stop`, `rm`, then confirm `list` is empty.
+
+The external extension is permanent project development tooling, not a Brunch dependency or sealed-profile extension: it stays outside the shipped package manifest, `src/.pi`, and runtime dependency graph. Version 0.13.0 was witnessed on Pi 0.80.x/macOS arm64, resolving its declared `zigpty ^0.1.6` to 0.1.6 despite upstream's 0.2.1 release line. Do not add direct `zigpty` integration. The fallback lacks overlay takeover, runtime resize, and multiline/bracketed paste; its strengths are constrained-sandbox viability, VT reconstruction, waits, bounded viewports/log tails, named-key input, and deterministic teardown.
+
 ## Dev launcher quick reference
 
 ```sh
