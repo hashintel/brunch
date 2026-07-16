@@ -13,6 +13,14 @@ import type { PlanningProjection } from './planning-projection.js';
 // ceiling: constant repair bound; becomes plan-declared when plans need differentiated
 // repair budgets (same trigger as SLICE_ATTEMPT_LIMIT).
 export const PLAN_REPAIR_ROUND_LIMIT = 2;
+// ceiling: 120s per model round; revisit when live planner telemetry shows valid
+// candidates regularly need longer, or move the deadline into admitted policy.
+export const PLAN_SYNTHESIS_ROUND_TIMEOUT_MS = 120_000;
+
+export interface PlanSynthesisProgress {
+  readonly round: number;
+  readonly phase: 'started' | 'repairing' | 'admitted' | 'blocked' | 'timed_out';
+}
 
 export interface SynthesisRound {
   readonly round: number;
@@ -43,6 +51,7 @@ export async function synthesizePlan(args: {
   readonly baseRequired?: readonly CapabilityRequirement[];
   readonly planner: PlannerPort;
   readonly runtime?: PlannerRuntime;
+  readonly onProgress?: (progress: PlanSynthesisProgress) => void;
 }): Promise<SynthesizePlanResult> {
   const history: SynthesisRound[] = [];
   let findings: readonly PlanValidationFinding[] = [];
@@ -50,12 +59,21 @@ export async function synthesizePlan(args: {
 
   for (let round = 0; round <= PLAN_REPAIR_ROUND_LIMIT; round += 1) {
     args.runtime?.signal?.throwIfAborted();
-    const synthesis = await args.planner.synthesize({
-      projection: args.projection,
-      capabilityVocabulary: capabilityVocabulary(args.providers),
-      ...(round > 0 ? { findings, priorCandidate } : {}),
-      ...(args.runtime ? { runtime: args.runtime } : {}),
-    });
+    args.onProgress?.({ round, phase: 'started' });
+    const outcome = await runPlannerRound(args, round, findings, priorCandidate);
+    if (outcome.status === 'timed_out') {
+      findings = [
+        {
+          code: 'planner_timeout',
+          severity: 'error',
+          message: `Planner round ${round + 1} exceeded ${PLAN_SYNTHESIS_ROUND_TIMEOUT_MS}ms.`,
+        },
+      ];
+      history.push({ round, findings });
+      args.onProgress?.({ round, phase: 'timed_out' });
+      return { status: 'blocked', findings, history };
+    }
+    const synthesis = outcome.result;
     args.runtime?.signal?.throwIfAborted();
     if (synthesis.status === 'failed') {
       findings = [
@@ -67,6 +85,10 @@ export async function synthesizePlan(args: {
       ];
       history.push({ round, findings });
       priorCandidate = undefined;
+      args.onProgress?.({
+        round,
+        phase: round === PLAN_REPAIR_ROUND_LIMIT ? 'blocked' : 'repairing',
+      });
       continue;
     }
     priorCandidate = synthesis.candidate;
@@ -80,6 +102,10 @@ export async function synthesizePlan(args: {
         },
       ];
       history.push({ round, findings });
+      args.onProgress?.({
+        round,
+        phase: round === PLAN_REPAIR_ROUND_LIMIT ? 'blocked' : 'repairing',
+      });
       continue;
     }
     const validation = validateCandidatePlan({
@@ -92,6 +118,7 @@ export async function synthesizePlan(args: {
     findings = validation.findings;
     history.push({ round, findings });
     if (!findings.some((finding) => finding.severity === 'error')) {
+      args.onProgress?.({ round, phase: 'admitted' });
       return {
         status: 'admitted',
         candidate: parsed.candidate,
@@ -100,9 +127,62 @@ export async function synthesizePlan(args: {
         history,
       };
     }
+    args.onProgress?.({
+      round,
+      phase: round === PLAN_REPAIR_ROUND_LIMIT ? 'blocked' : 'repairing',
+    });
   }
 
   return { status: 'blocked', findings, history };
+}
+
+async function runPlannerRound(
+  args: Parameters<typeof synthesizePlan>[0],
+  round: number,
+  findings: readonly PlanValidationFinding[],
+  priorCandidate: unknown,
+): Promise<
+  | { readonly status: 'completed'; readonly result: Awaited<ReturnType<PlannerPort['synthesize']>> }
+  | { readonly status: 'timed_out' }
+> {
+  const controller = new AbortController();
+  const parentSignal = args.runtime?.signal;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  let onParentAbort: (() => void) | undefined;
+  const deadline = new Promise<{ readonly status: 'timed_out' }>((resolve, reject) => {
+    timeout = setTimeout(() => {
+      resolve({ status: 'timed_out' });
+      controller.abort(new Error('planner round timed out'));
+    }, PLAN_SYNTHESIS_ROUND_TIMEOUT_MS);
+    if (parentSignal) {
+      onParentAbort = () => {
+        controller.abort(parentSignal.reason);
+        reject(parentSignal.reason);
+      };
+      parentSignal.addEventListener('abort', onParentAbort, { once: true });
+    }
+  });
+
+  try {
+    return await Promise.race([
+      args.planner
+        .synthesize({
+          projection: args.projection,
+          capabilityVocabulary: capabilityVocabulary(args.providers),
+          ...(round > 0 ? { findings, priorCandidate } : {}),
+          runtime: {
+            ...(args.runtime?.modelRegistry ? { modelRegistry: args.runtime.modelRegistry } : {}),
+            ...(args.runtime?.model ? { model: args.runtime.model } : {}),
+            signal: controller.signal,
+          },
+        })
+        .then((result) => ({ status: 'completed' as const, result })),
+      deadline,
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+    if (parentSignal && onParentAbort) parentSignal.removeEventListener('abort', onParentAbort);
+  }
 }
 
 function lowerCandidatePlan(candidate: CandidatePlan, projection: PlanningProjection): ExecutablePlanDraft {

@@ -94,9 +94,15 @@ export interface RunSubagentInput {
   readonly ctx: SubagentRunContext;
   readonly deps: SubagentSealedDeps;
   readonly onUpdate?: (update: SubagentStreamUpdate) => void;
+  readonly outputContract?: SubagentOutputContract;
   /** Injectable SDK builders (defaults to the real ones) for testing. */
   readonly createServices?: typeof createAgentSessionServices;
   readonly createSession?: typeof createAgentSessionFromServices;
+}
+
+export interface SubagentOutputContract {
+  readonly tool: ToolDefinition;
+  readonly read: () => readonly unknown[];
 }
 
 export type SubagentStreamUpdate =
@@ -108,6 +114,7 @@ export interface SubagentResult {
   readonly agent: string;
   readonly status: 'ok' | 'error';
   readonly text: string;
+  readonly output?: unknown;
 }
 
 export type ModelResolution =
@@ -279,6 +286,16 @@ export async function runSubagent(input: RunSubagentInput): Promise<SubagentResu
   let toolPlan: SubagentToolPlan;
   try {
     toolPlan = planSubagentTools(definition, ctx, deps.injectedWorld);
+    if (input.outputContract) {
+      const outputTool = input.outputContract.tool;
+      if (toolPlan.customTools?.some((tool) => tool.name === outputTool.name)) {
+        throw new Error(`subagent output tool collides with granted tool: ${outputTool.name}`);
+      }
+      toolPlan = {
+        tools: [...(toolPlan.tools ?? []), outputTool.name],
+        customTools: [...(toolPlan.customTools ?? []), outputTool],
+      };
+    }
   } catch (error) {
     return { agent: definition.name, status: 'error', text: errorText(error) };
   }
@@ -330,6 +347,21 @@ export async function runSubagent(input: RunSubagentInput): Promise<SubagentResu
     input.onUpdate?.({ kind: 'status', message: `subagent ${definition.name} prompt started` });
     await session.prompt(task, { expandPromptTemplates: false, source: 'rpc' });
     const text = session.getLastAssistantText()?.trim() ?? '';
+    if (input.outputContract) {
+      const outputs = input.outputContract.read();
+      if (outputs.length !== 1) {
+        return {
+          agent: definition.name,
+          status: 'error',
+          text:
+            outputs.length === 0
+              ? `Subagent "${definition.name}" did not call ${input.outputContract.tool.name}.`
+              : `Subagent "${definition.name}" must call ${input.outputContract.tool.name} exactly once; received ${outputs.length} submissions.`,
+        };
+      }
+      input.onUpdate?.({ kind: 'status', message: `subagent ${definition.name} output submitted` });
+      return { agent: definition.name, status: 'ok', text, output: outputs[0] };
+    }
     if (text.length === 0) {
       return {
         agent: definition.name,

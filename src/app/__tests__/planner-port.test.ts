@@ -6,6 +6,7 @@ import { createPlannerPort } from '../planner-port.js';
 const plannerDefinition = { name: 'planner', description: 'planner', tools: ['read'] };
 
 function fakeSubagents(args: {
+  readonly candidate?: unknown;
   readonly text?: string;
   readonly status?: 'ok' | 'error';
   readonly capture?: { task?: string };
@@ -13,9 +14,22 @@ function fakeSubagents(args: {
 }): BrunchSubagentsDeps {
   return {
     definitions: new Map(args.withDefinition === false ? [] : [['planner', plannerDefinition]]) as never,
-    runSubagent: async (runArgs: { task: string }) => {
+    runSubagent: async (runArgs: {
+      task: string;
+      outputContract?: {
+        tool: { name: string; execute: (...args: unknown[]) => Promise<unknown> };
+        read: () => readonly unknown[];
+      };
+    }) => {
       if (args.capture) args.capture.task = runArgs.task;
-      return { status: args.status ?? 'ok', text: args.text ?? '{}' };
+      if (args.candidate !== undefined) {
+        await runArgs.outputContract?.tool.execute('candidate-1', args.candidate, undefined, undefined, {});
+      }
+      return {
+        status: args.status ?? 'ok',
+        text: args.text ?? '',
+        ...(args.candidate === undefined ? {} : { output: runArgs.outputContract?.read()[0] }),
+      };
     },
   } as unknown as BrunchSubagentsDeps;
 }
@@ -25,7 +39,14 @@ const runtime = { modelRegistry: {}, model: {} };
 describe('createPlannerPort', () => {
   it('renders the projection and repair findings into the sealed planner task', async () => {
     const capture: { task?: string } = {};
-    const port = createPlannerPort({ subagents: fakeSubagents({ text: '{"a":1}', capture }) });
+    const candidate = {
+      schemaVersion: 1,
+      specId: '7',
+      epics: [],
+      slices: [],
+      requiredCapabilities: [],
+    };
+    const port = createPlannerPort({ subagents: fakeSubagents({ candidate, capture }) });
 
     const result = await port.synthesize({
       projection: { specId: '7' },
@@ -34,20 +55,23 @@ describe('createPlannerPort', () => {
       runtime,
     });
 
-    expect(result).toEqual({ status: 'synthesized', candidate: '{"a":1}' });
+    expect(result).toEqual({ status: 'synthesized', candidate });
     expect(capture.task).toContain('"specId": "7"');
     expect(capture.task).toContain('dependency_cycle: Slice task-1 participates in a dependency cycle.');
     expect(capture.task).toContain('Prior candidate:');
   });
 
-  it('recovers the outermost JSON object from fenced or prose-wrapped replies', async () => {
+  it('rejects prose-only replies instead of guessing an outermost JSON object', async () => {
     const port = createPlannerPort({
       subagents: fakeSubagents({ text: 'Here is the plan:\n```json\n{"schemaVersion":1}\n```\n' }),
     });
 
     const result = await port.synthesize({ projection: {}, runtime });
 
-    expect(result).toEqual({ status: 'synthesized', candidate: '{"schemaVersion":1}' });
+    expect(result).toMatchObject({
+      status: 'failed',
+      message: expect.stringContaining('submit_candidate_plan'),
+    });
   });
 
   it('fails closed without subagent deps, planner definition, or model context', async () => {

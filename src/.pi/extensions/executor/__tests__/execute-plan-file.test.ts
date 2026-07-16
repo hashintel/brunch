@@ -63,7 +63,7 @@ function coherentCandidate() {
 }
 
 describe('createExecutePlanFileTool with a planner', () => {
-  it('propagates the Pi tool abort signal into planner synthesis', async () => {
+  it('provides planner synthesis a live round abort signal', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-plan-file-abort-'));
     const controller = new AbortController();
     let plannerSignal: AbortSignal | undefined;
@@ -79,7 +79,8 @@ describe('createExecutePlanFileTool with a planner', () => {
       modelRegistry: {},
     } as never);
 
-    expect(plannerSignal).toBe(controller.signal);
+    expect(plannerSignal).toBeDefined();
+    expect(plannerSignal?.aborted).toBe(false);
   });
 
   it('propagates planner cancellation without entering repair rounds', async () => {
@@ -128,6 +129,29 @@ describe('createExecutePlanFileTool with a planner', () => {
     expect(payload.slices[0]?.definition).toContain('Done when:');
     expect(payload.execution_contract?.requiredCapabilities[0]?.source.itemId).toBe('VV1');
     expect(payload.execution_contract?.resolvedActions.verify[0]).toMatchObject({ command: 'npm' });
+  });
+
+  it('publishes lifecycle-only planner round updates', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-plan-file-progress-'));
+    const planner: PlannerPort = {
+      synthesize: async () => ({ status: 'synthesized', candidate: coherentCandidate() }),
+    };
+    const updates: { content?: readonly { text?: string }[]; details?: unknown }[] = [];
+
+    await tool(planner).execute('t1', {}, undefined, (update) => updates.push(update as never), {
+      cwd,
+      modelRegistry: {},
+    } as never);
+
+    expect(updates.map((update) => update.content?.[0]?.text)).toEqual([
+      'execute_plan_file: planner round 1 started',
+      'execute_plan_file: planner round 1 admitted',
+    ]);
+    expect(JSON.stringify(updates)).not.toContain('Build the feature.');
+    expect(updates.map((update) => update.details)).toEqual([
+      { progress: { round: 0, phase: 'started' }, sideEffects: [] },
+      { progress: { round: 0, phase: 'admitted' }, sideEffects: [] },
+    ]);
   });
 
   it('returns the findings and writes nothing when synthesis blocks', async () => {

@@ -10,6 +10,7 @@ import type { PlanningProjection } from './planning-projection.js';
 
 export type PlanValidationFindingCode =
   | 'malformed_candidate'
+  | 'planner_timeout'
   | 'spec_id_mismatch'
   | 'duplicate_id'
   | 'epic_empty'

@@ -31,8 +31,9 @@ the committed stack; if none matches, emit a descriptive id anyway — an unsupp
 capability blocks explicitly, and that block is the correct outcome. Never satisfy a
 commitment with a supported id from a different ecosystem.
 
-Respond with exactly one JSON object (no prose, no code fences). Every field below is
-required — arrays may be empty but must be present:
+Call `submit_candidate_plan` exactly once as your final and only final action. Do not
+return the candidate as assistant text. Every field below is required — arrays may be
+empty but must be present:
 { "schemaVersion": 1, "specId": string,
   "epics": [{ "id", "title", "dependsOn": [epicId], "verificationCriterionIds": [criterionId] }],
   "slices": [{ "id", "epicId", "scopeId", "title", "goal", "doneCriteria": [string],

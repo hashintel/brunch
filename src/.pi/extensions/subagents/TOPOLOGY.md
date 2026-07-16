@@ -41,8 +41,10 @@ collapse). Frontier: PLAN.md `subagent-reconciliation`.
 ## What this is
 
 The D44-L/D91-L `subagent` tool: a main-agent-invoked, **blocking** Pi tool that
-delegates an isolated reasoning task to a sealed Pi child session and returns the
-child's last assistant message as tool-result content. Starter background agents
+delegates an isolated reasoning task to a sealed Pi child session and normally
+returns the child's last assistant message as tool-result content. Internal callers
+may instead inject one terminating output tool and require exactly one
+schema-validated submission. Starter background agents
 are read-only (`explorer`, `researcher`) or no-tools (`projector`, `reviewer`) and
 are spawnable by Specify mode because the app root supplies them in the code-owned
 delegatable set. The execute-only `worker` is registry-owned but not
@@ -82,15 +84,16 @@ Each subagent runs as an in-process SDK `AgentSession`
         │ tools         = explicit allowlist only        │  read-only graph if injected
         ╰───────────────────────────────────────────────╯
                     │ session.prompt(task)
-                    ▼ getLastAssistantText() ──▶ tool-result content
+                    ▼ assistant text or exactly-one typed submission ──▶ caller
 ```
 
 The child has no ambient conversation context, no `CommandExecutor`, and no
 Brunch RPC. Parent world access is explicit and semi-permeable: the prompt gets a
 snapshot-at-spawn block (selected workspace/spec/session plus bounded session
 digest), while selected-spec graph reads happen on demand through granted Brunch
-read tools such as `read_graph`. Its last assistant message is the only model
-context that crosses back to the parent; structured `details` remain render-only.
+read tools such as `read_graph`. Foreground delegation returns only the last
+assistant message; bounded internal ports may instead capture validated arguments
+from an explicit output-contract tool. Structured tool `details` remain render-only.
 
 ## File map
 

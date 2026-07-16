@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { PlannerPort } from '../execution-ports.js';
 import { planFilePayload } from '../plan-file.js';
 import { previewPlan } from '../plan-preview.js';
-import { synthesizePlan } from '../plan-synthesis.js';
+import { PLAN_SYNTHESIS_ROUND_TIMEOUT_MS, synthesizePlan } from '../plan-synthesis.js';
 import { coherentCandidate, projection, PYTEST_PROVIDER } from './plan-synthesis-fixture.js';
 
 const providers = [PYTEST_PROVIDER];
@@ -21,6 +21,8 @@ function scriptedPlanner(responses: readonly unknown[]): PlannerPort & { calls: 
 }
 
 describe('synthesizePlan', () => {
+  afterEach(() => vi.useRealTimers());
+
   it('admits a coherent candidate and lowers it onto the executable plan chain', async () => {
     const planner = scriptedPlanner([coherentCandidate()]);
 
@@ -114,6 +116,42 @@ describe('synthesizePlan', () => {
     if (result.status !== 'admitted') return;
     expect(result.executionContract.resolvedActions.verify.map((action) => action.capabilityId)).toEqual([
       'python.pytest',
+    ]);
+  });
+
+  it('blocks a never-settling planner at one round deadline without starting another invocation', async () => {
+    vi.useFakeTimers();
+    let calls = 0;
+    let plannerSignal: AbortSignal | undefined;
+    const progress: { round: number; phase: string }[] = [];
+    const planner: PlannerPort = {
+      synthesize: async ({ runtime }) => {
+        calls += 1;
+        plannerSignal = runtime?.signal;
+        return new Promise(() => undefined);
+      },
+    };
+
+    const pending = synthesizePlan({
+      projection,
+      detected: [],
+      providers,
+      planner,
+      onProgress: (update) => progress.push(update),
+    });
+    await vi.advanceTimersByTimeAsync(PLAN_SYNTHESIS_ROUND_TIMEOUT_MS);
+    const result = await pending;
+
+    expect(result).toMatchObject({
+      status: 'blocked',
+      findings: [{ code: 'planner_timeout' }],
+      history: [{ round: 0, findings: [{ code: 'planner_timeout' }] }],
+    });
+    expect(calls).toBe(1);
+    expect(plannerSignal?.aborted).toBe(true);
+    expect(progress).toEqual([
+      { round: 0, phase: 'started' },
+      { round: 0, phase: 'timed_out' },
     ]);
   });
 });

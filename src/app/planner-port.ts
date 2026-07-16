@@ -1,8 +1,12 @@
+import { defineTool } from '@earendil-works/pi-coding-agent';
+
+import { toolParameters } from '../.pi/extensions/shared/tool-schema.js';
 import {
   runSubagent as defaultRunSubagent,
   type BrunchSubagentsDeps,
   type SubagentRunContext,
 } from '../.pi/extensions/subagents/index.js';
+import { CandidatePlanSchema } from '../executor/candidate-plan.js';
 import type { PlannerPort } from '../executor/execution-ports.js';
 
 export interface PlannerPortOptions {
@@ -29,6 +33,7 @@ export function createPlannerPort(options: PlannerPortOptions = {}): PlannerPort
         return { status: 'failed', message: 'PlannerPort requires Pi model context to launch the planner.' };
       }
       const runSubagent = subagents.runSubagent ?? defaultRunSubagent;
+      const outputContract = createCandidateOutputContract();
       const result = await runSubagent({
         definition: planner,
         task: renderPlannerTask(args),
@@ -39,11 +44,18 @@ export function createPlannerPort(options: PlannerPortOptions = {}): PlannerPort
           signal: args.runtime.signal,
         } as SubagentRunContext,
         deps: subagents,
+        outputContract,
       });
       if (result.status === 'error') {
         return { status: 'failed', message: result.text };
       }
-      return { status: 'synthesized', candidate: extractCandidateText(result.text) };
+      if (result.output === undefined) {
+        return {
+          status: 'failed',
+          message: `Planner did not submit a candidate through ${outputContract.tool.name}.`,
+        };
+      }
+      return { status: 'synthesized', candidate: result.output };
     },
   };
 }
@@ -73,17 +85,27 @@ function renderPlannerTask(args: {
           'Prior candidate:',
           JSON.stringify(args.priorCandidate ?? null, null, 2),
           '',
-          'Return the full corrected candidate JSON.',
+          'Submit the full corrected candidate through submit_candidate_plan.',
         ]
-      : ['', 'Return the candidate JSON.']),
+      : ['', 'Submit the candidate through submit_candidate_plan.']),
   ].join('\n');
 }
 
-// Models occasionally wrap the JSON in prose or fences; recover the outermost object
-// deterministically and let parseCandidatePlan fail closed on anything else.
-function extractCandidateText(text: string): string {
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  if (start === -1 || end === -1 || end < start) return text;
-  return text.slice(start, end + 1);
+function createCandidateOutputContract() {
+  const outputs: unknown[] = [];
+  const tool = defineTool({
+    name: 'submit_candidate_plan',
+    label: 'submit_candidate_plan',
+    description: 'Submit the complete execution plan candidate exactly once.',
+    parameters: toolParameters(CandidatePlanSchema),
+    async execute(_toolCallId, params) {
+      outputs.push(params);
+      return {
+        content: [{ type: 'text' as const, text: 'Candidate plan submitted.' }],
+        details: {},
+        terminate: true,
+      };
+    },
+  });
+  return { tool, read: () => outputs };
 }

@@ -2,6 +2,54 @@
 // command surface: the planner references capability ids and graph provenance only;
 // deterministic providers resolve what may run (D130-L).
 
+import { Type } from 'typebox';
+
+export const CandidatePlanSchema = Type.Object(
+  {
+    schemaVersion: Type.Integer({ minimum: 1, maximum: 1 }),
+    specId: Type.String({ minLength: 1 }),
+    epics: Type.Array(
+      Type.Object(
+        {
+          id: Type.String({ minLength: 1 }),
+          title: Type.String({ minLength: 1 }),
+          dependsOn: Type.Array(Type.String()),
+          verificationCriterionIds: Type.Array(Type.String()),
+        },
+        { additionalProperties: false },
+      ),
+    ),
+    slices: Type.Array(
+      Type.Object(
+        {
+          id: Type.String({ minLength: 1 }),
+          epicId: Type.String({ minLength: 1 }),
+          scopeId: Type.Optional(Type.String({ minLength: 1 })),
+          title: Type.String({ minLength: 1 }),
+          goal: Type.String({ minLength: 1 }),
+          doneCriteria: Type.Array(Type.String()),
+          requirementIds: Type.Array(Type.String()),
+          criterionIds: Type.Array(Type.String()),
+          dependsOn: Type.Array(Type.String()),
+          designItemIds: Type.Array(Type.String()),
+          verificationItemIds: Type.Array(Type.String()),
+        },
+        { additionalProperties: false },
+      ),
+    ),
+    requiredCapabilities: Type.Array(
+      Type.Object(
+        {
+          id: Type.String({ minLength: 1 }),
+          sourceItemId: Type.String({ minLength: 1 }),
+        },
+        { additionalProperties: false },
+      ),
+    ),
+  },
+  { additionalProperties: false },
+);
+
 export interface CandidatePlanEpic {
   readonly id: string;
   readonly title: string;

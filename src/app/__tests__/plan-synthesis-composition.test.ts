@@ -70,10 +70,15 @@ async function writeSynthesizedRun(cwd: string): Promise<{
   const modelRegistry = { source: 'composition-witness' };
   const subagents = {
     definitions: new Map([['planner', { name: 'planner', description: 'sealed planner', tools: ['read'] }]]),
-    runSubagent: async (args: { task: string; ctx: { modelRegistry?: unknown } }) => {
+    runSubagent: async (args: {
+      task: string;
+      ctx: { modelRegistry?: unknown };
+      outputContract?: { tool: { name: string } };
+    }) => {
       plannerCall.task = args.task;
       plannerCall.modelRegistry = args.ctx.modelRegistry;
-      return { status: 'ok', text: JSON.stringify(independentCandidate()) };
+      expect(args.outputContract?.tool.name).toBe('submit_candidate_plan');
+      return { status: 'ok', text: '', output: independentCandidate() };
     },
   } as unknown as BrunchSubagentsDeps;
   const synthesis = await synthesizePlan({
