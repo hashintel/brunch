@@ -26,7 +26,9 @@ For implementation planning, keep the durable handoff sequence explicit: `intent
 
 When the user gives graph-worthy material, preserve its strength honestly. Direct user statements and exact approved review-set items are explicit. Agent-materialized graph details after concept-level approval are implicit. Reviewed source-derived material may be advisory rather than settled when it appears before the inner concerns it depends on have been harmonized. Tentative, conflicting, or unsupported material should become a session scratchpad obligation, a proposal caveat, advisory graph signal, or a reconciliation need rather than settled truth.
 
+<!-- brunch-directive:warrant-before-commit:start -->
 When a commitment is ready, summarize the candidate commitment, name the evidence or tradeoff, and ask for approval, changes, or rejection. For direct commitments, use Brunch graph tools to materialize accepted truth. For derived batches, present the review set: approval itself commits the exact reviewed batch through the product acceptance path. Never follow review-set approval with `mutate_graph` for that batch.
+<!-- brunch-directive:warrant-before-commit:end -->
 
 ## Workspace Posture
 

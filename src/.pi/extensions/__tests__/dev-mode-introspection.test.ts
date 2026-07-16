@@ -1,11 +1,12 @@
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { renderBrunchReferences } from '../../../agents/references/registry.js';
+import { renderBrunchSkills } from '../../../agents/skills/registry.js';
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
-import { BRUNCH_INTROSPECT_QUERY_TOOL } from '../dev-mode/introspect-query/index.js';
 import {
   appendEntryContentToDebugCache,
   appendOriginationRecordToDebugCache,
@@ -14,7 +15,7 @@ import {
   mirrorSystemPromptToDebugCache,
   registerBrunchIntrospection,
 } from '../dev-mode/introspection/index.js';
-import { BRUNCH_SESSION_QUERY_TOOL } from '../dev-mode/session-query/index.js';
+import { createBrunchTrajectoryRecorder } from '../dev-mode/introspection/trajectory.js';
 
 interface FakeCommandContext {
   readonly ui: { notify(message: string, type?: 'info' | 'warning' | 'error'): void };
@@ -224,6 +225,104 @@ describe('debug cache origination record mirror', () => {
   });
 });
 
+describe('bounded trajectory instrumentation', () => {
+  it('replaces a stale stream on the recorder first write', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-trajectory-events-'));
+    const file = join(cwd, '.brunch/debug/trajectory.ndjson');
+    await import('node:fs/promises').then(({ mkdir }) =>
+      mkdir(join(cwd, '.brunch/debug'), { recursive: true }),
+    );
+    await writeFile(file, '{"ordinal":99,"kind":"stale"}\n');
+    const recorder = createBrunchTrajectoryRecorder(cwd);
+    await recorder.recordMessageEnd(0, { message: { content: 'fresh' } });
+    await recorder.recordMessageEnd(0, { message: { content: 'later' } });
+    const events = (await readFile(file, 'utf8'))
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line));
+    expect(events.map(({ ordinal, kind }) => [ordinal, kind])).toEqual([
+      [1, 'assistant_message'],
+      [2, 'assistant_message'],
+    ]);
+  });
+
+  it('records ordered correlated events and strips provider secrets', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-trajectory-events-'));
+    const recorder = createBrunchTrajectoryRecorder(cwd);
+    const location = '/skills/ingest/SKILL.md';
+    const prompt = [
+      'You are the Brunch elicitor.',
+      '[Brunch live elicitor control]\n- product mode: Specify\n- active tools: read',
+      renderBrunchSkills([{ name: 'ingest', description: 'Ingest facts.', location }]),
+      renderBrunchReferences([]),
+      '[Brunch live elicitor context]\n- current spec: Example',
+    ].join('\n\n');
+    await expect(
+      recorder.recordProviderRequest(0, {
+        payload: {
+          system: [{ type: 'text', text: prompt }],
+          headers: { authorization: 'secret' },
+          messages: ['prior bounded content'],
+        },
+      }),
+    ).resolves.toBeUndefined();
+    await expect(
+      recorder.recordToolResult(0, {
+        toolName: 'read',
+        toolCallId: 'call-1',
+        input: { path: location },
+        content: [{ type: 'text', text: 'directive body' }],
+      }),
+    ).resolves.toBeUndefined();
+    await expect(
+      recorder.recordMessageEnd(0, {
+        message: { content: [{ type: 'text', text: 'assistant output' }] },
+      }),
+    ).resolves.toBeUndefined();
+
+    const trace = await readFile(join(cwd, '.brunch/debug/trajectory.ndjson'), 'utf8');
+    const events = trace
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line));
+    expect(events.map((event) => [event.ordinal, event.kind])).toEqual([
+      [1, 'provider_request'],
+      [2, 'resource_read'],
+      [3, 'assistant_message'],
+    ]);
+    expect(events[0]).toMatchObject({
+      turnIndex: 0,
+      advertised: [{ category: 'skill', name: 'ingest', location }],
+      agentBodyHashes: [expect.stringMatching(/^sha256:/u)],
+      controlHashes: [expect.stringMatching(/^sha256:/u)],
+      unknownPromptHashes: [expect.stringMatching(/^sha256:/u)],
+    });
+    expect(events[1]).toMatchObject({ turnIndex: 0, toolCallId: 'call-1' });
+    expect(trace).not.toContain('authorization');
+    expect(trace).not.toContain('secret');
+    expect(trace).not.toContain('prior bounded content');
+    expect(trace).not.toContain('directive body');
+    expect(trace).not.toContain('assistant output');
+  });
+
+  it('resets turn correlation at agent start and persists the missing-turn gap', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-trajectory-events-'));
+    const extension = createFakeExtensionApi();
+    registerBrunchIntrospection(extension.api as never, { debugCache: { cwd } });
+    await extension.emitTurnStart({ turnIndex: 7 });
+    await extension.emitBeforeAgentStart({});
+    await expect(
+      extension.emitBeforeProviderRequest({ payload: { system: 'prompt' } }),
+    ).resolves.toBeUndefined();
+    const [event] = (await readFile(join(cwd, '.brunch/debug/trajectory.ndjson'), 'utf8'))
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line));
+    expect(event).not.toHaveProperty('turnIndex');
+    expect(event.gaps).toContain('missing_turn_index');
+  });
+});
+
 describe('Brunch introspection extension', () => {
   it('records provider payloads without replacing them', async () => {
     const api = createFakeExtensionApi();
@@ -392,6 +491,8 @@ describe('Brunch introspection extension', () => {
     });
     await api.emitToolResult({
       toolName: 'read',
+      toolCallId: 'read-1',
+      input: { path: '/tmp/built-in.md' },
       content: [{ type: 'text', text: 'built-in block' }],
     });
     await api.emitToolResult({
@@ -412,41 +513,17 @@ describe('Brunch introspection extension', () => {
     );
 
     expect(productApi.commandNames).not.toContain(BRUNCH_INTROSPECTION_COMMAND);
-    expect(productApi.toolNames).not.toContain(BRUNCH_SESSION_QUERY_TOOL);
-    expect(productApi.toolNames).not.toContain(BRUNCH_INTROSPECT_QUERY_TOOL);
     expect(productApi.eventNames).not.toContain('before_provider_request');
 
     const devApi = createFakeExtensionApi();
     await createBrunchPiExtensions(brunchChromeFixture, undefined, {
       coordinator: {} as never,
-      introspection: { queryTools: true, store: createInMemoryBrunchIntrospectionStore() },
+      introspection: { store: createInMemoryBrunchIntrospectionStore() },
     })(devApi.api as never);
 
     expect(devApi.commandNames.at(-1)).toBe(BRUNCH_INTROSPECTION_COMMAND);
-    expect(devApi.toolNames.slice(-2)).toEqual([BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL]);
     expect(devApi.eventNames).toEqual(
-      expect.arrayContaining(['before_agent_start', 'before_provider_request', 'tool_result']),
-    );
-  });
-
-  it('advertises registered dev query tools only when introspection is enabled', async () => {
-    const productApi = createFakeExtensionApi();
-    await createBrunchPiExtensions(brunchChromeFixture, undefined, { coordinator: {} as never })(
-      productApi.api as never,
-    );
-    await productApi.emitBeforeAgentStart({ systemPrompt: 'base' });
-
-    const devApi = createFakeExtensionApi();
-    await createBrunchPiExtensions(brunchChromeFixture, undefined, {
-      coordinator: {} as never,
-      introspection: { queryTools: true, store: createInMemoryBrunchIntrospectionStore() },
-    })(devApi.api as never);
-    await devApi.emitBeforeAgentStart({ systemPrompt: 'base' });
-
-    expect(productApi.activeToolSets.at(-1)).not.toContain(BRUNCH_SESSION_QUERY_TOOL);
-    expect(productApi.activeToolSets.at(-1)).not.toContain(BRUNCH_INTROSPECT_QUERY_TOOL);
-    expect(devApi.activeToolSets.at(-1)).toEqual(
-      expect.arrayContaining([BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL]),
+      expect.arrayContaining(['before_agent_start', 'before_provider_request', 'tool_result', 'message_end']),
     );
   });
 });
@@ -501,6 +578,9 @@ function createFakeExtensionApi() {
     commandNames,
     toolNames,
     activeToolSets,
+    async emitTurnStart(event: unknown): Promise<unknown> {
+      return last(await Promise.all((handlers.get('turn_start') ?? []).map((handler) => handler(event, {}))));
+    },
     async emitBeforeAgentStart(event: unknown): Promise<unknown> {
       return last(
         await Promise.all((handlers.get('before_agent_start') ?? []).map((handler) => handler(event, {}))),

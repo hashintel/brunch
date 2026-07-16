@@ -60,7 +60,9 @@ function projectState(ctx: PromptingContextLike | undefined) {
 export function registerBrunchPrompting(
   pi: ExtensionAPI,
   promptContext: BrunchPromptContextProvider,
-  options: { devAllowedToolNames?: readonly string[] | undefined } = {},
+  options: {
+    directiveAblation?: 'warrant-before-commit' | undefined;
+  } = {},
 ): void {
   if (!supportsPrompting(pi)) return;
 
@@ -69,7 +71,7 @@ export function registerBrunchPrompting(
       pi,
       promptContext,
       ctx as PromptingContextLike | undefined,
-      options.devAllowedToolNames,
+      options.directiveAblation,
     );
     if (typeof (pi as Partial<ExtensionAPI>).setActiveTools === 'function') {
       pi.setActiveTools(activeTools);
@@ -87,7 +89,7 @@ export function registerBrunchPrompting(
       pi,
       promptContext,
       ctx as PromptingContextLike | undefined,
-      options.devAllowedToolNames,
+      options.directiveAblation,
     );
     if (prompt.trim().length === 0) return undefined;
 
@@ -105,13 +107,13 @@ async function composeBrunchPromptForContext(
   pi: ExtensionAPI,
   promptContext: BrunchPromptContextProvider,
   ctx: PromptingContextLike | undefined,
-  devAllowedToolNames: readonly string[] | undefined,
+  directiveAblation: 'warrant-before-commit' | undefined,
 ): Promise<{ prompt: string; activeTools: string[] }> {
   const resolvedPromptContext = await resolvePromptContext(promptContext);
   const state = projectState(ctx);
   const activeTools =
     typeof (pi as Partial<ExtensionAPI>).getAllTools === 'function'
-      ? activeToolNamesForBrunchAgentState(pi, state, devAllowedToolNames)
+      ? activeToolNamesForBrunchAgentState(pi, state)
       : [];
   const prompt = composeForegroundRuntimePrompt({
     sessionState: state,
@@ -119,6 +121,7 @@ async function composeBrunchPromptForContext(
     workspace: resolvedPromptContext.workspace,
     ...(resolvedPromptContext.context ? { context: resolvedPromptContext.context } : {}),
     activeTools,
+    ...(state.agentRole === 'elicitor' && directiveAblation ? { directiveAblation } : {}),
   }).prompt;
   return { prompt, activeTools };
 }

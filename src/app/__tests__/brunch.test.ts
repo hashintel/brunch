@@ -126,12 +126,12 @@ describe('Brunch CLI dispatch', () => {
     ).rejects.toThrow(/Unexpected Brunch argument: extra/u);
   });
 
-  it('warns on stderr when TUI-only flags are passed to a non-TUI mode, then proceeds', async () => {
+  it('warns on stderr when --no-webui is passed to a non-TUI mode, then proceeds', async () => {
     let stderr = '';
     let output = '';
 
     const code = await runBrunchCli({
-      argv: ['--mode', 'print', '--no-webui', '--dev-tools'],
+      argv: ['--mode', 'print', '--no-webui'],
       cwd: '/tmp/brunch-project',
       coordinator: coordinator(),
       stdout: (chunk) => {
@@ -145,7 +145,16 @@ describe('Brunch CLI dispatch', () => {
     expect(code).toBe(0);
     expect(output).toContain('status: select_spec');
     expect(stderr).toContain('--no-webui only applies to --mode tui');
-    expect(stderr).toContain('--dev-tools only applies to --mode tui');
+  });
+
+  it('fails loud when the retired developer-tools flag is passed', async () => {
+    await expect(
+      runBrunchCli({
+        argv: ['--dev-tools'],
+        cwd: '/tmp/brunch-project',
+        coordinator: coordinator(),
+      }),
+    ).rejects.toThrow(/Unknown option '--dev-tools'/u);
   });
 
   it('reports the standalone web URL without constructing the TUI', async () => {

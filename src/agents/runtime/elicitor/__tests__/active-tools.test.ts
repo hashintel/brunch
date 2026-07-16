@@ -16,7 +16,6 @@ describe('activeToolNamesForLiveElicitor', () => {
         'present_digest',
 
         'subagent',
-        'brunch_session_query',
       ],
     });
 
@@ -30,23 +29,5 @@ describe('activeToolNamesForLiveElicitor', () => {
 
       'subagent',
     ]);
-  });
-
-  it('admits dev query opt-in tools without opening blocked tool names', () => {
-    expect(
-      activeToolNamesForLiveElicitor({
-        registeredToolNames: ['read', 'bash', 'subagent', 'brunch_session_query'],
-        devAllowedToolNames: ['brunch_session_query'],
-      }),
-    ).toEqual(['read', 'subagent', 'brunch_session_query']);
-  });
-
-  it('does not let dev opt-ins advertise blocked tool names', () => {
-    expect(
-      activeToolNamesForLiveElicitor({
-        registeredToolNames: ['read', 'bash', 'edit', 'write', 'brunch_session_query'],
-        devAllowedToolNames: ['bash', 'edit', 'write', 'brunch_session_query'],
-      }),
-    ).toEqual(['read', 'brunch_session_query']);
   });
 });

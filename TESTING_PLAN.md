@@ -185,7 +185,7 @@ Suggested seeds/workbenches:
 
 ```sh
 npm run seed -- --seed workspace-alpha-grounding/base --reset
-npm run dev-cli -- --workspace .fixtures/workbenches/workspace-alpha-grounding --dev-tools
+npm run dev-cli -- --workspace .fixtures/workbenches/workspace-alpha-grounding
 ```
 
 Also sample at least one richer or differently-shaped seed if time allows, such as `workspace-alpha-grounding/intent-settled`, `workspace-alpha-grounding/requirements-accepted`, `workspace-alpha-grounding/advisory-pending`, `workspace-alpha-grounding/contradictory`, or a realistic project-port seed from `.fixtures/seeds/`.

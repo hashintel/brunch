@@ -4,7 +4,7 @@ SPEC decisions: D24-L, D34-L, D35-L, D37-L, D39-L, D40-L, D43-L, D44-L, D52-L, D
 
 ## Owns
 
-Pi-facing registration and adaptation only: lifecycle hooks, agent tool definitions, command/shortcut handlers, TUI chrome affordances, autocomplete wrappers, per-turn system-prompt append hooks, dev-gated read-only introspection taps, payload/session-log query tools, workspace dialogs, and Pi-specific tool result renderers. Current-state adapters require Pi's `SessionManager.getBranch()`; they do not fall back to append-order `getEntries()` (D24-L, I19-L).
+Pi-facing registration and adaptation only: lifecycle hooks, agent tool definitions, command/shortcut handlers, TUI chrome affordances, autocomplete wrappers, per-turn system-prompt append hooks, dev-gated read-only introspection taps, workspace dialogs, and Pi-specific tool result renderers. Current-state adapters require Pi's `SessionManager.getBranch()`; they do not fall back to append-order `getEntries()` (D24-L, I19-L).
 
 ## Does NOT own
 
@@ -30,10 +30,8 @@ extensions/
 │   └── reconciliation/     read/update reconciliation-need register tools
 ├── session-hooks/          session lifecycle and boundary refresh hooks
 │   └── session/
-├── dev-mode/               dev-gated observability/query tools
-│   ├── introspection/      passive provider-payload tap + /introspect command
-│   ├── introspect-query/   brunch_introspect_query over captured payloads
-│   └── session-query/      brunch_session_query over the current branch
+├── dev-mode/               dev-gated passive observability
+│   └── introspection/      passive provider-payload tap + /introspect command
 ├── web-tools/              web_fetch/web_search read tools for referenced-document acquisition
 │   └── web/
 ├── subagents/              D44-L/D91-L sealed SDK child sessions and `subagent` tool
@@ -76,11 +74,11 @@ rules:
 
 ## Provider-facing tool schemas
 
-Provider-facing tool-parameter conversion is confined to `shared/tool-schema.ts`: Zod-owned tool boundaries emit JSON Schema draft 2020-12 via `z.toJSONSchema(..., { unrepresentable: 'throw' })`, while TypeBox-owned graph/DB boundaries pass through their canonical schema. The adapter requires an object root and rejects top-level `oneOf`/`anyOf`/`allOf`; `registry.test.ts` derives the complete 52-tool registrar/catalog inventory, rejects duplicate registrations, and pins adapter provenance and these bounded provider constraints. Compatibility beyond them remains tripwired to provider/model changes or live rejection evidence.
+Provider-facing tool-parameter conversion is confined to `shared/tool-schema.ts`: Zod-owned tool boundaries emit JSON Schema draft 2020-12 via `z.toJSONSchema(..., { unrepresentable: 'throw' })`, while TypeBox-owned graph/DB boundaries pass through their canonical schema. The adapter requires an object root and rejects top-level `oneOf`/`anyOf`/`allOf`; `registry.test.ts` derives the complete 50-tool registrar/catalog inventory, rejects duplicate registrations, and pins adapter provenance and these bounded provider constraints. Compatibility beyond them remains tripwired to provider/model changes or live rejection evidence.
 
 ## Shared default tool rendering
 
-`shared/define-brunch-tool.ts` owns the canonical self-shell one-line status renderer for Brunch-authored tools that do not need family-specific transcript rendering. `shared/tool-activity-labels.ts` maps every shared-default tool name to concise user-facing activity text; the production inventory test requires exact coverage so raw provider identifiers cannot leak into receipts. Its status-transition contract is scoped to Pi's live interactive TUI lifecycle; Pi HTML export remains an unsupported built-in under D34-L and is not a compatibility surface for this adapter. The production-derived registry classifies 41 shared-default tools, 11 intentional-custom tools, and 4 Pi-owned re-registrations; custom and Pi-owned renderers remain outside the wrapper. The custom set includes the four executor tools with dedicated result renderers (`execute_orchestrate`, `execute_plan_check`, `execute_snapshot`, and `execute_status`).
+`shared/define-brunch-tool.ts` owns the canonical self-shell one-line status renderer for Brunch-authored tools that do not need family-specific transcript rendering. `shared/tool-activity-labels.ts` maps every shared-default tool name to concise user-facing activity text; the production inventory test requires exact coverage so raw provider identifiers cannot leak into receipts. Its status-transition contract is scoped to Pi's live interactive TUI lifecycle; Pi HTML export remains an unsupported built-in under D34-L and is not a compatibility surface for this adapter. The production-derived registry classifies 39 shared-default tools, 11 intentional-custom tools, and 4 Pi-owned re-registrations; custom and Pi-owned renderers remain outside the wrapper. The custom set includes the four executor tools with dedicated result renderers (`execute_orchestrate`, `execute_plan_check`, `execute_snapshot`, and `execute_status`).
 
 ## Migration notes
 

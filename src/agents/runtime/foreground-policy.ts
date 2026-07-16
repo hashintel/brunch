@@ -13,6 +13,7 @@ export interface ForegroundRuntimePromptInput {
   readonly context?: LiveElicitorPushedContext;
   readonly activeTools?: readonly string[];
   readonly agentBody?: string;
+  readonly directiveAblation?: 'warrant-before-commit';
 }
 
 export interface ForegroundRuntimePromptResult {
@@ -41,11 +42,10 @@ export function composeForegroundRuntimePrompt(
 export function activeToolNamesForForegroundState({
   sessionState,
   registeredToolNames,
-  devAllowedToolNames,
 }: ForegroundRuntimeToolPolicyInput): string[] {
   switch (sessionState.agentRole) {
     case 'elicitor':
-      return activeToolNamesForLiveElicitor({ registeredToolNames, devAllowedToolNames });
+      return activeToolNamesForLiveElicitor({ registeredToolNames });
     case 'executor':
       return activeToolNamesForExecutor({ registeredToolNames });
     default: {

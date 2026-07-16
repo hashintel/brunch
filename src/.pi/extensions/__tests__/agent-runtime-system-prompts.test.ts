@@ -11,9 +11,6 @@ import {
   registerBrunchOperationalModePolicy,
 } from '../agent-runtime/runtime/index.js';
 import { registerBrunchPrompting } from '../agent-runtime/system-prompts/index.js';
-import { BRUNCH_INTROSPECT_QUERY_TOOL } from '../dev-mode/introspect-query/index.js';
-import { createInMemoryBrunchIntrospectionStore } from '../dev-mode/introspection/index.js';
-import { BRUNCH_SESSION_QUERY_TOOL } from '../dev-mode/session-query/index.js';
 
 function runtimeEntry(state: BrunchAgentState) {
   return {
@@ -523,54 +520,6 @@ describe('Brunch prompt-pack topology', () => {
       elicitFloorTools,
       elicitFloorTools,
     ]);
-  });
-
-  it('keeps dev query tools in the prompt active-tools list when introspection is enabled', async () => {
-    const events: Record<string, Array<(event: never, ctx?: never) => unknown>> = {};
-    const toolNames: string[] = [];
-    const activeTools: string[][] = [];
-
-    await createBrunchPiExtensions(
-      {
-        cwd: '/tmp/brunch',
-        spec: { id: 1, title: 'Spec' },
-        session: { id: 'session-1', label: 'Session' },
-      },
-      undefined,
-      {
-        coordinator: {} as never,
-        graphMentionSource: { listMentionCandidates: () => [] },
-        promptContext,
-        introspection: { queryTools: true, store: createInMemoryBrunchIntrospectionStore() },
-      },
-    )({
-      on: (eventName: string, handler: (event: never, ctx?: never) => unknown) => {
-        events[eventName] ??= [];
-        events[eventName].push(handler);
-      },
-      registerTool(tool: { name: string }) {
-        toolNames.push(tool.name);
-      },
-      registerCommand() {},
-      registerShortcut() {},
-      registerMessageRenderer() {},
-      sendMessage() {},
-      getAllTools: () =>
-        [...new Set(['read', 'grep', 'bash', 'write', ...toolNames])].map((name) => ({ name })),
-      setActiveTools: (tools: string[]) => activeTools.push(tools),
-    } as never);
-
-    await Promise.all(
-      (events.before_agent_start ?? []).map((handler) =>
-        Promise.resolve(
-          handler({ systemPrompt: 'base' } as never, { sessionManager: { getBranch: () => [] } } as never),
-        ),
-      ),
-    );
-
-    expect(activeTools.at(-1)).toEqual(
-      expect.arrayContaining([BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL]),
-    );
   });
 
   it('activates live elicitor tools from the fixed policy without selected-spec gap reads', async () => {

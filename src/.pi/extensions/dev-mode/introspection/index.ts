@@ -6,6 +6,7 @@ import {
   mirrorSystemPromptToDebugCache,
   type BrunchDebugCacheOptions,
 } from './debug-cache.js';
+import { createBrunchTrajectoryRecorder } from './trajectory.js';
 
 export {
   appendEntryContentToDebugCache,
@@ -94,12 +95,17 @@ export function registerBrunchIntrospection(
 ): BrunchIntrospectionStore {
   const store = options.store ?? createInMemoryBrunchIntrospectionStore();
   const now = () => (options.clock ?? (() => new Date()))().toISOString();
-  let nextTurnOrdinal = 1;
-  let activeTurnId = `turn-${nextTurnOrdinal}`;
+  const trajectory = options.debugCache ? createBrunchTrajectoryRecorder(options.debugCache.cwd) : undefined;
+  let activeTurnIndex: number | undefined;
+  let nextCaptureTurn = 1;
+  let activeTurnId = `turn-${nextCaptureTurn}`;
 
   pi.on('before_agent_start', () => {
-    activeTurnId = `turn-${nextTurnOrdinal}`;
-    nextTurnOrdinal += 1;
+    activeTurnId = `turn-${nextCaptureTurn++}`;
+    activeTurnIndex = undefined;
+  });
+  pi.on('turn_start', (event) => {
+    activeTurnIndex = event.turnIndex;
   });
 
   pi.on('before_provider_request', async (event) => {
@@ -111,11 +117,18 @@ export function registerBrunchIntrospection(
       payload,
     });
     if (options.debugCache) await mirrorSystemPromptToDebugCache(options.debugCache, payload);
+    if (trajectory) await ignorePassiveFailure(trajectory.recordProviderRequest(activeTurnIndex, event));
     return undefined;
   });
 
   pi.on('tool_result', async (event) => {
     if (options.debugCache) await appendToolContentToDebugCache(options.debugCache, event);
+    if (trajectory) await ignorePassiveFailure(trajectory.recordToolResult(activeTurnIndex, event));
+    return undefined;
+  });
+
+  pi.on('message_end', async (event) => {
+    if (trajectory) await ignorePassiveFailure(trajectory.recordMessageEnd(activeTurnIndex, event));
     return undefined;
   });
 
@@ -167,6 +180,14 @@ function formatBrunchIntrospectionReport(
       : 'latestPassiveCapture=none',
     ...(hasSystemPromptMirror ? ['fullSystemPromptMirror=.brunch/debug/system-prompt.md'] : []),
   ].join('\n');
+}
+
+async function ignorePassiveFailure(operation: Promise<void>): Promise<void> {
+  try {
+    await operation;
+  } catch {
+    // Passive developer instrumentation must never disrupt an agent run.
+  }
 }
 
 function summarizeTopLevelFields(value: unknown): string {

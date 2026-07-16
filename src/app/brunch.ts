@@ -22,8 +22,9 @@ export interface BrunchCliOptions {
   stdin?: Readable;
   stdout?: Writable | ((chunk: string) => void);
   stderr?: Writable | ((chunk: string) => void);
-  developerTools?: boolean;
   debugMirror?: boolean;
+  /** Programmatic dev/eval-only intervention; never parsed from product CLI argv. */
+  evaluationDirectiveAblation?: 'warrant-before-commit';
   launchTui?: typeof runBrunchTui;
   launchWeb?: (
     options: Omit<BrunchWebOptions, 'createRuntime'>,
@@ -32,15 +33,7 @@ export interface BrunchCliOptions {
 
 export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<number> {
   const argv = options.argv ?? process.argv.slice(2);
-  const {
-    command,
-    help,
-    cwd: cwdFlag,
-    mode,
-    openWeb,
-    noWebui,
-    developerTools: developerToolsFlag,
-  } = parseCliArgs(argv);
+  const { command, help, cwd: cwdFlag, mode, openWeb, noWebui } = parseCliArgs(argv);
 
   if (command) throw new Error(`Unknown Brunch command: ${command}`);
 
@@ -53,13 +46,9 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
   // ignoring them when the selected mode cannot honor them.
   if (mode !== 'tui') {
     if (noWebui) writeStderr(options.stderr, `--no-webui only applies to --mode tui; ignoring.`);
-    if (developerToolsFlag !== undefined) {
-      writeStderr(options.stderr, `--dev-tools only applies to --mode tui; ignoring.`);
-    }
   }
 
   const cwd = cwdFlag ?? options.cwd ?? process.cwd();
-  const developerTools = developerToolsFlag ?? options.developerTools ?? false;
   const coordinator = options.coordinator ?? createWorkspaceSessionCoordinator({ cwd });
 
   if (mode === 'print') {
@@ -95,8 +84,10 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
       cwd,
       coordinator,
       openWeb,
-      developerTools,
       ...(options.debugMirror === undefined ? {} : { debugMirror: options.debugMirror }),
+      ...(options.evaluationDirectiveAblation
+        ? { evaluationDirectiveAblation: options.evaluationDirectiveAblation }
+        : {}),
     });
     return 0;
   }
@@ -112,7 +103,6 @@ export function formatBrunchUsage(): string {
     '  --cwd <path>         Workspace directory (default: current directory)',
     '  --mode <mode>        tui (default) | web | print | rpc',
     '  --no-webui           Do not open the web sidecar in a browser (tui mode only)',
-    '  --dev-tools          Enable developer tools (tui mode only)',
     '  -h, --help           Show this usage',
     '',
   ].join('\n');
@@ -161,12 +151,10 @@ function parseCliArgs(argv: string[]): {
   mode: string;
   openWeb: boolean;
   noWebui: boolean;
-  developerTools: boolean | undefined;
 } {
   // node:util parseArgs accepts both `--flag value` and `--flag=value` forms and
   // fails loud on unknown or malformed flags. --no-webui is a plain boolean whose
   // default is false, so there is no `=false` form to model: omit it for the default.
-  // --dev-tools is optional so programmatic callers can supply the fallback.
   const { values, positionals } = parseArgs({
     args: argv,
     allowPositionals: true,
@@ -174,7 +162,6 @@ function parseCliArgs(argv: string[]): {
       cwd: { type: 'string' },
       mode: { type: 'string', default: 'tui' },
       'no-webui': { type: 'boolean', default: false },
-      'dev-tools': { type: 'boolean' },
       help: { type: 'boolean', short: 'h', default: false },
     },
   });
@@ -188,7 +175,6 @@ function parseCliArgs(argv: string[]): {
     mode: values.mode,
     openWeb: !values['no-webui'],
     noWebui: values['no-webui'],
-    developerTools: values['dev-tools'],
   };
 }
 

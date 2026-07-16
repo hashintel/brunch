@@ -24,6 +24,8 @@ It does not own published CLI behavior, public RPC contracts, database imports f
 - TUI is the default mode.
 - Seeding is always explicit: the launcher only seeds when `--seed <name>/<variant> --reset` is present or chosen in the prompt flow.
 - `rpc`, `mutate`, and `export` are explicit subcommands for scripted reads, graph curation, and fixture export.
+- `trajectory` joins one workspace's normalized debug events to Pi's canonical active session branch and an optional bounded viewport. It requires explicit workspace/session/run inputs and replaces `<workspace>/.brunch/debug/trajectory.json` plus `trajectory-report.md` on each run (latest-wins); the report is diagnostic attribution, not product truth or a causality claim.
+- The consequential-fact evaluator and campaign remain functional but are parked and intentionally absent from the active DX surface; see [`memory/PLAN.md` §Later](../../memory/PLAN.md#later), `warrant-ablation-campaign`.
 
 Current subcommands:
 
@@ -35,6 +37,7 @@ npm run dev-cli -- --seed workspace-alpha-grounding/base --reset
 npm run dev-cli -- rpc graph.overview '{"specId":1}' --workspace .fixtures/workbenches/workspace-alpha-grounding
 npm run dev-cli -- mutate --workspace .fixtures/workbenches/workspace-alpha-grounding --params-file /tmp/mutate.json
 npm run dev-cli -- export --workspace .fixtures/workbenches/workspace-alpha-grounding --spec-id 1 --out .fixtures/seeds/custom/example.json
+npm run dev-cli -- trajectory --workspace .fixtures/workbenches/workspace-alpha-grounding --session .fixtures/workbenches/workspace-alpha-grounding/.brunch/sessions/<session>.jsonl --run-id <run-id> [--viewport <bounded-file>]
 ```
 
 ## Component Preview Harness
@@ -115,13 +118,13 @@ components are render-only with injectable `theme`/props.
   rather than through `showComponentPreview` or `previewStaticComponent`, since they need real focus and
   input routing that a static preview doesn't exercise.
 
-## Debug Mirrors And Dev Tools
+## Debug Mirrors
 
 Source runs and local dev builds automatically mirror debug artifacts into `<workspace>/.brunch/debug/`.
 
-- This automatic mirror is for passive observability only: system prompt captures, Brunch-owned tool content, origination records, and debug transcript rendering.
-- Prompt-affecting dev surfaces stay explicit. `--dev-tools` is the opt-in for dev query tools only; product subagents are not dev-gated.
-- TUI boots therefore have three states: product-default (including product subagents when registered), debug-mirror-only, and debug-mirror plus dev query tools.
+- This automatic mirror is passive observability only: system prompt captures, Brunch-owned tool content, origination records, trajectory events, and debug transcript rendering.
+- `trajectory.ndjson` is a bounded, secret-filtered diagnostic input. `trajectory-report.ts` reads it alongside `openActiveSessionBranch` and writes latest-wins `trajectory.json` + `trajectory-report.md` beside it; none of these files feed product behavior.
+- Product subagents remain governed by the operational-mode policy; no prompt-affecting developer tool channel exists.
 
 ## Graph Curation
 

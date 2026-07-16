@@ -19,17 +19,13 @@ import { type BrunchChromeState } from '../.pi/extensions/chrome/index.js';
 import { registerBrunchCommands, type BrunchCommandsOptions } from '../.pi/extensions/commands/index.js';
 import { registerBrunchBranchPolicyHandlers } from '../.pi/extensions/commands/policy.js';
 import { registerBrunchCompaction } from '../.pi/extensions/compaction/index.js';
-import {
-  BRUNCH_INTROSPECT_QUERY_TOOL,
-  registerBrunchIntrospectQuery,
-} from '../.pi/extensions/dev-mode/index.js';
+import {} from '../.pi/extensions/dev-mode/index.js';
 import {
   appendEntryContentToDebugCache,
   registerBrunchIntrospection,
   type BrunchDebugCacheOptions,
   type BrunchIntrospectionOptions,
 } from '../.pi/extensions/dev-mode/index.js';
-import { BRUNCH_SESSION_QUERY_TOOL, registerBrunchSessionQuery } from '../.pi/extensions/dev-mode/index.js';
 import { registerStructuredExchange } from '../.pi/extensions/exchanges/index.js';
 import { registerBrunchExecuteAgentResult } from '../.pi/extensions/executor/index.js';
 import { registerBrunchExecuteOrchestrate } from '../.pi/extensions/executor/index.js';
@@ -245,16 +241,6 @@ export {
   type BrunchIntrospectionStore,
   type BrunchIntrospectionTurnCapture,
 } from '../.pi/extensions/dev-mode/index.js';
-export {
-  BRUNCH_SESSION_QUERY_TOOL,
-  createBrunchSessionQueryTool,
-  registerBrunchSessionQuery,
-} from '../.pi/extensions/dev-mode/index.js';
-export {
-  BRUNCH_INTROSPECT_QUERY_TOOL,
-  createBrunchIntrospectQueryTool,
-  registerBrunchIntrospectQuery,
-} from '../.pi/extensions/dev-mode/index.js';
 
 export interface BrunchPiExtensionsOptions extends BrunchCommandsOptions {
   graphMentionSource?: GraphMentionSource;
@@ -281,7 +267,8 @@ export interface BrunchPiExtensionsOptions extends BrunchCommandsOptions {
 }
 
 export interface BrunchPiIntrospectionOptions extends BrunchIntrospectionOptions {
-  readonly queryTools?: boolean;
+  /** Dev/eval-only prompt intervention; absent from normal product launches. */
+  readonly directiveAblation?: 'warrant-before-commit';
 }
 
 type BrunchProductExtensionRegistrar = (pi: ExtensionAPI) => void | Promise<void>;
@@ -308,15 +295,7 @@ export function createBrunchPiExtensions(
     const graphMentionSource = options.graphMentionSource ?? graphMentionSourceFromDeps(options.graph);
     const promptContext = options.promptContext;
     const introspectionOptions = options.introspection;
-    // Opt-in tool channel: dev-only query tools registered but kept out of the
-    // base Specify allowlist (D40-L) are made active only when explicitly
-    // opted in here. The `subagent` tool is a product tool and is allowed by
-    // Specify-mode policy when registered with a non-empty delegatable set.
     const hasDelegatableSubagents = (options.subagents?.delegatableAgents.length ?? 0) > 0;
-    const optInAllowedToolNames = introspectionOptions?.queryTools
-      ? [BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL]
-      : [];
-    const devAllowedToolNames = optInAllowedToolNames.length > 0 ? optInAllowedToolNames : undefined;
     const entryDebugCache = introspectionOptions?.debugCache;
     const continuitySteps = options.graph
       ? [
@@ -361,7 +340,7 @@ export function createBrunchPiExtensions(
         }),
       registerBrunchBranchPolicyHandlers,
       registerBrunchCompaction,
-      (api) => registerBrunchOperationalModePolicy(api, { devAllowedToolNames }),
+      registerBrunchOperationalModePolicy,
       registerBrunchContext,
       registerBrunchWebTools,
       registerBrunchExecuteStatus,
@@ -423,7 +402,16 @@ export function createBrunchPiExtensions(
       // before mention autocomplete when prompt context is provided; its
       // position in this list is the registration order, not a splice index.
       ...(promptContext
-        ? [(api: ExtensionAPI) => registerBrunchPrompting(api, promptContext, { devAllowedToolNames })]
+        ? [
+            (api: ExtensionAPI) =>
+              registerBrunchPrompting(
+                api,
+                promptContext,
+                introspectionOptions?.directiveAblation
+                  ? { directiveAblation: introspectionOptions.directiveAblation }
+                  : {},
+              ),
+          ]
         : []),
       (api) => registerBrunchMentionAutocomplete(api, graphMentionSource),
       registerBrunchAlternatives,
@@ -450,16 +438,12 @@ export function createBrunchPiExtensions(
       ...(introspectionOptions
         ? [
             (api: ExtensionAPI) => {
-              const { store, clock, debugCache, queryTools } = introspectionOptions;
-              const introspectionStore = registerBrunchIntrospection(api, {
+              const { store, clock, debugCache } = introspectionOptions;
+              registerBrunchIntrospection(api, {
                 ...(store ? { store } : {}),
                 ...(clock ? { clock } : {}),
                 ...(debugCache ? { debugCache } : {}),
               });
-              if (queryTools) {
-                registerBrunchSessionQuery(api);
-                registerBrunchIntrospectQuery(api, { store: introspectionStore });
-              }
             },
           ]
         : []),

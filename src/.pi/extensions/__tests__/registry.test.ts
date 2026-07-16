@@ -166,9 +166,7 @@ describe('Brunch explicit Pi extension registry', () => {
         '-extensions/commands/policy.ts',
         '-extensions/compaction/index.ts',
         '-extensions/dev-mode/index.ts',
-        '-extensions/dev-mode/introspect-query/index.ts',
         '-extensions/dev-mode/introspection/index.ts',
-        '-extensions/dev-mode/session-query/index.ts',
         '-extensions/session-hooks/index.ts',
         '-extensions/session-orientation/index.ts',
         '-extensions/subagents/index.ts',
@@ -3048,13 +3046,12 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(recording.messageRenderers).toEqual(['alternatives-card-set']);
   });
 
-  it('keeps the exact 51-tool provider-facing Brunch inventory legal and adapter-derived', async () => {
+  it('keeps the exact 49-tool provider-facing Brunch inventory legal and adapter-derived', async () => {
     const registeredTools = await collectProductTools({
       graph: { specId: 42, lsn: 1, nodes: [], edges: [] },
       subagents: workerSubagents(
         async () => ({ agent: 'worker', status: 'ok', text: 'ok' }) satisfies SubagentResult,
       ),
-      introspectionQueryTools: true,
     });
     const piOwnedBuiltins = new Set(['read', 'grep', 'find', 'ls']);
     const registeredProductTools = registeredTools.filter((tool) => !piOwnedBuiltins.has(tool.name));
@@ -3089,8 +3086,6 @@ describe('Brunch explicit Pi extension registry', () => {
       'present_candidates',
       'present_digest',
       'present_review_set',
-      'brunch_introspect_query',
-      'brunch_session_query',
       'mutate_graph',
       'read_graph',
       'read_workspace_context',
@@ -3142,7 +3137,7 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(actualTools.map((tool) => tool.name).sort((left, right) => left.localeCompare(right))).toEqual(
       expectedNames,
     );
-    expect(actualTools).toHaveLength(51);
+    expect(actualTools).toHaveLength(49);
     for (const tool of actualTools) {
       expect(tool, 'every inventory member must resolve from a production registrar/catalog').toBeDefined();
       expect(hasToolParametersProvenance(tool!.parameters), `${tool!.name} adapter provenance`).toBe(true);
@@ -3461,7 +3456,6 @@ async function collectProductTools(
     gitRunPromotion?: GitRunPromotionPort;
     gitHostLand?: GitHostLandPort;
     subagents?: BrunchSubagentsDeps;
-    introspectionQueryTools?: boolean;
   } = {},
 ): Promise<RegisteredTestTool[]> {
   const registeredTools: RegisteredTestTool[] = [];
@@ -3469,7 +3463,6 @@ async function collectProductTools(
     coordinator: {} as never,
     graphMentionSource: { listMentionCandidates: () => [] },
     ...(options.subagents ? { subagents: options.subagents } : {}),
-    ...(options.introspectionQueryTools ? { introspection: { queryTools: true } } : {}),
     ...(options.gitWorktree ||
     options.gitSliceIntegration ||
     options.testRunner ||

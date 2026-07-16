@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "scenarioId": "review-diff-source-clause",
+  "publicBrief": "Review policy-copy changes and accept a reviewed set atomically.",
+  "hiddenFact": {
+    "id": "retain-source-clause-id",
+    "verbatim": "Every accepted policy rewrite must retain its source regulator clause identifier verbatim.",
+    "assistantPromptMarker": "compliance or audit constraints",
+    "revealMarker": "Every accepted policy rewrite must retain its source regulator clause identifier verbatim.",
+    "approvalMarker": "## Review: accepted"
+  },
+  "graph": {
+    "required": {
+      "kind": "constraint",
+      "title": "Retain source regulator clause identifier",
+      "bodyIncludes": "retain its source regulator clause identifier verbatim",
+      "settlement": "settled"
+    },
+    "forbidden": {
+      "bodyIncludes": "semantic-equivalent policy text may drop the source clause identifier"
+    }
+  },
+  "rubric": [
+    "consequential_fact_completeness",
+    "item_groundedness",
+    "settlement_correctness",
+    "forbidden_rival_absence",
+    "private_leakage_absence",
+    "duplicate_effect_absence"
+  ]
+}

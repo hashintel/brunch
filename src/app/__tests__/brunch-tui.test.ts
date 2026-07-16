@@ -464,7 +464,7 @@ describe('Brunch TUI boot', () => {
     ]);
   });
 
-  it('mirrors debug cache by default, gates query tools behind developerTools, and keeps subagents product-enabled', async () => {
+  it('mirrors debug cache by default and keeps subagents product-enabled', async () => {
     const workspace = readyWorkspace('/tmp/project', 'session-ready');
     const observed: unknown[] = [];
 
@@ -483,7 +483,6 @@ describe('Brunch TUI boot', () => {
         activateWorkspace: async () => workspace,
         bindCurrentSpecToReplacementSession: async () => workspace,
       },
-      developerTools: true,
       runWorkspaceDialogPreflight: async () => ({
         action: 'continue',
         specId: workspace.spec.id,
@@ -491,7 +490,7 @@ describe('Brunch TUI boot', () => {
       }),
       webSidecarRunner: async () => null,
       launchInteractive: async ({ introspection, allowSubagents }) => {
-        observed.push({ queryTools: introspection?.queryTools, allowSubagents });
+        observed.push({ introspection: Boolean(introspection), allowSubagents });
         expect(introspection?.store).toBeDefined();
         expect(introspection?.debugCache).toEqual({ cwd: '/tmp/project' });
       },
@@ -525,26 +524,25 @@ describe('Brunch TUI boot', () => {
     });
 
     expect(observed).toEqual([
-      { queryTools: true, allowSubagents: true },
+      { introspection: true, allowSubagents: true },
       { introspection: undefined, allowSubagents: true },
     ]);
   });
 
-  it('lets programmatic callers enable developer tools when argv omits the flag', async () => {
-    let observedDeveloperTools: boolean | undefined;
-
-    const code = await runBrunchCli({
-      argv: [],
-      cwd: '/tmp/project',
-      coordinator: noOpWorkspaceCoordinator('/tmp/project') as never,
-      developerTools: true,
-      launchTui: async (options) => {
-        observedDeveloperTools = options?.developerTools;
-      },
-    });
-
-    expect(code).toBe(0);
-    expect(observedDeveloperTools).toBe(true);
+  it('keeps normal app composition non-ablated and threads only an explicit evaluation ablation', async () => {
+    const observed: Array<string | undefined> = [];
+    for (const evaluationDirectiveAblation of [undefined, 'warrant-before-commit' as const]) {
+      await runBrunchCli({
+        argv: [],
+        cwd: '/tmp/project',
+        coordinator: noOpWorkspaceCoordinator('/tmp/project') as never,
+        ...(evaluationDirectiveAblation ? { evaluationDirectiveAblation } : {}),
+        launchTui: async (options) => {
+          observed.push(options?.evaluationDirectiveAblation);
+        },
+      });
+    }
+    expect(observed).toEqual([undefined, 'warrant-before-commit']);
   });
 
   it('registers TUI-gated introspection last when the launch context enables it', async () => {

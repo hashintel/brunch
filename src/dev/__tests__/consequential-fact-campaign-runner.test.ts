@@ -1,0 +1,171 @@
+import { mkdtemp, readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { describe, expect, it } from 'vitest';
+
+import {
+  assertCampaignDirectiveEvidence,
+  runConsequentialFactCampaign,
+  type CampaignRunnerPort,
+} from '../consequential-fact-campaign-runner.js';
+import { parseCampaignManifest } from '../consequential-fact-campaign.js';
+
+const runs = [
+  { runId: 'control-1', arm: 'control' },
+  { runId: 'ablated-1', arm: 'ablated' },
+  { runId: 'control-2', arm: 'control' },
+  { runId: 'ablated-2', arm: 'ablated' },
+  { runId: 'control-3', arm: 'control' },
+  { runId: 'ablated-3', arm: 'ablated' },
+] as const;
+
+describe('consequential-fact production campaign entry', () => {
+  it('drives startup, exact reveal, review gesture, collection, evaluator verdicts, and aggregate input', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'fe1208-campaign-'));
+    const actions: unknown[] = [];
+    const collected: string[] = [];
+    const retainedClassifications: unknown[] = [];
+    let screenIndex = 0;
+    const screens = [
+      'Choose a specification\n                    │ › Start a new specification                                                  │',
+      'New specification title',
+      'Is this a fresh, greenfield specification?\n› Yes',
+      'Choose how Specify mode should continue\n│  › 1. Work by decision                                                                                               ▐\n│    2. Work by example                                                                                                ▐',
+      'Prior transcript: Review set context.\nWhat problem does Review Diff solve, and who feels it most acutely?\nenter submits\n(anthropic) claude-sonnet-4-6 • medium',
+      'What compliance or audit constraints are missing?\nenter submits\n(anthropic) claude-sonnet-4-6 • medium',
+      'Which exact wording should the review preserve?\nenter submits\n(anthropic) claude-sonnet-4-6 • medium',
+      'Review set: retain the source regulator clause identifier verbatim. [ Approve ]\n(anthropic) claude-sonnet-4-6 • medium',
+      '## Review: accepted',
+    ];
+    const port: CampaignRunnerPort = {
+      async start() {
+        screenIndex = 0;
+        return { logPath: '/replay/provider-tui.log' };
+      },
+      async screen() {
+        return screens[Math.min(screenIndex++, screens.length - 1)]!;
+      },
+      async act(_name, action) {
+        actions.push(action);
+      },
+      async stop() {},
+      async collect(input) {
+        collected.push(input.runId);
+        retainedClassifications.push(input.classifications);
+        expect(input.viewport).toContain('Review: accepted');
+        return {
+          runId: input.runId,
+          valid: true,
+          atomicVerdicts: Array(6).fill('pass'),
+          classifications: input.classifications,
+        };
+      },
+    };
+    const manifest = {
+      schemaVersion: 1,
+      campaignId: 'fe1208-review-diff-v1',
+      scenarioVersion: 'review-diff-source-clause/v1',
+      actorVersion: 'review-diff-actor/v1',
+      rubricVersion: 'consequential-fact/v1',
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-6',
+      thinking: 'medium',
+      providerSeed: 'unsupported',
+      workspaceSeed: 'consequential-fact-review-diff/v1',
+      setupRecipe:
+        'fresh workspace; accept selected Start a new specification; create one empty Review Diff spec; accept greenfield default; accept selected Work by decision orientation',
+      turnBudget: 8,
+      timeoutMs: 1000,
+      tui: { cols: 120, rows: 40 },
+      directive: { id: 'warrant-before-commit', hash: 'sha256:abc' },
+      runs,
+      validityRules: ['fresh_workspace', 'provider_request_matches_arm', 'actor_reaches_terminal'],
+      replacementRule: 'mechanically invalid only; retain attempt',
+      threshold: { controlMinimumPasses: 2, ablatedMaximumPasses: 1 },
+      artifactRoot: root,
+      boundedClaim: 'Evaluator discrimination only.',
+    };
+
+    const parsedManifest = parseCampaignManifest(manifest);
+    expect(() =>
+      assertCampaignDirectiveEvidence(parsedManifest, 'control', {
+        schemaVersion: 1,
+        runId: 'control-1',
+        directives: [
+          {
+            id: 'warrant-before-commit',
+            category: 'prompt_directive',
+            state: ['absent'],
+            resource: 'sha256:abc',
+          },
+        ],
+        transcriptEffects: [],
+      }),
+    ).toThrow('mismatches campaign arm');
+
+    const aggregate = await runConsequentialFactCampaign(parsedManifest, port);
+
+    expect(collected).toEqual(runs.map((run) => run.runId));
+    expect(actions).toHaveLength(48);
+    expect(actions.slice(0, 8)).toEqual([
+      { kind: 'press_key', key: 'Enter' },
+      { kind: 'type_text', text: 'Review Diff', submit: true },
+      { kind: 'press_key', key: 'Enter' },
+      { kind: 'press_key', key: 'Enter' },
+      {
+        kind: 'type_text',
+        text: 'Review the policy-copy changes and accept the reviewed set atomically.',
+        submit: true,
+      },
+      {
+        kind: 'type_text',
+        text: 'Every accepted policy rewrite must retain its source regulator clause identifier verbatim.',
+        submit: true,
+      },
+      {
+        kind: 'type_text',
+        text: 'The set must retain each source regulator clause identifier verbatim.',
+        submit: true,
+      },
+      { kind: 'press_key', key: 'Enter' },
+    ]);
+    expect(actions.indexOf(actions.find((action) => JSON.stringify(action).includes('Every accepted')))).toBe(
+      5,
+    );
+    expect(retainedClassifications[0]).toMatchObject([
+      { turn: 1, classification: 'non_qualifying' },
+      { turn: 2, classification: 'qualifying' },
+      { turn: 3, classification: 'post_reveal_question' },
+    ]);
+    expect(actions).toContainEqual({
+      kind: 'type_text',
+      text: 'Every accepted policy rewrite must retain its source regulator clause identifier verbatim.',
+      submit: true,
+    });
+    expect(actions).toContainEqual({ kind: 'press_key', key: 'Enter' });
+    expect(aggregate.control.valid).toBe(3);
+    const aggregateInput = JSON.parse(await readFile(join(root, 'aggregate-input.json'), 'utf8')) as Array<{
+      classifications: unknown[];
+    }>;
+    expect(aggregateInput).toHaveLength(6);
+    expect(aggregateInput[0]!.classifications).toHaveLength(3);
+  });
+
+  it('fails mechanically instead of collecting when runtime screens are unknown', async () => {
+    const port: CampaignRunnerPort = {
+      async start() {
+        return { logPath: '/replay/unknown.log' };
+      },
+      async screen() {
+        return 'unrecognized';
+      },
+      async act() {},
+      async stop() {},
+      async collect() {
+        throw new Error('must not collect');
+      },
+    };
+    await expect(runConsequentialFactCampaign({ schemaVersion: 1 }, port)).rejects.toThrow('fixed campaign');
+  });
+});

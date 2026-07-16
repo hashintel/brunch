@@ -22,12 +22,21 @@ import { listTrackedSeedRefs, parseSeedRef, runSeedFixturesCli } from '../graph/
 import { WORKSPACE_DB_FILENAME } from '../graph/workspace-store.js';
 import { createRpcHandlers } from '../rpc/handlers.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
+import { writeConsequentialFactEvaluation } from './consequential-fact-evaluator.js';
 import { applyDevGraphMutation, parseDevMutateGraphParams } from './graph-curation.js';
+import { writeTrajectoryReport } from './trajectory-report.js';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const WORKBENCHES_ROOT = resolve(REPO_ROOT, '.fixtures', 'workbenches');
 
-type TopLevelCommand = 'launch' | 'rpc' | 'mutate' | 'export' | 'help';
+type TopLevelCommand =
+  | 'launch'
+  | 'rpc'
+  | 'mutate'
+  | 'export'
+  | 'trajectory'
+  | 'evaluate-consequential-fact'
+  | 'help';
 type GraphVisibility = 'all' | 'active';
 
 type LaunchSource = 'temporary' | 'new' | 'existing' | 'seed';
@@ -67,6 +76,7 @@ export interface DevCliOptions {
   readonly seedWorkspace?: typeof runSeedFixturesCli;
   readonly workbenchesRoot?: string;
   readonly createTempWorkspace?: () => Promise<string>;
+  readonly trajectoryReportWriter?: typeof writeTrajectoryReport;
 }
 
 interface LaunchFlags {
@@ -78,7 +88,7 @@ interface LaunchFlags {
   readonly mode: string;
   readonly openWeb: boolean;
   readonly noWebui: boolean;
-  readonly developerTools: boolean;
+  readonly evaluationArm: 'control' | 'ablated' | undefined;
   readonly help: boolean;
 }
 
@@ -190,6 +200,10 @@ export async function runDevCli(options: DevCliOptions = {}): Promise<number> {
         return await runMutateCommand(commandArgs, { ...options, cwd });
       case 'export':
         return await runExportCommand(commandArgs, { ...options, cwd });
+      case 'trajectory':
+        return await runTrajectoryCommand(commandArgs, { ...options, cwd });
+      case 'evaluate-consequential-fact':
+        return await runConsequentialFactCommand(commandArgs, { ...options, cwd });
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -202,7 +216,14 @@ function splitCommand(argv: readonly string[]): readonly [TopLevelCommand, reado
   const [first, ...rest] = argv;
   if (first === undefined) return ['launch', argv];
   if (first === '--help' || first === '-h' || first === 'help') return ['help', rest];
-  if (first === 'launch' || first === 'rpc' || first === 'mutate' || first === 'export') {
+  if (
+    first === 'launch' ||
+    first === 'rpc' ||
+    first === 'mutate' ||
+    first === 'export' ||
+    first === 'trajectory' ||
+    first === 'evaluate-consequential-fact'
+  ) {
     return [first, rest];
   }
   return ['launch', argv];
@@ -281,16 +302,13 @@ async function runLaunchCommand(args: readonly string[], options: DevCliOptions 
   await mkdir(workspace, { recursive: true });
 
   return await (options.launchBrunch ?? runBrunchCli)({
-    argv: [
-      '--mode',
-      flags.mode,
-      ...(!openWeb ? ['--no-webui'] : []),
-      ...(flags.developerTools ? ['--dev-tools'] : []),
-    ],
+    argv: ['--mode', flags.mode, ...(!openWeb ? ['--no-webui'] : [])],
     cwd: workspace,
     ...(options.stdin ? { stdin: options.stdin } : {}),
     ...(options.stdout ? { stdout: options.stdout } : {}),
-    developerTools: flags.developerTools,
+    ...(flags.evaluationArm === 'ablated'
+      ? { evaluationDirectiveAblation: 'warrant-before-commit' as const }
+      : {}),
   });
 }
 
@@ -450,6 +468,78 @@ async function runExportCommand(args: readonly string[], options: DevCliOptions 
   return 0;
 }
 
+async function runTrajectoryCommand(
+  args: readonly string[],
+  options: DevCliOptions & { readonly cwd: string },
+): Promise<number> {
+  const { values, positionals } = parseArgs({
+    args,
+    allowPositionals: true,
+    options: {
+      workspace: { type: 'string', short: 'w' },
+      session: { type: 'string' },
+      'run-id': { type: 'string' },
+      viewport: { type: 'string' },
+    },
+  });
+  if (positionals.length > 0) throw new DevCliUsageError(`Unexpected trajectory argument: ${positionals[0]}`);
+  if (!values.workspace || !values.session || !values['run-id']) {
+    throw new DevCliUsageError('The trajectory command requires --workspace, --session, and --run-id.');
+  }
+  const output = await (options.trajectoryReportWriter ?? writeTrajectoryReport)({
+    workspace: resolve(options.cwd, values.workspace),
+    sessionFile: resolve(options.cwd, values.session),
+    runId: values['run-id'],
+    ...(values.viewport ? { viewport: resolve(options.cwd, values.viewport) } : {}),
+  });
+  writeStdout(options.stdout ?? process.stdout, `wrote ${output}\n`);
+  return 0;
+}
+
+async function runConsequentialFactCommand(
+  args: readonly string[],
+  options: DevCliOptions & { readonly cwd: string },
+): Promise<number> {
+  const { values, positionals } = parseArgs({
+    args,
+    allowPositionals: true,
+    options: {
+      workspace: { type: 'string', short: 'w' },
+      session: { type: 'string' },
+      'spec-id': { type: 'string' },
+      scenario: { type: 'string' },
+      trajectory: { type: 'string' },
+      'run-id': { type: 'string' },
+    },
+  });
+  if (positionals.length > 0) {
+    throw new DevCliUsageError(`Unexpected evaluate-consequential-fact argument: ${positionals[0]}`);
+  }
+  if (
+    !values.workspace ||
+    !values.session ||
+    !values['spec-id'] ||
+    !values.scenario ||
+    !values.trajectory ||
+    !values['run-id']
+  ) {
+    throw new DevCliUsageError(
+      'The evaluate-consequential-fact command requires --workspace, --session, --spec-id, --scenario, --trajectory, and --run-id.',
+    );
+  }
+  const output = await writeConsequentialFactEvaluation({
+    repoRoot: REPO_ROOT,
+    workspace: resolve(options.cwd, values.workspace),
+    sessionFile: resolve(options.cwd, values.session),
+    specId: parsePositiveInteger(values['spec-id'], '--spec-id'),
+    scenarioFile: resolve(options.cwd, values.scenario),
+    trajectoryFile: resolve(options.cwd, values.trajectory),
+    runId: values['run-id'],
+  });
+  writeStdout(options.stdout ?? process.stdout, `wrote ${output}\n`);
+  return 0;
+}
+
 function parseLaunchFlags(args: readonly string[], cwd: string): LaunchFlags {
   const { values, positionals } = parseArgs({
     args,
@@ -463,7 +553,7 @@ function parseLaunchFlags(args: readonly string[], cwd: string): LaunchFlags {
       reset: { type: 'boolean', default: false },
       mode: { type: 'string', default: 'tui' },
       'no-webui': { type: 'boolean', default: false },
-      'dev-tools': { type: 'boolean', default: false },
+      'evaluation-arm': { type: 'string' },
       help: { type: 'boolean', short: 'h', default: false },
     },
   });
@@ -477,6 +567,13 @@ function parseLaunchFlags(args: readonly string[], cwd: string): LaunchFlags {
   if (values.workbench && !isSafeWorkbenchName(values.workbench)) {
     throw new DevCliUsageError(`--workbench ${SAFE_WORKBENCH_NAME_RULE}.`);
   }
+  if (
+    values['evaluation-arm'] !== undefined &&
+    values['evaluation-arm'] !== 'control' &&
+    values['evaluation-arm'] !== 'ablated'
+  ) {
+    throw new DevCliUsageError('--evaluation-arm must be control or ablated.');
+  }
   return {
     workspace,
     workbench: values.workbench,
@@ -486,7 +583,7 @@ function parseLaunchFlags(args: readonly string[], cwd: string): LaunchFlags {
     mode: values.mode,
     openWeb: !values['no-webui'],
     noWebui: values['no-webui'],
-    developerTools: values['dev-tools'],
+    evaluationArm: values['evaluation-arm'],
     help: values.help,
   };
 }
@@ -710,20 +807,21 @@ function devCliUsage(): string {
   return [
     'Usage:',
     '  npm run dev-cli',
-    '  npm run dev-cli -- --temp [--no-webui] [--dev-tools]',
-    '  npm run dev-cli -- --workbench <name> [--mode tui|print|rpc] [--no-webui] [--dev-tools]',
-    '  npm run dev-cli -- --workspace <dir> [--mode tui|print|rpc] [--no-webui] [--dev-tools]',
-    '  npm run dev-cli -- --seed <name>/<variant> --reset [--no-webui] [--dev-tools]',
-    '  npm run dev-cli -- --workbench <name> --seed <name>/<variant> --reset [--no-webui] [--dev-tools]',
+    '  npm run dev-cli -- --temp [--no-webui]',
+    '  npm run dev-cli -- --workbench <name> [--mode tui|print|rpc] [--no-webui]',
+    '  npm run dev-cli -- --workspace <dir> [--mode tui|print|rpc] [--no-webui]',
+    '  npm run dev-cli -- --seed <name>/<variant> --reset [--no-webui]',
+    '  npm run dev-cli -- --workbench <name> --seed <name>/<variant> --reset [--no-webui]',
     '  npm run dev-cli -- rpc <method> [params-json] --workspace <dir>',
     '  npm run dev-cli -- mutate --workspace <dir> (--params <json> | --params-file <file>)',
     '  npm run dev-cli -- export --workspace <dir> --spec-id <id> [--out <file>] [--show all|active]',
+    '  npm run dev-cli -- trajectory --workspace <dir> --session <file> --run-id <portable-id> [--viewport <file>]',
+    '  npm run dev-cli -- evaluate-consequential-fact --workspace <dir> --session <file> --spec-id <id> --scenario <file> --trajectory <trajectory.json> --run-id <portable-id>',
     '',
     'Notes:',
     '  - Launch-time seeding never happens implicitly; pair --seed with --reset.',
     '  - With --seed and no --workspace, the launcher derives .fixtures/workbenches/<name>/.',
     '  - Source/dev builds mirror debug artifacts automatically into <workspace>/.brunch/debug/.',
-    '  - --dev-tools opts into dev query tools; product subagents are not dev-gated.',
     '  - For direct app access, use npm run dev -- ...',
   ].join('\n');
 }

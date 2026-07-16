@@ -133,7 +133,6 @@ export interface BrunchAgentServicesOverride extends Pick<
 
 export interface BrunchTuiIntrospectionOptions {
   readonly store: BrunchIntrospectionStore;
-  readonly queryTools: boolean;
   readonly debugCache?: { readonly cwd: string };
 }
 
@@ -149,10 +148,10 @@ export interface BrunchTuiOptions {
   webSidecarRunner?: (options: BrunchWebSidecarRunnerOptions) => Promise<BrunchWebSidecar | null>;
   /** CLI-resolved browser preference; `--no-webui` supplies false. */
   openWeb?: boolean;
-  /** Opt-in prompt-affecting developer query tools. Product subagents are not dev-gated. */
-  developerTools?: boolean;
   /** Override the automatic source/dev-build debug-cache default. */
   debugMirror?: boolean;
+  /** Programmatic dev/eval-only intervention; normal product launch has no selector. */
+  evaluationDirectiveAblation?: 'warrant-before-commit';
   openBrowser?: (url: string) => Promise<void>;
   advertiseWebSidecar?: (url: string) => void;
 }
@@ -178,10 +177,13 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
   const inventory = await coordinator.inspectWorkspace();
   const decision = await chooseSpecSessionActivationDecision(inventory, options);
   const workspaceState = await coordinator.activateWorkspace(decision);
-  const developerTools = options.developerTools === true;
   const introspection = createBrunchTuiIntrospection(cwd, {
-    debugMirror: options.debugMirror ?? isBrunchDevelopmentRuntime(),
-    queryTools: developerTools,
+    debugMirror:
+      options.debugMirror ??
+      (isBrunchDevelopmentRuntime() || options.evaluationDirectiveAblation !== undefined),
+    ...(options.evaluationDirectiveAblation
+      ? { directiveAblation: options.evaluationDirectiveAblation }
+      : {}),
   });
 
   if (workspaceState.status === 'cancelled') {
@@ -233,13 +235,16 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
 
 function createBrunchTuiIntrospection(
   cwd: string,
-  options: { readonly debugMirror: boolean; readonly queryTools: boolean },
+  options: {
+    readonly debugMirror: boolean;
+    readonly directiveAblation?: 'warrant-before-commit';
+  },
 ): BrunchTuiIntrospectionOptions | undefined {
-  if (!options.debugMirror && !options.queryTools) return undefined;
+  if (!options.debugMirror && !options.directiveAblation) return undefined;
   return {
     store: createInMemoryBrunchIntrospectionStore(),
-    queryTools: options.queryTools,
     ...(options.debugMirror ? { debugCache: { cwd } } : {}),
+    ...(options.directiveAblation ? { directiveAblation: options.directiveAblation } : {}),
   };
 }
 

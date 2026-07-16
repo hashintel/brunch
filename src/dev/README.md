@@ -6,7 +6,7 @@
 npm run dev-cli
 ```
 
-That command runs `scripts/dev.ts`, which calls `runDevCli()` in `src/dev/dev-cli.ts`. `npm run dev` directly runs the product CLI from TypeScript source and accepts its ordinary flags.
+That command runs `scripts/dev.ts`, which calls `runDevCli()` in `src/dev/dev-cli.ts`. `npm run dev` directly runs the product CLI from TypeScript source and accepts its ordinary flags. See [`../../docs/praxis/comparison-runs.md`](../../docs/praxis/comparison-runs.md) for the PM seed walkthrough, deterministic-read cheatsheet, agent evidence recipe, and the distinct cross-product comparison approach.
 
 ## What lives here
 
@@ -60,6 +60,8 @@ npm run dev-cli -- mutate --workspace .fixtures/workbenches/workspace-alpha-grou
 npm run dev-cli -- export --workspace .fixtures/workbenches/workspace-alpha-grounding --spec-id 1 --out .fixtures/seeds/custom/example.json
 ```
 
+The consequential-fact evaluator and campaign remain functional but are parked and intentionally not part of the active DX; see [`memory/PLAN.md` §Later](../../memory/PLAN.md#later), `warrant-ablation-campaign`.
+
 Rules:
 
 - Seeding is explicit. Launch-time seeding requires both `--seed <name>/<variant>` and `--reset`.
@@ -74,36 +76,24 @@ Source/dev TUI launches mirror observability artifacts into the active workspace
 <workspace>/.brunch/debug/
 ├── entry-contents.md    # Brunch custom entries/custom messages appended at source seams
 ├── origination.md       # assistant-kick decision/outcome records
-├── system-prompt.md     # latest final provider system prompt after provider request
-├── tool-contents.md     # selected Brunch-owned text tool results
-└── transcript.md        # harness-generated transcript rendering, not ordinary TUI default
+├── system-prompt.md       # latest final provider system prompt after provider request
+├── tool-contents.md       # selected Brunch-owned text tool results
+├── trajectory.ndjson      # bounded normalized events used by the joiner
+├── trajectory.json        # latest joined trajectory report data
+├── trajectory-report.md   # latest joined trajectory report for reading
+└── transcript.md          # harness-generated transcript rendering, not ordinary TUI default
 ```
 
 Important trigger details:
 
-- `entry-contents.md` and `origination.md` do not require `--dev-tools`; they come from the passive debug mirror in source/dev TUI runs.
+- `entry-contents.md` and `origination.md` come from the passive debug mirror in source/dev TUI runs.
 - `system-prompt.md` requires an actual provider request. Its absence before the first turn is not by itself a failure.
 - `tool-contents.md` requires a mirrored tool result from the allowlist in `src/.pi/extensions/dev-mode/introspection/debug-cache.ts`.
 - `transcript.md` is produced by faux/tier-2 harness loops; do not expect it from every manual TUI launch.
 
 The debug mirror is observability only. Product code must never read it back as state.
 
-## What `--dev-tools` changes
-
-`--dev-tools` enables prompt-affecting developer query tools. It is not required for passive `.brunch/debug/*` mirrors, and it is not required for product subagents.
-
-Enabled only with `--dev-tools`:
-
-- `brunch_session_query` — read-only query over the current session branch. Candidate for retirement if the ordinary debug mirrors prove sufficient.
-- `brunch_introspect_query` — read-only query over captured provider payload/base prompt inputs. Candidate for retirement if the ordinary debug mirrors prove sufficient.
-
-Available in normal source/dev TUI runs without `--dev-tools`:
-
-- product `subagent` tool in Specify mode, when a delegatable set is registered
-- passive debug cache mirroring
-- `/introspect` command when the introspection extension is present through the debug mirror
-- default web sidecar browser launch (`--no-webui` suppresses automatic browser opening)
-- ordinary Brunch product tools selected by operational mode
+Normal source/dev TUI runs include product subagents when a delegatable set is registered, passive debug mirroring, the `/introspect` command, the default web sidecar browser launch (`--no-webui` suppresses it), and ordinary product tools selected by operational mode. No prompt-affecting developer tool channel exists.
 
 ## Audit checklist for recent model changes
 
@@ -111,7 +101,7 @@ Use [`../../TESTING_PLAN.md`](../../TESTING_PLAN.md) for the full demo/audit pla
 
 1. Start with a reset seed workbench:
    ```sh
-   npm run dev-cli -- --seed workspace-alpha-grounding/base --reset --dev-tools
+   npm run dev-cli -- --seed workspace-alpha-grounding/base --reset
    ```
 2. Confirm `.brunch/debug/entry-contents.md` and `.brunch/debug/origination.md` appear after activation/origination.
 3. Trigger one provider turn and confirm `.brunch/debug/system-prompt.md` includes the live Brunch skills manifest.

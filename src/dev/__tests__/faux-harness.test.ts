@@ -8,8 +8,6 @@ import { describe, expect, it } from 'vitest';
 
 import { mirrorSystemPromptToDebugCache } from '../../.pi/extensions/dev-mode/introspection/index.js';
 import {
-  BRUNCH_INTROSPECT_QUERY_TOOL,
-  BRUNCH_SESSION_QUERY_TOOL,
   chromeStateForWorkspace,
   createBrunchPiExtensions,
   createInMemoryBrunchIntrospectionStore,
@@ -122,7 +120,7 @@ describe('createBrunchFauxHarness', () => {
                 latestLsn: () => 1,
               },
             }),
-            introspection: { queryTools: true, store },
+            introspection: { store },
           },
         ),
       ],
@@ -163,8 +161,6 @@ describe('createBrunchFauxHarness', () => {
       expect(activeToolsLine).toContain('grep');
       expect(activeToolsLine).toContain('find');
       expect(activeToolsLine).toContain('ls');
-      expect(activeToolsLine).toContain(BRUNCH_SESSION_QUERY_TOOL);
-      expect(activeToolsLine).toContain(BRUNCH_INTROSPECT_QUERY_TOOL);
       expect(activeToolsLine).not.toContain('bash');
       expect(activeToolsLine).not.toContain('edit');
       expect(activeToolsLine).not.toContain('write');
