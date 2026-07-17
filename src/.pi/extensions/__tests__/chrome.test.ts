@@ -54,9 +54,26 @@ describe('Brunch chrome projection', () => {
     };
 
     expect(projectBrunchChromeFooterLines(state)).toEqual([
-      'ui: http://127.0.0.1:49152/spec/1 | model no model | thinking off | context ?%',
+      ' ui: http://127.0.0.1:49152/spec/1 | model no model | thinking off | context ?%',
       '',
     ]);
+  });
+
+  it('styles the complete one-column-inset footer with one outer dim transition', () => {
+    const lines = projectBrunchChromeFooterLines(
+      {
+        cwd: '/tmp/project',
+        spec: { id: 1, title: 'Spec One' },
+        session: { id: 'session-1' },
+        webSidecarUrl: 'http://localhost:49152',
+      },
+      undefined,
+      200,
+      roleTheme,
+    );
+
+    expect(lines[0]).toBe('dim: ui: http://localhost:49152 | model no model | thinking off | context ?%');
+    expect(lines[0]?.match(/dim:/g)).toHaveLength(1);
   });
 
   it('prefers projected runtime telemetry over launch-time runtime fallback', () => {
@@ -80,7 +97,7 @@ describe('Brunch chrome projection', () => {
       },
     }).join('\n');
 
-    expect(footer).toBe('model no model | thinking off | context ?%\n');
+    expect(footer).toBe(' model no model | thinking off | context ?%\n');
     expect(footer).not.toContain('mode [');
     expect(footer).not.toContain('role');
   });
@@ -103,7 +120,7 @@ describe('Brunch chrome projection', () => {
     };
 
     expect(projectBrunchChromeFooterLines(state)).toEqual([
-      'model claude-sonnet | thinking medium | context 50%',
+      ' model claude-sonnet | thinking medium | context 50%',
       '',
     ]);
   });
@@ -131,7 +148,7 @@ describe('Brunch chrome projection', () => {
       200,
     ).join('\n');
 
-    expect(footer).toBe('model claude-sonnet | thinking medium | context 50%\n');
+    expect(footer).toBe(' model claude-sonnet | thinking medium | context 50%\n');
     expect(footer).not.toContain('reviewer queued');
     expect(footer).not.toContain('should not echo');
   });
@@ -165,24 +182,20 @@ describe('Brunch chrome projection', () => {
     });
 
     const headerFactory = calls.find((call) => call.method === 'setHeader')?.args[0];
-    const welcomeFactory = calls.find((call) => call.method === 'setWidget')?.args[1];
     expect(headerFactory).toEqual(expect.any(Function));
-    expect(welcomeFactory).toEqual(expect.any(Function));
+    expect(calls.some((call) => call.method === 'setWidget')).toBe(false);
 
     const component = (headerFactory as (tui: unknown, theme: FakeTheme) => BrunchStartupHeader)(
       undefined,
       fakeTheme,
     );
-    const welcome = (
-      welcomeFactory as (tui: unknown, theme: FakeTheme) => { render(width: number): string[] }
-    )(undefined, fakeTheme);
     const collapsedLines = component.render(120);
-    const welcomeLines = welcome.render(120);
+    const welcomeLines = collapsedLines.slice(collapsedLines.findIndex((line) => line.includes('Welcome')));
     expect(collapsedLines.slice(0, 6)).toEqual(['', '', '', '', '', '']);
     expect(collapsedLines.join('\n')).toMatch(/brunch v1\.0\.0-alpha\.\d+/);
     expect(collapsedLines.join('\n')).toContain('built on Pi v');
     expect(collapsedLines.join('\n')).not.toContain('escape interrupt');
-    expect(collapsedLines.join('\n')).not.toContain('Welcome to Brunch.');
+    expect(collapsedLines.join('\n')).toContain('Welcome to Brunch.');
     expect(welcomeLines.join('\n')).toContain('Welcome to Brunch.');
     expect(welcomeLines.join('\n')).toContain('assistant will open with a grounded question');
     expect(welcomeLines.join('\n')).toContain(
@@ -265,7 +278,6 @@ describe('Brunch chrome projection', () => {
     expect(labels).toEqual({
       topRight: '[ Specify ]',
       bottomRight: 'Spec One',
-      belowLines: [{ text: 'http://127.0.0.1:49152/spec/1', url: 'http://127.0.0.1:49152/spec/1' }],
     });
   });
 

@@ -26,7 +26,6 @@ import {
   type BrunchStartupHeaderResumeFacts,
 } from '../../components/chrome-header.js';
 import { operationalModeBorderColor } from '../../components/mode-border-theme.js';
-import { BrunchWelcomeCard } from '../../components/welcome-card.js';
 
 export type { BrunchStartupHeaderResumeFacts } from '../../components/chrome-header.js';
 
@@ -126,9 +125,9 @@ export function projectBrunchChromeFooterLines(
   const contextPercentage = formatContextPercentage(chrome, telemetry);
   const stableFields = `model ${modelInfo} | thinking ${thinking} | context ${contextPercentage}`;
   const line = chrome.webSidecarUrl
-    ? `${formatWebUiPart(chrome.webSidecarUrl, theme)} | ${stableFields}`
+    ? `ui: ${sanitizeStatusText(chrome.webSidecarUrl)} | ${stableFields}`
     : stableFields;
-  return [truncateChromeLine(style(theme, 'dim', line), available, theme), ''];
+  return [truncateChromeLine(style(theme, 'dim', ` ${line}`), available, theme), ''];
 }
 
 function sanitizeStatusText(text: string): string {
@@ -136,10 +135,6 @@ function sanitizeStatusText(text: string): string {
     .replace(/[\r\n\t]/g, ' ')
     .replace(/ +/g, ' ')
     .trim();
-}
-
-function formatWebUiPart(url: string, theme: BrunchChromeTheme | undefined): string {
-  return style(theme, 'dim', `ui: ${sanitizeStatusText(url)}`);
 }
 
 function truncateChromeLine(text: string, width: number, theme: BrunchChromeTheme | undefined): string {
@@ -202,9 +197,6 @@ export function renderBrunchChrome(
           theme,
         ),
     );
-    if (startupHeader.decision === 'newSpec' || startupHeader.decision === 'newSession') {
-      ui.setWidget('brunch.welcome', (_tui, theme) => new BrunchWelcomeCard(theme));
-    }
   }
   ui.setTitle(formatChromeTitle(chrome));
 }
@@ -218,9 +210,6 @@ function editorLabelsFromChromeContext(
   return {
     topRight: `[ ${modeLabel} ]`,
     bottomRight: formatSpec(chrome),
-    ...(chrome.webSidecarUrl
-      ? { belowLines: [{ text: chrome.webSidecarUrl, url: chrome.webSidecarUrl }] }
-      : {}),
   };
 }
 

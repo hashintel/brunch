@@ -1,5 +1,5 @@
 import type { Theme } from '@earendil-works/pi-coding-agent';
-import { type Component, truncateToWidth } from '@earendil-works/pi-tui';
+import { Box, type Component, Text } from '@earendil-works/pi-tui';
 
 import {
   BRUNCH_MENU_SHORTCUT,
@@ -7,21 +7,34 @@ import {
   formatChromeShortcutHint,
 } from './chrome-shortcuts.js';
 
-/** Borderless, non-transcript introduction installed only for a new spec/session. */
+/** Borderless, non-transcript introduction composed into only a new spec/session header. */
 export class BrunchWelcomeCard implements Component {
-  constructor(private readonly theme: Pick<Theme, 'bold'>) {}
+  private readonly box: Box;
 
-  render(width: number): string[] {
+  constructor(theme: Pick<Theme, 'bold' | 'fg'>) {
     const lines = [
-      this.theme.bold('Welcome to Brunch.'),
+      theme.bold('Welcome to Brunch.'),
       'Co-author the specification as a local graph; the assistant will open with a grounded question.',
-      `/brunch:spec-menu or ${formatChromeShortcutHint(BRUNCH_MENU_SHORTCUT)} opens specifications and sessions.`,
-      `/brunch:mode or ${formatChromeShortcutHint(BRUNCH_MODE_PICKER_SHORTCUT)} changes Specify / Execute.`,
-      '/brunch:consult chooses how to work; /brunch:continue resumes interrupted work.',
-      'Use /model and the thinking control; low/medium thinking often works best.',
+      theme.fg(
+        'dim',
+        `/brunch:spec-menu or ${formatChromeShortcutHint(BRUNCH_MENU_SHORTCUT)} opens specifications and sessions.`,
+      ),
+      theme.fg(
+        'dim',
+        `/brunch:mode or ${formatChromeShortcutHint(BRUNCH_MODE_PICKER_SHORTCUT)} changes Specify / Execute.`,
+      ),
+      theme.fg('dim', '/brunch:consult chooses how to work; /brunch:continue resumes interrupted work.'),
+      theme.fg('dim', 'Use /model and the thinking control; low/medium thinking often works best.'),
     ];
-    return lines.map((line) => truncateToWidth(line, Math.max(20, width), '...'));
+    this.box = new Box(1, 0);
+    this.box.addChild(new Text(lines.join('\n'), 0, 0));
   }
 
-  invalidate(): void {}
+  render(width: number): string[] {
+    return this.box.render(width);
+  }
+
+  invalidate(): void {
+    this.box.invalidate();
+  }
 }

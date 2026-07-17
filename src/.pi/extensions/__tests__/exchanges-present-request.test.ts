@@ -976,12 +976,10 @@ describe('structured exchange ask tools', () => {
       undefined,
       {} as never,
     );
-    const rejectedRendered = ask.renderResult(rejected, {}, theme).render?.(80).join('\n');
-    expect(rejectedRendered).toContain('Input rejected');
-    expect(rejectedRendered).toContain('ask');
-    expect(rejectedRendered).toContain('body');
-    expect(rejectedRendered).toContain('retry');
-    expect(rejectedRendered).not.toContain('RAW_SENTINEL');
+    expect(rejected.content[0]?.text).toContain('TOOL_INPUT_INVALID');
+    expect(rejected.content[0]?.text).toContain('body');
+    expect(rejected.details).toMatchObject({ status: 'validation_failed', tool: 'ask' });
+    expect(ask.renderResult(rejected, {}, theme).render?.(80)).toEqual([]);
 
     const fallback = ask
       .renderResult(

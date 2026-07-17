@@ -431,8 +431,8 @@ describe('spec/session picker', () => {
     ).toEqual([
       'logo',
       '',
-      '[muted]█▄▄ █▀█ █ █ █▄ █ █▀▀ █ █[/muted]',
-      '[muted]█▄█ █▀▄ █▄█ █ ▀█ █▄▄ █▀█[/muted]',
+      '[text]█▄▄ █▀█ █ █ █▄ █ █▀▀ █ █[/text]',
+      '[text]█▄█ █▀▄ █▄█ █ ▀█ █▄▄ █▀█[/text]',
       '',
       '[accent]brunch v-test[/accent]',
       '[success](dev abc)[/success]',

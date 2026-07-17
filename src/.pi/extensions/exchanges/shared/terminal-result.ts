@@ -42,13 +42,11 @@ function isValidationFailureDetails(value: unknown): value is ExchangeValidation
 export function renderAskTerminalResult(result: ToolResultLike, theme?: ThemeLike) {
   const parsed = zRequestDetails.safeParse(result.details);
   let status: ExchangeTerminalStatus | undefined;
-  let tool: string | undefined;
   if (parsed.success) {
     status =
       'answered' in parsed.data ? 'answered' : 'cancelled' in parsed.data ? 'cancelled' : 'unavailable';
   } else if (isValidationFailureDetails(result.details)) {
-    status = 'input_rejected';
-    tool = result.details.tool;
+    return { render: () => [], invalidate: () => {} };
   }
   if (!status) return renderMarkdownResult(result, theme);
   return withLateralPadding(
@@ -56,7 +54,6 @@ export function renderAskTerminalResult(result: ToolResultLike, theme?: ThemeLik
       status,
       body: textFromToolContent(result),
       ...(theme ? { theme } : {}),
-      ...(tool ? { tool } : {}),
     }),
   );
 }

@@ -4,7 +4,7 @@ SPEC decisions: D35-L (chrome is a Brunch projection wrapper over Pi UI primitiv
 
 ## Owns
 
-Projection of canonical workspace/session facts into Pi's TUI shell surfaces — stable telemetry footer, terminal title, startup identity header, one-time welcome widget, and the persistent input editor — through Brunch-owned chrome installers (`renderBrunchChrome` plus `registerBrunchChrome`'s editor factory). The projection is stateless: it holds no mutable chrome state and derives every surface from the `BrunchChromeState` value it is handed plus render-time telemetry.
+Projection of canonical workspace/session facts into Pi's TUI shell surfaces — stable telemetry footer, terminal title, startup identity header with one-time welcome content, and the persistent input editor — through Brunch-owned chrome installers (`renderBrunchChrome` plus `registerBrunchChrome`'s editor factory). The projection is stateless: it holds no mutable chrome state and derives every surface from the `BrunchChromeState` value it is handed plus render-time telemetry.
 
 ## Does NOT own
 
@@ -23,10 +23,10 @@ Projection of canonical workspace/session facts into Pi's TUI shell surfaces —
 
 ## Render surfaces
 
-- **Input editor**: `registerBrunchChrome` installs `BrunchEditorComponent` through `ctx.ui.setEditorComponent` on `session_start` when present. Its labels and border color are sampled fresh on every render: top-right operational mode and mode-keyed border role from `projectBrunchAgentState(ctx.sessionManager.getBranch())`, bottom-right spec title from `BrunchChromeState`, and a below-line sidecar URL when available.
-- **Footer** (`projectBrunchChromeFooterLines`): one dim stable line containing optional `ui: <sidecarUrl> |` followed by `model … | thinking … | context …`, then a trailing blank line. Extension statuses and working messages remain outside these stable fields; supplied telemetry is rendered without changing model-resolution ownership.
+- **Input editor**: `registerBrunchChrome` installs `BrunchEditorComponent` through `ctx.ui.setEditorComponent` on `session_start` when present. Its labels and border color are sampled fresh on every render: top-right operational mode and mode-keyed border role from `projectBrunchAgentState(ctx.sessionManager.getBranch())` and bottom-right spec title from `BrunchChromeState`. The editor has no below-box sidecar line.
+- **Footer** (`projectBrunchChromeFooterLines`): one one-column-inset stable line containing optional `ui: <sidecarUrl> |` followed by `model … | thinking … | context …`, styled once as a complete dim line, then a trailing blank line. Extension statuses and working messages remain outside these stable fields; supplied telemetry is rendered without changing model-resolution ownership.
 - **Title** (`formatChromeTitle`): `brunch — <project>` or `brunch — <project> · <spec>`.
-- **Startup identity + welcome**: `BrunchStartupHeader` owns identity/sidecar chrome only. New spec/session activation additionally installs one borderless `BrunchWelcomeCard` widget; resumed, switched, and reloaded sessions install neither welcome widget nor transcript entry.
+- **Startup identity + welcome**: `BrunchStartupHeader` owns identity/sidecar chrome and composes `BrunchWelcomeCard` immediately afterward only for new spec/session activation. Welcome uses a standard transparent one-column-padded Box and remains header-backed rather than widget- or transcript-backed; resumed, switched, and reloaded sessions render no welcome.
 
 ## Telemetry & refresh
 

@@ -27,7 +27,7 @@ components/
 │                                D121-L tool-parameter adapter so the component never imports extensions
 ├── brunch-editor.ts             bordered `CustomEditor` wrapper for Brunch's persistent input editor;
 │                                caller-injected labels/color keep runtime/session state out of the component
-├── brunch-identity.ts
+├── brunch-identity.ts           startup product identity; compact wordmark uses terminal-default text
 ├── brunch-version.ts
 ├── cards.ts
 ├── choice-row.ts              shared described-option row projection and rendered-row accumulator for picker/menu affordances
@@ -76,7 +76,8 @@ components/
 │   ├── segment-track.ts
 │   ├── style-palette.ts
 │   └── style-lab-component.ts   reference-only demo Component (previewable via npm run dev:components -- tui-lab; no production call site)
-├── welcome-card.ts              borderless new-session/spec introduction installed as a non-transcript widget
+├── welcome-card.ts              standard transparent one-column-padded Box composed into the non-transcript
+│                                new-session/spec startup header; command/control notes use the dim role
 ├── workspace-dialog.ts          public entry re-exporting the folder below
 └── workspace-dialog/            fractal sub-tree for the workspace/session picker
     ├── assets/                  logo assets colocated with the dialog

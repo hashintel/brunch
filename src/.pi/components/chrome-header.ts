@@ -3,6 +3,7 @@ import { type Component, truncateToWidth } from '@earendil-works/pi-tui';
 
 import { formatBrunchProductIdentity, readBrunchAnsiLogo } from './brunch-identity.js';
 import { resolveBrunchVersion } from './brunch-version.js';
+import { BrunchWelcomeCard } from './welcome-card.js';
 import { supportsTruecolor } from './workspace-dialog/component.js';
 
 export interface BrunchStartupHeaderResumeFacts {
@@ -52,7 +53,9 @@ export class BrunchStartupHeader implements Component {
   }
 
   private collapsedLines(): string[] {
-    return [...this.topPaddingLines(), ...this.identityLines(), '', this.webOrExpandHelpLine()];
+    const identity = [...this.topPaddingLines(), ...this.identityLines(), '', this.webOrExpandHelpLine()];
+    if (this.facts.decision !== 'newSpec' && this.facts.decision !== 'newSession') return identity;
+    return [...identity, '', ...new BrunchWelcomeCard(this.theme).render(10_000)];
   }
 
   private topPaddingLines(): string[] {
