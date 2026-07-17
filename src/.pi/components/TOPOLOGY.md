@@ -47,10 +47,11 @@ components/
 │                                owned by agents/contexts/exchanges
 ├── exchange-decision-picker.ts bordered single-decision exchange response picker
 ├── exchange-questionnaire.ts   one-terminal ordered questionnaire with Back/Next/final Submit
-├── exchange-review-set-result.ts details-backed `present_review_set` transcript
-│                                renderer; presents proposed node/edge drafts, graph codes, and
-│                                each item's settlement in populated-only Terms/concern groups
-│                                with canonical relative order (D27-L/D131-L)
+├── exchange-review-set-result.ts details-backed `present_review_set` transcript renderer;
+│                                proposed draft-host edges remain refs rows in populated-only
+│                                Terms/concern groups with canonical relative order; existing-host
+│                                edges render exactly once in a trailing populated-only Connections
+│                                section; every edge shows its own settlement (D27-L/D131-L)
 ├── exchange-terminal-result.ts render-only ask terminal status rail wrapped around
 │                                formatter-owned canonical Markdown
 ├── exchange-markdown-body.ts   shared structured-exchange markdown body projection/theme used by
