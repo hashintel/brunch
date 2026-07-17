@@ -6,8 +6,12 @@ import { join } from 'node:path';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
-import type { BrunchTrajectoryEvent } from '../../.pi/extensions/dev-mode/introspection/trajectory.js';
-import { renderBrunchSkills } from '../../agents/skills/registry.js';
+import {
+  createBrunchTrajectoryRecorder,
+  type BrunchTrajectoryEvent,
+} from '../../.pi/extensions/dev-mode/introspection/trajectory.js';
+import { composeLiveElicitorPrompt } from '../../agents/runtime/elicitor/compose-live-prompt.js';
+import { loadLiveBrunchSkillManifestEntries, renderBrunchSkills } from '../../agents/skills/registry.js';
 import {
   parseTrajectoryReport,
   projectTrajectoryReport,
@@ -36,6 +40,54 @@ function assistant(text: string) {
 }
 
 describe('joined trajectory report', () => {
+  it('projects an advertised production resource read recorded from a composed prompt', async () => {
+    const requiredResource = {
+      id: 'ingest',
+      category: 'skill',
+      state: ['advertised', 'read', 'provider_visible'],
+    } as const;
+    const workspace = await mkdtemp(join(tmpdir(), 'brunch-production-trajectory-'));
+    const manager = SessionManager.create(workspace, join(workspace, '.brunch/sessions'));
+    manager.appendMessage(assistant('production trajectory effect'));
+    const recorder = createBrunchTrajectoryRecorder(workspace);
+    const prompt = composeLiveElicitorPrompt({
+      sessionState: { operationalMode: 'specify', agentRole: 'elicitor' },
+      spec: { id: 1, name: 'Recorder characterization' },
+      workspace: { cwd: workspace },
+      activeTools: ['read'],
+    }).prompt;
+    const ingest = loadLiveBrunchSkillManifestEntries().find((entry) => entry.name === 'ingest')!;
+    const resourceBody = await readFile(ingest.location, 'utf8');
+
+    await recorder.recordProviderRequest(0, { payload: { system: prompt } });
+    await recorder.recordToolResult(0, {
+      toolName: 'read',
+      toolCallId: 'read-ingest',
+      input: { path: ingest.location },
+      content: [{ type: 'text', text: resourceBody }],
+    });
+    await recorder.recordProviderRequest(0, {
+      payload: { system: prompt, messages: [{ role: 'user', content: resourceBody }] },
+    });
+    await recorder.recordMessageEnd(0, { message: { content: 'production trajectory effect' } });
+
+    const persistedEvents = await readEvents(join(workspace, '.brunch/debug/trajectory.ndjson'));
+    const report = await projectTrajectoryReport(
+      {
+        workspace,
+        sessionFile: manager.getSessionFile()!,
+        runId: 'production-recorder-characterization',
+      },
+      persistedEvents,
+    );
+
+    expect(report.directives).toContainEqual({ ...requiredResource, resource: ingest.location });
+    expect(report.transcriptEffects).toContainEqual({
+      role: 'assistant',
+      text: 'production trajectory effect',
+    });
+  });
+
   it('runtime-validates landed report artifacts', () => {
     expect(() =>
       parseTrajectoryReport({ schemaVersion: 1, runId: 'run-1', directives: [], transcriptEffects: [] }),
