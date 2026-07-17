@@ -65,9 +65,19 @@ Read `<workspace>/.brunch/debug/trajectory-report.md` and retain `trajectory.jso
 
 ## Agent-as-user cross-product comparison
 
-Cross-product comparison starts from a **mission**, not a Brunch seed. Give Brunch, Claude Code, and Cursor the same product-neutral public packet, controller-only reveal policy, effort budget, and ready-document condition. A fresh Pi actor drives each live interface; opaque competitor internals never count against a target.
+Cross-product comparison starts from a **mission**, not a Brunch seed. There are two deliberately different procedures.
+
+### Approachable operator workflow
+
+Invoke `/compare-specs` in one trusted top-level project Pi session. That session alone receives the private saved mission, acts as the simulated user, and drives selected comparison harnesses sequentially. It opens exactly one direct `interactive_shell` harness at a time at normal host dimensions, sends only approved minimal framing plus natural mission-grounded messages, and fully cleans up that harness before starting another. All choices and approvals work through ordinary typed text.
+
+This path favors an understandable operator experience. Harness order and the shared top-level actor context are disclosed; it does **not** claim fresh-per-harness actor isolation, matched budgets, blinding, or structured adjudication. Future retained setup snapshots use `harness-setup.md`; historical `contender-setup.md` files remain immutable.
+
+Use the rigorous procedure below when those stronger controls matter.
 
 ### Rigorous campaign procedure
+
+The rigorous FE-1210 recipe gives Brunch, Claude Code, and Cursor the same product-neutral public packet, controller-only reveal policy, effort budget, and ready-document condition. A fresh Pi actor drives each live interface; opaque competitor internals never count against a target.
 
 The round-one materials remain useful for focused improvement and regression studies that need frozen inputs, matched budgets, explicit validity rules, and structured human judgment. The prepared Dora-adjudication and second-operator shells in the historical run were not completed and are not required closure evidence; they remain untouched as part of the retained bundle.
 
