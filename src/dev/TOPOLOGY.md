@@ -23,7 +23,7 @@ It does not own published CLI behavior, public RPC contracts, database imports f
 - `--temp` creates an auto-named directory under the system temp directory; `--workbench <name>` resolves under `.fixtures/workbenches/`; `--workspace <path>` accepts an arbitrary path.
 - TUI is the default mode.
 - Seeding is always explicit: the launcher only seeds when `--seed <name>/<variant> --reset` is present or chosen in the prompt flow.
-- `rpc`, `mutate`, `export`, and `document-export` are explicit subcommands for scripted reads, graph curation, fixture export, and read-only spec Markdown rendering from active graph state.
+- `rpc`, `mutate`, `export`, and `document-export` are explicit subcommands for scripted reads, graph curation, fixture export, and read-only spec Markdown rendering from active settled graph state. Fixture export alone accepts `--show all|active`; document export has no visibility override.
 - `trajectory` joins one workspace's normalized debug events to Pi's canonical active session branch and an optional bounded viewport. It requires explicit workspace/session/run inputs and replaces `<workspace>/.brunch/debug/trajectory.json` plus `trajectory-report.md` on each run (latest-wins); the report is diagnostic attribution, not product truth or a causality claim.
 - The consequential-fact evaluator and campaign remain functional but are parked and intentionally absent from the active DX surface; see [`memory/PLAN.md` §Later](../../memory/PLAN.md#later), `warrant-ablation-campaign`.
 
