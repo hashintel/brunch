@@ -116,7 +116,7 @@ Tracer-complete is not load-bearing. Posture ranks the next *vertical* slice; it
 | --- | --- | --- |
 | `ln-execute` | The user explicitly asks to run a focus — a PLAN frontier, active scope files, `memory/REFACTOR.md`, or a named concern — through delegated scoping and building. | Independently reviewed execution units: scope files via `ln-scoper`, commits via `ln-builder`, and a review decision per unit. |
 
-`ln-execute` sits above `ln-scope` and `ln-build`, not beside them: the delegated agents load those skills, and the coordinator owns only focus resolution, delegation packets, writer serialization (exactly one writing `ln-builder` at a time), and independent review. It requires the harness to define `ln-scoper` and `ln-builder` agents under those names (`.pi/subagents/`, `.claude/agents/`); harness-level properties such as model pins live in the agent definitions, not the skill. Its frontmatter sets `disable-model-invocation: true` — it spawns writing agents, so it fires only on explicit user invocation.
+`ln-execute` sits above `ln-scope` and `ln-build`, not beside them: the delegated agents load those skills, and the coordinator owns only focus resolution, delegation packets, writer serialization (exactly one writing `ln-builder` at a time), and independent review. It requires the harness to define `ln-scoper` and `ln-builder` agents under those names (`.pi/subagents/`, `.claude/agents/`, `.codex/agents/`); harness-level properties such as model pins live in the agent definitions, not the skill. Its frontmatter sets `disable-model-invocation: true` — it spawns writing agents, so it fires only on explicit user invocation.
 
 ## Discretionary skills that are easy to miss
 
@@ -192,6 +192,7 @@ The skill system verifies itself, the same way the product code does. This is th
 - a `ln-*` folder name that disagrees with its SKILL.md frontmatter `name`
 - a `ln-*` skill missing from this working guide
 - a dead cross-skill link (`../ln-x/SKILL.md`) inside any `ln-*` SKILL.md
+- a missing or misnamed `ln-scoper` / `ln-builder` definition in any supported harness
 - a missing required guardrail phrase — currently the topology-stub carve-out in `ln-review` / `ln-judo-review` / `ln-build`, the verification-harness commitment in `ln-build`, the owned-deferral rules (outer evidence and findings-ledger dispositions must name an owner with a re-entry trigger) in `ln-scope` / `ln-build` / `ln-sync`, and the single-writer serialization invariant in `ln-execute`
 
 Extend the guardrail list when a new Brunch-specific invariant must not silently disappear from a skill. Keep the script dependency-free and read-only.
@@ -204,7 +205,7 @@ Extend the guardrail list when a new Brunch-specific invariant must not silently
 - an implementation path cites `npm run verify`
 - a coverage/frontier question routes to `ln-plan` / `ln-review`, not ad-hoc implementation
 
-Scope notes when picking this up: this is the only piece that introduces a new namespace (a benchmarks/scenarios directory) and likely a `test:skills` script; it is *not* cross-harness portability machinery (do not cargo-cult ponytail's 14-adapter machinery; Brunch's deliberate cross-harness surface is exactly `ln-execute` plus the symmetric `ln-scoper`/`ln-builder` agent definitions in `.pi/subagents/` and `.claude/agents/` — keep it that small). Decide the judge mechanism (assertion over a recorded routing decision vs. an LLM-graded transcript) before building.
+Scope notes when picking this up: this is the only piece that introduces a new namespace (a benchmarks/scenarios directory) and likely a `test:skills` script; it is *not* cross-harness portability machinery (do not cargo-cult ponytail's 14-adapter machinery; Brunch's deliberate cross-harness surface is exactly `ln-execute` plus the symmetric `ln-scoper`/`ln-builder` agent definitions in `.pi/subagents/`, `.claude/agents/`, and `.codex/agents/` — keep it that small). Decide the judge mechanism (assertion over a recorded routing decision vs. an LLM-graded transcript) before building.
 
 ## References
 

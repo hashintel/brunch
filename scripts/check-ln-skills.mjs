@@ -14,6 +14,15 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const skillsDir = join(root, '.agents/skills');
 const guidePath = join(root, 'docs/praxis/ln-skills.md');
 
+const harnessAgentDefinitions = [
+  ['Claude', '.claude/agents/ln-scoper.md', 'ln-scoper', 'ln-scope'],
+  ['Claude', '.claude/agents/ln-builder.md', 'ln-builder', 'ln-build'],
+  ['Pi', '.pi/subagents/ln-scoper.md', 'ln-scoper', 'ln-scope'],
+  ['Pi', '.pi/subagents/ln-builder.md', 'ln-builder', 'ln-build'],
+  ['Codex', '.codex/agents/ln-scoper.toml', 'ln-scoper', 'ln-scope'],
+  ['Codex', '.codex/agents/ln-builder.toml', 'ln-builder', 'ln-build'],
+];
+
 /** @type {string[]} */
 const errors = [];
 /** @param {string} msg */
@@ -81,6 +90,21 @@ for (const [name, phrase] of guardrails) {
   if (existsSync(skillFile(name)) && !readFileSync(skillFile(name), 'utf8').includes(phrase)) {
     fail(`${name}: missing required guardrail phrase "${phrase}"`);
   }
+}
+
+// 5. Delegated execution requires symmetric agent contracts in every harness.
+for (const [harness, relativePath, agentName, skillName] of harnessAgentDefinitions) {
+  const definitionPath = join(root, relativePath);
+  if (!existsSync(definitionPath)) {
+    fail(`${harness}: missing ${relativePath}`);
+    continue;
+  }
+
+  const text = readFileSync(definitionPath, 'utf8');
+  const escapedAgentName = agentName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const namePattern = new RegExp(`^name\\s*[:=]\\s*["']?${escapedAgentName}["']?\\s*$`, 'm');
+  if (!namePattern.test(text)) fail(`${harness}: ${relativePath} is not named ${agentName}`);
+  if (!text.includes(skillName)) fail(`${harness}: ${relativePath} does not load ${skillName}`);
 }
 
 if (errors.length > 0) {

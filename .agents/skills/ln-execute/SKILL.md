@@ -20,6 +20,8 @@ Delegation requires two project agents, defined per harness under the same names
 
 Both are user-less: when their loaded skill would ask a question or present routing options, they return it as their report instead of guessing. If either agent is missing in the current harness, stop and tell the user — do not scope or build inline under this skill; agent isolation is what makes the review independent. Harness-level properties (model, tool grants, research delegates) belong to the agent definitions, not to this skill.
 
+The symmetric project-local definitions live in `.claude/agents/`, `.pi/subagents/`, and `.codex/agents/`.
+
 ## Resolve the focus
 
 With an argument, resolve in order: exact `memory/PLAN.md` frontier id → exact artifact path under `memory/cards/` or `memory/REFACTOR.md` → a concern description to correlate with the conversation and active artifacts. Ask when multiple plausible matches remain.
