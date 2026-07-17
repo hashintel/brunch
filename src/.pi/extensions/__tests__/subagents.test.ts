@@ -751,15 +751,8 @@ describe('runSubagent (sealed SDK child session over a faux provider)', () => {
 
     const normalizedRendered = rendered.replaceAll(packageRoot, '<PKG>');
 
-    expect(normalizedRendered).toContain('<location><PKG>/src/agents/skills/analyze/SKILL.md</location>');
+    await expect(normalizedRendered).toMatchFileSnapshot('../__snapshots__/subagent-explorer-prompt.md');
     expect(normalizedRendered).not.toContain('/src/agents/skills/project/SKILL.md');
-    expect(rendered).toContain('You are an explorer.');
-    expect(rendered).toContain('[Brunch background subagent control]');
-    expect(rendered).toContain('[Brunch injected world snapshot]');
-    expect(rendered).toContain('[Brunch background routing]');
-    expect(rendered).not.toContain('[Brunch elicitation recommendation]');
-    expect(rendered).not.toContain('Current prompt-resource selection');
-    expect(rendered).toContain('ambient Pi resources: sealed out');
   });
 
   it('runs a tool-less projector, owning the system prompt and returning its output', async () => {
