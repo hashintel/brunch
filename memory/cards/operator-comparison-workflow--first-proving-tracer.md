@@ -9,7 +9,7 @@ Created:  2026-07-17
 
 - **Containing seam:** project-local Pi operator tooling over FE-1210’s rendered-state actor, target adapters, document acquisition, cleanup, and retained comparison evidence.
 - **Frontier:** `operator-comparison-workflow` / FE-1215 on `ln/fe-1215-saved-mission-comparison`; this remains one correction slice on the existing issue and branch.
-- **Volatile state:** no `HANDOFF.md`. Coordinator-authored corrections already live in `memory/SPEC.md` and `memory/PLAN.md`; both are protected read-only inputs for this delegation and build. The current prompt and mission README implement the superseded model and are not accepted behavior.
+- **Volatile state:** no `HANDOFF.md`. The corrected private-mission model now lives in `memory/SPEC.md`, `memory/PLAN.md`, the project prompt, and the mission README. The autonomous correction build is complete; only the Dora/PM-owned real-path gate remains.
 - **Main risk:** the existing prompt gives contender selection and framing to the saved mission and does not cleanly model the Pi actor as the private mission’s user/PM. Static prose review can establish the corrected instruction boundary, but only a real `/compare-specs` run can prove that the actor follows it without leaking the mission.
 
 **Posture: proving (inherited from `operator-comparison-workflow`).**
@@ -204,7 +204,7 @@ src/dev/__tests__/compare-specs-prompt.test.ts           absent
 | Targeted Remark | met | `npx remark .pi/prompts/compare-specs.md testing/comparisons/missions/README.md --frail` — no issues |
 | Repository read-only check | met | `npm run check` — green; six pre-existing `typescript(unbound-method)` warnings only |
 | Protected SPEC/PLAN fingerprints | met | SPEC `92bf0ac…a238`; PLAN `0e39a3…fb29` |
-| Runtime conduct/isolation/notification/actor consistency/report usefulness | dropped | Deliberately not claimed; remains owned by the blocked Fresh-Pi gate below |
+| Runtime conduct/isolation/notification/actor consistency/report usefulness | dropped | Deliberately not claimed; remains owned by the ready, uninvoked Fresh-Pi gate below |
 
 Skipped-test-count delta vs parent: **0** (no tests added, changed, run, skipped, or parked; this docs/prompt correction used the card's static verification boundary).
 
