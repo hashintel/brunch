@@ -78,7 +78,7 @@ Close the entire first batch of walkthrough-related findings: remediation, the o
 
 ### Active — approachable comparison workflow
 
-- `operator-comparison-workflow` ([FE-1215](https://linear.app/hash/issue/FE-1215/approachable-saved-mission-comparison-workflow)) — one conversational `/compare-specs` prompt creates, revises, and runs rich private agent-as-user missions; each contender sees only minimal harness framing plus what the simulated user says, while the operator receives the private mission, target-visible interactions, and target-authored documents in one readable report. Definition below.
+- `operator-comparison-workflow` ([FE-1215](https://linear.app/hash/issue/FE-1215/approachable-saved-mission-comparison-workflow)) — correction build complete. **Next action:** Dora/PM operates the ready, uninvoked real Fresh-Pi Brunch + Claude `/compare-specs` witness; it alone proves mission isolation, actor conduct, target-visible evidence, and report usefulness. Definition below.
 
 ### Recently Completed
 
@@ -290,7 +290,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Verification:** inner — full `npm run verify` (the deletion's regression net) plus updated trajectory-report tests; outer — one PM-shaped dry run of the documented seed door (launch → observe → read), witnessed against the new doc rather than tribal knowledge. **Outer leaf witnessed 2026-07-16:** user-driven dry run of `docs/praxis/comparison-runs.md` §PM door passed with no friction (`TESTING_FINDINGS.md` §DX1). Frontier ready to tie off.
 - **Cross-cutting obligations:** do not touch the `--mode web` seam (built on a parallel branch); preserve the `--evaluation-arm`/directive-ablation seam (it belongs to the parked evaluator, not to `--dev-tools`); traces remain dev/eval artifacts, never product truth; protect untracked `galarza.md`.
 - **Traceability:** FE-1206 closure (driving order), D69-L (introspection tap — narrows to passive-only), D70-L/D71-L (dev-artifact routing; `BRUNCH_DEV` remains the ambient switch), req 24/A5-L (evidence lifecycle, unchanged); supersedes the six-run campaign card as the frontier's execution pointer.
-- **Current execution pointer:** none — the four-card consolidation sequence is consumed. The parked [`warrant-ablation campaign card`](cards/consequential-fact-discovery-tracer--warrant-ablation-campaign.md) remains historical context, not active scope.
+- **Current execution pointer:** none — the four-card consolidation sequence is consumed. The parked [`warrant-ablation campaign card`](cards/consequential-fact-discovery-tracer--warrant-ablation-campaign.md) remains the live, trigger-gated actor-v2 re-entry contract, not active scope.
 
 ### operator-comparison-workflow
 
@@ -299,7 +299,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Branch:** `ln/fe-1215-saved-mission-comparison`, stacked on completed FE-1210 `ln/fe-1210-agent-as-user-comparison`.
 - **Kind:** bounded operator tooling — one project Pi prompt plus a durable mission/report artifact flow; not Brunch product runtime and not a generic campaign framework.
 - **Certainty:** proving.
-- **Status:** active; ready for `ln-scope`.
+- **Status:** active; correction build complete. The owned real Fresh-Pi first proving run is ready, uninvoked, and is the next action; do not substitute a surrogate check.
 - **Objective:** give a PM one approachable conversational door for creating, revising, and running agent-as-user specification comparisons. The saved mission defines the simulated user privately—what they are trying to accomplish, their context, priorities, preferences, constraints, knowledge, uncertainties, decision latitude, and conversational posture. A fresh Pi actor follows that mission and performs the PM's side of each interaction. Contender setup is a separate, minimal run concern: the harness receives only its small specification-task framing plus the opening user message and subsequent actor answers, never the mission wholesale. After the run, the operator can compare the full private mission, what each contender actually elicited, and each target-authored document in one readable report.
 - **Why now / unlocks:** FE-1210 proved the technical actor, target adapters, document acquisition, and evidence retention, but its frozen packets and structured adjudication are too technical for the intended PM operator. This frontier proves the human workflow before any browser workspace or broader automation is justified, and starts the reusable private-mission corpus that may later make focused regression campaigns worth their cost.
 - **Lights up:** one invocation → conversational private user-mission interview → separate minimal contender setup → fresh mission-guided user actors → target interactions and completion notification → target-authored documents → readable operator report.
@@ -317,7 +317,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Boundary:** no browser workspace, database, standalone mission service, automatic winner, scripted/API judge, statistics, unattended multi-run campaign, or generic harness abstraction. Reuse the FE-1210 rendered-state actor and adapters; keep rigorous frozen-packet/matched-budget/blinded studies available separately. Do not extract a skill or new package unless the project prompt proves too large or unreliable in use.
 - **Verification:** inner — prompt-template discovery/frontmatter and Markdown/link checks only; no surrogate lifecycle test. Outer — one PM-operated Brunch + Claude run through the actual `/compare-specs` entry point, proving private-mission isolation, mission-consistent user conduct, target-visible evidence, completion notification, and report usefulness. Existing-mission revision/rerun follows first-run findings and must prove the earlier private mission snapshot remains unchanged.
 - **Traceability:** req 24/A5-L evidence lifecycle; D70-L fixture taxonomy; FE-1210 closeout and promoted `lockers-r1-20260716` actor/adapter evidence; SPEC Verification Design “Operator-led cross-product comparisons.”
-- **Current execution pointer:** [`memory/cards/operator-comparison-workflow--first-proving-tracer.md`](cards/operator-comparison-workflow--first-proving-tracer.md) — implementation requires correction to the private user-mission model before the real-Pi gate.
+- **Current execution pointer:** [`memory/cards/operator-comparison-workflow--first-proving-tracer.md`](cards/operator-comparison-workflow--first-proving-tracer.md) — correction build complete; Dora/PM must next invoke its ready, uninvoked real Fresh-Pi Brunch + Claude `/compare-specs` gate. Existing-mission revision/rerun follows that witness's findings.
 
 ### cli-mode-entry
 
@@ -517,6 +517,7 @@ parallel evaluation:
         proven: push-driven Pi actor | Brunch document export | Brunch+Claude ready docs | split judgment | portable bundle | Cursor adapter
         -[hard]-> operator-comparison-workflow (FE-1215, active)
           branch: ln/fe-1215-saved-mission-comparison
+          next: Dora/PM-owned, ready/uninvoked real Fresh-Pi Brunch + Claude `/compare-specs` witness
           lights_up: private agent-as-user mission → minimal contender setup → elicitation run → readable report
           excludes: browser UI | automatic winner/judge | multi-run campaign framework
         -[on promotion]-> warrant-ablation-campaign (later; actor generality proven,
