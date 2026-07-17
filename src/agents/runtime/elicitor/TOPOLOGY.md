@@ -1,6 +1,6 @@
 # agents/runtime/elicitor/ — live elicitor prompt runtime
 
-SPEC decisions: D40-L, D52-L, D58-L, D85-L, D98-L, D101-L, D102-L, D118-L, D134-L
+SPEC decisions: D40-L, D52-L, D58-L, D85-L, D98-L, D101-L, D102-L, D118-L, D135-L
 
 ## Owns
 

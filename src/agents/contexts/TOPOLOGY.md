@@ -1,6 +1,6 @@
 # agents/contexts/ — agent-visible context text
 
-SPEC decisions: D52-L, D58-L, D60-L, D76-L, D78-L, D83-L, D91-L, D96-L, D98-L, D101-L, D102-L, D118-L, D134-L
+SPEC decisions: D52-L, D58-L, D60-L, D76-L, D78-L, D83-L, D91-L, D96-L, D98-L, D101-L, D102-L, D118-L, D135-L
 
 ## Owns
 
@@ -37,4 +37,4 @@ Context golden files live beside their tests under `__snapshots__/` and use stoc
 
 Reusable agent-visible renderers have moved here from the retired `src/renderers/` layer, and formerly adapter-local model text for graph mutation/related reads plus elicitation/reconciliation register tools now lives here too. Human/product-only text now lives beside the single owner that emits it (`app/print-workspace-state.ts`, `session/transcript-markdown.ts`).
 
-The simplified foreground prompt context now lives with the live runtime in `src/agents/runtime/elicitor/context.ts`. D134-L keeps graph overview, neutral facts, scratchpad, process move, and established posture in the origination/resume continuity payload; later foreground graph and scratchpad detail comes from the corresponding read tools. `seeds/turn-context.ts` therefore exposes reusable renderers, not a foreground bundle composer. There is no separate legacy context-control subtree in the live repo topology.
+The simplified foreground prompt context now lives with the live runtime in `src/agents/runtime/elicitor/context.ts`. D135-L keeps graph overview, neutral facts, scratchpad, process move, and established posture in the origination/resume continuity payload; later foreground graph and scratchpad detail comes from the corresponding read tools. `seeds/turn-context.ts` therefore exposes reusable renderers, not a foreground bundle composer. There is no separate legacy context-control subtree in the live repo topology.
