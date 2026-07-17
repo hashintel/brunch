@@ -879,7 +879,6 @@ function devCliUsage(): string {
     '  npm run dev-cli -- export --workspace <dir> --spec-id <id> [--out <file>] [--show all|active]',
     '  npm run dev-cli -- document-export --workspace <dir> --spec-id <id> --out <file.md>',
     '  npm run dev-cli -- trajectory --workspace <dir> --session <file> --run-id <portable-id> [--viewport <file>]',
-    '  npm run dev-cli -- evaluate-consequential-fact --workspace <dir> --session <file> --spec-id <id> --scenario <file> --trajectory <trajectory.json> --run-id <portable-id>',
     '',
     'Notes:',
     '  - Launch-time seeding never happens implicitly; pair --seed with --reset.',

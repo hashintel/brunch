@@ -355,6 +355,12 @@ describe('runDevCli', () => {
     expect(stdout).toContain('--workspace <dir>');
     expect(stdout).toContain('--seed <name>/<variant>');
     expect(stdout).toContain('--no-webui');
+    expect(stdout).toContain(' rpc ');
+    expect(stdout).toContain(' mutate ');
+    expect(stdout).toContain(' export ');
+    expect(stdout).toContain(' document-export ');
+    expect(stdout).toContain(' trajectory ');
+    expect(stdout).not.toContain('evaluate-consequential-fact');
     expect(stdout).not.toContain('dev:raw');
   });
 
