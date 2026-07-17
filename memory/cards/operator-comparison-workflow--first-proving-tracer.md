@@ -10,7 +10,7 @@ Created:  2026-07-17
 - **Containing seam:** project-local Pi operator tooling over FE-1210’s rendered-state actor, target adapters, document acquisition, cleanup, and retained comparison evidence.
 - **Frontier:** `operator-comparison-workflow` / FE-1215 on `ln/fe-1215-saved-mission-comparison`; this remains one correction slice on the existing issue and branch.
 - **Volatile state:** no `HANDOFF.md`. The corrected private-mission model now lives in `memory/SPEC.md`, `memory/PLAN.md`, the project prompt, and the mission README. The autonomous correction build is complete; only the Dora/PM-owned real-path gate remains.
-- **Main risk:** the existing prompt gives contender selection and framing to the saved mission and does not cleanly model the Pi actor as the private mission’s user/PM. Static prose review can establish the corrected instruction boundary, but only a real `/compare-specs` run can prove that the actor follows it without leaking the mission.
+- **Main risk:** the corrected prompt now states the private mission boundary, but static prose review cannot prove that a real actor follows it without leaking or inventing mission content. Only the actual `/compare-specs` witness can establish that behavior.
 
 **Posture: proving (inherited from `operator-comparison-workflow`).**
 
@@ -25,7 +25,7 @@ Frontier-level obligations carried by this slice:
 
 The prior **Card 1 · Complete real project prompt and mission-home guidance** completion is **invalidated and superseded by the user’s 2026-07-17 domain-model correction**. Its earlier review/check results prove only that the now-contradicted prose was syntactically valid; they do not accept its mission model or current prompt behavior.
 
-Specifically, the prior card incorrectly treated opening ask, private reveal material, contender selection, shared framing, and per-harness framing as six co-owned saved-mission input groups. The corrected model makes the mission the Pi actor-as-user’s rich private role definition and moves all contender selection/configuration into minimal, separately approved run setup. The real-Pi gate was not run and remains blocked. No prior run artifact is rewritten.
+Specifically, the prior card incorrectly treated opening ask, private reveal material, contender selection, shared framing, and per-harness framing as six co-owned saved-mission input groups. The corrected model makes the mission the Pi actor-as-user’s rich private role definition and moves all contender selection/configuration into minimal, separately approved run setup. The real-Pi gate was not run; after the correction checks passed, it became ready and remains uninvoked. No prior run artifact is rewritten.
 
 ## Scope boundary and sequence discipline
 
@@ -54,7 +54,7 @@ The project prompt and mission-home guidance enforce the corrected private agent
 - `.fixtures/README.md` — seed/workbench/run/scratch roles and deliberate promotion/path-portability discipline
 - `docs/praxis/manual-testing.md` — real interactive capability preflight, artifact retention, cleanup, and owned findings discipline
 - `.fixtures/runs/agent-as-user-comparison/lockers-r1-20260716/manifest.md` — prior actor/adapter lessons only; do not rewrite or copy its frozen campaign ceremony
-- `.pi/prompts/compare-specs.md` and `testing/comparisons/missions/README.md` — contradicted current implementation to correct, not accepted behavior
+- `.pi/prompts/compare-specs.md` and `testing/comparisons/missions/README.md` — superseded implementation inputs at correction-build start; now the corrected static instruction surface
 
 ### Boundary Crossings
 
@@ -153,7 +153,7 @@ The prompt must continue to state that revision changes only the editable missio
 - The rigorous frozen-packet procedure remains distinct and unmodified — guarded by: expected write-manifest and direct negative-space review.
 - No test/helper becomes a second implementation of the prompt workflow — **stop the line**, guarded by: expected write-manifest review.
 - Missions remain product-neutral Markdown outside `.fixtures/`; historical run inputs remain immutable — guarded autonomously by: direct content/path review; behaviorally by: the real-Pi gate and later revise/rerun obligation.
-- Current prompt behavior is not accepted merely because the correction text passes static checks — guarded by: the blocked gate and explicit oracle limits above.
+- Current prompt behavior is not accepted merely because the correction text passes static checks — guarded by: the ready, uninvoked gate and explicit oracle limits above.
 
 ### Verification Approach
 
