@@ -1,7 +1,7 @@
 # FE-1187 Continue lexical closure
 
 Frontier: walkthrough-remediation-2
-Status:   active
+Status:   complete
 Mode:     sweep
 Created:  2026-07-16
 
@@ -72,7 +72,7 @@ Every `●` row is `have` or `built`; the aggregate lexical oracle rejects stale
 | Branch-flow policy copy names the actual `/new` action | `built` | `●` | `earned` | `src/.pi/extensions/commands/policy.ts` | The fork/clone refusal now says directly that `/new` starts a new session. Closure: `src/app/__tests__/brunch-tui.test.ts`. |
 | Agent prompt resources do not teach Continue as generic progression | `built` | `●` | `earned` | `src/agents/skills/` | Replaced `continue through map-plans` / `Continue in …` handoff prose with direct `use` / `read` wording in `project/SKILL.md` and `map/references/map-nodes.md`; ordinary prose outside product prompt resources remains untouched. Closure: scoped lexical grep and `src/agents/skills/__tests__/registry.test.ts`. |
 | Canonical event records point at materialized current state | `built` | `●` | `earned` | `memory/SPEC.md` | Update D98-L/D109-L/D119-L/D120-L materialization status/pointers without changing their decisions; correct the Continue/Wait glossary so inertness is Escape dismissal, not a no-kick menu option. PLAN points to this active ledger. Closure: `npm run check:markdown-links`, exact decision/pointer review, and topology cross-check. |
-| Closed live-surface lexical negative-space oracle | `spec` | `●` | `earned` | `src/.pi/extensions/__tests__/continue-lexicon.test.ts` | Install a focused static inventory check over the declared product source/prompt roots. It must reject the stale phrases/pseudo-choice shapes closed above while explicitly permitting actual recovery commands, declared continuations, workspace resume state, fail-closed parser rivals, keywords, and excluded fixture/user prose. Closure: the new focused test and `npm run verify`. |
+| Closed live-surface lexical negative-space oracle | `built` | `●` | `earned` | `src/.pi/extensions/__tests__/continue-lexicon.test.ts` | Added a focused static inventory over current `src/.pi/components`, `src/.pi/extensions`, and `src/agents` source/prompt files, excluding tests, fixtures, and topology prose. Historical rivals pin stale Continue=wait/dismiss/proceed/next-step menu/progression shapes; explicit negative-space examples preserve recovery commands, declared continuations, workspace resume state, parser rejection rivals, and TypeScript keywords. No new in-boundary stale occurrence was found and no source copy changed. Closure: `continue-lexicon.test.ts` and `npm run verify`. |
 
 ---
 
@@ -154,4 +154,4 @@ src/session/__tests__/originate-assistant-turn.test.ts        ~
 
 - A row that requires a new protocol, public seam, or product decision is promoted through `ln-plan`; it remains open here until that promoted work lands.
 - More than one newly discovered row or any widening into actual recovery/workspace/exchange semantics invalidates the closed inventory and stops the sweep.
-- Delete this ledger only after every required row is `have`/`built`, canonical reconciliation is complete, and the completion report has captured leaf-by-leaf evidence. The completed deterministic remediation queue can be retired by `ln-build`/`ln-sync` once this ledger carries all remaining execution context.
+- Every required row is now `built`. Retain this completed ledger until its active PLAN execution pointer can be reconciled by the owning follow-up; this delegated row may not modify PLAN, and deleting it now would create a stale canonical link and discard the row-level closure record. The completed deterministic remediation queue can be retired by `ln-build`/`ln-sync` once this ledger carries all remaining execution context.
