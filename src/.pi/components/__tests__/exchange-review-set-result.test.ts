@@ -38,7 +38,7 @@ const payload = {
     {
       draftId: 'goal-clear',
       proposedCode: 'G3',
-      settlement: 'settled' as const,
+      settlement: 'advisory' as const,
       plane: 'intent',
       kind: 'goal',
       title: 'Keep review consequences clear',
@@ -124,6 +124,35 @@ describe('ExchangeReviewSetResultComponent', () => {
         },
       }),
     ).toEqual([]);
+  });
+
+  it('renders existing-host connections exactly once with their own settlement', () => {
+    const existingHostDetails = projectPresentReviewSet({
+      exchangeId: 'existing-host-review',
+      payload: {
+        ...payload,
+        edgeDrafts: [
+          {
+            category: 'cross_reference',
+            settlement: 'advisory',
+            a: { existingCode: 'G90' },
+            b: { draftId: 'goal-safe' },
+          },
+          {
+            category: 'supersession',
+            settlement: 'settled',
+            predecessor: { existingCode: 'G91' },
+            successor: { existingCode: 'G92' },
+          },
+        ],
+      },
+    }).details;
+
+    const rendered = new ExchangeReviewSetResultComponent(existingHostDetails, plainTheme)
+      .render(72)
+      .join('\n');
+    expect(rendered.match(/G90 -> G2 \[advisory\]/g)).toHaveLength(1);
+    expect(rendered.match(/G91 -> G92 \[settled\]/g)).toHaveLength(1);
   });
 
   it('styles headings, kinds, codes, content, and reference rows by semantic role', () => {

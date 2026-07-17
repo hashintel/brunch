@@ -77,7 +77,7 @@ export class ExchangeReviewSetResultComponent implements Component {
 
   render(width: number): string[] {
     const nodes = this.details.review_set.nodes;
-    const connectionsByNode = symbolicConnectionsByNode(this.details.review_set);
+    const { connectionsByNode, standaloneConnections } = symbolicConnections(this.details.review_set);
     const kindWidth = Math.max(1, ...nodes.map((node) => kindLabel(node.kind).length));
     const codeWidth = Math.max(1, ...nodes.map((node) => node.proposed_code.length));
     const terms = nodesInReviewGroup(nodes, 'Intent').filter((node) => node.kind === 'term');
@@ -107,6 +107,13 @@ export class ExchangeReviewSetResultComponent implements Component {
           ),
         ]);
       }
+    }
+    if (standaloneConnections.length > 0) {
+      sections.push([
+        heading('Connections', this.theme),
+        '',
+        ...standaloneConnections.map((connection) => fg(this.theme, 'muted', connection)),
+      ]);
     }
     return sections.flatMap((section, index) => (index === sections.length - 1 ? section : [...section, '']));
   }
@@ -146,16 +153,27 @@ function renderBorderlessLedger(
     .split('\n');
 }
 
-function symbolicConnectionsByNode(reviewSet: ReviewSet): ReadonlyMap<string, readonly string[]> {
+function symbolicConnections(reviewSet: ReviewSet): {
+  connectionsByNode: ReadonlyMap<string, readonly string[]>;
+  standaloneConnections: readonly string[];
+} {
   const nodesByDraftId = new Map(reviewSet.nodes.map((node) => [node.draft_id, node]));
-  const connections = new Map<string, string[]>();
+  const connectionsByNode = new Map<string, string[]>();
+  const standaloneConnections: string[] = [];
+  const endpointCode = (endpoint: ReviewEndpoint) =>
+    'existing_code' in endpoint
+      ? endpoint.existing_code
+      : nodesByDraftId.get(endpoint.draft_id)?.proposed_code;
   const add = (host: ReviewEndpoint, other: ReviewEndpoint, settlement: string) => {
-    if (!('draft_id' in host)) return;
-    const otherCode =
-      'existing_code' in other ? other.existing_code : nodesByDraftId.get(other.draft_id)?.proposed_code;
-    if (!otherCode) return;
-    connections.set(host.draft_id, [
-      ...(connections.get(host.draft_id) ?? []),
+    const hostCode = endpointCode(host);
+    const otherCode = endpointCode(other);
+    if (!hostCode || !otherCode) return;
+    if (!('draft_id' in host)) {
+      standaloneConnections.push(`${hostCode} -> ${otherCode} [${settlement}]`);
+      return;
+    }
+    connectionsByNode.set(host.draft_id, [
+      ...(connectionsByNode.get(host.draft_id) ?? []),
       `${otherCode} [${settlement}]`,
     ]);
   };
@@ -192,7 +210,7 @@ function symbolicConnectionsByNode(reviewSet: ReviewSet): ReadonlyMap<string, re
         break;
     }
   }
-  return connections;
+  return { connectionsByNode, standaloneConnections };
 }
 
 function nodesInReviewGroup(nodes: readonly ReviewNode[], group: ReviewGroup): ReviewNode[] {

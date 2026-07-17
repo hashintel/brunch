@@ -10,77 +10,88 @@ type ReviewSet = PresentReviewSetDetails['review_set'];
 type Endpoint = { draft_id: string } | { existing_code: string };
 
 type Inventory = {
-  codes: string[];
-  connectionCounts: Record<string, number>;
+  nodeSettlements: Record<string, string>;
+  connectionSettlements: string[];
 };
 
 function referenceInventory(reviewSet: ReviewSet): Inventory {
   const codeByDraftId = new Map(reviewSet.nodes.map((node) => [node.draft_id, node.proposed_code]));
-  const connectionCounts: Record<string, number> = {};
+  const nodeSettlements = Object.fromEntries(
+    reviewSet.nodes.map((node) => [node.proposed_code, node.settlement]),
+  );
+  const connectionSettlements: string[] = [];
+  const code = (endpoint: Endpoint) =>
+    'existing_code' in endpoint ? endpoint.existing_code : codeByDraftId.get(endpoint.draft_id);
 
-  // Deliberately flat and explicit: this reference extractor knows nothing about
-  // Impact Ledger concern groups, kind ordering, or its connection-map helper.
+  // Deliberately naive and flat: enumerate semantic endpoint pairs without using
+  // renderer grouping, host selection, or connection helpers.
   for (const edge of reviewSet.edges) {
-    let host: Endpoint;
+    let endpoints: readonly [Endpoint, Endpoint];
     switch (edge.category) {
       case 'dependency':
-        host = edge.dependency;
+        endpoints = [edge.dependency, edge.dependent];
         break;
       case 'witness':
+        endpoints = [edge.claim, edge.oracle];
+        break;
       case 'rationale':
-        host = edge.claim;
+        endpoints = [edge.claim, edge.support];
         break;
       case 'realization':
       case 'refinement':
-        host = edge.abstract;
+        endpoints = [edge.abstract, edge.concrete];
         break;
       case 'exclusion':
-        host = edge.boundary;
+        endpoints = [edge.boundary, edge.subject];
         break;
       case 'composition':
-        host = edge.whole;
+        endpoints = [edge.whole, edge.part];
         break;
       case 'cross_reference':
-        host = edge.a;
+        endpoints = [edge.a, edge.b];
         break;
       case 'supersession':
-        host = edge.predecessor;
+        endpoints = [edge.predecessor, edge.successor];
         break;
     }
-    if ('draft_id' in host) {
-      const code = codeByDraftId.get(host.draft_id);
-      if (code) connectionCounts[code] = (connectionCounts[code] ?? 0) + 1;
-    }
+    const [host, other] = endpoints.map(code);
+    if (host && other) connectionSettlements.push(`${host} -> ${other} [${edge.settlement}]`);
   }
 
-  return {
-    codes: [...codeByDraftId.values()].sort(),
-    connectionCounts,
-  };
+  return { nodeSettlements, connectionSettlements: connectionSettlements.sort() };
 }
 
 function renderedInventory(details: PresentReviewSetDetails): Inventory {
   const lines = new ExchangeReviewSetResultComponent(details).render(2_000);
-  const codes: string[] = [];
-  const connectionCounts: Record<string, number> = {};
+  const nodeSettlements: Record<string, string> = {};
+  const connectionSettlements: string[] = [];
   let currentCode: string | undefined;
 
   for (const line of lines) {
     const refs = /\brefs:\s*(.+?)\s*$/.exec(line);
     if (refs) {
       if (!currentCode) throw new Error(`Reference row has no preceding code: ${line}`);
-      connectionCounts[currentCode] = refs[1].split(',').length;
+      for (const ref of refs[1].split(', ')) {
+        const match = /^(\S+) \[(advisory|settled)\]$/.exec(ref);
+        if (match) connectionSettlements.push(`${currentCode} -> ${match[1]} [${match[2]}]`);
+      }
       continue;
     }
 
-    const code = line.match(/\b[A-Z][A-Z0-9]*\d+\b/)?.[0];
-    if (code) {
-      codes.push(code);
-      currentCode = code;
+    const standalone = /\b(\S+) -> (\S+) \[(advisory|settled)\]$/.exec(line.trim());
+    if (standalone) {
+      connectionSettlements.push(`${standalone[1]} -> ${standalone[2]} [${standalone[3]}]`);
+      continue;
+    }
+
+    const node = /\b([A-Z][A-Z0-9]*\d+)\s+.+ \[(advisory|settled)\]\s*$/.exec(line);
+    if (node) {
+      nodeSettlements[node[1]] = node[2];
+      currentCode = node[1];
     }
   }
 
-  return { codes: codes.sort(), connectionCounts };
+  return { nodeSettlements, connectionSettlements: connectionSettlements.sort() };
 }
 
 function detailsFor(
@@ -101,10 +112,10 @@ function detailsFor(
   }).details;
 }
 
-const goal = (draftId: string, proposedCode: string) => ({
+const goal = (draftId: string, proposedCode: string, settlement: 'advisory' | 'settled' = 'settled') => ({
   draftId,
   proposedCode,
-  settlement: 'settled' as const,
+  settlement,
   plane: 'intent' as const,
   kind: 'goal' as const,
   title: `Goal ${proposedCode}`,
@@ -133,6 +144,32 @@ describe('Impact Ledger differential reference inventory', () => {
   it.each([
     ['empty group', detailsFor([{ ...check('check-only', 'CH1') }])],
     ['single-node group', detailsFor([goal('goal-only', 'G1')])],
+    [
+      'mixed settlements and existing host',
+      detailsFor(
+        [goal('goal-advisory', 'G1', 'advisory'), check('check-settled', 'CH1')],
+        [
+          {
+            category: 'dependency' as const,
+            settlement: 'settled' as const,
+            dependency: { draftId: 'goal-advisory' },
+            dependent: { draftId: 'check-settled' },
+          },
+          {
+            category: 'cross_reference' as const,
+            settlement: 'advisory' as const,
+            a: { existingCode: 'G99' },
+            b: { draftId: 'check-settled' },
+          },
+          {
+            category: 'supersession' as const,
+            settlement: 'settled' as const,
+            predecessor: { existingCode: 'G98' },
+            successor: { existingCode: 'G97' },
+          },
+        ],
+      ),
+    ],
     [
       'term-only group',
       detailsFor([

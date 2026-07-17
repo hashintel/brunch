@@ -19,7 +19,7 @@ goal         G2    Launch safely with
                    [settled]            
              G3    Keep review          
                    consequences clear   
-                   [settled]
+                   [advisory]
 
 Implementation
 
@@ -50,7 +50,7 @@ Intent
 goal         G2    Launch safely with a deliberately long description   
                    that wraps at narrow widths [settled]                
                    refs: VVO2 [settled]                                 
-             G3    Keep review consequences clear [settled]
+             G3    Keep review consequences clear [advisory]
 
 Implementation
 
@@ -76,7 +76,7 @@ Intent
 goal         G2    Launch safely with a deliberately long description that wraps at narrow widths   
                    [settled]                                                                        
                    refs: VVO2 [settled]                                                             
-             G3    Keep review consequences clear [settled]
+             G3    Keep review consequences clear [advisory]
 
 Implementation
 
