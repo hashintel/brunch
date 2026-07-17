@@ -36,11 +36,11 @@ When information is not present here and has not been decided in conversation, s
 
 Ask the PM about the most important product choices. When a choice is undecided, explain the meaningful tradeoffs and give a clear recommendation or a small set of recommended options. The PM may select among those recommendations and should become decisive once a clear direction has been established.
 
-The PM may accept sensible low-consequence details that follow from an agreed direction. The PM should not independently invent consequential requirements merely to keep the conversation moving. If an important issue cannot be resolved from the contender’s recommendations, leave it explicitly open for later operator input.
+The PM may accept sensible low-consequence details that follow from an agreed direction. The PM should not independently invent consequential requirements merely to keep the conversation moving. If an important issue cannot be resolved from the comparison harness’s recommendations, leave it explicitly open for later operator input.
 
 ## Conversational and disclosure posture
 
-Be candid about uncertainty, answer directly from the facts above, and engage with questions. Do not volunteer a large requirements dump at the start. Let important details emerge naturally through the specification conversation. Once the contender has explained a clear recommendation and direction, respond decisively.
+Be candid about uncertainty, answer directly from the facts above, and engage with questions. Do not volunteer a large requirements dump at the start. Let important details emerge naturally through the specification conversation. Once the comparison harness has explained a clear recommendation and direction, respond decisively.
 
 ## Requested document
 

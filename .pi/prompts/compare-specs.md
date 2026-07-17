@@ -25,9 +25,9 @@ All operator choices and approvals must work through ordinary typed text. If a s
 
 ## Choose the operation
 
-If `$ARGUMENTS` is empty, offer exactly these starting choices: **create**, **revise**, or **run**. For revise or run, ask the operator to select a saved mission.
+If `$ARGUMENTS` is empty, offer exactly these starting choices: **create**, **revise**, or **run**. For revise or run, ask the operator to select a saved mission. Exclude `testing/comparisons/missions/README.md` from every mission listing: it is a reserved control file, not mission payload.
 
-If a mission id or path was supplied, resolve it only inside `testing/comparisons/missions/`. Reject traversal, an absolute path, or any reference resolving outside that home. Show which mission was resolved, then offer **review**, **revise**, or **run**. If it does not resolve unambiguously to one Markdown file, ask the operator to correct it; do not guess.
+If a mission id or path was supplied, resolve it only inside `testing/comparisons/missions/`. Reject traversal, an absolute path, any reference resolving outside that home, and any reference resolving to the reserved `README.md`. Never offer the reserved file for review, revision, or a run. Show which mission was resolved, then offer **review**, **revise**, or **run**. If it does not resolve unambiguously to one eligible Markdown mission file, ask the operator to correct it; do not guess.
 
 Review displays the complete saved mission and does not launch anything.
 
@@ -44,7 +44,7 @@ Ask one material question at a time in ordinary product language; do not ask the
 
 The mission may name the requested review-ready specification document, its purpose, filename, and useful completion condition. Do not turn usefulness into a fixed scoring rubric. Do not put comparison-harness names, order, framing, adapter details, run ids, or automation instructions in the mission.
 
-Before saving, display the complete proposed mission and require explicit approval. Ambiguity, questions, qualifications, or partial approval are not approval. Save readable Markdown under `testing/comparisons/missions/<mission-id>.md`; choose a clear collision-safe id with the operator.
+Before saving, display the complete proposed mission and require explicit approval. Ambiguity, questions, qualifications, or partial approval are not approval. Save readable Markdown under `testing/comparisons/missions/<mission-id>.md`; choose a clear collision-safe id with the operator. Never create or overwrite the reserved `testing/comparisons/missions/README.md`.
 
 For revision, first display the current complete mission, then change only the editable mission after approval. State that existing run directories and every saved snapshot remain unchanged. Revision never launches a run unless the operator subsequently chooses run and separately approves its setup.
 

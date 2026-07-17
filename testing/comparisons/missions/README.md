@@ -2,6 +2,8 @@
 
 This directory holds editable, product-neutral **private user missions** for `/compare-specs`. Start with `/compare-specs`, or use `/compare-specs [mission-id-or-path]` to review, revise, or run an existing mission.
 
+This `README.md` is the directory's reserved control file, not a mission. `/compare-specs` must exclude it from mission listing, resolution, revision, and creation.
+
 A mission belongs exclusively to the invoking top-level project Pi session acting as the simulated user. In readable ordinary-language Markdown it defines:
 
 - the user's objective and natural opening request;
