@@ -81,7 +81,7 @@ Adapters change launch and artifact acquisition only. They do not change reveal,
 - Acquire the ready document only from settled Brunch graph state:
 
   ```sh
-  npm run dev-cli -- document-export --workspace <dir> --spec-id <id> --out <file.md>
+  npm run dev-cli -- document-export --workspace <dir> --spec-id <id> --out <dir>/<file.md>
   ```
 
 - JSONL, `.brunch/debug/`, and trajectory material may be retained as Brunch-only diagnostics, but never enters outcome or process judgment and never compensates for missing target-visible evidence.
