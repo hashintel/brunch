@@ -2,10 +2,11 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { PlannerPort } from '../../../../executor/execution-ports.js';
 import { planFilePath } from '../../../../executor/plan-file.js';
+import { PLAN_SYNTHESIS_ROUND_TIMEOUT_MS } from '../../../../executor/plan-synthesis.js';
 import { createExecutePlanFileTool } from '../execute-plan-file/index.js';
 
 const base = {
@@ -63,6 +64,8 @@ function coherentCandidate() {
 }
 
 describe('createExecutePlanFileTool with a planner', () => {
+  afterEach(() => vi.useRealTimers());
+
   it('provides planner synthesis a live round abort signal', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-plan-file-abort-'));
     const controller = new AbortController();
@@ -173,6 +176,28 @@ describe('createExecutePlanFileTool with a planner', () => {
 
     expect((result.content[0] as { text?: string })?.text).toContain('plan_synthesis_blocked');
     expect((result.content[0] as { text?: string })?.text).toContain('no_verification_capability');
+    expect((result.content[0] as { text?: string })?.text).toContain('repair rounds exhausted: 3');
+    await expect(readFile(planFilePath(cwd, '7'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('reports a planner timeout without claiming the repair budget was exhausted', async () => {
+    vi.useFakeTimers();
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-plan-file-timeout-'));
+    const planner: PlannerPort = {
+      synthesize: async () => new Promise(() => undefined),
+    };
+
+    const pending = tool(planner).execute('t1', {}, undefined, undefined, {
+      cwd,
+      modelRegistry: {},
+    } as never);
+    await vi.advanceTimersByTimeAsync(PLAN_SYNTHESIS_ROUND_TIMEOUT_MS);
+    const result = await pending;
+    const text = (result.content[0] as { text?: string })?.text;
+
+    expect(text).toContain('planner_timeout');
+    expect(text).toContain('planner timed out in round: 1');
+    expect(text).not.toContain('repair rounds exhausted');
     await expect(readFile(planFilePath(cwd, '7'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
   });
 

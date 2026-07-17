@@ -156,6 +156,9 @@ export function createExecutePlanFileTool(deps: ExecutePlanFileDeps) {
           },
         });
         if (synthesis.status === 'blocked') {
+          const roundSummary = synthesis.findings.some((finding) => finding.code === 'planner_timeout')
+            ? `planner timed out in round: ${synthesis.history.length}`
+            : `repair rounds exhausted: ${synthesis.history.length}`;
           return {
             content: [
               {
@@ -163,7 +166,7 @@ export function createExecutePlanFileTool(deps: ExecutePlanFileDeps) {
                 text: [
                   'execute_plan_file: plan_synthesis_blocked',
                   ...synthesis.findings.map((finding) => `- ${finding.code}: ${finding.message}`),
-                  `repair rounds exhausted: ${synthesis.history.length}`,
+                  roundSummary,
                   'No plan was written. Resolve the findings or replan.',
                 ].join('\n'),
               },
