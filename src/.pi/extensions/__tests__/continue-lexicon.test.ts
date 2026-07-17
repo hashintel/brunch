@@ -5,6 +5,10 @@ import { describe, expect, it } from 'vitest';
 
 const ROOT = resolve(import.meta.dirname, '../../../..');
 const CURRENT_PRODUCT_ROOTS = ['src/.pi/components', 'src/.pi/extensions', 'src/agents'] as const;
+const CURRENT_PRODUCT_FILES = [
+  'src/dev/component-preview/registry.ts',
+  'src/dev/consequential-fact-campaign-runner.ts',
+] as const;
 
 const STALE_PATTERNS = [
   /(?:how should|choose how)[^\n]{0,80}\bcontinue\b/iu,
@@ -46,12 +50,14 @@ describe('Continue lexical closure', () => {
   it('rejects stale progression/menu vocabulary from current product source and prompts', async () => {
     const findings: string[] = [];
 
-    for (const root of CURRENT_PRODUCT_ROOTS) {
-      for (const file of await currentSurfaceFiles(join(ROOT, root))) {
-        const source = await readFile(file, 'utf8');
-        for (const pattern of STALE_PATTERNS) {
-          if (pattern.test(source)) findings.push(`${relative(ROOT, file)}: ${pattern.source}`);
-        }
+    const currentFiles = await Promise.all(
+      CURRENT_PRODUCT_ROOTS.map((root) => currentSurfaceFiles(join(ROOT, root))),
+    );
+
+    for (const file of [...currentFiles.flat(), ...CURRENT_PRODUCT_FILES.map((file) => join(ROOT, file))]) {
+      const source = await readFile(file, 'utf8');
+      for (const pattern of STALE_PATTERNS) {
+        if (pattern.test(source)) findings.push(`${relative(ROOT, file)}: ${pattern.source}`);
       }
     }
 
