@@ -35,7 +35,7 @@ Frontier-level obligations carried by this slice:
 
 ## Card 1 · Complete real project prompt and mission-home guidance — `done`
 
-Completed 2026-07-17. Direct prompt/README review, targeted Remark, and `npm run verify` passed. The owned Fresh-Pi behavioral gate remains pending and blocks further autonomous scope; it was not executed or simulated.
+Completed 2026-07-17; coordinator-requested revision completed in a separate follow-up commit. Direct prompt/README review, targeted Remark, and `npm run verify` passed. The owned Fresh-Pi behavioral gate remains pending and blocks further autonomous scope; it was not executed or simulated.
 
 ### Target Behavior
 
@@ -75,11 +75,17 @@ invocation
 └── mission id/path: resolve only inside mission home; offer review | revise | run
 
 create / revise
-├── ask one material question at a time
+├── ask one material question at a time in ordinary product language
 ├── collect opening ask, simulated-user knowledge/reveal policy,
-│   useful-document expectation, contenders, shared framing,
-│   and exact addition for each selected harness
-├── save ordinary-language Markdown, not controller YAML
+│   useful-document expectation, and concrete contenders selected from
+│   Brunch | Claude Code | Codex | Cursor | Pi (Cursor/agent is one)
+├── draft comparable framing from Brunch Specify conduct:
+│   elicit consequential unknowns; separate facts from uncertainty;
+│   surface recommendations/tradeoffs; author the requested review-ready
+│   specification document; stop at the approved ready condition
+├── show Brunch's built-in framing + exact addition and each generic
+│   harness's exact initial text; invite tweaks; require explicit approval
+├── save approved framing in ordinary-language Markdown, not controller YAML
 └── revision changes the editable mission only
 
 approval / run
@@ -87,12 +93,15 @@ approval / run
 ├── explicit reject/revise/ambiguity: do not launch
 └── explicit approval
     ├── allocate collision-safe scratch and run identities
-    ├── copy the exact approved mission/setup as immutable run input
+    ├── copy the exact approved mission/framing/setup as immutable run input
+    ├── preflight selected concrete adapters; fail/record unavailable lanes honestly
     ├── run selected lanes sequentially if desired
     │   ├── fresh harness-level Pi actor context and fresh target cwd per lane
     │   ├── visible ready | running | waiting | finished | failed status
     │   ├── approved target-visible packet only; private reveal material stays out
     │   ├── FE-1210 rendered-state cadence and selected target adapter
+    │   │   (Brunch, spawn claude/codex/cursor/pi; no generic registry)
+    │   ├── each target authors its requested Markdown document itself
     │   ├── acquire, never reconstruct or improve, target-authored output
     │   └── retain failures and clean actor/target processes
     ├── notify only after every selected lane reaches finished or failed
@@ -129,9 +138,9 @@ The prompt must also state that later mission revisions affect future runs only 
 ### Acceptance Criteria
 
 - ✓ **Pi prompt-template documentation + direct frontmatter review** — `.pi/prompts/compare-specs.md` is at Pi’s non-recursive project prompt home, has valid `description` and optional `[mission-id-or-path]` argument hint frontmatter, and uses Pi-supported argument expansion; this proves the discoverable template shape, not runtime conduct.
-- ✓ **Prompt content cold-read checklist (“Required prompt content” above)** — the production file visibly names every create/revise/review/run input, decision, guardrail, actor/adapter step, status, notification, report section, and artifact instruction required by this card; this proves instruction presence only.
+- ✓ **Prompt content cold-read checklist (“Required prompt content” above)** — the production file visibly names every create/revise/review/run input, decision, guardrail, actor/adapter step, status, notification, report section, and artifact instruction required by this card. It includes the concrete Brunch/Claude Code/Codex/Cursor/Pi roster, structured Codex/Pi spawns, honest adapter-unavailability handling, friendly draft/tweak/approve framing, visible Brunch Specify conduct, exact generic-harness initial text, and approved framing persistence; this proves instruction presence only.
 - ✓ **Canonical-path and negative-space direct review** — the prompt names exactly `testing/comparisons/missions/`, `.fixtures/scratch/comparisons/`, and `.fixtures/runs/agent-as-user-comparison/`; it does not instruct writes outside those roles, absolute workstation paths, seed substitution, controller YAML, a fixed rubric, an automatic winner, a scripted/API judge, a generic runner, or a new package/skill.
-- ✓ **Mission-home README cold read** — `testing/comparisons/missions/README.md` clearly serves operators/maintainers who browse or hand-revise missions, names the six mission input groups and `/compare-specs`, distinguishes missions from seeds, and states that editable revisions affect future runs only while historical run snapshots remain unchanged.
+- ✓ **Mission-home README cold read** — `testing/comparisons/missions/README.md` clearly serves operators/maintainers who browse or hand-revise missions, names the six mission input groups and `/compare-specs`, documents the concrete five-contender roster and friendly framing-authoring default, distinguishes missions from seeds, and states that editable revisions affect future runs only while historical run snapshots remain unchanged.
 - ✓ **`npx remark .pi/prompts/compare-specs.md testing/comparisons/missions/README.md --frail`** — both new Markdown files parse cleanly and their links resolve.
 - ✓ **`npm run verify`** — the normal repository checkpoint remains green; no passing test is cited as evidence of conversational conduct, isolation, launch, notification, target authorship, revision behavior, or report usefulness.
 
@@ -150,7 +159,7 @@ The prompt must also state that later mission revisions affect future runs only 
 
 ### Cross-cutting obligations
 
-- Keep exact common framing and each selected harness’s additions visible before approval; “equivalent instructions” is not a substitute for explicit adapter input.
+- Draft exact common/per-harness framing from ordinary product-language intake, invite tweaks, and keep the complete approved text visible and persisted. Brunch's built-in Specify framing and exact added text must be shown alongside every generic harness's exact initial text; “equivalent instructions” is not a substitute for explicit adapter input.
 - Keep controller-only simulated-user knowledge outside every target cwd and reveal it only according to the approved mission.
 - A run may sequence lanes; do not promise parallel execution or add concurrency machinery.
 - Preserve failed lanes and missing documents honestly; the actor may acquire a target document but never author, reconstruct, or improve it.
@@ -163,6 +172,8 @@ The prompt must also state that later mission revisions affect future runs only 
 └── compare-specs.md                       +
 testing/comparisons/missions/
 └── README.md                              +
+memory/cards/
+└── operator-comparison-workflow--first-proving-tracer.md  ~
 ```
 
 Explicit non-writes:
@@ -210,6 +221,7 @@ In either shape, frontier closure still requires real-path evidence that:
 ```text
 .pi/prompts/compare-specs.md                                      +
 testing/comparisons/missions/README.md                            +
+memory/cards/operator-comparison-workflow--first-proving-tracer.md ~
 ```
 
 This scope-file revision itself is the only write in the current scoping delegation:
