@@ -1,11 +1,22 @@
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
+import Database from 'better-sqlite3';
 import { z } from 'zod';
 
-import { zAskDetails, zPresentDigestDetails, zPresentReviewSetDetails } from '../exchanges/schemas/index.js';
+import { WORKSPACE_DB_FILENAME } from '../constants.js';
+import {
+  parseAskParams,
+  zPresentDigestDetails,
+  zPresentReviewSetDetails,
+  zPresentDigestParams,
+  zPresentReviewSetParams,
+  zRequestDetails,
+} from '../exchanges/schemas/index.js';
 import { openActiveSessionBranch } from '../session/active-session-branch.js';
 
 const HUMAN_JUDGMENTS = [
@@ -14,78 +25,16 @@ const HUMAN_JUDGMENTS = [
   'proposition_cohesion',
   'fatigue',
 ] as const;
-const SHA256 = /^[a-f0-9]{64}$/u;
-
-type RequirementVerdict = 'pass' | 'fail' | 'not_observed';
-type Rival =
-  | 'heavyweight_digest_review'
-  | 'post_digest_clarification'
-  | 'combinatorial_options'
-  | 'advisory_laundering'
-  | 'post_approval_mutation';
-
-export interface ProviderConductIdentity {
-  runId: string;
-  generatedAt: string;
-  branch: string;
-  commit: string;
-  piVersion: string;
-  provider: string;
-  model: string;
-  thinking: string;
-  seedRef: string;
-  sourceSha256: string;
-  sessionPath: string;
-  activeLeaf: string;
-  specId: number;
-  beforeLsn: number;
-  afterLsn: number;
-}
-
-export interface ProviderConductInput {
-  identity: ProviderConductIdentity;
-  entries?: SessionEntry[];
-  branchResolved?: boolean;
-  graphReadback: {
-    available: boolean;
-    acceptedReviewExchangeIds?: string[];
-    afterLsn?: number;
-  };
-}
-
-interface Citation {
-  entryId: string;
-  toolCallId: string;
-}
-interface Marker {
-  observed: boolean;
-  citations: Citation[];
-}
-
-export interface ProviderConductReport {
-  schemaVersion: 1;
-  identity: ProviderConductIdentity;
-  markers: {
-    digestPresented: Marker;
-    terminalFeedbackAfterDigest: Marker;
-    boundedQuestionnaire: Marker;
-    combinatorialOptionsRival: Marker;
-    firstMappingMutationAfterClarification: Marker;
-    advisorySourceMaterialBeforeReview: Marker;
-    reviewSetPresented: Marker;
-    reviewSettlementReceipt: Marker;
-    postApprovalMutationRival: Marker;
-  };
-  verdict: {
-    sample: 'valid' | 'mechanically_invalid';
-    R8: RequirementVerdict;
-    R9: RequirementVerdict;
-    R10: RequirementVerdict;
-    forbiddenRivals: Rival[];
-    humanJudgmentsRequired: readonly string[];
-  };
-}
-
+const verdictSchema = z.enum(['pass', 'fail', 'not_observed']);
+const rivalSchema = z.enum([
+  'heavyweight_digest_review',
+  'post_digest_clarification',
+  'standalone_choice_ask',
+  'advisory_laundering',
+  'post_approval_mutation',
+]);
+const citationSchema = z.object({ entryId: z.string().min(1), toolCallId: z.string().min(1) }).strict();
+const markerSchema = z.object({ observed: z.boolean(), citations: z.array(citationSchema) }).strict();
 const identitySchema = z
   .object({
     runId: z.string().min(1),
@@ -97,7 +46,7 @@ const identitySchema = z
     model: z.string().min(1),
     thinking: z.string().min(1),
     seedRef: z.string().min(1),
-    sourceSha256: z.string().regex(SHA256),
+    sourceSha256: z.string().regex(/^[a-f0-9]{64}$/u),
     sessionPath: z.string().min(1),
     activeLeaf: z.string().min(1),
     specId: z.number().int().positive(),
@@ -105,179 +54,334 @@ const identitySchema = z
     afterLsn: z.number().int().nonnegative(),
   })
   .strict();
+const reportSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    identity: identitySchema,
+    markers: z
+      .object({
+        digestPresented: markerSchema,
+        terminalFeedbackAfterDigest: markerSchema,
+        boundedQuestionnaire: markerSchema,
+        standaloneChoiceAskRival: markerSchema,
+        firstMappingMutationAfterClarification: markerSchema,
+        advisorySourceMaterialBeforeReview: markerSchema,
+        reviewSetPresented: markerSchema,
+        reviewSettlementReceipt: markerSchema,
+        postApprovalMutationRival: markerSchema,
+      })
+      .strict(),
+    verdict: z
+      .object({
+        sample: z.enum(['valid', 'mechanically_invalid']),
+        R8: verdictSchema,
+        R9: verdictSchema,
+        R10: verdictSchema,
+        forbiddenRivals: z.array(rivalSchema),
+        humanJudgmentsRequired: z.tuple([
+          z.literal('digest_fidelity'),
+          z.literal('question_materiality'),
+          z.literal('proposition_cohesion'),
+          z.literal('fatigue'),
+        ]),
+      })
+      .strict(),
+  })
+  .strict();
+export type ProviderConductReport = z.infer<typeof reportSchema>;
+export type ProviderConductIdentity = z.infer<typeof identitySchema>;
 
-function record(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : undefined;
+export interface ProviderConductInput {
+  identity: ProviderConductIdentity;
+  entries?: SessionEntry[];
+  graphReadback: { available: boolean; reviewLsns: readonly number[] };
 }
 
-function event(entry: SessionEntry, index: number) {
-  const raw = entry as unknown as Record<string, unknown>;
-  const message = record(raw.message);
-  if (raw.type !== 'message' || message?.role !== 'toolResult' || typeof message.toolName !== 'string')
-    return;
-  const details = record(message.details);
-  if (!details) return;
-  // Canonical schemas remain the vocabulary owner. safeParse identifies production
-  // details; the structural fallback keeps corrupt/rival fixtures inspectable.
-  const canonical =
-    zAskDetails.safeParse(details).success ||
-    zPresentDigestDetails.safeParse(details).success ||
-    zPresentReviewSetDetails.safeParse(details).success;
-  const entryId = typeof raw.id === 'string' ? raw.id : `entry-${index}`;
-  const toolCallId =
-    typeof message.toolCallId === 'string'
-      ? message.toolCallId
-      : typeof details.tool_call_id === 'string'
-        ? details.tool_call_id
-        : entryId;
-  return {
-    index,
-    toolName: message.toolName,
-    details,
-    canonical,
-    citation: { entryId, toolCallId },
-  };
-}
+type Call = { index: number; name: string; id: string; args: unknown; entryId: string };
+type Result = { index: number; name: string; id: string; details: unknown; entryId: string };
+type Event = Call & {
+  details: unknown;
+  resultIndex: number;
+  citation: { entryId: string; toolCallId: string };
+};
+const rec = (v: unknown): Record<string, unknown> | undefined =>
+  typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : undefined;
 
-function marker(
-  events: ReturnType<typeof event>[],
-  predicate: (item: NonNullable<ReturnType<typeof event>>) => boolean,
-): Marker {
-  const citations = events
-    .filter((item): item is NonNullable<typeof item> => Boolean(item))
-    .filter(predicate)
-    .map((item) => item.citation);
-  return { observed: citations.length > 0, citations };
+function events(entries: SessionEntry[]): { events: Event[]; malformedRelevant: boolean } {
+  const calls: Call[] = [];
+  const results = new Map<string, Result>();
+  let malformedRelevant = false;
+  entries.forEach((entry, index) => {
+    const raw = entry as unknown as Record<string, unknown>;
+    const message = rec(raw.message);
+    const entryId = typeof raw.id === 'string' ? raw.id : `entry-${index}`;
+    if (raw.type !== 'message' || !message) return;
+    if (message.role === 'assistant' && Array.isArray(message.content)) {
+      for (const part of message.content) {
+        const p = rec(part);
+        if (p?.type !== 'toolCall') continue;
+        if (typeof p.name !== 'string' || typeof p.id !== 'string') {
+          malformedRelevant = true;
+          continue;
+        }
+        calls.push({ index, name: p.name, id: p.id, args: p.arguments, entryId });
+      }
+    } else if (
+      message.role === 'toolResult' &&
+      typeof message.toolName === 'string' &&
+      typeof message.toolCallId === 'string'
+    ) {
+      results.set(message.toolCallId, {
+        index,
+        name: message.toolName,
+        id: message.toolCallId,
+        details: message.details,
+        entryId,
+      });
+    }
+  });
+  const joined: Event[] = [];
+  for (const call of calls) {
+    if (!['present_digest', 'ask', 'mutate_graph', 'present_review_set'].includes(call.name)) continue;
+    const result = results.get(call.id);
+    if (!result || result.name !== call.name) {
+      malformedRelevant = true;
+      continue;
+    }
+    const argsOk =
+      call.name === 'present_digest'
+        ? zPresentDigestParams.safeParse(call.args).success
+        : call.name === 'present_review_set'
+          ? zPresentReviewSetParams.safeParse(call.args).success
+          : call.name === 'ask'
+            ? parseAskParams(call.args).success
+            : validMutationArgs(call.args);
+    const detailsOk =
+      call.name === 'present_digest'
+        ? zPresentDigestDetails.safeParse(result.details).success
+        : call.name === 'present_review_set'
+          ? zPresentReviewSetDetails.safeParse(result.details).success
+          : call.name === 'ask'
+            ? zRequestDetails.safeParse(result.details).success
+            : validMutationResult(result.details);
+    if (!argsOk || !detailsOk) {
+      if (process.env.DEBUG_PROVIDER_REPORT) console.error(call.name, { argsOk, detailsOk });
+      malformedRelevant = true;
+      continue;
+    }
+    joined.push({
+      ...call,
+      details: result.details,
+      resultIndex: result.index,
+      citation: { entryId: result.entryId, toolCallId: call.id },
+    });
+  }
+  return { events: joined, malformedRelevant };
+}
+function validMutationArgs(v: unknown): boolean {
+  const x = rec(v);
+  return (
+    typeof x?.specId === 'number' &&
+    Array.isArray(x.ops) &&
+    (x.createSettlement === undefined ||
+      x.createSettlement === 'advisory' ||
+      x.createSettlement === 'settled')
+  );
+}
+function validMutationResult(v: unknown): boolean {
+  const x = rec(v);
+  return x?.status === 'success' && Number.isInteger(x.lsn);
+}
+function mark(items: Event[]): z.infer<typeof markerSchema> {
+  return { observed: items.length > 0, citations: items.map((x) => x.citation) };
 }
 
 export function extractProviderConductReport(input: ProviderConductInput): ProviderConductReport {
-  const validIdentity = identitySchema.safeParse(input.identity).success;
-  const mechanicallyInvalid =
-    !validIdentity ||
-    !input.entries ||
-    input.branchResolved === false ||
-    !input.graphReadback?.available ||
-    input.entries.length === 0;
-  const events = (input.entries ?? []).map(event);
-  const digest = events.find((item) => item?.toolName === 'present_digest');
-  const review = events.find((item) => item?.toolName === 'present_review_set');
-  const questionnaire = events.find((item) => {
-    const details = item?.details;
-    return item?.toolName === 'ask' && Array.isArray(details?.questions) && details.questions.length > 1;
+  const projected = events(input.entries ?? []);
+  const mechanical =
+    !identitySchema.safeParse(input.identity).success ||
+    !input.entries?.length ||
+    projected.events.length === 0 ||
+    !input.graphReadback.available ||
+    projected.malformedRelevant;
+  const xs = projected.events;
+  const digest = xs.find((x) => x.name === 'present_digest');
+  const review = xs.find((x) => x.name === 'present_review_set');
+  const asks = xs.filter((x) => x.name === 'ask');
+  const feedback = asks.find(
+    (x) =>
+      x.index > (digest?.resultIndex ?? Infinity) && rec(x.args)?.continues === rec(digest?.args)?.exchangeId,
+  );
+  const questionnaire = asks.find(
+    (x) =>
+      Array.isArray(rec(x.args)?.questions) && rec(x.args)?.acceptsDigest === rec(digest?.args)?.exchangeId,
+  );
+  const standaloneChoice = asks.find(
+    (x) =>
+      x.index > (digest?.resultIndex ?? Infinity) &&
+      x.index < (review?.index ?? Infinity) &&
+      Array.isArray(rec(x.args)?.options) &&
+      rec(x.args)?.acceptsDigest === undefined,
+  );
+  const mutations = xs.filter((x) => x.name === 'mutate_graph');
+  const advisory = mutations.find((x) => {
+    const args = rec(x.args);
+    return args?.createSettlement === 'advisory' && Array.isArray(args.ops) && args.ops.length > 0;
   });
-  const feedback = events.find((item) => {
-    const details = item?.details;
+  const settlement = asks.find((x) => {
+    const d = rec(x.details);
+    const answered = rec(d?.answered);
+    const receipt = rec(answered?.receipt);
     return (
-      item?.toolName === 'ask' &&
-      item.index > (digest?.index ?? Infinity) &&
-      !Array.isArray(details?.questions)
+      x.index > (review?.resultIndex ?? Infinity) &&
+      rec(x.args)?.continues === rec(review?.args)?.exchangeId &&
+      answered?.decision === 'approve' &&
+      typeof receipt?.lsn === 'number' &&
+      input.graphReadback.reviewLsns.includes(receipt.lsn)
     );
   });
-  const mutations = events.filter((item) => item?.toolName === 'mutate_graph');
-  const advisory = mutations.find((item) => item && item.details.settlement === 'advisory');
-  const settlement = events.find((item) => {
-    const details = item?.details;
-    const answered = record(details?.answered);
-    return item?.toolName === 'ask' && answered?.decision === 'approve' && record(answered.receipt);
-  });
-  const heavyweight = Boolean(feedback && record(feedback.details.answered)?.decision);
-  const combinatorial = Boolean(questionnaire && Array.isArray(questionnaire.details.options));
-  const postDigestClarification = Boolean(questionnaire && advisory && questionnaire.index > advisory.index);
-  const advisoryLaundering = Boolean(review && (!advisory || advisory.index > review.index));
-  const postApprovalMutation = Boolean(
-    settlement && mutations.some((item) => item && item.index > settlement.index),
+  const mapping = mutations.find(
+    (x) => x.index > (questionnaire?.resultIndex ?? feedback?.resultIndex ?? Infinity),
   );
-  const rivals: Rival[] = [];
-  if (heavyweight) rivals.push('heavyweight_digest_review');
-  if (postDigestClarification) rivals.push('post_digest_clarification');
-  if (combinatorial) rivals.push('combinatorial_options');
-  if (advisoryLaundering) rivals.push('advisory_laundering');
-  if (postApprovalMutation) rivals.push('post_approval_mutation');
-
-  const mappingMutation = mutations.find((item) => item && questionnaire && item.index > questionnaire.index);
-  const r8Observed = Boolean(digest && feedback && questionnaire && mappingMutation);
-  const r9Observed = Boolean(questionnaire);
-  const accepted =
-    review && input.graphReadback.acceptedReviewExchangeIds?.includes(String(review.details.exchange_id));
-  const r10Observed = Boolean(advisory && review && settlement && accepted);
-  const requirement = (observed: boolean, failed: boolean): RequirementVerdict =>
-    mechanicallyInvalid ? 'not_observed' : failed ? 'fail' : observed ? 'pass' : 'not_observed';
-
-  return {
+  const late = settlement ? mutations.filter((x) => x.index > settlement.resultIndex) : [];
+  const heavyweight = Boolean(feedback && rec(rec(feedback.details)?.answered)?.decision);
+  const postDigestClarification = Boolean(questionnaire && advisory && questionnaire.index > advisory.index);
+  const laundering = Boolean(review && (!advisory || advisory.index > review.index));
+  const rivals = [
+    heavyweight && 'heavyweight_digest_review',
+    postDigestClarification && 'post_digest_clarification',
+    standaloneChoice && 'standalone_choice_ask',
+    laundering && 'advisory_laundering',
+    late.length && 'post_approval_mutation',
+  ].filter(Boolean);
+  const requirement = (ok: boolean, fail: boolean) =>
+    mechanical ? 'not_observed' : fail ? 'fail' : ok ? 'pass' : 'not_observed';
+  return reportSchema.parse({
     schemaVersion: 1,
     identity: input.identity,
     markers: {
-      digestPresented: marker(events, (item) => item.toolName === 'present_digest'),
-      terminalFeedbackAfterDigest: marker(events, (item) => item === feedback),
-      boundedQuestionnaire: marker(events, (item) => item === questionnaire),
-      combinatorialOptionsRival: marker(events, (item) => item === questionnaire && combinatorial),
-      firstMappingMutationAfterClarification: marker(events, (item) => item === mappingMutation),
-      advisorySourceMaterialBeforeReview: marker(
-        events,
-        (item) => item === advisory && Boolean(review) && item.index < review!.index,
+      digestPresented: mark(digest ? [digest] : []),
+      terminalFeedbackAfterDigest: mark(feedback ? [feedback] : []),
+      boundedQuestionnaire: mark(questionnaire ? [questionnaire] : []),
+      standaloneChoiceAskRival: mark(standaloneChoice ? [standaloneChoice] : []),
+      firstMappingMutationAfterClarification: mark(mapping ? [mapping] : []),
+      advisorySourceMaterialBeforeReview: mark(
+        advisory && review && advisory.index < review.index ? [advisory] : [],
       ),
-      reviewSetPresented: marker(events, (item) => item === review),
-      reviewSettlementReceipt: marker(events, (item) => item === settlement),
-      postApprovalMutationRival: marker(
-        events,
-        (item) => Boolean(settlement) && item.toolName === 'mutate_graph' && item.index > settlement!.index,
-      ),
+      reviewSetPresented: mark(review ? [review] : []),
+      reviewSettlementReceipt: mark(settlement ? [settlement] : []),
+      postApprovalMutationRival: mark(late),
     },
     verdict: {
-      sample: mechanicallyInvalid ? 'mechanically_invalid' : 'valid',
-      R8: requirement(r8Observed, heavyweight || postDigestClarification),
-      R9: requirement(r9Observed, combinatorial),
-      R10: requirement(r10Observed, advisoryLaundering || postApprovalMutation),
+      sample: mechanical ? 'mechanically_invalid' : 'valid',
+      R8: requirement(
+        Boolean(digest && feedback && questionnaire && mapping),
+        heavyweight || postDigestClarification,
+      ),
+      R9: requirement(Boolean(questionnaire), Boolean(standaloneChoice)),
+      R10: requirement(Boolean(advisory && review && settlement), laundering || late.length > 0),
       forbiddenRivals: rivals,
       humanJudgmentsRequired: HUMAN_JUDGMENTS,
     },
-  };
+  });
 }
 
-export function providerConductSummary(report: ProviderConductReport): string {
-  return [
-    `Provider conduct ${report.identity.runId}: ${report.verdict.sample}`,
-    `R8 ${report.verdict.R8} · R9 ${report.verdict.R9} · R10 ${report.verdict.R10}`,
-    report.verdict.forbiddenRivals.length
-      ? `Forbidden rivals: ${report.verdict.forbiddenRivals.join(', ')}`
-      : 'Forbidden rivals: none',
-    `Human judgments required: ${report.verdict.humanJudgmentsRequired.join(', ')}`,
-  ].join('\n');
+export function providerConductSummary(r: ProviderConductReport): string {
+  return `Provider conduct ${r.identity.runId}: ${r.verdict.sample}\nR8 ${r.verdict.R8} · R9 ${r.verdict.R9} · R10 ${r.verdict.R10}\nForbidden rivals: ${r.verdict.forbiddenRivals.join(', ') || 'none'}\nHuman judgments required: ${r.verdict.humanJudgmentsRequired.join(', ')}`;
 }
 
 async function main(argv: string[]): Promise<number> {
-  const inputAt = argv.indexOf('--input');
-  const reportAt = argv.indexOf('--report');
-  const summaryAt = argv.indexOf('--summary');
-  const inputPath = argv[inputAt + 1];
-  const reportPath = argv[reportAt + 1];
-  if (inputAt < 0 || reportAt < 0 || !inputPath || !reportPath)
+  const arg = (name: string) => {
+    const i = argv.indexOf(name);
+    return i < 0 ? undefined : argv[i + 1];
+  };
+  const workspace = resolve(arg('--workspace') ?? '');
+  const sessionPath = resolve(arg('--session') ?? '');
+  const sourcePath = resolve(arg('--source') ?? '');
+  const reportPath = arg('--report');
+  const runId = arg('--run-id');
+  const seedRef = arg('--seed-ref');
+  const specId = Number(arg('--spec-id'));
+  const beforeLsn = Number(arg('--pre-run-lsn'));
+  if (
+    !workspace ||
+    !sessionPath ||
+    !sourcePath ||
+    !reportPath ||
+    !runId ||
+    !seedRef ||
+    !Number.isInteger(specId) ||
+    !Number.isInteger(beforeLsn)
+  )
     throw new Error(
-      'Usage: provider-conduct-report --input input.json --report report.json [--summary report.md]',
+      'Usage: --workspace PATH --session PATH --source PATH --spec-id N --pre-run-lsn N --run-id ID --seed-ref REF --report PATH [--summary PATH]',
     );
-  const config = JSON.parse(await readFile(resolve(inputPath), 'utf8')) as Omit<
-    ProviderConductInput,
-    'entries'
-  >;
-  const branch = openActiveSessionBranch(resolve(config.identity.sessionPath));
-  const report = extractProviderConductReport({ ...config, entries: branch.entries, branchResolved: true });
-  const summary = providerConductSummary(report);
-  await writeFile(resolve(reportPath), `${JSON.stringify(report, null, 2)}\n`);
-  const summaryPath = argv[summaryAt + 1];
-  if (summaryAt >= 0 && summaryPath) await writeFile(resolve(summaryPath), `${summary}\n`);
+  const branch = openActiveSessionBranch(sessionPath);
+  const dbPath = join(workspace, '.brunch', WORKSPACE_DB_FILENAME);
+  const db = new Database(dbPath, { readonly: true, fileMustExist: true });
+  const clock = db.prepare('select lsn from graph_clock where spec_id = ?').get(specId) as
+    | { lsn: number }
+    | undefined;
+  const reviewLsns = (
+    db
+      .prepare("select lsn from change_log where spec_id = ? and operation = 'accept_review_set'")
+      .all(specId) as { lsn: number }[]
+  ).map((x) => x.lsn);
+  db.close();
+  const assistant = [...branch.entries]
+    .reverse()
+    .map((e) => rec(rec(e as unknown)?.message))
+    .find((m) => m?.role === 'assistant' && typeof m.provider === 'string' && typeof m.model === 'string');
+  const thinkingEntry = [...branch.entries]
+    .reverse()
+    .map((e) => e as unknown as Record<string, unknown>)
+    .find((e) => e.type === 'thinking_level_change');
+  const identity = {
+    runId,
+    generatedAt: new Date().toISOString(),
+    branch: execFileSync('git', ['branch', '--show-current'], { cwd: workspace, encoding: 'utf8' }).trim(),
+    commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: workspace, encoding: 'utf8' }).trim(),
+    piVersion: JSON.parse(
+      await readFile(resolve('node_modules/@earendil-works/pi-coding-agent/package.json'), 'utf8'),
+    ).version as string,
+    provider: typeof assistant?.provider === 'string' ? assistant.provider : '',
+    model: typeof assistant?.model === 'string' ? assistant.model : '',
+    thinking:
+      typeof thinkingEntry?.thinkingLevel === 'string'
+        ? thinkingEntry.thinkingLevel
+        : typeof thinkingEntry?.level === 'string'
+          ? thinkingEntry.level
+          : '',
+    seedRef,
+    sourceSha256: createHash('sha256')
+      .update(await readFile(sourcePath))
+      .digest('hex'),
+    sessionPath,
+    activeLeaf: String((branch.entries.at(-1) as unknown as { id?: string })?.id ?? ''),
+    specId,
+    beforeLsn,
+    afterLsn: clock?.lsn ?? -1,
+  };
+  const report = extractProviderConductReport({
+    identity,
+    entries: branch.entries,
+    graphReadback: { available: Boolean(clock), reviewLsns },
+  });
+  const parsed = reportSchema.parse(report);
+  const summary = providerConductSummary(parsed);
+  await writeFile(resolve(reportPath), `${JSON.stringify(parsed, null, 2)}\n`);
+  if (arg('--summary')) await writeFile(resolve(arg('--summary')!), `${summary}\n`);
   process.stdout.write(`${summary}\n`);
-  return report.verdict.R8 === 'pass' && report.verdict.R9 === 'pass' && report.verdict.R10 === 'pass'
+  return parsed.verdict.R8 === 'pass' && parsed.verdict.R9 === 'pass' && parsed.verdict.R10 === 'pass'
     ? 0
     : 1;
 }
-
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href)
   main(process.argv.slice(2))
-    .then((code) => {
-      process.exitCode = code;
+    .then((c) => {
+      process.exitCode = c;
     })
-    .catch((error: unknown) => {
-      process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    .catch((e) => {
+      process.stderr.write(`${e instanceof Error ? e.message : String(e)}\n`);
       process.exitCode = 1;
     });
-}

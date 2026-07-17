@@ -11,7 +11,7 @@ Two-card sequence. Card 1 builds the missing deterministic evidence instrument a
 
 ## Card 1 · Deterministic provider-conduct report extractor — `done`
 
-Completed 2026-07-17. `src/probes/provider-conduct-report.ts` now reads Pi's active branch through the canonical session adapter, combines it with explicit graph/LSN readback, and emits cited deterministic R8–R10 reports while retaining all semantic quality questions as human judgments. Contrastive, malformed, read-only, and source-vs-built CLI tests live in `src/probes/__tests__/provider-conduct-report.test.ts`. Card 2 remains provider/human-gated and was not started.
+Completed 2026-07-17; corrected after independent review. `src/probes/provider-conduct-report.ts` now joins canonical assistant `toolCall` blocks to following `toolResult` messages by id, validates call parameters and current detail schemas fail-closed, derives mutation settlement/ops from call arguments, and derives CLI identity plus graph/change-log readback from the real session, workspace, source, and Git state. Faithful constructor-backed passing and rival tests cover canonical digest, Ask/questionnaire, review settlement, malformed input, standalone-choice R9 rivalry, and post-approval assistant mutation. Semantic quality remains human-only. Card 2 remains provider/human-gated and was not started.
 
 ### Target Behavior
 

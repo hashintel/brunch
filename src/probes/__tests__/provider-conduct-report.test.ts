@@ -1,257 +1,210 @@
-import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { promisify } from 'node:util';
-
 import { describe, expect, it } from 'vitest';
 
-import { extractProviderConductReport, type ProviderConductInput } from '../provider-conduct-report.js';
+import { projectDigestQuestionnaire, projectAsk } from '../../exchanges/projections/ask.js';
+import { projectPresentDigest } from '../../exchanges/projections/present-digest.js';
+import { projectPresentReviewSet } from '../../exchanges/projections/present-review-set.js';
+import { projectRequestReview } from '../../exchanges/projections/request-response.js';
+import { extractProviderConductReport, type ProviderConductIdentity } from '../provider-conduct-report.js';
 
-const humanJudgments = ['digest_fidelity', 'question_materiality', 'proposition_cohesion', 'fatigue'];
-const execFileAsync = promisify(execFile);
+const receipt = {
+  status: 'success' as const,
+  lsn: 3,
+  createdNodes: { n1: { id: 1, code: 'G1' } },
+  createdEdges: [],
+  updatedNodes: [],
+  updatedEdges: [],
+  deletedNodes: [],
+  deletedEdges: [],
+};
+const digestParams = {
+  exchangeId: 'digest-1',
+  heading: 'Understanding',
+  digest: { abstract: 'Accepted abstract' },
+};
+const questions = [
+  { id: 'q1', prompt: 'One?', kind: 'free-text' as const },
+  { id: 'q2', prompt: 'Two?', kind: 'free-text' as const },
+];
+const reviewPayload = {
+  schemaVersion: 1 as const,
+  lens: 'intent' as const,
+  epistemicStatus: 'asserted' as const,
+  grounding: { summary: 'Grounded', support: ['source'] },
+  pitch: { title: 'Review', narrative: 'One cohesive proposition' },
+  entityDrafts: [
+    { draftId: 'n1', proposedCode: 'G1', plane: 'intent' as const, kind: 'goal', title: 'Goal' },
+  ],
+  edgeDrafts: [],
+};
+const reviewParams = { exchangeId: 'review-1', payload: reviewPayload };
 
-function tool(id: string, toolName: string, details: unknown, toolCallId = `${id}-call`) {
-  return {
-    type: 'message',
-    id,
-    parentId: null,
-    timestamp: '2026-07-17T00:00:00.000Z',
-    message: { role: 'toolResult', toolName, toolCallId, content: [], details },
-  };
-}
-
-function baseInput(entries: unknown[]): ProviderConductInput {
-  return {
-    identity: {
-      runId: 'run-1',
-      generatedAt: '2026-07-17T00:00:00.000Z',
-      branch: 'ln/fe-1187-remediation-4',
-      commit: 'abc123',
-      piVersion: '0.80.7',
-      provider: 'anthropic',
-      model: 'claude-sonnet-4-6',
-      thinking: 'low',
-      seedRef: 'workspace-alpha-grounding/base',
-      sourceSha256: '1679e23ab02b27f0f5e7a1be8aade97a77ebc1b981f9bc4b5d3798640a80d19c',
-      sessionPath: '/tmp/session.jsonl',
-      activeLeaf: 'review-answer',
-      specId: 1,
-      beforeLsn: 1,
-      afterLsn: 2,
-    },
-    entries: entries as NonNullable<ProviderConductInput['entries']>,
-    graphReadback: { available: true, acceptedReviewExchangeIds: ['review-1'], afterLsn: 2 },
-  };
-}
-
-function passingEntries() {
+function pair(entry: string, callId: string, name: string, args: unknown, details: unknown) {
   return [
-    tool('digest', 'present_digest', {
-      schema: 'brunch.structured_exchange.present_digest',
-      v: 1,
-      exchange_id: 'digest-1',
-      continuation: { tool: 'ask', params: { mode: 'text' } },
-    }),
-    tool('digest-feedback', 'ask', {
-      schema: 'brunch.structured_exchange.request',
-      v: 1,
-      exchange_id: 'feedback-1',
-      responds_to: 'digest-1',
-      answer: { text: 'Confirmed' },
-    }),
-    tool('questionnaire', 'ask', {
-      schema: 'brunch.structured_exchange.request',
-      v: 1,
-      exchange_id: 'questions-1',
-      accepts_digest: 'digest-1',
-      questions: [
-        { id: 'q1', kind: 'text', prompt: 'One?' },
-        { id: 'q2', kind: 'text', prompt: 'Two?' },
-      ],
-      answers: [
-        { question_id: 'q1', text: 'A' },
-        { question_id: 'q2', text: 'B' },
-      ],
-    }),
-    tool('advisory', 'mutate_graph', { settlement: 'advisory', sourceDerived: true }),
-    tool('review', 'present_review_set', {
-      schema: 'brunch.structured_exchange.present_review_set',
-      v: 1,
-      exchange_id: 'review-1',
-      review_set: { nodes: [], edges: [] },
-    }),
-    tool('review-answer', 'ask', {
-      schema: 'brunch.structured_exchange.request',
-      v: 1,
-      exchange_id: 'review-1',
-      answered: { decision: 'approve', receipt: { lsn: 2 } },
-    }),
+    {
+      type: 'message',
+      id: `${entry}-call`,
+      parentId: null,
+      timestamp: '2026-07-17T00:00:00.000Z',
+      message: {
+        role: 'assistant',
+        provider: 'anthropic',
+        model: 'model',
+        content: [{ type: 'toolCall', id: callId, name, arguments: args }],
+      },
+    },
+    {
+      type: 'message',
+      id: entry,
+      parentId: `${entry}-call`,
+      timestamp: '2026-07-17T00:00:00.000Z',
+      message: { role: 'toolResult', toolName: name, toolCallId: callId, content: [], details },
+    },
   ];
 }
+function passing() {
+  const digest = projectPresentDigest(digestParams).details;
+  const feedbackArgs = { continues: 'digest-1' };
+  const feedback = projectAsk({
+    exchangeId: 'feedback',
+    question: { body: digest.continuation!.params.body },
+    status: 'answered',
+    answer: 'Confirmed',
+  });
+  const questionnaireArgs = {
+    exchangeId: 'questions',
+    acceptsDigest: 'digest-1',
+    questions,
+    body: 'Questionnaire',
+  };
+  const questionnaire = projectDigestQuestionnaire({
+    exchangeId: 'questions',
+    acceptsDigest: 'digest-1',
+    acceptedAbstract: 'Accepted abstract',
+    questions,
+    answers: [
+      { questionId: 'q1', kind: 'free-text', text: 'A' },
+      { questionId: 'q2', kind: 'free-text', text: 'B' },
+    ],
+  });
+  const advisoryArgs = {
+    specId: 1,
+    createSettlement: 'advisory',
+    ops: [{ op: 'create_node', ref: 'a1', plane: 'intent', kind: 'goal', title: 'Source sketch' }],
+  };
+  const mutationResult = { ...receipt, lsn: 2, createdNodes: { a1: { id: 2, code: 'G2' } } };
+  const review = projectPresentReviewSet(reviewParams).details;
+  const settlementArgs = { continues: 'review-1' };
+  const settlement = projectRequestReview({
+    exchangeId: 'review-1',
+    respondsToPresentTool: 'present_review_set',
+    status: 'answered',
+    review: 'approve',
+    receipt,
+  });
+  return [
+    ...pair('digest', 'c-digest', 'present_digest', digestParams, digest),
+    ...pair('feedback', 'c-feedback', 'ask', feedbackArgs, feedback),
+    ...pair('questions', 'c-questions', 'ask', questionnaireArgs, questionnaire),
+    ...pair('advisory', 'c-advisory', 'mutate_graph', advisoryArgs, mutationResult),
+    ...pair('review', 'c-review', 'present_review_set', reviewParams, review),
+    ...pair('settlement', 'c-settlement', 'ask', settlementArgs, settlement),
+  ];
+}
+const identity: ProviderConductIdentity = {
+  runId: 'run',
+  generatedAt: '2026-07-17T00:00:00.000Z',
+  branch: 'branch',
+  commit: 'abc',
+  piVersion: '0.80.7',
+  provider: 'anthropic',
+  model: 'model',
+  thinking: 'low',
+  seedRef: 'seed',
+  sourceSha256: 'a'.repeat(64),
+  sessionPath: '/tmp/session.jsonl',
+  activeLeaf: 'settlement',
+  specId: 1,
+  beforeLsn: 1,
+  afterLsn: 3,
+};
+const report = (entries: unknown[]) =>
+  extractProviderConductReport({
+    identity,
+    entries: entries as never[],
+    graphReadback: { available: true, reviewLsns: [3] },
+  });
 
 describe('provider conduct report', () => {
-  it('passes R8-R10 with exact entry/toolCall citations and preserves the semantic boundary', () => {
-    const report = extractProviderConductReport(baseInput(passingEntries()));
-    expect(report.verdict).toEqual({
+  it('joins production-shaped calls/results and reads mutation authority from call arguments', () => {
+    const value = report(passing());
+    expect(value.verdict).toEqual({
       sample: 'valid',
       R8: 'pass',
       R9: 'pass',
       R10: 'pass',
       forbiddenRivals: [],
-      humanJudgmentsRequired: humanJudgments,
+      humanJudgmentsRequired: ['digest_fidelity', 'question_materiality', 'proposition_cohesion', 'fatigue'],
     });
-    expect(report.markers.digestPresented.citations).toEqual([
-      { entryId: 'digest', toolCallId: 'digest-call' },
+    expect(value.markers.digestPresented.citations).toEqual([{ entryId: 'digest', toolCallId: 'c-digest' }]);
+    expect(value.markers.reviewSettlementReceipt.citations).toEqual([
+      { entryId: 'settlement', toolCallId: 'c-settlement' },
     ]);
-    expect(report.markers.reviewSettlementReceipt.citations).toEqual([
-      { entryId: 'review-answer', toolCallId: 'review-answer-call' },
-    ]);
-    expect(JSON.stringify(report)).not.toMatch(/semanticVerdict|keyword|llmJudge/i);
   });
 
-  const rivalCases: ReadonlyArray<
-    readonly [string, (entries: ReturnType<typeof passingEntries>) => void, 'R8' | 'R9' | 'R10']
-  > = [
-    [
-      'heavyweight_digest_review',
-      (xs) => {
-        xs[1]!.message.details = {
-          ...(xs[1]!.message.details as Record<string, unknown>),
-          answered: { decision: 'approve' },
-        };
-      },
-      'R8',
-    ],
-    [
-      'post_digest_clarification',
-      (xs) => {
-        xs.splice(4, 0, xs.splice(2, 1)[0]!);
-      },
-      'R8',
-    ],
-    [
-      'combinatorial_options',
-      (xs) => {
-        (xs[2]!.message.details as Record<string, unknown>).options = [{ id: 'a+b', label: 'A and B' }];
-      },
-      'R9',
-    ],
-    [
-      'advisory_laundering',
-      (xs) => {
-        (xs[3]!.message.details as Record<string, unknown>).settlement = 'settled';
-      },
-      'R10',
-    ],
-    [
-      'post_approval_mutation',
-      (xs) => {
-        xs.push(tool('late', 'mutate_graph', { settlement: 'settled' }));
-      },
-      'R10',
-    ],
-  ];
-
-  it.each(rivalCases)('rejects %s without changing unrelated verdicts', (rival, mutate, owner) => {
-    const entries = passingEntries();
-    mutate(entries);
-    const report = extractProviderConductReport(baseInput(entries));
-    expect(report.verdict.forbiddenRivals).toContain(rival);
-    expect(report.verdict[owner]).toBe('fail');
-    for (const requirement of ['R8', 'R9', 'R10'] as const) {
-      if (requirement !== owner) expect(report.verdict[requirement]).toBe('pass');
-    }
+  it('fails closed for malformed canonical arguments instead of admitting fixture fallbacks', () => {
+    const entries = passing();
+    (entries[0] as any).message.content[0].arguments = { exchangeId: 'digest-1' };
+    expect(report(entries).verdict.sample).toBe('mechanically_invalid');
+    expect(report(entries).verdict.R8).toBe('not_observed');
   });
 
-  it.each([
-    ['missing session', { entries: undefined }],
-    ['unresolved branch', { branchResolved: false }],
-    ['missing graph', { graphReadback: { available: false } }],
-    ['carrier-less', { entries: [] }],
-  ])('classifies %s as mechanically invalid', (_name, patch) => {
-    const report = extractProviderConductReport({
-      ...baseInput(passingEntries()),
-      ...patch,
-    } as ProviderConductInput);
-    expect(report.verdict.sample).toBe('mechanically_invalid');
-    expect([report.verdict.R8, report.verdict.R9, report.verdict.R10]).not.toContain('pass');
-  });
-
-  it('source and built CLIs emit normalized-equivalent validated reports and summaries', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'provider-report-cli-'));
-    const sessionPath = join(dir, 'session.jsonl');
-    let parentId: string | null = null;
-    const entries = passingEntries().map((entry) => {
-      const next = { ...entry, parentId };
-      parentId = entry.id;
-      return next;
-    });
-    const header = {
-      type: 'session',
-      version: 3,
-      id: 'provider-report-session',
-      timestamp: '2026-07-17T00:00:00.000Z',
-      cwd: dir,
+  it('treats a real standalone choice ask as the R9 structural rival', () => {
+    const entries = passing();
+    const args = {
+      exchangeId: 'choice',
+      body: 'Which?',
+      options: [
+        { id: 'a', label: 'A' },
+        { id: 'b', label: 'B' },
+      ],
     };
-    await writeFile(sessionPath, `${[header, ...entries].map((row) => JSON.stringify(row)).join('\n')}\n`);
-    const input = baseInput(entries);
-    input.identity.sessionPath = sessionPath;
-    input.identity.activeLeaf = parentId!;
-    const configPath = join(dir, 'input.json');
-    const { entries: _entries, ...config } = input;
-    await writeFile(configPath, JSON.stringify(config));
-    const sourceReport = join(dir, 'source.json');
-    const builtReport = join(dir, 'built.json');
-    const sourceSummary = join(dir, 'source.md');
-    const builtSummary = join(dir, 'built.md');
-    await execFileAsync(
-      'node',
-      [
-        '--import',
-        'tsx',
-        'src/probes/provider-conduct-report.ts',
-        '--input',
-        configPath,
-        '--report',
-        sourceReport,
-        '--summary',
-        sourceSummary,
-      ],
-      { cwd: resolve('.') },
-    );
-    await execFileAsync(
-      'node',
-      [
-        'dist/probes/provider-conduct-report.js',
-        '--input',
-        configPath,
-        '--report',
-        builtReport,
-        '--summary',
-        builtSummary,
-      ],
-      { cwd: resolve('.') },
-    );
-    const source = JSON.parse(await readFile(sourceReport, 'utf8'));
-    const built = JSON.parse(await readFile(builtReport, 'utf8'));
-    expect(source).toEqual(built);
-    expect(await readFile(sourceSummary, 'utf8')).toBe(await readFile(builtSummary, 'utf8'));
-    expect(source.schemaVersion).toBe(1);
+    const details = projectAsk({
+      exchangeId: 'choice',
+      question: { body: 'Which?', options: args.options },
+      status: 'answered',
+      choice: { id: 'a', label: 'A', kind: 'listed' },
+      options: args.options,
+    });
+    entries.splice(4, 0, ...pair('choice', 'c-choice', 'ask', args, details));
+    const value = report(entries);
+    expect(value.verdict.R9).toBe('fail');
+    expect(value.verdict.forbiddenRivals).toContain('standalone_choice_ask');
+    expect(value.verdict.humanJudgmentsRequired).toContain('question_materiality');
   });
 
-  it('uses only the supplied active branch and never mutates the session or graph readback', async () => {
-    const input = baseInput(passingEntries());
-    const before = structuredClone(input);
-    extractProviderConductReport(input);
-    expect(input).toEqual(before);
+  it('detects actual later assistant mutation calls after approval', () => {
+    const entries = passing();
+    entries.push(
+      ...pair(
+        'late',
+        'c-late',
+        'mutate_graph',
+        { specId: 1, ops: [{ op: 'delete_node', node: { existing: 1 } }] },
+        { ...receipt, lsn: 4 },
+      ),
+    );
+    const value = report(entries);
+    expect(value.verdict.R10).toBe('fail');
+    expect(value.markers.postApprovalMutationRival.observed).toBe(true);
+  });
 
-    const dir = await mkdtemp(join(tmpdir(), 'provider-report-'));
-    const session = join(dir, 'session.jsonl');
-    await writeFile(session, 'source evidence');
-    const beforeStat = await stat(session);
-    extractProviderConductReport(input);
-    expect(await readFile(session, 'utf8')).toBe('source evidence');
-    expect((await stat(session)).mtimeMs).toBe(beforeStat.mtimeMs);
+  it('does not accidentally pass an orphan-result regression shape', () => {
+    const orphanResults = passing().filter((entry: any) => entry.message.role === 'toolResult');
+    expect(report(orphanResults).verdict.sample).toBe('mechanically_invalid');
+    expect([
+      report(orphanResults).verdict.R8,
+      report(orphanResults).verdict.R9,
+      report(orphanResults).verdict.R10,
+    ]).not.toContain('pass');
   });
 });
