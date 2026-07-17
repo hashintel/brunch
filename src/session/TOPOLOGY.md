@@ -51,7 +51,7 @@ plus the coordination logic for workspace/spec/session lifecycle.
   subagent world snapshots all read the same fold. It never becomes canonical
   graph truth by projection side effect.
 
-- **Elicitation style and process-move carriers** (`elicitation-style.ts`, `process-move.ts`) — D98-L/D109-L use two disjoint active-branch custom entries. `brunch.elicitation_style` is last-valid-entry-wins across kicks and accepts only `interrogate | disambiguate | propose`; every Specify prompt projects it without changing role, authority, capability, or target plane. `brunch.process_move` accepts only `move_to_execution | prepare_execution | compile_plan | execute_plan` and is fresh only after the latest `brunch.kick`, so the next kick consumes it. Escape/timeout has no carrier. `originate-assistant-turn.ts` renders only a fresh process move into the seed; persistent style belongs to foreground prompt composition. The retired mixed carrier has no parser or compatibility path. Pi-facing menu and juncture choreography remains in `.pi/extensions/session-orientation/`.
+- **Elicitation style and process-move carriers** (`elicitation-style.ts`, `process-move.ts`) — D98-L/D109-L use two disjoint active-branch custom entries. `brunch.elicitation_style` is last-valid-entry-wins across kicks and accepts only `interrogate | disambiguate | propose`; every Specify prompt projects it without changing role, authority, capability, or target plane. `brunch.process_move` accepts only `move_to_execution | prepare_execution | compile_plan | execute_plan` and is fresh only after the latest `brunch.kick`, so the next kick consumes it. Escape/timeout has no carrier. `originate-assistant-turn.ts` renders only a fresh process move into the seed; persistent style belongs to foreground prompt composition. The retired mixed carrier has no parser or compatibility path. Pi-facing menu and juncture choreography remains in `.pi/extensions/session-orientation/`. The cross-control ownership and lifetime map is canonical in [`agents/runtime/elicitor/TOPOLOGY.md`](../agents/runtime/elicitor/TOPOLOGY.md#control-ownership).
 
 - **Review-set settlement** (`review-set-settlement.ts`, D27-L/I15-L) — the shared local/RPC response authority. It revalidates the exact persisted `present_review_set`, translates that reviewed payload into one mutation, and commits approval once through `CommandExecutor.acceptReviewSet`; the operation, spec-local LSN, and single change-log row are the durable acceptance record. Only then does it pass the exact successful `MutateGraphSuccess` into the request projector and construct the validated receipt-bearing terminal; adapters retain only their distinct Pi-owned vs Brunch-owned append mechanics. Required per-node and per-edge settlement is preserved through that same approval without a post-approval mutation.
 
@@ -166,16 +166,6 @@ plus the coordination logic for workspace/spec/session lifecycle.
   `appendPreparedContinuityEntry` in `prepare-next-turn.ts` routes by carrier.
   Rule: at the reconciler/guard seam use `appendCustomMessageEntry` directly;
   `pi.sendMessage` is for out-of-band injection with delivery semantics only.
-
-## Agent control ownership
-
-| Control | Provenance and canonical owner | Session reader / delivery | Lifetime |
-| --- | --- | --- | --- |
-| Spec posture | Product-established `kind` / `origin` / `relatesToSpecId` persisted on the spec-row by graph/database authority | `WorkspaceSessionCoordinator` reads it for creation/resume establishment; origination renders the established value | Spec lifetime; resume never re-asks an established posture |
-| Elicitation style | Last valid `brunch.elicitation_style` custom entry on the active branch | `latestElicitationStyle` folds the branch for each Specify prompt | Session lifetime across kicks; a later valid active-branch entry replaces it |
-| Asking agenda | No persisted agenda primitive: the branch-local scratchpad is only prospective memory, while neutral graph facts and elicitor instructions supply prompt conduct | Origination supplies facts/scratchpad once; later turns use the scratchpad and graph read tools on demand | Turn lifetime for the chosen vein; scratchpad obligations may continue for the session without becoming the agenda itself |
-
-These controls intentionally do not share a state field or writer. Rendering one cannot establish, overwrite, persist, or gate either of the others.
 
 ## Session PULL read-shape ledger
 

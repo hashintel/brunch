@@ -55,7 +55,7 @@ control-plane closure
 2. [done] Delete the self-fulfilling resource-invocation harness and retain only independently sourced expectations that the production characterization can falsify.
 3. [done] Delete the unused graph/lens seed renderer and its tests, and reconcile the owning seed topology and generated tree inventory in the same commit.
 4. [done] Make assurance guidance validation derive from the canonical live-skill inventory and replace the remaining prospective-evidence wording with observation/check language.
-5. Remove prose-regex enforcement and duplicate control-ownership documentation; keep behavioral assertions and one canonical ownership table with narrow pointers from the other owner.
+5. [done] Remove prose-regex enforcement and duplicate control-ownership documentation; keep behavioral assertions and one canonical ownership table with narrow pointers from the other owner.
 6. Delete exhausted subagent deferrals and mark the control-ingress decision and invariant as materialized/covered so SPEC, PLAN, and topology describe the landed state.
 
 ## Decisions
