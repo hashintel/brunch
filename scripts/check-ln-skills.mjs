@@ -19,8 +19,8 @@ const harnessAgentDefinitions = [
   ['Claude', '.claude/agents/ln-builder.md', 'ln-builder', 'ln-build'],
   ['Pi', '.pi/subagents/ln-scoper.md', 'ln-scoper', 'ln-scope'],
   ['Pi', '.pi/subagents/ln-builder.md', 'ln-builder', 'ln-build'],
-  ['Codex', '.codex/agents/ln-scoper.toml', 'ln-scoper', 'ln-scope'],
-  ['Codex', '.codex/agents/ln-builder.toml', 'ln-builder', 'ln-build'],
+  ['Codex', '.codex/agents/ln_scoper.toml', 'ln_scoper', 'ln-scope'],
+  ['Codex', '.codex/agents/ln_builder.toml', 'ln_builder', 'ln-build'],
 ];
 
 /** @type {string[]} */
@@ -100,6 +100,7 @@ const guardrails = [
   ['ln-execute', 'first action, before resolving the focus'],
   ['ln-execute', 'report in one sentence exactly what is missing'],
   ['ln-execute', 'another invocation path'],
+  ['ln-execute', 'Codex uses underscore-safe aliases'],
 ];
 for (const [name, phrase] of guardrails) {
   if (existsSync(skillFile(name)) && !readFileSync(skillFile(name), 'utf8').includes(phrase)) {

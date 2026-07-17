@@ -6,7 +6,7 @@ the body in a fresh, uncontaminated session and assert process markers rather th
 output.
 
 Read-only probes P1/P2 still require an agent-capable coordinator whose live tool surface
-offers both required names; their inputs halt before any writing delegation. A stripped
+offers both harness-specific targets; their inputs halt before any writing delegation. A stripped
 subagent cannot stand in for that surface because preflight must bail there — A1/A2 own
 those restricted-harness branches. Mutating probes P3–P6 run only deliberately on a
 scratch branch.
@@ -104,10 +104,10 @@ Models: stamped per observed result   Last run: 2026-07-17
 ## A2 — preflight bail-out, named agent absent  (read-only)
 
 - Input: follow the skill with a real ready focus in a harness whose live delegation tool
-  offers `ln-scoper` but not `ln-builder` while both definition files remain on disk
+  offers the scoper target but not the builder target while both definition files remain on disk
 - Expect branch: Harness contract and preflight
-- Expect markers: checks the live offered names first; bails in one sentence naming
-  `ln-builder`; does not resolve the focus, inspect disk definitions, invoke a substitute,
+- Expect markers: checks the live offered names first; bails in one sentence naming the
+  harness-specific builder target (`ln-builder` or `ln_builder`); does not resolve the focus, inspect disk definitions, invoke a substitute,
   or work inline
 - Observed: not yet run — requires a deliberately restricted harness surface
 

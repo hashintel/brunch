@@ -1,4 +1,4 @@
-name = "ln-builder"
+name = "ln_builder"
 description = "Build ln-scoped work and report reviewable claims"
 model = "gpt-5.6-sol"
 model_reasoning_effort = "low"
