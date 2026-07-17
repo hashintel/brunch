@@ -6,8 +6,10 @@ import { pathToFileURL } from 'node:url';
 
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import Database from 'better-sqlite3';
+import { Value } from 'typebox/value';
 import { z } from 'zod';
 
+import { MutateGraphParams } from '../.pi/extensions/brunch-data/graph/tool-schemas.js';
 import { WORKSPACE_DB_FILENAME } from '../constants.js';
 import {
   parseAskParams,
@@ -62,7 +64,10 @@ const reportSchema = z
       .object({
         digestPresented: markerSchema,
         terminalFeedbackAfterDigest: markerSchema,
-        boundedQuestionnaire: markerSchema,
+        boundedQuestionnaire: markerSchema.extend({
+          rawQuestionCount: z.number().int().nonnegative(),
+          questionIdsInOrder: z.array(z.string().min(1)),
+        }),
         standaloneChoiceAskRival: markerSchema,
         firstMappingMutationAfterClarification: markerSchema,
         advisorySourceMaterialBeforeReview: markerSchema,
@@ -155,7 +160,8 @@ function events(entries: SessionEntry[]): { events: Event[]; malformedRelevant: 
           ? zPresentReviewSetParams.safeParse(call.args).success
           : call.name === 'ask'
             ? parseAskParams(call.args).success
-            : validMutationArgs(call.args);
+            : Value.Check(MutateGraphParams, call.args);
+    const mutationOutcome = call.name === 'mutate_graph' ? mutationResultOutcome(result.details) : undefined;
     const detailsOk =
       call.name === 'present_digest'
         ? zPresentDigestDetails.safeParse(result.details).success
@@ -163,34 +169,36 @@ function events(entries: SessionEntry[]): { events: Event[]; malformedRelevant: 
           ? zPresentReviewSetDetails.safeParse(result.details).success
           : call.name === 'ask'
             ? zRequestDetails.safeParse(result.details).success
-            : validMutationResult(result.details);
+            : mutationOutcome !== 'malformed';
     if (!argsOk || !detailsOk) {
       if (process.env.DEBUG_PROVIDER_REPORT) console.error(call.name, { argsOk, detailsOk });
       malformedRelevant = true;
       continue;
     }
-    joined.push({
-      ...call,
-      details: result.details,
-      resultIndex: result.index,
-      citation: { entryId: result.entryId, toolCallId: call.id },
-    });
+    if (mutationOutcome !== 'structural_illegal') {
+      joined.push({
+        ...call,
+        details: result.details,
+        resultIndex: result.index,
+        citation: { entryId: result.entryId, toolCallId: call.id },
+      });
+    }
   }
   return { events: joined, malformedRelevant };
 }
-function validMutationArgs(v: unknown): boolean {
+function mutationResultOutcome(v: unknown): 'success' | 'structural_illegal' | 'malformed' {
   const x = rec(v);
-  return (
-    typeof x?.specId === 'number' &&
-    Array.isArray(x.ops) &&
-    (x.createSettlement === undefined ||
-      x.createSettlement === 'advisory' ||
-      x.createSettlement === 'settled')
-  );
-}
-function validMutationResult(v: unknown): boolean {
-  const x = rec(v);
-  return x?.status === 'success' && Number.isInteger(x.lsn);
+  if (x?.status === 'success' && Number.isInteger(x.lsn)) return 'success';
+  if (
+    x?.status === 'structural_illegal' &&
+    Array.isArray(x.diagnostics) &&
+    x.diagnostics.every((item) => {
+      const diagnostic = rec(item);
+      return typeof diagnostic?.code === 'string' && typeof diagnostic.message === 'string';
+    })
+  )
+    return 'structural_illegal';
+  return 'malformed';
 }
 function mark(items: Event[]): z.infer<typeof markerSchema> {
   return { observed: items.length > 0, citations: items.map((x) => x.citation) };
@@ -206,8 +214,12 @@ export function extractProviderConductReport(input: ProviderConductInput): Provi
     projected.malformedRelevant;
   const xs = projected.events;
   const digest = xs.find((x) => x.name === 'present_digest');
-  const review = xs.find((x) => x.name === 'present_review_set');
+  const reviews = xs.filter((x) => x.name === 'present_review_set');
   const asks = xs.filter((x) => x.name === 'ask');
+  const approvedResponse = asks.find((x) => rec(rec(x.details)?.answered)?.decision === 'approve');
+  const review = reviews.find(
+    (candidate) => rec(approvedResponse?.args)?.continues === rec(candidate.args)?.exchangeId,
+  );
   const feedback = asks.find(
     (x) =>
       x.index > (digest?.resultIndex ?? Infinity) && rec(x.args)?.continues === rec(digest?.args)?.exchangeId,
@@ -216,6 +228,9 @@ export function extractProviderConductReport(input: ProviderConductInput): Provi
     (x) =>
       Array.isArray(rec(x.args)?.questions) && rec(x.args)?.acceptsDigest === rec(digest?.args)?.exchangeId,
   );
+  const questionnaireQuestions = Array.isArray(rec(questionnaire?.args)?.questions)
+    ? (rec(questionnaire?.args)?.questions as unknown[])
+    : [];
   const standaloneChoice = asks.find(
     (x) =>
       x.index > (digest?.resultIndex ?? Infinity) &&
@@ -237,15 +252,27 @@ export function extractProviderConductReport(input: ProviderConductInput): Provi
       rec(x.args)?.continues === rec(review?.args)?.exchangeId &&
       answered?.decision === 'approve' &&
       typeof receipt?.lsn === 'number' &&
+      receipt.lsn > input.identity.beforeLsn &&
+      receipt.lsn <= input.identity.afterLsn &&
       input.graphReadback.reviewLsns.includes(receipt.lsn)
     );
   });
-  const mapping = mutations.find(
-    (x) => x.index > (questionnaire?.resultIndex ?? feedback?.resultIndex ?? Infinity),
+  const clarificationCompleteIndex = questionnaire?.resultIndex ?? feedback?.resultIndex ?? Infinity;
+  const mapping = mutations.find((x) => x.index > clarificationCompleteIndex);
+  const earlyMapping = mutations.find(
+    (x) => x.index > (digest?.resultIndex ?? Infinity) && x.index < clarificationCompleteIndex,
   );
   const late = settlement ? mutations.filter((x) => x.index > settlement.resultIndex) : [];
-  const heavyweight = Boolean(feedback && rec(rec(feedback.details)?.answered)?.decision);
-  const postDigestClarification = Boolean(questionnaire && advisory && questionnaire.index > advisory.index);
+  const heavyweight = Boolean(
+    digest &&
+    reviews.some(
+      (candidate) =>
+        candidate !== review &&
+        candidate.index > digest.resultIndex &&
+        candidate.index < (feedback?.index ?? questionnaire?.index ?? Infinity),
+    ),
+  );
+  const postDigestClarification = Boolean(earlyMapping);
   const laundering = Boolean(review && (!advisory || advisory.index > review.index));
   const rivals = [
     heavyweight && 'heavyweight_digest_review',
@@ -262,7 +289,13 @@ export function extractProviderConductReport(input: ProviderConductInput): Provi
     markers: {
       digestPresented: mark(digest ? [digest] : []),
       terminalFeedbackAfterDigest: mark(feedback ? [feedback] : []),
-      boundedQuestionnaire: mark(questionnaire ? [questionnaire] : []),
+      boundedQuestionnaire: {
+        ...mark(questionnaire ? [questionnaire] : []),
+        rawQuestionCount: questionnaireQuestions.length,
+        questionIdsInOrder: questionnaireQuestions
+          .map((question) => rec(question)?.id)
+          .filter((id): id is string => typeof id === 'string'),
+      },
       standaloneChoiceAskRival: mark(standaloneChoice ? [standaloneChoice] : []),
       firstMappingMutationAfterClarification: mark(mapping ? [mapping] : []),
       advisorySourceMaterialBeforeReview: mark(
@@ -291,31 +324,52 @@ export function providerConductSummary(r: ProviderConductReport): string {
 }
 
 async function main(argv: string[]): Promise<number> {
-  const arg = (name: string) => {
-    const i = argv.indexOf(name);
-    return i < 0 ? undefined : argv[i + 1];
-  };
-  const workspace = resolve(arg('--workspace') ?? '');
-  const sessionPath = resolve(arg('--session') ?? '');
-  const sourcePath = resolve(arg('--source') ?? '');
+  const valueOptions = new Set([
+    '--workspace',
+    '--session',
+    '--source',
+    '--report',
+    '--summary',
+    '--run-id',
+    '--seed-ref',
+    '--spec-id',
+    '--pre-run-lsn',
+  ]);
+  const values = new Map<string, string>();
+  for (let index = 0; index < argv.length; index += 2) {
+    const option = argv[index];
+    const value = argv[index + 1];
+    if (!option || !valueOptions.has(option) || !value || value.startsWith('--') || values.has(option))
+      throw new Error(`Unknown, duplicate, or missing CLI argument near: ${option ?? '<end>'}`);
+    values.set(option, value);
+  }
+  const arg = (name: string) => values.get(name);
+  const workspaceArg = arg('--workspace');
+  const sessionArg = arg('--session');
+  const sourceArg = arg('--source');
   const reportPath = arg('--report');
   const runId = arg('--run-id');
   const seedRef = arg('--seed-ref');
   const specId = Number(arg('--spec-id'));
   const beforeLsn = Number(arg('--pre-run-lsn'));
   if (
-    !workspace ||
-    !sessionPath ||
-    !sourcePath ||
+    !workspaceArg ||
+    !sessionArg ||
+    !sourceArg ||
     !reportPath ||
     !runId ||
     !seedRef ||
     !Number.isInteger(specId) ||
-    !Number.isInteger(beforeLsn)
+    specId <= 0 ||
+    !Number.isInteger(beforeLsn) ||
+    beforeLsn < 0
   )
     throw new Error(
       'Usage: --workspace PATH --session PATH --source PATH --spec-id N --pre-run-lsn N --run-id ID --seed-ref REF --report PATH [--summary PATH]',
     );
+  const workspace = resolve(workspaceArg);
+  const sessionPath = resolve(sessionArg);
+  const sourcePath = resolve(sourceArg);
   const branch = openActiveSessionBranch(sessionPath);
   const dbPath = join(workspace, '.brunch', WORKSPACE_DB_FILENAME);
   const db = new Database(dbPath, { readonly: true, fileMustExist: true });
@@ -324,8 +378,10 @@ async function main(argv: string[]): Promise<number> {
     | undefined;
   const reviewLsns = (
     db
-      .prepare("select lsn from change_log where spec_id = ? and operation = 'accept_review_set'")
-      .all(specId) as { lsn: number }[]
+      .prepare(
+        "select lsn from change_log where spec_id = ? and operation = 'accept_review_set' and lsn > ? and lsn <= ?",
+      )
+      .all(specId, beforeLsn, clock?.lsn ?? -1) as { lsn: number }[]
   ).map((x) => x.lsn);
   db.close();
   const assistant = [...branch.entries]
