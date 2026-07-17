@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 
 import { PROJECT_EXECUTION_HARNESS_TITLE } from '../../../graph/schema/nodes.js';
 import type { ElicitationStyle } from '../../../session/elicitation-style.js';
@@ -8,7 +7,7 @@ import type {
   AgentPromptSpecContext,
   AgentPromptWorkspaceContext,
 } from '../../contexts/seeds/turn-context.js';
-import { bundledAgentBodyLocation } from '../../prompts/registry.js';
+import { loadBundledAgentBody } from '../../prompts/registry.js';
 import { renderBrunchReferences } from '../../references/registry.js';
 import { renderBrunchSkills } from '../../skills/registry.js';
 import { renderLiveElicitorContext, type LiveElicitorPushedContext } from './context.js';
@@ -61,7 +60,7 @@ export function composeLiveElicitorPrompt(
 }
 
 function readLiveElicitorBody(): string {
-  return readFileSync(bundledAgentBodyLocation('elicitor'), 'utf8');
+  return loadBundledAgentBody('elicitor');
 }
 
 function directiveBlock(body: string): { paragraph: string; full: string } {

@@ -13,7 +13,7 @@ contexts/
 └── exchanges/        present_* / request_* structured-exchange result text
 ```
 
-Formatting primitives used by these renderers live in `src/agents/shared/`; they are shared helper substrate, not a child context surface.
+Formatting primitives used by these renderers live in `src/agents/shared/`; they are shared helper substrate, not a child context surface. The private `posture-context.ts` formatter keeps live foreground and explicit background snapshot posture text identical without creating a public runtime API.
 
 ## Boundary rules
 

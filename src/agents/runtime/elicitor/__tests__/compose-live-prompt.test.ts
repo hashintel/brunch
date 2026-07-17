@@ -8,6 +8,7 @@ import {
   DEFAULT_BRUNCH_AGENT_STATE,
   projectBrunchAgentState,
 } from '../../../../projections/session/runtime-state.js';
+import { renderWorkspaceSeed } from '../../../contexts/seeds/turn-context.js';
 import { composeLiveElicitorPrompt, LIVE_ELICITOR_DIRECTIVES } from '../compose-live-prompt.js';
 
 // Manifest skill locations are absolute paths (see src/agents/skills/registry.ts); normalize the
@@ -40,6 +41,25 @@ describe('composeLiveElicitorPrompt', () => {
     const normalizedPrompt = result.prompt.replaceAll(packageRoot, '<PKG>');
 
     await expect(normalizedPrompt).toMatchFileSnapshot('../__snapshots__/live-elicitor-prompt.md');
+  });
+
+  it('renders workspace posture identically in live and explicit snapshot contexts', () => {
+    const live = composeLiveElicitorPrompt({
+      sessionState: projectBrunchAgentState([]),
+      spec: { id: 42, name: 'Live Assembly Spec' },
+      workspace,
+      agentBody: 'body',
+    }).prompt;
+    const snapshot = renderWorkspaceSeed({
+      spec: { id: 42, name: 'Live Assembly Spec' },
+      workspace,
+      scratchpad: [],
+    });
+
+    expect(live).toContain('- workspace posture: certainty=proving; stakes=high; horizon=current-milestone');
+    expect(snapshot).toContain(
+      '- workspace posture: certainty=proving; stakes=high; horizon=current-milestone',
+    );
   });
 
   it('includes the bundled elicitor style and choice-shape guidance', () => {

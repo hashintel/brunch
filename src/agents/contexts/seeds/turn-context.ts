@@ -13,6 +13,7 @@ import type { GraphSlice } from '../../../graph/queries.js';
 import type { GraphNode } from '../../../graph/schema/nodes.js';
 import type { ElicitationScratchpadItem } from '../../../session/elicitation-scratchpad.js';
 import type { WorkspacePostureState } from '../../../session/workspace-session-coordinator.js';
+import { renderWorkspacePosture } from '../../shared/posture-context.js';
 import { formatGraphOverview } from '../data-model/graph/graph-slice.js';
 
 type GraphSeedLens = 'auto' | 'intent' | 'design' | 'oracle';
@@ -47,7 +48,7 @@ export function renderWorkspaceSeed(input: RenderCwdContextInput): string {
     `- cwd: ${input.workspace.cwd}`,
     `- selected spec: ${input.spec.name} (#${input.spec.id})`,
     `- selected session: ${renderSession(input.session)}`,
-    `- workspace posture: ${renderPosture(input.workspace.posture)}`,
+    `- workspace posture: ${renderWorkspacePosture(input.workspace.posture)}`,
     '- ambient Pi resources: not scanned; Brunch prompt resources come only from code-owned manifests',
     '- graph scope: selected spec only; no workspace-global graph fallback',
     `- elicitation scratchpad: ${input.scratchpad.length} item(s), ${countOpen(input.scratchpad)} open`,
@@ -62,14 +63,6 @@ function renderSession(session: AgentPromptSessionContext | undefined): string {
   if (!session?.id && !session?.label) return 'unrecorded';
   if (session.id && session.label) return `${session.label} (${session.id})`;
   return session.id ?? session.label ?? 'unrecorded';
-}
-
-function renderPosture(posture: AgentPromptWorkspaceContext['posture']): string {
-  if (!posture) return 'unrecorded';
-  const entries = Object.entries(posture).filter((entry): entry is [string, string] =>
-    Boolean(entry[1]?.trim()),
-  );
-  return entries.length > 0 ? entries.map(([key, value]) => `${key}=${value}`).join('; ') : 'unrecorded';
 }
 
 // ----- selected-spec graph seed -----

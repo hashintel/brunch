@@ -82,6 +82,7 @@ Close the entire first batch of walkthrough-related findings: remediation, the o
 
 ### Recently Completed
 
+- 2026-07-17 `agent-control-plane-closure` (FE-1216) — **✓ closed**: all seven required control-surface rows are built; foreground block replacement, load-on-demand context topology, distinct control ownership, observable resource reads, capability-honest background grants, process-lifetime immutable body/manifest caching, and one private posture renderer now satisfy D135-L/I68-L without schema, fixture, reviewer, or capture-experiment widening.
 - 2026-07-17 `automation-observability-dx` (FE-1208) — **✓ closed on the restacked base**: removed the dead `--dev-tools`/query-tool channel and repo-local `cli-cmux` skill, made `.brunch/debug/` the sole passive observability home, separated seed-based and mission-driven evaluation doors, and preserved the evaluator/report machinery without advertising the invalid warrant pilots as evidence. Closeout: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md#2026-07-17-fe-1208-automation--observability-dx-closeout).
 - 2026-07-17 `agent-as-user-comparison` (FE-1210) — **✓ closed on the completed technical tracer**: the promoted Brunch-vs-Claude run, push-driven Pi actor, document acquisition, split judgment bundle, failure retention, portable promotion, and corrected Cursor adapter remain the rigorous comparison/regression substrate. Dora's structured adjudication and the second-operator smoke were retired as closure gates when the user separated the approachable operator workflow into a new frontier (FE-1215). Full closeout: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md#2026-07-17-fe-1210-agent-as-user-comparison-closeout).
 - 2026-07-15 `standalone-web-session-host` (FE-1200) — **✓ closed**: standalone target-addressed hosting, two-session isolation, and the complete required web presentation-family sweep landed; I64-L/I65-L and all five topology homes are reconciled. Full closeout: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md#2026-07-15-fe-1200-standalone-web-session-host-closeout).
@@ -100,8 +101,7 @@ Older completion history (incl. FE-1196, FE-1195, FE-1190, and FE-1180): [`docs/
 
 ### Parallel / Low-conflict
 
-- `agent-control-plane-closure` — earned coverage pass over foreground/background prompt composition, D131-L resource semantics, load-on-demand context topology, control ownership, prompt replacement, and named subagent resource grants. Definition below.
-- `capture-ledger-tracer` — proving follow-on to `agent-control-plane-closure`: compare current ingest conduct with a versioned four-section capture ledger over one fixed mixed-source mission, using separate masked outcome and unblinded conduct judgments. Definition and active scope file below.
+- `capture-ledger-tracer` — proving follow-on to the completed `agent-control-plane-closure`: compare current ingest conduct with a versioned four-section capture ledger over one fixed mixed-source mission, using separate masked outcome and unblinded conduct judgments. Definition and active scope file below.
 
 ### Cleanups — Group 4
 
@@ -234,7 +234,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Kind:** earned coverage-shaped closure over foreground/background prompt ingress and agent resources; not a graph-schema migration, capture-quality experiment, or reviewer feature.
 - **Certainty:** earned.
 - **Classification:** buildable-now; D135-L/I68-L settle the context/control ingress model, so no additional design or spike is required.
-- **Status:** active.
+- **Status:** ✓ done 2026-07-17; all seven required sweep rows built and the temporary ledger retired.
 - **Entry action:** ✓ complete 2026-07-17 — D135-L/I68-L preserve thin/load-on-demand foreground composition, distinguish origination continuity from later reads, and supersede D101-L's stale `world-reads.ts` delivery clause. Next: scope the coverage inventory as one sweep.
 - **Objective:** make every Brunch-owned agent receive one truthful, current, testable control surface: live resources agree with D131-L; foreground prompt updates replace stale Brunch blocks; load-on-demand context topology has no dead eager-context claims or must-wire no-ops; posture, elicitation style, and asking agenda have an explicit ownership map; and each background agent is advertised only the skills/resources its tool grant or task bundle can actually consume.
 - **Why now / unlocks:** the audit found several individually small defects sharing one ingress boundary: contradicted assurance conduct, content-insensitive prompt deduplication, dead `graphReads`/`composeAgentContextSeed` topology claims, duplicated context rendering, unobserved skill invocation, and a full skill manifest injected into no-tools subagents. Treating them as separate frontiers would repeatedly reopen the same prompt assembly and contract tests. The repo-level subagent extension already proves named skill grants and Markdown handback, so only product integration and honest prompt composition remain.
@@ -265,7 +265,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Branch:** tbd at pickup; stack after `agent-control-plane-closure`
 - **Kind:** bounded agent-control intervention + behavioral evaluation tracer; not a durable capture IR, graph-schema change, or production subagent fan-out.
 - **Certainty:** proving.
-- **Classification:** wait-gated on `agent-control-plane-closure`; the experiment and scope are otherwise ready.
+- **Classification:** buildable-now; the `agent-control-plane-closure` gate is complete and the prepared scope is pickup-ready.
 - **Status:** planned; scope prepared at [`memory/cards/capture-ledger-tracer--conduct-falsifier.md`](cards/capture-ledger-tracer--conduct-falsifier.md).
 - **Objective:** produce a predeclared matched verdict on whether a versioned Intent / Implementation / Assurance / Planning capture rubric plus a separate relations/conflicts/abstentions pass improves accepted-source capture over current ingest conduct without increasing false commitment or laundering uncertainty.
 - **Why now / unlocks:** FE-1210 proved the general push-driven actor and split outcome/process judgment pattern, while its promoted witness exposed the target seam: Brunch elicited broad consequential material but the settled graph-derived document still omitted one revealed fact. The result decides whether the next architecture should remain prompt-carried, graduate to a foreground typed capture compiler, or earn focused subagent fan-out.
@@ -505,13 +505,13 @@ group-3 (Next — agent layer):
 
 parallel evaluation:
   agent-control-plane-closure
-    status: not started; earned coverage over foreground/background prompt ingress
+    status: done; earned coverage over foreground/background prompt ingress
     absorbs: graph-assurance-conduct | subagent-skill-access
     canonicalizes: D131 semantics | owned prompt replacement | load-on-demand context truth
       | posture/style/agenda ownership | observable resource reads | honest child grants
     excludes: schema migration | review renderer | capture-quality claim | specialist fan-out
     -[hard]-> capture-ledger-tracer
-      status: planned; proving prompt-level control/treatment falsifier
+      status: pickup-ready; proving prompt-level control/treatment falsifier
       lights_up: accepted source -> capture conduct -> graph/scratch/reconciliation -> split judgment
       excludes: durable IR | production subagent fan-out | graph schema changes
   capture-ledger-tracer

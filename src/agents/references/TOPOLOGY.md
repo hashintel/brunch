@@ -4,7 +4,7 @@ SPEC decisions: D52-L, D58-L, D85-L, D97-L, D98-L
 
 ## Owns
 
-`src/agents/references/` owns static, runtime-eligible Markdown references that skills, prompts, and generated manifests may cite or load on demand. These files are not rendered from current workspace state; they are durable shared reference text for concepts that should not be copied into each skill body. `registry.ts` owns the shared foreground reference manifest so elicitor and executor prompts expose the same discoverability surface.
+`src/agents/references/` owns static, runtime-eligible Markdown references that skills, prompts, and generated manifests may cite or load on demand. These files are not rendered from current workspace state; they are durable shared reference text for concepts that should not be copied into each skill body. `registry.ts` owns the shared foreground reference manifest, resolves its code-owned absolute locations independently of process cwd, and caches the immutable entries for process lifetime so elicitor and executor prompts expose the same discoverability surface.
 
 ```text
 references/
