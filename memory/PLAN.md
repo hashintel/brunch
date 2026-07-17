@@ -78,7 +78,7 @@ Close the entire first batch of walkthrough-related findings: remediation, the o
 
 ### Active — approachable comparison workflow
 
-- `operator-comparison-workflow` ([FE-1215](https://linear.app/hash/issue/FE-1215/approachable-saved-mission-comparison-workflow)) — correction build complete. **Next action:** Dora/PM operates the ready, uninvoked real Fresh-Pi Brunch + Claude `/compare-specs` witness; it alone proves mission isolation, actor conduct, target-visible evidence, and report usefulness. Definition below.
+- `operator-comparison-workflow` ([FE-1215](https://linear.app/hash/issue/FE-1215/approachable-saved-mission-comparison-workflow)) — implementation complete. **Next action:** show the PM how to create, revise, and run a private saved mission, then tie off this prompt-and-handover PR without claiming runtime witness evidence. Definition below.
 
 ### Recently Completed
 
@@ -87,8 +87,9 @@ Close the entire first batch of walkthrough-related findings: remediation, the o
 - 2026-07-15 `interactive-tui-driver` (FE-1206) — **✓ closed and outer-witnessed; adoption refined project-locally**: the pinned `pi-interactive-shell` package declared under root `.pi` is the overlay-capable host default for shared agent/human control; the project-owned Expect/headless-xterm driver remains the sandbox/headless fallback. Both component-preview and seeded-Brunch tracers, resize/takeover/return, bounded evidence, and deterministic cleanup were witnessed without widening Brunch's shipped package manifest, runtime graph, or sealed `src/.pi` profile.
 Older completion history: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md).
 
-### Next — shared host convergence, then Group 3 agent layer
+### Next — deferred PM evidence, shared host convergence, then Group 3 agent layer
 
+- `saved-mission-comparison-witness` — **later PR, wait-gated on PM availability and FE-1215 landing**: run the real Brunch + Claude `/compare-specs` witness, then revise/rerun the saved mission to prove historical snapshots remain immutable. Definition below.
 - `shared-session-host-tracer` — prove the one-host TUI attachment seam that FE-1200 deliberately left open; highest-priority architecture follow-through for the colleague taking over web/session hosting. Definition below.
 - `shared-session-host-cutover` — wait-gated on the tracer; close the enumerated TUI/web host surface, then delete the raw sidecar relay and `/rpc/driver` rather than normalizing dual support. Definition below.
 - `develop-mode` — third operational mode `develop` / `engineer` agent, **built flag-gated** (create the mode; enable only behind a flag). **Authority model settled 2026-07-13: not a contract-breaker** — `develop` sits at the same concentric visibility/authority tier as `execute`; `engineer` is simply not constrained by the executor's workflow (no `execute_*` lifecycle obligations), and is initially just a Brunch-aware coding assistant. Entry remains a SPEC revision (D98-L "two modes only", the D40-L matrix row at the execute tier, per-mode kick/consult-suppression axis), but no authority-model redesign is needed. Cost read revised: mechanical ≈ a day + prompt/conduct work. The `develop` CLI subcommand name is already reserved by `cli-mode-entry`.
@@ -299,7 +300,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Branch:** `ln/fe-1215-saved-mission-comparison`, stacked on completed FE-1210 `ln/fe-1210-agent-as-user-comparison`.
 - **Kind:** bounded operator tooling — one project Pi prompt plus a durable mission/report artifact flow; not Brunch product runtime and not a generic campaign framework.
 - **Certainty:** proving.
-- **Status:** active; correction build complete. The owned real Fresh-Pi first proving run is ready, uninvoked, and is the next action; do not substitute a surrogate check.
+- **Status:** implementation complete; current PR owns PM usage handover and tie-off only. Runtime witnesses moved to the later `saved-mission-comparison-witness` frontier/PR.
 - **Objective:** give a PM one approachable conversational door for creating, revising, and running agent-as-user specification comparisons. The saved mission defines the simulated user privately—what they are trying to accomplish, their context, priorities, preferences, constraints, knowledge, uncertainties, decision latitude, and conversational posture. A fresh Pi actor follows that mission and performs the PM's side of each interaction. Contender setup is a separate, minimal run concern: the harness receives only its small specification-task framing plus the opening user message and subsequent actor answers, never the mission wholesale. After the run, the operator can compare the full private mission, what each contender actually elicited, and each target-authored document in one readable report.
 - **Why now / unlocks:** FE-1210 proved the technical actor, target adapters, document acquisition, and evidence retention, but its frozen packets and structured adjudication are too technical for the intended PM operator. This frontier proves the human workflow before any browser workspace or broader automation is justified, and starts the reusable private-mission corpus that may later make focused regression campaigns worth their cost.
 - **Lights up:** one invocation → conversational private user-mission interview → separate minimal contender setup → fresh mission-guided user actors → target interactions and completion notification → target-authored documents → readable operator report.
@@ -313,11 +314,34 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
   - Revision uses the same flow and updates only the editable mission. Every run copies the exact approved private mission and separate contender setup into its operator-only run evidence, so later revisions cannot rewrite earlier comparisons.
   - One approved kickoff may sequence selected contenders internally with visible `ready | running | waiting | finished | failed` status. The operator is notified when all selected lanes resolve; v1 does not promise parallel execution.
   - Each completed run retains the private mission snapshot, exact contender setup, target-visible interaction, every target-authored document, lane outcomes, and one `report.md`. The report may reveal the full private mission to the operator but distinguishes it from what each contender actually saw; its observations are free-form and it declares no automatic winner or fixed rubric.
-  - The first proof uses one real PM-authored private mission and Brunch + Claude. A cold reader can explain the simulated user's intent, what each contender was initially told, what each elicited, what each produced, and what happened without controller logs.
-- **Boundary:** no browser workspace, database, standalone mission service, automatic winner, scripted/API judge, statistics, unattended multi-run campaign, or generic harness abstraction. Reuse the FE-1210 rendered-state actor and adapters; keep rigorous frozen-packet/matched-budget/blinded studies available separately. Do not extract a skill or new package unless the project prompt proves too large or unreliable in use.
-- **Verification:** inner — prompt-template discovery/frontmatter and Markdown/link checks only; no surrogate lifecycle test. Outer — one PM-operated Brunch + Claude run through the actual `/compare-specs` entry point, proving private-mission isolation, mission-consistent user conduct, target-visible evidence, completion notification, and report usefulness. Existing-mission revision/rerun follows first-run findings and must prove the earlier private mission snapshot remains unchanged.
+- **Boundary:** no browser workspace, database, standalone mission service, automatic winner, scripted/API judge, statistics, unattended multi-run campaign, or generic harness abstraction. Reuse the FE-1210 rendered-state actor and adapters; keep rigorous frozen-packet/matched-budget/blinded studies available separately. Do not extract a skill or new package unless the project prompt proves too large or unreliable in use. This frontier does not claim runtime actor conduct, mission isolation, notification timing, or report usefulness.
+- **Verification:** inner — direct prompt/README review, prompt-template discovery/frontmatter, targeted Markdown checks, and repository read-only checks. Handover — show the PM the create/revise/run flow and clearly identify the separate later witness obligation; this is instruction transfer, not runtime evidence.
 - **Traceability:** req 24/A5-L evidence lifecycle; D70-L fixture taxonomy; FE-1210 closeout and promoted `lockers-r1-20260716` actor/adapter evidence; SPEC Verification Design “Operator-led cross-product comparisons.”
-- **Current execution pointer:** [`memory/cards/operator-comparison-workflow--first-proving-tracer.md`](cards/operator-comparison-workflow--first-proving-tracer.md) — correction build complete; Dora/PM must next invoke its ready, uninvoked real Fresh-Pi Brunch + Claude `/compare-specs` gate. Existing-mission revision/rerun follows that witness's findings.
+- **Current execution pointer:** none — the correction card is consumed. Tie off FE-1215 after PM usage handover; do not wait for or claim the later witness frontier.
+
+### saved-mission-comparison-witness
+
+- **Name:** PM-operated saved-mission comparison witness
+- **Linear:** unassigned — create at pickup in Frontend / brunch, with no parent unless the plan or user then names one.
+- **Branch:** tbd at pickup; stack on the landed `operator-comparison-workflow` / FE-1215 branch.
+- **Kind:** bounded behavioral-evidence frontier over the real project prompt; no implementation by default.
+- **Certainty:** proving.
+- **Classification:** wait-gated on PM availability and FE-1215 landing.
+- **Status:** planned for a later PR; not started.
+- **Objective:** prove that the approachable saved-mission workflow works through its actual entry point and that mission revision affects future runs without rewriting historical evidence.
+- **Why now / unlocks:** FE-1215 can ship the operator door and usage handover without pretending that static prompt review proves behavior. A separately scheduled PM-owned frontier keeps the missing evidence visible and gives failures their own branch rather than holding the implementation PR open indefinitely.
+- **Lights up:** real PM-authored private mission → fresh mission-guided Pi actors → Brunch + Claude target conversations → target-authored documents → readable retained report → revised mission and second immutable run.
+- **Stabilizes:** private-mission isolation, mission-consistent actor conduct, exact target-visible disclosure, aggregate completion notification, operator-report usefulness, and immutable run history across mission revision.
+- **Boundary:** first run uses Brunch + Claude and one PM-authored mission; second run revises that same mission. No surrogate lifecycle test, automatic judge, roster-wide campaign, browser UI, generic runner, or orchestration implementation. If the first witness exposes a prompt defect, retain the finding and scope the minimum correction on this frontier before rerunning.
+- **Acceptance:**
+  - A newly started project-trusted Pi session discovers and runs the actual `/compare-specs` template with separately identifiable fresh Pi actor sessions and isolated target cwd identities per lane.
+  - The first Brunch + Claude run demonstrates mission-consistent opening/answers/decisions, explicit unknown/undecided behavior where required, no wholesale mission or mission-path leakage, honest lane outcomes/cleanup, unchanged target-authored documents, one aggregate notification, and a cold-readable operator report separating private baseline from target-visible evidence.
+  - The PM revises the saved mission through actual `/compare-specs` and approves a second run setup; the editable mission changes while the first run's private-mission and contender-setup snapshots remain byte-for-byte unchanged.
+  - Only the second run receives the revised mission/setup; no first-run directory, transcript, target output, or report is overwritten.
+- **Verification:** outer only — PM-operated first run plus revision/rerun through the real prompt, with repository-relative artifact inspection and snapshot fingerprints. Static checks may support artifact hygiene but cannot satisfy behavioral acceptance.
+- **Dependencies:** hard on FE-1215 landing and PM scheduling. Create its Linear issue and Graphite branch only when the frontier starts.
+- **Traceability:** req 24/A5-L evidence lifecycle; D70-L fixture taxonomy; FE-1210 actor/adapter evidence; SPEC Verification Design `saved-mission-comparison-witness` outer gate.
+- **Current execution pointer:** none; run `ln-scope` at pickup after the PM witness session is scheduled.
 
 ### cli-mode-entry
 
@@ -515,11 +539,13 @@ parallel evaluation:
       excludes: --mode web seam (parallel branch), evaluator deletion (parked, preserved)
       -[completed]-> agent-as-user-comparison (FE-1210)
         proven: push-driven Pi actor | Brunch document export | Brunch+Claude ready docs | split judgment | portable bundle | Cursor adapter
-        -[hard]-> operator-comparison-workflow (FE-1215, active)
+        -[hard]-> operator-comparison-workflow (FE-1215, implementation complete; handover/tie-off)
           branch: ln/fe-1215-saved-mission-comparison
-          next: Dora/PM-owned, ready/uninvoked real Fresh-Pi Brunch + Claude `/compare-specs` witness
-          lights_up: private agent-as-user mission → minimal contender setup → elicitation run → readable report
-          excludes: browser UI | automatic winner/judge | multi-run campaign framework
+          lights_up: private agent-as-user mission → minimal contender setup → approachable operator prompt
+          excludes: runtime witness claims | browser UI | automatic winner/judge | multi-run campaign framework
+          -[hard]-> saved-mission-comparison-witness (next; later PM-owned PR)
+            status: wait-gated on FE-1215 landing + PM availability
+            proves: first Brunch+Claude run | actor isolation/conduct | report usefulness | revision snapshot immutability
         -[on promotion]-> warrant-ablation-campaign (later; actor generality proven,
           still waits for rich scenarios and multi-run value)
 
