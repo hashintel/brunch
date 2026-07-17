@@ -42,4 +42,5 @@ empty but must be present:
   "requiredCapabilities": [{ "id": string, "sourceItemId": string }] }
 
 If validation findings are included in your task, they name exactly what is wrong with
-your prior candidate: fix every finding and return the full corrected JSON object.
+your prior candidate: fix every finding and submit the full corrected candidate through
+`submit_candidate_plan`.
