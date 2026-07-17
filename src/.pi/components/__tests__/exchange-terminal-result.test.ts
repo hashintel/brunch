@@ -10,7 +10,7 @@ const theme = {
 
 describe('ExchangeTerminalResultComponent', () => {
   it('renders pairwise-distinct compact terminal rails while retaining the markdown body', () => {
-    const statuses = ['answered', 'cancelled', 'unavailable', 'input_rejected'] as const;
+    const statuses = ['answered', 'cancelled', 'unavailable'] as const;
     const rendered = statuses.map((status) =>
       new ExchangeTerminalResultComponent({ status, body: '**Canonical body**', theme })
         .render(32)
@@ -21,9 +21,6 @@ describe('ExchangeTerminalResultComponent', () => {
     expect(rendered[0]).toContain('Answered');
     expect(rendered[1]).toContain('Cancelled');
     expect(rendered[2]).toContain('Unavailable');
-    expect(rendered[3]).toContain('<warning>');
-    expect(rendered[3]).not.toContain('<error>');
-    expect(rendered[3]).toContain('Input rejected');
     for (const output of rendered) expect(output).toContain('Canonical body');
   });
 

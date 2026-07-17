@@ -631,10 +631,6 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
         () => ({
           topRight: '[ Specify ]',
           bottomRight: '"Walking Skeleton SDK to SSE to React"',
-          belowLines: [
-            { text: 'http://localhost:3141/session', url: 'http://localhost:3141/session' },
-            'claude-sonnet-5 | 35.6%',
-          ],
         }),
         () => operationalModeBorderColor(theme, 'specify'),
       );
@@ -665,10 +661,6 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
         () => ({
           topRight: '[ Execute ]',
           bottomRight: '"Run Review Harness"',
-          belowLines: [
-            { text: 'http://localhost:3141/session', url: 'http://localhost:3141/session' },
-            'executor | 42.0%',
-          ],
         }),
         () => operationalModeBorderColor(theme, 'execute'),
       );

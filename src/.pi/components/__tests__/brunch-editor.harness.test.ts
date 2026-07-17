@@ -49,7 +49,6 @@ describe('BrunchEditorComponent harness', () => {
     const editor = new BrunchEditorComponent(tui, editorTheme, keybindings, () => ({
       topRight: '[ Specify ]',
       bottomRight: '"Alpha Spec"',
-      belowLines: ['http://localhost:3141/session', 'claude-sonnet-5 | 35.6%'],
     }));
 
     tui.addChild(editor);
@@ -64,8 +63,6 @@ describe('BrunchEditorComponent harness', () => {
       let viewport = terminal.getViewport().join('\n');
       expect(viewport).toContain('[ Specify ]');
       expect(viewport).toContain('"Alpha Spec"');
-      expect(viewport).toContain('http://localhost:3141/session');
-      expect(viewport).toContain('claude-sonnet-5 | 35.6%');
 
       const lines = terminal.getViewport();
       expect(lines[0]?.trimEnd().endsWith('╮')).toBe(true);

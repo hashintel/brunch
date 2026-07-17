@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs';
 
+import { visibleWidth } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vitest';
 
 import { BRUNCH_COMPACT_WORDMARK, formatBrunchProductIdentity } from '../brunch-identity.js';
+import { BrunchStartupHeader } from '../chrome-header.js';
 import { BrunchWelcomeCard } from '../welcome-card.js';
 
 const taggedTheme = {
@@ -17,6 +19,26 @@ describe('live TUI presentation contract', () => {
     expect(lines.every((line) => line.startsWith(' '))).toBe(true);
     expect(lines[0]).toContain('<bold>Welcome to Brunch.</bold>');
     expect(lines.slice(2).every((line) => line.includes('<dim>'))).toBe(true);
+  });
+
+  it('composes Welcome at the startup header render width with exactly one lateral column', () => {
+    const width = 44;
+    const lines = new BrunchStartupHeader(
+      {
+        project: 'Project',
+        spec: 'Spec',
+        session: 'Session',
+        decision: 'newSession',
+      },
+      { fg: (_role: string, text: string) => text, bold: (text: string) => text } as never,
+    ).render(width);
+    const welcomeIndex = lines.findIndex((line) => line.includes('Welcome to Brunch.'));
+
+    expect(welcomeIndex).toBeGreaterThan(0);
+    expect(lines[welcomeIndex]?.trimEnd()).toBe(' Welcome to Brunch.');
+    expect(lines[welcomeIndex]?.startsWith('  ')).toBe(false);
+    expect(lines.slice(welcomeIndex).length).toBeGreaterThan(6);
+    expect(lines.every((line) => visibleWidth(line) <= width)).toBe(true);
   });
 
   it('uses terminal-default text for the compact BRUNCH wordmark', () => {

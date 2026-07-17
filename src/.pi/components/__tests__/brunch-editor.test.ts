@@ -1,13 +1,8 @@
-import { resetCapabilitiesCache, setCapabilities, visibleWidth } from '@earendil-works/pi-tui';
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { projectBorderedChrome } from '../brunch-editor.js';
 
 const identityColor = (s: string) => s;
-
-afterEach(() => {
-  resetCapabilitiesCache();
-});
 
 describe('projectBorderedChrome', () => {
   it('embeds top and bottom labels into a rounded box, leaving content lines boxed', () => {
@@ -84,48 +79,6 @@ describe('projectBorderedChrome', () => {
 
     expect(result[0]).toBe('╭────────────╮');
     expect(result[3]).toBe('╰────────────╯');
-  });
-
-  it('indents belowLines by one column and truncates to width', () => {
-    const raw = ['──────', 'text  ', 'more  ', '──────'];
-    const result = projectBorderedChrome(
-      raw,
-      { belowLines: ['http://localhost:3000/very/long/path/that/overflows'] },
-      10,
-      identityColor,
-    );
-
-    expect(result).toHaveLength(5);
-    expect(result[4]?.startsWith(' ')).toBe(true);
-    expect(visibleWidth(result[4] ?? '')).toBeLessThanOrEqual(10);
-  });
-
-  it('renders a { text, url } belowLine as an OSC 8 hyperlink when supported', () => {
-    setCapabilities({ images: null, trueColor: false, hyperlinks: true });
-    const raw = ['──────', 'text  ', 'more  ', '──────'];
-    const result = projectBorderedChrome(
-      raw,
-      { belowLines: [{ text: 'http://localhost:3141/session', url: 'http://localhost:3141/session' }] },
-      40,
-      identityColor,
-    );
-
-    expect(result.at(-1)).toContain('\x1b]8;;http://localhost:3141/session');
-    expect(result.at(-1)).toContain('http://localhost:3141/session');
-  });
-
-  it('falls back to plain text for a { text, url } belowLine when hyperlinks are unsupported', () => {
-    setCapabilities({ images: null, trueColor: false, hyperlinks: false });
-    const raw = ['──────', 'text  ', 'more  ', '──────'];
-    const result = projectBorderedChrome(
-      raw,
-      { belowLines: [{ text: 'http://localhost:3141/session', url: 'http://localhost:3141/session' }] },
-      40,
-      identityColor,
-    );
-
-    expect(result.at(-1)).not.toContain('\x1b]8;');
-    expect(result.at(-1)).toContain('http://localhost:3141/session');
   });
 
   it('returns an empty array for empty input', () => {

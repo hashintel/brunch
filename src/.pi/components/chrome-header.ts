@@ -47,15 +47,11 @@ export class BrunchStartupHeader implements Component {
     const safeWidth = Math.max(MIN_WIDTH, width);
     const contentWidth = safeWidth - HEADER_PADDING_X * 2;
     const leftMargin = ' '.repeat(HEADER_PADDING_X);
-    return this.collapsedLines().map((line) =>
-      line.length > 0 ? leftMargin + truncateToWidth(line, contentWidth, '...') : line,
+    const identity = [...this.topPaddingLines(), ...this.identityLines(), '', this.webOrExpandHelpLine()].map(
+      (line) => (line.length > 0 ? leftMargin + truncateToWidth(line, contentWidth, '...') : line),
     );
-  }
-
-  private collapsedLines(): string[] {
-    const identity = [...this.topPaddingLines(), ...this.identityLines(), '', this.webOrExpandHelpLine()];
     if (this.facts.decision !== 'newSpec' && this.facts.decision !== 'newSession') return identity;
-    return [...identity, '', ...new BrunchWelcomeCard(this.theme).render(10_000)];
+    return [...identity, '', ...new BrunchWelcomeCard(this.theme).render(safeWidth)];
   }
 
   private topPaddingLines(): string[] {
