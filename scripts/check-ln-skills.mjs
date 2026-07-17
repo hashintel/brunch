@@ -83,10 +83,22 @@ const guardrails = [
   ['ln-scope', 'named owning frontier'],
   ['ln-build', 'owned item with a re-entry trigger'],
   ['ln-sync', 'TESTING_FINDINGS.md'],
-  // Coordinator serialization: ln-execute must never admit two concurrent writers.
-  ['ln-execute', 'one writing `ln-builder`'],
-  // Bail-out invariant: a missing delegation surface is reported in one sentence,
-  // never worked around via shell, alternate tools, or inline scope/build.
+  // Coordinator serialization: ln-execute must never admit two concurrent writers,
+  // including an ln-scoper alongside an ln-builder.
+  ['ln-execute', 'one write-capable delegate'],
+  ['ln-execute', '`ln-scoper` and `ln-builder` both count'],
+  // Frontier execution must stop at fog, park owned gates, distinguish autonomous
+  // exhaustion from completion, and verify protected shared state mechanically.
+  ['ln-execute', 'epistemic horizon'],
+  ['ln-execute', 'owned-deferrable gate'],
+  ['ln-execute', 'autonomous horizon exhausted, owned gates outstanding'],
+  ['ln-execute', 'protected fingerprints/content'],
+  // Specialist routes remain explicit rather than being impersonated inline.
+  ['ln-execute', 'Do not impersonate the missing specialist'],
+  // Bail-out invariant: the live surface is checked first and a missing delegation
+  // surface is reported in one sentence, never worked around.
+  ['ln-execute', 'first action, before resolving the focus'],
+  ['ln-execute', 'report in one sentence exactly what is missing'],
   ['ln-execute', 'another invocation path'],
 ];
 for (const [name, phrase] of guardrails) {
