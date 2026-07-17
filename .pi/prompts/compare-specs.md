@@ -7,17 +7,17 @@ Conduct one approachable, operator-led specification comparison. This prompt is 
 
 The optional mission reference is: `$ARGUMENTS`.
 
-## Artifact boundaries
+## Artifact and information boundaries
 
 Use these repository-relative homes and no substitutes:
 
-- Editable, product-neutral missions: `testing/comparisons/missions/`
+- Editable, product-neutral private user missions: `testing/comparisons/missions/`
 - Ephemeral lane work and report assembly: `.fixtures/scratch/comparisons/`
 - Deliberately retained, immutable run snapshots and reports: `.fixtures/runs/agent-as-user-comparison/`
 
-Missions are ordinary-language Markdown, not controller YAML and not Brunch seeds. Never use `.fixtures/seeds/` as mission input. Never put controller-only reveal material in a target cwd, target-visible packet, or retained report. Do not write comparison artifacts outside the three roles above, except for each selected target's fresh isolated cwd while it authors its requested document. Keep paths in retained artifacts repository-relative; do not retain workstation-absolute paths.
+A mission is ordinary-language Markdown for the fresh Pi actor playing the simulated user/PM. It is not controller YAML, a Brunch seed, contender selection, or harness configuration. Never use `.fixtures/seeds/` as mission input. Give the complete mission only to the actor—never to a contender—and never put the mission text, file, or path in a target's context or cwd.
 
-A saved mission is editable. An approved run is historical evidence: never overwrite an existing run directory or its approved mission/setup snapshot. Later mission revisions affect future runs only.
+A saved mission is editable. An approved run is historical evidence: never overwrite an existing run directory, private mission snapshot, contender-setup snapshot, transcript, target output, or report. Later mission revisions affect future runs only. Keep retained paths repository-relative; do not retain workstation-absolute paths.
 
 ## Choose the operation
 
@@ -27,74 +27,72 @@ If a mission id or path was supplied, resolve it only inside `testing/comparison
 
 Review displays the complete saved mission and does not launch anything.
 
-## Create or revise a mission
+## Create or revise a private user mission
 
-Ask one material question at a time. Begin by eliciting the mission in ordinary product language; do not ask the operator to engineer a technical prompt. Explain ambiguity and keep asking until these six input groups are explicit:
+Ask one material question at a time in ordinary product language; do not ask the operator to engineer a technical prompt. Explain ambiguity and continue until the mission privately defines the simulated user/PM's:
 
-1. **Opening ask** — the identical product-neutral task each target receives.
-2. **Simulated-user knowledge and reveal policy** — what the actor knows privately, which facts begin public, and the exact target-visible question or condition permitting each private fact to be revealed. Private material stays controller-only.
-3. **Useful-document expectation** — the requested document's purpose, ready condition, Markdown filename, and what would make it useful to the operator. Do not turn this into a scoring rubric.
-4. **Contenders** — the selected lanes among the concrete v1 roster: Brunch, Claude Code, Codex, Cursor, and Pi. Cursor/agent is one contender, not two.
-5. **Shared framing** — after understanding the mission, draft exact target-visible text that asks each contender to elicit consequential missing information rather than guess, distinguish known facts from uncertainty, surface recommendations and tradeoffs, produce the requested review-ready specification document, and stop at the approved ready condition.
-6. **Per-harness framing** — draft and preserve the exact initial text each selected generic harness will receive, including its shared framing and any harness-specific addition. For Brunch, visibly record the built-in Specify-mode framing in plain language—its guided conversation implicitly performs the conduct named above—and record the exact added text it will receive. Never hide Brunch framing behind “equivalent instructions.” Record an explicit empty addition when none is intended.
+- objective and natural opening request;
+- relevant context, priorities, and preferences;
+- constraints and known facts;
+- uncertainties, including what is unknown or undecided;
+- decision latitude: what the actor may decide and what requires the operator; and
+- conversational and disclosure posture: how forthcoming, questioning, decisive, or cautious the PM should naturally be.
 
-Show a short plain-language explanation of what Brunch receives implicitly from Specify mode, followed by the complete drafted shared framing and exact initial text for every selected contender. Invite the operator to tweak any wording. The operator may directly edit exact text, but a useful default must not require prompt-engineering expertise. Before saving, display the complete proposed mission and require explicit approval of the complete framing package; ambiguity, questions, qualifications, or partial approval are not approval.
+The mission may name the requested review-ready specification document, its purpose, filename, and useful completion condition. Do not turn usefulness into a fixed scoring rubric. Do not put contender names, lane selection, shared/per-harness framing, adapter details, run ids, or automation instructions in the mission.
 
-Save it as readable Markdown under `testing/comparisons/missions/<mission-id>.md`; choose a clear collision-safe id with the operator. Include all six groups, with the approved shared text, Brunch built-in Specify framing and added text, and every generic harness's exact initial text directly visible. Do not encode controller YAML, a fixed rubric, a winner, statistics, or automation instructions.
+Before saving, display the complete proposed mission and require explicit approval. Ambiguity, questions, qualifications, or partial approval are not approval. Save readable Markdown under `testing/comparisons/missions/<mission-id>.md`; choose a clear collision-safe id with the operator.
 
-For revision, first display the current complete mission, then change only the editable mission after the operator confirms the edit. State explicitly that existing run directories and snapshots remain unchanged. Revision never launches a run unless the operator subsequently chooses run and approves the complete setup below.
+For revision, first display the current complete mission, then change only the editable mission after approval. State that existing run directories and every saved snapshot remain unchanged. Revision never launches a run unless the operator subsequently chooses run and separately approves its setup.
 
-## Review and approve a run
+## Prepare and approve a separate run setup
 
-Before any launch:
+Run setup is intentionally small, run-specific, and never written into the reusable mission.
 
-1. Preflight the actual environment: every selected concrete adapter, filesystem access, provider/model access, the pinned `pi-interactive-shell` package and push/prune extensions, and cleanup capability. If a selected adapter is unavailable, do not substitute another harness or claim availability: identify the unavailable lane and either let the operator revise the selection before approval or record that lane as failed in an approved run.
-2. Require a real mechanism for a separately identifiable **fresh harness-level Pi actor process/session** and a **fresh isolated target cwd** for every selected lane. A new target cwd, this coordinator context, or a promise not to share information is not fresh actor isolation. If fresh actor identity cannot be demonstrated, report the block and do not launch.
-3. Display the complete saved mission and framing package together: the exact shared framing; Brunch's plain-language built-in Specify framing and exact added text; and the exact initial text each selected generic harness will receive. Also display the proposed mission id, run id, lane order, target document path, scratch path, retained run path, and adapter for each lane.
-4. Ask for an explicit **approve**, **revise**, or **reject** decision.
+1. Ask the operator to select lanes from the concrete roster: **Brunch**, **Claude Code**, **Codex**, **Cursor/agent**, and **Pi**. Cursor/agent is one contender.
+2. Draft the minimum exact target-visible framing for each selected lane:
+   - **Brunch:** use built-in Specify mode, plus only the output instruction needed to identify the requested review-ready document and path.
+   - **Generic harnesses:** use a small instruction to conduct a question-led specification conversation and author the requested review-ready Markdown document. Do not preload mission facts or prescribe the conclusions.
+3. Preflight each selected adapter, filesystem and provider/model access, the pinned `pi-interactive-shell` package and push/prune extensions, and cleanup capability. If an adapter is unavailable, do not substitute another harness; let the operator revise selection or retain the approved lane as failed.
+4. Require a separately identifiable fresh harness-level Pi actor process/session and fresh isolated target cwd for every lane. A new cwd, this coordinator context, or a promise not to share information is not fresh actor isolation. If identity cannot be demonstrated, report the block and do not launch.
+5. Display together: the complete private mission; selected lanes and order; exact per-contender target-visible framing; mission id; collision-safe run id; requested target document path; scratch and retained paths; and each adapter. Clearly label the mission **actor-only** and the framing **target-visible**.
+6. Ask for explicit **approve**, **revise**, or **reject**. Revise and redisplay the complete setup, or reject and stop; do not launch partially.
 
-Treat ambiguity, edits, qualifications, questions, or anything short of explicit approval as not approved. Revise and redisplay the complete setup, or reject and stop. Do not launch partially.
+Before the first lane, copy the exact approved private mission and separate contender setup into the unused scratch run identity as distinct immutable input snapshots. They are retained with the run but never merged into one target packet.
 
 ## Run the approved mission
 
-After explicit approval, allocate collision-safe identities under `.fixtures/scratch/comparisons/<run-id>/` and `.fixtures/runs/agent-as-user-comparison/<run-id>/`. Fail rather than reuse or overwrite an existing run identity. Copy the exact approved mission and complete contender setup into scratch as the immutable run input before the first lane starts. That copy, unchanged, is the snapshot later retained with the run.
-
 Selected lanes may run sequentially. For each lane:
 
-1. Show status **ready** while preflighting, then **running** after launch. Use **waiting** when the actor is waiting for target output or an operator-owned action. End only as **finished** or **failed**.
-2. Start the separately identifiable fresh harness-level Pi actor context and a fresh isolated target cwd. Give Brunch the approved opening ask and exact added text, with its visible saved built-in Specify framing governing the lane. Give each generic harness its approved exact initial text. Give every target only facts allowed by the reveal policy; keep controller-only knowledge and reveal material outside the target cwd.
-3. Follow the existing FE-1210 rendered-state actor cadence: observe bounded rendered output, send named-key or pasted input, end the turn, act on push-driven quiet updates, and use a bounded current-tail query only when a push is absent or ambiguous. Do not inspect opaque target internals.
-4. Use the selected target adapter without changing the mission:
-   - **Brunch:** launch the real TUI with `npm run dev-cli -- --workspace <fresh-target-cwd>`; navigate rendered choices; acquire the document only from settled graph state with `npm run dev-cli -- document-export --workspace <fresh-target-cwd> --spec-id <id> --out <requested-file.md>`.
-   - **Claude Code:** use `spawn: { agent: "claude" }` and instruct it to author the requested Markdown file itself in its fresh target cwd.
-   - **Codex:** use `spawn: { agent: "codex" }` and instruct it to author the requested Markdown file itself in its fresh target cwd.
-   - **Cursor:** first verify `agent --version`; use `spawn: { agent: "cursor" }` and instruct it to author the requested Markdown file itself in its fresh target cwd. Cursor/agent is one contender.
-   - **Pi:** use `spawn: { agent: "pi" }` and instruct it to author the requested Markdown file itself in its fresh target cwd.
+1. Show **ready** while preflighting, **running** after launch, and **waiting** while awaiting target output or an operator-owned action. End only as **finished** or **failed**.
+2. Start a separately identifiable fresh harness-level Pi actor and fresh isolated target cwd. Give the actor the complete approved private mission wholesale. Give the contender only its minimal approved framing and then the actor's user messages—never the mission text, file, or path.
+3. The actor performs what the PM would manually do: open naturally with the mission's request; answer questions from mission truth and disclosure posture; consider recommendations and tradeoffs; decide only within granted latitude; and explicitly say unknown or undecided when the mission does not authorize an answer. The actor must not invent facts or decisions to keep the conversation moving.
+4. Follow FE-1210's rendered-state cadence: observe bounded rendered output, send named-key or pasted input, end the turn, act on push-driven quiet updates, and use a bounded current-tail query only when a push is absent or ambiguous. Do not inspect opaque target internals.
+5. Use the selected adapter:
+   - **Brunch:** launch `npm run dev-cli -- --workspace <fresh-target-cwd>` in built-in Specify mode; acquire the document only from settled graph state with `npm run dev-cli -- document-export --workspace <fresh-target-cwd> --spec-id <id> --out <requested-file.md>`.
+   - **Claude Code:** `spawn: { agent: "claude" }`.
+   - **Codex:** `spawn: { agent: "codex" }`.
+   - **Cursor/agent:** verify `agent --version`, then `spawn: { agent: "cursor" }`.
+   - **Pi:** `spawn: { agent: "pi" }`.
 
-   Preflight the selected adapter before launch. If it is unavailable or mismatched, mark that lane **failed**, retain the honest availability result, and do not substitute an adapter, reconstruct its output, or silently drop the lane.
-5. Reveal a private fact only when its approved condition is visibly met. Record target-visible exchanges and reveal decisions honestly.
-6. Acquire and copy the target-authored document if it exists. Never author, reconstruct, complete, rewrite, or improve a target document. Missing or partial output remains missing or partial.
-7. On success, failure, expiry, invalid conduct, or adapter failure, retain the lane outcome, target-visible interaction notes, document that actually exists, actor/session and target-cwd identities, final process status, and cleanup notes. Kill remaining actor/target processes, dismiss completed overlay records, and verify no lane process remains. Preserve failures rather than selectively erasing or rerunning them.
+   Generic targets author the requested Markdown file themselves in their cwd. An unavailable or mismatched adapter makes the lane failed; never substitute, silently drop it, or reconstruct output.
+6. Retain the exact target-visible initial framing and transcript, including every actor answer and decision. This is the disclosure record: any mission fact visible to the target must have arrived through the actor's natural opening or subsequent answer.
+7. Acquire the target-authored document if it exists. Never author, reconstruct, complete, rewrite, or improve it. Missing or partial output remains missing or partial.
+8. On every outcome, retain lane state, target-visible interaction, actor/session and target-cwd identities, final process status, document that exists, and cleanup notes. Kill remaining processes, dismiss completed overlay records, and verify no lane process remains. Preserve failed or invalid attempts rather than selectively rerunning or erasing them.
 
-Do not notify completion while any selected lane is ready, running, or waiting. After **every** selected lane is finished or failed, give one aggregate completion notification and assemble the retained run. Promotion is deliberate: review the scratch assembly, then copy it to the unused immutable run identity without changing the approved snapshot or target-authored documents.
+Do not notify completion while any lane is ready, running, or waiting. After every selected lane is finished or failed, give one aggregate notification. Review scratch assembly, then deliberately copy it to the unused immutable run identity without changing snapshots, transcripts, or target-authored documents.
 
-## Retained run and report
+## Retained run and operator-only report
 
-The retained run must contain:
+The retained run contains distinct private-mission and contender-setup snapshots, every exact target-visible transcript, every target-authored document that exists, lane identities/outcomes/cleanup, explanations for missing output, and `report.md`.
 
-- the exact approved mission and contender-setup snapshot;
-- every target-authored document that exists, unchanged;
-- each lane's outcome, actor/session and target-cwd identity, and cleanup notes;
-- an explanation for every missing output; and
-- `report.md`.
+Write `report.md` for an operator-only cold reader. It may reproduce the full private mission, but must keep these sections visibly separate:
 
-Write `report.md` for a cold reader with:
+1. **Private mission baseline (actor-only)** — full approved mission and mission id.
+2. **Target-visible setup and interaction (per lane)** — exact initial framing, actor opening message, subsequent transcript, adapter, and lane identity. Make elicitation and any leakage legible by comparison with the private baseline.
+3. **Outcomes** — finished/failed state, cleanup, and concise factual account for every lane.
+4. **Produced documents** — repository-relative links to unchanged target-authored documents, with inline content when useful; state plainly when none exists.
+5. **Operator observations** — empty and free-form unless the operator supplies observations.
 
-1. **Setup** — mission id, run id, approval, shared framing, Brunch's visible built-in Specify framing and exact added text, every generic harness's exact initial text, lane order, and adapters.
-2. **Outcomes** — finished/failed state and concise factual account for every lane.
-3. **Produced documents** — repository-relative links to every retained target-authored document, plus its content inline when that improves cold readability; state plainly when none exists.
-4. **Operator observations** — an empty, free-form section for the operator, unless the operator supplies observations.
+Do not add a fixed rubric, score, scripted/API judge, statistics, recommendation, automatic winner, or inferred winner.
 
-Do not add a fixed rubric, score, scripted or API judge, statistics, recommendation, automatic winner, or inferred winner. Report what happened and preserve the products for human comparison.
-
-Finish by reporting the saved mission path, scratch path, immutable run path, lane terminal states, cleanup result, and `report.md` path. Do not claim the comparison was useful or correctly conducted merely because these instructions were followed; that judgment belongs to the operator reviewing the real interaction and artifacts.
+Finish by reporting the saved mission path, scratch path, immutable run path, lane terminal states, cleanup result, and `report.md` path. Do not claim runtime correctness, isolation, actor consistency, notification timing, or usefulness merely because static instructions or checks passed; those judgments belong to the operator reviewing the real interaction and artifacts.

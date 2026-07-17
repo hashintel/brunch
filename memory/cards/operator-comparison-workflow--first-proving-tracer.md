@@ -1,4 +1,4 @@
-# FE-1215 real-prompt comparison tracer
+# FE-1215 corrected private-mission comparison tracer
 
 Frontier: operator-comparison-workflow
 Status:   active
@@ -8,223 +8,249 @@ Created:  2026-07-17
 ## Orientation
 
 - **Containing seam:** project-local Pi operator tooling over FE-1210’s rendered-state actor, target adapters, document acquisition, cleanup, and retained comparison evidence.
-- **Frontier:** `operator-comparison-workflow` / FE-1215 on `ln/fe-1215-saved-mission-comparison`; this scope remains one slice on that issue and branch.
-- **Volatile state:** no `HANDOFF.md`; the only authorized pre-existing work is this untracked scope file. The retained `lockers-r1-20260716` run is immutable prior evidence, not a template to rewrite.
-- **Main risk:** `.pi/prompts/compare-specs.md` is Markdown interpreted by a real Pi agent. A test-owned lifecycle or dry-run state machine would be a surrogate implementation and could pass while `/compare-specs` never conducts the workflow. The autonomous slice therefore authors and statically reviews the actual production prompt, then stops at a real-Pi behavioral gate.
+- **Frontier:** `operator-comparison-workflow` / FE-1215 on `ln/fe-1215-saved-mission-comparison`; this remains one correction slice on the existing issue and branch.
+- **Volatile state:** no `HANDOFF.md`. Coordinator-authored corrections already live in `memory/SPEC.md` and `memory/PLAN.md`; both are protected read-only inputs for this delegation and build. The current prompt and mission README implement the superseded model and are not accepted behavior.
+- **Main risk:** the existing prompt gives contender selection and framing to the saved mission and does not cleanly model the Pi actor as the private mission’s user/PM. Static prose review can establish the corrected instruction boundary, but only a real `/compare-specs` run can prove that the actor follows it without leaking the mission.
 
 **Posture: proving (inherited from `operator-comparison-workflow`).**
 
 Frontier-level obligations carried by this slice:
 
+- Preserve the corrected boundary among the rich private **agent-as-user mission**, separate minimal per-run contender setup, target-visible interaction, and immutable operator-only run evidence.
 - Preserve D70-L’s artifact roles: editable product-neutral missions live under `testing/comparisons/missions/`; ephemeral lane work and assembly live under `.fixtures/scratch/comparisons/`; deliberate immutable run snapshots, target outputs, and reports live under `.fixtures/runs/agent-as-user-comparison/`. Missions are not Brunch seeds.
-- Keep the approachable workflow distinct from the rigorous frozen-packet procedure. Do not add matched budgets, blinded or scripted judgment, a fixed rubric, an automatic winner, statistics, an unattended campaign, a database/service, or a generic harness abstraction.
-- `.pi/prompts/compare-specs.md` is the one v1 production entry point for create, revise, review, and run. Reuse the FE-1210 actor cadence and adapters without extracting a new skill, package, parser, checker, or runner before real use demonstrates the need.
-- Prompt instructions must fail closed behind explicit approval of the complete mission, common framing, and exact per-harness additions; require a fresh actor context and target cwd per lane; preserve failures and target-authored documents honestly; notify only after all selected lanes resolve; and produce a free-form no-winner report.
-- Static checks prove only the prompt’s discoverable shape and visible instructions. Only an actual fresh-Pi `/compare-specs` invocation may witness conversational conduct, launch, isolation, revision semantics, notification timing, target authorship, or report usefulness.
+- `.pi/prompts/compare-specs.md` remains the one v1 production entry point for create, revise, review, and run. Reuse FE-1210 actor cadence and adapters without extracting a skill, package, parser, checker, runner, or generic harness abstraction.
+- Static checks prove only prompt discovery, corrected visible instructions, Markdown validity, and repository health. Only an actual fresh-Pi `/compare-specs` invocation may witness actor conduct, mission isolation, launch, notification timing, target authorship, or report usefulness.
+
+## Supersession record
+
+The prior **Card 1 · Complete real project prompt and mission-home guidance** completion is **invalidated and superseded by the user’s 2026-07-17 domain-model correction**. Its earlier review/check results prove only that the now-contradicted prose was syntactically valid; they do not accept its mission model or current prompt behavior.
+
+Specifically, the prior card incorrectly treated opening ask, private reveal material, contender selection, shared framing, and per-harness framing as six co-owned saved-mission input groups. The corrected model makes the mission the Pi actor-as-user’s rich private role definition and moves all contender selection/configuration into minimal, separately approved run setup. The real-Pi gate was not run and remains blocked. No prior run artifact is rewritten.
 
 ## Scope boundary and sequence discipline
 
-1. This file scopes one autonomous build slice: author the complete production prompt and the minimum mission-home README needed by an operator or maintainer who opens a saved mission directly.
-2. `docs/praxis/comparison-runs.md` already has a clear reader and owns the separate rigorous campaign procedure. It is read-only context here; the approachable workflow’s complete operating instructions belong in the prompt, so this slice does not modify that document.
-3. Do not add `src/dev/__tests__/compare-specs-prompt.test.ts`. No executable production lifecycle seam exists for it to call, and no parser/checker or helper state machine should be introduced merely to test prose.
-4. After the autonomous slice passes static review and repository checks, the owned real-Pi gate below blocks further autonomous scoping. Findings may reshape the prompt or orchestration, so there is no prewritten Card 2.
-5. Existing-mission revise/rerun remains required before frontier closure, including proof that revision changes only future runs and leaves historical snapshots unchanged. It may extend the first witness only if first-run findings do not call the flow into question; otherwise it is the next findings-dependent scope.
-6. `memory/PLAN.md` still permits a temporary-directory fixture or scripted dry run as middle evidence. The binding coordinator review narrows that verifier here because no executable production lifecycle seam exists; whether PLAN should be reconciled through `ln-sync` remains for coordinator review, not this scope-only write.
+1. This file scopes one bounded correction build: update the actual production prompt and the mission-home README, then reconcile this scope card’s status.
+2. `memory/SPEC.md` and `memory/PLAN.md` already contain the authorized canonical correction. They are cold-start reads and protected non-writes, not reconciliation targets for this build.
+3. The correction does not add tests or implementation machinery. Do not add a surrogate lifecycle test, runner, parser, checker, package, skill, browser UI, judge, rubric, statistics, database, or generic harness abstraction.
+4. The current `.pi/prompts/compare-specs.md` and `testing/comparisons/missions/README.md` are contradicted implementation context. Do not preserve their six-group mission model for compatibility, and do not cite current behavior as accepted.
+5. Keep the owned real-Pi gate blocked until both corrected files pass the direct review and read-only checks in this card. There is no prewritten downstream build through that gate.
+6. Existing-mission revise/rerun remains findings-dependent after the first real witness and must preserve every earlier immutable snapshot.
 
 ---
 
-## Card 1 · Complete real project prompt and mission-home guidance — `done`
-
-Completed 2026-07-17; coordinator-requested revision completed in a separate follow-up commit. Direct prompt/README review, targeted Remark, and `npm run verify` passed. The owned Fresh-Pi behavioral gate remains pending and blocks further autonomous scope; it was not executed or simulated.
+## Correction build · Restore the private user-mission boundary — `done`
 
 ### Target Behavior
 
-The project exposes a discoverable `/compare-specs` prompt whose visible instructions completely specify the saved-mission comparison workflow for a real Pi operator.
+The project prompt and mission-home guidance enforce the corrected private agent-as-user mission boundary throughout the comparison workflow.
 
 ### Full-card cold-start reads
 
-- `memory/SPEC.md` — requirement 24; A5-L; D70-L; lexicon `Comparison mission` / `Comparison report`; Verification Design §Operator-led cross-product comparisons
-- `memory/PLAN.md` — frontier: `operator-comparison-workflow`
+- `memory/SPEC.md` — requirement 24; A5-L; D70-L; lexicon `Agent-as-user mission` / `Comparison report`; Verification Design §Operator-led cross-product comparisons
+- `memory/PLAN.md` — frontier: `operator-comparison-workflow`, especially objective, acceptance, boundary, verification, and current execution pointer
 - Pi `docs/prompt-templates.md` — project prompt location, frontmatter, arguments, and non-recursive discovery
 - `.agents/skills/agent-as-user-comparison/SKILL.md` — fresh-lane actor boundary, rendered-state cadence, target adapters, document acquisition, failure retention, and cleanup
-- `docs/praxis/comparison-runs.md` — rigorous/approachable boundary and the existing Brunch, Claude Code, and Cursor adapter facts; read only
+- `docs/praxis/comparison-runs.md` — rigorous/approachable boundary and existing adapter facts; read only
 - `.fixtures/README.md` — seed/workbench/run/scratch roles and deliberate promotion/path-portability discipline
 - `docs/praxis/manual-testing.md` — real interactive capability preflight, artifact retention, cleanup, and owned findings discipline
-- `.fixtures/runs/agent-as-user-comparison/lockers-r1-20260716/manifest.md` — prior actor/adapter lessons only; do not copy its frozen campaign or judgment ceremony
+- `.fixtures/runs/agent-as-user-comparison/lockers-r1-20260716/manifest.md` — prior actor/adapter lessons only; do not rewrite or copy its frozen campaign ceremony
+- `.pi/prompts/compare-specs.md` and `testing/comparisons/missions/README.md` — contradicted current implementation to correct, not accepted behavior
 
 ### Boundary Crossings
 
 ```text
 → project Pi prompt discovery (`.pi/prompts/compare-specs.md`)
-→ `/compare-specs [mission-id-or-path]`
-→ create / revise / review / run instructions
-→ editable readable mission under `testing/comparisons/missions/`
-→ complete contender setup and explicit approval instructions
-→ fresh actor + isolated target adapter instructions per lane
-→ scratch assembly and immutable run snapshot/output instructions
-→ aggregate completion notification and free-form `report.md` instructions
+→ private mission create / revise / review
+→ separate run-specific contender selection and exact framing approval
+→ fresh Pi actor receives the full private mission
+→ contender receives only minimal framing plus actor-authored user turns
+→ operator-only retained report separates private baseline from target-visible evidence
 ```
 
-### Required prompt content
+### Required corrected content
 
-A direct cold read must find one coherent operator procedure covering:
+A direct cold read of the prompt and README must establish this model:
 
 ```text
-invocation
-├── no argument: offer create | revise | run
-└── mission id/path: resolve only inside mission home; offer review | revise | run
+private agent-as-user mission
+├── belongs to the fresh Pi actor playing the user/PM
+├── defines objective, context, priorities, preferences, constraints,
+│   known facts, uncertainties, decision latitude,
+│   conversational/disclosure posture, and natural opening request
+├── is readable product-neutral Markdown
+├── contains no contender selection or harness configuration
+└── is received wholesale only by the actor, never a contender
 
-create / revise
-├── ask one material question at a time in ordinary product language
-├── collect opening ask, simulated-user knowledge/reveal policy,
-│   useful-document expectation, and concrete contenders selected from
-│   Brunch | Claude Code | Codex | Cursor | Pi (Cursor/agent is one)
-├── draft comparable framing from Brunch Specify conduct:
-│   elicit consequential unknowns; separate facts from uncertainty;
-│   surface recommendations/tradeoffs; author the requested review-ready
-│   specification document; stop at the approved ready condition
-├── show Brunch's built-in framing + exact addition and each generic
-│   harness's exact initial text; invite tweaks; require explicit approval
-├── save approved framing in ordinary-language Markdown, not controller YAML
-└── revision changes the editable mission only
+actor conduct
+├── opens the target conversation as the simulated user
+├── answers questions from mission truth and disclosure posture
+├── considers recommendations and tradeoffs as the PM would
+├── makes decisions only where the mission grants latitude
+└── says unknown or undecided when the mission does not authorize invention
 
-approval / run
-├── display the complete saved mission and exact contender setup
-├── explicit reject/revise/ambiguity: do not launch
-└── explicit approval
-    ├── allocate collision-safe scratch and run identities
-    ├── copy the exact approved mission/framing/setup as immutable run input
-    ├── preflight selected concrete adapters; fail/record unavailable lanes honestly
-    ├── run selected lanes sequentially if desired
-    │   ├── fresh harness-level Pi actor context and fresh target cwd per lane
-    │   ├── visible ready | running | waiting | finished | failed status
-    │   ├── approved target-visible packet only; private reveal material stays out
-    │   ├── FE-1210 rendered-state cadence and selected target adapter
-    │   │   (Brunch, spawn claude/codex/cursor/pi; no generic registry)
-    │   ├── each target authors its requested Markdown document itself
-    │   ├── acquire, never reconstruct or improve, target-authored output
-    │   └── retain failures and clean actor/target processes
-    ├── notify only after every selected lane reaches finished or failed
-    └── assemble one run
-        ├── exact approved mission/setup snapshot
-        ├── every target-authored document that exists
-        ├── lane outcome and cleanup notes explaining missing output
-        └── report.md with setup, outcomes, relative document links/content,
-            empty/free-form Operator observations, and no automatic winner/rubric
+separate run setup
+├── selects from Brunch | Claude Code | Codex | Cursor/agent | Pi
+├── remains intentionally small and run-specific
+├── Brunch: built-in Specify mode + only necessary output instruction
+├── generic harness: small instruction to conduct a question-led
+│   specification conversation and author the requested review-ready document
+├── shows exact per-contender framing for operator approval
+└── snapshots approved setup with the run, never into the reusable mission
+
+target-visible boundary
+├── minimal approved harness framing
+├── actor's natural opening user message
+├── actor's subsequent answers and decisions
+├── never the full mission text
+└── never the mission file or path in target context/cwd
+
+operator-only retained report
+├── may reproduce the full private mission as the comparison baseline
+├── identifies the separate exact contender setup
+├── separates target-visible initial framing and transcript per lane
+├── retains lane outcomes and target-authored documents
+└── makes leakage and elicitation legible without a winner or fixed rubric
 ```
 
-The prompt must also state that later mission revisions affect future runs only and never rewrite an existing run directory or its approved snapshot.
+The prompt must continue to state that revision changes only the editable mission and future runs; it never rewrites an existing run directory, private mission snapshot, contender-setup snapshot, transcript, output, or report.
 
 ### Risks and Assumptions
 
-- **RISK:** static prose checks are mistaken for proof that the agent obeys the prose.  
-  **MITIGATION:** label the static proof boundary in acceptance and stop at the owned real-Pi gate; do not build a surrogate lifecycle fixture.
-- **RISK:** one large prompt is incomplete or unreliable in real conversation.  
-  **MITIGATION:** make the complete procedure directly reviewable in one production file, then let first-run findings decide whether the wording or orchestration needs revision. Do not preemptively extract machinery.
-- **RISK:** mission guidance duplicates the production procedure and drifts.  
-  **MITIGATION:** keep `testing/comparisons/missions/README.md` limited to its current reader: a human browsing or hand-revising saved missions. It names the mission fields, path/role, `/compare-specs` entry point, and immutable-history rule; operational choreography stays in the prompt.
-- **RISK:** the operator environment cannot supply genuinely fresh Pi actor contexts for both lanes.  
-  **MITIGATION:** the real-Pi gate requires separately identifiable fresh actor sessions and fails closed if the capability is absent; do not reinterpret coordinator discipline or distinct target cwds as actor isolation.
-- **ASSUMPTION:** one project prompt can conduct the approachable workflow using existing Pi and FE-1210 capabilities without a helper package or runner.  
-  → **IMPACT IF FALSE:** the prompt/orchestration boundary and all downstream scope must be reshaped.  
-  → **VALIDATE:** the owned fresh-Pi create → approve → two-contender → report witness below; static review does not validate this assumption.
+- **RISK:** the old six-group language survives in one path and silently re-couples reusable mission truth to contender setup.
+  - **MITIGATION:** direct cold-read both files for create, revise, review, approval, lane launch, and report instructions; remove rather than alias the superseded model.
+- **RISK:** “private” is interpreted as hiding the mission from the operator report as well as from contenders.
+  - **MITIGATION:** state that the operator-only report may show the full mission baseline while keeping it visibly separate from target-visible framing/transcript.
+- **RISK:** the actor fills gaps to keep the conversation moving.
+  - **MITIGATION:** require mission-consistent decisions only within granted latitude and explicit unknown/undecided responses otherwise.
+- **RISK:** static prose checks are mistaken for proof that Pi obeys the prose.
+  - **MITIGATION:** keep the real-Pi gate blocked and explicitly limit every autonomous oracle’s claim.
+- **ASSUMPTION:** one project prompt can conduct the corrected workflow using existing Pi and FE-1210 capabilities without helper machinery.
+  - **IMPACT IF FALSE:** the prompt/orchestration boundary and downstream scope must be reshaped.
+  - **VALIDATE:** the owned fresh-Pi Brunch + Claude witness below; static review does not validate this assumption.
 
 ### Posture check
 
-- **Lights up:** the real project-level `/compare-specs` production entry point and its complete instruction path, rather than a test-only surrogate.
-- **Stabilizes:** the human-readable editable-mission versus immutable-run-snapshot boundary and the three canonical mission/scratch/run homes.
-- **Locates uncertainty:** whether a real Pi agent can reliably conduct the packaged workflow and obtain fresh actor contexts. The owned behavioral gate, not autonomous tests, is the tracer that can retire or reshape that uncertainty.
+- **Lights up:** the actual project prompt’s corrected mission → actor → target → report information flow.
+- **Stabilizes:** the reusable private mission / minimal run setup / target-visible interaction boundary future comparisons depend on.
+- **Locates uncertainty:** whether a fresh Pi actor can internalize the rich mission, behave consistently without invention, and avoid wholesale or path-level leakage. The owned behavioral gate, not a surrogate test, carries that proof.
 
 ### Acceptance Criteria
 
-- ✓ **Pi prompt-template documentation + direct frontmatter review** — `.pi/prompts/compare-specs.md` is at Pi’s non-recursive project prompt home, has valid `description` and optional `[mission-id-or-path]` argument hint frontmatter, and uses Pi-supported argument expansion; this proves the discoverable template shape, not runtime conduct.
-- ✓ **Prompt content cold-read checklist (“Required prompt content” above)** — the production file visibly names every create/revise/review/run input, decision, guardrail, actor/adapter step, status, notification, report section, and artifact instruction required by this card. It includes the concrete Brunch/Claude Code/Codex/Cursor/Pi roster, structured Codex/Pi spawns, honest adapter-unavailability handling, friendly draft/tweak/approve framing, visible Brunch Specify conduct, exact generic-harness initial text, and approved framing persistence; this proves instruction presence only.
-- ✓ **Canonical-path and negative-space direct review** — the prompt names exactly `testing/comparisons/missions/`, `.fixtures/scratch/comparisons/`, and `.fixtures/runs/agent-as-user-comparison/`; it does not instruct writes outside those roles, absolute workstation paths, seed substitution, controller YAML, a fixed rubric, an automatic winner, a scripted/API judge, a generic runner, or a new package/skill.
-- ✓ **Mission-home README cold read** — `testing/comparisons/missions/README.md` clearly serves operators/maintainers who browse or hand-revise missions, names the six mission input groups and `/compare-specs`, documents the concrete five-contender roster and friendly framing-authoring default, distinguishes missions from seeds, and states that editable revisions affect future runs only while historical run snapshots remain unchanged.
-- ✓ **`npx remark .pi/prompts/compare-specs.md testing/comparisons/missions/README.md --frail`** — both new Markdown files parse cleanly and their links resolve.
-- ✓ **`npm run verify`** — the normal repository checkpoint remains green; no passing test is cited as evidence of conversational conduct, isolation, launch, notification, target authorship, revision behavior, or report usefulness.
+- ✓ **Direct prompt mission-model review** — create/revise/review instructions define the saved mission as the actor-user’s rich private role; intake covers objective, context, priorities, preferences, constraints, known facts, uncertainties, decision latitude, conversational/disclosure posture, and natural opening request; mission content excludes contender selection and harness instructions.
+- ✓ **Direct prompt actor-conduct review** — each lane loads the complete approved private mission only into a fresh Pi actor; the actor opens the conversation, answers and weighs tradeoffs consistently, decides only within granted latitude, and says unknown/undecided rather than inventing.
+- ✓ **Direct prompt target-boundary review** — each contender receives only its minimal exact framing, the actor’s opening user message, and subsequent actor-chosen answers; the prompt forbids putting the mission wholesale or its file/path into target context or cwd.
+- ✓ **Direct prompt run-setup review** — contender selection is separate from mission authoring; the concrete roster is Brunch, Claude Code, Codex, Cursor/agent, and Pi; Brunch uses built-in Specify mode plus only necessary output instruction; generic harnesses receive a small question-led specification/document-authoring instruction; exact setup is approved and snapshotted with the run, not saved in the mission.
+- ✓ **Direct prompt report review** — `report.md` may reveal the full private mission to its operator reader but clearly separates that baseline from exact target-visible initial framing and transcript per lane, then retains lane outcomes and target-authored documents without a rubric, score, recommendation, or winner.
+- ✓ **Mission-home README cold read** — the README documents the same private actor-role mission fields, excludes contender/setup fields from mission files, explains actor-only wholesale access and target-visible disclosure, points to separate run setup in `/compare-specs`, and preserves future-only revision semantics.
+- ✓ **Canonical-path and negative-space review** — the files preserve the mission/scratch/run homes and introduce no surrogate lifecycle test, runner, parser, checker, package, skill, browser UI, judge, rubric, statistics, database, campaign framework, or generic harness abstraction.
+- ✓ **`npx remark .pi/prompts/compare-specs.md testing/comparisons/missions/README.md --frail`** — the two corrected Markdown files parse cleanly and their links resolve.
+- ✓ **`npm run check`** — the repository’s read-only lint/format/link/skill/promoted-run checks remain green; no passing check is cited as evidence of runtime behavior.
+- ✓ **Protected-state fingerprint check before and after build** — `memory/SPEC.md` remains SHA-256 `92bf0ac7864e2c32dec4da2402815621cd8e2c982ac8540a4ecb91d55f41a238` and `memory/PLAN.md` remains SHA-256 `0e39a3bfaded62fe20e80c13011801cbdf941c0cb69a31be41b2d8329570fb29`.
 
 ### Invariants preserved
 
-- Existing promoted evidence, especially `.fixtures/runs/agent-as-user-comparison/lockers-r1-20260716/`, remains untouched — guarded by: expected write manifest review.
-- The rigorous campaign procedure remains distinct and unmodified — guarded by: expected write manifest review and direct prompt negative-space review.
-- No test/helper becomes a second implementation of the prompt workflow — **stop the line**, guarded by: absence of `src/dev/__tests__/compare-specs-prompt.test.ts` and any new parser/checker/runner from the expected write manifest.
-- Missions remain product-neutral Markdown outside `.fixtures/`; historical run inputs remain immutable by instruction — guarded autonomously only by direct content/path review, then behaviorally by the real-Pi gate and later revise/rerun obligation.
+- Existing promoted evidence, especially `.fixtures/runs/agent-as-user-comparison/lockers-r1-20260716/`, remains untouched — guarded by: expected write-manifest review.
+- The rigorous frozen-packet procedure remains distinct and unmodified — guarded by: expected write-manifest and direct negative-space review.
+- No test/helper becomes a second implementation of the prompt workflow — **stop the line**, guarded by: expected write-manifest review.
+- Missions remain product-neutral Markdown outside `.fixtures/`; historical run inputs remain immutable — guarded autonomously by: direct content/path review; behaviorally by: the real-Pi gate and later revise/rerun obligation.
+- Current prompt behavior is not accepted merely because the correction text passes static checks — guarded by: the blocked gate and explicit oracle limits above.
 
 ### Verification Approach
 
-- **Inner:** Pi prompt-template documentation review, direct required-section/path/guardrail review, targeted Remark, and `npm run verify`. These establish syntax, discovery shape, instruction completeness, and repository health only.
-- **Middle:** none for conversational behavior. There is no executable production lifecycle seam to test; a temporary-root dry run would supply the workflow it claimed to prove.
-- **Outer:** mandatory owned gate below. It exercises the actual `/compare-specs` entry point in a fresh project Pi process and blocks the next scope.
+- **Inner:** Pi prompt-template/frontmatter cold read, required-content and negative-space review, targeted Remark, `npm run check`, and protected-state fingerprint comparison. These establish corrected visible instructions and repository health only.
+- **Middle:** none for workflow behavior. There is no executable production lifecycle seam to test; a dry-run state machine would supply the behavior it claimed to prove.
+- **Outer:** mandatory owned gate below. It exercises the actual `/compare-specs` entry point and blocks further autonomous scope.
 
 ### Cross-cutting obligations
 
-- Draft exact common/per-harness framing from ordinary product-language intake, invite tweaks, and keep the complete approved text visible and persisted. Brunch's built-in Specify framing and exact added text must be shown alongside every generic harness's exact initial text; “equivalent instructions” is not a substitute for explicit adapter input.
-- Keep controller-only simulated-user knowledge outside every target cwd and reveal it only according to the approved mission.
+- Give the complete mission privately to the actor, never to the contender; target-visible overlap with mission facts must arise only through the actor’s opening message and later answers.
+- Keep reusable user truth independent of contender roster and harness framing. Exact framing is approved and snapshotted per run.
 - A run may sequence lanes; do not promise parallel execution or add concurrency machinery.
 - Preserve failed lanes and missing documents honestly; the actor may acquire a target document but never author, reconstruct, or improve it.
-- Do not claim the prompt is usable or correct merely because it is complete on inspection.
+- Do not claim corrected prompt usability or runtime correctness before the real witness.
 
 ### Expected touched paths (tentative)
 
 ```text
 .pi/prompts/
-└── compare-specs.md                       +
+└── compare-specs.md                                      ~
 testing/comparisons/missions/
-└── README.md                              +
+└── README.md                                             ~
 memory/cards/
-└── operator-comparison-workflow--first-proving-tracer.md  ~
+└── operator-comparison-workflow--first-proving-tracer.md ~
 ```
 
 Explicit non-writes:
 
 ```text
-src/dev/__tests__/compare-specs-prompt.test.ts            absent
-docs/praxis/comparison-runs.md                             unchanged
-memory/SPEC.md                                              unchanged
-memory/PLAN.md                                              unchanged
+memory/SPEC.md                                            unchanged
+memory/PLAN.md                                            unchanged
+docs/praxis/comparison-runs.md                           unchanged
+src/dev/__tests__/compare-specs-prompt.test.ts           absent
+.fixtures/runs/agent-as-user-comparison/lockers-r1-20260716/** unchanged
 ```
+
+### Correction-build completion evidence
+
+| Leaf | Outcome | Evidence |
+| ---- | ------- | -------- |
+| Saved mission is the actor-user's rich private role and excludes contender/setup configuration | met | Direct cold read: `.pi/prompts/compare-specs.md` §§Artifact and information boundaries, Create or revise |
+| Fresh actor receives the mission wholesale and conducts the PM role without invention | met | Direct cold read: `.pi/prompts/compare-specs.md` §Run steps 2–3 |
+| Contender sees only minimal framing and actor-authored turns; mission text/file/path forbidden | met | Direct cold read: `.pi/prompts/compare-specs.md` §§Artifact and information boundaries, Run steps 2 and 6 |
+| Run setup is separate/minimal; roster and Brunch/generic framing are exact | met | Direct cold read: `.pi/prompts/compare-specs.md` §Prepare and approve a separate run setup |
+| Operator-only report separates full private baseline from exact target-visible evidence | met | Direct cold read: `.pi/prompts/compare-specs.md` §Retained run and operator-only report |
+| Mission-home README carries the same boundary and future-only revision semantics | met | Direct cold read: `testing/comparisons/missions/README.md` |
+| Canonical homes preserved; no surrogate machinery or out-of-manifest implementation added | met | `git status --short` and changed-path review: only the three authorized paths |
+| Targeted Remark | met | `npx remark .pi/prompts/compare-specs.md testing/comparisons/missions/README.md --frail` — no issues |
+| Repository read-only check | met | `npm run check` — green; six pre-existing `typescript(unbound-method)` warnings only |
+| Protected SPEC/PLAN fingerprints | met | SPEC `92bf0ac…a238`; PLAN `0e39a3…fb29` |
+| Runtime conduct/isolation/notification/actor consistency/report usefulness | dropped | Deliberately not claimed; remains owned by the blocked Fresh-Pi gate below |
+
+Skipped-test-count delta vs parent: **0** (no tests added, changed, run, skipped, or parked; this docs/prompt correction used the card's static verification boundary).
+
+Canonical reconciliation: no-op by delegation. The authorized SPEC/PLAN correction already records the durable boundary and both files remain protected; this correction materializes it without changing topology or frontier status. The scope file remains active because the owned behavioral gate and findings-dependent obligation remain unfinished.
 
 ---
 
-## Owned behavioral gate · Fresh-Pi first proving run — `blocks the next scope`
+## Owned behavioral gate · Corrected Fresh-Pi first proving run — `blocked`
 
-- **Owner and verdict:** **Dora/PM** owns mission authorship, conversational-usability judgment, and report cold-read usefulness. **Lu** may facilitate environment preflight and record technical identities, but may not replace Dora/PM’s verdict.
-- **Re-entry trigger:** Card 1’s two tracked files pass direct review, targeted Remark, and `npm run verify`, and are available in a fresh checkout/session for operator use.
-- **Exact required capability:** a newly started, project-trusted Pi TUI at the repository root that discovers the real `/compare-specs` template; valid provider/model access; filesystem write access to the canonical mission/scratch/run homes; the pinned `pi-interactive-shell` package and push/prune extensions; working Brunch and Claude Code target adapters; and a real mechanism that starts one separately identifiable fresh harness-level Pi actor process/session plus one fresh target cwd for each lane. If fresh actor identity cannot be demonstrated, stop—the gate is blocked, not passed with a coordinator-context surrogate.
-- **Required witness:** Dora/PM invokes the discovered `/compare-specs` command in that fresh Pi process, authors one new mission through one-question-at-a-time intake, reviews the complete Brunch + Claude Code setup, explicitly approves it, observes both real target lanes resolve and aggregate notification occur, then opens the saved mission and generated `report.md`. The retained run must contain the exact approved snapshot, separately identified actor/target contexts, both target-authored documents, lane outcomes/cleanup, and relative links/content.
-- **Behavioral verdict:** Dora/PM can cold-read the mission/report and explain what was asked, how each harness was framed, what each produced, and what happened without controller logs. This is the only first-slice oracle for conversational conduct, fresh isolation, launch/notification timing, target authorship, and report usefulness.
-- **Failure disposition:** record the actual `/compare-specs` finding and resulting artifacts under the manual-testing findings discipline, then return to `ln-scope` before changing prompt topology or adding orchestration code. Do not proceed through a failed gate.
+- **Current block:** do not invoke the gate until the correction build’s direct review, targeted Remark, `npm run check`, and protected-state fingerprint checks all pass. The current prompt/README do not satisfy this re-entry condition.
+- **Owner and verdict:** **Dora/PM** owns mission authorship, mission-consistency judgment, conversational-usability judgment, and report cold-read usefulness. **Lu** may facilitate environment preflight and record technical identities, but may not replace Dora/PM’s verdict.
+- **Re-entry trigger:** the two corrected tracked files satisfy every correction-build acceptance leaf and are available in a newly started project-trusted Pi session.
+- **Exact required capability:** a newly started project-trusted Pi TUI at the repository root that discovers the real `/compare-specs` template; valid provider/model and filesystem access; the pinned `pi-interactive-shell` package and push/prune extensions; working Brunch and Claude Code adapters; and one separately identifiable fresh harness-level Pi actor process/session plus one fresh isolated target cwd per lane. If fresh actor identity cannot be demonstrated, the gate remains blocked.
+- **Required first witness:** Dora/PM invokes actual `/compare-specs`, authors one real private agent-as-user mission, separately reviews and approves the exact minimal Brunch + Claude setup, and observes one fresh mission-loaded actor per lane conduct both real interactions through completion. The operator then opens the retained `report.md`.
+- **Behavioral verdict:** the witness shows that each actor opens naturally, answers and decides consistently with mission authority, says unknown/undecided where required, and never exposes the mission wholesale or its path to the contender. The retained operator report includes the full private mission baseline but separately shows what each contender was initially told, what it elicited, what it produced, lane outcomes, and cleanup. A cold reader can explain those distinctions without controller logs.
+- **Failure disposition:** retain and record the actual `/compare-specs` finding under the manual-testing findings discipline, then return to `ln-scope` before changing prompt topology or adding orchestration code. Do not proceed through a failed gate.
 
-Expected gate outputs are deliberately outside the autonomous Card 1 write manifest:
+Expected gate outputs are deliberately outside the autonomous correction-build write manifest:
 
 ```text
-testing/comparisons/missions/<mission-id>.md                         +
-.fixtures/scratch/comparisons/<run-id>/**                            +
-.fixtures/runs/agent-as-user-comparison/<run-id>/**                  +  after review/promotion
-TESTING_FINDINGS.md                                                   ?  only when a finding needs disposition
+testing/comparisons/missions/<mission-id>.md                        +
+.fixtures/scratch/comparisons/<run-id>/**                           +
+.fixtures/runs/agent-as-user-comparison/<run-id>/**                 +  after review/promotion
+TESTING_FINDINGS.md                                                  ?  only with owner + re-entry trigger
 ```
 
 ### Findings-dependent obligation after the gate
 
-Existing-mission revise/rerun is not fully scoped through first-run fog. If the first witness passes without orchestration-changing findings, Dora/PM may extend the same witness by invoking the actual `/compare-specs <mission-id-or-path>` entry point, revising the editable mission, approving a second run, and comparing the two real run artifacts. Otherwise the coordinator must author the next scope from the findings.
+Existing-mission revise/rerun is not scoped through first-run fog. If the first witness passes without orchestration-changing findings, the next findings-informed action may revise the same editable mission and run it again through actual `/compare-specs`. Otherwise the coordinator must rescope from the findings.
 
-In either shape, frontier closure still requires real-path evidence that:
+Frontier closure still requires real-path evidence that:
 
-- the first run’s approved mission/setup snapshot remains byte-for-byte unchanged after revision;
-- the editable mission contains the revision;
-- only the later approved run receives the revised mission/setup; and
-- no existing run directory is overwritten.
+- the first run’s private mission and separate contender-setup snapshots remain byte-for-byte unchanged after revision;
+- the editable mission contains the revision and still contains no contender configuration;
+- only the later approved run receives the revised mission and newly approved run setup; and
+- no existing run directory, transcript, output, or report is overwritten.
 
-## Autonomous tracked write manifest
+## Correction-build tracked write manifest
 
 ```text
-.pi/prompts/compare-specs.md                                      +
-testing/comparisons/missions/README.md                            +
+.pi/prompts/compare-specs.md                                      ~
+testing/comparisons/missions/README.md                            ~
 memory/cards/operator-comparison-workflow--first-proving-tracer.md ~
 ```
 
-This scope-file revision itself is the only write in the current scoping delegation:
+This scope-file revision is the only write authorized in the current scoping delegation:
 
 ```text
 memory/cards/operator-comparison-workflow--first-proving-tracer.md ~
