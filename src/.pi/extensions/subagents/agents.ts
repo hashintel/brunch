@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { Type } from 'typebox';
 import { Value } from 'typebox/value';
 
+import { LIVE_BRUNCH_SKILL_IDS, type LiveBrunchSkillId } from '../../../agents/skills/registry.js';
 import type { BackgroundAgentManifest } from '../../../session/schema/agent-manifest.js';
 
 export const BACKGROUND_SUBAGENT_IDS = [
@@ -40,6 +41,8 @@ export const SubagentFrontmatterSchema = Type.Object({
   description: Type.String({ minLength: 1 }),
   /** Allowlist of tool names the child session may use. Empty = no tools. */
   tools: Type.Array(Type.String({ minLength: 1 })),
+  /** Exact code-owned prompt resources the child may load through `read`. */
+  skills: Type.Array(Type.Union(LIVE_BRUNCH_SKILL_IDS.map((id) => Type.Literal(id)))),
   /** `default` (inherit the parent's current model) or `provider/model-id`. */
   model: Type.String({ minLength: 1 }),
   thinking: Type.Union(SUBAGENT_THINKING_LEVELS.map((level) => Type.Literal(level))),
@@ -49,6 +52,7 @@ export interface SubagentFrontmatter {
   name: string;
   description: string;
   tools: string[];
+  skills: LiveBrunchSkillId[];
   model: string;
   thinking: (typeof SUBAGENT_THINKING_LEVELS)[number];
 }
@@ -119,6 +123,7 @@ export function parseSubagentMarkdown(
     name: parsed.fields.name ?? '',
     description: parsed.fields.description ?? '',
     tools: parseToolList(parsed.fields.tools),
+    skills: parseToolList(parsed.fields.skills),
     model: parsed.fields.model ?? 'default',
     thinking: parsed.fields.thinking ?? 'medium',
   };
@@ -128,6 +133,10 @@ export function parseSubagentMarkdown(
       .map((issue) => `${issue.instancePath || '/'} ${issue.message}`)
       .join('; ');
     throw new Error(`Invalid subagent frontmatter${where}: ${detail}`);
+  }
+
+  if (candidate.skills.length > 0 && !candidate.tools.includes('read')) {
+    throw new Error(`Invalid subagent frontmatter${where}: named skills require the read tool`);
   }
 
   const body = parsed.body.trim();
@@ -140,7 +149,7 @@ export function parseSubagentMarkdown(
     id: candidate.name,
     kind: 'background',
     body: { source: 'markdown', systemPrompt: body },
-    skills: [],
+    skills: candidate.skills as LiveBrunchSkillId[],
     canDelegate: [],
     systemPrompt: body,
   };

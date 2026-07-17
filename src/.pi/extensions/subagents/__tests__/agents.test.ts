@@ -6,6 +6,10 @@ describe('subagent agent definitions', () => {
   it('loads background subagents through their explicit registry', async () => {
     const definitions = await loadSubagentDefinitions(subagentAgentsDir());
     expect([...definitions.keys()].sort()).toEqual([...BACKGROUND_SUBAGENT_IDS].sort());
+    expect(definitions.get('explorer')?.skills).toEqual(['analyze']);
+    for (const definition of definitions.values()) {
+      if (definition.skills.length > 0) expect(definition.tools).toContain('read');
+    }
   });
 
   it('keeps planner repair instructions on the structured output contract', async () => {
