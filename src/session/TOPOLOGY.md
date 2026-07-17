@@ -167,6 +167,16 @@ plus the coordination logic for workspace/spec/session lifecycle.
   Rule: at the reconciler/guard seam use `appendCustomMessageEntry` directly;
   `pi.sendMessage` is for out-of-band injection with delivery semantics only.
 
+## Agent control ownership
+
+| Control | Provenance and canonical owner | Session reader / delivery | Lifetime |
+| --- | --- | --- | --- |
+| Spec posture | Product-established `kind` / `origin` / `relatesToSpecId` persisted on the spec-row by graph/database authority | `WorkspaceSessionCoordinator` reads it for creation/resume establishment; origination renders the established value | Spec lifetime; resume never re-asks an established posture |
+| Elicitation style | Last valid `brunch.elicitation_style` custom entry on the active branch | `latestElicitationStyle` folds the branch for each Specify prompt | Session lifetime across kicks; a later valid active-branch entry replaces it |
+| Asking agenda | No persisted agenda primitive: the branch-local scratchpad is only prospective memory, while neutral graph facts and elicitor instructions supply prompt conduct | Origination supplies facts/scratchpad once; later turns use the scratchpad and graph read tools on demand | Turn lifetime for the chosen vein; scratchpad obligations may continue for the session without becoming the agenda itself |
+
+These controls intentionally do not share a state field or writer. Rendering one cannot establish, overwrite, persist, or gate either of the others.
+
 ## Session PULL read-shape ledger
 
 D60-L read-shape ownership is explicit for the session-domain sources the

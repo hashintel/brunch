@@ -26,6 +26,16 @@ rules:
   agents/runtime/foreground-policy -> agents/runtime/elicitor/ [central dispatch]
 ```
 
+## Control ownership
+
+| Control | Provenance and canonical owner | Reader / render surface | Lifetime |
+| --- | --- | --- | --- |
+| Spec posture | Product-established `kind` / `origin` / `relatesToSpecId` from the persisted spec row; session establishment decides whether to ask but does not own the fact | Origination/resume seed only; the live context renderer cannot establish or overwrite it | Spec lifetime |
+| Elicitation style | Last valid `brunch.elicitation_style` on the active branch, owned by the session carrier | Prompt adapter projects it into the live elicitor control block without changing capability or authority | Session lifetime across kicks, until another valid branch entry wins |
+| Asking agenda | Neutral origination graph facts plus the current scratchpad are interpreted by the elicitor body as prompt conduct; there is no agenda state field | Origination supplies facts once; the prompt directs `establish orientation` then `focus a vein` | Turn lifetime, reconsidered from current conversation and on-demand reads |
+
+Formatting is not authority: shared text helpers may render facts, but spec posture cannot satisfy style, style cannot persist or gate an agenda, and the prompt cannot establish product posture.
+
 ## Migration Note
 
 This directory is the source of truth for "what prompt and context does the elicitor run with right now?" Live prompt-frame context lives here with the prompt runtime. Origination/resume continuity is supplied once by `agents/contexts/seeds/origination.ts`; later graph and scratchpad detail is discovered through the active read tools. Reusable explicit snapshot renderers stay under `agents/contexts/`.

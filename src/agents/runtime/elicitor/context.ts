@@ -10,7 +10,13 @@ export interface LiveElicitorPushedContext {
 
 export interface RenderLiveElicitorContextInput {
   readonly spec: AgentPromptSpecContext;
+  /**
+   * Selected-workspace facts for the live frame. `workspace.posture` is the
+   * workspace working-posture stub, not D118-L spec posture; established spec
+   * posture arrives once through origination continuity.
+   */
   readonly workspace: AgentPromptWorkspaceContext;
+  /** Caller-supplied context only; never an asking-agenda or style carrier. */
   readonly context?: LiveElicitorPushedContext;
 }
 

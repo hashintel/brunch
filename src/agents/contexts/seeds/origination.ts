@@ -33,6 +33,10 @@ export interface SpecPostureSeedInput {
 }
 
 export interface ComposeContextSeedInput {
+  /**
+   * Origination supplies neutral inputs for the elicitor's asking conduct; it
+   * does not persist an asking agenda or accept an elicitation-style control.
+   */
   readonly specId: number;
   readonly specName?: string;
   readonly slice: Pick<GraphSlice, 'nodes' | 'edges' | 'lsn'>;
@@ -52,6 +56,8 @@ export interface ComposeContextSeedInput {
    * unestablished (`origin: null`), mirroring the orientation section's
    * omit-rather-than-blank convention — a resumed spec with confirmed
    * posture is not a blank restart.
+   * This spec-lifetime product fact is independent of the branch-local
+   * elicitation style and cannot establish or overwrite it.
    */
   readonly posture?: SpecPostureSeedInput;
 }
