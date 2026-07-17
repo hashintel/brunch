@@ -54,17 +54,23 @@ describe('orientation juncture', () => {
     expect(h.events).toEqual(['seed:brunch.context_seed', 'kick']);
   });
 
-  it.each([undefined, 'unknown'])(
-    'dismissal/unavailable selection starts no write, seed, or kick',
-    async (response) => {
+  it.each([
+    { response: undefined, mode: 'follow-choice' as const },
+    { response: 'unknown', mode: 'follow-choice' as const },
+    { response: undefined, mode: 'boot' as const },
+  ])(
+    'absent/unavailable selection starts no write, seed, or kick in $mode mode',
+    async ({ response, mode }) => {
       const h = harness(response);
-      await runOrientationJuncture({
+      const result = await runOrientationJuncture({
         hasUI: true,
         ui: h.ui,
         trigger: 'consult',
         sessionManager: h.manager as never,
+        mode,
         kick: h.kick,
       });
+      expect(result).toEqual({ ran: true, kickFired: false });
       expect(h.events).toEqual([]);
     },
   );

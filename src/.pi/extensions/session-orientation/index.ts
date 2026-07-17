@@ -11,7 +11,7 @@ import {
 import type { OperationalModeId } from '../../../session/schema/kinds.js';
 import type { ConsultMenuResult } from '../../components/consult-menu.js';
 
-export type SessionOrientationChoice = ElicitationStyle | ProcessMove | 'dismissed';
+export type SessionOrientationChoice = ElicitationStyle | ProcessMove;
 export type SessionOrientationTrigger = 'entry' | 'mode-switch' | 'consult';
 
 export interface ProcessMoveAvailability {
@@ -140,17 +140,17 @@ export interface SessionOrientationDialogUi {
 export async function runSessionOrientationDialog(
   ui: SessionOrientationDialogUi,
   options: { readonly menu?: SessionOrientationMenuDescriptor } = {},
-): Promise<SessionOrientationChoice> {
+): Promise<SessionOrientationChoice | undefined> {
   const menu = options.menu ?? SESSION_ORIENTATION_MENU;
   if (ui.customMenu) {
     const picked = await ui.customMenu(menu);
-    return menu.items.find((item) => item.id === picked?.id)?.id ?? 'dismissed';
+    return menu.items.find((item) => item.id === picked?.id)?.id;
   }
   const picked = await ui.select(
     menu.title,
     menu.items.map((item) => item.label),
   );
-  return menu.items.find((item) => item.label === picked)?.id ?? 'dismissed';
+  return menu.items.find((item) => item.label === picked)?.id;
 }
 
 export type SessionOrientationEntryManager = ElicitationStyleEntryManager & ProcessMoveEntryManager;
@@ -169,7 +169,8 @@ export async function runAndRecordSessionOrientation(input: {
 > {
   if (!input.hasUI) return undefined;
   const choice = await runSessionOrientationDialog(input.ui, input.menu ? { menu: input.menu } : {});
-  if (choice === 'dismissed' || choice === input.currentStyle) {
+  if (choice === undefined) return undefined;
+  if (choice === input.currentStyle) {
     return { choice, recorded: false, appendFailed: false };
   }
   try {

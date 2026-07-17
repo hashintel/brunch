@@ -495,20 +495,17 @@ describe('Brunch menu command', () => {
     });
   });
 
-  it('lets explicit continue override a prior dismissed orientation entry', async () => {
-    const harness = commandHarness({ orientation: true });
-    harness.entries.push(
-      {
-        type: 'custom',
-        customType: BRUNCH_ELICITATION_STYLE_CUSTOM_TYPE,
-        data: { schemaVersion: 1, choice: 'dismissed', trigger: 'consult' },
-      },
-      {
-        type: 'message',
-        message: { role: 'assistant', content: 'Waiting here.', timestamp: 1 },
-      } as never,
-    );
+  it('lets explicit continue resume after an inert orientation dismissal', async () => {
+    const harness = commandHarness({ orientation: true, customResult: undefined });
+    harness.entries.push({
+      type: 'message',
+      message: { role: 'assistant', content: 'Waiting here.', timestamp: 1 },
+    } as never);
     harness.ctx.sessionManager.getBranch = () => harness.entries as never;
+
+    await harness.commands.get(BRUNCH_CONSULT_COMMAND)?.handler('', harness.ctx);
+    expect(harness.entries).toHaveLength(1);
+    expect(harness.sent).toEqual([]);
 
     await harness.commands.get(BRUNCH_CONTINUE_COMMAND)?.handler('', harness.ctx);
 

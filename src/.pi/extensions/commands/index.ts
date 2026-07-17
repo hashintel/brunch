@@ -103,10 +103,8 @@ export type BrunchCommandsOptions = BrunchSpecSessionPickerOptions & {
    * J5 mode-switch orientation dep. When present, a mode switch first settles
    * any in-flight assistant turn (abort + wait for idle, with the J4
    * esc-abort juncture suppressed via the shared gate), then fires the target
-   * mode's menu. The menu owns which selected choice suppresses a kick
-   * (Specify uses `continue`; Execute has none); escape/timeout always
-   * resolves to the inert `dismissed` and never kicks. Degraded no-UI
-   * switches stay silent.
+   * mode's menu. A selected choice kicks; escape/timeout yields no choice and
+   * never kicks. Degraded no-UI switches stay silent.
    */
   readonly sessionOrientation?: BrunchSessionOrientationDeps;
 };

@@ -78,19 +78,30 @@ describe('session orientation boundary', () => {
     },
   );
 
-  it('dismissal and same-style selection write nothing', async () => {
-    for (const picked of [undefined, 'Work via examples']) {
-      const writes: unknown[] = [];
-      const result = await runAndRecordSessionOrientation({
-        hasUI: true,
-        ui: { select: async () => picked },
-        trigger: 'consult',
-        currentStyle: 'disambiguate',
-        manager: { appendCustomEntry: (type, data) => writes.push({ type, data }) },
-      });
-      expect(result?.appendFailed).toBe(false);
-      expect(writes).toEqual([]);
-    }
+  it('dismissal yields no choice and writes nothing', async () => {
+    const writes: unknown[] = [];
+    const result = await runAndRecordSessionOrientation({
+      hasUI: true,
+      ui: { select: async () => undefined },
+      trigger: 'consult',
+      currentStyle: 'disambiguate',
+      manager: { appendCustomEntry: (type, data) => writes.push({ type, data }) },
+    });
+    expect(result).toBeUndefined();
+    expect(writes).toEqual([]);
+  });
+
+  it('same-style selection remains a choice but writes nothing', async () => {
+    const writes: unknown[] = [];
+    const result = await runAndRecordSessionOrientation({
+      hasUI: true,
+      ui: { select: async () => 'Work via examples' },
+      trigger: 'consult',
+      currentStyle: 'disambiguate',
+      manager: { appendCustomEntry: (type, data) => writes.push({ type, data }) },
+    });
+    expect(result).toEqual({ choice: 'disambiguate', recorded: false, appendFailed: false });
+    expect(writes).toEqual([]);
   });
 
   it('writes only the selected narrow carrier', async () => {
