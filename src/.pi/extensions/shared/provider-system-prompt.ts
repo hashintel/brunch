@@ -1,17 +1,33 @@
 const STRING_PROMPT_KEYS = ['instructions', 'systemInstruction', 'systemPrompt'] as const;
+const BRUNCH_FOREGROUND_PROMPT_START = '<brunch-foreground-prompt>';
+const BRUNCH_FOREGROUND_PROMPT_END = '</brunch-foreground-prompt>';
+const BRUNCH_FOREGROUND_PROMPT_PATTERN = /<brunch-foreground-prompt>[\s\S]*?<\/brunch-foreground-prompt>/gu;
 
-export function appendProviderSystemPromptIfMissing(payload: unknown, prompt: string): unknown {
+export function upsertBrunchProviderSystemPrompt(payload: unknown, prompt: string): unknown {
   if (!isRecord(payload)) return undefined;
 
   for (const key of STRING_PROMPT_KEYS) {
-    const replacement = appendToStringProperty(payload, key, prompt);
+    const replacement = upsertStringProperty(payload, key, prompt);
     if (replacement !== undefined) return replacement;
   }
 
-  const systemReplacement = appendToStringOrBlocksProperty(payload, 'system', prompt);
+  const systemReplacement = upsertStringOrBlocksProperty(payload, 'system', prompt);
   if (systemReplacement !== undefined) return systemReplacement;
 
-  return appendToMessageArray(payload, prompt);
+  return upsertMessageArray(payload, prompt);
+}
+
+export function upsertBrunchOwnedSystemPrompt(basePrompt: string, prompt: string): string {
+  const ownedPrompt = renderOwnedPrompt(prompt);
+  let foundOwnedPrompt = false;
+  const replaced = basePrompt.replace(BRUNCH_FOREGROUND_PROMPT_PATTERN, () => {
+    if (foundOwnedPrompt) return '';
+    foundOwnedPrompt = true;
+    return ownedPrompt;
+  });
+
+  if (foundOwnedPrompt) return replaced;
+  return basePrompt.trim().length > 0 ? `${basePrompt}\n\n${ownedPrompt}` : ownedPrompt;
 }
 
 export function systemPromptFromProviderPayload(payload: unknown): string | undefined {
@@ -32,31 +48,27 @@ export function systemPromptFromProviderPayload(payload: unknown): string | unde
   return systemMessage ? contentToText(systemMessage.content, '') : undefined;
 }
 
-function appendToStringProperty(payload: Record<string, unknown>, key: string, prompt: string): unknown {
+function upsertStringProperty(payload: Record<string, unknown>, key: string, prompt: string): unknown {
   const value = payload[key];
   if (typeof value !== 'string') return undefined;
-  const nextValue = appendPromptIfMissing(value, prompt);
+  const nextValue = upsertBrunchOwnedSystemPrompt(value, prompt);
   return nextValue === value ? payload : { ...payload, [key]: nextValue };
 }
 
-function appendToStringOrBlocksProperty(
+function upsertStringOrBlocksProperty(
   payload: Record<string, unknown>,
   key: string,
   prompt: string,
 ): unknown {
   const value = payload[key];
-  if (typeof value === 'string') return appendToStringProperty(payload, key, prompt);
+  if (typeof value === 'string') return upsertStringProperty(payload, key, prompt);
   if (!Array.isArray(value)) return undefined;
 
-  const currentPrompt = textFromBlocks(value, '\n');
-  if (systemPromptHasBrunchPrompt(currentPrompt, prompt)) return payload;
-  return {
-    ...payload,
-    [key]: [...value, { type: 'text', text: prompt }],
-  };
+  const nextValue = upsertContentBlocks(value, prompt);
+  return nextValue === value ? payload : { ...payload, [key]: nextValue };
 }
 
-function appendToMessageArray(payload: Record<string, unknown>, prompt: string): unknown {
+function upsertMessageArray(payload: Record<string, unknown>, prompt: string): unknown {
   const messages = payload.messages ?? payload.input;
   if (!Array.isArray(messages)) return undefined;
 
@@ -64,13 +76,13 @@ function appendToMessageArray(payload: Record<string, unknown>, prompt: string):
   if (firstSystemIndex === -1) return undefined;
 
   const message = messages[firstSystemIndex];
-  const contentText = contentToText(message.content, '\n');
-  if (contentText === undefined || systemPromptHasBrunchPrompt(contentText, prompt)) return payload;
+  const nextContent = upsertContent(message.content, prompt);
+  if (nextContent === undefined || nextContent === message.content) return payload;
 
   const nextMessages = [...messages];
   nextMessages[firstSystemIndex] = {
     ...message,
-    content: appendContent(message.content, prompt),
+    content: nextContent,
   };
   return {
     ...payload,
@@ -78,23 +90,37 @@ function appendToMessageArray(payload: Record<string, unknown>, prompt: string):
   };
 }
 
-function appendPromptIfMissing(basePrompt: string, prompt: string): string {
-  if (systemPromptHasBrunchPrompt(basePrompt, prompt)) return basePrompt;
-  return basePrompt.trim().length > 0 ? `${basePrompt}\n\n${prompt}` : prompt;
+function upsertContent(content: unknown, prompt: string): unknown {
+  if (typeof content === 'string') return upsertBrunchOwnedSystemPrompt(content, prompt);
+  if (Array.isArray(content)) return upsertContentBlocks(content, prompt);
+  return undefined;
 }
 
-function systemPromptHasBrunchPrompt(systemPrompt: string, prompt: string): boolean {
-  const sentinel = prompt
-    .split('\n')
-    .map((line) => line.trim())
-    .find(Boolean);
-  return sentinel !== undefined && systemPrompt.includes(sentinel);
+function upsertContentBlocks(blocks: readonly unknown[], prompt: string): readonly unknown[] {
+  const ownedPrompt = renderOwnedPrompt(prompt);
+  let placedOwnedPrompt = false;
+  let changed = false;
+  const nextBlocks = blocks.map((block) => {
+    if (!isRecord(block) || typeof block.text !== 'string') return block;
+
+    let matchedInBlock = false;
+    const nextText = block.text.replace(BRUNCH_FOREGROUND_PROMPT_PATTERN, () => {
+      matchedInBlock = true;
+      if (placedOwnedPrompt) return '';
+      placedOwnedPrompt = true;
+      return ownedPrompt;
+    });
+    if (!matchedInBlock || nextText === block.text) return block;
+    changed = true;
+    return { ...block, text: nextText };
+  });
+
+  if (placedOwnedPrompt) return changed ? nextBlocks : blocks;
+  return [...blocks, { type: 'text', text: ownedPrompt }];
 }
 
-function appendContent(content: unknown, prompt: string): unknown {
-  if (typeof content === 'string') return appendPromptIfMissing(content, prompt);
-  if (Array.isArray(content)) return [...content, { type: 'text', text: prompt }];
-  return content;
+function renderOwnedPrompt(prompt: string): string {
+  return `${BRUNCH_FOREGROUND_PROMPT_START}\n${prompt}\n${BRUNCH_FOREGROUND_PROMPT_END}`;
 }
 
 function contentToText(content: unknown, separator: string): string | undefined {
