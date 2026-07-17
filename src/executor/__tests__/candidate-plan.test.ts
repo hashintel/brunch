@@ -1,6 +1,7 @@
+import { Value } from 'typebox/value';
 import { describe, expect, it } from 'vitest';
 
-import { parseCandidatePlan } from '../candidate-plan.js';
+import { CandidatePlanSchema, parseCandidatePlan } from '../candidate-plan.js';
 import { coherentCandidate } from './plan-synthesis-fixture.js';
 
 describe('parseCandidatePlan', () => {
@@ -24,19 +25,18 @@ describe('parseCandidatePlan', () => {
     };
     expect(parseCandidatePlan(missingGoal)).toMatchObject({
       status: 'malformed_candidate',
-      message: 'slice 0: missing non-blank string field: goal',
+      message: expect.stringMatching(/\/slices\/0.*goal/),
     });
   });
 
-  it('has no command surface: unknown fields do not smuggle commands into the candidate', () => {
+  it('has no command surface: unknown fields fail the canonical candidate schema', () => {
     const withCommand = {
       ...coherentCandidate(),
       resolvedActions: { verify: [{ command: 'rm', args: ['-rf', '/'] }] },
     };
 
-    const parsed = parseCandidatePlan(withCommand);
-    expect(parsed.status).toBe('ok');
-    expect(JSON.stringify(parsed)).not.toContain('rm');
+    expect(Value.Check(CandidatePlanSchema, withCommand)).toBe(false);
+    expect(parseCandidatePlan(withCommand)).toMatchObject({ status: 'malformed_candidate' });
   });
 
   it('treats blank or null scopeId as no scope instead of a malformed slice', () => {
@@ -53,6 +53,27 @@ describe('parseCandidatePlan', () => {
       if (result.status === 'ok') {
         expect(result.candidate.slices.every((slice) => slice.scopeId === undefined)).toBe(true);
       }
+    }
+  });
+
+  it('uses the schema as the sole raw candidate acceptance authority', () => {
+    const candidate = coherentCandidate();
+    const samples = [
+      candidate,
+      { ...candidate, schemaVersion: 2 },
+      { ...candidate, unexpected: true },
+      {
+        ...candidate,
+        slices: candidate.slices.map((slice) => ({ ...slice, scopeId: null })),
+      },
+      {
+        ...candidate,
+        slices: candidate.slices.map((slice) => ({ ...slice, scopeId: '   ' })),
+      },
+    ];
+
+    for (const sample of samples) {
+      expect(parseCandidatePlan(sample).status === 'ok').toBe(Value.Check(CandidatePlanSchema, sample));
     }
   });
 });

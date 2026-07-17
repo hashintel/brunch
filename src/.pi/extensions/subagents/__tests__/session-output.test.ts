@@ -1,6 +1,7 @@
+import { Type } from 'typebox';
 import { describe, expect, it } from 'vitest';
 
-import { runSubagent, type SubagentOutputContract } from '../session.js';
+import { createSubagentOutputContract, runSubagent } from '../session.js';
 
 const definition = {
   name: 'planner',
@@ -19,36 +20,44 @@ const deps = {
 
 const ctx = { cwd: '.', modelRegistry: { getAvailable: () => [{}] }, model: {} } as never;
 
-function outputContract(outputs: readonly unknown[]): SubagentOutputContract {
-  return {
-    tool: {
-      name: 'submit_candidate_plan',
-      label: 'submit_candidate_plan',
-      description: 'submit',
-      parameters: { type: 'object', properties: {} },
-      execute: async () => ({ content: [], details: {}, terminate: true }),
-    } as never,
-    read: () => outputs,
-  };
+function outputContract() {
+  return createSubagentOutputContract({
+    name: 'submit_candidate_plan',
+    description: 'submit',
+    parameters: Type.Object({ schemaVersion: Type.Integer() }),
+  });
 }
 
 describe('runSubagent structured output', () => {
   it('returns exactly one captured output from a terminating tool-only turn', async () => {
     const candidate = { schemaVersion: 1 };
     let sessionOptions: { tools?: readonly string[]; customTools?: readonly { name: string }[] } | undefined;
+    const terminations: unknown[] = [];
 
     const result = await runSubagent({
       definition: definition as never,
       task: 'plan',
       ctx,
       deps,
-      outputContract: outputContract([candidate]),
+      outputContract: outputContract(),
       createServices: async () => ({}) as never,
       createSession: async (options) => {
         sessionOptions = options as never;
+        const submit = options.customTools?.find((tool) => tool.name === 'submit_candidate_plan');
         return {
           session: {
-            prompt: async () => undefined,
+            prompt: async () => {
+              const submission = await submit?.execute(
+                'candidate-1',
+                candidate as never,
+                undefined,
+                undefined,
+                {
+                  cwd: '.',
+                } as never,
+              );
+              terminations.push(submission?.terminate);
+            },
             getLastAssistantText: () => undefined,
             dispose: () => undefined,
           },
@@ -58,6 +67,7 @@ describe('runSubagent structured output', () => {
 
     expect(sessionOptions?.tools).toContain('submit_candidate_plan');
     expect(sessionOptions?.customTools?.map(({ name }) => name)).toContain('submit_candidate_plan');
+    expect(terminations).toEqual([true]);
     expect(result).toEqual({ agent: 'planner', status: 'ok', text: '', output: candidate });
   });
 
@@ -68,16 +78,24 @@ describe('runSubagent structured output', () => {
         task: 'plan',
         ctx,
         deps,
-        outputContract: outputContract(outputs),
+        outputContract: outputContract(),
         createServices: async () => ({}) as never,
-        createSession: async () =>
-          ({
+        createSession: async (options) => {
+          const submit = options.customTools?.find((tool) => tool.name === 'submit_candidate_plan');
+          return {
             session: {
-              prompt: async () => undefined,
+              prompt: async () => {
+                for (const [index, output] of outputs.entries()) {
+                  await submit?.execute(`candidate-${index}`, output as never, undefined, undefined, {
+                    cwd: '.',
+                  } as never);
+                }
+              },
               getLastAssistantText: () => 'prose is not structured output',
               dispose: () => undefined,
             },
-          }) as never,
+          } as never;
+        },
       });
 
     await expect(run([])).resolves.toMatchObject({
@@ -87,6 +105,22 @@ describe('runSubagent structured output', () => {
     await expect(run([{}, {}])).resolves.toMatchObject({
       status: 'error',
       text: expect.stringContaining('exactly once'),
+    });
+  });
+
+  it('rejects output contracts not created by the sealed factory', async () => {
+    const result = await runSubagent({
+      definition: definition as never,
+      task: 'plan',
+      ctx,
+      deps,
+      outputContract: { name: 'arbitrary_tool' } as never,
+      createServices: async () => ({}) as never,
+    });
+
+    expect(result).toMatchObject({
+      status: 'error',
+      text: expect.stringContaining('createSubagentOutputContract'),
     });
   });
 });

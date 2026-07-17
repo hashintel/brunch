@@ -27,6 +27,7 @@ import {
   AuthStorage,
   createAgentSessionFromServices,
   createAgentSessionServices,
+  defineTool,
   createFindToolDefinition,
   createGrepToolDefinition,
   createLsToolDefinition,
@@ -38,7 +39,7 @@ import {
   type SettingsManager,
   type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
-import { Type, type Static } from 'typebox';
+import { Type, type Static, type TSchema } from 'typebox';
 
 import { createReadGraphTool, type GraphReaders } from '../brunch-data/graph/index.js';
 import { defineBrunchTool } from '../shared/define-brunch-tool.js';
@@ -100,9 +101,43 @@ export interface RunSubagentInput {
   readonly createSession?: typeof createAgentSessionFromServices;
 }
 
+declare const subagentOutputContractBrand: unique symbol;
+
 export interface SubagentOutputContract {
+  readonly name: string;
+  readonly [subagentOutputContractBrand]: true;
+}
+
+interface SubagentOutputContractInternals {
   readonly tool: ToolDefinition;
   readonly read: () => readonly unknown[];
+}
+
+const outputContractInternals = new WeakMap<SubagentOutputContract, SubagentOutputContractInternals>();
+
+export function createSubagentOutputContract(args: {
+  readonly name: string;
+  readonly description: string;
+  readonly parameters: TSchema;
+}): SubagentOutputContract {
+  const outputs: unknown[] = [];
+  const tool = defineTool({
+    name: args.name,
+    label: args.name,
+    description: args.description,
+    parameters: toolParameters(args.parameters),
+    async execute(_toolCallId, params) {
+      outputs.push(params);
+      return {
+        content: [{ type: 'text' as const, text: 'Structured output submitted.' }],
+        details: {},
+        terminate: true,
+      };
+    },
+  });
+  const contract = Object.freeze({ name: args.name }) as SubagentOutputContract;
+  outputContractInternals.set(contract, { tool, read: () => outputs });
+  return contract;
 }
 
 export type SubagentStreamUpdate =
@@ -284,10 +319,15 @@ export async function runSubagent(input: RunSubagentInput): Promise<SubagentResu
   }
 
   let toolPlan: SubagentToolPlan;
+  let outputContract: SubagentOutputContractInternals | undefined;
   try {
     toolPlan = planSubagentTools(definition, ctx, deps.injectedWorld);
     if (input.outputContract) {
-      const outputTool = input.outputContract.tool;
+      outputContract = outputContractInternals.get(input.outputContract);
+      if (!outputContract) {
+        throw new Error('subagent output contracts must be created by createSubagentOutputContract');
+      }
+      const outputTool = outputContract.tool;
       if (toolPlan.customTools?.some((tool) => tool.name === outputTool.name)) {
         throw new Error(`subagent output tool collides with granted tool: ${outputTool.name}`);
       }
@@ -347,16 +387,16 @@ export async function runSubagent(input: RunSubagentInput): Promise<SubagentResu
     input.onUpdate?.({ kind: 'status', message: `subagent ${definition.name} prompt started` });
     await session.prompt(task, { expandPromptTemplates: false, source: 'rpc' });
     const text = session.getLastAssistantText()?.trim() ?? '';
-    if (input.outputContract) {
-      const outputs = input.outputContract.read();
+    if (outputContract) {
+      const outputs = outputContract.read();
       if (outputs.length !== 1) {
         return {
           agent: definition.name,
           status: 'error',
           text:
             outputs.length === 0
-              ? `Subagent "${definition.name}" did not call ${input.outputContract.tool.name}.`
-              : `Subagent "${definition.name}" must call ${input.outputContract.tool.name} exactly once; received ${outputs.length} submissions.`,
+              ? `Subagent "${definition.name}" did not call ${outputContract.tool.name}.`
+              : `Subagent "${definition.name}" must call ${outputContract.tool.name} exactly once; received ${outputs.length} submissions.`,
         };
       }
       input.onUpdate?.({ kind: 'status', message: `subagent ${definition.name} output submitted` });

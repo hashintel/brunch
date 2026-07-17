@@ -9,26 +9,22 @@ function fakeSubagents(args: {
   readonly candidate?: unknown;
   readonly text?: string;
   readonly status?: 'ok' | 'error';
-  readonly capture?: { task?: string };
+  readonly capture?: { task?: string; outputContractName?: string };
   readonly withDefinition?: boolean;
 }): BrunchSubagentsDeps {
   return {
     definitions: new Map(args.withDefinition === false ? [] : [['planner', plannerDefinition]]) as never,
-    runSubagent: async (runArgs: {
-      task: string;
-      outputContract?: {
-        tool: { name: string; execute: (...args: unknown[]) => Promise<unknown> };
-        read: () => readonly unknown[];
-      };
-    }) => {
-      if (args.capture) args.capture.task = runArgs.task;
-      if (args.candidate !== undefined) {
-        await runArgs.outputContract?.tool.execute('candidate-1', args.candidate, undefined, undefined, {});
+    runSubagent: async (runArgs: { task: string; outputContract?: { name: string } }) => {
+      if (args.capture) {
+        args.capture.task = runArgs.task;
+        if (runArgs.outputContract) {
+          args.capture.outputContractName = runArgs.outputContract.name;
+        }
       }
       return {
         status: args.status ?? 'ok',
         text: args.text ?? '',
-        ...(args.candidate === undefined ? {} : { output: runArgs.outputContract?.read()[0] }),
+        ...(args.candidate === undefined ? {} : { output: args.candidate }),
       };
     },
   } as unknown as BrunchSubagentsDeps;
@@ -38,7 +34,7 @@ const runtime = { modelRegistry: {}, model: {} };
 
 describe('createPlannerPort', () => {
   it('renders the projection and repair findings into the sealed planner task', async () => {
-    const capture: { task?: string } = {};
+    const capture: { task?: string; outputContractName?: string } = {};
     const candidate = {
       schemaVersion: 1,
       specId: '7',
@@ -59,6 +55,7 @@ describe('createPlannerPort', () => {
     expect(capture.task).toContain('"specId": "7"');
     expect(capture.task).toContain('dependency_cycle: Slice task-1 participates in a dependency cycle.');
     expect(capture.task).toContain('Prior candidate:');
+    expect(capture.outputContractName).toBe('submit_candidate_plan');
   });
 
   it('rejects prose-only replies instead of guessing an outermost JSON object', async () => {

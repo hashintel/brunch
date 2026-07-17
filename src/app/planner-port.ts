@@ -1,7 +1,5 @@
-import { defineTool } from '@earendil-works/pi-coding-agent';
-
-import { toolParameters } from '../.pi/extensions/shared/tool-schema.js';
 import {
+  createSubagentOutputContract,
   runSubagent as defaultRunSubagent,
   type BrunchSubagentsDeps,
   type SubagentRunContext,
@@ -33,7 +31,11 @@ export function createPlannerPort(options: PlannerPortOptions = {}): PlannerPort
         return { status: 'failed', message: 'PlannerPort requires Pi model context to launch the planner.' };
       }
       const runSubagent = subagents.runSubagent ?? defaultRunSubagent;
-      const outputContract = createCandidateOutputContract();
+      const outputContract = createSubagentOutputContract({
+        name: 'submit_candidate_plan',
+        description: 'Submit the complete execution plan candidate exactly once.',
+        parameters: CandidatePlanSchema,
+      });
       const result = await runSubagent({
         definition: planner,
         task: renderPlannerTask(args),
@@ -52,7 +54,7 @@ export function createPlannerPort(options: PlannerPortOptions = {}): PlannerPort
       if (result.output === undefined) {
         return {
           status: 'failed',
-          message: `Planner did not submit a candidate through ${outputContract.tool.name}.`,
+          message: `Planner did not submit a candidate through ${outputContract.name}.`,
         };
       }
       return { status: 'synthesized', candidate: result.output };
@@ -89,23 +91,4 @@ function renderPlannerTask(args: {
         ]
       : ['', 'Submit the candidate through submit_candidate_plan.']),
   ].join('\n');
-}
-
-function createCandidateOutputContract() {
-  const outputs: unknown[] = [];
-  const tool = defineTool({
-    name: 'submit_candidate_plan',
-    label: 'submit_candidate_plan',
-    description: 'Submit the complete execution plan candidate exactly once.',
-    parameters: toolParameters(CandidatePlanSchema),
-    async execute(_toolCallId, params) {
-      outputs.push(params);
-      return {
-        content: [{ type: 'text' as const, text: 'Candidate plan submitted.' }],
-        details: {},
-        terminate: true,
-      };
-    },
-  });
-  return { tool, read: () => outputs };
 }

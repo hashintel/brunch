@@ -37,10 +37,12 @@ export {
   type SubagentConfig,
 } from './config.js';
 export {
+  createSubagentOutputContract,
   planSubagentTools,
   resolveSubagentModel,
   runSubagent,
   type SubagentInjectedWorld,
+  type SubagentOutputContract,
   type SubagentResult,
   type SubagentRunContext,
   type SubagentSealedDeps,

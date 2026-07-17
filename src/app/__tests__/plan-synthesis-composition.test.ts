@@ -73,11 +73,11 @@ async function writeSynthesizedRun(cwd: string): Promise<{
     runSubagent: async (args: {
       task: string;
       ctx: { modelRegistry?: unknown };
-      outputContract?: { tool: { name: string } };
+      outputContract?: { name: string };
     }) => {
       plannerCall.task = args.task;
       plannerCall.modelRegistry = args.ctx.modelRegistry;
-      expect(args.outputContract?.tool.name).toBe('submit_candidate_plan');
+      expect(args.outputContract?.name).toBe('submit_candidate_plan');
       return { status: 'ok', text: '', output: independentCandidate() };
     },
   } as unknown as BrunchSubagentsDeps;
