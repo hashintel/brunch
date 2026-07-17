@@ -49,7 +49,7 @@ Within Assurance, a planned `criterion` and `vv_method` reach a concrete `check`
 | `invariant`   | INV  | Preservation claim          | "What must never be broken?"                     |
 | `decision`    | D    | Choice claim                | "What did we pick among real alternatives?"      |
 | `criterion`   | AC   | Oracle claim                | "How will we judge that it holds?"               |
-| `example`     | EX   | Witness / disambiguator     | "What concrete case would settle this?"          |
+| `example`     | EX   | Case / disambiguator        | "What concrete case would settle this?"          |
 
 ### Oracle plane — how we know (4 kinds)
 

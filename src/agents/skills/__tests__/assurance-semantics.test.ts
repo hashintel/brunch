@@ -38,6 +38,8 @@ describe('D131-L assurance resource contract', () => {
       expect(reference).toMatch(/`vv_obligation` is legacy\/reserved/u);
       expect(reference).toMatch(/physical (?:graph |compatibility )?(?:schema|taxonomy|vocabulary)/u);
     }
+
+    expect(dataModel).not.toMatch(/\| `example`\s+\| EX\s+\| Witness/u);
   });
 
   it('does not generate future evidence or legacy verification obligations in activity resources', () => {
