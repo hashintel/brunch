@@ -2,9 +2,20 @@ import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
+
+const inheritedSubagentAllowlist = vi.hoisted(() => {
+  const value = process.env['PI_SUBAGENT_ALLOWED'];
+  delete process.env['PI_SUBAGENT_ALLOWED'];
+  return value;
+});
 
 import subagents, { Semaphore } from './index.js';
+
+afterAll(() => {
+  if (inheritedSubagentAllowlist === undefined) delete process.env['PI_SUBAGENT_ALLOWED'];
+  else process.env['PI_SUBAGENT_ALLOWED'] = inheritedSubagentAllowlist;
+});
 
 describe('vendored subagent registration', () => {
   it('refreshes the tool description from the real project trust context', async () => {
