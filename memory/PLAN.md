@@ -78,7 +78,7 @@ Close the entire first batch of walkthrough-related findings: remediation, the o
 
 ### Active — evaluation lane · FE-1210 round one
 
-- `agent-as-user-comparison` ([FE-1210](https://linear.app/hash/issue/FE-1210/brunch-testing-elicitation-testing-evaluation-framework)) — picked up 2026-07-16 on `ln/fe-1210-agent-as-user-comparison`; deadline-bound: Dora-runnable handover by Friday 2026-07-17. Round one is a vertical tracer with two same-day proof gates first (live-control cadence; Brunch document acquisition), then one frozen mission through Brunch + Claude Code (Cursor best-effort) to target-authored ready documents and a split outcome/process judgment. Definition below; detailed tracer mechanics stay in the intentions doc and the upcoming scope card, not here.
+- `agent-as-user-comparison` ([FE-1210](https://linear.app/hash/issue/FE-1210/brunch-testing-elicitation-testing-evaluation-framework)) — technical tracer complete: promoted Brunch-vs-Claude witness, portable split-judgment drafts, push-driven actor loop, and working Cursor adapter. Remaining closure is human-facing: Dora adjudication plus one second-operator rendered-exchange witness through the documented entry point. Definition below.
 
 ### Recently Completed
 
@@ -300,11 +300,11 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Branch:** `ln/fe-1210-agent-as-user-comparison`, stacked on `ln/fe-1208-traces-and-evals-1`.
 - **Kind:** structural evaluation tooling — agent-as-user actor recipe + mission packet + document-level judgment; not product runtime. Code lands only if the Brunch document-acquisition gate proves no existing callable renderer entry point (then: the thinnest dev-only export over the existing spec/plan Markdown renderers).
 - **Certainty:** proving.
-- **Status:** active 2026-07-16. Deadline-bound: a Dora-runnable handover by Friday 2026-07-17 (Lu's two-week leave). FE-1210's full deliverable list (LLM-judge framework, E2E evaluation, three-layer automation) is larger than round one; round one proves the smallest executable comparison loop and leaves owned deferrals. Detailed round-one shape: [`docs/planning/fe-1210-agent-as-user-comparison-round-one.md`](../docs/planning/fe-1210-agent-as-user-comparison-round-one.md).
+- **Status:** active; round-one technical tracer complete 2026-07-16 (`lockers-r1-20260716`). Brunch + Claude reached ready, failure retention / split judgment / portable promotion were witnessed, and Cursor launch is now supported after a Safehouse allow-list correction. Remaining closure leaves: Dora adjudicates the retained drafts; a second operator follows the PM/Dora entry point through at least one pushed rendered exchange. FE-1210's larger automation deliverables remain trigger-gated deferrals rather than round-one blockers.
 - **Objective:** answer the PM's actual question — does Brunch produce a more comprehensive, more detailed spec/plan than `claude` (Claude Code) or `agent` (Cursor) — via one witnessed comparison run: a fresh **harness-level Pi session** per target lane, following one frozen actor policy, drives the target through `interactive_shell` (live rendered state, named-key input, hands-free cadence) from one product-neutral mission to a **target-authored** "ready" document under matched reveal/effort budgets. The comparison artifact is that final document; competitor internals are opaque and never count against them.
 - **Round-one actor (settled 2026-07-16, supersedes the generic-actor sketch):** the neutral agent-as-user is the Pi session itself — not a scripted state machine (the v1 warrant pilots proved fixed policies cannot navigate real structured asks) and not a Claude actor nested in `tui-driver`. `npm run tui-driver` is the sandbox/headless fallback only, with its missing takeover/resize/paste capabilities recorded as a real capability loss. Brunch's JSONL/`.brunch/debug/*`/trajectory enrichment stays diagnostic; the cross-product contract judges target-visible interaction plus the final document.
-- **Required lanes:** Brunch and Claude Code must both complete for Friday. Cursor is attempted and documented (valid document or an evidence-backed blocked-lane note) but does not block handover — an explicit narrowing of the earlier three-harness sketch.
-- **Proof gates (same-day, before any mission/rubric authoring):** (1) *live-control cadence* — a rendered prompt → Pi input → rendered result cycle under the actual `interactive_shell` hands-free query/update cadence (60s default query limit; do not assume fast polling), recording effective settings and timing; (2) *Brunch document acquisition* — settled graph state reaching a target-authored Markdown artifact through a real renderer entry point (`renderSpecMarkdownOutput`/`renderPlanMarkdownOutput` exist but have no production/dev call site — treat the seam as unproven). Gate failure reshapes the Friday cut immediately via `ln-plan`/`ln-scope`; it is never compensated with documentation.
+- **Required lanes:** round one required Brunch + Claude Code; both completed. Cursor was historically best-effort and skipped in `lockers-r1-20260716`, then became automatable after Safehouse allowed `~/.local/share/cursor-agent`; future campaigns attempt all three adapters normally.
+- **Proof gates:** complete. Brunch has a read-only `document-export` dev entry point over settled graph state. Push-driven `interactive_shell` control is the current actor seam: 3/3 fresh-session sanity cycles woke without polling at 13.183–<18.859s, with superseded reads pruned; bounded 5s-floor queries are fallback only.
 - **Explicitly not seed-based:** competitor CLIs have no Brunch graph/spec concept, so there is no shared seedable starting state. Content is a product-neutral mission packet: public brief + controller-only fact/reveal key, withheld facts disclosed only after qualifying questions, forbidden inventions, matched budgets, and an invalid-run rule. Same-user filesystem separation is leakage resistance, not a security boundary (declared ceiling). Seed fixtures belong to the intra-product lane only. One small worked example proves the packet format before Dora's three drafted test-case PRDs (greenfield Clay campaign engine; brownfield Brunch backend; brownfield Petrinaut frontend) arrive as real missions.
 - **Judgment split:** outcome rubric over identity-masked final documents (label blinding, not style anonymity); process rubric over normalized target-visible interaction, explicitly unblinded. A predeclared LLM prompt pack produces draft evidence-referenced assessments; **Dora remains the adjudicator**. Single-Claude-judge affinity with the Claude Code lane is a declared ceiling.
 - **Retires:** the scripted-actor assumption inherited from the parked warrant campaign's actor-generality ceiling — this frontier owns discovering what a general agent-as-user actor and a "ready" stop condition require across heterogeneous harnesses, via rendered-state reasoning rather than another lexical state machine.
@@ -317,11 +317,10 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
   - *Automated competitor capture/normalization* — owner: this frontier (later slice); trigger: two real missions expose repeated capture work or missing evidence; medium cost.
   - *Scripted/API LLM judge + multi-judge calibration* — owner: this frontier (later slice); trigger: run volume or material judge/PM disagreement makes manual prompt execution unreliable; medium cost.
   - *Blinded multi-run statistics* — owner: this frontier (later slice); trigger: ≥3 rich missions plus a stable actor/rubric; high run cost, false precision before then.
-  - *Cursor parity* — owner: this frontier (later slice); trigger: a supported automatable Cursor surface; must not consume Friday's Brunch-vs-Claude proof.
 - **Boundary:** execution-quality, Petri determinism, and the KA stream stay outside. Do not restart the parked warrant campaign, touch the `--mode web` seam, or broaden the actor into a generic orchestration framework. FE-1210's E2E redundancy/gap-analysis proposal folds into the handover or comparison report unless it proves to need an independent home.
 - **Re-entry triggers absorbed:** the parked warrant campaign resumes only when this frontier's general actor exists *and* rich, challenging fixtures/missions exist — actor generality is proven here first, where it pays for itself.
 - **Traceability:** req 24/A5-L (evidence lifecycle); SPEC §Acknowledged Blind Spots (competitor comparison was always a later matched-budget campaign — this is its deliberately thin first form); FE-1206 driving order; `docs/praxis/comparison-runs.md`.
-- **Current execution pointer:** [`memory/cards/agent-as-user-comparison--round-one-tracer.md`](cards/agent-as-user-comparison--round-one-tracer.md) (active tracer sequence; the proof-gates card is complete).
+- **Current execution pointer:** none — proof-gates and tracer cards are complete. Next scope: Dora/operator handover closure (adjudication entry point + second-operator pushed-exchange witness).
 
 ### cli-mode-entry
 
@@ -517,15 +516,13 @@ parallel evaluation:
       deletes: --dev-tools + query tools + devAllowedToolNames channel | cli-cmux skill | scratch trajectory location
       locks_in: .brunch/debug/* as sole passive observability; docs are part of DoD
       excludes: --mode web seam (parallel branch), evaluator deletion (parked, preserved)
-      -[hard]-> agent-as-user-comparison (FE-1210, active 2026-07-16)
+      -[hard]-> agent-as-user-comparison (FE-1210, active — closure)
         branch: ln/fe-1210-agent-as-user-comparison on ln/fe-1208-traces-and-evals-1
-        deadline: Dora-runnable handover Friday 2026-07-17
-        gates: live-control cadence | brunch document acquisition (same-day, before mission/rubric work)
-        actor: fresh harness-level Pi session per lane via interactive_shell; tui-driver fallback only
-        lanes: brunch + claude required | cursor best-effort documented
-        lights_up: target-authored "ready" documents + split outcome/process judgment for PM adjudication
-        -[on promotion]-> warrant-ablation-campaign (later; resumes from parked actor-v2 contract
-          when the general actor is proven and rich missions exist)
+        proven: push-driven Pi actor | Brunch document export | Brunch+Claude ready docs | split judgment | portable bundle | Cursor adapter
+        open: Dora adjudication | second-operator rendered-exchange witness
+        lights_up: repeatable product-neutral campaigns through brunch | claude | cursor
+        -[on promotion]-> warrant-ablation-campaign (later; actor generality proven,
+          still waits for rich scenarios and multi-run value)
 
 group-4 (cleanups): rides group-1 stack | named-inline-extension-identity (P1)
 

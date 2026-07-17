@@ -60,7 +60,7 @@ Actor loop — push first, pull as fallback:
 4. the pushed tail is an incremental output stream, not a rendered viewport — when a TUI redraw makes it ambiguous, confirm with one bounded status query (`outputLines`/`outputMaxChars`, live tail only, never page scrollback); and
 5. query as fallback only when no push has arrived well past the expected response time; queries are floored at the 5s rate limit — never rapid-poll.
 
-Cadence gate: the v1 pull cadence (input delivery ~10s; readback floored by a then-60s query rate limit; 60–70s per observe-act cycle) was witnessed in campaign `lockers-r1-20260716`. This push-driven loop is **not yet witnessed** — treat the first observe-act cycle of the next lane as its cadence witness and record the observed timings in the lane ledger before relying on them.
+Cadence evidence: the v1 pull loop in `lockers-r1-20260716` took 60–70s per observe-act cycle. A fresh-session push sanity check then completed 3/3 cycles without a status query at 13.183–<18.859s send-to-wake latency; superseded 600-character updates were pruned while the latest stayed verbatim. One startup quiet wake arrived before the first payload. Treat startup-only pushes as lifecycle noise, then use the pushed loop; record campaign-specific timings in each lane ledger.
 
 Copy only target-visible interaction into the normalized comparison record.
 
@@ -104,7 +104,7 @@ Launch through the supported structured overlay seam:
 spawn: { agent: "cursor" }
 ```
 
-Instruct the target to author the named Markdown path. Record a CLI/GUI or availability mismatch as the lane result; do not rewrite the actor around it.
+pi-interactive-shell maps this adapter to `agent --model composer-2-fast`. Before a campaign, verify `agent --version` through `interactive_shell`; Safehouse must allow the launcher symlink target under `~/.local/share/cursor-agent`. Instruct the target to author the named Markdown path. Record a genuine CLI/GUI or availability mismatch as the lane result; do not rewrite the actor around it.
 
 ## Intervention and validity
 
