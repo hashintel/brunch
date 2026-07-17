@@ -76,6 +76,10 @@ Close the entire first batch of walkthrough-related findings: remediation, the o
 - `cli-mode-entry` — direct-mode CLI subcommands (`brunch specify [spec-id]` / `brunch execute <spec-id>`, reserving `develop`); admitted 2026-07-13, stacked on FE-1187's auth-reversal branch. Definition below.
 - **Alpha walkthrough lane** — the post-publish outer-loop audit over the merged surface (`TESTING_PLAN.md` concern groups; findings in `TESTING_FINDINGS.md`). Runs A, C, and WR18 are the source evidence; run D waits on FE-1187's reshaped surfaces. Not a frontier itself.
 
+### Active — approachable comparison workflow
+
+- `operator-comparison-workflow` ([FE-1215](https://linear.app/hash/issue/FE-1215/approachable-saved-mission-comparison-workflow)) — one conversational `/compare-specs` prompt creates, revises, and runs saved product-neutral missions; the operator approves visible common/per-harness framing before launch and receives target-authored documents in one readable free-form report. Definition below.
+
 ### Recently Completed
 
 - 2026-07-17 `agent-as-user-comparison` (FE-1210) — **✓ closed on the completed technical tracer**: the promoted Brunch-vs-Claude run, push-driven Pi actor, document acquisition, split judgment bundle, failure retention, portable promotion, and corrected Cursor adapter remain the rigorous comparison/regression substrate. Dora's structured adjudication and the second-operator smoke were retired as closure gates when the user separated the approachable operator workflow into a new frontier. Full closeout: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md#2026-07-17-fe-1210-agent-as-user-comparison-closeout).
@@ -288,6 +292,31 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Traceability:** FE-1206 closure (driving order), D69-L (introspection tap — narrows to passive-only), D70-L/D71-L (dev-artifact routing; `BRUNCH_DEV` remains the ambient switch), req 24/A5-L (evidence lifecycle, unchanged); supersedes the six-run campaign card as the frontier's execution pointer.
 - **Current execution pointer:** none — the four-card consolidation sequence is consumed. The parked [`warrant-ablation campaign card`](cards/consequential-fact-discovery-tracer--warrant-ablation-campaign.md) remains historical context, not active scope.
 
+### operator-comparison-workflow
+
+- **Name:** Approachable saved-mission comparison workflow
+- **Linear:** [FE-1215](https://linear.app/hash/issue/FE-1215/approachable-saved-mission-comparison-workflow) — Frontend / brunch, assigned to Lu, no parent.
+- **Branch:** `ln/fe-1215-saved-mission-comparison`, stacked on completed FE-1210 `ln/fe-1210-agent-as-user-comparison`.
+- **Kind:** bounded operator tooling — one project Pi prompt plus a durable mission/report artifact flow; not Brunch product runtime and not a generic campaign framework.
+- **Certainty:** proving.
+- **Status:** active; ready for `ln-scope`.
+- **Objective:** give a PM one approachable conversational door for creating, revising, and running agent-as-user specification comparisons. The operator sees and approves the mission, simulated-user knowledge, selected contenders, common task framing, and exact harness-specific additions before launch; after the run, the same setup and target-authored documents remain together in one readable report with free-form observations.
+- **Why now / unlocks:** FE-1210 proved the technical actor, target adapters, document acquisition, and evidence retention, but its frozen packets and structured adjudication are too technical for the intended PM operator. This frontier proves the human workflow before any browser workspace or broader automation is justified, and starts the reusable mission corpus that may later make focused regression campaigns worth their cost.
+- **Lights up:** one invocation → conversational mission interview → visible approved contender setup → fresh isolated target lanes → completion notification → comparable target-authored documents → readable report.
+- **Stabilizes:** a human-readable saved-mission contract and the boundary between an editable mission and immutable run snapshots. Saved missions live under `testing/comparisons/missions/`; ephemeral target workspaces/evidence assembly stay under `.fixtures/scratch/comparisons/`; reviewed run snapshots, outputs, and reports use `.fixtures/runs/agent-as-user-comparison/`. This preserves D70-L's four-role fixture taxonomy and keeps product-neutral missions distinct from Brunch seeds.
+- **Acceptance:**
+  - `.pi/prompts/compare-specs.md` is the single operator entry point. With no argument it offers create/revise/run; with a mission id or path it loads the matching saved mission and offers review/revise/run.
+  - New-mission intake proceeds conversationally in ordinary language, one material question at a time, covering the opening request, what the simulated user knows and may reveal, the useful-document expectation, selected contenders, shared task framing, and exact harness-specific added instructions.
+  - The generated mission is readable Markdown rather than controller YAML. The operator sees the complete mission and contender setup and must explicitly approve it before any target launches.
+  - Revision uses the same flow and updates only the editable mission. Every run copies the exact approved mission and contender instructions into its own run directory, so later revisions cannot rewrite earlier comparisons.
+  - One approved kickoff may sequence selected contenders internally, but each lane uses a fresh isolated actor/target context and simple visible `ready | running | waiting | finished | failed` status. The operator is notified when all selected lanes resolve; v1 does not promise parallel execution.
+  - Each completed run retains every target-authored document plus one `report.md` containing the approved setup, lane outcomes, document links/content, and an empty/free-form operator-observations section. It declares no automatic winner and requires no fixed rubric.
+  - The first proof uses one real PM-authored mission and two contenders. A cold read of the resulting mission/report must be sufficient to understand what was asked, how each harness was framed, what each produced, and what happened without opening controller logs.
+- **Boundary:** no browser workspace, database, standalone mission service, automatic winner, scripted/API judge, statistics, unattended multi-run campaign, or generic harness abstraction. Reuse the FE-1210 rendered-state actor and adapters; keep rigorous frozen-packet/matched-budget/blinded studies available separately. Do not extract a skill or new package unless the project prompt proves too large or unreliable in use.
+- **Verification:** inner — prompt-template discovery/frontmatter and Markdown/link checks; middle — temporary-directory fixture test or scripted dry run proving create→persist→load→revise without historical-run mutation, plus declared-path/artifact checks; outer — one PM-operated two-contender mission from conversational intake through approval, completion notification, and report review. The outer verdict is whether the workflow and artifact are understandable/useful, not whether either contender wins.
+- **Traceability:** req 24/A5-L evidence lifecycle; D70-L fixture taxonomy; FE-1210 closeout and promoted `lockers-r1-20260716` actor/adapter evidence; SPEC Verification Design “Operator-led cross-product comparisons.”
+- **Current execution pointer:** none — next step is `ln-scope`; default tracer is one saved mission, two contenders, one report.
+
 ### cli-mode-entry
 
 - **Name:** Direct-mode CLI entry — `brunch specify [spec-id]` / `brunch execute <spec-id>`
@@ -484,7 +513,10 @@ parallel evaluation:
       excludes: --mode web seam (parallel branch), evaluator deletion (parked, preserved)
       -[completed]-> agent-as-user-comparison (FE-1210)
         proven: push-driven Pi actor | Brunch document export | Brunch+Claude ready docs | split judgment | portable bundle | Cursor adapter
-        successor: approachable saved-mission operator workflow (new frontier; issue/branch created at pickup)
+        -[hard]-> operator-comparison-workflow (FE-1215, active)
+          branch: ln/fe-1215-saved-mission-comparison
+          lights_up: conversational saved mission → approved contender framing → run → readable report
+          excludes: browser UI | automatic winner/judge | multi-run campaign framework
         -[on promotion]-> warrant-ablation-campaign (later; actor generality proven,
           still waits for rich scenarios and multi-run value)
 
