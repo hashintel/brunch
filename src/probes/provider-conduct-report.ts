@@ -18,6 +18,7 @@ import {
   zPresentDigestParams,
   zPresentReviewSetParams,
   zRequestDetails,
+  zMutateGraphSuccess,
 } from '../exchanges/schemas/index.js';
 import { openActiveSessionBranch } from '../session/active-session-branch.js';
 
@@ -187,14 +188,14 @@ function events(entries: SessionEntry[]): { events: Event[]; malformedRelevant: 
   return { events: joined, malformedRelevant };
 }
 function mutationResultOutcome(v: unknown): 'success' | 'structural_illegal' | 'malformed' {
+  if (zMutateGraphSuccess.safeParse(v).success) return 'success';
   const x = rec(v);
-  if (x?.status === 'success' && Number.isInteger(x.lsn)) return 'success';
   if (
     x?.status === 'structural_illegal' &&
     Array.isArray(x.diagnostics) &&
     x.diagnostics.every((item) => {
       const diagnostic = rec(item);
-      return typeof diagnostic?.code === 'string' && typeof diagnostic.message === 'string';
+      return typeof diagnostic?.field === 'string' && typeof diagnostic.message === 'string';
     })
   )
     return 'structural_illegal';
@@ -216,10 +217,6 @@ export function extractProviderConductReport(input: ProviderConductInput): Provi
   const digest = xs.find((x) => x.name === 'present_digest');
   const reviews = xs.filter((x) => x.name === 'present_review_set');
   const asks = xs.filter((x) => x.name === 'ask');
-  const approvedResponse = asks.find((x) => rec(rec(x.details)?.answered)?.decision === 'approve');
-  const review = reviews.find(
-    (candidate) => rec(approvedResponse?.args)?.continues === rec(candidate.args)?.exchangeId,
-  );
   const feedback = asks.find(
     (x) =>
       x.index > (digest?.resultIndex ?? Infinity) && rec(x.args)?.continues === rec(digest?.args)?.exchangeId,
@@ -231,6 +228,29 @@ export function extractProviderConductReport(input: ProviderConductInput): Provi
   const questionnaireQuestions = Array.isArray(rec(questionnaire?.args)?.questions)
     ? (rec(questionnaire?.args)?.questions as unknown[])
     : [];
+  const mutations = xs.filter((x) => x.name === 'mutate_graph');
+  const clarificationOrdered = Boolean(
+    digest &&
+    feedback &&
+    questionnaire &&
+    digest.resultIndex < feedback.index &&
+    feedback.resultIndex < questionnaire.index,
+  );
+  const clarificationCompleteIndex = clarificationOrdered ? questionnaire!.resultIndex : Infinity;
+  const mapping = mutations.find((x) => x.index > clarificationCompleteIndex);
+  const reviewPairs = reviews.flatMap((candidate) => {
+    const response = asks.find(
+      (ask) =>
+        ask.index > candidate.resultIndex &&
+        rec(ask.args)?.continues === rec(candidate.args)?.exchangeId &&
+        rec(rec(ask.details)?.answered)?.decision === 'approve',
+    );
+    return response ? [{ review: candidate, response }] : [];
+  });
+  const settledPair = reviewPairs.find(
+    ({ review: candidate }) => candidate.index > (mapping?.resultIndex ?? Infinity),
+  );
+  const review = settledPair?.review;
   const standaloneChoice = asks.find(
     (x) =>
       x.index > (digest?.resultIndex ?? Infinity) &&
@@ -238,27 +258,20 @@ export function extractProviderConductReport(input: ProviderConductInput): Provi
       Array.isArray(rec(x.args)?.options) &&
       rec(x.args)?.acceptsDigest === undefined,
   );
-  const mutations = xs.filter((x) => x.name === 'mutate_graph');
   const advisory = mutations.find((x) => {
     const args = rec(x.args);
     return args?.createSettlement === 'advisory' && Array.isArray(args.ops) && args.ops.length > 0;
   });
-  const settlement = asks.find((x) => {
-    const d = rec(x.details);
-    const answered = rec(d?.answered);
-    const receipt = rec(answered?.receipt);
-    return (
-      x.index > (review?.resultIndex ?? Infinity) &&
-      rec(x.args)?.continues === rec(review?.args)?.exchangeId &&
-      answered?.decision === 'approve' &&
-      typeof receipt?.lsn === 'number' &&
-      receipt.lsn > input.identity.beforeLsn &&
-      receipt.lsn <= input.identity.afterLsn &&
-      input.graphReadback.reviewLsns.includes(receipt.lsn)
-    );
-  });
-  const clarificationCompleteIndex = questionnaire?.resultIndex ?? feedback?.resultIndex ?? Infinity;
-  const mapping = mutations.find((x) => x.index > clarificationCompleteIndex);
+  const settlementCandidate = settledPair?.response;
+  const settlementReceipt = rec(rec(rec(settlementCandidate?.details)?.answered)?.receipt);
+  const settlement =
+    settlementCandidate &&
+    typeof settlementReceipt?.lsn === 'number' &&
+    settlementReceipt.lsn > input.identity.beforeLsn &&
+    settlementReceipt.lsn <= input.identity.afterLsn &&
+    input.graphReadback.reviewLsns.includes(settlementReceipt.lsn)
+      ? settlementCandidate
+      : undefined;
   const earlyMapping = mutations.find(
     (x) => x.index > (digest?.resultIndex ?? Infinity) && x.index < clarificationCompleteIndex,
   );
@@ -272,7 +285,7 @@ export function extractProviderConductReport(input: ProviderConductInput): Provi
         candidate.index < (feedback?.index ?? questionnaire?.index ?? Infinity),
     ),
   );
-  const postDigestClarification = Boolean(earlyMapping);
+  const postDigestClarification = !clarificationOrdered || Boolean(earlyMapping);
   const laundering = Boolean(review && (!advisory || advisory.index > review.index));
   const rivals = [
     heavyweight && 'heavyweight_digest_review',

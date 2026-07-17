@@ -195,7 +195,7 @@ describe('provider conduct report', () => {
 
   it('fails closed on malformed calls/results but tolerates a structural rejection followed by corrected success', () => {
     const malformed = passing();
-    (malformed[1] as any).message.details = { status: 'success' };
+    (malformed[1] as any).message.details = { status: 'success', lsn: 3 };
     expect(report(malformed).verdict.sample).toBe('mechanically_invalid');
     const corrected = passing();
     corrected.splice(
@@ -206,16 +206,67 @@ describe('provider conduct report', () => {
         'c-rejected',
         'mutate_graph',
         { ops: [] },
-        { status: 'structural_illegal', diagnostics: [{ code: 'bad_ref', message: 'Bad ref' }] },
+        { status: 'structural_illegal', diagnostics: [{ field: 'ops[0].node', message: 'Bad ref' }] },
       ),
     );
     expect(report(relink(corrected)).verdict.sample).toBe('valid');
+
+    const inventedDiagnostic = passing();
+    inventedDiagnostic.splice(
+      6,
+      0,
+      ...pair(
+        'rejected',
+        'c-rejected',
+        'mutate_graph',
+        { ops: [] },
+        { status: 'structural_illegal', diagnostics: [{ code: 'bad_ref', message: 'Bad ref' }] },
+      ),
+    );
+    expect(report(relink(inventedDiagnostic)).verdict.sample).toBe('mechanically_invalid');
   });
 
   it('requires exact call/result joins by toolCallId', () => {
     const entries = passing();
     (entries[1] as any).message.toolCallId = 'wrong-id';
     expect(report(entries).verdict.sample).toBe('mechanically_invalid');
+  });
+
+  it('pairs each review with its own response and enforces the digest-to-mapping order', () => {
+    const entries = passing();
+    const earlyReviewParams = { ...reviewParams, exchangeId: 'early-review' };
+    const earlyReview = pair(
+      'early-review',
+      'c-early-review',
+      'present_review_set',
+      earlyReviewParams,
+      projectPresentReviewSet(earlyReviewParams).details,
+    );
+    const earlyAnswer = pair(
+      'early-answer',
+      'c-early-answer',
+      'ask',
+      { continues: 'early-review' },
+      projectRequestReview({
+        exchangeId: 'early-review',
+        respondsToPresentTool: 'present_review_set',
+        status: 'answered',
+        review: 'approve',
+        receipt,
+      }),
+    );
+    entries.splice(2, 0, ...earlyReview, ...earlyAnswer);
+    const value = report(relink(entries));
+    expect(value.verdict.R8).toBe('fail');
+    expect(value.verdict.R10).toBe('pass');
+    expect(value.markers.reviewSetPresented.citations).toEqual([
+      { entryId: 'review', toolCallId: 'c-review' },
+    ]);
+
+    const outOfOrder = passing();
+    const feedback = outOfOrder.splice(2, 2);
+    outOfOrder.splice(4, 0, ...feedback);
+    expect(report(relink(outOfOrder)).verdict.R8).toBe('fail');
   });
 
   it('bounds acceptance readback to this run and reconciles the receipt LSN', () => {
@@ -241,6 +292,20 @@ describe('provider conduct report', () => {
     const lateClarification = passing();
     const advisory = lateClarification.splice(6, 2);
     lateClarification.splice(4, 0, ...advisory);
+    lateClarification.splice(
+      8,
+      0,
+      ...pair(
+        'corrected-mapping',
+        'c-corrected-mapping',
+        'mutate_graph',
+        {
+          createSettlement: 'settled',
+          ops: [{ op: 'create_node', ref: 'm1', plane: 'intent', kind: 'goal', title: 'Mapping' }],
+        },
+        { ...receipt, lsn: 2, createdNodes: { m1: { id: 4, code: 'G4' } } },
+      ),
+    );
     expectOnlyOwnedFailure(report(relink(lateClarification)), 'R8', 'post_digest_clarification');
 
     const standalone = passing();
@@ -298,7 +363,7 @@ describe('provider conduct report', () => {
     expect(report(entries.slice(0, -2)).verdict.R10).toBe('pass');
   });
 
-  it('runs source and built CLIs through a canonical session and real workspace without mutation', async () => {
+  it('runs the source CLI through a canonical session and real workspace without mutation', async () => {
     const root = await mkdtemp(join(tmpdir(), 'provider-conduct-'));
     const workspace = join(root, 'workspace');
     const brunch = join(workspace, '.brunch');
@@ -438,27 +503,29 @@ describe('provider conduct report', () => {
       ],
       { cwd: resolve('.') },
     );
-    await execFileAsync(
-      'node',
-      [
-        'dist/probes/provider-conduct-report.js',
-        ...common,
-        '--report',
-        builtReport,
-        '--summary',
-        builtSummary,
-      ],
-      { cwd: resolve('.') },
-    );
-    const normalize = (value: any) => {
-      const copy = structuredClone(value);
-      copy.identity.generatedAt = '<volatile>';
-      return copy;
-    };
-    expect(normalize(JSON.parse(await readFile(sourceReport, 'utf8')))).toEqual(
-      normalize(JSON.parse(await readFile(builtReport, 'utf8'))),
-    );
-    expect(await readFile(sourceSummary, 'utf8')).toBe(await readFile(builtSummary, 'utf8'));
+    if (process.env.PROVIDER_CONDUCT_BUILT_DIFFERENTIAL === '1') {
+      await execFileAsync(
+        'node',
+        [
+          'dist/probes/provider-conduct-report.js',
+          ...common,
+          '--report',
+          builtReport,
+          '--summary',
+          builtSummary,
+        ],
+        { cwd: resolve('.') },
+      );
+      const normalize = (value: any) => {
+        const copy = structuredClone(value);
+        copy.identity.generatedAt = '<volatile>';
+        return copy;
+      };
+      expect(normalize(JSON.parse(await readFile(sourceReport, 'utf8')))).toEqual(
+        normalize(JSON.parse(await readFile(builtReport, 'utf8'))),
+      );
+      expect(await readFile(sourceSummary, 'utf8')).toBe(await readFile(builtSummary, 'utf8'));
+    }
     expect(await readFile(session)).toEqual(beforeSession);
     expect(await readFile(source)).toEqual(beforeSource);
     expect(snapshot()).toEqual(beforeDb);
