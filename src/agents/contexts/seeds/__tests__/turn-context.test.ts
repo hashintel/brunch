@@ -1,13 +1,45 @@
+import { existsSync, readFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import type { GraphSlice } from '../../../../graph/queries.js';
 import type { ElicitationScratchpadItem } from '../../../../session/elicitation-scratchpad.js';
-import { composeAgentContextSeed, renderGraphSeed, renderWorkspaceSeed } from '../turn-context.js';
+import * as turnContext from '../turn-context.js';
+import { renderGraphSeed, renderWorkspaceSeed } from '../turn-context.js';
 
 const scratchpad: readonly ElicitationScratchpadItem[] = [
   { id: 'gap-1', obligation: 'confirm the audience', disposition: 'open' },
   { id: 'gap-2', obligation: 'confirm the constraint', disposition: 'resolved' },
 ];
+
+describe('foreground context topology', () => {
+  it('keeps only reusable seed renderers and no eager per-turn foreground path', () => {
+    const promptAdapter = readFileSync(
+      new URL('../../../../.pi/extensions/agent-runtime/system-prompts/index.ts', import.meta.url),
+      'utf8',
+    );
+    const topology = [
+      readFileSync(new URL('../../TOPOLOGY.md', import.meta.url), 'utf8'),
+      readFileSync(new URL('../../../runtime/elicitor/TOPOLOGY.md', import.meta.url), 'utf8'),
+      readFileSync(new URL('../../../../.pi/extensions/TOPOLOGY.md', import.meta.url), 'utf8'),
+    ].join('\n');
+
+    expect.soft(turnContext).not.toHaveProperty('composeAgentContextSeed');
+    expect
+      .soft(
+        existsSync(
+          new URL('../../../../.pi/extensions/agent-runtime/system-prompts/world-reads.ts', import.meta.url),
+        ),
+      )
+      .toBe(false);
+    expect.soft(promptAdapter).not.toContain('graphReads');
+    expect.soft(topology).not.toMatch(/composeAgentContextSeed|world-reads\.ts|per-turn pushed context/u);
+    expect(turnContext).toMatchObject({
+      renderGraphSeed: expect.any(Function),
+      renderWorkspaceSeed: expect.any(Function),
+    });
+  });
+});
 
 describe('renderWorkspaceSeed', () => {
   it('renders selected-spec/session/posture facts without ambient resource discovery', async () => {
@@ -84,24 +116,6 @@ describe('renderGraphSeed', () => {
     const rendered = renderGraphSeed(overview, { lens: 'intent', maxNodes: 2, maxEdges: 1 });
 
     expect(rendered).toContain('Omitted: 2 node(s), 1 edge(s).');
-  });
-});
-
-describe('composeAgentContextSeed', () => {
-  it('composes the workspace, scratchpad, and graph blocks from already-read world state', () => {
-    const blocks = composeAgentContextSeed({
-      spec: { id: 42, name: 'Payments Spec' },
-      workspace: { cwd: '/repo/product' },
-      session: { id: 'session-7', label: 'Grounding' },
-      scratchpad,
-      graph: overview,
-      lens: 'design',
-    });
-
-    expect(blocks).toHaveLength(3);
-    expect(blocks[0]).toContain('[Selected workspace context]');
-    expect(blocks[1]).toContain('ELICITATION SCRATCHPAD');
-    expect(blocks[2]).toContain('Selected-spec graph overview · design lens');
   });
 });
 

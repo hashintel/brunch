@@ -571,7 +571,6 @@ export function createBrunchAgentSessionRuntimeFactory(
                   id: currentWorkspace.session.id,
                   ...(currentWorkspace.session.name ? { label: currentWorkspace.session.name } : {}),
                 },
-                graphReads: graphDeps.reads,
               };
             },
             sessionOrientation: {

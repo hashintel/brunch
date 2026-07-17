@@ -915,7 +915,6 @@ describe('Brunch TUI boot', () => {
         promptContext: {
           spec: { id: 1, name: 'Spec One' },
           workspace: { cwd },
-          graphReads: stubPromptGraphReads(),
         },
       },
     )({
@@ -1970,16 +1969,6 @@ function inventoryWithWorkspace(workspace: WorkspaceSessionReadyState): Workspac
     ],
     unavailableSessions: [],
     workspacePopulated: false,
-  };
-}
-
-function stubPromptGraphReads() {
-  return {
-    queryGraph: () => ({ lsn: 1, nodes: [], edges: [] }),
-    getNodes: () => [],
-    resolveNodeCode: () => undefined,
-    getOpenReconciliationNeeds: () => [],
-    latestLsn: () => 1,
   };
 }
 

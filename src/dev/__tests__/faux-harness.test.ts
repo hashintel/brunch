@@ -112,13 +112,6 @@ describe('createBrunchFauxHarness', () => {
               spec: { id: 1, name: 'Tier-1 faux spec' },
               workspace: { cwd },
               session: { id: 'session-1', label: 'Tier-1 session' },
-              graphReads: {
-                queryGraph: () => ({ nodes: [], edges: [], lsn: 1 }),
-                getNodes: () => [],
-                resolveNodeCode: () => undefined,
-                getOpenReconciliationNeeds: () => [],
-                latestLsn: () => 1,
-              },
             }),
             introspection: { store },
           },

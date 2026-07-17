@@ -57,54 +57,6 @@ const promptContext = {
     }),
   },
   session: { id: 'session-1', label: 'Session' },
-  graphReads: {
-    queryGraph: () => ({
-      lsn: 4,
-      nodes: [
-        {
-          id: 1,
-          specId: 1,
-          plane: 'intent' as const,
-          kind: 'goal' as const,
-          kindOrdinal: 1,
-          title: 'Clarify Brunch prompt posture',
-          basis: 'explicit' as const,
-          settlement: 'settled' as const,
-          createdAtLsn: 2,
-          updatedAtLsn: 2,
-        },
-        {
-          id: 2,
-          specId: 1,
-          plane: 'design' as const,
-          kind: 'module' as const,
-          kindOrdinal: 1,
-          title: 'Agent context renderer',
-          basis: 'explicit' as const,
-          settlement: 'settled' as const,
-          createdAtLsn: 3,
-          updatedAtLsn: 3,
-        },
-      ],
-      edges: [
-        {
-          id: 1,
-          specId: 1,
-          category: 'realization' as const,
-          sourceId: 2,
-          targetId: 1,
-          basis: 'explicit' as const,
-          settlement: 'settled' as const,
-          createdAtLsn: 4,
-          updatedAtLsn: 4,
-        },
-      ],
-    }),
-    getNodes: () => [],
-    resolveNodeCode: () => undefined,
-    getOpenReconciliationNeeds: () => [],
-    latestLsn: () => 4,
-  },
 };
 
 function workspacePosture(posture: WorkspacePostureState): WorkspacePostureState {
@@ -610,7 +562,6 @@ describe('Brunch prompt-pack topology', () => {
     let selected = {
       spec: { id: 1, name: 'Launch spec' },
       session: { id: 'launch-session', label: 'Launch session' },
-      nodeTitles: ['Launch-only node'],
     };
 
     await createBrunchPiExtensions(
@@ -623,7 +574,6 @@ describe('Brunch prompt-pack topology', () => {
         selected = {
           spec: { id: 2, name: 'Switched spec' },
           session: { id: 'switched-session', label: 'Switched session' },
-          nodeTitles: ['Switched current node'],
         };
       },
       {
@@ -633,28 +583,6 @@ describe('Brunch prompt-pack topology', () => {
           spec: selected.spec,
           workspace: promptContext.workspace,
           session: selected.session,
-          graphReads: {
-            queryGraph: () => ({
-              lsn: 1,
-              nodes: selected.nodeTitles.map((title, index) => ({
-                id: index + 1,
-                specId: selected.spec.id,
-                plane: 'intent' as const,
-                kind: 'goal' as const,
-                kindOrdinal: index + 1,
-                title,
-                basis: 'explicit' as const,
-                settlement: 'settled' as const,
-                createdAtLsn: 1,
-                updatedAtLsn: 1,
-              })),
-              edges: [],
-            }),
-            getNodes: () => [],
-            resolveNodeCode: () => undefined,
-            getOpenReconciliationNeeds: () => [],
-            latestLsn: () => 1,
-          },
         }),
       },
     )({
@@ -790,15 +718,7 @@ describe('Brunch prompt-pack topology', () => {
           ].map((name) => ({ name })),
         setActiveTools: (tools: string[]) => activeTools.push(tools),
       } as never,
-      {
-        ...promptContext,
-        graphReads: {
-          ...promptContext.graphReads,
-          latestLsn: () => {
-            throw new Error('live elicitor tool policy must not read graph clocks');
-          },
-        },
-      },
+      promptContext,
     );
 
     await Promise.resolve(

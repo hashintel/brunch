@@ -49,6 +49,8 @@ extensions/
 
 `agent-runtime/system-prompts/` projects the current foreground prompt from the active branch and upserts exactly one length-framed `<brunch-foreground-prompt>` block through both `before_agent_start` and `before_provider_request` (D134-L/I67-L). `shared/provider-system-prompt.ts` owns the supported provider carrier matrix: prompt strings, string/block `system`, and system/developer message content. The declared content length makes ownership parsing independent of prompt text, so marker-like user/source context cannot truncate the block and unframed marker text in provider content is not mistaken for ownership. Identical recomposition returns the original carrier; changed role, elicitation style, active tools, or resource composition replaces the framed block while preserving unrelated provider content. Heading text is never used as identity.
 
+The prompt adapter accepts only the thin selected-spec/workspace/session facts and explicitly supplied pushed context needed by the foreground runtime. It performs no graph or scratchpad read: origination/resume choreography supplies continuity once, and later turns use the advertised read tools on demand (D58-L/D101-L/D102-L/D118-L/D134-L).
+
 The former `tui-lab/` registrar (`registerBrunchTuiLab`, gated behind an `enabled`
 option nothing ever set) was retired — it never entered the product bundle and
 was inert even under Pi's ambient `.pi/extensions/` directory scan. Its
