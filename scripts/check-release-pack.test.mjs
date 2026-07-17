@@ -18,6 +18,7 @@ describe('check-release-pack helpers', () => {
         'dist/agents/prompts/elicitor.md',
         'dist/agents/prompts/executor.md',
         'dist/agents/subagents/explorer.md',
+        'dist/agents/subagents/planner.md',
         'dist/agents/subagents/worker.md',
         'dist/agents/references/data-model.md',
         'dist/agents/references/readiness-bands.md',

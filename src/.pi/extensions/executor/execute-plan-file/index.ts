@@ -9,7 +9,11 @@ import type { PlannerPort } from '../../../../executor/execution-ports.js';
 import { extractSpecRecipe } from '../../../../executor/execution-recipe.js';
 import { writePlanFile } from '../../../../executor/plan-file.js';
 import { previewPlan, type PlanPreview } from '../../../../executor/plan-preview.js';
-import { synthesizePlan, type SynthesisRound } from '../../../../executor/plan-synthesis.js';
+import {
+  synthesizePlan,
+  type PlanSynthesisProgress,
+  type SynthesisRound,
+} from '../../../../executor/plan-synthesis.js';
 import type { PlanValidationFinding } from '../../../../executor/plan-validation.js';
 import { projectPlanningInput } from '../../../../executor/planning-projection.js';
 import { detectWorkspaceCapabilities } from '../../../../executor/workspace-detection.js';
@@ -32,6 +36,10 @@ const ExecutePlanFileParams = Type.Object({
 type ExecutePlanFileParams = Static<typeof ExecutePlanFileParams>;
 
 type ExecutePlanFileDetails =
+  | {
+      readonly progress: PlanSynthesisProgress;
+      readonly sideEffects: readonly [];
+    }
   | {
       readonly preview: PlanPreview;
       readonly artifact: {
@@ -64,7 +72,7 @@ export function createExecutePlanFileTool(deps: ExecutePlanFileDeps) {
     description:
       'Write an old-cook-compatible plan.json under .brunch/cook/specs/<specId>. Does not create cook runs or worktrees.',
     parameters: toolParameters(ExecutePlanFileParams),
-    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+    async execute(_toolCallId, params, signal, onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_plan_file requires an active cwd');
@@ -135,8 +143,22 @@ export function createExecutePlanFileTool(deps: ExecutePlanFileDeps) {
             model: (ctx as { model?: unknown } | undefined)?.model,
             ...(signal ? { signal } : {}),
           },
+          onProgress(progress) {
+            onUpdate?.({
+              content: [
+                {
+                  type: 'text' as const,
+                  text: `execute_plan_file: planner round ${progress.round + 1} ${progress.phase.replace('_', ' ')}`,
+                },
+              ],
+              details: { progress, sideEffects: [] },
+            });
+          },
         });
         if (synthesis.status === 'blocked') {
+          const roundSummary = synthesis.findings.some((finding) => finding.code === 'planner_timeout')
+            ? `planner timed out in round: ${synthesis.history.length}`
+            : `repair rounds exhausted: ${synthesis.history.length}`;
           return {
             content: [
               {
@@ -144,7 +166,7 @@ export function createExecutePlanFileTool(deps: ExecutePlanFileDeps) {
                 text: [
                   'execute_plan_file: plan_synthesis_blocked',
                   ...synthesis.findings.map((finding) => `- ${finding.code}: ${finding.message}`),
-                  `repair rounds exhausted: ${synthesis.history.length}`,
+                  roundSummary,
                   'No plan was written. Resolve the findings or replan.',
                 ].join('\n'),
               },

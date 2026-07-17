@@ -31,8 +31,9 @@ the committed stack; if none matches, emit a descriptive id anyway — an unsupp
 capability blocks explicitly, and that block is the correct outcome. Never satisfy a
 commitment with a supported id from a different ecosystem.
 
-Respond with exactly one JSON object (no prose, no code fences). Every field below is
-required — arrays may be empty but must be present:
+Call `submit_candidate_plan` exactly once as your final and only final action. Do not
+return the candidate as assistant text. Every field below is required — arrays may be
+empty but must be present:
 { "schemaVersion": 1, "specId": string,
   "epics": [{ "id", "title", "dependsOn": [epicId], "verificationCriterionIds": [criterionId] }],
   "slices": [{ "id", "epicId", "scopeId", "title", "goal", "doneCriteria": [string],
@@ -41,4 +42,5 @@ required — arrays may be empty but must be present:
   "requiredCapabilities": [{ "id": string, "sourceItemId": string }] }
 
 If validation findings are included in your task, they name exactly what is wrong with
-your prior candidate: fix every finding and return the full corrected JSON object.
+your prior candidate: fix every finding and submit the full corrected candidate through
+`submit_candidate_plan`.

@@ -41,8 +41,11 @@ collapse). Frontier: PLAN.md `subagent-reconciliation`.
 ## What this is
 
 The D44-L/D91-L `subagent` tool: a main-agent-invoked, **blocking** Pi tool that
-delegates an isolated reasoning task to a sealed Pi child session and returns the
-child's last assistant message as tool-result content. Starter background agents
+delegates an isolated reasoning task to a sealed Pi child session and normally
+returns the child's last assistant message as tool-result content. Internal callers
+may instead request one factory-owned terminating output tool by name/schema and
+require exactly one validated submission; callers cannot inject tool execution
+behavior around the manifest-owned grant. Starter background agents
 are read-only (`explorer`, `researcher`) or no-tools (`projector`, `reviewer`) and
 are spawnable by Specify mode because the app root supplies them in the code-owned
 delegatable set. The execute-only `worker` is registry-owned but not
@@ -82,15 +85,16 @@ Each subagent runs as an in-process SDK `AgentSession`
         │ tools         = explicit allowlist only        │  read-only graph if injected
         ╰───────────────────────────────────────────────╯
                     │ session.prompt(task)
-                    ▼ getLastAssistantText() ──▶ tool-result content
+                    ▼ assistant text or exactly-one typed submission ──▶ caller
 ```
 
 The child has no ambient conversation context, no `CommandExecutor`, and no
 Brunch RPC. Parent world access is explicit and semi-permeable: the prompt gets a
 snapshot-at-spawn block (selected workspace/spec/session plus bounded session
 digest), while selected-spec graph reads happen on demand through granted Brunch
-read tools such as `read_graph`. Its last assistant message is the only model
-context that crosses back to the parent; structured `details` remain render-only.
+read tools such as `read_graph`. Foreground delegation returns only the last
+assistant message; bounded internal ports may instead capture validated arguments
+from an explicit output-contract tool. Structured tool `details` remain render-only.
 
 ## File map
 
@@ -99,7 +103,7 @@ context that crosses back to the parent; structured `details` remain render-only
 | [`agents.ts`](./agents.ts)                                       | Markdown agent loader: tiny frontmatter parser (no YAML dep), TypeBox-validated schema (`name`, `description`, `tools`, `model`, `thinking`), explicit `BACKGROUND_SUBAGENT_IDS` registry, `loadSubagentDefinitions(dir, ids?)` over `src/agents/subagents/<id>.md` → `Map<name, def>`. Projects frontmatter into the shared `AgentManifest` background shape and fails loud on malformed/duplicate/id-drifted agents. |
 | [`config.ts`](./config.ts)                                       | TypeBox loader for [`config.json`](./config.json) (`version`, `maxConcurrency`; tolerates `$comment`).                                                                                                                                                                                                                                                                                                                 |
 | [`prompt-assembly.ts`](./prompt-assembly.ts)                     | Background prompt assembler: agent body + child-control header + injected world snapshot + `<brunch-skills>` + background router rules. Reuses the shared prompt-skill manifest renderer; deliberately omits the foreground elicitation recommendation block.                                                                                                                                                          |
-| [`session.ts`](./session.ts)                                     | The sealed child-session runner. `resolveSubagentModel`, `createSubagentToolCatalog`, `planSubagentTools`, `runSubagent`. The catalog is the shared source that resolves sovereign manifest-authored grants. Never throws — failures return as error results. **Injectable SDK builders** (`createServices`/`createSession`) for testing.                                                                              |
+| [`session.ts`](./session.ts)                                     | The sealed child-session runner. `resolveSubagentModel`, `createSubagentToolCatalog`, `planSubagentTools`, `createSubagentOutputContract`, `runSubagent`. The catalog is the shared source that resolves sovereign manifest-authored grants; the branded output factory is the sole extra-tool path and owns capture + termination. Never throws — failures return as error results. **Injectable SDK builders** (`createServices`/`createSession`) for testing.       |
 | [`index.ts`](./index.ts)                                         | `registerBrunchSubagents(pi, deps)` — registers the one `subagent` tool (single `{agent,task}` or parallel `{tasks:[…]}`), filters advertisement/execution to `definitions ∩ deps.delegatableAgents`, `createSemaphore` for bounded concurrency, result formatting. Re-exports the public surface.                                                                                                                     |
 | [`../../../agents/subagents/<id>.md`](../../../agents/subagents) | Declarative background agent body home. Background bodies carry frontmatter; `agents.ts` loads only registry-listed ids.                                                                                                                                                                                                                                                                                               |
 | [`config.json`](./config.json)                                   | Externalized concurrency cap (`maxConcurrency: 4`).                                                                                                                                                                                                                                                                                                                                                                    |
