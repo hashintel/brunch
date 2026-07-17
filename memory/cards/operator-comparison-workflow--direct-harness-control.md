@@ -39,6 +39,7 @@ A stock-Pi `/compare-specs` run reaches a normal-width Brunch Specify exchange t
 → operator chooses/reviews a saved private mission through ordinary text
 → invoking top-level Pi session holds the mission and acts as the simulated user
 → top-level session opens one selected harness directly through `interactive_shell`
+→ Brunch controller runs from the repository root with the isolated target passed via `--workspace`; generic harness spawns run in the isolated target cwd
 → harness receives only approved minimal framing plus natural user messages
 → focused Brunch interaction settles or fails honestly
 → top-level session cleans up the direct harness and reports its terminal status
@@ -81,7 +82,7 @@ Autonomous correction is complete and statically verified. The card remains acti
   fi
   ```
 
-- ✓ **Selected-harness preflight audit** — the prompt checks only the chosen harness's filesystem/adapter prerequisites before launch and reports provider/model failure honestly at the real harness launch; direct review against D134-L.
+- ✓ **Selected-harness preflight audit** — the prompt checks only the chosen harness's filesystem/adapter prerequisites before launch, distinguishes Brunch's repository-root controller cwd from the isolated `--workspace` target and generic harness target cwd, and reports provider/model failure honestly at the real harness launch; direct review against D134-L.
 - ✓ **Private-mission carrier audit** — only the top-level session receives the whole mission; every harness receives only approved minimal framing plus the natural opening and later mission-grounded answers; direct prompt/README review and focused-smoke transcript inspection.
 - ✓ **Artifact-name and history audit** — future setup snapshots are named `harness-setup.md`, historical `contender-setup.md` remains untouched, and no retained failed-run byte changes:
 
@@ -102,7 +103,7 @@ Autonomous correction is complete and statically verified. The card remains acti
     --quiet --frail
   ```
 
-- ◐ **Focused stock-Pi smoke — outstanding owned outer gate** — a fresh project-trusted Pi session discovers the real `/compare-specs` template, completes mission/run choices using ordinary text without a custom question tool, selects Brunch only, opens exactly one direct normal-width Brunch shell, sends only approved framing plus the mission's natural opening, observes one Brunch Specify response/exchange beyond the startup splash, and leaves no harness/background process after cleanup. **Owner:** top-level/operator session. **Trigger:** after the autonomous prompt/docs correction commit. Follow `docs/praxis/manual-testing.md`; record any new defect in `TESTING_FINDINGS.md` with an owner/disposition.
+- ◐ **Focused stock-Pi smoke — outstanding owned outer gate** — a fresh project-trusted Pi session discovers the real `/compare-specs` template, completes mission/run choices using ordinary text without a custom question tool, selects Brunch only, opens exactly one direct normal-width Brunch shell whose controller process runs from the Brunch repository root while its isolated comparison target is supplied through `--workspace <fresh-target-cwd>`, sends only approved framing plus the mission's natural opening, observes one Brunch Specify response/exchange beyond the startup splash, and leaves no harness/background process after cleanup. **Owner:** top-level/operator session. **Trigger:** after the autonomous prompt/docs correction commit. Follow `docs/praxis/manual-testing.md`; record any new defect in `TESTING_FINDINGS.md` with an owner/disposition.
 - ✓ **Repository gate** — `npm run verify` and `npm run check:promoted-run-paths` pass after the prompt/docs correction.
 
 ## Invariants Preserved
