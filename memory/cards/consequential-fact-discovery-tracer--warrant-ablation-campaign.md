@@ -1,18 +1,18 @@
 # Warrant-before-commit ablation campaign
 
-Frontier: automation-observability-dx (parked lineage: consequential-fact-discovery-tracer)
-Status:   parked (2026-07-16 — see PLAN §Later `warrant-ablation-campaign`; re-entry requires the general actor proven by `agent-as-user-comparison` plus rich scenarios; resume from this card's approved actor-v2 contract, with no post-hoc scorer or threshold tuning)
+Frontier: capture-ledger-tracer (superseded lineage: consequential-fact-discovery-tracer / FE-1208)
+Status:   superseded (2026-07-17 — FE-1210 proved the general actor; `capture-ledger-tracer` now owns the rich mixed-source mission, matched comparison, and architectural verdict while reusing the landed FE-1208 evaluator/report primitives. This card remains historical evidence; do not resume its fixed scenario or six-run directive-ablation campaign.)
 Mode:     single
 Created:  2026-07-15
 
 ## Orientation
 
 - Containing seam: FE-1208's dev/eval-only real-TUI trajectory → consequential-fact evaluator path. Commits `11607e10`, `1e944616`, and `1f36ee18` established canonical active-branch/graph readback plus the calibrated review-diff scorer.
-- Frontier: `consequential-fact-discovery-tracer` (FE-1208). This is the remaining proving campaign, not a new Linear issue or branch.
-- Volatile state: no separate handoff survives; this card is the sole actor-v2 re-entry contract. Its corrected scratch trajectory is still diagnostic only; neither that run nor the scorer's hand-authored contrastive fixture counts as provider evidence.
+- Frontier: historical FE-1208 proving campaign, superseded by `capture-ledger-tracer`; no active Linear issue or branch is attached to this card.
+- Volatile state: no separate handoff survives; this card is the sole historical actor-v2 record. Its corrected scratch trajectory is still diagnostic only; neither that run nor the scorer's hand-authored contrastive fixture counts as provider evidence.
 - Main risk: campaign machinery can create a false causal claim by changing more than one prompt feature, relaxing the actor between arms, or promoting only favorable runs. Arm assignment, actor policy, run budget, model configuration, validity rules, and discrimination threshold must be fixed before the first provider run.
 
-Posture: proving (inherited from `consequential-fact-discovery-tracer`).
+Posture: proving (historical FE-1208 posture; this card is no longer executable).
 
 ## Target Behavior
 
@@ -21,7 +21,7 @@ A controlled six-run real-TUI campaign produces a promoted, predeclared verdict 
 ## Cold-start reads
 
 - `memory/SPEC.md` — req 24; A5-L; §Verification Design, especially consequential-fact discovery, combined trajectory/evaluation assessment, controlled warranted-commitment ablation, flywheel design notes, and acknowledged blind spots
-- `memory/PLAN.md` — frontier: `consequential-fact-discovery-tracer`
+- `memory/PLAN.md` — superseding frontier: `capture-ledger-tracer`
 - `docs/praxis/manual-testing.md` — TUI priority order, sandbox fallback, evidence capture, cleanup, and findings-ledger discipline
 - `src/dev/TOPOLOGY.md` — trajectory/evaluator/tui-driver ownership and scratch boundary
 - `src/.pi/extensions/dev-mode/introspection/TOPOLOGY.md` — provider-visible trajectory contract and content-retention ceilings
