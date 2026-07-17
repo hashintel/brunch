@@ -20,7 +20,7 @@ Start from the role the material plays, not the words the user happened to use.
 - `criterion` — oracle claim: how a requirement, invariant, or other claim will be judged.
 - `example` — concrete witness or disambiguator: positive case, counterexample, edge case, trace, or labelled out-of-scope case. Polarity comes from wording and edges, not a subtype field.
 
-Continue in [`map-intents.md`](map-intents.md) when distinguishing intent-plane kinds or promoting away from `context`.
+Read [`map-intents.md`](map-intents.md) when distinguishing intent-plane kinds or promoting away from `context`.
 
 ### Oracle plane — how we know
 
@@ -35,7 +35,7 @@ Activating concepts: verification, tests, proof, audit trail, observed run, coun
 | outstanding proof or verification obligation        | `vv_obligation` | "What must still be proven before relying on this?"     |
 | concrete positive/negative witness or disambiguator | `example`       | "What case would demonstrate or falsify this?"          |
 
-Continue in [`map-oracles.md`](map-oracles.md) when choosing the weakest sufficient oracle artifact or attaching witness edges.
+Read [`map-oracles.md`](map-oracles.md) when choosing the weakest sufficient oracle artifact or attaching witness edges.
 
 ### Design plane — how it is shaped
 
@@ -48,7 +48,7 @@ Activating concepts: deep modules, information hiding, seams, API surface, data 
 | domain/data object with identity          | `entity`    | "What object has lifecycle, storage shape, or relationships?"  |
 | tentative option, diagram, or design hint | `sketch`    | "What shape helps thinking without constraining the work yet?" |
 
-Continue in [`map-design.md`](map-design.md) when deciding whether design material is settled shape or advisory sketch.
+Read [`map-design.md`](map-design.md) when deciding whether design material is settled shape or advisory sketch.
 
 ### Plan plane — how it is sequenced
 
@@ -60,6 +60,6 @@ Activating concepts: phase boundary, invariant bundle, tracker unit, branch unit
 | canonical named work/tracker/branch unit      | `frontier`  | "What is the next named unit of work?"                |
 | committed execution handoff inside frontier   | `scope`     | "What package should execution receive as durable truth?" |
 
-Continue in [`map-plans.md`](map-plans.md) when distinguishing phase, frontier, and scope or linking work back to graph pressure.
+Read [`map-plans.md`](map-plans.md) when distinguishing phase, frontier, and scope or linking work back to graph pressure.
 
 Readiness bands guide questioning and mapping; they do not gate graph truth. If the user or a reviewed source clearly supplies a later-band item early, map it honestly with the right kind and basis, then mark settlement according to whether it has been harmonized.
