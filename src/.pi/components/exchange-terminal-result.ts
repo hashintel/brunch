@@ -20,7 +20,7 @@ const STATUS_PRESENTATION = {
   answered: { label: 'Answered', color: 'success' },
   cancelled: { label: 'Cancelled', color: 'muted' },
   unavailable: { label: 'Unavailable', color: 'warning' },
-  input_rejected: { label: 'Input rejected', color: 'error' },
+  input_rejected: { label: 'Input rejected', color: 'warning' },
 } as const;
 
 /** Pi-only presentation wrapper around formatter-owned structured-exchange Markdown. */

@@ -21,6 +21,8 @@ describe('ExchangeTerminalResultComponent', () => {
     expect(rendered[0]).toContain('Answered');
     expect(rendered[1]).toContain('Cancelled');
     expect(rendered[2]).toContain('Unavailable');
+    expect(rendered[3]).toContain('<warning>');
+    expect(rendered[3]).not.toContain('<error>');
     expect(rendered[3]).toContain('Input rejected');
     for (const output of rendered) expect(output).toContain('Canonical body');
   });
