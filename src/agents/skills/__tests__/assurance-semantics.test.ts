@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { LIVE_BRUNCH_SKILL_IDS } from '../registry.js';
+
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 
 function readRepoFile(path: string): string {
@@ -24,7 +26,7 @@ function markdownFilesUnder(path: string): string[] {
     .sort();
 }
 
-const activityResourceFiles = ['ingest', 'map', 'project', 'propose', 'review'].flatMap((skill) =>
+const liveSkillResourceFiles = LIVE_BRUNCH_SKILL_IDS.flatMap((skill) =>
   markdownFilesUnder(`src/agents/skills/${skill}`),
 );
 
@@ -42,16 +44,17 @@ describe('D131-L assurance resource contract', () => {
     expect(dataModel).not.toMatch(/\| `example`\s+\| EX\s+\| Witness/u);
   });
 
-  it('does not generate future evidence or legacy verification obligations in activity resources', () => {
+  it('does not generate future evidence or legacy verification obligations in live skill resources', () => {
     const forbiddenFutureAssurance = [
       /\bvv_obligation\b/u,
       /\bevidence plans?\b/iu,
       /\bevidence obligations?\b/iu,
       /\b(?:oracle|verification)\/evidence shape\b/iu,
       /\bchecks, methods, evidence, obligations\b/iu,
+      /\bwhat evidence would witness\b/iu,
     ];
 
-    for (const path of activityResourceFiles) {
+    for (const path of liveSkillResourceFiles) {
       const contents = readRepoFile(path);
       for (const forbidden of forbiddenFutureAssurance) {
         expect(contents, `${path} contains contradicted future-assurance guidance`).not.toMatch(forbidden);
