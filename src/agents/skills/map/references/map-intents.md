@@ -34,7 +34,7 @@ invariant: rejected or draft review items never appear in exports
 
 ### `criterion` vs oracle-plane nodes
 
-A criterion is the acceptance/oracle claim in intent space: how we judge a property. Oracle-plane nodes name concrete verification machinery or evidence.
+A criterion is the acceptance/oracle claim in intent space: how we judge a property. Oracle-plane nodes name a method, a concrete check, or a deliberately promoted observation.
 
 ```pseudo
 criterion: export excludes draft review items in the reviewer-visible artifact
@@ -42,7 +42,7 @@ check: vitest golden for exported review payload
 vv_method: golden-file regression plus fixture replay
 ```
 
-Link the concrete oracle to the claim with a `witness` edge (`stance: for` when it supports, `stance: against` when it refutes or falsifies).
+Link `criterion` and `vv_method` to the concrete `check` they specify with `realization`. A planned check does not prove a claim. After execution, research, or a spike, deliberately promoted observed `evidence` may use `witness` (`stance: for` or `against`) to support or falsify the claim.
 
 ### `assumption` vs `unknown` vs `context`
 
@@ -63,7 +63,7 @@ invariant: local CLI runs never send workspace graph data to a remote service
 
 ### `story` vs `example`
 
-A story groups related behavior inside a spec. An example is a concrete witness. A Gherkin `Feature` inside one spec usually maps to `story`; a Scenario / Examples row usually maps to `criterion` or `example` depending on whether it is the oracle statement or a concrete case.
+A story groups related behavior inside a spec. An example is a concrete disambiguator or case input, not proof that the case has been run. A Gherkin `Feature` inside one spec usually maps to `story`; a Scenario / Examples row usually maps to `criterion` or `example` depending on whether it is the oracle statement or a concrete case. Executed results become evidence only through deliberate promotion.
 
 ### `sketch` vs committed design nodes
 
@@ -86,17 +86,14 @@ Current required detail fields are `chosen_option`, `rejected`, and `rationale` 
 There are no `example` subtype fields. Preserve example semantics through the node text and edge structure.
 
 ```pseudo
-positive witness:
+planned positive case:
   EX1 concrete accepted export case
-  create_edge witness:
-    oracle: EX1
-    claim: REQ3
-    stance: for
+  include EX1 in check CH1 through the check body or refinement
 
-counterexample / rejected interpretation:
-  EX2 rejected review item appears in export
+observed counterexample:
+  E2 promoted observation: rejected review item appeared in export
   create_edge witness:
-    oracle: EX2
+    oracle: E2
     claim: INV4
     stance: against
 
@@ -107,7 +104,7 @@ out-of-scope disambiguator:
     subject: EX3
 ```
 
-Intent is often clarified by what has been ruled out. Prefer a concrete `example` plus `witness:against` or an `exclusion` edge over vague prose such as “not that.”
+Intent is often clarified by what has been ruled out. Prefer a concrete `example` or an `exclusion` edge over vague prose such as “not that.” Reserve `witness:against` for promoted observed evidence.
 
 ## Coherent intent content checklist
 
@@ -116,4 +113,4 @@ Intent is often clarified by what has been ruled out. Prefer a concrete `example
 - Requirements say what must hold; criteria say how we judge; examples make interpretation concrete.
 - Invariants protect preservation; constraints narrow solution space.
 - Decisions name rejected alternatives and rationale, not just "the user answered yes."
-- Negative knowledge is preserved as `example` plus `witness:against` or as `constraint`/`exclusion`, not as vague prose.
+- Negative knowledge is preserved as an `example`, promoted observed evidence with `witness:against`, or `constraint`/`exclusion`, not as vague prose.

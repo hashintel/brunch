@@ -22,7 +22,16 @@ spec graph material:
 
 > **`kind` drives behavior** — readiness evaluation, edge legality, and the elicitor's questioning strategy
 
-Twenty-four kinds across four planes, in canonical plane order. Codes are schema-owned in [`nodes.ts`](../../graph/schema/nodes.ts); readiness-band terminology is owned by [`readiness-bands.md`](readiness-bands.md). A band of `—` means the kind carries no readiness band (D94-L); band-less kinds are `example`, `sketch`, `term`.
+Twenty-four kinds across four physical storage planes, in canonical plane order. This is the physical graph schema's compatibility taxonomy, not the live agent grouping for review or projection. Codes are schema-owned in [`nodes.ts`](../../graph/schema/nodes.ts); readiness-band terminology is owned by [`readiness-bands.md`](readiness-bands.md). A band of `—` means the kind carries no readiness band (D94-L); band-less kinds are `example`, `sketch`, `term`.
+
+D131-L groups live agent conduct by user concern independently of those planes:
+
+- **Intent:** goal, thesis, story, constraint, assumption, invariant, decision, unknown, context, evidence, example, term
+- **Implementation:** requirement, interface, module, entity, sketch
+- **Assurance:** criterion, vv_method, check
+- **Planning:** milestone, frontier, scope
+
+Within Assurance, a planned `criterion` and `vv_method` reach a concrete `check` through `realization`. Only a deliberately promoted observation produced by execution, research, or a spike becomes `evidence` and uses `witness` to support or falsify a claim. `evidence` is capture-only and never an expected projection deliverable. `vv_obligation` is legacy/reserved: keep existing rows readable, but do not propose or project new instances.
 
 ### Intent plane — what and why (13 kinds)
 
@@ -48,8 +57,8 @@ Twenty-four kinds across four planes, in canonical plane order. Codes are schema
 | --------------- | ---- | --------------------------------------------------------------- |
 | `check`         | CH   | A concrete verification check (a test, assertion, step-def)     |
 | `vv_method`     | VV   | A verification method (prover / solver / golden / probe family) |
-| `evidence`      | E    | Observed evidence                                               |
-| `vv_obligation` | O    | A proof / verification obligation                               |
+| `evidence`      | E    | Promoted observation (capture-only under D131-L)                 |
+| `vv_obligation` | O    | Legacy/reserved compatibility kind; never newly authored        |
 
 ### Design plane — how it's shaped (4 kinds)
 
