@@ -26,7 +26,7 @@ One reviewed walkthrough checkpoint determines which remaining FE-1187 LN rows p
 - memory/SPEC.md — D69-L, D80-L, D96-L, D104-L, D116-L, D117-L; A40-L; I23-L, I51-L, I57-L
 - memory/PLAN.md — frontier: walkthrough-remediation-2; deterministic-orientation done-definition
 - testing/walkthroughs/2026-07-14/remediations-3a.md — Session B/C evidence and restart context
-- TESTING_PLAN.md — concerns 4, 6, 7F, 7G, and FE-1167 overlap opportunities
+- TESTING_PLAN.md — concerns 4, 6, 7F, 7G, and deterministic-orientation / KA overlap opportunities
 - TESTING_FINDINGS.md — WR18 O4/O5/O6/O10 plus R1–R4
 - docs/praxis/manual-testing.md — workbench, evidence, and disposition discipline
 ```
