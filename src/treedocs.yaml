@@ -52,7 +52,6 @@ tree:
           index.ts: "Exports the public module surface."
         system-prompts:
           index.ts: "Exports the public module surface."
-          world-reads.ts: "Implements world reads."
       executor:
         index.ts: "Exports the executor adapter surface."
       brunch-data:
