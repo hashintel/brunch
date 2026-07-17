@@ -212,9 +212,9 @@ Canonical reconciliation: no-op by delegation. The authorized SPEC/PLAN correcti
 
 ---
 
-## Owned behavioral gate · Corrected Fresh-Pi first proving run — `blocked`
+## Owned behavioral gate · Corrected Fresh-Pi first proving run — `ready, uninvoked`
 
-- **Current block:** do not invoke the gate until the correction build’s direct review, targeted Remark, `npm run check`, and protected-state fingerprint checks all pass. The current prompt/README do not satisfy this re-entry condition.
+- **Current state:** the correction build passed direct review, targeted Remark, `npm run check`, and protected-state fingerprint checks. The gate is ready for its Dora/PM owner but remains uninvoked; autonomous implementation must not claim or bypass it.
 - **Owner and verdict:** **Dora/PM** owns mission authorship, mission-consistency judgment, conversational-usability judgment, and report cold-read usefulness. **Lu** may facilitate environment preflight and record technical identities, but may not replace Dora/PM’s verdict.
 - **Re-entry trigger:** the two corrected tracked files satisfy every correction-build acceptance leaf and are available in a newly started project-trusted Pi session.
 - **Exact required capability:** a newly started project-trusted Pi TUI at the repository root that discovers the real `/compare-specs` template; valid provider/model and filesystem access; the pinned `pi-interactive-shell` package and push/prune extensions; working Brunch and Claude Code adapters; and one separately identifiable fresh harness-level Pi actor process/session plus one fresh isolated target cwd per lane. If fresh actor identity cannot be demonstrated, the gate remains blocked.
