@@ -5,7 +5,8 @@ exports[`ExchangeReviewSetResultComponent > renders the borderless Impact Ledger
 
 term         T1    A compact view of    
                    proposed graph       
-                   consequences.
+                   consequences.        
+                   [settled]
 
 Intent
 
@@ -13,78 +14,80 @@ goal         G2    Launch safely with
                    a deliberately long  
                    description that     
                    wraps at narrow      
-                   widths               
+                   widths [settled]     
                    refs: VVO2           
+                   [settled]            
              G3    Keep review          
-                   consequences clear
+                   consequences clear   
+                   [settled]
 
 Implementation
 
 requirement  REQ5  Rollback is          
-                   required             
-                   refs: G2
+                   required [settled]   
+                   refs: G2 [settled]
 
 Assurance
 
 obligation   VVO2  Observe the          
-                   rollback path
+                   rollback path        
+                   [settled]
 
 Planning
 
 frontier     F4    Close launch         
-                   readiness
-"
+                   readiness [settled]"
 `;
 
 exports[`ExchangeReviewSetResultComponent > renders the borderless Impact Ledger at narrow, normal, and wide widths > normal 1`] = `
 "Terms
 
-term         T1    A compact view of proposed graph consequences.
+term         T1    A compact view of proposed graph consequences.       
+                   [settled]
 
 Intent
 
 goal         G2    Launch safely with a deliberately long description   
-                   that wraps at narrow widths                          
-                   refs: VVO2                                           
-             G3    Keep review consequences clear
+                   that wraps at narrow widths [settled]                
+                   refs: VVO2 [settled]                                 
+             G3    Keep review consequences clear [settled]
 
 Implementation
 
-requirement  REQ5  Rollback is required                                 
-                   refs: G2
+requirement  REQ5  Rollback is required [settled]                       
+                   refs: G2 [settled]
 
 Assurance
 
-obligation   VVO2  Observe the rollback path
+obligation   VVO2  Observe the rollback path [settled]
 
 Planning
 
-frontier     F4    Close launch readiness
-"
+frontier     F4    Close launch readiness [settled]"
 `;
 
 exports[`ExchangeReviewSetResultComponent > renders the borderless Impact Ledger at narrow, normal, and wide widths > wide 1`] = `
 "Terms
 
-term         T1    A compact view of proposed graph consequences.
+term         T1    A compact view of proposed graph consequences. [settled]
 
 Intent
 
 goal         G2    Launch safely with a deliberately long description that wraps at narrow widths   
-                   refs: VVO2                                                                       
-             G3    Keep review consequences clear
+                   [settled]                                                                        
+                   refs: VVO2 [settled]                                                             
+             G3    Keep review consequences clear [settled]
 
 Implementation
 
-requirement  REQ5  Rollback is required                                                             
-                   refs: G2
+requirement  REQ5  Rollback is required [settled]                                                   
+                   refs: G2 [settled]
 
 Assurance
 
-obligation   VVO2  Observe the rollback path
+obligation   VVO2  Observe the rollback path [settled]
 
 Planning
 
-frontier     F4    Close launch readiness
-"
+frontier     F4    Close launch readiness [settled]"
 `;

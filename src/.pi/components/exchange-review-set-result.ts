@@ -82,14 +82,18 @@ export class ExchangeReviewSetResultComponent implements Component {
     const codeWidth = Math.max(1, ...nodes.map((node) => node.proposed_code.length));
     const terms = nodesInReviewGroup(nodes, 'Intent').filter((node) => node.kind === 'term');
 
-    return [
-      heading('Terms', this.theme),
-      '',
-      ...renderBorderlessLedger(width, kindWidth, codeWidth, terms, connectionsByNode, true, this.theme),
-      '',
-      ...REVIEW_GROUPS.flatMap((group) => {
-        const groupedNodes = nodesInReviewGroup(nodes, group).filter((node) => node.kind !== 'term');
-        return [
+    const sections: string[][] = [];
+    if (terms.length > 0) {
+      sections.push([
+        heading('Terms', this.theme),
+        '',
+        ...renderBorderlessLedger(width, kindWidth, codeWidth, terms, connectionsByNode, true, this.theme),
+      ]);
+    }
+    for (const group of REVIEW_GROUPS) {
+      const groupedNodes = nodesInReviewGroup(nodes, group).filter((node) => node.kind !== 'term');
+      if (groupedNodes.length > 0) {
+        sections.push([
           heading(group, this.theme),
           '',
           ...renderBorderlessLedger(
@@ -101,10 +105,10 @@ export class ExchangeReviewSetResultComponent implements Component {
             false,
             this.theme,
           ),
-          '',
-        ];
-      }),
-    ];
+        ]);
+      }
+    }
+    return sections.flatMap((section, index) => (index === sections.length - 1 ? section : [...section, '']));
   }
 }
 
@@ -124,7 +128,7 @@ function renderBorderlessLedger(
     const kind = kindLabel(node.kind);
     const kindCell = kind === previousKind ? '' : fg(theme, 'muted', kind);
     previousKind = kind;
-    const content = showTermDefinition ? termDefinition(node) : node.title;
+    const content = `${showTermDefinition ? termDefinition(node) : node.title} [${node.settlement}]`;
     const connections = connectionsByNode.get(node.draft_id) ?? [];
     const itemRow = [kindCell, fg(theme, 'syntaxKeyword', node.proposed_code), fg(theme, 'text', content)];
     return connections.length > 0
@@ -145,42 +149,46 @@ function renderBorderlessLedger(
 function symbolicConnectionsByNode(reviewSet: ReviewSet): ReadonlyMap<string, readonly string[]> {
   const nodesByDraftId = new Map(reviewSet.nodes.map((node) => [node.draft_id, node]));
   const connections = new Map<string, string[]>();
-  const add = (host: ReviewEndpoint, other: ReviewEndpoint) => {
+  const add = (host: ReviewEndpoint, other: ReviewEndpoint, settlement: string) => {
     if (!('draft_id' in host)) return;
     const otherCode =
       'existing_code' in other ? other.existing_code : nodesByDraftId.get(other.draft_id)?.proposed_code;
     if (!otherCode) return;
-    connections.set(host.draft_id, [...(connections.get(host.draft_id) ?? []), otherCode]);
+    connections.set(host.draft_id, [
+      ...(connections.get(host.draft_id) ?? []),
+      `${otherCode} [${settlement}]`,
+    ]);
   };
 
   for (const edge of reviewSet.edges) {
+    const addEdge = (host: ReviewEndpoint, other: ReviewEndpoint) => add(host, other, edge.settlement);
     switch (edge.category) {
       case 'dependency':
-        add(edge.dependency, edge.dependent);
+        addEdge(edge.dependency, edge.dependent);
         break;
       case 'witness':
-        add(edge.claim, edge.oracle);
+        addEdge(edge.claim, edge.oracle);
         break;
       case 'rationale':
-        add(edge.claim, edge.support);
+        addEdge(edge.claim, edge.support);
         break;
       case 'realization':
-        add(edge.abstract, edge.concrete);
+        addEdge(edge.abstract, edge.concrete);
         break;
       case 'refinement':
-        add(edge.abstract, edge.concrete);
+        addEdge(edge.abstract, edge.concrete);
         break;
       case 'exclusion':
-        add(edge.boundary, edge.subject);
+        addEdge(edge.boundary, edge.subject);
         break;
       case 'composition':
-        add(edge.whole, edge.part);
+        addEdge(edge.whole, edge.part);
         break;
       case 'cross_reference':
-        add(edge.a, edge.b);
+        addEdge(edge.a, edge.b);
         break;
       case 'supersession':
-        add(edge.predecessor, edge.successor);
+        addEdge(edge.predecessor, edge.successor);
         break;
     }
   }

@@ -75,12 +75,12 @@ describe('formatPresentReviewSet', () => {
     );
 
     expect(rendered).toContain('## Proposal: Commit the executor handoff package');
-    expect(rendered).toContain('__$SCP2: Executor handoff package__');
-    expect(rendered).toContain('part of __F7__');
-    expect(rendered).toContain('realizes __REQ8__');
+    expect(rendered).toContain('__$SCP2: Executor handoff package [settled]__');
+    expect(rendered).toContain('part of __F7__ [settled]');
+    expect(rendered).toContain('realizes __REQ8__ [settled]');
     expect(rendered).toContain('depends on __$CH9__');
-    expect(rendered).toContain('__$MOD7: Scope package assembler__');
-    expect(rendered).toContain('part of __$SCP2__');
+    expect(rendered).toContain('__$MOD7: Scope package assembler [settled]__');
+    expect(rendered).toContain('part of __$SCP2__ [settled]');
   });
 });
 
@@ -169,6 +169,7 @@ const fullSetPayload = {
     {
       draftId: 'goal-render-honesty',
       proposedCode: 'G2',
+      settlement: 'settled' as const,
       plane: 'intent',
       kind: 'goal',
       title: 'Render sweep stays honest',
@@ -176,6 +177,7 @@ const fullSetPayload = {
     {
       draftId: 'req-details',
       proposedCode: 'REQ5',
+      settlement: 'settled' as const,
       plane: 'intent',
       kind: 'requirement',
       title: 'Details leaves must be accounted for',
@@ -184,6 +186,7 @@ const fullSetPayload = {
     {
       draftId: 'check-render-honesty',
       proposedCode: 'CH3',
+      settlement: 'settled' as const,
       plane: 'oracle',
       kind: 'check',
       title: 'Render-honesty invariant test',
@@ -195,16 +198,19 @@ const fullSetPayload = {
   edgeDrafts: [
     {
       category: 'dependency',
+      settlement: 'settled' as const,
       dependency: { draftId: 'req-details' },
       dependent: { draftId: 'goal-render-honesty' },
     },
     {
       category: 'dependency',
+      settlement: 'settled' as const,
       dependency: { existingCode: 'MOD1' },
       dependent: { draftId: 'req-details' },
     },
     {
       category: 'witness',
+      settlement: 'settled' as const,
       oracle: { draftId: 'check-render-honesty' },
       claim: { draftId: 'req-details' },
       stance: 'for',
@@ -229,6 +235,7 @@ const trailingGroupPayload = {
     {
       draftId: 'req-rollback-rehearsal',
       proposedCode: 'REQ6',
+      settlement: 'settled' as const,
       plane: 'intent',
       kind: 'requirement',
       title: 'Rollback rehearsal before each release',
@@ -237,16 +244,19 @@ const trailingGroupPayload = {
   edgeDrafts: [
     {
       category: 'refinement',
+      settlement: 'settled' as const,
       abstract: { existingCode: 'REQ5' },
       concrete: { draftId: 'req-rollback-rehearsal' },
     },
     {
       category: 'dependency',
+      settlement: 'settled' as const,
       dependency: { existingCode: 'MOD1' },
       dependent: { draftId: 'req-rollback-rehearsal' },
     },
     {
       category: 'witness',
+      settlement: 'settled' as const,
       oracle: { existingCode: 'CH1' },
       claim: { existingCode: 'REQ5' },
       stance: 'for',
@@ -271,6 +281,7 @@ const rejectedPayload = {
     {
       draftId: 'frontier-answering-chrome',
       proposedCode: 'F4',
+      settlement: 'settled' as const,
       plane: 'plan',
       kind: 'frontier',
       title: 'Exchange answering chrome',
@@ -279,6 +290,7 @@ const rejectedPayload = {
   edgeDrafts: [
     {
       category: 'composition',
+      settlement: 'settled' as const,
       whole: { existingCode: 'F5' },
       part: { draftId: 'frontier-answering-chrome' },
     },
@@ -302,6 +314,7 @@ const scopePackagePayload = {
     {
       draftId: 'scope-handoff-package',
       proposedCode: 'SCP2',
+      settlement: 'settled' as const,
       plane: 'plan',
       kind: 'scope',
       title: 'Executor handoff package',
@@ -310,6 +323,7 @@ const scopePackagePayload = {
     {
       draftId: 'module-scope-assembler',
       proposedCode: 'MOD7',
+      settlement: 'settled' as const,
       plane: 'design',
       kind: 'module',
       title: 'Scope package assembler',
@@ -317,6 +331,7 @@ const scopePackagePayload = {
     {
       draftId: 'check-scope-proof',
       proposedCode: 'CH9',
+      settlement: 'settled' as const,
       plane: 'oracle',
       kind: 'check',
       title: 'Scope handoff proof',
@@ -325,22 +340,26 @@ const scopePackagePayload = {
   edgeDrafts: [
     {
       category: 'composition',
+      settlement: 'settled' as const,
       whole: { existingCode: 'F7' },
       part: { draftId: 'scope-handoff-package' },
     },
     {
       category: 'realization',
+      settlement: 'settled' as const,
       abstract: { existingCode: 'REQ8' },
       concrete: { draftId: 'scope-handoff-package' },
     },
     {
       category: 'dependency',
+      settlement: 'settled' as const,
       dependency: { draftId: 'check-scope-proof' },
       dependent: { draftId: 'scope-handoff-package' },
       rationale: 'The committed handoff only stands if the proof check remains green.',
     },
     {
       category: 'composition',
+      settlement: 'settled' as const,
       whole: { draftId: 'scope-handoff-package' },
       part: { draftId: 'module-scope-assembler' },
     },

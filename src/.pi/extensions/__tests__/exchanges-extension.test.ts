@@ -99,9 +99,13 @@ describe('structured exchange renderers', () => {
     const baseline = normalizeToolSchema(exchangeToolSchemaBaseline.schemas) as Record<string, unknown>;
 
     expect([...tools.keys()]).toEqual(Object.keys(exchangeToolSchemaBaseline.schemas));
-    expect(Object.fromEntries(Object.entries(currentSchemas).filter(([name]) => name !== 'ask'))).toEqual(
-      Object.fromEntries(Object.entries(baseline).filter(([name]) => name !== 'ask')),
+    const unchangedTools = ([name]: [string, unknown]) => name !== 'ask' && name !== PRESENT_REVIEW_SET_TOOL;
+    expect(Object.fromEntries(Object.entries(currentSchemas).filter(unchangedTools))).toEqual(
+      Object.fromEntries(Object.entries(baseline).filter(unchangedTools)),
     );
+    expect(JSON.stringify(currentSchemas[PRESENT_REVIEW_SET_TOOL])).toContain('settlement');
+    expect(JSON.stringify(currentSchemas[PRESENT_REVIEW_SET_TOOL])).toContain('advisory');
+    expect(JSON.stringify(currentSchemas[PRESENT_REVIEW_SET_TOOL])).toContain('settled');
     expect(currentSchemas.ask).toMatchObject({
       properties: {
         acceptsDigest: { type: 'string' },

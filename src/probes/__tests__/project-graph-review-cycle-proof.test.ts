@@ -258,6 +258,7 @@ function presentReviewSetEntry(): string {
         {
           draft_id: 'req-resolution-state',
           proposed_code: 'REQ1',
+          settlement: 'settled',
           plane: 'intent',
           kind: 'requirement',
           title: 'Macro view names impasse resolution state',
@@ -266,6 +267,7 @@ function presentReviewSetEntry(): string {
       edges: [
         {
           category: 'rationale',
+          settlement: 'settled' as const,
           support: { draft_id: 'req-resolution-state' },
           claim: { existing_code: 'G1' },
           stance: 'for',
@@ -307,8 +309,8 @@ function pendingReviewResponse(): JsonRpcResponse {
         exchangeId: 'review-1',
         mode: 'review',
         reviewSet: {
-          nodes: [{ draft_id: 'req-resolution-state', proposed_code: 'REQ1' }],
-          edges: [{ category: 'rationale' }],
+          nodes: [{ draft_id: 'req-resolution-state', proposed_code: 'REQ1', settlement: 'settled' }],
+          edges: [{ category: 'rationale', settlement: 'settled' }],
         },
       },
     },
@@ -346,6 +348,7 @@ function scopePresentReviewSetEntry(
         {
           draft_id: 'frontier-selected-spec-handoff',
           proposed_code: 'F1',
+          settlement: 'settled',
           plane: 'plan',
           kind: 'frontier',
           title: 'Selected spec handoff frontier',
@@ -353,6 +356,7 @@ function scopePresentReviewSetEntry(
         {
           draft_id: 'scope-selected-spec-handoff',
           proposed_code: 'SCP1',
+          settlement: 'settled',
           plane: 'plan',
           kind: 'scope',
           title: 'Selected spec execution handoff',
@@ -361,21 +365,25 @@ function scopePresentReviewSetEntry(
       edges: [
         {
           category: 'composition',
+          settlement: 'settled',
           whole: { draft_id: 'frontier-selected-spec-handoff' },
           part: { draft_id: 'scope-selected-spec-handoff' },
         },
         {
           category: 'realization',
+          settlement: 'settled',
           abstract: { existing_code: 'REQ1' },
           concrete: { draft_id: 'scope-selected-spec-handoff' },
         },
         {
           category: 'composition',
+          settlement: 'settled',
           whole: { draft_id: 'scope-selected-spec-handoff' },
           part: { existing_code: anchors.design },
         },
         {
           category: 'dependency',
+          settlement: 'settled' as const,
           dependency: { existing_code: 'AC1' },
           dependent: { draft_id: 'scope-selected-spec-handoff' },
         },
@@ -383,6 +391,7 @@ function scopePresentReviewSetEntry(
           ? [
               {
                 category: 'dependency',
+                settlement: 'settled' as const,
                 dependency: { existing_code: anchors.verification },
                 dependent: { draft_id: 'scope-selected-spec-handoff' },
               },

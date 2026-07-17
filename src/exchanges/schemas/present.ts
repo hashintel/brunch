@@ -71,6 +71,7 @@ export const zReviewSetNodeDraft = z
   .object({
     draft_id: z.string().min(1),
     proposed_code: z.string().min(1),
+    settlement: z.enum(['advisory', 'settled']),
     plane: z.enum(['intent', 'oracle', 'design', 'plan']),
     kind: z.string().min(1),
     title: z.string().min(1),
@@ -82,7 +83,9 @@ export const ReviewSetNodeDraftSchema = z.toJSONSchema(zReviewSetNodeDraft, {
   unrepresentable: 'throw',
 });
 
-const zReviewSetEdgeBase = z.object({ rationale: zMarkdown.optional() }).strict();
+const zReviewSetEdgeBase = z
+  .object({ settlement: z.enum(['advisory', 'settled']), rationale: zMarkdown.optional() })
+  .strict();
 
 export const zReviewSetEdgeDraft = z.union([
   zReviewSetEdgeBase

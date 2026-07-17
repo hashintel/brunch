@@ -26,10 +26,18 @@ function validPayload(overrides: Partial<ReviewSetProposalPayload> = {}): Review
       narrative: 'Two exact items and their relationship are ready for review.',
     },
     entityDrafts: [
-      { draftId: 'goal-launch', proposedCode: 'G1', plane: 'intent', kind: 'goal', title: 'Launch safely' },
+      {
+        draftId: 'goal-launch',
+        proposedCode: 'G1',
+        settlement: 'settled' as const,
+        plane: 'intent',
+        kind: 'goal',
+        title: 'Launch safely',
+      },
       {
         draftId: 'req-rollback',
         proposedCode: 'REQ1',
+        settlement: 'settled' as const,
         plane: 'intent',
         kind: 'requirement',
         title: 'Rollback path exists',
@@ -38,6 +46,7 @@ function validPayload(overrides: Partial<ReviewSetProposalPayload> = {}): Review
     edgeDrafts: [
       {
         category: 'realization',
+        settlement: 'settled' as const,
         abstract: { draftId: 'req-rollback' },
         concrete: { draftId: 'goal-launch' },
       },
@@ -124,11 +133,19 @@ describe('CommandExecutor.acceptReviewSet', () => {
       specId,
       payload: validPayload({
         entityDrafts: [
-          { draftId: 'goal-next', proposedCode: 'G1', plane: 'intent', kind: 'goal', title: 'Next goal' },
+          {
+            draftId: 'goal-next',
+            proposedCode: 'G1',
+            settlement: 'settled' as const,
+            plane: 'intent',
+            kind: 'goal',
+            title: 'Next goal',
+          },
         ],
         edgeDrafts: [
           {
             category: 'dependency',
+            settlement: 'settled' as const,
             dependency: { existingCode: 'G1' },
             dependent: { draftId: 'goal-next' },
           },
@@ -156,6 +173,7 @@ describe('CommandExecutor.acceptReviewSet', () => {
         edgeDrafts: [
           {
             category: 'rationale',
+            settlement: 'settled' as const,
             support: { draftId: 'req-rollback' },
             claim: { draftId: 'goal-launch' },
           } as never,
@@ -208,6 +226,7 @@ describe('CommandExecutor.acceptReviewSet', () => {
           {
             draftId: 'frontier-execution',
             proposedCode: 'F1',
+            settlement: 'settled' as const,
             plane: 'plan',
             kind: 'frontier',
             title: 'Execution handoff',
@@ -215,6 +234,7 @@ describe('CommandExecutor.acceptReviewSet', () => {
           {
             draftId: 'scope-canvas',
             proposedCode: 'SCP1',
+            settlement: 'settled' as const,
             plane: 'plan',
             kind: 'scope',
             title: 'Canvas scope',
@@ -223,6 +243,7 @@ describe('CommandExecutor.acceptReviewSet', () => {
           {
             draftId: 'req-canvas',
             proposedCode: 'REQ1',
+            settlement: 'settled' as const,
             plane: 'intent',
             kind: 'requirement',
             title: 'Render graph canvas',
@@ -230,6 +251,7 @@ describe('CommandExecutor.acceptReviewSet', () => {
           {
             draftId: 'ac-canvas',
             proposedCode: 'AC1',
+            settlement: 'settled' as const,
             plane: 'intent',
             kind: 'criterion',
             title: 'Canvas is reachable',
@@ -238,6 +260,7 @@ describe('CommandExecutor.acceptReviewSet', () => {
           {
             draftId: 'mod-canvas',
             proposedCode: 'MOD1',
+            settlement: 'settled' as const,
             plane: 'design',
             kind: 'module',
             title: 'Canvas route module',
@@ -245,6 +268,7 @@ describe('CommandExecutor.acceptReviewSet', () => {
           {
             draftId: 'check-canvas',
             proposedCode: 'CH1',
+            settlement: 'settled' as const,
             plane: 'oracle',
             kind: 'check',
             title: 'Canvas smoke test',
@@ -253,31 +277,37 @@ describe('CommandExecutor.acceptReviewSet', () => {
         edgeDrafts: [
           {
             category: 'composition',
+            settlement: 'settled' as const,
             whole: { draftId: 'frontier-execution' },
             part: { draftId: 'scope-canvas' },
           },
           {
             category: 'realization',
+            settlement: 'settled' as const,
             abstract: { draftId: 'req-canvas' },
             concrete: { draftId: 'scope-canvas' },
           },
           {
             category: 'dependency',
+            settlement: 'settled' as const,
             dependency: { draftId: 'ac-canvas' },
             dependent: { draftId: 'scope-canvas' },
           },
           {
             category: 'composition',
+            settlement: 'settled' as const,
             whole: { draftId: 'scope-canvas' },
             part: { draftId: 'mod-canvas' },
           },
           {
             category: 'dependency',
+            settlement: 'settled' as const,
             dependency: { draftId: 'check-canvas' },
             dependent: { draftId: 'scope-canvas' },
           },
           {
             category: 'witness',
+            settlement: 'settled' as const,
             oracle: { draftId: 'ac-canvas' },
             claim: { draftId: 'req-canvas' },
             stance: 'for',
@@ -308,11 +338,16 @@ describe('CommandExecutor.acceptReviewSet', () => {
         expect.objectContaining({ kind: 'frontier', title: 'Execution handoff', kindOrdinal: 1 }),
       ]),
     );
-    expect(db.select({ category: edges.category, stance: edges.stance }).from(edges).all()).toEqual(
+    expect(
+      db
+        .select({ category: edges.category, stance: edges.stance, settlement: edges.settlement })
+        .from(edges)
+        .all(),
+    ).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ category: 'composition' }),
         expect.objectContaining({ category: 'realization' }),
-        expect.objectContaining({ category: 'witness', stance: 'for' }),
+        expect.objectContaining({ category: 'witness', settlement: 'settled' as const, stance: 'for' }),
       ]),
     );
   });

@@ -104,6 +104,7 @@ function detailsFor(
 const goal = (draftId: string, proposedCode: string) => ({
   draftId,
   proposedCode,
+  settlement: 'settled' as const,
   plane: 'intent' as const,
   kind: 'goal' as const,
   title: `Goal ${proposedCode}`,
@@ -112,6 +113,7 @@ const goal = (draftId: string, proposedCode: string) => ({
 const check = (draftId: string, proposedCode: string) => ({
   draftId,
   proposedCode,
+  settlement: 'settled' as const,
   plane: 'oracle' as const,
   kind: 'check' as const,
   title: `Check ${proposedCode}`,
@@ -137,6 +139,7 @@ describe('Impact Ledger differential reference inventory', () => {
         {
           draftId: 'term-only',
           proposedCode: 'T1',
+          settlement: 'settled' as const,
           plane: 'intent',
           kind: 'term',
           title: 'Ledger',
@@ -153,6 +156,7 @@ describe('Impact Ledger differential reference inventory', () => {
         ],
         Array.from({ length: 8 }, (_, index) => ({
           category: 'witness' as const,
+          settlement: 'settled' as const,
           claim: { draftId: 'goal-host' },
           oracle: { draftId: `check-${index}` },
           stance: 'for' as const,

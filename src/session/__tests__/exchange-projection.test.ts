@@ -113,6 +113,7 @@ const presentReviewSetToolResult = {
           {
             draft_id: 'goal-review',
             proposed_code: 'G1',
+            settlement: 'settled',
             plane: 'intent',
             kind: 'goal',
             title: 'Review graph proposals',

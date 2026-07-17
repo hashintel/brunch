@@ -21,7 +21,8 @@ export function formatPresentReviewSet(projection: PresentReviewSetProjection): 
   const trailingEdges: string[] = [];
 
   for (const edge of reviewSet.edges) {
-    const rendered = renderEdge(edge, nodesByDraftId);
+    const edgeRender = renderEdge(edge, nodesByDraftId);
+    const rendered = { ...edgeRender, line: `${edgeRender.line} [${edge.settlement}]` };
     if (rendered.hostDraftId) {
       nestedEdges.set(rendered.hostDraftId, [
         ...(nestedEdges.get(rendered.hostDraftId) ?? []),
@@ -78,7 +79,7 @@ type MarkdownListItem = string | MarkdownListItem[];
 
 function renderNodeItems(node: ReviewSetNodeDetails, nestedEdges: readonly string[]): MarkdownListItem[] {
   const nodeText = joinMarkdownBlocks(
-    bold(`$${node.proposed_code}: ${node.title.trim()}`),
+    bold(`$${node.proposed_code}: ${node.title.trim()} [${node.settlement}]`),
     node.body?.trim(),
   );
   return nestedEdges.length > 0 ? [nodeText, [...nestedEdges]] : [nodeText];

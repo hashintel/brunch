@@ -190,6 +190,7 @@ export const presentReviewSetFixture = (() => {
       {
         draftId: 'goal-launch',
         proposedCode: 'G2',
+        settlement: 'settled' as const,
         plane: 'intent',
         kind: 'goal',
         title: 'Launch safely',
@@ -197,6 +198,7 @@ export const presentReviewSetFixture = (() => {
       {
         draftId: 'req-rollback',
         proposedCode: 'REQ5',
+        settlement: 'settled' as const,
         plane: 'intent',
         kind: 'requirement',
         title: 'Rollback is required',
@@ -205,6 +207,7 @@ export const presentReviewSetFixture = (() => {
       {
         draftId: 'check-observable',
         proposedCode: 'CH3',
+        settlement: 'settled' as const,
         plane: 'oracle',
         kind: 'check',
         title: 'Observe rollback path',
@@ -213,11 +216,13 @@ export const presentReviewSetFixture = (() => {
     edgeDrafts: [
       {
         category: 'dependency',
+        settlement: 'settled' as const,
         dependency: { draftId: 'req-rollback' },
         dependent: { draftId: 'goal-launch' },
       },
       {
         category: 'witness',
+        settlement: 'settled' as const,
         oracle: { draftId: 'check-observable' },
         claim: { draftId: 'goal-launch' },
         stance: 'for',

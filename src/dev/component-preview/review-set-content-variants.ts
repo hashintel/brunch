@@ -76,6 +76,7 @@ export const REVIEW_SET_CONTENT_VARIANTS: readonly ReviewSetContentVariant[] = [
           ...baseDetails.review_set.edges,
           ...Array.from({ length: 8 }, (_, index) => ({
             category: 'cross_reference' as const,
+            settlement: index % 2 === 0 ? ('advisory' as const) : ('settled' as const),
             a: {
               draft_id: baseDetails.review_set.nodes[index % baseDetails.review_set.nodes.length]!.draft_id,
             },

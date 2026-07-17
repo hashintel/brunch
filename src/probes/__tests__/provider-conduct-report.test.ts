@@ -39,7 +39,14 @@ const reviewPayload = {
   grounding: { summary: 'Grounded', support: ['source'] },
   pitch: { title: 'Review', narrative: 'One proposition' },
   entityDrafts: [
-    { draftId: 'n1', proposedCode: 'G1', plane: 'intent' as const, kind: 'goal', title: 'Goal' },
+    {
+      draftId: 'n1',
+      proposedCode: 'G1',
+      settlement: 'settled' as const,
+      plane: 'intent' as const,
+      kind: 'goal',
+      title: 'Goal',
+    },
   ],
   edgeDrafts: [],
 };
@@ -386,6 +393,7 @@ describe('provider conduct report', () => {
         {
           draftId: `goal-${suffix}`,
           proposedCode: goalCode,
+          settlement: 'settled' as const,
           plane: 'intent' as const,
           kind: 'goal',
           title: `Goal ${suffix}`,
@@ -393,6 +401,7 @@ describe('provider conduct report', () => {
         {
           draftId: `req-${suffix}`,
           proposedCode: requirementCode,
+          settlement: 'settled' as const,
           plane: 'intent' as const,
           kind: 'requirement',
           title: `Requirement ${suffix}`,
@@ -401,6 +410,7 @@ describe('provider conduct report', () => {
       edgeDrafts: [
         {
           category: 'realization' as const,
+          settlement: 'settled' as const,
           abstract: { draftId: `req-${suffix}` },
           concrete: { draftId: `goal-${suffix}` },
         },

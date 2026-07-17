@@ -92,6 +92,7 @@ function proposalFromPresent(present: PresentReviewSetDetails): ReviewSetProposa
     entityDrafts: present.review_set.nodes.map((draft) => ({
       draftId: draft.draft_id,
       proposedCode: draft.proposed_code,
+      settlement: draft.settlement,
       plane: draft.plane,
       kind: draft.kind,
       title: draft.title,
@@ -107,14 +108,17 @@ type Ref = Extract<Edge, { category: 'dependency' }>['dependency'];
 const ref = (value: Ref) =>
   'draft_id' in value ? { draftId: value.draft_id } : { existingCode: value.existing_code };
 function edgeFromDetails(draft: Edge): ReviewSetProposalPayload['edgeDrafts'][number] {
-  const rationale = draft.rationale !== undefined ? { rationale: draft.rationale } : {};
+  const common = {
+    settlement: draft.settlement,
+    ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+  };
   switch (draft.category) {
     case 'dependency':
       return {
         category: draft.category,
         dependency: ref(draft.dependency),
         dependent: ref(draft.dependent),
-        ...rationale,
+        ...common,
       };
     case 'witness':
       return {
@@ -122,7 +126,7 @@ function edgeFromDetails(draft: Edge): ReviewSetProposalPayload['edgeDrafts'][nu
         oracle: ref(draft.oracle),
         claim: ref(draft.claim),
         stance: draft.stance,
-        ...rationale,
+        ...common,
       };
     case 'rationale':
       return {
@@ -130,39 +134,39 @@ function edgeFromDetails(draft: Edge): ReviewSetProposalPayload['edgeDrafts'][nu
         support: ref(draft.support),
         claim: ref(draft.claim),
         stance: draft.stance,
-        ...rationale,
+        ...common,
       };
     case 'realization':
       return {
         category: draft.category,
         abstract: ref(draft.abstract),
         concrete: ref(draft.concrete),
-        ...rationale,
+        ...common,
       };
     case 'refinement':
       return {
         category: draft.category,
         abstract: ref(draft.abstract),
         concrete: ref(draft.concrete),
-        ...rationale,
+        ...common,
       };
     case 'exclusion':
       return {
         category: draft.category,
         boundary: ref(draft.boundary),
         subject: ref(draft.subject),
-        ...rationale,
+        ...common,
       };
     case 'composition':
-      return { category: draft.category, whole: ref(draft.whole), part: ref(draft.part), ...rationale };
+      return { category: draft.category, whole: ref(draft.whole), part: ref(draft.part), ...common };
     case 'cross_reference':
-      return { category: draft.category, a: ref(draft.a), b: ref(draft.b), ...rationale };
+      return { category: draft.category, a: ref(draft.a), b: ref(draft.b), ...common };
     case 'supersession':
       return {
         category: draft.category,
         successor: ref(draft.successor),
         predecessor: ref(draft.predecessor),
-        ...rationale,
+        ...common,
       };
   }
 }

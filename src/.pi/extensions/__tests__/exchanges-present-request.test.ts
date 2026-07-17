@@ -230,12 +230,25 @@ function validReviewPayload() {
       narrative: 'Commit review-set approvals as explicit graph truth only after user review.',
     },
     entityDrafts: [
-      { draftId: 'goal-review', plane: 'intent', kind: 'goal', title: 'Review graph proposals' },
-      { draftId: 'req-approve', plane: 'intent', kind: 'requirement', title: 'Approval is atomic' },
+      {
+        draftId: 'goal-review',
+        settlement: 'settled' as const,
+        plane: 'intent',
+        kind: 'goal',
+        title: 'Review graph proposals',
+      },
+      {
+        draftId: 'req-approve',
+        settlement: 'settled' as const,
+        plane: 'intent',
+        kind: 'requirement',
+        title: 'Approval is atomic',
+      },
     ],
     edgeDrafts: [
       {
         category: 'dependency',
+        settlement: 'settled' as const,
         dependency: { draftId: 'req-approve' },
         dependent: { draftId: 'goal-review' },
       },
@@ -259,18 +272,21 @@ function validPlanReviewPayload() {
     entityDrafts: [
       {
         draftId: 'frontier-scope-proof',
+        settlement: 'settled' as const,
         plane: 'plan',
         kind: 'frontier',
         title: 'Scope proof frontier',
       },
       {
         draftId: 'scope-handoff',
+        settlement: 'settled' as const,
         plane: 'plan',
         kind: 'scope',
         title: 'Executor handoff package',
       },
       {
         draftId: 'check-handoff-proof',
+        settlement: 'settled' as const,
         plane: 'oracle',
         kind: 'check',
         title: 'Scope handoff proof',
@@ -279,11 +295,13 @@ function validPlanReviewPayload() {
     edgeDrafts: [
       {
         category: 'composition',
+        settlement: 'settled' as const,
         whole: { draftId: 'frontier-scope-proof' },
         part: { draftId: 'scope-handoff' },
       },
       {
         category: 'dependency',
+        settlement: 'settled' as const,
         dependency: { draftId: 'check-handoff-proof' },
         dependent: { draftId: 'scope-handoff' },
       },
@@ -1058,10 +1076,10 @@ describe('structured exchange ask tools', () => {
     if (!structuralIllegal) throw new Error('present_review_set returned no structural-illegal result');
     const structuralIllegalRendered = tool.renderResult(structuralIllegal, {}, theme).render?.(80).join('\n');
 
-    expect(richRendered).toContain('Terms');
+    expect(richRendered).not.toContain('Terms');
     expect(richRendered).toContain('Intent');
-    expect(richRendered).toContain('goal         G1    Review graph proposals');
-    expect(richRendered).toContain('refs: G1');
+    expect(richRendered).toContain('goal         G1    Review graph proposals [settled]');
+    expect(richRendered).toContain('refs: G1 [settled]');
     expect(richRendered).not.toContain('accepted');
     expect(richRendered).not.toContain('committed');
     expect(richRendered).not.toContain('applied');

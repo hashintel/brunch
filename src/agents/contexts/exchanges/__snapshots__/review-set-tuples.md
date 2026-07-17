@@ -4,20 +4,20 @@
 
 > Rationale here
 
-- __$G2: Render sweep stays honest__
-  - depends on __$REQ5__
-- __$REQ5: Details leaves must be accounted for__
+- __$G2: Render sweep stays honest [settled]__
+  - depends on __$REQ5__ [settled]
+- __$REQ5: Details leaves must be accounted for [settled]__
   
   Every populated details leaf is either rendered or explicitly elided.
-  - depends on __MOD1__
-- __$CH3: Render-honesty invariant test__
+  - depends on __MOD1__ [settled]
+- __$CH3: Render-honesty invariant test [settled]__
   
   The invariant walks the structured details payload.
   
   It fails when a formatter silently drops a meaningful leaf.
   - witnesses __$REQ5__ *(for)*
     
-    > the invariant is the only oracle that catches a silently dropped details leaf.
+    > the invariant is the only oracle that catches a silently dropped details leaf. [settled]
 
 ## Review: accepted
 
@@ -27,15 +27,15 @@
 
 > Additional reasoning / rationale.
 
-- __$REQ6: Rollback rehearsal before each release__
-  - refines __REQ5__
-  - depends on __MOD1__
+- __$REQ6: Rollback rehearsal before each release [settled]__
+  - refines __REQ5__ [settled]
+  - depends on __MOD1__ [settled]
 
 Other new edges:
 
 - __CH1__ witnesses __REQ5__ *(for)*
   
-  > the boundary test already exercises the rollback path end to end.
+  > the boundary test already exercises the rollback path end to end. [settled]
 
 ## Review: changes requested
 
@@ -47,8 +47,8 @@ Other new edges:
 
 > One frontier became two; this draft records the boundary.
 
-- __$F4: Exchange answering chrome__
-  - part of __F5__
+- __$F4: Exchange answering chrome [settled]__
+  - part of __F5__ [settled]
 
 ## Review: rejected
 
@@ -60,19 +60,19 @@ Other new edges:
 
 > Rationale here
 
-- __$G2: Render sweep stays honest__
-  - depends on __$REQ5__
-- __$REQ5: Details leaves must be accounted for__
+- __$G2: Render sweep stays honest [settled]__
+  - depends on __$REQ5__ [settled]
+- __$REQ5: Details leaves must be accounted for [settled]__
   
   Every populated details leaf is either rendered or explicitly elided.
-  - depends on __MOD1__
-- __$CH3: Render-honesty invariant test__
+  - depends on __MOD1__ [settled]
+- __$CH3: Render-honesty invariant test [settled]__
   
   The invariant walks the structured details payload.
   
   It fails when a formatter silently drops a meaningful leaf.
   - witnesses __$REQ5__ *(for)*
     
-    > the invariant is the only oracle that catches a silently dropped details leaf.
+    > the invariant is the only oracle that catches a silently dropped details leaf. [settled]
 
 **Cancelled** — The user declined to answer. Read this as wanting to change direction or reply in free text.

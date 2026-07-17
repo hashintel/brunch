@@ -279,7 +279,9 @@ async function createGraphRpcFixture(): Promise<{
       { ref: 'requirement', plane: 'intent', kind: 'requirement', title: 'Spec A requirement' },
       { ref: 'constraint', plane: 'intent', kind: 'constraint', title: 'Spec A constraint' },
     ],
-    edges: [{ category: 'dependency', source: 'requirement', target: 'constraint' }],
+    edges: [
+      { category: 'dependency', settlement: 'settled' as const, source: 'requirement', target: 'constraint' },
+    ],
   });
   const commitB = runCreateOnlyMutation(graph.commandExecutor, {
     specId: specB.specId,
@@ -1369,6 +1371,7 @@ describe('JSON-RPC handlers', () => {
         {
           draftId: 'requirement-draft',
           proposedCode: 'REQ1',
+          settlement: 'settled' as const,
           plane: 'intent',
           kind: 'requirement',
           title: 'Reviewed requirement',
@@ -1378,6 +1381,7 @@ describe('JSON-RPC handlers', () => {
       edgeDrafts: [
         {
           category: 'rationale',
+          settlement: 'settled' as const,
           stance: 'for',
           support: { draftId: 'requirement-draft' },
           claim: { existingCode: 'G1' },
@@ -1640,12 +1644,13 @@ describe('JSON-RPC handlers', () => {
             {
               draft_id: 'requirement-draft',
               proposed_code: 'REQ1',
+              settlement: 'settled' as const,
               plane: 'intent',
               kind: 'requirement',
               title: 'Reviewed requirement',
             },
           ],
-          edges: [{ category: 'dependency', dependency: {}, dependent: {} }],
+          edges: [{ category: 'dependency', settlement: 'settled' as const, dependency: {}, dependent: {} }],
         },
       },
     );
@@ -2541,7 +2546,13 @@ describe('JSON-RPC handlers', () => {
           expect.objectContaining({ title: 'Spec A requirement', specId: fixture.specAId }),
           expect.objectContaining({ title: 'Spec A constraint', specId: fixture.specAId }),
         ]),
-        edges: [expect.objectContaining({ category: 'dependency', specId: fixture.specAId })],
+        edges: [
+          expect.objectContaining({
+            category: 'dependency',
+            settlement: 'settled' as const,
+            specId: fixture.specAId,
+          }),
+        ],
         lsn: fixture.specALsn,
       },
     });
@@ -2600,7 +2611,7 @@ describe('JSON-RPC handlers', () => {
         status: 'found',
         node: { id: fixture.specANodeId, specId: fixture.specAId },
         related: [{ title: 'Spec A constraint', specId: fixture.specAId }],
-        edges: [{ category: 'dependency', specId: fixture.specAId }],
+        edges: [{ category: 'dependency', settlement: 'settled' as const, specId: fixture.specAId }],
       },
     });
   });

@@ -109,6 +109,7 @@ describe('structured exchange present schemas', () => {
             {
               draft_id: 'req-approval',
               proposed_code: 'REQ1',
+              settlement: 'advisory',
               plane: 'intent',
               kind: 'requirement',
               title: 'Approval is atomic',
@@ -117,6 +118,7 @@ describe('structured exchange present schemas', () => {
           edges: [
             {
               category: 'dependency',
+              settlement: 'settled',
               dependency: { draft_id: 'req-approval' },
               dependent: { existing_code: 'G1' },
             },

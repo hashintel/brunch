@@ -226,9 +226,16 @@ describe('standalone web session host production entry', () => {
                   grounding: { summary: 'Approve one cohesive requirement.', support: ['User request'] },
                   pitch: { title: 'Approve reviewed requirement', narrative: 'Commit this exact set once.' },
                   entityDrafts: [
-                    { draftId: 'goal-draft', plane: 'intent', kind: 'goal', title: 'Reliable approval' },
+                    {
+                      draftId: 'goal-draft',
+                      settlement: 'settled' as const,
+                      plane: 'intent',
+                      kind: 'goal',
+                      title: 'Reliable approval',
+                    },
                     {
                       draftId: 'requirement-draft',
+                      settlement: 'settled' as const,
                       plane: 'intent',
                       kind: 'requirement',
                       title: 'Atomic approval',
@@ -238,6 +245,7 @@ describe('standalone web session host production entry', () => {
                   edgeDrafts: [
                     {
                       category: 'rationale',
+                      settlement: 'settled' as const,
                       stance: 'for',
                       support: { draftId: 'requirement-draft' },
                       claim: { draftId: 'goal-draft' },
@@ -294,8 +302,13 @@ describe('standalone web session host production entry', () => {
       exchangeId: 'web-review-set',
       reviewSet: {
         nodes: [
-          { draft_id: 'goal-draft', proposed_code: 'G1', title: 'Reliable approval' },
-          { draft_id: 'requirement-draft', proposed_code: 'REQ1', title: 'Atomic approval' },
+          { draft_id: 'goal-draft', proposed_code: 'G1', settlement: 'settled', title: 'Reliable approval' },
+          {
+            draft_id: 'requirement-draft',
+            proposed_code: 'REQ1',
+            settlement: 'settled',
+            title: 'Atomic approval',
+          },
         ],
         edges: [expect.objectContaining({ category: 'rationale' })],
       },

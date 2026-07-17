@@ -218,6 +218,10 @@ Rules:
 - Do not add `proposal_entry_id`, `pitch`, `user_rubric`, `meta_rubric`, `graph_drafts`, `entity_drafts`, `edge_drafts`, `command_payload`, per-item `basis`, or raw DB ids to this details shape.
 - Candidate rubrics are candidate-specific; do not copy candidate comparison facets into review-set details.
 
+**D27-L materialized (FE-1187):** the boundary and details schemas require
+`settlement: advisory | settled` on every node and every role-named edge draft,
+while continuing to reject per-item `basis` and raw database ids.
+
 ### `present_candidates`
 
 Exact approved shape:

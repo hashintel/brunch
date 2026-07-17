@@ -238,6 +238,7 @@ describe('structured exchange loop helpers', () => {
         {
           draft_id: 'g1',
           proposed_code: 'G1',
+          settlement: 'settled',
           plane: 'intent',
           kind: 'goal',
           title: 'Review graph proposals',
@@ -407,6 +408,7 @@ describe('structured exchange loop helpers', () => {
           {
             draft_id: 'g1',
             proposed_code: 'G1',
+            settlement: 'settled',
             plane: 'intent',
             kind: 'goal',
             title: 'Review graph proposals',

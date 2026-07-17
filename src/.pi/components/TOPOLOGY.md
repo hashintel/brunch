@@ -1,6 +1,6 @@
 # `.pi/components` — Reusable Pi TUI components
 
-SPEC decisions: D52-L (sealed Pi-harness runtime surface), D123-L (Pi-native model/auth surface), D121-L (provider-facing tool-schema adapter).
+SPEC decisions: D27-L (review settlement), D52-L (sealed Pi-harness runtime surface), D121-L (provider-facing tool-schema adapter), D123-L (Pi-native model/auth surface), D131-L (review concern groups).
 
 This directory owns reusable components rendered inside the embedded Pi coding-agent harness: TUI overlays, chrome regions, message helpers, and the shared visual primitives (theme/badge/segment-track) they build on. These are **Pi-native presentation pieces**, not generic React components and not product wiring.
 
@@ -48,8 +48,9 @@ components/
 ├── exchange-decision-picker.ts bordered single-decision exchange response picker
 ├── exchange-questionnaire.ts   one-terminal ordered questionnaire with Back/Next/final Submit
 ├── exchange-review-set-result.ts details-backed `present_review_set` transcript
-│                                renderer; presents proposed node/edge drafts and
-│                                proposed graph codes as non-committal proposal cards
+│                                renderer; presents proposed node/edge drafts, graph codes, and
+│                                each item's settlement in populated-only Terms/concern groups
+│                                with canonical relative order (D27-L/D131-L)
 ├── exchange-terminal-result.ts render-only ask terminal status rail wrapped around
 │                                formatter-owned canonical Markdown
 ├── exchange-markdown-body.ts   shared structured-exchange markdown body projection/theme used by

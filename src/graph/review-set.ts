@@ -16,7 +16,7 @@ import {
 } from './command-executor/role-named-edge-draft.js';
 import { EDGE_CATEGORY_METADATA } from './policy/category-policy.js';
 import { EDGE_CATEGORIES, EDGE_STANCES, NODE_KINDS, NODE_PLANES } from './schema/kinds.js';
-import type { NodeKind, NodePlane } from './schema/nodes.js';
+import type { NodeKind, NodePlane, NodeSettlement } from './schema/nodes.js';
 import { formatGraphNodeCode, parseGraphNodeCode } from './schema/nodes.js';
 
 type ReviewSetLens = 'intent' | 'design' | 'oracle' | 'plan';
@@ -37,6 +37,7 @@ interface ReviewSetEntityDraft {
   readonly plane: NodePlane;
   readonly kind: string;
   readonly proposedCode: string;
+  readonly settlement: NodeSettlement;
   readonly title: string;
   readonly body?: string | undefined;
   readonly detail?: unknown;
@@ -44,7 +45,9 @@ interface ReviewSetEntityDraft {
 
 type ReviewSetEndpointRef = { readonly draftId: string } | { readonly existingCode: string };
 
-type ReviewSetEdgeDraft = RoleNamedEdgeDraftOf<ReviewSetEndpointRef>;
+type ReviewSetEdgeDraft = RoleNamedEdgeDraftOf<ReviewSetEndpointRef> & {
+  readonly settlement: NodeSettlement;
+};
 
 export interface ReviewSetProposalPayload {
   readonly schemaVersion: 1;
@@ -91,7 +94,7 @@ const zReviewSetEdgeDraftForBoundary = z
         dependent: zReviewSetEndpointRefForBoundary,
         rationale: z.string().optional(),
       })
-      .strict(),
+      .loose(),
     z
       .object({
         category: z.literal('witness'),
@@ -100,7 +103,7 @@ const zReviewSetEdgeDraftForBoundary = z
         stance: z.enum(['for', 'against']),
         rationale: z.string().optional(),
       })
-      .strict(),
+      .loose(),
     z
       .object({
         category: z.literal('rationale'),
@@ -109,7 +112,7 @@ const zReviewSetEdgeDraftForBoundary = z
         stance: z.enum(['for', 'against']),
         rationale: z.string().optional(),
       })
-      .strict(),
+      .loose(),
     z
       .object({
         category: z.literal('realization'),
@@ -117,7 +120,7 @@ const zReviewSetEdgeDraftForBoundary = z
         concrete: zReviewSetEndpointRefForBoundary,
         rationale: z.string().optional(),
       })
-      .strict(),
+      .loose(),
     z
       .object({
         category: z.literal('refinement'),
@@ -125,7 +128,7 @@ const zReviewSetEdgeDraftForBoundary = z
         concrete: zReviewSetEndpointRefForBoundary,
         rationale: z.string().optional(),
       })
-      .strict(),
+      .loose(),
     z
       .object({
         category: z.literal('exclusion'),
@@ -133,7 +136,7 @@ const zReviewSetEdgeDraftForBoundary = z
         subject: zReviewSetEndpointRefForBoundary,
         rationale: z.string().optional(),
       })
-      .strict(),
+      .loose(),
     z
       .object({
         category: z.literal('composition'),
@@ -141,7 +144,7 @@ const zReviewSetEdgeDraftForBoundary = z
         part: zReviewSetEndpointRefForBoundary,
         rationale: z.string().optional(),
       })
-      .strict(),
+      .loose(),
     z
       .object({
         category: z.literal('cross_reference'),
@@ -149,7 +152,7 @@ const zReviewSetEdgeDraftForBoundary = z
         b: zReviewSetEndpointRefForBoundary,
         rationale: z.string().optional(),
       })
-      .strict(),
+      .loose(),
     z
       .object({
         category: z.literal('supersession'),
@@ -157,8 +160,9 @@ const zReviewSetEdgeDraftForBoundary = z
         predecessor: zReviewSetEndpointRefForBoundary,
         rationale: z.string().optional(),
       })
-      .strict(),
+      .loose(),
   ])
+  .and(z.object({ settlement: z.enum(['advisory', 'settled']) }).loose())
   .describe('Role-named edge draft; companion endpoint fields are determined by category.');
 
 /**
@@ -196,6 +200,7 @@ export const zReviewSetProposalPayloadForBoundary = z
             plane: z.enum(NODE_PLANES),
             kind: z.string().min(1),
             proposedCode: z.string().min(1).optional(),
+            settlement: z.enum(['advisory', 'settled']),
             title: z.string().min(1),
             body: z.string().optional(),
             detail: z.unknown().optional(),
@@ -311,6 +316,7 @@ function toCreateGraphNodeInput(draft: ReviewSetEntityDraft): CreateGraphNodeInp
     plane: draft.plane,
     kind: draft.kind,
     title: draft.title,
+    settlement: draft.settlement,
     ...(draft.body !== undefined ? { body: draft.body } : {}),
     ...(draft.detail !== undefined ? { detail: draft.detail } : {}),
   };
@@ -411,6 +417,9 @@ function validateEntityDrafts(
         message: 'proposedCode must be non-empty when present',
       });
     }
+    if (!isOneOf(draft.settlement, ['advisory', 'settled'])) {
+      diagnostics.push({ field: `${path}.settlement`, message: 'settlement must be advisory or settled' });
+    }
     if (typeof draft.title !== 'string' || draft.title.trim().length === 0) {
       diagnostics.push({ field: `${path}.title`, message: 'title must be non-empty' });
     }
@@ -477,6 +486,9 @@ function validateEdgeDrafts(value: unknown, diagnostics: Diagnostic[]): void {
       diagnostics.push({ field: `${path}.relation`, message: 'relation is retired; use category' });
     if ('basis' in draft)
       diagnostics.push({ field: `${path}.basis`, message: 'per-item basis is not accepted' });
+    if (!isOneOf(draft.settlement, ['advisory', 'settled'])) {
+      diagnostics.push({ field: `${path}.settlement`, message: 'settlement must be advisory or settled' });
+    }
     if ('sourceDraftId' in draft) {
       diagnostics.push({
         field: `${path}.sourceDraftId`,

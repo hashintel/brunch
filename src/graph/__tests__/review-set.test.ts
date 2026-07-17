@@ -32,6 +32,7 @@ function validPayload(overrides: Partial<ReviewSetProposalPayload> = {}): Review
       {
         draftId: 'goal-launch',
         proposedCode: 'G1',
+        settlement: 'settled' as const,
         plane: 'intent',
         kind: 'goal',
         title: 'Launch safely',
@@ -39,6 +40,7 @@ function validPayload(overrides: Partial<ReviewSetProposalPayload> = {}): Review
       {
         draftId: 'req-rollback',
         proposedCode: 'REQ1',
+        settlement: 'settled' as const,
         plane: 'intent',
         kind: 'requirement',
         title: 'Rollback path exists',
@@ -46,6 +48,7 @@ function validPayload(overrides: Partial<ReviewSetProposalPayload> = {}): Review
       {
         draftId: 'crit-observable',
         proposedCode: 'AC1',
+        settlement: 'settled' as const,
         plane: 'intent',
         kind: 'criterion',
         title: 'Operators can observe failures',
@@ -54,12 +57,14 @@ function validPayload(overrides: Partial<ReviewSetProposalPayload> = {}): Review
     edgeDrafts: [
       {
         category: 'dependency',
+        settlement: 'settled' as const,
         dependency: { draftId: 'req-rollback' },
         dependent: { draftId: 'goal-launch' },
         rationale: 'Rollback capability is required for safe launch.',
       },
       {
         category: 'rationale',
+        settlement: 'settled' as const,
         support: { draftId: 'crit-observable' },
         claim: { draftId: 'goal-launch' },
         stance: 'for',
@@ -89,9 +94,21 @@ describe('review-set graph payload translation', () => {
       payload: {
         ...validPayload(),
         entityDrafts: [
-          { draftId: 'goal-next', plane: 'intent', kind: 'goal', title: 'Next goal' },
-          { draftId: 'goal-after', plane: 'intent', kind: 'goal', title: 'Goal after that' },
-          { draftId: 'req-next', plane: 'intent', kind: 'requirement', title: 'Next requirement' },
+          { draftId: 'goal-next', settlement: 'settled', plane: 'intent', kind: 'goal', title: 'Next goal' },
+          {
+            draftId: 'goal-after',
+            settlement: 'settled',
+            plane: 'intent',
+            kind: 'goal',
+            title: 'Goal after that',
+          },
+          {
+            draftId: 'req-next',
+            settlement: 'settled',
+            plane: 'intent',
+            kind: 'requirement',
+            title: 'Next requirement',
+          },
         ],
       },
     });
@@ -141,6 +158,7 @@ describe('review-set graph payload translation', () => {
         edgeDrafts: [
           {
             category: 'rationale',
+            settlement: 'settled' as const,
             support: { draftId: 'crit-observable' },
             claim: { draftId: 'goal-launch' },
             stance: 'maybe',
@@ -183,6 +201,7 @@ describe('review-set graph payload translation', () => {
         edgeDrafts: [
           {
             category: 'realization',
+            settlement: 'settled' as const,
             abstract: { existingCode: 'G1' },
             concrete: { draftId: 'req-rollback' },
           },
@@ -204,6 +223,7 @@ describe('review-set graph payload translation', () => {
         edgeDrafts: [
           {
             category: 'realization',
+            settlement: 'settled' as const,
             abstract: { existingCode: 'REQ1' },
             concrete: { draftId: 'req-rollback' },
           },
@@ -227,6 +247,7 @@ describe('review-set graph payload translation', () => {
         edgeDrafts: [
           {
             category: 'dependency',
+            settlement: 'settled' as const,
             source: { draftId: 'req-rollback' },
             target: { draftId: 'goal-launch' },
           } as never,
@@ -251,6 +272,7 @@ describe('review-set graph payload translation', () => {
         edgeDrafts: [
           {
             category: 'dependency',
+            settlement: 'settled' as const,
             dependency: { draftId: 'req-rollback' },
             dependent: { draftId: 'goal-launch' },
             stance: 'for',
@@ -273,6 +295,7 @@ describe('review-set graph payload translation', () => {
         edgeDrafts: [
           {
             category: 'realization',
+            settlement: 'settled' as const,
             abstract: { existing: 1 },
             concrete: { draftId: 'goal-launch' },
           } as never,

@@ -384,10 +384,18 @@ describe('session presentation', () => {
         grounding: { summary: 'User-approved proposal.', support: [] },
         pitch: { title: 'Approve graph changes', narrative: 'One cohesive set.' },
         entityDrafts: [
-          { draftId: 'goal', proposedCode: 'G1', plane: 'intent', kind: 'goal', title: 'Clear outcome' },
+          {
+            draftId: 'goal',
+            proposedCode: 'G1',
+            settlement: 'settled' as const,
+            plane: 'intent',
+            kind: 'goal',
+            title: 'Clear outcome',
+          },
           {
             draftId: 'req',
             proposedCode: 'REQ1',
+            settlement: 'settled' as const,
             plane: 'intent',
             kind: 'requirement',
             title: 'Atomic approval',
@@ -398,6 +406,7 @@ describe('session presentation', () => {
         edgeDrafts: [
           {
             category: 'dependency',
+            settlement: 'settled' as const,
             dependency: { draftId: 'goal' },
             dependent: { draftId: 'req' },
             rationale: 'Requirement serves goal.',
