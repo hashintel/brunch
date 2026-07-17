@@ -88,7 +88,7 @@ const MOVE_MENU_ITEMS = {
 } as const satisfies Record<ProcessMove, SessionOrientationMenuItem>;
 
 export const CODE_SESSION_ORIENTATION_MENU = {
-  title: 'Choose how Execute mode should continue',
+  title: 'Choose a process move for Execute mode',
   topLabel: '[ Execute ]',
   items: [MOVE_MENU_ITEMS.prepare_execution],
 } as const satisfies SessionOrientationMenuDescriptor;

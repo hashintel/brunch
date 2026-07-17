@@ -31,7 +31,7 @@ describe('consequential-fact production campaign entry', () => {
       'Choose a specification\n                    │ › Start a new specification                                                  │',
       'New specification title',
       'Is this a fresh, greenfield specification?\n› Yes',
-      'Choose how Specify mode should continue\n│  › 1. Work by decision                                                                                               ▐\n│    2. Work by example                                                                                                ▐',
+      'Choose how Specify mode should work\n│  › 1. Work by decision                                                                                               ▐\n│    2. Work by example                                                                                                ▐',
       'Prior transcript: Review set context.\nWhat problem does Review Diff solve, and who feels it most acutely?\nenter submits\n(anthropic) claude-sonnet-4-6 • medium',
       'What compliance or audit constraints are missing?\nenter submits\n(anthropic) claude-sonnet-4-6 • medium',
       'Which exact wording should the review preserve?\nenter submits\n(anthropic) claude-sonnet-4-6 • medium',

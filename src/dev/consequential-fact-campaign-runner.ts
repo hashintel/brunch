@@ -206,7 +206,7 @@ async function waitForSelectedOrientation(
   logPath: string,
   manifest: CampaignManifest,
 ): Promise<string> {
-  const title = 'Choose how Specify mode should continue';
+  const title = 'Choose how Specify mode should work';
   const deadline = Date.now() + manifest.timeoutMs;
   while (Date.now() < deadline) {
     const screen = await port.screen(logPath, manifest.tui.cols, manifest.tui.rows);

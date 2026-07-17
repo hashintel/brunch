@@ -208,7 +208,7 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
         keybindings,
         (_tui, previewTheme, _kb, done) =>
           new ConsultMenuComponent({
-            title: 'Choose how Execute mode should continue',
+            title: 'Choose a process move for Execute mode',
             topLabel: '[ Execute ]',
             bottomLabel: '"Alpha"',
             choices: Array.from({ length: 16 }, (_, index) => ({

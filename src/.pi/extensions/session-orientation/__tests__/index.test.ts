@@ -29,7 +29,10 @@ describe('session orientation boundary', () => {
       'disambiguate',
       'propose',
     ]);
-    expect(CODE_SESSION_ORIENTATION_MENU.items.map(({ id }) => id)).toEqual(['prepare_execution']);
+    expect(CODE_SESSION_ORIENTATION_MENU).toMatchObject({
+      title: 'Choose a process move for Execute mode',
+      items: [{ id: 'prepare_execution', label: 'Prepare execution' }],
+    });
   });
 
   it('builds exact mode-appropriate menus from fallback or explicit availability', () => {
