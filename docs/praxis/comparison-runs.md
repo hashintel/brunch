@@ -67,12 +67,19 @@ Read `<workspace>/.brunch/debug/trajectory-report.md` and retain `trajectory.jso
 
 Cross-product comparison starts from a **mission**, not a Brunch seed. Give Brunch, Claude Code, and Cursor the same product-neutral public packet, controller-only reveal policy, effort budget, and ready-document condition. A fresh Pi actor drives each live interface; opaque competitor internals never count against a target.
 
-The round-one loop is executable:
+### PM/Dora closure door
+
+Use the canonical sources below as two independent routes; do not merge judgment with the operator smoke or duplicate their procedures here.
+
+- **Dora adjudication:** follow the [`judgment prompt pack`](comparison-runs/judgment-prompt-pack.md) in order: review the identity-masked outcome packet and draft first, consult the separately held label mapping only if needed after that review, then adjudicate the explicitly unblinded normalized-process packet and draft. Keep criterion-level outcome and process conclusions separate.
+- **Second-operator Cursor smoke:** from a fresh harness-level Pi session, follow the [actor recipe's push-driven cadence and Cursor adapter](../../.agents/skills/agent-as-user-comparison/SKILL.md): verify the root interactive-shell config, launch `spawn: { agent: "cursor" }`, send one named input, end the turn without querying, and distinguish any startup-only wake from the first pushed post-input output. Use at most one bounded current-tail read after that wake if redraw ambiguity requires it, then perform the final-status, kill/dismiss, and empty-background-session checks in [Manual Testing](manual-testing.md). Record the independent operator's uncoached attestation and observations in the promoted run's blank [`addendum-04-second-operator-handover.md`](../../.fixtures/runs/agent-as-user-comparison/lockers-r1-20260716/addendum-04-second-operator-handover.md).
+
+The round-one campaign loop remains:
 
 1. instantiate [`comparison-runs/mission-packet.md`](comparison-runs/mission-packet.md), keeping the reveal key outside every target cwd;
 2. drive one fresh lane with [the actor recipe](../../.agents/skills/agent-as-user-comparison/SKILL.md);
 3. retain target-visible interaction, validity/intervention notes, cleanup status, and the target-authored ready document under `.fixtures/scratch/comparisons/<campaign-id>/`;
-4. run the masked-outcome and unblinded-process passes from [`comparison-runs/judgment-prompt-pack.md`](comparison-runs/judgment-prompt-pack.md); Dora adjudicates the drafts; and
+4. run the masked-outcome and unblinded-process passes from the judgment prompt pack; Dora adjudicates the drafts; and
 5. after review, promote the portable bundle to `.fixtures/runs/agent-as-user-comparison/<campaign-id>/` and run `npm run check:promoted-run-paths` before commit.
 
 Use push-driven hands-free control: project config lowers the query fallback floor to 5 seconds, forwards quiet output after roughly 3 seconds, and prunes superseded viewport reads before each LLM call. Send input and end the turn; act on the pushed quiet update. Query only when no push arrives or the incremental tail is ambiguous, and then read the current tail—never page historical scrollback.
