@@ -391,6 +391,35 @@ Observation: after cancelling the resumed orientation menu, the editor executed 
 Expected: native Pi tree navigation creates a usable sibling; quit/resume preserves the selected active leaf; Brunch exchange/runtime reads remain product-shaped and branch-correct.
 Disposition: retired — walkthrough passed with no follow-up defect; Card 3 automated branch-rival and reader-inventory oracles carry regression coverage.
 
+### 2026-07-17 FE-1215 operator-comparison-workflow — direct-Brunch remediation smoke
+
+Run: `.fixtures/scratch/comparisons/minimal-petri-net-editor-20260717T191333Z` (operator-driven, Brunch lane only).
+
+#### CS1 · direct-harness control · high · pass
+
+Concern: the corrected D134-L/I67-L topology — one top-level Pi session drives one direct normal-width Brunch `interactive_shell` and reaches a real Specify exchange beyond the startup splash.
+Evidence: `harness-setup.md` (direct `npm run dev-cli -- --workspace …/targets/brunch` from repo root, Brunch order 1); session `…/targets/brunch/.brunch/sessions/2026-07-17T19-15-00-852Z_019f7180-e674-7682-b416-085db90a3879.jsonl` (59 events; 45 messages; 12 `ask`, 4 `mutate_graph`, 2 `present_digest`, 1 `present_candidates`); exported `lanes/brunch/petri-net-editor-spec.md` (G1, 9 REQ, D1–D4, 7 CON); empty `lanes/claude-code/` + `targets/claude-code/` confirm Brunch-only.
+Observation: the interview advanced well past the splash into a populated graph (empty seed at LSN 1 → committed spec) and exported a review-ready document; the failed nested-viewport topology did not recur.
+Expected: one direct normal-width shell exposes a usable Brunch Specify exchange while preserving mission isolation and cleanup.
+Disposition: pass — meets FE-1215's focused stock-Pi/direct-Brunch smoke leaf (scope card consumed on completion; status in `memory/PLAN.md` §operator-comparison-workflow).
+
+#### CS2 · private-mission isolation · high · pass with residual risk
+
+Concern: whether the private mission leaked into target-visible input or was ingested from disk.
+Evidence: transcript scan of the session/`debug/trajectory.ndjson` — zero occurrences of mission-only phrasings (`private-mission`, `top-level-session-only`, `The PM wants`, `Decision latitude`, `Conversational and disclosure posture`) and zero references to the `private-mission.md`/`harness-setup.md` paths; the one matching phrase is the mission's sanctioned natural opening. Full tool-call audit: 20 calls (12 `ask`, 4 `mutate_graph`, 2 `present_digest`, 1 `present_candidates`, 1 `read`); the sole `read` targeted `src/agents/skills/propose/SKILL.md`; no `ls`/`find`/`grep` were used.
+Observation: no mission text, path, or wholesale payload entered the Brunch cwd/session; the spec content came from the elicitation exchanges, not file ingestion.
+Expected: the private-mission boundary holds without a separate actor process.
+Residual risk: `private-mission.md` is stored at the run root, two levels **above** the Brunch target cwd (`targets/brunch`), and the Brunch agent's active tools include generic `read`/`ls`/`find`/`grep` (per `debug/system-prompt.md`). Isolation held **behaviorally** (the agent did not traverse up), not by a filesystem jail; a differently-behaved contender or retry could `read ../../private-mission.md`.
+Disposition: pass for this run; residual isolation-hardening routed to `ln-plan` as `comparison-mission-isolation-hardening` (`memory/PLAN.md`). Owner: that follow-up frontier. Re-entry trigger: any future comparison run, before treating placement isolation as guaranteed.
+
+#### CS3 · harness cleanup · medium · unverified
+
+Concern: no comparison/background process remains after the run.
+Evidence: run artifacts stopped being written ~19:25Z (last `trajectory.ndjson`/session write); `ps` is not permitted in the reconciling shell, so lingering-process absence could not be independently confirmed from the artifact side.
+Observation: operator reported the run completed; scratch tree is quiescent.
+Expected: the direct shell and any child process are dismissed after cleanup.
+Disposition: logged — process-cleanup confirmation remains the operator/top-level session's responsibility for this scratch run; not a code defect. Re-entry trigger: confirm process teardown in the operator session at run end.
+
 Use future entries like:
 
 ```md
