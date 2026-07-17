@@ -1,7 +1,13 @@
 const STRING_PROMPT_KEYS = ['instructions', 'systemInstruction', 'systemPrompt'] as const;
 const BRUNCH_FOREGROUND_PROMPT_START = '<brunch-foreground-prompt>';
 const BRUNCH_FOREGROUND_PROMPT_END = '</brunch-foreground-prompt>';
-const BRUNCH_FOREGROUND_PROMPT_PATTERN = /<brunch-foreground-prompt>[\s\S]*?<\/brunch-foreground-prompt>/gu;
+const BRUNCH_FOREGROUND_PROMPT_PREFIX = `${BRUNCH_FOREGROUND_PROMPT_START}\nlength: `;
+const BRUNCH_FOREGROUND_PROMPT_SUFFIX = `\n${BRUNCH_FOREGROUND_PROMPT_END}`;
+
+interface OwnedPromptFrame {
+  readonly start: number;
+  readonly end: number;
+}
 
 export function upsertBrunchProviderSystemPrompt(payload: unknown, prompt: string): unknown {
   if (!isRecord(payload)) return undefined;
@@ -19,14 +25,9 @@ export function upsertBrunchProviderSystemPrompt(payload: unknown, prompt: strin
 
 export function upsertBrunchOwnedSystemPrompt(basePrompt: string, prompt: string): string {
   const ownedPrompt = renderOwnedPrompt(prompt);
-  let foundOwnedPrompt = false;
-  const replaced = basePrompt.replace(BRUNCH_FOREGROUND_PROMPT_PATTERN, () => {
-    if (foundOwnedPrompt) return '';
-    foundOwnedPrompt = true;
-    return ownedPrompt;
-  });
+  const replacement = replaceOwnedPromptFrames(basePrompt, ownedPrompt);
 
-  if (foundOwnedPrompt) return replaced;
+  if (replacement.found) return replacement.value;
   return basePrompt.trim().length > 0 ? `${basePrompt}\n\n${ownedPrompt}` : ownedPrompt;
 }
 
@@ -103,16 +104,12 @@ function upsertContentBlocks(blocks: readonly unknown[], prompt: string): readon
   const nextBlocks = blocks.map((block) => {
     if (!isRecord(block) || typeof block.text !== 'string') return block;
 
-    let matchedInBlock = false;
-    const nextText = block.text.replace(BRUNCH_FOREGROUND_PROMPT_PATTERN, () => {
-      matchedInBlock = true;
-      if (placedOwnedPrompt) return '';
-      placedOwnedPrompt = true;
-      return ownedPrompt;
-    });
-    if (!matchedInBlock || nextText === block.text) return block;
+    const replacement = replaceOwnedPromptFrames(block.text, placedOwnedPrompt ? undefined : ownedPrompt);
+    if (!replacement.found) return block;
+    placedOwnedPrompt = true;
+    if (replacement.value === block.text) return block;
     changed = true;
-    return { ...block, text: nextText };
+    return { ...block, text: replacement.value };
   });
 
   if (placedOwnedPrompt) return changed ? nextBlocks : blocks;
@@ -120,7 +117,63 @@ function upsertContentBlocks(blocks: readonly unknown[], prompt: string): readon
 }
 
 function renderOwnedPrompt(prompt: string): string {
-  return `${BRUNCH_FOREGROUND_PROMPT_START}\n${prompt}\n${BRUNCH_FOREGROUND_PROMPT_END}`;
+  return `${BRUNCH_FOREGROUND_PROMPT_PREFIX}${prompt.length}\n${prompt}${BRUNCH_FOREGROUND_PROMPT_SUFFIX}`;
+}
+
+function replaceOwnedPromptFrames(
+  value: string,
+  replacement: string | undefined,
+): { readonly value: string; readonly found: boolean } {
+  const frames = findOwnedPromptFrames(value);
+  if (frames.length === 0) return { value, found: false };
+
+  let cursor = 0;
+  let nextValue = '';
+  for (const [index, frame] of frames.entries()) {
+    nextValue += value.slice(cursor, frame.start);
+    if (index === 0 && replacement !== undefined) nextValue += replacement;
+    cursor = frame.end;
+  }
+  nextValue += value.slice(cursor);
+  return { value: nextValue, found: true };
+}
+
+function findOwnedPromptFrames(value: string): OwnedPromptFrame[] {
+  const frames: OwnedPromptFrame[] = [];
+  let searchFrom = 0;
+
+  while (searchFrom < value.length) {
+    const start = value.indexOf(BRUNCH_FOREGROUND_PROMPT_PREFIX, searchFrom);
+    if (start === -1) break;
+
+    const lengthStart = start + BRUNCH_FOREGROUND_PROMPT_PREFIX.length;
+    const lengthEnd = value.indexOf('\n', lengthStart);
+    if (lengthEnd === -1) break;
+
+    const encodedLength = value.slice(lengthStart, lengthEnd);
+    const contentLength = Number(encodedLength);
+    if (
+      !Number.isSafeInteger(contentLength) ||
+      contentLength < 0 ||
+      String(contentLength) !== encodedLength
+    ) {
+      searchFrom = lengthStart;
+      continue;
+    }
+
+    const contentStart = lengthEnd + 1;
+    const suffixStart = contentStart + contentLength;
+    if (!value.startsWith(BRUNCH_FOREGROUND_PROMPT_SUFFIX, suffixStart)) {
+      searchFrom = lengthStart;
+      continue;
+    }
+
+    const end = suffixStart + BRUNCH_FOREGROUND_PROMPT_SUFFIX.length;
+    frames.push({ start, end });
+    searchFrom = end;
+  }
+
+  return frames;
 }
 
 function contentToText(content: unknown, separator: string): string | undefined {
