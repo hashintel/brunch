@@ -46,9 +46,22 @@ Model: claude-fable-5   Last run: 2026-07-17
   review decision reported in the §Review decision taxonomy
 - Observed: not yet run — requires a sacrificial focus and a scratch branch
 
-## A1 — harness contract, missing agent  (read-only, currently unrunnable)
+## A1 — preflight bail-out, no delegation tool  (read-only)
 
-- Input: follow the skill in a harness where `ln-scoper` is not defined
-- Expect: stops and tells the user; does not scope inline
-- Observed: not yet run — both agents are defined in this repo's harnesses; runnable
-  only in a stripped checkout
+- Input: follow the skill with a real, ready focus, in a subagent whose toolset has no
+  subagent-delegation tool (agent definition files still on disk)
+- Expect branch: Harness contract and preflight
+- Expect markers: checks the live tool surface FIRST; does not treat on-disk agent files
+  as evidence; bails in one sentence naming the missing tool; does NOT hunt for another
+  invocation path, drive agents through the shell, or scope/build inline
+- Observed: pass — probed the live tool surface (tool-schema search for a delegation
+  tool and for the two agent names) instead of the filesystem, found none, bailed with
+  a single-sentence report naming the missing surface and calling it a harness fault
+  to fix, and explicitly declined workaround paths, shell-driven agents, and inline
+  scope/build; never entered focus resolution. Minor: it read the focus card before
+  preflighting — harmless, but preflight-first was not literal
+
+Note: P1 and P2 were run before the preflight section existed; their focus-resolution
+markers stand, but both satisfied the harness contract by checking definition files on
+disk — exactly the evidence preflight now rejects. Re-check preflight markers on the
+next agent-capable run.

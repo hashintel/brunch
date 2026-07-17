@@ -85,6 +85,9 @@ const guardrails = [
   ['ln-sync', 'TESTING_FINDINGS.md'],
   // Coordinator serialization: ln-execute must never admit two concurrent writers.
   ['ln-execute', 'one writing `ln-builder`'],
+  // Bail-out invariant: a missing delegation surface is reported in one sentence,
+  // never worked around via shell, alternate tools, or inline scope/build.
+  ['ln-execute', 'another invocation path'],
 ];
 for (const [name, phrase] of guardrails) {
   if (existsSync(skillFile(name)) && !readFileSync(skillFile(name), 'utf8').includes(phrase)) {

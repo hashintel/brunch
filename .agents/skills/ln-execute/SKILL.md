@@ -11,16 +11,18 @@ Run one execution focus by delegating scoping to the `ln-scoper` agent and build
 
 A focus may be: a named frontier in `memory/PLAN.md`; one or more active scope files under `memory/cards/`; the active `memory/REFACTOR.md` plan; or a non-frontier concern represented by category-prefixed scope files (`dev--`, `tooling--`, `docs--`). Do not invent a PLAN frontier merely because an execution artifact exists.
 
-## Harness contract
+## Harness contract and preflight
 
 Delegation requires two project agents, defined per harness under the same names:
 
 - `ln-scoper` — preloads `ln-scope`; returns scope file path(s) plus unresolved ambiguity
 - `ln-builder` — preloads `ln-build`; returns completion evidence, commit identifiers, and touched paths
 
-Both are user-less: when their loaded skill would ask a question or present routing options, they return it as their report instead of guessing. If either agent is missing in the current harness, stop and tell the user — do not scope or build inline under this skill; agent isolation is what makes the review independent. Harness-level properties (model, tool grants, research delegates) belong to the agent definitions, not to this skill.
+Both are user-less: when their loaded skill would ask a question or present routing options, they return it as their report instead of guessing. Harness-level properties (model, tool grants, research delegates) belong to the agent definitions, not to this skill. The symmetric project-local definitions live in `.claude/agents/`, `.pi/subagents/`, and `.codex/agents/`.
 
-The symmetric project-local definitions live in `.claude/agents/`, `.pi/subagents/`, and `.codex/agents/`.
+**Preflight — first action, before resolving the focus.** Check your own toolset: you need a subagent-delegation tool (`subagent` in Pi, `Agent` in Claude Code — whatever this harness names it) that can target agents named `ln-scoper` and `ln-builder`. Trust only what your tool surface actually offers: definition files on disk are not evidence, because the harness may have failed to load them. If the tool is absent or either agent name is not offered, report in one sentence exactly what is missing ("no subagent-delegation tool in my toolset" / "the delegation tool does not offer `ln-builder`") and stop. A missing delegation surface is a harness fault for the user to fix, never a puzzle to solve: do not hunt for another invocation path, do not drive agents through the shell, and do not scope or build inline — agent isolation is what makes the review independent.
+
+Preflight settles *how* to delegate, once. From then on a delegation is one tool call whose input is the packet: compose the packet, invoke the tool, wait for the report. No further deliberation about whether or how to delegate is warranted.
 
 ## Resolve the focus
 
