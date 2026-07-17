@@ -96,7 +96,7 @@ renderers: they parse their family details and render through
 `ExchangeCandidatesResultComponent` proposal cards or the
 `ExchangeReviewSetResultComponent` borderless Impact Ledger, with shared
 `details-rendering.ts` keeping legacy/malformed result fallback on canonical
-`content`. `ask` and `present_digest` intentionally use Markdown pass-through; for digest, the prose formatter content is the transcript presentation.
+`content`. `ask` uses an ask-only terminal status rail after strict read-side validation: canonical formatter Markdown remains the body; malformed/unrecognized details fall back to Markdown pass-through. `present_digest` intentionally uses Markdown pass-through because its prose formatter content is the transcript presentation.
 
 `src/exchanges/schemas/__tests__/source-boundary.test.ts` guards the
 details-contract half. `src/.pi/extensions/__tests__/exchange-family-completeness.test.ts`

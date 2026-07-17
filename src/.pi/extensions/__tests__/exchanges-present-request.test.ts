@@ -41,6 +41,7 @@ interface RegisteredTool {
     onUpdate: unknown,
     ctx: unknown,
   ) => Promise<ToolExecutionResult>;
+  renderCall: () => { render?: (width: number) => string[] };
   renderResult: (
     result: ToolExecutionResult,
     options: unknown,
@@ -936,6 +937,67 @@ describe('structured exchange ask tools', () => {
       } as never,
     );
     expect(answerStatus).not.toHaveBeenCalled();
+  });
+
+  it('renders validated ask terminals with distinct rails over canonical markdown and falls back for malformed details', async () => {
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
+    const base = {
+      schema: 'brunch.structured_exchange.request',
+      v: 1,
+      exchange_id: 'rail-fixture',
+      tool_meta: { curr: 'ask' },
+      question: { body: 'Question?' },
+    };
+    const fixtures = [
+      {
+        label: 'Answered',
+        details: { ...base, tool_meta: { curr: 'ask', next: 'capture_answer' }, answered: { text: 'Yes.' } },
+      },
+      { label: 'Cancelled', details: { ...base, cancelled: {} } },
+      { label: 'Unavailable', details: { ...base, unavailable: { message: 'No UI.' } } },
+    ];
+
+    for (const fixture of fixtures) {
+      const canonical = `# Canonical ${fixture.label}\n\nFormatter-owned body.`;
+      const rendered = ask
+        .renderResult({ content: [{ type: 'text', text: canonical }], details: fixture.details }, {}, theme)
+        .render?.(80)
+        .join('\n');
+      expect(rendered).toContain(fixture.label);
+      expect(rendered).toContain(`Canonical ${fixture.label}`);
+      expect(rendered).toContain('Formatter-owned body.');
+    }
+
+    const rejected = await ask.execute(
+      'ask-invalid-rail',
+      { exchangeId: 'bad', body: '', rawRejectedValue: 'RAW_SENTINEL' },
+      undefined,
+      undefined,
+      {} as never,
+    );
+    const rejectedRendered = ask.renderResult(rejected, {}, theme).render?.(80).join('\n');
+    expect(rejectedRendered).toContain('Input rejected');
+    expect(rejectedRendered).toContain('ask');
+    expect(rejectedRendered).toContain('body');
+    expect(rejectedRendered).toContain('retry');
+    expect(rejectedRendered).not.toContain('RAW_SENTINEL');
+
+    const fallback = ask
+      .renderResult(
+        {
+          content: [{ type: 'text', text: '# Existing fallback\n\nCanonical malformed-details body.' }],
+          details: { ...base, mystery: {} },
+        },
+        {},
+        theme,
+      )
+      .render?.(80)
+      .join('\n');
+    expect(fallback).toContain('Existing fallback');
+    expect(fallback).toContain('Canonical malformed-details body.');
+    expect(fallback).not.toMatch(/Answered|Cancelled|Unavailable|Input rejected/);
+    expect(ask.renderCall().render?.(80).join('')).toBe('');
   });
 
   it('renders present_candidates from validated details and falls back to content for malformed details', async () => {

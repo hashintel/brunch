@@ -50,6 +50,8 @@ components/
 ├── exchange-review-set-result.ts details-backed `present_review_set` transcript
 │                                renderer; presents proposed node/edge drafts and
 │                                proposed graph codes as non-committal proposal cards
+├── exchange-terminal-result.ts render-only ask terminal status rail wrapped around
+│                                formatter-owned canonical Markdown
 ├── exchange-markdown-body.ts   shared structured-exchange markdown body projection/theme used by
 │                                bordered answering components and transcript renderers
 ├── lateral-padding.ts          transparent horizontal padding wrapper

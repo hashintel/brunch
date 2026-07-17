@@ -34,7 +34,7 @@ import { toolParameters } from '../shared/tool-schema.js';
 import { collectContinuingAsk } from './ask/continuation.js';
 import type { ReviewSetStructuredExchangeDeps } from './present-review-set.js';
 import { requestChoicesViaEditor } from './shared/choices-editor.js';
-import { renderEmptyStructuredExchangeCall, renderMarkdownResult } from './shared/markdown.js';
+import { renderEmptyStructuredExchangeCall } from './shared/markdown.js';
 import {
   back,
   collectCommentRequirementStep,
@@ -44,6 +44,7 @@ import {
   unavailable,
   type StepResult,
 } from './shared/required-input.js';
+import { renderAskTerminalResult } from './shared/terminal-result.js';
 import { withWorkingIndicatorHidden, type StructuredExchangeUiContext } from './shared/ui-context.js';
 import { validationFailureResult } from './shared/validation.js';
 
@@ -755,7 +756,7 @@ export function createAskTool(liveAsk?: LiveAskOpener, reviewDeps?: ReviewSetStr
     },
 
     renderResult(resultValue, _options, theme) {
-      return renderMarkdownResult(resultValue, theme);
+      return renderAskTerminalResult(resultValue, theme);
     },
   });
 }
