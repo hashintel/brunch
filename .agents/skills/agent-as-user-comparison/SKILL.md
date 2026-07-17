@@ -37,7 +37,12 @@ Record the launch configuration and final process/session status as well.
 - Debit every target question, target turn, elapsed-time interval, and mechanical intervention according to the packet. Do not alter budgets or conversational policy for a target.
 - Stop when the target has authored the named settled specification Markdown document, or immediately when any budget expires. On expiry, retain the best target-authored artifact and mark the lane budget-exhausted. The actor may transport the artifact but must not reconstruct or improve it.
 
-## Witnessed overlay cadence
+## Push-driven overlay cadence
+
+Environment prerequisites (verify before launching a lane):
+
+- `.pi/interactive-shell.json` sets `minQueryIntervalSeconds` 5, `handsFreeQuietThreshold` 3000, `handsFreeUpdateMaxChars` 8000;
+- extensions `.pi/extensions/interactive-shell-push.ts` (forwards quiet-period output into context as turn-triggering `interactive-shell-quiet-update` messages) and `.pi/extensions/interactive-shell-prune.ts` (collapses superseded shell reads before each LLM call) are loaded.
 
 Start `interactive_shell` in hands-free mode with these settings:
 
@@ -47,16 +52,17 @@ updateInterval 30000
 autoExitOnQuiet false
 ```
 
-Gate evidence: **input delivery ~10s; render readback floored by a 60s query rate limit → budget 60–70s per observe-act cycle, send input before querying, tolerate empty renders in the first ~30s of a session.**
+Actor loop — push first, pull as fallback:
 
-Therefore:
+1. launch and allow startup; do not interpret an early empty render as target failure;
+2. when an answer/action is determined, send it (`inputKeys`/`inputPaste` with `submit`) and **end the turn without querying**;
+3. act when woken by a pushed `interactive-shell-quiet-update` (new output ~3s after the target goes quiet) or a lifecycle message (exit/kill/takeover);
+4. the pushed tail is an incremental output stream, not a rendered viewport — when a TUI redraw makes it ambiguous, confirm with one bounded status query (`outputLines`/`outputMaxChars`, live tail only, never page scrollback); and
+5. query as fallback only when no push has arrived well past the expected response time; queries are floored at the 5s rate limit — never rapid-poll.
 
-1. launch and allow startup;
-2. when an answer/action is determined, send it before making a status query;
-3. wait for the 60–70 second observe-act budget before relying on rendered readback; and
-4. never rapid-poll or interpret an early empty render as target failure.
+Cadence gate: the v1 pull cadence (input delivery ~10s; readback floored by a then-60s query rate limit; 60–70s per observe-act cycle) was witnessed in campaign `lockers-r1-20260716`. This push-driven loop is **not yet witnessed** — treat the first observe-act cycle of the next lane as its cadence witness and record the observed timings in the lane ledger before relying on them.
 
-Keep queries bounded (`outputLines`/`outputMaxChars`) and copy only target-visible interaction into the normalized comparison record.
+Copy only target-visible interaction into the normalized comparison record.
 
 ## Target adapters
 
