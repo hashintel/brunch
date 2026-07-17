@@ -304,29 +304,29 @@ Completion report:
 
 Skipped-test-count delta vs parent of implementation commit `b882d70f`: 0.
 
-#### R8 · digest choreography · high · built; provider conduct pending
+#### R8 · digest choreography · high · built; fresh provider campaign pending (0/3)
 
 Concern: ingest digest review and clarification ordering.
 Evidence: `remediations-3a.md` §3, screenshots `digest-review-as-ask` and `after-review-accepted`; session JSONL `2026-07-14T08-45-39-646Z_…` entries 12–21.
 Observation: `present_digest` did run. Its D110-L declaration mechanically supplied the approve/request-changes/reject continuation; the model's first attempt to override that continuation failed validation, then the declared review was accepted. Only afterward did the assistant ask three clarifying questions that would have been useful before mapping.
 Expected: the assistant presents the digest, asks a simple free-text confirmation such as “does that sound right?”, asks any material clarification questions before mapping, and then maps the confirmed understanding. A heavyweight change-request review protocol should not be imposed when ordinary conversational correction is clearer.
-Disposition: built — D110-L/D106-L’s conversational free-text digest feedback, digest-referencing bounded questionnaire (or single-select confirmation), runtime-copied final abstract, and successor/capture guards are materialized and mechanically covered. The remaining claim is provider conduct: three controlled runs must use the intended choreography without forbidden review/combinatorial/post-review-mutation rivals. Owner: FE-1187 provider-evidence gate; re-enter after `ln-oracles` refreshes its conduct oracle.
+Disposition: built — D110-L/D106-L’s conversational free-text digest feedback, digest-referencing bounded questionnaire (or single-select confirmation), runtime-copied final abstract, and successor/capture guards are materialized and mechanically covered. The stopped 2026-07-17 run produced a human-approved faithful digest, but the governing review contract was invalidated before settlement, so this is a non-counting observation rather than a pass. Owner: paused FE-1187 provider-evidence gate; re-enter only by explicit user decision, then reconcile the extractor/oracle and restart at 0/3.
 
-#### R9 · multi-question collection · medium · built; provider conduct pending
+#### R9 · multi-question collection · medium · built; fresh provider campaign pending (0/3)
 
 Concern: several related clarification questions forced into one structured ask.
 Evidence: `remediations-3a.md` §3, screenshot `after-review-accepted`.
 Observation: the assistant compressed several questions into a few permutation options, producing an awkward and incomplete choice surface.
 Expected: related questions can be answered without combinatorial options—either as a short questionnaire-style interaction or as a deliberate sequence of focused asks.
-Disposition: built — D38-L/D116-L’s bounded one-terminal questionnaire, fixed ordered keyed answers, TUI Back/Next/final Submit path, and schema-tagged RPC editor envelope are materialized and mechanically covered. The remaining claim is provider conduct: three controlled runs must prefer one bounded questionnaire over combinatorial options when several material questions remain. Owner: FE-1187 provider-evidence gate; re-enter after `ln-oracles` refreshes its conduct oracle.
+Disposition: built — D38-L/D116-L’s bounded one-terminal questionnaire, fixed ordered keyed answers, TUI Back/Next/final Submit path, and schema-tagged RPC editor envelope are materialized and mechanically covered. In the stopped 2026-07-17 run the provider treated only one conflict as decision-blocking and used one standalone option ask; that non-counting observation is neither pass nor failure. The revised oracle must distinguish one remaining material question from several. Owner: paused FE-1187 provider-evidence gate; re-enter only by explicit user decision, then reconcile the extractor/oracle and restart at 0/3.
 
-#### R10 · large-capture review scale · high · built; provider/human evidence pending
+#### R10 · large-capture review scale · high · corrected; fresh provider/human evidence pending (0/3)
 
 Concern: large advisory review-set presentation and persistence.
 Evidence: `remediations-3a.md` §3, screenshots `large review set after two following questions` and `review accepted and persisted`; session JSONL `2026-07-14T08-45-39-646Z_…` entries 22–31.
 Observation: after a long wait, one 17-node/11-edge review set overwhelmed the TUI. After one review acceptance, the assistant deliberately issued two `mutate_graph` calls split by settlement: settled intent at LSN 2, then advisory sketches at LSN 3. This was not one `acceptReviewSet` transaction being internally chunked.
 Expected: large capture does not require the user to inspect an unmanageably long TUI review set; one accepted proposal has honest authority and receipt semantics, and settlement differences are visible before acceptance rather than discovered through post-accept mutation splitting.
-Disposition: built — D99-L advisory settlement, D27-L shared atomic local/RPC settlement, and the borderless Impact Ledger with deterministic content/width/differential oracles are materialized. Remaining claims are provider conduct (advisory-before-review and no post-review mutation) and one human judgment of materiality, proposition cohesion, inspectability, and fatigue. Owner: FE-1187 provider-evidence gate and consolidated outer checkpoint; re-enter after `ln-oracles` refreshes the conduct oracle.
+Disposition: corrected in `45a61d93f` + `805243a4f` (topology follow-up `ef60504d2`). Every review node and role-named edge now requires its own advisory/settled status; local TUI and RPC preserve the exact mixed set through one `acceptReviewSet` transaction, LSN, change-log row, and receipt, with duplicate/post-approval negative space. Model-facing and TUI review presentations show each item status; the Impact Ledger omits empty Terms/concern groups in canonical relative order, and existing-host edges render exactly once in a trailing populated Connections section. Direct advisory `mutate_graph` remains supported when no extra review is useful. Focused contract/render stacks and `npm run verify` passed (2,441 tests passed, 2 skipped; skipped delta 0). Remaining claims—extractor/oracle reconciliation, three fresh provider samples, and human fatigue/inspectability judgment—are paused at user direction after the `remediation-4` branch tie-off. Owner: paused FE-1187 provider-evidence gate and consolidated outer checkpoint; re-enter only by explicit user decision. The stopped run at `.fixtures/scratch/provider-conduct/run-1-20260717T170400Z/` has no report and counts 0/3.
 
 #### R11 · scratchpad disclosure · high · fixed
 

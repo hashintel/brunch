@@ -1,7 +1,7 @@
 # FE-1187 consolidated outer checkpoint
 
 Frontier: walkthrough-remediation-2
-Status:   active
+Status:   paused — user-directed hold; waits on three fresh provider runs and A48-L
 Mode:     single
 Created:  2026-07-13
 
@@ -10,7 +10,7 @@ Posture: proving (inherited from walkthrough-remediation-2)
 Human-gated checkpoint — do not delegate to a writing builder.
 
 - The deterministic tranche landed on `ln/fe-1187-remediation-3`: self-describing cancellation, standalone-cancel guidance, actionable `/introspect`, and the sweep-debt JSONL tripwire.
-- Repeated-offer guidance, design/oracle fan-in conduct, compact default tool rendering, exchange markdown, review-set cards, and nested-Escape help already had production contracts plus inner oracles; this checkpoint judges live adherence and visual quality rather than adding duplicate implementation.
+- Repeated-offer guidance, design/oracle fan-in conduct, compact default tool rendering, exchange markdown, and nested-Escape help already have production contracts plus inner oracles. D27-L's mixed-settlement amendment and populated-group-only Impact Ledger are built. At user direction this checkpoint remains paused after the `remediation-4` tie-off; on explicit re-entry it still waits for the provider gate and A48-L, then judges live adherence and visual quality rather than adding duplicate implementation.
 - Workbench state and `.brunch/debug/` remain ephemeral. Record outcomes in `TESTING_FINDINGS.md`; promote reviewed portable run evidence only when it earns durable value.
 - Any failure that changes implementation shape stops this checkpoint and routes back through `ln-scope`; do not pre-author residual fixes.
 
@@ -69,6 +69,10 @@ Session C — visual/generative checkpoint
 ├── one live TUI boot in the opposite terminal theme
 ├── inspect compact default tools, review-set cards, markdown/newlines, node-reference legibility,
 │   border distinctness, nested picker help, and persistent editor focus
+├── verify every proposed node and edge settlement is inspectable before approval
+├── approve one honest mixed advisory/settled proposal and verify one atomic receipt/readback
+├── verify empty Terms/concern groups are absent and populated groups retain canonical order
+├── verify the separate web semantic review does not lose node/edge settlement
 ├── enter intent/design/oracle/frontier-plan flows through deterministic junctures
 └── inspect session JSONL for menu→conduct routing evidence
 ```
@@ -115,7 +119,7 @@ Stop condition: any result whose correction shape is not already explicit routes
 ✓ TESTING_FINDINGS.md — every beat above has evidence plus pass/fixed/promoted/retired disposition; no ownerless deferral
 ✓ actual session JSONL — both tripwire expectations emit compact reports with honest exit status; record exact session path and interval result
 ✓ Session B user judgment — cancellation/guidance noticeability, non-repetition, synthesis conduct, and B5 breadth are explicitly judged
-✓ Session C user judgment — both gallery themes and one opposite-theme live TUI are explicitly judged
+✓ Session C user judgment — both gallery themes and one opposite-theme live TUI are explicitly judged; mixed settlement is inspectable and no empty heading/`None` pair renders
 ✓ session JSONL inspection — each observed generative flow records deterministic menu→conduct routing evidence
 ✓ no failed/unknown beat is silently converted into implementation; each becomes a named new scope, KA-owned row, or explicit retirement
 ```

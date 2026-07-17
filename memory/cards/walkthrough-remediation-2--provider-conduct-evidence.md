@@ -1,17 +1,17 @@
 # R8–R10 controlled provider-conduct evidence
 
 Frontier: walkthrough-remediation-2
-Status:   active
+Status:   paused — user-directed hold after remediation-4 tie-off
 Mode:     slices
 Created:  2026-07-17
 
 Posture: proving (inherited from `walkthrough-remediation-2`)
 
-Two-card sequence. Card 1 builds the missing deterministic evidence instrument and may be delegated to `ln-builder`. Card 2 is human/provider-gated and must not be delegated to a user-less builder. The product mechanics are already built; no conduct failure authorizes an inline product fix.
+Two-card sequence. Card 1 built the deterministic evidence instrument. Card 2 began on 2026-07-17 but was stopped before approval when human review invalidated D27-L's settled-only premise; it produced no report and counts 0/3. The mixed-settlement review + populated-group-only Impact Ledger are now materialized. At user direction, the extractor/oracle hardening pass and Card 2 are paused after the `remediation-4` tie-off. Re-enter only by explicit decision; then reconcile the extractor before any fresh run. Card 2 remains human/provider-gated and must not be delegated to a user-less builder.
 
 ## Card 1 · Deterministic provider-conduct report extractor — `done`
 
-Completed 2026-07-17; production-cover acceptance restored through two independent-review corrections. `src/probes/provider-conduct-report.ts` now joins canonical assistant `toolCall` blocks to following `toolResult` messages by exact id, validates agent-authored mutation arguments with the owning TypeBox `MutateGraphParams` schema, validates successful details with canonical `zMutateGraphSuccess`, tolerates production-shaped `{ field, message }` structural rejection followed by correction, pairs each review with its own continuation response, enforces digest-result → feedback-result → questionnaire-result → first successful mapping order, and bounds exact acceptance receipt readback to `(beforeLsn, afterLsn]`. The restored harness covers every named rival, malformed/mechanical inputs, sibling active-branch exclusion, deterministic questionnaire count/order, the human-only semantic boundary, a default source CLI leg, and a fresh-compile slow source/built differential over a canonical Pi JSONL tree plus a temporary production-created Brunch DB/change log with session/source/store stability proofs. Coordinator acceptance after `e6c8ab7e5` covers cumulative commits `77084b50`, `3cc3fb4d9`, `9729ac743`, and `e6c8ab7e5`: focused suites 22/22 and fresh-build slow differential 1/1 passed with protected hashes exact. Card 2 remains provider/human-gated and was not started.
+Completed 2026-07-17; production-cover acceptance restored through two independent-review corrections. `src/probes/provider-conduct-report.ts` now joins canonical assistant `toolCall` blocks to following `toolResult` messages by exact id, validates agent-authored mutation arguments with the owning TypeBox `MutateGraphParams` schema, validates successful details with canonical `zMutateGraphSuccess`, tolerates production-shaped `{ field, message }` structural rejection followed by correction, pairs each review with its own continuation response, enforces digest-result → feedback-result → questionnaire-result → first successful mapping order, and bounds exact acceptance receipt readback to `(beforeLsn, afterLsn]`. The restored harness covers every named rival, malformed/mechanical inputs, sibling active-branch exclusion, deterministic questionnaire count/order, the human-only semantic boundary, a default source CLI leg, and a fresh-compile slow source/built differential over a canonical Pi JSONL tree plus a temporary production-created Brunch DB/change log with session/source/store stability proofs. Coordinator acceptance after `e6c8ab7e5` covers cumulative commits `77084b50`, `3cc3fb4d9`, `9729ac743`, and `e6c8ab7e5`: focused suites 22/22 and fresh-build slow differential 1/1 passed with protected hashes exact. Card 2 remains provider/human-gated. Its first attempted run was invalidated before settlement and is preserved only as non-counting diagnostic evidence at `.fixtures/scratch/provider-conduct/run-1-20260717T170400Z/`. The accepted extractor still embodies the pre-amendment R10 marker meaning; the report contract below is now the target for the required `ln-oracles` reconciliation, not a claim that the current implementation already classifies per-item settlement preservation.
 
 ### Target Behavior
 
@@ -52,9 +52,10 @@ markers
 ├── material question count + bounded questionnaire presence
 ├── combinatorial/permutation option rival
 ├── first mapping mutation relative to clarification completion
-├── advisory source-derived material before review
-├── review-set presentation + response + settlement receipt
-├── post-approval model-authored mutation rival
+├── direct advisory mutation, when used (valid alternate path)
+├── review-set per-node/per-edge proposed settlement + visible presentation
+├── review response + exact accepted settlement readback + receipt
+├── post-approval model-authored completion/rewrite rival
 └── exact cited JSONL entry/toolCall ids for every marker
 
 verdict
@@ -123,11 +124,11 @@ memory/PLAN.md                                                   ~
 memory/cards/walkthrough-remediation-2--provider-conduct-evidence.md ~
 ```
 
-## Card 2 · Three controlled authenticated runs — `blocked on Card 1 + human/provider`
+## Card 2 · Three controlled authenticated runs — `invalidated; paused before extractor/oracle reconciliation`
 
 ### Target Behavior
 
-Three controlled authenticated runs determine whether the built ingest carrier produces the required digest, questionnaire, and settlement conduct.
+Under the landed amended D27-L contract, three fresh controlled authenticated runs determine whether the ingest carrier produces the required digest, questionnaire, honest per-item settlement, and atomic review conduct. Count starts at 0/3; the stopped run is not replaced or counted.
 
 ### Cold-start reads
 
@@ -145,8 +146,8 @@ Three controlled authenticated runs determine whether the built ingest carrier p
 fixed five-node/three-edge seed + fixed foreign source + fixed actor policy
 → authenticated recommended provider/model TUI session
 → present_digest feedback + bounded clarification carrier
-→ advisory source capture + optional settled commitment review
-→ Pi JSONL + graph/LSN/readback + provider/model-stamped run report
+→ direct advisory capture and/or one cohesive mixed-settlement review
+→ Pi JSONL + proposed-status projection + graph/LSN/readback + provider/model-stamped run report
 → R8–R10 findings disposition
 ```
 
@@ -154,21 +155,22 @@ fixed five-node/three-edge seed + fixed foreign source + fixed actor policy
 
 #### Constants
 
-- Exactly three independent runs; do not replace a failed run with a cleaner rerun.
+- Exactly three fresh independent counted runs after the contract/extractor revision; do not count the stopped partial run or replace a failed counted run with a cleaner rerun.
 - Reset `workspace-alpha-grounding/base` before each run so no graph/session state crosses runs.
 - Verify the foreign-source checksum before each run; copy the exact source into the run’s scratch artifact before any later reset.
-- Resolve the current soft recommended provider/model and thinking level before run 1; record them and use the same tuple for all three. If the tuple cannot remain fixed, stop rather than compare unlike runs.
+- Use the fixed tuple `anthropic / claude-sonnet-4-6 / low` for all three. The sealed/default thinking level may appear as `medium`; explicitly change it to `low` before choosing the process move. If the tuple cannot remain fixed, stop rather than compare unlike runs.
 - Use one normal-width TUI and the same terminal theme for conduct classification. Both-theme presentation judgment remains in the consolidated outer checkpoint.
 - Record UTC start/end, branch/commit, Pi version, provider/model/thinking, seed ref, source hash, session JSONL path, and graph LSN before/after.
 
 #### Fixed actor policy
 
-1. Enter Specify mode using **Work via intent**.
-2. Give the same instruction in each fresh run: `Read FOREIGN-SPEC-NOTES.md as foreign source material for this specification. Help me confirm your understanding, clarify what materially remains unclear, then map the confirmed material with its stated maturity preserved.`
-3. For digest feedback, accept only when the abstract faithfully distinguishes accepted claims, exploratory sketches, unresolved conflict, constraints, and open questions; otherwise give one concise factual correction grounded only in the source.
-4. When several material questions remain, answer the bounded questionnaire from the source only. Use `Unknown / not decided in the source` rather than inventing facts. Preserve the same answers across semantically equivalent questions.
-5. If one material question remains, answer the standalone confirmation/ask directly.
-6. Approve a settled review only when it excludes advisory sketches and keeps the unresolved conflict/open questions honest. Do not manually request a different choreography merely to make the run pass.
+1. Set thinking to `low`, then enter Specify mode using **Work via intent**.
+2. If selecting Work via intent immediately opens the startup ask observed in the partial run, cancel it before sending the counted instruction; handle this setup beat identically in all runs.
+3. Give the same instruction in each fresh run: `Read FOREIGN-SPEC-NOTES.md as foreign source material for this specification. Help me confirm your understanding, clarify what materially remains unclear, then map the confirmed material with its stated maturity preserved.`
+4. For digest feedback, accept only when the abstract faithfully distinguishes accepted claims, exploratory sketches, unresolved conflict, constraints, and open questions; otherwise give one concise factual correction grounded only in the source.
+5. When several material questions remain, answer the bounded questionnaire from the source only. Use `Unknown / not decided in the source` rather than inventing facts. Preserve the same answers across semantically equivalent questions.
+6. If one material question remains, answer the standalone confirmation/ask directly.
+7. Approve a cohesive review when every proposed node and edge has a visible, source-honest settlement; advisory and settled items may appear together. Reject/request changes if any item is laundered or its status is not inspectable. Do not manually request a different choreography merely to make the run pass.
 
 #### Artifact capture
 
@@ -202,10 +204,11 @@ run completion
     │   ├── independently keyed questions remain independently answerable
     │   └── no combinatorial/permutation option rival
     └── R10 settlement/review conduct
-        ├── source-derived speculative material is advisory before any settled review
-        ├── any review set is one cohesive settled proposition with maturity visible
-        ├── approval uses the existing atomic settlement seam
-        └── no model-authored post-approval mutate_graph split/rewrite
+        ├── direct advisory mutation remains a valid path when no review is used
+        ├── any review set is one cohesive proposition with every node/edge settlement visible
+        ├── advisory and settled drafts may coexist when source-honest
+        ├── approval preserves every reviewed settlement through one atomic seam
+        └── no model-authored post-approval mutate_graph completes or rewrites the proposal
 ```
 
 A valid sample fails if any required marker is absent or any forbidden rival occurs. Do not reinterpret a failure as “close enough” because later output looks correct.
@@ -216,14 +219,14 @@ A valid sample fails if any required marker is absent or any forbidden rival occ
 - RISK: semantically equivalent model questions make actor answers drift → MITIGATION: answer from the fixed source and retain the exact answer text in `notes.md`.
 - RISK: a provider/tool outage is mistaken for conduct failure → MITIGATION: classify mechanical invalidity separately and route to `ln-diagnose`; do not silently replace the run.
 - RISK: reset destroys the only session artifact → MITIGATION: copy source JSONL and source material into the scratch run before the next reset.
-- ASSUMPTION: the fixed source remains rich enough to elicit several material clarifications and both advisory and settled material.
+- ASSUMPTION: the fixed source remains rich enough to elicit material clarification and both advisory and settled material.
   → IMPACT IF FALSE: R9/R10 cannot be judged; the scenario—not conduct—failed.
   → VALIDATE: run 1 must expose at least two material questions and mixed maturity; otherwise stop and rescope the input rather than continuing two vacuous runs.
 
 ### Posture check
 
-- **Lights up:** the first repeated authenticated witness over the built digest → questionnaire → advisory/review path.
-- **Stabilizes:** the behavioral boundary between mechanically available carriers and provider conduct that actually chooses them.
+- **Lights up:** the first repeated authenticated witness over the built digest → questionnaire → direct advisory and/or mixed-settlement review path.
+- **Stabilizes:** the behavioral boundary between the landed mixed-settlement carriers and provider conduct that actually chooses them.
 - **Information gain:** 3/3 passes close R8–R10 provider conduct; any honest failure identifies whether prompt guidance, scenario framing, or runtime mechanics owns the next seam.
 
 ### Acceptance Criteria
@@ -233,7 +236,7 @@ A valid sample fails if any required marker is absent or any forbidden rival occ
 ✓ three report.json files — exact provider/model/thinking tuple and deterministic marker fields are present
 ✓ three source session.jsonl files — each report cites exact entry ranges for digest, clarification, mapping, review, and any post-review mutation
 ✓ report checker/manual report audit — every valid run passes all R8/R9/R10 required markers and no forbidden rival; closure requires 3/3
-✓ graph/LSN readback — each accepted proposition has one honest atomic settlement receipt; advisory material is not laundered into settled review
+✓ graph/LSN readback — each accepted proposition has one honest atomic receipt and every accepted node/edge settlement exactly matches the reviewed value
 ✓ TESTING_FINDINGS.md — R8/R9/R10 each names the three-run verdict and evidence paths; failures are fixed/promoted/retired with an owner, never merely deferred
 ✓ memory/PLAN.md — provider gate is marked complete only on 3/3; otherwise the observed correction route becomes the next action
 ```
@@ -242,7 +245,7 @@ A valid sample fails if any required marker is absent or any forbidden rival occ
 
 - Workbench `.brunch/` state remains ephemeral and is never committed as fixture truth — guarded by: `docs/praxis/manual-testing.md`.
 - Pi JSONL remains canonical session evidence; `notes.md` and debug mirrors cannot override it — guarded by: report entry-range citations.
-- Exact review settlement stays one CommandExecutor call, one LSN, and one change-log entry — guarded by: graph/LSN report fields and existing D27-L tests.
+- Exact review settlement stays one CommandExecutor call, one LSN, and one change-log entry while preserving every reviewed node/edge status — guarded by: graph/LSN report fields and revised D27-L tests.
 - No scenario failure authorizes implementation during this evidence card — guarded by: stop condition and findings-ledger promotion.
 
 ### Verification Approach
@@ -256,7 +259,7 @@ A valid sample fails if any required marker is absent or any forbidden rival occ
 - Do not absorb A48-L, R6/R13 presentation judgment, web graph audit, or KA-owned O7–O9 into these runs.
 - Provider/model stamps and raw failed samples remain visible; no cherry-picked replacement runs.
 - Findings dispositions must name an owner and re-entry trigger under the manual-testing protocol.
-- After this card, A48-L remains the next planned scope/build unit regardless of provider verdict unless an R8–R10 failure creates a higher-priority bounded correction.
+- After three fresh runs, A48-L remains the next planned scope/build unit unless an R8–R10 failure creates a higher-priority bounded correction.
 
 ### Expected touched paths (tentative)
 
