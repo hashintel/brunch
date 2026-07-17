@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 export const BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE =
-  'Brunch does not support Pi session forks/clones in this POC. Use /new to continue within the selected spec.';
+  'Brunch does not support Pi session forks/clones in this POC. Use /new to start a new session.';
 
 export function registerBrunchBranchPolicyHandlers(pi: ExtensionAPI): void {
   pi.on('session_before_fork', (_event, ctx) => {

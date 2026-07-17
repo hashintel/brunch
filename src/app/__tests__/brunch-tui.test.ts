@@ -1301,7 +1301,7 @@ describe('Brunch TUI boot', () => {
     expect(notifications).toEqual([
       {
         message:
-          'Brunch does not support Pi session forks/clones in this POC. Use /new to continue within the selected spec.',
+          'Brunch does not support Pi session forks/clones in this POC. Use /new to start a new session.',
         type: 'warning',
       },
     ]);
