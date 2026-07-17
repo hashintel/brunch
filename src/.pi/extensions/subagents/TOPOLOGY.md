@@ -195,8 +195,7 @@ a *tool* to nest-capable agents (its `worker`), bounded by a `subagent_agents` �
 Brunch children get an explicit allowlist that **excludes** `subagent`, so they
 cannot recurse — a safety property, not an oversight. To enable nesting later:
 add a recursion-bounded `subagent` tool to a child's pool in `planSubagentTools`
-and carry a depth/allowlist bound; pairs naturally with the future write-capable
-`worker` under an execute op-mode.
+and carry a depth/allowlist bound.
 
 ## Comparison to the original (`amosblomqvist/pi-subagents`)
 
@@ -229,10 +228,6 @@ in flight.)
 
 ## Deferred / open
 
-- **Production launch gate** — choose and prove the non-dev condition that
-  supplies subagent deps intentionally; ordinary production sessions remain
-  default-off until then.
-- **Nesting** and a **write-capable `worker`** — deferred until an execute
-  operational mode lands.
+- **Nesting** — deferred until recursive delegation has a depth/allowlist bound.
 - **Progress UI** — NDJSON/`subagent.progress` streaming for TUI/web is deferred
   (the SDK child runs in-process; surface its progress when bandwidth permits).
