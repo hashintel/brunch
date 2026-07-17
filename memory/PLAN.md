@@ -229,12 +229,12 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 ### agent-control-plane-closure
 
 - **Name:** Elicitor and subagent control-plane closure
-- **Linear:** unassigned (create at pickup, FE team / brunch project)
-- **Branch:** tbd at pickup; replaces the unstarted `graph-assurance-conduct` and absorbs `subagent-skill-access`
+- **Linear:** [FE-1216](https://linear.app/hash/issue/FE-1216/elicitor-and-subagent-control-plane-closure)
+- **Branch:** `ln/fe-1216-agent-control-plane-closure`; replaces the unstarted `graph-assurance-conduct` and absorbs `subagent-skill-access`
 - **Kind:** earned coverage-shaped closure over foreground/background prompt ingress and agent resources; not a graph-schema migration, capture-quality experiment, or reviewer feature.
 - **Certainty:** earned.
 - **Classification:** buildable-now; D135-L/I68-L settle the context/control ingress model, so no additional design or spike is required.
-- **Status:** not started.
+- **Status:** active.
 - **Entry action:** ✓ complete 2026-07-17 — D135-L/I68-L preserve thin/load-on-demand foreground composition, distinguish origination continuity from later reads, and supersede D101-L's stale `world-reads.ts` delivery clause. Next: scope the coverage inventory as one sweep.
 - **Objective:** make every Brunch-owned agent receive one truthful, current, testable control surface: live resources agree with D131-L; foreground prompt updates replace stale Brunch blocks; load-on-demand context topology has no dead eager-context claims or must-wire no-ops; posture, elicitation style, and asking agenda have an explicit ownership map; and each background agent is advertised only the skills/resources its tool grant or task bundle can actually consume.
 - **Why now / unlocks:** the audit found several individually small defects sharing one ingress boundary: contradicted assurance conduct, content-insensitive prompt deduplication, dead `graphReads`/`composeAgentContextSeed` topology claims, duplicated context rendering, unobserved skill invocation, and a full skill manifest injected into no-tools subagents. Treating them as separate frontiers would repeatedly reopen the same prompt assembly and contract tests. The repo-level subagent extension already proves named skill grants and Markdown handback, so only product integration and honest prompt composition remain.
