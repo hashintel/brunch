@@ -1,4 +1,6 @@
+import { resolve } from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 import { parseArgs as parseNodeArgs } from 'node:util';
 
 import type { Api, Model } from '@earendil-works/pi-ai';
@@ -83,7 +85,7 @@ async function main(): Promise<void> {
   });
 }
 
-if (process.argv[1]?.endsWith('execution-comparison-brunch.ts')) {
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch((error: unknown) => {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exitCode = 1;

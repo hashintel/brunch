@@ -1,6 +1,6 @@
 import { access, readFile, stat } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
-import { extname, join, normalize, resolve } from 'node:path';
+import { extname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path';
 
 import { chromium, type Locator, type Page } from 'playwright-core';
 
@@ -492,10 +492,15 @@ async function startStaticServer(root: string): Promise<{
         response.writeHead(204).end();
         return;
       }
-      const relative = requestPath === '/' ? 'index.html' : requestPath.replace(/^\/+/u, '');
-      const normalized = normalize(relative);
+      const requestRelative = requestPath === '/' ? 'index.html' : requestPath.replace(/^\/+/u, '');
+      const normalized = normalize(requestRelative);
       const selected = resolve(root, normalized);
-      if (selected !== root && !selected.startsWith(`${root}/`)) {
+      const selectedRelative = relative(root, selected);
+      if (
+        selectedRelative === '..' ||
+        selectedRelative.startsWith(`..${sep}`) ||
+        isAbsolute(selectedRelative)
+      ) {
         response.writeHead(403).end('Forbidden');
         return;
       }
