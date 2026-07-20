@@ -17,6 +17,11 @@ describe('FE-1050 release workflow contracts', () => {
     expect(releaseWorkflow).toContain('permission-pull-requests: write');
   });
 
+  it('reads the public Vault address from the repository Actions variable', () => {
+    expect(releaseWorkflow).toContain('url: ${{ vars.VAULT_ADDR }}');
+    expect(releaseWorkflow).not.toContain('secrets.VAULT_ADDR');
+  });
+
   it('leaves npm authentication to trusted publishing without a dummy token', () => {
     expect(releaseWorkflow).not.toContain('registry-url:');
     expect(releaseWorkflow).not.toContain('NODE_AUTH_TOKEN');
