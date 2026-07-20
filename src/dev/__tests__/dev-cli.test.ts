@@ -587,6 +587,48 @@ describe('runDevCli', () => {
     await rm(trajectoryOutput, { recursive: true, force: true });
   });
 
+  it('writes a renderer-authored Markdown spec from settled workspace graph state', async () => {
+    const workspace = await mkdtemp(join(tmpdir(), 'brunch-document-export-cli-'));
+    temporaryRoots.push(workspace);
+    const runtime = await openWorkspaceGraphRuntime(workspace);
+    const created = runtime.commandExecutor.createSpec({ name: 'Exported Spec', slug: 'exported-spec' });
+    if (created.status !== 'success') throw new Error('expected spec creation');
+    const mutation = runtime.commandExecutor.mutateGraph({
+      specId: created.specId,
+      createBasis: 'explicit',
+      ops: [
+        {
+          op: 'create_node',
+          ref: 'goal',
+          plane: 'intent',
+          kind: 'goal',
+          title: 'Produce a durable document',
+          body: 'The document is rendered from settled graph state.',
+        },
+      ],
+    });
+    if (mutation.status !== 'success') throw new Error('expected graph fixture mutation');
+    const output = join(workspace, 'artifacts', 'spec.md');
+
+    const code = await runDevCli({
+      argv: [
+        'document-export',
+        '--workspace',
+        workspace,
+        '--spec-id',
+        String(created.specId),
+        '--out',
+        output,
+      ],
+      cwd: REPO_ROOT,
+    });
+
+    expect(code).toBe(0);
+    expect(await readFile(output, 'utf8')).toBe(
+      '# Exported Spec\n\n## Intent\n\n### G1 Produce a durable document\n\nThe document is rendered from settled graph state.\n\n- basis: explicit\n',
+    );
+  });
+
   it('rejects non-positive export spec ids loudly', async () => {
     let stderr = '';
 

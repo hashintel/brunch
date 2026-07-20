@@ -16,10 +16,11 @@ import {
   text as clackText,
 } from '@clack/prompts';
 
+import { renderSpecMarkdownOutput } from '../agents/contexts/data-model/spec/spec-output.js';
 import { runBrunchCli, type BrunchCliOptions } from '../app/brunch.js';
 import { exportSeedFixtureFromWorkspace, formatSeedFixture } from '../graph/export-fixtures.js';
 import { listTrackedSeedRefs, parseSeedRef, runSeedFixturesCli } from '../graph/seed-fixtures.js';
-import { WORKSPACE_DB_FILENAME } from '../graph/workspace-store.js';
+import { openWorkspaceGraphRuntime, WORKSPACE_DB_FILENAME } from '../graph/workspace-store.js';
 import { createRpcHandlers } from '../rpc/handlers.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 import { writeConsequentialFactEvaluation } from './consequential-fact-evaluator.js';
@@ -34,6 +35,7 @@ type TopLevelCommand =
   | 'rpc'
   | 'mutate'
   | 'export'
+  | 'document-export'
   | 'trajectory'
   | 'evaluate-consequential-fact'
   | 'help';
@@ -200,6 +202,8 @@ export async function runDevCli(options: DevCliOptions = {}): Promise<number> {
         return await runMutateCommand(commandArgs, { ...options, cwd });
       case 'export':
         return await runExportCommand(commandArgs, { ...options, cwd });
+      case 'document-export':
+        return await runDocumentExportCommand(commandArgs, { ...options, cwd });
       case 'trajectory':
         return await runTrajectoryCommand(commandArgs, { ...options, cwd });
       case 'evaluate-consequential-fact':
@@ -221,6 +225,7 @@ function splitCommand(argv: readonly string[]): readonly [TopLevelCommand, reado
     first === 'rpc' ||
     first === 'mutate' ||
     first === 'export' ||
+    first === 'document-export' ||
     first === 'trajectory' ||
     first === 'evaluate-consequential-fact'
   ) {
@@ -468,6 +473,31 @@ async function runExportCommand(args: readonly string[], options: DevCliOptions 
   return 0;
 }
 
+async function runDocumentExportCommand(
+  args: readonly string[],
+  options: DevCliOptions & { readonly cwd: string },
+): Promise<number> {
+  const flags = parseExportFlags(args, options.cwd);
+  if (flags.help) {
+    writeStdout(options.stdout ?? process.stdout, `${devCliUsage()}\n${documentExportUsage()}`);
+    return 0;
+  }
+  if (!flags.specId || !flags.out) {
+    throw new DevCliUsageError('The document-export command requires --spec-id and --out.');
+  }
+
+  const workspace = flags.workspace ?? options.cwd;
+  const runtime = await openWorkspaceGraphRuntime(workspace);
+  const spec = runtime.commandExecutor.getSpec(flags.specId);
+  if (!spec) throw new DevCliUsageError(`Spec ${flags.specId} does not exist.`);
+  const nodes = runtime.forSpec(flags.specId).queryGraph(undefined, { visibility: 'active' }).nodes;
+  const rendered = renderSpecMarkdownOutput({ title: spec.name, nodes });
+  const outPath = resolve(options.cwd, flags.out);
+  await mkdir(dirname(outPath), { recursive: true });
+  await writeFile(outPath, `${rendered}\n`, 'utf8');
+  writeStdout(options.stdout ?? process.stdout, `wrote ${outPath}\n`);
+  return 0;
+}
 async function runTrajectoryCommand(
   args: readonly string[],
   options: DevCliOptions & { readonly cwd: string },
@@ -815,6 +845,7 @@ function devCliUsage(): string {
     '  npm run dev-cli -- rpc <method> [params-json] --workspace <dir>',
     '  npm run dev-cli -- mutate --workspace <dir> (--params <json> | --params-file <file>)',
     '  npm run dev-cli -- export --workspace <dir> --spec-id <id> [--out <file>] [--show all|active]',
+    '  npm run dev-cli -- document-export --workspace <dir> --spec-id <id> --out <file.md>',
     '  npm run dev-cli -- trajectory --workspace <dir> --session <file> --run-id <portable-id> [--viewport <file>]',
     '  npm run dev-cli -- evaluate-consequential-fact --workspace <dir> --session <file> --spec-id <id> --scenario <file> --trajectory <trajectory.json> --run-id <portable-id>',
     '',
@@ -859,6 +890,13 @@ function mutateUsage(): string {
   ].join('\n');
 }
 
+function documentExportUsage(): string {
+  return [
+    '',
+    'Document export example:',
+    '  npm run dev-cli -- document-export --workspace .fixtures/workbenches/workspace-alpha-grounding --spec-id 1 --out /tmp/spec.md',
+  ].join('\n');
+}
 function exportUsage(): string {
   return [
     '',

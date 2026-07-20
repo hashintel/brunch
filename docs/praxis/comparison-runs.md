@@ -65,8 +65,28 @@ Read `<workspace>/.brunch/debug/trajectory-report.md` and retain `trajectory.jso
 
 ## Agent-as-user cross-product comparison
 
-Cross-product comparison starts from a **mission or concept catalog**, not a Brunch seed. Give each target harness—Brunch, Claude Code, or Cursor—the same product-neutral mission and a matched effort budget. An agent-as-user drives each real interface until an explicit **ready** stop condition is met: it holds a specification or plan document ready for human comparison. Compare those final documents for comprehensiveness and detail; opaque competitor internals do not count against them.
+Cross-product comparison starts from a **mission**, not a Brunch seed. Give Brunch, Claude Code, and Cursor the same product-neutral public packet, controller-only reveal policy, effort budget, and ready-document condition. A fresh Pi actor drives each live interface; opaque competitor internals never count against a target.
 
-The general actor and reliable ready-stop policy are **not built**. They are owned by the `agent-as-user-comparison` frontier in [`memory/PLAN.md`](../../memory/PLAN.md#agent-as-user-comparison). Until that frontier lands, this section is an approach, not an executable campaign.
+### Rigorous campaign procedure
 
-Do not substitute seeds for the mission catalog. Competitor products cannot consume Brunch's graph/specification state, so a seeded starting point would make the runs incomparable. Seed-based intra-product testing and mission-driven cross-product comparison remain separate use cases.
+The round-one materials remain useful for focused improvement and regression studies that need frozen inputs, matched budgets, explicit validity rules, and structured human judgment. The prepared Dora-adjudication and second-operator shells in the historical run were not completed and are not required closure evidence; they remain untouched as part of the retained bundle.
+
+The rigorous campaign loop is:
+
+1. instantiate [`comparison-runs/mission-packet.md`](comparison-runs/mission-packet.md), keeping the reveal key outside every target cwd;
+2. drive one fresh lane with [the actor recipe](../../.agents/skills/agent-as-user-comparison/SKILL.md);
+3. retain target-visible interaction, validity/intervention notes, cleanup status, and the target-authored ready document under `.fixtures/scratch/comparisons/<campaign-id>/`;
+4. when the study needs structured judgment, run the masked-outcome and unblinded-process passes from the judgment prompt pack and have the named human adjudicator review the drafts; and
+5. after review, promote the portable bundle to `.fixtures/runs/agent-as-user-comparison/<campaign-id>/` and run `npm run check:promoted-run-paths` before commit.
+
+Use push-driven hands-free control: project config lowers the query fallback floor to 5 seconds, forwards quiet output after roughly 3 seconds, and prunes superseded viewport reads before each LLM call. Send input and end the turn; act on the pushed quiet update. Query only when no push arrives or the incremental tail is ambiguous, and then read the current tail—never page historical scrollback.
+
+Target adapters:
+
+- Brunch: real `npm run dev-cli` TUI; acquire the ready document from settled graph state with `document-export`.
+- Claude Code: `spawn: { agent: "claude" }`; if a host shim intercepts it, record the launch failure before using the real installed binary.
+- Cursor: `spawn: { agent: "cursor" }`, mapped by pi-interactive-shell to `agent --model composer-2-fast`. Safehouse must allow the symlink target under `~/.local/share/cursor-agent`.
+
+The promoted example [`lockers-r1-20260716`](../../.fixtures/runs/agent-as-user-comparison/lockers-r1-20260716/) proves Brunch and Claude required lanes, failure retention, split judgment, and artifact promotion. Its Cursor lane was historically skipped; [`addendum-03-cursor-availability.md`](../../.fixtures/runs/agent-as-user-comparison/lockers-r1-20260716/addendum-03-cursor-availability.md) records the later sandbox fix without rewriting the run.
+
+Do not substitute seeds for missions. Competitor products cannot consume Brunch graph/specification state, so a seeded start would make the runs incomparable. Seed-based intra-product testing and mission-driven cross-product comparison remain separate use cases.
