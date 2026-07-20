@@ -1,7 +1,7 @@
 # Warrant-before-commit ablation campaign
 
 Frontier: automation-observability-dx (parked lineage: consequential-fact-discovery-tracer)
-Status:   parked (2026-07-16 — see PLAN §Later `warrant-ablation-campaign`; re-entry requires the general actor proven by `agent-as-user-comparison` plus rich scenarios; resume from the approved actor-v2 contract in HANDOFF.md / this card, no post-hoc scorer or threshold tuning)
+Status:   parked (2026-07-16 — see PLAN §Later `warrant-ablation-campaign`; re-entry requires the general actor proven by `agent-as-user-comparison` plus rich scenarios; resume from this card's approved actor-v2 contract, with no post-hoc scorer or threshold tuning)
 Mode:     single
 Created:  2026-07-15
 
@@ -9,7 +9,7 @@ Created:  2026-07-15
 
 - Containing seam: FE-1208's dev/eval-only real-TUI trajectory → consequential-fact evaluator path. Commits `11607e10`, `1e944616`, and `1f36ee18` established canonical active-branch/graph readback plus the calibrated review-diff scorer.
 - Frontier: `consequential-fact-discovery-tracer` (FE-1208). This is the remaining proving campaign, not a new Linear issue or branch.
-- Volatile state: `HANDOFF.md` predates the scorer and its corrected scratch trajectory is still diagnostic only; neither that run nor the scorer's hand-authored contrastive fixture counts as provider evidence.
+- Volatile state: none. The corrected scratch trajectory is still diagnostic only; neither it nor the scorer's hand-authored contrastive fixture counts as provider evidence.
 - Main risk: campaign machinery can create a false causal claim by changing more than one prompt feature, relaxing the actor between arms, or promoting only favorable runs. Arm assignment, actor policy, run budget, model configuration, validity rules, and discrimination threshold must be fixed before the first provider run.
 
 Posture: proving (inherited from `consequential-fact-discovery-tracer`).
@@ -22,7 +22,6 @@ A controlled six-run real-TUI campaign produces a promoted, predeclared verdict 
 
 - `memory/SPEC.md` — req 24; A5-L; §Verification Design, especially consequential-fact discovery, combined trajectory/evaluation assessment, controlled warranted-commitment ablation, flywheel design notes, and acknowledged blind spots
 - `memory/PLAN.md` — frontier: `consequential-fact-discovery-tracer`
-- `HANDOFF.md` — accepted trajectory state, scratch warning, and retained re-entry triggers
 - `docs/praxis/manual-testing.md` — TUI priority order, sandbox fallback, evidence capture, cleanup, and findings-ledger discipline
 - `src/dev/TOPOLOGY.md` — trajectory/evaluator/tui-driver ownership and scratch boundary
 - `src/.pi/extensions/dev-mode/introspection/TOPOLOGY.md` — provider-visible trajectory contract and content-retention ceilings

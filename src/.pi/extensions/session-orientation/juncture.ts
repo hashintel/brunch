@@ -7,20 +7,19 @@
  * Two juncture modes share the seam:
  *
  * - **`'follow-choice'` (J2/J3/J4/J6/J5):** dialog + entry, then live-kick only
- *   when the choice is present and is neither the menu-owned `noKickChoice`
- *   nor an inert `dismissed` (escape/timeout). Origination uses
+ *   when a choice is present. Escape/timeout yields no choice. Origination uses
  *   `resumeOrigin: 'manual_trigger'` (always yields a `start` decision) and
  *   `forceSeed: true` so the fresh orientation directive reaches the next
  *   provider turn even when the graph LSN has not moved.
  *
  * - **`'boot'` (option-2 J1, `session_start` reason `startup`):** dialog is
  *   best-effort — degraded mode (`hasUI: false`) skips it and the boot kick
- *   still fires; an explicit `dismissed` (escape/timeout) suppresses the boot
- *   kick entirely so the session idles inert until the user speaks.
+ *   still fires; escape/timeout yields no choice and suppresses the boot kick
+ *   entirely so the session idles inert until the user speaks.
  *   Origination uses `resumeOrigin: 'resume_debt'` so a resumed session with
  *   no unresolved debt correctly idles, and `forceSeed: true` only when a
- *   real orientation choice was recorded (continue and degraded mode respect
- *   the watermark). This is the option-2 replacement for the
+ *   real orientation choice was recorded (degraded mode respects the
+ *   watermark). This is the option-2 replacement for the
  *   pre-session-binding origination call in `brunch-tui.ts`.
  *
  * Never emits present_/request_ tool results — orientation is not an
@@ -41,6 +40,7 @@ import {
   customEntryType,
   type TranscriptEntryLike,
 } from '../../../projections/session/continuity-entry-classifier.js';
+import { latestElicitationStyle } from '../../../session/elicitation-style.js';
 import {
   BRUNCH_KICK_CUSTOM_TYPE,
   completeAssistantKick,
@@ -53,13 +53,13 @@ import {
   appendPreparedContinuityEntry,
   type PreparedContinuityEntry,
 } from '../../../session/prepare-next-turn.js';
-import {
-  type SessionOrientationChoice,
-  type SessionOrientationEntrySessionManager,
-  type SessionOrientationTrigger,
-} from '../../../session/session-orientation.js';
 import type { StartAssistantTurnDecision } from '../../../session/start-assistant-turn.js';
 import { createConsultMenuComponent } from '../../components/consult-menu.js';
+import type {
+  SessionOrientationChoice,
+  SessionOrientationEntryManager,
+  SessionOrientationTrigger,
+} from './index.js';
 import {
   runAndRecordSessionOrientation,
   SESSION_ORIENTATION_MENU,
@@ -67,7 +67,7 @@ import {
   type SessionOrientationMenuDescriptor,
 } from './index.js';
 
-export type JunctureSessionManager = SessionOrientationEntrySessionManager &
+export type JunctureSessionManager = SessionOrientationEntryManager &
   OriginationManager & {
     getBranch(): readonly TranscriptEntryLike[];
   };
@@ -88,8 +88,8 @@ export interface RunOrientationJunctureInput {
   readonly onAppendError?: (error: unknown) => void;
   /**
    * Live-kick surface. Required when the mode may fire a kick
-   * (`'follow-choice'` + a choice other than the menu-owned no-kick choice or
-   * `dismissed`, or `'boot'` with anything but a dismissal). Paths that never
+   * (`'follow-choice'` with a choice, or `'boot'` with anything but a
+   * dismissal). Paths that never
    * kick never dereference this, so callers that only need the dialog can
    * omit it.
    */
@@ -143,10 +143,9 @@ export interface RunOrientationJunctureResult {
  * degraded-mode row). Interactive TUI dialogs are unbounded by design: a
  * user is at the keyboard. In RPC mode the Brunch RPC client is what
  * fulfils `extension_ui_request`/`extension_ui_response`, so a client that
- * fails to answer would block the dialog forever without this guard;
- * `select` returning `undefined` on timeout resolves to the inert
- * `dismissed` per the chart's Choice schema, and the entry rule still
- * writes the resolution.
+ * fails to answer would block the dialog forever without this guard.
+ * `select` returning `undefined` on timeout yields no orientation choice and
+ * writes nothing.
  */
 export const ORIENTATION_RPC_DIALOG_TIMEOUT_MS = 60_000;
 
@@ -266,6 +265,7 @@ export function adaptOrientationUi(ctx: {
             ...(menu.topLabel ? { topLabel: menu.topLabel } : {}),
             ...(menu.bottomLabel ? { bottomLabel: menu.bottomLabel } : {}),
             choices: menu.items,
+            ...(menu.initialSelectedId ? { initialSelectedId: menu.initialSelectedId } : {}),
             theme,
             onDone: done,
           }),
@@ -328,7 +328,17 @@ export async function runOrientationJuncture(
   input: RunOrientationJunctureInput,
 ): Promise<RunOrientationJunctureResult> {
   const mode = input.mode ?? 'follow-choice';
-  const menu = input.menu ?? SESSION_ORIENTATION_MENU;
+  const currentStyle = latestElicitationStyle(input.sessionManager.getBranch());
+  const baseMenu = input.menu ?? SESSION_ORIENTATION_MENU;
+  const menu = currentStyle
+    ? {
+        ...baseMenu,
+        initialSelectedId: currentStyle,
+        items: baseMenu.items.map((item) =>
+          item.id === currentStyle ? { ...item, current: true as const } : item,
+        ),
+      }
+    : baseMenu;
 
   const orientation = input.hasUI
     ? await runAndRecordSessionOrientation({
@@ -337,27 +347,17 @@ export async function runOrientationJuncture(
         trigger: input.trigger,
         manager: input.sessionManager,
         menu,
+        ...(currentStyle ? { currentStyle } : {}),
         ...(input.onAppendError ? { onAppendError: input.onAppendError } : {}),
       })
     : undefined;
 
   const choice = orientation?.choice;
-  const dialogRan = orientation !== undefined;
-  const directedChoiceFailedToPersist =
-    orientation !== undefined &&
-    !orientation.recorded &&
-    choice !== 'dismissed' &&
-    choice !== menu.noKickChoice;
+  const dialogRan = input.hasUI;
+  const directedChoiceFailedToPersist = orientation?.appendFailed === true;
 
   if (mode === 'follow-choice') {
-    if (
-      !dialogRan ||
-      directedChoiceFailedToPersist ||
-      choice === undefined ||
-      choice === 'dismissed' ||
-      choice === menu.noKickChoice ||
-      !input.kick
-    ) {
+    if (!dialogRan || directedChoiceFailedToPersist || choice === undefined || !input.kick) {
       return { ran: dialogRan, ...(choice !== undefined ? { choice } : {}), kickFired: false };
     }
     const kickOutcome = await originateAndKick(input.sessionManager, input.kick, {
@@ -371,10 +371,10 @@ export async function runOrientationJuncture(
   // user dismissed the menu — dismissal means "stay inert until I speak".
   // A fresh seed is forced only when a real orientation choice needing a kick
   // was recorded.
-  if (!input.kick || directedChoiceFailedToPersist || choice === 'dismissed') {
+  if (!input.kick || directedChoiceFailedToPersist || (dialogRan && choice === undefined)) {
     return { ran: dialogRan, ...(choice !== undefined ? { choice } : {}), kickFired: false };
   }
-  const forceSeed = choice !== undefined && choice !== menu.noKickChoice;
+  const forceSeed = choice !== undefined;
   const kickOutcome = await originateAndKick(input.sessionManager, input.kick, {
     resumeOrigin: 'resume_debt',
     forceSeed,

@@ -13,21 +13,35 @@ const theme = {
   bold: (text: string) => text,
 };
 
-function customPickSequence(indexes: readonly number[]) {
+type CustomStep =
+  | { readonly kind: 'pick'; readonly index: number }
+  | { readonly kind: 'input'; readonly prompt: string; readonly value?: string };
+
+function customInteractionSequence(steps: readonly CustomStep[]) {
   let presentation = 0;
   return vi.fn(async (factory: (...args: unknown[]) => unknown) => {
-    const index = indexes[presentation];
+    const step = steps[presentation];
     presentation += 1;
-    if (index === undefined) throw new Error('custom picker presented more times than expected');
+    if (!step) throw new Error('custom component presented more times than expected');
 
-    let picked: unknown;
-    const component = factory(null, theme, null, (result: unknown) => {
-      picked = result;
+    let result: unknown;
+    const component = factory(null, theme, null, (value: unknown) => {
+      result = value;
     }) as TestPickerComponent;
-    expect(component.render(80).join('\n')).toContain('╭');
-    for (let step = 0; step < index; step += 1) component.handleInput('\x1b[B');
-    component.handleInput('\r');
-    return picked;
+    const rendered = component.render(80).join('\n');
+    expect(rendered).toContain('╭');
+    if (step.kind === 'pick') {
+      for (let index = 0; index < step.index; index += 1) component.handleInput('\x1b[B');
+      component.handleInput('\r');
+    } else {
+      expect(rendered).toContain(step.prompt);
+      if (step.value === undefined) component.handleInput('\x1b');
+      else {
+        component.handleInput(step.value);
+        component.handleInput('\r');
+      }
+    }
+    return result;
   });
 }
 
@@ -42,15 +56,19 @@ describe('collectAskResponse export', () => {
       ],
       commentPrompt: 'Optional comment',
     };
-    const input = vi.fn(async () => (input.mock.calls.length === 1 ? undefined : ''));
-    const custom = customPickSequence([0, 1]);
+    const custom = customInteractionSequence([
+      { kind: 'pick', index: 0 },
+      { kind: 'input', prompt: 'Optional comment' },
+      { kind: 'pick', index: 1 },
+      { kind: 'input', prompt: 'Optional comment', value: '' },
+    ]);
 
     const result = await collectAskResponse(
       params,
       askQuestionEcho(params),
       {
         hasUI: true,
-        ui: { custom, input },
+        ui: { custom },
       } as never,
       undefined,
       new AbortController().signal,
@@ -61,8 +79,6 @@ describe('collectAskResponse export', () => {
       answered: { choice: { id: 'second', label: 'Second path', kind: 'listed' } },
     });
     expect(result.terminate).toBeUndefined();
-    expect(custom).toHaveBeenCalledTimes(2);
-    expect(input).toHaveBeenNthCalledWith(1, 'Optional comment');
-    expect(input).toHaveBeenNthCalledWith(2, 'Optional comment');
+    expect(custom).toHaveBeenCalledTimes(4);
   });
 });

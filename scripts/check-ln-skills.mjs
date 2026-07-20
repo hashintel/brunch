@@ -14,6 +14,15 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const skillsDir = join(root, '.agents/skills');
 const guidePath = join(root, 'docs/praxis/ln-skills.md');
 
+const harnessAgentDefinitions = [
+  ['Claude', '.claude/agents/ln-scoper.md', 'ln-scoper', 'ln-scope'],
+  ['Claude', '.claude/agents/ln-builder.md', 'ln-builder', 'ln-build'],
+  ['Pi', '.pi/subagents/ln-scoper.md', 'ln-scoper', 'ln-scope'],
+  ['Pi', '.pi/subagents/ln-builder.md', 'ln-builder', 'ln-build'],
+  ['Codex', '.codex/agents/ln-scoper.toml', 'ln-scoper', 'ln-scope'],
+  ['Codex', '.codex/agents/ln-builder.toml', 'ln-builder', 'ln-build'],
+];
+
 /** @type {string[]} */
 const errors = [];
 /** @param {string} msg */
@@ -74,11 +83,43 @@ const guardrails = [
   ['ln-scope', 'named owning frontier'],
   ['ln-build', 'owned item with a re-entry trigger'],
   ['ln-sync', 'TESTING_FINDINGS.md'],
+  // Coordinator serialization: ln-execute must never admit two concurrent writers,
+  // including an ln-scoper alongside an ln-builder.
+  ['ln-execute', 'one write-capable delegate'],
+  ['ln-execute', '`ln-scoper` and `ln-builder` both count'],
+  // Frontier execution must stop at fog, park owned gates, distinguish autonomous
+  // exhaustion from completion, and verify protected shared state mechanically.
+  ['ln-execute', 'epistemic horizon'],
+  ['ln-execute', 'owned-deferrable gate'],
+  ['ln-execute', 'autonomous horizon exhausted, owned gates outstanding'],
+  ['ln-execute', 'protected fingerprints/content'],
+  // Specialist routes remain explicit rather than being impersonated inline.
+  ['ln-execute', 'Do not impersonate the missing specialist'],
+  // Bail-out invariant: the live surface is checked first and a missing delegation
+  // surface is reported in one sentence, never worked around.
+  ['ln-execute', 'first action, before resolving the focus'],
+  ['ln-execute', 'report in one sentence exactly what is missing'],
+  ['ln-execute', 'another invocation path'],
 ];
 for (const [name, phrase] of guardrails) {
   if (existsSync(skillFile(name)) && !readFileSync(skillFile(name), 'utf8').includes(phrase)) {
     fail(`${name}: missing required guardrail phrase "${phrase}"`);
   }
+}
+
+// 5. Delegated execution requires symmetric agent contracts in every harness.
+for (const [harness, relativePath, agentName, skillName] of harnessAgentDefinitions) {
+  const definitionPath = join(root, relativePath);
+  if (!existsSync(definitionPath)) {
+    fail(`${harness}: missing ${relativePath}`);
+    continue;
+  }
+
+  const text = readFileSync(definitionPath, 'utf8');
+  const escapedAgentName = agentName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const namePattern = new RegExp(`^name\\s*[:=]\\s*["']?${escapedAgentName}["']?\\s*$`, 'm');
+  if (!namePattern.test(text)) fail(`${harness}: ${relativePath} is not named ${agentName}`);
+  if (!text.includes(skillName)) fail(`${harness}: ${relativePath} does not load ${skillName}`);
 }
 
 if (errors.length > 0) {

@@ -29,6 +29,9 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
   mutation entrypoint for accepted review sets and records one spec-local LSN and
   one change-log row with `operation: "accept_review_set"`; its payload records
   the translated mutation without transcript/proposal identifiers.
+  D27-L is materialized: every reviewed node and edge draft requires its own
+  `settlement`, and translation preserves each value in the one atomic command;
+  no batch default or endpoint-derived settlement exists.
 
 - **Capture** — the submit-time `capture/` structured-response translator was
   deleted 2026-06-19 (D80-L fossil retirement). Capture is now elicitor

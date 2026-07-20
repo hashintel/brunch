@@ -22,7 +22,6 @@ import {
   type SelectedChoice,
   type StandaloneAskParams,
 } from '../../../exchanges/schemas/index.js';
-import { normalizeOptionalUnknownText } from '../../../exchanges/text.js';
 import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
 import type { LiveAskOpener } from '../../../session/live-ask-registry.js';
 import { ExchangeAnswerEditorComponent } from '../../components/exchange-answer-editor.js';
@@ -35,15 +34,17 @@ import { toolParameters } from '../shared/tool-schema.js';
 import { collectContinuingAsk } from './ask/continuation.js';
 import type { ReviewSetStructuredExchangeDeps } from './present-review-set.js';
 import { requestChoicesViaEditor } from './shared/choices-editor.js';
-import { renderEmptyStructuredExchangeCall, renderMarkdownResult } from './shared/markdown.js';
+import { renderEmptyStructuredExchangeCall } from './shared/markdown.js';
 import {
   back,
   collectCommentRequirementStep,
+  collectCommentStep,
   collectRequiredInput,
   isBack,
   unavailable,
   type StepResult,
 } from './shared/required-input.js';
+import { renderAskTerminalResult } from './shared/terminal-result.js';
 import { withWorkingIndicatorHidden, type StructuredExchangeUiContext } from './shared/ui-context.js';
 import { validationFailureResult } from './shared/validation.js';
 
@@ -166,8 +167,14 @@ async function collectFreeText(
   const trimmed = collected.answer.trim();
   if (trimmed.length === 0) return terminal(params, question, 'unavailable', 'ask answer cannot be empty');
   let comment: string | undefined;
-  if (params.commentPrompt && typeof ctx.ui?.input === 'function') {
-    comment = normalizeOptionalUnknownText(await ctx.ui.input(params.commentPrompt));
+  if (params.commentPrompt) {
+    const collectedComment = await collectCommentStep({
+      requirement: 'optional',
+      prompt: params.commentPrompt,
+      ctx,
+      unavailableMessage: 'ask comment unavailable',
+    });
+    if (collectedComment.status === 'answered') comment = collectedComment.value.comment;
   }
   return result(
     projectAsk({
@@ -749,7 +756,7 @@ export function createAskTool(liveAsk?: LiveAskOpener, reviewDeps?: ReviewSetStr
     },
 
     renderResult(resultValue, _options, theme) {
-      return renderMarkdownResult(resultValue, theme);
+      return renderAskTerminalResult(resultValue, theme);
     },
   });
 }

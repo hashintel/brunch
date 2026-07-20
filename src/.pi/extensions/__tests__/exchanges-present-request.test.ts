@@ -41,6 +41,7 @@ interface RegisteredTool {
     onUpdate: unknown,
     ctx: unknown,
   ) => Promise<ToolExecutionResult>;
+  renderCall: () => { render?: (width: number) => string[] };
   renderResult: (
     result: ToolExecutionResult,
     options: unknown,
@@ -120,16 +121,30 @@ function customMultiPick(indexes: readonly number[]) {
   });
 }
 
-function customPickWithChromeAssertions(index: number, assertions: (rendered: string) => void) {
+function customPickWithChromeAssertions(
+  index: number,
+  assertions: (rendered: string) => void,
+  input?: { readonly prompt: string; readonly value: string },
+) {
+  let presentation = 0;
   return vi.fn(async (factory: (...args: unknown[]) => unknown) => {
-    let picked: unknown;
-    const component = factory(null, theme, null, (result: unknown) => {
-      picked = result;
+    let result: unknown;
+    const component = factory(null, theme, null, (value: unknown) => {
+      result = value;
     }) as TestPickerComponent;
-    assertions(component.render(80).join('\n'));
-    for (let step = 0; step < index; step += 1) component.handleInput('\x1b[B');
-    component.handleInput('\r');
-    return picked;
+    const rendered = component.render(80).join('\n');
+    if (presentation === 0) {
+      assertions(rendered);
+      for (let step = 0; step < index; step += 1) component.handleInput('\x1b[B');
+      component.handleInput('\r');
+    } else {
+      if (!input) throw new Error('custom input presented unexpectedly');
+      expect(rendered).toContain(input.prompt);
+      component.handleInput(input.value);
+      component.handleInput('\r');
+    }
+    presentation += 1;
+    return result;
   });
 }
 
@@ -146,49 +161,47 @@ function customPickWithRenderedText(index: number, expectedText: string) {
   });
 }
 
-function customPickSequence(indexes: readonly number[]) {
-  let presentation = 0;
-  return vi.fn(async (factory: (...args: unknown[]) => unknown) => {
-    const index = indexes[presentation];
-    presentation += 1;
-    if (index === undefined) throw new Error('custom picker presented more times than expected');
-    let picked: unknown;
-    const component = factory(null, theme, null, (result: unknown) => {
-      picked = result;
-    }) as TestPickerComponent;
-    expect(component.render(80).join('\n')).toContain('╭');
-    for (let step = 0; step < index; step += 1) component.handleInput('\x1b[B');
-    component.handleInput('\r');
-    return picked;
-  });
-}
+type CustomStep =
+  | { readonly kind: 'pick'; readonly index: number }
+  | { readonly kind: 'multi'; readonly indexes: readonly number[]; readonly restoredText?: string }
+  | { readonly kind: 'input'; readonly prompt: string; readonly value?: string };
 
-function customMultiPickThenAssertRestored(options: {
-  readonly firstIndexes: readonly number[];
-  readonly restoredText: string;
-  readonly secondIndexes: readonly number[];
-}) {
+function customInteractionSequence(steps: readonly CustomStep[]) {
   let presentation = 0;
   return vi.fn(async (factory: (...args: unknown[]) => unknown) => {
-    let picked: unknown;
-    const component = factory(null, theme, null, (result: unknown) => {
-      picked = result;
+    const step = steps[presentation];
+    presentation += 1;
+    if (!step) throw new Error('custom component presented more times than expected');
+
+    let result: unknown;
+    const component = factory(null, theme, null, (value: unknown) => {
+      result = value;
     }) as TestPickerComponent;
     const rendered = component.render(80).join('\n');
     expect(rendered).toContain('╭');
-    const indexes = presentation === 0 ? options.firstIndexes : options.secondIndexes;
-    if (presentation === 1) expect(rendered).toContain(options.restoredText);
-    presentation += 1;
-    let cursor = 0;
-    for (const index of indexes) {
-      while (cursor < index) {
-        component.handleInput('\x1b[B');
-        cursor += 1;
+    if (step.kind === 'pick') {
+      for (let index = 0; index < step.index; index += 1) component.handleInput('\x1b[B');
+      component.handleInput('\r');
+    } else if (step.kind === 'multi') {
+      if (step.restoredText) expect(rendered).toContain(step.restoredText);
+      let cursor = 0;
+      for (const index of step.indexes) {
+        while (cursor < index) {
+          component.handleInput('\x1b[B');
+          cursor += 1;
+        }
+        component.handleInput(' ');
       }
-      component.handleInput(' ');
+      component.handleInput('\r');
+    } else {
+      expect(rendered).toContain(step.prompt);
+      if (step.value === undefined) component.handleInput('\x1b');
+      else {
+        component.handleInput(step.value);
+        component.handleInput('\r');
+      }
     }
-    component.handleInput('\r');
-    return picked;
+    return result;
   });
 }
 
@@ -217,12 +230,25 @@ function validReviewPayload() {
       narrative: 'Commit review-set approvals as explicit graph truth only after user review.',
     },
     entityDrafts: [
-      { draftId: 'goal-review', plane: 'intent', kind: 'goal', title: 'Review graph proposals' },
-      { draftId: 'req-approve', plane: 'intent', kind: 'requirement', title: 'Approval is atomic' },
+      {
+        draftId: 'goal-review',
+        settlement: 'settled' as const,
+        plane: 'intent',
+        kind: 'goal',
+        title: 'Review graph proposals',
+      },
+      {
+        draftId: 'req-approve',
+        settlement: 'settled' as const,
+        plane: 'intent',
+        kind: 'requirement',
+        title: 'Approval is atomic',
+      },
     ],
     edgeDrafts: [
       {
         category: 'dependency',
+        settlement: 'settled' as const,
         dependency: { draftId: 'req-approve' },
         dependent: { draftId: 'goal-review' },
       },
@@ -246,18 +272,21 @@ function validPlanReviewPayload() {
     entityDrafts: [
       {
         draftId: 'frontier-scope-proof',
+        settlement: 'settled' as const,
         plane: 'plan',
         kind: 'frontier',
         title: 'Scope proof frontier',
       },
       {
         draftId: 'scope-handoff',
+        settlement: 'settled' as const,
         plane: 'plan',
         kind: 'scope',
         title: 'Executor handoff package',
       },
       {
         draftId: 'check-handoff-proof',
+        settlement: 'settled' as const,
         plane: 'oracle',
         kind: 'check',
         title: 'Scope handoff proof',
@@ -266,11 +295,13 @@ function validPlanReviewPayload() {
     edgeDrafts: [
       {
         category: 'composition',
+        settlement: 'settled' as const,
         whole: { draftId: 'frontier-scope-proof' },
         part: { draftId: 'scope-handoff' },
       },
       {
         category: 'dependency',
+        settlement: 'settled' as const,
         dependency: { draftId: 'check-handoff-proof' },
         dependent: { draftId: 'scope-handoff' },
       },
@@ -524,9 +555,6 @@ describe('structured exchange ask tools', () => {
   it('collects standalone single-choice asks with stable ids, Other/None comments, and duplicate labels', async () => {
     const ask = registeredTools().get(ASK_TOOL);
     if (!ask) throw new Error('ask was not registered');
-    const input = vi.fn(async () =>
-      input.mock.calls.length === 1 ? 'Something else entirely' : 'Needs a custom path.',
-    );
 
     const duplicate = await ask.execute(
       'ask-choice-duplicate',
@@ -553,7 +581,16 @@ describe('structured exchange ask tools', () => {
       },
       undefined,
       undefined,
-      { hasUI: true, ui: { custom: customPickByIndex(1), input } } as never,
+      {
+        hasUI: true,
+        ui: {
+          custom: customInteractionSequence([
+            { kind: 'pick', index: 1 },
+            { kind: 'input', prompt: 'Other', value: 'Something else entirely' },
+            { kind: 'input', prompt: 'Optional comment', value: 'Needs a custom path.' },
+          ]),
+        },
+      } as never,
     );
     const none = await ask.execute(
       'ask-choice-none',
@@ -568,10 +605,15 @@ describe('structured exchange ask tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { custom: customPickByIndex(2), input: async () => 'No listed option fits.' },
+        ui: {
+          custom: customInteractionSequence([
+            { kind: 'pick', index: 2 },
+            { kind: 'input', prompt: 'Required comment', value: 'No listed option fits.' },
+          ]),
+        },
       } as never,
     );
-    const noInput = await ask.execute(
+    const customOnly = await ask.execute(
       'ask-choice-none-no-input',
       {
         exchangeId: 'none-no-input',
@@ -581,7 +623,15 @@ describe('structured exchange ask tools', () => {
       },
       undefined,
       undefined,
-      { hasUI: true, ui: { custom: customPickByIndex(1) } } as never,
+      {
+        hasUI: true,
+        ui: {
+          custom: customInteractionSequence([
+            { kind: 'pick', index: 1 },
+            { kind: 'input', prompt: 'Required comment', value: 'No listed option fits.' },
+          ]),
+        },
+      } as never,
     );
 
     expect(duplicate.details).toMatchObject({
@@ -596,7 +646,9 @@ describe('structured exchange ask tools', () => {
     expect(none.details).toMatchObject({
       answered: { choice: { id: 'none', label: 'None', kind: 'none' }, comment: 'No listed option fits.' },
     });
-    expect(noInput.details).toMatchObject({ unavailable: {} });
+    expect(customOnly.details).toMatchObject({
+      answered: { choice: { id: 'none', label: 'None', kind: 'none' }, comment: 'No listed option fits.' },
+    });
   });
 
   it('carries option descriptions into standalone and declared-continuation picker choices', async () => {
@@ -664,7 +716,12 @@ describe('structured exchange ask tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { custom: customMultiPick([0, 1]), input: async () => 'Speed is primary.' },
+        ui: {
+          custom: customInteractionSequence([
+            { kind: 'multi', indexes: [0, 1] },
+            { kind: 'input', prompt: 'Optional comment', value: 'Speed is primary.' },
+          ]),
+        },
       } as never,
     );
     const editor = await ask.execute(
@@ -900,6 +957,65 @@ describe('structured exchange ask tools', () => {
     expect(answerStatus).not.toHaveBeenCalled();
   });
 
+  it('renders validated ask terminals with distinct rails over canonical markdown and falls back for malformed details', async () => {
+    const ask = registeredTools().get(ASK_TOOL);
+    if (!ask) throw new Error('ask was not registered');
+    const base = {
+      schema: 'brunch.structured_exchange.request',
+      v: 1,
+      exchange_id: 'rail-fixture',
+      tool_meta: { curr: 'ask' },
+      question: { body: 'Question?' },
+    };
+    const fixtures = [
+      {
+        label: 'Answered',
+        details: { ...base, tool_meta: { curr: 'ask', next: 'capture_answer' }, answered: { text: 'Yes.' } },
+      },
+      { label: 'Cancelled', details: { ...base, cancelled: {} } },
+      { label: 'Unavailable', details: { ...base, unavailable: { message: 'No UI.' } } },
+    ];
+
+    for (const fixture of fixtures) {
+      const canonical = `# Canonical ${fixture.label}\n\nFormatter-owned body.`;
+      const rendered = ask
+        .renderResult({ content: [{ type: 'text', text: canonical }], details: fixture.details }, {}, theme)
+        .render?.(80)
+        .join('\n');
+      expect(rendered).toContain(fixture.label);
+      expect(rendered).toContain(`Canonical ${fixture.label}`);
+      expect(rendered).toContain('Formatter-owned body.');
+    }
+
+    const rejected = await ask.execute(
+      'ask-invalid-rail',
+      { exchangeId: 'bad', body: '', rawRejectedValue: 'RAW_SENTINEL' },
+      undefined,
+      undefined,
+      {} as never,
+    );
+    expect(rejected.content[0]?.text).toContain('TOOL_INPUT_INVALID');
+    expect(rejected.content[0]?.text).toContain('body');
+    expect(rejected.details).toMatchObject({ status: 'validation_failed', tool: 'ask' });
+    expect(ask.renderResult(rejected, {}, theme).render?.(80)).toEqual([]);
+
+    const fallback = ask
+      .renderResult(
+        {
+          content: [{ type: 'text', text: '# Existing fallback\n\nCanonical malformed-details body.' }],
+          details: { ...base, mystery: {} },
+        },
+        {},
+        theme,
+      )
+      .render?.(80)
+      .join('\n');
+    expect(fallback).toContain('Existing fallback');
+    expect(fallback).toContain('Canonical malformed-details body.');
+    expect(fallback).not.toMatch(/Answered|Cancelled|Unavailable|Input rejected/);
+    expect(ask.renderCall().render?.(80).join('')).toBe('');
+  });
+
   it('renders present_candidates from validated details and falls back to content for malformed details', async () => {
     const candidates = await presentResult(PRESENT_CANDIDATES_TOOL, candidateParams());
     const tool = registeredTools({ review: reviewDeps() }).get(PRESENT_CANDIDATES_TOOL);
@@ -960,10 +1076,10 @@ describe('structured exchange ask tools', () => {
     if (!structuralIllegal) throw new Error('present_review_set returned no structural-illegal result');
     const structuralIllegalRendered = tool.renderResult(structuralIllegal, {}, theme).render?.(80).join('\n');
 
-    expect(richRendered).toContain('Terms');
+    expect(richRendered).not.toContain('Terms');
     expect(richRendered).toContain('Intent');
-    expect(richRendered).toContain('goal         G1    Review graph proposals');
-    expect(richRendered).toContain('refs: G1');
+    expect(richRendered).toContain('goal         G1    Review graph proposals [settled]');
+    expect(richRendered).toContain('refs: G1 [settled]');
     expect(richRendered).not.toContain('accepted');
     expect(richRendered).not.toContain('committed');
     expect(richRendered).not.toContain('applied');
@@ -1013,6 +1129,7 @@ describe('structured exchange ask tools', () => {
         exchangeId: 'review-live-chrome',
         repeatedPretext: ['Review cycle wiring', 'Commit review-set approvals'],
         expectedControl: 'Approve',
+        comment: { prompt: 'Optional comment', value: 'Looks right.' },
       },
     ];
 
@@ -1020,11 +1137,14 @@ describe('structured exchange ask tools', () => {
       await ask.execute(`ask-${offer.exchangeId}`, { continues: offer.exchangeId }, undefined, undefined, {
         hasUI: true,
         ui: {
-          custom: customPickWithChromeAssertions(0, (rendered) => {
-            expect(rendered).toContain(offer.expectedControl);
-            for (const pretext of offer.repeatedPretext) expect(rendered).not.toContain(pretext);
-          }),
-          input: async () => 'Looks right.',
+          custom: customPickWithChromeAssertions(
+            0,
+            (rendered) => {
+              expect(rendered).toContain(offer.expectedControl);
+              for (const pretext of offer.repeatedPretext) expect(rendered).not.toContain(pretext);
+            },
+            offer.comment,
+          ),
         },
         sessionManager: { getBranch: () => branchWith(offer.details) },
       } as never);
@@ -1065,7 +1185,12 @@ describe('structured exchange ask tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { custom: customPickByIndex(1), input: async () => 'Tighten the grounding.' },
+        ui: {
+          custom: customInteractionSequence([
+            { kind: 'pick', index: 1 },
+            { kind: 'input', prompt: 'Required change request', value: 'Tighten the grounding.' },
+          ]),
+        },
         sessionManager: { getBranch: () => branchWith(review.details) },
       } as never,
     );
@@ -1126,7 +1251,11 @@ describe('structured exchange ask tools', () => {
     const ask = registeredTools().get(ASK_TOOL);
     if (!ask) throw new Error('ask was not registered');
 
-    const otherInput = vi.fn(async () => undefined);
+    const otherCustom = customInteractionSequence([
+      { kind: 'pick', index: 1 },
+      { kind: 'input', prompt: 'Other' },
+      { kind: 'pick', index: 0 },
+    ]);
     const other = await ask.execute(
       'ask-choice-other-back',
       {
@@ -1137,10 +1266,14 @@ describe('structured exchange ask tools', () => {
       },
       undefined,
       undefined,
-      { hasUI: true, ui: { custom: customPickSequence([1, 0]), input: otherInput } } as never,
+      { hasUI: true, ui: { custom: otherCustom } } as never,
     );
 
-    const requiredCommentInput = vi.fn(async () => undefined);
+    const requiredCommentCustom = customInteractionSequence([
+      { kind: 'pick', index: 1 },
+      { kind: 'input', prompt: 'Required comment' },
+      { kind: 'pick', index: 0 },
+    ]);
     const requiredComment = await ask.execute(
       'ask-choice-required-comment-back',
       {
@@ -1153,13 +1286,16 @@ describe('structured exchange ask tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { custom: customPickSequence([1, 0]), input: requiredCommentInput },
+        ui: { custom: requiredCommentCustom },
       } as never,
     );
 
-    const optionalCommentInput = vi.fn(async () =>
-      optionalCommentInput.mock.calls.length === 1 ? undefined : '',
-    );
+    const optionalCommentCustom = customInteractionSequence([
+      { kind: 'pick', index: 0 },
+      { kind: 'input', prompt: 'Optional comment' },
+      { kind: 'pick', index: 1 },
+      { kind: 'input', prompt: 'Optional comment', value: '' },
+    ]);
     const optionalComment = await ask.execute(
       'ask-choice-optional-comment-back',
       {
@@ -1175,7 +1311,7 @@ describe('structured exchange ask tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { custom: customPickSequence([0, 1]), input: optionalCommentInput },
+        ui: { custom: optionalCommentCustom },
       } as never,
     );
 
@@ -1191,21 +1327,19 @@ describe('structured exchange ask tools', () => {
     expect(other.terminate).toBeUndefined();
     expect(requiredComment.terminate).toBeUndefined();
     expect(optionalComment.terminate).toBeUndefined();
-    expect(otherInput).toHaveBeenCalledExactlyOnceWith('Other', 'Describe your answer');
-    expect(requiredCommentInput).toHaveBeenCalledExactlyOnceWith('Required comment', undefined);
-    expect(optionalCommentInput).toHaveBeenNthCalledWith(1, 'Optional comment');
-    expect(optionalCommentInput).toHaveBeenNthCalledWith(2, 'Optional comment');
+    expect(otherCustom).toHaveBeenCalledTimes(3);
+    expect(requiredCommentCustom).toHaveBeenCalledTimes(3);
+    expect(optionalCommentCustom).toHaveBeenCalledTimes(4);
   });
 
   it('backs out from multi-choice Other entry with checkbox state restored', async () => {
     const ask = registeredTools().get(ASK_TOOL);
     if (!ask) throw new Error('ask was not registered');
-    const input = vi.fn(async () => undefined);
-    const custom = customMultiPickThenAssertRestored({
-      firstIndexes: [0, 2],
-      restoredText: '[x] Move quickly',
-      secondIndexes: [2],
-    });
+    const custom = customInteractionSequence([
+      { kind: 'multi', indexes: [0, 2] },
+      { kind: 'input', prompt: 'Other' },
+      { kind: 'multi', indexes: [2], restoredText: '[x] Move quickly' },
+    ]);
 
     const result = await ask.execute(
       'ask-multi-other-back',
@@ -1221,14 +1355,13 @@ describe('structured exchange ask tools', () => {
       },
       undefined,
       undefined,
-      { hasUI: true, ui: { custom, input } } as never,
+      { hasUI: true, ui: { custom } } as never,
     );
 
     expect(result.details).toMatchObject({
       answered: { choices: [{ id: 'speed', label: 'Move quickly', kind: 'listed' }] },
     });
     expect(result.terminate).toBeUndefined();
-    expect(custom).toHaveBeenCalledTimes(2);
-    expect(input).toHaveBeenCalledExactlyOnceWith('Other', 'Describe your answer');
+    expect(custom).toHaveBeenCalledTimes(3);
   });
 });

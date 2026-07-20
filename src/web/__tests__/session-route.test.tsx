@@ -474,10 +474,18 @@ describe('session route', () => {
         body: 'One cohesive set.',
         reviewSet: {
           nodes: [
-            { draft_id: 'goal', proposed_code: 'G1', plane: 'intent', kind: 'goal', title: 'Clear outcome' },
+            {
+              draft_id: 'goal',
+              proposed_code: 'G1',
+              settlement: 'settled' as const,
+              plane: 'intent',
+              kind: 'goal',
+              title: 'Clear outcome',
+            },
             {
               draft_id: 'req',
               proposed_code: 'REQ1',
+              settlement: 'settled' as const,
               plane: 'intent',
               kind: 'requirement',
               title: 'Atomic approval',
@@ -488,6 +496,7 @@ describe('session route', () => {
           edges: [
             {
               category: 'dependency',
+              settlement: 'settled' as const,
               dependency: { draft_id: 'goal' },
               dependent: { draft_id: 'req' },
               rationale: 'Requirement serves goal.',

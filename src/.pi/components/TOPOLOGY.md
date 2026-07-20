@@ -1,13 +1,13 @@
 # `.pi/components` — Reusable Pi TUI components
 
-SPEC decisions: D52-L (sealed Pi-harness runtime surface), D123-L (Pi-native model/auth surface), D121-L (provider-facing tool-schema adapter).
+SPEC decisions: D27-L (review settlement), D52-L (sealed Pi-harness runtime surface), D121-L (provider-facing tool-schema adapter), D123-L (Pi-native model/auth surface), D131-L (review concern groups).
 
 This directory owns reusable components rendered inside the embedded Pi coding-agent harness: TUI overlays, chrome regions, message helpers, and the shared visual primitives (theme/badge/segment-track) they build on. These are **Pi-native presentation pieces**, not generic React components and not product wiring.
 
 ## Owns
 
 - Pi TUI components consumed by `.pi/extensions/` (e.g. workspace dialogs, runtime axis pickers, chrome header).
-- Shared visual primitives for those components: the `LabTheme`/`makeSolidBadge`/`renderSegmentTrack` substrate under `tui-lab/`, plus tiny layout wrappers such as `lateral-padding.ts` and focused response pickers such as `multi-choice-picker.ts`.
+- Shared visual primitives for those components: the `LabTheme`/`makeSolidBadge`/`renderSegmentTrack` substrate under `tui-lab/`, plus tiny layout wrappers, the blue `menu-shell.ts` presentation shell, mode-bordered nested `mode-input.ts`, and focused response pickers.
 - Render-only component contracts whose props may use domain/session input types or DTOs needed to present Pi UI.
 
 ## Does NOT own
@@ -27,7 +27,7 @@ components/
 │                                D121-L tool-parameter adapter so the component never imports extensions
 ├── brunch-editor.ts             bordered `CustomEditor` wrapper for Brunch's persistent input editor;
 │                                caller-injected labels/color keep runtime/session state out of the component
-├── brunch-identity.ts
+├── brunch-identity.ts           startup product identity; compact wordmark uses terminal-default text
 ├── brunch-version.ts
 ├── cards.ts
 ├── choice-row.ts              shared described-option row projection and rendered-row accumulator for picker/menu affordances
@@ -35,8 +35,9 @@ components/
 ├── chrome-shortcuts.ts        shared shortcut constants/hint formatting consumed by chrome copy
 │                                and the command registrar that binds those keys
 ├── consult-menu.ts            bordered session-orientation consult menu using the shared two-line
-│                                choice-row projection, visible scroll thumb, role/spec top/bottom label
-│                                channel, and `borderAccent` surface-identity border role
+│                                choice-row projection, visible current-style marker/preselection,
+│                                inert-Escape help, role/spec top/bottom labels, and the
+│                                `borderAccent` surface-identity border role
 ├── editor-lines.ts            shared pi-tui Editor border/rule stripping helpers for boxed
 │                                editor surfaces
 ├── exchange-answer-editor.ts   bordered free-text exchange answer editor hosting pi-tui Editor
@@ -46,14 +47,20 @@ components/
 │                                owned by agents/contexts/exchanges
 ├── exchange-decision-picker.ts bordered single-decision exchange response picker
 ├── exchange-questionnaire.ts   one-terminal ordered questionnaire with Back/Next/final Submit
-├── exchange-review-set-result.ts details-backed `present_review_set` transcript
-│                                renderer; presents proposed node/edge drafts and
-│                                proposed graph codes as non-committal proposal cards
+├── exchange-review-set-result.ts details-backed `present_review_set` transcript renderer;
+│                                proposed draft-host edges remain refs rows in populated-only
+│                                Terms/concern groups with canonical relative order; existing-host
+│                                edges render exactly once in a trailing populated-only Connections
+│                                section; every edge shows its own settlement (D27-L/D131-L)
+├── exchange-terminal-result.ts render-only ask terminal status rail wrapped around
+│                                formatter-owned canonical Markdown
 ├── exchange-markdown-body.ts   shared structured-exchange markdown body projection/theme used by
 │                                bordered answering components and transcript renderers
 ├── lateral-padding.ts          transparent horizontal padding wrapper
 ├── mode-border-theme.ts        Brunch-owned operational-mode border color roles shared by chrome
 │                                and ask surfaces
+├── menu-shell.ts               reusable blue bordered menu presentation/key-handling shell
+├── mode-input.ts               mode-bordered nested text/comment collector preserving Back/Escape
 ├── multi-choice-picker.ts      bordered checkbox-style exchange response picker; supports
 │                                restored checked state when an owning flow re-presents it
 ├── mouse-wheel.ts              parseWheelEvent() — SGR wheel-event decoder used by the dev
@@ -71,6 +78,8 @@ components/
 │   ├── segment-track.ts
 │   ├── style-palette.ts
 │   └── style-lab-component.ts   reference-only demo Component (previewable via npm run dev:components -- tui-lab; no production call site)
+├── welcome-card.ts              standard transparent one-column-padded Box composed into the non-transcript
+│                                new-session/spec startup header; command/control notes use the dim role
 ├── workspace-dialog.ts          public entry re-exporting the folder below
 └── workspace-dialog/            fractal sub-tree for the workspace/session picker
     ├── assets/                  logo assets colocated with the dialog

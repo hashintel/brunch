@@ -20,9 +20,9 @@ import { formatGraphOverview } from '../../../agents/contexts/data-model/graph/g
 import type { GraphSlice } from '../../../graph/index.js';
 import type { SpecKind, SpecOrigin } from '../../../graph/schema/kinds.js';
 import type { ElicitationScratchpadItem } from '../../../session/elicitation-scratchpad.js';
-import type { SessionOrientationDirectiveChoice } from '../../../session/session-orientation.js';
+import type { ProcessMove } from '../../../session/process-move.js';
 import { formatElicitationScratchpad } from '../data-model/elicitation-scratchpad.js';
-import { formatSessionOrientationSeed } from '../data-model/session-orientation.js';
+import { formatProcessMoveSeed } from '../data-model/process-move.js';
 import { deriveGraphFactSeed, renderGraphFactSeed } from './graph-fact-seed.js';
 
 /** A spec's posture (D118-L) as read by kick assembly — never established here. */
@@ -43,13 +43,8 @@ export interface ComposeContextSeedInput {
    * render degrades to omitting the section.
    */
   readonly workspaceContext: string;
-  /**
-   * Fresh session-orientation choice (`freshSessionOrientationChoice` output)
-   * routing the opening turn. Omitted entirely when no fresh choice exists or
-   * the fresh choice is an inert `dismissed` — never rendered as a
-   * blank/default section (decision-flow chart §Choice schema).
-   */
-  readonly orientation?: SessionOrientationDirectiveChoice;
+  /** Fresh one-shot process move routing this opening turn. */
+  readonly processMove?: ProcessMove;
   /**
    * The spec's posture (D118-L) — confirmed kind, origin, and an optional
    * relates-to-spec reference (A41-L). Read-only here: the agent never
@@ -80,8 +75,8 @@ export function composeContextSeedContent(input: ComposeContextSeedInput): strin
 
   lines.push('', formatElicitationScratchpad(input.scratchpad));
 
-  if (input.orientation) {
-    lines.push('', formatSessionOrientationSeed(input.orientation));
+  if (input.processMove) {
+    lines.push('', formatProcessMoveSeed(input.processMove));
   }
 
   if (input.posture && input.posture.origin !== null) {

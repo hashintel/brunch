@@ -14,6 +14,7 @@ const payload = {
     {
       draftId: 'req-1',
       proposedCode: 'REQ1',
+      settlement: 'settled' as const,
       plane: 'intent' as const,
       kind: 'requirement' as const,
       title: 'Atomic acceptance',

@@ -1,194 +1,122 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatSessionOrientationSeed } from '../../../../agents/contexts/data-model/session-orientation.js';
-import { latestSessionOrientation } from '../../../../session/session-orientation.js';
 import {
+  buildSessionOrientationMenu,
   CODE_SESSION_ORIENTATION_MENU,
+  DETERMINISTIC_PROCESS_MOVE_AVAILABILITY,
   runAndRecordSessionOrientation,
-  runSessionOrientationDialog,
   SESSION_ORIENTATION_MENU,
 } from '../index.js';
 
-function fakeUi(response: string | undefined) {
-  const calls: Array<{ title: string; options: string[] }> = [];
-  return {
-    calls,
-    select: async (title: string, options: string[]) => {
-      calls.push({ title, options });
-      return response;
-    },
-  };
-}
-
-class FakeSessionManager {
-  entries: Array<{ type: 'custom'; customType: string; data: unknown }> = [];
-
-  appendCustomEntry(customType: string, data: unknown) {
-    this.entries.push({ type: 'custom', customType, data });
-  }
-}
-
-describe('runSessionOrientationDialog', () => {
-  it('presents every §Choice schema label under the menu-owned title and resolves the matching id', async () => {
-    const ui = fakeUi(SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'ingest')!.label);
-
-    const choice = await runSessionOrientationDialog(ui);
-
-    expect(ui.calls[0]).toEqual({
-      title: SESSION_ORIENTATION_MENU.title,
-      options: SESSION_ORIENTATION_MENU.items.map((item) => item.label),
+describe('session orientation boundary', () => {
+  it('exports the model-independent conservative fallback', () => {
+    expect(DETERMINISTIC_PROCESS_MOVE_AVAILABILITY).toEqual({
+      specify: {
+        move_to_execution: false,
+        prepare_execution: false,
+        compile_plan: false,
+        execute_plan: false,
+      },
+      execute: {
+        move_to_execution: false,
+        prepare_execution: true,
+        compile_plan: false,
+        execute_plan: false,
+      },
     });
-    expect(choice).toBe('ingest');
-  });
-
-  it('maps escape/timeout (undefined) to the inert dismissed on every menu', async () => {
-    const specUi = fakeUi(undefined);
-    const codeUi = fakeUi(undefined);
-
-    await expect(runSessionOrientationDialog(specUi)).resolves.toBe('dismissed');
-    await expect(runSessionOrientationDialog(codeUi, { menu: CODE_SESSION_ORIENTATION_MENU })).resolves.toBe(
-      'dismissed',
-    );
-  });
-
-  it('keeps SPEC and CODE menu labels disjoint and gives CODE an execute-specific title', async () => {
-    const specLabels = new Set<string>(SESSION_ORIENTATION_MENU.items.map((item) => item.label));
-    const codeLabels = CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.label);
-    const ui = fakeUi(undefined);
-
-    await runSessionOrientationDialog(ui, { menu: CODE_SESSION_ORIENTATION_MENU });
-
-    expect(codeLabels.filter((label) => specLabels.has(label))).toEqual([]);
-    expect(ui.calls[0]?.title).toContain('Execute');
-    expect(ui.calls[0]?.title).not.toBe(SESSION_ORIENTATION_MENU.title);
-  });
-
-  it('keeps surface chrome labels and role-specific menu content on the descriptors', () => {
-    expect(SESSION_ORIENTATION_MENU.topLabel).toBe('[ Specify ]');
-    expect(SESSION_ORIENTATION_MENU.noKickChoice).toBe('continue');
-    expect(SESSION_ORIENTATION_MENU.items.at(-1)).toMatchObject({
-      id: 'continue',
-      label: 'Wait for me',
-    });
-    expect(SESSION_ORIENTATION_MENU.items.map((item) => item.id)).toEqual([
-      'elicit_decisions',
-      'elicit_examples',
-      'propose_intent',
-      'propose_design',
-      'propose_oracle',
-      'ingest',
-      'continue',
+    expect(SESSION_ORIENTATION_MENU.items.map(({ id }) => id)).toEqual([
+      'interrogate',
+      'disambiguate',
+      'propose',
     ]);
+    expect(CODE_SESSION_ORIENTATION_MENU).toMatchObject({
+      title: 'Choose a process move for Execute mode',
+      items: [{ id: 'prepare_execution', label: 'Prepare execution' }],
+    });
+  });
 
-    expect(CODE_SESSION_ORIENTATION_MENU.topLabel).toBe('[ Execute ]');
-    expect(CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.id)).toEqual([
+  it('builds exact mode-appropriate menus from fallback or explicit availability', () => {
+    expect(buildSessionOrientationMenu({ mode: 'specify', currentStyle: 'disambiguate' })).toMatchObject({
+      initialSelectedId: 'disambiguate',
+      items: [
+        { id: 'interrogate', label: 'Work via intent' },
+        { id: 'disambiguate', label: 'Work via examples', current: true },
+        { id: 'propose', label: 'Work via proposals' },
+      ],
+    });
+    expect(
+      buildSessionOrientationMenu({
+        mode: 'specify',
+        availability: { move_to_execution: true },
+      }).items.map(({ id, label }) => ({ id, label })),
+    ).toEqual([
+      { id: 'interrogate', label: 'Work via intent' },
+      { id: 'disambiguate', label: 'Work via examples' },
+      { id: 'propose', label: 'Work via proposals' },
+      { id: 'move_to_execution', label: 'Move to execution' },
+    ]);
+    expect(buildSessionOrientationMenu({ mode: 'execute' }).items.map(({ id }) => id)).toEqual([
       'prepare_execution',
-      'compile_plan',
-      'execute_plan',
     ]);
-    expect(CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.id)).not.toContain('proceed');
-    expect(CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.id)).not.toContain('backfill');
-    expect(CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.id)).not.toContain('design_first');
-    expect(CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.id)).not.toContain('oracle_first');
-    expect(CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.id)).not.toContain('project_plan');
+    expect(
+      buildSessionOrientationMenu({
+        mode: 'execute',
+        availability: { compile_plan: true, execute_plan: true, move_to_execution: true },
+      }).items.map(({ id, label }) => ({ id, label })),
+    ).toEqual([
+      { id: 'prepare_execution', label: 'Prepare execution' },
+      { id: 'compile_plan', label: 'Compile a plan' },
+      { id: 'execute_plan', label: 'Execute the plan' },
+    ]);
   });
 
-  it.each([
-    {
-      id: 'prepare_execution',
-      label: 'Design / oracle / commit work',
-      directive: /assessing design, oracle, and commitment evidence; recommend one next preparation path/i,
-    },
-    {
-      id: 'compile_plan',
-      label: 'Plan compilation readiness',
-      directive: /assessing plan-compilation readiness.*offer compile-now versus backfill-first/i,
-    },
-    {
-      id: 'execute_plan',
-      label: 'Plan execution',
-      directive: /validating that the compiled plan is fresh.*begin only the next safe scoped unit/i,
-    },
-  ] as const)(
-    'keeps Execute %s visible menu, persisted id, and context seed semantically aligned',
-    async (row) => {
-      const ui = fakeUi(row.label);
-      const manager = new FakeSessionManager();
-
-      const result = await runAndRecordSessionOrientation({
-        hasUI: true,
-        ui,
-        trigger: 'consult',
-        manager,
-        menu: CODE_SESSION_ORIENTATION_MENU,
-      });
-
-      expect(result).toEqual({ choice: row.id, recorded: true });
-      expect(latestSessionOrientation(manager.entries)?.data).toEqual({
-        schemaVersion: 1,
-        choice: row.id,
-        trigger: 'consult',
-      });
-      expect(formatSessionOrientationSeed(row.id)).toContain(`chosen: ${row.id}`);
-      expect(formatSessionOrientationSeed(row.id)).toMatch(row.directive);
+  it.each([undefined, null, new Error('failed'), { compile_plan: true }])(
+    'uses conservative fallback for absent or failure-shaped availability',
+    (availability) => {
+      expect(
+        buildSessionOrientationMenu({ mode: 'specify', availability: availability as never }).items.map(
+          ({ id }) => id,
+        ),
+      ).toEqual(['interrogate', 'disambiguate', 'propose']);
     },
   );
-});
 
-describe('runAndRecordSessionOrientation', () => {
-  it('does not show the dialog or write an entry when hasUI is false (degraded mode)', async () => {
-    const ui = fakeUi('ingest');
-    const manager = new FakeSessionManager();
-
-    const choice = await runAndRecordSessionOrientation({
-      hasUI: false,
-      ui,
-      trigger: 'entry',
-      manager,
-    });
-
-    expect(choice).toBeUndefined();
-    expect(ui.calls).toEqual([]);
-    expect(manager.entries).toEqual([]);
-  });
-
-  it('writes an entry on every resolution, including an escape dismissal (entry rule)', async () => {
-    const ui = fakeUi(undefined);
-    const manager = new FakeSessionManager();
-
-    const choice = await runAndRecordSessionOrientation({
+  it('dismissal yields no choice and writes nothing', async () => {
+    const writes: unknown[] = [];
+    const result = await runAndRecordSessionOrientation({
       hasUI: true,
-      ui,
-      trigger: 'entry',
-      manager,
-    });
-
-    expect(choice).toEqual({ choice: 'dismissed', recorded: true });
-    expect(latestSessionOrientation(manager.entries)?.data).toEqual({
-      schemaVersion: 1,
-      choice: 'dismissed',
-      trigger: 'entry',
-    });
-  });
-
-  it('reports a failed append without throwing and marks the resolution unrecorded', async () => {
-    const ui = fakeUi(SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'ingest')!.label);
-    const manager: { appendCustomEntry: () => void } = {
-      appendCustomEntry: () => {
-        throw new Error('ledger write failed');
-      },
-    };
-    const errors: unknown[] = [];
-
-    const choice = await runAndRecordSessionOrientation({
-      hasUI: true,
-      ui,
+      ui: { select: async () => undefined },
       trigger: 'consult',
-      manager,
-      onAppendError: (error) => errors.push(error),
+      currentStyle: 'disambiguate',
+      manager: { appendCustomEntry: (type, data) => writes.push({ type, data }) },
     });
+    expect(result).toBeUndefined();
+    expect(writes).toEqual([]);
+  });
 
-    expect(choice).toEqual({ choice: 'ingest', recorded: false });
-    expect(errors).toHaveLength(1);
+  it('same-style selection remains a choice but writes nothing', async () => {
+    const writes: unknown[] = [];
+    const result = await runAndRecordSessionOrientation({
+      hasUI: true,
+      ui: { select: async () => 'Work via examples' },
+      trigger: 'consult',
+      currentStyle: 'disambiguate',
+      manager: { appendCustomEntry: (type, data) => writes.push({ type, data }) },
+    });
+    expect(result).toEqual({ choice: 'disambiguate', recorded: false, appendFailed: false });
+    expect(writes).toEqual([]);
+  });
+
+  it('writes only the selected narrow carrier', async () => {
+    const writes: unknown[] = [];
+    await runAndRecordSessionOrientation({
+      hasUI: true,
+      ui: { select: async () => 'Work via proposals' },
+      trigger: 'consult',
+      manager: { appendCustomEntry: (type, data) => writes.push({ type, data }) },
+    });
+    expect(writes).toEqual([
+      { type: 'brunch.elicitation_style', data: { schemaVersion: 1, style: 'propose' } },
+    ]);
   });
 });

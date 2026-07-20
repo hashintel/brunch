@@ -32,8 +32,10 @@ function hexToTruecolorFg(hex: string): string {
 function shippedAccentHex(variant: 'dark' | 'light'): string {
   const parsed = JSON.parse(
     readFileSync(fileURLToPath(new URL(`brunch-${variant}.json`, THEME_DIR)), 'utf8'),
-  ) as { vars: Record<string, string>; colors: Record<string, string> };
-  return parsed.vars[parsed.colors['accent']!] ?? parsed.colors['accent']!;
+  ) as { vars: Record<string, string>; colors: Record<string, string | number> };
+  const value = parsed.colors['accent']!;
+  if (typeof value === 'number') return '#800080';
+  return parsed.vars[value] ?? value;
 }
 
 describe('createComponentPreviewTheme', () => {
@@ -121,22 +123,21 @@ describe('parseBrunchThemePalette', () => {
     }
   });
 
-  it('gives HTML exports an explicit default foreground for both themes', () => {
-    expect(createComponentPreviewTheme('dark').getFgAnsi('text')).toBe(hexToTruecolorFg('#e2ddd7'));
-    expect(createComponentPreviewTheme('light').getFgAnsi('text')).toBe(hexToTruecolorFg('#3B3734'));
+  it('uses terminal-default text while retaining concrete export foregrounds', () => {
+    expect(createComponentPreviewTheme('dark').getFgAnsi('text')).toBe('\x1b[39m');
+    expect(createComponentPreviewTheme('light').getFgAnsi('text')).toBe('\x1b[39m');
+    expect(new SwitchableComponentPreviewTheme('dark').pageFg).toBe('#e2ddd7');
+    expect(new SwitchableComponentPreviewTheme('light').pageFg).toBe('#3B3734');
   });
 
-  it('defines one mode border color role per operational mode in both shipped themes', () => {
+  it('defines cyan Specify and magenta Execute border roles in both shipped themes', () => {
     const requiredRoles = OPERATIONAL_MODE_IDS.map((mode) => OPERATIONAL_MODE_BORDER_COLOR_ROLES[mode]);
 
     for (const variant of ['dark', 'light'] as const) {
       const raw = readFileSync(fileURLToPath(new URL(`brunch-${variant}.json`, THEME_DIR)), 'utf8');
       const palette = parseBrunchThemePalette(raw, variant);
-      for (const role of requiredRoles) {
-        expect((palette.fgColors as Record<string, string>)[role], `${variant} ${role}`).toMatch(
-          /^#[0-9a-fA-F]{6}$/,
-        );
-      }
+      expect((palette.fgColors as Record<string, string>)[requiredRoles[0]!]).toBe('#008080');
+      expect((palette.fgColors as Record<string, string>)[requiredRoles[1]!]).toBe('#800080');
     }
   });
 
@@ -226,7 +227,7 @@ describe('registerComponentPreviewThemeToggle', () => {
       const darkAccent = createComponentPreviewTheme('dark').getFgAnsi('accent');
       const lightAccent = createComponentPreviewTheme('light').getFgAnsi('accent');
       expect(terminal.writes.join('')).toContain(darkAccent);
-      expect(terminal.writes.join('')).not.toContain(lightAccent);
+      expect(lightAccent).toBe(darkAccent);
       // Registration paints the initial variant's default foreground (OSC 10,
       // the theme's `export.pageFg` reference — governs unstyled and
       // `text`-token component text) and page background (OSC 11).

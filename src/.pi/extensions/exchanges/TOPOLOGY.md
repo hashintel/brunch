@@ -3,9 +3,9 @@
 Owns Pi registration, live UI collection, and TUI transcript `renderResult`
 wiring for the structured-exchange tool family (`ask`, `present_review_set`,
 `present_candidates`, `present_digest`). Params-boundary validation failures are
-caught inside this adapter family and returned as themed `TOOL_INPUT_INVALID`
-markdown tool results, so Pi's generic tool-error path does not expose raw
-schema payloads in the transcript. Result details are constructed only
+caught inside this adapter family and returned as bounded `TOOL_INPUT_INVALID`
+model-facing tool results, so the provider retains exact retry diagnostics while
+`renderResult` emits no human-visible transcript lines. Result details are constructed only
 through `src/exchanges/projections/*` and validated against the Zod schemas in
 `src/exchanges/schemas/` (D108-L). D104-L sets the render rule:
 `renderResult` may render from validated details for a family-specific rich
@@ -33,9 +33,9 @@ remains intact for durable terminal content and complete RPC/headless question
 payloads. Mounted answer/picker borders take the current
 operational-mode color role through the shared component border-color seam;
 workspace/consult surfaces keep their own surface-identity colors. Picker-root
-dismissal is terminal `cancelled`; nested Other/comment input steps share one
-`StepResult`-shaped collector and return to the picker, with multi-choice
-checkbox state restored. Declared-continuation root cancellation emits a transient notification naming
+dismissal is terminal `cancelled`; nested Other/comment input steps share the
+Brunch-owned mode-bordered `ModeInputComponent` through one `StepResult`-shaped
+collector and return Back/Escape to the picker, with multi-choice checkbox state restored. Declared-continuation root cancellation emits a transient notification naming
 `/brunch:continue`, `/brunch:consult`, and `/brunch:mode`; standalone
 cancellation emits separate transient guidance naming only `/brunch:consult`
 and `/brunch:mode`. Neither path publishes persistent footer status. This user
@@ -96,7 +96,7 @@ renderers: they parse their family details and render through
 `ExchangeCandidatesResultComponent` proposal cards or the
 `ExchangeReviewSetResultComponent` borderless Impact Ledger, with shared
 `details-rendering.ts` keeping legacy/malformed result fallback on canonical
-`content`. `ask` and `present_digest` intentionally use Markdown pass-through; for digest, the prose formatter content is the transcript presentation.
+`content`. `ask` uses an ask-only terminal status rail after strict read-side validation: canonical formatter Markdown remains the body for Answered/Cancelled/Unavailable terminals; recognized provider `validation_failed` details render nothing while preserving their model-facing result, and malformed/unrecognized non-validation details fall back to Markdown pass-through. `present_digest` intentionally uses Markdown pass-through because its prose formatter content is the transcript presentation.
 
 `src/exchanges/schemas/__tests__/source-boundary.test.ts` guards the
 details-contract half. `src/.pi/extensions/__tests__/exchange-family-completeness.test.ts`

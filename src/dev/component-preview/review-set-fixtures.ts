@@ -23,6 +23,7 @@ export const WITNESSED_REVIEW_SET_PAYLOAD = {
     {
       draftId: 'goal-review',
       proposedCode: 'G1',
+      settlement: 'settled' as const,
       plane: 'intent',
       kind: 'goal',
       title: 'Review this proposed set as one coherent decision before settlement changes are made',
@@ -30,6 +31,7 @@ export const WITNESSED_REVIEW_SET_PAYLOAD = {
     {
       draftId: 'req-decision',
       proposedCode: 'REQ1',
+      settlement: 'settled' as const,
       plane: 'intent',
       kind: 'requirement',
       title: 'The settlement interaction should preserve one whole-set decision for reviewers',
@@ -37,6 +39,7 @@ export const WITNESSED_REVIEW_SET_PAYLOAD = {
     {
       draftId: 'decision-hierarchy',
       proposedCode: 'D1',
+      settlement: 'settled' as const,
       plane: 'intent',
       kind: 'decision',
       title: 'Compare the information hierarchy before committing to a settlement interaction',
@@ -44,6 +47,7 @@ export const WITNESSED_REVIEW_SET_PAYLOAD = {
     {
       draftId: 'constraint-payload',
       proposedCode: 'CON1',
+      settlement: 'settled' as const,
       plane: 'intent',
       kind: 'constraint',
       title: 'Retain exact persisted details so compact review views never conceal evidence',
@@ -51,6 +55,7 @@ export const WITNESSED_REVIEW_SET_PAYLOAD = {
     {
       draftId: 'criterion-scan',
       proposedCode: 'AC1',
+      settlement: 'settled' as const,
       plane: 'intent',
       kind: 'criterion',
       title: 'Make the first-pass scope and its consequences legible during review',
@@ -58,6 +63,7 @@ export const WITNESSED_REVIEW_SET_PAYLOAD = {
     {
       draftId: 'module-review',
       proposedCode: 'MOD1',
+      settlement: 'settled' as const,
       plane: 'design',
       kind: 'module',
       title: 'The review-set result component presents proposed graph changes to a reviewer',
@@ -65,6 +71,7 @@ export const WITNESSED_REVIEW_SET_PAYLOAD = {
     {
       draftId: 'interface-decision',
       proposedCode: 'API1',
+      settlement: 'settled' as const,
       plane: 'design',
       kind: 'interface',
       title: 'The whole-set decision control records approval, requested changes, or rejection',
@@ -72,6 +79,7 @@ export const WITNESSED_REVIEW_SET_PAYLOAD = {
     {
       draftId: 'sketch-brief',
       proposedCode: 'SKT1',
+      settlement: 'settled' as const,
       plane: 'design',
       kind: 'sketch',
       title: 'A proposition brief layout tests whether commitments can lead the reading order',
@@ -79,6 +87,7 @@ export const WITNESSED_REVIEW_SET_PAYLOAD = {
     {
       draftId: 'check-counts',
       proposedCode: 'CH1',
+      settlement: 'settled' as const,
       plane: 'oracle',
       kind: 'check',
       title: 'Render the mixed review set at supported widths and compare its visible inventory',
@@ -86,6 +95,7 @@ export const WITNESSED_REVIEW_SET_PAYLOAD = {
     {
       draftId: 'evidence-renderer',
       proposedCode: 'E1',
+      settlement: 'settled' as const,
       plane: 'oracle',
       kind: 'evidence',
       title: 'The component-playground comparison showed lifecycle labels were not user-legible',
@@ -93,6 +103,7 @@ export const WITNESSED_REVIEW_SET_PAYLOAD = {
     {
       draftId: 'obligation-inspection',
       proposedCode: 'O1',
+      settlement: 'settled' as const,
       plane: 'oracle',
       kind: 'vv_obligation',
       title: 'Legacy obligation: prove exact-payload inspection before accepting the renderer',
@@ -100,6 +111,7 @@ export const WITNESSED_REVIEW_SET_PAYLOAD = {
     {
       draftId: 'method-renderer',
       proposedCode: 'VV1',
+      settlement: 'settled' as const,
       plane: 'oracle',
       kind: 'vv_method',
       title: 'Use fixture inventory comparison plus a normal-width human visual review',
@@ -107,6 +119,7 @@ export const WITNESSED_REVIEW_SET_PAYLOAD = {
     {
       draftId: 'term-impact',
       proposedCode: 'T1',
+      settlement: 'settled' as const,
       plane: 'intent',
       kind: 'term',
       title: 'Impact means the consequences of accepting the proposed graph set',
@@ -118,6 +131,7 @@ export const WITNESSED_REVIEW_SET_PAYLOAD = {
     {
       draftId: 'entity-review-item',
       proposedCode: 'ENT1',
+      settlement: 'settled' as const,
       plane: 'design',
       kind: 'entity',
       title: 'A review item carries one proposed code, kind, title, details, and relations',
@@ -125,6 +139,7 @@ export const WITNESSED_REVIEW_SET_PAYLOAD = {
     {
       draftId: 'milestone-review',
       proposedCode: 'M1',
+      settlement: 'settled' as const,
       plane: 'plan',
       kind: 'milestone',
       title: 'Close the walkthrough chapter after the review interaction is legible and witnessed',
@@ -132,6 +147,7 @@ export const WITNESSED_REVIEW_SET_PAYLOAD = {
     {
       draftId: 'frontier-fe1187',
       proposedCode: 'F1',
+      settlement: 'settled' as const,
       plane: 'plan',
       kind: 'frontier',
       title: 'FE-1187 compares whole-set review readings before the production interaction changes',
@@ -139,6 +155,7 @@ export const WITNESSED_REVIEW_SET_PAYLOAD = {
     {
       draftId: 'scope-review',
       proposedCode: 'SCP1',
+      settlement: 'settled' as const,
       plane: 'plan',
       kind: 'scope',
       title: 'Choose and verify one compact concern-grouped review reading',
@@ -147,6 +164,7 @@ export const WITNESSED_REVIEW_SET_PAYLOAD = {
   edgeDrafts: [
     {
       category: 'rationale',
+      settlement: 'settled' as const,
       support: { draftId: 'goal-review' },
       claim: { draftId: 'req-decision' },
       stance: 'for',
@@ -154,12 +172,14 @@ export const WITNESSED_REVIEW_SET_PAYLOAD = {
     },
     {
       category: 'dependency',
+      settlement: 'settled' as const,
       dependency: { draftId: 'constraint-payload' },
       dependent: { draftId: 'decision-hierarchy' },
       rationale: 'Hierarchy must not hide persisted detail.',
     },
     {
       category: 'rationale',
+      settlement: 'settled' as const,
       support: { draftId: 'evidence-renderer' },
       claim: { draftId: 'decision-hierarchy' },
       stance: 'for',
@@ -167,24 +187,28 @@ export const WITNESSED_REVIEW_SET_PAYLOAD = {
     },
     {
       category: 'realization',
+      settlement: 'settled' as const,
       abstract: { draftId: 'req-decision' },
       concrete: { draftId: 'module-review' },
       rationale: 'The result component realizes the review requirement.',
     },
     {
       category: 'realization',
+      settlement: 'settled' as const,
       abstract: { draftId: 'req-decision' },
       concrete: { draftId: 'interface-decision' },
       rationale: 'The whole-set control realizes the review requirement.',
     },
     {
       category: 'composition',
+      settlement: 'settled' as const,
       whole: { draftId: 'module-review' },
       part: { draftId: 'entity-review-item' },
       rationale: 'Review items compose the rendered set.',
     },
     {
       category: 'witness',
+      settlement: 'settled' as const,
       oracle: { draftId: 'criterion-scan' },
       claim: { draftId: 'req-decision' },
       stance: 'for',
@@ -192,24 +216,28 @@ export const WITNESSED_REVIEW_SET_PAYLOAD = {
     },
     {
       category: 'realization',
+      settlement: 'settled' as const,
       abstract: { draftId: 'criterion-scan' },
       concrete: { draftId: 'check-counts' },
       rationale: 'The concrete check operationalizes the criterion.',
     },
     {
       category: 'realization',
+      settlement: 'settled' as const,
       abstract: { draftId: 'method-renderer' },
       concrete: { draftId: 'check-counts' },
       rationale: 'The concrete check applies the comparison method.',
     },
     {
       category: 'composition',
+      settlement: 'settled' as const,
       whole: { draftId: 'milestone-review' },
       part: { draftId: 'frontier-fe1187' },
       rationale: 'The frontier is part of walkthrough closure.',
     },
     {
       category: 'composition',
+      settlement: 'settled' as const,
       whole: { draftId: 'frontier-fe1187' },
       part: { draftId: 'scope-review' },
       rationale: 'The review work is one scope inside the frontier.',

@@ -7,6 +7,7 @@ import type {
 } from '../../../../agents/contexts/seeds/turn-context.js';
 import type { LiveElicitorPushedContext } from '../../../../agents/runtime/elicitor/context.js';
 import { composeForegroundRuntimePrompt } from '../../../../agents/runtime/foreground-policy.js';
+import { latestElicitationStyle } from '../../../../session/elicitation-style.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
 import { appendProviderSystemPromptIfMissing } from '../../shared/provider-system-prompt.js';
 import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from '../runtime/index.js';
@@ -51,10 +52,6 @@ export type BrunchPromptContextProvider =
 
 function supportsPrompting(pi: ExtensionAPI): boolean {
   return typeof (pi as Partial<ExtensionAPI>).on === 'function';
-}
-
-function projectState(ctx: PromptingContextLike | undefined) {
-  return projectBrunchAgentState(ctx?.sessionManager?.getBranch() ?? []);
 }
 
 export function registerBrunchPrompting(
@@ -110,13 +107,15 @@ async function composeBrunchPromptForContext(
   directiveAblation: 'warrant-before-commit' | undefined,
 ): Promise<{ prompt: string; activeTools: string[] }> {
   const resolvedPromptContext = await resolvePromptContext(promptContext);
-  const state = projectState(ctx);
+  const branch = ctx?.sessionManager?.getBranch() ?? [];
+  const state = projectBrunchAgentState(branch);
   const activeTools =
     typeof (pi as Partial<ExtensionAPI>).getAllTools === 'function'
       ? activeToolNamesForBrunchAgentState(pi, state)
       : [];
+  const elicitationStyle = latestElicitationStyle(branch);
   const prompt = composeForegroundRuntimePrompt({
-    sessionState: state,
+    sessionState: state.agentRole === 'elicitor' && elicitationStyle ? { ...state, elicitationStyle } : state,
     spec: resolvedPromptContext.spec,
     workspace: resolvedPromptContext.workspace,
     ...(resolvedPromptContext.context ? { context: resolvedPromptContext.context } : {}),

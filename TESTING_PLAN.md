@@ -40,48 +40,24 @@ Purpose: verify Brunch works for alpha users who are not already Pi users, and t
 
 ### 1A. No pre-existing Pi auth/login
 
-Use a scratch Pi agent dir so ambient `~/.pi/agent/auth.json` cannot leak into the run. `PI_CODING_AGENT_DIR` isolates file-backed auth only; Pi also resolves provider API-key environment variables, so the two Brunch-allowlisted fallbacks must be removed for a real no-auth run:
+Use a scratch Pi agent dir so ambient `~/.pi/agent/auth.json` cannot leak into the run. `PI_CODING_AGENT_DIR` isolates file-backed auth only; also unset any provider credential environment variables configured in the invoking shell:
 
 ```sh
 AGENT_DIR=$(mktemp -d /tmp/brunch-agent-auth.XXXXXX)
 WORKSPACE=.fixtures/workbenches/manual-no-auth
 mkdir -p "$WORKSPACE"
 
-# Source/direct CLI form (the browser opens by default):
-env -u ANTHROPIC_API_KEY -u OPENROUTER_API_KEY \
-  PI_CODING_AGENT_DIR="$AGENT_DIR" \
-  npm run dev -- --cwd "$WORKSPACE"
-
-# Built/package CLI form:
-env -u ANTHROPIC_API_KEY -u OPENROUTER_API_KEY \
-  PI_CODING_AGENT_DIR="$AGENT_DIR" \
-  brunch --cwd "$WORKSPACE"
+PI_CODING_AGENT_DIR="$AGENT_DIR" npm run dev -- --cwd "$WORKSPACE"
+# or: PI_CODING_AGENT_DIR="$AGENT_DIR" brunch --cwd "$WORKSPACE"
 ```
 
 Check:
 
-- Workspace entry warns that no allowlisted model auth is configured.
-- Spec/session creation remains available.
-- No orientation juncture or provider turn fires before auth exists.
-- Copy points to `brunch login` and `/login`.
-- `auth.json` is created only under the scratch `PI_CODING_AGENT_DIR` if the flow needs it; no ambient auth is read.
-
-Then run the login path from the same scratch agent dir:
-
-```sh
-# Source/dev launcher form:
-PI_CODING_AGENT_DIR="$AGENT_DIR" npm run dev -- login
-
-# Built/package CLI form:
-PI_CODING_AGENT_DIR="$AGENT_DIR" brunch login
-```
-
-Check:
-
-- Provider choices match the Brunch allowlist order.
-- API-key or OAuth flow writes Pi-shaped auth storage.
-- Exit report says which allowlisted model and thinking policy Brunch will use.
-- Relaunch now fires normal orientation/kick behavior.
+- Workspace/spec/session creation remains available and the product names Pi-native `/login` as the recovery path.
+- No orientation juncture or provider turn fires before resolvable provider auth exists.
+- Brunch does not impose a model/provider allowlist or offer a standalone `brunch login` flow.
+- No ambient auth is read; if Pi-native `/login` is exercised, its auth storage is isolated under the scratch `PI_CODING_AGENT_DIR`.
+- Relaunch after native Pi authentication follows normal orientation/kick behavior.
 
 ### 1B. New bare workspace
 
@@ -296,8 +272,7 @@ Check wheel/trackpad scrolling, rounded-box integrity, editor redraw, status/foo
 
 In Brunch:
 
-- `shift+tab` cycles Specify ↔ Execute.
-- `alt+m` opens the picker.
+- `/brunch:mode` or `alt+m` opens the Specify/Execute picker.
 - footer/header labels, editor label, and border color update.
 - ask surfaces pick up the active mode border role.
 
@@ -307,7 +282,7 @@ Scoping proof:
 pi
 ```
 
-Plain Pi should still own its normal `shift+tab` thinking-cycle behavior.
+Brunch does not shadow Pi's normal `shift+tab` thinking-cycle behavior.
 
 ### 7C. Component gallery walk
 
@@ -368,18 +343,16 @@ Check:
 - The mutation receipt reports what was actually approved and applied; it does not imply broader capture.
 - Debug mirrors and session JSONL make the source → digest → review → accepted abstract path auditable.
 
-## Concern 8 — FE-1167 overlap opportunities
+## Concern 8 — deterministic-orientation and KA overlap
 
-These remain owned by FE-1167 unless witnessed explicitly with evidence today:
+Record these only when naturally witnessed; FE-1187 owns Specify-side evidence and the KA stream owns D120-L Execute conduct:
 
-- Web sidecar during an open ask.
-- Capture sweep after ask answers.
-- Resume re-render of persisted ask results.
-- Generative menu evidence: intent/design/oracle/frontier-level plan flows entered through deterministic junctures.
-- Execute thin/rich entry beats: CODE entry offers proceed, backfill, design-first, oracle-first, and project-plan paths; readiness resolves to Proceed / Negotiate / Ask before execution tooling; deferred orientation-choice questions remain deferred.
-- The handoff from CODE readiness into `execute_plan_check` / `execute_orchestrate` preserves the authority boundary: executor includes elicitor tools, while write-execution tools remain executor-only and host application still requires explicit acceptance.
+- Web semantic read-back during an open ask.
+- Capture sweep after ask answers and resume re-render of persisted terminals.
+- Generative menu evidence: intent/design/oracle/frontier-level plan flows entered through deterministic user-owned moves.
+- KA-owned Execute thin/rich entry beats: Prepare execution, Compile a plan, and Execute the plan must preserve their D120-L promises and the concentric authority boundary.
 
-If a current test naturally covers one, mark it in `TESTING_FINDINGS.md` as `FE-1167 overlap`; do not force the whole FE-1167 batch unless priorities change.
+Put findings in `TESTING_FINDINGS.md` with the owning frontier/stream; do not revive FE-1167 or the retired CODE/proceed/backfill/design-first/oracle-first/project-plan vocabulary.
 
 ## Finding classification
 

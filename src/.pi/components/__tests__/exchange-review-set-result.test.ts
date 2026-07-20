@@ -21,6 +21,7 @@ const payload = {
     {
       draftId: 'term-ledger',
       proposedCode: 'T1',
+      settlement: 'settled' as const,
       plane: 'intent',
       kind: 'term',
       title: 'Impact Ledger',
@@ -29,6 +30,7 @@ const payload = {
     {
       draftId: 'goal-safe',
       proposedCode: 'G2',
+      settlement: 'settled' as const,
       plane: 'intent',
       kind: 'goal',
       title: 'Launch safely with a deliberately long description that wraps at narrow widths',
@@ -36,6 +38,7 @@ const payload = {
     {
       draftId: 'goal-clear',
       proposedCode: 'G3',
+      settlement: 'advisory' as const,
       plane: 'intent',
       kind: 'goal',
       title: 'Keep review consequences clear',
@@ -43,6 +46,7 @@ const payload = {
     {
       draftId: 'requirement-rollback',
       proposedCode: 'REQ5',
+      settlement: 'settled' as const,
       plane: 'intent',
       kind: 'requirement',
       title: 'Rollback is required',
@@ -50,6 +54,7 @@ const payload = {
     {
       draftId: 'obligation-observe',
       proposedCode: 'VVO2',
+      settlement: 'settled' as const,
       plane: 'oracle',
       kind: 'vv_obligation',
       title: 'Observe the rollback path',
@@ -57,6 +62,7 @@ const payload = {
     {
       draftId: 'frontier-launch',
       proposedCode: 'F4',
+      settlement: 'settled' as const,
       plane: 'plan',
       kind: 'frontier',
       title: 'Close launch readiness',
@@ -65,11 +71,13 @@ const payload = {
   edgeDrafts: [
     {
       category: 'dependency',
+      settlement: 'settled' as const,
       dependency: { draftId: 'requirement-rollback' },
       dependent: { draftId: 'goal-safe' },
     },
     {
       category: 'witness',
+      settlement: 'settled' as const,
       oracle: { draftId: 'obligation-observe' },
       claim: { draftId: 'goal-safe' },
       stance: 'for',
@@ -118,6 +126,35 @@ describe('ExchangeReviewSetResultComponent', () => {
     ).toEqual([]);
   });
 
+  it('renders existing-host connections exactly once with their own settlement', () => {
+    const existingHostDetails = projectPresentReviewSet({
+      exchangeId: 'existing-host-review',
+      payload: {
+        ...payload,
+        edgeDrafts: [
+          {
+            category: 'cross_reference',
+            settlement: 'advisory',
+            a: { existingCode: 'G90' },
+            b: { draftId: 'goal-safe' },
+          },
+          {
+            category: 'supersession',
+            settlement: 'settled',
+            predecessor: { existingCode: 'G91' },
+            successor: { existingCode: 'G92' },
+          },
+        ],
+      },
+    }).details;
+
+    const rendered = new ExchangeReviewSetResultComponent(existingHostDetails, plainTheme)
+      .render(72)
+      .join('\n');
+    expect(rendered.match(/G90 -> G2 \[advisory\]/g)).toHaveLength(1);
+    expect(rendered.match(/G91 -> G92 \[settled\]/g)).toHaveLength(1);
+  });
+
   it('styles headings, kinds, codes, content, and reference rows by semantic role', () => {
     const styled: string[] = [];
     const recordingTheme = {
@@ -133,8 +170,10 @@ describe('ExchangeReviewSetResultComponent', () => {
     expect(styled).toContain('accent:**Terms**');
     expect(styled).toContain('muted:term');
     expect(styled).toContain('syntaxKeyword:T1');
-    expect(styled).toContain('text:A compact view of proposed graph consequences.');
-    expect(styled).toContain('muted:refs: VVO2');
-    expect(styled).toContain('muted:refs: G2');
+    expect(
+      styled.some((cell) => cell.startsWith('text:A compact view of proposed graph consequences.')),
+    ).toBe(true);
+    expect(styled).toContain('muted:refs: VVO2 [settled]');
+    expect(styled).toContain('muted:refs: G2 [settled]');
   });
 });

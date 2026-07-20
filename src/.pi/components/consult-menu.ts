@@ -1,12 +1,8 @@
 import { type Component, Key, matchesKey } from '@earendil-works/pi-tui';
 
 import { accumulateChoiceLines, describedChoiceLines } from './choice-row.js';
-import {
-  projectRoundedBox,
-  roundedBoxInnerWidth,
-  stackSections,
-  type RoundedBoxPadding,
-} from './rounded-box.js';
+import { projectMenuShell } from './menu-shell.js';
+import { roundedBoxInnerWidth, stackSections, type RoundedBoxPadding } from './rounded-box.js';
 import { projectScrollViewport } from './scroll-viewport.js';
 import { safeLines, type LabTheme } from './tui-lab/index.js';
 
@@ -14,6 +10,7 @@ export interface ConsultMenuChoice {
   readonly id: string;
   readonly label: string;
   readonly description?: string;
+  readonly current?: boolean;
 }
 
 export interface ConsultMenuResult {
@@ -25,6 +22,7 @@ export interface ConsultMenuOptions {
   readonly topLabel?: string;
   readonly bottomLabel?: string;
   readonly choices: readonly ConsultMenuChoice[];
+  readonly initialSelectedId?: string;
   readonly theme: LabTheme;
   readonly onDone: (result?: ConsultMenuResult) => void;
 }
@@ -36,7 +34,10 @@ export const CONSULT_MENU_SURFACE_IDENTITY_BORDER_ROLE = 'borderAccent';
 export class ConsultMenuComponent implements Component {
   #activeIndex = 0;
 
-  constructor(private readonly options: ConsultMenuOptions) {}
+  constructor(private readonly options: ConsultMenuOptions) {
+    const initialIndex = options.choices.findIndex((choice) => choice.id === options.initialSelectedId);
+    if (initialIndex >= 0) this.#activeIndex = initialIndex;
+  }
 
   render(width: number): string[] {
     const safeWidth = Math.max(16, width);
@@ -46,7 +47,7 @@ export class ConsultMenuComponent implements Component {
     const stacked = stackSections([
       [this.options.theme.fg('accent', this.options.title)],
       [...choiceWindow.lines],
-      [this.options.theme.fg('dim', '↑/↓ or j/k move · enter commits · esc/q dismisses')],
+      [this.options.theme.fg('dim', '↑/↓ move · enter commits · esc/q dismisses; give another instruction')],
     ]);
     const content = safeLines(stacked.lines, contentWidth);
     const choiceStart = stacked.offsets[1] ?? 0;
@@ -54,17 +55,12 @@ export class ConsultMenuComponent implements Component {
       choiceWindow.isThumbRow.flatMap((isThumb, index) => (isThumb ? [choiceStart + index] : [])),
     );
 
-    const box = projectRoundedBox(
-      content,
-      {
-        padding: BOX_PADDING,
-        thumbRows,
-        ...(this.options.topLabel ? { topLabel: this.options.topLabel } : {}),
-        ...(this.options.bottomLabel ? { bottomLabel: this.options.bottomLabel } : {}),
-      },
-      safeWidth,
-      (text) => this.options.theme.fg(CONSULT_MENU_SURFACE_IDENTITY_BORDER_ROLE, text),
-    );
+    const box = projectMenuShell(content, safeWidth, this.options.theme, {
+      padding: BOX_PADDING,
+      thumbRows,
+      ...(this.options.topLabel ? { topLabel: this.options.topLabel } : {}),
+      ...(this.options.bottomLabel ? { bottomLabel: this.options.bottomLabel } : {}),
+    });
     box.push('');
     return box;
   }
@@ -100,7 +96,8 @@ export class ConsultMenuComponent implements Component {
     const active = index === this.#activeIndex;
     const marker = active ? this.options.theme.fg('accent', '›') : ' ';
     const ordinal = `${index + 1}.`;
-    const label = active ? (this.options.theme.bold?.(choice.label) ?? choice.label) : choice.label;
+    const visibleLabel = choice.current ? `${choice.label} (current)` : choice.label;
+    const label = active ? (this.options.theme.bold?.(visibleLabel) ?? visibleLabel) : visibleLabel;
     return describedChoiceLines({
       firstLine: `${marker} ${ordinal} ${label}`,
       continuationIndent: 2 + ordinal.length + 1,

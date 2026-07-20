@@ -107,7 +107,7 @@ export async function runTier2RealBootFauxTurn(
  * never enter a Pi run mode, so `session.bindExtensions(...)` never fires
  * and the session-orientation registrar's boot handler (`session_start`
  * reason `startup`, the J1 juncture) never runs — meaning no orientation
- * dialog, no `brunch.session_orientation` entry, and no kick. Production
+ * dialog, no elicitation-style or process-move entry, and no kick. Production
  * paths (`InteractiveMode`, RPC, print) call `bindExtensions` inside their
  * `run()` method with a real UI context; test harnesses have no such
  * context, so this helper binds extensions with no `uiContext`, matching

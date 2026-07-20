@@ -73,6 +73,8 @@ Bounded exceptions:
 - `ln-plan → ln-scope Mode: sweep → ln-build` for an admitted sweep
 - direct `ln-build` for a tiny direct fix inside a named settled seam
 
+Any scope→build route above can also run delegated: the user-invoked `/ln-execute` coordinates `ln-scoper`/`ln-builder` agents with independent review. Only the user can invoke it — when they want to hand off a block of execution, name it as the route rather than routing to `ln-scope`/`ln-build` inline.
+
 Only recommend bounded or direct-build paths when the containing seam/layer is already named, no durable requirement / assumption / decision / invariant change is expected, and post-build reconciliation can plausibly be a no-op.
 
 ## Posture-aware route override

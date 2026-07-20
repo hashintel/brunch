@@ -37,6 +37,8 @@ ln-consult
 
 The flow is not a checklist. Skip steps whose uncertainty is already retired.
 
+`ln-execute` runs the `ln-scope` → `ln-build` segment through delegated agents with coordinator review; it is user-invoked only (see §Delegated execution).
+
 ### Operating posture
 
 Planning and scoping pressures depend on each frontier's **certainty posture**. The project default lives in `memory/POSTURE.md` (`certainty: proving | earned`); individual frontiers in `memory/PLAN.md` may carry an explicit `Certainty:` override. Posture is **per-frontier**, not per-project — a mostly-earned repo can carry a fresh proving seam, and a settled seam can regress to proving on a new unknown.
@@ -108,6 +110,14 @@ Tracer-complete is not load-bearing. Posture ranks the next *vertical* slice; it
 | `ln-pr-review` | Reviewing someone else's PR through an architectural/strategic lens — design shift, complexity growth, quiet precedent change. Line-level and bug-hunting concerns stay with AI review bots and the author. | A brief reflective discussion, then a concise plain-English review comment posted via `gh`. |
 | `ln-refactor` | Working code needs restructuring without behavior change. | Refactor plan as tiny safe commits. |
 
+### Delegated execution
+
+| Skill | Use when | Produces |
+| --- | --- | --- |
+| `ln-execute` | The user explicitly asks to run a focus — a PLAN frontier, active scope files, `memory/REFACTOR.md`, or a named concern — through delegated scoping and building. | Independently reviewed execution units: scope files via `ln-scoper`, commits via `ln-builder`, and a review decision per unit. |
+
+`ln-execute` sits above `ln-scope` and `ln-build`, not beside them: the delegated agents load those skills, and the coordinator owns focus resolution, autonomous-horizon classification, delegation packets, one-write-capable-delegate serialization, owned-gate parking, protected-state comparison, and independent review. It drains ready/scopeable work without scoping through fog, parks human/provider/browser evidence only when it has a named owner + re-entry trigger, and reports `autonomous horizon exhausted` separately from frontier completion. Specialist routes such as `ln-design`, `ln-diagnose`, `ln-oracles`, and `ln-sync` remain outside this coordinator and block only their dependency chains. The harness must define `ln-scoper` and `ln-builder` under those names (`.pi/subagents/`, `.claude/agents/`, `.codex/agents/`); harness-level properties such as model pins live in the agent definitions, not the skill. The skill preflights the live tool surface before resolving the focus and bails out in one sentence when the delegation tool or either agent name is not actually offered — it never hunts for an alternative invocation path or falls back to inline scope/build. Its frontmatter sets `disable-model-invocation: true` — it spawns writing agents, so it fires only on explicit user invocation.
+
 ## Discretionary skills that are easy to miss
 
 These are not always visible in the shortest default path, but they are important.
@@ -137,6 +147,7 @@ There is currently no project-local `ln-map` skill in `.agents/skills/`. If you 
 | “All paths are lit, but is the layer load-bearing?” | `ln-review` for diagnosis, then `ln-plan` for a coverage frontier / sweep |
 | “Is a whole capability layer going shallow under vertical slicing?” | `ln-plan` (coverage frontier / sweep) |
 | “What is the smallest buildable slice?” | `ln-scope` |
+| “Can this block of work run through delegated agents?” | `ln-execute` |
 | “Which module/API shape should we choose?” | `ln-design` |
 | “How will we know this works?” | `ln-oracles` |
 | “What do these tests actually prove?” | `ln-witness` |
@@ -181,7 +192,8 @@ The skill system verifies itself, the same way the product code does. This is th
 - a `ln-*` folder name that disagrees with its SKILL.md frontmatter `name`
 - a `ln-*` skill missing from this working guide
 - a dead cross-skill link (`../ln-x/SKILL.md`) inside any `ln-*` SKILL.md
-- a missing required guardrail phrase — currently the topology-stub carve-out in `ln-review` / `ln-judo-review` / `ln-build`, the verification-harness commitment in `ln-build`, and the owned-deferral rules (outer evidence and findings-ledger dispositions must name an owner with a re-entry trigger) in `ln-scope` / `ln-build` / `ln-sync`
+- a missing or misnamed `ln-scoper` / `ln-builder` definition in any supported harness
+- a missing required guardrail phrase — currently the topology-stub carve-out in `ln-review` / `ln-judo-review` / `ln-build`, the verification-harness commitment in `ln-build`, the owned-deferral rules (outer evidence and findings-ledger dispositions must name an owner with a re-entry trigger) in `ln-scope` / `ln-build` / `ln-sync`, and `ln-execute`'s live-surface-first bail-out, all-writer serialization, epistemic-horizon bound, owned-gate parking, completion-vs-autonomous-exhaustion distinction, specialist non-impersonation, and protected-state fingerprint checks
 
 Extend the guardrail list when a new Brunch-specific invariant must not silently disappear from a skill. Keep the script dependency-free and read-only.
 
@@ -193,7 +205,7 @@ Extend the guardrail list when a new Brunch-specific invariant must not silently
 - an implementation path cites `npm run verify`
 - a coverage/frontier question routes to `ln-plan` / `ln-review`, not ad-hoc implementation
 
-Scope notes when picking this up: this is the only piece that introduces a new namespace (a benchmarks/scenarios directory) and likely a `test:skills` script; it is *not* cross-harness portability (Brunch is single-harness — do not cargo-cult ponytail's 14-adapter machinery). Decide the judge mechanism (assertion over a recorded routing decision vs. an LLM-graded transcript) before building.
+Scope notes when picking this up: this is the only piece that introduces a new namespace (a benchmarks/scenarios directory) and likely a `test:skills` script; it is *not* cross-harness portability machinery (do not cargo-cult ponytail's 14-adapter machinery; Brunch's deliberate cross-harness surface is exactly `ln-execute` plus the symmetric `ln-scoper`/`ln-builder` agent definitions in `.pi/subagents/`, `.claude/agents/`, and `.codex/agents/` — keep it that small). Decide the judge mechanism (assertion over a recorded routing decision vs. an LLM-graded transcript) before building.
 
 ## References
 

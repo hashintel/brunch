@@ -1,33 +1,20 @@
 import { CustomEditor } from '@earendil-works/pi-coding-agent';
 import type { KeybindingsManager } from '@earendil-works/pi-coding-agent';
-import { getCapabilities, hyperlink, truncateToWidth } from '@earendil-works/pi-tui';
 import type { EditorTheme, TUI } from '@earendil-works/pi-tui';
 
 import { findLastIndex, isEditorBorderLine, padContentToMinimum, stripEditorBorder } from './editor-lines.js';
 import { projectRoundedBox } from './rounded-box.js';
 
 /**
- * Pre-formatted label strings baked into the box border / trailing lines.
- * Callers assemble these from whatever runtime facts they have (operational
- * mode, spec title, sidecar URL, model/context usage, ...) — this module
- * stays domain-ignorant so `projectBorderedChrome` can be reused for other
- * bordered components later (the `ask` question-form pickers are the
- * next intended reuse; see `memory/PLAN.md`'s `component-dx` frontier).
+ * Pre-formatted label strings baked into the box border.
+ * Callers assemble these from runtime facts such as operational mode and spec
+ * title; this module stays domain-ignorant.
  */
 export interface BrunchEditorLabels {
   /** Right-aligned label embedded in the top border, e.g. '[ Specify ]'. Omit for a plain top border. */
   readonly topRight?: string;
   /** Right-aligned label embedded in the bottom border, e.g. '"Spec Title"'. Omit for a plain bottom border. */
   readonly bottomRight?: string;
-  /**
-   * Lines appended immediately below the box (not part of the border). A
-   * plain string renders as-is; `{ text, url }` renders as a clickable OSC 8
-   * hyperlink where the terminal supports it (falls back to plain `text`
-   * otherwise) — kept as a union rather than a dedicated "url" field so this
-   * stays generic for any future bordered component's below-lines, not just
-   * this editor's sidecar URL.
-   */
-  readonly belowLines?: readonly (string | { readonly text: string; readonly url: string })[];
 }
 
 /** "│ " + " │" reserved from the outer width before delegating to the wrapped inner renderer. */
@@ -36,9 +23,6 @@ const SIDE_BUDGET = 4;
 /** Minimum content rows inside the box, even when the editor is empty. */
 const MIN_CONTENT_LINES = 2;
 
-/** Left indent applied to lines below the box. */
-const BELOW_LINES_INDENT = 1;
-
 function projectTrailingRows(
   trailingLines: readonly string[],
   width: number,
@@ -46,11 +30,6 @@ function projectTrailingRows(
 ): readonly string[] {
   if (trailingLines.length === 0) return [];
   return projectRoundedBox(trailingLines, { preserveContentWidth: true }, width, borderColor).slice(1, -1);
-}
-
-/** Renders `text` as a clickable OSC 8 hyperlink where the terminal supports it, plain text otherwise. */
-function renderLinkedText(text: string, url: string): string {
-  return getCapabilities().hyperlinks ? hyperlink(text, url) : text;
 }
 
 /**
@@ -84,14 +63,7 @@ export function projectBorderedChrome(
     borderColor,
   );
   const boxedTrailing = projectTrailingRows(trailingLines, width, borderColor);
-
-  const belowWidth = Math.max(0, width - BELOW_LINES_INDENT);
-  const indent = ' '.repeat(BELOW_LINES_INDENT);
-  const below = (labels.belowLines ?? []).map((line) => {
-    const text = typeof line === 'string' ? line : renderLinkedText(line.text, line.url);
-    return indent + truncateToWidth(text, belowWidth);
-  });
-  return [...boxedContent, ...boxedTrailing, ...below];
+  return [...boxedContent, ...boxedTrailing];
 }
 
 /**

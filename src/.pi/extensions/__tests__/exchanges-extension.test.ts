@@ -99,9 +99,13 @@ describe('structured exchange renderers', () => {
     const baseline = normalizeToolSchema(exchangeToolSchemaBaseline.schemas) as Record<string, unknown>;
 
     expect([...tools.keys()]).toEqual(Object.keys(exchangeToolSchemaBaseline.schemas));
-    expect(Object.fromEntries(Object.entries(currentSchemas).filter(([name]) => name !== 'ask'))).toEqual(
-      Object.fromEntries(Object.entries(baseline).filter(([name]) => name !== 'ask')),
+    const unchangedTools = ([name]: [string, unknown]) => name !== 'ask' && name !== PRESENT_REVIEW_SET_TOOL;
+    expect(Object.fromEntries(Object.entries(currentSchemas).filter(unchangedTools))).toEqual(
+      Object.fromEntries(Object.entries(baseline).filter(unchangedTools)),
     );
+    expect(JSON.stringify(currentSchemas[PRESENT_REVIEW_SET_TOOL])).toContain('settlement');
+    expect(JSON.stringify(currentSchemas[PRESENT_REVIEW_SET_TOOL])).toContain('advisory');
+    expect(JSON.stringify(currentSchemas[PRESENT_REVIEW_SET_TOOL])).toContain('settled');
     expect(currentSchemas.ask).toMatchObject({
       properties: {
         acceptsDigest: { type: 'string' },
@@ -146,7 +150,7 @@ describe('structured exchange renderers', () => {
     expect(rendered).toContain('Local-first graph work.');
   });
 
-  it('renders exchange tool validation failures as human-readable markdown without raw payloads', async () => {
+  it('keeps validation feedback model-visible while ask rejection stays out of the transcript', async () => {
     const tools = registerTools();
     const ask = tools.get(ASK_TOOL);
     const candidates = tools.get(PRESENT_CANDIDATES_TOOL);
@@ -166,17 +170,22 @@ describe('structured exchange renderers', () => {
       {} as never,
     );
 
-    for (const [toolName, tool, result] of [
-      [ASK_TOOL, ask, askResult],
-      [PRESENT_CANDIDATES_TOOL, candidates, candidatesResult],
-    ] as const) {
-      expect(result.details).toMatchObject({ status: 'validation_failed', tool: toolName });
-      const rendered = stripAnsi(tool.renderResult(result, {}, theme, {}).render(80).join('\n'));
-      expect(rendered).toContain('TOOL_INPUT_INVALID');
-      expect(rendered).toContain(`The ${toolName} tool could not use the supplied arguments.`);
-      expect(rendered).not.toContain('do-not-leak');
-      expect(rendered).not.toContain('"raw"');
-    }
+    expect(askResult.details).toMatchObject({ status: 'validation_failed', tool: ASK_TOOL });
+    expect(askResult.content[0]?.text).toContain(
+      `The ${ASK_TOOL} tool could not use the supplied arguments.`,
+    );
+    expect(ask.renderResult(askResult, {}, theme, {}).render(80)).toEqual([]);
+
+    expect(candidatesResult.details).toMatchObject({
+      status: 'validation_failed',
+      tool: PRESENT_CANDIDATES_TOOL,
+    });
+    const rendered = stripAnsi(
+      candidates.renderResult(candidatesResult, {}, theme, {}).render(80).join('\n'),
+    );
+    expect(rendered).toContain('TOOL_INPUT_INVALID');
+    expect(rendered).not.toContain('do-not-leak');
+    expect(rendered).not.toContain('"raw"');
   });
 
   it('renders ask as the Markdown pass-through of its content string', async () => {

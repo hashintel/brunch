@@ -14,6 +14,8 @@ Reject shell composition (`&&`, pipes, redirects, expansion, or quoted shell fra
 - product mode: Specify
 - operational mode id: specify (Specify)
 - foreground role: elicitor
+- elicitation style: interrogate
+- apply this elicitation style to the process of every turn; it never changes role, capability, authority, or target graph plane
 - active tools: read, grep, present_question
 - prompt resources: code-owned live skill and shared reference lists only; no runtime axis negotiation
 

@@ -5,7 +5,7 @@
  *
  *   subagents/
  *   ├── index.ts        # this file — the RPC supervisor + agent discovery
- *   ├── config.json     # { version, maxConcurrency, toolExtensions? }
+ *   ├── config.json     # { version, maxConcurrency, subagentTimeoutMs?, toolExtensions? }
  *   └── tools/          # (optional) co-located tool extensions for subagents,
  *                       #   referenced by relative path in config.toolExtensions
  *
@@ -48,6 +48,7 @@ import {
   parseFrontmatter,
   RpcClient,
   type Theme,
+  type ToolDefinition,
   withFileMutationQueue,
 } from '@earendil-works/pi-coding-agent';
 import { Container, Spacer, Text } from '@earendil-works/pi-tui';
@@ -75,6 +76,8 @@ export interface AgentConfig {
 interface ExtConfig {
   version?: number;
   maxConcurrency?: number;
+  /** Per-subagent idle timeout in milliseconds (default 10 minutes). */
+  subagentTimeoutMs?: number;
   /** name → path (absolute, or relative to this extension dir) of a tool extension. */
   toolExtensions?: Record<string, string>;
 }
@@ -93,7 +96,7 @@ export function userAgentsDir(): string {
 /** Hard ceiling on nesting depth (root prompt = depth 0). */
 const MAX_DEPTH = 4;
 const DEFAULT_MAX_CONCURRENCY = 4;
-const SUBAGENT_TIMEOUT_MS = 10 * 60 * 1000;
+const DEFAULT_SUBAGENT_TIMEOUT_MS = 10 * 60 * 1000;
 const MAX_RECENT_TOOLS = 8;
 const PROGRESS_THROTTLE_MS = 150;
 
@@ -146,6 +149,7 @@ export class Semaphore {
 let agents: AgentConfig[] = [];
 let customToolExtensions: Record<string, string> = {};
 let semaphore = new Semaphore(DEFAULT_MAX_CONCURRENCY);
+let subagentTimeoutMs = DEFAULT_SUBAGENT_TIMEOUT_MS;
 
 // ── Agent discovery & registration ─────────────────────────────────────
 
@@ -470,7 +474,7 @@ async function runSubagent(
     });
 
     await activeClient.prompt(`Task: ${task}`);
-    await activeClient.waitForIdle(SUBAGENT_TIMEOUT_MS);
+    await activeClient.waitForIdle(subagentTimeoutMs);
     unsubscribe();
 
     const text = await activeClient.getLastAssistantText();
@@ -691,6 +695,39 @@ const SubagentParams = Type.Object({
 
 // ── Extension entry point ──────────────────────────────────────────────
 
+function describeAvailableAgents(cwd: string, projectTrusted: boolean | undefined): string {
+  const roster =
+    discoverAgents(cwd, projectTrusted === true)
+      .map((agent) => `${agent.name} (${agent.description})`)
+      .join('; ') || '(none)';
+  const projectAgentsPath = `${CONFIG_DIR_NAME}/subagents`;
+
+  if (projectTrusted === undefined) {
+    return (
+      'Delegate a task to an isolated subagent running in its own pi process. ' +
+      'Subagents have NO context from this conversation — include everything needed in the task. ' +
+      `The available-agent roster is resolved when the session starts using real project trust; ` +
+      `user-level fallback agents currently visible: ${roster}.`
+    );
+  }
+
+  if (projectTrusted) {
+    return (
+      'Delegate a task to an isolated subagent running in its own pi process. ' +
+      'Subagents have NO context from this conversation — include everything needed in the task. ' +
+      `Available agents for this trusted project: ${roster}. ` +
+      `Definitions from ${projectAgentsPath} override same-named user-level agents.`
+    );
+  }
+
+  return (
+    'Delegate a task to an isolated subagent running in its own pi process. ' +
+    'Subagents have NO context from this conversation — include everything needed in the task. ' +
+    `Available user-level agents: ${roster}. ` +
+    `Project agents from ${projectAgentsPath} are excluded because project trust is inactive.`
+  );
+}
+
 export default function subagents(pi: ExtensionAPI): void {
   // Another copy of this extension (project-vendored vs user-level) already owns
   // the registry; pi keeps the first-registered `subagent` tool anyway, so this
@@ -699,23 +736,16 @@ export default function subagents(pi: ExtensionAPI): void {
 
   const config = loadConfig();
   semaphore = new Semaphore(config.maxConcurrency ?? DEFAULT_MAX_CONCURRENCY);
+  subagentTimeoutMs = config.subagentTimeoutMs ?? DEFAULT_SUBAGENT_TIMEOUT_MS;
   customToolExtensions = resolveToolExtensions(config);
 
-  // Roster shown in the tool description: dynamic + user-level agents known at
-  // activation. Project agents join per invocation via discoverAgents.
-  const roster =
-    discoverAgents(process.cwd(), false)
-      .map((a) => `${a.name} (${a.description})`)
-      .join('; ') || '(none)';
-  const projectAgentsNote = `Trusted project agents from ${CONFIG_DIR_NAME}/subagents are discovered per invocation and override same-named user-level agents (~/.pi/agent/subagents).`;
-
-  pi.registerTool({
+  const tool: ToolDefinition<typeof SubagentParams, Details> = {
     name: 'subagent',
     label: 'subagent',
-    description: `Delegate a task to an isolated subagent running in its own pi process. Subagents have NO context from this conversation — include everything needed in the task. Available agents: ${roster}. ${projectAgentsNote}`,
+    description: describeAvailableAgents(process.cwd(), undefined),
     promptSnippet: 'Delegate reasoning-heavy or isolated tasks to subagents',
     promptGuidelines: [
-      'Use subagent to delegate codebase exploration (scout), web research (researcher), or isolated code changes (worker).',
+      'Use subagent to delegate codebase exploration, web research, or isolated code changes to an appropriate available agent.',
       'For multiple independent tasks, pass tasks[] to run them in parallel.',
       'Subagents have NO prior context — put ALL necessary context in the task description.',
     ],
@@ -804,5 +834,13 @@ export default function subagents(pi: ExtensionAPI): void {
       });
       return container;
     },
+  };
+
+  pi.registerTool(tool);
+  pi.on('session_start', (_event, ctx) => {
+    pi.registerTool({
+      ...tool,
+      description: describeAvailableAgents(ctx.cwd, ctx.isProjectTrusted()),
+    });
   });
 }

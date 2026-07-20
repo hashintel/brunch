@@ -125,13 +125,13 @@ describe('originateAssistantTurn', () => {
     expect(result.decision.action).toBe('idle');
   });
 
-  it('folds a fresh orientation choice into the seed content', () => {
+  it('folds a fresh process move into the seed content', () => {
     const manager = fakeManager();
     const entries = [
       {
         type: 'custom',
-        customType: 'brunch.session_orientation',
-        data: { schemaVersion: 1, choice: 'ingest', trigger: 'entry' },
+        customType: 'brunch.process_move',
+        data: { schemaVersion: 1, move: 'prepare_execution' },
       },
     ];
     originateAssistantTurn({
@@ -144,8 +144,8 @@ describe('originateAssistantTurn', () => {
     });
 
     const seed = manager.appended.find((entry) => entry.customType === 'brunch.context_seed');
-    expect(String(seed?.content)).toContain('SESSION ORIENTATION');
-    expect(String(seed?.content)).toContain('chosen: ingest');
+    expect(String(seed?.content)).toContain('PROCESS MOVE');
+    expect(String(seed?.content)).toContain('chosen: prepare_execution');
   });
 
   it('folds established spec posture into the seed content (D118-L kick reader)', () => {
@@ -182,13 +182,13 @@ describe('originateAssistantTurn', () => {
     expect(String(seed?.content)).not.toContain('SPEC POSTURE');
   });
 
-  it('renders no orientation section for a fresh dismissed choice (inert dismissal)', () => {
+  it('renders no process-move section for a fresh dismissed choice (inert dismissal)', () => {
     const manager = fakeManager();
     const entries = [
       {
         type: 'custom',
-        customType: 'brunch.session_orientation',
-        data: { schemaVersion: 1, choice: 'dismissed', trigger: 'entry' },
+        customType: 'brunch.process_move',
+        data: { schemaVersion: 1, move: 'dismissed' },
       },
     ];
     originateAssistantTurn({
@@ -201,16 +201,16 @@ describe('originateAssistantTurn', () => {
     });
 
     const seed = manager.appended.find((entry) => entry.customType === 'brunch.context_seed');
-    expect(String(seed?.content)).not.toContain('SESSION ORIENTATION');
+    expect(String(seed?.content)).not.toContain('PROCESS MOVE');
   });
 
-  it('never re-routes a kick with an orientation choice recorded before the last kick', () => {
+  it('never re-routes a kick with an process move recorded before the last kick', () => {
     const manager = fakeManager();
     const entries = [
       {
         type: 'custom',
-        customType: 'brunch.session_orientation',
-        data: { schemaVersion: 1, choice: 'ingest', trigger: 'entry' },
+        customType: 'brunch.process_move',
+        data: { schemaVersion: 1, move: 'prepare_execution' },
       },
       {
         type: 'custom_message',
@@ -229,7 +229,7 @@ describe('originateAssistantTurn', () => {
     });
 
     const seed = manager.appended.find((entry) => entry.customType === 'brunch.context_seed');
-    expect(String(seed?.content)).not.toContain('SESSION ORIENTATION');
+    expect(String(seed?.content)).not.toContain('PROCESS MOVE');
   });
 });
 

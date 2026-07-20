@@ -29,18 +29,12 @@
  * in a future sync if explicit consult should match J5.
  */
 
-import type {
-  AgentEndEvent,
-  AgentSettledEvent,
-  ExtensionAPI,
-  ExtensionContext,
-  SessionStartEvent,
-  SessionTreeEvent,
-} from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI, ExtensionContext, SessionStartEvent } from '@earendil-works/pi-coding-agent';
 
 import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
-import type { SessionOrientationTrigger } from '../../../session/session-orientation.js';
+import { latestElicitationStyle } from '../../../session/elicitation-style.js';
 import { BRUNCH_CONSULT_COMMAND } from '../commands/names.js';
+import type { SessionOrientationTrigger } from './index.js';
 import {
   CODE_SESSION_ORIENTATION_MENU,
   SESSION_ORIENTATION_MENU,
@@ -133,50 +127,9 @@ export function releaseOrientationJuncture(
 
 export function registerBrunchSessionOrientation(pi: ExtensionAPI, deps: BrunchSessionOrientationDeps): void {
   const debounce = orientationJunctureGate(deps);
-  let abortJuncturePending = false;
-
   pi.on('session_start', async (event: SessionStartEvent, ctx: ExtensionContext) => {
-    if (event.reason === 'startup') {
-      // J1 (option-2): dialog + origination + kick. Fires from inside the
-      // session-extension binding so ctx.ui is live even in TUI mode.
-      await runJuncture(ctx, deps, debounce, {
-        trigger: 'entry',
-        mode: 'boot',
-      });
-      return;
-    }
-    if (event.reason !== 'new' && event.reason !== 'resume') return;
-    // J2: post-switch. Dialog + non-continue → live-kick.
-    await runJuncture(ctx, deps, debounce, {
-      trigger: 'switch',
-      mode: 'follow-choice',
-    });
-  });
-
-  pi.on('session_tree', async (_event: SessionTreeEvent, ctx: ExtensionContext) => {
-    await runJuncture(ctx, deps, debounce, {
-      trigger: 'tree',
-      mode: 'follow-choice',
-    });
-  });
-
-  pi.on('agent_end', async (event: AgentEndEvent) => {
-    abortJuncturePending = isEscAbortedAgentEnd(event);
-    if (!abortJuncturePending || !debounce.suppressNextAbortJuncture) return;
-
-    // A product flow (J5 mode switch) aborted this turn itself and owns the
-    // next dialog; consuming the flag keeps J4 out of its way at settlement.
-    debounce.suppressNextAbortJuncture = false;
-    abortJuncturePending = false;
-  });
-
-  pi.on('agent_settled', async (_event: AgentSettledEvent, ctx: ExtensionContext) => {
-    if (!abortJuncturePending) return;
-    abortJuncturePending = false;
-    await runJuncture(ctx, deps, debounce, {
-      trigger: 'abort',
-      mode: 'follow-choice',
-    });
+    if (event.reason !== 'startup') return;
+    await runJuncture(ctx, deps, debounce, { trigger: 'entry', mode: 'boot' });
   });
 }
 
@@ -212,8 +165,10 @@ async function runJuncture(
   let result: { readonly ran: boolean; readonly kickFired: boolean } | undefined;
   try {
     const kickContext = await deps.resolveKickContext();
+    const hasEstablishedStyle =
+      invocation.trigger === 'entry' && latestElicitationStyle(ctx.sessionManager.getBranch()) !== undefined;
     result = await runJunctureForContext({
-      ctx,
+      ctx: hasEstablishedStyle ? { ...ctx, hasUI: false } : ctx,
       trigger: invocation.trigger,
       mode: invocation.mode,
       kick: kickContext,
@@ -230,24 +185,6 @@ async function runJuncture(
   }
 }
 
-interface AssistantLikeMessage {
-  readonly role?: unknown;
-  readonly stopReason?: unknown;
-}
-
 function formatErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-function isEscAbortedAgentEnd(event: AgentEndEvent): boolean {
-  const tail = tailAssistantMessage(event.messages);
-  return tail?.stopReason === 'aborted';
-}
-
-function tailAssistantMessage(messages: readonly unknown[]): AssistantLikeMessage | undefined {
-  for (let index = messages.length - 1; index >= 0; index--) {
-    const message = messages[index] as AssistantLikeMessage | undefined;
-    if (message?.role === 'assistant') return message;
-  }
-  return undefined;
 }

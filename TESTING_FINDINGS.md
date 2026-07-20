@@ -277,13 +277,13 @@ Observation: root Escape cancelled the ask, but recovery guidance rendered as fo
 Expected: completed cancellation guidance uses `ctx.ui.notify`; it is noticeable without becoming persistent chrome, does not survive unrelated turns, and repeated cancellations do not accumulate inconsistent messages.
 Disposition: fixed — commit `daba4cda` replaces persistent standalone/continuation status entries with transient notifications. Inner oracles in `exchanges-present-request.test.ts` prove standalone guidance names `/brunch:consult` and `/brunch:mode` without `/brunch:continue`, declared-continuation guidance names all three recovery commands, neither path publishes footer status, and cancelled continuations remain recoverable; middle structured-exchange recovery/projection suites preserve one-close transcript semantics. In the 2026-07-14 user-present live TUI walkthrough, both notifications appeared above the editor with the expected command sets, no cancellation status survived an ordinary new turn, `/brunch:continue` re-presented and completed the declared continuation, and repeated cancellation produced no lingering or accumulated footer entries.
 
-#### R6 · exchange terminal and error rendering · high · open
+#### R6 · exchange terminal and error rendering · high · built; outer visual judgment pending
 
 Concern: cancelled and invalid structured-exchange tool results.
 Evidence: `remediations-3a.md` §§1–2 and screenshots; actual session JSONLs `2026-07-14T08-29-24-216Z_…` and `2026-07-14T08-45-39-646Z_…` under the `workspace-alpha-grounding` workbench.
 Observation: the cancelled `ask` terminal did not read as an intentionally cancelled exchange. The invalid-input errors were diagnosed separately: the model authored reserved option id `other` while enabling `allowOther`, then twice supplied body/options fields that D116-L continuing asks must inherit from the referenced offer. The adapter correctly returned themed `TOOL_INPUT_INVALID` results; this was not raw renderer corruption.
-Expected: cancelled, unavailable, answered, and validation-failed results have deliberately distinct compact rendering; malformed provider arguments remain legible without being mistaken for product failure.
-Disposition: rendering design remains open on FE-1187; the malformed-call cause is diagnosed and needs no schema relaxation. Route the four-state visual treatment through `ln-design` before build.
+Expected: cancelled, unavailable, and answered results have deliberately distinct compact rendering. Provider argument rejection remains exact model-facing feedback for retry but creates no persistent human-visible transcript artifact; it is not a user-owned terminal outcome.
+Disposition: reopened by the 2026-07-17 authenticated walkthrough. The valid Answered/Cancelled/Unavailable rail landed in `229c7abc`; `c8f15b3b`'s warning-toned Input rejected presentation is superseded by direct human judgment after the live screenshot showed internal provider retry feedback dominating the transcript. D104-L now preserves validation content/details for the model while requiring empty TUI rendering. Owner: [`walkthrough-remediation-2--tui-presentation-corrections.md`](memory/cards/walkthrough-remediation-2--tui-presentation-corrections.md); the consolidated outer checkpoint judges the corrected live-TUI result.
 
 #### R7 · offer continuation rendering · high · fixed
 
@@ -304,29 +304,29 @@ Completion report:
 
 Skipped-test-count delta vs parent of implementation commit `b882d70f`: 0.
 
-#### R8 · digest choreography · high · open
+#### R8 · digest choreography · high · built; fresh provider campaign pending (0/3)
 
 Concern: ingest digest review and clarification ordering.
 Evidence: `remediations-3a.md` §3, screenshots `digest-review-as-ask` and `after-review-accepted`; session JSONL `2026-07-14T08-45-39-646Z_…` entries 12–21.
 Observation: `present_digest` did run. Its D110-L declaration mechanically supplied the approve/request-changes/reject continuation; the model's first attempt to override that continuation failed validation, then the declared review was accepted. Only afterward did the assistant ask three clarifying questions that would have been useful before mapping.
 Expected: the assistant presents the digest, asks a simple free-text confirmation such as “does that sound right?”, asks any material clarification questions before mapping, and then maps the confirmed understanding. A heavyweight change-request review protocol should not be imposed when ordinary conversational correction is clearer.
-Disposition: product contract settled 2026-07-14; implementation remains open on FE-1187. D110-L/D106-L now specify conversational free-text digest feedback followed by one digest-referencing bounded questionnaire (or a standalone single-select confirmation ask when no material questions remain). The submitted terminal copies the final persisted abstract and independently keyed answers, preserving an unambiguous capture carrier. Route next through `ln-oracles`, then `ln-scope`.
+Disposition: built — D110-L/D106-L’s conversational free-text digest feedback, digest-referencing bounded questionnaire (or single-select confirmation), runtime-copied final abstract, and successor/capture guards are materialized and mechanically covered. The stopped 2026-07-17 run produced a human-approved faithful digest, but the governing review contract was invalidated before settlement, so this is a non-counting observation rather than a pass. Owner: paused FE-1187 provider-evidence gate; re-enter only by explicit user decision, then reconcile the extractor/oracle and restart at 0/3.
 
-#### R9 · multi-question collection · medium · open
+#### R9 · multi-question collection · medium · built; fresh provider campaign pending (0/3)
 
 Concern: several related clarification questions forced into one structured ask.
 Evidence: `remediations-3a.md` §3, screenshot `after-review-accepted`.
 Observation: the assistant compressed several questions into a few permutation options, producing an awkward and incomplete choice surface.
 Expected: related questions can be answered without combinatorial options—either as a short questionnaire-style interaction or as a deliberate sequence of focused asks.
-Disposition: product contract settled 2026-07-14; implementation remains open on FE-1187. D38-L/D116-L now define a bounded questionnaire as one `ask` terminal with fixed ordered, independently keyed questions over the existing answer primitives; it is not a generic forms system. The TUI may present one question at a time with one final submission, while raw Pi RPC uses the schema-tagged JSON-editor adapter. Route next through `ln-oracles`, then `ln-scope`.
+Disposition: built — D38-L/D116-L’s bounded one-terminal questionnaire, fixed ordered keyed answers, TUI Back/Next/final Submit path, and schema-tagged RPC editor envelope are materialized and mechanically covered. In the stopped 2026-07-17 run the provider treated only one conflict as decision-blocking and used one standalone option ask; that non-counting observation is neither pass nor failure. The revised oracle must distinguish one remaining material question from several. Owner: paused FE-1187 provider-evidence gate; re-enter only by explicit user decision, then reconcile the extractor/oracle and restart at 0/3.
 
-#### R10 · large-capture review scale · high · open
+#### R10 · large-capture review scale · high · corrected; fresh provider/human evidence pending (0/3)
 
 Concern: large advisory review-set presentation and persistence.
 Evidence: `remediations-3a.md` §3, screenshots `large review set after two following questions` and `review accepted and persisted`; session JSONL `2026-07-14T08-45-39-646Z_…` entries 22–31.
 Observation: after a long wait, one 17-node/11-edge review set overwhelmed the TUI. After one review acceptance, the assistant deliberately issued two `mutate_graph` calls split by settlement: settled intent at LSN 2, then advisory sketches at LSN 3. This was not one `acceptReviewSet` transaction being internally chunked.
 Expected: large capture does not require the user to inspect an unmanageably long TUI review set; one accepted proposal has honest authority and receipt semantics, and settlement differences are visible before acceptance rather than discovered through post-accept mutation splitting.
-Disposition: product/visual contract settled 2026-07-14; implementation remains open on FE-1187. D99-L now routes questionnaire-authorized source-derived material directly to advisory settlement; D27-L reserves proposition-shaped review sets for settled commitments only, requires compact default presentation with exact payload inspection on demand, and requires local TUI plus RPC to use one shared atomic response-settlement seam. Route next through `ln-oracles`, then `ln-scope`.
+Disposition: corrected in `45a61d93f` + `805243a4f` (topology follow-up `ef60504d2`). Every review node and role-named edge now requires its own advisory/settled status; local TUI and RPC preserve the exact mixed set through one `acceptReviewSet` transaction, LSN, change-log row, and receipt, with duplicate/post-approval negative space. Model-facing and TUI review presentations show each item status; the Impact Ledger omits empty Terms/concern groups in canonical relative order, and existing-host edges render exactly once in a trailing populated Connections section. Direct advisory `mutate_graph` remains supported when no extra review is useful. Focused contract/render stacks and `npm run verify` passed (2,441 tests passed, 2 skipped; skipped delta 0). Remaining claims—extractor/oracle reconciliation, three fresh provider samples, and human fatigue/inspectability judgment—are paused at user direction after the `remediation-4` branch tie-off. Owner: paused FE-1187 provider-evidence gate and consolidated outer checkpoint; re-enter only by explicit user decision. The stopped run at `.fixtures/scratch/provider-conduct/run-1-20260717T170400Z/` has no report and counts 0/3.
 
 #### R11 · scratchpad disclosure · high · fixed
 
@@ -347,21 +347,29 @@ Completion report:
 
 Skipped-test-count delta vs parent of implementation commit `1343a7c4`: 0.
 
-#### R12 · model and opening-state chrome · medium · open
+#### R12 · model and opening-state chrome · medium · retired as non-reproduced
 
 Concern: footer model projection and opening-turn working message.
-Evidence: `remediations-3a.md` §8.
-Observation: the footer displayed `no model` throughout a session that produced provider turns. The single persistent phrase “Opening assistant turn…” also began to suggest that startup was stuck or broken during long waits.
-Expected: the footer reflects the resolved active model, and working-state copy communicates continuing progress without falsely suggesting a stalled opening operation.
-Disposition: open diagnostic finding owned by FE-1187. Recon identifies split truth sources (`modelRegistry.getAvailable()` gates kicks while chrome renders `ctx.model`) and working copy that survives until `agent_settled`; run `ln-diagnose` with one authenticated provider turn before scoping.
+Evidence: `remediations-3a.md` §8; fresh authenticated `r12-diagnosis` workbench and user-driven 2026-07-17 walkthrough.
+Observation: the original run displayed `no model` throughout a session that produced provider turns and made “Opening assistant turn…” look stale. The fresh authenticated reproduction showed the selected Anthropic model correctly before and after the provider turn; the user independently confirmed correct model chrome and did not reproduce the stalled-opening claim.
+Expected: the footer reflects the resolved active model, and working-state copy does not falsely suggest a stalled opening operation.
+Disposition: retired as a current defect because the authenticated reproduction did not reproduce either reported failure. The static `modelRegistry.getAvailable()` versus `ctx.model` split remains insufficient evidence of a bug. Reopen only with a timestamped run that shows provider output and `no model` concurrently. The concrete collapsed-thinking color defect observed in the same walkthrough is R14.
 
-#### R13 · zero-readiness entry and orientation menu · high · open
+#### R13 · zero-readiness entry and orientation menu · high · built; outer comprehension pending
 
 Concern: new-spec startup sequence, readiness, and menu affordances.
 Evidence: `remediations-3a.md` §8.
 Observation: after the posture questions for a brand-new, empty spec, Specify mode immediately presented the full orientation menu before the assistant reviewed seed/context or performed any orientation of its own. Several options were premature. “Ingest source material” behaved as an imperative to go find material rather than an inert invitation for the user to provide text, files, folders, or links.
 Expected: zero-readiness entry first establishes what is known and asks/offers the limited moves that are actually possible. At this stage the useful choices are approximately work by decision, work by example, and provide information sources. Providing information leaves the system inert with a clear affordance for supplying material; it does not instruct the assistant to search autonomously.
-Disposition: open structural finding owned by FE-1187. The restacked posture work improves the eventual kick seed and resume establishment but leaves the menu-before-kick sequence unchanged. Resolve whether entry should run an assistant orientation before any menu or show a graph-fact-derived reduced menu, and define the inert `provide information` carrier, through `ln-disambiguate`/`ln-spec` before build.
+Disposition: built — the D98-L/D109-L decision resolved the menu shape without a new provide-information carrier: only style-less startup and operational-mode switch auto-open, persistent Specify styles are active-branch state, process moves are separate/readiness-filtered one-shot entries, and Escape is inert. Branch, prompt, juncture, and lexical negative-space oracles materialize that state. Owner: the consolidated outer checkpoint judges first-run orientation/menu comprehension; no structural implementation remains open.
+
+#### R14 · startup and transcript presentation contract · high · built; both-theme outer judgment pending
+
+Concern: startup hierarchy, quiet provider retries, editor/footer geometry, and theme legibility.
+Evidence: authenticated user-driven walkthrough and CleanShot `CleanShot 2026-07-17 at 13.00.44@2x.png`.
+Observation: Welcome rendered in the bottom widget region instead of immediately after startup identity; its command notes were not dim. A rejected `ask` call persisted provider retry diagnostics into the human transcript. The sidecar URL appeared below the editor despite already living in header/footer. Nested footer styling reset model/thinking/context to normal brightness and the line had no lateral inset. Pi’s collapsed `Thinking...` label rendered at normal brightness, while the compact BRUNCH wordmark was nearly invisible.
+Expected: Welcome is one-time non-transcript header-adjacent Box content with one-column lateral padding and dim command notes; provider validation remains model-visible but renders nothing to the human transcript; editor has no below-box URL; the sole footer line is fully dim and one-column inset; collapsed thinking is dim; the compact wordmark uses terminal-default text.
+Disposition: built — focused component/extension oracles pin header-backed one-time Welcome composition, transparent one-column Box padding and dim notes, byte-preserved model-facing validation diagnostics with zero TUI lines, no editor sidecar duplicate, one outer-dim inset footer line, `thinkingText === dim` in both sealed themes, and terminal-default compact wordmark text. Owner: FE-1187 consolidated outer checkpoint; re-entry trigger: replay the authenticated screenshot beat in both themes after A48-L and R8–R10 gates are dispositioned.
 
 ### 2026-07-16 FE-1208 automation-observability-dx — PM-door dry run
 

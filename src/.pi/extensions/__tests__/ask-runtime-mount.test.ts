@@ -48,6 +48,16 @@ function mountedCustom(options: {
   readonly assertViewport: (viewport: string) => void;
   readonly script: MountedCustomScript;
 }): CustomMock {
+  return mountedCustomSequence([options]);
+}
+
+function mountedCustomSequence(
+  steps: readonly {
+    readonly assertViewport: (viewport: string) => void;
+    readonly script: MountedCustomScript;
+  }[],
+): CustomMock {
+  let stepIndex = 0;
   return vi.fn(
     async <T>(
       factory: (
@@ -58,6 +68,8 @@ function mountedCustom(options: {
       ) => Component,
       _options?: unknown,
     ): Promise<T | undefined> => {
+      const step = steps[stepIndex++];
+      if (!step) throw new Error(`Unexpected mounted custom call ${stepIndex}`);
       const terminal = new VirtualTerminal(90, 28);
       const tui = new TUI(terminal);
       const result = new Promise<T | undefined>((resolve) => {
@@ -70,8 +82,8 @@ function mountedCustom(options: {
       tui.start();
       try {
         await terminal.waitForRender();
-        options.assertViewport(terminal.getViewport().join('\n'));
-        await options.script(terminal);
+        step.assertViewport(terminal.getViewport().join('\n'));
+        await step.script(terminal);
         return await result;
       } finally {
         terminal.stop();
@@ -140,18 +152,26 @@ describe('ask runtime mount contract', () => {
   });
 
   it('mounts free-text ask in a real TUI, resolves schema-valid details, and collects a comment rung', async () => {
-    const custom = mountedCustom({
-      assertViewport: (viewport) => {
-        expect(viewport).toContain('What should Brunch remember?');
+    const custom = mountedCustomSequence([
+      {
+        assertViewport: (viewport) => {
+          expect(viewport).toContain('What should Brunch remember?');
+        },
+        script: async (terminal) => {
+          terminal.sendInput('Use the real mounted editor.');
+          await terminal.waitForRender();
+          expect(terminal.getViewport().join('\n')).toContain('Use the real mounted editor.');
+          terminal.sendInput('\r');
+        },
       },
-      script: async (terminal) => {
-        terminal.sendInput('Use the real mounted editor.');
-        await terminal.waitForRender();
-        expect(terminal.getViewport().join('\n')).toContain('Use the real mounted editor.');
-        terminal.sendInput('\r');
+      {
+        assertViewport: (viewport) => expect(viewport).toContain('Any note?'),
+        script: (terminal) => {
+          terminal.sendInput('Keep the comment too.');
+          terminal.sendInput('\r');
+        },
       },
-    });
-    const input = vi.fn(async () => 'Keep the comment too.');
+    ]);
     const setWorkingVisible = vi.fn();
 
     const result = await executeAsk(
@@ -160,7 +180,7 @@ describe('ask runtime mount contract', () => {
         body: 'What should Brunch remember?',
         commentPrompt: 'Any note?',
       },
-      { hasUI: true, ui: { custom, input, setWorkingVisible } },
+      { hasUI: true, ui: { custom, setWorkingVisible } },
     );
 
     const details = zAskDetails.parse(result.details);
@@ -170,8 +190,7 @@ describe('ask runtime mount contract', () => {
       answered: { text: 'Use the real mounted editor.', comment: 'Keep the comment too.' },
     });
     expect(result.content[0]?.text).toContain('Keep the comment too.');
-    expect(input).toHaveBeenCalledExactlyOnceWith('Any note?');
-    expect(custom).toHaveBeenCalledOnce();
+    expect(custom).toHaveBeenCalledTimes(2);
     expectBracketedWorkingIndicator(setWorkingVisible);
   });
 
@@ -220,22 +239,41 @@ describe('ask runtime mount contract', () => {
 
   it('mounts multi-select ask in a real TUI and preserves None exclusivity', async () => {
     const setWorkingVisible = vi.fn();
-    const input = vi.fn(async () => 'No listed option applies.');
-    const custom = mountedCustom({
-      assertViewport: (viewport) => {
-        expect(viewport).toContain('Select applicable routes');
-        expect(viewport).toContain('Fast path');
-        expect(viewport).toContain('Safe path');
-        expect(viewport).toContain('None');
+    const custom = mountedCustomSequence([
+      {
+        assertViewport: (viewport) => {
+          expect(viewport).toContain('Select applicable routes');
+          expect(viewport).toContain('Fast path');
+          expect(viewport).toContain('Safe path');
+          expect(viewport).toContain('None');
+        },
+        script: (terminal) => {
+          terminal.sendInput(' ');
+          terminal.sendInput('\x1b[B');
+          terminal.sendInput('\x1b[B');
+          terminal.sendInput(' ');
+          terminal.sendInput('\r');
+        },
       },
-      script: (terminal) => {
-        terminal.sendInput(' ');
-        terminal.sendInput('\x1b[B');
-        terminal.sendInput('\x1b[B');
-        terminal.sendInput(' ');
-        terminal.sendInput('\r');
+      {
+        assertViewport: (viewport) => expect(viewport).toContain('Required comment'),
+        script: (terminal) => terminal.sendInput('\x1b'),
       },
-    });
+      {
+        assertViewport: (viewport) => {
+          expect(viewport).toContain('Select applicable routes');
+          expect(viewport).toMatch(/\[x\].*None/);
+        },
+        script: (terminal) => terminal.sendInput('\r'),
+      },
+      {
+        assertViewport: (viewport) => expect(viewport).toContain('Required comment'),
+        script: (terminal) => {
+          terminal.sendInput('No listed option applies.');
+          terminal.sendInput('\r');
+        },
+      },
+    ]);
 
     const result = await executeAsk(
       {
@@ -248,7 +286,7 @@ describe('ask runtime mount contract', () => {
         multiple: true,
         allowNone: true,
       },
-      { hasUI: true, ui: { custom, input, setWorkingVisible } },
+      { hasUI: true, ui: { custom, setWorkingVisible } },
     );
 
     const details = zAskDetails.parse(result.details);
@@ -260,9 +298,8 @@ describe('ask runtime mount contract', () => {
         comment: 'No listed option applies.',
       },
     });
-    expect(input).toHaveBeenCalledExactlyOnceWith('Required comment', undefined);
-    expect(custom).toHaveBeenCalledOnce();
-    expectBracketedWorkingIndicator(setWorkingVisible);
+    expect(custom).toHaveBeenCalledTimes(4);
+    expect(setWorkingVisible.mock.calls.map(([visible]) => visible)).toEqual([false, true, false, true]);
   });
 
   it('collects a digest questionnaire in one mounted terminal with Back, Next, and final Submit', async () => {

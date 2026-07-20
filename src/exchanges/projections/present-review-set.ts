@@ -63,6 +63,7 @@ function reviewSetDetailsPayload(payload: ReviewSetProposalPayload): ReviewSetDe
     nodes: payload.entityDrafts.map((draft) => ({
       draft_id: draft.draftId,
       proposed_code: draft.proposedCode,
+      settlement: draft.settlement,
       plane: draft.plane,
       kind: draft.kind,
       title: draft.title,
@@ -77,6 +78,10 @@ function reviewSetEdgeDetails(
   draft: ReviewSetProposalPayload['edgeDrafts'][number],
 ): ReviewSetDetailsPayload['edges'][number] {
   const { source, target } = roleNamedEdgeDraftEndpoints(draft);
+  const common = {
+    settlement: draft.settlement,
+    ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+  };
 
   switch (draft.category) {
     case 'dependency':
@@ -84,7 +89,7 @@ function reviewSetEdgeDetails(
         category: 'dependency',
         dependency: endpointRefDetails(source),
         dependent: endpointRefDetails(target),
-        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+        ...common,
       };
     case 'witness':
       return {
@@ -92,7 +97,7 @@ function reviewSetEdgeDetails(
         oracle: endpointRefDetails(source),
         claim: endpointRefDetails(target),
         stance: draft.stance,
-        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+        ...common,
       };
     case 'rationale':
       return {
@@ -100,49 +105,49 @@ function reviewSetEdgeDetails(
         support: endpointRefDetails(source),
         claim: endpointRefDetails(target),
         stance: draft.stance,
-        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+        ...common,
       };
     case 'realization':
       return {
         category: 'realization',
         abstract: endpointRefDetails(source),
         concrete: endpointRefDetails(target),
-        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+        ...common,
       };
     case 'refinement':
       return {
         category: 'refinement',
         abstract: endpointRefDetails(source),
         concrete: endpointRefDetails(target),
-        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+        ...common,
       };
     case 'exclusion':
       return {
         category: 'exclusion',
         boundary: endpointRefDetails(source),
         subject: endpointRefDetails(target),
-        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+        ...common,
       };
     case 'composition':
       return {
         category: 'composition',
         whole: endpointRefDetails(source),
         part: endpointRefDetails(target),
-        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+        ...common,
       };
     case 'cross_reference':
       return {
         category: 'cross_reference',
         a: endpointRefDetails(source),
         b: endpointRefDetails(target),
-        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+        ...common,
       };
     case 'supersession':
       return {
         category: 'supersession',
         successor: endpointRefDetails(source),
         predecessor: endpointRefDetails(target),
-        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+        ...common,
       };
     default: {
       const _exhaustive: never = draft;

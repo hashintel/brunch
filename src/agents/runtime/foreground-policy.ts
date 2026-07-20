@@ -1,4 +1,5 @@
 import type { ResolvedBrunchAgentState } from '../../projections/session/runtime-state.js';
+import type { ElicitationStyle } from '../../session/elicitation-style.js';
 import type { AgentPromptSpecContext, AgentPromptWorkspaceContext } from '../contexts/seeds/turn-context.js';
 import { activeToolNamesForLiveElicitor, type LiveElicitorToolPolicyInput } from './elicitor/active-tools.js';
 import { composeLiveElicitorPrompt } from './elicitor/compose-live-prompt.js';
@@ -7,7 +8,7 @@ import { activeToolNamesForExecutor } from './executor/active-tools.js';
 import { composeExecutorPrompt } from './executor/compose-prompt.js';
 
 export interface ForegroundRuntimePromptInput {
-  readonly sessionState: ResolvedBrunchAgentState;
+  readonly sessionState: ResolvedBrunchAgentState & { readonly elicitationStyle?: ElicitationStyle };
   readonly spec: AgentPromptSpecContext;
   readonly workspace: AgentPromptWorkspaceContext;
   readonly context?: LiveElicitorPushedContext;

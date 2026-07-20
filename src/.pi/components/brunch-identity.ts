@@ -50,7 +50,7 @@ export function readBrunchAnsiLogo(options: BrunchLogoReadOptions): string[] {
 
 export function formatBrunchProductIdentity(options: BrunchProductIdentityOptions): string[] {
   const logo = [...(options.logoLines ?? [])];
-  const wordmark = BRUNCH_COMPACT_WORDMARK.map((line) => identityStyle(options, 'muted', line));
+  const wordmark = BRUNCH_COMPACT_WORDMARK.map((line) => identityStyle(options, 'text', line));
   const versionLine = identityStyle(options, 'accent', `brunch ${options.version.version}`);
   const devLine = options.version.dev ? [identityStyle(options, 'success', options.version.dev)] : [];
   const piLine = identityStyle(options, 'dim', `built on Pi v${options.piVersion ?? PI_VERSION}`);
