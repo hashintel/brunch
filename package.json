@@ -1,6 +1,6 @@
 {
   "name": "@hashintel/brunch",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-alpha.5",
   "description": "Brunch — opinionated specification-workspace product over pi-coding-agent.",
   "homepage": "https://github.com/hashintel/brunch#readme",
   "bugs": {
