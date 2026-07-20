@@ -117,6 +117,13 @@ interface ExportFlags {
   readonly help: boolean;
 }
 
+interface DocumentExportFlags {
+  readonly workspace: string | undefined;
+  readonly specId: number | undefined;
+  readonly out: string | undefined;
+  readonly help: boolean;
+}
+
 class DevCliUsageError extends Error {}
 
 const SAFE_WORKBENCH_NAME_RULE =
@@ -477,7 +484,7 @@ async function runDocumentExportCommand(
   args: readonly string[],
   options: DevCliOptions & { readonly cwd: string },
 ): Promise<number> {
-  const flags = parseExportFlags(args, options.cwd);
+  const flags = parseDocumentExportFlags(args, options.cwd);
   if (flags.help) {
     writeStdout(options.stdout ?? process.stdout, `${devCliUsage()}\n${documentExportUsage()}`);
     return 0;
@@ -490,7 +497,9 @@ async function runDocumentExportCommand(
   const runtime = await openWorkspaceGraphRuntime(workspace);
   const spec = runtime.commandExecutor.getSpec(flags.specId);
   if (!spec) throw new DevCliUsageError(`Spec ${flags.specId} does not exist.`);
-  const nodes = runtime.forSpec(flags.specId).queryGraph(undefined, { visibility: 'active' }).nodes;
+  const nodes = runtime
+    .forSpec(flags.specId)
+    .queryGraph({ settlement: ['settled'] }, { visibility: 'active' }).nodes;
   const rendered = renderSpecMarkdownOutput({ title: spec.name, nodes });
   const outPath = resolve(options.cwd, flags.out);
   await mkdir(dirname(outPath), { recursive: true });
@@ -696,6 +705,29 @@ function parseExportFlags(args: readonly string[], cwd: string): ExportFlags {
   };
 }
 
+function parseDocumentExportFlags(args: readonly string[], cwd: string): DocumentExportFlags {
+  const { values, positionals } = parseArgs({
+    args,
+    allowPositionals: true,
+    options: {
+      workspace: { type: 'string', short: 'w' },
+      cwd: { type: 'string' },
+      'spec-id': { type: 'string' },
+      out: { type: 'string', short: 'o' },
+      help: { type: 'boolean', short: 'h', default: false },
+    },
+  });
+  if (positionals.length > 0) {
+    throw new DevCliUsageError(`Unexpected document-export argument: ${positionals[0]}`);
+  }
+  return {
+    workspace: resolveWorkspaceOption(values.workspace, values.cwd, cwd),
+    specId: values['spec-id'] ? parsePositiveInteger(values['spec-id'], '--spec-id') : undefined,
+    out: values.out,
+    help: values.help,
+  };
+}
+
 function resolveWorkspaceOption(
   workspace: string | undefined,
   cwdFlag: string | undefined,
@@ -847,7 +879,6 @@ function devCliUsage(): string {
     '  npm run dev-cli -- export --workspace <dir> --spec-id <id> [--out <file>] [--show all|active]',
     '  npm run dev-cli -- document-export --workspace <dir> --spec-id <id> --out <file.md>',
     '  npm run dev-cli -- trajectory --workspace <dir> --session <file> --run-id <portable-id> [--viewport <file>]',
-    '  npm run dev-cli -- evaluate-consequential-fact --workspace <dir> --session <file> --spec-id <id> --scenario <file> --trajectory <trajectory.json> --run-id <portable-id>',
     '',
     'Notes:',
     '  - Launch-time seeding never happens implicitly; pair --seed with --reset.',

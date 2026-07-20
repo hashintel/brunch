@@ -35,7 +35,7 @@ Budgets are matched across lanes before the first lane starts. A **qualifying qu
 Round one always uses a settled **specification Markdown document** as the ready artifact. Brunch acquires it from settled graph state with:
 
 ```sh
-npm run dev-cli -- document-export --workspace <dir> --spec-id <id> --out <file.md>
+npm run dev-cli -- document-export --workspace <dir> --spec-id <id> --out <dir>/<file.md>
 ```
 
 Do not require a plan document unless a future mission's ready definition genuinely needs one.

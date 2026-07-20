@@ -34,7 +34,7 @@ chain propose
 | --- | --- | --- | --- |
 | `intent` | the user needs alternative territory framings, bets, requirements, assumptions, constraints, terms, decisions, criteria, or examples | **pick** one coherent framing | picked candidates remain recognition/provenance until later capture or review-set approval |
 | `design` | accepted intent needs alternative module shapes, ownership seams, dependency directions, or implementation topologies | **synthesize** a chosen direction plus useful insights | synthesize into graph drafts only through `present_review_set` |
-| `oracle` | accepted intent/design needs verification strategies, oracle families, fixture/probe designs, evidence plans, or blind-spot disclosures | **compose** an additive ensemble | compose into graph drafts only through `present_review_set` |
+| `oracle` | accepted intent/design needs verification strategies, oracle families, fixture/probe checks, or blind-spot disclosures | **compose** an additive ensemble | compose into graph drafts only through `present_review_set` |
 
 Do not add a fan-in schema field, a plane-specific commit tool, or a multi-select replacement for these moves. They are method conduct inside the proposal flow. If a plane truly needs a fourth disposition, stop and surface that as a falsifier for D96-L rather than inventing local shape.
 

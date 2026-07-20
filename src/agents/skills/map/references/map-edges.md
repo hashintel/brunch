@@ -7,7 +7,8 @@ Use the role-named `mutate_graph` grammar. Endpoint storage order does not carry
 | If you mean...                                                             | Use current edge category                           |
 | -------------------------------------------------------------------------- | --------------------------------------------------- |
 | one claim relies on another remaining true                                 | `dependency` (`dependency` -> `dependent`)          |
-| an oracle, example, check, evidence, or criterion supports/refutes a claim | `witness` with `stance: for` or `stance: against`   |
+| deliberately promoted observed evidence supports/refutes a claim          | `witness` with `stance: for` or `stance: against`   |
+| a criterion or method specifies a concrete check                          | `realization`                                       |
 | a goal, thesis, rationale, or argument motivates/opposes a claim           | `rationale` with `stance: for` or `stance: against` |
 | an abstract claim is implemented or expressed by a concrete artifact       | `realization`                                       |
 | a general claim/model is specialized by a more specific one                | `refinement`                                        |
@@ -39,7 +40,7 @@ Edges are a **closed set of nine structural categories** with role-named endpoin
 
 NOTES
 - Stance (`for | against`) is **required** on `witness` and `rationale`, **invalid** everywhere else.
-- Prefer a concrete `example` plus `witness:against`, or an `exclusion` edge, over vague prose ("not that"). 
+- Prefer a concrete `example` or an `exclusion` edge over vague prose ("not that"); use `witness:against` only for promoted observed evidence.
 - Contradiction between two accepted claims is **not** an edge: with the `conflict` edge deliberately deferred, a contradiction surfaces as a `reconciliation_need` of kind `semantic_conflict` (ONTOLOGY_REVIEW_PROTOCOL §8).
 
 ## The nine categories
@@ -70,8 +71,9 @@ policy: exclusive
 | if you mean…                                                 | use category    | stance  |
 | ------------------------------------------------------------ | --------------- | ------- |
 | one claim relies on another staying true                     | dependency      | -       |
-| an oracle/example/check/evidence supports a claim            | witness         | for     |
-| an oracle/example/counterexample refutes a claim             | witness         | against |
+| promoted observed evidence supports a claim                  | witness         | for     |
+| promoted observed evidence refutes a claim                   | witness         | against |
+| a criterion or method specifies a concrete check             | realization     | -       |
 | a goal/thesis/argument motivates a claim                     | rationale       | for     |
 | an argument opposes a claim                                  | rationale       | against |
 | an abstract claim is implemented/expressed by a concrete one | realization     | -       |
@@ -88,8 +90,9 @@ Author with role names, never with `source`/`target` geometry:
 
 ```
 create_edge dependency:    dependency: A1   dependent: REQ1
-create_edge witness:       oracle: AC1      claim: REQ1     stance: for
-create_edge witness:       oracle: EX2      claim: INV4     stance: against
+create_edge realization:   abstract: AC1    concrete: CH1
+create_edge realization:   abstract: VV1    concrete: CH1
+create_edge witness:       oracle: E2       claim: INV4     stance: against
 create_edge rationale:     support: G2      claim: REQ1     stance: for
 create_edge realization:   abstract: REQ1   concrete: MOD1
 create_edge refinement:    abstract: REQ1   concrete: REQ2
@@ -104,9 +107,9 @@ create_edge cross_reference: peer: REQ1     peer: G1
 Intent is often clarified by what is ruled out. Prefer a concrete node + stance/exclusion over vague "not that" prose.
 
 ```
-counterexample / rejected interpretation:
-  EX2: rejected review item appears in export
-  create_edge witness:  oracle: EX2  claim: INV4  stance: against
+observed counterexample:
+  E2: promoted observation that a rejected review item appeared in export
+  create_edge witness:  oracle: E2  claim: INV4  stance: against
 
 out-of-scope disambiguator:
   EX3: importing old local dev fixtures

@@ -76,6 +76,8 @@ Bands guide questioning and projection; **they do not gate graph truth.** If the
 
 This table is guidance for elicitor orientation and capability-readiness. Closed node-kind legality remains owned by the graph schema.
 
+The table also preserves the physical compatibility taxonomy; it does not make every listed kind a live projection deliverable. Under D131-L, planned Assurance material is `criterion`, `vv_method`, and concrete `check`: criterion/method reach the check through `realization`. Only a deliberately promoted observation becomes `evidence` and reaches a claim through `witness`. `evidence` is capture-only, while `vv_obligation` is legacy/reserved and must not be newly generated. Existing rows of either kind remain readable.
+
 | Kind            | Code | Latest expected band |
 | --------------- | ---- | -------------------- |
 | `example`       | EX   | -                    |
@@ -118,7 +120,7 @@ Use bands to decide what absence means:
 
 - At `grounding`, ask for the smallest missing frame: what, who/for whom, why, and what makes it real.
 - At `elicitation`, ask for the working middle: constraints, known facts, assumptions, unknowns, invariants, and decisions.
-- At `projection`, generate or harmonize requirements, design, and oracle material against settled inner-band concerns.
+- At `projection`, generate or harmonize requirements, design, and planned Assurance material against settled inner-band concerns. Capture observed `evidence` when deliberately promoted; never generate future evidence or a new legacy `vv_obligation`.
 - At `commitment`, review what must be treated as binding and how work is sequenced or qualified.
 
 Use capability-readiness to modulate the move:

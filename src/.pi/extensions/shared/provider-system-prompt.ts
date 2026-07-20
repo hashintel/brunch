@@ -1,17 +1,34 @@
 const STRING_PROMPT_KEYS = ['instructions', 'systemInstruction', 'systemPrompt'] as const;
+const BRUNCH_FOREGROUND_PROMPT_START = '<brunch-foreground-prompt>';
+const BRUNCH_FOREGROUND_PROMPT_END = '</brunch-foreground-prompt>';
+const BRUNCH_FOREGROUND_PROMPT_PREFIX = `${BRUNCH_FOREGROUND_PROMPT_START}\nlength: `;
+const BRUNCH_FOREGROUND_PROMPT_SUFFIX = `\n${BRUNCH_FOREGROUND_PROMPT_END}`;
 
-export function appendProviderSystemPromptIfMissing(payload: unknown, prompt: string): unknown {
+interface OwnedPromptFrame {
+  readonly start: number;
+  readonly end: number;
+}
+
+export function upsertBrunchProviderSystemPrompt(payload: unknown, prompt: string): unknown {
   if (!isRecord(payload)) return undefined;
 
   for (const key of STRING_PROMPT_KEYS) {
-    const replacement = appendToStringProperty(payload, key, prompt);
+    const replacement = upsertStringProperty(payload, key, prompt);
     if (replacement !== undefined) return replacement;
   }
 
-  const systemReplacement = appendToStringOrBlocksProperty(payload, 'system', prompt);
+  const systemReplacement = upsertStringOrBlocksProperty(payload, 'system', prompt);
   if (systemReplacement !== undefined) return systemReplacement;
 
-  return appendToMessageArray(payload, prompt);
+  return upsertMessageArray(payload, prompt);
+}
+
+export function upsertBrunchOwnedSystemPrompt(basePrompt: string, prompt: string): string {
+  const ownedPrompt = renderOwnedPrompt(prompt);
+  const replacement = replaceOwnedPromptFrames(basePrompt, ownedPrompt);
+
+  if (replacement.found) return replacement.value;
+  return basePrompt.trim().length > 0 ? `${basePrompt}\n\n${ownedPrompt}` : ownedPrompt;
 }
 
 export function systemPromptFromProviderPayload(payload: unknown): string | undefined {
@@ -32,31 +49,27 @@ export function systemPromptFromProviderPayload(payload: unknown): string | unde
   return systemMessage ? contentToText(systemMessage.content, '') : undefined;
 }
 
-function appendToStringProperty(payload: Record<string, unknown>, key: string, prompt: string): unknown {
+function upsertStringProperty(payload: Record<string, unknown>, key: string, prompt: string): unknown {
   const value = payload[key];
   if (typeof value !== 'string') return undefined;
-  const nextValue = appendPromptIfMissing(value, prompt);
+  const nextValue = upsertBrunchOwnedSystemPrompt(value, prompt);
   return nextValue === value ? payload : { ...payload, [key]: nextValue };
 }
 
-function appendToStringOrBlocksProperty(
+function upsertStringOrBlocksProperty(
   payload: Record<string, unknown>,
   key: string,
   prompt: string,
 ): unknown {
   const value = payload[key];
-  if (typeof value === 'string') return appendToStringProperty(payload, key, prompt);
+  if (typeof value === 'string') return upsertStringProperty(payload, key, prompt);
   if (!Array.isArray(value)) return undefined;
 
-  const currentPrompt = textFromBlocks(value, '\n');
-  if (systemPromptHasBrunchPrompt(currentPrompt, prompt)) return payload;
-  return {
-    ...payload,
-    [key]: [...value, { type: 'text', text: prompt }],
-  };
+  const nextValue = upsertContentBlocks(value, prompt);
+  return nextValue === value ? payload : { ...payload, [key]: nextValue };
 }
 
-function appendToMessageArray(payload: Record<string, unknown>, prompt: string): unknown {
+function upsertMessageArray(payload: Record<string, unknown>, prompt: string): unknown {
   const messages = payload.messages ?? payload.input;
   if (!Array.isArray(messages)) return undefined;
 
@@ -64,13 +77,13 @@ function appendToMessageArray(payload: Record<string, unknown>, prompt: string):
   if (firstSystemIndex === -1) return undefined;
 
   const message = messages[firstSystemIndex];
-  const contentText = contentToText(message.content, '\n');
-  if (contentText === undefined || systemPromptHasBrunchPrompt(contentText, prompt)) return payload;
+  const nextContent = upsertContent(message.content, prompt);
+  if (nextContent === undefined || nextContent === message.content) return payload;
 
   const nextMessages = [...messages];
   nextMessages[firstSystemIndex] = {
     ...message,
-    content: appendContent(message.content, prompt),
+    content: nextContent,
   };
   return {
     ...payload,
@@ -78,23 +91,89 @@ function appendToMessageArray(payload: Record<string, unknown>, prompt: string):
   };
 }
 
-function appendPromptIfMissing(basePrompt: string, prompt: string): string {
-  if (systemPromptHasBrunchPrompt(basePrompt, prompt)) return basePrompt;
-  return basePrompt.trim().length > 0 ? `${basePrompt}\n\n${prompt}` : prompt;
+function upsertContent(content: unknown, prompt: string): unknown {
+  if (typeof content === 'string') return upsertBrunchOwnedSystemPrompt(content, prompt);
+  if (Array.isArray(content)) return upsertContentBlocks(content, prompt);
+  return undefined;
 }
 
-function systemPromptHasBrunchPrompt(systemPrompt: string, prompt: string): boolean {
-  const sentinel = prompt
-    .split('\n')
-    .map((line) => line.trim())
-    .find(Boolean);
-  return sentinel !== undefined && systemPrompt.includes(sentinel);
+function upsertContentBlocks(blocks: readonly unknown[], prompt: string): readonly unknown[] {
+  const ownedPrompt = renderOwnedPrompt(prompt);
+  let placedOwnedPrompt = false;
+  let changed = false;
+  const nextBlocks = blocks.map((block) => {
+    if (!isRecord(block) || typeof block.text !== 'string') return block;
+
+    const replacement = replaceOwnedPromptFrames(block.text, placedOwnedPrompt ? undefined : ownedPrompt);
+    if (!replacement.found) return block;
+    placedOwnedPrompt = true;
+    if (replacement.value === block.text) return block;
+    changed = true;
+    return { ...block, text: replacement.value };
+  });
+
+  if (placedOwnedPrompt) return changed ? nextBlocks : blocks;
+  return [...blocks, { type: 'text', text: ownedPrompt }];
 }
 
-function appendContent(content: unknown, prompt: string): unknown {
-  if (typeof content === 'string') return appendPromptIfMissing(content, prompt);
-  if (Array.isArray(content)) return [...content, { type: 'text', text: prompt }];
-  return content;
+function renderOwnedPrompt(prompt: string): string {
+  return `${BRUNCH_FOREGROUND_PROMPT_PREFIX}${prompt.length}\n${prompt}${BRUNCH_FOREGROUND_PROMPT_SUFFIX}`;
+}
+
+function replaceOwnedPromptFrames(
+  value: string,
+  replacement: string | undefined,
+): { readonly value: string; readonly found: boolean } {
+  const frames = findOwnedPromptFrames(value);
+  if (frames.length === 0) return { value, found: false };
+
+  let cursor = 0;
+  let nextValue = '';
+  for (const [index, frame] of frames.entries()) {
+    nextValue += value.slice(cursor, frame.start);
+    if (index === 0 && replacement !== undefined) nextValue += replacement;
+    cursor = frame.end;
+  }
+  nextValue += value.slice(cursor);
+  return { value: nextValue, found: true };
+}
+
+function findOwnedPromptFrames(value: string): OwnedPromptFrame[] {
+  const frames: OwnedPromptFrame[] = [];
+  let searchFrom = 0;
+
+  while (searchFrom < value.length) {
+    const start = value.indexOf(BRUNCH_FOREGROUND_PROMPT_PREFIX, searchFrom);
+    if (start === -1) break;
+
+    const lengthStart = start + BRUNCH_FOREGROUND_PROMPT_PREFIX.length;
+    const lengthEnd = value.indexOf('\n', lengthStart);
+    if (lengthEnd === -1) break;
+
+    const encodedLength = value.slice(lengthStart, lengthEnd);
+    const contentLength = Number(encodedLength);
+    if (
+      !Number.isSafeInteger(contentLength) ||
+      contentLength < 0 ||
+      String(contentLength) !== encodedLength
+    ) {
+      searchFrom = lengthStart;
+      continue;
+    }
+
+    const contentStart = lengthEnd + 1;
+    const suffixStart = contentStart + contentLength;
+    if (!value.startsWith(BRUNCH_FOREGROUND_PROMPT_SUFFIX, suffixStart)) {
+      searchFrom = lengthStart;
+      continue;
+    }
+
+    const end = suffixStart + BRUNCH_FOREGROUND_PROMPT_SUFFIX.length;
+    frames.push({ start, end });
+    searchFrom = end;
+  }
+
+  return frames;
 }
 
 function contentToText(content: unknown, separator: string): string | undefined {

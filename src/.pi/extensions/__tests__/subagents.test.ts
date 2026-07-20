@@ -48,13 +48,14 @@ import {
 } from '../subagents/session.js';
 
 // Manifest skill locations are absolute paths (see src/agents/skills/registry.ts); normalize the
-// machine root before snapshotting so the committed golden carries no workstation-specific path.
+// machine root before asserting the capability-honest rendered location.
 const packageRoot = fileURLToPath(new URL('../../../..', import.meta.url)).replace(/\/$/u, '');
 
 const EXPLORER_MD = `---
 name: explorer
 description: Read-only recon
 tools: read, grep, find, ls
+skills: analyze
 model: default
 thinking: low
 ---
@@ -103,11 +104,23 @@ describe('parseSubagentMarkdown', () => {
     expect(def.canDelegate).toEqual([]);
   });
 
-  it('defaults tools to empty, model to default, and thinking to medium', () => {
-    const def = parseSubagentMarkdown('---\nname: projector\ndescription: One variant\n---\nBody.');
-    expect(def.tools).toEqual([]);
-    expect(def.model).toBe('default');
-    expect(def.thinking).toBe('medium');
+  it('parses exact skill grants and defaults them to empty', () => {
+    const readable = parseSubagentMarkdown(
+      '---\nname: explorer\ndescription: Recon\ntools: read\nskills: analyze\n---\nBody.',
+    );
+    const noTools = parseSubagentMarkdown('---\nname: projector\ndescription: One variant\n---\nBody.');
+
+    expect(readable.skills).toEqual(['analyze']);
+    expect(noTools.skills).toEqual([]);
+    expect(noTools.tools).toEqual([]);
+    expect(noTools.model).toBe('default');
+    expect(noTools.thinking).toBe('medium');
+  });
+
+  it('rejects a named skill grant when the child cannot read its location', () => {
+    expect(() =>
+      parseSubagentMarkdown('---\nname: projector\ndescription: One variant\nskills: project\n---\nBody.'),
+    ).toThrow(/skills require the read tool/);
   });
 
   it('throws on a missing frontmatter block', () => {
@@ -710,6 +723,25 @@ describe('runSubagent (sealed SDK child session over a faux provider)', () => {
     };
   }
 
+  it('renders only exact readable grants and gives no-tools children no dead skill instruction', () => {
+    const readable = parseSubagentMarkdown(
+      '---\nname: explorer\ndescription: Recon\ntools: read\nskills: analyze\n---\nBody.',
+    );
+    const noTools = parseSubagentMarkdown(
+      '---\nname: reviewer\ndescription: Review supplied context\n---\nComplete rubric: check claims against supplied criteria.',
+    );
+
+    const readablePrompt = composeBackgroundSubagentPrompt({ definition: readable }).prompt;
+    const noToolsPrompt = composeBackgroundSubagentPrompt({ definition: noTools }).prompt;
+
+    expect(readablePrompt).toContain('<name>analyze</name>');
+    expect(readablePrompt).not.toContain('<name>project</name>');
+    expect(readablePrompt).toContain('Use the read tool to load');
+    expect(noToolsPrompt).toContain('Complete rubric: check claims against supplied criteria.');
+    expect(noToolsPrompt).not.toContain('<brunch-skills>');
+    expect(noToolsPrompt).not.toMatch(/read a listed skill|prompt resources advertised/);
+  });
+
   it('locks the assembled explorer background prompt shape', async () => {
     const def = parseSubagentMarkdown(EXPLORER_MD);
     const rendered = composeBackgroundSubagentPrompt({
@@ -720,13 +752,7 @@ describe('runSubagent (sealed SDK child session over a faux provider)', () => {
     const normalizedRendered = rendered.replaceAll(packageRoot, '<PKG>');
 
     await expect(normalizedRendered).toMatchFileSnapshot('../__snapshots__/subagent-explorer-prompt.md');
-    expect(rendered).toContain('You are an explorer.');
-    expect(rendered).toContain('[Brunch background subagent control]');
-    expect(rendered).toContain('[Brunch injected world snapshot]');
-    expect(rendered).toContain('[Brunch background routing]');
-    expect(rendered).not.toContain('[Brunch elicitation recommendation]');
-    expect(rendered).not.toContain('Current prompt-resource selection');
-    expect(rendered).toContain('ambient Pi resources: sealed out');
+    expect(normalizedRendered).not.toContain('/src/agents/skills/project/SKILL.md');
   });
 
   it('runs a tool-less projector, owning the system prompt and returning its output', async () => {

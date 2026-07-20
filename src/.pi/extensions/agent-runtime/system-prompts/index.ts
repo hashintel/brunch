@@ -8,8 +8,10 @@ import type {
 import type { LiveElicitorPushedContext } from '../../../../agents/runtime/elicitor/context.js';
 import { composeForegroundRuntimePrompt } from '../../../../agents/runtime/foreground-policy.js';
 import { latestElicitationStyle } from '../../../../session/elicitation-style.js';
-import type { GraphReaders } from '../../brunch-data/graph/index.js';
-import { appendProviderSystemPromptIfMissing } from '../../shared/provider-system-prompt.js';
+import {
+  upsertBrunchOwnedSystemPrompt,
+  upsertBrunchProviderSystemPrompt,
+} from '../../shared/provider-system-prompt.js';
 import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from '../runtime/index.js';
 
 type BrunchAgentStateEntries = Parameters<typeof projectBrunchAgentState>[0];
@@ -37,13 +39,6 @@ interface BrunchPromptContext {
   session?: AgentPromptSessionContext;
   /** Intended-optional: extra caller-supplied handles/contexts merged into the bundle. */
   context?: LiveElicitorPushedContext;
-  /**
-   * Must-wire: legality (gaps), tool posture, and graph context all derive from
-   * these reads. Required so a composition root that forgets them is a type
-   * error, never a silent fallback posture (the lesson of the FE-844/FE-847
-   * review pass: an optional hook here froze live legality at a floor).
-   */
-  graphReads: GraphReaders;
 }
 
 export type BrunchPromptContextProvider =
@@ -77,7 +72,7 @@ export function registerBrunchPrompting(
 
     const basePrompt = (event as BeforeAgentStartEventLike).systemPrompt ?? '';
     return {
-      systemPrompt: appendPromptIfMissing(basePrompt, prompt),
+      systemPrompt: upsertBrunchOwnedSystemPrompt(basePrompt, prompt),
     };
   });
 
@@ -90,7 +85,7 @@ export function registerBrunchPrompting(
     );
     if (prompt.trim().length === 0) return undefined;
 
-    return appendProviderSystemPromptIfMissing((event as BeforeProviderRequestEventLike).payload, prompt);
+    return upsertBrunchProviderSystemPrompt((event as BeforeProviderRequestEventLike).payload, prompt);
   });
 }
 
@@ -123,17 +118,4 @@ async function composeBrunchPromptForContext(
     ...(state.agentRole === 'elicitor' && directiveAblation ? { directiveAblation } : {}),
   }).prompt;
   return { prompt, activeTools };
-}
-
-function appendPromptIfMissing(basePrompt: string, prompt: string): string {
-  if (systemPromptHasBrunchPrompt(basePrompt, prompt)) return basePrompt;
-  return basePrompt.trim().length > 0 ? `${basePrompt}\n\n${prompt}` : prompt;
-}
-
-function systemPromptHasBrunchPrompt(systemPrompt: string, prompt: string): boolean {
-  const sentinel = prompt
-    .split('\n')
-    .map((line) => line.trim())
-    .find(Boolean);
-  return sentinel !== undefined && systemPrompt.includes(sentinel);
 }

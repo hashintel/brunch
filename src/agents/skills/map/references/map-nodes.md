@@ -18,7 +18,7 @@ Start from the role the material plays, not the words the user happened to use.
 - `invariant` — preservation claim: what must remain true across states, transitions, versions, or semantic revisions.
 - `decision` — choice claim: a durable selected option among real alternatives; requires chosen option, rejected alternatives, and rationale.
 - `criterion` — oracle claim: how a requirement, invariant, or other claim will be judged.
-- `example` — concrete witness or disambiguator: positive case, counterexample, edge case, trace, or labelled out-of-scope case. Polarity comes from wording and edges, not a subtype field.
+- `example` — concrete case or disambiguator: positive case, counterexample, edge case, trace, or labelled out-of-scope case. Polarity comes from wording, not a subtype field; execution results are promoted separately as evidence.
 
 Read [`map-intents.md`](map-intents.md) when distinguishing intent-plane kinds or promoting away from `context`.
 
@@ -32,10 +32,9 @@ Activating concepts: verification, tests, proof, audit trail, observed run, coun
 | concrete executable or manual check                 | `check`         | "What test, review step, or gate verifies this?"        |
 | verification method family                          | `vv_method`     | "What method establishes the criterion?"                |
 | observed artifact                                   | `evidence`      | "What run, transcript, log, or measurement shows this?" |
-| outstanding proof or verification obligation        | `vv_obligation` | "What must still be proven before relying on this?"     |
-| concrete positive/negative witness or disambiguator | `example`       | "What case would demonstrate or falsify this?"          |
+| concrete positive/negative case or disambiguator    | `example`       | "What case would demonstrate or falsify this?"          |
 
-Read [`map-oracles.md`](map-oracles.md) when choosing the weakest sufficient oracle artifact or attaching witness edges.
+This table is live authoring guidance, not the full physical taxonomy: `evidence` is capture-only for deliberately promoted observations, and the schema-readable legacy/reserved obligation kind is never newly authored. Read [`map-oracles.md`](map-oracles.md) when choosing the weakest sufficient check or attaching assurance edges.
 
 ### Design plane — how it is shaped
 

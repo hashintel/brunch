@@ -1,7 +1,5 @@
-import { readFileSync } from 'node:fs';
-
 import { operationalModeLabel } from '../../../session/schema/kinds.js';
-import { bundledAgentBodyLocation } from '../../prompts/registry.js';
+import { loadBundledAgentBody } from '../../prompts/registry.js';
 import { renderBrunchReferences } from '../../references/registry.js';
 import { renderBrunchSkills } from '../../skills/registry.js';
 import type { ForegroundRuntimePromptInput, ForegroundRuntimePromptResult } from '../foreground-policy.js';
@@ -41,7 +39,7 @@ function renderExecutorControl(input: ForegroundRuntimePromptInput): string {
 }
 
 function readExecutorBody(): string {
-  return readFileSync(bundledAgentBodyLocation('executor'), 'utf8');
+  return loadBundledAgentBody('executor');
 }
 
 function joinSections(sections: readonly string[]): string {

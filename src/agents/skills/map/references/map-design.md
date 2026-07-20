@@ -45,7 +45,7 @@ edges:
   requirement              -[realization]->   module, interface
   interface                -[composition]->   entity
   sketch                   -[refinement]->    module, interface, entity   # only after accepted
-  example                  -[witness:for]->   interface, entity           # if the case demonstrates the seam
+  example                  -[cross_reference]-> interface, entity         # if the case illustrates the seam
 
 notes:
   - `realization` reads abstract -> concrete: requirement/invariant/interface -> module/slice/check.
@@ -70,7 +70,7 @@ A design node is coherent when it names:
 | requirement needs behavior            | `module` or `interface`                   | `realization`                                                                                |
 | invariant protects state or authority | `interface`, `entity`, or module boundary | `dependency` from invariant to design subject, plus `realization` if the design expresses it |
 | constraint rules out options          | boundary/design node that is limited      | `exclusion`                                                                                  |
-| example reveals a domain object       | `entity`                                  | `witness` or `rationale` depending on whether it proves or motivates                         |
+| example reveals a domain object       | `entity`                                  | `cross_reference` or `rationale` depending on whether it illustrates or motivates            |
 | term stabilizes vocabulary            | `entity` or `interface` name              | `rationale` only if the term motivates the design choice                                     |
 | unknown must be accommodated          | `sketch` or explicit design seam          | `dependency` only if the unknown is truly load-bearing                                       |
 

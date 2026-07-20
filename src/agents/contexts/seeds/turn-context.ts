@@ -1,30 +1,17 @@
 /**
- * Agent context-seed composition — an agent-context concern, not a
- * system-prompt or Pi-adapter concern.
+ * Reusable bounded seed renderers for explicit origination/background context
+ * assembly. `origination.ts` owns the one-shot foreground continuity payload;
+ * background adapters may assemble an app-root snapshot from these renderers.
+ * Later foreground graph and scratchpad detail is read on demand, so this
+ * module does not compose an eager per-turn foreground bundle.
  *
- * Owns the per-turn pushed context blocks the agent receives each turn: the
- * selected-workspace seed and the selected-spec graph seed. This is session/
- * world state rendered for the agent, distinct from system-prompt assembly
- * (`agents/runtime/elicitor/compose-live-prompt.ts`), which only splices these blocks
- * into the prompt frame. Keeping composition here means cycling operational
- * modes — which swaps the agent role and therefore the system prompt — does not
- * re-own context derivation: the prompt layer consumes a bundle it does not
- * compose. Mirrors `origination.ts` (continuity seed entry); this is
- * its ephemeral per-turn sibling.
- *
- * Input:  selected spec/workspace/session + session scratchpad + already-read graph slice + lens
- * Output: rendered context block strings (lossy, bounded)
- * Used by: `.pi/extensions/agent-runtime/system-prompts` (before_agent_start) via composeAgentContextSeed
+ * Input:  already-read selected spec/workspace/session or graph facts
+ * Output: one rendered seed string (lossy, bounded)
  */
 
-import { formatElicitationScratchpad } from '../../../agents/contexts/data-model/elicitation-scratchpad.js';
-import type { GraphSlice } from '../../../graph/queries.js';
-import type { GraphNode } from '../../../graph/schema/nodes.js';
 import type { ElicitationScratchpadItem } from '../../../session/elicitation-scratchpad.js';
 import type { WorkspacePostureState } from '../../../session/workspace-session-coordinator.js';
-import { formatGraphOverview } from '../data-model/graph/graph-slice.js';
-
-type GraphSeedLens = 'auto' | 'intent' | 'design' | 'oracle';
+import { renderWorkspacePosture } from '../../shared/posture-context.js';
 
 export interface AgentPromptSpecContext {
   id: number;
@@ -39,35 +26,6 @@ export interface AgentPromptWorkspaceContext {
 export interface AgentPromptSessionContext {
   readonly id?: string;
   readonly label?: string;
-}
-
-export interface ComposeAgentContextSeedInput {
-  readonly spec: AgentPromptSpecContext;
-  readonly workspace: AgentPromptWorkspaceContext;
-  readonly session?: AgentPromptSessionContext;
-  readonly scratchpad: readonly ElicitationScratchpadItem[];
-  readonly graph: GraphSlice;
-  readonly lens: GraphSeedLens;
-}
-
-/**
- * Compose the per-turn pushed context blocks from already-read world state.
- * The caller (the Pi extension) performs the PULL (graph query, scratchpad
- * fold) and passes the data in; this module owns only the RENDER/COMPOSE of
- * the blocks, so the same bundle is reusable across mode/prompt switches that
- * do not change world state.
- */
-export function composeAgentContextSeed(input: ComposeAgentContextSeedInput): readonly string[] {
-  return [
-    renderWorkspaceSeed({
-      spec: input.spec,
-      workspace: input.workspace,
-      ...(input.session ? { session: input.session } : {}),
-      scratchpad: input.scratchpad,
-    }),
-    formatElicitationScratchpad(input.scratchpad),
-    renderGraphSeed(input.graph, { lens: input.lens }),
-  ];
 }
 
 // ----- selected-workspace seed -----
@@ -85,7 +43,7 @@ export function renderWorkspaceSeed(input: RenderCwdContextInput): string {
     `- cwd: ${input.workspace.cwd}`,
     `- selected spec: ${input.spec.name} (#${input.spec.id})`,
     `- selected session: ${renderSession(input.session)}`,
-    `- workspace posture: ${renderPosture(input.workspace.posture)}`,
+    `- workspace posture: ${renderWorkspacePosture(input.workspace.posture)}`,
     '- ambient Pi resources: not scanned; Brunch prompt resources come only from code-owned manifests',
     '- graph scope: selected spec only; no workspace-global graph fallback',
     `- elicitation scratchpad: ${input.scratchpad.length} item(s), ${countOpen(input.scratchpad)} open`,
@@ -100,71 +58,4 @@ function renderSession(session: AgentPromptSessionContext | undefined): string {
   if (!session?.id && !session?.label) return 'unrecorded';
   if (session.id && session.label) return `${session.label} (${session.id})`;
   return session.id ?? session.label ?? 'unrecorded';
-}
-
-function renderPosture(posture: AgentPromptWorkspaceContext['posture']): string {
-  if (!posture) return 'unrecorded';
-  const entries = Object.entries(posture).filter((entry): entry is [string, string] =>
-    Boolean(entry[1]?.trim()),
-  );
-  return entries.length > 0 ? entries.map(([key, value]) => `${key}=${value}`).join('; ') : 'unrecorded';
-}
-
-// ----- selected-spec graph seed -----
-
-export interface RenderGraphContextOptions {
-  readonly lens: GraphSeedLens;
-  readonly maxNodes?: number;
-  readonly maxEdges?: number;
-}
-
-const DEFAULT_MAX_NODES = 8;
-const DEFAULT_MAX_EDGES = 8;
-
-export function renderGraphSeed(overview: GraphSlice, options: RenderGraphContextOptions): string {
-  const maxNodes = options.maxNodes ?? DEFAULT_MAX_NODES;
-  const maxEdges = options.maxEdges ?? DEFAULT_MAX_EDGES;
-  const emphasizedNodes = [...overview.nodes].sort((a, b) => {
-    const byLens = lensScore(b, options.lens) - lensScore(a, options.lens);
-    return byLens || a.id - b.id;
-  });
-  const selectedNodes = emphasizedNodes.slice(0, maxNodes);
-  const selectedEdges = overview.edges.slice(0, maxEdges);
-  const omittedNodes = Math.max(overview.nodes.length - selectedNodes.length, 0);
-  const omittedEdges = Math.max(overview.edges.length - selectedEdges.length, 0);
-
-  const lines = [
-    `Emphasis: ${lensEmphasis(options.lens)}`,
-    formatGraphOverview(
-      { lsn: overview.lsn, nodes: selectedNodes, edges: selectedEdges },
-      `Selected-spec graph overview · ${options.lens} lens`,
-    ),
-  ];
-
-  if (omittedNodes > 0 || omittedEdges > 0) {
-    lines.push(`Omitted: ${omittedNodes} node(s), ${omittedEdges} edge(s).`);
-  }
-
-  return lines.join('\n\n');
-}
-
-function lensScore(node: GraphNode, lens: GraphSeedLens): number {
-  if (node.plane === lens) return 4;
-  if (lens === 'intent' && node.plane === 'plan') return 1;
-  if (lens === 'design' && (node.plane === 'intent' || node.plane === 'plan')) return 1;
-  if (lens === 'oracle' && node.kind === 'invariant') return 2;
-  return 0;
-}
-
-function lensEmphasis(lens: GraphSeedLens): string {
-  switch (lens) {
-    case 'intent':
-      return 'intent claims, terms, assumptions, constraints, and decisions first';
-    case 'design':
-      return 'design modules/interfaces and boundary implications first';
-    case 'oracle':
-      return 'verification checks, evidence, obligations, and proof gaps first';
-    case 'auto':
-      return 'AUTO lens selection pending; keep intent, design, and oracle cues visible';
-  }
 }

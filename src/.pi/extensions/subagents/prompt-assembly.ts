@@ -4,7 +4,7 @@ import type {
   AgentPromptSessionContext,
 } from '../../../agents/contexts/seeds/turn-context.js';
 import { renderWorkspaceSeed } from '../../../agents/contexts/seeds/turn-context.js';
-import { renderBrunchSkills } from '../../../agents/skills/registry.js';
+import { loadLiveBrunchSkillManifestEntries, renderBrunchSkills } from '../../../agents/skills/registry.js';
 import type { ElicitationScratchpadItem } from '../../../session/elicitation-scratchpad.js';
 import type { SubagentDefinition } from './agents.js';
 
@@ -32,8 +32,8 @@ export function composeBackgroundSubagentPrompt(
     input.definition.systemPrompt,
     renderBackgroundControl(input.definition),
     renderWorldSnapshot(input.world),
-    renderBrunchSkills(),
-    renderBackgroundRouterRules(),
+    renderGrantedSkills(input.definition),
+    renderBackgroundRouterRules(input.definition),
   ]);
 
   return { prompt: `${prompt}\n` };
@@ -80,13 +80,23 @@ function renderWorldSnapshot(world: BackgroundWorldSnapshot | undefined): string
   ].join('\n');
 }
 
-function renderBackgroundRouterRules(): string {
+function renderGrantedSkills(definition: SubagentDefinition): string {
+  if (definition.skills.length === 0) return '';
+  const granted = new Set(definition.skills);
+  return renderBrunchSkills(loadLiveBrunchSkillManifestEntries().filter((entry) => granted.has(entry.name)));
+}
+
+function renderBackgroundRouterRules(definition: SubagentDefinition): string {
   return [
     '[Brunch background routing]',
     '- Treat the task message as the caller authority; do not assume access to the parent conversation beyond this snapshot.',
     '- Use only tools listed in the manifest tool grant and actually advertised to you.',
-    '- Use only prompt resources advertised in <brunch-skills>; read a listed skill before applying its detailed guidance.',
-    '- Return findings as concise assistant text; structured details are render-only and not model context.',
+    ...(definition.skills.length > 0
+      ? [
+          '- Use only prompt resources advertised in <brunch-skills>; read a listed skill before applying its detailed guidance.',
+        ]
+      : []),
+    '- Return findings as Markdown assistant text; foreground retains collation and every mutation authority.',
   ].join('\n');
 }
 

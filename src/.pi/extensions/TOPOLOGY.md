@@ -1,10 +1,10 @@
 # .pi/extensions/ — Pi adapter registrars
 
-SPEC decisions: D24-L, D34-L, D35-L, D37-L, D39-L, D40-L, D43-L, D44-L, D52-L, D69-L, D71-L, D90-L, D91-L, D93-L, D98-L, D109-L, D119-L, D120-L, D121-L, D122-L, D123-L, I19-L, I28-L
+SPEC decisions: D24-L, D34-L, D35-L, D37-L, D39-L, D40-L, D43-L, D44-L, D52-L, D69-L, D71-L, D90-L, D91-L, D93-L, D98-L, D109-L, D119-L, D120-L, D121-L, D122-L, D123-L, D134-L, I19-L, I28-L, I67-L
 
 ## Owns
 
-Pi-facing registration and adaptation only: lifecycle hooks, agent tool definitions, command/shortcut handlers, TUI chrome affordances, autocomplete wrappers, per-turn system-prompt append hooks, dev-gated read-only introspection taps, workspace dialogs, and Pi-specific tool result renderers. Current-state adapters require Pi's `SessionManager.getBranch()`; they do not fall back to append-order `getEntries()` (D24-L, I19-L).
+Pi-facing registration and adaptation only: lifecycle hooks, agent tool definitions, command/shortcut handlers, TUI chrome affordances, autocomplete wrappers, per-turn owned system-prompt upsert hooks, dev-gated read-only introspection taps, workspace dialogs, and Pi-specific tool result renderers. Current-state adapters require Pi's `SessionManager.getBranch()`; they do not fall back to append-order `getEntries()` (D24-L, I19-L).
 
 ## Does NOT own
 
@@ -21,7 +21,7 @@ extensions/
 ├── TOPOLOGY.md
 ├── agent-runtime/          Pi adapter for central foreground runtime policy
 │   ├── runtime/            operational-mode Pi tool activation adapter
-│   └── system-prompts/     before_agent_start hook adapter into agents/runtime/foreground-policy
+│   └── system-prompts/     owned-block prompt hook adapter into agents/runtime/foreground-policy
 ├── executor/               thin Pi adapters for executor `execute_*` tools and run-update observer
 ├── brunch-data/            Pi tools over selected Brunch graph/spec/workspace/session data
 │   ├── graph/              mutate_graph/read_graph tools + selected-spec graph read seam
@@ -46,6 +46,10 @@ extensions/
 ```
 
 `session-orientation/` owns the Pi-facing style/process-move menus and juncture choreography (D98-L/D109-L). Specify always exposes the three persistent styles and marks/preselects the current style; its deterministic fallback hides `move_to_execution`. Execute's deterministic fallback exposes only `prepare_execution`. Pure caller-supplied availability may reveal only the matching mode-appropriate process moves; the conservative local fallback has no evaluator/model dependency. A selected changed style appends `brunch.elicitation_style`; a selected action appends `brunch.process_move`; same-style selection appends nothing but may still originate, while Escape/timeout, unavailable choices, and append failure produce no carrier, seed, or kick. Automatic menu opening is limited to style-less startup and operational-mode switch. Established startup follows normal boot origination without a menu; resume, session switch, tree navigation, and assistant abort register no orientation juncture. `/brunch:consult` explicitly reopens the current-mode menu and `/brunch:continue` remains the resume-interrupted-work path. Provider-auth gating and seed-before-kick delivery remain shared with the existing origination seam.
+
+`agent-runtime/system-prompts/` projects the current foreground prompt from the active branch and upserts exactly one length-framed `<brunch-foreground-prompt>` block through both `before_agent_start` and `before_provider_request` (D134-L/I67-L). `shared/provider-system-prompt.ts` owns the supported provider carrier matrix: prompt strings, string/block `system`, and system/developer message content. The declared content length makes ownership parsing independent of prompt text, so marker-like user/source context cannot truncate the block and unframed marker text in provider content is not mistaken for ownership. Identical recomposition returns the original carrier; changed role, elicitation style, active tools, or resource composition replaces the framed block while preserving unrelated provider content. Heading text is never used as identity.
+
+The prompt adapter accepts only the thin selected-spec/workspace/session facts and explicitly supplied pushed context needed by the foreground runtime. It performs no graph or scratchpad read: origination/resume choreography supplies continuity once, and later turns use the advertised read tools on demand (D58-L/D101-L/D102-L/D118-L/D134-L).
 
 The former `tui-lab/` registrar (`registerBrunchTuiLab`, gated behind an `enabled`
 option nothing ever set) was retired — it never entered the product bundle and

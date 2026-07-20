@@ -1,4 +1,4 @@
-name = "ln-scoper"
+name = "ln_scoper"
 description = "Scope planned work into buildable scope files"
 model = "gpt-5.6-sol"
 model_reasoning_effort = "high"

@@ -30,12 +30,18 @@ export function bundledReferenceLocation(id: BundledReferenceId): string {
   return fileURLToPath(new URL(`./${id}.md`, import.meta.url));
 }
 
+const BRUNCH_REFERENCE_MANIFEST_ENTRIES = Object.freeze(
+  BUNDLED_REFERENCE_IDS.map((id) =>
+    Object.freeze({
+      name: id,
+      description: REFERENCE_DESCRIPTIONS[id],
+      location: bundledReferenceLocation(id),
+    }),
+  ),
+);
+
 export function loadBrunchReferenceManifestEntries(): readonly BrunchReferenceManifestEntry[] {
-  return BUNDLED_REFERENCE_IDS.map((id) => ({
-    name: id,
-    description: REFERENCE_DESCRIPTIONS[id],
-    location: bundledReferenceLocation(id),
-  }));
+  return BRUNCH_REFERENCE_MANIFEST_ENTRIES;
 }
 
 export function renderBrunchReferences(entries = loadBrunchReferenceManifestEntries()): string {

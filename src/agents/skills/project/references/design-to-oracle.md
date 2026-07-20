@@ -1,6 +1,6 @@
 # Design → Oracle Projection
 
-Use when accepted design-plane anchors need verification shape: checks, methods, evidence, obligations, probe/fixture plans, witness edges, or blind-spot disclosures.
+Use when accepted design-plane anchors need verification shape: criteria, methods, concrete checks, probe/fixture plans, realization edges, or blind-spot disclosures.
 
 ## Derivation job
 
@@ -32,8 +32,8 @@ Each candidate should name:
 - failure mode or blind spot that remains
 - weakest sufficient loop tier: inner, middle, or outer
 
-Express evidence breadth in prose. Do not invent stored fields for strength, confidence, or checkability.
+Express intended check breadth in prose. Do not invent stored fields for strength, confidence, or checkability.
 
 ## Commitment boundary
 
-When graph drafts are warranted, use current `map` / review-set guidance for oracle-plane node kinds, witness/realization edges, and exact batch shape. A review-set batch is the commitment surface; candidate recognition alone never creates accepted graph truth.
+When graph drafts are warranted, use current `map` / review-set guidance for exact node, edge, and batch shape. A planned `criterion` and `vv_method` reach a concrete `check` through `realization`. Observed material becomes `evidence`; only that evidence uses `witness` to support or falsify a claim. Project no future evidence. A review-set batch is the commitment surface; candidate recognition alone never creates accepted graph truth.

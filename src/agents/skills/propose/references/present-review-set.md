@@ -68,7 +68,7 @@ This is an authoring sketch, not a replacement schema. If it diverges from curre
 | --- | --- | --- |
 | intent | goals, requirements, constraints, assumptions, decisions, criteria, examples | treating every answer as a decision or requirement |
 | design | modules, interfaces, entities, sketches anchored in intent | speculative architecture without anchors |
-| oracle | criteria, checks, methods, evidence obligations, examples | implementation tasks with no observation |
+| oracle | criteria, methods, concrete checks, examples, or deliberately promoted observed evidence | implementation tasks with no observation; future evidence; legacy/reserved kinds |
 | plan | milestones, frontiers, scopes tied to accepted claims, design, and verification anchors | backlog tasks detached from graph pressure |
 
 ## Routing policy

@@ -92,7 +92,7 @@ chain ingest-band-walk:
 ### Project
 
 - Routing question: "What requirements, design shape, or oracle machinery follows from the settled inner concerns?"
-- Ingest rule: source-derived `requirement`, `module`, `interface`, `entity`, `check`, `evidence`, `vv_method`, and `vv_obligation` may be persisted as advisory when reviewed but not yet harmonized.
+- Ingest rule: source-derived `requirement`, `module`, `interface`, `entity`, `criterion`, `check`, and `vv_method` may be persisted as advisory when reviewed but not yet harmonized. `evidence` is capture-only: persist it only for a deliberately promoted observation produced by execution, research, or a spike, never as a future deliverable. Planned criteria/methods reach their concrete check through `realization`; only promoted observed evidence reaches a claim through `witness`.
 - Completion signal: projected items name the intent they serve through edges or remain advisory/scratchpad material until support is clear.
 
 ### Commit

@@ -42,7 +42,9 @@ export function loadLiveBrunchSkillManifestEntries(): readonly BrunchSkillManife
   }
 
   const byName = new Map(result.skills.map((skill) => [skill.name, skill]));
-  cachedManifestEntries = LIVE_BRUNCH_SKILL_IDS.map((id) => skillToManifestEntry(id, byName.get(id)));
+  cachedManifestEntries = Object.freeze(
+    LIVE_BRUNCH_SKILL_IDS.map((id) => Object.freeze(skillToManifestEntry(id, byName.get(id)))),
+  );
   return cachedManifestEntries;
 }
 

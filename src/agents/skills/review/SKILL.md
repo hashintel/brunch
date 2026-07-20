@@ -41,8 +41,8 @@ chain review
 | --- | --- | --- |
 | intent | goals with no requirements; requirements with no examples/criteria; high-fanout assumptions; decisions without rejected alternatives or rationale; conflicting boundaries; weak category support masquerading as certainty | ask one clarifier, propose a reviewable repair, or route accepted conflicts to reconciliation |
 | design | unclear ownership; leaky interfaces; unbacked realization edges; dependency direction contradicting the module boundary; design claims with no accepted intent anchor; two modules owning the same fact; implementation preference posing as requirement | ask for boundary intent, mutation/projection owner, or hidden information; propose design alternatives; or route a graph repair through review-set drafting |
-| oracle | claims without observation; criteria without target behavior; obligations without evidence; fixtures/probes with no replay commitment; blind spots hidden by one oracle family; metrics with no claim they validate | ask what observation discriminates success from failure, propose oracle ensembles, ask for evidence, or route verification debt to graph/scratchpad handling |
-| plan | scopes detached from claims/design/oracles; dependency order hiding risk; done definitions with no witness; handoff/recovery gaps | revise plan material or ask for the smallest missing proof |
+| oracle | claims without observation; criteria/methods without a concrete check; checks with no replay commitment; blind spots hidden by one oracle family; metrics with no claim they validate | ask what observation discriminates success from failure, propose an executable check ensemble, or route verification debt to graph/scratchpad handling |
+| plan | scopes detached from claims/design/oracles; dependency order hiding risk; done definitions with no concrete check; handoff/recovery gaps | revise plan material or ask for the smallest missing check |
 
 ## Finding classes
 
@@ -64,6 +64,8 @@ Name the class in the review output. This prevents low-confidence critique from 
 3. Separate missing evidence from actual contradiction.
 4. Check whether the material is grounded, internally coherent, adequately covered, and actually judgeable.
 5. Recommend the smallest next move that improves confidence.
+
+For Assurance review, planned `criterion` and `vv_method` must reach a concrete `check` through `realization`. A planned or unexecuted check is not proof: only observed material deliberately promoted as `evidence` may use `witness` to support or falsify a claim.
 
 ## Notes
 

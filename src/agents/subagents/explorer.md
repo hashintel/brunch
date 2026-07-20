@@ -2,6 +2,7 @@
 name: explorer
 description: Read-only codebase recon — locates where things live
 tools: read, grep, find, ls, read_graph
+skills: analyze
 model: default
 thinking: low
 ---

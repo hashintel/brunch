@@ -355,6 +355,12 @@ describe('runDevCli', () => {
     expect(stdout).toContain('--workspace <dir>');
     expect(stdout).toContain('--seed <name>/<variant>');
     expect(stdout).toContain('--no-webui');
+    expect(stdout).toContain(' rpc ');
+    expect(stdout).toContain(' mutate ');
+    expect(stdout).toContain(' export ');
+    expect(stdout).toContain(' document-export ');
+    expect(stdout).toContain(' trajectory ');
+    expect(stdout).not.toContain('evaluate-consequential-fact');
     expect(stdout).not.toContain('dev:raw');
   });
 
@@ -587,7 +593,7 @@ describe('runDevCli', () => {
     await rm(trajectoryOutput, { recursive: true, force: true });
   });
 
-  it('writes a renderer-authored Markdown spec from settled workspace graph state', async () => {
+  it('writes only active settled graph content with the renderer-authored Markdown shape', async () => {
     const workspace = await mkdtemp(join(tmpdir(), 'brunch-document-export-cli-'));
     temporaryRoots.push(workspace);
     const runtime = await openWorkspaceGraphRuntime(workspace);
@@ -608,6 +614,22 @@ describe('runDevCli', () => {
       ],
     });
     if (mutation.status !== 'success') throw new Error('expected graph fixture mutation');
+    const advisoryMutation = runtime.commandExecutor.mutateGraph({
+      specId: created.specId,
+      createBasis: 'explicit',
+      createSettlement: 'advisory',
+      ops: [
+        {
+          op: 'create_node',
+          ref: 'advisory-goal',
+          plane: 'intent',
+          kind: 'goal',
+          title: 'Keep this suggestion provisional',
+          body: 'Advisory content must not enter the settled document.',
+        },
+      ],
+    });
+    if (advisoryMutation.status !== 'success') throw new Error('expected advisory graph fixture mutation');
     const output = join(workspace, 'artifacts', 'spec.md');
 
     const code = await runDevCli({
@@ -627,6 +649,32 @@ describe('runDevCli', () => {
     expect(await readFile(output, 'utf8')).toBe(
       '# Exported Spec\n\n## Intent\n\n### G1 Produce a durable document\n\nThe document is rendered from settled graph state.\n\n- basis: explicit\n',
     );
+  });
+
+  it('rejects fixture-only visibility controls at the document-export boundary', async () => {
+    let stderr = '';
+
+    const code = await runDevCli({
+      argv: [
+        'document-export',
+        '--workspace',
+        WORKBENCH,
+        '--spec-id',
+        '1',
+        '--out',
+        '/tmp/spec.md',
+        '--show',
+        'all',
+      ],
+      cwd: REPO_ROOT,
+      stderr: (chunk) => {
+        stderr += chunk;
+      },
+    });
+
+    expect(code).toBe(1);
+    expect(stderr).toContain('Unknown option');
+    expect(stderr).toContain('--show');
   });
 
   it('rejects non-positive export spec ids loudly', async () => {

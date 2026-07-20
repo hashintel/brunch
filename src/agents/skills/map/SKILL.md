@@ -13,7 +13,7 @@ Read the focused references when detail matters:
 - [`references/map-intents.md`](references/map-intents.md) — intent-plane promotion, nearby-kind distinctions, examples, and decision criteria.
 - [`references/map-edges.md`](references/map-edges.md) — the closed edge categories and role-named grammar.
 - [`references/map-design.md`](references/map-design.md) — `module`, `interface`, `entity`, and `sketch` routing.
-- [`references/map-oracles.md`](references/map-oracles.md) — criteria, checks, evidence, methods, obligations, and witnesses.
+- [`references/map-oracles.md`](references/map-oracles.md) — criteria, methods, concrete checks, promoted observations, and assurance edges.
 - [`references/map-plans.md`](references/map-plans.md) — `milestone`, `frontier`, and `scope` routing.
 - [`references/routing.md`](references/routing.md) — confidence/conflict routing into settled graph truth, advisory graph signal, gaps, reconciliation, or review.
 
@@ -31,7 +31,7 @@ tree intent obligations:
     requirement            obligations that serve the why
       invariant            what must stay true while requirements operate
       criterion            how each requirement/invariant is judged
-      example              concrete witnesses + counterexamples
+      example              concrete cases + counterexamples
   context / term           the stipulated frame + lexicon
   assumption / unknown     what might be false / what is not yet known
   constraint               what the solution space rules out
@@ -40,14 +40,14 @@ tree intent obligations:
 ```
 coherence checks (intent)
   goal/thesis      -> has a rationale edge into >=1 requirement?            else: scratchpad obligation
-  requirement      -> has a witness path (criterion/example/oracle)?        else: scratchpad obligation
+  requirement      -> has a planned check path or observed witness?         else: scratchpad obligation
   requirement      -> pairs with an invariant it must not break?            consider
   decision         -> names >=1 rejected alternative + rationale?           else: not a decision
   assumption       -> high fanout + thin evidence?                          surface risk
   constraint/non-goal -> attached to its subject via exclusion?             else: vague
 ```
 
-Typical edges: `rationale` (goal→requirement), `dependency` (claim→claim), `exclusion` (constraint→subject), `refinement` (general→specific), `witness` (example→claim, with stance).
+Typical edges: `rationale` (goal→requirement), `dependency` (claim→claim), `exclusion` (constraint→subject), and `refinement` (general→specific). An example stays a disambiguator until an executed observation is deliberately promoted as evidence.
 
 ## Map / Design
 
@@ -81,22 +81,24 @@ Typical edges: `realization` (requirement→module, renders "implemented by"), `
 Make claims checkable. Distinguish the intent-plane `criterion` (the oracle *claim*) from oracle-plane nodes (the concrete *machinery*). Choose the **weakest sufficient** artifact; redundancy across independent oracle families is a feature when it reduces bad degrees of freedom at acceptable cost.
 
 ```
-kinds: check (CH) | vv_method (VV) | evidence (E) | vv_obligation (O)
+kinds for new assurance material: criterion (AC) | vv_method (VV) | check (CH)
+capture-only observed material: evidence (E)
 
 ladder (weakest sufficient first — this is conduct, not a stored field):
   human review -> example/counterexample -> regression/golden
-    -> runtime contract -> property/model-based -> probe/transcript -> proof obligation
+    -> runtime contract -> property/model-based -> probe/transcript -> formal method
 ```
 
 ```
 coherence checks (oracle)
-  criterion        -> witness edge into the requirement/invariant it judges?  else: orphan oracle
-  check/vv_method  -> names the observation that discriminates pass from fail? else: it's a task, not an oracle
+  criterion        -> realization path to a concrete check?                    else: unoperationalized claim
+  vv_method        -> realization path to a concrete check?                    else: method without action
+  check            -> names the observation that discriminates pass from fail? else: it's a task, not an oracle
   ensemble         -> blind spots named in prose? (false-positive shape, trigger to revisit)
-  counterexample   -> example + witness:against the claim it falsifies
+  observed result  -> deliberately promoted as evidence before witnessing?     else: do not attach to a claim
 ```
 
-Typical edges: `witness` (oracle→claim, `stance: for|against`), `realization` (criterion→check). Express evidence breadth (reviewed / example-backed / regression-covered / enforced / proved) as prose, never as graph metadata.
+Planned `criterion` and `vv_method` reach a concrete `check` through `realization`. Observed material becomes `evidence`; only that evidence uses `witness` to support or falsify a claim. Express check breadth (reviewed / example-backed / regression-covered / enforced / proved) as prose, never as graph metadata.
 
 ## Map / Plan
 

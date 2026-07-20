@@ -1,6 +1,6 @@
 # Oracle Proposals
 
-Use when accepted intent/design needs alternative verification strategies, oracle families, fixture/probe designs, evidence plans, or blind-spot disclosures. Oracle proposal generates verification-design source material; it does not add graph fields or create a bespoke commit path.
+Use when accepted intent/design needs alternative verification strategies, oracle families, fixture/probe designs, concrete checks, or blind-spot disclosures. Oracle proposal generates verification-design source material; it does not add graph fields or create a bespoke commit path.
 
 ## Fan-in rule: compose
 
@@ -33,7 +33,7 @@ Each ensemble should name:
 - **Oracle family** — schema/static check, fixture/golden, property/model-based, probe/transcript, visual/manual review, or a locally justified family.
 - **Fixture/probe commitments** — artifacts that must be kept, refreshed, or run.
 - **Loop tier** — inner, middle, or outer, with verification economics named.
-- **Evidence breadth** — reviewed, example-backed, regression-covered, enforced, or proved, as prose rather than graph metadata.
+- **Check breadth** — reviewed, example-backed, regression-covered, enforced, or proved, as prose rather than graph metadata.
 - **Blind spots** — misses, false positives, and revisit triggers.
 
 Use the D31-L verification-design rubrics while comparing:
@@ -45,4 +45,4 @@ Use the D31-L verification-design rubrics while comparing:
 
 ## Review-set boundary
 
-Oracle commitments become graph material only through the current review-set path. Express checks, criteria, evidence obligations, fixture/probe commitments, witness/rationale edges, and blind spots using graph vocabulary owned by `map` and graph schema/policy. Do not present an implementation task as an oracle unless it names the observation that discriminates success from failure.
+Oracle commitments become graph material only through the current review-set path. Express criteria, methods, concrete checks, fixture/probe commitments, realization edges, and blind spots using graph vocabulary owned by `map` and graph schema/policy. A planned `criterion` and `vv_method` reach a concrete `check` through `realization`. Observed material becomes `evidence`; only that evidence uses `witness` to support or falsify a claim. Proposals never manufacture future evidence. Do not present an implementation task as an oracle unless it names the observation that discriminates success from failure.
