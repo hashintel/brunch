@@ -487,6 +487,10 @@ async function startStaticServer(root: string): Promise<{
   const server = createServer(async (request, response) => {
     try {
       const requestPath = new URL(request.url ?? '/', 'http://localhost').pathname;
+      if (requestPath === '/favicon.ico') {
+        response.writeHead(204).end();
+        return;
+      }
       const relative = requestPath === '/' ? 'index.html' : requestPath.replace(/^\/+/u, '');
       const normalized = normalize(relative);
       const selected = resolve(root, normalized);
