@@ -19,7 +19,9 @@ describe('FE-1050 release workflow contracts', () => {
   it('requires explicit release intent on ordinary pull requests', () => {
     expect(testWorkflow).toContain('fetch-depth: 0');
     expect(testWorkflow).toContain("github.base_ref == 'next'");
-    expect(testWorkflow).toContain('changeset status --since=origin/${{ github.base_ref }}');
     expect(testWorkflow).toContain("!startsWith(github.head_ref, 'changeset-release/')");
+    expect(testWorkflow).toContain('BASE_REF: ${{ github.base_ref }}');
+    expect(testWorkflow).toContain('changeset status --since="origin/$BASE_REF"');
+    expect(testWorkflow).not.toContain('changeset status --since=origin/${{ github.base_ref }}');
   });
 });

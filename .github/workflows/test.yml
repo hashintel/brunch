@@ -43,7 +43,9 @@ jobs:
           github.event_name == 'pull_request' &&
           github.base_ref == 'next' &&
           !startsWith(github.head_ref, 'changeset-release/')
-        run: npx changeset status --since=origin/${{ github.base_ref }}
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: npx changeset status --since="origin/$BASE_REF"
 
       - name: Check (read-only lint + format + skills)
         run: npm run check
