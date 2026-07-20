@@ -1,4 +1,5 @@
 import process from 'node:process';
+import { parseArgs as parseNodeArgs } from 'node:util';
 
 import type { Api, Model } from '@earendil-works/pi-ai';
 import { getBuiltinModel } from '@earendil-works/pi-ai/providers/all';
@@ -52,31 +53,29 @@ async function launchPinnedInteractive(context: BrunchTuiLaunchContext, model: M
   });
 }
 
-function parseArgs(args: readonly string[]): {
+export function parseExecutionComparisonArgs(args: readonly string[]): {
   readonly workspaceDir: string;
   readonly specId: number;
 } {
-  let workspaceDir: string | undefined;
-  let specId: number | undefined;
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index];
-    if (arg === '--workspace') {
-      workspaceDir = args[++index];
-    } else if (arg === '--spec-id') {
-      const value = Number(args[++index]);
-      if (Number.isSafeInteger(value) && value > 0) specId = value;
-    } else {
-      throw new Error(`Unknown execution-comparison Brunch option: ${String(arg)}`);
-    }
-  }
-  if (!workspaceDir || specId === undefined) {
+  const { values } = parseNodeArgs({
+    args: [...args],
+    allowPositionals: false,
+    strict: true,
+    options: {
+      workspace: { type: 'string' },
+      'spec-id': { type: 'string' },
+    },
+  });
+  const workspaceDir = values.workspace;
+  const specId = Number(values['spec-id']);
+  if (!workspaceDir || !Number.isSafeInteger(specId) || specId <= 0) {
     throw new Error('Usage: execution-comparison-brunch --workspace <path> --spec-id <positive integer>');
   }
   return { workspaceDir, specId };
 }
 
 async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
+  const args = parseExecutionComparisonArgs(process.argv.slice(2));
   await runPinnedBrunchExecutionTui({
     ...args,
     provider: 'anthropic',

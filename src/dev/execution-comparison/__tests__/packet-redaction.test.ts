@@ -32,8 +32,8 @@ const contract = {
     controls: [{ role: 'button', name: 'Add place' }],
     dynamic: {
       place: { role: 'button', namePattern: '^Place: .+$' },
-      transition: { role: 'button', namePattern: '^Transition: .+$' },
-      arc: { role: 'button', namePattern: '^Arc: .+$' },
+      transition: { role: 'button', namePattern: '^Transition: .+ \\((enabled|disabled)\\)$' },
+      arc: { role: 'button', namePattern: '^Arc: .+ to .+$' },
     },
     inspectorFields: [{ role: 'textbox', name: 'Label' }],
     feedbackRoles: ['status', 'alert'],

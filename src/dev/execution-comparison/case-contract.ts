@@ -49,9 +49,14 @@ export interface AccessibleNameContract {
   readonly name: string;
 }
 
+export type AccessibleNamePattern =
+  | '^Place: .+$'
+  | '^Transition: .+ \\((enabled|disabled)\\)$'
+  | '^Arc: .+ to .+$';
+
 export interface AccessiblePatternContract {
   readonly role: string;
-  readonly namePattern: string;
+  readonly namePattern: AccessibleNamePattern;
 }
 
 export interface PublicCasePacket {
@@ -64,6 +69,11 @@ export interface PublicCasePacket {
 }
 
 const CONTROLLER_ONLY_REFERENCE = /(?:^|[/\\])controller[/\\]|oracle-manifest|label-mapping/iu;
+const ACCESSIBLE_NAME_PATTERNS = {
+  place: '^Place: .+$',
+  transition: '^Transition: .+ \\((enabled|disabled)\\)$',
+  arc: '^Arc: .+ to .+$',
+} as const satisfies Record<'place' | 'transition' | 'arc', AccessibleNamePattern>;
 
 export async function loadPublicCasePacket(caseDir: string): Promise<PublicCasePacket> {
   const contractRaw = await readFile(join(caseDir, 'public-contract.json'), 'utf8');
@@ -118,9 +128,9 @@ export function parsePublicCaseContract(value: unknown): ExecutionCasePublicCont
     !command(delivery['build'], 'npm', ['run', 'build']) ||
     !accessibleName(accessibility['application'], 'application', 'Petri net editor') ||
     !accessibleName(accessibility['canvas'], 'region', 'Petri net canvas') ||
-    !accessiblePattern(dynamic['place']) ||
-    !accessiblePattern(dynamic['transition']) ||
-    !accessiblePattern(dynamic['arc']) ||
+    !accessiblePattern(dynamic['place'], ACCESSIBLE_NAME_PATTERNS.place) ||
+    !accessiblePattern(dynamic['transition'], ACCESSIBLE_NAME_PATTERNS.transition) ||
+    !accessiblePattern(dynamic['arc'], ACCESSIBLE_NAME_PATTERNS.arc) ||
     !accessibleNameArray(accessibility['controls']) ||
     !accessibleNameArray(accessibility['inspectorFields']) ||
     !feedbackRoles(accessibility['feedbackRoles']) ||
@@ -185,15 +195,22 @@ function accessibleName(value: unknown, role?: string, name?: string): value is 
   );
 }
 
-function accessiblePattern(value: unknown): value is AccessiblePatternContract {
-  if (!record(value) || typeof value['role'] !== 'string' || typeof value['namePattern'] !== 'string')
-    return false;
-  try {
-    new RegExp(value['namePattern'], 'u');
-    return true;
-  } catch {
-    return false;
+export function compileAccessibleNamePattern(namePattern: AccessibleNamePattern): RegExp {
+  switch (namePattern) {
+    case ACCESSIBLE_NAME_PATTERNS.place:
+      return /^Place: .+$/u;
+    case ACCESSIBLE_NAME_PATTERNS.transition:
+      return /^Transition: .+ \((enabled|disabled)\)$/u;
+    case ACCESSIBLE_NAME_PATTERNS.arc:
+      return /^Arc: .+ to .+$/u;
   }
+}
+
+function accessiblePattern(
+  value: unknown,
+  expectedPattern: AccessibleNamePattern,
+): value is AccessiblePatternContract {
+  return record(value) && value['role'] === 'button' && value['namePattern'] === expectedPattern;
 }
 
 function accessibleNameArray(value: unknown): value is AccessibleNameContract[] {

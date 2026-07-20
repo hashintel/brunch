@@ -374,10 +374,7 @@ async function assertFieldValue(
 async function importFile(page: Page, path: string): Promise<void> {
   const input = page.getByRole('button', { name: 'Import JSON', exact: true });
   await input.setInputFiles(path);
-  await page
-    .getByRole('status')
-    .filter({ hasText: /Import rejected/iu })
-    .waitFor();
+  await feedback(page, /Import rejected/iu).waitFor();
 }
 
 async function importJsonText(page: Page, text: string): Promise<void> {
@@ -387,7 +384,11 @@ async function importJsonText(page: Page, text: string): Promise<void> {
     mimeType: 'application/json',
     buffer: Buffer.from(text, 'utf8'),
   });
-  await page.getByRole('status').filter({ hasText: 'Net imported.' }).waitFor();
+  await feedback(page, 'Net imported.').waitFor();
+}
+
+function feedback(page: Page, hasText: string | RegExp): Locator {
+  return page.getByRole('status').filter({ hasText }).or(page.getByRole('alert').filter({ hasText })).first();
 }
 
 async function exportJson(page: Page): Promise<string> {

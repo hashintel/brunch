@@ -1,6 +1,10 @@
 import { queryAllByRole } from '@testing-library/dom';
 
-import type { AccessibleNameContract, ExecutionCasePublicContract } from './case-contract.js';
+import {
+  compileAccessibleNamePattern,
+  type AccessibleNameContract,
+  type ExecutionCasePublicContract,
+} from './case-contract.js';
 
 export interface AccessibilityContractAssertion {
   readonly controls: number;
@@ -25,7 +29,7 @@ export function assertAccessibilityContract(
   for (const key of requirements.dynamic ?? []) {
     const expected = contract.dynamic[key];
     const matches = queryAllByRole(root, expected.role, {
-      name: new RegExp(expected.namePattern, 'u'),
+      name: compileAccessibleNamePattern(expected.namePattern),
     });
     if (matches.length === 0) {
       throw new Error(`${key}: expected at least one accessible ${expected.role}`);

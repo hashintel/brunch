@@ -53,6 +53,20 @@ describe('execution comparison public case contract', () => {
     await expect(loadPublicCasePacket(root)).rejects.toThrow('specification hash');
   });
 
+  it('rejects dynamic accessible-name patterns outside the frozen contract', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'brunch-execution-case-pattern-'));
+    await cp(caseDir, root, { recursive: true });
+
+    const contractPath = join(root, 'public-contract.json');
+    const contract = JSON.parse(await readFile(contractPath, 'utf8')) as {
+      accessibility: { dynamic: { transition: { namePattern: string } } };
+    };
+    contract.accessibility.dynamic.transition.namePattern = '^(a+)+$';
+    await writeFile(contractPath, `${JSON.stringify(contract, null, 2)}\n`, 'utf8');
+
+    await expect(loadPublicCasePacket(root)).rejects.toThrow('invalid fixed public execution contract');
+  });
+
   it('content-addresses the hidden manifest, fixtures, and oracle implementations separately', async () => {
     const pack = await loadControllerOraclePack({
       caseDir,
