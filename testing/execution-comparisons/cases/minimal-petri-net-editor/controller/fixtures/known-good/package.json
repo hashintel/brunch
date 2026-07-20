@@ -1,0 +1,9 @@
+{
+  "name": "petri-editor-oracle-known-good",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test test.mjs"
+  }
+}

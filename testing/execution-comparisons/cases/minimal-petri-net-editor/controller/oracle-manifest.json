@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "id": "minimal-petri-net-editor-oracles-v1",
+  "publicCaseId": "minimal-petri-net-editor-v1",
+  "browserSuiteVersion": "petri-editor-browser-v1",
+  "referenceModelVersion": "weighted-pt-v1",
+  "journeys": [
+    {
+      "id": "mount",
+      "claims": ["AC14"],
+      "expected": {
+        "startupConsoleErrors": 0,
+        "startupFailedModuleLoads": 0,
+        "initialPlaceCount": 0,
+        "initialTransitionCount": 0,
+        "initialArcCount": 0
+      }
+    },
+    {
+      "id": "node-lifecycle",
+      "claims": ["AC15"],
+      "fixture": {
+        "placeLabel": "Input",
+        "transitionLabel": "Fire",
+        "dropOffset": {
+          "x": 120,
+          "y": 80
+        }
+      },
+      "expected": {
+        "createdPerAction": 1,
+        "ghostNodes": 0,
+        "activeDragAfterRelease": false
+      }
+    },
+    {
+      "id": "weighted-fire-reset-reload",
+      "claims": ["AC17", "AC18", "AC19", "AC20", "AC21", "AC23"],
+      "fixture": {
+        "places": [
+          {
+            "id": "input",
+            "label": "Input",
+            "initialTokens": 2
+          },
+          {
+            "id": "output",
+            "label": "Output",
+            "initialTokens": 0
+          }
+        ],
+        "transitions": [
+          {
+            "id": "fire",
+            "label": "Fire"
+          }
+        ],
+        "arcs": [
+          {
+            "source": "input",
+            "target": "fire",
+            "weight": 2
+          },
+          {
+            "source": "fire",
+            "target": "output",
+            "weight": 3
+          }
+        ]
+      },
+      "expected": {
+        "enabledBeforeFire": ["fire"],
+        "markingAfterFire": {
+          "input": 0,
+          "output": 3
+        },
+        "enabledAfterFire": [],
+        "markingAfterReset": {
+          "input": 2,
+          "output": 0
+        },
+        "markingAfterReload": {
+          "input": 2,
+          "output": 0
+        }
+      }
+    },
+    {
+      "id": "invalid-and-cascade",
+      "claims": ["AC16", "AC17", "AC24", "AC25"],
+      "fixtures": {
+        "nonJson": "fixtures/invalid/not-json.txt",
+        "schemaInvalid": "fixtures/invalid/schema-invalid.json"
+      },
+      "expected": {
+        "placeToPlaceArcDelta": 0,
+        "transitionToTransitionArcDelta": 0,
+        "connectedArcsAfterNodeDelete": 0,
+        "netUnchangedAfterInvalidImport": true
+      }
+    },
+    {
+      "id": "round-trip-and-clear",
+      "claims": ["AC22", "AC26"],
+      "expected": {
+        "roundTripStructuralEquality": true,
+        "countsAfterClear": {
+          "places": 0,
+          "transitions": 0,
+          "arcs": 0
+        },
+        "countsAfterClearReload": {
+          "places": 0,
+          "transitions": 0,
+          "arcs": 0
+        }
+      }
+    }
+  ],
+  "validityRules": [
+    "The target repository starts at the frozen empty base commit.",
+    "Only spec.md and public-contract.json enter the target repository before launch.",
+    "No controller path, fixture, expected state, label mapping, or oracle implementation enters the target repository or prompt.",
+    "No substantive human implementation advice or content is supplied.",
+    "Mechanical interventions stay within the frozen budget and preserve input bytes.",
+    "A Brunch run stops at promotion_prepared and never invokes /brunch:land or records landed."
+  ],
+  "replacementRule": "Retain every attempt. Replace only provider, adapter, or mechanical invalidity under the same frozen packet; never replace poor output.",
+  "catastrophicVisualGate": [
+    "The application is absent.",
+    "A required public control is unreachable.",
+    "The required pointer interactions cannot be completed."
+  ]
+}
