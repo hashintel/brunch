@@ -4,8 +4,5 @@
   "initialVersions": {
     "@hashintel/brunch": "1.0.0-alpha.5"
   },
-  "changesets": [
-    "automatic-alpha-releases",
-    "humble-webs-peel"
-  ]
+  "changesets": ["automatic-alpha-releases", "humble-webs-peel"]
 }
