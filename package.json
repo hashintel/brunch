@@ -60,7 +60,7 @@
     "fmt:check": "oxfmt --check",
     "fix": "npm run lint:fix && npm run fmt && npm run check:markdown-links",
     "check": "npm run lint && npm run fmt:check && npm run check:markdown-links && npm run check:skills && npm run check:promoted-run-paths",
-    "check:skills": "node scripts/check-ln-skills.mjs",
+    "check:skills": "node scripts/check-ln-skills.mjs && node scripts/check-reporting-skills.mjs",
     "check:markdown-links": "remark AGENTS.md src --quiet --frail",
     "check:promoted-run-paths": "node scripts/check-promoted-run-paths.mjs",
     "check:release-pack": "node scripts/check-release-pack.mjs",
