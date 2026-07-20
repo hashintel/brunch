@@ -23,6 +23,10 @@ describe('FE-1050 release workflow contracts', () => {
     expect(packageJson.publishConfig.registry).toBe('https://registry.npmjs.org');
   });
 
+  it('provides complete history to Changesets in the authenticated release checkout', () => {
+    expect(releaseWorkflow).toMatch(/token: \$\{\{ steps\.app-token\.outputs\.token \}\}\n\s+fetch-depth: 0/);
+  });
+
   it('requires explicit release intent on ordinary pull requests', () => {
     expect(testWorkflow).toContain('fetch-depth: 0');
     expect(testWorkflow).toContain("github.base_ref == 'next'");
