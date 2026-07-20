@@ -1,0 +1,72 @@
+:root {
+  color: #17202a;
+  font-family: system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+[role='application'] {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100vh;
+}
+
+.toolbar,
+.inspector {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem;
+}
+
+.canvas {
+  position: relative;
+  min-height: 520px;
+  overflow: hidden;
+  border-block: 1px solid #ccd1d1;
+  background: #f8f9f9;
+}
+
+.node,
+.arc {
+  position: absolute;
+  z-index: 2;
+}
+
+.place {
+  width: 74px;
+  height: 74px;
+  border: 3px solid #2471a3;
+  border-radius: 50%;
+  background: white;
+}
+
+.transition {
+  width: 34px;
+  height: 84px;
+  border: 3px solid #633974;
+  background: #f4ecf7;
+}
+
+.transition.enabled {
+  box-shadow: 0 0 0 4px #58d68d;
+}
+
+.arc {
+  z-index: 1;
+  min-width: 110px;
+  height: 6px;
+  border: 0;
+  background: #566573;
+}
+
+.selected {
+  outline: 4px solid #f5b041;
+}
+
+[role='status'] {
+  min-height: 1.5rem;
+  padding: 0.5rem 0.75rem;
+  color: #922b21;
+}

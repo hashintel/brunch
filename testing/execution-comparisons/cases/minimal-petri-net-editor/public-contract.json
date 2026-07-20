@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "case": {
+    "id": "minimal-petri-net-editor-v1",
+    "specification": "spec.md",
+    "specificationSha256": "0b817fb7451762b4adaf37d2555ce9fefc27bfcf3765e5b4343ef741a10edfc2",
+    "provider": "anthropic",
+    "model": "claude-opus-4-8",
+    "repository": {
+      "substrate": "empty_dir",
+      "base": "fresh-empty-commit"
+    }
+  },
+  "budgets": {
+    "elapsedMinutes": 90,
+    "mechanicalInterventions": 2,
+    "substantiveHumanInterventions": 0
+  },
+  "delivery": {
+    "test": {
+      "command": "npm",
+      "args": ["test"]
+    },
+    "build": {
+      "command": "npm",
+      "args": ["run", "build"]
+    },
+    "staticOutput": "dist",
+    "runtimeNetwork": "forbidden",
+    "dependencyInstallNetwork": "package-registry-only"
+  },
+  "accessibility": {
+    "application": {
+      "role": "application",
+      "name": "Petri net editor"
+    },
+    "canvas": {
+      "role": "region",
+      "name": "Petri net canvas"
+    },
+    "controls": [
+      {
+        "role": "button",
+        "name": "Add place"
+      },
+      {
+        "role": "button",
+        "name": "Add transition"
+      },
+      {
+        "role": "button",
+        "name": "Draw arc"
+      },
+      {
+        "role": "button",
+        "name": "Fire selected transition"
+      },
+      {
+        "role": "button",
+        "name": "Delete selection"
+      },
+      {
+        "role": "button",
+        "name": "New net"
+      },
+      {
+        "role": "button",
+        "name": "Reset marking"
+      },
+      {
+        "role": "button",
+        "name": "Export JSON"
+      },
+      {
+        "role": "button",
+        "name": "Import JSON"
+      }
+    ],
+    "dynamic": {
+      "place": {
+        "role": "button",
+        "namePattern": "^Place: .+$"
+      },
+      "transition": {
+        "role": "button",
+        "namePattern": "^Transition: .+ \\((enabled|disabled)\\)$"
+      },
+      "arc": {
+        "role": "button",
+        "namePattern": "^Arc: .+ to .+$"
+      }
+    },
+    "inspectorFields": [
+      {
+        "role": "textbox",
+        "name": "Label"
+      },
+      {
+        "role": "spinbutton",
+        "name": "Initial tokens"
+      },
+      {
+        "role": "spinbutton",
+        "name": "Current tokens"
+      },
+      {
+        "role": "spinbutton",
+        "name": "Arc weight"
+      }
+    ],
+    "feedbackRoles": ["status", "alert"]
+  },
+  "interactions": {
+    "createNode": "Activate Add place or Add transition; exactly one node is added.",
+    "select": "Activate a place, transition, or arc to select it and expose the applicable inspector fields.",
+    "moveNode": "Pointer-drag a place or transition from its rendered center to the drop position.",
+    "createArc": "Activate Draw arc, then pointer-drag the source node to the destination node.",
+    "fireTransition": "Select a transition, then activate Fire selected transition.",
+    "deleteSelection": "Select a node or arc, then activate Delete selection.",
+    "editField": "Change the named inspector field and dispatch input followed by change.",
+    "importJson": "Set one JSON file on the Import JSON file input exposed by the Import JSON control.",
+    "exportJson": "Activate Export JSON and capture the downloaded JSON file."
+  },
+  "rules": [
+    "Work only in the target repository.",
+    "Do not inspect controller paths or seek hidden comparison material.",
+    "Do not add a backend or require runtime network access.",
+    "Stop after the implementation passes its own npm test and npm run build commands."
+  ]
+}

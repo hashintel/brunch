@@ -1,0 +1,256 @@
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { basename, join } from 'node:path';
+
+export interface ExecutionCasePublicContract {
+  readonly schemaVersion: 1;
+  readonly case: {
+    readonly id: 'minimal-petri-net-editor-v1';
+    readonly specification: 'spec.md';
+    readonly specificationSha256: string;
+    readonly provider: 'anthropic';
+    readonly model: 'claude-opus-4-8';
+    readonly repository: {
+      readonly substrate: 'empty_dir';
+      readonly base: 'fresh-empty-commit';
+    };
+  };
+  readonly budgets: {
+    readonly elapsedMinutes: 90;
+    readonly mechanicalInterventions: 2;
+    readonly substantiveHumanInterventions: 0;
+  };
+  readonly delivery: {
+    readonly test: CommandContract;
+    readonly build: CommandContract;
+    readonly staticOutput: 'dist';
+    readonly runtimeNetwork: 'forbidden';
+    readonly dependencyInstallNetwork: 'package-registry-only';
+  };
+  readonly accessibility: {
+    readonly application: AccessibleNameContract;
+    readonly canvas: AccessibleNameContract;
+    readonly controls: readonly AccessibleNameContract[];
+    readonly dynamic: Readonly<Record<'place' | 'transition' | 'arc', AccessiblePatternContract>>;
+    readonly inspectorFields: readonly AccessibleNameContract[];
+    readonly feedbackRoles: readonly ('status' | 'alert')[];
+  };
+  readonly interactions: Readonly<Record<string, string>>;
+  readonly rules: readonly string[];
+}
+
+export interface CommandContract {
+  readonly command: string;
+  readonly args: readonly string[];
+}
+
+export interface AccessibleNameContract {
+  readonly role: string;
+  readonly name: string;
+}
+
+export type AccessibleNamePattern =
+  | '^Place: .+$'
+  | '^Transition: .+ \\((enabled|disabled)\\)$'
+  | '^Arc: .+ to .+$';
+
+export interface AccessiblePatternContract {
+  readonly role: string;
+  readonly namePattern: AccessibleNamePattern;
+}
+
+export interface PublicCasePacket {
+  readonly contract: ExecutionCasePublicContract;
+  readonly files: readonly {
+    readonly path: 'public-contract.json' | 'spec.md';
+    readonly sha256: string;
+  }[];
+  readonly packetSha256: string;
+}
+
+const CONTROLLER_ONLY_REFERENCE = /(?:^|[/\\])controller[/\\]|oracle-manifest|label-mapping/iu;
+const ACCESSIBLE_NAME_PATTERNS = {
+  place: '^Place: .+$',
+  transition: '^Transition: .+ \\((enabled|disabled)\\)$',
+  arc: '^Arc: .+ to .+$',
+} as const satisfies Record<'place' | 'transition' | 'arc', AccessibleNamePattern>;
+
+export async function loadPublicCasePacket(caseDir: string): Promise<PublicCasePacket> {
+  const contractRaw = await readFile(join(caseDir, 'public-contract.json'), 'utf8');
+  const contract = parsePublicCaseContract(parseJson(contractRaw));
+  if (basename(contract.case.specification) !== contract.case.specification) {
+    throw new Error('public execution contract specification path must stay inside the case root');
+  }
+
+  const specRaw = await readFile(join(caseDir, contract.case.specification), 'utf8');
+  if (CONTROLLER_ONLY_REFERENCE.test(contractRaw) || CONTROLLER_ONLY_REFERENCE.test(specRaw)) {
+    throw new Error('public execution packet contains controller-only material');
+  }
+
+  const specDigest = sha256Hex(specRaw);
+  if (specDigest !== contract.case.specificationSha256) {
+    throw new Error('approved specification hash does not match the public execution contract');
+  }
+
+  const files = [
+    { path: 'public-contract.json' as const, sha256: `sha256:${sha256Hex(contractRaw)}` },
+    { path: 'spec.md' as const, sha256: `sha256:${specDigest}` },
+  ];
+  const packetSha256 = `sha256:${sha256Hex(files.map((file) => `${file.path}:${file.sha256}\n`).join(''))}`;
+  return { contract, files, packetSha256 };
+}
+
+export function parsePublicCaseContract(value: unknown): ExecutionCasePublicContract {
+  if (!record(value)) invalid();
+  const caseValue = requiredRecord(value, 'case');
+  const repository = requiredRecord(caseValue, 'repository');
+  const budgets = requiredRecord(value, 'budgets');
+  const delivery = requiredRecord(value, 'delivery');
+  const accessibility = requiredRecord(value, 'accessibility');
+  const dynamic = requiredRecord(accessibility, 'dynamic');
+
+  if (
+    value['schemaVersion'] !== 1 ||
+    caseValue['id'] !== 'minimal-petri-net-editor-v1' ||
+    caseValue['specification'] !== 'spec.md' ||
+    !sha256HexValue(caseValue['specificationSha256']) ||
+    caseValue['provider'] !== 'anthropic' ||
+    caseValue['model'] !== 'claude-opus-4-8' ||
+    repository['substrate'] !== 'empty_dir' ||
+    repository['base'] !== 'fresh-empty-commit' ||
+    budgets['elapsedMinutes'] !== 90 ||
+    budgets['mechanicalInterventions'] !== 2 ||
+    budgets['substantiveHumanInterventions'] !== 0 ||
+    delivery['staticOutput'] !== 'dist' ||
+    delivery['runtimeNetwork'] !== 'forbidden' ||
+    delivery['dependencyInstallNetwork'] !== 'package-registry-only' ||
+    !command(delivery['test'], 'npm', ['test']) ||
+    !command(delivery['build'], 'npm', ['run', 'build']) ||
+    !accessibleName(accessibility['application'], 'application', 'Petri net editor') ||
+    !accessibleName(accessibility['canvas'], 'region', 'Petri net canvas') ||
+    !accessiblePattern(dynamic['place'], ACCESSIBLE_NAME_PATTERNS.place) ||
+    !accessiblePattern(dynamic['transition'], ACCESSIBLE_NAME_PATTERNS.transition) ||
+    !accessiblePattern(dynamic['arc'], ACCESSIBLE_NAME_PATTERNS.arc) ||
+    !accessibleNameArray(accessibility['controls']) ||
+    !accessibleNameArray(accessibility['inspectorFields']) ||
+    !feedbackRoles(accessibility['feedbackRoles']) ||
+    !stringRecord(value['interactions']) ||
+    !nonemptyStrings(value['rules'])
+  ) {
+    invalid();
+  }
+
+  const controlNames = (accessibility['controls'] as AccessibleNameContract[]).map((item) => item.name);
+  const requiredControls = [
+    'Add place',
+    'Add transition',
+    'Draw arc',
+    'Fire selected transition',
+    'Delete selection',
+    'New net',
+    'Reset marking',
+    'Export JSON',
+    'Import JSON',
+  ];
+  if (
+    controlNames.length !== requiredControls.length ||
+    new Set(controlNames).size !== requiredControls.length ||
+    requiredControls.some((name) => !controlNames.includes(name))
+  ) {
+    invalid();
+  }
+
+  return value as unknown as ExecutionCasePublicContract;
+}
+
+function parseJson(raw: string): unknown {
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    throw new Error('invalid public execution contract JSON');
+  }
+}
+
+function requiredRecord(value: Record<string, unknown>, key: string): Record<string, unknown> {
+  const selected = value[key];
+  if (!record(selected)) invalid();
+  return selected;
+}
+
+function command(value: unknown, expectedCommand: string, expectedArgs: readonly string[]): boolean {
+  if (!record(value) || value['command'] !== expectedCommand || !Array.isArray(value['args'])) return false;
+  return (
+    value['args'].length === expectedArgs.length &&
+    value['args'].every((arg, index) => arg === expectedArgs[index])
+  );
+}
+
+function accessibleName(value: unknown, role?: string, name?: string): value is AccessibleNameContract {
+  return (
+    record(value) &&
+    typeof value['role'] === 'string' &&
+    typeof value['name'] === 'string' &&
+    (role === undefined || value['role'] === role) &&
+    (name === undefined || value['name'] === name)
+  );
+}
+
+export function compileAccessibleNamePattern(namePattern: AccessibleNamePattern): RegExp {
+  switch (namePattern) {
+    case ACCESSIBLE_NAME_PATTERNS.place:
+      return /^Place: .+$/u;
+    case ACCESSIBLE_NAME_PATTERNS.transition:
+      return /^Transition: .+ \((enabled|disabled)\)$/u;
+    case ACCESSIBLE_NAME_PATTERNS.arc:
+      return /^Arc: .+ to .+$/u;
+  }
+}
+
+function accessiblePattern(
+  value: unknown,
+  expectedPattern: AccessibleNamePattern,
+): value is AccessiblePatternContract {
+  return record(value) && value['role'] === 'button' && value['namePattern'] === expectedPattern;
+}
+
+function accessibleNameArray(value: unknown): value is AccessibleNameContract[] {
+  return Array.isArray(value) && value.length > 0 && value.every((item) => accessibleName(item));
+}
+
+function feedbackRoles(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length === 2 &&
+    value.includes('status') &&
+    value.includes('alert') &&
+    value.every((role) => role === 'status' || role === 'alert')
+  );
+}
+
+function stringRecord(value: unknown): boolean {
+  return record(value) && Object.keys(value).length > 0 && Object.values(value).every(nonempty);
+}
+
+function nonemptyStrings(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length > 0 && value.every(nonempty);
+}
+
+function record(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function nonempty(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function sha256HexValue(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-f0-9]{64}$/u.test(value);
+}
+
+function sha256Hex(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function invalid(): never {
+  throw new Error('invalid fixed public execution contract');
+}

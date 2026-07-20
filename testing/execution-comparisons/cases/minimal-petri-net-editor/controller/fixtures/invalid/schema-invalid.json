@@ -1,0 +1,17 @@
+{
+  "places": [
+    {
+      "id": "p1",
+      "label": "Broken",
+      "initialTokens": -1
+    }
+  ],
+  "transitions": [],
+  "arcs": [
+    {
+      "source": "p1",
+      "target": "missing",
+      "weight": 0
+    }
+  ]
+}

@@ -114,6 +114,7 @@ Older completion history (incl. FE-1196, FE-1195, FE-1190, and FE-1180): [`docs/
 
 Everything executor/orchestrator-shaped or Execute-mode-owned belongs to Kostandin's stream and is **outside the LN quarantine**. Cross-stream touchpoints: FE-1187 rows O7/O8/O9 (live D120-L Execute workflows) — coordinate before building those rows.
 
+- `execution-comparison-tracer` ([FE-1230](https://linear.app/hash/issue/FE-1230/greenfield-execution-comparison-tracer)) — **active on `ka/fe-1230-greenfield-execution-comparison-tracer`:** the Opus 4.8 Brunch elicitation run produced a human-approved, build-ready minimal browser Petri-net editor specification with whole-app mount, complete drag-lifecycle, Petri semantics, persistence, and malformed-import criteria. Next: freeze the durable case packet and controller-only oracle contract, then smoke Brunch Execute before any matched lane.
 - **Carved from FE-1167 (2026-07-13):** the Execute-mode evidence sub-list — Execute entry beats on thin vs rich seeds (assessment honesty: Ask on thin, Proceed on rich) and the FE-1107/KA residue (close-or-narrow, demo/walkthrough session via `TESTING_PLAN.md`, post-KA plan pass). The former sticky-posture question is no longer KA residue: FE-1187 `remediation-4` owns the persistent Specify elicitation-style audit/SPEC revision, and its Continue lexical audit owns the old `continue` ambiguity. Full context in the archived FE-1167 definition (`docs/archive/PLAN_HISTORY.md`).
 - `planning-process-model` — **moved to the KA stream 2026-07-13; reshaped by D126-L**: the durable scope handoff is settled, so this item now owns only plan projection and epistemic-horizon questions beyond committed scopes. Definition below.
 - `executor-slice-attempt-lifecycle` ([FE-1192](https://linear.app/hash/issue/FE-1192/executor-slice-attempt-lifecycle)) — **active in the KA lane, picked up 2026-07-13** on `ka/fe-1192-executor-slice-attempt-lifecycle`. First member of the Petri sequence: first-class slice attempts (identity, bounded in-run retry, honest failed-attempt facts). Shape settled at pickup: attempt facts first (topology unchanged), constant retry bound with `ceiling:`, agent step only. Definition below.
@@ -386,6 +387,24 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Traceability:** D126-L (settled scope handoff), D103-L (durable slice retirement), D100-L (`project` seam), D87-L (`unknown` = horizon on the intent plane), D99-L (advisory/settled); KA owns executor/orchestration consequences. SPEC §Future Direction "Planning persistence evolution".
 
 
+### execution-comparison-tracer
+
+- **Name:** Greenfield execution comparison tracer
+- **Linear:** [FE-1230](https://linear.app/hash/issue/FE-1230/greenfield-execution-comparison-tracer), child of [FE-1211](https://linear.app/hash/issue/FE-1211/brunch-testing-execution-side-evaluation-of-outputs).
+- **Branch:** `ka/fe-1230-greenfield-execution-comparison-tracer` (off `next`).
+- **Kind:** bounded evaluation tracer — frozen execution input, isolated adapters, controller-only oracles, and immutable evidence; no product operator command yet.
+- **Certainty:** proving.
+- **Status:** active. The saved `minimal-petri-net-editor` mission was rerun through Brunch Specify with `anthropic/claude-opus-4-8`; the exported specification was enriched after review and explicitly approved as the common execution input. The direct run used the documented headless TUI fallback after the approachable `/compare-specs` controller stalled before harness launch; this input-generation run is not comparison evidence.
+- **Objective:** compare Brunch Execute with Claude Code from identical empty repositories using one human-approved browser-app specification and the same pinned Opus 4.8 model, while separating mechanical outcome evidence from unblinded process evidence and stopping Brunch at `promotion_prepared`.
+- **Lights up:** approved elicitation output → frozen lane-neutral execution packet → isolated Brunch/Claude implementations → unchanged hidden browser/Petri oracles → masked outcome + unblinded process adjudication.
+- **Stabilizes:** the first execution-case artifact contract, validity/intervention ledger, no-landing boundary, and reproducibility split between generated-plan/Petri procedure and structural code output.
+- **Acceptance:** the approved Petri-net editor spec and controller-only oracle pack freeze before a valid lane; one Brunch-only empty-dir smoke reaches `promotion_prepared` without host landing; one matched Brunch-vs-Claude run uses identical public input and fresh repositories; hidden checks run unchanged against both outputs; three valid Brunch runs report canonicalized generated-plan/transition/action similarity separately from code-structure similarity; failed/invalid attempts remain retained; only a reviewed portable bundle promotes.
+- **Verification:** inner — hashes/schema checks for the public packet, case manifest, validity ledger, and hidden-oracle installation; middle — real isolated adapter smoke plus unchanged build/test/headless-browser/Petri checks against each lane; outer — named human review of identity-masked outcome and unblinded process packets. Permission/intervention metrics count observed events only; unavailable signals are `not assessable`.
+- **Cross-cutting obligations:** reuse FE-1210's split-judgment, failure-retention, masking, and promotion discipline without mixing execution cases into the private elicitation-mission namespace; record exact provider/model/harness versions; never expose controller-only oracles to a lane; never invoke `/brunch:land`.
+- **Explicitly out:** Pi Campaign Machine/Clay, brownfield Brunch/Petrinaut cases, automatic landing, Cursor/Codex lanes, production `/compare-execution`, and broad reliability/cost/speed claims from one mission.
+- **Traceability:** D40-L, D120-L, I62-L; FE-1210/FE-1215 comparison evidence discipline; [`testing/execution-comparisons/cases/minimal-petri-net-editor/spec.md`](../testing/execution-comparisons/cases/minimal-petri-net-editor/spec.md); origin mission [`testing/comparisons/missions/minimal-petri-net-editor.md`](../testing/comparisons/missions/minimal-petri-net-editor.md); `docs/praxis/comparison-runs.md`; `src/executor/TOPOLOGY.md`.
+- **Current execution pointer:** [`memory/cards/execution-comparison-tracer--brunch-oracle-smoke.md`](cards/execution-comparison-tracer--brunch-oracle-smoke.md).
+
 ### executor-slice-attempt-lifecycle
 
 - **Name:** Slice attempt lifecycle — first-class attempts in the executor net
@@ -557,6 +576,11 @@ group-4 (cleanups): rides group-1 stack | named-inline-extension-identity (P1)
 KA stream:
   carved FE-1167 Execute beats + FE-1107 residue
   planning-process-model (moved 2026-07-13)
+  execution-comparison-tracer (FE-1230)
+    status: active; approved Opus 4.8 Petri-editor spec ready to freeze as a durable case
+    reuses: FE-1210 split judgment | failure retention | masked outcome discipline
+    lights_up: frozen spec -> Brunch/Claude isolated lanes -> hidden browser/Petri oracles -> adjudication
+    excludes: host landing | product operator command | Cursor/Codex | broad benchmark claims
   # petri-interpreter-port (FE-1183) and petrinaut-live-run-stream (FE-1190) merged;
   # run.json remains lifecycle truth, Petri artifacts remain projection/evidence/resume hints.
   executor-slice-attempt-lifecycle (FE-1192)
