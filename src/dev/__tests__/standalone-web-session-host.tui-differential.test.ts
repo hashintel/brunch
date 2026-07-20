@@ -152,7 +152,15 @@ async function driveTui(): Promise<string> {
         try {
           const liveExchange = context.liveExchange;
           if (!liveExchange) throw new Error('TUI production boot did not provide its live ask registry');
+          const openingTurnEnded = new Promise<void>((resolve) => {
+            const unsubscribe = runtime.session.subscribe((event) => {
+              if (event.type !== 'agent_end' || faux.provider.getPendingResponseCount() !== 0) return;
+              unsubscribe();
+              resolve();
+            });
+          });
           await emitStartupOrientationForHarness(runtime);
+          await openingTurnEnded;
           faux.provider.appendResponses(scriptedResponses().slice(1));
           for (const prompt of prompts.slice(0, 2))
             await runtime.session.prompt(prompt, { source: 'interactive' });
