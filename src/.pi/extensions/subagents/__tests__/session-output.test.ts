@@ -7,6 +7,7 @@ const definition = {
   name: 'planner',
   description: 'planner',
   tools: ['read'],
+  skills: [],
   model: 'default',
   thinking: 'high',
   systemPrompt: 'submit output',
