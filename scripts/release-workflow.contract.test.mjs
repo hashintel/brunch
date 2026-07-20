@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const releaseWorkflow = await readFile(new URL('../.github/workflows/release.yml', import.meta.url), 'utf8');
 const testWorkflow = await readFile(new URL('../.github/workflows/test.yml', import.meta.url), 'utf8');
+const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 
 describe('FE-1050 release workflow contracts', () => {
   it('fails the publish run when a protected release tag cannot be pushed', () => {
@@ -14,6 +15,12 @@ describe('FE-1050 release workflow contracts', () => {
   it('limits the worker token to release operations in this repository', () => {
     expect(releaseWorkflow).toContain('permission-contents: write');
     expect(releaseWorkflow).toContain('permission-pull-requests: write');
+  });
+
+  it('leaves npm authentication to trusted publishing without a dummy token', () => {
+    expect(releaseWorkflow).not.toContain('registry-url:');
+    expect(releaseWorkflow).not.toContain('NODE_AUTH_TOKEN');
+    expect(packageJson.publishConfig.registry).toBe('https://registry.npmjs.org');
   });
 
   it('requires explicit release intent on ordinary pull requests', () => {

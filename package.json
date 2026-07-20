@@ -26,6 +26,7 @@
   "types": "./dist/app/brunch.d.ts",
   "publishConfig": {
     "access": "public",
+    "registry": "https://registry.npmjs.org",
     "tag": "alpha"
   },
   "scripts": {
