@@ -198,7 +198,7 @@ export function parseApprovedSpecification(markdown: string): readonly ApprovedS
     const code = match[1]!;
     const title = match[2]!.trim();
     const rawBody = match[3]!;
-    const body = rawBody.split(/\n- basis:/u, 1)[0]!.trim();
+    const body = rawBody.split(/(?:^|\n)- basis:/u, 1)[0]!.trim();
     sections.push({ code, title, body: body.length > 0 ? body : title });
   }
   if (sections.length === 0 || !sections.some((section) => section.code === 'G1')) {

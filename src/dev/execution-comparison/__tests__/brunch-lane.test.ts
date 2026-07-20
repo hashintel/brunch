@@ -25,6 +25,13 @@ describe('Brunch execution comparison lane adapter', () => {
     const packet = await loadPublicCasePacket(caseDir);
     const specification = await readFile(`${caseDir}/spec.md`, 'utf8');
     const fixture = buildBrunchExecutionSeed({ specification, contract: packet.contract });
+    expect(fixture.nodes.find((node) => node.source === 'approved-spec [D1]')).toMatchObject({
+      title: 'Net flavor: classic P/T, weighted arcs, unbounded places',
+      body: 'Net flavor: classic P/T, weighted arcs, unbounded places',
+      detail: {
+        chosen_option: 'Net flavor: classic P/T, weighted arcs, unbounded places',
+      },
+    });
     const db = createDb(':memory:');
     const seeded = seedFixture(new CommandExecutor(db), fixture);
     const graph = queryGraph(db, seeded.specId);
