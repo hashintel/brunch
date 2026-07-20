@@ -140,7 +140,7 @@ async function main() {
     // DB-touching leg: --mode print from an empty cwd never opens SQLite, so a
     // broken better-sqlite3 native binding (blocked install script, ABI mismatch)
     // would slip past the boot check. One rpc-mode workspace.activate creates
-    // .brunch/data.db through the installed binding.
+    // .brunch/brunch-v1.db through the installed binding.
     const rpcRequest = {
       jsonrpc: '2.0',
       id: 1,
@@ -173,8 +173,10 @@ async function main() {
         `Expected workspace.activate to answer status "ready"; got:\n${rpcResult.stdout}\n${rpcResult.stderr}`,
       );
     }
-    if (!existsSync(path.join(foreignCwd, '.brunch', 'data.db'))) {
-      throw new Error('workspace.activate did not create .brunch/data.db (native sqlite binding untested)');
+    if (!existsSync(path.join(foreignCwd, '.brunch', 'brunch-v1.db'))) {
+      throw new Error(
+        'workspace.activate did not create .brunch/brunch-v1.db (native sqlite binding untested)',
+      );
     }
 
     process.stdout.write(
