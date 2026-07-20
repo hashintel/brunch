@@ -9,7 +9,7 @@ Created:  2026-07-15
 
 - Containing seam: FE-1208's dev/eval-only real-TUI trajectory → consequential-fact evaluator path. Commits `11607e10`, `1e944616`, and `1f36ee18` established canonical active-branch/graph readback plus the calibrated review-diff scorer.
 - Frontier: `consequential-fact-discovery-tracer` (FE-1208). This is the remaining proving campaign, not a new Linear issue or branch.
-- Volatile state: none. The corrected scratch trajectory is still diagnostic only; neither it nor the scorer's hand-authored contrastive fixture counts as provider evidence.
+- Volatile state: no separate handoff survives; this card is the sole actor-v2 re-entry contract. Its corrected scratch trajectory is still diagnostic only; neither that run nor the scorer's hand-authored contrastive fixture counts as provider evidence.
 - Main risk: campaign machinery can create a false causal claim by changing more than one prompt feature, relaxing the actor between arms, or promoting only favorable runs. Arm assignment, actor policy, run budget, model configuration, validity rules, and discrimination threshold must be fixed before the first provider run.
 
 Posture: proving (inherited from `consequential-fact-discovery-tracer`).
