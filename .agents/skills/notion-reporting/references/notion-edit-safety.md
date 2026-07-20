@@ -27,7 +27,7 @@ Do not use full replacement as a convenience. Do not delete or move existing chi
 
 - Publish only evidence appropriate to the destination audience.
 - Prefer references to immutable artifacts over copying large transcripts.
-- Do not paste credentials, private prompts, reveal keys, hidden tests, controller-only fixtures, or sensitive internal reasoning.
+- Do not paste credentials, private prompts, restricted evaluation material, or sensitive internal reasoning.
 - Label reconstructed or incomplete evidence.
 - Preserve exact user wording when the user asks for it; otherwise edit for clarity without changing meaning.
 

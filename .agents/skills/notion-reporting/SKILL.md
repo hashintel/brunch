@@ -79,7 +79,7 @@ Report completion only after this verification.
 - Lead with outcomes, not process narration.
 - Prefer short paragraphs and compact bullets.
 - Name evidence paths, URLs, dates, run ids, or line ranges when available.
-- Distinguish runtime facts, implementation findings, protocol violations, and validity consequences when that distinction matters.
+- Distinguish verified facts from interpretations, limitations, and recommendations.
 - Use a callout for a compact overview or side note, not for the whole report.
 - Avoid decorative tables when a short list is clearer.
 - Do not hide caveats in a footnote or supporting page.

@@ -7,7 +7,7 @@ description: Analyze and report cross-harness elicitation or execution compariso
 
 Interpret retained comparison evidence before presenting it. Report validity before outcome quality, and keep presentation concerns separate from evidence policy.
 
-When publishing to Notion, also load [Notion reporting](../notion-reporting/SKILL.md) for mutation safety and report structure.
+When publishing to Notion, also load [Notion reporting](../notion-reporting/SKILL.md) for mutation safety and Notion formatting only. This skill owns comparison evidence policy and report grammar: keep the validity-first shape below instead of substituting Notion reporting's generic report shape.
 
 ## Inputs
 

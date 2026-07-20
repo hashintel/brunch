@@ -54,36 +54,35 @@ Choose the smallest shape that answers the reader's question.
 
 Source evidence:
 
-- a tool workflow completed and retained its artifacts;
-- one lane required human intervention;
-- the resulting cross-lane comparison is contaminated;
-- one formatting defect has a code-level cause.
+- a scheduled export failed;
+- the job log and output artifact were retained;
+- a malformed date setting caused the failure; and
+- a corrected retry completed successfully.
 
 Report:
 
 ```markdown
 <callout icon="🔎" color="gray_bg">
 	**Overview**
-	**Problem:** Human intervention changed one lane's inputs, so the outputs were produced under different conditions.
-	**Result:** The workflow and clean lane remain useful witnesses, but the run does not support a comparative benchmark claim.
-	**Confidence:** Directional; the contamination is recorded and the implementation defect has direct code evidence.
+	**Problem:** The scheduled export failed before producing its daily file.
+	**Result:** Correcting the malformed date setting restored the export on retry.
+	**Confidence:** Conclusive for this incident; the failed and successful job logs show the configuration change and outcome.
 </callout>
 
 # Findings
-- **Workflow:** artifact creation and retention completed.
-- **Validity:** the intervened lane is contaminated.
-- **Implementation:** the formatting defect has a reproducible code path.
+- **Failure:** the original job rejected the configured date value.
+- **Recovery:** the corrected retry produced the expected artifact.
 
 ## Evidence
-- Retained transcript and final artifact.
-- Intervention record.
-- Source file and line range for the formatting defect.
+- Failed and successful job logs.
+- Retained output artifact from the retry.
+- Configuration revision history.
 
 ## Limitations
-- One run cannot establish general product performance.
+- This report covers one scheduled export and does not establish broader service reliability.
 
 ## Recommendations
-- Rerun the contaminated lane under the frozen protocol.
+- Validate date settings when schedules are saved.
 ```
 
 The example demonstrates structure only. Do not reuse its conclusions without matching evidence.
