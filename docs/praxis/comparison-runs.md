@@ -66,6 +66,8 @@ Read `<workspace>/.brunch/debug/trajectory-report.md` and retain `trajectory.jso
 ## Agent-as-user cross-product comparison
 
 Cross-product comparison starts from a **mission**, not a Brunch seed. There are two deliberately different procedures.
+For a plain-language introduction and operator walkthrough, start with the
+[Elicitation Testing Guide](elicitation-testing.md).
 
 ### Approachable operator workflow
 
