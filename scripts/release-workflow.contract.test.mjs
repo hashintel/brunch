@@ -1,0 +1,43 @@
+import { readFile } from 'node:fs/promises';
+
+import { describe, expect, it } from 'vitest';
+
+const releaseWorkflow = await readFile(new URL('../.github/workflows/release.yml', import.meta.url), 'utf8');
+const testWorkflow = await readFile(new URL('../.github/workflows/test.yml', import.meta.url), 'utf8');
+const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+
+describe('FE-1050 release workflow contracts', () => {
+  it('fails the publish run when a protected release tag cannot be pushed', () => {
+    expect(releaseWorkflow).toContain('commitMode: git-cli');
+    expect(releaseWorkflow).not.toContain('commitMode: github-api');
+  });
+
+  it('limits the worker token to release operations in this repository', () => {
+    expect(releaseWorkflow).toContain('permission-contents: write');
+    expect(releaseWorkflow).toContain('permission-pull-requests: write');
+  });
+
+  it('reads the public Vault address from the repository Actions variable', () => {
+    expect(releaseWorkflow).toContain('url: ${{ vars.VAULT_ADDR }}');
+    expect(releaseWorkflow).not.toContain('secrets.VAULT_ADDR');
+  });
+
+  it('leaves npm authentication to trusted publishing without a dummy token', () => {
+    expect(releaseWorkflow).not.toContain('registry-url:');
+    expect(releaseWorkflow).not.toContain('NODE_AUTH_TOKEN');
+    expect(packageJson.publishConfig.registry).toBe('https://registry.npmjs.org');
+  });
+
+  it('provides complete history to Changesets in the authenticated release checkout', () => {
+    expect(releaseWorkflow).toMatch(/token: \$\{\{ steps\.app-token\.outputs\.token \}\}\n\s+fetch-depth: 0/);
+  });
+
+  it('requires explicit release intent on ordinary pull requests', () => {
+    expect(testWorkflow).toContain('fetch-depth: 0');
+    expect(testWorkflow).toContain("github.base_ref == 'next'");
+    expect(testWorkflow).toContain("!startsWith(github.head_ref, 'changeset-release/')");
+    expect(testWorkflow).toContain('BASE_REF: ${{ github.base_ref }}');
+    expect(testWorkflow).toContain('changeset status --since="origin/$BASE_REF"');
+    expect(testWorkflow).not.toContain('changeset status --since=origin/${{ github.base_ref }}');
+  });
+});

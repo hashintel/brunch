@@ -76,7 +76,8 @@ Brunch stores local runtime state under the target workspace's `.brunch/` direct
 | `npm run seed -- --workspace <dir> --seed <set>/<slug>` | Seed a workspace from `.fixtures/seeds`. |
 | `npm run db:generate` | Generate Drizzle migrations. |
 | `npm run db:studio` | Open Drizzle Studio. |
-| `npm run release -- --dry-run patch` | Preview release packaging/publish flow. |
+| `npm run changeset` | Record release intent and user-facing release notes for a pull request. |
+| `npm run check:release-pack` | Pack, install, and smoke-test the publishable artifact without publishing it. |
 
 `package.json` is the complete script list.
 
@@ -146,17 +147,50 @@ For agent-assisted work, follow [`AGENTS.md`](./AGENTS.md): frontier items map t
 
 ## Releasing
 
-Preview without mutating git/npm:
+Brunch alpha releases are published from `next` by
+[the release workflow](./.github/workflows/release.yml). Contributors do not
+edit the package version, create release tags, or publish from a local
+checkout.
+
+For a pull request that changes the published package, record the intended
+SemVer bump and concise user-facing notes:
 
 ```bash
-npm run release -- --dry-run patch
-npm run release -- --dry-run --ci patch
+npm run changeset
 ```
 
-Release from a clean checkout when ready:
+Commit the generated Markdown file under `.changeset/` with the change. CI
+requires every ordinary pull request into `next` to carry explicit release
+intent. For a pull request that does not affect the published package, record
+that decision with an empty changeset:
 
 ```bash
-npm run release -- patch
+npm run changeset -- --empty
 ```
 
-The release flow rebuilds the packaged CLI/runtime artifact and runs `npm pack --dry-run --json` before publishing. Local releases require npm authentication; trusted-publishing CI is not configured here yet.
+The generated Changesets version pull request is exempt because it consumes
+the accumulated changesets instead of adding another one.
+
+After changesets land on `next`, the workflow creates or updates one
+**Version Packages** pull request. Merging that reviewed pull request is the
+release approval: the next workflow run executes the release-pack smoke,
+publishes `@hashintel/brunch` to the npm `alpha` dist-tag, pushes the native
+single-package `v<version>` tag, and creates a GitHub Release from the generated
+`CHANGELOG.md`. The npm `latest` tag remains on the stable line until a
+separate `main` release process is enabled.
+
+Publishing uses npm trusted publishing from `hashintel/brunch`'s
+`release.yml`, not a repository `NPM_TOKEN`. Before the first automated
+release, an npm owner must configure that trusted publisher with `npm publish`
+permission. The workflow's HASH worker token creates CI-triggering release
+pull requests and is the actor allowed to create protected release tags. The
+package release script fails closed outside GitHub Actions, outside
+`hashintel/brunch`'s `next` branch, or without the OIDC environment required
+for trusted publishing. The worker token is repository-scoped to contents and
+pull-request writes, and protected-tag pushes fail the release job instead of
+letting GitHub synthesize a missing tag from the default branch.
+
+If a run fails before npm accepts the version, fix the cause and rerun it. If
+npm already contains the version, do not edit or reuse that immutable version;
+inspect npm, the Git tag, and the GitHub Release before deciding which missing
+artifact needs reconciliation.

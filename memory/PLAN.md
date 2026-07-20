@@ -101,6 +101,7 @@ Older completion history (incl. FE-1196, FE-1195, FE-1190, and FE-1180): [`docs/
 
 ### Parallel / Low-conflict
 
+- `automated-alpha-publishing` ([FE-1050](https://linear.app/hash/issue/FE-1050/set-up-automatic-npm-publishing-for-brunch-using-changesets)) — branch implementation complete; activation/canary pending. Replaces manual local `release-it` publishing with a reviewed Changesets release PR on `next`, npm trusted publishing, the existing release-pack smoke, protected tags, generated changelog, and GitHub Releases. `main`/`latest` automation remains explicitly deferred. Definition below.
 - `capture-ledger-tracer` — proving follow-on to the completed `agent-control-plane-closure`: compare current ingest conduct with a versioned four-section capture ledger over one fixed mixed-source mission, using separate masked outcome and unblinded conduct judgments. Definition and active scope file below.
 
 ### Cleanups — Group 4
@@ -464,6 +465,21 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Design docs:** the 2026-07-14 `ln-design` four-design comparison (session record); the prior volatile `HANDOFF.md` was retired 2026-07-15 (`ln-sync`).
 - **Current execution pointer:** none — both scope files consumed. Remaining work is the owned outer walkthrough beat and `ln-sync` reconciliation named in Status.
 
+### automated-alpha-publishing
+
+- **Name:** Automatic npm alpha publishing through reviewed release PRs
+- **Linear:** [FE-1050](https://linear.app/hash/issue/FE-1050/set-up-automatic-npm-publishing-for-brunch-using-changesets)
+- **Branch:** `ka/fe-1050-automatic-npm-publishing`, based on `next`
+- **Kind:** release hardening over the proven single-package publish seam
+- **Certainty:** earned
+- **Status:** branch implementation complete and npm trusted publishing configured. PR #344 is stacked on the test-fixture repair in PR #347; merge the parent, restack this branch onto `next`, and re-confirm mergeability before landing. This infrastructure PR carries an empty Changeset and does not bump or publish the package. Its merge exercises Vault/App authentication before Changesets exits through its empty-intent path; the first subsequent package Changeset owns the reviewed version PR and full `1.0.0-alpha.6` publish canary.
+- **Objective:** make one Changesets-owned `next` path carry release intent through a reviewed version PR into `@hashintel/brunch@alpha`, a protected Git tag, generated changelog, and GitHub Release, while retaining the installed-artifact/SQLite release-pack smoke.
+- **Closes:** manual local npm authentication, hand-authored version commits/tags, and the split between an npm publish and absent GitHub release notes.
+- **Locks in:** every ordinary pull request into `next` contributes either a releasing Changeset or an explicit empty Changeset, while the generated version PR is exempt; merging that version PR is the release approval; the publish command rejects local, wrong-repository, wrong-branch, and non-OIDC environments before doing release work; the accepted run uses npm OIDC, runs `check:release-pack` before `changeset publish`, advances only the npm `alpha` dist-tag, and creates source-linked provenance plus release artifacts from the same commit.
+- **Acceptance:** Changesets remains in `alpha` prerelease mode from `1.0.0-alpha.5`; this infrastructure PR records explicit non-release intent without changing the package version; CI enforces explicit Changeset intent on ordinary `next` pull requests; the release workflow triggers only on `next`; a repository-scoped HASH worker token makes release PRs trigger normal CI and permits protected tag creation; protected-tag failure stops the release before GitHub can synthesize a tag from `main`; the first subsequent releasing Changeset publishes exactly `1.0.0-alpha.6`, leaves `latest` at `0.8.0`, and produces its changelog, native single-package `v1.0.0-alpha.6` tag, GitHub Release, and npm provenance.
+- **Verification:** Changesets status reports no package bump for this PR; release-workflow contract tests and actionlint accept both workflows; `npm run check:release-pack`, `npm run check`, and `npm run build` pass locally; the parent repair and PR Full gate return green before merge; the empty-intent run authenticates through Vault/App and creates no version PR or publish; the first subsequent App-created version PR receives Test/Preflight, then its merge runs the release-pack smoke and npm/tag/release/install checks witness the canary.
+- **Boundary:** `main` remains the stable `latest` channel. Stable automation, prerelease exit, and post-1.0 re-entry of `next` are a separate promotion frontier rather than a second path in this branch.
+
 ## Dependencies
 
 ```text
@@ -502,6 +518,12 @@ group-3 (Next — agent layer):
   develop-mode (flag-gated; execute-tier authority, no contract break)
   agent-control-plane-closure -[hard]-> reviewer-agent-mode (subagent reshape)
   review-commentary-widening (mention-based reshape)
+
+parallel release:
+  automated-alpha-publishing (FE-1050)
+    closes: manual local release-it publishing
+    locks_in: changeset -> reviewed version PR -> pack smoke -> npm alpha + tag + GitHub Release
+    unconnected: main/latest stable automation (separate promotion frontier)
 
 parallel evaluation:
   agent-control-plane-closure
