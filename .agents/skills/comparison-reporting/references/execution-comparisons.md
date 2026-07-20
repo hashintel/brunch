@@ -15,11 +15,14 @@ Read the case and attempt artifacts rather than reconstructing the run:
 7. validity, intervention, terminal, and cleanup records; and
 8. lane-only diagnostic appendix when authorized.
 
-The FE-1230 owners are:
+The FE-1230 schema and public case inputs are:
 
 - `src/dev/execution-comparison/artifact-contract.ts`
 - `src/dev/execution-comparison/packet-redaction.ts`
-- `testing/execution-comparisons/cases/<case-id>/`
+- `testing/execution-comparisons/cases/<case-id>/spec.md`
+- `testing/execution-comparisons/cases/<case-id>/public-contract.json`
+
+Do not recursively read the case directory: its `controller/` subtree contains controller-only oracle material. Read only the two public case files named above and the audience-appropriate generated attempt packets.
 
 Use `not_assessable` exactly when the immutable attempt says a common metric was unavailable. Do not turn absence into zero, parity, or failure.
 

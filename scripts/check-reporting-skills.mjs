@@ -99,14 +99,21 @@ requirePhrases('.agents/skills/comparison-reporting/references/elicitation-compa
   'not a score',
 ]);
 
-requirePhrases('.agents/skills/comparison-reporting/references/execution-comparisons.md', [
+const executionReferencePath = '.agents/skills/comparison-reporting/references/execution-comparisons.md';
+const executionReference = requirePhrases(executionReferencePath, [
   '`ExecutionAttempt`',
   'masked-outcome packet',
   'unblinded-process packet',
   '`not_assessable`',
+  'cases/<case-id>/spec.md',
+  'cases/<case-id>/public-contract.json',
+  'Do not recursively read the case directory',
   'Never publish controller-only oracle details',
   'Brunch Petri journal',
 ]);
+if (executionReference.includes('`testing/execution-comparisons/cases/<case-id>/`')) {
+  fail(`${executionReferencePath}: must not expose the case root as report evidence`);
+}
 
 requirePhrases('.agents/skills/comparison-reporting/references/report-examples.md', [
   'Elicitation: contaminated pair, useful witness',
