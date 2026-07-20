@@ -54,6 +54,8 @@ jobs:
         with:
           app-id: ${{ steps.secrets.outputs.GITHUB_WORKER_APP_ID }}
           private-key: ${{ steps.secrets.outputs.GITHUB_WORKER_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
 
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -75,7 +77,10 @@ jobs:
         with:
           publish: npm run release
           version: npm run version-packages
-          commitMode: github-api
+          # git-cli makes a protected-tag push fail the job. github-api catches
+          # create-ref failures before creating the Release, which can let GitHub
+          # synthesize a missing tag from the default branch instead of next.
+          commitMode: git-cli
           createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
