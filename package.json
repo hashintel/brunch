@@ -63,7 +63,9 @@
     "check:markdown-links": "remark AGENTS.md src --quiet --frail",
     "check:promoted-run-paths": "node scripts/check-promoted-run-paths.mjs",
     "check:release-pack": "node scripts/check-release-pack.mjs",
-    "release": "release-it",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "node scripts/check-release-environment.mjs && npm run check:release-pack && changeset publish",
     "verify": "npm run fix && npm run test && npm run build",
     "verify:full": "npm run fix && npm run test:full && npm run build"
   },
@@ -93,6 +95,8 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@changesets/changelog-github": "^0.7.0",
+    "@changesets/cli": "^2.31.1",
     "@clack/prompts": "^1.7.0",
     "@nubjs/nub": "^0.4.5",
     "@sinclair/typebox": "^0.34.49",
@@ -113,7 +117,6 @@
     "oxfmt": "latest",
     "oxlint": "^1.72.0",
     "oxlint-tsgolint": "^0.24.0",
-    "release-it": "^20.2.0",
     "remark-cli": "^12.0.1",
     "remark-validate-links": "^13.1.0",
     "tailwindcss": "^4.3.2",

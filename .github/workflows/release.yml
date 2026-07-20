@@ -1,0 +1,82 @@
+## The HASH worker token ensures Changesets release PRs trigger normal CI and
+## permits release tags through the organization tag-protection ruleset.
+
+name: Release
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/release.yml"
+  push:
+    branches:
+      - next
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate workflow
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Validate workflow
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/release.yml
+
+  release:
+    name: Create alpha release PR or publish
+    if: github.event_name == 'push' && github.repository == 'hashintel/brunch'
+    runs-on: ubuntu-24.04
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Authenticate Vault
+        id: secrets
+        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: jwt
+          role: dev
+          secrets: |
+            automation/data/pipelines/hash/dev github_worker_app_id | GITHUB_WORKER_APP_ID ;
+            automation/data/pipelines/hash/dev github_worker_app_private_key | GITHUB_WORKER_APP_PRIVATE_KEY ;
+
+      - name: Get HASH worker token
+        id: app-token
+        uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0
+        with:
+          app-id: ${{ steps.secrets.outputs.GITHUB_WORKER_APP_ID }}
+          private-key: ${{ steps.secrets.outputs.GITHUB_WORKER_APP_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Install
+        run: npm ci
+
+      - name: Create release PR or publish to npm
+        uses: changesets/action@63a615b9cd06ba9a3e6d13796c7fbcb080a60a0b # v1.8.0
+        with:
+          publish: npm run release
+          version: npm run version-packages
+          commitMode: github-api
+          createGithubReleases: true
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          NPM_CONFIG_LOGLEVEL: verbose
