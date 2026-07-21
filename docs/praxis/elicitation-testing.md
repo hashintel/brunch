@@ -109,7 +109,10 @@ Use `/compare-specs` for an approachable operator-led comparison.
 
 Use the rigorous procedure when you need fresh controller sessions, matched
 budgets, reveal rules, retained invalid attempts, masked judgment, and structured
-human adjudication. See [Comparison Runs](comparison-runs.md), the
+human adjudication. Saved missions still live under
+[`testing/comparisons/missions/`](../../testing/comparisons/missions/); the
+rigorous path projects a public packet from that library. See
+[Comparison Runs](comparison-runs.md), the
 [mission packet](comparison-runs/mission-packet.md), and the
 [judgment prompt pack](comparison-runs/judgment-prompt-pack.md).
 

@@ -1,6 +1,15 @@
 # Saved comparison missions
 
-This directory holds editable, product-neutral **private user missions** for `/compare-specs`. Start with `/compare-specs`, or use `/compare-specs [mission-id-or-path]` to review, revise, or run an existing mission.
+This directory is the **canonical mission library** for cross-product comparison.
+Editable, product-neutral **private user missions** live here for `/compare-specs`,
+and rigorous FE-1210 campaigns project a target-visible public packet from the
+same files via [`docs/praxis/comparison-runs/mission-packet.md`](../../../docs/praxis/comparison-runs/mission-packet.md).
+Start with `/compare-specs`, or use `/compare-specs [mission-id-or-path]` to review, revise, or run an existing mission.
+
+Current library:
+
+- [`minimal-petri-net-editor.md`](minimal-petri-net-editor.md) — Petri-editor elicitation and end-to-end origin mission
+- [`fictional-library-lockers.md`](fictional-library-lockers.md) — lockers worked example (historical rigorous witness `lockers-r1-20260716`)
 
 This `README.md` is the directory's reserved control file, not a mission. `/compare-specs` must exclude it from mission listing, resolution, revision, and creation.
 
