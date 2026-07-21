@@ -1,6 +1,14 @@
 # Saved comparison missions
 
-This directory holds editable, product-neutral **private user missions** for `/compare-specs`. Start with `/compare-specs`, or use `/compare-specs [mission-id-or-path]` to review, revise, or run an existing mission.
+This directory holds editable, product-neutral **private user missions** for
+`/compare-specs`. Start with `/compare-specs`, or use
+`/compare-specs [mission-id-or-path]` to review, revise, or run an existing
+mission.
+
+Current library:
+
+- [`minimal-petri-net-editor.md`](minimal-petri-net-editor.md) — Petri-editor
+  elicitation and end-to-end origin mission
 
 This `README.md` is the directory's reserved control file, not a mission. `/compare-specs` must exclude it from mission listing, resolution, revision, and creation.
 

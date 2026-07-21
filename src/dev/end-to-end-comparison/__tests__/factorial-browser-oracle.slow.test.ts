@@ -1,7 +1,9 @@
-import { rm } from 'node:fs/promises';
+import { cp, mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { runPetriEditorBrowserOracle } from '../../execution-comparison/browser-oracle.js';
 import { MATRIX_CELL_IDS } from '../matrix-contract.js';
@@ -9,15 +11,24 @@ import { MATRIX_CELL_IDS } from '../matrix-contract.js';
 const caseDir = fileURLToPath(
   new URL('../../../../testing/execution-comparisons/cases/minimal-petri-net-editor/', import.meta.url),
 );
-const fixtureDir = fileURLToPath(
+const fixtureSourceDir = fileURLToPath(
   new URL(
     '../../../../testing/execution-comparisons/cases/minimal-petri-net-editor/controller/fixtures/known-good/',
     import.meta.url,
   ),
 );
 
+let fixtureDir = '';
+
+beforeAll(async () => {
+  // Isolate from the sibling execution-comparison known-good slow test, which
+  // builds into the tracked fixture tree in parallel under the full suite.
+  fixtureDir = await mkdtemp(join(tmpdir(), 'brunch-e2e-factorial-oracle-'));
+  await cp(fixtureSourceDir, fixtureDir, { recursive: true });
+});
+
 afterAll(async () => {
-  await rm(`${fixtureDir}/dist`, { recursive: true, force: true });
+  if (fixtureDir !== '') await rm(fixtureDir, { recursive: true, force: true });
 });
 
 describe('synthetic end-to-end factorial oracle composition', () => {

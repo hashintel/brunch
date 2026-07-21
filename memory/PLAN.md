@@ -120,7 +120,7 @@ Everything executor/orchestrator-shaped or Execute-mode-owned belongs to Kostand
 
 - `execution-comparison-tracer` ([FE-1230](https://linear.app/hash/issue/FE-1230/greenfield-execution-comparison-tracer)) — **active on `ka/fe-1230-independent-oracle-journeys`:** the frozen case, immutable-attempt contract, retained Brunch/Claude v1 pair, and versioned independent browser-oracle journeys are built. Next: restore the exact retained output paths, replay `petri-editor-browser-v2` unchanged against both, then review and promote the bounded evidence; no mutants, judging campaign, or repetitions in this frontier.
 - `end-to-end-comparison-tracer` ([FE-1239](https://linear.app/hash/issue/FE-1239/trace-elicitation-through-execution)) — **complete on `ka/fe-1239-end-to-end-comparison-tracer`, stacked on FE-1230:** two rigorous Petri-editor elicitation outputs crossed exact immutable handoffs into the staged 2×2 Brunch/Claude matrix; all four valid failed cells, unchanged-oracle evidence, and the validity-first requirement ledger are promoted. Definition and retained witness below.
-- `executor-slice-admission-parity` ([FE-1240](https://linear.app/hash/issue/FE-1240/prevent-invalid-scoped-slices-from-reaching-execution)) — **complete on `ka/fe-1240-slice-admission-parity`, stacked on FE-1239:** incomplete scoped-slice worker context is rejected during deterministic plan admission, exact findings enter bounded repair before `slice_execute`, and the execution boundary remains fail-closed. Definition below.
+- `executor-slice-admission-parity` ([FE-1240](https://linear.app/hash/issue/FE-1240/prevent-invalid-scoped-slices-from-reaching-execution)) — **complete on `ka/fe-1240-slice-admission-parity`, restacked on `next` after FE-1239 landed:** incomplete scoped-slice worker context is rejected during deterministic plan admission, exact findings enter bounded repair before `slice_execute`, and the execution boundary remains fail-closed. Definition below.
 - **Carved from FE-1167 (2026-07-13):** the Execute-mode evidence sub-list — Execute entry beats on thin vs rich seeds (assessment honesty: Ask on thin, Proceed on rich) and the FE-1107/KA residue (close-or-narrow, demo/walkthrough session via `TESTING_PLAN.md`, post-KA plan pass). The former sticky-posture question is no longer KA residue: FE-1187 `remediation-4` owns the persistent Specify elicitation-style audit/SPEC revision, and its Continue lexical audit owns the old `continue` ambiguity. Full context in the archived FE-1167 definition (`docs/archive/PLAN_HISTORY.md`).
 - `planning-process-model` — **moved to the KA stream 2026-07-13; reshaped by D126-L**: the durable scope handoff is settled, so this item now owns only plan projection and epistemic-horizon questions beyond committed scopes. Definition below.
 - `executor-slice-attempt-lifecycle` ([FE-1192](https://linear.app/hash/issue/FE-1192/executor-slice-attempt-lifecycle)) — **active in the KA lane, picked up 2026-07-13** on `ka/fe-1192-executor-slice-attempt-lifecycle`. First member of the Petri sequence: first-class slice attempts (identity, bounded in-run retry, honest failed-attempt facts). Shape settled at pickup: attempt facts first (topology unchanged), constant retry bound with `ceiling:`, agent step only. Definition below.
@@ -415,7 +415,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 
 - **Name:** Trace elicitation through execution
 - **Linear:** [FE-1239](https://linear.app/hash/issue/FE-1239/trace-elicitation-through-execution), child of [FE-1211](https://linear.app/hash/issue/FE-1211/brunch-testing-execution-side-evaluation-of-outputs).
-- **Branch:** `ka/fe-1239-end-to-end-comparison-tracer`, stacked on `ka/fe-1230-independent-oracle-journeys`.
+- **Branch:** `ka/fe-1239-end-to-end-comparison-tracer`, restacked on `next` after FE-1230 landed.
 - **Kind:** bounded staged 2×2 evaluation tracer — rigorous elicitation, immutable exact-spec handoff, isolated execution, common controller oracle, and requirement traceability; no product operator command or generalized campaign runner.
 - **Certainty:** proving.
 - **Status:** ✓ implementation and one-case witness complete 2026-07-21. Both exact handoffs and all four valid failed execution cells are retained; the common oracle, audience-safe ledger, and bounded report are promoted without a winner claim.
@@ -434,7 +434,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 
 - **Name:** Prevent invalid scoped slices from reaching execution
 - **Linear:** [FE-1240](https://linear.app/hash/issue/FE-1240/prevent-invalid-scoped-slices-from-reaching-execution).
-- **Branch:** `ka/fe-1240-slice-admission-parity`, stacked on `ka/fe-1239-end-to-end-comparison-tracer`.
+- **Branch:** `ka/fe-1240-slice-admission-parity`, restacked on `next` after FE-1239 landed.
 - **Kind:** bounded bugfix — deterministic admission parity between model-authored candidate plans and the fail-closed worker-request boundary.
 - **Certainty:** proving.
 - **Status:** ✓ complete 2026-07-21; scoped from the retained FE-1239 witness, where both Brunch cells admitted plans whose first scoped slice carried no executable criterion and then halted with `plan_slice_invalid`.

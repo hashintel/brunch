@@ -97,7 +97,11 @@ async function driveWeb(): Promise<string> {
   const rpc = await RpcSocket.open(`${host.url.replace(/^http/u, 'ws')}/rpc`);
   try {
     await rpc.request('session.open', target);
-    await waitFor(() => faux.provider.getPendingResponseCount() === 0, 8000, 'web opening turn');
+    await waitFor(
+      () => rpc.liveSessionEvents().some((event) => event.params.delta.type === 'agent_settled'),
+      8000,
+      'web opening turn to settle',
+    );
     faux.provider.appendResponses(scriptedResponses().slice(1));
     for (const prompt of prompts.slice(0, 2)) {
       await rpc.request('session.driveTurn', { ...target, driverId: 'parity-driver', prompt });
@@ -154,7 +158,7 @@ async function driveTui(): Promise<string> {
           if (!liveExchange) throw new Error('TUI production boot did not provide its live ask registry');
           const openingTurnEnded = new Promise<void>((resolve) => {
             const unsubscribe = runtime.session.subscribe((event) => {
-              if (event.type !== 'agent_end' || faux.provider.getPendingResponseCount() !== 0) return;
+              if (event.type !== 'agent_settled') return;
               unsubscribe();
               resolve();
             });
