@@ -69,7 +69,7 @@ const comparisonSkillPath = '.agents/skills/comparison-reporting/SKILL.md';
 const comparisonSkill = requirePhrases(comparisonSkillPath, [
   'name: comparison-reporting',
   '../notion-reporting/SKILL.md',
-  'comparison kind: **elicitation** or **execution**',
+  'comparison kind: **elicitation**, **execution**, or **end-to-end**',
   'An invalid or failed attempt remains evidence',
   '- **Implementation:**',
   '- **Runtime:**',
@@ -77,6 +77,8 @@ const comparisonSkill = requirePhrases(comparisonSkillPath, [
   '- **Validity consequence:**',
   'Never publish controller-only oracle definitions',
   'No winner or broad benchmark claim without a predeclared rubric',
+  'references/evaluation-strategy.md',
+  'references/end-to-end-comparisons.md',
   'references/elicitation-comparisons.md',
   'references/execution-comparisons.md',
   'references/report-examples.md',
@@ -86,10 +88,26 @@ const comparisonDescription = comparisonSkill.match(/^description:\s*(.+)$/m)?.[
 if (
   !comparisonDescription.includes('elicitation') ||
   !comparisonDescription.includes('execution') ||
+  !comparisonDescription.includes('end-to-end') ||
   !comparisonDescription.includes('comparison')
 ) {
-  fail(`${comparisonSkillPath}: description must name elicitation and execution comparison triggers`);
+  fail(
+    `${comparisonSkillPath}: description must name elicitation, execution, and end-to-end comparison triggers`,
+  );
 }
+
+requirePhrases('.agents/skills/comparison-reporting/references/evaluation-strategy.md', [
+  'codebase mode',
+  'change scope',
+  'interface type',
+  'plan stability',
+  'Freeze the rubric before',
+  'judge model',
+  'transition and action sequence',
+  'structural similarity',
+  'Manual run triggering is acceptable',
+  'Do not claim deterministic execution from one repeated pair',
+]);
 
 requirePhrases('.agents/skills/comparison-reporting/references/elicitation-comparisons.md', [
   'Approachable operator workflow',
@@ -115,10 +133,20 @@ if (executionReference.includes('`testing/execution-comparisons/cases/<case-id>/
   fail(`${executionReferencePath}: must not expose the case root as report evidence`);
 }
 
+requirePhrases('.agents/skills/comparison-reporting/references/end-to-end-comparisons.md', [
+  'requirement traceability ledger',
+  'elicited explicitly',
+  'inferred correctly',
+  'overall end-to-end result is valid only',
+  'case-level association',
+]);
+
 requirePhrases('.agents/skills/comparison-reporting/references/report-examples.md', [
   'Elicitation: contaminated pair, useful witness',
   'Execution: valid failure',
   'Execution: invalid attempt',
+  'Determinism: bounded repeat campaign',
+  'End-to-end: requirement traceability',
   'Cost is not assessable',
   'Hidden fixtures and exact oracle journeys are intentionally omitted',
 ]);

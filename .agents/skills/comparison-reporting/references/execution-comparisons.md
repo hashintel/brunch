@@ -90,6 +90,10 @@ Distinguish:
 
 A failed valid attempt is comparative evidence. An invalid attempt is process evidence but cannot support outcome ranking.
 
+## Repeated-run determinism
+
+When the study repeats one specification to test orchestration determinism, apply [Evaluation strategy](evaluation-strategy.md) before reading outcomes. Freeze the repeat count and equivalence rule, then compare canonical transition/action sequences separately from output structure. Similar output does not prove the same procedure; deterministic procedure does not require byte-identical generated code.
+
 ## Common versus diagnostic claims
 
 Common comparison claims may use only the closed fields available to every lane. Brunch Petri journal, generated plan, JSONL, graph, and debug evidence can explain Brunch behavior in an explicitly unblinded diagnostic appendix; it cannot improve Brunch's common score or compensate for a failed common oracle.

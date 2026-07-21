@@ -80,3 +80,49 @@ Report excerpt:
 ```
 
 Never overwrite this attempt with its replacement.
+
+## Determinism: bounded repeat campaign
+
+Evidence:
+
+- three valid runs used the same frozen case, versions, budgets, and intervention policy;
+- the predeclared canonical transition and action sequence matched in all three runs;
+- generated trees differed in private helper structure but satisfied the same public contract; and
+- no common output-similarity score was frozen.
+
+Report excerpt:
+
+```markdown
+**Result:** The orchestrator's canonical procedure matched across 3/3 valid attempts under the frozen equivalence rule. Generated output was behaviorally conformant but not structurally identical.
+
+**Confidence:** Directional evidence for this case and configuration. Three attempts do not establish broad execution determinism.
+
+**Limitations:** Output similarity is descriptive because no common structural-similarity rubric was frozen before the campaign.
+```
+
+This distinguishes deterministic orchestration from deterministic generated code.
+
+## End-to-end: requirement traceability
+
+Evidence:
+
+- both elicitation and execution stages were valid;
+- the approved specifications were frozen unchanged as execution inputs;
+- the private baseline contained requirement `AC7`;
+- lane A elicited `AC7` and implemented it;
+- lane B omitted `AC7`, but its output inferred and satisfied the same public criterion; and
+- the unchanged common oracle passed both outputs.
+
+Report excerpt:
+
+```markdown
+**Result:** AC7 does not distinguish the two end-to-end outcomes in this case. Lane A elicited and implemented it; lane B omitted it from the specification but inferred correctly during implementation.
+
+**Traceability**
+- Lane A: elicited explicitly → carried into frozen spec → implemented → verified.
+- Lane B: not elicited → absent from frozen spec → inferred during implementation → verified.
+
+**Validity consequence:** This row shows no observed implementation benefit from explicit elicitation for AC7. It does not establish that elicitation is generally redundant.
+```
+
+The requirement row supports a bounded case finding, not a causal benchmark claim.
