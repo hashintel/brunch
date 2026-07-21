@@ -72,14 +72,15 @@ describe('execution comparison public case contract', () => {
       caseDir,
       implementationFiles: [
         fileURLToPath(new URL('../browser-oracle.ts', import.meta.url)),
+        fileURLToPath(new URL('../browser-oracle/journey-runner.ts', import.meta.url)),
         fileURLToPath(new URL('../petri-reference.ts', import.meta.url)),
       ],
     });
 
     expect(pack.manifest).toMatchObject({
-      id: 'minimal-petri-net-editor-oracles-v1',
+      id: 'minimal-petri-net-editor-oracles-v2',
       publicCaseId: 'minimal-petri-net-editor-v1',
-      browserSuiteVersion: 'petri-editor-browser-v1',
+      browserSuiteVersion: 'petri-editor-browser-v2',
       referenceModelVersion: 'weighted-pt-v1',
     });
     expect(pack.manifest.journeys.map((journey) => journey.id)).toEqual([
@@ -95,6 +96,7 @@ describe('execution comparison public case contract', () => {
         'controller/fixtures/invalid/not-json.txt',
         'controller/fixtures/invalid/schema-invalid.json',
         'implementation/browser-oracle.ts',
+        'implementation/journey-runner.ts',
         'implementation/petri-reference.ts',
       ]),
     );

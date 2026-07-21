@@ -4,9 +4,9 @@ import { basename, join, relative, sep } from 'node:path';
 
 export interface ControllerOracleManifest {
   readonly schemaVersion: 1;
-  readonly id: 'minimal-petri-net-editor-oracles-v1';
+  readonly id: 'minimal-petri-net-editor-oracles-v2';
   readonly publicCaseId: 'minimal-petri-net-editor-v1';
-  readonly browserSuiteVersion: 'petri-editor-browser-v1';
+  readonly browserSuiteVersion: 'petri-editor-browser-v2';
   readonly referenceModelVersion: 'weighted-pt-v1';
   readonly journeys: readonly {
     readonly id: string;
@@ -60,10 +60,14 @@ export async function loadControllerOraclePack(input: {
     throw new Error('controller oracle pack contains duplicate file paths');
   }
 
-  const manifestRaw = await readFile(join(controllerDir, 'oracle-manifest.json'), 'utf8');
-  const manifest = parseControllerOracleManifest(parseJson(manifestRaw));
+  const manifest = await loadControllerOracleManifest(input.caseDir);
   const packSha256 = `sha256:${hash(files.map((file) => `${file.path}:${file.sha256}\n`).join(''))}`;
   return { manifest, files, packSha256 };
+}
+
+export async function loadControllerOracleManifest(caseDir: string): Promise<ControllerOracleManifest> {
+  const manifestRaw = await readFile(join(caseDir, 'controller', 'oracle-manifest.json'), 'utf8');
+  return parseControllerOracleManifest(parseJson(manifestRaw));
 }
 
 export function parseControllerOracleManifest(value: unknown): ControllerOracleManifest {
@@ -71,9 +75,9 @@ export function parseControllerOracleManifest(value: unknown): ControllerOracleM
   const journeys = value['journeys'];
   if (
     value['schemaVersion'] !== 1 ||
-    value['id'] !== 'minimal-petri-net-editor-oracles-v1' ||
+    value['id'] !== 'minimal-petri-net-editor-oracles-v2' ||
     value['publicCaseId'] !== 'minimal-petri-net-editor-v1' ||
-    value['browserSuiteVersion'] !== 'petri-editor-browser-v1' ||
+    value['browserSuiteVersion'] !== 'petri-editor-browser-v2' ||
     value['referenceModelVersion'] !== 'weighted-pt-v1' ||
     !Array.isArray(journeys) ||
     journeys.length !== REQUIRED_JOURNEYS.length ||
