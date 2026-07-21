@@ -19,6 +19,9 @@ export type PlanValidationFindingCode =
   | 'slice_scope_missing'
   | 'slice_scope_unknown'
   | 'slice_without_requirement'
+  | 'slice_without_criterion'
+  | 'slice_without_design_context'
+  | 'slice_without_verification_context'
   | 'unknown_requirement'
   | 'unknown_criterion'
   | 'unknown_design_item'
@@ -132,6 +135,19 @@ export function validateCandidatePlan(args: {
     }
     if (slice.requirementIds.length === 0) {
       error('slice_without_requirement', `Slice ${slice.id} covers no requirement.`, slice.id);
+    }
+    if (projection.scopes.length > 0 && slice.criterionIds.length === 0) {
+      error('slice_without_criterion', `Scoped slice ${slice.id} carries no executable criterion.`, slice.id);
+    }
+    if (projection.scopes.length > 0 && slice.designItemIds.length === 0) {
+      error('slice_without_design_context', `Scoped slice ${slice.id} carries no design context.`, slice.id);
+    }
+    if (projection.scopes.length > 0 && slice.verificationItemIds.length === 0) {
+      error(
+        'slice_without_verification_context',
+        `Scoped slice ${slice.id} carries no verification-machinery context.`,
+        slice.id,
+      );
     }
     for (const requirementId of slice.requirementIds) {
       if (!requirementIds.has(requirementId)) {
