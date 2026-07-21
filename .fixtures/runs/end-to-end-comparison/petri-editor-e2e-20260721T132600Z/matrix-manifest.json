@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "studyContractSha256": "sha256:7ed2c2c867cf611c28908992492c6f5d89c9f7806ad76e28546547749f20a5c7",
+  "cells": [
+    {
+      "id": "brunch_spec--brunch",
+      "specSource": "brunch_spec",
+      "executor": "brunch",
+      "handoffSha256": "sha256:a9d75d25f315cbb46b7bcc1d229ae2887a86d906766535540a8559c6ea2c6e1a",
+      "attempt": {
+        "path": "attempts/brunch-spec--brunch/attempt.json",
+        "sha256": "sha256:d121916c62bc45ccb09a317e387f83df551e8b872e31f6ce30aa0720539c8ceb"
+      }
+    },
+    {
+      "id": "brunch_spec--claude_code",
+      "specSource": "brunch_spec",
+      "executor": "claude_code",
+      "handoffSha256": "sha256:a9d75d25f315cbb46b7bcc1d229ae2887a86d906766535540a8559c6ea2c6e1a",
+      "attempt": {
+        "path": "attempts/brunch-spec--claude-code/attempt.json",
+        "sha256": "sha256:deb4dc60bbb82dbe40d6219eca49b98c1f24ffcf7638e17e3328b77d084b1a76"
+      }
+    },
+    {
+      "id": "claude_spec--brunch",
+      "specSource": "claude_spec",
+      "executor": "brunch",
+      "handoffSha256": "sha256:ad7229b2a8d85c5bd269e8d74981b8b9513bcfa7ac7c8f515d355b563d3feab0",
+      "attempt": {
+        "path": "attempts/claude-spec--brunch/attempt.json",
+        "sha256": "sha256:46ef317df49b7dbb2aa91345a7ff1475112c5072bd7f867d15fceda0a7942bf6"
+      }
+    },
+    {
+      "id": "claude_spec--claude_code",
+      "specSource": "claude_spec",
+      "executor": "claude_code",
+      "handoffSha256": "sha256:ad7229b2a8d85c5bd269e8d74981b8b9513bcfa7ac7c8f515d355b563d3feab0",
+      "attempt": {
+        "path": "attempts/claude-spec--claude-code/attempt.json",
+        "sha256": "sha256:89e7bd52c3f16d3a520bfc2258b48d3c9321426c160bc184477bd8d8af11d18e"
+      }
+    }
+  ]
+}

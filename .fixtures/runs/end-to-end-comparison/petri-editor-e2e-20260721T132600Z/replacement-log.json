@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "policy": "Launch/protocol/runtime-invalid invocations may be replaced; poor valid outputs may not.",
+  "entries": [
+    {
+      "specSource": "brunch_spec",
+      "executor": "claude_code",
+      "sequence": [
+        "missing --verbose launch rejected",
+        "permission-mode launch blocked writes",
+        "r2 stream idle timeout",
+        "r3 retained final attempt"
+      ]
+    },
+    {
+      "specSource": "claude_spec",
+      "executor": "claude_code",
+      "sequence": [
+        "missing --verbose launch rejected",
+        "permission-mode launch blocked writes",
+        "r2 runtime stalled and was stopped",
+        "r3 retained final attempt"
+      ]
+    }
+  ],
+  "matrixNote": "Only the final exact-packet attempts are matrix cells; replacement invocations are disclosed here and remain in controller session evidence."
+}

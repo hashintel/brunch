@@ -1,0 +1,14 @@
+.gitignore
+index.html
+package-lock.json
+package.json
+public-contract.json
+spec.md
+src/app.ts
+src/main.ts
+src/petri.ts
+src/styles.css
+tests/dom.test.ts
+tests/petri.test.ts
+tsconfig.json
+vite.config.ts

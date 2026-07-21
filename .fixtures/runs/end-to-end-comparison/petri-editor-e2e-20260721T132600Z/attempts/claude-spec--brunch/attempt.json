@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "attemptId": "claude-spec--brunch",
+  "caseId": "minimal-petri-net-editor-v1",
+  "lane": "brunch",
+  "publicPacketSha256": "sha256:82dc45168d4c454de17d801794dfa2affe0be2c8295ac03396f332e8bc513ca1",
+  "oraclePackSha256": "sha256:8dbc56a11bf6a6ea1b81a6cb1cd4f384596bb514588fd5541de4c64b87713481",
+  "startedAt": "2026-07-21T14:08:00.000Z",
+  "endedAt": "2026-07-21T14:28:00.000Z",
+  "budget": {
+    "elapsedMinutes": 90,
+    "mechanicalInterventions": 2,
+    "substantiveHumanInterventions": 0
+  },
+  "versions": {
+    "product": "brunch@1.0.0-alpha.7",
+    "provider": "anthropic",
+    "model": "claude-opus-4-8",
+    "harness": "end-to-end-comparison/v1",
+    "actorRecipe": "brunch-empty-dir/v1",
+    "node": "v24.14.0",
+    "npm": "11.9.0",
+    "os": "darwin-25.2.0",
+    "architecture": "arm64"
+  },
+  "repository": {
+    "baseSha": "e7a8ff973622078cb9514e03044a89d968a691bd",
+    "reviewSha": "e7a8ff973622078cb9514e03044a89d968a691bd",
+    "finalGitRange": "e7a8ff973622078cb9514e03044a89d968a691bd..e7a8ff973622078cb9514e03044a89d968a691bd"
+  },
+  "terminal": {
+    "outcome": "failure",
+    "reason": "plan_slice_invalid halted execution before the first slice.",
+    "productStatus": "run_failed"
+  },
+  "validity": {
+    "status": "valid",
+    "reasons": []
+  },
+  "commands": [
+    {
+      "id": "test",
+      "status": "failed",
+      "exitCode": 254,
+      "stdoutPath": "evidence/claude_spec--brunch/commands/test.stdout.txt",
+      "stderrPath": "evidence/claude_spec--brunch/commands/test.stderr.txt"
+    },
+    {
+      "id": "build",
+      "status": "not_run",
+      "exitCode": "not_assessable",
+      "stdoutPath": "evidence/claude_spec--brunch/commands/build.stdout.txt",
+      "stderrPath": "evidence/claude_spec--brunch/commands/build.stderr.txt"
+    }
+  ],
+  "browser": {
+    "status": "failed",
+    "reportPath": "evidence/claude_spec--brunch/browser-report.json"
+  },
+  "interventions": [
+    {
+      "index": 1,
+      "kind": "mechanical",
+      "description": "Dismissed target-side orientation and selected Execute mode.",
+      "at": "2026-07-21T14:08:00.000Z"
+    },
+    {
+      "index": 2,
+      "kind": "mechanical",
+      "description": "Held the failed run in place for evidence capture.",
+      "at": "2026-07-21T14:28:00.000Z"
+    }
+  ],
+  "commonMetrics": {
+    "elapsedMs": 1200000,
+    "inputTokens": "not_assessable",
+    "outputTokens": "not_assessable",
+    "costUsd": "not_assessable",
+    "permissionPrompts": "not_assessable"
+  },
+  "evidence": {
+    "finalTreePath": "evidence/claude_spec--brunch/final-tree.txt",
+    "finalDiffPath": "evidence/claude_spec--brunch/final-diff.patch",
+    "visibleProcessPath": "evidence/claude_spec--brunch/visible-process.md"
+  },
+  "cleanup": {
+    "status": "clean",
+    "liveProcesses": 0,
+    "liveSessions": 0
+  }
+}
