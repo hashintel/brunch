@@ -52,4 +52,3 @@ Include:
 7. bounded recommendation for elicitation, execution, or study design.
 
 Do not collapse elicitation and execution scores into one number unless the aggregation and winner rule were frozen before the campaign.
-

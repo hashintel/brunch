@@ -76,4 +76,3 @@ Prioritize automation where consistency matters:
 - application of the frozen judge protocol.
 
 Manual run triggering is acceptable when every run still receives the frozen input and produces the same evidence receipts. Automation does not excuse hidden retries, undisclosed intervention, or mutable artifacts.
-
