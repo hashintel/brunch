@@ -268,9 +268,7 @@ async function createNodeLifecycleNet(page: Page): Promise<void> {
 }
 
 async function createWeightedNet(page: Page): Promise<void> {
-  await addPlace(page, 'Input', 2);
-  await addTransition(page, 'Fire');
-  await addPlace(page, 'Output');
+  await createNodeLifecycleNet(page);
   await createArc(page, place(page, 'Input'), transition(page, 'Fire', 'enabled'));
   await setField(page, 'spinbutton', 'Arc weight', '2');
   await createArc(page, transition(page, 'Fire', 'enabled'), place(page, 'Output'));
@@ -280,8 +278,14 @@ async function createWeightedNet(page: Page): Promise<void> {
 
 async function createRoundTripNet(page: Page): Promise<void> {
   await addPlace(page, 'Input', 2);
+  const inputPlace = place(page, 'Input');
+  await assertCleanDrag(page, inputPlace, { x: 80, y: 90 });
+
   await addTransition(page, 'Fire');
-  await createArc(page, place(page, 'Input'), transition(page, 'Fire', 'enabled'));
+  const fire = transition(page, 'Fire', 'enabled');
+  await assertCleanDrag(page, fire, { x: 140, y: 20 });
+
+  await createArc(page, inputPlace, fire);
   await setField(page, 'spinbutton', 'Arc weight', '2');
   await assertCounts(page, { places: 1, transitions: 1, arcs: 1 });
 }

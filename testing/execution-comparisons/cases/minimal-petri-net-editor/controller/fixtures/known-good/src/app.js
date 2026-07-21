@@ -191,7 +191,9 @@ function handleControl(name) {
     const item = {
       id,
       label: `Place ${net.places.length + 1}`,
-      x: 80 + net.places.length * 190,
+      // Intentionally stacked spawn: oracles must separate nodes via public drag
+      // before arc hit-testing. Auto-spacing would hide that prerequisite.
+      x: 80,
       y: 120,
       initialTokens: 0,
       currentTokens: 0,
@@ -203,8 +205,8 @@ function handleControl(name) {
     const item = {
       id,
       label: `Transition ${net.transitions.length + 1}`,
-      x: 220 + net.transitions.length * 190,
-      y: 115,
+      x: 80,
+      y: 120,
     };
     net.transitions.push(item);
     selection = { type: 'transition', id };
