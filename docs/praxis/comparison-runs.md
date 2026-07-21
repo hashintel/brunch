@@ -124,7 +124,7 @@ The round-one materials remain useful for focused improvement and regression stu
 
 The rigorous campaign loop is:
 
-1. start from a saved mission under [`testing/comparisons/missions/`](../../testing/comparisons/missions/), project it into [`comparison-runs/mission-packet.md`](comparison-runs/mission-packet.md), and keep the reveal key outside every target cwd;
+1. instantiate [`comparison-runs/mission-packet.md`](comparison-runs/mission-packet.md), keeping the reveal key outside every target cwd;
 2. drive one fresh lane with [the actor recipe](../../.agents/skills/agent-as-user-comparison/SKILL.md);
 3. retain target-visible interaction, validity/intervention notes, cleanup status, and the target-authored ready document under `.fixtures/scratch/comparisons/<campaign-id>/`;
 4. when the study needs structured judgment, run the masked-outcome and unblinded-process passes from the judgment prompt pack and have the named human adjudicator review the drafts; and
@@ -138,6 +138,6 @@ Target adapters:
 - Claude Code: `spawn: { agent: "claude" }`; if a host shim intercepts it, record the launch failure before using the real installed binary.
 - Cursor: `spawn: { agent: "cursor" }`, mapped by pi-interactive-shell to `agent --model composer-2-fast`. Safehouse must allow the symlink target under `~/.local/share/cursor-agent`.
 
-The promoted example [`lockers-r1-20260716`](../../.fixtures/runs/agent-as-user-comparison/lockers-r1-20260716/) proves Brunch and Claude required lanes, failure retention, split judgment, and artifact promotion. Its origin mission now lives at [`testing/comparisons/missions/fictional-library-lockers.md`](../../testing/comparisons/missions/fictional-library-lockers.md); the historical public-packet id `fictional-library-lockers-v1` remains frozen in the retained bundle. Its Cursor lane was historically skipped; [`addendum-03-cursor-availability.md`](../../.fixtures/runs/agent-as-user-comparison/lockers-r1-20260716/addendum-03-cursor-availability.md) records the later sandbox fix without rewriting the run.
+The promoted example [`lockers-r1-20260716`](../../.fixtures/runs/agent-as-user-comparison/lockers-r1-20260716/) proves Brunch and Claude required lanes, failure retention, split judgment, and artifact promotion. Its Cursor lane was historically skipped; [`addendum-03-cursor-availability.md`](../../.fixtures/runs/agent-as-user-comparison/lockers-r1-20260716/addendum-03-cursor-availability.md) records the later sandbox fix without rewriting the run.
 
 Do not substitute seeds for missions. Competitor products cannot consume Brunch graph/specification state, so a seeded start would make the runs incomparable. Seed-based intra-product testing and mission-driven cross-product comparison remain separate use cases.

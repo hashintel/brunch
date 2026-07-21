@@ -1,11 +1,8 @@
 # Round-One Comparison Mission Packet
 
-This file owns the **rigorous packet format**, not the mission library.
-Editable private missions live under
-[`testing/comparisons/missions/`](../../testing/comparisons/missions/).
-Use this format to project one of those missions into a target-visible
-**public packet** plus a **controller-only reveal key**. Copy only the public
-packet into the target working directory and opening prompt.
+Use this format to give every target the same product-neutral mission. Keep the
+**public packet** separate from the **controller-only reveal key**. Copy only
+the public packet into the target working directory and opening prompt.
 
 ## Public packet
 
@@ -77,17 +74,10 @@ Declared mechanical recovery—such as restoring focus, resizing, resending an u
 
 ## Small fictional worked example
 
-Canonical private mission (ordinary-language, shared library):
-[`testing/comparisons/missions/fictional-library-lockers.md`](../../testing/comparisons/missions/fictional-library-lockers.md).
+This example is intentionally small and is not a campaign test case, a saved
+`/compare-specs` mission, or a Brunch seed.
 
-That file is the durable mission home for both `/compare-specs` and new rigorous
-campaigns. This packet format is only the rigorous projection: instantiate the
-YAML shapes above from the saved mission when a study needs a target-visible
-public packet plus a controller-only reveal key. The historical FE-1210 witness
-[`lockers-r1-20260716`](../../.fixtures/runs/agent-as-user-comparison/lockers-r1-20260716/)
-froze public-packet id `fictional-library-lockers-v1` and must not be rewritten.
-
-### Target-visible public packet (projection of the saved mission)
+### Target-visible public packet
 
 ```yaml
 mission_id: fictional-library-lockers-v1
