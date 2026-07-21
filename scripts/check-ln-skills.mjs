@@ -124,8 +124,8 @@ for (const [harness, relativePath, agentName, skillName] of harnessAgentDefiniti
 }
 
 if (errors.length > 0) {
-  console.error(`check:skills FAILED (${errors.length})`);
+  console.error(`check:ln-skills FAILED (${errors.length})`);
   for (const e of errors) console.error(`  ✗ ${e}`);
   process.exit(1);
 }
-console.log(`check:skills OK — ${skills.length} ln-* skills consistent`);
+console.log(`check:ln-skills OK — ${skills.length} ln-* skills consistent`);
