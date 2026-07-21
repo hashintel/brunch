@@ -413,7 +413,7 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 
 - **Name:** Trace elicitation through execution
 - **Linear:** [FE-1239](https://linear.app/hash/issue/FE-1239/trace-elicitation-through-execution), child of [FE-1211](https://linear.app/hash/issue/FE-1211/brunch-testing-execution-side-evaluation-of-outputs).
-- **Branch:** `ka/fe-1239-end-to-end-comparison-tracer`, stacked on `ka/fe-1230-independent-oracle-journeys`.
+- **Branch:** `ka/fe-1239-end-to-end-comparison-tracer`, restacked on `next` after FE-1230 landed.
 - **Kind:** bounded staged 2×2 evaluation tracer — rigorous elicitation, immutable exact-spec handoff, isolated execution, common controller oracle, and requirement traceability; no product operator command or generalized campaign runner.
 - **Certainty:** proving.
 - **Status:** ✓ implementation and one-case witness complete 2026-07-21. Both exact handoffs and all four valid failed execution cells are retained; the common oracle, audience-safe ledger, and bounded report are promoted without a winner claim.
