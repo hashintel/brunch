@@ -20,7 +20,7 @@ afterAll(async () => {
 });
 
 describe('controller-owned Petri editor browser oracle', () => {
-  it('runs the unchanged build, browser, persistence, and Petri journey against a known-good app', async () => {
+  it('runs every claim-linked journey in a fresh context against a known-good app', async () => {
     const report = await runPetriEditorBrowserOracle({ appDir: fixtureDir, caseDir });
 
     expect(report.status).toBe('passed');
@@ -28,15 +28,26 @@ describe('controller-owned Petri editor browser oracle', () => {
       expect.objectContaining({ id: 'test', status: 'passed', exitCode: 0 }),
       expect.objectContaining({ id: 'build', status: 'passed', exitCode: 0 }),
     ]);
-    expect(report.checks).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: 'mount', status: 'passed' }),
-        expect.objectContaining({ id: 'node-lifecycle', status: 'passed' }),
-        expect.objectContaining({ id: 'weighted-fire-reset-reload', status: 'passed' }),
-        expect.objectContaining({ id: 'invalid-and-cascade', status: 'passed' }),
-        expect.objectContaining({ id: 'round-trip-and-clear', status: 'passed' }),
-      ]),
-    );
+    expect(report.checks).toEqual([
+      expect.objectContaining({ id: 'mount', claims: ['AC14'], status: 'passed' }),
+      expect.objectContaining({ id: 'node-lifecycle', claims: ['AC15'], status: 'passed' }),
+      expect.objectContaining({
+        id: 'weighted-fire-reset-reload',
+        claims: ['AC17', 'AC18', 'AC19', 'AC20', 'AC21', 'AC23'],
+        status: 'passed',
+      }),
+      expect.objectContaining({
+        id: 'invalid-and-cascade',
+        claims: ['AC16', 'AC17', 'AC24', 'AC25'],
+        status: 'passed',
+      }),
+      expect.objectContaining({ id: 'round-trip-and-clear', claims: ['AC22', 'AC26'], status: 'passed' }),
+    ]);
+    for (const check of report.checks) {
+      expect(check.startupConsoleErrors).toEqual([]);
+      expect(check.failedModuleLoads).toEqual([]);
+      expect(check.externalRuntimeRequests).toEqual([]);
+    }
     expect(report.startupConsoleErrors).toEqual([]);
     expect(report.failedModuleLoads).toEqual([]);
     expect(report.externalRuntimeRequests).toEqual([]);

@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "minimal-petri-net-editor-oracles-v1",
+  "id": "minimal-petri-net-editor-oracles-v2",
   "publicCaseId": "minimal-petri-net-editor-v1",
-  "browserSuiteVersion": "petri-editor-browser-v1",
+  "browserSuiteVersion": "petri-editor-browser-v2",
   "referenceModelVersion": "weighted-pt-v1",
   "journeys": [
     {

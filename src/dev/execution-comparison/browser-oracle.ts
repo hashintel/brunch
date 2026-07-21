@@ -2,10 +2,12 @@ import { access, readFile, stat } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import { extname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path';
 
-import { chromium, type Locator, type Page } from 'playwright-core';
+import { chromium, type Browser, type BrowserContext, type Locator, type Page } from 'playwright-core';
 
 import { runCommand } from '../../app/command-runner.js';
+import { runIndependentJourneys, type IndependentJourney } from './browser-oracle/journey-runner.js';
 import { loadPublicCasePacket, type ExecutionCasePublicContract } from './case-contract.js';
+import { loadControllerOracleManifest, type ControllerOracleManifest } from './oracle-pack.js';
 
 type AriaRole = Parameters<Page['getByRole']>[0];
 
@@ -20,8 +22,12 @@ export interface BrowserOracleReport {
   }[];
   readonly checks: readonly {
     readonly id: string;
-    readonly status: 'passed' | 'failed';
+    readonly claims: readonly string[];
+    readonly status: 'passed' | 'setup_failed' | 'assertion_failed';
     readonly message: string;
+    readonly startupConsoleErrors: readonly string[];
+    readonly failedModuleLoads: readonly string[];
+    readonly externalRuntimeRequests: readonly string[];
   }[];
   readonly startupConsoleErrors: readonly string[];
   readonly failedModuleLoads: readonly string[];
@@ -33,6 +39,7 @@ export async function runPetriEditorBrowserOracle(input: {
   readonly caseDir: string;
 }): Promise<BrowserOracleReport> {
   const packet = await loadPublicCasePacket(input.caseDir);
+  const manifest = await loadControllerOracleManifest(input.caseDir);
   const commands: BrowserOracleReport['commands'][number][] = [];
   for (const [id, command] of [
     ['test', packet.contract.delivery.test],
@@ -55,179 +62,44 @@ export async function runPetriEditorBrowserOracle(input: {
 
   const distDir = resolve(input.appDir, packet.contract.delivery.staticOutput);
   const server = await startStaticServer(distDir);
-  const browser = await chromium.launch({
-    executablePath: await resolveChromeExecutable(),
-    headless: true,
-  });
-  const context = await browser.newContext({ acceptDownloads: true });
-  const page = await context.newPage();
-  const startupConsoleErrors: string[] = [];
-  const failedModuleLoads: string[] = [];
-  const externalRuntimeRequests: string[] = [];
-  const checks: BrowserOracleReport['checks'][number][] = [];
-
-  page.on('console', (message) => {
-    if (message.type() === 'error') startupConsoleErrors.push(message.text());
-  });
-  page.on('pageerror', (error) => startupConsoleErrors.push(error.message));
-  page.on('response', (response) => {
-    const resourceType = response.request().resourceType();
-    if (
-      response.status() >= 400 &&
-      (resourceType === 'document' || resourceType === 'script' || resourceType === 'stylesheet')
-    ) {
-      failedModuleLoads.push(`${response.status()} ${response.url()}`);
-    }
-  });
-  page.on('request', (request) => {
-    const url = request.url();
-    if (url.startsWith('data:') || url.startsWith('blob:')) return;
-    if (new URL(url).origin !== new URL(server.url).origin) externalRuntimeRequests.push(url);
-  });
-
+  let browser: Browser | undefined;
+  let checks: BrowserOracleReport['checks'][number][] = [];
   try {
-    await page.goto(server.url, { waitUntil: 'networkidle' });
-    await runCheck(checks, 'mount', async () => {
-      await assertBaseAccessibility(page, packet.contract.accessibility);
-      await assertCounts(page, { places: 0, transitions: 0, arcs: 0 });
-      assert(startupConsoleErrors.length === 0, `startup console errors: ${startupConsoleErrors.join('; ')}`);
-      assert(failedModuleLoads.length === 0, `failed module loads: ${failedModuleLoads.join('; ')}`);
-      assert(
-        externalRuntimeRequests.length === 0,
-        `runtime network requests: ${externalRuntimeRequests.join('; ')}`,
-      );
+    browser = await chromium.launch({
+      executablePath: await resolveChromeExecutable(),
+      headless: true,
     });
-
-    await runCheck(checks, 'node-lifecycle', async () => {
-      await button(page, 'Add place').click();
-      await setField(page, 'textbox', 'Label', 'Input');
-      await setField(page, 'spinbutton', 'Initial tokens', '2');
-      const inputPlace = page.getByRole('button', { name: 'Place: Input', exact: true });
-      await assertCount(inputPlace, 1, 'one created Input place');
-      await assertCleanDrag(page, inputPlace, { x: 80, y: 90 });
-
-      await button(page, 'Add transition').click();
-      await setField(page, 'textbox', 'Label', 'Fire');
-      const fire = transition(page, 'Fire', 'enabled');
-      await assertCount(fire, 1, 'one created Fire transition');
-      await assertCleanDrag(page, fire, { x: 140, y: 20 });
-
-      await button(page, 'Add place').click();
-      await setField(page, 'textbox', 'Label', 'Output');
-      const output = page.getByRole('button', { name: 'Place: Output', exact: true });
-      await assertCount(output, 1, 'one created Output place');
-      await assertCleanDrag(page, output, { x: 210, y: 100 });
-      await assertCounts(page, { places: 2, transitions: 1, arcs: 0 });
+    const evidenceByJourney = new Map<string, RuntimeEvidence>();
+    const results = await runIndependentJourneys({
+      journeys: createJourneys({
+        manifest,
+        accessibility: packet.contract.accessibility,
+        caseDir: input.caseDir,
+      }),
+      open: async (journey) => {
+        const environment = await openJourneyEnvironment(browser!, server.url);
+        evidenceByJourney.set(journey.id, environment.evidence);
+        return environment;
+      },
+      close: async (environment) => {
+        await environment.context.close();
+      },
     });
-
-    await runCheck(checks, 'weighted-fire-reset-reload', async () => {
-      await createArc(page, place(page, 'Input'), transition(page, 'Fire', 'enabled'));
-      await setField(page, 'spinbutton', 'Arc weight', '2');
-      await createArc(page, transition(page, 'Fire', 'enabled'), place(page, 'Output'));
-      await setField(page, 'spinbutton', 'Arc weight', '3');
-      await assertCounts(page, { places: 2, transitions: 1, arcs: 2 });
-
-      await transition(page, 'Fire', 'enabled').click();
-      await button(page, 'Fire selected transition').click();
-      await assertCurrentTokens(page, 'Input', 0);
-      await assertCurrentTokens(page, 'Output', 3);
-      await assertCount(transition(page, 'Fire', 'disabled'), 1, 'disabled transition after firing');
-
-      await transition(page, 'Fire', 'disabled').click();
-      await button(page, 'Fire selected transition').click();
-      await assertCurrentTokens(page, 'Output', 3);
-
-      await button(page, 'Reset marking').click();
-      await assertCurrentTokens(page, 'Input', 2);
-      await assertCurrentTokens(page, 'Output', 0);
-      await assertCount(transition(page, 'Fire', 'enabled'), 1, 'enabled transition after reset');
-
-      await transition(page, 'Fire', 'enabled').click();
-      await button(page, 'Fire selected transition').click();
-      await page.reload({ waitUntil: 'networkidle' });
-      await assertCurrentTokens(page, 'Input', 2);
-      await assertCurrentTokens(page, 'Output', 0);
-      await assertCounts(page, { places: 2, transitions: 1, arcs: 2 });
-    });
-
-    await runCheck(checks, 'invalid-and-cascade', async () => {
-      await place(page, 'Input').click();
-      await setField(page, 'spinbutton', 'Initial tokens', '-1');
-      await assertFieldValue(page, 'spinbutton', 'Initial tokens', '2');
-      await setField(page, 'spinbutton', 'Initial tokens', '1.5');
-      await assertFieldValue(page, 'spinbutton', 'Initial tokens', '2');
-
-      await arc(page, 'Input', 'Fire').click();
-      await setField(page, 'spinbutton', 'Arc weight', '0');
-      await assertFieldValue(page, 'spinbutton', 'Arc weight', '2');
-      await setField(page, 'spinbutton', 'Arc weight', '1.5');
-      await assertFieldValue(page, 'spinbutton', 'Arc weight', '2');
-
-      await button(page, 'Add place').click();
-      await setField(page, 'textbox', 'Label', 'Extra');
-      await createInvalidArc(page, place(page, 'Input'), place(page, 'Extra'));
-      await button(page, 'Delete selection').click();
-
-      await button(page, 'Add transition').click();
-      await setField(page, 'textbox', 'Label', 'Extra transition');
-      await createInvalidArc(
-        page,
-        transition(page, 'Fire', 'enabled'),
-        transition(page, 'Extra transition', 'enabled'),
-      );
-      await button(page, 'Delete selection').click();
-
-      const nonJson = join(input.caseDir, 'controller', 'fixtures', 'invalid', 'not-json.txt');
-      const schemaInvalid = join(input.caseDir, 'controller', 'fixtures', 'invalid', 'schema-invalid.json');
-      const before = await dynamicCounts(page);
-      await importFile(page, nonJson);
-      assert(await feedbackText(page).then((text) => /invalid|rejected/iu.test(text)), 'non-JSON feedback');
-      assertCountsEqual(await dynamicCounts(page), before, 'non-JSON import changed the net');
-      await importFile(page, schemaInvalid);
-      assert(
-        await feedbackText(page).then((text) => /invalid|rejected/iu.test(text)),
-        'schema-invalid feedback',
-      );
-      assertCountsEqual(await dynamicCounts(page), before, 'schema-invalid import changed the net');
-
-      await place(page, 'Output').click();
-      await button(page, 'Delete selection').click();
-      await assertCount(arc(page, 'Fire', 'Output'), 0, 'cascade-deleted output arc');
-      await assertCounts(page, { places: 1, transitions: 1, arcs: 1 });
-    });
-
-    await runCheck(checks, 'round-trip-and-clear', async () => {
-      const exported = await exportJson(page);
-      const exportedValue = JSON.parse(exported) as {
-        places?: readonly { id?: string }[];
-        transitions?: readonly { id?: string }[];
-        arcs?: readonly { source?: string; target?: string }[];
-      };
-      const nodeIds = new Set(
-        [...(exportedValue.places ?? []), ...(exportedValue.transitions ?? [])].map((node) => node.id),
-      );
-      assert(
-        (exportedValue.arcs ?? []).every(
-          (selectedArc) => nodeIds.has(selectedArc.source) && nodeIds.has(selectedArc.target),
-        ),
-        'export contains a dangling arc',
-      );
-
-      await button(page, 'New net').click();
-      await assertCounts(page, { places: 0, transitions: 0, arcs: 0 });
-      await importJsonText(page, exported);
-      await assertCounts(page, { places: 1, transitions: 1, arcs: 1 });
-
-      await button(page, 'New net').click();
-      await page.reload({ waitUntil: 'networkidle' });
-      await assertCounts(page, { places: 0, transitions: 0, arcs: 0 });
-    });
+    checks = results.map((result) => ({
+      ...result,
+      ...(evidenceByJourney.get(result.id) ?? emptyRuntimeEvidence()),
+    }));
   } finally {
-    await context.close();
-    await browser.close();
-    await server.close();
+    try {
+      await browser?.close();
+    } finally {
+      await server.close();
+    }
   }
 
+  const startupConsoleErrors = checks.flatMap((check) => check.startupConsoleErrors);
+  const failedModuleLoads = checks.flatMap((check) => check.failedModuleLoads);
+  const externalRuntimeRequests = checks.flatMap((check) => check.externalRuntimeRequests);
   return {
     status: checks.every((check) => check.status === 'passed') ? 'passed' : 'failed',
     commands,
@@ -238,25 +110,289 @@ export async function runPetriEditorBrowserOracle(input: {
   };
 }
 
-async function runCheck(
-  checks: BrowserOracleReport['checks'][number][],
-  id: string,
-  check: () => Promise<void>,
-): Promise<void> {
-  if (checks.some((existing) => existing.status === 'failed')) {
-    checks.push({ id, status: 'failed', message: 'blocked by an earlier failed journey' });
-    return;
-  }
+interface RuntimeEvidence {
+  readonly startupConsoleErrors: string[];
+  readonly failedModuleLoads: string[];
+  readonly externalRuntimeRequests: string[];
+}
+
+interface JourneyEnvironment {
+  readonly context: BrowserContext;
+  readonly page: Page;
+  readonly evidence: RuntimeEvidence;
+}
+
+async function openJourneyEnvironment(browser: Browser, url: string): Promise<JourneyEnvironment> {
+  const context = await browser.newContext({ acceptDownloads: true });
   try {
-    await check();
-    checks.push({ id, status: 'passed', message: 'all assertions passed' });
-  } catch (error) {
-    checks.push({
-      id,
-      status: 'failed',
-      message: error instanceof Error ? error.message : String(error),
+    const page = await context.newPage();
+    const evidence = emptyRuntimeEvidence();
+    page.on('console', (message) => {
+      if (message.type() === 'error') evidence.startupConsoleErrors.push(message.text());
     });
+    page.on('pageerror', (error) => evidence.startupConsoleErrors.push(error.message));
+    page.on('response', (response) => {
+      const resourceType = response.request().resourceType();
+      if (
+        response.status() >= 400 &&
+        (resourceType === 'document' || resourceType === 'script' || resourceType === 'stylesheet')
+      ) {
+        evidence.failedModuleLoads.push(`${response.status()} ${response.url()}`);
+      }
+    });
+    page.on('request', (request) => {
+      const requestUrl = request.url();
+      if (requestUrl.startsWith('data:') || requestUrl.startsWith('blob:')) return;
+      if (new URL(requestUrl).origin !== new URL(url).origin) {
+        evidence.externalRuntimeRequests.push(requestUrl);
+      }
+    });
+    await page.goto(url, { waitUntil: 'networkidle' });
+    return { context, page, evidence };
+  } catch (error) {
+    await context.close();
+    throw error;
   }
+}
+
+function createJourneys(input: {
+  readonly manifest: ControllerOracleManifest;
+  readonly accessibility: ExecutionCasePublicContract['accessibility'];
+  readonly caseDir: string;
+}): IndependentJourney<JourneyEnvironment>[] {
+  const definitions = new Map<string, Omit<IndependentJourney<JourneyEnvironment>, 'id' | 'claims'>>([
+    [
+      'mount',
+      {
+        setup: async () => {},
+        assert: async ({ page, evidence }) => {
+          await assertBaseAccessibility(page, input.accessibility);
+          await assertCounts(page, { places: 0, transitions: 0, arcs: 0 });
+          assertCleanRuntimeEvidence(evidence);
+        },
+      },
+    ],
+    [
+      'node-lifecycle',
+      {
+        setup: async () => {},
+        assert: async ({ page, evidence }) => {
+          await createNodeLifecycleNet(page);
+          assertCleanRuntimeEvidence(evidence);
+        },
+      },
+    ],
+    [
+      'weighted-fire-reset-reload',
+      {
+        setup: async ({ page }) => {
+          await createWeightedNet(page);
+        },
+        assert: async ({ page, evidence }) => {
+          await assertWeightedFireResetReload(page);
+          assertCleanRuntimeEvidence(evidence);
+        },
+      },
+    ],
+    [
+      'invalid-and-cascade',
+      {
+        setup: async ({ page }) => {
+          await createWeightedNet(page);
+        },
+        assert: async ({ page, evidence }) => {
+          await assertInvalidAndCascade(page, input.caseDir);
+          assertCleanRuntimeEvidence(evidence);
+        },
+      },
+    ],
+    [
+      'round-trip-and-clear',
+      {
+        setup: async ({ page }) => {
+          await createRoundTripNet(page);
+        },
+        assert: async ({ page, evidence }) => {
+          await assertRoundTripAndClear(page);
+          assertCleanRuntimeEvidence(evidence);
+        },
+      },
+    ],
+  ]);
+  return input.manifest.journeys.map((journey) => {
+    const definition = definitions.get(journey.id);
+    if (definition === undefined) throw new Error(`missing browser journey implementation: ${journey.id}`);
+    return { id: journey.id, claims: journey.claims, ...definition };
+  });
+}
+
+function emptyRuntimeEvidence(): RuntimeEvidence {
+  return {
+    startupConsoleErrors: [],
+    failedModuleLoads: [],
+    externalRuntimeRequests: [],
+  };
+}
+
+function assertCleanRuntimeEvidence(evidence: RuntimeEvidence): void {
+  assert(
+    evidence.startupConsoleErrors.length === 0,
+    `startup console errors: ${evidence.startupConsoleErrors.join('; ')}`,
+  );
+  assert(
+    evidence.failedModuleLoads.length === 0,
+    `failed module loads: ${evidence.failedModuleLoads.join('; ')}`,
+  );
+  assert(
+    evidence.externalRuntimeRequests.length === 0,
+    `runtime network requests: ${evidence.externalRuntimeRequests.join('; ')}`,
+  );
+}
+
+async function createNodeLifecycleNet(page: Page): Promise<void> {
+  await addPlace(page, 'Input', 2);
+  const inputPlace = place(page, 'Input');
+  await assertCount(inputPlace, 1, 'one created Input place');
+  await assertCleanDrag(page, inputPlace, { x: 80, y: 90 });
+
+  await addTransition(page, 'Fire');
+  const fire = transition(page, 'Fire', 'enabled');
+  await assertCount(fire, 1, 'one created Fire transition');
+  await assertCleanDrag(page, fire, { x: 140, y: 20 });
+
+  await addPlace(page, 'Output');
+  const output = place(page, 'Output');
+  await assertCount(output, 1, 'one created Output place');
+  await assertCleanDrag(page, output, { x: 210, y: 100 });
+  await assertCounts(page, { places: 2, transitions: 1, arcs: 0 });
+}
+
+async function createWeightedNet(page: Page): Promise<void> {
+  await createNodeLifecycleNet(page);
+  await createArc(page, place(page, 'Input'), transition(page, 'Fire', 'enabled'));
+  await setField(page, 'spinbutton', 'Arc weight', '2');
+  await createArc(page, transition(page, 'Fire', 'enabled'), place(page, 'Output'));
+  await setField(page, 'spinbutton', 'Arc weight', '3');
+  await assertCounts(page, { places: 2, transitions: 1, arcs: 2 });
+}
+
+async function createRoundTripNet(page: Page): Promise<void> {
+  await addPlace(page, 'Input', 2);
+  const inputPlace = place(page, 'Input');
+  await assertCleanDrag(page, inputPlace, { x: 80, y: 90 });
+
+  await addTransition(page, 'Fire');
+  const fire = transition(page, 'Fire', 'enabled');
+  await assertCleanDrag(page, fire, { x: 140, y: 20 });
+
+  await createArc(page, inputPlace, fire);
+  await setField(page, 'spinbutton', 'Arc weight', '2');
+  await assertCounts(page, { places: 1, transitions: 1, arcs: 1 });
+}
+
+async function addPlace(page: Page, label: string, initialTokens?: number): Promise<void> {
+  await button(page, 'Add place').click();
+  await setField(page, 'textbox', 'Label', label);
+  if (initialTokens !== undefined) {
+    await setField(page, 'spinbutton', 'Initial tokens', String(initialTokens));
+  }
+}
+
+async function addTransition(page: Page, label: string): Promise<void> {
+  await button(page, 'Add transition').click();
+  await setField(page, 'textbox', 'Label', label);
+}
+
+async function assertWeightedFireResetReload(page: Page): Promise<void> {
+  await transition(page, 'Fire', 'enabled').click();
+  await button(page, 'Fire selected transition').click();
+  await assertCurrentTokens(page, 'Input', 0);
+  await assertCurrentTokens(page, 'Output', 3);
+  await assertCount(transition(page, 'Fire', 'disabled'), 1, 'disabled transition after firing');
+
+  await transition(page, 'Fire', 'disabled').click();
+  await button(page, 'Fire selected transition').click();
+  await assertCurrentTokens(page, 'Output', 3);
+
+  await button(page, 'Reset marking').click();
+  await assertCurrentTokens(page, 'Input', 2);
+  await assertCurrentTokens(page, 'Output', 0);
+  await assertCount(transition(page, 'Fire', 'enabled'), 1, 'enabled transition after reset');
+
+  await transition(page, 'Fire', 'enabled').click();
+  await button(page, 'Fire selected transition').click();
+  await page.reload({ waitUntil: 'networkidle' });
+  await assertCurrentTokens(page, 'Input', 2);
+  await assertCurrentTokens(page, 'Output', 0);
+  await assertCounts(page, { places: 2, transitions: 1, arcs: 2 });
+}
+
+async function assertInvalidAndCascade(page: Page, caseDir: string): Promise<void> {
+  await place(page, 'Input').click();
+  await setField(page, 'spinbutton', 'Initial tokens', '-1');
+  await assertFieldValue(page, 'spinbutton', 'Initial tokens', '2');
+  await setField(page, 'spinbutton', 'Initial tokens', '1.5');
+  await assertFieldValue(page, 'spinbutton', 'Initial tokens', '2');
+
+  await arc(page, 'Input', 'Fire').click();
+  await setField(page, 'spinbutton', 'Arc weight', '0');
+  await assertFieldValue(page, 'spinbutton', 'Arc weight', '2');
+  await setField(page, 'spinbutton', 'Arc weight', '1.5');
+  await assertFieldValue(page, 'spinbutton', 'Arc weight', '2');
+
+  await addPlace(page, 'Extra');
+  await createInvalidArc(page, place(page, 'Input'), place(page, 'Extra'));
+  await button(page, 'Delete selection').click();
+
+  await addTransition(page, 'Extra transition');
+  await createInvalidArc(
+    page,
+    transition(page, 'Fire', 'enabled'),
+    transition(page, 'Extra transition', 'enabled'),
+  );
+  await button(page, 'Delete selection').click();
+
+  const nonJson = join(caseDir, 'controller', 'fixtures', 'invalid', 'not-json.txt');
+  const schemaInvalid = join(caseDir, 'controller', 'fixtures', 'invalid', 'schema-invalid.json');
+  const before = await dynamicCounts(page);
+  await importFile(page, nonJson);
+  assert(await feedbackText(page).then((text) => /invalid|rejected/iu.test(text)), 'non-JSON feedback');
+  assertCountsEqual(await dynamicCounts(page), before, 'non-JSON import changed the net');
+  await importFile(page, schemaInvalid);
+  assert(await feedbackText(page).then((text) => /invalid|rejected/iu.test(text)), 'schema-invalid feedback');
+  assertCountsEqual(await dynamicCounts(page), before, 'schema-invalid import changed the net');
+
+  await place(page, 'Output').click();
+  await button(page, 'Delete selection').click();
+  await assertCount(arc(page, 'Fire', 'Output'), 0, 'cascade-deleted output arc');
+  await assertCounts(page, { places: 1, transitions: 1, arcs: 1 });
+}
+
+async function assertRoundTripAndClear(page: Page): Promise<void> {
+  const exported = await exportJson(page);
+  const exportedValue = JSON.parse(exported) as {
+    places?: readonly { id?: string }[];
+    transitions?: readonly { id?: string }[];
+    arcs?: readonly { source?: string; target?: string }[];
+  };
+  const nodeIds = new Set(
+    [...(exportedValue.places ?? []), ...(exportedValue.transitions ?? [])].map((node) => node.id),
+  );
+  assert(
+    (exportedValue.arcs ?? []).every(
+      (selectedArc) => nodeIds.has(selectedArc.source) && nodeIds.has(selectedArc.target),
+    ),
+    'export contains a dangling arc',
+  );
+
+  await button(page, 'New net').click();
+  await assertCounts(page, { places: 0, transitions: 0, arcs: 0 });
+  await importJsonText(page, exported);
+  await assertCounts(page, { places: 1, transitions: 1, arcs: 1 });
+
+  await button(page, 'New net').click();
+  await page.reload({ waitUntil: 'networkidle' });
+  await assertCounts(page, { places: 0, transitions: 0, arcs: 0 });
 }
 
 async function assertBaseAccessibility(

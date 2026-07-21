@@ -102,6 +102,8 @@ Frontier-item traceability, scope-card inheritance, and the verification-ownersh
 
 **Full gate** (locally optional; CI always runs it): `npm run verify:full` — fix → all tests (incl. slow tests) → build. Run it locally when you have changed a slow test or the production seam it witnesses — currently host landing, slice integration, run promotion, or worktree behavior — otherwise let CI run it. `npm run test:slow` runs just the slow group when that is all you need.
 
+**PR release intent** (required for ordinary PRs into `next`): before submit or update, run `npx changeset status --since=origin/next`. If the published package changes, run `npm run changeset`; otherwise record the no-release decision with `npm run changeset -- --empty`. Commit the generated `.changeset/*.md` file. The local verify commands do not cover this base-aware CI check.
+
 **CI / read-only check**: `npm run check` — lint then fmt:check then check:markdown-links then check:skills then check:promoted-run-paths, no writes. Use this where the gate must not mutate the worktree.
 
 **Skill-system check**: `npm run check:skills` — verifies the `ln-*` skill set against the working guide, cross-skill links, and required guardrails (e.g. the topology-stub carve-out). Read-only.
