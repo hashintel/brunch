@@ -17,7 +17,7 @@ The overall end-to-end result is valid only when both stages are valid and the a
 
 Use one row per atomic requirement or acceptance criterion. Record:
 
-- stable requirement id and public wording;
+- stable public requirement id and wording, or an opaque requirement id plus public concern category when the requirement is withheld;
 - whether it existed in the private baseline;
 - whether each lane elicited explicitly, omitted it, or contradicted it;
 - whether the approved specification carried it into execution;
@@ -25,7 +25,7 @@ Use one row per atomic requirement or acceptance criterion. Record:
 - verification status and common evidence reference; and
 - assessment: explicit-and-implemented, explicit-but-missed, unelicited-but-inferred, unelicited-and-missed, contradicted, or `not_assessable`.
 
-“Inferred correctly” requires output evidence satisfying the same public criterion; plausible code or judge intuition is insufficient. Keep controller-only reveal details out of the ledger.
+“Inferred correctly” requires output evidence satisfying the same public criterion; plausible code or judge intuition is insufficient. Keep controller-only reveal details out of the ledger. Exact private wording, hidden fixtures, expected states, and reveal policy appear only in an explicitly authorized operator/controller report; every other destination gets the opaque id, public concern category, and aggregate outcome.
 
 ## Compare without causal overreach
 

@@ -108,7 +108,7 @@ Evidence:
 
 - both elicitation and execution stages were valid;
 - the approved specifications were frozen unchanged as execution inputs;
-- the private baseline contained requirement `AC7`;
+- the private baseline contained requirement `AC7`; this audience receives only that opaque id and its aggregate public outcome;
 - lane A elicited `AC7` and implemented it;
 - lane B omitted `AC7`, but its output inferred and satisfied the same public criterion; and
 - the unchanged common oracle passed both outputs.

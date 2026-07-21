@@ -23,6 +23,8 @@ Record before the first lane runs:
 
 If an axis is intentionally out of scope, say so. Report results by case and axis before making a cross-case claim.
 
+Three valid runs are the middle-loop default; five valid runs are the outer-loop default under Brunch's prototype posture. These samples detect gross instability; they do not characterize reliability tails or establish statistical confidence. A complete operating procedure may declare a different count, but the departure and rationale must be frozen before outcomes.
+
 ## Freeze the rubric before outcomes
 
 Separate direct measurements from judgment:

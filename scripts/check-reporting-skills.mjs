@@ -2,8 +2,8 @@
 //
 // These skills can publish external reports, so the high-risk mutation and
 // evidence-boundary rules are executable rather than review-only prose.
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -28,6 +28,45 @@ function requirePhrases(relativePath, phrases) {
     if (!text.includes(phrase)) fail(`${relativePath}: missing required phrase "${phrase}"`);
   }
   return text;
+}
+
+function markdownFiles(directoryPath) {
+  return readdirSync(directoryPath, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directoryPath, entry.name);
+    if (entry.isDirectory()) return markdownFiles(path);
+    return entry.isFile() && entry.name.endsWith('.md') ? [path] : [];
+  });
+}
+
+function checkRelativeMarkdownLinks(relativeDirectory) {
+  const directoryPath = join(root, relativeDirectory);
+  if (!existsSync(directoryPath)) {
+    fail(`missing ${relativeDirectory}`);
+    return;
+  }
+
+  for (const filePath of markdownFiles(directoryPath)) {
+    const source = readFileSync(filePath, 'utf8');
+    const sourceName = relative(root, filePath);
+    for (const match of source.matchAll(/\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/gu)) {
+      const href = match[1];
+      if (/^(?:[a-z][a-z0-9+.-]*:|#|\/)/iu.test(href)) continue;
+      let hrefPath;
+      try {
+        hrefPath = decodeURIComponent(href.split(/[?#]/u, 1)[0]);
+      } catch {
+        fail(`${sourceName}: invalid percent-encoding in relative link ${href}`);
+        continue;
+      }
+      const targetPath = resolve(dirname(filePath), hrefPath);
+      const targetName = relative(root, targetPath);
+      if (targetName === '..' || targetName.startsWith(`..${sep}`)) {
+        fail(`${sourceName}: relative link escapes repository root: ${href}`);
+      } else if (!existsSync(targetPath)) {
+        fail(`${sourceName}: dead relative link ${href}`);
+      }
+    }
+  }
 }
 
 const notionSkillPath = '.agents/skills/notion-reporting/SKILL.md';
@@ -77,6 +116,7 @@ const comparisonSkill = requirePhrases(comparisonSkillPath, [
   '- **Validity consequence:**',
   'Never publish controller-only oracle definitions',
   'No winner or broad benchmark claim without a predeclared rubric',
+  'An active command or prompt that declares a complete operating procedure owns run conduct',
   'references/evaluation-strategy.md',
   'references/end-to-end-comparisons.md',
   'references/elicitation-comparisons.md',
@@ -107,6 +147,8 @@ requirePhrases('.agents/skills/comparison-reporting/references/evaluation-strate
   'structural similarity',
   'Manual run triggering is acceptable',
   'Do not claim deterministic execution from one repeated pair',
+  'Three valid runs are the middle-loop default',
+  'five valid runs are the outer-loop default',
 ]);
 
 requirePhrases('.agents/skills/comparison-reporting/references/elicitation-comparisons.md', [
@@ -139,6 +181,7 @@ requirePhrases('.agents/skills/comparison-reporting/references/end-to-end-compar
   'inferred correctly',
   'overall end-to-end result is valid only',
   'case-level association',
+  'opaque requirement id',
 ]);
 
 requirePhrases('.agents/skills/comparison-reporting/references/report-examples.md', [
@@ -150,6 +193,9 @@ requirePhrases('.agents/skills/comparison-reporting/references/report-examples.m
   'Cost is not assessable',
   'Hidden fixtures and exact oracle journeys are intentionally omitted',
 ]);
+
+checkRelativeMarkdownLinks('.agents/skills/notion-reporting');
+checkRelativeMarkdownLinks('.agents/skills/comparison-reporting');
 
 if (errors.length > 0) {
   console.error(`check:reporting-skills FAILED (${errors.length})`);

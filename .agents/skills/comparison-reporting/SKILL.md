@@ -9,6 +9,8 @@ Interpret retained comparison evidence before presenting it. Report validity bef
 
 When publishing to Notion, also load [Notion reporting](../notion-reporting/SKILL.md) for mutation safety and Notion formatting only. This skill owns comparison evidence policy and report grammar: keep the validity-first shape below instead of substituting Notion reporting's generic report shape.
 
+An active command or prompt that declares a complete operating procedure owns run conduct and its canonical artifacts. This skill may interpret retained evidence after that procedure, but must not add or replace its setup, actors, budgets, rubrics, judges, scoring, or report rules. In particular, `/compare-specs` remains an approachable operator workflow: never retrofit its run or `report.md` with the rigorous campaign machinery below.
+
 ## Inputs
 
 Resolve:
