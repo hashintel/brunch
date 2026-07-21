@@ -1,0 +1,161 @@
+---
+description: Run one approachable frozen execution comparison through Brunch and Claude Code
+argument-hint: "[case-id]"
+---
+
+Conduct one approachable, operator-led execution comparison. This is project-local developer/operator tooling, not a shipped Brunch product command. Do not register, propose, or imply a production `/compare-execution` command.
+
+The optional case reference is: `$ARGUMENTS`.
+
+## Fixed boundaries
+
+The invoking top-level project Pi session is the controller. Keep exactly one executor lane live at a time. Every lane gets a fresh isolated target cwd, but that cwd and its output remain retained evidence after process cleanup.
+
+Use these repository-relative homes:
+
+- Cases: `testing/execution-comparisons/cases/`
+- Ephemeral assembly: `.fixtures/scratch/execution-comparisons/<run-id>/`
+- Immutable attempt records: `.fixtures/scratch/execution-comparisons/<run-id>/attempt-records/`
+
+Resolve cases only through the project wrapper. Never interpret a supplied value as a filesystem path, follow a symlink, search outside the cases home, or accept an absolute path, traversal, ambiguity, or anything under `controller/`.
+
+Before a lane terminates, load only its lane-visible `spec.md` and `public-contract.json`. Do not load, display, copy, mention paths to, or expose the case's `controller/` directory, oracle manifest, hidden journeys, fixtures, expected states, controller paths, or oracle implementation to either target. The controller may invoke the fixed oracle wrapper only after the target lane has terminated.
+
+The initial executor roster is exactly **Brunch** and **Claude Code**. Do not add an adapter registry, parallel execution, elicitation, landing, or new oracle semantics.
+
+## Select and inspect the case
+
+If `$ARGUMENTS` is empty, run:
+
+```sh
+npx tsx src/dev/execution-comparison-operator.ts list-cases
+```
+
+List the returned eligible directory ids and public case ids, ask the operator to choose one, and stop until they do.
+
+For a supplied or selected id, run:
+
+```sh
+npx tsx src/dev/execution-comparison-operator.ts inspect --case <case-id>
+```
+
+This is the only pre-approval case read. It validates the existing FE-1230 public case loader and returns only the exact frozen specification, exact public contract, hashes, and shared framing. If resolution or validation fails, report the error and stop; never guess, repair, normalize, or fall back to another case.
+
+Ask which executors to run: **Brunch**, **Claude Code**, or both, and in which disclosed order. The default recommendation is both in the operator's chosen order. This approachable procedure does not claim order blinding, matched private reasoning, or statistical reliability.
+
+Create a collision-safe run identity in the form `<directory-id>-<UTC-basic-timestamp>-<short-random-suffix>`. Confirm that neither its scratch path nor any attempt id already exists. Do not create or overwrite them before approval.
+
+## Display the complete setup
+
+Display all of the following together before any target preparation or launch:
+
+1. the complete frozen `spec.md`, byte-for-byte;
+2. the complete frozen `public-contract.json`, byte-for-byte;
+3. selected executors and disclosed order;
+4. the exact shared target-visible framing returned by `inspect`;
+5. the run identity, case directory id, public case id, and public-packet hash;
+6. exact scratch, attempt-record, per-lane target, process-log, final-tree, final-diff, browser-report, and visible-interaction output paths;
+7. Brunch's pinned TUI entrypoint and Claude Code's structured adapter;
+8. the fixed post-lane oracle identity `petri-editor-browser-v2`; and
+9. the limits: sequential lanes, unchanged inputs, no substantive intervention, no landing, no score, no winner, and no reliability or parity claim.
+
+Ask through ordinary typed text for explicit **approve**, **revise**, or **reject**. Ambiguity, questions, qualifications, partial approval, or silence are not approval. Revise and redisplay the complete setup, or reject and stop. Do not prepare a target, start a shell, invoke an executor, or invoke the oracle before explicit approval.
+
+After approval, save byte-identical `spec.md`, `public-contract.json`, and `run-setup.md` snapshots under the unused scratch run identity. Keep the two frozen inputs separate and unchanged.
+
+## Run approved lanes
+
+Run lanes sequentially with exactly one executor lane live at a time. For each lane, use a fresh isolated target cwd and a fresh collision-safe attempt id. Show `ready`, `running`, and `waiting` while active; terminate as `successful`, `failed`, `exhausted`, or `invalid`.
+
+Give both executors the exact same frozen specification and public contract without normalization or repair. Send the exact shared target-visible framing unchanged. Do not add implementation advice, framework suggestions, expected states, hidden test hints, or lane-specific quality coaching.
+
+### Brunch
+
+Prepare through the existing FE-1230 workspace adapter:
+
+```sh
+npx tsx src/dev/execution-comparison-operator.ts prepare \
+  --case <case-id> \
+  --lane brunch \
+  --target <fresh-target-cwd>
+```
+
+From the Brunch repository root, open one direct `interactive_shell` using the pinned project-local entrypoint reported by preparation:
+
+```sh
+npx tsx src/dev/execution-comparison-brunch.ts \
+  --workspace <fresh-target-cwd> \
+  --spec-id <spec-id>
+```
+
+Use normal host dimensions and bounded rendered-state control. Send only the approved shared framing. Through ordinary visible Brunch controls, switch to Execute mode, compile the frozen plan, and execute it. Let the real product own planning, workspace creation, worker execution, verification, Petri export, and run-local promotion.
+
+Brunch must stop at `promotion_prepared`. Never invoke `/brunch:land`, never accept or simulate host landing, and never treat `landed` as success. A `landed` status makes the attempt invalid and must still be retained. The retained application output is the run metadata's existing `worktreeDir`; do not reconstruct it from transcript text or copy controller material into it. If no worktree exists, retain the target and classify the missing output honestly.
+
+Keep Brunch run metadata, Petri journal/projection, JSONL, and `.brunch/debug/` material in a separate `brunch-diagnostics/` appendix. It is diagnostic-only and must not enter common outcomes, compensate for missing common evidence, or be used to infer parity.
+
+### Claude Code
+
+Prepare through the execution wrapper:
+
+```sh
+npx tsx src/dev/execution-comparison-operator.ts prepare \
+  --case <case-id> \
+  --lane claude_code \
+  --target <fresh-target-cwd>
+```
+
+Open one direct `interactive_shell` from the fresh target cwd through Claude Code's normal structured adapter:
+
+```text
+spawn: { agent: "claude" }
+```
+
+Send only the approved shared framing. Do not substitute a raw binary, another model, another adapter, or a nested shell. Claude Code works in that isolated target cwd and stops after its visible completion, failure, or budget exhaustion.
+
+## Termination, oracle, retention, and cleanup
+
+After every lane terminates, first capture its final process status and all target-visible interaction evidence. Kill any still-running executor process, query the shell to a final status, dismiss the completed shell record, and verify that no executor process or interactive session remains.
+
+Then run the unchanged controller-owned `petri-editor-browser-v2` oracle against the retained output:
+
+```sh
+npx tsx src/dev/execution-comparison-operator.ts oracle \
+  --case <case-id> \
+  --app <retained-output-cwd> \
+  --out <attempt-staging>/browser/report.json
+```
+
+Do this after every lane terminates, including failed, exhausted, and invalid lanes. Let the existing wrapper run the target's declared `npm test` and `npm run build`, start the fixed static server, run the existing independent browser journeys, and close browser/server resources. Do not edit the frozen case, controller files, oracle manifest, fixtures, expected states, browser journey implementation, or report to make a lane pass. If the unchanged oracle cannot start, retain that setup failure and do not invent a product verdict.
+
+After the oracle exits, verify cleanup again. Retain the target cwd; cleanup means no live process or session, not deletion of evidence. Do not launch the next lane until the prior executor shell and oracle resources are both fully clean.
+
+For every successful, failed, exhausted, and invalid attempt, retain immutably:
+
+- the validated `ExecutionAttempt` record and public/oracle hashes;
+- final executor and oracle process status, stdout, stderr, and exit codes;
+- validity status and reasons;
+- elapsed and intervention ledgers;
+- cleanup status and any residue;
+- the final tree and complete base-to-tip diff, plus honest notes for uncommitted or unavailable material;
+- common `npm test`, `npm run build`, and browser results;
+- normalized visible interaction evidence; and
+- the unchanged retained output itself.
+
+Stage evidence under the fresh attempt path, construct an `ExecutionAttempt` JSON using the existing FE-1230 schema, and validate/store its record with:
+
+```sh
+npx tsx src/dev/execution-comparison-operator.ts retain-attempt \
+  --attempt-file <attempt-staging>/attempt.json \
+  --attempts-root .fixtures/scratch/execution-comparisons/<run-id>/attempt-records
+```
+
+The immutable writer rejects an existing attempt id. Never overwrite, delete, replace, or silently retry a poor-output attempt. A replacement is permitted only for provider, adapter, or mechanical invalidity under the unchanged packet, and both attempts remain retained.
+
+## Report
+
+After all selected lanes terminate and cleanup is proven, write `report.md` under the run scratch root. Present validity before outcomes for each lane. Then report factual terminal state, cleanup, produced output, common command results, and unchanged browser-oracle results.
+
+Keep common evidence and Brunch-only diagnostics visibly separate. Use `not_assessable` for unavailable common evidence. Do not score, rank, choose a winner, claim reliability, infer parity from unavailable or product-private evidence, or let Brunch-only run/Petri/debug data improve its common result. Do not turn ordinary visual hierarchy, clarity, or drag feel into an automatic mechanical verdict.
+
+Finish with the case id, run id, executor order, each attempt id and terminal/validity state, cleanup result, retained output paths, browser report paths, attempt-record paths, and `report.md`. State any remaining human witness plainly.
