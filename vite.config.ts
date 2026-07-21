@@ -23,7 +23,14 @@ export default defineConfig(() => ({
     },
   },
   test: {
-    exclude: ['**/node_modules/**', '**/dist/**', '**/dist-web/**', '**/_suspended/**', '**/.brunch/**'],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/dist-web/**',
+      '**/_suspended/**',
+      '**/.brunch/**',
+      '**/.fixtures/scratch/**',
+    ],
     // Real-git witnesses (host promotion and slice integration) can take
     // 30s on machines with slow process spawn under full-suite load. The test
     // script bounds worker count separately.

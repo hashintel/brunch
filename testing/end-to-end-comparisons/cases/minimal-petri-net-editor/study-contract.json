@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "id": "minimal-petri-net-editor-e2e-v1",
+  "caseId": "minimal-petri-net-editor-v1",
+  "mission": {
+    "path": "testing/comparisons/missions/minimal-petri-net-editor.md",
+    "sha256": "sha256:cfc850139ac7f6b67db868c0215a4468f8dfae9cc13ebb11d851cac354bb632b"
+  },
+  "sharedBaseline": {
+    "path": "testing/end-to-end-comparisons/cases/minimal-petri-net-editor/shared-baseline.md",
+    "sha256": "sha256:18feb97fcf6a1770a07bbad9024ded28023235185fe979cb9a96dc311af03c70"
+  },
+  "requirementRegistry": {
+    "path": "testing/end-to-end-comparisons/cases/minimal-petri-net-editor/controller/requirement-registry.json",
+    "sha256": "sha256:31176612e705b50fabfa6c3bc4bad99557c2b60afa7ab2e936c9ff0f5ec54fd7"
+  },
+  "executionContractTemplate": {
+    "path": "testing/execution-comparisons/cases/minimal-petri-net-editor/public-contract.json",
+    "sha256": "sha256:b687016de2d0d303dac8b754c2538cbaddf1c9628fed014603e31d05e2e14654"
+  },
+  "oracle": {
+    "id": "minimal-petri-net-editor-oracles-v2",
+    "manifestPath": "testing/execution-comparisons/cases/minimal-petri-net-editor/controller/oracle-manifest.json",
+    "manifestSha256": "sha256:0db18039730baff471fb42f3fc031708c63a6d92ad1735c3a1d8bddc47207d44"
+  },
+  "budgets": {
+    "elicitation": {
+      "qualifyingQuestions": 8,
+      "targetTurns": 16,
+      "elapsedMinutes": 45,
+      "mechanicalInterventions": 2
+    },
+    "execution": {
+      "elapsedMinutes": 90,
+      "mechanicalInterventions": 2,
+      "substantiveHumanInterventions": 0
+    }
+  },
+  "actorRecipes": {
+    "elicitation": "agent-as-user-comparison/v1",
+    "execution": {
+      "brunch": "brunch-empty-dir/v1",
+      "claude_code": "claude-code-empty-dir/v1"
+    }
+  },
+  "specSources": ["brunch_spec", "claude_spec"],
+  "executors": ["brunch", "claude_code"]
+}

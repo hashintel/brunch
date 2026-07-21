@@ -1,0 +1,1 @@
+Executor entered Execute mode, compiled the frozen specification, then halted before the first slice with plan_slice_invalid. Two mechanical mode-navigation/hold interventions were used; no substantive intervention occurred.

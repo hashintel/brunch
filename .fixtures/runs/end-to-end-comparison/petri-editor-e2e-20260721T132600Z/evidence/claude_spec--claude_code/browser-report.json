@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "status": "failed",
+  "commands": [
+    {
+      "id": "test",
+      "status": "passed",
+      "exitCode": 0
+    },
+    {
+      "id": "build",
+      "status": "passed",
+      "exitCode": 0
+    }
+  ],
+  "checks": [
+    {
+      "id": "mount",
+      "claims": [
+        "AC14"
+      ],
+      "status": "assertion_failed"
+    },
+    {
+      "id": "node-lifecycle",
+      "claims": [
+        "AC15"
+      ],
+      "status": "assertion_failed"
+    },
+    {
+      "id": "weighted-fire-reset-reload",
+      "claims": [
+        "AC17",
+        "AC18",
+        "AC19",
+        "AC20",
+        "AC21",
+        "AC23"
+      ],
+      "status": "setup_failed"
+    },
+    {
+      "id": "invalid-and-cascade",
+      "claims": [
+        "AC16",
+        "AC17",
+        "AC24",
+        "AC25"
+      ],
+      "status": "setup_failed"
+    },
+    {
+      "id": "round-trip-and-clear",
+      "claims": [
+        "AC22",
+        "AC26"
+      ],
+      "status": "assertion_failed"
+    }
+  ],
+  "runtime": {
+    "startupConsoleErrorCount": 0,
+    "failedModuleLoadCount": 0,
+    "externalRuntimeRequestCount": 0
+  }
+}

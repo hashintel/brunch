@@ -1,0 +1,988 @@
+{
+  "schemaVersion": 1,
+  "studyContractSha256": "sha256:7ed2c2c867cf611c28908992492c6f5d89c9f7806ad76e28546547749f20a5c7",
+  "rows": [
+    {
+      "id": "AC14",
+      "publicConcern": "Application startup",
+      "origin": "public_baseline",
+      "publicWording": "The production browser entry point mounts a usable empty editor.",
+      "elicitation": {
+        "brunch_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/brunch_spec/spec.md"
+          ]
+        },
+        "claude_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/claude_spec/spec.md"
+          ]
+        }
+      },
+      "handoff": {
+        "brunch_spec": {
+          "status": "present",
+          "evidence": "handoffs/brunch_spec/handoff.json"
+        },
+        "claude_spec": {
+          "status": "present",
+          "evidence": "handoffs/claude_spec/handoff.json"
+        }
+      },
+      "cells": {
+        "brunch_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "brunch_spec--claude_code": {
+          "implementation": "satisfied",
+          "verification": "passed",
+          "assessment": "explicit-and-implemented",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--claude_code": {
+          "implementation": "violated",
+          "verification": "failed",
+          "assessment": "explicit-but-missed",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AC15",
+      "publicConcern": "Node lifecycle",
+      "origin": "public_baseline",
+      "publicWording": "Places and transitions can be created, moved, renamed, and deleted.",
+      "elicitation": {
+        "brunch_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/brunch_spec/spec.md"
+          ]
+        },
+        "claude_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/claude_spec/spec.md"
+          ]
+        }
+      },
+      "handoff": {
+        "brunch_spec": {
+          "status": "present",
+          "evidence": "handoffs/brunch_spec/handoff.json"
+        },
+        "claude_spec": {
+          "status": "present",
+          "evidence": "handoffs/claude_spec/handoff.json"
+        }
+      },
+      "cells": {
+        "brunch_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "brunch_spec--claude_code": {
+          "implementation": "violated",
+          "verification": "failed",
+          "assessment": "explicit-but-missed",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--claude_code": {
+          "implementation": "violated",
+          "verification": "failed",
+          "assessment": "explicit-but-missed",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AC16",
+      "publicConcern": "Arc validity",
+      "origin": "controller_only",
+      "elicitation": {
+        "brunch_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/brunch_spec/spec.md"
+          ]
+        },
+        "claude_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/claude_spec/spec.md"
+          ]
+        }
+      },
+      "handoff": {
+        "brunch_spec": {
+          "status": "present",
+          "evidence": "handoffs/brunch_spec/handoff.json"
+        },
+        "claude_spec": {
+          "status": "present",
+          "evidence": "handoffs/claude_spec/handoff.json"
+        }
+      },
+      "cells": {
+        "brunch_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "brunch_spec--claude_code": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--claude_code": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AC17",
+      "publicConcern": "Numeric validation",
+      "origin": "controller_only",
+      "elicitation": {
+        "brunch_spec": {
+          "status": "omitted",
+          "evidence": [
+            "handoffs/brunch_spec/spec.md"
+          ]
+        },
+        "claude_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/claude_spec/spec.md"
+          ]
+        }
+      },
+      "handoff": {
+        "brunch_spec": {
+          "status": "present",
+          "evidence": "handoffs/brunch_spec/handoff.json"
+        },
+        "claude_spec": {
+          "status": "present",
+          "evidence": "handoffs/claude_spec/handoff.json"
+        }
+      },
+      "cells": {
+        "brunch_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "brunch_spec--claude_code": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--claude_code": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AC18",
+      "publicConcern": "Enabled-transition indication",
+      "origin": "public_baseline",
+      "publicWording": "Transition accessible names expose enabled or disabled state.",
+      "elicitation": {
+        "brunch_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/brunch_spec/spec.md"
+          ]
+        },
+        "claude_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/claude_spec/spec.md"
+          ]
+        }
+      },
+      "handoff": {
+        "brunch_spec": {
+          "status": "present",
+          "evidence": "handoffs/brunch_spec/handoff.json"
+        },
+        "claude_spec": {
+          "status": "present",
+          "evidence": "handoffs/claude_spec/handoff.json"
+        }
+      },
+      "cells": {
+        "brunch_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "brunch_spec--claude_code": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--claude_code": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AC19",
+      "publicConcern": "Manual transition firing",
+      "origin": "public_baseline",
+      "publicWording": "A selected transition can be fired through the shared control surface.",
+      "elicitation": {
+        "brunch_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/brunch_spec/spec.md"
+          ]
+        },
+        "claude_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/claude_spec/spec.md"
+          ]
+        }
+      },
+      "handoff": {
+        "brunch_spec": {
+          "status": "present",
+          "evidence": "handoffs/brunch_spec/handoff.json"
+        },
+        "claude_spec": {
+          "status": "present",
+          "evidence": "handoffs/claude_spec/handoff.json"
+        }
+      },
+      "cells": {
+        "brunch_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "brunch_spec--claude_code": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--claude_code": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AC20",
+      "publicConcern": "Reset behavior",
+      "origin": "public_baseline",
+      "publicWording": "The editor exposes a reset-marking control.",
+      "elicitation": {
+        "brunch_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/brunch_spec/spec.md"
+          ]
+        },
+        "claude_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/claude_spec/spec.md"
+          ]
+        }
+      },
+      "handoff": {
+        "brunch_spec": {
+          "status": "present",
+          "evidence": "handoffs/brunch_spec/handoff.json"
+        },
+        "claude_spec": {
+          "status": "present",
+          "evidence": "handoffs/claude_spec/handoff.json"
+        }
+      },
+      "cells": {
+        "brunch_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "brunch_spec--claude_code": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--claude_code": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AC21",
+      "publicConcern": "Reload persistence",
+      "origin": "controller_only",
+      "elicitation": {
+        "brunch_spec": {
+          "status": "contradicted",
+          "evidence": [
+            "handoffs/brunch_spec/spec.md"
+          ]
+        },
+        "claude_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/claude_spec/spec.md"
+          ]
+        }
+      },
+      "handoff": {
+        "brunch_spec": {
+          "status": "present",
+          "evidence": "handoffs/brunch_spec/handoff.json"
+        },
+        "claude_spec": {
+          "status": "present",
+          "evidence": "handoffs/claude_spec/handoff.json"
+        }
+      },
+      "cells": {
+        "brunch_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "brunch_spec--claude_code": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--claude_code": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AC22",
+      "publicConcern": "JSON round trip",
+      "origin": "public_baseline",
+      "publicWording": "The shared surface exposes JSON import and export.",
+      "elicitation": {
+        "brunch_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/brunch_spec/spec.md"
+          ]
+        },
+        "claude_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/claude_spec/spec.md"
+          ]
+        }
+      },
+      "handoff": {
+        "brunch_spec": {
+          "status": "present",
+          "evidence": "handoffs/brunch_spec/handoff.json"
+        },
+        "claude_spec": {
+          "status": "present",
+          "evidence": "handoffs/claude_spec/handoff.json"
+        }
+      },
+      "cells": {
+        "brunch_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "brunch_spec--claude_code": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--claude_code": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AC23",
+      "publicConcern": "Current versus initial marking persistence",
+      "origin": "controller_only",
+      "elicitation": {
+        "brunch_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/brunch_spec/spec.md"
+          ]
+        },
+        "claude_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/claude_spec/spec.md"
+          ]
+        }
+      },
+      "handoff": {
+        "brunch_spec": {
+          "status": "present",
+          "evidence": "handoffs/brunch_spec/handoff.json"
+        },
+        "claude_spec": {
+          "status": "present",
+          "evidence": "handoffs/claude_spec/handoff.json"
+        }
+      },
+      "cells": {
+        "brunch_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "brunch_spec--claude_code": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--claude_code": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AC24",
+      "publicConcern": "Cascade deletion",
+      "origin": "controller_only",
+      "elicitation": {
+        "brunch_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/brunch_spec/spec.md"
+          ]
+        },
+        "claude_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/claude_spec/spec.md"
+          ]
+        }
+      },
+      "handoff": {
+        "brunch_spec": {
+          "status": "present",
+          "evidence": "handoffs/brunch_spec/handoff.json"
+        },
+        "claude_spec": {
+          "status": "present",
+          "evidence": "handoffs/claude_spec/handoff.json"
+        }
+      },
+      "cells": {
+        "brunch_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "brunch_spec--claude_code": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--claude_code": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AC25",
+      "publicConcern": "Malformed import safety",
+      "origin": "controller_only",
+      "elicitation": {
+        "brunch_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/brunch_spec/spec.md"
+          ]
+        },
+        "claude_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/claude_spec/spec.md"
+          ]
+        }
+      },
+      "handoff": {
+        "brunch_spec": {
+          "status": "present",
+          "evidence": "handoffs/brunch_spec/handoff.json"
+        },
+        "claude_spec": {
+          "status": "present",
+          "evidence": "handoffs/claude_spec/handoff.json"
+        }
+      },
+      "cells": {
+        "brunch_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "brunch_spec--claude_code": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--claude_code": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "AC26",
+      "publicConcern": "New and clear behavior",
+      "origin": "public_baseline",
+      "publicWording": "The editor exposes a new-net control.",
+      "elicitation": {
+        "brunch_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/brunch_spec/spec.md"
+          ]
+        },
+        "claude_spec": {
+          "status": "explicit",
+          "evidence": [
+            "handoffs/claude_spec/spec.md"
+          ]
+        }
+      },
+      "handoff": {
+        "brunch_spec": {
+          "status": "present",
+          "evidence": "handoffs/brunch_spec/handoff.json"
+        },
+        "claude_spec": {
+          "status": "present",
+          "evidence": "handoffs/claude_spec/handoff.json"
+        }
+      },
+      "cells": {
+        "brunch_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "brunch_spec--claude_code": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/brunch_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--brunch": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--brunch/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        },
+        "claude_spec--claude_code": {
+          "implementation": "not_assessable",
+          "verification": "not_assessable",
+          "assessment": "not_assessable",
+          "evidence": [
+            {
+              "id": "evidence/claude_spec--claude_code/browser-report.json",
+              "audience": "public"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

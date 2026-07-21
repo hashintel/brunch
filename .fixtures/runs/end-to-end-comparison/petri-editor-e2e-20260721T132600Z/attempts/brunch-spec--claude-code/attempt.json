@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "attemptId": "brunch-spec--claude-code",
+  "caseId": "minimal-petri-net-editor-v1",
+  "lane": "claude_code",
+  "publicPacketSha256": "sha256:749fc643798be3fb61878ce896d2b0e2f26e913c502d369e2a40ff1c502d8b54",
+  "oraclePackSha256": "sha256:8dbc56a11bf6a6ea1b81a6cb1cd4f384596bb514588fd5541de4c64b87713481",
+  "startedAt": "2026-07-21T14:38:39.000Z",
+  "endedAt": "2026-07-21T15:12:07.975Z",
+  "budget": {
+    "elapsedMinutes": 90,
+    "mechanicalInterventions": 0,
+    "substantiveHumanInterventions": 0
+  },
+  "versions": {
+    "product": "claude-code@2.1.118",
+    "provider": "anthropic",
+    "model": "claude-opus-4-8",
+    "harness": "end-to-end-comparison/v1",
+    "actorRecipe": "claude-code-empty-dir/v1",
+    "node": "v24.14.0",
+    "npm": "11.9.0",
+    "os": "darwin-25.2.0",
+    "architecture": "arm64"
+  },
+  "repository": {
+    "baseSha": "a27fe48801b9d4f6fbdc3c65a64fb5264b8b0d10",
+    "reviewSha": "f604b6cb104cc2eb87deee200b50716e77e40cd2",
+    "finalGitRange": "a27fe48801b9d4f6fbdc3c65a64fb5264b8b0d10..f604b6cb104cc2eb87deee200b50716e77e40cd2"
+  },
+  "terminal": {
+    "outcome": "failure",
+    "reason": "Executor completed and passed its own gates; the unchanged common browser oracle failed.",
+    "productStatus": "not_applicable"
+  },
+  "validity": {
+    "status": "valid",
+    "reasons": []
+  },
+  "commands": [
+    {
+      "id": "test",
+      "status": "passed",
+      "exitCode": 0,
+      "stdoutPath": "evidence/brunch_spec--claude_code/commands/test.stdout.txt",
+      "stderrPath": "evidence/brunch_spec--claude_code/commands/test.stderr.txt"
+    },
+    {
+      "id": "build",
+      "status": "passed",
+      "exitCode": 0,
+      "stdoutPath": "evidence/brunch_spec--claude_code/commands/build.stdout.txt",
+      "stderrPath": "evidence/brunch_spec--claude_code/commands/build.stderr.txt"
+    }
+  ],
+  "browser": {
+    "status": "failed",
+    "reportPath": "evidence/brunch_spec--claude_code/browser-report.json"
+  },
+  "interventions": [],
+  "commonMetrics": {
+    "elapsedMs": 2008507,
+    "inputTokens": "not_assessable",
+    "outputTokens": "not_assessable",
+    "costUsd": "not_assessable",
+    "permissionPrompts": "not_assessable"
+  },
+  "evidence": {
+    "finalTreePath": "evidence/brunch_spec--claude_code/final-tree.txt",
+    "finalDiffPath": "evidence/brunch_spec--claude_code/final-diff.patch",
+    "visibleProcessPath": "evidence/brunch_spec--claude_code/visible-process.md"
+  },
+  "cleanup": {
+    "status": "clean",
+    "liveProcesses": 0,
+    "liveSessions": 0
+  }
+}

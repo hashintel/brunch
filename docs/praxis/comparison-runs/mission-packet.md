@@ -1,6 +1,8 @@
 # Round-One Comparison Mission Packet
 
-Use this format to give every target the same product-neutral mission. Keep the **public packet** separate from the **controller-only reveal key**. Copy only the public packet into the target working directory and opening prompt.
+Use this format to give every target the same product-neutral mission. Keep the
+**public packet** separate from the **controller-only reveal key**. Copy only
+the public packet into the target working directory and opening prompt.
 
 ## Public packet
 
@@ -72,7 +74,8 @@ Declared mechanical recovery—such as restoring focus, resizing, resending an u
 
 ## Small fictional worked example
 
-This example is intentionally small and is not a campaign test case or Brunch seed.
+This example is intentionally small and is not a campaign test case, a saved
+`/compare-specs` mission, or a Brunch seed.
 
 ### Target-visible public packet
 

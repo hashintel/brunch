@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "elicitationRunId": "claude-r1",
+  "specSource": "claude_spec",
+  "sourceArtifactPath": "elicitation/claude/petri-net-editor-spec.md",
+  "specificationPath": "spec.md",
+  "specificationSha256": "sha256:60582a1447e38c46cb9e4d8fdd57bc227d28bc351d40b826bd84d49c0d68189e",
+  "approvedBy": "comparison operator",
+  "approvedAt": "2026-07-21T14:00:19.924Z",
+  "studyContractSha256": "sha256:7ed2c2c867cf611c28908992492c6f5d89c9f7806ad76e28546547749f20a5c7"
+}

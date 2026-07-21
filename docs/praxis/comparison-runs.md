@@ -47,6 +47,45 @@ npm run dev-cli -- export --workspace <workspace> --spec-id 1 --out <seed.json>
 
 `rpc` and `print` are deterministic observations. `mutate` is the explicit local write seam. `export` turns reviewed workbench state into a candidate fixture; review it before tracking it.
 
+## Quick start: compare execution
+
+From a trusted top-level project Pi session, run:
+
+```text
+/compare-execution minimal-petri-net-editor
+```
+
+The project-local operator displays the frozen specification, public contract, selected Brunch/Claude
+executors, exact framing, run identity, and output paths before asking for approval. It then runs one
+fresh isolated lane at a time, cleans up each live shell before continuing, and applies the unchanged
+controller-owned browser oracle to every retained outcome. With no case id,
+`/compare-execution` lists eligible cases under `testing/execution-comparisons/cases/`.
+
+This is developer/evaluation tooling under `.pi/prompts/`, not a shipped Brunch product command.
+Brunch stops at `promotion_prepared`; the operator never invokes `/brunch:land`, scores a lane, chooses
+a winner, or treats Brunch-only run/Petri/debug evidence as common comparison evidence.
+
+## End-to-end comparison tracer
+
+The end-to-end tracer composes the rigorous elicitation recipe with the execution-comparison contracts
+without changing either stage's evidence policy. One frozen mission and disclosed shared baseline
+produce two independently approved specifications. Each exact byte sequence crosses a content-addressed
+handoff into both Brunch and Claude, yielding the closed
+`{brunch_spec, claude_spec} × {brunch, claude_code}` matrix.
+
+The controller contract lives under
+`testing/end-to-end-comparisons/cases/minimal-petri-net-editor/`; the dev-only parsers, adapters, matrix,
+traceability ledger, and redaction boundary live under `src/dev/end-to-end-comparison/`. Controller
+oracle material remains outside target workspaces, and each matrix leaf references the existing
+immutable `ExecutionAttempt` format. Reports must present elicitation validity, exact handoff identity,
+execution validity, and requirement-level output evidence separately. This one-case tracer supports
+within-executor/spec contrasts only—not a winner, reliability estimate, or causal claim.
+
+The first promoted witness is
+[`petri-editor-e2e-20260721T132600Z`](../../.fixtures/runs/end-to-end-comparison/petri-editor-e2e-20260721T132600Z/).
+It retains both exact handoffs, all four valid failed execution cells, portable common evidence, the
+audience-safe requirement ledger, and the bounded validity-first report.
+
 ## Agent recipe: drive, then join evidence
 
 On an overlay-capable host, drive the real TUI with the pinned project-local `pi-interactive-shell` package. In a sandbox or headless environment, use `npm run tui-driver` as the fallback. Follow the bounded observation, named-key input, and deterministic cleanup protocol in [Manual Testing](manual-testing.md).
