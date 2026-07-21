@@ -47,6 +47,24 @@ npm run dev-cli -- export --workspace <workspace> --spec-id 1 --out <seed.json>
 
 `rpc` and `print` are deterministic observations. `mutate` is the explicit local write seam. `export` turns reviewed workbench state into a candidate fixture; review it before tracking it.
 
+## Quick start: compare execution
+
+From a trusted top-level project Pi session, run:
+
+```text
+/compare-execution minimal-petri-net-editor
+```
+
+The project-local operator displays the frozen specification, public contract, selected Brunch/Claude
+executors, exact framing, run identity, and output paths before asking for approval. It then runs one
+fresh isolated lane at a time, cleans up each live shell before continuing, and applies the unchanged
+controller-owned browser oracle to every retained outcome. With no case id,
+`/compare-execution` lists eligible cases under `testing/execution-comparisons/cases/`.
+
+This is developer/evaluation tooling under `.pi/prompts/`, not a shipped Brunch product command.
+Brunch stops at `promotion_prepared`; the operator never invokes `/brunch:land`, scores a lane, chooses
+a winner, or treats Brunch-only run/Petri/debug evidence as common comparison evidence.
+
 ## Agent recipe: drive, then join evidence
 
 On an overlay-capable host, drive the real TUI with the pinned project-local `pi-interactive-shell` package. In a sandbox or headless environment, use `npm run tui-driver` as the fallback. Follow the bounded observation, named-key input, and deterministic cleanup protocol in [Manual Testing](manual-testing.md).
