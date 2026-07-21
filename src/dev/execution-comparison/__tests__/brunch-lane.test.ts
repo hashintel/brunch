@@ -13,7 +13,11 @@ import {
 import { CommandExecutor } from '../../../graph/command-executor.js';
 import { queryGraph } from '../../../graph/queries.js';
 import { seedFixture } from '../../../graph/seed-fixtures.js';
-import { buildBrunchExecutionSeed, prepareBrunchExecutionWorkspace } from '../brunch-lane.js';
+import {
+  buildBrunchExecutionSeed,
+  buildOpaqueBrunchExecutionSeed,
+  prepareBrunchExecutionWorkspace,
+} from '../brunch-lane.js';
 import { loadPublicCasePacket } from '../case-contract.js';
 
 const caseDir = fileURLToPath(
@@ -89,6 +93,40 @@ describe('Brunch execution comparison lane adapter', () => {
         }),
       ],
     });
+    expect(() => assertExecuteProjectionPlanReady(projection)).not.toThrow();
+  });
+
+  it('preserves an arbitrary target-authored specification as one exact settled requirement', async () => {
+    const packet = await loadPublicCasePacket(caseDir);
+    const specification = '# Target-authored specification\n\nSpacing stays exact.  \n';
+    const fixture = buildOpaqueBrunchExecutionSeed({
+      specification,
+      contract: packet.contract,
+    });
+    expect(fixture.nodes.find((node) => node.source === 'e2e-handoff [exact-spec]')).toMatchObject({
+      kind: 'requirement',
+      body: specification,
+    });
+    expect(fixture.nodes.filter((node) => node.source === 'e2e-handoff [exact-spec]')).toHaveLength(1);
+
+    const db = createDb(':memory:');
+    const seeded = seedFixture(new CommandExecutor(db), fixture);
+    const graph = queryGraph(db, seeded.specId);
+    const projection = projectExecuteGraph({
+      specId: seeded.specId,
+      graphLsn: graph.lsn,
+      mode: 'greenfield',
+      nodes: graph.nodes,
+      edges: graph.edges,
+    });
+    expect(projection.snapshot.requirements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: 'Approved target-authored specification',
+          content: specification,
+        }),
+      ]),
+    );
     expect(() => assertExecuteProjectionPlanReady(projection)).not.toThrow();
   });
 

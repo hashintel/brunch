@@ -1,0 +1,159 @@
+{
+  "schemaVersion": 1,
+  "caseId": "minimal-petri-net-editor-v1",
+  "rows": [
+    {
+      "id": "AC14",
+      "publicConcern": "Application startup",
+      "origin": "public_baseline",
+      "publicWording": "The production browser entry point mounts a usable empty editor.",
+      "controller": {
+        "wording": "The real built entry point mounts with no uncaught errors or failed module loads.",
+        "revealPolicy": "The shared baseline discloses the static build and accessible application surface.",
+        "expectedState": "One empty canvas, all baseline controls reachable, and no startup/runtime failures.",
+        "fixtureRefs": []
+      }
+    },
+    {
+      "id": "AC15",
+      "publicConcern": "Node lifecycle",
+      "origin": "public_baseline",
+      "publicWording": "Places and transitions can be created, moved, renamed, and deleted.",
+      "controller": {
+        "wording": "Each create action adds one node and pointer release leaves no ghost or active drag.",
+        "revealPolicy": "The shared baseline discloses node controls and pointer-drag mechanics.",
+        "expectedState": "Exactly one intended node remains at the drop position with a clean released state.",
+        "fixtureRefs": []
+      }
+    },
+    {
+      "id": "AC16",
+      "publicConcern": "Arc validity",
+      "origin": "controller_only",
+      "controller": {
+        "wording": "Arcs connect place-to-transition or transition-to-place; same-kind arcs are rejected.",
+        "revealPolicy": "Reveal bipartite-arc semantics only after a qualifying Petri-net semantics question.",
+        "expectedState": "Valid arcs are created once; invalid arcs leave no partial or dangling state.",
+        "fixtureRefs": []
+      }
+    },
+    {
+      "id": "AC17",
+      "publicConcern": "Numeric validation",
+      "origin": "controller_only",
+      "controller": {
+        "wording": "Initial tokens are non-negative integers and arc weights are positive integers.",
+        "revealPolicy": "Reveal numeric-domain constraints only after a qualifying validation question.",
+        "expectedState": "Invalid numeric edits are rejected without changing the prior accepted value.",
+        "fixtureRefs": []
+      }
+    },
+    {
+      "id": "AC18",
+      "publicConcern": "Enabled-transition indication",
+      "origin": "public_baseline",
+      "publicWording": "Transition accessible names expose enabled or disabled state.",
+      "controller": {
+        "wording": "Every transition enabled under the weighted P/T rule is visibly distinguished.",
+        "revealPolicy": "The shared baseline discloses addressability; exact semantics remain controller-only.",
+        "expectedState": "Enabled state recomputes after firing and any edit that changes enablement.",
+        "fixtureRefs": []
+      }
+    },
+    {
+      "id": "AC19",
+      "publicConcern": "Manual transition firing",
+      "origin": "public_baseline",
+      "publicWording": "A selected transition can be fired through the shared control surface.",
+      "controller": {
+        "wording": "Firing consumes weighted inputs and produces weighted outputs; disabled firing is inert.",
+        "revealPolicy": "The shared baseline discloses the manual action; weighted P/T semantics require a qualifying question.",
+        "expectedState": "Input 2 becomes 0, output 0 becomes 3, and the transition becomes disabled.",
+        "fixtureRefs": []
+      }
+    },
+    {
+      "id": "AC20",
+      "publicConcern": "Reset behavior",
+      "origin": "public_baseline",
+      "publicWording": "The editor exposes a reset-marking control.",
+      "controller": {
+        "wording": "Reset restores every place to the saved initial marking.",
+        "revealPolicy": "The action is public baseline; exact initial/current marking semantics require a qualifying question.",
+        "expectedState": "The weighted fixture returns to input 2, output 0, with enablement recomputed.",
+        "fixtureRefs": []
+      }
+    },
+    {
+      "id": "AC21",
+      "publicConcern": "Reload persistence",
+      "origin": "controller_only",
+      "controller": {
+        "wording": "Net structure and initial marking persist across reload.",
+        "revealPolicy": "Reveal persistence scope only after a qualifying save/load or reload question.",
+        "expectedState": "Places, transitions, arcs, weights, labels, and initial marking survive reload.",
+        "fixtureRefs": []
+      }
+    },
+    {
+      "id": "AC22",
+      "publicConcern": "JSON round trip",
+      "origin": "public_baseline",
+      "publicWording": "The shared surface exposes JSON import and export.",
+      "controller": {
+        "wording": "Export followed by import reconstructs a structurally identical net.",
+        "revealPolicy": "The controls are public baseline; schema and equality details require a qualifying question.",
+        "expectedState": "Places, transitions, arcs, directions, weights, labels, and initial marking match.",
+        "fixtureRefs": []
+      }
+    },
+    {
+      "id": "AC23",
+      "publicConcern": "Current versus initial marking persistence",
+      "origin": "controller_only",
+      "controller": {
+        "wording": "Reload restores the initial marking rather than the transient current marking.",
+        "revealPolicy": "Reveal current-versus-initial persistence only after a qualifying simulation-state question.",
+        "expectedState": "After firing then reload, input is 2 and output is 0.",
+        "fixtureRefs": []
+      }
+    },
+    {
+      "id": "AC24",
+      "publicConcern": "Cascade deletion",
+      "origin": "controller_only",
+      "controller": {
+        "wording": "Deleting a node removes every connected arc.",
+        "revealPolicy": "Reveal cascade behavior only after a qualifying deletion-integrity question.",
+        "expectedState": "No exported or in-memory arc references a deleted endpoint.",
+        "fixtureRefs": []
+      }
+    },
+    {
+      "id": "AC25",
+      "publicConcern": "Malformed import safety",
+      "origin": "controller_only",
+      "controller": {
+        "wording": "Malformed and schema-invalid imports are rejected without corrupting the current net.",
+        "revealPolicy": "Reveal failure-safety expectations only after a qualifying import-validation question.",
+        "expectedState": "Both invalid fixtures produce feedback and leave the prior valid net unchanged.",
+        "fixtureRefs": [
+          "testing/execution-comparisons/cases/minimal-petri-net-editor/controller/fixtures/invalid/not-json.txt",
+          "testing/execution-comparisons/cases/minimal-petri-net-editor/controller/fixtures/invalid/schema-invalid.json"
+        ]
+      }
+    },
+    {
+      "id": "AC26",
+      "publicConcern": "New and clear behavior",
+      "origin": "public_baseline",
+      "publicWording": "The editor exposes a new-net control.",
+      "controller": {
+        "wording": "New clears the current net, replaces persisted state, and reload remains empty.",
+        "revealPolicy": "The action is public baseline; replacement and reload semantics require a qualifying question.",
+        "expectedState": "Places, transitions, and arcs are all zero before and after reload.",
+        "fixtureRefs": []
+      }
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+Command test: passed (exit 0). Full raw output remains in the controller scratch record.

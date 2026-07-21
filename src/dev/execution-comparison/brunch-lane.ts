@@ -30,6 +30,7 @@ export interface PreparedBrunchExecutionWorkspace {
 export async function prepareBrunchExecutionWorkspace(input: {
   readonly workspaceDir: string;
   readonly caseDir: string;
+  readonly specificationMode?: 'coded' | 'opaque';
 }): Promise<PreparedBrunchExecutionWorkspace> {
   await mkdir(input.workspaceDir, { recursive: true });
   const existing = await readdir(input.workspaceDir);
@@ -42,7 +43,9 @@ export async function prepareBrunchExecutionWorkspace(input: {
   const executor = await openWorkspaceCommandExecutor(input.workspaceDir);
   const seeded = seedFixture(
     executor,
-    buildBrunchExecutionSeed({ specification, contract: packet.contract }),
+    input.specificationMode === 'opaque'
+      ? buildOpaqueBrunchExecutionSeed({ specification, contract: packet.contract })
+      : buildBrunchExecutionSeed({ specification, contract: packet.contract }),
   );
   const publicDir = join(input.workspaceDir, '.brunch', 'execution-comparison', 'public');
   await mkdir(publicDir, { recursive: true });
@@ -75,7 +78,49 @@ export function buildBrunchExecutionSeed(input: {
 }): SeedFixture {
   const sections = parseApprovedSpecification(input.specification);
   const nodes: SeedFixtureNode[] = sections.map((section, index) => sectionNode(section, index + 1));
-  const next = sections.length + 1;
+  return buildExecutionSeed({
+    nodes,
+    contract: input.contract,
+  });
+}
+
+export function buildOpaqueBrunchExecutionSeed(input: {
+  readonly specification: string;
+  readonly contract: ExecutionCasePublicContract;
+}): SeedFixture {
+  return buildExecutionSeed({
+    nodes: [
+      {
+        local_id: 1,
+        plane: 'intent',
+        kind: 'requirement',
+        title: 'Approved target-authored specification',
+        body: input.specification,
+        basis: 'explicit',
+        settlement: 'settled',
+        source: 'e2e-handoff [exact-spec]',
+      },
+      {
+        local_id: 2,
+        plane: 'intent',
+        kind: 'criterion',
+        title: 'Shared black-box case contract passes',
+        body: 'The implementation satisfies the predeclared shared delivery and accessibility contract.',
+        basis: 'explicit',
+        settlement: 'settled',
+        source: 'public-contract [criterion]',
+      },
+    ],
+    contract: input.contract,
+  });
+}
+
+function buildExecutionSeed(input: {
+  readonly nodes: SeedFixtureNode[];
+  readonly contract: ExecutionCasePublicContract;
+}): SeedFixture {
+  const nodes = [...input.nodes];
+  const next = nodes.length + 1;
   const deliveryId = next;
   const accessibilityId = next + 1;
   const frontierId = next + 2;
