@@ -69,6 +69,27 @@ describe('validateCandidatePlan', () => {
     ).toContain('dependency_unknown');
   });
 
+  it('rejects scoped slices whose worker context would fail at execution', () => {
+    const base = coherentCandidate();
+    const first = base.slices[0]!;
+    const aggregateCoveragePreserved = {
+      ...base,
+      slices: [
+        { ...first, criterionIds: [] },
+        { ...base.slices[1]!, criterionIds: ['AC1', 'AC2'] },
+      ],
+    };
+
+    expect(codes(aggregateCoveragePreserved)).toContain('slice_without_criterion');
+    expect(codes(aggregateCoveragePreserved)).not.toContain('criterion_dropped');
+    expect(codes({ ...base, slices: [{ ...first, designItemIds: [] }, base.slices[1]!] })).toContain(
+      'slice_without_design_context',
+    );
+    expect(codes({ ...base, slices: [{ ...first, verificationItemIds: [] }, base.slices[1]!] })).toContain(
+      'slice_without_verification_context',
+    );
+  });
+
   it('flags dependency cycles through the shared cycle helper', () => {
     const base = coherentCandidate();
     const cyclic = {

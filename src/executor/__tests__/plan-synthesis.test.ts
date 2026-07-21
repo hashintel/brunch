@@ -1,6 +1,11 @@
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { PlannerPort } from '../execution-ports.js';
+import { readSliceRequestContext } from '../isolated-slice-operations.js';
 import { planFilePayload } from '../plan-file.js';
 import { previewPlan } from '../plan-preview.js';
 import { PLAN_SYNTHESIS_ROUND_TIMEOUT_MS, synthesizePlan } from '../plan-synthesis.js';
@@ -73,6 +78,63 @@ describe('synthesizePlan', () => {
     };
     expect(repairCall.findings?.map((finding) => finding.code)).toContain('dependency_cycle');
     expect(repairCall.priorCandidate).toEqual(cyclic);
+  });
+
+  it('repairs incomplete scoped-slice context before every admitted slice reaches execution', async () => {
+    const base = coherentCandidate();
+    const invalid = {
+      ...base,
+      slices: [
+        { ...base.slices[0]!, criterionIds: [] },
+        { ...base.slices[1]!, criterionIds: ['AC1', 'AC2'] },
+      ],
+    };
+    const planner = scriptedPlanner([invalid, coherentCandidate()]);
+
+    const result = await synthesizePlan({ projection, detected: [], providers, planner });
+
+    expect(result.status).toBe('admitted');
+    if (result.status !== 'admitted') return;
+    expect(result.history[0]!.findings.map((finding) => finding.code)).toContain('slice_without_criterion');
+    const repairCall = planner.calls[1] as {
+      findings?: readonly { code: string; itemId?: string }[];
+      priorCandidate?: unknown;
+    };
+    expect(repairCall.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'slice_without_criterion', itemId: 'task-1' }),
+      ]),
+    );
+    expect(repairCall.priorCandidate).toEqual(invalid);
+
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-plan-admission-parity-'));
+    const populatedPath = join(cwd, 'plan.json');
+    await writeFile(
+      populatedPath,
+      JSON.stringify(
+        planFilePayload(previewPlan(result.draft, { executionContract: result.executionContract })),
+      ),
+      'utf8',
+    );
+    const contexts = await Promise.all(
+      result.draft.slices.map((slice) =>
+        readSliceRequestContext({
+          cwd,
+          runId: 'admission-parity',
+          populatedPlanPath: populatedPath,
+          sliceId: slice.id,
+        }),
+      ),
+    );
+
+    expect(contexts).toEqual(
+      result.draft.slices.map((slice) =>
+        expect.objectContaining({
+          status: 'ok',
+          requestContext: expect.objectContaining({ scopeId: slice.scopeId }),
+        }),
+      ),
+    );
   });
 
   it('blocks after the bounded repair rounds with no fallback plan on any path', async () => {
