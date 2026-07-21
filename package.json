@@ -32,7 +32,7 @@
     "esbuild": "^0.25.12",
     "react-inspector": "^9.0.0",
     "hono": "4.12.25",
-    "protobufjs": "7.6.4",
+    "protobufjs": "7.6.5",
     "ws": "8.21.0"
   },
   "scripts": {
