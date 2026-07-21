@@ -9,6 +9,7 @@ import {
   brunchFauxProviderConfig,
   defaultBrunchFauxModel,
 } from '../../probes/faux-provider.js';
+import { LIVE_SESSION_EVENT_METHOD, type LiveSessionEventFrame } from '../../rpc/live-session-contract.js';
 import { BRUNCH_UPDATED_METHOD } from '../../rpc/product-updates.js';
 import type { JsonRpcResponse } from '../../rpc/protocol.js';
 import { BRUNCH_SESSION_EVENT_METHOD, type SessionEventRelayFrame } from '../../rpc/session-event-relay.js';
@@ -19,7 +20,7 @@ export type BrunchUpdatedFrame = {
   readonly params: unknown;
 };
 
-export type ReceivedFrame = SessionEventRelayFrame | BrunchUpdatedFrame;
+export type ReceivedFrame = SessionEventRelayFrame | BrunchUpdatedFrame | LiveSessionEventFrame;
 
 export class RpcSocket {
   readonly #socket: WebSocket;
@@ -66,6 +67,12 @@ export class RpcSocket {
     );
   }
 
+  liveSessionEvents(): readonly LiveSessionEventFrame[] {
+    return this.#frames.filter(
+      (frame): frame is LiveSessionEventFrame => frame.method === LIVE_SESSION_EVENT_METHOD,
+    );
+  }
+
   request(method: string, params?: unknown): Promise<unknown> {
     const id = this.#nextId;
     this.#nextId += 1;
@@ -99,7 +106,9 @@ export class RpcSocket {
     const message = JSON.parse(data.toString('utf8')) as JsonRpcResponse | ReceivedFrame;
     if (
       'method' in message &&
-      (message.method === BRUNCH_SESSION_EVENT_METHOD || message.method === BRUNCH_UPDATED_METHOD)
+      (message.method === BRUNCH_SESSION_EVENT_METHOD ||
+        message.method === BRUNCH_UPDATED_METHOD ||
+        message.method === LIVE_SESSION_EVENT_METHOD)
     ) {
       this.#frames.push(message);
       if (message.method === BRUNCH_SESSION_EVENT_METHOD) {
