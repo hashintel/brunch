@@ -61,7 +61,18 @@ Display all of the following together before any target preparation or launch:
 
 Ask through ordinary typed text for explicit **approve**, **revise**, or **reject**. Ambiguity, questions, qualifications, partial approval, or silence are not approval. Revise and redisplay the complete setup, or reject and stop. Do not prepare a target, start a shell, invoke an executor, or invoke the oracle before explicit approval.
 
-After approval, save byte-identical `spec.md`, `public-contract.json`, and `run-setup.md` snapshots under the unused scratch run identity. Keep the two frozen inputs separate and unchanged.
+Immediately after approval and before saving snapshots or preparing the first lane, capture the controller checkout once:
+
+```sh
+npx tsx src/dev/comparison-provenance.ts capture \
+  --run-directory .fixtures/scratch/execution-comparisons/<run-id> \
+  --comparison-kind execution \
+  --run-id <run-id>
+```
+
+Treat an existing `provenance.json`, malformed metadata, or capture failure as a setup collision/failure and stop. Never overwrite it or reconstruct provenance from the checkout used later for reporting.
+
+Then save byte-identical `spec.md`, `public-contract.json`, and `run-setup.md` snapshots under the same scratch run identity. Keep the two frozen inputs separate and unchanged.
 
 ## Run approved lanes
 
@@ -154,8 +165,8 @@ The immutable writer rejects an existing attempt id. Never overwrite, delete, re
 
 ## Report
 
-After all selected lanes terminate and cleanup is proven, write `report.md` under the run scratch root. Present validity before outcomes for each lane. Then report factual terminal state, cleanup, produced output, common command results, and unchanged browser-oracle results.
+After all selected lanes terminate and cleanup is proven, write `report.md` beside the unchanged run-start `provenance.json` under the run scratch root. Present validity before outcomes for each lane. Then report factual terminal state, cleanup, produced output, common command results, and unchanged browser-oracle results.
 
 Keep common evidence and Brunch-only diagnostics visibly separate. Use `not_assessable` for unavailable common evidence. Do not score, rank, choose a winner, claim reliability, infer parity from unavailable or product-private evidence, or let Brunch-only run/Petri/debug data improve its common result. Do not turn ordinary visual hierarchy, clarity, or drag feel into an automatic mechanical verdict.
 
-Finish with the case id, run id, executor order, each attempt id and terminal/validity state, cleanup result, retained output paths, browser report paths, attempt-record paths, and `report.md`. State any remaining human witness plainly.
+Finish with the case id, run id, `provenance.json` path, executor order, each attempt id and terminal/validity state, cleanup result, retained output paths, browser report paths, attempt-record paths, and `report.md`. State any remaining human witness plainly.

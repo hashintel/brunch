@@ -194,8 +194,38 @@ requirePhrases('.agents/skills/comparison-reporting/references/report-examples.m
   'Hidden fixtures and exact oracle journeys are intentionally omitted',
 ]);
 
+const publishSkillPath = '.agents/skills/comparison-publish/SKILL.md';
+const publishSkill = requirePhrases(publishSkillPath, [
+  'name: comparison-publish',
+  'disable-model-invocation: true',
+  '/comparison-publish <run-directory>',
+  '../comparison-reporting/SKILL.md',
+  '../notion-reporting/SKILL.md',
+  'collection://01130dd8-6a1c-420a-b84d-166766550163',
+  'Run ID + Phase',
+  'provenance.json',
+  'Never infer historical provenance from the current checkout',
+  'validity before outcomes',
+  'controller-only',
+  'smallest safe mutation',
+  'More than one match',
+  'Re-query the database and fetch the report page after every write',
+]);
+const publishDescription = publishSkill.match(/^description:\s*(.+)$/m)?.[1] ?? '';
+if (
+  !publishDescription.includes('comparison') ||
+  !publishDescription.includes('Notion') ||
+  !publishDescription.includes('/comparison-publish')
+) {
+  fail(`${publishSkillPath}: description must name the explicit comparison publication trigger`);
+}
+if (!/^disable-model-invocation:\s*true$/m.test(publishSkill)) {
+  fail(`${publishSkillPath}: publication skill must disable model invocation`);
+}
+
 checkRelativeMarkdownLinks('.agents/skills/notion-reporting');
 checkRelativeMarkdownLinks('.agents/skills/comparison-reporting');
+checkRelativeMarkdownLinks('.agents/skills/comparison-publish');
 
 if (errors.length > 0) {
   console.error(`check:reporting-skills FAILED (${errors.length})`);
@@ -203,4 +233,4 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log('check:reporting-skills OK — 2 reporting skill contracts consistent');
+console.log('check:reporting-skills OK — 3 reporting skill contracts consistent');

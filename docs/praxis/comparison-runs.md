@@ -47,6 +47,27 @@ npm run dev-cli -- export --workspace <workspace> --spec-id 1 --out <seed.json>
 
 `rpc` and `print` are deterministic observations. `mutate` is the explicit local write seam. `export` turns reviewed workbench state into a candidate fixture; review it before tracking it.
 
+## Immutable run-start provenance
+
+Every new elicitation, execution, or end-to-end comparison captures `provenance.json` immediately after the operator approves the setup and before the first lane starts. The snapshot records the root package release, exact tag when present, full controller commit and URL, branch, dirty state, run identity, and capture time:
+
+```sh
+npx tsx src/dev/comparison-provenance.ts capture \
+  --run-directory <unused-or-approved-run-directory> \
+  --comparison-kind <elicitation|execution|end_to_end> \
+  --run-id <run-id>
+```
+
+The writer is intentionally collision-failing. Never overwrite this file, recapture it after a checkout changes, or infer historical provenance from the checkout used to publish a report. Keep the snapshot when promoting a run from scratch to `.fixtures/runs/`. Existing historical runs without a retained snapshot remain unchanged and must not be backfilled from memory or current Git state.
+
+After the run is complete and its retained `report.md` is final, publish explicitly:
+
+```text
+/comparison-publish <run-directory>
+```
+
+The publication skill validates `report.md`, `provenance.json`, and the available kind-specific contracts; produces a validity-first, controller-safe copy; and upserts the existing Notion Comparison Reports database by `Run ID + Phase`. A repeated invocation updates the same report row, while duplicate matching rows stop publication for operator resolution. Publication never infers the release or commit from the publisher's checkout.
+
 ## Quick start: compare execution
 
 From a trusted top-level project Pi session, run:
@@ -80,6 +101,8 @@ oracle material remains outside target workspaces, and each matrix leaf referenc
 immutable `ExecutionAttempt` format. Reports must present elicitation validity, exact handoff identity,
 execution validity, and requirement-level output evidence separately. This one-case tracer supports
 within-executor/spec contrasts only—not a winner, reliability estimate, or causal claim.
+
+After the complete end-to-end setup is approved, capture `end_to_end` provenance in its scratch run root before starting either elicitation lane. Promote that exact snapshot beside the handoffs, attempts, ledger, and report; the later execution matrix does not recapture it.
 
 The first promoted witness is
 [`petri-editor-e2e-20260721T132600Z`](../../.fixtures/runs/end-to-end-comparison/petri-editor-e2e-20260721T132600Z/).
@@ -125,10 +148,11 @@ The round-one materials remain useful for focused improvement and regression stu
 The rigorous campaign loop is:
 
 1. instantiate [`comparison-runs/mission-packet.md`](comparison-runs/mission-packet.md), keeping the reveal key outside every target cwd;
-2. drive one fresh lane with [the actor recipe](../../.agents/skills/agent-as-user-comparison/SKILL.md);
-3. retain target-visible interaction, validity/intervention notes, cleanup status, and the target-authored ready document under `.fixtures/scratch/comparisons/<campaign-id>/`;
-4. when the study needs structured judgment, run the masked-outcome and unblinded-process passes from the judgment prompt pack and have the named human adjudicator review the drafts; and
-5. after review, promote the portable bundle to `.fixtures/runs/agent-as-user-comparison/<campaign-id>/` and run `npm run check:promoted-run-paths` before commit.
+2. after setup approval, capture immutable `elicitation` provenance under `.fixtures/scratch/comparisons/<campaign-id>/` before the first lane;
+3. drive one fresh lane with [the actor recipe](../../.agents/skills/agent-as-user-comparison/SKILL.md);
+4. retain target-visible interaction, validity/intervention notes, cleanup status, and the target-authored ready document under `.fixtures/scratch/comparisons/<campaign-id>/`;
+5. when the study needs structured judgment, run the masked-outcome and unblinded-process passes from the judgment prompt pack and have the named human adjudicator review the drafts; and
+6. after review, promote the portable bundle, including unchanged `provenance.json`, to `.fixtures/runs/agent-as-user-comparison/<campaign-id>/` and run `npm run check:promoted-run-paths` before commit.
 
 Use push-driven hands-free control: project config lowers the query fallback floor to 5 seconds, forwards quiet output after roughly 3 seconds, and prunes superseded viewport reads before each LLM call. Send input and end the turn; act on the pushed quiet update. Query only when no push arrives or the incremental tail is ambiguous, and then read the current tail—never page historical scrollback.
 
