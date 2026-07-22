@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -13,6 +14,8 @@ import {
   createNetworkDeniedCommandRunner,
   materializePinnedSourceTree,
   SolutionIsolationAdmissionError,
+  type MaterializedHistoricalReplayPrefix,
+  type MaterializedPinnedSourceTree,
   type NetworkDeniedCommandRunner,
   type SolutionIsolationPolicy,
 } from '../solution-isolation.js';
@@ -131,6 +134,7 @@ describe('brownfield historical-solution isolation', () => {
       sourceCommit: source.sourceCommit,
       targetDir,
     });
+    const prefix = await freezePacketChild(materialized);
     const probeUrl = await localProbeUrl();
     const forbiddenRoots = [
       source.repositoryDir,
@@ -141,7 +145,7 @@ describe('brownfield historical-solution isolation', () => {
     await Promise.all(forbiddenRoots.slice(1).map(async (path) => await mkdir(path)));
 
     const admission = await admitHistoricalReplay({
-      materialized,
+      prefix,
       policies: strictPolicies(targetDir, forbiddenRoots),
       forbiddenRoots,
       networkProbeUrls: [probeUrl, 'https://github.com', 'https://linear.app', 'https://www.notion.so'],
@@ -169,11 +173,12 @@ describe('brownfield historical-solution isolation', () => {
       sourceCommit: source.sourceCommit,
       targetDir,
     });
+    const prefix = await freezePacketChild(materialized);
     const probeUrl = await localProbeUrl();
     const forbiddenRoots = [source.repositoryDir, join(root, 'controller')];
     await mkdir(forbiddenRoots[1]!);
     const baseInput = {
-      materialized,
+      prefix,
       forbiddenRoots,
       networkProbeUrls: [probeUrl, 'https://github.com', 'https://linear.app', 'https://www.notion.so'],
       verifier: createNetworkDeniedCommandRunner({ forbiddenReadRoots: forbiddenRoots }),
@@ -204,7 +209,7 @@ describe('brownfield historical-solution isolation', () => {
       reasons: [expect.objectContaining({ code: 'policy_weakened' })],
     });
 
-    await writeFile(join(targetDir, 'historical-reference.patch'), 'must not be target-visible\n');
+    await writeFile(join(targetDir, 'package.json'), '{"scripts":{"verify":"node changed.mjs"}}\n');
     await expect(
       admitHistoricalReplay({
         ...baseInput,
@@ -213,7 +218,7 @@ describe('brownfield historical-solution isolation', () => {
     ).rejects.toMatchObject({
       reasons: [expect.objectContaining({ code: 'git_worktree_changes_present' })],
     });
-    await rm(join(targetDir, 'historical-reference.patch'));
+    await writeFile(join(targetDir, 'package.json'), '{"scripts":{"verify":"node verify.mjs"}}\n');
 
     await git(targetDir, ['remote', 'add', 'origin', 'https://github.com/hashintel/brunch.git']);
     await git(targetDir, ['branch', 'later-solution']);
@@ -289,3 +294,33 @@ describe('brownfield historical-solution isolation', () => {
     );
   });
 });
+
+async function freezePacketChild(
+  materialized: MaterializedPinnedSourceTree,
+): Promise<MaterializedHistoricalReplayPrefix> {
+  const packetFiles = [
+    { path: 'public-contract.json' as const, bytes: Buffer.from('{"schemaVersion":1}\n') },
+    { path: 'spec.md' as const, bytes: Buffer.from('# Exact packet\n') },
+  ];
+  for (const file of packetFiles) {
+    await writeFile(join(materialized.targetDir, file.path), file.bytes);
+  }
+  await git(materialized.targetDir, ['add', '--', ...packetFiles.map(({ path }) => path)]);
+  await git(materialized.targetDir, [
+    '-c',
+    'user.name=Isolation Test',
+    '-c',
+    'user.email=isolation@invalid.local',
+    'commit',
+    '-m',
+    'Freeze exact packet',
+  ]);
+  return {
+    ...materialized,
+    baseSha: await git(materialized.targetDir, ['rev-parse', 'HEAD']),
+    packetFiles: packetFiles.map(({ path, bytes }) => ({
+      path,
+      sha256: `sha256:${createHash('sha256').update(bytes).digest('hex')}`,
+    })),
+  };
+}

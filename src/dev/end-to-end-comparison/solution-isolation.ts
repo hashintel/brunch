@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { realpathSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -37,6 +38,14 @@ export interface MaterializedPinnedSourceTree {
   readonly sourceCommit: string;
   readonly sourceTree: string;
   readonly syntheticCommit: string;
+}
+
+export interface MaterializedHistoricalReplayPrefix extends MaterializedPinnedSourceTree {
+  readonly baseSha: string;
+  readonly packetFiles: readonly {
+    readonly path: 'public-contract.json' | 'spec.md';
+    readonly sha256: string;
+  }[];
 }
 
 export interface ClaudeSolutionIsolationPolicy {
@@ -124,9 +133,11 @@ export async function materializePinnedSourceTree(input: {
   ).stdout.trim();
   const archiveDir = await mkdtemp(join(tmpdir(), 'brunch-pinned-source-'));
   const archivePath = join(archiveDir, 'source.tar');
+  let targetCreated = false;
   try {
     await mkdir(dirname(input.targetDir), { recursive: true });
     await mkdir(input.targetDir);
+    targetCreated = true;
     await commandChecked(runner, input.sourceRepositoryDir, 'git', [
       'archive',
       '--format=tar',
@@ -156,7 +167,9 @@ export async function materializePinnedSourceTree(input: {
       syntheticCommit,
     };
   } catch (error) {
-    await rm(input.targetDir, { recursive: true, force: true });
+    if (targetCreated) {
+      await rm(input.targetDir, { recursive: true, force: true });
+    }
     throw error;
   } finally {
     await rm(archiveDir, { recursive: true, force: true });
@@ -237,7 +250,7 @@ export function assertTargetBoundedPath(policy: SolutionIsolationPolicy, request
 }
 
 export async function admitHistoricalReplay(input: {
-  readonly materialized: MaterializedPinnedSourceTree;
+  readonly prefix: MaterializedHistoricalReplayPrefix;
   readonly policies: readonly SolutionIsolationPolicy[];
   readonly forbiddenRoots: readonly string[];
   readonly networkProbeUrls: readonly string[];
@@ -259,15 +272,15 @@ export async function admitHistoricalReplay(input: {
   const runner = input.runner ?? runCommand;
   const reasons: IsolationAdmissionReason[] = [];
   inspectVerifier(input.verifier, input.forbiddenRoots, reasons);
-  inspectPolicies(input.policies, input.materialized.targetDir, input.forbiddenRoots, reasons);
+  inspectPolicies(input.policies, input.prefix.targetDir, input.forbiddenRoots, reasons);
   inspectForbiddenRoots(input.policies, input.forbiddenRoots, reasons);
-  await inspectMaterializedRepository(input.materialized, runner, reasons);
-  await inspectTargetSymlinks(input.materialized.targetDir, reasons);
+  await inspectMaterializedRepository(input.prefix, runner, reasons);
+  await inspectTargetSymlinks(input.prefix.targetDir, reasons);
   if (reasons.length > 0) throw new SolutionIsolationAdmissionError(reasons);
 
   for (const forbiddenRoot of input.forbiddenRoots) {
     const result = await input.verifier.run('/bin/ls', ['-la', forbiddenRoot], {
-      cwd: input.materialized.targetDir,
+      cwd: input.prefix.targetDir,
       timeoutMs: 15_000,
       maxOutputBytes: 16 * 1024,
     });
@@ -282,7 +295,7 @@ export async function admitHistoricalReplay(input: {
   }
 
   const curlReady = await input.verifier.run('/usr/bin/curl', ['--version'], {
-    cwd: input.materialized.targetDir,
+    cwd: input.prefix.targetDir,
     timeoutMs: 15_000,
     maxOutputBytes: 16 * 1024,
   });
@@ -294,7 +307,7 @@ export async function admitHistoricalReplay(input: {
 
   for (const url of new Set([...input.networkProbeUrls, ...REQUIRED_SOLUTION_PROBE_URLS])) {
     const result = await input.verifier.run('/usr/bin/curl', ['--fail', '--silent', '--show-error', url], {
-      cwd: input.materialized.targetDir,
+      cwd: input.prefix.targetDir,
       timeoutMs: 15_000,
       maxOutputBytes: 16 * 1024,
     });
@@ -306,7 +319,7 @@ export async function admitHistoricalReplay(input: {
   const localChecks = [];
   for (const check of input.localChecks) {
     const result = await input.verifier.run(check.command, check.args, {
-      cwd: input.materialized.targetDir,
+      cwd: input.prefix.targetDir,
       timeoutMs: 10 * 60_000,
       maxOutputBytes: 128 * 1024,
     });
@@ -324,8 +337,8 @@ export async function admitHistoricalReplay(input: {
   return {
     status: 'admitted',
     recipeVersion: RECIPE_VERSION,
-    sourceCommit: input.materialized.sourceCommit,
-    sourceTree: input.materialized.sourceTree,
+    sourceCommit: input.prefix.sourceCommit,
+    sourceTree: input.prefix.sourceTree,
     executors: input.policies.map(({ executor }) => executor),
     localChecks,
   };
@@ -452,7 +465,7 @@ function inspectForbiddenRoots(
 }
 
 async function inspectMaterializedRepository(
-  materialized: MaterializedPinnedSourceTree,
+  materialized: MaterializedHistoricalReplayPrefix,
   runner: CommandRunner,
   reasons: IsolationAdmissionReason[],
 ): Promise<void> {
@@ -472,15 +485,65 @@ async function inspectMaterializedRepository(
   const commitCount = (
     await gitChecked(runner, materialized.targetDir, ['rev-list', '--count', 'HEAD'])
   ).stdout.trim();
-  if (commitCount !== '1') {
+  if (commitCount !== '2') {
     reasons.push({ code: 'git_history_present', detail: `target has ${commitCount} reachable commits` });
   }
   const head = (await gitChecked(runner, materialized.targetDir, ['rev-parse', 'HEAD'])).stdout.trim();
-  if (head !== materialized.syntheticCommit) {
+  if (head !== materialized.baseSha) {
     reasons.push({
       code: 'identity_mismatch',
-      detail: 'materialized target commit does not match declaration',
+      detail: 'historical replay HEAD does not match the declared packet child',
     });
+  }
+  const roots = (
+    await gitChecked(runner, materialized.targetDir, ['rev-list', '--max-parents=0', materialized.baseSha])
+  ).stdout
+    .trim()
+    .split('\n')
+    .filter(Boolean);
+  if (roots.length !== 1 || roots[0] !== materialized.syntheticCommit) {
+    reasons.push({
+      code: 'identity_mismatch',
+      detail: 'historical replay root does not match the declared materialized source commit',
+    });
+  }
+  const parent = (
+    await gitChecked(runner, materialized.targetDir, ['rev-parse', `${materialized.baseSha}^`])
+  ).stdout.trim();
+  if (parent !== materialized.syntheticCommit) {
+    reasons.push({
+      code: 'identity_mismatch',
+      detail: 'historical replay packet child has the wrong parent',
+    });
+  }
+  const packetDelta = (
+    await gitChecked(runner, materialized.targetDir, [
+      'diff',
+      '--name-only',
+      materialized.syntheticCommit,
+      materialized.baseSha,
+    ])
+  ).stdout
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .sort();
+  const declaredPacketFiles = materialized.packetFiles.map(({ path }) => path).sort();
+  if (!sameStrings(packetDelta, declaredPacketFiles)) {
+    reasons.push({
+      code: 'identity_mismatch',
+      detail: `historical replay child is not packet-only: ${packetDelta.join(', ')}`,
+    });
+  }
+  for (const file of materialized.packetFiles) {
+    const bytes = await readFile(join(materialized.targetDir, file.path));
+    const digest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+    if (digest !== file.sha256) {
+      reasons.push({
+        code: 'identity_mismatch',
+        detail: `historical replay packet drifted: ${file.path}`,
+      });
+    }
   }
   const remotes = (await gitChecked(runner, materialized.targetDir, ['remote'])).stdout.trim();
   if (remotes.length > 0) {
@@ -497,7 +560,7 @@ async function inspectMaterializedRepository(
     reasons.push({ code: 'git_ref_present', detail: extraRefs.join(', ') });
   }
   const worktreeChanges = (
-    await gitChecked(runner, materialized.targetDir, ['status', '--porcelain'])
+    await gitChecked(runner, materialized.targetDir, ['status', '--porcelain', '--untracked-files=no'])
   ).stdout.trim();
   if (worktreeChanges.length > 0) {
     reasons.push({ code: 'git_worktree_changes_present', detail: worktreeChanges });

@@ -128,6 +128,13 @@ export type ExecutionCasePublicContract =
   | BrunchHostLandingExecutionCasePublicContract
   | PetrinautOptimizationExecutionCasePublicContract;
 
+export type PinnedExecutionCasePublicContract = Extract<
+  ExecutionCasePublicContract,
+  { readonly case: { readonly repository: { readonly substrate: 'pinned_git' } } }
+>;
+
+export type PinnedExecutionCaseId = PinnedExecutionCasePublicContract['case']['id'];
+
 export function isBrowserExecutionCaseContract(
   value: ExecutionCasePublicContract,
 ): value is BrowserExecutionCasePublicContract {

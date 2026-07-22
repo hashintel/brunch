@@ -1,19 +1,19 @@
 import { execFile } from 'node:child_process';
-import { lstat, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { promisify } from 'node:util';
 
-import type { CommandRunner } from '../../app/command-runner.js';
+import { prepareBrunchExecutionWorkspace } from './brunch-lane.js';
 import {
-  preparePinnedExecutionWorkspace,
-  type PreparedPinnedExecutionWorkspace,
-} from '../end-to-end-comparison/pinned-source-preparation.js';
-import { prepareBrunchExecutionWorkspace, seedBrownfieldBrunchExecutionWorkspace } from './brunch-lane.js';
-import {
-  isPetrinautOptimizationExecutionCaseContract,
+  isBrowserExecutionCaseContract,
   loadPublicCasePacket,
   type PublicCasePacket,
 } from './case-contract.js';
+import {
+  prepareHistoricalReplayTarget,
+  type HistoricalReplayReady,
+  type HistoricalReplayTargetDependencies,
+} from './historical-replay-target.js';
 
 const execFileAsync = promisify(execFile);
 const SAFE_CASE_ID = /^[a-z0-9][a-z0-9-]*$/u;
@@ -48,15 +48,8 @@ export type PreparedExecutionTarget =
       readonly baseSha: string;
     })
   | (ResolvedExecutionCase &
-      Omit<PreparedPinnedExecutionWorkspace, 'lane'> & {
-        readonly preparation: 'pinned_git';
-        readonly lane: 'brunch';
-        readonly specId: number;
-      })
-  | (ResolvedExecutionCase &
-      Omit<PreparedPinnedExecutionWorkspace, 'lane'> & {
-        readonly preparation: 'pinned_git';
-        readonly lane: 'claude_code';
+      HistoricalReplayReady & {
+        readonly preparation: 'historical_replay';
       });
 
 export async function listExecutionCases(casesRoot: string): Promise<ExecutionCaseSummary[]> {
@@ -99,75 +92,48 @@ export async function resolveExecutionCase(
   };
 }
 
-export async function prepareExecutionTarget(input: {
-  readonly lane: 'brunch' | 'claude_code';
-  readonly caseReference: string;
-  readonly casesRoot: string;
-  readonly targetDir: string;
-  readonly controllerRoot?: string;
-  readonly sourceRepositoryDir?: string;
-  readonly dependencyInstallRunner?: CommandRunner;
-}): Promise<PreparedExecutionTarget> {
+export async function prepareExecutionTarget(
+  input: {
+    readonly lane: 'brunch' | 'claude_code';
+    readonly caseReference: string;
+    readonly casesRoot: string;
+    readonly targetDir: string;
+    readonly controllerRoot?: string;
+    readonly sourceRepositoryDir?: string;
+  },
+  dependencies: HistoricalReplayTargetDependencies = {},
+): Promise<PreparedExecutionTarget> {
   const selected = await resolveExecutionCase(input.caseReference, input.casesRoot);
-  if (isPetrinautOptimizationExecutionCaseContract(selected.packet.contract)) {
+  const contract = selected.packet.contract;
+  if (!isBrowserExecutionCaseContract(contract) && contract.case.repository.substrate === 'pinned_git') {
     if (input.sourceRepositoryDir === undefined) {
       throw new Error('pinned execution case requires --source-repository');
     }
-    if (!isAbsolute(input.sourceRepositoryDir)) {
-      throw new Error('pinned source repository must be an absolute path');
-    }
-    const sourceRepository = await lstat(input.sourceRepositoryDir);
-    if (!sourceRepository.isDirectory() || sourceRepository.isSymbolicLink()) {
-      throw new Error('pinned source repository must be a real directory, not a symlink');
-    }
-    if (input.controllerRoot === undefined || !isAbsolute(input.controllerRoot)) {
+    if (input.controllerRoot === undefined) {
       throw new Error('pinned execution case requires an absolute controller root');
     }
-    const prepared = await preparePinnedExecutionWorkspace({
-      lane: input.lane,
-      sourceRepositoryDir: input.sourceRepositoryDir,
-      sourceCommit: selected.packet.contract.case.repository.parentCommit,
-      expectedSourceTree: selected.packet.contract.case.repository.parentTree,
-      targetDir: input.targetDir,
-      controllerRoot: input.controllerRoot,
-      specificationPath: join(selected.caseDir, selected.packet.contract.case.specification),
-      publicContractTemplatePath: join(selected.caseDir, 'public-contract.json'),
-      ...(input.dependencyInstallRunner === undefined
-        ? {}
-        : { dependencyInstallRunner: input.dependencyInstallRunner }),
-    });
-    if (prepared.lane === 'brunch') {
-      try {
-        const seeded = await seedBrownfieldBrunchExecutionWorkspace({
-          workspaceDir: prepared.targetDir,
-        });
-        const trackedStatus = await gitOutput(
-          ['status', '--porcelain', '--untracked-files=no'],
-          prepared.targetDir,
-        );
-        if (trackedStatus.length > 0) {
-          throw new Error(`Brunch graph preparation modified tracked source: ${trackedStatus}`);
-        }
-        return {
-          ...selected,
-          ...prepared,
-          preparation: 'pinned_git',
-          lane: 'brunch',
-          specId: seeded.specId,
-        };
-      } catch (error) {
-        await rm(prepared.targetDir, { recursive: true, force: true });
-        throw error;
-      }
-    }
+    const prepared = await prepareHistoricalReplayTarget(
+      {
+        lane: input.lane,
+        selectedCase: selected,
+        sourceRepositoryDir: input.sourceRepositoryDir,
+        targetDir: input.targetDir,
+        controllerRoot: input.controllerRoot,
+      },
+      dependencies,
+    );
     return {
       ...selected,
       ...prepared,
-      preparation: 'pinned_git',
-      lane: 'claude_code',
+      preparation: 'historical_replay',
     };
   }
-  if (input.sourceRepositoryDir !== undefined || input.dependencyInstallRunner !== undefined) {
+  if (
+    input.sourceRepositoryDir !== undefined ||
+    dependencies.runner !== undefined ||
+    dependencies.dependencyInstallRunner !== undefined ||
+    dependencies.createVerifier !== undefined
+  ) {
     throw new Error('--source-repository is valid only for pinned execution cases');
   }
   if (input.lane === 'brunch') {

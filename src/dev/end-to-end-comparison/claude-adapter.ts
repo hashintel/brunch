@@ -5,7 +5,10 @@ import { fileURLToPath } from 'node:url';
 import { runCommand, type CommandResult, type CommandRunner } from '../../app/command-runner.js';
 import type { ExecutionLaunch } from './brunch-adapter.js';
 import { materializeExactExecutionPacket } from './public-packet.js';
-import { createClaudeSolutionIsolationPolicy } from './solution-isolation.js';
+import {
+  createClaudeSolutionIsolationPolicy,
+  type ClaudeSolutionIsolationPolicy,
+} from './solution-isolation.js';
 import { assertControllerIsolation } from './study-contract.js';
 import { containedPath } from './validation.js';
 
@@ -18,6 +21,13 @@ const COMPARISON_GIT_IDENTITY = [
 
 export interface PreparedClaudeExecutionWorkspace {
   readonly workspaceDir: string;
+  readonly baseSha: string;
+  readonly launch: ExecutionLaunch;
+}
+
+export interface ClaudeLaneReadyExecutionTarget {
+  readonly lane: 'claude_code';
+  readonly targetDir: string;
   readonly baseSha: string;
   readonly launch: ExecutionLaunch;
 }
@@ -37,6 +47,65 @@ export interface ClaudeExecutionRun {
     readonly status: 'clean';
     readonly liveProcesses: 0;
     readonly liveSessions: 0;
+  };
+}
+
+export function createClaudeExecutionLaunch(input: {
+  readonly workspaceDir: string;
+  readonly isolationPolicy: ClaudeSolutionIsolationPolicy;
+}): ExecutionLaunch {
+  return {
+    command: 'claude',
+    args: [
+      '--print',
+      '--verbose',
+      '--output-format',
+      'stream-json',
+      '--model',
+      'claude-opus-4-8',
+      '--effort',
+      'max',
+      '--permission-mode',
+      input.isolationPolicy.permissionMode,
+      '--no-session-persistence',
+      '--disable-slash-commands',
+      '--no-chrome',
+      '--strict-mcp-config',
+      '--mcp-config',
+      '{"mcpServers":{}}',
+      '--setting-sources',
+      '',
+      '--tools',
+      input.isolationPolicy.allowedTools.join(','),
+      '--allowedTools',
+      ...input.isolationPolicy.allowedTools,
+      '--disallowedTools',
+      'WebFetch',
+      'WebSearch',
+      '--settings',
+      JSON.stringify({
+        enabledPlugins: {},
+        permissions: {
+          allow: input.isolationPolicy.allowedTools,
+          deny: ['WebFetch', 'WebSearch'],
+        },
+        sandbox: {
+          enabled: input.isolationPolicy.nativeSandbox.enabled,
+          failIfUnavailable: input.isolationPolicy.nativeSandbox.failIfUnavailable,
+          autoAllowBashIfSandboxed: true,
+          allowUnsandboxedCommands: false,
+          filesystem: {
+            denyRead: input.isolationPolicy.nativeSandbox.deniedReadRoots,
+          },
+          network: {
+            allowedDomains: input.isolationPolicy.nativeSandbox.allowedDomains,
+            deniedDomains: input.isolationPolicy.nativeSandbox.deniedDomains,
+          },
+        },
+      }),
+      implementationPrompt(),
+    ],
+    cwd: input.workspaceDir,
   };
 }
 
@@ -79,59 +148,10 @@ export async function prepareClaudeExecutionWorkspace(
   return {
     workspaceDir: input.workspaceDir,
     baseSha,
-    launch: {
-      command: 'claude',
-      args: [
-        '--print',
-        '--verbose',
-        '--output-format',
-        'stream-json',
-        '--model',
-        'claude-opus-4-8',
-        '--effort',
-        'max',
-        '--permission-mode',
-        isolationPolicy.permissionMode,
-        '--no-session-persistence',
-        '--disable-slash-commands',
-        '--no-chrome',
-        '--strict-mcp-config',
-        '--mcp-config',
-        '{"mcpServers":{}}',
-        '--setting-sources',
-        '',
-        '--tools',
-        isolationPolicy.allowedTools.join(','),
-        '--allowedTools',
-        ...isolationPolicy.allowedTools,
-        '--disallowedTools',
-        'WebFetch',
-        'WebSearch',
-        '--settings',
-        JSON.stringify({
-          enabledPlugins: {},
-          permissions: {
-            allow: isolationPolicy.allowedTools,
-            deny: ['WebFetch', 'WebSearch'],
-          },
-          sandbox: {
-            enabled: isolationPolicy.nativeSandbox.enabled,
-            failIfUnavailable: isolationPolicy.nativeSandbox.failIfUnavailable,
-            autoAllowBashIfSandboxed: true,
-            allowUnsandboxedCommands: false,
-            filesystem: {
-              denyRead: isolationPolicy.nativeSandbox.deniedReadRoots,
-            },
-            network: {
-              allowedDomains: isolationPolicy.nativeSandbox.allowedDomains,
-              deniedDomains: isolationPolicy.nativeSandbox.deniedDomains,
-            },
-          },
-        }),
-        implementationPrompt(),
-      ],
-      cwd: input.workspaceDir,
-    },
+    launch: createClaudeExecutionLaunch({
+      workspaceDir: input.workspaceDir,
+      isolationPolicy,
+    }),
   };
 }
 
@@ -141,7 +161,7 @@ function repositoryRoot(): string {
 
 export async function runClaudeExecutionWorkspace(
   input: {
-    readonly prepared: PreparedClaudeExecutionWorkspace;
+    readonly prepared: PreparedClaudeExecutionWorkspace | ClaudeLaneReadyExecutionTarget;
     readonly evidenceDir: string;
     readonly elapsedMinutes: number;
   },
@@ -151,10 +171,11 @@ export async function runClaudeExecutionWorkspace(
     throw new Error('Claude execution budget must be a positive whole number of minutes');
   }
   await mkdir(input.evidenceDir);
+  const workspaceDir = 'targetDir' in input.prepared ? input.prepared.targetDir : input.prepared.workspaceDir;
   const startedAt = new Date().toISOString();
   // ceiling: retain at most 10 MiB per provider stream; raise or stream to disk if real runs exceed it.
   const result = await runner(input.prepared.launch.command, input.prepared.launch.args, {
-    cwd: input.prepared.workspaceDir,
+    cwd: workspaceDir,
     timeoutMs: input.elapsedMinutes * 60_000,
     maxOutputBytes: 10 * 1024 * 1024,
   });
@@ -166,7 +187,7 @@ export async function runClaudeExecutionWorkspace(
   let repository: ClaudeExecutionRun['repository'];
   try {
     repository = await finalizeClaudeExecutionWorkspace(
-      { workspaceDir: input.prepared.workspaceDir },
+      { workspaceDir, baseSha: input.prepared.baseSha },
       runner,
     );
   } catch {
@@ -186,6 +207,7 @@ export async function runClaudeExecutionWorkspace(
 export async function finalizeClaudeExecutionWorkspace(
   input: {
     readonly workspaceDir: string;
+    readonly baseSha?: string;
   },
   runner: CommandRunner = runCommand,
 ): Promise<{
@@ -193,11 +215,17 @@ export async function finalizeClaudeExecutionWorkspace(
   readonly reviewSha: string;
   readonly finalGitRange: string;
 }> {
-  const baseSha = (
-    await gitChecked(runner, input.workspaceDir, ['rev-list', '--max-parents=0', 'HEAD'])
-  ).stdout
-    .trim()
-    .split('\n')[0]!;
+  const baseSha =
+    input.baseSha ??
+    (await gitChecked(runner, input.workspaceDir, ['rev-list', '--max-parents=0', 'HEAD'])).stdout
+      .trim()
+      .split('\n')[0]!;
+  const resolvedBase = (
+    await gitChecked(runner, input.workspaceDir, ['rev-parse', '--verify', `${baseSha}^{commit}`])
+  ).stdout.trim();
+  if (resolvedBase !== baseSha) {
+    throw new Error('Claude execution base does not match the lane-ready descriptor');
+  }
   const status = await gitChecked(runner, input.workspaceDir, ['status', '--porcelain']);
   if (status.stdout.trim().length > 0) {
     await gitChecked(runner, input.workspaceDir, ['add', '--all']);

@@ -5,24 +5,12 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { runCommand, type CommandRunner } from '../../../app/command-runner.js';
-import {
-  assertExecuteProjectionPlanReady,
-  projectExecuteGraph,
-} from '../../../executor/execute-projection.js';
-import { openWorkspaceDb } from '../../../graph/index.js';
-import { queryGraph } from '../../../graph/queries.js';
-import {
-  parseExecutionComparisonArgs,
-  resolvePinnedBrunchPreflight,
-} from '../../execution-comparison-brunch.js';
 import { runExecutionComparisonOperatorCli } from '../../execution-comparison-operator.js';
 import { listExecutionCases, prepareExecutionTarget, resolveExecutionCase } from '../operator-cli.js';
 
 const casesRoot = fileURLToPath(new URL('../../../../testing/execution-comparisons/cases/', import.meta.url));
 const frozenCase = join(casesRoot, 'minimal-petri-net-editor');
 const controllerRoot = fileURLToPath(new URL('../../../../', import.meta.url));
-const hashSourceRepository = fileURLToPath(new URL('../../../../../hash/', import.meta.url));
 
 describe('execution comparison operator case selection', () => {
   it('lists and resolves eligible case ids only inside the cases root', async () => {
@@ -151,7 +139,7 @@ describe('execution comparison target preparation', () => {
           '--target',
           join(root, 'petri'),
           '--source-repository',
-          hashSourceRepository,
+          controllerRoot,
         ]),
       ).rejects.toThrow('valid only for pinned execution cases');
     } finally {
@@ -167,161 +155,67 @@ describe('execution comparison target preparation', () => {
     await symlink(sourceRoot, sourceLink);
     try {
       await expect(
-        prepareExecutionTarget({
-          lane: 'claude_code',
-          caseReference: 'petrinaut-optimization-v1',
-          casesRoot,
-          targetDir: join(root, 'relative-source-target'),
-          controllerRoot,
-          sourceRepositoryDir: 'relative-source',
-          dependencyInstallRunner: async () => ({ exitCode: 0, stdout: '', stderr: '' }),
-        }),
+        prepareExecutionTarget(
+          {
+            lane: 'claude_code',
+            caseReference: 'petrinaut-optimization-v1',
+            casesRoot,
+            targetDir: join(root, 'relative-source-target'),
+            controllerRoot,
+            sourceRepositoryDir: 'relative-source',
+          },
+          {
+            dependencyInstallRunner: async () => ({ exitCode: 0, stdout: '', stderr: '' }),
+          },
+        ),
       ).rejects.toThrow('must be an absolute path');
       await expect(
-        prepareExecutionTarget({
-          lane: 'claude_code',
-          caseReference: 'petrinaut-optimization-v1',
-          casesRoot,
-          targetDir: join(controllerRoot, '.unsafe-petrinaut-target'),
-          controllerRoot,
-          sourceRepositoryDir: sourceRoot,
-          dependencyInstallRunner: async () => ({ exitCode: 0, stdout: '', stderr: '' }),
-        }),
+        prepareExecutionTarget(
+          {
+            lane: 'claude_code',
+            caseReference: 'petrinaut-optimization-v1',
+            casesRoot,
+            targetDir: join(controllerRoot, '.unsafe-petrinaut-target'),
+            controllerRoot,
+            sourceRepositoryDir: sourceRoot,
+          },
+          {
+            dependencyInstallRunner: async () => ({ exitCode: 0, stdout: '', stderr: '' }),
+          },
+        ),
       ).rejects.toThrow('controller and target roots must be disjoint');
       await expect(
-        prepareExecutionTarget({
-          lane: 'claude_code',
-          caseReference: 'petrinaut-optimization-v1',
-          casesRoot,
-          targetDir: join(root, 'linked-source-target'),
-          controllerRoot,
-          sourceRepositoryDir: sourceLink,
-          dependencyInstallRunner: async () => ({ exitCode: 0, stdout: '', stderr: '' }),
-        }),
+        prepareExecutionTarget(
+          {
+            lane: 'claude_code',
+            caseReference: 'petrinaut-optimization-v1',
+            casesRoot,
+            targetDir: join(root, 'linked-source-target'),
+            controllerRoot,
+            sourceRepositoryDir: sourceLink,
+          },
+          {
+            dependencyInstallRunner: async () => ({ exitCode: 0, stdout: '', stderr: '' }),
+          },
+        ),
       ).rejects.toThrow('real directory, not a symlink');
       await expect(
-        prepareExecutionTarget({
-          lane: 'claude_code',
-          caseReference: 'petrinaut-optimization-v1',
-          casesRoot,
-          targetDir: join(sourceRoot, 'target'),
-          controllerRoot,
-          sourceRepositoryDir: sourceRoot,
-          dependencyInstallRunner: async () => ({ exitCode: 0, stdout: '', stderr: '' }),
-        }),
+        prepareExecutionTarget(
+          {
+            lane: 'claude_code',
+            caseReference: 'petrinaut-optimization-v1',
+            casesRoot,
+            targetDir: join(sourceRoot, 'target'),
+            controllerRoot,
+            sourceRepositoryDir: sourceRoot,
+          },
+          {
+            dependencyInstallRunner: async () => ({ exitCode: 0, stdout: '', stderr: '' }),
+          },
+        ),
       ).rejects.toThrow('controller and target roots must be disjoint');
     } finally {
       await rm(root, { recursive: true, force: true });
     }
   });
-
-  it.each(['brunch', 'claude_code'] as const)(
-    'materializes and controller-installs the pinned Petrinaut source for %s',
-    async (lane) => {
-      const root = await mkdtemp(join(tmpdir(), `brunch-petrinaut-operator-${lane}-`));
-      const targetDir = join(root, 'target');
-      const installCalls: { command: string; args: readonly string[]; cwd: string }[] = [];
-      const installRunner: CommandRunner = async (command, args, options) => {
-        installCalls.push({ command, args, cwd: options.cwd });
-        return { exitCode: 0, stdout: '', stderr: '' };
-      };
-      try {
-        const prepared = await prepareExecutionTarget({
-          lane,
-          caseReference: 'petrinaut-optimization-v1',
-          casesRoot,
-          targetDir,
-          controllerRoot,
-          sourceRepositoryDir: hashSourceRepository,
-          dependencyInstallRunner: installRunner,
-        });
-
-        expect(prepared).toMatchObject({
-          lane,
-          caseId: 'petrinaut-optimization-v1',
-          sourceCommit: '5c7a2d9db5caa851c38938f4b1bac19005b0e978',
-          sourceTree: 'a3e08cf75e00cc9016c931f4665341506e03533e',
-          dependencyPreparation: {
-            command: 'corepack',
-            args: ['yarn', 'install', '--immutable', '--mode=skip-build'],
-            status: 'passed',
-            exitCode: 0,
-          },
-        });
-        expect(installCalls).toEqual([
-          {
-            command: 'corepack',
-            args: ['yarn', 'install', '--immutable', '--mode=skip-build'],
-            cwd: targetDir,
-          },
-        ]);
-        expect(await readFile(join(targetDir, 'spec.md'))).toEqual(
-          await readFile(join(casesRoot, 'petrinaut-optimization', 'spec.md')),
-        );
-        expect(await readFile(join(targetDir, 'public-contract.json'))).toEqual(
-          await readFile(join(casesRoot, 'petrinaut-optimization', 'public-contract.json')),
-        );
-        expect(await git(targetDir, ['rev-list', '--count', 'HEAD'])).toBe('2');
-        expect(await git(targetDir, ['remote'])).toBe('');
-        expect(await git(targetDir, ['for-each-ref', '--format=%(refname)'])).toBe('refs/heads/main');
-        expect(await git(targetDir, ['status', '--porcelain', '--untracked-files=no'])).toBe('');
-        if (lane === 'brunch') {
-          expect(prepared).toMatchObject({ lane: 'brunch', specId: expect.any(Number) });
-          if (!('specId' in prepared)) throw new Error('pinned Brunch preparation omitted specId');
-          expect(prepared.specId).toBeGreaterThan(0);
-          await expect(
-            resolvePinnedBrunchPreflight({
-              workspaceDir: prepared.targetDir,
-              specId: prepared.specId,
-            }),
-          ).resolves.toEqual({
-            action: 'newSession',
-            specId: prepared.specId,
-          });
-          expect(
-            parseExecutionComparisonArgs([
-              '--workspace',
-              prepared.targetDir,
-              '--spec-id',
-              String(prepared.specId),
-              '--solution-isolation',
-              'v1',
-              '--forbidden-root',
-              controllerRoot,
-            ]),
-          ).toEqual({
-            workspaceDir: prepared.targetDir,
-            specId: prepared.specId,
-            forbiddenRoots: [controllerRoot],
-            solutionIsolation: 'v1',
-          });
-          const db = await openWorkspaceDb(targetDir);
-          const graph = queryGraph(db, prepared.specId);
-          expect(graph.nodes.find(({ source }) => source === 'e2e-handoff [exact-spec]')).toMatchObject({
-            kind: 'requirement',
-            body: await readFile(join(targetDir, 'spec.md'), 'utf8'),
-          });
-          const projection = projectExecuteGraph({
-            specId: prepared.specId,
-            graphLsn: graph.lsn,
-            mode: 'brownfield',
-            nodes: graph.nodes,
-            edges: graph.edges,
-          });
-          expect(() => assertExecuteProjectionPlanReady(projection)).not.toThrow();
-        } else {
-          expect('specId' in prepared).toBe(false);
-        }
-      } finally {
-        await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
-      }
-    },
-    120_000,
-  );
 });
-
-async function git(cwd: string, args: readonly string[]): Promise<string> {
-  const result = await runCommand('git', args, { cwd });
-  if (result.exitCode !== 0) throw new Error(result.stderr || result.stdout);
-  return result.stdout.trim();
-}

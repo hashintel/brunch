@@ -15,6 +15,28 @@ export interface ExecutionLaunch {
   readonly cwd: string;
 }
 
+export function createBrunchExecutionLaunch(input: {
+  readonly workspaceDir: string;
+  readonly specId: number;
+  readonly forbiddenRoots: readonly string[];
+}): ExecutionLaunch {
+  return {
+    command: 'npx',
+    args: [
+      'tsx',
+      'src/dev/execution-comparison-brunch.ts',
+      '--workspace',
+      input.workspaceDir,
+      '--spec-id',
+      String(input.specId),
+      '--solution-isolation',
+      'v1',
+      ...input.forbiddenRoots.flatMap((root) => ['--forbidden-root', root]),
+    ],
+    cwd: repositoryRoot(),
+  };
+}
+
 export async function prepareBrunchExecutionCell(input: {
   readonly cellRoot: string;
   readonly workspaceDir: string;
@@ -47,21 +69,11 @@ export async function prepareBrunchExecutionCell(input: {
   );
   return {
     prepared,
-    launch: {
-      command: 'npx',
-      args: [
-        'tsx',
-        'src/dev/execution-comparison-brunch.ts',
-        '--workspace',
-        input.workspaceDir,
-        '--spec-id',
-        String(prepared.specId),
-        '--solution-isolation',
-        'v1',
-        ...forbiddenRoots.flatMap((root) => ['--forbidden-root', root]),
-      ],
-      cwd: repositoryRoot(),
-    },
+    launch: createBrunchExecutionLaunch({
+      workspaceDir: input.workspaceDir,
+      specId: prepared.specId,
+      forbiddenRoots,
+    }),
   };
 }
 

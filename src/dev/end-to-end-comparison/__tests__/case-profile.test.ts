@@ -64,30 +64,32 @@ describe('compiled end-to-end comparison case profiles', () => {
       mode: 'brownfield',
       scope: 'single_feature',
       surface: 'backend',
-      repository: { substrate: 'pinned_git' },
+      repository: {
+        substrate: 'pinned_git',
+        parentCommit: brunch.contract.source?.parentCommit,
+        parentTree: brunch.contract.source?.parentTree,
+      },
     });
     expect(petrinautPacket.contract.case).toMatchObject({
       product: 'petrinaut',
       mode: 'brownfield',
       scope: 'single_feature',
       surface: 'frontend',
-      repository: { substrate: 'pinned_git' },
+      repository: {
+        substrate: 'pinned_git',
+        parentCommit: petrinaut.contract.source?.parentCommit,
+        parentTree: petrinaut.contract.source?.parentTree,
+      },
     });
-    const sources = [brunch.contract.source, petrinaut.contract.source];
-    if (sources.some((source) => source === undefined)) {
+    if (brunch.contract.source === undefined || petrinaut.contract.source === undefined) {
       throw new Error('brownfield profiles must declare source identity');
     }
-    for (const source of sources) {
-      const actualTree = (
-        await execFileAsync('git', ['rev-parse', `${source!.parentCommit}^{tree}`], {
-          cwd:
-            source!.parentCommit === '5c7a2d9db5caa851c38938f4b1bac19005b0e978'
-              ? fileURLToPath(new URL('../../../../../hash/', import.meta.url))
-              : repositoryRoot,
-        })
-      ).stdout.trim();
-      expect(actualTree).toBe(source!.parentTree);
-    }
+    const actualBrunchTree = (
+      await execFileAsync('git', ['rev-parse', `${brunch.contract.source.parentCommit}^{tree}`], {
+        cwd: repositoryRoot,
+      })
+    ).stdout.trim();
+    expect(actualBrunchTree).toBe(brunch.contract.source.parentTree);
   });
 
   it('keeps historical solution locators and controller expectations out of target-visible artifacts', async () => {
