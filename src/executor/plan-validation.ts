@@ -29,6 +29,7 @@ export type PlanValidationFindingCode =
   | 'unknown_commitment_source'
   | 'dependency_unknown'
   | 'dependency_cycle'
+  | 'epic_integration_unreconciled'
   | 'scope_requirement_uncovered'
   | 'criterion_dropped'
   | 'design_dropped'
@@ -201,6 +202,35 @@ export function validateCandidatePlan(args: {
     error('dependency_cycle', `Epic ${cyclic} participates in a dependency cycle.`, cyclic);
   }
 
+  const sliceById = new Map(candidate.slices.map((slice) => [slice.id, slice]));
+  const frontierCriterionIds = new Set(
+    projection.criteria
+      .filter((criterion) => criterion.verifiesFrontiers.length > 0)
+      .map((criterion) => criterion.itemId),
+  );
+  for (const epic of candidate.epics) {
+    const memberSlices = candidate.slices.filter((slice) => slice.epicId === epic.id);
+    const integrationCriterionIds = epic.verificationCriterionIds.filter((criterionId) =>
+      frontierCriterionIds.has(criterionId),
+    );
+    if (memberSlices.length < 2 || integrationCriterionIds.length === 0) continue;
+
+    const reconciler = memberSlices.find((slice) => {
+      if (!integrationCriterionIds.every((criterionId) => slice.criterionIds.includes(criterionId))) {
+        return false;
+      }
+      const dependencyClosure = collectDependencyClosure(slice.id, sliceById);
+      return memberSlices.every((member) => member.id === slice.id || dependencyClosure.has(member.id));
+    });
+    if (!reconciler) {
+      error(
+        'epic_integration_unreconciled',
+        `Epic ${epic.id} verifies frontier criteria ${integrationCriterionIds.join(', ')} across multiple slices but has no terminal member that carries those criteria and transitively depends on every sibling.`,
+        epic.id,
+      );
+    }
+  }
+
   for (const scope of projection.scopes) {
     const memberSlices = candidate.slices.filter((slice) => slice.scopeId === scope.itemId);
     const coveredRequirements = new Set(memberSlices.flatMap((slice) => slice.requirementIds));
@@ -293,4 +323,19 @@ export function validateCandidatePlan(args: {
   }
 
   return { findings, executionContract };
+}
+
+function collectDependencyClosure(
+  sliceId: string,
+  sliceById: ReadonlyMap<string, CandidatePlan['slices'][number]>,
+): ReadonlySet<string> {
+  const visited = new Set<string>();
+  const pending = [...(sliceById.get(sliceId)?.dependsOn ?? [])];
+  while (pending.length > 0) {
+    const dependencyId = pending.pop()!;
+    if (visited.has(dependencyId)) continue;
+    visited.add(dependencyId);
+    pending.push(...(sliceById.get(dependencyId)?.dependsOn ?? []));
+  }
+  return visited;
 }

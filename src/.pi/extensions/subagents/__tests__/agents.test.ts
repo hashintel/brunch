@@ -19,6 +19,22 @@ describe('subagent agent definitions', () => {
     expect(planner?.systemPrompt).toMatch(
       /fix every finding and submit the full corrected candidate through\s+`submit_candidate_plan`/i,
     );
+    expect(planner?.systemPrompt).toMatch(/shared design.*foundation slice/i);
+    expect(planner?.systemPrompt).toMatch(
+      /frontier-level criterion.*terminal.*transitively depends on every sibling/i,
+    );
     expect(planner?.systemPrompt).not.toMatch(/return the full corrected JSON object/i);
+  });
+
+  it('keeps workers on cumulative public-contract behavior', async () => {
+    const definitions = await loadSubagentDefinitions(subagentAgentsDir());
+    const worker = definitions.get('worker');
+
+    expect(worker?.systemPrompt).toMatch(
+      /read the integrated worktree.*preserve.*public-contract behavior/is,
+    );
+    expect(worker?.systemPrompt).toMatch(/public interfaces.*test-only backdoors/is);
+    expect(worker?.systemPrompt).toMatch(/never weaken, delete,\s+skip, or narrow existing tests/is);
+    expect(worker?.systemPrompt).toMatch(/canonical project harness runs after you return/is);
   });
 });

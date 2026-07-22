@@ -106,6 +106,56 @@ describe('validateCandidatePlan', () => {
     ).toEqual(['task-1', 'task-2']);
   });
 
+  it('requires one integrated terminal slice for frontier-verified multi-slice epics', () => {
+    const base = coherentCandidate();
+    const first = base.slices[0]!;
+    const terminal = base.slices[1]!;
+    const independent = {
+      ...base,
+      slices: [first, { ...terminal, dependsOn: [] }],
+    };
+    const terminalDropsFrontierCriterion = {
+      ...base,
+      slices: [
+        { ...first, criterionIds: ['AC1', 'AC2'] },
+        { ...terminal, criterionIds: ['AC1'] },
+      ],
+    };
+
+    expect(codes(independent)).toContain('epic_integration_unreconciled');
+    expect(codes(terminalDropsFrontierCriterion)).toContain('epic_integration_unreconciled');
+    expect(codes(base)).not.toContain('epic_integration_unreconciled');
+    expect(
+      codes({
+        ...base,
+        slices: [
+          {
+            ...terminal,
+            requirementIds: ['REQ1', 'REQ2'],
+            criterionIds: ['AC1', 'AC2'],
+            dependsOn: [],
+          },
+        ],
+      }),
+    ).not.toContain('epic_integration_unreconciled');
+
+    const requirementOnlyProjection = {
+      ...projection,
+      criteria: projection.criteria.map((criterion) => ({
+        ...criterion,
+        verifiesFrontiers: [],
+      })),
+    };
+    expect(
+      validateCandidatePlan({
+        candidate: independent,
+        projection: requirementOnlyProjection,
+        detected: [],
+        providers,
+      }).findings.map((finding) => finding.code),
+    ).not.toContain('epic_integration_unreconciled');
+  });
+
   it('flags dropped scope obligations: uncovered requirement, dropped criterion/design/verification', () => {
     const base = coherentCandidate();
     const oneSlice = { ...base, slices: [base.slices[0]!] };

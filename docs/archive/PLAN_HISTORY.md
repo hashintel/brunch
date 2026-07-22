@@ -3,6 +3,12 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-07-22 Executor Petri sequence reconciliation
+
+`executor-slice-attempt-lifecycle` (FE-1192) merged in #324 on 2026-07-13. `petri-execution-parity` (FE-1195) then absorbed and completed the planned isolation/fan-in, durable parallel authority, Petrinaut-visible attempt topology, and epic integration sequence in #325. Their stale active/future entries and dependency chain were retired from `memory/PLAN.md`; current execution ownership and lifecycle semantics live in `src/executor/TOPOLOGY.md` under D127-L–D129-L.
+
+The comparison evidence produced after that closure exposed a different planning-level risk: complete per-slice context and passing local tests can still yield an incoherent integrated result. FE-1250 (`executor-plan-coherence`) is the bounded follow-on over the already-landed executor topology; it does not reopen the Petri lifecycle work.
+
 ## 2026-07-17 FE-1208 automation & observability DX closeout
 
 The reshaped `automation-observability-dx` frontier is closed on commit `1885130a` in the restacked base. It removed `--dev-tools`, the query-tool/`devAllowedToolNames` channel, and the repo-local `cli-cmux` skill; moved trajectory reports into `.brunch/debug/`; and documented distinct seed-based intra-product and mission-driven cross-product evaluation doors. The consequential-fact evaluator, report, runner, and directive-ablation seam remain compiling dev/eval primitives but are no longer advertised as normal DX.

@@ -137,6 +137,35 @@ describe('synthesizePlan', () => {
     );
   });
 
+  it('feeds an unreconciled frontier-level epic back through bounded repair', async () => {
+    const base = coherentCandidate();
+    const invalid = {
+      ...base,
+      slices: [base.slices[0]!, { ...base.slices[1]!, dependsOn: [] }],
+    };
+    const planner = scriptedPlanner([invalid, coherentCandidate()]);
+
+    const result = await synthesizePlan({ projection, detected: [], providers, planner });
+
+    expect(result.status).toBe('admitted');
+    if (result.status !== 'admitted') return;
+    expect(result.history[0]!.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'epic_integration_unreconciled', itemId: 'F1' }),
+      ]),
+    );
+    const repairCall = planner.calls[1] as {
+      findings?: readonly { code: string; itemId?: string }[];
+      priorCandidate?: unknown;
+    };
+    expect(repairCall.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'epic_integration_unreconciled', itemId: 'F1' }),
+      ]),
+    );
+    expect(repairCall.priorCandidate).toEqual(invalid);
+  });
+
   it('blocks after the bounded repair rounds with no fallback plan on any path', async () => {
     const base = coherentCandidate();
     const invalid = { ...base, requiredCapabilities: [] };

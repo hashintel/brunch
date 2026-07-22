@@ -38,8 +38,8 @@ function independentCandidate(): CandidatePlan {
         title: 'Build feature',
         goal: 'Build the feature core.',
         doneCriteria: ['Feature core exists.'],
-        requirementIds: ['REQ1', 'REQ2'],
-        criterionIds: ['AC1', 'AC2'],
+        requirementIds: ['REQ1'],
+        criterionIds: ['AC1'],
         dependsOn: [],
         designItemIds: ['MOD1'],
         verificationItemIds: ['CH1'],
@@ -54,6 +54,19 @@ function independentCandidate(): CandidatePlan {
         requirementIds: ['REQ1'],
         criterionIds: ['AC1'],
         dependsOn: [],
+        designItemIds: ['MOD1'],
+        verificationItemIds: ['CH1'],
+      },
+      {
+        id: 'task-c',
+        epicId: 'F1',
+        scopeId: 'SCP1',
+        title: 'Reconcile feature',
+        goal: 'Reconcile and verify the integrated feature.',
+        doneCriteria: ['The integrated feature works end to end.'],
+        requirementIds: ['REQ2'],
+        criterionIds: ['AC2'],
+        dependsOn: ['task-a', 'task-b'],
         designItemIds: ['MOD1'],
         verificationItemIds: ['CH1'],
       },
@@ -179,13 +192,19 @@ describe('synthesized plan through the frozen Petri topology (oracle 8)', () => 
     expect(metadata?.status).toBe('promotion_prepared');
     expect(metadata?.verifyTarget).toEqual({ command: 'pytest', args: [] });
     expect(overlap.bothInFlight).toBe(true);
-    expect(verifyCommands.length).toBeGreaterThanOrEqual(3);
+    expect(verifyCommands).toHaveLength(4);
     for (const invocation of verifyCommands) {
       expect({ command: invocation.command, args: invocation.args }).toEqual({
         command: 'pytest',
         args: [],
       });
     }
+    const taskAVerify = verifyCommands.findIndex((invocation) => invocation.dir.includes('task-a'));
+    const taskBVerify = verifyCommands.findIndex((invocation) => invocation.dir.includes('task-b'));
+    const reconciliationVerify = verifyCommands.findIndex((invocation) => invocation.dir.includes('task-c'));
+    expect(reconciliationVerify).toBeGreaterThan(taskAVerify);
+    expect(reconciliationVerify).toBeGreaterThan(taskBVerify);
+    expect(reconciliationVerify).toBeLessThan(verifyCommands.length - 1);
 
     const request = JSON.parse(
       await readFile(sliceExecutionRequestPath(cwd, 'run-1', 'task-a'), 'utf8'),

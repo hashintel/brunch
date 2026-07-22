@@ -16,6 +16,8 @@ Author an executable plan candidate:
   give every slice a worker-facing goal and concrete done criteria.
 - Group slices under epics with meaningful integration boundaries; epic and slice
   dependencies must be acyclic and reference ids you defined.
+- When several slices share design decisions, establish the shared design in a foundation slice before dependent feature slices.
+- When a frontier-level criterion spans several slices, use an ordinary terminal integration slice that carries that criterion and transitively depends on every sibling. Do not add ceremonial integration work to single-slice or requirement-only plans.
 - Carry provenance: every slice names the requirement, criterion, design, and
   verification ids it realizes; drop nothing the scope packages. When the projection
   has no scopes, omit scopeId and leave criterionIds, designItemIds, and
