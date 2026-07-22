@@ -111,15 +111,13 @@ filenames, SHA-256, byte count, and truncation state. The receipt is evidence, n
 `setup_failed` or `assertion_failed` blocks historical provider work; never bypass the failed phase or
 replace an invalid receipt.
 
-The 2026-07-22 real-source run is currently blocked on historical browser semantics: both immutable
-installs, tracked-source checks, and the six focused builds (including the directly declared
-Refractive build immediately before Petrinaut UI) pass. Browser navigation uses bounded
-`domcontentloaded` readiness independently from the unchanged 5-second semantic action budget, and
-the real run retains no failed request or navigation timeout. The pinned historical shell does not
-expose the fixture-authored exact `Optimizations` heading / `Create optimization` control contract;
-its optimization view labels the action `Create`. Re-entry must respecify real public semantics before
-provider work rather than weakening locators in place. Exact retained evidence is recorded in the
-[active scope card](../../memory/cards/brownfield-comparison-cases--petrinaut-provider-preflight.md).
+The 2026-07-22 diagnostic run proved both immutable installs, tracked-source checks, and all six
+focused builds, then exposed that fixture-authored labels were stronger than PR #9051's public UI.
+The frozen packet, typed addresses, and synthetic rivals were rebaselined to source-backed semantics
+before any provider attempt. PR #362 deliberately shipped without rerunning the expensive real
+post-rebaseline preflight, so no passing merged-reference receipt exists. Before a future first
+Petrinaut provider attempt, rerun the command above and require a passing receipt under D138-L; the
+waiver used to close the implementation PR is not reusable as campaign evidence.
 
 ## End-to-end comparison tracer
 
