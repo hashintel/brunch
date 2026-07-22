@@ -31,7 +31,7 @@ If `$ARGUMENTS` is empty, run:
 npx tsx src/dev/execution-comparison-operator.ts list-cases
 ```
 
-List the returned eligible directory ids and public case ids, ask the operator to choose one, and stop until they do.
+List the returned eligible directory ids and public case ids. If exactly one case is eligible, select it and continue in this turn using its directory id. Only ask the operator to choose when more than one case is eligible, and stop until they do. If no case is eligible, report that and stop.
 
 For a supplied or selected id, run:
 

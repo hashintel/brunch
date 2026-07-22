@@ -25,7 +25,7 @@ All operator choices and approvals must work through ordinary typed text. If a s
 
 ## Choose the operation
 
-If `$ARGUMENTS` is empty, offer exactly these starting choices: **create**, **revise**, or **run**. For revise or run, ask the operator to select a saved mission. Exclude `testing/comparisons/missions/README.md` from every mission listing: it is a reserved control file, not mission payload.
+If `$ARGUMENTS` is empty, offer exactly these starting choices: **create**, **revise**, or **run**. For revise or run, list the eligible saved missions. If exactly one mission is eligible, select it and continue in this turn. Only ask the operator to select a mission when more than one is eligible; if none are eligible, report that and stop. Exclude `testing/comparisons/missions/README.md` from every mission listing: it is a reserved control file, not mission payload.
 
 If a mission id or path was supplied, resolve it only inside `testing/comparisons/missions/`. Reject traversal, an absolute path, any reference resolving outside that home, and any reference resolving to the reserved `README.md`. Never offer the reserved file for review, revision, or a run. Show which mission was resolved, then offer **review**, **revise**, or **run**. If it does not resolve unambiguously to one eligible Markdown mission file, ask the operator to correct it; do not guess.
 
