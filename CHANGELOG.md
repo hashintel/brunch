@@ -1,5 +1,12 @@
 # @hashintel/brunch
 
+## 1.0.0-alpha.10
+
+### Minor Changes
+
+- [#364](https://github.com/hashintel/brunch/pull/364) [`c9c03ab`](https://github.com/hashintel/brunch/commit/c9c03ab8e7618f9f8846d55809a2de0d4f6e6ad7) Thanks [@kostandinang](https://github.com/kostandinang)! - - Build coherent execution plans by requiring frontier-verified multi-slice epics to converge through one terminal integration slice.
+  - Add immutable comparison provenance and guarded Notion report publishing.
+
 ## 1.0.0-alpha.9
 
 ### Patch Changes
