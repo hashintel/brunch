@@ -61,7 +61,18 @@ Run setup is intentionally small, run-specific, and never written into the reusa
 5. Display together: the complete private mission; selected harnesses and order; exact per-harness target-visible framing; mission id; collision-safe run id; requested target document path; scratch and retained paths; and each adapter. Clearly label the mission **top-level-session-only** and the framing **harness-visible**.
 6. Ask through ordinary text for explicit **approve**, **revise**, or **reject**. Revise and redisplay the complete setup, or reject and stop; do not launch partially.
 
-Before the first harness, copy the exact approved private mission and separate setup into the unused scratch run identity as `private-mission.md` and `harness-setup.md`. They are retained with the run but never merged into one target packet.
+Immediately after approval and before copying snapshots or starting the first harness, capture the controller checkout once:
+
+```sh
+npx tsx src/dev/comparison-provenance.ts capture \
+  --run-directory .fixtures/scratch/comparisons/<run-id> \
+  --comparison-kind elicitation \
+  --run-id <run-id>
+```
+
+Run this from the Brunch repository root. Treat an existing `provenance.json`, malformed metadata, or capture failure as a setup collision/failure and stop; never overwrite it or reconstruct provenance from a later checkout.
+
+Then copy the exact approved private mission and separate setup into the same unused scratch run identity as `private-mission.md` and `harness-setup.md`. They are retained with `provenance.json` but never merged into one target packet.
 
 ## Run the approved mission
 
@@ -83,11 +94,11 @@ Run selected harnesses sequentially. For each harness:
 7. Acquire the harness-authored document if it exists. Never author, reconstruct, complete, rewrite, or improve it. Missing or partial output remains missing or partial.
 8. On every outcome, retain state, harness-visible interaction, target-cwd/session identity, final process status, document that exists, and cleanup notes. Kill remaining processes, dismiss the completed shell record, and verify no comparison-harness shell or process remains before starting another.
 
-Do not notify completion while any harness is ready, running, or waiting. After every selected harness is finished or failed, give one aggregate notification. Review scratch assembly, then deliberately copy it to the unused immutable run identity without changing snapshots, transcripts, or harness-authored documents.
+Do not notify completion while any harness is ready, running, or waiting. After every selected harness is finished or failed, give one aggregate notification. Review scratch assembly, then deliberately copy it to the unused immutable run identity without changing `provenance.json`, snapshots, transcripts, or harness-authored documents.
 
 ## Retained run and operator-only report
 
-The retained run contains distinct `private-mission.md` and `harness-setup.md` snapshots, every exact harness-visible transcript, every harness-authored document that exists, target identities/outcomes/cleanup, explanations for missing output, and `report.md`.
+The retained run contains the unchanged run-start `provenance.json`, distinct `private-mission.md` and `harness-setup.md` snapshots, every exact harness-visible transcript, every harness-authored document that exists, target identities/outcomes/cleanup, explanations for missing output, and `report.md`.
 
 Write `report.md` for an operator-only cold reader. It may reproduce the full private mission, but must keep these sections visibly separate:
 
@@ -99,4 +110,4 @@ Write `report.md` for an operator-only cold reader. It may reproduce the full pr
 
 Do not add a fixed rubric, score, scripted/API judge, statistics, recommendation, automatic winner, or inferred winner.
 
-Finish by reporting the saved mission path, scratch path, immutable run path, harness terminal states, cleanup result, and `report.md` path. Do not claim runtime correctness, isolation, user consistency, notification timing, or usefulness merely because static instructions or checks passed; those judgments belong to the operator reviewing the real interaction and artifacts.
+Finish by reporting the saved mission path, scratch path, immutable run path, `provenance.json` path, harness terminal states, cleanup result, and `report.md` path. Do not claim runtime correctness, isolation, user consistency, notification timing, or usefulness merely because static instructions or checks passed; those judgments belong to the operator reviewing the real interaction and artifacts.
