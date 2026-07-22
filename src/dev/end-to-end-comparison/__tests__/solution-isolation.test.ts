@@ -41,6 +41,32 @@ async function git(cwd: string, args: readonly string[]): Promise<string> {
   return result.stdout.trim();
 }
 
+function createPortableTestVerifier(forbiddenReadRoots: readonly string[]): NetworkDeniedCommandRunner {
+  return createNetworkDeniedCommandRunner({
+    platform: 'darwin',
+    forbiddenReadRoots,
+    run: async (command, args, options) => {
+      if (command !== 'sandbox-exec') {
+        throw new Error(`unexpected verifier command: ${command}`);
+      }
+      const verifiedCommand = args[2];
+      const verifiedArgs = args.slice(3);
+      if (verifiedCommand === '/usr/bin/curl') {
+        return args[3] === '--version'
+          ? { exitCode: 0, stdout: 'curl fake\n', stderr: '' }
+          : { exitCode: 1, stdout: '', stderr: 'network denied by fake sandbox\n' };
+      }
+      if (verifiedCommand === '/bin/ls') {
+        return { exitCode: 1, stdout: '', stderr: 'path denied by fake sandbox\n' };
+      }
+      if (verifiedCommand === undefined) {
+        throw new Error('test verifier received no target command');
+      }
+      return await runCommand(verifiedCommand, verifiedArgs, options);
+    },
+  });
+}
+
 async function sourceRepository(root: string): Promise<{
   readonly repositoryDir: string;
   readonly sourceCommit: string;
@@ -149,7 +175,7 @@ describe('brownfield historical-solution isolation', () => {
       policies: strictPolicies(targetDir, forbiddenRoots),
       forbiddenRoots,
       networkProbeUrls: [probeUrl, 'https://github.com', 'https://linear.app', 'https://www.notion.so'],
-      verifier: createNetworkDeniedCommandRunner({ forbiddenReadRoots: forbiddenRoots }),
+      verifier: createPortableTestVerifier(forbiddenRoots),
       localChecks: [{ command: process.execPath, args: ['verify.mjs'] }],
     });
 
@@ -181,7 +207,7 @@ describe('brownfield historical-solution isolation', () => {
       prefix,
       forbiddenRoots,
       networkProbeUrls: [probeUrl, 'https://github.com', 'https://linear.app', 'https://www.notion.so'],
-      verifier: createNetworkDeniedCommandRunner({ forbiddenReadRoots: forbiddenRoots }),
+      verifier: createPortableTestVerifier(forbiddenRoots),
       localChecks: [{ command: process.execPath, args: ['verify.mjs'] }],
     } as const;
 
