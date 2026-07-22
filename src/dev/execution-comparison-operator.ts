@@ -28,18 +28,33 @@ import {
   runPetrinautOptimizationOracle,
   type PetrinautOptimizationOracleReport,
 } from './execution-comparison/petrinaut-optimization-oracle.js';
+import {
+  runProspectResearchWorkspaceOracle,
+  type ProspectResearchWorkspaceOracleReport,
+} from './execution-comparison/prospect-research-workspace-oracle.js';
 
 type CompiledOracleId =
   | 'minimal-petri-net-editor-oracles-v2'
   | 'brunch-host-landing-oracles-v1'
-  | 'petrinaut-optimization-oracles-v1';
+  | 'petrinaut-optimization-oracles-v1'
+  | 'prospect-research-workspace-oracles-v1';
+
+type CompiledOracleReport =
+  | BrowserOracleReport
+  | HostLandingOracleReport
+  | PetrinautOptimizationOracleReport
+  | ProspectResearchWorkspaceOracleReport;
 
 interface CompiledOracle {
   readonly implementationFiles: readonly string[];
   readonly run: (input: {
     readonly appDir: string;
     readonly caseDir: string;
-  }) => Promise<BrowserOracleReport | HostLandingOracleReport | PetrinautOptimizationOracleReport>;
+  }) => Promise<CompiledOracleReport>;
+}
+
+interface ResolvedCompiledOracle extends CompiledOracle {
+  readonly id: CompiledOracleId;
 }
 
 const COMPILED_ORACLES: Readonly<Record<CompiledOracleId, CompiledOracle>> = {
@@ -92,24 +107,59 @@ const COMPILED_ORACLES: Readonly<Record<CompiledOracleId, CompiledOracle>> = {
     run: async ({ appDir, caseDir }) =>
       await runPetrinautOptimizationOracle({ candidateRoot: appDir, caseDir }),
   },
+  'prospect-research-workspace-oracles-v1': {
+    implementationFiles: [
+      fileURLToPath(new URL('./execution-comparison/prospect-research-workspace-oracle.ts', import.meta.url)),
+      fileURLToPath(
+        new URL('./execution-comparison/prospect-research-workspace-oracle/runner.ts', import.meta.url),
+      ),
+      fileURLToPath(
+        new URL('./execution-comparison/prospect-research-workspace-oracle/journeys.ts', import.meta.url),
+      ),
+      fileURLToPath(
+        new URL(
+          './execution-comparison/prospect-research-workspace-oracle/journey-runner.ts',
+          import.meta.url,
+        ),
+      ),
+      fileURLToPath(
+        new URL('./execution-comparison/prospect-research-workspace-oracle/lifecycle.ts', import.meta.url),
+      ),
+      fileURLToPath(
+        new URL('./execution-comparison/prospect-research-workspace-oracle/reference.ts', import.meta.url),
+      ),
+      fileURLToPath(
+        new URL(
+          './execution-comparison/prospect-research-workspace-oracle/sqlite-evidence.ts',
+          import.meta.url,
+        ),
+      ),
+      fileURLToPath(
+        new URL('./execution-comparison/prospect-research-workspace-oracle/types.ts', import.meta.url),
+      ),
+    ],
+    run: async ({ appDir, caseDir }) =>
+      await runProspectResearchWorkspaceOracle({ candidateRoot: appDir, caseDir }),
+  },
 };
 
-export function resolveCompiledExecutionOracle(id: string): CompiledOracle {
+export function resolveCompiledExecutionOracle(id: string): ResolvedCompiledOracle {
   if (
     id !== 'minimal-petri-net-editor-oracles-v2' &&
     id !== 'brunch-host-landing-oracles-v1' &&
-    id !== 'petrinaut-optimization-oracles-v1'
+    id !== 'petrinaut-optimization-oracles-v1' &&
+    id !== 'prospect-research-workspace-oracles-v1'
   ) {
     throw new Error(`unknown compiled execution oracle id: ${id}`);
   }
-  return COMPILED_ORACLES[id];
+  return { id, ...COMPILED_ORACLES[id] };
 }
 
 export async function retainCompiledOracleReport(input: {
   readonly out: string;
   readonly oracleId: CompiledOracleId;
   readonly oraclePackSha256: string;
-  readonly report: BrowserOracleReport | HostLandingOracleReport | PetrinautOptimizationOracleReport;
+  readonly report: CompiledOracleReport;
 }): Promise<{
   readonly out: string;
   readonly status: 'passed' | 'failed' | 'assertion_failed' | 'setup_failed';
@@ -213,7 +263,7 @@ export async function runExecutionComparisonOperatorCli(args: readonly string[])
       });
       const retained = await retainCompiledOracleReport({
         out,
-        oracleId: oraclePack.manifest.id,
+        oracleId: oracle.id,
         oraclePackSha256: oraclePack.packSha256,
         report,
       });

@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "caseId": "prospect-research-workspace-v1",
+  "rows": [
+    {
+      "id": "PR1",
+      "publicConcern": "Application startup",
+      "origin": "public_baseline",
+      "publicWording": "The production application starts through the declared command and exposes a ready health endpoint.",
+      "controller": {
+        "wording": "The Node service, React application, and SQLite store become ready without uncaught errors or external runtime requests.",
+        "revealPolicy": "The shared baseline discloses delivery, health, and runtime-network mechanics.",
+        "expectedState": "Health is successful, the accessible shell is present, and a fresh database has no projects.",
+        "fixtureRefs": []
+      }
+    },
+    {
+      "id": "PR2",
+      "publicConcern": "Approved manual research",
+      "origin": "public_baseline",
+      "publicWording": "An operator creates and approves a project before manually starting fixture-backed research.",
+      "controller": {
+        "wording": "Research is unavailable before approval and one manual run imports the deterministic fixture once.",
+        "revealPolicy": "The mission and shared baseline disclose project approval and manual run controls.",
+        "expectedState": "The unapproved rival cannot run; approval followed by research creates one completed run.",
+        "fixtureRefs": [
+          "testing/execution-comparisons/cases/prospect-research-workspace/controller/fixtures/research-batch.json"
+        ]
+      }
+    },
+    {
+      "id": "PR3",
+      "publicConcern": "Evidence-backed qualification",
+      "origin": "controller_only",
+      "controller": {
+        "wording": "Qualification requires role, company-fit, and source evidence; provider confidence alone is insufficient.",
+        "revealPolicy": "Reveal exact evidence sufficiency only after a qualifying qualification or trust question.",
+        "expectedState": "The complete prospect qualifies and the high-confidence evidence-missing prospect needs review.",
+        "fixtureRefs": [
+          "testing/execution-comparisons/cases/prospect-research-workspace/controller/fixtures/research-batch.json"
+        ]
+      }
+    },
+    {
+      "id": "PR4",
+      "publicConcern": "Identity and provenance",
+      "origin": "controller_only",
+      "controller": {
+        "wording": "Duplicate people and companies merge into stable identities while retaining every contributing source.",
+        "revealPolicy": "Reveal provenance retention only after a qualifying deduplication or identity question.",
+        "expectedState": "Two records for the same person produce one prospect with two source references.",
+        "fixtureRefs": [
+          "testing/execution-comparisons/cases/prospect-research-workspace/controller/fixtures/research-batch.json"
+        ]
+      }
+    },
+    {
+      "id": "PR5",
+      "publicConcern": "Suppression precedence",
+      "origin": "controller_only",
+      "controller": {
+        "wording": "Matching person, company, domain, or email suppression dominates qualification, approval, export, and later research runs.",
+        "revealPolicy": "Reveal precedence and persistence only after a qualifying exclusions or suppression question.",
+        "expectedState": "An otherwise qualified suppressed-domain prospect remains suppressed after the fixture is rerun and never exports.",
+        "fixtureRefs": [
+          "testing/execution-comparisons/cases/prospect-research-workspace/controller/fixtures/research-batch.json"
+        ]
+      }
+    },
+    {
+      "id": "PR6",
+      "publicConcern": "Audited operator override",
+      "origin": "controller_only",
+      "controller": {
+        "wording": "An override requires a reason and retains the previous automated decision in immutable audit history.",
+        "revealPolicy": "Reveal exact audit retention only after a qualifying override or accountability question.",
+        "expectedState": "A reasonless override fails; a reasoned override changes current status while preserving both decisions.",
+        "fixtureRefs": []
+      }
+    },
+    {
+      "id": "PR7",
+      "publicConcern": "Approved export",
+      "origin": "controller_only",
+      "controller": {
+        "wording": "Export contains only explicitly operator-approved, non-suppressed prospects.",
+        "revealPolicy": "Reveal export eligibility only after a qualifying downstream-use or approval question.",
+        "expectedState": "Qualified but unapproved, needs-review, rejected, and suppressed prospects are absent from JSON export.",
+        "fixtureRefs": []
+      }
+    },
+    {
+      "id": "PR8",
+      "publicConcern": "Provider failure honesty",
+      "origin": "controller_only",
+      "controller": {
+        "wording": "Provider failure and partial results remain distinct from prospect rejection and do not corrupt prior state.",
+        "revealPolicy": "Reveal failure classification only after a qualifying provider-error or recovery question.",
+        "expectedState": "The failure fixture records a failed run, creates no rejection decisions, and leaves prior prospects unchanged.",
+        "fixtureRefs": [
+          "testing/execution-comparisons/cases/prospect-research-workspace/controller/fixtures/provider-failure.json"
+        ]
+      }
+    },
+    {
+      "id": "PR9",
+      "publicConcern": "Restart persistence",
+      "origin": "controller_only",
+      "controller": {
+        "wording": "Projects, prospects, suppressions, decisions, approvals, and audit history survive application restart through SQLite.",
+        "revealPolicy": "Reveal exact durable scope only after a qualifying persistence or recovery question.",
+        "expectedState": "Restarting against the same database reproduces the complete prior state and export eligibility.",
+        "fixtureRefs": []
+      }
+    }
+  ]
+}

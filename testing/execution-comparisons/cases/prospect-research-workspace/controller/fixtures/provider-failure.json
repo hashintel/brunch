@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "provider_unavailable",
+    "message": "Deterministic research provider failure"
+  }
+}

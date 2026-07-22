@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "id": "prospect-research-workspace-e2e-v1",
+  "caseId": "prospect-research-workspace-v1",
+  "mission": {
+    "path": "testing/comparisons/missions/prospect-research-workspace.md",
+    "sha256": "sha256:ee5ec5da6aefe79287a797fa18630f8b454ae53ef1d91a9503098be5eea11090"
+  },
+  "sharedBaseline": {
+    "path": "testing/end-to-end-comparisons/cases/prospect-research-workspace/shared-baseline.md",
+    "sha256": "sha256:8efe626c9b275b56da7577715ed2dc07046d93d9a3e445840cac510824ac9b82"
+  },
+  "requirementRegistry": {
+    "path": "testing/end-to-end-comparisons/cases/prospect-research-workspace/controller/requirement-registry.json",
+    "sha256": "sha256:20460d405d422c12ce1faa9e954614044b1aef6a0ac9d1bdbe81ef61b54360ab"
+  },
+  "executionContractTemplate": {
+    "path": "testing/execution-comparisons/cases/prospect-research-workspace/public-contract.json",
+    "sha256": "sha256:6ce5985ef06809c1622d50564d0ca5a63b517c8386931303f4be435eaafacd7b"
+  },
+  "oracle": {
+    "id": "prospect-research-workspace-oracles-v1",
+    "manifestPath": "testing/execution-comparisons/cases/prospect-research-workspace/controller/oracle-manifest.json",
+    "manifestSha256": "sha256:83398c66a41516ee9fc985724aa07dd88f4f3bae350670b80f1854970c92e900"
+  },
+  "budgets": {
+    "elicitation": {
+      "qualifyingQuestions": 10,
+      "targetTurns": 20,
+      "elapsedMinutes": 60,
+      "mechanicalInterventions": 2
+    },
+    "execution": {
+      "elapsedMinutes": 120,
+      "mechanicalInterventions": 2,
+      "substantiveHumanInterventions": 0
+    }
+  },
+  "actorRecipes": {
+    "elicitation": "agent-as-user-comparison/v1",
+    "execution": {
+      "brunch": "brunch-empty-dir/v1",
+      "claude_code": "claude-code-empty-dir/v1"
+    }
+  },
+  "specSources": ["brunch_spec", "claude_spec"],
+  "executors": ["brunch", "claude_code"]
+}

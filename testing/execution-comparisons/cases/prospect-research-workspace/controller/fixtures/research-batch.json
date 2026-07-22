@@ -1,0 +1,53 @@
+{
+  "companies": [
+    {
+      "id": "co-arc",
+      "name": "Arc Labs",
+      "domain": "arc.example",
+      "fitEvidence": "B2B workflow software, 42 employees"
+    },
+    {
+      "id": "co-suppressed",
+      "name": "Muted Systems",
+      "domain": "muted.example",
+      "fitEvidence": "B2B workflow software, 30 employees"
+    }
+  ],
+  "prospects": [
+    {
+      "source": "clay-a",
+      "person": "Ari Lane",
+      "email": "ari@arc.example",
+      "role": "VP Growth",
+      "companyId": "co-arc",
+      "roleEvidence": "Company team page",
+      "confidence": 0.84
+    },
+    {
+      "source": "clay-b",
+      "person": "Ari Lane",
+      "email": "ARI@arc.example",
+      "role": "VP Growth",
+      "companyId": "co-arc",
+      "roleEvidence": "Professional profile",
+      "confidence": 0.92
+    },
+    {
+      "source": "clay-c",
+      "person": "Noor Vale",
+      "email": "noor@arc.example",
+      "role": "Growth leader",
+      "companyId": "co-arc",
+      "confidence": 0.99
+    },
+    {
+      "source": "clay-d",
+      "person": "Sam Reed",
+      "email": "sam@muted.example",
+      "role": "VP Growth",
+      "companyId": "co-suppressed",
+      "roleEvidence": "Company team page",
+      "confidence": 0.95
+    }
+  ]
+}

@@ -27,6 +27,10 @@ describe('execution comparison operator case selection', () => {
         caseId: 'petrinaut-optimization-v1',
         directoryId: 'petrinaut-optimization',
       },
+      {
+        caseId: 'prospect-research-workspace-v1',
+        directoryId: 'prospect-research-workspace',
+      },
     ]);
     await expect(resolveExecutionCase('minimal-petri-net-editor', casesRoot)).resolves.toMatchObject({
       caseId: 'minimal-petri-net-editor-v1',
@@ -36,6 +40,10 @@ describe('execution comparison operator case selection', () => {
     await expect(resolveExecutionCase('petrinaut-optimization-v1', casesRoot)).resolves.toMatchObject({
       caseId: 'petrinaut-optimization-v1',
       directoryId: 'petrinaut-optimization',
+    });
+    await expect(resolveExecutionCase('prospect-research-workspace-v1', casesRoot)).resolves.toMatchObject({
+      caseId: 'prospect-research-workspace-v1',
+      directoryId: 'prospect-research-workspace',
     });
   });
 

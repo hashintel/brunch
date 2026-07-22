@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "prospect-research-workspace-oracles-v1",
+  "publicCaseId": "prospect-research-workspace-v1",
+  "runnerVersion": "prospect-research-full-stack-v1",
+  "fixtureVersion": "prospect-research-fixtures-v1",
+  "checks": [
+    { "id": "startup-and-health", "claims": ["PR1"] },
+    { "id": "project-approval-and-research", "claims": ["PR2"] },
+    { "id": "qualification-and-deduplication", "claims": ["PR3", "PR4"] },
+    { "id": "suppression-and-rerun", "claims": ["PR5"] },
+    { "id": "override-and-export", "claims": ["PR6", "PR7"] },
+    { "id": "provider-failure", "claims": ["PR8"] },
+    { "id": "restart-persistence", "claims": ["PR9"] }
+  ],
+  "validityRules": [
+    "The target repository starts at the frozen empty base commit.",
+    "Only spec.md and public-contract.json enter the target repository before launch.",
+    "Controller fixtures, expected states, and oracle implementation never enter the target repository or prompt.",
+    "Dependency installation is package-registry-only and candidate runtime network is denied.",
+    "The candidate receives fixture paths only when the controller starts the scored application after promotion_prepared.",
+    "No substantive human implementation advice or content is supplied.",
+    "A Brunch run stops at promotion_prepared and never invokes /brunch:land or records landed."
+  ],
+  "replacementRule": "Retain every attempt. Replace only provider, adapter, or mechanical invalidity under the same frozen packet; never replace poor output."
+}

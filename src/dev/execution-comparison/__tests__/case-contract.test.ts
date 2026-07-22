@@ -11,9 +11,12 @@ import { isPetriControllerOracleManifest, loadControllerOraclePack } from '../or
 const caseDir = fileURLToPath(
   new URL('../../../../testing/execution-comparisons/cases/minimal-petri-net-editor/', import.meta.url),
 );
+const prospectCaseDir = fileURLToPath(
+  new URL('../../../../testing/execution-comparisons/cases/prospect-research-workspace/', import.meta.url),
+);
 
 describe('execution comparison public case contract', () => {
-  it('accepts only the frozen greenfield and two exact brownfield profile variants', () => {
+  it('accepts only the two frozen greenfield and two exact brownfield profile variants', () => {
     const brunchContract = {
       schemaVersion: 1,
       case: {
@@ -131,6 +134,56 @@ describe('execution comparison public case contract', () => {
       },
     ]) {
       expect(() => parsePublicCaseContract({ ...petrinautContract, ...mutation })).toThrow(
+        'invalid fixed public execution contract',
+      );
+    }
+  });
+
+  it('freezes the full-stack prospect workspace lifecycle and addressability', async () => {
+    const packet = await loadPublicCasePacket(prospectCaseDir);
+
+    expect(packet.contract).toMatchObject({
+      case: {
+        id: 'prospect-research-workspace-v1',
+        product: 'prospect_research_workspace',
+        mode: 'greenfield',
+        scope: 'whole_application',
+        surface: 'full_stack',
+        repository: { substrate: 'empty_dir', base: 'fresh-empty-commit' },
+      },
+      delivery: {
+        test: { command: 'npm', args: ['test'] },
+        build: { command: 'npm', args: ['run', 'build'] },
+        start: { command: 'npm', args: ['start'] },
+        environment: ['PORT', 'DATABASE_PATH', 'RESEARCH_FIXTURE_PATH'],
+        runtimeNetwork: 'forbidden',
+      },
+      acceptance: { healthPath: '/api/health', executionTerminal: 'promotion_prepared' },
+    });
+
+    for (const mutation of [
+      { case: { ...packet.contract.case, surface: 'frontend' } },
+      {
+        delivery: {
+          ...packet.contract.delivery,
+          start: { command: 'sh', args: ['server.sh'] },
+        },
+      },
+      {
+        delivery: {
+          ...packet.contract.delivery,
+          environment: ['PORT', 'DATABASE_PATH'],
+        },
+      },
+      { acceptance: { healthPath: '/health', executionTerminal: 'promotion_prepared' } },
+      {
+        accessibility: {
+          ...(packet.contract as { accessibility: Record<string, unknown> }).accessibility,
+          application: { role: 'application', name: 'Campaign machine' },
+        },
+      },
+    ]) {
+      expect(() => parsePublicCaseContract({ ...packet.contract, ...mutation })).toThrow(
         'invalid fixed public execution contract',
       );
     }
