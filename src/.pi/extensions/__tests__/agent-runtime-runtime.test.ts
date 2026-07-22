@@ -208,6 +208,7 @@ describe('Brunch agent runtime-state projection', () => {
     const packageRoot = join(root, 'package');
     const skillPath = join(packageRoot, 'SKILL.md');
     const workspaceFile = join(workspace, 'inside.md');
+    const missingInsidePath = join(workspace, 'missing-inside.md');
     const missingOutsidePath = join(root, 'missing-outside.md');
     await mkdir(workspace);
     await mkdir(packageRoot);
@@ -255,6 +256,15 @@ describe('Brunch agent runtime-state projection', () => {
           { cwd: workspace },
         ),
       ).resolves.toBeDefined();
+      await expect(
+        registerRead(workspace).execute(
+          'missing-inside-read',
+          { path: missingInsidePath },
+          undefined,
+          undefined,
+          { cwd: workspace },
+        ),
+      ).rejects.toMatchObject({ code: 'ENOENT', syscall: 'access' });
       await expect(
         registerRead(workspace).execute('bounded-read', { path: skillPath }, undefined, undefined, {
           cwd: workspace,

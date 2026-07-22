@@ -8,7 +8,7 @@
 
 import { realpath } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { resolve, sep } from 'node:path';
+import { dirname, resolve, sep } from 'node:path';
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import {
@@ -320,19 +320,43 @@ export function registerBrunchOperationalModePolicy(
 async function assertBoundedReadPath(root: string, requestedPath: string): Promise<void> {
   const normalizedRoot = resolve(root);
   const target = resolve(normalizedRoot, requestedPath);
-  if (!isContainedPath(normalizedRoot, target)) {
-    try {
-      const [realRoot, realTarget] = await Promise.all([realpath(normalizedRoot), realpath(target)]);
-      if (isContainedPath(realRoot, realTarget)) return;
-    } catch {
-      // Lexical escapes always receive the same denial, whether or not they exist.
+  const lexicallyContained = isContainedPath(normalizedRoot, target);
+  let realRoot: string;
+  let realTargetBoundary: string;
+  try {
+    [realRoot, realTargetBoundary] = await Promise.all([
+      realpath(normalizedRoot),
+      realpathNearestExistingAncestor(target),
+    ]);
+  } catch (error) {
+    if (!lexicallyContained) {
+      throw new Error(`read-only tool path escapes target root: ${requestedPath}`);
     }
+    throw error;
+  }
+  if (isContainedPath(realRoot, realTargetBoundary)) return;
+  if (!lexicallyContained) {
     throw new Error(`read-only tool path escapes target root: ${requestedPath}`);
   }
-  const [realRoot, realTarget] = await Promise.all([realpath(normalizedRoot), realpath(target)]);
-  if (!isContainedPath(realRoot, realTarget)) {
-    throw new Error(`read-only tool path escapes target root through symlink: ${requestedPath}`);
+  throw new Error(`read-only tool path escapes target root through symlink: ${requestedPath}`);
+}
+
+async function realpathNearestExistingAncestor(target: string): Promise<string> {
+  let candidate = target;
+  for (;;) {
+    try {
+      return await realpath(candidate);
+    } catch (error) {
+      if (!isErrorWithCode(error, 'ENOENT')) throw error;
+      const parent = dirname(candidate);
+      if (parent === candidate) throw error;
+      candidate = parent;
+    }
   }
+}
+
+function isErrorWithCode(error: unknown, code: string): error is NodeJS.ErrnoException {
+  return error instanceof Error && 'code' in error && error.code === code;
 }
 
 function isContainedPath(root: string, target: string): boolean {
