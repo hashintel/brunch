@@ -91,9 +91,16 @@ async function driveCandidateTui(input: {
     sendKeys(name, ['Down', 'Enter']);
     await wait(name, 'Does this build on the existing code here?');
     sendKeys(name, ['Enter']);
-    await wait(name, 'Choose how Specify mode should work');
-    sendKeys(name, ['Esc']);
-    terminalEvidence.push(...(await wait(name, 'Settled controller session.')));
+    const settledOrModeChoice = await wait(
+      name,
+      /Choose how Specify mode should work|Settled controller session\./u,
+    );
+    if (settledOrModeChoice.join('\n').includes('Choose how Specify mode should work')) {
+      sendKeys(name, ['Esc']);
+      terminalEvidence.push(...(await wait(name, 'Settled controller session.')));
+    } else {
+      terminalEvidence.push(...settledOrModeChoice);
+    }
     const commandText =
       input.scenario === 'greenfield_success'
         ? `/brunch:land ${HOST_LANDING_RUN_ID} ${input.fixture.targetDir}`
@@ -153,7 +160,7 @@ async function driveCandidateTui(input: {
   }
 }
 
-async function wait(name: string, text: string): Promise<string[]> {
+async function wait(name: string, text: string | RegExp): Promise<string[]> {
   const status = sessionStatus(name);
   if (!status) throw new Error(`TUI driver session ${name} disappeared`);
   const result = await waitForScreenText(status.logPath, status.cols, status.rows, text, {
