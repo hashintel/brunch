@@ -1,4 +1,5 @@
 {
+  "overlayHeightPercent": 80,
   "minQueryIntervalSeconds": 5,
   "handsFreeQuietThreshold": 3000,
   "handsFreeUpdateMaxChars": 8000

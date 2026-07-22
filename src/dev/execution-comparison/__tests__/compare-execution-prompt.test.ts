@@ -6,6 +6,14 @@ import { describe, expect, it } from 'vitest';
 const promptPath = fileURLToPath(new URL('../../../../.pi/prompts/compare-execution.md', import.meta.url));
 
 describe('/compare-execution operator prompt', () => {
+  it('continues without a turn boundary when exactly one case is eligible', async () => {
+    const prompt = await readFile(promptPath, 'utf8');
+
+    expect(prompt).toContain('If exactly one case is eligible, select it and continue in this turn');
+    expect(prompt).toContain('Only ask the operator to choose when more than one case is eligible');
+    expect(prompt).toContain('If no case is eligible, report that and stop');
+  });
+
   it('requires complete setup disclosure and approval before any launch', async () => {
     const prompt = await readFile(promptPath, 'utf8');
     const disclosure = prompt.indexOf('## Display the complete setup');
