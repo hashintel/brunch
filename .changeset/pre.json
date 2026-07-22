@@ -5,6 +5,7 @@
     "@hashintel/brunch": "1.0.0-alpha.5"
   },
   "changesets": [
+    "aggregate-comparison-release",
     "automatic-alpha-releases",
     "clear-gates-jrks",
     "format-generated-release-pr",
@@ -12,6 +13,8 @@
     "honest-pots-slide",
     "humble-webs-peel",
     "reporting-evaluation-guardrails",
-    "tired-jeans-cross"
+    "tired-jeans-cross",
+    "trace-comparison-execution",
+    "validate-scoped-slices"
   ]
 }
