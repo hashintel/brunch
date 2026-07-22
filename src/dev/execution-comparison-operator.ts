@@ -81,6 +81,12 @@ const COMPILED_ORACLES: Readonly<Record<CompiledOracleId, CompiledOracle>> = {
         new URL('./execution-comparison/petrinaut-optimization-oracle/browser.ts', import.meta.url),
       ),
       fileURLToPath(
+        new URL(
+          './execution-comparison/petrinaut-optimization-oracle/calibration-seed.json',
+          import.meta.url,
+        ),
+      ),
+      fileURLToPath(
         new URL('./execution-comparison/petrinaut-optimization-oracle/claims.ts', import.meta.url),
       ),
       fileURLToPath(
@@ -205,6 +211,7 @@ export async function runExecutionComparisonOperatorCli(
     }
     case 'oracle': {
       assertOnlyOptions(options, ['case', 'app', 'out']);
+      const out = requiredAbsolute(options, 'out');
       const selected = await resolveExecutionCase(required(options, 'case'), casesRoot);
       const manifest = await loadControllerOracleManifest(selected.caseDir);
       const oracle = resolveCompiledExecutionOracle(manifest.id);
@@ -217,7 +224,7 @@ export async function runExecutionComparisonOperatorCli(
         caseDir: selected.caseDir,
       });
       const retained = await retainCompiledOracleReport({
-        out: required(options, 'out'),
+        out,
         oracleId: oraclePack.manifest.id,
         oraclePackSha256: oraclePack.packSha256,
         report,

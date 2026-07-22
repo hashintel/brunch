@@ -1,6 +1,7 @@
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
@@ -9,6 +10,11 @@ import {
   resolveCompiledExecutionOracle,
   retainCompiledOracleReport,
 } from '../../execution-comparison-operator.js';
+import { loadControllerOraclePack } from '../oracle-pack.js';
+
+const petrinautCaseDir = fileURLToPath(
+  new URL('../../../../testing/execution-comparisons/cases/petrinaut-optimization/', import.meta.url),
+);
 
 describe('execution comparison compiled oracle dispatch', () => {
   it('keeps shared framing neutral across browser and backend delivery contracts', () => {
@@ -32,6 +38,7 @@ describe('execution comparison compiled oracle dispatch', () => {
       expect.arrayContaining([
         expect.stringContaining('petrinaut-optimization-oracle.ts'),
         expect.stringContaining('petrinaut-optimization-oracle/browser.ts'),
+        expect.stringContaining('petrinaut-optimization-oracle/calibration-seed.json'),
         expect.stringContaining('petrinaut-optimization-oracle/claims.ts'),
         expect.stringContaining('petrinaut-optimization-oracle/fake-optimizer.ts'),
       ]),
@@ -92,6 +99,31 @@ describe('execution comparison compiled oracle dispatch', () => {
         report,
       }),
     ).rejects.toMatchObject({ code: 'EEXIST' });
+  });
+
+  it('changes the Petrinaut oracle-pack identity when its calibration seed changes', async () => {
+    const oracle = resolveCompiledExecutionOracle('petrinaut-optimization-oracles-v1');
+    const seedPath = oracle.implementationFiles.find((path) => path.endsWith('calibration-seed.json'));
+    expect(seedPath).toBeDefined();
+    if (seedPath === undefined) return;
+
+    const root = await mkdtemp(join(tmpdir(), 'brunch-oracle-seed-rival-'));
+    const rivalSeedPath = join(root, 'calibration-seed.json');
+    await writeFile(rivalSeedPath, `${await readFile(seedPath, 'utf8')}\n`);
+    const [knownPack, rivalPack] = await Promise.all([
+      loadControllerOraclePack({
+        caseDir: petrinautCaseDir,
+        implementationFiles: oracle.implementationFiles,
+      }),
+      loadControllerOraclePack({
+        caseDir: petrinautCaseDir,
+        implementationFiles: oracle.implementationFiles.map((path) =>
+          path === seedPath ? rivalSeedPath : path,
+        ),
+      }),
+    ]);
+
+    expect(rivalPack.packSha256).not.toBe(knownPack.packSha256);
   });
 });
 

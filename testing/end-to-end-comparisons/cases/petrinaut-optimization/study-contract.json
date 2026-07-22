@@ -12,11 +12,11 @@
   },
   "requirementRegistry": {
     "path": "testing/end-to-end-comparisons/cases/petrinaut-optimization/controller/requirement-registry.json",
-    "sha256": "sha256:e2b08e6079b69bd1fbcbd8fb3590a5d0fa487b220f9441bccc648989d174455e"
+    "sha256": "sha256:9e8866d4a2b96a2e43c261f8514c349582547db958978cf13eb3a4654b73cd02"
   },
   "executionContractTemplate": {
     "path": "testing/execution-comparisons/cases/petrinaut-optimization/public-contract.json",
-    "sha256": "sha256:5d73dc3c9c76c350a22b9e5d2a06c9a9741a2474523feffe9bb4ba4e5076b321"
+    "sha256": "sha256:a8dedb7d6be4dfb706e47194de3bb32caf7724e2eb34f808c8a9ab139c235312"
   },
   "oracle": {
     "id": "petrinaut-optimization-oracles-v1",

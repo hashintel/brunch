@@ -86,14 +86,24 @@ describe('controller-owned Petrinaut optimization oracle boundary', () => {
     expect(source).not.toMatch(/implementationPath|oraclePath|pluginPath|manifest\.(?:command|path)/u);
   });
 
-  it('consumes source-backed mechanical addresses from the typed public contract', async () => {
+  it('keeps D138 mechanical interactions on declared or calibration-derived addresses', async () => {
     const browserSource = await readFile(join(oracleRoot, 'browser.ts'), 'utf8');
     expect(browserSource).toMatch(/mechanicalAddresses/u);
     expect(browserSource).toMatch(/locate\(page, addresses\.create\)/u);
     expect(browserSource).toMatch(/locate\(page, addresses\.metricCode\)/u);
+    expect(browserSource).toMatch(/addresses\.scenarioSelected/u);
+    expect(browserSource).toMatch(/addresses\.metricCustomOption/u);
+    expect(browserSource).toMatch(/addresses\.optimizationName/u);
+    expect(browserSource).toMatch(/parseCalibrationInputs/u);
     expect(browserSource).not.toMatch(/Create optimization/u);
     expect(browserSource).not.toMatch(/getByRole\('heading', \{ name: 'Optimizations'/u);
     expect(browserSource).not.toMatch(/getByRole\('tab', \{ name: 'Optimizations'/u);
+    expect(browserSource).not.toMatch(/getByRole\('checkbox'/u);
+    expect(browserSource).not.toMatch(/getByRole\('combobox'\)\.first/u);
+    expect(browserSource).not.toMatch(
+      /Seasonal Flu|High Virulence Outbreak|Optimize infected_ratio|Infected Fraction/u,
+    );
+    expect(browserSource).not.toMatch(/OPTIMIZATION_NAME_ADDRESS|CUSTOM_METRIC_OPTION/u);
   });
 
   it.each([

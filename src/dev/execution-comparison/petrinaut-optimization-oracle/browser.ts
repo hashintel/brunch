@@ -51,6 +51,7 @@ export async function runPetrinautBrowserChecks(input: {
   const consoleErrors: string[] = [];
   const failedRequests: string[] = [];
   const calibrationSeed = JSON.parse(await readFile(CALIBRATION_SEED_PATH, 'utf8')) as unknown;
+  const calibration = parseCalibrationInputs(calibrationSeed);
   try {
     await waitForRoute(
       `${candidateOrigin}${input.contract.acceptance.publicRoute}`,
@@ -60,6 +61,7 @@ export async function runPetrinautBrowserChecks(input: {
     browser = await chromium.launch({ executablePath: await resolveChromeExecutable(), headless: true });
     const definitions = checkDefinitions({
       contract: input.contract,
+      calibration,
       candidateOrigin,
       fakeOrigin: fake.origin,
       requests: fake.requests,
@@ -113,8 +115,16 @@ export async function runPetrinautBrowserChecks(input: {
 
 type CheckDefinition = (page: Page) => Promise<readonly string[]>;
 
+interface CalibrationInputs {
+  readonly primaryScenarioName: string;
+  readonly resetScenarioName: string;
+  readonly optimizeParameterAddress: PetrinautMechanicalAddress;
+  readonly savedMetricName: string;
+}
+
 function checkDefinitions(input: {
   readonly contract: PetrinautOptimizationExecutionCasePublicContract;
+  readonly calibration: CalibrationInputs;
   readonly candidateOrigin: string;
   readonly fakeOrigin: string;
   readonly requests: { readonly body: unknown; readonly aborted: boolean }[];
@@ -130,7 +140,7 @@ function checkDefinitions(input: {
         await openCreateDrawer(page, addresses);
         await requireCount(locate(page, addresses.createDrawer), 1, 'createDrawer');
         await requireCount(locate(page, addresses.scenario), 1, 'scenario');
-        await selectScenarioOption(page, addresses, 'Seasonal Flu');
+        await selectScenarioOption(page, addresses, input.calibration.primaryScenarioName);
         await requireCount(locate(page, addresses.metric), 1, 'metric');
         await requireCount(locate(page, addresses.directionMaximize), 1, 'directionMaximize');
         await requireCount(locate(page, addresses.run), 1, 'run');
@@ -141,21 +151,25 @@ function checkDefinitions(input: {
         });
         return [
           'public /optimization route ready',
-          'required controls expose stable source-backed mechanical addresses',
+          'required controls resolve through declared mechanical addresses',
         ];
       },
     ],
     [
       'scenario-configuration',
       async (page) => {
-        await openConfiguration(page, addresses);
-        const optimize = page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true });
+        await openConfiguration(page, addresses, input.calibration);
+        const optimize = locate(page, input.calibration.optimizeParameterAddress);
         await optimize.click({ force: true });
         assert(await optimize.isChecked(), 'optimize toggle did not enable');
         await locate(page, addresses.directionMinimize).click({ force: true });
-        await selectScenarioOption(page, addresses, 'High Virulence Outbreak');
+        await selectComboboxOption(
+          page,
+          addresses.scenarioSelected,
+          optionAddress(input.calibration.resetScenarioName),
+        );
         assert(
-          !(await page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true }).isChecked()),
+          !(await locate(page, input.calibration.optimizeParameterAddress).isChecked()),
           'scenario change retained optimized binding',
         );
         assert(
@@ -171,14 +185,12 @@ function checkDefinitions(input: {
     [
       'request-contract',
       async (page) => {
-        await openConfiguration(page, addresses);
+        await openConfiguration(page, addresses, input.calibration);
         const savedRequestIndex = input.requests.length;
-        await page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true }).click({
-          force: true,
-        });
-        await selectComboboxOption(page, addresses.metric, 'Infected Fraction');
+        await locate(page, input.calibration.optimizeParameterAddress).click({ force: true });
+        await selectComboboxOption(page, addresses.metric, optionAddress(input.calibration.savedMetricName));
         await locate(page, addresses.directionMaximize).click({ force: true });
-        await setOptimizationName(page, 'saved metric proof');
+        await setOptimizationName(page, addresses, 'saved metric proof');
         await locate(page, addresses.run).click();
         await waitForAddress(page, addresses.statusComplete);
         const savedBody = input.requests[savedRequestIndex]?.body;
@@ -193,15 +205,13 @@ function checkDefinitions(input: {
 
         await dismissOverlayDrawers(page);
         await openCreateDrawer(page, addresses);
-        await selectScenarioOption(page, addresses, 'Seasonal Flu');
+        await selectScenarioOption(page, addresses, input.calibration.primaryScenarioName);
         const customRequestIndex = input.requests.length;
-        await page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true }).click({
-          force: true,
-        });
-        await selectComboboxOption(page, addresses.metric, 'Custom code');
+        await locate(page, input.calibration.optimizeParameterAddress).click({ force: true });
+        await selectComboboxOption(page, addresses.metric, addresses.metricCustomOption);
         await locate(page, addresses.metricCode).fill('return 42;');
         await locate(page, addresses.directionMinimize).click({ force: true });
-        await setOptimizationName(page, 'custom metric proof');
+        await setOptimizationName(page, addresses, 'custom metric proof');
         await locate(page, addresses.run).click();
         await waitForAddress(page, addresses.statusComplete);
         const body = input.requests[customRequestIndex]?.body;
@@ -242,13 +252,11 @@ function checkDefinitions(input: {
     [
       'progress-and-completion',
       async (page) => {
-        await openConfiguration(page, addresses);
-        await page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true }).click({
-          force: true,
-        });
-        await selectComboboxOption(page, addresses.metric, 'Infected Fraction');
+        await openConfiguration(page, addresses, input.calibration);
+        await locate(page, input.calibration.optimizeParameterAddress).click({ force: true });
+        await selectComboboxOption(page, addresses.metric, optionAddress(input.calibration.savedMetricName));
         await locate(page, addresses.directionMaximize).click({ force: true });
-        await setOptimizationName(page, 'progress proof');
+        await setOptimizationName(page, addresses, 'progress proof');
         await locate(page, addresses.run).click();
         await waitForAddress(page, addresses.statusComplete);
         const progressiveTrialCount = await page.getByText(/^\d+$/u).count();
@@ -266,13 +274,11 @@ function checkDefinitions(input: {
     [
       'service-error',
       async (page) => {
-        await openConfiguration(page, addresses);
-        await page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true }).click({
-          force: true,
-        });
-        await selectComboboxOption(page, addresses.metric, 'Infected Fraction');
+        await openConfiguration(page, addresses, input.calibration);
+        await locate(page, input.calibration.optimizeParameterAddress).click({ force: true });
+        await selectComboboxOption(page, addresses.metric, optionAddress(input.calibration.savedMetricName));
         await locate(page, addresses.directionMaximize).click({ force: true });
-        await setOptimizationName(page, 'service failure');
+        await setOptimizationName(page, addresses, 'service failure');
         await locate(page, addresses.run).click();
         await waitForAddress(page, addresses.statusError);
         return ['service error rendered distinctly'];
@@ -282,13 +288,11 @@ function checkDefinitions(input: {
       'cancel-and-abort',
       async (page) => {
         const requestIndex = input.requests.length;
-        await openConfiguration(page, addresses);
-        await page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true }).click({
-          force: true,
-        });
-        await selectComboboxOption(page, addresses.metric, 'Infected Fraction');
+        await openConfiguration(page, addresses, input.calibration);
+        await locate(page, input.calibration.optimizeParameterAddress).click({ force: true });
+        await selectComboboxOption(page, addresses.metric, optionAddress(input.calibration.savedMetricName));
         await locate(page, addresses.directionMaximize).click({ force: true });
-        await setOptimizationName(page, 'cancel proof');
+        await setOptimizationName(page, addresses, 'cancel proof');
         await locate(page, addresses.run).click();
         // Create closes and the view drawer opens on the active record (initializing/running).
         await page
@@ -327,13 +331,11 @@ function checkDefinitions(input: {
       async (page) => {
         const browserRequests: string[] = [];
         page.on('request', (request) => browserRequests.push(request.url()));
-        await openConfiguration(page, addresses);
-        await page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true }).click({
-          force: true,
-        });
-        await selectComboboxOption(page, addresses.metric, 'Infected Fraction');
+        await openConfiguration(page, addresses, input.calibration);
+        await locate(page, input.calibration.optimizeParameterAddress).click({ force: true });
+        await selectComboboxOption(page, addresses.metric, optionAddress(input.calibration.savedMetricName));
         await locate(page, addresses.directionMaximize).click({ force: true });
-        await setOptimizationName(page, 'secrecy proof');
+        await setOptimizationName(page, addresses, 'secrecy proof');
         await locate(page, addresses.run).click();
         await waitForAddress(page, addresses.statusComplete);
         requirePetrinautFocusedObservation({
@@ -365,14 +367,15 @@ async function navigateToOptimizations(
 async function openConfiguration(
   page: Page,
   addresses: PetrinautOptimizationExecutionCasePublicContract['mechanicalAddresses'],
+  calibration: CalibrationInputs,
 ): Promise<void> {
   await navigateToOptimizations(page, addresses);
   await openCreateDrawer(page, addresses);
   assert(
-    (await page.getByRole('checkbox', { name: /^Optimize /u }).count()) === 0,
+    (await locate(page, calibration.optimizeParameterAddress).count()) === 0,
     'configuration appeared before scenario selection',
   );
-  await selectScenarioOption(page, addresses, 'Seasonal Flu');
+  await selectScenarioOption(page, addresses, calibration.primaryScenarioName);
 }
 
 async function openCreateDrawer(
@@ -427,26 +430,27 @@ async function selectScenarioOption(
   addresses: PetrinautOptimizationExecutionCasePublicContract['mechanicalAddresses'],
   optionText: string,
 ): Promise<void> {
-  const drawer = locate(page, addresses.createDrawer);
-  await drawer.waitFor();
-  const empty = locate(page, addresses.scenario);
-  // Empty-state address when present; after selection the same dialog combobox
-  // keeps the scenario control (placeholder text no longer matches).
-  const combobox = (await empty.count()) > 0 ? empty : drawer.getByRole('combobox').first();
+  const combobox = locate(page, addresses.scenario);
+  await requireCount(combobox, 1, 'scenario');
+  await selectComboboxLocatorOption(page, combobox, optionAddress(optionText));
+}
+
+async function selectComboboxLocatorOption(
+  page: Page,
+  combobox: Locator,
+  option: PetrinautMechanicalAddress,
+): Promise<void> {
   const tagName = await combobox.evaluate((element) => element.tagName);
   if (tagName === 'SELECT') {
-    const value = await combobox.evaluate((element, expectedText) => {
-      for (const option of Array.from((element as HTMLSelectElement).options)) {
-        if ((option.textContent ?? '').includes(expectedText)) return option.value;
-      }
-      return null;
-    }, optionText);
-    assert(value !== null && value.length > 0, `no select option matched ${optionText}`);
-    await combobox.selectOption(value);
+    assert(
+      option.kind === 'roleName' && option.role === 'option',
+      'native select options require a roleName option address',
+    );
+    await combobox.selectOption({ label: option.name });
     return;
   }
   await combobox.click({ force: true });
-  await page.getByRole('option').filter({ hasText: optionText }).first().click();
+  await locate(page, option).click();
 }
 
 function cssRoleSelector(role: string): string {
@@ -461,28 +465,22 @@ function cssEscape(value: string): string {
 async function selectComboboxOption(
   page: Page,
   address: PetrinautMechanicalAddress,
-  optionText: string,
+  option: PetrinautMechanicalAddress,
 ): Promise<void> {
-  const combobox = locate(page, address);
-  const tagName = await combobox.evaluate((element) => element.tagName);
-  if (tagName === 'SELECT') {
-    const value = await combobox.evaluate((element, expectedText) => {
-      for (const option of Array.from((element as HTMLSelectElement).options)) {
-        if ((option.textContent ?? '').includes(expectedText)) return option.value;
-      }
-      return null;
-    }, optionText);
-    assert(value !== null && value.length > 0, `no select option matched ${optionText}`);
-    await combobox.selectOption(value);
-    return;
-  }
-  await combobox.click({ force: true });
-  await page.getByRole('option').filter({ hasText: optionText }).first().click();
+  await selectComboboxLocatorOption(page, locate(page, address), option);
 }
 
-async function setOptimizationName(page: Page, name: string): Promise<void> {
-  const dialog = page.getByRole('dialog', { name: 'Create an optimization', exact: true });
-  const nameField = dialog.getByRole('textbox').first();
+function optionAddress(name: string): PetrinautMechanicalAddress {
+  return { kind: 'roleName', role: 'option', name };
+}
+
+async function setOptimizationName(
+  page: Page,
+  addresses: PetrinautOptimizationExecutionCasePublicContract['mechanicalAddresses'],
+  name: string,
+): Promise<void> {
+  const nameField = locate(page, addresses.optimizationName);
+  await requireCount(nameField, 1, 'optimizationName');
   await nameField.fill(name);
 }
 
@@ -493,6 +491,44 @@ async function waitForAddress(page: Page, address: PetrinautMechanicalAddress): 
 async function requireCount(locator: Locator, expected: number, label: string): Promise<void> {
   const actual = await locator.count();
   assert(actual === expected, `${label}: expected ${expected}, received ${actual}`);
+}
+
+function parseCalibrationInputs(value: unknown): CalibrationInputs {
+  assert(record(value), 'invalid Petrinaut calibration seed');
+  const sdcpn = value['sdcpn'];
+  assert(record(sdcpn), 'calibration seed is missing sdcpn');
+  const primary = recordById(sdcpn['scenarios'], 'scenario__seasonal_flu', 'scenario');
+  const reset = recordById(sdcpn['scenarios'], 'scenario__high_virulence', 'scenario');
+  const metric = recordById(sdcpn['metrics'], 'metric__infected_fraction', 'metric');
+  assert(typeof primary['name'] === 'string', 'primary calibration scenario is missing its name');
+  assert(typeof reset['name'] === 'string', 'reset calibration scenario is missing its name');
+  assert(typeof metric['name'] === 'string', 'calibration metric is missing its name');
+  assert(Array.isArray(primary['scenarioParameters']), 'primary scenario is missing parameters');
+  const parameter = primary['scenarioParameters'].find(
+    (candidate) => record(candidate) && candidate['identifier'] === 'infected_ratio',
+  );
+  assert(record(parameter), 'primary scenario is missing the optimized calibration parameter');
+  assert(
+    typeof parameter['identifier'] === 'string',
+    'optimized calibration parameter is missing its identifier',
+  );
+  return {
+    primaryScenarioName: primary['name'],
+    resetScenarioName: reset['name'],
+    optimizeParameterAddress: {
+      kind: 'roleName',
+      role: 'checkbox',
+      name: `Optimize ${parameter['identifier']}`,
+    },
+    savedMetricName: metric['name'],
+  };
+}
+
+function recordById(value: unknown, id: string, label: string): Record<string, unknown> {
+  assert(Array.isArray(value), `calibration seed is missing ${label} rows`);
+  const found = value.find((candidate) => record(candidate) && candidate['id'] === id);
+  assert(record(found), `calibration seed is missing ${label} ${id}`);
+  return found;
 }
 
 async function availablePort(): Promise<number> {

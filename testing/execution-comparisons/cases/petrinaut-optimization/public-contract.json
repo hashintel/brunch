@@ -70,15 +70,30 @@
       "role": "combobox",
       "contents": "Select a scenario"
     },
+    "scenarioSelected": {
+      "kind": "roleContents",
+      "role": "combobox",
+      "contents": "Seasonal Flu"
+    },
     "metric": {
       "kind": "roleContents",
       "role": "combobox",
       "contents": "Select a metric"
     },
+    "metricCustomOption": {
+      "kind": "roleName",
+      "role": "option",
+      "name": "Custom code"
+    },
     "metricCode": {
       "kind": "roleName",
       "role": "textbox",
       "name": "Editor content"
+    },
+    "optimizationName": {
+      "kind": "roleName",
+      "role": "textbox",
+      "name": "Name"
     },
     "directionMaximize": {
       "kind": "roleName",

@@ -83,7 +83,7 @@
       "publicWording": "Expose the Optimizations view, Create action, and Create an optimization drawer controls on /optimization.",
       "controller": {
         "wording": "Closed mechanical addresses for Simulate navigation, Create, scenario/metric selectors and metric editor, Maximize/Minimize, Run/Cancel, and Complete/Error/Cancelled remain exact.",
-        "expectedState": "Every required source-backed mechanical address resolves exactly once."
+        "expectedState": "Every required declared mechanical address resolves exactly once."
       }
     }
   ]

@@ -1,6 +1,6 @@
 import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it, vi } from 'vitest';
@@ -215,6 +215,29 @@ describe('execution comparison target preparation', () => {
         ),
       ).rejects.toThrow('controller and target roots must be disjoint');
     } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('execution comparison oracle CLI', () => {
+  it('rejects a relative evidence path before oracle launch', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'brunch-relative-oracle-out-'));
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    try {
+      await expect(
+        runExecutionComparisonOperatorCli([
+          'oracle',
+          '--case',
+          'minimal-petri-net-editor-v1',
+          '--app',
+          root,
+          '--out',
+          relative(process.cwd(), join(root, 'report.json')),
+        ]),
+      ).rejects.toThrow('--out must be an absolute path');
+    } finally {
+      stdout.mockRestore();
       await rm(root, { recursive: true, force: true });
     }
   });

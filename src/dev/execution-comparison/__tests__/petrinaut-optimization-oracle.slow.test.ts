@@ -6,10 +6,13 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { runCommand } from '../../../app/command-runner.js';
+import { isPetrinautOptimizationExecutionCaseContract, loadPublicCasePacket } from '../case-contract.js';
+import { loadControllerOracleManifest } from '../oracle-pack.js';
 import {
   PETRINAUT_FOCUSED_PREPARATION,
   runPetrinautOptimizationOracle,
 } from '../petrinaut-optimization-oracle.js';
+import { runPetrinautBrowserChecks } from '../petrinaut-optimization-oracle/browser.js';
 import {
   createInventedLabelsPetrinautCandidate,
   createKnownGoodPetrinautCandidate,
@@ -91,6 +94,46 @@ describe('standalone Petrinaut optimization browser oracle', () => {
 
     expect(report.status).toBe('assertion_failed');
     expect(report.checks.find(({ id }) => id === 'route-and-accessibility')?.status).toBe('failed');
+  }, 120_000);
+
+  it('does not reuse the empty-state scenario address after selection', async () => {
+    const candidateRoot = await mkdtemp(join(tmpdir(), 'brunch-petrinaut-wrong-scenario-'));
+    roots.push(candidateRoot);
+    await createKnownGoodPetrinautCandidate(candidateRoot);
+    for (const step of PETRINAUT_FOCUSED_PREPARATION) {
+      const result = await runCommand(step.command, step.args, {
+        cwd: candidateRoot,
+        timeoutMs: 30_000,
+        maxOutputBytes: 16 * 1024,
+      });
+      expect(result.exitCode, result.stderr).toBe(0);
+    }
+    const [packet, manifest] = await Promise.all([
+      loadPublicCasePacket(caseDir),
+      loadControllerOracleManifest(caseDir),
+    ]);
+    if (!isPetrinautOptimizationExecutionCaseContract(packet.contract)) {
+      throw new Error('expected Petrinaut packet');
+    }
+    if (manifest.id !== 'petrinaut-optimization-oracles-v1') {
+      throw new Error('expected Petrinaut manifest');
+    }
+    const contract = {
+      ...packet.contract,
+      mechanicalAddresses: {
+        ...packet.contract.mechanicalAddresses,
+        scenarioSelected: {
+          kind: 'roleName',
+          role: 'combobox',
+          name: 'Missing selected scenario selector',
+        } as const,
+      },
+    };
+
+    const result = await runPetrinautBrowserChecks({ candidateRoot, contract, manifest });
+
+    expect(result.checks.find(({ id }) => id === 'route-and-accessibility')?.status).toBe('passed');
+    expect(result.checks.find(({ id }) => id === 'scenario-configuration')?.status).toBe('failed');
   }, 120_000);
 
   it.each([

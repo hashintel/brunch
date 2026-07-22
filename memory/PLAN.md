@@ -84,7 +84,7 @@ Close the entire first batch of walkthrough-related findings: remediation, the o
 
 ### Recently Completed
 
-- 2026-07-22 `brownfield-comparison-cases` (FE-1241) — **✓ complete (provider campaign waived):** frozen Brunch and Petrinaut brownfield packets, the two-commit lane-ready replay boundary, compile-time preparation/oracle registries, deterministic sensitivity rivals, and portable CI are built. The real post-rebaseline Petrinaut preflight/provider campaign was explicitly not run; D138-L remains a Later re-entry gate.
+- 2026-07-22 `brownfield-comparison-cases` (FE-1241) — **✓ complete (provider campaign waived):** frozen Brunch and Petrinaut packets, the D137-L replay boundary, deterministic oracles, and portable CI are built. Post-review hardening now binds the Petrinaut calibration seed into oracle identity, removes fixture-owned locator fallbacks and source-reference overclaims, aligns the Brunch public type with its backend runtime shape, and requires an absolute oracle evidence root. The real provider campaign remains waived; D138-L is still a Later re-entry gate.
 - 2026-07-21 `executor-slice-admission-parity` (FE-1240) — **✓ complete:** candidate admission now rejects scoped slices without executable criterion, design, or verification-machinery context; exact findings enter bounded repair, every admitted repaired slice survives preview/worker-context parsing, and the populated-plan execution guard remains fail-closed.
 - 2026-07-20 `comparison-reporting-skills` (FE-1232) — **✓ implementation complete, building on landed FE-1230:** added separate project-shared Notion publication and comparison-evidence reporting skills; elicitation, execution, end-to-end, and frozen campaign-strategy references; and executable guardrails for active-procedure precedence, safe mutation, validity-first interpretation, reproducible judging, failure retention, and audience-safe controller-only redaction.
 Older completion history (including FE-1192/FE-1195 executor topology closure): [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md).
@@ -646,7 +646,7 @@ KA stream:
       reuses: canonical harness | isolated integration | epic verification
       excludes: browser-specific executor gate | durable plan kind | new lifecycle phase
     -[hard]-> brownfield-comparison-cases
-      status: complete FE-1241; real provider campaign waived; D138-L residual moved to Later
+      status: complete FE-1241 including post-review contract hardening; real provider campaign waived; D138-L residual remains Later
       lights_up: same-base brownfield elicitation -> exact handoff -> crossed execution -> case oracle
       cases: minimal-petri-net-editor = sole greenfield reference | FE-1201-derived brunch backend | PR #9051 petrinaut frontend
       excludes: Clay | more greenfields | repetitions | aggregate winner | ExecutionAttempt widening

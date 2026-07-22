@@ -70,21 +70,6 @@ export interface BrunchHostLandingExecutionCasePublicContract {
     readonly publicCommand: '/brunch:land';
     readonly executionTerminal: 'promotion_prepared';
   };
-  readonly accessibility: Readonly<
-    Record<
-      | 'view'
-      | 'tab'
-      | 'create'
-      | 'scenario'
-      | 'metric'
-      | 'direction'
-      | 'run'
-      | 'cancel'
-      | 'status'
-      | 'results',
-      AccessibleNameContract
-    >
-  >;
   readonly rules: readonly string[];
 }
 
@@ -103,8 +88,11 @@ export type PetrinautMechanicalAddressKey =
   | 'create'
   | 'createDrawer'
   | 'scenario'
+  | 'scenarioSelected'
   | 'metric'
+  | 'metricCustomOption'
   | 'metricCode'
+  | 'optimizationName'
   | 'directionMaximize'
   | 'directionMinimize'
   | 'run'
@@ -369,8 +357,11 @@ const PETRINAUT_MECHANICAL_ADDRESS_KEYS = [
   'create',
   'createDrawer',
   'scenario',
+  'scenarioSelected',
   'metric',
+  'metricCustomOption',
   'metricCode',
+  'optimizationName',
   'directionMaximize',
   'directionMinimize',
   'run',
@@ -389,8 +380,11 @@ const PETRINAUT_MECHANICAL_ADDRESSES = {
   create: { kind: 'roleName', role: 'button', name: 'Create' },
   createDrawer: { kind: 'roleName', role: 'dialog', name: 'Create an optimization' },
   scenario: { kind: 'roleContents', role: 'combobox', contents: 'Select a scenario' },
+  scenarioSelected: { kind: 'roleContents', role: 'combobox', contents: 'Seasonal Flu' },
   metric: { kind: 'roleContents', role: 'combobox', contents: 'Select a metric' },
+  metricCustomOption: { kind: 'roleName', role: 'option', name: 'Custom code' },
   metricCode: { kind: 'roleName', role: 'textbox', name: 'Editor content' },
+  optimizationName: { kind: 'roleName', role: 'textbox', name: 'Name' },
   directionMaximize: { kind: 'roleName', role: 'radio', name: 'Maximize' },
   directionMinimize: { kind: 'roleName', role: 'radio', name: 'Minimize' },
   run: { kind: 'roleName', role: 'button', name: 'Run' },
