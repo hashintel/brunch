@@ -3,6 +3,16 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-07-22 FE-1241 brownfield comparison closeout
+
+`brownfield-comparison-cases` ([FE-1241](https://linear.app/hash/issue/FE-1241/add-isolated-brownfield-comparison-cases), [PR #362](https://github.com/hashintel/brunch/pull/362)) completed the mechanical expansion from the sole greenfield Petri case to frozen Brunch backend and Petrinaut frontend replays. The branch is `ka/fe-1241-brownfield-comparison-cases`, based on `next` after FE-1240 landed.
+
+The frontier added content-addressed mission/baseline/registry/execution/oracle packets, exact packet handoff, a two-commit historical target (source-materialization root plus packet-only child), exhaustive code-owned dependency recipes, strict Claude/Brunch admission, pinned Brunch graph seeding, and compile-time oracle dispatch without widening `ExecutionAttempt`. Brunch replays FE-1201/PR #336 host landing at parent `f5a423b19f76cf345d88053456870a126e451618`; Petrinaut replays PR #9051 optimization UI in the full HASH tree at parent `5c7a2d9db5caa851c38938f4b1bac19005b0e978`. Historical patches bootstrap claims and rivals but are never golden diffs or target-visible material.
+
+D137-L is the sole pinned preparation/admission path. D136-L permits only the compiled immutable Petrinaut install before runtime denial and the closed focused builds after lane termination. Brunch's public `/brunch:land` journey is judged by an independent full-range Git model; Petrinaut's standalone `/optimization` journey is judged through a same-origin deterministic optimizer, typed source-backed mechanical addresses, and contrastive rivals. Petri remains the only greenfield case; Clay, arbitrary commands/plugins, source landing, aggregate winners, repetitions, and `ExecutionAttempt` schema changes remain out.
+
+The real post-rebaseline Petrinaut merged-reference preflight and historical 2×2 provider matrix were explicitly waived for FE-1241. No passing reference receipt or provider-campaign evidence is claimed. Before any future first Petrinaut provider attempt, PLAN Later item `petrinaut-reference-fidelity-campaign` must satisfy D138-L with a passing controller-only merged-reference receipt, then receive separate authorization for provider work. Current implementation state lives in [`src/dev/TOPOLOGY.md`](../../src/dev/TOPOLOGY.md); operational preflight guidance lives in [`docs/praxis/comparison-runs.md`](../praxis/comparison-runs.md).
+
 ## 2026-07-22 Executor Petri sequence reconciliation
 
 `executor-slice-attempt-lifecycle` (FE-1192) merged in #324 on 2026-07-13. `petri-execution-parity` (FE-1195) then absorbed and completed the planned isolation/fan-in, durable parallel authority, Petrinaut-visible attempt topology, and epic integration sequence in #325. Their stale active/future entries and dependency chain were retired from `memory/PLAN.md`; current execution ownership and lifecycle semantics live in `src/executor/TOPOLOGY.md` under D127-L–D129-L.
