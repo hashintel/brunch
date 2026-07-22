@@ -1,5 +1,15 @@
 # @hashintel/brunch
 
+## 1.0.0-alpha.9
+
+### Patch Changes
+
+- [#359](https://github.com/hashintel/brunch/pull/359) [`a7ac523`](https://github.com/hashintel/brunch/commit/a7ac523315cf669bc4f22e9e22f418f62d0016ac) Thanks [@kostandinang](https://github.com/kostandinang)! - Isolate execution oracle journeys so later claims retain independent evidence ([#353](https://github.com/hashintel/brunch/pull/353)).
+
+- [#359](https://github.com/hashintel/brunch/pull/359) [`a7ac523`](https://github.com/hashintel/brunch/commit/a7ac523315cf669bc4f22e9e22f418f62d0016ac) Thanks [@kostandinang](https://github.com/kostandinang)! - Add the end-to-end comparison procedure with traceable factorial execution runs ([#355](https://github.com/hashintel/brunch/pull/355)).
+
+- [#359](https://github.com/hashintel/brunch/pull/359) [`a7ac523`](https://github.com/hashintel/brunch/commit/a7ac523315cf669bc4f22e9e22f418f62d0016ac) Thanks [@kostandinang](https://github.com/kostandinang)! - Reject incomplete scoped-slice worker context during plan admission ([#356](https://github.com/hashintel/brunch/pull/356)).
+
 ## 1.0.0-alpha.8
 
 ### Patch Changes
