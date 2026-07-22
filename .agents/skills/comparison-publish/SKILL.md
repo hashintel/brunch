@@ -33,7 +33,7 @@ Parse `provenance.json` against `src/dev/comparison-provenance.ts`. Require:
 - exact tag or `null`;
 - full 40-character controller commit, matching clickable commit URL, branch or `null`, and dirty boolean.
 
-The run-directory identity and the provenance run id must agree. Treat an existing or malformed provenance artifact as a hard stop. Never infer historical provenance from the current checkout, current `HEAD`, current package version, a later tag, a report date, or operator memory.
+The run-directory identity and the provenance run id must agree. Treat a missing, malformed, or mismatched provenance artifact as a hard stop. Never infer historical provenance from the current checkout, current `HEAD`, current package version, a later tag, a report date, or operator memory.
 
 Validate the retained contracts that exist for the declared kind:
 
