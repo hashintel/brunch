@@ -318,9 +318,23 @@ export function registerBrunchOperationalModePolicy(
 }
 
 async function assertBoundedReadPath(root: string, requestedPath: string): Promise<void> {
-  const target = resolve(root, requestedPath);
-  const [realRoot, realTarget] = await Promise.all([realpath(root), realpath(target)]);
-  if (realTarget !== realRoot && !realTarget.startsWith(`${realRoot}${sep}`)) {
+  const normalizedRoot = resolve(root);
+  const target = resolve(normalizedRoot, requestedPath);
+  if (!isContainedPath(normalizedRoot, target)) {
+    try {
+      const [realRoot, realTarget] = await Promise.all([realpath(normalizedRoot), realpath(target)]);
+      if (isContainedPath(realRoot, realTarget)) return;
+    } catch {
+      // Lexical escapes always receive the same denial, whether or not they exist.
+    }
+    throw new Error(`read-only tool path escapes target root: ${requestedPath}`);
+  }
+  const [realRoot, realTarget] = await Promise.all([realpath(normalizedRoot), realpath(target)]);
+  if (!isContainedPath(realRoot, realTarget)) {
     throw new Error(`read-only tool path escapes target root through symlink: ${requestedPath}`);
   }
+}
+
+function isContainedPath(root: string, target: string): boolean {
+  return target === root || target.startsWith(`${root}${sep}`);
 }

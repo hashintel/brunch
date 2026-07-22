@@ -208,6 +208,7 @@ describe('Brunch agent runtime-state projection', () => {
     const packageRoot = join(root, 'package');
     const skillPath = join(packageRoot, 'SKILL.md');
     const workspaceFile = join(workspace, 'inside.md');
+    const missingOutsidePath = join(root, 'missing-outside.md');
     await mkdir(workspace);
     await mkdir(packageRoot);
     await writeFile(workspaceFile, '# Inside\n');
@@ -258,7 +259,16 @@ describe('Brunch agent runtime-state projection', () => {
         registerRead(workspace).execute('bounded-read', { path: skillPath }, undefined, undefined, {
           cwd: workspace,
         }),
-      ).rejects.toThrow('read-only tool path escapes target root');
+      ).rejects.toThrow(`read-only tool path escapes target root: ${skillPath}`);
+      await expect(
+        registerRead(workspace).execute(
+          'missing-outside-read',
+          { path: missingOutsidePath },
+          undefined,
+          undefined,
+          { cwd: workspace },
+        ),
+      ).rejects.toThrow(`read-only tool path escapes target root: ${missingOutsidePath}`);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
