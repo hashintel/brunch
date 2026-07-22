@@ -61,6 +61,10 @@ The actor discloses only the fact(s) whose `reveal_when` condition the target's 
 
 The campaign manifest names distinct controller and target working directories and path patterns targets must not inspect. Same-user filesystem separation provides **leakage resistance, not a security boundary**.
 
+## Run identity
+
+After the complete campaign setup is approved and before the first lane starts, capture the immutable run identity using the [comparison provenance procedure](../comparison-runs.md#immutable-run-start-provenance). Keep `provenance.json` unchanged when the reviewed run is promoted. Do not reconstruct it later or backfill historical campaigns.
+
 ## Validity, intervention, and retention
 
 A lane is invalid when any of these occurs:
