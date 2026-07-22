@@ -130,7 +130,7 @@ function checkDefinitions(input: {
         await openCreateDrawer(page, addresses);
         await requireCount(locate(page, addresses.createDrawer), 1, 'createDrawer');
         await requireCount(locate(page, addresses.scenario), 1, 'scenario');
-        await selectScenarioOption(page, addresses, /Seasonal Flu/u);
+        await selectScenarioOption(page, addresses, 'Seasonal Flu');
         await requireCount(locate(page, addresses.metric), 1, 'metric');
         await requireCount(locate(page, addresses.directionMaximize), 1, 'directionMaximize');
         await requireCount(locate(page, addresses.run), 1, 'run');
@@ -153,7 +153,7 @@ function checkDefinitions(input: {
         await optimize.click({ force: true });
         assert(await optimize.isChecked(), 'optimize toggle did not enable');
         await locate(page, addresses.directionMinimize).click({ force: true });
-        await selectScenarioOption(page, addresses, /High Virulence Outbreak/u);
+        await selectScenarioOption(page, addresses, 'High Virulence Outbreak');
         assert(
           !(await page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true }).isChecked()),
           'scenario change retained optimized binding',
@@ -176,7 +176,7 @@ function checkDefinitions(input: {
         await page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true }).click({
           force: true,
         });
-        await selectComboboxOption(page, addresses.metric, /Infected Fraction/u);
+        await selectComboboxOption(page, addresses.metric, 'Infected Fraction');
         await locate(page, addresses.directionMaximize).click({ force: true });
         await setOptimizationName(page, 'saved metric proof');
         await locate(page, addresses.run).click();
@@ -193,12 +193,12 @@ function checkDefinitions(input: {
 
         await dismissOverlayDrawers(page);
         await openCreateDrawer(page, addresses);
-        await selectScenarioOption(page, addresses, /Seasonal Flu/u);
+        await selectScenarioOption(page, addresses, 'Seasonal Flu');
         const customRequestIndex = input.requests.length;
         await page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true }).click({
           force: true,
         });
-        await selectComboboxOption(page, addresses.metric, /Custom code/u);
+        await selectComboboxOption(page, addresses.metric, 'Custom code');
         await locate(page, addresses.metricCode).fill('return 42;');
         await locate(page, addresses.directionMinimize).click({ force: true });
         await setOptimizationName(page, 'custom metric proof');
@@ -246,7 +246,7 @@ function checkDefinitions(input: {
         await page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true }).click({
           force: true,
         });
-        await selectComboboxOption(page, addresses.metric, /Infected Fraction/u);
+        await selectComboboxOption(page, addresses.metric, 'Infected Fraction');
         await locate(page, addresses.directionMaximize).click({ force: true });
         await setOptimizationName(page, 'progress proof');
         await locate(page, addresses.run).click();
@@ -270,7 +270,7 @@ function checkDefinitions(input: {
         await page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true }).click({
           force: true,
         });
-        await selectComboboxOption(page, addresses.metric, /Infected Fraction/u);
+        await selectComboboxOption(page, addresses.metric, 'Infected Fraction');
         await locate(page, addresses.directionMaximize).click({ force: true });
         await setOptimizationName(page, 'service failure');
         await locate(page, addresses.run).click();
@@ -286,7 +286,7 @@ function checkDefinitions(input: {
         await page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true }).click({
           force: true,
         });
-        await selectComboboxOption(page, addresses.metric, /Infected Fraction/u);
+        await selectComboboxOption(page, addresses.metric, 'Infected Fraction');
         await locate(page, addresses.directionMaximize).click({ force: true });
         await setOptimizationName(page, 'cancel proof');
         await locate(page, addresses.run).click();
@@ -331,7 +331,7 @@ function checkDefinitions(input: {
         await page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true }).click({
           force: true,
         });
-        await selectComboboxOption(page, addresses.metric, /Infected Fraction/u);
+        await selectComboboxOption(page, addresses.metric, 'Infected Fraction');
         await locate(page, addresses.directionMaximize).click({ force: true });
         await setOptimizationName(page, 'secrecy proof');
         await locate(page, addresses.run).click();
@@ -372,7 +372,7 @@ async function openConfiguration(
     (await page.getByRole('checkbox', { name: /^Optimize /u }).count()) === 0,
     'configuration appeared before scenario selection',
   );
-  await selectScenarioOption(page, addresses, /Seasonal Flu/u);
+  await selectScenarioOption(page, addresses, 'Seasonal Flu');
 }
 
 async function openCreateDrawer(
@@ -425,7 +425,7 @@ function locate(page: Page, address: PetrinautMechanicalAddress): Locator {
 async function selectScenarioOption(
   page: Page,
   addresses: PetrinautOptimizationExecutionCasePublicContract['mechanicalAddresses'],
-  optionPattern: RegExp,
+  optionText: string,
 ): Promise<void> {
   const drawer = locate(page, addresses.createDrawer);
   await drawer.waitFor();
@@ -435,19 +435,18 @@ async function selectScenarioOption(
   const combobox = (await empty.count()) > 0 ? empty : drawer.getByRole('combobox').first();
   const tagName = await combobox.evaluate((element) => element.tagName);
   if (tagName === 'SELECT') {
-    const value = await combobox.evaluate((element, source) => {
-      const pattern = new RegExp(source, 'u');
+    const value = await combobox.evaluate((element, expectedText) => {
       for (const option of Array.from((element as HTMLSelectElement).options)) {
-        if (pattern.test(option.textContent ?? '')) return option.value;
+        if ((option.textContent ?? '').includes(expectedText)) return option.value;
       }
       return null;
-    }, optionPattern.source);
-    assert(value !== null && value.length > 0, `no select option matched ${optionPattern}`);
+    }, optionText);
+    assert(value !== null && value.length > 0, `no select option matched ${optionText}`);
     await combobox.selectOption(value);
     return;
   }
   await combobox.click({ force: true });
-  await page.getByRole('option').filter({ hasText: optionPattern }).first().click();
+  await page.getByRole('option').filter({ hasText: optionText }).first().click();
 }
 
 function cssRoleSelector(role: string): string {
@@ -462,24 +461,23 @@ function cssEscape(value: string): string {
 async function selectComboboxOption(
   page: Page,
   address: PetrinautMechanicalAddress,
-  optionPattern: RegExp,
+  optionText: string,
 ): Promise<void> {
   const combobox = locate(page, address);
   const tagName = await combobox.evaluate((element) => element.tagName);
   if (tagName === 'SELECT') {
-    const value = await combobox.evaluate((element, source) => {
-      const pattern = new RegExp(source, 'u');
+    const value = await combobox.evaluate((element, expectedText) => {
       for (const option of Array.from((element as HTMLSelectElement).options)) {
-        if (pattern.test(option.textContent ?? '')) return option.value;
+        if ((option.textContent ?? '').includes(expectedText)) return option.value;
       }
       return null;
-    }, optionPattern.source);
-    assert(value !== null && value.length > 0, `no select option matched ${optionPattern}`);
+    }, optionText);
+    assert(value !== null && value.length > 0, `no select option matched ${optionText}`);
     await combobox.selectOption(value);
     return;
   }
   await combobox.click({ force: true });
-  await page.getByRole('option').filter({ hasText: optionPattern }).first().click();
+  await page.getByRole('option').filter({ hasText: optionText }).first().click();
 }
 
 async function setOptimizationName(page: Page, name: string): Promise<void> {

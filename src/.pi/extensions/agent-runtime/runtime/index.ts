@@ -318,12 +318,8 @@ export function registerBrunchOperationalModePolicy(
 }
 
 async function assertBoundedReadPath(root: string, requestedPath: string): Promise<void> {
-  const normalizedRoot = resolve(root);
-  const target = resolve(normalizedRoot, requestedPath);
-  if (target !== normalizedRoot && !target.startsWith(`${normalizedRoot}${sep}`)) {
-    throw new Error(`read-only tool path escapes target root: ${requestedPath}`);
-  }
-  const [realRoot, realTarget] = await Promise.all([realpath(normalizedRoot), realpath(target)]);
+  const target = resolve(root, requestedPath);
+  const [realRoot, realTarget] = await Promise.all([realpath(root), realpath(target)]);
   if (realTarget !== realRoot && !realTarget.startsWith(`${realRoot}${sep}`)) {
     throw new Error(`read-only tool path escapes target root through symlink: ${requestedPath}`);
   }

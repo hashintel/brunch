@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -228,7 +228,7 @@ describe('Petrinaut historical provider preflight', () => {
     const fixture = await createFixture();
     let installs = 0;
     let oracleCalled = false;
-    const secret = 'token=reference-secret-value';
+    const sensitiveMarker = `token=${randomUUID()}`;
 
     const result = await runFixturePreflight(fixture, {
       dependencyInstallRunner: async () => {
@@ -238,7 +238,7 @@ describe('Petrinaut historical provider preflight', () => {
           : {
               exitCode: 7,
               stdout: 'x'.repeat(200_000),
-              stderr: `reference install failed in ${fixture.referenceTargetDir}; ${secret}\n`,
+              stderr: `reference install failed in ${fixture.referenceTargetDir}; ${sensitiveMarker}\n`,
             };
       },
       runOracle: async () => {
@@ -283,7 +283,7 @@ describe('Petrinaut historical provider preflight', () => {
     expect(evidenceBytes).toContain('"exitCode": 7');
     expect(evidenceBytes).toContain('reference install failed');
     expect(evidenceBytes).not.toContain(fixture.referenceTargetDir);
-    expect(evidenceBytes).not.toContain('reference-secret-value');
+    expect(evidenceBytes).not.toContain(sensitiveMarker);
     expect(JSON.stringify(result.receipt)).not.toContain(fixture.referenceTargetDir);
   }, 30_000);
 

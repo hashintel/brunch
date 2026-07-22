@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -207,8 +207,10 @@ describe('Brunch agent runtime-state projection', () => {
     const workspace = join(root, 'workspace');
     const packageRoot = join(root, 'package');
     const skillPath = join(packageRoot, 'SKILL.md');
+    const workspaceFile = join(workspace, 'inside.md');
     await mkdir(workspace);
     await mkdir(packageRoot);
+    await writeFile(workspaceFile, '# Inside\n');
     await writeFile(skillPath, '# Skill\n');
 
     type RegisteredRead = {
@@ -242,6 +244,15 @@ describe('Brunch agent runtime-state projection', () => {
         registerRead().execute('normal-read', { path: skillPath }, undefined, undefined, {
           cwd: workspace,
         }),
+      ).resolves.toBeDefined();
+      await expect(
+        registerRead(await realpath(workspace)).execute(
+          'aliased-in-root-read',
+          { path: workspaceFile },
+          undefined,
+          undefined,
+          { cwd: workspace },
+        ),
       ).resolves.toBeDefined();
       await expect(
         registerRead(workspace).execute('bounded-read', { path: skillPath }, undefined, undefined, {
