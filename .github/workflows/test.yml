@@ -35,10 +35,10 @@ jobs:
           git config --global user.name "Brunch CI"
           git config --global init.defaultBranch main
 
-      - name: Install PTY test dependency
+      - name: Install native test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes expect zsh
+          sudo apt-get install --yes expect ripgrep zsh
 
       - name: Install
         run: npm ci

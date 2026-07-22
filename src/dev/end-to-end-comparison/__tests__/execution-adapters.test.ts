@@ -8,10 +8,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { runCommand, type CommandRunner } from '../../../app/command-runner.js';
 import { prepareBrunchExecutionCell } from '../brunch-adapter.js';
 import {
+  createClaudeExecutionLaunch,
   finalizeClaudeExecutionWorkspace,
   prepareClaudeExecutionWorkspace,
   runClaudeExecutionWorkspace,
 } from '../claude-adapter.js';
+import { createClaudeSolutionIsolationPolicy } from '../solution-isolation.js';
 
 const roots: string[] = [];
 const contractTemplatePath = fileURLToPath(
@@ -35,6 +37,19 @@ async function handoff(root: string): Promise<{ specificationPath: string; speci
 }
 
 describe('end-to-end execution adapters', () => {
+  it('encodes brownfield Claude tool lists as single CLI option values', () => {
+    const workspaceDir = '/tmp/brunch-brownfield-claude';
+    const policy = createClaudeSolutionIsolationPolicy(workspaceDir, ['/tmp/controller']);
+    const launch = createClaudeExecutionLaunch({ workspaceDir, isolationPolicy: policy });
+    const allowedIndex = launch.args.indexOf('--allowedTools');
+    const disallowedIndex = launch.args.indexOf('--disallowedTools');
+
+    expect(launch.args[allowedIndex + 1]).toBe(policy.allowedTools.join(','));
+    expect(launch.args[allowedIndex + 2]).toBe('--disallowedTools');
+    expect(launch.args[disallowedIndex + 1]).toBe('WebFetch,WebSearch');
+    expect(launch.args[disallowedIndex + 2]).toBe('--settings');
+  });
+
   it('prepares Brunch from exact free-form bytes while preserving the legacy public packet', async () => {
     const root = await mkdtemp(join(tmpdir(), 'brunch-e2e-adapter-'));
     roots.push(root);

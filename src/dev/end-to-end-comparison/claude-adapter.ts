@@ -74,10 +74,9 @@ export function createClaudeExecutionLaunch(input: {
       '--tools',
       input.isolationPolicy.allowedTools.join(','),
       '--allowedTools',
-      ...input.isolationPolicy.allowedTools,
+      input.isolationPolicy.allowedTools.join(','),
       '--disallowedTools',
-      'WebFetch',
-      'WebSearch',
+      'WebFetch,WebSearch',
       '--settings',
       JSON.stringify({
         enabledPlugins: {},
