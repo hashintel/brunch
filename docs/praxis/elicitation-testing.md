@@ -3,6 +3,9 @@
 Elicitation testing compares how well different products turn the same user need
 into a review-ready specification.
 
+For the shortest cross-stage guide and Notion publication steps, start with
+[Compare Brunch and Claude Code](comparison-guide.md).
+
 The basic idea is simple:
 
 ```text
@@ -48,7 +51,7 @@ adapters, run IDs, scoring rules, or automation instructions.
 To test Brunch directly, open the isolated target project and run:
 
 ```sh
-npx @hashintel/brunch@1.0.0-alpha.5
+npx @hashintel/brunch@1.0.0-alpha.10
 ```
 
 For a comparison, start from a trusted top-level project Pi session:
@@ -67,10 +70,11 @@ The controller then:
 
 1. asks which products to compare;
 2. shows the exact setup for approval;
-3. gives each product a fresh isolated workspace;
-4. acts as the same user in each conversation;
-5. runs one product at a time; and
-6. saves the transcript and unchanged specification.
+3. records the Brunch release and controller commit;
+4. gives each product a fresh isolated workspace;
+5. acts as the same user in each conversation;
+6. runs one product at a time; and
+7. saves the transcript and unchanged specification.
 
 The controller answers only from mission truth. When something is unknown or
 undecided, it says so instead of inventing an answer.
@@ -82,6 +86,7 @@ be retained under `.fixtures/runs/agent-as-user-comparison/`.
 
 A retained run contains:
 
+- the immutable run-start `provenance.json`;
 - the approved mission and run setup;
 - each product's exact visible transcript and unchanged specification;
 - terminal status and cleanup evidence; and
@@ -102,6 +107,11 @@ Review the outcome and process separately:
 Model-generated assessments are review drafts, not final authority. A human
 owns the final interpretation. Do not force a winner when the evidence is mixed
 or insufficient.
+
+After review, retain the run unchanged and publish it with
+`/comparison-publish <retained-run-directory>` as described in the
+[comparison guide](comparison-guide.md). Historical runs without
+`provenance.json` remain unchanged and cannot be backfilled for publication.
 
 ## Approachable and rigorous workflows
 

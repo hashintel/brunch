@@ -1,5 +1,7 @@
 # Comparison Runs
 
+For the short operator introduction, start with [Compare Brunch and Claude Code](comparison-guide.md).
+
 Brunch has two distinct evaluation use cases. Seeded runs inspect Brunch against known Brunch state. Cross-product runs compare what different products produce from the same product-neutral mission. A seed cannot serve both purposes.
 
 ## PM door: inspect a seeded Brunch scenario
@@ -108,6 +110,8 @@ The first promoted witness is
 [`petri-editor-e2e-20260721T132600Z`](../../.fixtures/runs/end-to-end-comparison/petri-editor-e2e-20260721T132600Z/).
 It retains both exact handoffs, all four valid failed execution cells, portable common evidence, the
 audience-safe requirement ledger, and the bounded validity-first report.
+This historical witness predates Alpha 10 provenance capture. Keep it as evidence and an example, but
+do not backfill `provenance.json` or publish it through the current publication skill.
 
 ## Agent recipe: drive, then join evidence
 
