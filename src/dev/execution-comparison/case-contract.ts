@@ -88,6 +88,31 @@ export interface BrunchHostLandingExecutionCasePublicContract {
   readonly rules: readonly string[];
 }
 
+export type PetrinautMechanicalAddress =
+  | { readonly kind: 'roleName'; readonly role: string; readonly name: string }
+  | { readonly kind: 'roleValue'; readonly role: string; readonly value: string }
+  | { readonly kind: 'roleContents'; readonly role: string; readonly contents: string }
+  | { readonly kind: 'exactText'; readonly text: string };
+
+export type PetrinautMechanicalAddressKey =
+  | 'skipTour'
+  | 'dismissAssistant'
+  | 'simulateMode'
+  | 'optimizationsNav'
+  | 'viewTitle'
+  | 'create'
+  | 'createDrawer'
+  | 'scenario'
+  | 'metric'
+  | 'metricCode'
+  | 'directionMaximize'
+  | 'directionMinimize'
+  | 'run'
+  | 'cancel'
+  | 'statusComplete'
+  | 'statusError'
+  | 'statusCancelled';
+
 export interface PetrinautOptimizationExecutionCasePublicContract {
   readonly schemaVersion: 1;
   readonly case: {
@@ -120,6 +145,7 @@ export interface PetrinautOptimizationExecutionCasePublicContract {
     readonly sameOriginApi: '/api/petrinaut-opt/optimize/all';
     readonly executionTerminal: 'promotion_prepared';
   };
+  readonly mechanicalAddresses: Readonly<Record<PetrinautMechanicalAddressKey, PetrinautMechanicalAddress>>;
   readonly rules: readonly string[];
 }
 
@@ -334,6 +360,46 @@ function parseBrunchHostLandingContract(
   return value as unknown as BrunchHostLandingExecutionCasePublicContract;
 }
 
+const PETRINAUT_MECHANICAL_ADDRESS_KEYS = [
+  'skipTour',
+  'dismissAssistant',
+  'simulateMode',
+  'optimizationsNav',
+  'viewTitle',
+  'create',
+  'createDrawer',
+  'scenario',
+  'metric',
+  'metricCode',
+  'directionMaximize',
+  'directionMinimize',
+  'run',
+  'cancel',
+  'statusComplete',
+  'statusError',
+  'statusCancelled',
+] as const satisfies readonly PetrinautMechanicalAddressKey[];
+
+const PETRINAUT_MECHANICAL_ADDRESSES = {
+  skipTour: { kind: 'roleName', role: 'button', name: 'Skip tour' },
+  dismissAssistant: { kind: 'roleName', role: 'button', name: 'Dismiss' },
+  simulateMode: { kind: 'roleName', role: 'radio', name: 'Simulate' },
+  optimizationsNav: { kind: 'roleValue', role: 'radio', value: 'optimizations' },
+  viewTitle: { kind: 'exactText', text: 'Optimizations' },
+  create: { kind: 'roleName', role: 'button', name: 'Create' },
+  createDrawer: { kind: 'roleName', role: 'dialog', name: 'Create an optimization' },
+  scenario: { kind: 'roleContents', role: 'combobox', contents: 'Select a scenario' },
+  metric: { kind: 'roleContents', role: 'combobox', contents: 'Select a metric' },
+  metricCode: { kind: 'roleName', role: 'textbox', name: 'Editor content' },
+  directionMaximize: { kind: 'roleName', role: 'radio', name: 'Maximize' },
+  directionMinimize: { kind: 'roleName', role: 'radio', name: 'Minimize' },
+  run: { kind: 'roleName', role: 'button', name: 'Run' },
+  cancel: { kind: 'roleName', role: 'button', name: 'Cancel' },
+  statusComplete: { kind: 'exactText', text: 'Complete' },
+  statusError: { kind: 'exactText', text: 'Error' },
+  statusCancelled: { kind: 'exactText', text: 'Cancelled' },
+} as const satisfies Record<PetrinautMechanicalAddressKey, PetrinautMechanicalAddress>;
+
 function parsePetrinautOptimizationContract(
   value: Record<string, unknown>,
 ): PetrinautOptimizationExecutionCasePublicContract {
@@ -342,7 +408,7 @@ function parsePetrinautOptimizationContract(
   const budgets = requiredRecord(value, 'budgets');
   const delivery = requiredRecord(value, 'delivery');
   const acceptance = requiredRecord(value, 'acceptance');
-  const accessibility = requiredRecord(value, 'accessibility');
+  const mechanicalAddresses = requiredRecord(value, 'mechanicalAddresses');
   if (
     !exactKeys(value, [
       'schemaVersion',
@@ -350,7 +416,7 @@ function parsePetrinautOptimizationContract(
       'budgets',
       'delivery',
       'acceptance',
-      'accessibility',
+      'mechanicalAddresses',
       'rules',
     ]) ||
     !exactKeys(caseValue, [
@@ -369,18 +435,7 @@ function parsePetrinautOptimizationContract(
     !exactKeys(budgets, ['elapsedMinutes', 'mechanicalInterventions', 'substantiveHumanInterventions']) ||
     !exactKeys(delivery, ['runtimeNetwork', 'dependencyInstallNetwork']) ||
     !exactKeys(acceptance, ['publicRoute', 'sameOriginApi', 'executionTerminal']) ||
-    !exactKeys(accessibility, [
-      'view',
-      'tab',
-      'create',
-      'scenario',
-      'metric',
-      'direction',
-      'run',
-      'cancel',
-      'status',
-      'results',
-    ]) ||
+    !exactKeys(mechanicalAddresses, PETRINAUT_MECHANICAL_ADDRESS_KEYS) ||
     value['schemaVersion'] !== 1 ||
     caseValue['id'] !== 'petrinaut-optimization-v1' ||
     caseValue['specification'] !== 'spec.md' ||
@@ -402,21 +457,34 @@ function parsePetrinautOptimizationContract(
     acceptance['publicRoute'] !== '/optimization' ||
     acceptance['sameOriginApi'] !== '/api/petrinaut-opt/optimize/all' ||
     acceptance['executionTerminal'] !== 'promotion_prepared' ||
-    !accessibleName(accessibility['view'], 'heading', 'Optimizations') ||
-    !accessibleName(accessibility['tab'], 'tab', 'Optimizations') ||
-    !accessibleName(accessibility['create'], 'button', 'Create optimization') ||
-    !accessibleName(accessibility['scenario'], 'combobox', 'Scenario') ||
-    !accessibleName(accessibility['metric'], 'combobox', 'Objective metric') ||
-    !accessibleName(accessibility['direction'], 'combobox', 'Objective direction') ||
-    !accessibleName(accessibility['run'], 'button', 'Run optimization') ||
-    !accessibleName(accessibility['cancel'], 'button', 'Cancel optimization') ||
-    !accessibleName(accessibility['status'], 'status', 'Optimization status') ||
-    !accessibleName(accessibility['results'], 'region', 'Optimization results') ||
+    !petrinautMechanicalAddresses(mechanicalAddresses) ||
     !nonemptyStrings(value['rules'])
   ) {
     invalid();
   }
   return value as unknown as PetrinautOptimizationExecutionCasePublicContract;
+}
+
+function petrinautMechanicalAddresses(
+  value: Record<string, unknown>,
+): value is Record<PetrinautMechanicalAddressKey, PetrinautMechanicalAddress> {
+  return PETRINAUT_MECHANICAL_ADDRESS_KEYS.every((key) =>
+    sameMechanicalAddress(value[key], PETRINAUT_MECHANICAL_ADDRESSES[key]),
+  );
+}
+
+function sameMechanicalAddress(value: unknown, expected: PetrinautMechanicalAddress): boolean {
+  if (!record(value) || value['kind'] !== expected.kind) return false;
+  switch (expected.kind) {
+    case 'roleName':
+      return value['role'] === expected.role && value['name'] === expected.name;
+    case 'roleValue':
+      return value['role'] === expected.role && value['value'] === expected.value;
+    case 'roleContents':
+      return value['role'] === expected.role && value['contents'] === expected.contents;
+    case 'exactText':
+      return value['text'] === expected.text;
+  }
 }
 
 function parseJson(raw: string): unknown {

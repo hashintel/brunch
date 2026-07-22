@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { runCommand, type CommandRunner } from '../../app/command-runner.js';
+import { runCommand, type CommandResult, type CommandRunner } from '../../app/command-runner.js';
 import {
   createBrunchExecutionLaunch,
   type ExecutionLaunch,
@@ -56,6 +56,52 @@ type HistoricalReplayPreparationPhase =
   | 'admission'
   | 'lane_finalization';
 
+interface PetrinautDependencyPreparationBase {
+  readonly recipe: typeof PETRINAUT_DEPENDENCY_RECIPE.recipe;
+  readonly command: typeof PETRINAUT_DEPENDENCY_RECIPE.command;
+  readonly args: typeof PETRINAUT_DEPENDENCY_RECIPE.args;
+  readonly exitCode: number;
+}
+
+export interface PetrinautDependencyPreparationResult extends PetrinautDependencyPreparationBase {
+  readonly status: 'passed';
+  readonly exitCode: 0;
+}
+
+export interface PetrinautDependencyPreparationFailure extends PetrinautDependencyPreparationBase {
+  readonly status: 'failed';
+  readonly failureStage: 'install' | 'tracked_source_cleanliness';
+}
+
+export type PetrinautDependencyPreparationOutcome =
+  | PetrinautDependencyPreparationResult
+  | PetrinautDependencyPreparationFailure;
+
+export interface PetrinautDependencyPreparationObservation {
+  readonly outcome: PetrinautDependencyPreparationOutcome;
+  readonly commandResult: CommandResult;
+  readonly trackedSourceStatus?: string;
+}
+
+export class PetrinautDependencyPreparationError extends Error {
+  readonly outcome: PetrinautDependencyPreparationFailure;
+  readonly observation: PetrinautDependencyPreparationObservation;
+
+  constructor(
+    outcome: PetrinautDependencyPreparationFailure,
+    observation: PetrinautDependencyPreparationObservation,
+  ) {
+    super(
+      outcome.failureStage === 'install'
+        ? 'compiled Petrinaut dependency install failed'
+        : 'compiled Petrinaut dependency install modified tracked source',
+    );
+    this.name = 'PetrinautDependencyPreparationError';
+    this.outcome = outcome;
+    this.observation = observation;
+  }
+}
+
 interface HistoricalReplayReadyBase {
   readonly status: 'ready';
   readonly recipeVersion: typeof RECIPE_VERSION;
@@ -70,13 +116,7 @@ interface HistoricalReplayReadyBase {
         readonly recipe: 'none';
         readonly status: 'not_required';
       }
-    | {
-        readonly recipe: typeof PETRINAUT_DEPENDENCY_RECIPE.recipe;
-        readonly command: typeof PETRINAUT_DEPENDENCY_RECIPE.command;
-        readonly args: typeof PETRINAUT_DEPENDENCY_RECIPE.args;
-        readonly status: 'passed';
-        readonly exitCode: 0;
-      };
+    | PetrinautDependencyPreparationResult;
   readonly launch: ExecutionLaunch;
 }
 
@@ -102,6 +142,9 @@ export interface HistoricalReplayTargetDependencies {
   readonly runner?: CommandRunner;
   readonly dependencyInstallRunner?: CommandRunner;
   readonly createVerifier?: (forbiddenReadRoots: readonly string[]) => NetworkDeniedCommandRunner;
+  readonly onPetrinautDependencyPreparation?: (
+    observation: PetrinautDependencyPreparationObservation,
+  ) => Promise<void> | void;
 }
 
 export class HistoricalReplayTargetPreparationError extends Error {
@@ -197,10 +240,15 @@ export async function prepareHistoricalReplayTarget(
     const dependencyPreparation =
       dependencyRecipe.recipe === 'none'
         ? ({ ...dependencyRecipe, status: 'not_required' } as const)
-        : await preparePetrinautDependencies({
+        : await preparePetrinautHistoricalReplayDependencies({
             targetDir: input.targetDir,
             runner,
             dependencyInstallRunner: dependencies.dependencyInstallRunner ?? runCommand,
+            ...(dependencies.onPetrinautDependencyPreparation === undefined
+              ? {}
+              : {
+                  onObservation: dependencies.onPetrinautDependencyPreparation,
+                }),
           });
 
     phase = 'admission';
@@ -266,17 +314,12 @@ export async function prepareHistoricalReplayTarget(
   }
 }
 
-async function preparePetrinautDependencies(input: {
+export async function preparePetrinautHistoricalReplayDependencies(input: {
   readonly targetDir: string;
   readonly runner: CommandRunner;
   readonly dependencyInstallRunner: CommandRunner;
-}): Promise<{
-  readonly recipe: typeof PETRINAUT_DEPENDENCY_RECIPE.recipe;
-  readonly command: typeof PETRINAUT_DEPENDENCY_RECIPE.command;
-  readonly args: typeof PETRINAUT_DEPENDENCY_RECIPE.args;
-  readonly status: 'passed';
-  readonly exitCode: 0;
-}> {
+  readonly onObservation?: (observation: PetrinautDependencyPreparationObservation) => Promise<void> | void;
+}): Promise<PetrinautDependencyPreparationResult> {
   const result = await input.dependencyInstallRunner(
     PETRINAUT_DEPENDENCY_RECIPE.command,
     PETRINAUT_DEPENDENCY_RECIPE.args,
@@ -287,18 +330,39 @@ async function preparePetrinautDependencies(input: {
     },
   );
   if (result.exitCode !== 0) {
-    throw new Error(
-      `${PETRINAUT_DEPENDENCY_RECIPE.command} ${PETRINAUT_DEPENDENCY_RECIPE.args.join(
-        ' ',
-      )} controller dependency preparation failed (${result.exitCode}): ${result.stderr || result.stdout}`,
-    );
+    const outcome: PetrinautDependencyPreparationFailure = {
+      ...PETRINAUT_DEPENDENCY_RECIPE,
+      status: 'failed',
+      exitCode: result.exitCode,
+      failureStage: 'install',
+    };
+    const observation = { outcome, commandResult: result };
+    await input.onObservation?.(observation);
+    throw new PetrinautDependencyPreparationError(outcome, observation);
   }
-  await assertTrackedSourceClean(input.runner, input.targetDir, 'controller dependency preparation');
-  return {
+  const trackedSourceStatus = await readTrackedSourceStatus(input.runner, input.targetDir);
+  if (trackedSourceStatus.length > 0) {
+    const outcome: PetrinautDependencyPreparationFailure = {
+      ...PETRINAUT_DEPENDENCY_RECIPE,
+      status: 'failed',
+      exitCode: result.exitCode,
+      failureStage: 'tracked_source_cleanliness',
+    };
+    const observation = {
+      outcome,
+      commandResult: result,
+      trackedSourceStatus,
+    };
+    await input.onObservation?.(observation);
+    throw new PetrinautDependencyPreparationError(outcome, observation);
+  }
+  const outcome: PetrinautDependencyPreparationResult = {
     ...PETRINAUT_DEPENDENCY_RECIPE,
     status: 'passed',
     exitCode: 0,
   };
+  await input.onObservation?.({ outcome, commandResult: result });
+  return outcome;
 }
 
 async function assertTrackedSourceClean(
@@ -306,12 +370,16 @@ async function assertTrackedSourceClean(
   targetDir: string,
   owner: string,
 ): Promise<void> {
-  const trackedStatus = (
-    await gitChecked(runner, targetDir, ['status', '--porcelain', '--untracked-files=no'])
-  ).stdout.trim();
+  const trackedStatus = await readTrackedSourceStatus(runner, targetDir);
   if (trackedStatus.length > 0) {
     throw new Error(`${owner} modified tracked source: ${trackedStatus}`);
   }
+}
+
+async function readTrackedSourceStatus(runner: CommandRunner, targetDir: string): Promise<string> {
+  return (
+    await gitChecked(runner, targetDir, ['status', '--porcelain', '--untracked-files=no'])
+  ).stdout.trim();
 }
 
 async function validateInput(input: {

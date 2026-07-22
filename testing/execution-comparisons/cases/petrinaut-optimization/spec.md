@@ -45,6 +45,7 @@ Browser traffic and rendered content must not expose or contact the private upst
 
 ### AC1 Accessible public workflow
 
-The `/optimization` route exposes a named Optimizations view. Its tab, scenario selector, parameter and
-metric form controls, start/cancel controls, and result regions use stable accessible roles and names and
-are keyboard reachable.
+The `/optimization` route exposes an Optimizations view title and Create action. Opening Create reveals a
+Create an optimization drawer whose scenario selector, metric selector, Maximize/Minimize direction
+controls, Run/Cancel actions, and Complete/Error/Cancelled status text use the closed mechanical
+addresses declared by the public contract.

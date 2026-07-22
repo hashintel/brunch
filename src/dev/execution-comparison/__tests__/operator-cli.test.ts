@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { runExecutionComparisonOperatorCli } from '../../execution-comparison-operator.js';
 import { listExecutionCases, prepareExecutionTarget, resolveExecutionCase } from '../operator-cli.js';
@@ -215,6 +215,147 @@ describe('execution comparison target preparation', () => {
         ),
       ).rejects.toThrow('controller and target roots must be disjoint');
     } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('Petrinaut preflight operator command', () => {
+  it('requires absolute closed roots and dispatches no provider or arbitrary command input', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'brunch-preflight-cli-'));
+    const sourceRepositoryDir = join(root, 'source');
+    const workRoot = join(root, 'work');
+    const outputRoot = join(root, 'evidence');
+    await Promise.all([mkdir(sourceRepositoryDir), mkdir(workRoot), mkdir(outputRoot)]);
+    const parentTargetDir = join(workRoot, 'parent');
+    const referenceTargetDir = join(workRoot, 'reference');
+    const calls: unknown[] = [];
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    try {
+      await runExecutionComparisonOperatorCli(
+        [
+          'petrinaut-preflight',
+          '--source-repository',
+          sourceRepositoryDir,
+          '--parent-target',
+          parentTargetDir,
+          '--reference-target',
+          referenceTargetDir,
+          '--output-root',
+          outputRoot,
+        ],
+        {
+          runPetrinautPreflight: async (input) => {
+            calls.push(input);
+            return {
+              receiptFile: join(outputRoot, 'petrinaut-historical-preflight-receipt.json'),
+              receipt: {
+                schemaVersion: 1,
+                caseId: 'petrinaut-optimization-v1',
+                status: 'passed',
+                setupStatus: 'valid',
+                commandTrace: [
+                  'prepare_parent_target',
+                  'materialize_reference',
+                  'prepare_reference_dependencies',
+                  'run_compiled_oracle',
+                  'cleanup_workspaces',
+                ],
+                cleanup: {
+                  parentWorkspace: 'removed',
+                  referenceWorkspace: 'removed',
+                },
+                evidence: {},
+              },
+            };
+          },
+        },
+      );
+
+      expect(calls).toEqual([
+        {
+          sourceRepositoryDir,
+          parentTargetDir,
+          referenceTargetDir,
+          outputRoot,
+        },
+      ]);
+      expect(JSON.stringify(calls)).not.toMatch(/claude|brunch.*provider|command|referenceCommit/iu);
+      await expect(
+        runExecutionComparisonOperatorCli(
+          [
+            'petrinaut-preflight',
+            '--source-repository',
+            sourceRepositoryDir,
+            '--parent-target',
+            parentTargetDir,
+            '--reference-target',
+            referenceTargetDir,
+            '--output-root',
+            outputRoot,
+          ],
+          {
+            runPetrinautPreflight: async () => ({
+              receiptFile: join(outputRoot, 'invalid-receipt.json'),
+              receipt: {
+                schemaVersion: 1,
+                caseId: 'petrinaut-optimization-v1',
+                status: 'setup_failed',
+                setupStatus: 'invalid',
+                commandTrace: [
+                  'prepare_parent_target',
+                  'materialize_reference',
+                  'prepare_reference_dependencies',
+                  'run_compiled_oracle',
+                  'cleanup_workspaces',
+                ],
+                cleanup: {
+                  parentWorkspace: 'not_created',
+                  referenceWorkspace: 'not_created',
+                },
+                evidence: {},
+                failure: {
+                  phase: 'parent_preparation',
+                  messageSha256: `sha256:${'f'.repeat(64)}`,
+                },
+              },
+            }),
+          },
+        ),
+      ).rejects.toThrow('setup_failed');
+      await expect(
+        runExecutionComparisonOperatorCli(
+          [
+            'petrinaut-preflight',
+            '--source-repository',
+            'relative-source',
+            '--parent-target',
+            parentTargetDir,
+            '--reference-target',
+            referenceTargetDir,
+            '--output-root',
+            outputRoot,
+          ],
+          { runPetrinautPreflight: async () => Promise.reject(new Error('must not dispatch')) },
+        ),
+      ).rejects.toThrow('absolute');
+      await expect(
+        runExecutionComparisonOperatorCli([
+          'petrinaut-preflight',
+          '--source-repository',
+          sourceRepositoryDir,
+          '--parent-target',
+          parentTargetDir,
+          '--reference-target',
+          referenceTargetDir,
+          '--output-root',
+          outputRoot,
+          '--command',
+          'yarn anything',
+        ]),
+      ).rejects.toThrow('unknown execution comparison operator option: --command');
+    } finally {
+      stdout.mockRestore();
       await rm(root, { recursive: true, force: true });
     }
   });

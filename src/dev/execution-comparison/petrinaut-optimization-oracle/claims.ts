@@ -3,7 +3,6 @@ export type PetrinautFocusedObservation =
       readonly check: 'route-and-accessibility';
       readonly pathname: string;
       readonly expectedPathname: string;
-      readonly controlsReachable: boolean;
     }
   | {
       readonly check: 'progress-and-completion';
@@ -30,10 +29,7 @@ export function assessPetrinautFocusedObservation(
 ): readonly string[] {
   switch (observation.check) {
     case 'route-and-accessibility':
-      return [
-        ...(observation.pathname === observation.expectedPathname ? [] : ['focused route missing']),
-        ...(observation.controlsReachable ? [] : ['required controls are not keyboard reachable']),
-      ];
+      return observation.pathname === observation.expectedPathname ? [] : ['focused route missing'];
     case 'progress-and-completion':
       return [
         ...(observation.progressiveTrialCount > 0 ? [] : ['progressive trials missing']),

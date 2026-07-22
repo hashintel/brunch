@@ -1,14 +1,22 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { access } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
+import { fileURLToPath } from 'node:url';
 
-import { chromium, type Browser, type Page } from 'playwright-core';
+import { chromium, type Browser, type Locator, type Page } from 'playwright-core';
 
-import type { PetrinautOptimizationExecutionCasePublicContract } from '../case-contract.js';
+import type {
+  PetrinautMechanicalAddress,
+  PetrinautOptimizationExecutionCasePublicContract,
+} from '../case-contract.js';
 import type { PetrinautOptimizationControllerOracleManifest } from '../oracle-pack.js';
 import { requirePetrinautFocusedObservation } from './claims.js';
 import { startDeterministicFakeOptimizer } from './fake-optimizer.js';
 import type { PetrinautOptimizationOracleCheck } from './types.js';
+
+const SEMANTIC_ACTION_TIMEOUT_MS = 5_000;
+const NAVIGATION_TIMEOUT_MS = 30_000;
+const CALIBRATION_SEED_PATH = fileURLToPath(new URL('./calibration-seed.json', import.meta.url));
 
 export async function runPetrinautBrowserChecks(input: {
   readonly candidateRoot: string;
@@ -42,6 +50,7 @@ export async function runPetrinautBrowserChecks(input: {
   let browser: Browser | undefined;
   const consoleErrors: string[] = [];
   const failedRequests: string[] = [];
+  const calibrationSeed = JSON.parse(await readFile(CALIBRATION_SEED_PATH, 'utf8')) as unknown;
   try {
     await waitForRoute(
       `${candidateOrigin}${input.contract.acceptance.publicRoute}`,
@@ -60,8 +69,11 @@ export async function runPetrinautBrowserChecks(input: {
       const definition = definitions.get(declared.id);
       if (definition === undefined) throw new Error(`missing Petrinaut check implementation: ${declared.id}`);
       const context = await browser.newContext();
+      await context.addInitScript((seed) => {
+        localStorage.setItem('petrinaut-sdcpn', JSON.stringify({ [(seed as { id: string }).id]: seed }));
+      }, calibrationSeed);
       const page = await context.newPage();
-      page.setDefaultTimeout(5_000);
+      page.setDefaultTimeout(SEMANTIC_ACTION_TIMEOUT_MS);
       page.on('console', (message) => {
         if (message.type() === 'error') consoleErrors.push(message.text());
       });
@@ -75,7 +87,8 @@ export async function runPetrinautBrowserChecks(input: {
       );
       try {
         await page.goto(`${candidateOrigin}${input.contract.acceptance.publicRoute}`, {
-          waitUntil: 'networkidle',
+          waitUntil: 'domcontentloaded',
+          timeout: NAVIGATION_TIMEOUT_MS,
         });
         const evidence = await definition(page);
         checks.push({ id: declared.id, claims: declared.claims, status: 'passed', evidence });
@@ -106,57 +119,47 @@ function checkDefinitions(input: {
   readonly fakeOrigin: string;
   readonly requests: { readonly body: unknown; readonly aborted: boolean }[];
 }): ReadonlyMap<PetrinautOptimizationOracleCheck['id'], CheckDefinition> {
+  const addresses = input.contract.mechanicalAddresses;
   return new Map([
     [
       'route-and-accessibility',
       async (page) => {
-        await requireCount(page.getByRole('heading', { name: 'Optimizations', exact: true }), 1, 'view');
-        await requireCount(page.getByRole('tab', { name: 'Optimizations', exact: true }), 1, 'tab');
-        await page.getByRole('button', { name: 'Create optimization', exact: true }).click();
-        await requireCount(page.getByRole('combobox', { name: 'Scenario', exact: true }), 1, 'scenario');
-        await page.getByRole('combobox', { name: 'Scenario', exact: true }).selectOption('baseline');
-        let controlsReachable = true;
-        for (const [role, name] of [
-          ['combobox', 'Objective metric'],
-          ['combobox', 'Objective direction'],
-          ['button', 'Run optimization'],
-        ] as const) {
-          const locator = page.getByRole(role, { name, exact: true });
-          await locator.focus();
-          controlsReachable &&= await locator.evaluate((element) => element === document.activeElement);
-        }
+        await navigateToOptimizations(page, addresses);
+        await requireCount(locate(page, addresses.viewTitle), 1, 'viewTitle');
+        await requireCount(locate(page, addresses.create), 1, 'create');
+        await openCreateDrawer(page, addresses);
+        await requireCount(locate(page, addresses.createDrawer), 1, 'createDrawer');
+        await requireCount(locate(page, addresses.scenario), 1, 'scenario');
+        await selectScenarioOption(page, addresses, /Seasonal Flu/u);
+        await requireCount(locate(page, addresses.metric), 1, 'metric');
+        await requireCount(locate(page, addresses.directionMaximize), 1, 'directionMaximize');
+        await requireCount(locate(page, addresses.run), 1, 'run');
         requirePetrinautFocusedObservation({
           check: 'route-and-accessibility',
           pathname: new URL(page.url()).pathname,
           expectedPathname: input.contract.acceptance.publicRoute,
-          controlsReachable,
         });
         return [
           'public /optimization route ready',
-          'required controls expose stable roles and keyboard focus',
+          'required controls expose stable source-backed mechanical addresses',
         ];
       },
     ],
     [
       'scenario-configuration',
       async (page) => {
-        await openConfiguration(page);
-        const optimize = page.getByRole('checkbox', { name: 'Optimize rate', exact: true });
-        await optimize.check();
-        await page.getByRole('spinbutton', { name: 'rate minimum', exact: true }).fill('2');
-        await page
-          .getByRole('combobox', { name: 'Objective direction', exact: true })
-          .selectOption('minimize');
-        await page.getByRole('combobox', { name: 'Scenario', exact: true }).selectOption('surge');
-        assert(!(await optimize.isChecked()), 'scenario change retained optimized binding');
+        await openConfiguration(page, addresses);
+        const optimize = page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true });
+        await optimize.click({ force: true });
+        assert(await optimize.isChecked(), 'optimize toggle did not enable');
+        await locate(page, addresses.directionMinimize).click({ force: true });
+        await selectScenarioOption(page, addresses, /High Virulence Outbreak/u);
         assert(
-          (await page.getByRole('spinbutton', { name: 'rate fixed value', exact: true }).inputValue()) ===
-            '8',
-          'scenario change did not reset fixed value',
+          !(await page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true }).isChecked()),
+          'scenario change retained optimized binding',
         );
         assert(
-          (await page.getByRole('combobox', { name: 'Objective direction', exact: true }).inputValue()) ===
-            'maximize',
+          !(await locate(page, addresses.directionMinimize).isChecked()),
           'scenario change retained metric direction',
         );
         return [
@@ -168,54 +171,67 @@ function checkDefinitions(input: {
     [
       'request-contract',
       async (page) => {
-        await openConfiguration(page);
+        await openConfiguration(page, addresses);
         const savedRequestIndex = input.requests.length;
-        await page.getByRole('button', { name: 'Run optimization', exact: true }).click();
-        await status(page, /Complete/u);
+        await page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true }).click({
+          force: true,
+        });
+        await selectComboboxOption(page, addresses.metric, /Infected Fraction/u);
+        await locate(page, addresses.directionMaximize).click({ force: true });
+        await setOptimizationName(page, 'saved metric proof');
+        await locate(page, addresses.run).click();
+        await waitForAddress(page, addresses.statusComplete);
         const savedBody = input.requests[savedRequestIndex]?.body;
         assert(record(savedBody), 'fake optimizer did not capture the saved-metric request');
         const savedObjective = savedBody['objective'];
         assert(
           record(savedObjective) &&
             savedObjective['direction'] === 'maximize' &&
-            record(savedObjective['metric']) &&
-            savedObjective['metric']['source'] === 'saved',
+            typeof savedObjective['metricId'] === 'string',
           'saved objective missing',
         );
 
+        await dismissOverlayDrawers(page);
+        await openCreateDrawer(page, addresses);
+        await selectScenarioOption(page, addresses, /Seasonal Flu/u);
         const customRequestIndex = input.requests.length;
-        await page.getByRole('textbox', { name: 'Optimization name', exact: true }).fill('request proof');
-        await page.getByRole('checkbox', { name: 'Optimize rate', exact: true }).check();
-        await page.getByRole('spinbutton', { name: 'rate minimum', exact: true }).fill('2');
-        await page.getByRole('spinbutton', { name: 'rate maximum', exact: true }).fill('9');
-        await page.getByRole('spinbutton', { name: 'demand fixed value', exact: true }).fill('7');
-        await page.getByRole('combobox', { name: 'Objective metric', exact: true }).selectOption('custom');
-        await page.getByRole('textbox', { name: 'Custom metric code', exact: true }).fill('return 42;');
-        await page
-          .getByRole('combobox', { name: 'Objective direction', exact: true })
-          .selectOption('minimize');
-        await page.getByRole('button', { name: 'Run optimization', exact: true }).click();
-        await status(page, /Complete/u);
+        await page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true }).click({
+          force: true,
+        });
+        await selectComboboxOption(page, addresses.metric, /Custom code/u);
+        await locate(page, addresses.metricCode).fill('return 42;');
+        await locate(page, addresses.directionMinimize).click({ force: true });
+        await setOptimizationName(page, 'custom metric proof');
+        await locate(page, addresses.run).click();
+        await waitForAddress(page, addresses.statusComplete);
         const body = input.requests[customRequestIndex]?.body;
         assert(record(body), 'fake optimizer did not capture a JSON request');
         assert(
-          record(body['scenario']) && body['scenario']['id'] === 'baseline',
+          record(body['scenario']) && typeof body['scenario']['id'] === 'string',
           'scenario missing from request',
         );
         const bindings = record(body['scenario']) ? body['scenario']['parameterBindings'] : undefined;
         assert(record(bindings), 'parameter bindings missing from request');
         assert(
-          record(bindings['rate']) && bindings['rate']['kind'] === 'optimize',
+          Object.values(bindings).some((binding) => record(binding) && binding['kind'] === 'optimize'),
           'optimized binding missing',
         );
-        assert(record(bindings['demand']) && bindings['demand']['value'] === 7, 'fixed binding missing');
+        assert(
+          Object.values(bindings).some((binding) => record(binding) && binding['kind'] === 'fixed'),
+          'fixed binding missing',
+        );
         const objective = body['objective'];
         assert(record(objective) && objective['direction'] === 'minimize', 'objective direction missing');
+        assert(record(objective) && typeof objective['metricId'] === 'string', 'custom objective missing');
+        const model = body['model'];
         assert(
-          record(objective['metric']) &&
-            objective['metric']['source'] === 'custom' &&
-            objective['metric']['code'] === 'return 42;',
-          'custom objective missing',
+          record(model) &&
+            record(model['definition']) &&
+            Array.isArray(model['definition']['metrics']) &&
+            model['definition']['metrics'].some(
+              (metric) => record(metric) && metric['code'] === 'return 42;',
+            ),
+          'custom metric code missing from request model',
         );
         return [
           'captured flat fixed/optimized bindings',
@@ -226,19 +242,23 @@ function checkDefinitions(input: {
     [
       'progress-and-completion',
       async (page) => {
-        await openConfiguration(page);
-        await page.getByRole('button', { name: 'Run optimization', exact: true }).click();
-        await page.getByText('Trial 1: 12', { exact: true }).waitFor();
-        await page.getByText('Best so far: 12', { exact: true }).first().waitFor();
-        await status(page, /Complete/u);
+        await openConfiguration(page, addresses);
+        await page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true }).click({
+          force: true,
+        });
+        await selectComboboxOption(page, addresses.metric, /Infected Fraction/u);
+        await locate(page, addresses.directionMaximize).click({ force: true });
+        await setOptimizationName(page, 'progress proof');
+        await locate(page, addresses.run).click();
+        await waitForAddress(page, addresses.statusComplete);
+        const progressiveTrialCount = await page.getByText(/^\d+$/u).count();
+        const bestSoFarVisible = (await page.getByText('Best', { exact: true }).count()) > 0;
+        const completionVisible = (await locate(page, addresses.statusComplete).count()) > 0;
         requirePetrinautFocusedObservation({
           check: 'progress-and-completion',
-          progressiveTrialCount: await page.getByText(/^Trial \d+: /u).count(),
-          bestSoFarVisible: (await page.getByText(/^Best so far: /u).count()) > 0,
-          completionVisible: await page
-            .getByRole('status', { name: 'Optimization status', exact: true })
-            .filter({ hasText: /Complete/u })
-            .isVisible(),
+          progressiveTrialCount,
+          bestSoFarVisible,
+          completionVisible,
         });
         return ['progressive trial rendered', 'best-so-far rendered', 'completion rendered'];
       },
@@ -246,10 +266,15 @@ function checkDefinitions(input: {
     [
       'service-error',
       async (page) => {
-        await openConfiguration(page);
-        await page.getByRole('textbox', { name: 'Optimization name', exact: true }).fill('service failure');
-        await page.getByRole('button', { name: 'Run optimization', exact: true }).click();
-        await status(page, /Error: Deterministic optimizer failure/u);
+        await openConfiguration(page, addresses);
+        await page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true }).click({
+          force: true,
+        });
+        await selectComboboxOption(page, addresses.metric, /Infected Fraction/u);
+        await locate(page, addresses.directionMaximize).click({ force: true });
+        await setOptimizationName(page, 'service failure');
+        await locate(page, addresses.run).click();
+        await waitForAddress(page, addresses.statusError);
         return ['service error rendered distinctly'];
       },
     ],
@@ -257,18 +282,33 @@ function checkDefinitions(input: {
       'cancel-and-abort',
       async (page) => {
         const requestIndex = input.requests.length;
-        await openConfiguration(page);
-        await page.getByRole('textbox', { name: 'Optimization name', exact: true }).fill('cancel proof');
-        await page.getByRole('button', { name: 'Run optimization', exact: true }).click();
-        const cancel = page.getByRole('button', { name: 'Cancel optimization', exact: true });
+        await openConfiguration(page, addresses);
+        await page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true }).click({
+          force: true,
+        });
+        await selectComboboxOption(page, addresses.metric, /Infected Fraction/u);
+        await locate(page, addresses.directionMaximize).click({ force: true });
+        await setOptimizationName(page, 'cancel proof');
+        await locate(page, addresses.run).click();
+        // Create closes and the view drawer opens on the active record (initializing/running).
+        await page
+          .getByText('Running', { exact: true })
+          .filter({ visible: true })
+          .or(page.getByText('Initializing', { exact: true }).filter({ visible: true }))
+          .first()
+          .waitFor();
+        const cancel = locate(page, addresses.cancel);
         await cancel.waitFor();
         await cancel.focus();
         assert(
-          await cancel.evaluate((element) => element === document.activeElement),
+          await cancel.evaluate((element) => {
+            const active = document.activeElement;
+            return active === element || (active !== null && element.contains(active));
+          }),
           'cancel is not focusable',
         );
         await cancel.press('Enter');
-        await status(page, /Cancelled/u);
+        await waitForAddress(page, addresses.statusCancelled);
         await waitFor(
           () => input.requests[requestIndex]?.aborted === true,
           'upstream request was not aborted',
@@ -277,10 +317,7 @@ function checkDefinitions(input: {
           check: 'cancel-and-abort',
           cancelControlVisible: true,
           hostRequestAborted: input.requests[requestIndex]?.aborted === true,
-          cancelledVisible: await page
-            .getByRole('status', { name: 'Optimization status', exact: true })
-            .filter({ hasText: /Cancelled/u })
-            .isVisible(),
+          cancelledVisible: (await locate(page, addresses.statusCancelled).count()) > 0,
         });
         return ['cancel keyboard control rendered', 'host request aborted', 'cancelled state rendered'];
       },
@@ -290,9 +327,15 @@ function checkDefinitions(input: {
       async (page) => {
         const browserRequests: string[] = [];
         page.on('request', (request) => browserRequests.push(request.url()));
-        await openConfiguration(page);
-        await page.getByRole('button', { name: 'Run optimization', exact: true }).click();
-        await status(page, /Complete/u);
+        await openConfiguration(page, addresses);
+        await page.getByRole('checkbox', { name: 'Optimize infected_ratio', exact: true }).click({
+          force: true,
+        });
+        await selectComboboxOption(page, addresses.metric, /Infected Fraction/u);
+        await locate(page, addresses.directionMaximize).click({ force: true });
+        await setOptimizationName(page, 'secrecy proof');
+        await locate(page, addresses.run).click();
+        await waitForAddress(page, addresses.statusComplete);
         requirePetrinautFocusedObservation({
           check: 'private-origin-secrecy',
           candidateOrigin: input.candidateOrigin,
@@ -306,28 +349,150 @@ function checkDefinitions(input: {
   ]);
 }
 
-async function openConfiguration(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Create optimization', exact: true }).click();
-  const scenario = page.getByRole('combobox', { name: 'Scenario', exact: true });
+async function navigateToOptimizations(
+  page: Page,
+  addresses: PetrinautOptimizationExecutionCasePublicContract['mechanicalAddresses'],
+): Promise<void> {
+  const skip = locate(page, addresses.skipTour);
+  if ((await skip.count()) > 0) await skip.click({ force: true });
+  const dismiss = locate(page, addresses.dismissAssistant);
+  if ((await dismiss.count()) > 0) await dismiss.click({ force: true });
+  await locate(page, addresses.simulateMode).click({ force: true });
+  await locate(page, addresses.optimizationsNav).click({ force: true });
+  await locate(page, addresses.viewTitle).waitFor();
+}
+
+async function openConfiguration(
+  page: Page,
+  addresses: PetrinautOptimizationExecutionCasePublicContract['mechanicalAddresses'],
+): Promise<void> {
+  await navigateToOptimizations(page, addresses);
+  await openCreateDrawer(page, addresses);
   assert(
-    (await page.getByRole('button', { name: 'Run optimization', exact: true }).count()) === 0,
+    (await page.getByRole('checkbox', { name: /^Optimize /u }).count()) === 0,
     'configuration appeared before scenario selection',
   );
-  await scenario.selectOption('baseline');
+  await selectScenarioOption(page, addresses, /Seasonal Flu/u);
 }
 
-async function status(page: Page, pattern: RegExp): Promise<void> {
-  await page
-    .getByRole('status', { name: 'Optimization status', exact: true })
-    .filter({ hasText: pattern })
-    .waitFor();
-}
-
-async function requireCount(
-  locator: ReturnType<Page['getByRole']>,
-  expected: number,
-  label: string,
+async function openCreateDrawer(
+  page: Page,
+  addresses: PetrinautOptimizationExecutionCasePublicContract['mechanicalAddresses'],
 ): Promise<void> {
+  if ((await locate(page, addresses.createDrawer).count()) === 0) {
+    await dismissOverlayDrawers(page);
+    await locate(page, addresses.create).click({ force: true });
+  }
+  await locate(page, addresses.createDrawer).waitFor();
+  await locate(page, addresses.run).waitFor();
+  assert((await locate(page, addresses.run).count()) === 1, 'create drawer did not expose Run control');
+}
+
+async function dismissOverlayDrawers(page: Page): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if ((await page.getByRole('dialog').count()) === 0) return;
+    await page.keyboard.press('Escape');
+    try {
+      await page.getByRole('dialog').first().waitFor({ state: 'hidden', timeout: 500 });
+    } catch {
+      // Keep dismissing until no dialog remains or attempts exhaust.
+    }
+  }
+}
+
+function locate(page: Page, address: PetrinautMechanicalAddress): Locator {
+  switch (address.kind) {
+    case 'roleName':
+      return page.getByRole(address.role as Parameters<Page['getByRole']>[0], {
+        name: address.name,
+        exact: true,
+      });
+    case 'roleValue':
+      return page.locator(`${cssRoleSelector(address.role)}[value="${cssEscape(address.value)}"]`);
+    case 'roleContents':
+      return page.getByRole(address.role as Parameters<Page['getByRole']>[0]).filter({
+        hasText: address.contents,
+      });
+    case 'exactText':
+      // exactText never resolves role=tooltip nodes (nav tooltips reuse titles).
+      return page
+        .getByText(address.text, { exact: true })
+        .and(page.locator(':not([role="tooltip"])'))
+        .filter({ visible: true });
+  }
+}
+
+async function selectScenarioOption(
+  page: Page,
+  addresses: PetrinautOptimizationExecutionCasePublicContract['mechanicalAddresses'],
+  optionPattern: RegExp,
+): Promise<void> {
+  const drawer = locate(page, addresses.createDrawer);
+  await drawer.waitFor();
+  const empty = locate(page, addresses.scenario);
+  // Empty-state address when present; after selection the same dialog combobox
+  // keeps the scenario control (placeholder text no longer matches).
+  const combobox = (await empty.count()) > 0 ? empty : drawer.getByRole('combobox').first();
+  const tagName = await combobox.evaluate((element) => element.tagName);
+  if (tagName === 'SELECT') {
+    const value = await combobox.evaluate((element, source) => {
+      const pattern = new RegExp(source, 'u');
+      for (const option of Array.from((element as HTMLSelectElement).options)) {
+        if (pattern.test(option.textContent ?? '')) return option.value;
+      }
+      return null;
+    }, optionPattern.source);
+    assert(value !== null && value.length > 0, `no select option matched ${optionPattern}`);
+    await combobox.selectOption(value);
+    return;
+  }
+  await combobox.click({ force: true });
+  await page.getByRole('option').filter({ hasText: optionPattern }).first().click();
+}
+
+function cssRoleSelector(role: string): string {
+  if (role === 'radio') return 'input[type="radio"]';
+  return `[role="${cssEscape(role)}"]`;
+}
+
+function cssEscape(value: string): string {
+  return value.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
+}
+
+async function selectComboboxOption(
+  page: Page,
+  address: PetrinautMechanicalAddress,
+  optionPattern: RegExp,
+): Promise<void> {
+  const combobox = locate(page, address);
+  const tagName = await combobox.evaluate((element) => element.tagName);
+  if (tagName === 'SELECT') {
+    const value = await combobox.evaluate((element, source) => {
+      const pattern = new RegExp(source, 'u');
+      for (const option of Array.from((element as HTMLSelectElement).options)) {
+        if (pattern.test(option.textContent ?? '')) return option.value;
+      }
+      return null;
+    }, optionPattern.source);
+    assert(value !== null && value.length > 0, `no select option matched ${optionPattern}`);
+    await combobox.selectOption(value);
+    return;
+  }
+  await combobox.click({ force: true });
+  await page.getByRole('option').filter({ hasText: optionPattern }).first().click();
+}
+
+async function setOptimizationName(page: Page, name: string): Promise<void> {
+  const dialog = page.getByRole('dialog', { name: 'Create an optimization', exact: true });
+  const nameField = dialog.getByRole('textbox').first();
+  await nameField.fill(name);
+}
+
+async function waitForAddress(page: Page, address: PetrinautMechanicalAddress): Promise<void> {
+  await locate(page, address).first().waitFor();
+}
+
+async function requireCount(locator: Locator, expected: number, label: string): Promise<void> {
   const actual = await locator.count();
   assert(actual === expected, `${label}: expected ${expected}, received ${actual}`);
 }

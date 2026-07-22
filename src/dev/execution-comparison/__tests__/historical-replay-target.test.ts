@@ -272,7 +272,10 @@ describe('historical replay target preparation', () => {
         return await runCommand(command, args, options);
       },
     );
-    expect(run.repository?.finalGitRange).toMatch(new RegExp(`^${ready.baseSha}\\.\\.[a-f0-9]{40}$`, 'u'));
+    const [rangeBase, rangeReview, rangeRemainder] = run.repository?.finalGitRange.split('..') ?? [];
+    expect(rangeBase).toBe(ready.baseSha);
+    expect(rangeReview).toMatch(/^[a-f0-9]{40}$/u);
+    expect(rangeRemainder).toBeUndefined();
   }, 30_000);
 
   it.each([
@@ -487,6 +490,19 @@ describe('historical replay target preparation', () => {
     await expect(rejected).rejects.toMatchObject({
       status: 'setup_failed',
       phase: 'dependency_preparation',
+      cause: {
+        outcome: {
+          status: 'failed',
+          exitCode: 0,
+          failureStage: 'tracked_source_cleanliness',
+        },
+        observation: {
+          commandResult: {
+            exitCode: 0,
+          },
+          trackedSourceStatus: 'M package.json',
+        },
+      },
     });
     await expect(rejected).rejects.toThrow('modified tracked source');
     await expect(readFile(join(targetDir, 'package.json'))).rejects.toMatchObject({ code: 'ENOENT' });

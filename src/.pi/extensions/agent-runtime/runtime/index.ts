@@ -167,7 +167,9 @@ export function registerBrunchOperationalModePolicy(
     label: 'read',
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       const root = options.filesystemRoot ?? ctx.cwd;
-      await assertBoundedReadPath(root, params.path);
+      if (options.filesystemRoot !== undefined) {
+        await assertBoundedReadPath(root, params.path);
+      }
       return getReadOnlyTools(root).read.execute(toolCallId, params, signal, onUpdate);
     },
     renderCall(args, theme) {
@@ -197,7 +199,9 @@ export function registerBrunchOperationalModePolicy(
     label: 'grep',
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       const root = options.filesystemRoot ?? ctx.cwd;
-      await assertBoundedReadPath(root, params.path ?? '.');
+      if (options.filesystemRoot !== undefined) {
+        await assertBoundedReadPath(root, params.path ?? '.');
+      }
       return getReadOnlyTools(root).grep.execute(toolCallId, params, signal, onUpdate);
     },
     renderCall(args, theme) {
@@ -224,7 +228,9 @@ export function registerBrunchOperationalModePolicy(
     label: 'find',
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       const root = options.filesystemRoot ?? ctx.cwd;
-      await assertBoundedReadPath(root, params.path ?? '.');
+      if (options.filesystemRoot !== undefined) {
+        await assertBoundedReadPath(root, params.path ?? '.');
+      }
       return getReadOnlyTools(root).find.execute(toolCallId, params, signal, onUpdate);
     },
     renderCall(args, theme) {
@@ -250,7 +256,9 @@ export function registerBrunchOperationalModePolicy(
     label: 'ls',
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       const root = options.filesystemRoot ?? ctx.cwd;
-      await assertBoundedReadPath(root, params.path ?? '.');
+      if (options.filesystemRoot !== undefined) {
+        await assertBoundedReadPath(root, params.path ?? '.');
+      }
       return getReadOnlyTools(root).ls.execute(toolCallId, params, signal, onUpdate);
     },
     renderCall(args, theme) {

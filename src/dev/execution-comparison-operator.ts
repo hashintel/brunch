@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
@@ -24,6 +24,10 @@ import {
   loadControllerOracleManifest,
   loadControllerOraclePack,
 } from './execution-comparison/oracle-pack.js';
+import {
+  runPetrinautHistoricalPreflight,
+  type PetrinautHistoricalPreflightReceipt,
+} from './execution-comparison/petrinaut-historical-preflight.js';
 import {
   runPetrinautOptimizationOracle,
   type PetrinautOptimizationOracleReport,
@@ -134,7 +138,22 @@ const DEFAULT_CASES_ROOT = fileURLToPath(
 );
 const DEFAULT_CONTROLLER_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
-export async function runExecutionComparisonOperatorCli(args: readonly string[]): Promise<void> {
+interface ExecutionComparisonOperatorDependencies {
+  readonly runPetrinautPreflight?: (input: {
+    readonly sourceRepositoryDir: string;
+    readonly parentTargetDir: string;
+    readonly referenceTargetDir: string;
+    readonly outputRoot: string;
+  }) => Promise<{
+    readonly receiptFile: string;
+    readonly receipt: PetrinautHistoricalPreflightReceipt;
+  }>;
+}
+
+export async function runExecutionComparisonOperatorCli(
+  args: readonly string[],
+  dependencies: ExecutionComparisonOperatorDependencies = {},
+): Promise<void> {
   const [command, ...rest] = args;
   const options = parseOptions(rest);
   const casesRoot = DEFAULT_CASES_ROOT;
@@ -206,6 +225,39 @@ export async function runExecutionComparisonOperatorCli(args: readonly string[])
       process.stdout.write(`${JSON.stringify(retained)}\n`);
       return;
     }
+    case 'petrinaut-preflight': {
+      assertOnlyOptions(options, ['source-repository', 'parent-target', 'reference-target', 'output-root']);
+      const input = {
+        sourceRepositoryDir: requiredAbsolute(options, 'source-repository'),
+        parentTargetDir: requiredAbsolute(options, 'parent-target'),
+        referenceTargetDir: requiredAbsolute(options, 'reference-target'),
+        outputRoot: requiredAbsolute(options, 'output-root'),
+      };
+      const result = await (
+        dependencies.runPetrinautPreflight ??
+        (async (closedInput) =>
+          await runPetrinautHistoricalPreflight({
+            sourceRepositoryDir: closedInput.sourceRepositoryDir,
+            parentTargetDir: closedInput.parentTargetDir,
+            referenceTargetDir: closedInput.referenceTargetDir,
+            controllerRoot: DEFAULT_CONTROLLER_ROOT,
+            receiptFile: join(closedInput.outputRoot, 'petrinaut-historical-preflight-receipt.json'),
+          }))
+      )(input);
+      process.stdout.write(
+        `${JSON.stringify({
+          receiptFile: result.receiptFile,
+          status: result.receipt.status,
+          setupStatus: result.receipt.setupStatus,
+        })}\n`,
+      );
+      if (result.receipt.status !== 'passed') {
+        throw new Error(
+          `Petrinaut preflight ${result.receipt.status}; retained receipt at ${result.receiptFile}`,
+        );
+      }
+      return;
+    }
     case 'retain-attempt': {
       assertOnlyOptions(options, ['attempt-file', 'attempts-root']);
       const value = JSON.parse(await readFile(resolve(required(options, 'attempt-file')), 'utf8')) as unknown;
@@ -218,7 +270,7 @@ export async function runExecutionComparisonOperatorCli(args: readonly string[])
     }
     default:
       throw new Error(
-        'Usage: execution-comparison-operator <list-cases|inspect|prepare|oracle|retain-attempt> [options]',
+        'Usage: execution-comparison-operator <list-cases|inspect|prepare|oracle|petrinaut-preflight|retain-attempt> [options]',
       );
   }
 }
@@ -248,6 +300,14 @@ function required(options: ReadonlyMap<string, string>, name: string): string {
   const value = options.get(name);
   if (value === undefined || value.length === 0) throw new Error(`missing required option --${name}`);
   return value;
+}
+
+function requiredAbsolute(options: ReadonlyMap<string, string>, name: string): string {
+  const value = required(options, name);
+  if (!isAbsolute(value)) {
+    throw new Error(`--${name} must be an absolute path`);
+  }
+  return resolve(value);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

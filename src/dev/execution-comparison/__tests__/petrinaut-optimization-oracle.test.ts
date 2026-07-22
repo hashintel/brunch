@@ -4,12 +4,68 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { PETRINAUT_FOCUSED_PREPARATION } from '../petrinaut-optimization-oracle.js';
 import { assessPetrinautFocusedObservation } from '../petrinaut-optimization-oracle/claims.js';
+import { startDeterministicFakeOptimizer } from '../petrinaut-optimization-oracle/fake-optimizer.js';
 
 const oracleRoot = fileURLToPath(new URL('../petrinaut-optimization-oracle/', import.meta.url));
 const oracleEntry = fileURLToPath(new URL('../petrinaut-optimization-oracle.ts', import.meta.url));
 
 describe('controller-owned Petrinaut optimization oracle boundary', () => {
+  it('frames deterministic optimizer events as the upstream Optuna SSE contract', async () => {
+    const fake = await startDeterministicFakeOptimizer();
+    try {
+      const response = await fetch(`${fake.origin}/optimize/all`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'source fidelity' }),
+      });
+
+      expect(response.headers.get('content-type')).toBe('text/event-stream');
+      const stream = await response.text();
+      expect(stream).toContain('data: {"step":0,"params":{"rate":4},"metric":12,"state":"COMPLETE"}');
+      expect(stream).toContain('data: {"step":1,"params":{"rate":6},"metric":10,"state":"COMPLETE"}');
+      expect(stream).toContain('event: done\ndata: {}');
+    } finally {
+      await fake.close();
+    }
+  });
+
+  it('keeps the declared Refractive workspace build directly before Petrinaut UI', () => {
+    expect(PETRINAUT_FOCUSED_PREPARATION).toEqual([
+      {
+        id: 'design-system-codegen',
+        command: 'yarn',
+        args: ['workspace', '@hashintel/ds-components', 'codegen'],
+      },
+      {
+        id: 'design-system-build',
+        command: 'yarn',
+        args: ['workspace', '@hashintel/ds-components', 'build'],
+      },
+      {
+        id: 'petrinaut-core-build',
+        command: 'yarn',
+        args: ['workspace', '@hashintel/petrinaut-core', 'build'],
+      },
+      {
+        id: 'optimizer-client-build',
+        command: 'yarn',
+        args: ['workspace', '@local/petrinaut-optimizer-client', 'build'],
+      },
+      {
+        id: 'refractive-build',
+        command: 'yarn',
+        args: ['workspace', '@hashintel/refractive', 'build'],
+      },
+      {
+        id: 'petrinaut-ui-build',
+        command: 'yarn',
+        args: ['workspace', '@hashintel/petrinaut', 'build'],
+      },
+    ]);
+  });
+
   it('contains no historical, candidate-internal, or runtime-selected implementation dependency', async () => {
     const sources = await sourceFiles(oracleRoot);
     const source = (
@@ -30,6 +86,16 @@ describe('controller-owned Petrinaut optimization oracle boundary', () => {
     expect(source).not.toMatch(/implementationPath|oraclePath|pluginPath|manifest\.(?:command|path)/u);
   });
 
+  it('consumes source-backed mechanical addresses from the typed public contract', async () => {
+    const browserSource = await readFile(join(oracleRoot, 'browser.ts'), 'utf8');
+    expect(browserSource).toMatch(/mechanicalAddresses/u);
+    expect(browserSource).toMatch(/locate\(page, addresses\.create\)/u);
+    expect(browserSource).toMatch(/locate\(page, addresses\.metricCode\)/u);
+    expect(browserSource).not.toMatch(/Create optimization/u);
+    expect(browserSource).not.toMatch(/getByRole\('heading', \{ name: 'Optimizations'/u);
+    expect(browserSource).not.toMatch(/getByRole\('tab', \{ name: 'Optimizations'/u);
+  });
+
   it.each([
     [
       'missing-route',
@@ -37,7 +103,6 @@ describe('controller-owned Petrinaut optimization oracle boundary', () => {
         check: 'route-and-accessibility',
         pathname: '/processes/draft',
         expectedPathname: '/optimization',
-        controlsReachable: true,
       } as const,
       'focused route missing',
     ],

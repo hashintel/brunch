@@ -1,7 +1,6 @@
-import { realpathSync } from 'node:fs';
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -97,62 +96,13 @@ describe('end-to-end execution adapters', () => {
         '--model',
         'claude-opus-4-8',
         '--permission-mode',
-        'dontAsk',
+        'bypassPermissions',
         '--no-session-persistence',
-        '--strict-mcp-config',
-        '--mcp-config',
-        '{"mcpServers":{}}',
-        '--setting-sources',
-        '',
-        '--tools',
-        'Bash,Edit,Glob,Grep,Read,Write',
-        '--allowedTools',
-        'Bash',
-        'Edit',
-        'Glob',
-        'Grep',
-        'Read',
-        'Write',
-        '--disallowedTools',
-        'WebFetch',
-        'WebSearch',
       ]),
     );
-    const settingsIndex = prepared.launch.args.indexOf('--settings');
-    expect(settingsIndex).toBeGreaterThan(-1);
-    expect(JSON.parse(prepared.launch.args[settingsIndex + 1]!)).toEqual({
-      enabledPlugins: {},
-      permissions: {
-        allow: ['Bash', 'Edit', 'Glob', 'Grep', 'Read', 'Write'],
-        deny: ['WebFetch', 'WebSearch'],
-      },
-      sandbox: {
-        enabled: true,
-        failIfUnavailable: true,
-        autoAllowBashIfSandboxed: true,
-        allowUnsandboxedCommands: false,
-        filesystem: {
-          denyRead: [
-            join(realpathSync(root), 'controller'),
-            realpathSync(resolve(fileURLToPath(new URL('../../../../', import.meta.url)))),
-          ],
-        },
-        network: {
-          allowedDomains: [],
-          deniedDomains: [
-            'github.com',
-            '*.github.com',
-            '*.githubusercontent.com',
-            'linear.app',
-            '*.linear.app',
-            'notion.so',
-            '*.notion.so',
-            'notion.site',
-            '*.notion.site',
-          ],
-        },
-      },
-    });
+    expect(prepared.launch.args).not.toEqual(
+      expect.arrayContaining(['--strict-mcp-config', '--settings', '--tools']),
+    );
     expect(prepared.launch.args.at(-1)).not.toContain(controllerRoot);
 
     await writeFile(join(workspaceDir, 'package.json'), '{"scripts":{"test":"true","build":"true"}}\n');

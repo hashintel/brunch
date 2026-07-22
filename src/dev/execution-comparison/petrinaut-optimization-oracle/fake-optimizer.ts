@@ -5,6 +5,15 @@ export interface CapturedOptimizationRequest {
   aborted: boolean;
 }
 
+/**
+ * Deterministic Petrinaut Opt stand-in that speaks the upstream Optuna SSE
+ * contract decoded by `@local/petrinaut-optimizer-client`.
+ *
+ * Request `name` steers the branch:
+ * - includes `failure` → terminal `event: error`
+ * - includes `cancel` → hold the stream open (no terminal event)
+ * - otherwise → two COMPLETE trials + `event: done`
+ */
 export async function startDeterministicFakeOptimizer(): Promise<{
   readonly origin: string;
   readonly requests: CapturedOptimizationRequest[];
@@ -35,46 +44,28 @@ export async function startDeterministicFakeOptimizer(): Promise<{
     };
     request.on('aborted', markAborted);
     response.on('close', markAborted);
-    response.writeHead(200, { 'content-type': 'application/x-ndjson' });
+    response.writeHead(200, { 'content-type': 'text/event-stream' });
     const name = record(body) && typeof body['name'] === 'string' ? body['name'] : '';
-    writeEvent(response, { type: 'started', requestedTrials: 2 });
     if (name.includes('cancel')) return;
     if (name.includes('failure')) {
-      writeEvent(response, {
-        type: 'error',
-        code: 'deterministic_failure',
-        message: 'Deterministic optimizer failure',
-        retryable: false,
-      });
+      writeEvent(response, { message: 'Deterministic optimizer failure' }, 'error');
       response.end();
       return;
     }
-    const best = { trial: 0, parameters: { rate: 4 }, objective: 12 };
     writeEvent(response, {
-      type: 'trial',
-      trial: 0,
-      parameters: { rate: 4 },
-      objective: 12,
-      state: 'complete',
-      best,
+      step: 0,
+      params: { rate: 4 },
+      metric: 12,
+      state: 'COMPLETE',
     });
     await new Promise((resolve) => setTimeout(resolve, 20));
     writeEvent(response, {
-      type: 'trial',
-      trial: 1,
-      parameters: { rate: 6 },
-      objective: 10,
-      state: 'complete',
-      best,
+      step: 1,
+      params: { rate: 6 },
+      metric: 10,
+      state: 'COMPLETE',
     });
-    writeEvent(response, {
-      type: 'complete',
-      requestedTrials: 2,
-      completedTrials: 2,
-      prunedTrials: 0,
-      failedTrials: 0,
-      best,
-    });
+    writeEvent(response, {}, 'done');
     response.end();
   });
   await new Promise<void>((resolve, reject) => {
@@ -90,7 +81,7 @@ export async function startDeterministicFakeOptimizer(): Promise<{
     origin: `http://127.0.0.1:${address.port}`,
     requests,
     close: async () => {
-      for (const response of openResponses) response.destroy();
+      for (const open of openResponses) open.destroy();
       await new Promise<void>((resolveClose, reject) => {
         server.close((error) => (error === undefined ? resolveClose() : reject(error)));
       });
@@ -98,8 +89,8 @@ export async function startDeterministicFakeOptimizer(): Promise<{
   };
 }
 
-function writeEvent(response: ServerResponse, event: unknown): void {
-  response.write(`${JSON.stringify(event)}\n`);
+function writeEvent(response: ServerResponse, event: unknown, name?: 'done' | 'error'): void {
+  response.write(`${name === undefined ? '' : `event: ${name}\n`}data: ${JSON.stringify(event)}\n\n`);
 }
 
 function record(value: unknown): value is Record<string, unknown> {

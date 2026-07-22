@@ -1,14 +1,10 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { runCommand, type CommandResult, type CommandRunner } from '../../app/command-runner.js';
 import type { ExecutionLaunch } from './brunch-adapter.js';
 import { materializeExactExecutionPacket } from './public-packet.js';
-import {
-  createClaudeSolutionIsolationPolicy,
-  type ClaudeSolutionIsolationPolicy,
-} from './solution-isolation.js';
+import type { ClaudeSolutionIsolationPolicy } from './solution-isolation.js';
 import { assertControllerIsolation } from './study-contract.js';
 import { containedPath } from './validation.js';
 
@@ -109,6 +105,29 @@ export function createClaudeExecutionLaunch(input: {
   };
 }
 
+function createGreenfieldClaudeExecutionLaunch(workspaceDir: string): ExecutionLaunch {
+  return {
+    command: 'claude',
+    args: [
+      '--print',
+      '--verbose',
+      '--output-format',
+      'stream-json',
+      '--model',
+      'claude-opus-4-8',
+      '--effort',
+      'max',
+      '--permission-mode',
+      'bypassPermissions',
+      '--no-session-persistence',
+      '--disable-slash-commands',
+      '--no-chrome',
+      implementationPrompt(),
+    ],
+    cwd: workspaceDir,
+  };
+}
+
 export async function prepareClaudeExecutionWorkspace(
   input: {
     readonly workspaceDir: string;
@@ -139,24 +158,11 @@ export async function prepareClaudeExecutionWorkspace(
     'Freeze comparison input',
   ]);
   const baseSha = (await gitChecked(runner, input.workspaceDir, ['rev-parse', 'HEAD'])).stdout.trim();
-  const isolationPolicy = createClaudeSolutionIsolationPolicy(
-    input.workspaceDir,
-    [input.controllerRoot, repositoryRoot()].filter(
-      (root) => !containedPath(root, input.workspaceDir) && !containedPath(input.workspaceDir, root),
-    ),
-  );
   return {
     workspaceDir: input.workspaceDir,
     baseSha,
-    launch: createClaudeExecutionLaunch({
-      workspaceDir: input.workspaceDir,
-      isolationPolicy,
-    }),
+    launch: createGreenfieldClaudeExecutionLaunch(input.workspaceDir),
   };
-}
-
-function repositoryRoot(): string {
-  return fileURLToPath(new URL('../../../', import.meta.url));
 }
 
 export async function runClaudeExecutionWorkspace(

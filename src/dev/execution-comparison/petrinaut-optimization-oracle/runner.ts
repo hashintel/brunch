@@ -1,4 +1,4 @@
-import { runCommand } from '../../../app/command-runner.js';
+import { runCommand, type CommandResult } from '../../../app/command-runner.js';
 import { isPetrinautOptimizationExecutionCaseContract, loadPublicCasePacket } from '../case-contract.js';
 import {
   isPetrinautOptimizationControllerOracleManifest,
@@ -29,15 +29,26 @@ export const PETRINAUT_FOCUSED_PREPARATION = [
     args: ['workspace', '@local/petrinaut-optimizer-client', 'build'],
   },
   {
+    id: 'refractive-build',
+    command: 'yarn',
+    args: ['workspace', '@hashintel/refractive', 'build'],
+  },
+  {
     id: 'petrinaut-ui-build',
     command: 'yarn',
     args: ['workspace', '@hashintel/petrinaut', 'build'],
   },
 ] as const;
 
+export interface PetrinautOraclePreparationObservation {
+  readonly id: (typeof PETRINAUT_FOCUSED_PREPARATION)[number]['id'];
+  readonly commandResult: CommandResult;
+}
+
 export async function runPetrinautOptimizationOracle(input: {
   readonly candidateRoot: string;
   readonly caseDir: string;
+  readonly onPreparationResult?: (observation: PetrinautOraclePreparationObservation) => Promise<void> | void;
 }): Promise<PetrinautOptimizationOracleReport> {
   const [packet, manifest] = await Promise.all([
     loadPublicCasePacket(input.caseDir),
@@ -56,6 +67,10 @@ export async function runPetrinautOptimizationOracle(input: {
       cwd: input.candidateRoot,
       timeoutMs: 10 * 60_000,
       maxOutputBytes: 256 * 1024,
+    });
+    await input.onPreparationResult?.({
+      id: step.id,
+      commandResult: result,
     });
     preparation.push({
       id: step.id,

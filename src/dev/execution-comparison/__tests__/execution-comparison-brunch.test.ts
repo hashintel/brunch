@@ -90,8 +90,8 @@ describe('execution comparison Brunch CLI arguments', () => {
     await mkdir(targetRoot);
     await mkdir(outsideRoot);
     await writeFile(join(targetRoot, 'inside.txt'), 'inside\n');
-    await writeFile(join(outsideRoot, 'secret.txt'), 'historical solution\n');
-    await symlink(join(outsideRoot, 'secret.txt'), join(targetRoot, 'escaped-link.txt'));
+    await writeFile(join(outsideRoot, 'excluded.txt'), 'outside comparison target\n');
+    await symlink(join(outsideRoot, 'excluded.txt'), join(targetRoot, 'escaped-link.txt'));
     await symlink(outsideRoot, join(targetRoot, 'escaped-directory'));
 
     const tools: Array<{

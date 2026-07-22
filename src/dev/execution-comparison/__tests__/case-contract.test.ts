@@ -82,17 +82,24 @@ describe('execution comparison public case contract', () => {
         sameOriginApi: '/api/petrinaut-opt/optimize/all',
         executionTerminal: 'promotion_prepared',
       },
-      accessibility: {
-        view: { role: 'heading', name: 'Optimizations' },
-        tab: { role: 'tab', name: 'Optimizations' },
-        create: { role: 'button', name: 'Create optimization' },
-        scenario: { role: 'combobox', name: 'Scenario' },
-        metric: { role: 'combobox', name: 'Objective metric' },
-        direction: { role: 'combobox', name: 'Objective direction' },
-        run: { role: 'button', name: 'Run optimization' },
-        cancel: { role: 'button', name: 'Cancel optimization' },
-        status: { role: 'status', name: 'Optimization status' },
-        results: { role: 'region', name: 'Optimization results' },
+      mechanicalAddresses: {
+        skipTour: { kind: 'roleName', role: 'button', name: 'Skip tour' },
+        dismissAssistant: { kind: 'roleName', role: 'button', name: 'Dismiss' },
+        simulateMode: { kind: 'roleName', role: 'radio', name: 'Simulate' },
+        optimizationsNav: { kind: 'roleValue', role: 'radio', value: 'optimizations' },
+        viewTitle: { kind: 'exactText', text: 'Optimizations' },
+        create: { kind: 'roleName', role: 'button', name: 'Create' },
+        createDrawer: { kind: 'roleName', role: 'dialog', name: 'Create an optimization' },
+        scenario: { kind: 'roleContents', role: 'combobox', contents: 'Select a scenario' },
+        metric: { kind: 'roleContents', role: 'combobox', contents: 'Select a metric' },
+        metricCode: { kind: 'roleName', role: 'textbox', name: 'Editor content' },
+        directionMaximize: { kind: 'roleName', role: 'radio', name: 'Maximize' },
+        directionMinimize: { kind: 'roleName', role: 'radio', name: 'Minimize' },
+        run: { kind: 'roleName', role: 'button', name: 'Run' },
+        cancel: { kind: 'roleName', role: 'button', name: 'Cancel' },
+        statusComplete: { kind: 'exactText', text: 'Complete' },
+        statusError: { kind: 'exactText', text: 'Error' },
+        statusCancelled: { kind: 'exactText', text: 'Cancelled' },
       },
     };
     expect(parsePublicCaseContract(petrinautContract)).toEqual(petrinautContract);
@@ -106,6 +113,19 @@ describe('execution comparison public case contract', () => {
         },
       },
       { acceptance: { ...petrinautContract.acceptance, publicRoute: '/processes/draft' } },
+      {
+        mechanicalAddresses: {
+          ...petrinautContract.mechanicalAddresses,
+          create: { kind: 'roleName', role: 'button', name: 'Create optimization' },
+        },
+      },
+      {
+        mechanicalAddresses: {
+          ...petrinautContract.mechanicalAddresses,
+          create: { kind: 'roleName', role: 'button', name: 'Create' },
+          extra: { kind: 'roleName', role: 'button', name: 'Extra' },
+        },
+      },
     ]) {
       expect(() => parsePublicCaseContract({ ...petrinautContract, ...mutation })).toThrow(
         'invalid fixed public execution contract',

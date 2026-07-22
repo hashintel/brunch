@@ -88,6 +88,39 @@ This is developer/evaluation tooling under `.pi/prompts/`, not a shipped Brunch 
 Brunch stops at `promotion_prepared`; the operator never invokes `/brunch:land`, scores a lane, chooses
 a winner, or treats Brunch-only run/Petri/debug evidence as common comparison evidence.
 
+### Petrinaut historical setup preflight
+
+Before spending a provider turn on the frozen Petrinaut case, run the controller-only preflight with
+an explicit real HASH source checkout and three disjoint scratch roots:
+
+```sh
+npx tsx src/dev/execution-comparison-operator.ts petrinaut-preflight \
+  --source-repository /absolute/path/to/hash \
+  --parent-target /absolute/disposable-work/parent \
+  --reference-target /absolute/disposable-work/reference \
+  --output-root /absolute/retained-evidence
+```
+
+The command accepts no provider, reference commit, dependency command, manifest command, or oracle
+plugin. It prepares the frozen parent through D137-L, calibrates only the code-owned merged PR #9051
+reference with the same compiled immutable install and unchanged
+`petrinaut-optimization-oracles-v1`, writes one path-redacted receipt plus bounded write-once
+`parent-dependency.json`, `reference-dependency.json`, and `oracle-summary.json` files for each reached
+phase, and removes both owned workspaces. Receipt evidence entries contain only fixed relative
+filenames, SHA-256, byte count, and truncation state. The receipt is evidence, not an admission token.
+`setup_failed` or `assertion_failed` blocks historical provider work; never bypass the failed phase or
+replace an invalid receipt.
+
+The 2026-07-22 real-source run is currently blocked on historical browser semantics: both immutable
+installs, tracked-source checks, and the six focused builds (including the directly declared
+Refractive build immediately before Petrinaut UI) pass. Browser navigation uses bounded
+`domcontentloaded` readiness independently from the unchanged 5-second semantic action budget, and
+the real run retains no failed request or navigation timeout. The pinned historical shell does not
+expose the fixture-authored exact `Optimizations` heading / `Create optimization` control contract;
+its optimization view labels the action `Create`. Re-entry must respecify real public semantics before
+provider work rather than weakening locators in place. Exact retained evidence is recorded in the
+[active scope card](../../memory/cards/brownfield-comparison-cases--petrinaut-provider-preflight.md).
+
 ## End-to-end comparison tracer
 
 The end-to-end tracer composes the rigorous elicitation recipe with the execution-comparison contracts

@@ -35,6 +35,11 @@ jobs:
           git config --global user.name "Brunch CI"
           git config --global init.defaultBranch main
 
+      - name: Install PTY test dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes expect
+
       - name: Install
         run: npm ci
 
