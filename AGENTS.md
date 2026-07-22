@@ -87,3 +87,14 @@ Read these before the relevant activity:
 - **`docs/praxis/worktree-agents.md`** — before spawning parallel agent builds with `isolation: "worktree"`
 - **`docs/praxis/manual-testing.md`** — before outer-loop UI testing or fixture capture
 - **`docs/praxis/dev-server-logs.md`** — before reading runtime logs from the dev server or browser
+
+## Cursor Cloud specific instructions
+
+Environment is prepared by the startup update script (`npm ci`). Standard commands live in `CONTRIBUTING.md` (`npm run dev`, `npm test`, `npm run build`, `npm run verify`, `npm run seed`). Non-obvious caveats for this VM:
+
+- **Node version.** The exec-daemon injects an older Node (v22.14) at the front of `PATH`, but `package.json` requires `>=22.19.0`. nvm has v22.22.2 installed, and `~/.bashrc` prepends it so interactive shells resolve the right Node. If `node --version` ever shows `< 22.19`, run `export PATH="$HOME/.nvm/versions/node/v22.22.2/bin:$PATH"` (or `nvm use 22.22.2`) before `npm run dev`/tests/build.
+- **Anthropic key.** The dev server reads `ANTHROPIC_API_KEY` from the environment (provided as a secret); no `.env` file is needed. Without it, `src/server/preflight.ts` exits before `npm run dev` starts.
+- **App URL / ports.** `npm run dev` serves the UI at `http://localhost:5173` and the API at `http://localhost:3000` (API routes are under `/api`; `/` returns 404). Runtime logs stream to `tmp/logs/latest/{vite,api,browser,combined}.log`. The SQLite DB lives at `.brunch/brunch.db` (gitignored); wipe it to reset a manual walkthrough.
+- **Test suite parallelism.** `npm test` (`vitest run`) is reliable for the core product (`src/server`, `src/client`, `src/shared`). The `src/orchestrator` ("cook") subsystem spawns many git/child processes and its tests are flaky under full parallelism on this 4-core VM — they hit the default 5s timeout and report spurious failures. Run the orchestrator dir serially for a clean signal: `npx vitest run src/orchestrator --no-file-parallelism --testTimeout=30000`.
+- **Orchestrator external tools.** A few `src/orchestrator` tests spawn `bun` (`test-runner.test.ts`) and `bwrap`/bubblewrap (`sandbox-guard.test.ts`); neither is installed here, so those specific tests fail. They are not needed for the core spec-elicitation product.
+- **Stale docker artifacts.** `docker-compose.yml` and `Dockerfile` reference a Dolt SQL server and `server/server.js` that do not match the current SQLite/`src/server` codebase. Ignore them for local dev; the real dev path is `npm run dev`.
