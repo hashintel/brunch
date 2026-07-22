@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 
-export interface ExecutionCasePublicContract {
+export interface BrowserExecutionCasePublicContract {
   readonly schemaVersion: 1;
   readonly case: {
     readonly id: 'minimal-petri-net-editor-v1';
@@ -37,6 +37,107 @@ export interface ExecutionCasePublicContract {
   };
   readonly interactions: Readonly<Record<string, string>>;
   readonly rules: readonly string[];
+}
+
+export interface BrunchHostLandingExecutionCasePublicContract {
+  readonly schemaVersion: 1;
+  readonly case: {
+    readonly id: 'brunch-host-landing-v1';
+    readonly specification: 'spec.md';
+    readonly specificationSha256: string;
+    readonly provider: 'anthropic';
+    readonly model: 'claude-opus-4-8';
+    readonly product: 'brunch';
+    readonly mode: 'brownfield';
+    readonly scope: 'single_feature';
+    readonly surface: 'backend';
+    readonly repository: {
+      readonly substrate: 'pinned_git';
+      readonly parentCommit: string;
+      readonly parentTree: string;
+    };
+  };
+  readonly budgets: {
+    readonly elapsedMinutes: 90;
+    readonly mechanicalInterventions: 2;
+    readonly substantiveHumanInterventions: 0;
+  };
+  readonly delivery: {
+    readonly runtimeNetwork: 'forbidden';
+    readonly dependencyInstallNetwork: 'forbidden';
+  };
+  readonly acceptance: {
+    readonly publicCommand: '/brunch:land';
+    readonly executionTerminal: 'promotion_prepared';
+  };
+  readonly accessibility: Readonly<
+    Record<
+      | 'view'
+      | 'tab'
+      | 'create'
+      | 'scenario'
+      | 'metric'
+      | 'direction'
+      | 'run'
+      | 'cancel'
+      | 'status'
+      | 'results',
+      AccessibleNameContract
+    >
+  >;
+  readonly rules: readonly string[];
+}
+
+export interface PetrinautOptimizationExecutionCasePublicContract {
+  readonly schemaVersion: 1;
+  readonly case: {
+    readonly id: 'petrinaut-optimization-v1';
+    readonly specification: 'spec.md';
+    readonly specificationSha256: string;
+    readonly provider: 'anthropic';
+    readonly model: 'claude-opus-4-8';
+    readonly product: 'petrinaut';
+    readonly mode: 'brownfield';
+    readonly scope: 'single_feature';
+    readonly surface: 'frontend';
+    readonly repository: {
+      readonly substrate: 'pinned_git';
+      readonly parentCommit: '5c7a2d9db5caa851c38938f4b1bac19005b0e978';
+      readonly parentTree: 'a3e08cf75e00cc9016c931f4665341506e03533e';
+    };
+  };
+  readonly budgets: {
+    readonly elapsedMinutes: 90;
+    readonly mechanicalInterventions: 2;
+    readonly substantiveHumanInterventions: 0;
+  };
+  readonly delivery: {
+    readonly runtimeNetwork: 'forbidden';
+    readonly dependencyInstallNetwork: 'controller_only';
+  };
+  readonly acceptance: {
+    readonly publicRoute: '/optimization';
+    readonly sameOriginApi: '/api/petrinaut-opt/optimize/all';
+    readonly executionTerminal: 'promotion_prepared';
+  };
+  readonly rules: readonly string[];
+}
+
+export type ExecutionCasePublicContract =
+  | BrowserExecutionCasePublicContract
+  | BrunchHostLandingExecutionCasePublicContract
+  | PetrinautOptimizationExecutionCasePublicContract;
+
+export function isBrowserExecutionCaseContract(
+  value: ExecutionCasePublicContract,
+): value is BrowserExecutionCasePublicContract {
+  return value.case.id === 'minimal-petri-net-editor-v1';
+}
+
+export function isPetrinautOptimizationExecutionCaseContract(
+  value: ExecutionCasePublicContract,
+): value is PetrinautOptimizationExecutionCasePublicContract {
+  return value.case.id === 'petrinaut-optimization-v1';
 }
 
 export interface CommandContract {
@@ -102,6 +203,16 @@ export async function loadPublicCasePacket(caseDir: string): Promise<PublicCaseP
 
 export function parsePublicCaseContract(value: unknown): ExecutionCasePublicContract {
   if (!record(value)) invalid();
+  if (record(value['case']) && value['case']['id'] === 'brunch-host-landing-v1') {
+    return parseBrunchHostLandingContract(value);
+  }
+  if (record(value['case']) && value['case']['id'] === 'petrinaut-optimization-v1') {
+    return parsePetrinautOptimizationContract(value);
+  }
+  return parsePetriBrowserContract(value);
+}
+
+function parsePetriBrowserContract(value: Record<string, unknown>): BrowserExecutionCasePublicContract {
   const caseValue = requiredRecord(value, 'case');
   const repository = requiredRecord(caseValue, 'repository');
   const budgets = requiredRecord(value, 'budgets');
@@ -160,7 +271,145 @@ export function parsePublicCaseContract(value: unknown): ExecutionCasePublicCont
     invalid();
   }
 
-  return value as unknown as ExecutionCasePublicContract;
+  return value as unknown as BrowserExecutionCasePublicContract;
+}
+
+function parseBrunchHostLandingContract(
+  value: Record<string, unknown>,
+): BrunchHostLandingExecutionCasePublicContract {
+  const caseValue = requiredRecord(value, 'case');
+  const repository = requiredRecord(caseValue, 'repository');
+  const budgets = requiredRecord(value, 'budgets');
+  const delivery = requiredRecord(value, 'delivery');
+  const acceptance = requiredRecord(value, 'acceptance');
+  if (
+    !exactKeys(value, ['schemaVersion', 'case', 'budgets', 'delivery', 'acceptance', 'rules']) ||
+    !exactKeys(caseValue, [
+      'id',
+      'specification',
+      'specificationSha256',
+      'provider',
+      'model',
+      'product',
+      'mode',
+      'scope',
+      'surface',
+      'repository',
+    ]) ||
+    !exactKeys(repository, ['substrate', 'parentCommit', 'parentTree']) ||
+    !exactKeys(budgets, ['elapsedMinutes', 'mechanicalInterventions', 'substantiveHumanInterventions']) ||
+    !exactKeys(delivery, ['runtimeNetwork', 'dependencyInstallNetwork']) ||
+    !exactKeys(acceptance, ['publicCommand', 'executionTerminal']) ||
+    value['schemaVersion'] !== 1 ||
+    caseValue['id'] !== 'brunch-host-landing-v1' ||
+    caseValue['specification'] !== 'spec.md' ||
+    !sha256HexValue(caseValue['specificationSha256']) ||
+    caseValue['provider'] !== 'anthropic' ||
+    caseValue['model'] !== 'claude-opus-4-8' ||
+    caseValue['product'] !== 'brunch' ||
+    caseValue['mode'] !== 'brownfield' ||
+    caseValue['scope'] !== 'single_feature' ||
+    caseValue['surface'] !== 'backend' ||
+    repository['substrate'] !== 'pinned_git' ||
+    !gitObjectId(repository['parentCommit']) ||
+    !gitObjectId(repository['parentTree']) ||
+    budgets['elapsedMinutes'] !== 90 ||
+    budgets['mechanicalInterventions'] !== 2 ||
+    budgets['substantiveHumanInterventions'] !== 0 ||
+    delivery['runtimeNetwork'] !== 'forbidden' ||
+    delivery['dependencyInstallNetwork'] !== 'forbidden' ||
+    acceptance['publicCommand'] !== '/brunch:land' ||
+    acceptance['executionTerminal'] !== 'promotion_prepared' ||
+    !nonemptyStrings(value['rules'])
+  ) {
+    invalid();
+  }
+  return value as unknown as BrunchHostLandingExecutionCasePublicContract;
+}
+
+function parsePetrinautOptimizationContract(
+  value: Record<string, unknown>,
+): PetrinautOptimizationExecutionCasePublicContract {
+  const caseValue = requiredRecord(value, 'case');
+  const repository = requiredRecord(caseValue, 'repository');
+  const budgets = requiredRecord(value, 'budgets');
+  const delivery = requiredRecord(value, 'delivery');
+  const acceptance = requiredRecord(value, 'acceptance');
+  const accessibility = requiredRecord(value, 'accessibility');
+  if (
+    !exactKeys(value, [
+      'schemaVersion',
+      'case',
+      'budgets',
+      'delivery',
+      'acceptance',
+      'accessibility',
+      'rules',
+    ]) ||
+    !exactKeys(caseValue, [
+      'id',
+      'specification',
+      'specificationSha256',
+      'provider',
+      'model',
+      'product',
+      'mode',
+      'scope',
+      'surface',
+      'repository',
+    ]) ||
+    !exactKeys(repository, ['substrate', 'parentCommit', 'parentTree']) ||
+    !exactKeys(budgets, ['elapsedMinutes', 'mechanicalInterventions', 'substantiveHumanInterventions']) ||
+    !exactKeys(delivery, ['runtimeNetwork', 'dependencyInstallNetwork']) ||
+    !exactKeys(acceptance, ['publicRoute', 'sameOriginApi', 'executionTerminal']) ||
+    !exactKeys(accessibility, [
+      'view',
+      'tab',
+      'create',
+      'scenario',
+      'metric',
+      'direction',
+      'run',
+      'cancel',
+      'status',
+      'results',
+    ]) ||
+    value['schemaVersion'] !== 1 ||
+    caseValue['id'] !== 'petrinaut-optimization-v1' ||
+    caseValue['specification'] !== 'spec.md' ||
+    !sha256HexValue(caseValue['specificationSha256']) ||
+    caseValue['provider'] !== 'anthropic' ||
+    caseValue['model'] !== 'claude-opus-4-8' ||
+    caseValue['product'] !== 'petrinaut' ||
+    caseValue['mode'] !== 'brownfield' ||
+    caseValue['scope'] !== 'single_feature' ||
+    caseValue['surface'] !== 'frontend' ||
+    repository['substrate'] !== 'pinned_git' ||
+    repository['parentCommit'] !== '5c7a2d9db5caa851c38938f4b1bac19005b0e978' ||
+    repository['parentTree'] !== 'a3e08cf75e00cc9016c931f4665341506e03533e' ||
+    budgets['elapsedMinutes'] !== 90 ||
+    budgets['mechanicalInterventions'] !== 2 ||
+    budgets['substantiveHumanInterventions'] !== 0 ||
+    delivery['runtimeNetwork'] !== 'forbidden' ||
+    delivery['dependencyInstallNetwork'] !== 'controller_only' ||
+    acceptance['publicRoute'] !== '/optimization' ||
+    acceptance['sameOriginApi'] !== '/api/petrinaut-opt/optimize/all' ||
+    acceptance['executionTerminal'] !== 'promotion_prepared' ||
+    !accessibleName(accessibility['view'], 'heading', 'Optimizations') ||
+    !accessibleName(accessibility['tab'], 'tab', 'Optimizations') ||
+    !accessibleName(accessibility['create'], 'button', 'Create optimization') ||
+    !accessibleName(accessibility['scenario'], 'combobox', 'Scenario') ||
+    !accessibleName(accessibility['metric'], 'combobox', 'Objective metric') ||
+    !accessibleName(accessibility['direction'], 'combobox', 'Objective direction') ||
+    !accessibleName(accessibility['run'], 'button', 'Run optimization') ||
+    !accessibleName(accessibility['cancel'], 'button', 'Cancel optimization') ||
+    !accessibleName(accessibility['status'], 'status', 'Optimization status') ||
+    !accessibleName(accessibility['results'], 'region', 'Optimization results') ||
+    !nonemptyStrings(value['rules'])
+  ) {
+    invalid();
+  }
+  return value as unknown as PetrinautOptimizationExecutionCasePublicContract;
 }
 
 function parseJson(raw: string): unknown {
@@ -245,6 +494,16 @@ function nonempty(value: unknown): value is string {
 
 function sha256HexValue(value: unknown): value is string {
   return typeof value === 'string' && /^[a-f0-9]{64}$/u.test(value);
+}
+
+function gitObjectId(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-f0-9]{40}$/u.test(value);
+}
+
+function exactKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
+  const actual = Object.keys(value).sort();
+  const wanted = [...expected].sort();
+  return actual.length === wanted.length && actual.every((key, index) => key === wanted[index]);
 }
 
 function sha256Hex(value: string): string {

@@ -13,34 +13,72 @@ import {
   runWithScopedBrunchOfflineDefault,
   type BrunchTuiLaunchContext,
 } from '../app/brunch-tui.js';
+import { openWorkspaceCommandExecutor } from '../graph/index.js';
+import { createNetworkDeniedCommandRunner } from './end-to-end-comparison/solution-isolation.js';
 
 export async function runPinnedBrunchExecutionTui(input: {
   readonly workspaceDir: string;
   readonly specId: number;
+  readonly forbiddenRoots: readonly string[];
   readonly provider: 'anthropic';
   readonly model: 'claude-opus-4-8';
 }): Promise<void> {
   const model = getBuiltinModel(input.provider, input.model);
+  const preflight = await resolvePinnedBrunchPreflight({
+    workspaceDir: input.workspaceDir,
+    specId: input.specId,
+  });
 
   await runBrunchTui({
     cwd: input.workspaceDir,
     openWeb: false,
     webSidecarRunner: async () => null,
-    runWorkspaceDialogPreflight: async () => ({
-      action: 'newSession',
-      specId: input.specId,
-      establish: { origin: 'greenfield' },
-    }),
+    runWorkspaceDialogPreflight: async () => preflight,
     launchInteractive: async (context) => {
-      await launchPinnedInteractive(context, model);
+      await launchPinnedInteractive(context, model, input.forbiddenRoots);
     },
   });
 }
 
-async function launchPinnedInteractive(context: BrunchTuiLaunchContext, model: Model<Api>): Promise<void> {
+export async function resolvePinnedBrunchPreflight(input: {
+  readonly workspaceDir: string;
+  readonly specId: number;
+}): Promise<
+  | { readonly action: 'newSession'; readonly specId: number }
+  | {
+      readonly action: 'newSession';
+      readonly specId: number;
+      readonly establish: { readonly origin: 'greenfield' };
+    }
+> {
+  const executor = await openWorkspaceCommandExecutor(input.workspaceDir);
+  const spec = executor.getSpec(input.specId);
+  if (spec === undefined) throw new Error(`prepared Brunch specification ${input.specId} is missing`);
+  return spec.origin === null
+    ? {
+        action: 'newSession',
+        specId: input.specId,
+        establish: { origin: 'greenfield' },
+      }
+    : { action: 'newSession', specId: input.specId };
+}
+
+async function launchPinnedInteractive(
+  context: BrunchTuiLaunchContext,
+  model: Model<Api>,
+  forbiddenRoots: readonly string[],
+): Promise<void> {
   const agentDir = getAgentDir();
+  const verifier = createNetworkDeniedCommandRunner({
+    forbiddenReadRoots: forbiddenRoots,
+  });
   const createRuntime = createBrunchAgentSessionRuntimeFactory({
     ...context,
+    allowSubagents: false,
+    comparisonIsolation: {
+      targetRoot: context.workspace.cwd,
+      verifier: verifier.run,
+    },
     agentServices: { model },
   });
   const runtime = await createAgentSessionRuntime(createRuntime, {
@@ -58,6 +96,8 @@ async function launchPinnedInteractive(context: BrunchTuiLaunchContext, model: M
 export function parseExecutionComparisonArgs(args: readonly string[]): {
   readonly workspaceDir: string;
   readonly specId: number;
+  readonly forbiddenRoots: readonly string[];
+  readonly solutionIsolation: 'v1';
 } {
   const { values } = parseNodeArgs({
     args: [...args],
@@ -66,20 +106,33 @@ export function parseExecutionComparisonArgs(args: readonly string[]): {
     options: {
       workspace: { type: 'string' },
       'spec-id': { type: 'string' },
+      'solution-isolation': { type: 'string' },
+      'forbidden-root': { type: 'string', multiple: true },
     },
   });
   const workspaceDir = values.workspace;
   const specId = Number(values['spec-id']);
-  if (!workspaceDir || !Number.isSafeInteger(specId) || specId <= 0) {
-    throw new Error('Usage: execution-comparison-brunch --workspace <path> --spec-id <positive integer>');
+  const forbiddenRoots = values['forbidden-root'] ?? [];
+  if (
+    !workspaceDir ||
+    forbiddenRoots.length === 0 ||
+    !Number.isSafeInteger(specId) ||
+    specId <= 0 ||
+    values['solution-isolation'] !== 'v1'
+  ) {
+    throw new Error(
+      'Usage: execution-comparison-brunch --workspace <path> --spec-id <positive integer> --solution-isolation v1 --forbidden-root <path> [--forbidden-root <path> ...]',
+    );
   }
-  return { workspaceDir, specId };
+  return { workspaceDir, specId, forbiddenRoots, solutionIsolation: 'v1' };
 }
 
 async function main(): Promise<void> {
   const args = parseExecutionComparisonArgs(process.argv.slice(2));
   await runPinnedBrunchExecutionTui({
-    ...args,
+    workspaceDir: args.workspaceDir,
+    specId: args.specId,
+    forbiddenRoots: args.forbiddenRoots,
     provider: 'anthropic',
     model: 'claude-opus-4-8',
   });

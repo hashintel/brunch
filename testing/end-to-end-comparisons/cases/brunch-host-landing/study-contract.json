@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "brunch-host-landing-e2e-v1",
+  "caseId": "brunch-host-landing-v1",
+  "mission": {
+    "path": "testing/comparisons/missions/brunch-host-landing.md",
+    "sha256": "sha256:1c9925dffbb4afcdb2b209558134d73bd6b0fbe4e78abe21a15d289e1308d89e"
+  },
+  "sharedBaseline": {
+    "path": "testing/end-to-end-comparisons/cases/brunch-host-landing/shared-baseline.md",
+    "sha256": "sha256:286e5d6afbfc75a1662d5915647f1b130698b726b00fec377b92d01964baa8f3"
+  },
+  "requirementRegistry": {
+    "path": "testing/end-to-end-comparisons/cases/brunch-host-landing/controller/requirement-registry.json",
+    "sha256": "sha256:b21214b0fa9b7dc6e5d602ebaae10fa2e0f136bab49b5e9205af9160e7b0c2e5"
+  },
+  "executionContractTemplate": {
+    "path": "testing/execution-comparisons/cases/brunch-host-landing/public-contract.json",
+    "sha256": "sha256:48292ac96c44d91a487292ab9403dcd13adfb70848c8c8b3b9bbdd3aa2c0da18"
+  },
+  "oracle": {
+    "id": "brunch-host-landing-oracles-v1",
+    "manifestPath": "testing/execution-comparisons/cases/brunch-host-landing/controller/oracle-manifest.json",
+    "manifestSha256": "sha256:ae5b9a0a4d7170471583471bd29ad619419d7190be33116d74aabfb487e07c21"
+  },
+  "source": {
+    "parentCommit": "f5a423b19f76cf345d88053456870a126e451618",
+    "parentTree": "a5709715a07faef0b96d3e05a7b6f9f8d693dd38"
+  },
+  "budgets": {
+    "elicitation": {
+      "qualifyingQuestions": 8,
+      "targetTurns": 16,
+      "elapsedMinutes": 45,
+      "mechanicalInterventions": 2
+    },
+    "execution": {
+      "elapsedMinutes": 90,
+      "mechanicalInterventions": 2,
+      "substantiveHumanInterventions": 0
+    }
+  },
+  "actorRecipes": {
+    "elicitation": "agent-as-user-comparison/v1",
+    "execution": {
+      "brunch": "brunch-pinned-git/v1",
+      "claude_code": "claude-code-pinned-git/v1"
+    }
+  },
+  "specSources": ["brunch_spec", "claude_spec"],
+  "executors": ["brunch", "claude_code"]
+}

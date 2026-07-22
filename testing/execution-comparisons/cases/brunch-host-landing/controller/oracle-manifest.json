@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "brunch-host-landing-oracles-v1",
+  "publicCaseId": "brunch-host-landing-v1",
+  "runnerVersion": "brunch-host-landing-v1",
+  "referenceModelVersion": "git-full-range-v1",
+  "checks": [
+    {
+      "id": "public-tui-preflight",
+      "claims": ["AC1", "INV1", "REQ1"]
+    },
+    {
+      "id": "brownfield-full-range",
+      "claims": ["REQ2"]
+    },
+    {
+      "id": "greenfield-materialization",
+      "claims": ["REQ3"]
+    },
+    {
+      "id": "refusal-safety",
+      "claims": ["REQ4"]
+    }
+  ],
+  "validityRules": [
+    "The candidate lane terminates at promotion_prepared before the controller creates any landing repository.",
+    "The controller resumes a supplied settled session under PI_OFFLINE=1; a fresh session or provider turn is setup_failed.",
+    "The controller invokes only the built candidate public TUI and inspects terminal, filesystem, Git, and retained run metadata.",
+    "Only disposable controller-created repositories may reach landed."
+  ],
+  "replacementRule": "Retain every report. Replace only harness setup invalidity under the same frozen packets; never replace an assertion failure."
+}

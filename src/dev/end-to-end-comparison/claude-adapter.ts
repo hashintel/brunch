@@ -1,9 +1,11 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { runCommand, type CommandResult, type CommandRunner } from '../../app/command-runner.js';
 import type { ExecutionLaunch } from './brunch-adapter.js';
 import { materializeExactExecutionPacket } from './public-packet.js';
+import { createClaudeSolutionIsolationPolicy } from './solution-isolation.js';
 import { assertControllerIsolation } from './study-contract.js';
 import { containedPath } from './validation.js';
 
@@ -68,6 +70,12 @@ export async function prepareClaudeExecutionWorkspace(
     'Freeze comparison input',
   ]);
   const baseSha = (await gitChecked(runner, input.workspaceDir, ['rev-parse', 'HEAD'])).stdout.trim();
+  const isolationPolicy = createClaudeSolutionIsolationPolicy(
+    input.workspaceDir,
+    [input.controllerRoot, repositoryRoot()].filter(
+      (root) => !containedPath(root, input.workspaceDir) && !containedPath(input.workspaceDir, root),
+    ),
+  );
   return {
     workspaceDir: input.workspaceDir,
     baseSha,
@@ -83,15 +91,52 @@ export async function prepareClaudeExecutionWorkspace(
         '--effort',
         'max',
         '--permission-mode',
-        'bypassPermissions',
+        isolationPolicy.permissionMode,
         '--no-session-persistence',
         '--disable-slash-commands',
         '--no-chrome',
+        '--strict-mcp-config',
+        '--mcp-config',
+        '{"mcpServers":{}}',
+        '--setting-sources',
+        '',
+        '--tools',
+        isolationPolicy.allowedTools.join(','),
+        '--allowedTools',
+        ...isolationPolicy.allowedTools,
+        '--disallowedTools',
+        'WebFetch',
+        'WebSearch',
+        '--settings',
+        JSON.stringify({
+          enabledPlugins: {},
+          permissions: {
+            allow: isolationPolicy.allowedTools,
+            deny: ['WebFetch', 'WebSearch'],
+          },
+          sandbox: {
+            enabled: isolationPolicy.nativeSandbox.enabled,
+            failIfUnavailable: isolationPolicy.nativeSandbox.failIfUnavailable,
+            autoAllowBashIfSandboxed: true,
+            allowUnsandboxedCommands: false,
+            filesystem: {
+              denyRead: isolationPolicy.nativeSandbox.deniedReadRoots,
+            },
+            network: {
+              allowedDomains: isolationPolicy.nativeSandbox.allowedDomains,
+              deniedDomains: isolationPolicy.nativeSandbox.deniedDomains,
+            },
+          },
+        }),
         implementationPrompt(),
       ],
       cwd: input.workspaceDir,
     },
   };
+}
+
+function repositoryRoot(): string {
+  return fileURLToPath(new URL('../../../', import.meta.url));
 }
 
 export async function runClaudeExecutionWorkspace(

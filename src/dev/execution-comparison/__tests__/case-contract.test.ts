@@ -5,14 +5,114 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { loadPublicCasePacket } from '../case-contract.js';
-import { loadControllerOraclePack } from '../oracle-pack.js';
+import { loadPublicCasePacket, parsePublicCaseContract } from '../case-contract.js';
+import { isPetriControllerOracleManifest, loadControllerOraclePack } from '../oracle-pack.js';
 
 const caseDir = fileURLToPath(
   new URL('../../../../testing/execution-comparisons/cases/minimal-petri-net-editor/', import.meta.url),
 );
 
 describe('execution comparison public case contract', () => {
+  it('accepts only the frozen greenfield and two exact brownfield profile variants', () => {
+    const brunchContract = {
+      schemaVersion: 1,
+      case: {
+        id: 'brunch-host-landing-v1',
+        specification: 'spec.md',
+        specificationSha256: 'a'.repeat(64),
+        provider: 'anthropic',
+        model: 'claude-opus-4-8',
+        product: 'brunch',
+        mode: 'brownfield',
+        scope: 'single_feature',
+        surface: 'backend',
+        repository: {
+          substrate: 'pinned_git',
+          parentCommit: '1'.repeat(40),
+          parentTree: '2'.repeat(40),
+        },
+      },
+      budgets: {
+        elapsedMinutes: 90,
+        mechanicalInterventions: 2,
+        substantiveHumanInterventions: 0,
+      },
+      delivery: {
+        runtimeNetwork: 'forbidden',
+        dependencyInstallNetwork: 'forbidden',
+      },
+      acceptance: {
+        publicCommand: '/brunch:land',
+        executionTerminal: 'promotion_prepared',
+      },
+      rules: ['Work only in the target repository.'],
+    };
+
+    expect(parsePublicCaseContract(brunchContract)).toEqual(brunchContract);
+    for (const mutation of [
+      { accessibility: { application: { role: 'application', name: 'Browser-only leak' } } },
+      { case: { ...brunchContract.case, mode: 'greenfield' } },
+      { case: { ...brunchContract.case, repository: { substrate: 'empty_dir' } } },
+      { delivery: { ...brunchContract.delivery, test: { command: 'sh', args: ['oracle.sh'] } } },
+    ]) {
+      expect(() => parsePublicCaseContract({ ...brunchContract, ...mutation })).toThrow(
+        'invalid fixed public execution contract',
+      );
+    }
+
+    const petrinautContract = {
+      ...brunchContract,
+      case: {
+        ...brunchContract.case,
+        id: 'petrinaut-optimization-v1',
+        product: 'petrinaut',
+        surface: 'frontend',
+        repository: {
+          substrate: 'pinned_git',
+          parentCommit: '5c7a2d9db5caa851c38938f4b1bac19005b0e978',
+          parentTree: 'a3e08cf75e00cc9016c931f4665341506e03533e',
+        },
+      },
+      delivery: {
+        runtimeNetwork: 'forbidden',
+        dependencyInstallNetwork: 'controller_only',
+      },
+      acceptance: {
+        publicRoute: '/optimization',
+        sameOriginApi: '/api/petrinaut-opt/optimize/all',
+        executionTerminal: 'promotion_prepared',
+      },
+      accessibility: {
+        view: { role: 'heading', name: 'Optimizations' },
+        tab: { role: 'tab', name: 'Optimizations' },
+        create: { role: 'button', name: 'Create optimization' },
+        scenario: { role: 'combobox', name: 'Scenario' },
+        metric: { role: 'combobox', name: 'Objective metric' },
+        direction: { role: 'combobox', name: 'Objective direction' },
+        run: { role: 'button', name: 'Run optimization' },
+        cancel: { role: 'button', name: 'Cancel optimization' },
+        status: { role: 'status', name: 'Optimization status' },
+        results: { role: 'region', name: 'Optimization results' },
+      },
+    };
+    expect(parsePublicCaseContract(petrinautContract)).toEqual(petrinautContract);
+    for (const mutation of [
+      { case: { ...petrinautContract.case, product: 'brunch' } },
+      { case: { ...petrinautContract.case, surface: 'backend' } },
+      {
+        case: {
+          ...petrinautContract.case,
+          repository: { ...petrinautContract.case.repository, parentTree: '2'.repeat(40) },
+        },
+      },
+      { acceptance: { ...petrinautContract.acceptance, publicRoute: '/processes/draft' } },
+    ]) {
+      expect(() => parsePublicCaseContract({ ...petrinautContract, ...mutation })).toThrow(
+        'invalid fixed public execution contract',
+      );
+    }
+  });
+
   it('freezes only the approved specification and public contract', async () => {
     const packet = await loadPublicCasePacket(caseDir);
 
@@ -83,6 +183,7 @@ describe('execution comparison public case contract', () => {
       browserSuiteVersion: 'petri-editor-browser-v2',
       referenceModelVersion: 'weighted-pt-v1',
     });
+    if (!isPetriControllerOracleManifest(pack.manifest)) throw new Error('expected Petri manifest');
     expect(pack.manifest.journeys.map((journey) => journey.id)).toEqual([
       'mount',
       'node-lifecycle',

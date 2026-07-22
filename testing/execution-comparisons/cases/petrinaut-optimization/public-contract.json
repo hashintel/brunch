@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "case": {
+    "id": "petrinaut-optimization-v1",
+    "specification": "spec.md",
+    "specificationSha256": "a949cdeeca3093c51f36d42169d582141280f3561c9770de2b6665e28fac3c15",
+    "provider": "anthropic",
+    "model": "claude-opus-4-8",
+    "product": "petrinaut",
+    "mode": "brownfield",
+    "scope": "single_feature",
+    "surface": "frontend",
+    "repository": {
+      "substrate": "pinned_git",
+      "parentCommit": "5c7a2d9db5caa851c38938f4b1bac19005b0e978",
+      "parentTree": "a3e08cf75e00cc9016c931f4665341506e03533e"
+    }
+  },
+  "budgets": {
+    "elapsedMinutes": 90,
+    "mechanicalInterventions": 2,
+    "substantiveHumanInterventions": 0
+  },
+  "delivery": {
+    "runtimeNetwork": "forbidden",
+    "dependencyInstallNetwork": "controller_only"
+  },
+  "acceptance": {
+    "publicRoute": "/optimization",
+    "sameOriginApi": "/api/petrinaut-opt/optimize/all",
+    "executionTerminal": "promotion_prepared"
+  },
+  "accessibility": {
+    "view": { "role": "heading", "name": "Optimizations" },
+    "tab": { "role": "tab", "name": "Optimizations" },
+    "create": { "role": "button", "name": "Create optimization" },
+    "scenario": { "role": "combobox", "name": "Scenario" },
+    "metric": { "role": "combobox", "name": "Objective metric" },
+    "direction": { "role": "combobox", "name": "Objective direction" },
+    "run": { "role": "button", "name": "Run optimization" },
+    "cancel": { "role": "button", "name": "Cancel optimization" },
+    "status": { "role": "status", "name": "Optimization status" },
+    "results": { "role": "region", "name": "Optimization results" }
+  },
+  "rules": [
+    "Work only in the target repository.",
+    "Do not inspect controller paths or seek hidden comparison material.",
+    "Do not use network access or external references during implementation or verification.",
+    "Preserve the full repository and stop at promotion_prepared without landing."
+  ]
+}

@@ -7,25 +7,132 @@ import {
   parseExecutionAttempt,
   writeExecutionAttemptImmutable,
 } from './execution-comparison/artifact-contract.js';
-import { runPetriEditorBrowserOracle } from './execution-comparison/browser-oracle.js';
+import {
+  runPetriEditorBrowserOracle,
+  type BrowserOracleReport,
+} from './execution-comparison/browser-oracle.js';
+import {
+  runBrunchHostLandingOracle,
+  type HostLandingOracleReport,
+} from './execution-comparison/host-landing-oracle.js';
 import {
   listExecutionCases,
   prepareExecutionTarget,
   resolveExecutionCase,
 } from './execution-comparison/operator-cli.js';
-import { loadControllerOraclePack } from './execution-comparison/oracle-pack.js';
+import {
+  loadControllerOracleManifest,
+  loadControllerOraclePack,
+} from './execution-comparison/oracle-pack.js';
+import {
+  runPetrinautOptimizationOracle,
+  type PetrinautOptimizationOracleReport,
+} from './execution-comparison/petrinaut-optimization-oracle.js';
+
+type CompiledOracleId =
+  | 'minimal-petri-net-editor-oracles-v2'
+  | 'brunch-host-landing-oracles-v1'
+  | 'petrinaut-optimization-oracles-v1';
+
+interface CompiledOracle {
+  readonly implementationFiles: readonly string[];
+  readonly run: (input: {
+    readonly appDir: string;
+    readonly caseDir: string;
+  }) => Promise<BrowserOracleReport | HostLandingOracleReport | PetrinautOptimizationOracleReport>;
+}
+
+const COMPILED_ORACLES: Readonly<Record<CompiledOracleId, CompiledOracle>> = {
+  'minimal-petri-net-editor-oracles-v2': {
+    implementationFiles: [
+      fileURLToPath(new URL('./execution-comparison/browser-oracle.ts', import.meta.url)),
+      fileURLToPath(new URL('./execution-comparison/browser-oracle/journey-runner.ts', import.meta.url)),
+      fileURLToPath(new URL('./execution-comparison/petri-reference.ts', import.meta.url)),
+    ],
+    run: runPetriEditorBrowserOracle,
+  },
+  'brunch-host-landing-oracles-v1': {
+    implementationFiles: [
+      fileURLToPath(new URL('./execution-comparison/host-landing-oracle.ts', import.meta.url)),
+      fileURLToPath(new URL('./execution-comparison/host-landing-oracle/types.ts', import.meta.url)),
+      fileURLToPath(new URL('./execution-comparison/host-landing-oracle/git-model.ts', import.meta.url)),
+      fileURLToPath(new URL('./execution-comparison/host-landing-oracle/fixture.ts', import.meta.url)),
+      fileURLToPath(new URL('./execution-comparison/host-landing-oracle/runner.ts', import.meta.url)),
+      fileURLToPath(new URL('./tui-driver.ts', import.meta.url)),
+      fileURLToPath(new URL('./tui-driver/session.ts', import.meta.url)),
+      fileURLToPath(new URL('./tui-driver/screen.ts', import.meta.url)),
+    ],
+    run: async ({ appDir }) => await runBrunchHostLandingOracle({ candidateRoot: appDir }),
+  },
+  'petrinaut-optimization-oracles-v1': {
+    implementationFiles: [
+      fileURLToPath(new URL('./execution-comparison/petrinaut-optimization-oracle.ts', import.meta.url)),
+      fileURLToPath(
+        new URL('./execution-comparison/petrinaut-optimization-oracle/types.ts', import.meta.url),
+      ),
+      fileURLToPath(
+        new URL('./execution-comparison/petrinaut-optimization-oracle/runner.ts', import.meta.url),
+      ),
+      fileURLToPath(
+        new URL('./execution-comparison/petrinaut-optimization-oracle/browser.ts', import.meta.url),
+      ),
+      fileURLToPath(
+        new URL('./execution-comparison/petrinaut-optimization-oracle/claims.ts', import.meta.url),
+      ),
+      fileURLToPath(
+        new URL('./execution-comparison/petrinaut-optimization-oracle/fake-optimizer.ts', import.meta.url),
+      ),
+    ],
+    run: async ({ appDir, caseDir }) =>
+      await runPetrinautOptimizationOracle({ candidateRoot: appDir, caseDir }),
+  },
+};
+
+export function resolveCompiledExecutionOracle(id: string): CompiledOracle {
+  if (
+    id !== 'minimal-petri-net-editor-oracles-v2' &&
+    id !== 'brunch-host-landing-oracles-v1' &&
+    id !== 'petrinaut-optimization-oracles-v1'
+  ) {
+    throw new Error(`unknown compiled execution oracle id: ${id}`);
+  }
+  return COMPILED_ORACLES[id];
+}
+
+export async function retainCompiledOracleReport(input: {
+  readonly out: string;
+  readonly oracleId: CompiledOracleId;
+  readonly oraclePackSha256: string;
+  readonly report: BrowserOracleReport | HostLandingOracleReport | PetrinautOptimizationOracleReport;
+}): Promise<{
+  readonly out: string;
+  readonly status: 'passed' | 'failed' | 'assertion_failed' | 'setup_failed';
+  readonly oraclePackSha256: string;
+  readonly oracleId: CompiledOracleId;
+}> {
+  const out = resolve(input.out);
+  await mkdir(dirname(out), { recursive: true });
+  await writeFile(out, `${JSON.stringify(input.report, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' });
+  return {
+    out,
+    status: input.report.status,
+    oraclePackSha256: input.oraclePackSha256,
+    oracleId: input.oracleId,
+  };
+}
 
 export const EXECUTION_COMPARISON_SHARED_FRAMING = [
   'Implement the frozen specification and public contract supplied in this isolated target.',
   'Treat their bytes as immutable input: do not normalize, repair, or replace either file.',
   'Work only in the target repository and do not inspect controller paths or seek hidden comparison material.',
-  'Deliver the static browser application in dist/ and run npm test followed by npm run build.',
-  'Stop after those commands and report the visible result; do not add a backend or runtime network dependency.',
+  'Follow the case-specific delivery, acceptance, network, and terminal rules exactly.',
+  'Stop at the contract-declared execution terminal and report only target-visible results.',
 ].join('\n');
 
 const DEFAULT_CASES_ROOT = fileURLToPath(
   new URL('../../testing/execution-comparisons/cases/', import.meta.url),
 );
+const DEFAULT_CONTROLLER_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
 export async function runExecutionComparisonOperatorCli(args: readonly string[]): Promise<void> {
   const [command, ...rest] = args;
@@ -60,16 +167,19 @@ export async function runExecutionComparisonOperatorCli(args: readonly string[])
       return;
     }
     case 'prepare': {
-      assertOnlyOptions(options, ['case', 'lane', 'target']);
+      assertOnlyOptions(options, ['case', 'lane', 'target', 'source-repository']);
       const lane = required(options, 'lane');
       if (lane !== 'brunch' && lane !== 'claude_code') {
         throw new Error('--lane must be brunch or claude_code');
       }
+      const sourceRepository = options.get('source-repository');
       const prepared = await prepareExecutionTarget({
         lane,
         caseReference: required(options, 'case'),
         casesRoot,
         targetDir: resolve(required(options, 'target')),
+        controllerRoot: DEFAULT_CONTROLLER_ROOT,
+        ...(sourceRepository === undefined ? {} : { sourceRepositoryDir: resolve(sourceRepository) }),
       });
       process.stdout.write(`${JSON.stringify(prepared, null, 2)}\n`);
       return;
@@ -77,29 +187,23 @@ export async function runExecutionComparisonOperatorCli(args: readonly string[])
     case 'oracle': {
       assertOnlyOptions(options, ['case', 'app', 'out']);
       const selected = await resolveExecutionCase(required(options, 'case'), casesRoot);
+      const manifest = await loadControllerOracleManifest(selected.caseDir);
+      const oracle = resolveCompiledExecutionOracle(manifest.id);
       const oraclePack = await loadControllerOraclePack({
         caseDir: selected.caseDir,
-        implementationFiles: [
-          fileURLToPath(new URL('./execution-comparison/browser-oracle.ts', import.meta.url)),
-          fileURLToPath(new URL('./execution-comparison/browser-oracle/journey-runner.ts', import.meta.url)),
-          fileURLToPath(new URL('./execution-comparison/petri-reference.ts', import.meta.url)),
-        ],
+        implementationFiles: oracle.implementationFiles,
       });
-      const report = await runPetriEditorBrowserOracle({
+      const report = await oracle.run({
         appDir: resolve(required(options, 'app')),
         caseDir: selected.caseDir,
       });
-      const out = resolve(required(options, 'out'));
-      await mkdir(dirname(out), { recursive: true });
-      await writeFile(out, `${JSON.stringify(report, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' });
-      process.stdout.write(
-        `${JSON.stringify({
-          out,
-          status: report.status,
-          oraclePackSha256: oraclePack.packSha256,
-          browserSuiteVersion: oraclePack.manifest.browserSuiteVersion,
-        })}\n`,
-      );
+      const retained = await retainCompiledOracleReport({
+        out: required(options, 'out'),
+        oracleId: oraclePack.manifest.id,
+        oraclePackSha256: oraclePack.packSha256,
+        report,
+      });
+      process.stdout.write(`${JSON.stringify(retained)}\n`);
       return;
     }
     case 'retain-attempt': {

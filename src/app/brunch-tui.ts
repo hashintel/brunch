@@ -1,4 +1,4 @@
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import process from 'node:process';
 
 import {
@@ -50,6 +50,7 @@ import {
   type SpecSessionActivationCoordinator,
   type SpecSessionActivationDecision,
 } from '../session/workspace-session-coordinator.js';
+import type { CommandRunner } from './command-runner.js';
 import { openUrlBestEffort } from './open-url.js';
 import {
   chromeStateForWorkspace,
@@ -67,6 +68,7 @@ import {
   resolveBrunchStartupTheme,
 } from './pi-settings.js';
 import { loadBrunchSubagents } from './pi-subagents.js';
+import { createTestRunnerPort } from './test-runner-port.js';
 export {
   BRUNCH_SETTINGS_AUDITED_GETTERS,
   BRUNCH_SETTINGS_POLICY,
@@ -114,6 +116,14 @@ export interface BrunchTuiLaunchContext {
   introspection?: BrunchTuiIntrospectionOptions;
   /** Product subagent tool registration for Specify mode; defaults on for normal launches. */
   allowSubagents?: boolean;
+  /**
+   * Dev/eval-only historical-replay boundary. Presence selects the strict,
+   * non-configurable comparison composition rather than normal product grants.
+   */
+  comparisonIsolation?: {
+    readonly targetRoot: string;
+    readonly verifier: CommandRunner;
+  };
   reportAsyncDiagnostic?: (diagnostic: { readonly type: 'warning'; readonly message: string }) => void;
   /**
    * Provider-backend substitution seam (faux provider in Tier-2 oracles).
@@ -422,6 +432,10 @@ export function createBrunchAgentSessionRuntimeFactory(
 ): CreateAgentSessionRuntimeFactory {
   const { coordinator, productUpdates } = context;
   return async ({ cwd, agentDir: runtimeAgentDir, sessionManager, sessionStartEvent }) => {
+    const comparisonIsolation = context.comparisonIsolation;
+    if (comparisonIsolation && resolve(cwd) !== resolve(comparisonIsolation.targetRoot)) {
+      throw new Error('Brunch comparison runtime cwd must equal its isolated target root');
+    }
     let currentWorkspace = await coordinator.bindCurrentSpecToReplacementSession(sessionManager);
     const graph = await openWorkspaceGraphRuntime(cwd);
     const graphDeps = {
@@ -518,8 +532,9 @@ export function createBrunchAgentSessionRuntimeFactory(
       }),
     );
     const agentState = projectBrunchAgentState(sessionManager.getBranch());
-    const allowProductSubagents = context.allowSubagents !== false;
-    const shouldLoadSubagents = allowProductSubagents || agentState.operationalMode === 'execute';
+    const allowProductSubagents = comparisonIsolation === undefined && context.allowSubagents !== false;
+    const shouldLoadSubagents =
+      comparisonIsolation !== undefined || allowProductSubagents || agentState.operationalMode === 'execute';
     const subagents = shouldLoadSubagents
       ? await loadBrunchSubagents({
           cwd,
@@ -528,6 +543,7 @@ export function createBrunchAgentSessionRuntimeFactory(
             allowProductSubagents && agentState.operationalMode === 'specify'
               ? ['explorer', 'researcher', 'projector', 'reviewer']
               : [],
+          ...(comparisonIsolation ? { includedAgents: ['planner', 'worker'] } : {}),
           world: {
             graph: {
               specId: currentWorkspace.spec.id,
@@ -561,6 +577,15 @@ export function createBrunchAgentSessionRuntimeFactory(
             ...(context.liveExchange ? { liveExchange: context.liveExchange.opener } : {}),
             ...(context.introspection ? { introspection: context.introspection } : {}),
             ...(subagents ? { subagents } : {}),
+            ...(comparisonIsolation
+              ? {
+                  allowWebTools: false,
+                  foregroundFilesystemRoot: comparisonIsolation.targetRoot,
+                  executionPorts: {
+                    testRunner: createTestRunnerPort({ run: comparisonIsolation.verifier }),
+                  },
+                }
+              : {}),
             promptContext: () => {
               const specId = currentWorkspace.spec.id;
               const selectedSpec = selectedSpecContext(graph, specId);

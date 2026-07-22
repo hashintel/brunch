@@ -20,7 +20,7 @@
  * Its last assistant message is returned to the caller as tool-result content.
  */
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, realpath, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, resolve, sep } from 'node:path';
 
 import {
@@ -206,13 +206,23 @@ export function createSubagentToolCatalog(
   injectedWorld?: SubagentInjectedWorld,
 ): Map<string, ToolDefinition> {
   const pool = new Map<string, ToolDefinition>();
-  for (const definition of [
+  for (const rawDefinition of [
     createReadToolDefinition(cwd),
     createGrepToolDefinition(cwd),
     createFindToolDefinition(cwd),
     createLsToolDefinition(cwd),
   ]) {
-    pool.set(definition.name, definition as ToolDefinition);
+    const definition = rawDefinition as ToolDefinition;
+    const execute = definition.execute.bind(definition);
+    const boundedDefinition = {
+      ...definition,
+      execute: async (...args: Parameters<ToolDefinition['execute']>) => {
+        const params = args[1] as { readonly path?: string };
+        await assertBoundedExistingPath(cwd, params.path ?? '.');
+        return await execute(...args);
+      },
+    } as ToolDefinition;
+    pool.set(boundedDefinition.name, boundedDefinition);
   }
   for (const tool of [createWebSearchTool(), createWebFetchTool()]) {
     pool.set(tool.name, tool as unknown as ToolDefinition);
@@ -239,7 +249,10 @@ function createWriteWorktreeFileTool(cwd: string) {
     parameters: toolParameters(WriteWorktreeFileParams),
     async execute(_toolCallId, params) {
       const target = boundedWorktreePath(cwd, params.path);
+      await assertBoundedExistingAncestor(cwd, target);
       await mkdir(dirname(target), { recursive: true });
+      await assertBoundedExistingPath(cwd, dirname(target));
+      await assertBoundedExistingTargetIfPresent(cwd, target);
       await writeFile(target, params.content, 'utf8');
       return {
         content: [{ type: 'text' as const, text: `wrote ${params.path}` }],
@@ -257,6 +270,43 @@ function boundedWorktreePath(cwd: string, rawPath: string): string {
     throw new Error('write_worktree_file path escapes the worktree');
   }
   return target;
+}
+
+async function assertBoundedExistingPath(cwd: string, rawPath: string): Promise<void> {
+  const root = resolve(cwd);
+  const target = resolve(root, rawPath);
+  assertContainedPath(root, target);
+  const [realRoot, realTarget] = await Promise.all([realpath(root), realpath(target)]);
+  assertContainedPath(realRoot, realTarget);
+}
+
+async function assertBoundedExistingAncestor(cwd: string, target: string): Promise<void> {
+  let ancestor = dirname(target);
+  while (true) {
+    try {
+      await assertBoundedExistingPath(cwd, ancestor);
+      return;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      const parent = dirname(ancestor);
+      if (parent === ancestor) throw error;
+      ancestor = parent;
+    }
+  }
+}
+
+async function assertBoundedExistingTargetIfPresent(cwd: string, target: string): Promise<void> {
+  try {
+    await assertBoundedExistingPath(cwd, target);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+}
+
+function assertContainedPath(root: string, target: string): void {
+  if (target !== root && !target.startsWith(`${root}${sep}`)) {
+    throw new Error('subagent filesystem path escapes the worktree');
+  }
 }
 
 /**

@@ -42,6 +42,9 @@ export async function prepareBrunchExecutionCell(input: {
     caseDir: materialized.packetDir,
     specificationMode: 'opaque',
   });
+  const forbiddenRoots = [input.controllerRoot, repositoryRoot()].filter(
+    (root) => !containedPath(root, input.workspaceDir) && !containedPath(input.workspaceDir, root),
+  );
   return {
     prepared,
     launch: {
@@ -53,6 +56,9 @@ export async function prepareBrunchExecutionCell(input: {
         input.workspaceDir,
         '--spec-id',
         String(prepared.specId),
+        '--solution-isolation',
+        'v1',
+        ...forbiddenRoots.flatMap((root) => ['--forbidden-root', root]),
       ],
       cwd: repositoryRoot(),
     },

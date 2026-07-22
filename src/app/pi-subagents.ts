@@ -24,6 +24,7 @@ export interface LoadBrunchSubagentsOptions {
   readonly cwd: string;
   readonly agentDir: string;
   readonly delegatableAgents: readonly string[];
+  readonly includedAgents?: readonly string[];
   readonly world?: LoadBrunchSubagentsWorld;
 }
 
@@ -45,10 +46,20 @@ export interface LoadBrunchSubagentsWorld {
  * non-empty code-owned delegatable set.
  */
 export async function loadBrunchSubagents(options: LoadBrunchSubagentsOptions): Promise<BrunchSubagentsDeps> {
-  const [definitions, config] = await Promise.all([
+  const [loadedDefinitions, config] = await Promise.all([
     loadSubagentDefinitions(subagentAgentsDir()),
     loadSubagentConfig(subagentConfigPath()),
   ]);
+  const definitions =
+    options.includedAgents === undefined
+      ? loadedDefinitions
+      : new Map(
+          options.includedAgents.flatMap((name) => {
+            const definition = loadedDefinitions.get(name);
+            if (!definition) throw new Error(`Brunch subagent definition is unavailable: ${name}`);
+            return [[name, definition] as const];
+          }),
+        );
 
   return {
     definitions,

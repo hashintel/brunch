@@ -6,7 +6,9 @@
  * than owning a second authority list.
  */
 
+import { realpath } from 'node:fs/promises';
 import { homedir } from 'node:os';
+import { resolve, sep } from 'node:path';
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import {
@@ -152,7 +154,10 @@ function supportsOperationalModePolicy(pi: ExtensionAPI): boolean {
   );
 }
 
-export function registerBrunchOperationalModePolicy(pi: ExtensionAPI) {
+export function registerBrunchOperationalModePolicy(
+  pi: ExtensionAPI,
+  options: { readonly filesystemRoot?: string } = {},
+) {
   if (!supportsOperationalModePolicy(pi)) {
     return;
   }
@@ -161,7 +166,9 @@ export function registerBrunchOperationalModePolicy(pi: ExtensionAPI) {
     ...getReadOnlyTools(process.cwd()).read,
     label: 'read',
     async execute(toolCallId, params, signal, onUpdate, ctx) {
-      return getReadOnlyTools(ctx.cwd).read.execute(toolCallId, params, signal, onUpdate);
+      const root = options.filesystemRoot ?? ctx.cwd;
+      await assertBoundedReadPath(root, params.path);
+      return getReadOnlyTools(root).read.execute(toolCallId, params, signal, onUpdate);
     },
     renderCall(args, theme) {
       const path = shortenPath(args.path || '');
@@ -189,7 +196,9 @@ export function registerBrunchOperationalModePolicy(pi: ExtensionAPI) {
     ...getReadOnlyTools(process.cwd()).grep,
     label: 'grep',
     async execute(toolCallId, params, signal, onUpdate, ctx) {
-      return getReadOnlyTools(ctx.cwd).grep.execute(toolCallId, params, signal, onUpdate);
+      const root = options.filesystemRoot ?? ctx.cwd;
+      await assertBoundedReadPath(root, params.path ?? '.');
+      return getReadOnlyTools(root).grep.execute(toolCallId, params, signal, onUpdate);
     },
     renderCall(args, theme) {
       const path = shortenPath(args.path || '.');
@@ -214,7 +223,9 @@ export function registerBrunchOperationalModePolicy(pi: ExtensionAPI) {
     ...getReadOnlyTools(process.cwd()).find,
     label: 'find',
     async execute(toolCallId, params, signal, onUpdate, ctx) {
-      return getReadOnlyTools(ctx.cwd).find.execute(toolCallId, params, signal, onUpdate);
+      const root = options.filesystemRoot ?? ctx.cwd;
+      await assertBoundedReadPath(root, params.path ?? '.');
+      return getReadOnlyTools(root).find.execute(toolCallId, params, signal, onUpdate);
     },
     renderCall(args, theme) {
       const path = shortenPath(args.path || '.');
@@ -238,7 +249,9 @@ export function registerBrunchOperationalModePolicy(pi: ExtensionAPI) {
     ...getReadOnlyTools(process.cwd()).ls,
     label: 'ls',
     async execute(toolCallId, params, signal, onUpdate, ctx) {
-      return getReadOnlyTools(ctx.cwd).ls.execute(toolCallId, params, signal, onUpdate);
+      const root = options.filesystemRoot ?? ctx.cwd;
+      await assertBoundedReadPath(root, params.path ?? '.');
+      return getReadOnlyTools(root).ls.execute(toolCallId, params, signal, onUpdate);
     },
     renderCall(args, theme) {
       const path = shortenPath(args.path || '.');
@@ -294,4 +307,16 @@ export function registerBrunchOperationalModePolicy(pi: ExtensionAPI) {
       },
     };
   });
+}
+
+async function assertBoundedReadPath(root: string, requestedPath: string): Promise<void> {
+  const normalizedRoot = resolve(root);
+  const target = resolve(normalizedRoot, requestedPath);
+  if (target !== normalizedRoot && !target.startsWith(`${normalizedRoot}${sep}`)) {
+    throw new Error(`read-only tool path escapes target root: ${requestedPath}`);
+  }
+  const [realRoot, realTarget] = await Promise.all([realpath(normalizedRoot), realpath(target)]);
+  if (realTarget !== realRoot && !realTarget.startsWith(`${realRoot}${sep}`)) {
+    throw new Error(`read-only tool path escapes target root through symlink: ${requestedPath}`);
+  }
 }

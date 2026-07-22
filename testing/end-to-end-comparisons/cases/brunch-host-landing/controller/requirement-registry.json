@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "caseId": "brunch-host-landing-v1",
+  "rows": [
+    {
+      "id": "REQ1",
+      "publicConcern": "Complete-range preflight",
+      "origin": "public_baseline",
+      "publicWording": "Review the complete prepared change before host mutation.",
+      "controller": {
+        "wording": "The pre-confirmation snapshot names every commit and changed path in runBaseSha..reviewSha.",
+        "expectedState": "Host HEAD, tree, worktree, and run metadata are byte-identical before confirmation."
+      }
+    },
+    {
+      "id": "REQ2",
+      "publicConcern": "Complete brownfield landing",
+      "origin": "controller_only",
+      "controller": {
+        "wording": "Every non-bookkeeping content change in the complete promoted range lands.",
+        "expectedState": "The host tree matches the controller Git model, .brunch is absent, and metadata is landed."
+      }
+    },
+    {
+      "id": "REQ3",
+      "publicConcern": "Greenfield materialization",
+      "origin": "public_baseline",
+      "publicWording": "A greenfield run can land into a missing or empty target.",
+      "controller": {
+        "wording": "The complete review-tip tree becomes one Brunch-authored root commit.",
+        "expectedState": "The target has one commit and its tree equals reviewSha^{tree} without .brunch paths."
+      }
+    },
+    {
+      "id": "REQ4",
+      "publicConcern": "Refusal safety",
+      "origin": "controller_only",
+      "controller": {
+        "wording": "Decline, dirty-host, conflict, and stale acceptance are inert.",
+        "expectedState": "The host snapshot is byte-identical and run status remains promotion_prepared."
+      }
+    },
+    {
+      "id": "INV1",
+      "publicConcern": "User mutation authority",
+      "origin": "public_baseline",
+      "publicWording": "Landing requires confirmation after a read-only preflight.",
+      "controller": {
+        "wording": "No candidate or agent-callable surface mutates the host before confirmation.",
+        "expectedState": "Mutation begins only after the controller confirms the exact displayed review tip."
+      }
+    },
+    {
+      "id": "AC1",
+      "publicConcern": "Public TUI address",
+      "origin": "public_baseline",
+      "publicWording": "The workflow is available as /brunch:land in the public TUI.",
+      "controller": {
+        "wording": "A resumed settled session reaches confirmation under PI_OFFLINE=1 without provider activity.",
+        "expectedState": "The real TUI renders the preflight and no fresh-session kick is observed."
+      }
+    }
+  ]
+}

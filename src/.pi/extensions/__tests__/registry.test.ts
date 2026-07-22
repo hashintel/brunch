@@ -84,7 +84,12 @@ import { registerBrunchSessionBoundary as sessionLifecycle } from '../session-ho
 import { hasBrunchDefaultRenderer } from '../shared/define-brunch-tool.js';
 import { BRUNCH_TOOL_ACTIVITY_LABELS } from '../shared/tool-activity-labels.js';
 import { assertProviderLegalToolSchema, hasToolParametersProvenance } from '../shared/tool-schema.js';
-import { parseSubagentMarkdown, type BrunchSubagentsDeps, type SubagentResult } from '../subagents/index.js';
+import {
+  BRUNCH_SUBAGENT_TOOL,
+  parseSubagentMarkdown,
+  type BrunchSubagentsDeps,
+  type SubagentResult,
+} from '../subagents/index.js';
 import { createSubagentToolCatalog } from '../subagents/session.js';
 
 const extensionDefaults = {
@@ -274,6 +279,45 @@ describe('Brunch explicit Pi extension registry', () => {
       event === 'session_start' ? [index] : [],
     );
     expect(sessionStartIndexes[0]).toBeLessThan(sessionStartIndexes[1] ?? -1);
+  });
+
+  it('registers the comparison bundle without web or Specify subagent surfaces', async () => {
+    const recording = createRecordingExtensionApi();
+    const definitions = new Map([
+      ['planner', { name: 'planner' }],
+      ['worker', { name: 'worker' }],
+    ]) as BrunchSubagentsDeps['definitions'];
+
+    await createBrunchPiExtensions(brunchChromeFixture, recording.onSessionBoundary, {
+      coordinator: {} as never,
+      graphMentionSource: { listMentionCandidates: () => [] },
+      allowWebTools: false,
+      foregroundFilesystemRoot: '/tmp/comparison-target',
+      subagents: {
+        definitions,
+        delegatableAgents: [],
+        maxConcurrency: 1,
+        agentDir: '/tmp/agent',
+        createSettingsManager: () => ({}) as never,
+        resourceLoaderOptions: {} as never,
+      },
+    })(recording.api);
+
+    expect(recording.toolNames).not.toContain('web_fetch');
+    expect(recording.toolNames).not.toContain('web_search');
+    expect(recording.toolNames).not.toContain(BRUNCH_SUBAGENT_TOOL);
+    expect(recording.toolNames).toEqual(
+      expect.arrayContaining([
+        'read',
+        'grep',
+        'find',
+        'ls',
+        BRUNCH_EXECUTE_ORCHESTRATE_TOOL,
+        BRUNCH_EXECUTE_AGENT_RESULT_TOOL,
+        BRUNCH_EXECUTE_TEST_RESULT_TOOL,
+      ]),
+    );
+    expect([...definitions.keys()]).toEqual(['planner', 'worker']);
   });
 
   it('registers execute_plan_check only with selected graph deps and returns side-effect-free findings', async () => {
