@@ -6,8 +6,12 @@
   },
   "changesets": [
     "automatic-alpha-releases",
+    "clear-gates-jrks",
     "format-generated-release-pr",
+    "happy-bottles-allow",
+    "honest-pots-slide",
     "humble-webs-peel",
-    "reporting-evaluation-guardrails"
+    "reporting-evaluation-guardrails",
+    "tired-jeans-cross"
   ]
 }

@@ -1,5 +1,11 @@
 # @hashintel/brunch
 
+## 1.0.0-alpha.8
+
+### Patch Changes
+
+- [#356](https://github.com/hashintel/brunch/pull/356) [`53e8200`](https://github.com/hashintel/brunch/commit/53e8200e48bc2a6f1714cc43beeae14e0d99cc6b) Thanks [@kostandinang](https://github.com/kostandinang)! - Reject incomplete scoped-slice worker context during plan admission
+
 ## 1.0.0-alpha.7
 
 ### Patch Changes
