@@ -124,6 +124,39 @@ async function ingestTestResultOwned(args: {
     };
   }
 
+  if (metadata.pendingSliceRepair) {
+    const pendingSliceRepair = await sliceRepairProtocol.materializeRepair({
+      pending: metadata.pendingSliceRepair,
+      trusted: {
+        runDir: runDirPath(args.cwd, args.runId),
+        runId: args.runId,
+        sliceId: metadata.activeSliceId!,
+        target: metadata.verifyTarget!,
+        policy: sliceRepairProtocol.policy,
+        history: metadata.sliceRepairHistory!,
+      },
+    });
+    const updated: RunMetadata = {
+      ...metadata,
+      status: 'slice_execution_requested',
+      pendingSliceRepair,
+    };
+    const metadataEffect = await persistRunMetadata(metadataPath, updated);
+    return {
+      status: 'slice_repair_requested',
+      runStatus: 'slice_execution_requested',
+      runId: args.runId,
+      sliceId: metadata.activeSliceId!,
+      ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
+      verdict: 'failed',
+      worktreeDir:
+        metadata.activeSliceWorkspaceDir ?? metadata.worktreeDir ?? worktreeDirPath(args.cwd, args.runId),
+      metadataPath,
+      reportsPath: metadata.reportsPath ?? reportsPath(args.cwd, args.runId),
+      sideEffects: [metadataEffect],
+    };
+  }
+
   if (metadata.status !== 'agent_result_ingested' || !metadata.activeSliceId) {
     return {
       status: 'agent_result_not_ingested',

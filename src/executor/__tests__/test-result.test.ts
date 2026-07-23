@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { dirname } from 'node:path';
@@ -279,6 +279,46 @@ describe('ingestTestResult', () => {
         cycle: 2,
         sourceVerifyArtifactOrdinal: 1,
       },
+    });
+  });
+
+  it('materializes durable pending repair without replaying the verifier', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-test-result-pending-repair-'));
+    await createAgentResultRun(cwd);
+    let verifierCalls = 0;
+    const testRunner = {
+      async run() {
+        verifierCalls += 1;
+        return {
+          status: 'completed' as const,
+          verdict: 'failed' as const,
+          exitCode: 1,
+          target: 'npm run verify',
+        };
+      },
+    };
+    await ingestTestResult({ cwd, runId: 'run-1', testRunner });
+
+    const metadataPath = runMetadataPath(cwd, 'run-1');
+    const crashState = JSON.parse(await readFile(metadataPath, 'utf8'));
+    await rm(crashState.pendingSliceRepair.contextPath);
+    crashState.status = 'agent_result_ingested';
+    crashState.pendingSliceRepair.phase = 'pending';
+    await writeFile(metadataPath, JSON.stringify(crashState), 'utf8');
+    const reportsBeforeRecovery = await readFile(reportsPath(cwd, 'run-1'), 'utf8');
+
+    const result = await ingestTestResult({ cwd, runId: 'run-1', testRunner });
+
+    expect(result).toMatchObject({
+      status: 'slice_repair_requested',
+      runStatus: 'slice_execution_requested',
+      verdict: 'failed',
+    });
+    expect(verifierCalls).toBe(1);
+    await expect(readFile(reportsPath(cwd, 'run-1'), 'utf8')).resolves.toBe(reportsBeforeRecovery);
+    expect(JSON.parse(await readFile(metadataPath, 'utf8'))).toMatchObject({
+      status: 'slice_execution_requested',
+      pendingSliceRepair: { phase: 'materialized', sourceCycle: 1, cycle: 2 },
     });
   });
 });

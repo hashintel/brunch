@@ -143,17 +143,21 @@ async function ingestAgentResultOwned(args: {
 
   let repairActivationEffect: RunMetadataWriteEffect | undefined;
   if (metadata.pendingSliceRepair) {
-    const pending = metadata.pendingSliceRepair;
+    const trusted = {
+      runDir: runDirPath(args.cwd, args.runId),
+      runId: args.runId,
+      sliceId,
+      target: metadata.verifyTarget!,
+      policy: sliceRepairProtocol.policy,
+      history: metadata.sliceRepairHistory!,
+    };
+    const pending = await sliceRepairProtocol.materializeRepair({
+      pending: metadata.pendingSliceRepair,
+      trusted,
+    });
     const activeSliceRepairContext = sliceRepairProtocol.activateRepair({
       pending,
-      trusted: {
-        runDir: runDirPath(args.cwd, args.runId),
-        runId: args.runId,
-        sliceId,
-        target: metadata.verifyTarget!,
-        policy: sliceRepairProtocol.policy,
-        history: metadata.sliceRepairHistory!,
-      },
+      trusted,
     });
     const { pendingSliceRepair: _pendingSliceRepair, ...withoutPendingRepair } = metadata;
     metadata = {

@@ -1,4 +1,4 @@
-import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -238,9 +238,14 @@ describe('ingestAgentResult', () => {
         },
       },
     });
-    expect(await readRunMetadata(runMetadataPath(cwd, 'run-1'))).toMatchObject({
+    const metadataPath = runMetadataPath(cwd, 'run-1');
+    const pendingState = JSON.parse(await readFile(metadataPath, 'utf8'));
+    await rm(pendingState.pendingSliceRepair.contextPath);
+    pendingState.pendingSliceRepair.phase = 'pending';
+    await writeFile(metadataPath, JSON.stringify(pendingState), 'utf8');
+    expect(await readRunMetadata(metadataPath)).toMatchObject({
       status: 'slice_execution_requested',
-      pendingSliceRepair: { phase: 'materialized', sourceCycle: 1, cycle: 2 },
+      pendingSliceRepair: { phase: 'pending', sourceCycle: 1, cycle: 2 },
     });
 
     const calls: AgentRunArgs[] = [];
@@ -267,6 +272,7 @@ describe('ingestAgentResult', () => {
     expect(metadata).toMatchObject({
       status: 'agent_result_ingested',
       activeSliceRepairContext: { cycle: 2, sourceCycle: 1 },
+      activeSliceRepairAuthority: { phase: 'materialized', cycle: 2, sourceCycle: 1 },
       sliceRepairHistory: {
         'task-1': [{ cycle: 1 }, { cycle: 2, epochs: [{ stage: 'agent', outcome: 'succeeded' }] }],
       },
