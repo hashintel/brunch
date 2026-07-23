@@ -1,6 +1,7 @@
-import { appendFile, mkdir, readFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { durableAppend } from './durable-file.js';
 import type {
   ExecutorNetEvent,
   ExecutorNetEventPayload,
@@ -46,8 +47,7 @@ export async function appendPetriEvent<Event extends ExecutorNetEventPayload>(ar
   const key = listenerKey(args.cwd, args.runId);
   const event: Event & { readonly ts: string } = { ...args.event, ts: new Date().toISOString() };
   try {
-    await mkdir(petriDirPath(args.cwd, args.runId), { recursive: true });
-    await appendFile(petriEventsPath(args.cwd, args.runId), `${JSON.stringify(event)}\n`, 'utf8');
+    await durableAppend(petriEventsPath(args.cwd, args.runId), `${JSON.stringify(event)}\n`);
   } catch (error) {
     // Observers must learn the journal broke or they wait on a wake-up that cannot come.
     publishPetriJournalFailure(args);

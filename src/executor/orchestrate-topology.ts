@@ -1,3 +1,5 @@
+import { sliceRepairProtocol, sliceRepairTopology, type SliceRepairPolicy } from './slice-repair-cycle.js';
+
 export type ReadyStep =
   | { readonly kind: 'worktree_create' }
   | { readonly kind: 'populate' }
@@ -46,10 +48,6 @@ export type ReadyStep =
   | { readonly kind: 'run_complete' }
   | { readonly kind: 'petri_export' }
   | { readonly kind: 'promotion' };
-
-// ceiling: constant attempt bound; move this into the frozen plan when slices
-// need differentiated retry policies.
-export const SLICE_ATTEMPT_LIMIT = 3;
 
 export type BlockedStep =
   | {
@@ -349,50 +347,8 @@ function sliceStartedPlace(sliceId: string): string {
   return `slice:${sliceId}:started`;
 }
 
-function sliceVerificationPassedPlace(sliceId: string): string {
-  return `slice:${sliceId}:verification_passed`;
-}
-
-function sliceVerificationFailedPlace(sliceId: string): string {
-  return `slice:${sliceId}:verification_failed`;
-}
-
 function sliceIntegratedPlace(sliceId: string): string {
   return `slice:${sliceId}:integrated`;
-}
-
-export type AttemptStage = 'agent' | 'verify';
-
-export function attemptPlaceId(stage: AttemptStage, sliceId: string, attempt: number): string {
-  return `slice:${sliceId}:${stage}_attempt:${attempt}`;
-}
-
-export function verifyResultPlaceId(sliceId: string, attempt: number): string {
-  return `slice:${sliceId}:verify_result:${attempt}`;
-}
-
-export function attemptRetryTransitionId(stage: AttemptStage, sliceId: string, attempt: number): string {
-  return `${stage}_retry:${sliceId}:${attempt}`;
-}
-
-export function attemptExhaustedTransitionId(stage: AttemptStage, sliceId: string): string {
-  return `${stage}_exhausted:${sliceId}`;
-}
-
-export function attemptResetTransitionId(stage: AttemptStage, sliceId: string): string {
-  return `${stage}_reset:${sliceId}`;
-}
-
-export function attemptSuccessTransitionId(stage: AttemptStage, sliceId: string, attempt: number): string {
-  return `${stage === 'agent' ? 'agent_result' : 'test_result_ingested'}:${sliceId}:attempt:${attempt}`;
-}
-
-export function verifyVerdictTransitionId(
-  verdict: 'passed' | 'failed',
-  sliceId: string,
-  attempt: number,
-): string {
-  return `verify_${verdict}:${sliceId}:attempt:${attempt}`;
 }
 
 function sliceClaimPlace(sliceId: string): string {
@@ -489,7 +445,11 @@ function epicDependenciesForSlice(
   return plan?.epics?.find((epic) => epic.id === slice.epic_id)?.depends_on ?? [];
 }
 
-export function compileExecutorTopology(plan: SchedulerPlan | undefined): ExecutorTopology {
+export function compileExecutorTopology(
+  plan: SchedulerPlan | undefined,
+  repairPolicy: SliceRepairPolicy = sliceRepairProtocol.policy,
+): ExecutorTopology {
+  sliceRepairProtocol.assertPolicy(repairPolicy);
   validateEpics(plan);
   const seenSliceIds = new Set<string>();
   for (const slice of plan?.slices ?? []) {
@@ -630,7 +590,6 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
     transitionIds: [
       sliceTransitionId('slice_start', slice.id),
       sliceTransitionId('slice_execute', slice.id),
-      sliceTransitionId('slice_integrate', slice.id),
       sliceTransitionId('slice_complete', slice.id),
     ],
   }));
@@ -639,16 +598,6 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
     return [
       { id: sliceClaimPlace(sliceId), subnetId: subnet.id, name: 'Slice claim' },
       { id: sliceStartedPlace(sliceId), subnetId: subnet.id, name: 'Slice started' },
-      {
-        id: sliceVerificationPassedPlace(sliceId),
-        subnetId: subnet.id,
-        name: 'Verification passed',
-      },
-      {
-        id: sliceVerificationFailedPlace(sliceId),
-        subnetId: subnet.id,
-        name: 'Verification failed',
-      },
       { id: sliceIntegratedPlace(sliceId), subnetId: subnet.id, name: 'Slice integrated' },
       { id: sliceCompletedPlace(sliceId), subnetId: subnet.id, name: 'Slice completed' },
       ...planSliceDependsOn(plan?.slices?.find((slice) => slice.id === sliceId) ?? { id: sliceId }).map(
@@ -714,23 +663,7 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
           ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
         },
         inputArcs: [{ placeId: sliceStartedPlace(sliceId), weight: 1 }],
-        outputArcs: [{ placeId: attemptPlaceId('agent', sliceId, 1), weight: 1 }],
-        guard: { kind: 'active_slice', sliceId },
-        contract: { kind: 'mechanical', lane: 'slice' },
-      },
-      {
-        id: sliceTransitionId('slice_integrate', sliceId),
-        subnetId: subnet.id,
-        ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
-        ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
-        step: {
-          kind: 'slice_integrate',
-          sliceId,
-          ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
-          ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
-        },
-        inputArcs: [{ placeId: sliceVerificationPassedPlace(sliceId), weight: 1 }],
-        outputArcs: [{ placeId: sliceIntegratedPlace(sliceId), weight: 1 }],
+        outputArcs: [{ placeId: sliceRepairTopology.attemptPlaceId('agent', sliceId, 1, 1), weight: 1 }],
         guard: { kind: 'active_slice', sliceId },
         contract: { kind: 'mechanical', lane: 'slice' },
       },
@@ -760,135 +693,18 @@ export function compileExecutorTopology(plan: SchedulerPlan | undefined): Execut
     ];
   });
 
-  const attemptSubnets = (plan?.slices ?? []).flatMap<ExecutorSubnet>((slice) =>
-    (['agent', 'verify'] as const).map((stage) => ({
-      id: `attempt:${slice.id}:${stage}`,
-      kind: 'attempt_control',
+  const repairFragments = (plan?.slices ?? []).map((slice) =>
+    sliceRepairTopology.compile({
       sliceId: slice.id,
       ...(slice.epic_id === undefined ? {} : { epicId: slice.epic_id }),
       ...(slice.derived_from === undefined ? {} : { derivedFrom: slice.derived_from }),
-      transitionIds: [
-        ...Array.from({ length: SLICE_ATTEMPT_LIMIT }, (_, index) =>
-          attemptSuccessTransitionId(stage, slice.id, index + 1),
-        ),
-        ...(stage === 'verify'
-          ? Array.from({ length: SLICE_ATTEMPT_LIMIT }, (_, index) => [
-              verifyVerdictTransitionId('passed', slice.id, index + 1),
-              verifyVerdictTransitionId('failed', slice.id, index + 1),
-            ]).flat()
-          : []),
-        ...Array.from({ length: SLICE_ATTEMPT_LIMIT - 1 }, (_, index) =>
-          attemptRetryTransitionId(stage, slice.id, index + 1),
-        ),
-        attemptExhaustedTransitionId(stage, slice.id),
-        attemptResetTransitionId(stage, slice.id),
-      ],
-    })),
+      integratedPlaceId: sliceIntegratedPlace(slice.id),
+      policy: repairPolicy,
+    }),
   );
-  const attemptPlaces = attemptSubnets.flatMap<ExecutorPlace>((subnet) => {
-    const stage = subnet.id.endsWith(':agent') ? 'agent' : 'verify';
-    return Array.from({ length: SLICE_ATTEMPT_LIMIT }, (_, index) => index + 1)
-      .flatMap((attempt) => [
-        {
-          id: attemptPlaceId(stage, subnet.sliceId!, attempt),
-          subnetId: subnet.id,
-          name: `${stage} attempt ${attempt}`,
-        },
-        ...(stage === 'verify'
-          ? [
-              {
-                id: verifyResultPlaceId(subnet.sliceId!, attempt),
-                subnetId: subnet.id,
-                name: `verify result ${attempt}`,
-              },
-            ]
-          : []),
-      ])
-      .concat({
-        id: `slice:${subnet.sliceId}:${stage}_attempts_exhausted`,
-        subnetId: subnet.id,
-        name: `${stage} attempts exhausted`,
-      });
-  });
-  const attemptTransitions = attemptSubnets.flatMap<ExecutorTransition>((subnet) => {
-    const sliceId = subnet.sliceId!;
-    const stage = subnet.id.endsWith(':agent') ? 'agent' : 'verify';
-    return [
-      ...Array.from({ length: SLICE_ATTEMPT_LIMIT }, (_, index) => {
-        const attempt = index + 1;
-        return {
-          id: attemptSuccessTransitionId(stage, sliceId, attempt),
-          subnetId: subnet.id,
-          ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
-          ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
-          step: {
-            kind: stage === 'agent' ? ('agent_result' as const) : ('test_result' as const),
-            sliceId,
-            ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
-            ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
-          },
-          inputArcs: [{ placeId: attemptPlaceId(stage, sliceId, attempt), weight: 1 }],
-          outputArcs: [
-            {
-              placeId:
-                stage === 'agent'
-                  ? attemptPlaceId('verify', sliceId, 1)
-                  : verifyResultPlaceId(sliceId, attempt),
-              weight: 1,
-            },
-          ],
-          guard: { kind: 'active_slice' as const, sliceId },
-          contract: { kind: 'mechanical' as const, lane: 'attempt' as const },
-        };
-      }),
-      ...(stage === 'verify'
-        ? Array.from({ length: SLICE_ATTEMPT_LIMIT }, (_, index) => {
-            const attempt = index + 1;
-            return (['passed', 'failed'] as const).map((verdict) => ({
-              id: verifyVerdictTransitionId(verdict, sliceId, attempt),
-              subnetId: subnet.id,
-              ...(subnet.epicId === undefined ? {} : { epicId: subnet.epicId }),
-              ...(subnet.derivedFrom === undefined ? {} : { derivedFrom: subnet.derivedFrom }),
-              inputArcs: [{ placeId: verifyResultPlaceId(sliceId, attempt), weight: 1 }],
-              outputArcs: [
-                {
-                  placeId:
-                    verdict === 'passed'
-                      ? sliceVerificationPassedPlace(sliceId)
-                      : sliceVerificationFailedPlace(sliceId),
-                  weight: 1,
-                },
-              ],
-              contract: { kind: 'structural' as const, lane: 'attempt' as const },
-            }));
-          }).flat()
-        : []),
-      ...Array.from({ length: SLICE_ATTEMPT_LIMIT - 1 }, (_, index) => {
-        const attempt = index + 1;
-        return {
-          id: attemptRetryTransitionId(stage, sliceId, attempt),
-          subnetId: subnet.id,
-          inputArcs: [{ placeId: attemptPlaceId(stage, sliceId, attempt), weight: 1 }],
-          outputArcs: [{ placeId: attemptPlaceId(stage, sliceId, attempt + 1), weight: 1 }],
-          contract: { kind: 'structural' as const, lane: 'attempt' as const },
-        };
-      }),
-      {
-        id: attemptExhaustedTransitionId(stage, sliceId),
-        subnetId: subnet.id,
-        inputArcs: [{ placeId: attemptPlaceId(stage, sliceId, SLICE_ATTEMPT_LIMIT), weight: 1 }],
-        outputArcs: [{ placeId: `slice:${sliceId}:${stage}_attempts_exhausted`, weight: 1 }],
-        contract: { kind: 'structural', lane: 'attempt' },
-      },
-      {
-        id: attemptResetTransitionId(stage, sliceId),
-        subnetId: subnet.id,
-        inputArcs: [{ placeId: `slice:${sliceId}:${stage}_attempts_exhausted`, weight: 1 }],
-        outputArcs: [{ placeId: attemptPlaceId(stage, sliceId, 1), weight: 1 }],
-        contract: { kind: 'structural', lane: 'attempt' },
-      },
-    ];
-  });
+  const attemptSubnets = repairFragments.flatMap((fragment) => fragment.subnets);
+  const attemptPlaces = repairFragments.flatMap((fragment) => fragment.places);
+  const attemptTransitions = repairFragments.flatMap((fragment) => fragment.transitions);
 
   const epicSubnets = (compiledEpics ?? []).map<ExecutorSubnet>((epic) => ({
     id: `epic:${epic.id}`,

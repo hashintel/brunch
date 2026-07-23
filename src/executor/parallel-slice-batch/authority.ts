@@ -15,6 +15,7 @@ import {
 import { replayTransitionHistory } from '../petri-replay.js';
 import { reportsPath } from '../report.js';
 import type { RunMetadata } from '../run.js';
+import type { PendingSliceRepair, SliceRepairHistory } from '../slice-repair-cycle.js';
 import type { ParallelSliceBatchContext, ParallelSliceBatchResult } from './types.js';
 
 export class ParallelAuthorityError extends Error {
@@ -34,6 +35,9 @@ export interface BatchAuthority {
   ): Promise<void>;
   appendReport(event: object): Promise<void>;
   setBatch(batch: ParallelSliceBatchSnapshot): Promise<void>;
+  stageRepair(pending: PendingSliceRepair, history: SliceRepairHistory): Promise<void>;
+  markRepairMaterialized(pending: PendingSliceRepair): Promise<void>;
+  clearRepair(sliceId: string): Promise<void>;
   setState(state: RunMetadata): Promise<void>;
   clearBatch(): Promise<void>;
   halt(step: ReadyStep['kind'], reason: string): Promise<void>;
@@ -166,7 +170,64 @@ export function createBatchAuthority(args: {
     },
     setBatch(nextBatch) {
       return enqueue(async () => {
-        batch = nextBatch;
+        batch = {
+          ...nextBatch,
+          ...(batch?.pendingRepairs?.length
+            ? {
+                pendingRepairs: batch.pendingRepairs,
+                pendingRepairHistory: batch.pendingRepairHistory!,
+              }
+            : {}),
+        };
+        await persist();
+      });
+    },
+    stageRepair(pending, history) {
+      return enqueue(async () => {
+        if (!batch) throw new Error('parallel repair requires active batch authority');
+        batch = {
+          ...batch,
+          pendingRepairs: [
+            ...(batch.pendingRepairs ?? []).filter((candidate) => candidate.sliceId !== pending.sliceId),
+            pending,
+          ],
+          pendingRepairHistory: {
+            ...batch.pendingRepairHistory,
+            [pending.sliceId]: history[pending.sliceId]!,
+          },
+        };
+        await persist();
+      });
+    },
+    markRepairMaterialized(pending) {
+      return enqueue(async () => {
+        if (!batch?.pendingRepairs?.some((candidate) => candidate.sliceId === pending.sliceId)) {
+          throw new Error('parallel repair was not durably staged');
+        }
+        batch = {
+          ...batch,
+          pendingRepairs: batch.pendingRepairs.map((candidate) =>
+            candidate.sliceId === pending.sliceId ? pending : candidate,
+          ),
+        };
+        await persist();
+      });
+    },
+    clearRepair(sliceId) {
+      return enqueue(async () => {
+        if (!batch) throw new Error('parallel repair requires active batch authority');
+        const pendingRepairs = (batch.pendingRepairs ?? []).filter(
+          (candidate) => candidate.sliceId !== sliceId,
+        );
+        const { pendingRepairs: _pendingRepairs, ...withoutPending } = batch;
+        const { [sliceId]: _clearedHistory, ...pendingRepairHistory } =
+          withoutPending.pendingRepairHistory ?? {};
+        const { pendingRepairHistory: _pendingRepairHistory, ...withoutRepairAuthority } = withoutPending;
+        batch = {
+          ...withoutRepairAuthority,
+          ...(pendingRepairs.length === 0 ? {} : { pendingRepairs }),
+          ...(Object.keys(pendingRepairHistory).length === 0 ? {} : { pendingRepairHistory }),
+        };
         await persist();
       });
     },

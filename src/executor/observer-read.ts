@@ -24,7 +24,14 @@ import {
 import { resolvePetrinautUrl } from './petrinaut/launcher-url.js';
 import { reducePetrinautReplayExport, type PetrinautReplayExport } from './petrinaut/replay-export.js';
 import { parseSdcpnFile, type SdcpnFile } from './petrinaut/sdcpn.js';
-import { readRunMetadata, runDirPath, runMetadataPath, type RunMetadata } from './run.js';
+import {
+  activeSliceRepairCycle,
+  readRunMetadata,
+  runDirPath,
+  runMetadataPath,
+  type RunMetadata,
+} from './run.js';
+import { sliceRepairProtocol } from './slice-repair-cycle.js';
 import { runStreamEventsPath } from './slice-stream-events.js';
 import { verifyStreamPath } from './test-result.js';
 
@@ -40,6 +47,8 @@ export interface RunSummary {
   readonly specId: string;
   readonly status: RunMetadata['status'];
   readonly activeSliceId?: string;
+  readonly activeSliceCycle?: number;
+  readonly activeSlicePhase?: 'agent' | 'verify' | 'repair_pending';
   readonly completedSliceIds?: readonly string[];
   readonly failedSliceIds?: readonly string[];
   readonly supersedesRunId?: string;
@@ -106,7 +115,7 @@ export interface RunDetail extends RunSummary {
   readonly petriProjection?: PetriProjection;
   readonly petriProjectionSource?: PetriProjectionSource;
   readonly petriProjectionReplayReason?: PetriProjectionReplayReason;
-  readonly petriParallelSliceBatch?: ParallelSliceBatchSnapshot;
+  readonly petriParallelSliceBatch?: Pick<ParallelSliceBatchSnapshot, 'claimedSliceIds' | 'settlements'>;
   readonly agentStreamTail: readonly AgentStreamEvent[];
   readonly agentStreamTotal: number;
   readonly verifyStreamTail: readonly VerifyStreamEvent[];
@@ -283,6 +292,13 @@ export async function readRunDetail(
     journalEpicVerificationClaims,
   );
   let observedPetriRuntime = parallelAuthorityUnreadable ? undefined : petriRuntime;
+  const observedParallelSliceBatch =
+    hasMatchingPetriMarkingSnapshot && petriMarkingSnapshot.parallelSliceBatch
+      ? {
+          claimedSliceIds: petriMarkingSnapshot.parallelSliceBatch.claimedSliceIds,
+          settlements: petriMarkingSnapshot.parallelSliceBatch.settlements,
+        }
+      : undefined;
   if (
     observedPetriRuntime &&
     ((hasMatchingPetriMarkingSnapshot && petriMarkingSnapshot.parallelSliceBatch) ||
@@ -293,9 +309,7 @@ export async function readRunDetail(
         currentMarking: hasMatchingPetriMarkingSnapshot
           ? petriMarkingSnapshot.currentMarking
           : observedPetriRuntime.currentMarking,
-        ...(hasMatchingPetriMarkingSnapshot && petriMarkingSnapshot.parallelSliceBatch
-          ? { parallelSliceBatch: petriMarkingSnapshot.parallelSliceBatch }
-          : {}),
+        ...(observedParallelSliceBatch ? { parallelSliceBatch: observedParallelSliceBatch } : {}),
         ...(epicVerificationClaims.length > 0 ? { epicVerificationClaims } : {}),
       });
     } catch {
@@ -354,9 +368,7 @@ export async function readRunDetail(
             ? {}
             : { petriProjectionReplayReason: petriProjectionEntry.replayReason }),
         }),
-    ...(hasMatchingPetriMarkingSnapshot && petriMarkingSnapshot.parallelSliceBatch
-      ? { petriParallelSliceBatch: petriMarkingSnapshot.parallelSliceBatch }
-      : {}),
+    ...(observedParallelSliceBatch ? { petriParallelSliceBatch: observedParallelSliceBatch } : {}),
     agentStreamTail: agentStream.tail,
     agentStreamTotal: agentStream.total,
     verifyStreamTail: verifyStream.tail,
@@ -681,12 +693,30 @@ async function summarizeRun(cwd: string, runId: string, metadata: RunMetadata): 
     specId: metadata.specId,
     status: metadata.status,
     ...(metadata.activeSliceId === undefined ? {} : { activeSliceId: metadata.activeSliceId }),
+    ...activeRepairObservation(metadata),
     ...(metadata.completedSliceIds === undefined ? {} : { completedSliceIds: metadata.completedSliceIds }),
     ...(metadata.failedSliceIds === undefined ? {} : { failedSliceIds: metadata.failedSliceIds }),
     ...(metadata.supersedesRunId === undefined ? {} : { supersedesRunId: metadata.supersedesRunId }),
     ...(metadata.abandonedAt === undefined ? {} : { abandonedAt: metadata.abandonedAt }),
     ...(metadata.abandonReason === undefined ? {} : { abandonReason: metadata.abandonReason }),
     presence: { worktree, reports, petri: petriNet || petriEvents, promotion },
+  };
+}
+
+function activeRepairObservation(
+  metadata: RunMetadata,
+): Pick<RunSummary, 'activeSliceCycle' | 'activeSlicePhase'> {
+  if (!metadata.activeSliceId) return {};
+  const activeSlicePhase = metadata.pendingSliceRepair
+    ? 'repair_pending'
+    : metadata.status === 'slice_started' || metadata.status === 'slice_execution_requested'
+      ? 'agent'
+      : metadata.status === 'agent_result_ingested'
+        ? 'verify'
+        : undefined;
+  return {
+    activeSliceCycle: activeSliceRepairCycle(metadata),
+    ...(activeSlicePhase === undefined ? {} : { activeSlicePhase }),
   };
 }
 
@@ -1122,20 +1152,26 @@ function streamArtifactAttemptCount(
   sliceId: string,
   stage: 'agent' | 'verify',
 ): number {
-  const cycles = metadata.sliceAttemptHistory?.[sliceId]?.[stage] ?? [];
-  const completedAttempts = cycles.reduce(
-    (total, cycle) => total + (cycle.outcome === 'reset' ? 0 : cycle.attempts),
-    0,
+  const nextArtifact = sliceRepairProtocol.nextArtifactOrdinal(
+    metadata.sliceRepairHistory,
+    sliceId,
+    stage,
+    sliceRepairProtocol.policy,
   );
   const isActiveStage =
     metadata.activeSliceId === sliceId &&
     ((stage === 'agent' && metadata.status === 'slice_execution_requested') ||
       (stage === 'verify' && metadata.status === 'agent_result_ingested'));
-  const latest = cycles.at(-1);
+  const cycle = activeSliceRepairCycle(metadata, sliceId);
+  const latest = metadata.sliceRepairHistory?.[sliceId]
+    ?.find((record) => record.cycle === cycle)
+    ?.epochs.slice()
+    .reverse()
+    .find((epoch) => epoch.stage === stage);
   const exhausted = latest?.outcome === 'exhausted' && metadata.activeSliceAttempts === latest.attempts;
   return Math.max(
     1,
-    completedAttempts + (isActiveStage && !exhausted ? (metadata.activeSliceAttempts ?? 0) + 1 : 0),
+    nextArtifact - 1 + (isActiveStage && !exhausted ? (metadata.activeSliceAttempts ?? 0) + 1 : 0),
   );
 }
 

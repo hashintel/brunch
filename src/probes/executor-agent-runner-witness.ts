@@ -99,6 +99,7 @@ export async function runExecutorAgentRunnerWitness(
       runId,
       epicId: 'frontier-1',
       sliceId: 'task-1',
+      cycle: 1,
       runtime: { modelRegistry, model: registeredModel },
     });
     if (result.status === 'failed') throw new Error(result.message);

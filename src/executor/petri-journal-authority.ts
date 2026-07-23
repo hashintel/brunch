@@ -121,7 +121,11 @@ function transitionEventStep(
   if (transition.id.startsWith('verify_retry:') || transition.id.startsWith('verify_exhausted:')) {
     return 'test_result';
   }
-  if (transition.id.startsWith('verify_passed:') || transition.id.startsWith('verify_failed:')) {
+  if (
+    transition.id.startsWith('verify_passed:') ||
+    transition.id.startsWith('verify_failed:') ||
+    transition.id.startsWith('verify_repair:')
+  ) {
     return 'test_result';
   }
   if (transition.id.startsWith('agent_reset:')) return 'agent_result';

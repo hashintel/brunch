@@ -1,10 +1,16 @@
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { durableAtomicReplace } from './durable-file.js';
 import type { ReadyStep } from './orchestrate-topology.js';
 import { petriDirPath } from './petri-events.js';
 import { parsePetriProjection, type PetriProjection } from './petri-projection.js';
 import type { RunMetadata } from './run.js';
+import {
+  sliceRepairProtocol,
+  type PendingSliceRepair,
+  type SliceRepairHistory,
+} from './slice-repair-cycle.js';
 
 export interface PetriMarkingLifecycleProvenance {
   readonly runStatus: RunMetadata['status'];
@@ -26,6 +32,8 @@ export interface EpicVerificationClaim {
 export interface ParallelSliceBatchSnapshot {
   readonly claimedSliceIds: readonly string[];
   readonly settlements: readonly ParallelSliceSettlement[];
+  readonly pendingRepairs?: readonly PendingSliceRepair[];
+  readonly pendingRepairHistory?: SliceRepairHistory;
 }
 
 export type ParallelSliceSettlement =
@@ -46,16 +54,8 @@ export async function writePetriMarkingSnapshot(args: {
   readonly runId: string;
   readonly snapshot: PetriMarkingSnapshot;
 }): Promise<void> {
-  await mkdir(petriDirPath(args.cwd, args.runId), { recursive: true });
   const path = petriMarkingPath(args.cwd, args.runId);
-  const tempPath = `${path}.tmp`;
-  await writeFile(tempPath, `${JSON.stringify(args.snapshot, null, 2)}\n`, 'utf8');
-  try {
-    await rename(tempPath, path);
-  } catch (error) {
-    await rm(tempPath, { force: true });
-    throw error;
-  }
+  await durableAtomicReplace(path, `${JSON.stringify(args.snapshot, null, 2)}\n`);
 }
 
 export async function readPetriMarkingSnapshot(args: {
@@ -144,7 +144,47 @@ function asParallelSliceBatch(value: unknown): ParallelSliceBatchSnapshot | unde
   const settledIds = validSettlements.map((settlement) => settlement.sliceId);
   if (new Set(settledIds).size !== settledIds.length) return undefined;
   if (settledIds.some((sliceId) => !claimedSliceIds.includes(sliceId))) return undefined;
-  return { claimedSliceIds, settlements: validSettlements };
+  if (value.pendingRepairs !== undefined && !Array.isArray(value.pendingRepairs)) return undefined;
+  const pendingRepairs = (value.pendingRepairs ?? []).filter(isPendingRepairShape);
+  if (pendingRepairs.length !== (value.pendingRepairs ?? []).length) return undefined;
+  const pendingRepairHistory = value.pendingRepairHistory as SliceRepairHistory | undefined;
+  try {
+    sliceRepairProtocol.assertHistory(pendingRepairHistory, sliceRepairProtocol.policy);
+  } catch {
+    return undefined;
+  }
+  const pendingIds = pendingRepairs.map((pending) => pending.sliceId);
+  if (
+    new Set(pendingIds).size !== pendingIds.length ||
+    pendingIds.some((sliceId) => !claimedSliceIds.includes(sliceId)) ||
+    (pendingRepairs.length > 0 && pendingRepairHistory === undefined) ||
+    (pendingRepairHistory !== undefined &&
+      Object.keys(pendingRepairHistory).some((sliceId) => !pendingIds.includes(sliceId)))
+  ) {
+    return undefined;
+  }
+  return {
+    claimedSliceIds,
+    settlements: validSettlements,
+    ...(pendingRepairs.length === 0 ? {} : { pendingRepairs }),
+    ...(pendingRepairHistory === undefined ? {} : { pendingRepairHistory }),
+  };
+}
+
+function isPendingRepairShape(value: unknown): value is PendingSliceRepair {
+  return (
+    isRecord(value) &&
+    (value.phase === 'pending' || value.phase === 'materialized') &&
+    typeof value.runId === 'string' &&
+    typeof value.sliceId === 'string' &&
+    typeof value.cycle === 'number' &&
+    typeof value.sourceCycle === 'number' &&
+    typeof value.sourceVerifyArtifactOrdinal === 'number' &&
+    typeof value.sourceStageAttempt === 'number' &&
+    typeof value.contextPath === 'string' &&
+    typeof value.contextDigest === 'string' &&
+    typeof value.contextBytes === 'string'
+  );
 }
 
 function asParallelSliceSettlement(value: unknown): ParallelSliceSettlement | undefined {

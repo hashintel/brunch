@@ -19,12 +19,30 @@ async function fixtureCwd(prefix: string): Promise<string> {
 async function writeRun(cwd: string, runId: string, metadata: Partial<RunMetadata>): Promise<string> {
   const runDir = runDirPath(cwd, runId);
   await mkdir(runDir, { recursive: true });
-  const sliceAttemptHistory = { ...metadata.sliceAttemptHistory };
+  const sliceRepairHistory = { ...metadata.sliceRepairHistory };
   for (const sliceId of metadata.completedSliceIds ?? []) {
-    sliceAttemptHistory[sliceId] ??= {
-      agent: [{ outcome: 'succeeded', attempts: 1 }],
-      verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'passed' }],
-    };
+    sliceRepairHistory[sliceId] ??= [
+      {
+        cycle: 1,
+        epochs: [
+          {
+            stage: 'agent',
+            outcome: 'succeeded',
+            attempts: 1,
+            artifactOrdinalStart: 1,
+            artifactOrdinalEnd: 1,
+          },
+          {
+            stage: 'verify',
+            outcome: 'succeeded',
+            attempts: 1,
+            artifactOrdinalStart: 1,
+            artifactOrdinalEnd: 1,
+            verdict: 'passed',
+          },
+        ],
+      },
+    ];
   }
   const payload = {
     runId,
@@ -32,7 +50,7 @@ async function writeRun(cwd: string, runId: string, metadata: Partial<RunMetadat
     planPath: '/plan.json',
     status: 'created',
     ...metadata,
-    ...(Object.keys(sliceAttemptHistory).length === 0 ? {} : { sliceAttemptHistory }),
+    ...(Object.keys(sliceRepairHistory).length === 0 ? {} : { sliceRepairHistory }),
   };
   await writeFile(runMetadataPath(cwd, runId), `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
   return runDir;
@@ -136,11 +154,38 @@ describe('listRuns', () => {
         specId: '42',
         status: 'slice_started',
         activeSliceId: 's1',
+        activeSliceCycle: 1,
+        activeSlicePhase: 'agent',
         presence: { worktree: true, reports: true, petri: false, promotion: false },
       },
       { runId: 'run-c', unreadable: true },
     ]);
     expect(freshDir).toContain('run-a');
+  });
+
+  it('omits the worker phase after verification has completed', async () => {
+    const cwd = await fixtureCwd('brunch-observer-post-verify-phase-');
+    await writeRun(cwd, 'run-a', { status: 'test_result_ingested', activeSliceId: 's1' });
+    await writeRun(cwd, 'run-b', { status: 'slice_integrated', activeSliceId: 's1' });
+
+    expect(await listRuns(cwd)).toEqual([
+      {
+        runId: 'run-a',
+        specId: '42',
+        status: 'test_result_ingested',
+        activeSliceId: 's1',
+        activeSliceCycle: 1,
+        presence: { worktree: false, reports: false, petri: false, promotion: false },
+      },
+      {
+        runId: 'run-b',
+        specId: '42',
+        status: 'slice_integrated',
+        activeSliceId: 's1',
+        activeSliceCycle: 1,
+        presence: { worktree: false, reports: false, petri: false, promotion: false },
+      },
+    ]);
   });
 
   it('marks invalid run directories unreadable instead of failing the full list', async () => {
@@ -829,10 +874,10 @@ describe('readRunDetail', () => {
       'report_init',
       'slice_start:S3',
       'slice_execute:S3',
-      'agent_result:S3:attempt:1',
-      'test_result_ingested:S3:attempt:1',
-      'verify_failed:S3:attempt:1',
-      'slice_integrate:S3',
+      'agent_result:S3:cycle:1:attempt:1',
+      'test_result_ingested:S3:cycle:1:attempt:1',
+      'verify_failed:S3:cycle:1:attempt:1',
+      'slice_integrate:S3:cycle:1',
     ];
     await mkdir(join(runDir, 'petrinaut'), { recursive: true });
     await writeFile(join(runDir, 'petrinaut', 'net.json'), JSON.stringify(topology), 'utf8');
@@ -1720,8 +1765,21 @@ describe('readRunDetail', () => {
     await writeRun(cwd, 'run-stream', {
       status: 'agent_result_ingested',
       activeSliceId: 'task-1',
-      sliceAttemptHistory: {
-        'task-1': { agent: [{ outcome: 'succeeded', attempts: 2 }] },
+      sliceRepairHistory: {
+        'task-1': [
+          {
+            cycle: 1,
+            epochs: [
+              {
+                stage: 'agent',
+                outcome: 'succeeded',
+                attempts: 2,
+                artifactOrdinalStart: 1,
+                artifactOrdinalEnd: 2,
+              },
+            ],
+          },
+        ],
       },
     });
     await mkdir(join(runDirPath(cwd, 'run-stream'), 'streams', 'task-1'), { recursive: true });

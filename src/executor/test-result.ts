@@ -8,11 +8,11 @@ import {
   runIsolatedVerifyAttempt,
   type VerifyStreamEvent,
 } from './isolated-slice-operations.js';
-import { SLICE_ATTEMPT_LIMIT } from './orchestrate-topology.js';
 import { reportsPath } from './report.js';
 import { withRunExecutionAuthority } from './run-execution-authority.js';
 import {
   assertSafeSliceId,
+  activeSliceRepairCycle,
   activeSliceAttemptNumber,
   runDirPath,
   runMetadataPath,
@@ -21,6 +21,7 @@ import {
   sliceArtifactAttemptNumber,
   type RunMetadata,
 } from './run.js';
+import { MAX_STAGE_ATTEMPTS, sliceRepairProtocol, type PendingSliceRepair } from './slice-repair-cycle.js';
 import { worktreeDirPath } from './worktree.js';
 
 export type TestResultIngestResult =
@@ -60,8 +61,8 @@ export type TestResultIngestResult =
       )[];
     }
   | {
-      readonly status: 'test_result_ingested';
-      readonly runStatus: 'test_result_ingested';
+      readonly status: 'test_result_ingested' | 'slice_repair_requested';
+      readonly runStatus: 'test_result_ingested' | 'slice_execution_requested';
       readonly runId: string;
       readonly sliceId: string;
       readonly epicId?: string;
@@ -123,6 +124,39 @@ async function ingestTestResultOwned(args: {
     };
   }
 
+  if (metadata.pendingSliceRepair) {
+    const pendingSliceRepair = await sliceRepairProtocol.materializeRepair({
+      pending: metadata.pendingSliceRepair,
+      trusted: {
+        runDir: runDirPath(args.cwd, args.runId),
+        runId: args.runId,
+        sliceId: metadata.activeSliceId!,
+        target: metadata.verifyTarget!,
+        policy: sliceRepairProtocol.policy,
+        history: metadata.sliceRepairHistory!,
+      },
+    });
+    const updated: RunMetadata = {
+      ...metadata,
+      status: 'slice_execution_requested',
+      pendingSliceRepair,
+    };
+    const metadataEffect = await persistRunMetadata(metadataPath, updated);
+    return {
+      status: 'slice_repair_requested',
+      runStatus: 'slice_execution_requested',
+      runId: args.runId,
+      sliceId: metadata.activeSliceId!,
+      ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
+      verdict: 'failed',
+      worktreeDir:
+        metadata.activeSliceWorkspaceDir ?? metadata.worktreeDir ?? worktreeDirPath(args.cwd, args.runId),
+      metadataPath,
+      reportsPath: metadata.reportsPath ?? reportsPath(args.cwd, args.runId),
+      sideEffects: [metadataEffect],
+    };
+  }
+
   if (metadata.status !== 'agent_result_ingested' || !metadata.activeSliceId) {
     return {
       status: 'agent_result_not_ingested',
@@ -141,6 +175,8 @@ async function ingestTestResultOwned(args: {
     metadata.activeSliceId,
     sliceArtifactAttemptNumber(metadata, metadata.activeSliceId, 'verify'),
   );
+  const cycle = activeSliceRepairCycle(metadata);
+  const artifactAttempt = sliceArtifactAttemptNumber(metadata, metadata.activeSliceId, 'verify');
   const reportPath = metadata.reportsPath ?? reportsPath(args.cwd, args.runId);
   const attemptResult = await runIsolatedVerifyAttempt({
     runId: args.runId,
@@ -148,7 +184,9 @@ async function ingestTestResultOwned(args: {
     ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
     worktreeDir,
     streamPath,
+    cycle,
     attempt: activeSliceAttemptNumber(metadata),
+    artifactAttempt,
     testRunner: args.testRunner,
     ...(metadata.verifyTarget ? { verifyTarget: metadata.verifyTarget } : {}),
     ...(args.signal ? { signal: args.signal } : {}),
@@ -162,11 +200,11 @@ async function ingestTestResultOwned(args: {
     const metadataEffect = await persistRunMetadata(metadataPath, {
       ...metadata,
       activeSliceAttempts: attempts,
-      ...(attempts === SLICE_ATTEMPT_LIMIT
+      ...(attempts === MAX_STAGE_ATTEMPTS
         ? {
-            sliceAttemptHistory: mergeAttemptHistory(
-              metadata.sliceAttemptHistory,
-              attemptResult.outcome.history,
+            sliceRepairHistory: mergeAttemptHistory(
+              metadata.sliceRepairHistory,
+              attemptResult.outcome.historyDelta,
             ),
           }
         : {}),
@@ -190,24 +228,75 @@ async function ingestTestResultOwned(args: {
     );
   }
 
+  // ceiling: the external verifier can finish before this first durable pending
+  // descriptor write; close with a claimed-effect receipt if split-process
+  // crash recovery must cover that pre-pending window.
   const { activeSliceAttempts: _cleared, ...metadataWithoutAttempts } = metadata;
-  const failedSliceIds =
-    runResult.verdict === 'failed'
-      ? [...(metadata.failedSliceIds ?? []), metadata.activeSliceId]
-      : metadata.failedSliceIds;
-  const metadataForVerdict = clearFailedActiveSlice(metadataWithoutAttempts, runResult.verdict);
-  const updated: RunMetadata = {
-    ...metadataForVerdict,
-    status: 'test_result_ingested',
-    sliceAttemptHistory: mergeAttemptHistory(metadata.sliceAttemptHistory, attemptResult.outcome.history),
-    ...(failedSliceIds === undefined ? {} : { failedSliceIds }),
+  const sliceRepairHistory = mergeAttemptHistory(
+    metadata.sliceRepairHistory,
+    attemptResult.outcome.historyDelta,
+  );
+  const trustedRepairState = {
+    runDir: runDirPath(args.cwd, args.runId),
+    runId: args.runId,
+    sliceId: metadata.activeSliceId,
+    ...(metadata.verifyTarget === undefined ? {} : { target: metadata.verifyTarget }),
+    policy: sliceRepairProtocol.policy,
+    history: sliceRepairHistory,
   };
+  const decision = sliceRepairProtocol.completeVerification({
+    trusted: trustedRepairState,
+    verdict: runResult.verdict,
+    cycle,
+    verifyArtifactOrdinal: artifactAttempt,
+    stageAttempt: activeSliceAttemptNumber(metadata),
+    exitCode: runResult.exitCode,
+    stdout: attemptResult.diagnostics.stdout,
+    stderr: attemptResult.diagnostics.stderr,
+  });
+  let pendingRepair: PendingSliceRepair | undefined;
+  let updated: RunMetadata;
+  if (decision.kind === 'repair') {
+    pendingRepair = decision.pending;
+    const {
+      activeSliceRepairContext: _activeSliceRepairContext,
+      activeSliceRepairAuthority: _activeSliceRepairAuthority,
+      ...metadataWithoutActiveRepair
+    } = metadataWithoutAttempts;
+    const pendingState: RunMetadata = {
+      ...metadataWithoutActiveRepair,
+      status: 'agent_result_ingested',
+      sliceRepairHistory,
+      pendingSliceRepair: pendingRepair,
+    };
+    await persistRunMetadata(metadataPath, pendingState);
+    const materialized = await sliceRepairProtocol.materializeRepair({
+      pending: pendingRepair,
+      trusted: trustedRepairState,
+    });
+    updated = {
+      ...pendingState,
+      status: 'slice_execution_requested',
+      pendingSliceRepair: materialized,
+    };
+  } else {
+    const failedSliceIds =
+      decision.kind === 'exhaust'
+        ? [...new Set([...(metadata.failedSliceIds ?? []), metadata.activeSliceId])]
+        : metadata.failedSliceIds;
+    updated = {
+      ...clearFailedActiveSlice(metadataWithoutAttempts, decision.kind === 'exhaust' ? 'failed' : 'passed'),
+      status: 'test_result_ingested',
+      sliceRepairHistory,
+      ...(failedSliceIds === undefined ? {} : { failedSliceIds }),
+    };
+  }
 
   const metadataEffect = await persistRunMetadata(metadataPath, updated);
 
   return {
-    status: 'test_result_ingested',
-    runStatus: 'test_result_ingested',
+    status: decision.kind === 'repair' ? 'slice_repair_requested' : 'test_result_ingested',
+    runStatus: updated.status as 'test_result_ingested' | 'slice_execution_requested',
     runId: args.runId,
     sliceId: metadata.activeSliceId,
     ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
@@ -224,13 +313,19 @@ async function ingestTestResultOwned(args: {
 }
 
 function clearFailedActiveSlice(metadata: RunMetadata, verdict: 'passed' | 'failed'): RunMetadata {
-  if (verdict === 'passed') return metadata;
+  const {
+    pendingSliceRepair: _pendingSliceRepair,
+    activeSliceRepairContext: _activeSliceRepairContext,
+    activeSliceRepairAuthority: _activeSliceRepairAuthority,
+    ...withoutRepair
+  } = metadata;
+  if (verdict === 'passed') return withoutRepair;
   const {
     activeSliceId: _activeSliceId,
     activeEpicId: _activeEpicId,
     activeSliceWorkspaceDir: _activeSliceWorkspaceDir,
     activeSliceBaseSha: _activeSliceBaseSha,
     ...cleared
-  } = metadata;
+  } = withoutRepair;
   return cleared;
 }

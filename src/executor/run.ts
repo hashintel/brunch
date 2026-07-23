@@ -1,7 +1,8 @@
-import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { access, mkdir, readFile } from 'node:fs/promises';
+import { basename, dirname, join } from 'node:path';
 
 import { BRUNCH_DIR } from '../constants.js';
+import { durableAtomicReplace } from './durable-file.js';
 import type { VerifyTarget } from './execution-ports.js';
 import { prepareLaunch, type LaunchCurrentProjection, type LaunchResult } from './launch.js';
 import {
@@ -9,20 +10,15 @@ import {
   withRunExecutionAuthority,
   type RunExecutionActiveResult,
 } from './run-execution-authority.js';
+import {
+  sliceRepairProtocol,
+  type ActiveSliceRepairContext,
+  type PendingSliceRepair,
+  type SliceRepairHistory,
+  type SliceRepairStage,
+} from './slice-repair-cycle.js';
 
 export type WorktreeSubstrateKind = 'git_worktree' | 'empty_dir';
-
-export type SliceAttemptStage = 'agent' | 'verify';
-
-export interface SliceAttemptCycle {
-  readonly outcome: 'succeeded' | 'exhausted' | 'reset';
-  readonly attempts: number;
-  readonly verdict?: 'passed' | 'failed';
-}
-
-export type SliceAttemptHistory = Readonly<
-  Record<string, Partial<Record<SliceAttemptStage, readonly SliceAttemptCycle[]>>>
->;
 
 export interface RunMetadata {
   readonly runId: string;
@@ -65,8 +61,11 @@ export interface RunMetadata {
   readonly activeSliceId?: string;
   readonly activeEpicId?: string;
   readonly activeSliceAttempts?: number;
-  readonly activeSliceAttemptReset?: { readonly stage: SliceAttemptStage };
-  readonly sliceAttemptHistory?: SliceAttemptHistory;
+  readonly activeSliceAttemptReset?: { readonly stage: SliceRepairStage };
+  readonly sliceRepairHistory?: SliceRepairHistory;
+  readonly pendingSliceRepair?: PendingSliceRepair;
+  readonly activeSliceRepairContext?: ActiveSliceRepairContext;
+  readonly activeSliceRepairAuthority?: PendingSliceRepair;
   readonly sliceExecutionRequestPath?: string;
   readonly agentResultPath?: string;
   readonly activeSliceWorkspaceDir?: string;
@@ -93,23 +92,6 @@ export interface RunMetadata {
   readonly abandonReason?: string;
 }
 
-export function appendSliceAttemptCycle(
-  metadata: RunMetadata,
-  sliceId: string,
-  stage: SliceAttemptStage,
-  cycle: SliceAttemptCycle,
-): SliceAttemptHistory {
-  const history = metadata.sliceAttemptHistory ?? {};
-  const sliceHistory = history[sliceId] ?? {};
-  return {
-    ...history,
-    [sliceId]: {
-      ...sliceHistory,
-      [stage]: [...(sliceHistory[stage] ?? []), cycle],
-    },
-  };
-}
-
 export function activeSliceAttemptNumber(metadata: RunMetadata): number {
   return (metadata.activeSliceAttempts ?? 0) + 1;
 }
@@ -117,13 +99,25 @@ export function activeSliceAttemptNumber(metadata: RunMetadata): number {
 export function sliceArtifactAttemptNumber(
   metadata: RunMetadata,
   sliceId: string,
-  stage: SliceAttemptStage,
+  stage: SliceRepairStage,
 ): number {
-  const completedAttempts = (metadata.sliceAttemptHistory?.[sliceId]?.[stage] ?? []).reduce(
-    (total, cycle) => total + (cycle.outcome === 'reset' ? 0 : cycle.attempts),
-    0,
+  return (
+    sliceRepairProtocol.nextArtifactOrdinal(
+      metadata.sliceRepairHistory,
+      sliceId,
+      stage,
+      sliceRepairProtocol.policy,
+    ) + (metadata.activeSliceAttempts ?? 0)
   );
-  return completedAttempts + activeSliceAttemptNumber(metadata);
+}
+
+export function activeSliceRepairCycle(metadata: RunMetadata, sliceId = metadata.activeSliceId): number {
+  if (!sliceId) return 1;
+  if (metadata.pendingSliceRepair?.sliceId === sliceId) {
+    return metadata.pendingSliceRepair.cycle;
+  }
+  if (metadata.activeSliceRepairContext?.sliceId === sliceId) return metadata.activeSliceRepairContext.cycle;
+  return sliceRepairProtocol.currentCycle(metadata.sliceRepairHistory, sliceId);
 }
 
 export type RunCreateResult =
@@ -195,7 +189,62 @@ export function runMetadataPath(cwd: string, runId: string): string {
 
 export async function readRunMetadata(path: string): Promise<RunMetadata | undefined> {
   try {
-    return JSON.parse(await readFile(path, 'utf8')) as RunMetadata;
+    const value = JSON.parse(await readFile(path, 'utf8')) as RunMetadata & {
+      readonly sliceAttemptHistory?: unknown;
+      readonly activeSliceRepairContextPath?: unknown;
+    };
+    if (value.sliceAttemptHistory !== undefined || value.activeSliceRepairContextPath !== undefined) {
+      return undefined;
+    }
+    sliceRepairProtocol.assertHistory(value.sliceRepairHistory, sliceRepairProtocol.policy);
+    if (value.pendingSliceRepair) {
+      const trustedRunDir = dirname(path);
+      if (
+        value.runId !== basename(trustedRunDir) ||
+        value.activeSliceId === undefined ||
+        value.verifyTarget === undefined ||
+        value.sliceRepairHistory === undefined
+      ) {
+        return undefined;
+      }
+      sliceRepairProtocol.validateRepairAuthority({
+        pending: value.pendingSliceRepair,
+        trusted: {
+          runDir: trustedRunDir,
+          runId: basename(trustedRunDir),
+          sliceId: value.activeSliceId,
+          target: value.verifyTarget,
+          policy: sliceRepairProtocol.policy,
+          history: value.sliceRepairHistory,
+        },
+      });
+    }
+    if (value.activeSliceRepairContext || value.activeSliceRepairAuthority) {
+      const trustedRunDir = dirname(path);
+      if (
+        !value.activeSliceRepairContext ||
+        !value.activeSliceRepairAuthority ||
+        value.runId !== basename(trustedRunDir) ||
+        value.activeSliceId === undefined ||
+        value.verifyTarget === undefined ||
+        value.sliceRepairHistory === undefined
+      ) {
+        return undefined;
+      }
+      await sliceRepairProtocol.validateActiveRepair({
+        authority: value.activeSliceRepairAuthority,
+        reference: value.activeSliceRepairContext,
+        trusted: {
+          runDir: trustedRunDir,
+          runId: basename(trustedRunDir),
+          sliceId: value.activeSliceId,
+          target: value.verifyTarget,
+          policy: sliceRepairProtocol.policy,
+          history: value.sliceRepairHistory,
+        },
+      });
+    }
+    return value;
   } catch {
     return undefined;
   }
@@ -236,7 +285,15 @@ export async function resetActiveSliceAttempts(args: {
   const metadata = await readRunMetadata(metadataPath);
   if (!metadata || metadata.activeSliceAttempts === undefined) return undefined;
   const { activeSliceAttempts: _cleared, ...rest } = metadata;
-  const stage = metadata.status === 'slice_execution_requested' ? 'agent' : 'verify';
+  const stage: SliceRepairStage = metadata.status === 'slice_execution_requested' ? 'agent' : 'verify';
+  if (!metadata.activeSliceId || !metadata.sliceRepairHistory) return undefined;
+  sliceRepairProtocol.admitReset({
+    history: metadata.sliceRepairHistory,
+    sliceId: metadata.activeSliceId,
+    cycle: activeSliceRepairCycle(metadata),
+    stage,
+    policy: sliceRepairProtocol.policy,
+  });
   return persistRunMetadata(metadataPath, {
     ...rest,
     activeSliceAttemptReset: { stage },
@@ -247,16 +304,7 @@ export async function persistRunMetadata(
   metadataPath: string,
   metadata: RunMetadata,
 ): Promise<RunMetadataWriteEffect> {
-  // Write-temp+rename: concurrent observers must never read a truncated run.json
-  // (plain writeFile truncates in place). One-writer-per-cwd excludes temp collisions.
-  const tempPath = `${metadataPath}.tmp`;
-  await writeFile(tempPath, `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
-  try {
-    await rename(tempPath, metadataPath);
-  } catch (error) {
-    await rm(tempPath, { force: true });
-    throw error;
-  }
+  await durableAtomicReplace(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`);
   for (const listener of metadataListeners.get(metadataPath) ?? []) {
     try {
       listener(metadata);

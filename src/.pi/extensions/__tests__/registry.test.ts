@@ -2212,6 +2212,7 @@ describe('Brunch explicit Pi extension registry', () => {
         runId: 'run-1',
         epicId: 'frontier-1',
         sliceId: 'task-1',
+        cycle: 1,
         onUpdate: expect.any(Function),
         runtime: { modelRegistry, model },
       },
@@ -2287,14 +2288,17 @@ describe('Brunch explicit Pi extension registry', () => {
     const metadataPath = join(runDir, 'run.json');
     const reportPath = join(runDir, 'reports.jsonl');
     const worktreeDir = join(runDir, 'worktree');
-    await mkdir(runDir, { recursive: true });
+    const requestPath = join(runDir, 'agent-output', 'task-1', 'request.json');
+    await mkdir(dirname(requestPath), { recursive: true });
+    await mkdir(worktreeDir, { recursive: true });
+    await writeFile(requestPath, JSON.stringify({ task: 'execute_slice' }), 'utf8');
     await writeFile(
       metadataPath,
       JSON.stringify({
         runId: 'run-1',
         specId: '42',
         planPath: '/tmp/plan.json',
-        status: 'agent_result_ingested',
+        status: 'slice_execution_requested',
         worktreeDir,
         reportsPath: reportPath,
         activeSliceId: 'task-1',
@@ -2305,12 +2309,20 @@ describe('Brunch explicit Pi extension registry', () => {
     await writeFile(reportPath, '{"event":"run_ready"}\n', 'utf8');
     const registeredTools = await collectProductTools({
       graph: { specId: 42, lsn: 29, nodes: [], edges: [] },
+      agentRunner: {
+        async run() {
+          return { status: 'completed', summary: 'Implemented task.' };
+        },
+      },
       testRunner: createFakeTestRunnerPort(),
     });
 
+    const agentResult = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_AGENT_RESULT_TOOL);
     const testResult = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_TEST_RESULT_TOOL);
+    expect(agentResult).toBeDefined();
     expect(testResult).toBeDefined();
-    const result = await testResult!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
+    await agentResult!.execute('call-agent', { runId: 'run-1' }, undefined, undefined, { cwd });
+    const result = await testResult!.execute('call-test', { runId: 'run-1' }, undefined, undefined, { cwd });
 
     expect(result.content[0]?.text).toContain('execute_test_result: test_result_ingested');
     expect(result.details).toMatchObject({

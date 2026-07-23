@@ -475,17 +475,17 @@ describe('exportPetri', () => {
         'report_init',
         'slice_start:task-1',
         'slice_execute:task-1',
-        'agent_result:task-1:attempt:1',
-        'test_result_ingested:task-1:attempt:1',
-        'verify_passed:task-1:attempt:1',
-        'slice_integrate:task-1',
+        'agent_result:task-1:cycle:1:attempt:1',
+        'test_result_ingested:task-1:cycle:1:attempt:1',
+        'verify_passed:task-1:cycle:1:attempt:1',
+        'slice_integrate:task-1:cycle:1',
         'slice_complete:task-1',
         'slice_start:task-2',
         'slice_execute:task-2',
-        'agent_result:task-2:attempt:1',
-        'test_result_ingested:task-2:attempt:1',
-        'verify_passed:task-2:attempt:1',
-        'slice_integrate:task-2',
+        'agent_result:task-2:cycle:1:attempt:1',
+        'test_result_ingested:task-2:cycle:1:attempt:1',
+        'verify_passed:task-2:cycle:1:attempt:1',
+        'slice_integrate:task-2:cycle:1',
         'slice_complete:task-2',
         'epic_integrate:frontier-1',
         'epic_complete:frontier-1',
@@ -938,20 +938,20 @@ describe('replayTransitionHistory', () => {
     const transitions = new Map(topology.transitions.map((transition) => [transition.id, transition]));
 
     expect(transitions.has('test_result:S3:attempt:1')).toBe(false);
-    expect(transitions.get('test_result_ingested:S3:attempt:1')).toMatchObject({
-      inputArcs: [{ placeId: 'slice:S3:verify_attempt:1', weight: 1 }],
-      outputArcs: [{ placeId: 'slice:S3:verify_result:1', weight: 1 }],
+    expect(transitions.get('test_result_ingested:S3:cycle:1:attempt:1')).toMatchObject({
+      inputArcs: [{ placeId: 'slice:S3:cycle:1:verify_attempt:1', weight: 1 }],
+      outputArcs: [{ placeId: 'slice:S3:cycle:1:verify_result:1', weight: 1 }],
     });
-    expect(transitions.get('verify_failed:S3:attempt:1')).toMatchObject({
-      inputArcs: [{ placeId: 'slice:S3:verify_result:1', weight: 1 }],
-      outputArcs: [{ placeId: 'slice:S3:verification_failed', weight: 1 }],
+    expect(transitions.get('verify_failed:S3:cycle:1:attempt:1')).toMatchObject({
+      inputArcs: [{ placeId: 'slice:S3:cycle:1:verify_result:1', weight: 1 }],
+      outputArcs: [{ placeId: 'slice:S3:cycle:1:verification_failed', weight: 1 }],
     });
-    expect(transitions.get('verify_passed:S5:attempt:1')).toMatchObject({
-      inputArcs: [{ placeId: 'slice:S5:verify_result:1', weight: 1 }],
-      outputArcs: [{ placeId: 'slice:S5:verification_passed', weight: 1 }],
+    expect(transitions.get('verify_passed:S5:cycle:1:attempt:1')).toMatchObject({
+      inputArcs: [{ placeId: 'slice:S5:cycle:1:verify_result:1', weight: 1 }],
+      outputArcs: [{ placeId: 'slice:S5:cycle:1:verification_passed', weight: 1 }],
     });
-    expect(transitions.get('slice_integrate:S3')).toMatchObject({
-      inputArcs: [{ placeId: 'slice:S3:verification_passed', weight: 1 }],
+    expect(transitions.get('slice_integrate:S3:cycle:1')).toMatchObject({
+      inputArcs: [{ placeId: 'slice:S3:cycle:1:verification_passed', weight: 1 }],
     });
 
     const prefix = ['worktree_create', 'populate', 'source_policy', 'source_copy', 'report_init'];
@@ -959,24 +959,24 @@ describe('replayTransitionHistory', () => {
       ...prefix,
       'slice_start:S3',
       'slice_execute:S3',
-      'agent_result:S3:attempt:1',
-      'test_result_ingested:S3:attempt:1',
-      'verify_failed:S3:attempt:1',
+      'agent_result:S3:cycle:1:attempt:1',
+      'test_result_ingested:S3:cycle:1:attempt:1',
+      'verify_failed:S3:cycle:1:attempt:1',
     ]);
     expect(failed?.currentMarking).toMatchObject({
-      'slice:S3:verification_failed': 1,
+      'slice:S3:cycle:1:verification_failed': 1,
       'slice:S5:claim': 1,
     });
-    expect(failed?.currentMarking).not.toHaveProperty('slice:S3:verification_passed');
+    expect(failed?.currentMarking).not.toHaveProperty('slice:S3:cycle:1:verification_passed');
     expect(
       replayTransitionHistory(topology, [
         ...prefix,
         'slice_start:S3',
         'slice_execute:S3',
-        'agent_result:S3:attempt:1',
-        'test_result_ingested:S3:attempt:1',
-        'verify_failed:S3:attempt:1',
-        'slice_integrate:S3',
+        'agent_result:S3:cycle:1:attempt:1',
+        'test_result_ingested:S3:cycle:1:attempt:1',
+        'verify_failed:S3:cycle:1:attempt:1',
+        'slice_integrate:S3:cycle:1',
       ]),
     ).toBeUndefined();
   });
@@ -994,19 +994,21 @@ describe('replayTransitionHistory', () => {
     ];
 
     expect(replayTransitionHistory(topology, prefix)?.currentMarking).toEqual({
-      'slice:task-1:agent_attempt:1': 1,
+      'slice:task-1:cycle:1:agent_attempt:1': 1,
     });
-    expect(replayTransitionHistory(topology, [...prefix, 'agent_retry:task-1:1'])?.currentMarking).toEqual({
-      'slice:task-1:agent_attempt:2': 1,
+    expect(
+      replayTransitionHistory(topology, [...prefix, 'agent_retry:task-1:cycle:1:attempt:1'])?.currentMarking,
+    ).toEqual({
+      'slice:task-1:cycle:1:agent_attempt:2': 1,
     });
     expect(
       replayTransitionHistory(topology, [
         ...prefix,
-        'agent_retry:task-1:1',
-        'agent_retry:task-1:2',
-        'agent_exhausted:task-1',
+        'agent_retry:task-1:cycle:1:attempt:1',
+        'agent_retry:task-1:cycle:1:attempt:2',
+        'agent_exhausted:task-1:cycle:1',
       ])?.currentMarking,
-    ).toEqual({ 'slice:task-1:agent_attempts_exhausted': 1 });
+    ).toEqual({ 'slice:task-1:cycle:1:agent_attempts_exhausted': 1 });
   });
 
   it('replays transition ids over a compiled executor topology for shared runtime/read-side marking recovery', () => {
@@ -1024,12 +1026,12 @@ describe('replayTransitionHistory', () => {
         'report_init',
         'slice_start:task-2',
         'slice_execute:task-2',
-        'agent_result:task-2:attempt:1',
+        'agent_result:task-2:cycle:1:attempt:1',
       ]),
     ).toEqual({
       currentMarking: {
         'slice:task-1:claim': 1,
-        'slice:task-2:verify_attempt:1': 1,
+        'slice:task-2:cycle:1:verify_attempt:1': 1,
       },
       firedTransitionCount: 8,
     });
@@ -1060,17 +1062,17 @@ describe('replayTransitionHistory', () => {
       'report_init',
       'slice_start:task-1',
       'slice_execute:task-1',
-      'agent_result:task-1:attempt:1',
-      'test_result_ingested:task-1:attempt:1',
-      'verify_passed:task-1:attempt:1',
-      'slice_integrate:task-1',
+      'agent_result:task-1:cycle:1:attempt:1',
+      'test_result_ingested:task-1:cycle:1:attempt:1',
+      'verify_passed:task-1:cycle:1:attempt:1',
+      'slice_integrate:task-1:cycle:1',
       'slice_complete:task-1',
       'slice_start:task-2',
       'slice_execute:task-2',
-      'agent_result:task-2:attempt:1',
-      'test_result_ingested:task-2:attempt:1',
-      'verify_passed:task-2:attempt:1',
-      'slice_integrate:task-2',
+      'agent_result:task-2:cycle:1:attempt:1',
+      'test_result_ingested:task-2:cycle:1:attempt:1',
+      'verify_passed:task-2:cycle:1:attempt:1',
+      'slice_integrate:task-2:cycle:1',
       'slice_complete:task-2',
     ]);
 
@@ -1084,17 +1086,17 @@ describe('replayTransitionHistory', () => {
         'report_init',
         'slice_start:task-1',
         'slice_execute:task-1',
-        'agent_result:task-1:attempt:1',
-        'test_result_ingested:task-1:attempt:1',
-        'verify_passed:task-1:attempt:1',
-        'slice_integrate:task-1',
+        'agent_result:task-1:cycle:1:attempt:1',
+        'test_result_ingested:task-1:cycle:1:attempt:1',
+        'verify_passed:task-1:cycle:1:attempt:1',
+        'slice_integrate:task-1:cycle:1',
         'slice_complete:task-1',
         'slice_start:task-2',
         'slice_execute:task-2',
-        'agent_result:task-2:attempt:1',
-        'test_result_ingested:task-2:attempt:1',
-        'verify_passed:task-2:attempt:1',
-        'slice_integrate:task-2',
+        'agent_result:task-2:cycle:1:attempt:1',
+        'test_result_ingested:task-2:cycle:1:attempt:1',
+        'verify_passed:task-2:cycle:1:attempt:1',
+        'slice_integrate:task-2:cycle:1',
         'slice_complete:task-2',
         'epic_integrate:epic-1',
         'epic_verify:epic-1',
@@ -1198,8 +1200,8 @@ describe('reducePetrinautReplayExport', () => {
       );
 
     expect(placement(first)).toEqual(placement(second));
-    expect(first.places.find((place) => place.id === 'slice:S3:agent_attempt:1')?.name).toContain(
-      'S3 · Agent attempt 1',
+    expect(first.places.find((place) => place.id === 'slice:S3:cycle:1:agent_attempt:1')?.name).toContain(
+      'S3 · Agent cycle 1 attempt 1',
     );
     expect(first.transitions.find((transition) => transition.id === 'epic_integrate:E1')?.name).toContain(
       'E1 · Integrate epic',
@@ -1342,18 +1344,18 @@ describe('reducePetrinautReplayExport', () => {
       'slice_start:S4',
       'slice_start:S5',
       'slice_execute:S3',
-      'agent_result:S3:attempt:1',
-      'test_result_ingested:S3:attempt:1',
-      'verify_failed:S3:attempt:1',
+      'agent_result:S3:cycle:1:attempt:1',
+      'test_result_ingested:S3:cycle:1:attempt:1',
+      'verify_failed:S3:cycle:1:attempt:1',
       'slice_execute:S4',
-      'agent_result:S4:attempt:1',
-      'test_result_ingested:S4:attempt:1',
-      'verify_failed:S4:attempt:1',
+      'agent_result:S4:cycle:1:attempt:1',
+      'test_result_ingested:S4:cycle:1:attempt:1',
+      'verify_failed:S4:cycle:1:attempt:1',
       'slice_execute:S5',
-      'agent_result:S5:attempt:1',
-      'test_result_ingested:S5:attempt:1',
-      'verify_passed:S5:attempt:1',
-      'slice_integrate:S5',
+      'agent_result:S5:cycle:1:attempt:1',
+      'test_result_ingested:S5:cycle:1:attempt:1',
+      'verify_passed:S5:cycle:1:attempt:1',
+      'slice_integrate:S5:cycle:1',
     ];
     const events = ids.map((transitionId, index): ExecutorNetEvent => {
       const transition = transitions.get(transitionId)!;
@@ -1386,7 +1388,7 @@ describe('reducePetrinautReplayExport', () => {
       expect.objectContaining({
         places: expect.arrayContaining([
           expect.objectContaining({
-            id: 'slice:S3:verification_failed',
+            id: 'slice:S3:cycle:1:verification_failed',
             name: expect.stringContaining('S3'),
             x: expect.any(Number),
             y: expect.any(Number),
@@ -1500,19 +1502,19 @@ describe('reducePetrinautReplayExport', () => {
           attempt: 1,
           reason: 'agent_run_failed',
         },
-        fired('agent_retry:task-1:1', 'agent_result'),
-        fired('agent_result:task-1:attempt:2', 'agent_result'),
+        fired('agent_retry:task-1:cycle:1:attempt:1', 'agent_result'),
+        fired('agent_result:task-1:cycle:1:attempt:2', 'agent_result'),
       ],
     });
 
     expect(payload.transitionFirings.map((firing) => firing.transitionId)).toEqual([
       'slice_execute:task-1',
-      'agent_retry:task-1:1',
-      'agent_result:task-1:attempt:2',
+      'agent_retry:task-1:cycle:1:attempt:1',
+      'agent_result:task-1:cycle:1:attempt:2',
     ]);
     expect(payload.transitionFirings[1]).toMatchObject({
-      input: { 'slice:task-1:agent_attempt:1': 1 },
-      output: { 'slice:task-1:agent_attempt:2': 1 },
+      input: { 'slice:task-1:cycle:1:agent_attempt:1': 1 },
+      output: { 'slice:task-1:cycle:1:agent_attempt:2': 1 },
     });
   });
 
