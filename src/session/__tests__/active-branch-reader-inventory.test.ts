@@ -71,6 +71,10 @@ const NON_SESSION_JSON_PARSERS: Record<string, ReaderClassification> = {
     rationale: 'parses the dev-only normalized trajectory NDJSON artifact, never Pi session JSONL',
     requiredOwner: 'readEvents',
   },
+  'src/dev/execution-comparison/host-landing-oracle/fixture.ts': {
+    rationale: 'parses public candidate JSON-RPC stdout responses, never Pi session JSONL',
+    requiredOwner: 'runCandidateRpc',
+  },
 };
 
 const ALL_CLASSIFICATIONS: Record<string, ReaderClassification> = {

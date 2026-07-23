@@ -39,7 +39,9 @@ For a supplied or selected id, run:
 npx tsx src/dev/execution-comparison-operator.ts inspect --case <case-id>
 ```
 
-This is the only pre-approval case read. It validates the existing FE-1230 public case loader and returns only the exact frozen specification, exact public contract, hashes, and shared framing. If resolution or validation fails, report the error and stop; never guess, repair, normalize, or fall back to another case.
+This is the only pre-approval case read. It validates the public case loader and returns only the exact frozen specification, exact public contract, packet hash, repository requirement, compiled oracle identity, and shared framing. If resolution or validation fails, report the error and stop; never guess, repair, normalize, or fall back to another case.
+
+For a case whose inspection reports `requiresSourceRepository: true`, ask for the absolute path to a trusted local checkout containing the pinned commit. This path is controller setup and is never target-visible. Greenfield cases require no source checkout.
 
 Ask which executors to run: **Brunch**, **Claude Code**, or both, and in which disclosed order. The default recommendation is both in the operator's chosen order. This approachable procedure does not claim order blinding, matched private reasoning, or statistical reliability.
 
@@ -56,8 +58,9 @@ Display all of the following together before any target preparation or launch:
 5. the run identity, case directory id, public case id, and public-packet hash;
 6. exact scratch, attempt-record, per-lane target, process-log, final-tree, final-diff, browser-report, and visible-interaction output paths;
 7. Brunch's pinned TUI entrypoint and Claude Code's structured adapter;
-8. the fixed post-lane oracle identity `petri-editor-browser-v2`; and
-9. the limits: sequential lanes, unchanged inputs, no substantive intervention, no landing, no score, no winner, and no reliability or parity claim.
+8. the case's compiled post-lane oracle identity returned by `inspect`;
+9. whether preparation is greenfield or a pinned remote-free brownfield snapshot; and
+10. the limits: sequential lanes, unchanged inputs, no substantive intervention, no landing, no score, no winner, and no reliability or parity claim.
 
 Ask through ordinary typed text for explicit **approve**, **revise**, or **reject**. Ambiguity, questions, qualifications, partial approval, or silence are not approval. Revise and redisplay the complete setup, or reject and stop. Do not prepare a target, start a shell, invoke an executor, or invoke the oracle before explicit approval.
 
@@ -82,13 +85,14 @@ Give both executors the exact same frozen specification and public contract with
 
 ### Brunch
 
-Prepare through the existing FE-1230 workspace adapter:
+Prepare through the case-aware workspace adapter. For greenfield cases omit `--source-repository`; for pinned brownfield cases include the approved absolute source checkout:
 
 ```sh
 npx tsx src/dev/execution-comparison-operator.ts prepare \
   --case <case-id> \
   --lane brunch \
-  --target <fresh-target-cwd>
+  --target <fresh-target-cwd> \
+  [--source-repository <absolute-source-checkout>]
 ```
 
 From the Brunch repository root, open one direct `interactive_shell` using the pinned project-local entrypoint reported by preparation:
@@ -107,13 +111,14 @@ Keep Brunch run metadata, Petri journal/projection, JSONL, and `.brunch/debug/` 
 
 ### Claude Code
 
-Prepare through the execution wrapper:
+Prepare through the same case-aware wrapper, using the same source checkout rule:
 
 ```sh
 npx tsx src/dev/execution-comparison-operator.ts prepare \
   --case <case-id> \
   --lane claude_code \
-  --target <fresh-target-cwd>
+  --target <fresh-target-cwd> \
+  [--source-repository <absolute-source-checkout>]
 ```
 
 Open one direct `interactive_shell` from the fresh target cwd through Claude Code's normal structured adapter:
@@ -128,7 +133,7 @@ Send only the approved shared framing. Do not substitute a raw binary, another m
 
 After every lane terminates, first capture its final process status and all target-visible interaction evidence. Kill any still-running executor process, query the shell to a final status, dismiss the completed shell record, and verify that no executor process or interactive session remains.
 
-Then run the unchanged controller-owned `petri-editor-browser-v2` oracle against the retained output:
+Then run the unchanged controller-owned oracle identity returned by `inspect` against the retained output:
 
 ```sh
 npx tsx src/dev/execution-comparison-operator.ts oracle \
@@ -137,7 +142,7 @@ npx tsx src/dev/execution-comparison-operator.ts oracle \
   --out <attempt-staging>/browser/report.json
 ```
 
-Do this after every lane terminates, including failed, exhausted, and invalid lanes. Let the existing wrapper run the target's declared `npm test` and `npm run build`, start the fixed static server, run the existing independent browser journeys, and close browser/server resources. Do not edit the frozen case, controller files, oracle manifest, fixtures, expected states, browser journey implementation, or report to make a lane pass. If the unchanged oracle cannot start, retain that setup failure and do not invent a product verdict.
+Do this after every lane terminates, including failed, exhausted, and invalid lanes. Let the case-owned oracle run its fixed command, build, Git, TUI, or browser checks and close all resources. Do not edit the frozen case, controller files, oracle manifest, fixtures, expected states, journey implementation, or report to make a lane pass. If the unchanged oracle cannot start, retain that setup failure and do not invent a product verdict.
 
 After the oracle exits, verify cleanup again. Retain the target cwd; cleanup means no live process or session, not deletion of evidence. Do not launch the next lane until the prior executor shell and oracle resources are both fully clean.
 
@@ -149,7 +154,7 @@ For every successful, failed, exhausted, and invalid attempt, retain immutably:
 - elapsed and intervention ledgers;
 - cleanup status and any residue;
 - the final tree and complete base-to-tip diff, plus honest notes for uncommitted or unavailable material;
-- common `npm test`, `npm run build`, and browser results;
+- common case-owned command and oracle results;
 - normalized visible interaction evidence; and
 - the unchanged retained output itself.
 
@@ -165,7 +170,7 @@ The immutable writer rejects an existing attempt id. Never overwrite, delete, re
 
 ## Report
 
-After all selected lanes terminate and cleanup is proven, write `report.md` beside the unchanged run-start `provenance.json` under the run scratch root. Present validity before outcomes for each lane. Then report factual terminal state, cleanup, produced output, common command results, and unchanged browser-oracle results.
+After all selected lanes terminate and cleanup is proven, write `report.md` beside the unchanged run-start `provenance.json` under the run scratch root. Present study design and run identity, then validity before outcomes for each lane, factual terminal state, cleanup, produced output, common command results, unchanged oracle results, requirement findings, limitations, and recommendations. Keep every referenced path repository-relative so `/comparison-publish` can validate the retained bundle.
 
 Keep common evidence and Brunch-only diagnostics visibly separate. Use `not_assessable` for unavailable common evidence. Do not score, rank, choose a winner, claim reliability, infer parity from unavailable or product-private evidence, or let Brunch-only run/Petri/debug data improve its common result. Do not turn ordinary visual hierarchy, clarity, or drag feel into an automatic mechanical verdict.
 

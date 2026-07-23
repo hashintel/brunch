@@ -3,7 +3,7 @@ import { queryAllByRole } from '@testing-library/dom';
 import {
   compileAccessibleNamePattern,
   type AccessibleNameContract,
-  type ExecutionCasePublicContract,
+  type BrowserExecutionCasePublicContract,
 } from './case-contract.js';
 
 export interface AccessibilityContractAssertion {
@@ -15,9 +15,9 @@ export interface AccessibilityContractAssertion {
 
 export function assertAccessibilityContract(
   root: HTMLElement,
-  contract: ExecutionCasePublicContract['accessibility'],
+  contract: BrowserExecutionCasePublicContract['accessibility'],
   requirements: {
-    readonly dynamic?: readonly (keyof ExecutionCasePublicContract['accessibility']['dynamic'])[];
+    readonly dynamic?: readonly (keyof BrowserExecutionCasePublicContract['accessibility']['dynamic'])[];
     readonly inspectorFields?: readonly string[];
   } = {},
 ): AccessibilityContractAssertion {

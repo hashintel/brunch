@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "case": {
+    "id": "petrinaut-optimization-v1",
+    "specification": "spec.md",
+    "specificationSha256": "3fb0772f0e955f81240b58af9f53736393b1f8dccf55315371fc5755e801dc43",
+    "provider": "anthropic",
+    "model": "claude-opus-4-8",
+    "product": "petrinaut",
+    "mode": "brownfield",
+    "scope": "single_feature",
+    "surface": "frontend",
+    "repository": {
+      "substrate": "pinned_git",
+      "parentCommit": "5c7a2d9db5caa851c38938f4b1bac19005b0e978",
+      "parentTree": "a3e08cf75e00cc9016c931f4665341506e03533e"
+    }
+  },
+  "budgets": {
+    "elapsedMinutes": 90,
+    "mechanicalInterventions": 2,
+    "substantiveHumanInterventions": 0
+  },
+  "delivery": {
+    "runtimeNetwork": "forbidden",
+    "dependencyInstallNetwork": "controller_only"
+  },
+  "acceptance": {
+    "publicRoute": "/optimization",
+    "sameOriginApi": "/api/petrinaut-opt/optimize/all",
+    "executionTerminal": "promotion_prepared"
+  },
+  "mechanicalAddresses": {
+    "skipTour": {
+      "kind": "roleName",
+      "role": "button",
+      "name": "Skip tour"
+    },
+    "dismissAssistant": {
+      "kind": "roleName",
+      "role": "button",
+      "name": "Dismiss"
+    },
+    "simulateMode": {
+      "kind": "roleName",
+      "role": "radio",
+      "name": "Simulate"
+    },
+    "optimizationsNav": {
+      "kind": "roleValue",
+      "role": "radio",
+      "value": "optimizations"
+    },
+    "viewTitle": {
+      "kind": "exactText",
+      "text": "Optimizations"
+    },
+    "create": {
+      "kind": "roleName",
+      "role": "button",
+      "name": "Create"
+    },
+    "createDrawer": {
+      "kind": "roleName",
+      "role": "dialog",
+      "name": "Create an optimization"
+    },
+    "scenario": {
+      "kind": "roleContents",
+      "role": "combobox",
+      "contents": "Select a scenario"
+    },
+    "scenarioSelected": {
+      "kind": "roleContents",
+      "role": "combobox",
+      "contents": "Seasonal Flu"
+    },
+    "metric": {
+      "kind": "roleContents",
+      "role": "combobox",
+      "contents": "Select a metric"
+    },
+    "metricCustomOption": {
+      "kind": "roleName",
+      "role": "option",
+      "name": "Custom code"
+    },
+    "metricCode": {
+      "kind": "roleName",
+      "role": "textbox",
+      "name": "Editor content"
+    },
+    "optimizationName": {
+      "kind": "roleName",
+      "role": "textbox",
+      "name": "Name"
+    },
+    "directionMaximize": {
+      "kind": "roleName",
+      "role": "radio",
+      "name": "Maximize"
+    },
+    "directionMinimize": {
+      "kind": "roleName",
+      "role": "radio",
+      "name": "Minimize"
+    },
+    "run": {
+      "kind": "roleName",
+      "role": "button",
+      "name": "Run"
+    },
+    "cancel": {
+      "kind": "roleName",
+      "role": "button",
+      "name": "Cancel"
+    },
+    "statusComplete": {
+      "kind": "exactText",
+      "text": "Complete"
+    },
+    "statusError": {
+      "kind": "exactText",
+      "text": "Error"
+    },
+    "statusCancelled": {
+      "kind": "exactText",
+      "text": "Cancelled"
+    }
+  },
+  "rules": [
+    "Work only in the target repository.",
+    "Do not inspect controller paths or seek hidden comparison material.",
+    "Do not use network access or external references during implementation or verification.",
+    "Preserve the full repository and stop at promotion_prepared without landing."
+  ]
+}

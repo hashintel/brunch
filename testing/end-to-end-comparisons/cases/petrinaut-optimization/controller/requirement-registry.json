@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "caseId": "petrinaut-optimization-v1",
+  "rows": [
+    {
+      "id": "REQ1",
+      "publicConcern": "Scenario-first configuration",
+      "origin": "public_baseline",
+      "publicWording": "Select a scenario before configuration; changing it resets scenario-specific choices.",
+      "controller": {
+        "wording": "Configuration controls are unavailable before a scenario and reset after selecting another.",
+        "expectedState": "No stale parameter binding or metric remains after the scenario changes."
+      }
+    },
+    {
+      "id": "REQ2",
+      "publicConcern": "Flat parameter bindings",
+      "origin": "controller_only",
+      "controller": {
+        "wording": "One fixed binding and one optimized binding with typed bounds enter the request.",
+        "expectedState": "The request contains the exact flat binding map configured through public controls."
+      }
+    },
+    {
+      "id": "REQ3",
+      "publicConcern": "Objective metric",
+      "origin": "controller_only",
+      "controller": {
+        "wording": "Saved and custom metric paths each preserve one explicit objective direction.",
+        "expectedState": "The request contains one metric objective and maximize or minimize direction."
+      }
+    },
+    {
+      "id": "REQ4",
+      "publicConcern": "Request construction",
+      "origin": "controller_only",
+      "controller": {
+        "wording": "The browser sends the complete configured request only to the same-origin proxy.",
+        "expectedState": "Captured JSON matches the selected scenario, bindings, metric, direction, execution, and study settings."
+      }
+    },
+    {
+      "id": "REQ5",
+      "publicConcern": "Progressive results",
+      "origin": "controller_only",
+      "controller": {
+        "wording": "Deterministic trial, best-so-far, and complete events remain visibly distinct.",
+        "expectedState": "Progressive trials and current best render before the completed result."
+      }
+    },
+    {
+      "id": "REQ6",
+      "publicConcern": "Service failure",
+      "origin": "controller_only",
+      "controller": {
+        "wording": "A deterministic service failure produces an error state rather than completion.",
+        "expectedState": "The rendered error is distinct from completed and cancelled results."
+      }
+    },
+    {
+      "id": "REQ7",
+      "publicConcern": "Cancellation",
+      "origin": "controller_only",
+      "controller": {
+        "wording": "Cancel aborts the active proxy request and renders cancellation.",
+        "expectedState": "The controller observes request abortion and the DOM reports cancelled."
+      }
+    },
+    {
+      "id": "REQ8",
+      "publicConcern": "Private upstream origin",
+      "origin": "public_baseline",
+      "publicWording": "Keep the optimizer address private behind the website's same-origin API.",
+      "controller": {
+        "wording": "No browser request or rendered text contains the private fake-optimizer origin.",
+        "expectedState": "Only the candidate origin appears in browser traffic and DOM evidence."
+      }
+    },
+    {
+      "id": "AC1",
+      "publicConcern": "Accessible public workflow",
+      "origin": "public_baseline",
+      "publicWording": "Expose the Optimizations view, Create action, and Create an optimization drawer controls on /optimization.",
+      "controller": {
+        "wording": "Closed mechanical addresses for Simulate navigation, Create, scenario/metric selectors and metric editor, Maximize/Minimize, Run/Cancel, and Complete/Error/Cancelled remain exact.",
+        "expectedState": "Every required declared mechanical address resolves exactly once."
+      }
+    }
+  ]
+}

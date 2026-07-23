@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "id": "petrinaut-optimization-oracles-v1",
+  "publicCaseId": "petrinaut-optimization-v1",
+  "runnerVersion": "petrinaut-optimization-browser-v1",
+  "fixtureVersion": "deterministic-optimizer-v1",
+  "checks": [
+    {
+      "id": "route-and-accessibility",
+      "claims": ["AC1"]
+    },
+    {
+      "id": "scenario-configuration",
+      "claims": ["REQ1"]
+    },
+    {
+      "id": "request-contract",
+      "claims": ["REQ2", "REQ3", "REQ4"]
+    },
+    {
+      "id": "progress-and-completion",
+      "claims": ["REQ5"]
+    },
+    {
+      "id": "service-error",
+      "claims": ["REQ6"]
+    },
+    {
+      "id": "cancel-and-abort",
+      "claims": ["REQ7"]
+    },
+    {
+      "id": "private-origin-secrecy",
+      "claims": ["REQ8"]
+    }
+  ],
+  "validityRules": [
+    "Before candidate execution, the controller materializes the pinned source and completes the compiled immutable dependency preparation; only that declared step may use package-registry network.",
+    "The network-denied candidate execution lane terminates at promotion_prepared before browser launch.",
+    "After lane termination, the controller runs only the compiled focused build preparation and starts the candidate Petrinaut website.",
+    "The browser opens /optimization and sends optimization traffic only through the candidate same-origin proxy.",
+    "Controller fixtures and expected requests are created after lane termination in roots disjoint from the candidate."
+  ],
+  "replacementRule": "Retain every report. Replace only setup invalidity under the same frozen packets; never replace an assertion failure."
+}

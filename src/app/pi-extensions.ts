@@ -250,6 +250,10 @@ export interface BrunchPiExtensionsOptions extends BrunchCommandsOptions {
   introspection?: BrunchPiIntrospectionOptions;
   continuityDrains?: () => readonly ContinuityDrain[];
   executionPorts?: Partial<ExecutionPorts>;
+  /** Dev/eval-only filesystem boundary for foreground read-only tools. */
+  foregroundFilesystemRoot?: string;
+  /** Defaults on; strict comparison launches set false. */
+  allowWebTools?: boolean;
   /**
    * Optional subagent registry (D44-L/D92-L). When provided with a non-empty
    * code-owned delegatable set, the product `subagent` tool is registered and
@@ -340,9 +344,13 @@ export function createBrunchPiExtensions(
         }),
       registerBrunchBranchPolicyHandlers,
       registerBrunchCompaction,
-      registerBrunchOperationalModePolicy,
+      (api) =>
+        registerBrunchOperationalModePolicy(
+          api,
+          options.foregroundFilesystemRoot ? { filesystemRoot: options.foregroundFilesystemRoot } : undefined,
+        ),
       registerBrunchContext,
-      registerBrunchWebTools,
+      ...(options.allowWebTools === false ? [] : [registerBrunchWebTools]),
       registerBrunchExecuteStatus,
       ...(options.productUpdates
         ? [

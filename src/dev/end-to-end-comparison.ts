@@ -52,3 +52,14 @@ export {
   type PreparedClaudeExecutionWorkspace,
 } from './end-to-end-comparison/claude-adapter.js';
 export { retainExecutionCell } from './end-to-end-comparison/execution-cell.js';
+export {
+  createBrunchSolutionIsolationPolicy,
+  createClaudeSolutionIsolationPolicy,
+  materializePinnedSourceTree,
+  verifyPreparedHistoricalReplay,
+  type BrunchSolutionIsolationPolicy,
+  type ClaudeSolutionIsolationPolicy,
+  type MaterializedHistoricalReplayPrefix,
+  type MaterializedPinnedSourceTree,
+  type SolutionIsolationPolicy,
+} from './end-to-end-comparison/solution-isolation.js';

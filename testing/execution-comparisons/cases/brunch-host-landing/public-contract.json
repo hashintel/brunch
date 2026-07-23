@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "case": {
+    "id": "brunch-host-landing-v1",
+    "specification": "spec.md",
+    "specificationSha256": "80dc03a071ee5bd03740afcecd90387e6d5e01c7d163d9ddf5d870599be181f3",
+    "provider": "anthropic",
+    "model": "claude-opus-4-8",
+    "product": "brunch",
+    "mode": "brownfield",
+    "scope": "single_feature",
+    "surface": "backend",
+    "repository": {
+      "substrate": "pinned_git",
+      "parentCommit": "f5a423b19f76cf345d88053456870a126e451618",
+      "parentTree": "a5709715a07faef0b96d3e05a7b6f9f8d693dd38"
+    }
+  },
+  "budgets": {
+    "elapsedMinutes": 90,
+    "mechanicalInterventions": 2,
+    "substantiveHumanInterventions": 0
+  },
+  "delivery": {
+    "runtimeNetwork": "forbidden",
+    "dependencyInstallNetwork": "forbidden"
+  },
+  "acceptance": {
+    "publicCommand": "/brunch:land",
+    "executionTerminal": "promotion_prepared"
+  },
+  "rules": [
+    "Work only in the target repository.",
+    "Do not inspect controller paths or seek hidden comparison material.",
+    "Do not use network access or external historical references.",
+    "Stop after the run reaches promotion_prepared; do not land it."
+  ]
+}

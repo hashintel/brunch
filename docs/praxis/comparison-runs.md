@@ -72,10 +72,12 @@ The publication skill validates `report.md`, `provenance.json`, and the availabl
 
 ## Quick start: compare execution
 
-From a trusted top-level project Pi session, run:
+From a trusted top-level project Pi session, run any frozen execution case:
 
 ```text
 /compare-execution minimal-petri-net-editor
+/compare-execution brunch-host-landing
+/compare-execution petrinaut-optimization
 ```
 
 The project-local operator displays the frozen specification, public contract, selected Brunch/Claude
@@ -84,9 +86,23 @@ fresh isolated lane at a time, cleans up each live shell before continuing, and 
 controller-owned browser oracle to every retained outcome. With no case id,
 `/compare-execution` lists eligible cases under `testing/execution-comparisons/cases/`.
 
+Greenfield cases prepare an empty repository. Brownfield cases ask for a trusted local source checkout,
+materialize the pinned commit into a fresh remote-free repository, add the exact packet, and disable
+web/MCP surfaces while bounding file access to the target. This prevents accidental contamination; it
+does not claim adversarial isolation from every host capability.
+
 This is developer/evaluation tooling under `.pi/prompts/`, not a shipped Brunch product command.
 Brunch stops at `promotion_prepared`; the operator never invokes `/brunch:land`, scores a lane, chooses
 a winner, or treats Brunch-only run/Petri/debug evidence as common comparison evidence.
+
+### Petrinaut calibration
+
+The Petrinaut oracle uses the standalone `/optimization` route, closed focused builds, and a
+deterministic loopback optimizer. Its source-backed addresses were calibrated against PR #9051 during
+case construction. Recheck the pinned parent fails and the merged reference passes only when the
+source commit, public contract, or oracle changes; record that bounded calibration in the change that
+updates the case. Routine comparisons do not duplicate the HASH install or materialize a reference
+checkout before every provider run.
 
 ## End-to-end comparison tracer
 

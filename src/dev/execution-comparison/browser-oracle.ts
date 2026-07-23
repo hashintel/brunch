@@ -6,8 +6,16 @@ import { chromium, type Browser, type BrowserContext, type Locator, type Page } 
 
 import { runCommand } from '../../app/command-runner.js';
 import { runIndependentJourneys, type IndependentJourney } from './browser-oracle/journey-runner.js';
-import { loadPublicCasePacket, type ExecutionCasePublicContract } from './case-contract.js';
-import { loadControllerOracleManifest, type ControllerOracleManifest } from './oracle-pack.js';
+import {
+  isBrowserExecutionCaseContract,
+  loadPublicCasePacket,
+  type BrowserExecutionCasePublicContract,
+} from './case-contract.js';
+import {
+  isPetriControllerOracleManifest,
+  loadControllerOracleManifest,
+  type PetriControllerOracleManifest,
+} from './oracle-pack.js';
 
 type AriaRole = Parameters<Page['getByRole']>[0];
 
@@ -40,6 +48,9 @@ export async function runPetriEditorBrowserOracle(input: {
 }): Promise<BrowserOracleReport> {
   const packet = await loadPublicCasePacket(input.caseDir);
   const manifest = await loadControllerOracleManifest(input.caseDir);
+  if (!isBrowserExecutionCaseContract(packet.contract) || !isPetriControllerOracleManifest(manifest)) {
+    throw new Error('Petri browser oracle received a non-browser case');
+  }
   const commands: BrowserOracleReport['commands'][number][] = [];
   for (const [id, command] of [
     ['test', packet.contract.delivery.test],
@@ -156,8 +167,8 @@ async function openJourneyEnvironment(browser: Browser, url: string): Promise<Jo
 }
 
 function createJourneys(input: {
-  readonly manifest: ControllerOracleManifest;
-  readonly accessibility: ExecutionCasePublicContract['accessibility'];
+  readonly manifest: PetriControllerOracleManifest;
+  readonly accessibility: BrowserExecutionCasePublicContract['accessibility'];
   readonly caseDir: string;
 }): IndependentJourney<JourneyEnvironment>[] {
   const definitions = new Map<string, Omit<IndependentJourney<JourneyEnvironment>, 'id' | 'claims'>>([
@@ -397,7 +408,7 @@ async function assertRoundTripAndClear(page: Page): Promise<void> {
 
 async function assertBaseAccessibility(
   page: Page,
-  contract: ExecutionCasePublicContract['accessibility'],
+  contract: BrowserExecutionCasePublicContract['accessibility'],
 ): Promise<void> {
   await requireExactlyOne(page, contract.application.role, contract.application.name);
   await requireExactlyOne(page, contract.canvas.role, contract.canvas.name);

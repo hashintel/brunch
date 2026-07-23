@@ -13,6 +13,7 @@ import {
   runWithScopedBrunchOfflineDefault,
   type BrunchTuiLaunchContext,
 } from '../app/brunch-tui.js';
+import { openWorkspaceCommandExecutor } from '../graph/index.js';
 
 export async function runPinnedBrunchExecutionTui(input: {
   readonly workspaceDir: string;
@@ -21,26 +22,53 @@ export async function runPinnedBrunchExecutionTui(input: {
   readonly model: 'claude-opus-4-8';
 }): Promise<void> {
   const model = getBuiltinModel(input.provider, input.model);
+  const preflight = await resolvePinnedBrunchPreflight({
+    workspaceDir: input.workspaceDir,
+    specId: input.specId,
+  });
 
   await runBrunchTui({
     cwd: input.workspaceDir,
     openWeb: false,
     webSidecarRunner: async () => null,
-    runWorkspaceDialogPreflight: async () => ({
-      action: 'newSession',
-      specId: input.specId,
-      establish: { origin: 'greenfield' },
-    }),
+    runWorkspaceDialogPreflight: async () => preflight,
     launchInteractive: async (context) => {
       await launchPinnedInteractive(context, model);
     },
   });
 }
 
+export async function resolvePinnedBrunchPreflight(input: {
+  readonly workspaceDir: string;
+  readonly specId: number;
+}): Promise<
+  | { readonly action: 'newSession'; readonly specId: number }
+  | {
+      readonly action: 'newSession';
+      readonly specId: number;
+      readonly establish: { readonly origin: 'greenfield' };
+    }
+> {
+  const executor = await openWorkspaceCommandExecutor(input.workspaceDir);
+  const spec = executor.getSpec(input.specId);
+  if (spec === undefined) throw new Error(`prepared Brunch specification ${input.specId} is missing`);
+  return spec.origin === null
+    ? {
+        action: 'newSession',
+        specId: input.specId,
+        establish: { origin: 'greenfield' },
+      }
+    : { action: 'newSession', specId: input.specId };
+}
+
 async function launchPinnedInteractive(context: BrunchTuiLaunchContext, model: Model<Api>): Promise<void> {
   const agentDir = getAgentDir();
   const createRuntime = createBrunchAgentSessionRuntimeFactory({
     ...context,
+    allowSubagents: false,
+    comparisonIsolation: {
+      targetRoot: context.workspace.cwd,
+    },
     agentServices: { model },
   });
   const runtime = await createAgentSessionRuntime(createRuntime, {
@@ -79,7 +107,8 @@ export function parseExecutionComparisonArgs(args: readonly string[]): {
 async function main(): Promise<void> {
   const args = parseExecutionComparisonArgs(process.argv.slice(2));
   await runPinnedBrunchExecutionTui({
-    ...args,
+    workspaceDir: args.workspaceDir,
+    specId: args.specId,
     provider: 'anthropic',
     model: 'claude-opus-4-8',
   });

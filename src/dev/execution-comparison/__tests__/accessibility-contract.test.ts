@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { assertAccessibilityContract } from '../accessibility-contract.js';
-import type { ExecutionCasePublicContract } from '../case-contract.js';
+import type { BrowserExecutionCasePublicContract } from '../case-contract.js';
 
 const accessibility = {
   application: { role: 'application', name: 'Petri net editor' },
@@ -31,7 +31,7 @@ const accessibility = {
     { role: 'spinbutton', name: 'Arc weight' },
   ],
   feedbackRoles: ['status', 'alert'],
-} satisfies ExecutionCasePublicContract['accessibility'];
+} satisfies BrowserExecutionCasePublicContract['accessibility'];
 
 function buttons(): string {
   return accessibility.controls.map(({ name }) => `<button type="button">${name}</button>`).join('');

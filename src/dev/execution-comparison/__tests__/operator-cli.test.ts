@@ -1,27 +1,41 @@
 import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
+import { runExecutionComparisonOperatorCli } from '../../execution-comparison-operator.js';
 import { listExecutionCases, prepareExecutionTarget, resolveExecutionCase } from '../operator-cli.js';
 
 const casesRoot = fileURLToPath(new URL('../../../../testing/execution-comparisons/cases/', import.meta.url));
 const frozenCase = join(casesRoot, 'minimal-petri-net-editor');
+const controllerRoot = fileURLToPath(new URL('../../../../', import.meta.url));
 
 describe('execution comparison operator case selection', () => {
   it('lists and resolves eligible case ids only inside the cases root', async () => {
     await expect(listExecutionCases(casesRoot)).resolves.toEqual([
       {
+        caseId: 'brunch-host-landing-v1',
+        directoryId: 'brunch-host-landing',
+      },
+      {
         caseId: 'minimal-petri-net-editor-v1',
         directoryId: 'minimal-petri-net-editor',
+      },
+      {
+        caseId: 'petrinaut-optimization-v1',
+        directoryId: 'petrinaut-optimization',
       },
     ]);
     await expect(resolveExecutionCase('minimal-petri-net-editor', casesRoot)).resolves.toMatchObject({
       caseId: 'minimal-petri-net-editor-v1',
       directoryId: 'minimal-petri-net-editor',
       caseDir: frozenCase,
+    });
+    await expect(resolveExecutionCase('petrinaut-optimization-v1', casesRoot)).resolves.toMatchObject({
+      caseId: 'petrinaut-optimization-v1',
+      directoryId: 'petrinaut-optimization',
     });
   });
 
@@ -84,7 +98,7 @@ describe('execution comparison target preparation', () => {
 
         expect(paths.some((path) => path.toLowerCase().includes('controller'))).toBe(false);
         expect(prepared.packet.files.map((file) => file.path)).toEqual(['public-contract.json', 'spec.md']);
-        if (prepared.lane === 'claude_code') {
+        if (prepared.preparation === 'empty_git') {
           expect(await readFile(join(targetDir, 'spec.md'), 'utf8')).toBe(
             await readFile(join(frozenCase, 'spec.md'), 'utf8'),
           );
@@ -92,7 +106,7 @@ describe('execution comparison target preparation', () => {
             await readFile(join(frozenCase, 'public-contract.json'), 'utf8'),
           );
           expect(prepared.baseSha).toMatch(/^[a-f0-9]{40}$/u);
-        } else {
+        } else if (prepared.preparation === 'legacy_brunch') {
           expect(prepared.specId).toBe(1);
         }
       } finally {
@@ -100,4 +114,131 @@ describe('execution comparison target preparation', () => {
       }
     },
   );
+
+  it('requires the explicit source repository only for pinned cases', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'brunch-pinned-source-option-'));
+    try {
+      await expect(
+        runExecutionComparisonOperatorCli([
+          'prepare',
+          '--case',
+          'petrinaut-optimization-v1',
+          '--lane',
+          'claude_code',
+          '--target',
+          join(root, 'petrinaut'),
+        ]),
+      ).rejects.toThrow('requires --source-repository');
+      await expect(
+        runExecutionComparisonOperatorCli([
+          'prepare',
+          '--case',
+          'minimal-petri-net-editor-v1',
+          '--lane',
+          'claude_code',
+          '--target',
+          join(root, 'petri'),
+          '--source-repository',
+          controllerRoot,
+        ]),
+      ).rejects.toThrow('valid only for pinned execution cases');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects pinned targets overlapping controller or source roots before materialization', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'brunch-pinned-source-boundary-'));
+    const sourceRoot = join(root, 'source');
+    const sourceLink = join(root, 'source-link');
+    await mkdir(sourceRoot);
+    await symlink(sourceRoot, sourceLink);
+    try {
+      await expect(
+        prepareExecutionTarget(
+          {
+            lane: 'claude_code',
+            caseReference: 'petrinaut-optimization-v1',
+            casesRoot,
+            targetDir: join(root, 'relative-source-target'),
+            controllerRoot,
+            sourceRepositoryDir: 'relative-source',
+          },
+          {
+            dependencyInstallRunner: async () => ({ exitCode: 0, stdout: '', stderr: '' }),
+          },
+        ),
+      ).rejects.toThrow('must be an absolute path');
+      await expect(
+        prepareExecutionTarget(
+          {
+            lane: 'claude_code',
+            caseReference: 'petrinaut-optimization-v1',
+            casesRoot,
+            targetDir: join(controllerRoot, '.unsafe-petrinaut-target'),
+            controllerRoot,
+            sourceRepositoryDir: sourceRoot,
+          },
+          {
+            dependencyInstallRunner: async () => ({ exitCode: 0, stdout: '', stderr: '' }),
+          },
+        ),
+      ).rejects.toThrow('controller and target roots must be disjoint');
+      await expect(
+        prepareExecutionTarget(
+          {
+            lane: 'claude_code',
+            caseReference: 'petrinaut-optimization-v1',
+            casesRoot,
+            targetDir: join(root, 'linked-source-target'),
+            controllerRoot,
+            sourceRepositoryDir: sourceLink,
+          },
+          {
+            dependencyInstallRunner: async () => ({ exitCode: 0, stdout: '', stderr: '' }),
+          },
+        ),
+      ).rejects.toThrow('real directory, not a symlink');
+      await expect(
+        prepareExecutionTarget(
+          {
+            lane: 'claude_code',
+            caseReference: 'petrinaut-optimization-v1',
+            casesRoot,
+            targetDir: join(sourceRoot, 'target'),
+            controllerRoot,
+            sourceRepositoryDir: sourceRoot,
+          },
+          {
+            dependencyInstallRunner: async () => ({ exitCode: 0, stdout: '', stderr: '' }),
+          },
+        ),
+      ).rejects.toThrow('controller and target roots must be disjoint');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('execution comparison oracle CLI', () => {
+  it('rejects a relative evidence path before oracle launch', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'brunch-relative-oracle-out-'));
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    try {
+      await expect(
+        runExecutionComparisonOperatorCli([
+          'oracle',
+          '--case',
+          'minimal-petri-net-editor-v1',
+          '--app',
+          root,
+          '--out',
+          relative(process.cwd(), join(root, 'report.json')),
+        ]),
+      ).rejects.toThrow('--out must be an absolute path');
+    } finally {
+      stdout.mockRestore();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });

@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "petrinaut-optimization-e2e-v1",
+  "caseId": "petrinaut-optimization-v1",
+  "mission": {
+    "path": "testing/comparisons/missions/petrinaut-optimization.md",
+    "sha256": "sha256:89daf3507df732405bad528e507328aede01b5125383c499aef8b97fff8b92b0"
+  },
+  "sharedBaseline": {
+    "path": "testing/end-to-end-comparisons/cases/petrinaut-optimization/shared-baseline.md",
+    "sha256": "sha256:977947acf91d236397174a247436b77db0164f5b0deaf63ce78d6d8f12a46b9e"
+  },
+  "requirementRegistry": {
+    "path": "testing/end-to-end-comparisons/cases/petrinaut-optimization/controller/requirement-registry.json",
+    "sha256": "sha256:9e8866d4a2b96a2e43c261f8514c349582547db958978cf13eb3a4654b73cd02"
+  },
+  "executionContractTemplate": {
+    "path": "testing/execution-comparisons/cases/petrinaut-optimization/public-contract.json",
+    "sha256": "sha256:a8dedb7d6be4dfb706e47194de3bb32caf7724e2eb34f808c8a9ab139c235312"
+  },
+  "oracle": {
+    "id": "petrinaut-optimization-oracles-v1",
+    "manifestPath": "testing/execution-comparisons/cases/petrinaut-optimization/controller/oracle-manifest.json",
+    "manifestSha256": "sha256:7f5050a0bae848023b01b68b22993934fe3bac691a90748659d894bfc76dd939"
+  },
+  "source": {
+    "parentCommit": "5c7a2d9db5caa851c38938f4b1bac19005b0e978",
+    "parentTree": "a3e08cf75e00cc9016c931f4665341506e03533e"
+  },
+  "budgets": {
+    "elicitation": {
+      "qualifyingQuestions": 8,
+      "targetTurns": 16,
+      "elapsedMinutes": 45,
+      "mechanicalInterventions": 2
+    },
+    "execution": {
+      "elapsedMinutes": 90,
+      "mechanicalInterventions": 2,
+      "substantiveHumanInterventions": 0
+    }
+  },
+  "actorRecipes": {
+    "elicitation": "agent-as-user-comparison/v1",
+    "execution": {
+      "brunch": "brunch-pinned-git/v1",
+      "claude_code": "claude-code-pinned-git/v1"
+    }
+  },
+  "specSources": ["brunch_spec", "claude_spec"],
+  "executors": ["brunch", "claude_code"]
+}

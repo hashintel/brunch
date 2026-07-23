@@ -1,4 +1,4 @@
-import { mkdtemp } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -200,6 +200,88 @@ describe('Brunch agent runtime-state projection', () => {
         output: 'Brunch tool policy blocks shell commands in specify mode (bash, edit, write): rm -rf .',
       },
     });
+  });
+
+  it('keeps normal skill reads available while comparison roots remain bounded', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'brunch-read-policy-'));
+    const workspace = join(root, 'workspace');
+    const packageRoot = join(root, 'package');
+    const skillPath = join(packageRoot, 'SKILL.md');
+    const workspaceFile = join(workspace, 'inside.md');
+    const missingInsidePath = join(workspace, 'missing-inside.md');
+    const missingOutsidePath = join(root, 'missing-outside.md');
+    await mkdir(workspace);
+    await mkdir(packageRoot);
+    await writeFile(workspaceFile, '# Inside\n');
+    await writeFile(skillPath, '# Skill\n');
+
+    type RegisteredRead = {
+      execute(
+        toolCallId: string,
+        params: { readonly path: string },
+        signal: AbortSignal | undefined,
+        onUpdate: undefined,
+        ctx: { readonly cwd: string },
+      ): Promise<unknown>;
+    };
+    const registerRead = (filesystemRoot?: string): RegisteredRead => {
+      let registered: RegisteredRead | undefined;
+      registerBrunchOperationalModePolicy(
+        {
+          registerTool: (tool: { readonly name: string }) => {
+            if (tool.name === 'read') registered = tool as unknown as RegisteredRead;
+          },
+          getAllTools: () => ['read', 'grep', 'find', 'ls'].map((name) => ({ name })),
+          setActiveTools: (_tools: string[]) => {},
+          on: (_event: string, _handler: (event: never, ctx?: never) => unknown) => {},
+        } as never,
+        filesystemRoot === undefined ? {} : { filesystemRoot },
+      );
+      if (registered === undefined) throw new Error('read tool was not registered');
+      return registered;
+    };
+
+    try {
+      await expect(
+        registerRead().execute('normal-read', { path: skillPath }, undefined, undefined, {
+          cwd: workspace,
+        }),
+      ).resolves.toBeDefined();
+      await expect(
+        registerRead(await realpath(workspace)).execute(
+          'aliased-in-root-read',
+          { path: workspaceFile },
+          undefined,
+          undefined,
+          { cwd: workspace },
+        ),
+      ).resolves.toBeDefined();
+      await expect(
+        registerRead(workspace).execute(
+          'missing-inside-read',
+          { path: missingInsidePath },
+          undefined,
+          undefined,
+          { cwd: workspace },
+        ),
+      ).rejects.toMatchObject({ code: 'ENOENT', syscall: 'access' });
+      await expect(
+        registerRead(workspace).execute('bounded-read', { path: skillPath }, undefined, undefined, {
+          cwd: workspace,
+        }),
+      ).rejects.toThrow(`read-only tool path escapes target root: ${skillPath}`);
+      await expect(
+        registerRead(workspace).execute(
+          'missing-outside-read',
+          { path: missingOutsidePath },
+          undefined,
+          undefined,
+          { cwd: workspace },
+        ),
+      ).rejects.toThrow(`read-only tool path escapes target root: ${missingOutsidePath}`);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   it('activates an explicit non-empty execute-mode tool set from registered tools', () => {

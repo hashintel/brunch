@@ -9,7 +9,9 @@ import {
   type SeedFixtureNode,
 } from '../../graph/seed-fixtures.js';
 import {
+  isBrowserExecutionCaseContract,
   loadPublicCasePacket,
+  type BrowserExecutionCasePublicContract,
   type ExecutionCasePublicContract,
   type PublicCasePacket,
 } from './case-contract.js';
@@ -27,6 +29,12 @@ export interface PreparedBrunchExecutionWorkspace {
   readonly packet: PublicCasePacket;
 }
 
+export interface SeededBrownfieldBrunchWorkspace {
+  readonly workspaceDir: string;
+  readonly specId: number;
+  readonly packet: PublicCasePacket;
+}
+
 export async function prepareBrunchExecutionWorkspace(input: {
   readonly workspaceDir: string;
   readonly caseDir: string;
@@ -39,6 +47,9 @@ export async function prepareBrunchExecutionWorkspace(input: {
   }
 
   const packet = await loadPublicCasePacket(input.caseDir);
+  if (!isBrowserExecutionCaseContract(packet.contract)) {
+    throw new Error('legacy Brunch execution seed supports only the Petri browser case');
+  }
   const specification = await readFile(join(input.caseDir, packet.contract.case.specification), 'utf8');
   const executor = await openWorkspaceCommandExecutor(input.workspaceDir);
   const seeded = seedFixture(
@@ -72,9 +83,39 @@ export async function prepareBrunchExecutionWorkspace(input: {
   return { workspaceDir: input.workspaceDir, specId: seeded.specId, publicDir, packet };
 }
 
+export async function seedBrownfieldBrunchExecutionWorkspace(input: {
+  readonly workspaceDir: string;
+}): Promise<SeededBrownfieldBrunchWorkspace> {
+  const packet = await loadPublicCasePacket(input.workspaceDir);
+  if (isBrowserExecutionCaseContract(packet.contract) || packet.contract.case.mode !== 'brownfield') {
+    throw new Error('brownfield Brunch execution seed requires a brownfield public contract');
+  }
+  const specification = await readFile(join(input.workspaceDir, packet.contract.case.specification), 'utf8');
+  const executor = await openWorkspaceCommandExecutor(input.workspaceDir);
+  const seeded = seedFixture(
+    executor,
+    buildOpaqueBrownfieldExecutionSeed({
+      specification,
+      contract: packet.contract,
+    }),
+  );
+  const established = executor.establishSpecPosture({
+    specId: seeded.specId,
+    origin: 'brownfield',
+  });
+  if (established.status !== 'success') {
+    throw new Error(`failed to establish brownfield Brunch execution posture: ${established.status}`);
+  }
+  return {
+    workspaceDir: input.workspaceDir,
+    specId: seeded.specId,
+    packet,
+  };
+}
+
 export function buildBrunchExecutionSeed(input: {
   readonly specification: string;
-  readonly contract: ExecutionCasePublicContract;
+  readonly contract: BrowserExecutionCasePublicContract;
 }): SeedFixture {
   const sections = parseApprovedSpecification(input.specification);
   const nodes: SeedFixtureNode[] = sections.map((section, index) => sectionNode(section, index + 1));
@@ -86,7 +127,7 @@ export function buildBrunchExecutionSeed(input: {
 
 export function buildOpaqueBrunchExecutionSeed(input: {
   readonly specification: string;
-  readonly contract: ExecutionCasePublicContract;
+  readonly contract: BrowserExecutionCasePublicContract;
 }): SeedFixture {
   return buildExecutionSeed({
     nodes: [
@@ -115,9 +156,106 @@ export function buildOpaqueBrunchExecutionSeed(input: {
   });
 }
 
+export function buildOpaqueBrownfieldExecutionSeed(input: {
+  readonly specification: string;
+  readonly contract: ExecutionCasePublicContract;
+}): SeedFixture {
+  if (isBrowserExecutionCaseContract(input.contract) || input.contract.case.mode !== 'brownfield') {
+    throw new Error('opaque brownfield seed requires a brownfield public contract');
+  }
+  return {
+    spec: {
+      slug: input.contract.case.id,
+      name: `Approved ${input.contract.case.product} brownfield execution`,
+      kind: 'feature',
+    },
+    nodes: [
+      {
+        local_id: 1,
+        plane: 'intent',
+        kind: 'requirement',
+        title: 'Approved target-authored specification',
+        body: input.specification,
+        basis: 'explicit',
+        settlement: 'settled',
+        source: 'e2e-handoff [exact-spec]',
+      },
+      {
+        local_id: 2,
+        plane: 'plan',
+        kind: 'frontier',
+        title: 'Deliver the approved brownfield change',
+        body: 'Implement the approved feature in the existing target repository.',
+        basis: 'explicit',
+        settlement: 'settled',
+        source: 'execution-adapter [frontier]',
+      },
+      {
+        local_id: 3,
+        plane: 'plan',
+        kind: 'scope',
+        title: 'Implement and verify the approved brownfield change',
+        body: 'Execute the frozen specification as one coherent change while preserving the surrounding repository.',
+        basis: 'explicit',
+        settlement: 'settled',
+        source: 'execution-adapter [scope]',
+      },
+      {
+        local_id: 4,
+        plane: 'design',
+        kind: 'module',
+        title: 'Brownfield feature implementation',
+        body: 'The implementation location and internal design remain the executor’s responsibility.',
+        basis: 'explicit',
+        settlement: 'settled',
+        source: 'execution-adapter [module]',
+      },
+      {
+        local_id: 5,
+        plane: 'intent',
+        kind: 'criterion',
+        title: 'Approved brownfield behavior is satisfied',
+        body: 'The completed change satisfies the frozen approved specification in the existing repository.',
+        basis: 'explicit',
+        settlement: 'settled',
+        source: 'execution-adapter [criterion]',
+      },
+      {
+        local_id: 6,
+        plane: 'oracle',
+        kind: 'check',
+        title: 'Repository-local verification passes',
+        body: 'Use the prepared repository’s own focused build and test surfaces to verify the approved change.',
+        basis: 'explicit',
+        settlement: 'settled',
+        source: 'execution-adapter [check]',
+      },
+      {
+        local_id: 7,
+        plane: 'oracle',
+        kind: 'vv_method',
+        title: 'Prepared-target verification',
+        body: 'Run only repository-local verification available inside the prepared target under the execution isolation policy.',
+        basis: 'explicit',
+        settlement: 'settled',
+        source: 'execution-adapter [vv_method]',
+      },
+    ],
+    edges: [
+      edge('composition', 2, 3),
+      edge('realization', 1, 3),
+      edge('dependency', 5, 3),
+      edge('composition', 3, 4),
+      edge('dependency', 6, 3),
+      edge('witness', 6, 5, 'for'),
+      edge('realization', 7, 6),
+    ],
+  };
+}
+
 function buildExecutionSeed(input: {
   readonly nodes: SeedFixtureNode[];
-  readonly contract: ExecutionCasePublicContract;
+  readonly contract: BrowserExecutionCasePublicContract;
 }): SeedFixture {
   const nodes = [...input.nodes];
   const next = nodes.length + 1;
@@ -294,7 +432,7 @@ function kindForCode(code: string): {
   throw new Error(`unsupported approved specification code: ${code}`);
 }
 
-function renderAccessibilityContract(contract: ExecutionCasePublicContract): string {
+function renderAccessibilityContract(contract: BrowserExecutionCasePublicContract): string {
   const controls = contract.accessibility.controls
     .map((control) => `${control.role} "${control.name}"`)
     .join(', ');

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 
-export interface ExecutionCasePublicContract {
+export interface BrowserExecutionCasePublicContract {
   readonly schemaVersion: 1;
   readonly case: {
     readonly id: 'minimal-petri-net-editor-v1';
@@ -37,6 +37,128 @@ export interface ExecutionCasePublicContract {
   };
   readonly interactions: Readonly<Record<string, string>>;
   readonly rules: readonly string[];
+}
+
+export interface BrunchHostLandingExecutionCasePublicContract {
+  readonly schemaVersion: 1;
+  readonly case: {
+    readonly id: 'brunch-host-landing-v1';
+    readonly specification: 'spec.md';
+    readonly specificationSha256: string;
+    readonly provider: 'anthropic';
+    readonly model: 'claude-opus-4-8';
+    readonly product: 'brunch';
+    readonly mode: 'brownfield';
+    readonly scope: 'single_feature';
+    readonly surface: 'backend';
+    readonly repository: {
+      readonly substrate: 'pinned_git';
+      readonly parentCommit: string;
+      readonly parentTree: string;
+    };
+  };
+  readonly budgets: {
+    readonly elapsedMinutes: 90;
+    readonly mechanicalInterventions: 2;
+    readonly substantiveHumanInterventions: 0;
+  };
+  readonly delivery: {
+    readonly runtimeNetwork: 'forbidden';
+    readonly dependencyInstallNetwork: 'forbidden';
+  };
+  readonly acceptance: {
+    readonly publicCommand: '/brunch:land';
+    readonly executionTerminal: 'promotion_prepared';
+  };
+  readonly rules: readonly string[];
+}
+
+export type PetrinautMechanicalAddress =
+  | { readonly kind: 'roleName'; readonly role: string; readonly name: string }
+  | { readonly kind: 'roleValue'; readonly role: string; readonly value: string }
+  | { readonly kind: 'roleContents'; readonly role: string; readonly contents: string }
+  | { readonly kind: 'exactText'; readonly text: string };
+
+export type PetrinautMechanicalAddressKey =
+  | 'skipTour'
+  | 'dismissAssistant'
+  | 'simulateMode'
+  | 'optimizationsNav'
+  | 'viewTitle'
+  | 'create'
+  | 'createDrawer'
+  | 'scenario'
+  | 'scenarioSelected'
+  | 'metric'
+  | 'metricCustomOption'
+  | 'metricCode'
+  | 'optimizationName'
+  | 'directionMaximize'
+  | 'directionMinimize'
+  | 'run'
+  | 'cancel'
+  | 'statusComplete'
+  | 'statusError'
+  | 'statusCancelled';
+
+export interface PetrinautOptimizationExecutionCasePublicContract {
+  readonly schemaVersion: 1;
+  readonly case: {
+    readonly id: 'petrinaut-optimization-v1';
+    readonly specification: 'spec.md';
+    readonly specificationSha256: string;
+    readonly provider: 'anthropic';
+    readonly model: 'claude-opus-4-8';
+    readonly product: 'petrinaut';
+    readonly mode: 'brownfield';
+    readonly scope: 'single_feature';
+    readonly surface: 'frontend';
+    readonly repository: {
+      readonly substrate: 'pinned_git';
+      readonly parentCommit: '5c7a2d9db5caa851c38938f4b1bac19005b0e978';
+      readonly parentTree: 'a3e08cf75e00cc9016c931f4665341506e03533e';
+    };
+  };
+  readonly budgets: {
+    readonly elapsedMinutes: 90;
+    readonly mechanicalInterventions: 2;
+    readonly substantiveHumanInterventions: 0;
+  };
+  readonly delivery: {
+    readonly runtimeNetwork: 'forbidden';
+    readonly dependencyInstallNetwork: 'controller_only';
+  };
+  readonly acceptance: {
+    readonly publicRoute: '/optimization';
+    readonly sameOriginApi: '/api/petrinaut-opt/optimize/all';
+    readonly executionTerminal: 'promotion_prepared';
+  };
+  readonly mechanicalAddresses: Readonly<Record<PetrinautMechanicalAddressKey, PetrinautMechanicalAddress>>;
+  readonly rules: readonly string[];
+}
+
+export type ExecutionCasePublicContract =
+  | BrowserExecutionCasePublicContract
+  | BrunchHostLandingExecutionCasePublicContract
+  | PetrinautOptimizationExecutionCasePublicContract;
+
+export type PinnedExecutionCasePublicContract = Extract<
+  ExecutionCasePublicContract,
+  { readonly case: { readonly repository: { readonly substrate: 'pinned_git' } } }
+>;
+
+export type PinnedExecutionCaseId = PinnedExecutionCasePublicContract['case']['id'];
+
+export function isBrowserExecutionCaseContract(
+  value: ExecutionCasePublicContract,
+): value is BrowserExecutionCasePublicContract {
+  return value.case.id === 'minimal-petri-net-editor-v1';
+}
+
+export function isPetrinautOptimizationExecutionCaseContract(
+  value: ExecutionCasePublicContract,
+): value is PetrinautOptimizationExecutionCasePublicContract {
+  return value.case.id === 'petrinaut-optimization-v1';
 }
 
 export interface CommandContract {
@@ -102,6 +224,16 @@ export async function loadPublicCasePacket(caseDir: string): Promise<PublicCaseP
 
 export function parsePublicCaseContract(value: unknown): ExecutionCasePublicContract {
   if (!record(value)) invalid();
+  if (record(value['case']) && value['case']['id'] === 'brunch-host-landing-v1') {
+    return parseBrunchHostLandingContract(value);
+  }
+  if (record(value['case']) && value['case']['id'] === 'petrinaut-optimization-v1') {
+    return parsePetrinautOptimizationContract(value);
+  }
+  return parsePetriBrowserContract(value);
+}
+
+function parsePetriBrowserContract(value: Record<string, unknown>): BrowserExecutionCasePublicContract {
   const caseValue = requiredRecord(value, 'case');
   const repository = requiredRecord(caseValue, 'repository');
   const budgets = requiredRecord(value, 'budgets');
@@ -160,7 +292,193 @@ export function parsePublicCaseContract(value: unknown): ExecutionCasePublicCont
     invalid();
   }
 
-  return value as unknown as ExecutionCasePublicContract;
+  return value as unknown as BrowserExecutionCasePublicContract;
+}
+
+function parseBrunchHostLandingContract(
+  value: Record<string, unknown>,
+): BrunchHostLandingExecutionCasePublicContract {
+  const caseValue = requiredRecord(value, 'case');
+  const repository = requiredRecord(caseValue, 'repository');
+  const budgets = requiredRecord(value, 'budgets');
+  const delivery = requiredRecord(value, 'delivery');
+  const acceptance = requiredRecord(value, 'acceptance');
+  if (
+    !exactKeys(value, ['schemaVersion', 'case', 'budgets', 'delivery', 'acceptance', 'rules']) ||
+    !exactKeys(caseValue, [
+      'id',
+      'specification',
+      'specificationSha256',
+      'provider',
+      'model',
+      'product',
+      'mode',
+      'scope',
+      'surface',
+      'repository',
+    ]) ||
+    !exactKeys(repository, ['substrate', 'parentCommit', 'parentTree']) ||
+    !exactKeys(budgets, ['elapsedMinutes', 'mechanicalInterventions', 'substantiveHumanInterventions']) ||
+    !exactKeys(delivery, ['runtimeNetwork', 'dependencyInstallNetwork']) ||
+    !exactKeys(acceptance, ['publicCommand', 'executionTerminal']) ||
+    value['schemaVersion'] !== 1 ||
+    caseValue['id'] !== 'brunch-host-landing-v1' ||
+    caseValue['specification'] !== 'spec.md' ||
+    !sha256HexValue(caseValue['specificationSha256']) ||
+    caseValue['provider'] !== 'anthropic' ||
+    caseValue['model'] !== 'claude-opus-4-8' ||
+    caseValue['product'] !== 'brunch' ||
+    caseValue['mode'] !== 'brownfield' ||
+    caseValue['scope'] !== 'single_feature' ||
+    caseValue['surface'] !== 'backend' ||
+    repository['substrate'] !== 'pinned_git' ||
+    !gitObjectId(repository['parentCommit']) ||
+    !gitObjectId(repository['parentTree']) ||
+    budgets['elapsedMinutes'] !== 90 ||
+    budgets['mechanicalInterventions'] !== 2 ||
+    budgets['substantiveHumanInterventions'] !== 0 ||
+    delivery['runtimeNetwork'] !== 'forbidden' ||
+    delivery['dependencyInstallNetwork'] !== 'forbidden' ||
+    acceptance['publicCommand'] !== '/brunch:land' ||
+    acceptance['executionTerminal'] !== 'promotion_prepared' ||
+    !nonemptyStrings(value['rules'])
+  ) {
+    invalid();
+  }
+  return value as unknown as BrunchHostLandingExecutionCasePublicContract;
+}
+
+const PETRINAUT_MECHANICAL_ADDRESS_KEYS = [
+  'skipTour',
+  'dismissAssistant',
+  'simulateMode',
+  'optimizationsNav',
+  'viewTitle',
+  'create',
+  'createDrawer',
+  'scenario',
+  'scenarioSelected',
+  'metric',
+  'metricCustomOption',
+  'metricCode',
+  'optimizationName',
+  'directionMaximize',
+  'directionMinimize',
+  'run',
+  'cancel',
+  'statusComplete',
+  'statusError',
+  'statusCancelled',
+] as const satisfies readonly PetrinautMechanicalAddressKey[];
+
+const PETRINAUT_MECHANICAL_ADDRESSES = {
+  skipTour: { kind: 'roleName', role: 'button', name: 'Skip tour' },
+  dismissAssistant: { kind: 'roleName', role: 'button', name: 'Dismiss' },
+  simulateMode: { kind: 'roleName', role: 'radio', name: 'Simulate' },
+  optimizationsNav: { kind: 'roleValue', role: 'radio', value: 'optimizations' },
+  viewTitle: { kind: 'exactText', text: 'Optimizations' },
+  create: { kind: 'roleName', role: 'button', name: 'Create' },
+  createDrawer: { kind: 'roleName', role: 'dialog', name: 'Create an optimization' },
+  scenario: { kind: 'roleContents', role: 'combobox', contents: 'Select a scenario' },
+  scenarioSelected: { kind: 'roleContents', role: 'combobox', contents: 'Seasonal Flu' },
+  metric: { kind: 'roleContents', role: 'combobox', contents: 'Select a metric' },
+  metricCustomOption: { kind: 'roleName', role: 'option', name: 'Custom code' },
+  metricCode: { kind: 'roleName', role: 'textbox', name: 'Editor content' },
+  optimizationName: { kind: 'roleName', role: 'textbox', name: 'Name' },
+  directionMaximize: { kind: 'roleName', role: 'radio', name: 'Maximize' },
+  directionMinimize: { kind: 'roleName', role: 'radio', name: 'Minimize' },
+  run: { kind: 'roleName', role: 'button', name: 'Run' },
+  cancel: { kind: 'roleName', role: 'button', name: 'Cancel' },
+  statusComplete: { kind: 'exactText', text: 'Complete' },
+  statusError: { kind: 'exactText', text: 'Error' },
+  statusCancelled: { kind: 'exactText', text: 'Cancelled' },
+} as const satisfies Record<PetrinautMechanicalAddressKey, PetrinautMechanicalAddress>;
+
+function parsePetrinautOptimizationContract(
+  value: Record<string, unknown>,
+): PetrinautOptimizationExecutionCasePublicContract {
+  const caseValue = requiredRecord(value, 'case');
+  const repository = requiredRecord(caseValue, 'repository');
+  const budgets = requiredRecord(value, 'budgets');
+  const delivery = requiredRecord(value, 'delivery');
+  const acceptance = requiredRecord(value, 'acceptance');
+  const mechanicalAddresses = requiredRecord(value, 'mechanicalAddresses');
+  if (
+    !exactKeys(value, [
+      'schemaVersion',
+      'case',
+      'budgets',
+      'delivery',
+      'acceptance',
+      'mechanicalAddresses',
+      'rules',
+    ]) ||
+    !exactKeys(caseValue, [
+      'id',
+      'specification',
+      'specificationSha256',
+      'provider',
+      'model',
+      'product',
+      'mode',
+      'scope',
+      'surface',
+      'repository',
+    ]) ||
+    !exactKeys(repository, ['substrate', 'parentCommit', 'parentTree']) ||
+    !exactKeys(budgets, ['elapsedMinutes', 'mechanicalInterventions', 'substantiveHumanInterventions']) ||
+    !exactKeys(delivery, ['runtimeNetwork', 'dependencyInstallNetwork']) ||
+    !exactKeys(acceptance, ['publicRoute', 'sameOriginApi', 'executionTerminal']) ||
+    !exactKeys(mechanicalAddresses, PETRINAUT_MECHANICAL_ADDRESS_KEYS) ||
+    value['schemaVersion'] !== 1 ||
+    caseValue['id'] !== 'petrinaut-optimization-v1' ||
+    caseValue['specification'] !== 'spec.md' ||
+    !sha256HexValue(caseValue['specificationSha256']) ||
+    caseValue['provider'] !== 'anthropic' ||
+    caseValue['model'] !== 'claude-opus-4-8' ||
+    caseValue['product'] !== 'petrinaut' ||
+    caseValue['mode'] !== 'brownfield' ||
+    caseValue['scope'] !== 'single_feature' ||
+    caseValue['surface'] !== 'frontend' ||
+    repository['substrate'] !== 'pinned_git' ||
+    repository['parentCommit'] !== '5c7a2d9db5caa851c38938f4b1bac19005b0e978' ||
+    repository['parentTree'] !== 'a3e08cf75e00cc9016c931f4665341506e03533e' ||
+    budgets['elapsedMinutes'] !== 90 ||
+    budgets['mechanicalInterventions'] !== 2 ||
+    budgets['substantiveHumanInterventions'] !== 0 ||
+    delivery['runtimeNetwork'] !== 'forbidden' ||
+    delivery['dependencyInstallNetwork'] !== 'controller_only' ||
+    acceptance['publicRoute'] !== '/optimization' ||
+    acceptance['sameOriginApi'] !== '/api/petrinaut-opt/optimize/all' ||
+    acceptance['executionTerminal'] !== 'promotion_prepared' ||
+    !petrinautMechanicalAddresses(mechanicalAddresses) ||
+    !nonemptyStrings(value['rules'])
+  ) {
+    invalid();
+  }
+  return value as unknown as PetrinautOptimizationExecutionCasePublicContract;
+}
+
+function petrinautMechanicalAddresses(
+  value: Record<string, unknown>,
+): value is Record<PetrinautMechanicalAddressKey, PetrinautMechanicalAddress> {
+  return PETRINAUT_MECHANICAL_ADDRESS_KEYS.every((key) =>
+    sameMechanicalAddress(value[key], PETRINAUT_MECHANICAL_ADDRESSES[key]),
+  );
+}
+
+function sameMechanicalAddress(value: unknown, expected: PetrinautMechanicalAddress): boolean {
+  if (!record(value) || value['kind'] !== expected.kind) return false;
+  switch (expected.kind) {
+    case 'roleName':
+      return value['role'] === expected.role && value['name'] === expected.name;
+    case 'roleValue':
+      return value['role'] === expected.role && value['value'] === expected.value;
+    case 'roleContents':
+      return value['role'] === expected.role && value['contents'] === expected.contents;
+    case 'exactText':
+      return value['text'] === expected.text;
+  }
 }
 
 function parseJson(raw: string): unknown {
@@ -245,6 +563,16 @@ function nonempty(value: unknown): value is string {
 
 function sha256HexValue(value: unknown): value is string {
   return typeof value === 'string' && /^[a-f0-9]{64}$/u.test(value);
+}
+
+function gitObjectId(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-f0-9]{40}$/u.test(value);
+}
+
+function exactKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
+  const actual = Object.keys(value).sort();
+  const wanted = [...expected].sort();
+  return actual.length === wanted.length && actual.every((key, index) => key === wanted[index]);
 }
 
 function sha256Hex(value: string): string {

@@ -4,7 +4,16 @@ import { isAbsolute, join } from 'node:path';
 import { promisify } from 'node:util';
 
 import { prepareBrunchExecutionWorkspace } from './brunch-lane.js';
-import { loadPublicCasePacket, type PublicCasePacket } from './case-contract.js';
+import {
+  isBrowserExecutionCaseContract,
+  loadPublicCasePacket,
+  type PublicCasePacket,
+} from './case-contract.js';
+import {
+  prepareHistoricalReplayTarget,
+  type HistoricalReplayReady,
+  type HistoricalReplayTargetDependencies,
+} from './historical-replay-target.js';
 
 const execFileAsync = promisify(execFile);
 const SAFE_CASE_ID = /^[a-z0-9][a-z0-9-]*$/u;
@@ -27,15 +36,21 @@ export interface ResolvedExecutionCase extends ExecutionCaseSummary {
 
 export type PreparedExecutionTarget =
   | (ResolvedExecutionCase & {
+      readonly preparation: 'legacy_brunch';
       readonly lane: 'brunch';
       readonly targetDir: string;
       readonly specId: number;
     })
   | (ResolvedExecutionCase & {
+      readonly preparation: 'empty_git';
       readonly lane: 'claude_code';
       readonly targetDir: string;
       readonly baseSha: string;
-    });
+    })
+  | (ResolvedExecutionCase &
+      HistoricalReplayReady & {
+        readonly preparation: 'historical_replay';
+      });
 
 export async function listExecutionCases(casesRoot: string): Promise<ExecutionCaseSummary[]> {
   const entries = await readdir(casesRoot, { withFileTypes: true });
@@ -77,13 +92,49 @@ export async function resolveExecutionCase(
   };
 }
 
-export async function prepareExecutionTarget(input: {
-  readonly lane: 'brunch' | 'claude_code';
-  readonly caseReference: string;
-  readonly casesRoot: string;
-  readonly targetDir: string;
-}): Promise<PreparedExecutionTarget> {
+export async function prepareExecutionTarget(
+  input: {
+    readonly lane: 'brunch' | 'claude_code';
+    readonly caseReference: string;
+    readonly casesRoot: string;
+    readonly targetDir: string;
+    readonly controllerRoot?: string;
+    readonly sourceRepositoryDir?: string;
+  },
+  dependencies: HistoricalReplayTargetDependencies = {},
+): Promise<PreparedExecutionTarget> {
   const selected = await resolveExecutionCase(input.caseReference, input.casesRoot);
+  const contract = selected.packet.contract;
+  if (!isBrowserExecutionCaseContract(contract) && contract.case.repository.substrate === 'pinned_git') {
+    if (input.sourceRepositoryDir === undefined) {
+      throw new Error('pinned execution case requires --source-repository');
+    }
+    if (input.controllerRoot === undefined) {
+      throw new Error('pinned execution case requires an absolute controller root');
+    }
+    const prepared = await prepareHistoricalReplayTarget(
+      {
+        lane: input.lane,
+        selectedCase: selected,
+        sourceRepositoryDir: input.sourceRepositoryDir,
+        targetDir: input.targetDir,
+        controllerRoot: input.controllerRoot,
+      },
+      dependencies,
+    );
+    return {
+      ...selected,
+      ...prepared,
+      preparation: 'historical_replay',
+    };
+  }
+  if (
+    input.sourceRepositoryDir !== undefined ||
+    dependencies.runner !== undefined ||
+    dependencies.dependencyInstallRunner !== undefined
+  ) {
+    throw new Error('--source-repository is valid only for pinned execution cases');
+  }
   if (input.lane === 'brunch') {
     const prepared = await prepareBrunchExecutionWorkspace({
       workspaceDir: input.targetDir,
@@ -91,6 +142,7 @@ export async function prepareExecutionTarget(input: {
     });
     return {
       ...selected,
+      preparation: 'legacy_brunch',
       lane: 'brunch',
       targetDir: input.targetDir,
       specId: prepared.specId,
@@ -107,6 +159,7 @@ export async function prepareExecutionTarget(input: {
   const baseSha = await gitOutput(['rev-parse', 'HEAD'], input.targetDir);
   return {
     ...selected,
+    preparation: 'empty_git',
     lane: 'claude_code',
     targetDir: input.targetDir,
     baseSha,

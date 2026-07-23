@@ -33,14 +33,21 @@ afterAll(async () => {
 
 describe('synthetic end-to-end factorial oracle composition', () => {
   it('projects one unchanged known-good oracle result across all four synthetic cells', async () => {
-    const report = await runPetriEditorBrowserOracle({ appDir: fixtureDir, caseDir });
-    const reports = MATRIX_CELL_IDS.map((cellId) => ({ cellId, report }));
+    const scratchRoot = await mkdtemp(join(tmpdir(), 'brunch-factorial-oracle-'));
+    try {
+      const isolatedFixtureDir = join(scratchRoot, 'known-good');
+      await cp(fixtureDir, isolatedFixtureDir, { recursive: true });
+      const report = await runPetriEditorBrowserOracle({ appDir: isolatedFixtureDir, caseDir });
+      const reports = MATRIX_CELL_IDS.map((cellId) => ({ cellId, report }));
 
-    expect(reports.map(({ cellId }) => cellId)).toEqual(MATRIX_CELL_IDS);
-    for (const { report } of reports) {
-      expect(report.status).toBe('passed');
-      expect(report.checks).toHaveLength(5);
-      expect(report.checks.every((check) => check.status === 'passed')).toBe(true);
+      expect(reports.map(({ cellId }) => cellId)).toEqual(MATRIX_CELL_IDS);
+      for (const { report } of reports) {
+        expect(report.status).toBe('passed');
+        expect(report.checks).toHaveLength(5);
+        expect(report.checks.every((check) => check.status === 'passed')).toBe(true);
+      }
+    } finally {
+      await rm(scratchRoot, { recursive: true, force: true });
     }
   }, 240_000);
 });

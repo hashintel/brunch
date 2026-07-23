@@ -38,6 +38,10 @@ export interface EndToEndStudyContract {
     readonly manifestPath: string;
     readonly manifestSha256: string;
   };
+  readonly source?: {
+    readonly parentCommit: string;
+    readonly parentTree: string;
+  };
   readonly budgets: {
     readonly elicitation: {
       readonly qualifyingQuestions: number;
@@ -66,16 +70,38 @@ export function parseEndToEndStudyContract(value: unknown): EndToEndStudyContrac
   const requirementRegistry = child(value, 'requirementRegistry');
   const executionContractTemplate = child(value, 'executionContractTemplate');
   const oracle = child(value, 'oracle');
+  const source = value['source'] === undefined ? undefined : child(value, 'source');
   const budgets = child(value, 'budgets');
   const elicitationBudget = child(budgets, 'elicitation');
   const executionBudget = child(budgets, 'execution');
   const actorRecipes = child(value, 'actorRecipes');
   const executionRecipes = child(actorRecipes, 'execution');
 
+  const knownCase =
+    (value['id'] === 'minimal-petri-net-editor-e2e-v1' &&
+      value['caseId'] === 'minimal-petri-net-editor-v1' &&
+      oracle['id'] === 'minimal-petri-net-editor-oracles-v2' &&
+      source === undefined) ||
+    (value['id'] === 'petrinaut-optimization-e2e-v1' &&
+      value['caseId'] === 'petrinaut-optimization-v1' &&
+      oracle['id'] === 'petrinaut-optimization-oracles-v1' &&
+      source !== undefined &&
+      source['parentCommit'] === '5c7a2d9db5caa851c38938f4b1bac19005b0e978' &&
+      source['parentTree'] === 'a3e08cf75e00cc9016c931f4665341506e03533e' &&
+      gitObjectId(source['parentCommit']) &&
+      gitObjectId(source['parentTree']) &&
+      exactKeys(source, ['parentCommit', 'parentTree'])) ||
+    (value['id'] === 'brunch-host-landing-e2e-v1' &&
+      value['caseId'] === 'brunch-host-landing-v1' &&
+      oracle['id'] === 'brunch-host-landing-oracles-v1' &&
+      source !== undefined &&
+      gitObjectId(source['parentCommit']) &&
+      gitObjectId(source['parentTree']) &&
+      exactKeys(source, ['parentCommit', 'parentTree']));
+
   if (
     value['schemaVersion'] !== 1 ||
-    !safeId(value['id']) ||
-    !safeId(value['caseId']) ||
+    !knownCase ||
     !addressedPath(mission) ||
     !addressedPath(baseline) ||
     !addressedPath(requirementRegistry) ||
@@ -161,6 +187,16 @@ export function assertControllerIsolation(input: {
 
 function addressedPath(value: Record<string, unknown>): boolean {
   return safeRelativePath(value['path']) && sha256(value['sha256']);
+}
+
+function gitObjectId(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-f0-9]{40}$/u.test(value);
+}
+
+function exactKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
+  const actual = Object.keys(value).sort();
+  const wanted = [...expected].sort();
+  return actual.length === wanted.length && actual.every((key, index) => key === wanted[index]);
 }
 
 function child(value: Record<string, unknown>, key: string): Record<string, unknown> {
