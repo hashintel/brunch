@@ -21,7 +21,7 @@ import {
 import { assertControllerIsolation } from '../end-to-end-comparison/study-contract.js';
 import { seedBrownfieldBrunchExecutionWorkspace } from './brunch-lane.js';
 import {
-  isBrowserExecutionCaseContract,
+  isPinnedExecutionCaseContract,
   type PinnedExecutionCaseId,
   type PublicCasePacket,
 } from './case-contract.js';
@@ -174,7 +174,7 @@ export async function prepareHistoricalReplayTarget(
   try {
     await validateInput(input);
     const contract = input.selectedCase.packet.contract;
-    if (isBrowserExecutionCaseContract(contract) || contract.case.repository.substrate !== 'pinned_git') {
+    if (!isPinnedExecutionCaseContract(contract)) {
       throw new Error('historical replay preparation requires a pinned brownfield case');
     }
     const forbiddenRoots = uniqueRoots([

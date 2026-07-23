@@ -11,6 +11,8 @@ Current library:
   elicitation and end-to-end origin mission
 - [`brunch-host-landing.md`](brunch-host-landing.md) — Brunch host-landing brownfield mission
 - [`petrinaut-optimization.md`](petrinaut-optimization.md) — Petrinaut optimization brownfield mission
+- [`prospect-research-workspace.md`](prospect-research-workspace.md) — exploratory full-stack prospect
+  research mission with a separate deterministic execution regression case
 
 This `README.md` is the directory's reserved control file, not a mission. `/compare-specs` must exclude it from mission listing, resolution, revision, and creation.
 

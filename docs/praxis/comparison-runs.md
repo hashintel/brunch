@@ -129,6 +129,13 @@ audience-safe requirement ledger, and the bounded validity-first report.
 This historical witness predates Alpha 10 provenance capture. Keep it as evidence and an example, but
 do not backfill `provenance.json` or publish it through the current publication skill.
 
+FE-1253 adds `prospect-research-workspace` as a deterministic full-stack regression case, not a second
+end-to-end campaign profile. Its fixed public stack is React + Node.js + TypeScript + SQLite, with
+server-side Pi/Clay-compatible fixtures and denied runtime network. The saved mission remains available
+for exploratory specification work, while the compiled browser/HTTP/SQLite/export oracle is calibrated
+against a known-good implementation and focused wrong rivals. A future campaign may compose this case
+only through a separately authorized study contract.
+
 ## Agent recipe: drive, then join evidence
 
 On an overlay-capable host, drive the real TUI with the pinned project-local `pi-interactive-shell` package. In a sandbox or headless environment, use `npm run tui-driver` as the fallback. Follow the bounded observation, named-key input, and deterministic cleanup protocol in [Manual Testing](manual-testing.md).

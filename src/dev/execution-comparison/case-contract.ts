@@ -39,6 +39,73 @@ export interface BrowserExecutionCasePublicContract {
   readonly rules: readonly string[];
 }
 
+export interface ProspectResearchWorkspaceExecutionCasePublicContract {
+  readonly schemaVersion: 1;
+  readonly case: {
+    readonly id: 'prospect-research-workspace-v1';
+    readonly specification: 'spec.md';
+    readonly specificationSha256: string;
+    readonly provider: 'anthropic';
+    readonly model: 'claude-opus-4-8';
+    readonly product: 'prospect_research_workspace';
+    readonly mode: 'greenfield';
+    readonly scope: 'whole_application';
+    readonly surface: 'full_stack';
+    readonly repository: {
+      readonly substrate: 'empty_dir';
+      readonly base: 'fresh-empty-commit';
+    };
+  };
+  readonly budgets: {
+    readonly elapsedMinutes: 120;
+    readonly mechanicalInterventions: 2;
+    readonly substantiveHumanInterventions: 0;
+  };
+  readonly delivery: {
+    readonly test: CommandContract;
+    readonly build: CommandContract;
+    readonly start: CommandContract;
+    readonly environment: readonly ['PORT', 'DATABASE_PATH', 'RESEARCH_FIXTURE_PATH'];
+    readonly runtimeNetwork: 'forbidden';
+    readonly dependencyInstallNetwork: 'package-registry-only';
+  };
+  readonly acceptance: {
+    readonly healthPath: '/api/health';
+    readonly statePath: '/api/state';
+    readonly projectsPath: '/api/projects';
+    readonly projectActionPathPattern: '^/api/projects/[0-9]+/(approve|research)$';
+    readonly prospectActionPathPattern: '^/api/prospects/[0-9]+/(approve|suppress|override)$';
+    readonly exportPath: '/api/export';
+    readonly responseStatuses: {
+      readonly unapprovedResearch: 409;
+      readonly reasonlessOverride: 400;
+      readonly providerFailure: 503;
+    };
+    readonly sqliteTables: readonly [
+      'projects',
+      'runs',
+      'prospects',
+      'provenance',
+      'suppressions',
+      'decisions',
+    ];
+    readonly executionTerminal: 'promotion_prepared';
+  };
+  readonly accessibility: {
+    readonly application: AccessibleNameContract;
+    readonly projects: AccessibleNameContract;
+    readonly queue: AccessibleNameContract;
+    readonly fields: readonly AccessibleNameContract[];
+    readonly controls: readonly AccessibleNameContract[];
+    readonly prospectPattern: {
+      readonly role: 'button';
+      readonly namePattern: '^Prospect: .+ at .+$';
+    };
+    readonly feedbackRoles: readonly ['status', 'alert'];
+  };
+  readonly rules: readonly string[];
+}
+
 export interface BrunchHostLandingExecutionCasePublicContract {
   readonly schemaVersion: 1;
   readonly case: {
@@ -139,6 +206,7 @@ export interface PetrinautOptimizationExecutionCasePublicContract {
 
 export type ExecutionCasePublicContract =
   | BrowserExecutionCasePublicContract
+  | ProspectResearchWorkspaceExecutionCasePublicContract
   | BrunchHostLandingExecutionCasePublicContract
   | PetrinautOptimizationExecutionCasePublicContract;
 
@@ -148,6 +216,12 @@ export type PinnedExecutionCasePublicContract = Extract<
 >;
 
 export type PinnedExecutionCaseId = PinnedExecutionCasePublicContract['case']['id'];
+
+export function isPinnedExecutionCaseContract(
+  value: ExecutionCasePublicContract,
+): value is PinnedExecutionCasePublicContract {
+  return value.case.repository.substrate === 'pinned_git';
+}
 
 export function isBrowserExecutionCaseContract(
   value: ExecutionCasePublicContract,
@@ -159,6 +233,12 @@ export function isPetrinautOptimizationExecutionCaseContract(
   value: ExecutionCasePublicContract,
 ): value is PetrinautOptimizationExecutionCasePublicContract {
   return value.case.id === 'petrinaut-optimization-v1';
+}
+
+export function isProspectResearchWorkspaceExecutionCaseContract(
+  value: ExecutionCasePublicContract,
+): value is ProspectResearchWorkspaceExecutionCasePublicContract {
+  return value.case.id === 'prospect-research-workspace-v1';
 }
 
 export interface CommandContract {
@@ -196,6 +276,32 @@ const ACCESSIBLE_NAME_PATTERNS = {
   transition: '^Transition: .+ \\((enabled|disabled)\\)$',
   arc: '^Arc: .+ to .+$',
 } as const satisfies Record<'place' | 'transition' | 'arc', AccessibleNamePattern>;
+const PROSPECT_ENVIRONMENT = ['PORT', 'DATABASE_PATH', 'RESEARCH_FIXTURE_PATH'] as const;
+const PROSPECT_SQLITE_TABLES = [
+  'projects',
+  'runs',
+  'prospects',
+  'provenance',
+  'suppressions',
+  'decisions',
+] as const;
+const PROSPECT_FIELDS = ['Project name', 'Ideal customer profile', 'Decision reason'] as const;
+const PROSPECT_CONTROLS = [
+  'Create project',
+  'Approve project',
+  'Run research',
+  'Approve prospect',
+  'Suppress prospect',
+  'Override qualification',
+  'Export approved prospects',
+] as const;
+const PROSPECT_RULES = [
+  'Work only in the target repository.',
+  'Do not inspect controller paths or seek hidden comparison material.',
+  'Use only the fixture-backed server adapters selected by the environment.',
+  'Do not add sequencing, sending, mailbox, reply-classification, scheduler, or CRM behavior.',
+  'Stop at promotion_prepared after npm test and npm run build pass.',
+] as const;
 
 export async function loadPublicCasePacket(caseDir: string): Promise<PublicCasePacket> {
   const contractRaw = await readFile(join(caseDir, 'public-contract.json'), 'utf8');
@@ -230,7 +336,122 @@ export function parsePublicCaseContract(value: unknown): ExecutionCasePublicCont
   if (record(value['case']) && value['case']['id'] === 'petrinaut-optimization-v1') {
     return parsePetrinautOptimizationContract(value);
   }
+  if (record(value['case']) && value['case']['id'] === 'prospect-research-workspace-v1') {
+    return parseProspectResearchWorkspaceContract(value);
+  }
   return parsePetriBrowserContract(value);
+}
+
+function parseProspectResearchWorkspaceContract(
+  value: Record<string, unknown>,
+): ProspectResearchWorkspaceExecutionCasePublicContract {
+  const caseValue = requiredRecord(value, 'case');
+  const repository = requiredRecord(caseValue, 'repository');
+  const budgets = requiredRecord(value, 'budgets');
+  const delivery = requiredRecord(value, 'delivery');
+  const acceptance = requiredRecord(value, 'acceptance');
+  const responseStatuses = requiredRecord(acceptance, 'responseStatuses');
+  const accessibility = requiredRecord(value, 'accessibility');
+  const prospectPattern = requiredRecord(accessibility, 'prospectPattern');
+  if (
+    !exactKeys(value, [
+      'schemaVersion',
+      'case',
+      'budgets',
+      'delivery',
+      'acceptance',
+      'accessibility',
+      'rules',
+    ]) ||
+    !exactKeys(caseValue, [
+      'id',
+      'specification',
+      'specificationSha256',
+      'provider',
+      'model',
+      'product',
+      'mode',
+      'scope',
+      'surface',
+      'repository',
+    ]) ||
+    !exactKeys(repository, ['substrate', 'base']) ||
+    !exactKeys(budgets, ['elapsedMinutes', 'mechanicalInterventions', 'substantiveHumanInterventions']) ||
+    !exactKeys(delivery, [
+      'test',
+      'build',
+      'start',
+      'environment',
+      'runtimeNetwork',
+      'dependencyInstallNetwork',
+    ]) ||
+    !exactKeys(acceptance, [
+      'healthPath',
+      'statePath',
+      'projectsPath',
+      'projectActionPathPattern',
+      'prospectActionPathPattern',
+      'exportPath',
+      'responseStatuses',
+      'sqliteTables',
+      'executionTerminal',
+    ]) ||
+    !exactKeys(responseStatuses, ['unapprovedResearch', 'reasonlessOverride', 'providerFailure']) ||
+    !exactKeys(accessibility, [
+      'application',
+      'projects',
+      'queue',
+      'fields',
+      'controls',
+      'prospectPattern',
+      'feedbackRoles',
+    ]) ||
+    value['schemaVersion'] !== 1 ||
+    caseValue['id'] !== 'prospect-research-workspace-v1' ||
+    caseValue['specification'] !== 'spec.md' ||
+    !sha256HexValue(caseValue['specificationSha256']) ||
+    caseValue['provider'] !== 'anthropic' ||
+    caseValue['model'] !== 'claude-opus-4-8' ||
+    caseValue['product'] !== 'prospect_research_workspace' ||
+    caseValue['mode'] !== 'greenfield' ||
+    caseValue['scope'] !== 'whole_application' ||
+    caseValue['surface'] !== 'full_stack' ||
+    repository['substrate'] !== 'empty_dir' ||
+    repository['base'] !== 'fresh-empty-commit' ||
+    budgets['elapsedMinutes'] !== 120 ||
+    budgets['mechanicalInterventions'] !== 2 ||
+    budgets['substantiveHumanInterventions'] !== 0 ||
+    !command(delivery['test'], 'npm', ['test']) ||
+    !command(delivery['build'], 'npm', ['run', 'build']) ||
+    !command(delivery['start'], 'npm', ['start']) ||
+    !exactStrings(delivery['environment'], PROSPECT_ENVIRONMENT) ||
+    delivery['runtimeNetwork'] !== 'forbidden' ||
+    delivery['dependencyInstallNetwork'] !== 'package-registry-only' ||
+    acceptance['healthPath'] !== '/api/health' ||
+    acceptance['statePath'] !== '/api/state' ||
+    acceptance['projectsPath'] !== '/api/projects' ||
+    acceptance['projectActionPathPattern'] !== '^/api/projects/[0-9]+/(approve|research)$' ||
+    acceptance['prospectActionPathPattern'] !== '^/api/prospects/[0-9]+/(approve|suppress|override)$' ||
+    acceptance['exportPath'] !== '/api/export' ||
+    responseStatuses['unapprovedResearch'] !== 409 ||
+    responseStatuses['reasonlessOverride'] !== 400 ||
+    responseStatuses['providerFailure'] !== 503 ||
+    !exactStrings(acceptance['sqliteTables'], PROSPECT_SQLITE_TABLES) ||
+    acceptance['executionTerminal'] !== 'promotion_prepared' ||
+    !accessibleName(accessibility['application'], 'application', 'Prospect research workspace') ||
+    !accessibleName(accessibility['projects'], 'heading', 'Research projects') ||
+    !accessibleName(accessibility['queue'], 'region', 'Prospect queue') ||
+    !exactAccessibleNames(accessibility['fields'], 'textbox', PROSPECT_FIELDS) ||
+    !exactAccessibleNames(accessibility['controls'], 'button', PROSPECT_CONTROLS) ||
+    !exactKeys(prospectPattern, ['role', 'namePattern']) ||
+    prospectPattern['role'] !== 'button' ||
+    prospectPattern['namePattern'] !== '^Prospect: .+ at .+$' ||
+    !feedbackRoles(accessibility['feedbackRoles']) ||
+    !exactStrings(value['rules'], PROSPECT_RULES)
+  ) {
+    invalid();
+  }
+  return value as unknown as ProspectResearchWorkspaceExecutionCasePublicContract;
 }
 
 function parsePetriBrowserContract(value: Record<string, unknown>): BrowserExecutionCasePublicContract {
@@ -535,6 +756,18 @@ function accessibleNameArray(value: unknown): value is AccessibleNameContract[] 
   return Array.isArray(value) && value.length > 0 && value.every((item) => accessibleName(item));
 }
 
+function exactAccessibleNames(
+  value: unknown,
+  role: string,
+  names: readonly string[],
+): value is AccessibleNameContract[] {
+  return (
+    Array.isArray(value) &&
+    value.length === names.length &&
+    value.every((item, index) => accessibleName(item, role, names[index]))
+  );
+}
+
 function feedbackRoles(value: unknown): boolean {
   return (
     Array.isArray(value) &&
@@ -573,6 +806,14 @@ function exactKeys(value: Record<string, unknown>, expected: readonly string[]):
   const actual = Object.keys(value).sort();
   const wanted = [...expected].sort();
   return actual.length === wanted.length && actual.every((key, index) => key === wanted[index]);
+}
+
+function exactStrings(value: unknown, expected: readonly string[]): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length === expected.length &&
+    value.every((item, index) => item === expected[index])
+  );
 }
 
 function sha256Hex(value: string): string {

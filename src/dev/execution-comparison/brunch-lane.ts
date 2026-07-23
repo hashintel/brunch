@@ -10,9 +10,11 @@ import {
 } from '../../graph/seed-fixtures.js';
 import {
   isBrowserExecutionCaseContract,
+  isProspectResearchWorkspaceExecutionCaseContract,
   loadPublicCasePacket,
   type BrowserExecutionCasePublicContract,
   type ExecutionCasePublicContract,
+  type ProspectResearchWorkspaceExecutionCasePublicContract,
   type PublicCasePacket,
 } from './case-contract.js';
 
@@ -47,17 +49,20 @@ export async function prepareBrunchExecutionWorkspace(input: {
   }
 
   const packet = await loadPublicCasePacket(input.caseDir);
-  if (!isBrowserExecutionCaseContract(packet.contract)) {
-    throw new Error('legacy Brunch execution seed supports only the Petri browser case');
+  if (
+    !isBrowserExecutionCaseContract(packet.contract) &&
+    !isProspectResearchWorkspaceExecutionCaseContract(packet.contract)
+  ) {
+    throw new Error('greenfield Brunch execution seed received a brownfield contract');
   }
   const specification = await readFile(join(input.caseDir, packet.contract.case.specification), 'utf8');
   const executor = await openWorkspaceCommandExecutor(input.workspaceDir);
-  const seeded = seedFixture(
-    executor,
-    input.specificationMode === 'opaque'
+  const fixture = isProspectResearchWorkspaceExecutionCaseContract(packet.contract)
+    ? buildOpaqueProspectResearchExecutionSeed({ specification, contract: packet.contract })
+    : input.specificationMode === 'opaque'
       ? buildOpaqueBrunchExecutionSeed({ specification, contract: packet.contract })
-      : buildBrunchExecutionSeed({ specification, contract: packet.contract }),
-  );
+      : buildBrunchExecutionSeed({ specification, contract: packet.contract });
+  const seeded = seedFixture(executor, fixture);
   const publicDir = join(input.workspaceDir, '.brunch', 'execution-comparison', 'public');
   await mkdir(publicDir, { recursive: true });
   await writeFile(join(publicDir, 'spec.md'), specification, { encoding: 'utf8', flag: 'wx' });
@@ -163,10 +168,81 @@ export function buildOpaqueBrownfieldExecutionSeed(input: {
   if (isBrowserExecutionCaseContract(input.contract) || input.contract.case.mode !== 'brownfield') {
     throw new Error('opaque brownfield seed requires a brownfield public contract');
   }
+  return buildOpaqueExecutionSeed({
+    specification: input.specification,
+    slug: input.contract.case.id,
+    name: `Approved ${input.contract.case.product} brownfield execution`,
+    frontierTitle: 'Deliver the approved brownfield change',
+    frontierBody: 'Implement the approved feature in the existing target repository.',
+    scopeTitle: 'Implement and verify the approved brownfield change',
+    scopeBody:
+      'Execute the frozen specification as one coherent change while preserving the surrounding repository.',
+    moduleTitle: 'Brownfield feature implementation',
+    moduleBody: 'The implementation location and internal design remain the executor’s responsibility.',
+    criterionTitle: 'Approved brownfield behavior is satisfied',
+    criterionBody:
+      'The completed change satisfies the frozen approved specification in the existing repository.',
+    checkTitle: 'Repository-local verification passes',
+    checkBody:
+      'Use the prepared repository’s own focused build and test surfaces to verify the approved change.',
+    methodTitle: 'Prepared-target verification',
+    methodBody:
+      'Run only repository-local verification available inside the prepared target under the execution isolation policy.',
+  });
+}
+
+export function buildOpaqueProspectResearchExecutionSeed(input: {
+  readonly specification: string;
+  readonly contract: ProspectResearchWorkspaceExecutionCasePublicContract;
+}): SeedFixture {
+  return buildOpaqueExecutionSeed({
+    specification: input.specification,
+    slug: input.contract.case.id,
+    name: 'Approved prospect research workspace execution',
+    frontierTitle: 'Deliver the prospect research workspace',
+    frontierBody: 'Implement the complete approved greenfield full-stack application and its own tests.',
+    scopeTitle: 'Implement and verify the approved prospect research workspace',
+    scopeBody:
+      'Build the frozen specification as one coherent React, Node.js, TypeScript, and SQLite application.',
+    moduleTitle: 'Full-stack prospect research application',
+    moduleBody:
+      'The React frontend, Node.js backend, SQLite store, and fixture-backed adapters form one local application.',
+    criterionTitle: 'Approved prospect research behavior is satisfied',
+    criterionBody:
+      'The completed application satisfies the frozen specification and public full-stack contract.',
+    checkTitle: 'Public package test and build commands pass',
+    checkBody: 'npm test and npm run build both exit zero before promotion is prepared.',
+    methodTitle: 'Full-stack execution harness',
+    methodBody: [
+      'Use only the package-owned commands declared by the public execution packet.',
+      'execute.setup: npm install',
+      'execute.build: npm run build',
+      'execute.verify: npm test',
+    ].join('\n'),
+  });
+}
+
+function buildOpaqueExecutionSeed(input: {
+  readonly specification: string;
+  readonly slug: string;
+  readonly name: string;
+  readonly frontierTitle: string;
+  readonly frontierBody: string;
+  readonly scopeTitle: string;
+  readonly scopeBody: string;
+  readonly moduleTitle: string;
+  readonly moduleBody: string;
+  readonly criterionTitle: string;
+  readonly criterionBody: string;
+  readonly checkTitle: string;
+  readonly checkBody: string;
+  readonly methodTitle: string;
+  readonly methodBody: string;
+}): SeedFixture {
   return {
     spec: {
-      slug: input.contract.case.id,
-      name: `Approved ${input.contract.case.product} brownfield execution`,
+      slug: input.slug,
+      name: input.name,
       kind: 'feature',
     },
     nodes: [
@@ -184,8 +260,8 @@ export function buildOpaqueBrownfieldExecutionSeed(input: {
         local_id: 2,
         plane: 'plan',
         kind: 'frontier',
-        title: 'Deliver the approved brownfield change',
-        body: 'Implement the approved feature in the existing target repository.',
+        title: input.frontierTitle,
+        body: input.frontierBody,
         basis: 'explicit',
         settlement: 'settled',
         source: 'execution-adapter [frontier]',
@@ -194,8 +270,8 @@ export function buildOpaqueBrownfieldExecutionSeed(input: {
         local_id: 3,
         plane: 'plan',
         kind: 'scope',
-        title: 'Implement and verify the approved brownfield change',
-        body: 'Execute the frozen specification as one coherent change while preserving the surrounding repository.',
+        title: input.scopeTitle,
+        body: input.scopeBody,
         basis: 'explicit',
         settlement: 'settled',
         source: 'execution-adapter [scope]',
@@ -204,8 +280,8 @@ export function buildOpaqueBrownfieldExecutionSeed(input: {
         local_id: 4,
         plane: 'design',
         kind: 'module',
-        title: 'Brownfield feature implementation',
-        body: 'The implementation location and internal design remain the executor’s responsibility.',
+        title: input.moduleTitle,
+        body: input.moduleBody,
         basis: 'explicit',
         settlement: 'settled',
         source: 'execution-adapter [module]',
@@ -214,8 +290,8 @@ export function buildOpaqueBrownfieldExecutionSeed(input: {
         local_id: 5,
         plane: 'intent',
         kind: 'criterion',
-        title: 'Approved brownfield behavior is satisfied',
-        body: 'The completed change satisfies the frozen approved specification in the existing repository.',
+        title: input.criterionTitle,
+        body: input.criterionBody,
         basis: 'explicit',
         settlement: 'settled',
         source: 'execution-adapter [criterion]',
@@ -224,8 +300,8 @@ export function buildOpaqueBrownfieldExecutionSeed(input: {
         local_id: 6,
         plane: 'oracle',
         kind: 'check',
-        title: 'Repository-local verification passes',
-        body: 'Use the prepared repository’s own focused build and test surfaces to verify the approved change.',
+        title: input.checkTitle,
+        body: input.checkBody,
         basis: 'explicit',
         settlement: 'settled',
         source: 'execution-adapter [check]',
@@ -234,8 +310,8 @@ export function buildOpaqueBrownfieldExecutionSeed(input: {
         local_id: 7,
         plane: 'oracle',
         kind: 'vv_method',
-        title: 'Prepared-target verification',
-        body: 'Run only repository-local verification available inside the prepared target under the execution isolation policy.',
+        title: input.methodTitle,
+        body: input.methodBody,
         basis: 'explicit',
         settlement: 'settled',
         source: 'execution-adapter [vv_method]',

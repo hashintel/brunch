@@ -22,16 +22,21 @@ const petrinautStudy = join(
   repositoryRoot,
   'testing/end-to-end-comparisons/cases/petrinaut-optimization/study-contract.json',
 );
+const prospectExecution = join(
+  repositoryRoot,
+  'testing/execution-comparisons/cases/prospect-research-workspace',
+);
 const brunchExecution = join(repositoryRoot, 'testing/execution-comparisons/cases/brunch-host-landing');
 const petrinautExecution = join(repositoryRoot, 'testing/execution-comparisons/cases/petrinaut-optimization');
 const execFileAsync = promisify(execFile);
 
 describe('compiled end-to-end comparison case profiles', () => {
-  it('loads the unchanged Petri case and exactly two pinned brownfield cases', async () => {
-    const [petri, brunch, petrinaut, brunchPacket, petrinautPacket] = await Promise.all([
+  it('keeps prospect research as an execution case outside the end-to-end profiles', async () => {
+    const [petri, brunch, petrinaut, prospectPacket, brunchPacket, petrinautPacket] = await Promise.all([
       loadEndToEndStudyContract({ repositoryRoot, contractPath: petriStudy }),
       loadEndToEndStudyContract({ repositoryRoot, contractPath: brunchStudy }),
       loadEndToEndStudyContract({ repositoryRoot, contractPath: petrinautStudy }),
+      loadPublicCasePacket(prospectExecution),
       loadPublicCasePacket(brunchExecution),
       loadPublicCasePacket(petrinautExecution),
     ]);
@@ -69,6 +74,13 @@ describe('compiled end-to-end comparison case profiles', () => {
         parentCommit: brunch.contract.source?.parentCommit,
         parentTree: brunch.contract.source?.parentTree,
       },
+    });
+    expect(prospectPacket.contract.case).toMatchObject({
+      product: 'prospect_research_workspace',
+      mode: 'greenfield',
+      scope: 'whole_application',
+      surface: 'full_stack',
+      repository: { substrate: 'empty_dir', base: 'fresh-empty-commit' },
     });
     expect(petrinautPacket.contract.case).toMatchObject({
       product: 'petrinaut',

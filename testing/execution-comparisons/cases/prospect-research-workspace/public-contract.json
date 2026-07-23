@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "case": {
+    "id": "prospect-research-workspace-v1",
+    "specification": "spec.md",
+    "specificationSha256": "4c4f5ddafa5489ebb8bf4ef701ece12f690f3138a5c22fca7fc0746dfa31652a",
+    "provider": "anthropic",
+    "model": "claude-opus-4-8",
+    "product": "prospect_research_workspace",
+    "mode": "greenfield",
+    "scope": "whole_application",
+    "surface": "full_stack",
+    "repository": {
+      "substrate": "empty_dir",
+      "base": "fresh-empty-commit"
+    }
+  },
+  "budgets": {
+    "elapsedMinutes": 120,
+    "mechanicalInterventions": 2,
+    "substantiveHumanInterventions": 0
+  },
+  "delivery": {
+    "test": { "command": "npm", "args": ["test"] },
+    "build": { "command": "npm", "args": ["run", "build"] },
+    "start": { "command": "npm", "args": ["start"] },
+    "environment": ["PORT", "DATABASE_PATH", "RESEARCH_FIXTURE_PATH"],
+    "runtimeNetwork": "forbidden",
+    "dependencyInstallNetwork": "package-registry-only"
+  },
+  "acceptance": {
+    "healthPath": "/api/health",
+    "statePath": "/api/state",
+    "projectsPath": "/api/projects",
+    "projectActionPathPattern": "^/api/projects/[0-9]+/(approve|research)$",
+    "prospectActionPathPattern": "^/api/prospects/[0-9]+/(approve|suppress|override)$",
+    "exportPath": "/api/export",
+    "responseStatuses": {
+      "unapprovedResearch": 409,
+      "reasonlessOverride": 400,
+      "providerFailure": 503
+    },
+    "sqliteTables": ["projects", "runs", "prospects", "provenance", "suppressions", "decisions"],
+    "executionTerminal": "promotion_prepared"
+  },
+  "accessibility": {
+    "application": { "role": "application", "name": "Prospect research workspace" },
+    "projects": { "role": "heading", "name": "Research projects" },
+    "queue": { "role": "region", "name": "Prospect queue" },
+    "fields": [
+      { "role": "textbox", "name": "Project name" },
+      { "role": "textbox", "name": "Ideal customer profile" },
+      { "role": "textbox", "name": "Decision reason" }
+    ],
+    "controls": [
+      { "role": "button", "name": "Create project" },
+      { "role": "button", "name": "Approve project" },
+      { "role": "button", "name": "Run research" },
+      { "role": "button", "name": "Approve prospect" },
+      { "role": "button", "name": "Suppress prospect" },
+      { "role": "button", "name": "Override qualification" },
+      { "role": "button", "name": "Export approved prospects" }
+    ],
+    "prospectPattern": { "role": "button", "namePattern": "^Prospect: .+ at .+$" },
+    "feedbackRoles": ["status", "alert"]
+  },
+  "rules": [
+    "Work only in the target repository.",
+    "Do not inspect controller paths or seek hidden comparison material.",
+    "Use only the fixture-backed server adapters selected by the environment.",
+    "Do not add sequencing, sending, mailbox, reply-classification, scheduler, or CRM behavior.",
+    "Stop at promotion_prepared after npm test and npm run build pass."
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "name": "prospect-research-workspace-known-good",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.node.js",
+    "build": "vite build && tsc -p tsconfig.server.json",
+    "start": "node dist/server/server.js"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^6.0.3",
+    "better-sqlite3": "12.11.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.3"
+  }
+}

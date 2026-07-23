@@ -53,8 +53,30 @@ export interface PetrinautOptimizationControllerOracleManifest {
   readonly replacementRule: string;
 }
 
+export interface ProspectResearchWorkspaceControllerOracleManifest {
+  readonly schemaVersion: 1;
+  readonly id: 'prospect-research-workspace-oracles-v1';
+  readonly publicCaseId: 'prospect-research-workspace-v1';
+  readonly runnerVersion: 'prospect-research-full-stack-v1';
+  readonly fixtureVersion: 'prospect-research-fixtures-v1';
+  readonly checks: readonly {
+    readonly id:
+      | 'startup-and-health'
+      | 'project-approval-and-research'
+      | 'qualification-and-deduplication'
+      | 'suppression-and-rerun'
+      | 'override-and-export'
+      | 'provider-failure'
+      | 'restart-persistence';
+    readonly claims: readonly string[];
+  }[];
+  readonly validityRules: readonly string[];
+  readonly replacementRule: string;
+}
+
 export type ControllerOracleManifest =
   | PetriControllerOracleManifest
+  | ProspectResearchWorkspaceControllerOracleManifest
   | BrunchHostLandingControllerOracleManifest
   | PetrinautOptimizationControllerOracleManifest;
 
@@ -68,6 +90,12 @@ export function isPetrinautOptimizationControllerOracleManifest(
   value: ControllerOracleManifest,
 ): value is PetrinautOptimizationControllerOracleManifest {
   return value.id === 'petrinaut-optimization-oracles-v1';
+}
+
+export function isProspectResearchWorkspaceControllerOracleManifest(
+  value: ControllerOracleManifest,
+): value is ProspectResearchWorkspaceControllerOracleManifest {
+  return value.id === 'prospect-research-workspace-oracles-v1';
 }
 
 export interface ControllerOraclePack {
@@ -129,6 +157,9 @@ export function parseControllerOracleManifest(value: unknown): ControllerOracleM
   }
   if (value['id'] === 'petrinaut-optimization-oracles-v1') {
     return parsePetrinautOptimizationManifest(value);
+  }
+  if (value['id'] === 'prospect-research-workspace-oracles-v1') {
+    return parseProspectResearchWorkspaceManifest(value);
   }
   return parsePetriManifest(value);
 }
@@ -224,6 +255,70 @@ const PETRINAUT_OPTIMIZATION_CHECKS = [
   'cancel-and-abort',
   'private-origin-secrecy',
 ] as const;
+const PROSPECT_RESEARCH_CHECKS = [
+  'startup-and-health',
+  'project-approval-and-research',
+  'qualification-and-deduplication',
+  'suppression-and-rerun',
+  'override-and-export',
+  'provider-failure',
+  'restart-persistence',
+] as const;
+const PROSPECT_RESEARCH_CLAIMS = ['PR1', 'PR2', 'PR3', 'PR4', 'PR5', 'PR6', 'PR7', 'PR8', 'PR9'] as const;
+
+function parseProspectResearchWorkspaceManifest(
+  value: Record<string, unknown>,
+): ProspectResearchWorkspaceControllerOracleManifest {
+  const checks = value['checks'];
+  const rules = value['validityRules'];
+  if (
+    !exactKeys(value, [
+      'schemaVersion',
+      'id',
+      'publicCaseId',
+      'runnerVersion',
+      'fixtureVersion',
+      'checks',
+      'validityRules',
+      'replacementRule',
+    ]) ||
+    value['schemaVersion'] !== 1 ||
+    value['id'] !== 'prospect-research-workspace-oracles-v1' ||
+    value['publicCaseId'] !== 'prospect-research-workspace-v1' ||
+    value['runnerVersion'] !== 'prospect-research-full-stack-v1' ||
+    value['fixtureVersion'] !== 'prospect-research-fixtures-v1' ||
+    !Array.isArray(checks) ||
+    checks.length !== PROSPECT_RESEARCH_CHECKS.length ||
+    !checks.every(
+      (check, index) =>
+        record(check) &&
+        exactKeys(check, ['id', 'claims']) &&
+        check['id'] === PROSPECT_RESEARCH_CHECKS[index] &&
+        nonemptyStrings(check['claims']),
+    ) ||
+    !nonemptyStrings(rules) ||
+    !prospectValidityRules(rules as string[]) ||
+    !nonempty(value['replacementRule'])
+  ) {
+    invalid();
+  }
+  const manifest = value as unknown as ProspectResearchWorkspaceControllerOracleManifest;
+  assertOracleClaimCoverage(manifest, PROSPECT_RESEARCH_CLAIMS);
+  return manifest;
+}
+
+function prospectValidityRules(rules: readonly string[]): boolean {
+  const joined = rules.join('\n');
+  return (
+    joined.includes('Only spec.md and public-contract.json') &&
+    joined.includes('Controller fixtures') &&
+    joined.includes('package-registry-only') &&
+    joined.includes('runtime network is denied') &&
+    joined.includes('promotion_prepared') &&
+    joined.includes('/brunch:land') &&
+    joined.includes('landed')
+  );
+}
 
 function parsePetrinautOptimizationManifest(
   value: Record<string, unknown>,

@@ -4,9 +4,11 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { resolveCompiledExecutionOracle } from '../../execution-comparison-operator.js';
 import {
   assertOracleClaimCoverage,
   loadControllerOracleManifest,
+  loadControllerOraclePack,
   parseControllerOracleManifest,
 } from '../oracle-pack.js';
 
@@ -23,11 +25,11 @@ const petrinautRequirementsPath = fileURLToPath(
     import.meta.url,
   ),
 );
-
 describe('compiled controller oracle manifests', () => {
-  it('accepts exactly three compiled variants with complete brownfield claim coverage', async () => {
-    const [petri, brunch, petrinaut, registry, petrinautRegistry] = await Promise.all([
+  it('accepts exactly four compiled variants with complete non-Petri claim coverage', async () => {
+    const [petri, prospect, brunch, petrinaut, registry, petrinautRegistry] = await Promise.all([
       loadControllerOracleManifest(join(casesRoot, 'minimal-petri-net-editor')),
+      loadControllerOracleManifest(join(casesRoot, 'prospect-research-workspace')),
       loadControllerOracleManifest(join(casesRoot, 'brunch-host-landing')),
       loadControllerOracleManifest(join(casesRoot, 'petrinaut-optimization')),
       readFile(requirementsPath, 'utf8').then(
@@ -39,8 +41,12 @@ describe('compiled controller oracle manifests', () => {
     ]);
 
     expect(petri.id).toBe('minimal-petri-net-editor-oracles-v2');
+    expect(prospect.id).toBe('prospect-research-workspace-oracles-v1');
     expect(brunch.id).toBe('brunch-host-landing-oracles-v1');
     expect(petrinaut.id).toBe('petrinaut-optimization-oracles-v1');
+    expect(() =>
+      assertOracleClaimCoverage(prospect, ['PR1', 'PR2', 'PR3', 'PR4', 'PR5', 'PR6', 'PR7', 'PR8', 'PR9']),
+    ).not.toThrow();
     expect(() =>
       assertOracleClaimCoverage(
         brunch,
@@ -55,6 +61,39 @@ describe('compiled controller oracle manifests', () => {
     ).not.toThrow();
     expect(JSON.stringify(brunch)).not.toMatch(/manifestPath|command|plugin|implementationPath/u);
     expect(JSON.stringify(petrinaut)).not.toMatch(/manifestPath|command|plugin|implementationPath/u);
+    expect(JSON.stringify(prospect)).not.toMatch(/manifestPath|command|plugin|implementationPath/u);
+    const prospectPack = await loadControllerOraclePack({
+      caseDir: join(casesRoot, 'prospect-research-workspace'),
+      implementationFiles: resolveCompiledExecutionOracle('prospect-research-workspace-oracles-v1')
+        .implementationFiles,
+    });
+    expect(prospectPack.files.map(({ path }) => path)).toEqual(
+      expect.arrayContaining([
+        'controller/fixtures/provider-failure.json',
+        'controller/fixtures/research-batch.json',
+        'controller/known-good/src/client.tsx',
+        'controller/known-good/src/server.ts',
+        'controller/oracle-manifest.json',
+        'controller/rivals/confidence-only-qualification.ts',
+        'controller/rivals/destructive-reasonless-override.ts',
+        'controller/rivals/discarded-provenance.ts',
+        'controller/rivals/external-runtime-request.ts',
+        'controller/rivals/in-memory-only-state.ts',
+        'controller/rivals/non-dominant-suppression.ts',
+        'controller/rivals/overbroad-export.ts',
+        'controller/rivals/provider-failure-laundering.ts',
+        'controller/rivals/unapproved-research.ts',
+        'implementation/journeys.ts',
+        'implementation/journey-runner.ts',
+        'implementation/lifecycle.ts',
+        'implementation/prospect-research-workspace-oracle.ts',
+        'implementation/reference.ts',
+        'implementation/runner.ts',
+        'implementation/sqlite-evidence.ts',
+        'implementation/types.ts',
+      ]),
+    );
+    expect(prospectPack.packSha256).toMatch(/^sha256:[a-f0-9]{64}$/u);
     expect(() =>
       parseControllerOracleManifest({
         ...petrinaut,

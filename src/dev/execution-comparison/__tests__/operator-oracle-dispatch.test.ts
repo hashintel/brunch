@@ -23,10 +23,11 @@ describe('execution comparison compiled oracle dispatch', () => {
     expect(EXECUTION_COMPARISON_SHARED_FRAMING).not.toContain('do not add a backend');
   });
 
-  it('selects only the three compiled implementations and rejects unknown ids before launch', () => {
+  it('selects only the four compiled implementations and rejects unknown ids before launch', () => {
     const petri = resolveCompiledExecutionOracle('minimal-petri-net-editor-oracles-v2');
     const brunch = resolveCompiledExecutionOracle('brunch-host-landing-oracles-v1');
     const petrinaut = resolveCompiledExecutionOracle('petrinaut-optimization-oracles-v1');
+    const prospect = resolveCompiledExecutionOracle('prospect-research-workspace-oracles-v1');
 
     expect(petri.implementationFiles).toEqual(
       expect.arrayContaining([expect.stringContaining('browser-oracle.ts')]),
@@ -41,6 +42,14 @@ describe('execution comparison compiled oracle dispatch', () => {
         expect.stringContaining('petrinaut-optimization-oracle/calibration-seed.json'),
         expect.stringContaining('petrinaut-optimization-oracle/claims.ts'),
         expect.stringContaining('petrinaut-optimization-oracle/fake-optimizer.ts'),
+      ]),
+    );
+    expect(prospect.implementationFiles).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('prospect-research-workspace-oracle.ts'),
+        expect.stringContaining('prospect-research-workspace-oracle/lifecycle.ts'),
+        expect.stringContaining('prospect-research-workspace-oracle/reference.ts'),
+        expect.stringContaining('prospect-research-workspace-oracle/sqlite-evidence.ts'),
       ]),
     );
     expect(() => resolveCompiledExecutionOracle('runtime-plugin')).toThrow(

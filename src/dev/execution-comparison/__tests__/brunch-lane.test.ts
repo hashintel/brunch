@@ -27,6 +27,9 @@ const caseDir = fileURLToPath(
 const petrinautCaseDir = fileURLToPath(
   new URL('../../../../testing/execution-comparisons/cases/petrinaut-optimization/', import.meta.url),
 );
+const prospectCaseDir = fileURLToPath(
+  new URL('../../../../testing/execution-comparisons/cases/prospect-research-workspace/', import.meta.url),
+);
 
 describe('Brunch execution comparison lane adapter', () => {
   it('projects the frozen public packet into one complete greenfield execution scope', async () => {
@@ -134,6 +137,20 @@ describe('Brunch execution comparison lane adapter', () => {
       ]),
     );
     expect(() => assertExecuteProjectionPlanReady(projection)).not.toThrow();
+  });
+
+  it('prepares the prospect workspace from the exact opaque specification', async () => {
+    const workspaceDir = await mkdtemp(join(tmpdir(), 'brunch-prospect-execution-'));
+    const specification = await readFile(join(prospectCaseDir, 'spec.md'), 'utf8');
+    const prepared = await prepareBrunchExecutionWorkspace({ workspaceDir, caseDir: prospectCaseDir });
+    const graph = queryGraph(createDb(join(workspaceDir, '.brunch', 'brunch-v1.db')), prepared.specId);
+
+    expect(graph.nodes.find((node) => node.source === 'e2e-handoff [exact-spec]')).toMatchObject({
+      kind: 'requirement',
+      body: specification,
+    });
+    expect(graph.nodes.filter((node) => node.source === 'e2e-handoff [exact-spec]')).toHaveLength(1);
+    expect(JSON.stringify(graph)).not.toMatch(/Petri-net|static browser/iu);
   });
 
   it('projects an opaque brownfield specification without Petri-specific execution wording', async () => {
