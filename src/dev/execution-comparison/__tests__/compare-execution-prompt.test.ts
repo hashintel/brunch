@@ -59,4 +59,13 @@ describe('/compare-execution operator prompt', () => {
     expect(prompt).toContain('Do not score');
     expect(prompt).toContain('diagnostic-only');
   });
+
+  it('finishes with the deterministic retained-attempt summary only', async () => {
+    const prompt = await readFile(promptPath, 'utf8');
+
+    expect(prompt).toContain('execution-comparison-operator.ts summary');
+    expect(prompt).toContain("Return that command's stdout verbatim as the final response");
+    expect(prompt).toContain('invalidity reason when applicable');
+    expect(prompt).toContain('Do not prepend or append commentary');
+  });
 });

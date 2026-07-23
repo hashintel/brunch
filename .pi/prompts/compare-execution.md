@@ -174,4 +174,11 @@ After all selected lanes terminate and cleanup is proven, write `report.md` besi
 
 Keep common evidence and Brunch-only diagnostics visibly separate. Use `not_assessable` for unavailable common evidence. Do not score, rank, choose a winner, claim reliability, infer parity from unavailable or product-private evidence, or let Brunch-only run/Petri/debug data improve its common result. Do not turn ordinary visual hierarchy, clarity, or drag feel into an automatic mechanical verdict.
 
-Finish with the case id, run id, `provenance.json` path, executor order, each attempt id and terminal/validity state, cleanup result, retained output paths, browser report paths, attempt-record paths, and `report.md`. State any remaining human witness plainly.
+After `report.md` is complete, generate the terminal summary from the immutable attempt records:
+
+```sh
+npx tsx src/dev/execution-comparison-operator.ts summary \
+  --run-directory .fixtures/scratch/execution-comparisons/<run-id>
+```
+
+Return that command's stdout verbatim as the final response. Do not prepend or append commentary, recreate the summary from memory, or finish with only transcript or directory filenames. The deterministic summary must include the case and run ids, each attempt's terminal and validity state, invalidity reason when applicable, command and browser results, cleanup result, and absolute report, oracle, and attempt-record paths. Keep remaining human-witness details and retained output paths in `report.md`.
