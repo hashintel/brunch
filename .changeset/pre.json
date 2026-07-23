@@ -7,15 +7,20 @@
   "changesets": [
     "aggregate-comparison-release",
     "automatic-alpha-releases",
+    "brave-rivers-compare",
+    "bright-wings-relax",
+    "calm-cycles-repair",
     "clear-gates-jrks",
     "format-generated-release-pr",
     "happy-bottles-allow",
     "honest-pots-slide",
     "humble-webs-peel",
+    "legal-clowns-hunt",
     "publish-comparison-provenance",
     "reporting-evaluation-guardrails",
     "tired-jeans-cross",
     "trace-comparison-execution",
+    "tricky-poems-do",
     "validate-scoped-slices",
     "wet-loops-shave"
   ]

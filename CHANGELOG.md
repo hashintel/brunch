@@ -1,5 +1,19 @@
 # @hashintel/brunch
 
+## 1.0.0-alpha.11
+
+### Minor Changes
+
+- [#362](https://github.com/hashintel/brunch/pull/362) [`f2a8bab`](https://github.com/hashintel/brunch/commit/f2a8bab3c4a136361f2c3ef9c7c5c5fa6952a3d0) Thanks [@kostandinang](https://github.com/kostandinang)! - Add isolated Brunch and Petrinaut brownfield comparison cases.
+
+### Patch Changes
+
+- [#367](https://github.com/hashintel/brunch/pull/367) [`ecdc7e7`](https://github.com/hashintel/brunch/commit/ecdc7e7bba39cb4bb367b3459db10c6d7e1a0248) Thanks [@kostandinang](https://github.com/kostandinang)! - Improve comparison setup with automatic single-item selection and a taller interactive shell overlay.
+
+- [#370](https://github.com/hashintel/brunch/pull/370) [`9b7c9bb`](https://github.com/hashintel/brunch/commit/9b7c9bbe162e112751969e354820a76b9d9bcbdd) Thanks [@kostandinang](https://github.com/kostandinang)! - Repair failed slice verification through a bounded, crash-safe Petri retry ladder.
+
+- [#369](https://github.com/hashintel/brunch/pull/369) [`bb14572`](https://github.com/hashintel/brunch/commit/bb14572b8b782fa0901ceeced40fd4ece94c1fe6) Thanks [@kostandinang](https://github.com/kostandinang)! - Add a deterministic full-stack prospect research regression case ([#369](https://github.com/hashintel/brunch/pull/369)).
+
 ## 1.0.0-alpha.10
 
 ### Minor Changes
