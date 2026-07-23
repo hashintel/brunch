@@ -418,7 +418,7 @@ async function driveOwned(
   // ceiling: coarse halt detection — a step that leaves run.json's status
   // unchanged is treated as stuck. Replace with per-step outcome classification
   // if steps gain retry/abort semantics beyond advance-or-hold.
-  for (;;) {
+  driveLoop: for (;;) {
     const state = await readRunMetadata(metadataPath);
     if (!state) return { status: 'missing_run', runId: ctx.runId };
     if (options.maxFirings !== undefined && firedTransitions >= options.maxFirings) {
@@ -754,6 +754,10 @@ async function driveOwned(
       try {
         result = boundTransition ? await boundTransition.execute() : await neverBoundReadyStep(next);
       } catch (error) {
+        if (next.kind === 'test_result') {
+          const recoveryState = await readRunMetadata(metadataPath);
+          if (recoveryState?.pendingSliceRepair) continue driveLoop;
+        }
         if (next.kind === 'epic_integrate' || next.kind === 'epic_verify' || next.kind === 'epic_complete') {
           throw error;
         }

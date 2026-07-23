@@ -707,13 +707,16 @@ function activeRepairObservation(
   metadata: RunMetadata,
 ): Pick<RunSummary, 'activeSliceCycle' | 'activeSlicePhase'> {
   if (!metadata.activeSliceId) return {};
-  return {
-    activeSliceCycle: activeSliceRepairCycle(metadata),
-    activeSlicePhase: metadata.pendingSliceRepair
-      ? 'repair_pending'
+  const activeSlicePhase = metadata.pendingSliceRepair
+    ? 'repair_pending'
+    : metadata.status === 'slice_started' || metadata.status === 'slice_execution_requested'
+      ? 'agent'
       : metadata.status === 'agent_result_ingested'
         ? 'verify'
-        : 'agent',
+        : undefined;
+  return {
+    activeSliceCycle: activeSliceRepairCycle(metadata),
+    ...(activeSlicePhase === undefined ? {} : { activeSlicePhase }),
   };
 }
 

@@ -16,7 +16,6 @@ import {
   type PendingSliceRepair,
   type SliceRepairHistory,
   type SliceRepairStage,
-  type SliceStageEpoch,
 } from './slice-repair-cycle.js';
 
 export type WorktreeSubstrateKind = 'git_worktree' | 'empty_dir';
@@ -91,21 +90,6 @@ export interface RunMetadata {
   readonly supersedesRunId?: string;
   readonly abandonedAt?: string;
   readonly abandonReason?: string;
-}
-
-export function appendSliceStageHistory(
-  metadata: RunMetadata,
-  sliceId: string,
-  cycle: number,
-  epoch: SliceStageEpoch,
-): SliceRepairHistory {
-  return sliceRepairProtocol.appendEpoch({
-    history: metadata.sliceRepairHistory,
-    sliceId,
-    cycle,
-    epoch,
-    policy: sliceRepairProtocol.policy,
-  });
 }
 
 export function activeSliceAttemptNumber(metadata: RunMetadata): number {

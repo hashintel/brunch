@@ -3950,6 +3950,78 @@ describe('drive', () => {
     },
   );
 
+  it('keeps a thrown repair materialization recoverable instead of journaling a terminal', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-repair-throw-recovery-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    await drive({ cwd, runId: 'run-1', ports: fakePorts() }, petriScheduler, serialFiringPolicy, {
+      maxFirings: 8,
+    });
+
+    let blockedPath: string | undefined;
+    const unsubscribe = subscribeRunMetadata({
+      cwd,
+      runId: 'run-1',
+      listener(metadata) {
+        if (metadata.pendingSliceRepair?.phase !== 'pending' || blockedPath) return;
+        blockedPath = metadata.pendingSliceRepair.contextPath;
+        mkdirSync(dirname(blockedPath), { recursive: true });
+        writeFileSync(blockedPath, 'conflicting partial bytes');
+      },
+    });
+    let sourceVerifierCalls = 0;
+    const interrupted = await drive({
+      cwd,
+      runId: 'run-1',
+      ports: fakePorts({
+        testRunner: {
+          async run() {
+            sourceVerifierCalls += 1;
+            return { status: 'completed', verdict: 'failed', exitCode: 1 };
+          },
+        },
+      }),
+    });
+    unsubscribe();
+
+    expect(interrupted).toEqual({
+      status: 'halted',
+      step: 'test_result',
+      runStatus: 'agent_result_ingested',
+      reason: 'repair_context_unreadable',
+    });
+    expect(sourceVerifierCalls).toBe(1);
+    expect((await readPetriEvents(cwd)).some((event) => event.kind === 'net_halted')).toBe(false);
+    rmSync(blockedPath!);
+
+    let repairAgentCalls = 0;
+    let repairedVerifierCalls = 0;
+    const recovered = await drive({
+      cwd,
+      runId: 'run-1',
+      ports: fakePorts({
+        agentRunner: {
+          async run() {
+            repairAgentCalls += 1;
+            return { status: 'completed' };
+          },
+        },
+        testRunner: {
+          async run() {
+            repairedVerifierCalls += 1;
+            return { status: 'completed', verdict: 'passed', exitCode: 0 };
+          },
+        },
+      }),
+    });
+
+    expect(recovered).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+    expect({ sourceVerifierCalls, repairAgentCalls, repairedVerifierCalls }).toEqual({
+      sourceVerifierCalls: 1,
+      repairAgentCalls: 1,
+      repairedVerifierCalls: 1,
+    });
+  });
+
   it('recovers after repair directory creation when context publication fails without replaying verifier', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-durable-repair-directory-'));
     await createRunAtCreated(cwd, ['task-1']);

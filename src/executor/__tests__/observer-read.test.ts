@@ -163,6 +163,31 @@ describe('listRuns', () => {
     expect(freshDir).toContain('run-a');
   });
 
+  it('omits the worker phase after verification has completed', async () => {
+    const cwd = await fixtureCwd('brunch-observer-post-verify-phase-');
+    await writeRun(cwd, 'run-a', { status: 'test_result_ingested', activeSliceId: 's1' });
+    await writeRun(cwd, 'run-b', { status: 'slice_integrated', activeSliceId: 's1' });
+
+    expect(await listRuns(cwd)).toEqual([
+      {
+        runId: 'run-a',
+        specId: '42',
+        status: 'test_result_ingested',
+        activeSliceId: 's1',
+        activeSliceCycle: 1,
+        presence: { worktree: false, reports: false, petri: false, promotion: false },
+      },
+      {
+        runId: 'run-b',
+        specId: '42',
+        status: 'slice_integrated',
+        activeSliceId: 's1',
+        activeSliceCycle: 1,
+        presence: { worktree: false, reports: false, petri: false, promotion: false },
+      },
+    ]);
+  });
+
   it('marks invalid run directories unreadable instead of failing the full list', async () => {
     const cwd = await fixtureCwd('brunch-observer-invalid-dir-');
     await writeRun(cwd, 'run-a', { status: 'created' });
