@@ -30,6 +30,13 @@ export type ReportInitResult =
     }
   | {
       readonly status: PetriLifecycleReconciliationBlockReason;
+      readonly runStatus: 'source_copied';
+      readonly runId: string;
+      readonly metadataPath: string;
+      readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: PetriLifecycleReconciliationBlockReason;
       readonly runStatus: 'reports_initialized';
       readonly runId: string;
       readonly metadataPath: string;
@@ -87,6 +94,22 @@ async function initializeReportsOwned(args: {
     return {
       status: 'source_not_copied',
       runStatus: metadata.status,
+      runId: args.runId,
+      metadataPath,
+      sideEffects: [],
+    };
+  }
+
+  const sourceReconciliation = await reconcilePreparedLifecycleJournal({
+    cwd: args.cwd,
+    runId: args.runId,
+    state: metadata,
+    lifecycleTransitionIds: ['worktree_create', 'populate', 'source_policy', 'source_copy'],
+  });
+  if (sourceReconciliation.status === 'blocked') {
+    return {
+      status: sourceReconciliation.reason,
+      runStatus: 'source_copied',
       runId: args.runId,
       metadataPath,
       sideEffects: [],

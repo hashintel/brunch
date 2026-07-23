@@ -872,6 +872,9 @@ async function driveOwned(
           }
           if (attemptOutcome.status === 'retry') continue;
         }
+        if (result.status === 'petri_input_unreadable' || result.status === 'petri_journal_gap') {
+          publishPetriJournalFailure(ctx);
+        }
         const terminal = classifyDriveTerminal({
           kind: 'step_halted',
           runId: ctx.runId,

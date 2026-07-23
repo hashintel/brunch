@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { petriEventsPath } from '../petri-events.js';
+import { appendPetriEvent, petriEventsPath } from '../petri-events.js';
 import * as petriLifecycleReconciliation from '../petri-lifecycle-reconciliation.js';
 import { writePetriMarkingSnapshot } from '../petri-marking.js';
 import { preparePetriObservation } from '../petri.js';
@@ -264,6 +264,38 @@ describe('startSlice', () => {
       metadataPath: runMetadataPath(cwd, 'run-1'),
       sideEffects: [],
     });
+  });
+
+  it('does not start a slice after the prepared journal records a terminal', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-terminal-journal-'));
+    await createReportReadyRun(cwd, true);
+    await appendPetriEvent({
+      cwd,
+      runId: 'run-1',
+      event: {
+        kind: 'net_halted',
+        runId: 'run-1',
+        runStatus: 'reports_initialized',
+        step: 'slice_start',
+        reason: 'operator_halt',
+        failedSliceIds: [],
+      },
+    });
+    const journalBefore = await readFile(petriEventsPath(cwd, 'run-1'), 'utf8');
+    const reportsBefore = await readFile(reportsPath(cwd, 'run-1'), 'utf8');
+
+    await expect(startSliceWithExecutionAuthority({ cwd, runId: 'run-1' })).resolves.toEqual({
+      status: 'petri_terminal_recorded',
+      runStatus: 'reports_initialized',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      sideEffects: [],
+    });
+    const metadata = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+    expect(metadata).toMatchObject({ status: 'reports_initialized' });
+    expect(metadata?.activeSliceId).toBeUndefined();
+    await expect(readFile(reportsPath(cwd, 'run-1'), 'utf8')).resolves.toBe(reportsBefore);
+    await expect(readFile(petriEventsPath(cwd, 'run-1'), 'utf8')).resolves.toBe(journalBefore);
   });
 
   it('starts the next incomplete slice after a previous slice has completed', async () => {

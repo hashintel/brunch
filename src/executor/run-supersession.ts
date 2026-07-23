@@ -130,6 +130,12 @@ async function createSupersedingRunOwned(args: {
       if (await pathExists(runDir)) return { status: 'exists' as const };
       await mkdir(runDir, { recursive: true });
       const metadataEffect = await persistRunMetadata(metadataPath, metadata);
+      try {
+        await preparePetriObservation({ cwd: args.cwd, runId });
+      } catch (error) {
+        await rm(runDir, { recursive: true, force: true });
+        throw error;
+      }
       return { status: 'created' as const, metadataEffect };
     },
     onContended: () => ({ status: 'active' as const }),
@@ -144,13 +150,6 @@ async function createSupersedingRunOwned(args: {
       metadataPath,
       sideEffects: [],
     };
-  }
-
-  try {
-    await preparePetriObservation({ cwd: args.cwd, runId });
-  } catch (error) {
-    await rm(runDir, { recursive: true, force: true });
-    throw error;
   }
   const petriDir = dirname(petriNetPath(args.cwd, runId));
 

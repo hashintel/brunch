@@ -13,7 +13,8 @@ import type { RunMetadata } from './run.js';
 export type PetriLifecycleReconciliationBlockReason =
   | 'parallel_batch_active'
   | 'petri_input_unreadable'
-  | 'petri_journal_gap';
+  | 'petri_journal_gap'
+  | 'petri_terminal_recorded';
 
 export type PetriLifecycleReconciliation =
   | { readonly status: 'not_prepared' }
@@ -47,6 +48,14 @@ export async function reconcilePreparedLifecycleJournal(args: {
   });
   if (authority.status !== 'readable') {
     return { status: 'blocked', reason: 'petri_input_unreadable' };
+  }
+  if (
+    authority.events.some(
+      (event) =>
+        event.kind === 'net_completed' || event.kind === 'net_halted' || event.kind === 'net_deadlocked',
+    )
+  ) {
+    return { status: 'blocked', reason: 'petri_terminal_recorded' };
   }
   if (authority.relation === 'equal') return { status: 'synchronized' };
   if (authority.relation === 'journal_ahead') {

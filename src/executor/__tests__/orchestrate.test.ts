@@ -3652,8 +3652,11 @@ describe('drive', () => {
     expect(outcome).toEqual({
       status: 'halted',
       step: 'report_init',
-      runStatus: 'reports_initialized',
+      runStatus: 'source_copied',
       reason: 'petri_input_unreadable',
+    });
+    await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+      status: 'source_copied',
     });
   });
 

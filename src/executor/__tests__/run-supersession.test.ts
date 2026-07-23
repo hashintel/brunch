@@ -11,7 +11,13 @@ import { petriNetPath, petriSdcpnPath } from '../petri.js';
 import { planFilePath, planProvenancePath } from '../plan-file.js';
 import { withRunExecutionAuthority } from '../run-execution-authority.js';
 import { createSupersedingRun } from '../run-supersession.js';
-import { readRunMetadata, runDirPath, runMetadataPath, type RunMetadata } from '../run.js';
+import {
+  readRunMetadata,
+  runDirPath,
+  runMetadataPath,
+  subscribeRunMetadata,
+  type RunMetadata,
+} from '../run.js';
 
 const current: LaunchCurrentProjection = {
   specId: '42',
@@ -234,6 +240,48 @@ describe('createSupersedingRun', () => {
     await expect(pathExists(petriNetPath(cwd, 'run-new'))).resolves.toBe(true);
     await expect(pathExists(petriSdcpnPath(cwd, 'run-new'))).resolves.toBe(true);
     await expect(readFile(petriEventsPath(cwd, 'run-new'), 'utf8')).resolves.toBe('');
+  });
+
+  it('holds target-run authority through observer preparation', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-supersede-target-authority-'));
+    await writePlan(cwd);
+    await writeRun(cwd, 'run-old');
+    let initialMetadataPersisted!: () => void;
+    const initialMetadata = new Promise<void>((resolve) => {
+      initialMetadataPersisted = resolve;
+    });
+    const unsubscribe = subscribeRunMetadata({
+      cwd,
+      runId: 'run-new',
+      listener(metadata) {
+        if (metadata.petriObservationPrepared !== true) initialMetadataPersisted();
+      },
+    });
+    const targetClaim = initialMetadata.then(() =>
+      withRunExecutionAuthority({
+        cwd,
+        runId: 'run-new',
+        execute: async () => 'acquired' as const,
+        onContended: () => 'contended' as const,
+      }),
+    );
+
+    try {
+      const [result, claim] = await Promise.all([
+        createSupersedingRun({
+          cwd,
+          previousRunId: 'run-old',
+          runId: 'run-new',
+          current,
+        }),
+        targetClaim,
+      ]);
+
+      expect(result.status).toBe('created');
+      expect(claim).toBe('contended');
+    } finally {
+      unsubscribe();
+    }
   });
 
   it('removes an unpublished replacement run when observer preparation fails', async () => {
