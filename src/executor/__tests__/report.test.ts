@@ -4,10 +4,12 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { petriEventsPath } from '../petri-events.js';
+import { preparePetriObservation } from '../petri.js';
 import { planFilePath } from '../plan-file.js';
 import { populateWorktree } from '../populate.js';
 import { initializeReports, reportsPath } from '../report.js';
-import { runDirPath, runMetadataPath, createRun } from '../run.js';
+import { runDirPath, runMetadataPath, readRunMetadata, createRun } from '../run.js';
 import { copyHostSource } from '../source-copy.js';
 import { selectSourcePolicy } from '../source-policy.js';
 import { createWorktree } from '../worktree.js';
@@ -101,5 +103,27 @@ describe('initializeReports', () => {
       reportsPath: reportsPath(cwd, 'run-1'),
     });
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'petrinaut'))).toBe(false);
+  });
+
+  it('reports a blocked prepared-journal reconciliation after persisting report initialization', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-report-blocked-journal-'));
+    await createSourceCopiedRun(cwd);
+    await preparePetriObservation({ cwd, runId: 'run-1' });
+    await writeFile(petriEventsPath(cwd, 'run-1'), '{', 'utf8');
+
+    await expect(initializeReports({ cwd, runId: 'run-1' })).resolves.toEqual({
+      status: 'petri_input_unreadable',
+      runStatus: 'reports_initialized',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      reportsPath: reportsPath(cwd, 'run-1'),
+      sideEffects: [
+        { kind: 'write_file', path: reportsPath(cwd, 'run-1'), ifExists: 'overwrite' },
+        { kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
+      ],
+    });
+    await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+      status: 'reports_initialized',
+    });
   });
 });

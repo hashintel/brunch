@@ -1,7 +1,10 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { reconcilePreparedLifecycleJournal } from './petri-lifecycle-reconciliation.js';
+import {
+  reconcilePreparedLifecycleJournal,
+  type PetriLifecycleReconciliationBlockReason,
+} from './petri-lifecycle-reconciliation.js';
 import {
   runExecutionActive,
   withRunExecutionAuthority,
@@ -24,6 +27,17 @@ export type ReportInitResult =
       readonly runId: string;
       readonly metadataPath: string;
       readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: PetriLifecycleReconciliationBlockReason;
+      readonly runStatus: 'reports_initialized';
+      readonly runId: string;
+      readonly metadataPath: string;
+      readonly reportsPath: string;
+      readonly sideEffects: readonly [
+        { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
+        { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
+      ];
     }
   | {
       readonly status: 'reports_initialized';
@@ -85,12 +99,23 @@ async function initializeReportsOwned(args: {
 
   await writeFile(path, `${JSON.stringify(event)}\n`, 'utf8');
   const metadataEffect = await persistRunMetadata(metadataPath, updated);
-  await reconcilePreparedLifecycleJournal({
+  const sideEffects = [{ kind: 'write_file', path, ifExists: 'overwrite' }, metadataEffect] as const;
+  const reconciliation = await reconcilePreparedLifecycleJournal({
     cwd: args.cwd,
     runId: args.runId,
     state: updated,
     lifecycleTransitionIds: ['worktree_create', 'populate', 'source_policy', 'source_copy', 'report_init'],
   });
+  if (reconciliation.status === 'blocked') {
+    return {
+      status: reconciliation.reason,
+      runStatus: 'reports_initialized',
+      runId: args.runId,
+      metadataPath,
+      reportsPath: path,
+      sideEffects,
+    };
+  }
 
   return {
     status: 'reports_initialized',
@@ -98,6 +123,6 @@ async function initializeReportsOwned(args: {
     runId: args.runId,
     metadataPath,
     reportsPath: path,
-    sideEffects: [{ kind: 'write_file', path, ifExists: 'overwrite' }, metadataEffect],
+    sideEffects,
   };
 }

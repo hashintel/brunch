@@ -2,9 +2,10 @@ import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { petriEventsPath } from '../petri-events.js';
+import * as petriLifecycleReconciliation from '../petri-lifecycle-reconciliation.js';
 import { writePetriMarkingSnapshot } from '../petri-marking.js';
 import { preparePetriObservation } from '../petri.js';
 import { planFilePath } from '../plan-file.js';
@@ -218,6 +219,37 @@ describe('startSlice', () => {
       'report_init',
       'slice_start:task-1',
     ]);
+  });
+
+  it('reports a blocked reconciliation after persisting the slice-start transition', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-post-reconciliation-block-'));
+    await createReportReadyRun(cwd);
+    const reconcile = vi
+      .spyOn(petriLifecycleReconciliation, 'reconcilePreparedLifecycleJournal')
+      .mockResolvedValueOnce({ status: 'synchronized' })
+      .mockResolvedValueOnce({ status: 'blocked', reason: 'petri_input_unreadable' });
+
+    try {
+      await expect(startSliceWithExecutionAuthority({ cwd, runId: 'run-1' })).resolves.toEqual({
+        status: 'petri_input_unreadable',
+        runStatus: 'slice_started',
+        runId: 'run-1',
+        sliceId: 'task-1',
+        epicId: 'frontier-1',
+        metadataPath: runMetadataPath(cwd, 'run-1'),
+        reportsPath: reportsPath(cwd, 'run-1'),
+        sideEffects: [
+          { kind: 'append_file', path: reportsPath(cwd, 'run-1') },
+          { kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
+        ],
+      });
+    } finally {
+      reconcile.mockRestore();
+    }
+    await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+      status: 'slice_started',
+      activeSliceId: 'task-1',
+    });
   });
 
   it('reports unreadable Petri input instead of inventing parallel authority', async () => {

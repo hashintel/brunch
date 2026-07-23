@@ -1371,6 +1371,11 @@ describe('Brunch explicit Pi extension registry', () => {
       sideEffects: [
         { kind: 'mkdir', path: dirname(newMetadataPath) },
         { kind: 'write_file', path: newMetadataPath, ifExists: 'overwrite' },
+        { kind: 'mkdir', path: join(dirname(newMetadataPath), 'petrinaut') },
+        { kind: 'write_file', path: join(dirname(newMetadataPath), 'petrinaut', 'plan.json') },
+        { kind: 'write_file', path: join(dirname(newMetadataPath), 'petrinaut', 'net.json') },
+        { kind: 'write_file', path: join(dirname(newMetadataPath), 'petrinaut', 'net.sdcpn.json') },
+        { kind: 'write_file', path: join(dirname(newMetadataPath), 'petrinaut', 'events.jsonl') },
       ],
     });
     await expect(readFile(oldMetadataPath, 'utf8')).resolves.not.toContain('supersedesRunId');

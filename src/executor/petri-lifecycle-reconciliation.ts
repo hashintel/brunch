@@ -10,12 +10,17 @@ import { replayTransitionHistory } from './petri-replay.js';
 import { readPetriRuntimePlan } from './petri-runtime-plan.js';
 import type { RunMetadata } from './run.js';
 
+export type PetriLifecycleReconciliationBlockReason =
+  | 'parallel_batch_active'
+  | 'petri_input_unreadable'
+  | 'petri_journal_gap';
+
 export type PetriLifecycleReconciliation =
   | { readonly status: 'not_prepared' }
   | { readonly status: 'synchronized' }
   | {
       readonly status: 'blocked';
-      readonly reason: 'parallel_batch_active' | 'petri_input_unreadable' | 'petri_journal_gap';
+      readonly reason: PetriLifecycleReconciliationBlockReason;
     };
 
 export async function reconcilePreparedLifecycleJournal(args: {

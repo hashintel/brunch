@@ -7,7 +7,10 @@ import {
   type BlockedStep,
   type SchedulerPlan,
 } from './orchestrate-topology.js';
-import { reconcilePreparedLifecycleJournal } from './petri-lifecycle-reconciliation.js';
+import {
+  reconcilePreparedLifecycleJournal,
+  type PetriLifecycleReconciliationBlockReason,
+} from './petri-lifecycle-reconciliation.js';
 import { projectExecutorPetriTransitionHistory } from './petri-runtime.js';
 import { populatedPlanPath } from './populate.js';
 import { reportsPath } from './report.js';
@@ -31,11 +34,7 @@ export type SliceStartResult =
       readonly sideEffects: readonly [];
     }
   | {
-      readonly status:
-        | 'run_execution_active'
-        | 'parallel_batch_active'
-        | 'petri_input_unreadable'
-        | 'petri_journal_gap';
+      readonly status: 'run_execution_active' | PetriLifecycleReconciliationBlockReason;
       readonly runStatus: RunMetadata['status'] | 'not_started';
       readonly runId: string;
       readonly metadataPath: string;
@@ -56,6 +55,19 @@ export type SliceStartResult =
       readonly reportsPath: string;
       readonly blockedSteps: readonly BlockedStep[];
       readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: PetriLifecycleReconciliationBlockReason;
+      readonly runStatus: 'slice_started';
+      readonly runId: string;
+      readonly sliceId: string;
+      readonly epicId?: string;
+      readonly metadataPath: string;
+      readonly reportsPath: string;
+      readonly sideEffects: readonly [
+        { readonly kind: 'append_file'; readonly path: string },
+        { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
+      ];
     }
   | {
       readonly status: 'slice_started';
@@ -190,13 +202,26 @@ async function startSliceOwned(args: {
 
   await appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8');
   const metadataEffect = await persistRunMetadata(metadataPath, updated);
-  await reconcilePreparedLifecycleJournal({
+  const sideEffects = [{ kind: 'append_file', path: reportPath }, metadataEffect] as const;
+  const transitionedReconciliation = await reconcilePreparedLifecycleJournal({
     cwd: args.cwd,
     runId: args.runId,
     state: updated,
     lifecycleTransitionIds: projectExecutorPetriTransitionHistory(updated, plan)?.transitionIds,
     plan,
   });
+  if (transitionedReconciliation.status === 'blocked') {
+    return {
+      status: transitionedReconciliation.reason,
+      runStatus: 'slice_started',
+      runId: args.runId,
+      sliceId: slice.id,
+      ...(slice.epic_id === undefined ? {} : { epicId: slice.epic_id }),
+      metadataPath,
+      reportsPath: reportPath,
+      sideEffects,
+    };
+  }
 
   return {
     status: 'slice_started',
@@ -206,7 +231,7 @@ async function startSliceOwned(args: {
     ...(slice.epic_id === undefined ? {} : { epicId: slice.epic_id }),
     metadataPath,
     reportsPath: reportPath,
-    sideEffects: [{ kind: 'append_file', path: reportPath }, metadataEffect],
+    sideEffects,
   };
 }
 
