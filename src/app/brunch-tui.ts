@@ -50,7 +50,6 @@ import {
   type SpecSessionActivationCoordinator,
   type SpecSessionActivationDecision,
 } from '../session/workspace-session-coordinator.js';
-import type { CommandRunner } from './command-runner.js';
 import { openUrlBestEffort } from './open-url.js';
 import {
   chromeStateForWorkspace,
@@ -68,7 +67,6 @@ import {
   resolveBrunchStartupTheme,
 } from './pi-settings.js';
 import { loadBrunchSubagents } from './pi-subagents.js';
-import { createTestRunnerPort } from './test-runner-port.js';
 export {
   BRUNCH_SETTINGS_AUDITED_GETTERS,
   BRUNCH_SETTINGS_POLICY,
@@ -122,7 +120,6 @@ export interface BrunchTuiLaunchContext {
    */
   comparisonIsolation?: {
     readonly targetRoot: string;
-    readonly verifier: CommandRunner;
   };
   reportAsyncDiagnostic?: (diagnostic: { readonly type: 'warning'; readonly message: string }) => void;
   /**
@@ -581,9 +578,6 @@ export function createBrunchAgentSessionRuntimeFactory(
               ? {
                   allowWebTools: false,
                   foregroundFilesystemRoot: comparisonIsolation.targetRoot,
-                  executionPorts: {
-                    testRunner: createTestRunnerPort({ run: comparisonIsolation.verifier }),
-                  },
                 }
               : {}),
             promptContext: () => {

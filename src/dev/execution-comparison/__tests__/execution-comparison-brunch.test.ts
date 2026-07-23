@@ -17,67 +17,20 @@ afterEach(async () => {
 
 describe('execution comparison Brunch CLI arguments', () => {
   it('parses a complete workspace and positive specification id', () => {
-    expect(
-      parseExecutionComparisonArgs([
-        '--workspace',
-        '/tmp/petri-editor',
-        '--spec-id',
-        '17',
-        '--solution-isolation',
-        'v1',
-        '--forbidden-root',
-        '/tmp/controller',
-      ]),
-    ).toEqual({
+    expect(parseExecutionComparisonArgs(['--workspace', '/tmp/petri-editor', '--spec-id', '17'])).toEqual({
       workspaceDir: '/tmp/petri-editor',
       specId: 17,
-      forbiddenRoots: ['/tmp/controller'],
-      solutionIsolation: 'v1',
     });
   });
 
   it('rejects another option where the workspace value is required', () => {
-    expect(() =>
-      parseExecutionComparisonArgs([
-        '--workspace',
-        '--spec-id',
-        '17',
-        '--solution-isolation',
-        'v1',
-        '--forbidden-root',
-        '/tmp/controller',
-      ]),
-    ).toThrow();
+    expect(() => parseExecutionComparisonArgs(['--workspace', '--spec-id', '17'])).toThrow();
   });
 
   it('rejects missing, non-integer, and unknown options', () => {
     expect(() => parseExecutionComparisonArgs(['--workspace', '/tmp/petri-editor'])).toThrow('Usage:');
     expect(() =>
-      parseExecutionComparisonArgs([
-        '--workspace',
-        '/tmp/petri-editor',
-        '--spec-id',
-        '1.5',
-        '--solution-isolation',
-        'v1',
-        '--forbidden-root',
-        '/tmp/controller',
-      ]),
-    ).toThrow('Usage:');
-    expect(() =>
-      parseExecutionComparisonArgs(['--workspace', '/tmp/petri-editor', '--spec-id', '1']),
-    ).toThrow('Usage:');
-    expect(() =>
-      parseExecutionComparisonArgs([
-        '--workspace',
-        '/tmp/petri-editor',
-        '--spec-id',
-        '1',
-        '--solution-isolation',
-        'prompt-only',
-        '--forbidden-root',
-        '/tmp/controller',
-      ]),
+      parseExecutionComparisonArgs(['--workspace', '/tmp/petri-editor', '--spec-id', '1.5']),
     ).toThrow('Usage:');
     expect(() => parseExecutionComparisonArgs(['--unknown', 'value'])).toThrow();
   });

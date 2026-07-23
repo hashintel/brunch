@@ -24,9 +24,11 @@ From a trusted top-level project Pi session, run:
 
 ```text
 /compare-execution minimal-petri-net-editor
+/compare-execution brunch-host-landing
+/compare-execution petrinaut-optimization
 ```
 
-The workflow gives Brunch and Claude Code the same frozen specification and applies the same independent browser checks to both outputs. Alpha 10 records the Brunch version and commit automatically.
+The workflow gives Brunch and Claude Code the same frozen specification and applies the selected case's independent checks to both outputs. Brownfield cases require a local checkout containing their pinned parent commit; the operator creates a fresh remote-free target from it. Alpha 10 records the Brunch version and commit automatically.
 
 ## End-to-end comparison
 

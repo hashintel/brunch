@@ -11,16 +11,12 @@ import {
 import { createClaudeExecutionLaunch } from '../end-to-end-comparison/claude-adapter.js';
 import { materializeExactExecutionPacket } from '../end-to-end-comparison/public-packet.js';
 import {
-  admitHistoricalReplay,
   createBrunchSolutionIsolationPolicy,
   createClaudeSolutionIsolationPolicy,
-  createNetworkDeniedCommandRunner,
   materializePinnedSourceTree,
-  SolutionIsolationAdmissionError,
+  verifyPreparedHistoricalReplay,
   type BrunchSolutionIsolationPolicy,
   type ClaudeSolutionIsolationPolicy,
-  type IsolationAdmissionReason,
-  type NetworkDeniedCommandRunner,
 } from '../end-to-end-comparison/solution-isolation.js';
 import { assertControllerIsolation } from '../end-to-end-comparison/study-contract.js';
 import { seedBrownfieldBrunchExecutionWorkspace } from './brunch-lane.js';
@@ -141,7 +137,6 @@ export interface HistoricalReplayCaseSelection {
 export interface HistoricalReplayTargetDependencies {
   readonly runner?: CommandRunner;
   readonly dependencyInstallRunner?: CommandRunner;
-  readonly createVerifier?: (forbiddenReadRoots: readonly string[]) => NetworkDeniedCommandRunner;
   readonly onPetrinautDependencyPreparation?: (
     observation: PetrinautDependencyPreparationObservation,
   ) => Promise<void> | void;
@@ -150,7 +145,6 @@ export interface HistoricalReplayTargetDependencies {
 export class HistoricalReplayTargetPreparationError extends Error {
   readonly status = 'setup_failed' as const;
   readonly phase: HistoricalReplayPreparationPhase;
-  readonly reasons: readonly IsolationAdmissionReason[];
   override readonly cause: unknown;
 
   constructor(phase: HistoricalReplayPreparationPhase, cause: unknown) {
@@ -160,7 +154,6 @@ export class HistoricalReplayTargetPreparationError extends Error {
     this.name = 'HistoricalReplayTargetPreparationError';
     this.phase = phase;
     this.cause = cause;
-    this.reasons = cause instanceof SolutionIsolationAdmissionError ? cause.reasons : [];
   }
 }
 
@@ -254,19 +247,12 @@ export async function prepareHistoricalReplayTarget(
     phase = 'admission';
     const claudePolicy = createClaudeSolutionIsolationPolicy(input.targetDir, forbiddenRoots);
     const brunchPolicy = createBrunchSolutionIsolationPolicy(input.targetDir);
-    await admitHistoricalReplay({
+    await verifyPreparedHistoricalReplay({
       prefix: {
         ...materialized,
         baseSha,
         packetFiles,
       },
-      policies: [claudePolicy, brunchPolicy],
-      forbiddenRoots,
-      networkProbeUrls: [],
-      verifier:
-        dependencies.createVerifier?.(forbiddenRoots) ??
-        createNetworkDeniedCommandRunner({ forbiddenReadRoots: forbiddenRoots }),
-      localChecks: [],
       runner,
     });
 
@@ -293,7 +279,6 @@ export async function prepareHistoricalReplayTarget(
         launch: createBrunchExecutionLaunch({
           workspaceDir: input.targetDir,
           specId: seeded.specId,
-          forbiddenRoots,
         }),
       };
     }

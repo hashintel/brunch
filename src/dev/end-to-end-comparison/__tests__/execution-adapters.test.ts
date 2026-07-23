@@ -75,12 +75,6 @@ describe('end-to-end execution adapters', () => {
         join(root, 'targets', 'brunch'),
         '--spec-id',
         '1',
-        '--solution-isolation',
-        'v1',
-        '--forbidden-root',
-        controllerRoot,
-        '--forbidden-root',
-        repositoryRoot,
       ],
       cwd: repositoryRoot,
     });

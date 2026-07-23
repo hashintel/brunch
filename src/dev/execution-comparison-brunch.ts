@@ -14,12 +14,10 @@ import {
   type BrunchTuiLaunchContext,
 } from '../app/brunch-tui.js';
 import { openWorkspaceCommandExecutor } from '../graph/index.js';
-import { createNetworkDeniedCommandRunner } from './end-to-end-comparison/solution-isolation.js';
 
 export async function runPinnedBrunchExecutionTui(input: {
   readonly workspaceDir: string;
   readonly specId: number;
-  readonly forbiddenRoots: readonly string[];
   readonly provider: 'anthropic';
   readonly model: 'claude-opus-4-8';
 }): Promise<void> {
@@ -35,7 +33,7 @@ export async function runPinnedBrunchExecutionTui(input: {
     webSidecarRunner: async () => null,
     runWorkspaceDialogPreflight: async () => preflight,
     launchInteractive: async (context) => {
-      await launchPinnedInteractive(context, model, input.forbiddenRoots);
+      await launchPinnedInteractive(context, model);
     },
   });
 }
@@ -63,21 +61,13 @@ export async function resolvePinnedBrunchPreflight(input: {
     : { action: 'newSession', specId: input.specId };
 }
 
-async function launchPinnedInteractive(
-  context: BrunchTuiLaunchContext,
-  model: Model<Api>,
-  forbiddenRoots: readonly string[],
-): Promise<void> {
+async function launchPinnedInteractive(context: BrunchTuiLaunchContext, model: Model<Api>): Promise<void> {
   const agentDir = getAgentDir();
-  const verifier = createNetworkDeniedCommandRunner({
-    forbiddenReadRoots: forbiddenRoots,
-  });
   const createRuntime = createBrunchAgentSessionRuntimeFactory({
     ...context,
     allowSubagents: false,
     comparisonIsolation: {
       targetRoot: context.workspace.cwd,
-      verifier: verifier.run,
     },
     agentServices: { model },
   });
@@ -96,8 +86,6 @@ async function launchPinnedInteractive(
 export function parseExecutionComparisonArgs(args: readonly string[]): {
   readonly workspaceDir: string;
   readonly specId: number;
-  readonly forbiddenRoots: readonly string[];
-  readonly solutionIsolation: 'v1';
 } {
   const { values } = parseNodeArgs({
     args: [...args],
@@ -106,25 +94,14 @@ export function parseExecutionComparisonArgs(args: readonly string[]): {
     options: {
       workspace: { type: 'string' },
       'spec-id': { type: 'string' },
-      'solution-isolation': { type: 'string' },
-      'forbidden-root': { type: 'string', multiple: true },
     },
   });
   const workspaceDir = values.workspace;
   const specId = Number(values['spec-id']);
-  const forbiddenRoots = values['forbidden-root'] ?? [];
-  if (
-    !workspaceDir ||
-    forbiddenRoots.length === 0 ||
-    !Number.isSafeInteger(specId) ||
-    specId <= 0 ||
-    values['solution-isolation'] !== 'v1'
-  ) {
-    throw new Error(
-      'Usage: execution-comparison-brunch --workspace <path> --spec-id <positive integer> --solution-isolation v1 --forbidden-root <path> [--forbidden-root <path> ...]',
-    );
+  if (!workspaceDir || !Number.isSafeInteger(specId) || specId <= 0) {
+    throw new Error('Usage: execution-comparison-brunch --workspace <path> --spec-id <positive integer>');
   }
-  return { workspaceDir, specId, forbiddenRoots, solutionIsolation: 'v1' };
+  return { workspaceDir, specId };
 }
 
 async function main(): Promise<void> {
@@ -132,7 +109,6 @@ async function main(): Promise<void> {
   await runPinnedBrunchExecutionTui({
     workspaceDir: args.workspaceDir,
     specId: args.specId,
-    forbiddenRoots: args.forbiddenRoots,
     provider: 'anthropic',
     model: 'claude-opus-4-8',
   });

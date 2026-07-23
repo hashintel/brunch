@@ -18,7 +18,6 @@ export interface ExecutionLaunch {
 export function createBrunchExecutionLaunch(input: {
   readonly workspaceDir: string;
   readonly specId: number;
-  readonly forbiddenRoots: readonly string[];
 }): ExecutionLaunch {
   return {
     command: 'npx',
@@ -29,9 +28,6 @@ export function createBrunchExecutionLaunch(input: {
       input.workspaceDir,
       '--spec-id',
       String(input.specId),
-      '--solution-isolation',
-      'v1',
-      ...input.forbiddenRoots.flatMap((root) => ['--forbidden-root', root]),
     ],
     cwd: repositoryRoot(),
   };
@@ -64,15 +60,11 @@ export async function prepareBrunchExecutionCell(input: {
     caseDir: materialized.packetDir,
     specificationMode: 'opaque',
   });
-  const forbiddenRoots = [input.controllerRoot, repositoryRoot()].filter(
-    (root) => !containedPath(root, input.workspaceDir) && !containedPath(input.workspaceDir, root),
-  );
   return {
     prepared,
     launch: createBrunchExecutionLaunch({
       workspaceDir: input.workspaceDir,
       specId: prepared.specId,
-      forbiddenRoots,
     }),
   };
 }

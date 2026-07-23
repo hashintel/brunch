@@ -53,14 +53,13 @@ export {
 } from './end-to-end-comparison/claude-adapter.js';
 export { retainExecutionCell } from './end-to-end-comparison/execution-cell.js';
 export {
-  assertTargetBoundedPath,
   createBrunchSolutionIsolationPolicy,
   createClaudeSolutionIsolationPolicy,
-  createNetworkDeniedCommandRunner,
-  SolutionIsolationAdmissionError,
+  materializePinnedSourceTree,
+  verifyPreparedHistoricalReplay,
   type BrunchSolutionIsolationPolicy,
   type ClaudeSolutionIsolationPolicy,
-  type IsolationAdmissionReason,
-  type NetworkDeniedCommandRunner,
+  type MaterializedHistoricalReplayPrefix,
+  type MaterializedPinnedSourceTree,
   type SolutionIsolationPolicy,
 } from './end-to-end-comparison/solution-isolation.js';

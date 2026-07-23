@@ -131,8 +131,7 @@ export async function prepareExecutionTarget(
   if (
     input.sourceRepositoryDir !== undefined ||
     dependencies.runner !== undefined ||
-    dependencies.dependencyInstallRunner !== undefined ||
-    dependencies.createVerifier !== undefined
+    dependencies.dependencyInstallRunner !== undefined
   ) {
     throw new Error('--source-repository is valid only for pinned execution cases');
   }

@@ -270,7 +270,7 @@ function implementationPrompt(): string {
     'Treat public-contract.json as the only additional delivery and interoperability baseline.',
     'Work only inside the current Git repository. Do not inspect parent directories or external project files.',
     'Do not reinterpret, normalize, or repair the specification.',
-    'Run npm test and npm run build. Leave the complete implementation in the working tree when both pass.',
+    'Follow the delivery, acceptance, and terminal rules in public-contract.json. Leave the complete implementation in the working tree when finished.',
     'Do not create or use browser-oracle files; those are controller-owned and unavailable.',
   ].join(' ');
 }

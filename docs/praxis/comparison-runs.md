@@ -72,10 +72,12 @@ The publication skill validates `report.md`, `provenance.json`, and the availabl
 
 ## Quick start: compare execution
 
-From a trusted top-level project Pi session, run:
+From a trusted top-level project Pi session, run any frozen execution case:
 
 ```text
 /compare-execution minimal-petri-net-editor
+/compare-execution brunch-host-landing
+/compare-execution petrinaut-optimization
 ```
 
 The project-local operator displays the frozen specification, public contract, selected Brunch/Claude
@@ -84,40 +86,23 @@ fresh isolated lane at a time, cleans up each live shell before continuing, and 
 controller-owned browser oracle to every retained outcome. With no case id,
 `/compare-execution` lists eligible cases under `testing/execution-comparisons/cases/`.
 
+Greenfield cases prepare an empty repository. Brownfield cases ask for a trusted local source checkout,
+materialize the pinned commit into a fresh remote-free repository, add the exact packet, and disable
+web/MCP surfaces while bounding file access to the target. This prevents accidental contamination; it
+does not claim adversarial isolation from every host capability.
+
 This is developer/evaluation tooling under `.pi/prompts/`, not a shipped Brunch product command.
 Brunch stops at `promotion_prepared`; the operator never invokes `/brunch:land`, scores a lane, chooses
 a winner, or treats Brunch-only run/Petri/debug evidence as common comparison evidence.
 
-### Petrinaut historical setup preflight
+### Petrinaut calibration
 
-Before spending a provider turn on the frozen Petrinaut case, run the controller-only preflight with
-an explicit real HASH source checkout and three disjoint scratch roots:
-
-```sh
-npx tsx src/dev/execution-comparison-operator.ts petrinaut-preflight \
-  --source-repository /absolute/path/to/hash \
-  --parent-target /absolute/disposable-work/parent \
-  --reference-target /absolute/disposable-work/reference \
-  --output-root /absolute/retained-evidence
-```
-
-The command accepts no provider, reference commit, dependency command, manifest command, or oracle
-plugin. It prepares the frozen parent through D137-L, calibrates only the code-owned merged PR #9051
-reference with the same compiled immutable install and unchanged
-`petrinaut-optimization-oracles-v1`, writes one path-redacted receipt plus bounded write-once
-`parent-dependency.json`, `reference-dependency.json`, and `oracle-summary.json` files for each reached
-phase, and removes both owned workspaces. Receipt evidence entries contain only fixed relative
-filenames, SHA-256, byte count, and truncation state. The receipt is evidence, not an admission token.
-`setup_failed` or `assertion_failed` blocks historical provider work; never bypass the failed phase or
-replace an invalid receipt.
-
-The 2026-07-22 diagnostic run proved both immutable installs, tracked-source checks, and all six
-focused builds, then exposed that fixture-authored labels were stronger than PR #9051's public UI.
-The frozen packet, typed addresses, and synthetic rivals were rebaselined to source-backed semantics
-before any provider attempt. PR #362 deliberately shipped without rerunning the expensive real
-post-rebaseline preflight, so no passing merged-reference receipt exists. Before a future first
-Petrinaut provider attempt, rerun the command above and require a passing receipt under D138-L; the
-waiver used to close the implementation PR is not reusable as campaign evidence.
+The Petrinaut oracle uses the standalone `/optimization` route, closed focused builds, and a
+deterministic loopback optimizer. Its source-backed addresses were calibrated against PR #9051 during
+case construction. Recheck the pinned parent fails and the merged reference passes only when the
+source commit, public contract, or oracle changes; record that bounded calibration in the change that
+updates the case. Routine comparisons do not duplicate the HASH install or materialize a reference
+checkout before every provider run.
 
 ## End-to-end comparison tracer
 

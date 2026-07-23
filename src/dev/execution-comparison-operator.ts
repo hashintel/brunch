@@ -25,10 +25,6 @@ import {
   loadControllerOraclePack,
 } from './execution-comparison/oracle-pack.js';
 import {
-  runPetrinautHistoricalPreflight,
-  type PetrinautHistoricalPreflightReceipt,
-} from './execution-comparison/petrinaut-historical-preflight.js';
-import {
   runPetrinautOptimizationOracle,
   type PetrinautOptimizationOracleReport,
 } from './execution-comparison/petrinaut-optimization-oracle.js';
@@ -144,22 +140,7 @@ const DEFAULT_CASES_ROOT = fileURLToPath(
 );
 const DEFAULT_CONTROLLER_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
-interface ExecutionComparisonOperatorDependencies {
-  readonly runPetrinautPreflight?: (input: {
-    readonly sourceRepositoryDir: string;
-    readonly parentTargetDir: string;
-    readonly referenceTargetDir: string;
-    readonly outputRoot: string;
-  }) => Promise<{
-    readonly receiptFile: string;
-    readonly receipt: PetrinautHistoricalPreflightReceipt;
-  }>;
-}
-
-export async function runExecutionComparisonOperatorCli(
-  args: readonly string[],
-  dependencies: ExecutionComparisonOperatorDependencies = {},
-): Promise<void> {
+export async function runExecutionComparisonOperatorCli(args: readonly string[]): Promise<void> {
   const [command, ...rest] = args;
   const options = parseOptions(rest);
   const casesRoot = DEFAULT_CASES_ROOT;
@@ -173,6 +154,8 @@ export async function runExecutionComparisonOperatorCli(
     case 'inspect': {
       assertOnlyOptions(options, ['case']);
       const selected = await resolveExecutionCase(required(options, 'case'), casesRoot);
+      const manifest = await loadControllerOracleManifest(selected.caseDir);
+      const repository = selected.packet.contract.case.repository;
       process.stdout.write(
         `${JSON.stringify(
           {
@@ -180,6 +163,9 @@ export async function runExecutionComparisonOperatorCli(
             caseId: selected.caseId,
             caseDir: selected.caseDir,
             publicPacketSha256: selected.packet.packetSha256,
+            oracleId: manifest.id,
+            repository,
+            requiresSourceRepository: repository.substrate === 'pinned_git',
             files: selected.packet.files,
             sharedFraming: EXECUTION_COMPARISON_SHARED_FRAMING,
             specification: await readFile(join(selected.caseDir, 'spec.md'), 'utf8'),
@@ -197,14 +183,16 @@ export async function runExecutionComparisonOperatorCli(
       if (lane !== 'brunch' && lane !== 'claude_code') {
         throw new Error('--lane must be brunch or claude_code');
       }
-      const sourceRepository = options.get('source-repository');
+      const sourceRepository = options.has('source-repository')
+        ? requiredAbsolute(options, 'source-repository')
+        : undefined;
       const prepared = await prepareExecutionTarget({
         lane,
         caseReference: required(options, 'case'),
         casesRoot,
         targetDir: resolve(required(options, 'target')),
         controllerRoot: DEFAULT_CONTROLLER_ROOT,
-        ...(sourceRepository === undefined ? {} : { sourceRepositoryDir: resolve(sourceRepository) }),
+        ...(sourceRepository === undefined ? {} : { sourceRepositoryDir: sourceRepository }),
       });
       process.stdout.write(`${JSON.stringify(prepared, null, 2)}\n`);
       return;
@@ -232,39 +220,6 @@ export async function runExecutionComparisonOperatorCli(
       process.stdout.write(`${JSON.stringify(retained)}\n`);
       return;
     }
-    case 'petrinaut-preflight': {
-      assertOnlyOptions(options, ['source-repository', 'parent-target', 'reference-target', 'output-root']);
-      const input = {
-        sourceRepositoryDir: requiredAbsolute(options, 'source-repository'),
-        parentTargetDir: requiredAbsolute(options, 'parent-target'),
-        referenceTargetDir: requiredAbsolute(options, 'reference-target'),
-        outputRoot: requiredAbsolute(options, 'output-root'),
-      };
-      const result = await (
-        dependencies.runPetrinautPreflight ??
-        (async (closedInput) =>
-          await runPetrinautHistoricalPreflight({
-            sourceRepositoryDir: closedInput.sourceRepositoryDir,
-            parentTargetDir: closedInput.parentTargetDir,
-            referenceTargetDir: closedInput.referenceTargetDir,
-            controllerRoot: DEFAULT_CONTROLLER_ROOT,
-            receiptFile: join(closedInput.outputRoot, 'petrinaut-historical-preflight-receipt.json'),
-          }))
-      )(input);
-      process.stdout.write(
-        `${JSON.stringify({
-          receiptFile: result.receiptFile,
-          status: result.receipt.status,
-          setupStatus: result.receipt.setupStatus,
-        })}\n`,
-      );
-      if (result.receipt.status !== 'passed') {
-        throw new Error(
-          `Petrinaut preflight ${result.receipt.status}; retained receipt at ${result.receiptFile}`,
-        );
-      }
-      return;
-    }
     case 'retain-attempt': {
       assertOnlyOptions(options, ['attempt-file', 'attempts-root']);
       const value = JSON.parse(await readFile(resolve(required(options, 'attempt-file')), 'utf8')) as unknown;
@@ -277,7 +232,7 @@ export async function runExecutionComparisonOperatorCli(
     }
     default:
       throw new Error(
-        'Usage: execution-comparison-operator <list-cases|inspect|prepare|oracle|petrinaut-preflight|retain-attempt> [options]',
+        'Usage: execution-comparison-operator <list-cases|inspect|prepare|oracle|retain-attempt> [options]',
       );
   }
 }

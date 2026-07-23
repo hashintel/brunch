@@ -51,9 +51,11 @@ describe('/compare-execution operator prompt', () => {
     expect(prompt).toContain('process status');
     expect(prompt).toContain('final tree and complete base-to-tip diff');
     expect(prompt).toContain('visible interaction evidence');
-    expect(prompt).toContain('`petri-editor-browser-v2`');
+    expect(prompt).toContain('oracle identity returned by `inspect`');
+    expect(prompt).toContain('[--source-repository <absolute-source-checkout>]');
+    expect(prompt).toContain('`/comparison-publish`');
     expect(prompt).toContain('after every lane terminates');
-    expect(prompt).toContain('Present validity before outcomes');
+    expect(prompt).toContain('validity before outcomes');
     expect(prompt).toContain('Do not score');
     expect(prompt).toContain('diagnostic-only');
   });
