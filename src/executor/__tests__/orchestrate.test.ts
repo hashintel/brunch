@@ -3623,6 +3623,30 @@ describe('drive', () => {
     });
   });
 
+  it('refreshes prepared metadata before reconciling a direct lifecycle step', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-preparation-refresh-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    await createWorktree({ cwd, runId: 'run-1', gitWorktree: createFakeGitWorktreePort() });
+
+    await expect(
+      drive({ cwd, runId: 'run-1', ports: fakePorts() }, linearScheduler, serialFiringPolicy, {
+        maxFirings: 1,
+      }),
+    ).resolves.toEqual({
+      status: 'completed',
+      runStatus: 'worktree_populated',
+    });
+    await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+      status: 'worktree_populated',
+      petriObservationPrepared: true,
+    });
+    expect(
+      (await readPetriEvents(cwd)).flatMap((event) =>
+        event.kind === 'transition_fired' ? [event.transitionId] : [],
+      ),
+    ).toEqual(['worktree_create', 'populate']);
+  });
+
   it('halts and repairs when lifecycle catch-up cannot persist its marking', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-reconcile-marking-failure-'));
     await createRunAtCreated(cwd, ['task-1']);
