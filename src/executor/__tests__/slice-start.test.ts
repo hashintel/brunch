@@ -2,14 +2,26 @@ import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { writePetriMarkingSnapshot } from '../petri-marking.js';
+import * as petriEvents from '../petri-events.js';
+import * as petriLifecycleReconciliation from '../petri-lifecycle-reconciliation.js';
+import * as petriMarking from '../petri-marking.js';
+import { readPetriRuntimePlan } from '../petri-runtime-plan.js';
+import { projectExecutorPetriTransitionHistory } from '../petri-runtime.js';
+import { preparePetriObservation } from '../petri.js';
 import { planFilePath } from '../plan-file.js';
 import { populateWorktree } from '../populate.js';
 import { initializeReports, reportsPath } from '../report.js';
 import { withRunExecutionAuthority } from '../run-execution-authority.js';
-import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, createRun } from '../run.js';
+import {
+  runDirPath,
+  runMetadataPath,
+  persistRunMetadata,
+  readRunMetadata,
+  createRun,
+  type RunMetadata,
+} from '../run.js';
 import { startSlice, startSliceWithExecutionAuthority } from '../slice-start.js';
 import { copyHostSource } from '../source-copy.js';
 import { selectSourcePolicy } from '../source-policy.js';
@@ -25,7 +37,7 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-async function createReportReadyRun(cwd: string): Promise<void> {
+async function createReportReadyRun(cwd: string, prepareObservation = false): Promise<void> {
   const planPath = planFilePath(cwd, '42');
   await mkdir(join(cwd, 'src'), { recursive: true });
   await writeFile(join(cwd, 'src', 'app.ts'), 'export const app = true;\n', 'utf8');
@@ -49,11 +61,29 @@ async function createReportReadyRun(cwd: string): Promise<void> {
     'utf8',
   );
   await createRun({ cwd, specId: '42', runId: 'run-1' });
+  if (prepareObservation) await preparePetriObservation({ cwd, runId: 'run-1' });
   await createWorktree({ cwd, runId: 'run-1', gitWorktree: createFakeGitWorktreePort() });
   await populateWorktree({ cwd, runId: 'run-1' });
   await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
   await copyHostSource({ cwd, runId: 'run-1' });
   await initializeReports({ cwd, runId: 'run-1' });
+}
+
+async function advancePreparedRunToSliceStarted(cwd: string) {
+  await createReportReadyRun(cwd, true);
+  const current = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+  if (!current) throw new Error('expected prepared run metadata');
+  const state: RunMetadata = {
+    ...current,
+    status: 'slice_started',
+    activeSliceId: 'task-1',
+    activeEpicId: 'frontier-1',
+  };
+  await persistRunMetadata(runMetadataPath(cwd, 'run-1'), state);
+  const plan = await readPetriRuntimePlan(cwd, state);
+  const lifecycleTransitionIds = projectExecutorPetriTransitionHistory(state, plan)?.transitionIds;
+  if (!plan || !lifecycleTransitionIds) throw new Error('expected prepared lifecycle projection');
+  return { state, plan, lifecycleTransitionIds };
 }
 
 async function createTwoSliceReportReadyRun(cwd: string): Promise<void> {
@@ -193,6 +223,174 @@ describe('startSlice', () => {
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'agent-output'))).toBe(false);
   });
 
+  it('starts directly from a reconciled prepared journal instead of reporting a parallel batch', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-prepared-journal-'));
+    await createReportReadyRun(cwd, true);
+
+    await expect(startSliceWithExecutionAuthority({ cwd, runId: 'run-1' })).resolves.toMatchObject({
+      status: 'slice_started',
+      runStatus: 'slice_started',
+      sliceId: 'task-1',
+    });
+    const transitionIds = (await readFile(petriEvents.petriEventsPath(cwd, 'run-1'), 'utf8'))
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line))
+      .flatMap((event) => (event.kind === 'transition_fired' ? [event.transitionId] : []));
+    expect(transitionIds).toEqual([
+      'worktree_create',
+      'populate',
+      'source_policy',
+      'source_copy',
+      'report_init',
+      'slice_start:task-1',
+    ]);
+  });
+
+  it('reports a blocked reconciliation after persisting the slice-start transition', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-post-reconciliation-block-'));
+    await createReportReadyRun(cwd);
+    const reconcile = vi
+      .spyOn(petriLifecycleReconciliation, 'reconcilePreparedLifecycleJournal')
+      .mockResolvedValueOnce({ status: 'synchronized' })
+      .mockResolvedValueOnce({ status: 'blocked', reason: 'petri_input_unreadable' });
+
+    try {
+      await expect(startSliceWithExecutionAuthority({ cwd, runId: 'run-1' })).resolves.toEqual({
+        status: 'petri_input_unreadable',
+        runStatus: 'slice_started',
+        runId: 'run-1',
+        sliceId: 'task-1',
+        epicId: 'frontier-1',
+        metadataPath: runMetadataPath(cwd, 'run-1'),
+        reportsPath: reportsPath(cwd, 'run-1'),
+        sideEffects: [
+          { kind: 'append_file', path: reportsPath(cwd, 'run-1') },
+          { kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
+        ],
+      });
+    } finally {
+      reconcile.mockRestore();
+    }
+    await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
+      status: 'slice_started',
+      activeSliceId: 'task-1',
+    });
+  });
+
+  it('returns a blocked result when lifecycle journal catch-up cannot append', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-lifecycle-reconcile-append-failure-'));
+    const { state, plan, lifecycleTransitionIds } = await advancePreparedRunToSliceStarted(cwd);
+    const append = vi.spyOn(petriEvents, 'appendPetriEvent').mockRejectedValueOnce(new Error('disk full'));
+
+    try {
+      await expect(
+        petriLifecycleReconciliation.reconcilePreparedLifecycleJournal({
+          cwd,
+          runId: 'run-1',
+          state,
+          lifecycleTransitionIds,
+          plan,
+        }),
+      ).resolves.toEqual({
+        status: 'blocked',
+        reason: 'petri_journal_append_failed',
+      });
+    } finally {
+      append.mockRestore();
+    }
+  });
+
+  it('repairs an equal journal after a marking write failure', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-lifecycle-reconcile-marking-repair-'));
+    const { state, plan, lifecycleTransitionIds } = await advancePreparedRunToSliceStarted(cwd);
+    const writeMarking = vi
+      .spyOn(petriMarking, 'writePetriMarkingSnapshot')
+      .mockRejectedValueOnce(new Error('disk full'));
+
+    try {
+      await expect(
+        petriLifecycleReconciliation.reconcilePreparedLifecycleJournal({
+          cwd,
+          runId: 'run-1',
+          state,
+          lifecycleTransitionIds,
+          plan,
+        }),
+      ).resolves.toEqual({
+        status: 'blocked',
+        reason: 'petri_marking_persist_failed',
+      });
+    } finally {
+      writeMarking.mockRestore();
+    }
+
+    await expect(petriMarking.readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toMatchObject({
+      lifecycleProvenance: { runStatus: 'reports_initialized' },
+    });
+    await expect(
+      petriLifecycleReconciliation.reconcilePreparedLifecycleJournal({
+        cwd,
+        runId: 'run-1',
+        state,
+        lifecycleTransitionIds,
+        plan,
+      }),
+    ).resolves.toEqual({ status: 'synchronized' });
+    await expect(petriMarking.readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toMatchObject({
+      lifecycleProvenance: {
+        runStatus: 'slice_started',
+        activeSliceId: 'task-1',
+      },
+    });
+  });
+
+  it('reports unreadable Petri input instead of inventing parallel authority', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-unreadable-journal-'));
+    await createReportReadyRun(cwd, true);
+    await writeFile(petriEvents.petriEventsPath(cwd, 'run-1'), '{', 'utf8');
+
+    await expect(startSliceWithExecutionAuthority({ cwd, runId: 'run-1' })).resolves.toEqual({
+      status: 'petri_input_unreadable',
+      runStatus: 'reports_initialized',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      sideEffects: [],
+    });
+  });
+
+  it('does not start a slice after the prepared journal records a terminal', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-terminal-journal-'));
+    await createReportReadyRun(cwd, true);
+    await petriEvents.appendPetriEvent({
+      cwd,
+      runId: 'run-1',
+      event: {
+        kind: 'net_halted',
+        runId: 'run-1',
+        runStatus: 'reports_initialized',
+        step: 'slice_start',
+        reason: 'operator_halt',
+        failedSliceIds: [],
+      },
+    });
+    const journalBefore = await readFile(petriEvents.petriEventsPath(cwd, 'run-1'), 'utf8');
+    const reportsBefore = await readFile(reportsPath(cwd, 'run-1'), 'utf8');
+
+    await expect(startSliceWithExecutionAuthority({ cwd, runId: 'run-1' })).resolves.toEqual({
+      status: 'petri_terminal_recorded',
+      runStatus: 'reports_initialized',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      sideEffects: [],
+    });
+    const metadata = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+    expect(metadata).toMatchObject({ status: 'reports_initialized' });
+    expect(metadata?.activeSliceId).toBeUndefined();
+    await expect(readFile(reportsPath(cwd, 'run-1'), 'utf8')).resolves.toBe(reportsBefore);
+    await expect(readFile(petriEvents.petriEventsPath(cwd, 'run-1'), 'utf8')).resolves.toBe(journalBefore);
+  });
+
   it('starts the next incomplete slice after a previous slice has completed', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-next-'));
     await createTwoSliceReportReadyRun(cwd);
@@ -305,7 +503,7 @@ describe('startSlice', () => {
   it('refuses a standalone start when durable parallel batch authority is active', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-parallel-authority-'));
     await createTwoSliceReportReadyRun(cwd);
-    await writePetriMarkingSnapshot({
+    await petriMarking.writePetriMarkingSnapshot({
       cwd,
       runId: 'run-1',
       snapshot: {

@@ -7,8 +7,10 @@ import {
   type BlockedStep,
   type SchedulerPlan,
 } from './orchestrate-topology.js';
-import { inspectPetriJournalAuthority } from './petri-journal-authority.js';
-import { readPetriMarkingSnapshot } from './petri-marking.js';
+import {
+  reconcilePreparedLifecycleJournal,
+  type PetriLifecycleReconciliationBlockReason,
+} from './petri-lifecycle-reconciliation.js';
 import { projectExecutorPetriTransitionHistory } from './petri-runtime.js';
 import { populatedPlanPath } from './populate.js';
 import { reportsPath } from './report.js';
@@ -32,7 +34,7 @@ export type SliceStartResult =
       readonly sideEffects: readonly [];
     }
   | {
-      readonly status: 'run_execution_active' | 'parallel_batch_active';
+      readonly status: 'run_execution_active' | PetriLifecycleReconciliationBlockReason;
       readonly runStatus: RunMetadata['status'] | 'not_started';
       readonly runId: string;
       readonly metadataPath: string;
@@ -53,6 +55,19 @@ export type SliceStartResult =
       readonly reportsPath: string;
       readonly blockedSteps: readonly BlockedStep[];
       readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: PetriLifecycleReconciliationBlockReason;
+      readonly runStatus: 'slice_started';
+      readonly runId: string;
+      readonly sliceId: string;
+      readonly epicId?: string;
+      readonly metadataPath: string;
+      readonly reportsPath: string;
+      readonly sideEffects: readonly [
+        { readonly kind: 'append_file'; readonly path: string },
+        { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
+      ];
     }
   | {
       readonly status: 'slice_started';
@@ -127,31 +142,17 @@ async function startSliceOwned(args: {
     };
   }
 
-  const marking = await readPetriMarkingSnapshot({ cwd: args.cwd, runId: args.runId });
-  if (marking?.parallelSliceBatch) {
-    return {
-      status: 'parallel_batch_active',
-      runStatus: metadata.status,
-      runId: args.runId,
-      metadataPath,
-      sideEffects: [],
-    };
-  }
-
   const plan = await readPlan(metadata.populatedPlanPath ?? populatedPlanPath(args.cwd, args.runId));
-  const journalAuthority = await inspectPetriJournalAuthority({
+  const reconciliation = await reconcilePreparedLifecycleJournal({
     cwd: args.cwd,
     runId: args.runId,
+    state: metadata,
     lifecycleTransitionIds: projectExecutorPetriTransitionHistory(metadata, plan)?.transitionIds,
     plan,
   });
-  if (
-    journalAuthority.status === 'unreadable' ||
-    (journalAuthority.status === 'missing' && metadata.petriObservationPrepared === true) ||
-    (journalAuthority.status === 'readable' && journalAuthority.relation !== 'equal')
-  ) {
+  if (reconciliation.status === 'blocked') {
     return {
-      status: 'parallel_batch_active',
+      status: reconciliation.reason,
       runStatus: metadata.status,
       runId: args.runId,
       metadataPath,
@@ -201,6 +202,26 @@ async function startSliceOwned(args: {
 
   await appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8');
   const metadataEffect = await persistRunMetadata(metadataPath, updated);
+  const sideEffects = [{ kind: 'append_file', path: reportPath }, metadataEffect] as const;
+  const transitionedReconciliation = await reconcilePreparedLifecycleJournal({
+    cwd: args.cwd,
+    runId: args.runId,
+    state: updated,
+    lifecycleTransitionIds: projectExecutorPetriTransitionHistory(updated, plan)?.transitionIds,
+    plan,
+  });
+  if (transitionedReconciliation.status === 'blocked') {
+    return {
+      status: transitionedReconciliation.reason,
+      runStatus: 'slice_started',
+      runId: args.runId,
+      sliceId: slice.id,
+      ...(slice.epic_id === undefined ? {} : { epicId: slice.epic_id }),
+      metadataPath,
+      reportsPath: reportPath,
+      sideEffects,
+    };
+  }
 
   return {
     status: 'slice_started',
@@ -210,7 +231,7 @@ async function startSliceOwned(args: {
     ...(slice.epic_id === undefined ? {} : { epicId: slice.epic_id }),
     metadataPath,
     reportsPath: reportPath,
-    sideEffects: [{ kind: 'append_file', path: reportPath }, metadataEffect],
+    sideEffects,
   };
 }
 

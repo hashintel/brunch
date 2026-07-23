@@ -1,6 +1,10 @@
-import { access, mkdir } from 'node:fs/promises';
+import { access, mkdir, rm } from 'node:fs/promises';
+import { dirname } from 'node:path';
 
 import { prepareLaunch, type LaunchCurrentProjection, type LaunchResult } from './launch.js';
+import { petriEventsPath } from './petri-events.js';
+import { petriPlanSnapshotPath } from './petri-plan-snapshot.js';
+import { petriNetPath, petriSdcpnPath, preparePetriObservation } from './petri.js';
 import {
   runExecutionActive,
   withRunExecutionAuthority,
@@ -41,10 +45,10 @@ export type RunSupersessionResult =
       readonly runDir: string;
       readonly metadataPath: string;
       readonly planPath: string;
-      readonly sideEffects: readonly [
-        { readonly kind: 'mkdir'; readonly path: string },
-        { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
-      ];
+      readonly sideEffects: readonly (
+        | { readonly kind: 'mkdir'; readonly path: string }
+        | { readonly kind: 'write_file'; readonly path: string; readonly ifExists?: 'overwrite' }
+      )[];
     };
 
 export async function createSupersedingRun(args: {
@@ -126,6 +130,12 @@ async function createSupersedingRunOwned(args: {
       if (await pathExists(runDir)) return { status: 'exists' as const };
       await mkdir(runDir, { recursive: true });
       const metadataEffect = await persistRunMetadata(metadataPath, metadata);
+      try {
+        await preparePetriObservation({ cwd: args.cwd, runId });
+      } catch (error) {
+        await rm(runDir, { recursive: true, force: true });
+        throw error;
+      }
       return { status: 'created' as const, metadataEffect };
     },
     onContended: () => ({ status: 'active' as const }),
@@ -141,6 +151,7 @@ async function createSupersedingRunOwned(args: {
       sideEffects: [],
     };
   }
+  const petriDir = dirname(petriNetPath(args.cwd, runId));
 
   return {
     status: 'created',
@@ -150,7 +161,15 @@ async function createSupersedingRunOwned(args: {
     runDir,
     metadataPath,
     planPath: launch.planPath,
-    sideEffects: [{ kind: 'mkdir', path: runDir }, created.metadataEffect],
+    sideEffects: [
+      { kind: 'mkdir', path: runDir },
+      created.metadataEffect,
+      { kind: 'mkdir', path: petriDir },
+      { kind: 'write_file', path: petriPlanSnapshotPath(args.cwd, runId) },
+      { kind: 'write_file', path: petriNetPath(args.cwd, runId) },
+      { kind: 'write_file', path: petriSdcpnPath(args.cwd, runId) },
+      { kind: 'write_file', path: petriEventsPath(args.cwd, runId) },
+    ],
   };
 }
 

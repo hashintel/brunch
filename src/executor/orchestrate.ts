@@ -26,6 +26,7 @@ import {
   inspectPetriJournalAuthority,
   type PetriJournalAuthorityInspection,
 } from './petri-journal-authority.js';
+import { reconcilePreparedLifecycleJournal } from './petri-lifecycle-reconciliation.js';
 import {
   petriMarkingLifecycleProvenance,
   petriMarkingSnapshotMatchesRunMetadata,
@@ -465,6 +466,25 @@ async function driveOwned(
         return (await settleDriveTerminal(ctx, terminal)).outcome;
       }
     }
+    const lifecycleReconciliation = await reconcilePreparedLifecycleJournal({
+      cwd: ctx.cwd,
+      runId: ctx.runId,
+      state,
+      lifecycleTransitionIds: projectExecutorPetriTransitionHistory(state, plan)?.transitionIds,
+      plan,
+    });
+    if (
+      lifecycleReconciliation.status === 'blocked' &&
+      (lifecycleReconciliation.reason === 'petri_journal_append_failed' ||
+        lifecycleReconciliation.reason === 'petri_marking_persist_failed')
+    ) {
+      return {
+        status: 'halted',
+        step: reconciliationStep(state, plan),
+        runStatus: state.status,
+        reason: lifecycleReconciliation.reason,
+      };
+    }
     const authoritySnapshot = await readPetriMarkingSnapshot({ cwd: ctx.cwd, runId: ctx.runId });
     const journal = await inspectPetriJournalAuthority({
       cwd: ctx.cwd,
@@ -805,6 +825,17 @@ async function driveOwned(
         }
         return settled.outcome;
       }
+      if (
+        result.status === 'petri_journal_append_failed' ||
+        result.status === 'petri_marking_persist_failed'
+      ) {
+        return {
+          status: 'halted',
+          step: next.kind,
+          runStatus: result.runStatus === 'not_started' ? currentState.status : result.runStatus,
+          reason: result.status,
+        };
+      }
       if (result.skipTransition && result.runStatus !== 'not_started') {
         try {
           ctx.onStepComplete?.(
@@ -864,6 +895,9 @@ async function driveOwned(
           }
           if (attemptOutcome.status === 'retry') continue;
         }
+        if (result.status === 'petri_input_unreadable' || result.status === 'petri_journal_gap') {
+          publishPetriJournalFailure(ctx);
+        }
         const terminal = classifyDriveTerminal({
           kind: 'step_halted',
           runId: ctx.runId,
@@ -900,29 +934,63 @@ async function driveOwned(
         const transition = boundTransition?.transition;
         if (transition) {
           firedTransitions += 1;
-          const emitted = await emitNetEvent(ctx, {
-            kind: 'transition_fired',
-            runId: ctx.runId,
-            runStatus: result.runStatus,
-            transitionId: transition.id,
-            subnetId: transition.subnetId,
-            ...(transition.epicId === undefined ? {} : { epicId: transition.epicId }),
-            ...(transition.derivedFrom === undefined ? {} : { derivedFrom: transition.derivedFrom }),
-            step: next.kind,
-            contract: transition.contract,
-            consumed: transition.inputArcs.map((arc) => arc.placeId),
-            produced: transition.outputArcs.map((arc) => arc.placeId),
-            fromStatus: currentState.status,
-            toStatus: result.runStatus,
-            ...(currentState.activeSliceAttempts ? { attempt: currentState.activeSliceAttempts + 1 } : {}),
-          });
-          if (!emitted.journaled) {
-            return {
-              status: 'halted',
-              step: next.kind,
+          const transitionedState = await readRunMetadata(metadataPath);
+          const transitionReconcilesInHandler =
+            transition.id === 'report_init' || transition.id.startsWith('slice_start:');
+          if (transitionReconcilesInHandler) {
+            const reconciliation = transitionedState
+              ? await reconcilePreparedLifecycleJournal({
+                  cwd: ctx.cwd,
+                  runId: ctx.runId,
+                  state: transitionedState,
+                  lifecycleTransitionIds: projectExecutorPetriTransitionHistory(
+                    transitionedState,
+                    currentPlan,
+                  )?.transitionIds,
+                  plan: currentPlan,
+                })
+              : { status: 'blocked' as const, reason: 'petri_input_unreadable' as const };
+            if (reconciliation.status !== 'synchronized') {
+              if (
+                reconciliation.status === 'blocked' &&
+                (reconciliation.reason === 'petri_input_unreadable' ||
+                  reconciliation.reason === 'petri_journal_gap')
+              ) {
+                publishPetriJournalFailure(ctx);
+              }
+              return {
+                status: 'halted',
+                step: next.kind,
+                runStatus: result.runStatus,
+                reason:
+                  reconciliation.status === 'blocked' ? reconciliation.reason : 'petri_input_unreadable',
+              };
+            }
+          } else {
+            const emitted = await emitNetEvent(ctx, {
+              kind: 'transition_fired',
+              runId: ctx.runId,
               runStatus: result.runStatus,
-              reason: 'petri_journal_append_failed',
-            };
+              transitionId: transition.id,
+              subnetId: transition.subnetId,
+              ...(transition.epicId === undefined ? {} : { epicId: transition.epicId }),
+              ...(transition.derivedFrom === undefined ? {} : { derivedFrom: transition.derivedFrom }),
+              step: next.kind,
+              contract: transition.contract,
+              consumed: transition.inputArcs.map((arc) => arc.placeId),
+              produced: transition.outputArcs.map((arc) => arc.placeId),
+              fromStatus: currentState.status,
+              toStatus: result.runStatus,
+              ...(currentState.activeSliceAttempts ? { attempt: currentState.activeSliceAttempts + 1 } : {}),
+            });
+            if (!emitted.journaled) {
+              return {
+                status: 'halted',
+                step: next.kind,
+                runStatus: result.runStatus,
+                reason: 'petri_journal_append_failed',
+              };
+            }
           }
           if (result.epicVerificationPassed) {
             const transitioned = replayTransitionHistory(
