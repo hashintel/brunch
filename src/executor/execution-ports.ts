@@ -1,3 +1,17 @@
+import type {
+  ActiveSliceRepairContext,
+  PendingSliceRepair,
+  SliceRepairHistory,
+  SliceRepairTarget,
+} from './slice-repair-cycle.js';
+
+export interface AgentRepairContextAuthority {
+  readonly pending: PendingSliceRepair;
+  readonly runDir: string;
+  readonly target: SliceRepairTarget;
+  readonly history: SliceRepairHistory;
+}
+
 export interface GitWorktreeCreateArgs {
   readonly cwd: string;
   readonly worktreeDir: string;
@@ -82,6 +96,9 @@ export interface AgentRunArgs {
   readonly runId: string;
   readonly epicId?: string;
   readonly sliceId: string;
+  readonly cycle: number;
+  readonly repairContext?: ActiveSliceRepairContext;
+  readonly repairContextAuthority?: AgentRepairContextAuthority;
   readonly runtime?: AgentRunnerRuntime;
   readonly onUpdate?: (update: AgentRunUpdate) => void | Promise<void>;
 }

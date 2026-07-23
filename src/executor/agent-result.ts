@@ -8,11 +8,11 @@ import {
   runIsolatedAgentAttempt,
   type AgentStreamEvent,
 } from './isolated-slice-operations.js';
-import { SLICE_ATTEMPT_LIMIT } from './orchestrate-topology.js';
 import { reportsPath } from './report.js';
 import { withRunExecutionAuthority } from './run-execution-authority.js';
 import {
   assertSafeSliceId,
+  activeSliceRepairCycle,
   activeSliceAttemptNumber,
   runDirPath,
   runMetadataPath,
@@ -22,6 +22,7 @@ import {
   type RunMetadata,
 } from './run.js';
 import { sliceExecutionRequestPath } from './slice-execute.js';
+import { MAX_STAGE_ATTEMPTS } from './slice-repair-cycle.js';
 import { worktreeDirPath } from './worktree.js';
 
 export type AgentResultIngestResult =
@@ -144,6 +145,7 @@ async function ingestAgentResultOwned(args: {
     metadata.sliceExecutionRequestPath ??
     sliceExecutionRequestPath(args.cwd, args.runId, metadata.activeSliceId);
   const artifactAttempt = sliceArtifactAttemptNumber(metadata, metadata.activeSliceId, 'agent');
+  const cycle = activeSliceRepairCycle(metadata);
   const resultPath = agentResultPath(args.cwd, args.runId, metadata.activeSliceId, artifactAttempt);
   const streamPath = agentStreamPath(args.cwd, args.runId, metadata.activeSliceId, artifactAttempt);
   const reportPath = metadata.reportsPath ?? reportsPath(args.cwd, args.runId);
@@ -155,7 +157,20 @@ async function ingestAgentResultOwned(args: {
     requestPath,
     resultPath,
     streamPath,
+    cycle,
     attempt: activeSliceAttemptNumber(metadata),
+    artifactAttempt,
+    ...(metadata.activeSliceRepairContext === undefined
+      ? {}
+      : {
+          repairContext: metadata.activeSliceRepairContext,
+          repairContextAuthority: {
+            pending: metadata.activeSliceRepairAuthority!,
+            runDir: runDirPath(args.cwd, args.runId),
+            target: metadata.verifyTarget!,
+            history: metadata.sliceRepairHistory!,
+          },
+        }),
     agentRunner: args.agentRunner,
     ...(args.runtime ? { runtime: args.runtime } : {}),
     recordReport: (event) => appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8'),
@@ -168,11 +183,11 @@ async function ingestAgentResultOwned(args: {
     const metadataEffect = await persistRunMetadata(metadataPath, {
       ...metadata,
       activeSliceAttempts: attempts,
-      ...(attempts === SLICE_ATTEMPT_LIMIT
+      ...(attempts === MAX_STAGE_ATTEMPTS
         ? {
-            sliceAttemptHistory: mergeAttemptHistory(
-              metadata.sliceAttemptHistory,
-              attemptResult.outcome.history,
+            sliceRepairHistory: mergeAttemptHistory(
+              metadata.sliceRepairHistory,
+              attemptResult.outcome.historyDelta,
             ),
           }
         : {}),
@@ -201,7 +216,7 @@ async function ingestAgentResultOwned(args: {
     ...metadataWithoutAttempts,
     status: 'agent_result_ingested',
     agentResultPath: resultPath,
-    sliceAttemptHistory: mergeAttemptHistory(metadata.sliceAttemptHistory, attemptResult.outcome.history),
+    sliceRepairHistory: mergeAttemptHistory(metadata.sliceRepairHistory, attemptResult.outcome.historyDelta),
   };
 
   const metadataEffect = await persistRunMetadata(metadataPath, updated);

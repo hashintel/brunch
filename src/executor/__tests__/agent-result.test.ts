@@ -201,6 +201,8 @@ describe('ingestAgentResult', () => {
       runId: 'run-1',
       epicId: 'frontier-1',
       sliceId: 'task-1',
+      cycle: 1,
+      artifactAttempt: 1,
       status: 'completed',
       summary: 'Implemented task.',
     });

@@ -292,6 +292,10 @@ const RunListEntrySchema = Type.Union([
       specId: Type.String(),
       status: Type.String(),
       activeSliceId: Type.Optional(Type.String()),
+      activeSliceCycle: Type.Optional(Type.Integer({ minimum: 1 })),
+      activeSlicePhase: Type.Optional(
+        Type.Union([Type.Literal('agent'), Type.Literal('verify'), Type.Literal('repair_pending')]),
+      ),
       completedSliceIds: Type.Optional(Type.Array(Type.String())),
       failedSliceIds: Type.Optional(Type.Array(Type.String())),
       supersedesRunId: Type.Optional(Type.String()),
@@ -316,6 +320,10 @@ export const ExecuteRunResultSchema = Type.Union([
       specId: Type.String(),
       status: Type.String(),
       activeSliceId: Type.Optional(Type.String()),
+      activeSliceCycle: Type.Optional(Type.Integer({ minimum: 1 })),
+      activeSlicePhase: Type.Optional(
+        Type.Union([Type.Literal('agent'), Type.Literal('verify'), Type.Literal('repair_pending')]),
+      ),
       completedSliceIds: Type.Optional(Type.Array(Type.String())),
       failedSliceIds: Type.Optional(Type.Array(Type.String())),
       supersedesRunId: Type.Optional(Type.String()),

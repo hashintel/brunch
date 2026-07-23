@@ -8,9 +8,18 @@ import {
   runIsolatedVerifyAttempt,
   thrownSliceEffectReason,
 } from '../isolated-slice-operations.js';
-import { SLICE_ATTEMPT_LIMIT, sliceTransitionId, type ReadyStep } from '../orchestrate-topology.js';
-import type { SliceAttemptHistory } from '../run.js';
+import { sliceTransitionId, type ReadyStep } from '../orchestrate-topology.js';
+import { runDirPath } from '../run.js';
 import { sliceExecutionRequestPath } from '../slice-execute.js';
+import {
+  MAX_REPAIR_CYCLES,
+  MAX_STAGE_ATTEMPTS,
+  sliceRepairProtocol,
+  sliceRepairTopology,
+  type ActiveSliceRepairContext,
+  type PendingSliceRepair,
+  type SliceRepairHistory,
+} from '../slice-repair-cycle.js';
 import { sliceWorkspacePath } from '../slice-workspace.js';
 import { verifyStreamPath } from '../test-result.js';
 import { ParallelAuthorityError, type BatchAuthority } from './authority.js';
@@ -82,42 +91,132 @@ export async function executeIsolatedSlice(args: {
   const requestPath = sliceExecutionRequestPath(ctx.cwd, ctx.runId, step.sliceId);
   emitParallelStepProgress(ctx, 'completed', executeStep, args.state);
 
-  let attemptHistory: SliceAttemptHistory = {};
-  const agent = await runAgentAttempts({
-    ctx,
-    authority,
-    sliceId: step.sliceId,
-    ...(epicId === undefined ? {} : { epicId }),
-    workspaceDir,
-    requestPath,
-    state: args.state,
-    step,
-  });
-  attemptHistory = mergeAttemptHistory(attemptHistory, agent.attemptHistory);
-  if (agent.status === 'failed') return failed(step.sliceId, 'agent_result', agent.reason, attemptHistory);
+  let attemptHistory: SliceRepairHistory = {};
+  let repairContext: ActiveSliceRepairContext | undefined;
+  let repairAuthority: PendingSliceRepair | undefined;
+  for (let cycle = 1; cycle <= MAX_REPAIR_CYCLES; cycle += 1) {
+    if (repairContext) {
+      if (!repairAuthority) {
+        return failed(step.sliceId, 'agent_result', 'repair_context_authority_missing', attemptHistory);
+      }
+      try {
+        await sliceRepairProtocol.validateActiveRepair({
+          authority: repairAuthority,
+          reference: repairContext,
+          trusted: {
+            runDir: runDirPath(ctx.cwd, ctx.runId),
+            runId: ctx.runId,
+            sliceId: step.sliceId,
+            ...(args.state.verifyTarget === undefined ? {} : { target: args.state.verifyTarget }),
+            policy: sliceRepairProtocol.policy,
+            history: attemptHistory,
+          },
+        });
+      } catch (error) {
+        return failed(
+          step.sliceId,
+          'agent_result',
+          thrownSliceEffectReason('repair_context_unreadable', error),
+          attemptHistory,
+        );
+      }
+    }
+    const agent = await runAgentAttempts({
+      ctx,
+      authority,
+      sliceId: step.sliceId,
+      ...(epicId === undefined ? {} : { epicId }),
+      cycle,
+      workspaceDir,
+      requestPath,
+      attemptHistory,
+      ...(repairContext === undefined ? {} : { repairContext }),
+      ...(repairAuthority === undefined ? {} : { repairAuthority }),
+      state: args.state,
+      step,
+    });
+    attemptHistory = mergeAttemptHistory(attemptHistory, agent.historyDelta);
+    if (agent.status === 'failed') {
+      return failed(step.sliceId, 'agent_result', agent.reason, attemptHistory);
+    }
 
-  const verification = await runVerifyAttempts({
-    ctx,
-    authority,
-    verifyTarget: args.state.verifyTarget,
-    sliceId: step.sliceId,
-    ...(epicId === undefined ? {} : { epicId }),
-    workspaceDir,
-    step,
-    state: args.state,
-  });
-  attemptHistory = mergeAttemptHistory(attemptHistory, verification.attemptHistory);
-  if (verification.status === 'failed') {
-    return failed(step.sliceId, 'test_result', verification.reason, attemptHistory);
+    const verification = await runVerifyAttempts({
+      ctx,
+      authority,
+      verifyTarget: args.state.verifyTarget,
+      sliceId: step.sliceId,
+      ...(epicId === undefined ? {} : { epicId }),
+      cycle,
+      workspaceDir,
+      attemptHistory,
+      step,
+      state: args.state,
+    });
+    attemptHistory = mergeAttemptHistory(attemptHistory, verification.historyDelta);
+    if (verification.status === 'failed') {
+      return failed(step.sliceId, 'test_result', verification.reason, attemptHistory);
+    }
+    const trustedRepairState = {
+      runDir: runDirPath(ctx.cwd, ctx.runId),
+      runId: ctx.runId,
+      sliceId: step.sliceId,
+      ...(args.state.verifyTarget === undefined ? {} : { target: args.state.verifyTarget }),
+      policy: sliceRepairProtocol.policy,
+      history: attemptHistory,
+    };
+    const decision = sliceRepairProtocol.completeVerification({
+      trusted: trustedRepairState,
+      verdict: verification.verdict,
+      cycle,
+      verifyArtifactOrdinal: verification.artifactAttempt,
+      stageAttempt: verification.stageAttempt,
+      exitCode: verification.exitCode,
+      stdout: verification.diagnostics.stdout,
+      stderr: verification.diagnostics.stderr,
+    });
+    if (decision.kind === 'pass') {
+      await authority.fire(verification.verdictTransitionId);
+      return {
+        status: 'succeeded',
+        sliceId: step.sliceId,
+        ...(epicId === undefined ? {} : { epicId }),
+        cycle,
+        workspaceDir,
+        baseSha: workspace.baseSha,
+        attemptHistory,
+      };
+    }
+    if (decision.kind === 'exhaust') {
+      await authority.fire(verification.verdictTransitionId);
+      return failed(step.sliceId, 'test_result', 'slice_verification_not_passed', attemptHistory);
+    }
+    const pending = decision.pending;
+    await authority.stageRepair(pending, attemptHistory);
+    let materialized;
+    try {
+      materialized = await sliceRepairProtocol.materializeRepair({
+        pending,
+        trusted: trustedRepairState,
+      });
+    } catch (error) {
+      return failed(
+        step.sliceId,
+        'test_result',
+        thrownSliceEffectReason('repair_context_materialization_failed', error),
+        attemptHistory,
+      );
+    }
+    await authority.markRepairMaterialized(materialized);
+    await authority.fire(verification.verdictTransitionId);
+    await authority.fire(sliceRepairTopology.verifyRepairTransitionId(step.sliceId, cycle));
+    await authority.clearRepair(step.sliceId);
+    repairContext = sliceRepairProtocol.activateRepair({
+      pending: materialized,
+      trusted: trustedRepairState,
+    });
+    repairAuthority = materialized;
   }
-  return {
-    status: 'succeeded',
-    sliceId: step.sliceId,
-    ...(epicId === undefined ? {} : { epicId }),
-    workspaceDir,
-    baseSha: workspace.baseSha,
-    attemptHistory,
-  };
+  throw new Error('repair cycle loop exhausted without a decision');
 }
 
 async function runAgentAttempts(args: {
@@ -125,16 +224,34 @@ async function runAgentAttempts(args: {
   readonly authority: BatchAuthority;
   readonly sliceId: string;
   readonly epicId?: string;
+  readonly cycle: number;
   readonly workspaceDir: string;
   readonly requestPath: string;
+  readonly attemptHistory: SliceRepairHistory;
+  readonly repairContext?: ActiveSliceRepairContext;
+  readonly repairAuthority?: PendingSliceRepair;
   readonly state: import('../run.js').RunMetadata;
   readonly step: ParallelSliceStep;
 }): Promise<
-  | { readonly status: 'succeeded'; readonly attemptHistory: SliceAttemptHistory }
-  | { readonly status: 'failed'; readonly reason: string; readonly attemptHistory: SliceAttemptHistory }
+  | {
+      readonly status: 'succeeded';
+      readonly historyDelta: import('../slice-repair-cycle.js').SliceRepairHistoryDelta;
+    }
+  | {
+      readonly status: 'failed';
+      readonly reason: string;
+      readonly historyDelta?: import('../slice-repair-cycle.js').SliceRepairHistoryDelta;
+    }
 > {
-  for (let attempt = 1; attempt <= SLICE_ATTEMPT_LIMIT; attempt += 1) {
-    const streamPath = agentStreamPath(args.ctx.cwd, args.ctx.runId, args.sliceId, attempt);
+  const firstArtifact = sliceRepairProtocol.nextArtifactOrdinal(
+    args.attemptHistory,
+    args.sliceId,
+    'agent',
+    sliceRepairProtocol.policy,
+  );
+  for (let attempt = 1; attempt <= MAX_STAGE_ATTEMPTS; attempt += 1) {
+    const artifactAttempt = firstArtifact + attempt - 1;
+    const streamPath = agentStreamPath(args.ctx.cwd, args.ctx.runId, args.sliceId, artifactAttempt);
     const agentStep = { ...args.step, kind: 'agent_result' as const };
     emitParallelStepProgress(args.ctx, 'started', agentStep, args.state);
     let attemptResult: Awaited<ReturnType<typeof runIsolatedAgentAttempt>>;
@@ -146,9 +263,22 @@ async function runAgentAttempts(args: {
         ...(args.epicId === undefined ? {} : { epicId: args.epicId }),
         worktreeDir: args.workspaceDir,
         requestPath: args.requestPath,
-        resultPath: agentResultPath(args.ctx.cwd, args.ctx.runId, args.sliceId, attempt),
+        resultPath: agentResultPath(args.ctx.cwd, args.ctx.runId, args.sliceId, artifactAttempt),
         streamPath,
+        cycle: args.cycle,
         attempt,
+        artifactAttempt,
+        ...(args.repairContext === undefined
+          ? {}
+          : {
+              repairContext: args.repairContext,
+              repairContextAuthority: {
+                pending: args.repairAuthority!,
+                runDir: runDirPath(args.ctx.cwd, args.ctx.runId),
+                target: args.state.verifyTarget!,
+                history: args.attemptHistory,
+              },
+            }),
         agentRunner: args.ctx.ports.agentRunner,
         ...(args.ctx.runtime ? { runtime: args.ctx.runtime } : {}),
         recordReport: async (event) => {
@@ -161,7 +291,6 @@ async function runAgentAttempts(args: {
       return {
         status: 'failed',
         reason: thrownSliceEffectReason('agent_run_threw', error),
-        attemptHistory: {},
       };
     }
     const outcome = attemptResult.outcome;
@@ -171,7 +300,7 @@ async function runAgentAttempts(args: {
       emitParallelStepProgress(args.ctx, 'completed', agentStep, args.state);
       return {
         status: 'succeeded',
-        attemptHistory: outcome.history,
+        historyDelta: outcome.historyDelta,
       };
     }
     if (outcome.status === 'verification_failed') {
@@ -186,7 +315,11 @@ async function runAgentAttempts(args: {
     );
     await args.authority.fire(outcome.transitionId);
     if (outcome.status === 'exhausted') {
-      return { status: 'failed', reason: outcome.reason, attemptHistory: outcome.history };
+      return {
+        status: 'failed',
+        reason: outcome.reason,
+        ...(outcome.historyDelta === undefined ? {} : { historyDelta: outcome.historyDelta }),
+      };
     }
   }
   throw new Error('agent attempt loop exhausted without an outcome');
@@ -198,15 +331,37 @@ async function runVerifyAttempts(args: {
   readonly verifyTarget: import('../execution-ports.js').VerifyTarget | undefined;
   readonly sliceId: string;
   readonly epicId?: string;
+  readonly cycle: number;
   readonly workspaceDir: string;
+  readonly attemptHistory: SliceRepairHistory;
   readonly step: ParallelSliceStep;
   readonly state: import('../run.js').RunMetadata;
 }): Promise<
-  | { readonly status: 'succeeded'; readonly attemptHistory: SliceAttemptHistory }
-  | { readonly status: 'failed'; readonly reason: string; readonly attemptHistory: SliceAttemptHistory }
+  | {
+      readonly status: 'completed';
+      readonly verdict: 'passed' | 'failed';
+      readonly exitCode: number;
+      readonly artifactAttempt: number;
+      readonly stageAttempt: number;
+      readonly verdictTransitionId: string;
+      readonly diagnostics: Awaited<ReturnType<typeof runIsolatedVerifyAttempt>>['diagnostics'];
+      readonly historyDelta: import('../slice-repair-cycle.js').SliceRepairHistoryDelta;
+    }
+  | {
+      readonly status: 'failed';
+      readonly reason: string;
+      readonly historyDelta?: import('../slice-repair-cycle.js').SliceRepairHistoryDelta;
+    }
 > {
-  for (let attempt = 1; attempt <= SLICE_ATTEMPT_LIMIT; attempt += 1) {
-    const streamPath = verifyStreamPath(args.ctx.cwd, args.ctx.runId, args.sliceId, attempt);
+  const firstArtifact = sliceRepairProtocol.nextArtifactOrdinal(
+    args.attemptHistory,
+    args.sliceId,
+    'verify',
+    sliceRepairProtocol.policy,
+  );
+  for (let attempt = 1; attempt <= MAX_STAGE_ATTEMPTS; attempt += 1) {
+    const artifactAttempt = firstArtifact + attempt - 1;
+    const streamPath = verifyStreamPath(args.ctx.cwd, args.ctx.runId, args.sliceId, artifactAttempt);
     const verifyStep = { ...args.step, kind: 'test_result' as const };
     emitParallelStepProgress(args.ctx, 'started', verifyStep, args.state);
     let attemptResult: Awaited<ReturnType<typeof runIsolatedVerifyAttempt>>;
@@ -218,7 +373,9 @@ async function runVerifyAttempts(args: {
         ...(args.epicId === undefined ? {} : { epicId: args.epicId }),
         worktreeDir: args.workspaceDir,
         streamPath,
+        cycle: args.cycle,
         attempt,
+        artifactAttempt,
         testRunner: args.ctx.ports.testRunner,
         ...(args.verifyTarget ? { verifyTarget: args.verifyTarget } : {}),
         ...(args.ctx.signal ? { signal: args.ctx.signal } : {}),
@@ -232,25 +389,26 @@ async function runVerifyAttempts(args: {
       return {
         status: 'failed',
         reason: thrownSliceEffectReason('test_run_threw', error),
-        attemptHistory: {},
       };
     }
     const outcome = attemptResult.outcome;
     if (outcome.status === 'succeeded' || outcome.status === 'verification_failed') {
       await args.authority.fire(outcome.transitionId);
-      await args.authority.fire(outcome.verdictTransitionId!);
       if (report) await args.authority.appendReport(report);
       emitParallelStepProgress(args.ctx, 'completed', verifyStep, args.state);
-      return outcome.status === 'succeeded'
-        ? {
-            status: 'succeeded',
-            attemptHistory: outcome.history,
-          }
-        : {
-            status: 'failed',
-            reason: outcome.reason,
-            attemptHistory: outcome.history,
-          };
+      if (attemptResult.result.status !== 'completed') {
+        throw new Error('completed verification outcome has no completed result');
+      }
+      return {
+        status: 'completed',
+        verdict: attemptResult.result.verdict,
+        exitCode: attemptResult.result.exitCode,
+        artifactAttempt,
+        stageAttempt: attempt,
+        verdictTransitionId: outcome.verdictTransitionId!,
+        diagnostics: attemptResult.diagnostics,
+        historyDelta: outcome.historyDelta,
+      };
     }
     await args.authority.attemptFailed(
       args.sliceId,
@@ -261,7 +419,11 @@ async function runVerifyAttempts(args: {
     );
     await args.authority.fire(outcome.transitionId);
     if (outcome.status === 'exhausted') {
-      return { status: 'failed', reason: outcome.reason, attemptHistory: outcome.history };
+      return {
+        status: 'failed',
+        reason: outcome.reason,
+        ...(outcome.historyDelta === undefined ? {} : { historyDelta: outcome.historyDelta }),
+      };
     }
   }
   throw new Error('verify attempt loop exhausted without an outcome');
@@ -273,7 +435,7 @@ function failed(
   sliceId: string,
   step: ReadyStep['kind'],
   reason: string,
-  history: SliceAttemptHistory,
+  history: SliceRepairHistory,
 ): SliceEffectFailure {
   return { status: 'failed', sliceId, step, reason, attemptHistory: history };
 }

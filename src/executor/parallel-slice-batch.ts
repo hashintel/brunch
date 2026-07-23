@@ -10,7 +10,7 @@ import {
   createBatchAuthority,
   ParallelAuthorityError,
 } from './parallel-slice-batch/authority.js';
-import { executeIsolatedSlice, mergeAttemptHistory } from './parallel-slice-batch/effects.js';
+import { executeIsolatedSlice } from './parallel-slice-batch/effects.js';
 import { emitParallelStepProgress } from './parallel-slice-batch/progress.js';
 import type {
   ParallelSliceBatchArgs,
@@ -21,6 +21,7 @@ import type {
 import type { ParallelSliceSettlement } from './petri-marking.js';
 import { projectExecutorPetriTransitionHistory } from './petri-runtime.js';
 import { persistRunMetadata, runMetadataPath, type RunMetadata } from './run.js';
+import { sliceRepairProtocol, sliceRepairTopology } from './slice-repair-cycle.js';
 
 export type { ParallelSliceBatchResult };
 
@@ -177,7 +178,7 @@ export async function executeParallelSliceBatch(
         continue;
       }
 
-      await authority.fire(sliceTransitionId('slice_integrate', sliceId));
+      await authority.fire(sliceRepairTopology.integrationTransitionId(sliceId, result.cycle));
       if (integrationReport) await authority.appendReport(integrationReport);
       emitParallelStepProgress(ctx, 'completed', integrateStep, summary);
       const completeStep = {
@@ -252,7 +253,11 @@ function updateRunSummary(
 function recordSliceEffectSummary(summary: RunMetadata, result: SliceEffectResult): RunMetadata {
   const withHistory = {
     ...summary,
-    sliceAttemptHistory: mergeAttemptHistory(summary.sliceAttemptHistory, result.attemptHistory),
+    sliceRepairHistory: sliceRepairProtocol.mergeHistory(
+      summary.sliceRepairHistory,
+      result.attemptHistory,
+      sliceRepairProtocol.policy,
+    ),
   };
   return result.status === 'failed' ? recordFailedSliceSummary(withHistory, result.sliceId) : withHistory;
 }
@@ -271,6 +276,9 @@ function parallelBatchRunSummary(metadata: RunMetadata): RunMetadata {
     activeSliceBaseSha: _activeSliceBaseSha,
     sliceExecutionRequestPath: _sliceExecutionRequestPath,
     agentResultPath: _agentResultPath,
+    activeSliceRepairContext: _activeSliceRepairContext,
+    activeSliceRepairAuthority: _activeSliceRepairAuthority,
+    pendingSliceRepair: _pendingSliceRepair,
     ...summary
   } = metadata;
   return {

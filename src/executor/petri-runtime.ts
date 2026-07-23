@@ -5,18 +5,12 @@ import { executeEpicLifecycleStep } from './epic-lifecycle.js';
 import type { AgentRunnerRuntime, ExecutionPorts } from './execution-ports.js';
 import type { AgentStreamEvent, VerifyStreamEvent } from './isolated-slice-operations.js';
 import {
-  attemptExhaustedTransitionId,
-  attemptRetryTransitionId,
-  attemptResetTransitionId,
-  attemptSuccessTransitionId,
   blockedPlanSliceSteps,
   compileExecutorTopology,
   normalizeSchedulerPlanMode,
   projectSchedulerPlan,
   readyPlanSliceIds,
-  SLICE_ATTEMPT_LIMIT,
   sliceTransitionId,
-  verifyVerdictTransitionId,
   type BlockedStep,
   type ExecutorTopology,
   type ExecutorTransition,
@@ -32,10 +26,17 @@ import { populatedPlanPath, populateWorktree } from './populate.js';
 import { preparePromotion } from './promotion.js';
 import { initializeReports } from './report.js';
 import { completeRun } from './run-complete.js';
-import { readRunMetadata, runMetadataPath, type RunMetadata } from './run.js';
+import { activeSliceRepairCycle, readRunMetadata, runMetadataPath, type RunMetadata } from './run.js';
 import { completeSlice } from './slice-complete.js';
 import { requestSliceExecution } from './slice-execute.js';
 import { integrateSlice } from './slice-integration.js';
+import {
+  MAX_STAGE_ATTEMPTS,
+  sliceRepairProtocol,
+  sliceRepairTopology,
+  type SliceRepairStage,
+  type SliceStageEpoch,
+} from './slice-repair-cycle.js';
 import { startSlice } from './slice-start.js';
 import { copyHostSource } from './source-copy.js';
 import { selectSourcePolicy, type SourcePolicyKind } from './source-policy.js';
@@ -149,6 +150,7 @@ export function projectExecutorPetriTransitionHistory(
               ...transitionIds,
               sliceTransitionId('slice_start', currentSliceId),
               sliceTransitionId('slice_execute', currentSliceId),
+              ...completedRepairTransitionHistory(state, currentSliceId),
               ...activeStageTransitionHistory(state, 'agent', currentSliceId),
             ],
             currentSliceId,
@@ -161,7 +163,9 @@ export function projectExecutorPetriTransitionHistory(
               ...transitionIds,
               sliceTransitionId('slice_start', currentSliceId),
               sliceTransitionId('slice_execute', currentSliceId),
-              ...completedStageTransitionHistory(state, 'agent', currentSliceId, true),
+              ...completedRepairTransitionHistory(state, currentSliceId, {
+                fallbackAgentSuccess: true,
+              }),
               ...activeStageTransitionHistory(state, 'verify', currentSliceId),
             ],
             currentSliceId,
@@ -174,8 +178,10 @@ export function projectExecutorPetriTransitionHistory(
               ...transitionIds,
               sliceTransitionId('slice_start', currentSliceId),
               sliceTransitionId('slice_execute', currentSliceId),
-              ...completedStageTransitionHistory(state, 'agent', currentSliceId, true),
-              ...completedStageTransitionHistory(state, 'verify', currentSliceId, true),
+              ...completedRepairTransitionHistory(state, currentSliceId, {
+                fallbackAgentSuccess: true,
+                fallbackVerifySuccess: true,
+              }),
             ],
             currentSliceId,
           }
@@ -187,9 +193,14 @@ export function projectExecutorPetriTransitionHistory(
               ...transitionIds,
               sliceTransitionId('slice_start', currentSliceId),
               sliceTransitionId('slice_execute', currentSliceId),
-              ...completedStageTransitionHistory(state, 'agent', currentSliceId, true),
-              ...completedStageTransitionHistory(state, 'verify', currentSliceId, true),
-              sliceTransitionId('slice_integrate', currentSliceId),
+              ...completedRepairTransitionHistory(state, currentSliceId, {
+                fallbackAgentSuccess: true,
+                fallbackVerifySuccess: true,
+              }),
+              sliceRepairTopology.integrationTransitionId(
+                currentSliceId,
+                activeSliceRepairCycle(state, currentSliceId),
+              ),
             ],
             currentSliceId,
           }
@@ -345,7 +356,7 @@ function resolveTransitionIdForReadyStep(
     case 'slice_complete':
       return currentSliceTransitionId('slice_complete', state, plan);
     case 'slice_integrate':
-      return currentSliceTransitionId('slice_integrate', state, plan);
+      return currentSliceIntegrationTransitionId(state, plan);
     case 'epic_integrate':
     case 'epic_verify':
     case 'epic_complete':
@@ -485,12 +496,25 @@ function baseRunTransitionHistory(status: RunMetadata['status']): readonly strin
 }
 
 function currentSliceTransitionId(
-  kind: 'slice_execute' | 'slice_integrate' | 'slice_complete',
+  kind: 'slice_execute' | 'slice_complete',
   state: RunMetadata,
   plan: SchedulerPlan | undefined,
 ): string | undefined {
   const sliceId = activeOrNextPetriSliceId(state, plan);
   return sliceId ? sliceTransitionId(kind, sliceId) : undefined;
+}
+
+function currentSliceIntegrationTransitionId(
+  state: RunMetadata,
+  plan: SchedulerPlan | undefined,
+): string | undefined {
+  const sliceId = activeOrNextPetriSliceId(state, plan);
+  return sliceId
+    ? sliceRepairTopology.integrationTransitionId(
+        sliceId,
+        sliceRepairProtocol.currentCycle(state.sliceRepairHistory, sliceId),
+      )
+    : undefined;
 }
 
 function currentAttemptSuccessTransitionId(
@@ -500,59 +524,94 @@ function currentAttemptSuccessTransitionId(
 ): string | undefined {
   const sliceId = activeOrNextPetriSliceId(state, plan);
   const attempt = (state.activeSliceAttempts ?? 0) + 1;
-  return sliceId && attempt <= SLICE_ATTEMPT_LIMIT
-    ? attemptSuccessTransitionId(stage, sliceId, attempt)
+  const cycle = sliceId ? sliceRepairProtocol.currentCycle(state.sliceRepairHistory, sliceId) : 1;
+  return sliceId && attempt <= MAX_STAGE_ATTEMPTS
+    ? sliceRepairTopology.attemptSuccessTransitionId(stage, sliceId, cycle, attempt)
     : undefined;
 }
 
 function attemptFailureTransitionHistory(
   stage: 'agent' | 'verify',
   sliceId: string,
+  cycle: number,
   failures: number,
 ): readonly string[] {
-  const retries = Array.from({ length: Math.min(failures, SLICE_ATTEMPT_LIMIT - 1) }, (_, index) =>
-    attemptRetryTransitionId(stage, sliceId, index + 1),
+  const retries = Array.from({ length: Math.min(failures, MAX_STAGE_ATTEMPTS - 1) }, (_, index) =>
+    sliceRepairTopology.attemptRetryTransitionId(stage, sliceId, cycle, index + 1),
   );
-  return failures >= SLICE_ATTEMPT_LIMIT
-    ? [...retries, attemptExhaustedTransitionId(stage, sliceId)]
+  return failures >= MAX_STAGE_ATTEMPTS
+    ? [...retries, sliceRepairTopology.attemptExhaustedTransitionId(stage, sliceId, cycle)]
     : retries;
 }
 
-function completedStageTransitionHistory(
+function completedRepairTransitionHistory(
   state: RunMetadata,
-  stage: 'agent' | 'verify',
   sliceId: string,
-  fallbackToFirstAttempt: boolean,
+  fallback: {
+    readonly fallbackAgentSuccess?: boolean;
+    readonly fallbackVerifySuccess?: boolean;
+  } = {},
 ): readonly string[] {
-  const cycles = state.sliceAttemptHistory?.[sliceId]?.[stage] ?? [];
+  const cycles = state.sliceRepairHistory?.[sliceId] ?? [];
   if (cycles.length === 0) {
-    return fallbackToFirstAttempt ? [attemptSuccessTransitionId(stage, sliceId, 1)] : [];
+    return [
+      ...(fallback.fallbackAgentSuccess
+        ? [sliceRepairTopology.attemptSuccessTransitionId('agent', sliceId, 1, 1)]
+        : []),
+      ...(fallback.fallbackVerifySuccess
+        ? [
+            sliceRepairTopology.attemptSuccessTransitionId('verify', sliceId, 1, 1),
+            sliceRepairTopology.verifyVerdictTransitionId('passed', sliceId, 1, 1),
+          ]
+        : []),
+    ];
   }
+  const activeCycle = activeSliceRepairCycle(state, sliceId);
   return cycles.flatMap((cycle) => {
-    if (cycle.outcome === 'reset') return [attemptResetTransitionId(stage, sliceId)];
-    const failures = cycle.outcome === 'succeeded' ? cycle.attempts - 1 : cycle.attempts;
-    const transitions = attemptFailureTransitionHistory(stage, sliceId, failures);
-    return cycle.outcome === 'succeeded'
-      ? [
-          ...transitions,
-          attemptSuccessTransitionId(stage, sliceId, cycle.attempts),
-          ...(stage === 'verify' && cycle.verdict
-            ? [verifyVerdictTransitionId(cycle.verdict, sliceId, cycle.attempts)]
-            : []),
-        ]
+    const transitions = cycle.epochs.flatMap((epoch) =>
+      completedEpochTransitionHistory(sliceId, cycle.cycle, epoch),
+    );
+    const verdict = [...cycle.epochs].reverse().find((epoch) => epoch.verdict !== undefined)?.verdict;
+    return verdict === 'failed' && activeCycle > cycle.cycle
+      ? [...transitions, sliceRepairTopology.verifyRepairTransitionId(sliceId, cycle.cycle)]
       : transitions;
   });
 }
 
 function activeStageTransitionHistory(
   state: RunMetadata,
-  stage: 'agent' | 'verify',
+  stage: SliceRepairStage,
   sliceId: string,
 ): readonly string[] {
-  const completed = completedStageTransitionHistory(state, stage, sliceId, false);
-  const latest = state.sliceAttemptHistory?.[sliceId]?.[stage]?.at(-1);
-  if (latest?.outcome === 'exhausted' && state.activeSliceAttempts === latest.attempts) return completed;
-  return [...completed, ...attemptFailureTransitionHistory(stage, sliceId, state.activeSliceAttempts ?? 0)];
+  const cycle = activeSliceRepairCycle(state, sliceId);
+  const latest = state.sliceRepairHistory?.[sliceId]
+    ?.find((record) => record.cycle === cycle)
+    ?.epochs.slice()
+    .reverse()
+    .find((epoch) => epoch.stage === stage);
+  if (latest?.outcome === 'exhausted' && state.activeSliceAttempts === latest.attempts) return [];
+  return attemptFailureTransitionHistory(stage, sliceId, cycle, state.activeSliceAttempts ?? 0);
+}
+
+function completedEpochTransitionHistory(
+  sliceId: string,
+  cycle: number,
+  epoch: SliceStageEpoch,
+): readonly string[] {
+  if (epoch.outcome === 'reset') {
+    return [sliceRepairTopology.attemptResetTransitionId(epoch.stage, sliceId, cycle)];
+  }
+  const failures = epoch.outcome === 'succeeded' ? epoch.attempts - 1 : epoch.attempts;
+  const transitions = attemptFailureTransitionHistory(epoch.stage, sliceId, cycle, failures);
+  return epoch.outcome === 'succeeded'
+    ? [
+        ...transitions,
+        sliceRepairTopology.attemptSuccessTransitionId(epoch.stage, sliceId, cycle, epoch.attempts),
+        ...(epoch.stage === 'verify' && epoch.verdict
+          ? [sliceRepairTopology.verifyVerdictTransitionId(epoch.verdict, sliceId, cycle, epoch.attempts)]
+          : []),
+      ]
+    : transitions;
 }
 
 function completedSliceTransitionHistory(
@@ -570,9 +629,11 @@ function completedSliceTransitionHistory(
     history.push(
       sliceTransitionId('slice_start', sliceId),
       sliceTransitionId('slice_execute', sliceId),
-      ...completedStageTransitionHistory(state, 'agent', sliceId, true),
-      ...completedStageTransitionHistory(state, 'verify', sliceId, true),
-      sliceTransitionId('slice_integrate', sliceId),
+      ...completedRepairTransitionHistory(state, sliceId, {
+        fallbackAgentSuccess: true,
+        fallbackVerifySuccess: true,
+      }),
+      sliceRepairTopology.integrationTransitionId(sliceId, activeSliceRepairCycle(state, sliceId)),
       sliceTransitionId('slice_complete', sliceId),
     );
     completedSlices.add(sliceId);
@@ -645,10 +706,10 @@ function inFlightSliceId(state: RunMetadata, plan: SchedulerPlan | undefined): s
 }
 
 function latestVerificationSliceId(state: RunMetadata): string | undefined {
-  const entries = Object.entries(state.sliceAttemptHistory ?? {});
+  const entries = Object.entries(state.sliceRepairHistory ?? {});
   for (let index = entries.length - 1; index >= 0; index -= 1) {
-    const [sliceId, stages] = entries[index]!;
-    if (stages.verify?.some((cycle) => cycle.outcome === 'succeeded' && cycle.verdict !== undefined)) {
+    const [sliceId, cycles] = entries[index]!;
+    if (cycles.some((cycle) => cycle.epochs.some((epoch) => epoch.stage === 'verify' && epoch.verdict))) {
       return sliceId;
     }
   }

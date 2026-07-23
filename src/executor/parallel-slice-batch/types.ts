@@ -3,7 +3,8 @@ import type { AgentStreamEvent, VerifyStreamEvent } from '../isolated-slice-oper
 import type { ReadyStep, SchedulerPlan } from '../orchestrate-topology.js';
 import type { DriveStepProgress } from '../orchestrate.js';
 import type { ExecutorPetriRuntime } from '../petri-runtime.js';
-import type { RunMetadata, SliceAttemptHistory } from '../run.js';
+import type { RunMetadata } from '../run.js';
+import type { SliceRepairHistory } from '../slice-repair-cycle.js';
 
 export interface ParallelSliceBatchContext {
   readonly cwd: string;
@@ -50,7 +51,8 @@ export interface SliceEffectSuccess {
   readonly epicId?: string;
   readonly workspaceDir: string;
   readonly baseSha: string;
-  readonly attemptHistory: SliceAttemptHistory;
+  readonly cycle: number;
+  readonly attemptHistory: SliceRepairHistory;
 }
 
 export interface SliceEffectFailure {
@@ -58,7 +60,7 @@ export interface SliceEffectFailure {
   readonly sliceId: string;
   readonly step: ReadyStep['kind'];
   readonly reason: string;
-  readonly attemptHistory: SliceAttemptHistory;
+  readonly attemptHistory: SliceRepairHistory;
 }
 
 export type SliceEffectResult = SliceEffectSuccess | SliceEffectFailure;

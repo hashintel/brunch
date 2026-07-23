@@ -5,21 +5,24 @@ import type {
   AgentRunnerPort,
   AgentRunnerRuntime,
   AgentRunResult,
+  AgentRepairContextAuthority,
   GitSliceIntegrationPort,
   TestRunnerPort,
   TestRunResult,
   VerifyTarget,
 } from './execution-ports.js';
-import {
-  attemptExhaustedTransitionId,
-  attemptRetryTransitionId,
-  attemptSuccessTransitionId,
-  SLICE_ATTEMPT_LIMIT,
-  verifyVerdictTransitionId,
-  type ReadyStep,
-} from './orchestrate-topology.js';
+import type { ReadyStep } from './orchestrate-topology.js';
 import { populatedPlanPath } from './populate.js';
-import { appendSliceAttemptCycle, type SliceAttemptHistory } from './run.js';
+import {
+  MAX_STAGE_ATTEMPTS,
+  sliceRepairProtocol,
+  sliceRepairTopology,
+  type ActiveSliceRepairContext,
+  type SliceRepairDiagnostic,
+  type SliceRepairHistory,
+  type SliceRepairHistoryDelta,
+  type SliceRepairStage,
+} from './slice-repair-cycle.js';
 import { appendRunOrderedStreamEvent } from './slice-stream-events.js';
 
 export interface AgentStreamEvent {
@@ -57,21 +60,21 @@ export type IsolatedAttemptOutcome =
       readonly status: 'succeeded';
       readonly transitionId: string;
       readonly verdictTransitionId?: string;
-      readonly history: SliceAttemptHistory;
+      readonly historyDelta: SliceRepairHistoryDelta;
     }
   | {
       readonly status: 'verification_failed';
       readonly reason: 'slice_verification_not_passed';
       readonly transitionId: string;
       readonly verdictTransitionId: string;
-      readonly history: SliceAttemptHistory;
+      readonly historyDelta: SliceRepairHistoryDelta;
     }
   | {
       readonly status: 'retry' | 'exhausted';
       readonly reason: 'agent_run_failed' | 'test_run_failed';
       readonly message: string;
       readonly transitionId: string;
-      readonly history: SliceAttemptHistory;
+      readonly historyDelta?: SliceRepairHistoryDelta;
       readonly fact: {
         readonly step: 'agent_result' | 'test_result';
         readonly attempt: number;
@@ -266,7 +269,11 @@ export async function runIsolatedAgentAttempt(args: {
   readonly requestPath: string;
   readonly resultPath: string;
   readonly streamPath: string;
+  readonly cycle: number;
   readonly attempt: number;
+  readonly artifactAttempt: number;
+  readonly repairContext?: ActiveSliceRepairContext;
+  readonly repairContextAuthority?: AgentRepairContextAuthority;
   readonly agentRunner: AgentRunnerPort;
   readonly runtime?: AgentRunnerRuntime;
   readonly recordReport: SliceReportRecorder;
@@ -286,6 +293,11 @@ export async function runIsolatedAgentAttempt(args: {
     runId: args.runId,
     ...(args.epicId === undefined ? {} : { epicId: args.epicId }),
     sliceId: args.sliceId,
+    cycle: args.cycle,
+    ...(args.repairContext === undefined ? {} : { repairContext: args.repairContext }),
+    ...(args.repairContextAuthority === undefined
+      ? {}
+      : { repairContextAuthority: args.repairContextAuthority }),
     ...(args.runtime ? { runtime: args.runtime } : {}),
     onUpdate: (update) => {
       const event = {
@@ -317,6 +329,8 @@ export async function runIsolatedAgentAttempt(args: {
       runId: args.runId,
       ...(args.epicId === undefined ? {} : { epicId: args.epicId }),
       sliceId: args.sliceId,
+      cycle: args.cycle,
+      artifactAttempt: args.artifactAttempt,
       status: 'completed',
       ...(result.summary ? { summary: result.summary } : {}),
     });
@@ -326,7 +340,9 @@ export async function runIsolatedAgentAttempt(args: {
     outcome: classifyIsolatedAttempt({
       stage: 'agent',
       sliceId: args.sliceId,
+      cycle: args.cycle,
       attempt: args.attempt,
+      artifactAttempt: args.artifactAttempt,
       result,
     }),
     wroteStream,
@@ -339,7 +355,9 @@ export async function runIsolatedVerifyAttempt(args: {
   readonly epicId?: string;
   readonly worktreeDir: string;
   readonly streamPath: string;
+  readonly cycle: number;
   readonly attempt: number;
+  readonly artifactAttempt: number;
   readonly testRunner: TestRunnerPort;
   readonly verifyTarget?: VerifyTarget;
   readonly signal?: AbortSignal;
@@ -349,14 +367,35 @@ export async function runIsolatedVerifyAttempt(args: {
   readonly result: TestRunResult;
   readonly outcome: IsolatedAttemptOutcome;
   readonly wroteStream: boolean;
+  readonly diagnostics: {
+    readonly stdout: SliceRepairDiagnostic;
+    readonly stderr: SliceRepairDiagnostic;
+  };
 }> {
   let sequence = 0;
   let wroteStream = false;
+  let stdout = '';
+  let stderr = '';
+  let stdoutTruncated = false;
+  let stderrTruncated = false;
   const result = await args.testRunner.run({
     worktreeDir: args.worktreeDir,
     ...(args.verifyTarget ? { verifyTarget: args.verifyTarget } : {}),
     ...(args.signal ? { signal: args.signal } : {}),
     onUpdate: async (update) => {
+      if (update.kind === 'stdout') {
+        ({ text: stdout, truncated: stdoutTruncated } = appendBoundedDiagnostic(
+          stdout,
+          stdoutTruncated,
+          update.message,
+        ));
+      } else if (update.kind === 'stderr') {
+        ({ text: stderr, truncated: stderrTruncated } = appendBoundedDiagnostic(
+          stderr,
+          stderrTruncated,
+          update.message,
+        ));
+      }
       const event = {
         event: 'verify_stream' as const,
         runId: args.runId,
@@ -381,6 +420,8 @@ export async function runIsolatedVerifyAttempt(args: {
       runId: args.runId,
       ...(args.epicId === undefined ? {} : { epicId: args.epicId }),
       sliceId: args.sliceId,
+      cycle: args.cycle,
+      artifactAttempt: args.artifactAttempt,
       status: result.verdict,
       exitCode: result.exitCode,
       ...(result.target ? { target: result.target } : {}),
@@ -391,10 +432,24 @@ export async function runIsolatedVerifyAttempt(args: {
     outcome: classifyIsolatedAttempt({
       stage: 'verify',
       sliceId: args.sliceId,
+      cycle: args.cycle,
       attempt: args.attempt,
+      artifactAttempt: args.artifactAttempt,
       result,
     }),
     wroteStream,
+    diagnostics: {
+      stdout: {
+        text: stdout,
+        utf8Bytes: Buffer.byteLength(stdout, 'utf8'),
+        truncated: stdoutTruncated,
+      },
+      stderr: {
+        text: stderr,
+        utf8Bytes: Buffer.byteLength(stderr, 'utf8'),
+        truncated: stderrTruncated,
+      },
+    },
   };
 }
 
@@ -453,13 +508,15 @@ export function sliceCompletionReport(args: {
 }
 
 export function sliceAttemptDisposition(attempt: number): 'retry' | 'exhausted' {
-  return attempt < SLICE_ATTEMPT_LIMIT ? 'retry' : 'exhausted';
+  return attempt < MAX_STAGE_ATTEMPTS ? 'retry' : 'exhausted';
 }
 
 function classifyIsolatedAttempt(args: {
-  readonly stage: 'agent' | 'verify';
+  readonly stage: SliceRepairStage;
   readonly sliceId: string;
+  readonly cycle: number;
   readonly attempt: number;
+  readonly artifactAttempt: number;
   readonly result: AgentRunResult | TestRunResult;
 }): IsolatedAttemptOutcome {
   if (args.result.status === 'failed') {
@@ -471,10 +528,20 @@ function classifyIsolatedAttempt(args: {
       message: args.result.message,
       transitionId:
         status === 'retry'
-          ? attemptRetryTransitionId(args.stage, args.sliceId, args.attempt)
-          : attemptExhaustedTransitionId(args.stage, args.sliceId),
-      history:
-        status === 'exhausted' ? attemptHistory(args.sliceId, args.stage, 'exhausted', args.attempt) : {},
+          ? sliceRepairTopology.attemptRetryTransitionId(args.stage, args.sliceId, args.cycle, args.attempt)
+          : sliceRepairTopology.attemptExhaustedTransitionId(args.stage, args.sliceId, args.cycle),
+      ...(status === 'exhausted'
+        ? {
+            historyDelta: attemptHistory({
+              sliceId: args.sliceId,
+              stage: args.stage,
+              cycle: args.cycle,
+              outcome: 'exhausted',
+              attempts: args.attempt,
+              artifactAttempt: args.artifactAttempt,
+            }),
+          }
+        : {}),
       fact: {
         step: args.stage === 'agent' ? 'agent_result' : 'test_result',
         attempt: args.attempt,
@@ -482,16 +549,34 @@ function classifyIsolatedAttempt(args: {
       },
     };
   }
-  const transitionId = attemptSuccessTransitionId(args.stage, args.sliceId, args.attempt);
+  const transitionId = sliceRepairTopology.attemptSuccessTransitionId(
+    args.stage,
+    args.sliceId,
+    args.cycle,
+    args.attempt,
+  );
   const verdict = args.stage === 'verify' && 'verdict' in args.result ? args.result.verdict : undefined;
-  const history = attemptHistory(args.sliceId, args.stage, 'succeeded', args.attempt, verdict);
+  const historyDelta = attemptHistory({
+    sliceId: args.sliceId,
+    stage: args.stage,
+    cycle: args.cycle,
+    outcome: 'succeeded',
+    attempts: args.attempt,
+    artifactAttempt: args.artifactAttempt,
+    ...(verdict === undefined ? {} : { verdict }),
+  });
   if (args.stage === 'verify' && 'verdict' in args.result && args.result.verdict !== 'passed') {
     return {
       status: 'verification_failed',
       reason: 'slice_verification_not_passed',
       transitionId,
-      verdictTransitionId: verifyVerdictTransitionId('failed', args.sliceId, args.attempt),
-      history,
+      verdictTransitionId: sliceRepairTopology.verifyVerdictTransitionId(
+        'failed',
+        args.sliceId,
+        args.cycle,
+        args.attempt,
+      ),
+      historyDelta,
     };
   }
   return {
@@ -499,41 +584,64 @@ function classifyIsolatedAttempt(args: {
     transitionId,
     ...(verdict === undefined
       ? {}
-      : { verdictTransitionId: verifyVerdictTransitionId('passed', args.sliceId, args.attempt) }),
-    history,
+      : {
+          verdictTransitionId: sliceRepairTopology.verifyVerdictTransitionId(
+            'passed',
+            args.sliceId,
+            args.cycle,
+            args.attempt,
+          ),
+        }),
+    historyDelta,
   };
 }
 
-function attemptHistory(
-  sliceId: string,
-  stage: 'agent' | 'verify',
-  outcome: 'succeeded' | 'exhausted',
-  attempts: number,
-  verdict?: 'passed' | 'failed',
-): SliceAttemptHistory {
-  return appendSliceAttemptCycle(
-    { runId: '', specId: '', planPath: '', status: 'reports_initialized' },
-    sliceId,
-    stage,
-    { outcome, attempts, ...(verdict === undefined ? {} : { verdict }) },
-  );
+function attemptHistory(args: {
+  readonly sliceId: string;
+  readonly stage: SliceRepairStage;
+  readonly cycle: number;
+  readonly outcome: 'succeeded' | 'exhausted';
+  readonly attempts: number;
+  readonly artifactAttempt: number;
+  readonly verdict?: 'passed' | 'failed';
+}): SliceRepairHistoryDelta {
+  const start = args.artifactAttempt - args.attempts + 1;
+  return {
+    sliceId: args.sliceId,
+    cycle: args.cycle,
+    epoch: {
+      stage: args.stage,
+      outcome: args.outcome,
+      attempts: args.attempts,
+      artifactOrdinalStart: start,
+      artifactOrdinalEnd: args.artifactAttempt,
+      ...(args.verdict === undefined ? {} : { verdict: args.verdict }),
+    },
+  };
 }
 
 export function mergeAttemptHistory(
-  left: SliceAttemptHistory | undefined,
-  right: SliceAttemptHistory,
-): SliceAttemptHistory {
-  const merged: Record<string, Record<string, readonly unknown[]>> = {};
-  for (const history of [left ?? {}, right]) {
-    for (const [sliceId, stages] of Object.entries(history)) {
-      const target = merged[sliceId] ?? {};
-      for (const [stage, cycles] of Object.entries(stages)) {
-        target[stage] = [...(target[stage] ?? []), ...(cycles ?? [])];
-      }
-      merged[sliceId] = target;
-    }
-  }
-  return merged as SliceAttemptHistory;
+  left: SliceRepairHistory | undefined,
+  delta: SliceRepairHistoryDelta | undefined,
+): SliceRepairHistory {
+  if (!delta) return left ?? {};
+  return sliceRepairProtocol.appendEpoch({
+    history: left,
+    sliceId: delta.sliceId,
+    cycle: delta.cycle,
+    epoch: delta.epoch,
+    policy: sliceRepairProtocol.policy,
+  });
+}
+
+function appendBoundedDiagnostic(
+  current: string,
+  alreadyTruncated: boolean,
+  addition: string,
+): { readonly text: string; readonly truncated: boolean } {
+  if (alreadyTruncated) return { text: current, truncated: true };
+  const bounded = sliceRepairProtocol.boundedDiagnostic(current + addition);
+  return { text: bounded.text, truncated: bounded.truncated };
 }
 
 export function thrownSliceEffectReason(kind: string, error: unknown): string {

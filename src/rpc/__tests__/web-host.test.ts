@@ -34,6 +34,7 @@ import { planFilePath } from '../../executor/plan-file.js';
 import { abandonRun } from '../../executor/run-abandon.js';
 import { createRun } from '../../executor/run.js';
 import { readRunMetadata, runDirPath, runMetadataPath, type RunMetadata } from '../../executor/run.js';
+import { sliceRepairProtocol } from '../../executor/slice-repair-cycle.js';
 import { runCreateOnlyMutation } from '../../graph/__tests__/support/create-only-mutation.js';
 import { openWorkspaceGraphRuntime } from '../../graph/workspace-store.js';
 import { assistantMessage, userMessage } from '../../probes/test-helpers.js';
@@ -481,6 +482,112 @@ describe('web host', () => {
           exchanges: [{ promptEntryIds: [expect.any(String)] }],
         },
       });
+    } finally {
+      await host.close();
+    }
+  });
+
+  it('serves active repair cycle and phase over execute.run and execute.runs without diagnostics', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-rpc-active-repair-'));
+    const runDir = runDirPath(cwd, 'run-1');
+    const target = { command: 'npm', args: ['run', 'verify'] };
+    const history = {
+      'task-1': [
+        {
+          cycle: 1,
+          epochs: [
+            {
+              stage: 'agent' as const,
+              outcome: 'succeeded' as const,
+              attempts: 1,
+              artifactOrdinalStart: 1,
+              artifactOrdinalEnd: 1,
+            },
+            {
+              stage: 'verify' as const,
+              outcome: 'succeeded' as const,
+              attempts: 1,
+              artifactOrdinalStart: 1,
+              artifactOrdinalEnd: 1,
+              verdict: 'failed' as const,
+            },
+          ],
+        },
+      ],
+    };
+    const resolution = sliceRepairProtocol.completeVerification({
+      trusted: {
+        runDir,
+        runId: 'run-1',
+        sliceId: 'task-1',
+        target,
+        policy: sliceRepairProtocol.policy,
+        history,
+      },
+      verdict: 'failed',
+      cycle: 1,
+      verifyArtifactOrdinal: 1,
+      stageAttempt: 1,
+      exitCode: 1,
+      stdout: sliceRepairProtocol.boundedDiagnostic('private stdout'),
+      stderr: sliceRepairProtocol.boundedDiagnostic('private stderr'),
+    });
+    if (resolution.kind !== 'repair') throw new Error('expected repair resolution');
+    const pending = resolution.pending;
+    await mkdir(runDir, { recursive: true });
+    await writeFile(
+      runMetadataPath(cwd, 'run-1'),
+      `${JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath: '/missing-plan.json',
+        status: 'test_result_ingested',
+        activeSliceId: 'task-1',
+        failedSliceIds: [],
+        verifyTarget: target,
+        sliceRepairHistory: history,
+        pendingSliceRepair: pending,
+      })}\n`,
+      'utf8',
+    );
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    await coordinator.createSetupSession({ specTitle: 'Active repair observer' });
+    const host = await startWebHost({
+      cwd,
+      port: 0,
+      coordinator,
+    });
+    try {
+      const responses = await websocketRpcBatch(host.url, [
+        { jsonrpc: '2.0', id: 1, method: 'execute.runs' },
+        { jsonrpc: '2.0', id: 2, method: 'execute.run', params: { runId: 'run-1' } },
+      ]);
+      expect(responses).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 1,
+            result: {
+              runs: [
+                expect.objectContaining({
+                  activeSliceCycle: 2,
+                  activeSlicePhase: 'repair_pending',
+                  failedSliceIds: [],
+                }),
+              ],
+            },
+          }),
+          expect.objectContaining({
+            id: 2,
+            result: expect.objectContaining({
+              activeSliceCycle: 2,
+              activeSlicePhase: 'repair_pending',
+              failedSliceIds: [],
+            }),
+          }),
+        ]),
+      );
+      expect(JSON.stringify(responses)).not.toContain('private stdout');
+      expect(JSON.stringify(responses)).not.toContain('private stderr');
     } finally {
       await host.close();
     }
@@ -1096,7 +1203,12 @@ describe('web host', () => {
       }),
       'utf8',
     );
-    await createRun({ cwd, specId: '42', runId: 'run-1' });
+    await createRun({
+      cwd,
+      specId: '42',
+      runId: 'run-1',
+      verifyTarget: { command: 'npm', args: ['run', 'verify'] },
+    });
     await preparePetriObservation({ cwd, runId: 'run-1' });
     const host = await startWebHost({ cwd, port: 0 });
     try {
@@ -1173,7 +1285,12 @@ describe('web host', () => {
       }),
       'utf8',
     );
-    await createRun({ cwd, specId: '42', runId: 'run-1' });
+    await createRun({
+      cwd,
+      specId: '42',
+      runId: 'run-1',
+      verifyTarget: { command: 'npm', args: ['run', 'verify'] },
+    });
     await preparePetriObservation({ cwd, runId: 'run-1' });
     const host = await startWebHost({ cwd, port: 0 });
     try {
@@ -1229,27 +1346,31 @@ describe('web host', () => {
       expect(firings).toEqual([...durableFirings, 'run:finish']);
       expect(firings).toEqual(
         expect.arrayContaining([
-          'test_result_ingested:S3:attempt:1',
-          'verify_failed:S3:attempt:1',
-          'test_result_ingested:S4:attempt:1',
-          'verify_failed:S4:attempt:1',
-          'test_result_ingested:S5:attempt:1',
-          'verify_passed:S5:attempt:1',
+          'test_result_ingested:S3:cycle:3:attempt:1',
+          'verify_failed:S3:cycle:3:attempt:1',
+          'test_result_ingested:S4:cycle:3:attempt:1',
+          'verify_failed:S4:cycle:3:attempt:1',
+          'test_result_ingested:S5:cycle:1:attempt:1',
+          'verify_passed:S5:cycle:1:attempt:1',
           'slice_complete:S5',
         ]),
       );
-      expect(firings).not.toContain('slice_integrate:S3');
-      expect(firings).not.toContain('slice_integrate:S4');
-      expect(firings).toContain('slice_integrate:S5');
+      expect(firings.some((id) => typeof id === 'string' && id.startsWith('slice_integrate:S3:'))).toBe(
+        false,
+      );
+      expect(firings.some((id) => typeof id === 'string' && id.startsWith('slice_integrate:S4:'))).toBe(
+        false,
+      );
+      expect(firings).toContain('slice_integrate:S5:cycle:1');
       const run = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
       expect(run).toMatchObject({
         status: 'slice_completed',
         failedSliceIds: ['S3', 'S4'],
         completedSliceIds: ['S2', 'S5'],
-        sliceAttemptHistory: {
-          S3: { verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'failed' }] },
-          S4: { verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'failed' }] },
-          S5: { verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'passed' }] },
+        sliceRepairHistory: {
+          S3: expect.arrayContaining([expect.objectContaining({ cycle: 3 })]),
+          S4: expect.arrayContaining([expect.objectContaining({ cycle: 3 })]),
+          S5: expect.arrayContaining([expect.objectContaining({ cycle: 1 })]),
         },
       });
       for (const field of [
@@ -1265,8 +1386,8 @@ describe('web host', () => {
       const marking = await readPetriMarkingSnapshot({ cwd, runId: 'run-1' });
       expect(marking).toMatchObject({
         currentMarking: {
-          'slice:S3:verification_failed': 1,
-          'slice:S4:verification_failed': 1,
+          'slice:S3:cycle:3:verification_failed': 1,
+          'slice:S4:cycle:3:verification_failed': 1,
           'slice:S5:completed': 1,
         },
         lifecycleProvenance: {
@@ -1285,8 +1406,8 @@ describe('web host', () => {
         failedSliceIds: ['S3', 'S4'],
         petriProjection: {
           currentMarking: {
-            'slice:S3:verification_failed': 1,
-            'slice:S4:verification_failed': 1,
+            'slice:S3:cycle:3:verification_failed': 1,
+            'slice:S4:cycle:3:verification_failed': 1,
             'slice:S5:completed': 1,
           },
           terminalEventKind: 'net_halted',

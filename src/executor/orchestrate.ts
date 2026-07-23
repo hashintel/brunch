@@ -7,7 +7,6 @@ import {
   type VerifyStreamEvent,
 } from './isolated-slice-operations.js';
 import {
-  attemptResetTransitionId,
   compileExecutorTopology,
   type ExecutorNetEvent,
   type ExecutorNetEventPayload,
@@ -50,12 +49,14 @@ import {
 } from './petri.js';
 import { withRunExecutionAuthority } from './run-execution-authority.js';
 import {
-  appendSliceAttemptCycle,
+  activeSliceRepairCycle,
   persistRunMetadata,
   readRunMetadata,
+  runDirPath,
   runMetadataPath,
   type RunMetadata,
 } from './run.js';
+import { sliceRepairProtocol, sliceRepairTopology, type PendingSliceRepair } from './slice-repair-cycle.js';
 import type { SourcePolicyKind } from './source-policy.js';
 
 export { compileExecutorTopology };
@@ -513,6 +514,16 @@ async function driveOwned(
         return state.status === 'landed' ? { ...outcome, runStatus: state.status } : outcome;
       }
     }
+    if (state.pendingSliceRepair && plan) {
+      const recovered = await recoverPendingSliceRepair({
+        ctx,
+        state,
+        plan,
+        journal,
+      });
+      if (!recovered.recovered) return recovered.outcome;
+      continue;
+    }
     if ('events' in journal && journal.events !== undefined) {
       const durableEpicHistory = journal.events.flatMap((event) =>
         event.kind === 'transition_fired' && event.contract.lane === 'epic' ? [event.transitionId] : [],
@@ -591,6 +602,24 @@ async function driveOwned(
           journal.sliceStartClaimIds.length > 0));
     if (parallelRecoveryRequired) {
       const step = readySteps[0]?.kind ?? 'slice_start';
+      if (
+        persisted?.parallelSliceBatch?.pendingRepairs?.length &&
+        !parallelPendingRepairAuthorityIsValid({
+          cwd: ctx.cwd,
+          runId: ctx.runId,
+          state,
+          snapshot: persisted,
+        })
+      ) {
+        const terminal = classifyDriveTerminal({
+          kind: 'step_halted',
+          runId: ctx.runId,
+          runStatus: state.status,
+          step,
+          reason: 'petri_input_unreadable',
+        });
+        return (await settleDriveTerminal(ctx, terminal)).outcome;
+      }
       const terminal = classifyDriveTerminal({
         kind: 'step_halted',
         runId: ctx.runId,
@@ -997,6 +1026,38 @@ async function driveOwned(
   }
 }
 
+function parallelPendingRepairAuthorityIsValid(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly state: RunMetadata;
+  readonly snapshot: PetriMarkingSnapshot;
+}): boolean {
+  const batch = args.snapshot.parallelSliceBatch;
+  if (!batch?.pendingRepairs?.length || !batch.pendingRepairHistory || !args.state.verifyTarget) {
+    return false;
+  }
+  try {
+    for (const pending of batch.pendingRepairs) {
+      const cycles = batch.pendingRepairHistory[pending.sliceId];
+      if (!cycles) return false;
+      sliceRepairProtocol.validateRepairAuthority({
+        pending,
+        trusted: {
+          runDir: runDirPath(args.cwd, args.runId),
+          runId: args.runId,
+          sliceId: pending.sliceId,
+          target: args.state.verifyTarget,
+          policy: sliceRepairProtocol.policy,
+          history: { [pending.sliceId]: cycles },
+        },
+      });
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function transitionParityFailure(args: {
   readonly journal: PetriJournalAuthorityInspection;
   readonly authoritySnapshot: PetriMarkingSnapshot | undefined;
@@ -1111,6 +1172,164 @@ function epicIdsForTransitionKind(history: readonly string[], kind: string): rea
   });
 }
 
+async function recoverPendingSliceRepair(args: {
+  readonly ctx: DriveContext;
+  readonly state: RunMetadata;
+  readonly plan: SchedulerPlan;
+  readonly journal: PetriJournalAuthorityInspection;
+}): Promise<{ readonly recovered: true } | { readonly recovered: false; readonly outcome: DriveOutcome }> {
+  if (args.journal.status !== 'readable') {
+    return {
+      recovered: false,
+      outcome: {
+        status: 'halted',
+        step: 'test_result',
+        runStatus: args.state.status,
+        reason: 'petri_input_unreadable',
+      },
+    };
+  }
+  const metadataPath = runMetadataPath(args.ctx.cwd, args.ctx.runId);
+  const trustedRepairState = {
+    runDir: runDirPath(args.ctx.cwd, args.ctx.runId),
+    runId: args.ctx.runId,
+    sliceId: args.state.activeSliceId!,
+    target: args.state.verifyTarget!,
+    policy: sliceRepairProtocol.policy,
+    history: args.state.sliceRepairHistory!,
+  };
+  let pending: PendingSliceRepair;
+  try {
+    pending = await sliceRepairProtocol.materializeRepair({
+      pending: args.state.pendingSliceRepair!,
+      trusted: trustedRepairState,
+    });
+  } catch {
+    return {
+      recovered: false,
+      outcome: {
+        status: 'halted',
+        step: 'test_result',
+        runStatus: args.state.status,
+        reason: 'repair_context_unreadable',
+      },
+    };
+  }
+  const materializedState: RunMetadata = {
+    ...args.state,
+    status: 'slice_execution_requested',
+    pendingSliceRepair: pending,
+  };
+  if (
+    args.state.pendingSliceRepair!.phase !== 'materialized' ||
+    args.state.status !== 'slice_execution_requested'
+  ) {
+    await persistRunMetadata(metadataPath, materializedState);
+  }
+
+  const desired = projectExecutorPetriTransitionHistory(materializedState, args.plan)?.transitionIds;
+  if (!desired) {
+    return {
+      recovered: false,
+      outcome: {
+        status: 'halted',
+        step: 'test_result',
+        runStatus: materializedState.status,
+        reason: 'petri_input_unreadable',
+      },
+    };
+  }
+  const journaled = args.journal.events.flatMap((event) =>
+    event.kind === 'transition_fired' ? [event.transitionId] : [],
+  );
+  if (!journaled.every((transitionId, index) => desired[index] === transitionId)) {
+    return {
+      recovered: false,
+      outcome: {
+        status: 'halted',
+        step: 'test_result',
+        runStatus: materializedState.status,
+        reason: 'petri_input_unreadable',
+      },
+    };
+  }
+  const topology = compileExecutorTopology(args.plan);
+  for (const transitionId of desired.slice(journaled.length)) {
+    const transition = topology.transitions.find((candidate) => candidate.id === transitionId);
+    if (!transition) {
+      return {
+        recovered: false,
+        outcome: {
+          status: 'halted',
+          step: 'test_result',
+          runStatus: materializedState.status,
+          reason: 'petri_input_unreadable',
+        },
+      };
+    }
+    const step: ReadyStep['kind'] = transition.step?.kind ?? 'test_result';
+    const emitted = await emitNetEvent(args.ctx, {
+      kind: 'transition_fired',
+      runId: args.ctx.runId,
+      runStatus: materializedState.status,
+      transitionId,
+      subnetId: transition.subnetId,
+      ...(transition.epicId === undefined ? {} : { epicId: transition.epicId }),
+      ...(transition.derivedFrom === undefined ? {} : { derivedFrom: transition.derivedFrom }),
+      step,
+      contract: transition.contract,
+      consumed: transition.inputArcs.map((arc) => arc.placeId),
+      produced: transition.outputArcs.map((arc) => arc.placeId),
+      fromStatus: args.state.status,
+      toStatus: materializedState.status,
+    });
+    if (!emitted.journaled) {
+      return {
+        recovered: false,
+        outcome: {
+          status: 'halted',
+          step: 'test_result',
+          runStatus: materializedState.status,
+          reason: 'petri_journal_append_failed',
+        },
+      };
+    }
+  }
+  const runtime = materializeExecutorPetriRuntime(materializedState, args.plan);
+  try {
+    await writePetriMarkingSnapshot({
+      cwd: args.ctx.cwd,
+      runId: args.ctx.runId,
+      snapshot: {
+        currentMarking: runtime.currentMarking,
+        firedTransitionCount: desired.length,
+        lifecycleProvenance: petriMarkingLifecycleProvenance(materializedState),
+      },
+    });
+  } catch {
+    return {
+      recovered: false,
+      outcome: {
+        status: 'halted',
+        step: 'test_result',
+        runStatus: materializedState.status,
+        reason: 'petri_marking_persist_failed',
+      },
+    };
+  }
+  const { pendingSliceRepair: _pending, ...withoutPending } = materializedState;
+  const activeSliceRepairContext = sliceRepairProtocol.activateRepair({
+    pending,
+    trusted: trustedRepairState,
+  });
+  await persistRunMetadata(metadataPath, {
+    ...withoutPending,
+    activeSliceRepairContext,
+    activeSliceRepairAuthority: pending,
+  });
+  return { recovered: true };
+}
+
 async function applyPendingAttemptReset(
   ctx: DriveContext,
   state: RunMetadata,
@@ -1118,11 +1337,32 @@ async function applyPendingAttemptReset(
 ): Promise<{ readonly applied: true } | { readonly applied: false; readonly outcome: DriveOutcome }> {
   const stage = state.activeSliceAttemptReset!.stage;
   const sliceId = state.activeSliceId!;
-  const transitionId = attemptResetTransitionId(stage, sliceId);
+  const cycle = activeSliceRepairCycle(state, sliceId);
+  const transitionId = sliceRepairTopology.attemptResetTransitionId(stage, sliceId, cycle);
   const transition = compileExecutorTopology(plan).transitions.find(
     (candidate) => candidate.id === transitionId,
   );
   if (!transition) {
+    return {
+      applied: false,
+      outcome: {
+        status: 'halted',
+        step: stage === 'agent' ? 'agent_result' : 'test_result',
+        runStatus: state.status,
+        reason: 'petri_input_unreadable',
+      },
+    };
+  }
+  let candidateHistory;
+  try {
+    candidateHistory = sliceRepairProtocol.admitReset({
+      history: state.sliceRepairHistory!,
+      sliceId,
+      cycle,
+      stage,
+      policy: sliceRepairProtocol.policy,
+    });
+  } catch {
     return {
       applied: false,
       outcome: {
@@ -1162,10 +1402,7 @@ async function applyPendingAttemptReset(
   const { activeSliceAttemptReset: _cleared, ...rest } = state;
   await persistRunMetadata(runMetadataPath(ctx.cwd, ctx.runId), {
     ...rest,
-    sliceAttemptHistory: appendSliceAttemptCycle(state, sliceId, stage, {
-      outcome: 'reset',
-      attempts: 0,
-    }),
+    sliceRepairHistory: candidateHistory,
   });
   return { applied: true };
 }

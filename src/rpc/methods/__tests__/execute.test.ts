@@ -18,6 +18,8 @@ import { drive, frontierFiringPolicy, petriScheduler } from '../../../executor/o
 import { planFilePath, planProvenancePath } from '../../../executor/plan-file.js';
 import { PRODUCTION_EXECUTE_RPC_MUTATIONS } from '../../../executor/run-execution-authority.js';
 import { createRun, runDirPath, runMetadataPath, type RunMetadata } from '../../../executor/run.js';
+import { sliceRepairProtocol } from '../../../executor/slice-repair-cycle.js';
+import { ingestTestResult } from '../../../executor/test-result.js';
 import type { GraphEdge } from '../../../graph/schema/edges.js';
 import type { GraphNode } from '../../../graph/schema/nodes.js';
 import { createProductUpdatePublisher, type ProductUpdate } from '../../product-updates.js';
@@ -107,6 +109,9 @@ async function writeRun(
     readonly failedSliceIds?: readonly string[];
     readonly integratedEpicIds?: readonly string[];
     readonly epicTransitionHistory?: readonly string[];
+    readonly pendingSliceRepair?: RunMetadata['pendingSliceRepair'];
+    readonly verifyTarget?: RunMetadata['verifyTarget'];
+    readonly sliceRepairHistory?: RunMetadata['sliceRepairHistory'];
   } = {},
 ): Promise<void> {
   await mkdir(runDirPath(cwd, runId), { recursive: true });
@@ -123,13 +128,31 @@ async function writeRun(
       ...(options.completedSliceIds === undefined
         ? {}
         : {
-            sliceAttemptHistory: Object.fromEntries(
+            sliceRepairHistory: Object.fromEntries(
               options.completedSliceIds.map((sliceId) => [
                 sliceId,
-                {
-                  agent: [{ outcome: 'succeeded', attempts: 1 }],
-                  verify: [{ outcome: 'succeeded', attempts: 1, verdict: 'passed' }],
-                },
+                [
+                  {
+                    cycle: 1,
+                    epochs: [
+                      {
+                        stage: 'agent',
+                        outcome: 'succeeded',
+                        attempts: 1,
+                        artifactOrdinalStart: 1,
+                        artifactOrdinalEnd: 1,
+                      },
+                      {
+                        stage: 'verify',
+                        outcome: 'succeeded',
+                        attempts: 1,
+                        artifactOrdinalStart: 1,
+                        artifactOrdinalEnd: 1,
+                        verdict: 'passed',
+                      },
+                    ],
+                  },
+                ],
               ]),
             ),
           }),
@@ -137,6 +160,9 @@ async function writeRun(
       ...(options.epicTransitionHistory === undefined
         ? {}
         : { epicTransitionHistory: options.epicTransitionHistory }),
+      ...(options.pendingSliceRepair === undefined ? {} : { pendingSliceRepair: options.pendingSliceRepair }),
+      ...(options.verifyTarget === undefined ? {} : { verifyTarget: options.verifyTarget }),
+      ...(options.sliceRepairHistory === undefined ? {} : { sliceRepairHistory: options.sliceRepairHistory }),
     })}\n`,
     'utf8',
   );
@@ -341,6 +367,203 @@ describe('execute.runs', () => {
 });
 
 describe('execute.run', () => {
+  it('exposes active pending repair cycle in run detail and runs list without diagnostics or premature failure', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-active-repair-'));
+    const runDir = runDirPath(cwd, 'run-1');
+    const target = { command: 'npm', args: ['run', 'verify'] };
+    const history = {
+      'task-1': [
+        {
+          cycle: 1,
+          epochs: [
+            {
+              stage: 'agent' as const,
+              outcome: 'succeeded' as const,
+              attempts: 1,
+              artifactOrdinalStart: 1,
+              artifactOrdinalEnd: 1,
+            },
+            {
+              stage: 'verify' as const,
+              outcome: 'succeeded' as const,
+              attempts: 1,
+              artifactOrdinalStart: 1,
+              artifactOrdinalEnd: 1,
+              verdict: 'failed' as const,
+            },
+          ],
+        },
+      ],
+    };
+    const resolution = sliceRepairProtocol.completeVerification({
+      trusted: {
+        runDir,
+        runId: 'run-1',
+        sliceId: 'task-1',
+        target,
+        policy: sliceRepairProtocol.policy,
+        history,
+      },
+      verdict: 'failed',
+      cycle: 1,
+      verifyArtifactOrdinal: 1,
+      stageAttempt: 1,
+      exitCode: 1,
+      stdout: sliceRepairProtocol.boundedDiagnostic('private stdout diagnostic'),
+      stderr: sliceRepairProtocol.boundedDiagnostic('private stderr diagnostic'),
+    });
+    if (resolution.kind !== 'repair') throw new Error('expected repair resolution');
+    await writeRun(cwd, 'run-1', {
+      status: 'test_result_ingested',
+      activeSliceId: 'task-1',
+      failedSliceIds: [],
+      verifyTarget: target,
+      sliceRepairHistory: history,
+      pendingSliceRepair: resolution.pending,
+    });
+
+    const [detail, runs] = await Promise.all([
+      method('execute.run').handle(contextFor(cwd), request('execute.run', { runId: 'run-1' })),
+      method('execute.runs').handle(contextFor(cwd), request('execute.runs')),
+    ]);
+
+    expect(detail).toMatchObject({
+      result: {
+        activeSliceId: 'task-1',
+        activeSliceCycle: 2,
+        activeSlicePhase: 'repair_pending',
+        failedSliceIds: [],
+      },
+    });
+    expect(runs).toMatchObject({
+      result: {
+        runs: [
+          {
+            runId: 'run-1',
+            activeSliceId: 'task-1',
+            activeSliceCycle: 2,
+            activeSlicePhase: 'repair_pending',
+            failedSliceIds: [],
+          },
+        ],
+      },
+    });
+    expect(JSON.stringify({ detail, runs })).not.toContain('private stdout diagnostic');
+    expect(JSON.stringify({ detail, runs })).not.toContain('private stderr diagnostic');
+  });
+
+  it('serves live pending to cycle 2 agent to cycle 2 verify phases from production drive state', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-live-repair-phases-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(dirname(planPath), { recursive: true });
+    await mkdir(join(cwd, 'src'), { recursive: true });
+    await writeFile(join(cwd, 'src', 'app.ts'), 'export const app = true;\n', 'utf8');
+    await writeFile(
+      planPath,
+      JSON.stringify({
+        mode: 'greenfield',
+        epics: [{ id: 'epic-1', depends_on: [], verification: [] }],
+        slices: [
+          {
+            id: 'task-1',
+            epic_id: 'epic-1',
+            definition: 'task-1.',
+            depends_on: [],
+            verification: [{ kind: 'criterion', criterionId: 'AC1', target: 'task works' }],
+            derived_from: ['REQ1'],
+          },
+        ],
+      }),
+      'utf8',
+    );
+    await createRun({
+      cwd,
+      specId: '42',
+      runId: 'run-1',
+      verifyTarget: { command: 'npm', args: ['run', 'verify'] },
+    });
+    const basePorts: ExecutionPorts = {
+      gitWorktree: createFakeGitWorktreePort(),
+      gitSliceIntegration: createFakeGitSliceIntegrationPort(),
+      agentRunner: {
+        async run() {
+          return { status: 'completed' };
+        },
+      },
+      testRunner: createFakeTestRunnerPort(),
+      gitRunPromotion: createFakeGitRunPromotionPort(),
+      gitHostLand: createFakeGitHostLandPort(),
+    };
+    await drive({ cwd, runId: 'run-1', ports: basePorts }, petriScheduler, frontierFiringPolicy, {
+      maxFirings: 8,
+    });
+    await ingestTestResult({
+      cwd,
+      runId: 'run-1',
+      testRunner: createFakeTestRunnerPort({
+        status: 'completed',
+        verdict: 'failed',
+        exitCode: 1,
+      }),
+    });
+    const pending = await method('execute.run').handle(
+      contextFor(cwd),
+      request('execute.run', { runId: 'run-1' }),
+    );
+    expect(pending).toMatchObject({
+      result: {
+        activeSliceCycle: 2,
+        activeSlicePhase: 'repair_pending',
+      },
+    });
+    expect(JSON.stringify(pending)).not.toContain('contextBytes');
+
+    let releaseAgent!: () => void;
+    const released = new Promise<void>((resolve) => {
+      releaseAgent = resolve;
+    });
+    let markAgentStarted!: () => void;
+    const agentStarted = new Promise<void>((resolve) => {
+      markAgentStarted = resolve;
+    });
+    const driving = drive(
+      {
+        cwd,
+        runId: 'run-1',
+        ports: {
+          ...basePorts,
+          agentRunner: {
+            async run() {
+              markAgentStarted();
+              await released;
+              return { status: 'completed' };
+            },
+          },
+        },
+      },
+      petriScheduler,
+      frontierFiringPolicy,
+      { maxFirings: 1 },
+    );
+    await agentStarted;
+    const agent = await method('execute.run').handle(
+      contextFor(cwd),
+      request('execute.run', { runId: 'run-1' }),
+    );
+    expect(agent).toMatchObject({
+      result: { activeSliceCycle: 2, activeSlicePhase: 'agent' },
+    });
+    releaseAgent();
+    await driving;
+    const verify = await method('execute.run').handle(
+      contextFor(cwd),
+      request('execute.run', { runId: 'run-1' }),
+    );
+    expect(verify).toMatchObject({
+      result: { activeSliceCycle: 2, activeSlicePhase: 'verify' },
+    });
+  });
+
   it('returns failed slice ids in a schema-valid run detail response', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-failed-slices-'));
     await writeRun(cwd, 'run-1', { failedSliceIds: ['task-1'] });
