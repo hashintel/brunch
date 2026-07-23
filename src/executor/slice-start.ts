@@ -7,8 +7,7 @@ import {
   type BlockedStep,
   type SchedulerPlan,
 } from './orchestrate-topology.js';
-import { inspectPetriJournalAuthority } from './petri-journal-authority.js';
-import { readPetriMarkingSnapshot } from './petri-marking.js';
+import { reconcilePreparedLifecycleJournal } from './petri-lifecycle-reconciliation.js';
 import { projectExecutorPetriTransitionHistory } from './petri-runtime.js';
 import { populatedPlanPath } from './populate.js';
 import { reportsPath } from './report.js';
@@ -32,7 +31,11 @@ export type SliceStartResult =
       readonly sideEffects: readonly [];
     }
   | {
-      readonly status: 'run_execution_active' | 'parallel_batch_active';
+      readonly status:
+        | 'run_execution_active'
+        | 'parallel_batch_active'
+        | 'petri_input_unreadable'
+        | 'petri_journal_gap';
       readonly runStatus: RunMetadata['status'] | 'not_started';
       readonly runId: string;
       readonly metadataPath: string;
@@ -127,31 +130,17 @@ async function startSliceOwned(args: {
     };
   }
 
-  const marking = await readPetriMarkingSnapshot({ cwd: args.cwd, runId: args.runId });
-  if (marking?.parallelSliceBatch) {
-    return {
-      status: 'parallel_batch_active',
-      runStatus: metadata.status,
-      runId: args.runId,
-      metadataPath,
-      sideEffects: [],
-    };
-  }
-
   const plan = await readPlan(metadata.populatedPlanPath ?? populatedPlanPath(args.cwd, args.runId));
-  const journalAuthority = await inspectPetriJournalAuthority({
+  const reconciliation = await reconcilePreparedLifecycleJournal({
     cwd: args.cwd,
     runId: args.runId,
+    state: metadata,
     lifecycleTransitionIds: projectExecutorPetriTransitionHistory(metadata, plan)?.transitionIds,
     plan,
   });
-  if (
-    journalAuthority.status === 'unreadable' ||
-    (journalAuthority.status === 'missing' && metadata.petriObservationPrepared === true) ||
-    (journalAuthority.status === 'readable' && journalAuthority.relation !== 'equal')
-  ) {
+  if (reconciliation.status === 'blocked') {
     return {
-      status: 'parallel_batch_active',
+      status: reconciliation.reason,
       runStatus: metadata.status,
       runId: args.runId,
       metadataPath,
@@ -201,6 +190,13 @@ async function startSliceOwned(args: {
 
   await appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8');
   const metadataEffect = await persistRunMetadata(metadataPath, updated);
+  await reconcilePreparedLifecycleJournal({
+    cwd: args.cwd,
+    runId: args.runId,
+    state: updated,
+    lifecycleTransitionIds: projectExecutorPetriTransitionHistory(updated, plan)?.transitionIds,
+    plan,
+  });
 
   return {
     status: 'slice_started',

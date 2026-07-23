@@ -1,6 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { reconcilePreparedLifecycleJournal } from './petri-lifecycle-reconciliation.js';
 import {
   runExecutionActive,
   withRunExecutionAuthority,
@@ -84,6 +85,12 @@ async function initializeReportsOwned(args: {
 
   await writeFile(path, `${JSON.stringify(event)}\n`, 'utf8');
   const metadataEffect = await persistRunMetadata(metadataPath, updated);
+  await reconcilePreparedLifecycleJournal({
+    cwd: args.cwd,
+    runId: args.runId,
+    state: updated,
+    lifecycleTransitionIds: ['worktree_create', 'populate', 'source_policy', 'source_copy', 'report_init'],
+  });
 
   return {
     status: 'reports_initialized',

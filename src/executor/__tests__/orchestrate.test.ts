@@ -3576,7 +3576,7 @@ describe('drive', () => {
     expect(snapshot?.terminalEventKind).toBeUndefined();
   });
 
-  it('does not repeat an effect when its metadata advanced before the transition append failed', async () => {
+  it('repairs a lifecycle journal gap without repeating the completed effect', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-journal-gap-restart-'));
     await createRunAtCreated(cwd, ['task-1']);
     await preparePetriObservation({ cwd, runId: 'run-1' });
@@ -3609,14 +3609,96 @@ describe('drive', () => {
     await rename(preservedJournalPath, journalPath);
 
     await expect(drive({ cwd, runId: 'run-1', ports })).resolves.toEqual({
-      status: 'halted',
-      step: 'populate',
-      runStatus: 'worktree_created',
-      reason: 'petri_journal_gap',
+      status: 'completed',
+      runStatus: 'promotion_prepared',
     });
     expect(worktreeCalls).toBe(1);
     await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
-      status: 'worktree_created',
+      status: 'promotion_prepared',
+    });
+  });
+
+  it('does not append when Petri authority becomes unreadable during a reconciling step', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-reconcile-fail-closed-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    const journalPath = petriEventsPath(cwd, 'run-1');
+    const corruptJournal = '{not-json\n';
+    let failureWakeUps = 0;
+    const unsubscribe = subscribePetriJournalFailures({
+      cwd,
+      runId: 'run-1',
+      listener: () => {
+        failureWakeUps += 1;
+      },
+    });
+
+    let outcome: Awaited<ReturnType<typeof drive>>;
+    try {
+      outcome = await drive({
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts(),
+        onStepStart(step) {
+          if (step !== 'report_init') return;
+          writeFileSync(journalPath, corruptJournal, 'utf8');
+        },
+      });
+    } finally {
+      unsubscribe();
+    }
+
+    expect(await readFile(journalPath, 'utf8')).toBe(corruptJournal);
+    expect(failureWakeUps).toBe(1);
+    expect(outcome).toEqual({
+      status: 'halted',
+      step: 'report_init',
+      runStatus: 'reports_initialized',
+      reason: 'petri_input_unreadable',
+    });
+  });
+
+  it('reconciles direct mechanical lifecycle steps into the prepared Petri journal', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-direct-lifecycle-journal-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    await preparePetriObservation({ cwd, runId: 'run-1' });
+    await createWorktree({ cwd, runId: 'run-1', gitWorktree: createFakeGitWorktreePort() });
+    await populateWorktree({ cwd, runId: 'run-1' });
+    await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'plan_only' });
+    await copyHostSource({ cwd, runId: 'run-1' });
+    await initializeReports({ cwd, runId: 'run-1' });
+
+    expect(
+      (await readPetriEvents(cwd)).flatMap((event) =>
+        event.kind === 'transition_fired' ? [event.transitionId] : [],
+      ),
+    ).toEqual(['worktree_create', 'populate', 'source_policy', 'source_copy', 'report_init']);
+    expect(await readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).toMatchObject({
+      currentMarking: { 'slice:task-1:claim': 1 },
+      firedTransitionCount: 5,
+      lifecycleProvenance: { runStatus: 'reports_initialized' },
+    });
+
+    await expect(
+      drive({ cwd, runId: 'run-1', ports: fakePorts() }, linearScheduler, serialFiringPolicy, {
+        maxFirings: 1,
+      }),
+    ).resolves.toEqual({ status: 'completed', runStatus: 'slice_started' });
+    expect(
+      (await readPetriEvents(cwd)).flatMap((event) =>
+        event.kind === 'transition_fired' ? [event.transitionId] : [],
+      ),
+    ).toEqual([
+      'worktree_create',
+      'populate',
+      'source_policy',
+      'source_copy',
+      'report_init',
+      'slice_start:task-1',
+    ]);
+    expect(await readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).toMatchObject({
+      currentMarking: { 'slice:task-1:started': 1 },
+      firedTransitionCount: 6,
+      lifecycleProvenance: { runStatus: 'slice_started', activeSliceId: 'task-1' },
     });
   });
 
@@ -6277,7 +6359,7 @@ describe('petriScheduler', () => {
     });
 
     await expect(startSlice({ cwd, runId: 'run-1', sliceId: 'task-2' })).resolves.toEqual({
-      status: 'parallel_batch_active',
+      status: 'petri_journal_gap',
       runStatus: 'slice_completed',
       runId: 'run-1',
       metadataPath: runMetadataPath(cwd, 'run-1'),

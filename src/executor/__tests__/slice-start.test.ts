@@ -4,7 +4,9 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { petriEventsPath } from '../petri-events.js';
 import { writePetriMarkingSnapshot } from '../petri-marking.js';
+import { preparePetriObservation } from '../petri.js';
 import { planFilePath } from '../plan-file.js';
 import { populateWorktree } from '../populate.js';
 import { initializeReports, reportsPath } from '../report.js';
@@ -25,7 +27,7 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-async function createReportReadyRun(cwd: string): Promise<void> {
+async function createReportReadyRun(cwd: string, prepareObservation = false): Promise<void> {
   const planPath = planFilePath(cwd, '42');
   await mkdir(join(cwd, 'src'), { recursive: true });
   await writeFile(join(cwd, 'src', 'app.ts'), 'export const app = true;\n', 'utf8');
@@ -49,6 +51,7 @@ async function createReportReadyRun(cwd: string): Promise<void> {
     'utf8',
   );
   await createRun({ cwd, specId: '42', runId: 'run-1' });
+  if (prepareObservation) await preparePetriObservation({ cwd, runId: 'run-1' });
   await createWorktree({ cwd, runId: 'run-1', gitWorktree: createFakeGitWorktreePort() });
   await populateWorktree({ cwd, runId: 'run-1' });
   await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
@@ -191,6 +194,44 @@ describe('startSlice', () => {
     });
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'petrinaut'))).toBe(false);
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'agent-output'))).toBe(false);
+  });
+
+  it('starts directly from a reconciled prepared journal instead of reporting a parallel batch', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-prepared-journal-'));
+    await createReportReadyRun(cwd, true);
+
+    await expect(startSliceWithExecutionAuthority({ cwd, runId: 'run-1' })).resolves.toMatchObject({
+      status: 'slice_started',
+      runStatus: 'slice_started',
+      sliceId: 'task-1',
+    });
+    const transitionIds = (await readFile(petriEventsPath(cwd, 'run-1'), 'utf8'))
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line))
+      .flatMap((event) => (event.kind === 'transition_fired' ? [event.transitionId] : []));
+    expect(transitionIds).toEqual([
+      'worktree_create',
+      'populate',
+      'source_policy',
+      'source_copy',
+      'report_init',
+      'slice_start:task-1',
+    ]);
+  });
+
+  it('reports unreadable Petri input instead of inventing parallel authority', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-unreadable-journal-'));
+    await createReportReadyRun(cwd, true);
+    await writeFile(petriEventsPath(cwd, 'run-1'), '{', 'utf8');
+
+    await expect(startSliceWithExecutionAuthority({ cwd, runId: 'run-1' })).resolves.toEqual({
+      status: 'petri_input_unreadable',
+      runStatus: 'reports_initialized',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      sideEffects: [],
+    });
   });
 
   it('starts the next incomplete slice after a previous slice has completed', async () => {

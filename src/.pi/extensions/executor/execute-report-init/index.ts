@@ -24,7 +24,7 @@ export function createExecuteReportInitTool() {
     name: BRUNCH_EXECUTE_REPORT_INIT_TOOL,
     label: 'execute_report_init',
     description:
-      'Initialize reports.jsonl for a source-copied cook run. Does not execute slices or create Petri artifacts.',
+      'Initialize reports.jsonl for a source-copied cook run and reconcile an existing Petri observation journal. Does not execute slices or create observer definitions.',
     parameters: toolParameters(ExecuteReportInitParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;

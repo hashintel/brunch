@@ -25,7 +25,7 @@ export function createExecuteSliceStartTool() {
     name: BRUNCH_EXECUTE_SLICE_START_TOOL,
     label: 'execute_slice_start',
     description:
-      'Append a slice-start marker for a ready cook run. Does not execute agents, tests, or Petri transitions.',
+      'Append a slice-start marker and reconcile its prepared Petri observation. Does not execute agents or tests.',
     parameters: toolParameters(ExecuteSliceStartParams),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;

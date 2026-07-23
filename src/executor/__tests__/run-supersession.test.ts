@@ -5,10 +5,13 @@ import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import type { LaunchCurrentProjection } from '../launch.js';
+import { petriEventsPath } from '../petri-events.js';
+import { petriPlanSnapshotPath } from '../petri-plan-snapshot.js';
+import { petriNetPath, petriSdcpnPath } from '../petri.js';
 import { planFilePath, planProvenancePath } from '../plan-file.js';
 import { withRunExecutionAuthority } from '../run-execution-authority.js';
 import { createSupersedingRun } from '../run-supersession.js';
-import { runDirPath, runMetadataPath, type RunMetadata } from '../run.js';
+import { readRunMetadata, runDirPath, runMetadataPath, type RunMetadata } from '../run.js';
 
 const current: LaunchCurrentProjection = {
   specId: '42',
@@ -211,6 +214,11 @@ describe('createSupersedingRun', () => {
       sideEffects: [
         { kind: 'mkdir', path: runDirPath(cwd, 'run-new') },
         { kind: 'write_file', path: runMetadataPath(cwd, 'run-new'), ifExists: 'overwrite' },
+        { kind: 'mkdir', path: dirname(petriNetPath(cwd, 'run-new')) },
+        { kind: 'write_file', path: petriPlanSnapshotPath(cwd, 'run-new') },
+        { kind: 'write_file', path: petriNetPath(cwd, 'run-new') },
+        { kind: 'write_file', path: petriSdcpnPath(cwd, 'run-new') },
+        { kind: 'write_file', path: petriEventsPath(cwd, 'run-new') },
       ],
     });
     await expect(readFile(runMetadataPath(cwd, 'run-old'), 'utf8')).resolves.toBe(
@@ -219,6 +227,26 @@ describe('createSupersedingRun', () => {
     await expect(readFile(runMetadataPath(cwd, 'run-new'), 'utf8')).resolves.toContain(
       '"supersedesRunId": "run-old"',
     );
+    await expect(readRunMetadata(runMetadataPath(cwd, 'run-new'))).resolves.toMatchObject({
+      petriObservationPrepared: true,
+    });
+    await expect(pathExists(petriPlanSnapshotPath(cwd, 'run-new'))).resolves.toBe(true);
+    await expect(pathExists(petriNetPath(cwd, 'run-new'))).resolves.toBe(true);
+    await expect(pathExists(petriSdcpnPath(cwd, 'run-new'))).resolves.toBe(true);
+    await expect(readFile(petriEventsPath(cwd, 'run-new'), 'utf8')).resolves.toBe('');
+  });
+
+  it('removes an unpublished replacement run when observer preparation fails', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-supersede-observer-failure-'));
+    await writePlan(cwd);
+    await writeRun(cwd, 'run-old');
+    await writeFile(planFilePath(cwd, '42'), '{', 'utf8');
+
+    await expect(
+      createSupersedingRun({ cwd, previousRunId: 'run-old', runId: 'run-new', current }),
+    ).rejects.toThrow();
+    await expect(pathExists(runDirPath(cwd, 'run-new'))).resolves.toBe(false);
+    await expect(pathExists(runMetadataPath(cwd, 'run-old'))).resolves.toBe(true);
   });
 
   it('preserves the previous run environment policy on the superseding run', async () => {
