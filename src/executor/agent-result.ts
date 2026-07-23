@@ -20,9 +20,10 @@ import {
   readRunMetadata,
   sliceArtifactAttemptNumber,
   type RunMetadata,
+  type RunMetadataWriteEffect,
 } from './run.js';
 import { sliceExecutionRequestPath } from './slice-execute.js';
-import { MAX_STAGE_ATTEMPTS } from './slice-repair-cycle.js';
+import { MAX_STAGE_ATTEMPTS, sliceRepairProtocol } from './slice-repair-cycle.js';
 import { worktreeDirPath } from './worktree.js';
 
 export type AgentResultIngestResult =
@@ -118,7 +119,7 @@ async function ingestAgentResultOwned(args: {
   readonly onAgentUpdate?: (event: AgentStreamEvent) => void;
 }): Promise<AgentResultIngestResult> {
   const metadataPath = runMetadataPath(args.cwd, args.runId);
-  const metadata = await readRunMetadata(metadataPath);
+  let metadata = await readRunMetadata(metadataPath);
   if (!metadata) {
     return {
       status: 'missing_run',
@@ -138,20 +139,43 @@ async function ingestAgentResultOwned(args: {
       sideEffects: [],
     };
   }
+  const sliceId = metadata.activeSliceId;
+
+  let repairActivationEffect: RunMetadataWriteEffect | undefined;
+  if (metadata.pendingSliceRepair) {
+    const pending = metadata.pendingSliceRepair;
+    const activeSliceRepairContext = sliceRepairProtocol.activateRepair({
+      pending,
+      trusted: {
+        runDir: runDirPath(args.cwd, args.runId),
+        runId: args.runId,
+        sliceId,
+        target: metadata.verifyTarget!,
+        policy: sliceRepairProtocol.policy,
+        history: metadata.sliceRepairHistory!,
+      },
+    });
+    const { pendingSliceRepair: _pendingSliceRepair, ...withoutPendingRepair } = metadata;
+    metadata = {
+      ...withoutPendingRepair,
+      activeSliceRepairContext,
+      activeSliceRepairAuthority: pending,
+    };
+    repairActivationEffect = await persistRunMetadata(metadataPath, metadata);
+  }
 
   const worktreeDir =
     metadata.activeSliceWorkspaceDir ?? metadata.worktreeDir ?? worktreeDirPath(args.cwd, args.runId);
   const requestPath =
-    metadata.sliceExecutionRequestPath ??
-    sliceExecutionRequestPath(args.cwd, args.runId, metadata.activeSliceId);
-  const artifactAttempt = sliceArtifactAttemptNumber(metadata, metadata.activeSliceId, 'agent');
+    metadata.sliceExecutionRequestPath ?? sliceExecutionRequestPath(args.cwd, args.runId, sliceId);
+  const artifactAttempt = sliceArtifactAttemptNumber(metadata, sliceId, 'agent');
   const cycle = activeSliceRepairCycle(metadata);
-  const resultPath = agentResultPath(args.cwd, args.runId, metadata.activeSliceId, artifactAttempt);
-  const streamPath = agentStreamPath(args.cwd, args.runId, metadata.activeSliceId, artifactAttempt);
+  const resultPath = agentResultPath(args.cwd, args.runId, sliceId, artifactAttempt);
+  const streamPath = agentStreamPath(args.cwd, args.runId, sliceId, artifactAttempt);
   const reportPath = metadata.reportsPath ?? reportsPath(args.cwd, args.runId);
   const attemptResult = await runIsolatedAgentAttempt({
     runId: args.runId,
-    sliceId: metadata.activeSliceId,
+    sliceId,
     ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
     worktreeDir,
     requestPath,
@@ -197,12 +221,13 @@ async function ingestAgentResultOwned(args: {
         status: 'agent_run_failed',
         runStatus: 'slice_execution_requested',
         runId: args.runId,
-        sliceId: metadata.activeSliceId,
+        sliceId,
         worktreeDir,
         metadataPath,
         message: runResult.message,
         attempts,
         sideEffects: [
+          ...(repairActivationEffect ? [repairActivationEffect] : []),
           ...(wroteStream ? [{ kind: 'append_file' as const, path: streamPath }] : []),
           metadataEffect,
         ],
@@ -225,12 +250,13 @@ async function ingestAgentResultOwned(args: {
     status: 'agent_result_ingested',
     runStatus: 'agent_result_ingested',
     runId: args.runId,
-    sliceId: metadata.activeSliceId,
+    sliceId,
     ...(metadata.activeEpicId === undefined ? {} : { epicId: metadata.activeEpicId }),
     resultPath,
     metadataPath,
     reportsPath: reportPath,
     sideEffects: [
+      ...(repairActivationEffect ? [repairActivationEffect] : []),
       ...(wroteStream ? [{ kind: 'append_file' as const, path: streamPath }] : []),
       { kind: 'append_file', path: reportPath },
       metadataEffect,

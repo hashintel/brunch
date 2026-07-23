@@ -7,8 +7,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { agentResultPath, agentStreamPath, ingestAgentResult } from '../agent-result.js';
 import type { AgentRunArgs } from '../execution-ports.js';
 import { reportsPath } from '../report.js';
-import { runDirPath, runMetadataPath } from '../run.js';
+import { readRunMetadata, runDirPath, runMetadataPath } from '../run.js';
 import { sliceExecutionRequestPath } from '../slice-execute.js';
+import { ingestTestResult } from '../test-result.js';
 import { worktreeDirPath } from '../worktree.js';
 
 const fsMockState = vi.hoisted(() => ({
@@ -61,6 +62,7 @@ async function createRequestedSliceRun(cwd: string): Promise<void> {
       activeSliceId: 'task-1',
       activeEpicId: 'frontier-1',
       sliceExecutionRequestPath: requestPath,
+      verifyTarget: { command: 'npm', args: ['run', 'verify'] },
     }),
     'utf8',
   );
@@ -213,6 +215,63 @@ describe('ingestAgentResult', () => {
     });
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'petrinaut'))).toBe(false);
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'tests-ran.json'))).toBe(false);
+  });
+
+  it('activates a pending repair before standalone agent ingestion', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-agent-result-pending-repair-'));
+    await createRequestedSliceRun(cwd);
+    await ingestAgentResult({
+      cwd,
+      runId: 'run-1',
+      agentRunner: {
+        async run() {
+          return { status: 'completed', summary: 'Initial implementation.' };
+        },
+      },
+    });
+    await ingestTestResult({
+      cwd,
+      runId: 'run-1',
+      testRunner: {
+        async run() {
+          return { status: 'completed', verdict: 'failed', exitCode: 1, target: 'npm run verify' };
+        },
+      },
+    });
+    expect(await readRunMetadata(runMetadataPath(cwd, 'run-1'))).toMatchObject({
+      status: 'slice_execution_requested',
+      pendingSliceRepair: { phase: 'materialized', sourceCycle: 1, cycle: 2 },
+    });
+
+    const calls: AgentRunArgs[] = [];
+    await ingestAgentResult({
+      cwd,
+      runId: 'run-1',
+      agentRunner: {
+        async run(args) {
+          calls.push(args);
+          return { status: 'completed', summary: 'Repaired implementation.' };
+        },
+      },
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({
+      cycle: 2,
+      repairContext: { cycle: 2, sourceCycle: 1 },
+      repairContextAuthority: {
+        pending: { phase: 'materialized', cycle: 2, sourceCycle: 1 },
+      },
+    });
+    const metadata = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+    expect(metadata).toMatchObject({
+      status: 'agent_result_ingested',
+      activeSliceRepairContext: { cycle: 2, sourceCycle: 1 },
+      sliceRepairHistory: {
+        'task-1': [{ cycle: 1 }, { cycle: 2, epochs: [{ stage: 'agent', outcome: 'succeeded' }] }],
+      },
+    });
+    expect(metadata?.pendingSliceRepair).toBeUndefined();
   });
 
   it('persists normalized worker stream updates before ingesting the final result', async () => {
