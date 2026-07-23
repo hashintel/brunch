@@ -1725,7 +1725,12 @@ describe('drive', () => {
           reason: 'petri_input_unreadable',
         });
       } else {
-        await expect(driving).rejects.toThrow();
+        await expect(driving).resolves.toEqual({
+          status: 'halted',
+          step: 'epic_verify',
+          runStatus: 'slice_completed',
+          reason: 'petri_marking_persist_failed',
+        });
       }
       expect(runnerCalls).toBe(0);
       expect((await readRunMetadata(runMetadataPath(cwd, 'run-1')))?.verifiedEpicIds).toBeUndefined();
@@ -3615,6 +3620,36 @@ describe('drive', () => {
     expect(worktreeCalls).toBe(1);
     await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({
       status: 'promotion_prepared',
+    });
+  });
+
+  it('halts and repairs when lifecycle catch-up cannot persist its marking', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-reconcile-marking-failure-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    await preparePetriObservation({ cwd, runId: 'run-1' });
+    await createWorktree({ cwd, runId: 'run-1', gitWorktree: createFakeGitWorktreePort() });
+    const markingPath = petriMarkingPath(cwd, 'run-1');
+    await mkdir(markingPath);
+
+    await expect(drive({ cwd, runId: 'run-1', ports: fakePorts() })).resolves.toEqual({
+      status: 'halted',
+      step: 'populate',
+      runStatus: 'worktree_created',
+      reason: 'petri_marking_persist_failed',
+    });
+    expect(
+      (await readPetriEvents(cwd)).flatMap((event) =>
+        event.kind === 'transition_fired' ? [event.transitionId] : [],
+      ),
+    ).toEqual(['worktree_create']);
+
+    await rm(markingPath, { recursive: true });
+    await expect(drive({ cwd, runId: 'run-1', ports: fakePorts() })).resolves.toEqual({
+      status: 'completed',
+      runStatus: 'promotion_prepared',
+    });
+    await expect(readPetriMarkingSnapshot({ cwd, runId: 'run-1' })).resolves.toMatchObject({
+      lifecycleProvenance: { runStatus: 'promotion_prepared' },
     });
   });
 
@@ -6312,7 +6347,7 @@ describe('petriScheduler', () => {
     });
   });
 
-  it('refuses standalone start after one parallel claim journals before batch marking', async () => {
+  it('halts before a parallel claim when equal marking repair cannot persist', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-petri-single-journal-claim-'));
     await createRunAtCreated(cwd, ['task-1', 'task-2']);
     await expect(
@@ -6326,19 +6361,13 @@ describe('petriScheduler', () => {
     await expect(
       drive({ cwd, runId: 'run-1', ports: fakePorts() }, petriScheduler, frontierFiringPolicy),
     ).resolves.toMatchObject({ status: 'halted', reason: 'petri_marking_persist_failed' });
-    await expect(readRunDetail(cwd, 'run-1')).resolves.toMatchObject({
-      petriReadySteps: [],
-      petriBlockedSteps: [
-        { kind: 'authority_unreadable', blockers: [{ kind: 'parallel_authority_unreadable' }] },
-        {
-          kind: 'slice_start',
-          sliceId: 'task-1',
-          blockers: [{ kind: 'parallel_authority_unreadable' }],
-        },
-      ],
-    });
+    expect(
+      (await readPetriEvents(cwd)).filter(
+        (event) => event.kind === 'transition_fired' && event.transitionId.startsWith('slice_start:'),
+      ),
+    ).toEqual([]);
     await expect(startSlice({ cwd, runId: 'run-1', sliceId: 'task-2' })).resolves.toMatchObject({
-      status: 'parallel_batch_active',
+      status: 'petri_marking_persist_failed',
       sideEffects: [],
     });
     await expect(readRunMetadata(runMetadataPath(cwd, 'run-1'))).resolves.toMatchObject({

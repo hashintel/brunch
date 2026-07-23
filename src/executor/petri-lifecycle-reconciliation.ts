@@ -3,6 +3,7 @@ import { appendPetriEvent } from './petri-events.js';
 import { inspectPetriJournalAuthority } from './petri-journal-authority.js';
 import {
   petriMarkingLifecycleProvenance,
+  petriMarkingSnapshotMatchesRunMetadata,
   readPetriMarkingSnapshot,
   writePetriMarkingSnapshot,
 } from './petri-marking.js';
@@ -13,7 +14,9 @@ import type { RunMetadata } from './run.js';
 export type PetriLifecycleReconciliationBlockReason =
   | 'parallel_batch_active'
   | 'petri_input_unreadable'
+  | 'petri_journal_append_failed'
   | 'petri_journal_gap'
+  | 'petri_marking_persist_failed'
   | 'petri_terminal_recorded';
 
 export type PetriLifecycleReconciliation =
@@ -57,7 +60,13 @@ export async function reconcilePreparedLifecycleJournal(args: {
   ) {
     return { status: 'blocked', reason: 'petri_terminal_recorded' };
   }
-  if (authority.relation === 'equal') return { status: 'synchronized' };
+  if (
+    authority.relation === 'equal' &&
+    existing &&
+    petriMarkingSnapshotMatchesRunMetadata(existing, args.state)
+  ) {
+    return { status: 'synchronized' };
+  }
   if (authority.relation === 'journal_ahead') {
     const parallelClaimOnly =
       authority.residualTransitionIds.length > 0 &&
@@ -68,55 +77,64 @@ export async function reconcilePreparedLifecycleJournal(args: {
     };
   }
 
-  const missingTransitionIds = authority.residualTransitionIds;
-  if (!isSuffix(missingTransitionIds, args.lifecycleTransitionIds)) {
-    return { status: 'blocked', reason: 'petri_input_unreadable' };
-  }
-
   const topology = compileExecutorTopology(plan);
-  if (missingTransitionIds.some((id) => !isRecoverableLifecycleTransition(id))) {
-    return { status: 'blocked', reason: 'petri_journal_gap' };
-  }
-  for (const transitionId of missingTransitionIds) {
-    const transition = topology.transitions.find((candidate) => candidate.id === transitionId);
-    const statuses = lifecycleStatuses(transitionId, args.state);
-    if (!transition || !statuses) {
+  if (authority.relation === 'lifecycle_ahead') {
+    const missingTransitionIds = authority.residualTransitionIds;
+    if (!isSuffix(missingTransitionIds, args.lifecycleTransitionIds)) {
+      return { status: 'blocked', reason: 'petri_input_unreadable' };
+    }
+    if (missingTransitionIds.some((id) => !isRecoverableLifecycleTransition(id))) {
       return { status: 'blocked', reason: 'petri_journal_gap' };
     }
-    await appendPetriEvent({
-      cwd: args.cwd,
-      runId: args.runId,
-      event: {
-        kind: 'transition_fired',
-        runId: args.runId,
-        runStatus: statuses.toStatus,
-        transitionId,
-        subnetId: transition.subnetId,
-        ...(transition.epicId === undefined ? {} : { epicId: transition.epicId }),
-        ...(transition.derivedFrom === undefined ? {} : { derivedFrom: transition.derivedFrom }),
-        step: transition.step!.kind,
-        contract: transition.contract,
-        consumed: transition.inputArcs.map((arc) => arc.placeId),
-        produced: transition.outputArcs.map((arc) => arc.placeId),
-        fromStatus: statuses.fromStatus,
-        toStatus: statuses.toStatus,
-      },
-    });
+    for (const transitionId of missingTransitionIds) {
+      const transition = topology.transitions.find((candidate) => candidate.id === transitionId);
+      const statuses = lifecycleStatuses(transitionId, args.state);
+      if (!transition || !statuses) {
+        return { status: 'blocked', reason: 'petri_journal_gap' };
+      }
+      try {
+        await appendPetriEvent({
+          cwd: args.cwd,
+          runId: args.runId,
+          event: {
+            kind: 'transition_fired',
+            runId: args.runId,
+            runStatus: statuses.toStatus,
+            transitionId,
+            subnetId: transition.subnetId,
+            ...(transition.epicId === undefined ? {} : { epicId: transition.epicId }),
+            ...(transition.derivedFrom === undefined ? {} : { derivedFrom: transition.derivedFrom }),
+            step: transition.step!.kind,
+            contract: transition.contract,
+            consumed: transition.inputArcs.map((arc) => arc.placeId),
+            produced: transition.outputArcs.map((arc) => arc.placeId),
+            fromStatus: statuses.fromStatus,
+            toStatus: statuses.toStatus,
+          },
+        });
+      } catch {
+        return { status: 'blocked', reason: 'petri_journal_append_failed' };
+      }
+    }
   }
 
   const replayed = replayTransitionHistory(topology, args.lifecycleTransitionIds);
   if (!replayed) return { status: 'blocked', reason: 'petri_input_unreadable' };
-  await writePetriMarkingSnapshot({
-    cwd: args.cwd,
-    runId: args.runId,
-    snapshot: {
-      ...replayed,
-      lifecycleProvenance: petriMarkingLifecycleProvenance(args.state),
-      ...(existing?.epicVerificationClaims
-        ? { epicVerificationClaims: existing.epicVerificationClaims }
-        : {}),
-    },
-  });
+  try {
+    await writePetriMarkingSnapshot({
+      cwd: args.cwd,
+      runId: args.runId,
+      snapshot: {
+        ...replayed,
+        lifecycleProvenance: petriMarkingLifecycleProvenance(args.state),
+        ...(existing?.epicVerificationClaims
+          ? { epicVerificationClaims: existing.epicVerificationClaims }
+          : {}),
+      },
+    });
+  } catch {
+    return { status: 'blocked', reason: 'petri_marking_persist_failed' };
+  }
   return { status: 'synchronized' };
 }
 

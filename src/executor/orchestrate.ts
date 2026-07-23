@@ -466,13 +466,25 @@ async function driveOwned(
         return (await settleDriveTerminal(ctx, terminal)).outcome;
       }
     }
-    await reconcilePreparedLifecycleJournal({
+    const lifecycleReconciliation = await reconcilePreparedLifecycleJournal({
       cwd: ctx.cwd,
       runId: ctx.runId,
       state,
       lifecycleTransitionIds: projectExecutorPetriTransitionHistory(state, plan)?.transitionIds,
       plan,
     });
+    if (
+      lifecycleReconciliation.status === 'blocked' &&
+      (lifecycleReconciliation.reason === 'petri_journal_append_failed' ||
+        lifecycleReconciliation.reason === 'petri_marking_persist_failed')
+    ) {
+      return {
+        status: 'halted',
+        step: reconciliationStep(state, plan),
+        runStatus: state.status,
+        reason: lifecycleReconciliation.reason,
+      };
+    }
     const authoritySnapshot = await readPetriMarkingSnapshot({ cwd: ctx.cwd, runId: ctx.runId });
     const journal = await inspectPetriJournalAuthority({
       cwd: ctx.cwd,
@@ -813,6 +825,17 @@ async function driveOwned(
         }
         return settled.outcome;
       }
+      if (
+        result.status === 'petri_journal_append_failed' ||
+        result.status === 'petri_marking_persist_failed'
+      ) {
+        return {
+          status: 'halted',
+          step: next.kind,
+          runStatus: result.runStatus === 'not_started' ? currentState.status : result.runStatus,
+          reason: result.status,
+        };
+      }
       if (result.skipTransition && result.runStatus !== 'not_started') {
         try {
           ctx.onStepComplete?.(
@@ -928,15 +951,19 @@ async function driveOwned(
                 })
               : { status: 'blocked' as const, reason: 'petri_input_unreadable' as const };
             if (reconciliation.status !== 'synchronized') {
-              publishPetriJournalFailure(ctx);
+              if (
+                reconciliation.status === 'blocked' &&
+                (reconciliation.reason === 'petri_input_unreadable' ||
+                  reconciliation.reason === 'petri_journal_gap')
+              ) {
+                publishPetriJournalFailure(ctx);
+              }
               return {
                 status: 'halted',
                 step: next.kind,
                 runStatus: result.runStatus,
                 reason:
-                  reconciliation.status === 'blocked' && reconciliation.reason === 'petri_journal_gap'
-                    ? reconciliation.reason
-                    : 'petri_input_unreadable',
+                  reconciliation.status === 'blocked' ? reconciliation.reason : 'petri_input_unreadable',
               };
             }
           } else {
