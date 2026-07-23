@@ -71,6 +71,24 @@ export interface ProspectResearchWorkspaceExecutionCasePublicContract {
   };
   readonly acceptance: {
     readonly healthPath: '/api/health';
+    readonly statePath: '/api/state';
+    readonly projectsPath: '/api/projects';
+    readonly projectActionPathPattern: '^/api/projects/[0-9]+/(approve|research)$';
+    readonly prospectActionPathPattern: '^/api/prospects/[0-9]+/(approve|suppress|override)$';
+    readonly exportPath: '/api/export';
+    readonly responseStatuses: {
+      readonly unapprovedResearch: 409;
+      readonly reasonlessOverride: 400;
+      readonly providerFailure: 503;
+    };
+    readonly sqliteTables: readonly [
+      'projects',
+      'runs',
+      'prospects',
+      'provenance',
+      'suppressions',
+      'decisions',
+    ];
     readonly executionTerminal: 'promotion_prepared';
   };
   readonly accessibility: {
@@ -259,6 +277,14 @@ const ACCESSIBLE_NAME_PATTERNS = {
   arc: '^Arc: .+ to .+$',
 } as const satisfies Record<'place' | 'transition' | 'arc', AccessibleNamePattern>;
 const PROSPECT_ENVIRONMENT = ['PORT', 'DATABASE_PATH', 'RESEARCH_FIXTURE_PATH'] as const;
+const PROSPECT_SQLITE_TABLES = [
+  'projects',
+  'runs',
+  'prospects',
+  'provenance',
+  'suppressions',
+  'decisions',
+] as const;
 const PROSPECT_FIELDS = ['Project name', 'Ideal customer profile', 'Decision reason'] as const;
 const PROSPECT_CONTROLS = [
   'Create project',
@@ -324,6 +350,7 @@ function parseProspectResearchWorkspaceContract(
   const budgets = requiredRecord(value, 'budgets');
   const delivery = requiredRecord(value, 'delivery');
   const acceptance = requiredRecord(value, 'acceptance');
+  const responseStatuses = requiredRecord(acceptance, 'responseStatuses');
   const accessibility = requiredRecord(value, 'accessibility');
   const prospectPattern = requiredRecord(accessibility, 'prospectPattern');
   if (
@@ -358,7 +385,18 @@ function parseProspectResearchWorkspaceContract(
       'runtimeNetwork',
       'dependencyInstallNetwork',
     ]) ||
-    !exactKeys(acceptance, ['healthPath', 'executionTerminal']) ||
+    !exactKeys(acceptance, [
+      'healthPath',
+      'statePath',
+      'projectsPath',
+      'projectActionPathPattern',
+      'prospectActionPathPattern',
+      'exportPath',
+      'responseStatuses',
+      'sqliteTables',
+      'executionTerminal',
+    ]) ||
+    !exactKeys(responseStatuses, ['unapprovedResearch', 'reasonlessOverride', 'providerFailure']) ||
     !exactKeys(accessibility, [
       'application',
       'projects',
@@ -390,6 +428,15 @@ function parseProspectResearchWorkspaceContract(
     delivery['runtimeNetwork'] !== 'forbidden' ||
     delivery['dependencyInstallNetwork'] !== 'package-registry-only' ||
     acceptance['healthPath'] !== '/api/health' ||
+    acceptance['statePath'] !== '/api/state' ||
+    acceptance['projectsPath'] !== '/api/projects' ||
+    acceptance['projectActionPathPattern'] !== '^/api/projects/[0-9]+/(approve|research)$' ||
+    acceptance['prospectActionPathPattern'] !== '^/api/prospects/[0-9]+/(approve|suppress|override)$' ||
+    acceptance['exportPath'] !== '/api/export' ||
+    responseStatuses['unapprovedResearch'] !== 409 ||
+    responseStatuses['reasonlessOverride'] !== 400 ||
+    responseStatuses['providerFailure'] !== 503 ||
+    !exactStrings(acceptance['sqliteTables'], PROSPECT_SQLITE_TABLES) ||
     acceptance['executionTerminal'] !== 'promotion_prepared' ||
     !accessibleName(accessibility['application'], 'application', 'Prospect research workspace') ||
     !accessibleName(accessibility['projects'], 'heading', 'Research projects') ||

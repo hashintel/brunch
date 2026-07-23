@@ -82,10 +82,6 @@ export function parseEndToEndStudyContract(value: unknown): EndToEndStudyContrac
       value['caseId'] === 'minimal-petri-net-editor-v1' &&
       oracle['id'] === 'minimal-petri-net-editor-oracles-v2' &&
       source === undefined) ||
-    (value['id'] === 'prospect-research-workspace-e2e-v1' &&
-      value['caseId'] === 'prospect-research-workspace-v1' &&
-      oracle['id'] === 'prospect-research-workspace-oracles-v1' &&
-      source === undefined) ||
     (value['id'] === 'petrinaut-optimization-e2e-v1' &&
       value['caseId'] === 'petrinaut-optimization-v1' &&
       oracle['id'] === 'petrinaut-optimization-oracles-v1' &&

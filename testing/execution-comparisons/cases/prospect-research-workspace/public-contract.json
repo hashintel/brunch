@@ -3,7 +3,7 @@
   "case": {
     "id": "prospect-research-workspace-v1",
     "specification": "spec.md",
-    "specificationSha256": "c31b9857949e5f15fb6c490b6d9127356e90c5c8bb20956a9e2080da97bf4547",
+    "specificationSha256": "4c4f5ddafa5489ebb8bf4ef701ece12f690f3138a5c22fca7fc0746dfa31652a",
     "provider": "anthropic",
     "model": "claude-opus-4-8",
     "product": "prospect_research_workspace",
@@ -30,6 +30,17 @@
   },
   "acceptance": {
     "healthPath": "/api/health",
+    "statePath": "/api/state",
+    "projectsPath": "/api/projects",
+    "projectActionPathPattern": "^/api/projects/[0-9]+/(approve|research)$",
+    "prospectActionPathPattern": "^/api/prospects/[0-9]+/(approve|suppress|override)$",
+    "exportPath": "/api/export",
+    "responseStatuses": {
+      "unapprovedResearch": 409,
+      "reasonlessOverride": 400,
+      "providerFailure": 503
+    },
+    "sqliteTables": ["projects", "runs", "prospects", "provenance", "suppressions", "decisions"],
     "executionTerminal": "promotion_prepared"
   },
   "accessibility": {

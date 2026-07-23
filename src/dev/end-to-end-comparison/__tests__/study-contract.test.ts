@@ -75,27 +75,6 @@ describe('end-to-end study contract', () => {
     expect(loaded.contractSha256).toMatch(/^sha256:[a-f0-9]{64}$/u);
   });
 
-  it('loads the content-addressed prospect research study', async () => {
-    const repositoryRoot = fileURLToPath(new URL('../../../../', import.meta.url));
-    const loaded = await loadEndToEndStudyContract({
-      repositoryRoot,
-      contractPath: fileURLToPath(
-        new URL(
-          '../../../../testing/end-to-end-comparisons/cases/prospect-research-workspace/study-contract.json',
-          import.meta.url,
-        ),
-      ),
-    });
-
-    expect(loaded.contract).toMatchObject({
-      id: 'prospect-research-workspace-e2e-v1',
-      caseId: 'prospect-research-workspace-v1',
-      oracle: { id: 'prospect-research-workspace-oracles-v1' },
-      specSources: ['brunch_spec', 'claude_spec'],
-      executors: ['brunch', 'claude_code'],
-    });
-  });
-
   it('accepts the frozen two-by-two study shape', () => {
     expect(parseEndToEndStudyContract(study())).toEqual(study());
   });

@@ -25,41 +25,27 @@ const petrinautRequirementsPath = fileURLToPath(
     import.meta.url,
   ),
 );
-const prospectRequirementsPath = fileURLToPath(
-  new URL(
-    '../../../../testing/end-to-end-comparisons/cases/prospect-research-workspace/controller/requirement-registry.json',
-    import.meta.url,
-  ),
-);
-
 describe('compiled controller oracle manifests', () => {
   it('accepts exactly four compiled variants with complete non-Petri claim coverage', async () => {
-    const [petri, prospect, brunch, petrinaut, registry, petrinautRegistry, prospectRegistry] =
-      await Promise.all([
-        loadControllerOracleManifest(join(casesRoot, 'minimal-petri-net-editor')),
-        loadControllerOracleManifest(join(casesRoot, 'prospect-research-workspace')),
-        loadControllerOracleManifest(join(casesRoot, 'brunch-host-landing')),
-        loadControllerOracleManifest(join(casesRoot, 'petrinaut-optimization')),
-        readFile(requirementsPath, 'utf8').then(
-          (raw) => JSON.parse(raw) as { rows: readonly { id: string }[] },
-        ),
-        readFile(petrinautRequirementsPath, 'utf8').then(
-          (raw) => JSON.parse(raw) as { rows: readonly { id: string }[] },
-        ),
-        readFile(prospectRequirementsPath, 'utf8').then(
-          (raw) => JSON.parse(raw) as { rows: readonly { id: string }[] },
-        ),
-      ]);
+    const [petri, prospect, brunch, petrinaut, registry, petrinautRegistry] = await Promise.all([
+      loadControllerOracleManifest(join(casesRoot, 'minimal-petri-net-editor')),
+      loadControllerOracleManifest(join(casesRoot, 'prospect-research-workspace')),
+      loadControllerOracleManifest(join(casesRoot, 'brunch-host-landing')),
+      loadControllerOracleManifest(join(casesRoot, 'petrinaut-optimization')),
+      readFile(requirementsPath, 'utf8').then(
+        (raw) => JSON.parse(raw) as { rows: readonly { id: string }[] },
+      ),
+      readFile(petrinautRequirementsPath, 'utf8').then(
+        (raw) => JSON.parse(raw) as { rows: readonly { id: string }[] },
+      ),
+    ]);
 
     expect(petri.id).toBe('minimal-petri-net-editor-oracles-v2');
     expect(prospect.id).toBe('prospect-research-workspace-oracles-v1');
     expect(brunch.id).toBe('brunch-host-landing-oracles-v1');
     expect(petrinaut.id).toBe('petrinaut-optimization-oracles-v1');
     expect(() =>
-      assertOracleClaimCoverage(
-        prospect,
-        prospectRegistry.rows.map(({ id }) => id),
-      ),
+      assertOracleClaimCoverage(prospect, ['PR1', 'PR2', 'PR3', 'PR4', 'PR5', 'PR6', 'PR7', 'PR8', 'PR9']),
     ).not.toThrow();
     expect(() =>
       assertOracleClaimCoverage(

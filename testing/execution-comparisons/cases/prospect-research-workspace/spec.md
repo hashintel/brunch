@@ -10,7 +10,7 @@ The application researches and qualifies prospects. It does not generate outreac
 
 ## Core Workflow
 
-1. The operator creates a research project with an ideal-customer profile, target roles, qualification criteria, and exclusions.
+1. The operator creates a research project with a name and ideal-customer profile.
 2. The operator approves the project before research can run.
 3. A manual research run reads deterministic candidates from the configured Clay-compatible adapter.
 4. The application normalizes people and companies, merges duplicates while retaining provenance, and applies suppressions.
@@ -22,13 +22,13 @@ The application researches and qualifies prospects. It does not generate outreac
 
 - Required role, company-fit, and source-evidence fields must be present before qualification.
 - Provider confidence is metadata, not qualifying evidence.
-- Person, company, domain, and email suppressions take precedence over qualification, approval, and later imports.
+- Suppressing a prospect takes precedence over qualification, approval, export, and later imports of that prospect.
 - Overrides preserve the prior automated decision and record the operator's reason.
-- Provider failure or partial delivery never silently becomes prospect rejection.
+- Provider failure never silently becomes prospect rejection.
 
 ## Technical Boundary
 
-Use a React and TypeScript frontend, Node.js and TypeScript backend, SQLite durable store, and server-side Pi/Clay-compatible adapter interfaces. The scored mode uses deterministic local fixtures and performs no runtime network access. Build tool, server framework, ORM, router, component library, and CSS system remain implementation choices.
+Use a React and TypeScript frontend, Node.js and TypeScript backend, SQLite durable store, and server-side Pi/Clay-compatible adapter interfaces. The regression mode uses deterministic local fixtures and performs no runtime network access. The public contract fixes the HTTP and SQLite evidence surfaces used by the regression oracle; build tool, server framework, ORM, router, component library, and CSS system remain implementation choices.
 
 ## Success
 

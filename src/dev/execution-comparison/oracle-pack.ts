@@ -264,6 +264,7 @@ const PROSPECT_RESEARCH_CHECKS = [
   'provider-failure',
   'restart-persistence',
 ] as const;
+const PROSPECT_RESEARCH_CLAIMS = ['PR1', 'PR2', 'PR3', 'PR4', 'PR5', 'PR6', 'PR7', 'PR8', 'PR9'] as const;
 
 function parseProspectResearchWorkspaceManifest(
   value: Record<string, unknown>,
@@ -301,7 +302,9 @@ function parseProspectResearchWorkspaceManifest(
   ) {
     invalid();
   }
-  return value as unknown as ProspectResearchWorkspaceControllerOracleManifest;
+  const manifest = value as unknown as ProspectResearchWorkspaceControllerOracleManifest;
+  assertOracleClaimCoverage(manifest, PROSPECT_RESEARCH_CLAIMS);
+  return manifest;
 }
 
 function prospectValidityRules(rules: readonly string[]): boolean {

@@ -129,13 +129,12 @@ audience-safe requirement ledger, and the bounded validity-first report.
 This historical witness predates Alpha 10 provenance capture. Keep it as evidence and an example, but
 do not backfill `provenance.json` or publish it through the current publication skill.
 
-FE-1253 adds `prospect-research-workspace` as a separate second greenfield case. Its fixed public
-stack is React + Node.js + TypeScript + SQLite, with deterministic server-side Pi/Clay-compatible
-fixtures and denied runtime network. The mission path is
-`testing/comparisons/missions/prospect-research-workspace.md`. Its compiled full-stack
-browser/HTTP/SQLite/export oracle is calibrated against a known-good implementation and focused wrong
-rivals. No elicitation or execution provider turn is valid until strict greenfield Claude isolation is
-present and witnessed on the parent stack.
+FE-1253 adds `prospect-research-workspace` as a deterministic full-stack regression case, not a second
+end-to-end campaign profile. Its fixed public stack is React + Node.js + TypeScript + SQLite, with
+server-side Pi/Clay-compatible fixtures and denied runtime network. The saved mission remains available
+for exploratory specification work, while the compiled browser/HTTP/SQLite/export oracle is calibrated
+against a known-good implementation and focused wrong rivals. A future campaign may compose this case
+only through a separately authorized study contract.
 
 ## Agent recipe: drive, then join evidence
 

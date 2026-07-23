@@ -22,10 +22,6 @@ const petrinautStudy = join(
   repositoryRoot,
   'testing/end-to-end-comparisons/cases/petrinaut-optimization/study-contract.json',
 );
-const prospectStudy = join(
-  repositoryRoot,
-  'testing/end-to-end-comparisons/cases/prospect-research-workspace/study-contract.json',
-);
 const prospectExecution = join(
   repositoryRoot,
   'testing/execution-comparisons/cases/prospect-research-workspace',
@@ -35,27 +31,20 @@ const petrinautExecution = join(repositoryRoot, 'testing/execution-comparisons/c
 const execFileAsync = promisify(execFile);
 
 describe('compiled end-to-end comparison case profiles', () => {
-  it('loads two greenfield cases and exactly two pinned brownfield cases', async () => {
-    const [petri, prospect, brunch, petrinaut, prospectPacket, brunchPacket, petrinautPacket] =
-      await Promise.all([
-        loadEndToEndStudyContract({ repositoryRoot, contractPath: petriStudy }),
-        loadEndToEndStudyContract({ repositoryRoot, contractPath: prospectStudy }),
-        loadEndToEndStudyContract({ repositoryRoot, contractPath: brunchStudy }),
-        loadEndToEndStudyContract({ repositoryRoot, contractPath: petrinautStudy }),
-        loadPublicCasePacket(prospectExecution),
-        loadPublicCasePacket(brunchExecution),
-        loadPublicCasePacket(petrinautExecution),
-      ]);
+  it('keeps prospect research as an execution case outside the end-to-end profiles', async () => {
+    const [petri, brunch, petrinaut, prospectPacket, brunchPacket, petrinautPacket] = await Promise.all([
+      loadEndToEndStudyContract({ repositoryRoot, contractPath: petriStudy }),
+      loadEndToEndStudyContract({ repositoryRoot, contractPath: brunchStudy }),
+      loadEndToEndStudyContract({ repositoryRoot, contractPath: petrinautStudy }),
+      loadPublicCasePacket(prospectExecution),
+      loadPublicCasePacket(brunchExecution),
+      loadPublicCasePacket(petrinautExecution),
+    ]);
 
     expect(petri.contract).toMatchObject({
       id: 'minimal-petri-net-editor-e2e-v1',
       caseId: 'minimal-petri-net-editor-v1',
       oracle: { id: 'minimal-petri-net-editor-oracles-v2' },
-    });
-    expect(prospect.contract).toMatchObject({
-      id: 'prospect-research-workspace-e2e-v1',
-      caseId: 'prospect-research-workspace-v1',
-      oracle: { id: 'prospect-research-workspace-oracles-v1' },
     });
     expect(brunch.contract).toMatchObject({
       id: 'brunch-host-landing-e2e-v1',
