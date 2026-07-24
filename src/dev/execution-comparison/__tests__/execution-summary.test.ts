@@ -42,10 +42,14 @@ describe('execution comparison final summary', () => {
 
     expect(rendered).toContain('Execution comparison complete');
     expect(rendered).toContain('Case: minimal-petri-net-editor-v1');
-    expect(rendered).toContain('Brunch\n  Status: invalid\n  Terminal: promotion_prepared');
+    expect(rendered).toContain(
+      'Brunch\n  Status: invalid\n  Outcome: invalid\n  Terminal: promotion_prepared',
+    );
     expect(rendered).toContain('Checks: test passed, build failed, browser not run');
     expect(rendered).toContain('Reason: The run was landed after promotion preparation.');
-    expect(rendered).toContain('Claude Code\n  Status: valid\n  Terminal: promotion_prepared');
+    expect(rendered).toContain(
+      'Claude Code\n  Status: valid\n  Outcome: success\n  Terminal: promotion_prepared',
+    );
     expect(rendered).not.toContain('cleanup clean');
     expect(rendered).toContain('Cleanup: done');
     expect(rendered).toContain(`- Report: ${join(runDirectory, 'report.md')}`);
@@ -79,6 +83,25 @@ describe('execution comparison final summary', () => {
     expect(rendered).toContain(`- Claude Code oracle: ${oraclePath}`);
   });
 
+  it('distinguishes a valid failed attempt from a successful attempt', async () => {
+    const runDirectory = await createRun([
+      attempt({
+        attemptId: 'claude-code-failure-1',
+        terminal: {
+          outcome: 'failure',
+          reason: 'executor stopped before delivery',
+          productStatus: 'not_assessable',
+        },
+      }),
+    ]);
+
+    const summary = await loadExecutionComparisonSummary(runDirectory);
+    const rendered = formatExecutionComparisonSummary(summary, join(runDirectory, '..'));
+
+    expect(rendered).toContain('Status: valid\n  Outcome: failure\n  Terminal: not_assessable');
+    expect(rendered).not.toContain('Outcome: success');
+  });
+
   it('prints the deterministic summary through the operator command', async () => {
     const runDirectory = await createRun([attempt({ attemptId: 'claude-code-attempt-2' })]);
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
@@ -87,7 +110,7 @@ describe('execution comparison final summary', () => {
 
     expect(stdout).toHaveBeenCalledOnce();
     expect(stdout.mock.calls[0]?.[0]).toContain('Execution comparison complete');
-    expect(stdout.mock.calls[0]?.[0]).toContain('Claude Code\n  Status: valid');
+    expect(stdout.mock.calls[0]?.[0]).toContain('Claude Code\n  Status: valid\n  Outcome: success');
   });
 
   it('refuses to summarize before the final report exists', async () => {

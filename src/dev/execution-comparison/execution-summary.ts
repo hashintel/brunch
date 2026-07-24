@@ -90,6 +90,7 @@ export function formatExecutionComparisonSummary(
       .join(', ');
     lines.push('', laneLabel(attempt.lane));
     lines.push(`  Status: ${attempt.validity.status}`);
+    lines.push(`  Outcome: ${attempt.terminal.outcome}`);
     lines.push(`  Terminal: ${attempt.terminal.productStatus}`);
     lines.push(`  Checks: ${commands}, browser ${displayStatus(attempt.browser.status)}`);
     if (attempt.validity.status === 'invalid') {
