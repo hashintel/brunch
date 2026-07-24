@@ -80,6 +80,16 @@ export interface ExecutionAttempt {
   };
 }
 
+export interface ExecutionInterventionLedger {
+  readonly schemaVersion: 1;
+  readonly interventions: readonly {
+    readonly index: number;
+    readonly kind: 'mechanical';
+    readonly description: string;
+    readonly at: string;
+  }[];
+}
+
 export function parseExecutionAttempt(value: unknown): ExecutionAttempt {
   if (!record(value)) invalid();
   const budget = child(value, 'budget');
@@ -142,6 +152,29 @@ export function parseExecutionAttempt(value: unknown): ExecutionAttempt {
   }
 
   return value as unknown as ExecutionAttempt;
+}
+
+export function assertExecutionAttemptInterventionLedger(
+  attempt: ExecutionAttempt,
+  value: unknown,
+): ExecutionInterventionLedger {
+  if (
+    !record(value) ||
+    value['schemaVersion'] !== 1 ||
+    !interventionRecords(value['interventions'], Infinity)
+  ) {
+    throw new Error('invalid execution intervention ledger');
+  }
+  const ledger = value as unknown as ExecutionInterventionLedger;
+  if (
+    ledger.interventions.length !== attempt.interventions.length ||
+    !ledger.interventions.every((intervention, index) =>
+      sameIntervention(intervention, attempt.interventions[index]),
+    )
+  ) {
+    throw new Error('execution intervention ledger does not match attempt');
+  }
+  return ledger;
 }
 
 export async function writeExecutionAttemptImmutable(
@@ -208,6 +241,19 @@ function interventionRecords(value: unknown, budget: number): boolean {
       item['kind'] === 'mechanical' &&
       nonempty(item['description']) &&
       timestamp(item['at']),
+  );
+}
+
+function sameIntervention(
+  left: ExecutionInterventionLedger['interventions'][number],
+  right: ExecutionAttempt['interventions'][number] | undefined,
+): boolean {
+  return (
+    right !== undefined &&
+    left.index === right.index &&
+    left.kind === right.kind &&
+    left.description === right.description &&
+    left.at === right.at
   );
 }
 

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  assertExecutionAttemptInterventionLedger,
   parseExecutionAttempt,
   writeExecutionAttemptImmutable,
   type ExecutionAttempt,
@@ -118,5 +119,30 @@ describe('execution comparison attempt artifact contract', () => {
         commonMetrics: { ...attempt('success').commonMetrics, costUsd: null },
       }),
     ).toThrow('invalid execution attempt');
+  });
+
+  it('rejects an intervention ledger that does not exactly match the immutable attempt', () => {
+    const selected = attempt('success');
+    const ledger = {
+      schemaVersion: 1,
+      interventions: [
+        {
+          index: 1,
+          kind: 'mechanical',
+          description: 'controller selected the confirmed action',
+          at: '2026-07-20T12:05:00.000Z',
+        },
+      ],
+    } as const;
+
+    expect(() => assertExecutionAttemptInterventionLedger(selected, ledger)).toThrow(
+      'execution intervention ledger does not match attempt',
+    );
+    expect(
+      assertExecutionAttemptInterventionLedger(selected, { schemaVersion: 1, interventions: [] }),
+    ).toEqual({
+      schemaVersion: 1,
+      interventions: [],
+    });
   });
 });
