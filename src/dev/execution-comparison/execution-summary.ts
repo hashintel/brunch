@@ -1,5 +1,5 @@
 import { lstat, readFile, readdir } from 'node:fs/promises';
-import { basename, join, resolve } from 'node:path';
+import { basename, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path';
 
 import { parseExecutionAttempt, type ExecutionAttempt } from './artifact-contract.js';
 
@@ -104,9 +104,7 @@ export function formatExecutionComparisonSummary(
   lines.push(`- Report: ${absolutePath(summary.reportPath, baseDirectory)}`);
   for (const { attempt, recordPath } of summary.attempts) {
     lines.push(`- ${laneLabel(attempt.lane)} attempt: ${absolutePath(recordPath, baseDirectory)}`);
-    lines.push(
-      `- ${laneLabel(attempt.lane)} oracle: ${absolutePath(attempt.browser.reportPath, baseDirectory)}`,
-    );
+    lines.push(`- ${laneLabel(attempt.lane)} oracle: ${absoluteOraclePath(summary, attempt, baseDirectory)}`);
   }
   return `${lines.join('\n')}\n`;
 }
@@ -121,6 +119,27 @@ function laneLabel(lane: ExecutionAttempt['lane']): string {
 
 function absolutePath(path: string, baseDirectory: string): string {
   return resolve(baseDirectory, path);
+}
+
+function absoluteOraclePath(
+  summary: ExecutionComparisonSummary,
+  attempt: ExecutionAttempt,
+  baseDirectory: string,
+): string {
+  const reportPath = normalize(attempt.browser.reportPath);
+  if (reportPath.startsWith(`browser${sep}`)) {
+    return resolve(summary.runDirectory, 'lanes', attempt.lane, 'attempt-staging', reportPath);
+  }
+
+  const repositoryRelative = absolutePath(reportPath, baseDirectory);
+  return inside(summary.runDirectory, repositoryRelative)
+    ? repositoryRelative
+    : resolve(summary.runDirectory, reportPath);
+}
+
+function inside(parent: string, child: string): boolean {
+  const selected = relative(parent, child);
+  return selected === '' || (!isAbsolute(selected) && selected !== '..' && !selected.startsWith(`..${sep}`));
 }
 
 async function isRegularFile(path: string): Promise<boolean> {

@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -38,7 +38,7 @@ describe('execution comparison final summary', () => {
     ]);
 
     const summary = await loadExecutionComparisonSummary(runDirectory);
-    const rendered = formatExecutionComparisonSummary(summary, runDirectory);
+    const rendered = formatExecutionComparisonSummary(summary, join(runDirectory, '..'));
 
     expect(rendered).toContain('Execution comparison complete');
     expect(rendered).toContain('Case: minimal-petri-net-editor-v1');
@@ -50,6 +50,33 @@ describe('execution comparison final summary', () => {
     expect(rendered).toContain('Cleanup: done');
     expect(rendered).toContain(`- Report: ${join(runDirectory, 'report.md')}`);
     expect(rendered).toContain(join(runDirectory, 'attempt-records/brunch-attempt-1/attempt.json'));
+    expect(rendered).toContain(
+      `- Brunch oracle: ${join(runDirectory, 'lanes/brunch/attempt-staging/browser/report.json')}`,
+    );
+    expect(rendered).toContain(
+      `- Claude Code oracle: ${join(runDirectory, 'lanes/claude_code/attempt-staging/browser/report.json')}`,
+    );
+  });
+
+  it('preserves a repository-relative oracle path already rooted inside the run', async () => {
+    const runDirectory = await createRun([]);
+    const baseDirectory = join(runDirectory, '..');
+    const oraclePath = join(runDirectory, 'lanes/claude_code/attempt-staging/browser/report.json');
+    await writeAttempt(
+      runDirectory,
+      attempt({
+        attemptId: 'claude-code-attempt-3',
+        browser: {
+          status: 'passed',
+          reportPath: relative(baseDirectory, oraclePath),
+        },
+      }),
+    );
+
+    const summary = await loadExecutionComparisonSummary(runDirectory);
+    const rendered = formatExecutionComparisonSummary(summary, baseDirectory);
+
+    expect(rendered).toContain(`- Claude Code oracle: ${oraclePath}`);
   });
 
   it('prints the deterministic summary through the operator command', async () => {
@@ -78,11 +105,15 @@ async function createRun(attempts: readonly ExecutionAttempt[]): Promise<string>
   roots.push(runDirectory);
   await writeFile(join(runDirectory, 'report.md'), '# Report\n');
   for (const selected of attempts) {
-    const attemptDirectory = join(runDirectory, 'attempt-records', selected.attemptId);
-    await mkdir(attemptDirectory, { recursive: true });
-    await writeFile(join(attemptDirectory, 'attempt.json'), `${JSON.stringify(selected)}\n`);
+    await writeAttempt(runDirectory, selected);
   }
   return runDirectory;
+}
+
+async function writeAttempt(runDirectory: string, selected: ExecutionAttempt): Promise<void> {
+  const attemptDirectory = join(runDirectory, 'attempt-records', selected.attemptId);
+  await mkdir(attemptDirectory, { recursive: true });
+  await writeFile(join(attemptDirectory, 'attempt.json'), `${JSON.stringify(selected)}\n`);
 }
 
 function attempt(overrides: Partial<ExecutionAttempt>): ExecutionAttempt {
