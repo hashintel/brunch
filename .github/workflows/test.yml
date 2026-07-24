@@ -28,6 +28,14 @@ jobs:
           node-version: 24
           cache: npm
 
+      - name: Select test lanes
+        id: test-lanes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: node scripts/ci-test-lanes.mjs
+
       - name: Configure git identity
         # The current slow tests in test:full create real repositories and commits.
         run: |
@@ -55,8 +63,12 @@ jobs:
       - name: Check (read-only lint + format + skills)
         run: npm run check
 
-      - name: Test (full suite incl. slow tests)
-        run: npm run test:full
+      - name: Test (default + non-comparison slow)
+        run: npm run test && npm run test:slow:core
+
+      - name: Test (expensive comparison oracles)
+        if: steps.test-lanes.outputs.comparison == 'true'
+        run: npm run test:comparison
 
       - name: Build
         run: npm run build

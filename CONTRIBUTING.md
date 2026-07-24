@@ -66,12 +66,14 @@ Brunch stores local runtime state under the target workspace's `.brunch/` direct
 | `npm run dev` | Run the Brunch CLI directly from source. Defaults to `--mode tui`. |
 | `npm run dev-cli` | Select/create a temporary, named, existing, or seed-derived dev instance. |
 | `npm run test` | Run Vitest once (fast default; excludes `*.slow.test.ts`). |
-| `npm run test:slow` | Run only `*.slow.test.ts`. |
+| `npm run test:slow` | Run core-slow tests followed by expensive comparison oracles. |
+| `npm run test:slow:core` | Run slow tests except the expensive comparison oracles. |
+| `npm run test:comparison` | Run the expensive full-stack comparison oracles. |
 | `npm run test:full` | Run every Vitest test, including slow tests. |
 | `npm run fix` | Apply lint fixes, then format. |
 | `npm run check` | Read-only lint + format check. |
 | `npm run verify` | Fast local checkpoint: fix → test → build. Routine pre-commit run. |
-| `npm run verify:full` | Full gate: fix → test:full → build. CI runs this on every PR; run it locally only when you touch host landing, slice integration, run promotion, or worktree behavior. |
+| `npm run verify:full` | Full local gate: fix → test:full → build. Merge-queue CI always runs it; pull requests may omit only expensive comparison oracles for a closed non-runtime-only diff. |
 | `npm run build` | Build TypeScript, packaged Pi assets, and the web bundle. |
 | `npm run seed -- --workspace <dir> --seed <set>/<slug>` | Seed a workspace from `.fixtures/seeds`. |
 | `npm run db:generate` | Generate Drizzle migrations. |
