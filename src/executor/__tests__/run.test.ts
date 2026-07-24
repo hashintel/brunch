@@ -1,4 +1,5 @@
-import { access, mkdir, mkdtemp, readdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { access, mkdir, mkdtemp, readdir, readFile, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -10,6 +11,7 @@ import {
   assertSafeRunId,
   createRun,
   persistRunMetadata,
+  readRunMetadata,
   runDirPath,
   runMetadataPath,
   type RunMetadata,
@@ -139,6 +141,109 @@ describe('createRun', () => {
     });
     await expect(readFile(runMetadataPath(cwd, 'run-1'), 'utf8')).resolves.toContain('abandoned');
   });
+
+  it('rejects a changed target-visible public packet before creating run state', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-run-invalid-packet-'));
+    await writeReadyPlan(cwd);
+    const publicDir = join(cwd, '.brunch', 'execution-comparison', 'public');
+    const specification = '# Approved\n';
+    const contract = '{"schemaVersion":1}\n';
+    const files = [
+      { path: 'public-contract.json', sha256: digest(contract) },
+      { path: 'spec.md', sha256: digest(specification) },
+    ];
+    await mkdir(publicDir, { recursive: true });
+    await writeFile(join(publicDir, 'public-contract.json'), contract, 'utf8');
+    await writeFile(join(publicDir, 'spec.md'), `${specification}changed\n`, 'utf8');
+    await writeFile(
+      join(publicDir, 'packet-manifest.json'),
+      JSON.stringify({
+        schemaVersion: 1,
+        packetSha256: digest(files.map((file) => `${file.path}:${file.sha256}\n`).join('')),
+        files,
+      }),
+      'utf8',
+    );
+
+    const result = await createRun({ cwd, specId: '42', runId: 'run-1', current });
+
+    expect(result).toEqual({
+      status: 'public_packet_invalid',
+      runStatus: 'not_started',
+      runId: 'run-1',
+      message: 'Target-visible public packet file spec.md failed hashing.',
+      sideEffects: [],
+    });
+    expect(await pathExists(runDirPath(cwd, 'run-1'))).toBe(false);
+  });
+
+  it('rejects a partial public packet directory instead of treating it as absent', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-run-partial-packet-'));
+    await writeReadyPlan(cwd);
+    const publicDir = join(cwd, '.brunch', 'execution-comparison', 'public');
+    await mkdir(publicDir, { recursive: true });
+    await writeFile(join(publicDir, 'spec.md'), '# Spec\n', 'utf8');
+
+    const result = await createRun({ cwd, specId: '42', runId: 'run-1', current });
+
+    expect(result).toMatchObject({
+      status: 'public_packet_invalid',
+      message: 'Target-visible public packet manifest is unreadable.',
+      sideEffects: [],
+    });
+    expect(await pathExists(runDirPath(cwd, 'run-1'))).toBe(false);
+  });
+
+  it('rejects symlinked public packet source files', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-run-source-symlink-'));
+    await writeReadyPlan(cwd);
+    const publicDir = join(cwd, '.brunch', 'execution-comparison', 'public');
+    const outside = await mkdtemp(join(tmpdir(), 'brunch-cook-run-source-outside-'));
+    const specification = '# Outside\n';
+    const contract = '{"schemaVersion":1}\n';
+    const files = [
+      { path: 'public-contract.json', sha256: digest(contract) },
+      { path: 'spec.md', sha256: digest(specification) },
+    ];
+    await mkdir(publicDir, { recursive: true });
+    await writeFile(join(publicDir, 'public-contract.json'), contract, 'utf8');
+    await writeFile(join(outside, 'spec.md'), specification, 'utf8');
+    await symlink(join(outside, 'spec.md'), join(publicDir, 'spec.md'));
+    await writeFile(
+      join(publicDir, 'packet-manifest.json'),
+      JSON.stringify({
+        schemaVersion: 1,
+        packetSha256: digest(files.map((file) => `${file.path}:${file.sha256}\n`).join('')),
+        files,
+      }),
+      'utf8',
+    );
+
+    const result = await createRun({ cwd, specId: '42', runId: 'run-1', current });
+
+    expect(result).toMatchObject({
+      status: 'public_packet_invalid',
+      message: 'Target-visible public packet file spec.md is invalid.',
+      sideEffects: [],
+    });
+    expect(await pathExists(runDirPath(cwd, 'run-1'))).toBe(false);
+  });
+
+  it('rejects symlinked public packet source ancestors', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-run-source-ancestor-symlink-'));
+    await writeReadyPlan(cwd);
+    const outside = await mkdtemp(join(tmpdir(), 'brunch-cook-run-source-ancestor-outside-'));
+    await symlink(outside, join(cwd, '.brunch', 'execution-comparison'));
+
+    const result = await createRun({ cwd, specId: '42', runId: 'run-1', current });
+
+    expect(result).toMatchObject({
+      status: 'public_packet_invalid',
+      message: 'Target-visible public packet directory is invalid.',
+      sideEffects: [],
+    });
+    expect(await pathExists(runDirPath(cwd, 'run-1'))).toBe(false);
+  });
 });
 
 describe('persistRunMetadata', () => {
@@ -177,7 +282,33 @@ describe('persistRunMetadata', () => {
     expect(await readdir(dir)).toEqual(['run.json']);
     expect(await readdir(metadataPath)).toEqual(['occupied']);
   });
+
+  it('rejects corrupted persisted packet paths before any slice can stage them', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'brunch-cook-corrupt-packet-metadata-'));
+    const metadataPath = join(dir, 'run.json');
+    await writeFile(
+      metadataPath,
+      JSON.stringify({
+        ...metadata('created'),
+        publicPacket: {
+          reference: {
+            path: '../../escape',
+            packetSha256: `sha256:${'a'.repeat(64)}`,
+            files: [],
+          },
+          contents: [],
+        },
+      }),
+      'utf8',
+    );
+
+    await expect(readRunMetadata(metadataPath)).resolves.toBeUndefined();
+  });
 });
+
+function digest(value: string): string {
+  return `sha256:${createHash('sha256').update(value).digest('hex')}`;
+}
 
 describe('assertSafeRunId', () => {
   it('accepts flat path-segment-safe run ids', () => {

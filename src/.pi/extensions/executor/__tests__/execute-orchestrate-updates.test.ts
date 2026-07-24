@@ -72,6 +72,7 @@ async function createDrivableRun(cwd: string, sliceIds: readonly string[] = ['t1
     planFilePath(cwd, '42'),
     JSON.stringify({
       mode: 'greenfield',
+      scope_handoff_required: false,
       epics: [{ id: 'e1', summary: 'E', depends_on: [], verification: [] }],
       slices: sliceIds.map((sliceId) => ({
         id: sliceId,

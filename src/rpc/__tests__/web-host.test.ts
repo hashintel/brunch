@@ -1190,6 +1190,7 @@ describe('web host', () => {
       planFilePath(cwd, '42'),
       JSON.stringify({
         mode: 'greenfield',
+        scope_handoff_required: false,
         epics: [{ id: 'frontier-1', summary: 'Build feature', depends_on: [], verification: [] }],
         slices: [
           {
@@ -1273,6 +1274,7 @@ describe('web host', () => {
       planFilePath(cwd, '42'),
       JSON.stringify({
         mode: 'greenfield',
+        scope_handoff_required: false,
         slices: [
           { id: 'S2', definition: 'serial predecessor', depends_on: [], verification: [] },
           ...['S3', 'S4', 'S5'].map((id) => ({
@@ -1464,6 +1466,7 @@ describe('web host', () => {
       planFilePath(cwd, '42'),
       JSON.stringify({
         mode: 'greenfield',
+        scope_handoff_required: false,
         epics: [{ id: 'frontier-1', summary: 'Build feature', depends_on: [], verification: [] }],
         slices: [
           {
@@ -1547,6 +1550,7 @@ describe('web host', () => {
       planFilePath(cwd, '42'),
       JSON.stringify({
         mode: 'greenfield',
+        scope_handoff_required: false,
         epics: [{ id: 'frontier-1', summary: 'Build feature', depends_on: [], verification: [] }],
         slices: [
           {
@@ -1634,6 +1638,7 @@ describe('web host', () => {
       planFilePath(cwd, '42'),
       JSON.stringify({
         mode: 'greenfield',
+        scope_handoff_required: false,
         epics: [{ id: 'frontier-1', summary: 'Build feature', depends_on: [], verification: [] }],
         slices: [
           {

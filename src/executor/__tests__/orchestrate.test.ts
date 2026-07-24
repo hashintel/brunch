@@ -136,6 +136,7 @@ function planJson(
 ): string {
   return JSON.stringify({
     ...(options.includeMode === false ? {} : { mode: 'greenfield' }),
+    scope_handoff_required: false,
     epics: [{ id: 'frontier-1', summary: 'Build feature', depends_on: [], verification: [] }],
     slices: slices.map((slice, index) => {
       const sliceId = typeof slice === 'string' ? slice : slice.id;
@@ -174,7 +175,11 @@ async function createRunAtCreatedWithPlan(cwd: string, plan: object): Promise<vo
   await mkdir(join(cwd, 'src'), { recursive: true });
   await writeFile(join(cwd, 'src', 'app.ts'), 'export const app = true;\n', 'utf8');
   await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
-  await writeFile(planFilePath(cwd, '42'), JSON.stringify(plan), 'utf8');
+  await writeFile(
+    planFilePath(cwd, '42'),
+    JSON.stringify({ scope_handoff_required: false, ...plan }),
+    'utf8',
+  );
   await createRun({
     cwd,
     specId: '42',
@@ -5951,8 +5956,65 @@ describe('petriScheduler', () => {
   it('keeps serial and parallel isolated-slice artifacts and reports equivalent per slice', async () => {
     const serial = await mkdtemp(join(tmpdir(), 'brunch-slice-core-parity-serial-'));
     const parallel = await mkdtemp(join(tmpdir(), 'brunch-slice-core-parity-parallel-'));
-    await createRunAtCreated(serial, ['task-1', 'task-2']);
-    await createRunAtCreated(parallel, ['task-1', 'task-2']);
+    const scopedPlan = {
+      mode: 'greenfield',
+      scope_handoff_required: true,
+      spec: {
+        requirements: [
+          { item_id: 'REQ1', title: 'Foundation', content: 'Preserve the exact foundation.' },
+          { item_id: 'REQ2', title: 'Integration', content: 'Integrate the exact public behavior.' },
+        ],
+      },
+      epics: [{ id: 'frontier-1', summary: 'Build feature', depends_on: [], verification: [] }],
+      slices: [
+        {
+          id: 'task-1',
+          scope_id: 'SCP1',
+          epic_id: 'frontier-1',
+          definition: 'Build foundation.',
+          depends_on: [],
+          verification: [{ kind: 'criterion', target: 'Foundation works.' }],
+          derived_from: ['REQ1'],
+          design_context: [{ item_id: 'MOD1', content: 'Feature module' }],
+          verification_context: [{ item_id: 'CH1', content: 'Feature check' }],
+        },
+        {
+          id: 'task-2',
+          scope_id: 'SCP1',
+          epic_id: 'frontier-1',
+          definition: 'Integrate feature.',
+          depends_on: ['task-1'],
+          verification: [{ kind: 'criterion', target: 'Integration works.' }],
+          derived_from: ['REQ2'],
+          design_context: [{ item_id: 'MOD1', content: 'Feature module' }],
+          verification_context: [{ item_id: 'CH1', content: 'Feature check' }],
+        },
+      ],
+    };
+    for (const cwd of [serial, parallel]) {
+      const publicDir = join(cwd, '.brunch', 'execution-comparison', 'public');
+      const specification = '# Exact parity specification\n';
+      const contract = '{"schemaVersion":1}\n';
+      const digest = (value: string) => `sha256:${createHash('sha256').update(value).digest('hex')}`;
+      const files = [
+        { path: 'public-contract.json', sha256: digest(contract) },
+        { path: 'spec.md', sha256: digest(specification) },
+      ];
+      await mkdir(publicDir, { recursive: true });
+      await writeFile(join(publicDir, 'public-contract.json'), contract, 'utf8');
+      await writeFile(join(publicDir, 'spec.md'), specification, 'utf8');
+      await writeFile(join(publicDir, 'controller-oracle.json'), '{"hidden":true}\n', 'utf8');
+      await writeFile(
+        join(publicDir, 'packet-manifest.json'),
+        JSON.stringify({
+          schemaVersion: 1,
+          packetSha256: digest(files.map((file) => `${file.path}:${file.sha256}\n`).join('')),
+          files,
+        }),
+        'utf8',
+      );
+      await createRunAtCreatedWithPlan(cwd, scopedPlan);
+    }
     const parityPorts = () =>
       fakePorts({
         agentRunner: {
@@ -5984,6 +6046,25 @@ describe('petriScheduler', () => {
       await expect(readFile(sliceExecutionRequestPath(serial, 'run-1', sliceId), 'utf8')).resolves.toBe(
         await readFile(sliceExecutionRequestPath(parallel, 'run-1', sliceId), 'utf8'),
       );
+      for (const packetFile of ['packet-manifest.json', 'public-contract.json', 'spec.md']) {
+        const relativePacketPath = join('.brunch', 'execution-comparison', 'public', packetFile);
+        await expect(
+          readFile(join(sliceWorkspacePath(serial, 'run-1', sliceId), relativePacketPath), 'utf8'),
+        ).resolves.toBe(
+          await readFile(join(sliceWorkspacePath(parallel, 'run-1', sliceId), relativePacketPath), 'utf8'),
+        );
+      }
+      expect(
+        await pathExists(
+          join(
+            sliceWorkspacePath(parallel, 'run-1', sliceId),
+            '.brunch',
+            'execution-comparison',
+            'public',
+            'controller-oracle.json',
+          ),
+        ),
+      ).toBe(false);
       const serialAgentEvent = JSON.parse(
         await readFile(agentStreamPath(serial, 'run-1', sliceId, 1), 'utf8'),
       ) as Record<string, unknown>;
@@ -6003,6 +6084,11 @@ describe('petriScheduler', () => {
         '"event":"verify_stream"',
       );
     }
+    const terminalRequest = JSON.parse(
+      await readFile(sliceExecutionRequestPath(parallel, 'run-1', 'task-2'), 'utf8'),
+    ) as { requirements: unknown[]; publicPacket: { path: string } };
+    expect(terminalRequest.requirements).toHaveLength(2);
+    expect(terminalRequest.publicPacket.path).toBe('.brunch/execution-comparison/public');
     const serialMetadata = await readRunMetadata(runMetadataPath(serial, 'run-1'));
     const parallelMetadata = await readRunMetadata(runMetadataPath(parallel, 'run-1'));
     expect(parallelMetadata?.sliceRepairHistory).toEqual(serialMetadata?.sliceRepairHistory);

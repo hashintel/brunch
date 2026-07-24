@@ -8,6 +8,7 @@ import {
 } from '../.pi/extensions/subagents/index.js';
 import { durableAtomicReplace } from '../executor/durable-file.js';
 import type { AgentRunnerPort, AgentRunUpdate } from '../executor/execution-ports.js';
+import { validatePublicPacketReference } from '../executor/execution-public-packet.js';
 import { sliceRepairProtocol, type SliceRepairContext } from '../executor/slice-repair-cycle.js';
 
 export interface AgentRunnerPortOptions {
@@ -41,6 +42,12 @@ export function createAgentRunnerPort(options: AgentRunnerPortOptions = {}): Age
         return {
           status: 'failed',
           message: `AgentRunnerPort could not read execution request at ${args.requestPath}.`,
+        };
+      }
+      if (!parseExecutionRequest(request)) {
+        return {
+          status: 'failed',
+          message: `AgentRunnerPort rejected malformed execution request at ${args.requestPath}.`,
         };
       }
       let repairContext: SliceRepairContext | undefined;
@@ -186,12 +193,28 @@ interface ExecutionRequestContextItem {
   readonly content?: string;
 }
 
+interface ExecutionRequestRequirement {
+  readonly itemId?: string;
+  readonly title?: string;
+  readonly content?: string;
+}
+
+interface ExecutionRequestPublicPacket {
+  readonly path?: string;
+  readonly packetSha256?: string;
+  readonly files?: readonly { readonly path?: string; readonly sha256?: string }[];
+}
+
 interface ExecutionRequest {
+  readonly action?: string;
+  readonly scopeHandoffRequired?: boolean;
   readonly scopeId?: string;
   readonly definition?: string;
   readonly instruction?: string;
   readonly criteria?: readonly ExecutionRequestCriterion[];
   readonly derivedFrom?: readonly string[];
+  readonly requirements?: readonly ExecutionRequestRequirement[];
+  readonly publicPacket?: ExecutionRequestPublicPacket;
   readonly designContext?: readonly ExecutionRequestContextItem[];
   readonly verificationContext?: readonly ExecutionRequestContextItem[];
 }
@@ -208,6 +231,8 @@ function renderWorkerBrief(request: string): string {
     ...(parsedRequest.instruction ? ['Instruction:', parsedRequest.instruction] : []),
     ...renderCriterionLines(parsedRequest.criteria),
     ...renderListSection('Derived from requirements', parsedRequest.derivedFrom),
+    ...renderRequirementSection(parsedRequest.requirements),
+    ...renderPublicPacketSection(parsedRequest.publicPacket),
     ...renderContextSection('Design context', parsedRequest.designContext),
     ...renderContextSection('Verification context', parsedRequest.verificationContext),
   ];
@@ -215,12 +240,91 @@ function renderWorkerBrief(request: string): string {
   return lines.length > 0 ? lines.join('\n') : ['Execution request:', request].join('\n');
 }
 
+function renderRequirementSection(requirements: ExecutionRequest['requirements']): string[] {
+  const rendered =
+    requirements?.flatMap((requirement) =>
+      typeof requirement?.itemId === 'string' &&
+      typeof requirement?.title === 'string' &&
+      typeof requirement?.content === 'string'
+        ? [`[${requirement.itemId}] ${requirement.title}\n${requirement.content}`]
+        : [],
+    ) ?? [];
+  return rendered.length > 0 ? ['Approved requirements:', ...rendered] : [];
+}
+
+function renderPublicPacketSection(packet: ExecutionRequest['publicPacket']): string[] {
+  if (typeof packet?.path !== 'string' || typeof packet.packetSha256 !== 'string') return [];
+  const files =
+    packet.files?.flatMap((file) =>
+      typeof file?.path === 'string' && typeof file?.sha256 === 'string'
+        ? [`- ${file.path} (${file.sha256})`]
+        : [],
+    ) ?? [];
+  return [
+    'Target-visible public packet:',
+    `- path: ${packet.path}`,
+    `- sha256: ${packet.packetSha256}`,
+    ...files,
+  ];
+}
+
 function parseExecutionRequest(request: string): ExecutionRequest | undefined {
   try {
-    return JSON.parse(request) as ExecutionRequest;
+    const value: unknown = JSON.parse(request);
+    if (!isRecord(value)) return undefined;
+    const parsed = value as ExecutionRequest;
+    if (parsed.publicPacket !== undefined && !isPublicPacket(parsed.publicPacket)) return undefined;
+    if (parsed.action !== 'execute_slice' || typeof parsed.scopeHandoffRequired !== 'boolean') {
+      return undefined;
+    }
+    const scoped = parsed.scopeHandoffRequired === true || parsed.scopeId !== undefined;
+    if (parsed.scopeHandoffRequired === false && parsed.scopeId !== undefined) return undefined;
+    if (scoped) {
+      if (
+        !isNonBlank(parsed.scopeId) ||
+        !Array.isArray(parsed.derivedFrom) ||
+        parsed.derivedFrom.length === 0 ||
+        !parsed.derivedFrom.every(isNonBlank) ||
+        !Array.isArray(parsed.requirements) ||
+        parsed.requirements.length === 0 ||
+        !parsed.requirements.every(isRequirement)
+      ) {
+        return undefined;
+      }
+      const requirementIds = new Set(parsed.requirements.map((requirement) => requirement.itemId));
+      if (
+        requirementIds.size !== parsed.requirements.length ||
+        new Set(parsed.derivedFrom).size !== parsed.derivedFrom.length ||
+        !parsed.derivedFrom.every((requirementId) => requirementIds.has(requirementId))
+      ) {
+        return undefined;
+      }
+    }
+    return parsed;
   } catch {
     return undefined;
   }
+}
+
+function isRequirement(value: unknown): value is Required<ExecutionRequestRequirement> {
+  return (
+    isRecord(value) &&
+    isNonBlank(value['itemId']) &&
+    isNonBlank(value['title']) &&
+    isNonBlank(value['content'])
+  );
+}
+
+function isPublicPacket(value: unknown): value is ExecutionRequestPublicPacket {
+  return validatePublicPacketReference(value) !== undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isNonBlank(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
 }
 
 function renderCriterionLines(criteria: ExecutionRequest['criteria']): string[] {

@@ -151,6 +151,15 @@ describe('Brunch execution comparison lane adapter', () => {
     });
     expect(graph.nodes.filter((node) => node.source === 'e2e-handoff [exact-spec]')).toHaveLength(1);
     expect(JSON.stringify(graph)).not.toMatch(/Petri-net|static browser/iu);
+    const publicContract = await readFile(join(prepared.publicDir, 'public-contract.json'), 'utf8');
+    expect(publicContract).toBe(await readFile(join(prospectCaseDir, 'public-contract.json'), 'utf8'));
+    expect(publicContract).toContain('/api/health');
+    expect(publicContract).toContain('/api/state');
+    for (const table of ['projects', 'runs', 'prospects', 'provenance', 'suppressions', 'decisions']) {
+      expect(publicContract).toContain(`"${table}"`);
+    }
+    expect(publicContract).toContain('DATABASE_PATH');
+    expect(publicContract).toContain('Research projects');
   });
 
   it('projects an opaque brownfield specification without Petri-specific execution wording', async () => {

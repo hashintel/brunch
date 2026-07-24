@@ -50,7 +50,15 @@ export async function runExecutorAgentRunnerWitness(
   const worktreeDir = await mkdtemp(join(tmpdir(), 'brunch-executor-agent-worker-'));
   const requestPath = join(worktreeDir, 'request.json');
   const resultPath = join(worktreeDir, 'result.json');
-  await writeFile(requestPath, JSON.stringify({ task: 'write worker-proof.txt' }), 'utf8');
+  await writeFile(
+    requestPath,
+    JSON.stringify({
+      action: 'execute_slice',
+      scopeHandoffRequired: false,
+      task: 'write worker-proof.txt',
+    }),
+    'utf8',
+  );
 
   const model = defaultBrunchFauxModel();
   const provider = registerFauxProvider({

@@ -112,8 +112,8 @@ describe('previewPlan', () => {
     } as unknown as ExecutablePlanDraft);
 
     expect(preview.spec.requirements).toEqual([
-      { item_id: 'REQ1', content: 'Render the feature entry point.' },
-      { item_id: 'REQ2', content: 'Ship the keyboard shortcut.' },
+      { item_id: 'REQ1', title: 'Build feature', content: 'Render the feature entry point.' },
+      { item_id: 'REQ2', title: 'Add shortcut', content: 'Ship the keyboard shortcut.' },
     ]);
     expect(preview.spec.criteria).toEqual([
       { item_id: 'AC1', content: 'Feature entry is visible.', verifies: ['REQ1'] },

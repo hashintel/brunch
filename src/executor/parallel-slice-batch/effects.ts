@@ -52,6 +52,7 @@ export async function executeIsolatedSlice(args: {
     cwd: ctx.cwd,
     runId: ctx.runId,
     ...(args.state.populatedPlanPath ? { populatedPlanPath: args.state.populatedPlanPath } : {}),
+    ...(args.state.publicPacket ? { publicPacket: args.state.publicPacket } : {}),
     sliceId: step.sliceId,
   });
   if (sliceContext.status === 'invalid') {
@@ -67,6 +68,7 @@ export async function executeIsolatedSlice(args: {
       sliceWorktreeDir: workspaceDir,
       requestPath: sliceExecutionRequestPath(ctx.cwd, ctx.runId, step.sliceId),
       requestContext: sliceContext.requestContext,
+      ...(sliceContext.publicPacket ? { publicPacket: sliceContext.publicPacket } : {}),
       gitSliceIntegration: ctx.ports.gitSliceIntegration,
       recordReport: async (event) => {
         await authority.fire(sliceTransitionId('slice_execute', step.sliceId));

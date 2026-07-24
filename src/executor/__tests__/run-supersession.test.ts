@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -200,7 +201,32 @@ describe('createSupersedingRun', () => {
   it('creates a new linked run without mutating the previous run', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-supersede-create-'));
     await writePlan(cwd);
-    const previous = await writeRun(cwd, 'run-old');
+    const specification = '# Spec\n';
+    const contract = '{}\n';
+    const files = [
+      { path: 'public-contract.json' as const, sha256: digest(contract) },
+      { path: 'spec.md' as const, sha256: digest(specification) },
+    ];
+    const packetSha256 = digest(files.map((file) => `${file.path}:${file.sha256}\n`).join(''));
+    const previous: RunMetadata = {
+      ...(await writeRun(cwd, 'run-old')),
+      publicPacket: {
+        reference: {
+          path: '.brunch/execution-comparison/public',
+          packetSha256,
+          files,
+        },
+        contents: [
+          {
+            path: 'packet-manifest.json',
+            value: JSON.stringify({ schemaVersion: 1, packetSha256, files }),
+          },
+          { path: 'public-contract.json', value: contract },
+          { path: 'spec.md', value: specification },
+        ],
+      },
+    };
+    await writeFile(runMetadataPath(cwd, 'run-old'), `${JSON.stringify(previous, null, 2)}\n`, 'utf8');
 
     const result = await createSupersedingRun({
       cwd,
@@ -235,6 +261,7 @@ describe('createSupersedingRun', () => {
     );
     await expect(readRunMetadata(runMetadataPath(cwd, 'run-new'))).resolves.toMatchObject({
       petriObservationPrepared: true,
+      publicPacket: previous.publicPacket,
     });
     await expect(pathExists(petriPlanSnapshotPath(cwd, 'run-new'))).resolves.toBe(true);
     await expect(pathExists(petriNetPath(cwd, 'run-new'))).resolves.toBe(true);
@@ -326,3 +353,7 @@ describe('createSupersedingRun', () => {
     await expect(readFile(runMetadataPath(cwd, 'run-new'), 'utf8')).resolves.toContain('"command": "npm"');
   });
 });
+
+function digest(value: string): string {
+  return `sha256:${createHash('sha256').update(value).digest('hex')}`;
+}

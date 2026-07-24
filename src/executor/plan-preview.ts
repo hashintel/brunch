@@ -9,6 +9,7 @@ export interface PlanPreviewVerificationTarget {
 
 export interface PlanPreviewSpecRequirement {
   readonly item_id: string;
+  readonly title?: string;
   readonly content: string;
 }
 
@@ -136,6 +137,7 @@ function previewSpec(draft: ExecutablePlanDraft): PlanPreviewSpec {
       if (!requirements.has(requirement.itemId)) {
         requirements.set(requirement.itemId, {
           item_id: requirement.itemId,
+          ...('title' in requirement ? { title: requirement.title } : {}),
           content: requirement.content,
         });
       }

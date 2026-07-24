@@ -173,7 +173,7 @@ async function writePlan(cwd: string, specId = '42', graphLsn = 11): Promise<voi
   await mkdir(dirname(path), { recursive: true });
   await writeFile(
     path,
-    `${JSON.stringify({ mode: 'greenfield', spec: { spec_id: specId }, epics: [], slices: [] })}\n`,
+    `${JSON.stringify({ mode: 'greenfield', scope_handoff_required: false, spec: { spec_id: specId }, epics: [], slices: [] })}\n`,
     'utf8',
   );
   await writeFile(
@@ -462,6 +462,7 @@ describe('execute.run', () => {
       planPath,
       JSON.stringify({
         mode: 'greenfield',
+        scope_handoff_required: false,
         epics: [{ id: 'epic-1', depends_on: [], verification: [] }],
         slices: [
           {
@@ -584,6 +585,7 @@ describe('execute.run', () => {
       planFilePath(cwd, '42'),
       JSON.stringify({
         mode: 'greenfield',
+        scope_handoff_required: false,
         spec: {
           requirements: [
             { item_id: 'REQ1', content: 'First parallel slice.' },
@@ -811,6 +813,7 @@ describe('execute.run', () => {
       planPath,
       `${JSON.stringify({
         mode: 'greenfield',
+        scope_handoff_required: false,
         epics: [{ id: 'frontier-1' }, { id: 'frontier-2' }],
         slices: [
           { id: 'task-1', epic_id: 'frontier-1', derived_from: ['REQ1'] },
@@ -851,7 +854,7 @@ describe('execute.run', () => {
     const planPath = join(cwd, 'plan.json');
     await writeFile(
       planPath,
-      `${JSON.stringify({ mode: 'greenfield', slices: [{ id: 'task-1' }, { id: 'task-2' }] })}\n`,
+      `${JSON.stringify({ mode: 'greenfield', scope_handoff_required: false, slices: [{ id: 'task-1' }, { id: 'task-2' }] })}\n`,
       'utf8',
     );
     await writeRun(cwd, 'run-1', { planPath, status: 'slice_started', activeSliceId: 'task-1' });
@@ -1450,9 +1453,9 @@ describe('execute replanning methods', () => {
       spec: {
         spec_id: '42',
         requirements: [
-          { item_id: 'REQ3', content: 'Build foundation' },
-          { item_id: 'REQ1', content: 'Wire feature' },
-          { item_id: 'REQ2', content: 'Ship keyboard shortcut' },
+          { item_id: 'REQ3', title: 'Build foundation', content: 'Build foundation' },
+          { item_id: 'REQ1', title: 'Wire feature', content: 'Wire feature' },
+          { item_id: 'REQ2', title: 'Ship keyboard shortcut', content: 'Ship keyboard shortcut' },
         ],
         criteria: [
           { item_id: 'AC1', content: 'Feature is visible', verifies: ['REQ1'] },
