@@ -94,13 +94,13 @@ Frontier-item traceability, scope-card inheritance, and the verification-ownersh
 
 ## verification
 
-**Defaults are fast; the real full gate is CI.** `npm run test` and `npm run verify` deliberately exclude `*.slow.test.ts` so the everyday loop stays quick. A test earns the `.slow` marker only when its execution cost warrants exclusion from routine local verification — never merely because it is inconvenient or flaky. The `.github/workflows/test.yml` **Test** workflow runs the *full* suite (`test:full`, including slow tests) plus `check` and `build` on every PR and merge-queue entry — that is the authoritative gate, not the local pre-commit run. Run the `:full` variant locally only when you have a reason to (below).
+**Defaults are fast; the real full gate is CI.** `npm run test` and `npm run verify` deliberately exclude `*.slow.test.ts` so the everyday loop stays quick. A test earns the `.slow` marker only when its execution cost warrants exclusion from routine local verification — never merely because it is inconvenient or flaky. The `.github/workflows/test.yml` **Test** workflow always runs `check`, `build`, default tests, and non-comparison slow tests under one stable `Full gate` check. Expensive comparison oracles may be omitted only for a complete pull-request diff wholly inside the closed non-runtime allowlist; unknown evidence runs them, and merge-queue entries always run the full suite. CI remains the authoritative gate, not the local pre-commit run.
 
 **Inner loop** (run after every meaningful edit): `npm run fix` — lint:fix then format. Run focused tests with `npm test -- <test-path>` while iterating.
 
 **Checkpoint / pre-commit** (fast, the default): `npm run verify` — fix → default tests → build. The default suite excludes `*.slow.test.ts`. This is the routine local gate.
 
-**Full gate** (locally optional; CI always runs it): `npm run verify:full` — fix → all tests (incl. slow tests) → build. Run it locally when you have changed a slow test or the production seam it witnesses — currently host landing, slice integration, run promotion, or worktree behavior — otherwise let CI run it. `npm run test:slow` runs just the slow group when that is all you need.
+**Full gate** (locally optional; merge-queue CI always runs it): `npm run verify:full` — fix → all tests (incl. slow tests) → build. Run it locally when you have changed a slow test or the production seam it witnesses — currently host landing, slice integration, run promotion, worktree behavior, or comparison-controller behavior — otherwise let CI run it. `npm run test:slow` runs the core-slow and comparison lanes; use `test:slow:core` or `test:comparison` for one lane.
 
 **PR release intent** (required for ordinary PRs into `next`): before submit or update, run `npx changeset status --since=origin/next`. If the published package changes, run `npm run changeset`; otherwise record the no-release decision with `npm run changeset -- --empty`. Commit the generated `.changeset/*.md` file. The local verify commands do not cover this base-aware CI check.
 
@@ -115,9 +115,11 @@ Frontier-item traceability, scope-card inheritance, and the verification-ownersh
 | `npm run fix` | lint:fix → fmt | yes |
 | `npm run test` | all Vitest tests except `*.slow.test.ts` | no |
 | `npm run test:full` | all Vitest tests incl. slow tests | no |
-| `npm run test:slow` | just `*.slow.test.ts` | no |
+| `npm run test:slow` | core-slow → comparison | no |
+| `npm run test:slow:core` | slow tests except expensive comparison oracles | no |
+| `npm run test:comparison` | expensive full-stack comparison oracles | no |
 | `npm run verify` | fix → test → build (fast default) | yes (via fix) |
-| `npm run verify:full` | fix → test:full → build (full gate; CI runs this) | yes (via fix) |
+| `npm run verify:full` | fix → test:full → build (full local/merge-queue gate) | yes (via fix) |
 | `npm run check` | lint → fmt:check → check:markdown-links → check:skills → check:promoted-run-paths | no |
 | `npm run check:markdown-links` | remark-validate-links over Markdown files | no |
 | `npm run check:skills` | ln-* skill consistency | no |
