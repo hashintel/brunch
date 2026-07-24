@@ -56,7 +56,11 @@ async function repairFixture() {
   const requestPath = join(runDir, 'agent-output', 'task-1', 'request.json');
   const resultPath = join(runDir, 'agent-output', 'task-1', 'attempt-2', 'result.json');
   await mkdir(join(runDir, 'agent-output', 'task-1'), { recursive: true });
-  await writeFile(requestPath, JSON.stringify({ definition: 'repair task' }), 'utf8');
+  await writeFile(
+    requestPath,
+    JSON.stringify({ action: 'execute_slice', scopeHandoffRequired: false, definition: 'repair task' }),
+    'utf8',
+  );
   const target = { command: 'npm', args: ['run', 'verify'] };
   const history = {
     'task-1': [
@@ -134,6 +138,7 @@ async function createMultiRepairRun(cwd: string): Promise<void> {
     path,
     JSON.stringify({
       mode: 'greenfield',
+      scope_handoff_required: false,
       epics: [{ id: 'frontier-1', summary: 'Build feature', depends_on: [], verification: [] }],
       slices: [
         {
@@ -195,14 +200,35 @@ describe('createAgentRunnerPort', () => {
     const worktreeDir = await mkdtemp(join(tmpdir(), 'brunch-agent-worktree-'));
     const requestPath = join(worktreeDir, 'request.json');
     const resultPath = join(worktreeDir, 'result.json');
+    const packetFiles = [
+      { path: 'public-contract.json', sha256: `sha256:${'b'.repeat(64)}` },
+      { path: 'spec.md', sha256: `sha256:${'c'.repeat(64)}` },
+    ];
+    const packetSha256 = `sha256:${createHash('sha256')
+      .update(packetFiles.map((file) => `${file.path}:${file.sha256}\n`).join(''))
+      .digest('hex')}`;
     await writeFile(
       requestPath,
       JSON.stringify({
+        action: 'execute_slice',
+        scopeHandoffRequired: true,
         scopeId: 'SCP1',
         definition: 'write proof',
         instruction: 'Satisfy the done criteria before returning.',
         criteria: [{ kind: 'criterion', target: 'worker proof exists' }],
         derivedFrom: ['REQ1'],
+        requirements: [
+          {
+            itemId: 'REQ1',
+            title: 'Exact worker proof',
+            content: 'Create worker-proof.txt with the exact approved contents.',
+          },
+        ],
+        publicPacket: {
+          path: '.brunch/execution-comparison/public',
+          packetSha256,
+          files: packetFiles,
+        },
         designContext: [{ itemId: 'MOD1', content: 'worker proof module' }],
         verificationContext: [{ itemId: 'CH1', content: 'worker proof check' }],
       }),
@@ -235,6 +261,15 @@ describe('createAgentRunnerPort', () => {
     expect(calls[0]!.task).toContain('Instruction:\nSatisfy the done criteria before returning.');
     expect(calls[0]!.task).toContain('Done criteria:\n- criterion: worker proof exists');
     expect(calls[0]!.task).toContain('Derived from requirements:\n- REQ1');
+    expect(calls[0]!.task).toContain(
+      'Approved requirements:\n[REQ1] Exact worker proof\nCreate worker-proof.txt with the exact approved contents.',
+    );
+    expect(calls[0]!.task).toContain(
+      `Target-visible public packet:\n- path: .brunch/execution-comparison/public\n- sha256: ${packetSha256}`,
+    );
+    expect(calls[0]!.task).toContain(
+      `- public-contract.json (sha256:${'b'.repeat(64)})\n- spec.md (sha256:${'c'.repeat(64)})`,
+    );
     expect(calls[0]!.task).toContain('Design context:\n- [MOD1] worker proof module');
     expect(calls[0]!.task).toContain('Verification context:\n- [CH1] worker proof check');
     expect(calls[0]!.task).not.toContain('Execution request:');
@@ -270,6 +305,91 @@ describe('createAgentRunnerPort', () => {
     ).resolves.toEqual({
       status: 'failed',
       message: `AgentRunnerPort could not read execution request at ${requestPath}.`,
+    });
+    expect(calls).toEqual([]);
+  });
+
+  it('fails closed when a scoped request omits exact approved requirements', async () => {
+    const worktreeDir = await mkdtemp(join(tmpdir(), 'brunch-agent-malformed-scope-request-'));
+    const requestPath = join(worktreeDir, 'request.json');
+    const resultPath = join(worktreeDir, 'result.json');
+    await writeFile(
+      requestPath,
+      JSON.stringify({
+        action: 'execute_slice',
+        scopeHandoffRequired: true,
+        derivedFrom: ['REQ1'],
+        requirements: [{ itemId: 'REQ1', title: 'Approved', content: 'Approved body' }],
+        definition: 'build it',
+      }),
+      'utf8',
+    );
+    const calls: string[] = [];
+    const port = createAgentRunnerPort({
+      subagents: subagentDeps(async ({ definition }): Promise<SubagentResult> => {
+        calls.push(definition.name);
+        return { agent: definition.name, status: 'ok', text: 'should not run' };
+      }),
+    });
+
+    await expect(
+      port.run({
+        worktreeDir,
+        requestPath,
+        resultPath,
+        runId: 'run-1',
+        epicId: 'frontier-1',
+        sliceId: 'task-1',
+        cycle: 1,
+        runtime: { modelRegistry: {} },
+      }),
+    ).resolves.toEqual({
+      status: 'failed',
+      message: `AgentRunnerPort rejected malformed execution request at ${requestPath}.`,
+    });
+    expect(calls).toEqual([]);
+  });
+
+  it('fails closed on duplicate scoped requirement authority', async () => {
+    const worktreeDir = await mkdtemp(join(tmpdir(), 'brunch-agent-duplicate-scope-request-'));
+    const requestPath = join(worktreeDir, 'request.json');
+    const resultPath = join(worktreeDir, 'result.json');
+    await writeFile(
+      requestPath,
+      JSON.stringify({
+        action: 'execute_slice',
+        scopeHandoffRequired: true,
+        scopeId: 'SCP1',
+        derivedFrom: ['REQ1', 'REQ1'],
+        requirements: [
+          { itemId: 'REQ1', title: 'Approved', content: 'Approved body' },
+          { itemId: 'REQ1', title: 'Rival', content: 'Rival body' },
+        ],
+      }),
+      'utf8',
+    );
+    const calls: string[] = [];
+    const port = createAgentRunnerPort({
+      subagents: subagentDeps(async ({ definition }): Promise<SubagentResult> => {
+        calls.push(definition.name);
+        return { agent: definition.name, status: 'ok', text: 'should not run' };
+      }),
+    });
+
+    await expect(
+      port.run({
+        worktreeDir,
+        requestPath,
+        resultPath,
+        runId: 'run-1',
+        epicId: 'frontier-1',
+        sliceId: 'task-1',
+        cycle: 1,
+        runtime: { modelRegistry: {} },
+      }),
+    ).resolves.toEqual({
+      status: 'failed',
+      message: `AgentRunnerPort rejected malformed execution request at ${requestPath}.`,
     });
     expect(calls).toEqual([]);
   });

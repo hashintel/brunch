@@ -69,8 +69,10 @@ Explain the concrete change in clear domain terms.
 
 ## How to test
 
-- `npm run verify`
-- Add any manual checks or focused test commands used.
+1. Open a workspace with a committed scope.
+2. Start a build from that scope.
+3. Confirm the proposed slices retain its design and verification context.
+4. Edit the draft scope without committing it, then confirm another build still uses the committed version.
 ```
 
 Rules:
@@ -79,8 +81,11 @@ Rules:
 - Keep each section short.
 - Use accepted domain terminology consistently.
 - Do not paste the whole Linear description into the PR.
-- Include actual verification commands if known.
-- If testing was not run, say so directly.
+- Write `How to test` as two to four numbered user steps with a recognizable starting state, clear actions, and observable outcomes.
+- Prefer one complete happy path and one meaningful edge case over setup detail or implementation terminology.
+- Do not repeat repository-wide commands already enforced by CI, such as `npm run verify`.
+- If the change has no user-facing path, name the focused automated test and the behavior it proves instead.
+- Do not invent testing. If user testing was not performed or the result is unknown, say so directly.
 - If the change involves architecture or a complex flow, add a small ASCII diagram under `What` when it improves clarity.
 - Prefer ASCII diagrams over Mermaid, images, or long prose.
 - Skip the diagram for straightforward changes.

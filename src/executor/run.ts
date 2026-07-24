@@ -4,6 +4,11 @@ import { basename, dirname, join } from 'node:path';
 import { BRUNCH_DIR } from '../constants.js';
 import { durableAtomicReplace } from './durable-file.js';
 import type { VerifyTarget } from './execution-ports.js';
+import {
+  readPublicPacket,
+  validatePublicPacketMaterialization,
+  type PublicPacketMaterialization,
+} from './execution-public-packet.js';
 import { prepareLaunch, type LaunchCurrentProjection, type LaunchResult } from './launch.js';
 import {
   runExecutionActive,
@@ -53,6 +58,7 @@ export interface RunMetadata {
   readonly verifyTarget?: VerifyTarget;
   readonly populatedPlanPath?: string;
   readonly populatedPlanProvenancePath?: string;
+  readonly publicPacket?: PublicPacketMaterialization;
   readonly sourcePolicy?: string;
   readonly sourcePolicyPath?: string;
   readonly sourceCopied?: boolean;
@@ -144,6 +150,13 @@ export type RunCreateResult =
       readonly sideEffects: readonly [];
     }
   | {
+      readonly status: 'public_packet_invalid';
+      readonly runStatus: 'not_started';
+      readonly runId: string;
+      readonly message: string;
+      readonly sideEffects: readonly [];
+    }
+  | {
       readonly status: 'created';
       readonly runStatus: 'created';
       readonly runId: string;
@@ -194,6 +207,9 @@ export async function readRunMetadata(path: string): Promise<RunMetadata | undef
       readonly activeSliceRepairContextPath?: unknown;
     };
     if (value.sliceAttemptHistory !== undefined || value.activeSliceRepairContextPath !== undefined) {
+      return undefined;
+    }
+    if (value.publicPacket !== undefined && !validatePublicPacketMaterialization(value.publicPacket)) {
       return undefined;
     }
     sliceRepairProtocol.assertHistory(value.sliceRepairHistory, sliceRepairProtocol.policy);
@@ -380,6 +396,16 @@ async function createRunOwned(
       sideEffects: [],
     };
   }
+  const publicPacket = await readPublicPacket(args.cwd);
+  if (publicPacket.status === 'invalid') {
+    return {
+      status: 'public_packet_invalid',
+      runStatus: 'not_started',
+      runId,
+      message: publicPacket.message,
+      sideEffects: [],
+    };
+  }
 
   const metadata: RunMetadata = {
     runId,
@@ -389,6 +415,7 @@ async function createRunOwned(
     ...(args.mode ? { mode: args.mode } : {}),
     ...(args.substrate ? { substrate: args.substrate } : {}),
     ...(args.verifyTarget ? { verifyTarget: args.verifyTarget } : {}),
+    ...(publicPacket.status === 'present' ? { publicPacket: publicPacket.packet } : {}),
   };
 
   await mkdir(runDir, { recursive: true });

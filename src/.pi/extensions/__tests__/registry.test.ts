@@ -2098,6 +2098,7 @@ describe('Brunch explicit Pi extension registry', () => {
     await writeFile(
       populatedPlanPath,
       JSON.stringify({
+        scope_handoff_required: false,
         slices: [
           {
             id: 'task-1',
@@ -2170,7 +2171,11 @@ describe('Brunch explicit Pi extension registry', () => {
     const resultPath = join(runDir, 'agent-output', 'task-1', 'attempt-1', 'result.json');
     await mkdir(dirname(requestPath), { recursive: true });
     await mkdir(worktreeDir, { recursive: true });
-    await writeFile(requestPath, JSON.stringify({ task: 'execute_slice' }), 'utf8');
+    await writeFile(
+      requestPath,
+      JSON.stringify({ action: 'execute_slice', scopeHandoffRequired: false, task: 'execute_slice' }),
+      'utf8',
+    );
     await writeFile(
       metadataPath,
       JSON.stringify({
@@ -2243,7 +2248,11 @@ describe('Brunch explicit Pi extension registry', () => {
     const resultPath = join(runDir, 'agent-output', 'task-1', 'attempt-1', 'result.json');
     await mkdir(dirname(requestPath), { recursive: true });
     await mkdir(worktreeDir, { recursive: true });
-    await writeFile(requestPath, JSON.stringify({ task: 'write proof' }), 'utf8');
+    await writeFile(
+      requestPath,
+      JSON.stringify({ action: 'execute_slice', scopeHandoffRequired: false, task: 'write proof' }),
+      'utf8',
+    );
     await writeFile(
       metadataPath,
       JSON.stringify({
@@ -2296,7 +2305,11 @@ describe('Brunch explicit Pi extension registry', () => {
     const requestPath = join(runDir, 'agent-output', 'task-1', 'request.json');
     await mkdir(dirname(requestPath), { recursive: true });
     await mkdir(worktreeDir, { recursive: true });
-    await writeFile(requestPath, JSON.stringify({ task: 'execute_slice' }), 'utf8');
+    await writeFile(
+      requestPath,
+      JSON.stringify({ action: 'execute_slice', scopeHandoffRequired: false, task: 'execute_slice' }),
+      'utf8',
+    );
     await writeFile(
       metadataPath,
       JSON.stringify({

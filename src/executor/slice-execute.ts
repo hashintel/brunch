@@ -144,6 +144,7 @@ async function requestSliceExecutionOwned(args: {
     cwd: args.cwd,
     runId: args.runId,
     ...(metadata.populatedPlanPath ? { populatedPlanPath: metadata.populatedPlanPath } : {}),
+    ...(metadata.publicPacket ? { publicPacket: metadata.publicPacket } : {}),
     sliceId: metadata.activeSliceId,
   });
   if (sliceResult.status === 'invalid') {
@@ -165,6 +166,7 @@ async function requestSliceExecutionOwned(args: {
     sliceWorktreeDir,
     requestPath,
     requestContext: sliceResult.requestContext,
+    ...(sliceResult.publicPacket ? { publicPacket: sliceResult.publicPacket } : {}),
     gitSliceIntegration: args.gitSliceIntegration,
     recordReport: (event) => appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8'),
   });

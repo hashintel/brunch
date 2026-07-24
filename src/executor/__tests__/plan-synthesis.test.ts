@@ -128,13 +128,57 @@ describe('synthesizePlan', () => {
     );
 
     expect(contexts).toEqual(
-      result.draft.slices.map((slice) =>
+      result.draft.slices.map((slice, index) =>
         expect.objectContaining({
           status: 'ok',
-          requestContext: expect.objectContaining({ scopeId: slice.scopeId }),
+          requestContext: expect.objectContaining({
+            scopeId: slice.scopeId,
+            requirements:
+              index === 0
+                ? [expect.objectContaining({ itemId: 'REQ1', content: 'Build feature' })]
+                : [
+                    expect.objectContaining({ itemId: 'REQ1', content: 'Build feature' }),
+                    expect.objectContaining({ itemId: 'REQ2', content: 'Wire feature' }),
+                  ],
+          }),
         }),
       ),
     );
+    const terminalContext = contexts[1];
+    if (terminalContext?.status !== 'ok') throw new Error('expected terminal worker context');
+
+    const paraphrasedPath = join(cwd, 'paraphrased-plan.json');
+    await writeFile(
+      paraphrasedPath,
+      JSON.stringify(
+        planFilePayload(
+          previewPlan(
+            {
+              ...result.draft,
+              slices: result.draft.slices.map((slice) => ({
+                ...slice,
+                definition: `Planner summary changed for ${slice.id}.`,
+              })),
+            },
+            { executionContract: result.executionContract },
+          ),
+        ),
+      ),
+      'utf8',
+    );
+    const paraphrased = await readSliceRequestContext({
+      cwd,
+      runId: 'admission-parity',
+      populatedPlanPath: paraphrasedPath,
+      sliceId: 'task-2',
+    });
+    expect(paraphrased).toMatchObject({
+      status: 'ok',
+      requestContext: {
+        definition: 'Planner summary changed for task-2.',
+        requirements: terminalContext.requestContext.requirements,
+      },
+    });
   });
 
   it('feeds an unreconciled frontier-level epic back through bounded repair', async () => {

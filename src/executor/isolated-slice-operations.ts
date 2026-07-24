@@ -11,6 +11,11 @@ import type {
   TestRunResult,
   VerifyTarget,
 } from './execution-ports.js';
+import {
+  materializePublicPacket,
+  type PublicPacketMaterialization,
+  type PublicPacketReference,
+} from './execution-public-packet.js';
 import type { ReadyStep } from './orchestrate-topology.js';
 import { populatedPlanPath } from './populate.js';
 import {
@@ -111,10 +116,17 @@ export function sliceStartReport(args: {
 }
 
 export interface SliceRequestContext {
+  readonly scopeHandoffRequired: boolean;
   readonly scopeId?: string;
   readonly definition?: string;
   readonly criteria?: readonly { readonly kind: string; readonly target: string }[];
   readonly derivedFrom?: readonly string[];
+  readonly requirements?: readonly {
+    readonly itemId: string;
+    readonly title: string;
+    readonly content: string;
+  }[];
+  readonly publicPacket?: PublicPacketReference;
   readonly designContext?: readonly { readonly itemId: string; readonly content: string }[];
   readonly verificationContext?: readonly { readonly itemId: string; readonly content: string }[];
   readonly instruction?: string;
@@ -125,6 +137,7 @@ interface PlanSliceRequestShape {
   readonly definition?: string;
   readonly verification?: readonly { readonly kind?: string; readonly target?: string }[];
   readonly derived_from?: readonly string[];
+  readonly depends_on?: readonly string[];
   readonly design_context?: readonly { readonly item_id?: string; readonly content?: string }[];
   readonly verification_context?: readonly { readonly item_id?: string; readonly content?: string }[];
 }
@@ -133,23 +146,50 @@ export async function readSliceRequestContext(args: {
   readonly cwd: string;
   readonly runId: string;
   readonly populatedPlanPath?: string;
+  readonly publicPacket?: PublicPacketMaterialization;
   readonly sliceId: string;
 }): Promise<
-  | { readonly status: 'ok'; readonly requestContext: SliceRequestContext }
+  | {
+      readonly status: 'ok';
+      readonly requestContext: SliceRequestContext;
+      readonly publicPacket?: PublicPacketMaterialization;
+    }
   | { readonly status: 'invalid'; readonly message: string }
 > {
   const planPath = args.populatedPlanPath ?? populatedPlanPath(args.cwd, args.runId);
-  let payload: {
-    readonly scope_handoff_required?: boolean;
-    readonly slices?: readonly ({ readonly id?: string } & PlanSliceRequestShape)[];
-  };
+  let parsed: unknown;
   try {
-    payload = JSON.parse(await readFile(planPath, 'utf8')) as typeof payload;
+    parsed = JSON.parse(await readFile(planPath, 'utf8'));
   } catch (error) {
     return {
       status: 'invalid',
       message: `Could not read populated plan for ${args.sliceId}: ${error instanceof Error ? error.message : String(error)}`,
     };
+  }
+  if (!isRecord(parsed)) {
+    return { status: 'invalid', message: 'Populated plan is not an object.' };
+  }
+  const payload = parsed as {
+    readonly scope_handoff_required?: boolean;
+    readonly spec?: {
+      readonly requirements?: readonly {
+        readonly item_id?: string;
+        readonly title?: string;
+        readonly content?: string;
+      }[];
+    };
+    readonly slices?: readonly ({ readonly id?: string } & PlanSliceRequestShape)[];
+  };
+  if (
+    (payload.spec !== undefined && !isRecord(payload.spec)) ||
+    (payload.spec?.requirements !== undefined &&
+      (!Array.isArray(payload.spec.requirements) || !payload.spec.requirements.every(isRecord))) ||
+    (payload.slices !== undefined && (!Array.isArray(payload.slices) || !payload.slices.every(isRecord)))
+  ) {
+    return { status: 'invalid', message: 'Populated plan has malformed requirement or slice arrays.' };
+  }
+  if (typeof payload.scope_handoff_required !== 'boolean') {
+    return { status: 'invalid', message: 'Populated plan has an invalid scope_handoff_required marker.' };
   }
   const slice = payload.slices?.find((candidate) => candidate.id === args.sliceId);
   if (!slice) {
@@ -177,7 +217,18 @@ export async function readSliceRequestContext(args: {
           : [],
       )
     : [];
-  if (payload.scope_handoff_required === true || typeof slice.scope_id === 'string') {
+  const carriesScopeContext =
+    slice.scope_id !== undefined ||
+    slice.design_context !== undefined ||
+    slice.verification_context !== undefined;
+  if (carriesScopeContext && payload.scope_handoff_required !== true) {
+    return {
+      status: 'invalid',
+      message: `Scope slice ${args.sliceId} disagrees with scope_handoff_required.`,
+    };
+  }
+  const scoped = payload.scope_handoff_required === true;
+  if (scoped) {
     const missing = [
       ...(!isNonBlank(slice.scope_id) ? ['scope_id'] : []),
       ...(!isNonBlank(slice.definition) ? ['definition'] : []),
@@ -193,24 +244,123 @@ export async function readSliceRequestContext(args: {
       };
     }
   }
+  const requirementIds = collectWorkerRequirementIds(slice, payload.slices ?? []);
+  if (requirementIds.status === 'invalid') {
+    return { status: 'invalid', message: `Scope slice ${args.sliceId} ${requirementIds.message}` };
+  }
+  const requirementEntries = payload.spec?.requirements ?? [];
+  const requirementEntryIds = requirementEntries.flatMap((requirement) =>
+    isNonBlank(requirement.item_id) ? [requirement.item_id] : [],
+  );
+  if (new Set(requirementEntryIds).size !== requirementEntryIds.length) {
+    return { status: 'invalid', message: 'Populated plan contains duplicate requirement ids.' };
+  }
+  const requirementsById = new Map(
+    requirementEntries.flatMap((requirement) =>
+      isNonBlank(requirement.item_id) && isNonBlank(requirement.title) && isNonBlank(requirement.content)
+        ? [
+            [
+              requirement.item_id,
+              {
+                itemId: requirement.item_id,
+                title: requirement.title,
+                content: requirement.content,
+              },
+            ] as const,
+          ]
+        : [],
+    ),
+  );
+  const unresolved = requirementIds.ids.find((requirementId) => !requirementsById.has(requirementId));
+  if (scoped && unresolved !== undefined) {
+    return {
+      status: 'invalid',
+      message: `Scope slice ${args.sliceId} cannot resolve exact requirement content for ${unresolved}.`,
+    };
+  }
+  const requiredIds = new Set(requirementIds.ids);
+  const requirements = Array.from(requirementsById.values()).filter((requirement) =>
+    requiredIds.has(requirement.itemId),
+  );
   return {
     status: 'ok',
     requestContext: {
+      scopeHandoffRequired: scoped,
       ...(typeof slice.scope_id === 'string' ? { scopeId: slice.scope_id } : {}),
       ...(isNonBlank(slice.definition) ? { definition: slice.definition } : {}),
       ...(Array.isArray(slice.verification) ? { criteria } : {}),
       ...(Array.isArray(slice.derived_from) ? { derivedFrom } : {}),
+      ...(requirements.length > 0 ? { requirements } : {}),
+      ...(args.publicPacket ? { publicPacket: args.publicPacket.reference } : {}),
       ...(Array.isArray(slice.design_context) ? { designContext } : {}),
       ...(Array.isArray(slice.verification_context) ? { verificationContext } : {}),
       ...(criteria.length > 0
         ? { instruction: 'Make the minimum change that satisfies every criterion.' }
         : {}),
     },
+    ...(args.publicPacket ? { publicPacket: args.publicPacket } : {}),
   };
+}
+
+function collectWorkerRequirementIds(
+  slice: { readonly id?: string } & PlanSliceRequestShape,
+  slices: readonly ({ readonly id?: string } & PlanSliceRequestShape)[],
+):
+  | { readonly status: 'ok'; readonly ids: readonly string[] }
+  | { readonly status: 'invalid'; readonly message: string } {
+  const byId = new Map(
+    slices.flatMap((candidate) => (isNonBlank(candidate.id) ? [[candidate.id, candidate]] : [])),
+  );
+  const sliceIds = slices.flatMap((candidate) => (isNonBlank(candidate.id) ? [candidate.id] : []));
+  if (new Set(sliceIds).size !== sliceIds.length) {
+    return { status: 'invalid', message: 'contains duplicate slice ids.' };
+  }
+  const ids = new Set<string>();
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+
+  const visit = (candidate: { readonly id?: string } & PlanSliceRequestShape): string | undefined => {
+    if (!isNonBlank(candidate.id) || visited.has(candidate.id)) return undefined;
+    if (visiting.has(candidate.id)) return `has a cyclic slice dependency at ${candidate.id}.`;
+    if (
+      (candidate.depends_on !== undefined &&
+        (!Array.isArray(candidate.depends_on) || !candidate.depends_on.every(isNonBlank))) ||
+      (candidate.derived_from !== undefined &&
+        (!Array.isArray(candidate.derived_from) || !candidate.derived_from.every(isNonBlank)))
+    ) {
+      return `has malformed dependency or requirement references at ${candidate.id}.`;
+    }
+    if (
+      new Set(candidate.depends_on ?? []).size !== (candidate.depends_on ?? []).length ||
+      new Set(candidate.derived_from ?? []).size !== (candidate.derived_from ?? []).length
+    ) {
+      return `has duplicate dependency or requirement references at ${candidate.id}.`;
+    }
+    visiting.add(candidate.id);
+    for (const dependencyId of candidate.depends_on ?? []) {
+      const dependency = byId.get(dependencyId);
+      if (!dependency) return `depends on unknown slice ${dependencyId}.`;
+      const error = visit(dependency);
+      if (error) return error;
+    }
+    for (const requirementId of candidate.derived_from ?? []) {
+      if (isNonBlank(requirementId)) ids.add(requirementId);
+    }
+    visiting.delete(candidate.id);
+    visited.add(candidate.id);
+    return undefined;
+  };
+
+  const error = visit(slice);
+  return error ? { status: 'invalid', message: error } : { status: 'ok', ids: Array.from(ids) };
 }
 
 function isNonBlank(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 export async function prepareIsolatedSlice(args: {
@@ -221,6 +371,7 @@ export async function prepareIsolatedSlice(args: {
   readonly sliceWorktreeDir: string;
   readonly requestPath: string;
   readonly requestContext?: SliceRequestContext;
+  readonly publicPacket?: PublicPacketMaterialization;
   readonly gitSliceIntegration: GitSliceIntegrationPort;
   readonly recordReport: SliceReportRecorder;
 }) {
@@ -230,7 +381,14 @@ export async function prepareIsolatedSlice(args: {
     sliceId: args.sliceId,
   });
   if (workspace.status === 'failed') return workspace;
+  let packetEffects: Awaited<ReturnType<typeof materializePublicPacket>> = [];
   try {
+    if (args.publicPacket) {
+      packetEffects = await materializePublicPacket({
+        packet: args.publicPacket,
+        sliceWorktreeDir: args.sliceWorktreeDir,
+      });
+    }
     await mkdir(dirname(args.requestPath), { recursive: true });
     await writeFile(
       args.requestPath,
@@ -258,7 +416,7 @@ export async function prepareIsolatedSlice(args: {
     sliceId: args.sliceId,
     status: 'slice_execution_requested',
   });
-  return workspace;
+  return { ...workspace, sideEffects: [...workspace.sideEffects, ...packetEffects] };
 }
 
 export async function runIsolatedAgentAttempt(args: {

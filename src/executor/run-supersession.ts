@@ -121,6 +121,7 @@ async function createSupersedingRunOwned(args: {
     supersedesRunId: args.previousRunId,
     ...(previous.substrate ? { substrate: previous.substrate } : {}),
     ...(previous.verifyTarget ? { verifyTarget: previous.verifyTarget } : {}),
+    ...(previous.publicPacket ? { publicPacket: previous.publicPacket } : {}),
   };
 
   const created = await withRunExecutionAuthority({

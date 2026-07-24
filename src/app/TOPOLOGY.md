@@ -1,6 +1,6 @@
 # app/
 
-SPEC decisions: D52-L, D111-L, D123-L, D132-L, D133-L, I58-L
+SPEC decisions: D52-L, D111-L, D123-L, D132-L, D133-L, I58-L, I69-L
 
 ## Owns
 
@@ -24,6 +24,8 @@ Current runtime support modules:
 - `git-worktree-port.ts`, `git-slice-integration-port.ts`, `agent-runner-port.ts`, `test-runner-port.ts`, `git-run-promotion-port.ts`, `git-host-land-port.ts`, `planner-port.ts` — app-layer execution-port implementations injected into executor Pi tools; executor core owns contracts and state transitions. `agent-runner-port.ts` bridges executor run metadata to the sealed subagent worker substrate and fails closed when subagent deps or Pi model context are absent. `planner-port.ts` (FE-1197) bridges the bounded planning projection to the sealed planner subagent, renders repair findings into the task, injects the schema-backed terminating `submit_candidate_plan` output contract, and fails closed on missing deps/model context or anything other than exactly one typed submission; parsing, validation, repair policy, and admission stay executor-owned. `git-run-promotion-port.ts` commits verified run output and atomically creates the deterministic `brunch/review/<runId>` ref while leaving the run worktree detached. `git-host-land-port.ts` (FE-1201) first `inspect`s the complete `runBaseSha..reviewSha` commit/file range, classifies the target, and rehearses brownfield conflicts without starting a merge or writing host objects; `integrate` then fast-forwards or merges the shared `brunch/review/<runId>` ref into the host's clean attached branch (conflicts abort back to a pristine host), while `materialize` turns the promoted tip tree into a fresh repository with one clean brunch-authored initial commit in a missing/empty target. The port refuses rather than mutates on drift, dirt, or occupied targets, a non-landed materialize outcome restores the verified-empty target (no orphan `.git` blocks the retry), and a git failure classifies as `failed` with the git message rather than a refusal. `git-slice-integration-port.ts` provisions one detached worktree per slice, commits slice output, preflights fan-in with `git merge-tree --write-tree`, and advances the run workspace only after conflict-free certainty.
 
 Model recommendations and latency evidence live in [`docs/model-recommendations.md`](../../docs/model-recommendations.md).
+
+`agent-runner-port.ts` renders I69-L worker context from the validated execution request: exact approved requirement title/body sections plus the relative target-visible packet path, packet digest, and declared file digests. It does not ask the worker to reconstruct requirement truth from graph ids or planner paraphrase, and controller-only oracle paths/bytes never enter the request.
 
 ## Does not own
 

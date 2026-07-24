@@ -155,6 +155,7 @@ describe('createGitSliceIntegrationPort', () => {
       planFilePath(cwd, '42'),
       JSON.stringify({
         mode: 'greenfield',
+        scope_handoff_required: false,
         epics: [{ id: 'epic-1', depends_on: [], verification: [] }],
         slices: [{ id: 'task-1', epic_id: 'epic-1', definition: 'task', depends_on: [], verification: [] }],
       }),
