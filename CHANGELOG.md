@@ -1,5 +1,17 @@
 # @hashintel/brunch
 
+## 1.0.0-alpha.12
+
+### Patch Changes
+
+- [#376](https://github.com/hashintel/brunch/pull/376) [`3a85266`](https://github.com/hashintel/brunch/commit/3a852661915327b831a99673e05296508bdaf6a6) Thanks [@kostandinang](https://github.com/kostandinang)! - Block host landing from isolated execution comparison runs.
+
+- [#371](https://github.com/hashintel/brunch/pull/371) [`f6076ba`](https://github.com/hashintel/brunch/commit/f6076baf37968a6b9958ac62e8692dd8c10c2e1c) Thanks [@kostandinang](https://github.com/kostandinang)! - Recover prepared execution journals across direct lifecycle steps and superseding runs.
+
+- [#373](https://github.com/hashintel/brunch/pull/373) [`ca2bf27`](https://github.com/hashintel/brunch/commit/ca2bf271e0275f47fe88255bbb0a11dfbc18b423) Thanks [@kostandinang](https://github.com/kostandinang)! - Refresh prepared run metadata before reconciling direct lifecycle steps.
+
+- [#377](https://github.com/hashintel/brunch/pull/377) [`bf78915`](https://github.com/hashintel/brunch/commit/bf78915ad2879591494e24d554775ff8b7eea4c9) Thanks [@kostandinang](https://github.com/kostandinang)! - Carry exact approved requirements and pinned public packets into scoped execution workers.
+
 ## 1.0.0-alpha.11
 
 ### Minor Changes
