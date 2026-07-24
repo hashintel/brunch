@@ -420,7 +420,7 @@ async function driveOwned(
   // unchanged is treated as stuck. Replace with per-step outcome classification
   // if steps gain retry/abort semantics beyond advance-or-hold.
   driveLoop: for (;;) {
-    const state = await readRunMetadata(metadataPath);
+    let state = await readRunMetadata(metadataPath);
     if (!state) return { status: 'missing_run', runId: ctx.runId };
     if (options.maxFirings !== undefined && firedTransitions >= options.maxFirings) {
       return { status: 'completed', runStatus: state.status };
@@ -448,6 +448,9 @@ async function driveOwned(
       observationPreparationAttempted = true;
       try {
         plan = await preparePetriObservation({ cwd: ctx.cwd, runId: ctx.runId });
+        const preparedState = await readRunMetadata(metadataPath);
+        if (!preparedState) return { status: 'missing_run', runId: ctx.runId };
+        state = preparedState;
       } catch (error) {
         const terminal = classifyDriveTerminal({
           kind: 'step_halted',
