@@ -4,6 +4,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import {
+  assertExecutionAttemptInterventionLedger,
   parseExecutionAttempt,
   writeExecutionAttemptImmutable,
 } from './execution-comparison/artifact-contract.js';
@@ -275,9 +276,13 @@ export async function runExecutionComparisonOperatorCli(args: readonly string[])
       return;
     }
     case 'retain-attempt': {
-      assertOnlyOptions(options, ['attempt-file', 'attempts-root']);
-      const value = JSON.parse(await readFile(resolve(required(options, 'attempt-file')), 'utf8')) as unknown;
+      assertOnlyOptions(options, ['attempt-file', 'attempts-root', 'intervention-ledger']);
+      const attemptPath = resolve(required(options, 'attempt-file'));
+      const interventionLedgerPath = resolve(required(options, 'intervention-ledger'));
+      const value = JSON.parse(await readFile(attemptPath, 'utf8')) as unknown;
       const attempt = parseExecutionAttempt(value);
+      const interventionLedger = JSON.parse(await readFile(interventionLedgerPath, 'utf8')) as unknown;
+      assertExecutionAttemptInterventionLedger(attempt, interventionLedger);
       const attemptsRoot = resolve(required(options, 'attempts-root'));
       await mkdir(attemptsRoot, { recursive: true });
       const stored = await writeExecutionAttemptImmutable(attemptsRoot, attempt);

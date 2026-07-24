@@ -250,3 +250,17 @@ describe('execution comparison oracle CLI', () => {
     }
   });
 });
+
+describe('execution comparison attempt retention CLI', () => {
+  it('requires an intervention ledger before reading or retaining an attempt', async () => {
+    await expect(
+      runExecutionComparisonOperatorCli([
+        'retain-attempt',
+        '--attempt-file',
+        'missing-attempt.json',
+        '--attempts-root',
+        'attempt-records',
+      ]),
+    ).rejects.toThrow('missing required option --intervention-ledger');
+  });
+});

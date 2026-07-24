@@ -133,6 +133,12 @@ Send only the approved shared framing. Do not substitute a raw binary, another m
 
 After every lane terminates, first capture its final process status and all target-visible interaction evidence. Kill any still-running executor process, query the shell to a final status, dismiss the completed shell record, and verify that no executor process or interactive session remains.
 
+Record every controller takeover immediately in `<attempt-staging>/intervention-ledger.json`, including a
+mechanical selection of an already-proposed action. The ledger has schema `{ "schemaVersion": 1,
+"interventions": [...] }`; each intervention uses the `ExecutionAttempt` index, kind, description, and
+timestamp fields. The visible-interaction summary must be derived from this ledger rather than independently
+authored. No unledgered controller takeover is permitted.
+
 Then run the unchanged controller-owned oracle identity returned by `inspect` against the retained output:
 
 ```sh
@@ -163,10 +169,13 @@ Stage evidence under the fresh attempt path, construct an `ExecutionAttempt` JSO
 ```sh
 npx tsx src/dev/execution-comparison-operator.ts retain-attempt \
   --attempt-file <attempt-staging>/attempt.json \
+  --intervention-ledger <attempt-staging>/intervention-ledger.json \
   --attempts-root .fixtures/scratch/execution-comparisons/<run-id>/attempt-records
 ```
 
-The immutable writer rejects an existing attempt id. Never overwrite, delete, replace, or silently retry a poor-output attempt. A replacement is permitted only for provider, adapter, or mechanical invalidity under the unchanged packet, and both attempts remain retained.
+The immutable writer rejects an existing attempt id and rejects a ledger that does not exactly match the attempt's
+intervention list. Never overwrite, delete, replace, or silently retry a poor-output attempt. A replacement is
+permitted only for provider, adapter, or mechanical invalidity under the unchanged packet, and both attempts remain retained.
 
 ## Report
 
