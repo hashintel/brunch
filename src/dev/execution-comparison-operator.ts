@@ -12,6 +12,10 @@ import {
   type BrowserOracleReport,
 } from './execution-comparison/browser-oracle.js';
 import {
+  formatExecutionComparisonSummary,
+  loadExecutionComparisonSummary,
+} from './execution-comparison/execution-summary.js';
+import {
   runBrunchHostLandingOracle,
   type HostLandingOracleReport,
 } from './execution-comparison/host-landing-oracle.js';
@@ -280,9 +284,15 @@ export async function runExecutionComparisonOperatorCli(args: readonly string[])
       process.stdout.write(`${JSON.stringify({ stored })}\n`);
       return;
     }
+    case 'summary': {
+      assertOnlyOptions(options, ['run-directory']);
+      const summary = await loadExecutionComparisonSummary(required(options, 'run-directory'));
+      process.stdout.write(formatExecutionComparisonSummary(summary, process.cwd()));
+      return;
+    }
     default:
       throw new Error(
-        'Usage: execution-comparison-operator <list-cases|inspect|prepare|oracle|retain-attempt> [options]',
+        'Usage: execution-comparison-operator <list-cases|inspect|prepare|oracle|retain-attempt|summary> [options]',
       );
   }
 }
