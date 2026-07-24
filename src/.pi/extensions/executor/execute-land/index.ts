@@ -60,11 +60,20 @@ export interface LandCommandContext {
   };
 }
 
+export interface HostLandingPolicyOptions {
+  /** Defaults on; isolated execution comparisons disable every landing surface. */
+  readonly allowHostLanding?: boolean;
+}
+
 export async function runBrunchLandCommand(
   args: string,
   ctx: LandCommandContext,
-  deps: { readonly gitHostLand: GitHostLandPort },
+  deps: { readonly gitHostLand: GitHostLandPort } & HostLandingPolicyOptions,
 ): Promise<void> {
+  if (deps.allowHostLanding === false) {
+    ctx.ui.notify('Landing is disabled for isolated execution comparisons.', 'warning');
+    return;
+  }
   if (!ctx.hasUI) {
     ctx.ui.notify('/brunch:land requires an interactive session to confirm the landing.', 'error');
     return;
@@ -160,12 +169,20 @@ function splitLandCommandArgs(args: string): readonly [string | undefined, strin
   return [trimmed.slice(0, boundary), target || undefined];
 }
 
-export function registerBrunchExecuteLand(pi: ExtensionAPI, gitHostLand: GitHostLandPort): void {
+export function registerBrunchExecuteLand(
+  pi: ExtensionAPI,
+  gitHostLand: GitHostLandPort,
+  options: HostLandingPolicyOptions = {},
+): void {
+  if (options.allowHostLanding === false) return;
   pi.registerTool(createExecuteLandPreflightTool() as never);
   pi.registerCommand(BRUNCH_LAND_COMMAND, {
     description: 'Review and land a promoted run into the host (user-confirmed)',
     handler: async (args, ctx) => {
-      await runBrunchLandCommand(args ?? '', ctx as unknown as LandCommandContext, { gitHostLand });
+      await runBrunchLandCommand(args ?? '', ctx as unknown as LandCommandContext, {
+        gitHostLand,
+        ...options,
+      });
     },
   });
 }

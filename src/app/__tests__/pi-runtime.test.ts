@@ -11,6 +11,33 @@ import { createBrunchAgentSessionRuntimeFactory } from '../brunch-tui.js';
 import { appendBrunchAgentRuntimeSwitch } from '../pi-extensions.js';
 
 describe('Brunch Pi runtime', () => {
+  it('exposes no host-landing surface in an isolated execution comparison', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-comparison-runtime-'));
+    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const workspace = await coordinator.createSetupSession({
+      specTitle: 'Comparison runtime',
+      createNewSpec: true,
+    });
+    const createRuntime = createBrunchAgentSessionRuntimeFactory({
+      workspace,
+      coordinator,
+      comparisonIsolation: { targetRoot: cwd },
+    });
+    const created = await createRuntime({
+      cwd,
+      agentDir,
+      sessionManager: workspace.session.manager,
+    });
+
+    try {
+      expect(created.session.extensionRunner.getCommand('brunch:land')).toBeUndefined();
+      expect(created.session.getToolDefinition('execute_land_preflight')).toBeUndefined();
+    } finally {
+      created.session.dispose();
+    }
+  });
+
   it('registers graph and read-only tools without built-in write tools on the product runtime path', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-graph-runtime-'));
     const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));

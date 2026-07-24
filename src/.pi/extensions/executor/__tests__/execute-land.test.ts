@@ -7,7 +7,11 @@ import { describe, expect, it } from 'vitest';
 import { createFakeGitHostLandPort } from '../../../../executor/__tests__/fake-ports.js';
 import { promotionReportPath } from '../../../../executor/promotion.js';
 import { runMetadataPath, runDirPath } from '../../../../executor/run.js';
-import { createExecuteLandPreflightTool, runBrunchLandCommand } from '../execute-land/index.js';
+import {
+  createExecuteLandPreflightTool,
+  registerBrunchExecuteLand,
+  runBrunchLandCommand,
+} from '../execute-land/index.js';
 
 const TIP = 'tip456';
 
@@ -80,6 +84,29 @@ async function runStatus(cwd: string, runId = 'run-1'): Promise<string> {
 }
 
 describe('runBrunchLandCommand', () => {
+  it('refuses landing under comparison policy before inspection or confirmation', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-land-cmd-comparison-'));
+    await createPromotionPreparedRun(cwd);
+    const ui = makeUi();
+    const inspectCalls: unknown[] = [];
+    const gitHostLand = createFakeGitHostLandPort({
+      async inspect(args) {
+        inspectCalls.push(args);
+        return { status: 'failed', message: 'must not inspect', sideEffects: [] };
+      },
+    });
+
+    await runBrunchLandCommand('run-1', stubCtx(cwd, ui), {
+      gitHostLand,
+      allowHostLanding: false,
+    });
+
+    expect(inspectCalls).toEqual([]);
+    expect(ui.confirms).toEqual([]);
+    expect(ui.notifications).toEqual(['Landing is disabled for isolated execution comparisons.']);
+    await expect(runStatus(cwd)).resolves.toBe('promotion_prepared');
+  });
+
   it('lands an explicit run after the user confirms', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-land-cmd-confirm-'));
     await createPromotionPreparedRun(cwd);
@@ -409,6 +436,25 @@ describe('runBrunchLandCommand', () => {
     expect(ui.confirms).toHaveLength(1);
     expect(ui.confirms[0]).toContain('verified prior Brunch materialization');
     await expect(runStatus(cwd)).resolves.toBe('promotion_prepared');
+  });
+});
+
+describe('registerBrunchExecuteLand', () => {
+  it('registers no landing surface when host landing is disabled', () => {
+    const commands: string[] = [];
+    const tools: string[] = [];
+
+    registerBrunchExecuteLand(
+      {
+        registerCommand: (name: string) => commands.push(name),
+        registerTool: (tool: { name: string }) => tools.push(tool.name),
+      } as never,
+      createFakeGitHostLandPort(),
+      { allowHostLanding: false },
+    );
+
+    expect(commands).toEqual([]);
+    expect(tools).toEqual([]);
   });
 });
 

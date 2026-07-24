@@ -254,6 +254,8 @@ export interface BrunchPiExtensionsOptions extends BrunchCommandsOptions {
   foregroundFilesystemRoot?: string;
   /** Defaults on; strict comparison launches set false. */
   allowWebTools?: boolean;
+  /** Defaults on; strict comparison launches must stop at promotion_prepared. */
+  allowHostLanding?: boolean;
   /**
    * Optional subagent registry (D44-L/D92-L). When provided with a non-empty
    * code-owned delegatable set, the product `subagent` tool is registered and
@@ -378,7 +380,12 @@ export function createBrunchPiExtensions(
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanPreview(api, graph)] : []),
       registerBrunchExecutePetriExport,
       (api) => registerBrunchExecutePromotionPrepare(api, executionPorts.gitRunPromotion),
-      (api) => registerBrunchExecuteLand(api, executionPorts.gitHostLand),
+      (api) =>
+        registerBrunchExecuteLand(
+          api,
+          executionPorts.gitHostLand,
+          options.allowHostLanding === undefined ? {} : { allowHostLanding: options.allowHostLanding },
+        ),
       registerBrunchExecutePopulate,
       registerBrunchExecuteReportInit,
       registerBrunchExecuteRunComplete,

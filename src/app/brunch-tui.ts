@@ -577,6 +577,7 @@ export function createBrunchAgentSessionRuntimeFactory(
             ...(comparisonIsolation
               ? {
                   allowWebTools: false,
+                  allowHostLanding: false,
                   foregroundFilesystemRoot: comparisonIsolation.targetRoot,
                 }
               : {}),
