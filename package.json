@@ -29,7 +29,6 @@
     "access": "public"
   },
   "overrides": {
-    "@hono/node-server": "2.0.10",
     "esbuild": "^0.25.12",
     "react-inspector": "^9.0.0",
     "hono": "4.12.25",
