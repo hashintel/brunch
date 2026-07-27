@@ -1,0 +1,202 @@
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { createSandbox } from './worktree.js';
+
+describe('createSandbox', () => {
+  const dirs: string[] = [];
+  afterEach(() => {
+    for (const d of dirs) rmSync(d, { recursive: true, force: true });
+    dirs.length = 0;
+  });
+
+  it('creates sandbox under baseDir/.brunch/cook/runs/<runId>/worktree/', () => {
+    const baseDir = mkdtempSync(join(tmpdir(), 'cook-wt-'));
+    dirs.push(baseDir);
+
+    const info = createSandbox(baseDir, 'test-run-1');
+    expect(info.runId).toBe('test-run-1');
+    expect(info.runDir).toBe(join(baseDir, '.brunch', 'cook', 'runs', 'test-run-1'));
+    expect(info.sandboxDir).toBe(join(baseDir, '.brunch', 'cook', 'runs', 'test-run-1', 'worktree'));
+    expect(existsSync(info.sandboxDir)).toBe(true);
+  });
+
+  it('generates a runId when not provided', () => {
+    const baseDir = mkdtempSync(join(tmpdir(), 'cook-wt-'));
+    dirs.push(baseDir);
+
+    const info = createSandbox(baseDir);
+    expect(info.runId).toBeTruthy();
+    expect(existsSync(info.sandboxDir)).toBe(true);
+  });
+
+  it('does not write to a separate fixture directory', () => {
+    const baseDir = mkdtempSync(join(tmpdir(), 'cook-base-'));
+    const fixtureDir = mkdtempSync(join(tmpdir(), 'cook-fixture-'));
+    dirs.push(baseDir, fixtureDir);
+
+    createSandbox(baseDir, 'isolated-run');
+
+    // Fixture dir must not have a .brunch/cook/ run output
+    expect(existsSync(join(fixtureDir, '.brunch', 'cook'))).toBe(false);
+    // Base dir must have it
+    expect(existsSync(join(baseDir, '.brunch', 'cook', 'runs', 'isolated-run', 'worktree'))).toBe(true);
+  });
+});
+
+describe('createSandbox — fixture mode is git-backed (D171-K / I139-K)', () => {
+  const dirs: string[] = [];
+  afterEach(() => {
+    for (const d of dirs) rmSync(d, { recursive: true, force: true });
+    dirs.length = 0;
+  });
+
+  // The empty git tree object — HEAD's tree equals this iff the root commit
+  // tracks no files (a true empty-slate greenfield start).
+  const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+
+  function git(args: string[], cwd: string): string {
+    return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
+  }
+
+  it('fixture sandbox is a git worktree with an empty root commit', () => {
+    const baseDir = mkdtempSync(join(tmpdir(), 'cook-wt-'));
+    dirs.push(baseDir);
+
+    const info = createSandbox(baseDir, 'gf-run-1');
+
+    expect(existsSync(join(info.sandboxDir, '.git'))).toBe(true);
+    expect(git(['rev-parse', '--is-inside-work-tree'], info.sandboxDir)).toBe('true');
+    // Exactly one commit, tracking no files (empty-slate root).
+    expect(git(['rev-list', '--count', 'HEAD'], info.sandboxDir)).toBe('1');
+    expect(git(['rev-parse', 'HEAD^{tree}'], info.sandboxDir)).toBe(EMPTY_TREE);
+  });
+
+  it('fixture worktree is checked out on branch brunch/run/<runId>', () => {
+    const baseDir = mkdtempSync(join(tmpdir(), 'cook-wt-'));
+    dirs.push(baseDir);
+
+    const info = createSandbox(baseDir, 'gf-branch');
+
+    expect(git(['rev-parse', '--abbrev-ref', 'HEAD'], info.sandboxDir)).toBe('brunch/run/gf-branch');
+  });
+
+  it('both modes yield a git worktree (mode selects only the initial HEAD)', () => {
+    const baseDir = mkdtempSync(join(tmpdir(), 'cook-base-'));
+    const sourceDir = mkdtempSync(join(tmpdir(), 'cook-src-'));
+    dirs.push(baseDir, sourceDir);
+    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: sourceDir });
+    execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: sourceDir });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: sourceDir });
+    writeFileSync(join(sourceDir, 'README.md'), '# seed\n');
+    execFileSync('git', ['add', '.'], { cwd: sourceDir });
+    execFileSync('git', ['commit', '-q', '-m', 'initial'], { cwd: sourceDir });
+
+    const greenfield = createSandbox(baseDir, 'gf-uniform');
+    const brownfield = createSandbox(baseDir, 'bf-uniform', { mode: 'codebase', sourceDir });
+
+    for (const info of [greenfield, brownfield]) {
+      expect(git(['rev-parse', '--is-inside-work-tree'], info.sandboxDir)).toBe('true');
+    }
+    // Greenfield starts empty; brownfield starts from the cloned HEAD.
+    expect(git(['rev-parse', 'HEAD^{tree}'], greenfield.sandboxDir)).toBe(EMPTY_TREE);
+    expect(existsSync(join(brownfield.sandboxDir, 'README.md'))).toBe(true);
+  });
+});
+
+describe('createSandbox — codebase mode', () => {
+  const dirs: string[] = [];
+  afterEach(() => {
+    for (const d of dirs) rmSync(d, { recursive: true, force: true });
+    dirs.length = 0;
+  });
+
+  function makeTmpDir(prefix: string): string {
+    const d = mkdtempSync(join(tmpdir(), prefix));
+    dirs.push(d);
+    return d;
+  }
+
+  function initSeededGitRepo(dir: string): void {
+    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: dir });
+    execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: dir });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir });
+    writeFileSync(join(dir, 'README.md'), '# seed\n');
+    writeFileSync(join(dir, 'src.txt'), 'hello\n');
+    execFileSync('git', ['add', '.'], { cwd: dir });
+    execFileSync('git', ['commit', '-q', '-m', 'initial'], { cwd: dir });
+  }
+
+  it('creates a git worktree of sourceDir on a brunch/run/<runId> branch', () => {
+    const baseDir = makeTmpDir('cook-base-');
+    const sourceDir = makeTmpDir('cook-src-');
+    initSeededGitRepo(sourceDir);
+
+    const info = createSandbox(baseDir, 'codebase-run-1', { mode: 'codebase', sourceDir });
+
+    expect(info.runId).toBe('codebase-run-1');
+    expect(existsSync(info.sandboxDir)).toBe(true);
+    // Worktree contents mirror sourceDir HEAD
+    expect(readFileSync(join(info.sandboxDir, 'README.md'), 'utf8')).toBe('# seed\n');
+    expect(readFileSync(join(info.sandboxDir, 'src.txt'), 'utf8')).toBe('hello\n');
+  });
+
+  it('worktree is checked out on branch brunch/run/<runId>', () => {
+    const baseDir = makeTmpDir('cook-base-');
+    const sourceDir = makeTmpDir('cook-src-');
+    initSeededGitRepo(sourceDir);
+
+    const info = createSandbox(baseDir, 'branch-test', { mode: 'codebase', sourceDir });
+
+    const branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+      cwd: info.sandboxDir,
+      encoding: 'utf8',
+    }).trim();
+    expect(branch).toBe('brunch/run/branch-test');
+  });
+
+  it('CoW-copies untracked top-level dirs from sourceDir into the parent worktree', () => {
+    const baseDir = makeTmpDir('cook-base-');
+    const sourceDir = makeTmpDir('cook-src-');
+    initSeededGitRepo(sourceDir);
+    const depFile = join(sourceDir, 'node_modules', 'dep', 'index.js');
+    mkdirSync(dirname(depFile), { recursive: true });
+    writeFileSync(depFile, 'module.exports = 1;\n');
+
+    const info = createSandbox(baseDir, 'untracked-copy', { mode: 'codebase', sourceDir });
+
+    expect(readFileSync(join(info.sandboxDir, 'node_modules', 'dep', 'index.js'), 'utf8')).toBe(
+      'module.exports = 1;\n',
+    );
+  });
+
+  it('source branch in sourceDir is byte-identical after worktree creation', () => {
+    const baseDir = makeTmpDir('cook-base-');
+    const sourceDir = makeTmpDir('cook-src-');
+    initSeededGitRepo(sourceDir);
+
+    const sourceHeadBefore = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: sourceDir,
+      encoding: 'utf8',
+    }).trim();
+
+    createSandbox(baseDir, 'isolation-test', { mode: 'codebase', sourceDir });
+
+    const sourceHeadAfter = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: sourceDir,
+      encoding: 'utf8',
+    }).trim();
+    expect(sourceHeadAfter).toBe(sourceHeadBefore);
+
+    // No uncommitted changes either
+    const status = execFileSync('git', ['status', '--porcelain'], {
+      cwd: sourceDir,
+      encoding: 'utf8',
+    });
+    expect(status).toBe('');
+  });
+});

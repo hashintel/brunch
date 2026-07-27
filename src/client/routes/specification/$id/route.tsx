@@ -1,14 +1,18 @@
 import { Outlet, createFileRoute, useParams } from '@tanstack/react-router';
 import { useMemo } from 'react';
 
+import { ChatShellPresenceProvider } from '@/client/components/chat-shell-presence.js';
 import { PatchListProvider, type PatchAppliers } from '@/client/components/patch-list-host.js';
-import { SideChatHost } from '@/client/components/side-chat-host.js';
+// FE-716 C29: overlay hidden in favor of shell-internal patch panel; restore here to revert.
+// import { PatchListOverlay } from '@/client/components/patch-list-overlay.js';
+import { SecondaryChatTriggerProvider } from '@/client/components/secondary-chat-trigger.js';
 import { Skeleton } from '@/client/components/ui/skeleton';
 import { makeAnnotateApplier } from '@/client/lib/annotation-api.js';
 import { makeDrillDownApplier, makeEdgeApplier, makeEditApplier } from '@/client/lib/edit-applier.js';
 
 import { PhaseNavigationSidebar } from './-phase-navigation-sidebar.js';
 import { primeSpecificationBundle, useSpecificationBundleData } from './-specification-data.js';
+import { WorkspaceFocusProvider } from './-workspace-focus.js';
 
 function SpecificationWorkspaceSkeleton() {
   return (
@@ -49,19 +53,29 @@ export const Route = createFileRoute('/specification/$id')({
 
     return (
       <PatchListProvider appliers={appliers}>
-        <SideChatHost specificationId={specificationState.specification.id}>
-          <div className="flex h-full">
-            <PhaseNavigationSidebar
-              specificationId={specificationId}
-              specificationName={specificationState.specification.name}
-              workflow={specificationState.workflow}
-              turns={specificationState.turns}
-            />
-            <div className="flex-1 overflow-hidden">
-              <Outlet />
-            </div>
-          </div>
-        </SideChatHost>
+        <ChatShellPresenceProvider specificationId={specificationId}>
+          <SecondaryChatTriggerProvider>
+            <WorkspaceFocusProvider>
+              <div className="flex h-full min-h-0 flex-1 flex-col">
+                <div className="flex min-h-0 flex-1">
+                  <PhaseNavigationSidebar
+                    specificationId={specificationId}
+                    specificationName={specificationState.specification.name}
+                    workflow={specificationState.workflow}
+                    turns={specificationState.turns}
+                  />
+                  <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                    {/* FE-716 C29: overlay hidden in favor of shell-internal patch panel; restore here to revert. */}
+                    {/* <PatchListOverlay /> */}
+                    <div className="min-h-0 flex-1 overflow-hidden">
+                      <Outlet />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </WorkspaceFocusProvider>
+          </SecondaryChatTriggerProvider>
+        </ChatShellPresenceProvider>
       </PatchListProvider>
     );
   },

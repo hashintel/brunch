@@ -9,6 +9,7 @@ import {
   createTurn,
   getKnowledgeItem,
   linkKnowledgeItemToTurn,
+  listOpenReconciliationNeeds,
 } from './db.js';
 
 let app: ReturnType<typeof createApp>['app'];
@@ -72,7 +73,7 @@ describe('PATCH /api/specifications/:id/knowledge-items/:itemId', () => {
     expect(updated?.content).toBe('Updated goal');
   });
 
-  it('rejects a hard-impact edit with updated: false', async () => {
+  it('applies a hard-impact edit and opens reconciliation needs (V3.0 cascade)', async () => {
     const specId = await createSpec();
     const goal = createKnowledgeItem(db, specId, 'goal', 'Central goal');
     const r1 = createKnowledgeItem(db, specId, 'requirement', 'R1');
@@ -80,23 +81,104 @@ describe('PATCH /api/specifications/:id/knowledge-items/:itemId', () => {
     const r3 = createKnowledgeItem(db, specId, 'requirement', 'R3');
     addKnowledgeRelationship(db, r1.id, goal.id, 'depends_on');
     addKnowledgeRelationship(db, r2.id, goal.id, 'depends_on');
-    addKnowledgeRelationship(db, r3.id, goal.id, 'depends_on');
+    addKnowledgeRelationship(db, r3.id, goal.id, 'derived_from');
 
     const res = await request(app)
       .patch(`/api/specifications/${specId}/knowledge-items/${goal.id}`)
-      .send({ content: 'Should not apply' })
+      .send({ content: 'Updated goal' })
       .expect(200);
 
     expect(res.body.impact).toBe('hard');
-    expect(res.body.updated).toBe(false);
+    expect(res.body.updated).toBe(true);
+    expect(res.body.previousContent).toBe('Central goal');
     expect(res.body.affectedItems).toHaveLength(3);
+    expect(res.body.openedNeedIds).toHaveLength(3);
 
-    // Content should NOT be changed
-    const unchanged = getKnowledgeItem(db, goal.id);
-    expect(unchanged?.content).toBe('Central goal');
+    // Content was applied (no longer deferred)
+    const updated = getKnowledgeItem(db, goal.id);
+    expect(updated?.content).toBe('Updated goal');
+
+    // Reconciliation needs were opened with correct kind mapping
+    const openNeeds = listOpenReconciliationNeeds(db, specId);
+    expect(openNeeds).toHaveLength(3);
+    const needsByTarget = new Map(openNeeds.map((n) => [n.target_item_id, n]));
+    expect(needsByTarget.get(r1.id)?.kind).toBe('needs_confirmation'); // depends_on
+    expect(needsByTarget.get(r2.id)?.kind).toBe('needs_confirmation'); // depends_on
+    expect(needsByTarget.get(r3.id)?.kind).toBe('supersedes'); // derived_from
+    for (const need of openNeeds) {
+      expect(need.source_item_id).toBe(goal.id);
+      expect(need.specification_id).toBe(specId);
+      // Card 1: every need opened by a hard apply carries the source's
+      // before/after content snapshot for downstream surfaces (Pending review
+      // diff, V3.1 agent pre-image).
+      expect(need.source_previous_content).toBe('Central goal');
+      expect(need.source_current_content).toBe('Updated goal');
+      expect(need.status).toBe('open');
+    }
   });
 
-  it('rejects edit as hard when item is in active review set', async () => {
+  it('opens needs for policy-affected raw-edge sources when the edited item is the raw-edge target', async () => {
+    const specId = await createSpec();
+    const goal = createKnowledgeItem(db, specId, 'goal', 'Dense anchor');
+    const dependsOn1 = createKnowledgeItem(db, specId, 'requirement', 'depends_on 1');
+    const dependsOn2 = createKnowledgeItem(db, specId, 'requirement', 'depends_on 2');
+    const derived = createKnowledgeItem(db, specId, 'requirement', 'derived_from');
+    const verifier = createKnowledgeItem(db, specId, 'criterion', 'verifies');
+    const refinement = createKnowledgeItem(db, specId, 'requirement', 'refines');
+    addKnowledgeRelationship(db, dependsOn1.id, goal.id, 'depends_on');
+    addKnowledgeRelationship(db, dependsOn2.id, goal.id, 'depends_on');
+    addKnowledgeRelationship(db, derived.id, goal.id, 'derived_from');
+    addKnowledgeRelationship(db, verifier.id, goal.id, 'verifies');
+    addKnowledgeRelationship(db, refinement.id, goal.id, 'refines');
+
+    const res = await request(app)
+      .patch(`/api/specifications/${specId}/knowledge-items/${goal.id}`)
+      .send({ content: 'Updated dense anchor' })
+      .expect(200);
+
+    expect(res.body.impact).toBe('hard');
+    expect(res.body.openedNeedIds).toHaveLength(5);
+
+    const openNeeds = listOpenReconciliationNeeds(db, specId);
+    expect(openNeeds).toHaveLength(5);
+    const kindByTarget = new Map(openNeeds.map((n) => [n.target_item_id, n.kind]));
+    expect(kindByTarget.get(dependsOn1.id)).toBe('needs_confirmation');
+    expect(kindByTarget.get(dependsOn2.id)).toBe('needs_confirmation');
+    expect(kindByTarget.get(derived.id)).toBe('supersedes');
+    expect(kindByTarget.get(verifier.id)).toBe('needs_confirmation');
+    expect(kindByTarget.get(refinement.id)).toBe('supersedes');
+  });
+
+  it('opens needs for policy-affected raw-edge targets when the edited item is the raw-edge source', async () => {
+    const specId = await createSpec();
+    const constraint = createKnowledgeItem(db, specId, 'constraint', 'Keep setup instant');
+    const goal = createKnowledgeItem(db, specId, 'goal', 'Reduce first-run friction');
+    const decision = createKnowledgeItem(db, specId, 'decision', 'Use guided provider setup');
+    const requirement = createKnowledgeItem(db, specId, 'requirement', 'Show missing provider credentials');
+    addKnowledgeRelationship(db, constraint.id, goal.id, 'constrains');
+    addKnowledgeRelationship(db, constraint.id, decision.id, 'constrains');
+    addKnowledgeRelationship(db, constraint.id, requirement.id, 'constrains');
+
+    const res = await request(app)
+      .patch(`/api/specifications/${specId}/knowledge-items/${constraint.id}`)
+      .send({ content: 'Keep setup under one minute' })
+      .expect(200);
+
+    expect(res.body.impact).toBe('hard');
+    expect(res.body.openedNeedIds).toHaveLength(3);
+
+    const openNeeds = listOpenReconciliationNeeds(db, specId);
+    expect(openNeeds).toHaveLength(3);
+    expect(new Set(openNeeds.map((need) => need.target_item_id))).toEqual(
+      new Set([goal.id, decision.id, requirement.id]),
+    );
+    for (const need of openNeeds) {
+      expect(need.source_item_id).toBe(constraint.id);
+      expect(need.kind).toBe('needs_confirmation');
+    }
+  });
+
+  it('applies hard-impact edit when item is in active review set and opens needs for downstream', async () => {
     const specId = await createSpec();
     const item = createKnowledgeItem(db, specId, 'requirement', 'A req');
     const dep = createKnowledgeItem(db, specId, 'criterion', 'A criterion');
@@ -118,10 +200,17 @@ describe('PATCH /api/specifications/:id/knowledge-items/:itemId', () => {
       .expect(200);
 
     expect(res.body.impact).toBe('hard');
-    expect(res.body.updated).toBe(false);
+    expect(res.body.updated).toBe(true);
+    expect(res.body.openedNeedIds).toHaveLength(1);
+
+    // Verifies relation maps to needs_confirmation
+    const openNeeds = listOpenReconciliationNeeds(db, specId);
+    expect(openNeeds).toHaveLength(1);
+    expect(openNeeds[0].kind).toBe('needs_confirmation');
+    expect(openNeeds[0].target_item_id).toBe(dep.id);
   });
 
-  it('rejects edit as hard when a downstream affected item is in an active review set', async () => {
+  it('applies hard-impact edit when a downstream item is in an active review set', async () => {
     const specId = await createSpec();
     const goal = createKnowledgeItem(db, specId, 'goal', 'A goal');
     const requirement = createKnowledgeItem(db, specId, 'requirement', 'A requirement');
@@ -142,9 +231,61 @@ describe('PATCH /api/specifications/:id/knowledge-items/:itemId', () => {
       .expect(200);
 
     expect(res.body.impact).toBe('hard');
-    expect(res.body.updated).toBe(false);
+    expect(res.body.updated).toBe(true);
     expect(res.body.affectedItems).toHaveLength(1);
-    expect(getKnowledgeItem(db, goal.id)?.content).toBe('A goal');
+    expect(res.body.openedNeedIds).toHaveLength(1);
+    expect(getKnowledgeItem(db, goal.id)?.content).toBe('Updated goal');
+  });
+
+  it('re-applying a hard-impact edit does not duplicate open needs (partial unique index)', async () => {
+    const specId = await createSpec();
+    const goal = createKnowledgeItem(db, specId, 'goal', 'Original');
+    const r1 = createKnowledgeItem(db, specId, 'requirement', 'R1');
+    const r2 = createKnowledgeItem(db, specId, 'requirement', 'R2');
+    const r3 = createKnowledgeItem(db, specId, 'requirement', 'R3');
+    addKnowledgeRelationship(db, r1.id, goal.id, 'depends_on');
+    addKnowledgeRelationship(db, r2.id, goal.id, 'depends_on');
+    addKnowledgeRelationship(db, r3.id, goal.id, 'depends_on');
+
+    const first = await request(app)
+      .patch(`/api/specifications/${specId}/knowledge-items/${goal.id}`)
+      .send({ content: 'First update' })
+      .expect(200);
+    expect(first.body.openedNeedIds).toHaveLength(3);
+
+    const second = await request(app)
+      .patch(`/api/specifications/${specId}/knowledge-items/${goal.id}`)
+      .send({ content: 'Second update' })
+      .expect(200);
+    // Second apply should observe existing open needs and report no new openings.
+    expect(second.body.openedNeedIds).toHaveLength(0);
+
+    // Still only 3 open needs in the queue, not 6.
+    const openNeeds = listOpenReconciliationNeeds(db, specId);
+    expect(openNeeds).toHaveLength(3);
+  });
+
+  it('records caused_by_turn_id provenance when the request supplies it', async () => {
+    const specId = await createSpec();
+    const goal = createKnowledgeItem(db, specId, 'goal', 'Original');
+    const r1 = createKnowledgeItem(db, specId, 'requirement', 'R1');
+    const r2 = createKnowledgeItem(db, specId, 'requirement', 'R2');
+    const r3 = createKnowledgeItem(db, specId, 'requirement', 'R3');
+    addKnowledgeRelationship(db, r1.id, goal.id, 'depends_on');
+    addKnowledgeRelationship(db, r2.id, goal.id, 'depends_on');
+    addKnowledgeRelationship(db, r3.id, goal.id, 'depends_on');
+    const sideChatTurn = createTurn(db, specId, { phase: 'requirements', question: 'side-chat' });
+
+    await request(app)
+      .patch(`/api/specifications/${specId}/knowledge-items/${goal.id}`)
+      .send({ content: 'Updated', causedByTurnId: sideChatTurn.id })
+      .expect(200);
+
+    const openNeeds = listOpenReconciliationNeeds(db, specId);
+    expect(openNeeds).toHaveLength(3);
+    for (const need of openNeeds) {
+      expect(need.caused_by_turn_id).toBe(sideChatTurn.id);
+    }
   });
 
   it('returns 404 when specification does not exist', async () => {
@@ -327,9 +468,11 @@ describe('PATCH /api/specifications/:id/knowledge-items/:itemId — previous val
     });
   });
 
-  it('omits previous values on a hard-impact deferral (no update happened)', async () => {
+  it('includes previous values on a hard-impact apply (V3.0 cascade flips deferred to applied)', async () => {
     const specId = await createSpec();
-    const goal = createKnowledgeItem(db, specId, 'goal', 'Original content');
+    const goal = createKnowledgeItem(db, specId, 'goal', 'Original content', {
+      rationale: 'Original rationale',
+    });
     // Three downstream → hard
     for (let i = 0; i < 3; i++) {
       const req = createKnowledgeItem(db, specId, 'requirement', `REQ-${i}`);
@@ -338,13 +481,14 @@ describe('PATCH /api/specifications/:id/knowledge-items/:itemId — previous val
 
     const res = await request(app)
       .patch(`/api/specifications/${specId}/knowledge-items/${goal.id}`)
-      .send({ content: 'Updated content' })
+      .send({ content: 'Updated content', rationale: 'Updated rationale' })
       .expect(200);
 
     expect(res.body.impact).toBe('hard');
-    expect(res.body.updated).toBe(false);
-    expect(res.body.previousContent).toBeUndefined();
-    expect(res.body.previousRationale).toBeUndefined();
+    expect(res.body.updated).toBe(true);
+    expect(res.body.previousContent).toBe('Original content');
+    expect(res.body.previousRationale).toBe('Original rationale');
+    expect(res.body.openedNeedIds).toHaveLength(3);
   });
 
   it('round-trip: PATCH then PATCH back with previousContent restores original state', async () => {

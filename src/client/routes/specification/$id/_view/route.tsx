@@ -1,7 +1,8 @@
-import { Outlet, createFileRoute, useLocation } from '@tanstack/react-router';
-import { Suspense, lazy } from 'react';
+import { Outlet, createFileRoute, useLocation, useParams } from '@tanstack/react-router';
+import { Suspense, lazy, type ReactNode } from 'react';
 import { z } from 'zod';
 
+import { ChatShellLayout } from '@/client/components/chat-shell-layout';
 import { EntitySidebar } from '@/client/components/EntitySidebar';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/client/components/ui/resizable';
 import { workflowPhaseDescriptors } from '@/shared/phase-descriptors.js';
@@ -45,13 +46,7 @@ function EntitySidebarPane() {
   );
 }
 
-function ViewLayout() {
-  const { view } = Route.useSearch();
-
-  if (view === 'graph') {
-    return <GraphViewScreen />;
-  }
-
+function WorkspaceCenterPanels() {
   return (
     <ResizablePanelGroup orientation="horizontal" className="h-full">
       <ResizablePanel defaultSize={65} minSize={40}>
@@ -65,6 +60,13 @@ function ViewLayout() {
       </ResizablePanel>
     </ResizablePanelGroup>
   );
+}
+
+function ViewLayout() {
+  const { view } = Route.useSearch();
+  const { id: specificationId } = useParams({ from: '/specification/$id' });
+  const center: ReactNode = view === 'graph' ? <GraphViewScreen /> : <WorkspaceCenterPanels />;
+  return <ChatShellLayout specificationId={specificationId} center={center} />;
 }
 
 export const Route = createFileRoute('/specification/$id/_view')({

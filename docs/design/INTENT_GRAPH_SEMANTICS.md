@@ -6,9 +6,9 @@
 >
 > This document is the canonical reference for the FE-700 frontier item ("Intent graph semantics + progressive checkability foundation") in `memory/PLAN.md`. It expands the `Recommended shape:` of that item with the full ontology and policy detail that is too long to live inside the plan.
 >
-> Source synthesis: [`INTENT_SPEC_EVOLUTION.md`](./INTENT_SPEC_EVOLUTION.md) §3, §4, §6, §11. Where this document overlaps, it supersedes the synthesis as the structured reference; the synthesis remains the broader narrative.
+> Source synthesis: [`INTENT_SPEC_EVOLUTION.md`](../archive/design/INTENT_SPEC_EVOLUTION.md) §3, §4, §6, §11. Where this document overlaps, it supersedes the synthesis as the structured reference; the synthesis remains the broader narrative.
 >
-> Layer note: this is the **product layer**. It describes what Brunch users build. The dev-layer ontology is a parallel-but-not-yet-converged register described in [`DEV_WORKFLOW_EVOLUTION.md`](./DEV_WORKFLOW_EVOLUTION.md).
+> Layer note: this is the **product layer**. It describes what Brunch users build. The dev-layer ontology is a parallel-but-not-yet-converged register described in [`ln-skills/EVOLUTION.md`](./ln-skills/EVOLUTION.md).
 
 ## Why this note exists
 
@@ -244,7 +244,7 @@ type KnowledgeEdge = {
 
 ## Relation-policy registry
 
-Not every visible graph edge should drive cascade, staleness, export explanation, or criteria generation. The relation-policy registry assigns capabilities per relation, gated by edge `support` and `status`.
+Not every visible graph edge should drive cascade, staleness, export explanation, criteria generation, or the same compact-context wording. The relation-policy registry assigns capabilities per relation, gated by edge `support` and `status`, and owns both operational directionality and endpoint-relative display labels. Code must not infer downstream/upstream impact or dependency/dependent wording from raw source/target coordinates alone.
 
 | Axis | Meaning |
 | --- | --- |
@@ -255,6 +255,9 @@ Not every visible graph edge should drive cascade, staleness, export explanation
 | `reconciliation` | Generate a `reconciliation_need` when source changes |
 | `criteria_help` | Used by interviewer to suggest criteria for the target |
 | `weak_suggestion` | LLM-only signal; never user-visible by default |
+| `source_label` | Phrase used when rendering the edge from the source item's perspective. |
+| `target_label` | Phrase used when rendering the same edge from the target item's perspective. |
+| `source_change` / `target_change` | Which endpoint may require reconciliation when either endpoint changes. |
 
 A row in the registry might say:
 
@@ -269,6 +272,55 @@ A row in the registry might say:
 | `related_to` *(catch-all)* | — | ✓ | — | — | — | — | — | ✓ |
 
 The actual registry should evolve through corpus probes. The point is that **policy is per-relation, per-axis**, not a binary "this edge counts."
+
+### Endpoint-relative labels for compact snapshots
+
+Compact context snapshots need both readable directions for an edge. A single canonical triple is not enough when the snapshot is centered on either endpoint.
+
+For an item-centered snapshot, relation policy should be able to render edges into buckets such as `dependencies` and `dependents` with phrases that make sense from the anchored item's perspective:
+
+```text
+X123: Lorem ipsum...
+  dependents:
+    constrains X200: Lorem ipsum...
+    motivates X198: Lorem ipsum...
+  dependencies:
+    presumes X2: Lorem ipsum...
+    is conditioned by X78: Lorem ipsum...
+    proves X45: Lorem ipsum...
+```
+
+The bucket and phrase are relation-policy outputs, not string reversals. Some relations have natural canonical source-to-target wording (`constraint constrains requirement`), while others naturally point from a dependent claim to a premise (`decision assumes assumption`) or from an oracle to a claim (`criterion verifies requirement`). The registry must therefore store endpoint-relative labels and operational source-change/target-change behavior separately.
+
+Neighborhood snapshots can be selected by task rather than by one universal radius:
+
+- **Immediate adjacency** — all relation-policy-visible incident edges around the anchor; good default for side chat orientation.
+- **Dependencies** — premises, constraints, assumptions, motivating goals, and evidence the anchor relies on; useful for “why does this item stand?” questions.
+- **Dependents / impact** — claims likely to be affected if the anchor changes; useful for edit preview, cascade, and reconciliation.
+- **Evidence** — examples, criteria, witnesses, counterexamples, and checkability context; useful for QA and verification discussion.
+- **Reconciliation** — open needs, affected targets, source changes, and relation-policy rationale; useful for reconciliation chats.
+- **Historical** — once changesets exist, the neighborhood around the changeset that originally captured an item or last updated it; useful for reviving the context in which a claim was made, not just its current graph surroundings.
+
+Historical neighborhoods should be changeset-derived, not approximated from current graph order. Before the changeset ledger, snapshot builders should avoid pretending they can answer “what was around this item when it was captured?” with precision.
+
+A relation policy row should support at least:
+
+```ts
+type RelationPolicy = {
+  relation: RelationKind
+  canonicalLabel: string
+  sourceLabel: string
+  targetLabel: string
+  sourceRole: string
+  targetRole: string
+  sourceBucketForTargetSnapshot: 'dependencies' | 'dependents' | 'evidence' | 'contextual'
+  targetBucketForSourceSnapshot: 'dependencies' | 'dependents' | 'evidence' | 'contextual'
+  onSourceChange: 'affects_source' | 'affects_target' | 'affects_both' | 'none' | 'contextual'
+  onTargetChange: 'affects_source' | 'affects_target' | 'affects_both' | 'none' | 'contextual'
+}
+```
+
+The exact bucket enum can be narrower in implementation, but the invariant is that context packs and reconciliation never recover directionality from verb names alone.
 
 ## Edge-local neighborhoods
 
@@ -402,7 +454,7 @@ This ontology is the substrate for several near-term capabilities:
 
 ## References
 
-- [`INTENT_SPEC_EVOLUTION.md`](./INTENT_SPEC_EVOLUTION.md) §3 (shared claims), §4 (knowledge edges), §6 (ambiguity-targeted disambiguation), §11 (persistence model).
+- [`INTENT_SPEC_EVOLUTION.md`](../archive/design/INTENT_SPEC_EVOLUTION.md) §3 (shared claims), §4 (knowledge edges), §6 (ambiguity-targeted disambiguation), §11 (persistence model).
 - [`BEHAVIORAL_KERNELS.md`](./BEHAVIORAL_KERNELS.md) — kernels generate the questions; this document defines what their answers become.
 - `memory/SPEC.md` Requirement 38 (invariant + example as kinds), Requirement 30 (relation-first observer), I109 (compact existing-knowledge anchors), Lexicon entries for `intent graph`, `progressive checkability`, `behavioral kernel`, `edge-local neighborhood`, `property *(candidate)*`, `invariant *(planned)*`, `example *(planned)*`.
 - `memory/PLAN.md` item 3 (FE-700) — the active frontier item this document expands.

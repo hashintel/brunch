@@ -251,6 +251,29 @@ describe('phase outcome lifecycle', () => {
     });
   });
 
+  it('requires phase outcome writers to name the owning specification explicitly', async () => {
+    const project = getOrCreateSpecification(db);
+    const turn = createTurn(db, project.id, { phase: 'grounding', question: 'Goal?', answer: 'Spec tool' });
+    const { createPhaseOutcome, createConfirmedPhaseOutcome } = await import('./db.js');
+
+    expect(() =>
+      createPhaseOutcome(db, {
+        phase: 'grounding',
+        proposal_turn_id: turn.id,
+        summary: 'Grounding closed.',
+      } as Parameters<typeof createPhaseOutcome>[1]),
+    ).toThrow('createPhaseOutcome requires specificationId');
+    expect(() =>
+      createConfirmedPhaseOutcome(db, {
+        phase: 'grounding',
+        proposal_turn_id: turn.id,
+        confirmation_turn_id: turn.id,
+        summary: 'Grounding closed.',
+      } as Parameters<typeof createConfirmedPhaseOutcome>[1]),
+    ).toThrow('createConfirmedPhaseOutcome requires specificationId');
+    expect(listPhaseOutcomesForSpecification(db, project.id)).toHaveLength(0);
+  });
+
   it('persists explicit grounding outcomes and supersedes them when the active path changes upstream', async () => {
     const project = getOrCreateSpecification(db);
     const root = createTurn(db, project.id, { phase: 'grounding', question: 'Goal?', answer: 'Spec tool' });

@@ -5,6 +5,63 @@ import { createKnowledgeCollectionRecord } from './knowledge.js';
 import { dataConfirmationSchema, workflowPhaseSchema, type DataConfirmation } from './phase-close.js';
 import { phaseIntentRequestSchema, type PhaseIntentRequest } from './phase-intents.js';
 
+// `api-types.ts` imports from `chat.ts`, so reaching back for
+// `edgeRelationSchema` there would create a cycle — the 5-value enum is
+// duplicated here. If it ever diverges, lift both to a tiny shared module.
+const sideChatEdgeRelationSchema = z.enum([
+  'depends_on',
+  'derived_from',
+  'constrains',
+  'verifies',
+  'refines',
+]);
+
+export const proposeEditInputSchema = z.object({
+  newContent: z.string().trim().min(1),
+  newRationale: z.string().trim().min(1).optional(),
+});
+
+export const proposeEdgeInputSchema = z.object({
+  targetReferenceCode: z.string().trim().min(1),
+  relation: sideChatEdgeRelationSchema,
+});
+
+export const proposeDrillDownInputSchema = z.object({
+  focusArea: z.string().trim().min(1),
+});
+
+const proposeEditOutputSchema = z.object({
+  newContent: z.string(),
+  newRationale: z.string().optional(),
+});
+
+const proposeEdgeOutputSchema = z.object({
+  targetReferenceCode: z.string(),
+  relation: sideChatEdgeRelationSchema,
+});
+
+const proposeDrillDownOutputSchema = z.object({
+  focusArea: z.string(),
+});
+
+export type ProposeEditInput = z.infer<typeof proposeEditInputSchema>;
+export type ProposeEdgeInput = z.infer<typeof proposeEdgeInputSchema>;
+export type ProposeDrillDownInput = z.infer<typeof proposeDrillDownInputSchema>;
+export type ProposeEditOutput = z.infer<typeof proposeEditOutputSchema>;
+export type ProposeEdgeOutput = z.infer<typeof proposeEdgeOutputSchema>;
+export type ProposeDrillDownOutput = z.infer<typeof proposeDrillDownOutputSchema>;
+
+// Edit-impact tier surfaces as a sibling data part keyed by `toolCallId` so
+// the client can join it back to the corresponding `tool-propose_edit` part.
+// Tier values must match `EditImpactTier` in `src/server/edit-impact.ts`.
+export const editImpactTierSchema = z.enum(['none', 'soft', 'hard']);
+export const editImpactDataSchema = z.object({
+  toolCallId: z.string().min(1),
+  tier: editImpactTierSchema,
+});
+export type EditImpactTier = z.infer<typeof editImpactTierSchema>;
+export type EditImpactData = z.infer<typeof editImpactDataSchema>;
+
 export const reviewActionSchema = z.enum(['accept', 'request-changes']);
 export const reviewActionOptionSchema = z.object({
   action: reviewActionSchema,
@@ -218,6 +275,7 @@ export type BrunchDataParts = {
   confirmation: DataConfirmation;
   'phase-intent': PhaseIntentRequest;
   'phase-summary': DataPhaseSummary;
+  'edit-impact': EditImpactData;
 };
 
 export type BrunchUITools = {
@@ -233,6 +291,21 @@ export type BrunchUITools = {
     input: PhaseClosureProposal;
     output: ProposePhaseClosureToolOutput;
   };
+  // Secondary-chat tools share the same UIMessage registry as the interview
+  // spine; interview-side exhaustive switches treat them as no-ops while the
+  // secondary-chat host walks them into the staging strip.
+  propose_edit: {
+    input: ProposeEditInput;
+    output: ProposeEditOutput;
+  };
+  propose_edge: {
+    input: ProposeEdgeInput;
+    output: ProposeEdgeOutput;
+  };
+  propose_drill_down: {
+    input: ProposeDrillDownInput;
+    output: ProposeDrillDownOutput;
+  };
 };
 
 export type BrunchUIMessage = UIMessage<BrunchMessageMetadata, BrunchDataParts, BrunchUITools>;
@@ -246,11 +319,15 @@ export type BrunchAssistantPart =
           | 'tool-ask_question'
           | 'tool-present_preface'
           | 'tool-propose_phase_closure'
+          | 'tool-propose_edit'
+          | 'tool-propose_edge'
+          | 'tool-propose_drill_down'
           | 'data-observer-result'
           | 'data-review-set'
           | 'data-preface'
           | 'data-activity-summary'
-          | 'data-phase-summary';
+          | 'data-phase-summary'
+          | 'data-edit-impact';
       }
     >;
 export type BrunchUserPart = Extract<
@@ -269,11 +346,20 @@ const persistedAssistantPartSchema = z.discriminatedUnion('type', [
   z
     .object({ type: z.literal('tool-propose_phase_closure'), input: phaseClosureProposalSchema.optional() })
     .loose(),
+  // Forward-compat: secondary chats persist assistant turns as plain text
+  // today, but decoding must still accept these tool-call shapes so a future
+  // writer doesn't silently lose data.
+  z.object({ type: z.literal('tool-propose_edit'), input: proposeEditInputSchema.optional() }).loose(),
+  z.object({ type: z.literal('tool-propose_edge'), input: proposeEdgeInputSchema.optional() }).loose(),
+  z
+    .object({ type: z.literal('tool-propose_drill_down'), input: proposeDrillDownInputSchema.optional() })
+    .loose(),
   z.object({ type: z.literal('data-observer-result'), data: observerResultSchema }).loose(),
   z.object({ type: z.literal('data-review-set'), data: reviewSetSchema }).loose(),
   z.object({ type: z.literal('data-preface'), data: prefaceSchema }).loose(),
   z.object({ type: z.literal('data-activity-summary'), data: activitySummarySchema }).loose(),
   z.object({ type: z.literal('data-phase-summary'), data: dataPhaseSummarySchema }).loose(),
+  z.object({ type: z.literal('data-edit-impact'), data: editImpactDataSchema }).loose(),
 ]);
 
 const persistedUserPartSchema = z.discriminatedUnion('type', [
@@ -337,10 +423,37 @@ export const proposePhaseClosureValidationTool = tool({
   outputSchema: proposePhaseClosureToolOutputSchema,
 });
 
+// Validation tools for secondary-chat propose_* surfaces so
+// `validateUIMessages<BrunchUIMessage>` accepts echoed tool-call parts.
+// Output schemas intentionally mirror inputs — the server echoes inputs and
+// client-side staged patches reuse the input shape.
+export const proposeEditValidationTool = tool({
+  description:
+    'Propose an edit to the currently pinned knowledge item. The user reviews and applies the edit through the patch list.',
+  inputSchema: proposeEditInputSchema,
+  outputSchema: proposeEditOutputSchema,
+});
+
+export const proposeEdgeValidationTool = tool({
+  description:
+    'Propose a graph relationship from the currently pinned knowledge item to another item identified by its reference code.',
+  inputSchema: proposeEdgeInputSchema,
+  outputSchema: proposeEdgeOutputSchema,
+});
+
+export const proposeDrillDownValidationTool = tool({
+  description: 'Propose deepening one specific area of the currently pinned knowledge item.',
+  inputSchema: proposeDrillDownInputSchema,
+  outputSchema: proposeDrillDownOutputSchema,
+});
+
 export const brunchValidationTools = {
   ask_question: askQuestionValidationTool,
   present_preface: presentPrefaceValidationTool,
   propose_phase_closure: proposePhaseClosureValidationTool,
+  propose_edit: proposeEditValidationTool,
+  propose_edge: proposeEdgeValidationTool,
+  propose_drill_down: proposeDrillDownValidationTool,
 } as const;
 
 export const brunchDataPartSchemas = {
@@ -352,6 +465,7 @@ export const brunchDataPartSchemas = {
   confirmation: dataConfirmationSchema,
   'phase-intent': phaseIntentRequestSchema,
   'phase-summary': dataPhaseSummarySchema,
+  'edit-impact': editImpactDataSchema,
 } as const;
 
 export type PersistedBrunchAssistantPart = Extract<
@@ -388,6 +502,11 @@ const INTERNAL_TOOL_PART_TYPES: ReadonlySet<InternalToolPartType> = new Set<Inte
   'tool-ask_question',
   'tool-present_preface',
   'tool-propose_phase_closure',
+  // Secondary-chat propose_* parts route into the staging strip, not into
+  // the activity-summary tool list.
+  'tool-propose_edit',
+  'tool-propose_edge',
+  'tool-propose_drill_down',
 ]);
 
 function formatToolLabel(value: string): string {

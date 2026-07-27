@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  addKnowledgeRelationship,
   createDb,
   createKnowledgeItem,
   createSpecification,
   createTurn,
+  getCascadeRelationBetween,
   listOpenReconciliationNeeds,
   openReconciliationNeed,
   resolveReconciliationNeed,
@@ -46,6 +48,16 @@ describe('reconciliation_need schema', () => {
     expect(names).toContain('caused_by_patch_id');
     expect(names).toContain('created_at');
     expect(names).toContain('resolved_at');
+    // Card 1 (V3.1 setup): nullable source content snapshots captured at the
+    // moment the cascade opened the need. Advisory render data; never
+    // load-bearing for invariants. See memory/CARDS.md card 1.
+    expect(names).toContain('source_previous_content');
+    expect(names).toContain('source_current_content');
+    // Slice 4 (V3.1 agent): three new nullable columns carrying the
+    // classifier lifecycle + label + textual proposal. See I114 in SPEC.md.
+    expect(names).toContain('agent_status');
+    expect(names).toContain('agent_classification');
+    expect(names).toContain('agent_proposal');
   });
 
   it('declares ON DELETE CASCADE on both knowledge_item foreign keys', () => {
@@ -99,6 +111,31 @@ describe('reconciliation_need lifecycle', () => {
     expect(need.caused_by_turn_id).toBe(turn.id);
     expect(need.caused_by_patch_id).toBeNull();
     expect(need.resolved_at).toBeNull();
+    // No snapshots passed → both fields default to null. Legacy callers stay
+    // working; the cascade-producer (edit-route hard path) is the one that
+    // populates them in card 1.
+    expect(need.source_previous_content).toBeNull();
+    expect(need.source_current_content).toBeNull();
+    // Slice 4 (V3.1 agent): agent_* columns default to null. The run-agent
+    // route walks the row through the lifecycle; nothing else writes them.
+    expect(need.agent_status).toBeNull();
+    expect(need.agent_classification).toBeNull();
+    expect(need.agent_proposal).toBeNull();
+  });
+
+  it('persists source content snapshots when the cascade producer supplies them', () => {
+    const { spec, turn, source, target } = seedSpecWithTwoItems();
+    const need = openReconciliationNeed(db, {
+      specificationId: spec.id,
+      sourceItemId: source.id,
+      targetItemId: target.id,
+      kind: 'supersedes',
+      causedByTurnId: turn.id,
+      sourcePreviousContent: 'Source decision',
+      sourceCurrentContent: 'Source decision (revised)',
+    });
+    expect(need.source_previous_content).toBe('Source decision');
+    expect(need.source_current_content).toBe('Source decision (revised)');
   });
 
   it('rejects a duplicate open row with the same (source, target, kind)', () => {
@@ -206,6 +243,18 @@ describe('reconciliation_need lifecycle', () => {
 });
 
 describe('reconciliation_need queries', () => {
+  it('finds the relation that caused a need regardless of affected endpoint direction', () => {
+    const spec = createSpecification(db, 'Relation lookup');
+    const constraint = createKnowledgeItem(db, spec.id, 'constraint', 'Keep setup instant');
+    const goal = createKnowledgeItem(db, spec.id, 'goal', 'Reduce first-run friction');
+    const requirement = createKnowledgeItem(db, spec.id, 'requirement', 'Show missing provider credentials');
+    addKnowledgeRelationship(db, constraint.id, goal.id, 'constrains');
+    addKnowledgeRelationship(db, requirement.id, goal.id, 'depends_on');
+
+    expect(getCascadeRelationBetween(db, constraint.id, goal.id)).toBe('constrains');
+    expect(getCascadeRelationBetween(db, goal.id, requirement.id)).toBe('depends_on');
+  });
+
   it('listOpenReconciliationNeeds returns only open rows ordered by id ascending', () => {
     const { spec, turn, source, target } = seedSpecWithTwoItems();
     const a = openReconciliationNeed(db, {

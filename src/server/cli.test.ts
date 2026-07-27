@@ -12,6 +12,8 @@ const sourceNodeModules = join(packageRoot, 'node_modules');
 const viteConfigFile = join(packageRoot, 'vite.config.ts');
 const tempDirs: string[] = [];
 
+const envWithApiKey: NodeJS.ProcessEnv = { ...process.env, ANTHROPIC_API_KEY: 'sk-ant-test' };
+
 type CommandResult = {
   code: number | null;
   stderr: string;
@@ -62,12 +64,13 @@ function runCommand(
   args: string[],
   cwd: string,
   env: NodeJS.ProcessEnv = process.env,
+  input?: string,
 ): Promise<CommandResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
       env,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
     });
 
     let stdout = '';
@@ -79,6 +82,9 @@ function runCommand(
     child.stderr?.on('data', (chunk) => {
       stderr += chunk.toString();
     });
+    if (input !== undefined) {
+      child.stdin?.end(input);
+    }
     child.once('error', reject);
     child.once('close', (code) => {
       resolve({ code, stdout, stderr });
@@ -117,8 +123,13 @@ async function packBuiltPackage(): Promise<{ filePaths: string[]; installedRoot:
   };
 }
 
-function runCli(args: string[], cwd: string, env: NodeJS.ProcessEnv = process.env): Promise<CommandResult> {
-  return runCommand(process.execPath, [getInstalledBinEntrypoint(), ...args], cwd, env);
+function runCli(
+  args: string[],
+  cwd: string,
+  env: NodeJS.ProcessEnv = process.env,
+  input?: string,
+): Promise<CommandResult> {
+  return runCommand(process.execPath, [getInstalledBinEntrypoint(), ...args], cwd, env, input);
 }
 
 describe('published CLI entrypoint', () => {
@@ -173,6 +184,60 @@ describe('published CLI entrypoint', () => {
     expect(result.stderr).toBe('');
     expect(result.stdout).toContain('Usage: brunch');
     expect(result.stdout).toContain('Launch the Brunch web UI in the current project directory.');
+    expect(result.stdout).toContain('plan <specId>');
+    // Help must list every cook flag the parser accepts — guards against the
+    // drift where Petrinaut flags existed but went undocumented.
+    for (const flag of [
+      '--spec=',
+      '--policy=',
+      '--max-retries=',
+      '--petrinaut-fold=',
+      '--petrinaut-lanes=',
+      '--petrinaut-stream',
+      '--petrinaut-url=',
+      '--no-petrinaut-open',
+      '--verbose, -v',
+    ]) {
+      expect(result.stdout).toContain(flag);
+    }
+    expect(result.stdout).toContain('PETRINAUT_URL');
+    expect(result.stdout).toContain('ANTHROPIC_API_KEY');
+  });
+
+  it('refuses to start without ANTHROPIC_API_KEY and points at the fix', async () => {
+    const { ANTHROPIC_API_KEY: _ignored, ...envWithoutKey } = process.env;
+    const result = await runCli([], makeTempDir('brunch-no-key-'), {
+      ...envWithoutKey,
+      BRUNCH_NO_OPEN: '1',
+    });
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain('ANTHROPIC_API_KEY is not set');
+    expect(result.stderr).toContain('.env');
+  });
+
+  it('rejects `brunch plan` invocations with no spec id', async () => {
+    const result = await runCli(['plan'], makeTempDir('brunch-plan-usage-'), envWithApiKey);
+
+    expect(result.code).not.toBe(0);
+    expect(result.stderr).toContain('Failed to run brunch plan');
+    expect(result.stderr.toLowerCase()).toContain('spec id');
+  });
+
+  it('rejects `brunch plan <non-numeric>` with a friendly usage error', async () => {
+    const result = await runCli(['plan', 'abc'], makeTempDir('brunch-plan-bad-id-'), envWithApiKey);
+
+    expect(result.code).not.toBe(0);
+    expect(result.stderr).toContain('Failed to run brunch plan');
+    expect(result.stderr.toLowerCase()).toContain('spec id');
+  });
+
+  it('reports `specification <id> not found` when the project DB is empty', async () => {
+    const result = await runCli(['plan', '999'], makeTempDir('brunch-plan-missing-'), envWithApiKey);
+
+    expect(result.code).not.toBe(0);
+    expect(result.stderr).toContain('Failed to run brunch plan');
+    expect(result.stderr).toContain('specification 999 not found');
   });
 
   it('executes through the package bin wrapper when launched outside the package root', async () => {
@@ -181,6 +246,35 @@ describe('published CLI entrypoint', () => {
     expect(result.code).toBe(0);
     expect(result.stderr).toBe('');
     expect(result.stdout).toContain('Usage: brunch');
+  });
+
+  it('runs the packaged agent JSONL session without launching the web UI', async () => {
+    const workspaceCwd = makeTempDir('brunch-agent-workspace-');
+    const input = `${JSON.stringify({
+      id: 'create-1',
+      capability: 'spec.create',
+      input: { name: 'Packaged agent spec' },
+    })}\n${JSON.stringify({ id: 'read-1', capability: 'spec.getStatus', input: { specId: 1 } })}\n`;
+
+    const result = await runCli(['agent'], workspaceCwd, envWithApiKey, input);
+    const responses = result.stdout
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as unknown);
+
+    expect(result.code).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(responses).toEqual([
+      expect.objectContaining({ id: 'create-1', ok: true, output: expect.objectContaining({ specId: 1 }) }),
+      expect.objectContaining({
+        id: 'read-1',
+        ok: true,
+        output: expect.objectContaining({
+          specification: expect.objectContaining({ id: 1, name: 'Packaged agent spec' }),
+        }),
+      }),
+    ]);
   });
 
   it('dry-runs the release flow against the packaged npm artifact seam', async () => {
@@ -216,7 +310,7 @@ describe('published CLI entrypoint', () => {
     const child = spawn(process.execPath, [getInstalledBinEntrypoint()], {
       cwd: workspaceCwd,
       env: {
-        ...process.env,
+        ...envWithApiKey,
         BRUNCH_NO_OPEN: '1',
       },
       stdio: ['ignore', 'pipe', 'pipe'],

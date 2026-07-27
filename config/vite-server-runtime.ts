@@ -1,4 +1,4 @@
-import { cpSync } from 'node:fs';
+import { cpSync, rmSync } from 'node:fs';
 import { builtinModules } from 'node:module';
 import { resolve } from 'node:path';
 
@@ -28,6 +28,11 @@ const createRuntimeExternalPredicate = (packageMetadata: PackageMetadata) => {
 export const isServerRuntimeBuild = (command: 'build' | 'serve', mode: string) =>
   command === 'build' && mode === serverRuntimeBuildMode;
 
+export const copyServerPromptAssets = (sourceDir: string, destinationDir: string) => {
+  rmSync(destinationDir, { force: true, recursive: true });
+  cpSync(sourceDir, destinationDir, { recursive: true });
+};
+
 export const createServerRuntimeConfig = <T extends object>({
   packageMetadata,
   rootDir,
@@ -36,32 +41,41 @@ export const createServerRuntimeConfig = <T extends object>({
   packageMetadata: PackageMetadata;
   rootDir: string;
   sharedConfig: T;
-}): T & UserConfig => ({
-  ...sharedConfig,
-  plugins: [
-    {
-      name: 'copy-server-prompt-assets',
-      closeBundle() {
-        cpSync(resolve(rootDir, 'src/server/prompts'), resolve(rootDir, 'dist/server/prompts'), {
-          recursive: true,
-        });
+}): T & UserConfig => {
+  let promptAssetsDestinationDir = resolve(rootDir, 'dist/server/prompts');
+
+  return {
+    ...sharedConfig,
+    plugins: [
+      {
+        name: 'copy-server-prompt-assets',
+        configResolved(config) {
+          promptAssetsDestinationDir = resolve(config.build.outDir, 'prompts');
+        },
+        closeBundle() {
+          copyServerPromptAssets(resolve(rootDir, 'src/server/prompts'), promptAssetsDestinationDir);
+          copyServerPromptAssets(
+            resolve(rootDir, 'src/orchestrator/prompts'),
+            resolve(promptAssetsDestinationDir, '..', 'orchestrator-prompts'),
+          );
+        },
       },
-    },
-  ],
-  build: {
-    copyPublicDir: false,
-    emptyOutDir: false,
-    minify: false,
-    outDir: resolve(rootDir, 'dist/server'),
-    rollupOptions: {
-      external: createRuntimeExternalPredicate(packageMetadata),
-      output: {
-        chunkFileNames: 'chunks/[name]-[hash].js',
-        entryFileNames: 'cli.js',
-        format: 'es',
+    ],
+    build: {
+      copyPublicDir: false,
+      emptyOutDir: false,
+      minify: false,
+      outDir: resolve(rootDir, 'dist/server'),
+      rollupOptions: {
+        external: createRuntimeExternalPredicate(packageMetadata),
+        output: {
+          chunkFileNames: 'chunks/[name]-[hash].js',
+          entryFileNames: 'cli.js',
+          format: 'es',
+        },
       },
+      ssr: resolve(rootDir, 'src/server/cli.ts'),
+      target: 'node22',
     },
-    ssr: resolve(rootDir, 'src/server/cli.ts'),
-    target: 'node22',
-  },
-});
+  };
+};

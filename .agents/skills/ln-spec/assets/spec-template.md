@@ -1,122 +1,138 @@
-<!-- SPEC.md — single source of truth for WHAT we're building and WHY.
-     Created by ln-spec · Read by all skills · Updated by ln-sync, ln-build, ln-spike, ln-scope, and ln-oracles.
-     Authority: requirements, constraints, assumptions, decisions, invariants, domain language, verification strategy.
+<!-- SPEC.md — live architecture register.
+     Created by ln-spec · Read by all skills · Refreshed by ln-sync.
+     Authority: product contract, active assumptions, current decisions,
+     critical invariants, future direction pointers, lexicon, verification stance.
 
-     When re-running ln-spec: read this file first, preserve existing content, evolve sections that need change.
-     Cross-referenced by PLAN.md slices and spikes via §-prefixed section links.
-     Together with PLAN.md, this is the only canonical planning state; do not create sidecar spec ledgers without explicit permission. -->
+     When re-running ln-spec: read this file first, preserve existing authority,
+     and evolve only the touched area. SPEC is not an implementation diary.
+     Together with PLAN.md, this is the only canonical planning state; do not
+     create sidecar spec ledgers without explicit permission. -->
 
 # [Project Name]
 
-## Concept & Goal
+## Product Contract
 
-<!-- Why this exists and what success looks like. The "why" shapes the solution space. -->
+### Concept
 
-## Constraints & Non-goals
+<!-- Why this exists, what success looks like, and the product frame.
+     The "why" shapes the solution space. -->
 
-<!-- Boundaries and deliberate exclusions. What we will NOT do. -->
+### Constraints & Non-goals
 
-## Requirements
+<!-- Durable boundaries and deliberate exclusions. What we will NOT do. -->
 
-<!-- What the system must do. Extensive — cover all aspects.
-     Each numbered for cross-reference from PLAN.md slices. -->
+### Capability Requirements
+
+<!-- What the system must do. Keep requirements stable and cross-referenceable.
+     Group by capability area to reduce conflict churn. Do not renumber survivors casually. -->
+
+#### [Capability area]
 
 1. [Requirement]
 2. ...
 
-## Assumptions
+## Live Architecture Register
+
+<!-- The live register holds active constraints, not history. Rows should survive
+     because they still shape near-term work or define a durable seam. -->
+
+### Open Assumptions
 
 <!-- Falsifiable beliefs accepted as true but not yet verified.
-     Low-confidence assumptions are spike candidates during planning.
-     Each links to the decisions it supports and the slices it implicates.
-     Confidence tracks how strongly we believe it today: low | medium | high.
-     Status tracks validation state: open | validated | invalidated.
-     When validated: promote to §Lexicon or §Decisions via ln-sync.
-     When invalidated: record in §Decisions, flag implicated slices in PLAN.md. -->
+     Keep only assumptions that are unresolved or still shape named frontier work.
+     Validated assumptions retire by default during ln-sync unless they still constrain
+     an active frontier; promote only durable product facts to Product Contract,
+     Decisions, Invariants, or Lexicon. -->
 
-| #   | Assumption   | Confidence      | Status                     | Dependent decisions | Implicated slices | Validation approach |
-| --- | ------------ | --------------- | -------------------------- | ------------------- | ----------------- | ------------------- |
-| A1  | [hypothesis] | low/medium/high | open/validated/invalidated | [→ §Decisions #N]   | [→ PLAN.md slice] | [how to falsify]    |
+| # | Assumption | Confidence | Status | Depends on | Validation approach |
+| --- | --- | --- | --- | --- | --- |
+| A1-U | [hypothesis] | low/medium/high | open | [D#-U / I#-U / Requirement #] | [how to falsify] |
 
-## Decisions
+### Active Decisions
 
-<!-- Ordered list — latter supersedes former.
-     Each names what it resolved and what assumptions it depends on.
-     No file paths or code snippets — they go stale. -->
+<!-- Current spine decisions only. A decision belongs here when it chooses between
+     live alternatives at a seam or defines durable architectural authority.
+     Micro-decisions, helper names, file layout, and implementation steps should
+     live in code/design docs or be omitted. Group decisions by subsystem when useful.
+     Leave concise retirement comments for removed ID ranges when helpful. -->
 
-1. **[Decision]** — [rationale]. Depends on: [A1, A2]. Supersedes: [—|#N].
+- **D1-U — [Decision]** — [rationale]. Depends on: [A1-U]. Supersedes: [—|D#-U].
 
-## Invariants
+### Critical Invariants
 
-<!-- Structural properties proven by implementation and protected by tests.
-     Once established, must not regress.
-     Each links to the decision it proves and the tests that protect it.
-     Established by ln-build/ln-spike traceability.
-     Referenced by PLAN.md slices (to establish / to respect). -->
+<!-- Seam-level properties that must not regress. Keep critical invariants live;
+     retire rows that only enumerate implementation history, test filenames, or
+     examples already covered by a broader invariant. Planned invariants may remain
+     only when they correspond to active/next frontier work. -->
 
-| #   | Invariant      | Established by | Protected by | Proves            |
-| --- | -------------- | -------------- | ------------ | ----------------- |
-| I1  | [property]     | [slice/spike]  | [test file]  | [→ §Decisions #N] |
+| # | Invariant | Protected by | Proves |
+| --- | --- | --- | --- |
+| I1-U | [property] | [test/manual oracle/planned oracle] | [Requirement # / D#-U] |
+
+## Future Direction Register
+
+<!-- Product or architecture direction that shapes sequencing but is not yet current
+     product contract. Prefer links to PLAN frontier items and design docs over long
+     speculative prose. Move acceptance criteria to PLAN until the work becomes live. -->
+
+### [Direction area]
+
+- [Future direction, linked to PLAN/design docs]
+
+## Interaction Stream Model
+
+<!-- Optional. Keep only if actively useful as SPEC authority. Prefer a compact
+     model and links to design docs over design-doc-scale detail. -->
+
+## Layout Architecture
+
+<!-- Optional. Keep only durable ownership/route/layout guardrails. Detailed card
+     styling and implementation minutiae belong in design docs or code. -->
 
 ## Lexicon
 
-<!-- Canonical terms. Code names must match.
-     Method terms come first, then project-specific domain terms.
-     Survey with ln-review; realign with ln-refactor. -->
+<!-- Canonical terms. Code and planning language should converge here.
+     Remove legacy aliases once they stop carrying useful transition history. -->
 
-| Term            | Definition                                                                                    |
-| --------------- | --------------------------------------------------------------------------------------------- |
-| **assumption**  | A falsifiable belief accepted as true; tracked with confidence and status, linked to decisions and slices |
-| **decision**    | A recorded choice that resolves a question; ordered, with supersession chain                  |
-| **invariant**   | A structural property proven by implementation and protected by tests; must not regress       |
-| **requirement** | A capability the system must provide                                                          |
-| **slice**       | A thin end-to-end tracer-bullet path through all integration layers                          |
-| **spike**       | A time-boxed throwaway investigation to answer one hard question                             |
-| **phase**       | A temporal grouping of slices and spikes in PLAN.md                                          |
-| **[Term]**      | [Definition]                                                                                 |
+| Term | Definition |
+| --- | --- |
+| **[Term]** | [Definition] |
 
 ## Verification Design
 
-<!-- Verification is first-class work. ln-spec owns the inner loop (commands, policy,
-     inner-loop oracle items). ln-oracles owns the middle/outer loop strategy, diagnostic
-     assessment, and blind spots. See ln-oracles SKILL.md for the boundary. -->
+<!-- Verification is first-class work. ln-spec owns the inner loop: commands,
+     verification policy, and inner-loop oracle items. ln-oracles owns middle/outer
+     loop strategy, diagnostic assessment, and blind spots. Preserve oracle sections
+     written by ln-oracles unless intentionally updating them. -->
 
 ### Verification Commands
 
-<!-- Actual commands for each check in the verification harness.
-     Update as tooling evolves. -->
-
-| Step | Check          | Command     |
-| ---- | -------------- | ----------- |
-| 1    | Type checking  | [command]   |
-| 2    | Unit tests     | [command]   |
-| 3    | Build          | [command]   |
+| Step | Check | Command |
+| --- | --- | --- |
+| 1 | Type checking | [command] |
+| 2 | Unit tests | [command] |
+| 3 | Build | [command] |
+| all | Full gate | [command] |
 
 ### Verification Policy
 
-<!-- General verification policy — e.g. "slices must be user-testable." -->
+<!-- General verification policy, including inner loop and gate expectations. -->
 
-<!-- === Sections below are written by ln-oracles, not ln-spec ===
-     When running ln-spec, preserve these sections if they exist.
+<!-- === Sections below are usually written/refreshed by ln-oracles, not ln-spec ===
+     When running ln-spec, preserve these sections if they exist unless the user asked
+     for verification strategy work.
 
 ### Verification Stance
 ### Diagnostic Assessment
-### Oracle Strategy by Loop Tier (inner items from ln-spec, middle/outer from ln-oracles)
-### Design notes (project-specific oracle design decisions)
+### Oracle Strategy by Loop Tier
+### Design Notes
 ### Acknowledged Blind Spots
+### Current Coverage
 -->
 
-### Current Coverage
+### Acceptance Criteria
 
-<!-- Updated by ln-build traceability after each slice. -->
-
-| File          | Tests | Protects |
-| ------------- | ----- | -------- |
-| [test file]   | [N]   | [I#]     |
-
-## Acceptance Criteria (exit conditions)
-
-<!-- Observable, testable targets for completion. -->
+<!-- Observable completion targets for the current product contract. -->
 
 1. [Criterion]
 2. ...

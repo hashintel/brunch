@@ -13,6 +13,8 @@ Define **one** buildable scope card. The card always describes one slice, but it
 
 If the target behavior needs "and", split it.
 
+Apply the repo's pre-release posture while scoping: prefer correcting the model and regenerating fixtures over preserving accidental compatibility, unless live docs or the user require migration support. Include deletion/retirement work in the slice when obsolete code, data, or terminology would otherwise linger.
+
 ## Input
 
 The behavior to deliver: $ARGUMENTS
@@ -21,9 +23,9 @@ Orient before weighting.
 
 If `memory/SPEC.md` exists, use its lexicon and respect its live invariants.
 
-If `memory/PLAN.md` exists, check whether the named work is already in `Active`, `Next`, or `Horizon`.
+If `memory/PLAN.md` exists, check whether the named work is already represented as a frontier item in `Sequencing` (`Active`, `Next`, `Parallel / Low-conflict`, or `Horizon`) and `Frontier Definitions`.
 
-Treat the containing `memory/PLAN.md` frontier item as the Linear-issue / branch boundary. Here, a frontier item means the plan-level work item itself, not the scope card you are about to write. Your scope card may narrow that frontier item into the next buildable sub-slice, but scope-card granularity alone does **not** imply a new issue or branch. Only route to `ln-plan` for new plan items when the frontier itself must be split or reordered.
+Treat the containing `memory/PLAN.md` frontier item as the Linear-issue / branch boundary. Here, a frontier item means the canonical plan item, preferably keyed by a stable frontier id in `Frontier Definitions`, not the scope card you are about to write. Your scope card may narrow that frontier item into the next buildable slice, but scope-card granularity alone does **not** imply a new issue or branch. Only route to `ln-plan` for new frontier items when the frontier itself must be split or reordered.
 
 If this is a fresh thread or an unfamiliar area, also read `HANDOFF.md` if present. Read `docs/archive/PLAN_HISTORY.md` only if the frontier rationale or touched area is still unclear.
 
@@ -31,7 +33,7 @@ Write a 2-4 bullet orientation note naming the containing seam, the relevant fro
 
 Do not create new planning documents or scratch scope files without explicit permission. The canonical planning state remains `memory/SPEC.md` and `memory/PLAN.md`. The sanctioned derivative exception is `memory/CARDS.md`, which may hold several prepared scope cards for one frontier item while that execution queue is still live.
 
-If scoping reveals that one frontier item needs multiple sequential sub-slices, keep them nested under that same frontier item unless the plan-level frontier must change. Do not silently turn sub-slices into separate tracker / branch work items.
+If scoping reveals that one frontier item needs multiple sequential slices, keep them nested under that same frontier item unless the plan-level frontier must change. Do not silently turn slices into separate tracker / branch work items.
 
 ## Prepared card queue
 
@@ -159,7 +161,7 @@ Canonical reconciliation is **mandatory**; durable updates are **conditional**.
 
 - Full scope card: update `memory/SPEC.md` / `memory/PLAN.md` as needed during or after scoping.
 - Light scope card: run the promotion checklist explicitly. If it stays light, canonical reconciliation may be a no-op; if it promotes, reconcile the durable change before build.
-- Multi-card queue: keep the queue itself in `memory/CARDS.md`, but do not mirror those queued cards into `memory/PLAN.md` unless the frontier item itself changes.
+- Multi-card queue: keep the queue itself in `memory/CARDS.md`, but do not mirror those queued slice cards into `memory/PLAN.md` unless the frontier item itself changes. At most, add a lightweight `Current execution pointer` in the frontier definition.
 
 When adding or updating an assumption, apply the same-item test first:
 

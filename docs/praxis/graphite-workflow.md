@@ -1,6 +1,6 @@
 # Graphite Workflow
 
-Graphite manages the stacked branch structure. Every plan-level `memory/PLAN.md` frontier item gets its own branch; the stack mirrors PLAN.md dependencies. Here, a **frontier item** means one named work item in the plan itself — not a scope card or an implementation sub-slice discovered during `ln-scope` / `ln-build`. Those refinements stay on the same branch unless `ln-plan` is rerun and splits the frontier into separate PLAN.md items.
+Graphite manages the stacked branch structure. Every plan-level `memory/PLAN.md` frontier item gets its own branch; the stack mirrors PLAN.md dependencies. Here, a **frontier item** means one named canonical work item in the plan itself, preferably keyed by a stable id in `Frontier Definitions` and ordered in `Sequencing` — not a scope card or an implementation slice discovered during `ln-scope` / `ln-build`. Those refinements stay on the same branch unless `ln-plan` is rerun and splits the frontier into separate PLAN.md items.
 
 ## git vs gt boundary
 
@@ -24,9 +24,9 @@ Use **gt** (via `/cli-graphite`) for stack-aware operations:
 ## Branch granularity
 
 - Branch / Linear-issue granularity follows the containing `memory/PLAN.md` frontier item.
-- A frontier item is the plan-level work item; scope cards and implementation sub-slices are execution detail inside it.
-- `ln-scope` may narrow one frontier item into multiple buildable sub-slices or consecutive scope cards; keep them on one branch.
-- If several consecutive scope cards are prepared ahead of time, keep that execution queue in `memory/CARDS.md`; do not split branches just to mirror commit-sized steps.
+- A frontier item is the plan-level work item; scope cards and implementation slices are execution detail inside it.
+- `ln-scope` may narrow one frontier item into multiple buildable slices or consecutive scope cards; keep them on one branch.
+- If several consecutive scope cards are prepared ahead of time, keep that execution queue in `memory/CARDS.md`; do not split branches or duplicate detailed slice history in `memory/PLAN.md` just to mirror commit-sized steps.
 - Only create a new branch when starting a different frontier item, or after `ln-plan` explicitly splits the frontier into separate PLAN.md items that should stack independently.
 - If scoping shows the current frontier item is too large, revise `memory/PLAN.md` first, then align the branch stack to the revised frontier.
 
@@ -40,7 +40,7 @@ Use **gt** (via `/cli-graphite`) for stack-aware operations:
 
 ```
 gt create {prefix}/fe-XXX-keywords  # new branch for one PLAN.md frontier item
-# ... implement one or more scoped sub-slices on this branch ...
+# ... implement one or more scoped slices on this branch ...
 git add <files> && git commit    # plain git for commits
 npm run verify                   # gate before submit
 gt submit                        # push + create/update PR

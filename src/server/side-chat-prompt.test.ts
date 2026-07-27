@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildSideChatPrompt,
+  getSideChatTools,
+  proposeEditInputSchema,
+  proposeEditToolName,
   type SideChatPinnedItem,
   type SideChatSpecContext,
 } from './side-chat-prompt.js';
@@ -189,6 +192,87 @@ describe('buildSideChatPrompt — activeAnnotations', () => {
   it('does not add the block when options is omitted', () => {
     const { system } = buildSideChatPrompt(item, 'hi', spec, []);
     expect(system).not.toContain('User-pinned snippets');
+  });
+});
+
+describe('buildSideChatPrompt — mode', () => {
+  it('defaults to explore mode when mode is omitted', () => {
+    const { system } = buildSideChatPrompt(baseItem, 'Why?', baseSpecContext);
+    // explore prompt does not advertise edit-mode tools
+    expect(system).not.toMatch(/propose_edit/i);
+    expect(system).not.toMatch(/edit mode/i);
+  });
+
+  it('returns the same explore prompt when mode is explicitly "explore"', () => {
+    const explicit = buildSideChatPrompt(baseItem, 'Why?', baseSpecContext, [], { mode: 'explore' });
+    const implicit = buildSideChatPrompt(baseItem, 'Why?', baseSpecContext);
+    expect(explicit).toEqual(implicit);
+  });
+
+  it('switches the system prompt to edit-mode guidance when mode is "edit"', () => {
+    const { system } = buildSideChatPrompt(baseItem, 'Reword this', baseSpecContext, [], {
+      mode: 'edit',
+    });
+    expect(system).toMatch(/edit mode/i);
+    expect(system).toMatch(/propose_edit/i);
+  });
+
+  it('keeps the side-chat role identity in edit mode (not interviewer)', () => {
+    const { system } = buildSideChatPrompt(baseItem, 'Reword this', baseSpecContext, [], {
+      mode: 'edit',
+    });
+    expect(system).toMatch(/side[- ]chat/i);
+    expect(system).not.toMatch(/grounding phase/i);
+    expect(system).not.toMatch(/ask_question/i);
+  });
+
+  it('preserves spec context and pinned-item user message in edit mode', () => {
+    const { system, messages } = buildSideChatPrompt(baseItem, 'Reword to be terser', baseSpecContext, [], {
+      mode: 'edit',
+    });
+    expect(system).toContain('Brunch');
+    expect(messages).toHaveLength(1);
+    expect(messages[0].content).toContain('D12');
+    expect(messages[0].content).toContain('Reword to be terser');
+  });
+});
+
+describe('getSideChatTools', () => {
+  it('returns no tools for explore mode', () => {
+    const tools = getSideChatTools('explore');
+    expect(tools).toEqual({});
+  });
+
+  it('returns no tools when mode is omitted (explore default)', () => {
+    const tools = getSideChatTools();
+    expect(tools).toEqual({});
+  });
+
+  it('returns a propose_edit tool keyed by proposeEditToolName for edit mode', () => {
+    const tools = getSideChatTools('edit');
+    expect(proposeEditToolName).toBe('propose_edit');
+    expect(tools[proposeEditToolName]).toBeDefined();
+  });
+
+  it('propose_edit tool description mentions editing the pinned item', () => {
+    const tools = getSideChatTools('edit');
+    const tool = tools[proposeEditToolName];
+    expect(tool).toBeDefined();
+    expect(tool?.description).toMatch(/edit/i);
+    expect(tool?.description).toMatch(/pinned|item/i);
+  });
+
+  it('proposeEditInputSchema requires newContent and accepts optional newRationale', () => {
+    // valid: only newContent
+    expect(() => proposeEditInputSchema.parse({ newContent: 'updated text' })).not.toThrow();
+    // valid: newContent + newRationale
+    expect(() =>
+      proposeEditInputSchema.parse({ newContent: 'updated text', newRationale: 'why' }),
+    ).not.toThrow();
+    // invalid: missing newContent
+    expect(() => proposeEditInputSchema.parse({ newRationale: 'why' })).toThrow();
+    // invalid: empty newContent
+    expect(() => proposeEditInputSchema.parse({ newContent: '' })).toThrow();
   });
 });
 

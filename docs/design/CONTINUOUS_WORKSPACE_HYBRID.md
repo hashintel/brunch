@@ -1,7 +1,7 @@
 # Continuous Workspace Hybrid Design
 
 > Design exploration from 2026-04-20.
-> Status: **proposed direction** — hybrid continuous workspace with preserved phase addressability.
+> Status: **selected and shipped in FE-709** — hybrid continuous workspace with preserved phase addressability; deeper route collapse remains deferred.
 > Canonicality: this is a focused design note for the interview workspace shape, not the live product authority. For what is true now and what should happen next, prefer `memory/SPEC.md` and `memory/PLAN.md`.
 
 ## Why this note exists

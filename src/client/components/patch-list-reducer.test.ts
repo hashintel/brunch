@@ -16,6 +16,7 @@ import {
 function makeAnnotatePatch(id: string, overrides: Partial<AnnotatePatch> = {}): AnnotatePatch {
   return {
     kind: 'annotate',
+    producerChatId: null,
     id,
     anchor: { kind: 'decision', itemId: 1 },
     summary: `summary-${id}`,
@@ -322,6 +323,7 @@ describe('full sequence round-trip', () => {
 // Test helper assertion: StagePatchInput is the right shape for callers
 const _stageInputAnnotate: StagePatchInput = {
   kind: 'annotate',
+  producerChatId: null,
   anchor: { kind: 'decision', itemId: 1 },
   summary: 's',
   body: 'b',
@@ -330,6 +332,7 @@ void _stageInputAnnotate;
 
 const _stageInputEdit: StagePatchInput = {
   kind: 'edit',
+  producerChatId: null,
   anchor: { kind: 'decision', itemId: 1 },
   summary: 's',
   newContent: 'new text',
@@ -338,6 +341,7 @@ void _stageInputEdit;
 
 const _stageInputEdge: StagePatchInput = {
   kind: 'edge',
+  producerChatId: null,
   anchor: { kind: 'decision', itemId: 1 },
   summary: 's',
   targetAnchor: { kind: 'goal', itemId: 2 },
@@ -347,6 +351,7 @@ void _stageInputEdge;
 
 const _stageInputDrillDown: StagePatchInput = {
   kind: 'drill-down',
+  producerChatId: null,
   anchor: { kind: 'decision', itemId: 1 },
   summary: 's',
   focusArea: 'performance',
@@ -362,6 +367,7 @@ describe('typings — ApplyPatchFn return shape', () => {
     const patch: AnnotatePatch = {
       id: 'p1',
       kind: 'annotate',
+      producerChatId: null,
       anchor: { kind: 'decision', itemId: 1 },
       summary: 's',
       body: 'b',
@@ -378,6 +384,7 @@ describe('patch-list reducer — appliedMeta on BatchApplied', () => {
     const patch: AnnotatePatch = {
       id: 'p1',
       kind: 'annotate',
+      producerChatId: null,
       anchor: { kind: 'decision', itemId: 5 },
       summary: 's',
       body: 'b',
@@ -427,6 +434,7 @@ describe('patch-list reducer — appliedMeta on BatchApplied', () => {
 function makeEditPatch(id: string, overrides: Partial<EditPatch> = {}): EditPatch {
   return {
     kind: 'edit',
+    producerChatId: null,
     id,
     anchor: { kind: 'decision', itemId: 1 },
     summary: `edit-${id}`,
@@ -439,6 +447,7 @@ function makeEditPatch(id: string, overrides: Partial<EditPatch> = {}): EditPatc
 function makeEdgePatch(id: string, overrides: Partial<EdgePatch> = {}): EdgePatch {
   return {
     kind: 'edge',
+    producerChatId: null,
     id,
     anchor: { kind: 'decision', itemId: 1 },
     summary: `edge-${id}`,
@@ -452,6 +461,7 @@ function makeEdgePatch(id: string, overrides: Partial<EdgePatch> = {}): EdgePatc
 function makeDrillDownPatch(id: string, overrides: Partial<DrillDownPatch> = {}): DrillDownPatch {
   return {
     kind: 'drill-down',
+    producerChatId: null,
     id,
     anchor: { kind: 'decision', itemId: 1 },
     summary: `drill-${id}`,

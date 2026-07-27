@@ -20,6 +20,7 @@ export const specificationSchema = z.object({
   name: z.string(),
   mode: specificationModeSchema,
   active_turn_id: z.number().int().positive().nullable(),
+  primary_chat_id: z.number().int().positive().nullable().optional(),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -118,12 +119,51 @@ export const specificationListItemSchema = specificationSchema.extend({
 
 export const specificationListItemsSchema = z.array(specificationListItemSchema);
 
+export const secondaryChatModeSchema = z.enum(['explore', 'edit']);
+
+export const secondaryChatReconciliationNeedKindSchema = z.enum(['supersedes', 'needs_confirmation']);
+
+export const secondaryChatPinnedReconciliationNeedSchema = z.object({
+  needId: z.number().int().positive(),
+  kind: secondaryChatReconciliationNeedKindSchema,
+  sourceItemId: z.number().int().positive(),
+  sourceRefCode: z.string().nullable(),
+  sourceExcerpt: z.string().nullable(),
+  targetItemId: z.number().int().positive(),
+  targetRefCode: z.string().nullable(),
+  targetExcerpt: z.string().nullable(),
+});
+
+export const secondaryChatStateSchema = z.object({
+  chat: z.object({
+    id: z.number().int().positive(),
+    specification_id: z.number().int().positive(),
+    kind: z.string(),
+    parent_chat_id: z.number().int().positive().nullable(),
+    invoked_in_turn_id: z.number().int().positive().nullable(),
+    pinned_item_id: z.number().int().positive().nullable(),
+    pinned_span_hint: z.string().nullable(),
+    pinned_reconciliation_need_id: z.number().int().positive().nullable(),
+    mode: secondaryChatModeSchema.nullable(),
+  }),
+  kickoffTurn: specificationStateTurnSchema.nullable(),
+  /**
+   * Post-kickoff turns ordered by id ascending. Each turn carries either
+   * `user_parts` or `assistant_parts` populated, never both.
+   */
+  turns: z.array(specificationStateTurnSchema),
+  pinnedItemKind: z.enum(knowledgeKinds).nullable(),
+  pinnedReconciliationNeed: secondaryChatPinnedReconciliationNeedSchema.nullable(),
+  anchoredItemIds: z.array(z.number().int().positive()),
+});
+
 export const specificationStateSchema = z.object({
   specification: specificationSchema,
   workflow: workflowStateSchema,
   landing: specificationLandingSchema.nullable().optional(),
   turns: z.array(specificationStateTurnSchema),
   structuralArtifactTurnIds: z.array(z.number().int().positive()).optional(),
+  secondaryChats: z.array(secondaryChatStateSchema).optional(),
 });
 
 const knowledgeItemKindSchema = z.enum(knowledgeKinds);

@@ -1841,6 +1841,72 @@ describe('InterviewView', () => {
     );
   });
 
+  it('stops showing observer "Still thinking…" for answered turns once their phase is closed', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        turns: [
+          {
+            id: 1,
+            specification_id: 1,
+            parent_turn_id: null,
+            phase: 'grounding',
+            question: 'What should we build first?',
+            why: 'This frames the first iteration.',
+            impact: 'high',
+            answer: 'Build the web app',
+            is_resolution: false,
+            user_parts: JSON.stringify([{ type: 'text', text: 'Build the web app' }]),
+            assistant_parts: JSON.stringify([{ type: 'text', text: 'What should we build first?' }]),
+            created_at: '2026-04-03 10:00:00',
+            options: [],
+          },
+          {
+            id: 2,
+            specification_id: 1,
+            parent_turn_id: 1,
+            phase: 'grounding',
+            question: 'Closure proposal',
+            why: null,
+            impact: null,
+            answer: 'Confirm grounding closure',
+            is_resolution: true,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Confirm grounding closure' },
+              {
+                type: 'data-confirmation',
+                data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 2, phase: 'grounding' },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              {
+                type: 'data-phase-summary',
+                data: { turnId: 2, phase: 'grounding', summary: 'Grounding captured.' },
+              },
+            ]),
+            created_at: '2026-04-03 10:05:00',
+            options: [],
+          },
+        ],
+        workflow: createWorkflowState({
+          grounding: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 2,
+            summary: 'Grounding captured.',
+          },
+        }),
+      }),
+    );
+
+    renderWorkspace();
+
+    const answeredCard = await screen.findByTestId('answered-turn-card');
+    expect(answeredCard.textContent).toContain('What should we build first?');
+    expect(answeredCard.textContent).toContain('Captured:');
+    expect(answeredCard.textContent).not.toContain('Still thinking…');
+  });
+
   it('keeps later-phase active turns out of a closed phase and stages the handoff card at the bottom', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
@@ -4283,9 +4349,8 @@ describe('InterviewView', () => {
             {
               type: 'tool-read_file',
               toolCallId: 'tool-lookup',
-              state: 'output-available',
+              state: 'input-available',
               input: { path: 'src/server/app.ts' },
-              output: { ok: true },
             } as never,
           ],
         },
@@ -4295,8 +4360,8 @@ describe('InterviewView', () => {
     expect(await screen.findByTestId('generating-turn-placeholder')).toBeTruthy();
     expect(screen.getAllByText('Thinking…')).toHaveLength(1);
     expect(screen.getAllByText('Tools: read file')).toHaveLength(1);
-    expect(screen.queryByText('src/server/app.ts')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Tools: read file' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByText('src/server/app.ts')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Tools: read file' }).hasAttribute('disabled')).toBe(false);
   });
 
   it('stages a preface skeleton during generation and swaps to the full prefaced question before route invalidation', async () => {

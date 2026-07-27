@@ -114,9 +114,9 @@ export function SpecificationList() {
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-3xl p-6">
         <div className="mb-6 flex items-center gap-4">
-          <img src={brunchLogo} alt="Brunch logo" className="size-24  object-contain" />
+          <img src={brunchLogo} alt="brunch logo" className="size-24  object-contain" />
           <div className="flex flex-col">
-            <h1 className="text-[24px] font-semibold tracking-[-0.015em] text-ink">Brunch</h1>
+            <h1 className="text-[24px] font-semibold tracking-[-0.015em] text-ink">brunch</h1>
             <p className="text-base text-sub">
               A tool for building software specifications with AI assistance
             </p>

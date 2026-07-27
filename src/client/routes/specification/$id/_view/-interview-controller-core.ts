@@ -1,6 +1,9 @@
-import type { SpecificationLanding, WorkflowPhase } from '@/shared/api-types.js';
-import { isAskQuestionUIPart } from '@/shared/chat.js';
+import type { ChatStatus } from 'ai';
+
+import type { ReviewAction, SpecificationLanding, WorkflowPhase } from '@/shared/api-types.js';
+import { getActivityToolLabel, isAskQuestionUIPart, summarizeAssistantActivity } from '@/shared/chat.js';
 import type {
+  ActivitySummary,
   AskQuestionUIPart,
   BrunchUIMessage,
   BrunchUIMessagePart,
@@ -10,6 +13,7 @@ import type {
   StructuredQuestion,
 } from '@/shared/chat.js';
 import { getNextActivePhase } from '@/shared/phase-descriptors.js';
+import type { PhaseIntentRequest } from '@/shared/phase-intents.js';
 import {
   getTurnPreface,
   hasPersistedTurnResponse,
@@ -19,6 +23,7 @@ import {
 } from '@/shared/specification-state.js';
 import {
   getSpecificationRecord,
+  type SpecificationMode,
   type SpecificationState,
   type SpecificationTurn,
 } from '@/shared/specification.js';
@@ -112,6 +117,73 @@ export interface InterviewControllerViewState {
   readonly workflow: InterviewDurableSpecificationState['workflow'];
   readonly bottomArtifact: InterviewBottomArtifactViewModel | null;
 }
+
+export type InterviewControllerBottomArtifactState =
+  | {
+      readonly kind: 'persisted-turn';
+      readonly turn: SpecificationTurn;
+      readonly state: 'active' | 'submitted';
+      readonly disabled: boolean;
+      readonly errorMessage: string | null;
+      readonly liveActivity?: ActivitySummary;
+      readonly submitTurnResponse: (
+        positions: number[],
+        freeText?: string,
+        reviewAction?: ReviewAction,
+        itemComments?: Array<{ reviewItemId: string; comment: string }>,
+      ) => Promise<void>;
+    }
+  | {
+      readonly kind: 'pending-question';
+      readonly pendingQuestion: PendingQuestionViewModel;
+      readonly disabled: true;
+      readonly liveActivity?: ActivitySummary;
+    }
+  | {
+      readonly kind: 'kickoff';
+      readonly kickoff: KickoffControlViewModel;
+      readonly disabled: boolean;
+      readonly errorMessage: string | null;
+      readonly submitKickoff: (mode?: SpecificationMode) => void;
+    }
+  | {
+      readonly kind: 'recovery';
+      readonly recovery: RecoveryControlViewModel;
+      readonly disabled: boolean;
+      readonly errorMessage: string | null;
+      readonly submitRecovery: () => void;
+    }
+  | {
+      readonly kind: 'phase-summary';
+      readonly phaseSummary: PhaseSummaryViewModel;
+      readonly disabled: boolean;
+      readonly confirmPhaseSummary: () => void;
+    }
+  | {
+      readonly kind: 'generating';
+      readonly liveActivity?: ActivitySummary;
+      readonly liveReasoningText?: string;
+      readonly pendingPreface?: PrefaceData;
+      readonly liveToolItems?: Array<{
+        readonly detail?: string;
+        readonly key: string;
+        readonly label: string;
+      }>;
+      readonly liveToolsRunning: boolean;
+    }
+  | {
+      readonly kind: 'phase-handoff';
+      readonly phase: WorkflowPhase;
+      readonly nextPhase: WorkflowPhase;
+      readonly summary: string | null;
+      readonly isReviewPhase: boolean;
+    }
+  | {
+      readonly kind: 'workflow-complete';
+      readonly phase: WorkflowPhase;
+      readonly summary: string | null;
+      readonly isReviewPhase: boolean;
+    };
 
 function hydrateMessages(turns: readonly SpecificationTurn[]): BrunchUIMessage[] {
   const messages: BrunchUIMessage[] = [];
@@ -497,5 +569,313 @@ export function createInterviewControllerViewState(
     specification,
     workflow,
     bottomArtifact,
+  };
+}
+
+const MAX_TOOL_DETAIL_LENGTH = 80;
+const HYDRATED_TURN_MESSAGE_ID_PATTERN = /^turn-\d+-/;
+
+function isLiveAssistantMessage(message: BrunchUIMessage): boolean {
+  return message.role === 'assistant' && !HYDRATED_TURN_MESSAGE_ID_PATTERN.test(message.id);
+}
+
+function getLatestLiveAssistantMessage(
+  messages: readonly BrunchUIMessage[],
+  status: ChatStatus,
+): BrunchUIMessage | undefined {
+  if (status !== 'submitted' && status !== 'streaming') {
+    return undefined;
+  }
+
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = messages[messageIndex];
+    if (message && isLiveAssistantMessage(message)) {
+      return message;
+    }
+  }
+
+  return undefined;
+}
+
+function truncateToolDetail(value: string): string {
+  const sanitized = value.replace(/[\n\r]+/g, ' ').trim();
+  return sanitized.length > MAX_TOOL_DETAIL_LENGTH
+    ? `${sanitized.slice(0, MAX_TOOL_DETAIL_LENGTH - 1)}…`
+    : sanitized;
+}
+
+function getToolInputString(input: Record<string, unknown>, key: string): string | null {
+  const value = input[key];
+  return typeof value === 'string' && value.trim() ? truncateToolDetail(value) : null;
+}
+
+function extractToolDetail(input: unknown): string | null {
+  if (input === null || typeof input !== 'object') {
+    return null;
+  }
+
+  const record = input as Record<string, unknown>;
+  const command = getToolInputString(record, 'command');
+  if (command) {
+    return command;
+  }
+
+  const path = getToolInputString(record, 'path') ?? getToolInputString(record, 'workdir');
+  const pattern = getToolInputString(record, 'pattern');
+  if (pattern && path) {
+    return truncateToolDetail(`${pattern} in ${path}`);
+  }
+  if (path) {
+    return path;
+  }
+
+  for (const key of ['glob', 'query', 'url', 'requestFilePath', 'responseFilePath'] as const) {
+    const value = getToolInputString(record, key);
+    if (value) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function getLiveToolParts(messages: readonly BrunchUIMessage[], status: ChatStatus) {
+  return getLatestLiveAssistantMessage(messages, status)?.parts ?? [];
+}
+
+export function getLiveToolItems(messages: readonly BrunchUIMessage[], status: ChatStatus) {
+  const toolItems = new Map<
+    string,
+    {
+      detail?: string;
+      key: string;
+      label: string;
+    }
+  >();
+
+  for (const part of getLiveToolParts(messages, status)) {
+    const label = part ? getActivityToolLabel(part) : null;
+    if (!part || !label || !('input' in part) || !('state' in part) || !('toolCallId' in part)) {
+      continue;
+    }
+
+    const existing = toolItems.get(part.toolCallId);
+    const detail = extractToolDetail(part.input) ?? existing?.detail;
+
+    toolItems.set(part.toolCallId, {
+      ...(detail ? { detail } : {}),
+      key: part.toolCallId,
+      label,
+    });
+  }
+
+  return toolItems.size > 0 ? [...toolItems.values()] : undefined;
+}
+
+export function hasRunningLiveTool(messages: readonly BrunchUIMessage[], status: ChatStatus): boolean {
+  return getLiveToolParts(messages, status).some(
+    (part) => part && 'state' in part && part.state !== 'output-available',
+  );
+}
+
+export function getLatestAssistantActivity(
+  messages: readonly BrunchUIMessage[],
+  status: ChatStatus,
+): ActivitySummary | undefined {
+  const liveAssistantMessage = getLatestLiveAssistantMessage(messages, status);
+  if (!liveAssistantMessage?.parts) {
+    return undefined;
+  }
+
+  return summarizeAssistantActivity(liveAssistantMessage.parts) ?? undefined;
+}
+
+export function getLatestReasoningText(
+  messages: readonly BrunchUIMessage[],
+  status: ChatStatus,
+): string | undefined {
+  const liveAssistantMessage = getLatestLiveAssistantMessage(messages, status);
+  if (!liveAssistantMessage?.parts) {
+    return undefined;
+  }
+
+  const chunks: string[] = [];
+  for (const part of liveAssistantMessage.parts) {
+    if (part.type === 'reasoning') {
+      chunks.push(part.text);
+    }
+  }
+
+  return chunks.length > 0 ? chunks.join('') : undefined;
+}
+
+export function sameTurnReferences(
+  left: readonly SpecificationTurn[],
+  right: readonly SpecificationTurn[],
+): boolean {
+  return left.length === right.length && left.every((turn, index) => turn === right[index]);
+}
+
+export interface BottomArtifactEnrichmentDeps {
+  readonly submitTurnResponseErrorMessage: string | null;
+  readonly submitTrackedTurnResponse: (
+    turn: Pick<SpecificationTurn, 'id' | 'phase'>,
+    submit: () => Promise<boolean>,
+  ) => Promise<boolean>;
+  readonly submitTurnResponse: (
+    positions?: number[],
+    freeText?: string,
+    reviewAction?: ReviewAction,
+    itemComments?: Array<{ reviewItemId: string; comment: string }>,
+  ) => Promise<boolean>;
+  readonly liveActivity: ActivitySummary | undefined;
+  readonly isLoading: boolean;
+  readonly controlErrorMessage: string | null;
+  readonly submitTypedPhaseIntent: (intent: PhaseIntentRequest) => void;
+  readonly confirmPhaseClosure: (phase: SpecificationTurn['phase'], turnId: number) => void;
+  readonly liveReasoningText: string | undefined;
+  readonly liveToolItems: Array<{ detail?: string; key: string; label: string }> | undefined;
+  readonly liveToolsRunning: boolean;
+}
+
+export function enrichBottomArtifact(
+  bottomArtifact: InterviewBottomArtifactViewModel | null,
+  deps: BottomArtifactEnrichmentDeps,
+): InterviewControllerBottomArtifactState | null {
+  if (!bottomArtifact) {
+    return null;
+  }
+
+  if (bottomArtifact.kind === 'persisted-turn') {
+    return {
+      kind: 'persisted-turn',
+      turn: bottomArtifact.turn,
+      state: bottomArtifact.state,
+      disabled: bottomArtifact.state === 'submitted',
+      errorMessage: deps.submitTurnResponseErrorMessage,
+      liveActivity: deps.liveActivity,
+      submitTurnResponse: async (
+        positions: number[],
+        freeText?: string,
+        reviewAction?: ReviewAction,
+        itemComments?: Array<{ reviewItemId: string; comment: string }>,
+      ) => {
+        const activeTurn = bottomArtifact.kind === 'persisted-turn' ? bottomArtifact.turn : null;
+        if (activeTurn === null) {
+          return;
+        }
+
+        await deps.submitTrackedTurnResponse(activeTurn, () =>
+          deps.submitTurnResponse(positions, freeText, reviewAction, itemComments),
+        );
+      },
+    };
+  }
+
+  if (bottomArtifact.kind === 'pending-question') {
+    return {
+      kind: 'pending-question',
+      pendingQuestion: bottomArtifact.pendingQuestion,
+      disabled: true,
+      liveActivity: deps.liveActivity,
+    };
+  }
+
+  if (bottomArtifact.kind === 'kickoff') {
+    const kickoff = bottomArtifact.kickoff;
+    return {
+      kind: 'kickoff',
+      kickoff,
+      disabled: deps.isLoading,
+      errorMessage: deps.controlErrorMessage,
+      submitKickoff: (selectedMode?: SpecificationMode) => {
+        if (deps.isLoading) {
+          return;
+        }
+
+        if (kickoff.phase === 'grounding' && kickoff.mode === 'start' && selectedMode) {
+          deps.submitTypedPhaseIntent({
+            kind: 'phase-entry',
+            phase: kickoff.phase,
+            mode: selectedMode,
+          });
+          return;
+        }
+
+        deps.submitTypedPhaseIntent(
+          kickoff.mode === 'start'
+            ? {
+                kind: 'phase-entry',
+                phase: kickoff.phase,
+              }
+            : {
+                kind: 'phase-continue',
+                phase: kickoff.phase,
+              },
+        );
+      },
+    };
+  }
+
+  if (bottomArtifact.kind === 'recovery') {
+    const recovery = bottomArtifact.recovery;
+    return {
+      kind: 'recovery',
+      recovery,
+      disabled: deps.isLoading,
+      errorMessage: deps.controlErrorMessage,
+      submitRecovery: () => {
+        if (deps.isLoading) {
+          return;
+        }
+
+        deps.submitTypedPhaseIntent({
+          kind: 'phase-continue',
+          phase: recovery.phase,
+        });
+      },
+    };
+  }
+
+  if (bottomArtifact.kind === 'phase-summary') {
+    const phaseSummary = bottomArtifact.phaseSummary;
+    return {
+      kind: 'phase-summary',
+      phaseSummary,
+      disabled: deps.isLoading,
+      confirmPhaseSummary: () => deps.confirmPhaseClosure(phaseSummary.phase, phaseSummary.turnId),
+    };
+  }
+
+  if (bottomArtifact.kind === 'generating') {
+    return {
+      kind: 'generating',
+      liveActivity: deps.liveActivity,
+      liveReasoningText: deps.liveReasoningText,
+      liveToolItems: deps.liveToolItems?.map(({ detail, key, label }) => ({
+        detail,
+        key,
+        label,
+      })),
+      liveToolsRunning: deps.liveToolsRunning,
+      pendingPreface: bottomArtifact.pendingPreface,
+    };
+  }
+
+  if (bottomArtifact.kind === 'phase-handoff') {
+    return {
+      kind: 'phase-handoff',
+      phase: bottomArtifact.phase,
+      nextPhase: bottomArtifact.nextPhase,
+      summary: bottomArtifact.summary,
+      isReviewPhase: bottomArtifact.isReviewPhase,
+    };
+  }
+
+  return {
+    kind: 'workflow-complete',
+    phase: bottomArtifact.phase,
+    summary: bottomArtifact.summary,
+    isReviewPhase: bottomArtifact.isReviewPhase,
   };
 }

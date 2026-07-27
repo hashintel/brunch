@@ -1,0 +1,67 @@
+epics:
+  - id: scaffolding
+    summary: "CLI scaffolding"
+    depends_on: []
+    # Slice unit tests cover version-flag and help-flag; epic verify deferred until
+    # text-ops slices exist (cli-scaffolding integration spans the full CLI).
+    verification: []
+
+  - id: text-ops
+    summary: "Text operations"
+    depends_on: [scaffolding]
+    verification:
+      - kind: integration-test
+        target: "tests/cli-scaffolding.integration.test.ts"
+      - kind: integration-test
+        target: "tests/text-ops-pipe.integration.test.ts"
+
+slices:
+  - id: version-flag
+    epic_id: scaffolding
+    definition: "Add `--version` flag that prints the version from package.json"
+    depends_on: []
+    verification:
+      - kind: unit-test
+        target: "tests/version.test.ts"
+
+  - id: help-flag
+    epic_id: scaffolding
+    definition: "Add `--help` flag that lists subcommands: reverse, count, slugify"
+    depends_on: [version-flag]
+    verification:
+      - kind: unit-test
+        target: "tests/help.test.ts"
+
+  - id: reverse
+    epic_id: text-ops
+    definition: "Add a pure text operation module for reverse, e.g. `reverse(input: string): string`, without editing the shared CLI dispatcher. The wire-text-commands join slice owns CLI wiring."
+    depends_on: [help-flag]
+    verification:
+      - kind: unit-test
+        target: "tests/reverse.test.ts"
+
+  - id: count
+    epic_id: text-ops
+    definition: "Add a pure text operation module for count, e.g. `count(input: string): number`, counting whitespace-separated words with empty input returning 0. Do not edit the shared CLI dispatcher; wire-text-commands owns CLI wiring."
+    depends_on: [help-flag]
+    verification:
+      - kind: unit-test
+        target: "tests/count.test.ts"
+
+  - id: slugify
+    epic_id: text-ops
+    definition: "Add a pure text operation module for slugify: lowercase, replace non-alphanumerics with single dash, collapse multiple dashes, trim leading/trailing dashes, and handle unicode by removing diacritics. Do not edit the shared CLI dispatcher; wire-text-commands owns CLI wiring."
+    depends_on: [help-flag]
+    verification:
+      - kind: unit-test
+        target: "tests/slugify.test.ts"
+
+  - id: wire-text-commands
+    epic_id: text-ops
+    definition: "Wire the shared CLI dispatcher to expose the reverse, count, and slugify text operations as subcommands while preserving the existing --version and --help behavior. This join slice is the only text-ops slice that edits the shared CLI entrypoint."
+    depends_on: [reverse, count, slugify]
+    verification:
+      - kind: integration-test
+        target: "tests/cli-scaffolding.integration.test.ts"
+      - kind: integration-test
+        target: "tests/text-ops-pipe.integration.test.ts"

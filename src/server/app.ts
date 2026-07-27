@@ -57,7 +57,20 @@ import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
 import { runObserver } from './observer.js';
 import { safeDeserializeAssistantParts, serializeParts } from './parts.js';
 import { submitPhaseIntentWithRuntimeCompatibility } from './phase-intent-runtime.js';
-import { handleSideChatRequest } from './side-chat-route.js';
+import {
+  handleResetReconciliationNeedAgent,
+  handleRunReconciliationAgent,
+} from './reconciliation-agent-route.js';
+import {
+  handleListOpenReconciliationNeeds,
+  handleResolveReconciliationNeed,
+} from './reconciliation-needs-route.js';
+import {
+  handleCreateSecondaryChatRequest,
+  handleDeleteSecondaryChatRequest,
+  handleSecondaryChatMessageRequest,
+  handleSetSecondaryChatModeRequest,
+} from './secondary-chat-route.js';
 import { createCoreTools } from './tools/index.js';
 import { materializeTurnArtifacts } from './turn-artifacts.js';
 import {
@@ -108,6 +121,34 @@ function parseEntityProjectionMode(rawMode: unknown): EntityProjectionMode | nul
   }
 
   return rawMode === 'active-path' || rawMode === 'project-wide' ? rawMode : null;
+}
+
+/**
+ * Drop failed tool-call attempts (state `output-error`) the client may echo
+ * back in chat history. These arise when the model emitted a malformed tool
+ * call and retried — they carry `rawInput` but no `input`, which the AI SDK's
+ * `output-error` schema rejects, bricking the whole turn during
+ * `validateUIMessages`. The retried call is what matters; the failed attempt
+ * carries no history value, so strip it before validation.
+ */
+function stripFailedToolParts(rawMessages: unknown): unknown {
+  if (!Array.isArray(rawMessages)) {
+    return rawMessages;
+  }
+  return rawMessages.map((message) => {
+    if (!message || typeof message !== 'object' || !Array.isArray((message as { parts?: unknown }).parts)) {
+      return message;
+    }
+    const parts = (message as { parts: unknown[] }).parts.filter((part) => {
+      if (!part || typeof part !== 'object') {
+        return true;
+      }
+      const { type, state } = part as { type?: unknown; state?: unknown };
+      const isToolPart = typeof type === 'string' && (type.startsWith('tool-') || type === 'dynamic-tool');
+      return !(isToolPart && state === 'output-error');
+    });
+    return { ...message, parts };
+  });
 }
 
 function getChatRouteTransitionErrorStatus(kind: ChatRouteTransitionErrorKind): 400 | 404 | 409 {
@@ -233,7 +274,16 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   const specificationEntitiesPaths = ['/api/specifications/:id/entities'] as const;
   const specificationExportPaths = ['/api/specifications/:id/export'] as const;
   const specificationChatPaths = ['/api/specifications/:id/chat'] as const;
-  const specificationSideChatPaths = ['/api/specifications/:id/side-chat'] as const;
+  const specificationSecondaryChatPaths = ['/api/specifications/:id/secondary-chats'] as const;
+  const specificationSecondaryChatResourcePaths = [
+    '/api/specifications/:id/secondary-chats/:chatId',
+  ] as const;
+  const specificationSecondaryChatModePaths = [
+    '/api/specifications/:id/secondary-chats/:chatId/mode',
+  ] as const;
+  const specificationSecondaryChatMessagePaths = [
+    '/api/specifications/:id/secondary-chats/:chatId/messages',
+  ] as const;
   const specificationAnnotationsPaths = ['/api/specifications/:id/annotations'] as const;
   const annotationResourcePaths = ['/api/annotations/:annotationId'] as const;
   const specificationKnowledgeItemPaths = ['/api/specifications/:id/knowledge-items/:itemId'] as const;
@@ -241,6 +291,14 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     '/api/specifications/:id/knowledge-edges/validate',
   ] as const;
   const specificationKnowledgeEdgesPaths = ['/api/specifications/:id/knowledge-edges'] as const;
+  const specificationReconciliationNeedsPaths = ['/api/specifications/:id/reconciliation-needs'] as const;
+  const reconciliationNeedResolvePaths = [
+    '/api/specifications/:id/reconciliation-needs/:needId/resolve',
+  ] as const;
+  const reconciliationNeedRunAgentPaths = ['/api/specifications/:id/reconciliation-needs/run-agent'] as const;
+  const reconciliationNeedResetAgentPaths = [
+    '/api/specifications/:id/reconciliation-needs/:needId/reset-agent',
+  ] as const;
 
   const registerGet = (paths: readonly string[], handler: RequestHandler) => {
     for (const path of paths) {
@@ -447,7 +505,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     let messages: BrunchUIMessage[];
     try {
       messages = await validateUIMessages<BrunchUIMessage>({
-        messages: req.body.messages ?? [],
+        messages: stripFailedToolParts(req.body.messages ?? []),
         dataSchemas: brunchDataPartSchemas,
         // The client may echo earlier assistant history that still contains dynamic
         // workspace-tool parts from a live stream (for example `list_directory`).
@@ -605,8 +663,20 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     pipeUIMessageStreamToResponse({ response: res, stream });
   });
 
-  registerPost(specificationSideChatPaths, async (req: Request, res: Response) => {
-    await handleSideChatRequest(db, req, res);
+  registerPost(specificationSecondaryChatPaths, (req: Request, res: Response) => {
+    handleCreateSecondaryChatRequest(db, req, res);
+  });
+
+  registerPost(specificationSecondaryChatMessagePaths, async (req: Request, res: Response) => {
+    await handleSecondaryChatMessageRequest(db, req, res);
+  });
+
+  registerPatch(specificationSecondaryChatModePaths, (req: Request, res: Response) => {
+    handleSetSecondaryChatModeRequest(db, req, res);
+  });
+
+  registerDelete(specificationSecondaryChatResourcePaths, (req: Request, res: Response) => {
+    handleDeleteSecondaryChatRequest(db, req, res);
   });
 
   registerPost(specificationAnnotationsPaths, (req: Request, res: Response) => {
@@ -636,6 +706,24 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
 
   registerDelete(specificationKnowledgeEdgesPaths, (req: Request, res: Response) => {
     handleDeleteKnowledgeEdge(db, req, res);
+  });
+
+  // V3.0 card 2: list open reconciliation_need rows for the Pending review surface
+  registerGet(specificationReconciliationNeedsPaths, (req: Request, res: Response) => {
+    handleListOpenReconciliationNeeds(db, req, res);
+  });
+
+  // V3.0 card 3: idempotent resolve action wired to per-row Resolve button
+  registerPost(reconciliationNeedResolvePaths, (req: Request, res: Response) => {
+    handleResolveReconciliationNeed(db, req, res);
+  });
+
+  registerPost(reconciliationNeedRunAgentPaths, (req: Request, res: Response) => {
+    void handleRunReconciliationAgent(db, req, res);
+  });
+
+  registerPost(reconciliationNeedResetAgentPaths, (req: Request, res: Response) => {
+    void handleResetReconciliationNeedAgent(db, req, res);
   });
 
   return { app, db };

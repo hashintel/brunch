@@ -1,8 +1,10 @@
+import type { EdgeRelation } from '@/shared/api-types.js';
 import type { BrunchAssistantPart } from '@/shared/chat.js';
-import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
+import { createKnowledgeReferenceCode, knowledgeKinds, type KnowledgeKind } from '@/shared/knowledge.js';
 import { createForceCloseActivePhaseCommand } from '@/shared/phase-close.js';
 
 import {
+  addKnowledgeRelationship,
   advanceHead,
   applyTurnResponseSelections,
   confirmPhaseOutcome,
@@ -18,7 +20,9 @@ import {
   type DB,
   type WorkflowPhaseStatus,
 } from '../db.js';
+import { supportsKnowledgeRelationship } from '../knowledge-relationship-policy.js';
 import { serializeParts } from '../parts.js';
+import { cookFixtureSpecScenarios } from './cook-fixture-specs.js';
 import {
   createFixtureReviewQuestionInput,
   serializeFixtureAcceptedReviewUserParts,
@@ -28,6 +32,8 @@ import {
   serializeFixturePhaseProposalAssistantParts,
   serializeFixtureQuestionAssistantParts,
 } from './helpers.js';
+import { seedAcceptedBrunchMetaSpec } from './scenarios/brunch-meta-spec.js';
+import { seedAcceptedSpatialGraphLayoutSpec } from './scenarios/spatial-graph-layout.js';
 
 const code = createKnowledgeReferenceCode;
 
@@ -919,6 +925,132 @@ export function seedBrownfieldReusableGroundingReplay(db: DB, projectId: number)
   };
 }
 
+const knowledgeGraphPermutationContent: Record<KnowledgeKind, string> = {
+  goal: 'Run an AI-guided spec elicitation tool that turns natural-language goals into structured specifications through a four-phase interview (grounding → design → requirements → criteria) and stops at a calibrated handoff, not fake closure.',
+  term: 'Intent graph — canonical semantic substrate of typed intent items, intent edges, examples/counterexamples, validation status, and semantic mutation state shared across schema, prompts, fixtures, and UI.',
+  context:
+    'Brunch runs inside a workspace: the cwd-backed software context whose local `.brunch/` directory stores one or more specifications and hosts both greenfield elicitation and brownfield analysis flows.',
+  constraint:
+    'V1 non-goals — no collaborative editing, no explicit document-ingestion UX, no hard turn-tree branching UX, no automatic cascade deletion, no task-planning surface, and no general-purpose inline document editor in review.',
+  requirement:
+    'Requirement 17 — each phase exposes an explicit kickoff, frontier, recovery, handoff, or completion affordance; the UI must never strand the user with a bare generic composer as the only visible action.',
+  criterion:
+    'Requirement 18 — open phases project a kickoff card, current frontier turn, visible generation state, or recovery affordance, and closed phases terminate in a projected handoff/completion artifact, verifying the phase-affordance contract.',
+  decision:
+    'D50 — Knowledge relationships live behind one typed graph seam: persisted graph edges are first-class and drive dependency, derivation, and revisit behavior across the workflow.',
+  assumption:
+    'A48 — Intent graph edges are sufficient to drive accurate cascade preview for revisit work, validated by structural cascade tests plus manual judgment about scope.',
+};
+
+const meaningfulEdges: ReadonlyArray<{
+  source: KnowledgeKind;
+  relation: EdgeRelation;
+  target: KnowledgeKind;
+  rationale: string;
+}> = [
+  {
+    source: 'requirement',
+    relation: 'depends_on',
+    target: 'goal',
+    rationale: 'R17 phase affordances exist to deliver the four-phase elicitation goal.',
+  },
+  {
+    source: 'decision',
+    relation: 'depends_on',
+    target: 'context',
+    rationale: 'D50 graph seam is realized inside the workspace runtime context.',
+  },
+  {
+    source: 'assumption',
+    relation: 'depends_on',
+    target: 'decision',
+    rationale: 'A48 cascade-preview accuracy assumes the D50 typed graph seam holds.',
+  },
+  {
+    source: 'criterion',
+    relation: 'depends_on',
+    target: 'requirement',
+    rationale: 'R18 projection check is meaningful only because R17 phase affordances exist.',
+  },
+  {
+    source: 'constraint',
+    relation: 'derived_from',
+    target: 'goal',
+    rationale: 'V1 non-goals are derived from scoping the elicitation goal to V1.',
+  },
+  {
+    source: 'decision',
+    relation: 'derived_from',
+    target: 'term',
+    rationale: 'D50 graph seam is derived from the intent graph vocabulary.',
+  },
+  {
+    source: 'requirement',
+    relation: 'derived_from',
+    target: 'context',
+    rationale: 'R17 phase affordances are derived from how the workspace stream renders phases.',
+  },
+  {
+    source: 'constraint',
+    relation: 'constrains',
+    target: 'goal',
+    rationale: 'V1 non-goals constrain how far the goal may stretch in V1.',
+  },
+  {
+    source: 'constraint',
+    relation: 'constrains',
+    target: 'requirement',
+    rationale: 'The "no hard turn-tree branching UX" non-goal constrains what R17 may require.',
+  },
+  {
+    source: 'criterion',
+    relation: 'verifies',
+    target: 'requirement',
+    rationale: 'R18 projection criterion verifies the R17 phase-affordance requirement.',
+  },
+  {
+    source: 'term',
+    relation: 'refines',
+    target: 'goal',
+    rationale: '"Intent graph" sharpens what "structured specification" means in the goal.',
+  },
+  {
+    source: 'context',
+    relation: 'refines',
+    target: 'goal',
+    rationale: 'The workspace clarifies where the elicitation goal is pursued.',
+  },
+];
+
+export function seedKnowledgeGraphPermutations(db: DB, projectId: number) {
+  const groundingTurn = createTurn(db, projectId, {
+    phase: 'grounding',
+    question:
+      'Sketch Brunch in one breath: what is the product, where does it run, what does it refuse to do, and what graph backs the work?',
+    answer:
+      'Brunch is the AI-guided spec elicitation tool from SPEC.md — a four-phase interview hosted inside a workspace, backed by the typed intent graph, and bounded by the V1 non-goals.',
+  });
+  advanceHead(db, projectId, groundingTurn.id);
+
+  const itemIdByKind = {} as Record<KnowledgeKind, number>;
+  for (const kind of knowledgeKinds) {
+    const item = createKnowledgeItem(db, projectId, kind, knowledgeGraphPermutationContent[kind]);
+    linkKnowledgeItemToTurn(db, item.id, groundingTurn.id, 'captured');
+    itemIdByKind[kind] = item.id;
+  }
+
+  for (const edge of meaningfulEdges) {
+    if (!supportsKnowledgeRelationship(edge.relation, edge.source, edge.target)) {
+      throw new Error(
+        `Meaningful-edge fixture violates relation policy: ${edge.source} -[${edge.relation}]-> ${edge.target} (${edge.rationale})`,
+      );
+    }
+    addKnowledgeRelationship(db, itemIdByKind[edge.source], itemIdByKind[edge.target], edge.relation);
+  }
+
+  return { groundingTurn, itemIdByKind, edges: meaningfulEdges };
+}
+
 export type ScenarioFn = (db: DB, projectName?: string) => number;
 
 type WalkthroughWorkflowSummary = Record<
@@ -977,6 +1109,21 @@ export const scenarios: Record<string, ScenarioFn> = {
   'low-readiness-all-phases-closed': (db, name = 'Low-Readiness All Phases Closed') => {
     const project = createSpecification(db, name);
     seedAllPhasesClosedWithLowReadinessGrounding(db, project.id);
+    return project.id;
+  },
+  'knowledge-graph-permutations': (db, name = 'Brunch self-spec (knowledge graph permutations)') => {
+    const project = createSpecification(db, name);
+    seedKnowledgeGraphPermutations(db, project.id);
+    return project.id;
+  },
+  'spatial-graph-layout-all-phases-closed': (db, name = 'Spatial graph layout (all phases closed)') => {
+    const project = createSpecification(db, name, { mode: 'brownfield' });
+    seedAcceptedSpatialGraphLayoutSpec(db, project.id);
+    return project.id;
+  },
+  'brunch-meta-spec-all-phases-closed': (db, name = 'Brunch (self-spec — full product graph)') => {
+    const project = createSpecification(db, name, { mode: 'brownfield' });
+    seedAcceptedBrunchMetaSpec(db, project.id);
     return project.id;
   },
 };
@@ -1133,6 +1280,7 @@ const walkthroughScenarioNameSet = new Set<string>(walkthroughScenarioNames);
 export const publicScenarios: Record<string, ScenarioFn> = {
   ...scenarios,
   ...phaseTransitionScenarios,
+  ...cookFixtureSpecScenarios,
 };
 export const publicScenarioNames = [
   ...walkthroughScenarioNames.filter((name) => name in publicScenarios),

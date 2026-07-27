@@ -1,0 +1,61 @@
+{
+  "_provenance": "Hand-curated subset of completed spec 2 ('brunch_graphs', referenced in memory/PLAN.md §spec-to-cook-plan spike findings, 2026-06-03). Five requirements + five criteria with full verification coverage and a single non-verifies edge that the projector must drop. Slice 2 (LLM planning pass) will own a richer fixture sourced from the server-side snapshot builder; this one exists solely to pin the spike's positive finding ('every requirement has ≥1 verifying criterion') as a regression oracle.",
+  "requirements": [
+    {
+      "id": 101,
+      "content": "Brunch grows from one intent graph into four trace-connected graph planes.",
+      "kindOrdinal": 1
+    },
+    {
+      "id": 102,
+      "content": "Criteria remain intent nodes; oracle nodes operationalize criteria.",
+      "kindOrdinal": 2
+    },
+    { "id": 103, "content": "Oracle graph starts with strategy and check node kinds.", "kindOrdinal": 3 },
+    {
+      "id": 104,
+      "content": "Design graph represents modules, interfaces, seams, and adapters.",
+      "kindOrdinal": 4
+    },
+    {
+      "id": 105,
+      "content": "Plan graph contains fractal milestone, frontier, and slice nodes.",
+      "kindOrdinal": 5
+    }
+  ],
+  "criteria": [
+    {
+      "id": 201,
+      "content": "Spec workspace exposes four distinct graph planes that share semantic edge vocabulary.",
+      "kindOrdinal": 1
+    },
+    {
+      "id": 202,
+      "content": "A criterion verifies a requirement via a verifies edge; an oracle check verifies the criterion.",
+      "kindOrdinal": 2
+    },
+    {
+      "id": 203,
+      "content": "Oracle graph contains no result nodes; raw run output lives in implementation storage.",
+      "kindOrdinal": 3
+    },
+    {
+      "id": 204,
+      "content": "Two adapters at one seam read as a real seam; one adapter is hypothetical only.",
+      "kindOrdinal": 4
+    },
+    {
+      "id": 205,
+      "content": "A frontier's first slice is a tracer-bullet that establishes an end-to-end invariant.",
+      "kindOrdinal": 5
+    }
+  ],
+  "edges": [
+    { "fromItemId": 201, "toItemId": 101, "relation": "verifies" },
+    { "fromItemId": 202, "toItemId": 102, "relation": "verifies" },
+    { "fromItemId": 203, "toItemId": 103, "relation": "verifies" },
+    { "fromItemId": 204, "toItemId": 104, "relation": "verifies" },
+    { "fromItemId": 205, "toItemId": 105, "relation": "verifies" },
+    { "fromItemId": 102, "toItemId": 101, "relation": "depends_on" }
+  ]
+}

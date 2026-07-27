@@ -1,0 +1,333 @@
+// Provision per-slice git worktrees under `<parentSandboxDir>/<sliceId>/` and
+// seed each from its completed dependency slice roots. Source worktrees are not
+// mutated.
+//
+// Parallel-safety contract:
+// - slice sandboxes are the only mutable roots during action/test/assess fires;
+// - dependency seeding copies from already-completed dependency slice roots and
+//   never mutates those source roots;
+// - post-action validation uses preserveExisting, so dependency overlays add
+//   missing inputs without deleting the current slice's own in-flight work;
+// - rework/reset paths prune only the current slice sandbox outside the copied
+//   dependency baseline.
+//
+// Merge breadth is bounded by plan topology: verify-epic includes the target
+// epic, its transitive epic dependencies, and any transitive slice dependencies
+// owned by other epics. It never walks filesystem state to discover more scope.
+
+import { execFileSync } from 'node:child_process';
+import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
+import { dirname, join, relative, resolve, sep } from 'node:path';
+
+import { copyMissingTopLevelEntries } from './cow-copy.js';
+import { brunchRef, pruneWorktrees } from './run-refs.js';
+import type { Plan, Slice } from './types.js';
+
+/** Epic ids whose slice worktrees participate in verify-epic for `epicId`. */
+function epicIdsForEpicVerifyMerge(plan: Plan, epicId: string): string[] {
+  const epicIds = new Set<string>();
+
+  const visitEpic = (id: string) => {
+    if (epicIds.has(id)) return;
+    const epic = plan.epics.find((e) => e.id === id);
+    if (!epic) return;
+    epicIds.add(id);
+    for (const dep of epic.depends_on) visitEpic(dep);
+  };
+
+  const visitedSliceDeps = new Set<string>();
+  const visitSliceDeps = (sliceId: string) => {
+    if (visitedSliceDeps.has(sliceId)) return;
+    visitedSliceDeps.add(sliceId);
+    const slice = plan.slices.find((s) => s.id === sliceId);
+    if (!slice) return;
+    visitEpic(slice.epic_id);
+    for (const depId of slice.depends_on) visitSliceDeps(depId);
+  };
+
+  visitEpic(epicId);
+  for (const slice of plan.slices.filter((s) => s.epic_id === epicId)) {
+    for (const depId of slice.depends_on) visitSliceDeps(depId);
+  }
+
+  return plan.epics.filter((e) => epicIds.has(e.id)).map((e) => e.id);
+}
+
+/** Slice ids to merge before verify-epic: deps then target epic, plan declaration order. */
+export function sliceIdsForEpicVerifyMerge(plan: Plan, epicId: string): string[] {
+  const epicIds = epicIdsForEpicVerifyMerge(plan, epicId);
+  const epicOrder = new Map(epicIds.map((id, i) => [id, i]));
+  return plan.slices.filter((s) => epicOrder.has(s.epic_id)).map((s) => s.id);
+}
+
+/** Reserved under the parent sandbox for merged epic verify trees. */
+const EPIC_MERGE_SEGMENT = '__epic__';
+
+/** Never copy git/brunch metadata when walking slice worktrees for merge/seed. */
+const WALK_SKIP_ENTRIES = new Set(['.git', '.brunch', EPIC_MERGE_SEGMENT]);
+
+function assertSafePathSegment(id: string, label: string): void {
+  if (!id || id.includes('..') || id.includes('/') || id.includes('\\')) {
+    throw new Error(`Invalid ${label}: ${id}`);
+  }
+  if (id === EPIC_MERGE_SEGMENT) {
+    throw new Error(`Invalid ${label}: ${id}`);
+  }
+}
+
+export function resolveEpicSandboxDir(parentSandboxDir: string, epicId: string): string {
+  assertSafePathSegment(epicId, 'epic id');
+  const parent = resolve(parentSandboxDir);
+  const epicRoot = resolve(parent, EPIC_MERGE_SEGMENT);
+  const dir = resolve(epicRoot, epicId);
+  if (dir === parent || !dir.startsWith(epicRoot + sep)) {
+    throw new Error(`Invalid epic id: ${epicId}`);
+  }
+  return dir;
+}
+
+export function resolveSliceWorktreeDir(parentSandboxDir: string, sliceId: string): string {
+  assertSafePathSegment(sliceId, 'slice id');
+  const parent = resolve(parentSandboxDir);
+  const dir = resolve(parent, sliceId);
+  if (dir === parent || !dir.startsWith(parent + sep)) {
+    throw new Error(`Invalid slice id: ${sliceId}`);
+  }
+  return dir;
+}
+
+function relativePathWithin(rootDir: string, file: string): string {
+  const rel = relative(rootDir, file);
+  if (!rel || rel.startsWith('..') || rel.split(sep).includes('..')) {
+    throw new Error(`Path escapes slice sandbox: ${file}`);
+  }
+  return rel;
+}
+
+function prepareDestForFile(treeRoot: string, dest: string): void {
+  const root = resolve(treeRoot);
+  const dir = dirname(resolve(dest));
+  if (dir !== root && !dir.startsWith(root + sep)) {
+    throw new Error(`Path escapes sandbox: ${dest}`);
+  }
+
+  const relDir = relative(root, dir);
+  if (relDir && relDir !== '.') {
+    let current = root;
+    for (const part of relDir.split(sep)) {
+      current = join(current, part);
+      if (existsSync(current) && !lstatSync(current).isDirectory()) {
+        rmSync(current, { force: true });
+        mkdirSync(current);
+      }
+    }
+  }
+
+  mkdirSync(dir, { recursive: true });
+}
+
+function copyIntoTree(src: string, dest: string, treeRoot: string): void {
+  prepareDestForFile(treeRoot, dest);
+  if (existsSync(dest) && lstatSync(dest).isDirectory()) {
+    rmSync(dest, { recursive: true, force: true });
+  }
+  cpSync(src, dest, { dereference: false });
+}
+
+export type SeedSliceSandboxOptions = {
+  /** Keep slice-owned paths; only add missing dependency files (post-action test/assess). */
+  preserveExisting?: boolean;
+};
+
+/** Dependency slice ids in plan declaration order (matches epic verify merge). */
+function depSliceIdsInPlanOrder(plan: Plan, slice: Slice): string[] {
+  const order = new Map(plan.slices.map((s, i) => [s.id, i]));
+  return [...slice.depends_on].sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
+}
+
+function collectDepFiles(parentSandboxDir: string, plan: Plan, slice: Slice): Map<string, string> {
+  const depFiles = new Map<string, string>();
+  for (const depId of depSliceIdsInPlanOrder(plan, slice)) {
+    const depDir = resolveSliceWorktreeDir(parentSandboxDir, depId);
+    if (!existsSync(depDir)) continue;
+
+    for (const file of walkFiles(depDir)) {
+      const rel = relativePathWithin(depDir, file);
+      depFiles.set(rel, file);
+    }
+  }
+  return depFiles;
+}
+
+function pruneEmptyDirs(rootDir: string, dir: string = rootDir): void {
+  for (const entry of readdirSync(dir)) {
+    const abs = join(dir, entry);
+    if (lstatSync(abs).isDirectory()) {
+      pruneEmptyDirs(rootDir, abs);
+    }
+  }
+  if (dir !== rootDir && readdirSync(dir).length === 0) {
+    rmSync(dir);
+  }
+}
+
+function assertSliceWorktreePathAvailable(parentSandboxDir: string, sliceId: string): void {
+  const sliceDir = resolveSliceWorktreeDir(parentSandboxDir, sliceId);
+  if (existsSync(sliceDir)) {
+    throw new Error(`Slice id "${sliceId}" collides with an existing entry in the parent worktree`);
+  }
+}
+
+/**
+ * Codebase-mode seed: prepare the per-slice worktree as a real `git worktree`
+ * checked out on a slice-level branch (`brunch/slice/<runId>/<sliceId>`, via
+ * `brunchRef.slice`) off the run-level run branch, then CoW-copy any
+ * untracked/gitignored content from the parent worktree (e.g. `node_modules/`,
+ * `dist/`) so pi-actions can run `npm test` / `bun test` / build steps that
+ * depend on runtime deps.
+ *
+ * Slice branches live under `brunch/slice/<runId>/…`, a sibling of the run
+ * branch `brunch/run/<runId>`, because git refs are leaf-or-directory: nesting
+ * slices under the run-branch leaf (`brunch/run/<runId>/<sliceId>`) would fail
+ * with "cannot lock ref ... 'refs/heads/brunch/run/<runId>' exists." The sibling
+ * `run/` vs `slice/` split is exactly what `brunchRef` centralizes.
+ *
+ * Excluded from the untracked CoW step:
+ *   - sibling slice subdirs (other entries in `plan.slices`)
+ *   - the `__epic__/` reserved merge dir
+ *   - `.git` (the parent's worktree pointer; the new worktree gets its own)
+ *   - any entry already created by `git worktree add` (tracked content)
+ *
+ * Returns the slice sandbox path. NOT safe to re-invoke against an existing
+ * slice worktree — `git worktree add` would fail with "already exists." The
+ * caller must remove the prior worktree first if re-seeding.
+ */
+export function seedSliceFromParentWorktree(
+  parentSandboxDir: string,
+  sliceId: string,
+  plan: Plan,
+  runId: string,
+): string {
+  assertSliceWorktreePathAvailable(parentSandboxDir, sliceId);
+  const sliceDir = resolveSliceWorktreeDir(parentSandboxDir, sliceId);
+
+  // 1. Real git worktree: tracked content arrives via git checkout, slice
+  //    branch is `brunch/slice/<runId>/<sliceId>` off the parent worktree's HEAD
+  //    (which is the run-level `brunch/run/<runId>` branch). Shares the source
+  //    repo's `.git/` object database via hardlinks — no full git copy.
+  pruneWorktrees(parentSandboxDir);
+  execFileSync(
+    'git',
+    ['worktree', 'add', '--quiet', '-b', brunchRef.slice(runId, sliceId), sliceDir, 'HEAD'],
+    {
+      cwd: parentSandboxDir,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
+
+  // 2. CoW-copy whatever's in the parent worktree but NOT in the slice
+  //    worktree yet — i.e. untracked / gitignored content (`dist/`, etc.) that
+  //    pi-actions might need at runtime. `node_modules/` is symlinked to the
+  //    parent's single copy instead of duplicated per slice (see
+  //    SHAREABLE_TOP_LEVEL_ENTRIES); `walkFiles` skips those entries by NAME, so
+  //    the shared tree is never re-walked during dependency seeding, merge, or
+  //    promotion — even if an in-slice `npm install` clobbers the symlink into a
+  //    real dir.
+  const excludedNames = new Set<string>(['.git', '.brunch', EPIC_MERGE_SEGMENT]);
+  for (const s of plan.slices) excludedNames.add(s.id);
+  copyMissingTopLevelEntries(parentSandboxDir, sliceDir, excludedNames, SHAREABLE_TOP_LEVEL_ENTRIES);
+
+  return sliceDir;
+}
+
+/**
+ * Top-level gitignored entries shared across slice sandboxes via symlink rather
+ * than CoW-copied per slice. `node_modules/` is install output that pi-actions
+ * read (resolve deps, run tests/build) but do not author, so a single
+ * parent-owned copy linked into each slice removes N-1 redundant tree copies.
+ * Build caches under it (`.cache`, `.vite`) become shared too — acceptable for
+ * cook's transient runs; revisit if a tool needs per-slice write isolation.
+ */
+export const SHAREABLE_TOP_LEVEL_ENTRIES: ReadonlySet<string> = new Set(['node_modules']);
+
+/**
+ * Idempotent codebase-mode slice worktree provisioning: create the git worktree
+ * on first call, no-op if it already exists. Called from `resolveSliceCwd` on
+ * every fire (action, run-tests, assess) and across reworks, so it must tolerate
+ * repeats. Provisioning is synchronous (`execFileSync`), so concurrent fires of
+ * distinct slices under the parallel policy serialize on the JS thread — no two
+ * `git worktree add` invocations against the shared object store overlap.
+ */
+export function ensureSliceWorktree(
+  parentSandboxDir: string,
+  sliceId: string,
+  plan: Plan,
+  runId: string,
+): string {
+  const sliceDir = resolveSliceWorktreeDir(parentSandboxDir, sliceId);
+  if (existsSync(sliceDir)) {
+    // An existing path is only a no-op when it is a real git worktree we
+    // provisioned (own `.git` gitfile). A bare existing entry means the slice
+    // id collided with a tracked parent path (e.g. slice `src` vs the repo's
+    // `src/`); adopting it as the sandbox would silently break per-slice
+    // isolation, so fail loudly — matching seedSliceFromParentWorktree's guard.
+    if (!existsSync(join(sliceDir, '.git'))) {
+      throw new Error(
+        `Slice id "${sliceId}" collides with an existing entry in the parent worktree (not a provisioned cook worktree)`,
+      );
+    }
+    return sliceDir;
+  }
+  return seedSliceFromParentWorktree(parentSandboxDir, sliceId, plan, runId);
+}
+
+/** Copy completed dependency slice worktrees into `slice`'s sandbox (plan order). */
+export function seedSliceSandboxFromDeps(
+  parentSandboxDir: string,
+  plan: Plan,
+  slice: Slice,
+  opts?: SeedSliceSandboxOptions,
+): string {
+  const preserveExisting = opts?.preserveExisting ?? false;
+  const sliceDir = resolveSliceWorktreeDir(parentSandboxDir, slice.id);
+  mkdirSync(sliceDir, { recursive: true });
+
+  const depFiles = collectDepFiles(parentSandboxDir, plan, slice);
+
+  if (!preserveExisting && depFiles.size > 0 && existsSync(sliceDir)) {
+    for (const file of walkFiles(sliceDir)) {
+      const rel = relativePathWithin(sliceDir, file);
+      if (!depFiles.has(rel)) {
+        rmSync(file, { force: true });
+      }
+    }
+    pruneEmptyDirs(sliceDir);
+  }
+
+  for (const [rel, src] of depFiles) {
+    const dest = join(sliceDir, rel);
+    if (preserveExisting && existsSync(dest)) continue;
+    copyIntoTree(src, dest, sliceDir);
+  }
+
+  return sliceDir;
+}
+
+function* walkFiles(rootDir: string, dir: string = rootDir): Iterable<string> {
+  for (const entry of readdirSync(dir)) {
+    if (WALK_SKIP_ENTRIES.has(entry)) continue;
+    // Shareable entries (node_modules) are skipped by NAME, not just when they
+    // are symlinks: an in-slice `npm install` clobbers the shared symlink into a
+    // real tree, and deep-copying that during seed exhausts the disk (ENOSPC).
+    // Slice sandboxes get them re-linked via SHAREABLE_TOP_LEVEL_ENTRIES seeding.
+    if (SHAREABLE_TOP_LEVEL_ENTRIES.has(entry)) continue;
+    const abs = join(dir, entry);
+    const st = lstatSync(abs);
+    if (st.isSymbolicLink()) continue;
+    if (st.isDirectory()) {
+      yield* walkFiles(rootDir, abs);
+    } else if (st.isFile()) {
+      yield abs;
+    }
+  }
+}

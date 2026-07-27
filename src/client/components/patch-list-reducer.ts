@@ -1,11 +1,17 @@
-// Patch-list module's functional core (D132).
-// Events are the internal primitive — append-only — shaped to match A71's
-// future server-side `appendPatch(spec, patch[])` so migration is a reducer
-// swap, not a public-API rewrite. Public surface is `patch-list-host.tsx`.
+// Events are the internal primitive — append-only — shaped to match a future
+// server-side `appendPatch(spec, patch[])` so migration is a reducer swap,
+// not a public-API rewrite. Public surface is `patch-list-host.tsx`.
+//
+// Per-chat scoping: each patch carries `producerChatId: number | null`. A
+// null value means "popover / global origin"; a numeric value scopes the
+// patch to one secondary chat. The reducer itself stays oblivious to the
+// scope — partitioning is enforced at the selector layer
+// (`usePatchListForChat`). Apply batches honour the per-chat scope
+// implicitly because each chat's apply only ever passes `patchIds` derived
+// from its own staged slice; cross-chat undo is not supported (per-batch
+// undo only — chat scope is implicit in the patch ids of the batch).
 
 import type { KnowledgeKind } from '@/shared/knowledge.js';
-
-// ---- Patch types (closed discriminated union — V2 extends `Patch`) ----
 
 export interface PatchAnchor {
   kind: KnowledgeKind;
@@ -23,6 +29,19 @@ interface PatchBase {
   summary: string;
   selectionRange?: PatchSelectionRange;
   createdAt: number;
+  /**
+   * Origin scope of the patch. `null` = popover / global (legacy default,
+   * what `usePatchList()` sees). A numeric value names the secondary chat
+   * that produced the patch; only `usePatchListForChat(chatId)` surfaces it.
+   * Required-but-nullable so the type system surfaces every stage call site.
+   */
+  producerChatId: number | null;
+  // Snapshot of the anchor item's reference code (e.g. "C1", "D5") at stage
+  // time. Populated by callers that have it in hand so consumers like
+  // PatchListOverlay can render the kind-tinted reference badge without
+  // re-querying the entity store. When absent, consumers fall back to
+  // summary-only.
+  anchorReferenceCode?: string;
 }
 
 export interface AnnotatePatch extends PatchBase {
@@ -30,10 +49,22 @@ export interface AnnotatePatch extends PatchBase {
   body: string;
 }
 
+export type EditImpactTier = 'none' | 'soft' | 'hard';
+
 export interface EditPatch extends PatchBase {
   kind: 'edit';
   newContent: string;
   newRationale?: string;
+  // Server-pre-classified at proposal time; rendered as a tier chip on the
+  // patch entry so users see soft / hard before clicking Apply. Optional
+  // because legacy paths (annotate auto-apply, manually-staged tests) may
+  // stage without server pre-classification.
+  impact?: EditImpactTier;
+  // Snapshot of the anchor item's current content at stage time. Populated
+  // by callers that have it in hand so consumers like PatchListOverlay can
+  // render a word-level <ContentDiff> without re-querying the entity store.
+  // When absent, consumers fall back to summary-only display.
+  currentContent?: string;
 }
 
 export interface EdgePatch extends PatchBase {
@@ -52,8 +83,6 @@ export type Patch = AnnotatePatch | EditPatch | EdgePatch | DrillDownPatch;
 // Distributive Omit so that the discriminated union is preserved per-member.
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 export type StagePatchInput = DistributiveOmit<Patch, 'id' | 'createdAt'>;
-
-// ---- Events (the only writable primitive) ----
 
 export interface PatchStagedEvent {
   type: 'PatchStaged';
@@ -87,11 +116,9 @@ export type PatchEvent =
   | BatchAppliedEvent
   | BatchUndoneEvent;
 
-// ---- Reducer state ----
-
 // Undo handles are not serializable, so they sidecar alongside events.
-// Migrating to A71 (server-side event log) keeps `events` as the wire format
-// and re-derives `pendingUndos` from server response shape — no public-API change.
+// Migrating to a server-side event log keeps `events` as the wire format and
+// re-derives `pendingUndos` from server response shape — no public-API change.
 export interface PatchListReducerState {
   events: readonly PatchEvent[];
   isApplying: boolean;
@@ -176,8 +203,6 @@ export function patchListReducer(
   }
 }
 
-// ---- Pure fold over events → derived state ----
-
 export interface DerivedPatchListState {
   staged: readonly Patch[];
   count: number;
@@ -241,7 +266,7 @@ function foldEvents(events: readonly PatchEvent[]): FoldAccumulator {
         }
         break;
       case 'BatchUndone':
-        // Terminal: undone patches don't re-stage, so the auto-apply effect (D131)
+        // Terminal: undone patches don't re-stage, so the auto-apply effect
         // doesn't immediately reapply them.
         acc.undoneBatchIds.add(event.batchId);
         break;
@@ -249,6 +274,21 @@ function foldEvents(events: readonly PatchEvent[]): FoldAccumulator {
   }
 
   return acc;
+}
+
+// Hard-impact apply marks its applied metadata with `noUndo: true` because
+// the source mutation can't be reversed without going through the
+// reconciliation queue. A batch where every entry is noUndo should keep the
+// Undo button hidden so the user isn't offered a click that does nothing.
+function batchHasUndoableEntry(appliedMeta: ReadonlyArray<{ patchId: string; applied: unknown }>): boolean {
+  if (appliedMeta.length === 0) {
+    return true;
+  }
+  return appliedMeta.some((entry) => {
+    if (!entry.applied || typeof entry.applied !== 'object') return true;
+    const record = entry.applied as { noUndo?: unknown };
+    return record.noUndo !== true;
+  });
 }
 
 export function deriveState(reducerState: PatchListReducerState): DerivedPatchListState {
@@ -275,7 +315,10 @@ export function deriveState(reducerState: PatchListReducerState): DerivedPatchLi
   return {
     staged,
     count: staged.length,
-    canUndo: lastBatch !== undefined && reducerState.pendingUndos.has(lastBatch.batchId),
+    canUndo:
+      lastBatch !== undefined &&
+      reducerState.pendingUndos.has(lastBatch.batchId) &&
+      batchHasUndoableEntry(lastBatch.appliedMeta),
     isApplying: reducerState.isApplying,
     lastBatchId: lastBatch?.batchId ?? null,
     lastBatchPatches,
