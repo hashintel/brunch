@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // --- Core tables ---
 
@@ -10,6 +10,7 @@ export const specification = sqliteTable('specification', {
     .notNull()
     .default('greenfield'),
   active_turn_id: integer(),
+  primary_chat_id: integer().references((): any => chat.id),
   created_at: text()
     .notNull()
     .default(sql`(datetime('now'))`),
@@ -18,11 +19,38 @@ export const specification = sqliteTable('specification', {
     .default(sql`(datetime('now'))`),
 });
 
+export const chat = sqliteTable(
+  'chat',
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    specification_id: integer()
+      .notNull()
+      .references(() => specification.id),
+    kind: text({ enum: ['interview', 'side_chat'] }).notNull(),
+    active_turn_id: integer().references((): any => turn.id),
+    parent_chat_id: integer().references((): any => chat.id),
+    invoked_in_turn_id: integer().references((): any => turn.id),
+    pinned_item_id: integer().references(() => knowledgeItem.id),
+    pinned_span_hint: text(),
+    pinned_reconciliation_need_id: integer().references((): any => reconciliationNeed.id),
+    mode: text({ enum: ['explore', 'edit'] }),
+    anchored_item_ids: text().notNull().default('[]'),
+    created_at: text()
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('chat_parent_chat_id_idx').on(table.parent_chat_id),
+    index('chat_invoked_in_turn_id_idx').on(table.invoked_in_turn_id),
+  ],
+);
+
 export const turn = sqliteTable('turn', {
   id: integer().primaryKey({ autoIncrement: true }),
   specification_id: integer()
     .notNull()
     .references(() => specification.id),
+  chat_id: integer().references((): any => chat.id),
   parent_turn_id: integer().references((): any => turn.id),
   phase: text({ enum: ['grounding', 'design', 'requirements', 'criteria'] }).notNull(),
   turn_kind: text({ enum: ['question', 'kickoff', 'recovery'] })
@@ -143,3 +171,58 @@ export const annotation = sqliteTable('annotation', {
     .notNull()
     .default(sql`(datetime('now'))`),
 });
+
+export const reconciliationNeed = sqliteTable(
+  'reconciliation_need',
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    specification_id: integer()
+      .notNull()
+      .references(() => specification.id),
+    source_item_id: integer()
+      .notNull()
+      .references(() => knowledgeItem.id, { onDelete: 'cascade' }),
+    target_item_id: integer()
+      .notNull()
+      .references(() => knowledgeItem.id, { onDelete: 'cascade' }),
+    kind: text({ enum: ['supersedes', 'needs_confirmation'] }).notNull(),
+    status: text({ enum: ['open', 'resolved'] })
+      .notNull()
+      .default('open'),
+    reason: text(),
+    caused_by_turn_id: integer().references(() => turn.id),
+    caused_by_patch_id: integer(),
+    created_at: text()
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    resolved_at: text(),
+    // V3.1 setup (card 1 in memory/CARDS.md): nullable source-content
+    // snapshots captured when the cascade producer opens the need. Frozen
+    // for the need's lifetime so downstream surfaces (Pending review diff,
+    // V3.1 agent classification pre-image) don't re-derive the source delta
+    // from mutable knowledge_item history. Advisory render data only —
+    // never load-bearing for any invariant; nulls are valid for legacy rows
+    // and tests that bypass the producer.
+    source_previous_content: text(),
+    source_current_content: text(),
+    // V3.1 slice 4 (memory/CARDS.md): reconciliation-classifier lifecycle.
+    // null      → never classified (default for new and legacy rows)
+    // queued    → run-agent route picked the row up but hasn't called the LLM
+    // classifying → the LLM call is in flight
+    // classified  → the LLM returned a parseable label; agent_classification is non-null
+    // failed     → the LLM threw OR returned an unparseable label; agent_proposal carries the error
+    // Per I114 the lifecycle is recoverable: a per-row Re-run (slice 5) re-sets
+    // agent_status to null so the run-agent route picks it up again. agent_proposal
+    // is text-only and is NEVER auto-applied — the user always clicks Apply / Skip
+    // (slice 6); that recoverability is what lets the inner-loop tests stay shallow.
+    agent_status: text({ enum: ['queued', 'classifying', 'classified', 'failed'] }),
+    agent_classification: text({ enum: ['auto-confirm', 'auto-edit', 'substantive'] }),
+    agent_proposal: text(),
+  },
+  (table) => [
+    // Omits specification_id because knowledge_item.id is globally unique across specs.
+    uniqueIndex('reconciliation_need_open_unique')
+      .on(table.source_item_id, table.target_item_id, table.kind)
+      .where(sql`status = 'open'`),
+  ],
+);

@@ -26,7 +26,7 @@ When understanding is reached, present these options to the user (use `tool-ask-
 | #   | Label           | Target     | Why                                     |
 | --- | --------------- | ---------- | --------------------------------------- |
 | 1   | Write a spec    | `ln-spec`  | Understanding is sufficient for a spec  |
-| 2   | Plan slices     | `ln-plan`  | Problem is clear, needs slice breakdown |
+| 2   | Plan frontier   | `ln-plan`  | Problem is clear, needs frontier breakdown |
 | 3   | Scope one slice | `ln-scope` | One slice is already obvious            |
 
 Recommended: choose based on how much structure the understanding needs.

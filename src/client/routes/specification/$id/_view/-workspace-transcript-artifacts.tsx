@@ -118,6 +118,7 @@ function renderWorkspaceHistoryArtifact({
         <WorkspaceArtifactRow
           key={`answered-turn-${artifact.turn.id}`}
           activity={renderPersistedActivity(artifact.turn)}
+          anchorTurnId={artifact.turn.id}
         >
           <AnsweredQuestionCard
             turn={artifact.turn}
@@ -131,6 +132,7 @@ function renderWorkspaceHistoryArtifact({
         <WorkspaceArtifactRow
           key={`prefaced-question-${artifact.turn.id}`}
           activity={renderPersistedActivity(artifact.turn)}
+          anchorTurnId={artifact.turn.id}
         >
           <PrefaceCard preface={artifact.preface} />
           <AnsweredQuestionCard
@@ -145,6 +147,7 @@ function renderWorkspaceHistoryArtifact({
         <WorkspaceArtifactRow
           key={`answered-review-turn-${artifact.turn.id}`}
           activity={renderPersistedActivity(artifact.turn)}
+          anchorTurnId={artifact.turn.id}
         >
           <AnsweredReviewSetCard
             turn={artifact.turn}
@@ -161,6 +164,7 @@ function renderWorkspaceHistoryArtifact({
         <WorkspaceArtifactRow
           key={`answered-revision-review-${artifact.turn.id}`}
           activity={renderPersistedActivity(artifact.turn)}
+          anchorTurnId={artifact.turn.id}
         >
           <RevisionCard revisionNumber={artifact.revisionNumber} changeSummary={artifact.changeSummary} />
           <AnsweredReviewSetCard
@@ -188,6 +192,7 @@ function renderWorkspaceHistoryArtifact({
           key={`accepted-closure-${artifact.acceptedClosure.turnId}`}
           activity={renderPersistedActivity(artifact.turn)}
           testId="accepted-closure-card"
+          anchorTurnId={artifact.acceptedClosure.turnId}
         >
           <AcceptedClosureCard
             phase={artifact.acceptedClosure.phase}
@@ -235,6 +240,7 @@ function renderWorkspaceInteractiveArtifact({
               : renderPersistedActivity(artifact.artifact.turn)
           }
           errorMessage={artifact.artifact.errorMessage}
+          anchorTurnId={artifact.artifact.turn.id}
         >
           {reviewSet ? (
             <ActiveReviewSetCard
@@ -285,13 +291,14 @@ function renderWorkspaceInteractiveArtifact({
     case 'active-prefaced-question':
       return (
         <WorkspaceArtifactRow
-          key={`active-prefaced-question-${artifact.artifact.turn.id}`}
+          key={`persisted-turn-${artifact.artifact.turn.id}`}
           activity={
             artifact.artifact.liveActivity
               ? renderLiveActivity(artifact.artifact.liveActivity)
               : renderPersistedActivity(artifact.artifact.turn)
           }
           errorMessage={artifact.artifact.errorMessage}
+          anchorTurnId={artifact.artifact.turn.id}
         >
           <PrefaceCard preface={artifact.preface} />
           <ActiveQuestionCard

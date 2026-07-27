@@ -8,15 +8,26 @@ export function WorkspaceArtifactRow({
   errorMessage,
   className,
   testId,
+  anchorTurnId,
 }: {
   activity?: React.ReactNode;
   children: React.ReactNode;
   errorMessage?: string | null;
   className?: string;
   testId?: string;
+  /**
+   * When set, the row exposes `data-anchor-turn-id` so the unified-chat-shell's
+   * per-chat "Jump to anchor" affordance can scroll the workspace center pane
+   * to the artifact bearing this turn id.
+   */
+  anchorTurnId?: number;
 }) {
   return (
-    <div className={cn('flex flex-col gap-4', className)} {...(testId ? { 'data-testid': testId } : {})}>
+    <div
+      className={cn('flex flex-col gap-4 transition-shadow', className)}
+      {...(testId ? { 'data-testid': testId } : {})}
+      {...(anchorTurnId !== undefined ? { 'data-anchor-turn-id': String(anchorTurnId) } : {})}
+    >
       {activity}
       {children}
       {errorMessage ? <WorkspaceArtifactErrorMessage message={errorMessage} /> : null}

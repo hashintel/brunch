@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Plan-Graph Petri Orchestration Prototype</title>
+  </head>
+  <body>
+    <main id="app">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Brunch next prototype</p>
+          <h1>Plan-graph ⇄ Petri orchestration</h1>
+          <p>
+            A small Cytoscape.js pressure-test for representing mechanical execution and semantic
+            completion as coupled Petri-net lanes.
+          </p>
+        </div>
+        <div class="scenario-picker" id="scenario-picker"></div>
+      </section>
+
+      <section class="workspace">
+        <aside class="panel panel-left">
+          <h2>Scenario</h2>
+          <div id="scenario-summary"></div>
+          <h2>Blocked transitions</h2>
+          <div id="blocked-list"></div>
+        </aside>
+
+        <section class="graph-shell">
+          <div class="legend">
+            <span><i class="dot mechanical"></i>Mechanical</span>
+            <span><i class="dot oracle"></i>Oracle</span>
+            <span><i class="dot design"></i>Design</span>
+            <span><i class="dot semantic"></i>Semantic</span>
+            <span><i class="dot revision"></i>Revision/risk</span>
+            <span><i class="token-swatch present"></i>Token present</span>
+            <span><i class="token-swatch absent"></i>Token missing</span>
+            <span><i class="transition-swatch fired"></i>Transition fired</span>
+            <span><i class="transition-swatch idle"></i>Transition never fired</span>
+          </div>
+          <div id="cy"></div>
+        </section>
+
+        <aside class="panel panel-right">
+          <h2>Selection</h2>
+          <div id="selection-detail" class="empty">Select a place, transition, or arc.</div>
+          <h2>Completion claim</h2>
+          <div id="completion-detail"></div>
+        </aside>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

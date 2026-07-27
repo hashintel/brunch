@@ -32,23 +32,68 @@ import {
   singleItemNoEdges,
 } from '@/client/__fixtures__/graph-view.js';
 import { PatchListProvider, type PatchAppliers } from '@/client/components/patch-list-host.js';
-import { SideChatHost, useSideChat, type SideChatPinnableItem } from '@/client/components/side-chat-host.js';
-import type { SideChatStreamEvent } from '@/client/lib/side-chat-stream.js';
+import { PatchListOverlay } from '@/client/components/patch-list-overlay.js';
 
 const mockNavigate = vi.fn();
 let mockHash = '';
-const { mockStreamSideChatResponse } = vi.hoisted(() => ({
-  mockStreamSideChatResponse: vi.fn(),
-}));
+
+type MockSecondaryChat = {
+  chat: { id: number; pinned_item_id: number | null; pinned_reconciliation_need_id: number | null };
+  pinnedItemKind: string | null;
+  anchoredItemIds: number[];
+};
+let mockSecondaryChats: MockSecondaryChat[] = [];
+let mockFocusedChatId: number | null = null;
+function setMockSecondaryChats(chats: MockSecondaryChat[]): void {
+  mockSecondaryChats = chats;
+}
+function setMockFocusedChatId(id: number | null): void {
+  mockFocusedChatId = id;
+}
 
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => mockNavigate,
   useLocation: () => ({ hash: mockHash, pathname: '/specification/1/graph', search: '' }),
+  useParams: () => ({ id: '1' }),
 }));
 
-vi.mock('@/client/lib/side-chat-stream.js', () => ({
-  streamSideChatResponse: mockStreamSideChatResponse,
-}));
+// PendingReviewSection queries -specification-data; preserve the real module and
+// only stub open-needs + invalidation so tests stay isolated from TanStack Query.
+// Also stub `useSpecificationBundleData` so the structured-list's active-chat
+// anchor lookup runs without a QueryClient harness.
+vi.mock('@/client/routes/specification/$id/-specification-data.js', async (importOriginal) => {
+  const mod =
+    await importOriginal<typeof import('@/client/routes/specification/$id/-specification-data.js')>();
+  return {
+    ...mod,
+    useSpecificationOpenReconciliationNeeds: () => [],
+    invalidateOpenReconciliationNeeds: vi.fn(),
+    useSpecificationBundleData: () => ({
+      specification: { id: 1 },
+      secondaryChats: mockSecondaryChats,
+    }),
+    useSpecificationAnnotations: () => [],
+  };
+});
+
+vi.mock('@/client/components/chat-shell-presence.js', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@/client/components/chat-shell-presence.js')>();
+  return {
+    ...mod,
+    useChatShellPresence: () => ({
+      appearance: 'expanded' as const,
+      isCollapsed: false,
+      collapse: vi.fn(),
+      minimize: vi.fn(),
+      close: vi.fn(),
+      expand: vi.fn(),
+      focusedChatId: mockFocusedChatId,
+      focusChat: vi.fn(),
+      clearFocus: vi.fn(),
+      jumpToAnchor: vi.fn(),
+    }),
+  };
+});
 
 import { RelationChipPreview } from '../-relation-chip.js';
 import { StructuredListView } from '../-structured-list-view.js';
@@ -57,8 +102,9 @@ let scrollToSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   mockNavigate.mockClear();
-  mockStreamSideChatResponse.mockReset();
   mockHash = '';
+  mockSecondaryChats = [];
+  mockFocusedChatId = null;
   scrollToSpy = vi.spyOn(Element.prototype, 'scrollTo').mockImplementation(() => {});
 });
 
@@ -431,41 +477,6 @@ describe('StructuredListView', () => {
     }
   });
 
-  it('keeps the chat-with button as a disabled placeholder when rendered without a SideChatHost ancestor', () => {
-    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
-
-    const rows = container.querySelectorAll('[data-graph-row]');
-    expect(rows.length).toBeGreaterThan(0);
-
-    for (const row of rows) {
-      const rail = row.querySelector('[data-graph-action-rail]');
-      expect(rail).toBeTruthy();
-      const chatButton = row.querySelector(
-        'button[data-graph-action="chat-with"]',
-      ) as HTMLButtonElement | null;
-      expect(chatButton).toBeTruthy();
-      if (!chatButton) continue;
-      expect(chatButton.disabled).toBe(true);
-      expect(chatButton.getAttribute('aria-label')?.toLowerCase()).toMatch(/chat/);
-    }
-  });
-
-  it('activates the chat-with button on every item row when wrapped in a SideChatHost', () => {
-    const { container } = render(
-      <SideChatHost specificationId={42}>
-        <StructuredListView entityState={crossPhaseDecisionLink()} />
-      </SideChatHost>,
-    );
-
-    const buttons = container.querySelectorAll(
-      'button[data-graph-action="chat-with"]',
-    ) as NodeListOf<HTMLButtonElement>;
-    expect(buttons.length).toBeGreaterThan(0);
-    for (const button of buttons) {
-      expect(button.disabled).toBe(false);
-    }
-  });
-
   it('positions the action rail to the right of the item content', () => {
     const { container } = render(<StructuredListView entityState={singleItemNoEdges()} />);
 
@@ -628,331 +639,6 @@ describe('StructuredListView', () => {
     expect(container.querySelector('[data-graph-kind-anchor="goal"]')).toBeTruthy();
     expect(mockNavigate).toHaveBeenCalledWith(expect.objectContaining({ hash: 'kind-goal' }));
   });
-
-  describe('side-chat session', () => {
-    function makeManualStream() {
-      let onChunk: ((event: SideChatStreamEvent) => void) | undefined;
-      let resolveStream: () => void = () => {};
-      const promise = new Promise<void>((resolve) => {
-        resolveStream = resolve;
-      });
-      mockStreamSideChatResponse.mockImplementation(
-        (_request: unknown, chunkCallback: (event: SideChatStreamEvent) => void): Promise<void> => {
-          onChunk = chunkCallback;
-          return promise;
-        },
-      );
-      return {
-        emit(event: SideChatStreamEvent) {
-          act(() => {
-            onChunk?.(event);
-          });
-        },
-        finish() {
-          resolveStream();
-          return promise;
-        },
-      };
-    }
-
-    function renderInsideHost(entityState: ReturnType<typeof singleItemNoEdges>, specificationId = 42) {
-      return render(
-        <SideChatHost specificationId={specificationId}>
-          <StructuredListView entityState={entityState} />
-        </SideChatHost>,
-      );
-    }
-
-    it('does not re-render side-chat context consumers while streaming text deltas', () => {
-      const stream = makeManualStream();
-      let renderCount = 0;
-      let openFor: ((item: SideChatPinnableItem) => void) | null = null;
-
-      function ContextConsumerProbe() {
-        renderCount += 1;
-        openFor = useSideChat()?.openFor ?? null;
-        return null;
-      }
-
-      render(
-        <SideChatHost specificationId={42}>
-          <ContextConsumerProbe />
-        </SideChatHost>,
-      );
-
-      expect(openFor).toBeTruthy();
-      act(() => {
-        openFor?.({
-          kind: 'goal',
-          id: 1,
-          referenceCode: 'G1',
-          content: 'Reduce signup drop-off',
-        });
-      });
-      const renderCountAfterOpen = renderCount;
-
-      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
-      fireEvent.click(screen.getByRole('button', { name: /send/i }));
-      stream.emit({ type: 'text-delta', delta: 'It ' });
-      stream.emit({ type: 'text-delta', delta: 'depends.' });
-
-      expect(renderCount).toBe(renderCountAfterOpen);
-    });
-
-    it('does not mount a side-chat popover before the user clicks chat-with', () => {
-      renderInsideHost(singleItemNoEdges());
-      expect(screen.queryByRole('dialog', { name: /side[- ]chat/i })).toBeNull();
-    });
-
-    it('mounts a SideChatPopover pinned to the row when the chat-with button is clicked', () => {
-      const { container } = renderInsideHost(singleItemNoEdges());
-
-      const chatButton = container.querySelector(
-        'button[data-graph-action="chat-with"]',
-      ) as HTMLButtonElement;
-      fireEvent.click(chatButton);
-
-      const dialog = screen.getByRole('dialog', { name: /side[- ]chat/i });
-      expect(within(dialog).getByText('Reduce signup drop-off')).toBeTruthy();
-      expect(within(dialog).getByText('G1')).toBeTruthy();
-    });
-
-    it('only mounts one popover at a time and swaps the pinned item when chat-with is clicked on a different row', () => {
-      const { container } = renderInsideHost(crossPhaseDecisionLink());
-
-      const chatButtons = container.querySelectorAll(
-        'button[data-graph-action="chat-with"]',
-      ) as NodeListOf<HTMLButtonElement>;
-      expect(chatButtons.length).toBeGreaterThanOrEqual(2);
-
-      fireEvent.click(chatButtons[0]);
-      const firstDialog = screen.getByRole('dialog', { name: /side[- ]chat/i });
-      const firstPinnedRef = within(firstDialog).getByText(/^[A-Z]+\d+$/).textContent;
-      expect(firstPinnedRef).toBeTruthy();
-
-      fireEvent.click(chatButtons[1]);
-      const dialogs = screen.getAllByRole('dialog', { name: /side[- ]chat/i });
-      expect(dialogs).toHaveLength(1);
-      const secondPinnedRef = within(dialogs[0]).getByText(/^[A-Z]+\d+$/).textContent;
-      expect(secondPinnedRef).not.toBe(firstPinnedRef);
-    });
-
-    it('clears the unsent draft when switching the pinned side-chat item', () => {
-      const { container } = renderInsideHost(crossPhaseDecisionLink());
-
-      const chatButtons = container.querySelectorAll(
-        'button[data-graph-action="chat-with"]',
-      ) as NodeListOf<HTMLButtonElement>;
-      expect(chatButtons.length).toBeGreaterThanOrEqual(2);
-
-      fireEvent.click(chatButtons[0]);
-      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Draft for first item' } });
-      expect((screen.getByLabelText('Message') as HTMLTextAreaElement).value).toBe('Draft for first item');
-
-      fireEvent.click(chatButtons[1]);
-
-      expect((screen.getByLabelText('Message') as HTMLTextAreaElement).value).toBe('');
-    });
-
-    it('calls streamSideChatResponse with the row context and submitted message on send', () => {
-      makeManualStream();
-      const { container } = renderInsideHost(singleItemNoEdges());
-
-      fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
-      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
-      fireEvent.click(screen.getByRole('button', { name: /send/i }));
-
-      expect(mockStreamSideChatResponse).toHaveBeenCalledTimes(1);
-      const [requestArg] = mockStreamSideChatResponse.mock.calls[0];
-      expect(requestArg).toMatchObject({
-        specificationId: 42,
-        itemKind: 'goal',
-        itemId: 1,
-        message: 'Why?',
-      });
-    });
-
-    it('renders streamed text-delta chunks incrementally as a pending assistant message', async () => {
-      const stream = makeManualStream();
-      const { container } = renderInsideHost(singleItemNoEdges());
-
-      fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
-      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
-      fireEvent.click(screen.getByRole('button', { name: /send/i }));
-
-      stream.emit({ type: 'text-delta', delta: 'It ' });
-      stream.emit({ type: 'text-delta', delta: 'depends.' });
-
-      const dialog = screen.getByRole('dialog', { name: /side[- ]chat/i });
-      const log = within(dialog).getByRole('log', { name: /side[- ]chat messages/i });
-      // The assistant bubble uses a typewriter reveal; wait for it to catch up.
-      await waitFor(() => {
-        const messages = log.querySelectorAll('[data-message-role]');
-        expect(messages).toHaveLength(2);
-        expect(messages[1].textContent).toContain('It depends.');
-      });
-      const messages = log.querySelectorAll('[data-message-role]');
-      expect(messages[0].getAttribute('data-message-role')).toBe('user');
-      expect(messages[0].textContent).toContain('Why?');
-      expect(messages[1].getAttribute('data-message-role')).toBe('assistant');
-    });
-
-    it('renders an error message and re-enables sending when the stream rejects', async () => {
-      mockStreamSideChatResponse.mockRejectedValue(new Error('Side-chat request failed'));
-      const { container } = renderInsideHost(singleItemNoEdges());
-
-      fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
-      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
-      fireEvent.click(screen.getByRole('button', { name: /send/i }));
-
-      await act(async () => {
-        await Promise.resolve();
-      });
-
-      const dialog = screen.getByRole('dialog', { name: /side[- ]chat/i });
-      const log = within(dialog).getByRole('log', { name: /side[- ]chat messages/i });
-      const messages = log.querySelectorAll('[data-message-role]');
-      expect(messages).toHaveLength(2);
-      expect(messages[1].getAttribute('data-message-role')).toBe('assistant');
-      expect(messages[1].getAttribute('data-message-error')).toBe('true');
-      expect(messages[1].getAttribute('data-message-pending')).not.toBe('true');
-
-      // Send re-enables for retry.
-      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Try again' } });
-      const send = screen.getByRole('button', { name: /send/i }) as HTMLButtonElement;
-      expect(send.disabled).toBe(false);
-    });
-
-    it('sends prior finalized turns as history on the second send', async () => {
-      const stream = makeManualStream();
-      const { container } = renderInsideHost(singleItemNoEdges());
-
-      // First turn
-      fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
-      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
-      fireEvent.click(screen.getByRole('button', { name: /send/i }));
-
-      stream.emit({ type: 'text-delta', delta: 'Because reasons.' });
-      stream.emit({ type: 'done' });
-      await act(async () => {
-        await stream.finish();
-      });
-
-      // Second turn
-      const stream2 = makeManualStream();
-      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Tell me more.' } });
-      fireEvent.click(screen.getByRole('button', { name: /send/i }));
-
-      expect(mockStreamSideChatResponse).toHaveBeenCalledTimes(2);
-      const [secondRequest] = mockStreamSideChatResponse.mock.calls[1];
-      expect(secondRequest).toMatchObject({
-        message: 'Tell me more.',
-        history: [
-          { role: 'user', text: 'Why?' },
-          { role: 'assistant', text: 'Because reasons.' },
-        ],
-      });
-
-      // Drain the second stream so its dangling promise doesn't leak between tests.
-      stream2.emit({ type: 'done' });
-      await act(async () => {
-        await stream2.finish();
-      });
-    });
-
-    it('does not include errored turns in history on retry', async () => {
-      mockStreamSideChatResponse.mockRejectedValueOnce(new Error('boom'));
-      const { container } = renderInsideHost(singleItemNoEdges());
-
-      fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
-      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
-      fireEvent.click(screen.getByRole('button', { name: /send/i }));
-      await act(async () => {
-        await Promise.resolve();
-      });
-
-      const stream2 = makeManualStream();
-      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Try again' } });
-      fireEvent.click(screen.getByRole('button', { name: /send/i }));
-
-      const [secondRequest] = mockStreamSideChatResponse.mock.calls[1];
-      expect(secondRequest.history).toEqual([]);
-
-      stream2.emit({ type: 'done' });
-      await act(async () => {
-        await stream2.finish();
-      });
-    });
-
-    it('keeps successful history while dropping a failed exchange on retry', async () => {
-      const stream = makeManualStream();
-      const { container } = renderInsideHost(singleItemNoEdges());
-
-      // First turn succeeds.
-      fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
-      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
-      fireEvent.click(screen.getByRole('button', { name: /send/i }));
-      stream.emit({ type: 'text-delta', delta: 'Because reasons.' });
-      stream.emit({ type: 'done' });
-      await act(async () => {
-        await stream.finish();
-      });
-
-      // Second turn fails.
-      mockStreamSideChatResponse.mockRejectedValueOnce(new Error('boom'));
-      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'What about backups?' } });
-      fireEvent.click(screen.getByRole('button', { name: /send/i }));
-      await act(async () => {
-        await Promise.resolve();
-      });
-
-      // Retry should keep only the successful first exchange in history.
-      const stream3 = makeManualStream();
-      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Try again' } });
-      fireEvent.click(screen.getByRole('button', { name: /send/i }));
-
-      const [thirdRequest] = mockStreamSideChatResponse.mock.calls[2];
-      expect(thirdRequest).toMatchObject({
-        message: 'Try again',
-        history: [
-          { role: 'user', text: 'Why?' },
-          { role: 'assistant', text: 'Because reasons.' },
-        ],
-      });
-
-      stream3.emit({ type: 'done' });
-      await act(async () => {
-        await stream3.finish();
-      });
-    });
-
-    it('finalizes the assistant message and re-enables sending after the stream finishes', async () => {
-      const stream = makeManualStream();
-      const { container } = renderInsideHost(singleItemNoEdges());
-
-      fireEvent.click(container.querySelector('button[data-graph-action="chat-with"]') as HTMLButtonElement);
-      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Why?' } });
-      fireEvent.click(screen.getByRole('button', { name: /send/i }));
-
-      stream.emit({ type: 'text-delta', delta: 'Done.' });
-      stream.emit({ type: 'done' });
-      await act(async () => {
-        await stream.finish();
-      });
-
-      const dialog = screen.getByRole('dialog', { name: /side[- ]chat/i });
-      const log = within(dialog).getByRole('log', { name: /side[- ]chat messages/i });
-      const messages = log.querySelectorAll('[data-message-role]');
-      expect(messages).toHaveLength(2);
-      expect(messages[1].getAttribute('data-message-pending')).not.toBe('true');
-      expect(messages[1].textContent).toContain('Done.');
-
-      // Ready to send the next message once the input is non-empty.
-      fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Again?' } });
-      const send = screen.getByRole('button', { name: /send/i }) as HTMLButtonElement;
-      expect(send.disabled).toBe(false);
-    });
-  });
 });
 
 describe('structured-list-view unhideAndNavigate helper', () => {
@@ -1057,9 +743,7 @@ describe('structured-list-view annotatable attributes', () => {
           drillDown: vi.fn() as never,
         }}
       >
-        <SideChatHost specificationId={1}>
-          <StructuredListView entityState={singleItemNoEdges()} />
-        </SideChatHost>
+        <StructuredListView entityState={singleItemNoEdges()} />
       </PatchListProvider>,
     );
     const annotatable = container.querySelector('[data-annotatable]');
@@ -1089,9 +773,7 @@ describe('structured-list-view selection menu', () => {
 
     const { container } = render(
       <PatchListProvider appliers={appliers}>
-        <SideChatHost specificationId={1}>
-          <StructuredListView entityState={singleItemNoEdges()} />
-        </SideChatHost>
+        <StructuredListView entityState={singleItemNoEdges()} />
       </PatchListProvider>,
     );
 
@@ -1112,7 +794,7 @@ describe('structured-list-view selection menu', () => {
       document.dispatchEvent(new Event('selectionchange'));
     });
 
-    const annotateButton = await screen.findByRole('button', { name: /annotate/i });
+    const annotateButton = await screen.findByRole('button', { name: /add to notes/i });
     await act(async () => {
       fireEvent.click(annotateButton);
     });
@@ -1122,5 +804,401 @@ describe('structured-list-view selection menu', () => {
     expect(patchArg.kind).toBe('annotate');
     expect(patchArg.summary).toBe(phrase);
     expect(patchArg.selectionRange).toEqual({ start: 0, end: length });
+  });
+});
+
+describe('structured-list-view direct edit (FE-657)', () => {
+  function makeAppliers(editMock?: PatchAppliers['edit']): PatchAppliers {
+    return {
+      annotate: vi.fn() as never,
+      edit: (editMock ?? (vi.fn() as never)) as PatchAppliers['edit'],
+      edge: vi.fn() as never,
+      drillDown: vi.fn() as never,
+    };
+  }
+
+  it('renders an Edit button on each row that opens an inline textarea seeded with current content', async () => {
+    const { container } = render(
+      <PatchListProvider appliers={makeAppliers()}>
+        <PatchListOverlay />
+        <StructuredListView entityState={singleItemNoEdges()} />
+      </PatchListProvider>,
+    );
+
+    const editButton = container.querySelector('[data-graph-action="edit"]') as HTMLButtonElement | null;
+    expect(editButton).not.toBeNull();
+    expect(editButton!.disabled).toBe(false);
+
+    await act(async () => {
+      fireEvent.click(editButton!);
+    });
+
+    const textarea = container.querySelector('[data-graph-row-edit-textarea]') as HTMLTextAreaElement | null;
+    expect(textarea).not.toBeNull();
+    expect(textarea!.value).toBe('Reduce signup drop-off');
+    // While editing, the static <p data-annotatable> for that row is replaced
+    // by the textarea so the user types over the same content.
+    const annotatableInRow = container.querySelector('[data-graph-row-editing="true"] [data-annotatable]');
+    expect(annotatableInRow).toBeNull();
+  });
+
+  it('stages an edit patch with currentContent / newContent when the user types and presses Cmd+Enter', async () => {
+    const editMock = vi.fn(() =>
+      Promise.resolve({
+        undo: () => Promise.resolve(),
+        applied: { impact: 'none', previousContent: 'Reduce signup drop-off' },
+      }),
+    );
+    const appliers = makeAppliers(editMock as unknown as PatchAppliers['edit']);
+
+    const { container } = render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StructuredListView entityState={singleItemNoEdges()} />
+      </PatchListProvider>,
+    );
+
+    const editButton = container.querySelector('[data-graph-action="edit"]') as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(editButton);
+    });
+
+    const textarea = container.querySelector('[data-graph-row-edit-textarea]') as HTMLTextAreaElement;
+
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: 'Reduce signup drop-off by 20%' } });
+    });
+    await act(async () => {
+      fireEvent.keyDown(textarea, { key: 'Enter', metaKey: true });
+    });
+
+    // Patch is staged synchronously into the patch list overlay; the apply
+    // (and thus editMock) only fires after the user clicks Apply, so we just
+    // assert the staged patch surfaced via the overlay.
+    expect(container.querySelector('[data-graph-row-edit-textarea]')).toBeNull();
+    // Overlay's count attribute reflects the newly staged edit patch.
+    await waitFor(() => {
+      const overlay = container.querySelector('[data-staged-count]');
+      expect(overlay).not.toBeNull();
+      expect(overlay!.getAttribute('data-staged-count')).toBe('1');
+    });
+    // Expanding the overlay reveals the summary + the anchor reference badge
+    // generated from the row's referenceCode.
+    const overlayToggle = container.querySelector(
+      '[aria-label="Staged changes"] button[aria-expanded="false"]',
+    ) as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(overlayToggle);
+    });
+    await waitFor(() => {
+      expect(screen.getByText(/Edit G1/)).toBeTruthy();
+    });
+    expect(container.querySelector('[data-staged-patch-anchor="G1"]')).not.toBeNull();
+    expect(container.querySelector('[data-staged-patch-kind="edit"]')).not.toBeNull();
+  });
+
+  it('cancels the edit on Escape without staging anything', async () => {
+    const appliers = makeAppliers();
+
+    const { container } = render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StructuredListView entityState={singleItemNoEdges()} />
+      </PatchListProvider>,
+    );
+
+    const editButton = container.querySelector('[data-graph-action="edit"]') as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(editButton);
+    });
+
+    const textarea = container.querySelector('[data-graph-row-edit-textarea]') as HTMLTextAreaElement;
+
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: 'something else entirely' } });
+    });
+    await act(async () => {
+      fireEvent.keyDown(textarea, { key: 'Escape' });
+    });
+
+    expect(container.querySelector('[data-graph-row-edit-textarea]')).toBeNull();
+    // No edit patch staged → overlay (which only renders when staged > 0) absent.
+    expect(container.querySelector('[data-staged-count]')).toBeNull();
+  });
+
+  it('Save button stages the patch; Save is disabled while content is unchanged or empty', async () => {
+    const appliers = makeAppliers();
+
+    const { container } = render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StructuredListView entityState={singleItemNoEdges()} />
+      </PatchListProvider>,
+    );
+
+    const editButton = container.querySelector('[data-graph-action="edit"]') as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(editButton);
+    });
+
+    const saveButton = container.querySelector('[data-graph-row-edit-save]') as HTMLButtonElement;
+    expect(saveButton).not.toBeNull();
+    // Save is disabled at the initial value because no real change has been
+    // made yet (avoids staging no-op edits).
+    expect(saveButton.disabled).toBe(true);
+
+    const textarea = container.querySelector('[data-graph-row-edit-textarea]') as HTMLTextAreaElement;
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: 'Reduce checkout drop-off' } });
+    });
+    expect(saveButton.disabled).toBe(false);
+
+    // Empty / whitespace-only content also disables Save.
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: '   ' } });
+    });
+    expect(saveButton.disabled).toBe(true);
+
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: 'Reduce checkout drop-off' } });
+    });
+    await act(async () => {
+      fireEvent.click(saveButton);
+    });
+
+    expect(container.querySelector('[data-graph-row-edit-textarea]')).toBeNull();
+    await waitFor(() => {
+      const overlay = container.querySelector('[data-staged-count]');
+      expect(overlay).not.toBeNull();
+      expect(overlay!.getAttribute('data-staged-count')).toBe('1');
+    });
+  });
+
+  it('Cancel button exits edit mode without staging anything', async () => {
+    const appliers = makeAppliers();
+
+    const { container } = render(
+      <PatchListProvider appliers={appliers}>
+        <PatchListOverlay />
+        <StructuredListView entityState={singleItemNoEdges()} />
+      </PatchListProvider>,
+    );
+
+    const editButton = container.querySelector('[data-graph-action="edit"]') as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(editButton);
+    });
+
+    const textarea = container.querySelector('[data-graph-row-edit-textarea]') as HTMLTextAreaElement;
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: 'a different draft' } });
+    });
+
+    const cancelButton = container.querySelector('[data-graph-row-edit-cancel]') as HTMLButtonElement;
+    expect(cancelButton).not.toBeNull();
+    await act(async () => {
+      fireEvent.click(cancelButton);
+    });
+
+    expect(container.querySelector('[data-graph-row-edit-textarea]')).toBeNull();
+    expect(container.querySelector('[data-staged-count]')).toBeNull();
+  });
+
+  it('disables the Edit button when no PatchListProvider is mounted', () => {
+    const { container } = render(<StructuredListView entityState={singleItemNoEdges()} />);
+
+    const editButton = container.querySelector('[data-graph-action="edit"]') as HTMLButtonElement | null;
+    expect(editButton).not.toBeNull();
+    expect(editButton!.disabled).toBe(true);
+  });
+
+  // Card 4 / S4: ItemEditTextarea polish — Cancel becomes icon-only with
+  // aria-label "Cancel edit", Save loses the blue gradient and adopts the
+  // row's kind-accent fill.
+  it('Cancel button is icon-only with an aria-label of "Cancel edit"', async () => {
+    const { container } = render(
+      <PatchListProvider appliers={makeAppliers()}>
+        <StructuredListView entityState={singleItemNoEdges()} />
+      </PatchListProvider>,
+    );
+
+    const editButton = container.querySelector('[data-graph-action="edit"]') as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(editButton);
+    });
+
+    const cancelButton = container.querySelector('[data-graph-row-edit-cancel]') as HTMLButtonElement;
+    expect(cancelButton).not.toBeNull();
+    expect(cancelButton.getAttribute('aria-label')).toBe('Cancel edit');
+    expect(cancelButton.getAttribute('title')).toBe('Cancel');
+    // Visible text should be empty — the X icon stands alone.
+    expect(cancelButton.textContent?.trim()).toBe('');
+  });
+
+  it('Save button drops the blue gradient and uses the kind-accent inline fill when enabled', async () => {
+    const { container } = render(
+      <PatchListProvider appliers={makeAppliers()}>
+        <StructuredListView entityState={singleItemNoEdges()} />
+      </PatchListProvider>,
+    );
+
+    const editButton = container.querySelector('[data-graph-action="edit"]') as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(editButton);
+    });
+
+    const textarea = container.querySelector('[data-graph-row-edit-textarea]') as HTMLTextAreaElement;
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: 'Reduce checkout drop-off' } });
+    });
+
+    const saveButton = container.querySelector('[data-graph-row-edit-save]') as HTMLButtonElement;
+    expect(saveButton).not.toBeNull();
+    // No more hard-coded blue gradient or ring-1 ring-[#1060d6].
+    expect(saveButton.className).not.toMatch(/linear-gradient/);
+    expect(saveButton.className).not.toMatch(/ring-\[#1060d6\]/);
+    // Inline style carries the kind-accent fill (singleItemNoEdges = goal kind → #2563eb).
+    expect(saveButton.getAttribute('style')).toMatch(/background-color/i);
+  });
+
+  it('Keyboard hint row remains rendered with ⌘↵ save · esc cancel', async () => {
+    const { container } = render(
+      <PatchListProvider appliers={makeAppliers()}>
+        <StructuredListView entityState={singleItemNoEdges()} />
+      </PatchListProvider>,
+    );
+
+    const editButton = container.querySelector('[data-graph-action="edit"]') as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(editButton);
+    });
+
+    const editForm = container.querySelector('[data-graph-row-edit]');
+    expect(editForm?.textContent).toMatch(/⌘↵\s*save/);
+    expect(editForm?.textContent).toMatch(/esc\s*cancel/);
+  });
+});
+
+describe('structured-list-view C19 chat-anchored row selection', () => {
+  it('renders rows without chat-anchor styling when no chat is focused', () => {
+    setMockSecondaryChats([]);
+    setMockFocusedChatId(null);
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    const rows = container.querySelectorAll('[data-graph-row]');
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.getAttribute('data-graph-row-chat-anchored')).toBeNull();
+    }
+  });
+
+  it('marks a row chat-anchored when the active chat pinned to it; styles use the row item kindAccentHex', () => {
+    // crossPhaseDecisionLink: goal id=10, constraint id=20, decision id=30.
+    setMockSecondaryChats([
+      {
+        chat: { id: 1, pinned_item_id: 20, pinned_reconciliation_need_id: null },
+        pinnedItemKind: 'constraint',
+        anchoredItemIds: [],
+      },
+    ]);
+    setMockFocusedChatId(1);
+
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    const constraintRow = container.querySelector(
+      '[data-graph-row][data-item-kind="constraint"][data-item-id="20"]',
+    ) as HTMLElement;
+    expect(constraintRow.getAttribute('data-graph-row-chat-anchored')).toBe('true');
+    expect(constraintRow.style.borderColor).not.toBe('');
+    expect(constraintRow.style.backgroundColor).toBe('');
+
+    const goalRow = container.querySelector(
+      '[data-graph-row][data-item-kind="goal"][data-item-id="10"]',
+    ) as HTMLElement;
+    expect(goalRow.getAttribute('data-graph-row-chat-anchored')).toBeNull();
+    expect(goalRow.style.borderColor).toBe('');
+  });
+
+  it("also marks rows whose ids appear in the active chat's anchoredItemIds", () => {
+    setMockSecondaryChats([
+      {
+        chat: { id: 1, pinned_item_id: 10, pinned_reconciliation_need_id: null },
+        pinnedItemKind: 'goal',
+        anchoredItemIds: [30],
+      },
+    ]);
+    setMockFocusedChatId(1);
+
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    const goalRow = container.querySelector(
+      '[data-graph-row][data-item-kind="goal"][data-item-id="10"]',
+    ) as HTMLElement;
+    expect(goalRow.getAttribute('data-graph-row-chat-anchored')).toBe('true');
+
+    const decisionRow = container.querySelector(
+      '[data-graph-row][data-item-kind="decision"][data-item-id="30"]',
+    ) as HTMLElement;
+    expect(decisionRow.getAttribute('data-graph-row-chat-anchored')).toBe('true');
+
+    const constraintRow = container.querySelector(
+      '[data-graph-row][data-item-kind="constraint"][data-item-id="20"]',
+    ) as HTMLElement;
+    expect(constraintRow.getAttribute('data-graph-row-chat-anchored')).toBeNull();
+  });
+
+  it('honors focused reconciliation-pinned chat for row anchor styling', () => {
+    setMockSecondaryChats([
+      {
+        chat: { id: 1, pinned_item_id: 20, pinned_reconciliation_need_id: null },
+        pinnedItemKind: 'constraint',
+        anchoredItemIds: [],
+      },
+      {
+        chat: { id: 2, pinned_item_id: 10, pinned_reconciliation_need_id: 99 },
+        pinnedItemKind: 'goal',
+        anchoredItemIds: [],
+      },
+    ]);
+    setMockFocusedChatId(2);
+
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    const goalRow = container.querySelector(
+      '[data-graph-row][data-item-kind="goal"][data-item-id="10"]',
+    ) as HTMLElement;
+    expect(goalRow.getAttribute('data-graph-row-chat-anchored')).toBe('true');
+
+    const constraintRow = container.querySelector(
+      '[data-graph-row][data-item-kind="constraint"][data-item-id="20"]',
+    ) as HTMLElement;
+    expect(constraintRow.getAttribute('data-graph-row-chat-anchored')).toBeNull();
+  });
+
+  it('flips the open-inline-chat trigger aria-label between Anchored ↔ Open when the row is chat-anchored', () => {
+    setMockSecondaryChats([
+      {
+        chat: { id: 1, pinned_item_id: 20, pinned_reconciliation_need_id: null },
+        pinnedItemKind: 'constraint',
+        anchoredItemIds: [],
+      },
+    ]);
+    setMockFocusedChatId(1);
+
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    const anchoredTrigger = container.querySelector(
+      '[data-item-id="20"] [data-graph-action="open-inline-chat"]',
+    ) as HTMLButtonElement;
+    expect(anchoredTrigger.getAttribute('data-chat-anchored')).toBe('true');
+    expect(anchoredTrigger.getAttribute('aria-label')).toBe('Anchored to active chat');
+    expect(anchoredTrigger.getAttribute('aria-pressed')).toBe('true');
+
+    const unanchoredTrigger = container.querySelector(
+      '[data-item-id="10"] [data-graph-action="open-inline-chat"]',
+    ) as HTMLButtonElement;
+    expect(unanchoredTrigger.getAttribute('data-chat-anchored')).toBeNull();
+    expect(unanchoredTrigger.getAttribute('aria-label')).toBe('Open inline chat about this item');
+    expect(unanchoredTrigger.getAttribute('aria-pressed')).toBeNull();
   });
 });

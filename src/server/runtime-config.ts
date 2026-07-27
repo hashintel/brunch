@@ -1,33 +1,38 @@
-import { existsSync, readFileSync } from 'node:fs';
 import type { Server } from 'node:http';
-import { join } from 'node:path';
-import { parseEnv } from 'node:util';
 
 import type { Express } from 'express';
 
 import { resolveBrunchProject } from './project.js';
 
+// Re-exported so existing `src/server` callers keep their import site; the
+// canonical implementation lives in the orchestrator (lower) layer.
+export { loadLocalEnvFile } from '../orchestrator/src/local-env.js';
+
 const DEFAULT_BACKEND_PORT = 3000;
+
+export function isAnthropicApiKeyConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
+  return Boolean(env.ANTHROPIC_API_KEY?.trim());
+}
+
+export const MISSING_ANTHROPIC_API_KEY_MESSAGE = [
+  'ANTHROPIC_API_KEY is not set. Brunch needs it for the interview and planning',
+  'features and will not start without it. Set it in a .env file in this directory:',
+  '',
+  '    echo "ANTHROPIC_API_KEY=sk-ant-..." > .env',
+  '',
+  'or export it in your shell, then run Brunch again.',
+].join('\n');
+
+export function exitIfAnthropicApiKeyMissing(env: NodeJS.ProcessEnv = process.env): void {
+  if (!isAnthropicApiKeyConfigured(env)) {
+    console.error(MISSING_ANTHROPIC_API_KEY_MESSAGE);
+    process.exit(1);
+  }
+}
 
 function normalizeConfiguredValue(value: string | undefined): string | null {
   const normalizedValue = value?.trim();
   return normalizedValue ? normalizedValue : null;
-}
-
-export function loadLocalEnvFile(cwd: string): void {
-  const envFilePath = join(cwd, '.env');
-  if (!existsSync(envFilePath)) {
-    return;
-  }
-
-  const parsed = parseEnv(readFileSync(envFilePath, 'utf8'));
-  for (const [key, value] of Object.entries(parsed)) {
-    if (value === '') {
-      continue;
-    }
-
-    process.env[key] = value;
-  }
 }
 
 function parsePort(value: string, source: 'BRUNCH_PORT' | 'PORT'): number {

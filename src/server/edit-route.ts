@@ -2,19 +2,18 @@ import type { Request, Response } from 'express';
 import * as z from 'zod/v4';
 
 import { edgeRelationSchema, type MutationErrorResponse } from '@/shared/api-types.js';
-import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 
 import {
   addKnowledgeRelationship,
-  getDownstreamItems,
   getKnowledgeItem,
   getSpecification,
-  isItemInActiveReviewSet,
+  getTurn,
+  openReconciliationNeedIfAbsent,
   removeKnowledgeRelationship,
   updateKnowledgeItemContent,
   type DB,
 } from './db.js';
-import { classifyEditImpact } from './edit-impact.js';
+import { buildKnowledgeItemEditImpactProjection } from './edit-impact-projection.js';
 import { supportsKnowledgeRelationship } from './knowledge-relationship-policy.js';
 
 // --- Schemas ---
@@ -22,6 +21,7 @@ import { supportsKnowledgeRelationship } from './knowledge-relationship-policy.j
 const patchKnowledgeItemSchema = z.object({
   content: z.string().trim().min(1),
   rationale: z.string().trim().min(1).nullable().optional(),
+  causedByTurnId: z.number().int().positive().optional(),
 });
 
 const edgeMutationSchema = z.object({
@@ -68,29 +68,63 @@ export function handlePatchKnowledgeItem(db: DB, req: Request, res: Response): v
     return;
   }
 
-  const downstream = getDownstreamItems(db, specificationId, itemId);
-  const inReviewSet = isItemInActiveReviewSet(db, specificationId, itemId);
-  const impact = classifyEditImpact(downstream.length, inReviewSet);
-
-  const affectedItems = downstream.map((d) => ({
-    id: d.id,
-    kind: d.kind,
-    referenceCode: createKnowledgeReferenceCode(d.kind as any, d.kind_ordinal),
-    content: d.content,
-  }));
-
-  if (impact === 'hard') {
-    res.json({ impact, affectedItems, updated: false });
-    return;
+  if (parsed.data.causedByTurnId != null) {
+    const turn = getTurn(db, parsed.data.causedByTurnId);
+    if (!turn || turn.specification_id !== specificationId) {
+      badRequest(res, 'Invalid causedByTurnId');
+      return;
+    }
   }
+
+  const impactProjection = buildKnowledgeItemEditImpactProjection(db, specificationId, itemId);
+  const { affectedItems, impact } = impactProjection;
 
   const previousContent = item.content;
   const previousRationale = item.rationale;
+
+  if (impact === 'hard') {
+    // Apply the changed item and open one reconciliation_need per
+    // relation-policy affected endpoint. The partial unique index on
+    // (source, target, kind) makes re-application idempotent.
+    const openedNeedIds = db.transaction((tx) => {
+      updateKnowledgeItemContent(tx as unknown as DB, itemId, {
+        content: parsed.data.content,
+        rationale: parsed.data.rationale,
+      });
+      const opened: number[] = [];
+      for (const cascadeImpact of impactProjection.cascadeNeeds) {
+        const need = openReconciliationNeedIfAbsent(tx as unknown as DB, {
+          specificationId,
+          sourceItemId: itemId,
+          targetItemId: cascadeImpact.affectedItemId,
+          kind: cascadeImpact.kind,
+          causedByTurnId: parsed.data.causedByTurnId ?? null,
+          // Card 1 (V3.1 setup): freeze the source's before/after content on
+          // the need at open time so the Pending review row can render the
+          // diff inline and the V3.1 classifier can use it as pre-image
+          // without re-querying mutable knowledge_item history.
+          sourcePreviousContent: previousContent,
+          sourceCurrentContent: parsed.data.content,
+        });
+        if (need !== null) opened.push(need.id);
+      }
+      return opened;
+    });
+    res.json({
+      impact,
+      affectedItems,
+      updated: true,
+      previousContent,
+      previousRationale,
+      openedNeedIds,
+    });
+    return;
+  }
+
   updateKnowledgeItemContent(db, itemId, {
     content: parsed.data.content,
     rationale: parsed.data.rationale,
   });
-
   res.json({ impact, affectedItems, updated: true, previousContent, previousRationale });
 }
 

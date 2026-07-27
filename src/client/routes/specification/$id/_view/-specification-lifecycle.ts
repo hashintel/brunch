@@ -122,6 +122,29 @@ function getAutoObserverCaptureTurnIds({
   );
 }
 
+// Turns that should show the trailing "Still thinking…" capture state: deferred captures whose
+// phase is still open. A closed phase never fires another capture, so its uncaptured turns must
+// settle to a final state rather than spin forever.
+function getTrailingObserverCaptureTurnIds({
+  turns,
+  workflow,
+  structuralArtifactTurnIds,
+}: {
+  turns: readonly SpecificationStateTurn[];
+  workflow: WorkflowState;
+  structuralArtifactTurnIds: ReadonlySet<number>;
+}): Set<number> {
+  return new Set(
+    turns
+      .filter(
+        (turn) =>
+          turnNeedsObserverCapture(turn, structuralArtifactTurnIds) &&
+          workflow.phases[turn.phase].status === 'in_progress',
+      )
+      .map((turn) => turn.id),
+  );
+}
+
 export function resetSpecificationLifecycleRegistryForTesting() {
   autoPhaseIntentRegistry.clear();
 }
@@ -283,6 +306,10 @@ export function useSpecificationRuntimeLifecycle({
     () => getAutoObserverCaptureTurnIds({ turns, workflow, structuralArtifactTurnIds }),
     [turns, workflow, structuralArtifactTurnIds],
   );
+  const trailingObserverCaptureTurnIds = useMemo(
+    () => getTrailingObserverCaptureTurnIds({ turns, workflow, structuralArtifactTurnIds }),
+    [turns, workflow, structuralArtifactTurnIds],
+  );
 
   useEffect(() => {
     setSubmittedTurnId(null);
@@ -321,7 +348,13 @@ export function useSpecificationRuntimeLifecycle({
     setCaptureStatusByTurnId((current) => {
       const next = new Map<number, CaptureStatus>();
       for (const turnId of deferredObserverCaptureTurnIds) {
-        next.set(turnId, current.get(turnId) === 'applying' ? 'applying' : 'waiting');
+        const isApplying = current.get(turnId) === 'applying';
+        // Only keep the trailing spinner while a capture is in flight or its phase is still open.
+        // Closed phases never capture again, so their uncaptured turns settle instead of spinning.
+        if (!isApplying && !trailingObserverCaptureTurnIds.has(turnId)) {
+          continue;
+        }
+        next.set(turnId, isApplying ? 'applying' : 'waiting');
       }
       return mapEquals(current, next) ? current : next;
     });
@@ -347,6 +380,7 @@ export function useSpecificationRuntimeLifecycle({
   }, [
     autoObserverCaptureTurnIds,
     deferredObserverCaptureTurnIds,
+    trailingObserverCaptureTurnIds,
     failedCaptureTurnIds,
     inFlightCaptureTurnId,
   ]);

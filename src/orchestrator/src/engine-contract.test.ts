@@ -1,0 +1,2409 @@
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { createOrchestrator, loadRunSnapshot } from './engine.js';
+import { compilePlan, compileTopology, wireHandlers } from './net-compiler.js';
+import { PetriNet, type NetEvent } from './petri-net.js';
+import {
+  createPetrinautEventStream,
+  type PetrinautEvent,
+  type PetrinautTransitionFiredEvent,
+} from './petrinaut-events.js';
+import { createNetFolding } from './petrinaut-fold.js';
+import type { SdcpnFile } from './petrinaut-sdcpn.js';
+import { type BrunchExecutionExportFrame, createPetrinautStreamBus } from './petrinaut-stream-bus.js';
+import { reduceBrunchExecutionExport } from './petrinaut-stream-export.js';
+import type { CookEvent } from './presenter/events.js';
+import { InMemoryReportSink } from './report-sink.js';
+import type { ActionContext, ActionHandlers, OrchestratorInput, Plan, RunCtx, TestRunner } from './types.js';
+import { createSandbox } from './worktree.js';
+
+// ---------------------------------------------------------------------------
+// Git-backed sandbox helper — the default per-slice layout requires the parent
+// sandboxDir to be a real git repo on `brunch/run/<runId>`, so faked string
+// sandboxDirs no longer work. Each test gets a real createSandbox worktree.
+// ---------------------------------------------------------------------------
+
+const _tmpDirs: string[] = [];
+
+function gitSandbox(runId: string) {
+  const base = mkdtempSync(join(tmpdir(), 'cc-'));
+  _tmpDirs.push(base);
+  return createSandbox(base, runId); // git-backed worktree on brunch/run/<runId>
+}
+
+afterEach(() => {
+  for (const d of _tmpDirs) rmSync(d, { recursive: true, force: true });
+  _tmpDirs.length = 0;
+});
+
+// ---------------------------------------------------------------------------
+// Shared engine list for parameterized tests
+// ---------------------------------------------------------------------------
+
+const engines = [
+  { name: 'serial', create: () => createOrchestrator('serial') },
+  { name: 'parallel', create: () => createOrchestrator('parallel') },
+] as const;
+
+// ---------------------------------------------------------------------------
+// Reusable fake factory — per-test closures instead of module-level state
+// ---------------------------------------------------------------------------
+
+function createFakes(opts?: {
+  evalSequence?: boolean[]; // sequence of done values for evaluate-done
+  testRunResults?: boolean[]; // sequence of passed values for test runner
+  testFailureKind?: 'infra' | 'test'; // failureKind stamped on failed runs (default: test)
+  verifyEpicResult?: boolean; // result of verify-epic
+  semanticResults?: boolean[]; // sequence of satisfied values for assess-semantic
+  throwOnAction?: string; // action name that throws
+}) {
+  const callOrder: string[] = [];
+  const reports = new InMemoryReportSink();
+  let evalIdx = 0;
+  let testRunIdx = 0;
+  let semanticIdx = 0;
+  const evalSeq = opts?.evalSequence ?? [false, true]; // default: NO then YES
+  const testSeq = opts?.testRunResults ?? [true]; // default: pass
+  const semanticSeq = opts?.semanticResults ?? [true]; // default: satisfied
+
+  const actions: ActionHandlers = {
+    'evaluate-done': async (ctx: ActionContext) => {
+      if (opts?.throwOnAction === 'evaluate-done') throw new Error('evaluate-done failed');
+      const done = evalSeq[evalIdx % evalSeq.length]!;
+      evalIdx++;
+      const id = `rpt-eval-${ctx.slice.id}-${evalIdx}`;
+      reports.append({
+        id,
+        ts: new Date().toISOString(),
+        epicId: ctx.epic.id,
+        sliceId: ctx.slice.id,
+        actor: 'evaluator',
+        event: 'eval-done',
+        payload: { done },
+      });
+      callOrder.push(`${ctx.slice.id}:evaluate-done:${done ? 'YES' : 'NO'}`);
+      return id;
+    },
+    'write-tests': async (ctx: ActionContext) => {
+      if (opts?.throwOnAction === 'write-tests') throw new Error('write-tests failed');
+      const id = `rpt-wt-${ctx.slice.id}-${callOrder.length}`;
+      reports.append({
+        id,
+        ts: new Date().toISOString(),
+        epicId: ctx.epic.id,
+        sliceId: ctx.slice.id,
+        actor: 'test-writer',
+        event: 'tests-written',
+        payload: { files: [`tests/${ctx.slice.id}.test.ts`] },
+      });
+      callOrder.push(`${ctx.slice.id}:write-tests`);
+      return id;
+    },
+    'write-code': async (ctx: ActionContext) => {
+      if (opts?.throwOnAction === 'write-code') throw new Error('write-code failed');
+      const id = `rpt-wc-${ctx.slice.id}-${callOrder.length}`;
+      reports.append({
+        id,
+        ts: new Date().toISOString(),
+        epicId: ctx.epic.id,
+        sliceId: ctx.slice.id,
+        actor: 'code-writer',
+        event: 'code-written',
+        payload: { files: [`src/${ctx.slice.id}.ts`] },
+      });
+      callOrder.push(`${ctx.slice.id}:write-code`);
+      return id;
+    },
+    'verify-epic': async (ctx: ActionContext) => {
+      const passed = opts?.verifyEpicResult ?? true;
+      const id = `rpt-ve-${ctx.epic.id}`;
+      reports.append({
+        id,
+        ts: new Date().toISOString(),
+        epicId: ctx.epic.id,
+        sliceId: '',
+        actor: 'orchestrator',
+        event: 'epic-verified',
+        payload: { passed },
+      });
+      callOrder.push(`${ctx.epic.id}:verify-epic:${passed ? 'PASS' : 'FAIL'}`);
+      return id;
+    },
+    'assess-semantic': async (ctx: ActionContext) => {
+      if (opts?.throwOnAction === 'assess-semantic') throw new Error('assess-semantic failed');
+      const satisfied = semanticSeq[semanticIdx % semanticSeq.length]!;
+      semanticIdx++;
+      const id = `rpt-sem-${ctx.slice.id}-${semanticIdx}`;
+      reports.append({
+        id,
+        ts: new Date().toISOString(),
+        epicId: ctx.epic.id,
+        sliceId: ctx.slice.id,
+        actor: 'semantic-assessor',
+        event: 'semantic-assessed',
+        payload: { satisfied },
+      });
+      callOrder.push(`${ctx.slice.id}:assess-semantic:${satisfied ? 'PASS' : 'FAIL'}`);
+      return id;
+    },
+  };
+
+  const testRunner: TestRunner = {
+    async run() {
+      const passed = testSeq[testRunIdx % testSeq.length]!;
+      testRunIdx++;
+      callOrder.push(`run-tests:${passed ? 'pass' : 'fail'}`);
+      if (passed) return { passed, output: 'ok' };
+      return { passed, output: 'FAIL', failureKind: opts?.testFailureKind ?? 'test' };
+    },
+  };
+
+  return { callOrder, reports, actions, testRunner };
+}
+
+// ---------------------------------------------------------------------------
+// Concurrency-tracking wrapper — reusable across parallel/pool tests
+// ---------------------------------------------------------------------------
+
+type ConcurrencyTracker = { maxConcurrent: number };
+
+/**
+ * Wrap action handlers with concurrency tracking. Each wrapped handler
+ * increments an active counter, yields to allow interleaving under
+ * Promise.allSettled, calls the original, then decrements.
+ *
+ * @param actions   Original action handlers to wrap
+ * @param onlyKeys  If provided, only wrap these action keys (others pass through)
+ */
+function withConcurrencyTracking(
+  actions: ActionHandlers,
+  onlyKeys?: Set<string>,
+): { tracked: ActionHandlers; tracker: ConcurrencyTracker } {
+  let active = 0;
+  const tracker: ConcurrencyTracker = { maxConcurrent: 0 };
+
+  const tracked: ActionHandlers = {};
+  for (const [key, handler] of Object.entries(actions)) {
+    if (onlyKeys && !onlyKeys.has(key)) {
+      tracked[key] = handler!;
+    } else {
+      tracked[key] = async (ctx: ActionContext) => {
+        active++;
+        tracker.maxConcurrent = Math.max(tracker.maxConcurrent, active);
+        try {
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          return await handler!(ctx);
+        } finally {
+          active--;
+        }
+      };
+    }
+  }
+
+  return { tracked, tracker };
+}
+
+// ---------------------------------------------------------------------------
+// Contract test #1 — single epic, single slice, happy path
+// ---------------------------------------------------------------------------
+
+const simplePlan: Plan = {
+  mode: 'greenfield',
+  epics: [
+    {
+      id: 'epic-1',
+      summary: 'Hello world',
+      depends_on: [],
+      verification: [],
+    },
+  ],
+  slices: [
+    {
+      id: 'slice-1',
+      epic_id: 'epic-1',
+      definition: 'Print hello world',
+      depends_on: [],
+      verification: [{ kind: 'unit-test', target: 'tests/hello.test.ts' }],
+    },
+  ],
+};
+
+describe('Engine contract test #1 — single epic, single slice, happy path', () => {
+  for (const { name, create } of engines) {
+    describe(name, () => {
+      it("completes with status 'completed'", async () => {
+        const fakes = createFakes();
+        const sb = gitSandbox('run-c1-completed');
+        const result = await create().run({
+          plan: simplePlan,
+          sandboxDir: sb.sandboxDir,
+          runId: sb.runId,
+          actions: fakes.actions,
+          reports: fakes.reports,
+          testRunner: fakes.testRunner,
+          policy: { maxRetries: 3 },
+        });
+        expect(result.status).toBe('completed');
+      });
+
+      it('produces correct epic and slice outcomes', async () => {
+        const fakes = createFakes();
+        const sb = gitSandbox('run-c1-outcomes');
+        const result = await create().run({
+          plan: simplePlan,
+          sandboxDir: sb.sandboxDir,
+          runId: sb.runId,
+          actions: fakes.actions,
+          reports: fakes.reports,
+          testRunner: fakes.testRunner,
+          policy: { maxRetries: 3 },
+        });
+        expect(result.epics).toEqual([{ epicId: 'epic-1', status: 'completed' }]);
+        expect(result.slices).toEqual([{ sliceId: 'slice-1', status: 'completed' }]);
+      });
+
+      it('calls actions in correct TDD cycle order', async () => {
+        const fakes = createFakes();
+        const sb = gitSandbox('run-c1-order');
+        await create().run({
+          plan: simplePlan,
+          sandboxDir: sb.sandboxDir,
+          runId: sb.runId,
+          actions: fakes.actions,
+          reports: fakes.reports,
+          testRunner: fakes.testRunner,
+          policy: { maxRetries: 3 },
+        });
+        expect(fakes.callOrder).toEqual([
+          'slice-1:evaluate-done:NO',
+          'slice-1:write-tests',
+          'slice-1:write-code',
+          'run-tests:pass',
+          'slice-1:evaluate-done:YES',
+          'slice-1:assess-semantic:PASS',
+        ]);
+      });
+
+      it('emits slice grid events around net-level test runs', async () => {
+        const fakes = createFakes();
+        const sb = gitSandbox('run-c1-grid');
+        const events: CookEvent[] = [];
+        await create().run({
+          plan: simplePlan,
+          sandboxDir: sb.sandboxDir,
+          runId: sb.runId,
+          actions: fakes.actions,
+          reports: fakes.reports,
+          testRunner: fakes.testRunner,
+          policy: { maxRetries: 3 },
+          emit: (event) => events.push(event),
+        });
+        expect(events.filter((e) => e.kind === 'slice')).toEqual([
+          { kind: 'slice', id: 'slice-1', epicId: 'epic-1', status: 'running', step: 'verify' },
+          { kind: 'slice', id: 'slice-1', epicId: 'epic-1', status: 'passed' },
+        ]);
+      });
+
+      it('report sink contains expected lines', async () => {
+        const fakes = createFakes();
+        const sb = gitSandbox('run-c1-reports');
+        await create().run({
+          plan: simplePlan,
+          sandboxDir: sb.sandboxDir,
+          runId: sb.runId,
+          actions: fakes.actions,
+          reports: fakes.reports,
+          testRunner: fakes.testRunner,
+          policy: { maxRetries: 3 },
+        });
+        const events = fakes.reports.getAll().map((r) => r.event);
+        expect(events).toContain('eval-done');
+        expect(events).toContain('tests-written');
+        expect(events).toContain('code-written');
+        expect(events).toContain('semantic-assessed');
+      });
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Contract test #1b — FE-885 spec provenance is inert to execution
+//
+// Adding `Slice.derived_from` + a top-level `Plan.spec` block must not change
+// any engine-observable behavior (I139-K): same outcomes, same report events,
+// same compiled topology. The compiler/interpreter never read those fields.
+// ---------------------------------------------------------------------------
+
+describe('Engine contract test #1b — spec provenance is inert to execution (FE-885)', () => {
+  const planWithProvenance: Plan = {
+    ...simplePlan,
+    spec: {
+      spec_id: '49',
+      requirements: [{ item_id: 'req-1', content: 'Print hello world' }],
+      criteria: [{ item_id: 'crit-1', content: 'prints hello', verifies: ['req-1'] }],
+    },
+    slices: simplePlan.slices.map((s) => ({ ...s, derived_from: ['req-1'] })),
+  };
+
+  for (const { name, create } of engines) {
+    it(`${name}: outcomes + report events are identical with and without provenance`, async () => {
+      const bare = createFakes();
+      const bareResult = await create().run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: bare.actions,
+        reports: bare.reports,
+        testRunner: bare.testRunner,
+        policy: { maxRetries: 3 },
+      });
+
+      const withProv = createFakes();
+      const provResult = await create().run({
+        plan: planWithProvenance,
+        sandboxDir: '/tmp/fake',
+        actions: withProv.actions,
+        reports: withProv.reports,
+        testRunner: withProv.testRunner,
+        policy: { maxRetries: 3 },
+      });
+
+      expect(provResult.status).toBe(bareResult.status);
+      expect(provResult.epics).toEqual(bareResult.epics);
+      expect(provResult.slices).toEqual(bareResult.slices);
+      expect(withProv.callOrder).toEqual(bare.callOrder);
+      expect(withProv.reports.getAll().map((r) => r.event)).toEqual(
+        bare.reports.getAll().map((r) => r.event),
+      );
+    });
+  }
+
+  it('compiles to an identical topology (place + transition ids) with and without provenance', () => {
+    const bare = compileTopology(simplePlan, { maxRetries: 3 });
+    const withProv = compileTopology(planWithProvenance, { maxRetries: 3 });
+    expect([...withProv.places].sort()).toEqual([...bare.places].sort());
+    expect(withProv.transitions.map((t) => t.id).sort()).toEqual(bare.transitions.map((t) => t.id).sort());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Contract test #2 — intra-epic slice dependencies
+// ---------------------------------------------------------------------------
+
+const depPlan: Plan = {
+  mode: 'greenfield',
+  epics: [
+    {
+      id: 'epic-1',
+      summary: 'Two dependent slices',
+      depends_on: [],
+      verification: [],
+    },
+  ],
+  slices: [
+    {
+      id: 'slice-a',
+      epic_id: 'epic-1',
+      definition: 'First slice',
+      depends_on: [],
+      verification: [{ kind: 'unit-test', target: 'tests/a.test.ts' }],
+    },
+    {
+      id: 'slice-b',
+      epic_id: 'epic-1',
+      definition: 'Second slice — depends on first',
+      depends_on: ['slice-a'],
+      verification: [{ kind: 'unit-test', target: 'tests/b.test.ts' }],
+    },
+  ],
+};
+
+describe('Engine contract test #2 — intra-epic slice dependencies', () => {
+  for (const { name, create } of engines) {
+    describe(name, () => {
+      it('completes both slices in dependency order', async () => {
+        // Track which slice each action call belongs to
+        const sliceCallOrder: string[] = [];
+        let perSliceEvalCount = new Map<string, number>();
+
+        const reports = new InMemoryReportSink();
+
+        const depActions: ActionHandlers = {
+          'evaluate-done': async (ctx: ActionContext) => {
+            const count = (perSliceEvalCount.get(ctx.slice.id) ?? 0) + 1;
+            perSliceEvalCount.set(ctx.slice.id, count);
+            const done = count >= 2;
+            const id = `rpt-eval-${ctx.slice.id}-${count}`;
+            reports.append({
+              id,
+              ts: new Date().toISOString(),
+              epicId: ctx.epic.id,
+              sliceId: ctx.slice.id,
+              actor: 'evaluator',
+              event: 'eval-done',
+              payload: { done },
+            });
+            sliceCallOrder.push(`${ctx.slice.id}:evaluate-done:${done ? 'YES' : 'NO'}`);
+            return id;
+          },
+          'write-tests': async (ctx: ActionContext) => {
+            const id = `rpt-write-tests-${ctx.slice.id}`;
+            reports.append({
+              id,
+              ts: new Date().toISOString(),
+              epicId: ctx.epic.id,
+              sliceId: ctx.slice.id,
+              actor: 'test-writer',
+              event: 'tests-written',
+              payload: { files: [`tests/${ctx.slice.id}.test.ts`] },
+            });
+            sliceCallOrder.push(`${ctx.slice.id}:write-tests`);
+            return id;
+          },
+          'write-code': async (ctx: ActionContext) => {
+            const id = `rpt-write-code-${ctx.slice.id}`;
+            reports.append({
+              id,
+              ts: new Date().toISOString(),
+              epicId: ctx.epic.id,
+              sliceId: ctx.slice.id,
+              actor: 'code-writer',
+              event: 'code-written',
+              payload: { files: [`src/${ctx.slice.id}.ts`] },
+            });
+            sliceCallOrder.push(`${ctx.slice.id}:write-code`);
+            return id;
+          },
+          'verify-epic': async (ctx: ActionContext) => {
+            const id = `rpt-verify-${ctx.epic.id}`;
+            reports.append({
+              id,
+              ts: new Date().toISOString(),
+              epicId: ctx.epic.id,
+              sliceId: '',
+              actor: 'orchestrator',
+              event: 'epic-verified',
+              payload: { passed: true },
+            });
+            return id;
+          },
+          'assess-semantic': async (ctx: ActionContext) => {
+            const id = `rpt-sem-${ctx.slice.id}`;
+            reports.append({
+              id,
+              ts: new Date().toISOString(),
+              epicId: ctx.epic.id,
+              sliceId: ctx.slice.id,
+              actor: 'semantic-assessor',
+              event: 'semantic-assessed',
+              payload: { satisfied: true },
+            });
+            sliceCallOrder.push(`${ctx.slice.id}:assess-semantic:PASS`);
+            return id;
+          },
+        };
+
+        const depTestRunner: TestRunner = {
+          async run() {
+            return { passed: true, output: 'ok' };
+          },
+        };
+
+        const engine = create();
+        const sb = gitSandbox('run-c2-dep');
+        const result = await engine.run({
+          plan: depPlan,
+          sandboxDir: sb.sandboxDir,
+          runId: sb.runId,
+          actions: depActions,
+          reports,
+          testRunner: depTestRunner,
+          policy: { maxRetries: 3 },
+        });
+
+        expect(result.status).toBe('completed');
+        expect(result.slices).toEqual([
+          { sliceId: 'slice-a', status: 'completed' },
+          { sliceId: 'slice-b', status: 'completed' },
+        ]);
+
+        // Slice-a actions must all come before slice-b actions
+        const aLast = Math.max(...sliceCallOrder.map((s, i) => (s.startsWith('slice-a:') ? i : -1)));
+        const bFirst = Math.min(...sliceCallOrder.map((s, i) => (s.startsWith('slice-b:') ? i : Infinity)));
+        expect(aLast).toBeLessThan(bFirst);
+      });
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Contract test #3 — epic dependencies
+// ---------------------------------------------------------------------------
+
+describe('Engine contract test #3 — epic dependencies', () => {
+  const epicDepPlan: Plan = {
+    mode: 'greenfield',
+    epics: [
+      { id: 'epic-1', summary: 'First', depends_on: [], verification: [] },
+      { id: 'epic-2', summary: 'Second — depends on first', depends_on: ['epic-1'], verification: [] },
+    ],
+    slices: [
+      {
+        id: 's1',
+        epic_id: 'epic-1',
+        definition: 'Slice in epic 1',
+        depends_on: [],
+        verification: [{ kind: 'unit-test', target: 't1' }],
+      },
+      {
+        id: 's2',
+        epic_id: 'epic-2',
+        definition: 'Slice in epic 2',
+        depends_on: [],
+        verification: [{ kind: 'unit-test', target: 't2' }],
+      },
+    ],
+  };
+
+  for (const { name, create } of engines) {
+    it(`${name}: epic-2 slices run after epic-1 completes`, async () => {
+      const fakes = createFakes();
+      const sb = gitSandbox(`run-c3-${name}`);
+      const result = await create().run({
+        plan: epicDepPlan,
+        sandboxDir: sb.sandboxDir,
+        runId: sb.runId,
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+      });
+
+      expect(result.status).toBe('completed');
+      expect(result.epics).toEqual([
+        { epicId: 'epic-1', status: 'completed' },
+        { epicId: 'epic-2', status: 'completed' },
+      ]);
+
+      const s1Last = Math.max(...fakes.callOrder.map((s, i) => (s.startsWith('s1:') ? i : -1)));
+      const s2First = Math.min(...fakes.callOrder.map((s, i) => (s.startsWith('s2:') ? i : Infinity)));
+      expect(s1Last).toBeLessThan(s2First);
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Contract tests #4-5 — epic-level verification (pass + fail)
+// ---------------------------------------------------------------------------
+
+describe('Engine contract test #4 — epic verification passes', () => {
+  const verifyPlan: Plan = {
+    mode: 'greenfield',
+    epics: [
+      {
+        id: 'epic-v',
+        summary: 'Verified epic',
+        depends_on: [],
+        verification: [{ kind: 'integration-test', target: 'integration.test.ts' }],
+      },
+    ],
+    slices: [
+      {
+        id: 'sv',
+        epic_id: 'epic-v',
+        definition: 'Slice',
+        depends_on: [],
+        verification: [{ kind: 'unit-test', target: 't' }],
+      },
+    ],
+  };
+
+  for (const { name, create } of engines) {
+    it(`${name}: epic with passing verification → completed`, async () => {
+      const fakes = createFakes({ verifyEpicResult: true });
+      const sb = gitSandbox(`run-c4-${name}`);
+      const result = await create().run({
+        plan: verifyPlan,
+        sandboxDir: sb.sandboxDir,
+        runId: sb.runId,
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+      });
+
+      expect(result.status).toBe('completed');
+      expect(result.epics).toEqual([{ epicId: 'epic-v', status: 'completed' }]);
+      expect(fakes.callOrder).toContain('epic-v:verify-epic:PASS');
+    });
+  }
+});
+
+describe('Engine contract test #5 — epic verification fails', () => {
+  const verifyFailPlan: Plan = {
+    mode: 'greenfield',
+    epics: [
+      {
+        id: 'epic-f',
+        summary: 'Failing epic',
+        depends_on: [],
+        verification: [{ kind: 'integration-test', target: 'integration.test.ts' }],
+      },
+    ],
+    slices: [
+      {
+        id: 'sf',
+        epic_id: 'epic-f',
+        definition: 'Slice',
+        depends_on: [],
+        verification: [{ kind: 'unit-test', target: 't' }],
+      },
+    ],
+  };
+
+  for (const { name, create } of engines) {
+    it(`${name}: epic with failing verification → halted`, async () => {
+      const fakes = createFakes({ verifyEpicResult: false });
+      const sb = gitSandbox(`run-c5-${name}`);
+      const result = await create().run({
+        plan: verifyFailPlan,
+        sandboxDir: sb.sandboxDir,
+        runId: sb.runId,
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+      });
+
+      expect(result.status).toBe('halted');
+      expect(result.epics).toEqual([{ epicId: 'epic-f', status: 'halted' }]);
+      expect(fakes.callOrder).toContain('epic-f:verify-epic:FAIL');
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Contract test #6 — retry loop (fail then pass)
+// ---------------------------------------------------------------------------
+
+describe('Engine contract test #6 — retry loop', () => {
+  for (const { name, create } of engines) {
+    it(`${name}: test fails once then passes → slice completed`, async () => {
+      const fakes = createFakes({ testRunResults: [false, true] });
+      const sb = gitSandbox(`run-c6-${name}`);
+      const result = await create().run({
+        plan: simplePlan,
+        sandboxDir: sb.sandboxDir,
+        runId: sb.runId,
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+      });
+
+      expect(result.status).toBe('completed');
+      expect(result.slices).toEqual([{ sliceId: 'slice-1', status: 'completed' }]);
+      // Should have: write-code (first), run-tests fail, write-code (retry), run-tests pass
+      const writeCodes = fakes.callOrder.filter((c) => c.includes('write-code'));
+      expect(writeCodes.length).toBe(2);
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Contract test #7 — retry exhaustion
+// ---------------------------------------------------------------------------
+
+describe('Engine contract test #7 — retry exhaustion', () => {
+  for (const { name, create } of engines) {
+    it(`${name}: tests always fail → halted after maxRetries`, async () => {
+      const fakes = createFakes({ testRunResults: [false] });
+      const sb = gitSandbox(`run-c7-${name}`);
+      const result = await create().run({
+        plan: simplePlan,
+        sandboxDir: sb.sandboxDir,
+        runId: sb.runId,
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 2 },
+      });
+
+      expect(result.status).toBe('halted');
+      expect(result.slices).toEqual([{ sliceId: 'slice-1', status: 'halted' }]);
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Contract test #8 — multi-cycle "needs more"
+// ---------------------------------------------------------------------------
+
+describe('Engine contract test #8 — multi-cycle needs more', () => {
+  for (const { name, create } of engines) {
+    it(`${name}: evaluator says NO twice then YES → 2 TDD cycles`, async () => {
+      const fakes = createFakes({ evalSequence: [false, false, true] });
+      const sb = gitSandbox(`run-c8-${name}`);
+      const result = await create().run({
+        plan: simplePlan,
+        sandboxDir: sb.sandboxDir,
+        runId: sb.runId,
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+      });
+
+      expect(result.status).toBe('completed');
+      const evals = fakes.callOrder.filter((c) => c.includes('evaluate-done'));
+      expect(evals).toEqual([
+        'slice-1:evaluate-done:NO',
+        'slice-1:evaluate-done:NO',
+        'slice-1:evaluate-done:YES',
+      ]);
+      const writeTests = fakes.callOrder.filter((c) => c.includes('write-tests'));
+      expect(writeTests.length).toBe(2);
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Contract test #9 — action handler throws
+// ---------------------------------------------------------------------------
+
+describe('Engine contract test #9 — action handler throws', () => {
+  for (const { name, create } of engines) {
+    it(`${name}: write-tests throws → halted with reason`, async () => {
+      const fakes = createFakes({ throwOnAction: 'write-tests' });
+      const sb = gitSandbox(`run-c9-${name}`);
+      const result = await create().run({
+        plan: simplePlan,
+        sandboxDir: sb.sandboxDir,
+        runId: sb.runId,
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+      });
+
+      expect(result.status).toBe('halted');
+      expect(result.reason).toContain('write-tests failed');
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Contract test #10 — semantic gate rejects → rework loop
+// ---------------------------------------------------------------------------
+
+describe('Engine contract test #10 — semantic gate rejects then accepts', () => {
+  for (const { name, create } of engines) {
+    it(`${name}: assess-semantic fails once then passes → extra TDD cycle`, async () => {
+      // eval: NO, YES (first TDD cycle completes mechanically),
+      //   semantic: FAIL → needs-more → write-tests → write-code → run-tests
+      //   → spec-ready → eval: YES (second mechanical done),
+      //   semantic: PASS → done
+      const fakes = createFakes({
+        evalSequence: [false, true, true],
+        semanticResults: [false, true],
+      });
+      const sb = gitSandbox(`run-c10-${name}`);
+      const result = await create().run({
+        plan: simplePlan,
+        sandboxDir: sb.sandboxDir,
+        runId: sb.runId,
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+      });
+
+      expect(result.status).toBe('completed');
+      // Should have two assess-semantic calls: first FAIL, then PASS
+      const semantics = fakes.callOrder.filter((c) => c.includes('assess-semantic'));
+      expect(semantics).toEqual(['slice-1:assess-semantic:FAIL', 'slice-1:assess-semantic:PASS']);
+      // Two TDD cycles (2 write-tests calls)
+      const writeTests = fakes.callOrder.filter((c) => c.includes('write-tests'));
+      expect(writeTests.length).toBe(2);
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Contract test #11 — semantic rework exhaustion
+// ---------------------------------------------------------------------------
+
+describe('Engine contract test #11 — semantic rework exhaustion halts', () => {
+  for (const { name, create } of engines) {
+    it(`${name}: assess-semantic always fails → halted after maxSemanticReworks`, async () => {
+      const fakes = createFakes({
+        evalSequence: [false, true], // NO then YES (repeated)
+        semanticResults: [false], // always rejects
+      });
+      const sb = gitSandbox(`run-c11-${name}`);
+      const result = await create().run({
+        plan: simplePlan,
+        sandboxDir: sb.sandboxDir,
+        runId: sb.runId,
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3, maxSemanticReworks: 2 },
+      });
+
+      expect(result.status).toBe('halted');
+      expect(result.slices).toEqual([{ sliceId: 'slice-1', status: 'halted' }]);
+      expect(result.reason).toContain('semantic');
+      // Should have exactly maxSemanticReworks + 1 semantic assessments
+      const semantics = fakes.callOrder.filter((c) => c.includes('assess-semantic'));
+      expect(semantics.length).toBe(3); // 0, 1, 2 → exhausted at 2
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Adapter test — compiled net shape for simplePlan
+// ---------------------------------------------------------------------------
+
+describe('Adapter: compiled net shape (topology-only — no runtime bindings)', () => {
+  it('simplePlan compiles to expected place and transition counts', () => {
+    const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
+
+    // simplePlan: 1 epic, 1 slice (no deps)
+    // Pool places: pool:test-agent, pool:code-agent = 2
+    // Epic places: epic:epic-1:done = 1
+    // Mechanical places: spec-ready, failing-tests, untested-code,
+    //                    needs-more, done-spec, completed, eligible,
+    //                    retry-budget, evaluate:reported, run-tests:reported,
+    //                    halted,
+    //                    evaluate:running, write-tests:running,
+    //                    write-code:running, run-tests:running,
+    //                    assess-semantic:running = 16
+    // Semantic places: semantic-budget, semantic-satisfied, assess-semantic:reported = 3
+    // Total places: 22
+    expect(blueprint.places.length).toBe(22);
+
+    // Transitions (every producer splits into dispatch + complete):
+    //   slice-ready:slice-1,
+    //   slice-1:evaluate:dispatch, slice-1:evaluate:complete,
+    //   slice-1:evaluate:done, slice-1:evaluate:more,
+    //   slice-1:write-tests:dispatch, slice-1:write-tests:complete,
+    //   slice-1:write-code:dispatch, slice-1:write-code:complete,
+    //   slice-1:run-tests:dispatch, slice-1:run-tests:complete,
+    //   slice-1:run-tests:pass, slice-1:run-tests:fail,
+    //   slice-1:assess-semantic:dispatch, slice-1:assess-semantic:complete,
+    //   slice-1:assess-semantic:satisfied, slice-1:assess-semantic:rejected,
+    //   slice-1:return-done, epic-complete:epic-1
+    // Total: 19
+    expect(blueprint.transitions.length).toBe(19);
+  });
+
+  it('simplePlan transitions carry correct contract metadata', () => {
+    const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
+    const transitions = blueprint.transitions;
+
+    // Mechanical-lane transitions
+    const mechanical = transitions.filter((t) => t.contract.lane === 'mechanical');
+    expect(mechanical.length).toBeGreaterThanOrEqual(5); // ready, evaluate, write-tests, write-code, run-tests
+    for (const t of mechanical) {
+      if (t.contract.kind !== 'structural') {
+        expect(t.contract.kind).toBe('mechanical');
+      }
+    }
+
+    // Semantic-lane transitions
+    const semantic = transitions.filter((t) => t.contract.lane === 'semantic');
+    expect(semantic.length).toBeGreaterThanOrEqual(1); // assess-semantic, return-done
+    // The semantic-lane handler descriptor lives on :complete.
+    const assessSemantic = transitions.find((t) => t.id.endsWith(':assess-semantic:complete'));
+    expect(assessSemantic?.contract.kind).toBe('semantic');
+    expect(assessSemantic?.contract.actor).toBe('semantic-assessor');
+  });
+
+  it('depPlan compiles with additional dep-signal places and transitions', () => {
+    const blueprint = compileTopology(depPlan, { maxRetries: 3 });
+
+    // depPlan: 1 epic, 2 slices (slice-b depends on slice-a)
+    // Pool places: pool:test-agent, pool:code-agent = 2
+    // Epic places: epic:epic-1:done = 1
+    // Slice-a places: 19 (6 mechanical + eligible + retry-budget + semantic-budget + semantic-satisfied
+    //                     + evaluate:reported + run-tests:reported + assess-semantic:reported
+    //                     + halted
+    //                     + evaluate:running + write-tests:running + write-code:running
+    //                     + run-tests:running + assess-semantic:running)
+    // Slice-b places: 19 (same)
+    // Dep-signal places: slice:slice-a:dep-signal:slice-b = 1
+    // Total: 42
+    expect(blueprint.places.length).toBe(42);
+
+    // Transitions (each producer splits into dispatch + complete):
+    //   slice-a: slice-ready,
+    //            evaluate:dispatch, evaluate:complete, evaluate:done, evaluate:more,
+    //            write-tests:dispatch, write-tests:complete,
+    //            write-code:dispatch, write-code:complete,
+    //            run-tests:dispatch, run-tests:complete, run-tests:pass, run-tests:fail,
+    //            assess-semantic:dispatch, assess-semantic:complete,
+    //            assess-semantic:satisfied, assess-semantic:rejected,
+    //            return-done = 18
+    //   slice-b: same = 18
+    //   epic-complete:epic-1 = 1
+    // Total: 37
+    expect(blueprint.transitions.length).toBe(37);
+  });
+
+  it('blueprint handler descriptors cover all transition kinds', () => {
+    const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
+    const kinds = new Set(blueprint.transitions.map((t) => t.handler.kind));
+    expect(kinds).toContain('passthrough');
+    // The explicit dispatch/complete topology split adds dispatch descriptors.
+    expect(kinds).toContain('dispatch');
+    expect(kinds).toContain('action');
+    expect(kinds).toContain('sibling-passthrough');
+    expect(kinds).toContain('run-tests');
+    expect(kinds).toContain('assess-semantic');
+    expect(kinds).toContain('complete-slice');
+    expect(kinds).toContain('complete-epic');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Adapter test — §7 event vocabulary
+// ---------------------------------------------------------------------------
+
+describe('Adapter: §7 event vocabulary', () => {
+  it('simplePlan happy path emits transition_fired events for each transition', async () => {
+    const fakes = createFakes();
+    const ctx: RunCtx = {
+      reportIds: [],
+      sliceOutcomes: new Map(),
+      epicOutcomes: new Map(),
+    };
+    const sb = gitSandbox('run-v7-happy');
+    const input: OrchestratorInput = {
+      plan: simplePlan,
+      sandboxDir: sb.sandboxDir,
+      runId: sb.runId,
+      actions: fakes.actions,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3 },
+    };
+
+    const net = compilePlan(input, ctx);
+    const events: NetEvent[] = [];
+    await net.run('serial', () => net.hasHaltToken(), { emit: (e) => events.push(e) });
+
+    // Happy path fires transitions and then emits explicit completion.
+    const fired = events.filter((e) => e.kind === 'transition_fired');
+    expect(fired.length).toBeGreaterThan(0);
+
+    // Check transition IDs appear in order
+    const ids = fired.map((e) => e.transitionId);
+    expect(ids).toContain('slice-ready:slice-1');
+    // Producers split into dispatch + complete, and both fire.
+    expect(ids).toContain('slice-1:evaluate:dispatch');
+    expect(ids).toContain('slice-1:evaluate:complete');
+    expect(ids).toContain('slice-1:assess-semantic:dispatch');
+    expect(ids).toContain('slice-1:assess-semantic:complete');
+    expect(ids).toContain('slice-1:return-done');
+    expect(ids).toContain('epic-complete:epic-1');
+
+    // Each fired event carries contract metadata
+    for (const e of fired) {
+      expect(e.contract).toBeDefined();
+      expect(e.consumed).toBeDefined();
+      expect(e.produced).toBeDefined();
+    }
+
+    expect(events.at(-1)?.kind).toBe('net_completed');
+    expect(events.filter((e) => e.kind === 'net_completed')).toHaveLength(1);
+    // No halt or false-deadlock events (happy path)
+    expect(events.filter((e) => e.kind === 'net_halted').length).toBe(0);
+    expect(events.filter((e) => e.kind === 'net_deadlocked').length).toBe(0);
+  });
+
+  it('retry exhaustion emits net_halted', async () => {
+    const fakes = createFakes({ testRunResults: [false] });
+    const ctx: RunCtx = {
+      reportIds: [],
+      sliceOutcomes: new Map(),
+      epicOutcomes: new Map(),
+    };
+    const sb = gitSandbox('run-v7-retry');
+    const input: OrchestratorInput = {
+      plan: simplePlan,
+      sandboxDir: sb.sandboxDir,
+      runId: sb.runId,
+      actions: fakes.actions,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 1 },
+    };
+
+    const net = compilePlan(input, ctx);
+    const events: NetEvent[] = [];
+    // Halt is observed via net.hasHaltToken() reading tokens on `:halted`
+    // places, not via the retired ctx.halted mutation.
+    await net.run('serial', () => net.hasHaltToken(), { emit: (e) => events.push(e) });
+
+    // Should have a net_halted event once the retry-exhaustion halt token
+    // lands on slice:slice-1:halted and the next loop iteration observes it.
+    const halted = events.filter((e) => e.kind === 'net_halted');
+    expect(halted.length).toBe(1);
+    // FE-819 Card B: the terminal event carries the halt reason verbatim from
+    // the halt token deposited on the `:halted` place.
+    expect(halted[0]!.reason).toMatch(/retry exhaustion/);
+  });
+
+  it('infra failure names the toolchain cause in the halt reason', async () => {
+    // FE-872: an exhausted run whose verification hit infra/toolchain failure
+    // must not read as "retry exhaustion" — that misdirects the reader to the
+    // code instead of the runner/toolchain.
+    const fakes = createFakes({ testRunResults: [false], testFailureKind: 'infra' });
+    const ctx: RunCtx = {
+      reportIds: [],
+      sliceOutcomes: new Map(),
+      epicOutcomes: new Map(),
+    };
+    const sb = gitSandbox('run-v7-infra');
+    const input: OrchestratorInput = {
+      plan: simplePlan,
+      sandboxDir: sb.sandboxDir,
+      runId: sb.runId,
+      actions: fakes.actions,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 1 },
+    };
+
+    const net = compilePlan(input, ctx);
+    const events: NetEvent[] = [];
+    await net.run('serial', () => net.hasHaltToken(), { emit: (e) => events.push(e) });
+
+    const halted = events.filter((e) => e.kind === 'net_halted');
+    expect(halted.length).toBe(1);
+    expect(halted[0]!.reason).toMatch(/toolchain\/install failure/);
+    expect(halted[0]!.reason).not.toMatch(/never ran/);
+    expect(halted[0]!.reason).not.toMatch(/retry exhaustion/);
+  });
+
+  it('net failed slice emits carry a grid reason (test vs infra)', async () => {
+    // The slice grid renders `reason`; the net-level verify transition must name
+    // the cause like evaluate-done does, not emit a reasonless `failed` row.
+    for (const [failureKind, reason] of [
+      ['test', 'tests failed'],
+      ['infra', 'infra error'],
+    ] as const) {
+      const fakes = createFakes({ testRunResults: [false], testFailureKind: failureKind });
+      const ctx: RunCtx = { reportIds: [], sliceOutcomes: new Map(), epicOutcomes: new Map() };
+      const cookEvents: CookEvent[] = [];
+      const sb = gitSandbox(`run-v7-grid-${failureKind}`);
+      const input: OrchestratorInput = {
+        plan: simplePlan,
+        sandboxDir: sb.sandboxDir,
+        runId: sb.runId,
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 1 },
+        emit: (e) => cookEvents.push(e),
+      };
+      const net = compilePlan(input, ctx);
+      await net.run('serial', () => net.hasHaltToken(), { emit: () => {} });
+
+      const failed = cookEvents.filter(
+        (e): e is Extract<CookEvent, { kind: 'slice' }> => e.kind === 'slice' && e.status === 'failed',
+      );
+      expect(failed.length).toBeGreaterThan(0);
+      for (const f of failed) expect(f.reason).toBe(reason);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Petrinaut event stream end-to-end on the orchestrator
+// ---------------------------------------------------------------------------
+
+describe('Petrinaut event stream on a real run', () => {
+  it('emits initial_marking + transition_fired (with token payload) for simplePlan happy path', async () => {
+    const fakes = createFakes();
+    const ctx: RunCtx = {
+      reportIds: [],
+      sliceOutcomes: new Map(),
+      epicOutcomes: new Map(),
+    };
+    const sb = gitSandbox('run-e2e');
+    const input: OrchestratorInput = {
+      plan: simplePlan,
+      sandboxDir: sb.sandboxDir,
+      runId: sb.runId,
+      actions: fakes.actions,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3 },
+    };
+
+    const blueprint = compileTopology(input.plan, input.policy);
+    const net = wireHandlers(blueprint, input, ctx);
+
+    const events: PetrinautEvent[] = [];
+    const stream = createPetrinautEventStream({
+      runId: 'run-e2e',
+      folding: createNetFolding(blueprint),
+      onEvent: (e) => events.push(e),
+    });
+    stream.emitInitialMarking(blueprint);
+    await net.run('serial', () => net.hasHaltToken(), stream.sink);
+
+    // 1. initial_marking is first.
+    expect(events[0]!.kind).toBe('initial_marking');
+
+    // 2. every event carries the runId.
+    expect(events.every((e) => 'runId' in e && e.runId === 'run-e2e')).toBe(true);
+
+    // 3. transition_fired events expose the dispatch/complete topology
+    //    directly in Petrinaut's wire format. Names are color-folded to
+    //    slice-independent roles (the firing slice lives on the token color,
+    //    not the transition name).
+    const fired = events.filter((e): e is PetrinautTransitionFiredEvent => e.kind === 'transition_fired');
+    const names = fired.map((e) => e.transitionName);
+    expect(names).toContain('evaluate:dispatch');
+    expect(names).toContain('evaluate:complete');
+    expect(names).toContain('assess-semantic:dispatch');
+    expect(names).toContain('assess-semantic:complete');
+
+    // 4. each transition_fired carries per-place token data with a UUID
+    //    (cross-team-agreed shape: { id: <UUID>, ...payload }).
+    for (const e of fired) {
+      for (const tokens of Object.values(e.input)) {
+        for (const tok of tokens) expect(typeof tok.id).toBe('string');
+      }
+      for (const tokens of Object.values(e.output)) {
+        for (const tok of tokens) expect(typeof tok.id).toBe('string');
+      }
+    }
+
+    // 5. happy path: explicit completion, no net_halted / net_deadlocked.
+    //    When the cook fails — retry exhaustion etc. — Petrinaut sees the halt
+    //    token travel through the topology as a transition_fired event landing
+    //    in `slice:<sid>:halted`, plus the engine emits net_halted.
+    expect(events.at(-1)?.kind).toBe('net_completed');
+    expect(events.filter((e) => e.kind === 'net_completed')).toHaveLength(1);
+    expect(events.filter((e) => e.kind === 'net_halted')).toHaveLength(0);
+    expect(events.filter((e) => e.kind === 'net_deadlocked')).toHaveLength(0);
+  });
+
+  it('surfaces Petrinaut integration failures as warnings without halting the run', async () => {
+    const fakes = createFakes();
+    const sb = gitSandbox('run-warnings');
+    const result = await createOrchestrator('serial').run({
+      plan: simplePlan,
+      sandboxDir: sb.sandboxDir,
+      actions: fakes.actions,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3 },
+      runId: sb.runId,
+      runDir: join(tmpdir(), 'brunch-missing-run-dir', 'child'),
+    });
+
+    expect(result.status).toBe('completed');
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('Petrinaut net export disabled:'),
+        expect.stringContaining('Petrinaut event stream disabled:'),
+      ]),
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Engine wires `petrinautFold` into both the static export and the live event
+// stream; identity fold preserves concrete per-slice place ids.
+// Engine-driven delta-replay oracle: drives a real cook run with
+// petrinautFold='identity', reads the SDCPN + JSONL events from disk, reduces
+// them via reduceBrunchExecutionExport, and asserts replay invariants.
+// ---------------------------------------------------------------------------
+
+describe('identity-fold engine wiring + delta-replay oracle', () => {
+  it("emits transition_fired events under concrete per-slice ids when petrinautFold='identity'", async () => {
+    const fakes = createFakes();
+    const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-identity-'));
+    const sb = gitSandbox('run-id-fold');
+    try {
+      const result = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: sb.sandboxDir,
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        runId: sb.runId,
+        runDir,
+        petrinautFold: 'identity',
+      });
+      expect(result.status).toBe('completed');
+
+      const sdcpnFile = JSON.parse(readFileSync(join(runDir, 'net.sdcpn.json'), 'utf8'));
+      const events: PetrinautEvent[] = readFileSync(join(runDir, 'petrinaut-events.jsonl'), 'utf8')
+        .split('\n')
+        .filter((l) => l.length > 0)
+        .map((l) => JSON.parse(l));
+
+      // Identity-fold marker: at least one slice place is exported under its
+      // concrete `slice:<sid>:…` id (color fold would strip the prefix).
+      const sliceColoredPlaces = (sdcpnFile.places as { id: string }[])
+        .map((p) => p.id)
+        .filter((id) => id.startsWith('slice:'));
+      expect(sliceColoredPlaces.length).toBeGreaterThan(0);
+
+      // The reducer round-trips every event into a referentially-clean export.
+      const exportPayload = reduceBrunchExecutionExport({ sdcpnFile, events });
+      const placeIds = new Set(exportPayload.definition.places.map((p) => p.id));
+      const transitionIds = new Set(exportPayload.definition.transitions.map((t) => t.id));
+      for (const p of Object.keys(exportPayload.initialState)) expect(placeIds.has(p)).toBe(true);
+      for (const f of exportPayload.transitionFirings) {
+        expect(transitionIds.has(f.transitionId)).toBe(true);
+        for (const p of Object.keys(f.input)) expect(placeIds.has(p)).toBe(true);
+        for (const p of Object.keys(f.output)) expect(placeIds.has(p)).toBe(true);
+      }
+
+      // Frame-replay: starting from initialState, apply each firing's deltas;
+      // no place count may go negative at any frame.
+      const marking: Record<string, number> = {};
+      for (const [p, v] of Object.entries(exportPayload.initialState)) {
+        if (typeof v === 'number') marking[p] = v;
+      }
+      for (const firing of exportPayload.transitionFirings) {
+        for (const [p, n] of Object.entries(firing.input)) {
+          if (typeof n !== 'number') continue;
+          marking[p] = (marking[p] ?? 0) - n;
+          expect(marking[p], `place ${p} negative after ${firing.transitionId}`).toBeGreaterThanOrEqual(0);
+        }
+        for (const [p, n] of Object.entries(firing.output)) {
+          if (typeof n !== 'number') continue;
+          marking[p] = (marking[p] ?? 0) + n;
+        }
+      }
+      // Sanity: the run completed with at least one firing landing somewhere
+      // non-empty (the engine reaches `slice-1:done`).
+      const finalNonEmpty = Object.entries(marking).filter(([, n]) => n > 0);
+      expect(finalNonEmpty.length).toBeGreaterThan(0);
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it('streams BrunchExecutionExportFrames through the bus when onPetrinautEvent is wired', async () => {
+    const fakes = createFakes();
+    const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-bus-'));
+    const sb = gitSandbox('run-bus-e2e');
+    try {
+      // Bus reads its definition from the SDCPN file the engine writes; we
+      // load it post-hoc. For the streaming case we attach a deferred-init
+      // bus + subscriber via a closure: the engine emits into this collector,
+      // and after the run we feed the collected events through a real bus to
+      // assert the replay-equivalence invariant end-to-end.
+      const collectedEvents: PetrinautEvent[] = [];
+      const result = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: sb.sandboxDir,
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        runId: sb.runId,
+        runDir,
+        petrinautFold: 'identity',
+        onPetrinautEvent: (event) => collectedEvents.push(event),
+      });
+      expect(result.status).toBe('completed');
+      expect(collectedEvents.length).toBeGreaterThan(0);
+      expect(collectedEvents[0]!.kind).toBe('initial_marking');
+
+      const sdcpnFile = JSON.parse(readFileSync(join(runDir, 'net.sdcpn.json'), 'utf8'));
+
+      // Pre-subscribed bus: every PetrinautEvent the engine emitted produces
+      // exactly one BrunchExecutionExportFrame; the resulting frame sequence
+      // folds back to the same export as the static reducer.
+      const bus = createPetrinautStreamBus({ runId: 'run-bus-e2e', sdcpnFile });
+      const frames: BrunchExecutionExportFrame[] = [];
+      bus.subscribe((f) => frames.push(f));
+      for (const e of collectedEvents) bus.publish(e);
+
+      // Replay-equivalence oracle.
+      const reduced = reduceBrunchExecutionExport({ sdcpnFile, events: collectedEvents });
+      const folded = (() => {
+        let definition = undefined as typeof reduced.definition | undefined;
+        let initialState = undefined as typeof reduced.initialState | undefined;
+        const transitionFirings: typeof reduced.transitionFirings = [];
+        for (const f of frames) {
+          if (f.kind === 'definition') definition = f.definition;
+          else if (f.kind === 'initial_state') initialState = f.initialState;
+          else if (f.kind === 'transition_firing') transitionFirings.push(f.firing);
+        }
+        return { definition: definition!, initialState: initialState!, transitionFirings };
+      })();
+      expect(folded).toEqual(reduced);
+
+      // Late subscriber receives the full timeline synchronously.
+      const lateFrames: BrunchExecutionExportFrame[] = [];
+      bus.subscribe((f) => lateFrames.push(f));
+      expect(lateFrames.length).toBe(frames.length);
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it('awaits setupPetrinautStream before emitting initial_marking; returned callback receives full event sequence', async () => {
+    const fakes = createFakes();
+    const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-setup-'));
+    const sb = gitSandbox('run-setup-hook');
+    try {
+      // Two-phase ordering witness:
+      //  1. Setup hook does async work (microtask) and only resolves after
+      //     flipping `setupResolved = true`.
+      //  2. Engine MUST `await` that resolution before emitting any event.
+      //     If it doesn't, `receivedBeforeSetupResolved` will be > 0 and the
+      //     assertion at the bottom catches the race.
+      let setupResolved = false;
+      let receivedBeforeSetupResolved = 0;
+      const receivedEvents: PetrinautEvent[] = [];
+      let hookSdcpnSeen: SdcpnFile | undefined;
+      let hookRunIdSeen: string | undefined;
+
+      const result = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: sb.sandboxDir,
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        runId: sb.runId,
+        runDir,
+        petrinautFold: 'identity',
+        setupPetrinautStream: async ({ runId, sdcpnFile }) => {
+          hookRunIdSeen = runId;
+          hookSdcpnSeen = sdcpnFile;
+          // Force a real await turn so a non-awaited engine call-site would
+          // already have emitted initial_marking by the time we return.
+          await new Promise<void>((r) => setTimeout(r, 1));
+          setupResolved = true;
+          return (event) => {
+            if (!setupResolved) receivedBeforeSetupResolved++;
+            receivedEvents.push(event);
+          };
+        },
+      });
+
+      expect(result.status).toBe('completed');
+      expect(hookRunIdSeen).toBe('run-setup-hook');
+      expect(hookSdcpnSeen).toBeDefined();
+      // Full sequence delivered through the returned callback.
+      expect(receivedEvents.length).toBeGreaterThan(0);
+      expect(receivedEvents[0]!.kind).toBe('initial_marking');
+      expect(receivedEvents.at(-1)?.kind).toBe('net_completed');
+      // Await-ordering invariant: nothing slipped through before setup resolved.
+      expect(receivedBeforeSetupResolved).toBe(0);
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it('emits a terminal live-stream event when net execution throws', async () => {
+    const fakes = createFakes({ throwOnAction: 'write-tests' });
+    const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-throw-terminal-'));
+    const sb = gitSandbox('run-throw-terminal');
+    try {
+      const receivedEvents: PetrinautEvent[] = [];
+
+      const result = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: sb.sandboxDir,
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        runId: sb.runId,
+        runDir,
+        petrinautFold: 'identity',
+        setupPetrinautStream: async () => (event) => receivedEvents.push(event),
+      });
+
+      expect(result.status).toBe('halted');
+      expect(result.reason).toContain('write-tests failed');
+      expect(receivedEvents.length).toBeGreaterThan(0);
+      expect(receivedEvents.at(-1)?.kind).toBe('net_halted');
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps the live-stream sink wired when initial_marking fan-out fails', async () => {
+    const fakes = createFakes();
+    const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-initial-warning-'));
+    const sb = gitSandbox('run-initial-warning');
+    try {
+      const receivedAfterInitialFailure: PetrinautEvent[] = [];
+
+      const result = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: sb.sandboxDir,
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        runId: sb.runId,
+        runDir,
+        petrinautFold: 'identity',
+        setupPetrinautStream: async () => (event) => {
+          if (event.kind === 'initial_marking') {
+            throw new Error('initial fan-out failed');
+          }
+          receivedAfterInitialFailure.push(event);
+        },
+      });
+
+      expect(result.status).toBe('completed');
+      expect(result.warnings).toEqual([
+        expect.stringMatching(/^Petrinaut initial marking not delivered: .*initial fan-out failed/),
+      ]);
+      expect(receivedAfterInitialFailure.some((event) => event.kind === 'transition_fired')).toBe(true);
+      expect(receivedAfterInitialFailure.at(-1)?.kind).toBe('net_completed');
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it('does not start live-stream setup when the event stream cannot initialize', async () => {
+    const fakes = createFakes();
+    const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-stream-init-'));
+    const sb = gitSandbox('run-stream-init-failure');
+    try {
+      // Make the JSONL event stream path unwritable while leaving runDir valid
+      // for net.json and net.sdcpn.json.
+      mkdirSync(join(runDir, 'petrinaut-events.jsonl'));
+      let setupCalls = 0;
+
+      const result = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: sb.sandboxDir,
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        runId: sb.runId,
+        runDir,
+        petrinautFold: 'identity',
+        setupPetrinautStream: async () => {
+          setupCalls++;
+          return () => undefined;
+        },
+      });
+
+      expect(result.status).toBe('completed');
+      expect(result.warnings).toEqual([expect.stringMatching(/^Petrinaut event stream disabled:/)]);
+      expect(setupCalls).toBe(0);
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it("collapses slice place ids when petrinautFold='color'", async () => {
+    const fakes = createFakes();
+    const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-color-'));
+    const sb = gitSandbox('run-color-fold');
+    try {
+      const result = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: sb.sandboxDir,
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        runId: sb.runId,
+        runDir,
+        petrinautFold: 'color',
+      });
+      expect(result.status).toBe('completed');
+
+      const sdcpnFile = JSON.parse(readFileSync(join(runDir, 'net.sdcpn.json'), 'utf8'));
+      // Color fold strips the `slice:<sid>:` prefix from every slice place.
+      const sliceColoredPlaces = (sdcpnFile.places as { id: string }[])
+        .map((p) => p.id)
+        .filter((id) => id.startsWith('slice:'));
+      expect(sliceColoredPlaces).toHaveLength(0);
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Contract test #12 — parallel fires concurrently
+// ---------------------------------------------------------------------------
+
+describe('Engine contract test #12 — parallel fires concurrently', () => {
+  const threeSlicePlan: Plan = {
+    mode: 'greenfield',
+    epics: [{ id: 'e1', summary: 'Three independent slices', depends_on: [], verification: [] }],
+    slices: [
+      {
+        id: 'p1',
+        epic_id: 'e1',
+        definition: 'S1',
+        depends_on: [],
+        verification: [{ kind: 'unit-test', target: 't1' }],
+      },
+      {
+        id: 'p2',
+        epic_id: 'e1',
+        definition: 'S2',
+        depends_on: [],
+        verification: [{ kind: 'unit-test', target: 't2' }],
+      },
+      {
+        id: 'p3',
+        epic_id: 'e1',
+        definition: 'S3',
+        depends_on: [],
+        verification: [{ kind: 'unit-test', target: 't3' }],
+      },
+    ],
+  };
+
+  it('parallel: multiple action handlers execute concurrently for independent slices', async () => {
+    const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
+    const { tracked, tracker } = withConcurrencyTracking(fakes.actions);
+
+    const engine = createOrchestrator('parallel');
+    const sb = gitSandbox('run-c12-parallel');
+    const result = await engine.run({
+      plan: threeSlicePlan,
+      sandboxDir: sb.sandboxDir,
+      runId: sb.runId,
+      actions: tracked,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3 },
+    });
+
+    expect(result.status).toBe('completed');
+    // Under parallel policy, independent slices fire concurrently.
+    expect(tracker.maxConcurrent).toBeGreaterThan(1);
+  });
+
+  it('serial: transitions fire one at a time, handlers run concurrently within agent-pool bounds', async () => {
+    // Under async dispatch, "serial" means *transition firing* is serial, but
+    // handlers run asynchronously after dispatch, so multiple handlers can be
+    // in flight concurrently as long as the agent pool has enough tokens. The
+    // agent pool (default = slices count = 3 here) bounds handler concurrency.
+    const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
+    const { tracked, tracker } = withConcurrencyTracking(fakes.actions);
+
+    const engine = createOrchestrator('serial');
+    const sb = gitSandbox('run-c12-serial');
+    const result = await engine.run({
+      plan: threeSlicePlan,
+      sandboxDir: sb.sandboxDir,
+      runId: sb.runId,
+      actions: tracked,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3 },
+    });
+
+    expect(result.status).toBe('completed');
+    // This used to be hardcoded to 1 because fire() awaited the handler inline.
+    // Now handlers complete asynchronously after dispatch.
+    expect(tracker.maxConcurrent).toBeGreaterThan(1);
+    expect(tracker.maxConcurrent).toBeLessThanOrEqual(threeSlicePlan.slices.length);
+  });
+
+  it('serial and parallel have comparable wall-clock for handler-bound work (async dispatch)', async () => {
+    // With async dispatch, both serial and parallel policies let handlers run
+    // concurrently. The difference is only in *transition* firing batching.
+    // For handler-bound work, both policies complete in roughly the same
+    // wall-clock time.
+    const DELAY_MS = 20;
+
+    function createDelayedFakes() {
+      const f = createFakes({ evalSequence: [true], semanticResults: [true] });
+      const delayed: ActionHandlers = {};
+      for (const [key, handler] of Object.entries(f.actions)) {
+        delayed[key] = async (ctx: ActionContext) => {
+          await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
+          return handler!(ctx);
+        };
+      }
+      return { ...f, actions: delayed };
+    }
+
+    // Serial run
+    const serialFakes = createDelayedFakes();
+    const serialSb = gitSandbox('run-c12-wall-serial');
+    const t0 = Date.now();
+    await createOrchestrator('serial').run({
+      plan: threeSlicePlan,
+      sandboxDir: serialSb.sandboxDir,
+      runId: serialSb.runId,
+      actions: serialFakes.actions,
+      reports: serialFakes.reports,
+      testRunner: serialFakes.testRunner,
+      policy: { maxRetries: 3 },
+    });
+    const serialMs = Date.now() - t0;
+
+    // Parallel run
+    const parallelFakes = createDelayedFakes();
+    const parallelSb = gitSandbox('run-c12-wall-parallel');
+    const t1 = Date.now();
+    await createOrchestrator('parallel').run({
+      plan: threeSlicePlan,
+      sandboxDir: parallelSb.sandboxDir,
+      runId: parallelSb.runId,
+      actions: parallelFakes.actions,
+      reports: parallelFakes.reports,
+      testRunner: parallelFakes.testRunner,
+      policy: { maxRetries: 3 },
+    });
+    const parallelMs = Date.now() - t1;
+
+    // Parallel should be no slower than serial (they're effectively equal
+    // now that async dispatch lets handlers overlap in both policies). The
+    // tolerance scales with serialMs because both runs absorb scheduling jitter
+    // and CPU contention from concurrent test files (real-process suites elsewhere
+    // can starve the event loop); an absolute slack flakes under that load. A true
+    // regression — parallel policy serializing its handlers — would be many ×
+    // serialMs (the plan fans out ~15 async handlers at DELAY_MS each), well past
+    // this bound.
+    expect(parallelMs).toBeLessThan(serialMs * 2 + 50);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Contract test #13 — resource pool bounds concurrency
+// ---------------------------------------------------------------------------
+
+describe('Engine contract test #13 — resource pool bounds concurrency', () => {
+  const threeSlicePlan: Plan = {
+    mode: 'greenfield',
+    epics: [{ id: 'e1', summary: 'Three independent slices', depends_on: [], verification: [] }],
+    slices: [
+      {
+        id: 'r1',
+        epic_id: 'e1',
+        definition: 'S1',
+        depends_on: [],
+        verification: [{ kind: 'unit-test', target: 't1' }],
+      },
+      {
+        id: 'r2',
+        epic_id: 'e1',
+        definition: 'S2',
+        depends_on: [],
+        verification: [{ kind: 'unit-test', target: 't2' }],
+      },
+      {
+        id: 'r3',
+        epic_id: 'e1',
+        definition: 'S3',
+        depends_on: [],
+        verification: [{ kind: 'unit-test', target: 't3' }],
+      },
+    ],
+  };
+
+  const agentActions = new Set(['evaluate-done', 'write-tests', 'write-code']);
+
+  it('parallel + agentPoolSize=1: only 1 agent-consuming action at a time', async () => {
+    const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
+    const { tracked, tracker } = withConcurrencyTracking(fakes.actions, agentActions);
+
+    const sb = gitSandbox('run-c13-pool1');
+    const result = await createOrchestrator('parallel').run({
+      plan: threeSlicePlan,
+      sandboxDir: sb.sandboxDir,
+      runId: sb.runId,
+      actions: tracked,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3, agentPoolSize: 1 },
+    });
+
+    expect(result.status).toBe('completed');
+    expect(tracker.maxConcurrent).toBe(1);
+  });
+
+  it('parallel + agentPoolSize=2: at most 2 agent-consuming actions at a time', async () => {
+    const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
+    const { tracked, tracker } = withConcurrencyTracking(fakes.actions, agentActions);
+
+    const sb = gitSandbox('run-c13-pool2');
+    const result = await createOrchestrator('parallel').run({
+      plan: threeSlicePlan,
+      sandboxDir: sb.sandboxDir,
+      runId: sb.runId,
+      actions: tracked,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3, agentPoolSize: 2 },
+    });
+
+    expect(result.status).toBe('completed');
+    expect(tracker.maxConcurrent).toBe(2);
+  });
+
+  it('default agentPoolSize (unbounded) preserves full concurrency', async () => {
+    const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
+    const { tracked, tracker } = withConcurrencyTracking(fakes.actions, agentActions);
+
+    const sb = gitSandbox('run-c13-unbounded');
+    const result = await createOrchestrator('parallel').run({
+      plan: threeSlicePlan,
+      sandboxDir: sb.sandboxDir,
+      runId: sb.runId,
+      actions: tracked,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3 },
+    });
+
+    expect(result.status).toBe('completed');
+    expect(tracker.maxConcurrent).toBe(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Adapter test — sandbox-per-slice isolation
+// ---------------------------------------------------------------------------
+
+describe('Adapter: sandbox-per-slice isolation', () => {
+  it('greenfield action handlers all receive the single shared run sandbox', async () => {
+    const sandboxDirs = new Map<string, string>();
+
+    const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
+    const trackingActions: ActionHandlers = {};
+    for (const [key, handler] of Object.entries(fakes.actions)) {
+      trackingActions[key] = async (ctx: ActionContext) => {
+        sandboxDirs.set(`${ctx.slice.id}:${key}`, ctx.sandboxDir);
+        return handler!(ctx);
+      };
+    }
+
+    const engine = createOrchestrator('serial');
+    const result = await engine.run({
+      plan: simplePlan,
+      sandboxDir: '/tmp/run',
+      actions: trackingActions,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3 },
+      sliceLayout: 'shared',
+    });
+
+    expect(result.status).toBe('completed');
+    for (const dir of sandboxDirs.values()) {
+      expect(dir).toBe('/tmp/run');
+    }
+    expect(sandboxDirs.size).toBeGreaterThanOrEqual(2);
+  });
+
+  it('brownfield slices receive distinct per-slice worktree dirs under the run sandbox', async () => {
+    const repo = mkdtempSync(join(tmpdir(), 'cook-ec-bf-'));
+    try {
+      execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: repo });
+      execFileSync('git', ['config', 'user.email', 't@e.com'], { cwd: repo });
+      execFileSync('git', ['config', 'user.name', 'T'], { cwd: repo });
+      writeFileSync(join(repo, 'README.md'), 'x\n');
+      execFileSync('git', ['add', '.'], { cwd: repo });
+      execFileSync('git', ['commit', '-q', '-m', 'init'], { cwd: repo });
+
+      const parallelPlan: Plan = {
+        mode: 'brownfield',
+        epics: [{ id: 'e1', summary: 'Three independent slices', depends_on: [], verification: [] }],
+        slices: [
+          {
+            id: 'p1',
+            epic_id: 'e1',
+            definition: 'S1',
+            depends_on: [],
+            verification: [{ kind: 'unit-test', target: 't1' }],
+          },
+          {
+            id: 'p2',
+            epic_id: 'e1',
+            definition: 'S2',
+            depends_on: [],
+            verification: [{ kind: 'unit-test', target: 't2' }],
+          },
+          {
+            id: 'p3',
+            epic_id: 'e1',
+            definition: 'S3',
+            depends_on: [],
+            verification: [{ kind: 'unit-test', target: 't3' }],
+          },
+        ],
+      };
+
+      const sandboxDirs = new Set<string>();
+      const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
+      const trackingActions: ActionHandlers = {};
+      for (const [key, handler] of Object.entries(fakes.actions)) {
+        trackingActions[key] = async (ctx: ActionContext) => {
+          sandboxDirs.add(ctx.sandboxDir);
+          return handler!(ctx);
+        };
+      }
+
+      const result = await createOrchestrator('parallel').run({
+        plan: parallelPlan,
+        sandboxDir: repo,
+        actions: trackingActions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        sandboxMode: 'codebase',
+        runId: 'run-bf',
+      });
+
+      expect(result.status).toBe('completed');
+      expect(sandboxDirs.size).toBeGreaterThan(1);
+      for (const dir of sandboxDirs) {
+        expect(dir.startsWith(repo + '/')).toBe(true);
+      }
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it('greenfield verify-epic runs in place against the single run tree — no per-slice dir, no __epic__ merge', async () => {
+    const verifyPlan: Plan = {
+      mode: 'greenfield',
+      epics: [
+        {
+          id: 'ev',
+          summary: 'Verified',
+          depends_on: [],
+          verification: [{ kind: 'integration-test', target: 't' }],
+        },
+      ],
+      slices: [
+        {
+          id: 'sv',
+          epic_id: 'ev',
+          definition: 'S',
+          depends_on: [],
+          verification: [{ kind: 'unit-test', target: 't' }],
+        },
+      ],
+    };
+
+    const parent = mkdtempSync(join(tmpdir(), 'cook-ec-'));
+    try {
+      // Greenfield slices accrete into the single run tree, so slice output
+      // lives directly under the run sandbox (not a per-slice <parent>/sv/ dir).
+      writeFileSync(join(parent, 'slice-marker.txt'), 'from-slice-sv');
+
+      let verifyEpicSandboxDir = '';
+      const fakes = createFakes({ evalSequence: [true], semanticResults: [true], verifyEpicResult: true });
+      const trackingActions: ActionHandlers = {};
+      for (const [key, handler] of Object.entries(fakes.actions)) {
+        trackingActions[key] = async (ctx: ActionContext) => {
+          if (key === 'verify-epic') verifyEpicSandboxDir = ctx.sandboxDir;
+          return handler!(ctx);
+        };
+      }
+
+      const result = await createOrchestrator('serial').run({
+        plan: verifyPlan,
+        sandboxDir: parent,
+        actions: trackingActions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        sliceLayout: 'shared',
+      });
+
+      expect(result.status).toBe('completed');
+      // verify-epic runs against the single run tree in place...
+      expect(verifyEpicSandboxDir).toBe(parent);
+      expect(existsSync(join(verifyEpicSandboxDir, 'slice-marker.txt'))).toBe(true);
+      // ...with no __epic__ merge dir and no merge event.
+      expect(existsSync(join(parent, '__epic__'))).toBe(false);
+      expect(fakes.reports.getAll().find((r) => r.event === 'epic-sandbox-merged')).toBeUndefined();
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
+  it('greenfield slices accrete into one shared tree — no per-slice dirs, and a dependent slice sees its dep output', async () => {
+    // b depends_on a. Under single-tree greenfield + serial, slice-a writes
+    // into the run sandbox and slice-b reads that same dir (accretion), with
+    // no per-slice <parent>/a or <parent>/b dirs.
+    const depPlan: Plan = {
+      mode: 'greenfield',
+      epics: [{ id: 'e1', summary: 'E', depends_on: [], verification: [] }],
+      slices: [
+        {
+          id: 'a',
+          epic_id: 'e1',
+          definition: 'A',
+          depends_on: [],
+          verification: [{ kind: 'unit-test', target: 't' }],
+        },
+        {
+          id: 'b',
+          epic_id: 'e1',
+          definition: 'B',
+          depends_on: ['a'],
+          verification: [{ kind: 'unit-test', target: 't' }],
+        },
+      ],
+    };
+
+    const parent = mkdtempSync(join(tmpdir(), 'cook-ec-accrete-'));
+    try {
+      const fakes = createFakes();
+      const actions: ActionHandlers = { ...fakes.actions };
+      // slice-a writes a.txt; slice-b reads a.txt from its own cwd and records what it saw.
+      actions['write-code'] = async (ctx: ActionContext) => {
+        if (ctx.slice.id === 'a') {
+          writeFileSync(join(ctx.sandboxDir, 'a.txt'), 'AAA');
+        } else if (ctx.slice.id === 'b') {
+          const aPath = join(ctx.sandboxDir, 'a.txt');
+          writeFileSync(
+            join(ctx.sandboxDir, 'b-saw-a.txt'),
+            existsSync(aPath) ? readFileSync(aPath, 'utf8') : 'MISSING',
+          );
+        }
+        return fakes.actions['write-code']!(ctx);
+      };
+
+      const result = await createOrchestrator('serial').run({
+        plan: depPlan,
+        sandboxDir: parent,
+        actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        sliceLayout: 'shared',
+      });
+
+      expect(result.status).toBe('completed');
+      // Single shared tree: slice output lands directly under the run sandbox...
+      expect(existsSync(join(parent, 'a.txt'))).toBe(true);
+      // ...and slice-b saw slice-a's output through the same dir (accretion).
+      expect(readFileSync(join(parent, 'b-saw-a.txt'), 'utf8')).toBe('AAA');
+      // No per-slice worktree dirs, no __epic__ merge dir.
+      expect(existsSync(join(parent, 'a'))).toBe(false);
+      expect(existsSync(join(parent, 'b'))).toBe(false);
+      expect(existsSync(join(parent, '__epic__'))).toBe(false);
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
+  it('greenfield with per-slice layout isolates slices and merges into __epic__ (parallel-safe path)', async () => {
+    const verifyPlan: Plan = {
+      mode: 'greenfield',
+      epics: [
+        {
+          id: 'ev',
+          summary: 'Verified',
+          depends_on: [],
+          verification: [{ kind: 'integration-test', target: 't' }],
+        },
+      ],
+      slices: [
+        {
+          id: 'sv',
+          epic_id: 'ev',
+          definition: 'S',
+          depends_on: [],
+          verification: [{ kind: 'unit-test', target: 't' }],
+        },
+      ],
+    };
+
+    const sb = gitSandbox('run-ps-existing');
+    const parent = sb.sandboxDir;
+    let verifyEpicSandboxDir = '';
+    const fakes = createFakes();
+    const trackingActions: ActionHandlers = {};
+    for (const [key, handler] of Object.entries(fakes.actions)) {
+      trackingActions[key] = async (ctx: ActionContext) => {
+        if (key === 'write-code') writeFileSync(join(ctx.sandboxDir, 'slice-marker.txt'), 'sv');
+        if (key === 'verify-epic') verifyEpicSandboxDir = ctx.sandboxDir;
+        return handler!(ctx);
+      };
+    }
+
+    const result = await createOrchestrator('parallel').run({
+      plan: verifyPlan,
+      sandboxDir: parent,
+      runId: sb.runId,
+      actions: trackingActions,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3 },
+      sliceLayout: 'per-slice',
+    });
+
+    expect(result.status).toBe('completed');
+    // slice ran in its own per-slice dir...
+    expect(existsSync(join(parent, 'sv'))).toBe(true);
+    // ...and verify-epic ran against the merged __epic__/<epicId>/ tree.
+    expect(verifyEpicSandboxDir).toBe(join(parent, '__epic__', 'ev'));
+    expect(existsSync(join(verifyEpicSandboxDir, 'slice-marker.txt'))).toBe(true);
+    expect(fakes.reports.getAll().find((r) => r.event === 'epic-sandbox-merged')).toBeDefined();
+  });
+
+  it('greenfield per-slice on a git-backed sandbox folds slice worktrees into __epic__', async () => {
+    // FE-1055 slice 2: the default per-slice layout is now git-backed. A
+    // greenfield run on a real createSandbox worktree isolates the slice in its
+    // own git worktree, then folds it into the merged __epic__/<epicId>/ tree
+    // that verify-epic runs against.
+    const verifyPlan: Plan = {
+      mode: 'greenfield',
+      epics: [
+        {
+          id: 'ev',
+          summary: 'Verified',
+          depends_on: [],
+          verification: [{ kind: 'integration-test', target: 't' }],
+        },
+      ],
+      slices: [
+        {
+          id: 'sv',
+          epic_id: 'ev',
+          definition: 'S',
+          depends_on: [],
+          verification: [{ kind: 'unit-test', target: 't' }],
+        },
+      ],
+    };
+
+    const sandbox = gitSandbox('run-greenfield-per-slice');
+    let verifyEpicSandboxDir = '';
+    const fakes = createFakes();
+    const trackingActions: ActionHandlers = {};
+    for (const [key, handler] of Object.entries(fakes.actions)) {
+      trackingActions[key] = async (ctx: ActionContext) => {
+        if (key === 'write-code') writeFileSync(join(ctx.sandboxDir, 'slice-marker.txt'), 'sv');
+        if (key === 'verify-epic') verifyEpicSandboxDir = ctx.sandboxDir;
+        return handler!(ctx);
+      };
+    }
+
+    const result = await createOrchestrator('parallel').run({
+      plan: verifyPlan,
+      sandboxDir: sandbox.sandboxDir,
+      runId: sandbox.runId,
+      actions: trackingActions,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3 },
+      sliceLayout: 'per-slice',
+    });
+
+    expect(result.status).toBe('completed');
+    // The slice ran in its own git worktree under the run sandbox.
+    expect(existsSync(join(sandbox.sandboxDir, 'sv', '.git'))).toBe(true);
+    // verify-epic ran against the merged __epic__/<epicId>/ tree.
+    expect(verifyEpicSandboxDir).toBe(join(sandbox.sandboxDir, '__epic__', 'ev'));
+    // The fold produced an epic-sandbox-merged report.
+    expect(fakes.reports.getAll().find((r) => r.event === 'epic-sandbox-merged')).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// durable-resume (FE-1082) — persist a run's marking at a pause, re-enter it
+// ---------------------------------------------------------------------------
+
+describe('durable-resume — persist at pause + resume to completion', () => {
+  async function waitUntil(predicate: () => boolean): Promise<void> {
+    for (let i = 0; i < 20; i++) {
+      if (predicate()) return;
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    throw new Error('Timed out waiting for condition');
+  }
+
+  it('drains in-flight deferred work before a structural halt snapshot boundary', async () => {
+    const net = new PetriNet();
+    net.addPlace('work');
+    net.addPlace('halt-start');
+    net.addPlace('slice:slice-1:halted');
+    net.addPlace('done');
+    net.addToken('work', { sliceId: 'slice-1', epicId: 'epic-1' });
+    net.addToken('halt-start', { sliceId: 'slice-1', epicId: 'epic-1' });
+    let releaseDeferred: (() => void) | undefined;
+    let deferredSettled = false;
+
+    net.addTransition({
+      id: 'slow-deferred',
+      inputs: ['work'],
+      fire: async (consumed) => {
+        const deferred = (async () => {
+          await new Promise<void>((resolve) => {
+            releaseDeferred = resolve;
+          });
+          deferredSettled = true;
+          return [{ place: 'done', token: consumed[0]! }];
+        })();
+        net.scheduleDeferred(
+          'slow-deferred:complete',
+          undefined,
+          { places: ['work'], tokens: consumed },
+          deferred,
+        );
+        return [];
+      },
+    });
+    net.addTransition({
+      id: 'halt-now',
+      inputs: ['halt-start'],
+      fire: async (consumed) => [
+        { place: 'slice:slice-1:halted', token: { ...consumed[0]!, haltReason: 'stop' } },
+      ],
+    });
+    const events: NetEvent[] = [];
+    let returned = false;
+
+    const run = net
+      .run('parallel', () => net.hasHaltToken(), { emit: (event) => events.push(event) })
+      .finally(() => {
+        returned = true;
+      });
+
+    await waitUntil(() =>
+      events.some((event) => event.kind === 'transition_fired' && event.transitionId === 'halt-now'),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(returned).toBe(false);
+
+    releaseDeferred!();
+    await run;
+
+    expect(deferredSettled).toBe(true);
+    const deferredEventIndex = events.findIndex(
+      (event) => event.kind === 'transition_fired' && event.transitionId === 'slow-deferred:complete',
+    );
+    const haltedEventIndex = events.findIndex((event) => event.kind === 'net_halted');
+    expect(deferredEventIndex).toBeGreaterThanOrEqual(0);
+    expect(haltedEventIndex).toBeGreaterThan(deferredEventIndex);
+  });
+
+  it('persists a RunSnapshot when paused mid-run, then resumes it to completion', async () => {
+    const runDir = mkdtempSync(join(tmpdir(), 'cook-resume-'));
+    try {
+      // Pause after the first transition fires → the run stops with pending work.
+      let checks = 0;
+      const first = createFakes();
+      const paused = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: first.actions,
+        reports: first.reports,
+        testRunner: first.testRunner,
+        policy: { maxRetries: 3 },
+        sliceLayout: 'shared',
+        runDir,
+        shouldPause: () => checks++ >= 1,
+      });
+      expect(paused.status).toBe('halted'); // paused == did not complete
+
+      // A resumable snapshot was persisted, capturing real pending work.
+      expect(existsSync(join(runDir, 'run-snapshot.json'))).toBe(true);
+      const snap = loadRunSnapshot(runDir);
+      expect(snap).not.toBeNull();
+      const tokenCount = Object.values(snap!.marking.places).reduce((n, ts) => n + ts.length, 0);
+      expect(tokenCount).toBeGreaterThan(0);
+
+      // Resume on a fresh net + fresh fakes (evaluate-done says YES) → completes.
+      const second = createFakes({ evalSequence: [true] });
+      const resumed = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: second.actions,
+        reports: second.reports,
+        testRunner: second.testRunner,
+        policy: { maxRetries: 3 },
+        sliceLayout: 'shared',
+        resume: snap!,
+      });
+      expect(resumed.status).toBe('completed');
+      expect(resumed.slices).toEqual([{ sliceId: 'slice-1', status: 'completed' }]);
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it('removes a stale pause snapshot when a later runDir resume completes', async () => {
+    const runDir = mkdtempSync(join(tmpdir(), 'cook-resume-clear-'));
+    try {
+      let checks = 0;
+      const first = createFakes();
+      await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: first.actions,
+        reports: first.reports,
+        testRunner: first.testRunner,
+        policy: { maxRetries: 3 },
+        sliceLayout: 'shared',
+        runDir,
+        shouldPause: () => checks++ >= 1,
+      });
+      const stale = loadRunSnapshot(runDir);
+      expect(stale).not.toBeNull();
+
+      const second = createFakes({ evalSequence: [true] });
+      const resumed = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: second.actions,
+        reports: second.reports,
+        testRunner: second.testRunner,
+        policy: { maxRetries: 3 },
+        sliceLayout: 'shared',
+        runDir,
+        resume: stale!,
+      });
+
+      expect(resumed.status).toBe('completed');
+      expect(loadRunSnapshot(runDir)).toBeNull();
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it('waits for in-flight deferred work before writing a pause snapshot', async () => {
+    const runDir = mkdtempSync(join(tmpdir(), 'cook-resume-quiescent-'));
+    try {
+      const fakes = createFakes({ evalSequence: [true] });
+      let releaseEvaluate: (() => void) | undefined;
+      let evaluateStarted = false;
+      let evaluateSettled = false;
+      let returned = false;
+      const actions: ActionHandlers = {
+        ...fakes.actions,
+        'evaluate-done': async (ctx) => {
+          evaluateStarted = true;
+          await new Promise<void>((resolve) => {
+            releaseEvaluate = resolve;
+          });
+          evaluateSettled = true;
+          return fakes.actions['evaluate-done']!(ctx);
+        },
+      };
+
+      const run = createOrchestrator('serial')
+        .run({
+          plan: simplePlan,
+          sandboxDir: '/tmp/fake',
+          actions,
+          reports: fakes.reports,
+          testRunner: fakes.testRunner,
+          policy: { maxRetries: 3 },
+          sliceLayout: 'shared',
+          runDir,
+          shouldPause: () => evaluateStarted,
+        })
+        .finally(() => {
+          returned = true;
+        });
+
+      await waitUntil(() => evaluateStarted);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(returned).toBe(false);
+
+      releaseEvaluate!();
+      const paused = await run;
+      expect(paused.status).toBe('halted');
+      expect(evaluateSettled).toBe(true);
+      const snap = loadRunSnapshot(runDir);
+      expect(snap).not.toBeNull();
+      expect(snap!.reportIds).toContain('rpt-eval-slice-1-1');
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it('writes a pause snapshot when only completed slice gate tokens remain before epic verify', async () => {
+    const runDir = mkdtempSync(join(tmpdir(), 'cook-resume-epic-gate-'));
+    try {
+      const fakes = createFakes({ evalSequence: [true] });
+
+      const paused = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        sliceLayout: 'shared',
+        runDir,
+        resume: {
+          marking: {
+            places: {
+              'slice:slice-1:completed': [{ sliceId: 'slice-1', epicId: 'epic-1' }],
+            },
+          },
+          slices: [{ sliceId: 'slice-1', status: 'completed' }],
+          epics: [],
+          reportIds: ['rpt-prior-slice'],
+        },
+        shouldPause: () => true,
+      });
+
+      expect(paused.status).toBe('halted');
+      const snap = loadRunSnapshot(runDir);
+      expect(snap).not.toBeNull();
+      expect(snap!.slices).toContainEqual({ sliceId: 'slice-1', status: 'completed' });
+      expect(snap!.epics).toEqual([]);
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it('loadRunSnapshot returns null when no snapshot was written (e.g. a clean completion)', () => {
+    const runDir = mkdtempSync(join(tmpdir(), 'cook-resume-none-'));
+    try {
+      expect(loadRunSnapshot(runDir)).toBeNull();
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it('seeds prior outcomes + reportIds from the snapshot so the resumed result reflects the whole run', async () => {
+    const fakes = createFakes({ evalSequence: [true] });
+    const resumed = await createOrchestrator('serial').run({
+      plan: simplePlan,
+      sandboxDir: '/tmp/fake',
+      actions: fakes.actions,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3 },
+      sliceLayout: 'shared',
+      // Empty marking → the net is quiescent-complete; the seeded outcomes must
+      // still surface even though no transition re-touches slice-1/epic-1.
+      resume: {
+        marking: { places: {} },
+        slices: [{ sliceId: 'slice-1', status: 'completed' }],
+        epics: [{ epicId: 'epic-1', status: 'completed' }],
+        reportIds: ['rpt-prior-1'],
+      },
+    });
+    expect(resumed.status).toBe('completed');
+    expect(resumed.slices).toEqual([{ sliceId: 'slice-1', status: 'completed' }]);
+    expect(resumed.reports).toContain('rpt-prior-1');
+  });
+});

@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { InterviewView } from './-interview-view.js';
+import { ContinuousWorkspaceView } from './-continuous-workspace-view.js';
 
 function AcceptanceReviewView() {
-  return <InterviewView phase="criteria" />;
+  return <ContinuousWorkspaceView initialPhase="criteria" />;
 }
 
 export const Route = createFileRoute('/specification/$id/_view/acceptance-review')({

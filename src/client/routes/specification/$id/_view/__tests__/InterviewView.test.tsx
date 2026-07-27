@@ -6,7 +6,7 @@ import { useCallback, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { EntitiesData } from '@/shared/api-types.js';
-import type { BrunchUIMessage } from '@/shared/chat.js';
+import type { BrunchUIMessage, ReviewSetData, StructuredQuestion } from '@/shared/chat.js';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 import { deriveSpecificationLanding } from '@/shared/specification-state.js';
 import type { SpecificationState, SpecificationTurn } from '@/shared/specification.js';
@@ -57,6 +57,27 @@ function createPendingQuestionMessage(overrides?: { parts?: BrunchUIMessage['par
       },
     ],
   };
+}
+
+function createUnacknowledgedQuestionMessage(): BrunchUIMessage {
+  return createPendingQuestionMessage({
+    parts: [
+      {
+        type: 'tool-ask_question',
+        toolCallId: 'tool-1',
+        state: 'input-available',
+        input: {
+          question: 'Which platform should we target next?',
+          why: 'Platform shapes the first build.',
+          impact: 'high',
+          options: [
+            { content: 'Web', is_recommended: true },
+            { content: 'Desktop', is_recommended: false },
+          ],
+        },
+      },
+    ],
+  });
 }
 
 function createPendingReviewMessage(): BrunchUIMessage {
@@ -169,6 +190,94 @@ let currentSpecificationState: SpecificationState;
 let currentEntityState: EntitiesData;
 const routerInvalidate = vi.fn(async () => {});
 const entityInvalidate = vi.fn(async () => {});
+const promoteStreamedFrontierTurnToBundle = vi.fn(
+  (promotion: {
+    turnId: number;
+    phase: SpecificationTurn['phase'];
+    question: {
+      question: string;
+      why: string | null;
+      impact: SpecificationTurn['impact'];
+      options: readonly {
+        position: number;
+        content: string;
+        is_recommended: boolean;
+      }[];
+      reviewActions?: StructuredQuestion['reviewActions'];
+      reviewSet?: ReviewSetData;
+    };
+  }) => {
+    const existingTurn = currentSpecificationState.turns.find((turn) => turn.id === promotion.turnId);
+    const promotedTurn: SpecificationTurn = {
+      id: promotion.turnId,
+      specification_id: currentSpecificationState.specification.id,
+      parent_turn_id: existingTurn?.parent_turn_id ?? currentSpecificationState.specification.active_turn_id,
+      phase: promotion.phase,
+      turn_kind: 'question',
+      question: promotion.question.question,
+      why: promotion.question.why,
+      impact: promotion.question.impact,
+      answer: null,
+      is_resolution: false,
+      user_parts: null,
+      assistant_parts: JSON.stringify([
+        {
+          type: 'tool-ask_question',
+          toolCallId: 'tool-1',
+          state: 'output-available',
+          input: {
+            question: promotion.question.question,
+            why: promotion.question.why,
+            impact: promotion.question.impact,
+            options: promotion.question.options.map((option) => ({
+              content: option.content,
+              is_recommended: option.is_recommended,
+            })),
+            ...(promotion.question.reviewActions ? { reviewActions: promotion.question.reviewActions } : {}),
+            ...(promotion.question.reviewSet ? { reviewSet: promotion.question.reviewSet } : {}),
+          },
+          output: { ok: true, turnId: promotion.turnId, optionCount: promotion.question.options.length },
+        },
+        ...(promotion.question.reviewSet
+          ? [{ type: 'data-review-set', data: promotion.question.reviewSet }]
+          : []),
+      ]),
+      created_at: existingTurn?.created_at ?? '2026-04-30 10:00:00',
+      options: promotion.question.options.map((option) => ({
+        id: option.position + 1,
+        position: option.position,
+        content: option.content,
+        is_recommended: option.is_recommended,
+        is_selected: false,
+      })),
+      captured_items: [],
+    };
+
+    currentSpecificationState = {
+      ...currentSpecificationState,
+      specification: {
+        ...currentSpecificationState.specification,
+        active_turn_id: promotion.turnId,
+      },
+      workflow: {
+        ...currentSpecificationState.workflow,
+        phases: {
+          ...currentSpecificationState.workflow.phases,
+          [promotion.phase]: {
+            ...currentSpecificationState.workflow.phases[promotion.phase],
+            status: 'in_progress',
+            turnId: promotion.turnId,
+          },
+        },
+      },
+      landing: { kind: 'frontier-turn', phase: promotion.phase, turnId: promotion.turnId },
+      turns: [
+        ...currentSpecificationState.turns.filter((turn) => turn.id !== promotion.turnId),
+        promotedTurn,
+      ],
+    };
+  },
+);
 const routerNavigate = vi.fn(async () => {});
 const fetchMock = vi.fn<typeof fetch>();
 let useChatImpl: (options: UseChatOptions) => {
@@ -202,6 +311,7 @@ vi.mock('../../-specification-data.js', () => ({
     invalidateSpecificationBundle: routerInvalidate,
     invalidateEntities: entityInvalidate,
   }),
+  usePromoteStreamedFrontierTurnToBundle: () => promoteStreamedFrontierTurnToBundle,
   primeSpecificationBundle: vi.fn(),
   primeSpecificationEntities: vi.fn(),
   specificationQueryKeys: {
@@ -217,6 +327,7 @@ vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
     invalidateSpecificationBundle: routerInvalidate,
     invalidateEntities: entityInvalidate,
   }),
+  usePromoteStreamedFrontierTurnToBundle: () => promoteStreamedFrontierTurnToBundle,
   primeSpecificationBundle: vi.fn(),
   primeSpecificationEntities: vi.fn(),
   specificationQueryKeys: {
@@ -612,6 +723,7 @@ beforeEach(() => {
   useSpecificationEntitiesSpy.mockImplementation(() => currentEntityState);
   routerInvalidate.mockClear();
   entityInvalidate.mockClear();
+  promoteStreamedFrontierTurnToBundle.mockClear();
   routerNavigate.mockClear();
   fetchMock.mockReset();
   useChatImpl = createUseChatHarness();
@@ -626,7 +738,7 @@ afterEach(() => {
 
 describe('InterviewView', () => {
   it('keeps entity-query subscription out of the transcript-owning interview view', async () => {
-    renderWorkspace();
+    const rendered = renderWorkspace();
 
     await screen.findByText('What should we build first?');
 
@@ -1007,7 +1119,7 @@ describe('InterviewView', () => {
       }),
     );
 
-    renderWorkspace();
+    const rendered = renderWorkspace();
 
     expect(screen.getByText('Phase 1/4 – Grounding')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Close Phase' })).toBeNull();
@@ -1024,7 +1136,7 @@ describe('InterviewView', () => {
       }),
     );
 
-    renderWorkspace();
+    const rendered = renderWorkspace();
 
     expect(screen.queryByRole('button', { name: 'Close Phase' })).toBeNull();
     expect(screen.queryByRole('link', { name: /advance to/i })).toBeNull();
@@ -1040,7 +1152,7 @@ describe('InterviewView', () => {
       }),
     );
 
-    renderWorkspace();
+    const rendered = renderWorkspace();
 
     expect(screen.getByRole('button', { name: 'Close Phase' })).toBeTruthy();
   });
@@ -1071,7 +1183,7 @@ describe('InterviewView', () => {
       }),
     );
 
-    renderWorkspace();
+    const rendered = renderWorkspace();
 
     fireEvent.click(screen.getByRole('button', { name: 'Close Phase' }));
 
@@ -1727,6 +1839,72 @@ describe('InterviewView', () => {
     expect(screen.getByTestId('accepted-closure-card').textContent).not.toContain(
       'Confirm grounding closure',
     );
+  });
+
+  it('stops showing observer "Still thinking…" for answered turns once their phase is closed', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        turns: [
+          {
+            id: 1,
+            specification_id: 1,
+            parent_turn_id: null,
+            phase: 'grounding',
+            question: 'What should we build first?',
+            why: 'This frames the first iteration.',
+            impact: 'high',
+            answer: 'Build the web app',
+            is_resolution: false,
+            user_parts: JSON.stringify([{ type: 'text', text: 'Build the web app' }]),
+            assistant_parts: JSON.stringify([{ type: 'text', text: 'What should we build first?' }]),
+            created_at: '2026-04-03 10:00:00',
+            options: [],
+          },
+          {
+            id: 2,
+            specification_id: 1,
+            parent_turn_id: 1,
+            phase: 'grounding',
+            question: 'Closure proposal',
+            why: null,
+            impact: null,
+            answer: 'Confirm grounding closure',
+            is_resolution: true,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Confirm grounding closure' },
+              {
+                type: 'data-confirmation',
+                data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 2, phase: 'grounding' },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              {
+                type: 'data-phase-summary',
+                data: { turnId: 2, phase: 'grounding', summary: 'Grounding captured.' },
+              },
+            ]),
+            created_at: '2026-04-03 10:05:00',
+            options: [],
+          },
+        ],
+        workflow: createWorkflowState({
+          grounding: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 2,
+            summary: 'Grounding captured.',
+          },
+        }),
+      }),
+    );
+
+    renderWorkspace();
+
+    const answeredCard = await screen.findByTestId('answered-turn-card');
+    expect(answeredCard.textContent).toContain('What should we build first?');
+    expect(answeredCard.textContent).toContain('Captured:');
+    expect(answeredCard.textContent).not.toContain('Still thinking…');
   });
 
   it('keeps later-phase active turns out of a closed phase and stages the handoff card at the bottom', async () => {
@@ -4171,9 +4349,8 @@ describe('InterviewView', () => {
             {
               type: 'tool-read_file',
               toolCallId: 'tool-lookup',
-              state: 'output-available',
+              state: 'input-available',
               input: { path: 'src/server/app.ts' },
-              output: { ok: true },
             } as never,
           ],
         },
@@ -4183,8 +4360,8 @@ describe('InterviewView', () => {
     expect(await screen.findByTestId('generating-turn-placeholder')).toBeTruthy();
     expect(screen.getAllByText('Thinking…')).toHaveLength(1);
     expect(screen.getAllByText('Tools: read file')).toHaveLength(1);
-    expect(screen.queryByText('src/server/app.ts')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Tools: read file' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByText('src/server/app.ts')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Tools: read file' }).hasAttribute('disabled')).toBe(false);
   });
 
   it('stages a preface skeleton during generation and swaps to the full prefaced question before route invalidation', async () => {
@@ -4253,11 +4430,13 @@ describe('InterviewView', () => {
         answer: 'Ship the desktop app',
       }),
     );
-    rendered.rerender(
-      <QueryClientProvider client={rendered.queryClient}>
-        <InterviewView phase="grounding" />
-      </QueryClientProvider>,
-    );
+    await act(async () => {
+      rendered.rerender(
+        <QueryClientProvider client={rendered.queryClient}>
+          <InterviewView phase="grounding" />
+        </QueryClientProvider>,
+      );
+    });
 
     expect(screen.getByTestId('answered-turn-card').textContent).toContain('What should we build first?');
     expect(screen.queryByText('Which platform should we target now?')).toBeNull();
@@ -4338,6 +4517,100 @@ describe('InterviewView', () => {
     await waitFor(() => {
       expect(routerInvalidate).toHaveBeenCalledTimes(1);
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Desktop — Best fit for our launch' });
+    });
+  });
+
+  it('posts grounding option selections without requiring free-text', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        answer: '',
+        userParts: [],
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      }),
+    );
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderWorkspace('grounding');
+
+    expect(((await screen.findByRole('button', { name: 'Submit' })) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/specifications/1/turns/1/response',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: 'select-options',
+            positions: [1],
+          }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(routerInvalidate).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Desktop' });
+    });
+  });
+
+  it('posts grounding free-text responses when options are present', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        answer: '',
+        userParts: [],
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      }),
+    );
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderWorkspace('grounding');
+
+    fireEvent.change(await screen.findByLabelText('Additional response context'), {
+      target: { value: 'Something more bespoke' },
+    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/specifications/1/turns/1/response',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: 'free-text',
+            freeText: 'Something more bespoke',
+          }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(routerInvalidate).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Something more bespoke' });
     });
   });
 
@@ -5190,6 +5463,43 @@ describe('InterviewView', () => {
     expect(screen.queryByTestId('generating-turn-placeholder')).toBeNull();
   });
 
+  it('enables a streamed question card after durable-ready promotion before bundle refetch resolves', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        assistantText: 'Earlier question?',
+        answer: 'Earlier answer',
+      }),
+    );
+    useChatImpl = createUseChatHarness('streaming');
+    routerInvalidate.mockImplementationOnce(async () => new Promise<void>(() => {}));
+
+    const rendered = renderWorkspace();
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
+        { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
+        createPendingQuestionMessage(),
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(promoteStreamedFrontierTurnToBundle).toHaveBeenCalledTimes(1);
+    });
+
+    rendered.rerender(
+      <QueryClientProvider client={rendered.queryClient}>
+        <InterviewView phase="grounding" />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(routerInvalidate).not.toHaveBeenCalled();
+      expect(screen.getByRole('checkbox', { name: /web/i }).hasAttribute('disabled')).toBe(false);
+      expect((screen.getByLabelText('Your response') as HTMLTextAreaElement).disabled).toBe(false);
+    });
+  });
+
   it('keeps trailing observer status attached to the collapsed answered turn and upgrades in place when capture arrives', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
@@ -5201,81 +5511,104 @@ describe('InterviewView', () => {
         ],
       }),
     );
+    const answeredTurn: SpecificationTurn = {
+      id: 1,
+      specification_id: 1,
+      parent_turn_id: null,
+      phase: 'grounding',
+      turn_kind: 'question',
+      question: 'What should we build first?',
+      why: 'This frames the first iteration.',
+      impact: 'high',
+      answer: 'Desktop — Best fit for our launch',
+      is_resolution: false,
+      user_parts: JSON.stringify([
+        { type: 'text', text: 'Desktop — Best fit for our launch' },
+        {
+          type: 'data-turn-response',
+          data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for our launch' },
+        },
+      ]),
+      assistant_parts: JSON.stringify([{ type: 'text', text: 'What should we build first?' }]),
+      created_at: '2026-04-03 10:00:00',
+      options: [
+        { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+        { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+      ],
+      captured_items: [],
+    };
+    const nextTurn: SpecificationTurn = {
+      id: 2,
+      specification_id: 1,
+      parent_turn_id: 1,
+      phase: 'grounding',
+      turn_kind: 'question',
+      question: 'Which platform should we target next?',
+      why: 'Platform shapes the first build.',
+      impact: 'high',
+      answer: null,
+      is_resolution: false,
+      user_parts: null,
+      assistant_parts: JSON.stringify([{ type: 'text', text: 'Which platform should we target next?' }]),
+      created_at: '2026-04-03 10:01:00',
+      options: [
+        { id: 21, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+        { id: 22, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+      ],
+      captured_items: [],
+    };
+    const groundingWithNextTurn = createWorkflowState({
+      grounding: {
+        status: 'in_progress',
+        turnId: 2,
+      },
+    });
 
     routerInvalidate.mockImplementationOnce(async () => {
       setLoaderData(
         createWorkspaceLoaderData({
-          answer: 'Desktop — Best fit for our launch',
-          userParts: [
-            { type: 'text', text: 'Desktop — Best fit for our launch' },
-            {
-              type: 'data-turn-response',
-              data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for our launch' },
-            },
-          ],
-          options: [
-            { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
-            { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
-          ],
+          workflow: groundingWithNextTurn,
+          turns: [answeredTurn, nextTurn],
         }),
       );
     });
     entityInvalidate.mockImplementationOnce(async () => {
+      const answeredTurnWithCapture: SpecificationTurn = {
+        ...answeredTurn,
+        assistant_parts: JSON.stringify([
+          { type: 'text', text: 'What should we build first?' },
+          {
+            type: 'data-observer-result',
+            data: {
+              turnId: 1,
+              entityIds: {
+                goals: [],
+                terms: [],
+                contexts: [1],
+                constraints: [],
+                requirements: [],
+                criteria: [],
+                decisions: [],
+                assumptions: [],
+              },
+            },
+          },
+        ]),
+        captured_items: [
+          {
+            collection: 'knowledge_item',
+            kind: 'context',
+            id: 1,
+            content: 'The launch still targets desktop first',
+            referenceCode: createKnowledgeReferenceCode('context', 1),
+          },
+        ],
+      };
+
       setLoaderData(
         createWorkspaceLoaderData({
-          turns: [
-            {
-              id: 1,
-              specification_id: 1,
-              parent_turn_id: null,
-              phase: 'grounding',
-              question: 'What should we build first?',
-              why: 'This frames the first iteration.',
-              impact: 'high',
-              answer: 'Desktop — Best fit for our launch',
-              is_resolution: false,
-              user_parts: JSON.stringify([
-                { type: 'text', text: 'Desktop — Best fit for our launch' },
-                {
-                  type: 'data-turn-response',
-                  data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for our launch' },
-                },
-              ]),
-              assistant_parts: JSON.stringify([
-                { type: 'text', text: 'What should we build first?' },
-                {
-                  type: 'data-observer-result',
-                  data: {
-                    turnId: 1,
-                    entityIds: {
-                      goals: [],
-                      terms: [],
-                      contexts: [1],
-                      constraints: [],
-                      requirements: [],
-                      criteria: [],
-                      decisions: [],
-                      assumptions: [],
-                    },
-                  },
-                },
-              ]),
-              created_at: '2026-04-03 10:00:00',
-              options: [
-                { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
-                { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
-              ],
-              captured_items: [
-                {
-                  collection: 'knowledge_item',
-                  kind: 'context',
-                  id: 1,
-                  content: 'The launch still targets desktop first',
-                  referenceCode: createKnowledgeReferenceCode('context', 1),
-                },
-              ],
-            },
-          ],
+          workflow: groundingWithNextTurn,
+          turns: [answeredTurnWithCapture, nextTurn],
         }),
       );
     });
@@ -5290,7 +5623,7 @@ describe('InterviewView', () => {
       }),
     );
 
-    renderWorkspace();
+    const rendered = renderWorkspace();
 
     fireEvent.change(await screen.findByLabelText('Additional response context'), {
       target: { value: 'Best fit for our launch' },
@@ -5300,6 +5633,25 @@ describe('InterviewView', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('turn-processing-state')).toBeTruthy();
+    });
+    await waitFor(() => {
+      expect(routerInvalidate).toHaveBeenCalledTimes(1);
+    });
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: groundingWithNextTurn,
+        turns: [answeredTurn, nextTurn],
+      }),
+    );
+    await act(async () => {
+      rendered.rerender(
+        <QueryClientProvider client={rendered.queryClient}>
+          <InterviewView phase="grounding" />
+        </QueryClientProvider>,
+      );
+    });
+    await waitFor(() => {
+      expect(screen.getByText('2 Turns')).toBeTruthy();
     });
 
     await act(async () => {
@@ -5314,7 +5666,7 @@ describe('InterviewView', () => {
           role: 'assistant',
           parts: [{ type: 'text', text: 'What should we build first?' }],
         },
-        createPendingQuestionMessage(),
+        createUnacknowledgedQuestionMessage(),
       ]);
       useChatHarness.setStatus?.('ready');
     });

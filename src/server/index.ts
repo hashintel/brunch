@@ -1,5 +1,6 @@
 import { createApp } from './app.js';
 import {
+  exitIfAnthropicApiKeyMissing,
   listenOnLocalhost,
   loadLocalEnvFile,
   resolveBackendPort,
@@ -9,6 +10,7 @@ import {
 // In dev mode, use BRUNCH_DB env var if set to a non-empty value, otherwise resolve .brunch/ project
 const projectCwd = process.cwd();
 loadLocalEnvFile(projectCwd);
+exitIfAnthropicApiKeyMissing();
 
 const DB_PATH = process.env.BRUNCH_DB;
 const dbPath = resolveConfiguredDbPath(DB_PATH, projectCwd);

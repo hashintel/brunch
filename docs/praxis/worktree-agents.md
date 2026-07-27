@@ -1,6 +1,6 @@
 # Worktree Agent Protocol
 
-Use `isolation: "worktree"` to run parallel agent builds in isolated copies of the repository. This enables concurrent slice implementation without merge conflicts during development.
+Use `isolation: "worktree"` to run parallel agent builds in isolated copies of the repository. This enables concurrent scoped-slice implementation without merge conflicts during development.
 
 ## Known limitations
 
@@ -12,7 +12,7 @@ Use `isolation: "worktree"` to run parallel agent builds in isolated copies of t
 ### Before spawning
 
 1. Ensure the main worktree is clean (`git status` — no uncommitted changes).
-2. Identify which slices can run in parallel (check PLAN.md `## Dependencies` and `### Parallelism opportunities`).
+2. Identify which frontier items or scoped slices can run in parallel (check PLAN.md `## Sequencing` → `Parallel / Low-conflict` and `## Dependencies`).
 3. Each agent gets a complete task description — it has no context from the parent conversation.
 
 ### During execution
@@ -30,7 +30,7 @@ Use `isolation: "worktree"` to run parallel agent builds in isolated copies of t
 
 ## When not to use worktree agents
 
-- When slices have direct dependencies (one needs the other's output).
+- When frontier items or scoped slices have direct dependencies (one needs the other's output).
 - When the task requires interactive human steering (e.g. prompt iteration, visual design).
 - When the risk of merge gaps exceeds the time saved by parallelism.
 - For non-build tasks (spikes, reviews, spec work) — these don't benefit from isolation.

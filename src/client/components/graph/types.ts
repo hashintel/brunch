@@ -1,0 +1,62 @@
+/**
+ * Shared TypeScript types for the graph view.
+ *
+ * Root type module for the graph feature: other graph modules import node and
+ * edge data shapes from here. Node/edge identities are aliased from the canonical
+ * knowledge schema so they can't drift from `knowledge_item.kind` / the edge
+ * relation enum.
+ */
+
+import type { EdgeRelation } from '@/shared/api-types.js';
+import type { KnowledgeKind } from '@/shared/knowledge.js';
+
+/** The kind of knowledge entity a graph node represents. */
+export type GraphNodeKind = KnowledgeKind;
+
+/** The relationship type a graph edge represents. */
+export type GraphEdgeRelationship = EdgeRelation;
+
+/** Render data carried by a graph node. */
+export interface GraphNodeData {
+  /** The knowledge entity kind this node represents. */
+  kind: GraphNodeKind;
+  /** Number of edges incident to this node. */
+  degree: number;
+  /** Whether this node is currently selected. */
+  selected: boolean;
+  /** Whether this node is visually de-emphasized. */
+  dimmed: boolean;
+  /** Whether this node is momentarily flashed (e.g. when its kind is picked in the filter). */
+  highlighted?: boolean;
+  /** Short reference code identifying the knowledge item (e.g. "R3"). */
+  referenceCode: string;
+  /** The knowledge item's content or name. */
+  content: string;
+  /** The rationale behind the knowledge item. */
+  rationale: string;
+}
+
+/** Render data carried by a graph edge. */
+export interface GraphEdgeData {
+  /** The relationship type this edge represents. */
+  relationship: GraphEdgeRelationship;
+}
+
+/** One connection incident to the selected node, oriented from its point of view. */
+export interface GraphDetailConnection {
+  direction: 'outgoing' | 'incoming';
+  relationship: GraphEdgeRelationship;
+  otherId: string;
+  otherKind: GraphNodeKind;
+  otherReference: string;
+  otherContent: string;
+}
+
+/** Everything the detail panel renders for the selected node. */
+export interface GraphDetail {
+  kind: GraphNodeKind;
+  referenceCode: string;
+  content: string;
+  rationale: string;
+  connections: GraphDetailConnection[];
+}

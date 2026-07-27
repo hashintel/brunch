@@ -1,0 +1,38 @@
+/** Pure projection of the selected node into its detail-panel payload, derived from the graph model (no entity-state re-walk). */
+
+import type { GraphModel } from '@/client/components/graph/buildGraphModel.js';
+import type { GraphDetail, GraphNodeData } from '@/client/components/graph/types.js';
+
+export function buildGraphDetail(selectedId: string, model: GraphModel): GraphDetail | null {
+  const dataById = new Map<string, GraphNodeData>(model.nodes.map((node) => [node.id, node.data]));
+  const self = dataById.get(selectedId);
+  if (self === undefined) return null;
+
+  const connections: GraphDetail['connections'] = [];
+  for (const edge of model.edges) {
+    const asSource = edge.source === selectedId;
+    const asTarget = edge.target === selectedId;
+    if (!asSource && !asTarget) continue;
+
+    const otherId = asSource ? edge.target : edge.source;
+    const other = dataById.get(otherId);
+    if (other === undefined) continue;
+
+    connections.push({
+      direction: asSource ? 'outgoing' : 'incoming',
+      relationship: edge.data.relationship,
+      otherId,
+      otherKind: other.kind,
+      otherReference: other.referenceCode,
+      otherContent: other.content,
+    });
+  }
+
+  return {
+    kind: self.kind,
+    referenceCode: self.referenceCode,
+    content: self.content,
+    rationale: self.rationale,
+    connections,
+  };
+}

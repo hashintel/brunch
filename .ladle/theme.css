@@ -1,5 +1,5 @@
 @import 'tailwindcss';
 @import '../src/client/index.css';
 
-@source "../src/client/components/**/*.tsx";
-@source "../src/client/**/*.stories.tsx";
+@source '../src/client/components/**/*.tsx';
+@source '../src/client/**/*.stories.tsx';

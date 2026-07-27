@@ -24,7 +24,7 @@ describe('SelectionMenu', () => {
   it('renders both buttons when given a rect', () => {
     render(<SelectionMenu rect={sampleRect} onChat={() => {}} onAnnotate={() => {}} />);
     expect(screen.getByRole('button', { name: /chat/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /annotate/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /add to notes/i })).toBeTruthy();
   });
 
   it('renders nothing when rect is null', () => {
@@ -42,7 +42,7 @@ describe('SelectionMenu', () => {
   it('calls onAnnotate when the annotate button is clicked', () => {
     const onAnnotate = vi.fn();
     render(<SelectionMenu rect={sampleRect} onChat={() => {}} onAnnotate={onAnnotate} />);
-    fireEvent.click(screen.getByRole('button', { name: /annotate/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add to notes/i }));
     expect(onAnnotate).toHaveBeenCalledOnce();
   });
 

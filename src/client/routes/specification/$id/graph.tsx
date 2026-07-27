@@ -1,9 +1,13 @@
-import { createFileRoute, Link, useLocation } from '@tanstack/react-router';
+import { createFileRoute, Link, useLocation, useSearch } from '@tanstack/react-router';
 import { ArrowLeft, ChevronsDown, ChevronsUp } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
+import { ChatShellLayout } from '@/client/components/chat-shell-layout';
+import { GraphCanvas, type KindHighlight } from '@/client/components/graph/GraphCanvas.js';
+import { GRAPH_VIEW_PARAM, parseViewMode, ViewToggle } from '@/client/components/graph/ViewToggle.js';
 import { KnowledgeGraphIdentity } from '@/client/components/knowledge-graph-identity';
 import type { WorkflowState } from '@/shared/api-types.js';
+import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js';
 import type { WorkflowPhase } from '@/shared/phase-close.js';
 import {
   areAllWorkflowPhasesClosed,
@@ -17,7 +21,7 @@ import {
   useSpecificationBundleData,
   useSpecificationEntitiesProjectWide,
 } from './-specification-data.js';
-import { StructuredListView } from './-structured-list-view.js';
+import { KindFilterBar, StructuredListView, type PopulatedKind } from './-structured-list-view.js';
 
 const BACK_LINK_CLASS = 'inline-flex items-center gap-1 text-xs text-hint transition-colors hover:text-ink';
 const RETURN_LINK_CLASS = 'inline-flex items-center gap-1 text-xs font-medium text-link hover:underline';
@@ -61,9 +65,41 @@ function GraphRouteComponent() {
   const entityState = useSpecificationEntitiesProjectWide();
   const bundle = useSpecificationBundleData();
   const { state } = useLocation();
+  const search = useSearch({ strict: false }) as { [GRAPH_VIEW_PARAM]?: string };
+  const view = parseViewMode(search[GRAPH_VIEW_PARAM]);
   const target = returnTarget(bundle.workflow, String(bundle.specification.id), state?.fromPhase);
   const [rowsDefaultOpen, setRowsDefaultOpen] = useState(true);
   const [rowsRemountKey, setRowsRemountKey] = useState(0);
+  const [hiddenKinds, setHiddenKinds] = useState<ReadonlySet<KnowledgeKind>>(new Set());
+  const [highlight, setHighlight] = useState<KindHighlight | null>(null);
+  const highlightNonce = useRef(0);
+
+  const populatedKinds = useMemo<PopulatedKind[]>(
+    () =>
+      knowledgeKindRegistry
+        .map((entry) => ({ entry, count: entityState[entry.collectionKey].length }))
+        .filter(({ count }) => count > 0),
+    [entityState],
+  );
+
+  const toggleKind = (kind: KnowledgeKind) =>
+    setHiddenKinds((current) => {
+      const next = new Set(current);
+      if (next.has(kind)) next.delete(kind);
+      else next.add(kind);
+      return next;
+    });
+
+  const focusKind = (kind: KnowledgeKind) => {
+    setHiddenKinds((current) => {
+      if (!current.has(kind)) return current;
+      const next = new Set(current);
+      next.delete(kind);
+      return next;
+    });
+    highlightNonce.current += 1;
+    setHighlight({ kind, nonce: highlightNonce.current });
+  };
 
   const toggleAllRows = () => {
     setRowsDefaultOpen((prev) => !prev);
@@ -88,38 +124,76 @@ function GraphRouteComponent() {
     </Link>
   ) : undefined;
 
-  const headerLeft = <KnowledgeGraphIdentity entityState={entityState} />;
-
-  const headerRight = (
-    <div className="flex items-center gap-3">
-      <button
-        type="button"
-        data-graph-action="toggle-all-rows"
-        aria-label={toggleLabel}
-        aria-pressed={!rowsDefaultOpen}
-        title={toggleLabel}
-        onClick={toggleAllRows}
-        className={ROW_TOGGLE_CLASS}
-      >
-        <ToggleIcon className="size-3.5" />
-      </button>
-      {backToChatLink && (
-        <>
-          <div aria-hidden="true" className="h-4 w-px bg-rule" />
-          {backToChatLink}
-        </>
-      )}
+  const header = (
+    <div
+      data-graph-header-bar
+      className="flex h-16 w-full shrink-0 items-center justify-between border-b border-rule px-6"
+    >
+      <KnowledgeGraphIdentity entityState={entityState} />
+      <div className="flex items-center gap-3">
+        {view === 'list' && (
+          <button
+            type="button"
+            data-graph-action="toggle-all-rows"
+            aria-label={toggleLabel}
+            aria-pressed={!rowsDefaultOpen}
+            title={toggleLabel}
+            onClick={toggleAllRows}
+            className={ROW_TOGGLE_CLASS}
+          >
+            <ToggleIcon className="size-3.5" />
+          </button>
+        )}
+        <ViewToggle />
+        {backToChatLink && (
+          <>
+            <div aria-hidden="true" className="h-4 w-px bg-rule" />
+            {backToChatLink}
+          </>
+        )}
+      </div>
     </div>
   );
 
+  const graphFilterBar =
+    view === 'graph' && populatedKinds.length > 0 ? (
+      <KindFilterBar
+        populatedKinds={populatedKinds}
+        hiddenKinds={hiddenKinds}
+        onToggle={toggleKind}
+        onNavigate={focusKind}
+        onShowAll={() => setHiddenKinds(new Set())}
+      />
+    ) : null;
+
+  const activeView =
+    view === 'graph' ? (
+      <GraphCanvas
+        entityState={entityState}
+        emptyStateAction={emptyStateAction}
+        hiddenKinds={hiddenKinds}
+        highlight={highlight}
+        persistKey={String(bundle.specification.id)}
+      />
+    ) : (
+      <StructuredListView
+        entityState={entityState}
+        emptyStateAction={emptyStateAction}
+        rowsDefaultOpen={rowsDefaultOpen}
+        rowsRemountKey={rowsRemountKey}
+      />
+    );
+
   return (
-    <StructuredListView
-      entityState={entityState}
-      emptyStateAction={emptyStateAction}
-      headerLeft={headerLeft}
-      headerRight={headerRight}
-      rowsDefaultOpen={rowsDefaultOpen}
-      rowsRemountKey={rowsRemountKey}
+    <ChatShellLayout
+      specificationId={String(bundle.specification.id)}
+      center={
+        <div className="flex h-full flex-col bg-background">
+          {header}
+          {graphFilterBar}
+          <div className="min-h-0 flex-1">{activeView}</div>
+        </div>
+      }
     />
   );
 }

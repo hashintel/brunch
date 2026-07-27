@@ -70,6 +70,7 @@ function createBottomArtifact(
         kind,
         pendingQuestion: {
           id: 'pending-1',
+          toolCallId: 'tool-pending-1',
           question: 'Pending question',
           why: 'Because',
           impact: 'high',
@@ -599,6 +600,7 @@ describe('specificationWorkspaceStream', () => {
       kind: 'pending-question',
       pendingQuestion: {
         id: 'pending-preface-1',
+        toolCallId: 'tool-pending-preface-1',
         question: 'Does this match your understanding?',
         why: 'Confirming workspace analysis.',
         impact: 'medium',

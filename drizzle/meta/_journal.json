@@ -99,6 +99,76 @@
       "when": 1776300000000,
       "tag": "0013_annotation",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1776310000000,
+      "tag": "0014_chat_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1776320000000,
+      "tag": "0015_turn_chat_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1776330000000,
+      "tag": "0016_specification_primary_chat",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1776340000000,
+      "tag": "0017_reconciliation_need",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1776350000000,
+      "tag": "0018_reconciliation_need_source_snapshots",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1776360000000,
+      "tag": "0019_reconciliation_need_agent_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1779033600000,
+      "tag": "0020_chat_secondary_chat_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1779120000000,
+      "tag": "0021_chat_mode",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1779206400000,
+      "tag": "0022_chat_pinned_reconciliation_need",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1779292800000,
+      "tag": "0023_chat_anchored_items",
+      "breakpoints": true
     }
   ]
 }
