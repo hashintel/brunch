@@ -273,6 +273,7 @@ describe('createAgentRunnerPort', () => {
     expect(calls[0]!.task).toContain('Design context:\n- [MOD1] worker proof module');
     expect(calls[0]!.task).toContain('Verification context:\n- [CH1] worker proof check');
     expect(calls[0]!.task).not.toContain('Execution request:');
+    expect(calls[0]!.task).not.toContain('Result path:');
     expect(result).toEqual({ status: 'completed', summary: 'Wrote worker-proof.txt' });
     await expect(readFile(join(worktreeDir, 'worker-proof.txt'), 'utf8')).resolves.toBe(
       'changed by worker\n',

@@ -16,10 +16,19 @@ describe('subagent agent definitions', () => {
     const definitions = await loadSubagentDefinitions(subagentAgentsDir());
     const planner = definitions.get('planner');
 
+    expect(planner?.thinking).toBe('medium');
     expect(planner?.systemPrompt).toMatch(
       /fix every finding and submit the full corrected candidate through\s+`submit_candidate_plan`/i,
     );
     expect(planner?.systemPrompt).toMatch(/shared design.*foundation slice/i);
+    expect(planner?.systemPrompt).toMatch(
+      /empty greenfield target.*repository-root files.*one foundation slice.*preserve.*parallel/is,
+    );
+    expect(planner?.systemPrompt).toMatch(/foundation.*manifest.*lockfile.*build.*test.*dependencies/is);
+    expect(planner?.systemPrompt).toMatch(/every other slice.*transitively depend.*foundation.*parallel/is);
+    expect(planner?.systemPrompt).toMatch(
+      /scope-bearing candidate.*foundation slice.*existing scope.*requirement.*criterion.*verification.*do not.*unscoped.*requirementless/is,
+    );
     expect(planner?.systemPrompt).toMatch(
       /frontier-level criterion.*terminal.*transitively depends on every sibling/i,
     );
@@ -35,6 +44,6 @@ describe('subagent agent definitions', () => {
     );
     expect(worker?.systemPrompt).toMatch(/public interfaces.*test-only backdoors/is);
     expect(worker?.systemPrompt).toMatch(/never weaken, delete,\s+skip, or narrow existing tests/is);
-    expect(worker?.systemPrompt).toMatch(/canonical project harness runs after you return/is);
+    expect(worker?.systemPrompt).toMatch(/canonical project harness runs\s+after you return/is);
   });
 });

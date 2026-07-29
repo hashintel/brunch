@@ -4099,6 +4099,59 @@ describe('drive', () => {
     },
   );
 
+  it('recovers a dependent slice repair after earlier slices fired in parallel', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-interleaved-repair-recovery-'));
+    await createRunAtCreated(cwd, ['task-1', 'task-2', { id: 'task-3', dependsOn: ['task-1', 'task-2'] }]);
+    const verifierCalls = new Map<string, number>();
+    const taskThreeAgentCycles: number[] = [];
+
+    const outcome = await drive(
+      {
+        cwd,
+        runId: 'run-1',
+        ports: fakePorts({
+          agentRunner: {
+            async run(args) {
+              if (args.sliceId === 'task-3') taskThreeAgentCycles.push(args.cycle);
+              return { status: 'completed' };
+            },
+          },
+          testRunner: {
+            async run(args) {
+              const sliceId = ['task-1', 'task-2', 'task-3'].find((id) =>
+                args.worktreeDir.includes(`/${id}/`),
+              )!;
+              const calls = (verifierCalls.get(sliceId) ?? 0) + 1;
+              verifierCalls.set(sliceId, calls);
+              return {
+                status: 'completed',
+                verdict: sliceId === 'task-3' && calls === 1 ? 'failed' : 'passed',
+                exitCode: sliceId === 'task-3' && calls === 1 ? 1 : 0,
+              };
+            },
+          },
+        }),
+      },
+      petriScheduler,
+      frontierFiringPolicy,
+    );
+
+    expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+    expect(taskThreeAgentCycles).toEqual([1, 2]);
+    expect(verifierCalls).toEqual(
+      new Map([
+        ['task-1', 1],
+        ['task-2', 1],
+        ['task-3', 2],
+      ]),
+    );
+    expect(
+      (await readPetriEvents(cwd)).filter(
+        (event) => event.kind === 'transition_fired' && event.transitionId === 'verify_repair:task-3:cycle:1',
+      ),
+    ).toHaveLength(1);
+  });
+
   it('keeps a thrown repair materialization recoverable instead of journaling a terminal', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-repair-throw-recovery-'));
     await createRunAtCreated(cwd, ['task-1']);

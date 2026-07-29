@@ -53,6 +53,19 @@ notes:
   - The plan plane stops at scope; buildable slicing is downstream execution, not a plan node.
 ```
 
+## Execution-admission preflight
+
+Before presenting a plan review set, verify the direct D126-L package for every proposed scope:
+
+- assign each requirement or invariant to exactly one active scope with `realization`; do not package the same requirement into an implementation scope and a later verification scope;
+- attach an executable `criterion`, a `vv_method`, and its concrete `check` to the scope with direct `dependency` edges;
+- use `composition` from the scope only for design anchors such as modules and interfaces, never for Assurance nodes; and
+- keep scope sequencing as direct `dependency` edges from prerequisite scope to dependent scope.
+
+An indirect path through criterion → check, a shared frontier, or another scope does not satisfy a plan-ready scope. A shared execution harness still needs one direct `dependency` edge to every scope that uses it. Review the whole batch for duplicate requirement ownership and dependency cycles before asking for approval: a settled bad edge cannot be repaired by adding a competing edge, and node supersession is not edge deletion.
+
+For a greenfield package with shared repository-root files across independent scopes, add one `Project foundation` design anchor that owns the package manifest, lockfile, complete dependency set, build/test configuration, and root layout. Compose that foundation directly into every scope that touches the shared root, alongside each scope's own design anchor. This gives execution one foundation slice before otherwise-independent feature slices, preserving useful parallelism without asking parallel workers to invent or reconcile competing root manifests.
+
 ## Coherent plan content checklist
 
 A plan node is coherent when it names:

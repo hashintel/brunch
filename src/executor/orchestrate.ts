@@ -1314,10 +1314,13 @@ async function recoverPendingSliceRepair(args: {
       },
     };
   }
-  const journaled = args.journal.events.flatMap((event) =>
-    event.kind === 'transition_fired' ? [event.transitionId] : [],
-  );
-  if (!journaled.every((transitionId, index) => desired[index] === transitionId)) {
+  const recoveryAuthority = await inspectPetriJournalAuthority({
+    cwd: args.ctx.cwd,
+    runId: args.ctx.runId,
+    lifecycleTransitionIds: desired,
+    plan: args.plan,
+  });
+  if (recoveryAuthority.status !== 'readable' || recoveryAuthority.relation === 'journal_ahead') {
     return {
       recovered: false,
       outcome: {
@@ -1329,7 +1332,9 @@ async function recoverPendingSliceRepair(args: {
     };
   }
   const topology = compileExecutorTopology(args.plan);
-  for (const transitionId of desired.slice(journaled.length)) {
+  const missingTransitionIds =
+    recoveryAuthority.relation === 'lifecycle_ahead' ? recoveryAuthority.residualTransitionIds : [];
+  for (const transitionId of missingTransitionIds) {
     const transition = topology.transitions.find((candidate) => candidate.id === transitionId);
     if (!transition) {
       return {

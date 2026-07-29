@@ -134,7 +134,6 @@ function renderWorkerTask(
     `Slice id: ${args.sliceId}`,
     `Repair cycle: ${args.cycle}`,
     `Request path: ${args.requestPath}`,
-    `Result path: ${args.resultPath}`,
     '',
     renderedBrief,
     ...(repairContext === undefined ? [] : ['', ...renderRepairContext(repairContext)]),

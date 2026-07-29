@@ -29,6 +29,7 @@ export type PlanValidationFindingCode =
   | 'unknown_commitment_source'
   | 'dependency_unknown'
   | 'dependency_cycle'
+  | 'shared_foundation_unsequenced'
   | 'epic_integration_unreconciled'
   | 'scope_requirement_uncovered'
   | 'criterion_dropped'
@@ -102,6 +103,26 @@ export function validateCandidatePlan(args: {
       ...projection.commitments.verification,
     ].map((item) => item.itemId),
   );
+  const sharedFoundations = new Map<string, { readonly title: string; readonly scopeIds: Set<string> }>();
+  if (projection.mode === 'greenfield') {
+    for (const scope of projection.scopes) {
+      for (const item of scope.design) {
+        if (!/\bproject foundation\b/i.test(item.title)) continue;
+        const existing = sharedFoundations.get(item.itemId);
+        if (existing) {
+          existing.scopeIds.add(scope.itemId);
+        } else {
+          sharedFoundations.set(item.itemId, {
+            title: item.title,
+            scopeIds: new Set([scope.itemId]),
+          });
+        }
+      }
+    }
+    for (const [itemId, foundation] of sharedFoundations) {
+      if (foundation.scopeIds.size < 2) sharedFoundations.delete(itemId);
+    }
+  }
 
   for (const epic of candidate.epics) {
     if (!candidate.slices.some((slice) => slice.epicId === epic.id)) {
@@ -203,6 +224,38 @@ export function validateCandidatePlan(args: {
   }
 
   const sliceById = new Map(candidate.slices.map((slice) => [slice.id, slice]));
+  const foundationOwnerById = new Map<string, CandidatePlan['slices'][number]>();
+  if (projection.mode === 'greenfield') {
+    for (const [foundationId, foundation] of sharedFoundations) {
+      const carriers = candidate.slices.filter((slice) => slice.designItemIds.includes(foundationId));
+      const owners = carriers.filter((slice) =>
+        /\bproject foundation\b/i.test(`${slice.title}\n${slice.goal}`),
+      );
+      if (owners.length !== 1) {
+        error(
+          'shared_foundation_unsequenced',
+          `Shared greenfield design ${foundationId} (${foundation.title}) must have exactly one Project foundation slice; found ${owners.length}.`,
+          foundationId,
+        );
+        continue;
+      }
+      const owner = owners[0]!;
+      foundationOwnerById.set(foundationId, owner);
+      const dependentSlices = candidate.slices.filter(
+        (slice) => slice.scopeId !== undefined && foundation.scopeIds.has(slice.scopeId),
+      );
+      for (const slice of dependentSlices) {
+        if (slice.id === owner.id) continue;
+        if (!collectDependencyClosure(slice.id, sliceById).has(owner.id)) {
+          error(
+            'shared_foundation_unsequenced',
+            `Slice ${slice.id} belongs to a scope that shares greenfield design ${foundationId} but does not transitively depend on Project foundation slice ${owner.id}. Keep the foundation owner in one committed scope with that scope's requirement, criterion, and verification context; dependent slices may inherit the shared design through this dependency.`,
+            slice.id,
+          );
+        }
+      }
+    }
+  }
   const frontierCriterionIds = new Set(
     projection.criteria
       .filter((criterion) => criterion.verifiesFrontiers.length > 0)
@@ -255,6 +308,16 @@ export function validateCandidatePlan(args: {
     }
     const carriedDesign = new Set(memberSlices.flatMap((slice) => slice.designItemIds));
     for (const item of scope.design) {
+      const foundationOwner = foundationOwnerById.get(item.itemId);
+      const inheritedFoundation =
+        foundationOwner !== undefined &&
+        memberSlices.length > 0 &&
+        memberSlices.every(
+          (slice) =>
+            slice.id === foundationOwner.id ||
+            collectDependencyClosure(slice.id, sliceById).has(foundationOwner.id),
+        );
+      if (inheritedFoundation) continue;
       if (!carriedDesign.has(item.itemId)) {
         error(
           'design_dropped',
