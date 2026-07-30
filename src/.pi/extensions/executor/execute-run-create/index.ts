@@ -3,7 +3,10 @@ import { dirname } from 'node:path';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { isExecutionContract } from '../../../../executor/execution-contract.js';
+import {
+  isExecutionContract,
+  type ResolvedExecutionActions,
+} from '../../../../executor/execution-contract.js';
 import { petriEventsPath } from '../../../../executor/petri-events.js';
 import { petriPlanSnapshotPath } from '../../../../executor/petri-plan-snapshot.js';
 import { petriNetPath, petriSdcpnPath, preparePetriObservation } from '../../../../executor/petri.js';
@@ -119,6 +122,7 @@ export function createExecuteRunCreateTool(deps: ExecuteRunCreateDeps) {
             runId,
             ...(mode ? { mode } : {}),
             substrate: mode === 'greenfield' ? 'empty_dir' : 'git_worktree',
+            executionActions: admission.executionActions,
             verifyTarget: admission.verifyTarget,
           });
           const observerSideEffects =
@@ -158,10 +162,12 @@ function toolResult(result: RunCreateResult, graphLsn: number, sideEffects: read
   };
 }
 
-function admitExecutionContract(
-  contract: unknown,
-):
-  | { readonly status: 'admitted'; readonly verifyTarget: { command: string; args: readonly string[] } }
+function admitExecutionContract(contract: unknown):
+  | {
+      readonly status: 'admitted';
+      readonly executionActions: ResolvedExecutionActions;
+      readonly verifyTarget: { command: string; args: readonly string[] };
+    }
   | { readonly status: 'rejected'; readonly reasons: readonly string[] } {
   if (contract === undefined) {
     return {
@@ -185,10 +191,12 @@ function admitExecutionContract(
       : []),
   ];
   if (reasons.length > 0) return { status: 'rejected', reasons };
-  // ceiling: one run-wide verify target; per-scope/per-epic verify sequences arrive with
-  // the FE-1197 slice B/C polyglot boundary work.
   const action = contract.resolvedActions.verify[0]!;
-  return { status: 'admitted', verifyTarget: { command: action.command, args: action.args } };
+  return {
+    status: 'admitted',
+    executionActions: contract.resolvedActions,
+    verifyTarget: { command: action.command, args: action.args },
+  };
 }
 
 export function registerBrunchExecuteRunCreate(pi: ExtensionAPI, deps: ExecuteRunCreateDeps): void {

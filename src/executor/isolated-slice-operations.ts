@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
+import type { ResolvedExecutionActions } from './execution-contract.js';
 import type {
   AgentRunnerPort,
   AgentRunnerRuntime,
@@ -517,6 +518,7 @@ export async function runIsolatedVerifyAttempt(args: {
   readonly attempt: number;
   readonly artifactAttempt: number;
   readonly testRunner: TestRunnerPort;
+  readonly executionActions?: ResolvedExecutionActions;
   readonly verifyTarget?: VerifyTarget;
   readonly signal?: AbortSignal;
   readonly recordReport: SliceReportRecorder;
@@ -538,6 +540,7 @@ export async function runIsolatedVerifyAttempt(args: {
   let stderrTruncated = false;
   const result = await args.testRunner.run({
     worktreeDir: args.worktreeDir,
+    ...(args.executionActions ? { executionActions: args.executionActions } : {}),
     ...(args.verifyTarget ? { verifyTarget: args.verifyTarget } : {}),
     ...(args.signal ? { signal: args.signal } : {}),
     onUpdate: async (update) => {
@@ -583,6 +586,7 @@ export async function runIsolatedVerifyAttempt(args: {
       status: result.verdict,
       exitCode: result.exitCode,
       ...(result.target ? { target: result.target } : {}),
+      ...(result.actions ? { actions: result.actions } : {}),
     });
   }
   return {

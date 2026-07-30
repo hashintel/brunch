@@ -120,6 +120,7 @@ async function createSupersedingRunOwned(args: {
     status: 'created',
     supersedesRunId: args.previousRunId,
     ...(previous.substrate ? { substrate: previous.substrate } : {}),
+    ...(previous.executionActions ? { executionActions: previous.executionActions } : {}),
     ...(previous.verifyTarget ? { verifyTarget: previous.verifyTarget } : {}),
     ...(previous.publicPacket ? { publicPacket: previous.publicPacket } : {}),
   };

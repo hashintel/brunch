@@ -1,3 +1,4 @@
+import type { ResolvedExecutionActions } from './execution-contract.js';
 import type {
   ActiveSliceRepairContext,
   PendingSliceRepair,
@@ -130,6 +131,7 @@ export interface AgentRunnerPort {
 
 export interface TestRunArgs {
   readonly worktreeDir: string;
+  readonly executionActions?: ResolvedExecutionActions | undefined;
   readonly verifyTarget?: VerifyTarget | undefined;
   readonly signal?: AbortSignal | undefined;
   readonly onUpdate?: (update: TestRunUpdate) => void | Promise<void>;
@@ -150,11 +152,18 @@ export type TestRunResult =
       readonly verdict: 'passed' | 'failed';
       readonly exitCode: number;
       readonly target?: string;
+      readonly actions?: readonly ExecutionActionResult[];
     }
   | {
       readonly status: 'failed';
       readonly message: string;
     };
+
+export interface ExecutionActionResult extends VerifyTarget {
+  readonly phase: keyof ResolvedExecutionActions;
+  readonly exitCode: number;
+  readonly verdict: 'passed' | 'failed';
+}
 
 export interface TestRunnerPort {
   run(args: TestRunArgs): Promise<TestRunResult>;

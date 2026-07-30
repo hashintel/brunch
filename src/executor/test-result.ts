@@ -188,6 +188,7 @@ async function ingestTestResultOwned(args: {
     attempt: activeSliceAttemptNumber(metadata),
     artifactAttempt,
     testRunner: args.testRunner,
+    ...(metadata.executionActions ? { executionActions: metadata.executionActions } : {}),
     ...(metadata.verifyTarget ? { verifyTarget: metadata.verifyTarget } : {}),
     ...(args.signal ? { signal: args.signal } : {}),
     recordReport: (event) => appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8'),
