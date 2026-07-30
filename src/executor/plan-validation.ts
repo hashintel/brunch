@@ -227,14 +227,23 @@ export function validateCandidatePlan(args: {
   const foundationOwnerById = new Map<string, CandidatePlan['slices'][number]>();
   if (projection.mode === 'greenfield') {
     for (const [foundationId, foundation] of sharedFoundations) {
-      const carriers = candidate.slices.filter((slice) => slice.designItemIds.includes(foundationId));
-      const owners = carriers.filter((slice) =>
-        /\bproject foundation\b/i.test(`${slice.title}\n${slice.goal}`),
+      const carriers = candidate.slices.filter(
+        (slice) =>
+          slice.scopeId !== undefined &&
+          foundation.scopeIds.has(slice.scopeId) &&
+          slice.designItemIds.includes(foundationId),
+      );
+      const carrierIds = new Set(carriers.map((slice) => slice.id));
+      const owners = carriers.filter(
+        (slice) =>
+          ![...collectDependencyClosure(slice.id, sliceById)].some((dependencyId) =>
+            carrierIds.has(dependencyId),
+          ),
       );
       if (owners.length !== 1) {
         error(
           'shared_foundation_unsequenced',
-          `Shared greenfield design ${foundationId} (${foundation.title}) must have exactly one Project foundation slice; found ${owners.length}.`,
+          `Shared greenfield design ${foundationId} (${foundation.title}) must have exactly one dependency-root carrier in its committed scopes; found ${owners.length}.`,
           foundationId,
         );
         continue;

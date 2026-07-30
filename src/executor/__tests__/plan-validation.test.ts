@@ -129,7 +129,7 @@ describe('validateCandidatePlan', () => {
       slices: [
         {
           ...base.slices[0]!,
-          title: 'Project foundation and feature core',
+          title: 'Initialize the repository and feature core',
           designItemIds: ['MOD1', 'MOD_ROOT'],
         },
         {
@@ -149,19 +149,19 @@ describe('validateCandidatePlan', () => {
       }).findings.map((finding) => finding.code);
 
     expect(validateSharedRoot(parallelRootCarriers)).toContain('shared_foundation_unsequenced');
-    expect(
-      validateSharedRoot({
-        ...parallelRootCarriers,
-        slices: [
-          parallelRootCarriers.slices[0]!,
-          {
-            ...parallelRootCarriers.slices[1]!,
-            dependsOn: [parallelRootCarriers.slices[0]!.id],
-            designItemIds: ['MOD1'],
-          },
-        ],
-      }),
-    ).toEqual(expect.not.arrayContaining(['shared_foundation_unsequenced', 'design_dropped']));
+    const sequenced = validateSharedRoot({
+      ...parallelRootCarriers,
+      slices: [
+        parallelRootCarriers.slices[0]!,
+        {
+          ...parallelRootCarriers.slices[1]!,
+          dependsOn: [parallelRootCarriers.slices[0]!.id],
+          designItemIds: ['MOD1'],
+        },
+      ],
+    });
+    expect(sequenced).not.toContain('shared_foundation_unsequenced');
+    expect(sequenced).not.toContain('design_dropped');
   });
 
   it('requires one integrated terminal slice for frontier-verified multi-slice epics', () => {
