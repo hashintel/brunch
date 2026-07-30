@@ -117,13 +117,15 @@ function allocateLaneCenters(
   }
 
   const centers = new Map<string, number>();
+  // Padding contributes to the edge-to-edge buffer, so only the remainder belongs in the lane gap.
+  const laneGap = Math.max(LANE_GAP, dimensions.clearance - LANE_PADDING * 2);
   let previousLane: string | undefined;
   for (const lane of laneOrder) {
     const height = laneHeights.get(lane)!;
     const center =
       previousLane === undefined
         ? Y_ORIGIN
-        : centers.get(previousLane)! + laneHeights.get(previousLane)! / 2 + LANE_GAP + height / 2;
+        : centers.get(previousLane)! + laneHeights.get(previousLane)! / 2 + laneGap + height / 2;
     centers.set(lane, center);
     previousLane = lane;
   }

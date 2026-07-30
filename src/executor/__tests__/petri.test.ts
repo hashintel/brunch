@@ -1334,7 +1334,7 @@ describe('reducePetrinautReplayExport', () => {
     const nodeDimensions: SdcpnNodeDimensions = {
       place: { width: 260, height: 220 },
       transition: { width: 300, height: 180 },
-      clearance: 40,
+      clearance: 300,
     };
     const file = petriTopologyToSdcpnFile({
       runId: 'run-custom-node-dimensions',
