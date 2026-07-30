@@ -86,6 +86,20 @@ export async function appendPetriTerminalOnce(args: {
   return appendPetriEvent(args);
 }
 
+export async function readDurableRunTerminal(args: {
+  readonly cwd: string;
+  readonly runId: string;
+}): Promise<PetriTerminalEvent | undefined> {
+  const journal = await readPetriJournal(petriEventsPath(args.cwd, args.runId));
+  if (journal.status !== 'readable') {
+    if (journal.status === 'missing') return undefined;
+    throw new PetriTerminalJournalError('petri_input_unreadable');
+  }
+  const terminals = journal.events.filter((event): event is PetriTerminalEvent => isTerminalEvent(event));
+  if (terminals.length > 1) throw new PetriTerminalJournalError('petri_terminal_conflict');
+  return terminals[0];
+}
+
 export function publishPetriJournalFailure(args: { readonly cwd: string; readonly runId: string }): void {
   for (const listener of failureListenersByRun.get(listenerKey(args.cwd, args.runId)) ?? []) {
     try {

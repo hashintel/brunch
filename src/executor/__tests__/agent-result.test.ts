@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { agentResultPath, agentStreamPath, ingestAgentResult } from '../agent-result.js';
 import type { AgentRunArgs } from '../execution-ports.js';
+import { petriEventsPath } from '../petri-events.js';
 import { reportsPath } from '../report.js';
 import { readRunMetadata, runDirPath, runMetadataPath } from '../run.js';
 import { sliceExecutionRequestPath } from '../slice-execute.js';
@@ -117,6 +118,73 @@ describe('ingestAgentResult', () => {
       metadataPath: runMetadataPath(cwd, 'run-1'),
       sideEffects: [],
     });
+  });
+
+  it('does not invoke the agent or mutate evidence after a durable terminal', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-agent-result-terminal-'));
+    await createRequestedSliceRun(cwd);
+    const metadataPath = runMetadataPath(cwd, 'run-1');
+    const reportPath = reportsPath(cwd, 'run-1');
+    const journalPath = petriEventsPath(cwd, 'run-1');
+    await mkdir(dirname(journalPath), { recursive: true });
+    await writeFile(
+      journalPath,
+      `${JSON.stringify({
+        kind: 'net_halted',
+        runId: 'run-1',
+        runStatus: 'slice_execution_requested',
+        step: 'agent_result',
+        reason: 'agent_exhausted',
+        failedSliceIds: ['task-1'],
+        ts: new Date().toISOString(),
+      })}\n`,
+      'utf8',
+    );
+    const metadataBefore = await readFile(metadataPath, 'utf8');
+    const reportsBefore = await readFile(reportPath, 'utf8');
+    const run = vi.fn(async () => ({ status: 'completed' as const, summary: 'must not run' }));
+
+    const result = await ingestAgentResult({ cwd, runId: 'run-1', agentRunner: { run } });
+
+    expect(result).toMatchObject({
+      status: 'petri_terminal_recorded',
+      runStatus: 'slice_execution_requested',
+      runId: 'run-1',
+      metadataPath,
+      terminal: { kind: 'net_halted', reason: 'agent_exhausted' },
+      sideEffects: [],
+    });
+    expect(run).not.toHaveBeenCalled();
+    expect(await readFile(metadataPath, 'utf8')).toBe(metadataBefore);
+    expect(await readFile(reportPath, 'utf8')).toBe(reportsBefore);
+  });
+
+  it('does not invoke the agent while an attempt reset is pending orchestration', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-agent-result-reset-pending-'));
+    await createRequestedSliceRun(cwd);
+    const metadataPath = runMetadataPath(cwd, 'run-1');
+    const metadata = JSON.parse(await readFile(metadataPath, 'utf8')) as Record<string, unknown>;
+    await writeFile(
+      metadataPath,
+      JSON.stringify({ ...metadata, activeSliceAttemptReset: { stage: 'agent' } }),
+    );
+    const metadataBefore = await readFile(metadataPath, 'utf8');
+    const reportsBefore = await readFile(reportsPath(cwd, 'run-1'), 'utf8');
+    const run = vi.fn(async () => ({ status: 'completed' as const, summary: 'must not run' }));
+
+    const result = await ingestAgentResult({ cwd, runId: 'run-1', agentRunner: { run } });
+
+    expect(result).toMatchObject({
+      status: 'attempt_reset_pending',
+      runStatus: 'slice_execution_requested',
+      runId: 'run-1',
+      metadataPath,
+      stage: 'agent',
+      sideEffects: [],
+    });
+    expect(run).not.toHaveBeenCalled();
+    expect(await readFile(metadataPath, 'utf8')).toBe(metadataBefore);
+    expect(await readFile(reportsPath(cwd, 'run-1'), 'utf8')).toBe(reportsBefore);
   });
 
   it('rejects active slice ids that would read outside the agent-output directory', async () => {

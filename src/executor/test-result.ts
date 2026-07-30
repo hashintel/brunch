@@ -8,6 +8,7 @@ import {
   runIsolatedVerifyAttempt,
   type VerifyStreamEvent,
 } from './isolated-slice-operations.js';
+import { readDurableRunTerminal, type PetriTerminalEvent } from './petri-events.js';
 import { reportsPath } from './report.js';
 import { withRunExecutionAuthority } from './run-execution-authority.js';
 import {
@@ -21,7 +22,12 @@ import {
   sliceArtifactAttemptNumber,
   type RunMetadata,
 } from './run.js';
-import { MAX_STAGE_ATTEMPTS, sliceRepairProtocol, type PendingSliceRepair } from './slice-repair-cycle.js';
+import {
+  MAX_STAGE_ATTEMPTS,
+  sliceRepairProtocol,
+  type PendingSliceRepair,
+  type SliceRepairStage,
+} from './slice-repair-cycle.js';
 import { worktreeDirPath } from './worktree.js';
 
 export type TestResultIngestResult =
@@ -30,6 +36,22 @@ export type TestResultIngestResult =
       readonly runStatus: RunMetadata['status'] | 'not_started';
       readonly runId: string;
       readonly metadataPath: string;
+      readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: 'petri_terminal_recorded';
+      readonly runStatus: RunMetadata['status'];
+      readonly runId: string;
+      readonly metadataPath: string;
+      readonly terminal: PetriTerminalEvent;
+      readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: 'attempt_reset_pending';
+      readonly runStatus: RunMetadata['status'];
+      readonly runId: string;
+      readonly metadataPath: string;
+      readonly stage: SliceRepairStage;
       readonly sideEffects: readonly [];
     }
   | {
@@ -120,6 +142,29 @@ async function ingestTestResultOwned(args: {
       runStatus: 'not_started',
       runId: args.runId,
       metadataPath,
+      sideEffects: [],
+    };
+  }
+
+  const terminal = await readDurableRunTerminal(args);
+  if (terminal) {
+    return {
+      status: 'petri_terminal_recorded',
+      runStatus: metadata.status,
+      runId: args.runId,
+      metadataPath,
+      terminal,
+      sideEffects: [],
+    };
+  }
+
+  if (metadata.activeSliceAttemptReset) {
+    return {
+      status: 'attempt_reset_pending',
+      runStatus: metadata.status,
+      runId: args.runId,
+      metadataPath,
+      stage: metadata.activeSliceAttemptReset.stage,
       sideEffects: [],
     };
   }

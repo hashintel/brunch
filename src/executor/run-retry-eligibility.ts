@@ -1,4 +1,5 @@
 import type { LaunchCurrentProjection } from './launch.js';
+import { readDurableRunTerminal, type PetriTerminalEvent } from './petri-events.js';
 import { checkRunFreshness, type RunFreshnessResult } from './run-freshness.js';
 import { readRunMetadata, runMetadataPath, type RunMetadata } from './run.js';
 
@@ -34,6 +35,7 @@ export type RunRetryEligibilityResult =
       readonly metadataPath: string;
       readonly freshness: Exclude<RunFreshnessResult, { readonly status: 'missing_run' }>;
       readonly allowedActions: readonly RunRetryAction[];
+      readonly terminal?: PetriTerminalEvent;
       readonly sideEffects: readonly [];
     };
 
@@ -96,6 +98,21 @@ export async function assessRunRetryEligibility(args: {
       metadataPath,
       freshness,
       allowedActions: ['inspect_run'],
+      sideEffects: [],
+    };
+  }
+
+  const terminal = await readDurableRunTerminal(args);
+  if (terminal) {
+    return {
+      status: 'terminal_run',
+      runStatus: metadata.status,
+      runId: args.runId,
+      metadataPath,
+      freshness,
+      allowedActions:
+        terminal.kind === 'net_completed' ? ['inspect_run'] : ['start_new_run', 'inspect_run', 'abandon_run'],
+      terminal,
       sideEffects: [],
     };
   }
