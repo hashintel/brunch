@@ -1305,6 +1305,27 @@ describe('reducePetrinautReplayExport', () => {
     expect(
       file.transitions.find((transition) => transition.id === 'verify_passed:SL1:cycle:1:attempt:5')!.x,
     ).toBeLessThan(cycleStarts[1]!);
+    for (const placeKind of ['agent_attempt', 'verify_attempt', 'verify_result']) {
+      const attemptXs = [1, 2, 3, 4, 5].map(
+        (attempt) =>
+          file.places.find((place) => place.id === `slice:SL1:cycle:1:${placeKind}:${attempt}`)!.x!,
+      );
+      expect(attemptXs).toEqual([...attemptXs].sort((left, right) => left - right));
+      expect(new Set(attemptXs)).toHaveLength(attemptXs.length);
+    }
+  });
+
+  it('places epic-less slice completion before run completion', () => {
+    const file = petriTopologyToSdcpnFile({
+      runId: 'run-epic-less-completion',
+      topology: compileExecutorTopology({ slices: [{ id: 'SL1' }] }),
+    });
+    const sliceCompleteX = file.transitions.find((transition) => transition.id === 'slice_complete:SL1')!.x!;
+    const completedX = file.places.find((place) => place.id === 'slice:SL1:completed')!.x!;
+    const runCompleteX = file.transitions.find((transition) => transition.id === 'run_complete')!.x!;
+
+    expect(completedX).toBeGreaterThan(sliceCompleteX);
+    expect(completedX).toBeLessThan(runCompleteX);
   });
 
   it('derives collision-free spacing from the configured Petrinaut node dimensions', () => {

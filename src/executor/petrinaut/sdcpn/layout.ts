@@ -190,6 +190,7 @@ function nodePhase(candidate: SdcpnPositionCandidate, layout: SdcpnProjectionLay
   const finalCycleEnd = 14 + layout.maxCycle * cyclePhaseCount;
   if (id.endsWith(':integrated') && id.startsWith('slice:')) return finalCycleEnd;
   if (id.startsWith('slice_complete:')) return finalCycleEnd + 1;
+  if (/^slice:.+:completed$/u.test(id)) return finalCycleEnd + 2;
   if (id.startsWith('epic:') && id.includes(':member:')) return finalCycleEnd + 2;
   if (id.startsWith('epic_integrate:')) return finalCycleEnd + 3;
   if (/^epic:.+:integrated$/u.test(id)) return finalCycleEnd + 4;
@@ -213,7 +214,7 @@ function cycleNumber(id: string): number {
 }
 
 function attemptNumber(id: string): number {
-  const match = /:attempt:(\d+)$/u.exec(id);
+  const match = /(?::attempt:|_(?:attempt|result):)(\d+)$/u.exec(id);
   return match ? Number(match[1]) : 1;
 }
 
