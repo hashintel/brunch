@@ -1305,13 +1305,15 @@ describe('reducePetrinautReplayExport', () => {
     expect(
       file.transitions.find((transition) => transition.id === 'verify_passed:SL1:cycle:1:attempt:5')!.x,
     ).toBeLessThan(cycleStarts[1]!);
-    for (const placeKind of ['agent_attempt', 'verify_attempt', 'verify_result']) {
-      const attemptXs = [1, 2, 3, 4, 5].map(
-        (attempt) =>
-          file.places.find((place) => place.id === `slice:SL1:cycle:1:${placeKind}:${attempt}`)!.x!,
-      );
-      expect(attemptXs).toEqual([...attemptXs].sort((left, right) => left - right));
-      expect(new Set(attemptXs)).toHaveLength(attemptXs.length);
+    for (const cycle of [1, 2, 3, 4]) {
+      for (const placeKind of ['agent_attempt', 'verify_attempt', 'verify_result']) {
+        const attemptXs = [1, 2, 3, 4, 5].map(
+          (attempt) =>
+            file.places.find((place) => place.id === `slice:SL1:cycle:${cycle}:${placeKind}:${attempt}`)!.x!,
+        );
+        expect(attemptXs).toEqual([...attemptXs].sort((left, right) => left - right));
+        expect(new Set(attemptXs)).toHaveLength(attemptXs.length);
+      }
     }
   });
 
