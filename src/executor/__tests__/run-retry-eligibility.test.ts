@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import type { LaunchCurrentProjection } from '../launch.js';
+import { petriEventsPath } from '../petri-events.js';
 import { planFilePath, planProvenancePath } from '../plan-file.js';
 import { assessRunRetryEligibility } from '../run-retry-eligibility.js';
 import { runMetadataPath, type RunMetadata } from '../run.js';
@@ -160,6 +161,37 @@ describe('assessRunRetryEligibility', () => {
       runStatus: 'promotion_prepared',
       freshness: { status: 'run_fresh' },
       allowedActions: ['inspect_run'],
+    });
+  });
+
+  it('refuses retry when the Petri journal is terminal but run metadata is stale', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-retry-petri-terminal-'));
+    await writePlan(cwd);
+    await writeRun(cwd, 'slice_execution_requested');
+    const journalPath = petriEventsPath(cwd, 'run-1');
+    await mkdir(dirname(journalPath), { recursive: true });
+    await writeFile(
+      journalPath,
+      `${JSON.stringify({
+        kind: 'net_halted',
+        runId: 'run-1',
+        runStatus: 'slice_execution_requested',
+        step: 'agent_result',
+        reason: 'agent_exhausted',
+        failedSliceIds: ['task-1'],
+        ts: new Date().toISOString(),
+      })}\n`,
+      'utf8',
+    );
+
+    const result = await assessRunRetryEligibility({ cwd, runId: 'run-1', current });
+
+    expect(result).toMatchObject({
+      status: 'terminal_run',
+      runStatus: 'slice_execution_requested',
+      allowedActions: ['start_new_run', 'inspect_run', 'abandon_run'],
+      terminal: { kind: 'net_halted', reason: 'agent_exhausted' },
+      sideEffects: [],
     });
   });
 });

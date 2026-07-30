@@ -3,10 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { dirname } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { agentResultPath } from '../agent-result.js';
 import type { TestRunArgs } from '../execution-ports.js';
+import { petriEventsPath } from '../petri-events.js';
 import { reportsPath } from '../report.js';
 import { runDirPath, runMetadataPath } from '../run.js';
 import { ingestTestResult, verifyStreamPath } from '../test-result.js';
@@ -94,6 +95,81 @@ describe('ingestTestResult', () => {
       metadataPath: runMetadataPath(cwd, 'run-1'),
       sideEffects: [],
     });
+  });
+
+  it('does not invoke verification or mutate evidence after a durable terminal', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-test-result-terminal-'));
+    await createAgentResultRun(cwd);
+    const metadataPath = runMetadataPath(cwd, 'run-1');
+    const reportPath = reportsPath(cwd, 'run-1');
+    const journalPath = petriEventsPath(cwd, 'run-1');
+    await mkdir(dirname(journalPath), { recursive: true });
+    await writeFile(
+      journalPath,
+      `${JSON.stringify({
+        kind: 'net_halted',
+        runId: 'run-1',
+        runStatus: 'agent_result_ingested',
+        step: 'test_result',
+        reason: 'verify_exhausted',
+        failedSliceIds: ['task-1'],
+        ts: new Date().toISOString(),
+      })}\n`,
+      'utf8',
+    );
+    const metadataBefore = await readFile(metadataPath, 'utf8');
+    const reportsBefore = await readFile(reportPath, 'utf8');
+    const run = vi.fn(async () => ({
+      status: 'completed' as const,
+      verdict: 'passed' as const,
+      exitCode: 0,
+    }));
+
+    const result = await ingestTestResult({ cwd, runId: 'run-1', testRunner: { run } });
+
+    expect(result).toMatchObject({
+      status: 'petri_terminal_recorded',
+      runStatus: 'agent_result_ingested',
+      runId: 'run-1',
+      metadataPath,
+      terminal: { kind: 'net_halted', reason: 'verify_exhausted' },
+      sideEffects: [],
+    });
+    expect(run).not.toHaveBeenCalled();
+    expect(await readFile(metadataPath, 'utf8')).toBe(metadataBefore);
+    expect(await readFile(reportPath, 'utf8')).toBe(reportsBefore);
+  });
+
+  it('does not invoke verification while an attempt reset is pending orchestration', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-test-result-reset-pending-'));
+    await createAgentResultRun(cwd);
+    const metadataPath = runMetadataPath(cwd, 'run-1');
+    const metadata = JSON.parse(await readFile(metadataPath, 'utf8')) as Record<string, unknown>;
+    await writeFile(
+      metadataPath,
+      JSON.stringify({ ...metadata, activeSliceAttemptReset: { stage: 'verify' } }),
+    );
+    const metadataBefore = await readFile(metadataPath, 'utf8');
+    const reportsBefore = await readFile(reportsPath(cwd, 'run-1'), 'utf8');
+    const run = vi.fn(async () => ({
+      status: 'completed' as const,
+      verdict: 'passed' as const,
+      exitCode: 0,
+    }));
+
+    const result = await ingestTestResult({ cwd, runId: 'run-1', testRunner: { run } });
+
+    expect(result).toMatchObject({
+      status: 'attempt_reset_pending',
+      runStatus: 'agent_result_ingested',
+      runId: 'run-1',
+      metadataPath,
+      stage: 'verify',
+      sideEffects: [],
+    });
+    expect(run).not.toHaveBeenCalled();
+    expect(await readFile(metadataPath, 'utf8')).toBe(metadataBefore);
+    expect(await readFile(reportsPath(cwd, 'run-1'), 'utf8')).toBe(reportsBefore);
   });
 
   it('does not advance run metadata when the test runner cannot execute', async () => {

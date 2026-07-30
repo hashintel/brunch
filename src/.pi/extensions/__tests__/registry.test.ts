@@ -24,6 +24,7 @@ import type {
   GitWorktreePort,
   TestRunnerPort,
 } from '../../../executor/execution-ports.js';
+import { appendPetriEvent } from '../../../executor/petri-events.js';
 import { planFilePath } from '../../../executor/plan-file.js';
 import { PRODUCTION_EXECUTE_TOOL_MUTATIONS } from '../../../executor/run-execution-authority.js';
 import { registerBrunchAlternatives as alternatives } from '../../components/alternatives.js';
@@ -1468,6 +1469,37 @@ describe('Brunch explicit Pi extension registry', () => {
       sideEffects: [],
     });
     await expect(readFile(metadataPath, 'utf8')).resolves.toContain('"status": "worktree_created"');
+
+    await appendPetriEvent({
+      cwd,
+      runId: 'run-1',
+      event: {
+        kind: 'net_halted',
+        runId: 'run-1',
+        runStatus: 'worktree_created',
+        step: 'populate',
+        reason: 'operator_halt',
+        failedSliceIds: [],
+      },
+    });
+    const terminalMetadata = await readFile(metadataPath, 'utf8');
+
+    const blocked = await retry!.execute('call-2', { runId: 'run-1' }, undefined, undefined, { cwd });
+
+    expect(blocked.content[0]?.text).toContain('execute_replan_retry_current_step: retry_not_allowed');
+    expect(blocked.details).toMatchObject({
+      result: {
+        status: 'retry_not_allowed',
+        eligibility: {
+          status: 'terminal_run',
+          allowedActions: ['start_new_run', 'inspect_run', 'abandon_run'],
+          terminal: { kind: 'net_halted', reason: 'operator_halt' },
+        },
+        sideEffects: [],
+      },
+      sideEffects: [],
+    });
+    await expect(readFile(metadataPath, 'utf8')).resolves.toBe(terminalMetadata);
   });
 
   it('registers execute_replan_retry_current_step as stale-run refusal', async () => {
