@@ -3,6 +3,7 @@ import { basename, dirname, join } from 'node:path';
 
 import { BRUNCH_DIR } from '../constants.js';
 import { durableAtomicReplace } from './durable-file.js';
+import { isResolvedExecutionActions, type ResolvedExecutionActions } from './execution-contract.js';
 import type { VerifyTarget } from './execution-ports.js';
 import {
   readPublicPacket,
@@ -55,6 +56,7 @@ export interface RunMetadata {
       git_worktree -> the commit the worktree was added at; empty_dir -> the empty base commit.
       Every landing/promotion range is runBaseSha..tip — never a single-commit window. */
   readonly runBaseSha?: string;
+  readonly executionActions?: ResolvedExecutionActions;
   readonly verifyTarget?: VerifyTarget;
   readonly populatedPlanPath?: string;
   readonly populatedPlanProvenancePath?: string;
@@ -212,6 +214,21 @@ export async function readRunMetadata(path: string): Promise<RunMetadata | undef
     if (value.publicPacket !== undefined && !validatePublicPacketMaterialization(value.publicPacket)) {
       return undefined;
     }
+    if (value.executionActions !== undefined && !isResolvedExecutionActions(value.executionActions)) {
+      return undefined;
+    }
+    if (value.executionActions !== undefined) {
+      const primaryVerify = value.executionActions.verify[0];
+      if (
+        primaryVerify === undefined ||
+        value.verifyTarget === undefined ||
+        primaryVerify.command !== value.verifyTarget.command ||
+        primaryVerify.args.length !== value.verifyTarget.args.length ||
+        primaryVerify.args.some((argument, index) => argument !== value.verifyTarget!.args[index])
+      ) {
+        return undefined;
+      }
+    }
     sliceRepairProtocol.assertHistory(value.sliceRepairHistory, sliceRepairProtocol.policy);
     if (value.pendingSliceRepair) {
       const trustedRunDir = dirname(path);
@@ -338,6 +355,7 @@ export async function createRun(args: {
   readonly runId?: string;
   readonly mode?: RunMetadata['mode'];
   readonly substrate?: WorktreeSubstrateKind;
+  readonly executionActions?: ResolvedExecutionActions;
   readonly verifyTarget?: VerifyTarget;
 }): Promise<RunCreateResult> {
   const runId = args.runId ?? `run-${Date.now().toString(36)}`;
@@ -357,6 +375,7 @@ async function createRunOwned(
     readonly runId?: string;
     readonly mode?: RunMetadata['mode'];
     readonly substrate?: WorktreeSubstrateKind;
+    readonly executionActions?: ResolvedExecutionActions;
     readonly verifyTarget?: VerifyTarget;
   },
   runId: string,
@@ -414,6 +433,7 @@ async function createRunOwned(
     status: 'created',
     ...(args.mode ? { mode: args.mode } : {}),
     ...(args.substrate ? { substrate: args.substrate } : {}),
+    ...(args.executionActions ? { executionActions: args.executionActions } : {}),
     ...(args.verifyTarget ? { verifyTarget: args.verifyTarget } : {}),
     ...(publicPacket.status === 'present' ? { publicPacket: publicPacket.packet } : {}),
   };

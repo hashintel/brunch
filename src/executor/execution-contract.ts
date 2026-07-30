@@ -47,6 +47,8 @@ export interface ExecutionContract {
   readonly conflicts: readonly ExecutionContractConflict[];
 }
 
+export type ResolvedExecutionActions = ExecutionContract['resolvedActions'];
+
 export function isExecutionContract(value: unknown): value is ExecutionContract {
   if (!isRecord(value) || value['schemaVersion'] !== 1) return false;
   if (
@@ -58,11 +60,15 @@ export function isExecutionContract(value: unknown): value is ExecutionContract 
     return false;
   }
   const actions = value['resolvedActions'];
+  return isResolvedExecutionActions(actions);
+}
+
+export function isResolvedExecutionActions(value: unknown): value is ResolvedExecutionActions {
   return (
-    isRecord(actions) &&
-    isArrayOf(actions['setup'], isResolvedContractAction) &&
-    isArrayOf(actions['build'], isResolvedContractAction) &&
-    isArrayOf(actions['verify'], isResolvedContractAction)
+    isRecord(value) &&
+    isArrayOf(value['setup'], isResolvedContractAction) &&
+    isArrayOf(value['build'], isResolvedContractAction) &&
+    isArrayOf(value['verify'], isResolvedContractAction)
   );
 }
 

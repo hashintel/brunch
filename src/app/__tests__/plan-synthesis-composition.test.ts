@@ -23,7 +23,21 @@ import { createRun, readRunMetadata, runMetadataPath } from '../../executor/run.
 import { sliceExecutionRequestPath } from '../../executor/slice-execute.js';
 import { createPlannerPort } from '../planner-port.js';
 
-const providers = [PYTEST_PROVIDER];
+const providers = [
+  {
+    ...PYTEST_PROVIDER,
+    capabilities: {
+      'python.pytest': {
+        domain: 'verify-runner',
+        actions: {
+          setup: [{ command: 'python', args: ['-m', 'pip', 'install', '-r', 'requirements.txt'] }],
+          build: [{ command: 'python', args: ['-m', 'compileall', 'src'] }],
+          verify: [{ command: 'pytest', args: [] }],
+        },
+      },
+    },
+  },
+];
 
 function independentCandidate(): CandidatePlan {
   return {
@@ -110,13 +124,20 @@ async function writeSynthesizedRun(cwd: string): Promise<{
   await writeFile(planFilePath(cwd, '42'), `${JSON.stringify(planFilePayload(preview), null, 2)}\n`, 'utf8');
   const action = synthesis.executionContract.resolvedActions.verify[0]!;
   const verifyTarget = { command: action.command, args: action.args };
-  await createRun({ cwd, specId: '42', runId: 'run-1', verifyTarget });
+  await createRun({
+    cwd,
+    specId: '42',
+    runId: 'run-1',
+    executionActions: synthesis.executionContract.resolvedActions,
+    verifyTarget,
+  });
   expect(plannerCall.modelRegistry).toBe(modelRegistry);
   return { verifyTarget, plannerTask: plannerCall.task ?? '' };
 }
 
 function witnessPorts(args: {
   readonly verifyCommands: { command: string; args: readonly string[]; dir: string }[];
+  readonly executionGates?: Array<NonNullable<Parameters<TestRunnerPort['run']>[0]['executionActions']>>;
   readonly overlap: { bothInFlight: boolean };
   readonly verdict?: 'passed' | 'failed';
 }): ExecutionPorts {
@@ -148,6 +169,7 @@ function witnessPorts(args: {
   const testRunner: TestRunnerPort = {
     async run(runArgs) {
       if (!runArgs.verifyTarget) return { status: 'failed', message: 'no verify target' };
+      if (runArgs.executionActions) args.executionGates?.push(runArgs.executionActions);
       args.verifyCommands.push({
         command: runArgs.verifyTarget.command,
         args: runArgs.verifyTarget.args,
@@ -179,10 +201,11 @@ describe('synthesized plan through the frozen Petri topology (oracle 8)', () => 
     expect(plannerTask).toContain('Planning projection (approved specification truth):');
     expect(plannerTask).toContain('python.pytest');
     const verifyCommands: { command: string; args: readonly string[]; dir: string }[] = [];
+    const executionGates: Array<NonNullable<Parameters<TestRunnerPort['run']>[0]['executionActions']>> = [];
     const overlap = { bothInFlight: false };
 
     const outcome = await drive(
-      { cwd, runId: 'run-1', ports: witnessPorts({ verifyCommands, overlap }) },
+      { cwd, runId: 'run-1', ports: witnessPorts({ verifyCommands, executionGates, overlap }) },
       petriScheduler,
       frontierFiringPolicy,
     );
@@ -193,6 +216,14 @@ describe('synthesized plan through the frozen Petri topology (oracle 8)', () => 
     expect(metadata?.verifyTarget).toEqual({ command: 'pytest', args: [] });
     expect(overlap.bothInFlight).toBe(true);
     expect(verifyCommands).toHaveLength(4);
+    expect(executionGates).toHaveLength(4);
+    for (const gate of executionGates) {
+      expect(
+        (['setup', 'build', 'verify'] as const).flatMap((phase) =>
+          gate[phase].map((action) => [action.command, ...action.args].join(' ')),
+        ),
+      ).toEqual(['python -m pip install -r requirements.txt', 'python -m compileall src', 'pytest']);
+    }
     for (const invocation of verifyCommands) {
       expect({ command: invocation.command, args: invocation.args }).toEqual({
         command: 'pytest',

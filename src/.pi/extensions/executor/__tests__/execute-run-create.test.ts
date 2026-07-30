@@ -34,6 +34,11 @@ async function writePlan(
   mode: 'greenfield' | 'brownfield' = 'greenfield',
   detectedCapabilities: readonly CapabilityRequirement[] = [],
   verifyTarget?: { readonly command: string; readonly args: readonly string[] } | null,
+  executionActions?: {
+    readonly setup: readonly { readonly command: string; readonly args: readonly string[] }[];
+    readonly build: readonly { readonly command: string; readonly args: readonly string[] }[];
+    readonly verify: readonly { readonly command: string; readonly args: readonly string[] }[];
+  },
 ) {
   const projection = projectExecuteGraph({
     specId: 7,
@@ -49,19 +54,40 @@ async function writePlan(
           ...projection.planPreview,
           execution_contract: {
             ...projection.executionContract,
-            resolvedActions: {
-              ...projection.executionContract.resolvedActions,
-              verify: verifyTarget
-                ? [
-                    {
-                      capabilityId: 'test.persisted',
-                      providerId: 'test-persisted',
-                      command: verifyTarget.command,
-                      args: verifyTarget.args,
-                    },
-                  ]
-                : [],
-            },
+            resolvedActions: executionActions
+              ? {
+                  setup: executionActions.setup.map((action) => ({
+                    capabilityId: 'test.setup',
+                    providerId: 'test-persisted',
+                    command: action.command,
+                    args: action.args,
+                  })),
+                  build: executionActions.build.map((action) => ({
+                    capabilityId: 'test.build',
+                    providerId: 'test-persisted',
+                    command: action.command,
+                    args: action.args,
+                  })),
+                  verify: executionActions.verify.map((action) => ({
+                    capabilityId: 'test.verify',
+                    providerId: 'test-persisted',
+                    command: action.command,
+                    args: action.args,
+                  })),
+                }
+              : {
+                  ...projection.executionContract.resolvedActions,
+                  verify: verifyTarget
+                    ? [
+                        {
+                          capabilityId: 'test.persisted',
+                          providerId: 'test-persisted',
+                          command: verifyTarget.command,
+                          args: verifyTarget.args,
+                        },
+                      ]
+                    : [],
+                },
           },
         }
       : projection.planPreview;
@@ -71,6 +97,11 @@ async function writePlan(
 async function runMetadata(cwd: string, runId: string) {
   return JSON.parse(await readFile(runMetadataPath(cwd, runId), 'utf8')) as {
     readonly verifyTarget?: { readonly command: string; readonly args: readonly string[] };
+    readonly executionActions?: {
+      readonly setup: readonly { readonly command: string; readonly args: readonly string[] }[];
+      readonly build: readonly { readonly command: string; readonly args: readonly string[] }[];
+      readonly verify: readonly { readonly command: string; readonly args: readonly string[] }[];
+    };
   };
 }
 
@@ -107,6 +138,51 @@ describe('createExecuteRunCreateTool', () => {
     expect((await runMetadata(cwd, 'run-1')).verifyTarget).toEqual({
       command: 'npm',
       args: ['run', 'verify'],
+    });
+  });
+
+  it('persists the complete authored action contract without dropping setup or build', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-create-full-gate-'));
+    await writePlan(
+      cwd,
+      'greenfield',
+      [],
+      { command: 'npm', args: ['test'] },
+      {
+        setup: [{ command: 'npm', args: ['install'] }],
+        build: [{ command: 'npm', args: ['run', 'build'] }],
+        verify: [{ command: 'npm', args: ['test'] }],
+      },
+    );
+
+    const result = await tool().execute('t1', { runId: 'run-1' }, undefined, undefined, { cwd } as never);
+
+    expect((result.details as { result: { status: string } }).result.status).toBe('created');
+    expect((await runMetadata(cwd, 'run-1')).executionActions).toEqual({
+      setup: [
+        {
+          capabilityId: 'test.setup',
+          providerId: 'test-persisted',
+          command: 'npm',
+          args: ['install'],
+        },
+      ],
+      build: [
+        {
+          capabilityId: 'test.build',
+          providerId: 'test-persisted',
+          command: 'npm',
+          args: ['run', 'build'],
+        },
+      ],
+      verify: [
+        {
+          capabilityId: 'test.verify',
+          providerId: 'test-persisted',
+          command: 'npm',
+          args: ['test'],
+        },
+      ],
     });
   });
 

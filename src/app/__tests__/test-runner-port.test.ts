@@ -54,6 +54,101 @@ describe('createTestRunnerPort', () => {
     });
   });
 
+  it('runs every authored setup, build, and verify action in order', async () => {
+    const calls: Array<{ command: string; args: readonly string[]; cwd: string }> = [];
+    const port = createTestRunnerPort({
+      run: async (command, args, options) => {
+        calls.push({ command, args, cwd: options.cwd });
+        return { exitCode: 0, stdout: '', stderr: '' };
+      },
+    });
+
+    const result = await port.run({
+      worktreeDir: '/repo/fresh-slice',
+      executionActions: {
+        setup: [
+          {
+            capabilityId: 'node.install',
+            providerId: 'authored',
+            command: 'npm',
+            args: ['install'],
+          },
+        ],
+        build: [
+          {
+            capabilityId: 'node.build',
+            providerId: 'authored',
+            command: 'npm',
+            args: ['run', 'build'],
+          },
+        ],
+        verify: [
+          {
+            capabilityId: 'node.test',
+            providerId: 'authored',
+            command: 'npm',
+            args: ['test'],
+          },
+        ],
+      },
+    });
+
+    expect(calls).toEqual([
+      { command: 'npm', args: ['install'], cwd: '/repo/fresh-slice' },
+      { command: 'npm', args: ['run', 'build'], cwd: '/repo/fresh-slice' },
+      { command: 'npm', args: ['test'], cwd: '/repo/fresh-slice' },
+    ]);
+    expect(result).toEqual({
+      status: 'completed',
+      verdict: 'passed',
+      exitCode: 0,
+      target: 'npm install && npm run build && npm test',
+      actions: [
+        { phase: 'setup', command: 'npm', args: ['install'], exitCode: 0, verdict: 'passed' },
+        { phase: 'build', command: 'npm', args: ['run', 'build'], exitCode: 0, verdict: 'passed' },
+        { phase: 'verify', command: 'npm', args: ['test'], exitCode: 0, verdict: 'passed' },
+      ],
+    });
+  });
+
+  it('stops the authored gate at the first failed action', async () => {
+    const calls: string[] = [];
+    const port = createTestRunnerPort({
+      run: async (command, args) => {
+        const target = [command, ...args].join(' ');
+        calls.push(target);
+        return { exitCode: target === 'npm run build' ? 1 : 0, stdout: '', stderr: '' };
+      },
+    });
+
+    const result = await port.run({
+      worktreeDir: '/repo/fresh-slice',
+      executionActions: {
+        setup: [{ capabilityId: 'node.install', providerId: 'authored', command: 'npm', args: ['install'] }],
+        build: [
+          {
+            capabilityId: 'node.build',
+            providerId: 'authored',
+            command: 'npm',
+            args: ['run', 'build'],
+          },
+        ],
+        verify: [{ capabilityId: 'node.test', providerId: 'authored', command: 'npm', args: ['test'] }],
+      },
+    });
+
+    expect(calls).toEqual(['npm install', 'npm run build']);
+    expect(result).toMatchObject({
+      status: 'completed',
+      verdict: 'failed',
+      exitCode: 1,
+      actions: [
+        { phase: 'setup', verdict: 'passed' },
+        { phase: 'build', verdict: 'failed' },
+      ],
+    });
+  });
+
   it('reports a failing verdict when the verify command exits non-zero', async () => {
     const port = createTestRunnerPort({
       run: async () => ({ exitCode: 1, stdout: '', stderr: '2 tests failed' }),

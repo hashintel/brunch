@@ -203,6 +203,7 @@ export async function executeEpicLifecycleStep(args: {
       try {
         result = await args.testRunner.run({
           worktreeDir: metadata.worktreeDir,
+          ...(metadata.executionActions ? { executionActions: metadata.executionActions } : {}),
           ...(metadata.verifyTarget ? { verifyTarget: metadata.verifyTarget } : {}),
           ...(args.signal ? { signal: args.signal } : {}),
         });
@@ -224,7 +225,11 @@ export async function executeEpicLifecycleStep(args: {
         status,
         verification: epic.verification,
         ...(result.status === 'completed'
-          ? { exitCode: result.exitCode, ...(result.target ? { target: result.target } : {}) }
+          ? {
+              exitCode: result.exitCode,
+              ...(result.target ? { target: result.target } : {}),
+              ...(result.actions ? { actions: result.actions } : {}),
+            }
           : { message: result.message }),
       });
       if (result.status !== 'completed') {

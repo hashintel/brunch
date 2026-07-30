@@ -145,6 +145,7 @@ export async function executeIsolatedSlice(args: {
     const verification = await runVerifyAttempts({
       ctx,
       authority,
+      executionActions: args.state.executionActions,
       verifyTarget: args.state.verifyTarget,
       sliceId: step.sliceId,
       ...(epicId === undefined ? {} : { epicId }),
@@ -330,6 +331,7 @@ async function runAgentAttempts(args: {
 async function runVerifyAttempts(args: {
   readonly ctx: ParallelSliceBatchContext;
   readonly authority: BatchAuthority;
+  readonly executionActions: import('../execution-contract.js').ResolvedExecutionActions | undefined;
   readonly verifyTarget: import('../execution-ports.js').VerifyTarget | undefined;
   readonly sliceId: string;
   readonly epicId?: string;
@@ -379,6 +381,7 @@ async function runVerifyAttempts(args: {
         attempt,
         artifactAttempt,
         testRunner: args.ctx.ports.testRunner,
+        ...(args.executionActions ? { executionActions: args.executionActions } : {}),
         ...(args.verifyTarget ? { verifyTarget: args.verifyTarget } : {}),
         ...(args.ctx.signal ? { signal: args.ctx.signal } : {}),
         recordReport: async (event) => {
