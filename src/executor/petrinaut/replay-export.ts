@@ -134,20 +134,45 @@ function allocateLegacyFallbackPositions(
 export function augmentPetriDefinitionWithRunStatus(
   definition: PetrinautReplayNetDefinition,
 ): PetrinautReplayNetDefinition {
+  const rightmostX = Math.max(
+    0,
+    ...definition.places.map(({ x }) => x),
+    ...definition.transitions.map(({ x }) => x),
+  );
+  const terminalGap = Math.max(
+    220,
+    minimumPositiveSpacing([
+      ...definition.places.map(({ x }) => x),
+      ...definition.transitions.map(({ x }) => x),
+    ]),
+  );
+  const runY = definition.places.find(({ id }) => id === 'run:created')?.y ?? 100;
+  const finishX = rightmostX + terminalGap;
+  const statusX = finishX + terminalGap;
   return {
     ...definition,
     places: [
       ...definition.places,
-      { id: PETRI_RUN_COMPLETED_PLACE, name: 'Run · Completed', x: 4_700, y: 40 },
-      { id: PETRI_RUN_HALTED_PLACE, name: 'Run · Halted', x: 4_700, y: 120 },
+      {
+        id: PETRI_RUN_COMPLETED_PLACE,
+        name: 'Run · Completed',
+        x: statusX,
+        y: runY - terminalGap / 2,
+      },
+      {
+        id: PETRI_RUN_HALTED_PLACE,
+        name: 'Run · Halted',
+        x: statusX,
+        y: runY + terminalGap / 2,
+      },
     ],
     transitions: [
       ...definition.transitions,
       {
         id: PETRI_RUN_FINISH_TRANSITION,
         name: 'Run · Finish',
-        x: 4_600,
-        y: 80,
+        x: finishX,
+        y: runY,
         inputArcs: [],
         outputArcs: [
           { placeId: PETRI_RUN_COMPLETED_PLACE, weight: 1 },
@@ -156,6 +181,15 @@ export function augmentPetriDefinitionWithRunStatus(
       },
     ],
   };
+}
+
+function minimumPositiveSpacing(values: readonly number[]): number {
+  const sorted = [...new Set(values)].sort((left, right) => left - right);
+  let minimum = Number.POSITIVE_INFINITY;
+  for (let index = 1; index < sorted.length; index += 1) {
+    minimum = Math.min(minimum, sorted[index]! - sorted[index - 1]!);
+  }
+  return Number.isFinite(minimum) ? minimum : 0;
 }
 
 export function synthesizePetriRunStatusFiring(
